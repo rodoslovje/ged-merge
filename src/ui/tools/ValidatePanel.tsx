@@ -111,18 +111,18 @@ export function ValidatePanel({
     setMediaChecking(false);
   }
 
-  // Coordinate problems, grouped by place + the event's address: values
-  // coordinated on some events but not others (fillable from the file), and
-  // pairs carrying two different coordinates (a real contradiction, no auto-fix).
-  // Detected on the main thread (a PLAC walk), like the fixable-subset counts
-  // above; re-derived after a fix's re-validate refreshes `report`.
+  // Places coordinated on some events but not others, grouped by place + the
+  // event's address — fillable from the file itself. Detected on the main thread
+  // (a PLAC walk), like the fixable-subset counts above; re-derived after a
+  // fix's re-validate refreshes `report`. (The same scan's *conflicts* — one
+  // pair carrying two different coordinates — are reported on the geocode page,
+  // where the register and the maps that settle them are at hand.)
   const coordReport = useMemo(
     () => scanPlaceCoords(dataset),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [dataset, report],
   );
   const splitPlaces = coordReport.fills;
-  const coordConflicts = coordReport.conflicts;
   const splitFills = countSplitCoordFills(splitPlaces);
   const [placeCoordDone, setPlaceCoordDone] = useState<number | null>(null);
   const [placeCoordPending, setPlaceCoordPending] = useState(false);
@@ -295,31 +295,6 @@ export function ValidatePanel({
           </ul>
           {splitPlaces.length > 200 && (
             <p className="tools-fix-hint">{t("tools.geocode.more", { count: splitPlaces.length - 200 })}</p>
-          )}
-        </div>
-      )}
-      {/* Same place and same address, yet different coordinates — one location
-          described two ways, so no automatic fix: only the researcher knows
-          which is right. Different addresses in one settlement are *not* listed;
-          those legitimately differ. */}
-      {coordConflicts.length > 0 && (
-        <div className="tools-struct">
-          <div className="tools-examples-title">{t("tools.validate.coordConflict.title")}</div>
-          <p className="tools-fix-hint">{t("tools.validate.coordConflict.hint", { count: coordConflicts.length })}</p>
-          <ul className="tools-issues">
-            {coordConflicts.slice(0, 200).map((c, i) => (
-              <li key={`${c.value} ${c.address}`} className={`tools-issue sev-warning${i % 2 ? " zebra" : ""}`}>
-                <span className="tools-issue-msg">{c.address ? `${c.value} · ${c.address}` : c.value}</span>
-                <span className="gm-data">
-                  {c.coords
-                    .map((x) => `${x.coord.lat.toFixed(4)}, ${x.coord.lon.toFixed(4)} (${x.n})`)
-                    .join("  ·  ")}
-                </span>
-              </li>
-            ))}
-          </ul>
-          {coordConflicts.length > 200 && (
-            <p className="tools-fix-hint">{t("tools.geocode.more", { count: coordConflicts.length - 200 })}</p>
           )}
         </div>
       )}

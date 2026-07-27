@@ -35,6 +35,7 @@ interface Props {
   onApplyGeocode: (assignments: Map<string, GeoAssignment>) => number;
   onApplyAddressCoords: (assignments: Map<string, GeoCoord>) => number;
   onRenamePlaceValue: (from: string, to: string, addr?: string) => number;
+  onMovePlaceForAddresses: (keys: Set<string>, toPlace: string) => number;
   /** The app-wide start person, for kinship labels in people lists. */
   startId?: string;
   /** Remove all broken family pointers and push to the undo stack. Returns the
@@ -65,7 +66,7 @@ interface Props {
   onUnrejectDuplicate: (aId: string, bId: string) => void;
 }
 
-export function ToolsView({ dataset, editVersionRef, fileName, onNavigate, active, onApplyPlaceRename, onApplyGeocode, onApplyAddressCoords, onRenamePlaceValue, startId, onFixBrokenLinks, onFixSexFromRole, onFixDates, onFixDuplicatePointers, onFillPlaceCoords, onMergeDuplicate, rejectedDuplicates, onRejectDuplicate, onRejectDuplicatesBulk, onUnrejectDuplicate }: Props) {
+export function ToolsView({ dataset, editVersionRef, fileName, onNavigate, active, onApplyPlaceRename, onApplyGeocode, onApplyAddressCoords, onRenamePlaceValue, onMovePlaceForAddresses, startId, onFixBrokenLinks, onFixSexFromRole, onFixDates, onFixDuplicatePointers, onFillPlaceCoords, onMergeDuplicate, rejectedDuplicates, onRejectDuplicate, onRejectDuplicatesBulk, onUnrejectDuplicate }: Props) {
   const { t } = useTranslation();
   const [tool, setTool] = useState<Tool>("validate");
   // One shared worker runs the heavy whole-file scans off the main thread;
@@ -118,7 +119,7 @@ export function ToolsView({ dataset, editVersionRef, fileName, onNavigate, activ
           <SourcesPanel dataset={dataset} scans={scans} fileName={fileName} onNavigate={onNavigate} active={active} />
         )}
         {tool === "places" && (
-          <PlacesPanel dataset={dataset} onNavigate={onNavigate} active={active} onApplyPlaceRename={onApplyPlaceRename} onApplyGeocode={onApplyGeocode} onApplyAddressCoords={onApplyAddressCoords} onRenamePlaceValue={onRenamePlaceValue} startId={startId} />
+          <PlacesPanel dataset={dataset} onNavigate={onNavigate} active={active} onApplyPlaceRename={onApplyPlaceRename} onApplyGeocode={onApplyGeocode} onApplyAddressCoords={onApplyAddressCoords} onRenamePlaceValue={onRenamePlaceValue} onMovePlaceForAddresses={onMovePlaceForAddresses} startId={startId} />
         )}
       </div>
     </div>

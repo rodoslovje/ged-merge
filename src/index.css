@@ -3211,6 +3211,17 @@ button:focus-visible {
   border-color: var(--accent);
   color: var(--accent);
 }
+/* The action that actually writes: filled accent, the same weight as the
+   dialogs' submit buttons. `.primary` had been used on five buttons for a while
+   with no rule behind it, so every one of them read as an ordinary ghost. */
+.nav-btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+  font-weight: 600;
+}
+.nav-btn.primary:hover:not(:disabled) { filter: brightness(1.08); }
+.nav-btn.primary:disabled { color: var(--bg); }
 .nav-btn.highlight {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px color-mix(in oklch, var(--accent) 35%, transparent);
@@ -6720,6 +6731,9 @@ kbd {
 /* Source cleanup (reshape + duplicates) */
 .tools-cleanup-section { margin: 0 0 26px; }
 .tools-cleanup-section .tools-dup-kind-head .tools-dup-bulk { margin-left: 14px; }
+/* The write button rides in the heading's action row, so it must not keep
+   the standalone bottom margin it has when it heads a section of its own. */
+.tools-dup-bulk .tools-run { margin: 0; }
 /* Group badge: will a new SOUR record be created, or an existing one reused? */
 .tools-reshape-badge {
   font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
@@ -7039,11 +7053,48 @@ kbd {
 }
 .edit-person-map-toggle:hover { color: var(--accent); }
 /* "Show on map" link on expanded rows not holding the (single) mini map. */
-.tools-geo-showmap { display: block; margin: 0 0 6px; padding-left: 0; }
+/* One action row per candidate list: "show on map" and the online searches
+   together while the map is closed, the searches alone under it when open. */
+.tools-geo-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 0 0 6px; }
 /* The geocode row's people list: breathing room between the person link,
    the kinship chip and the event-count chip. */
 .tools-geo-people li { gap: 8px; }
 .tools-geo-loaded { color: var(--muted); font-size: 0.85rem; margin: 0 0 6px; }
+/* The address beside a place in a row header — the second half of the pair the
+   row is about, muted so the place still reads as the row's name. */
+.tools-geo-row-addr { color: var(--muted); font-weight: normal; }
+/* An expanded conflict row: the map and the pick list, indented to the row's
+   text the way the address rows are. */
+.tools-geo-conflict-body { padding: 6px 0 4px 26px; }
+.tools-geo-conflict-body .tools-geo-minimap { margin-top: 4px; }
+/* A mini-map pin carrying a count: the number of events sitting on that exact
+   coordinate, so a contradiction reads as "12 here, 1 there" at a glance. */
+.mini-pin-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 2px solid;
+  border-radius: var(--radius-pill);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--bg);
+  opacity: 0.75;
+}
+.mini-pin-badge.chosen {
+  opacity: 1;
+  box-shadow: 0 0 0 3px var(--panel);
+}
+/* Collapsed, the gazetteer manager is one line: caret, heading, and each loaded
+   gazetteer's code and size. Expanded, the same row heads the full manager. */
+.tools-geo-summary { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.tools-geo-summary .tools-geo-loaded { margin: 0; }
+/* Each collapsed entry reads like its expanded row: the code carries the weight,
+   the size stays muted beside it. */
+.tools-geo-summary-entry { display: inline-flex; align-items: baseline; gap: 6px; }
+.tools-geo-summary .clickable { cursor: pointer; }
+.tools-geo-summary .clickable:hover { color: var(--accent); }
 /* The geocode list reuses the Organize-sources vocabulary (cleanup-section,
    dup-kind-head, tree rows, reshape badges); only geocode-specific bits keep
    their own classes. The search box loses its own bottom margin inside the
@@ -7060,8 +7111,6 @@ kbd {
 .tools-geo-candidates label { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.9rem; }
 .tools-geo-cand-name { font-weight: 500; }
 .tools-geo-manual { display: flex; align-items: center; gap: 8px; }
-/* The per-row online (Nominatim) search action under the candidate radios. */
-.tools-geo-online { display: flex; align-items: center; gap: 8px; }
 .tools-geo-online-note { color: var(--muted); font-size: 0.8rem; }
 /* Type-scoped: the row also holds the option's radio, which must keep its
    native size so it lines up under the candidate radios above. */
@@ -7081,5 +7130,24 @@ kbd {
    that while it was on this element. */
 .tools-geo-addr-sublist { list-style: none; }
 .tools-geo-addr-group > .tools-geo-minimap { margin-left: 26px; }
+/* A group's actions line up under its name, past the caret — the same indent
+   the map and the addresses below them already use. */
+.tools-geo-addr-group > .tools-geo-actions { padding-left: 26px; }
+/* A group's place heading reads like the place rows above it — full row size
+   and height; the compact 0.9rem stays on the addresses inside it. */
+.tools-geo-addr-group > .tools-geo-addr-head { font-size: inherit; min-height: 24px; }
 .tools-geo-addr-group:last-child { border-bottom: none; }
+/* The move panel reuses the rename row; its explanation takes a line of its own
+   above the controls rather than competing with them for the flex track. */
+.tools-geo-addr-move .tools-intro { flex: 1 0 100%; margin: 0; }
+/* The register's verdict that a group's addresses belong elsewhere — indented
+   to the addresses it is about, and tinted like the other importable finds. */
+.tools-geo-addr-split {
+  margin: 4px 0 4px 26px;
+  padding: 5px 8px;
+  font-size: 0.85rem;
+  border-left: 2px solid var(--status-import);
+  background: var(--panel-2);
+  border-radius: var(--radius-sm);
+}
 .tools-geo-addr-group .tools-geo-addr-row { border-bottom: none; }

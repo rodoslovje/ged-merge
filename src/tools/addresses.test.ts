@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { serializeGedcom } from "../gedcom/serialize";
-import { applyAddressCoords, scanAddresses } from "./addresses";
+import { applyAddressCoords, replaceLocality, scanAddresses, suggestMovedPlace } from "./addresses";
 import { placeAddrKey } from "./geocode";
 import { scanPlaceCoords } from "./placeCoords";
 
@@ -41,6 +41,8 @@ describe("scanAddresses", () => {
     // RESI and DEAT share the pair, so one review covers both events.
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ place: "Kranj, Slovenija", address: "Kidričeva cesta 38", count: 2 });
+    // Nothing placed these events yet, so the row carries no coordinate.
+    expect(rows[0].coord).toBeUndefined();
     expect(rows[0].queries).toEqual([{ settlement: "Kranj", street: "Kidričeva cesta", number: 38 }]);
     expect(rows[0].people).toEqual(["@I1@"]);
   });
@@ -100,6 +102,53 @@ describe("applyAddressCoords", () => {
   });
 });
 
+describe("scanAddresses ordering", () => {
+  it("orders equally-used addresses by house number, not as text", () => {
+    const events = [4, 49, 6, 57, 32, 7]
+      .map((n) => `1 RESI\n2 PLAC Srednje Bitnje, Kranj, Slovenija\n2 ADDR Srednje Bitnje ${n}`)
+      .join("\n");
+    const rows = scanAddresses(build(`0 HEAD\n1 GEDC\n2 VERS 5.5.1\n0 @I1@ INDI\n${events}\n0 TRLR`));
+    expect(rows.map((r) => r.address)).toEqual([
+      "Srednje Bitnje 4",
+      "Srednje Bitnje 6",
+      "Srednje Bitnje 7",
+      "Srednje Bitnje 32",
+      "Srednje Bitnje 49",
+      "Srednje Bitnje 57",
+    ]);
+  });
+});
+
+describe("replaceLocality", () => {
+  it("swaps the settlement and keeps the file's own outer levels", () => {
+    expect(replaceLocality("Gradac, Metlika, Slovenia", "Klošter")).toBe("Klošter, Metlika, Slovenia");
+    expect(replaceLocality("Gradac,Metlika,Slovenija", "Klošter")).toBe("Klošter,Metlika,Slovenija");
+  });
+
+  it("declines what it cannot substitute safely", () => {
+    // Already there.
+    expect(replaceLocality("Klošter, Metlika, Slovenia", "Klošter")).toBeUndefined();
+    // Packed form: the leading segment is not the bare settlement.
+    expect(replaceLocality("Kranj (Slovenija), Kidričeva 38", "Klošter")).toBeUndefined();
+    expect(replaceLocality("Gradac, Metlika", "  ")).toBeUndefined();
+  });
+});
+
+describe("suggestMovedPlace", () => {
+  it("reads a house number hanging off a name that is not the settlement", () => {
+    expect(suggestMovedPlace("Gradac, Metlika, Slovenia", "Klošter 12")).toBe("Klošter, Metlika, Slovenia");
+  });
+
+  it("stays quiet when the address is an ordinary street or the place itself", () => {
+    // A street word: "Kidričeva cesta" is a street in Kranj, not a settlement.
+    expect(suggestMovedPlace("Kranj, Slovenija", "Kidričeva cesta 38")).toBeUndefined();
+    // Village numbering — the number already hangs off the place named.
+    expect(suggestMovedPlace("Gradac, Metlika, Slovenia", "Gradac 12")).toBeUndefined();
+    // No house number at all.
+    expect(suggestMovedPlace("Gradac, Metlika, Slovenia", "Klošter")).toBeUndefined();
+  });
+});
+
 describe("scanAddresses and existing coordinates", () => {
   /** One person, two Kranj addresses, both already carrying `coord`. */
   const withCoords = (coordA: string, coordB: string) => `0 HEAD
@@ -127,6 +176,9 @@ describe("scanAddresses and existing coordinates", () => {
     const rows = scanAddresses(build(withCoords("N46.23887", "N46.23887")));
     expect(rows.map((r) => r.address).sort()).toEqual(["Kidričeva cesta 38", "Koroška cesta 1"]);
     expect(rows.every((r) => r.covered === 1)).toBe(true);
+    // The coordinate rides along so the group's map has something to draw
+    // before any register lookup has run.
+    expect(rows.every((r) => r.coord?.lat === 46.23887)).toBe(true);
   });
 
   it("leaves an address alone once it has its own house coordinate", () => {

@@ -1,6 +1,6 @@
 import type { Dataset, GedNode, GeoCoord } from "../gedcom/types";
 import type { RecordPatch } from "../ui/historyTypes";
-import { decomposePlace } from "../gedcom/place";
+import { addressStreetName, decomposePlace, looksLikeStreet } from "../gedcom/place";
 import { rnQueriesFrom, type RnQuery } from "../geo/rn";
 import { applyGeocodeByAddress, coordOf, placeAddrKey, walkPlaceAddr } from "./geocode";
 
@@ -13,6 +13,10 @@ import { applyGeocodeByAddress, coordOf, placeAddrKey, walkPlaceAddr } from "./g
 // coordinate is written to that event's own standard PLAC.MAP. The health check
 // groups by the same pair, so those differing coordinates are expected rather
 // than reported (and a *disagreement within* one pair is what it flags).
+
+/** House numbers read as numbers, so 4 · 6 · 7 · 32 · 49 · 57 rather than the
+ *  plain-text 32 · 4 · 49 · 57 · 6 · 7 — an address list is mostly digits. */
+const BY_HOUSE_NUMBER = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
 
 /** One distinct place+address pair whose house the register could place. */
 export interface AddressRow {
@@ -30,6 +34,9 @@ export interface AddressRow {
   /** How many of them already have a coordinate (the settlement's, which a
    *  register match would sharpen to the building). */
   covered: number;
+  /** The coordinate those events carry, when they have one — what the map can
+   *  show before any lookup has run. */
+  coord?: GeoCoord;
   /** Individuals the events belong to (both spouses for a family event). */
   people: string[];
 }
@@ -77,7 +84,15 @@ export function scanAddresses(dataset: Dataset): AddressRow[] {
 
   const groups = new Map<
     string,
-    { place: string; address: string; queries: RnQuery[]; count: number; covered: number; people: Set<string> }
+    {
+      place: string;
+      address: string;
+      queries: RnQuery[];
+      count: number;
+      covered: number;
+      coord?: GeoCoord;
+      people: Set<string>;
+    }
   >();
   const visit = (raw: GedNode, personIds: string[]) => {
     walkPlaceAddr(raw, (plac, address) => {
@@ -97,7 +112,10 @@ export function scanAddresses(dataset: Dataset): AddressRow[] {
         groups.set(key, g);
       }
       g.count++;
-      if (coord) g.covered++;
+      if (coord) {
+        g.covered++;
+        g.coord ??= coord;
+      }
       for (const id of personIds) g.people.add(id);
     });
   };
@@ -113,9 +131,48 @@ export function scanAddresses(dataset: Dataset): AddressRow[] {
       queries: g.queries,
       count: g.count,
       covered: g.covered,
+      ...(g.coord ? { coord: g.coord } : {}),
       people: [...g.people],
     }))
-    .sort((a, b) => b.count - a.count || a.key.localeCompare(b.key));
+    .sort((a, b) => b.count - a.count || BY_HOUSE_NUMBER.compare(a.key, b.key));
+}
+
+/**
+ * The same place with its settlement swapped for `locality`, keeping every
+ * outer level and the file's own spelling of them — "Gradac, Metlika, Slovenia"
+ * with "Klošter" becomes "Klošter, Metlika, Slovenia", not a freshly composed
+ * string that would drift from the rest of the file.
+ *
+ * Only the plain comma form is handled: the packed Brother's Keeper syntax puts
+ * the settlement in among parentheticals where a blind substitution could just as
+ * easily hit a house name. Returns undefined when the leading segment is not the
+ * settlement, or when it already is `locality`.
+ */
+export function replaceLocality(place: string, locality: string): string | undefined {
+  const name = locality.trim();
+  const segments = place.split(",");
+  const first = segments[0]?.trim();
+  if (!name || !first || first === name) return undefined;
+  if (first !== decomposePlace(place).locality) return undefined;
+  segments[0] = segments[0].replace(first, name);
+  return segments.join(",");
+}
+
+/**
+ * Where an address suggests its events really belong — the offline half of the
+ * split: an address whose house number hangs off a name that is *not* the place's
+ * settlement ("Klošter 12" under "Gradac, Metlika, Slovenia") is either a street
+ * in that settlement or a settlement of its own recorded as though it were one.
+ * A name carrying no street word is the second reading, and the proposal is that
+ * place with the settlement swapped.
+ *
+ * A guess, not a verdict — the register check confirms it, and either way the
+ * move is the researcher's explicit click.
+ */
+export function suggestMovedPlace(place: string, address: string): string | undefined {
+  const host = addressStreetName(address);
+  if (!host || looksLikeStreet(host)) return undefined;
+  return replaceLocality(place, host);
 }
 
 /**

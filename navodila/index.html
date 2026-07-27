@@ -891,13 +891,15 @@
               privzeto izbiro spletnega iskanja v <a href="#workspace">Nastavitve › Napredno</a>); s
               <strong>Prenesi Slovenijo (GURS)</strong> — vseh 6035 naselij iz državnega registra prostorskih enot,
               najzanesljivejša izbira za slovensko raziskovanje, ki prinese tudi dvojezična italijanska in madžarska
-              imena, zato <em>Isola</em> najde <em>Izolo</em>. Naveden je posebej kot
+              imena, zato <em>Isola</em> najde <em>Izolo</em>. Vsako naselje nosi svojo <em>občino</em>, kar loči obe <em>Soteski</em> —
+              <em>Soteska (Kamnik)</em> in <em>Soteska (Dolenjske Toplice)</em> se po imenu ujemata enako dobro in ju loči
+              samo občina; kadar kraj navaja tudi občino, prava zmaga sama. Naveden je posebej kot
               <span class="gm-data">SI-GURS</span>, zato stoji <em>ob</em> uvozu
               <span class="gm-data">SI</span> iz OpenStreetMap ali GeoNames in ga ne nadomesti — tako štejejo uradna
               naselja in zaselki, ki jih pozna le OpenStreetMap, naselje, ki ga opisujeta oba, pa je ponujeno enkrat, z
               uradno koordinato. Imenik lahko naložite tudi z uvozom
               datoteke države <strong>GeoNames</strong> (<em>.zip</em> ali <em>.txt</em>) — naloženi imeniki so našteti
-              pod svojim naslovom, podatki pa ostanejo v vašem brskalniku. Predlogi so razvrščeni: najprej koordinate, ki
+              pod svojim naslovom, podatki pa ostanejo v vašem brskalniku. Imenik naložite le enkrat — shranjen je v brskalniku in ne v datoteki, zato preživi osvežitev strani in služi vsem datotekam, ki jih odprete; ko je kaj naloženega, se ves nalagalnik zloži v eno vrstico z imeni naloženih imenikov, ki jo lahko znova odprete in imenik dodate ali odstranite. Predlogi so razvrščeni: najprej koordinate, ki
               jih druge navedbe istega kraja že nosijo, nato natančna in zgodovinsko-imenska ujemanja
               (<em>Laibach → Ljubljana</em>), nato približna. Kadar kraj navaja državo, so ujemanja omejena na to državo,
               tako da tuj kraj nikoli ni ujet z naloženim imenikom (<em>Belfast, Northern Ireland</em> ne postane
@@ -905,7 +907,9 @@
               nedvoumna ujemanja.
             </p>
             <p>
-              Vsako vrstico lahko razširite v majhen <strong>zemljevid</strong> — predlagani kraji kot bucike, na katere
+              Vsi trije seznami na tej strani se berejo enako: vrstica poimenuje svoj kraj (in naslov, kadar gre zanj), se odpre s
+              klikom, zemljevid pokaže šele na zahtevo, izbire pa zbira, dokler jih gumb na vrhu seznama ne zapiše v enem
+              koraku, ki ga je mogoče razveljaviti. Na <strong>zemljevidu</strong> so predlagani kraji bucike, na katere
               lahko kliknete, vaša izbrana koordinata poudarjena, druge znane koordinate iz datoteke pa kot drobne pike,
               tako da istoimenske kraje ločite po legi; s klikom kamor koli drugam na zemljevidu ročno izberete točko.
               Vrstica ponuja tudi druge možnosti, vtipkano koordinato ali zapomnjeno oznako „ni ujemanja“, ter gumb
@@ -913,14 +917,14 @@
               z izbirno razdelitvijo na kraj + naslov — popravek se takoj znova poišče med predlogi). Kar imenik brez
               povezave ne razreši, po vrsticah pokrijeta dve spletni iskanji — obe za isto spletno privolitvijo in samo ob
               kliku na gumb, njuni zadetki pa se pridružijo kandidatom in bucikam na zemljevidu. <strong>Išči na
-              spletu</strong> uporablja OpenStreetMap (Nominatim) — najbolje za ulične naslove. <strong>Išči v registru
+              OpenStreetMap</strong> uporablja Nominatim — najbolje za ulične naslove. <strong>Išči v registru
               naslovov (GURS)</strong> se pojavi pri vrednostih s hišno številko (<em>Šentvid pri Stični 23</em>) in jo
               poišče v uradnem slovenskem registru, kar da koordinato prav te stavbe in ne središča naselja. Kadar star
               zapis ohranja več številk, ker se je oštevilčenje spremenilo (<em>Hafnarjeva pot 21a / 53</em>), se poiščejo
               vse in ponudita obe hiši — zapis ne pove, katera je katera, zato je izbira vaša.
-              <strong>Išči v GOV</strong>
+              <strong>Išči v Genealoškem imeniku krajev (GOV)</strong>
               uporablja <a href="https://gov.genealogy.net" target="_blank" rel="noreferrer">Genealoški imenik krajev
-              (GOV)</a>, katerega vnosi nosijo zgodovinska, večjezična imena krajev in stalni identifikator GOV; ob
+              (GOV)</a>, katerega vnosi nosijo zgodovinska, večjezična imena krajev, nadrejeni kraj (tako da so štirje enako imenovani <em>Osredki</em> ločeni po občini) in stalni identifikator GOV; ob
               potrditvi zadetka GOV se ta identifikator zapiše tudi v datoteko kot <code>_GOV</code> (ob <code>MAP</code>),
               kar je trajna povezava nazaj na zapis GOV za druge rodoslovne programe. Sprejeta ujemanja se predpomnijo,
               tako da se druge datoteke razrešijo v hipu.
@@ -936,11 +940,33 @@
               najdenih hiš — sosedje na enem zemljevidu takoj pokažejo, kateri zadetek izstopa.
             </p>
             <p>
+              Včasih se izkaže, da kraj skriva zaselek, ki je v resnici samostojno naselje — datoteka vodi vsak
+              <em>Klošter 12</em> pod <em>Gradac, Metlika, Slovenija</em>, pogosto zato, ker je tam pošta.
+              Preimenovanje celega kraja bi premaknilo tudi dogodke, ki tja res spadajo, zato vsaka skupina kraja ponuja
+              <strong>Premakni v drug kraj…</strong>: označite naslove, ki spadajo drugam, vnesete ali izberete ciljni
+              kraj, premaknejo pa se samo ti dogodki. Naslovne vrstice ostanejo nespremenjene, koordinata starega
+              naselja se odstrani, da jih lahko znova umestite — en korak, ki ga je mogoče razveljaviti, tako kot vsak
+              drug poseg orodij. Okno se odpre že izpolnjeno s tem, kar predlagajo naslovi sami.
+            </p>
+            <p>
+              Pri slovenskih krajih odloči register. Kadar hišne številke pod navedenim naseljem ni, se poišče še kot
+              samostojno naselje, in če jo register vodi tam, skupina to pove — <em>6 naslovov je po registru v
+              naselju Klošter (Metlika) in ne v Gradac, Metlika, Slovenija</em> — z gumbom, ki odpre že izpolnjen
+              premik. Uporablja isto iskanje po registru in isto spletno privolitev, izvede pa se le pri krajih, katerih
+              država je Slovenija ali ni navedena.
+            </p>
+            <p>
               To pomeni, da ima lahko eno naselje pri različnih dogodkih različne koordinate, kar je pravilno: dva naslova v
-              Kranju sta dva kraja. <a href="#tools">Pregled zdravja</a> to upošteva — koordinate presoja po
-              <em>kraju in naslovu</em>, zato različnih naslovov nikoli ne prijavi, opozori pa na pravo napako: <strong>isti
-              kraj in isti naslov</strong> z dvema različnima koordinatama. Tudi njegovo dopolnjevanje koordinat kopira samo
-              znotraj enega naslova, zato se lega hiše ne more razširiti po naselju.
+              Kranju sta dva kraja. Različnih naslovov zato nikoli ne prijavi; prava napaka je <strong>isti kraj in isti
+              naslov</strong> z dvema različnima koordinatama, in razdelek <strong>Isti kraj in naslov z različnimi
+              koordinatami</strong> jih našteje na vrhu te strani. Razprite vrstico za zemljevid njenih koordinat, kjer je
+              vsaka bucika oštevilčena s številom dogodkov na njej — dvanajst pri cerkvi in eden dva kilometra stran je
+              tipkarska napaka in ne druga cerkev. Izberite pravo buciko (ali njen izbirni gumb) in
+              <em>Uporabi to koordinato za vseh N dogodkov</em> vanjo prepiše vse dogodke tega kraja in naslova, v enem
+              koraku, ki ga je mogoče razveljaviti. Kadar ni prava nobena — porodnišnica, zapisana pri treh različnih
+              ugibanjih, ni nobeno od njih — kliknite kamor koli na zemljevidu ali koordinato vnesite oziroma prilepite,
+              in ta postane izbrana. Tudi dopolnjevanje koordinat v <a href="#tools">pregledu zdravja</a>
+              kopira samo znotraj enega naslova, zato se lega hiše ne more razširiti po naselju.
             </p>
             <p>
               V <a href="#edit">Urejanju</a> ima dogodek s krajem za njim <span class="gm-glyph">📍</span> — poln, kadar

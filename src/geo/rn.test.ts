@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { buildRnFilter, parseHouseNumbers, resultsForQuery, rnFeaturesToResults, rnQueriesFrom } from "./rn";
+import {
+  buildRnFilter,
+  hostAsSettlement,
+  parseHouseNumbers,
+  resultsForQuery,
+  rnFeaturesToResults,
+  rnQueriesFrom,
+} from "./rn";
 
 describe("rnQueriesFrom", () => {
   it("reads village numbering out of PLAC alone", () => {
@@ -67,6 +74,27 @@ describe("rnQueriesFrom", () => {
   });
 });
 
+describe("rnQueriesFrom and an abbreviated settlement", () => {
+  it("reads the file's short form of the settlement as village numbering", () => {
+    // The register calls it "Sadinja vas pri Dvoru"; the file writes the address
+    // as "Sadinja vas 9". Read as a street that finds nothing — and the short
+    // form is itself a different real settlement, so the fallback misses too.
+    expect(rnQueriesFrom("Sadinja vas pri Dvoru, Žužemberk, Slovenija", "Sadinja vas 9")).toEqual([
+      { settlement: "Sadinja vas pri Dvoru", number: 9, altSettlements: ["Žužemberk"] },
+    ]);
+  });
+
+  it("still calls a real street a street", () => {
+    expect(rnQueriesFrom("Kranj, Slovenija", "Kidričeva cesta 38")).toEqual([
+      { settlement: "Kranj", street: "Kidričeva cesta", number: 38 },
+    ]);
+    // A one-word prefix is not an abbreviation — "Zgornje" alone says nothing.
+    expect(rnQueriesFrom("Zgornje Bitnje, Kranj, Slovenija", "Zgornje 4")[0]).toMatchObject({
+      street: "Zgornje",
+    });
+  });
+});
+
 describe("parseHouseNumbers", () => {
   it("splits a renumbered house into every number it names", () => {
     // The numbering changed over the years and the record keeps both; which is
@@ -121,8 +149,45 @@ describe("buildRnFilter", () => {
   });
 });
 
+describe("hostAsSettlement", () => {
+  it("re-reads a settlement-shaped host as the settlement itself", () => {
+    // "Klošter 12" filed under Gradac: no Gradac street is called Klošter —
+    // Klošter is its own naselje, which is what the register is asked next.
+    expect(hostAsSettlement({ settlement: "Gradac", street: "Klošter", number: 12, altSettlements: ["Metlika"] })).toEqual({
+      settlement: "Klošter",
+      number: 12,
+    });
+  });
+
+  it("declines a real street and an address with no street at all", () => {
+    expect(hostAsSettlement({ settlement: "Kranj", street: "Kidričeva cesta", number: 38 })).toBeUndefined();
+    expect(hostAsSettlement({ settlement: "Bled", number: 4 })).toBeUndefined();
+  });
+});
+
 describe("rnFeaturesToResults", () => {
   const feature = (props: Record<string, unknown>) => ({ properties: props });
+
+  it("carries the register's settlement and municipality", () => {
+    // What tells a misfiled hamlet apart: the register's own naselje/občina,
+    // regardless of which post office (here Gradac) the file went by.
+    const [r] = rnFeaturesToResults({
+      features: [
+        feature({
+          OBCINA_NAZIV: "Metlika",
+          NASELJE_NAZIV: "Klošter",
+          ULICA_NAZIV: null,
+          HS_STEVILKA: 12,
+          POSTNI_OKOLIS_SIFRA: 8332,
+          POSTNI_OKOLIS_NAZIV: "Gradac",
+          E: 518682,
+          N: 53264,
+        }),
+      ],
+    });
+    expect(r.settlement).toBe("Klošter");
+    expect(r.municipality).toBe("Metlika");
+  });
 
   it("projects D96 coordinates and labels a village address", () => {
     const [r] = rnFeaturesToResults({
@@ -191,8 +256,11 @@ describe("resultsForQuery", () => {
   });
 
   // One batched request answers the whole place, so asking for "4" also brings
-  // back 4a/4b — each row must take only the houses that are its own.
-  const pool = [hit(2, undefined, 46.21), hit(4, undefined, 46.22), hit(4, "a", 46.23), hit(5, "b", 46.24)];
+  // back 4a/4b — each row must take only the houses that are its own. The pool
+  // is keyed by the settlement+street the group was fetched under.
+  const pool = new Map([
+    ["Srednje Bitnje\u0000", [hit(2, undefined, 46.21), hit(4, undefined, 46.22), hit(4, "a", 46.23), hit(5, "b", 46.24)]],
+  ]);
 
   it("gives a row only the number and suffix it asked for", () => {
     expect(resultsForQuery([{ settlement: "Srednje Bitnje", number: 4 }], pool).map((r) => r.address)).toEqual([
@@ -225,5 +293,17 @@ describe("resultsForQuery", () => {
 
   it("returns nothing when the batch cannot answer the row", () => {
     expect(resultsForQuery([{ settlement: "Srednje Bitnje", number: 99 }], pool)).toEqual([]);
+  });
+
+  it("never answers a row with a house fetched for another settlement", () => {
+    // The defect this keying exists for: one pool held every group's hits and
+    // rows claimed them by house number alone, so "Sadinja Vas 5" was answered
+    // by the "Vrtača 5" fetched for a different address of the same place.
+    const mixed = new Map([
+      ["Vrtača\u0000", [{ ...hit(5, undefined, 45.65), settlement: "Vrtača", address: "Vrtača 5" }]],
+      ["Sadinja vas pri Dvoru\u0000", [{ ...hit(9, undefined, 45.83), settlement: "Sadinja vas pri Dvoru" }]],
+    ]);
+    expect(resultsForQuery([{ settlement: "Vrtača", street: "Sadinja Vas", number: 5 }], mixed)).toEqual([]);
+    expect(resultsForQuery([{ settlement: "Vrtača", number: 5 }], mixed).map((r) => r.address)).toEqual(["Vrtača 5"]);
   });
 });

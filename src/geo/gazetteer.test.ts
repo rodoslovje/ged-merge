@@ -7,6 +7,7 @@ import {
   overpassToEntries,
   parseGeoNamesLine,
   rpeNaseljaToEntries,
+  rpeObcinaNames,
   type GazEntry,
 } from "./gazetteer";
 import { formatCoordValue } from "../gedcom/edit";
@@ -191,6 +192,72 @@ describe("rpeNaseljaToEntries", () => {
     expect(entries.map((e) => e.name)).toEqual(["Črta"]);
     expect(entries[0].lon).toBeCloseTo(15, 6);
     expect(entries[0].lat).toBeCloseTo(46.75, 6);
+  });
+});
+
+describe("municipalities from the RPE join", () => {
+  const box = (lon: number, lat: number, size: number) => [
+    [lon, lat],
+    [lon + size, lat],
+    [lon + size, lat + size],
+    [lon, lat + size],
+    [lon, lat],
+  ];
+  /** The two Soteska the register really holds, with their EID_OBCINA. */
+  const soteska = (obcine?: Map<string, string>) =>
+    rpeNaseljaToEntries(
+      {
+        features: [
+          {
+            properties: { NAZIV: "Soteska", EID_OBCINA: "kamnik-id" },
+            geometry: { type: "Polygon", coordinates: [box(14.64, 46.22, 0.01)] },
+          },
+          {
+            properties: { NAZIV: "Soteska", EID_OBCINA: "dol-toplice-id" },
+            geometry: { type: "Polygon", coordinates: [box(15.02, 45.78, 0.01)] },
+          },
+        ],
+      },
+      obcine,
+    );
+
+  const names = rpeObcinaNames({
+    features: [
+      { properties: { EID_OBCINA: "kamnik-id", NAZIV: "Kamnik" } },
+      { properties: { EID_OBCINA: "dol-toplice-id", NAZIV: "Dolenjske Toplice" } },
+      { properties: { EID_OBCINA: "no-name", NAZIV: "  " } },
+      { properties: null },
+    ],
+  });
+
+  it("reads the id→name table, skipping unusable rows", () => {
+    expect([...names.entries()].sort()).toEqual([
+      ["dol-toplice-id", "Dolenjske Toplice"],
+      ["kamnik-id", "Kamnik"],
+    ]);
+  });
+
+  it("names each settlement's municipality, and stays silent without the table", () => {
+    expect(soteska(names).map((e) => e.admin)).toEqual(["Kamnik", "Dolenjske Toplice"]);
+    expect(soteska().every((e) => e.admin === undefined)).toBe(true);
+  });
+
+  it("demotes the same name in a municipality the place does not mention", () => {
+    const index = buildGazetteerIndex(soteska(names));
+    // Both are perfect name matches, so without the municipality the row is
+    // ambiguous and bulk-accept has to skip it.
+    const blind = lookupPlace(buildGazetteerIndex(soteska()), "Soteska, Slovenija");
+    expect(blind[0].score).toBeCloseTo(blind[1].score, 6);
+    // Naming the občina settles it: the right one keeps its score, the other
+    // drops clear of the ambiguity gap.
+    const hits = lookupPlace(index, "Soteska, Kamnik, Slovenija");
+    expect(hits[0].entry.admin).toBe("Kamnik");
+    expect(hits[0].score).toBeGreaterThan(hits[1].score + 0.05);
+  });
+
+  it("leaves the tie alone when the place names neither municipality", () => {
+    const hits = lookupPlace(buildGazetteerIndex(soteska(names)), "Soteska, Šentjakob ob Savi, Slovenija");
+    expect(hits[0].score).toBeCloseTo(hits[1].score, 6);
   });
 });
 

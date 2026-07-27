@@ -14,6 +14,7 @@ import { PersonLink } from "../PersonLink";
 import { PlaceAutocomplete } from "../edit/PlaceAutocomplete";
 import type { PlaceSuggestions } from "../edit/placeSuggestions";
 import { useSettings } from "../SettingsContext";
+import { GeoRowHeader, MapToggle } from "./shared";
 
 // One row of the Geocode-places review list: the raw PLAC value, its badge
 // (file coordinate / score / remembered / no-match), the rename editor, and —
@@ -64,6 +65,9 @@ interface Props {
   /** Choose a coordinate for the row; `govId` is set only for GOV picks and
    *  drives the `_GOV` write-back. */
   onPickCoord: (row: GeocodeRow, coord: GeoCoord, label: string, govId?: string) => void;
+  /** Clicking the chosen option again drops the pick — a radio group has no
+   *  "none" of its own, and a row picked by mistake would otherwise be written. */
+  onUnpickCoord: (row: GeocodeRow) => void;
   onToggleNoMatch: (key: string) => void;
   /** Rename all occurrences of the row's raw value (with an optional
    *  place/ADDR split); the panel applies it and rescans. */
@@ -88,6 +92,7 @@ export function GeocodePlaceRow({
   onToggleOpen,
   onClaimMap,
   onPickCoord,
+  onUnpickCoord,
   onToggleNoMatch,
   onRename,
   onNavigate,
@@ -197,25 +202,72 @@ export function GeocodePlaceRow({
   const pickCandidate = (cand: GazCandidate) =>
     onPickCoord(row, { lat: cand.entry.lat, lon: cand.entry.lon }, cand.entry.name);
 
+  // The online searches: beside "Show on map" while the map is closed, and
+  // under the map once it is open — either way one action row, not a stray
+  // entry at the bottom of the candidate list.
+  const searchActions = appSettings.allowLinkFetch && (
+    <>
+                {/* Only for a value that names a house number — the register
+                    resolves houses, not settlements. */}
+                {rnQueries.length > 0 && (
+                  <>
+                    <button
+                      className="tools-issue-link"
+                      disabled={rn.state === "loading"}
+                      title={t("tools.geocode.rn.tooltip")}
+                      onClick={runRnSearch}
+                    >
+                      {rn.state === "loading" ? t("tools.geocode.rn.searching") : t("tools.geocode.rn.search")}
+                    </button>
+                    {rn.state === "error" && <span className="tools-geo-online-note">{t("tools.geocode.rn.error")}</span>}
+                    {rn.state === "done" && !rn.results.length && (
+                      <span className="tools-geo-online-note">{t("tools.geocode.rn.none")}</span>
+                    )}
+                  </>
+                )}
+                <button
+                  className="tools-issue-link"
+                  disabled={online.state === "loading"}
+                  title={t("tools.geocode.online.tooltip")}
+                  onClick={runOnlineSearch}
+                >
+                  {online.state === "loading" ? t("tools.geocode.online.searching") : t("tools.geocode.online.search")}
+                </button>
+                {online.state === "error" && <span className="tools-geo-online-note">{t("tools.geocode.online.error")}</span>}
+                {online.state === "done" && !online.results.length && (
+                  <span className="tools-geo-online-note">{t("tools.geocode.online.none")}</span>
+                )}
+                <button
+                  className="tools-issue-link"
+                  disabled={gov.state === "loading"}
+                  title={t("tools.geocode.gov.tooltip")}
+                  onClick={runGovSearch}
+                >
+                  {gov.state === "loading" ? t("tools.geocode.gov.searching") : t("tools.geocode.gov.search")}
+                </button>
+                {gov.state === "error" && <span className="tools-geo-online-note">{t("tools.geocode.gov.error")}</span>}
+                {gov.state === "done" && !gov.results.length && (
+                  <span className="tools-geo-online-note">{t("tools.geocode.gov.none")}</span>
+                )}
+      </>
+  );
+
   return (
     <li className="tools-tree-node">
-      <div className="tools-tree-row">
-        <input
-          type="checkbox"
-          className="tools-dup-check"
-          checked={isChecked}
-          disabled={!c || marked}
-          onChange={(e) => onToggleChecked(row.key, e.target.checked)}
-        />
-        <button className={`tools-pair-toggle ${isOpen ? "open" : ""}`} onClick={() => onToggleOpen(row.key)} aria-expanded={isOpen}>
-          ▶
-        </button>
-        <span
-          className={`tools-tree-label clickable${marked ? " tools-reshape-removed" : ""}`}
-          onClick={() => onToggleOpen(row.key)}
-        >
-          {row.key}
-        </span>
+      <GeoRowHeader
+        open={isOpen}
+        onToggle={() => onToggleOpen(row.key)}
+        place={<span className={marked ? "tools-reshape-removed" : undefined}>{row.key}</span>}
+        before={
+          <input
+            type="checkbox"
+            className="tools-dup-check"
+            checked={isChecked}
+            disabled={!c || marked}
+            onChange={(e) => onToggleChecked(row.key, e.target.checked)}
+          />
+        }
+      >
         {renameOpen ? (
           <button
             className="tools-place-edit-btn tools-place-edit-cancel"
@@ -285,7 +337,7 @@ export function GeocodePlaceRow({
           {marked ? "↩" : "🗑"}
         </button>
         <span className="tools-chip-count" title={missingInTitle}>{row.missing}</span>
-      </div>
+      </GeoRowHeader>
       {renameOpen && (
         <div
           className="tools-place-rename"
@@ -349,21 +401,23 @@ export function GeocodePlaceRow({
           {(() => {
             // Cheap gates first — under "Expand all" most rows render
             // the claim link, and must not build throwaway pin arrays.
-            if (
-              !row.candidates.length &&
-              !c &&
-              !draftCoord &&
-              !online.results.length &&
-              !gov.results.length &&
-              !rn.results.length &&
-              !fileCoords.length
-            )
-              return null;
-            if (!hasMap)
+            const plottable =
+              row.candidates.length > 0 ||
+              !!c ||
+              !!draftCoord ||
+              online.results.length > 0 ||
+              gov.results.length > 0 ||
+              rn.results.length > 0 ||
+              fileCoords.length > 0;
+            // Closed (or nothing to plot): one row of actions — show the map,
+            // then the searches. A row with no candidates at all is exactly
+            // where the searches are needed, so they must not go with the map.
+            if (!hasMap || !plottable)
               return (
-                <button className="tools-issue-link tools-geo-showmap" onClick={() => onClaimMap(row.key)}>
-                  {t("tools.geocode.showMap")}
-                </button>
+                <div className="tools-geo-actions">
+                  {plottable && <MapToggle open={false} onToggle={() => onClaimMap(row.key)} />}
+                  {searchActions}
+                </div>
               );
             // Candidate pins (click = pick), the chosen coordinate
             // highlighted, plus a live pin for a parseable manual draft.
@@ -428,6 +482,12 @@ export function GeocodePlaceRow({
                     onPickCoord(row, coord, t("tools.geocode.manual"));
                   }}
                 />
+                {/* Open: the searches move under the map, where their results
+                    land as new pins. */}
+                <div className="tools-geo-actions">
+                  <MapToggle open onToggle={() => onClaimMap(row.key)} />
+                  {searchActions}
+                </div>
               </Suspense>
             );
           })()}
@@ -441,6 +501,7 @@ export function GeocodePlaceRow({
                     type="radio"
                     name={`geo-${row.key}`}
                     checked={sameCoord(c?.coord, row.fileCoord)}
+                    onClick={() => sameCoord(c?.coord, row.fileCoord) && onUnpickCoord(row)}
                     onChange={() => onPickCoord(row, row.fileCoord!, t("tools.geocode.fromFile"))}
                   />
                   <span className="tools-geo-cand-name">{t("tools.geocode.fromFile")}</span>
@@ -459,6 +520,7 @@ export function GeocodePlaceRow({
                     type="radio"
                     name={`geo-${row.key}`}
                     checked={sameCoord(c?.coord, cachedCoord)}
+                    onClick={() => sameCoord(c?.coord, cachedCoord) && onUnpickCoord(row)}
                     onChange={() => onPickCoord(row, cachedCoord, row.cached?.label ?? t("tools.geocode.cached"))}
                   />
                   <span className="tools-geo-cand-name">{row.cached?.label ?? t("tools.geocode.cached")}</span>
@@ -476,18 +538,25 @@ export function GeocodePlaceRow({
                     type="radio"
                     name={`geo-${row.key}`}
                     checked={sameCoord(c?.coord, { lat: cand.entry.lat, lon: cand.entry.lon })}
+                    onClick={() => sameCoord(c?.coord, { lat: cand.entry.lat, lon: cand.entry.lon }) && onUnpickCoord(row)}
                     onChange={() => pickCandidate(cand)}
                   />
-                  {/* The register code when the entry is from an official one
-                      (SI-GURS), so its source is visible; otherwise the plain
-                      country code, which is all a crowd-sourced entry knows. */}
-                  <span className="gm-data">{cand.entry.register ?? cand.entry.country}</span>
                   <span className="tools-geo-cand-name">{cand.entry.name}</span>
+                  {/* The municipality the register files it under — the only
+                      thing that tells two same-named settlements apart. */}
+                  {cand.entry.admin && <span className="tools-geo-count">({cand.entry.admin})</span>}
                   <span className="gm-data">
                     {cand.entry.population > 0 && `· ${t("tools.geocode.population", { count: cand.entry.population })} · `}
                     {`${cand.entry.lat.toFixed(4)}, ${cand.entry.lon.toFixed(4)}`}
                   </span>
                   <span className="tools-geo-score">{Math.round(cand.score * 100)}%</span>
+                  {/* Source last, like the GOV/OSM/GURS rows below: the register
+                      code when the entry is from an official one (SI-GURS),
+                      otherwise the plain country code, which is all a
+                      crowd-sourced entry knows. */}
+                  <span className={`tools-reshape-badge ${cand.entry.register ? "official" : "reuse"}`}>
+                    {cand.entry.register ?? cand.entry.country}
+                  </span>
                 </label>
               </li>
             ))}
@@ -498,9 +567,13 @@ export function GeocodePlaceRow({
                     type="radio"
                     name={`geo-${row.key}`}
                     checked={sameCoord(c?.coord, r.coord)}
+                    onClick={() => sameCoord(c?.coord, r.coord) && onUnpickCoord(row)}
                     onChange={() => onPickCoord(row, r.coord, r.name)}
                   />
-                  <span className="tools-geo-cand-name">{r.label}</span>
+                  {/* Name and parent, like the register and GOV rows — the full
+                      chain would run the row off the line, and is in the title. */}
+                  <span className="tools-geo-cand-name">{r.name}</span>
+                  {r.admin && <span className="tools-geo-count">({r.admin})</span>}
                   <span className="gm-data">
                     {r.coord.lat.toFixed(4)}, {r.coord.lon.toFixed(4)}
                   </span>
@@ -515,9 +588,13 @@ export function GeocodePlaceRow({
                     type="radio"
                     name={`geo-${row.key}`}
                     checked={sameCoord(c?.coord, r.coord)}
+                    onClick={() => sameCoord(c?.coord, r.coord) && onUnpickCoord(row)}
                     onChange={() => onPickCoord(row, r.coord, r.name, r.govId)}
                   />
                   <span className="tools-geo-cand-name">{r.label}</span>
+                  {/* The place it is part of, like the register candidates —
+                      four same-named Osredek differ only in this. */}
+                  {r.admin && <span className="tools-geo-count">({r.admin})</span>}
                   <span className="gm-data">
                     {r.coord.lat.toFixed(4)}, {r.coord.lon.toFixed(4)}
                   </span>
@@ -532,6 +609,7 @@ export function GeocodePlaceRow({
                     type="radio"
                     name={`geo-${row.key}`}
                     checked={sameCoord(c?.coord, r.coord)}
+                    onClick={() => sameCoord(c?.coord, r.coord) && onUnpickCoord(row)}
                     onChange={() => onPickCoord(row, r.coord, r.address)}
                   />
                   <span className="tools-geo-cand-name">{r.label}</span>
@@ -542,55 +620,6 @@ export function GeocodePlaceRow({
                 </label>
               </li>
             ))}
-            {/* Online (Nominatim) search for what the offline gazetteer
-                can't resolve — above all street addresses. Explicit per-row
-                action behind the online opt-in: the text leaves the device. */}
-            {appSettings.allowLinkFetch && (
-              <li className="tools-geo-online">
-                <button
-                  className="tools-issue-link"
-                  disabled={online.state === "loading"}
-                  title={t("tools.geocode.online.tooltip")}
-                  onClick={runOnlineSearch}
-                >
-                  {online.state === "loading" ? t("tools.geocode.online.searching") : t("tools.geocode.online.search")}
-                </button>
-                {online.state === "error" && <span className="tools-geo-online-note">{t("tools.geocode.online.error")}</span>}
-                {online.state === "done" && !online.results.length && (
-                  <span className="tools-geo-online-note">{t("tools.geocode.online.none")}</span>
-                )}
-                <button
-                  className="tools-issue-link"
-                  disabled={gov.state === "loading"}
-                  title={t("tools.geocode.gov.tooltip")}
-                  onClick={runGovSearch}
-                >
-                  {gov.state === "loading" ? t("tools.geocode.gov.searching") : t("tools.geocode.gov.search")}
-                </button>
-                {gov.state === "error" && <span className="tools-geo-online-note">{t("tools.geocode.gov.error")}</span>}
-                {gov.state === "done" && !gov.results.length && (
-                  <span className="tools-geo-online-note">{t("tools.geocode.gov.none")}</span>
-                )}
-                {/* Only for a value that names a house number — the register
-                    resolves houses, not settlements. */}
-                {rnQueries.length > 0 && (
-                  <>
-                    <button
-                      className="tools-issue-link"
-                      disabled={rn.state === "loading"}
-                      title={t("tools.geocode.rn.tooltip")}
-                      onClick={runRnSearch}
-                    >
-                      {rn.state === "loading" ? t("tools.geocode.rn.searching") : t("tools.geocode.rn.search")}
-                    </button>
-                    {rn.state === "error" && <span className="tools-geo-online-note">{t("tools.geocode.rn.error")}</span>}
-                    {rn.state === "done" && !rn.results.length && (
-                      <span className="tools-geo-online-note">{t("tools.geocode.rn.none")}</span>
-                    )}
-                  </>
-                )}
-              </li>
-            )}
             {/* Manual entry as the last option — the same radio group,
                 selectable once the draft (typed or map-picked) parses. */}
             <li className="tools-geo-manual">
@@ -599,6 +628,7 @@ export function GeocodePlaceRow({
                   type="radio"
                   name={`geo-${row.key}`}
                   checked={manualChosen}
+                  onClick={() => manualChosen && onUnpickCoord(row)}
                   disabled={!draftCoord}
                   onChange={setManual}
                 />

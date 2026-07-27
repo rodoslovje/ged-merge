@@ -19,10 +19,11 @@ import {
   type GeocodeDecision,
 } from "../../persist/geoDb";
 import type { GeoWorkerRequest, GeoWorkerResponse } from "../../worker/geoMessages";
-import { ToolsError, ToolsLoading, TreeSearch, useDebounced } from "./shared";
+import { ExpandAllToggle, ToolsError, ToolsLoading, TreeSearch, useDebounced } from "./shared";
 import { createKinshipResolver } from "../../match/kinship";
 import { buildPlaceSuggestions, placeCombosOf } from "../edit/placeSuggestions";
 import { AddressCoordsSection } from "./AddressCoordsSection";
+import { CoordConflicts } from "./CoordConflicts";
 import { GeocodePlaceRow } from "./GeocodePlaceRow";
 import { BackButton } from "../BackButton";
 import { isEditableTarget, isModalOpen } from "../../keyboard/shortcuts";
@@ -49,6 +50,7 @@ interface Props {
    *  pipeline); with `addr`, split into PLAC `to` + an ADDR on the parent
    *  event. Returns the number of records changed. */
   onRenamePlaceValue: (from: string, to: string, addr?: string) => number;
+  onMovePlaceForAddresses: (keys: Set<string>, toPlace: string) => number;
   /** Write accepted house coordinates onto the events at each place+address pair
    *  (standard `PLAC`/`MAP`); returns the number of records changed. */
   onApplyAddressCoords: (assignments: Map<string, GeoCoord>) => number;
@@ -103,12 +105,17 @@ const OVERPASS_ENDPOINTS = ["https://overpass-api.de/api/interpreter", "https://
 const GURS_NASELJA_URL =
   "https://ipi.eprostor.gov.si/wfs-si-gurs-rpe/ogc/features/collections/SI.GURS.RPE:NASELJA/items?f=application%2Fgeo%2Bjson&limit=10000";
 
+/** RPE municipalities — the id→name table the settlements join to, so a
+ *  candidate can name its občina. Small next to the settlements (212 rows). */
+const GURS_OBCINE_URL =
+  "https://ipi.eprostor.gov.si/wfs-si-gurs-rpe/ogc/features/collections/SI.GURS.RPE:OBCINE/items?f=application%2Fgeo%2Bjson&limit=1000";
+
 /** Every place node in the country: settlements down to isolated dwellings. */
 function overpassQuery(code: string): string {
   return `[out:json][timeout:180];area["ISO3166-1"="${code}"][admin_level=2]->.a;node(area.a)[place~"^(city|town|village|hamlet|suburb|locality|isolated_dwelling)$"];out qt;`;
 }
 
-export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, onRenamePlaceValue, onBack, onNavigate, startId }: Props) {
+export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, onRenamePlaceValue, onMovePlaceForAddresses, onBack, onNavigate, startId }: Props) {
   const { t, i18n } = useTranslation();
   const { settings: appSettings } = useSettings();
   const nameOf = useNameOf();
@@ -136,6 +143,13 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
   const [index, setIndex] = useState<GazetteerIndex | undefined>(undefined);
   const [decisions, setDecisions] = useState<Map<string, GeocodeDecision> | null>(null);
   const [importState, setImportState] = useState<ImportState>(null);
+  // The gazetteer manager is one-time setup that outlives the file — it lives in
+  // IndexedDB, so it survives reloads and file switches — and folds away once
+  // something is loaded. It stays open when there is nothing loaded (it is the
+  // empty state, and the list below cannot work without it) and while an import
+  // runs or fails, since the progress and the error live inside it.
+  const [gazOpenPref, setGazOpen] = useState(false);
+  const gazOpen = gazOpenPref || countries?.length === 0 || importState !== null;
   const workerRef = useRef<Worker | null>(null);
 
   const refreshGazetteer = async () => {
@@ -153,7 +167,7 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
   const runImport = (
     buffer: ArrayBuffer,
     fileName: string,
-    extra?: { format: "overpass"; country: string } | { format: "rpe" },
+    extra?: { format: "overpass"; country: string } | { format: "rpe"; obcine?: ArrayBuffer },
   ) => {
     // Only the GeoNames dump path reports parse progress by chunk; the Overpass
     // and GURS payloads are converted in one shot, so leave their total at 0 and
@@ -181,7 +195,7 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
     worker.onerror = () => fail(t("tools.geocode.importFailed"));
     worker.onmessageerror = () => fail(t("tools.geocode.importFailed"));
     const req: GeoWorkerRequest = { type: "importGazetteer", requestId: 1, buffer, fileName, ...extra };
-    worker.postMessage(req, [buffer]);
+    worker.postMessage(req, req.obcine ? [buffer, req.obcine] : [buffer]);
   };
 
   const importFile = async (file: File) => {
@@ -243,7 +257,19 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
         return;
       }
       const buffer = await readWithProgress(res, (done, total) => setImportState({ phase: "running", done, total }));
-      runImport(buffer, "SI.gurs-naselja.json", { format: "rpe" });
+      // The municipalities are a separate collection (212 rows) joined by
+      // EID_OBCINA — what lets two settlements of one name be told apart
+      // ("Soteska (Kamnik)" vs "Soteska (Dolenjske Toplice)"). Failing to get
+      // it is not fatal: the settlements are still worth importing without it.
+      let obcine: ArrayBuffer | undefined;
+      try {
+        const oRes = await fetch(GURS_OBCINE_URL, { signal: abort.signal });
+        if (oRes.ok) obcine = await oRes.arrayBuffer();
+      } catch (e) {
+        if (abort.signal.aborted) return;
+        void e;
+      }
+      runImport(buffer, "SI.gurs-naselja.json", { format: "rpe", ...(obcine ? { obcine } : {}) });
     } catch (e) {
       if (abort.signal.aborted) return;
       void e;
@@ -372,6 +398,17 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
     });
   };
 
+  /** Drop a row's pick: the coordinate goes back to whatever the row proposes by
+   *  default, and the row is unticked so nothing of it is written. */
+  const unpickCoord = (row: GeocodeRow) => {
+    setChosen((prev) => {
+      const next = new Map(prev);
+      next.delete(row.key);
+      return next;
+    });
+    toggleChecked(row.key, false);
+  };
+
   const toggleOpen = (key: string) => {
     const willOpen = !expanded.has(key);
     setExpanded((prev) => {
@@ -380,9 +417,9 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
       else next.delete(key);
       return next;
     });
-    // The map follows the row being opened; closing it frees the map.
-    if (willOpen) setMapKey(key);
-    else if (mapKey === key) setMapKey(null);
+    // The map is never opened for you — it is asked for, like everywhere else
+    // on this page. Closing the row does free it.
+    if (!willOpen && mapKey === key) setMapKey(null);
   };
 
   const renameValue = (from: string, to: string, addr?: string) => {
@@ -468,8 +505,32 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
       <div className="tools-geo-gazetteer">
         {countries.length === 0 && <p className="tools-geo-empty">{t("tools.geocode.noGazetteer")}</p>}
         {countries.length > 0 && (
+          <div className="tools-geo-summary">
+            <button
+              className={`tools-pair-toggle ${gazOpen ? "open" : ""}`}
+              aria-expanded={gazOpen}
+              onClick={() => setGazOpen(!gazOpen)}
+            >
+              ▶
+            </button>
+            <span className="tools-geo-loaded clickable" onClick={() => setGazOpen(!gazOpen)}>
+              {t("tools.geocode.loadedCountries")}
+            </span>
+            {/* Collapsed, the heading carries the answer itself — which
+                gazetteers are in and how big — so the one-time setup takes one
+                line while still saying what the rankings below can draw on. */}
+            {!gazOpen &&
+              countries.map((c) => (
+                <span key={c.code} className="tools-geo-summary-entry">
+                  <span className="tools-geo-country gm-data">{c.code}</span>
+                  <span className="tools-geo-count">{c.count.toLocaleString(i18n.language)}</span>
+                </span>
+              ))}
+          </div>
+        )}
+        {gazOpen && (
           <>
-          <p className="tools-geo-loaded">{t("tools.geocode.loadedCountries")}</p>
+          {countries.length > 0 && (
           <ul className="tools-geo-countries">
             {countries.map((c) => (
               <li key={c.code}>
@@ -486,9 +547,8 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
               </li>
             ))}
           </ul>
-          </>
-        )}
-        {importState?.phase === "running" ? (
+          )}
+          {importState?.phase === "running" ? (
           <ToolsLoading
             label={t("tools.geocode.importing")}
             progress={importState}
@@ -556,7 +616,14 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
           </a>
           {!appSettings.allowLinkFetch && ` ${t("tools.geocode.downloadNeedsOptIn")}`}
         </p>
+          </>
+        )}
       </div>
+
+      {/* Above the lists, below the gazetteer: it is the only outright error on
+          the page — coordinates that contradict each other, which no lookup
+          below can resolve — but it is a finding, not part of the setup. */}
+      <CoordConflicts dataset={dataset} onApply={onApplyAddressCoords} />
 
       {scan.rows.length === 0 && <p className="tools-clean tools-clean--ok">{t("tools.geocode.allCovered")}</p>}
 
@@ -566,31 +633,28 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
           {t("tools.geocode.heading")}
           <span className="tools-chip-count">{scan.rows.length}</span>
           <div className="tools-dup-bulk">
+            <button className="nav-btn primary tools-run" onClick={() => void apply()} disabled={checked.size === 0 && noMatch.size === 0}>
+              {t("tools.geocode.apply", { count: checked.size })}
+            </button>
             <button className="tools-issue-link" onClick={selectConfident} disabled={confidentCount === 0}>
               {t("tools.geocode.selectConfident", { count: confidentCount })}
             </button>
             <button className="tools-issue-link" onClick={() => setChecked(new Set())}>
               {t("tools.sources.dupSelectNone")}
             </button>
-            <button className="tools-issue-link" onClick={() => setExpanded(new Set(rows.map((r) => r.key)))}>
-              {t("tools.sources.expandAll")}
-            </button>
-            <button
-              className="tools-issue-link"
-              onClick={() => {
-                setExpanded(new Set());
-                setMapKey(null);
+            <ExpandAllToggle
+              allOpen={rows.length > 0 && rows.every((r) => expanded.has(r.key))}
+              onToggle={() => {
+                if (rows.length > 0 && rows.every((r) => expanded.has(r.key))) {
+                  setExpanded(new Set());
+                  setMapKey(null);
+                } else setExpanded(new Set(rows.map((r) => r.key)));
               }}
-            >
-              {t("tools.sources.collapseAll")}
-            </button>
+            />
           </div>
         </div>
         <div className="tools-reshape-options">
           <TreeSearch value={search} onChange={setSearch} />
-          <button className="nav-btn tools-run" onClick={() => void apply()} disabled={checked.size === 0 && noMatch.size === 0}>
-            {t("tools.geocode.apply", { count: checked.size })}
-          </button>
         </div>
 
       <ul className="tools-tree">
@@ -611,8 +675,9 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
             missingInTitle={missingInTitles.get(row.key)}
             onToggleChecked={toggleChecked}
             onToggleOpen={toggleOpen}
-            onClaimMap={setMapKey}
+            onClaimMap={(key) => setMapKey((prev) => (prev === key ? null : key))}
             onPickCoord={pickCoord}
+            onUnpickCoord={unpickCoord}
             onToggleNoMatch={toggleNoMatch}
             onRename={renameValue}
             onNavigate={onNavigate}
@@ -626,7 +691,7 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
       {/* Addresses whose house coordinate the register can supply, for events
           whose PLAC names only the settlement. Renders nothing when there are
           none, so files without ADDR lines see no change. */}
-      <AddressCoordsSection dataset={dataset} onApply={onApplyAddressCoords} />
+      <AddressCoordsSection dataset={dataset} onApply={onApplyAddressCoords} onMove={onMovePlaceForAddresses} />
     </div>
   );
 }

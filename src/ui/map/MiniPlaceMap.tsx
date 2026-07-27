@@ -74,7 +74,7 @@ function tooltipEl(label: string, lines?: string[], sub?: string): HTMLElement {
 /** Bind a hover tooltip that flips below the marker when it sits in the top
  *  half of the map — a "top" tooltip there is clipped by the container's
  *  overflow:hidden (rounded corners), so pick the side with more room. */
-function bindFlippingTooltip(map: L.Map, marker: L.CircleMarker, content: HTMLElement): void {
+function bindFlippingTooltip(map: L.Map, marker: L.CircleMarker | L.Marker, content: HTMLElement): void {
   marker.bindTooltip(content, { direction: "top", className: "minimap-tooltip" });
   marker.on("tooltipopen", (e) => {
     const dir = map.latLngToContainerPoint(marker.getLatLng()).y < map.getSize().y / 2 ? "bottom" : "top";
@@ -103,6 +103,9 @@ export interface MiniMapPin {
    *  under the label. */
   sub?: string;
   kind: "candidate" | "chosen";
+  /** A count to draw inside the pin — how many events sit on this coordinate.
+   *  Typed as a number so the marker's HTML can never carry injected markup. */
+  badge?: number;
   /** CSS custom property naming this pin's colour (e.g. "--map-birth");
    *  defaults to the kind's standard colour. */
   colorVar?: string;
@@ -316,15 +319,30 @@ export default function MiniPlaceMap({ pins, context = NO_CONTEXT, path, onPickC
       const chosen = p.kind === "chosen";
       const own = p.colorVar ? styles.getPropertyValue(p.colorVar).trim() : "";
       const color = own || (chosen ? chosenColor : candColor);
-      const marker = L.circleMarker([p.coord.lat, p.coord.lon], {
-        radius: chosen ? 8 : 6.5,
-        color,
-        weight: 2,
-        fillColor: color,
-        fillOpacity: chosen ? 0.85 : 0.45,
-        // A pin click picks the pin — it must not double as a map click.
-        bubblingMouseEvents: false,
-      });
+      // A badge pin is a real marker rather than a circle, so the number sits
+      // inside it and a click on the digit still picks the pin.
+      const marker =
+        p.badge === undefined
+          ? L.circleMarker([p.coord.lat, p.coord.lon], {
+              radius: chosen ? 8 : 6.5,
+              color,
+              weight: 2,
+              fillColor: color,
+              fillOpacity: chosen ? 0.85 : 0.45,
+              // A pin click picks the pin — it must not double as a map click.
+              bubblingMouseEvents: false,
+            })
+          : L.marker([p.coord.lat, p.coord.lon], {
+              keyboard: false,
+              icon: L.divIcon({
+                className: "",
+                html:
+                  `<span class="mini-pin-badge${chosen ? " chosen" : ""}"` +
+                  ` style="background:${color};border-color:${color}">${p.badge}</span>`,
+                iconSize: [24, 24],
+                iconAnchor: [12, 12],
+              }),
+            });
       bindFlippingTooltip(map, marker, tooltipEl(p.label, p.lines, p.sub));
       marker.on("click", () => latestPins.current[i]?.onPick?.());
       marker.addTo(group);

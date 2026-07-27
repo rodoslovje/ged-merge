@@ -884,13 +884,16 @@
               the online-lookups opt-in in <a href="#workspace">Settings › Advanced</a>); with
               <strong>Download Slovenia (GURS)</strong> — all 6035 settlements from Slovenia's national register of
               spatial units, the authoritative choice for Slovenian research, and it brings the bilingual Italian and
-              Hungarian names with it, so <em>Isola</em> finds <em>Izola</em>. It is listed on its own as
+              Hungarian names with it, so <em>Isola</em> finds <em>Izola</em>. Each settlement carries its <em>občina</em>, which is what tells the two <em>Soteska</em> apart —
+              <em>Soteska (Kamnik)</em> and <em>Soteska (Dolenjske Toplice)</em> both match the name perfectly, and only the
+              municipality separates them; when your place names the municipality too, the right one wins outright. It is
+              listed on its own as
               <span class="gm-data">SI-GURS</span>, so it sits <em>alongside</em> an OpenStreetMap or GeoNames
               <span class="gm-data">SI</span> import instead of replacing it — the official settlements and the hamlets
               only OpenStreetMap knows then both count, and a settlement both describe is offered once, at its official
               coordinate. Or load a gazetteer by importing a
               <strong>GeoNames</strong> country file (<em>.zip</em> or <em>.txt</em>) — the loaded gazetteers are listed
-              under their own heading, and the data stays in your browser. Proposals are ranked: coordinates other
+              under their own heading, and the data stays in your browser. Loading a gazetteer is a one-time step — it lives in your browser, not in the file, so it survives reloads and serves every file you open; once something is loaded the whole loader folds into a single line naming what you have, which you can open again to add or remove a gazetteer. Proposals are ranked: coordinates other
               occurrences of the same place already carry come first, then exact and historical-name matches
               (<em>Laibach → Ljubljana</em>), then fuzzy ones. When a place names its country, matches are confined to
               that country, so a foreign place is never matched to a loaded gazetteer (<em>Belfast, Northern Ireland</em>
@@ -898,21 +901,21 @@
               unambiguous matches.
             </p>
             <p>
-              Each row can be expanded to a small <strong>map</strong> — candidate places as clickable pins, your chosen
+              All three lists on this page read the same way: a row names its place (and its address, where the row is about one), opens on a click, offers its <strong>map</strong> only when you ask for it, and collects your picks until the list's own button at its top writes them in one undoable step. The map shows candidate places as clickable pins, your chosen
               coordinate highlighted, and the file's other known coordinates as faint dots, so same-named places are told
               apart by position; click anywhere else on the map to hand-pick a point. A row also offers alternatives, a
               typed coordinate, or a remembered “no match” mark, and a <span class="gm-glyph">✎</span> button to
               <strong>rename</strong> the raw place value (all occurrences at once — with an optional place + address
               split, and the correction is rescanned for matches immediately). What the offline gazetteer can't resolve,
               two per-row online searches cover, both behind the same online opt-in and only on the button click, with
-              their results joining the row's candidates and map pins. <strong>Search online</strong> uses OpenStreetMap
+              their results joining the row's candidates and map pins. <strong>Search OpenStreetMap</strong> uses OpenStreetMap
               (Nominatim) — best for street addresses. <strong>Search address register (GURS)</strong> appears on values that name a
               house number (<em>Šentvid pri Stični 23</em>) and looks it up in Slovenia's official register, giving the
               coordinate of that building rather than the middle of the settlement. When an old record keeps more than one
               number because the numbering changed (<em>Hafnarjeva pot 21a / 53</em>), every number is looked up and both
-              houses are offered — the record does not say which is which, so the choice is yours. <strong>Search GOV</strong> uses the
+              houses are offered — the record does not say which is which, so the choice is yours. <strong>Search the Genealogical Gazetteer (GOV)</strong> uses the
               <a href="https://gov.genealogy.net" target="_blank" rel="noreferrer">Genealogical Gazetteer (GOV)</a>, whose
-              entries carry historical, multilingual place names and a stable GOV id; accepting a GOV match also writes
+              entries carry historical, multilingual place names, the place each one is part of (so four same-named <em>Osredek</em> are told apart by their municipality) and a stable GOV id; accepting a GOV match also writes
               that id into the file as <code>_GOV</code> (a sibling of <code>MAP</code>), a durable link back to the GOV
               record for other genealogy software. Accepted matches are cached, so other files resolve instantly.
             </p>
@@ -927,11 +930,32 @@
               house found there — neighbours on one map make an odd result obvious at a glance.
             </p>
             <p>
+              Sometimes a place turns out to hold a hamlet that is really a settlement of its own — a file that records
+              every <em>Klošter 12</em> under <em>Gradac, Metlika, Slovenia</em>, often because that is the post office.
+              Renaming the place would move the genuine Gradac events too, so each place group offers
+              <strong>Move to another place…</strong> instead: tick the addresses that belong elsewhere, type or pick the
+              destination place, and only those events are moved. Their address lines stay as they are, and the old
+              settlement's coordinate is dropped so they can be placed again — one undoable step, like every other tool
+              edit. The panel opens pre-filled with what the addresses themselves suggest.
+            </p>
+            <p>
+              For Slovenian places the register settles it. When a house number is not found under the settlement the
+              place names, it is looked up again as a settlement in its own right, and if that is where the register
+              files it the group says so — <em>6 addresses are in Klošter (Metlika), not Gradac, Metlika,
+              Slovenia</em> — with a button that opens the move already filled in. This uses the same register lookup and
+              the same online opt-in, and only ever runs for places whose country is Slovenia or unstated.
+            </p>
+            <p>
               That means one settlement can hold different coordinates on different events, which is correct: two addresses in
-              Kranj are two places. The <a href="#tools">Health check</a> understands this — it judges coordinates per
-              <em>place + address</em>, so differing addresses are never reported, and it flags the real error instead: the
-              <strong>same place and the same address</strong> carrying two different coordinates. Its coordinate fill also
-              copies only within one address, so a house's position can never spread across a settlement.
+              Kranj are two places. Differing addresses are therefore never reported; the real error is the
+              <strong>same place and the same address</strong> carrying two different coordinates, and
+              <strong>Same place and address, different coordinates</strong> lists those at the top of this page. Expand a
+              row for a map of its coordinates, each pin numbered with how many events sit on it — twelve on the church and
+              one two kilometres off is a typo, not a second church. Choose the right pin (or its radio button) and
+              <em>Use this coordinate for all N events</em> rewrites every event of that place and address to it, in one
+              undoable step. When none of them is right — a maternity hospital recorded at three different guesses is none
+              of the three — click anywhere on the map, or type or paste a coordinate, and that becomes the choice. The <a href="#tools">Health check</a>'s coordinate fill likewise copies only within one address,
+              so a house's position can never spread across a settlement.
             </p>
             <p>
               In <a href="#edit">Edit</a>, an event with a place shows a <span class="gm-glyph">📍</span> after it — solid
