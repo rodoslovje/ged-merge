@@ -474,11 +474,6 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
       </div>
       <p className="tools-intro">{t("tools.geocode.intro")}</p>
 
-      {/* First, because it is the only thing here that is an outright error:
-          coordinates that contradict each other, which no lookup below can
-          resolve — only the researcher can say which is right. */}
-      <CoordConflicts dataset={dataset} />
-
       <div className="tools-geo-gazetteer">
         {countries.length === 0 && <p className="tools-geo-empty">{t("tools.geocode.noGazetteer")}</p>}
         {countries.length > 0 && (
@@ -595,6 +590,11 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
           </>
         )}
       </div>
+
+      {/* Above the lists, below the gazetteer: it is the only outright error on
+          the page — coordinates that contradict each other, which no lookup
+          below can resolve — but it is a finding, not part of the setup. */}
+      <CoordConflicts dataset={dataset} />
 
       {scan.rows.length === 0 && <p className="tools-clean tools-clean--ok">{t("tools.geocode.allCovered")}</p>}
 
