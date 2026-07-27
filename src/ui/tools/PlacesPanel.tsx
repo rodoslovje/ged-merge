@@ -209,7 +209,9 @@ export function PlacesPanel({
             onClick={() => setView("geocode")}
           >
             {t("tools.places.geocodeToggle")}{" "}
-            {geocodePending > 0 && <span className="tools-chip-count">{geocodePending}</span>}
+            {geocodePending > 0 && (
+              <span className="tools-chip-count">{t("tools.places.geocodeChipPlaces", { count: geocodePending })}</span>
+            )}
             {geocodePending > 0 && addressPending > 0 && " · "}
             {addressPending > 0 && (
               <span className="tools-chip-count">{t("tools.places.geocodeChipAddr", { count: addressPending })}</span>
