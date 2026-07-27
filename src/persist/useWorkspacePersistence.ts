@@ -298,7 +298,7 @@ export function useWorkspacePersistence(opts: WorkspacePersistenceOptions) {
     }, 800);
     return () => window.clearTimeout(handle);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [persistEnabled, decisions, importBranches, rejectedDuplicates, startId, main, compare, lastMainFile, editVersion, dirty.changedPersonIds, dirty.changedFamilyIds, mainHandle]);
+  }, [persistEnabled, decisions, importBranches, rejectedDuplicates, startId, main, compare, lastMainFile, editVersion, dirty.changedPersonIds, dirty.changedFamilyIds, dirty.changedRecordIds, mainHandle]);
 
   // React to the opt-in toggle: on enable, request durable storage (the only
   // place that may prompt) and cache the current workspace right away; on

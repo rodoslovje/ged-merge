@@ -9,6 +9,7 @@ import { buildEditSaveRecords } from "../merge/editSaveRecords";
 import { mergeDecisions, type ChangeReport, type ImportBranchRequest } from "../merge/merge";
 import { parseDecisionKey, type CandidateDecision } from "../review/types";
 import { findDanglingXrefs } from "../tools/structure";
+import type { SharedRecordSnapshot } from "../edit-state/useDirtyTracking";
 import { baseStem, savedName } from "../ui/download";
 
 /** At most this many findings of each kind reach the preview, so a systemic
@@ -36,10 +37,14 @@ export interface SavePreviewInput {
   /** Edit-mode dirty tracking. */
   changedPersonIds: Set<string>;
   changedFamilyIds: Set<string>;
+  /** Top-level shared records (SOUR/OBJE/NOTE) edited in their own right — a
+   *  Tools fix, say — with no owning person/family to carry the change. */
+  changedRecordIds: Set<string>;
   loadedPersonIds: Set<string>;
   loadedFamilyIds: Set<string>;
   personSnapshots: Map<string, GedNode>;
   familySnapshots: Map<string, GedNode>;
+  recordSnapshots: Map<string, SharedRecordSnapshot>;
   /** True for an individual whose events this save may reorder — see
    *  {@link buildEditSaveRecords}. */
   isSortEligible: (xref: string) => boolean;
@@ -86,12 +91,12 @@ export interface SavePreview {
 export function buildSavePreview(input: SavePreviewInput): SavePreview | null {
   const {
     main, mainFileName, compare, decisions, matches, importRequests,
-    confirmedCount, importCount, changedPersonIds, changedFamilyIds,
-    loadedPersonIds, loadedFamilyIds, personSnapshots, familySnapshots,
+    confirmedCount, importCount, changedPersonIds, changedFamilyIds, changedRecordIds,
+    loadedPersonIds, loadedFamilyIds, personSnapshots, familySnapshots, recordSnapshots,
     isSortEligible, now, t, nameOf,
   } = input;
 
-  const changedCount = changedPersonIds.size + changedFamilyIds.size;
+  const changedCount = changedPersonIds.size + changedFamilyIds.size + changedRecordIds.size;
   // A merge needs an incoming file actually loaded, not merely decisions about one.
   const isMerge = (confirmedCount > 0 || importCount > 0) && !!compare;
   if (!isMerge && changedCount === 0) return null;
@@ -101,7 +106,7 @@ export function buildSavePreview(input: SavePreviewInput): SavePreview | null {
 
   const editReport = changedCount > 0
     ? enrichEditReport(
-        buildEditReport(changedPersonIds, changedFamilyIds, main, loadedPersonIds, loadedFamilyIds, personSnapshots, familySnapshots),
+        buildEditReport(changedPersonIds, changedFamilyIds, main, loadedPersonIds, loadedFamilyIds, personSnapshots, familySnapshots, changedRecordIds, recordSnapshots),
         main, personSnapshots, familySnapshots, t,
       )
     : null;

@@ -109,8 +109,9 @@ export interface ChangeReport {
   newFamilies: number;
   /** Display label per touched record id, for grouping the preview/report. */
   recordLabels: Record<string, string>;
-  /** Whether each touched record is an individual or a family. */
-  recordKinds: Record<string, "individual" | "family">;
+  /** Whether each touched record is an individual, a family, or a top-level
+   *  shared record (SOUR/OBJE/NOTE — edited on its own, e.g. by a Tools fix). */
+  recordKinds: Record<string, "individual" | "family" | "record">;
   /** Husband/wife (in that order) for each touched family record. */
   familySpouses: Record<string, FamilySpouseInfo[]>;
   /** Non-standard tags copied in from the incoming file, grouped by tag name,

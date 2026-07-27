@@ -1359,7 +1359,9 @@ describe("reshapeSources — citation placement", () => {
     expect(text).toContain("1 TITL The Windsor Star, 23 Jun 1998 - Newspapers.com");
     expect(text).toContain("1 PLAC Windsor, Ontario, Canada");
     expect(text).toContain("1 FILN 504323954");
-    expect(text).toContain("1 DATE 23 Jun 1998");
+    // The scraped date is rewritten in the file's own date format (its dates
+    // are uppercase month-word), not left in the citation's casing.
+    expect(text).toContain("1 DATE 23 JUN 1998");
     expect(text).toContain(`1 FILE ${url}`); // the clipping URL stays the media link
     expect(text).toMatch(/1 DEAT\n2 DATE 23 JUN 1998\n2 SOUR @S2@/); // relocated onto the death
   });
@@ -2139,6 +2141,43 @@ describe("Add Source parity (recognizeSourceUrl / applySiteSourceExtras)", () =>
     expect(text).toContain("1 DATE 1843-1909");
     expect(text).toContain("1 NAME Nadškofijski arhiv Ljubljana");
     expect(text).toContain("1 WWW https://data.matricula-online.eu/sl/slovenia/ljubljana/");
+  });
+
+  it("writes a fetched page date in the file's own date format", () => {
+    // A Google Books newspaper heading reports "Apr 12, 1979" — a shape this
+    // file (and the GEDCOM parser) doesn't read. It lands in the house style.
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 DATE 26 JUN 1912
+1 DEAT
+2 DATE 3 FEB 1985
+0 TRLR`);
+    const url = "https://www.google.com/books/edition/_/abcdef?gbpv=1";
+    const source = createSourceRecord(ds.records, { title: "The Windsor Star, Apr 12, 1979 - Google Books", url });
+    applySiteSourceExtras(ds.records, source, "googlebooks", url, { dateRange: "Apr 12, 1979" });
+    expect(serializeGedcom(ds.records)).toContain("1 DATE 12 APR 1979");
+  });
+
+  it("writes a fetched page date in a numeric file's format, ranges untouched", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 DATE 26.6.1912
+1 DEAT
+2 DATE 3.2.1985
+0 TRLR`);
+    const url = "https://www.google.com/books/edition/_/abcdef?gbpv=1";
+    const source = createSourceRecord(ds.records, { title: "The Windsor Star, Apr 12, 1979 - Google Books", url });
+    applySiteSourceExtras(ds.records, source, "googlebooks", url, { dateRange: "Apr 12, 1979" });
+    const other = createSourceRecord(ds.records, { title: "Matricula 04406 | Vodice", url: `${BOOK2}/?pg=05` });
+    applySiteSourceExtras(ds.records, other, "matricula", `${BOOK2}/?pg=05`, { dateRange: "1843-1909" });
+    const text = serializeGedcom(ds.records);
+    expect(text).toContain("1 DATE 12.4.1979");
+    // A register's year span is the user's shorthand, kept as written.
+    expect(text).toContain("1 DATE 1843-1909");
   });
 
   it("links no REPO when the file's sources don't hang off repositories", () => {

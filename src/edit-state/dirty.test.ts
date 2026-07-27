@@ -199,28 +199,39 @@ describe("computePatchApplyOps", () => {
 
   it("handles multiple patches of mixed types", () => {
     const patches: RecordPatch[] = [
-      { type: "record", id: "@S1@", before: null, after: node("SOUR") }, // skipped
+      { type: "record", id: "@S1@", before: null, after: node("SOUR") }, // redo of creation
       indiPatch("@I1@", null, edited),                                    // B: redo of creation
       famPatch("@F1@", original, null),                                   // A: redo of deletion
     ];
     const ops = computePatchApplyOps([...patches], "redo", noSnapshot, noRecord);
     expect(ops.dirty).toEqual([
+      { action: "add", kind: "record", id: "@S1@" },
       { action: "add", kind: "individual", id: "@I1@" },
       { action: "remove", kind: "family", id: "@F1@" },
     ]);
   });
 
-  it("record patch without owner emits no dirty ops", () => {
+  // An ownerless shared-record edit (a Tools fix rewriting a SOUR's DATE) is
+  // its own dirty subject — nothing else would mark the file unsaved.
+  it("record patch without owner dirties the record itself", () => {
     const patch: RecordPatch = { type: "record", id: "@S1@", before: node("SOUR"), after: node("SOUR", "v2") };
     const ops = computePatchApplyOps([patch], "undo", noSnapshot, noRecord);
-    expect(ops.dirty).toHaveLength(0);
+    expect(ops.dirty).toEqual([{ action: "add", kind: "record", id: "@S1@" }]);
     expect(ops.snapshots).toHaveLength(0);
   });
 
-  it("record patch going away (undo of creation) drops its snapshot, no dirty ops", () => {
+  it("undoing an ownerless record edit back to its snapshot clears it", () => {
+    const orig = node("SOUR", "orig");
+    const patch: RecordPatch = { type: "record", id: "@S1@", before: orig, after: node("SOUR", "edited") };
+    const ops = computePatchApplyOps([patch], "undo", () => orig, () => node("SOUR", "orig"));
+    expect(ops.dirty).toEqual([{ action: "remove", kind: "record", id: "@S1@" }]);
+    expect(ops.snapshots).toEqual([{ action: "delete", kind: "record", id: "@S1@" }]);
+  });
+
+  it("record patch going away (undo of creation) drops its snapshot and dirty flag", () => {
     const patch: RecordPatch = { type: "record", id: "@S1@", before: null, after: node("SOUR") };
     const ops = computePatchApplyOps([patch], "undo", noSnapshot, noRecord);
-    expect(ops.dirty).toHaveLength(0);
+    expect(ops.dirty).toEqual([{ action: "remove", kind: "record", id: "@S1@" }]);
     expect(ops.snapshots).toEqual([{ action: "delete", kind: "record", id: "@S1@" }]);
   });
 

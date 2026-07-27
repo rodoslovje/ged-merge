@@ -9,7 +9,7 @@ import { cloneRaw, type RecordPatch } from "../ui/historyTypes";
 /**
  * One-button repair for the "Unparseable dates" structural-check category.
  *
- * Conservative and deterministic. It repairs two unambiguous cases:
+ * Conservative and deterministic. It repairs three unambiguous cases:
  *
  *  - **Spaced numeric** — a value that fails to parse today but parses cleanly
  *    once stray whitespace around the numeric separators is removed, e.g.
@@ -20,6 +20,10 @@ import { cloneRaw, type RecordPatch } from "../ui/historyTypes";
  *  - **Comma year-pair** — two ascending bare years like `1951, 1960`, read as
  *    the period the user wrote in shorthand and re-rendered as the formal
  *    `FROM 1951 TO 1960`.
+ *  - **Comma'd month-word date** — the US written form `Apr 12, 1979` (also
+ *    `12 Apr, 1979`, `Sep, 1979`). The month word already pins the month, so
+ *    dropping the comma leaves nothing to guess; the result is re-rendered in
+ *    the file's own format like the spaced-numeric case.
  *
  * Anything still ambiguous after these (e.g. free text, or a comma pair that
  * isn't two plausible ascending years) is left untouched, so the fix can't
@@ -40,7 +44,7 @@ export interface DateFixContext {
   sourceOrder: DateOrder;
 }
 
-export function dateFixContext(dataset: Dataset): DateFixContext {
+export function dateFixContext(dataset: { records: GedNode[] }): DateFixContext {
   const { dateValues } = collectLayoutValues(dataset);
   const profile = inferDateProfile(dateValues);
   const sourceOrder = detectSourceOrder(dateValues, profile.numeric?.order);
@@ -98,24 +102,49 @@ function isUnparseable(value: string): boolean {
 /**
  * The safely-repaired form of an unparseable date, or `undefined` if it can't be
  * fixed without guessing. Collapses whitespace hugging a `.`/`/`/`-` separator
- * (the spaced-numeric case); if that now parses, re-renders it in the file's
- * format. Anything else is left alone.
+ * (the spaced-numeric case) and/or drops commas (the `Apr 12, 1979` case); the
+ * first cleanup that parses is re-rendered in the file's format. Anything else
+ * is left alone.
  */
 export function proposeDateFix(value: string, ctx: DateFixContext): string | undefined {
   if (!isUnparseable(value)) return undefined;
 
   // A comma-separated year pair ("1951, 1960") is shorthand for a period; render
-  // it as the formal FROM…TO form before falling back to the whitespace fix.
+  // it as the formal FROM…TO form before falling back to the cleanups below.
   const period = proposeYearPeriod(value);
   if (period) return period;
 
-  const collapsed = value.replace(/\s*([./-])\s*/g, "$1").trim();
-  if (collapsed === value.trim() || collapsed === "") return undefined; // nothing changed
-  if (isUnparseable(collapsed)) return undefined; // still unparseable → not a safe fix
-  const formatted = normalizeDateString(collapsed, ctx.profile, ctx.sourceOrder);
-  if (!formatted || formatted === value.trim()) return undefined;
-  return formatted;
+  for (const cleaned of cleanupCandidates(value)) {
+    if (isUnparseable(cleaned)) continue; // still unparseable → not a safe fix
+    const formatted = normalizeDateString(cleaned, ctx.profile, ctx.sourceOrder);
+    if (!formatted || formatted === value.trim()) continue;
+    return formatted;
+  }
+  return undefined;
 }
+
+/**
+ * Punctuation cleanups to try, in order, on an unparseable value: whitespace
+ * hugging a `.`/`/`/`-` separator removed, commas dropped, then both. Each is
+ * only ever *accepted* when the result parses, so a cleanup can't turn free text
+ * into a date it doesn't say — "Sep, 1979" becomes "SEP 1979", while
+ * "1979, Ljubljana" stays unparseable and is left alone.
+ */
+function cleanupCandidates(value: string): string[] {
+  const trimmed = value.trim();
+  const out: string[] = [];
+  for (const c of [
+    collapseSeparators(trimmed),
+    dropCommas(trimmed),
+    dropCommas(collapseSeparators(trimmed)),
+  ]) {
+    if (c !== "" && c !== trimmed && !out.includes(c)) out.push(c);
+  }
+  return out;
+}
+
+const collapseSeparators = (s: string) => s.replace(/\s*([./-])\s*/g, "$1").trim();
+const dropCommas = (s: string) => s.replace(/,/g, " ").replace(/\s+/g, " ").trim();
 
 /**
  * A comma-separated pair of bare years ("1951, 1960"), read as a period the user

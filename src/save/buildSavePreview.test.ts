@@ -34,10 +34,12 @@ function input(main: Dataset, over: Partial<SavePreviewInput> = {}): SavePreview
     importCount: 0,
     changedPersonIds: new Set(),
     changedFamilyIds: new Set(),
+    changedRecordIds: new Set(),
     loadedPersonIds: new Set(["@I1@", "@I2@"]),
     loadedFamilyIds: new Set(),
     personSnapshots: new Map(),
     familySnapshots: new Map(),
+    recordSnapshots: new Map(),
     isSortEligible: () => false,
     now: NOW,
     t: tr,
@@ -107,6 +109,32 @@ describe("edit-only save", () => {
     const out = buildSavePreview(editInput(ds))!;
     const tags = out.records.find((r) => r.xref === "@I1@")!.children.map((c) => c.tag);
     expect(tags.filter((t) => t === "BIRT" || t === "DEAT")).toEqual(["DEAT", "BIRT"]);
+  });
+
+  // A Tools fix can touch only shared records (repairing the DATE on a batch of
+  // SOUR records, say). Those are still unsaved changes: the save must be
+  // offered, and the report must name what changed.
+  it("offers a save for shared-record edits alone", () => {
+    const SOURCED = wrap("0 @S1@ SOUR\n1 TITL Krstna knjiga\n1 DATA\n2 DATE Apr 12, 1979\n");
+    const ds = dataset(SOURCED);
+    const snapshot = dataset(SOURCED).records.find((r) => r.xref === "@S1@")!;
+    ds.records.find((r) => r.xref === "@S1@")!.children[1].children[0].value = "12 APR 1979";
+
+    const out = buildSavePreview(
+      input(ds, {
+        changedRecordIds: new Set(["@S1@"]),
+        recordSnapshots: new Map([["@S1@", { value: snapshot }]]),
+        loadedPersonIds: new Set(),
+      }),
+    )!;
+    expect(out).not.toBeNull();
+    expect(out.report.recordKinds["@S1@"]).toBe("record");
+    expect(out.report.recordLabels["@S1@"]).toBe("Krstna knjiga");
+    expect(out.report.changes).toContainEqual({
+      recordId: "@S1@", field: "DATA.DATE", from: "Apr 12, 1979", to: "12 APR 1979", action: "incoming",
+    });
+    // The repaired value reaches the file that would be written.
+    expect(serializeGedcom(out.records)).toContain("12 APR 1979");
   });
 });
 
