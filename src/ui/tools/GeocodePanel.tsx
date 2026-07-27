@@ -105,6 +105,11 @@ const OVERPASS_ENDPOINTS = ["https://overpass-api.de/api/interpreter", "https://
 const GURS_NASELJA_URL =
   "https://ipi.eprostor.gov.si/wfs-si-gurs-rpe/ogc/features/collections/SI.GURS.RPE:NASELJA/items?f=application%2Fgeo%2Bjson&limit=10000";
 
+/** RPE municipalities — the id→name table the settlements join to, so a
+ *  candidate can name its občina. Small next to the settlements (212 rows). */
+const GURS_OBCINE_URL =
+  "https://ipi.eprostor.gov.si/wfs-si-gurs-rpe/ogc/features/collections/SI.GURS.RPE:OBCINE/items?f=application%2Fgeo%2Bjson&limit=1000";
+
 /** Every place node in the country: settlements down to isolated dwellings. */
 function overpassQuery(code: string): string {
   return `[out:json][timeout:180];area["ISO3166-1"="${code}"][admin_level=2]->.a;node(area.a)[place~"^(city|town|village|hamlet|suburb|locality|isolated_dwelling)$"];out qt;`;
@@ -162,7 +167,7 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
   const runImport = (
     buffer: ArrayBuffer,
     fileName: string,
-    extra?: { format: "overpass"; country: string } | { format: "rpe" },
+    extra?: { format: "overpass"; country: string } | { format: "rpe"; obcine?: ArrayBuffer },
   ) => {
     // Only the GeoNames dump path reports parse progress by chunk; the Overpass
     // and GURS payloads are converted in one shot, so leave their total at 0 and
@@ -190,7 +195,7 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
     worker.onerror = () => fail(t("tools.geocode.importFailed"));
     worker.onmessageerror = () => fail(t("tools.geocode.importFailed"));
     const req: GeoWorkerRequest = { type: "importGazetteer", requestId: 1, buffer, fileName, ...extra };
-    worker.postMessage(req, [buffer]);
+    worker.postMessage(req, req.obcine ? [buffer, req.obcine] : [buffer]);
   };
 
   const importFile = async (file: File) => {
@@ -252,7 +257,19 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
         return;
       }
       const buffer = await readWithProgress(res, (done, total) => setImportState({ phase: "running", done, total }));
-      runImport(buffer, "SI.gurs-naselja.json", { format: "rpe" });
+      // The municipalities are a separate collection (212 rows) joined by
+      // EID_OBCINA — what lets two settlements of one name be told apart
+      // ("Soteska (Kamnik)" vs "Soteska (Dolenjske Toplice)"). Failing to get
+      // it is not fatal: the settlements are still worth importing without it.
+      let obcine: ArrayBuffer | undefined;
+      try {
+        const oRes = await fetch(GURS_OBCINE_URL, { signal: abort.signal });
+        if (oRes.ok) obcine = await oRes.arrayBuffer();
+      } catch (e) {
+        if (abort.signal.aborted) return;
+        void e;
+      }
+      runImport(buffer, "SI.gurs-naselja.json", { format: "rpe", ...(obcine ? { obcine } : {}) });
     } catch (e) {
       if (abort.signal.aborted) return;
       void e;

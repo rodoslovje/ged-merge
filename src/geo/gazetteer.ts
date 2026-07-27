@@ -24,6 +24,11 @@ export interface GazEntry {
   country: string;
   /** Admin1 code (region), informational only. */
   admin1: string;
+  /** The administrative parent the source register names — for GURS, the
+   *  občina. Purely for telling same-named settlements apart: Slovenia has a
+   *  Soteska in Kamnik and another in Dolenjske Toplice, and the name alone
+   *  matches both perfectly. Absent for sources that carry no such field. */
+  admin?: string;
   population: number;
   /** Storage code of the official national register this entry came from, e.g.
    *  {@link GURS_REGISTER}; absent for crowd-sourced or aggregated gazetteers
@@ -118,9 +123,26 @@ export function overpassToEntries(data: OverpassJson, country: string): GazEntry
  *  geometry at all and expose D96/TM easting/northing as properties. */
 export interface RpeNaseljaJson {
   features?: {
-    properties?: { NAZIV?: unknown; NAZIV_DJ?: unknown } | null;
+    properties?: { NAZIV?: unknown; NAZIV_DJ?: unknown; EID_OBCINA?: unknown } | null;
     geometry?: { type?: unknown; coordinates?: unknown } | null;
   }[];
+}
+
+/** The RPE municipalities collection — the id→name table `NASELJA` joins to.
+ *  Its own geometry is ignored; only the two properties matter. */
+export interface RpeObcineJson {
+  features?: { properties?: { EID_OBCINA?: unknown; NAZIV?: unknown } | null }[];
+}
+
+/** `EID_OBCINA` → municipality name, for {@link rpeNaseljaToEntries} to join on. */
+export function rpeObcinaNames(data: RpeObcineJson): Map<string, string> {
+  const names = new Map<string, string>();
+  for (const feature of data.features ?? []) {
+    const id = feature.properties?.EID_OBCINA;
+    const name = feature.properties?.NAZIV;
+    if (typeof id === "string" && typeof name === "string" && name.trim()) names.set(id, name.trim());
+  }
+  return names;
 }
 
 /** A closed lon/lat ring. */
@@ -204,7 +226,7 @@ function outerRings(type: unknown, coordinates: unknown): Ring[] {
  *
  * Data: Geodetska uprava Republike Slovenije, CC BY 4.0.
  */
-export function rpeNaseljaToEntries(data: RpeNaseljaJson): GazEntry[] {
+export function rpeNaseljaToEntries(data: RpeNaseljaJson, obcine?: ReadonlyMap<string, string>): GazEntry[] {
   const entries: GazEntry[] = [];
   for (const feature of data.features ?? []) {
     const name = typeof feature.properties?.NAZIV === "string" ? feature.properties.NAZIV.trim() : "";
@@ -217,6 +239,8 @@ export function rpeNaseljaToEntries(data: RpeNaseljaJson): GazEntry[] {
       if (c.area > best.area) best = c;
     }
     const bilingual = typeof feature.properties?.NAZIV_DJ === "string" ? feature.properties.NAZIV_DJ.trim() : "";
+    const obcinaId = feature.properties?.EID_OBCINA;
+    const admin = typeof obcinaId === "string" ? obcine?.get(obcinaId) : undefined;
     entries.push({
       name,
       ascii: "",
@@ -228,6 +252,7 @@ export function rpeNaseljaToEntries(data: RpeNaseljaJson): GazEntry[] {
       admin1: "",
       population: 0,
       register: GURS_REGISTER,
+      ...(admin ? { admin } : {}),
     });
   }
   return entries;
@@ -289,6 +314,10 @@ const MAX_CANDIDATES = 6;
 
 /** Same-named entries closer than this (degrees, ≈5 km at Slovenian latitudes)
  *  are the same settlement described by two gazetteers, not two places. */
+/** How far a same-named settlement in the wrong municipality is pushed down —
+ *  comfortably past the bulk-accept ambiguity gap, without pretending the name
+ *  matched any less well than it did. */
+const ADMIN_MISMATCH = 0.85;
 const DUPLICATE_DEG = 0.05;
 
 /**
@@ -347,6 +376,20 @@ export function lookupPlace(index: GazetteerIndex, rawPlace: string): GazCandida
     score = Math.min(1, score + Math.min(e.population, 500_000) / 500_000 / 50);
     candidates.push({ entry: e, score });
   }
+  // Same name, different municipality — Slovenia has a Soteska in Kamnik and
+  // another in Dolenjske Toplice, and the name alone matches both perfectly. When
+  // the place itself names one of those parents, the others are demoted enough to
+  // clear the bulk-accept ambiguity gap; when it names none, the tie stands and
+  // the researcher decides. Only ever applied downward, so a match never invents
+  // confidence a plain name did not earn.
+  const parents = new Set(
+    components.jurisdiction.slice(1).map(foldToken).filter(Boolean),
+  );
+  const matchesParent = (e: GazEntry) => !!e.admin && parents.has(foldToken(e.admin));
+  if (parents.size && candidates.some((c) => matchesParent(c.entry))) {
+    for (const c of candidates) if (!matchesParent(c.entry)) c.score *= ADMIN_MISMATCH;
+  }
+
   candidates.sort(
     (a, b) =>
       b.score - a.score ||

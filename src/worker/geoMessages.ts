@@ -16,6 +16,10 @@ export interface GeoImportRequest {
   /** Overpass only: the country code the entries are stored under.
    *  ("rpe" is Slovenia by definition and always stores under "SI".) */
   country?: string;
+  /** "rpe" only: the RPE municipalities collection, the id→name table the
+   *  settlements join to so each one can name its občina. Optional — a settled
+   *  gazetteer without it simply carries no municipality. */
+  obcine?: ArrayBuffer;
 }
 
 export type GeoWorkerRequest = GeoImportRequest;

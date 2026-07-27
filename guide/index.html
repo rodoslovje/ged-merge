@@ -884,7 +884,10 @@
               the online-lookups opt-in in <a href="#workspace">Settings › Advanced</a>); with
               <strong>Download Slovenia (GURS)</strong> — all 6035 settlements from Slovenia's national register of
               spatial units, the authoritative choice for Slovenian research, and it brings the bilingual Italian and
-              Hungarian names with it, so <em>Isola</em> finds <em>Izola</em>. It is listed on its own as
+              Hungarian names with it, so <em>Isola</em> finds <em>Izola</em>. Each settlement carries its <em>občina</em>, which is what tells the two <em>Soteska</em> apart —
+              <em>Soteska (Kamnik)</em> and <em>Soteska (Dolenjske Toplice)</em> both match the name perfectly, and only the
+              municipality separates them; when your place names the municipality too, the right one wins outright. It is
+              listed on its own as
               <span class="gm-data">SI-GURS</span>, so it sits <em>alongside</em> an OpenStreetMap or GeoNames
               <span class="gm-data">SI</span> import instead of replacing it — the official settlements and the hamlets
               only OpenStreetMap knows then both count, and a settlement both describe is offered once, at its official
@@ -905,12 +908,12 @@
               <strong>rename</strong> the raw place value (all occurrences at once — with an optional place + address
               split, and the correction is rescanned for matches immediately). What the offline gazetteer can't resolve,
               two per-row online searches cover, both behind the same online opt-in and only on the button click, with
-              their results joining the row's candidates and map pins. <strong>Search online</strong> uses OpenStreetMap
+              their results joining the row's candidates and map pins. <strong>Search OpenStreetMap</strong> uses OpenStreetMap
               (Nominatim) — best for street addresses. <strong>Search address register (GURS)</strong> appears on values that name a
               house number (<em>Šentvid pri Stični 23</em>) and looks it up in Slovenia's official register, giving the
               coordinate of that building rather than the middle of the settlement. When an old record keeps more than one
               number because the numbering changed (<em>Hafnarjeva pot 21a / 53</em>), every number is looked up and both
-              houses are offered — the record does not say which is which, so the choice is yours. <strong>Search GOV</strong> uses the
+              houses are offered — the record does not say which is which, so the choice is yours. <strong>Search the Genealogical Gazetteer (GOV)</strong> uses the
               <a href="https://gov.genealogy.net" target="_blank" rel="noreferrer">Genealogical Gazetteer (GOV)</a>, whose
               entries carry historical, multilingual place names and a stable GOV id; accepting a GOV match also writes
               that id into the file as <code>_GOV</code> (a sibling of <code>MAP</code>), a durable link back to the GOV

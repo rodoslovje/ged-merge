@@ -483,6 +483,9 @@ export function GeocodePlaceRow({
                       country code, which is all a crowd-sourced entry knows. */}
                   <span className="gm-data">{cand.entry.register ?? cand.entry.country}</span>
                   <span className="tools-geo-cand-name">{cand.entry.name}</span>
+                  {/* The municipality the register files it under — the only
+                      thing that tells two same-named settlements apart. */}
+                  {cand.entry.admin && <span className="tools-geo-count">({cand.entry.admin})</span>}
                   <span className="gm-data">
                     {cand.entry.population > 0 && `· ${t("tools.geocode.population", { count: cand.entry.population })} · `}
                     {`${cand.entry.lat.toFixed(4)}, ${cand.entry.lon.toFixed(4)}`}
@@ -547,6 +550,24 @@ export function GeocodePlaceRow({
                 action behind the online opt-in: the text leaves the device. */}
             {appSettings.allowLinkFetch && (
               <li className="tools-geo-online">
+                {/* Only for a value that names a house number — the register
+                    resolves houses, not settlements. */}
+                {rnQueries.length > 0 && (
+                  <>
+                    <button
+                      className="tools-issue-link"
+                      disabled={rn.state === "loading"}
+                      title={t("tools.geocode.rn.tooltip")}
+                      onClick={runRnSearch}
+                    >
+                      {rn.state === "loading" ? t("tools.geocode.rn.searching") : t("tools.geocode.rn.search")}
+                    </button>
+                    {rn.state === "error" && <span className="tools-geo-online-note">{t("tools.geocode.rn.error")}</span>}
+                    {rn.state === "done" && !rn.results.length && (
+                      <span className="tools-geo-online-note">{t("tools.geocode.rn.none")}</span>
+                    )}
+                  </>
+                )}
                 <button
                   className="tools-issue-link"
                   disabled={online.state === "loading"}
@@ -570,24 +591,6 @@ export function GeocodePlaceRow({
                 {gov.state === "error" && <span className="tools-geo-online-note">{t("tools.geocode.gov.error")}</span>}
                 {gov.state === "done" && !gov.results.length && (
                   <span className="tools-geo-online-note">{t("tools.geocode.gov.none")}</span>
-                )}
-                {/* Only for a value that names a house number — the register
-                    resolves houses, not settlements. */}
-                {rnQueries.length > 0 && (
-                  <>
-                    <button
-                      className="tools-issue-link"
-                      disabled={rn.state === "loading"}
-                      title={t("tools.geocode.rn.tooltip")}
-                      onClick={runRnSearch}
-                    >
-                      {rn.state === "loading" ? t("tools.geocode.rn.searching") : t("tools.geocode.rn.search")}
-                    </button>
-                    {rn.state === "error" && <span className="tools-geo-online-note">{t("tools.geocode.rn.error")}</span>}
-                    {rn.state === "done" && !rn.results.length && (
-                      <span className="tools-geo-online-note">{t("tools.geocode.rn.none")}</span>
-                    )}
-                  </>
                 )}
               </li>
             )}

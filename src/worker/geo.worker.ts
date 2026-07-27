@@ -3,9 +3,11 @@ import {
   overpassToEntries,
   parseGeoNamesLine,
   rpeNaseljaToEntries,
+  rpeObcinaNames,
   type GazEntry,
   type OverpassJson,
   type RpeNaseljaJson,
+  type RpeObcineJson,
 } from "../geo/gazetteer";
 import { extractZipTxt } from "../geo/zip";
 import { putCountry } from "../persist/geoDb";
@@ -51,7 +53,13 @@ self.onmessage = async (event: MessageEvent<GeoWorkerRequest>) => {
   const { requestId } = msg;
   try {
     if (msg.format === "rpe") {
-      const entries = rpeNaseljaToEntries(JSON.parse(new TextDecoder().decode(msg.buffer)) as RpeNaseljaJson);
+      const obcine = msg.obcine
+        ? rpeObcinaNames(JSON.parse(new TextDecoder().decode(msg.obcine)) as RpeObcineJson)
+        : undefined;
+      const entries = rpeNaseljaToEntries(
+        JSON.parse(new TextDecoder().decode(msg.buffer)) as RpeNaseljaJson,
+        obcine,
+      );
       if (!entries.length) throw new Error("no settlements in the GURS result");
       // Stored under its own key so it sits alongside a GeoNames/OpenStreetMap
       // "SI" import instead of replacing it — the two complement each other
