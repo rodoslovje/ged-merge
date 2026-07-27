@@ -467,6 +467,11 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
       </div>
       <p className="tools-intro">{t("tools.geocode.intro")}</p>
 
+      {/* First, because it is the only thing here that is an outright error:
+          coordinates that contradict each other, which no lookup below can
+          resolve — only the researcher can say which is right. */}
+      <CoordConflicts dataset={dataset} />
+
       <div className="tools-geo-gazetteer">
         {countries.length === 0 && <p className="tools-geo-empty">{t("tools.geocode.noGazetteer")}</p>}
         {countries.length > 0 && (
@@ -629,7 +634,6 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
           whose PLAC names only the settlement. Renders nothing when there are
           none, so files without ADDR lines see no change. */}
       <AddressCoordsSection dataset={dataset} onApply={onApplyAddressCoords} onMove={onMovePlaceForAddresses} />
-      <CoordConflicts dataset={dataset} />
     </div>
   );
 }
