@@ -5034,6 +5034,12 @@ kbd {
 
 @media (max-width: 720px) {
   .shortcuts-grid { grid-template-columns: 1fr; }
+  /* Narrow: the coordinate popover stacks map over candidates again. */
+  .edit-coord-pop { width: min(420px, 92vw); }
+  .edit-coord-body { flex-direction: column; }
+  .edit-coord-map,
+  .edit-coord-side { flex: 1 1 auto; width: 100%; max-height: none; }
+  .edit-coord-head .edit-coord-manual { margin-left: 0; max-width: none; }
 }
 
 /* --- Add Source dialog --- */
@@ -5426,29 +5432,37 @@ kbd {
   overflow: hidden;
   background: var(--bg);
 }
-/* Leaflet inherits the page look: app font, themed water, themed controls. */
-.map-canvas.leaflet-container {
+/* Leaflet inherits the page look: app font, themed water, themed controls.
+   Every map the app draws — the full Places map and the small place maps —
+   gets the same treatment, so their controls and tooltips match. */
+.map-canvas.leaflet-container,
+.tools-geo-minimap.leaflet-container {
   font: inherit;
   background: var(--bg);
 }
-.map-canvas .leaflet-control-attribution {
+.map-canvas .leaflet-control-attribution,
+.tools-geo-minimap .leaflet-control-attribution {
   background: color-mix(in srgb, var(--panel) 85%, transparent);
   color: var(--muted);
   font-size: 10.5px;
 }
-.map-canvas .leaflet-control-attribution a {
+.map-canvas .leaflet-control-attribution a,
+.tools-geo-minimap .leaflet-control-attribution a {
   color: var(--accent);
 }
-.map-canvas .leaflet-bar a {
+.map-canvas .leaflet-bar a,
+.tools-geo-minimap .leaflet-bar a {
   background: var(--panel);
   color: var(--text);
   border-bottom-color: var(--border);
 }
-.map-canvas .leaflet-bar a.leaflet-disabled {
+.map-canvas .leaflet-bar a.leaflet-disabled,
+.tools-geo-minimap .leaflet-bar a.leaflet-disabled {
   background: var(--panel-2);
   color: var(--faint);
 }
-.map-canvas .leaflet-tooltip {
+.map-canvas .leaflet-tooltip,
+.tools-geo-minimap .leaflet-tooltip {
   background: var(--panel);
   color: var(--text);
   border: 1px solid var(--border);
@@ -6928,15 +6942,28 @@ kbd {
    is where coordinates live" rather than "this one is placed". */
 .edit-event-coord--empty { opacity: 0.28; filter: grayscale(1); }
 .edit-event-coord--empty:hover { opacity: 0.7; filter: grayscale(0.3); }
+/* Two-column popover: the value being edited across the top, then the map to
+   pick on beside the candidates to pick from — a stacked layout pushed the map
+   below the fold behind whatever the search returned. */
 .edit-coord-pop {
-  position: absolute; top: 100%; left: 0; z-index: 30; min-width: 260px; max-width: 340px;
-  display: flex; flex-direction: column; gap: 6px;
+  position: absolute; top: 100%; left: 0; z-index: 30; width: min(720px, 92vw);
+  display: flex; flex-direction: column; gap: 8px;
   padding: 8px 10px; margin-top: 4px;
   background: var(--panel-2); border: 1px solid var(--border);
   border-radius: var(--radius); box-shadow: 0 6px 20px rgb(0 0 0 / 0.28);
   font-size: 0.85rem; font-weight: 400;
 }
-.edit-coord-current { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.edit-coord-pop--right { left: auto; right: 0; }
+.edit-coord-head { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; }
+.edit-coord-body { display: flex; align-items: stretch; gap: 10px; }
+.edit-coord-map { flex: 1 1 58%; min-width: 0; }
+.edit-coord-map .tools-geo-minimap { height: 260px; max-width: none; margin: 0; }
+.edit-coord-side {
+  flex: 1 1 42%; min-width: 0; max-height: 260px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.edit-coord-current { display: flex; align-items: center; gap: 8px; }
+.edit-coord-head .edit-coord-manual { flex: 1 1 220px; max-width: 320px; margin-left: auto; }
 .edit-coord-note { color: var(--muted); margin: 0; }
 .edit-coord-results { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .edit-coord-results li { display: flex; flex-direction: column; }

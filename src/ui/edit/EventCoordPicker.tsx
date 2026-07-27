@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { GeoCoord } from "../../gedcom/types";
 import { countryCode } from "../../gedcom/countryCode";
@@ -63,6 +63,9 @@ export function EventCoordPicker({
   const [rn, setRn] = useState<Search<RnResult>>(IDLE);
   const [osm, setOsm] = useState<Search<NominatimResult>>(IDLE);
   const [draft, setDraft] = useState("");
+  /** Anchored to the pin's right edge when the panel would otherwise run off
+   *  the window — an event near the right margin is the common case. */
+  const [alignRight, setAlignRight] = useState(false);
   const boxRef = useRef<HTMLDivElement | null>(null);
 
   const queries = useMemo(() => rnQueriesFrom(place || undefined, address || undefined), [place, address]);
@@ -74,6 +77,13 @@ export function EventCoordPicker({
   const draftCoord = parseCoordInput(draft);
   /** One coordinate, as the panel and the pin panels print it. */
   const at = (c: GeoCoord) => `${c.lat.toFixed(5)}, ${c.lon.toFixed(5)}`;
+
+  useLayoutEffect(() => {
+    if (!open || !boxRef.current) return;
+    const rect = boxRef.current.getBoundingClientRect();
+    const width = Math.min(720, window.innerWidth * 0.92);
+    setAlignRight(rect.left + width > window.innerWidth - 12);
+  }, [open]);
 
   // Close on Escape or a click elsewhere, like the other inline Edit pickers.
   useEffect(() => {
@@ -198,123 +208,140 @@ export function EventCoordPicker({
         📍
       </button>
       {open && (
-        <div className="edit-coord-pop">
-          {coord && (
-            <div className="edit-coord-current">
-              <span className="gm-data">
-                {coord.lat.toFixed(5)}, {coord.lon.toFixed(5)}
-              </span>
-              <button type="button" className="tools-issue-link" onClick={() => { onClear(); setOpen(false); }}>
-                {t("event.coord.clear")}
-              </button>
-            </div>
-          )}
-
-          {fromFile.length > 0 && (
-            <ul className="edit-coord-results">
-              {fromFile.map((f, i) => (
-                <li key={`file-${i}`}>
-                  <button type="button" className="tools-issue-link" onClick={() => take(f.coord)}>
-                    {f.label}
-                  </button>
-                  <span className="gm-data">{at(f.coord)}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {settings.allowLinkFetch ? (
-            <div className="edit-coord-actions">
-              {queries.length > 0 && (
-                <button type="button" className="tools-issue-link" disabled={busy} onClick={runRegister}>
-                  {rn.state === "loading" ? t("tools.geocode.rn.searching") : t("tools.geocode.rn.search")}
+        <div className={"edit-coord-pop" + (alignRight ? " edit-coord-pop--right" : "")}>
+          {/* Head: what the event carries now, and the manual entry that can
+              replace it — the two things that act on the value itself. */}
+          <div className="edit-coord-head">
+            {coord && (
+              <div className="edit-coord-current">
+                <span className="gm-data">
+                  {coord.lat.toFixed(5)}, {coord.lon.toFixed(5)}
+                </span>
+                <button type="button" className="tools-issue-link" onClick={() => { onClear(); setOpen(false); }}>
+                  {t("event.coord.clear")}
                 </button>
-              )}
-              <button type="button" className="tools-issue-link" disabled={busy} onClick={runOnline}>
-                {osm.state === "loading" ? t("tools.geocode.online.searching") : t("tools.geocode.online.search")}
+              </div>
+            )}
+            <div className="edit-coord-manual">
+              <input
+                type="text"
+                value={draft}
+                placeholder={t("event.coord.manualPlaceholder")}
+                title={t("event.coord.manual")}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && draftCoord) {
+                    e.preventDefault();
+                    take(draftCoord);
+                  }
+                }}
+              />
+              <button
+                type="button"
+                className="tools-issue-link"
+                disabled={!draftCoord}
+                onClick={() => draftCoord && take(draftCoord)}
+              >
+                {t("event.coord.set")}
               </button>
             </div>
-          ) : (
-            <p className="edit-coord-note">{t("tools.geocode.downloadNeedsOptIn")}</p>
-          )}
-          {rn.state === "error" && <p className="edit-coord-note">{t("tools.geocode.rn.error")}</p>}
-          {rn.state === "done" && !rn.results.length && <p className="edit-coord-note">{t("tools.geocode.rn.none")}</p>}
-          {osm.state === "error" && <p className="edit-coord-note">{t("tools.geocode.online.error")}</p>}
-          {osm.state === "done" && !osm.results.length && <p className="edit-coord-note">{t("tools.geocode.online.none")}</p>}
-          {/* Why the register isn't on offer: outside Slovenia it cannot help,
-              and inside it needs a house number to look up. */}
-          {settings.allowLinkFetch && !queries.length && (
-            <p className="edit-coord-note">
-              {inSlovenia ? t("event.coord.noHouseNumber") : t("event.coord.notSlovenia")}
-            </p>
-          )}
+          </div>
 
-          {(rn.results.length > 0 || osm.results.length > 0) && (
-            <ul className="edit-coord-results">
-              {rn.results.map((r, i) => (
-                <li key={`rn-${i}`}>
-                  <button type="button" className="tools-issue-link" title={r.label} onClick={() => take(r.coord)}>
-                    {r.label}
+          {/* Body: the map to pick on, and the candidates to pick from. */}
+          <div className="edit-coord-body">
+            {/* Candidate pins are clickable, and a click on the background fills
+                the manual field rather than writing straight away — in Edit a
+                pick is a file change, so it stays one deliberate confirmation. */}
+            {(pins.length > 0 || coord) && (
+              <Suspense fallback={<div className="edit-coord-map" />}>
+                <div className="edit-coord-map">
+                  <MiniPlaceMap
+                    pins={pins}
+                    title={t("event.coord.mapHint")}
+                    // Keyed on the found coordinates, so each new result set
+                    // re-frames the map around all of them — a renumbered house
+                    // can be two addresses a kilometre apart. The typed draft is
+                    // deliberately left out: re-fitting on every keystroke would
+                    // make the map jump while someone is still typing.
+                    fitKey={
+                      [...rn.results, ...osm.results].map((r) => `${r.coord.lat},${r.coord.lon}`).join("|") ||
+                      `${place} ${address}`
+                    }
+                    onPickCoord={(c) => setDraft(`${c.lat.toFixed(5)}, ${c.lon.toFixed(5)}`)}
+                  />
+                </div>
+              </Suspense>
+            )}
+
+            <div className="edit-coord-side">
+              {fromFile.length > 0 && (
+                <ul className="edit-coord-results">
+                  {fromFile.map((f, i) => (
+                    <li key={`file-${i}`}>
+                      <button type="button" className="tools-issue-link" onClick={() => take(f.coord)}>
+                        {f.label}
+                      </button>
+                      <span className="gm-data">{at(f.coord)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {settings.allowLinkFetch ? (
+                <div className="edit-coord-actions">
+                  {queries.length > 0 && (
+                    <button type="button" className="tools-issue-link" disabled={busy} onClick={runRegister}>
+                      {rn.state === "loading" ? t("tools.geocode.rn.searching") : t("tools.geocode.rn.search")}
+                    </button>
+                  )}
+                  <button type="button" className="tools-issue-link" disabled={busy} onClick={runOnline}>
+                    {osm.state === "loading" ? t("tools.geocode.online.searching") : t("tools.geocode.online.search")}
                   </button>
-                  <span className="gm-data">
-                    {r.coord.lat.toFixed(5)}, {r.coord.lon.toFixed(5)} <span className="tools-reshape-badge official">GURS</span>
-                  </span>
-                </li>
-              ))}
-              {osm.results.map((r, i) => (
-                <li key={`osm-${i}`}>
-                  <button type="button" className="tools-issue-link" title={r.label} onClick={() => take(r.coord)}>
-                    {r.label}
-                  </button>
-                  <span className="gm-data">
-                    {r.coord.lat.toFixed(5)}, {r.coord.lon.toFixed(5)} <span className="tools-reshape-badge reuse">OSM</span>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
+                </div>
+              ) : (
+                <p className="edit-coord-note">{t("tools.geocode.downloadNeedsOptIn")}</p>
+              )}
+              {rn.state === "error" && <p className="edit-coord-note">{t("tools.geocode.rn.error")}</p>}
+              {rn.state === "done" && !rn.results.length && <p className="edit-coord-note">{t("tools.geocode.rn.none")}</p>}
+              {osm.state === "error" && <p className="edit-coord-note">{t("tools.geocode.online.error")}</p>}
+              {osm.state === "done" && !osm.results.length && (
+                <p className="edit-coord-note">{t("tools.geocode.online.none")}</p>
+              )}
+              {/* Why the register isn't on offer: outside Slovenia it cannot help,
+                  and inside it needs a house number to look up. */}
+              {settings.allowLinkFetch && !queries.length && (
+                <p className="edit-coord-note">
+                  {inSlovenia ? t("event.coord.noHouseNumber") : t("event.coord.notSlovenia")}
+                </p>
+              )}
 
-          {/* The map: candidate pins are clickable, and a click on the background
-              fills the manual field rather than writing straight away — in Edit
-              a pick is a file change, so it stays one deliberate confirmation. */}
-          {(pins.length > 0 || coord) && (
-            <Suspense fallback={<div className="edit-coord-map" />}>
-              <div className="edit-coord-map">
-                <MiniPlaceMap
-                  pins={pins}
-                  title={t("event.coord.mapHint")}
-                  // Keyed on the found coordinates, so each new result set
-                  // re-frames the map around all of them — a renumbered house
-                  // can be two addresses a kilometre apart. The typed draft is
-                  // deliberately left out: re-fitting on every keystroke would
-                  // make the map jump while someone is still typing.
-                  fitKey={
-                    [...rn.results, ...osm.results].map((r) => `${r.coord.lat},${r.coord.lon}`).join("|") ||
-                    `${place} ${address}`
-                  }
-                  onPickCoord={(c) => setDraft(`${c.lat.toFixed(5)}, ${c.lon.toFixed(5)}`)}
-                />
-              </div>
-            </Suspense>
-          )}
-
-          <div className="edit-coord-manual">
-            <input
-              type="text"
-              value={draft}
-              placeholder={t("event.coord.manualPlaceholder")}
-              title={t("event.coord.manual")}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && draftCoord) {
-                  e.preventDefault();
-                  take(draftCoord);
-                }
-              }}
-            />
-            <button type="button" className="tools-issue-link" disabled={!draftCoord} onClick={() => draftCoord && take(draftCoord)}>
-              {t("event.coord.set")}
-            </button>
+              {(rn.results.length > 0 || osm.results.length > 0) && (
+                <ul className="edit-coord-results">
+                  {rn.results.map((r, i) => (
+                    <li key={`rn-${i}`}>
+                      <button type="button" className="tools-issue-link" title={r.label} onClick={() => take(r.coord)}>
+                        {r.label}
+                      </button>
+                      <span className="gm-data">
+                        {r.coord.lat.toFixed(5)}, {r.coord.lon.toFixed(5)}{" "}
+                        <span className="tools-reshape-badge official">GURS</span>
+                      </span>
+                    </li>
+                  ))}
+                  {osm.results.map((r, i) => (
+                    <li key={`osm-${i}`}>
+                      <button type="button" className="tools-issue-link" title={r.label} onClick={() => take(r.coord)}>
+                        {r.label}
+                      </button>
+                      <span className="gm-data">
+                        {r.coord.lat.toFixed(5)}, {r.coord.lon.toFixed(5)}{" "}
+                        <span className="tools-reshape-badge reuse">OSM</span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </div>
         </div>
       )}

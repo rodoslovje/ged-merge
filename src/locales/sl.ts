@@ -1293,8 +1293,6 @@ export const sl = {
   "settings.display.kinship.hint": "Ko je nastavljena izhodiščna oseba, pri vsaki osebi prikaži sorodstveno razmerje do nje (npr. sin, bratranec) po vsej aplikaciji.",
   "settings.display.age": "Prikaži starosti",
   "settings.display.age.hint": "Prikaži starosti: za razponom let (ob smrti, za žive trenutno starost), poleg datuma vsakega dogodka ter starost staršev (♂ oče, ♀ mati) oz. zakoncev ob rojstvih in družinskih dogodkih.",
-  "settings.display.editMap": "Zemljevid osebe v urejanju",
-  "settings.display.editMap.hint": "Pod seznamom dogodkov prikaži mali zemljevid geokodiranih dogodkov osebe (z njeno življenjsko potjo).",
   "settings.links.title": "Spletne povezave",
   "settings.links.fetch": "Poišči podatke o povezavi na spletu",
   "settings.links.fetch.hint": "Pri dodajanju vira iz golega URL-ja pridobi naslov strani prek javnega posrednika. To je edina funkcija, ki pošlje povezavo z vaše naprave; privzeto izklopljeno.",

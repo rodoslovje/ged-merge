@@ -81,15 +81,23 @@ function clusterTooltip(
   translate: (key: string, opts: { count: number }) => string,
 ): HTMLElement {
   const single = cluster.points.length === 1;
-  const labels: string[] = [];
+  const labels: { place: string; address?: string }[] = [];
   for (const p of cluster.points) {
-    const label = single && p.address ? `${p.place} · ${p.address}` : p.place;
-    if (label && !labels.includes(label)) labels.push(label);
+    if (!p.place) continue;
+    const address = single ? p.address : undefined;
+    if (!labels.some((l) => l.place === p.place && l.address === address)) labels.push({ place: p.place, address });
   }
   const el = document.createElement("div");
   for (const label of labels.slice(0, TOOLTIP_MAX_PLACES)) {
     const row = document.createElement("div");
-    row.textContent = label;
+    row.textContent = label.place;
+    // Place then address, styled like the place picker's suggestions.
+    if (label.address) {
+      const addr = document.createElement("span");
+      addr.className = "place-suggestion-addr";
+      addr.textContent = ` · ${label.address}`;
+      row.appendChild(addr);
+    }
     el.appendChild(row);
   }
   if (labels.length > TOOLTIP_MAX_PLACES) {

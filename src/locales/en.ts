@@ -1188,8 +1188,6 @@ export const en = {
   "settings.display.kinship.hint": "When a start person is set, show each person's relationship to them (e.g. Son, 2nd cousin) across the app.",
   "settings.display.age": "Show ages",
   "settings.display.age.hint": "Show ages: after the lifespan (at death, or the current age for the living), next to each event date, and the parents' (♂ father, ♀ mother) or spouses' ages on birth and family events.",
-  "settings.display.editMap": "Person map in Edit view",
-  "settings.display.editMap.hint": "Show the small map of the person's geocoded events (with their life path) under the events list.",
   "settings.links.title": "Online links",
   "settings.links.fetch": "Look up link details online",
   "settings.links.fetch.hint": "When adding a source from a bare URL, fetch its page title through a public relay. This is the only feature that sends a link off your device; off by default.",

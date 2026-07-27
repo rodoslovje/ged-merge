@@ -342,18 +342,6 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                 <span className="settings-hint">{t("settings.display.age.hint")}</span>
               </span>
             </label>
-
-            <label className="settings-row settings-row-toggle">
-              <input
-                type="checkbox"
-                checked={settings.showEditMap}
-                onChange={(e) => set({ showEditMap: e.target.checked })}
-              />
-              <span className="settings-row-text">
-                <span className="settings-row-label">{t("settings.display.editMap")}</span>
-                <span className="settings-hint">{t("settings.display.editMap.hint")}</span>
-              </span>
-            </label>
           </section>
           </>
           )}
