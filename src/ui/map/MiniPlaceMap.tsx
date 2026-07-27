@@ -1,10 +1,15 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { GeoCoord } from "../../gedcom/types";
-import { useSettings } from "../SettingsContext";
+import { overlayDisplayName, useSettings } from "../SettingsContext";
 import { createBaseLayer } from "./baseLayer";
+import { addFitControl, boundsOfCoords } from "./fitControl";
 import { ARROW_MIN_SEG_PX, PATH_STYLE, pathArrows } from "./markerStyle";
+import { resolveOverlay } from "./overlayPresets";
+import { syncOverlayLayers, type LiveOverlays } from "./overlayLayer";
+import { identifyAt, identifyPopupHtml, queryableOverlays } from "./overlayIdentify";
 import { arrowMarker, pathLegNumbers } from "./pathStops";
 import { useDocTheme } from "./useDocTheme";
 
@@ -33,10 +38,12 @@ function drawPath(map: L.Map, layer: L.LayerGroup | null, path: GeoCoord[] | und
 }
 
 /** Tooltip content as a DOM element — textContent, never HTML, because the
- *  labels carry file data (place names). Caps the detail lines at 8. */
-function tooltipEl(label: string, lines?: string[]): HTMLElement {
+ *  labels carry file data (place names). The street address, when the events
+ *  here name one, goes on its own row under the place, muted like the place
+ *  picker's suggestions. Caps the detail lines at 8. */
+function tooltipEl(label: string, lines?: string[], sub?: string): HTMLElement {
   const el = document.createElement("div");
-  if (!lines?.length) {
+  if (!lines?.length && !sub) {
     el.textContent = label;
     return el;
   }
@@ -44,15 +51,21 @@ function tooltipEl(label: string, lines?: string[]): HTMLElement {
   head.className = "minimap-tip-title";
   head.textContent = label;
   el.appendChild(head);
-  const shown = lines.slice(0, 8);
+  if (sub) {
+    const addr = document.createElement("div");
+    addr.className = "place-suggestion-addr";
+    addr.textContent = sub;
+    el.appendChild(addr);
+  }
+  const shown = (lines ?? []).slice(0, 8);
   for (const line of shown) {
     const row = document.createElement("div");
     row.textContent = line;
     el.appendChild(row);
   }
-  if (lines.length > shown.length) {
+  if ((lines?.length ?? 0) > shown.length) {
     const more = document.createElement("div");
-    more.textContent = `… +${lines.length - shown.length}`;
+    more.textContent = `… +${(lines?.length ?? 0) - shown.length}`;
     el.appendChild(more);
   }
   return el;
@@ -86,6 +99,9 @@ export interface MiniMapPin {
   /** Optional detail lines under the label (e.g. the events at this place),
    *  each rendered as its own row. */
   lines?: string[];
+  /** Street address of the events pinned here, shown as a muted row directly
+   *  under the label. */
+  sub?: string;
   kind: "candidate" | "chosen";
   /** CSS custom property naming this pin's colour (e.g. "--map-birth");
    *  defaults to the kind's standard colour. */
@@ -116,10 +132,16 @@ const NO_CONTEXT: NonNullable<Props["context"]> = [];
 
 export default function MiniPlaceMap({ pins, context = NO_CONTEXT, path, onPickCoord, title, fitKey }: Props) {
   const { settings: appSettings } = useSettings();
+  const { t } = useTranslation();
   const theme = useDocTheme();
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const baseLayerRef = useRef<L.Layer | null>(null);
+  /** Live overlay tile layers, keyed by overlay id (see syncOverlayLayers). */
+  const overlayLayersRef = useRef<LiveOverlays>(new Map());
+  /** Bumped on each identify click so a slow response that resolves after a
+   *  newer click is ignored instead of clobbering the popup. */
+  const infoSeqRef = useRef(0);
   const pinsLayerRef = useRef<L.LayerGroup | null>(null);
   const pathLayerRef = useRef<L.LayerGroup | null>(null);
   const didFitRef = useRef(false);
@@ -135,6 +157,10 @@ export default function MiniPlaceMap({ pins, context = NO_CONTEXT, path, onPickC
   latestPins.current = pins;
   const latestPick = useRef(onPickCoord);
   latestPick.current = onPickCoord;
+  const latestContext = useRef(context);
+  latestContext.current = context;
+  const tRef = useRef(t);
+  tRef.current = t;
 
   useEffect(() => {
     const el = containerRef.current;
@@ -150,6 +176,15 @@ export default function MiniPlaceMap({ pins, context = NO_CONTEXT, path, onPickC
       const ll = e.latlng.wrap();
       latestPick.current?.({ lat: +ll.lat.toFixed(5), lon: +ll.lng.toFixed(5) });
     });
+    // Framing what is plotted: the pins, or the context dots when a row has
+    // none yet. Asked for at click time, so it follows the current subject.
+    addFitControl(map, tRef.current("map.fit"), () =>
+      boundsOfCoords(
+        latestPins.current.length
+          ? latestPins.current.map((p) => p.coord)
+          : latestContext.current.map((c) => c.coord),
+      ),
+    );
     pathLayerRef.current = L.layerGroup().addTo(map);
     pinsLayerRef.current = L.layerGroup().addTo(map);
     // The direction chevrons depend on on-screen segment lengths — redraw
@@ -174,6 +209,7 @@ export default function MiniPlaceMap({ pins, context = NO_CONTEXT, path, onPickC
     });
     ro.observe(el);
     mapRef.current = map;
+    const overlayLayers = overlayLayersRef.current;
     return () => {
       ro.disconnect();
       el.removeEventListener("pointerdown", markUser);
@@ -182,6 +218,7 @@ export default function MiniPlaceMap({ pins, context = NO_CONTEXT, path, onPickC
       map.remove();
       mapRef.current = null;
       baseLayerRef.current = null;
+      overlayLayers.clear();
       pinsLayerRef.current = null;
       pathLayerRef.current = null;
     };
@@ -197,6 +234,45 @@ export default function MiniPlaceMap({ pins, context = NO_CONTEXT, path, onPickC
     if (base instanceof L.GeoJSON) base.bringToBack();
     baseLayerRef.current = base;
   }, [appSettings.allowMapTiles, appSettings.mapTileUrl, theme]);
+
+  // Historical overlays: these small maps have no picker, so they draw exactly
+  // the layers marked "show by default" in Settings, at the standard overlay
+  // opacity. Remote tiles, so the same opt-in as the base gates them.
+  const defaultOverlays = useMemo(
+    () => appSettings.mapOverlays.map(resolveOverlay).filter((o) => o.defaultOn),
+    [appSettings.mapOverlays],
+  );
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    syncOverlayLayers(map, overlayLayersRef.current, defaultOverlays, {
+      enabled: appSettings.allowMapTiles,
+      isOn: () => true,
+    });
+  }, [defaultOverlays, appSettings.allowMapTiles]);
+
+  // Click-to-identify, as on the full map: with a queryable overlay drawn (the
+  // GURS house numbers, say), a click asks it what is at that pixel. It runs
+  // alongside click-to-pick — the popup then names the point just picked.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const targets = appSettings.allowMapTiles ? queryableOverlays(defaultOverlays) : [];
+    if (!targets.length) return;
+
+    const onClick = async (e: L.LeafletMouseEvent) => {
+      const seq = ++infoSeqRef.current;
+      const blocks = await identifyAt(map, targets, e.latlng, (o) => overlayDisplayName(o, t), t);
+      // A newer click superseded this one; a click on bare ground stays silent.
+      if (seq !== infoSeqRef.current || !blocks.length) return;
+      L.popup({ className: "map-info-popup" }).setLatLng(e.latlng).setContent(identifyPopupHtml(blocks)).openOn(map);
+    };
+
+    map.on("click", onClick);
+    return () => {
+      map.off("click", onClick);
+    };
+  }, [defaultOverlays, appSettings.allowMapTiles, t]);
 
   // A new subject on the same map instance: forget the previous fit and any
   // user pan/zoom so the next pin pass frames the new pins. Declared before
@@ -214,8 +290,6 @@ export default function MiniPlaceMap({ pins, context = NO_CONTEXT, path, onPickC
   // Value key, like pinsKey — a caller passing a fresh array identity per
   // render must not force a marker rebuild.
   const contextKey = context.map((c) => `${c.coord.lat}:${c.coord.lon}`).join("|");
-  const latestContext = useRef(context);
-  latestContext.current = context;
 
   useEffect(() => {
     const map = mapRef.current;
@@ -251,7 +325,7 @@ export default function MiniPlaceMap({ pins, context = NO_CONTEXT, path, onPickC
         // A pin click picks the pin — it must not double as a map click.
         bubblingMouseEvents: false,
       });
-      bindFlippingTooltip(map, marker, tooltipEl(p.label, p.lines));
+      bindFlippingTooltip(map, marker, tooltipEl(p.label, p.lines, p.sub));
       marker.on("click", () => latestPins.current[i]?.onPick?.());
       marker.addTo(group);
     });

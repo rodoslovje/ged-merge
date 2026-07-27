@@ -233,17 +233,17 @@
             <p>
               Meni <span class="gm-glyph">⚙</span> <strong>Nastavitve</strong> ima štiri zavihke. <strong>Splošno</strong>
               zajema vsakodnevne izbire; <strong>GEDCOM</strong> omogoča, da ročno določite pravila datoteke, ki jih GED
-              Merge sicer zazna samodejno; <strong>Zemljevid</strong> upravlja ozadje zemljevida in zgodovinske sloje;
+              Merge sicer zazna samodejno; <strong>Zemljevid</strong> upravlja ozadje zemljevida in dodatne sloje;
               <strong>Napredno</strong> pa vsebuje možnosti, ki sežejo v omrežje. Vsaka izbira se zapomni v tem
               brskalniku.
             </p>
             <ul>
               <li><strong>Videz</strong> — <em>Tema</em> (Samodejno, Svetlo ali Temno; Samodejno sledi operacijskemu sistemu) in <em>Jezik</em> (angleščina ali slovenščina).</li>
               <li><strong>Imena</strong> — <em>Vrstni red imena</em> (najprej osebno ime ali najprej priimek), <em>Priimki z velikimi črkami</em> (npr. Ana NOVAK) in <em>Prikaži poročni priimek</em>, ki ga doda v oklepaju, npr. Ana Novak (Kovač). To spremeni le <em>prikaz</em> imen povsod; shranjeni podatki ostanejo nedotaknjeni.</li>
-              <li><strong>Prikaz</strong> — <em>Prikaži oznake zapisov</em> postavi GEDCOM oznako zapisa (xref) ob ime osebe; <em>Prikaži sorodstvo</em> pokaže sorodstveno vez vsake osebe do vaše <a href="#home-person">izhodiščne osebe</a> (§6) po vsej aplikaciji; <em>Prikaži starosti</em> doda starosti za razponi let in ob datumih dogodkov; <em>Zemljevid osebe v urejanju</em> pa preklopi mali zemljevid geokodiranih dogodkov osebe pod njenim seznamom dogodkov.</li>
+              <li><strong>Prikaz</strong> — <em>Prikaži oznake zapisov</em> postavi GEDCOM oznako zapisa (xref) ob ime osebe; <em>Prikaži sorodstvo</em> pokaže sorodstveno vez vsake osebe do vaše <a href="#home-person">izhodiščne osebe</a> (§6) po vsej aplikaciji; <em>Prikaži starosti</em> pa doda starosti za razponi let in ob datumih dogodkov.</li>
               <li><strong>Podatki</strong> — <em>Zapomni si moje delo v tem brskalniku</em> (glejte <em>Ohranjanje dela</em> spodaj).</li>
               <li><strong>GEDCOM</strong> — prepišite katero koli pravilo datoteke, ki bi ga GED Merge sicer zaznal sam: obliko datumov, neznane dele datuma, obliko krajev, dodatna imena, oznako za neznano ime, postavitev virov in navedb, povezave strani, krstne navedbe, podvojene povezave, oznako zasebnosti ter jezike povezav Matricula/Geneanet. Vsako privzeto stoji na <em>Samodejno (zaznano)</em> — sledi navadi datoteke — izbrana vrednost pa se nato uveljavi v poenotenju vhodne datoteke, <a href="#tools">Uredi vire</a>, Dodaj vir in urejanju. Izbire za datume, kraje, imena in povezave začnejo veljati ob naslednjem nalaganju datoteke. Glejte <a href="#house-style">§7</a> in <a href="#sources">§13</a>.</li>
-              <li><strong>Zemljevid</strong> — <em>Nalagaj ploščice zemljevida</em> vklopi ulično ozadje CARTO za <a href="#map">Zemljevid krajev</a> (zahteve za ploščice razkrijejo ogledovano območje; izklopljeno = vgrajeni obris brez povezave), z izbirno predlogo lastnega naslova ploščic. <em>Zgodovinski sloji zemljevida</em> nastavi karte, izrisane čez osnovno karto — izberite vgrajeni brezplačni sloj (vključno s slovenskimi državnimi kartami GURS) ali dodajte svojo predlogo URL ploščic ali storitev OGC&nbsp;WMS (ime, URL, veljavna leta, navedba vira). Glejte <a href="#map">§9</a>.</li>
+              <li><strong>Zemljevid</strong> — <em>Nalagaj ploščice zemljevida</em> vklopi ulično ozadje CARTO za <a href="#map">Zemljevid krajev</a> (zahteve za ploščice razkrijejo ogledovano območje; izklopljeno = vgrajeni obris brez povezave), z izbirno predlogo lastnega naslova ploščic. <em>Dodatni sloji zemljevida</em> nastavi karte, izrisane čez osnovno karto — izberite vgrajeni brezplačni sloj (vključno s slovenskimi državnimi kartami GURS) ali dodajte svojo predlogo URL ploščic ali storitev OGC&nbsp;WMS (ime, URL, veljavna leta, navedba vira). Glejte <a href="#map">§9</a>.</li>
               <li><strong>Napredno › Povezave</strong> — <em>Poišči podatke o povezavi na spletu</em>: ko vir dodate iz golega naslova URL, GED Merge prek javnega posrednika pridobi naslov strani. Poganja tudi prenosa imenika z OpenStreetMap in GURS z enim klikom ter spletni iskanji po vrsticah (OpenStreetMap in GOV), ki ju uporablja <a href="#tools">Geokodiranje krajev</a>. <strong>To sta edini funkciji, ki karkoli pošljeta z vaše naprave, in sta privzeto izklopljeni.</strong></li>
             </ul>
 
@@ -495,7 +495,7 @@
                 <span class="gm-glyph">〰</span> ob osebi v podoknu dogodkov) jo osami — ostale zbledijo, odseki se
                 oštevilčijo, nad zemljevidom pa se pokaže značka z imenom.</li>
               <li><strong>Sloji</strong> — dodatne karte, izrisane čez osnovni zemljevid. Nastavite jih enkrat v
-                <strong>Nastavitve → Zemljevid → Zgodovinski sloji zemljevida</strong>: ime, predloga URL ploščic
+                <strong>Nastavitve → Zemljevid → Dodatni sloji zemljevida</strong>: ime, predloga URL ploščic
                 z <code>{z}/{x}/{y}</code>, leta, ki jih karta prikazuje, in zahtevana navedba vira
                 (naročniški viri, kot je Arcanum/Mapire, delujejo z URL ploščic iz vašega računa). Za storitev
                 OGC&nbsp;WMS obkljukajte <strong>WMS</strong> — takrat je URL naslov storitve (…/wms), navedete
@@ -524,7 +524,19 @@
                 površino, sloj katastrskih občin pa <em>katastrsko občino</em> in njeno šifro — enoto, po kateri so
                 urejeni zemljiški in župnijski zapisi. Značka
                 <strong>Sloji</strong> na zemljevidu nato našteje vaše sloje, vsakega s svojim drsnikom prosojnosti, in
-                označi tiste, katerih obdobje ustreza izbranemu oknu let — karta iz časa vašega prednika.</li>
+                označi tiste, katerih obdobje ustreza izbranemu oknu let — karta iz časa vašega prednika.
+                Vrstni red seznama — v nastavitvah in v znački, spreminjata ga gumba <span class="gm-glyph">▲</span>
+                <span class="gm-glyph">▼</span> — je vrstni red izrisa na zemljevidu: prvi sloj se izriše na vrhu.
+                Tanek referenčni sloj (hišne številke, parcele) naj bo nad celostransko zgodovinsko karto, sicer
+                izgine pod njo.
+                Če v nastavitvah pri sloju obkljukate <em>Privzeto</em>, se vklopi povsod, kjer se izriše zemljevid:
+                vsak Zemljevid krajev se odpre z njim (na seznamu Sloji ga lahko za tisti zemljevid odkljukate),
+                prikažeta pa ga tudi mali zemljevid osebe in zemljevid pri geokodiranju — tudi na teh dveh klik
+                izpiše podatke sloja, tako da hišno številko preberete, ne da bi zapustili osebo.</li>
+              <li><strong>Prilagodi pogled</strong> — tretji gumb pod merilom zemljevida uokviri vse trenutno prikazano,
+                tako na Zemljevidu krajev kot na malih zemljevidih osebe in geokodiranja; ko se izgubite ob sledenju
+                sloju, z enim klikom vrne celotno sliko. Ob prehodu z miško oznaka izpiše kraj, ki ga predstavlja (pri
+                enem samem dogodku tudi ulični naslov).</li>
               <li><strong>Zasebnost</strong> — ulično ozadje se naloži šele po <em>privolitvi</em>: dokler ploščic ne
                 dovolite (en klik na zemljevidu ali Nastavitve → Zemljevid), se zemljevid riše na vgrajenem obrisu sveta
                 in nič ne zapusti vaše naprave. Nastavitev diagramov <em>Skrij žive osebe</em> odstrani njihove oznake
@@ -535,8 +547,7 @@
             </ul>
             <p>
               Majhen zemljevid osebe z istimi barvami (in njeno življenjsko potjo) se pokaže tudi pod seznamom dogodkov
-              v <span class="gm-pill">Urejanju</span> — skrijete ga z gumbom ob njem ali z nastavitvijo prikaza
-              <em>Zemljevid osebe v urejanju</em>.
+              v <span class="gm-pill">Urejanju</span> — skrijete ga z gumbom nad njim.
             </p>
             <div class="gm-callout note">
               <span class="gm-callout-label">Viri podatkov in licence</span>
@@ -939,7 +950,10 @@
               naslov ali kraj že uporablja, hišo poiščete v registru, <strong>iščete na spletu</strong> (OpenStreetMap — za
               naslov zunaj Slovenije, ki ga register ne pokriva), koordinato vnesete ali prilepite, ali pa obstoječo
               odstranite. Tu izostrite naslov, katerega naselje je že določeno, saj seznam v Orodjih ponuja le kraje, ki
-              koordinate sploh nimajo.
+              koordinate sploh nimajo. Kadar datoteka vsebuje druge dogodke z istim krajem <em>in</em> naslovom, panel
+              ponudi — privzeto obkljukano — da se izbrana koordinata zapiše na vse te dogodke, saj ima ena hiša en
+              položaj; če kljukico odstranite, koordinato dobi samo ta dogodek. (Prenos je svoj korak razveljavitve: prva
+              razveljavitev vrne druge dogodke, druga pa tega.)
             </p>
             <p>
               Izbira kraja ali naslova, ki ga datoteka že pozna, s seboj prinese njegovo koordinato, zato je na novo vnesen

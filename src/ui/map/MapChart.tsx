@@ -43,8 +43,10 @@ import {
 import { YearRangeSlider } from "./YearRangeSlider";
 import { createBaseLayer } from "./baseLayer";
 import { arrowMarker, pathLegNumbers } from "./pathStops";
-import { reprojectedWmsLayer } from "./reprojectedWmsLayer";
-import { canReproject, type NativePyramid } from "./tilePlan";
+import { addFitControl, boundsOfCoords } from "./fitControl";
+import { OVERLAY_DEFAULT_OPACITY } from "./overlayConfig";
+import { identifyAt, identifyPopupHtml, queryableOverlays } from "./overlayIdentify";
+import { syncOverlayLayers, type LiveOverlays } from "./overlayLayer";
 import { useDocTheme } from "./useDocTheme";
 
 // Full-page places Map: the events of the root person's branch — the shared
@@ -67,80 +69,49 @@ const PANEL_MAX_ROWS = 150;
 /** At most this many life paths drawn at once (a selected one always is). */
 const PATHS_MAX = 300;
 
-/** Historical overlays start at this opacity; the picker's slider adjusts. */
-const OVERLAY_DEFAULT_OPACITY = 0.7;
+/** At most this many place lines in a marker's tooltip. */
+const TOOLTIP_MAX_PLACES = 4;
 
-/** Leaflet z-index for overlay tile layers — above the base (1). */
-const OVERLAY_Z = 5;
-
-/** Parse a WMS overlay's raw `KEY=value&KEY=value` extra-params string into an
- *  object Leaflet folds into the GetMap query (e.g. a time-enabled layer's
- *  `TIME`, or a `CQL_FILTER`). Malformed pairs are skipped. */
-function parseWmsParams(raw: string | undefined): Record<string, string> {
-  const out: Record<string, string> = {};
-  if (!raw) return out;
-  for (const pair of raw.split("&")) {
-    const eq = pair.indexOf("=");
-    if (eq <= 0) continue;
-    const key = pair.slice(0, eq).trim();
-    if (key) out[key] = pair.slice(eq + 1).trim();
+/** A marker's hover tooltip: the place(s) it stands for and, for a cluster,
+ *  the event count. A single event also shows its street address — on a
+ *  cluster the addresses would be a wall of text, so places alone. Built as
+ *  DOM, not HTML: the labels are file data. */
+function clusterTooltip(
+  cluster: MapCluster,
+  translate: (key: string, opts: { count: number }) => string,
+): HTMLElement {
+  const single = cluster.points.length === 1;
+  const labels: { place: string; address?: string }[] = [];
+  for (const p of cluster.points) {
+    if (!p.place) continue;
+    const address = single ? p.address : undefined;
+    if (!labels.some((l) => l.place === p.place && l.address === address)) labels.push({ place: p.place, address });
   }
-  return out;
-}
-
-/** Escape a string for safe interpolation into a Leaflet popup's innerHTML. */
-function escHtml(s: string): string {
-  return s.replace(/[&<>"]/g, (c) => (c === "&" ? "&amp;" : c === "<" ? "&lt;" : c === ">" ? "&gt;" : "&quot;"));
-}
-
-const NULLISH = (v: unknown): v is null | undefined | "" => v == null || v === "" || v === "null";
-
-/** Turn one GetFeatureInfo feature's properties into a popup HTML block. GURS
- *  address, parcel and cadastral-municipality features get a formatted line;
- *  anything else falls back to its readable fields (raw *_SIFRA / EID_ /
- *  geometry dropped). */
-function formatFeatureInfo(
-  props: Record<string, unknown> | undefined,
-  layerName: string,
-  translate: (key: string) => string,
-): string {
-  if (!props) return "";
-  // Address / house-number feature (SI.GURS.KN:NASLOVI_HS et al.).
-  if (!NULLISH(props.HS_STEVILKA) && (!NULLISH(props.ULICA_NAZIV) || !NULLISH(props.NASELJE_NAZIV))) {
-    const num = `${props.HS_STEVILKA}${NULLISH(props.HS_DODATEK) ? "" : String(props.HS_DODATEK)}`;
-    const street = NULLISH(props.ULICA_NAZIV) ? String(props.NASELJE_NAZIV) : String(props.ULICA_NAZIV);
-    const town = NULLISH(props.POSTNI_OKOLIS_NAZIV) ? props.NASELJE_NAZIV : props.POSTNI_OKOLIS_NAZIV;
-    const post = [props.POSTNI_OKOLIS_SIFRA, town].filter((v) => !NULLISH(v)).map(String).join(" ");
-    return `<div class="map-info-block"><strong>${escHtml(`${street} ${num}`.trim())}</strong>${
-      post ? `<br>${escHtml(post)}` : ""
-    }</div>`;
+  const el = document.createElement("div");
+  for (const label of labels.slice(0, TOOLTIP_MAX_PLACES)) {
+    const row = document.createElement("div");
+    row.textContent = label.place;
+    // Place then address, styled like the place picker's suggestions.
+    if (label.address) {
+      const addr = document.createElement("span");
+      addr.className = "place-suggestion-addr";
+      addr.textContent = ` · ${label.address}`;
+      row.appendChild(addr);
+    }
+    el.appendChild(row);
   }
-  // Cadastral parcel (SI.GURS.KN:PARCELE): the id a land record is filed under
-  // is the parcel number plus its cadastral municipality — NAZIV already reads
-  // "1791 ŽALNA", so it needs no assembling.
-  if (!NULLISH(props.ST_PARCELE)) {
-    const lines = [
-      NULLISH(props.NAZIV) ? "" : `${translate("map.info.cadastralMunicipality")}: ${props.NAZIV}`,
-      NULLISH(props.POVRSINA) ? "" : `${translate("map.info.area")}: ${props.POVRSINA} m²`,
-    ].filter(Boolean);
-    return `<div class="map-info-block"><strong>${escHtml(
-      `${translate("map.info.parcel")} ${props.ST_PARCELE}`,
-    )}</strong>${lines.map((l) => `<br>${escHtml(l)}`).join("")}</div>`;
+  if (labels.length > TOOLTIP_MAX_PLACES) {
+    const more = document.createElement("div");
+    more.textContent = `… +${labels.length - TOOLTIP_MAX_PLACES}`;
+    el.appendChild(more);
   }
-  // Cadastral municipality (SI.GURS.KN:KATASTRSKE_OBCINE) — number + name.
-  if (!NULLISH(props.SIFKO) && !NULLISH(props.NAZIV)) {
-    return `<div class="map-info-block"><strong>${escHtml(
-      `${props.SIFKO} ${props.NAZIV}`,
-    )}</strong><br>${escHtml(translate("map.info.cadastralMunicipality"))}</div>`;
+  if (cluster.points.length > 1) {
+    const count = document.createElement("div");
+    count.className = "map-cluster-tip-count";
+    count.textContent = translate("map.clusterTooltip", { count: cluster.points.length });
+    el.appendChild(count);
   }
-  // Generic fallback: a few readable attributes.
-  const skip = (k: string) => /^EID_/.test(k) || /_SIFRA$/.test(k) || /_DJ$/.test(k) || k === "GEOM" || /^DATUM/.test(k);
-  const rows = Object.entries(props)
-    .filter(([k, v]) => !NULLISH(v) && !skip(k))
-    .slice(0, 6)
-    .map(([k, v]) => `<div>${escHtml(k)}: ${escHtml(String(v))}</div>`)
-    .join("");
-  return rows ? `<div class="map-info-block"><em>${escHtml(layerName)}</em>${rows}</div>` : "";
+  return el;
 }
 
 /** Stacked-layers glyph for the historical-overlays picker chip. */
@@ -199,7 +170,11 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
   // Preset-added overlays reflect the live preset definition; custom ones pass
   // through unchanged. Resolving here keeps the renderer/picker/click in sync.
   const overlays = useMemo(() => appSettings.mapOverlays.map(resolveOverlay), [appSettings.mapOverlays]);
-  const [overlayOn, setOverlayOn] = useState<ReadonlySet<string>>(new Set());
+  // Layers marked "show by default" in Settings start switched on; unticking
+  // one here only affects this map's session.
+  const [overlayOn, setOverlayOn] = useState<ReadonlySet<string>>(
+    () => new Set(appSettings.mapOverlays.filter((o) => o.defaultOn).map((o) => o.id)),
+  );
   const [overlayOpacity, setOverlayOpacity] = useState<ReadonlyMap<string, number>>(new Map());
   const [overlaysOpen, setOverlaysOpen] = useState(false);
   // Bumped on every pan/zoom so the marker pass re-runs against the new view.
@@ -265,25 +240,7 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
   const baseLayerRef = useRef<L.Layer | null>(null);
   /** Live overlay tile layers with the definition they were built from —
    *  a changed URL/zoom/attribution recreates, an opacity change adjusts. */
-  const overlayLayersRef = useRef<
-    Map<
-      string,
-      {
-        layer: L.GridLayer;
-        url: string;
-        minZoom?: number;
-        maxZoom?: number;
-        attribution?: string;
-        wms?: boolean;
-        layers?: string;
-        styles?: string;
-        tileSize?: number;
-        params?: string;
-        nativeCrs?: string;
-        pyramid?: NativePyramid;
-      }
-    >
-  >(new Map());
+  const overlayLayersRef = useRef<LiveOverlays>(new Map());
   const markersRef = useRef<L.LayerGroup | null>(null);
   const pathsRef = useRef<L.LayerGroup | null>(null);
   /** Bumped on each identify click so a slow GetFeatureInfo response that
@@ -292,6 +249,12 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
   const pathRendererRef = useRef<L.Renderer | null>(null);
   const clustersRef = useRef<MapCluster[]>([]);
   const didFitRef = useRef(false);
+  /** Latest filtered points / translator for the map-lifecycle effect, which
+   *  runs once and must not be re-created when either changes. */
+  const latestFiltered = useRef(filtered);
+  latestFiltered.current = filtered;
+  const tRef = useRef(t);
+  tRef.current = t;
 
   // ── Map lifecycle ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -310,6 +273,9 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
     pathRendererRef.current = L.canvas({ tolerance: 8 });
     pathsRef.current = L.layerGroup().addTo(map);
     markersRef.current = L.layerGroup().addTo(map);
+    // Reads the filtered points at click time (see latestFiltered), so the
+    // button always frames what the current filters draw.
+    addFitControl(map, tRef.current("map.fit"), () => boundsOfCoords(latestFiltered.current.map((p) => p.coord)));
     const bump = () => setViewGen((g) => g + 1);
     map.on("moveend zoomend", bump);
     mapRef.current = map;
@@ -340,102 +306,25 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    const live = overlayLayersRef.current;
-    for (const [id, entry] of [...live]) {
-      const o = overlays.find((ov) => ov.id === id);
-      const stale =
-        !appSettings.allowMapTiles ||
-        !o ||
-        !overlayOn.has(id) ||
-        o.url !== entry.url ||
-        o.minZoom !== entry.minZoom ||
-        o.maxZoom !== entry.maxZoom ||
-        o.attribution !== entry.attribution ||
-        !!o.wms !== !!entry.wms ||
-        o.layers !== entry.layers ||
-        o.styles !== entry.styles ||
-        o.tileSize !== entry.tileSize ||
-        o.params !== entry.params ||
-        o.nativeCrs !== entry.nativeCrs ||
-        JSON.stringify(o.pyramid) !== JSON.stringify(entry.pyramid);
-      if (stale) {
-        entry.layer.remove();
-        live.delete(id);
-      }
-    }
-    if (!appSettings.allowMapTiles) return;
-    for (const o of overlays) {
-      if (!overlayOn.has(o.id) || !o.url) continue;
-      const opacity = overlayOpacity.get(o.id) ?? OVERLAY_DEFAULT_OPACITY;
-      const entry = live.get(o.id);
-      if (entry) {
-        entry.layer.setOpacity(opacity);
-        continue;
-      }
-      const layer: L.GridLayer =
-        o.wms && canReproject(o.nativeCrs)
-          ? // A service that won't reproject this layer itself: fetch it in its
-            // own CRS and warp each tile in the browser.
-            reprojectedWmsLayer(o.url, {
-              layers: o.layers ?? "",
-              styles: o.styles ?? "",
-              nativeCrs: o.nativeCrs!,
-              pyramid: o.pyramid,
-              extraParams: parseWmsParams(o.params),
-              nativeBounds: o.nativeBounds,
-              maxScaleDenominator: o.maxScaleDenominator,
-              opacity,
-              attribution: o.attribution ?? "",
-              minZoom: o.minZoom ?? 0,
-              maxZoom: 18,
-              tileSize: o.tileSize ?? 256,
-              zIndex: OVERLAY_Z,
-            })
-          : o.wms
-            ? L.tileLayer.wms(o.url, {
-                // Extra params first so the fixed ones below can't be overridden.
-                ...parseWmsParams(o.params),
-                layers: o.layers ?? "",
-                styles: o.styles ?? "",
-                format: "image/png",
-                transparent: true,
-                opacity,
-                attribution: o.attribution ?? "",
-                crossOrigin: "anonymous",
-                minZoom: o.minZoom ?? 0,
-                // WMS renders any bbox on demand, so it scales to any zoom itself.
-                maxZoom: 18,
-                // Label styles clip at tile seams — a large tile keeps them whole.
-                tileSize: o.tileSize ?? 256,
-                zIndex: OVERLAY_Z,
-              })
-            : L.tileLayer(o.url, {
-                opacity,
-                attribution: o.attribution ?? "",
-                crossOrigin: "anonymous",
-                minZoom: o.minZoom ?? 0,
-                maxZoom: 18,
-                // Sources that stop at a lower zoom get their deepest tiles scaled.
-                maxNativeZoom: o.maxZoom ?? 18,
-                zIndex: OVERLAY_Z,
-              });
-      layer.addTo(map);
-      live.set(o.id, {
-        layer,
-        url: o.url,
-        minZoom: o.minZoom,
-        maxZoom: o.maxZoom,
-        attribution: o.attribution,
-        wms: o.wms,
-        layers: o.layers,
-        styles: o.styles,
-        tileSize: o.tileSize,
-        params: o.params,
-        nativeCrs: o.nativeCrs,
-        pyramid: o.pyramid,
-      });
-    }
+    syncOverlayLayers(map, overlayLayersRef.current, overlays, {
+      enabled: appSettings.allowMapTiles,
+      isOn: (o) => overlayOn.has(o.id),
+      opacityOf: (o) => overlayOpacity.get(o.id) ?? OVERLAY_DEFAULT_OPACITY,
+    });
   }, [overlays, overlayOn, overlayOpacity, appSettings.allowMapTiles]);
+
+  // A layer newly marked "show by default" in Settings (reachable from the
+  // chart) switches itself on here; one the user unticked in the picker stays
+  // off — only the transition to default counts.
+  const seenDefaultsRef = useRef<ReadonlySet<string>>(
+    new Set(appSettings.mapOverlays.filter((o) => o.defaultOn).map((o) => o.id)),
+  );
+  useEffect(() => {
+    const now = new Set(appSettings.mapOverlays.filter((o) => o.defaultOn).map((o) => o.id));
+    const fresh = [...now].filter((id) => !seenDefaultsRef.current.has(id));
+    seenDefaultsRef.current = now;
+    if (fresh.length) setOverlayOn((prev) => new Set([...prev, ...fresh]));
+  }, [appSettings.mapOverlays]);
 
   // Click-to-identify: with a queryable WMS overlay on, a map click fires a
   // WMS GetFeatureInfo for the clicked pixel and shows the attributes (for the
@@ -443,63 +332,18 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    // The request below describes the view in Web Mercator, which a layer that
-    // has to be reprojected client-side cannot answer — those are not queried.
     const targets = appSettings.allowMapTiles
-      ? overlays.filter((o) => o.wms && o.queryLayers && !o.nativeCrs && overlayOn.has(o.id))
+      ? queryableOverlays(overlays).filter((o) => overlayOn.has(o.id))
       : [];
     if (!targets.length) return;
 
     const onClick = async (e: L.LeafletMouseEvent) => {
       const seq = ++infoSeqRef.current;
-      const size = map.getSize();
-      const b = map.getBounds();
-      const sw = map.options.crs!.project(b.getSouthWest());
-      const ne = map.options.crs!.project(b.getNorthEast());
-      const pt = map.latLngToContainerPoint(e.latlng);
-      const i = Math.max(0, Math.min(size.x - 1, Math.round(pt.x)));
-      const j = Math.max(0, Math.min(size.y - 1, Math.round(pt.y)));
-
-      const blocks: string[] = [];
-      for (const o of targets) {
-        const params = new URLSearchParams({
-          SERVICE: "WMS",
-          VERSION: "1.3.0",
-          REQUEST: "GetFeatureInfo",
-          // GeoServer requires QUERY_LAYERS ⊆ LAYERS, so query against the
-          // info layer itself (which may differ from the drawn `layers`).
-          LAYERS: o.queryLayers!,
-          QUERY_LAYERS: o.queryLayers!,
-          CRS: "EPSG:3857",
-          BBOX: `${sw.x},${sw.y},${ne.x},${ne.y}`,
-          WIDTH: String(size.x),
-          HEIGHT: String(size.y),
-          I: String(i),
-          J: String(j),
-          INFO_FORMAT: "application/json",
-          FEATURE_COUNT: "5",
-          // Pixel tolerance so a click near a point symbol still hits it.
-          BUFFER: "12",
-          ...parseWmsParams(o.params),
-        });
-        try {
-          const res = await fetch(`${o.url}?${params.toString()}`);
-          const data = (await res.json()) as { features?: { properties?: Record<string, unknown> }[] };
-          for (const f of data.features ?? []) {
-            const html = formatFeatureInfo(f.properties, overlayDisplayName(o, t), t);
-            if (html) blocks.push(html);
-          }
-        } catch {
-          // Network/parse failure — skip this layer; others may still answer.
-        }
-      }
+      const blocks = await identifyAt(map, targets, e.latlng, (o) => overlayDisplayName(o, t), t);
       // A newer click superseded this one. Only pop up on an actual hit — a
       // click on empty ground (no house point under the cursor) stays silent.
       if (seq !== infoSeqRef.current || !blocks.length) return;
-      L.popup({ className: "map-info-popup" })
-        .setLatLng(e.latlng)
-        .setContent(`<div class="map-info">${blocks.join("")}</div>`)
-        .openOn(map);
+      L.popup({ className: "map-info-popup" }).setLatLng(e.latlng).setContent(identifyPopupHtml(blocks)).openOn(map);
     };
 
     map.on("click", onClick);
@@ -575,10 +419,7 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
         keyboard: false,
       });
       marker.on("click", () => openCluster(cluster));
-      marker.bindTooltip(
-        count === 1 ? cluster.points[0].place : t("map.clusterTooltip", { count }),
-        { direction: "top", opacity: 0.9 },
-      );
+      marker.bindTooltip(clusterTooltip(cluster, t), { direction: "top", opacity: 0.9 });
       layer.addLayer(marker);
     }
     // viewGen re-runs this pass after every pan/zoom.
@@ -736,7 +577,10 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
                 // Compose per layer (base, then overlays) so stacking and
                 // opacity match the screen even after a base-layer rebuild.
                 const baseEl = base instanceof L.TileLayer ? (base.getContainer() ?? null) : null;
-                const overlayTiles = overlays
+                // Painted bottom-up, so the list is walked in reverse: first
+                // listed is topmost on screen (see overlayZIndex).
+                const overlayTiles = [...overlays]
+                  .reverse()
                   .filter((o) => overlayOn.has(o.id))
                   .flatMap((o) => {
                     const entry = overlayLayersRef.current.get(o.id);
@@ -813,46 +657,7 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
             </button>
           ))}
         </div>
-        <span className="map-years">
-          <input
-            type="number"
-            className="map-year-input"
-            value={yearFrom}
-            placeholder={range ? String(range.min) : ""}
-            onChange={(e) => setYearFrom(e.target.value)}
-            aria-label={t("map.yearFrom")}
-          />
-          {range && range.min < range.max ? (
-            <YearRangeSlider
-              min={range.min}
-              max={range.max}
-              from={clampYear(yearFrom ? Number(yearFrom) : range.min)}
-              to={clampYear(yearTo ? Number(yearTo) : range.max)}
-              fromLabel={t("map.yearFrom")}
-              toLabel={t("map.yearTo")}
-              onChange={(from, to) => {
-                // A thumb parked at the data edge means "unbounded" — the
-                // inputs go back to showing the placeholder bound.
-                setYearFrom(from <= range.min ? "" : String(from));
-                setYearTo(to >= range.max ? "" : String(to));
-              }}
-            />
-          ) : (
-            "–"
-          )}
-          <input
-            type="number"
-            className="map-year-input"
-            value={yearTo}
-            placeholder={range ? String(range.max) : ""}
-            onChange={(e) => setYearTo(e.target.value)}
-            aria-label={t("map.yearTo")}
-          />
-        </span>
-        <label className="map-undated">
-          <input type="checkbox" checked={includeUndated} onChange={(e) => setIncludeUndated(e.target.checked)} />
-          {t("map.undated")}
-        </label>
+        {/* Paths sits with the kind chips: like them, it picks what is drawn. */}
         <button
           type="button"
           className={`map-kind-chip map-paths-chip${showPaths ? " active" : ""}`}
@@ -863,62 +668,104 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
           <PathIcon />
           {t("map.paths")}
         </button>
-        {appSettings.allowMapTiles && overlays.length > 0 && (
-          <span className="map-overlays-wrap">
-            <button
-              type="button"
-              className={`map-kind-chip map-overlays-chip${overlayOn.size ? " active" : ""}`}
-              aria-pressed={overlaysOpen}
-              aria-expanded={overlaysOpen}
-              title={t("map.overlays.tooltip")}
-              onClick={() => setOverlaysOpen((v) => !v)}
-            >
-              <LayersIcon />
-              {t("map.overlays")}
-              {overlayOn.size > 0 && <span className="tree-mode-count">{overlayOn.size}</span>}
-            </button>
-            {overlaysOpen && (
-              <div className="map-overlays-panel">
-                {overlays.map((o) => {
-                  const on = overlayOn.has(o.id);
-                  const suggested = suggestedOverlays.has(o.id);
-                  const opacity = overlayOpacity.get(o.id) ?? OVERLAY_DEFAULT_OPACITY;
-                  return (
-                    <div
-                      key={o.id}
-                      className={`map-overlay-row${suggested ? " suggested" : ""}`}
-                      title={suggested ? t("map.overlays.suggested") : undefined}
-                    >
-                      <label className="map-overlay-pick">
-                        <input type="checkbox" checked={on} onChange={() => toggleOverlay(o.id)} />
-                        <span className="map-overlay-name">{overlayDisplayName(o, t)}</span>
-                        {(o.yearFrom !== undefined || o.yearTo !== undefined) && (
-                          <span className="gm-data map-overlay-years">
-                            {o.yearFrom ?? "…"}–{o.yearTo ?? "…"}
-                          </span>
-                        )}
-                      </label>
-                      {on && (
-                        <input
-                          type="range"
-                          className="map-overlay-opacity"
-                          min={10}
-                          max={100}
-                          value={Math.round(opacity * 100)}
-                          aria-label={t("map.overlays.opacity")}
-                          title={t("map.overlays.opacity")}
-                          onChange={(e) =>
-                            setOverlayOpacity((prev) => new Map(prev).set(o.id, Number(e.target.value) / 100))
-                          }
-                        />
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+        <div className="map-filters-right">
+          <span className="map-years">
+            <input
+              type="number"
+              className="map-year-input"
+              value={yearFrom}
+              placeholder={range ? String(range.min) : ""}
+              onChange={(e) => setYearFrom(e.target.value)}
+              aria-label={t("map.yearFrom")}
+            />
+            {range && range.min < range.max ? (
+              <YearRangeSlider
+                min={range.min}
+                max={range.max}
+                from={clampYear(yearFrom ? Number(yearFrom) : range.min)}
+                to={clampYear(yearTo ? Number(yearTo) : range.max)}
+                fromLabel={t("map.yearFrom")}
+                toLabel={t("map.yearTo")}
+                onChange={(from, to) => {
+                  // A thumb parked at the data edge means "unbounded" — the
+                  // inputs go back to showing the placeholder bound.
+                  setYearFrom(from <= range.min ? "" : String(from));
+                  setYearTo(to >= range.max ? "" : String(to));
+                }}
+              />
+            ) : (
+              "–"
             )}
+            <input
+              type="number"
+              className="map-year-input"
+              value={yearTo}
+              placeholder={range ? String(range.max) : ""}
+              onChange={(e) => setYearTo(e.target.value)}
+              aria-label={t("map.yearTo")}
+            />
           </span>
-        )}
+          <label className="map-undated">
+            <input type="checkbox" checked={includeUndated} onChange={(e) => setIncludeUndated(e.target.checked)} />
+            {t("map.undated")}
+          </label>
+          {appSettings.allowMapTiles && overlays.length > 0 && (
+            <span className="map-overlays-wrap">
+              <button
+                type="button"
+                className={`map-kind-chip map-overlays-chip${overlayOn.size ? " active" : ""}`}
+                aria-pressed={overlaysOpen}
+                aria-expanded={overlaysOpen}
+                title={t("map.overlays.tooltip")}
+                onClick={() => setOverlaysOpen((v) => !v)}
+              >
+                <LayersIcon />
+                {t("map.overlays")}
+                {overlayOn.size > 0 && <span className="tree-mode-count">{overlayOn.size}</span>}
+              </button>
+              {overlaysOpen && (
+                <div className="map-overlays-panel">
+                  {overlays.map((o) => {
+                    const on = overlayOn.has(o.id);
+                    const suggested = suggestedOverlays.has(o.id);
+                    const opacity = overlayOpacity.get(o.id) ?? OVERLAY_DEFAULT_OPACITY;
+                    return (
+                      <div
+                        key={o.id}
+                        className={`map-overlay-row${suggested ? " suggested" : ""}`}
+                        title={suggested ? t("map.overlays.suggested") : undefined}
+                      >
+                        <label className="map-overlay-pick">
+                          <input type="checkbox" checked={on} onChange={() => toggleOverlay(o.id)} />
+                          <span className="map-overlay-name">{overlayDisplayName(o, t)}</span>
+                          {(o.yearFrom !== undefined || o.yearTo !== undefined) && (
+                            <span className="gm-data map-overlay-years">
+                              {o.yearFrom ?? "…"}–{o.yearTo ?? "…"}
+                            </span>
+                          )}
+                        </label>
+                        {on && (
+                          <input
+                            type="range"
+                            className="map-overlay-opacity"
+                            min={10}
+                            max={100}
+                            value={Math.round(opacity * 100)}
+                            aria-label={t("map.overlays.opacity")}
+                            title={t("map.overlays.opacity")}
+                            onChange={(e) =>
+                              setOverlayOpacity((prev) => new Map(prev).set(o.id, Number(e.target.value) / 100))
+                            }
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </span>
+          )}
+        </div>
       </div>
       <div className="tree-canvas-wrap map-canvas-wrap">
         <div ref={containerRef} className="map-canvas" />

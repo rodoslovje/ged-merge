@@ -4863,7 +4863,9 @@ a.report-source:hover { color: var(--accent); text-decoration: underline; }
 .link-button:hover { color: var(--text); }
 
 /* ── General settings (SettingsModal) ─────────────────────────────────────── */
-.settings-modal { max-width: 624px; height: auto; max-height: 88vh; }
+/* One size for every tab: a short tab (Advanced) used to shrink the dialog,
+   so switching tabs resized the window under the pointer. */
+.settings-modal { max-width: 624px; height: 88vh; max-height: 88vh; }
 
 /* General / Advanced tab bar — same segmented look as .chart-settings-segmented,
  * sized to span the modal width just under the header. */
@@ -5032,6 +5034,15 @@ kbd {
 
 @media (max-width: 720px) {
   .shortcuts-grid { grid-template-columns: 1fr; }
+  /* Narrow: the coordinate popover stacks map over candidates again. */
+  .edit-coord-pop { width: min(420px, 92vw); }
+  .edit-coord-body { flex-direction: column; }
+  .edit-coord-map,
+  .edit-coord-side { flex: 1 1 auto; width: 100%; max-height: none; }
+  /* Pushed right, ahead of the manual entry it belongs with. */
+.edit-coord-share { display: flex; align-items: center; gap: 6px; margin-left: auto; color: var(--muted); }
+.edit-coord-share input { margin: 0; }
+.edit-coord-head .edit-coord-manual { margin-left: 0; max-width: none; }
 }
 
 /* --- Add Source dialog --- */
@@ -5424,29 +5435,37 @@ kbd {
   overflow: hidden;
   background: var(--bg);
 }
-/* Leaflet inherits the page look: app font, themed water, themed controls. */
-.map-canvas.leaflet-container {
+/* Leaflet inherits the page look: app font, themed water, themed controls.
+   Every map the app draws — the full Places map and the small place maps —
+   gets the same treatment, so their controls and tooltips match. */
+.map-canvas.leaflet-container,
+.tools-geo-minimap.leaflet-container {
   font: inherit;
   background: var(--bg);
 }
-.map-canvas .leaflet-control-attribution {
+.map-canvas .leaflet-control-attribution,
+.tools-geo-minimap .leaflet-control-attribution {
   background: color-mix(in srgb, var(--panel) 85%, transparent);
   color: var(--muted);
   font-size: 10.5px;
 }
-.map-canvas .leaflet-control-attribution a {
+.map-canvas .leaflet-control-attribution a,
+.tools-geo-minimap .leaflet-control-attribution a {
   color: var(--accent);
 }
-.map-canvas .leaflet-bar a {
+.map-canvas .leaflet-bar a,
+.tools-geo-minimap .leaflet-bar a {
   background: var(--panel);
   color: var(--text);
   border-bottom-color: var(--border);
 }
-.map-canvas .leaflet-bar a.leaflet-disabled {
+.map-canvas .leaflet-bar a.leaflet-disabled,
+.tools-geo-minimap .leaflet-bar a.leaflet-disabled {
   background: var(--panel-2);
   color: var(--faint);
 }
-.map-canvas .leaflet-tooltip {
+.map-canvas .leaflet-tooltip,
+.tools-geo-minimap .leaflet-tooltip {
   background: var(--panel);
   color: var(--text);
   border: 1px solid var(--border);
@@ -5480,6 +5499,15 @@ kbd {
   flex-wrap: wrap;
   gap: 8px 14px;
   margin: 0 0 8px;
+}
+/* What the map shows (event kinds) stays left; how it is shown — year window,
+   paths, layers — collects on the right. */
+.map-filters-right {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin-left: auto;
 }
 .map-kinds {
   display: flex;
@@ -5614,8 +5642,10 @@ kbd {
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
-  min-width: 260px;
-  max-width: 340px;
+  min-width: 320px;
+  /* Wide enough for the preset names, which run to "Slovenija · Topografska
+     karta, do 1:2500 (GURS)" — a narrow panel cut every one of them. */
+  max-width: min(520px, 90vw);
   padding: 8px;
   background: var(--panel);
   border: 1px solid var(--border-2);
@@ -5639,7 +5669,7 @@ kbd {
 }
 .map-overlay-pick {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 7px;
   cursor: pointer;
   min-width: 0;
@@ -5647,9 +5677,8 @@ kbd {
 .map-overlay-name {
   flex: 1 1 auto;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /* A name longer than the panel wraps rather than being cut off. */
+  overflow-wrap: anywhere;
   font-size: 12.5px;
 }
 .map-overlay-years {
@@ -5660,6 +5689,28 @@ kbd {
 .map-overlay-opacity {
   width: 100%;
   margin: 0 0 2px;
+}
+
+/* Marker tooltip: the event count under the place lines it summarizes. */
+.map-cluster-tip-count {
+  margin-top: 2px;
+  opacity: 0.75;
+}
+/* "Fit to data": the third button of the map's zoom bar. Leaflet sizes the
+   anchor; flex centres the glyph in it (the +/− are text, this is an icon). */
+.leaflet-bar a.map-fit-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.map-fit-link svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 /* Life paths: the toggle chip's squiggle icon, the direction chevrons along
@@ -6763,6 +6814,46 @@ kbd {
 .settings-overlay-name {
   flex: 1 1 auto;
 }
+/* Fold-out for a layer's technical fields — collapsed until asked for. */
+.settings-overlay-expand {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text);
+  font-size: 1.05rem;
+  line-height: 1;
+  padding: 2px 6px;
+}
+.settings-overlay-expand:hover {
+  color: var(--text);
+}
+/* The name owns its line; the reorder/remove buttons close the next one. */
+.settings-overlay-tail {
+  margin-left: auto;
+}
+/* Reorder arrows: the list order is the map's stacking order. */
+.settings-overlay-move {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.7rem;
+  line-height: 1;
+  padding: 3px 2px;
+}
+.settings-overlay-move:hover:not(:disabled) {
+  color: var(--text);
+}
+.settings-overlay-move:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+/* The layer's name heads its card — read first, so it carries the weight. */
+.settings-overlay-row .settings-overlay-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+}
 .settings-overlay-year {
   width: 5.2em;
   flex: 0 0 auto;
@@ -6854,15 +6945,29 @@ kbd {
    is where coordinates live" rather than "this one is placed". */
 .edit-event-coord--empty { opacity: 0.28; filter: grayscale(1); }
 .edit-event-coord--empty:hover { opacity: 0.7; filter: grayscale(0.3); }
+/* Two-column popover: the value being edited across the top, then the map to
+   pick on beside the candidates to pick from — a stacked layout pushed the map
+   below the fold behind whatever the search returned. */
 .edit-coord-pop {
-  position: absolute; top: 100%; left: 0; z-index: 30; min-width: 260px; max-width: 340px;
-  display: flex; flex-direction: column; gap: 6px;
+  /* Fixed, with the position computed from the pin: the events table scrolls
+     sideways and clips its overflow, so an absolute panel was cut off. */
+  position: fixed; z-index: 30; width: min(720px, 92vw);
+  display: flex; flex-direction: column; gap: 8px;
   padding: 8px 10px; margin-top: 4px;
   background: var(--panel-2); border: 1px solid var(--border);
   border-radius: var(--radius); box-shadow: 0 6px 20px rgb(0 0 0 / 0.28);
   font-size: 0.85rem; font-weight: 400;
 }
-.edit-coord-current { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.edit-coord-head { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; }
+.edit-coord-body { display: flex; align-items: stretch; gap: 10px; }
+.edit-coord-map { flex: 1 1 58%; min-width: 0; }
+.edit-coord-map .tools-geo-minimap { height: 260px; max-width: none; margin: 0; }
+.edit-coord-side {
+  flex: 1 1 42%; min-width: 0; max-height: 260px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.edit-coord-current { display: flex; align-items: center; gap: 8px; }
+.edit-coord-head .edit-coord-manual { flex: 0 1 320px; }
 .edit-coord-note { color: var(--muted); margin: 0; }
 .edit-coord-results { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .edit-coord-results li { display: flex; flex-direction: column; }

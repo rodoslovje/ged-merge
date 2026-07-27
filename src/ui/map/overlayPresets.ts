@@ -216,7 +216,8 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
 const PRESET_BY_KEY = new Map(OVERLAY_PRESETS.map((p) => [p.key, p]));
 
 /** Fold the current preset definition onto a preset-added layer, keeping the
- *  layer's identity, presetKey and (name) override. Non-preset layers, and
+ *  layer's identity, presetKey and the user's own choices (name override,
+ *  show-by-default flag) — those are preferences, not config. Non-preset layers, and
  *  layers whose preset no longer exists, are returned unchanged — so a manual
  *  edit that clears `presetKey` (see the Settings editor) detaches the layer
  *  and its stored config wins from then on. */
@@ -226,5 +227,5 @@ export function resolveOverlay(o: MapOverlay): MapOverlay {
   if (!preset) return o;
   const { key: _key, ...tech } = preset;
   void _key;
-  return { ...tech, id: o.id, name: o.name, presetKey: o.presetKey };
+  return { ...tech, id: o.id, name: o.name, presetKey: o.presetKey, defaultOn: o.defaultOn };
 }

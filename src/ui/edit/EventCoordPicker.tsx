@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { GeoCoord } from "../../gedcom/types";
 import { countryCode } from "../../gedcom/countryCode";
@@ -8,6 +8,7 @@ import { rnQueriesFrom, searchAddresses, type RnResult } from "../../geo/rn";
 import { searchNominatim, type NominatimResult } from "../../geo/nominatim";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
 import { useSettings } from "../SettingsContext";
+import { useCoordShare } from "./CoordShareContext";
 
 // Per-event coordinate control in the Edit view: the pin beside a place, and the
 // small panel it opens.
@@ -28,6 +29,9 @@ const MiniPlaceMap = lazy(() => import("../map/MiniPlaceMap"));
 type Search<T> = { state: "idle" | "loading" | "error" | "done"; results: T[] };
 
 const IDLE = { state: "idle" as const, results: [] };
+
+/** Keep the panel this far from the window edges. */
+const EDGE = 8;
 
 export function EventCoordPicker({
   place,
@@ -63,7 +67,18 @@ export function EventCoordPicker({
   const [rn, setRn] = useState<Search<RnResult>>(IDLE);
   const [osm, setOsm] = useState<Search<NominatimResult>>(IDLE);
   const [draft, setDraft] = useState("");
+  /** Where the panel is pinned in the viewport. It is positioned fixed and
+   *  clamped to the window: the events table scrolls sideways and clips, so an
+   *  absolutely positioned panel was cut off at either edge. */
+  const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
+  /** Whether the next pick is copied to the file's other events at this exact
+   *  place and address (see the offer in the panel head). On by default: the
+   *  same place and address is the same house, so one position is what those
+   *  events should all have — unticking is the exception. */
+  const [shareAll, setShareAll] = useState(true);
+  const share = useCoordShare();
   const boxRef = useRef<HTMLDivElement | null>(null);
+  const popRef = useRef<HTMLDivElement | null>(null);
 
   const queries = useMemo(() => rnQueriesFrom(place || undefined, address || undefined), [place, address]);
   /** Whether the register could ever apply here — Slovenia, or no country named. */
@@ -75,6 +90,34 @@ export function EventCoordPicker({
   /** One coordinate, as the panel and the pin panels print it. */
   const at = (c: GeoCoord) => `${c.lat.toFixed(5)}, ${c.lon.toFixed(5)}`;
 
+  useLayoutEffect(() => {
+    if (!open) return;
+    const position = () => {
+      const anchor = boxRef.current?.getBoundingClientRect();
+      if (!anchor) return;
+      const panel = popRef.current?.getBoundingClientRect();
+      const width = panel?.width ?? Math.min(720, window.innerWidth * 0.92);
+      const height = panel?.height ?? 320;
+      const left = Math.max(EDGE, Math.min(anchor.left, window.innerWidth - width - EDGE));
+      // Below the pin, or above it when the window has no room underneath.
+      const below = anchor.bottom + 4;
+      const top = below + height > window.innerHeight - EDGE ? Math.max(EDGE, anchor.top - height - 4) : below;
+      setPos((prev) => (prev && prev.left === left && prev.top === top ? prev : { left, top }));
+    };
+    position();
+    // The panel grows as lookups return; re-place it so it stays on screen.
+    const ro = new ResizeObserver(position);
+    if (popRef.current) ro.observe(popRef.current);
+    window.addEventListener("resize", position);
+    // Capture: the events area scrolls, not the window.
+    window.addEventListener("scroll", position, true);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", position);
+      window.removeEventListener("scroll", position, true);
+    };
+  }, [open]);
+
   // Close on Escape or a click elsewhere, like the other inline Edit pickers.
   useEffect(() => {
     if (!open) return;
@@ -85,7 +128,10 @@ export function EventCoordPicker({
       }
     };
     const onDown = (e: MouseEvent) => {
-      if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      // The panel is a fixed-position sibling, so it is not inside boxRef.
+      if (popRef.current?.contains(target)) return;
+      if (boxRef.current && !boxRef.current.contains(target)) setOpen(false);
     };
     document.addEventListener("keydown", onKey, true);
     document.addEventListener("mousedown", onDown);
@@ -115,6 +161,10 @@ export function EventCoordPicker({
     );
   };
 
+  // Other events in the file at this very place and address: their coordinate
+  // should be the same one, so picking here offers to set theirs too.
+  const others = share ? share.countOthers(place, address, coord) : 0;
+
   /** What the file itself already knows about this address / place. Anything
    *  equal to the current coordinate is left out — it would propose a no-op. */
   const fromFile: { coord: GeoCoord; label: string }[] = [];
@@ -127,6 +177,9 @@ export function EventCoordPicker({
 
   const take = (c: GeoCoord) => {
     onPick(c);
+    // The same house serves every event at this place and address, so the
+    // offer copies the pick to them in one further undoable step.
+    if (shareAll && others > 0) share!.applyToAll(place, address, c);
     setOpen(false);
     setRn(IDLE);
     setOsm(IDLE);
@@ -182,6 +235,7 @@ export function EventCoordPicker({
 
   const busy = rn.state === "loading" || osm.state === "loading";
 
+
   return (
     <span className="edit-event-coord-wrap" ref={boxRef}>
       <button
@@ -198,123 +252,150 @@ export function EventCoordPicker({
         📍
       </button>
       {open && (
-        <div className="edit-coord-pop">
-          {coord && (
-            <div className="edit-coord-current">
-              <span className="gm-data">
-                {coord.lat.toFixed(5)}, {coord.lon.toFixed(5)}
-              </span>
-              <button type="button" className="tools-issue-link" onClick={() => { onClear(); setOpen(false); }}>
-                {t("event.coord.clear")}
-              </button>
-            </div>
-          )}
-
-          {fromFile.length > 0 && (
-            <ul className="edit-coord-results">
-              {fromFile.map((f, i) => (
-                <li key={`file-${i}`}>
-                  <button type="button" className="tools-issue-link" onClick={() => take(f.coord)}>
-                    {f.label}
-                  </button>
-                  <span className="gm-data">{at(f.coord)}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {settings.allowLinkFetch ? (
-            <div className="edit-coord-actions">
-              {queries.length > 0 && (
-                <button type="button" className="tools-issue-link" disabled={busy} onClick={runRegister}>
-                  {rn.state === "loading" ? t("tools.geocode.rn.searching") : t("tools.geocode.rn.search")}
+        <div
+          ref={popRef}
+          className="edit-coord-pop"
+          style={pos ? { left: pos.left, top: pos.top } : { visibility: "hidden" }}
+        >
+          {/* Head: what the event carries now, and the manual entry that can
+              replace it — the two things that act on the value itself. */}
+          <div className="edit-coord-head">
+            {coord && (
+              <div className="edit-coord-current">
+                <span className="gm-data">
+                  {coord.lat.toFixed(5)}, {coord.lon.toFixed(5)}
+                </span>
+                <button type="button" className="tools-issue-link" onClick={() => { onClear(); setOpen(false); }}>
+                  {t("event.coord.clear")}
                 </button>
-              )}
-              <button type="button" className="tools-issue-link" disabled={busy} onClick={runOnline}>
-                {osm.state === "loading" ? t("tools.geocode.online.searching") : t("tools.geocode.online.search")}
+              </div>
+            )}
+            {others > 0 && (
+              <label className="edit-coord-share" title={t("event.coord.applyAll.hint")}>
+                <input type="checkbox" checked={shareAll} onChange={(e) => setShareAll(e.target.checked)} />
+                {t("event.coord.applyAll", { count: others })}
+              </label>
+            )}
+            <div className="edit-coord-manual">
+              <input
+                type="text"
+                value={draft}
+                placeholder={t("event.coord.manualPlaceholder")}
+                title={t("event.coord.manual")}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && draftCoord) {
+                    e.preventDefault();
+                    take(draftCoord);
+                  }
+                }}
+              />
+              <button
+                type="button"
+                className="tools-issue-link"
+                disabled={!draftCoord}
+                onClick={() => draftCoord && take(draftCoord)}
+              >
+                {t("event.coord.set")}
               </button>
             </div>
-          ) : (
-            <p className="edit-coord-note">{t("tools.geocode.downloadNeedsOptIn")}</p>
-          )}
-          {rn.state === "error" && <p className="edit-coord-note">{t("tools.geocode.rn.error")}</p>}
-          {rn.state === "done" && !rn.results.length && <p className="edit-coord-note">{t("tools.geocode.rn.none")}</p>}
-          {osm.state === "error" && <p className="edit-coord-note">{t("tools.geocode.online.error")}</p>}
-          {osm.state === "done" && !osm.results.length && <p className="edit-coord-note">{t("tools.geocode.online.none")}</p>}
-          {/* Why the register isn't on offer: outside Slovenia it cannot help,
-              and inside it needs a house number to look up. */}
-          {settings.allowLinkFetch && !queries.length && (
-            <p className="edit-coord-note">
-              {inSlovenia ? t("event.coord.noHouseNumber") : t("event.coord.notSlovenia")}
-            </p>
-          )}
+          </div>
 
-          {(rn.results.length > 0 || osm.results.length > 0) && (
-            <ul className="edit-coord-results">
-              {rn.results.map((r, i) => (
-                <li key={`rn-${i}`}>
-                  <button type="button" className="tools-issue-link" title={r.label} onClick={() => take(r.coord)}>
-                    {r.label}
+          {/* Body: the map to pick on, and the candidates to pick from. */}
+          <div className="edit-coord-body">
+            {/* Candidate pins are clickable, and a click on the background fills
+                the manual field rather than writing straight away — in Edit a
+                pick is a file change, so it stays one deliberate confirmation. */}
+            {(pins.length > 0 || coord) && (
+              <Suspense fallback={<div className="edit-coord-map" />}>
+                <div className="edit-coord-map">
+                  <MiniPlaceMap
+                    pins={pins}
+                    title={t("event.coord.mapHint")}
+                    // Keyed on the found coordinates, so each new result set
+                    // re-frames the map around all of them — a renumbered house
+                    // can be two addresses a kilometre apart. The typed draft is
+                    // deliberately left out: re-fitting on every keystroke would
+                    // make the map jump while someone is still typing.
+                    fitKey={
+                      [...rn.results, ...osm.results].map((r) => `${r.coord.lat},${r.coord.lon}`).join("|") ||
+                      `${place} ${address}`
+                    }
+                    onPickCoord={(c) => setDraft(`${c.lat.toFixed(5)}, ${c.lon.toFixed(5)}`)}
+                  />
+                </div>
+              </Suspense>
+            )}
+
+            <div className="edit-coord-side">
+              {fromFile.length > 0 && (
+                <ul className="edit-coord-results">
+                  {fromFile.map((f, i) => (
+                    <li key={`file-${i}`}>
+                      <button type="button" className="tools-issue-link" onClick={() => take(f.coord)}>
+                        {f.label}
+                      </button>
+                      <span className="gm-data">{at(f.coord)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {settings.allowLinkFetch ? (
+                <div className="edit-coord-actions">
+                  {queries.length > 0 && (
+                    <button type="button" className="tools-issue-link" disabled={busy} onClick={runRegister}>
+                      {rn.state === "loading" ? t("tools.geocode.rn.searching") : t("tools.geocode.rn.search")}
+                    </button>
+                  )}
+                  <button type="button" className="tools-issue-link" disabled={busy} onClick={runOnline}>
+                    {osm.state === "loading" ? t("tools.geocode.online.searching") : t("tools.geocode.online.search")}
                   </button>
-                  <span className="gm-data">
-                    {r.coord.lat.toFixed(5)}, {r.coord.lon.toFixed(5)} <span className="tools-reshape-badge official">GURS</span>
-                  </span>
-                </li>
-              ))}
-              {osm.results.map((r, i) => (
-                <li key={`osm-${i}`}>
-                  <button type="button" className="tools-issue-link" title={r.label} onClick={() => take(r.coord)}>
-                    {r.label}
-                  </button>
-                  <span className="gm-data">
-                    {r.coord.lat.toFixed(5)}, {r.coord.lon.toFixed(5)} <span className="tools-reshape-badge reuse">OSM</span>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
+                </div>
+              ) : (
+                <p className="edit-coord-note">{t("tools.geocode.downloadNeedsOptIn")}</p>
+              )}
+              {rn.state === "error" && <p className="edit-coord-note">{t("tools.geocode.rn.error")}</p>}
+              {rn.state === "done" && !rn.results.length && <p className="edit-coord-note">{t("tools.geocode.rn.none")}</p>}
+              {osm.state === "error" && <p className="edit-coord-note">{t("tools.geocode.online.error")}</p>}
+              {osm.state === "done" && !osm.results.length && (
+                <p className="edit-coord-note">{t("tools.geocode.online.none")}</p>
+              )}
+              {/* Why the register isn't on offer: outside Slovenia it cannot help,
+                  and inside it needs a house number to look up. */}
+              {settings.allowLinkFetch && !queries.length && (
+                <p className="edit-coord-note">
+                  {inSlovenia ? t("event.coord.noHouseNumber") : t("event.coord.notSlovenia")}
+                </p>
+              )}
 
-          {/* The map: candidate pins are clickable, and a click on the background
-              fills the manual field rather than writing straight away — in Edit
-              a pick is a file change, so it stays one deliberate confirmation. */}
-          {(pins.length > 0 || coord) && (
-            <Suspense fallback={<div className="edit-coord-map" />}>
-              <div className="edit-coord-map">
-                <MiniPlaceMap
-                  pins={pins}
-                  title={t("event.coord.mapHint")}
-                  // Keyed on the found coordinates, so each new result set
-                  // re-frames the map around all of them — a renumbered house
-                  // can be two addresses a kilometre apart. The typed draft is
-                  // deliberately left out: re-fitting on every keystroke would
-                  // make the map jump while someone is still typing.
-                  fitKey={
-                    [...rn.results, ...osm.results].map((r) => `${r.coord.lat},${r.coord.lon}`).join("|") ||
-                    `${place} ${address}`
-                  }
-                  onPickCoord={(c) => setDraft(`${c.lat.toFixed(5)}, ${c.lon.toFixed(5)}`)}
-                />
-              </div>
-            </Suspense>
-          )}
-
-          <div className="edit-coord-manual">
-            <input
-              type="text"
-              value={draft}
-              placeholder={t("event.coord.manualPlaceholder")}
-              title={t("event.coord.manual")}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && draftCoord) {
-                  e.preventDefault();
-                  take(draftCoord);
-                }
-              }}
-            />
-            <button type="button" className="tools-issue-link" disabled={!draftCoord} onClick={() => draftCoord && take(draftCoord)}>
-              {t("event.coord.set")}
-            </button>
+              {(rn.results.length > 0 || osm.results.length > 0) && (
+                <ul className="edit-coord-results">
+                  {rn.results.map((r, i) => (
+                    <li key={`rn-${i}`}>
+                      <button type="button" className="tools-issue-link" title={r.label} onClick={() => take(r.coord)}>
+                        {r.label}
+                      </button>
+                      <span className="gm-data">
+                        {r.coord.lat.toFixed(5)}, {r.coord.lon.toFixed(5)}{" "}
+                        <span className="tools-reshape-badge official">GURS</span>
+                      </span>
+                    </li>
+                  ))}
+                  {osm.results.map((r, i) => (
+                    <li key={`osm-${i}`}>
+                      <button type="button" className="tools-issue-link" title={r.label} onClick={() => take(r.coord)}>
+                        {r.label}
+                      </button>
+                      <span className="gm-data">
+                        {r.coord.lat.toFixed(5)}, {r.coord.lon.toFixed(5)}{" "}
+                        <span className="tools-reshape-badge reuse">OSM</span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </div>
         </div>
       )}
