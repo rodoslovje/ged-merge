@@ -30,6 +30,9 @@ type Search<T> = { state: "idle" | "loading" | "error" | "done"; results: T[] };
 
 const IDLE = { state: "idle" as const, results: [] };
 
+/** Keep the panel this far from the window edges. */
+const EDGE = 8;
+
 export function EventCoordPicker({
   place,
   address,
@@ -64,14 +67,16 @@ export function EventCoordPicker({
   const [rn, setRn] = useState<Search<RnResult>>(IDLE);
   const [osm, setOsm] = useState<Search<NominatimResult>>(IDLE);
   const [draft, setDraft] = useState("");
-  /** Anchored to the pin's right edge when the panel would otherwise run off
-   *  the window — an event near the right margin is the common case. */
-  const [alignRight, setAlignRight] = useState(false);
+  /** Where the panel is pinned in the viewport. It is positioned fixed and
+   *  clamped to the window: the events table scrolls sideways and clips, so an
+   *  absolutely positioned panel was cut off at either edge. */
+  const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
   /** Whether the next pick is copied to the file's other events at this exact
    *  place and address (see the offer in the panel head). */
   const [shareAll, setShareAll] = useState(false);
   const share = useCoordShare();
   const boxRef = useRef<HTMLDivElement | null>(null);
+  const popRef = useRef<HTMLDivElement | null>(null);
 
   const queries = useMemo(() => rnQueriesFrom(place || undefined, address || undefined), [place, address]);
   /** Whether the register could ever apply here — Slovenia, or no country named. */
@@ -84,10 +89,31 @@ export function EventCoordPicker({
   const at = (c: GeoCoord) => `${c.lat.toFixed(5)}, ${c.lon.toFixed(5)}`;
 
   useLayoutEffect(() => {
-    if (!open || !boxRef.current) return;
-    const rect = boxRef.current.getBoundingClientRect();
-    const width = Math.min(720, window.innerWidth * 0.92);
-    setAlignRight(rect.left + width > window.innerWidth - 12);
+    if (!open) return;
+    const position = () => {
+      const anchor = boxRef.current?.getBoundingClientRect();
+      if (!anchor) return;
+      const panel = popRef.current?.getBoundingClientRect();
+      const width = panel?.width ?? Math.min(720, window.innerWidth * 0.92);
+      const height = panel?.height ?? 320;
+      const left = Math.max(EDGE, Math.min(anchor.left, window.innerWidth - width - EDGE));
+      // Below the pin, or above it when the window has no room underneath.
+      const below = anchor.bottom + 4;
+      const top = below + height > window.innerHeight - EDGE ? Math.max(EDGE, anchor.top - height - 4) : below;
+      setPos((prev) => (prev && prev.left === left && prev.top === top ? prev : { left, top }));
+    };
+    position();
+    // The panel grows as lookups return; re-place it so it stays on screen.
+    const ro = new ResizeObserver(position);
+    if (popRef.current) ro.observe(popRef.current);
+    window.addEventListener("resize", position);
+    // Capture: the events area scrolls, not the window.
+    window.addEventListener("scroll", position, true);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", position);
+      window.removeEventListener("scroll", position, true);
+    };
   }, [open]);
 
   // Close on Escape or a click elsewhere, like the other inline Edit pickers.
@@ -100,7 +126,10 @@ export function EventCoordPicker({
       }
     };
     const onDown = (e: MouseEvent) => {
-      if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      // The panel is a fixed-position sibling, so it is not inside boxRef.
+      if (popRef.current?.contains(target)) return;
+      if (boxRef.current && !boxRef.current.contains(target)) setOpen(false);
     };
     document.addEventListener("keydown", onKey, true);
     document.addEventListener("mousedown", onDown);
@@ -221,7 +250,11 @@ export function EventCoordPicker({
         📍
       </button>
       {open && (
-        <div className={"edit-coord-pop" + (alignRight ? " edit-coord-pop--right" : "")}>
+        <div
+          ref={popRef}
+          className="edit-coord-pop"
+          style={pos ? { left: pos.left, top: pos.top } : { visibility: "hidden" }}
+        >
           {/* Head: what the event carries now, and the manual entry that can
               replace it — the two things that act on the value itself. */}
           <div className="edit-coord-head">

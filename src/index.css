@@ -6948,14 +6948,15 @@ kbd {
    pick on beside the candidates to pick from — a stacked layout pushed the map
    below the fold behind whatever the search returned. */
 .edit-coord-pop {
-  position: absolute; top: 100%; left: 0; z-index: 30; width: min(720px, 92vw);
+  /* Fixed, with the position computed from the pin: the events table scrolls
+     sideways and clips its overflow, so an absolute panel was cut off. */
+  position: fixed; z-index: 30; width: min(720px, 92vw);
   display: flex; flex-direction: column; gap: 8px;
   padding: 8px 10px; margin-top: 4px;
   background: var(--panel-2); border: 1px solid var(--border);
   border-radius: var(--radius); box-shadow: 0 6px 20px rgb(0 0 0 / 0.28);
   font-size: 0.85rem; font-weight: 400;
 }
-.edit-coord-pop--right { left: auto; right: 0; }
 .edit-coord-head { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; }
 .edit-coord-body { display: flex; align-items: stretch; gap: 10px; }
 .edit-coord-map { flex: 1 1 58%; min-width: 0; }
