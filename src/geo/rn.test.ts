@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { buildRnFilter, parseHouseNumbers, resultsForQuery, rnFeaturesToResults, rnQueriesFrom } from "./rn";
+import {
+  buildRnFilter,
+  hostAsSettlement,
+  parseHouseNumbers,
+  resultsForQuery,
+  rnFeaturesToResults,
+  rnQueriesFrom,
+} from "./rn";
 
 describe("rnQueriesFrom", () => {
   it("reads village numbering out of PLAC alone", () => {
@@ -121,8 +128,45 @@ describe("buildRnFilter", () => {
   });
 });
 
+describe("hostAsSettlement", () => {
+  it("re-reads a settlement-shaped host as the settlement itself", () => {
+    // "Klošter 12" filed under Gradac: no Gradac street is called Klošter —
+    // Klošter is its own naselje, which is what the register is asked next.
+    expect(hostAsSettlement({ settlement: "Gradac", street: "Klošter", number: 12, altSettlements: ["Metlika"] })).toEqual({
+      settlement: "Klošter",
+      number: 12,
+    });
+  });
+
+  it("declines a real street and an address with no street at all", () => {
+    expect(hostAsSettlement({ settlement: "Kranj", street: "Kidričeva cesta", number: 38 })).toBeUndefined();
+    expect(hostAsSettlement({ settlement: "Bled", number: 4 })).toBeUndefined();
+  });
+});
+
 describe("rnFeaturesToResults", () => {
   const feature = (props: Record<string, unknown>) => ({ properties: props });
+
+  it("carries the register's settlement and municipality", () => {
+    // What tells a misfiled hamlet apart: the register's own naselje/občina,
+    // regardless of which post office (here Gradac) the file went by.
+    const [r] = rnFeaturesToResults({
+      features: [
+        feature({
+          OBCINA_NAZIV: "Metlika",
+          NASELJE_NAZIV: "Klošter",
+          ULICA_NAZIV: null,
+          HS_STEVILKA: 12,
+          POSTNI_OKOLIS_SIFRA: 8332,
+          POSTNI_OKOLIS_NAZIV: "Gradac",
+          E: 518682,
+          N: 53264,
+        }),
+      ],
+    });
+    expect(r.settlement).toBe("Klošter");
+    expect(r.municipality).toBe("Metlika");
+  });
 
   it("projects D96 coordinates and labels a village address", () => {
     const [r] = rnFeaturesToResults({

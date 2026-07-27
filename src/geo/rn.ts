@@ -58,6 +58,9 @@ export interface RnResult {
   /** Full pick line: address, settlement when it differs, and the post office. */
   label: string;
   settlement: string;
+  /** The municipality (občina) the register files that settlement under —
+   *  what tells "Klošter in Metlika" apart from a same-named place elsewhere. */
+  municipality?: string;
   /** House number this result is, for matching a batch back to its rows. */
   number: number;
   /** Its letter suffix, lowercased; absent when the register records none. */
@@ -221,11 +224,13 @@ export function rnFeaturesToResults(data: RnFeatureCollection, max = MAX_RESULTS
     const parts = [address];
     if (street && settlement) parts.push(settlement);
     if (post) parts.push(post);
+    const municipality = str(props.OBCINA_NAZIV);
     const result: RnResult = {
       coord,
       address,
       label: parts.join(", "),
       settlement,
+      ...(municipality ? { municipality } : {}),
       number: Number(str(props.HS_STEVILKA)),
       ...(str(props.HS_DODATEK) ? { suffix: str(props.HS_DODATEK).toLowerCase() } : {}),
     };
@@ -271,6 +276,12 @@ function rnFetch(filter: string, signal?: AbortSignal, limit = FETCH_LIMIT): Pro
  * That ladder is then repeated for each of `altSettlements`, since the settlement
  * the file names may not be the one the register files the street under.
  *
+ * The last rung reads the "street" as a settlement instead ({@link hostAsSettlement}):
+ * a number that hangs off neither the place named nor a street of it is very
+ * often a neighbouring hamlet the file files under its bigger neighbour. That
+ * both finds the house and — since the result carries the register's own
+ * settlement — is what reveals the misfiling.
+ *
  * Resolves to [] when nothing matches at all — including a settlement spelled
  * differently from the register (it matches case- and diacritic-sensitively),
  * which the review UI shows as "no match" so the row can fall back to a
@@ -281,7 +292,21 @@ export async function searchAddress(query: RnQuery, signal?: AbortSignal): Promi
     const hits = await searchInSettlement({ ...query, settlement }, signal);
     if (hits.length) return hits;
   }
+  const asSettlement = hostAsSettlement(query);
+  if (asSettlement) return searchInSettlement(asSettlement, signal);
   return [];
+}
+
+/**
+ * The same house number read as village numbering in the "street" itself —
+ * `Klošter 12` under Gradac asked as naselje Klošter rather than a Gradac street.
+ * Undefined when the address names a real street ("Kidričeva cesta 38"), which
+ * is a settlement no register would know.
+ */
+export function hostAsSettlement(query: RnQuery): RnQuery | undefined {
+  if (!query.street || looksLikeStreet(query.street)) return undefined;
+  const { street: _street, altSettlements: _alt, ...rest } = query;
+  return { ...rest, settlement: query.street };
 }
 
 /** The widening ladder within one settlement. */
@@ -336,6 +361,11 @@ const BATCH_LIMIT = 1000;
  * distribute. Suffixes are deliberately *not* constrained here — asking for "4"
  * also returns 4a/4b, which is what lets a row whose file says "4a" find the
  * register's plain 4 without a second request.
+ *
+ * A group that comes back empty is retried with its "street" read as a
+ * settlement ({@link hostAsSettlement}) — the batch's share of the ladder, and
+ * the rung that matters most here, since a hamlet filed under its neighbour is
+ * exactly the case where a whole group of addresses fails at once.
  */
 export async function searchAddressBatch(queries: readonly RnQuery[], signal?: AbortSignal): Promise<RnResult[]> {
   const byPlace = new Map<string, { settlement: string; street?: string; numbers: Set<number> }>();
@@ -346,16 +376,28 @@ export async function searchAddressBatch(queries: readonly RnQuery[], signal?: A
     else byPlace.set(key, { settlement: q.settlement, street: q.street, numbers: new Set([q.number]) });
   }
 
+  const fetchGroup = async (settlement: string, street: string | undefined, numbers: number[]) => {
+    const hits: RnResult[] = [];
+    for (let i = 0; i < numbers.length; i += BATCH_NUMBERS) {
+      const chunk = numbers.slice(i, i + BATCH_NUMBERS);
+      const clauses = [`NASELJE_NAZIV=${cqlString(settlement)}`, `HS_STEVILKA IN (${chunk.join(",")})`];
+      if (street) clauses.push(`ULICA_NAZIV LIKE ${cqlString(`${street}%`)}`);
+      else clauses.push("ULICA_NAZIV IS NULL");
+      hits.push(...rnFeaturesToResults(await rnFetch(clauses.join(" AND "), signal, BATCH_LIMIT), Infinity));
+    }
+    return hits;
+  };
+
   const pool: RnResult[] = [];
   for (const g of byPlace.values()) {
     const numbers = [...g.numbers].sort((a, b) => a - b);
-    for (let i = 0; i < numbers.length; i += BATCH_NUMBERS) {
-      const chunk = numbers.slice(i, i + BATCH_NUMBERS);
-      const clauses = [`NASELJE_NAZIV=${cqlString(g.settlement)}`, `HS_STEVILKA IN (${chunk.join(",")})`];
-      if (g.street) clauses.push(`ULICA_NAZIV LIKE ${cqlString(`${g.street}%`)}`);
-      else clauses.push("ULICA_NAZIV IS NULL");
-      pool.push(...rnFeaturesToResults(await rnFetch(clauses.join(" AND "), signal, BATCH_LIMIT), Infinity));
+    const hits = await fetchGroup(g.settlement, g.street, numbers);
+    if (hits.length) {
+      pool.push(...hits);
+      continue;
     }
+    const alt = hostAsSettlement({ settlement: g.settlement, street: g.street, number: numbers[0] });
+    if (alt) pool.push(...(await fetchGroup(alt.settlement, undefined, numbers)));
   }
   return pool;
 }

@@ -3,8 +3,9 @@ import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
 import { sameCoord } from "../../geo/points";
 import { resultsForQuery, searchAddressBatch, searchAddresses, type RnResult } from "../../geo/rn";
-import { scanAddresses, suggestMovedPlace, type AddressRow } from "../../tools/addresses";
+import { replaceLocality, scanAddresses, suggestMovedPlace, type AddressRow } from "../../tools/addresses";
 import { collectPlaceValues } from "../../tools/geocode";
+import { foldSearch } from "../globalSearch";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
 import { useSettings } from "../SettingsContext";
 
@@ -32,6 +33,55 @@ interface PlaceGroup {
    *  place with its settlement swapped for the name the house numbers hang off
    *  ({@link suggestMovedPlace}), and the rows that say so. */
   suggestion?: { place: string; keys: string[] };
+}
+
+/** What the register says about a group: addresses it files under a settlement
+ *  other than the one the file's place names. */
+interface RegisterSplit {
+  /** The register's settlement (NASELJE_NAZIV). */
+  settlement: string;
+  /** Its municipality, when the register gave one. */
+  municipality?: string;
+  /** The destination place — the file's own, with the settlement swapped. */
+  place?: string;
+  keys: string[];
+  events: number;
+}
+
+/**
+ * Addresses whose register hit sits in a different settlement than the place
+ * claims. This is the register's own verdict, not a guess: the ladder asks for
+ * "Klošter 12" as naselje Klošter once Gradac has nothing, and what comes back
+ * is filed under Klošter, občina Metlika.
+ *
+ * Rows with no result yet, or one that agrees, are simply absent; splits are
+ * keyed by settlement so a place that turns out to hide two hamlets offers both.
+ */
+function registerSplits(group: PlaceGroup, searches: ReadonlyMap<string, SearchState>): RegisterSplit[] {
+  const out = new Map<string, RegisterSplit>();
+  for (const row of group.rows) {
+    const results = searches.get(row.key)?.results ?? [];
+    // Only an unambiguous hit is evidence — several candidates mean the register
+    // itself could not tell which house, let alone which settlement.
+    if (results.length !== 1) continue;
+    const hit = results[0];
+    const claimed = row.queries[0]?.settlement;
+    if (!hit.settlement || !claimed || foldSearch(hit.settlement) === foldSearch(claimed)) continue;
+    const split = out.get(hit.settlement);
+    if (split) {
+      split.keys.push(row.key);
+      split.events += row.count;
+    } else {
+      out.set(hit.settlement, {
+        settlement: hit.settlement,
+        ...(hit.municipality ? { municipality: hit.municipality } : {}),
+        ...(replaceLocality(group.place, hit.settlement) ? { place: replaceLocality(group.place, hit.settlement) } : {}),
+        keys: [row.key],
+        events: row.count,
+      });
+    }
+  }
+  return [...out.values()].sort((a, b) => b.keys.length - a.keys.length);
 }
 
 /** The place the most of a group's addresses point at, with those rows. */
@@ -149,12 +199,13 @@ export function AddressCoordsSection({
     });
 
   /** Open the move panel for a group, pre-filled with what its addresses
-   *  suggest — the whole group when they suggest nothing. */
-  const startMove = (group: PlaceGroup) => {
+   *  suggest — the whole group when they suggest nothing. A `split` from the
+   *  register overrides that guess with its verdict. */
+  const startMove = (group: PlaceGroup, split?: RegisterSplit) => {
     setMoveGroup(group.place);
     setMoved(null);
-    setMoveTarget(group.suggestion?.place ?? "");
-    setMoveSel(new Set(group.suggestion?.keys ?? group.rows.map((r) => r.key)));
+    setMoveTarget(split?.place ?? split?.settlement ?? group.suggestion?.place ?? "");
+    setMoveSel(new Set(split?.keys ?? group.suggestion?.keys ?? group.rows.map((r) => r.key)));
   };
 
   const closeMove = () => {
@@ -174,6 +225,10 @@ export function AddressCoordsSection({
   const applyMove = () => {
     const changed = onMove(moveSel, moveTarget);
     closeMove();
+    // The moved rows are keyed by their old place, so every pick and lookup
+    // against them is stale — and the destination is worth looking up afresh.
+    setPicked(new Map());
+    setSearches(new Map());
     setMoved(changed);
   };
 
@@ -267,6 +322,23 @@ export function AddressCoordsSection({
                   </button>
                 )}
               </div>
+              {isOpen && moveGroup !== group.place &&
+                registerSplits(group, searches).map((split) => (
+                  <p key={split.settlement} className="tools-geo-addr-split">
+                    <span className="tools-reshape-badge official">GURS</span>{" "}
+                    {t("tools.geocode.addr.splitFound", {
+                      count: split.keys.length,
+                      events: split.events,
+                      settlement: split.municipality
+                        ? `${split.settlement} (${split.municipality})`
+                        : split.settlement,
+                      place: group.place,
+                    })}{" "}
+                    <button className="tools-issue-link" onClick={() => startMove(group, split)}>
+                      {t("tools.geocode.addr.splitMove", { place: split.place ?? split.settlement })}
+                    </button>
+                  </p>
+                ))}
               {isOpen && moveGroup === group.place && (
                 <MovePanel
                   group={group}

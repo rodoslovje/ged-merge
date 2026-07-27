@@ -7085,4 +7085,14 @@ kbd {
 /* The move panel reuses the rename row; its explanation takes a line of its own
    above the controls rather than competing with them for the flex track. */
 .tools-geo-addr-move .tools-intro { flex: 1 0 100%; margin: 0; }
+/* The register's verdict that a group's addresses belong elsewhere — indented
+   to the addresses it is about, and tinted like the other importable finds. */
+.tools-geo-addr-split {
+  margin: 4px 0 4px 26px;
+  padding: 5px 8px;
+  font-size: 0.85rem;
+  border-left: 2px solid var(--status-import);
+  background: var(--panel-2);
+  border-radius: var(--radius-sm);
+}
 .tools-geo-addr-group .tools-geo-addr-row { border-bottom: none; }
