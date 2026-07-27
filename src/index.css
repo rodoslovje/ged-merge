@@ -5625,10 +5625,10 @@ kbd {
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
-  min-width: 260px;
+  min-width: 320px;
   /* Wide enough for the preset names, which run to "Slovenija · Topografska
      karta, do 1:2500 (GURS)" — a narrow panel cut every one of them. */
-  max-width: min(420px, 80vw);
+  max-width: min(520px, 90vw);
   padding: 8px;
   background: var(--panel);
   border: 1px solid var(--border-2);

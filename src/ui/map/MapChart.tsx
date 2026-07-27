@@ -605,6 +605,17 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
             </button>
           ))}
         </div>
+        {/* Paths sits with the kind chips: like them, it picks what is drawn. */}
+        <button
+          type="button"
+          className={`map-kind-chip map-paths-chip${showPaths ? " active" : ""}`}
+          aria-pressed={showPaths}
+          title={t("map.paths.tooltip")}
+          onClick={() => setShowPaths((v) => !v)}
+        >
+          <PathIcon />
+          {t("map.paths")}
+        </button>
         <div className="map-filters-right">
           <span className="map-years">
             <input
@@ -646,16 +657,6 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
             <input type="checkbox" checked={includeUndated} onChange={(e) => setIncludeUndated(e.target.checked)} />
             {t("map.undated")}
           </label>
-          <button
-            type="button"
-            className={`map-kind-chip map-paths-chip${showPaths ? " active" : ""}`}
-            aria-pressed={showPaths}
-            title={t("map.paths.tooltip")}
-            onClick={() => setShowPaths((v) => !v)}
-          >
-            <PathIcon />
-            {t("map.paths")}
-          </button>
           {appSettings.allowMapTiles && overlays.length > 0 && (
             <span className="map-overlays-wrap">
               <button
