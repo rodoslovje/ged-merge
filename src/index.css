@@ -7081,6 +7081,9 @@ kbd {
    that while it was on this element. */
 .tools-geo-addr-sublist { list-style: none; }
 .tools-geo-addr-group > .tools-geo-minimap { margin-left: 26px; }
+/* A group's place heading reads like the place rows above it — full row size
+   and height; the compact 0.9rem stays on the addresses inside it. */
+.tools-geo-addr-group > .tools-geo-addr-head { font-size: inherit; min-height: 24px; }
 .tools-geo-addr-group:last-child { border-bottom: none; }
 /* The move panel reuses the rename row; its explanation takes a line of its own
    above the controls rather than competing with them for the flex track. */

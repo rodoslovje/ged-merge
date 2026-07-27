@@ -23,6 +23,7 @@ import { ToolsError, ToolsLoading, TreeSearch, useDebounced } from "./shared";
 import { createKinshipResolver } from "../../match/kinship";
 import { buildPlaceSuggestions, placeCombosOf } from "../edit/placeSuggestions";
 import { AddressCoordsSection } from "./AddressCoordsSection";
+import { CoordConflicts } from "./CoordConflicts";
 import { GeocodePlaceRow } from "./GeocodePlaceRow";
 import { BackButton } from "../BackButton";
 import { isEditableTarget, isModalOpen } from "../../keyboard/shortcuts";
@@ -628,6 +629,7 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
           whose PLAC names only the settlement. Renders nothing when there are
           none, so files without ADDR lines see no change. */}
       <AddressCoordsSection dataset={dataset} onApply={onApplyAddressCoords} onMove={onMovePlaceForAddresses} />
+      <CoordConflicts dataset={dataset} />
     </div>
   );
 }

@@ -100,6 +100,23 @@ describe("applyAddressCoords", () => {
   });
 });
 
+describe("scanAddresses ordering", () => {
+  it("orders equally-used addresses by house number, not as text", () => {
+    const events = [4, 49, 6, 57, 32, 7]
+      .map((n) => `1 RESI\n2 PLAC Srednje Bitnje, Kranj, Slovenija\n2 ADDR Srednje Bitnje ${n}`)
+      .join("\n");
+    const rows = scanAddresses(build(`0 HEAD\n1 GEDC\n2 VERS 5.5.1\n0 @I1@ INDI\n${events}\n0 TRLR`));
+    expect(rows.map((r) => r.address)).toEqual([
+      "Srednje Bitnje 4",
+      "Srednje Bitnje 6",
+      "Srednje Bitnje 7",
+      "Srednje Bitnje 32",
+      "Srednje Bitnje 49",
+      "Srednje Bitnje 57",
+    ]);
+  });
+});
+
 describe("replaceLocality", () => {
   it("swaps the settlement and keeps the file's own outer levels", () => {
     expect(replaceLocality("Gradac, Metlika, Slovenia", "Klošter")).toBe("Klošter, Metlika, Slovenia");

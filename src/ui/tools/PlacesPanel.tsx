@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
 import { buildPlaceTree, collectNodeUseIds, type PlaceNode, type PlaceTree, UNSPECIFIED, UNSPECIFIED_PLACE } from "../../tools/places";
 import { collectPlaceSegments, previewPlaceRename, type PlaceRenamePreview } from "../../tools/placeEdit";
+import { scanAddresses } from "../../tools/addresses";
 import { GeocodePanel } from "./GeocodePanel";
 import { countGeocodePending, type GeoAssignment } from "../../tools/geocode";
 import { countryCode } from "../../gedcom/countryCode";
@@ -161,9 +162,13 @@ export function PlacesPanel({
     setOpen(toOpen);
   }
 
-  // Distinct place names still missing coordinates — the geocode chip badge.
-  // Recomputed with the tree (same trigger: dataset change / re-entry).
+  // What the geocode tool has to offer, as the chip's two badges: distinct
+  // place names still missing coordinates, and addresses a register lookup
+  // could pin to their house. Both recomputed with the tree (same trigger:
+  // dataset change / re-entry), since the tool works on either kind and a file
+  // can be done with one and full of the other.
   const geocodePending = useMemo(() => (tree ? countGeocodePending(dataset) : 0), [dataset, tree]);
+  const addressPending = useMemo(() => (tree ? scanAddresses(dataset).length : 0), [dataset, tree]);
 
   if (!tree) return <ToolsLoading label={t("tools.running")} />;
 
@@ -195,11 +200,20 @@ export function PlacesPanel({
           <button
             type="button"
             className="tools-chip"
-            title={t("tools.places.geocodeChipHint", { count: geocodePending })}
+            title={[
+              t("tools.places.geocodeChipHint", { count: geocodePending }),
+              addressPending > 0 ? t("tools.places.geocodeChipAddrHint", { count: addressPending }) : "",
+            ]
+              .filter(Boolean)
+              .join(" · ")}
             onClick={() => setView("geocode")}
           >
             {t("tools.places.geocodeToggle")}{" "}
             {geocodePending > 0 && <span className="tools-chip-count">{geocodePending}</span>}
+            {geocodePending > 0 && addressPending > 0 && " · "}
+            {addressPending > 0 && (
+              <span className="tools-chip-count">{t("tools.places.geocodeChipAddr", { count: addressPending })}</span>
+            )}
           </button>
         </div>
         <p className="tools-summary">

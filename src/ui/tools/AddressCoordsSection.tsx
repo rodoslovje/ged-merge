@@ -277,13 +277,15 @@ export function AddressCoordsSection({
     <section className="tools-cleanup-section">
       <div className="tools-dup-kind-head">
         {t("tools.geocode.addr.heading", { count: rows.length, places: groups.length })}
-        {picked.size > 0 && (
-          <button className="nav-btn tools-run" onClick={apply}>
-            {t("tools.geocode.addr.apply", { count: picked.size })}
-          </button>
-        )}
       </div>
       <p className="tools-intro">{t("tools.geocode.addr.intro")}</p>
+      {/* Its own action row, like the place list above — in the heading the
+          button read as part of the title and sat off the text's baseline. */}
+      <div className="tools-reshape-options">
+        <button className="nav-btn tools-run" onClick={apply} disabled={picked.size === 0}>
+          {t("tools.geocode.addr.apply", { count: picked.size })}
+        </button>
+      </div>
       {applied !== null && <p className="tools-clean tools-clean--ok">{t("tools.geocode.addr.applied", { count: applied })}</p>}
       {moved !== null && <p className="tools-clean tools-clean--ok">{t("tools.geocode.addr.moved", { count: moved })}</p>}
       <ul className="tools-geo-addr-list">

@@ -14,6 +14,10 @@ import { applyGeocodeByAddress, coordOf, placeAddrKey, walkPlaceAddr } from "./g
 // groups by the same pair, so those differing coordinates are expected rather
 // than reported (and a *disagreement within* one pair is what it flags).
 
+/** House numbers read as numbers, so 4 · 6 · 7 · 32 · 49 · 57 rather than the
+ *  plain-text 32 · 4 · 49 · 57 · 6 · 7 — an address list is mostly digits. */
+const BY_HOUSE_NUMBER = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
+
 /** One distinct place+address pair whose house the register could place. */
 export interface AddressRow {
   /** Stable key: {@link placeAddrKey} of the two raw values. */
@@ -115,7 +119,7 @@ export function scanAddresses(dataset: Dataset): AddressRow[] {
       covered: g.covered,
       people: [...g.people],
     }))
-    .sort((a, b) => b.count - a.count || a.key.localeCompare(b.key));
+    .sort((a, b) => b.count - a.count || BY_HOUSE_NUMBER.compare(a.key, b.key));
 }
 
 /**
