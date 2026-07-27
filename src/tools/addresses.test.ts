@@ -41,6 +41,8 @@ describe("scanAddresses", () => {
     // RESI and DEAT share the pair, so one review covers both events.
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ place: "Kranj, Slovenija", address: "Kidričeva cesta 38", count: 2 });
+    // Nothing placed these events yet, so the row carries no coordinate.
+    expect(rows[0].coord).toBeUndefined();
     expect(rows[0].queries).toEqual([{ settlement: "Kranj", street: "Kidričeva cesta", number: 38 }]);
     expect(rows[0].people).toEqual(["@I1@"]);
   });
@@ -174,6 +176,9 @@ describe("scanAddresses and existing coordinates", () => {
     const rows = scanAddresses(build(withCoords("N46.23887", "N46.23887")));
     expect(rows.map((r) => r.address).sort()).toEqual(["Kidričeva cesta 38", "Koroška cesta 1"]);
     expect(rows.every((r) => r.covered === 1)).toBe(true);
+    // The coordinate rides along so the group's map has something to draw
+    // before any register lookup has run.
+    expect(rows.every((r) => r.coord?.lat === 46.23887)).toBe(true);
   });
 
   it("leaves an address alone once it has its own house coordinate", () => {

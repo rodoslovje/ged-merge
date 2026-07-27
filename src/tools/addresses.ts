@@ -34,6 +34,9 @@ export interface AddressRow {
   /** How many of them already have a coordinate (the settlement's, which a
    *  register match would sharpen to the building). */
   covered: number;
+  /** The coordinate those events carry, when they have one — what the map can
+   *  show before any lookup has run. */
+  coord?: GeoCoord;
   /** Individuals the events belong to (both spouses for a family event). */
   people: string[];
 }
@@ -81,7 +84,15 @@ export function scanAddresses(dataset: Dataset): AddressRow[] {
 
   const groups = new Map<
     string,
-    { place: string; address: string; queries: RnQuery[]; count: number; covered: number; people: Set<string> }
+    {
+      place: string;
+      address: string;
+      queries: RnQuery[];
+      count: number;
+      covered: number;
+      coord?: GeoCoord;
+      people: Set<string>;
+    }
   >();
   const visit = (raw: GedNode, personIds: string[]) => {
     walkPlaceAddr(raw, (plac, address) => {
@@ -101,7 +112,10 @@ export function scanAddresses(dataset: Dataset): AddressRow[] {
         groups.set(key, g);
       }
       g.count++;
-      if (coord) g.covered++;
+      if (coord) {
+        g.covered++;
+        g.coord ??= coord;
+      }
       for (const id of personIds) g.people.add(id);
     });
   };
@@ -117,6 +131,7 @@ export function scanAddresses(dataset: Dataset): AddressRow[] {
       queries: g.queries,
       count: g.count,
       covered: g.covered,
+      ...(g.coord ? { coord: g.coord } : {}),
       people: [...g.people],
     }))
     .sort((a, b) => b.count - a.count || BY_HOUSE_NUMBER.compare(a.key, b.key));

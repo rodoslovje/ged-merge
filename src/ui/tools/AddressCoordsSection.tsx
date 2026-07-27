@@ -265,6 +265,17 @@ export function AddressCoordsSection({
     const pins: MiniMapPin[] = [];
     for (const row of group.rows) {
       const chosen = picked.get(row.key);
+      // Where the file already puts this address — usually the settlement's
+      // coordinate, shared by the whole place. Without it the map opens empty
+      // until a lookup has run, which made "show on map" look broken.
+      if (row.coord && !pins.some((p) => sameCoord(p.coord, row.coord))) {
+        pins.push({
+          coord: row.coord,
+          label: t("tools.geocode.fromFile"),
+          lines: [row.address, t("tools.geocode.addr.uses", { count: row.count })],
+          kind: "candidate",
+        });
+      }
       for (const r of (searches.get(row.key) ?? IDLE).results) {
         pins.push({
           coord: r.coord,
@@ -327,7 +338,9 @@ export function AddressCoordsSection({
                 <div className="tools-geo-actions">
                   {/* The place's houses on one map — asked for, like every other
                       map on this page, and drawn above the addresses it is about. */}
-                  <MapToggle open={mapOpen.has(group.place)} onToggle={() => toggleMap(group.place)} />
+                  {groupPins(group).length > 0 && (
+                    <MapToggle open={mapOpen.has(group.place)} onToggle={() => toggleMap(group.place)} />
+                  )}
                   {settings.allowLinkFetch && group.rows.length > 1 && (
                     <button className="tools-issue-link" onClick={() => searchGroup(group)}>
                       {t("tools.geocode.addr.searchGroup", { count: group.rows.length })}
