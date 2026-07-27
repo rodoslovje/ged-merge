@@ -53,6 +53,9 @@ export interface MapPoint {
   year?: number;
   /** Place display text (the raw PLAC value). */
   place: string;
+  /** Street/house address (the raw ADDR value), when the event carries one —
+   *  what tells two events in the same settlement apart. */
+  address?: string;
   coord: GeoCoord;
 }
 
@@ -66,6 +69,7 @@ function pointFrom(event: GedEvent, personIds: string[], familyId?: string): Map
     place: event.place!.raw,
     coord,
   };
+  if (event.address?.raw) point.address = event.address.raw;
   if (familyId) point.familyId = familyId;
   if (event.date?.year !== undefined) point.year = event.date.year;
   return point;

@@ -139,6 +139,17 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
     [t, i18n.language],
   );
 
+  // Overlay rows whose technical fields (URL, WMS layers, attribution…) are
+  // unfolded. Collapsed by default: a preset layer is configured already, and
+  // the list reads as a list of maps rather than a wall of endpoints.
+  const [openOverlays, setOpenOverlays] = useState<ReadonlySet<string>>(new Set());
+  const toggleOverlayDetails = (id: string) =>
+    setOpenOverlays((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+
   const [, startTransition] = useTransition();
   const [pendingOverrides, setPendingOverrides] = useState<FormatOverrides | null>(null);
   const overrides = pendingOverrides ?? settings.formatOverrides;
@@ -517,6 +528,7 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                 next.splice(index + delta, 0, row!);
                 set({ mapOverlays: next });
               };
+              const open = openOverlays.has(layer.id);
               return (
                 <div key={layer.id} className="settings-overlay-row">
                   <div className="settings-overlay-line">
@@ -531,6 +543,16 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                   {/* The name gets the whole line above — preset names run long
                       and an <input> cuts what doesn't fit. */}
                   <div className="settings-overlay-line">
+                    <button
+                      type="button"
+                      className="settings-overlay-expand"
+                      aria-expanded={open}
+                      onClick={() => toggleOverlayDetails(layer.id)}
+                      title={t(open ? "settings.map.overlays.details.hide" : "settings.map.overlays.details.show")}
+                      aria-label={t(open ? "settings.map.overlays.details.hide" : "settings.map.overlays.details.show")}
+                    >
+                      {open ? "▾" : "▸"}
+                    </button>
                     <input
                       type="number"
                       className="settings-overlay-year"
@@ -589,83 +611,87 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                       🗑
                     </button>
                   </div>
-                  <div className="settings-overlay-line">
-                    <input
-                      type="text"
-                      className="settings-text-input"
-                      value={layer.url}
-                      placeholder={layer.wms ? t("settings.map.overlays.wmsUrl") : t("settings.map.overlays.url")}
-                      title={layer.wms ? t("settings.map.overlays.wmsUrl.hint") : t("settings.map.overlays.url.hint")}
-                      onChange={(e) => update({ url: e.target.value.trim() })}
-                    />
-                    <label className="settings-overlay-wms" title={t("settings.map.overlays.wms.hint")}>
-                      <input
-                        type="checkbox"
-                        checked={!!layer.wms}
-                        onChange={(e) => update({ wms: e.target.checked || undefined })}
-                      />
-                      {t("settings.map.overlays.wms")}
-                    </label>
-                  </div>
-                  {layer.wms && (
+                  {open && (
                     <>
-                      <input
-                        type="text"
-                        className="settings-text-input"
-                        value={layer.layers ?? ""}
-                        placeholder={t("settings.map.overlays.wmsLayers")}
-                        title={t("settings.map.overlays.wmsLayers.hint")}
-                        onChange={(e) => update({ layers: e.target.value.trim() || undefined })}
-                      />
-                      <input
-                        type="text"
-                        className="settings-text-input"
-                        value={layer.styles ?? ""}
-                        placeholder={t("settings.map.overlays.wmsStyles")}
-                        title={t("settings.map.overlays.wmsStyles.hint")}
-                        onChange={(e) => update({ styles: e.target.value.trim() || undefined })}
-                      />
-                      <input
-                        type="text"
-                        className="settings-text-input"
-                        value={layer.queryLayers ?? ""}
-                        placeholder={t("settings.map.overlays.wmsQuery")}
-                        title={t("settings.map.overlays.wmsQuery.hint")}
-                        onChange={(e) => update({ queryLayers: e.target.value.trim() || undefined })}
-                      />
-                      <input
-                        type="text"
-                        className="settings-text-input"
-                        value={layer.params ?? ""}
-                        placeholder={t("settings.map.overlays.wmsParams")}
-                        title={t("settings.map.overlays.wmsParams.hint")}
-                        onChange={(e) => update({ params: e.target.value.trim() || undefined })}
-                      />
+                      <div className="settings-overlay-line">
+                        <input
+                          type="text"
+                          className="settings-text-input"
+                          value={layer.url}
+                          placeholder={layer.wms ? t("settings.map.overlays.wmsUrl") : t("settings.map.overlays.url")}
+                          title={layer.wms ? t("settings.map.overlays.wmsUrl.hint") : t("settings.map.overlays.url.hint")}
+                          onChange={(e) => update({ url: e.target.value.trim() })}
+                        />
+                        <label className="settings-overlay-wms" title={t("settings.map.overlays.wms.hint")}>
+                          <input
+                            type="checkbox"
+                            checked={!!layer.wms}
+                            onChange={(e) => update({ wms: e.target.checked || undefined })}
+                          />
+                          {t("settings.map.overlays.wms")}
+                        </label>
+                      </div>
+                      {layer.wms && (
+                        <>
+                          <input
+                            type="text"
+                            className="settings-text-input"
+                            value={layer.layers ?? ""}
+                            placeholder={t("settings.map.overlays.wmsLayers")}
+                            title={t("settings.map.overlays.wmsLayers.hint")}
+                            onChange={(e) => update({ layers: e.target.value.trim() || undefined })}
+                          />
+                          <input
+                            type="text"
+                            className="settings-text-input"
+                            value={layer.styles ?? ""}
+                            placeholder={t("settings.map.overlays.wmsStyles")}
+                            title={t("settings.map.overlays.wmsStyles.hint")}
+                            onChange={(e) => update({ styles: e.target.value.trim() || undefined })}
+                          />
+                          <input
+                            type="text"
+                            className="settings-text-input"
+                            value={layer.queryLayers ?? ""}
+                            placeholder={t("settings.map.overlays.wmsQuery")}
+                            title={t("settings.map.overlays.wmsQuery.hint")}
+                            onChange={(e) => update({ queryLayers: e.target.value.trim() || undefined })}
+                          />
+                          <input
+                            type="text"
+                            className="settings-text-input"
+                            value={layer.params ?? ""}
+                            placeholder={t("settings.map.overlays.wmsParams")}
+                            title={t("settings.map.overlays.wmsParams.hint")}
+                            onChange={(e) => update({ params: e.target.value.trim() || undefined })}
+                          />
+                        </>
+                      )}
+                      <div className="settings-overlay-line">
+                        <input
+                          type="text"
+                          className="settings-text-input settings-overlay-name"
+                          value={layer.attribution ?? ""}
+                          placeholder={t("settings.map.overlays.attribution")}
+                          title={t("settings.map.overlays.attribution.hint")}
+                          onChange={(e) => update({ attribution: e.target.value || undefined })}
+                        />
+                        {!layer.wms && (
+                          <input
+                            type="number"
+                            className="settings-overlay-year"
+                            value={layer.maxZoom ?? ""}
+                            placeholder={t("settings.map.overlays.maxZoom")}
+                            title={t("settings.map.overlays.maxZoom.hint")}
+                            onChange={(e) => {
+                              const n = Number(e.target.value);
+                              update({ maxZoom: e.target.value.trim() && Number.isFinite(n) ? n : undefined });
+                            }}
+                          />
+                        )}
+                      </div>
                     </>
                   )}
-                  <div className="settings-overlay-line">
-                    <input
-                      type="text"
-                      className="settings-text-input settings-overlay-name"
-                      value={layer.attribution ?? ""}
-                      placeholder={t("settings.map.overlays.attribution")}
-                      title={t("settings.map.overlays.attribution.hint")}
-                      onChange={(e) => update({ attribution: e.target.value || undefined })}
-                    />
-                    {!layer.wms && (
-                      <input
-                        type="number"
-                        className="settings-overlay-year"
-                        value={layer.maxZoom ?? ""}
-                        placeholder={t("settings.map.overlays.maxZoom")}
-                        title={t("settings.map.overlays.maxZoom.hint")}
-                        onChange={(e) => {
-                          const n = Number(e.target.value);
-                          update({ maxZoom: e.target.value.trim() && Number.isFinite(n) ? n : undefined });
-                        }}
-                      />
-                    )}
-                  </div>
                 </div>
               );
             })}

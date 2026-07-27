@@ -43,6 +43,7 @@ import {
 import { YearRangeSlider } from "./YearRangeSlider";
 import { createBaseLayer } from "./baseLayer";
 import { arrowMarker, pathLegNumbers } from "./pathStops";
+import { addFitControl, boundsOfCoords } from "./fitControl";
 import { OVERLAY_DEFAULT_OPACITY } from "./overlayConfig";
 import { identifyAt, identifyPopupHtml, queryableOverlays } from "./overlayIdentify";
 import { syncOverlayLayers, type LiveOverlays } from "./overlayLayer";
@@ -67,6 +68,43 @@ const PANEL_MAX_ROWS = 150;
 
 /** At most this many life paths drawn at once (a selected one always is). */
 const PATHS_MAX = 300;
+
+/** At most this many place lines in a marker's tooltip. */
+const TOOLTIP_MAX_PLACES = 4;
+
+/** A marker's hover tooltip: the place(s) it stands for and, for a cluster,
+ *  the event count. A single event also shows its street address — on a
+ *  cluster the addresses would be a wall of text, so places alone. Built as
+ *  DOM, not HTML: the labels are file data. */
+function clusterTooltip(
+  cluster: MapCluster,
+  translate: (key: string, opts: { count: number }) => string,
+): HTMLElement {
+  const single = cluster.points.length === 1;
+  const labels: string[] = [];
+  for (const p of cluster.points) {
+    const label = single && p.address ? `${p.place} · ${p.address}` : p.place;
+    if (label && !labels.includes(label)) labels.push(label);
+  }
+  const el = document.createElement("div");
+  for (const label of labels.slice(0, TOOLTIP_MAX_PLACES)) {
+    const row = document.createElement("div");
+    row.textContent = label;
+    el.appendChild(row);
+  }
+  if (labels.length > TOOLTIP_MAX_PLACES) {
+    const more = document.createElement("div");
+    more.textContent = `… +${labels.length - TOOLTIP_MAX_PLACES}`;
+    el.appendChild(more);
+  }
+  if (cluster.points.length > 1) {
+    const count = document.createElement("div");
+    count.className = "map-cluster-tip-count";
+    count.textContent = translate("map.clusterTooltip", { count: cluster.points.length });
+    el.appendChild(count);
+  }
+  return el;
+}
 
 /** Stacked-layers glyph for the historical-overlays picker chip. */
 function LayersIcon() {
@@ -203,6 +241,12 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
   const pathRendererRef = useRef<L.Renderer | null>(null);
   const clustersRef = useRef<MapCluster[]>([]);
   const didFitRef = useRef(false);
+  /** Latest filtered points / translator for the map-lifecycle effect, which
+   *  runs once and must not be re-created when either changes. */
+  const latestFiltered = useRef(filtered);
+  latestFiltered.current = filtered;
+  const tRef = useRef(t);
+  tRef.current = t;
 
   // ── Map lifecycle ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -221,6 +265,9 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
     pathRendererRef.current = L.canvas({ tolerance: 8 });
     pathsRef.current = L.layerGroup().addTo(map);
     markersRef.current = L.layerGroup().addTo(map);
+    // Reads the filtered points at click time (see latestFiltered), so the
+    // button always frames what the current filters draw.
+    addFitControl(map, tRef.current("map.fit"), () => boundsOfCoords(latestFiltered.current.map((p) => p.coord)));
     const bump = () => setViewGen((g) => g + 1);
     map.on("moveend zoomend", bump);
     mapRef.current = map;
@@ -364,10 +411,7 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
         keyboard: false,
       });
       marker.on("click", () => openCluster(cluster));
-      marker.bindTooltip(
-        count === 1 ? cluster.points[0].place : t("map.clusterTooltip", { count }),
-        { direction: "top", opacity: 0.9 },
-      );
+      marker.bindTooltip(clusterTooltip(cluster, t), { direction: "top", opacity: 0.9 });
       layer.addLayer(marker);
     }
     // viewGen re-runs this pass after every pan/zoom.

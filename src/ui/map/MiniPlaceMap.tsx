@@ -5,6 +5,7 @@ import "leaflet/dist/leaflet.css";
 import type { GeoCoord } from "../../gedcom/types";
 import { overlayDisplayName, useSettings } from "../SettingsContext";
 import { createBaseLayer } from "./baseLayer";
+import { addFitControl, boundsOfCoords } from "./fitControl";
 import { ARROW_MIN_SEG_PX, PATH_STYLE, pathArrows } from "./markerStyle";
 import { resolveOverlay } from "./overlayPresets";
 import { syncOverlayLayers, type LiveOverlays } from "./overlayLayer";
@@ -145,6 +146,10 @@ export default function MiniPlaceMap({ pins, context = NO_CONTEXT, path, onPickC
   latestPins.current = pins;
   const latestPick = useRef(onPickCoord);
   latestPick.current = onPickCoord;
+  const latestContext = useRef(context);
+  latestContext.current = context;
+  const tRef = useRef(t);
+  tRef.current = t;
 
   useEffect(() => {
     const el = containerRef.current;
@@ -160,6 +165,15 @@ export default function MiniPlaceMap({ pins, context = NO_CONTEXT, path, onPickC
       const ll = e.latlng.wrap();
       latestPick.current?.({ lat: +ll.lat.toFixed(5), lon: +ll.lng.toFixed(5) });
     });
+    // Framing what is plotted: the pins, or the context dots when a row has
+    // none yet. Asked for at click time, so it follows the current subject.
+    addFitControl(map, tRef.current("map.fit"), () =>
+      boundsOfCoords(
+        latestPins.current.length
+          ? latestPins.current.map((p) => p.coord)
+          : latestContext.current.map((c) => c.coord),
+      ),
+    );
     pathLayerRef.current = L.layerGroup().addTo(map);
     pinsLayerRef.current = L.layerGroup().addTo(map);
     // The direction chevrons depend on on-screen segment lengths — redraw
@@ -265,8 +279,6 @@ export default function MiniPlaceMap({ pins, context = NO_CONTEXT, path, onPickC
   // Value key, like pinsKey — a caller passing a fresh array identity per
   // render must not force a marker rebuild.
   const contextKey = context.map((c) => `${c.coord.lat}:${c.coord.lon}`).join("|");
-  const latestContext = useRef(context);
-  latestContext.current = context;
 
   useEffect(() => {
     const map = mapRef.current;
