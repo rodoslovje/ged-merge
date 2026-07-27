@@ -5039,7 +5039,9 @@ kbd {
   .edit-coord-body { flex-direction: column; }
   .edit-coord-map,
   .edit-coord-side { flex: 1 1 auto; width: 100%; max-height: none; }
-  .edit-coord-head .edit-coord-manual { margin-left: 0; max-width: none; }
+  .edit-coord-share { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+.edit-coord-share input { margin: 0; }
+.edit-coord-head .edit-coord-manual { margin-left: 0; max-width: none; }
 }
 
 /* --- Add Source dialog --- */

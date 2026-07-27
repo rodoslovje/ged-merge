@@ -67,6 +67,8 @@ import { nodeId } from "./edit/nodeId";
 import { useStableHandler } from "./edit/useStableHandler";
 import { useMergeOverlay } from "./edit/useMergeOverlay";
 import { buildPlaceSuggestions } from "./edit/placeSuggestions";
+import { CoordShareProvider, type CoordShare } from "./edit/CoordShareContext";
+import { applyGeocodeByAddress, coordOf, placeAddrKey, walkPlaceAddr } from "../tools/geocode";
 import { INDIVIDUAL_EVENT_GROUPS } from "./edit/editConstants";
 import { KEY, KEY_STATUS, isEditableTarget, isModalOpen } from "../keyboard/shortcuts";
 import type { Commit, FamilyCommit, MediaOwner, SourceDialogTarget, RemoveSourceOwner, CommitRemoveSource, OpenEditSource } from "./edit/types";
@@ -1237,6 +1239,49 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
   );
   const decisionStatusById = useMemo(() => decisionStatusByMainId(decisions), [decisions]);
 
+  // How many events carry each place+address pair, and how many of those
+  // already sit at a given coordinate — what the coordinate picker needs to
+  // offer "copy this pick to the file's other events at this address".
+  const pairUses = useMemo(() => {
+    const counts = new Map<string, { total: number; coords: Map<string, number> }>();
+    const visit = (raw: GedNode) =>
+      walkPlaceAddr(raw, (plac, addr) => {
+        const key = placeAddrKey(plac.value!.trim(), addr);
+        const hit = counts.get(key) ?? { total: 0, coords: new Map<string, number>() };
+        hit.total++;
+        const c = coordOf(plac);
+        if (c) hit.coords.set(`${c.lat}:${c.lon}`, (hit.coords.get(`${c.lat}:${c.lon}`) ?? 0) + 1);
+        counts.set(key, hit);
+      });
+    for (const indi of dataset.individuals.values()) visit(indi.raw);
+    for (const fam of dataset.families.values()) visit(fam.raw);
+    return counts;
+    // tick/undoVersion: a place, address or coordinate edit changes these counts.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataset, tick, undoVersion]);
+
+  const coordShare = useMemo<CoordShare>(
+    () => ({
+      countOthers: (place, address, coord) => {
+        const hit = pairUses.get(placeAddrKey(place.trim(), address.trim()));
+        if (!hit) return 0;
+        // The event being edited is one of the uses; those already sitting at
+        // this very coordinate would be a no-op.
+        const atCoord = coord ? (hit.coords.get(`${coord.lat}:${coord.lon}`) ?? 0) : 0;
+        return Math.max(0, hit.total - Math.max(1, atCoord));
+      },
+      applyToAll: (place, address, coord) => {
+        const key = placeAddrKey(place.trim(), address.trim());
+        const patches = applyGeocodeByAddress(dataset, new Map([[key, { coord }]]), true);
+        if (!patches.length) return;
+        onPushEdit(patches);
+        for (const p of patches) if (p.type !== "record") onDirty(p.type, p.id);
+        setTick((v) => v + 1);
+      },
+    }),
+    [dataset, pairUses, onPushEdit, onDirty],
+  );
+
   // Glyph-tagged parents' ages at this person's birth, for the BIRT row
   // ("Show ages" setting). First parent family with each role wins. Memoized
   // on the person's identity (replaced by rebuildIndividual on each of their
@@ -1362,6 +1407,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
 
 
   return (
+    <CoordShareProvider value={coordShare}>
     <div className="section open edit-view">
       <div className="section-body" ref={editBodyRef}>
         <div className="edit-parents">
@@ -1674,5 +1720,6 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
         />
       )}
     </div>
+    </CoordShareProvider>
   );
 }

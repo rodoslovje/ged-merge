@@ -8,6 +8,7 @@ import { rnQueriesFrom, searchAddresses, type RnResult } from "../../geo/rn";
 import { searchNominatim, type NominatimResult } from "../../geo/nominatim";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
 import { useSettings } from "../SettingsContext";
+import { useCoordShare } from "./CoordShareContext";
 
 // Per-event coordinate control in the Edit view: the pin beside a place, and the
 // small panel it opens.
@@ -66,6 +67,10 @@ export function EventCoordPicker({
   /** Anchored to the pin's right edge when the panel would otherwise run off
    *  the window — an event near the right margin is the common case. */
   const [alignRight, setAlignRight] = useState(false);
+  /** Whether the next pick is copied to the file's other events at this exact
+   *  place and address (see the offer in the panel head). */
+  const [shareAll, setShareAll] = useState(false);
+  const share = useCoordShare();
   const boxRef = useRef<HTMLDivElement | null>(null);
 
   const queries = useMemo(() => rnQueriesFrom(place || undefined, address || undefined), [place, address]);
@@ -125,6 +130,10 @@ export function EventCoordPicker({
     );
   };
 
+  // Other events in the file at this very place and address: their coordinate
+  // should be the same one, so picking here offers to set theirs too.
+  const others = share ? share.countOthers(place, address, coord) : 0;
+
   /** What the file itself already knows about this address / place. Anything
    *  equal to the current coordinate is left out — it would propose a no-op. */
   const fromFile: { coord: GeoCoord; label: string }[] = [];
@@ -137,6 +146,9 @@ export function EventCoordPicker({
 
   const take = (c: GeoCoord) => {
     onPick(c);
+    // The same house serves every event at this place and address, so the
+    // offer copies the pick to them in one further undoable step.
+    if (shareAll && others > 0) share!.applyToAll(place, address, c);
     setOpen(false);
     setRn(IDLE);
     setOsm(IDLE);
@@ -192,6 +204,7 @@ export function EventCoordPicker({
 
   const busy = rn.state === "loading" || osm.state === "loading";
 
+
   return (
     <span className="edit-event-coord-wrap" ref={boxRef}>
       <button
@@ -221,6 +234,12 @@ export function EventCoordPicker({
                   {t("event.coord.clear")}
                 </button>
               </div>
+            )}
+            {others > 0 && (
+              <label className="edit-coord-share" title={t("event.coord.applyAll.hint")}>
+                <input type="checkbox" checked={shareAll} onChange={(e) => setShareAll(e.target.checked)} />
+                {t("event.coord.applyAll", { count: others })}
+              </label>
             )}
             <div className="edit-coord-manual">
               <input
