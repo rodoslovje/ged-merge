@@ -757,6 +757,27 @@ describe("fixDates", () => {
     expect(proposeDateFix("6. 4. 1975", ctx)).toBe("6 APR 1975");
   });
 
+  it("repairs comma'd month-word dates, whose month word leaves nothing to guess", () => {
+    const ctx = dateFixContext(dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 DATE 26 JUN 1912
+1 DEAT
+2 DATE 6 APR 1975
+0 TRLR`));
+    // US written form, in a day-first file: the month word pins the month, so
+    // the day/year are unambiguous and the result is re-rendered day-first.
+    expect(proposeDateFix("Apr 12, 1979", ctx)).toBe("12 APR 1979");
+    expect(proposeDateFix("Dec 27, 1975", ctx)).toBe("27 DEC 1975");
+    expect(proposeDateFix("Apr. 12, 1979", ctx)).toBe("12 APR 1979");
+    expect(proposeDateFix("12 Apr, 1979", ctx)).toBe("12 APR 1979");
+    expect(proposeDateFix("Sep, 1979", ctx)).toBe("SEP 1979");
+    // Dropping a comma must not invent a date out of free text.
+    expect(proposeDateFix("1979, Ljubljana", ctx)).toBeUndefined();
+    expect(proposeDateFix("spring, 1979", ctx)).toBeUndefined();
+  });
+
   it("detects month-first (US) order and swaps month/day in the suggestion", () => {
     // File writes month-word dates month-first (JAN 26 1990) → MDY.
     const ctx = dateFixContext(dataset(`0 HEAD
