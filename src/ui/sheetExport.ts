@@ -32,6 +32,7 @@ import {
   splitIntoSheets,
   type Orientation,
   type PaperSize,
+  type PrintSize,
   type Sheet,
 } from "../chart/sheets";
 import {
@@ -68,15 +69,17 @@ export interface SheetChartSource {
 export interface SheetPaper {
   paper: PaperSize;
   orientation: Orientation;
+  /** How small the print may go — what really decides the sheet count. */
+  size: PrintSize;
 }
 
 /** Plan the split for `src` on the chosen paper. */
-export function planSheets(src: SheetChartSource, { paper, orientation }: SheetPaper): Sheet[] {
+export function planSheets(src: SheetChartSource, { paper, orientation, size }: SheetPaper): Sheet[] {
   return splitIntoSheets(src.tree, {
     grid: src.grid,
     alignment: src.alignment,
     nodeH: src.nodeH,
-    budget: sheetBudget(paper, orientation, HEADER_H + FOOTER_H),
+    budget: sheetBudget(paper, orientation, HEADER_H + FOOTER_H, size),
   });
 }
 

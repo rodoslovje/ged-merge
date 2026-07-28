@@ -2,11 +2,12 @@ import { describe, expect, it } from "vitest";
 import type { TreeNode } from "./personTree";
 import { NODE_H, layout } from "./treeLayout";
 import {
-  MIN_PRINT_SCALE,
+  PRINT_SCALE,
   pageBox,
   sheetBudget,
   sheetCount,
   splitIntoSheets,
+  type PrintSize,
   type SheetSplitOptions,
 } from "./sheets";
 
@@ -27,6 +28,12 @@ function balanced(depth: number, fanout: number, prefix = "r"): TreeNode {
 /** A single unbroken line of descent, `depth` generations long. */
 function line(depth: number, prefix = "r"): TreeNode {
   return depth === 0 ? node(prefix) : node(prefix, [line(depth - 1, `${prefix}.${depth}`)]);
+}
+
+/** A pedigree: two parents each, `g` generations up — the shape that doubles
+ *  every generation, and so the one the split has to handle well. */
+function pedigree(g: number, p = "r"): TreeNode {
+  return g === 0 ? node(p) : node(p, [pedigree(g - 1, `${p}f`), pedigree(g - 1, `${p}m`)]);
 }
 
 const opts = (over: Partial<SheetSplitOptions> = {}): SheetSplitOptions => ({
@@ -60,10 +67,13 @@ describe("paper geometry", () => {
 
   it("gives a sheet more canvas than the page, by the print reduction", () => {
     const box = pageBox("a4", "landscape");
-    const budget = sheetBudget("a4", "landscape", 0);
-    expect(budget.w).toBeCloseTo(box.w / MIN_PRINT_SCALE);
+    const budget = sheetBudget("a4", "landscape", 0, "medium");
+    expect(budget.w).toBeCloseTo(box.w / PRINT_SCALE.medium);
     // A3 is the bigger sheet, so it carries more diagram.
     expect(sheetBudget("a3", "landscape", 0).w).toBeGreaterThan(budget.w);
+    // Smaller print fits more diagram on the same page.
+    expect(sheetBudget("a4", "landscape", 0, "small").w)
+      .toBeGreaterThan(sheetBudget("a4", "landscape", 0, "large").w);
   });
 
   it("charges the header and footer bands to the sheet's height", () => {
@@ -190,6 +200,52 @@ describe("splitIntoSheets", () => {
       };
       walk(s.root);
     }
+  });
+
+  // A pedigree doubles every generation, so it is where a badly chosen cut level
+  // is punished hardest: cutting one level too deep doubles the sheet count, and
+  // every extra sheet holds a couple and nothing else.
+  describe("pedigrees", () => {
+    const countAt = (g: number, paper: "a4" | "a3", orient: "portrait" | "landscape", size: PrintSize) =>
+      sheetCount(pedigree(g), opts({ budget: sheetBudget(paper, orient, 86, size) }));
+
+    it("cuts an 8-generation pedigree into a set you could actually print", () => {
+      // 511 people. Cutting at the deepest level the page allowed used to spend
+      // 136 sheets on this, 128 of them holding three people.
+      expect(countAt(8, "a4", "landscape", "medium")).toBeLessThanOrEqual(20);
+      expect(countAt(8, "a4", "landscape", "small")).toBeLessThanOrEqual(12);
+    });
+
+    it("never spends more sheets on bigger paper", () => {
+      for (const g of [6, 8, 10]) {
+        for (const size of ["large", "medium", "small"] as PrintSize[]) {
+          expect(countAt(g, "a3", "landscape", size)).toBeLessThanOrEqual(
+            countAt(g, "a4", "landscape", size),
+          );
+        }
+      }
+    });
+
+    it("never spends more sheets on smaller print", () => {
+      for (const g of [6, 8, 10]) {
+        expect(countAt(g, "a4", "landscape", "small")).toBeLessThanOrEqual(
+          countAt(g, "a4", "landscape", "medium"),
+        );
+        expect(countAt(g, "a4", "landscape", "medium")).toBeLessThanOrEqual(
+          countAt(g, "a4", "landscape", "large"),
+        );
+      }
+    });
+
+    it("fills its sheets — no crop of near-empty continuations", () => {
+      const o = opts({ budget: sheetBudget("a4", "landscape", 86, "medium") });
+      const sheets = splitIntoSheets(pedigree(8), o);
+      const empties = sheets.filter((s) => {
+        const laid = layout(s.root, o.alignment, o.nodeH);
+        return (laid.width * laid.height) / (o.budget.w * o.budget.h) < 0.15;
+      });
+      expect(empties).toHaveLength(0);
+    });
   });
 
   it("terminates on a budget too small for anything, with one oversized sheet", () => {

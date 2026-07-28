@@ -1,7 +1,14 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useModalKeyboard } from "../keyboard/useModalKeyboard";
-import { ORIENTATIONS, PAPER_SIZES, type Orientation, type PaperSize } from "../chart/sheets";
+import {
+  ORIENTATIONS,
+  PAPER_SIZES,
+  PRINT_SIZES,
+  type Orientation,
+  type PaperSize,
+  type PrintSize,
+} from "../chart/sheets";
 import { planSheets, printChartSheets, type SheetChartSource } from "./sheetExport";
 import type { SvgExportOptions } from "./exportSvg";
 
@@ -26,17 +33,18 @@ export function SheetPrintDialog({ source, canvasRef, opts, onClose }: Props) {
   const ref = useModalKeyboard(true, onClose);
   const [paper, setPaper] = useState<PaperSize>("a4");
   const [orientation, setOrientation] = useState<Orientation>("landscape");
+  const [size, setSize] = useState<PrintSize>("medium");
 
   // The full plan, not just its length: it is what the print then draws, and
   // planning a chart of any ordinary size is quick enough to redo per change.
   const sheets = useMemo(
-    () => planSheets(source, { paper, orientation }),
-    [source, paper, orientation],
+    () => planSheets(source, { paper, orientation, size }),
+    [source, paper, orientation, size],
   );
 
   const print = () => {
     onClose();
-    void printChartSheets(canvasRef.current, source, { paper, orientation }, {
+    void printChartSheets(canvasRef.current, source, { paper, orientation, size }, {
       ...opts,
       subtitle: (sheet, total) => {
         const of = t("sheets.sheetOf", { n: sheet.number, total });
@@ -85,6 +93,22 @@ export function SheetPrintDialog({ source, canvasRef, opts, onClose }: Props) {
                 onClick={() => setOrientation(o)}
               >
                 {t(`sheets.orientation.${o}`)}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="sheet-dialog-row">
+          <span className="chart-settings-heading">{t("sheets.size")}</span>
+          <div className="chart-settings-segmented">
+            {PRINT_SIZES.map((s) => (
+              <button
+                key={s}
+                className={size === s ? "active" : ""}
+                onClick={() => setSize(s)}
+                title={t(`sheets.size.${s}.tip`)}
+              >
+                {t(`sheets.size.${s}`)}
               </button>
             ))}
           </div>

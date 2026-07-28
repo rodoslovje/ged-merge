@@ -51,14 +51,25 @@ const PAPER_PX: Record<PaperSize, { w: number; h: number }> = {
 export const PAGE_MARGIN = 24;
 
 /**
- * The smallest reduction a printed sheet may use. The node name is set at 12px,
- * which at 96 dpi is a 9 pt glyph — at 0.6 it prints around 5.4 pt, small but
- * still comfortably readable on paper, and the floor most printed family charts
- * settle on. It is what turns "the page" into a budget: a sheet may hold
- * `page / MIN_PRINT_SCALE` canvas pixels of diagram, and anything past that has
- * to be cut onto another sheet.
+ * How small the print may go — the one setting that decides how much diagram a
+ * sheet holds, and so how many sheets there are. The node name is set at 12px,
+ * a 9 pt glyph at 96 dpi, so the reduction below reads straight off as print
+ * size: 0.75 ≈ 7 pt, 0.5 ≈ 4.5 pt, 0.3 ≈ 2.7 pt.
+ *
+ * It is a genuine trade and the user owns it: a deep pedigree doubles in width
+ * with every generation, so no amount of cleverness in the split will make it
+ * both large and few. Large print is for a chart you will read at arm's length;
+ * small is for the fewest sheets to tape up on a wall.
  */
-export const MIN_PRINT_SCALE = 0.6;
+export type PrintSize = "large" | "medium" | "small";
+
+export const PRINT_SIZES: PrintSize[] = ["large", "medium", "small"];
+
+export const PRINT_SCALE: Record<PrintSize, number> = {
+  large: 0.75,
+  medium: 0.5,
+  small: 0.3,
+};
 
 /** The whole sheet of paper, in px — what `@page { size }` is set to. */
 export function paperPx(paper: PaperSize, orientation: Orientation): { w: number; h: number } {
@@ -81,9 +92,11 @@ export function sheetBudget(
   paper: PaperSize,
   orientation: Orientation,
   bandsH: number,
+  size: PrintSize = "medium",
 ): { w: number; h: number } {
   const box = pageBox(paper, orientation);
-  return { w: box.w / MIN_PRINT_SCALE, h: box.h / MIN_PRINT_SCALE - bandsH };
+  const scale = PRINT_SCALE[size];
+  return { w: box.w / scale, h: box.h / scale - bandsH };
 }
 
 // ─── Split plan ───────────────────────────────────────────────────────────────
@@ -162,35 +175,116 @@ export function sheetCount(root: TreeNode, opts: SheetSplitOptions): number {
 
 /**
  * Choose the cut points that bring one sheet — the subtree at `root`, with any
- * `cuts` already made below it standing as stubs — down to the budget. Two axes,
- * handled in order:
+ * `cuts` already made below it standing as stubs — down to the budget.
  *
- *  1. **Depth** — generations advance in fixed steps, so the last generation the
- *     sheet can show follows straight from the budget. Everything still carrying
- *     a line at that generation is cut. This is the plain "cut across a level" a
- *     reader would do by hand, and it is what stops a long thin lineage from
- *     being dribbled out one generation per sheet.
- *  2. **Breadth** — with the depth settled, the sheet can still be too wide. Cut
- *     the biggest branch that will fill a sheet of its own, re-measure, and
- *     repeat until what is left fits. Taking the biggest *sheet-sized* branch
- *     (rather than the biggest branch outright) is what makes the cut descend
- *     into a huge subtree instead of exiling it whole and leaving this sheet
- *     nearly empty.
+ * The whole cost of a split is the *number of cut points*, because every one of
+ * them is another sheet. So the level to cut at is the deepest one whose trunk
+ * still fits the page **on both axes** — not merely the deepest the page is tall
+ * enough for. Cutting deeper than breadth allows is the trap: the deeper the
+ * level, the more nodes stand on it, and each becomes a sheet carrying a couple
+ * and nothing else. (A pedigree doubles every generation: one level too deep and
+ * the sheet count doubles with it, which is how bigger paper used to produce
+ * *more* sheets.)
+ *
+ * Three steps:
+ *
+ *  1. **The level** — the deepest generation whose trunk fits, and cut there.
+ *     For an evenly branching tree this alone is the whole answer, and it is the
+ *     plain "cut across a level" a reader would do by hand.
+ *  2. **Put back what needn't go** — a level cut is blunt on a lopsided tree,
+ *     exiling a two-person twig to a sheet of its own. So the cuts are taken back
+ *     smallest-first for as long as the trunk still fits: only branches that
+ *     genuinely need the room stay cut.
+ *  3. **Branch cuts** — a single branch too wide even at the shallowest level
+ *     leaves the trunk over budget. Cut the biggest branch that will fill a sheet
+ *     of its own and repeat. Taking the biggest *sheet-sized* branch (rather than
+ *     the biggest outright) makes the cut descend into a huge subtree instead of
+ *     exiling it whole and leaving this sheet nearly empty.
  *
  * Adds the new cut points to `cuts` and returns them in the order found, for the
  * caller to number and queue.
  */
 function planCuts(root: TreeNode, cuts: Set<TreeNode>, opts: SheetSplitOptions): TreeNode[] {
-  const found: TreeNode[] = [];
-  const cutHere = (node: TreeNode) => { found.push(node); cuts.add(node); };
+  if (fits(renderSheet(root, cuts), opts)) return [];
 
-  atDepth(root, cuts, maxGenerations(opts)).forEach(cutHere);
+  // 1. Cut across the deepest level whose trunk still fits.
+  const planned = new Set(atDepth(root, cuts, bestCap(root, cuts, opts)));
+  planned.forEach((n) => cuts.add(n));
+
+  // 2. Take back the cuts the sheet can afford to keep, smallest branch first.
+  // Ascending order means the first one that no longer fits ends the round: any
+  // bigger branch would not have fitted either.
+  const rowsOf = rowCounter(cuts);
+  for (const node of [...planned].sort((a, b) => rowsOf(a) - rowsOf(b))) {
+    cuts.delete(node);
+    if (fits(renderSheet(root, cuts), opts)) {
+      planned.delete(node);
+    } else {
+      cuts.add(node);
+      break;
+    }
+  }
+
+  // 3. Anything still over budget is one over-wide branch, not a level problem.
   while (!fits(renderSheet(root, cuts), opts)) {
     const target = pickCut(root, cuts, opts);
     if (!target) break; // nothing left to cut — print it oversized rather than lose it
-    cutHere(target);
+    cuts.add(target);
+    planned.add(target);
   }
-  return found;
+  return [...planned];
+}
+
+/**
+ * The generation to cut this sheet at.
+ *
+ * Two bounds meet here. The trunk has to fit, which caps the level from above —
+ * and since a level's width grows with its depth, that bound is the deepest
+ * level the page can hold. But every node standing on the cut level becomes a
+ * sheet, and a level one deeper holds more nodes (twice as many, in a pedigree),
+ * so among the levels that work the *shallowest* is the cheapest.
+ *
+ * So: the shallowest level at which every branch cut off still fits a page of
+ * its own. That spends the fewest sheets while keeping the split one level deep.
+ * When the tree is too big for any such level to exist, further splitting is
+ * unavoidable, and the deepest fitting level is taken instead — it at least
+ * fills this sheet completely and leaves the recursion to fill the rest.
+ */
+function bestCap(root: TreeNode, cuts: Set<TreeNode>, opts: SheetSplitOptions): number {
+  const capacity = capacityRows(opts);
+  const maxGen = maxGenerations(opts);
+
+  // The deepest level whose trunk fits — the upper bound, and the fallback.
+  let deepest = 1;
+  for (let cap = maxGen; cap > 1; cap--) {
+    if (rowsAtCap(root, cuts, cap) <= capacity) { deepest = cap; break; }
+  }
+
+  const rowsOf = rowCounter(cuts);
+  const branchFits = (n: TreeNode) => rowsOf(n) <= capacity && subtreeDepth(n, cuts) <= maxGen;
+  for (let cap = 1; cap < deepest; cap++) {
+    if (atDepth(root, cuts, cap).every(branchFits)) return cap;
+  }
+  return deepest;
+}
+
+/** Generations below `node` that this sheet's split would still have to draw. */
+function subtreeDepth(node: TreeNode, cuts: Set<TreeNode>): number {
+  if (cuts.has(node)) return 0;
+  const kids = [...node.children, ...node.partners.flatMap((p) => p.children)];
+  return kids.length === 0 ? 0 : 1 + Math.max(...kids.map((k) => subtreeDepth(k, cuts)));
+}
+
+/** Breadth rows the sheet would occupy if cut across generation `cap`. */
+function rowsAtCap(root: TreeNode, cuts: Set<TreeNode>, cap: number): number {
+  const rows = (node: TreeNode, gen: number): number => {
+    if (gen >= cap || cuts.has(node)) return stubRows(node);
+    const childRows =
+      node.children.reduce((s, c) => s + rows(c, gen + 1), 0) +
+      node.partners.reduce((s, p) => s + p.children.reduce((k, c) => k + rows(c, gen + 1), 0), 0);
+    return Math.max(1, childRows, stubRows(node));
+  };
+  return rows(root, 0);
 }
 
 /**
