@@ -648,7 +648,6 @@ export const en = {
   "chartFind.tooltip": "Find a person drawn on this chart and move to them ({{key}})",
   "chartFind.matches_one": "{{count}} place on this chart",
   "chartFind.matches_other": "{{count}} places on this chart",
-  "chartFind.enterHint": "Press Enter to move to the first match",
   "chartFind.prev": "Previous place",
   "chartFind.next": "Next place",
   "chartFind.clear": "Clear",

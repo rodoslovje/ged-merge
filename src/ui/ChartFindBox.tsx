@@ -76,20 +76,12 @@ export function ChartFindBox({ find }: { find: ChartFind }) {
             onChange={(e) => find.setQuery(e.target.value)}
             onKeyDown={onKeyDown}
           />
-          {/* The counter is a *position*, so it only appears once there is one.
-              Until then the field prompts for the press that creates it —
-              a live match count there would read as a result of a search that
-              hasn't happened yet. */}
-          {position > 0 ? (
+          {/* A *position*, so it appears with the jump the settled query makes —
+              never as a bare match count for a search that hasn't moved yet. */}
+          {position > 0 && (
             <span className="chart-find-count gm-data" title={t("chartFind.matches", { count: total })}>
               {position}/{total}
             </span>
-          ) : (
-            query.trim() && (
-              <span className="chart-find-hint" title={t("chartFind.enterHint")} aria-hidden="true">
-                ↵
-              </span>
-            )
           )}
           {query && (
             <button type="button" className="chart-find-clear" title={t("chartFind.clear")} onClick={find.clear}>

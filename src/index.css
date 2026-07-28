@@ -3869,12 +3869,6 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   color: var(--muted);
   white-space: nowrap;
 }
-/* Stands where the counter will: what to press, not what was found. */
-.chart-find-hint {
-  font-size: 0.78rem;
-  color: var(--border-2);
-  line-height: 1;
-}
 .chart-find-clear {
   background: none;
   border: none;

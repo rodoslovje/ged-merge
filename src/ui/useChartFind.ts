@@ -4,16 +4,19 @@ import { buildFindEntries, findHits, findOffChart, type FindEntry, type FindSour
 
 /** How long a found node keeps its flash highlight. */
 const FLASH_MS = 1600;
+/** Quiet spell that ends a query: the chart moves once typing settles, not on
+ *  every keystroke — panning a big pedigree per letter is unreadable. */
+const SETTLE_MS = 350;
 
 export interface ChartFind {
   query: string;
   setQuery: (q: string) => void;
   /** Positions on the chart matching the query — recomputed as the user types. */
   hits: FindEntry[];
-  /** 1-based position within {@link hits} of the node currently shown; 0 before
-   *  the first jump (so the box can show a bare count until then). */
+  /** 1-based position within {@link hits} of the node currently shown; 0 while a
+   *  freshly typed query hasn't settled into a jump yet. */
   position: number;
-  /** Jump to the next (+1) or previous (−1) position, wrapping around. */
+  /** Step to the next (+1) or previous (−1) position, wrapping around. */
   step: (dir: 1 | -1) => void;
   /** The node just jumped to, for a brief highlight; cleared after a moment. */
   hitKey: string | null;
@@ -32,9 +35,11 @@ export interface ChartFind {
  * Find-in-chart state: matches the query against the people drawn on the current
  * chart, cycles through the positions they occupy, and centres each one.
  *
- * The whole-file fallback only runs on an actual jump, never per keystroke — it
- * scans every individual, which is fine once per Enter and wasteful on a large
- * file otherwise.
+ * The chart follows the typing — once it pauses ({@link SETTLE_MS}) the view
+ * moves to the first match on its own, and Enter / the arrows then walk the rest.
+ * The whole-file fallback runs on that same settled query rather than per
+ * keystroke: it scans every individual, which is fine once a pause and wasteful
+ * mid-word on a large file.
  *
  * @param sources the chart's nodes in layout order (memoize in the caller).
  * @param individuals the main file, for the "not in this chart" fallback.
@@ -56,14 +61,6 @@ export function useChartFind(
   const entries = useMemo(() => buildFindEntries(sources), [sources]);
   const hits = useMemo(() => findHits(entries, query), [entries, query]);
 
-  // A new query — or a new chart under it (re-root, direction flip, chart type)
-  // — invalidates where we were in the cycle and any stale "not found" verdict.
-  useEffect(() => {
-    setCursor(-1);
-    setMiss(null);
-    setOffChart(undefined);
-  }, [entries, query]);
-
   // Drop the highlight once it has had its moment. Re-armed on every jump.
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (flashTimer.current) clearTimeout(flashTimer.current); }, []);
@@ -73,8 +70,11 @@ export function useChartFind(
     flashTimer.current = setTimeout(() => setHitKey(null), FLASH_MS);
   }, []);
 
-  const step = useCallback(
-    (dir: 1 | -1) => {
+  // Move `dir` places from `from` (−1 = before the first), or record why nothing
+  // happened. The starting point is a parameter, not the state, so the settle
+  // timer can open a fresh query at position one without racing the reset.
+  const move = useCallback(
+    (dir: 1 | -1, from: number) => {
       if (!hits.length) {
         // Nothing here — is there anybody by that name elsewhere in the file?
         const elsewhere = onSetRoot ? findOffChart(individuals, query, new Set(entries.map((e) => e.id))) : undefined;
@@ -83,13 +83,31 @@ export function useChartFind(
         return;
       }
       setMiss(null);
-      const next = (cursor + dir + hits.length) % hits.length;
+      const next = (from + dir + hits.length) % hits.length;
       setCursor(next);
       onReveal(hits[next].key);
       flash(hits[next].key);
     },
-    [hits, cursor, entries, individuals, query, onReveal, onSetRoot, flash],
+    [hits, entries, individuals, query, onReveal, onSetRoot, flash],
   );
+  const step = useCallback((dir: 1 | -1) => move(dir, cursor), [move, cursor]);
+
+  // Ref-fed so the settle timer below can key on the query alone: it must restart
+  // when the user types, never because a caller's callback changed identity.
+  const moveRef = useRef(move);
+  moveRef.current = move;
+
+  // A new query — or a new chart under it (re-root, direction flip, chart type) —
+  // starts the cycle over; once the typing settles, the view goes to the first
+  // match by itself.
+  useEffect(() => {
+    setCursor(-1);
+    setMiss(null);
+    setOffChart(undefined);
+    if (!query.trim()) return;
+    const id = setTimeout(() => moveRef.current(1, -1), SETTLE_MS);
+    return () => clearTimeout(id);
+  }, [entries, query]);
 
   const goToOffChart = useCallback(() => {
     if (offChart && onSetRoot) onSetRoot(offChart.id);
