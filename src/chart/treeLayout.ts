@@ -121,6 +121,41 @@ export function minimapDefaultOpen(contentW: number, contentH: number, viewport:
   return shownFraction < 0.25;
 }
 
+/** Fraction of the visible canvas the minimap box may occupy on each axis —
+   kept small so the overview stays a corner aid rather than covering the chart. */
+const MINIMAP_MAX_W_FRACTION = 0.32;
+const MINIMAP_MAX_H_FRACTION = 0.24;
+/** Hard pixel floor for the box caps, so a tiny tree still renders a usable,
+   clickable map on a small screen. */
+const MINIMAP_MIN = 120;
+/** Thinnest the map may get on its short axis before that axis is stretched on
+   its own. A deep top-down tree runs ~70:1 (256 leaf boxes wide, 9 rows tall),
+   which a uniform fit would squash to a 6px thread — visible but unreadable. */
+const MINIMAP_MIN_THICKNESS = 80;
+
+/** Box size and per-axis scales for the overview map of a `cw`×`ch` diagram (in
+ *  on-screen pixels, i.e. zoom already applied) shown through `viewport`.
+ *
+ *  The tree is fitted with one uniform scale — the constraining axis fills its
+ *  cap, the other takes only what it needs, so proportions stay true. Extreme
+ *  aspect ratios are the exception: when that leaves the short axis under
+ *  {@link MINIMAP_MIN_THICKNESS}, only that axis is scaled up to the floor. The
+ *  map then reads as a navigation ribbon (rows spread apart, the long axis
+ *  untouched) instead of a hairline. Callers must use `scaleX`/`scaleY`
+ *  separately for node dots, the viewport rectangle and click mapping alike, so
+ *  navigation stays exact under the stretch.
+ */
+export function minimapFit(cw: number, ch: number, viewport: Viewport) {
+  const maxW = Math.max(MINIMAP_MIN, viewport.width * MINIMAP_MAX_W_FRACTION);
+  const maxH = Math.max(MINIMAP_MIN, viewport.height * MINIMAP_MAX_H_FRACTION);
+  const fit = Math.min(maxW / cw, maxH / ch);
+  // Only the non-constraining axis can fall under the floor: the constraining
+  // one sits at its cap, which is never below MINIMAP_MIN (> the floor).
+  const scaleX = Math.max(fit, Math.min(maxW, MINIMAP_MIN_THICKNESS) / cw);
+  const scaleY = Math.max(fit, Math.min(maxH, MINIMAP_MIN_THICKNESS) / ch);
+  return { scaleX, scaleY, w: cw * scaleX, h: ch * scaleY };
+}
+
 // ─── Flattening & connectors ──────────────────────────────────────────────────
 
 /** Collect every node plus its child and partner connectors from the laid-out tree. */
