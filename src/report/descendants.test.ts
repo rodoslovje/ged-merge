@@ -105,12 +105,16 @@ describe("buildDescendants", () => {
             "0 @F5@ FAM\n1 HUSB @I8@\n1 WIFE @I11@\n1 CHIL @I12@\n1 MARR\n2 DATE 1954\n0 TRLR\n",
         ),
     );
-    const entries = buildDescendants(cousins, "@I1@", nameOf, NOW)!
-      .generations.flatMap((g) => g.entries);
+    const data = buildDescendants(cousins, "@I1@", nameOf, NOW)!;
+    const entries = data.generations.flatMap((g) => g.entries);
     const occurrences = entries.filter((e) => e.id === "@I12@");
     expect(occurrences).toHaveLength(2);
     expect(occurrences[0]).toMatchObject({ num: 8, dupOf: undefined });
     expect(occurrences[1]).toMatchObject({ num: 8, dupOf: 8, facts: [] });
+    // …and the head-count stays a count of people: the cross-reference entry is
+    // the same Iva, so 8 descendants and 9 entries.
+    expect(entries).toHaveLength(9);
+    expect(data.total).toBe(8);
   });
 
   it("returns undefined for an unknown root", () => {

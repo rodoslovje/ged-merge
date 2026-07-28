@@ -66,8 +66,11 @@ export function buildDescendants(
       Object.assign(entry, family);
       if (dupOf === undefined) personExtras(entry, indi, opts);
       entries.push(entry);
+      // A repeat is the same person met a second time (both spouses of a couple
+      // descend from the root): it neither counts again nor expands again —
+      // their children are listed under their first number.
+      if (dupOf !== undefined) continue;
       total++;
-      if (dupOf !== undefined) continue; // their children are listed there
       firstNum.set(indi.id, num);
 
       // Each union's children in birth order; union order follows the record.

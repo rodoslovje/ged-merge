@@ -28,6 +28,9 @@ interface Props {
   badgeOf?: (n: Placed) => { status: string; letter: string } | undefined;
   /** "Modified" badge for a main record with unsaved edits. */
   modifiedOf?: (n: Placed) => boolean;
+  /** Whether to mark repeated positions (`TreeNode.repeat`) — follows the same
+   *  Badges toggle as the status chips, so a badge-free chart stays clean. */
+  showRepeat?: boolean;
   kinshipOf?: (n: Placed) => string | undefined;
   lineageOf?: (n: Placed) => Lineage | undefined;
   /** Photo sources; the compare side is optional (single-file views). */
@@ -50,6 +53,7 @@ export function TreeSvg({
   colorOf,
   badgeOf,
   modifiedOf,
+  showRepeat = false,
   kinshipOf,
   lineageOf,
   mainRecords,
@@ -61,6 +65,10 @@ export function TreeSvg({
 }: Props) {
   const { t } = useTranslation();
   const modifiedLetter = t("edit.tree.modified").charAt(0);
+  // A glyph, not a letter: the status letters are localized and "R"/"D"/"C" are
+  // already taken. "→" matches how the reports point a repeat at its first
+  // occurrence ("→ see no. 8").
+  const repeatBadge = { letter: "→", title: t("tree.node.repeatHint") };
   return (
     <svg className="tree-svg" width={width * zoom} height={height * zoom} viewBox={`0 0 ${width} ${height}`} role="img">
       <g transform={`translate(${PAD},${PAD})`}>
@@ -87,7 +95,12 @@ export function TreeSvg({
             ),
         )}
         {flat.nodes.map((n) => {
-          const badges = nodeStatusBadges(badgeOf?.(n), modifiedOf?.(n) ?? false, modifiedLetter);
+          const badges = nodeStatusBadges(
+            badgeOf?.(n),
+            modifiedOf?.(n) ?? false,
+            modifiedLetter,
+            showRepeat && n.repeat ? repeatBadge : undefined,
+          );
           return (
             <g
               key={n.key}

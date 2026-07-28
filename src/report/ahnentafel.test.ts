@@ -126,13 +126,17 @@ describe("buildAhnentafel", () => {
         "0 @F3@ FAM\n1 HUSB @I4@\n1 CHIL @I3@\n" +
         "0 @F4@ FAM\n1 HUSB @I5@\n1 CHIL @I4@\n",
     );
-    const entries = flat(collapsed, "@I1@");
+    const data = buildAhnentafel(dataset(collapsed), "@I1@", nameOf, NOW)!;
+    const entries = data.generations.flatMap((g) => g.entries);
     const first = entry(entries, 4);
     const dup = entry(entries, 6);
     expect(first.dupOf).toBeUndefined();
     expect(dup).toMatchObject({ id: "@I4@", dupOf: 4, facts: [] });
     // The shared man's own father appears once, continuing from the first number.
     expect(entries.filter((e) => e.id === "@I5@").map((e) => e.num)).toEqual([8]);
+    // The head-count is people, not slots: the shared ancestor fills two slots.
+    expect(entries).toHaveLength(6);
+    expect(data.total).toBe(5);
   });
 
   it("flags presumed-living people inside the 100-year window", () => {

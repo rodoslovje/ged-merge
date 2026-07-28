@@ -56,8 +56,10 @@ export function buildAhnentafel(
       const entry = makeEntry(indi, num, nameOf, vitals(indi, marriages, opts, ds), nowYear, dupOf, ds);
       if (dupOf === undefined) personExtras(entry, indi, opts);
       entries.push(entry);
+      // A pedigree-collapsed ancestor fills a second slot but is one person:
+      // counted once, and expanded only where their line already continues.
+      if (dupOf !== undefined) continue;
       total++;
-      if (dupOf !== undefined) continue; // the line already continues there
       firstNum.set(indi.id, num);
 
       // Parents, each from the first child-family that records that role (the
