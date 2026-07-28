@@ -173,28 +173,57 @@ export function filterPoints(points: MapPoint[], f: MapPointFilter): MapPoint[] 
 /**
  * The ancestor closure of a person (via FAMC → parents), or the descendant
  * closure (via FAMS → children), root included — the map's branch scopes.
+ * `maxGen` stops the walk that many generations from the root (the shared
+ * chart-settings generation limit); undefined follows the line to its end.
  */
-export function branchIds(ds: Dataset, rootId: string, mode: "ancestors" | "descendants"): Set<string> {
-  const out = new Set<string>();
-  const queue = [rootId];
-  while (queue.length) {
-    const id = queue.pop()!;
-    if (out.has(id)) continue;
-    const indi = ds.individuals.get(id);
-    if (!indi) continue;
-    out.add(id);
-    if (mode === "ancestors") {
-      for (const famId of indi.childOf) {
-        const fam = ds.families.get(famId);
-        if (fam?.husband) queue.push(fam.husband);
-        if (fam?.wife) queue.push(fam.wife);
-      }
-    } else {
-      for (const famId of indi.spouseOf) {
-        const fam = ds.families.get(famId);
-        if (fam) queue.push(...fam.children);
+export function branchIds(
+  ds: Dataset,
+  rootId: string,
+  mode: "ancestors" | "descendants",
+  maxGen?: number,
+): Set<string> {
+  return walkBranch(ds, rootId, mode, maxGen).ids;
+}
+
+/** How many generations the branch spans (0 = nobody in this direction) — the
+ *  "of N" the generation limit is measured against. */
+export function branchDepth(ds: Dataset, rootId: string, mode: "ancestors" | "descendants"): number {
+  return walkBranch(ds, rootId, mode).depth;
+}
+
+/** One generation-at-a-time walk of a branch, shared by both readings above. */
+function walkBranch(
+  ds: Dataset,
+  rootId: string,
+  mode: "ancestors" | "descendants",
+  maxGen?: number,
+): { ids: Set<string>; depth: number } {
+  const ids = new Set<string>();
+  let depth = 0;
+  let level = [rootId];
+  for (let gen = 0; level.length; gen++) {
+    const next: string[] = [];
+    for (const id of level) {
+      if (ids.has(id)) continue;
+      const indi = ds.individuals.get(id);
+      if (!indi) continue;
+      ids.add(id);
+      depth = gen;
+      if (maxGen !== undefined && gen >= maxGen) continue;
+      if (mode === "ancestors") {
+        for (const famId of indi.childOf) {
+          const fam = ds.families.get(famId);
+          if (fam?.husband) next.push(fam.husband);
+          if (fam?.wife) next.push(fam.wife);
+        }
+      } else {
+        for (const famId of indi.spouseOf) {
+          const fam = ds.families.get(famId);
+          if (fam) next.push(...fam.children);
+        }
       }
     }
+    level = next;
   }
-  return out;
+  return { ids, depth };
 }

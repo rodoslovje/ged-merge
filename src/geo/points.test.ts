@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { parseGedcom } from "../gedcom/parser";
 import { buildDataset } from "../gedcom/builder";
 import { parseCoordPair } from "../gedcom/place";
-import { branchIds, eventKindOf, filterPoints, personPoints, projectPoints, sameCoord, yearRange, type MapEventKind } from "./points";
+import { branchDepth, branchIds, eventKindOf, filterPoints, personPoints, projectPoints, sameCoord, yearRange, type MapEventKind } from "./points";
 import { clusterPoints, latToWorldY, lonToWorldX } from "./cluster";
 
 function buildFromText(text: string) {
@@ -175,6 +175,14 @@ describe("branchIds", () => {
 
   it("walks descendants through FAMS", () => {
     expect([...branchIds(ds, "@I1@", "descendants")].sort()).toEqual(["@I1@", "@I3@"]);
+  });
+
+  it("stops at the generation limit and reports the branch's reach", () => {
+    // One generation up from the child is the parents; zero is the person alone.
+    expect([...branchIds(ds, "@I3@", "ancestors", 1)].sort()).toEqual(["@I1@", "@I2@", "@I3@"]);
+    expect([...branchIds(ds, "@I3@", "ancestors", 0)]).toEqual(["@I3@"]);
+    expect(branchDepth(ds, "@I3@", "ancestors")).toBe(1);
+    expect(branchDepth(ds, "@I3@", "descendants")).toBe(0);
   });
 });
 

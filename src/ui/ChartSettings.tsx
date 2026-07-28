@@ -35,9 +35,18 @@ const EVENT_SCOPES: TimelineEventScope[] = ["person", "all", "off"];
 
 /** `lockedType` pins the effective diagram type (used by the Relationship
  *  chart, which always lays out as a tree, and by the Timeline and the
- *  Ahnentafel report) so the right option rows show even when the shared
- *  (persisted) type is something else. */
-export function ChartSettings({ lockedType }: { lockedType?: PedigreeType | "timeline" | "report" } = {}) {
+ *  Ahnentafel report, and by the places map) so the right option rows show
+ *  even when the shared (persisted) type is something else. */
+export function ChartSettings({
+  lockedType,
+  availableGenerations,
+}: {
+  lockedType?: PedigreeType | "timeline" | "report" | "map";
+  /** How many generations the current view actually has to offer. Passing it
+   *  opts the view into the generation limit — the stepper only shows for the
+   *  views that honour it, and reads "of N" against the real depth. */
+  availableGenerations?: number;
+} = {}) {
   const { t } = useTranslation();
   const { settings, setAlignment, set } = useChartSettings();
   const [open, setOpen] = useState(false);
@@ -45,6 +54,10 @@ export function ChartSettings({ lockedType }: { lockedType?: PedigreeType | "tim
   // The effective type drives which extra rows show; with a locked type it wins
   // even if the shared (persisted) type is something else.
   const effectiveType = lockedType ?? settings.type;
+  // Generations currently drawn: the limit, or — with no limit — everything this
+  // view has. Stepping starts from what the user sees, so "−" from "All" lands
+  // one generation shallower than the tree in front of them.
+  const shownGenerations = settings.maxGenerations ?? (availableGenerations ?? 1);
 
   // Close the popover on an outside click.
   useEffect(() => {
@@ -88,9 +101,46 @@ export function ChartSettings({ lockedType }: { lockedType?: PedigreeType | "tim
               </div>
             </div>
           )}
+          {/* How far from the root to draw — one shared choice across every
+              view that fans out from a person. Only offered where there is a
+              generation to drop; "All" is one step up from the deepest one. */}
+          {availableGenerations !== undefined && availableGenerations > 1 && (
+            <div className="chart-settings-group">
+              <span className="chart-settings-heading">{t("tree.settings.generations")}</span>
+              <div className="chart-settings-segmented chart-settings-stepper">
+                <button
+                  onClick={() => set({ maxGenerations: Math.max(1, shownGenerations - 1) })}
+                  disabled={shownGenerations <= 1}
+                  aria-label={t("tree.settings.generations.fewer")}
+                  title={t("tree.settings.generations.fewer")}
+                >
+                  −
+                </button>
+                <span className="chart-settings-value" aria-live="polite">
+                  {settings.maxGenerations === null
+                    ? t("tree.settings.generations.all")
+                    : t("tree.settings.generations.of", { n: settings.maxGenerations, of: availableGenerations })}
+                </span>
+                <button
+                  onClick={() =>
+                    set({
+                      maxGenerations:
+                        shownGenerations + 1 >= availableGenerations ? null : shownGenerations + 1,
+                    })
+                  }
+                  disabled={settings.maxGenerations === null}
+                  aria-label={t("tree.settings.generations.more")}
+                  title={t("tree.settings.generations.more")}
+                >
+                  +
+                </button>
+              </div>
+            </div>
+          )}
           {/* Per-person fields — each independent (multi-select). The report
-              always prints its facts, so only the privacy group applies there. */}
-          {effectiveType !== "report" && (<>
+              always prints its facts and the map draws no node boxes, so only
+              the generation + privacy groups apply to those two. */}
+          {effectiveType !== "report" && effectiveType !== "map" && (<>
           <div className="chart-settings-group">
             <span className="chart-settings-heading">{t("tree.settings.person")}</span>
             <div className="chart-settings-segmented chart-settings-toggles">

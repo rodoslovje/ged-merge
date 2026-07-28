@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import { emptyDataset } from "../gedcom/builder";
-import { buildPersonTree, countTreePeople, type TreeMode, type TreeNode } from "../chart/personTree";
+import { buildPersonTree, countTreePeople, pruneTree, treeDepth, type TreeMode, type TreeNode } from "../chart/personTree";
 import {
   flatten,
   layout,
@@ -11,7 +11,7 @@ import {
   type Placed,
 } from "../chart/treeLayout";
 import { useFanChart } from "./useFanChart";
-import { formatMarriage, lifespanLine } from "../chart/nodeDisplay";
+import { formatMarriage, lifespanLine, modeSummary } from "../chart/nodeDisplay";
 import { useTreeCanvas } from "./useTreeCanvas";
 import { FanChartBody } from "./FanChartBody";
 import { collectFirstFilePath } from "./PersonMedia";
@@ -122,7 +122,35 @@ export function EditTree({ mainDs, rootId, startId, changedPersonIds, decisions,
     }),
     [t, rootPerson, mainDs],
   );
-  const tree = trees[effectiveMode];
+  // How deep each direction goes, and the trees as the generation limit leaves
+  // them. The full trees stay behind them for the head-counts and the "of N"
+  // readout, so raising the limit never rebuilds anything.
+  const depths = useMemo(
+    () => ({ ancestors: treeDepth(trees.ancestors), descendants: treeDepth(trees.descendants) }),
+    [trees],
+  );
+  const limit = settings.maxGenerations;
+  const shown = useMemo(
+    () => ({
+      ancestors: limit === null ? trees.ancestors : pruneTree(trees.ancestors, limit),
+      descendants: limit === null ? trees.descendants : pruneTree(trees.descendants, limit),
+    }),
+    [trees, limit],
+  );
+  const tree = shown[effectiveMode];
+  // Whether the limit actually cuts the direction on screen (a limit deeper than
+  // the tree changes nothing, and shouldn't claim to).
+  const limited = limit !== null && limit < depths[effectiveMode];
+  // What the "+N" marker says: the direction decides who is missing, and the
+  // tooltip names the limit that hid them.
+  const hiddenTitle = useCallback(
+    (count: number) =>
+      t(effectiveMode === "ancestors" ? "tree.node.hiddenAncestors" : "tree.node.hiddenDescendants", {
+        count,
+        limit: limit ?? 0,
+      }),
+    [t, effectiveMode, limit],
+  );
 
   const laid = useMemo(
     () => (tree ? (isGrid ? layoutGrid(tree, alignment, nodeH) : layout(tree, alignment, nodeH)) : undefined),
@@ -192,7 +220,7 @@ export function EditTree({ mainDs, rootId, startId, changedPersonIds, decisions,
     [kinship],
   );
   const { fan, nodes: fanNodes, laid: fanLaid } = useFanChart(
-    radial ? trees.ancestors : undefined,
+    radial ? shown.ancestors : undefined,
     settings.type === "circle" ? "circle" : "fan",
     { hasPhoto, display, kinshipOf: fanKinshipOf },
   );
@@ -202,9 +230,18 @@ export function EditTree({ mainDs, rootId, startId, changedPersonIds, decisions,
       const dec = decisionOf(n);
       if (dec) return { cls: `tree-node-decision ${dec.status}`, letter: dec.letter };
       if (isModified(n)) return { fill: COLOR_MODIFIED, textFill: "var(--bg)", letter: t("edit.tree.modified").charAt(0) };
+      // A segment has one badge slot: a record's own status outranks the
+      // generation limit's "+N above this person isn't drawn".
+      if (n.hidden !== undefined) {
+        return {
+          cls: "tree-node-repeat-badge tree-node-hidden-badge",
+          letter: `+${n.hidden}`,
+          title: hiddenTitle(n.hidden),
+        };
+      }
       return undefined;
     },
-    [decisionOf, isModified, t],
+    [decisionOf, isModified, hiddenTitle, t],
   );
 
   const activeLaid = radial ? fanLaid : laid;
@@ -257,8 +294,12 @@ export function EditTree({ mainDs, rootId, startId, changedPersonIds, decisions,
   const rootKinship = rootPerson ? kinship?.label(rootPerson.id) : undefined;
   const rootLineage = rootPerson ? kinship?.lineage(rootPerson.id) : undefined;
 
-  // Chart "kind" label = direction + diagram type, e.g. "Ancestors Fan Chart".
-  const chartKind = `${t(effectiveMode === "ancestors" ? "tree.ancestors" : "tree.descendants")} ${t(`tree.kind.${settings.type}`)}`;
+  // Chart "kind" label = direction + diagram type, e.g. "Ancestors Fan Chart",
+  // plus "4 of 9 generations" while the limit is cutting — on the page and in
+  // every export header, so a partial chart never passes for a whole one.
+  const chartKind =
+    `${t(effectiveMode === "ancestors" ? "tree.ancestors" : "tree.descendants")} ${t(`tree.kind.${settings.type}`)}` +
+    (limited ? ` · ${t("tree.gen.shown", { n: limit, of: depths[effectiveMode] })}` : "");
   // The root's lifespan for the title, with the age appended when Age is on
   // (the title always shows the lifespan, so force it on here).
   const rootYears = tree
@@ -299,7 +340,7 @@ export function EditTree({ mainDs, rootId, startId, changedPersonIds, decisions,
       }
       actions={
         <>
-          <ChartSettings />
+          <ChartSettings availableGenerations={depths[effectiveMode]} />
           <ChartExportMenu
             disabled={!activeLaid}
             slug={chartSlug(tree?.name, t(`tree.${effectiveMode}`))}
@@ -313,7 +354,11 @@ export function EditTree({ mainDs, rootId, startId, changedPersonIds, decisions,
         <>
           {kindSwitcher}
           <div className="tree-mode">
-            <button className={effectiveMode === "ancestors" ? "active" : ""} onClick={() => onModeChange("ancestors")}>
+            <button
+              className={effectiveMode === "ancestors" ? "active" : ""}
+              onClick={() => onModeChange("ancestors")}
+              title={modeSummary(t, peopleCounts.ancestors, depths.ancestors)}
+            >
               {t("tree.ancestors")}
               <span className="tree-mode-count">{peopleCounts.ancestors}</span>
             </button>
@@ -323,6 +368,7 @@ export function EditTree({ mainDs, rootId, startId, changedPersonIds, decisions,
               <button
                 className={effectiveMode === "descendants" ? "active" : ""}
                 onClick={() => onModeChange("descendants")}
+                title={modeSummary(t, peopleCounts.descendants, depths.descendants)}
               >
                 {t("tree.descendants")}
                 <span className="tree-mode-count">{peopleCounts.descendants}</span>
@@ -369,6 +415,8 @@ export function EditTree({ mainDs, rootId, startId, changedPersonIds, decisions,
               modifiedOf={display.showBadges ? isModified : undefined}
               showRepeat={display.showBadges}
               onRepeatJump={find.jumpTo}
+              hiddenTitle={hiddenTitle}
+              onHiddenJump={(n) => n.main && changeRoot(n.main.id)}
               kinshipOf={(n) => (n.main ? kinship?.label(n.main.id) : undefined)}
               lineageOf={(n) => (n.main ? kinship?.lineage(n.main.id) : undefined)}
               mainRecords={mainDs.records}

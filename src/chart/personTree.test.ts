@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { matchDatasets } from "../match/engine";
-import { buildPersonTree, buildMatchMaps, countTreePeople, type TreeNode } from "./personTree";
+import { buildPersonTree, buildMatchMaps, countTreePeople, pruneTree, treeDepth, type TreeMode, type TreeNode } from "./personTree";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -307,5 +307,67 @@ describe("buildPersonTree (marriage)", () => {
     );
     const root = buildPersonTree(tr, noMarr.individuals.get("@I1@"), undefined, noMarr, noMarr, emptyMaps, "ancestors")!;
     expect(root.marriage).toBeUndefined();
+  });
+});
+
+describe("treeDepth / pruneTree", () => {
+  // Four generations down one line: a couple, their son and his wife, that
+  // couple's two children, and the elder one's own family.
+  const FOUR_GENS = wrap(
+    "0 @I1@ INDI\n1 NAME Ded /Novak/\n1 SEX M\n1 FAMS @F1@\n" +
+      "0 @I2@ INDI\n1 NAME Baba /Novak/\n1 SEX F\n1 FAMS @F1@\n" +
+      "0 @I3@ INDI\n1 NAME Oce /Novak/\n1 SEX M\n1 FAMC @F1@\n1 FAMS @F2@\n" +
+      "0 @I4@ INDI\n1 NAME Mati /Novak/\n1 SEX F\n1 FAMS @F2@\n" +
+      "0 @I5@ INDI\n1 NAME Sin /Novak/\n1 SEX M\n1 FAMC @F2@\n1 FAMS @F3@\n" +
+      "0 @I6@ INDI\n1 NAME Hci /Novak/\n1 SEX F\n1 FAMC @F2@\n" +
+      "0 @I7@ INDI\n1 NAME Snaha /Novak/\n1 SEX F\n1 FAMS @F3@\n" +
+      "0 @I8@ INDI\n1 NAME Vnuk /Novak/\n1 SEX M\n1 FAMC @F3@\n" +
+      "0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@\n1 CHIL @I3@\n" +
+      "0 @F2@ FAM\n1 HUSB @I3@\n1 WIFE @I4@\n1 CHIL @I5@\n1 CHIL @I6@\n" +
+      "0 @F3@ FAM\n1 HUSB @I5@\n1 WIFE @I7@\n1 CHIL @I8@\n",
+  );
+  const ds = dataset(FOUR_GENS);
+  const emptyMaps = { mainToCompare: new Map<string, string>(), compareToMain: new Map<string, string>() };
+  const tree = (id: string, mode: TreeMode) =>
+    buildPersonTree(tr, ds.individuals.get(id), undefined, ds, ds, emptyMaps, mode)!;
+
+  it("measures the generations a tree spans", () => {
+    expect(treeDepth(tree("@I1@", "descendants"))).toBe(3);
+    expect(treeDepth(tree("@I8@", "ancestors"))).toBe(3);
+    expect(treeDepth(tree("@I8@", "descendants"))).toBe(0);
+    expect(treeDepth(undefined)).toBe(0);
+  });
+
+  it("keeps the last drawn generation's couples and counts what it cut", () => {
+    const full = tree("@I1@", "descendants");
+    const cut = pruneTree(full, 1)!;
+    // The son is drawn (generation 1) beside his wife, but his children aren't.
+    const son = cut.partners[0].children[0];
+    expect(son.main?.id).toBe("@I3@");
+    expect(son.partners.map((p) => p.main?.id)).toEqual(["@I4@"]);
+    expect(son.partners[0].children).toEqual([]);
+    expect(son.children).toEqual([]);
+    // Two grandchildren and one great-grandchild went with the cut; the spouse
+    // married into that branch isn't a descendant, so she isn't counted.
+    expect(son.hidden).toBe(3);
+    expect(countTreePeople(cut)).toBe(1);
+  });
+
+  it("prunes ancestors the same way, from the root outwards", () => {
+    const cut = pruneTree(tree("@I8@", "ancestors"), 1)!;
+    expect(cut.children.map((c) => c.main?.id)).toEqual(["@I5@", "@I7@"]);
+    // Father's line continues (his two parents and their two parents are cut);
+    // the mother married in, so nothing hangs above her and she gets no marker.
+    expect(cut.children[0].hidden).toBe(4);
+    expect(cut.children[1].hidden).toBeUndefined();
+  });
+
+  it("leaves the source tree untouched and does nothing above the tree's depth", () => {
+    const full = tree("@I1@", "descendants");
+    pruneTree(full, 1);
+    expect(countTreePeople(full)).toBe(4);
+    const wide = pruneTree(full, 9)!;
+    expect(countTreePeople(wide)).toBe(4);
+    expect(wide.partners[0].children[0].hidden).toBeUndefined();
   });
 });

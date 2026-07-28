@@ -11,6 +11,7 @@ import {
   romanIndex,
   sourceLabel,
   tocRows,
+  truncationNote,
   type PersonRef,
   type ReportData,
   type ReportEntry,
@@ -120,7 +121,24 @@ export function ReportView({ mainDs, rootId, startId, changedPersonIds, decision
     () => buildDescendants(mainDs, currentRootId, nameOf, undefined, factOpts),
     [mainDs, currentRootId, nameOf, factOpts],
   );
-  const data = mode === "descendants" ? descendants : ancestors;
+  const fullData = mode === "descendants" ? descendants : ancestors;
+  // Generations this direction has to offer (the root is generation 0).
+  const availableGenerations = fullData ? fullData.generations.length - 1 : 0;
+  // The generation limit trims the report's tail. The kept generations — their
+  // entries and their numbering — are exactly the full report's, so slicing the
+  // built data is the whole job; `truncated` records what was left off so the
+  // page and every export can say so.
+  const data = useMemo(() => {
+    const max = settings.maxGenerations;
+    if (!fullData || max === null || max >= fullData.generations.length - 1) return fullData;
+    const generations = fullData.generations.slice(0, max + 1);
+    return {
+      ...fullData,
+      generations,
+      total: generations.reduce((n, g) => n + g.entries.filter((e) => e.dupOf === undefined).length, 0),
+      truncated: fullData.generations.length - 1 - max,
+    };
+  }, [fullData, settings.maxGenerations]);
 
   // Redact people inferred to be living: keep their number (the family
   // structure), replace the name with their kinship to the root — or the
@@ -256,7 +274,7 @@ export function ReportView({ mainDs, rootId, startId, changedPersonIds, decision
       }
       actions={
         <>
-          <ChartSettings lockedType="report" />
+          <ChartSettings lockedType="report" availableGenerations={availableGenerations} />
           <ChartExportMenu
             disabled={!data}
             slug={chartSlug(rootEntry?.name, pageKind)}
@@ -482,6 +500,9 @@ export function ReportView({ mainDs, rootId, startId, changedPersonIds, decision
                 </section>
                 );
               })}
+              {/* The report stops where the generation limit says — own up to
+                  the generations left off rather than ending as if complete. */}
+              {truncationNote(t, data) && <p className="report-truncated muted">{truncationNote(t, data)}</p>}
             </div>
           ) : (
             <p className="muted">{t("ahnentafel.empty")}</p>
@@ -607,6 +628,8 @@ function printDoc(
       parts.push(`<div class="entry">${head}${body.join("")}</div>`);
     }
   }
+  const truncated = truncationNote(t, data);
+  if (truncated) parts.push(`<div class="note">${escapeHtml(truncated)}</div>`);
   // Browsers seed the "Save as PDF" filename from the document <title>.
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(`${fileName}.gedmerge`)}</title>
 <style>

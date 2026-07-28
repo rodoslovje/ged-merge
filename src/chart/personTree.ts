@@ -62,6 +62,10 @@ export interface TreeNode {
    *  the user there. Absent on the rare repeat with nowhere to point (a union
    *  whose children hang off a person rather than a spouse node). */
   repeatOf?: string;
+  /** How many blood relatives {@link pruneTree} cut off below this node — set
+   *  only on the last drawn generation, so renderers can say "and N more, not
+   *  shown". Absent when nothing was cut (or no limit is in force). */
+  hidden?: number;
 }
 
 /** A marriage's display fields — already reduced to a year and most-specific
@@ -391,6 +395,56 @@ export function countTreePeople(root: TreeNode | undefined): number {
   root.children.forEach(visit);
   root.partners.forEach((p) => p.children.forEach(visit));
   return seen.size;
+}
+
+/**
+ * How many generations the tree spans away from its root: 0 when the root has
+ * nobody in this direction, 1 when only their parents/children are known, and so
+ * on. Spouses sit in their partner's generation, so a union's children count as
+ * one step below the person they hang from — the same numbering
+ * {@link pruneTree} and the reports use.
+ */
+export function treeDepth(root: TreeNode | undefined): number {
+  if (!root) return 0;
+  let max = 0;
+  const visit = (n: TreeNode, gen: number) => {
+    if (gen > max) max = gen;
+    n.children.forEach((c) => visit(c, gen + 1));
+    n.partners.forEach((p) => p.children.forEach((c) => visit(c, gen + 1)));
+  };
+  visit(root, 0);
+  return max;
+}
+
+/**
+ * Trim a built tree to `maxGen` generations away from the root (0 = the root
+ * alone), returning copies so the full tree stays intact for the head-counts and
+ * for a later, deeper look. Spouses belong to their partner's generation, so the
+ * last drawn generation keeps its couples and drops only what hangs below them.
+ * Each node that lost a line records how many people went with it in
+ * {@link TreeNode.hidden}, so the chart can own up to what it isn't showing.
+ */
+export function pruneTree(root: TreeNode | undefined, maxGen: number): TreeNode | undefined {
+  if (!root) return undefined;
+  const cut = (n: TreeNode, gen: number): TreeNode => {
+    if (gen >= maxGen) {
+      const hidden = countTreePeople(n);
+      // Partners stay (same generation as their spouse) but lead nowhere; the
+      // whole cut branch is counted once, on the person the chart hangs it from.
+      return {
+        ...n,
+        children: [],
+        partners: n.partners.map((p) => ({ ...p, children: [] })),
+        ...(hidden > 0 ? { hidden } : null),
+      };
+    }
+    return {
+      ...n,
+      children: n.children.map((c) => cut(c, gen + 1)),
+      partners: n.partners.map((p) => ({ ...p, children: p.children.map((c) => cut(c, gen + 1)) })),
+    };
+  };
+  return cut(root, 0);
 }
 
 export function countImportable(node: TreeNode): number {

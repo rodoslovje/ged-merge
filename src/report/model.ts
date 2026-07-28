@@ -172,6 +172,9 @@ export interface ReportData {
    *  collapse, or a couple whose both spouses descend from the root) is the same
    *  person met again and is not counted a second time. */
   total: number;
+  /** Generations the chart-settings generation limit left off the end of this
+   *  report. Absent when the report runs to the end of the line. */
+  truncated?: number;
 }
 
 /** A generation's band heading: "Generation 2 — Grandparents" plus the
@@ -210,6 +213,15 @@ export function generationHeading(
   if (g.gen > 3) return { title: genN, range, coverage };
   const word = t(`${direction === "ancestors" ? "ahnentafel" : "register"}.gen.${g.gen}`);
   return { title: `${genN} — ${word}`, range, coverage };
+}
+
+/** The closing "N more generations are not listed" line for a report the
+ *  generation limit cut short (undefined for a complete one). The limit is the
+ *  generations actually printed, so it needs no extra plumbing. Shared by the
+ *  page, the text / RTF downloads and the print sheet. */
+export function truncationNote(t: Translate, data: ReportData): string | undefined {
+  if (data.truncated === undefined) return undefined;
+  return t("report.genLimit", { count: data.truncated, limit: data.generations.length - 1 });
 }
 
 /** The optional table of contents: one row per generation — the heading title

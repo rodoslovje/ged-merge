@@ -16,6 +16,9 @@ export interface FanBadge {
   /** Explicit circle fill / text fill when not driven by a class. */
   fill?: string;
   textFill?: string;
+  /** Hover explanation, when the badge means more than its letter (the
+   *  generation limit's "+N, not shown"). */
+  title?: string;
 }
 
 interface Props {
@@ -202,6 +205,7 @@ function Segment({
           fill={badge.fill}
           textFill={badge.textFill}
           letter={badge.letter}
+          title={badge.title}
         />
       )}
     </g>

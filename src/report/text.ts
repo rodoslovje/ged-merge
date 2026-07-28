@@ -8,6 +8,7 @@ import type { Translate } from "../locales/i18n";
 import {
   factAgeSuffix,
   generationHeading,
+  truncationNote,
   romanIndex,
   sourceLabel,
   tocRows,
@@ -65,6 +66,8 @@ export function reportToText(
     }
     lines.push("");
   }
+  const note = truncationNote(t, data);
+  if (note) lines.push(note, "");
   return lines.join("\n").replace(/\n+$/, "\n");
 }
 
