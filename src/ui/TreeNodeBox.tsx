@@ -40,6 +40,7 @@ export function NodeBadge({
   cls,
   fill,
   textFill,
+  title,
 }: {
   x: number;
   y: number;
@@ -47,9 +48,12 @@ export function NodeBadge({
   cls?: string;
   fill?: string;
   textFill?: string;
+  /** Hover explanation for the badge; overrides the node's own tooltip. */
+  title?: string;
 }) {
   return (
     <g className={cls ?? "tree-node-decision"} transform={`translate(${x},${y})`}>
+      {title && <title>{title}</title>}
       <circle r={7} fill={fill} />
       <text textAnchor="middle" dominantBaseline="central" x={0} y={0.5} fontSize={9} fontWeight={700} fill={textFill}>
         {letter}

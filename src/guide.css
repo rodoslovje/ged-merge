@@ -300,6 +300,8 @@
 .gm-badge.b { color: var(--accent); background: color-mix(in oklch, var(--accent) 15%, transparent); }
 /* Edit-mode "Modified" marker — solid amber, like the app's tree-node M badge. */
 .gm-badge.mod { color: var(--bg); background: var(--node-minor); border-color: var(--node-minor); }
+/* Repeated person — solid accent, like the app's tree-node → badge (a link). */
+.gm-badge.rep { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); }
 /* Status badges (C/R/D + Modified) are round chips in-app; field choices (M/I/B
    or G/V/O) stay rectangular. */
 .guide-body .gm-badge.round {

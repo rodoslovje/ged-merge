@@ -725,6 +725,7 @@ export const en = {
   "tree.kind.circle": "Circle Chart",
   "tree.empty": "No tree structure could be built for these individuals.",
   "tree.node.clickHint": "Click to see full details",
+  "tree.node.repeatHint": "Repeated person — already shown elsewhere in the chart, where their branch (descendants or ancestors) is drawn. Click to go there.",
   "tree.legend.match": "Match",
   "tree.legend.minor": "Minor differences",
   "tree.legend.major": "Major differences",

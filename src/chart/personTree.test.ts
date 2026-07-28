@@ -210,6 +210,16 @@ describe("buildPersonTree (pedigree collapse)", () => {
     const root = buildPersonTree(tr, ds.individuals.get("@I1@"), undefined, ds, ds, emptyMaps, "ancestors")!;
     // Father, mother, and the shared grandparents: 4 people, not 6 positions.
     expect(countTreePeople(root)).toBe(4);
+    // Only the later occurrence of each grandparent is flagged as a repeat, and
+    // each points at the occurrence that does carry their line.
+    const nodes = allNodes(root);
+    const repeats = nodes.filter((n) => n.repeat);
+    expect(repeats.map((n) => n.main?.id)).toEqual(["@I4@", "@I5@"]);
+    for (const r of repeats) {
+      const first = nodes.find((n) => n.key === r.repeatOf)!;
+      expect(first.main?.id).toBe(r.main?.id);
+      expect(first.repeat).toBeUndefined();
+    }
   });
 
   it("keeps keys unique when a person is both spouse and child (descendants)", () => {
@@ -224,6 +234,44 @@ describe("buildPersonTree (pedigree collapse)", () => {
     expect(ana.length).toBeGreaterThanOrEqual(2);
     // The grandson is still reachable (Ana's child occurrence expanded).
     expect(nodes.some((n) => n.main?.id === "@I1@")).toBe(true);
+  });
+
+  it("draws a couple's children once when both spouses descend from the root", () => {
+    // Anton and Ana are both children of @F2@ and married to each other, so
+    // their union is reached down each of their lines. It expands under the
+    // first of them only — the shared child is not drawn (nor counted) twice.
+    const root = buildPersonTree(tr, ds.individuals.get("@I4@"), undefined, ds, ds, emptyMaps, "descendants")!;
+    const nodes = allNodes(root);
+    expect(nodes.filter((n) => n.main?.id === "@I1@")).toHaveLength(1);
+    expect(countTreePeople(root)).toBe(3); // Anton, Ana, Janez
+
+    // The second occurrence keeps the couple and their marriage, flagged as a
+    // repeat so an empty node doesn't read as a childless marriage.
+    const repeats = nodes.filter((n) => n.repeat);
+    expect(repeats).toHaveLength(1);
+    expect(repeats[0].main?.id).toBe("@I2@"); // Anton, as Ana's partner
+    expect(repeats[0].children).toHaveLength(0);
+
+    // It points at the position that does carry them — Ana beside Anton — so
+    // the marker can take the user there.
+    const carrier = nodes.find((n) => n.key === repeats[0].repeatOf)!;
+    expect(carrier.main?.id).toBe("@I3@");
+    expect(carrier.children.map((c) => c.main?.id)).toEqual(["@I1@"]);
+  });
+
+  it("still expands a second marriage of a spouse already in the tree", () => {
+    // Ana remarries outside the tree: that union is a different family and must
+    // expand normally — the guard is per union, not per person.
+    const remarried = dataset(
+      COLLAPSE.replace("1 NAME Ana /Novak/\n1 SEX F\n1 FAMS @F1@\n", "1 NAME Ana /Novak/\n1 SEX F\n1 FAMS @F1@\n1 FAMS @F3@\n").replace(
+        "0 TRLR\n",
+        "0 @I6@ INDI\n1 NAME Lovro /Kos/\n1 SEX M\n1 FAMS @F3@\n" +
+          "0 @I7@ INDI\n1 NAME Neza /Kos/\n1 SEX F\n1 FAMC @F3@\n" +
+          "0 @F3@ FAM\n1 HUSB @I6@\n1 WIFE @I3@\n1 CHIL @I7@\n0 TRLR\n",
+      ),
+    );
+    const root = buildPersonTree(tr, remarried.individuals.get("@I4@"), undefined, remarried, remarried, emptyMaps, "descendants")!;
+    expect(allNodes(root).some((n) => n.main?.id === "@I7@")).toBe(true);
   });
 });
 

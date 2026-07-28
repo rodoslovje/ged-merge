@@ -168,7 +168,9 @@ export interface ReportGeneration {
 
 export interface ReportData {
   generations: ReportGeneration[];
-  /** Total entries across all generations (duplicates included). */
+  /** Distinct people across all generations. A repeat entry (`dupOf` — pedigree
+   *  collapse, or a couple whose both spouses descend from the root) is the same
+   *  person met again and is not counted a second time. */
   total: number;
 }
 

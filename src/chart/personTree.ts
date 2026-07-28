@@ -51,6 +51,17 @@ export interface TreeNode {
    *  union (on the partner line); in ancestor mode the marriage of this node's two
    *  parents (the fan collar between its parent segments). Absent when unrecorded. */
   marriage?: MarriageInfo;
+  /** This position is a second (or later) occurrence and carries no line of its
+   *  own — it was already expanded earlier in the tree. Two cases: a person
+   *  reached twice (pedigree collapse), and, in descendant mode, a union whose
+   *  *both* spouses descend from the root, so the couple's children are drawn
+   *  under whichever of the two the tree reaches first. Renderers mark it, so an
+   *  empty node reads as "continues elsewhere" rather than "nothing recorded". */
+  repeat?: boolean;
+  /** The `key` of the position that does carry the line, so the marker can take
+   *  the user there. Absent on the rare repeat with nowhere to point (a union
+   *  whose children hang off a person rather than a spouse node). */
+  repeatOf?: string;
 }
 
 /** A marriage's display fields — already reduced to a year and most-specific
@@ -110,7 +121,17 @@ export function buildPersonTree(
     occurrences.set(baseKey, n);
     return n === 1 ? baseKey : `${baseKey}#${n}`;
   };
-  const expanded = new Set<string>();
+  // People already expanded → the key of the position that carries their branch,
+  // so a repeat can point the user at it.
+  const expanded = new Map<string, string>();
+  // Unions already drawn with their children, mapped to the partner node that
+  // carries them (undefined when the union has no recorded spouse and the
+  // children hang off the person). A couple whose *both* spouses descend from
+  // the root is reached twice — once down each spouse's line — and the person
+  // guard below doesn't catch it, because the second spouse was only ever met as
+  // a partner node. Without this the union's children are drawn under both
+  // occurrences, inflating what the chart shows.
+  const expandedFams = new Map<string, string | undefined>();
   const placeFmt = inferPlaceExportFormat(mainDs);
 
   const build = (main?: Individual, incoming?: Individual): TreeNode | undefined => {
@@ -122,9 +143,16 @@ export function buildPersonTree(
       incoming = undefined;
     }
     const base = nodeKey(main, incoming);
-    const node = makeNode(t, claimKey(base), main, incoming, mainDs, compareDs, placeFmt);
-    if (expanded.has(base)) return node; // already expanded elsewhere: stop here
-    expanded.add(base);
+    const key = claimKey(base);
+    const node = makeNode(t, key, main, incoming, mainDs, compareDs, placeFmt);
+    const expandedAt = expanded.get(base);
+    if (expandedAt !== undefined) {
+      // Already expanded elsewhere: stop here and point at that position.
+      node.repeat = true;
+      node.repeatOf = expandedAt;
+      return node;
+    }
+    expanded.set(base, key);
     if (mode === "ancestors") {
       node.children = parents(main, incoming, mainDs, compareDs, build);
       // The marriage of this person's parents — drawn as the fan collar between
@@ -132,7 +160,7 @@ export function buildPersonTree(
       node.marriage =
         parentsMarriage(main, mainDs) ?? parentsMarriage(incoming, compareDs);
     } else {
-      const { partners, directChildren } = descend(t, main, incoming, mainDs, compareDs, maps, build, claimKey, placeFmt);
+      const { partners, directChildren } = descend(t, main, incoming, mainDs, compareDs, maps, build, claimKey, expandedFams, placeFmt);
       node.partners = partners;
       node.children = directChildren;
     }
@@ -219,6 +247,11 @@ function parentsMarriage(indi: Individual | undefined, ds: Dataset): MarriageInf
  * node carrying *that union's* children, so children connect to the spouse they
  * belong to. Children from a family with no recorded spouse hang off the person
  * directly. Main and incoming families are aligned by their matched partner.
+ *
+ * A union is expanded once per tree (`expandedFams`): when both spouses descend
+ * from the root, the second occurrence keeps the couple and their marriage but
+ * is flagged `repeat` and drawn childless, so the shared children — and every
+ * generation below them — appear exactly once.
  */
 function descend(
   t: Translate,
@@ -229,6 +262,7 @@ function descend(
   maps: MatchMaps,
   build: Build,
   claimKey: ClaimKey,
+  expandedFams: Map<string, string | undefined>,
   placeFmt: PlaceTargetFormat,
 ): { partners: TreeNode[]; directChildren: TreeNode[] } {
   const mainUnions = unionsOf(main, mainDs);
@@ -241,19 +275,36 @@ function descend(
   const emit = (
     mPartner: Individual | undefined,
     iPartner: Individual | undefined,
-    children: TreeNode[],
+    famKeys: string[],
+    childrenOf: () => TreeNode[],
     fam: Family | undefined,
   ) => {
+    // Second (or later) time through this union: keep the couple and their
+    // marriage, drop the line below. The children aren't built at all, so the
+    // person guard in `build` stays free for their real position elsewhere.
+    const seenAs = famKeys.find((k) => expandedFams.has(k));
+    const children = seenAs === undefined ? childrenOf() : [];
     if (mPartner || iPartner) {
       // Partner nodes claim a key too: a spouse who is also a blood relative
       // (or married twice into the tree) appears in several positions.
-      const node = makeNode(t, claimKey(nodeKey(mPartner, iPartner)), mPartner, iPartner, mainDs, compareDs, placeFmt);
+      const key = claimKey(nodeKey(mPartner, iPartner));
+      const node = makeNode(t, key, mPartner, iPartner, mainDs, compareDs, placeFmt);
       node.children = children;
       // The marriage belongs to this union — drawn on the person↔spouse line.
       node.marriage = marriageOf(fam);
+      if (seenAs !== undefined) {
+        node.repeat = true;
+        node.repeatOf = expandedFams.get(seenAs);
+      }
       partners.push(node);
     } else {
       directChildren.push(...children);
+    }
+    // Mark the union only on its first pass, so its recorded position stays the
+    // one that actually carries the children.
+    if (seenAs === undefined) {
+      const at = mPartner || iPartner ? partners[partners.length - 1].key : undefined;
+      for (const k of famKeys) expandedFams.set(k, at);
     }
   };
 
@@ -270,12 +321,15 @@ function descend(
     }
     const iu = iIndex >= 0 ? incomingUnions[iIndex] : undefined;
     if (iIndex >= 0) usedIncoming.add(iIndex);
-    emit(mu.partner, iu?.partner, pairChildren(mu.children, iu?.children ?? [], maps, build), mu.fam);
+    // Both sides' family xrefs identify the union — the two datasets number
+    // their records independently, so the keys are side-prefixed.
+    const keys = iu ? [`m:${mu.fam.id}`, `i:${iu.fam.id}`] : [`m:${mu.fam.id}`];
+    emit(mu.partner, iu?.partner, keys, () => pairChildren(mu.children, iu?.children ?? [], maps, build), mu.fam);
   }
 
   incomingUnions.forEach((iu, idx) => {
     if (usedIncoming.has(idx)) return;
-    emit(undefined, iu.partner, pairChildren([], iu.children, maps, build), iu.fam);
+    emit(undefined, iu.partner, [`i:${iu.fam.id}`], () => pairChildren([], iu.children, maps, build), iu.fam);
   });
 
   return { partners, directChildren };
