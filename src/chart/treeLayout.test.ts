@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TreeNode } from "./personTree";
-import { COL_STEP, NODE_H, NODE_W, ROW_STEP, flatten, layout, layoutGrid } from "./treeLayout";
+import { COL_STEP, NODE_H, NODE_W, ROW_STEP, flatten, layout, layoutGrid, minimapFit } from "./treeLayout";
 
 /** Minimal TreeNode for geometry tests — only the layout-relevant fields matter. */
 function node(key: string, children: TreeNode[] = [], partners: TreeNode[] = []): TreeNode {
@@ -202,5 +202,40 @@ describe("grid layout", () => {
     const [toFather, toMother] = edges;
     expect(start(toFather.d)).toBe(`M${NODE_W},${NODE_H / 2}`);
     expect(start(toMother.d)).toBe(start(toFather.d));
+  });
+});
+
+describe("minimap fit", () => {
+  const viewport = { left: 0, top: 0, width: 1400, height: 800 };
+
+  it("scales an ordinary chart uniformly inside the box caps", () => {
+    // 3:1 chart — the width cap (32%) binds first, the height follows in step.
+    const fit = minimapFit(3000, 1000, viewport);
+    expect(fit.scaleX).toBeCloseTo(fit.scaleY, 10);
+    expect(fit.w).toBeCloseTo(1400 * 0.32, 6);
+    expect(fit.h).toBeCloseTo(fit.w / 3, 6);
+  });
+
+  it("stretches only the short axis when a uniform fit would leave a hairline", () => {
+    // 9 generations top-down: ~256 leaf boxes across, 9 rows down (~68:1).
+    const cw = 256 * COL_STEP;
+    const ch = 9 * (NODE_H + 70);
+    const fit = minimapFit(cw, ch, viewport);
+    expect(fit.w).toBeCloseTo(1400 * 0.32, 6); // long axis untouched, still at its cap
+    expect(fit.h).toBeCloseTo(80, 6); // short axis lifted to the thickness floor
+    expect(minimapFit(cw, ch, viewport).scaleX).toBeLessThan(fit.scaleY);
+  });
+
+  it("applies the same floor to a tall, narrow chart", () => {
+    const fit = minimapFit(300, 40000, viewport);
+    expect(fit.h).toBeCloseTo(800 * 0.24, 6);
+    expect(fit.w).toBeCloseTo(80, 6);
+  });
+
+  it("leaves an axis alone once the uniform fit already clears the floor", () => {
+    // 3:1 again, whose uniform height (149px) is comfortably over the floor.
+    const fit = minimapFit(3000, 1000, viewport);
+    expect(fit.h).toBeGreaterThan(80);
+    expect(fit.scaleX).toBeCloseTo(fit.scaleY, 10); // so no stretch is applied
   });
 });

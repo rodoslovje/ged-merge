@@ -1,15 +1,5 @@
 import { useRef } from "react";
-import { NODE_H, NODE_W, PAD, type ChartNode, type Viewport } from "../chart/treeLayout";
-
-/** Fraction of the visible canvas the minimap box may occupy on each axis —
-   kept small so the overview stays a corner aid rather than covering the chart
-   (it is also translucent at rest; see .tree-minimap-box). The tree is scaled
-   uniformly to fit inside this box, so the constraining axis hits its cap and
-   the other takes only what it needs — proportional, never stretched. */
-const MINIMAP_MAX_W_FRACTION = 0.32;
-const MINIMAP_MAX_H_FRACTION = 0.24;
-/** Hard pixel floor so a tiny tree still renders a usable, clickable map. */
-const MINIMAP_MIN = 120;
+import { minimapFit, NODE_H, NODE_W, PAD, type ChartNode, type Viewport } from "../chart/treeLayout";
 
 interface Props<T extends ChartNode> {
   nodes: T[];
@@ -32,22 +22,16 @@ interface Props<T extends ChartNode> {
 export function TreeMinimap<T extends ChartNode>({ nodes, contentW, contentH, viewport, onScrollTo, fill, nodeH = NODE_H, zoom = 1 }: Props<T>) {
   const dragging = useRef(false);
   // Work in scaled (on-screen) space so the viewport rectangle — which is in
-  // zoomed scroll pixels — lines up with the node dots.
-  const cw = contentW * zoom;
-  const ch = contentH * zoom;
-  // Box capped to a fraction of the visible canvas, then a single uniform scale
-  // fits the tree inside it: the constraining axis fills the cap, the other uses
-  // only what it needs. No per-axis stretch, so proportions stay true.
-  const maxW = Math.max(MINIMAP_MIN, viewport.width * MINIMAP_MAX_W_FRACTION);
-  const maxH = Math.max(MINIMAP_MIN, viewport.height * MINIMAP_MAX_H_FRACTION);
-  const scale = Math.min(maxW / cw, maxH / ch);
-  const w = cw * scale;
-  const h = ch * scale;
+  // zoomed scroll pixels — lines up with the node dots. minimapFit sizes the box
+  // (a fraction of the canvas, translucent at rest; see .tree-minimap-box) and
+  // returns one scale per axis: equal for ordinary charts, stretched on the
+  // short axis only for the extreme ratios of deep trees.
+  const { scaleX, scaleY, w, h } = minimapFit(contentW * zoom, contentH * zoom, viewport);
 
   const recentre = (e: React.PointerEvent<SVGSVGElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / scale;
-    const y = (e.clientY - rect.top) / scale;
+    const x = (e.clientX - rect.left) / scaleX;
+    const y = (e.clientY - rect.top) / scaleY;
     onScrollTo(x - viewport.width / 2, y - viewport.height / 2);
   };
 
@@ -70,20 +54,20 @@ export function TreeMinimap<T extends ChartNode>({ nodes, contentW, contentH, vi
       {nodes.map((n) => (
         <rect
           key={n.key}
-          x={(n.x + PAD) * zoom * scale}
-          y={(n.y + PAD) * zoom * scale}
-          width={Math.max(1, NODE_W * zoom * scale)}
-          height={Math.max(1, nodeH * zoom * scale)}
+          x={(n.x + PAD) * zoom * scaleX}
+          y={(n.y + PAD) * zoom * scaleY}
+          width={Math.max(1, NODE_W * zoom * scaleX)}
+          height={Math.max(1, nodeH * zoom * scaleY)}
           rx={1}
           fill={fill(n)}
         />
       ))}
       <rect
         className="tree-minimap-viewport"
-        x={viewport.left * scale}
-        y={viewport.top * scale}
-        width={viewport.width * scale}
-        height={viewport.height * scale}
+        x={viewport.left * scaleX}
+        y={viewport.top * scaleY}
+        width={viewport.width * scaleX}
+        height={viewport.height * scaleY}
       />
     </svg>
   );
