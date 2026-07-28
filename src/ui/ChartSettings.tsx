@@ -4,7 +4,8 @@ import { GearIcon } from "./icons/GearIcon";
 import { useChartSettings, type ChartAlignment, type ChartSettings as Settings, type PedigreeType, type TimelineEventScope } from "./ChartSettingsContext";
 
 // The Chart-settings control for the full-page diagram toolbars: a gear button
-// that opens a small popover for the Tree alignment (left→right / top→bottom)
+// that opens a small popover for the layered-chart alignment (left→right /
+// top→bottom, shown for the tree and the grid)
 // and the per-person / marriage / privacy display toggles. The diagram kind
 // itself lives in the ChartKindTabs switcher on the page, not in here. The
 // settings are shared + persisted by ChartSettingsContext, so this is pure UI.
@@ -68,8 +69,10 @@ export function ChartSettings({ lockedType }: { lockedType?: PedigreeType | "tim
       </button>
       {open && (
         <div className="chart-settings-popover" role="dialog" aria-label={t("tree.settings.button")}>
-          {/* Alignment only applies to the layered tree; radial charts ignore it. */}
-          {effectiveType === "tree" && (
+          {/* Alignment applies to every layered chart — the tidy tree, the grid
+              that shares its layout axes, and the relationship diagram (which
+              reaches here as a locked "tree"); radial charts ignore it. */}
+          {(effectiveType === "tree" || effectiveType === "grid") && (
             <div className="chart-settings-group">
               <span className="chart-settings-heading">{t("tree.settings.alignment")}</span>
               <div className="chart-settings-segmented">
