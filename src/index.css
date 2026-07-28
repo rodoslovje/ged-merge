@@ -3818,10 +3818,18 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
    cycling through every place the chart draws them. */
 .chart-find {
   display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  /* Never squeezed by the kind switcher beside it — the tabs wrap instead. */
+  flex: 0 0 auto;
+}
+/* The field and its ‹ › stay on one line; only the miss message goes below. */
+.chart-find-row {
+  display: flex;
   align-items: center;
-  justify-content: flex-end;
   gap: 8px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 .chart-find-control {
   display: inline-flex;
@@ -7573,6 +7581,18 @@ kbd {
   .charts-kind button {
     flex: 0 0 auto;
     scroll-snap-align: center;
+  }
+  /* With the kind switcher on its own full-width row, the find box takes the
+     next one — its field stretching to whatever is left beside the ‹ ›. */
+  .chart-find {
+    flex: 1 1 100%;
+    align-items: stretch;
+  }
+  .chart-find-control { flex: 1 1 auto; }
+  .chart-find-control input {
+    width: auto;
+    flex: 1 1 auto;
+    min-width: 0;
   }
 
   /* --- Map: filter rows --- */

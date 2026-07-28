@@ -54,46 +54,50 @@ export function ChartFindBox({ find }: { find: ChartFind }) {
 
   return (
     <div className="chart-find">
-      <div className="chart-find-control">
-        <button
-          type="button"
-          className="chart-find-go"
-          title={t("chartFind.tooltip", { key: `${renderKeyToken("mod")}F` })}
-          aria-label={t("chartFind.title")}
-          onClick={() => step(1)}
-        >
-          <SearchIcon size={14} />
-        </button>
-        <input
-          ref={inputRef}
-          type="text"
-          placeholder={t("chartFind.placeholder")}
-          title={t("chartFind.tooltip", { key: `${renderKeyToken("mod")}F` })}
-          value={query}
-          onChange={(e) => find.setQuery(e.target.value)}
-          onKeyDown={onKeyDown}
-        />
-        {total > 0 && (
-          <span className="chart-find-count gm-data" title={t("chartFind.matches", { count: total })}>
-            {position ? `${position}/${total}` : total}
-          </span>
-        )}
-        {query && (
-          <button type="button" className="chart-find-clear" title={t("chartFind.clear")} onClick={find.clear}>
-            ×
+      {/* Field and arrows never break apart; only the miss message drops to its
+          own line, so a narrow controls row can't strand the ‹ › below the box. */}
+      <div className="chart-find-row">
+        <div className="chart-find-control">
+          <button
+            type="button"
+            className="chart-find-go"
+            title={t("chartFind.tooltip", { key: `${renderKeyToken("mod")}F` })}
+            aria-label={t("chartFind.title")}
+            onClick={() => step(1)}
+          >
+            <SearchIcon size={14} />
           </button>
+          <input
+            ref={inputRef}
+            type="text"
+            placeholder={t("chartFind.placeholder")}
+            title={t("chartFind.tooltip", { key: `${renderKeyToken("mod")}F` })}
+            value={query}
+            onChange={(e) => find.setQuery(e.target.value)}
+            onKeyDown={onKeyDown}
+          />
+          {total > 0 && (
+            <span className="chart-find-count gm-data" title={t("chartFind.matches", { count: total })}>
+              {position ? `${position}/${total}` : total}
+            </span>
+          )}
+          {query && (
+            <button type="button" className="chart-find-clear" title={t("chartFind.clear")} onClick={find.clear}>
+              ×
+            </button>
+          )}
+        </div>
+        {total > 1 && (
+          <div className="chart-find-steps">
+            <button type="button" title={t("chartFind.prev")} aria-label={t("chartFind.prev")} onClick={() => step(-1)}>
+              ‹
+            </button>
+            <button type="button" title={t("chartFind.next")} aria-label={t("chartFind.next")} onClick={() => step(1)}>
+              ›
+            </button>
+          </div>
         )}
       </div>
-      {total > 1 && (
-        <div className="chart-find-steps">
-          <button type="button" title={t("chartFind.prev")} aria-label={t("chartFind.prev")} onClick={() => step(-1)}>
-            ‹
-          </button>
-          <button type="button" title={t("chartFind.next")} aria-label={t("chartFind.next")} onClick={() => step(1)}>
-            ›
-          </button>
-        </div>
-      )}
       {miss === "none" && <span className="chart-find-msg">{t("chartFind.none")}</span>}
       {miss === "offChart" && offChart && (
         <span className="chart-find-msg">
