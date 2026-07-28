@@ -54,6 +54,9 @@ export interface ToolsScans extends ScanStates {
   ensureFresh: (kind: ScanKind) => void;
   /** Re-run a scan against the current (possibly just-edited) dataset. */
   refresh: (kind: ScanKind) => void;
+  /** True when a finished scan's result was computed against older content than
+   *  the dataset now holds — the panel can offer a re-run and say why. */
+  isStale: (kind: ScanKind) => boolean;
   /** Stop the running duplicate scan. Terminates the worker — the only way to
    *  interrupt its synchronous pass — so the next scan re-uploads the file. */
   cancelDuplicates: () => void;
@@ -282,6 +285,18 @@ export function useToolsScans(dataset: Dataset, editVersionRef: { readonly curre
 
   const refresh = useCallback((kind: ScanKind) => start(kind), [start]);
 
+  // Read at render time (the keys live in refs, not state): an in-place edit
+  // bumps `editVersionRef` without re-rendering the Tools panels, but coming
+  // back to the tab re-renders them, which is exactly when this is consulted.
+  const isStale = useCallback(
+    (kind: ScanKind) => {
+      const status = statesRef.current[kind].status;
+      if (status === "idle" || status === "running") return false;
+      return scanKeysRef.current.get(kind) !== scanKey(kind);
+    },
+    [scanKey],
+  );
+
   const cancelDuplicates = useCallback(() => {
     // Terminating is the only way to stop the synchronous scan. Other pending
     // scans die with the worker — put them back to idle so `ensure` restarts
@@ -331,7 +346,7 @@ export function useToolsScans(dataset: Dataset, editVersionRef: { readonly curre
   );
 
   return useMemo(
-    () => ({ ...states, ensure, ensureFresh, refresh, cancelDuplicates, updateDuplicates, runNormalizeText }),
-    [states, ensure, ensureFresh, refresh, cancelDuplicates, updateDuplicates, runNormalizeText],
+    () => ({ ...states, ensure, ensureFresh, refresh, isStale, cancelDuplicates, updateDuplicates, runNormalizeText }),
+    [states, ensure, ensureFresh, refresh, isStale, cancelDuplicates, updateDuplicates, runNormalizeText],
   );
 }

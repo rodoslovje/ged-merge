@@ -234,12 +234,31 @@ export function ValidatePanel({
   if (inferableSex > 0) fixActions.push({ kind: "sex", count: inferableSex });
   if (fixableDates > 0) fixActions.push({ kind: "dates", count: fixableDates });
   const showMediaCheck = !!folderName && mediaFiles.length > 0 && mediaMissing === null;
+  // The check runs once per file, not on every visit: fixing a record in Edit
+  // and coming back would otherwise still show the old findings. Say so, and
+  // let the user re-run on demand.
+  const stale = scans.isStale("validate");
+  const rerunning = scan.status === "running";
   const pendingCount = pendingFix
     ? (fixActions.find((a) => a.kind === pendingFix)?.count ?? 0)
     : 0;
 
   return (
     <>
+      <ul className="tools-fix-list">
+        <li className="tools-fix-item">
+          <button
+            className={`nav-btn tools-run${stale ? " primary" : ""}`}
+            onClick={() => scans.refresh("validate")}
+            disabled={rerunning}
+          >
+            {t("tools.scan.rerun")}
+          </button>
+          <span className="tools-fix-hint">
+            {rerunning ? t("tools.running") : t(stale ? "tools.validate.stale" : "tools.validate.rerunHint")}
+          </span>
+        </li>
+      </ul>
       {fixDone !== null && (
         <p className="tools-clean tools-clean--ok">
           {t(
