@@ -248,6 +248,9 @@ export interface SvgExportOptions {
   title: string;
   /** Download base name (no extension); used as the print-to-PDF default name. */
   fileName?: string;
+  /** Second, smaller header line under the title — the sheet export's "Sheet 3
+   *  of 7 · continues Janez Novak from sheet 1". */
+  subtitle?: string;
 }
 
 /** Append the shared `.gedmerge.<ext>` stem so chart exports sit alongside the
@@ -349,21 +352,26 @@ interface BuiltSvg {
   height: number;
 }
 
+/** A live diagram cloned and made standalone — styles inlined, photos embedded,
+ *  tooltips dropped — but not yet banded. The `.svg`/PDF exports band it whole;
+ *  the sheet export picks pieces out of it (see `sheetSvg.ts`). */
+export interface PreparedDiagram {
+  /** The styled clone, still holding the diagram's own content. */
+  clone: SVGSVGElement;
+  /** Header/footer ink: the canvas text colour in the light palette. */
+  foreground: string;
+  /** The diagram's native size, ignoring the on-screen zoom. */
+  width: number;
+  height: number;
+}
+
 /**
- * Clone a live diagram SVG into a standalone document: styles inlined, photos
- * embedded, wrapped in a titled header + site/timestamp footer. Shared by the
- * `.svg` download and the print-to-PDF path.
- * @param haloFilter bake in the white halo behind hairlines/text (see below).
- *   Default on, for the standalone `.svg` download. The print/PDF path turns
- *   it off: the halo exists only so a transparent-background export stays
- *   legible on a dark-themed viewer, which doesn't apply to a printed page
- *   (always opaque white paper) — and confirmed by hand, this specific filter
- *   combination (feMorphology dilate + feGaussianBlur + feComposite + feMerge)
- *   makes Firefox's macOS "Save to PDF" pipeline rasterize the page as fully
- *   blank, even though the identical markup renders fine on-screen and in
- *   Firefox's own print preview.
+ * Clone a live diagram SVG into a standalone one: every painted property baked
+ * into inline styles (with the light palette forced, so a dark UI exports the
+ * same file), photos inlined as data URIs, and the on-screen hover tooltips
+ * dropped.
  */
-async function buildExportSvg(live: SVGSVGElement, opts: SvgExportOptions, haloFilter = true): Promise<BuiltSvg> {
+export async function prepareDiagram(live: SVGSVGElement): Promise<PreparedDiagram> {
   const clone = live.cloneNode(true) as SVGSVGElement;
 
   // Resolve every colour with the light palette forced, so the export looks the
@@ -400,10 +408,44 @@ async function buildExportSvg(live: SVGSVGElement, opts: SvgExportOptions, haloF
     ? viewBox[3]
     : parseFloat(live.getAttribute("height") ?? "") || live.clientHeight;
 
+  await embedImages(clone);
+  return { clone, foreground, width: diagramW, height: diagramH };
+}
+
+/**
+ * Wrap a standalone diagram in the export frame: a titled header band above and
+ * a site/timestamp footer below, sized so neither is squeezed by a narrow
+ * diagram. `svg`'s existing children become the diagram content, shifted below
+ * the header — so it takes a whole prepared clone (the `.svg`/PDF exports) or a
+ * freshly assembled one (a printed sheet) alike.
+ *
+ * @param haloFilter bake in the white halo behind hairlines/text. Default on,
+ *   for the standalone `.svg` download. The print/PDF paths turn it off: the
+ *   halo exists only so a transparent-background export stays legible on a
+ *   dark-themed viewer, which doesn't apply to a printed page (always opaque
+ *   white paper) — and confirmed by hand, this specific filter combination
+ *   (feMorphology dilate + feGaussianBlur + feComposite + feMerge) makes
+ *   Firefox's macOS "Save to PDF" pipeline rasterize the page as fully blank,
+ *   even though the identical markup renders fine on-screen and in Firefox's own
+ *   print preview.
+ */
+export function wrapWithBands(
+  svg: SVGSVGElement,
+  diagramW: number,
+  diagramH: number,
+  opts: SvgExportOptions,
+  foreground: string,
+  haloFilter = true,
+): BuiltSvg {
+  const clone = svg;
+
   // A narrow diagram must not squeeze the bands: keep the export at least wide
   // enough for the header title and the footer's badge + site link + timestamp.
   const timestamp = new Date().toLocaleString();
-  const titleNeeds = textWidth(opts.title, `600 18px ${SANS}`) + 2 * MARGIN_X;
+  const titleNeeds = Math.max(
+    textWidth(opts.title, `600 18px ${SANS}`),
+    opts.subtitle ? textWidth(opts.subtitle, `12px ${SANS}`) : 0,
+  ) + 2 * MARGIN_X;
   const footerNeeds =
     2 * MARGIN_X + BADGE_SIZE + 8 + textWidth(SITE, `600 12px ${SANS}`) +
     FOOTER_GAP + textWidth(timestamp, `12px ${SANS}`);
@@ -441,8 +483,10 @@ async function buildExportSvg(live: SVGSVGElement, opts: SvgExportOptions, haloF
   headLine.setAttribute("stroke", foreground);
   headLine.setAttribute("stroke-opacity", "0.15");
   frame.appendChild(headLine);
+  // With a second line (the sheet number and where it continues from) the title
+  // rides higher to make room; on its own it stays centred in the band.
   frame.appendChild(
-    svgText(opts.title, totalW / 2, HEADER_H / 2 + 6, {
+    svgText(opts.title, totalW / 2, opts.subtitle ? HEADER_H / 2 : HEADER_H / 2 + 6, {
       "text-anchor": "middle",
       "font-family": SANS,
       "font-size": "18",
@@ -450,6 +494,17 @@ async function buildExportSvg(live: SVGSVGElement, opts: SvgExportOptions, haloF
       fill: foreground,
     }),
   );
+  if (opts.subtitle) {
+    frame.appendChild(
+      svgText(opts.subtitle, totalW / 2, HEADER_H / 2 + 16, {
+        "text-anchor": "middle",
+        "font-family": SANS,
+        "font-size": "12",
+        fill: foreground,
+        "fill-opacity": "0.7",
+      }),
+    );
+  }
 
   // Footer: hairline divider, site on the left, timestamp on the right.
   const footY = HEADER_H + bandH;
@@ -485,8 +540,6 @@ async function buildExportSvg(live: SVGSVGElement, opts: SvgExportOptions, haloF
     }),
   );
 
-  await embedImages(clone);
-
   clone.setAttribute("width", String(totalW));
   clone.setAttribute("height", String(totalH));
   clone.setAttribute("viewBox", `0 0 ${totalW} ${totalH}`);
@@ -496,7 +549,14 @@ async function buildExportSvg(live: SVGSVGElement, opts: SvgExportOptions, haloF
   return { svg: clone, width: totalW, height: totalH };
 }
 
-function serialize(svg: SVGSVGElement): string {
+/** The whole live diagram as a standalone, banded SVG — the `.svg` download and
+ *  the one-page print both start here. */
+async function buildExportSvg(live: SVGSVGElement, opts: SvgExportOptions, haloFilter = true): Promise<BuiltSvg> {
+  const { clone, foreground, width, height } = await prepareDiagram(live);
+  return wrapWithBands(clone, width, height, opts, foreground, haloFilter);
+}
+
+export function serialize(svg: SVGSVGElement): string {
   return '<?xml version="1.0" encoding="UTF-8"?>\n' + new XMLSerializer().serializeToString(svg);
 }
 
@@ -535,6 +595,41 @@ export async function printSvg(live: SVGSVGElement, opts: SvgExportOptions): Pro
 </style></head><body>${serialize(svg)}</body></html>`;
 
   printDocument(doc);
+}
+
+/**
+ * Open the print dialog on a set of diagram sheets, one per page: each SVG is
+ * centred on a real paper-sized page and every sheet is drawn at the same
+ * `scale`, so boxes come out the same size across the whole printed set (a
+ * sparse sheet blown up to fill its page would look like a different chart).
+ */
+export function printSheetSet(
+  sheets: { svg: SVGSVGElement; width: number; height: number }[],
+  page: { w: number; h: number },
+  scale: number,
+  docTitle: string,
+): void {
+  const pages = sheets
+    .map(
+      (s) =>
+        `<div class="gm-sheet"><div class="gm-fit" style="width:${s.width * scale}px;height:${s.height * scale}px">` +
+        `${serialize(s.svg)}</div></div>`,
+    )
+    .join("");
+  printDocument(
+    `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(docTitle)}</title>
+<style>
+  @page { size: ${page.w}px ${page.h}px; margin: 0; }
+  html, body { margin: 0; padding: 0; }
+  .gm-sheet {
+    width: ${page.w}px; height: ${page.h}px; box-sizing: border-box;
+    display: flex; align-items: center; justify-content: center;
+    break-after: page; page-break-after: always; overflow: hidden;
+  }
+  .gm-sheet:last-child { break-after: auto; page-break-after: auto; }
+  .gm-fit svg { display: block; width: 100%; height: 100%; }
+</style></head><body>${pages}</body></html>`,
+  );
 }
 
 /**

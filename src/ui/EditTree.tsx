@@ -170,6 +170,16 @@ export function EditTree({ mainDs, rootId, startId, changedPersonIds, decisions,
     [laid, alignment, isGrid, nodeH, marriageLabel, effectiveMode],
   );
 
+  // What "print in sheets" splits: the layered charts only — a fan has no
+  // rectangular branches to cut. It re-lays the very same tree the canvas draws.
+  const sheetSource = useMemo(
+    () =>
+      !radial && tree
+        ? { tree, alignment, grid: isGrid, nodeH, marriageLabel, ancestors: effectiveMode === "ancestors" }
+        : undefined,
+    [radial, tree, alignment, isGrid, nodeH, marriageLabel, effectiveMode],
+  );
+
   // Ancestor / descendant head-counts for both directions, shown on the mode
   // buttons so the user can tell at a glance whether either way is worth opening.
   const peopleCounts = useMemo(() => ({
@@ -347,6 +357,7 @@ export function EditTree({ mainDs, rootId, startId, changedPersonIds, decisions,
             title={editTreeTitle}
             gedcom={{ ds: mainDs, personIds: chartPersonIds }}
             canvasRef={canvasRef}
+            sheets={sheetSource}
           />
         </>
       }
