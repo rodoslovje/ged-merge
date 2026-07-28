@@ -9,6 +9,7 @@ import { lifespanLine } from "../../chart/nodeDisplay";
 import { createKinshipResolver, lineageClass } from "../../match/kinship";
 import type { TreeMode } from "../../chart/personTree";
 import {
+  branchDepth,
   branchIds,
   filterPoints,
   MAP_EVENT_KINDS,
@@ -22,6 +23,7 @@ import { buildPersonPaths } from "../../geo/paths";
 import { ChartPage } from "../ChartPage";
 import { ChartExportMenu } from "../ChartExportMenu";
 import { PersonLink } from "../PersonLink";
+import { ChartSettings } from "../ChartSettings";
 import { useChartSettings } from "../ChartSettingsContext";
 import { overlayDisplayName, useNameOf, useSettings } from "../SettingsContext";
 import { resolveOverlay } from "./overlayPresets";
@@ -200,9 +202,13 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
 
   // Both branch closures are computed so the A/D toggle can show its people
   // counts (the pedigree charts do the same); the active one scopes the map.
-  const ancestorIds = useMemo(() => branchIds(mainDs, rootId, "ancestors"), [mainDs, rootId]);
-  const descendantIds = useMemo(() => branchIds(mainDs, rootId, "descendants"), [mainDs, rootId]);
+  // The shared generation limit cuts them the same way it cuts a chart.
+  const limit = settings.maxGenerations ?? undefined;
+  const ancestorIds = useMemo(() => branchIds(mainDs, rootId, "ancestors", limit), [mainDs, rootId, limit]);
+  const descendantIds = useMemo(() => branchIds(mainDs, rootId, "descendants", limit), [mainDs, rootId, limit]);
   const scopeIds = mode === "ancestors" ? ancestorIds : descendantIds;
+  // The full reach of the current direction, for the limit's "of N" readout.
+  const availableGenerations = useMemo(() => branchDepth(mainDs, rootId, mode), [mainDs, rootId, mode]);
 
   const filtered = useMemo(
     () =>
@@ -513,7 +519,11 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
 
   // Page kind with the branch direction spelled out, like the tree charts
   // ("Ancestors Places Map"); drives the header, export title and file names.
-  const pageKind = `${t(mode === "ancestors" ? "tree.ancestors" : "tree.descendants")} ${t("map.pageTitle")}`;
+  const pageKind =
+    `${t(mode === "ancestors" ? "tree.ancestors" : "tree.descendants")} ${t("map.pageTitle")}` +
+    (limit !== undefined && limit < availableGenerations
+      ? ` · ${t("tree.gen.shown", { n: limit, of: availableGenerations })}`
+      : "");
   const eventLabel = (p: MapPoint) => t(`event.${p.tag}`, { defaultValue: p.tag });
 
   // Slider positions for the year window: unset bounds sit at the data range.
@@ -560,6 +570,8 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
         )
       }
       actions={
+        <>
+        <ChartSettings lockedType="map" availableGenerations={availableGenerations} />
         <ChartExportMenu
           disabled={!filtered.length}
           slug={slug}
@@ -614,6 +626,7 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
             },
           ]}
         />
+        </>
       }
       controlsLeft={
         <>

@@ -4015,6 +4015,18 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
    grows to fill the row). They're not a single mutually-exclusive choice. */
 .chart-settings-toggles { flex-wrap: wrap; }
 .chart-settings-toggles button { flex: 1 1 42%; }
+/* Generation stepper: − and + keep the segmented look, the current value reads
+   as plain text between them. */
+.chart-settings-stepper { align-items: center; }
+.chart-settings-stepper button { flex: 0 0 auto; padding: 5px 11px; line-height: 1; }
+.chart-settings-value {
+  flex: 1 1 auto;
+  text-align: center;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+}
 
 .tree-legend {
   flex: 1 1 auto;
@@ -4411,6 +4423,14 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   margin: 1px 0 2px;
 }
 .report-fact > .report-note { margin-left: 1.2em; }
+/* Closing line of a report the generation limit cut short. */
+.report-truncated {
+  font-style: italic;
+  font-size: 0.9em;
+  margin-top: 18px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
 /* Source citations ("§ title, page") — like notes, but upright data text.
    Cited pages resolved to a URL render as links out to the scan/repository. */
 .report-source {
@@ -4598,6 +4618,17 @@ a.report-source:hover { color: var(--accent); text-decoration: underline; }
   fill: var(--accent-ink);
 }
 .tree-node-repeat:hover .tree-node-repeat-badge circle {
+  fill: color-mix(in oklch, var(--accent) 82%, var(--text));
+}
+/* Same corner, same accent link colour, but a pill: the generation limit's
+   "+N people below/above this one aren't drawn". */
+.tree-node-hidden-badge rect {
+  fill: var(--accent);
+}
+.tree-node-hidden-badge text {
+  fill: var(--accent-ink);
+}
+.tree-node-repeat:hover .tree-node-hidden-badge rect {
   fill: color-mix(in oklch, var(--accent) 82%, var(--text));
 }
 

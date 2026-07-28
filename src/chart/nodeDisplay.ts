@@ -82,6 +82,13 @@ export function ageStandalone(t: Translate, sex: Sex | string | undefined, age: 
   return t("tree.node.agePhrase", { context: sex === "M" || sex === "F" ? sex : undefined, age });
 }
 
+/** "124 people · 6 generations" — how far a direction reaches, carried as the
+ *  tooltip of the Ancestors / Descendants buttons. Always describes the whole
+ *  branch, whatever the generation limit currently draws. */
+export function modeSummary(t: Translate, people: number, generations: number): string {
+  return `${t("tree.mode.people", { count: people })} · ${t("tree.gen.count", { count: generations })}`;
+}
+
 /** Place events tried in order — show the first one that records a place. */
 const PLACE_TAGS = ["BIRT", "RESI", "DEAT"] as const;
 

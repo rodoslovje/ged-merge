@@ -33,6 +33,12 @@ interface Props {
   showRepeat?: boolean;
   /** Take the view to the position a repeat points at (`TreeNode.repeatOf`). */
   onRepeatJump?: (key: string) => void;
+  /** Tooltip for the "+N, not shown" marker a generation-limited chart puts on
+   *  its last drawn generation (`TreeNode.hidden`). Without it the marker is
+   *  skipped — a view that never limits draws no markers. */
+  hiddenTitle?: (count: number) => string;
+  /** Continue from a cut-off person: re-roots the chart on them. */
+  onHiddenJump?: (n: Placed) => void;
   kinshipOf?: (n: Placed) => string | undefined;
   lineageOf?: (n: Placed) => Lineage | undefined;
   /** Photo sources; the compare side is optional (single-file views). */
@@ -57,6 +63,8 @@ export function TreeSvg({
   modifiedOf,
   showRepeat = false,
   onRepeatJump,
+  hiddenTitle,
+  onHiddenJump,
   kinshipOf,
   lineageOf,
   mainRecords,
@@ -131,6 +139,25 @@ export function TreeSvg({
                   }}
                 >
                   <NodeBadge x={NODE_W - 12} y={nodeH - 12} letter="→" cls="tree-node-repeat-badge" title={t("tree.node.repeatHint")} />
+                </g>
+              )}
+              {/* Same corner as the repeat marker — a repeat carries no line of
+                  its own, so the two can never appear on one node. */}
+              {!repeatTo && hiddenTitle && n.hidden !== undefined && (
+                <g
+                  className="tree-node-repeat"
+                  onClick={(e) => {
+                    e.stopPropagation(); // continuing replaces the node's own select
+                    onHiddenJump?.(n);
+                  }}
+                >
+                  <NodeBadge
+                    x={NODE_W - 20}
+                    y={nodeH - 12}
+                    letter={`+${n.hidden}`}
+                    cls="tree-node-repeat-badge tree-node-hidden-badge"
+                    title={hiddenTitle(n.hidden)}
+                  />
                 </g>
               )}
             </g>

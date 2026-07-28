@@ -13,6 +13,8 @@ import {
   buildMatchMaps,
   countImportable,
   countTreePeople,
+  pruneTree,
+  treeDepth,
   type MatchMaps,
   type NodeStatus,
   type TreeMode,
@@ -27,7 +29,7 @@ import {
   nodeHeight,
   type Placed,
 } from "../chart/treeLayout";
-import { formatMarriage } from "../chart/nodeDisplay";
+import { formatMarriage, modeSummary } from "../chart/nodeDisplay";
 import { useTreeCanvas } from "./useTreeCanvas";
 import { ChartFindBox } from "./ChartFindBox";
 import { useChartFind } from "./useChartFind";
@@ -226,7 +228,38 @@ export function CompareTree({
     }),
     [t, rootMain, rootIncoming, mainDs, compareDs, maps, isRejected],
   );
-  const tree = trees[effectiveMode];
+  // How deep each direction reaches, and the trees as the generation limit
+  // leaves them — the full trees stay behind for the counts and the "of N"
+  // readout, so raising the limit never rebuilds anything.
+  const depths = useMemo(
+    () => ({ ancestors: treeDepth(trees.ancestors), descendants: treeDepth(trees.descendants) }),
+    [trees],
+  );
+  const limit = settings.maxGenerations;
+  const shown = useMemo(
+    () => ({
+      ancestors: limit === null ? trees.ancestors : pruneTree(trees.ancestors, limit),
+      descendants: limit === null ? trees.descendants : pruneTree(trees.descendants, limit),
+    }),
+    [trees, limit],
+  );
+  const tree = shown[effectiveMode];
+  // "4 of 9 generations" while the limit actually cuts this direction — shown on
+  // the page and in the export header, so a partial chart never reads as whole.
+  const genNote =
+    limit !== null && limit < depths[effectiveMode]
+      ? t("tree.gen.shown", { n: limit, of: depths[effectiveMode] })
+      : undefined;
+  // What the "+N" marker says: the direction decides who is missing, and the
+  // tooltip names the limit that hid them.
+  const hiddenTitle = useCallback(
+    (count: number) =>
+      t(effectiveMode === "ancestors" ? "tree.node.hiddenAncestors" : "tree.node.hiddenDescendants", {
+        count,
+        limit: limit ?? 0,
+      }),
+    [t, effectiveMode, limit],
+  );
 
   // Incoming-only people each direction could graft, shown on the mode buttons —
   // the same counts the Compare Tree button surfaces in Merge mode.
@@ -286,7 +319,7 @@ export function CompareTree({
     [kinship],
   );
   const { fan, nodes: fanNodes, laid: fanLaid } = useFanChart(
-    radial ? trees.ancestors : undefined,
+    radial ? shown.ancestors : undefined,
     settings.type === "circle" ? "circle" : "fan",
     { hasPhoto, display, kinshipOf: fanKinshipOf },
   );
@@ -334,7 +367,9 @@ export function CompareTree({
   const rootKinship = rootMainId ? kinship?.label(rootMainId) : undefined;
   const rootLineage = rootMainId ? kinship?.lineage(rootMainId) : undefined;
   // Shared title for the SVG / PDF export header.
-  const compareTreeTitle = [rootName, rootYears, "—", t("tree.title")].filter(Boolean).join(" ");
+  const compareTreeTitle = [rootName, rootYears, "—", t("tree.title"), genNote && `· ${genNote}`]
+    .filter(Boolean)
+    .join(" ");
 
   // Per-segment badge for the radial chart: the decision / import "I" letter, or
   // an "M" for an edited main — same information as the tree node badges.
@@ -343,9 +378,18 @@ export function CompareTree({
       const b = badgeOf(n);
       if (b) return { cls: `tree-node-decision ${b.status}`, letter: b.letter };
       if (isModified(n)) return { fill: "var(--node-minor)", textFill: "var(--bg)", letter: t("edit.tree.modified").charAt(0) };
+      // A segment has one badge slot: a record's own status outranks the
+      // generation limit's "+N above this person isn't drawn".
+      if (n.hidden !== undefined) {
+        return {
+          cls: "tree-node-repeat-badge tree-node-hidden-badge",
+          letter: `+${n.hidden}`,
+          title: hiddenTitle(n.hidden),
+        };
+      }
       return undefined;
     },
-    [badgeOf, isModified, t],
+    [badgeOf, isModified, hiddenTitle, t],
   );
 
   const nodesByKey = useMemo(() => {
@@ -410,7 +454,7 @@ export function CompareTree({
                 {t(`status.${rootStatus}`).charAt(0)}
               </span>
             )}
-            <span className="tree-title-kind">{t("tree.title")}</span>
+            <span className="tree-title-kind">{genNote ? `${t("tree.title")} · ${genNote}` : t("tree.title")}</span>
           </>
         ) : (
           t("tree.title")
@@ -418,7 +462,7 @@ export function CompareTree({
       }
       actions={
         <>
-          <ChartSettings />
+          <ChartSettings availableGenerations={depths[effectiveMode]} />
           <ChartExportMenu
             disabled={!activeLaid}
             slug={chartSlug(rootName, t(`tree.${effectiveMode}`))}
@@ -438,6 +482,7 @@ export function CompareTree({
             <button
               className={effectiveMode === "ancestors" ? "active" : ""}
               onClick={() => onModeChange("ancestors")}
+              title={modeSummary(t, peopleCounts.ancestors, depths.ancestors)}
             >
               {t("tree.ancestors")}
               <span className="tree-mode-count">{peopleCounts.ancestors}</span>
@@ -451,6 +496,7 @@ export function CompareTree({
               <button
                 className={effectiveMode === "descendants" ? "active" : ""}
                 onClick={() => onModeChange("descendants")}
+                title={modeSummary(t, peopleCounts.descendants, depths.descendants)}
               >
                 {t("tree.descendants")}
                 <span className="tree-mode-count">{peopleCounts.descendants}</span>
@@ -507,6 +553,8 @@ export function CompareTree({
               modifiedOf={display.showBadges ? isModified : undefined}
               showRepeat={display.showBadges}
               onRepeatJump={find.jumpTo}
+              hiddenTitle={hiddenTitle}
+              onHiddenJump={(n) => n.main && onReroot(n.main.id, n.incoming?.id)}
               kinshipOf={kinshipOf}
               lineageOf={lineageOf}
               mainRecords={mainDs.records}

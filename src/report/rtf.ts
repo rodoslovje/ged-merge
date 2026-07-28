@@ -7,7 +7,7 @@
 // visual reference for sizes and colours.
 
 import type { Translate } from "../locales/i18n";
-import { generationHeading, sourceLabel, tocRows, type ReportData, type ReportEntry, type SourceLine } from "./model";
+import { generationHeading, sourceLabel, tocRows, truncationNote, type ReportData, type ReportEntry, type SourceLine } from "./model";
 import { childrenOfLabel, entryNum, factText, reportName, type ReportTextOptions } from "./text";
 import { citationMark } from "./narrativeText";
 
@@ -62,6 +62,8 @@ export function reportToRtf(
       parts.push(...entryParas(t, entry, opts));
     }
   }
+  const note = truncationNote(t, data);
+  if (note) parts.push(para(`\\sb240\\sa100\\i\\cf${CF_MUTED}`, esc(note)));
   // \uc1: one fallback char ("?") follows each \uN escape. Newlines between
   // paragraphs are ignored by RTF readers — kept for readability.
   return (

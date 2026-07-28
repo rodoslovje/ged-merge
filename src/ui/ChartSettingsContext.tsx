@@ -52,6 +52,9 @@ export interface ChartSettings {
   showMarriageDate: boolean;
   /** Show the marriage place on the couple's connector / fan collar. */
   showMarriagePlace: boolean;
+  /** How many generations away from the root a chart/report draws — one shared
+   *  choice for every view that fans out from a person. `null` = all of them. */
+  maxGenerations: number | null;
   /** Redact people inferred to be living: show only their relationship / "Living". */
   privacyLiving: boolean;
   /** Timeline: whose bars carry event dots (root only / everyone / none). */
@@ -88,6 +91,7 @@ const DEFAULTS: ChartSettings = {
   showBadges: true,
   showMarriageDate: false,
   showMarriagePlace: false,
+  maxGenerations: null,
   privacyLiving: false,
   timelineEvents: "person",
   timelineEventLabels: false,
@@ -101,6 +105,17 @@ const DEFAULTS: ChartSettings = {
 };
 
 const STORAGE_KEY = "gedmerge.chartSettings";
+
+/** Upper end of the generation stepper — past this a chart is unreadable long
+ *  before the data runs out, and "all" says it better anyway. */
+export const MAX_GENERATIONS = 20;
+
+/** A stored/handed-in generation limit reduced to a whole 1…{@link MAX_GENERATIONS}
+ *  (anything else, `null` included, means "all generations"). */
+export function clampGenerations(v: unknown): number | null {
+  if (typeof v !== "number" || !Number.isFinite(v)) return null;
+  return Math.min(MAX_GENERATIONS, Math.max(1, Math.round(v)));
+}
 
 interface ChartSettingsCtx {
   settings: ChartSettings;
@@ -153,6 +168,7 @@ function load(defaultShowAge: boolean): ChartSettings {
       showBadges: bool(parsed.showBadges, DEFAULTS.showBadges),
       showMarriageDate: bool(parsed.showMarriageDate, DEFAULTS.showMarriageDate),
       showMarriagePlace: bool(parsed.showMarriagePlace, DEFAULTS.showMarriagePlace),
+      maxGenerations: clampGenerations(parsed.maxGenerations),
       privacyLiving: bool(parsed.privacyLiving, DEFAULTS.privacyLiving),
       timelineEvents:
         parsed.timelineEvents === "all" || parsed.timelineEvents === "off"

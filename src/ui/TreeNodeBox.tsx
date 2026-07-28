@@ -32,7 +32,9 @@ export interface NodePhotoSource {
 
 /** The small letter-in-a-circle status badge (decision / modified / import),
  *  shared by the layered node boxes and the fan segments. Colour comes from
- *  `cls` (a themed `.tree-node-decision <status>` class) or explicit fills. */
+ *  `cls` (a themed `.tree-node-decision <status>` class) or explicit fills.
+ *  A multi-character label (the generation limit's "+12") stretches the circle
+ *  into a pill so the count fits — everything else stays a dot. */
 export function NodeBadge({
   x,
   y,
@@ -51,10 +53,16 @@ export function NodeBadge({
   /** Hover explanation for the badge; overrides the node's own tooltip. */
   title?: string;
 }) {
+  // ~5.5px per character at 9px/700, plus the circle's own padding.
+  const w = letter.length > 1 ? 9 + letter.length * 5.5 : 0;
   return (
     <g className={cls ?? "tree-node-decision"} transform={`translate(${x},${y})`}>
       {title && <title>{title}</title>}
-      <circle r={7} fill={fill} />
+      {w ? (
+        <rect x={-w / 2} y={-7} width={w} height={14} rx={7} ry={7} fill={fill} />
+      ) : (
+        <circle r={7} fill={fill} />
+      )}
       <text textAnchor="middle" dominantBaseline="central" x={0} y={0.5} fontSize={9} fontWeight={700} fill={textFill}>
         {letter}
       </text>
