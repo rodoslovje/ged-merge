@@ -76,10 +76,20 @@ export function ChartFindBox({ find }: { find: ChartFind }) {
             onChange={(e) => find.setQuery(e.target.value)}
             onKeyDown={onKeyDown}
           />
-          {total > 0 && (
+          {/* The counter is a *position*, so it only appears once there is one.
+              Until then the field prompts for the press that creates it —
+              a live match count there would read as a result of a search that
+              hasn't happened yet. */}
+          {position > 0 ? (
             <span className="chart-find-count gm-data" title={t("chartFind.matches", { count: total })}>
-              {position ? `${position}/${total}` : total}
+              {position}/{total}
             </span>
+          ) : (
+            query.trim() && (
+              <span className="chart-find-hint" title={t("chartFind.enterHint")} aria-hidden="true">
+                ↵
+              </span>
+            )
           )}
           {query && (
             <button type="button" className="chart-find-clear" title={t("chartFind.clear")} onClick={find.clear}>
@@ -87,7 +97,7 @@ export function ChartFindBox({ find }: { find: ChartFind }) {
             </button>
           )}
         </div>
-        {total > 1 && (
+        {position > 0 && total > 1 && (
           <div className="chart-find-steps">
             <button type="button" title={t("chartFind.prev")} aria-label={t("chartFind.prev")} onClick={() => step(-1)}>
               ‹

@@ -676,6 +676,7 @@ export const sl = {
   "chartFind.matches_two": "{{count}} mesti v tem diagramu",
   "chartFind.matches_few": "{{count}} mesta v tem diagramu",
   "chartFind.matches_other": "{{count}} mest v tem diagramu",
+  "chartFind.enterHint": "Pritisnite Enter za premik na prvi zadetek",
   "chartFind.prev": "Prejšnje mesto",
   "chartFind.next": "Naslednje mesto",
   "chartFind.clear": "Počisti",
