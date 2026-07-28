@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decomposePlace, stripParishLabel } from "./place";
+import { decomposePlace, localityParts, parsePlace, stripParishLabel } from "./place";
 
 describe("decomposePlace", () => {
   it("splits a structured comma place (Renko PLAC)", () => {
@@ -16,6 +16,26 @@ describe("decomposePlace", () => {
     expect(p.locality).toBe("Srednje Bitnje");
     expect(p.houseNumber).toBe("18");
     expect(p.houseName).toBe("Adam");
+  });
+
+  it("reads square brackets the same as parentheses", () => {
+    const p = decomposePlace("Kranj [Slovenija], Kidričeva 38/a [porodnišnica]");
+    expect(p.locality).toBe("Kranj");
+    expect(p.country).toBe("Slovenija");
+    expect(p.street).toBe("Kidričeva 38/a");
+    expect(p.houseNumber).toBe("38/a");
+    expect(p.facility).toBe("porodnišnica");
+    expect(p.jurisdiction).toEqual(["Kranj", "Slovenija"]);
+
+    const house = decomposePlace("Srednje Bitnje 18 [pd Adam]");
+    expect(house.houseNumber).toBe("18");
+    expect(house.houseName).toBe("Adam");
+
+    // Mixed kinds in one value, and the parish guard on a bracketed country.
+    const mixed = decomposePlace("Jesenice [Slovenija], Cesta revolucije 2/b (porodnišnica)");
+    expect(mixed.country).toBe("Slovenija");
+    expect(mixed.facility).toBe("porodnišnica");
+    expect(decomposePlace("Holy Wisdom Parish [USA]").parish).toBeUndefined();
   });
 
   it("decomposes a Brother's Keeper packed place with a street and facility", () => {
@@ -120,6 +140,15 @@ describe("decomposePlace", () => {
     expect(p.jurisdiction).toEqual(["Jesenice", "Slovenija"]);
     expect(p.street).toBeUndefined();
     expect(p.houseNumber).toBeUndefined();
+  });
+});
+
+describe("parsePlace", () => {
+  it("reads the house number past a bracketed aside of either kind", () => {
+    expect(parsePlace("Zgornje Bitnje 52 (pd Urbanov Jaka), Kranj").detail).toBe("52");
+    expect(parsePlace("Zgornje Bitnje 52 [pd Urbanov Jaka], Kranj").detail).toBe("52");
+    expect(localityParts(parsePlace("Zgornje Bitnje 52 [pd Urbanov Jaka], Kranj")))
+      .toEqual(["Zgornje Bitnje", "Kranj"]);
   });
 });
 

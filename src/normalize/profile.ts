@@ -349,8 +349,9 @@ function inferPlaceProfile(values: string[], addrCount: number): PlaceFormatProf
 
 /** Parish marker (Slovenian "župnija"/"župnije", Croatian "župa"/"župe", or English "parish"). */
 const PARISH_MARK = /\b(?:župnij[ae]|žup[ae]|parish)\b/i;
-/** A parenthetical on the first comma part — Brother's Keeper "Locality (Country)". */
-const PAREN_ON_FIRST = /^[^,]*\([^)]+\)/;
+/** A bracketed aside on the first comma part — Brother's Keeper
+ *  "Locality (Country)"; square brackets are the same convention. */
+const PAREN_ON_FIRST = /^[^,]*(?:\([^)]+\)|\[[^\]]+\])/;
 
 /**
  * Classify a file's place-formatting convention from its PLAC values and how

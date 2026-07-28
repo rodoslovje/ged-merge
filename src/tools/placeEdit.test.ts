@@ -47,6 +47,12 @@ describe("renaming a parenthetical country", () => {
     expect(renamed("Skopje (Macedonia)", "Macedonia", "North Macedonia")).toBe("Skopje (North Macedonia)");
   });
 
+  it("replaces the country inside square brackets, keeping the bracket kind", () => {
+    expect(renamed("Skopje [Macedonia]", "Macedonia", "North Macedonia")).toBe("Skopje [North Macedonia]");
+    // Mismatched brackets aren't a country parenthetical — left alone.
+    expect(renamed("Skopje (Macedonia]", "Macedonia", "North Macedonia")).toBeUndefined();
+  });
+
   it("tolerates padding inside the parentheses", () => {
     expect(renamed("Skopje ( Macedonia )", "Macedonia", "North Macedonia")).toBe("Skopje ( North Macedonia )");
   });

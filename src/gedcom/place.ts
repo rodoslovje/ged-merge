@@ -1,11 +1,22 @@
 import type { GedPlace, GeoCoord } from "./types";
 
 /**
+ * A bracketed aside in a place value. Round and square brackets are read alike:
+ * some files write "Zgornje Bitnje 52 [pd Urbanov Jaka]" where others use
+ * parentheses. Everything we *write* still uses parentheses.
+ */
+const BRACKETED = String.raw`(?:\([^)]*\)|\[[^\]]*\])`;
+/** Opening bracket of either kind, for guards. */
+const OPEN_BRACKET = String.raw`[(\[]`;
+/** Every bracketed aside in a value, with its leading space, for stripping. */
+const BRACKETED_G = new RegExp(String.raw`\s*${BRACKETED}`, "g");
+
+/**
  * A house number on the most-specific part: a number (optionally with a letter
- * suffix) optionally followed by a parenthetical, at the end of the string.
+ * suffix) optionally followed by a bracketed aside, at the end of the string.
  * Matches " 23", " 12a", and "Zgornje Bitnje 52 (pd Urbanov Jaka)".
  */
-const HOUSE_NUMBER = /\s(\d+[a-zA-Z]?)(\s*\([^)]*\))?$/;
+const HOUSE_NUMBER = new RegExp(String.raw`\s(\d+[a-zA-Z]?)(\s*${BRACKETED})?$`);
 
 /**
  * Parse a `PLAC` (or `ADDR`) value into its comma-separated parts. GEDCOM
@@ -177,10 +188,10 @@ export function stripParishLabel(raw: string | undefined): string | undefined {
   return m ? m[1].trim() : undefined;
 }
 
-/** Trailing "… - župnija/župa/parish <parish>" suffix. The `(?!\()` guard
- * keeps a facility named "<X> Parish (USA)" whole — a parenthetical after the
+/** Trailing "… - župnija/župa/parish <parish>" suffix. The open-bracket guard
+ * keeps a facility named "<X> Parish (USA)" whole — a bracketed aside after the
  * marker word is a country/facility, not a parish name. */
-const PARISH_RE = new RegExp(`\\s*[-,]?\\s*${PARISH_WORD}\\s+(?!\\()(.+?)\\s*$`, "i");
+const PARISH_RE = new RegExp(`\\s*[-,]?\\s*${PARISH_WORD}\\s+(?!${OPEN_BRACKET})(.+?)\\s*$`, "i");
 /** One house-number part: digits plus at most a 1–2 letter subdivision suffix
  * ("18", "38/a", "12a"). Longer letter runs are real words ("99/145/Vrata" —
  * a renumbering chain ending in a hamlet name), not subdivision letters. */
@@ -268,9 +279,9 @@ export function decomposePlace(raw: string): PlaceComponents {
     s = s.slice(0, pm.index).replace(/[-,]\s*$/, "").trim();
   }
 
-  // 2. Parentheticals: country / house name / facility.
-  s = s.replace(/\s*\(([^)]*)\)/g, (_full, inner: string) => {
-    const content = tidy(inner);
+  // 2. Bracketed asides — round or square: country / house name / facility.
+  s = s.replace(BRACKETED_G, (full) => {
+    const content = tidy(full.trim().slice(1, -1));
     const pd = content.match(PD_RE);
     if (pd) out.houseName = tidy(pd[1]);
     else if (COUNTRIES.has(content.toLowerCase())) out.country = content;
