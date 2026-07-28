@@ -110,6 +110,9 @@ export function TreeSvg({
           return (
             <g
               key={n.key}
+              // Also in the DOM, not just as React's list key: the printable-sheet
+              // export re-uses these rendered boxes, looking each one up by key.
+              data-key={n.key}
               transform={`translate(${n.x},${n.y})`}
               className={`tree-node${n.key === selectedKey ? " selected" : ""}${n.key === flashKey ? " find-hit" : ""}`}
               onClick={() => onSelect(n.key)}

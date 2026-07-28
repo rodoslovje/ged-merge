@@ -1,9 +1,12 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import { exportCanvasPdf, exportCanvasSvg } from "./exportSvg";
 import { exportChartGedcom } from "./exportGedcom";
 import { ExportMenu, type ExportItem } from "./ExportMenu";
 import { GedIcon, ImageIcon, PrinterIcon } from "./icons/FormatIcons";
+import { SheetPrintDialog } from "./SheetPrintDialog";
+import type { SheetChartSource } from "./sheetExport";
 
 // The chart pages' Export menu with the standard items built in: the branch
 // GEDCOM (first — the shareable format), then the canvas SVG and print-PDF.
@@ -23,12 +26,17 @@ interface Props {
   gedcom?: { ds: Dataset; personIds: string[] };
   /** The `.tree-canvas` element hosting the diagram SVG, for SVG/PDF export. */
   canvasRef?: React.RefObject<HTMLDivElement | null>;
+  /** Offer "print in sheets": the layered charts (tidy tree and grid) can be cut
+   *  into page-sized sheets. Radial, timeline and relationship diagrams don't
+   *  split into rectangles, so they simply leave this out. */
+  sheets?: SheetChartSource;
   /** Page-specific items appended after the standard ones. */
   extraItems?: ExportItem[];
 }
 
-export function ChartExportMenu({ disabled, slug, title = "", gedcom, canvasRef, extraItems }: Props) {
+export function ChartExportMenu({ disabled, slug, title = "", gedcom, canvasRef, sheets, extraItems }: Props) {
   const { t } = useTranslation();
+  const [sheetDialog, setSheetDialog] = useState(false);
   const items: ExportItem[] = [];
   if (gedcom) {
     items.push({
@@ -56,7 +64,28 @@ export function ChartExportMenu({ disabled, slug, title = "", gedcom, canvasRef,
         onSelect: () => exportCanvasPdf(canvasRef.current, slug, title),
       },
     );
+    if (sheets) {
+      items.push({
+        key: "sheets",
+        icon: <PrinterIcon />,
+        label: t("export.sheets"),
+        title: t("export.sheets.tooltip"),
+        onSelect: () => setSheetDialog(true),
+      });
+    }
   }
   if (extraItems) items.push(...extraItems);
-  return <ExportMenu disabled={disabled} items={items} />;
+  return (
+    <>
+      <ExportMenu disabled={disabled} items={items} />
+      {sheetDialog && sheets && canvasRef && (
+        <SheetPrintDialog
+          source={sheets}
+          canvasRef={canvasRef}
+          opts={{ title, fileName: slug }}
+          onClose={() => setSheetDialog(false)}
+        />
+      )}
+    </>
+  );
 }

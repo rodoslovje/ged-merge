@@ -303,6 +303,16 @@ export function CompareTree({
     [laid, alignment, isGrid, nodeH, marriageLabel, effectiveMode],
   );
 
+  // What "print in sheets" splits: the layered charts only — a fan has no
+  // rectangular branches to cut. It re-lays the very same tree the canvas draws.
+  const sheetSource = useMemo(
+    () =>
+      !radial && tree
+        ? { tree, alignment, grid: isGrid, nodeH, marriageLabel, ancestors: effectiveMode === "ancestors" }
+        : undefined,
+    [radial, tree, alignment, isGrid, nodeH, marriageLabel, effectiveMode],
+  );
+
   // Radial (fan / circle) ancestor chart — reuses the prebuilt ancestors tree,
   // so it's independent of the (overridden-to-ancestors) mode toggle.
   const { folderName } = useMediaFolder();
@@ -468,6 +478,7 @@ export function CompareTree({
             slug={chartSlug(rootName, t(`tree.${effectiveMode}`))}
             title={compareTreeTitle}
             canvasRef={canvasRef}
+            sheets={sheetSource}
           />
         </>
       }

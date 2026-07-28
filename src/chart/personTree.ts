@@ -66,6 +66,11 @@ export interface TreeNode {
    *  only on the last drawn generation, so renderers can say "and N more, not
    *  shown". Absent when nothing was cut (or no limit is in force). */
   hidden?: number;
+  /** Sheet number this node's line continues on, set by the printable-sheet
+   *  split (`src/chart/sheets.ts`) on a branch it cut. The node is drawn with a
+   *  numbered marker instead of its children; the sheet with that number picks
+   *  the same person up and carries on. Never set on the on-screen chart. */
+  continuesOn?: number;
 }
 
 /** A marriage's display fields — already reduced to a year and most-specific

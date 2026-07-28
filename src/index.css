@@ -5393,6 +5393,23 @@ kbd {
   background: var(--danger-soft);
 }
 
+/* "Print in sheets": the confirm-dialog shell plus a paper/orientation picker
+   (the chart-settings segmented control) and the resulting sheet count. */
+.sheet-dialog { width: 420px; }
+.sheet-dialog-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.sheet-dialog-count {
+  margin: 16px 0 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
 /* Add/Edit Source dialog: a short, wide card that sizes to its content —
    header and footer pinned, body scrolling only when needed. */
 .add-source-dialog { width: 740px; max-width: 90vw; height: auto; max-height: 94vh; }
