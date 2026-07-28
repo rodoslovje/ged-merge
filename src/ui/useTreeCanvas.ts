@@ -34,6 +34,9 @@ export interface TreeCanvas {
   selected: ChartNode | undefined;
   /** Select a node (clicking the selected one again deselects) and centre it. */
   selectNode: (key: string) => void;
+  /** Select and centre a node unconditionally — what find-in-chart jumps with:
+   *  landing on the person you searched for must never toggle them off. */
+  revealNode: (key: string) => void;
   /** Current zoom factor (1 = native); multiply the SVG's width/height by it
    *  while keeping the `viewBox` at native size for crisp vector scaling. */
   zoom: number;
@@ -202,6 +205,23 @@ export function useTreeCanvas(
   // A new tree (mode switch / different root) invalidates the old selection.
   useEffect(() => setSelectedKey(null), [laid]);
 
+  // Bring a node into view. The detail panel covers the right half of the canvas,
+  // so centre the node in the left (visible) area — at a quarter of the width —
+  // not the middle. Node coordinates are native; scroll is in scaled (zoomed) px.
+  const centreOn = useCallback(
+    (key: string) => {
+      const n = nodesByKey.get(key);
+      const el = canvasRef.current;
+      if (!n || !el) return;
+      const z = zoomRef.current;
+      scrollTo(
+        (n.x + PAD + NODE_W / 2) * z - el.clientWidth / 4,
+        (n.y + PAD + nodeH / 2) * z - el.clientHeight / 2,
+      );
+    },
+    [nodesByKey, scrollTo, nodeH],
+  );
+
   const selectNode = useCallback(
     (key: string) => {
       // Clicking the already-selected node deselects it (and skips re-centring).
@@ -210,19 +230,17 @@ export function useTreeCanvas(
         return;
       }
       setSelectedKey(key);
-      const n = nodesByKey.get(key);
-      const el = canvasRef.current;
-      if (!n || !el) return;
-      // The detail panel covers the right half of the canvas, so centre the node
-      // in the left (visible) area — at a quarter of the width — not the middle.
-      // Node coordinates are native; scroll is in scaled (zoomed) pixels.
-      const z = zoomRef.current;
-      scrollTo(
-        (n.x + PAD + NODE_W / 2) * z - el.clientWidth / 4,
-        (n.y + PAD + nodeH / 2) * z - el.clientHeight / 2,
-      );
+      centreOn(key);
     },
-    [selectedKey, nodesByKey, scrollTo, nodeH],
+    [selectedKey, centreOn],
+  );
+
+  const revealNode = useCallback(
+    (key: string) => {
+      setSelectedKey(key);
+      centreOn(key);
+    },
+    [centreOn],
   );
 
   const selected = selectedKey ? nodesByKey.get(selectedKey) : undefined;
@@ -291,6 +309,7 @@ export function useTreeCanvas(
     setSelectedKey,
     selected,
     selectNode,
+    revealNode,
     zoom,
     zoomIn,
     zoomOut,

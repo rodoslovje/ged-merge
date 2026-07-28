@@ -27,6 +27,8 @@ interface Props {
   colorOf: (node: TreeNode) => string;
   selectedKey: string | null;
   onSelect: (key: string) => void;
+  /** Segment just jumped to by find-in-chart; flashes so it's spotted at a glance. */
+  flashKey?: string | null;
   /** Photo sources, shared with the tree views' `TreeNodePhoto`. */
   mainRecords: GedNode[];
   compareRecords?: GedNode[];
@@ -52,6 +54,7 @@ export function FanChartBody({
   colorOf,
   selectedKey,
   onSelect,
+  flashKey,
   mainRecords,
   compareRecords,
   mainRefCtx,
@@ -81,6 +84,7 @@ export function FanChartBody({
             seg={seg}
             color={colorOf(seg.node)}
             selected={seg.key === selectedKey}
+            flashed={seg.key === flashKey}
             onSelect={onSelect}
             clickHint={t("tree.node.clickHint")}
             mainRecords={mainRecords}
@@ -118,6 +122,7 @@ function Segment({
   seg,
   color,
   selected,
+  flashed,
   onSelect,
   clickHint,
   mainRecords,
@@ -129,6 +134,7 @@ function Segment({
   seg: FanSegment;
   color: string;
   selected: boolean;
+  flashed: boolean;
   onSelect: (key: string) => void;
   clickHint: string;
   mainRecords: GedNode[];
@@ -148,7 +154,7 @@ function Segment({
           style: { fill: nameFill, ...(seg.light ? { fontWeight: 400 } : null) },
         };
   return (
-    <g className={`fan-node${selected ? " selected" : ""}`} onClick={() => onSelect(seg.key)}>
+    <g className={`fan-node${selected ? " selected" : ""}${flashed ? " find-hit" : ""}`} onClick={() => onSelect(seg.key)}>
       <title>{clickHint}</title>
       <path
         className="fan-sector"

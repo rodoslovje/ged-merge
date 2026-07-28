@@ -103,6 +103,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: [["mod", "S"]], descKey: "shortcuts.item.save" },
       { keys: [["mod", "Z"]], descKey: "shortcuts.item.undo" },
       { keys: [["mod", "Shift", "Z"], ["mod", "Y"]], descKey: "shortcuts.item.redo" },
+      { keys: [["mod", "F"]], descKey: "shortcuts.item.chartFind" },
       { keys: [["/"]], descKey: "shortcuts.item.globalSearch" },
       { keys: [["?"]], descKey: "shortcuts.item.help" },
       { keys: [["Esc"]], descKey: "shortcuts.item.escape" },
