@@ -753,7 +753,7 @@ export const sl = {
   "tree.kind.circle": "Krog",
   "tree.empty": "Za te osebe ni bilo mogoče zgraditi strukture drevesa.",
   "tree.node.clickHint": "Kliknite za prikaz podrobnosti",
-  "tree.node.repeatHint": "Ponovljeno mesto — ta oseba je v diagramu že prikazana drugje, kjer je izrisana tudi njena veja (potomci ali predniki), zato ni nič šteto dvakrat.",
+  "tree.node.repeatHint": "Ponovljena oseba — v diagramu je že prikazana drugje, kjer je izrisana tudi njena veja (potomci ali predniki). Kliknite za skok nanjo.",
   "tree.legend.match": "Ujemanje",
   "tree.legend.minor": "Manjše razlike",
   "tree.legend.major": "Večje razlike",

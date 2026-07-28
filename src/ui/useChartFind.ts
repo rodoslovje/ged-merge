@@ -18,6 +18,10 @@ export interface ChartFind {
   position: number;
   /** Step to the next (+1) or previous (−1) position, wrapping around. */
   step: (dir: 1 | -1) => void;
+  /** Centre and flash one node by key, outside the query cycle — the chart's
+   *  own cross-references (a repeated position pointing at the one that carries
+   *  the branch) arrive here, and get the same reveal the find box gives. */
+  jumpTo: (key: string) => void;
   /** The node just jumped to, for a brief highlight; cleared after a moment. */
   hitKey: string | null;
   /** Why the last jump found nothing: nobody by that name at all, or somebody in
@@ -92,6 +96,14 @@ export function useChartFind(
   );
   const step = useCallback((dir: 1 | -1) => move(dir, cursor), [move, cursor]);
 
+  const jumpTo = useCallback(
+    (key: string) => {
+      onReveal(key);
+      flash(key);
+    },
+    [onReveal, flash],
+  );
+
   // Ref-fed so the settle timer below can key on the query alone: it must restart
   // when the user types, never because a caller's callback changed identity.
   const moveRef = useRef(move);
@@ -128,6 +140,7 @@ export function useChartFind(
     hits,
     position: cursor < 0 ? 0 : cursor + 1,
     step,
+    jumpTo,
     hitKey,
     miss,
     offChart,

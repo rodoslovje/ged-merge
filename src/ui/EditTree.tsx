@@ -368,6 +368,7 @@ export function EditTree({ mainDs, rootId, startId, changedPersonIds, decisions,
               badgeOf={display.showBadges ? decisionOf : undefined}
               modifiedOf={display.showBadges ? isModified : undefined}
               showRepeat={display.showBadges}
+              onRepeatJump={find.jumpTo}
               kinshipOf={(n) => (n.main ? kinship?.label(n.main.id) : undefined)}
               lineageOf={(n) => (n.main ? kinship?.lineage(n.main.id) : undefined)}
               mainRecords={mainDs.records}

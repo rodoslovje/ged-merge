@@ -210,9 +210,16 @@ describe("buildPersonTree (pedigree collapse)", () => {
     const root = buildPersonTree(tr, ds.individuals.get("@I1@"), undefined, ds, ds, emptyMaps, "ancestors")!;
     // Father, mother, and the shared grandparents: 4 people, not 6 positions.
     expect(countTreePeople(root)).toBe(4);
-    // Only the later occurrence of each grandparent is flagged as a repeat.
-    const repeats = allNodes(root).filter((n) => n.repeat);
+    // Only the later occurrence of each grandparent is flagged as a repeat, and
+    // each points at the occurrence that does carry their line.
+    const nodes = allNodes(root);
+    const repeats = nodes.filter((n) => n.repeat);
     expect(repeats.map((n) => n.main?.id)).toEqual(["@I4@", "@I5@"]);
+    for (const r of repeats) {
+      const first = nodes.find((n) => n.key === r.repeatOf)!;
+      expect(first.main?.id).toBe(r.main?.id);
+      expect(first.repeat).toBeUndefined();
+    }
   });
 
   it("keeps keys unique when a person is both spouse and child (descendants)", () => {
@@ -244,6 +251,12 @@ describe("buildPersonTree (pedigree collapse)", () => {
     expect(repeats).toHaveLength(1);
     expect(repeats[0].main?.id).toBe("@I2@"); // Anton, as Ana's partner
     expect(repeats[0].children).toHaveLength(0);
+
+    // It points at the position that does carry them — Ana beside Anton — so
+    // the marker can take the user there.
+    const carrier = nodes.find((n) => n.key === repeats[0].repeatOf)!;
+    expect(carrier.main?.id).toBe("@I3@");
+    expect(carrier.children.map((c) => c.main?.id)).toEqual(["@I1@"]);
   });
 
   it("still expands a second marriage of a spouse already in the tree", () => {

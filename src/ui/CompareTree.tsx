@@ -506,6 +506,7 @@ export function CompareTree({
               badgeOf={display.showBadges ? badgeOf : undefined}
               modifiedOf={display.showBadges ? isModified : undefined}
               showRepeat={display.showBadges}
+              onRepeatJump={find.jumpTo}
               kinshipOf={kinshipOf}
               lineageOf={lineageOf}
               mainRecords={mainDs.records}

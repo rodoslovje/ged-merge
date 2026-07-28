@@ -63,33 +63,24 @@ export function NodeBadge({
 }
 
 /** The standard status-badges render-prop: the decision/import letter chip,
- *  then the modified "M", then the repeat marker, sitting just past the
- *  displayed lifespan. Undefined when there is nothing to draw, so the box skips
- *  the badges layer entirely. Shared by the layered TreeSvg and the relationship
- *  chart's boxes. */
+ *  then the modified "M", sitting just past the displayed lifespan. Undefined
+ *  when there is nothing to draw, so the box skips the badges layer entirely.
+ *  Shared by the layered TreeSvg and the relationship chart's boxes. */
 export function nodeStatusBadges(
   badge: { status: string; letter: string } | undefined,
   modified: boolean,
   modifiedLetter: string,
-  /** Marker for a repeated position whose line is drawn at its first occurrence
-   *  — see `TreeNode.repeat`. Muted, since it is a note, not a status, and drawn
-   *  with a glyph rather than a letter (the status letters are taken). */
-  repeat?: { letter: string; title: string },
 ): ((ctx: { yearsY: number; textX: number; years?: string }) => ReactNode) | undefined {
-  if (!badge && !modified && !repeat) return undefined;
+  if (!badge && !modified) return undefined;
   return ({ yearsY, textX, years }) => {
     // Estimate the displayed years label width (~6.5px/char) so badges sit just
-    // past it; each badge present steps the next one 18px further right.
+    // past it; the decision badge comes first, the M steps right when both show.
     const badgeX = textX + (years ? years.length * 6.5 + 8 : 0) + 7;
     const modX = badge ? badgeX + 18 : badgeX;
-    const repeatX = modified ? modX + 18 : modX;
     return (
       <>
         {badge && <NodeBadge x={badgeX} y={yearsY - 4} cls={`tree-node-decision ${badge.status}`} letter={badge.letter} />}
         {modified && <NodeBadge x={modX} y={yearsY - 4} fill="var(--node-minor)" textFill="var(--bg)" letter={modifiedLetter} />}
-        {repeat && (
-          <NodeBadge x={repeatX} y={yearsY - 4} fill="var(--muted)" textFill="var(--bg)" letter={repeat.letter} title={repeat.title} />
-        )}
       </>
     );
   };
