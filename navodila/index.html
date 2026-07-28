@@ -216,7 +216,8 @@
               <li><strong>Oznake datotek</strong> — imeni naložene glavne in vhodne datoteke. Klik na oznako pokaže ali zamenja datoteko.</li>
               <li><strong>Razveljavi / Ponovi</strong> — ena skupna zgodovina za urejanja in odločitve o združevanju (<span class="gm-key">Ctrl</span><span class="gm-key">Z</span> / <span class="gm-key">Ctrl</span><span class="gm-key">Shift</span><span class="gm-key">Z</span>).</li>
               <li><strong>Shrani GEDCOM</strong> — predogled in prenos sprememb (<span class="gm-key">Ctrl</span><span class="gm-key">S</span>).</li>
-              <li><strong>Poišči kogar koli</strong> — gumb <span class="gm-glyph">⌕</span> (ali <span class="gm-key">/</span>) najde katero koli osebo v datoteki po imenu; <span class="gm-key">Enter</span> jo odpre, <span class="gm-key">Shift</span><span class="gm-key">Enter</span> jo odpre v drevesu.</li>
+              <li><strong>Poišči kogar koli</strong> — gumb <span class="gm-glyph">⌕</span> (ali <span class="gm-key">/</span>) najde katero koli osebo v datoteki po imenu; <span class="gm-key">Enter</span> jo odpre, <span class="gm-key">Shift</span><span class="gm-key">Enter</span> jo odpre v drevesu. Če iskanje ne najde nikogar, ponudi, da <strong>vpisano ime dodate</strong> kot novo osebo.</li>
+              <li><strong>Dodaj novo osebo</strong> — gumb <span class="gm-glyph">＋</span> (ali <span class="gm-key">N</span>) ustvari osebo brez povezav, iz katerega koli načina — glejte <a href="#edit">§9</a>.</li>
               <li><strong>Nastavitve</strong> — meni <span class="gm-glyph">⚙</span> vsebuje videz (tema in jezik), prikaz imen in zapisov ter podatkovne možnosti — glejte <em>Nastavitve</em> spodaj.</li>
             </ul>
             <div class="gm-callout note">
@@ -273,6 +274,12 @@
               <strong>vhodno</strong> datoteko: drug <em>.ged</em> ali <strong>CSV z ujemanji</strong>, izvožen z
               <a href="https://indeks.rodoslovje.si" target="_blank" rel="noopener noreferrer">indeks.rodoslovje.si</a>
               (slovenski rodoslovni indeks).
+            </p>
+            <p>
+              Nimate datoteke GEDCOM? <strong>Začni novo drevo</strong> pod vzorčnimi drevesi začne prazno datoteko, urejanje
+              pa nato ponudi, da vanjo dodate prvo osebo — glejte <a href="#add-person">§9</a>. Od tam naprej se vede
+              kot vsaka druga naložena datoteka: gradite jo osebo za osebo in jo prenesete z
+              <strong>Shrani GEDCOM</strong>.
             </p>
             <p>
               Po nalaganju <strong>plošča s podatki o datoteki</strong> poroča, kaj je bilo prebrano — število oseb in
@@ -678,6 +685,22 @@
                 <li><strong>Otroci</strong> — navedeni pod vsako zakonsko družino. <strong>+ Dodaj otroka</strong> doda obstoječo ali novo osebo; <span class="gm-glyph">−</span> odklopi otroka brez brisanja.</li>
               </ul>
             </div>
+            <h3 id="add-person">Oseba brez povezav</h3>
+            <p>
+              Vsi štirje gumbi zgoraj novo osebo pripnejo tisti, ki je na zaslonu. Kadar je ni na kaj pripeti — prvi
+              prednik veje, ki je še niste povezali, ali čisto prva oseba v prazni datoteki — uporabite gumb
+              <span class="gm-glyph">＋</span> <strong>Dodaj novo osebo</strong> v zgornji vrstici ali pritisnite
+              <span class="gm-key">N</span>. Deluje iz katerega koli načina: urejanje se odpre na novi osebi s
+              postavljenim kazalcem v polju imena, povežete pa jo pozneje z istimi gumbi
+              <strong>+ Dodaj očeta</strong> / <strong>+ Dodaj partnerja</strong>, ki znajo poiskati tudi obstoječo
+              osebo.
+            </p>
+            <p>
+              Sem vodita še dve poti. <strong>Iskanje brez zadetkov</strong> (<span class="gm-key">/</span>) ponudi, da
+              dodate vpisano ime — ime in priimek razdeli tako, kot ju piše vaš izbrani vrstni red prikaza imen, zato
+              popravite v polju imena, če je ugibanje zgrešilo. Datoteka <strong>brez oseb</strong> pa isti gumb
+              prikaže namesto plošče z osebo.
+            </p>
             <h3>Opombe, viri in fotografije</h3>
             <p>
               Osebe in družine lahko nosijo besedilne <strong>opombe</strong>, <strong>vire</strong> in
@@ -1341,6 +1364,7 @@
                 <tr><td><span class="gm-key">S</span></td><td>Odpri diagram sorodstva</td></tr>
                 <tr><td><span class="gm-key">H</span></td><td>Pojdi na izhodiščno osebo (Urejanje)</td></tr>
                 <tr><td><span class="gm-key">⌫</span></td><td>Nazaj — prejšnja oseba (Urejanje) ali izhod iz strani z diagramom</td></tr>
+                <tr><td><span class="gm-key">N</span></td><td>Dodaj novo osebo (brez povezav)</td></tr>
                 <tr><td><span class="gm-key">F</span></td><td>Filtriraj seznam ujemanj po imenu (Združevanje)</td></tr>
                 <tr><td><span class="gm-key">C</span> · <span class="gm-key">R</span> · <span class="gm-key">D</span></td><td>Potrdi · Zavrni · Preloži trenutno ujemanje</td></tr>
               </tbody>

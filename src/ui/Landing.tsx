@@ -2,11 +2,15 @@ import { useRef, useState, type ChangeEvent, type DragEvent, type KeyboardEvent 
 import { Trans, useTranslation } from "react-i18next";
 import type { SlotState } from "../App";
 import { pickFile, fileFromDrop, supportsFilePicker } from "./filePicker";
+import { AddPersonIcon } from "./icons/AddPersonIcon";
 
 interface Props {
   mainState: SlotState;
   onLoadFile: (file: File, handle?: FileSystemFileHandle) => void;
   onLoadSample: (fileName: string) => void;
+  /** Begin with an empty GEDCOM instead of importing one — for a tree that
+   *  doesn't exist anywhere yet. */
+  onStartNew: () => void;
 }
 
 const MAIN_ACCEPT = { description: "GEDCOM files", mime: { "text/plain": [".ged", ".gedcom"] } };
@@ -99,7 +103,7 @@ const TreeIcon = () => (
   </svg>
 );
 
-export function Landing({ mainState, onLoadFile, onLoadSample }: Props) {
+export function Landing({ mainState, onLoadFile, onLoadSample, onStartNew }: Props) {
   const { t } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
@@ -242,6 +246,36 @@ export function Landing({ mainState, onLoadFile, onLoadSample }: Props) {
                   <span className="lb-s-load">{t("landing.samples.load")}</span>
                 </button>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* Nothing to import: begin from an empty file and add the first person
+            by hand. Same tray shape as the samples above — it is the other way
+            to arrive at a tree without a file of your own. */}
+        {(mainState.status === "empty" || loading) && (
+          <div className={`lb-samples${loading ? " disabled" : ""}`} aria-hidden={loading || undefined}>
+            <p className="lb-samples-h">
+              <AddPersonIcon size={14} />
+              {t("landing.startNew.header")}
+            </p>
+            <div className="lb-sample-rows">
+              <button
+                className="lb-sample-row"
+                onClick={onStartNew}
+                type="button"
+                disabled={loading}
+                tabIndex={loading ? -1 : undefined}
+              >
+                <span className="lb-s-ico">
+                  <AddPersonIcon />
+                </span>
+                <span className="lb-s-main">
+                  <span className="lb-s-name">{t("landing.startNew.name")}</span>
+                  <span className="lb-s-meta">{t("landing.startNew.meta")}</span>
+                </span>
+                <span className="lb-s-load">{t("landing.startNew.load")}</span>
+              </button>
             </div>
           </div>
         )}

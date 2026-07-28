@@ -215,7 +215,8 @@
               <li><strong>File pills</strong> — the loaded main and incoming file names. Click a pill to see or replace that file.</li>
               <li><strong>Undo / Redo</strong> — one shared history across edits and merge decisions (<span class="gm-key">Ctrl</span><span class="gm-key">Z</span> / <span class="gm-key">Ctrl</span><span class="gm-key">Shift</span><span class="gm-key">Z</span>).</li>
               <li><strong>Save GEDCOM</strong> — preview and download your changes (<span class="gm-key">Ctrl</span><span class="gm-key">S</span>).</li>
-              <li><strong>Search everyone</strong> — the <span class="gm-glyph">⌕</span> button (or <span class="gm-key">/</span>) finds any person in the file by name; <span class="gm-key">Enter</span> opens them, <span class="gm-key">Shift</span><span class="gm-key">Enter</span> opens them in the tree.</li>
+              <li><strong>Search everyone</strong> — the <span class="gm-glyph">⌕</span> button (or <span class="gm-key">/</span>) finds any person in the file by name; <span class="gm-key">Enter</span> opens them, <span class="gm-key">Shift</span><span class="gm-key">Enter</span> opens them in the tree. If the search finds nobody, it offers to <strong>add the name you typed</strong> as a new person.</li>
+              <li><strong>Add new person</strong> — the <span class="gm-glyph">＋</span> button (or <span class="gm-key">N</span>) creates a person linked to nobody, from any mode — see <a href="#edit">§9</a>.</li>
               <li><strong>Settings</strong> — the <span class="gm-glyph">⚙</span> menu holds appearance (theme and language), name and record display, and data options — see <em>Settings</em> below.</li>
             </ul>
             <div class="gm-callout note">
@@ -272,6 +273,11 @@
               another <em>.ged</em>, or a <strong>matches CSV</strong> exported from
               <a href="https://indeks.rodoslovje.si" target="_blank" rel="noopener noreferrer">indeks.rodoslovje.si</a>
               (the Slovenian genealogical index).
+            </p>
+            <p>
+              No GEDCOM to load? <strong>Start a new tree</strong>, under the sample trees, begins an empty file, and Edit
+              then offers to add its first person — see <a href="#add-person">§9</a>. It behaves like any other loaded
+              file from there on: you build it up person by person and download it with <strong>Save GEDCOM</strong>.
             </p>
             <p>
               After a file loads, the <strong>file-info panel</strong> reports what was read — individual and family
@@ -672,6 +678,21 @@
                 <li><strong>Children</strong> — listed under each spouse family. <strong>+ Add Child</strong> adds an existing or new person; <span class="gm-glyph">−</span> unlinks a child without deleting them.</li>
               </ul>
             </div>
+            <h3 id="add-person">A person attached to nobody</h3>
+            <p>
+              The four buttons above all attach the new person to the one on screen. When there is nothing to attach
+              them to — the first ancestor of a branch you have not connected yet, or the very first person in an empty
+              file — use the <span class="gm-glyph">＋</span> <strong>Add new person</strong> button in the top bar, or
+              press <span class="gm-key">N</span>. It works from any mode: Edit opens on the new person with the name
+              field focused, and you link them up later with the same <strong>+ Add Father</strong> /
+              <strong>+ Add Partner</strong> buttons, which also search for an existing person.
+            </p>
+            <p>
+              Two other places lead here. A <strong>search that finds nobody</strong>
+              (<span class="gm-key">/</span>) offers to add the name you typed — the given name and surname are split
+              the way your name-display order writes them, so correct it in the name field if the guess is wrong. And a
+              file with <strong>no people at all</strong> shows the same button in place of the person panel.
+            </p>
             <h3>Notes, sources &amp; photos</h3>
             <p>
               Individuals and families can carry free-text <strong>notes</strong>, <strong>sources</strong> and
@@ -1321,6 +1342,7 @@
                 <tr><td><span class="gm-key">S</span></td><td>Open the relationship diagram</td></tr>
                 <tr><td><span class="gm-key">H</span></td><td>Go to the start person (Edit)</td></tr>
                 <tr><td><span class="gm-key">⌫</span></td><td>Back — previous person (Edit) or leave a chart page</td></tr>
+                <tr><td><span class="gm-key">N</span></td><td>Add a new person (linked to nobody)</td></tr>
                 <tr><td><span class="gm-key">F</span></td><td>Filter the match list by name (Merge)</td></tr>
                 <tr><td><span class="gm-key">C</span> · <span class="gm-key">R</span> · <span class="gm-key">D</span></td><td>Confirm · Reject · Defer the current match</td></tr>
               </tbody>

@@ -67,6 +67,8 @@ import { SettingsProvider, useSettings, useNameOf } from "./ui/SettingsContext";
 import { GlobalSearchModal, type OpenHow, type SearchRowMeta } from "./ui/GlobalSearchModal";
 import { buildSearchRows, type FilterContext } from "./ui/globalSearch";
 import { SearchIcon } from "./ui/icons/SearchIcon";
+import { AddPersonIcon } from "./ui/icons/AddPersonIcon";
+import { NEW_FILE_BASENAME, newGedcomText } from "./gedcom/newFile";
 import { kinshipInfo, lineageClass } from "./match/kinship";
 import { computeDistances } from "./match/distance";
 import { xrefLabel } from "./gedcom/nameDisplay";
@@ -200,6 +202,10 @@ function AppContent() {
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showGlobalSearch, setShowGlobalSearch] = useState(false);
+  // Outstanding "create a new, unattached person" request handed to Edit mode —
+  // see EditView's `addPersonRequest`. The nonce only grows, so each request is
+  // acted on exactly once even when the same name is asked for twice.
+  const [addPersonRequest, setAddPersonRequest] = useState<{ nonce: number; name?: string }>();
   // The pending save dialog's payload — see `SavePreview` for the field docs.
   const [preview, setPreview] = useState<SavePreview | null>(null);
   const { showMobileWarning, dismissMobileWarning } = useMobileWarning();
@@ -359,6 +365,15 @@ function AppContent() {
   useEffect(() => () => {
     if (matchedTimerRef.current != null) window.clearTimeout(matchedTimerRef.current);
   }, []);
+
+  /** "Start a new file": synthesize an empty GEDCOM and feed it through the
+   *  ordinary load path, so nothing downstream has to know it wasn't imported.
+   *  Edit mode then offers its empty-state "add the first person" button. */
+  function startNewFile() {
+    const file = new File([newGedcomText()], `${NEW_FILE_BASENAME}.ged`, { type: "text/plain" });
+    void loadFile("main", file);
+    setMode("edit");
+  }
 
   async function loadSample(role: DatasetRole, fileName: string) {
     const res = await fetch(`samples/${fileName}`);
@@ -735,7 +750,7 @@ function AppContent() {
   }
 
   // Stable ref for keyboard handler (recreated each render but registered once).
-  const globalShortcutRef = useRef({ undo: handleUndo, redo: handleRedo, save: () => {}, canSave: false });
+  const globalShortcutRef = useRef({ undo: handleUndo, redo: handleRedo, save: () => {}, canSave: false, addPerson: () => {} });
   globalShortcutRef.current.undo = handleUndo;
   globalShortcutRef.current.redo = handleRedo;
 
@@ -789,11 +804,20 @@ function AppContent() {
       if (e.key === "/") {
         e.preventDefault();
         setShowGlobalSearch(true);
+        return;
+      }
+
+      // `N` adds a new, unattached person from any mode — but not from a
+      // full-page chart, where the new person would appear behind the overlay
+      // with no sign anything happened.
+      if (e.key.toLowerCase() === KEY.addPerson && !overlayOpenRef.current) {
+        e.preventDefault();
+        globalShortcutRef.current.addPerson();
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [overlayOpenRef]); // a stable ref — effectively mount-only
 
   // Switch to Edit, pointing it at whichever candidate Merge currently has
   // selected (so the person carries over instead of Edit staying on whoever
@@ -801,6 +825,15 @@ function AppContent() {
   function switchToEdit() {
     if (current) setNavigateToId(current.mainId);
     setMode("edit");
+  }
+
+  // Add a person attached to nobody — a new branch, or the first person in a
+  // file that has none. The work happens in Edit mode (which owns the person
+  // view and the name focus), so switch there and hand the request over.
+  function requestAddPerson(name?: string) {
+    if (!mainDataset) return;
+    setMode("edit");
+    setAddPersonRequest((prev) => ({ nonce: (prev?.nonce ?? 0) + 1, name }));
   }
 
   // Clicking the start icon jumps Edit mode to the chosen start person.
@@ -1170,6 +1203,7 @@ function AppContent() {
   // Feed the live save action + its enabled state to the Ctrl/Cmd+S handler.
   globalShortcutRef.current.save = handleSave;
   globalShortcutRef.current.canSave = !!lastMainFile && (changedCount > 0 || confirmedCount > 0 || importCount > 0);
+  globalShortcutRef.current.addPerson = () => requestAddPerson();
 
   function handleEditDirty(type: "individual" | "family", id: string) {
     if (!mainDataset) return;
@@ -1368,6 +1402,7 @@ function AppContent() {
         metaOf={searchMetaOf}
         startId={startId}
         hasDecisions={decisions.size > 0}
+        onCreatePerson={(name) => requestAddPerson(name)}
       />
       <SettingsModal
         isOpen={showSettings}
@@ -1556,6 +1591,16 @@ function AppContent() {
                 <SearchIcon size={18} />
               </button>
             )}
+            {mainDataset && (
+              <button
+                className="nav-btn icon-only"
+                onClick={() => requestAddPerson()}
+                title={t("edit.addNewPerson.tooltip")}
+                aria-label={t("edit.addNewPerson")}
+              >
+                <AddPersonIcon size={18} />
+              </button>
+            )}
             <button
               className="nav-btn icon-only"
               onClick={() => setShowSettings(true)}
@@ -1692,6 +1737,7 @@ function AppContent() {
           mainState={main}
           onLoadFile={(f, h) => loadFile("main", f, h)}
           onLoadSample={(fileName) => loadSample("main", fileName)}
+          onStartNew={startNewFile}
         />
       )}
 
@@ -1764,6 +1810,7 @@ function AppContent() {
               onPatchApplied={handlePatchApplied}
               pendingApply={pendingEditApply}
               onApplied={() => setPendingEditApply(null)}
+              addPersonRequest={addPersonRequest}
               active={mode === "edit" && !overlayOpen}
             />
             </ErrorBoundary>

@@ -651,6 +651,7 @@ button:focus-visible {
 .lb-samples-h svg {
   color: var(--accent);
   flex: none;
+  stroke-width: 1.7;
 }
 
 .lb-sample-rows {
@@ -3611,6 +3612,14 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .tree-open-btn:hover:not(:disabled) { border-color: var(--accent); }
 .tree-open-btn:focus-visible { border-color: var(--accent); }
 .tree-open-btn:disabled { color: var(--muted); opacity: 0.5; cursor: default; }
+/* Edit's empty state: the only action available when the file holds no one. */
+.edit-empty-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px;
+  margin-top: 4px;
+}
 /* The Export button pairs a download glyph with the label + caret. */
 .tree-export-btn {
   display: inline-flex;
@@ -4900,7 +4909,27 @@ a.report-source:hover { color: var(--accent); text-decoration: underline; }
 }
 .global-search-action:hover:not(:disabled) { color: var(--text); border-color: var(--accent); }
 .global-search-action:disabled { opacity: 0.4; cursor: default; }
-.global-search-empty { padding: 16px 18px; }
+.global-search-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 16px 18px;
+}
+/* The "nobody by that name — add them" offer under an empty result list. */
+.global-search-create {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--panel);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 0.9rem;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+.global-search-create:hover { background: var(--bg); }
 .global-search-footer {
   display: flex;
   justify-content: space-between;
