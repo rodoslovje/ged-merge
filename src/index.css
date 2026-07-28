@@ -3805,6 +3805,110 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 }
 /* The kind switcher holds five tabs; tighter padding keeps the row compact. */
 .charts-kind button { padding: 5px 12px; }
+/* Right cluster of the controls row: the find box, plus the legend on the views
+   that have one. */
+.tree-controls-right {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+/* Find-in-chart: type a name and ⌕ (or Enter) moves the canvas to that person,
+   cycling through every place the chart draws them. */
+.chart-find {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.chart-find-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0 4px;
+}
+.chart-find-control:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--accent) 35%, transparent);
+}
+.chart-find-control input {
+  width: 150px;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 0.85rem;
+  padding: 5px 2px;
+}
+.chart-find-control input:focus { outline: none; }
+.chart-find-go {
+  display: inline-flex;
+  align-items: center;
+  background: none;
+  border: none;
+  color: var(--muted);
+  padding: 2px 4px;
+  cursor: pointer;
+}
+.chart-find-go:hover,
+.chart-find-control:focus-within .chart-find-go { color: var(--accent); }
+.chart-find-count {
+  font-size: 0.78rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.chart-find-clear {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0 2px;
+  cursor: pointer;
+}
+.chart-find-clear:hover { color: var(--text); }
+.chart-find-steps {
+  display: inline-flex;
+  gap: 2px;
+}
+.chart-find-steps button {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9rem;
+  line-height: 1;
+  padding: 5px 9px;
+  cursor: pointer;
+}
+.chart-find-steps button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+/* A miss: "nobody by that name", or the file's best match with a one-click
+   offer to re-root the chart on them. */
+.chart-find-msg {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.chart-find-goto {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
 /* Charts hub, relationship kind without a start person: centered inline prompt
    (message + a person search) instead of a disabled control. */
 .charts-need-start {

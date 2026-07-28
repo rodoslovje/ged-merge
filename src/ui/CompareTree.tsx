@@ -29,6 +29,8 @@ import {
 } from "../chart/treeLayout";
 import { formatMarriage } from "../chart/nodeDisplay";
 import { useTreeCanvas } from "./useTreeCanvas";
+import { ChartFindBox } from "./ChartFindBox";
+import { useChartFind } from "./useChartFind";
 import { ChartMinimap } from "./ChartMinimap";
 import { TreeSvg } from "./TreeSvg";
 import { ZoomControls } from "./ZoomControls";
@@ -356,8 +358,20 @@ export function CompareTree({
   const activeNodes = radial ? fanNodes : nodesByKey;
 
   // Viewport, grab-to-pan, zoom, root re-centring, and node selection.
-  const { canvasRef, viewport, panning, scrollTo, canvasProps, selectedKey, setSelectedKey, selectNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
+  const { canvasRef, viewport, panning, scrollTo, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
     useTreeCanvas(activeLaid, activeNodes, alignment, radial, nodeH);
+
+  // Find-in-chart. A node here can draw a matched pair, so both sides are
+  // searchable — the incoming spelling of a name finds the node just as well.
+  const findSources = useMemo(
+    () =>
+      radial
+        ? (fan?.segments ?? []).map((s) => ({ key: s.key, people: [s.node.main, s.node.incoming] }))
+        : (flat?.nodes ?? []).map((n) => ({ key: n.key, people: [n.main, n.incoming] })),
+    [radial, fan, flat],
+  );
+  const rerootMain = useCallback((id: string) => onReroot(id, undefined), [onReroot]);
+  const find = useChartFind(findSources, mainDs.individuals, revealNode, rerootMain);
 
   // +/− zoom, 0 reset, F fit, A/D direction, digits 1–4 for the chart kind.
   useChartShortcuts({
@@ -448,7 +462,12 @@ export function CompareTree({
           </div>
         </>
       }
-      controlsRight={<TreeLegend nodes={flat?.nodes ?? []} selectedKey={selectedKey} onPick={selectNode} />}
+      controlsRight={
+        <div className="tree-controls-right">
+          <ChartFindBox find={find} />
+          <TreeLegend nodes={flat?.nodes ?? []} selectedKey={selectedKey} onPick={selectNode} />
+        </div>
+      }
     >
       <div className="tree-canvas-wrap">
         <div
@@ -463,6 +482,7 @@ export function CompareTree({
                 zoom={zoom}
                 colorOf={colorOf}
                 selectedKey={selectedKey}
+                flashKey={find.hitKey}
                 onSelect={selectNode}
                 mainRecords={mainDs.records}
                 compareRecords={compareDs.records}
@@ -480,6 +500,7 @@ export function CompareTree({
               height={laid.height}
               zoom={zoom}
               selectedKey={selectedKey}
+              flashKey={find.hitKey}
               onSelect={selectNode}
               colorOf={colorOf}
               badgeOf={display.showBadges ? badgeOf : undefined}

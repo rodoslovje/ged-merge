@@ -6,6 +6,8 @@ import { ageStandalone, formatMarriage, lifespanLine, livingLabelFor } from "../
 import { lifespanAge } from "../gedcom/age";
 import { PAD, type ChartNode } from "../chart/treeLayout";
 import { useTreeCanvas } from "./useTreeCanvas";
+import { ChartFindBox } from "./ChartFindBox";
+import { useChartFind } from "./useChartFind";
 import { createKinshipResolver, lineageClass } from "../match/kinship";
 import { useNodeStatus } from "./useNodeStatus";
 import type { CandidateDecision } from "../review/types";
@@ -215,8 +217,16 @@ export function TimelineChart({ mainDs, rootId, startId, changedPersonIds, decis
     return { root, width: geom.contentW + 2 * PAD, height: geom.contentH + 2 * PAD };
   }, [geom, rows, nodesByKey]);
 
-  const { canvasRef, panning, canvasProps, selectedKey, setSelectedKey, selectNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
+  const { canvasRef, panning, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
     useTreeCanvas(laid, nodesByKey, "lr", false, rowH);
+
+  // Find-in-chart. The timeline only draws the root's immediate family, so a
+  // name that isn't here is common — the box then offers to re-root on them.
+  const findSources = useMemo(
+    () => rows.map((r) => ({ key: r.key, people: [mainDs.individuals.get(r.id)] })),
+    [rows, mainDs],
+  );
+  const find = useChartFind(findSources, mainDs.individuals, revealNode, changeRoot);
 
   // +/− zoom, 0 reset, F fit, Esc leaves (kind digits are the Charts hub's).
   useChartShortcuts({ zoomIn, zoomOut, resetZoom, fitToScreen, onLeave: onBack });
@@ -308,6 +318,7 @@ export function TimelineChart({ mainDs, rootId, startId, changedPersonIds, decis
         </>
       }
       controlsLeft={kindSwitcher}
+      controlsRight={<ChartFindBox find={find} />}
     >
       <div className="tree-canvas-wrap">
         <div className={`tree-canvas${panning ? " panning" : ""}`} ref={canvasRef} {...canvasProps}>
@@ -396,7 +407,7 @@ export function TimelineChart({ mainDs, rootId, startId, changedPersonIds, decis
                     <g
                       key={row.key}
                       transform={`translate(0,${y})`}
-                      className={`timeline-row${row.key === selectedKey ? " selected" : ""}${row.role === "person" ? " is-person" : ""}`}
+                      className={`timeline-row${row.key === selectedKey ? " selected" : ""}${row.key === find.hitKey ? " find-hit" : ""}${row.role === "person" ? " is-person" : ""}`}
                       onClick={() => selectNode(row.key)}
                     >
                       <title>{t("tree.node.clickHint")}</title>

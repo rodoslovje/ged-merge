@@ -6,6 +6,8 @@ import { lifespanAge } from "../gedcom/age";
 import { PAD, nodeHeight } from "../chart/treeLayout";
 import { formatMarriage, lifespanLine, placeLabel } from "../chart/nodeDisplay";
 import { useTreeCanvas } from "./useTreeCanvas";
+import { ChartFindBox } from "./ChartFindBox";
+import { useChartFind } from "./useChartFind";
 import { createKinshipResolver, lineageClass } from "../match/kinship";
 import { bloodPaths, shortestPath, type RelationshipPath } from "../match/relationshipPath";
 import { buildRelationshipChart, type ChartBox } from "../chart/relationshipLayout";
@@ -74,12 +76,15 @@ export function RelationshipChart({ mainDs, startId, targetId, changedPersonIds,
   useEffect(() => setStartSel(startId), [startId]);
   useEffect(() => setTargetSel(targetId), [targetId]);
 
-  const replace = (side: "start" | "target", id: string) => {
-    (side === "start" ? setStartSel : setTargetSel)(id);
-    if (side === "target") onTargetChange?.(id);
-    setOptionIdx(0);
-    setPicking(null);
-  };
+  const replace = useCallback(
+    (side: "start" | "target", id: string) => {
+      (side === "start" ? setStartSel : setTargetSel)(id);
+      if (side === "target") onTargetChange?.(id);
+      setOptionIdx(0);
+      setPicking(null);
+    },
+    [onTargetChange],
+  );
 
   const nameOf = useCallback(
     (id: string) => {
@@ -150,8 +155,17 @@ export function RelationshipChart({ mainDs, startId, targetId, changedPersonIds,
     [chart, nodesByKey],
   );
 
-  const { canvasRef, viewport, panning, scrollTo, canvasProps, selectedKey, setSelectedKey, selectNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
+  const { canvasRef, viewport, panning, scrollTo, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
     useTreeCanvas(laid, nodesByKey, alignment, false, nodeH);
+
+  // Find-in-chart. This diagram only draws one route, so somebody off it is the
+  // usual case — finding them makes them the new target, redrawing the route.
+  const findSources = useMemo(
+    () => (chart?.boxes ?? []).map((b) => ({ key: b.key, people: [mainDs.individuals.get(b.id)] })),
+    [chart, mainDs],
+  );
+  const retarget = useCallback((id: string) => replace("target", id), [replace]);
+  const find = useChartFind(findSources, mainDs.individuals, revealNode, retarget);
 
   // +/− zoom, 0 reset, F fit, Esc leaves (kind digits are the Charts hub's).
   useChartShortcuts({ zoomIn, zoomOut, resetZoom, fitToScreen, onLeave: onBack });
@@ -215,6 +229,7 @@ export function RelationshipChart({ mainDs, startId, targetId, changedPersonIds,
         </>
       }
       controlsLeft={kindSwitcher}
+      controlsRight={<ChartFindBox find={find} />}
     >
       {picking && (
         <div className="tree-controls relchart-picker-bar">
@@ -287,7 +302,7 @@ export function RelationshipChart({ mainDs, startId, targetId, changedPersonIds,
                     <g
                       key={b.key}
                       transform={`translate(${b.x},${b.y})`}
-                      className={`tree-node relchart-node${b.key === selectedKey ? " selected" : ""}${b.role ? ` is-${b.role}` : ""}`}
+                      className={`tree-node relchart-node${b.key === selectedKey ? " selected" : ""}${b.key === find.hitKey ? " find-hit" : ""}${b.role ? ` is-${b.role}` : ""}`}
                       onClick={() => selectNode(b.key)}
                     >
                       <title>{t("tree.node.clickHint")}</title>

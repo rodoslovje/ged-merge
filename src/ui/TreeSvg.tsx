@@ -20,6 +20,8 @@ interface Props {
   zoom: number;
   selectedKey: string | null;
   onSelect: (key: string) => void;
+  /** Node just jumped to by find-in-chart; flashes so it's spotted at a glance. */
+  flashKey?: string | null;
   /** State colour for a node's border + tinted fill. */
   colorOf: (n: Placed) => string;
   /** Letter badge in themed status colours (decision / import), when any. */
@@ -44,6 +46,7 @@ export function TreeSvg({
   zoom,
   selectedKey,
   onSelect,
+  flashKey,
   colorOf,
   badgeOf,
   modifiedOf,
@@ -89,7 +92,7 @@ export function TreeSvg({
             <g
               key={n.key}
               transform={`translate(${n.x},${n.y})`}
-              className={`tree-node${n.key === selectedKey ? " selected" : ""}`}
+              className={`tree-node${n.key === selectedKey ? " selected" : ""}${n.key === flashKey ? " find-hit" : ""}`}
               onClick={() => onSelect(n.key)}
             >
               <title>{t("tree.node.clickHint")}</title>

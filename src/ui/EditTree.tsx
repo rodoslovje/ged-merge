@@ -29,6 +29,8 @@ import { chartSlug } from "./exportSvg";
 import { ChartExportMenu } from "./ChartExportMenu";
 import { ChartPage } from "./ChartPage";
 import { ChartSettings } from "./ChartSettings";
+import { ChartFindBox } from "./ChartFindBox";
+import { useChartFind } from "./useChartFind";
 import { useChartSettings } from "./ChartSettingsContext";
 import { useSettings } from "./SettingsContext";
 import { useChartShortcuts } from "../keyboard/useChartShortcuts";
@@ -209,8 +211,19 @@ export function EditTree({ mainDs, rootId, startId, changedPersonIds, decisions,
   const activeNodes = radial ? fanNodes : nodesByKey;
 
   // Viewport, grab-to-pan, zoom, root re-centring, and node selection.
-  const { canvasRef, viewport, panning, scrollTo, canvasProps, selectedKey, setSelectedKey, selectNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
+  const { canvasRef, viewport, panning, scrollTo, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
     useTreeCanvas(activeLaid, activeNodes, alignment, radial, nodeH);
+
+  // Find-in-chart: every drawn position, in layout order (a shared ancestor is
+  // drawn once per line of descent, so the same person yields several).
+  const findSources = useMemo(
+    () =>
+      radial
+        ? (fan?.segments ?? []).map((s) => ({ key: s.key, people: [s.node.main] }))
+        : (flat?.nodes ?? []).map((n) => ({ key: n.key, people: [n.main] })),
+    [radial, fan, flat],
+  );
+  const find = useChartFind(findSources, mainDs.individuals, revealNode, changeRoot);
 
   // +/− zoom, 0 reset, F fit, A/D direction (D unavailable on radial charts),
   // Esc leaves the page.
@@ -318,6 +331,7 @@ export function EditTree({ mainDs, rootId, startId, changedPersonIds, decisions,
           </div>
         </>
       }
+      controlsRight={<ChartFindBox find={find} />}
     >
       <div className="tree-canvas-wrap">
         <div
@@ -332,6 +346,7 @@ export function EditTree({ mainDs, rootId, startId, changedPersonIds, decisions,
                 zoom={zoom}
                 colorOf={colorOf}
                 selectedKey={selectedKey}
+                flashKey={find.hitKey}
                 onSelect={selectNode}
                 mainRecords={mainDs.records}
                 mainRefCtx={mainRefCtx}
@@ -347,6 +362,7 @@ export function EditTree({ mainDs, rootId, startId, changedPersonIds, decisions,
               height={laid.height}
               zoom={zoom}
               selectedKey={selectedKey}
+              flashKey={find.hitKey}
               onSelect={selectNode}
               colorOf={colorOf}
               badgeOf={display.showBadges ? decisionOf : undefined}

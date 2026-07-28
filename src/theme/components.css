@@ -84,6 +84,20 @@
 .tree-node-year        { fill: var(--muted); }              /* render "1817–1921" range */
 .tree-node.selected rect { stroke: var(--accent); stroke-width: 2.5; }
 
+/* Find-in-chart: the node the search just moved to glows for a moment, so the
+   eye lands on it even on a chart where selection alone is easy to miss. The
+   glow is a filter on the whole group, so it works the same on a tree box, a
+   fan wedge and a timeline row. */
+@keyframes find-flash {
+  0%   { filter: drop-shadow(0 0 0 var(--accent)); }
+  25%  { filter: drop-shadow(0 0 7px var(--accent)) drop-shadow(0 0 14px var(--accent)); }
+  100% { filter: drop-shadow(0 0 0 var(--accent)); }
+}
+.find-hit { animation: find-flash 1.6s ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .find-hit { animation: none; }
+}
+
 /* Decision badge (C / D / R, or I for an incoming-only person a graft will
    bring in) on a tree node — same tokens as .status-chip, so a decision reads
    the same whether it's shown in Edit, Merge or Tree. */

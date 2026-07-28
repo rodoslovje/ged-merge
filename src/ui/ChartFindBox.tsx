@@ -1,0 +1,109 @@
+import { useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
+import { lifespanOf } from "../gedcom/lifespan";
+import { isModalOpen, renderKeyToken } from "../keyboard/shortcuts";
+import { SearchIcon } from "./icons/SearchIcon";
+import { useNameOf } from "./SettingsContext";
+import type { ChartFind } from "./useChartFind";
+
+/**
+ * The chart's find box: type a name, press ⌕ (or Enter) and the canvas moves to
+ * that person *within the current diagram* — the counter says how many places
+ * they occupy and ‹ › walk between them. The global search (`/`) answers a
+ * different question: it re-roots the chart on whoever is opened.
+ *
+ * When nobody by that name is drawn here but somebody in the file matches, the
+ * box says so and offers to re-root on them, so a miss ends in one click rather
+ * than a dead end.
+ */
+export function ChartFindBox({ find }: { find: ChartFind }) {
+  const { t } = useTranslation();
+  const nameOf = useNameOf();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const { query, hits, position, step, miss, offChart } = find;
+  const total = hits.length;
+
+  // ⌘/Ctrl+F — the conventional "find" chord — focuses the box instead of the
+  // browser's own find, which can't pan the canvas to what it matched.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (!(e.metaKey || e.ctrlKey) || e.altKey || e.key.toLowerCase() !== "f") return;
+      if (isModalOpen()) return;
+      e.preventDefault();
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      step(e.shiftKey ? -1 : 1);
+    } else if (e.key === "Escape") {
+      // First Esc empties the box; a second one leaves it, so the chart's own
+      // Esc-to-go-back stays reachable from the keyboard.
+      e.stopPropagation();
+      if (query) find.clear();
+      else inputRef.current?.blur();
+    }
+  }
+
+  const span = offChart ? lifespanOf(offChart) : "";
+
+  return (
+    <div className="chart-find">
+      <div className="chart-find-control">
+        <button
+          type="button"
+          className="chart-find-go"
+          title={t("chartFind.tooltip", { key: `${renderKeyToken("mod")}F` })}
+          aria-label={t("chartFind.title")}
+          onClick={() => step(1)}
+        >
+          <SearchIcon size={14} />
+        </button>
+        <input
+          ref={inputRef}
+          type="text"
+          placeholder={t("chartFind.placeholder")}
+          title={t("chartFind.tooltip", { key: `${renderKeyToken("mod")}F` })}
+          value={query}
+          onChange={(e) => find.setQuery(e.target.value)}
+          onKeyDown={onKeyDown}
+        />
+        {total > 0 && (
+          <span className="chart-find-count gm-data" title={t("chartFind.matches", { count: total })}>
+            {position ? `${position}/${total}` : total}
+          </span>
+        )}
+        {query && (
+          <button type="button" className="chart-find-clear" title={t("chartFind.clear")} onClick={find.clear}>
+            ×
+          </button>
+        )}
+      </div>
+      {total > 1 && (
+        <div className="chart-find-steps">
+          <button type="button" title={t("chartFind.prev")} aria-label={t("chartFind.prev")} onClick={() => step(-1)}>
+            ‹
+          </button>
+          <button type="button" title={t("chartFind.next")} aria-label={t("chartFind.next")} onClick={() => step(1)}>
+            ›
+          </button>
+        </div>
+      )}
+      {miss === "none" && <span className="chart-find-msg">{t("chartFind.none")}</span>}
+      {miss === "offChart" && offChart && (
+        <span className="chart-find-msg">
+          {t("chartFind.offChart")}
+          <button type="button" className="chart-find-goto" title={t("edit.tree.reroot")} onClick={find.goToOffChart}>
+            {nameOf(offChart)}
+            {span && <span className="gm-data"> {span}</span>}
+          </button>
+        </span>
+      )}
+    </div>
+  );
+}
