@@ -1840,7 +1840,7 @@ function AppContent() {
               onRenamePlaceValue={(from, to, addr) => applyToolPatches(renamePlaceValue(mainDataset, from, to, addr))}
               onMovePlaceForAddresses={(keys, toPlace, coord) => applyToolPatches(movePlaceForAddresses(mainDataset, keys, toPlace, coord))}
               startId={startId}
-              onFixBrokenLinks={() => applyToolPatches(fixBrokenLinks(mainDataset))}
+              onFixBrokenLinks={(only) => applyToolPatches(fixBrokenLinks(mainDataset, only))}
               onFixSexFromRole={() => applyToolPatches(fixSexFromRole(mainDataset))}
               onFixDates={() => applyToolPatches(fixDates(mainDataset))}
               onFixDuplicatePointers={() => applyToolPatches(fixDuplicatePointers(mainDataset))}
