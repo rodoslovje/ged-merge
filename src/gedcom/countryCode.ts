@@ -45,10 +45,11 @@ const CODES: Record<string, string> = {
 };
 
 /** Returns the ISO 3166-1 alpha-2 code (lowercase) for a country name, or undefined.
- *  Strips trailing parentheticals so "Macedonia (FYR)" resolves the same as "Macedonia". */
+ *  Strips trailing brackets so "Macedonia (FYR)" / "Macedonia [FYR]" resolve the
+ *  same as "Macedonia". */
 export function countryCode(name: string): string | undefined {
   const lower = name.toLowerCase();
   if (CODES[lower]) return CODES[lower];
-  const base = lower.replace(/(\s*\([^)]*\))+$/, "").trim();
+  const base = lower.replace(/(\s*(?:\([^)]*\)|\[[^\]]*\]))+$/, "").trim();
   return CODES[base];
 }

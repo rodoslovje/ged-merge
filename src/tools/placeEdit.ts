@@ -50,11 +50,14 @@ function renameInValue(raw: string, from: string, to: string): string | null {
     if (changed) result = newParts.join(",");
   }
 
-  // 2. Parenthetical country form: "(Macedonia)" → "(North Macedonia)".
+  // 2. Bracketed country form: "(Macedonia)" / "[Macedonia]" → "(North Macedonia)".
+  //    The bracket kind already in the file is kept.
   //    Skipped for deletion (empty `to`) — removing a parenthetical leaves "()".
   if (to !== "") {
-    const parenRe = new RegExp(`(\\(\\s*)${escapeRegex(from)}(\\s*\\))`, "g");
-    const parenResult = result.replace(parenRe, `$1${to}$2`);
+    const parenRe = new RegExp(`([([])(\\s*)${escapeRegex(from)}(\\s*)([)\\]])`, "g");
+    const parenResult = result.replace(parenRe, (full, open, lead, trail, close) =>
+      (open === "(") === (close === ")") ? `${open}${lead}${to}${trail}${close}` : full,
+    );
     if (parenResult !== result) {
       result = parenResult;
       changed = true;
