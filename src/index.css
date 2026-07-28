@@ -6796,6 +6796,22 @@ kbd {
   font-weight: 400;
 }
 .tools-issue-msg { flex: 1 1 260px; color: var(--muted); font-size: 0.88rem; }
+/* One finding's own repair (broken links): a compact action at the end of the
+   row, sized to the message line so it doesn't grow the row's height. */
+.tools-issue-fix {
+  flex: none; margin-left: auto;
+  padding: 1px 8px;
+  border: 1px solid var(--border-2); border-radius: var(--radius-pill);
+  background: none; color: var(--danger);
+  font: inherit; font-size: 0.82rem; line-height: 1.5;
+  cursor: pointer; white-space: nowrap;
+}
+.tools-issue-fix:hover { border-color: var(--danger); background: var(--danger-soft); }
+/* Its aftermath, while the re-run health check is still in flight. */
+.tools-issue-fixed {
+  flex: none; margin-left: auto;
+  color: var(--status-new); font-size: 0.82rem; font-weight: 600; white-space: nowrap;
+}
 /* The "via father X (b. 1910)" derivation behind a "from relatives" flag. */
 .tools-issue-detail { color: var(--muted); font-size: 0.82rem; font-style: italic; }
 .tools-pair { display: flex; flex-direction: column; padding: 7px 10px; border-radius: 7px; }

@@ -864,6 +864,50 @@ describe("fixBrokenLinks", () => {
 0 TRLR`);
     expect(fixBrokenLinks(ds)).toHaveLength(0);
   });
+
+  it("scoped to one pointer, repairs that finding and leaves the others", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Eva /Horvat/
+1 SEX F
+1 FAMC @F8@
+1 FAMC @F9@
+0 @F2@ FAM
+1 HUSB @I9@
+0 TRLR`);
+    expect(validateDataset(ds, 2026).counts.brokenLink).toBe(3);
+
+    // Only the @F9@ pointer on @I1@ — its sibling @F8@ and the family's dead
+    // HUSB are other findings, each with its own row and its own fix button.
+    const patches = fixBrokenLinks(ds, { id: "@I1@", target: "@F9@" });
+    expect(patches).toHaveLength(1);
+    expect(ds.individuals.get("@I1@")!.childOf).toEqual(["@F8@"]);
+    expect(ds.families.get("@F2@")!.husband).toBe("@I9@");
+    expect(validateDataset(ds, 2026).counts.brokenLink).toBe(2);
+
+    // …then the family-side one, named by its own record and target.
+    expect(fixBrokenLinks(ds, { id: "@F2@", target: "@I9@" })).toHaveLength(1);
+    expect(ds.families.get("@F2@")!.husband).toBeUndefined();
+    expect(validateDataset(ds, 2026).counts.brokenLink).toBe(1);
+  });
+
+  it("scoped to a record, repairs every broken pointer it carries", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Eva /Horvat/
+1 SEX F
+1 FAMC @F8@
+1 FAMS @F9@
+0 @F2@ FAM
+1 HUSB @I9@
+0 TRLR`);
+    expect(fixBrokenLinks(ds, { id: "@I1@" })).toHaveLength(1);
+    expect(ds.individuals.get("@I1@")!.childOf).toHaveLength(0);
+    expect(ds.individuals.get("@I1@")!.spouseOf).toHaveLength(0);
+    expect(validateDataset(ds, 2026).counts.brokenLink).toBe(1);
+  });
 });
 
 describe("fixSexFromRole", () => {

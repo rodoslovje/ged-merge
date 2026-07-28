@@ -11,6 +11,7 @@ import { PrivacyPanel } from "./tools/PrivacyPanel";
 import { SourcesPanel } from "./tools/SourcesPanel";
 import { PlacesPanel } from "./tools/PlacesPanel";
 import type { GeoAssignment } from "../tools/geocode";
+import type { BrokenLinkRef } from "../tools/fixLinks";
 
 type Tool = "validate" | "duplicates" | "normalize" | "privacy" | "sources" | "places";
 
@@ -38,9 +39,10 @@ interface Props {
   onMovePlaceForAddresses: (keys: Set<string>, toPlace: string, coord?: GeoAssignment) => number;
   /** The app-wide start person, for kinship labels in people lists. */
   startId?: string;
-  /** Remove all broken family pointers and push to the undo stack. Returns the
+  /** Remove broken family pointers — all of them, or the single one named by
+   *  `only` (one finding's own fix) — and push to the undo stack. Returns the
    *  number of records changed, so the panel can re-validate and report. */
-  onFixBrokenLinks: () => number;
+  onFixBrokenLinks: (only?: BrokenLinkRef) => number;
   /** Infer SEX from family role for unspecified spouses and push to the undo
    *  stack. Returns the number of records changed, so the panel can re-validate. */
   onFixSexFromRole: () => number;
