@@ -13,6 +13,8 @@
 // viewer, a coloured slide, a document theme — and losing it means an invisible
 // chart. White is what the paper it is headed for looks like anyway.
 
+import { fillScale, pageBox, paperPx, type PrintPaper } from "../chart/sheets";
+
 // The presentation properties worth baking in. Deliberately omits `transform`
 // (kept as the element's attribute — a CSS matrix would fight it) and layout
 // props, so we copy only what paints.
@@ -561,28 +563,26 @@ export async function downloadSvg(live: SVGSVGElement, fileName: string, opts: S
 }
 
 /**
- * Build the standalone diagram SVG and open it in the browser's print dialog,
- * sized so the whole diagram lands on one page — the user picks "Save as PDF".
- * Uses a hidden iframe (not window.open) to dodge popup blockers.
+ * Build the standalone diagram SVG and print the whole of it on one sheet of
+ * `paper`, scaled to fill the page — the user picks "Save as PDF".
+ *
+ * The page used to be sized to the diagram itself, which asked the printer for
+ * a sheet metres across. A driver can't make one: it falls back to its own
+ * paper, and what comes out is one page holding a fraction of the chart. So the
+ * paper is the user's choice and the diagram is fitted to it, exactly as the
+ * sheet print does — this is the same call with a set of one.
  */
-export async function printSvg(live: SVGSVGElement, opts: SvgExportOptions): Promise<void> {
-  const { svg, width, height } = await buildExportSvg(live, opts);
-  // Make the SVG fill the print page; the @page size matches its pixel extent.
-  svg.removeAttribute("width");
-  svg.removeAttribute("height");
-  svg.setAttribute("style", "display:block;width:100%;height:100%;");
-
+export async function printSvg(live: SVGSVGElement, opts: SvgExportOptions, paper: PrintPaper): Promise<void> {
+  const built = await buildExportSvg(live, opts);
   // Browsers seed the "Save as PDF" filename from the document <title>, so use
   // the export base name there (extension auto-appended) rather than the heading.
   const docTitle = opts.fileName ? `${opts.fileName}.gedmerge` : opts.title;
-  const doc = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(docTitle)}</title>
-<style>
-  @page { size: ${width}px ${height}px; margin: 0; }
-  html, body { margin: 0; padding: 0; }
-  svg { display: block; }
-</style></head><body>${serialize(svg)}</body></html>`;
-
-  printDocument(doc);
+  printSheetSet(
+    [built],
+    paperPx(paper.paper, paper.orientation),
+    fillScale([built], pageBox(paper.paper, paper.orientation)),
+    docTitle,
+  );
 }
 
 /**
@@ -678,13 +678,25 @@ export function exportCanvasSvg(canvas: HTMLElement | null, fileName: string, ti
 }
 
 /**
- * Find the diagram SVG inside a `.tree-canvas` element and open it in the print
- * dialog (whole diagram on one page) for "Save as PDF". No-op if absent.
+ * Find the diagram SVG inside a `.tree-canvas` element and print the whole of it
+ * on one sheet of the chosen paper. No-op if absent.
  */
-export function exportCanvasPdf(canvas: HTMLElement | null, fileName: string, title: string): void {
+export function printCanvasPdf(canvas: HTMLElement | null, opts: SvgExportOptions, paper: PrintPaper): void {
   const svg = canvas?.querySelector("svg.tree-svg") as SVGSVGElement | null;
   if (!svg) return;
-  void printSvg(svg, { title, fileName });
+  void printSvg(svg, opts, paper);
+}
+
+/**
+ * The diagram's own size in a `.tree-canvas`, ignoring the on-screen zoom — what
+ * the print dialog needs to say how far a chart will be scaled, without building
+ * the export first. `null` when the canvas holds no diagram.
+ */
+export function canvasDiagramSize(canvas: HTMLElement | null): { w: number; h: number } | null {
+  const svg = canvas?.querySelector("svg.tree-svg") as SVGSVGElement | null;
+  const box = (svg?.getAttribute("viewBox") ?? "").split(/[\s,]+/).map(Number);
+  if (box.length !== 4 || !(box[2] > 0) || !(box[3] > 0)) return null;
+  return { w: box[2], h: box[3] };
 }
 
 /**

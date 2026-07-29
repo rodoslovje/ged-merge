@@ -14,21 +14,37 @@ import {
   type PrintSize,
 } from "../chart/sheets";
 import {
+  fillScale,
+  pageBox,
+} from "../chart/sheets";
+import {
   planPrintScale,
   planSheets,
   printChartSheets,
   type SheetChartSource,
 } from "./sheetExport";
-import type { SvgExportOptions } from "./exportSvg";
+import {
+  FOOTER_H,
+  HEADER_H,
+  canvasDiagramSize,
+  printCanvasPdf,
+  type SvgExportOptions,
+} from "./exportSvg";
 
-// "Print in sheets" — pick the paper, see how many sheets the diagram will take,
-// and send the set to the print dialog. A wide family chart squeezed onto one
-// page is unreadable; cut into sheets it prints at full size, each branch that
-// didn't fit carrying on under its own numbered marker.
+// Print a chart: pick the paper, see what it will come out at, and send it to
+// the print dialog. Every chart goes through here, because the paper is the one
+// thing the app can't guess — asking a printer for a page the size of the
+// diagram gets you whatever the driver falls back to, with the chart cropped.
+//
+// Layered charts (tidy tree, grid) can also be *cut*: too wide for one page,
+// they split at their branches, each cut branch carrying on over its own sheet
+// under a numbered marker. That is what the print-size row offers; a chart with
+// no `source` to split simply prints whole on the one sheet.
 
 interface Props {
-  /** The chart to split, exactly as it is drawn on screen. */
-  source: SheetChartSource;
+  /** The chart as a tree, when it is one that can be cut into sheets. Radial,
+   *  timeline and relationship diagrams leave it out and print on one sheet. */
+  source?: SheetChartSource;
   /** The `.tree-canvas` element the rendered diagram is lifted from. */
   canvasRef: React.RefObject<HTMLDivElement | null>;
   /** Header title and download base name, shared with the other exports; each
@@ -75,20 +91,28 @@ export function SheetPrintDialog({ source, canvasRef, opts, onClose }: Props) {
   // The full plan, not just its length: it is what the print then draws, and
   // planning a chart of any ordinary size is quick enough to redo per change.
   const sheets = useMemo(
-    () => (paper ? planSheets(source, { paper, orientation, size }) : []),
+    () => (source && paper ? planSheets(source, { paper, orientation, size }) : []),
     [source, paper, orientation, size],
   );
 
-  // How much the set will be reduced (or enlarged) to sit on the paper — the
+  // How much the print will be reduced (or enlarged) to sit on the paper — the
   // number that says whether "one sheet" is a wall chart or an unreadable one.
-  const scale = useMemo(
-    () => (paper && sheets.length ? planPrintScale(source, { paper, orientation, size }, sheets) : 1),
-    [source, paper, orientation, size, sheets],
-  );
+  // An uncuttable chart is measured off the canvas instead of a plan.
+  const scale = useMemo(() => {
+    if (!paper) return 1;
+    const box = pageBox(paper, orientation);
+    if (source && sheets.length) return planPrintScale(source, { paper, orientation, size }, sheets);
+    const whole = canvasDiagramSize(canvasRef.current);
+    return whole ? fillScale([{ width: whole.w, height: whole.h + HEADER_H + FOOTER_H }], box) : 1;
+  }, [source, paper, orientation, size, sheets, canvasRef]);
 
   const print = () => {
     if (!paper) return;
     onClose();
+    if (!source) {
+      printCanvasPdf(canvasRef.current, opts, { paper, orientation });
+      return;
+    }
     void printChartSheets(canvasRef.current, source, { paper, orientation, size }, {
       ...opts,
       subtitle: (sheet, total) => {
@@ -112,7 +136,7 @@ export function SheetPrintDialog({ source, canvasRef, opts, onClose }: Props) {
         onClick={(e) => e.stopPropagation()}
       >
         <p className="confirm-dialog-title">{t("sheets.title")}</p>
-        <p className="confirm-dialog-body">{t("sheets.intro")}</p>
+        <p className="confirm-dialog-body">{t(source ? "sheets.intro" : "sheets.intro.one")}</p>
 
         <div className="sheet-dialog-row sheet-dialog-papers">
           <span className="chart-settings-heading">{t("sheets.paper")}</span>
@@ -183,25 +207,28 @@ export function SheetPrintDialog({ source, canvasRef, opts, onClose }: Props) {
           </div>
         </div>
 
-        <div className="sheet-dialog-row">
-          <span className="chart-settings-heading">{t("sheets.size")}</span>
-          <div className="chart-settings-segmented">
-            {PRINT_SIZES.map((s) => (
-              <button
-                key={s}
-                className={size === s ? "active" : ""}
-                onClick={() => setSize(s)}
-                title={t(`sheets.size.${s}.tip`)}
-              >
-                {t(`sheets.size.${s}`)}
-              </button>
-            ))}
+        {/* Only a layered chart can be cut, so only it is asked how far. */}
+        {source && (
+          <div className="sheet-dialog-row">
+            <span className="chart-settings-heading">{t("sheets.size")}</span>
+            <div className="chart-settings-segmented">
+              {PRINT_SIZES.map((s) => (
+                <button
+                  key={s}
+                  className={size === s ? "active" : ""}
+                  onClick={() => setSize(s)}
+                  title={t(`sheets.size.${s}.tip`)}
+                >
+                  {t(`sheets.size.${s}`)}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         <p className={`sheet-dialog-count${paper ? "" : " is-hint"}`} aria-live="polite">
           {paper
-            ? `${t("sheets.count", { count: sheets.length })} · ${t("sheets.scale", {
+            ? `${t("sheets.count", { count: source ? sheets.length : 1 })} · ${t("sheets.scale", {
                 pct: Math.round(scale * 100),
               })}`
             : t("sheets.custom.range", { min: CUSTOM_MM_MIN, max: CUSTOM_MM_MAX })}

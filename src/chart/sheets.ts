@@ -118,6 +118,30 @@ export const PRINT_SCALE: Record<Exclude<PrintSize, "fit">, number> = {
   small: 0.3,
 };
 
+/** A chosen page: the paper, and which way round it goes. Every print starts
+ *  here — the ones that split into sheets add a {@link PrintSize} on top. */
+export interface PrintPaper {
+  paper: PaperSize;
+  orientation: Orientation;
+}
+
+/**
+ * The one scale a print comes out at: the largest that still lands every page
+ * inside the printable box.
+ *
+ * Taken across the whole set, so a box is the same size on every sheet — a
+ * sparse continuation sheet blown up to fill its own page would read as a
+ * different chart. It is free to go *above* 1: at native size a modest chart on
+ * a plotter sheet would be a stamp in a metre of white paper, and "100%" means
+ * nothing on paper anyway.
+ */
+export function fillScale(
+  pages: { width: number; height: number }[],
+  box: { w: number; h: number },
+): number {
+  return Math.min(...pages.map((p) => Math.min(box.w / p.width, box.h / p.height)));
+}
+
 /** The whole sheet of paper, in px — what `@page { size }` is set to. */
 export function paperPx(paper: PaperSize, orientation: Orientation): { w: number; h: number } {
   const { w, h } = paperMm(paper, orientation);

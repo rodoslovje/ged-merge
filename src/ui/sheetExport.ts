@@ -26,12 +26,12 @@ import {
 } from "../chart/treeLayout";
 import type { TreeNode } from "../chart/personTree";
 import {
+  fillScale,
   pageBox,
   paperPx,
   sheetBudget,
   splitIntoSheets,
-  type Orientation,
-  type PaperSize,
+  type PrintPaper,
   type PrintSize,
   type Sheet,
 } from "../chart/sheets";
@@ -66,9 +66,7 @@ export interface SheetChartSource {
   ancestors: boolean;
 }
 
-export interface SheetPaper {
-  paper: PaperSize;
-  orientation: Orientation;
+export interface SheetPaper extends PrintPaper {
   /** How small the print may go — what really decides the sheet count. */
   size: PrintSize;
 }
@@ -83,20 +81,6 @@ export function planSheets(src: SheetChartSource, { paper, orientation, size }: 
   });
 }
 
-/**
- * The one scale the whole set prints at: the largest that still lands every
- * sheet inside the printable box.
- *
- * Taken across all the sheets, so a box is the same size on every one of them —
- * a sparse continuation sheet blown up to fill its own page would read as a
- * different chart. It is free to go *above* 1: at native size a modest chart on
- * a plotter sheet would be a stamp in a metre of white paper, and "100%" means
- * nothing on paper anyway.
- */
-function setScale(sheets: { width: number; height: number }[], box: { w: number; h: number }): number {
-  return Math.min(...sheets.map((s) => Math.min(box.w / s.width, box.h / s.height)));
-}
-
 /** What the print will come out at, for the dialog to show before committing to
  *  it — a chart shrunk to 8% is a chart nobody can read, and the user should
  *  hear that from the dialog rather than from the printer. Measured on the
@@ -107,7 +91,7 @@ export function planPrintScale(src: SheetChartSource, paper: SheetPaper, sheets:
     const { width, height } = laySheet(src, s);
     return { width, height: height + HEADER_H + FOOTER_H };
   });
-  return setScale(laid, pageBox(paper.paper, paper.orientation));
+  return fillScale(laid, pageBox(paper.paper, paper.orientation));
 }
 
 /** A planned sheet, laid out and flattened ready to draw. */
@@ -162,7 +146,7 @@ export async function printChartSheets(
     ),
   );
 
-  const scale = setScale(built, pageBox(paper.paper, paper.orientation));
+  const scale = fillScale(built, pageBox(paper.paper, paper.orientation));
   const docTitle = opts.fileName ? `${opts.fileName}.gedmerge` : opts.title;
   printSheetSet(built, paperPx(paper.paper, paper.orientation), scale, docTitle);
 }
