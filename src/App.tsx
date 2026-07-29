@@ -1845,8 +1845,15 @@ function AppContent() {
               onFixDates={() => applyToolPatches(fixDates(mainDataset))}
               onFixDuplicatePointers={() => applyToolPatches(fixDuplicatePointers(mainDataset))}
               onFillPlaceCoords={() => applyToolPatches(fillPlaceCoordsFromFile(mainDataset))}
-              onMergeDuplicate={(survivorId, removedId, decision) =>
-                applyToolPatches(mergeDuplicate(mainDataset, survivorId, removedId, decision, t)) > 0}
+              onMergeDuplicate={(survivorId, removedId, decision) => {
+                if (applyToolPatches(mergeDuplicate(mainDataset, survivorId, removedId, decision, t)) === 0) return false;
+                // The absorbed record is gone from the dataset. Anything still
+                // pointing at it would render the "no person" empty state, so
+                // follow it to the survivor it was merged into.
+                if (editPersonId === removedId) setNavigateToId(survivorId);
+                if (startId === removedId) changeStart(survivorId);
+                return true;
+              }}
               rejectedDuplicates={rejectedDuplicates}
               onRejectDuplicate={(aId, bId) => {
                 const next = new Set(rejectedDuplicates);

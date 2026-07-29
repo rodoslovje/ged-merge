@@ -11,7 +11,13 @@ import {
 import { categorize, DEFAULT_CONFIG, type MatchCategory } from "../../match/types";
 import { xrefLabel } from "../../gedcom/nameDisplay";
 import { individualFieldRows } from "../../review/fields";
-import { duplicateDefaults, relatedSeparateRecords } from "../../tools/mergeDuplicate";
+import {
+  PARENTS_KEY,
+  duplicateDefaults,
+  hasParentsOnMain,
+  isParentRow,
+  relatedSeparateRecords,
+} from "../../tools/mergeDuplicate";
 import { defaultChoice, type CandidateDecision, type FieldChoice, type FieldRow } from "../../review/types";
 import { type PersonNav } from "../ReadOnlyCompare";
 import { KEY, isEditableTarget, isModalOpen } from "../../keyboard/shortcuts";
@@ -628,7 +634,28 @@ function DuplicateCompare({
   };
   const setChoice = (key: string, c: FieldChoice) => setFields({ ...fields, [key]: c });
 
+  // The parents block is one either/or choice: father and mother are two slots
+  // of the same family, and a person has one set of parents. So the buttons sit
+  // once on the "Parents" header and the two rows below only show what each
+  // choice keeps — see `parentsChoice` in mergeDuplicate.
+  const hasParentRows = rows.some((r) => isParentRow(r.key));
+  const parentsChoice = fields[PARENTS_KEY] ?? (hasParentsOnMain(rows) ? "main" : "incoming");
+
+  function renderParentsChoice() {
+    return CHOICES.map((c) => (
+      <button
+        key={c}
+        className={`choice ${c}${parentsChoice === c ? " active" : ""}`}
+        title={t(`tools.duplicates.parents.${c}`)}
+        onClick={() => setChoice(PARENTS_KEY, c)}
+      >
+        {t(`choice.${c}.label`)}
+      </button>
+    ));
+  }
+
   function renderChoiceCell(row: FieldRow, choice: FieldChoice) {
+    if (isParentRow(row.key)) return null; // driven by the shared Parents control
     if (row.state === "conflict" || row.state === "incoming-only") {
       return CHOICES.map((c) => (
         <button
@@ -660,6 +687,15 @@ function DuplicateCompare({
           {rows.map((row) => {
             if (row.isGroupHeader) {
               const isEventHeader = !!row.isEventHeader;
+              // The parents header carries the block's single choice.
+              if (row.key === "parents.header" && hasParentRows) {
+                return (
+                  <tr key={row.key} className="group-header-row">
+                    <td colSpan={3} className="group-header-cell">{row.label}</td>
+                    <td className="f-choice">{renderParentsChoice()}</td>
+                  </tr>
+                );
+              }
               return (
                 <tr key={row.key} className={isEventHeader ? "group-header-row event-header-row" : "group-header-row"}>
                   <td colSpan={4} className={isEventHeader ? "group-header-cell event-header-cell" : "group-header-cell"}>
@@ -668,7 +704,7 @@ function DuplicateCompare({
                 </tr>
               );
             }
-            const choice = fields[row.key] ?? defaultChoice(row);
+            const choice = isParentRow(row.key) ? parentsChoice : fields[row.key] ?? defaultChoice(row);
             const hasSources = !!(row.mainSources || row.incomingSources || row.mainLinkIcons || row.incomingLinkIcons);
             return (
               <tr key={row.key} className={`field ${row.state}`}>
@@ -761,7 +797,12 @@ function DuplicateCompare({
       {confirming && (
         <ConfirmDialog
           danger
-          message={t("tools.duplicates.mergeConfirm", { survivor: pair.aLabel, removed: pair.bLabel })}
+          // Both sides usually carry the same name, so the ids and the
+          // left/right wording are what tells the two records apart.
+          message={t("tools.duplicates.mergeConfirm", {
+            survivor: `${pair.aLabel} ${xrefLabel(pair.aId)}`,
+            removed: `${pair.bLabel} ${xrefLabel(pair.bId)}`,
+          })}
           confirmLabel={t("tools.duplicates.merge")}
           onConfirm={() => {
             setConfirming(false);

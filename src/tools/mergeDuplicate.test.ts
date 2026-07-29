@@ -98,20 +98,83 @@ describe("mergeDuplicate", () => {
     expect(validateDataset(ds).counts.brokenLink).toBe(0);
   });
 
-  it("keeps the survivor's parents when the parent row is set to main", () => {
-    const ds = dataset(wrap(
-      "0 @I1@ INDI\n1 NAME Otrok /Novak/\n1 SEX M\n1 FAMC @F1@\n" +
-      "0 @I2@ INDI\n1 NAME Otrok /Novak/\n1 SEX M\n1 FAMC @F2@\n" +
-      "0 @I3@ INDI\n1 NAME Oče /Novak/\n1 SEX M\n1 FAMS @F1@\n" +
-      "0 @I4@ INDI\n1 NAME Drug /Drugic/\n1 SEX M\n1 FAMS @F2@\n" +
-      "0 @F1@ FAM\n1 HUSB @I3@\n1 CHIL @I1@\n" +
-      "0 @F2@ FAM\n1 HUSB @I4@\n1 CHIL @I2@\n",
-    ));
-    mergeDuplicate(ds, "@I1@", "@I2@", decide({ father: "main" }), tr);
+  // A person has one set of parents, so the two parent families are an
+  // either/or choice — not the union partners and children get.
+  const twoParentCouples = wrap(
+    "0 @I1@ INDI\n1 NAME Otrok /Novak/\n1 SEX M\n1 FAMC @F1@\n" +
+    "0 @I2@ INDI\n1 NAME Otrok /Novak/\n1 SEX M\n1 FAMC @F2@\n" +
+    "0 @I3@ INDI\n1 NAME Oče /Novak/\n1 SEX M\n1 FAMS @F1@\n" +
+    "0 @I5@ INDI\n1 NAME Mati /Novak/\n1 SEX F\n1 FAMS @F1@\n" +
+    "0 @I4@ INDI\n1 NAME Drug /Drugic/\n1 SEX M\n1 FAMS @F2@\n" +
+    "0 @I6@ INDI\n1 NAME Druga /Drugic/\n1 SEX F\n1 FAMS @F2@\n" +
+    "0 @F1@ FAM\n1 HUSB @I3@\n1 WIFE @I5@\n1 CHIL @I1@\n" +
+    "0 @F2@ FAM\n1 HUSB @I4@\n1 WIFE @I6@\n1 CHIL @I2@\n",
+  );
+
+  it("keeps the survivor's own parents by default", () => {
+    const ds = dataset(twoParentCouples);
+    const rows = individualFieldRows(tr, ds.individuals.get("@I1@"), ds.individuals.get("@I2@"), ds, ds);
+    expect(duplicateDefaults(rows)["parents"]).toBe("main");
+
+    mergeDuplicate(ds, "@I1@", "@I2@", decide({}), tr);
 
     const survivor = ds.individuals.get("@I1@")!;
-    // Survivor keeps only its own parent family @F1@; @I4@ was not brought in.
+    // Only its own parent family @F1@; the candidate's parents were not added.
     expect(survivor.childOf).toEqual(["@F1@"]);
+    // @F2@ and its people survive, just without this child — the duplicate
+    // finder can still merge @I3@/@I4@ and @I5@/@I6@ afterwards.
+    expect(ds.families.get("@F2@")!.children).toEqual([]);
+    expect(ds.individuals.has("@I4@")).toBe(true);
+    expect(validateDataset(ds).counts.brokenLink).toBe(0);
+  });
+
+  it("swaps in the candidate's parents when the parents choice is incoming", () => {
+    const ds = dataset(twoParentCouples);
+    mergeDuplicate(ds, "@I1@", "@I2@", decide({ parents: "incoming" }), tr);
+
+    const survivor = ds.individuals.get("@I1@")!;
+    expect(survivor.childOf).toEqual(["@F2@"]);
+    expect(ds.families.get("@F1@")!.children).toEqual([]);
+    expect(validateDataset(ds).counts.brokenLink).toBe(0);
+  });
+
+  it("keeps both parent families when the parents choice is both", () => {
+    const ds = dataset(twoParentCouples);
+    mergeDuplicate(ds, "@I1@", "@I2@", decide({ parents: "both" }), tr);
+
+    const survivor = ds.individuals.get("@I1@")!;
+    expect(new Set(survivor.childOf)).toEqual(new Set(["@F1@", "@F2@"]));
+    expect(validateDataset(ds).counts.brokenLink).toBe(0);
+  });
+
+  it("inherits the candidate's parents when the survivor has none", () => {
+    const ds = dataset(wrap(
+      "0 @I1@ INDI\n1 NAME Otrok /Novak/\n1 SEX M\n" +
+      "0 @I2@ INDI\n1 NAME Otrok /Novak/\n1 SEX M\n1 FAMC @F2@\n" +
+      "0 @I4@ INDI\n1 NAME Oče /Novak/\n1 SEX M\n1 FAMS @F2@\n" +
+      "0 @I6@ INDI\n1 NAME Mati /Novak/\n1 SEX F\n1 FAMS @F2@\n" +
+      "0 @F2@ FAM\n1 HUSB @I4@\n1 WIFE @I6@\n1 CHIL @I2@\n",
+    ));
+    const rows = individualFieldRows(tr, ds.individuals.get("@I1@"), ds.individuals.get("@I2@"), ds, ds);
+    expect(duplicateDefaults(rows)["parents"]).toBe("incoming");
+
+    mergeDuplicate(ds, "@I1@", "@I2@", decide({}), tr);
+    expect(ds.individuals.get("@I1@")!.childOf).toEqual(["@F2@"]);
+    expect(validateDataset(ds).counts.brokenLink).toBe(0);
+  });
+
+  it("folds the two parent families once the duplicate parents are merged too", () => {
+    const ds = dataset(twoParentCouples);
+    mergeDuplicate(ds, "@I1@", "@I2@", decide({ parents: "both" }), tr);
+    // Merging the duplicate fathers, then the mothers, collapses the couple.
+    mergeDuplicate(ds, "@I3@", "@I4@", decide({}), tr);
+    mergeDuplicate(ds, "@I5@", "@I6@", decide({}), tr);
+
+    const survivor = ds.individuals.get("@I1@")!;
+    expect(survivor.childOf.length).toBe(1);
+    const fam = ds.families.get(survivor.childOf[0])!;
+    expect(fam.husband).toBe("@I3@");
+    expect(fam.wife).toBe("@I5@");
     expect(validateDataset(ds).counts.brokenLink).toBe(0);
   });
 

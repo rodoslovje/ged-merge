@@ -366,9 +366,13 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
 
   const goBack = useStableHandler(() => {
     setHistory((h) => {
-      if (h.length === 0) return h;
-      setSelectedId(h[h.length - 1]);
-      return h.slice(0, -1);
+      // Skip entries whose record is gone (deleted, or absorbed by a duplicate
+      // merge) — landing on a dead id would render the empty state.
+      let i = h.length - 1;
+      while (i >= 0 && !dataset.individuals.has(h[i])) i--;
+      if (i < 0) return [];
+      setSelectedId(h[i]);
+      return h.slice(0, i);
     });
   });
 
