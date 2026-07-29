@@ -33,19 +33,62 @@ import {
 
 // ─── Paper ────────────────────────────────────────────────────────────────────
 
-export type PaperSize = "a4" | "a3" | "letter";
+/** The papers offered by name. The A series runs up to A0 because a wall chart
+ *  is exactly what a plotter or a copy shop is for. */
+export type PaperName = "a4" | "a3" | "a2" | "a1" | "a0" | "letter";
+
+/** A size the user typed instead, in millimetres — plotter rolls (say
+ *  1100 × 2000) and anything else no standard name covers. It is taken as
+ *  given: the width is the width, so {@link Orientation} has nothing left to
+ *  say about it. */
+export interface CustomPaper {
+  wMm: number;
+  hMm: number;
+}
+
+export type PaperSize = PaperName | CustomPaper;
 export type Orientation = "portrait" | "landscape";
 
-export const PAPER_SIZES: PaperSize[] = ["a4", "a3", "letter"];
+export const PAPER_NAMES: PaperName[] = ["a4", "a3", "a2", "a1", "a0", "letter"];
 export const ORIENTATIONS: Orientation[] = ["landscape", "portrait"];
 
-/** Paper dimensions in CSS pixels at 96 dpi (portrait), the unit `@page { size }`
- *  and the rest of the export pipeline work in. */
-const PAPER_PX: Record<PaperSize, { w: number; h: number }> = {
-  a4: { w: 794, h: 1123 }, // 210 × 297 mm
-  a3: { w: 1123, h: 1587 }, // 297 × 420 mm
-  letter: { w: 816, h: 1056 }, // 8.5 × 11 in
+/** What a typed size may be, in mm: from a postcard to a ten-metre roll. */
+export const CUSTOM_MM_MIN = 50;
+export const CUSTOM_MM_MAX = 10000;
+
+/** Paper dimensions in millimetres, portrait. */
+const PAPER_MM: Record<PaperName, { w: number; h: number }> = {
+  a4: { w: 210, h: 297 },
+  a3: { w: 297, h: 420 },
+  a2: { w: 420, h: 594 },
+  a1: { w: 594, h: 841 },
+  a0: { w: 841, h: 1189 },
+  letter: { w: 215.9, h: 279.4 }, // 8.5 × 11 in
 };
+
+/** mm → CSS pixels at 96 dpi, the unit `@page { size }` and the rest of the
+ *  export pipeline work in. */
+function mmToPx(mm: number): number {
+  return Math.round((mm * 96) / 25.4);
+}
+
+export function isCustomPaper(paper: PaperSize): paper is CustomPaper {
+  return typeof paper !== "string";
+}
+
+/**
+ * The paper in millimetres — what the custom fields start from when they are
+ * opened on a named paper, and the size a custom paper simply is.
+ */
+export function paperMm(paper: PaperSize, orientation: Orientation): { w: number; h: number } {
+  if (isCustomPaper(paper)) {
+    const clamp = (mm: number) =>
+      Math.min(CUSTOM_MM_MAX, Math.max(CUSTOM_MM_MIN, Number.isFinite(mm) ? mm : CUSTOM_MM_MIN));
+    return { w: clamp(paper.wMm), h: clamp(paper.hMm) };
+  }
+  const { w, h } = PAPER_MM[paper];
+  return orientation === "landscape" ? { w: h, h: w } : { w, h };
+}
 
 /** Printer-safe margin on every side, in px (≈ 6.3 mm). */
 export const PAGE_MARGIN = 24;
@@ -73,8 +116,8 @@ export const PRINT_SCALE: Record<PrintSize, number> = {
 
 /** The whole sheet of paper, in px — what `@page { size }` is set to. */
 export function paperPx(paper: PaperSize, orientation: Orientation): { w: number; h: number } {
-  const { w, h } = PAPER_PX[paper];
-  return orientation === "landscape" ? { w: h, h: w } : { w, h };
+  const { w, h } = paperMm(paper, orientation);
+  return { w: mmToPx(w), h: mmToPx(h) };
 }
 
 /** The printable box of one page, in px, after {@link PAGE_MARGIN}. */
