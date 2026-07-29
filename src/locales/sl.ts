@@ -171,7 +171,7 @@ export const sl = {
   "tools.duplicates.mergeConfirmAlso": "Sorodniki, ki ste jih označili ({{names}}), bodo združeni najprej, vsak ohrani svoj levi zapis.",
   "tools.duplicates.parents.main": "Ohrani starše levega zapisa",
   "tools.duplicates.parents.incoming": "Namesto tega uporabi starše desnega zapisa",
-  "tools.duplicates.parents.both": "Ohrani oboje starše (posvojitelji ali krušni starši)",
+  "tools.duplicates.parents.both": "Ohrani obe družini staršev (posvojitelji ali krušni starši)",
   "tools.duplicates.scoreFilter": "Prikaži samo pare z vsaj toliko točkami. Višje skrije šibkejše zadetke, nižje jih pokaže več.",
   "tools.duplicates.hiddenByScore": "{{count}} šibkejših parov skritih",
   "tools.duplicates.hiddenByScoreTip": "Znižajte oceno, da jih prikažete",
