@@ -8,8 +8,10 @@
 //
 // Exports are theme-independent: styles are resolved with the light palette
 // temporarily forced (so the same file comes out of a dark or light UI) and the
-// background stays transparent — light-theme ink reads fine on white paper and
-// on the white/checker canvas of most SVG viewers.
+// export is painted on an opaque white sheet. Light-theme ink on a transparent
+// background is a gamble on whatever the next program puts behind it — a dark
+// viewer, a coloured slide, a document theme — and losing it means an invisible
+// chart. White is what the paper it is headed for looks like anyway.
 
 // The presentation properties worth baking in. Deliberately omits `transform`
 // (kept as the element's attribute — a CSS matrix would fight it) and layout
@@ -315,6 +317,10 @@ function textWidth(text: string, font: string): number {
   return measureCtx.measureText(text).width;
 }
 
+/** The sheet the export is painted on. Also what makes the diagram legible in a
+ *  dark-themed viewer — the job the halo filter below used to do, for nothing. */
+export const PAPER_WHITE = "#ffffff";
+
 // The exported diagram carries no SVG filter of its own — deliberately. It used
 // to render through a white-halo filter, so that a transparent-background export
 // stayed legible on a dark viewer backdrop. The cost was out of all proportion:
@@ -440,6 +446,15 @@ export function wrapWithBands(
     `translate(${(totalW - diagramW) / 2},${HEADER_H + (bandH - diagramH) / 2})`,
   );
   while (clone.firstChild) content.appendChild(clone.firstChild);
+
+  // The sheet, first so everything else paints over it.
+  const sheet = document.createElementNS(SVG_NS, "rect");
+  sheet.setAttribute("x", "0");
+  sheet.setAttribute("y", "0");
+  sheet.setAttribute("width", String(totalW));
+  sheet.setAttribute("height", String(totalH));
+  sheet.setAttribute("fill", PAPER_WHITE);
+  clone.appendChild(sheet);
 
   // Diagram, header and footer all hang off one plain group — no filter on it
   // (see the note above the band constants).
@@ -653,8 +668,8 @@ export function escapeHtml(s: string): string {
 
 /**
  * Find the diagram SVG inside a `.tree-canvas` element and export it, wrapped in
- * a titled header + site/timestamp footer (light palette, transparent
- * background). No-op if the SVG is absent.
+ * a titled header + site/timestamp footer (light palette on a white sheet).
+ * No-op if the SVG is absent.
  */
 export function exportCanvasSvg(canvas: HTMLElement | null, fileName: string, title: string): void {
   const svg = canvas?.querySelector("svg.tree-svg") as SVGSVGElement | null;

@@ -55,6 +55,8 @@ test("chart exports carry no SVG filter, so text stays vector in the PDF", async
   expect(svgContent).not.toContain("<filter");
   // The names are still there, as text a PDF can keep as fonts.
   expect(svgContent).toContain("<text");
+  // …on an opaque white sheet, so light-theme ink can't land on a dark backdrop.
+  expect(svgContent).toMatch(/<rect x="0" y="0" width="\d+" height="\d+" fill="#ffffff"/);
 
   await page.locator(".export-menu .tree-export-btn").click();
   await page.getByRole("menuitem", { name: "PDF (print)" }).click();
