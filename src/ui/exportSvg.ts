@@ -315,27 +315,16 @@ function textWidth(text: string, font: string): number {
   return measureCtx.measureText(text).width;
 }
 
-// The export background is transparent, so hairlines and text would vanish on a
-// dark backdrop. A soft white halo behind everything keeps them readable there
-// while staying invisible on white. Built from core SVG 1.1 primitives (dilate +
-// blur + flood) rather than feDropShadow for maximum viewer compatibility.
-const HALO_ID = "gm-halo";
-
-function svgHaloFilter(): SVGDefsElement {
-  const defs = document.createElementNS(SVG_NS, "defs");
-  defs.innerHTML =
-    `<filter id="${HALO_ID}" x="-2%" y="-2%" width="104%" height="104%">` +
-    `<feMorphology in="SourceAlpha" operator="dilate" radius="1.5" result="spread"></feMorphology>` +
-    `<feGaussianBlur in="spread" stdDeviation="1" result="blurred"></feGaussianBlur>` +
-    `<feFlood flood-color="#ffffff" flood-opacity="0.85"></feFlood>` +
-    `<feComposite in2="blurred" operator="in" result="halo"></feComposite>` +
-    `<feMerge>` +
-    `<feMergeNode in="halo"></feMergeNode>` +
-    `<feMergeNode in="SourceGraphic"></feMergeNode>` +
-    `</feMerge>` +
-    `</filter>`;
-  return defs;
-}
+// The exported diagram carries no SVG filter of its own — deliberately. It used
+// to render through a white-halo filter, so that a transparent-background export
+// stayed legible on a dark viewer backdrop. The cost was out of all proportion:
+// a filtered group cannot stay vector in a PDF, so every name in the chart was
+// rasterized. Measured on a 400-box diagram printed through Chromium, the halo
+// turned a 31 KB, 56 ms, fully selectable PDF into a 1.3 MB, 15 s one holding
+// two bitmaps and no fonts at all — text that dissolves the moment the reader
+// zooms in, on exactly the wall charts people zoom into. (It also made Firefox's
+// macOS "Save to PDF" come out blank.) Legibility on a dark backdrop is the
+// viewer's business; sharp text is ours.
 
 function svgText(text: string, x: number, y: number, attrs: Record<string, string>): SVGTextElement {
   const el = document.createElementNS(SVG_NS, "text");
@@ -418,16 +407,6 @@ export async function prepareDiagram(live: SVGSVGElement): Promise<PreparedDiagr
  * diagram. `svg`'s existing children become the diagram content, shifted below
  * the header — so it takes a whole prepared clone (the `.svg`/PDF exports) or a
  * freshly assembled one (a printed sheet) alike.
- *
- * @param haloFilter bake in the white halo behind hairlines/text. Default on,
- *   for the standalone `.svg` download. The print/PDF paths turn it off: the
- *   halo exists only so a transparent-background export stays legible on a
- *   dark-themed viewer, which doesn't apply to a printed page (always opaque
- *   white paper) — and confirmed by hand, this specific filter combination
- *   (feMorphology dilate + feGaussianBlur + feComposite + feMerge) makes
- *   Firefox's macOS "Save to PDF" pipeline rasterize the page as fully blank,
- *   even though the identical markup renders fine on-screen and in Firefox's own
- *   print preview.
  */
 export function wrapWithBands(
   svg: SVGSVGElement,
@@ -435,7 +414,6 @@ export function wrapWithBands(
   diagramH: number,
   opts: SvgExportOptions,
   foreground: string,
-  haloFilter = true,
 ): BuiltSvg {
   const clone = svg;
 
@@ -463,14 +441,9 @@ export function wrapWithBands(
   );
   while (clone.firstChild) content.appendChild(clone.firstChild);
 
-  // Everything renders through the white-halo filter so the export stays
-  // legible on dark backdrops despite the transparent background (skipped for
-  // print — see the `haloFilter` doc comment above).
+  // Diagram, header and footer all hang off one plain group — no filter on it
+  // (see the note above the band constants).
   const frame = document.createElementNS(SVG_NS, "g");
-  if (haloFilter) {
-    frame.setAttribute("filter", `url(#${HALO_ID})`);
-    clone.appendChild(svgHaloFilter());
-  }
   clone.appendChild(frame);
   frame.appendChild(content);
 
@@ -551,9 +524,9 @@ export function wrapWithBands(
 
 /** The whole live diagram as a standalone, banded SVG — the `.svg` download and
  *  the one-page print both start here. */
-async function buildExportSvg(live: SVGSVGElement, opts: SvgExportOptions, haloFilter = true): Promise<BuiltSvg> {
+async function buildExportSvg(live: SVGSVGElement, opts: SvgExportOptions): Promise<BuiltSvg> {
   const { clone, foreground, width, height } = await prepareDiagram(live);
-  return wrapWithBands(clone, width, height, opts, foreground, haloFilter);
+  return wrapWithBands(clone, width, height, opts, foreground);
 }
 
 export function serialize(svg: SVGSVGElement): string {
@@ -578,7 +551,7 @@ export async function downloadSvg(live: SVGSVGElement, fileName: string, opts: S
  * Uses a hidden iframe (not window.open) to dodge popup blockers.
  */
 export async function printSvg(live: SVGSVGElement, opts: SvgExportOptions): Promise<void> {
-  const { svg, width, height } = await buildExportSvg(live, opts, false);
+  const { svg, width, height } = await buildExportSvg(live, opts);
   // Make the SVG fill the print page; the @page size matches its pixel extent.
   svg.removeAttribute("width");
   svg.removeAttribute("height");
@@ -636,14 +609,30 @@ export function printSheetSet(
  * Open the print dialog on a complete HTML document, via a hidden iframe (not
  * window.open) to dodge popup blockers. Also used by the report pages, which
  * print styled HTML instead of an SVG.
+ *
+ * The iframe holds the *source* the printer renders from, so it has to outlive
+ * the whole dialog — and a print dialog can be a long visit: picking a PDF
+ * printer and defining a custom paper size for a wall chart takes minutes, and
+ * the page is only laid out for that paper once it is chosen. Tearing the iframe
+ * down on a short timer produced exactly the reported symptom — a PDF holding
+ * one incomplete page — so the teardown now waits for `afterprint`, with only a
+ * far-away timer as a backstop for browsers that never fire it. A previous
+ * document is dropped when the next print starts, so at most one lingers.
  */
+let printFrame: HTMLIFrameElement | null = null;
+
 export function printDocument(doc: string): void {
+  printFrame?.remove();
   const iframe = document.createElement("iframe");
   iframe.setAttribute("aria-hidden", "true");
   iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;";
   document.body.appendChild(iframe);
+  printFrame = iframe;
 
-  const cleanup = () => iframe.remove();
+  const cleanup = () => {
+    if (printFrame === iframe) printFrame = null;
+    iframe.remove();
+  };
   iframe.onload = () => {
     const win = iframe.contentWindow;
     if (!win) { cleanup(); return; }
@@ -651,9 +640,8 @@ export function printDocument(doc: string): void {
     requestAnimationFrame(() => {
       win.focus();
       win.print();
-      // Tear down after the dialog returns; afterprint isn't reliable everywhere.
       win.addEventListener("afterprint", cleanup);
-      setTimeout(cleanup, 60000);
+      setTimeout(cleanup, 30 * 60_000);
     });
   };
   iframe.srcdoc = doc;

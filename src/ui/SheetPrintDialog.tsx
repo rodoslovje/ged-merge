@@ -13,7 +13,12 @@ import {
   type PaperSize,
   type PrintSize,
 } from "../chart/sheets";
-import { planSheets, printChartSheets, type SheetChartSource } from "./sheetExport";
+import {
+  planPrintScale,
+  planSheets,
+  printChartSheets,
+  type SheetChartSource,
+} from "./sheetExport";
 import type { SvgExportOptions } from "./exportSvg";
 
 // "Print in sheets" — pick the paper, see how many sheets the diagram will take,
@@ -72,6 +77,13 @@ export function SheetPrintDialog({ source, canvasRef, opts, onClose }: Props) {
   const sheets = useMemo(
     () => (paper ? planSheets(source, { paper, orientation, size }) : []),
     [source, paper, orientation, size],
+  );
+
+  // How much the set will be reduced (or enlarged) to sit on the paper — the
+  // number that says whether "one sheet" is a wall chart or an unreadable one.
+  const scale = useMemo(
+    () => (paper && sheets.length ? planPrintScale(source, { paper, orientation, size }, sheets) : 1),
+    [source, paper, orientation, size, sheets],
   );
 
   const print = () => {
@@ -189,7 +201,9 @@ export function SheetPrintDialog({ source, canvasRef, opts, onClose }: Props) {
 
         <p className={`sheet-dialog-count${paper ? "" : " is-hint"}`} aria-live="polite">
           {paper
-            ? t("sheets.count", { count: sheets.length })
+            ? `${t("sheets.count", { count: sheets.length })} · ${t("sheets.scale", {
+                pct: Math.round(scale * 100),
+              })}`
             : t("sheets.custom.range", { min: CUSTOM_MM_MIN, max: CUSTOM_MM_MAX })}
         </p>
 

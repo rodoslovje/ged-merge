@@ -103,12 +103,16 @@ export const PAGE_MARGIN = 24;
  * with every generation, so no amount of cleverness in the split will make it
  * both large and few. Large print is for a chart you will read at arm's length;
  * small is for the fewest sheets to tape up on a wall.
+ *
+ * `fit` is the end of that scale rather than a point on it: don't cut at all,
+ * and let the print shrink the whole diagram onto the one sheet, however small
+ * that turns out. It is what a plotter-sized sheet is for.
  */
-export type PrintSize = "large" | "medium" | "small";
+export type PrintSize = "large" | "medium" | "small" | "fit";
 
-export const PRINT_SIZES: PrintSize[] = ["large", "medium", "small"];
+export const PRINT_SIZES: PrintSize[] = ["large", "medium", "small", "fit"];
 
-export const PRINT_SCALE: Record<PrintSize, number> = {
+export const PRINT_SCALE: Record<Exclude<PrintSize, "fit">, number> = {
   large: 0.75,
   medium: 0.5,
   small: 0.3,
@@ -130,6 +134,9 @@ export function pageBox(paper: PaperSize, orientation: Orientation): { w: number
  * How much diagram one sheet may carry, in canvas pixels: the printable page box
  * blown up by the reduction we are willing to print at, less the fixed height of
  * the export's header and footer bands (which ride along at the same scale).
+ *
+ * "One sheet" sets no limit at all — nothing is ever cut, and the print then
+ * scales whatever comes out onto the single page.
  */
 export function sheetBudget(
   paper: PaperSize,
@@ -137,6 +144,7 @@ export function sheetBudget(
   bandsH: number,
   size: PrintSize = "medium",
 ): { w: number; h: number } {
+  if (size === "fit") return { w: Infinity, h: Infinity };
   const box = pageBox(paper, orientation);
   const scale = PRINT_SCALE[size];
   return { w: box.w / scale, h: box.h / scale - bandsH };
