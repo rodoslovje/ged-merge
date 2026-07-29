@@ -26,12 +26,12 @@ import {
 } from "../chart/treeLayout";
 import type { TreeNode } from "../chart/personTree";
 import {
+  fillScale,
   pageBox,
   paperPx,
   sheetBudget,
   splitIntoSheets,
-  type Orientation,
-  type PaperSize,
+  type PrintPaper,
   type PrintSize,
   type Sheet,
 } from "../chart/sheets";
@@ -66,9 +66,7 @@ export interface SheetChartSource {
   ancestors: boolean;
 }
 
-export interface SheetPaper {
-  paper: PaperSize;
-  orientation: Orientation;
+export interface SheetPaper extends PrintPaper {
   /** How small the print may go — what really decides the sheet count. */
   size: PrintSize;
 }
@@ -81,6 +79,19 @@ export function planSheets(src: SheetChartSource, { paper, orientation, size }: 
     nodeH: src.nodeH,
     budget: sheetBudget(paper, orientation, HEADER_H + FOOTER_H, size),
   });
+}
+
+/** What the print will come out at, for the dialog to show before committing to
+ *  it — a chart shrunk to 8% is a chart nobody can read, and the user should
+ *  hear that from the dialog rather than from the printer. Measured on the
+ *  diagram alone, so it is a hair optimistic for a diagram narrower than the
+ *  header title. */
+export function planPrintScale(src: SheetChartSource, paper: SheetPaper, sheets: Sheet[]): number {
+  const laid = sheets.map((s) => {
+    const { width, height } = laySheet(src, s);
+    return { width, height: height + HEADER_H + FOOTER_H };
+  });
+  return fillScale(laid, pageBox(paper.paper, paper.orientation));
 }
 
 /** A planned sheet, laid out and flattened ready to draw. */
@@ -132,13 +143,10 @@ export async function printChartSheets(
       height,
       { ...opts, subtitle: opts.subtitle(sheet, sheets.length) },
       prepared.foreground,
-      false, // print never wants the halo filter — see wrapWithBands
     ),
   );
 
-  // One scale for the whole set, so a box is the same size on every sheet.
-  const box = pageBox(paper.paper, paper.orientation);
-  const scale = Math.min(1, ...built.map((b) => Math.min(box.w / b.width, box.h / b.height)));
+  const scale = fillScale(built, pageBox(paper.paper, paper.orientation));
   const docTitle = opts.fileName ? `${opts.fileName}.gedmerge` : opts.title;
   printSheetSet(built, paperPx(paper.paper, paper.orientation), scale, docTitle);
 }

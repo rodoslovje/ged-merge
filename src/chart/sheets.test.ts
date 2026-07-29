@@ -2,11 +2,15 @@ import { describe, expect, it } from "vitest";
 import type { TreeNode } from "./personTree";
 import { NODE_H, layout } from "./treeLayout";
 import {
+  CUSTOM_MM_MAX,
+  CUSTOM_MM_MIN,
   PRINT_SCALE,
   pageBox,
+  paperPx,
   sheetBudget,
   sheetCount,
   splitIntoSheets,
+  type PaperSize,
   type PrintSize,
   type SheetSplitOptions,
 } from "./sheets";
@@ -74,6 +78,28 @@ describe("paper geometry", () => {
     // Smaller print fits more diagram on the same page.
     expect(sheetBudget("a4", "landscape", 0, "small").w)
       .toBeGreaterThan(sheetBudget("a4", "landscape", 0, "large").w);
+  });
+
+  it("sizes the named papers off their millimetres", () => {
+    expect(paperPx("a4", "portrait")).toEqual({ w: 794, h: 1123 });
+    expect(paperPx("a3", "portrait")).toEqual({ w: 1123, h: 1587 });
+    expect(paperPx("letter", "portrait")).toEqual({ w: 816, h: 1056 });
+    // The A series doubles in area a step at a time: A2 is A3's long edge wide.
+    expect(paperPx("a2", "portrait").w).toBe(paperPx("a3", "portrait").h);
+    expect(paperPx("a1", "portrait").w).toBe(paperPx("a2", "portrait").h);
+    expect(paperPx("a0", "portrait").w).toBe(paperPx("a1", "portrait").h);
+  });
+
+  it("takes a custom size as typed, in millimetres, whatever the orientation", () => {
+    const roll = paperPx({ wMm: 1100, hMm: 2000 }, "landscape");
+    expect(roll).toEqual({ w: 4157, h: 7559 }); // 96 dpi
+    // Orientation is a named-paper affair; a typed size is already the way round
+    // the user meant it.
+    expect(paperPx({ wMm: 1100, hMm: 2000 }, "portrait")).toEqual(roll);
+    // Out-of-range figures are pulled back rather than producing a nonsense page.
+    expect(paperPx({ wMm: 0, hMm: 1e9 }, "portrait")).toEqual(
+      paperPx({ wMm: CUSTOM_MM_MIN, hMm: CUSTOM_MM_MAX }, "portrait"),
+    );
   });
 
   it("charges the header and footer bands to the sheet's height", () => {
@@ -206,7 +232,7 @@ describe("splitIntoSheets", () => {
   // is punished hardest: cutting one level too deep doubles the sheet count, and
   // every extra sheet holds a couple and nothing else.
   describe("pedigrees", () => {
-    const countAt = (g: number, paper: "a4" | "a3", orient: "portrait" | "landscape", size: PrintSize) =>
+    const countAt = (g: number, paper: PaperSize, orient: "portrait" | "landscape", size: PrintSize) =>
       sheetCount(pedigree(g), opts({ budget: sheetBudget(paper, orient, 86, size) }));
 
     it("cuts an 8-generation pedigree into a set you could actually print", () => {
@@ -235,6 +261,24 @@ describe("splitIntoSheets", () => {
           countAt(g, "a4", "landscape", "large"),
         );
       }
+    });
+
+    it("keeps paying off all the way up to A0 and a plotter roll", () => {
+      // The point of the big formats: the same pedigree on ever fewer sheets,
+      // down to one when the paper is finally as wide as the chart.
+      const counts = (["a4", "a3", "a2", "a1", "a0"] as PaperSize[]).map((p) =>
+        countAt(8, p, "landscape", "medium"),
+      );
+      for (let i = 1; i < counts.length; i++) {
+        expect(counts[i]).toBeLessThanOrEqual(counts[i - 1]);
+      }
+      expect(counts.at(-1)).toBeLessThan(counts[0]);
+      // A 2 × 1.1 m plotter roll is larger again than A0, and is treated as one
+      // page of exactly that size.
+      expect(countAt(8, { wMm: 2000, hMm: 1100 }, "landscape", "medium")).toBeLessThanOrEqual(
+        counts.at(-1)!,
+      );
+      expect(countAt(4, { wMm: 2000, hMm: 1100 }, "landscape", "medium")).toBe(1);
     });
 
     it("fills its sheets — no crop of near-empty continuations", () => {
