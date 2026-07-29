@@ -1846,12 +1846,20 @@ function AppContent() {
               onFixDuplicatePointers={() => applyToolPatches(fixDuplicatePointers(mainDataset))}
               onFillPlaceCoords={() => applyToolPatches(fillPlaceCoordsFromFile(mainDataset))}
               onMergeDuplicate={(survivorId, removedId, decision, alsoMerge) => {
-                // Ticked relatives merge first: their families fold together on
-                // their own, so this pair then finds one set of parents instead
-                // of having to drop a link (see `mergeDuplicateChain`).
+                // Ticked parents/partners merge first: their families fold
+                // together on their own, so this pair then finds one set of
+                // parents instead of having to drop a link. Ticked children go
+                // last, once the pair's families are one and their own merge has
+                // no parents choice left to make (see `mergeDuplicateChain`).
+                const step = (r: { survivorId: string; removedId: string }) => ({
+                  survivorId: r.survivorId,
+                  removedId: r.removedId,
+                  decision: { status: "confirmed" as const, fields: {} },
+                });
                 const steps = [
-                  ...alsoMerge.map((r) => ({ ...r, decision: { status: "confirmed" as const, fields: {} } })),
+                  ...alsoMerge.filter((r) => r.when === "before").map(step),
                   { survivorId, removedId, decision },
+                  ...alsoMerge.filter((r) => r.when === "after").map(step),
                 ];
                 if (applyToolPatches(mergeDuplicateChain(mainDataset, steps, t)) === 0) return false;
                 // The absorbed records are gone from the dataset. Anything still

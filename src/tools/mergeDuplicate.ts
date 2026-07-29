@@ -150,7 +150,9 @@ export interface DuplicateMergeStep {
  * those relatives **first** makes their two families collapse into one on their
  * own — so the pair that follows finds a single set of parents and no link has
  * to be dropped. Merging the child first instead severs the trail to the other
- * side's family, which is what `relatedSeparateRecords` warns about.
+ * side's family, which is what `relatedSeparateRecords` warns about. Duplicated
+ * *children* run the other way and belong at the end of the chain — see
+ * {@link relatedMergeOrder}.
  *
  * Per-record patches are composed (first `before`, last `after`) so the whole
  * chain undoes in one go, whatever a record was touched by.
@@ -225,8 +227,27 @@ export interface RelatedSeparateRecord {
   bId: string;
   /** Display name for the hint. */
   label: string;
-  /** Which relation surfaced it, for the message wording. */
-  relation: "partner" | "father" | "mother";
+  /** Which relation surfaced it, for the message wording and the merge order. */
+  relation: "partner" | "father" | "mother" | "child";
+}
+
+/**
+ * Where a related pair belongs in the chain around the merge it was surfaced by.
+ *
+ * Parents and partners have to go **first**: it is their two records that keep
+ * the two families apart, so until they are one record nothing folds and the
+ * pair being merged has to drop a link.
+ *
+ * Children are the mirror image — the dependency runs the other way. Two child
+ * records don't stop anything from folding; they are simply carried into the one
+ * surviving family and left sitting there as two siblings. Merging a child
+ * *first* would not help and would hit the very parents choice this ordering
+ * exists to avoid (each child record still has its own parent family at that
+ * point). Once the pair is merged the parents are one family, so the child pair
+ * merges cleanly with no choice to make — hence **after**.
+ */
+export function relatedMergeOrder(relation: RelatedSeparateRecord["relation"]): "before" | "after" {
+  return relation === "child" ? "after" : "before";
 }
 
 /**
@@ -237,9 +258,19 @@ export interface RelatedSeparateRecord {
  * be folded together. The duplicates panel surfaces these so the user merges
  * them too, completing the collapse.
  *
+ * Children are surfaced for the opposite reason: folding *does* work without
+ * them, and that is the problem — both records are carried into the one
+ * surviving family and stay there as two siblings, with nothing pointing them
+ * out. They merge after the pair rather than before it; see
+ * {@link relatedMergeOrder}.
+ *
  * Derived from the already-computed comparison rows so it matches exactly what
  * the panel aligns side-by-side (a pair with both an `id` on the main side and
- * a *different* `id` on the incoming side is one such relative).
+ * a *different* `id` on the incoming side is one such relative). Parents and
+ * partners are structural — one father, one mother, one spouse per family — but
+ * children are aligned by name similarity across two sibling sets, so a pair of
+ * genuinely different same-named siblings can show up here. The panel scores
+ * every pair and leaves them unticked, so nothing merges unasked.
  */
 export function relatedSeparateRecords(rows: FieldRow[]): RelatedSeparateRecord[] {
   const out: RelatedSeparateRecord[] = [];
@@ -256,6 +287,7 @@ export function relatedSeparateRecords(rows: FieldRow[]): RelatedSeparateRecord[
       row.key === "father" ? "father"
       : row.key === "mother" ? "mother"
       : row.key.endsWith(".partner") ? "partner"
+      : row.key.endsWith(".children") ? "child"
       : undefined;
     if (!relation || !row.relatives) continue;
 

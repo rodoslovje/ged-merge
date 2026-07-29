@@ -5,7 +5,13 @@ import { serializeGedcom } from "../gedcom/serialize";
 import { individualFieldRows } from "../review/fields";
 import type { CandidateDecision, FieldChoice } from "../review/types";
 import { validateDataset } from "./validate";
-import { mergeDuplicate, mergeDuplicateChain, duplicateDefaults, relatedSeparateRecords } from "./mergeDuplicate";
+import {
+  mergeDuplicate,
+  mergeDuplicateChain,
+  duplicateDefaults,
+  relatedMergeOrder,
+  relatedSeparateRecords,
+} from "./mergeDuplicate";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -263,6 +269,58 @@ describe("mergeDuplicate", () => {
     expect(fam.wife).toBe("@I3@");
     expect(fam.children).toContain("@I5@"); // Ivana
     expect(fam.children).toContain("@I6@"); // Franc
+    expect(validateDataset(ds).counts.brokenLink).toBe(0);
+  });
+
+  // Both Pavels are married to the *same* Barbara record, so their families fold
+  // on their own — but each side carries its own record of the son Janez, and
+  // folding just carries both into the one surviving family.
+  const twoJanezes = wrap(
+    "0 @I1@ INDI\n1 NAME Pavel /Fabjan/\n1 SEX M\n1 BIRT\n2 DATE 1770\n1 FAMS @F1@\n" +
+    "0 @I2@ INDI\n1 NAME Pavel /Fabjan/\n1 SEX M\n1 BIRT\n2 DATE 1770\n1 FAMS @F2@\n" +
+    "0 @I3@ INDI\n1 NAME Barbara /Gorjanc/\n1 SEX F\n1 BIRT\n2 DATE 1775\n1 FAMS @F1@\n1 FAMS @F2@\n" +
+    "0 @I5@ INDI\n1 NAME Janez /Fabjan/\n1 SEX M\n1 BIRT\n2 DATE 1800\n1 FAMC @F1@\n" +
+    "0 @I6@ INDI\n1 NAME Janez /Fabjan/\n1 SEX M\n1 BIRT\n2 DATE 1800\n1 FAMC @F2@\n" +
+    "0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I3@\n1 CHIL @I5@\n" +
+    "0 @F2@ FAM\n1 HUSB @I2@\n1 WIFE @I3@\n1 CHIL @I6@\n",
+  );
+
+  it("flags a child that is a separate record on each side, to merge after the pair", () => {
+    const ds = dataset(twoJanezes);
+    const rows = individualFieldRows(tr, ds.individuals.get("@I1@"), ds.individuals.get("@I2@"), ds, ds);
+    expect(relatedSeparateRecords(rows)).toEqual([
+      { aId: "@I5@", bId: "@I6@", label: "Janez Fabjan", relation: "child" },
+    ]);
+    expect(relatedMergeOrder("child")).toBe("after");
+    expect(relatedMergeOrder("partner")).toBe("before");
+  });
+
+  it("leaves the duplicated children as two siblings when only the pair is merged", () => {
+    const ds = dataset(twoJanezes);
+    mergeDuplicate(ds, "@I1@", "@I2@", decide({}), tr);
+
+    // Nothing is lost or broken — the two Janez records simply both end up in
+    // the one surviving family, which is why the panel offers to merge them.
+    const fam = ds.families.get(ds.individuals.get("@I1@")!.spouseOf[0])!;
+    expect(fam.children).toEqual(["@I5@", "@I6@"]);
+    expect(validateDataset(ds).counts.brokenLink).toBe(0);
+  });
+
+  it("collapses the duplicated children when they are merged after the pair", () => {
+    const ds = dataset(twoJanezes);
+    // What the panel builds when the child is ticked: the pair first, then the
+    // child — by then it has one set of parents, so no parents choice is needed.
+    mergeDuplicateChain(ds, [
+      { survivorId: "@I1@", removedId: "@I2@", decision: decide({}) },
+      { survivorId: "@I5@", removedId: "@I6@", decision: decide({}) },
+    ], tr);
+
+    const survivor = ds.individuals.get("@I1@")!;
+    expect(survivor.spouseOf.length).toBe(1);
+    const fam = ds.families.get(survivor.spouseOf[0])!;
+    expect(fam.children).toEqual(["@I5@"]);
+    expect(ds.individuals.get("@I5@")!.childOf).toEqual([fam.id]);
+    expect(ds.individuals.has("@I6@")).toBe(false);
     expect(validateDataset(ds).counts.brokenLink).toBe(0);
   });
 
