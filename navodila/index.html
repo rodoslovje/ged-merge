@@ -499,18 +499,28 @@
               diagram zaslonu; veliki diagrami prikažejo tudi pregledni zemljevid — s potegom po platnu se premikate.
               Vsaka vrsta ima meni <strong>Izvoz ▾</strong>: <strong>GEDCOM</strong> (prvi — prenese samo osebe,
               trenutno izrisane v diagramu, kot samostojno datoteko, ki jo lahko prijatelj združi v svoje drevo),
-              <strong>SVG</strong> (ostra, neskončno povečljiva slika) in <strong>PDF</strong> (odpre pogovorno okno
-              brskalnika za tiskanje, kjer izberete <em>Shrani kot PDF</em>). Poročilo namesto SVG ponuja
-              <strong>Tekstovno datoteko</strong>.
+              <strong>SVG</strong> (ostra, neskončno povečljiva slika) in <strong>PDF</strong> (najprej vpraša, na
+              kateri papir tiskate, nato odpre pogovorno okno brskalnika za tiskanje, kjer izberete <em>Shrani kot
+              PDF</em>). Poročilo namesto SVG ponuja <strong>Tekstovno datoteko</strong>.
             </p>
             <p>
               <strong>Tiskanje širokega diagrama.</strong> Diagram, po katerem se na zaslonu udobno premikate, običajno
-              ni natisljiv na eni strani: če ga stisnemo na A4, imena postanejo neberljiva. Vrsti <strong>Drevo</strong>
-              in <strong>Mreža</strong> zato v meniju Izvoz ponujata <strong>PDF po listih</strong>. Izberete papir (A4,
-              A3 ali Letter), usmerjenost in <strong>velikost tiska</strong>, okno pa pove, na koliko listov se bo diagram
-              natisnil; <strong>Natisni</strong> nato pošlje ves komplet v tiskanje, po en list na stran. Najbolj šteje
+              ni natisljiv na eni strani: če ga stisnemo na A4, imena postanejo neberljiva. Zato <strong>PDF</strong>
+              vedno najprej vpraša za papir — <strong>A4, A3, A2, A1, A0</strong>, <strong>Letter</strong> ali
+              <strong>Po meri</strong> — in diagram prilagodi nanj; če od tiskalnika zahtevamo stran v velikosti
+              diagrama, dobimo tisto, na kar se zasilno postavi gonilnik, večine diagrama pa ni. Pri vrstah
+              <strong>Drevo</strong> in <strong>Mreža</strong> isto okno doda še <strong>velikost tiska</strong>, saj se
+              ti dve vrsti lahko prerežeta na več listov, okno pa pove, na koliko listov se bo diagram
+              natisnil; <strong>Natisni</strong> nato pošlje ves komplet v tiskanje, po en list na stran. Veliki formati
+              so za risalnik ali kopirnico: širok diagram, ki zahteva ducat listov A4, se pogosto natisne na en sam A1.
+              <strong>Po meri</strong> sprejme poljubno velikost v milimetrih, tako da se zvitek za risalnik — denimo
+              1100 × 2000 mm — natisne kot en sam ogromen list; velikost po meri se uporabi točno tako, kot jo vnesete
+              (širina × višina), zato zanjo usmerjenost ne velja. Ne glede na papir se komplet pomanjša ali poveča tako,
+              da list zapolni, okno pa pove, koliko to nanese — <em>Natisne se na 3 liste · v 62 % velikosti</em>. Najbolj šteje
               velikost tiska: diagram prednikov se z vsakim rodom podvoji v širino, zato <em>Velika</em> (berljivo z
-              razdalje) lahko zahteva večkrat toliko listov kot <em>Majhna</em> (droben tisk za diagram na steni).
+              razdalje) lahko zahteva večkrat toliko listov kot <em>Majhna</em> (droben tisk za diagram na steni),
+              <em>En list</em> pa sploh ne reže — cel diagram se pomanjša na en sam izbrani list, pa naj imena postanejo
+              še tako drobna (poglejte odstotek).
               Spreminjajte jo in opazujte število listov — pomnite pa tudi, da <strong>Rodovi</strong> v nastavitvah
               diagrama in izklop vrstic s krajem, sliko ali sorodstvom diagram zmanjšajo, še preden se sploh prereže.
               Diagram se prereže na vejah in nikoli sredi
@@ -1371,7 +1381,7 @@
                 <tr><td><span class="gm-badge mod round">S</span></td><td>Spremenjeno — zapis, ki ste ga uredili (prikazano na diagramih)</td></tr>
                 <tr><td><span class="gm-badge rep">+7</span></td><td>Neprikazani sorodniki — omejitev <em>Rodovi</em> (§9) ustavi diagram pri tej osebi; število pove, koliko njenih potomcev (ali prednikov) ni izrisanih. Kliknite jo, da diagram prestavite nanjo.</td></tr>
                 <tr><td><span class="gm-badge rep round">→</span></td><td>Ponovljena oseba — v diagramu je že prikazana drugje, kjer je izrisana tudi njena veja; to mesto je namenoma prazno, značka pa je povezava, ki vas popelje tja (glejte <a href="#edit">§9</a>)</td></tr>
-                <tr><td><span class="gm-badge rep round">3</span></td><td>Nadaljuje se na listu 3 — samo pri natisnjenih listih (<em>PDF po listih</em>, §9): rodbinska črta te osebe ni šla na trenutni list in se nadaljuje na oštevilčenem</td></tr>
+                <tr><td><span class="gm-badge rep round">3</span></td><td>Nadaljuje se na listu 3 — samo pri natisnjenih listih (<em>PDF</em>, §9): rodbinska črta te osebe ni šla na trenutni list in se nadaljuje na oštevilčenem</td></tr>
               </tbody>
             </table>
             <p><strong>Oznake izbire polja</strong> — pravokotne, na plošči s primerjavo:</p>

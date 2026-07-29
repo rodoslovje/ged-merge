@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
-import { exportCanvasPdf, exportCanvasSvg } from "./exportSvg";
+import { exportCanvasSvg } from "./exportSvg";
 import { exportChartGedcom } from "./exportGedcom";
 import { ExportMenu, type ExportItem } from "./ExportMenu";
 import { GedIcon, ImageIcon, PrinterIcon } from "./icons/FormatIcons";
@@ -14,6 +14,11 @@ import type { SheetChartSource } from "./sheetExport";
 // (incoming-only people aren't in the main file), no `canvasRef` on the text
 // report — plus any page-specific items (the report's TXT and print doc)
 // appended after the standard ones.
+//
+// Printing always goes through the print dialog, whatever the chart: the paper
+// is the one thing the app cannot guess, and a page sized to the diagram is a
+// page no printer can make. The dialog offers the cut-into-sheets settings on
+// top when the page hands it a tree that can be cut.
 
 interface Props {
   /** Disable the whole menu while the chart hasn't been built yet. */
@@ -26,9 +31,9 @@ interface Props {
   gedcom?: { ds: Dataset; personIds: string[] };
   /** The `.tree-canvas` element hosting the diagram SVG, for SVG/PDF export. */
   canvasRef?: React.RefObject<HTMLDivElement | null>;
-  /** Offer "print in sheets": the layered charts (tidy tree and grid) can be cut
-   *  into page-sized sheets. Radial, timeline and relationship diagrams don't
-   *  split into rectangles, so they simply leave this out. */
+  /** Let the print cut the chart into page-sized sheets: the layered charts
+   *  (tidy tree and grid) can be. Radial, timeline and relationship diagrams
+   *  don't split into rectangles, so they leave this out and print whole. */
   sheets?: SheetChartSource;
   /** Page-specific items appended after the standard ones. */
   extraItems?: ExportItem[];
@@ -60,25 +65,16 @@ export function ChartExportMenu({ disabled, slug, title = "", gedcom, canvasRef,
         key: "pdf",
         icon: <PrinterIcon />,
         label: t("export.pdf"),
-        title: t("tree.exportPdf.tooltip"),
-        onSelect: () => exportCanvasPdf(canvasRef.current, slug, title),
+        title: t(sheets ? "export.sheets.tooltip" : "tree.exportPdf.tooltip"),
+        onSelect: () => setSheetDialog(true),
       },
     );
-    if (sheets) {
-      items.push({
-        key: "sheets",
-        icon: <PrinterIcon />,
-        label: t("export.sheets"),
-        title: t("export.sheets.tooltip"),
-        onSelect: () => setSheetDialog(true),
-      });
-    }
   }
   if (extraItems) items.push(...extraItems);
   return (
     <>
       <ExportMenu disabled={disabled} items={items} />
-      {sheetDialog && sheets && canvasRef && (
+      {sheetDialog && canvasRef && (
         <SheetPrintDialog
           source={sheets}
           canvasRef={canvasRef}

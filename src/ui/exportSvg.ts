@@ -8,8 +8,12 @@
 //
 // Exports are theme-independent: styles are resolved with the light palette
 // temporarily forced (so the same file comes out of a dark or light UI) and the
-// background stays transparent — light-theme ink reads fine on white paper and
-// on the white/checker canvas of most SVG viewers.
+// export is painted on an opaque white sheet. Light-theme ink on a transparent
+// background is a gamble on whatever the next program puts behind it — a dark
+// viewer, a coloured slide, a document theme — and losing it means an invisible
+// chart. White is what the paper it is headed for looks like anyway.
+
+import { fillScale, pageBox, paperPx, type PrintPaper } from "../chart/sheets";
 
 // The presentation properties worth baking in. Deliberately omits `transform`
 // (kept as the element's attribute — a CSS matrix would fight it) and layout
@@ -315,27 +319,20 @@ function textWidth(text: string, font: string): number {
   return measureCtx.measureText(text).width;
 }
 
-// The export background is transparent, so hairlines and text would vanish on a
-// dark backdrop. A soft white halo behind everything keeps them readable there
-// while staying invisible on white. Built from core SVG 1.1 primitives (dilate +
-// blur + flood) rather than feDropShadow for maximum viewer compatibility.
-const HALO_ID = "gm-halo";
+/** The sheet the export is painted on. Also what makes the diagram legible in a
+ *  dark-themed viewer — the job the halo filter below used to do, for nothing. */
+export const PAPER_WHITE = "#ffffff";
 
-function svgHaloFilter(): SVGDefsElement {
-  const defs = document.createElementNS(SVG_NS, "defs");
-  defs.innerHTML =
-    `<filter id="${HALO_ID}" x="-2%" y="-2%" width="104%" height="104%">` +
-    `<feMorphology in="SourceAlpha" operator="dilate" radius="1.5" result="spread"></feMorphology>` +
-    `<feGaussianBlur in="spread" stdDeviation="1" result="blurred"></feGaussianBlur>` +
-    `<feFlood flood-color="#ffffff" flood-opacity="0.85"></feFlood>` +
-    `<feComposite in2="blurred" operator="in" result="halo"></feComposite>` +
-    `<feMerge>` +
-    `<feMergeNode in="halo"></feMergeNode>` +
-    `<feMergeNode in="SourceGraphic"></feMergeNode>` +
-    `</feMerge>` +
-    `</filter>`;
-  return defs;
-}
+// The exported diagram carries no SVG filter of its own — deliberately. It used
+// to render through a white-halo filter, so that a transparent-background export
+// stayed legible on a dark viewer backdrop. The cost was out of all proportion:
+// a filtered group cannot stay vector in a PDF, so every name in the chart was
+// rasterized. Measured on a 400-box diagram printed through Chromium, the halo
+// turned a 31 KB, 56 ms, fully selectable PDF into a 1.3 MB, 15 s one holding
+// two bitmaps and no fonts at all — text that dissolves the moment the reader
+// zooms in, on exactly the wall charts people zoom into. (It also made Firefox's
+// macOS "Save to PDF" come out blank.) Legibility on a dark backdrop is the
+// viewer's business; sharp text is ours.
 
 function svgText(text: string, x: number, y: number, attrs: Record<string, string>): SVGTextElement {
   const el = document.createElementNS(SVG_NS, "text");
@@ -418,16 +415,6 @@ export async function prepareDiagram(live: SVGSVGElement): Promise<PreparedDiagr
  * diagram. `svg`'s existing children become the diagram content, shifted below
  * the header — so it takes a whole prepared clone (the `.svg`/PDF exports) or a
  * freshly assembled one (a printed sheet) alike.
- *
- * @param haloFilter bake in the white halo behind hairlines/text. Default on,
- *   for the standalone `.svg` download. The print/PDF paths turn it off: the
- *   halo exists only so a transparent-background export stays legible on a
- *   dark-themed viewer, which doesn't apply to a printed page (always opaque
- *   white paper) — and confirmed by hand, this specific filter combination
- *   (feMorphology dilate + feGaussianBlur + feComposite + feMerge) makes
- *   Firefox's macOS "Save to PDF" pipeline rasterize the page as fully blank,
- *   even though the identical markup renders fine on-screen and in Firefox's own
- *   print preview.
  */
 export function wrapWithBands(
   svg: SVGSVGElement,
@@ -435,7 +422,6 @@ export function wrapWithBands(
   diagramH: number,
   opts: SvgExportOptions,
   foreground: string,
-  haloFilter = true,
 ): BuiltSvg {
   const clone = svg;
 
@@ -463,14 +449,18 @@ export function wrapWithBands(
   );
   while (clone.firstChild) content.appendChild(clone.firstChild);
 
-  // Everything renders through the white-halo filter so the export stays
-  // legible on dark backdrops despite the transparent background (skipped for
-  // print — see the `haloFilter` doc comment above).
+  // The sheet, first so everything else paints over it.
+  const sheet = document.createElementNS(SVG_NS, "rect");
+  sheet.setAttribute("x", "0");
+  sheet.setAttribute("y", "0");
+  sheet.setAttribute("width", String(totalW));
+  sheet.setAttribute("height", String(totalH));
+  sheet.setAttribute("fill", PAPER_WHITE);
+  clone.appendChild(sheet);
+
+  // Diagram, header and footer all hang off one plain group — no filter on it
+  // (see the note above the band constants).
   const frame = document.createElementNS(SVG_NS, "g");
-  if (haloFilter) {
-    frame.setAttribute("filter", `url(#${HALO_ID})`);
-    clone.appendChild(svgHaloFilter());
-  }
   clone.appendChild(frame);
   frame.appendChild(content);
 
@@ -551,9 +541,9 @@ export function wrapWithBands(
 
 /** The whole live diagram as a standalone, banded SVG — the `.svg` download and
  *  the one-page print both start here. */
-async function buildExportSvg(live: SVGSVGElement, opts: SvgExportOptions, haloFilter = true): Promise<BuiltSvg> {
+async function buildExportSvg(live: SVGSVGElement, opts: SvgExportOptions): Promise<BuiltSvg> {
   const { clone, foreground, width, height } = await prepareDiagram(live);
-  return wrapWithBands(clone, width, height, opts, foreground, haloFilter);
+  return wrapWithBands(clone, width, height, opts, foreground);
 }
 
 export function serialize(svg: SVGSVGElement): string {
@@ -573,28 +563,26 @@ export async function downloadSvg(live: SVGSVGElement, fileName: string, opts: S
 }
 
 /**
- * Build the standalone diagram SVG and open it in the browser's print dialog,
- * sized so the whole diagram lands on one page — the user picks "Save as PDF".
- * Uses a hidden iframe (not window.open) to dodge popup blockers.
+ * Build the standalone diagram SVG and print the whole of it on one sheet of
+ * `paper`, scaled to fill the page — the user picks "Save as PDF".
+ *
+ * The page used to be sized to the diagram itself, which asked the printer for
+ * a sheet metres across. A driver can't make one: it falls back to its own
+ * paper, and what comes out is one page holding a fraction of the chart. So the
+ * paper is the user's choice and the diagram is fitted to it, exactly as the
+ * sheet print does — this is the same call with a set of one.
  */
-export async function printSvg(live: SVGSVGElement, opts: SvgExportOptions): Promise<void> {
-  const { svg, width, height } = await buildExportSvg(live, opts, false);
-  // Make the SVG fill the print page; the @page size matches its pixel extent.
-  svg.removeAttribute("width");
-  svg.removeAttribute("height");
-  svg.setAttribute("style", "display:block;width:100%;height:100%;");
-
+export async function printSvg(live: SVGSVGElement, opts: SvgExportOptions, paper: PrintPaper): Promise<void> {
+  const built = await buildExportSvg(live, opts);
   // Browsers seed the "Save as PDF" filename from the document <title>, so use
   // the export base name there (extension auto-appended) rather than the heading.
   const docTitle = opts.fileName ? `${opts.fileName}.gedmerge` : opts.title;
-  const doc = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(docTitle)}</title>
-<style>
-  @page { size: ${width}px ${height}px; margin: 0; }
-  html, body { margin: 0; padding: 0; }
-  svg { display: block; }
-</style></head><body>${serialize(svg)}</body></html>`;
-
-  printDocument(doc);
+  printSheetSet(
+    [built],
+    paperPx(paper.paper, paper.orientation),
+    fillScale([built], pageBox(paper.paper, paper.orientation)),
+    docTitle,
+  );
 }
 
 /**
@@ -636,14 +624,30 @@ export function printSheetSet(
  * Open the print dialog on a complete HTML document, via a hidden iframe (not
  * window.open) to dodge popup blockers. Also used by the report pages, which
  * print styled HTML instead of an SVG.
+ *
+ * The iframe holds the *source* the printer renders from, so it has to outlive
+ * the whole dialog — and a print dialog can be a long visit: picking a PDF
+ * printer and defining a custom paper size for a wall chart takes minutes, and
+ * the page is only laid out for that paper once it is chosen. Tearing the iframe
+ * down on a short timer produced exactly the reported symptom — a PDF holding
+ * one incomplete page — so the teardown now waits for `afterprint`, with only a
+ * far-away timer as a backstop for browsers that never fire it. A previous
+ * document is dropped when the next print starts, so at most one lingers.
  */
+let printFrame: HTMLIFrameElement | null = null;
+
 export function printDocument(doc: string): void {
+  printFrame?.remove();
   const iframe = document.createElement("iframe");
   iframe.setAttribute("aria-hidden", "true");
   iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;";
   document.body.appendChild(iframe);
+  printFrame = iframe;
 
-  const cleanup = () => iframe.remove();
+  const cleanup = () => {
+    if (printFrame === iframe) printFrame = null;
+    iframe.remove();
+  };
   iframe.onload = () => {
     const win = iframe.contentWindow;
     if (!win) { cleanup(); return; }
@@ -651,9 +655,8 @@ export function printDocument(doc: string): void {
     requestAnimationFrame(() => {
       win.focus();
       win.print();
-      // Tear down after the dialog returns; afterprint isn't reliable everywhere.
       win.addEventListener("afterprint", cleanup);
-      setTimeout(cleanup, 60000);
+      setTimeout(cleanup, 30 * 60_000);
     });
   };
   iframe.srcdoc = doc;
@@ -665,8 +668,8 @@ export function escapeHtml(s: string): string {
 
 /**
  * Find the diagram SVG inside a `.tree-canvas` element and export it, wrapped in
- * a titled header + site/timestamp footer (light palette, transparent
- * background). No-op if the SVG is absent.
+ * a titled header + site/timestamp footer (light palette on a white sheet).
+ * No-op if the SVG is absent.
  */
 export function exportCanvasSvg(canvas: HTMLElement | null, fileName: string, title: string): void {
   const svg = canvas?.querySelector("svg.tree-svg") as SVGSVGElement | null;
@@ -675,13 +678,25 @@ export function exportCanvasSvg(canvas: HTMLElement | null, fileName: string, ti
 }
 
 /**
- * Find the diagram SVG inside a `.tree-canvas` element and open it in the print
- * dialog (whole diagram on one page) for "Save as PDF". No-op if absent.
+ * Find the diagram SVG inside a `.tree-canvas` element and print the whole of it
+ * on one sheet of the chosen paper. No-op if absent.
  */
-export function exportCanvasPdf(canvas: HTMLElement | null, fileName: string, title: string): void {
+export function printCanvasPdf(canvas: HTMLElement | null, opts: SvgExportOptions, paper: PrintPaper): void {
   const svg = canvas?.querySelector("svg.tree-svg") as SVGSVGElement | null;
   if (!svg) return;
-  void printSvg(svg, { title, fileName });
+  void printSvg(svg, opts, paper);
+}
+
+/**
+ * The diagram's own size in a `.tree-canvas`, ignoring the on-screen zoom — what
+ * the print dialog needs to say how far a chart will be scaled, without building
+ * the export first. `null` when the canvas holds no diagram.
+ */
+export function canvasDiagramSize(canvas: HTMLElement | null): { w: number; h: number } | null {
+  const svg = canvas?.querySelector("svg.tree-svg") as SVGSVGElement | null;
+  const box = (svg?.getAttribute("viewBox") ?? "").split(/[\s,]+/).map(Number);
+  if (box.length !== 4 || !(box[2] > 0) || !(box[3] > 0)) return null;
+  return { w: box[2], h: box[3] };
 }
 
 /**

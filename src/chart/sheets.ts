@@ -33,19 +33,62 @@ import {
 
 // ─── Paper ────────────────────────────────────────────────────────────────────
 
-export type PaperSize = "a4" | "a3" | "letter";
+/** The papers offered by name. The A series runs up to A0 because a wall chart
+ *  is exactly what a plotter or a copy shop is for. */
+export type PaperName = "a4" | "a3" | "a2" | "a1" | "a0" | "letter";
+
+/** A size the user typed instead, in millimetres — plotter rolls (say
+ *  1100 × 2000) and anything else no standard name covers. It is taken as
+ *  given: the width is the width, so {@link Orientation} has nothing left to
+ *  say about it. */
+export interface CustomPaper {
+  wMm: number;
+  hMm: number;
+}
+
+export type PaperSize = PaperName | CustomPaper;
 export type Orientation = "portrait" | "landscape";
 
-export const PAPER_SIZES: PaperSize[] = ["a4", "a3", "letter"];
+export const PAPER_NAMES: PaperName[] = ["a4", "a3", "a2", "a1", "a0", "letter"];
 export const ORIENTATIONS: Orientation[] = ["landscape", "portrait"];
 
-/** Paper dimensions in CSS pixels at 96 dpi (portrait), the unit `@page { size }`
- *  and the rest of the export pipeline work in. */
-const PAPER_PX: Record<PaperSize, { w: number; h: number }> = {
-  a4: { w: 794, h: 1123 }, // 210 × 297 mm
-  a3: { w: 1123, h: 1587 }, // 297 × 420 mm
-  letter: { w: 816, h: 1056 }, // 8.5 × 11 in
+/** What a typed size may be, in mm: from a postcard to a ten-metre roll. */
+export const CUSTOM_MM_MIN = 50;
+export const CUSTOM_MM_MAX = 10000;
+
+/** Paper dimensions in millimetres, portrait. */
+const PAPER_MM: Record<PaperName, { w: number; h: number }> = {
+  a4: { w: 210, h: 297 },
+  a3: { w: 297, h: 420 },
+  a2: { w: 420, h: 594 },
+  a1: { w: 594, h: 841 },
+  a0: { w: 841, h: 1189 },
+  letter: { w: 215.9, h: 279.4 }, // 8.5 × 11 in
 };
+
+/** mm → CSS pixels at 96 dpi, the unit `@page { size }` and the rest of the
+ *  export pipeline work in. */
+function mmToPx(mm: number): number {
+  return Math.round((mm * 96) / 25.4);
+}
+
+export function isCustomPaper(paper: PaperSize): paper is CustomPaper {
+  return typeof paper !== "string";
+}
+
+/**
+ * The paper in millimetres — what the custom fields start from when they are
+ * opened on a named paper, and the size a custom paper simply is.
+ */
+export function paperMm(paper: PaperSize, orientation: Orientation): { w: number; h: number } {
+  if (isCustomPaper(paper)) {
+    const clamp = (mm: number) =>
+      Math.min(CUSTOM_MM_MAX, Math.max(CUSTOM_MM_MIN, Number.isFinite(mm) ? mm : CUSTOM_MM_MIN));
+    return { w: clamp(paper.wMm), h: clamp(paper.hMm) };
+  }
+  const { w, h } = PAPER_MM[paper];
+  return orientation === "landscape" ? { w: h, h: w } : { w, h };
+}
 
 /** Printer-safe margin on every side, in px (≈ 6.3 mm). */
 export const PAGE_MARGIN = 24;
@@ -60,21 +103,49 @@ export const PAGE_MARGIN = 24;
  * with every generation, so no amount of cleverness in the split will make it
  * both large and few. Large print is for a chart you will read at arm's length;
  * small is for the fewest sheets to tape up on a wall.
+ *
+ * `fit` is the end of that scale rather than a point on it: don't cut at all,
+ * and let the print shrink the whole diagram onto the one sheet, however small
+ * that turns out. It is what a plotter-sized sheet is for.
  */
-export type PrintSize = "large" | "medium" | "small";
+export type PrintSize = "large" | "medium" | "small" | "fit";
 
-export const PRINT_SIZES: PrintSize[] = ["large", "medium", "small"];
+export const PRINT_SIZES: PrintSize[] = ["large", "medium", "small", "fit"];
 
-export const PRINT_SCALE: Record<PrintSize, number> = {
+export const PRINT_SCALE: Record<Exclude<PrintSize, "fit">, number> = {
   large: 0.75,
   medium: 0.5,
   small: 0.3,
 };
 
+/** A chosen page: the paper, and which way round it goes. Every print starts
+ *  here — the ones that split into sheets add a {@link PrintSize} on top. */
+export interface PrintPaper {
+  paper: PaperSize;
+  orientation: Orientation;
+}
+
+/**
+ * The one scale a print comes out at: the largest that still lands every page
+ * inside the printable box.
+ *
+ * Taken across the whole set, so a box is the same size on every sheet — a
+ * sparse continuation sheet blown up to fill its own page would read as a
+ * different chart. It is free to go *above* 1: at native size a modest chart on
+ * a plotter sheet would be a stamp in a metre of white paper, and "100%" means
+ * nothing on paper anyway.
+ */
+export function fillScale(
+  pages: { width: number; height: number }[],
+  box: { w: number; h: number },
+): number {
+  return Math.min(...pages.map((p) => Math.min(box.w / p.width, box.h / p.height)));
+}
+
 /** The whole sheet of paper, in px — what `@page { size }` is set to. */
 export function paperPx(paper: PaperSize, orientation: Orientation): { w: number; h: number } {
-  const { w, h } = PAPER_PX[paper];
-  return orientation === "landscape" ? { w: h, h: w } : { w, h };
+  const { w, h } = paperMm(paper, orientation);
+  return { w: mmToPx(w), h: mmToPx(h) };
 }
 
 /** The printable box of one page, in px, after {@link PAGE_MARGIN}. */
@@ -87,6 +158,9 @@ export function pageBox(paper: PaperSize, orientation: Orientation): { w: number
  * How much diagram one sheet may carry, in canvas pixels: the printable page box
  * blown up by the reduction we are willing to print at, less the fixed height of
  * the export's header and footer bands (which ride along at the same scale).
+ *
+ * "One sheet" sets no limit at all — nothing is ever cut, and the print then
+ * scales whatever comes out onto the single page.
  */
 export function sheetBudget(
   paper: PaperSize,
@@ -94,6 +168,7 @@ export function sheetBudget(
   bandsH: number,
   size: PrintSize = "medium",
 ): { w: number; h: number } {
+  if (size === "fit") return { w: Infinity, h: Infinity };
   const box = pageBox(paper, orientation);
   const scale = PRINT_SCALE[size];
   return { w: box.w / scale, h: box.h / scale - bandsH };

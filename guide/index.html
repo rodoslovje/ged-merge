@@ -498,18 +498,29 @@
               screen; large diagrams also show an overview minimap — drag the canvas to pan. Every kind carries an
               <strong>Export ▾</strong> menu: <strong>GEDCOM</strong> (first — downloads just the people currently drawn
               as a standalone file a friend can merge into their own tree), <strong>SVG</strong> (a sharp, infinitely
-              scalable image) and <strong>PDF</strong> (opens your browser's print dialog, where you choose <em>Save as
-              PDF</em>). The Report adds a <strong>Text file</strong> option instead of SVG.
+              scalable image) and <strong>PDF</strong> (asks which paper you're printing on, then opens your browser's
+              print dialog, where you choose <em>Save as PDF</em>). The Report adds a <strong>Text file</strong> option
+              instead of SVG.
             </p>
             <p>
               <strong>Printing a wide diagram.</strong> A family diagram that pans comfortably on screen usually can't be
-              printed on one page: fitting it to A4 shrinks the names past reading. The <strong>Tree</strong> and
-              <strong>Grid</strong> kinds therefore add <strong>PDF in sheets</strong> to the Export menu. Choose the
-              paper (A4, A3 or Letter), the orientation and the <strong>print size</strong>, and the dialog tells you how
+              printed on one page: fitting it to A4 shrinks the names past reading. So <strong>PDF</strong> always asks
+              for the paper first — <strong>A4, A3, A2, A1, A0</strong>, <strong>Letter</strong> or <strong>Custom</strong>
+              — and fits the chart to it; asking the printer for a page the size of the diagram only gets you whatever
+              the driver falls back to, with most of the chart missing. On the <strong>Tree</strong> and
+              <strong>Grid</strong> kinds the same dialog adds a <strong>print size</strong>, because those two can be
+              cut into several sheets, and it tells you how
               many sheets the diagram will take; <strong>Print</strong> then sends the whole set to the print dialog, one
-              sheet per page. Print size is the setting that matters most: an ancestors chart doubles in width with every
+              sheet per page. The big formats are for a plotter or a copy shop, and a wide chart that wants a dozen A4
+              sheets often prints on one A1. <strong>Custom</strong> takes any size in millimetres, so a plotter roll —
+              say 1100 × 2000 mm — prints as a single enormous sheet; a custom size is used exactly as you type it
+              (width × height), so the orientation switch doesn't apply to it. Whatever the paper, the set is scaled to
+              fill it, and the dialog says what that comes to — <em>Prints as 3 sheets · at 62% size</em>. Print size is
+              the setting that matters most: an ancestors chart doubles in width with every
               generation, so <em>Large</em> (readable at arm's length) can want several times the sheets of
-              <em>Small</em> (a wall chart in fine print). Change it and watch the sheet count — and remember that
+              <em>Small</em> (a wall chart in fine print), and <em>One sheet</em> refuses to cut at all — the whole
+              diagram is shrunk onto the single sheet you chose, however small the names end up (watch the percentage).
+              Change it and watch the sheet count — and remember that
               <strong>Generations</strong> in the chart settings, and turning off the place, photo or kinship rows, shrink
               the diagram before it is ever split. The diagram
               is cut at its branches, never mid-box: a branch that doesn't fit carries on over a sheet of its own, and
@@ -1351,7 +1362,7 @@
                 <tr><td><span class="gm-badge mod round">M</span></td><td>Modified — a record you changed in Edit (shown on charts)</td></tr>
                 <tr><td><span class="gm-badge rep">+7</span></td><td>Relatives not shown — the <em>Generations</em> limit (§9) stops the chart at this person; the number counts their descendants (or ancestors) left off. Click it to re-root the chart on them.</td></tr>
                 <tr><td><span class="gm-badge rep round">→</span></td><td>Repeated person — already shown elsewhere in the chart, where their branch is drawn; this position is deliberately left empty, and the badge is a link that takes you there (see <a href="#edit">§9</a>)</td></tr>
-                <tr><td><span class="gm-badge rep round">3</span></td><td>Continues on sheet 3 — printed sheets only (<em>PDF in sheets</em>, §9): this person's line didn't fit on the current sheet and carries on over the numbered one</td></tr>
+                <tr><td><span class="gm-badge rep round">3</span></td><td>Continues on sheet 3 — printed sheets only (<em>PDF</em>, §9): this person's line didn't fit on the current sheet and carries on over the numbered one</td></tr>
               </tbody>
             </table>
             <p><strong>Field-choice badges</strong> — rectangular, in the compare panel:</p>

@@ -5403,12 +5403,26 @@ kbd {
   gap: 12px;
   margin-bottom: 10px;
 }
+/* Seven papers (A4…A0, Letter, Custom) don't sit on one line beside a label, so
+   this row alone stacks and lets its buttons wrap. */
+.sheet-dialog-papers { flex-direction: column; align-items: stretch; gap: 6px; }
+.sheet-dialog-papers .chart-settings-segmented { flex-wrap: wrap; }
+.sheet-dialog-papers .chart-settings-segmented button { flex: 1 0 auto; padding: 5px 10px; }
+.sheet-dialog-custom-fields { display: flex; align-items: center; gap: 6px; }
+.sheet-dialog-custom-fields input {
+  width: 74px;
+  background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  color: var(--text); font-size: 0.85rem; padding: 3px 6px;
+}
+.sheet-dialog-unit { color: var(--muted); font-size: 0.8rem; }
 .sheet-dialog-count {
   margin: 16px 0 20px;
   font-size: 0.85rem;
   font-weight: 600;
   color: var(--accent);
 }
+/* Not a count but the reason there isn't one — reads as guidance, not status. */
+.sheet-dialog-count.is-hint { color: var(--muted); font-weight: 500; }
 
 /* Add/Edit Source dialog: a short, wide card that sizes to its content —
    header and footer pinned, body scrolling only when needed. */
