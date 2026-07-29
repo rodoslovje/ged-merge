@@ -88,6 +88,7 @@
           <section class="changelog-entry">
             <h2>2026-07-29</h2>
             <ul>
+              <li><strong>Merge a duplicated branch in the right order.</strong> When two records of the same person each have their own copy of the parents or the spouse, merging the person alone can't tell those copies apart — so the families stayed split, or one side's link had to be dropped. The relatives listed under a comparison now come with their own match scores and a tick box: tick the ones that are the same person and they are <strong>merged first</strong>, as part of the same undoable step. Their two families then collapse into one on their own, so the person ends up with one set of parents, one family, and nobody left disconnected.</li>
               <li><strong>Choose which parents a merged duplicate keeps.</strong> Merging two records of the same person brought both their parent families across, so the result came out with two fathers and two mothers — where a person has one set of parents. The comparison screen now carries one choice on the <strong>Parents</strong> block: keep the left record's parents, take the candidate's instead, or keep both for a genuine adoptive or step family. It starts on the left record's parents, or on the candidate's when the left record has none, and the hint below still names parents that are a separate record on each side — merge those too and their duplicate families fold into one.</li>
             </ul>
           </section>

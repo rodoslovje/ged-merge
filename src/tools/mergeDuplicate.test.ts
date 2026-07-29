@@ -5,7 +5,7 @@ import { serializeGedcom } from "../gedcom/serialize";
 import { individualFieldRows } from "../review/fields";
 import type { CandidateDecision, FieldChoice } from "../review/types";
 import { validateDataset } from "./validate";
-import { mergeDuplicate, duplicateDefaults, relatedSeparateRecords } from "./mergeDuplicate";
+import { mergeDuplicate, mergeDuplicateChain, duplicateDefaults, relatedSeparateRecords } from "./mergeDuplicate";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -201,6 +201,40 @@ describe("mergeDuplicate", () => {
     ]);
   });
 
+  it("flags parents that are separate records even when the names don't align", () => {
+    // "Štefanija" (no surname) is too unlike "Štefka Kržišnik" to be paired onto
+    // one comparison line, but a person has one mother — so the two records are
+    // still the pair to merge, and this is where it is easiest to miss.
+    const ds = dataset(wrap(
+      "0 @I1@ INDI\n1 NAME Urban /Demšar/\n1 SEX M\n1 FAMC @F1@\n" +
+      "0 @I2@ INDI\n1 NAME Urban /Demšar/\n1 SEX M\n1 FAMC @F2@\n" +
+      "0 @I3@ INDI\n1 NAME Matevž /Demšar/\n1 SEX M\n1 FAMS @F1@\n" +
+      "0 @I5@ INDI\n1 NAME Štefka /Kržišnik/\n1 SEX F\n1 FAMS @F1@\n" +
+      "0 @I4@ INDI\n1 NAME Matevž /Demšar/\n1 SEX M\n1 FAMS @F2@\n" +
+      "0 @I6@ INDI\n1 NAME Štefanija //\n1 SEX F\n1 FAMS @F2@\n" +
+      "0 @F1@ FAM\n1 HUSB @I3@\n1 WIFE @I5@\n1 CHIL @I1@\n" +
+      "0 @F2@ FAM\n1 HUSB @I4@\n1 WIFE @I6@\n1 CHIL @I2@\n",
+    ));
+    const rows = individualFieldRows(tr, ds.individuals.get("@I1@"), ds.individuals.get("@I2@"), ds, ds);
+    const related = relatedSeparateRecords(rows);
+    expect(related.map((r) => `${r.relation} ${r.aId}/${r.bId}`)).toEqual([
+      "father @I3@/@I4@",
+      "mother @I5@/@I6@",
+    ]);
+  });
+
+  it("does not flag a parent that both sides already share", () => {
+    const ds = dataset(wrap(
+      "0 @I1@ INDI\n1 NAME Urban /Demšar/\n1 SEX M\n1 FAMC @F1@\n" +
+      "0 @I2@ INDI\n1 NAME Urban /Demšar/\n1 SEX M\n1 FAMC @F2@\n" +
+      "0 @I3@ INDI\n1 NAME Matevž /Demšar/\n1 SEX M\n1 FAMS @F1@\n1 FAMS @F2@\n" +
+      "0 @F1@ FAM\n1 HUSB @I3@\n1 CHIL @I1@\n" +
+      "0 @F2@ FAM\n1 HUSB @I3@\n1 CHIL @I2@\n",
+    ));
+    const rows = individualFieldRows(tr, ds.individuals.get("@I1@"), ds.individuals.get("@I2@"), ds, ds);
+    expect(relatedSeparateRecords(rows)).toEqual([]);
+  });
+
   it("does not flag a spouse that is already a single shared record", () => {
     // Same couple modelled as two families but one Barbara record (@I3@): nothing
     // to also-merge, so no related-record hint.
@@ -230,6 +264,72 @@ describe("mergeDuplicate", () => {
     expect(fam.children).toContain("@I5@"); // Ivana
     expect(fam.children).toContain("@I6@"); // Franc
     expect(validateDataset(ds).counts.brokenLink).toBe(0);
+  });
+
+  it("keeps a parent family that would otherwise strand its only parent", () => {
+    // The candidate's parent family is just a mother and this child: dropping
+    // the link would prune it and leave @I6@ with no tie to the tree at all,
+    // so the family is brought across instead.
+    const ds = dataset(wrap(
+      "0 @I1@ INDI\n1 NAME Otrok /Novak/\n1 SEX M\n1 FAMC @F1@\n" +
+      "0 @I2@ INDI\n1 NAME Otrok /Novak/\n1 SEX M\n1 FAMC @F2@\n" +
+      "0 @I3@ INDI\n1 NAME Oče /Novak/\n1 SEX M\n1 FAMS @F1@\n" +
+      "0 @I5@ INDI\n1 NAME Mati /Novak/\n1 SEX F\n1 FAMS @F1@\n" +
+      "0 @I6@ INDI\n1 NAME Štefanija /Sama/\n1 SEX F\n1 FAMS @F2@\n" +
+      "0 @F1@ FAM\n1 HUSB @I3@\n1 WIFE @I5@\n1 CHIL @I1@\n" +
+      "0 @F2@ FAM\n1 WIFE @I6@\n1 CHIL @I2@\n",
+    ));
+    mergeDuplicate(ds, "@I1@", "@I2@", decide({ parents: "main" }), tr);
+
+    const survivor = ds.individuals.get("@I1@")!;
+    expect(new Set(survivor.childOf)).toEqual(new Set(["@F1@", "@F2@"]));
+    expect(ds.individuals.get("@I6@")!.spouseOf).toEqual(["@F2@"]);
+    expect(validateDataset(ds).counts.brokenLink).toBe(0);
+  });
+
+  it("merges the duplicate parents first, so the child needs no parents choice", () => {
+    const ds = dataset(twoParentCouples);
+    // What the panel builds when both parent pairs are ticked: relatives first,
+    // then the pair itself — all as one composed patch batch.
+    const patches = mergeDuplicateChain(ds, [
+      { survivorId: "@I3@", removedId: "@I4@", decision: decide({}) },
+      { survivorId: "@I5@", removedId: "@I6@", decision: decide({}) },
+      { survivorId: "@I1@", removedId: "@I2@", decision: decide({ parents: "main" }) },
+    ], tr);
+
+    // One family, one father, one mother — and nobody left disconnected.
+    const survivor = ds.individuals.get("@I1@")!;
+    expect(survivor.childOf.length).toBe(1);
+    const fam = ds.families.get(survivor.childOf[0])!;
+    expect(fam.husband).toBe("@I3@");
+    expect(fam.wife).toBe("@I5@");
+    expect(ds.individuals.has("@I4@")).toBe(false);
+    expect(ds.individuals.has("@I6@")).toBe(false);
+    expect(validateDataset(ds).counts.brokenLink).toBe(0);
+    // Every record appears once in the batch, so one undo restores everything.
+    const ids = patches.map((p) => `${p.type}:${p.id}`);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("composes a chain's patches so one undo restores the pre-chain state", () => {
+    const ds = dataset(twoParentCouples);
+    const original = new Map(
+      [...ds.individuals.keys(), ...ds.families.keys()].map((id) => [
+        id,
+        serializeGedcom([(ds.individuals.get(id) ?? ds.families.get(id))!.raw]),
+      ]),
+    );
+
+    const patches = mergeDuplicateChain(ds, [
+      { survivorId: "@I3@", removedId: "@I4@", decision: decide({}) },
+      { survivorId: "@I5@", removedId: "@I6@", decision: decide({}) },
+      { survivorId: "@I1@", removedId: "@I2@", decision: decide({}) },
+    ], tr);
+
+    for (const p of patches) {
+      // `before` is the state from before the *first* step that touched it.
+      expect(p.before === null ? null : serializeGedcom([p.before])).toBe(original.get(p.id) ?? null);
+    }
   });
 
   it("produces patches whose `before` snapshots restore the pre-merge state", () => {

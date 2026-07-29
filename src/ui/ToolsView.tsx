@@ -5,7 +5,7 @@ import type { CandidateDecision } from "../review/types";
 import { countDistinctPlaces } from "../tools/places";
 import { useToolsScans } from "./useToolsScans";
 import { ValidatePanel } from "./tools/ValidatePanel";
-import { DuplicatesPanel } from "./tools/DuplicatesPanel";
+import { DuplicatesPanel, type RelatedMerge } from "./tools/DuplicatesPanel";
 import { NormalizePanel } from "./tools/NormalizePanel";
 import { PrivacyPanel } from "./tools/PrivacyPanel";
 import { SourcesPanel } from "./tools/SourcesPanel";
@@ -56,7 +56,13 @@ interface Props {
   /** Merge a duplicate pair: fold the removed record into the survivor (kept)
    *  per the field choices, mutating the dataset in place and pushing to undo.
    *  Returns true when the merge applied (records changed). */
-  onMergeDuplicate: (survivorId: string, removedId: string, decision: CandidateDecision) => boolean;
+  onMergeDuplicate: (
+    survivorId: string,
+    removedId: string,
+    decision: CandidateDecision,
+    /** Relatives the user ticked to merge first — see `mergeDuplicateChain`. */
+    alsoMerge: RelatedMerge[],
+  ) => boolean;
   /** Rejected within-file duplicate pairs (keyed by `duplicatePairKey`), persisted
    *  so a re-run of the duplicate scan doesn't resurface them. */
   rejectedDuplicates: Set<string>;

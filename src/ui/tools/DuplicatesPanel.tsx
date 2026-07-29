@@ -40,6 +40,13 @@ const CAT_COLOR: Record<MatchCategory, string> = {
   weak: "var(--muted)",
 };
 
+/** A relative the user ticked to merge along with the pair being merged. The
+ *  survivor is the side the open comparison keeps (its left/main column). */
+export interface RelatedMerge {
+  survivorId: string;
+  removedId: string;
+}
+
 /** A flattened list row: either a cluster header or a duplicate pair. */
 type Row =
   | { kind: "cluster"; cluster: DuplicateCluster; key: string }
@@ -60,7 +67,12 @@ export function DuplicatesPanel({
   scans: ToolsScans;
   onNavigate: (id: string) => void;
   active: boolean;
-  onMergeDuplicate: (survivorId: string, removedId: string, decision: CandidateDecision) => boolean;
+  onMergeDuplicate: (
+    survivorId: string,
+    removedId: string,
+    decision: CandidateDecision,
+    alsoMerge: RelatedMerge[],
+  ) => boolean;
   rejectedDuplicates: Set<string>;
   onRejectDuplicate: (aId: string, bId: string) => void;
   onRejectDuplicatesBulk: (pairs: Array<{ aId: string; bId: string }>) => void;
@@ -191,11 +203,19 @@ export function DuplicatesPanel({
   };
 
   // Apply a merge, drop the merged pair and any other pair referencing the
-  // now-removed record, then advance to the next pair.
-  function handleMerge(survivorId: string, removedId: string, decision: CandidateDecision) {
-    if (!onMergeDuplicate(survivorId, removedId, decision)) return;
-    scans.updateDuplicates((pairs) => pairs.filter((p) => p.aId !== removedId && p.bId !== removedId));
-    advancePast((p) => p.aId === removedId || p.bId === removedId);
+  // now-removed record, then advance to the next pair. `alsoMerge` carries the
+  // relatives the user ticked: they merge first (see `mergeDuplicateChain`), so
+  // their records leave the list too.
+  function handleMerge(
+    survivorId: string,
+    removedId: string,
+    decision: CandidateDecision,
+    alsoMerge: RelatedMerge[] = [],
+  ) {
+    if (!onMergeDuplicate(survivorId, removedId, decision, alsoMerge)) return;
+    const gone = new Set([removedId, ...alsoMerge.map((r) => r.removedId)]);
+    scans.updateDuplicates((pairs) => pairs.filter((p) => !gone.has(p.aId) && !gone.has(p.bId)));
+    advancePast((p) => gone.has(p.aId) || gone.has(p.bId));
   }
 
   // Dismiss a pair as not-a-duplicate: persisted via the parent so it won't
@@ -577,7 +597,7 @@ function DuplicateCompare({
   pair: DuplicatePair;
   fieldsCache: Map<string, Record<string, FieldChoice>>;
   onNavigate: (id: string) => void;
-  onMerge: (survivorId: string, removedId: string, decision: CandidateDecision) => void;
+  onMerge: (survivorId: string, removedId: string, decision: CandidateDecision, alsoMerge: RelatedMerge[]) => void;
   onReject: (aId: string, bId: string) => void;
   onOpenPair: (aId: string, bId: string) => void;
 }) {
@@ -590,7 +610,23 @@ function DuplicateCompare({
   );
   // Relatives (spouses/parents) that are a separate record on each side: until
   // they're merged too, this merge can't fold their shared families/children.
-  const related = useMemo(() => relatedSeparateRecords(rows), [rows]);
+  // Scored like any other pair, so the user can see how alike they are before
+  // ticking them to be merged along with this one.
+  const related = useMemo(
+    () =>
+      relatedSeparateRecords(rows).map((r) => ({
+        ...r,
+        score: makeDuplicatePair(dataset, r.aId, r.bId)?.score,
+      })),
+    [rows, dataset],
+  );
+  // The relatives ticked to merge first, keyed `aId|bId`. Off by default —
+  // merging someone is the user's call, never a side effect of another merge.
+  const [alsoMerge, setAlsoMerge] = useState<Set<string>>(new Set());
+  const relatedKey = (r: { aId: string; bId: string }) => `${r.aId}|${r.bId}`;
+  const relatedMerges: RelatedMerge[] = related
+    .filter((r) => alsoMerge.has(relatedKey(r)))
+    .map((r) => ({ survivorId: r.aId, removedId: r.bId }));
   // Choices live in the panel-level cache too, so they survive this component
   // unmounting when its row leaves the virtual window.
   const cacheKey = `${pair.aId}-${pair.bId}`;
@@ -762,19 +798,42 @@ function DuplicateCompare({
       </table>
       {related.length > 0 && (
         <div className="tools-related-hint">
-          <span>{t("tools.duplicates.relatedHint")}</span>{" "}
-          {related.map((r, i) => (
-            <span key={`${r.aId}-${r.bId}`}>
-              {i > 0 && ", "}
-              <button
-                className="tools-issue-link"
-                title={t("tools.duplicates.relatedOpen")}
-                onClick={() => onOpenPair(r.aId, r.bId)}
-              >
-                {r.label}
-              </button>
-            </span>
-          ))}
+          <span>{t("tools.duplicates.relatedHint")}</span>
+          <ul className="tools-related-list">
+            {related.map((r) => {
+              const key = relatedKey(r);
+              return (
+                <li key={key} className="tools-related-pick">
+                  {/* Tick = merge this pair first; the name still opens their
+                      own comparison, for a look before committing. */}
+                  <input
+                    type="checkbox"
+                    checked={alsoMerge.has(key)}
+                    title={t("tools.duplicates.relatedMergeToo", { name: r.label })}
+                    aria-label={t("tools.duplicates.relatedMergeToo", { name: r.label })}
+                    onChange={(e) => {
+                      const next = new Set(alsoMerge);
+                      if (e.target.checked) next.add(key);
+                      else next.delete(key);
+                      setAlsoMerge(next);
+                    }}
+                  />
+                  {r.score !== undefined && (
+                    <span className={`tools-cat cat-${categorize(Math.round(r.score) / 100, DEFAULT_CONFIG)}`}>
+                      {Math.round(r.score)}
+                    </span>
+                  )}
+                  <button
+                    className="tools-issue-link"
+                    title={t("tools.duplicates.relatedOpen")}
+                    onClick={() => onOpenPair(r.aId, r.bId)}
+                  >
+                    {r.label}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
         </div>
       )}
       <div className="tools-merge-bar">
@@ -799,14 +858,22 @@ function DuplicateCompare({
           danger
           // Both sides usually carry the same name, so the ids and the
           // left/right wording are what tells the two records apart.
-          message={t("tools.duplicates.mergeConfirm", {
-            survivor: `${pair.aLabel} ${xrefLabel(pair.aId)}`,
-            removed: `${pair.bLabel} ${xrefLabel(pair.bId)}`,
-          })}
+          message={
+            t("tools.duplicates.mergeConfirm", {
+              survivor: `${pair.aLabel} ${xrefLabel(pair.aId)}`,
+              removed: `${pair.bLabel} ${xrefLabel(pair.bId)}`,
+            }) +
+            (relatedMerges.length > 0
+              ? ` ${t("tools.duplicates.mergeConfirmAlso", {
+                  count: relatedMerges.length,
+                  names: related.filter((r) => alsoMerge.has(relatedKey(r))).map((r) => r.label).join(", "),
+                })}`
+              : "")
+          }
           confirmLabel={t("tools.duplicates.merge")}
           onConfirm={() => {
             setConfirming(false);
-            onMerge(pair.aId, pair.bId, { status: "confirmed", fields });
+            onMerge(pair.aId, pair.bId, { status: "confirmed", fields }, relatedMerges);
           }}
           onCancel={() => setConfirming(false)}
         />
