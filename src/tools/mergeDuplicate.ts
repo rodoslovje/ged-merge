@@ -4,6 +4,7 @@ import { EDITABLE_FAM_EVENT_TAGS } from "../gedcom/eventTags";
 import {
   FAM_CHILD_ORDER,
   INDI_CHILD_ORDER,
+  detachChildFromFamily,
   insertOrdered,
   rebuildFamily,
   rebuildIndividual,
@@ -13,7 +14,7 @@ import {
 import { applyRows, detectLinkFormat } from "../merge/applyFields";
 import { INDI_HANDLED, type ChangeReport } from "../merge/merge";
 import { individualFieldRows } from "../review/fields";
-import type { CandidateDecision, FieldChoice, FieldRow } from "../review/types";
+import type { CandidateDecision, FieldChoice, FieldRow, RelativeCell } from "../review/types";
 import {
   cloneRaw,
   patchesFromSnapshots,
@@ -34,10 +35,12 @@ import type { Translate } from "../locales/i18n";
  *  - Scalar and event individual fields (name, sex, BIRT/DEAT/…, notes, links,
  *    sources) are applied onto the survivor via the shared `applyRows` engine,
  *    honoring the per-field M/I/B choices in `decision.fields`.
- *  - Relationships (parents, partners, children) are re-pointed from the removed
- *    record onto the survivor unless that relationship row is set to "main".
- *    Family records the survivor then belongs to twice (the same couple modelled
- *    as two records — common for true duplicates) are collapsed into one.
+ *  - Partners and children are re-pointed from the removed record onto the
+ *    survivor unless that relationship row is set to "main". Family records the
+ *    survivor then belongs to twice (the same couple modelled as two records —
+ *    common for true duplicates) are collapsed into one.
+ *  - Parents are one either/or choice for the whole block ({@link PARENTS_KEY}),
+ *    because a person has one set of parents — see {@link parentsChoice}.
  *  - `removeIndividual` drops the removed record from any families left pointing
  *    at it and prunes families that fall below two members.
  */
@@ -90,17 +93,30 @@ export function mergeDuplicate(
   );
   rebuildIndividual(dataset, survivor);
 
-  // 2. Relationships: re-point the removed record's family memberships onto the
-  //    survivor (unless the row is set to "main"). Parents move as a family
-  //    unit, brought across when the removed parent family contributes a parent
-  //    the user kept (father or mother).
+  // 2. Parents: one either/or choice for the whole block — "main" keeps the
+  //    survivor's own parent family, "incoming" swaps in the removed record's,
+  //    "both" keeps both (the rare adoptive/step case).
+  const ownParentFams = [...(dataset.individuals.get(survivorId)?.childOf ?? [])];
+  const parents = parentsChoice(decision.fields, ownParentFams.length > 0);
   for (const rFamId of [...removed.childOf]) {
     const rFam = dataset.families.get(rFamId);
-    if (!rFam) continue;
-    const wantFather = !!rFam.husband && wantsRelative(decision.fields, "father");
-    const wantMother = !!rFam.wife && wantsRelative(decision.fields, "mother");
-    if (wantFather || wantMother) addSurvivorAsChild(dataset, survivor, rFam);
+    if (!rFam || (!rFam.husband && !rFam.wife)) continue;
+    // Backstop, whatever the choice: dropping this link can leave the family
+    // below two members, and `removeIndividual` then prunes it — stranding a
+    // parent whose only tie to the tree it was. An extra parent line the user
+    // can undo beats a person the tree can no longer reach, so keep the family.
+    if (parents === "main" && !strandsAParent(dataset, rFam, removedId)) continue;
+    addSurvivorAsChild(dataset, survivor, rFam);
   }
+  if (parents === "incoming") {
+    for (const famId of ownParentFams) {
+      const fam = dataset.families.get(famId);
+      if (fam) detachChildFromFamily(dataset, fam, survivorId);
+    }
+  }
+
+  // 3. Partners/children: re-point the removed record's marriages onto the
+  //    survivor (unless the row is set to "main").
   for (const rFamId of [...removed.spouseOf]) {
     const rFam = dataset.families.get(rFamId);
     if (!rFam) continue;
@@ -110,19 +126,94 @@ export function mergeDuplicate(
     }
   }
 
-  // 3. Drop the absorbed duplicate (and prune any family it leaves degenerate).
+  // 4. Drop the absorbed duplicate (and prune any family it leaves degenerate).
   removeIndividual(dataset, removed);
 
-  // 4. Collapse families the survivor now belongs to twice (same couple / same parents).
+  // 5. Collapse families the survivor now belongs to twice (same couple / same parents).
   dedupSurvivorFamilies(dataset, survivorId);
 
   return patchesFromSnapshots(dataset, before);
 }
 
-/** A relationship row is taken (re-pointed onto the survivor) unless the user
- *  explicitly chose "main" for it. Default is union ("both"). */
+/** One step of a {@link mergeDuplicateChain}. */
+export interface DuplicateMergeStep {
+  survivorId: string;
+  removedId: string;
+  decision: CandidateDecision;
+}
+
+/**
+ * Run several duplicate merges as a single undoable action.
+ *
+ * The order matters: when the two records being merged have relatives that are
+ * themselves a duplicate pair (each side's own "Matevž Demšar" record), merging
+ * those relatives **first** makes their two families collapse into one on their
+ * own — so the pair that follows finds a single set of parents and no link has
+ * to be dropped. Merging the child first instead severs the trail to the other
+ * side's family, which is what `relatedSeparateRecords` warns about.
+ *
+ * Per-record patches are composed (first `before`, last `after`) so the whole
+ * chain undoes in one go, whatever a record was touched by.
+ */
+export function mergeDuplicateChain(
+  dataset: Dataset,
+  steps: DuplicateMergeStep[],
+  t: Translate,
+): RecordPatch[] {
+  const byKey = new Map<string, RecordPatch>();
+  for (const step of steps) {
+    for (const p of mergeDuplicate(dataset, step.survivorId, step.removedId, step.decision, t)) {
+      const key = `${p.type}:${p.id}`;
+      const first = byKey.get(key);
+      byKey.set(key, first ? { ...p, before: first.before, ...(first.index !== undefined ? { index: first.index } : {}) } : p);
+    }
+  }
+  // A record both created and removed inside the chain (none today, but the
+  // composition should stay honest) has nothing to record.
+  return [...byKey.values()].filter((p) => p.before !== null || p.after !== null);
+}
+
+/** A partner/children row is taken (re-pointed onto the survivor) unless the
+ *  user explicitly chose "main" for it. Default is union ("both"). */
 function wantsRelative(fields: Record<string, FieldChoice>, key: string): boolean {
   return (fields[key] ?? "both") !== "main";
+}
+
+/** The single choice key covering the whole parents block. Father and mother
+ *  are not independent: they are two slots of one `FAM`, and a person has one
+ *  set of parents — so the panel offers one control for both rows. */
+export const PARENTS_KEY = "parents";
+
+/**
+ * Which parent family the survivor ends up in. Unlike partners (where a union
+ * is right — a person can have several marriages), duplicate records almost
+ * never mean a second set of parents, so the default is *not* a union:
+ *  - `"main"` — keep the survivor's own parents, drop the link to the removed
+ *    record's parent family (that family and its people stay, just without this
+ *    child; merging the duplicate parents afterwards folds them together);
+ *  - `"incoming"` — use the removed record's parents instead;
+ *  - `"both"` — keep both parent families (adoptive/step parents).
+ * With no explicit choice the survivor keeps its own parents, or inherits the
+ * removed record's when it has none of its own.
+ */
+function parentsChoice(fields: Record<string, FieldChoice>, survivorHasParents: boolean): FieldChoice {
+  return fields[PARENTS_KEY] ?? (survivorHasParents ? "main" : "incoming");
+}
+
+/**
+ * True when losing `childId` would take `fam` below two members — so
+ * `pruneDegenerateFamily` removes it — and a parent in it has no other family
+ * to fall back on. Their record and its facts would survive, but nothing in the
+ * tree would point at them any more. See {@link mergeDuplicate} step 2.
+ */
+function strandsAParent(dataset: Dataset, fam: Family, childId: string): boolean {
+  const membersLeft =
+    (fam.husband ? 1 : 0) + (fam.wife ? 1 : 0) + fam.children.filter((c) => c !== childId).length;
+  if (membersLeft >= 2) return false;
+  return [fam.husband, fam.wife].some((pid) => {
+    const parent = pid ? dataset.individuals.get(pid) : undefined;
+    return !!parent && parent.spouseOf.length + parent.childOf.length <= 1;
+  });
 }
 
 /** A relative that aligns across the two duplicate records but is itself two
@@ -153,6 +244,13 @@ export interface RelatedSeparateRecord {
 export function relatedSeparateRecords(rows: FieldRow[]): RelatedSeparateRecord[] {
   const out: RelatedSeparateRecord[] = [];
   const seen = new Set<string>();
+  const add = (aId: string, bId: string, label: string, relation: RelatedSeparateRecord["relation"]) => {
+    const key = aId < bId ? `${aId}|${bId}` : `${bId}|${aId}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({ aId, bId, label, relation });
+  };
+
   for (const row of rows) {
     const relation: RelatedSeparateRecord["relation"] | undefined =
       row.key === "father" ? "father"
@@ -160,35 +258,71 @@ export function relatedSeparateRecords(rows: FieldRow[]): RelatedSeparateRecord[
       : row.key.endsWith(".partner") ? "partner"
       : undefined;
     if (!relation || !row.relatives) continue;
+
+    if (relation === "father" || relation === "mother") {
+      // A person has one father and one mother, so the two records line up by
+      // role — even when their names are too different to have been paired onto
+      // one line ("Štefanija" against "Štefka Kržišnik"), which is exactly the
+      // case where the duplicate is easiest to miss.
+      const mains = distinctById(row.relatives.map((p) => p.main));
+      const incoming = distinctById(row.relatives.map((p) => p.incoming));
+      if (mains.length === 1 && incoming.length === 1 && mains[0].id !== incoming[0].id) {
+        add(mains[0].id!, incoming[0].id!, cellLabel(mains[0]) || cellLabel(incoming[0]), relation);
+      }
+      continue;
+    }
+
     for (const p of row.relatives) {
       const aId = p.main?.id;
       const bId = p.incoming?.id;
       if (!aId || !bId || aId === bId) continue;
-      const key = aId < bId ? `${aId}|${bId}` : `${bId}|${aId}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      out.push({ aId, bId, label: p.main?.name || p.main?.text || p.incoming?.name || "?", relation });
+      add(aId, bId, p.main?.name || p.main?.text || p.incoming?.name || "?", relation);
     }
   }
   return out;
 }
 
-/** True for the relationship rows (parents/partners/children). */
+/** The cells that carry a record id, one per distinct id. */
+function distinctById(cells: Array<RelativeCell | undefined>): RelativeCell[] {
+  const byId = new Map<string, RelativeCell>();
+  for (const c of cells) if (c?.id && !byId.has(c.id)) byId.set(c.id, c);
+  return [...byId.values()];
+}
+
+function cellLabel(cell: RelativeCell): string {
+  return cell.name || cell.text || "?";
+}
+
+/** True for the partner/children rows, which merge as a union. */
 function isRelationship(key: string): boolean {
-  return key === "father" || key === "mother" || key.endsWith(".partner") || key.endsWith(".children");
+  return key.endsWith(".partner") || key.endsWith(".children");
+}
+
+/** True for the two rows of the parents block, which share one choice. */
+export function isParentRow(key: string): boolean {
+  return key === "father" || key === "mother";
+}
+
+/** Whether the survivor (left) side of the compared rows has any parent at all. */
+export function hasParentsOnMain(rows: FieldRow[]): boolean {
+  return rows.some((r) => isParentRow(r.key) && !!r.main);
 }
 
 /**
  * Default per-field choices for a duplicate merge, used to seed the panel:
  *  - one-sided fields are taken from the side that has them (combine both);
- *  - relationships default to union;
+ *  - partners and children default to union;
+ *  - parents keep the survivor's own (see {@link parentsChoice});
  *  - conflicting dates take the more precise side;
  *  - other conflicts keep the survivor (left).
  */
 export function duplicateDefaults(rows: FieldRow[]): Record<string, FieldChoice> {
   const fields: Record<string, FieldChoice> = {};
+  if (rows.some((r) => isParentRow(r.key))) {
+    fields[PARENTS_KEY] = hasParentsOnMain(rows) ? "main" : "incoming";
+  }
   for (const row of rows) {
-    if (row.isGroupHeader || row.state === "agree" || row.state === "main-only") continue;
+    if (row.isGroupHeader || isParentRow(row.key) || row.state === "agree" || row.state === "main-only") continue;
     if (isRelationship(row.key)) {
       fields[row.key] = "both";
     } else if (row.state === "incoming-only") {

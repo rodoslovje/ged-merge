@@ -47,7 +47,7 @@ import { fixSexFromRole } from "./tools/fixSex";
 import { fixDates } from "./tools/fixDates";
 import { fixDuplicatePointers } from "./tools/fixDuplicatePointers";
 import { fillPlaceCoordsFromFile } from "./tools/placeCoords";
-import { mergeDuplicate } from "./tools/mergeDuplicate";
+import { mergeDuplicateChain } from "./tools/mergeDuplicate";
 import { duplicatePairKey, parseDuplicatePairKey } from "./tools/duplicates";
 import { SaveDialog } from "./ui/SaveDialog";
 import { useConfirmDialog } from "./ui/useConfirmDialog";
@@ -1845,8 +1845,24 @@ function AppContent() {
               onFixDates={() => applyToolPatches(fixDates(mainDataset))}
               onFixDuplicatePointers={() => applyToolPatches(fixDuplicatePointers(mainDataset))}
               onFillPlaceCoords={() => applyToolPatches(fillPlaceCoordsFromFile(mainDataset))}
-              onMergeDuplicate={(survivorId, removedId, decision) =>
-                applyToolPatches(mergeDuplicate(mainDataset, survivorId, removedId, decision, t)) > 0}
+              onMergeDuplicate={(survivorId, removedId, decision, alsoMerge) => {
+                // Ticked relatives merge first: their families fold together on
+                // their own, so this pair then finds one set of parents instead
+                // of having to drop a link (see `mergeDuplicateChain`).
+                const steps = [
+                  ...alsoMerge.map((r) => ({ ...r, decision: { status: "confirmed" as const, fields: {} } })),
+                  { survivorId, removedId, decision },
+                ];
+                if (applyToolPatches(mergeDuplicateChain(mainDataset, steps, t)) === 0) return false;
+                // The absorbed records are gone from the dataset. Anything still
+                // pointing at one would render the "no person" empty state, so
+                // follow it to the survivor it was merged into.
+                for (const step of steps) {
+                  if (editPersonId === step.removedId) setNavigateToId(step.survivorId);
+                  if (startId === step.removedId) changeStart(step.survivorId);
+                }
+                return true;
+              }}
               rejectedDuplicates={rejectedDuplicates}
               onRejectDuplicate={(aId, bId) => {
                 const next = new Set(rejectedDuplicates);

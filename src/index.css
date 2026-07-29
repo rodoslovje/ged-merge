@@ -6906,6 +6906,12 @@ kbd {
   color: var(--text); font-size: 0.85rem; line-height: 1.5;
 }
 .tools-related-hint .tools-issue-link { font-size: inherit; }
+/* One tick-box per relative that is a separate record on each side: ticking it
+   merges that pair first, so the families fold instead of a link being cut. */
+.tools-related-list { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 4px; }
+.tools-related-pick { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.tools-related-pick input { margin: 0; cursor: pointer; }
+.tools-related-pick .tools-cat { font-size: 0.78rem; }
 .tools-merge-bar { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin: 10px 0 4px; flex-wrap: wrap; }
 .tools-merge-hint { color: var(--muted); font-size: 0.85rem; margin-right: auto; }
 .tools-merge-bar .tools-run { margin: 0; }

@@ -920,7 +920,23 @@
               Compares every person against every other using the same engine as Merge, and lists likely duplicate pairs
               with their score. Expand a pair for a side-by-side comparison, then <strong>Merge</strong> to keep the
               surviving record and fold the other into it — family links are re-pointed automatically, and the action is
-              undoable.
+              undoable. The record you keep is always the one on the left, and the confirmation names both records with
+              their GEDCOM ids so it is clear which one is about to go.
+            </p>
+            <p>
+              Every field carries the usual keep/take/both buttons, with one exception: <strong>Parents</strong> is a
+              single choice for the whole block, since a person has one set of parents. It starts on the left record's
+              parents — or on the candidate's, when the left record has none — and you can switch it to the candidate's,
+              or to <em>both</em> for a genuine adoptive or step family.
+            </p>
+            <p>
+              Where each side's parents (or spouse) are themselves separate records — a whole branch entered twice —
+              the hint under the comparison names them with their own match scores. <strong>Tick the ones that are the
+              same person</strong> and they are merged first, as part of the same undoable step: their two families then
+              collapse into one on their own, so no link has to be dropped and no one is left disconnected. Merging in
+              that order is what keeps the branch whole; the names also stay clickable if you'd rather open a pair and
+              look at it first. Nothing is ever deleted except the record you confirm — everyone else keeps their record,
+              their facts and their own family.
             </p>
             <p>
               On large or heavily-merged files the list starts at a high score (<strong>≥ 85</strong>) so it stays
