@@ -154,7 +154,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     category: "app",
     column: "right",
     items: [
-      { keys: [["1"], ["7"]], descKey: "shortcuts.item.chartKind" },
+      { keys: [["1"], ["8"]], descKey: "shortcuts.item.chartKind" },
       { keys: [[CHART_KEY.ancestors.toUpperCase()], [CHART_KEY.descendants.toUpperCase()]], descKey: "shortcuts.item.chartDirection" },
       { keys: [["+"], ["−"]], descKey: "shortcuts.item.chartZoom" },
       { keys: [[CHART_KEY.zoomReset]], descKey: "shortcuts.item.chartZoomReset" },
