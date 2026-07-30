@@ -46,6 +46,7 @@ import { fixBrokenLinks } from "./tools/fixLinks";
 import { fixSexFromRole } from "./tools/fixSex";
 import { fixDates } from "./tools/fixDates";
 import { fixDuplicatePointers } from "./tools/fixDuplicatePointers";
+import { fixDanglingRefs } from "./tools/fixDanglingRefs";
 import { fillPlaceCoordsFromFile } from "./tools/placeCoords";
 import { mergeDuplicateChain } from "./tools/mergeDuplicate";
 import { duplicatePairKey, parseDuplicatePairKey } from "./tools/duplicates";
@@ -1845,6 +1846,7 @@ function AppContent() {
               onFixSexFromRole={() => applyToolPatches(fixSexFromRole(mainDataset))}
               onFixDates={() => applyToolPatches(fixDates(mainDataset))}
               onFixDuplicatePointers={() => applyToolPatches(fixDuplicatePointers(mainDataset))}
+              onFixDanglingRefs={() => applyToolPatches(fixDanglingRefs(mainDataset))}
               onFillPlaceCoords={() => applyToolPatches(fillPlaceCoordsFromFile(mainDataset))}
               onMergeDuplicate={(survivorId, removedId, decision, alsoMerge) => {
                 // Ticked parents/partners merge first: their families fold

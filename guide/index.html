@@ -905,10 +905,12 @@
             </p>
             <p>
               Click any issue to open the record in <span class="gm-pill">Edit</span>. Batch fixes handle the common cases
-              in one step: <strong>Fix all broken links</strong> clears dead and one-way family pointers, <strong>Remove
-              duplicate pointers</strong> de-duplicates repeated links, a sex fix sets the sex on unspecified spouses
-              (husband → male, wife → female), and <strong>Fill coordinates from the file</strong> settles the split-place
-              coordinates above. (For places that have <em>no</em> coordinate anywhere, use <a href="#geocode">Geocode
+              in one step: <strong>Fix all broken links</strong> clears dead and one-way family pointers between people
+              and families, <strong>Remove dangling references</strong> clears every other pointer whose target record is
+              missing — source, note and media citations, associations, and family links nested inside an event —
+              <strong>Remove duplicate pointers</strong> de-duplicates repeated links, a sex fix sets the sex on
+              unspecified spouses (husband → male, wife → female), and <strong>Fill coordinates from the file</strong>
+              settles the split-place coordinates above. (For places that have <em>no</em> coordinate anywhere, use <a href="#geocode">Geocode
               places</a>, which looks them up.)
             </p>
             <p>

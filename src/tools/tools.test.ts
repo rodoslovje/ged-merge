@@ -11,6 +11,7 @@ import { buildPlaceTree, UNSPECIFIED, UNSPECIFIED_PLACE } from "./places";
 import { fixBrokenLinks } from "./fixLinks";
 import { countInferableSex, fixSexFromRole } from "./fixSex";
 import { fixDuplicatePointers } from "./fixDuplicatePointers";
+import { countDanglingRefs, fixDanglingRefs } from "./fixDanglingRefs";
 import { bulkNormalize } from "./bulkNormalize";
 
 function dataset(text: string) {
@@ -1074,6 +1075,69 @@ describe("fixDuplicatePointers", () => {
 1 HUSB @I1@
 0 TRLR`);
     expect(fixDuplicatePointers(ds)).toHaveLength(0);
+  });
+});
+
+describe("fixDanglingRefs", () => {
+  const FILE = `0 HEAD
+1 CHAR UTF-8
+1 SUBM @U9@
+0 @I1@ INDI
+1 NAME Bo /Horvat/
+1 SEX M
+1 FAMC @F9@
+1 ADOP
+2 FAMC @F8@
+1 BIRT
+2 DATE 1900
+2 SOUR @S7@
+3 PAGE p. 12
+1 SOUR @S1@
+1 OBJE @O9@
+1 _CUSTOM @X9@
+0 @S1@ SOUR
+1 TITL Parish register
+0 TRLR`;
+
+  it("drops every dangling pointer except the ones the broken-links fix owns", () => {
+    const ds = dataset(FILE);
+    // @F9@ is the record-level FAMC (a brokenLink finding); the rest are this
+    // fix's: the ADOP's nested FAMC, the citation, the media link.
+    expect(countDanglingRefs(ds)).toBe(3);
+    expect(validateStructure(ds).counts.danglingXref).toBe(4); // …+ HEAD.SUBM
+
+    const patches = fixDanglingRefs(ds);
+    expect(patches).toHaveLength(1); // only @I1@ changed
+
+    const indi = ds.individuals.get("@I1@")!;
+    const tags = (node: { children: { tag: string; value?: string }[] }) =>
+      node.children.map((c) => `${c.tag}${c.value ? ` ${c.value}` : ""}`);
+    // The good citation, the record-level FAMC and the vendor subtree stay; the
+    // dangling OBJE and the ADOP's FAMC are gone.
+    expect(tags(indi.raw)).toEqual([
+      "NAME Bo /Horvat/", "SEX M", "FAMC @F9@", "ADOP", "BIRT", "SOUR @S1@", "_CUSTOM @X9@",
+    ]);
+    const birt = indi.raw.children.find((c) => c.tag === "BIRT")!;
+    expect(tags(birt)).toEqual(["DATE 1900"]); // the citation went with its PAGE
+    expect(countDanglingRefs(ds)).toBe(0);
+    // Untouched: the family link is still the broken-links fix's to remove.
+    expect(indi.childOf).toEqual(["@F9@"]);
+    expect(validateDataset(ds, 2026).counts.brokenLink).toBe(1);
+    // HEAD carries no xref, so its dangling SUBM can't take an undo patch.
+    expect(validateStructure(ds).counts.danglingXref).toBe(1);
+  });
+
+  it("returns no patches when every pointer resolves", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Jan /Kos/
+1 SOUR @S1@
+0 @S1@ SOUR
+1 TITL Parish register
+0 TRLR`);
+    expect(countDanglingRefs(ds)).toBe(0);
+    expect(fixDanglingRefs(ds)).toHaveLength(0);
   });
 });
 
