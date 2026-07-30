@@ -2944,9 +2944,11 @@ button:focus-visible {
   position: relative;
   display: inline-block;
 }
+/* Bottom-right corner: the years/kinship line is short, so the button clears
+   the card's text, while a long name would run under it at the top. */
 .person-card-detach {
   position: absolute;
-  top: 4px;
+  bottom: 4px;
   right: 4px;
   width: 18px;
   height: 18px;
