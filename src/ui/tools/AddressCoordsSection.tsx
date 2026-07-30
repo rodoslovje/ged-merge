@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
 import { sameCoord } from "../../geo/points";
@@ -38,6 +38,9 @@ const IDLE: SearchState = { state: "idle", results: [] };
 
 /** House numbers compared as numbers: 4 · 6 · 7 · 32, not 32 · 4 · 6 · 7. */
 const BY_NUMBER = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
+
+/** How many places a filter may open by itself. */
+const AUTO_OPEN_LIMIT = 20;
 
 /** Addresses of one place, with the totals its header shows. */
 interface PlaceGroup {
@@ -124,6 +127,7 @@ export function AddressCoordsSection({
   dataset,
   onApply,
   onMove,
+  query,
 }: {
   dataset: Dataset;
   onApply: (assignments: Map<string, GeoCoord>) => number;
@@ -131,13 +135,33 @@ export function AddressCoordsSection({
    *  register — the moved events are placed there instead of keeping the
    *  coordinate of the settlement they are leaving. */
   onMove: (keys: Set<string>, toPlace: string, coord?: GeoAssignment) => number;
+  /** The page's filter, already folded. A group whose place matches keeps all
+   *  its addresses; otherwise only the addresses that match are listed. */
+  query: string;
 }) {
   const { t } = useTranslation();
   const { settings } = useSettings();
   // Re-scanned whenever the dataset object changes (applying replaces it), so
   // rows that were just written disappear on their own.
-  const rows = useMemo(() => scanAddresses(dataset), [dataset]);
-  const byKey = useMemo(() => new Map(rows.map((row) => [row.key, row])), [rows]);
+  const all = useMemo(() => scanAddresses(dataset), [dataset]);
+  const byKey = useMemo(() => new Map(all.map((row) => [row.key, row])), [all]);
+  // Matching on the address alone would drop the settlement a search like
+  // "Kranj" is really about, and matching on the place alone would hide the one
+  // house someone typed a number for — so a row matches on either.
+  const rows = useMemo(
+    () =>
+      query ? all.filter((row) => foldSearch(row.place).includes(query) || foldSearch(row.address).includes(query)) : all,
+    [all, query],
+  );
+  /** Groups the filter matched by *address*, which are worth opening: the row
+   *  looked for is inside, and there may be one of it under a hundred. */
+  const hits = useMemo(() => {
+    const found = new Set<string>();
+    if (query) {
+      for (const row of rows) if (foldSearch(row.address).includes(query)) found.add(row.place);
+    }
+    return found;
+  }, [rows, query]);
   const groups = useMemo(() => {
     const byPlace = new Map<string, PlaceGroup>();
     for (const row of rows) {
@@ -181,7 +205,20 @@ export function AddressCoordsSection({
   // to a place they no longer name.
   const [movePick, setMovePick] = useState<{ place: string; assignment: GeoAssignment } | null>(null);
 
-  if (!rows.length) return null;
+  // A filter that lands on a handful of places opens them: the address looked
+  // for is one row inside a group of a hundred, and finding it should not cost a
+  // second click. Seeded into the ordinary open set, so it can be closed again
+  // like any group. A broad filter is left alone — expanding several hundred
+  // groups renders every address in them, and answers nothing.
+  useEffect(() => {
+    if (!hits.size || hits.size > AUTO_OPEN_LIMIT) return;
+    setOpen((prev) => {
+      if ([...hits].every((place) => prev.has(place))) return prev;
+      return new Set([...prev, ...hits]);
+    });
+  }, [hits]);
+
+  if (!all.length) return null;
 
   const allOpen = groups.length > 0 && groups.every((g) => open.has(g.place));
 
@@ -375,6 +412,10 @@ export function AddressCoordsSection({
       <p className="tools-intro">{t("tools.geocode.addr.intro")}</p>
       {applied !== null && <p className="tools-clean tools-clean--ok">{t("tools.geocode.addr.applied", { count: applied })}</p>}
       {moved !== null && <p className="tools-clean tools-clean--ok">{t("tools.geocode.addr.moved", { count: moved })}</p>}
+      {/* Said rather than shown as an empty list: the section is the only place
+          the file's addresses live, so vanishing under a filter would read as
+          "this file has none". */}
+      {!groups.length && <p className="tools-clean">{t("tools.search.noMatch")}</p>}
       <ul className="tools-geo-addr-list">
         {groups.map((group) => {
           const isOpen = open.has(group.place);

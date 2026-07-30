@@ -23,6 +23,7 @@ import type { GeoWorkerRequest, GeoWorkerResponse } from "../../worker/geoMessag
 import { ExpandAllToggle, ToolsError, ToolsLoading, TreeSearch, useDebounced } from "./shared";
 import { createKinshipResolver } from "../../match/kinship";
 import { buildPlaceSuggestions, placeCombosOf } from "../edit/placeSuggestions";
+import { foldSearch } from "../globalSearch";
 import { PlaceLookupProvider, usePlaceLookupValue } from "../edit/PlaceLookupContext";
 import { AddressCoordsSection } from "./AddressCoordsSection";
 import { CoordConflicts } from "./CoordConflicts";
@@ -356,8 +357,12 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
   // last opened (other expanded rows offer a "show on map" link to claim it).
   const [mapKey, setMapKey] = useState<string | null>(null);
   const [lastApplied, setLastApplied] = useState<number | null>(null);
+  // One filter for the whole page: the place rows, the addresses grouped under
+  // their settlements, and the coordinate conflicts are three views of the same
+  // place vocabulary, so narrowing to "Kranj" should narrow all of them. Folded,
+  // so a Slovenian place is found without reaching for its diacritics.
   const [search, setSearch] = useState("");
-  const query = useDebounced(search.trim().toLowerCase());
+  const query = foldSearch(useDebounced(search.trim()));
 
   // A fresh scan seeds the review state from the cached decisions — but
   // in-progress picks on rows that survived the rescan (e.g. after renaming
@@ -504,7 +509,7 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
   // ── Rendering ─────────────────────────────────────────────────────────────
   if (!scan || countries === null) return <ToolsLoading label={t("tools.running")} />;
 
-  const rows = query ? scan.rows.filter((r) => r.key.toLowerCase().includes(query)) : scan.rows;
+  const rows = query ? scan.rows.filter((r) => foldSearch(r.key).includes(query)) : scan.rows;
   const shown = rows.slice(0, SHOW_LIMIT);
   const confidentCount = scan.rows.filter((r) => r.confident && !checked.has(r.key) && !noMatch.has(r.key)).length;
   const dateFmt = new Intl.DateTimeFormat(i18n.language);
@@ -517,6 +522,7 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
     <div className="tools-geocode">
       <div className="tools-filter-row">
         <BackButton label={t("tools.places.geocodeBack")} shortcutHint="Esc" showLabel onClick={onBack} />
+        <TreeSearch value={search} onChange={setSearch} />
         <p className="tools-summary">
           {[
             scan.rows.length > 0 && t("tools.geocode.coverage", { distinct: scan.rows.length }),
@@ -649,7 +655,7 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
       {/* Above the lists, below the gazetteer: it is the only outright error on
           the page — coordinates that contradict each other, which no lookup
           below can resolve — but it is a finding, not part of the setup. */}
-      <CoordConflicts dataset={dataset} onApply={onApplyAddressCoords} />
+      <CoordConflicts dataset={dataset} onApply={onApplyAddressCoords} query={query} />
 
       {scan.rows.length === 0 && <p className="tools-clean tools-clean--ok">{t("tools.geocode.allCovered")}</p>}
 
@@ -679,10 +685,7 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
             />
           </div>
         </div>
-        <div className="tools-reshape-options">
-          <TreeSearch value={search} onChange={setSearch} />
-        </div>
-
+      {!shown.length && <p className="tools-clean">{t("tools.search.noMatch")}</p>}
       <ul className="tools-tree">
         {shown.map((row) => (
           <GeocodePlaceRow
@@ -717,7 +720,12 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
       {/* Addresses whose house coordinate the register can supply, for events
           whose PLAC names only the settlement. Renders nothing when there are
           none, so files without ADDR lines see no change. */}
-      <AddressCoordsSection dataset={dataset} onApply={onApplyAddressCoords} onMove={onMovePlaceForAddresses} />
+      <AddressCoordsSection
+        dataset={dataset}
+        onApply={onApplyAddressCoords}
+        onMove={onMovePlaceForAddresses}
+        query={query}
+      />
     </div>
     </PlaceLookupProvider>
   );
