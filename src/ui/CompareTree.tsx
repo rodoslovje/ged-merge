@@ -388,18 +388,9 @@ export function CompareTree({
       const b = badgeOf(n);
       if (b) return { cls: `tree-node-decision ${b.status}`, letter: b.letter };
       if (isModified(n)) return { fill: "var(--node-minor)", textFill: "var(--bg)", letter: t("edit.tree.modified").charAt(0) };
-      // A segment has one badge slot: a record's own status outranks the
-      // generation limit's "+N above this person isn't drawn".
-      if (n.hidden !== undefined) {
-        return {
-          cls: "tree-node-repeat-badge tree-node-hidden-badge",
-          letter: `+${n.hidden}`,
-          title: hiddenTitle(n.hidden),
-        };
-      }
       return undefined;
     },
-    [badgeOf, isModified, hiddenTitle, t],
+    [badgeOf, isModified, t],
   );
 
   const nodesByKey = useMemo(() => {
@@ -548,6 +539,8 @@ export function CompareTree({
                 badgeOf={display.showBadges ? fanBadgeOf : undefined}
                 showRepeat={display.showBadges}
                 onRepeatJump={find.jumpTo}
+                hiddenTitle={hiddenTitle}
+                onHiddenJump={(n) => n.main && onReroot(n.main.id, n.incoming?.id)}
               />
             ) : (
               <p className="muted">{t("tree.empty")}</p>

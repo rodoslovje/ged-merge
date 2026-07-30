@@ -92,9 +92,10 @@ export interface FanSegment {
   photo?: { size: number; cx: number; cy: number; rot: number };
   /** Anchor for a small status badge dot (PAD-relative), near the inner edge. */
   badge: { x: number; y: number };
-  /** Anchor for the repeat marker (PAD-relative), at the outer edge — pointing
-   *  the way the missing ancestors would have gone, and clear of the status
-   *  badge, since a repeat can carry both. Absent on the root disk. */
+  /** Anchor for the marker saying why the rings stop here — a repeat's arrow or
+   *  the generation limit's "+N" (PAD-relative). At the outer edge, pointing the
+   *  way those ancestors would have gone, and clear of the status badge on the
+   *  inner one, since a wedge can carry both. Absent on the root disk. */
   outerBadge?: { x: number; y: number };
 }
 
