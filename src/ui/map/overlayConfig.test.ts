@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { MapOverlay } from "../SettingsContext";
 import { overlaySignature, overlayZIndex, parseWmsParams } from "./overlayConfig";
-import { OVERLAY_PRESETS, overlayCoverage, resolveOverlay } from "./overlayPresets";
+import { OVERLAY_PRESETS, coverageContains, overlayCoverage, overlaySampleZoom, resolveOverlay } from "./overlayPresets";
 
 const base: MapOverlay = { id: "a", name: "", url: "https://tiles.example/{z}/{x}/{y}.png" };
 
@@ -53,13 +53,15 @@ describe("resolveOverlay", () => {
     expect(resolved.defaultOn).toBe(true);
   });
 
-  it("leaves the preset's own coverage out of the layer", () => {
+  it("leaves the preset's own coverage and sample zoom out of the layer", () => {
     const preset = OVERLAY_PRESETS[0]!;
     expect(preset.coverage).toBeDefined();
+    expect(preset.sampleZoom).toBeDefined();
     const resolved = resolveOverlay({ id: "x", name: "", url: "", presetKey: preset.key });
-    // A manual edit captures the resolved config and stores it; coverage
-    // documents the source, so it must not travel into stored settings.
+    // A manual edit captures the resolved config and stores it; both document
+    // the source, so they must not travel into stored settings.
     expect(resolved).not.toHaveProperty("coverage");
+    expect(resolved).not.toHaveProperty("sampleZoom");
   });
 });
 
@@ -82,5 +84,41 @@ describe("overlayCoverage", () => {
       expect(west, preset.key).toBeGreaterThanOrEqual(-180);
       expect(east, preset.key).toBeLessThanOrEqual(180);
     }
+  });
+});
+
+describe("overlaySampleZoom", () => {
+  it("reports the preset's sample zoom, and nothing for a layer of one's own", () => {
+    const preset = OVERLAY_PRESETS[0]!;
+    expect(overlaySampleZoom({ id: "x", name: "", url: "", presetKey: preset.key })).toBe(preset.sampleZoom);
+    expect(overlaySampleZoom({ id: "y", name: "Mine", url: "https://example.com/{z}/{x}/{y}.png" })).toBeUndefined();
+  });
+
+  it("gives every bundled preset a zoom the layer is drawn at", () => {
+    for (const preset of OVERLAY_PRESETS) {
+      // Without one the sample would fall back to fitting the coverage, which
+      // for a scale-limited layer means previewing an empty frame.
+      expect(preset.sampleZoom, preset.key).toBeDefined();
+      expect(preset.sampleZoom!, preset.key).toBeGreaterThanOrEqual(preset.minZoom ?? 0);
+      // The sample map's own limits (see MiniPlaceMap).
+      expect(preset.sampleZoom!, preset.key).toBeGreaterThanOrEqual(2);
+      expect(preset.sampleZoom!, preset.key).toBeLessThanOrEqual(18);
+    }
+  });
+});
+
+describe("coverageContains", () => {
+  const slovenia = [45.42, 13.37, 46.88, 16.61] as const;
+  const bled = [46.335, 14.06, 46.4, 14.17] as const;
+
+  it("holds for a box inside another, and not the other way round", () => {
+    expect(coverageContains(slovenia, bled)).toBe(true);
+    expect(coverageContains(bled, slovenia)).toBe(false);
+  });
+
+  it("holds for a box against itself, and fails on a partial overlap", () => {
+    expect(coverageContains(bled, bled)).toBe(true);
+    // Switzerland: overlaps Slovenia's latitudes, but lies west of it.
+    expect(coverageContains([45.8, 5.95, 47.81, 10.5], bled)).toBe(false);
   });
 });

@@ -25,10 +25,23 @@ const SWITZERLAND: CoverageBox = [45.8, 5.95, 47.81, 10.5];
 /** A preset carries an i18n `key` for its localized name instead of a literal;
  *  the component resolves it with `t()` and stores it as the layer's presetKey
  *  so added layers stay localized (until manually renamed). It also declares
- *  its {@link CoverageBox} — that is documentation about the source, not part
- *  of the drawn configuration, so {@link resolveOverlay} keeps it out of the
- *  stored layer. */
-export type OverlayPreset = Omit<MapOverlay, "id" | "name"> & { key: string; coverage?: CoverageBox };
+ *  its {@link CoverageBox} and {@link OverlayPreset.sampleZoom} — those are
+ *  documentation about the source, not part of the drawn configuration, so
+ *  {@link resolveOverlay} keeps them out of the stored layer. */
+export type OverlayPreset = Omit<MapOverlay, "id" | "name"> & {
+  key: string;
+  coverage?: CoverageBox;
+  /** The zoom Settings' base-map sample opens this layer at — one the source
+   *  was measured to draw at (against the live services, 2026-07-31). Most of
+   *  these maps are scale-limited in a way no URL reveals: the GURS parcel and
+   *  house-number layers return an empty image until 1:5000-ish, the settlement
+   *  and municipality outlines stop being drawn deeper than a town, and a
+   *  scanned pyramid ends at the zoom its sheets were scanned for. Framing a
+   *  layer's coverage at whatever zoom fits it therefore previews a blank
+   *  layer as easily as the map, so the sample goes to the zoom that shows it
+   *  instead. Where several zooms draw, this is the one that reads best. */
+  sampleZoom?: number;
+};
 
 /** Verified free overlay sources offered as one-click presets: open license,
  *  no API key, CORS-enabled (historical sources checked live 2026-07-18; GURS
@@ -49,6 +62,7 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     attribution: "Spezialkarte 1:75.000 · public domain / CC0 (dLib.si, NYPL, IOS)",
     maxZoom: 14,
     coverage: [42.25, 13.34, 47.0, 21.34],
+    sampleZoom: 13,
   },
   {
     // Self-hosted pyramid: Schraembl's Neueste Generalkarte von Deutschland
@@ -67,6 +81,8 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     attribution: "David Rumsey Map Collection, Stanford Libraries · CC BY-NC-SA 3.0",
     maxZoom: 11,
     coverage: [44.75, 3.28, 55.27, 20.32],
+    // The scan's own resolution — deeper only enlarges the engraving.
+    sampleZoom: 11,
   },
   {
     key: "settings.map.overlays.preset.france.etatmajor",
@@ -76,6 +92,7 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     attribution: "© IGN, Licence Ouverte 2.0 (Etalab)",
     maxZoom: 15,
     coverage: [41.3, -5.2, 51.1, 9.6],
+    sampleZoom: 13,
   },
   {
     key: "settings.map.overlays.preset.swiss.dufour",
@@ -85,6 +102,7 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     attribution: "© swisstopo",
     maxZoom: 14,
     coverage: SWITZERLAND,
+    sampleZoom: 13,
   },
   {
     key: "settings.map.overlays.preset.swiss.siegfried",
@@ -94,6 +112,7 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     attribution: "© swisstopo",
     maxZoom: 13,
     coverage: SWITZERLAND,
+    sampleZoom: 13,
   },
   // Slovenia · GURS public WMS (Geodetska uprava RS), CC BY 4.0, CORS-enabled,
   // served in Web Mercator on demand. Reference (present-day) layers useful for
@@ -109,6 +128,8 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     params: "TIME=2011-01-01T00:00:00.000Z",
     attribution: GURS_ATTRIBUTION,
     coverage: SLOVENIA,
+    // The aerial survey is served from zoom 9 in; 13 is where a village reads.
+    sampleZoom: 13,
   },
   {
     key: "settings.map.overlays.preset.gurs.ortho",
@@ -117,6 +138,7 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     layers: "SI.GURS.ZPDZ:DOF025",
     attribution: GURS_ATTRIBUTION,
     coverage: SLOVENIA,
+    sampleZoom: 13,
   },
   // No preset for SI.GURS.ZPDZ:DOF050: it is the same survey as DOF025 at half
   // the source resolution — same coverage, same scale range, visibly softer.
@@ -156,6 +178,7 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     minZoom: 9,
     attribution: GURS_ATTRIBUTION,
     coverage: SLOVENIA,
+    sampleZoom: 13,
   },
   {
     // Temeljni topografski načrt 1:5000/1:10000 — the older black-and-white
@@ -178,6 +201,8 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     minZoom: 15,
     attribution: GURS_ATTRIBUTION,
     coverage: SLOVENIA,
+    // Its scale limit is also its floor: nothing at all is drawn above 15.
+    sampleZoom: 15,
   },
   {
     key: "settings.map.overlays.preset.gurs.parcels",
@@ -190,6 +215,8 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     queryLayers: "SI.GURS.KN:PARCELE",
     attribution: GURS_ATTRIBUTION,
     coverage: SLOVENIA,
+    // Parcel boundaries start at 16; everything above it comes back empty.
+    sampleZoom: 16,
   },
   {
     // Cadastral municipality (katastrska občina) boundaries + names. Parish and
@@ -204,6 +231,8 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     tileSize: 1024,
     attribution: GURS_ATTRIBUTION,
     coverage: SLOVENIA,
+    // Boundaries appear at 12, and 13 is where their names come with them.
+    sampleZoom: 13,
   },
   {
     key: "settings.map.overlays.preset.gurs.houseNumbers",
@@ -215,6 +244,8 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     queryLayers: "SI.GURS.KN:NASLOVI_HS",
     attribution: GURS_ATTRIBUTION,
     coverage: SLOVENIA,
+    // House numbers, like the parcels they sit on, are drawn from 16 in.
+    sampleZoom: 16,
   },
   {
     key: "settings.map.overlays.preset.gurs.settlements",
@@ -227,6 +258,8 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     tileSize: 1024,
     attribution: GURS_ATTRIBUTION,
     coverage: SLOVENIA,
+    // Drawn between 10 and 15, and richest at the top of that range.
+    sampleZoom: 11,
   },
   {
     key: "settings.map.overlays.preset.gurs.municipalities",
@@ -237,6 +270,7 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     tileSize: 1024,
     attribution: GURS_ATTRIBUTION,
     coverage: SLOVENIA,
+    sampleZoom: 11,
   },
 ];
 
@@ -252,11 +286,13 @@ export function resolveOverlay(o: MapOverlay): MapOverlay {
   if (!o.presetKey) return o;
   const preset = PRESET_BY_KEY.get(o.presetKey);
   if (!preset) return o;
-  // key and coverage describe the preset, not the layer to draw — dropping
-  // them here keeps them out of the config a manual edit captures and stores.
-  const { key: _key, coverage: _coverage, ...tech } = preset;
+  // key, coverage and sampleZoom describe the preset, not the layer to draw —
+  // dropping them here keeps them out of the config a manual edit captures and
+  // stores.
+  const { key: _key, coverage: _coverage, sampleZoom: _sampleZoom, ...tech } = preset;
   void _key;
   void _coverage;
+  void _sampleZoom;
   return { ...tech, id: o.id, name: o.name, presetKey: o.presetKey, defaultOn: o.defaultOn };
 }
 
@@ -265,4 +301,17 @@ export function resolveOverlay(o: MapOverlay): MapOverlay {
  *  says nothing about what ground it covers — so this is undefined for it. */
 export function overlayCoverage(o: MapOverlay): CoverageBox | undefined {
   return o.presetKey ? PRESET_BY_KEY.get(o.presetKey)?.coverage : undefined;
+}
+
+/** The zoom to show this layer at when previewing it — see
+ *  {@link OverlayPreset.sampleZoom}. Undefined for a layer of the user's own:
+ *  its URL says nothing about the scales the service draws at. */
+export function overlaySampleZoom(o: MapOverlay): number | undefined {
+  return o.presetKey ? PRESET_BY_KEY.get(o.presetKey)?.sampleZoom : undefined;
+}
+
+/** Does `outer` hold the whole of `inner`? Used to decide whether a layer can
+ *  be previewed on the standard sample scene rather than on its own ground. */
+export function coverageContains(outer: CoverageBox, inner: CoverageBox): boolean {
+  return outer[0] <= inner[0] && outer[1] <= inner[1] && outer[2] >= inner[2] && outer[3] >= inner[3];
 }

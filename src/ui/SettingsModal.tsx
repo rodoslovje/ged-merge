@@ -2,7 +2,14 @@ import { lazy, Suspense, useMemo, useState, useTransition } from "react";
 import { useTranslation } from "react-i18next";
 import { useModalKeyboard } from "../keyboard/useModalKeyboard";
 import { useSettings, useNameOf, type MapOverlay } from "./SettingsContext";
-import { OVERLAY_PRESETS, overlayCoverage, resolveOverlay, type CoverageBox } from "./map/overlayPresets";
+import {
+  OVERLAY_PRESETS,
+  coverageContains,
+  overlayCoverage,
+  overlaySampleZoom,
+  resolveOverlay,
+  type CoverageBox,
+} from "./map/overlayPresets";
 import { BASEMAPS, CUSTOM_BASEMAP } from "./map/basemapPresets";
 import type { MiniMapPin, MiniMapView } from "./map/MiniPlaceMap";
 import { xrefLabel, type NameOrder } from "../gedcom/nameDisplay";
@@ -123,12 +130,10 @@ const SAMPLE_XREF = "@I42@";
  *  all told apart at a glance. Used until a layer marked Default names ground
  *  of its own; the sample pans and zooms, so anywhere else is one drag away. */
 const SAMPLE_MAP_BOX: CoverageBox = [46.335, 14.06, 46.4, 14.17];
-/** How far out the sample may zoom to fit a layer's coverage. No bundled layer
- *  draws anything beyond it: the GURS services return blank above zoom 9, and
- *  the historical pyramids serve no tiles below zoom 6 (both measured against
- *  the live services). A country-sized coverage fitted whole would therefore
- *  preview as an empty frame — better the middle of it, actually drawn. */
-const SAMPLE_MIN_ZOOM = 9;
+/** How far the sample zooms in with no layer to follow — enough of the box
+ *  above to be a town rather than a region. A layer marked Default overrides
+ *  it with the zoom it was measured to draw at (`sampleZoom`). */
+const SAMPLE_MAX_ZOOM = 13;
 /** Nothing is plotted on the sample — a stable identity so the map's marker
  *  pass doesn't rerun on every render of this modal. */
 const NO_PINS: MiniMapPin[] = [];
@@ -182,14 +187,16 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
     // show that does name its ground; failing that, the standing sample.
     const last = shown.find((o) => o.id === framedOverlay);
     const framed = (last && overlayCoverage(last) ? last : undefined) ?? shown.find((o) => overlayCoverage(o));
-    return {
-      box: (framed && overlayCoverage(framed)) ?? SAMPLE_MAP_BOX,
-      // Its own floor when it declares one higher than the sample's (GURS's
-      // 1:5000 plan draws from zoom 15 in), so the layer is never framed at a
-      // zoom it draws nothing at.
-      minZoom: Math.max(SAMPLE_MIN_ZOOM, (framed && resolveOverlay(framed).minZoom) || 0),
-      maxZoom: 13,
-    };
+    const coverage = framed && overlayCoverage(framed);
+    // A layer whose ground includes the standard scene is shown on it: that is
+    // a town with houses, fields and water, which tells an aerial or cadastral
+    // layer apart at once — while the middle of a country-sized box is as
+    // likely to be forest, and at the zoom an address layer needs, empty.
+    const box = coverage && !coverageContains(coverage, SAMPLE_MAP_BOX) ? coverage : SAMPLE_MAP_BOX;
+    // The zoom the layer draws at decides the sample outright: fitting its
+    // coverage instead would preview a scale-limited layer as a blank frame.
+    const zoom = framed && overlaySampleZoom(framed);
+    return { box, minZoom: zoom || undefined, maxZoom: zoom || SAMPLE_MAX_ZOOM };
   }, [settings.mapOverlays, framedOverlay]);
 
   const [, startTransition] = useTransition();
@@ -476,9 +483,10 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
               {/* The choice below, drawn: the sample redraws on every change of
                   base map, custom URL or theme, and carries the layers marked
                   Default — what every map in the app will then look like. It
-                  frames whichever of those layers was switched on last, so a
-                  layer covering another country is not switched on into an
-                  empty frame. Shown only once tiles are allowed: before that
+                  goes to the ground and the zoom of whichever of those layers
+                  was switched on last, so a layer covering another country, or
+                  drawn only at close range, is not switched on into an empty
+                  frame. Shown only once tiles are allowed: before that
                   there is nothing to preview but the offline outline. */}
               {settings.allowMapTiles && (
                 <div className="settings-map-preview">
