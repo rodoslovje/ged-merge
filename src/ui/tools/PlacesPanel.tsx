@@ -339,6 +339,11 @@ function PlaceTreeRow({
           {labelNode}
         </span>
         <span className="tools-chip-count">{node.count}</span>
+        {node.coord && (
+          <span className="tools-tree-meta gm-data" title={t("tools.places.coord")}>
+            {node.coord.lat.toFixed(5)}, {node.coord.lon.toFixed(5)}
+          </span>
+        )}
         {!isSynthetic && !editing && (
           <button
             className="tools-place-edit-btn"

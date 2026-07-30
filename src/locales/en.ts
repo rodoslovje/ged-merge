@@ -390,6 +390,7 @@ export const en = {
   "tools.places.none": "No places found.",
   "tools.places.unspecified": "Unspecified country",
   "tools.places.unspecifiedPlace": "Unspecified place",
+  "tools.places.coord": "Coordinate written in the file for this place",
   "tools.places.rename.open": "Rename this place segment",
   "tools.places.rename.cancel": "Cancel",
   "tools.places.rename.placeholder": "New name…",

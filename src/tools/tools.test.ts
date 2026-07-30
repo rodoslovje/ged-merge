@@ -1555,6 +1555,43 @@ describe("buildPlaceTree", () => {
     expect(addr).toBeTruthy();
     expect(addr!.uses.map((u) => u.persons.map((p) => p.id))).toEqual([["@I1@"]]);
   });
+
+  it("reports each path's coordinate, taking the prevailing one where they disagree", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Ana /Kos/
+1 BIRT
+2 PLAC Kranj, Slovenija
+3 MAP
+4 LATI N46.23887
+4 LONG E14.35561
+1 DEAT
+2 PLAC Bled, Slovenija
+0 @I2@ INDI
+1 NAME Bo /Kos/
+1 BIRT
+2 PLAC Kranj, Slovenija
+3 MAP
+4 LATI N46.23887
+4 LONG E14.35561
+0 @I3@ INDI
+1 NAME Cita /Kos/
+1 BIRT
+2 PLAC Kranj, Slovenija
+3 MAP
+4 LATI N46.9
+4 LONG E14.9
+0 TRLR`);
+    const si = buildPlaceTree(ds).roots.find((r) => r.name === "Slovenija")!;
+    const kranj = si.children.find((c) => c.name === "Kranj")!;
+    // Two records agree, one disagrees — the majority value is the one shown.
+    expect(kranj.coord).toEqual({ lat: 46.23887, lon: 14.35561 });
+    // A place the file never geocoded reports none, and neither does the
+    // country level above it: a coordinate belongs to the path that wrote it.
+    expect(si.children.find((c) => c.name === "Bled")!.coord).toBeUndefined();
+    expect(si.coord).toBeUndefined();
+  });
 });
 
 describe("collectLocalMediaFiles", () => {

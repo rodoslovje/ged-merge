@@ -1,4 +1,5 @@
-import type { GedPlace, GeoCoord } from "./types";
+import type { GedNode, GedPlace, GeoCoord } from "./types";
+import { firstChild } from "./node";
 
 /**
  * A bracketed aside in a place value. Round and square brackets are read alike:
@@ -49,6 +50,15 @@ export function parseCoordPair(lati: string, long: string): GeoCoord | undefined
   if (lat === undefined || lon === undefined) return undefined;
   if (Math.abs(lat) > 90 || Math.abs(lon) > 180) return undefined;
   return { lat, lon };
+}
+
+/** The coordinate a `PLAC` node carries under its `MAP` structure, if any —
+ *  the one place every caller reads a stored coordinate from. */
+export function placeNodeCoord(plac: GedNode): GeoCoord | undefined {
+  const map = firstChild(plac, "MAP");
+  const lati = map && firstChild(map, "LATI")?.value;
+  const long = map && firstChild(map, "LONG")?.value;
+  return lati && long ? parseCoordPair(lati, long) : undefined;
 }
 
 /**

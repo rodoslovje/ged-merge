@@ -408,6 +408,7 @@ export const sl = {
   "tools.places.none": "Ni najdenih krajev.",
   "tools.places.unspecified": "Neznana država",
   "tools.places.unspecifiedPlace": "Neznan kraj",
+  "tools.places.coord": "Koordinata, zapisana v datoteki za ta kraj",
   "tools.places.rename.open": "Preimenuj ta del kraja",
   "tools.places.rename.cancel": "Prekliči",
   "tools.places.rename.placeholder": "Novo ime…",
