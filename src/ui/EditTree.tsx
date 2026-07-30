@@ -408,6 +408,8 @@ export function EditTree({ mainDs, rootId, startId, changedPersonIds, decisions,
                 mainRecords={mainDs.records}
                 mainRefCtx={mainRefCtx}
                 badgeOf={display.showBadges ? fanBadgeOf : undefined}
+                showRepeat={display.showBadges}
+                onRepeatJump={find.jumpTo}
               />
             ) : (
               <p className="muted">{t("tree.empty")}</p>

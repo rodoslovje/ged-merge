@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import type { GedNode } from "../gedcom/types";
 import { PAD } from "../chart/treeLayout";
@@ -39,6 +40,11 @@ interface Props {
   compareRefCtx?: MediaRefContext;
   /** Optional badge dot per node. */
   badgeOf?: (node: TreeNode) => FanBadge | undefined;
+  /** Whether to mark repeated positions (`TreeNode.repeat`) — follows the same
+   *  Badges display setting as the layered tree's marker. */
+  showRepeat?: boolean;
+  /** Take the view to the segment a repeat points at. */
+  onRepeatJump?: (key: string) => void;
 }
 
 const arcId = (seg: FanSegment, i: number) => `fa-${seg.gen}-${seg.slot}-${i}`;
@@ -63,9 +69,20 @@ export function FanChartBody({
   mainRefCtx,
   compareRefCtx,
   badgeOf,
+  showRepeat = false,
+  onRepeatJump,
 }: Props) {
   const { t } = useTranslation();
   const curved = chart.segments.filter((s) => s.curved);
+  // Where a repeat marker jumps to. `TreeNode.repeatOf` names a tree position,
+  // which the radial chart addresses as `gen:slot` instead — so translate. A
+  // carrier outside the drawn rings (cut by the generation limit) has no
+  // segment, and the marker is left off rather than promising a jump.
+  const segmentByNodeKey = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const s of chart.segments) m.set(s.node.key, s.key);
+    return m;
+  }, [chart]);
   return (
     <svg className="tree-svg" width={chart.width * zoom} height={chart.height * zoom} viewBox={`0 0 ${chart.width} ${chart.height}`} role="img">
       <g transform={`translate(${PAD},${PAD})`}>
@@ -90,11 +107,18 @@ export function FanChartBody({
             flashed={seg.key === flashKey}
             onSelect={onSelect}
             clickHint={t("tree.node.clickHint")}
+            repeatHint={t("tree.node.repeatHint")}
             mainRecords={mainRecords}
             compareRecords={compareRecords}
             mainRefCtx={mainRefCtx}
             compareRefCtx={compareRefCtx}
             badge={badgeOf?.(seg.node)}
+            repeatTo={
+              showRepeat && seg.node.repeat && seg.node.repeatOf
+                ? segmentByNodeKey.get(seg.node.repeatOf)
+                : undefined
+            }
+            onRepeatJump={onRepeatJump}
           />
         ))}
         {/* Marriage collars: a thin band in the reserved lane between each couple
@@ -133,6 +157,9 @@ function Segment({
   mainRefCtx,
   compareRefCtx,
   badge,
+  repeatTo,
+  repeatHint,
+  onRepeatJump,
 }: {
   seg: FanSegment;
   color: string;
@@ -140,11 +167,14 @@ function Segment({
   flashed: boolean;
   onSelect: (key: string) => void;
   clickHint: string;
+  repeatHint: string;
   mainRecords: GedNode[];
   compareRecords?: GedNode[];
   mainRefCtx?: MediaRefContext;
   compareRefCtx?: MediaRefContext;
   badge?: FanBadge;
+  repeatTo?: string;
+  onRepeatJump?: (key: string) => void;
 }) {
   const { node } = seg;
   const nameFill = sexColorVar(node.sex) ?? "var(--text)";
@@ -207,6 +237,26 @@ function Segment({
           letter={badge.letter}
           title={badge.title}
         />
+      )}
+      {/* This position was already expanded elsewhere (pedigree collapse — a
+          couple descended from the same ancestors), so its rings stop here.
+          The marker sits at the outer edge, where those ancestors would be. */}
+      {repeatTo && seg.outerBadge && (
+        <g
+          className="tree-node-repeat"
+          onClick={(e) => {
+            e.stopPropagation(); // the jump replaces the segment's own select
+            onRepeatJump?.(repeatTo);
+          }}
+        >
+          <NodeBadge
+            x={seg.outerBadge.x}
+            y={seg.outerBadge.y}
+            cls="fan-badge tree-node-repeat-badge"
+            letter="→"
+            title={repeatHint}
+          />
+        </g>
       )}
     </g>
   );

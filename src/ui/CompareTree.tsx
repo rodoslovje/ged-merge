@@ -546,6 +546,8 @@ export function CompareTree({
                 mainRefCtx={mainRefCtx}
                 compareRefCtx={compareRefCtx}
                 badgeOf={display.showBadges ? fanBadgeOf : undefined}
+                showRepeat={display.showBadges}
+                onRepeatJump={find.jumpTo}
               />
             ) : (
               <p className="muted">{t("tree.empty")}</p>
