@@ -8,11 +8,14 @@ import { fileURLToPath } from "url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SAMPLE = path.resolve(__dirname, "../src/__fixtures__/corpus/reunion-5.5.1-utf8.ged");
 
-/** The focused element's class list, "(none)" when focus sits on the body. */
-async function focusedClass(page: import("@playwright/test").Page): Promise<string> {
+/** Does anything in the page claim ⌘/Ctrl+F? Dispatched synthetically: a real
+ *  chord in a view that doesn't claim it opens the browser's own find bar,
+ *  which the test can neither see nor dismiss. */
+async function findChordPrevented(page: import("@playwright/test").Page): Promise<boolean> {
   return page.evaluate(() => {
-    const el = document.activeElement;
-    return !el || el === document.body ? "(none)" : el.className || el.tagName;
+    const e = new KeyboardEvent("keydown", { key: "f", ctrlKey: true, bubbles: true, cancelable: true });
+    window.dispatchEvent(e);
+    return e.defaultPrevented;
   });
 }
 
@@ -21,10 +24,8 @@ test("Ctrl+F focuses the search box of the current view", async ({ page }) => {
   await page.locator("input.file-input").first().setInputFiles(SAMPLE);
   await page.locator(".edit-person").first().waitFor({ timeout: 15000 });
 
-  // Edit mode has no find box of its own: the chord is left to the browser, so
-  // nothing in the page takes focus.
-  await page.keyboard.press("ControlOrMeta+f");
-  expect(await focusedClass(page)).toBe("(none)");
+  // Edit mode has no find box of its own: the chord is left to the browser.
+  expect(await findChordPrevented(page)).toBe(false);
 
   // Tools: the visible panel's filter box takes it.
   await page.getByRole("button", { name: "Tools", exact: true }).click();

@@ -25,11 +25,14 @@ export interface FindEntry {
   text: string;
 }
 
-/** A chart node handed to the index: its key plus whoever it draws. Compare-side
+/** A position handed to the index: its key plus whoever it draws. Compare-side
  *  nodes carry two people (main + incoming), so both are searchable. */
 export interface FindSource {
   key: string;
   people: (Individual | undefined)[];
+  /** Extra searchable text for this position — the map's place and address, so
+   *  "Kranj" finds the events there and not only people by that name. */
+  text?: string;
 }
 
 /** Folded name + lifespan text for one person, matching the global search's
@@ -48,11 +51,11 @@ export function buildFindEntries(sources: Iterable<FindSource>): FindEntry[] {
   const entries: FindEntry[] = [];
   for (const src of sources) {
     const people = src.people.filter((p): p is Individual => !!p);
-    if (!people.length) continue;
+    if (!people.length && !src.text) continue;
     entries.push({
       key: src.key,
-      id: people[0].id,
-      text: people.map(personText).join(" "),
+      id: people[0]?.id ?? "",
+      text: [...people.map(personText), src.text ? foldSearch(src.text) : ""].join(" ").trim(),
     });
   }
   return entries;

@@ -7,27 +7,50 @@ import { SearchIcon } from "./icons/SearchIcon";
 import { useNameOf } from "./SettingsContext";
 import type { ChartFind } from "./useChartFind";
 
+/** The surface a find box searches. Each names its positions differently, so
+ *  each has its own strings. */
+export type FindScope = "chart" | "report" | "map";
+
 /**
- * The chart's find box: type a name, press ⌕ (or Enter) and the canvas moves to
- * that person *within the current diagram* — the counter says how many places
+ * The find box: type a name, press ⌕ (or Enter) and the view moves to that
+ * person *within what is currently open* — the counter says how many places
  * they occupy and ‹ › walk between them. The global search (`/`) answers a
- * different question: it re-roots the chart on whoever is opened.
+ * different question: it re-roots on whoever is opened.
  *
- * When nobody by that name is drawn here but somebody in the file matches, the
- * box says so and offers to re-root on them, so a miss ends in one click rather
+ * Used by the charts (pan the canvas), the Report (scroll to a numbered entry)
+ * and the Map (fly to a point), which differ only in what a "position" is and
+ * how it is revealed — see {@link useChartFind}.
+ *
+ * When nobody by that name is here but somebody in the file matches, the box
+ * says so and offers to re-root on them, so a miss ends in one click rather
  * than a dead end.
  */
-export function ChartFindBox({ find }: { find: ChartFind }) {
+export function ChartFindBox({
+  find,
+  scope = "chart",
+  takesFindKey = true,
+}: {
+  find: ChartFind;
+  /** Which surface the box searches — it picks the wording ("places on this
+   *  chart" / "entries in this report" / "points on this map"), which
+   *  Slovenian declines rather than interpolates. */
+  scope?: FindScope;
+  /** Whether ⌘/Ctrl+F focuses this box. False on the Report, whose entries are
+   *  plain text the browser's own find searches better than we can. */
+  takesFindKey?: boolean;
+}) {
   const { t } = useTranslation();
   const nameOf = useNameOf();
   const inputRef = useRef<HTMLInputElement>(null);
   const { query, hits, position, step, miss, offChart } = find;
   const total = hits.length;
+  const k = (name: string) => (scope === "chart" ? `chartFind.${name}` : `chartFind.${scope}.${name}`);
+  const findKeyHint = takesFindKey ? { key: `${renderKeyToken("mod")}F` } : {};
 
   // ⌘/Ctrl+F focuses the box instead of the browser's own find, which can't pan
   // the canvas to what it matched. The chart page sits on top of everything
   // else, so while it is mounted the chord is always its.
-  useFindShortcutOn(inputRef, () => true);
+  useFindShortcutOn(inputRef, () => takesFindKey);
 
   function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter") {
@@ -53,8 +76,8 @@ export function ChartFindBox({ find }: { find: ChartFind }) {
           <button
             type="button"
             className="chart-find-go"
-            title={t("chartFind.tooltip", { key: `${renderKeyToken("mod")}F` })}
-            aria-label={t("chartFind.title")}
+            title={t(k("tooltip"), findKeyHint)}
+            aria-label={t(k("title"))}
             onClick={() => step(1)}
           >
             <SearchIcon size={14} />
@@ -62,8 +85,8 @@ export function ChartFindBox({ find }: { find: ChartFind }) {
           <input
             ref={inputRef}
             type="text"
-            placeholder={t("chartFind.placeholder")}
-            title={t("chartFind.tooltip", { key: `${renderKeyToken("mod")}F` })}
+            placeholder={t(k("placeholder"))}
+            title={t(k("tooltip"), findKeyHint)}
             value={query}
             onChange={(e) => find.setQuery(e.target.value)}
             onKeyDown={onKeyDown}
@@ -71,7 +94,7 @@ export function ChartFindBox({ find }: { find: ChartFind }) {
           {/* A *position*, so it appears with the jump the settled query makes —
               never as a bare match count for a search that hasn't moved yet. */}
           {position > 0 && (
-            <span className="chart-find-count gm-data" title={t("chartFind.matches", { count: total })}>
+            <span className="chart-find-count gm-data" title={t(k("matches"), { count: total })}>
               {position}/{total}
             </span>
           )}
@@ -83,19 +106,23 @@ export function ChartFindBox({ find }: { find: ChartFind }) {
         </div>
         {position > 0 && total > 1 && (
           <div className="chart-find-steps">
-            <button type="button" title={t("chartFind.prev")} aria-label={t("chartFind.prev")} onClick={() => step(-1)}>
+            <button type="button" title={t(k("prev"))} aria-label={t(k("prev"))} onClick={() => step(-1)}>
               ‹
             </button>
-            <button type="button" title={t("chartFind.next")} aria-label={t("chartFind.next")} onClick={() => step(1)}>
+            <button type="button" title={t(k("next"))} aria-label={t(k("next"))} onClick={() => step(1)}>
               ›
             </button>
           </div>
         )}
       </div>
-      {miss === "none" && <span className="chart-find-msg">{t("chartFind.none")}</span>}
+      {/* The map has no whole-file fallback to offer (its root belongs to the
+          hub), so a miss there also has to explain the likeliest reason. */}
+      {miss === "none" && (
+        <span className="chart-find-msg">{t(scope === "map" ? "chartFind.map.none" : "chartFind.none")}</span>
+      )}
       {miss === "offChart" && offChart && (
         <span className="chart-find-msg">
-          {t("chartFind.offChart")}
+          {t(k("offChart"))}
           <button type="button" className="chart-find-goto" title={t("edit.tree.reroot")} onClick={find.goToOffChart}>
             {nameOf(offChart)}
             {span && <span className="gm-data"> {span}</span>}
