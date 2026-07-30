@@ -123,6 +123,12 @@ const SAMPLE_XREF = "@I42@";
  *  all told apart at a glance. Used until a layer marked Default names ground
  *  of its own; the sample pans and zooms, so anywhere else is one drag away. */
 const SAMPLE_MAP_BOX: CoverageBox = [46.335, 14.06, 46.4, 14.17];
+/** How far out the sample may zoom to fit a layer's coverage. No bundled layer
+ *  draws anything beyond it: the GURS services return blank above zoom 9, and
+ *  the historical pyramids serve no tiles below zoom 6 (both measured against
+ *  the live services). A country-sized coverage fitted whole would therefore
+ *  preview as an empty frame — better the middle of it, actually drawn. */
+const SAMPLE_MIN_ZOOM = 9;
 /** Nothing is plotted on the sample — a stable identity so the map's marker
  *  pass doesn't rerun on every render of this modal. */
 const NO_PINS: MiniMapPin[] = [];
@@ -178,9 +184,10 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
     const framed = (last && overlayCoverage(last) ? last : undefined) ?? shown.find((o) => overlayCoverage(o));
     return {
       box: (framed && overlayCoverage(framed)) ?? SAMPLE_MAP_BOX,
-      // A layer that only draws from a given zoom in (GURS's topographic maps)
-      // is shown at that zoom instead of fitted whole and left blank.
-      minZoom: framed && resolveOverlay(framed).minZoom,
+      // Its own floor when it declares one higher than the sample's (GURS's
+      // 1:5000 plan draws from zoom 15 in), so the layer is never framed at a
+      // zoom it draws nothing at.
+      minZoom: Math.max(SAMPLE_MIN_ZOOM, (framed && resolveOverlay(framed).minZoom) || 0),
       maxZoom: 13,
     };
   }, [settings.mapOverlays, framedOverlay]);
