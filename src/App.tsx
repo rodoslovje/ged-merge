@@ -1504,11 +1504,12 @@ function AppContent() {
   } else if (chartsRootId && mainDataset) {
     treeOverlay = wrapTree(
       <ChartsHub
-        // Remount when opened on a different person, so the hub's internal
-        // root follows a fresh open instead of a stale earlier visit.
-        key={chartsRootId}
         mainDs={mainDataset}
-        initialRootId={chartsRootId}
+        rootId={chartsRootId}
+        // Re-rooting is a history entry of its own (openCharts pushes one), so
+        // the browser Back button walks back through the people the user
+        // re-rooted on before it closes the hub.
+        onRootChange={(id) => openCharts(id)}
         startId={startId}
         changedPersonIds={changedPersonIds}
         decisions={decisions}

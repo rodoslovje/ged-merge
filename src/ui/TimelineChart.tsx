@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import { buildTimeline, type TimelineRow } from "../chart/timeline";
@@ -14,6 +14,7 @@ import type { CandidateDecision } from "../review/types";
 import { individualFieldRows } from "../review/fields";
 import { ChartPage } from "./ChartPage";
 import { ChartRootTitle } from "./ChartRootTitle";
+import { useStableHandler } from "./edit/useStableHandler";
 import { collectFirstFilePath, TreeNodePhoto } from "./PersonMedia";
 import { useMediaFolder } from "./MediaFolderContext";
 import { sexClass, sexColorVar } from "./sex";
@@ -122,22 +123,20 @@ interface Props {
   onNavigate?: (id: string) => void;
   /** The Charts-hub kind switcher, rendered in the controls row. */
   kindSwitcher?: React.ReactNode;
-  /** Reports re-roots up to the Charts hub, so switching kinds stays on the
-   *  person the user is looking at. */
-  onRootChange?: (id: string) => void;
+  /** Re-root on another person. The hub owns the root (and records it in browser
+   *  history), so a re-root here comes back down as a new `rootId`. */
+  onRootChange: (id: string) => void;
 }
 
-export function TimelineChart({ mainDs, rootId, startId, changedPersonIds, decisions, backLabel, onBack, onNavigate, kindSwitcher, onRootChange }: Props) {
+export function TimelineChart({ mainDs, rootId: currentRootId, startId, changedPersonIds, decisions, backLabel, onBack, onNavigate, kindSwitcher, onRootChange }: Props) {
   const { t } = useTranslation();
   const nameOf = useNameOf();
   const nodeStatus = useNodeStatus(changedPersonIds, decisions);
   const { settings } = useChartSettings();
   const { settings: appSettings } = useSettings();
-  const [currentRootId, setCurrentRootId] = useState(rootId);
-  const changeRoot = useCallback((id: string) => {
-    setCurrentRootId(id);
-    onRootChange?.(id);
-  }, [onRootChange]);
+  // Identity-stable, so the memoized row handlers below don't rebuild every
+  // render just because App passes a fresh callback.
+  const changeRoot = useStableHandler(onRootChange);
 
   // Kinship-to-start adds nothing while the timeline is rooted on the start
   // person themselves — every row's role already says the same thing.

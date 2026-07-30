@@ -33,6 +33,7 @@ import { FileTextIcon, PrinterIcon } from "./icons/FormatIcons";
 import { ChartSettings } from "./ChartSettings";
 import { useChartSettings } from "./ChartSettingsContext";
 import { useNodeStatus } from "./useNodeStatus";
+import { useStableHandler } from "./edit/useStableHandler";
 import type { CandidateDecision } from "../review/types";
 import { useNameOf, useSettings } from "./SettingsContext";
 import { ChartRootTitle } from "./ChartRootTitle";
@@ -77,28 +78,28 @@ interface Props {
   onNavigate?: (id: string) => void;
   /** The Charts-hub kind switcher, rendered in the controls row. */
   kindSwitcher?: React.ReactNode;
-  /** Reports re-roots up to the Charts hub, so switching kinds stays on the
-   *  person the user is looking at. */
-  onRootChange?: (id: string) => void;
+  /** Re-root on another person. The hub owns the root (and records it in browser
+   *  history), so a re-root here comes back down as a new `rootId`. */
+  onRootChange: (id: string) => void;
   /** The hub-owned ancestors/descendants choice, shared with the pedigree
    *  charts so the direction survives kind switches. */
   mode: TreeMode;
   onModeChange: (mode: TreeMode) => void;
 }
 
-export function ReportView({ mainDs, rootId, startId, changedPersonIds, decisions, backLabel, onBack, onNavigate, kindSwitcher, onRootChange, mode, onModeChange }: Props) {
+export function ReportView({ mainDs, rootId: currentRootId, startId, changedPersonIds, decisions, backLabel, onBack, onNavigate, kindSwitcher, onRootChange, mode, onModeChange }: Props) {
   const { t, i18n } = useTranslation();
   const nameOf = useNameOf(REPORT_NAME_DISPLAY);
   const { settings: appSettings } = useSettings();
   const nodeStatus = useNodeStatus(changedPersonIds, decisions);
   const { settings, set } = useChartSettings();
-  const [currentRootId, setCurrentRootId] = useState(rootId);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const changeRoot = useCallback((id: string) => {
-    setCurrentRootId(id);
+  // Identity-stable, so the memoized paragraph handlers don't rebuild every
+  // render just because App passes a fresh callback.
+  const changeRoot = useStableHandler((id: string) => {
     setSelectedId(null);
-    onRootChange?.(id);
-  }, [onRootChange]);
+    onRootChange(id);
+  });
 
   // Both directions build (they also feed the toggle's count badges); the
   // toggle picks which one the page shows.
