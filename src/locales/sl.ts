@@ -1509,6 +1509,7 @@ export const sl = {
   "settings.map.tiles": "Nalagaj ploščice zemljevida",
   "settings.map.tiles.hint": "Zemljevid nalaga ozadje pri izbranem ponudniku; zahteve po ploščicah mu razkrijejo ogledovano območje. Izklopljeno = vgrajeni obris sveta brez povezave.",
   "settings.map.basemap.hint": "Podlaga, na katero se rišejo vsi zemljevidi. Za nobeno ni potreben račun, navedba vira pa sledi izbiri.",
+  "settings.map.preview": "Vzorec izbrane podlage skupaj s sloji, označenimi kot privzeti. Lahko ga premikate in povečujete.",
   "settings.map.needTiles": "Za uporabo teh slojev zgoraj vklopite nalaganje ploščic.",
   "basemap.carto": "Enostaven (CARTO)",
   "basemap.osm": "OpenStreetMap",

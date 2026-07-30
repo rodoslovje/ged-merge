@@ -1365,6 +1365,7 @@ export const en = {
   "settings.map.tiles": "Load base-map tiles",
   "settings.map.tiles.hint": "The map fetches its background from the chosen provider; tile requests reveal the viewed region to it. Off = the built-in offline outline.",
   "settings.map.basemap.hint": "The background every map draws on. None of these needs an account; the credit follows your choice.",
+  "settings.map.preview": "Sample of the chosen base map, with any layers marked Default drawn over it. Drag and zoom it freely.",
   "settings.map.needTiles": "Load base-map tiles above to use these layers.",
   "basemap.carto": "Plain (CARTO)",
   "basemap.osm": "OpenStreetMap",

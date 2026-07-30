@@ -5263,6 +5263,14 @@ a.report-source:hover { color: var(--accent); text-decoration: underline; }
    the element-qualified selector restates the hint scale over it. */
 p.settings-note { margin: 0 0 12px; font-size: 0.82rem; color: var(--muted); line-height: 1.35; }
 
+/* Base-map sample above the picker: the shared mini map, given the settings
+   column's full width and its caption directly underneath. */
+.settings-map-preview { margin: 0 0 12px; }
+.settings-map-preview .tools-geo-minimap { max-width: none; height: 200px; margin: 0; }
+/* As a <p> the caption falls under .modal-body p (1.05rem) — restate the hint
+   scale with higher specificity. */
+.settings-map-preview p.settings-hint { margin: 4px 0 0; font-size: 0.82rem; line-height: 1.35; }
+
 .settings-danger-btn {
   flex: none;
   border: 1px solid var(--danger);
