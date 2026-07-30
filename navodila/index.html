@@ -1055,7 +1055,9 @@
             <p>
               Navede vsak kraj v hierarhiji država → kraj → hiša → naslov, s števcem uporabe pri vsakem kraju. Odprite
               kraj za seznam zapisov, ki ga uporabljajo, ali z <strong>Preimenuj</strong> na kateri koli ravni hkrati
-              preimenujte ali združite del kraja po vseh zapisih — odlično za poenotenje različic zapisa.
+              preimenujte ali združite del kraja po vseh zapisih — odlično za poenotenje različic zapisa. Kraj, ki nosi
+              hišno številko (<em>Krupa 7</em>), je uvrščen pod naselje kot vsak drug, s hišo na ravni pod njim, zato je
+              po naseljih mogoče brskati tudi po datoteki, ki hiše številči kar v kraju.
             </p>
             <p>
               Kraj, za katerega ima datoteka koordinato, jo pokaže ob števcu, zato med brskanjem po drevesu vidite tudi,
@@ -1113,12 +1115,10 @@
               enem koraku. Kar imenik brez
               povezave ne razreši, po vrsticah pokrijeta dve spletni iskanji — obe za isto spletno privolitvijo in samo ob
               kliku na gumb, njuni zadetki pa se pridružijo kandidatom in bucikam na zemljevidu. <strong>Išči na
-              OpenStreetMap</strong> uporablja Nominatim — najbolje za ulične naslove. <strong>Išči v registru
-              naslovov (GURS)</strong> se pojavi pri vrednostih s hišno številko (<em>Šentvid pri Stični 23</em>) in jo
-              poišče v uradnem slovenskem registru, kar da koordinato prav te stavbe in ne središča naselja. Kadar star
-              zapis ohranja več številk, ker se je oštevilčenje spremenilo (<em>Hafnarjeva pot 21a / 53</em>), se poiščejo
-              vse in ponudita obe hiši — zapis ne pove, katera je katera, zato je izbira vaša.
-              <strong>Išči v Genealoškem imeniku krajev (GOV)</strong>
+              OpenStreetMap</strong> uporablja Nominatim — najbolje za ulične naslove. Vrednosti s hišno številko v
+              državi, ki jo pokriva slovenski register naslovov (<em>Šentvid pri Stični 23</em>), tu sploh ni na seznamu:
+              je stavba in ne kraj, zato jo pregledate pod njenim naseljem v razdelku <strong>Naslovi s hišno
+              številko</strong> spodaj. <strong>Išči v Genealoškem imeniku krajev (GOV)</strong>
               uporablja <a href="https://gov.genealogy.net" target="_blank" rel="noreferrer">Genealoški imenik krajev
               (GOV)</a>, katerega vnosi nosijo zgodovinska, večjezična imena krajev, nadrejeni kraj (tako da so štirje enako imenovani <em>Osredki</em> ločeni po občini) in stalni identifikator GOV; ob
               potrditvi zadetka GOV se ta identifikator zapiše tudi v datoteko kot <code>_GOV</code> (ob <code>MAP</code>),
@@ -1126,14 +1126,29 @@
               tako da se druge datoteke razrešijo v hipu.
             </p>
             <p>
-              Pod seznamom krajev razdelek <strong>Naslovi s hišno številko</strong> pokriva drugo obliko: dogodke, pri katerih
-              kraj navaja samo naselje (<em>Kranj</em>), ulico ali številko pa navaja <strong>naslov</strong> dogodka
-              (<em>Kidričeva cesta 38</em>). Ti so združeni po kraju in naslovu, tako da en pregled zajame vse dogodke pri
+              Pod seznamom krajev razdelek <strong>Naslovi s hišno številko</strong> pokriva hiše in ne krajev, najde pa
+              jih tam, kjer jih hrani vaša datoteka: v <strong>naslovu</strong> dogodka ob kraju z naseljem
+              (<em>Kranj</em> + <em>Kidričeva cesta 38</em>), kot celotno vrednost kraja (<em>Črni vrh 35</em>) ali
+              stisnjeno med druge dele kraja (<em>Kranj (Slovenija), Stražišče 114 - župnija Šmartin</em>). Vsaka je
+              uvrščena pod naselje, ki mu pripada, zato datoteka brez naslovnih vrstic poteka pri pregledu enako kot
+              tista z njimi. Združeni so po kraju in naslovu, tako da en pregled zajame vse dogodke pri
               tej hiši, poiščejo pa se v istem registru. Koordinata se pri teh dogodkih zapiše kot običajni
               <code>MAP</code> pod <code>PLAC</code> — nič nestandardnega, zato jo preberejo vsi drugi programi. Seznam je
               razvrščen po krajih in zložen, najbolj obremenjeni kraj najprej, saj ima prava datoteka na stotine naslovov:
               odprite kraj, da vidite njegove naslove, jih poiščete vse naenkrat in preberete z majhnega zemljevida vseh
               najdenih hiš — sosedje na enem zemljevidu takoj pokažejo, kateri zadetek izstopa.
+            </p>
+            <p>
+              Vrstica je ena hiša in ne en zapis: kadar datoteka isto hišo piše na več načinov — recimo isto številko pod
+              dvema župnijama — se te združijo v eno vrstico, ob potrditvi pa se koordinata zapiše v vse. Kadar star
+              zapis ohranja več številk, ker se je oštevilčenje spremenilo (<em>Hafnarjeva pot 21a / 53</em>), se
+              poiščejo vse in ponudita obe hiši — zapis ne pove, katera je katera, zato je izbira vaša. Vsaka vrstica
+              nosi tudi isto zeleno <span class="gm-glyph pin"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2a7.5 7.5 0 0 0-7.5 7.5c0 5.05 6.36 11.62 6.63 11.9a1.2 1.2 0 0 0 1.74 0c.27-.28 6.63-6.85 6.63-11.9A7.5 7.5 0 0 0 12 2Zm0 10.2a2.7 2.7 0 1 1 0-5.4 2.7 2.7 0 0 1 0 5.4Z"/></svg></span> buciko kot dogodek v
+              urejanju: kliknite jo, da vnesete ali prilepite koordinato, izberete točko na zemljevidu ali poiščete na
+              OpenStreetMap — tako umestite hišo, ki je register ne pozna. Kadar je prikazani kraj naselje, ki ostane, ko
+              hišno številko odmislimo, je skupina označena z <em>v kraju</em>: koordinate se zapišejo v vrednost, ki jo
+              dogodki res nosijo, <strong>Premakni v drug kraj…</strong> pa tam ni na voljo, ker prav ta vrednost nosi
+              številko.
             </p>
             <p>
               Včasih se izkaže, da kraj skriva zaselek, ki je v resnici samostojno naselje — datoteka vodi vsak
