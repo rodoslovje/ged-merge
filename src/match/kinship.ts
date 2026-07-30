@@ -266,10 +266,11 @@ function relLabel(hg: number, tg: number, sex: string, t: Translate): string | u
   if (hg >= 2 && tg >= 2) {
     const degree = Math.min(hg, tg) - 1; // 1st, 2nd, 3rd…
     const removed = Math.abs(hg - tg);
+    const sx = f ? "F" : "M";
     const base =
-      degree === 1 ? t("kinship.cousin1") :
-      degree === 2 ? t("kinship.cousin2") :
-      `${degree}. ${t("kinship.cousin")}`;
+      degree === 1 ? t(`kinship.cousin1_${sx}`) :
+      degree === 2 ? t(`kinship.cousin2_${sx}`) :
+      `${degree}. ${t(`kinship.cousin_${sx}`)}`;
     return removed === 0 ? base : `${base} +${removed}`;
   }
 

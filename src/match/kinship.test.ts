@@ -203,6 +203,117 @@ describe("kinshipLabel half and step relations", () => {
   });
 });
 
+// Ego I1 with cousins of both sexes at each degree:
+//   I7 (g-grandfather) ─┬─ I5 (grandfather) ─┬─ I2 ── I1 (ego)
+//                       │                    └─ I3 ─┬─ I4 (m) ── I10 (m)
+//                       │                           └─ I6 (f)
+//                       └─ I11 ── I12 ─┬─ I8 (m)
+//                                      └─ I9 (f)
+// I4/I6 are 1st cousins, I10 a 1st cousin once removed, I8/I9 2nd cousins.
+const COUSIN_TREE = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Ego /Test/
+1 SEX M
+1 FAMC @F1@
+0 @I2@ INDI
+1 NAME Father /Test/
+1 SEX M
+1 FAMC @F3@
+1 FAMS @F1@
+0 @I3@ INDI
+1 NAME Uncle /Test/
+1 SEX M
+1 FAMC @F3@
+1 FAMS @F2@
+0 @I5@ INDI
+1 NAME Grandfather /Test/
+1 SEX M
+1 FAMC @F5@
+1 FAMS @F3@
+0 @I7@ INDI
+1 NAME GreatGrandfather /Test/
+1 SEX M
+1 FAMS @F5@
+0 @I11@ INDI
+1 NAME GreatUncle /Test/
+1 SEX M
+1 FAMC @F5@
+1 FAMS @F6@
+0 @I12@ INDI
+1 NAME FirstCousinOnceRemovedUp /Test/
+1 SEX M
+1 FAMC @F6@
+1 FAMS @F7@
+0 @I4@ INDI
+1 NAME MaleCousin /Test/
+1 SEX M
+1 FAMC @F2@
+1 FAMS @F4@
+0 @I6@ INDI
+1 NAME FemaleCousin /Test/
+1 SEX F
+1 FAMC @F2@
+0 @I10@ INDI
+1 NAME CousinsSon /Test/
+1 SEX M
+1 FAMC @F4@
+0 @I8@ INDI
+1 NAME MaleSecondCousin /Test/
+1 SEX M
+1 FAMC @F7@
+0 @I9@ INDI
+1 NAME FemaleSecondCousin /Test/
+1 SEX F
+1 FAMC @F7@
+0 @F1@ FAM
+1 HUSB @I2@
+1 CHIL @I1@
+0 @F2@ FAM
+1 HUSB @I3@
+1 CHIL @I4@
+1 CHIL @I6@
+0 @F3@ FAM
+1 HUSB @I5@
+1 CHIL @I2@
+1 CHIL @I3@
+0 @F4@ FAM
+1 HUSB @I4@
+1 CHIL @I10@
+0 @F5@ FAM
+1 HUSB @I7@
+1 CHIL @I5@
+1 CHIL @I11@
+0 @F6@ FAM
+1 HUSB @I11@
+1 CHIL @I12@
+0 @F7@ FAM
+1 HUSB @I12@
+1 CHIL @I8@
+1 CHIL @I9@
+0 TRLR
+`;
+
+describe("kinshipLabel cousins", () => {
+  const ds = dataset(COUSIN_TREE);
+
+  it("names a cousin by sex rather than a combined label", () => {
+    expect(kinshipLabel(ds, "@I1@", "@I4@", t)).toBe("kinship.cousin1_M");
+    expect(kinshipLabel(ds, "@I1@", "@I6@", t)).toBe("kinship.cousin1_F");
+  });
+
+  it("does the same for second cousins", () => {
+    expect(kinshipLabel(ds, "@I1@", "@I8@", t)).toBe("kinship.cousin2_M");
+    expect(kinshipLabel(ds, "@I1@", "@I9@", t)).toBe("kinship.cousin2_F");
+  });
+
+  it("keeps the removed-degree suffix on the sexed label", () => {
+    expect(kinshipLabel(ds, "@I1@", "@I10@", t)).toBe("kinship.cousin1_M +1");
+  });
+});
+
 describe("createKinshipResolver", () => {
   // The resolver is a cached view over kinshipLabel/bloodLineage: for a fixed
   // start person it must agree with the direct functions on every target and
