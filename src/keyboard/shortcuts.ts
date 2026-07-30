@@ -134,7 +134,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
   {
     titleKey: "shortcuts.group.editing",
     category: "app",
-    column: "left",
+    column: "right",
     items: [
       { keys: [[KEY.addPerson.toUpperCase()]], descKey: "shortcuts.item.addPerson" },
     ],
