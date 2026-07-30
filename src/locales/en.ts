@@ -1177,7 +1177,6 @@ export const en = {
   "event.coord.manualPlaceholder": "46.24137, 14.35580",
   "event.coord.noHouseNumber": "Add a house number to the place or address to look it up in the register.",
   "event.coord.current": "Current coordinate",
-  "event.coord.notSlovenia": "The address register covers Slovenia only — use the online search, or enter a coordinate.",
   "event.coord.source.gurs": "Address register (GURS)",
   "event.coord.source.osm": "OpenStreetMap",
   "event.coord.pinPick": "Click to use this coordinate",

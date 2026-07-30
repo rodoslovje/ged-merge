@@ -1312,7 +1312,6 @@ export const sl = {
   "event.coord.manualPlaceholder": "46.24137, 14.35580",
   "event.coord.noHouseNumber": "Za iskanje v registru dodajte hišno številko h kraju ali naslovu.",
   "event.coord.current": "Trenutna koordinata",
-  "event.coord.notSlovenia": "Register naslovov zajema samo Slovenijo — uporabite spletno iskanje ali vnesite koordinato.",
   "event.coord.source.gurs": "Register naslovov (GURS)",
   "event.coord.source.osm": "OpenStreetMap",
   "event.coord.pinPick": "Kliknite za uporabo te koordinate",

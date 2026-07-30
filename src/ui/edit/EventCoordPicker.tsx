@@ -362,12 +362,11 @@ export function EventCoordPicker({
               {osm.state === "done" && !osm.results.length && (
                 <p className="edit-coord-note">{t("tools.geocode.online.none")}</p>
               )}
-              {/* Why the register isn't on offer: outside Slovenia it cannot help,
-                  and inside it needs a house number to look up. */}
-              {settings.allowLinkFetch && !queries.length && (
-                <p className="edit-coord-note">
-                  {inSlovenia ? t("event.coord.noHouseNumber") : t("event.coord.notSlovenia")}
-                </p>
+              {/* Why the register isn't on offer — only where it could have been:
+                  a Slovenian place just needs a house number. Anywhere else the
+                  register was never a candidate, so saying so is noise. */}
+              {settings.allowLinkFetch && !queries.length && inSlovenia && (
+                <p className="edit-coord-note">{t("event.coord.noHouseNumber")}</p>
               )}
 
               {(rn.results.length > 0 || osm.results.length > 0) && (
