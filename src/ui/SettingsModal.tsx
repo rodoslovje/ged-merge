@@ -734,8 +734,15 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                   <span className="settings-row-label">{t("settings.data.clear")}</span>
                   <span className="settings-hint">{t("settings.data.clear.hint")}</span>
                 </span>
-                <button type="button" className="settings-danger-btn" onClick={onClearCache}>
-                  {t("settings.data.clear")}
+                {/* The row's label already says what is cleared, so the button
+                    only carries the verb. */}
+                <button
+                  type="button"
+                  className="settings-danger-btn"
+                  aria-label={t("settings.data.clear")}
+                  onClick={onClearCache}
+                >
+                  {t("settings.data.clear.button")}
                 </button>
               </div>
             )}

@@ -1538,6 +1538,7 @@ export const sl = {
   "settings.data.persist": "Zapomni si moje delo v tem brskalniku",
   "settings.data.persist.hint": "Naložene datoteke in napredek pregledovanja/urejanja shrani v ta brskalnik, da se ob osvežitvi delo obnovi. Privzeto izklopljeno; ob vklopu lahko brskalnik vpraša za dovoljenje za shranjevanje podatkov. Nič ne zapusti vaše naprave.",
   "settings.data.clear": "Počisti lokalno hranjene podatke",
+  "settings.data.clear.button": "Počisti",
   "settings.data.clear.hint": "Naložene datoteke in napredek pregledovanja se shranijo v tem brskalniku, da se ob osvežitvi delo obnovi. Čiščenje odstrani te lokalno hranjene podatke; trenutno odprta datoteka ostane odprta.",
   "settings.data.clearConfirm": "Počistim lokalno hranjene datoteke in napredek pregledovanja, shranjene v tem brskalniku? Trenutno odprta datoteka ostane odprta.",
   "settings.data.cleared": "Lokalno hranjeni podatki počiščeni.",

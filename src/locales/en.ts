@@ -1398,6 +1398,7 @@ export const en = {
   "settings.data.persist": "Remember my work in this browser",
   "settings.data.persist.hint": "Store the loaded files and your review/edit progress in this browser so a reload restores your work. Off by default; enabling it may ask the browser for permission to keep the data. Nothing leaves your device.",
   "settings.data.clear": "Clear locally stored data",
+  "settings.data.clear.button": "Clear",
   "settings.data.clear.hint": "Your loaded files and review progress are stored in this browser so a reload restores your work. Clearing removes that locally stored data; the file you currently have open stays open.",
   "settings.data.clearConfirm": "Clear the locally stored files and review progress saved in this browser? Your currently open file stays open.",
   "settings.data.cleared": "Locally stored data cleared.",
