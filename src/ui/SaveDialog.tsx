@@ -7,6 +7,7 @@ import { lifespanOf } from "../gedcom/lifespan";
 import { sexClass } from "./sex";
 import { EVENT_ORDER } from "../review/fields";
 import { vendorTagInfo } from "../gedcom/vendorTags";
+import { charsetNotices } from "./charsetNotice";
 import { SourceRefs } from "./SourceRef";
 import { LinkIcons } from "./FieldValue";
 import type { Translate } from "../locales/i18n";
@@ -71,6 +72,10 @@ export function SaveDialog({
   const modalRef = useModalKeyboard(true, onClose);
 
   const groups = useMemo(() => groupByRecord(report), [report]);
+
+  // What the download does to the file's encoding, when it isn't a no-op —
+  // the same wording the health check shows before the user ever gets here.
+  const charsetNotes = dataset ? charsetNotices(dataset, t) : [];
 
   // Maps each event's translated group label (e.g. "Baptism") to its
   // lifecycle position, so preview cards list events birth-to-death instead
@@ -153,6 +158,12 @@ export function SaveDialog({
               <Stat value={report.deferred.length} label={t("preview.stat.deferred")} warn />
             )}
           </div>
+
+          {/* The download is UTF-8 whatever the source was, and its header is
+              rewritten to say so (see ensureUtf8Charset) — a silent change to
+              a line other software trusts, so it's said out loud once, here,
+              while the user can still decide not to download. */}
+          {charsetNotes.map((note, i) => <p className="preview-note" key={i}>{note}</p>)}
 
           {integrityWarnings && integrityWarnings.length > 0 && (
             <section className="preview-section">

@@ -92,6 +92,9 @@ describe("decodeGedcom charset detection", () => {
     expect(charset).toBe("UTF-8");
     expect(text).toContain("�K�nig");
     expect(warnings.some((w) => /valid UTF-8/.test(w.message))).toBe(true);
+    // Tagged, so the save/health-check notice can say the characters are gone
+    // for good without matching on the message text.
+    expect(warnings.some((w) => w.code === "undecodable")).toBe(true);
   });
 
   it("heals a UTF-8 character split across a CONC line-wrap boundary (MyHeritage)", () => {
