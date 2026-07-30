@@ -5,6 +5,7 @@ import type { MatchResult } from "../match/types";
 import { buildPersonTree, buildMatchMaps, countImportable } from "../chart/personTree";
 import { decisionKey, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
 import { KEY, KEY_STATUS, STATUS_KEY, isEditableTarget, isModalOpen } from "../keyboard/shortcuts";
+import { useFindShortcut } from "../keyboard/useFindShortcut";
 import { kinshipInfo, kinshipTooltip as kinshipTooltipText, lineageClass } from "../match/kinship";
 import { MatchResults } from "./MatchResults";
 import { useNameOf, useSettings } from "./SettingsContext";
@@ -179,6 +180,24 @@ export function MergeView({
     onUpdateDecision({ status: status === next ? "undecided" : next, fields });
   }
 
+  /** Reveal the match list and its filter row, then focus the name filter —
+   *  the filter may be collapsed, so focusing alone would find nothing.
+   *  Reached with ⌘/Ctrl+F, the same chord as every other view's search. */
+  function focusNameFilter() {
+    setOpenMatches(true);
+    setShowFilters(true);
+    requestAnimationFrame(() => {
+      const el = document.querySelector<HTMLInputElement>(".name-search");
+      el?.focus();
+      el?.select();
+    });
+  }
+
+  // ⌘/Ctrl+F does the same as the bare `f`, for anyone who reaches for the
+  // conventional chord. Merge mode is `active` only while it's the visible
+  // mode with no chart over it, so an open chart keeps the chord.
+  useFindShortcut(() => active, focusNameFilter);
+
   useEffect(() => {
     if (!active || !current) return;
     function onKey(e: KeyboardEvent) {
@@ -199,19 +218,6 @@ export function MergeView({
       }
       const key = e.key.toLowerCase();
       if (key === KEY.tree) { e.preventDefault(); onOpenTree(current!.mainId, current!.compareId); return; }
-      // `f` reveals and focuses the match-list name filter (the whole-file
-      // global search lives on `/`, handled by the app shell).
-      if (key === KEY.filter) {
-        e.preventDefault();
-        setOpenMatches(true);
-        setShowFilters(true);
-        requestAnimationFrame(() => {
-          const el = document.querySelector<HTMLInputElement>(".name-search");
-          el?.focus();
-          el?.select();
-        });
-        return;
-      }
       const hit = KEY_STATUS[key];
       if (hit) toggleStatus(hit);
     }

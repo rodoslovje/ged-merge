@@ -51,6 +51,9 @@ import { OVERLAY_DEFAULT_OPACITY } from "./overlayConfig";
 import { identifyAt, identifyPopupHtml, queryableOverlays } from "./overlayIdentify";
 import { syncOverlayLayers, type LiveOverlays } from "./overlayLayer";
 import { useDocTheme } from "./useDocTheme";
+import { ChartFindBox } from "../ChartFindBox";
+import { useChartFind } from "../useChartFind";
+import type { FindSource } from "../chartFind";
 
 // Full-page places Map: the events of the root person's branch — the shared
 // hub Ancestors/Descendants choice, like the pedigree charts — as clustered
@@ -71,6 +74,10 @@ const PANEL_MAX_ROWS = 150;
 
 /** At most this many life paths drawn at once (a selected one always is). */
 const PATHS_MAX = 300;
+
+/** Zoom the find box pulls in to, when the map is further out than this — close
+ *  enough to tell neighbouring places apart. */
+const FIND_ZOOM = 12;
 
 /** At most this many place lines in a marker's tooltip. */
 const TOOLTIP_MAX_PLACES = 4;
@@ -238,6 +245,31 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
     return head;
   }, [allPaths, selectedPath]);
   const pathPersonIds = useMemo(() => new Set(allPaths.map((p) => p.personId)), [allPaths]);
+
+  // Find-in-map: one position per drawn point, searchable by the people it
+  // belongs to *and* by its place and address — on a map "where is Kranj" is as
+  // natural a question as "where is Marija". Keys index `filtered`.
+  const findSources = useMemo<FindSource[]>(
+    () =>
+      filtered.map((p, i) => ({
+        key: String(i),
+        people: p.personIds.map((id) => mainDs.individuals.get(id)),
+        text: [p.place, p.address].filter(Boolean).join(" "),
+      })),
+    [filtered, mainDs],
+  );
+  // Fly to the point and open its event panel, so the hit names itself instead
+  // of leaving the user to guess which marker moved under the cursor.
+  const revealPoint = useCallback((key: string) => {
+    const map = mapRef.current;
+    const point = latestFiltered.current[Number(key)];
+    if (!map || !point) return;
+    map.flyTo([point.coord.lat, point.coord.lon], Math.max(map.getZoom(), FIND_ZOOM), { duration: 0.6 });
+    setPanel({ lat: point.coord.lat, lon: point.coord.lon, points: [point] });
+  }, []);
+  // No re-root offer: the map's root belongs to the hub, and a person may be
+  // missing here simply because none of their events carry coordinates.
+  const find = useChartFind(findSources, mainDs.individuals, revealPoint);
   useEffect(() => {
     if (selectedPath && !pathPersonIds.has(selectedPath)) setSelectedPath(null);
   }, [pathPersonIds, selectedPath]);
@@ -648,15 +680,18 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
         </>
       }
       controlsRight={
-        <span className="map-count gm-data">
-          {t("map.count", { shown: filtered.length, total: allPoints.length })}
-          {showPaths &&
-            ` · ${
-              allPaths.length > PATHS_MAX
-                ? t("map.pathCountOf", { shown: PATHS_MAX, total: allPaths.length })
-                : t("map.pathCount", { count: allPaths.length })
-            }`}
-        </span>
+        <>
+          <span className="map-count gm-data">
+            {t("map.count", { shown: filtered.length, total: allPoints.length })}
+            {showPaths &&
+              ` · ${
+                allPaths.length > PATHS_MAX
+                  ? t("map.pathCountOf", { shown: PATHS_MAX, total: allPaths.length })
+                  : t("map.pathCount", { count: allPaths.length })
+              }`}
+          </span>
+          <ChartFindBox find={find} scope="map" />
+        </>
       }
     >
       <div className="map-filters">

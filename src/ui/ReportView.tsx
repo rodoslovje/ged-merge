@@ -24,6 +24,9 @@ import { citationMark, narrativeEntry, narrativeLangFor } from "../report/narrat
 import type { Translate } from "../locales/i18n";
 import { individualFieldRows } from "../review/fields";
 import { ChartPage } from "./ChartPage";
+import { ChartFindBox } from "./ChartFindBox";
+import { useChartFind } from "./useChartFind";
+import type { FindSource } from "./chartFind";
 import { sexClass } from "./sex";
 import { TreeNodePanel } from "./TreeNodePanel";
 import { chartSlug, escapeHtml, printDocument } from "./exportSvg";
@@ -244,7 +247,8 @@ export function ReportView({ mainDs, rootId: currentRootId, startId, changedPers
     [t, privacy, exportOpts],
   );
 
-  // Cross-reference jump: scroll a numbered entry into view and flash it.
+  // Cross-reference jump: scroll a numbered entry into view and flash it. Also
+  // the find box's reveal — its keys are entry numbers.
   const jumpTo = useCallback((num: number) => {
     const el = document.getElementById(`report-entry-${num}`);
     if (!el) return;
@@ -254,6 +258,21 @@ export function ReportView({ mainDs, rootId: currentRootId, startId, changedPers
     void el.offsetWidth;
     el.classList.add("report-flash");
   }, []);
+
+  // Find-in-report, on the charts' find machinery: one position per numbered
+  // entry, in reading order. Repeat entries (`dupOf`) are skipped — they carry
+  // no anchor of their own and point at the entry that does. A name nowhere in
+  // this report offers to re-root on that person, exactly as the charts do.
+  const findSources = useMemo<FindSource[]>(
+    () =>
+      (data?.generations ?? [])
+        .flatMap((g) => g.entries)
+        .filter((e) => e.dupOf === undefined)
+        .map((e) => ({ key: String(e.num), people: [mainDs.individuals.get(e.id)] })),
+    [data, mainDs],
+  );
+  const revealEntry = useCallback((key: string) => jumpTo(Number(key)), [jumpTo]);
+  const find = useChartFind(findSources, mainDs.individuals, revealEntry, changeRoot);
 
   return (
     <ChartPage
@@ -350,6 +369,9 @@ export function ReportView({ mainDs, rootId: currentRootId, startId, changedPers
           </div>
         </>
       }
+      // The chord stays with the browser here: report entries are plain text,
+      // and native find highlights every hit and works in the print preview.
+      controlsRight={<ChartFindBox find={find} scope="report" takesFindKey={false} />}
     >
       <div className="tree-canvas-wrap">
         <div className="report-scroll">

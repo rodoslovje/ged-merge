@@ -483,7 +483,10 @@
               <span class="gm-key">Enter</span> and the <span class="gm-glyph">⌕</span> button — step through the rest.
               If nobody by that name is drawn here but somebody in
               your file matches, the box offers that person — click their name to redraw the chart around them. Every
-              kind has the box except the Map and the Report; the Compare Tree (§10) has it too. It's the counterpart
+              kind has the box, the Compare Tree (§10) included. On the <strong>Map</strong> it matches place and
+              street names as well as people, then flies to the event and opens it; on the <strong>Report</strong> it
+              scrolls to the person's numbered entry — and there <span class="gm-key">Ctrl</span><span class="gm-key">F</span>
+              is left to your browser's own find, which searches the whole text. It's the counterpart
               to the file-wide search (<span class="gm-key">/</span>), which always re-roots the diagram on whoever you
               open.
             </p>
@@ -823,7 +826,7 @@
               <li><strong>New data</strong> — only matches that add new field data</li>
               <li><strong>New links</strong> — only matches that add or change attached links</li>
               <li><strong>Differences</strong> — only matches with conflicting fields</li>
-              <li><strong>Search name</strong> — filter by given name or surname</li>
+              <li><strong>Search name</strong> — filter by given name or surname (<span class="gm-key">Ctrl</span><span class="gm-key">F</span> reveals the controls and puts the cursor here)</li>
             </ul>
             <h3>Columns &amp; sorting</h3>
             <p>
@@ -1052,7 +1055,9 @@
             <p>
               Lists every place in a country → locality → house → address hierarchy, with a usage count per place. Open
               a place to see the records that use it, or use <strong>Rename</strong> on any level to bulk-rename or merge
-              a place segment across every record at once — ideal for standardizing spelling variants.
+              a place segment across every record at once — ideal for standardizing spelling variants. A place value
+              that carries its house number (<em>Krupa 7</em>) is filed under the settlement like any other, with the
+              house as a level below it, so a file that numbers houses in the place still browses by settlement.
             </p>
             <p>
               A place the file has a coordinate for shows it beside the count, so browsing the tree also tells you what
@@ -1108,25 +1113,40 @@
               misspelt or never-resolved value is corrected and placed in a single step. What the offline gazetteer can't resolve,
               two per-row online searches cover, both behind the same online opt-in and only on the button click, with
               their results joining the row's candidates and map pins. <strong>Search OpenStreetMap</strong> uses OpenStreetMap
-              (Nominatim) — best for street addresses. <strong>Search address register (GURS)</strong> appears on values that name a
-              house number (<em>Šentvid pri Stični 23</em>) and looks it up in Slovenia's official register, giving the
-              coordinate of that building rather than the middle of the settlement. When an old record keeps more than one
-              number because the numbering changed (<em>Hafnarjeva pot 21a / 53</em>), every number is looked up and both
-              houses are offered — the record does not say which is which, so the choice is yours. <strong>Search the Genealogical Gazetteer (GOV)</strong> uses the
+              (Nominatim) — best for street addresses. A value that names a house number in a country Slovenia's address
+              register covers (<em>Šentvid pri Stični 23</em>) is not listed here at all: it is a building rather than a
+              place, so it is reviewed under its settlement in <strong>Addresses with a house number</strong> below.
+              <strong>Search the Genealogical Gazetteer (GOV)</strong> uses the
               <a href="https://gov.genealogy.net" target="_blank" rel="noreferrer">Genealogical Gazetteer (GOV)</a>, whose
               entries carry historical, multilingual place names, the place each one is part of (so four same-named <em>Osredek</em> are told apart by their municipality) and a stable GOV id; accepting a GOV match also writes
               that id into the file as <code>_GOV</code> (a sibling of <code>MAP</code>), a durable link back to the GOV
               record for other genealogy software. Accepted matches are cached, so other files resolve instantly.
             </p>
             <p>
-              Below the place list, <strong>Addresses with a house number</strong> covers the other shape: events whose place
-              names only the settlement (<em>Kranj</em>) while the event's own <strong>address</strong> names the street or
-              number (<em>Kidričeva cesta 38</em>). These are grouped by place + address, so one review covers every event at
-              that house, and looked up in the same register. The coordinate is written as ordinary
+              Below the place list, <strong>Addresses with a house number</strong> covers houses rather than places, and it
+              finds them wherever your file keeps them: in the event's own <strong>address</strong> beside a settlement
+              place (<em>Kranj</em> + <em>Kidričeva cesta 38</em>), as the whole place value (<em>Črni vrh 35</em>), or
+              packed in among the other parts of one (<em>Kranj (Slovenija), Stražišče 114 - župnija Šmartin</em>). Each
+              is filed under the settlement it belongs to, so a file that writes no address lines at all reviews exactly
+              like one that does. They are grouped by place + address, so one review covers every event at that house, and
+              looked up in the same register. The coordinate is written as ordinary
               <code>PLAC</code> <code>MAP</code> on those events — nothing non-standard, so every other program reads it.
               The list is grouped by place and collapsed, busiest first, because a real file holds hundreds of addresses:
               open a place to see its own addresses, look them all up in one go, and read them off a small map of every
               house found there — neighbours on one map make an odd result obvious at a glance.
+            </p>
+            <p>
+              A row is one house, not one spelling: where your file writes the same house several ways — the same number
+              under two different parishes, say — they become a single row, and accepting it writes the coordinate to
+              every one of them. When an old record keeps more than one number because the numbering changed
+              (<em>Hafnarjeva pot 21a / 53</em>), every number is looked up and both houses are offered — the record does
+              not say which is which, so the choice is yours. Each row also carries the same green
+              <span class="gm-glyph pin"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2a7.5 7.5 0 0 0-7.5 7.5c0 5.05 6.36 11.62 6.63 11.9a1.2 1.2 0 0 0 1.74 0c.27-.28 6.63-6.85 6.63-11.9A7.5 7.5 0 0 0 12 2Zm0 10.2a2.7 2.7 0 1 1 0-5.4 2.7 2.7 0 0 1 0 5.4Z"/></svg></span> pin as an
+              Edit-view event: click it to type or paste a coordinate, pick a point off a map, or search OpenStreetMap —
+              the way to place a house the register does not know. Where the place named is the settlement left once the
+              house number is set aside, the group is marked <em>in the place</em>: coordinates go to the value your
+              events actually carry, and <strong>Move to another place…</strong> is not offered there, because that value
+              is the very text holding the number.
             </p>
             <p>
               Sometimes a place turns out to hold a hamlet that is really a settlement of its own — a file that records
@@ -1484,7 +1504,7 @@
                 <tr><td><span class="gm-key">Ctrl</span><span class="gm-key">S</span></td><td>Save / download GEDCOM</td></tr>
                 <tr><td><span class="gm-key">Ctrl</span><span class="gm-key">Z</span></td><td>Undo</td></tr>
                 <tr><td><span class="gm-key">Ctrl</span><span class="gm-key">Shift</span><span class="gm-key">Z</span> / <span class="gm-key">Ctrl</span><span class="gm-key">Y</span></td><td>Redo</td></tr>
-                <tr><td><span class="gm-key">Ctrl</span><span class="gm-key">F</span></td><td>Find a person in the open chart</td></tr>
+                <tr><td><span class="gm-key">Ctrl</span><span class="gm-key">F</span></td><td>Find in the current view — chart, Map, match list or a Tools list</td></tr>
                 <tr><td><span class="gm-key">/</span></td><td>Search everyone in the file</td></tr>
                 <tr><td><span class="gm-key">?</span></td><td>Show the shortcut list</td></tr>
                 <tr><td><span class="gm-key">Esc</span></td><td>Close a dialog / leave a chart page</td></tr>
@@ -1497,7 +1517,6 @@
                 <tr><td><span class="gm-key">H</span></td><td>Go to the start person (Edit)</td></tr>
                 <tr><td><span class="gm-key">⌫</span></td><td>Back — previous person (Edit) or leave a chart page</td></tr>
                 <tr><td><span class="gm-key">N</span></td><td>Add a new person (linked to nobody)</td></tr>
-                <tr><td><span class="gm-key">F</span></td><td>Filter the match list by name (Merge)</td></tr>
                 <tr><td><span class="gm-key">C</span> · <span class="gm-key">R</span> · <span class="gm-key">D</span></td><td>Confirm · Reject · Defer the current match</td></tr>
               </tbody>
             </table>

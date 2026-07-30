@@ -1689,8 +1689,12 @@ describe("buildPlaceTree", () => {
     const si = tree.roots.find((r) => r.name === "Slovenija");
     expect(si?.children.map((c) => c.name)).toEqual(["Ljubljana"]);
     const lj = si!.children[0];
-    // A locality with a house number is kept combined as one address node.
-    expect(lj.children[0].name).toBe("Šentvid 23");
+    // The locality stays a jurisdiction level of its own and the house hangs
+    // off it, spelled in full — so a file that numbers houses in the place
+    // value still browses by settlement.
+    expect(lj.children.map((c) => c.name)).toEqual(["Šentvid"]);
+    expect(lj.children[0].children.map((c) => c.name)).toEqual(["Šentvid 23"]);
+    expect(lj.children[0].children[0].isAddress).toBe(true);
 
     const unspecified = tree.roots.find((r) => r.name === UNSPECIFIED);
     expect(unspecified?.children.map((c) => c.name)).toEqual(["Kranj"]);
@@ -1710,12 +1714,14 @@ describe("buildPlaceTree", () => {
 2 PLAC Vas 2, Kranj, Slovenija
 0 TRLR`);
     const tree = buildPlaceTree(ds);
-    // House numbers stay combined with the locality ("Vas 2" / "Vas 10"); the
-    // numeric-aware collator must still order them 2 before 10, not lexically.
+    // House numbers stay combined with the locality ("Vas 2" / "Vas 10") under
+    // the locality's own node; the numeric-aware collator must still order them
+    // 2 before 10, not lexically.
     const kranj = tree.roots
       .find((r) => r.name === "Slovenija")!
       .children.find((c) => c.name === "Kranj")!;
-    expect(kranj.children.map((c) => c.name)).toEqual(["Vas 2", "Vas 10"]);
+    expect(kranj.children.map((c) => c.name)).toEqual(["Vas"]);
+    expect(kranj.children[0].children.map((c) => c.name)).toEqual(["Vas 2", "Vas 10"]);
   });
 
   it("buckets a standalone ADDR (no PLAC) under Unspecified place", () => {
