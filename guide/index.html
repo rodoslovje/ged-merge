@@ -1263,6 +1263,15 @@
               <em>change report</em> documenting exactly what was applied. The downloaded file becomes your new working
               baseline inside the app, so what you see next matches what you just saved.
             </p>
+            <p>
+              The download is always written as <strong>UTF-8</strong>, and its header is set to say so. A file that
+              arrived in an older encoding (ANSEL, ANSI, Windows-1250, UTF-16) is therefore converted, and the preview —
+              like <a href="#tools">Health check</a> — says which encoding it came from. The conversion is what keeps
+              accented letters correct, but it does change a line other software reads, so after your first save of such
+              a file, check that it still imports into the programs and services you use. Characters that could not be
+              read from the original at all show as “�”; saving cannot bring those back, so correct them in
+              <span class="gm-pill">Edit</span> first.
+            </p>
             <div class="gm-callout tip">
               <span class="gm-callout-label">Tip</span>
               <p>Your original file on disk is never overwritten — the download is always a new copy. Even so, keep a

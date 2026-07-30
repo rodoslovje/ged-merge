@@ -56,6 +56,8 @@ export const sl = {
   "tools.validate.fixDupPointersHint": "Odstrani odvečne vrstice CHIL/FAMS/FAMC, ki ponavljajo že navedeni xref.",
   "tools.validate.fixDupPointersDone": "Podvojeni kazalci odstranjeni iz {{count}} zapisov.",
   "tools.validate.fixDupPointersNone": "Ni podvojenih kazalcev za popravilo.",
+  "gedcom.charsetNotice": "Ta datoteka je bila prebrana kot {{charset}}. Shranjena datoteka je vedno zapisana v UTF-8 in tako piše tudi v njeni glavi — preverite, ali se še vedno uvozi v programe in storitve, ki jih uporabljate.",
+  "gedcom.charsetLost": "Nekaterih znakov iz izvirne datoteke ni bilo mogoče prebrati in so prikazani kot »�«. Shranjevanje jih ne more povrniti; najprej jih popravite v Urejanju.",
   "tools.validate.fixDangling": "Odstrani neobstoječe sklice ({{count}})",
   "tools.validate.fixDanglingHint": "Odstrani vrstice s kazalci, katerih ciljni zapis manjka — navedbe virov, opomb in medijev, povezave med osebami in družinske povezave znotraj dogodka.",
   "tools.validate.fixDanglingDone": "Neobstoječi sklici odstranjeni iz {{count}} zapisov.",

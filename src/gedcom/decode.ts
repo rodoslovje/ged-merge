@@ -232,6 +232,7 @@ function utf8Result(bytes: Uint8Array, warnings: ParseWarning[]): DecodeResult {
   if (bad > 0) {
     warnings.push({
       kind: "encoding",
+      code: "undecodable",
       message: `${bad} byte(s) could not be decoded and were replaced with �; the source file may be corrupted.`,
     });
   }

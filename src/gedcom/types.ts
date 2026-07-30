@@ -87,6 +87,10 @@ export interface ParseWarning {
     | "place";
   message: string;
   line?: number;
+  /** Machine-readable tag for the warnings the UI reacts to, so it never has to
+   *  match on `message`. `undecodable`: bytes the decoder replaced with `�`,
+   *  which no save can bring back. */
+  code?: "undecodable";
 }
 
 // ---------------------------------------------------------------------------

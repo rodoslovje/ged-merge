@@ -56,6 +56,8 @@ export const en = {
   "tools.validate.fixDupPointersHint": "Drops redundant CHIL/FAMS/FAMC lines that repeat an xref already present.",
   "tools.validate.fixDupPointersDone": "Removed duplicate pointers from {{count}} records.",
   "tools.validate.fixDupPointersNone": "No duplicate pointers to fix.",
+  "gedcom.charsetNotice": "This file was read as {{charset}}. A saved file is always written as UTF-8 and its header says so — check that it still imports into the software and services you use.",
+  "gedcom.charsetLost": "Some characters could not be decoded from the original file and show as “�”. Saving cannot bring them back; correct them in Edit first.",
   "tools.validate.fixDangling": "Remove dangling references ({{count}})",
   "tools.validate.fixDanglingHint": "Drops pointer lines whose target record is missing — source, note and media citations, associations, and family links nested inside an event.",
   "tools.validate.fixDanglingDone": "Removed dangling references from {{count}} records.",
