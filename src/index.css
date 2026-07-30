@@ -1725,6 +1725,15 @@ button:focus-visible {
   justify-content: flex-end;
   gap: 8px;
 }
+/* Once the actions column costs the parents more room than they can spare —
+   the couple's marriage line no longer fits between the two cards — move the
+   actions onto their own row above the parents and give the band the width. */
+@container parentsband (max-width: 960px) {
+  .edit-actions {
+    order: -1;
+    flex: 0 0 100%;
+  }
+}
 
 .edit-parents {
   display: flex;
@@ -1732,6 +1741,7 @@ button:focus-visible {
   align-items: flex-start;
   justify-content: flex-start;
   gap: 12px;
+  container: parentsband / inline-size;
   /* Match the families/children block's type scale so the parent cards
      (and their "+ Add Father/Mother" placeholders) render at the same size
      as "+ Add Child" rather than the larger default 1rem. */
