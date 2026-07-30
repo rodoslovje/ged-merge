@@ -285,6 +285,76 @@ describe("validateDataset", () => {
     expect(report.counts.multipleParents).toBe(0);
   });
 
+  it("flags a small group linked only to each other, reporting the youngest", () => {
+    // The main tree (I1–I4) and a detached couple with a child (I5–I7), whose
+    // youngest is the 1930 child. I8 is alone: an orphan, not an island.
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Jože /Novak/
+1 FAMS @F1@
+0 @I2@ INDI
+1 NAME Ana /Novak/
+1 FAMS @F1@
+0 @I3@ INDI
+1 NAME Tone /Novak/
+1 FAMC @F1@
+0 @I4@ INDI
+1 NAME Mica /Novak/
+1 FAMC @F1@
+0 @I5@ INDI
+1 NAME Franc /Kos/
+1 BIRT
+2 DATE 1900
+1 FAMS @F2@
+0 @I6@ INDI
+1 NAME Neža /Kos/
+1 BIRT
+2 DATE 1902
+1 FAMS @F2@
+0 @I7@ INDI
+1 NAME Pavel /Kos/
+1 BIRT
+2 DATE 1930
+1 FAMC @F2@
+0 @I8@ INDI
+1 NAME Sam /Sam/
+0 @F1@ FAM
+1 HUSB @I1@
+1 WIFE @I2@
+1 CHIL @I3@
+1 CHIL @I4@
+0 @F2@ FAM
+1 HUSB @I5@
+1 WIFE @I6@
+1 CHIL @I7@
+0 TRLR`);
+    const report = validateDataset(ds, 2026);
+    const issue = report.issues.find((i) => i.category === "island");
+    expect(report.counts.island).toBe(1);
+    expect(issue?.id).toBe("@I7@"); // the youngest of the detached three
+    expect(issue?.messageVars?.count).toBe(3);
+    // The lone individual stays an orphan; the main tree is nobody's island.
+    expect(report.issues.filter((i) => i.category === "orphan").map((i) => i.id)).toEqual(["@I8@"]);
+  });
+
+  it("leaves the main tree alone, however small the file", () => {
+    // One family and nothing else: the only group is the file's tree.
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Jože /Novak/
+1 FAMS @F1@
+0 @I2@ INDI
+1 NAME Ana /Novak/
+1 FAMS @F1@
+0 @F1@ FAM
+1 HUSB @I1@
+1 WIFE @I2@
+0 TRLR`);
+    expect(validateDataset(ds, 2026).counts.island).toBe(0);
+  });
+
   it("detects broken and non-reciprocal family links", () => {
     const ds = dataset(`0 HEAD
 1 CHAR UTF-8

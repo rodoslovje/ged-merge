@@ -25,6 +25,14 @@ export const AGE_LIMITS = {
 export const MIN_BIRTH_INTERVAL_MONTHS = 9;
 
 /**
+ * Largest group of people, linked only to each other, still reported as a stray
+ * island rather than left alone as a branch in its own right. A handful of
+ * people who connect to nobody else is usually an import that never got
+ * attached, or a duplicate of a branch already in the file.
+ */
+export const MAX_ISLAND_SIZE = 9;
+
+/**
  * Main-file health check.
  *
  * Pure, synchronous validation over the typed domain model — fast enough to run
@@ -46,6 +54,7 @@ export type IssueCategory =
   | "missingSex"
   | "missingName"
   | "missingVitals"
+  | "island"
   | "orphan"
   | "deathBeforeBirth"
   | "ageAtDeath"
@@ -89,6 +98,7 @@ const EMPTY_COUNTS: Record<IssueCategory, number> = {
   missingSex: 0,
   missingName: 0,
   missingVitals: 0,
+  island: 0,
   orphan: 0,
   deathBeforeBirth: 0,
   ageAtDeath: 0,
@@ -193,6 +203,77 @@ function findPedigreeLoops(ds: Dataset): Set<string> {
     }
   }
   return inLoop;
+}
+
+/**
+ * The file's disconnected groups: each set of people reachable from one another
+ * through family links, smallest-first, with the file's main tree left out.
+ *
+ * The largest component is the tree the file is about, so it's never an island —
+ * and when several tie for largest, none of them stands out as the stray, so
+ * they all stay out. A component of one is already an `orphan` finding, and
+ * anything above {@link MAX_ISLAND_SIZE} is a branch in its own right; both are
+ * dropped here so nothing is reported twice or cried wolf over.
+ *
+ * Iterative breadth-first walk over `childOf`/`spouseOf` and back out through
+ * each family's members — one pass over the graph, no recursion.
+ */
+function findIslands(ds: Dataset): Individual[][] {
+  const seen = new Set<string>();
+  const components: Individual[][] = [];
+
+  const membersOf = (indi: Individual): string[] => {
+    const out: string[] = [];
+    for (const famId of [...indi.childOf, ...indi.spouseOf]) {
+      const fam = ds.families.get(famId);
+      if (!fam) continue;
+      if (fam.husband) out.push(fam.husband);
+      if (fam.wife) out.push(fam.wife);
+      out.push(...fam.children);
+    }
+    return out;
+  };
+
+  for (const start of ds.individuals.values()) {
+    if (seen.has(start.id)) continue;
+    const group: Individual[] = [];
+    const queue = [start];
+    seen.add(start.id);
+    while (queue.length) {
+      const indi = queue.pop()!;
+      group.push(indi);
+      for (const id of membersOf(indi)) {
+        if (seen.has(id)) continue;
+        const next = ds.individuals.get(id);
+        if (!next) continue; // dangling member — the brokenLink check's
+        seen.add(id);
+        queue.push(next);
+      }
+    }
+    components.push(group);
+  }
+
+  const largest = components.reduce((max, c) => Math.max(max, c.length), 0);
+  return components
+    .filter((c) => c.length > 1 && c.length <= MAX_ISLAND_SIZE && c.length < largest)
+    .sort((a, b) => a.length - b.length);
+}
+
+/**
+ * The island member to report the finding on: the youngest, by birth year —
+ * the one most likely to reach a living branch, and so the best place to start
+ * looking for where the group belongs. A person with only a death date is
+ * ranked from it (roughly a lifetime earlier); one with no dates at all comes
+ * last. Ties keep the first in file order, so the finding is stable.
+ */
+function youngestOf(members: Individual[]): Individual {
+  const rank = (p: Individual): number => {
+    const by = birthYear(p);
+    if (by !== undefined) return by;
+    const dy = deathYear(p);
+    return dy !== undefined ? dy - 60 : -Infinity;
+  };
+  return members.reduce((best, p) => (rank(p) > rank(best) ? p : best));
 }
 
 /** PEDI / _MREL values that still mean "this child was born to these parents". */
@@ -553,6 +634,17 @@ export function validateDataset(ds: Dataset, currentYear: number = new Date().ge
         spanA: `${p.spanA[0]}–${p.spanA[1]}`,
         child: subjectOf(p.child.indi),
       },
+    });
+  }
+
+  // Small groups linked only to each other — reported once, on the youngest,
+  // who is where the search for the missing link starts.
+  for (const group of findIslands(ds)) {
+    const person = youngestOf(group);
+    push({
+      scope: "individual", id: person.id, category: "island", severity: "warning",
+      subject: subjectOf(person), messageKey: "tools.validate.issue.island",
+      messageVars: { count: group.length },
     });
   }
 

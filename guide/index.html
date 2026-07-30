@@ -895,7 +895,11 @@
               (at death, at marriage, parent's age, spouse age gap), and <strong>children by two fathers at
               once</strong> — a mother whose children with one partner are interleaved in time with her children by
               another, which usually means a child or a whole sibling set hangs off the wrong family (consecutive
-              marriages and adopted children are not flagged). A separate <strong>GEDCOM structure</strong> pass
+              marriages and adopted children are not flagged). <strong>Detached groups</strong> catches what a single
+              disconnected person doesn't: up to nine people linked only to each other and to nobody else in the file —
+              usually an import that never got attached, or a duplicate of a branch you already have. One finding per
+              group, on its youngest member, so you can open them and walk the group's relatives; the file's main tree
+              is never a group. A separate <strong>GEDCOM structure</strong> pass
               flags encoding, bad lines and levels, stray CONT/CONC, version, unknown or custom tags and unparseable
               dates — many with a one-click <strong>Fix</strong>. When a media folder is connected, <strong>Check media
               folder</strong> lists referenced media files that are missing from it. It also lists <strong>places with
