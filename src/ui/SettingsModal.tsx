@@ -2,16 +2,10 @@ import { lazy, Suspense, useMemo, useState, useTransition } from "react";
 import { useTranslation } from "react-i18next";
 import { useModalKeyboard } from "../keyboard/useModalKeyboard";
 import { useSettings, useNameOf, type MapOverlay } from "./SettingsContext";
-import {
-  OVERLAY_PRESETS,
-  coverageContains,
-  overlayCoverage,
-  overlaySampleZoom,
-  resolveOverlay,
-  type CoverageBox,
-} from "./map/overlayPresets";
+import { OVERLAY_PRESETS, resolveOverlay } from "./map/overlayPresets";
+import { sampleMapView, type FramedOverlay } from "./map/sampleView";
 import { BASEMAPS, CUSTOM_BASEMAP } from "./map/basemapPresets";
-import type { MiniMapPin, MiniMapView } from "./map/MiniPlaceMap";
+import type { MiniMapPin } from "./map/MiniPlaceMap";
 import { xrefLabel, type NameOrder } from "../gedcom/nameDisplay";
 import type { PersonName } from "../gedcom/types";
 import { SUPPORTED_LANGUAGES } from "../locales/i18n";
@@ -125,15 +119,6 @@ const LANG_LABELS: Record<string, string> = { en: "🇬🇧 English", sl: "🇸�
 const SAMPLE_NAME: PersonName = { full: "Ana Novak", given: "Ana", surname: "Novak", married: "Kovač" };
 const SAMPLE_XREF = "@I42@";
 
-/** What the base-map sample falls back to: Bled — lake, town and mountains in
- *  one frame, so a plain street map, a shaded relief and an aerial image are
- *  all told apart at a glance. Used until a layer marked Default names ground
- *  of its own; the sample pans and zooms, so anywhere else is one drag away. */
-const SAMPLE_MAP_BOX: CoverageBox = [46.335, 14.06, 46.4, 14.17];
-/** How far the sample zooms in with no layer to follow — enough of the box
- *  above to be a town rather than a region. A layer marked Default overrides
- *  it with the zoom it was measured to draw at (`sampleZoom`). */
-const SAMPLE_MAX_ZOOM = 13;
 /** Nothing is plotted on the sample — a stable identity so the map's marker
  *  pass doesn't rerun on every render of this modal. */
 const NO_PINS: MiniMapPin[] = [];
@@ -178,26 +163,15 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
 
   // The layer the base-map sample frames: whichever was last switched on by
   // default, so ticking a regional map takes the sample to the region it
-  // covers. Held by id — the layer may be edited, moved or removed meanwhile.
-  const [framedOverlay, setFramedOverlay] = useState<string | null>(null);
-  const sampleView = useMemo((): MiniMapView => {
-    const shown = settings.mapOverlays.filter((o) => o.defaultOn);
-    // The layer last ticked leads. Failing that — it was unticked again, or it
-    // is one of the user's own, which declares no extent — the first layer on
-    // show that does name its ground; failing that, the standing sample.
-    const last = shown.find((o) => o.id === framedOverlay);
-    const framed = (last && overlayCoverage(last) ? last : undefined) ?? shown.find((o) => overlayCoverage(o));
-    const coverage = framed && overlayCoverage(framed);
-    // A layer whose ground includes the standard scene is shown on it: that is
-    // a town with houses, fields and water, which tells an aerial or cadastral
-    // layer apart at once — while the middle of a country-sized box is as
-    // likely to be forest, and at the zoom an address layer needs, empty.
-    const box = coverage && !coverageContains(coverage, SAMPLE_MAP_BOX) ? coverage : SAMPLE_MAP_BOX;
-    // The zoom the layer draws at decides the sample outright: fitting its
-    // coverage instead would preview a scale-limited layer as a blank frame.
-    const zoom = framed && overlaySampleZoom(framed);
-    return { box, minZoom: zoom || undefined, maxZoom: zoom || SAMPLE_MAX_ZOOM };
-  }, [settings.mapOverlays, framedOverlay]);
+  // covers. Held by id — the layer may be edited, moved or removed meanwhile —
+  // and counted, because switching a layer on asks for its frame again even
+  // when that is the frame already shown (the sample may have been panned
+  // away from it, or another layer of the same reach may have been holding it).
+  const [framedOverlay, setFramedOverlay] = useState<FramedOverlay | null>(null);
+  const sampleView = useMemo(
+    () => sampleMapView(settings.mapOverlays, framedOverlay),
+    [settings.mapOverlays, framedOverlay],
+  );
 
   const [, startTransition] = useTransition();
   const [pendingOverrides, setPendingOverrides] = useState<FormatOverrides | null>(null);
@@ -589,8 +563,9 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
               const updateName = (name: string) => replace({ ...stored, name });
               const updateDefaultOn = (defaultOn: boolean) => {
                 // Switching a layer on aims the sample above at it, so its
-                // effect is visible even when it covers another country.
-                if (defaultOn) setFramedOverlay(stored.id);
+                // effect is visible even when it covers another country. Each
+                // tick counts as its own request to be framed — see sampleView.
+                if (defaultOn) setFramedOverlay((prev) => ({ id: stored.id, seq: (prev?.seq ?? 0) + 1 }));
                 replace({ ...stored, defaultOn: defaultOn || undefined });
               };
               const update = (patch: Partial<MapOverlay>) =>

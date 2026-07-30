@@ -149,6 +149,11 @@ export interface MiniMapView {
   minZoom?: number;
   /** Never zoom in past this, however small the box. */
   maxZoom?: number;
+  /** Bumped to re-apply a view the map is already framed on. The map follows
+   *  changes of the view's *value*, so without this an asked-for reframe that
+   *  lands on the same box and zoom as the last one is a no-op — and the user
+   *  may have panned or zoomed away since. */
+  nonce?: number;
 }
 
 /** Frame {@link MiniMapView.box}, within its zoom limits. Called again on
@@ -340,7 +345,7 @@ export default function MiniPlaceMap({
   // A different area to frame (in Settings: a layer just switched on by
   // default, whose coverage is elsewhere) — go there, even if the user had
   // panned away, since asking for it is what changed the view.
-  const viewKey = view ? [...view.box, view.minZoom, view.maxZoom].join(":") : "";
+  const viewKey = view ? [...view.box, view.minZoom, view.maxZoom, view.nonce].join(":") : "";
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !latestView.current || pins.length || context.length) return;
