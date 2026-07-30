@@ -219,6 +219,71 @@ describe("validateDataset", () => {
     expect(report.counts.parallelFamilies).toBe(0);
   });
 
+  it("flags a child with two birth families, naming both couples", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Tone /Novak/
+1 SEX M
+1 FAMC @F1@
+1 FAMC @F2@
+0 @I2@ INDI
+1 NAME Jože /Novak/
+1 SEX M
+1 FAMS @F1@
+0 @I3@ INDI
+1 NAME Ana /Kos/
+1 SEX F
+1 FAMS @F1@
+0 @I4@ INDI
+1 NAME Janez /Zupan/
+1 SEX M
+1 FAMS @F2@
+0 @F1@ FAM
+1 HUSB @I2@
+1 WIFE @I3@
+1 CHIL @I1@
+0 @F2@ FAM
+1 HUSB @I4@
+1 CHIL @I1@
+0 TRLR`);
+    const report = validateDataset(ds, 2026);
+    const issue = report.issues.find((i) => i.category === "multipleParents");
+    expect(issue?.id).toBe("@I1@");
+    expect(issue?.messageVars?.count).toBe(2);
+    expect(issue?.messageVars?.families).toBe("Jože Novak & Ana Kos (@F1@); Janez Zupan (@F2@)");
+    expect(report.counts.multipleParents).toBe(1);
+  });
+
+  it("leaves an adoptive or foster second family alone", () => {
+    // I1's second family is marked PEDI adopted; I5's is named by an ADOP event
+    // (the 5.5.1 style, where the FAMC link itself carries no PEDI).
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Tone /Novak/
+1 SEX M
+1 FAMC @F1@
+1 FAMC @F2@
+2 PEDI adopted
+0 @I5@ INDI
+1 NAME Mica /Novak/
+1 SEX F
+1 ADOP
+2 FAMC @F2@
+1 FAMC @F1@
+1 FAMC @F2@
+0 @F1@ FAM
+1 CHIL @I1@
+1 CHIL @I5@
+0 @F2@ FAM
+1 CHIL @I1@
+1 CHIL @I5@
+0 TRLR`);
+    const report = validateDataset(ds, 2026);
+    expect(report.counts.multipleParents).toBe(0);
+  });
+
   it("detects broken and non-reciprocal family links", () => {
     const ds = dataset(`0 HEAD
 1 CHAR UTF-8

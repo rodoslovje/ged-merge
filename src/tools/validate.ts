@@ -42,6 +42,7 @@ export type IssueCategory =
   | "pedigreeLoop"
   | "roleSexConflict"
   | "multiSpouseSlot"
+  | "multipleParents"
   | "missingSex"
   | "missingName"
   | "missingVitals"
@@ -84,6 +85,7 @@ const EMPTY_COUNTS: Record<IssueCategory, number> = {
   pedigreeLoop: 0,
   roleSexConflict: 0,
   multiSpouseSlot: 0,
+  multipleParents: 0,
   missingSex: 0,
   missingName: 0,
   missingVitals: 0,
@@ -193,6 +195,60 @@ function findPedigreeLoops(ds: Dataset): Set<string> {
   return inLoop;
 }
 
+/** PEDI / _MREL values that still mean "this child was born to these parents". */
+const BIOLOGICAL_PEDI = new Set(["birth", "natural", ""]);
+
+/** The families named by an individual's adoption events (`ADOP.FAMC`) — the
+ *  5.5.1 way of recording an adoptive family when the `FAMC` link itself carries
+ *  no `PEDI`. */
+function adoptiveFamilyIds(indi: Individual): Set<string> {
+  const ids = new Set<string>();
+  for (const ev of indi.raw.children) {
+    if (ev.tag !== "ADOP") continue;
+    for (const c of ev.children) {
+      if (c.tag === "FAMC" && c.value) ids.add(c.value.trim());
+    }
+  }
+  return ids;
+}
+
+/**
+ * The parent families an individual claims as their *birth* family: `FAMC` links
+ * whose `PEDI`/`_MREL` says birth, or says nothing at all.
+ *
+ * Adoptive, foster and sealing links are a legitimate second set of parents, so
+ * they're excluded — as are links naming a family the person's own `ADOP` event
+ * points at. A family that doesn't exist is left to the `brokenLink` check, and a
+ * repeated line to `duplicatePointer`, so neither is counted twice here.
+ */
+function birthParentFamilies(indi: Individual, ds: Dataset): Family[] {
+  const adoptive = adoptiveFamilyIds(indi);
+  const out: Family[] = [];
+  const seen = new Set<string>();
+  for (const node of indi.raw.children) {
+    if (node.tag !== "FAMC" || !node.value) continue;
+    const id = node.value.trim();
+    if (seen.has(id) || adoptive.has(id)) continue;
+    const pedi = node.children.find((c) => c.tag === "PEDI" || c.tag === "_MREL")?.value;
+    if (pedi !== undefined && !BIOLOGICAL_PEDI.has(pedi.trim().toLowerCase())) continue;
+    const fam = ds.families.get(id);
+    if (!fam) continue;
+    seen.add(id);
+    out.push(fam);
+  }
+  return out;
+}
+
+/** A family named by its couple — "Janez Novak & Ana Kos (@F1@)" — for listing
+ *  the rival parent sets in a finding. */
+function coupleLabel(fam: Family, ds: Dataset): string {
+  const names = [fam.husband, fam.wife]
+    .map((id) => (id ? ds.individuals.get(id) : undefined))
+    .filter((p): p is Individual => !!p)
+    .map((p) => p.names[0]?.full?.trim() || p.id);
+  return names.length ? `${names.join(" & ")} (${fam.id})` : fam.id;
+}
+
 /** A dated birth of one child, as a month index so partial dates still compare. */
 interface ChildBirth {
   indi: Individual;
@@ -200,9 +256,6 @@ interface ChildBirth {
   month: number;
   year: number;
 }
-
-/** PEDI / _MREL values that still mean "this child was born to this mother". */
-const BIOLOGICAL_PEDI = new Set(["birth", "natural", ""]);
 
 /**
  * The children of `fam` that carry a birth (or christening) date and are linked
@@ -382,6 +435,19 @@ export function validateDataset(ds: Dataset, currentYear: number = new Date().ge
         add("brokenLink", "error", "tools.validate.issue.famsMissing", { fam: famId });
       } else if (fam.husband !== indi.id && fam.wife !== indi.id) {
         add("brokenLink", "error", "tools.validate.issue.famsNotReciprocal", { fam: famId });
+      }
+    }
+
+    // Two birth families: the person hangs off two different sets of parents.
+    // Legitimate when one is adoptive or foster (excluded above), otherwise one
+    // of the two links is wrong — or the person exists twice in the file.
+    if (indi.childOf.length > 1) {
+      const fams = birthParentFamilies(indi, ds);
+      if (fams.length > 1) {
+        add("multipleParents", "warning", "tools.validate.issue.multipleParents", {
+          count: fams.length,
+          families: fams.map((f) => coupleLabel(f, ds)).join("; "),
+        });
       }
     }
 
