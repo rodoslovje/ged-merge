@@ -23,8 +23,6 @@ export const KEY = {
   relationship: "s",
   /** Edit mode: jump to the start ("home") person. */
   home: "h",
-  /** Merge mode: focus the match-list name filter (global search is `/`). */
-  filter: "f",
   /** Add a new person attached to nobody, from any mode. */
   addPerson: "n",
   confirm: "c",
@@ -103,7 +101,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: [["mod", "S"]], descKey: "shortcuts.item.save" },
       { keys: [["mod", "Z"]], descKey: "shortcuts.item.undo" },
       { keys: [["mod", "Shift", "Z"], ["mod", "Y"]], descKey: "shortcuts.item.redo" },
-      { keys: [["mod", "F"]], descKey: "shortcuts.item.chartFind" },
+      { keys: [["mod", "F"]], descKey: "shortcuts.item.find" },
       { keys: [["/"]], descKey: "shortcuts.item.globalSearch" },
       { keys: [["?"]], descKey: "shortcuts.item.help" },
       { keys: [["Esc"]], descKey: "shortcuts.item.escape" },
@@ -131,13 +129,12 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: [[KEY.relationship.toUpperCase()]], descKey: "shortcuts.item.relationship" },
       { keys: [[KEY.home.toUpperCase()]], descKey: "shortcuts.item.home" },
       { keys: [["⌫"]], descKey: "shortcuts.item.back" },
-      { keys: [[KEY.filter.toUpperCase()]], descKey: "shortcuts.item.filterMatches" },
     ],
   },
   {
     titleKey: "shortcuts.group.editing",
     category: "app",
-    column: "left",
+    column: "right",
     items: [
       { keys: [[KEY.addPerson.toUpperCase()]], descKey: "shortcuts.item.addPerson" },
     ],
@@ -157,7 +154,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     category: "app",
     column: "right",
     items: [
-      { keys: [["1"], ["7"]], descKey: "shortcuts.item.chartKind" },
+      { keys: [["1"], ["8"]], descKey: "shortcuts.item.chartKind" },
       { keys: [[CHART_KEY.ancestors.toUpperCase()], [CHART_KEY.descendants.toUpperCase()]], descKey: "shortcuts.item.chartDirection" },
       { keys: [["+"], ["−"]], descKey: "shortcuts.item.chartZoom" },
       { keys: [[CHART_KEY.zoomReset]], descKey: "shortcuts.item.chartZoomReset" },

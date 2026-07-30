@@ -1,5 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { renderKeyToken } from "../../keyboard/shortcuts";
+import { useFindShortcutOn } from "../../keyboard/useFindShortcut";
 import type { Dataset } from "../../gedcom/types";
 import type { SourceUse } from "../../tools/sources";
 import { PersonLink } from "../PersonLink";
@@ -86,12 +88,19 @@ export const someMatch = (q: string, ...vals: (string | undefined)[]) =>
  *  once there's text to clear. */
 export function TreeSearch({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const { t } = useTranslation();
+  const inputRef = useRef<HTMLInputElement>(null);
+  // ⌘/Ctrl+F focuses this box — but only for the panel actually on screen: the
+  // Tools layer is `display:none` while another mode shows, and the sub-tabs
+  // that aren't open render nothing.
+  useFindShortcutOn(inputRef);
   return (
     <div className="tools-search">
       <input
+        ref={inputRef}
         type="text"
         className="tools-search-input"
         placeholder={t("tools.search.placeholder")}
+        title={t("tools.search.tooltip", { key: `${renderKeyToken("mod")}F` })}
         value={value}
         onChange={(e) => onChange(e.target.value)}
       />
