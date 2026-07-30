@@ -6756,7 +6756,10 @@ kbd {
 .tools-fix-hint { color: var(--muted); font-size: 0.85rem; }
 /* A standing note above the findings (what saving does to the file's encoding),
    as opposed to the hint that sits beside a fix button. */
-.tools-note { margin: -8px 0 16px; }
+.tools-note {
+  margin: 0 0 12px; padding-left: 10px; border-left: 2px solid var(--border);
+  color: var(--muted); font-size: 0.85rem;
+}
 .tools-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
 .tools-chip {
   border: 1px solid var(--border);

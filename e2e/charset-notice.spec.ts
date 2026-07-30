@@ -18,6 +18,12 @@ test("a non-UTF-8 file is told it will be saved as UTF-8", async ({ page }) => {
   await expect(note).toHaveCount(1);
   await expect(note).toContainText("WINDOWS-1250");
   await expect(note).toContainText("UTF-8");
+
+  // It sits with the findings, so filtering to the decoder's own Encoding line
+  // — which says what was read, not what will be written — keeps it in view.
+  await page.getByRole("button", { name: /^Encoding/ }).click();
+  await expect(note).toBeVisible();
+  await expect(page.locator(".tools-issues")).toBeVisible();
 });
 
 test("a UTF-8 file gets no encoding notice", async ({ page }) => {
