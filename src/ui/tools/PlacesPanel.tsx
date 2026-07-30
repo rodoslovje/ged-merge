@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
 import { buildPlaceTree, collectNodeUseIds, type PlaceNode, type PlaceTree, UNSPECIFIED, UNSPECIFIED_PLACE } from "../../tools/places";
@@ -8,6 +8,9 @@ import { GeocodePanel } from "./GeocodePanel";
 import { countGeocodePending, type GeoAssignment } from "../../tools/geocode";
 import { countryCode } from "../../gedcom/countryCode";
 import { ToolsLoading, TreeSearch, UsageList, useDebounced } from "./shared";
+import type { MiniMapPin } from "../map/MiniPlaceMap";
+
+const MiniPlaceMap = lazy(() => import("../map/MiniPlaceMap"));
 
 /** Prune a place node to those whose name matches `q` (already lower-cased)
  * anywhere in the subtree. A node matching by name keeps its whole subtree;
@@ -240,6 +243,7 @@ export function PlacesPanel({
               toggle={togglePlace}
               onNavigate={onNavigate}
               onRename={handleRename}
+              onGeocode={() => setView("geocode")}
               allSegments={allSegments}
             />
           ))}
@@ -258,6 +262,7 @@ function PlaceTreeRow({
   toggle,
   onNavigate,
   onRename,
+  onGeocode,
   allSegments,
 }: {
   dataset: Dataset;
@@ -268,6 +273,8 @@ function PlaceTreeRow({
   toggle: (node: PlaceNode, path: string) => void;
   onNavigate: (id: string) => void;
   onRename: (from: string, to: string, scope: Set<string>) => void;
+  /** Open the geocode tool, where a disputed coordinate can be settled. */
+  onGeocode: () => void;
   allSegments: string[];
 }) {
   const { t } = useTranslation();
@@ -275,6 +282,13 @@ function PlaceTreeRow({
   const [editing, setEditing] = useState(false);
   const [renameValue, setRenameValue] = useState("");
   const debouncedRename = useDebounced(renameValue, 250);
+  /** The row's own mini map, opened by clicking its coordinate. Per-row state:
+   *  several may stand open, and each is its own lazy map instance. */
+  const [mapOpen, setMapOpen] = useState(false);
+
+  const spots = node.coords?.length ? node.coords : undefined;
+  /** The file puts this place in more than one spot — one of them is wrong. */
+  const disputed = (spots?.length ?? 0) > 1;
 
   const nodeScope = useMemo(() => collectNodeUseIds(node), [node]);
 
@@ -339,10 +353,17 @@ function PlaceTreeRow({
           {labelNode}
         </span>
         <span className="tools-chip-count">{node.count}</span>
-        {node.coord && (
-          <span className="tools-tree-meta gm-data" title={t("tools.places.coord")}>
-            {node.coord.lat.toFixed(5)}, {node.coord.lon.toFixed(5)}
-          </span>
+        {spots && (
+          <button
+            type="button"
+            className="tools-tree-meta gm-data tools-place-coord"
+            aria-expanded={mapOpen}
+            title={t(disputed ? "tools.places.coord.disputed" : "tools.places.coord")}
+            onClick={() => setMapOpen((v) => !v)}
+          >
+            {spots[0].coord.lat.toFixed(5)}, {spots[0].coord.lon.toFixed(5)}
+            {disputed && <span className="tools-place-coord-warn">⚠ {t("tools.places.coord.spots", { count: spots.length })}</span>}
+          </button>
         )}
         {!isSynthetic && !editing && (
           <button
@@ -363,6 +384,35 @@ function PlaceTreeRow({
           </button>
         )}
       </div>
+
+      {mapOpen && spots && (
+        <div className="tools-place-map">
+          <Suspense fallback={<div className="tools-geo-minimap" />}>
+            <MiniPlaceMap
+              pins={spots.map((s, i): MiniMapPin => ({
+                coord: s.coord,
+                label: `${s.coord.lat.toFixed(5)}, ${s.coord.lon.toFixed(5)}`,
+                // The count only means something once there is a rival spot to
+                // weigh it against.
+                lines: disputed ? [t("tools.places.coord.spotUses", { count: s.n })] : undefined,
+                badge: disputed ? s.n : undefined,
+                // The prevailing spot is the one the row shows, so it reads as
+                // the chosen pin and the outliers as the candidates.
+                kind: i === 0 ? "chosen" : "candidate",
+              }))}
+              fitKey={path}
+            />
+          </Suspense>
+          {disputed && (
+            <p className="tools-place-map-note">
+              {t("tools.places.coord.disputedNote", { count: spots.length })}{" "}
+              <button type="button" className="tools-issue-link" onClick={onGeocode}>
+                {t("tools.places.coord.settle")}
+              </button>
+            </p>
+          )}
+        </div>
+      )}
 
       {editing && (
         <div className="tools-place-rename">
@@ -413,6 +463,7 @@ function PlaceTreeRow({
                 toggle={toggle}
                 onNavigate={onNavigate}
                 onRename={onRename}
+                onGeocode={onGeocode}
                 allSegments={allSegments}
               />
             ))}

@@ -1585,12 +1585,41 @@ describe("buildPlaceTree", () => {
 0 TRLR`);
     const si = buildPlaceTree(ds).roots.find((r) => r.name === "Slovenija")!;
     const kranj = si.children.find((c) => c.name === "Kranj")!;
-    // Two records agree, one disagrees — the majority value is the one shown.
-    expect(kranj.coord).toEqual({ lat: 46.23887, lon: 14.35561 });
+    // Two records agree, one disagrees: both spots are reported, majority first.
+    expect(kranj.coords).toEqual([
+      { coord: { lat: 46.23887, lon: 14.35561 }, n: 2 },
+      { coord: { lat: 46.9, lon: 14.9 }, n: 1 },
+    ]);
     // A place the file never geocoded reports none, and neither does the
     // country level above it: a coordinate belongs to the path that wrote it.
-    expect(si.children.find((c) => c.name === "Bled")!.coord).toBeUndefined();
-    expect(si.coord).toBeUndefined();
+    expect(si.children.find((c) => c.name === "Bled")!.coords).toBeUndefined();
+    expect(si.coords).toBeUndefined();
+  });
+
+  it("counts a rounding variant as the same spot, not a disagreement", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Ana /Kos/
+1 BIRT
+2 PLAC Kranj, Slovenija
+3 MAP
+4 LATI N46.23887
+4 LONG E14.35561
+0 @I2@ INDI
+1 NAME Bo /Kos/
+1 BIRT
+2 PLAC Kranj, Slovenija
+3 MAP
+4 LATI N46.2389
+4 LONG E14.3556
+0 TRLR`);
+    const kranj = buildPlaceTree(ds)
+      .roots.find((r) => r.name === "Slovenija")!
+      .children.find((c) => c.name === "Kranj")!;
+    // ~4 m apart: one spot, and its count is both mentions — otherwise every
+    // re-geocode would raise a false "the file disagrees with itself" flag.
+    expect(kranj.coords).toEqual([{ coord: { lat: 46.23887, lon: 14.35561 }, n: 2 }]);
   });
 });
 

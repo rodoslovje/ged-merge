@@ -114,6 +114,17 @@ function groupByPair(dataset: Dataset): Map<string, Group> {
  * Scan for both coordinate problems. Fills are sorted by how many occurrences
  * each would complete; conflicts by how many occurrences are involved.
  */
+/** The distinct spots a set of coordinate tallies describes: values within
+ *  {@link SAME_SPOT_DEG} of each other collapse into one, counted together and
+ *  represented by the most-used of them. Most-used spot first, so `[0]` is the
+ *  value that prevails and a length above 1 is a genuine disagreement. */
+export function distinctSpots(coords: { coord: GeoCoord; n: number }[]): { coord: GeoCoord; n: number }[] {
+  return clusterCoords(coords).map((cluster) => ({
+    coord: cluster[0].coord,
+    n: cluster.reduce((sum, c) => sum + c.n, 0),
+  }));
+}
+
 export function scanPlaceCoords(dataset: Dataset): PlaceCoordReport {
   const fills: SplitCoordPlace[] = [];
   const conflicts: CoordConflict[] = [];
