@@ -13,7 +13,9 @@ export const INDIVIDUAL_EVENT_GROUPS = [
   { labelKey: "eventGroup.attributes", tags: ["TITL", "DSCR", "RELI", "NATI", "RACE", "NCHI", "NOBI", "LATR", "DEED", "_MEDC", "ILL", "REFN"] },
   { labelKey: "eventGroup.residence",  tags: ["RESI", "EMIG", "IMMI", "NATU", "CENS"] },
   { labelKey: "eventGroup.estate",     tags: ["WILL", "PROB", "EVEN", "FACT"] },
-  { labelKey: "eventGroup.death",      tags: ["DEAT", "_FNRL", "BURI", "_INTE", "CREM"] },
+  // Cremation before burial/interment: a cremation precedes the laying to rest
+  // of the ashes, so "Burial" reads last in the menu.
+  { labelKey: "eventGroup.death",      tags: ["DEAT", "_FNRL", "CREM", "BURI", "_INTE"] },
 ] as const;
 
 /** Tags a main individual event's type can be changed to/from (matches

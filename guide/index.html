@@ -48,7 +48,7 @@
       "url": "https://gedmerge.com/guide/",
       "inLanguage": "en",
       "isPartOf": { "@type": "WebSite", "name": "GED Merge", "url": "https://gedmerge.com/" },
-      "articleSection": ["Getting Started", "Core Concepts", "Edit", "Merge", "Tools", "Photos", "Sources", "Reference"],
+      "articleSection": ["Getting Started", "Core Concepts", "Edit", "Merge", "Tools", "Charts", "Photos", "Sources", "Reference"],
       "hasPart": [
         {
           "@type": "WebPageElement",
@@ -70,8 +70,14 @@
         },
         {
           "@type": "WebPageElement",
+          "name": "Charts, maps & reports",
+          "url": "https://gedmerge.com/guide/#charts",
+          "description": "Eight views of one person's family: tree, grid, fan and circle pedigrees, a timeline, a relationship diagram, a places map and text reports — with printing and export."
+        },
+        {
+          "@type": "WebPageElement",
           "name": "Keyboard & icon reference",
-          "url": "https://gedmerge.com/guide/#reference",
+          "url": "https://gedmerge.com/guide/#legend",
           "description": "A legend of every icon, status badge and keyboard shortcut used across the app."
         }
       ]
@@ -152,17 +158,21 @@
             <li><a href="#tools">11. Tools</a></li>
 
             <li class="guide-toc-part">IV · Shared Features</li>
-            <li><a href="#photos">12. Photos &amp; media</a></li>
-            <li><a href="#sources">13. Sources &amp; citations</a></li>
-            <li><a href="#saving">14. Saving &amp; the change report</a></li>
+            <li><a href="#charts">12. Charts, maps &amp; reports</a></li>
+            <li class="guide-toc-sub"><a href="#map">↳ Map</a></li>
+            <li class="guide-toc-sub"><a href="#reports">↳ Reports</a></li>
+            <li class="guide-toc-sub"><a href="#printing">↳ Printing a wide diagram</a></li>
+            <li><a href="#photos">13. Photos &amp; media</a></li>
+            <li><a href="#sources">14. Sources &amp; citations</a></li>
+            <li><a href="#saving">15. Saving &amp; the change report</a></li>
             <li class="guide-toc-sub"><a href="#versioning">↳ Backing up &amp; versioning your tree</a></li>
 
             <li class="guide-toc-part">V · Reference</li>
-            <li><a href="#legend">15. Icon &amp; badge legend</a></li>
-            <li><a href="#shortcuts">16. Keyboard shortcuts</a></li>
-            <li><a href="#events">17. Event types</a></li>
-            <li><a href="#glossary">18. Glossary</a></li>
-            <li><a href="#privacy">19. Privacy</a></li>
+            <li><a href="#legend">16. Icon &amp; badge legend</a></li>
+            <li><a href="#shortcuts">17. Keyboard shortcuts</a></li>
+            <li><a href="#events">18. Event types</a></li>
+            <li><a href="#glossary">19. Glossary</a></li>
+            <li><a href="#privacy">20. Privacy</a></li>
           </ol>
         </nav>
       </aside>
@@ -198,7 +208,7 @@
             <p>
               Everything happens locally. Reading, matching, merging and editing all run inside your browser on your
               own computer, so your genealogical data never leaves your device. Your loaded file is never modified in
-              place — you always download a new copy when you save (see <a href="#saving">§14</a>).
+              place — you always download a new copy when you save (see <a href="#saving">§15</a>).
             </p>
             <div class="gm-callout tip">
               <span class="gm-callout-label">Tip</span>
@@ -215,7 +225,7 @@
               <li><strong>File pills</strong> — the loaded main and incoming file names. Click a pill to see or replace that file.</li>
               <li><strong>Undo / Redo</strong> — one shared history across edits and merge decisions (<span class="gm-key">Ctrl</span><span class="gm-key">Z</span> / <span class="gm-key">Ctrl</span><span class="gm-key">Shift</span><span class="gm-key">Z</span>).</li>
               <li><strong>Save GEDCOM</strong> — preview and download your changes (<span class="gm-key">Ctrl</span><span class="gm-key">S</span>).</li>
-              <li><strong>Search everyone</strong> — the <span class="gm-glyph">⌕</span> button (or <span class="gm-key">/</span>) finds any person in the file by name; <span class="gm-key">Enter</span> opens them, <span class="gm-key">Shift</span><span class="gm-key">Enter</span> opens them in the tree. If the search finds nobody, it offers to <strong>add the name you typed</strong> as a new person.</li>
+              <li><strong>Search everyone</strong> — the <span class="gm-glyph">⌕</span> button (or <span class="gm-key">/</span>) finds any person in the file by name; <span class="gm-key">Enter</span> opens them, <span class="gm-key">Shift</span><span class="gm-key">Enter</span> opens their charts. <strong>Filters</strong> narrow a common name down: sex, a birth-year range, a place, whether the person has links, notes or sources, whether you have edited them, their merge decision, and how close they are to your <a href="#home-person">start person</a> (<a href="#home-person">§6</a>). If the search finds nobody, it offers to <strong>add the name you typed</strong> as a new person.</li>
               <li><strong>Add new person</strong> — the <span class="gm-glyph">＋</span> button (or <span class="gm-key">N</span>) creates a person linked to nobody, from any mode — see <a href="#edit">§9</a>.</li>
               <li><strong>Settings</strong> — the <span class="gm-glyph">⚙</span> menu holds appearance (theme and language), name and record display, and data options — see <em>Settings</em> below.</li>
             </ul>
@@ -229,7 +239,7 @@
             </div>
             <p>
               GED Merge is keyboard-driven — press <span class="gm-key">?</span> anywhere to open the full shortcut
-              sheet, or see <a href="#shortcuts">§16</a>.
+              sheet, or see <a href="#shortcuts">§17</a>.
             </p>
 
             <h3>Settings</h3>
@@ -237,23 +247,28 @@
               The <span class="gm-glyph">⚙</span> <strong>Settings</strong> menu has four tabs. <strong>General</strong>
               covers everyday preferences; <strong>GEDCOM</strong> lets you pin the file conventions GED Merge otherwise
               detects automatically; <strong>Map</strong> controls the map background and the additional map layers; and
-              <strong>Advanced</strong> holds the options that reach the network. Every choice is remembered in this
-              browser.
+              <strong>Advanced</strong> holds the online lookups and the locally stored data. Every choice is remembered
+              in this browser.
             </p>
+            <p><strong>General</strong> — four groups, in this order:</p>
             <ul>
-              <li><strong>Appearance</strong> — <em>Theme</em> (Automatic, Light or Dark; Automatic follows your operating system) and <em>Language</em> (English or Slovenščina).</li>
-              <li><strong>Names</strong> — <em>Name order</em> (given name first or surname first), <em>Uppercase surnames</em> (e.g. Ana NOVAK) and <em>Show married surname</em>, which appends it in parentheses, e.g. Ana Novak (Kovač). These change how names <em>display</em> everywhere; your stored data is untouched.</li>
-              <li><strong>Display</strong> — <em>Show record IDs</em> puts each person's GEDCOM record id (xref) next to their name; <em>Show kinship</em> shows each person's relationship to your <a href="#home-person">start person</a> (§6) throughout the app; and <em>Show ages</em> adds ages after lifespans and beside event dates.</li>
-              <li><strong>Data</strong> — <em>Remember my work in this browser</em> (see <em>Keeping your work</em> below).</li>
-              <li><strong>GEDCOM</strong> — override any file convention GED Merge would otherwise detect: date format, unknown date parts, place format, alternate names, the unknown-name marker, source and citation layout, page links, baptism citations, doubled links, privacy tag, and the Matricula/Geneanet link languages. Each defaults to <em>Auto (detected)</em> — following the file's own habit — but a chosen value is then enforced by the incoming-file normalizer, <a href="#tools">Organize sources</a>, Add Source and inline editing. Date, place, name and link choices take effect from the next file load. See <a href="#house-style">§7</a> and <a href="#sources">§13</a>.</li>
-              <li><strong>Map</strong> — <em>Load base-map tiles</em> opts in to a map background for the <a href="#map">Places map</a> (tile requests reveal the viewed region; off = a built-in offline outline), and <em>Base map</em> picks which one: CARTO, OpenStreetMap, terrain, Esri satellite or topographic, or your own tile-URL template. <em>Additional map layers</em> configures maps drawn over the base — pick a bundled free preset (including Slovenia's national GURS maps), or add your own tile-URL template or OGC&nbsp;WMS service (name, URL, valid years, attribution). See <a href="#map">§9</a>.</li>
-              <li><strong>Advanced › Online lookups</strong> — <em>Look up details online</em>: when you add a source from a bare URL, GED Merge fetches its page title through a public relay. The same switch powers the one-click OpenStreetMap and GURS gazetteer downloads, the per-row online searches (OpenStreetMap and the Genealogical Gazetteer, GOV) and the GURS address-register lookups used by <a href="#tools">Geocode places</a>; those services are called directly, not through a relay. <strong>Apart from the map tiles you opt into separately, these are the only features that send anything off your device, and they are off by default.</strong></li>
+              <li><strong>Language</strong> — English or Slovenščina.</li>
+              <li><strong>Appearance</strong> — <em>Theme</em>: Automatic, Light or Dark (Automatic follows your operating system).</li>
+              <li><strong>Name display</strong> — <em>Name order</em> (given name first or surname first), <em>Uppercase surnames</em> (e.g. Ana NOVAK) and <em>Show married surname</em>, which appends it in parentheses, e.g. Ana Novak (Kovač). A live sample above the options shows the result. These change how names <em>display</em> everywhere; your stored data is untouched.</li>
+              <li><strong>Display</strong> — <em>Show kinship</em> shows each person's relationship to your <a href="#home-person">start person</a> (<a href="#home-person">§6</a>) throughout the app; <em>Show record IDs</em> puts each person's GEDCOM record id (xref) next to their name; and <em>Show ages</em> adds ages after lifespans and beside event dates.</li>
+            </ul>
+            <p>The other three tabs:</p>
+            <ul>
+              <li><strong>GEDCOM</strong> — override any file convention GED Merge would otherwise detect, grouped as <em>Dates</em>, <em>Names</em>, <em>Places</em>, <em>Sources</em> and <em>Privacy</em>: date format, unknown date parts, alternate names, the unknown-name marker, place format, source and citation layout, page links, baptism citations, doubled links, the Matricula and Geneanet link languages, and the private-flag tag. Each row shows a sample of what the choice writes and defaults to <em>Auto (detected)</em> — following the file's own habit — but a chosen value is then enforced by the incoming-file normalizer, <a href="#tools">Organize sources</a>, Add Source and inline editing. Date, place, name and link choices take effect from the next file load. See <a href="#house-style">§7</a> and <a href="#sources">§14</a>.</li>
+              <li><strong>Map</strong> — <em>Load base-map tiles</em> opts in to a map background for every map in the app (tile requests reveal the viewed region; off = a built-in offline outline), and <em>Base map</em> picks which one: CARTO, OpenStreetMap, terrain, Esri satellite or topographic, or your own tile-URL template. Once tiles are allowed, a live sample above the picker draws the current choice. <em>Additional map layers</em> configures maps drawn over the base — pick a bundled free preset (including Slovenia's national GURS maps), or add your own tile-URL template or OGC&nbsp;WMS service (name, URL, valid years, attribution). See <a href="#map">§12</a>.</li>
+              <li><strong>Advanced › Online lookups</strong> — <em>Look up details online</em>: when you add a source from a bare URL, GED Merge fetches its page title through a public relay. The same switch powers the one-click OpenStreetMap and GURS gazetteer downloads, the per-row online searches (OpenStreetMap and the Genealogical Gazetteer, GOV) and the GURS address-register lookups used by <a href="#geocode">Geocode places</a>; those services are called directly, not through a relay. <strong>Apart from the map tiles you opt into separately, these are the only features that send anything off your device, and they are off by default.</strong></li>
+              <li><strong>Advanced › Locally stored data</strong> — <em>Remember my work in this browser</em> and <em>Clear locally stored data</em> (see <em>Keeping your work</em> below).</li>
             </ul>
 
             <h3>Keeping your work &amp; working offline</h3>
             <p>
               By default GED Merge keeps nothing between visits — reloading starts fresh. Turn on
-              <strong>Settings › Data › Remember my work in this browser</strong> to cache your loaded files and your
+              <strong>Settings › Advanced › Remember my work in this browser</strong> to cache your loaded files and your
               review and edit progress locally, so a reload restores exactly where you left off. The browser may ask
               permission to keep the data; nothing ever leaves your device. <strong>Clear saved data</strong> in the same
               panel empties that cache (the file you currently have open stays open).
@@ -289,7 +304,7 @@
             <div class="gm-callout tip">
               <span class="gm-callout-label">Tip</span>
               <p>If your tree references local photos, GED Merge offers to connect a <strong>media folder</strong> so it
-              can display them. See <a href="#photos">§12</a>.</p>
+              can display them. See <a href="#photos">§13</a>.</p>
             </div>
           </section>
 
@@ -340,7 +355,7 @@
               but no single named kinship fits, a generic <em>Blood relative</em> label carries the colour. Kinship also
               recognizes half-siblings and step-relations (step-parent, step-child, step-sibling) with their own labels.
               The colours appear wherever kinship shows — person headers, relative cards, tree nodes and the relationship
-              diagram (see the <a href="#legend">legend</a>, §15).
+              diagram (see the <a href="#legend">legend</a>, <a href="#legend">§16</a>).
             </p>
           </section>
 
@@ -385,7 +400,7 @@
               <strong>sources</strong> (repositories, source records and citations), <strong>media objects</strong>
               (photos and document images), and the <strong>notes</strong> and <strong>links</strong> attached to any
               record. These are first-class throughout: you can add and edit them in <span class="gm-pill">Edit</span>
-              (<a href="#sources">§13</a>, <a href="#photos">§12</a>) and browse them across the whole file in
+              (<a href="#sources">§14</a>, <a href="#photos">§13</a>) and browse them across the whole file in
               <span class="gm-pill">Tools</span>.
             </p>
           </section>
@@ -407,288 +422,10 @@
               the match back in the Merge list (see <a href="#merge">§10</a>). Every change is held in memory and
               reversible with <span class="gm-key">Ctrl</span><span class="gm-key">Z</span> until you download.
             </p>
-            <h3>Charts hub</h3>
             <p>
-              One <strong>Charts</strong> button (<span class="gm-key">V</span>) — in the Edit toolbar, the header's
-              chart icon, or a Compare Tree node's panel — opens the full-page <strong>Charts hub</strong> for the
-              selected person. A tab strip switches between eight kinds (digits <span class="gm-key">1</span>–<span
-              class="gm-key">8</span> jump straight to one); GED Merge remembers whichever you used last. Re-rooting a
-              chart — a node's <strong>Set as root</strong>, a <span class="gm-badge rep">+7</span> pill, a search hit
-              off the chart — counts as a step, so <strong>Back</strong> (the button or the browser's) retraces the
-              people you rooted on and only then leaves the hub:
-            </p>
-            <ul>
-              <li><strong>Tree</strong>, <strong>Grid</strong>, <strong>Fan</strong> and <strong>Circle</strong> — the
-                four pedigree styles. <em>Tree</em> is the tidy layered family tree; <em>Grid</em> aligns generations into
-                columns (a pedigree grid for ancestors, an indented outline for descendants); <em>Fan</em> and
-                <em>Circle</em> are radial ancestor charts (ancestors only — there's no descendants view to fan out).</li>
-              <li><strong>Timeline</strong> — the immediate family as lifespan bars along one shared year axis; see
-                below.</li>
-              <li><strong>Relationship</strong> (<span class="gm-key">S</span>) — traces how the selected person is
-                related to your <a href="#home-person">start person</a> (§6); if none is set yet, it prompts for one
-                inline. The diagram lays out the chain of relatives between the two, labelled with the exact kinship (e.g.
-                <em>2nd cousin once removed</em>). When more than one route exists, the <strong>Available paths</strong>
-                menu switches between the <em>shortest path</em> and a <em>bloodline</em> through a shared ancestor. Click
-                either endpoint's <span class="gm-glyph">✎</span> to swap that person, click any node to re-centre, or
-                open a node in <span class="gm-pill">Edit</span>.</li>
-              <li><strong>Map</strong> — every event of the branch whose place carries coordinates, clustered on a real
-                map, with optional historical overlays and life paths; see <a href="#map">below</a>.</li>
-              <li><strong>Report</strong> — a text-based Ahnentafel or descendant register; see
-                <a href="#reports">below</a>.</li>
-            </ul>
-            <p>
-              The pedigree kinds, the Map and the Report also carry an <strong>Ancestors / Descendants</strong> toggle
-              (each option shows a live count). The <strong>Chart</strong> button (the <span class="gm-glyph">⚙</span> gear)
-              opens a settings panel whose options adapt to whichever kind is open; every choice is remembered across
-              sessions:
-            </p>
-            <ul>
-              <li><strong>Alignment</strong> (Tree, Grid and the Relationship diagram) — lay the chart out
-                <em>Left → Right</em> or <em>Top → Bottom</em>. The radial Fan and Circle have no alignment to
-                choose.</li>
-              <li><strong>Generations</strong> — how far the chart reaches from its root person. Step down from
-                <em>All</em> to draw only the nearest few generations; the reading is “<em>4 of 9</em>” — how many are
-                drawn of how many exist. It is one shared choice: the Tree, Grid, Fan, Circle, the Report and the Map
-                all follow it. Where a chart is cut short, the last person drawn carries a
-                <span class="gm-badge rep">+7</span> pill counting the relatives above or below them that aren't shown
-                — click it to re-root the chart on that person and carry on down (or up) the line. The page header and
-                every export then read <em>4 of 9 generations</em>, and a shortened Report closes with a line naming the
-                generations it left off.</li>
-              <li><strong>Person</strong> — toggle what each node shows: <em>Lifespan</em>, <em>Place</em>,
-                <em>Photo</em> (when a media folder is loaded), <em>Kinship</em> (the relationship label to your start
-                person; not drawn on Fan/Circle) and <strong>Badges</strong> (the working-state letters — see
-                <a href="#legend">§15</a> — on by default). This group isn't shown while the Report is open; switch to
-                another kind to change it, and the Report picks up whatever it's set to.</li>
-              <li><strong>Marriage</strong> — add the marriage <em>Date</em> and/or <em>Place</em> to each couple's
-                connector (the fan / circle collar, or beside the Timeline's <span aria-hidden="true">⚭</span> markers).
-                Both off by default.</li>
-              <li><strong>Events</strong> (Timeline only) — whose bars carry event dots: <em>This person</em>, <em>All
-                people</em> or <em>Off</em>; plus <strong>Event labels</strong> (compact text under each dot) and the
-                shared <strong>Residence bar</strong> (see Reports, below).</li>
-              <li><strong>Map</strong> (Map only) — which event kinds appear as markers, a <em>year range</em> (with a
-                two-thumb slider) and whether <em>undated</em> events show; <strong>Paths</strong> draws each person's
-                life journey as a line — see <a href="#map">below</a>. The street-tile background is opt-in in
-                <strong>Settings › Advanced</strong>.</li>
-              <li><strong>Facts</strong> (Report only) — see <a href="#reports">below</a>.</li>
-              <li><strong>Privacy</strong> — <em>Hide living people</em> redacts anyone inferred to be living, showing
-                only their relationship or “Living” (see <a href="#privacy">§19</a>), so the diagram is safe to
-                share.</li>
-            </ul>
-            <p>
-              <strong>Find in chart</strong> answers “where in this diagram is that person?”. Type a name in the search
-              box at the right of the controls row (<span class="gm-key">Ctrl</span><span class="gm-key">F</span> puts
-              the cursor in it) and the canvas moves to that person and flashes them the moment your typing settles —
-              no key to press. A shared ancestor is drawn once per line of descent, so the counter says which of their
-              places you're on, and <span class="gm-glyph">‹</span> <span class="gm-glyph">›</span> — or
-              <span class="gm-key">Enter</span> and the <span class="gm-glyph">⌕</span> button — step through the rest.
-              If nobody by that name is drawn here but somebody in
-              your file matches, the box offers that person — click their name to redraw the chart around them. Every
-              kind has the box, the Compare Tree (§10) included. On the <strong>Map</strong> it matches place and
-              street names as well as people, then flies to the event and opens it; on the <strong>Report</strong> it
-              scrolls to the person's numbered entry — and there <span class="gm-key">Ctrl</span><span class="gm-key">F</span>
-              is left to your browser's own find, which searches the whole text. It's the counterpart
-              to the file-wide search (<span class="gm-key">/</span>), which always re-roots the diagram on whoever you
-              open.
-            </p>
-            <p>
-              <strong>Repeated people.</strong> The same person can reach the root down more than one line — cousins who
-              married each other, or a couple whose <em>both</em> partners descend from the root person. Their branch is
-              drawn at the first position only; every later position still shows the person and their marriage, but is
-              left empty and carries a <span class="gm-badge rep round">→</span> badge — in the box's bottom-right
-              corner on the Tree and the Grid, at the outer edge of the wedge on the Fan and the Circle, where the
-              ancestors would have continued. Click it to go to the position that does carry the branch (see
-              <a href="#legend">§15</a>). Nobody is drawn — or counted — twice, so the Ancestors / Descendants counts are
-              counts of <em>people</em>. The Report follows the same rule: a person met a second time keeps their first
-              number and is shown as a cross-reference to it.
-            </p>
-            <p>
-              Use the <strong>zoom controls</strong> to zoom in and out, reset to 100%, or fit the whole diagram to the
-              screen; large diagrams also show an overview minimap — drag the canvas to pan. Every kind carries an
-              <strong>Export ▾</strong> menu: <strong>GEDCOM</strong> (first — downloads just the people currently drawn
-              as a standalone file a friend can merge into their own tree), <strong>SVG</strong> (a sharp, infinitely
-              scalable image) and <strong>PDF</strong> (asks which paper you're printing on, then opens your browser's
-              print dialog, where you choose <em>Save as PDF</em>). The Report adds a <strong>Text file</strong> option
-              instead of SVG.
-            </p>
-            <p>
-              <strong>Printing a wide diagram.</strong> A family diagram that pans comfortably on screen usually can't be
-              printed on one page: fitting it to A4 shrinks the names past reading. So <strong>PDF</strong> always asks
-              for the paper first — <strong>A4, A3, A2, A1, A0</strong>, <strong>Letter</strong> or <strong>Custom</strong>
-              — and fits the chart to it; asking the printer for a page the size of the diagram only gets you whatever
-              the driver falls back to, with most of the chart missing. On the <strong>Tree</strong> and
-              <strong>Grid</strong> kinds the same dialog adds a <strong>print size</strong>, because those two can be
-              cut into several sheets, and it tells you how
-              many sheets the diagram will take; <strong>Print</strong> then sends the whole set to the print dialog, one
-              sheet per page. The big formats are for a plotter or a copy shop, and a wide chart that wants a dozen A4
-              sheets often prints on one A1. <strong>Custom</strong> takes any size in millimetres, so a plotter roll —
-              say 1100 × 2000 mm — prints as a single enormous sheet; a custom size is used exactly as you type it
-              (width × height), so the orientation switch doesn't apply to it. Whatever the paper, the set is scaled to
-              fill it, and the dialog says what that comes to — <em>Prints as 3 sheets · at 62% size</em>. Print size is
-              the setting that matters most: an ancestors chart doubles in width with every
-              generation, so <em>Large</em> (readable at arm's length) can want several times the sheets of
-              <em>Small</em> (a wall chart in fine print), and <em>One sheet</em> refuses to cut at all — the whole
-              diagram is shrunk onto the single sheet you chose, however small the names end up (watch the percentage).
-              Change it and watch the sheet count — and remember that
-              <strong>Generations</strong> in the chart settings, and turning off the place, photo or kinship rows, shrink
-              the diagram before it is ever split. The diagram
-              is cut at its branches, never mid-box: a branch that doesn't fit carries on over a sheet of its own, and
-              the person it was cut from keeps a numbered green circle — <span class="gm-badge rep round">3</span> — showing
-              which sheet picks the line up. Every sheet's header names it (<em>Sheet 3 of 7 · continues Ana Novak from
-              sheet 1</em>), and all sheets print at the same scale, so boxes are the same size throughout and the
-              printed set tapes together into one chart. A long, narrow lineage is cut across a generation instead, so
-              deep lines don't waste a sheet each.
-            </p>
-            <h3>Timeline</h3>
-            <p>
-              The <strong>Timeline</strong> kind draws the selected person's immediate family as horizontal lifespan bars
-              on one shared year axis: parents (and a step-parent row, if one remarried) above, the person's own
-              generation — siblings and half-siblings interleaved by birth order — beside them, then each union's spouse
-              and children (and step-children) below. Small glyphs mark dated events on each bar
-              (<span aria-hidden="true">*</span> born, <span aria-hidden="true">~</span> baptized,
-              <span aria-hidden="true">†</span> died, <span aria-hidden="true">▭</span> buried,
-              <span aria-hidden="true">⌂</span> residence, <span aria-hidden="true">⚒</span> occupation,
-              <span aria-hidden="true">✎</span> education, <span aria-hidden="true">→</span>/<span
-              aria-hidden="true">←</span> emigration/immigration), and <span aria-hidden="true">⚭</span> marks a
-              marriage. An open-ended bar (no death recorded) tapers off — to the last dated event, or to the present day
-              if the person is presumed living.
-            </p>
-            <h3 id="map">Map</h3>
-            <p>
-              The <strong>Map</strong> kind plots every event of the chosen branch whose place carries coordinates
-              (the standard GEDCOM <code>MAP</code> · <code>LATI</code>/<code>LONG</code> structure under
-              <code>PLAC</code> — written by the <a href="#geocode">Geocode places</a> tool, or already present in your
-              file). Markers are coloured by event kind (birth, marriage, death, burial, residence, other) and nearby
-              events cluster into counted dots: click a cluster to zoom in, or — once it's small enough — to open its
-              event panel, listing each event with year, place and person links (with kinship chips).
-            </p>
-            <ul>
-              <li><strong>Filters</strong> — event-kind chips, a two-thumb <strong>year window</strong> slider (with
-                exact year inputs), and an <em>Undated</em> toggle for events without a date.</li>
-              <li><strong>Paths</strong> — draws each shown person's <em>life path</em>: their chronological stops
-                joined by a line with direction arrows. Click a path (or a person's <span class="gm-glyph">〰</span>
-                button in the event panel) to single it out — the rest dim, the legs get numbered, and a name chip
-                appears over the map.</li>
-              <li><strong>Base map</strong> — the background every map draws on, chosen in
-                <strong>Settings → Map → Base map</strong>. Five need no account: the default plain <em>CARTO</em>
-                style, which follows the light or dark theme; plain <em>OpenStreetMap</em>, which names the most
-                hamlets, farms, chapels and cemeteries; a <em>terrain</em> map whose contours and hillshade show the
-                valley a family stayed in and the ridge that separated two parishes; and Esri's <em>satellite</em>
-                and <em>topographic</em> views — the first answers whether the house still stands, the second prints
-                well. <em>Custom URL…</em> takes your own <code>{z}/{x}/{y}</code> template instead, whose licence and
-                credit are then yours to honour. The credit shown on the map and burned into PNG exports follows the
-                choice. A sample map above the picker draws the current choice — together with any layer marked
-                <em>Default</em> — so you can compare the styles before leaving Settings. Ticking <em>Default</em> on a
-                layer takes the sample to the ground that layer covers and to a zoom it is drawn at, so neither a
-                French map nor a layer that only appears house by house is switched on into an empty frame. Drag and
-                zoom it freely; <em>Fit</em> brings the sample back.</li>
-              <li><strong>Overlays</strong> — extra map layers drawn over the base map. Configure them once in
-                <strong>Settings → Map → Additional map layers</strong>: a name, a tile URL template
-                with <code>{z}/{x}/{y}</code>, the years the map depicts, and its required attribution (subscription
-                sources such as Arcanum/Mapire work with the tile URL from your account). Tick <strong>WMS</strong>
-                for an OGC&nbsp;WMS service instead — then the URL is the service endpoint (…/wms), you name the
-                layer(s) to draw, and an optional extra-params box carries things like a time-enabled layer's
-                <code>TIME=</code> year. The <em>Add a free preset…</em> menu includes Slovenia's national
-                <strong>GURS</strong> maps (historical and current orthophoto, topographic map, cadastral
-                parcels, cadastral municipalities, house numbers, settlements, municipalities) and historical
-                surveys: the Habsburg <em>Spezialkarte</em> 1:75&nbsp;000 for Slovenia, Croatia and Bosnia
-                (1877–1918), France's <em>Carte de l'État-major</em>, Switzerland's Dufour and Siegfried maps, and —
-                reaching furthest back — Schraembl's <em>Generalkarte von Deutschland</em> of 1797, the German lands,
-                the Alps and the northern Adriatic in the Holy Roman Empire's last years. At 1:530&nbsp;000 the 1797
-                map is period context rather than a survey: it is placed by its own engraved graticule, so towns can
-                sit a few kilometres from their modern coordinates — the map's own error, faithfully kept. Some layers only
-                draw at certain zooms — the cadastre and house numbers when you zoom in close, settlement and
-                municipality names and outlines
-                when zoomed out; the historical orthophoto shows one survey year (change it in the layer's extra params if a
-                spot is blank). The <strong>topographic map</strong> is the colour <em>Osnovna karta</em> the
-                national land-survey viewer itself draws: one layer that stays legible from the whole country
-                down to 1:2500, where individual buildings, contours, field boundaries, paths and toponyms
-                appear — usually the layer that settles which house an ancestor lived in. A second preset adds
-                the older black-and-white <em>Temeljni topografski načrt</em> 1:5000, which records the buildings
-                and field patterns of its own, earlier survey; it draws only when you are zoomed in close. Several GURS layers answer a <strong>click on the map</strong>: house numbers give the
-                full official address (street, number, settlement, post code), a parcel gives its number, cadastral
-                municipality and area, and the cadastral-municipality layer names the <em>katastrska občina</em> and its
-                number — the unit land and parish records are filed under. The map's
-                <strong>Overlays</strong> chip then lists your layers with an opacity slider each, and highlights the
-                ones whose period matches the selected year window — the map of your ancestor's own time.
-                The order of the list — in Settings and in the chip, with the <span class="gm-glyph">▲</span>
-                <span class="gm-glyph">▼</span> buttons to change it — is the stacking order on the map: the first
-                layer draws on top. Keep a thin reference layer (house numbers, parcels) above a full-page
-                historical map, or it disappears under it.
-                Tick a layer's <em>Default</em> box in Settings to have it switched on wherever a map is drawn: every
-                Places map opens with it on (untick it in the Overlays list for that map only), and the small
-                per-person and geocoding maps show it too — clicking those small maps answers with the layer's
-                details as well, so a house number can be read without leaving the person.</li>
-              <li><strong>Fit</strong> — the third button under the map's zoom controls frames everything currently
-                plotted, on the Places map and on the small per-person, geocoding and Settings-sample maps alike; after
-                following an overlay across the country it brings the whole set back in one click. Hovering a marker names the place
-                it stands for (a single event also shows its street address).</li>
-              <li><strong>Privacy</strong> — the base map is <em>opt-in</em>: until you allow tiles (one click on
-                the map, or Settings → Map), the map draws on a built-in offline world outline and nothing leaves
-                your device. The chart-settings <em>Hide living people</em> toggle removes their markers and paths
-                entirely.</li>
-              <li><strong>Export</strong> — <strong>PNG</strong> snapshots the current view (tiles, overlays, paths and
-                markers, with the required attribution burned in); <strong>GEDCOM</strong> exports the drawn people as a
-                standalone file.</li>
-            </ul>
-            <p>
-              A small per-person map with the same colours (and the person's life path) also appears under the events
-              list in <span class="gm-pill">Edit</span> — hide it with its own button above the map.
-            </p>
-            <div class="gm-callout note">
-              <span class="gm-callout-label">Data sources &amp; licenses</span>
-              <p>
-              Map data comes from third parties and each keeps its own licence — the required credit is shown on the
-              map and burned into PNG exports. The base maps are
-              © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>
-              contributors (ODbL), rendered by <a href="https://carto.com/attributions" target="_blank" rel="noopener noreferrer">CARTO</a>,
-              by the OpenStreetMap Foundation, or — with SRTM elevation — by
-              <a href="https://opentopomap.org" target="_blank" rel="noopener noreferrer">OpenTopoMap</a> (CC&nbsp;BY-SA);
-              the satellite and topographic views are © Esri and its data suppliers. All are courtesy services under
-              fair use: they are for looking at your own family's places, not for bulk downloading.
-              Overlay presets: Slovenia's <strong>GURS</strong> maps © Geodetska uprava Republike Slovenije, under
-              <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">CC&nbsp;BY&nbsp;4.0</a>;
-              France's état-major © IGN, Licence Ouverte 2.0; Switzerland's Dufour/Siegfried © swisstopo; the
-              Spezialkarte is public domain / CC0; the 1797 Schraembl map is courtesy of the
-              <a href="https://www.davidrumsey.com/" target="_blank" rel="noopener noreferrer">David Rumsey Map Collection</a>,
-              David Rumsey Map Center, Stanford Libraries, under
-              <a href="https://creativecommons.org/licenses/by-nc-sa/3.0/" target="_blank" rel="noopener noreferrer">CC&nbsp;BY-NC-SA&nbsp;3.0</a>
-              — non-commercial use only. All are provided “as is”, with no warranty as to accuracy or
-              availability. If you add your own layer, you are responsible for honouring its source's licence.
-              </p>
-            </div>
-            <h3 id="reports">Reports</h3>
-            <p>
-              The <strong>Report</strong> kind renders a text-based, numbered report instead of a diagram — the same
-              <strong>Ancestors / Descendants</strong> toggle as the pedigree charts switches between two classic
-              genealogical formats:
-            </p>
-            <ul>
-              <li><strong>Ahnentafel</strong> (Ancestors) — the standard ancestor numbering: the root person is no. 1,
-                their father 2<em>n</em>, their mother 2<em>n</em>+1, grouped by generation. A generation's heading shows
-                its entry-number range and how many of its ancestors are actually known (e.g. <em>3 of 4 known</em>). A
-                person who appears twice through a shared ancestor (pedigree collapse) shows once in full, with later
-                appearances as a clickable <em>“→ same as no. X”</em> link back to the original.</li>
-              <li><strong>Descendant register (NGSQ)</strong> (Descendants) — sequential numbering in the order each
-                person appears; every generation groups children under a clickable <em>“Children of NAME and
-                SPOUSE”</em> heading that jumps back to the parents' entry.</li>
-            </ul>
-            <p>A second toggle switches the writing style:</p>
-            <ul>
-              <li><strong>List</strong> — compact numbered fact lines (the Timeline's glyph vocabulary).</li>
-              <li><strong>Narrative</strong> — the same facts as flowing prose paragraphs, book-style, written in your
-                interface language. Sentences use the correct tense for people presumed still living, and Slovenian
-                narrative correctly declines dates and pronouns (place names are never inflected). Sources become
-                numbered footnote markers on the sentence they support; short notes are woven in parenthetically, longer
-                ones become their own footnote.</li>
-            </ul>
-            <p>
-              The <strong>Facts</strong> group in Chart settings adds optional lines (or narrative sentences) per person:
-              <strong>Occupation</strong>, <strong>Education</strong>, <strong>Residence</strong> (shared with the
-              Timeline's Residence bar), <strong>Notes</strong> and <strong>Sources</strong> (with a link to the cited
-              page or image, where one resolves). Click any entry to open its detail panel, re-root the report on that
-              person, or jump to <span class="gm-pill">Edit</span>. Export <strong>GEDCOM</strong> (everyone currently
-              listed), a plain <strong>Text file</strong>, or <strong>PDF</strong> — all three carry the same headings,
-              numbering and facts as the page.
+              The toolbar's <strong>Charts</strong> button (<span class="gm-key">V</span>) opens the eight diagrams,
+              maps and reports for whoever is on screen — they are a shared feature rather than part of editing, and
+              are covered in <a href="#charts">§12</a>.
             </p>
             <h3>Names &amp; identity</h3>
             <p>
@@ -699,16 +436,20 @@
             </p>
             <h3>Events</h3>
             <div>
-              Birth shows by default. <strong>+ Add Event</strong> reveals the rest, grouped by life stage:
+              Birth shows by default. <strong>+ Add Event</strong> reveals the rest, grouped by life stage — the full
+              list is in <a href="#events">§18</a>:
               <ul>
                 <li><strong>Early Life</strong> — Baptism, Christening, Confirmation, Adoption, First Communion</li>
-                <li><strong>Career</strong> — Occupation, Education, Retirement</li>
+                <li><strong>Career</strong> — Occupation, Education, Graduation, Retirement, Military service</li>
+                <li><strong>Attributes</strong> — Title, Physical description, Religion, Nationality, Race / ethnicity, Number of children, Award, Legal transaction, Deed, Medical, Illness, Reference number</li>
                 <li><strong>Residence &amp; Movement</strong> — Residence, Emigration, Immigration, Naturalization, Census</li>
-                <li><strong>Estate</strong> — Will, Probate</li>
-                <li><strong>Death</strong> — Death, Burial, Cremation</li>
+                <li><strong>Estate</strong> — Will, Probate, Event, Fact</li>
+                <li><strong>Death</strong> — Death, Funeral, Cremation, Burial, Interment</li>
               </ul>
-              Each event row carries <strong>date</strong>, <strong>place</strong> and <strong>address</strong>; expand
-              it to add a note, agency, type, cause and <strong>sources</strong>. Use <span class="gm-glyph">×</span> to
+              An event row shows only the fields it actually carries, starting with the <strong>date</strong> and the
+              <strong>place</strong>. <strong>+ Add</strong> at the end of the row adds the rest one at a time —
+              address, agency, source, type, cause, note — and puts the cursor straight in the new field, so the row
+              never becomes a wall of empty inputs. Use <span class="gm-glyph">×</span> to
               clear a single field. To change an event's type, copy it or remove the whole event, use the dropdown menu on
               its event-type label. <strong>Copy event to…</strong> opens a checkbox list of the records the event can go
               to — people for a personal event, families for a family event, with the person's own household listed first
@@ -722,9 +463,13 @@
             <h3>A place your file has never used</h3>
             <p>
               The place field suggests places already in your file as you type. When none of them fits — a village
-              entered for the first time — the list ends with <strong>Look this place up in the registers</strong>.
-              It searches the gazetteer you imported in <a href="#geocode">Geocode places</a> and, if online lookups
-              are on (Settings → Advanced), Slovenia's address register (GURS), the Genealogical Gazetteer (GOV) and OpenStreetMap.
+              entered for the first time — the list ends with <strong>Look this place up in the registers</strong>,
+              and nothing is asked until you click it. It always searches the gazetteer you imported in
+              <a href="#geocode">Geocode places</a>. The three online registers — <strong>OpenStreetMap</strong>,
+              Slovenia's address register (<strong>GURS</strong>) and the <strong>Genealogical Gazetteer (GOV)</strong>
+              — are only asked when <em>Look up details online</em> is on in
+              <a href="#workspace">Settings › Advanced</a>; with it off the row says so and answers from the imported
+              gazetteer alone.
             </p>
             <p>
               Each offer is already written the way <em>your</em> file writes places: the same layout, the same comma
@@ -737,8 +482,8 @@
             </p>
             <p>
               The <strong>address</strong> field has the same row, and looks the house up <em>inside</em> the event's
-              place: type <em>21</em> or <em>Hafnarjeva pot 21</em> and Slovenia's address register (GURS) or
-              OpenStreetMap finds the building. Because an address is looked up rather than guessed, an offer carries
+              place: type <em>21</em> or <em>Hafnarjeva pot 21</em> and OpenStreetMap or Slovenia's address register
+              (GURS) finds the building. Because an address is looked up rather than guessed, an offer carries
               the settlement the register really files it under — so where a street belongs to the town that absorbed
               your village, picking it corrects the place as well. Each offer reads <em>place · address</em>, so you see
               both before you take it. This one needs online lookups; an imported gazetteer stops at settlements and
@@ -747,21 +492,21 @@
             <h3>Place map</h3>
             <p>
               When a person's events (their own and their families') carry coordinates, a small <strong>map</strong> appears
-              under their events: each geocoded event is a colour-coded pin (hover shows the event and year), and the pins
+              under their events: each geocoded event is a colour-coded dot (hover shows the event and year), and the dots
               are joined chronologically by the person's <strong>life path</strong> with direction arrows. A toggle hides
-              or shows it, and a compact colour legend keys the pins. Coordinates come from the file or from
-              <a href="#tools">Geocode places</a> (§11); the same opt-in street-tile / offline-outline choice as the
-              <a href="#map">Places map</a> applies.
+              or shows it, and a compact colour legend keys the colours. Coordinates come from the file or from
+              <a href="#geocode">Geocode places</a> (<a href="#tools">§11</a>); the same opt-in base map — or the
+              built-in offline outline — as the <a href="#map">Places map</a> applies.
             </p>
             <h3>Family relationships</h3>
             <div>
               The panel shows three family sections:
               <ul>
                 <li><strong>Parents</strong> — <strong>+ Add Father</strong> / <strong>+ Add Mother</strong> search for an existing person or add a new one. The <span class="gm-glyph">−</span> glyph detaches the role without deleting the record.</li>
-                <li><strong>Partners</strong> — <strong>+ Add Partner</strong> creates a spouse family. Each shows the marriage event and supports Engagement, Separation and Divorce via <strong>+ Add Family Event</strong>. The red <span class="gm-glyph">−</span> on the partner's card splits a wrongly-attached spouse from just this marriage — it removes only this spousal bond, leaving both people and all their other relationships (parents, other marriages, children) untouched. Families carry their own notes and links too.</li>
-                <li><strong>Same-sex couples.</strong> A same-sex couple's two parent cards are labelled <strong>Parent</strong> rather than <em>Father</em>/<em>Mother</em>. To record one, add a partner or parent as usual and set the new person's sex. Behind the scenes GED Merge keeps the standard GEDCOM layout (one partner in each spouse role), so the file stays compatible with other genealogy software.</li>
+                <li><strong>Partners</strong> — <strong>+ Add Partner</strong> creates a spouse family. Each shows the marriage event and adds Engagement, Separation, Divorce, a partnership <em>Status</em> and a custom event via <strong>+ Add Family Event</strong>. The red <span class="gm-glyph">−</span> on the partner's card splits a wrongly-attached spouse from just this marriage — it removes only this spousal bond, leaving both people and all their other relationships (parents, other marriages, children) untouched. Families carry their own notes and links too.</li>
                 <li><strong>Children</strong> — listed under each spouse family. <strong>+ Add Child</strong> adds an existing or new person; <span class="gm-glyph">−</span> unlinks a child without deleting them.</li>
               </ul>
+              <p><strong>Same-sex couples.</strong> A same-sex couple's two parent cards are labelled <strong>Parent</strong> rather than <em>Father</em>/<em>Mother</em>. To record one, add a partner or parent as usual and set the new person's sex. Behind the scenes GED Merge keeps the standard GEDCOM layout (one partner in each spouse role), so the file stays compatible with other genealogy software.</p>
             </div>
             <h3 id="add-person">A person attached to nobody</h3>
             <p>
@@ -782,9 +527,9 @@
             <p>
               Individuals and families can carry free-text <strong>notes</strong>, <strong>sources</strong> and
               <strong>photos</strong>. <strong>+ Add Note</strong> and <strong>+ Add Source</strong> reveal their inputs
-              (the Add Source dialog is covered in <a href="#sources">§13</a>); once a link is present the
+              (the Add Source dialog is covered in <a href="#sources">§14</a>); once a link is present the
               <span class="gm-glyph">↗</span> glyph opens it in a new tab. Adding and captioning photos is covered in
-              <a href="#photos">§12</a>.
+              <a href="#photos">§13</a>.
             </p>
             <h3>Detach vs delete</h3>
             <p>
@@ -803,7 +548,7 @@
             <h3>Saving</h3>
             <p>
               <strong>Save GEDCOM</strong> opens a preview of exactly what changed, then downloads the edited file — see
-              <a href="#saving">§14</a>. Your loaded file is never modified.
+              <a href="#saving">§15</a>. Your loaded file is never modified.
             </p>
           </section>
 
@@ -842,7 +587,7 @@
                 <tr><td><svg class="gm-ico new" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>New data</td><td>New fields the incoming file would add.</td></tr>
                 <tr><td><svg class="gm-ico link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>New links</td><td>Attached links the incoming adds or that differ.</td></tr>
                 <tr><td><svg class="gm-ico diff" viewBox="0 0 24 24"><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="17" y1="5" x2="7" y2="19"/></svg>Differences</td><td>Fields present in both files but differing.</td></tr>
-                <tr><td><svg class="gm-ico" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Status</td><td>Your decision — confirmed, rejected or deferred (round status badge; see <a href="#legend">§15</a>).</td></tr>
+                <tr><td><svg class="gm-ico" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Status</td><td>Your decision — confirmed, rejected or deferred (round status badge; see <a href="#legend">§16</a>).</td></tr>
               </tbody>
             </table>
             <h3>Comparing &amp; resolving conflicts</h3>
@@ -867,7 +612,7 @@
               <strong>Reject</strong> means "not the same person" — use it on a false-positive candidate so it stops
               cluttering the list. Rejected pairs disappear from the match list immediately; only unmarked, confirmed
               and deferred candidates stay shown. To bring one back, either <span class="gm-key">Ctrl</span><span
-              class="gm-key">Z</span> to undo the rejection, or open that person in <strong>Edit</strong> (§9) and click
+              class="gm-key">Z</span> to undo the rejection, or open that person in <strong>Edit</strong> (<a href="#edit">§9</a>) and click
               <span class="gm-badge r round">R</span> again to clear the status — the match reappears in the list
               either way.
             </p>
@@ -881,7 +626,7 @@
               From here you can re-root on any person, mark a status, or use
               <strong>+ Bring ancestors</strong> / <strong>+ Bring descendants</strong> to graft a whole incoming branch
               into your main file on save. The <strong>Chart</strong> settings, zoom controls, overview minimap and
-              <strong>Export ▾</strong> menu all work here just like the other diagrams (see <a href="#edit">§9</a>) —
+              <strong>Export ▾</strong> menu all work here just like the other diagrams (see <a href="#charts">§12</a>) —
               except there's no GEDCOM export, since a compare tree can include incoming-only people not yet in your
               main file.
             </p>
@@ -889,7 +634,7 @@
             <p>
               <strong>Save GEDCOM</strong> previews every confirmed match and edit, then downloads the merged file —
               applying your field-level choices to a copy of the main file and pulling in any new individuals and families
-              connected to those confirmed matches. Full detail in <a href="#saving">§14</a>.
+              connected to those confirmed matches. Full detail in <a href="#saving">§15</a>.
             </p>
           </section>
 
@@ -898,7 +643,11 @@
             <p>
               The <span class="gm-pill">Tools</span> tab (<span class="gm-key">T</span>) runs checks and clean-ups across
               your entire main file. Each tool works in the browser and previews its result before you download; your
-              live file is untouched until you do.
+              live file is untouched until you do. Six tools sit in the picker at the top —
+              <strong>Health check</strong>, <strong>Find duplicates</strong>, <strong>Normalize</strong>,
+              <strong>Privacy</strong>, <strong>Sources</strong> and <strong>Places</strong>. Two more open from inside
+              the last two: <a href="#organize">Organize sources</a> from Sources, and
+              <a href="#geocode">Geocode places</a> from Places.
             </p>
             <h3>Health check</h3>
             <p>
@@ -1029,7 +778,7 @@
               that describe the same media, source or repository under different ids — pick groups to collapse and
               download a deduplicated file with every citation re-pointed.
             </p>
-            <h3>Organize sources</h3>
+            <h3 id="organize">Organize sources</h3>
             <p>
               <strong>Organize sources</strong> gathers the archive links scattered around your file — Matricula Online,
               Geneanet, Find a Grave, BillionGraves, FamilySearch, SIstory.si, dLib.si, newspaper and library URLs sitting
@@ -1049,7 +798,7 @@
               to strip a dead or obsolete URL from everywhere it appears without creating a source (<span class="gm-glyph">↩</span>
               unmarks it). The tool honors your <a href="#workspace">Settings › GEDCOM</a> format overrides and re-scans
               when you change one, and it shares the download with the source <strong>duplicate finder</strong> — one save
-              applies both. Private people, notes and media are never turned into a citation (<a href="#privacy">§19</a>).
+              applies both. Private people, notes and media are never turned into a citation (<a href="#privacy">§20</a>).
             </p>
             <h3>Places</h3>
             <p>
@@ -1107,7 +856,7 @@
               typed coordinate, or a remembered “no match” mark, and a <span class="gm-glyph">✎</span> button to
               <strong>rename</strong> the raw place value (all occurrences at once — with an optional place + address
               split, and the correction is rescanned for matches immediately). That rename box is the same place field
-              the <a href="#edit">Edit</a> view uses (§9): it completes from the places your file already writes and, for
+              the <a href="#edit">Edit</a> view uses (<a href="#edit">§9</a>): it completes from the places your file already writes and, for
               one it has never written, ends with <strong>Look this place up in the registers</strong>. Picking a
               register offer fills in the whole place chain — and writes the coordinate that register puts it at — so a
               misspelt or never-resolved value is corrected and placed in a single step. What the offline gazetteer can't resolve,
@@ -1208,8 +957,303 @@
           <!-- ═══════════════ PART IV — CROSS-CUTTING ═══════════════ -->
           <p class="guide-part-head">Part IV — Shared Features</p>
 
+          <section id="charts">
+            <h2><span class="guide-num">12</span>Charts, maps &amp; reports</h2>
+            <p>
+              One <strong>Charts</strong> button (<span class="gm-key">V</span>) — in the Edit toolbar, the person
+              header's chart icon, or a Compare Tree node's panel — opens the full-page <strong>Charts hub</strong> for
+              the selected person. A tab strip switches between eight kinds (digits <span class="gm-key">1</span>–<span
+              class="gm-key">8</span> jump straight to one); GED Merge remembers whichever you used last. Re-rooting a
+              chart — a node's <strong>Set as root</strong>, a <span class="gm-badge rep">+7</span> pill, a search hit
+              off the chart — counts as a step, so <strong>Back</strong> (the button or the browser's) retraces the
+              people you rooted on and only then leaves the hub:
+            </p>
+            <ul>
+              <li><strong>Tree</strong>, <strong>Grid</strong>, <strong>Fan</strong> and <strong>Circle</strong> — the
+                four pedigree styles. <em>Tree</em> is the tidy layered family tree; <em>Grid</em> aligns generations into
+                columns (a pedigree grid for ancestors, an indented outline for descendants); <em>Fan</em> and
+                <em>Circle</em> are radial ancestor charts (ancestors only — there's no descendants view to fan out).</li>
+              <li><strong>Timeline</strong> — the immediate family as lifespan bars along one shared year axis; see
+                below.</li>
+              <li><strong>Relationship</strong> (<span class="gm-key">S</span>) — traces how the selected person is
+                related to your <a href="#home-person">start person</a> (<a href="#home-person">§6</a>); if none is set
+                yet, it prompts for one inline. The diagram lays out the chain of relatives between the two, labelled
+                with the exact kinship (e.g. <em>2nd cousin once removed</em>). When more than one route exists, the
+                <strong>Available paths</strong> menu switches between the <em>shortest path</em> and a
+                <em>bloodline</em> through a shared ancestor. Click either endpoint's <span class="gm-glyph">✎</span> to
+                swap that person, click any node to re-centre, or open a node in <span class="gm-pill">Edit</span>.</li>
+              <li><strong>Map</strong> — every event of the branch whose place carries coordinates, clustered on a real
+                map, with optional historical overlays and life paths; see <a href="#map">below</a>.</li>
+              <li><strong>Report</strong> — a text-based Ahnentafel or descendant register; see
+                <a href="#reports">below</a>.</li>
+            </ul>
+            <p>
+              The pedigree kinds, the Map and the Report also carry an <strong>Ancestors / Descendants</strong> toggle
+              (each option shows a live count). The <strong>Chart</strong> button (the <span class="gm-glyph">⚙</span> gear)
+              opens a settings panel whose options adapt to whichever kind is open; every choice is remembered across
+              sessions:
+            </p>
+            <ul>
+              <li><strong>Alignment</strong> (Tree, Grid and the Relationship diagram) — lay the chart out
+                <em>Left → Right</em> or <em>Top → Bottom</em>. The radial Fan and Circle have no alignment to
+                choose.</li>
+              <li><strong>Generations</strong> — how far the chart reaches from its root person. Step down from
+                <em>All</em> to draw only the nearest few generations; the reading is “<em>4 of 9</em>” — how many are
+                drawn of how many exist. It is one shared choice: the Tree, Grid, Fan, Circle, the Report and the Map
+                all follow it. Where a chart is cut short, the last person drawn carries a
+                <span class="gm-badge rep">+7</span> pill counting the relatives above or below them that aren't shown
+                — click it to re-root the chart on that person and carry on down (or up) the line. The page header and
+                every export then read <em>4 of 9 generations</em>, and a shortened Report closes with a line naming the
+                generations it left off.</li>
+              <li><strong>Person</strong> — toggle what each node shows: <em>Lifespan</em>, <em>Age</em>,
+                <em>Place</em>, <em>Photo</em> (when a media folder is loaded), <em>Kinship</em> (the relationship label
+                to your start person; not drawn on Fan/Circle) and <strong>Badges</strong> (the working-state letters —
+                see <a href="#legend">§16</a> — on by default). This group isn't shown while the Report or the Map is
+                open; switch to another kind to change it, and the Report picks up whatever it's set to.</li>
+              <li><strong>Marriage</strong> — add the marriage <em>Date</em> and/or <em>Place</em> to each couple's
+                connector (the fan / circle collar, or beside the Timeline's <span aria-hidden="true">⚭</span> markers).
+                Both off by default.</li>
+              <li><strong>Events</strong> (Timeline only) — whose bars carry event dots: <em>This person</em>, <em>All
+                people</em> or <em>Off</em>; plus <strong>Event labels</strong> (compact text under each dot) and the
+                shared <strong>Residence bar</strong> (see <a href="#reports">Reports</a>, below).</li>
+              <li><strong>Facts</strong> and <strong>Structure</strong> (Report only) — see <a href="#reports">below</a>.</li>
+              <li><strong>Privacy</strong> — <em>Hide living people</em> redacts anyone inferred to be living, showing
+                only their relationship or “Living” (see <a href="#privacy">§20</a>), so the diagram is safe to
+                share.</li>
+            </ul>
+            <p>
+              The Map's own filters — event kinds, the year window and life paths — sit in a filter bar on the map page
+              itself rather than in this panel; see <a href="#map">Map</a> below.
+            </p>
+            <p>
+              <strong>Find in chart</strong> answers “where in this diagram is that person?”. Type a name in the search
+              box at the right of the controls row (<span class="gm-key">Ctrl</span><span class="gm-key">F</span> puts
+              the cursor in it) and the canvas moves to that person and flashes them the moment your typing settles —
+              no key to press. A shared ancestor is drawn once per line of descent, so the counter says which of their
+              places you're on, and <span class="gm-glyph">‹</span> <span class="gm-glyph">›</span> — or
+              <span class="gm-key">Enter</span> and the <span class="gm-glyph">⌕</span> button — step through the rest.
+              If nobody by that name is drawn here but somebody in
+              your file matches, the box offers that person — click their name to redraw the chart around them. Every
+              kind has the box, the Compare Tree (<a href="#merge">§10</a>) included. On the <strong>Map</strong> it
+              matches place and street names as well as people, then flies to the event and opens it; on the
+              <strong>Report</strong> it scrolls to the person's numbered entry — and there
+              <span class="gm-key">Ctrl</span><span class="gm-key">F</span>
+              is left to your browser's own find, which searches the whole text. It's the counterpart
+              to the file-wide search (<span class="gm-key">/</span>), which always re-roots the diagram on whoever you
+              open.
+            </p>
+            <p>
+              <strong>Repeated people.</strong> The same person can reach the root down more than one line — cousins who
+              married each other, or a couple whose <em>both</em> partners descend from the root person. Their branch is
+              drawn at the first position only; every later position still shows the person and their marriage, but is
+              left empty and carries a <span class="gm-badge rep round">→</span> badge — in the box's bottom-right
+              corner on the Tree and the Grid, at the outer edge of the wedge on the Fan and the Circle, where the
+              ancestors would have continued. Click it to go to the position that does carry the branch (see
+              <a href="#legend">§16</a>). Nobody is drawn — or counted — twice, so the Ancestors / Descendants counts are
+              counts of <em>people</em>. The Report follows the same rule: a person met a second time keeps their first
+              number and is shown as a cross-reference to it.
+            </p>
+            <p>
+              Use the <strong>zoom controls</strong> to zoom in and out, reset to 100%, or fit the whole diagram to the
+              screen; large diagrams also show an overview minimap — drag the canvas to pan. Every kind carries an
+              <strong>Export ▾</strong> menu, always led by <strong>GEDCOM</strong> — it downloads just the people
+              currently drawn, as a standalone file a friend can merge into their own tree. What follows depends on the
+              kind: the diagrams offer <strong>SVG</strong> (a sharp, infinitely scalable image) and <strong>PDF</strong>
+              (asks which paper you're printing on, then opens your browser's print dialog, where you choose <em>Save as
+              PDF</em>); the <strong>Map</strong> offers <strong>PNG</strong> instead; and the <strong>Report</strong>
+              offers a plain <strong>Text file</strong>, an <strong>RTF document</strong> that opens in Word or
+              LibreOffice, and PDF.
+            </p>
+            <h3 id="printing">Printing a wide diagram</h3>
+            <p>
+              A family diagram that pans comfortably on screen usually can't be
+              printed on one page: fitting it to A4 shrinks the names past reading. So <strong>PDF</strong> always asks
+              for the paper first — <strong>A4, A3, A2, A1, A0</strong>, <strong>Letter</strong> or <strong>Custom</strong>
+              — and fits the chart to it; asking the printer for a page the size of the diagram only gets you whatever
+              the driver falls back to, with most of the chart missing. On the <strong>Tree</strong> and
+              <strong>Grid</strong> kinds the same dialog adds a <strong>print size</strong>, because those two can be
+              cut into several sheets, and it tells you how
+              many sheets the diagram will take; <strong>Print</strong> then sends the whole set to the print dialog, one
+              sheet per page. The big formats are for a plotter or a copy shop, and a wide chart that wants a dozen A4
+              sheets often prints on one A1. <strong>Custom</strong> takes any size in millimetres, so a plotter roll —
+              say 1100 × 2000 mm — prints as a single enormous sheet; a custom size is used exactly as you type it
+              (width × height), so the orientation switch doesn't apply to it. Whatever the paper, the set is scaled to
+              fill it, and the dialog says what that comes to — <em>Prints as 3 sheets · at 62% size</em>. Print size is
+              the setting that matters most: an ancestors chart doubles in width with every
+              generation, so <em>Large</em> (readable at arm's length) can want several times the sheets of
+              <em>Small</em> (a wall chart in fine print), and <em>One sheet</em> refuses to cut at all — the whole
+              diagram is shrunk onto the single sheet you chose, however small the names end up (watch the percentage).
+              Change it and watch the sheet count — and remember that
+              <strong>Generations</strong> in the chart settings, and turning off the place, photo or kinship rows, shrink
+              the diagram before it is ever split. The diagram
+              is cut at its branches, never mid-box: a branch that doesn't fit carries on over a sheet of its own, and
+              the person it was cut from keeps a numbered green circle — <span class="gm-badge rep round">3</span> — showing
+              which sheet picks the line up. Every sheet's header names it (<em>Sheet 3 of 7 · continues Ana Novak from
+              sheet 1</em>), and all sheets print at the same scale, so boxes are the same size throughout and the
+              printed set tapes together into one chart. A long, narrow lineage is cut across a generation instead, so
+              deep lines don't waste a sheet each.
+            </p>
+            <h3>Timeline</h3>
+            <p>
+              The <strong>Timeline</strong> kind draws the selected person's immediate family as horizontal lifespan bars
+              on one shared year axis: parents (and a step-parent row, if one remarried) above, the person's own
+              generation — siblings and half-siblings interleaved by birth order — beside them, then each union's spouse
+              and children (and step-children) below. Small glyphs mark dated events on each bar
+              (<span aria-hidden="true">*</span> born, <span aria-hidden="true">~</span> baptized,
+              <span aria-hidden="true">†</span> died, <span aria-hidden="true">▭</span> buried,
+              <span aria-hidden="true">⌂</span> residence, <span aria-hidden="true">⚒</span> occupation,
+              <span aria-hidden="true">✎</span> education, <span aria-hidden="true">→</span>/<span
+              aria-hidden="true">←</span> emigration/immigration), and <span aria-hidden="true">⚭</span> marks a
+              marriage. An open-ended bar (no death recorded) tapers off — to the last dated event, or to the present day
+              if the person is presumed living.
+            </p>
+            <h3 id="map">Map</h3>
+            <p>
+              The <strong>Map</strong> kind plots every event of the chosen branch whose place carries coordinates
+              (the standard GEDCOM <code>MAP</code> · <code>LATI</code>/<code>LONG</code> structure under
+              <code>PLAC</code> — written by the <a href="#geocode">Geocode places</a> tool, or already present in your
+              file). Markers are coloured by event kind (birth, marriage, death, burial, residence, other) and nearby
+              events cluster into counted dots: click a cluster to zoom in, or — once it's small enough — to open its
+              event panel, listing each event with year, place and person links (with kinship chips).
+            </p>
+            <ul>
+              <li><strong>Filters</strong> — a bar above the map, not part of the chart settings: event-kind chips, a
+                two-thumb <strong>year window</strong> slider (with exact year inputs), and an <em>Undated</em> toggle
+                for events without a date.</li>
+              <li><strong>Paths</strong> — the chip beside the event kinds draws each shown person's <em>life path</em>:
+                their chronological stops
+                joined by a line with direction arrows. Click a path (or a person's <span class="gm-glyph">〰</span>
+                button in the event panel) to single it out — the rest dim, the legs get numbered, and a name chip
+                appears over the map.</li>
+              <li><strong>Base map</strong> — the background every map draws on, chosen in
+                <a href="#workspace"><strong>Settings › Map › Base map</strong></a>. Five need no account: the default
+                plain <em>CARTO</em>
+                style, which follows the light or dark theme; plain <em>OpenStreetMap</em>, which names the most
+                hamlets, farms, chapels and cemeteries; a <em>terrain</em> map whose contours and hillshade show the
+                valley a family stayed in and the ridge that separated two parishes; and Esri's <em>satellite</em>
+                and <em>topographic</em> views — the first answers whether the house still stands, the second prints
+                well. <em>Custom URL…</em> takes your own <code>{z}/{x}/{y}</code> template instead, whose licence and
+                credit are then yours to honour. The credit shown on the map and burned into PNG exports follows the
+                choice. A sample map above the picker draws the current choice — together with any layer marked
+                <em>Default</em> — so you can compare the styles before leaving Settings. Ticking <em>Default</em> on a
+                layer takes the sample to the ground that layer covers and to a zoom it is drawn at, so neither a
+                French map nor a layer that only appears house by house is switched on into an empty frame. Drag and
+                zoom it freely; <em>Fit</em> brings the sample back.</li>
+              <li><strong>Overlays</strong> — extra map layers drawn over the base map. Configure them once in
+                <a href="#workspace"><strong>Settings › Map › Additional map layers</strong></a>: a name, a tile URL
+                template
+                with <code>{z}/{x}/{y}</code>, the years the map depicts, and its required attribution (subscription
+                sources such as Arcanum/Mapire work with the tile URL from your account). Tick <strong>WMS</strong>
+                for an OGC&nbsp;WMS service instead — then the URL is the service endpoint (…/wms), you name the
+                layer(s) to draw, and an optional extra-params box carries things like a time-enabled layer's
+                <code>TIME=</code> year. The <em>Add a free preset…</em> menu includes Slovenia's national
+                <strong>GURS</strong> maps (historical and current orthophoto, topographic map, cadastral
+                parcels, cadastral municipalities, house numbers, settlements, municipalities) and historical
+                surveys: the Habsburg <em>Spezialkarte</em> 1:75&nbsp;000 for Slovenia, Croatia and Bosnia
+                (1877–1918), France's <em>Carte de l'État-major</em>, Switzerland's Dufour and Siegfried maps, and —
+                reaching furthest back — Schraembl's <em>Generalkarte von Deutschland</em> of 1797, the German lands,
+                the Alps and the northern Adriatic in the Holy Roman Empire's last years. At 1:530&nbsp;000 the 1797
+                map is period context rather than a survey: it is placed by its own engraved graticule, so towns can
+                sit a few kilometres from their modern coordinates — the map's own error, faithfully kept. Some layers only
+                draw at certain zooms — the cadastre and house numbers when you zoom in close, settlement and
+                municipality names and outlines
+                when zoomed out; the historical orthophoto shows one survey year (change it in the layer's extra params if a
+                spot is blank). The <strong>topographic map</strong> is the colour <em>Osnovna karta</em> the
+                national land-survey viewer itself draws: one layer that stays legible from the whole country
+                down to 1:2500, where individual buildings, contours, field boundaries, paths and toponyms
+                appear — usually the layer that settles which house an ancestor lived in. A second preset adds
+                the older black-and-white <em>Temeljni topografski načrt</em> 1:5000, which records the buildings
+                and field patterns of its own, earlier survey; it draws only when you are zoomed in close. Several GURS layers answer a <strong>click on the map</strong>: house numbers give the
+                full official address (street, number, settlement, post code), a parcel gives its number, cadastral
+                municipality and area, and the cadastral-municipality layer names the <em>katastrska občina</em> and its
+                number — the unit land and parish records are filed under. The map's
+                <strong>Overlays</strong> chip then lists your layers with an opacity slider each, and highlights the
+                ones whose period matches the selected year window — the map of your ancestor's own time.
+                The order of the list — in Settings and in the chip, with the <span class="gm-glyph">▲</span>
+                <span class="gm-glyph">▼</span> buttons to change it — is the stacking order on the map: the first
+                layer draws on top. Keep a thin reference layer (house numbers, parcels) above a full-page
+                historical map, or it disappears under it.
+                Tick a layer's <em>Default</em> box in Settings to have it switched on wherever a map is drawn: every
+                Places map opens with it on (untick it in the Overlays list for that map only), and the small
+                per-person and geocoding maps show it too — clicking those small maps answers with the layer's
+                details as well, so a house number can be read without leaving the person.</li>
+              <li><strong>Fit</strong> — the third button under the map's zoom controls frames everything currently
+                plotted, on the Places map and on the small per-person, geocoding and Settings-sample maps alike; after
+                following an overlay across the country it brings the whole set back in one click. Hovering a marker names the place
+                it stands for (a single event also shows its street address).</li>
+              <li><strong>Privacy</strong> — the base map is <em>opt-in</em>: until you allow tiles (one click on
+                the map, or Settings › Map), the map draws on a built-in offline world outline and nothing leaves
+                your device. The chart-settings <em>Hide living people</em> toggle removes their markers and paths
+                entirely.</li>
+              <li><strong>Export</strong> — <strong>PNG</strong> snapshots the current view (tiles, overlays, paths and
+                markers, with the required attribution burned in); <strong>GEDCOM</strong> exports the drawn people as a
+                standalone file.</li>
+            </ul>
+            <p>
+              A small per-person map with the same colours (and the person's life path) also appears under the events
+              list in <span class="gm-pill">Edit</span> — hide it with its own button above the map (<a href="#edit">§9</a>).
+            </p>
+            <div class="gm-callout note">
+              <span class="gm-callout-label">Data sources &amp; licenses</span>
+              <p>
+              Map data comes from third parties and each keeps its own licence — the required credit is shown on the
+              map and burned into PNG exports. The base maps are
+              © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>
+              contributors (ODbL), rendered by <a href="https://carto.com/attributions" target="_blank" rel="noopener noreferrer">CARTO</a>,
+              by the OpenStreetMap Foundation, or — with SRTM elevation — by
+              <a href="https://opentopomap.org" target="_blank" rel="noopener noreferrer">OpenTopoMap</a> (CC&nbsp;BY-SA);
+              the satellite and topographic views are © Esri and its data suppliers. All are courtesy services under
+              fair use: they are for looking at your own family's places, not for bulk downloading.
+              Overlay presets: Slovenia's <strong>GURS</strong> maps © Geodetska uprava Republike Slovenije, under
+              <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">CC&nbsp;BY&nbsp;4.0</a>;
+              France's état-major © IGN, Licence Ouverte 2.0; Switzerland's Dufour/Siegfried © swisstopo; the
+              Spezialkarte is public domain / CC0; the 1797 Schraembl map is courtesy of the
+              <a href="https://www.davidrumsey.com/" target="_blank" rel="noopener noreferrer">David Rumsey Map Collection</a>,
+              David Rumsey Map Center, Stanford Libraries, under
+              <a href="https://creativecommons.org/licenses/by-nc-sa/3.0/" target="_blank" rel="noopener noreferrer">CC&nbsp;BY-NC-SA&nbsp;3.0</a>
+              — non-commercial use only. All are provided “as is”, with no warranty as to accuracy or
+              availability. If you add your own layer, you are responsible for honouring its source's licence.
+              </p>
+            </div>
+            <h3 id="reports">Reports</h3>
+            <p>
+              The <strong>Report</strong> kind renders a text-based, numbered report instead of a diagram — the same
+              <strong>Ancestors / Descendants</strong> toggle as the pedigree charts switches between two classic
+              genealogical formats:
+            </p>
+            <ul>
+              <li><strong>Ahnentafel</strong> (Ancestors) — the standard ancestor numbering: the root person is no. 1,
+                their father 2<em>n</em>, their mother 2<em>n</em>+1, grouped by generation. A generation's heading shows
+                its entry-number range and how many of its ancestors are actually known (e.g. <em>3 of 4 known</em>). A
+                person who appears twice through a shared ancestor (pedigree collapse) shows once in full, with later
+                appearances as a clickable <em>“→ same as no. X”</em> link back to the original.</li>
+              <li><strong>Descendant register (NGSQ)</strong> (Descendants) — sequential numbering in the order each
+                person appears; every generation groups children under a clickable <em>“Children of NAME and
+                SPOUSE”</em> heading that jumps back to the parents' entry.</li>
+            </ul>
+            <p>A second toggle switches the writing style:</p>
+            <ul>
+              <li><strong>List</strong> — compact numbered fact lines (the Timeline's glyph vocabulary).</li>
+              <li><strong>Narrative</strong> — the same facts as flowing prose paragraphs, book-style, written in your
+                interface language. Sentences use the correct tense for people presumed still living, and Slovenian
+                narrative correctly declines dates and pronouns (place names are never inflected). Sources become
+                numbered footnote markers on the sentence they support; short notes are woven in parenthetically, longer
+                ones become their own footnote.</li>
+            </ul>
+            <p>
+              The <strong>Facts</strong> group in Chart settings adds optional lines (or narrative sentences) per person:
+              <strong>Age</strong>, <strong>Occupation</strong>, <strong>Education</strong>, <strong>Residence</strong>
+              (shared with the Timeline's Residence bar), <strong>Notes</strong> and <strong>Sources</strong> (with a
+              link to the cited page or image, where one resolves). <strong>Structure</strong> adds a
+              <strong>Table of contents</strong>. Click any entry to open its detail panel, re-root the report on that
+              person, or jump to <span class="gm-pill">Edit</span>. Export <strong>GEDCOM</strong> (everyone currently
+              listed), a plain <strong>Text file</strong>, an <strong>RTF document</strong> for Word or LibreOffice, or
+              <strong>PDF</strong> — all of them carry the same headings, numbering and facts as the page.
+            </p>
+          </section>
+
           <section id="photos">
-            <h2><span class="guide-num">12</span>Photos &amp; media</h2>
+            <h2><span class="guide-num">13</span>Photos &amp; media</h2>
             <p>
               GEDCOM files reference media files by name rather than embedding them, so to display them GED Merge needs
               the folder they live in. Connect a <strong>media folder</strong> from the file-info panel (or accept the
@@ -1268,7 +1312,7 @@
           </section>
 
           <section id="sources">
-            <h2><span class="guide-num">13</span>Sources &amp; citations</h2>
+            <h2><span class="guide-num">14</span>Sources &amp; citations</h2>
             <p>
               <strong>+ Add Source</strong> — on a person, a family, or an individual event — opens the Add Source
               dialog. Paste a full citation or just a URL: GED Merge fetches the page title where it can, and detects
@@ -1282,7 +1326,7 @@
               library archives, and more) and it prefills the title, author, place, archive, filing number and page, with
               the online lookup fetching the real book/grave/record details. The created source picks up your file's place
               format, year range and repository. Which layout it writes — where citations, page images and baptism sources
-              sit — follows your <a href="#workspace">Settings › GEDCOM</a> overrides (§2).
+              sit — follows your <a href="#workspace">Settings › GEDCOM</a> overrides (<a href="#workspace">§2</a>).
             </p>
             <p>
               Existing citations can be reopened and edited the same way. To see and tidy sources across the entire
@@ -1292,10 +1336,10 @@
           </section>
 
           <section id="saving">
-            <h2><span class="guide-num">14</span>Saving &amp; the change report</h2>
+            <h2><span class="guide-num">15</span>Saving &amp; the change report</h2>
             <p>
               <em>Looking for the Ahnentafel or descendant-register report? That's the Charts hub's
-              <a href="#reports">Report kind</a> (§9) — this section covers saving your file and its change log.</em>
+              <a href="#reports">Report kind</a> (<a href="#charts">§12</a>) — this section covers saving your file and its change log.</em>
             </p>
             <p>
               Saving is one unified flow for both edits and merges. <strong>Save GEDCOM</strong>
@@ -1395,7 +1439,7 @@
               <li>Put your <em>.ged</em> in that folder and rename it to a stable name such as <code>tree.ged</code>.</li>
               <li>Type a summary (“Initial tree”) and click <strong>Commit</strong>. When you <strong>Publish</strong> the
                 repository, choose <strong>Keep this code private</strong> — your tree holds details about living relatives,
-                so <strong>never</strong> publish it to a public repository (<a href="#privacy">§19</a>), or redact it first
+                so <strong>never</strong> publish it to a public repository (<a href="#privacy">§20</a>), or redact it first
                 with the <a href="#tools">Privacy</a> tool.</li>
             </ol>
             <p><strong>Every editing session:</strong></p>
@@ -1431,7 +1475,7 @@
           <p class="guide-part-head">Part V — Reference</p>
 
           <section id="legend">
-            <h2><span class="guide-num">15</span>Icon &amp; badge legend</h2>
+            <h2><span class="guide-num">16</span>Icon &amp; badge legend</h2>
             <p>The same small set of glyphs and badges recurs throughout the app:</p>
             <table class="gm-table">
               <thead><tr><th>Symbol</th><th>Meaning</th></tr></thead>
@@ -1441,16 +1485,16 @@
                 <tr><td><span class="gm-glyph">−</span></td><td>Detach a family role (parent, partner, child) without deleting the record</td></tr>
                 <tr><td><span class="gm-glyph">↗</span></td><td>Open an attached link in a new tab</td></tr>
                 <tr><td><span class="gm-glyph">✎</span></td><td>Edit — swap a relationship endpoint, edit a source, or rename a place value</td></tr>
-                <tr><td><span class="gm-glyph">🔒</span></td><td>Privacy lock — mark a person, family, note or media item private (see §19)</td></tr>
+                <tr><td><span class="gm-glyph">🔒</span></td><td>Privacy lock — mark a person, family, note or media item private (see <a href="#privacy">§20</a>)</td></tr>
                 <tr><td><span class="gm-glyph">↩</span></td><td>Undo a mark — e.g. unmark a “Remove references” group in Organize sources</td></tr>
                 <tr><td><span class="gm-glyph danger">🗑</span></td><td>Delete a person (undoable with Ctrl+Z until you download), or mark links for removal</td></tr>
                 <tr><td><span class="gm-glyph">‹</span> <span class="gm-glyph">›</span></td><td>Previous / next photo in the lightbox</td></tr>
               </tbody>
             </table>
             <p><strong>Status badges</strong> — round chips on candidate rows (Merge) and on every chart's nodes or
-              entries. The <strong>Badges</strong> toggle in Chart settings (§9) shows or hides these on charts; on the
+              entries. The <strong>Badges</strong> toggle in Chart settings (<a href="#charts">§12</a>) shows or hides these on charts; on the
               Merge match list, confirmed and deferred badges always show — a rejected match is removed from the list
-              instead of being badged there (see §10).</p>
+              instead of being badged there (see <a href="#merge">§10</a>).</p>
             <table class="gm-table">
               <thead><tr><th>Badge</th><th>Meaning</th></tr></thead>
               <tbody>
@@ -1458,9 +1502,9 @@
                 <tr><td><span class="gm-badge r round">R</span></td><td>Rejected match — not the same person; hidden from the Merge match list</td></tr>
                 <tr><td><span class="gm-badge d round">D</span></td><td>Deferred — decide later</td></tr>
                 <tr><td><span class="gm-badge mod round">M</span></td><td>Modified — a record you changed in Edit (shown on charts)</td></tr>
-                <tr><td><span class="gm-badge rep">+7</span></td><td>Relatives not shown — the <em>Generations</em> limit (§9) stops the chart at this person; the number counts their descendants (or ancestors) left off. Click it to re-root the chart on them.</td></tr>
-                <tr><td><span class="gm-badge rep round">→</span></td><td>Repeated person — already shown elsewhere in the chart, where their branch is drawn; this position is deliberately left empty, and the badge is a link that takes you there (see <a href="#edit">§9</a>)</td></tr>
-                <tr><td><span class="gm-badge rep round">3</span></td><td>Continues on sheet 3 — printed sheets only (<em>PDF</em>, §9): this person's line didn't fit on the current sheet and carries on over the numbered one</td></tr>
+                <tr><td><span class="gm-badge rep">+7</span></td><td>Relatives not shown — the <em>Generations</em> limit (<a href="#charts">§12</a>) stops the chart at this person; the number counts their descendants (or ancestors) left off. Click it to re-root the chart on them.</td></tr>
+                <tr><td><span class="gm-badge rep round">→</span></td><td>Repeated person — already shown elsewhere in the chart, where their branch is drawn; this position is deliberately left empty, and the badge is a link that takes you there (see <a href="#charts">§12</a>)</td></tr>
+                <tr><td><span class="gm-badge rep round">3</span></td><td>Continues on sheet 3 — printed sheets only (<em>PDF</em>, <a href="#printing">§12</a>): this person's line didn't fit on the current sheet and carries on over the numbered one</td></tr>
               </tbody>
             </table>
             <p><strong>Field-choice badges</strong> — rectangular, in the compare panel:</p>
@@ -1481,7 +1525,7 @@
                 <tr><td><span class="gm-swatch incoming"></span></td><td>Present in the incoming only</td></tr>
               </tbody>
             </table>
-            <p><strong>Kinship lineage colours</strong> — on relationship labels throughout the app (§6):</p>
+            <p><strong>Kinship lineage colours</strong> — on relationship labels throughout the app (<a href="#home-person">§6</a>):</p>
             <table class="gm-table">
               <tbody>
                 <tr><td><span class="gm-swatch paternal"></span></td><td>Father's side (paternal line)</td></tr>
@@ -1492,7 +1536,7 @@
           </section>
 
           <section id="shortcuts">
-            <h2><span class="guide-num">16</span>Keyboard shortcuts</h2>
+            <h2><span class="guide-num">17</span>Keyboard shortcuts</h2>
             <p>
               Press <span class="gm-key">?</span> (or <span class="gm-key">F1</span>) anywhere to open this list in the
               app. <strong>Standard</strong> actions use a modifier (<span class="gm-key">Ctrl</span> / <span class="gm-key">⌘</span>);
@@ -1520,7 +1564,7 @@
                 <tr><td><span class="gm-key">C</span> · <span class="gm-key">R</span> · <span class="gm-key">D</span></td><td>Confirm · Reject · Defer the current match</td></tr>
               </tbody>
             </table>
-            <p><strong>On a chart page</strong> (§9), these bare keys apply too:</p>
+            <p><strong>On a chart page</strong> (<a href="#charts">§12</a>), these bare keys apply too:</p>
             <table class="gm-table">
               <thead><tr><th>Keys</th><th>Action</th></tr></thead>
               <tbody>
@@ -1534,27 +1578,35 @@
           </section>
 
           <section id="events">
-            <h2><span class="guide-num">17</span>Event types</h2>
-            <p>Events you can add to a person, grouped by life stage (families add Engagement, Marriage, Separation and Divorce):</p>
+            <h2><span class="guide-num">18</span>Event types</h2>
+            <p>The full <strong>+ Add Event</strong> menu on a person, grouped by life stage:</p>
             <ul>
-              <li><strong>Birth</strong> — always available</li>
+              <li><strong>Birth</strong> — always shown, never hidden behind the menu</li>
               <li><strong>Early Life</strong> — Baptism, Christening, Confirmation, Adoption, First Communion</li>
-              <li><strong>Career</strong> — Occupation, Education, Retirement</li>
+              <li><strong>Career</strong> — Occupation, Education, Graduation, Retirement, Military service</li>
+              <li><strong>Attributes</strong> — Title, Physical description, Religion, Nationality, Race / ethnicity,
+                Number of children, Award, Legal transaction, Deed, Medical, Illness, Reference number. These are
+                GEDCOM <em>attributes</em> rather than events: most carry a value on the row itself
+                (<code>1 OCCU Farmer</code>) as well as the usual date, place and sources.</li>
               <li><strong>Residence &amp; Movement</strong> — Residence, Emigration, Immigration, Naturalization, Census</li>
-              <li><strong>Estate</strong> — Will, Probate</li>
-              <li><strong>Death</strong> — Death, Burial, Cremation</li>
+              <li><strong>Estate</strong> — Will, Probate, and the two generic kinds, Event and Fact</li>
+              <li><strong>Death</strong> — Death, Funeral, Cremation, Burial, Interment</li>
             </ul>
             <p>
-              Beyond these, a <strong>custom event</strong> (a GEDCOM <code>EVEN</code>/<code>FACT</code>, e.g. “Civil
-              Partnership”) can be added to a person or a family and carries its own editable <strong>Title</strong>;
-              GED Merge also surfaces many other programs' attributes and facts — reference numbers, title, religion,
-              nationality, physical description, and vendor-specific events — as editable, mergeable rows (see
-              <a href="#saving">§14</a>).
+              A <strong>family</strong> adds Marriage (always shown), Engagement, Separation, Divorce, a partnership
+              <em>Status</em>, and a custom Event.
+            </p>
+            <p>
+              A <strong>custom event</strong> (a GEDCOM <code>EVEN</code>/<code>FACT</code>, e.g. “Civil
+              Partnership”) can be added to a person or a family and carries its own editable <strong>Title</strong>
+              in place of a fixed label. Beyond the menu, GED Merge reads and preserves many other programs'
+              vendor-specific events and facts, and surfaces them as editable, mergeable rows too (see
+              <a href="#saving">§15</a>).
             </p>
           </section>
 
           <section id="glossary">
-            <h2><span class="guide-num">18</span>Glossary</h2>
+            <h2><span class="guide-num">19</span>Glossary</h2>
             <table class="gm-table">
               <tbody>
                 <tr><td><strong>GEDCOM</strong></td><td>The standard family-tree exchange format (<em>.ged</em>) GED Merge reads and writes.</td></tr>
@@ -1571,7 +1623,7 @@
           </section>
 
           <section id="privacy">
-            <h2><span class="guide-num">19</span>Privacy</h2>
+            <h2><span class="guide-num">20</span>Privacy</h2>
             <p>
               All reading, matching, merging and editing happens locally in your browser, on your own computer —
               including your media folder, which is read on your device only. Your family tree is never sent to a
@@ -1593,7 +1645,7 @@
             <h3>Sharing without living people</h3>
             <p>
               To share a tree or a chart, two features hide people who should stay private. Charts and reports have a
-              <strong>Hide living people</strong> option (<a href="#edit">§9</a>) that redacts anyone inferred to be
+              <strong>Hide living people</strong> option (<a href="#charts">§12</a>) that redacts anyone inferred to be
               living — and anyone explicitly marked private — showing only their relationship or “Living”. For a whole
               file, <span class="gm-pill">Tools</span> › <strong>Privacy</strong> (<a href="#tools">§11</a>) produces a
               redacted copy: it infers who is likely living, flags declared-private people too, and lets you sanitize,
