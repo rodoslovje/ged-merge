@@ -12,6 +12,11 @@ import type { MiniMapPin } from "../map/MiniPlaceMap";
 
 const MiniPlaceMap = lazy(() => import("../map/MiniPlaceMap"));
 
+/** How far the row's map opens on a single coordinate: close enough to read
+ *  the town and its streets, since the question a place's map answers is
+ *  "which town is this pinned in", not "which country". */
+const TOWN_ZOOM = 13;
+
 /** Prune a place node to those whose name matches `q` (already lower-cased)
  * anywhere in the subtree. A node matching by name keeps its whole subtree;
  * otherwise only matching descendant branches are retained. Paths of nodes that
@@ -401,6 +406,7 @@ function PlaceTreeRow({
                 kind: i === 0 ? "chosen" : "candidate",
               }))}
               fitKey={path}
+              fitMaxZoom={TOWN_ZOOM}
             />
           </Suspense>
           {disputed && (

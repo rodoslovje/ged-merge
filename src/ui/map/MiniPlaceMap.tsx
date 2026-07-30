@@ -129,11 +129,23 @@ interface Props {
    *  changes the next pin pass re-fits the view — the map instance is reused
    *  across subjects instead of being remounted. */
   fitKey?: string;
+  /** How far the automatic fit may zoom in. A lone pin has no extent of its
+   *  own, so this alone decides what a single-coordinate map opens on: the
+   *  default 11 frames the surrounding region, 13 the town. */
+  fitMaxZoom?: number;
 }
 
 const NO_CONTEXT: NonNullable<Props["context"]> = [];
 
-export default function MiniPlaceMap({ pins, context = NO_CONTEXT, path, onPickCoord, title, fitKey }: Props) {
+export default function MiniPlaceMap({
+  pins,
+  context = NO_CONTEXT,
+  path,
+  onPickCoord,
+  title,
+  fitKey,
+  fitMaxZoom = 11,
+}: Props) {
   const { settings: appSettings } = useSettings();
   const { t } = useTranslation();
   const theme = useDocTheme();
@@ -162,6 +174,8 @@ export default function MiniPlaceMap({ pins, context = NO_CONTEXT, path, onPickC
   latestPick.current = onPickCoord;
   const latestContext = useRef(context);
   latestContext.current = context;
+  const latestFitMaxZoom = useRef(fitMaxZoom);
+  latestFitMaxZoom.current = fitMaxZoom;
   const tRef = useRef(t);
   tRef.current = t;
 
@@ -208,7 +222,7 @@ export default function MiniPlaceMap({ pins, context = NO_CONTEXT, path, onPickC
     const ro = new ResizeObserver(() => {
       map.invalidateSize();
       if (fitBoundsRef.current && !userMovedRef.current)
-        map.fitBounds(fitBoundsRef.current, { maxZoom: 11, animate: false });
+        map.fitBounds(fitBoundsRef.current, { maxZoom: latestFitMaxZoom.current, animate: false });
     });
     ro.observe(el);
     mapRef.current = map;
@@ -362,7 +376,7 @@ export default function MiniPlaceMap({ pins, context = NO_CONTEXT, path, onPickC
         didFitRef.current = true;
         const bounds = L.latLngBounds(fitPts.map((c) => [c.lat, c.lon] as [number, number])).pad(0.3);
         fitBoundsRef.current = bounds;
-        map.fitBounds(bounds, { maxZoom: 11, animate: false });
+        map.fitBounds(bounds, { maxZoom: latestFitMaxZoom.current, animate: false });
       }
     }
     drawPath(map, pathLayerRef.current, latestPath.current);
