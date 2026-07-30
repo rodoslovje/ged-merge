@@ -133,6 +133,10 @@ interface Props {
    *  own, so this alone decides what a single-coordinate map opens on: the
    *  default 11 frames the surrounding region, 13 the town. */
   fitMaxZoom?: number;
+  /** Opening view for a map with nothing plotted on it — the base-map sample
+   *  in Settings. "Fit" then restores this view rather than doing nothing.
+   *  Ignored as soon as there are pins or context dots to frame. */
+  view?: { center: GeoCoord; zoom: number };
 }
 
 const NO_CONTEXT: NonNullable<Props["context"]> = [];
@@ -145,6 +149,7 @@ export default function MiniPlaceMap({
   title,
   fitKey,
   fitMaxZoom = 11,
+  view,
 }: Props) {
   const { settings: appSettings } = useSettings();
   const { t } = useTranslation();
@@ -176,6 +181,8 @@ export default function MiniPlaceMap({
   latestContext.current = context;
   const latestFitMaxZoom = useRef(fitMaxZoom);
   latestFitMaxZoom.current = fitMaxZoom;
+  const latestView = useRef(view);
+  latestView.current = view;
   const tRef = useRef(t);
   tRef.current = t;
 
@@ -186,7 +193,8 @@ export default function MiniPlaceMap({
     // being instant) keeps the little map from "performing" while it loads.
     const map = L.map(el, { minZoom: 2, maxZoom: 18, attributionControl: false, fadeAnimation: false });
     L.control.attribution({ position: "bottomright", prefix: false }).addTo(map);
-    map.setView([46.1, 14.5], 5);
+    const opening = latestView.current;
+    map.setView(opening ? [opening.center.lat, opening.center.lon] : [46.1, 14.5], opening?.zoom ?? 5);
     map.on("click", (e: L.LeafletMouseEvent) => {
       // wrap(): a click on a repeated world copy must not yield a longitude
       // outside ±180 — it would be written into the file as-is.
@@ -195,13 +203,19 @@ export default function MiniPlaceMap({
     });
     // Framing what is plotted: the pins, or the context dots when a row has
     // none yet. Asked for at click time, so it follows the current subject.
-    addFitControl(map, tRef.current("map.fit"), () =>
-      boundsOfCoords(
-        latestPins.current.length
-          ? latestPins.current.map((p) => p.coord)
-          : latestContext.current.map((c) => c.coord),
-      ),
-    );
+    // With nothing plotted at all (the Settings sample) it puts the opening
+    // view back, so the button is never dead.
+    addFitControl(map, tRef.current("map.fit"), () => {
+      const coords = latestPins.current.length
+        ? latestPins.current.map((p) => p.coord)
+        : latestContext.current.map((c) => c.coord);
+      const home = latestView.current;
+      if (!coords.length && home) {
+        map.setView([home.center.lat, home.center.lon], home.zoom);
+        return null;
+      }
+      return boundsOfCoords(coords);
+    });
     pathLayerRef.current = L.layerGroup().addTo(map);
     pinsLayerRef.current = L.layerGroup().addTo(map);
     // The direction chevrons depend on on-screen segment lengths — redraw

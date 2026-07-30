@@ -1,9 +1,10 @@
-import { useMemo, useState, useTransition } from "react";
+import { lazy, Suspense, useMemo, useState, useTransition } from "react";
 import { useTranslation } from "react-i18next";
 import { useModalKeyboard } from "../keyboard/useModalKeyboard";
 import { useSettings, useNameOf, type MapOverlay } from "./SettingsContext";
 import { OVERLAY_PRESETS, resolveOverlay } from "./map/overlayPresets";
 import { BASEMAPS, CUSTOM_BASEMAP } from "./map/basemapPresets";
+import type { MiniMapPin } from "./map/MiniPlaceMap";
 import { xrefLabel, type NameOrder } from "../gedcom/nameDisplay";
 import type { PersonName } from "../gedcom/types";
 import { SUPPORTED_LANGUAGES } from "../locales/i18n";
@@ -11,6 +12,10 @@ import { PROXY_HOSTS } from "../normalize/urlMetadata";
 import { DATE_PATTERN_CHOICES, type DetectedFormats, type FormatOverrides } from "../normalize/formatOverrides";
 import { sampleDateFor } from "../normalize/formatDefaults";
 import { sexClass } from "./sex";
+
+// Leaflet is a lazy chunk everywhere else too — the Map tab loads it only when
+// the base-map sample is actually shown.
+const MiniPlaceMap = lazy(() => import("./map/MiniPlaceMap"));
 
 export type ThemeMode = "auto" | "light" | "dark";
 
@@ -112,6 +117,16 @@ const LANG_LABELS: Record<string, string> = { en: "🇬🇧 English", sl: "🇸�
  * married-surname, order and uppercase options are all visible at once. */
 const SAMPLE_NAME: PersonName = { full: "Ana Novak", given: "Ana", surname: "Novak", married: "Kovač" };
 const SAMPLE_XREF = "@I42@";
+
+/** What the base-map sample opens on: Bled — lake, town and mountains in one
+ *  frame, so a plain street map, a shaded relief and an aerial image are all
+ *  told apart at a glance. It is also inside the coverage of the Slovenian
+ *  layer presets, so a layer marked Default shows up here. The sample map
+ *  pans and zooms, so anywhere else is one drag away. */
+const SAMPLE_MAP_VIEW = { center: { lat: 46.3683, lon: 14.1146 }, zoom: 13 };
+/** Nothing is plotted on the sample — a stable identity so the map's marker
+ *  pass doesn't rerun on every render of this modal. */
+const NO_PINS: MiniMapPin[] = [];
 const SAMPLE_LIFESPAN = "1850–1920";
 const SAMPLE_AGE = 70;
 
@@ -432,6 +447,19 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
             {/* Shown but inert until tiles are allowed: the choice is worth
                 seeing before opting in, and the toggle sits right above it. */}
             <fieldset className="settings-fieldset" disabled={!settings.allowMapTiles}>
+              {/* The choice below, drawn: the sample redraws on every change of
+                  base map, custom URL or theme, and carries the layers marked
+                  Default — what every map in the app will then look like. Shown
+                  only once tiles are allowed: before that there is nothing to
+                  preview but the offline outline. */}
+              {settings.allowMapTiles && (
+                <div className="settings-map-preview">
+                  <Suspense fallback={<div className="tools-geo-minimap" />}>
+                    <MiniPlaceMap pins={NO_PINS} view={SAMPLE_MAP_VIEW} />
+                  </Suspense>
+                  <p className="settings-hint">{t("settings.map.preview")}</p>
+                </div>
+              )}
               <label className="settings-row settings-format-row" title={t("settings.map.basemap.hint")}>
                 <span className="settings-row-text">
                   <span className="settings-row-label">{t("settings.map.base")}</span>
