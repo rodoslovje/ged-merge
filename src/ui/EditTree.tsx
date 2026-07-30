@@ -240,18 +240,9 @@ export function EditTree({ mainDs, rootId, startId, changedPersonIds, decisions,
       const dec = decisionOf(n);
       if (dec) return { cls: `tree-node-decision ${dec.status}`, letter: dec.letter };
       if (isModified(n)) return { fill: COLOR_MODIFIED, textFill: "var(--bg)", letter: t("edit.tree.modified").charAt(0) };
-      // A segment has one badge slot: a record's own status outranks the
-      // generation limit's "+N above this person isn't drawn".
-      if (n.hidden !== undefined) {
-        return {
-          cls: "tree-node-repeat-badge tree-node-hidden-badge",
-          letter: `+${n.hidden}`,
-          title: hiddenTitle(n.hidden),
-        };
-      }
       return undefined;
     },
-    [decisionOf, isModified, hiddenTitle, t],
+    [decisionOf, isModified, t],
   );
 
   const activeLaid = radial ? fanLaid : laid;
@@ -408,6 +399,10 @@ export function EditTree({ mainDs, rootId, startId, changedPersonIds, decisions,
                 mainRecords={mainDs.records}
                 mainRefCtx={mainRefCtx}
                 badgeOf={display.showBadges ? fanBadgeOf : undefined}
+                showRepeat={display.showBadges}
+                onRepeatJump={find.jumpTo}
+                hiddenTitle={hiddenTitle}
+                onHiddenJump={(n) => n.main && changeRoot(n.main.id)}
               />
             ) : (
               <p className="muted">{t("tree.empty")}</p>
