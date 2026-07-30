@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import type { GedNode } from "../gedcom/types";
 import { PAD } from "../chart/treeLayout";
@@ -16,8 +17,7 @@ export interface FanBadge {
   /** Explicit circle fill / text fill when not driven by a class. */
   fill?: string;
   textFill?: string;
-  /** Hover explanation, when the badge means more than its letter (the
-   *  generation limit's "+N, not shown"). */
+  /** Hover explanation, when the badge means more than its letter. */
   title?: string;
 }
 
@@ -39,6 +39,26 @@ interface Props {
   compareRefCtx?: MediaRefContext;
   /** Optional badge dot per node. */
   badgeOf?: (node: TreeNode) => FanBadge | undefined;
+  /** Whether to mark repeated positions (`TreeNode.repeat`) — follows the same
+   *  Badges display setting as the layered tree's marker. */
+  showRepeat?: boolean;
+  /** Take the view to the segment a repeat points at. */
+  onRepeatJump?: (key: string) => void;
+  /** Tooltip for the generation limit's "+N above this person isn't drawn"
+   *  marker; omit to leave the count off. */
+  hiddenTitle?: (count: number) => string;
+  /** Continue the chart from a person the generation limit cut above. */
+  onHiddenJump?: (node: TreeNode) => void;
+}
+
+/** The marker on a wedge's outer edge, where the rings stop: either a repeat's
+ *  jump arrow or the generation limit's "+N". Never both — a repeat carries no
+ *  line of its own, so nothing of it can be cut. */
+interface OuterMarker {
+  letter: string;
+  cls: string;
+  title: string;
+  onClick: () => void;
 }
 
 const arcId = (seg: FanSegment, i: number) => `fa-${seg.gen}-${seg.slot}-${i}`;
@@ -63,9 +83,42 @@ export function FanChartBody({
   mainRefCtx,
   compareRefCtx,
   badgeOf,
+  showRepeat = false,
+  onRepeatJump,
+  hiddenTitle,
+  onHiddenJump,
 }: Props) {
   const { t } = useTranslation();
   const curved = chart.segments.filter((s) => s.curved);
+  // Where a repeat marker jumps to. `TreeNode.repeatOf` names a tree position,
+  // which the radial chart addresses as `gen:slot` instead — so translate. A
+  // carrier outside the drawn rings (cut by the generation limit) has no
+  // segment, and the marker is left off rather than promising a jump.
+  const segmentByNodeKey = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const s of chart.segments) m.set(s.node.key, s.key);
+    return m;
+  }, [chart]);
+  const outerMarkerOf = (node: TreeNode): OuterMarker | undefined => {
+    const to = showRepeat && node.repeat && node.repeatOf ? segmentByNodeKey.get(node.repeatOf) : undefined;
+    if (to) {
+      return {
+        letter: "→",
+        cls: "tree-node-repeat-badge",
+        title: t("tree.node.repeatHint"),
+        onClick: () => onRepeatJump?.(to),
+      };
+    }
+    if (hiddenTitle && node.hidden !== undefined) {
+      return {
+        letter: `+${node.hidden}`,
+        cls: "tree-node-repeat-badge tree-node-hidden-badge",
+        title: hiddenTitle(node.hidden),
+        onClick: () => onHiddenJump?.(node),
+      };
+    }
+    return undefined;
+  };
   return (
     <svg className="tree-svg" width={chart.width * zoom} height={chart.height * zoom} viewBox={`0 0 ${chart.width} ${chart.height}`} role="img">
       <g transform={`translate(${PAD},${PAD})`}>
@@ -95,6 +148,7 @@ export function FanChartBody({
             mainRefCtx={mainRefCtx}
             compareRefCtx={compareRefCtx}
             badge={badgeOf?.(seg.node)}
+            outer={outerMarkerOf(seg.node)}
           />
         ))}
         {/* Marriage collars: a thin band in the reserved lane between each couple
@@ -133,6 +187,7 @@ function Segment({
   mainRefCtx,
   compareRefCtx,
   badge,
+  outer,
 }: {
   seg: FanSegment;
   color: string;
@@ -145,6 +200,7 @@ function Segment({
   mainRefCtx?: MediaRefContext;
   compareRefCtx?: MediaRefContext;
   badge?: FanBadge;
+  outer?: OuterMarker;
 }) {
   const { node } = seg;
   const nameFill = sexColorVar(node.sex) ?? "var(--text)";
@@ -207,6 +263,27 @@ function Segment({
           letter={badge.letter}
           title={badge.title}
         />
+      )}
+      {/* Why the rings stop here: this position was already expanded elsewhere
+          (pedigree collapse — a couple descended from the same ancestors), or
+          the generation limit cut the ancestors above. Either marker sits on the
+          outer edge, where those ancestors would have been. */}
+      {outer && seg.outerBadge && (
+        <g
+          className="tree-node-repeat"
+          onClick={(e) => {
+            e.stopPropagation(); // the jump replaces the segment's own select
+            outer.onClick();
+          }}
+        >
+          <NodeBadge
+            x={seg.outerBadge.x}
+            y={seg.outerBadge.y}
+            cls={`fan-badge ${outer.cls}`}
+            letter={outer.letter}
+            title={outer.title}
+          />
+        </g>
       )}
     </g>
   );

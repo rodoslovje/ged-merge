@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import { emptyDataset } from "../gedcom/builder";
@@ -20,6 +20,7 @@ import { ChartMinimap } from "./ChartMinimap";
 import { ZoomControls } from "./ZoomControls";
 import { createKinshipResolver } from "../match/kinship";
 import { ChartRootTitle } from "./ChartRootTitle";
+import { useStableHandler } from "./edit/useStableHandler";
 import { individualFieldRows } from "../review/fields";
 import { decisionStatusByMainId, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
 import { sexClass } from "./sex";
@@ -69,18 +70,16 @@ interface Props {
   onModeChange: (mode: TreeMode) => void;
   /** The Charts-hub kind switcher, rendered in the controls row. */
   kindSwitcher?: React.ReactNode;
-  /** Reports re-roots up to the Charts hub, so switching to the relationship
-   *  diagram keeps the person the user navigated to (not the original root). */
-  onRootChange?: (id: string) => void;
+  /** Re-root on another person. The hub owns the root (and records it in browser
+   *  history), so a re-root here comes back down as a new `rootId`. */
+  onRootChange: (id: string) => void;
 }
 
-export function EditTree({ mainDs, rootId, startId, changedPersonIds, decisions, backLabel, onBack, onNavigate, mode, onModeChange, kindSwitcher, onRootChange }: Props) {
+export function EditTree({ mainDs, rootId: currentRootId, startId, changedPersonIds, decisions, backLabel, onBack, onNavigate, mode, onModeChange, kindSwitcher, onRootChange }: Props) {
   const { t } = useTranslation();
-  const [currentRootId, setCurrentRootId] = useState(rootId);
-  const changeRoot = useCallback((id: string) => {
-    setCurrentRootId(id);
-    onRootChange?.(id);
-  }, [onRootChange]);
+  // Identity-stable, so the memoized card contexts and the find box below don't
+  // rebuild every render just because App passes a fresh callback.
+  const changeRoot = useStableHandler(onRootChange);
 
   const { settings } = useChartSettings();
   const { settings: appSettings } = useSettings();
@@ -240,18 +239,9 @@ export function EditTree({ mainDs, rootId, startId, changedPersonIds, decisions,
       const dec = decisionOf(n);
       if (dec) return { cls: `tree-node-decision ${dec.status}`, letter: dec.letter };
       if (isModified(n)) return { fill: COLOR_MODIFIED, textFill: "var(--bg)", letter: t("edit.tree.modified").charAt(0) };
-      // A segment has one badge slot: a record's own status outranks the
-      // generation limit's "+N above this person isn't drawn".
-      if (n.hidden !== undefined) {
-        return {
-          cls: "tree-node-repeat-badge tree-node-hidden-badge",
-          letter: `+${n.hidden}`,
-          title: hiddenTitle(n.hidden),
-        };
-      }
       return undefined;
     },
-    [decisionOf, isModified, hiddenTitle, t],
+    [decisionOf, isModified, t],
   );
 
   const activeLaid = radial ? fanLaid : laid;
@@ -408,6 +398,10 @@ export function EditTree({ mainDs, rootId, startId, changedPersonIds, decisions,
                 mainRecords={mainDs.records}
                 mainRefCtx={mainRefCtx}
                 badgeOf={display.showBadges ? fanBadgeOf : undefined}
+                showRepeat={display.showBadges}
+                onRepeatJump={find.jumpTo}
+                hiddenTitle={hiddenTitle}
+                onHiddenJump={(n) => n.main && changeRoot(n.main.id)}
               />
             ) : (
               <p className="muted">{t("tree.empty")}</p>

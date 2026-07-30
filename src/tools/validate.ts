@@ -25,6 +25,14 @@ export const AGE_LIMITS = {
 export const MIN_BIRTH_INTERVAL_MONTHS = 9;
 
 /**
+ * Largest group of people, linked only to each other, still reported as a stray
+ * island rather than left alone as a branch in its own right. A handful of
+ * people who connect to nobody else is usually an import that never got
+ * attached, or a duplicate of a branch already in the file.
+ */
+export const MAX_ISLAND_SIZE = 9;
+
+/**
  * Main-file health check.
  *
  * Pure, synchronous validation over the typed domain model — fast enough to run
@@ -42,9 +50,11 @@ export type IssueCategory =
   | "pedigreeLoop"
   | "roleSexConflict"
   | "multiSpouseSlot"
+  | "multipleParents"
   | "missingSex"
   | "missingName"
   | "missingVitals"
+  | "island"
   | "orphan"
   | "deathBeforeBirth"
   | "ageAtDeath"
@@ -84,9 +94,11 @@ const EMPTY_COUNTS: Record<IssueCategory, number> = {
   pedigreeLoop: 0,
   roleSexConflict: 0,
   multiSpouseSlot: 0,
+  multipleParents: 0,
   missingSex: 0,
   missingName: 0,
   missingVitals: 0,
+  island: 0,
   orphan: 0,
   deathBeforeBirth: 0,
   ageAtDeath: 0,
@@ -193,6 +205,131 @@ function findPedigreeLoops(ds: Dataset): Set<string> {
   return inLoop;
 }
 
+/**
+ * The file's disconnected groups: each set of people reachable from one another
+ * through family links, smallest-first, with the file's main tree left out.
+ *
+ * The largest component is the tree the file is about, so it's never an island —
+ * and when several tie for largest, none of them stands out as the stray, so
+ * they all stay out. A component of one is already an `orphan` finding, and
+ * anything above {@link MAX_ISLAND_SIZE} is a branch in its own right; both are
+ * dropped here so nothing is reported twice or cried wolf over.
+ *
+ * Iterative breadth-first walk over `childOf`/`spouseOf` and back out through
+ * each family's members — one pass over the graph, no recursion.
+ */
+function findIslands(ds: Dataset): Individual[][] {
+  const seen = new Set<string>();
+  const components: Individual[][] = [];
+
+  const membersOf = (indi: Individual): string[] => {
+    const out: string[] = [];
+    for (const famId of [...indi.childOf, ...indi.spouseOf]) {
+      const fam = ds.families.get(famId);
+      if (!fam) continue;
+      if (fam.husband) out.push(fam.husband);
+      if (fam.wife) out.push(fam.wife);
+      out.push(...fam.children);
+    }
+    return out;
+  };
+
+  for (const start of ds.individuals.values()) {
+    if (seen.has(start.id)) continue;
+    const group: Individual[] = [];
+    const queue = [start];
+    seen.add(start.id);
+    while (queue.length) {
+      const indi = queue.pop()!;
+      group.push(indi);
+      for (const id of membersOf(indi)) {
+        if (seen.has(id)) continue;
+        const next = ds.individuals.get(id);
+        if (!next) continue; // dangling member — the brokenLink check's
+        seen.add(id);
+        queue.push(next);
+      }
+    }
+    components.push(group);
+  }
+
+  const largest = components.reduce((max, c) => Math.max(max, c.length), 0);
+  return components
+    .filter((c) => c.length > 1 && c.length <= MAX_ISLAND_SIZE && c.length < largest)
+    .sort((a, b) => a.length - b.length);
+}
+
+/**
+ * The island member to report the finding on: the youngest, by birth year —
+ * the one most likely to reach a living branch, and so the best place to start
+ * looking for where the group belongs. A person with only a death date is
+ * ranked from it (roughly a lifetime earlier); one with no dates at all comes
+ * last. Ties keep the first in file order, so the finding is stable.
+ */
+function youngestOf(members: Individual[]): Individual {
+  const rank = (p: Individual): number => {
+    const by = birthYear(p);
+    if (by !== undefined) return by;
+    const dy = deathYear(p);
+    return dy !== undefined ? dy - 60 : -Infinity;
+  };
+  return members.reduce((best, p) => (rank(p) > rank(best) ? p : best));
+}
+
+/** PEDI / _MREL values that still mean "this child was born to these parents". */
+const BIOLOGICAL_PEDI = new Set(["birth", "natural", ""]);
+
+/** The families named by an individual's adoption events (`ADOP.FAMC`) — the
+ *  5.5.1 way of recording an adoptive family when the `FAMC` link itself carries
+ *  no `PEDI`. */
+function adoptiveFamilyIds(indi: Individual): Set<string> {
+  const ids = new Set<string>();
+  for (const ev of indi.raw.children) {
+    if (ev.tag !== "ADOP") continue;
+    for (const c of ev.children) {
+      if (c.tag === "FAMC" && c.value) ids.add(c.value.trim());
+    }
+  }
+  return ids;
+}
+
+/**
+ * The parent families an individual claims as their *birth* family: `FAMC` links
+ * whose `PEDI`/`_MREL` says birth, or says nothing at all.
+ *
+ * Adoptive, foster and sealing links are a legitimate second set of parents, so
+ * they're excluded — as are links naming a family the person's own `ADOP` event
+ * points at. A family that doesn't exist is left to the `brokenLink` check, and a
+ * repeated line to `duplicatePointer`, so neither is counted twice here.
+ */
+function birthParentFamilies(indi: Individual, ds: Dataset): Family[] {
+  const adoptive = adoptiveFamilyIds(indi);
+  const out: Family[] = [];
+  const seen = new Set<string>();
+  for (const node of indi.raw.children) {
+    if (node.tag !== "FAMC" || !node.value) continue;
+    const id = node.value.trim();
+    if (seen.has(id) || adoptive.has(id)) continue;
+    const pedi = node.children.find((c) => c.tag === "PEDI" || c.tag === "_MREL")?.value;
+    if (pedi !== undefined && !BIOLOGICAL_PEDI.has(pedi.trim().toLowerCase())) continue;
+    const fam = ds.families.get(id);
+    if (!fam) continue;
+    seen.add(id);
+    out.push(fam);
+  }
+  return out;
+}
+
+/** A family named by its couple — "Janez Novak & Ana Kos (@F1@)" — for listing
+ *  the rival parent sets in a finding. */
+function coupleLabel(fam: Family, ds: Dataset): string {
+  const names = [fam.husband, fam.wife]
+    .map((id) => (id ? ds.individuals.get(id) : undefined))
+    .filter((p): p is Individual => !!p)
+    .map((p) => p.names[0]?.full?.trim() || p.id);
+  return names.length ? `${names.join(" & ")} (${fam.id})` : fam.id;
+}
+
 /** A dated birth of one child, as a month index so partial dates still compare. */
 interface ChildBirth {
   indi: Individual;
@@ -200,9 +337,6 @@ interface ChildBirth {
   month: number;
   year: number;
 }
-
-/** PEDI / _MREL values that still mean "this child was born to this mother". */
-const BIOLOGICAL_PEDI = new Set(["birth", "natural", ""]);
 
 /**
  * The children of `fam` that carry a birth (or christening) date and are linked
@@ -385,6 +519,19 @@ export function validateDataset(ds: Dataset, currentYear: number = new Date().ge
       }
     }
 
+    // Two birth families: the person hangs off two different sets of parents.
+    // Legitimate when one is adoptive or foster (excluded above), otherwise one
+    // of the two links is wrong — or the person exists twice in the file.
+    if (indi.childOf.length > 1) {
+      const fams = birthParentFamilies(indi, ds);
+      if (fams.length > 1) {
+        add("multipleParents", "warning", "tools.validate.issue.multipleParents", {
+          count: fams.length,
+          families: fams.map((f) => coupleLabel(f, ds)).join("; "),
+        });
+      }
+    }
+
     // Redundant pointer lines: the same family listed twice as FAMC/FAMS.
     for (const fam of duplicateRefs(indi.raw, "FAMC")) {
       add("duplicatePointer", "warning", "tools.validate.issue.dupFamc", { fam });
@@ -487,6 +634,17 @@ export function validateDataset(ds: Dataset, currentYear: number = new Date().ge
         spanA: `${p.spanA[0]}–${p.spanA[1]}`,
         child: subjectOf(p.child.indi),
       },
+    });
+  }
+
+  // Small groups linked only to each other — reported once, on the youngest,
+  // who is where the search for the missing link starts.
+  for (const group of findIslands(ds)) {
+    const person = youngestOf(group);
+    push({
+      scope: "individual", id: person.id, category: "island", severity: "warning",
+      subject: subjectOf(person), messageKey: "tools.validate.issue.island",
+      messageVars: { count: group.length },
     });
   }
 

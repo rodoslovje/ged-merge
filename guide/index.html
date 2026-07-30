@@ -412,7 +412,10 @@
               One <strong>Charts</strong> button (<span class="gm-key">V</span>) — in the Edit toolbar, the header's
               chart icon, or a Compare Tree node's panel — opens the full-page <strong>Charts hub</strong> for the
               selected person. A tab strip switches between eight kinds (digits <span class="gm-key">1</span>–<span
-              class="gm-key">8</span> jump straight to one); GED Merge remembers whichever you used last:
+              class="gm-key">8</span> jump straight to one); GED Merge remembers whichever you used last. Re-rooting a
+              chart — a node's <strong>Set as root</strong>, a <span class="gm-badge rep">+7</span> pill, a search hit
+              off the chart — counts as a step, so <strong>Back</strong> (the button or the browser's) retraces the
+              people you rooted on and only then leaves the hub:
             </p>
             <ul>
               <li><strong>Tree</strong>, <strong>Grid</strong>, <strong>Fan</strong> and <strong>Circle</strong> — the
@@ -488,8 +491,10 @@
               <strong>Repeated people.</strong> The same person can reach the root down more than one line — cousins who
               married each other, or a couple whose <em>both</em> partners descend from the root person. Their branch is
               drawn at the first position only; every later position still shows the person and their marriage, but is
-              left empty and carries a <span class="gm-badge rep round">→</span> badge in its bottom-right corner —
-              click it to go to the position that does carry the branch (see <a href="#legend">§15</a>). Nobody is drawn — or counted — twice, so the Ancestors / Descendants counts are
+              left empty and carries a <span class="gm-badge rep round">→</span> badge — in the box's bottom-right
+              corner on the Tree and the Grid, at the outer edge of the wedge on the Fan and the Circle, where the
+              ancestors would have continued. Click it to go to the position that does carry the branch (see
+              <a href="#legend">§15</a>). Nobody is drawn — or counted — twice, so the Ancestors / Descendants counts are
               counts of <em>people</em>. The Report follows the same rule: a person met a second time keeps their first
               number and is shown as a cross-reference to it.
             </p>
@@ -895,12 +900,19 @@
               loops</strong> (a person who is their own ancestor), <strong>sex vs. role</strong> conflicts (a female
               recorded as a husband, or a male as a wife — a genuine same-sex couple, one partner in each role, is
               <em>not</em> flagged), <strong>two spouses in one role</strong> (a family that packs two different people
-              into the husband or wife role, hiding one partner — the finding names who is hidden), future-dated events,
+              into the husband or wife role, hiding one partner — the finding names who is hidden), <strong>two sets of
+              parents</strong> (a person who is a birth child in two families at once — the finding names both couples,
+              and adoptive or foster links, whether marked with a pedigree type or by an adoption event, are
+              <em>not</em> flagged), future-dated events,
               death before birth, implausible ages
               (at death, at marriage, parent's age, spouse age gap), and <strong>children by two fathers at
               once</strong> — a mother whose children with one partner are interleaved in time with her children by
               another, which usually means a child or a whole sibling set hangs off the wrong family (consecutive
-              marriages and adopted children are not flagged). A separate <strong>GEDCOM structure</strong> pass
+              marriages and adopted children are not flagged). <strong>Detached groups</strong> catches what a single
+              disconnected person doesn't: up to nine people linked only to each other and to nobody else in the file —
+              usually an import that never got attached, or a duplicate of a branch you already have. One finding per
+              group, on its youngest member, so you can open them and walk the group's relatives; the file's main tree
+              is never a group. A separate <strong>GEDCOM structure</strong> pass
               flags encoding, bad lines and levels, stray CONT/CONC, version, unknown or custom tags and unparseable
               dates — many with a one-click <strong>Fix</strong>. When a media folder is connected, <strong>Check media
               folder</strong> lists referenced media files that are missing from it. It also lists <strong>places with
@@ -910,10 +922,12 @@
             </p>
             <p>
               Click any issue to open the record in <span class="gm-pill">Edit</span>. Batch fixes handle the common cases
-              in one step: <strong>Fix all broken links</strong> clears dead and one-way family pointers, <strong>Remove
-              duplicate pointers</strong> de-duplicates repeated links, a sex fix sets the sex on unspecified spouses
-              (husband → male, wife → female), and <strong>Fill coordinates from the file</strong> settles the split-place
-              coordinates above. (For places that have <em>no</em> coordinate anywhere, use <a href="#geocode">Geocode
+              in one step: <strong>Fix all broken links</strong> clears dead and one-way family pointers between people
+              and families, <strong>Remove dangling references</strong> clears every other pointer whose target record is
+              missing — source, note and media citations, associations, and family links nested inside an event —
+              <strong>Remove duplicate pointers</strong> de-duplicates repeated links, a sex fix sets the sex on
+              unspecified spouses (husband → male, wife → female), and <strong>Fill coordinates from the file</strong>
+              settles the split-place coordinates above. (For places that have <em>no</em> coordinate anywhere, use <a href="#geocode">Geocode
               places</a>, which looks them up.)
             </p>
             <p>
@@ -1274,6 +1288,15 @@
               <strong>Download GEDCOM</strong> writes two files: the new <em>.ged</em> and a plain-text
               <em>change report</em> documenting exactly what was applied. The downloaded file becomes your new working
               baseline inside the app, so what you see next matches what you just saved.
+            </p>
+            <p>
+              The download is always written as <strong>UTF-8</strong>, and its header is set to say so. A file that
+              arrived in an older encoding (ANSEL, ANSI, Windows-1250, UTF-16) is therefore converted, and the preview —
+              like <a href="#tools">Health check</a> — says which encoding it came from. The conversion is what keeps
+              accented letters correct, but it does change a line other software reads, so after your first save of such
+              a file, check that it still imports into the programs and services you use. Characters that could not be
+              read from the original at all show as “�”; saving cannot bring those back, so correct them in
+              <span class="gm-pill">Edit</span> first.
             </p>
             <div class="gm-callout tip">
               <span class="gm-callout-label">Tip</span>

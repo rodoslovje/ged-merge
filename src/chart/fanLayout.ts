@@ -92,6 +92,11 @@ export interface FanSegment {
   photo?: { size: number; cx: number; cy: number; rot: number };
   /** Anchor for a small status badge dot (PAD-relative), near the inner edge. */
   badge: { x: number; y: number };
+  /** Anchor for the marker saying why the rings stop here — a repeat's arrow or
+   *  the generation limit's "+N" (PAD-relative). At the outer edge, pointing the
+   *  way those ancestors would have gone, and clear of the status badge on the
+   *  inner one, since a wedge can carry both. Absent on the root disk. */
+  outerBadge?: { x: number; y: number };
 }
 
 /** A marriage "collar": a curved label riding the ring boundary between a child's
@@ -309,7 +314,7 @@ export function buildFanChart(
     const flip = curved ? lowerHalf : Math.cos(mid) < 0;
     const photo = gen <= photoRings && hasPhoto(node) ? photoBox(cx, cy, rIn, w, delta, mid, lowerHalf) : undefined;
 
-    const base: Pick<FanSegment, "key" | "node" | "gen" | "slot" | "d" | "x" | "y" | "photo" | "badge" | "fontPx" | "light"> = {
+    const base: Pick<FanSegment, "key" | "node" | "gen" | "slot" | "d" | "x" | "y" | "photo" | "badge" | "outerBadge" | "fontPx" | "light"> = {
       key: `${gen}:${slot}`,
       node,
       gen,
@@ -321,6 +326,7 @@ export function buildFanChart(
       fontPx,
       light,
       badge: { x: round(cx + (rIn + 12) * Math.cos(mid)), y: round(cy + (rIn + 12) * Math.sin(mid)) },
+      outerBadge: { x: round(cx + (rOut - 12) * Math.cos(mid)), y: round(cy + (rOut - 12) * Math.sin(mid)) },
     };
 
     if (curved) {

@@ -31,8 +31,12 @@ const HUB_KINDS: ChartKind[] = [...PEDIGREE_KINDS, "timeline", "relationship", "
 
 interface Props {
   mainDs: Dataset;
-  /** The person the hub opened on; re-roots inside the hub follow the user. */
-  initialRootId: string;
+  /** The person every kind is currently drawn for. Owned by App (and so by the
+   *  browser history), not by the hub, so the Back button walks back through the
+   *  people the user re-rooted on. */
+  rootId: string;
+  /** Re-root on another person — a new history entry, see App's openCharts. */
+  onRootChange: (id: string) => void;
   startId?: string;
   changedPersonIds: Set<string>;
   decisions?: Map<string, CandidateDecision>;
@@ -45,13 +49,9 @@ interface Props {
   onPickStart?: (id: string) => void;
 }
 
-export function ChartsHub({ mainDs, initialRootId, startId, changedPersonIds, decisions, backLabel, onBack, onNavigate, onPickStart }: Props) {
+export function ChartsHub({ mainDs, rootId, onRootChange, startId, changedPersonIds, decisions, backLabel, onBack, onNavigate, onPickStart }: Props) {
   const { t } = useTranslation();
   const { settings, setKind } = useChartSettings();
-  // The hub's current person: starts at the person it was opened on and follows
-  // re-roots (tree) / target swaps (relationship), so switching kinds stays on
-  // the person the user is actually looking at.
-  const [rootId, setRootId] = useState(initialRootId);
   // The user's ancestors/descendants choice — owned here (not by EditTree) so
   // it survives kind switches, including a relationship round-trip that
   // remounts the pedigree chart.
@@ -82,7 +82,7 @@ export function ChartsHub({ mainDs, initialRootId, startId, changedPersonIds, de
         backLabel={backLabel}
         onBack={onBack}
         onNavigate={onNavigate}
-        onRootChange={setRootId}
+        onRootChange={onRootChange}
         kindSwitcher={kindSwitcher}
         mode={treeMode}
         onModeChange={setTreeMode}
@@ -119,7 +119,7 @@ export function ChartsHub({ mainDs, initialRootId, startId, changedPersonIds, de
         backLabel={backLabel}
         onBack={onBack}
         onNavigate={onNavigate}
-        onRootChange={setRootId}
+        onRootChange={onRootChange}
         kindSwitcher={kindSwitcher}
       />
     );
@@ -164,7 +164,7 @@ export function ChartsHub({ mainDs, initialRootId, startId, changedPersonIds, de
         backLabel={backLabel}
         onBack={onBack}
         onNavigate={onNavigate}
-        onTargetChange={setRootId}
+        onTargetChange={onRootChange}
         kindSwitcher={kindSwitcher}
       />
     );
@@ -182,7 +182,7 @@ export function ChartsHub({ mainDs, initialRootId, startId, changedPersonIds, de
       onNavigate={onNavigate}
       mode={treeMode}
       onModeChange={setTreeMode}
-      onRootChange={setRootId}
+      onRootChange={onRootChange}
       kindSwitcher={kindSwitcher}
     />
   );
