@@ -23,8 +23,6 @@ export const KEY = {
   relationship: "s",
   /** Edit mode: jump to the start ("home") person. */
   home: "h",
-  /** Merge mode: focus the match-list name filter (global search is `/`). */
-  filter: "f",
   /** Add a new person attached to nobody, from any mode. */
   addPerson: "n",
   confirm: "c",
@@ -131,7 +129,6 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: [[KEY.relationship.toUpperCase()]], descKey: "shortcuts.item.relationship" },
       { keys: [[KEY.home.toUpperCase()]], descKey: "shortcuts.item.home" },
       { keys: [["⌫"]], descKey: "shortcuts.item.back" },
-      { keys: [[KEY.filter.toUpperCase()]], descKey: "shortcuts.item.filterMatches" },
     ],
   },
   {

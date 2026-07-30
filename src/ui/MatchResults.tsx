@@ -109,7 +109,7 @@ export function MatchResults({
                 type="text"
                 className="name-search"
                 placeholder={t("filter.search")}
-                title={t("filter.searchTooltip", { keys: `F, ${renderKeyToken("mod")}F` })}
+                title={t("filter.searchTooltip", { key: `${renderKeyToken("mod")}F` })}
                 value={filters.nameQuery}
                 onChange={(e) => onFilters({ ...filters, nameQuery: e.target.value })}
                 onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}

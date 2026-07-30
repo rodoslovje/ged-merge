@@ -181,7 +181,8 @@ export function MergeView({
   }
 
   /** Reveal the match list and its filter row, then focus the name filter —
-   *  the filter may be collapsed, so focusing alone would find nothing. */
+   *  the filter may be collapsed, so focusing alone would find nothing.
+   *  Reached with ⌘/Ctrl+F, the same chord as every other view's search. */
   function focusNameFilter() {
     setOpenMatches(true);
     setShowFilters(true);
@@ -217,13 +218,6 @@ export function MergeView({
       }
       const key = e.key.toLowerCase();
       if (key === KEY.tree) { e.preventDefault(); onOpenTree(current!.mainId, current!.compareId); return; }
-      // `f` reveals and focuses the match-list name filter (the whole-file
-      // global search lives on `/`, handled by the app shell).
-      if (key === KEY.filter) {
-        e.preventDefault();
-        focusNameFilter();
-        return;
-      }
       const hit = KEY_STATUS[key];
       if (hit) toggleStatus(hit);
     }
