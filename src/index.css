@@ -1729,12 +1729,22 @@ button:focus-visible {
 .edit-parents {
   display: flex;
   flex-wrap: wrap;
+  align-items: flex-start;
   justify-content: flex-start;
   gap: 12px;
   /* Match the families/children block's type scale so the parent cards
      (and their "+ Add Father/Mother" placeholders) render at the same size
      as "+ Add Child" rather than the larger default 1rem. */
   font-size: 0.88rem;
+}
+/* Each parent family gets its own full-width row, so two of them never read
+   as one couple; the actions sit to the right of the whole stack. */
+.edit-parent-groups {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .edit-families {
@@ -1750,6 +1760,16 @@ button:focus-visible {
   flex-wrap: wrap;
   align-items: flex-end;
   gap: 12px;
+}
+/* Separate multiple parent families with a divider, like the spouse families. */
+.edit-parent-group + .edit-parent-group {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+/* The row spans the band, so the couple connector must not stretch with it —
+   the two cards stay next to each other instead of drifting apart. */
+.edit-parent-group > .edit-connector-h {
+  flex: 0 0 auto;
 }
 
 /* Read-only couple events (marriage, divorce, …) of a parent family, shown
