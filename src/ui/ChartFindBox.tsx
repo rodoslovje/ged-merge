@@ -1,7 +1,8 @@
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { lifespanOf } from "../gedcom/lifespan";
-import { isModalOpen, renderKeyToken } from "../keyboard/shortcuts";
+import { renderKeyToken } from "../keyboard/shortcuts";
+import { useFindShortcutOn } from "../keyboard/useFindShortcut";
 import { SearchIcon } from "./icons/SearchIcon";
 import { useNameOf } from "./SettingsContext";
 import type { ChartFind } from "./useChartFind";
@@ -23,19 +24,10 @@ export function ChartFindBox({ find }: { find: ChartFind }) {
   const { query, hits, position, step, miss, offChart } = find;
   const total = hits.length;
 
-  // ⌘/Ctrl+F — the conventional "find" chord — focuses the box instead of the
-  // browser's own find, which can't pan the canvas to what it matched.
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (!(e.metaKey || e.ctrlKey) || e.altKey || e.key.toLowerCase() !== "f") return;
-      if (isModalOpen()) return;
-      e.preventDefault();
-      inputRef.current?.focus();
-      inputRef.current?.select();
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  // ⌘/Ctrl+F focuses the box instead of the browser's own find, which can't pan
+  // the canvas to what it matched. The chart page sits on top of everything
+  // else, so while it is mounted the chord is always its.
+  useFindShortcutOn(inputRef, () => true);
 
   function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter") {
