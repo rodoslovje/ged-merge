@@ -429,44 +429,47 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                 <span className="settings-hint">{t("settings.map.tiles.hint")}</span>
               </span>
             </label>
-            {settings.allowMapTiles && (
-              <>
-                <label className="settings-row settings-format-row" title={t("settings.map.basemap.hint")}>
+            {/* Shown but inert until tiles are allowed: the choice is worth
+                seeing before opting in, and the toggle sits right above it. */}
+            <fieldset className="settings-fieldset" disabled={!settings.allowMapTiles}>
+              <label className="settings-row settings-format-row" title={t("settings.map.basemap.hint")}>
+                <span className="settings-row-text">
                   <span className="settings-row-label">{t("settings.map.base")}</span>
-                  <select
-                    value={settings.mapBasemap}
-                    title={t("settings.map.basemap.hint")}
-                    onChange={(e) => set({ mapBasemap: e.target.value })}
-                  >
-                    {BASEMAPS.map((b) => (
-                      <option key={b.id} value={b.id}>
-                        {t(b.key)}
-                      </option>
-                    ))}
-                    <option value={CUSTOM_BASEMAP}>{t("basemap.custom")}</option>
-                  </select>
-                </label>
-                <p className="settings-hint">{t("settings.map.basemap.hint")}</p>
-                {settings.mapBasemap === CUSTOM_BASEMAP && (
-                  <label className="settings-row settings-format-row" title={t("settings.map.tileUrl.hint")}>
+                  <span className="settings-hint">{t("settings.map.basemap.hint")}</span>
+                </span>
+                <select value={settings.mapBasemap} onChange={(e) => set({ mapBasemap: e.target.value })}>
+                  {BASEMAPS.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {t(b.key)}
+                    </option>
+                  ))}
+                  <option value={CUSTOM_BASEMAP}>{t("basemap.custom")}</option>
+                </select>
+              </label>
+              {settings.mapBasemap === CUSTOM_BASEMAP && (
+                <label className="settings-row settings-format-row" title={t("settings.map.tileUrl.hint")}>
+                  <span className="settings-row-text">
                     <span className="settings-row-label">{t("settings.map.tileUrl")}</span>
-                    <input
-                      type="text"
-                      className="settings-text-input"
-                      value={settings.mapTileUrl}
-                      placeholder={t("settings.map.tileUrl.placeholder")}
-                      title={t("settings.map.tileUrl.hint")}
-                      onChange={(e) => set({ mapTileUrl: e.target.value.trim() })}
-                    />
-                  </label>
-                )}
-              </>
-            )}
-
+                    <span className="settings-hint">{t("settings.map.tileUrl.hint")}</span>
+                  </span>
+                  <input
+                    type="text"
+                    className="settings-text-input"
+                    value={settings.mapTileUrl}
+                    placeholder={t("settings.map.tileUrl.placeholder")}
+                    onChange={(e) => set({ mapTileUrl: e.target.value.trim() })}
+                  />
+                </label>
+              )}
+            </fieldset>
           </section>
 
           <section className="settings-section">
             <h3>{t("settings.map.overlays")}</h3>
+            {!settings.allowMapTiles && <p className="settings-note">{t("settings.map.needTiles")}</p>}
+            {/* Overlays only draw where the base map does, so they follow the
+                same opt-in — visible, but inert until it is ticked. */}
+            <fieldset className="settings-fieldset" disabled={!settings.allowMapTiles}>
             <div className="settings-overlays-head">
               <p className="settings-hint">{t("settings.map.overlays.hint")}</p>
               <p className="settings-hint">{t("settings.map.overlays.sources")}</p>
@@ -704,6 +707,7 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                 </div>
               );
             })}
+            </fieldset>
           </section>
 
           </>
