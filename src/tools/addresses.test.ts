@@ -39,23 +39,100 @@ describe("scanAddresses", () => {
 
   it("groups events at one house into a single row", () => {
     // RESI and DEAT share the pair, so one review covers both events.
-    expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({ place: "Kranj, Slovenija", address: "Kidričeva cesta 38", count: 2 });
+    const kranj = rows.find((r) => r.address === "Kidričeva cesta 38")!;
+    expect(kranj).toMatchObject({ place: "Kranj, Slovenija", count: 2 });
+    // Written in an ADDR line beside the place, so the place is the file's own
+    // value and the row can still be moved elsewhere.
+    expect(kranj.derived).toBeUndefined();
+    expect(kranj.rawKeys).toEqual([placeAddrKey("Kranj, Slovenija", "Kidričeva cesta 38")]);
     // Nothing placed these events yet, so the row carries no coordinate.
-    expect(rows[0].coord).toBeUndefined();
-    expect(rows[0].queries).toEqual([{ settlement: "Kranj", street: "Kidričeva cesta", number: 38 }]);
-    expect(rows[0].people).toEqual(["@I1@"]);
+    expect(kranj.coord).toBeUndefined();
+    expect(kranj.queries).toEqual([{ settlement: "Kranj", street: "Kidričeva cesta", number: 38 }]);
+    expect(kranj.people).toEqual(["@I1@"]);
   });
 
-  it("skips what belongs elsewhere or cannot be looked up", () => {
-    const keys = rows.map((r) => r.key);
-    // PLAC already names the house — the Geocode-places row resolves that one
-    // against the register itself, so listing it here would duplicate the ask.
-    expect(keys).not.toContain(placeAddrKey("Šentvid pri Stični 23, Slovenija", "Šentvid pri Stični 23"));
+  it("files a house named by the place value under its settlement", () => {
+    // The PLAC names the house itself; the row is about that house, and the
+    // place it groups under is the settlement left when the number is lifted.
+    const row = rows.find((r) => r.address === "Šentvid pri Stični 23")!;
+    expect(row).toMatchObject({ place: "Šentvid pri Stični, Slovenija", derived: true, count: 1 });
+    expect(row.queries).toEqual([{ settlement: "Šentvid pri Stični", number: 23 }]);
+    // The coordinate is written back to the value the events actually carry.
+    expect(row.rawKeys).toEqual([placeAddrKey("Šentvid pri Stični 23, Slovenija", "Šentvid pri Stični 23")]);
+  });
+
+  it("skips what cannot be looked up", () => {
     // Not Slovenia: the register does not cover it.
-    expect(keys).not.toContain(placeAddrKey("Wien, Austria", "Ringstrasse 1"));
-    // No ADDR at all.
+    expect(rows.map((r) => r.key)).not.toContain(placeAddrKey("Wien, Austria", "Ringstrasse 1"));
+    // No address at all.
     expect(rows.some((r) => r.address === "")).toBe(false);
+  });
+});
+
+describe("scanAddresses on a file that keeps no ADDR lines", () => {
+  /** Village numbering written straight into PLAC, the Prevodnik house style. */
+  const IN_PLACE = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 BIRT
+2 PLAC Črni vrh 35
+1 RESI
+2 PLAC Črni vrh 46
+0 @I2@ INDI
+1 BIRT
+2 PLAC Črni vrh 35
+1 DEAT
+2 PLAC Črni vrh
+0 TRLR`;
+
+  const rows = scanAddresses(build(IN_PLACE));
+
+  it("reads each house out of its place value and groups them by settlement", () => {
+    expect(rows.map((r) => r.address)).toEqual(["Črni vrh 35", "Črni vrh 46"]);
+    expect(rows.every((r) => r.place === "Črni vrh" && r.derived)).toBe(true);
+    // Two people at number 35, one at 46; the place-only event is no address.
+    expect(rows.map((r) => r.count)).toEqual([2, 1]);
+    expect(rows[0].people).toEqual(["@I1@", "@I2@"]);
+    expect(rows[0].queries).toEqual([{ settlement: "Črni vrh", number: 35 }]);
+  });
+
+  it("writes the accepted house onto the place value the events carry", () => {
+    const ds = build(IN_PLACE);
+    const house = { lat: 46.10101, lon: 14.20202 };
+    applyAddressCoords(ds, new Map(scanAddresses(ds)[0].rawKeys.map((k) => [k, house])));
+    const out = serializeGedcom(ds.records);
+    // Both events at 35 got it; 46 and the place-only event did not.
+    expect(out.split("\n").filter((l) => l === "4 LATI N46.10101")).toHaveLength(2);
+    expect(scanAddresses(build(out)).map((r) => r.address)).toEqual(["Črni vrh 46"]);
+  });
+});
+
+describe("scanAddresses and a packed place value", () => {
+  /** The Brother's Keeper style: place, house and parish in one PLAC. */
+  const PACKED = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 BIRT
+2 PLAC Kranj (Slovenija), Stražišče 114 - župnija Šmartin
+1 DEAT
+2 PLAC Kranj (Slovenija), Stražišče 114 - župnija Kranj
+0 TRLR`;
+
+  it("merges the file's spellings of one house into a single row", () => {
+    const rows = scanAddresses(build(PACKED));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ place: "Kranj, Slovenija", address: "Stražišče 114", derived: true, count: 2 });
+    // The parish is not part of where the house is, so both values are the same
+    // row — and both are written when it is accepted.
+    expect(rows[0].rawKeys).toEqual([
+      placeAddrKey("Kranj (Slovenija), Stražišče 114 - župnija Šmartin", ""),
+      placeAddrKey("Kranj (Slovenija), Stražišče 114 - župnija Kranj", ""),
+    ]);
+    // Stražišče is a settlement of its own, so the register is asked for the
+    // house on a Kranj street first and falls back to it (see searchAddress).
+    expect(rows[0].queries).toEqual([{ settlement: "Kranj", street: "Stražišče", number: 114 }]);
   });
 });
 
@@ -78,11 +155,12 @@ describe("applyAddressCoords", () => {
     const occuAt = out.split("\n").findIndex((l) => l.startsWith("1 OCCU"));
     expect(out.split("\n").slice(occuAt, occuAt + 3)).toEqual(["1 OCCU Kmet", "2 PLAC Kranj, Slovenija", "0 TRLR"]);
 
-    // Re-parsing lifts it onto that event's place, and the row is done.
+    // Re-parsing lifts it onto that event's place, and the row is done — only
+    // the untouched Šentvid house is still worth asking about.
     const again = build(out);
     const resi = again.individuals.get("@I1@")!.events.find((e) => e.tag === "RESI")!;
     expect(resi.place?.coord?.lat).toBeCloseTo(HOUSE.lat, 5);
-    expect(scanAddresses(again)).toEqual([]);
+    expect(scanAddresses(again).map((r) => r.address)).toEqual(["Šentvid pri Stični 23"]);
   });
 
   it("leaves the health check quiet: same settlement, different addresses", () => {

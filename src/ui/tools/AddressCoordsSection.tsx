@@ -8,6 +8,7 @@ import { replaceLocality, scanAddresses, suggestMovedPlace, type AddressRow } fr
 import type { GeoAssignment } from "../../tools/geocode";
 import { foldSearch } from "../globalSearch";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
+import { EventCoordPicker } from "../edit/EventCoordPicker";
 import { PlaceAutocomplete } from "../edit/PlaceAutocomplete";
 import { usePlaceLookup } from "../edit/PlaceLookupContext";
 import { buildPlaceSuggestions, type PlaceSuggestions } from "../edit/placeSuggestions";
@@ -22,6 +23,12 @@ import { ExpandAllToggle, GeoRowHeader, MapToggle } from "./shared";
 // Grouped by place, and collapsed: a real file has hundreds of addresses (997 in
 // one test corpus), so a flat list is unreadable and a single "look up all" would
 // fire that many throttled requests. Work proceeds one place at a time instead.
+//
+// The place a group is named after is the file's own value when the file keeps
+// its addresses in ADDR lines, and the settlement lifted out of the place values
+// when it does not (see detectAddress). Only the first kind can be *moved*:
+// moving rewrites the place value of the ticked addresses, which for the second
+// kind is the very text holding the house number.
 
 type SearchState = { state: "idle" | "loading" | "error" | "done"; results: RnResult[] };
 
@@ -37,6 +44,10 @@ interface PlaceGroup {
   place: string;
   rows: AddressRow[];
   events: number;
+  /** Whether these addresses can be moved to another place: only when every one
+   *  of them names the place in a value of its own, so rewriting that value
+   *  moves the event and nothing else. */
+  movable: boolean;
   /** Where these addresses suggest they belong, when they agree on one — the
    *  place with its settlement swapped for the name the house numbers hang off
    *  ({@link suggestMovedPlace}), and the rows that say so. */
@@ -126,6 +137,7 @@ export function AddressCoordsSection({
   // Re-scanned whenever the dataset object changes (applying replaces it), so
   // rows that were just written disappear on their own.
   const rows = useMemo(() => scanAddresses(dataset), [dataset]);
+  const byKey = useMemo(() => new Map(rows.map((row) => [row.key, row])), [rows]);
   const groups = useMemo(() => {
     const byPlace = new Map<string, PlaceGroup>();
     for (const row of rows) {
@@ -133,10 +145,11 @@ export function AddressCoordsSection({
       if (g) {
         g.rows.push(row);
         g.events += row.count;
-      } else byPlace.set(row.place, { place: row.place, rows: [row], events: row.count });
+        g.movable &&= !row.derived;
+      } else byPlace.set(row.place, { place: row.place, rows: [row], events: row.count, movable: !row.derived });
     }
     for (const g of byPlace.values()) {
-      g.suggestion = groupSuggestion(g.place, g.rows);
+      if (g.movable) g.suggestion = groupSuggestion(g.place, g.rows);
       // Inside a place, the addresses are that village's numbering — read in
       // order, not ranked by how often the file happens to name each house.
       g.rows.sort((a, b) => BY_NUMBER.compare(a.address, b.address));
@@ -260,7 +273,9 @@ export function AddressCoordsSection({
 
   const applyMove = () => {
     const pick = movePick?.place === moveTarget.trim() ? movePick.assignment : undefined;
-    const changed = onMove(moveSel, moveTarget, pick);
+    const keys = new Set<string>();
+    for (const key of moveSel) for (const raw of byKey.get(key)?.rawKeys ?? []) keys.add(raw);
+    const changed = onMove(keys, moveTarget, pick);
     closeMove();
     // The moved rows are keyed by their old place, so every pick and lookup
     // against them is stale — and the destination is worth looking up afresh.
@@ -323,7 +338,12 @@ export function AddressCoordsSection({
   };
 
   const apply = () => {
-    const assignments = new Map([...picked].map(([key, v]) => [key, v.coord] as const));
+    // A row stands for one house, which the file may spell more than one way —
+    // every spelling gets the coordinate, so the row is done in one step.
+    const assignments = new Map<string, GeoCoord>();
+    for (const [key, v] of picked) {
+      for (const raw of byKey.get(key)?.rawKeys ?? []) assignments.set(raw, v.coord);
+    }
     const changed = onApply(assignments);
     setPicked(new Map());
     setSearches(new Map());
@@ -368,6 +388,13 @@ export function AddressCoordsSection({
                 <span className="tools-geo-count">
                   {t("tools.geocode.addr.groupMeta", { count: group.rows.length, events: group.events })}
                 </span>
+                {/* The place is derived, not a value the file writes — worth
+                    saying, since it is also why this group cannot be moved. */}
+                {!group.movable && (
+                  <span className="tools-geo-online-note" title={t("tools.geocode.addr.inPlaceHint")}>
+                    {t("tools.geocode.addr.inPlace")}
+                  </span>
+                )}
               </GeoRowHeader>
               {isOpen && (
                 <div className="tools-geo-actions">
@@ -381,7 +408,7 @@ export function AddressCoordsSection({
                       {t("tools.geocode.addr.searchGroup", { count: group.rows.length })}
                     </button>
                   )}
-                  {group.place && moveGroup !== group.place && (
+                  {group.place && group.movable && moveGroup !== group.place && (
                     <button
                       className="tools-issue-link"
                       title={t("tools.geocode.addr.moveHint")}
@@ -392,7 +419,7 @@ export function AddressCoordsSection({
                   )}
                 </div>
               )}
-              {isOpen && moveGroup !== group.place &&
+              {isOpen && group.movable && moveGroup !== group.place &&
                 registerSplits(group, searches).map((split) => (
                   <p key={split.settlement} className="tools-geo-addr-split">
                     <span className="tools-reshape-badge official">GURS</span>{" "}
@@ -492,6 +519,24 @@ export function AddressCoordsSection({
                           ) : (
                             <span className="tools-geo-online-note">{t("tools.geocode.downloadNeedsOptIn")}</span>
                           )}
+                          {/* The Edit view's own coordinate control, so a house
+                              the register cannot find is still reachable here:
+                              type a coordinate, pick one off the map, or search
+                              OpenStreetMap. It stages the pick like the radios
+                              above — nothing is written until Write. */}
+                          <EventCoordPicker
+                            place={row.place}
+                            address={row.address}
+                            coord={chosen?.coord}
+                            title={row.address}
+                            fileCoord={row.coord}
+                            onPick={(coord, label) =>
+                              setPicked((prev) =>
+                                new Map(prev).set(row.key, { coord, label: label ?? t("tools.geocode.manual") }),
+                              )
+                            }
+                            onClear={() => unpick(row.key)}
+                          />
                           {chosen && <span className="tools-reshape-badge official">{chosen.label}</span>}
                         </div>
                         {search.results.length > 0 && (

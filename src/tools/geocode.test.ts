@@ -7,6 +7,8 @@ import {
   applyGeocode,
   chosenCoordFor,
   collectPlaceValues,
+  countGeocodePending,
+  isRegisterAddress,
   movePlaceForAddresses,
   placeAddrKey,
   renamePlaceValue,
@@ -107,6 +109,47 @@ describe("scanGeocode", () => {
     const scan = scanGeocode(ds, undefined, cached);
     expect(scan.rows.find((r) => r.key === "Kranj, Slovenija")!.cached?.status).toBe("accepted");
     expect(scan.rows.find((r) => r.key === "Neznani Kraj XY")!.cached?.status).toBe("nomatch");
+  });
+});
+
+describe("isRegisterAddress", () => {
+  it("recognizes a place value that is really a house", () => {
+    expect(isRegisterAddress("Črni vrh 35")).toBe(true);
+    expect(isRegisterAddress("Kranj (Slovenija), Stražišče 114 - župnija Šmartin")).toBe(true);
+  });
+
+  it("leaves everything else to the place list", () => {
+    // No house number to resolve.
+    expect(isRegisterAddress("Kranj, Slovenija")).toBe(false);
+    // A house the Slovenian register does not cover.
+    expect(isRegisterAddress("Ringstrasse 1, Wien, Austria")).toBe(false);
+    // A street with no number: nothing to ask the register for.
+    expect(isRegisterAddress("Gosposvetska cesta, Kranj, Slovenija")).toBe(false);
+  });
+});
+
+describe("scanGeocode and house addresses", () => {
+  const WITH_HOUSES = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 BIRT
+2 PLAC Črni vrh 35
+1 RESI
+2 PLAC Črni vrh
+1 DEAT
+2 PLAC Ringstrasse 1, Wien, Austria
+0 TRLR
+`;
+
+  it("leaves the houses to the grouped address rows, and keeps the rest", () => {
+    const ds = buildFromText(WITH_HOUSES);
+    const keys = scanGeocode(ds, undefined, new Map()).rows.map((r) => r.key);
+    // The settlement and the address the register cannot cover still need a
+    // place row; the Slovenian house is reviewed under its settlement instead.
+    expect(keys.sort()).toEqual(["Ringstrasse 1, Wien, Austria", "Črni vrh"]);
+    // The chip badge counts exactly what the list shows.
+    expect(countGeocodePending(ds)).toBe(2);
   });
 });
 
