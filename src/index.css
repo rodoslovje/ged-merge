@@ -1779,17 +1779,10 @@ button:focus-visible {
   border-top: 1px solid var(--border);
   padding-top: 12px;
 }
-/* The row spans the band, so the couple connector must not stretch with it —
-   the two cards stay next to each other instead of drifting apart. */
-.edit-parent-group > .edit-connector-h {
-  flex: 0 0 auto;
-}
-
 /* Too narrow for the marriage line to sit between the parents: keep the two
-   cards side by side and move that line onto its own row underneath, where it
-   still spans (and so links) the couple. */
+   cards side by side and move that line onto its own row underneath. */
 @container parents (max-width: 760px) {
-  .edit-parent-group > .edit-connector-h.has-events {
+  .edit-parent-group > .edit-parent-fam-events {
     order: 3;
     flex: 0 0 100%;
     /* No wider than the couple above it (two cards + the row gap). */
@@ -1798,11 +1791,12 @@ button:focus-visible {
 }
 
 /* Read-only couple events (marriage, divorce, …) of a parent family, shown
-   centered on the connector between the father and mother cards. */
+   between the father and mother cards. */
 .edit-parent-fam-events {
   display: flex;
   flex-direction: column;
   align-items: center;
+  align-self: center;
   gap: 2px;
   font-size: 0.82rem;
   color: var(--muted);
@@ -1854,42 +1848,9 @@ button:focus-visible {
   align-items: center;
 }
 
-/* Horizontal line linking a couple (parents) or a partner to their children. */
-.edit-connector-h {
-  flex: 1;
-  min-width: 24px;
-  height: 1px;
-  background: var(--border-2);
-  align-self: center;
-}
-/* When the connector carries the couple's events, split the line into two
-   segments (::before/::after) with the label centered between them. */
-.edit-connector-h.has-events {
-  height: auto;
-  background: none;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.edit-connector-h.has-events::before,
-.edit-connector-h.has-events::after {
-  content: "";
-  flex: 1;
-  min-width: 12px;
-  height: 1px;
-  background: var(--border-2);
-}
-
-/* Vertical line linking the parents/families rows to the center person. */
-.edit-connector-v {
-  width: 1px;
-  height: 20px;
-  background: var(--border);
-  margin-left: 20px;
-}
-
 .edit-person {
   position: relative;
+  margin-top: 20px;
   border: 1px solid var(--border-2);
   border-radius: 12px;
   padding: 20px 22px;
@@ -6602,16 +6563,6 @@ kbd {
   .info-panel-cols > .loader,
   .info-panel-cols > .loader-with-samples {
     height: auto;
-  }
-
-  /* Editor: no room for the bare connector line between the parent cards (the
-     couple's marriage line drops below them — see the `parents` container
-     query — and stays visible). */
-  .edit-connector-h {
-    display: none;
-  }
-  .edit-connector-h.has-events {
-    display: flex;
   }
 
   /* Event rows: tighter gaps; the flex-wrap already reflows the body as width

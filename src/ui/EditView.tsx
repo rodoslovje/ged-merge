@@ -1549,8 +1549,6 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
           </div>
         </div>
 
-        <div className="edit-connector-v" />
-
         <div
           className={`edit-person ${mediaDragOver ? "media-drop-active" : ""}`}
           onDragOver={(e) => {

@@ -191,46 +191,44 @@ export const ParentFamilyGroup = memo(function ParentFamilyGroup({
           refCtx={cardRefCtx}
         />
       )}
-      <div className={`edit-connector-h ${coupleEvents.length ? "has-events" : ""}`}>
-        {coupleEvents.length > 0 && (
-          <div className="edit-parent-fam-events">
-            {coupleEvents.map((ev, j) => {
-              const place = ev.place ? ev.place.parts[0] || ev.place.raw : undefined;
-              const coupleAges = settings.showAge && ev.date && fam
-                ? coupleAgesDisplay(
-                    fam.husband ? dataset.individuals.get(fam.husband) : undefined,
-                    fam.wife ? dataset.individuals.get(fam.wife) : undefined,
-                    ev.date,
-                    sameSexParents
-                      ? { husband: t("event.age.partner"), wife: t("event.age.partner") }
-                      : { husband: t("event.age.husband"), wife: t("event.age.wife") },
-                    t,
-                  )
-                : undefined;
-              return (
-                <span
-                  className="edit-parent-fam-event"
-                  key={`${ev.tag}-${j}`}
-                  title={`${t(`event.${ev.tag}`)}: ${[ev.date?.raw, ev.place?.raw].filter(Boolean).join(", ")}`}
-                >
-                  <span>
-                    {ev.tag === "MARR" ? MARRIAGE_SYMBOL : t(`event.${ev.tag}`)}
-                    {ev.date && <> <span className="gm-data">{ev.date.raw}</span></>}
-                    {coupleAges && (
-                      <> <span className="gm-data edit-event-age">
-                        {coupleAges.map((a, j2) => (
-                          <span key={j2} title={a.title}>{a.text}</span>
-                        ))}
-                      </span></>
-                    )}
-                  </span>
-                  {place && <span className="gm-data">{place}</span>}
+      {coupleEvents.length > 0 && (
+        <div className="edit-parent-fam-events">
+          {coupleEvents.map((ev, j) => {
+            const place = ev.place ? ev.place.parts[0] || ev.place.raw : undefined;
+            const coupleAges = settings.showAge && ev.date && fam
+              ? coupleAgesDisplay(
+                  fam.husband ? dataset.individuals.get(fam.husband) : undefined,
+                  fam.wife ? dataset.individuals.get(fam.wife) : undefined,
+                  ev.date,
+                  sameSexParents
+                    ? { husband: t("event.age.partner"), wife: t("event.age.partner") }
+                    : { husband: t("event.age.husband"), wife: t("event.age.wife") },
+                  t,
+                )
+              : undefined;
+            return (
+              <span
+                className="edit-parent-fam-event"
+                key={`${ev.tag}-${j}`}
+                title={`${t(`event.${ev.tag}`)}: ${[ev.date?.raw, ev.place?.raw].filter(Boolean).join(", ")}`}
+              >
+                <span>
+                  {ev.tag === "MARR" ? MARRIAGE_SYMBOL : t(`event.${ev.tag}`)}
+                  {ev.date && <> <span className="gm-data">{ev.date.raw}</span></>}
+                  {coupleAges && (
+                    <> <span className="gm-data edit-event-age">
+                      {coupleAges.map((a, j2) => (
+                        <span key={j2} title={a.title}>{a.text}</span>
+                      ))}
+                    </span></>
+                  )}
                 </span>
-              );
-            })}
-          </div>
-        )}
-      </div>
+                {place && <span className="gm-data">{place}</span>}
+              </span>
+            );
+          })}
+        </div>
+      )}
       {motherPickerOpen && !fam?.wife ? (
         <RelativePickerCard
           roleLabel={motherLabel}
