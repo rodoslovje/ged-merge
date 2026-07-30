@@ -1738,13 +1738,16 @@ button:focus-visible {
   font-size: 0.88rem;
 }
 /* Each parent family gets its own full-width row, so two of them never read
-   as one couple; the actions sit to the right of the whole stack. */
+   as one couple; the actions sit to the right of the whole stack. Its own
+   container, because how the couple lays out depends on the band's width —
+   which the actions column narrows — not on the window's. */
 .edit-parent-groups {
   flex: 1 1 0;
   min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  container: parents / inline-size;
 }
 
 .edit-families {
@@ -1770,6 +1773,18 @@ button:focus-visible {
    the two cards stay next to each other instead of drifting apart. */
 .edit-parent-group > .edit-connector-h {
   flex: 0 0 auto;
+}
+
+/* Too narrow for the marriage line to sit between the parents: keep the two
+   cards side by side and move that line onto its own row underneath, where it
+   still spans (and so links) the couple. */
+@container parents (max-width: 760px) {
+  .edit-parent-group > .edit-connector-h.has-events {
+    order: 3;
+    flex: 0 0 100%;
+    /* No wider than the couple above it (two cards + the row gap). */
+    max-width: calc(240px * 2 + 12px);
+  }
 }
 
 /* Read-only couple events (marriage, divorce, …) of a parent family, shown
@@ -2864,7 +2879,9 @@ button:focus-visible {
   text-align: left;
   color: var(--text);
   font: inherit;
-  width: 240px;
+  /* The wrap owns the width (see .person-card-wrap) so parents, partners and
+     children all render at the same size; the card just fills it. */
+  width: 100%;
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -2929,10 +2946,15 @@ button:focus-visible {
 }
 .person-card.sex-m:hover { border-color: var(--sex-male); }
 .person-card.sex-f:hover { border-color: var(--sex-female); }
+/* One width for every relative card — parent, partner or child. As a flex item
+   it shrinks with its row down to min-width, then wraps to the next line rather
+   than squeezing the name further. */
 .person-card-wrap {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  width: 240px;
+  min-width: 200px;
 }
 .person-card-role {
   color: var(--muted);
@@ -2940,9 +2962,11 @@ button:focus-visible {
   font-variant: small-caps;
   letter-spacing: 0.05em;
 }
+/* Block, not inline-block: the card fills the wrap's width instead of shrinking
+   to its text (the detach button is positioned against this row). */
 .person-card-row {
   position: relative;
-  display: inline-block;
+  display: block;
 }
 /* Bottom-right corner: the years/kinship line is short, so the button clears
    the card's text, while a long name would run under it at the top. */
@@ -2975,7 +2999,7 @@ button:focus-visible {
 
 /* Relative picker — inline search-and-pick widget for adding relatives */
 .relative-picker {
-  width: 200px;
+  width: 100%;
   border: 1px dashed var(--border);
   border-radius: var(--radius);
   overflow: hidden;
@@ -6570,25 +6594,14 @@ kbd {
     height: auto;
   }
 
-  /* Editor: stack parent cards vertically (hide horizontal connector) */
-  .edit-parent-group {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .edit-parent-group .person-card {
-    width: 100%;
-  }
+  /* Editor: no room for the bare connector line between the parent cards (the
+     couple's marriage line drops below them — see the `parents` container
+     query — and stays visible). */
   .edit-connector-h {
     display: none;
   }
-  /* …but keep the couple-events label visible between the stacked cards. */
   .edit-connector-h.has-events {
     display: flex;
-  }
-
-  /* Editor: partner card takes full row */
-  .edit-family-card-row .person-card {
-    width: 100%;
   }
 
   /* Event rows: tighter gaps; the flex-wrap already reflows the body as width
