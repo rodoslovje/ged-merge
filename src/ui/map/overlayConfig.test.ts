@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { MapOverlay } from "../SettingsContext";
 import { overlaySignature, overlayZIndex, parseWmsParams } from "./overlayConfig";
-import { OVERLAY_PRESETS, resolveOverlay } from "./overlayPresets";
+import { OVERLAY_PRESETS, overlayCoverage, resolveOverlay } from "./overlayPresets";
 
 const base: MapOverlay = { id: "a", name: "", url: "https://tiles.example/{z}/{x}/{y}.png" };
 
@@ -51,5 +51,36 @@ describe("resolveOverlay", () => {
     const resolved = resolveOverlay(stored);
     expect(resolved.url).toBe(preset.url);
     expect(resolved.defaultOn).toBe(true);
+  });
+
+  it("leaves the preset's own coverage out of the layer", () => {
+    const preset = OVERLAY_PRESETS[0]!;
+    expect(preset.coverage).toBeDefined();
+    const resolved = resolveOverlay({ id: "x", name: "", url: "", presetKey: preset.key });
+    // A manual edit captures the resolved config and stores it; coverage
+    // documents the source, so it must not travel into stored settings.
+    expect(resolved).not.toHaveProperty("coverage");
+  });
+});
+
+describe("overlayCoverage", () => {
+  it("reports the preset's coverage, and nothing for a layer of one's own", () => {
+    const preset = OVERLAY_PRESETS[0]!;
+    expect(overlayCoverage({ id: "x", name: "", url: "", presetKey: preset.key })).toBe(preset.coverage);
+    expect(overlayCoverage({ id: "y", name: "Mine", url: "https://example.com/{z}/{x}/{y}.png" })).toBeUndefined();
+  });
+
+  it("gives every bundled preset a plausible box", () => {
+    for (const preset of OVERLAY_PRESETS) {
+      const box = preset.coverage;
+      expect(box, preset.key).toBeDefined();
+      const [south, west, north, east] = box!;
+      expect(south, preset.key).toBeLessThan(north);
+      expect(west, preset.key).toBeLessThan(east);
+      expect(south, preset.key).toBeGreaterThanOrEqual(-90);
+      expect(north, preset.key).toBeLessThanOrEqual(90);
+      expect(west, preset.key).toBeGreaterThanOrEqual(-180);
+      expect(east, preset.key).toBeLessThanOrEqual(180);
+    }
   });
 });

@@ -2,9 +2,9 @@ import { lazy, Suspense, useMemo, useState, useTransition } from "react";
 import { useTranslation } from "react-i18next";
 import { useModalKeyboard } from "../keyboard/useModalKeyboard";
 import { useSettings, useNameOf, type MapOverlay } from "./SettingsContext";
-import { OVERLAY_PRESETS, resolveOverlay } from "./map/overlayPresets";
+import { OVERLAY_PRESETS, overlayCoverage, resolveOverlay, type CoverageBox } from "./map/overlayPresets";
 import { BASEMAPS, CUSTOM_BASEMAP } from "./map/basemapPresets";
-import type { MiniMapPin } from "./map/MiniPlaceMap";
+import type { MiniMapPin, MiniMapView } from "./map/MiniPlaceMap";
 import { xrefLabel, type NameOrder } from "../gedcom/nameDisplay";
 import type { PersonName } from "../gedcom/types";
 import { SUPPORTED_LANGUAGES } from "../locales/i18n";
@@ -118,12 +118,11 @@ const LANG_LABELS: Record<string, string> = { en: "🇬🇧 English", sl: "🇸�
 const SAMPLE_NAME: PersonName = { full: "Ana Novak", given: "Ana", surname: "Novak", married: "Kovač" };
 const SAMPLE_XREF = "@I42@";
 
-/** What the base-map sample opens on: Bled — lake, town and mountains in one
- *  frame, so a plain street map, a shaded relief and an aerial image are all
- *  told apart at a glance. It is also inside the coverage of the Slovenian
- *  layer presets, so a layer marked Default shows up here. The sample map
- *  pans and zooms, so anywhere else is one drag away. */
-const SAMPLE_MAP_VIEW = { center: { lat: 46.3683, lon: 14.1146 }, zoom: 13 };
+/** What the base-map sample falls back to: Bled — lake, town and mountains in
+ *  one frame, so a plain street map, a shaded relief and an aerial image are
+ *  all told apart at a glance. Used until a layer marked Default names ground
+ *  of its own; the sample pans and zooms, so anywhere else is one drag away. */
+const SAMPLE_MAP_BOX: CoverageBox = [46.335, 14.06, 46.4, 14.17];
 /** Nothing is plotted on the sample — a stable identity so the map's marker
  *  pass doesn't rerun on every render of this modal. */
 const NO_PINS: MiniMapPin[] = [];
@@ -165,6 +164,26 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
       if (!next.delete(id)) next.add(id);
       return next;
     });
+
+  // The layer the base-map sample frames: whichever was last switched on by
+  // default, so ticking a regional map takes the sample to the region it
+  // covers. Held by id — the layer may be edited, moved or removed meanwhile.
+  const [framedOverlay, setFramedOverlay] = useState<string | null>(null);
+  const sampleView = useMemo((): MiniMapView => {
+    const shown = settings.mapOverlays.filter((o) => o.defaultOn);
+    // The layer last ticked leads. Failing that — it was unticked again, or it
+    // is one of the user's own, which declares no extent — the first layer on
+    // show that does name its ground; failing that, the standing sample.
+    const last = shown.find((o) => o.id === framedOverlay);
+    const framed = (last && overlayCoverage(last) ? last : undefined) ?? shown.find((o) => overlayCoverage(o));
+    return {
+      box: (framed && overlayCoverage(framed)) ?? SAMPLE_MAP_BOX,
+      // A layer that only draws from a given zoom in (GURS's topographic maps)
+      // is shown at that zoom instead of fitted whole and left blank.
+      minZoom: framed && resolveOverlay(framed).minZoom,
+      maxZoom: 13,
+    };
+  }, [settings.mapOverlays, framedOverlay]);
 
   const [, startTransition] = useTransition();
   const [pendingOverrides, setPendingOverrides] = useState<FormatOverrides | null>(null);
@@ -449,13 +468,15 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
             <fieldset className="settings-fieldset" disabled={!settings.allowMapTiles}>
               {/* The choice below, drawn: the sample redraws on every change of
                   base map, custom URL or theme, and carries the layers marked
-                  Default — what every map in the app will then look like. Shown
-                  only once tiles are allowed: before that there is nothing to
-                  preview but the offline outline. */}
+                  Default — what every map in the app will then look like. It
+                  frames whichever of those layers was switched on last, so a
+                  layer covering another country is not switched on into an
+                  empty frame. Shown only once tiles are allowed: before that
+                  there is nothing to preview but the offline outline. */}
               {settings.allowMapTiles && (
                 <div className="settings-map-preview">
                   <Suspense fallback={<div className="tools-geo-minimap" />}>
-                    <MiniPlaceMap pins={NO_PINS} view={SAMPLE_MAP_VIEW} />
+                    <MiniPlaceMap pins={NO_PINS} view={sampleView} />
                   </Suspense>
                   <p className="settings-hint">{t("settings.map.preview")}</p>
                 </div>
@@ -551,8 +572,12 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
               // Name and "show by default" are preferences, not config — they
               // patch the stored layer directly and keep the preset link.
               const updateName = (name: string) => replace({ ...stored, name });
-              const updateDefaultOn = (defaultOn: boolean) =>
+              const updateDefaultOn = (defaultOn: boolean) => {
+                // Switching a layer on aims the sample above at it, so its
+                // effect is visible even when it covers another country.
+                if (defaultOn) setFramedOverlay(stored.id);
                 replace({ ...stored, defaultOn: defaultOn || undefined });
+              };
               const update = (patch: Partial<MapOverlay>) =>
                 replace({ ...layer, ...patch, id: stored.id, name: stored.name, presetKey: undefined });
               const yearPatch = (key: "yearFrom" | "yearTo", raw: string): Partial<MapOverlay> => {

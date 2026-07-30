@@ -12,10 +12,23 @@ import type { MapOverlay } from "../SettingsContext";
  *  burned into PNG exports. */
 const GURS_ATTRIBUTION = "© Geodetska uprava Republike Slovenije (GURS), CC BY 4.0";
 
+/** Where on Earth a map actually has content: `[south, west, north, east]` in
+ *  degrees — Leaflet's own corner order. */
+export type CoverageBox = readonly [number, number, number, number];
+
+/** Coverage shared by several presets. The two national boxes are the
+ *  countries' extents; the self-hosted pyramids' boxes are the real extent of
+ *  the sheets that were built (scripts/manifests/*.json). */
+const SLOVENIA: CoverageBox = [45.42, 13.37, 46.88, 16.61];
+const SWITZERLAND: CoverageBox = [45.8, 5.95, 47.81, 10.5];
+
 /** A preset carries an i18n `key` for its localized name instead of a literal;
  *  the component resolves it with `t()` and stores it as the layer's presetKey
- *  so added layers stay localized (until manually renamed). */
-export type OverlayPreset = Omit<MapOverlay, "id" | "name"> & { key: string };
+ *  so added layers stay localized (until manually renamed). It also declares
+ *  its {@link CoverageBox} — that is documentation about the source, not part
+ *  of the drawn configuration, so {@link resolveOverlay} keeps it out of the
+ *  stored layer. */
+export type OverlayPreset = Omit<MapOverlay, "id" | "name"> & { key: string; coverage?: CoverageBox };
 
 /** Verified free overlay sources offered as one-click presets: open license,
  *  no API key, CORS-enabled (historical sources checked live 2026-07-18; GURS
@@ -35,6 +48,7 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     yearTo: 1918,
     attribution: "Spezialkarte 1:75.000 · public domain / CC0 (dLib.si, NYPL, IOS)",
     maxZoom: 14,
+    coverage: [42.25, 13.34, 47.0, 21.34],
   },
   {
     // Self-hosted pyramid: Schraembl's Neueste Generalkarte von Deutschland
@@ -52,6 +66,7 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     yearTo: 1806,
     attribution: "David Rumsey Map Collection, Stanford Libraries · CC BY-NC-SA 3.0",
     maxZoom: 11,
+    coverage: [44.75, 3.28, 55.27, 20.32],
   },
   {
     key: "settings.map.overlays.preset.france.etatmajor",
@@ -60,6 +75,7 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     yearTo: 1866,
     attribution: "© IGN, Licence Ouverte 2.0 (Etalab)",
     maxZoom: 15,
+    coverage: [41.3, -5.2, 51.1, 9.6],
   },
   {
     key: "settings.map.overlays.preset.swiss.dufour",
@@ -68,6 +84,7 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     yearTo: 1865,
     attribution: "© swisstopo",
     maxZoom: 14,
+    coverage: SWITZERLAND,
   },
   {
     key: "settings.map.overlays.preset.swiss.siegfried",
@@ -76,6 +93,7 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     yearTo: 1926,
     attribution: "© swisstopo",
     maxZoom: 13,
+    coverage: SWITZERLAND,
   },
   // Slovenia · GURS public WMS (Geodetska uprava RS), CC BY 4.0, CORS-enabled,
   // served in Web Mercator on demand. Reference (present-day) layers useful for
@@ -90,6 +108,7 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     layers: "SI.GURS.ZPDZ:DOF050_Z",
     params: "TIME=2011-01-01T00:00:00.000Z",
     attribution: GURS_ATTRIBUTION,
+    coverage: SLOVENIA,
   },
   {
     key: "settings.map.overlays.preset.gurs.ortho",
@@ -97,6 +116,7 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     url: "https://ipi.eprostor.gov.si/wms-si-gurs-dts/wms",
     layers: "SI.GURS.ZPDZ:DOF025",
     attribution: GURS_ATTRIBUTION,
+    coverage: SLOVENIA,
   },
   // No preset for SI.GURS.ZPDZ:DOF050: it is the same survey as DOF025 at half
   // the source resolution — same coverage, same scale range, visibly softer.
@@ -135,6 +155,7 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     // continent-sized; below this the country is a speck anyway.
     minZoom: 9,
     attribution: GURS_ATTRIBUTION,
+    coverage: SLOVENIA,
   },
   {
     // Temeljni topografski načrt 1:5000/1:10000 — the older black-and-white
@@ -156,6 +177,7 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     maxScaleDenominator: 11000,
     minZoom: 15,
     attribution: GURS_ATTRIBUTION,
+    coverage: SLOVENIA,
   },
   {
     key: "settings.map.overlays.preset.gurs.parcels",
@@ -167,6 +189,7 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     // how you read the id most of the time.
     queryLayers: "SI.GURS.KN:PARCELE",
     attribution: GURS_ATTRIBUTION,
+    coverage: SLOVENIA,
   },
   {
     // Cadastral municipality (katastrska občina) boundaries + names. Parish and
@@ -180,6 +203,7 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     queryLayers: "SI.GURS.KN:KATASTRSKE_OBCINE",
     tileSize: 1024,
     attribution: GURS_ATTRIBUTION,
+    coverage: SLOVENIA,
   },
   {
     key: "settings.map.overlays.preset.gurs.houseNumbers",
@@ -190,6 +214,7 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     // popup can show the full street/number/settlement instead of raw IDs.
     queryLayers: "SI.GURS.KN:NASLOVI_HS",
     attribution: GURS_ATTRIBUTION,
+    coverage: SLOVENIA,
   },
   {
     key: "settings.map.overlays.preset.gurs.settlements",
@@ -201,6 +226,7 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     styles: "nep_rpe_na,nep_rpe_na_lbl",
     tileSize: 1024,
     attribution: GURS_ATTRIBUTION,
+    coverage: SLOVENIA,
   },
   {
     key: "settings.map.overlays.preset.gurs.municipalities",
@@ -210,6 +236,7 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     styles: "nep_rpe_obcine,nep_rpe_obcine_lbl",
     tileSize: 1024,
     attribution: GURS_ATTRIBUTION,
+    coverage: SLOVENIA,
   },
 ];
 
@@ -225,7 +252,17 @@ export function resolveOverlay(o: MapOverlay): MapOverlay {
   if (!o.presetKey) return o;
   const preset = PRESET_BY_KEY.get(o.presetKey);
   if (!preset) return o;
-  const { key: _key, ...tech } = preset;
+  // key and coverage describe the preset, not the layer to draw — dropping
+  // them here keeps them out of the config a manual edit captures and stores.
+  const { key: _key, coverage: _coverage, ...tech } = preset;
   void _key;
+  void _coverage;
   return { ...tech, id: o.id, name: o.name, presetKey: o.presetKey, defaultOn: o.defaultOn };
+}
+
+/** Where the layer has content, when it came from a preset that declares it.
+ *  A layer the user configured themselves has no declared extent — its URL
+ *  says nothing about what ground it covers — so this is undefined for it. */
+export function overlayCoverage(o: MapOverlay): CoverageBox | undefined {
+  return o.presetKey ? PRESET_BY_KEY.get(o.presetKey)?.coverage : undefined;
 }
