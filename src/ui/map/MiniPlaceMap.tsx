@@ -231,12 +231,17 @@ export default function MiniPlaceMap({ pins, context = NO_CONTEXT, path, onPickC
     const map = mapRef.current;
     if (!map) return;
     baseLayerRef.current?.remove();
-    const base = createBaseLayer(appSettings.allowMapTiles, appSettings.mapTileUrl, theme).addTo(map);
+    const base = createBaseLayer(
+      appSettings.allowMapTiles,
+      appSettings.mapBasemap,
+      appSettings.mapTileUrl,
+      theme,
+    ).addTo(map);
     // The offline outline is a vector layer added after the pins — push it
     // below them or its opaque land fill hides everything already drawn.
     if (base instanceof L.GeoJSON) base.bringToBack();
     baseLayerRef.current = base;
-  }, [appSettings.allowMapTiles, appSettings.mapTileUrl, theme]);
+  }, [appSettings.allowMapTiles, appSettings.mapBasemap, appSettings.mapTileUrl, theme]);
 
   // Historical overlays: these small maps have no picker, so they draw exactly
   // the layers marked "show by default" in Settings, at the standard overlay

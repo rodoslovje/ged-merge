@@ -9,6 +9,7 @@ import {
 } from "../gedcom/nameDisplay";
 import { sanitizeFormatOverrides, type FormatOverrides } from "../normalize/formatOverrides";
 import type { NativePyramid } from "./map/tilePlan";
+import { CUSTOM_BASEMAP, isKnownBasemap } from "./map/basemapPresets";
 
 // App-wide user preferences, persisted to localStorage so they stick across
 // sessions. Follows the same shape as ChartSettingsContext: one provider near
@@ -104,8 +105,11 @@ export interface AppSettings extends NameDisplayOptions {
   allowMapTiles: boolean;
   /** Show the small per-person places map under the Edit view's events. */
   showEditMap: boolean;
-  /** Custom XYZ tile URL template ({z}/{x}/{y}); empty = the default CARTO
-   *  basemap matching the current theme. */
+  /** Which base map the Map chart draws: a {@link BASEMAPS} preset id ("" =
+   *  the default), or CUSTOM_BASEMAP to use {@link mapTileUrl}. */
+  mapBasemap: string;
+  /** Custom XYZ tile URL template ({z}/{x}/{y}), used when `mapBasemap` is
+   *  CUSTOM_BASEMAP. */
   mapTileUrl: string;
   /** Historical map overlay layers (bring-your-own tile URLs + presets). */
   mapOverlays: MapOverlay[];
@@ -127,6 +131,7 @@ const DEFAULTS: AppSettings = {
   allowLinkFetch: false,
   allowMapTiles: false,
   showEditMap: true,
+  mapBasemap: "",
   mapTileUrl: "",
   mapOverlays: [],
   formatOverrides: {},
@@ -235,6 +240,13 @@ function load(): AppSettings {
       // Legacy home of this preference (before it moved into Settings).
       showEditMap: bool(parsed.showEditMap, localStorage.getItem("gedmerge-edit-map-hidden") !== "true"),
       mapTileUrl: typeof parsed.mapTileUrl === "string" ? parsed.mapTileUrl : DEFAULTS.mapTileUrl,
+      mapBasemap:
+        typeof parsed.mapBasemap === "string" && isKnownBasemap(parsed.mapBasemap)
+          ? parsed.mapBasemap
+          : // Saved before the picker existed, when a tile URL meant "custom".
+            typeof parsed.mapTileUrl === "string" && parsed.mapTileUrl.trim()
+            ? CUSTOM_BASEMAP
+            : DEFAULTS.mapBasemap,
       mapOverlays: sanitizeOverlays(parsed.mapOverlays),
       formatOverrides: {
         // Legacy key from the first page-media release, folded into overrides.

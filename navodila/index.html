@@ -247,7 +247,7 @@
               <li><strong>Prikaz</strong> — <em>Prikaži oznake zapisov</em> postavi GEDCOM oznako zapisa (xref) ob ime osebe; <em>Prikaži sorodstvo</em> pokaže sorodstveno vez vsake osebe do vaše <a href="#home-person">izhodiščne osebe</a> (§6) po vsej aplikaciji; <em>Prikaži starosti</em> pa doda starosti za razponi let in ob datumih dogodkov.</li>
               <li><strong>Podatki</strong> — <em>Zapomni si moje delo v tem brskalniku</em> (glejte <em>Ohranjanje dela</em> spodaj).</li>
               <li><strong>GEDCOM</strong> — prepišite katero koli pravilo datoteke, ki bi ga GED Merge sicer zaznal sam: obliko datumov, neznane dele datuma, obliko krajev, dodatna imena, oznako za neznano ime, postavitev virov in navedb, povezave strani, krstne navedbe, podvojene povezave, oznako zasebnosti ter jezike povezav Matricula/Geneanet. Vsako privzeto stoji na <em>Samodejno (zaznano)</em> — sledi navadi datoteke — izbrana vrednost pa se nato uveljavi v poenotenju vhodne datoteke, <a href="#tools">Uredi vire</a>, Dodaj vir in urejanju. Izbire za datume, kraje, imena in povezave začnejo veljati ob naslednjem nalaganju datoteke. Glejte <a href="#house-style">§7</a> in <a href="#sources">§13</a>.</li>
-              <li><strong>Zemljevid</strong> — <em>Nalagaj ploščice zemljevida</em> vklopi ulično ozadje CARTO za <a href="#map">Zemljevid krajev</a> (zahteve za ploščice razkrijejo ogledovano območje; izklopljeno = vgrajeni obris brez povezave), z izbirno predlogo lastnega naslova ploščic. <em>Dodatni sloji zemljevida</em> nastavi karte, izrisane čez osnovno karto — izberite vgrajeni brezplačni sloj (vključno s slovenskimi državnimi kartami GURS) ali dodajte svojo predlogo URL ploščic ali storitev OGC&nbsp;WMS (ime, URL, veljavna leta, navedba vira). Glejte <a href="#map">§9</a>.</li>
+              <li><strong>Zemljevid</strong> — <em>Nalagaj ploščice zemljevida</em> vklopi kartografsko ozadje za <a href="#map">Zemljevid krajev</a> (zahteve za ploščice razkrijejo ogledovano območje; izklopljeno = vgrajeni obris brez povezave), <em>Osnovni zemljevid</em> pa izbere, katero: CARTO, OpenStreetMap, reliefno, Esrijevo satelitsko ali topografsko ali vašo predlogo URL ploščic. <em>Dodatni sloji zemljevida</em> nastavi karte, izrisane čez osnovno karto — izberite vgrajeni brezplačni sloj (vključno s slovenskimi državnimi kartami GURS) ali dodajte svojo predlogo URL ploščic ali storitev OGC&nbsp;WMS (ime, URL, veljavna leta, navedba vira). Glejte <a href="#map">§9</a>.</li>
               <li><strong>Napredno › Povezave</strong> — <em>Poišči podatke o povezavi na spletu</em>: ko vir dodate iz golega naslova URL, GED Merge prek javnega posrednika pridobi naslov strani. Poganja tudi prenosa imenika z OpenStreetMap in GURS z enim klikom ter spletni iskanji po vrsticah (OpenStreetMap in GOV), ki ju uporablja <a href="#tools">Geokodiranje krajev</a>. <strong>To sta edini funkciji, ki karkoli pošljeta z vaše naprave, in sta privzeto izklopljeni.</strong></li>
             </ul>
 
@@ -561,6 +561,15 @@
                 postanke, povezane s črto in puščicami v smeri selitve. Klik na pot (ali gumb
                 <span class="gm-glyph">〰</span> ob osebi v podoknu dogodkov) jo osami — ostale zbledijo, odseki se
                 oštevilčijo, nad zemljevidom pa se pokaže značka z imenom.</li>
+              <li><strong>Osnovni zemljevid</strong> — podlaga, na katero se rišejo vsi zemljevidi; izberete jo v
+                <strong>Nastavitve → Zemljevid → Osnovni zemljevid</strong>. Pet jih ne potrebuje računa: privzeti
+                enostavni slog <em>CARTO</em>, ki sledi svetli ali temni temi; navadni <em>OpenStreetMap</em>, ki
+                navaja največ zaselkov, kmetij, kapelic in pokopališč; <em>reliefna</em> karta, katere plastnice in
+                senčenje pokažejo dolino, v kateri je družina ostala, in greben, ki je ločeval dve župniji; ter
+                Esrijev <em>satelitski</em> in <em>topografski</em> pogled — prvi odgovori, ali hiša še stoji, drugi
+                se dobro natisne. <em>URL po meri …</em> namesto tega prevzame vašo predlogo
+                <code>{z}/{x}/{y}</code>, za njeno licenco in navedbo vira pa poskrbite sami. Navedba vira na
+                zemljevidu in v izvozih PNG sledi izbiri.</li>
               <li><strong>Sloji</strong> — dodatne karte, izrisane čez osnovni zemljevid. Nastavite jih enkrat v
                 <strong>Nastavitve → Zemljevid → Dodatni sloji zemljevida</strong>: ime, predloga URL ploščic
                 z <code>{z}/{x}/{y}</code>, leta, ki jih karta prikazuje, in zahtevana navedba vira
@@ -604,7 +613,7 @@
                 tako na Zemljevidu krajev kot na malih zemljevidih osebe in geokodiranja; ko se izgubite ob sledenju
                 sloju, z enim klikom vrne celotno sliko. Ob prehodu z miško oznaka izpiše kraj, ki ga predstavlja (pri
                 enem samem dogodku tudi ulični naslov).</li>
-              <li><strong>Zasebnost</strong> — ulično ozadje se naloži šele po <em>privolitvi</em>: dokler ploščic ne
+              <li><strong>Zasebnost</strong> — kartografsko ozadje se naloži šele po <em>privolitvi</em>: dokler ploščic ne
                 dovolite (en klik na zemljevidu ali Nastavitve → Zemljevid), se zemljevid riše na vgrajenem obrisu sveta
                 in nič ne zapusti vaše naprave. Nastavitev diagramov <em>Skrij žive osebe</em> odstrani njihove oznake
                 in poti v celoti.</li>
@@ -620,9 +629,13 @@
               <span class="gm-callout-label">Viri podatkov in licence</span>
               <p>
               Podatki zemljevida prihajajo od tretjih oseb in vsak ohranja svojo licenco — zahtevana navedba vira je
-              prikazana na zemljevidu in vžgana v izvoze PNG. Osnovna ulična karta je
+              prikazana na zemljevidu in vžgana v izvoze PNG. Osnovni zemljevidi so
               © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>
-              (ODbL) prek <a href="https://carto.com/attributions" target="_blank" rel="noopener noreferrer">CARTO</a>.
+              (ODbL), izrisani pri <a href="https://carto.com/attributions" target="_blank" rel="noopener noreferrer">CARTO</a>,
+              pri fundaciji OpenStreetMap ali — z višinami SRTM — pri
+              <a href="https://opentopomap.org" target="_blank" rel="noopener noreferrer">OpenTopoMap</a> (CC&nbsp;BY-SA);
+              satelitski in topografski pogled sta © Esri in njegovi dobavitelji podatkov. Vse so storitve iz
+              dobre volje, v okviru poštene rabe: namenjene so ogledu krajev vaše družine, ne množičnemu prenašanju.
               Prekrivni sloji: slovenske karte <strong>GURS</strong> © Geodetska uprava Republike Slovenije, pod licenco
               <a href="https://creativecommons.org/licenses/by/4.0/deed.sl" target="_blank" rel="noopener noreferrer">CC&nbsp;BY&nbsp;4.0</a>;
               francoski état-major © IGN, Licence Ouverte 2.0; švicarska Dufour/Siegfried © swisstopo; Spezialkarte je

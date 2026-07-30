@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useModalKeyboard } from "../keyboard/useModalKeyboard";
 import { useSettings, useNameOf, type MapOverlay } from "./SettingsContext";
 import { OVERLAY_PRESETS, resolveOverlay } from "./map/overlayPresets";
+import { BASEMAPS, CUSTOM_BASEMAP } from "./map/basemapPresets";
 import { xrefLabel, type NameOrder } from "../gedcom/nameDisplay";
 import type { PersonName } from "../gedcom/types";
 import { SUPPORTED_LANGUAGES } from "../locales/i18n";
@@ -429,17 +430,37 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
               </span>
             </label>
             {settings.allowMapTiles && (
-              <label className="settings-row settings-format-row" title={t("settings.map.tileUrl.hint")}>
-                <span className="settings-row-label">{t("settings.map.tileUrl")}</span>
-                <input
-                  type="text"
-                  className="settings-text-input"
-                  value={settings.mapTileUrl}
-                  placeholder={t("settings.map.tileUrl.default")}
-                  title={t("settings.map.tileUrl.hint")}
-                  onChange={(e) => set({ mapTileUrl: e.target.value.trim() })}
-                />
-              </label>
+              <>
+                <label className="settings-row settings-format-row" title={t("settings.map.basemap.hint")}>
+                  <span className="settings-row-label">{t("settings.map.base")}</span>
+                  <select
+                    value={settings.mapBasemap}
+                    title={t("settings.map.basemap.hint")}
+                    onChange={(e) => set({ mapBasemap: e.target.value })}
+                  >
+                    {BASEMAPS.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {t(b.key)}
+                      </option>
+                    ))}
+                    <option value={CUSTOM_BASEMAP}>{t("basemap.custom")}</option>
+                  </select>
+                </label>
+                <p className="settings-hint">{t("settings.map.basemap.hint")}</p>
+                {settings.mapBasemap === CUSTOM_BASEMAP && (
+                  <label className="settings-row settings-format-row" title={t("settings.map.tileUrl.hint")}>
+                    <span className="settings-row-label">{t("settings.map.tileUrl")}</span>
+                    <input
+                      type="text"
+                      className="settings-text-input"
+                      value={settings.mapTileUrl}
+                      placeholder={t("settings.map.tileUrl.placeholder")}
+                      title={t("settings.map.tileUrl.hint")}
+                      onChange={(e) => set({ mapTileUrl: e.target.value.trim() })}
+                    />
+                  </label>
+                )}
+              </>
             )}
 
           </section>

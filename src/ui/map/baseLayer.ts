@@ -1,28 +1,34 @@
 import L from "leaflet";
 import worldOutline from "../../geo/world110m.json";
+import { activeBasemap, basemapUrl } from "./basemapPresets";
 
 // Shared Leaflet base layer, used by the full Map chart and the geocode
 // mini map: opt-in provider tiles (requests reveal the viewed region), else
-// the bundled offline world outline.
-
-export const LIGHT_TILES = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
-export const DARK_TILES = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
-export const TILE_ATTRIBUTION =
-  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
+// the bundled offline world outline. Which provider is drawn comes from
+// BASEMAPS in ./basemapPresets.
 
 /** Build the base layer for the current settings/theme (not yet added to a
  *  map). SVG presentation attributes don't resolve var(), so the outline
  *  colours are read from the design tokens at call time — call again on
  *  theme change. */
-export function createBaseLayer(allowTiles: boolean, customUrl: string | undefined, theme: "light" | "dark"): L.Layer {
+export function createBaseLayer(
+  allowTiles: boolean,
+  basemap: string,
+  customUrl: string | undefined,
+  theme: "light" | "dark",
+): L.Layer {
   if (allowTiles) {
-    const custom = customUrl;
-    return L.tileLayer(custom || (theme === "dark" ? DARK_TILES : LIGHT_TILES), {
-      attribution: custom ? "" : TILE_ATTRIBUTION,
+    const preset = activeBasemap(basemap, customUrl);
+    // No preset means the user's own tile URL: we know neither its shards nor
+    // its terms, so Leaflet's defaults stand and no attribution is asserted.
+    if (!preset)
+      return L.tileLayer((customUrl ?? "").trim(), { attribution: "", crossOrigin: "anonymous", maxZoom: 18 });
+    return L.tileLayer(basemapUrl(preset, theme), {
+      attribution: preset.attribution,
       crossOrigin: "anonymous",
-      // The CARTO default uses a–d shards; a custom URL keeps Leaflet's own default.
-      ...(custom ? {} : { subdomains: "abcd" }),
+      ...(preset.subdomains ? { subdomains: preset.subdomains } : {}),
       maxZoom: 18,
+      maxNativeZoom: preset.maxNativeZoom,
     });
   }
   const styles = getComputedStyle(document.documentElement);

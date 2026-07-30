@@ -44,6 +44,7 @@ import {
 } from "./markerStyle";
 import { YearRangeSlider } from "./YearRangeSlider";
 import { createBaseLayer } from "./baseLayer";
+import { basemapCredit } from "./basemapPresets";
 import { arrowMarker, pathLegNumbers } from "./pathStops";
 import { addFitControl, boundsOfCoords } from "./fitControl";
 import { OVERLAY_DEFAULT_OPACITY } from "./overlayConfig";
@@ -303,8 +304,13 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
     const map = mapRef.current;
     if (!map) return;
     baseLayerRef.current?.remove();
-    baseLayerRef.current = createBaseLayer(appSettings.allowMapTiles, appSettings.mapTileUrl, theme).addTo(map);
-  }, [appSettings.allowMapTiles, appSettings.mapTileUrl, theme]);
+    baseLayerRef.current = createBaseLayer(
+      appSettings.allowMapTiles,
+      appSettings.mapBasemap,
+      appSettings.mapTileUrl,
+      theme,
+    ).addTo(map);
+  }, [appSettings.allowMapTiles, appSettings.mapBasemap, appSettings.mapTileUrl, theme]);
 
   // Historical overlays: keep the live tile layers in sync with the picker.
   // Overlay tiles are remote fetches like the base — the same opt-in gates
@@ -600,9 +606,7 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
                     return layerEl ? [{ el: layerEl, opacity: overlayOpacity.get(o.id) ?? OVERLAY_DEFAULT_OPACITY }] : [];
                   });
                 const baseAttribution = appSettings.allowMapTiles
-                  ? appSettings.mapTileUrl
-                    ? ""
-                    : "© OpenStreetMap contributors © CARTO"
+                  ? basemapCredit(appSettings.mapBasemap, appSettings.mapTileUrl)
                   : "Natural Earth";
                 const attribution = [
                   baseAttribution,
