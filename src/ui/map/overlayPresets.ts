@@ -54,7 +54,11 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     // Third Military Survey, all 805 sheets of the 1:75 000 Spezialkarte, from
     // Saxony to Montenegro and from Tyrol to Bukovina. Resolved from the
     // Mapster catalogue and built with scripts/spezialkarte-sheets.py +
-    // scripts/overlay-tiles.py; see scripts/manifests/README.md.
+    // scripts/overlay-tiles.py; see scripts/manifests/README.md. Each sheet is
+    // placed by its own printed graticule, converted from the survey's Bessel /
+    // Hermannskogel datum to WGS 84 — without that the sheets sit 200-450 m
+    // east of modern coordinates, by a margin that grows towards Galicia. The
+    // ~100 m that remains is the survey's own error and is left visible.
     key: "settings.map.overlays.preset.spezialkarte",
     url: "https://tiles.gedmerge.com/spezialkarte-monarchy/{z}/{x}/{y}.webp",
     yearFrom: 1877,

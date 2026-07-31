@@ -36,6 +36,7 @@ edition falls back to whatever it has, and is flagged in the summary.
 
 import argparse
 import html
+import math
 import json
 import os
 import re
@@ -72,11 +73,67 @@ def roman(s):
     return n
 
 
+# The survey's degrees are not WGS 84 degrees. Its graticule was computed on
+# the Bessel ellipsoid from the Hermannskogel datum, so a sheet pinned at its
+# printed degrees lands a few hundred metres east of where those coordinates
+# fall today — measured against modern rivers, railways and main roads, the
+# uncorrected overlay sat +172 m east at Prague, +280 m at Vienna, +439 m at
+# Budapest and +442 m at Kraków, growing eastward as the old triangulation
+# drifts away from its Vienna origin. A geocentric datum shift reproduces that
+# growth (it predicts 366 / 386 / 414 / 423 m for the same four), which no
+# constant offset does, and brings the residual down to roughly 100 m — the
+# survey's own error, which stays visible.
+#
+# Of the published MGI→WGS 84 parameter sets, this one (EPSG:1188, fitted over
+# the former Yugoslavia) tracks the measurements best across the whole series;
+# the Austrian set (EPSG:1618) predicts only ~56 m and would leave most of the
+# error in place. It is applied to the sheet grid, so it moves every sheet the
+# same way and cannot pull one region out of line with its neighbours.
+DATUM_SHIFT = (682.0, -203.0, 480.0)          # metres, Bessel/MGI → WGS 84
+BESSEL = (6377397.155, 1 / 299.1528128)
+WGS84 = (6378137.0, 1 / 298.257223563)
+
+
+def _to_geocentric(lat, lon, ellipsoid):
+    a, f = ellipsoid
+    e2 = f * (2 - f)
+    p, l = math.radians(lat), math.radians(lon)
+    n = a / math.sqrt(1 - e2 * math.sin(p) ** 2)
+    return (n * math.cos(p) * math.cos(l), n * math.cos(p) * math.sin(l), n * (1 - e2) * math.sin(p))
+
+
+def _to_geodetic(x, y, z, ellipsoid):
+    a, f = ellipsoid
+    e2 = f * (2 - f)
+    lon = math.atan2(y, x)
+    r = math.hypot(x, y)
+    lat = math.atan2(z, r * (1 - e2))
+    for _ in range(6):
+        n = a / math.sqrt(1 - e2 * math.sin(lat) ** 2)
+        lat = math.atan2(z + e2 * n * math.sin(lat), r)
+    return math.degrees(lat), math.degrees(lon)
+
+
+def to_wgs84(lat, lon):
+    """A point read off the survey's graticule → where it lies on WGS 84."""
+    x, y, z = _to_geocentric(lat, lon, BESSEL)
+    return _to_geodetic(x + DATUM_SHIFT[0], y + DATUM_SHIFT[1], z + DATUM_SHIFT[2], WGS84)
+
+
 def cell_bbox(zone, col):
-    """(west, south, east, north) of a godło's neatline, Greenwich degrees."""
+    """(west, south, east, north) of a godło's neatline, WGS 84 degrees.
+
+    The sheet's own graticule gives the box; the datum shift then says where
+    those degrees fall today. Over half a degree the shift varies by under a
+    metre, so it is taken at the sheet's centre and the box stays a rectangle —
+    which is what the tiler masks against."""
     west = (col + COL0) * 0.5 - FERRO
     north = LAT0 + (ZONE0 - zone) * 0.25
-    return [round(west, 6), round(north - 0.25, 6), round(west + 0.5, 6), round(north, 6)]
+    lat, lon = north - 0.125, west + 0.25
+    moved_lat, moved_lon = to_wgs84(lat, lon)
+    dlat, dlon = moved_lat - lat, moved_lon - lon
+    return [round(west + dlon, 6), round(north - 0.25 + dlat, 6),
+            round(west + 0.5 + dlon, 6), round(north + dlat, 6)]
 
 
 def curl(url, out=None, resume=False):
@@ -267,11 +324,23 @@ def main():
     ap.add_argument("--year-from", type=int, default=1873)
     ap.add_argument("--year-to", type=int, default=1920)
     ap.add_argument("--download", metavar="DIR", help="fetch the selected scans into DIR")
+    ap.add_argument("--rewrite-bbox", metavar="MANIFEST",
+                    help="re-derive every sheet's box in an existing manifest from its id and "
+                         "exit — for when the grid changes but the measured frames still hold")
     ap.add_argument("--again", metavar="IDS",
                     help="re-fetch these sheets with an edition not tried yet — pass the ids "
                          "--write-frames could not measure, or a file listing them")
     ap.add_argument("--jobs", type=int, default=3, help="parallel downloads (be gentle: default 3)")
     args = ap.parse_args()
+
+    if args.rewrite_bbox:
+        spec = json.load(open(args.rewrite_bbox))
+        for sheet in spec["sheets"]:
+            zone, col = int(sheet["id"][1:3]), int(sheet["id"][4:])
+            sheet["bbox"] = cell_bbox(zone, col)
+        json.dump(spec, open(args.rewrite_bbox, "w"), ensure_ascii=False, indent=1)
+        print(f"re-derived {len(spec['sheets'])} boxes in {args.rewrite_bbox}")
+        return 0
 
     recs = catalogue(args.cache, args.refresh)
     ranked, fallback = select(recs, args.prefer_dpi, args.year_from, args.year_to)

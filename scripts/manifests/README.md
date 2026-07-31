@@ -66,6 +66,29 @@ Jagiellonian Library's, the NYPL's (CC0), Slovenia's NUK/dLib and
 Regensburg's; the maps themselves are public domain by age, and Mapster asks
 that its copies be used non-commercially.
 
+### The survey's degrees are not today's degrees
+
+A sheet pinned at its printed Ferro graticule lands a few hundred metres east
+of where those coordinates fall on WGS 84: the survey was computed on the
+Bessel ellipsoid from the Hermannskogel datum. Measured against modern rivers,
+railways and main roads, the uncorrected overlay sat +172 m east at Prague,
++280 m at Vienna, +292 m at Ljubljana, +439 m at Budapest and +442 m at
+Kraków — **growing eastward**, as the old triangulation drifts away from its
+Vienna origin. That growth is the giveaway: no constant nudge can fix a map
+whose error doubles across it, but a geocentric datum shift reproduces it
+(predicting 366 / 386 / 367 / 414 / 423 m for those five).
+
+`cell_bbox` therefore converts each sheet's graticule box to WGS 84 before the
+tiler sees it, with the MGI→WGS 84 parameters of EPSG:1188 — chosen because
+they track the measurements across the whole series, where the Austrian set
+(EPSG:1618) predicts only ~56 m and would leave most of the error in place.
+The shift is applied to the *grid*, so every sheet moves by the same rule and
+neighbours cannot be pulled out of register with each other.
+
+What is left is roughly 100 m (Ljubljana measured +292 m before, −80 m after),
+which is the survey's own error and stays visible — same principle as the
+Schraembl map below: no rubber-sheeting.
+
 ### Why the neatline needs a prior
 
 The obvious heuristic — take the innermost long rule with paper outside it —
