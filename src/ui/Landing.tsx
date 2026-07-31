@@ -3,6 +3,7 @@ import { Trans, useTranslation } from "react-i18next";
 import type { SlotState } from "../App";
 import { pickFile, fileFromDrop, supportsFilePicker } from "./filePicker";
 import { AddPersonIcon } from "./icons/AddPersonIcon";
+import { useMediaViewer } from "./MediaViewer";
 
 interface Props {
   mainState: SlotState;
@@ -91,6 +92,20 @@ export function Landing({ mainState, onLoadFile, onLoadSample, onStartNew }: Pro
   const { t } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
+  const { openItems } = useMediaViewer();
+
+  /** Expand a strip thumbnail into the app's shared photo viewer (prev/next,
+   *  keyboard nav) with the current theme's variant of every shot. */
+  function openShot(index: number) {
+    const theme = document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
+    openItems(
+      SHOTS.map(({ key, caption, ext, single }) => ({
+        url: `landing/${key}${single ? "" : `-${theme}`}.${ext}`,
+        title: t(caption),
+      })),
+      index,
+    );
+  }
 
   const loading = mainState.status === "loading";
 
@@ -285,16 +300,18 @@ export function Landing({ mainState, onLoadFile, onLoadSample, onStartNew }: Pro
             theme; CSS shows the one matching data-theme. */}
         <p className="lb-list-h lb-shots-h">{t("landing.shots.header")}</p>
         <div className="lb-shots">
-          {SHOTS.map(({ key, caption, ext, single }) => (
+          {SHOTS.map(({ key, caption, ext, single }, i) => (
             <figure key={key} className="lb-shot">
-              {single ? (
-                <img src={`landing/${key}.${ext}`} alt={t(caption)} loading="lazy" />
-              ) : (
-                <>
-                  <img className="lb-shot-dark" src={`landing/${key}-dark.${ext}`} alt={t(caption)} loading="lazy" />
-                  <img className="lb-shot-light" src={`landing/${key}-light.${ext}`} alt={t(caption)} loading="lazy" />
-                </>
-              )}
+              <button type="button" className="lb-shot-btn" onClick={() => openShot(i)} title={t(caption)}>
+                {single ? (
+                  <img src={`landing/${key}.${ext}`} alt={t(caption)} loading="lazy" />
+                ) : (
+                  <>
+                    <img className="lb-shot-dark" src={`landing/${key}-dark.${ext}`} alt={t(caption)} loading="lazy" />
+                    <img className="lb-shot-light" src={`landing/${key}-light.${ext}`} alt={t(caption)} loading="lazy" />
+                  </>
+                )}
+              </button>
               <figcaption>{t(caption)}</figcaption>
             </figure>
           ))}
