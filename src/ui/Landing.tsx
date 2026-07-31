@@ -65,6 +65,9 @@ const FEATURES: { key: string; icon: React.ReactNode }[] = [
   },
 ];
 
+/** Chart kinds shown in the screenshot strip; captions reuse the chart-type labels. */
+const SHOTS = ["tree", "fan", "circle"] as const;
+
 const TreeIcon = () => (
   <svg viewBox="0 0 24 24" aria-hidden="true">
     <circle cx="6.5" cy="5" r="2.2" />
@@ -255,7 +258,7 @@ export function Landing({ mainState, onLoadFile, onLoadSample, onStartNew }: Pro
         )}
       </div>
 
-      {/* Right: feature pillars */}
+      {/* Right: feature pillars + screenshots */}
       <div className="lb-list">
         <p className="lb-list-h">{t("landing.list.header")}</p>
         {FEATURES.map(({ key, icon }, i) => (
@@ -267,6 +270,19 @@ export function Landing({ mainState, onLoadFile, onLoadSample, onStartNew }: Pro
             </div>
           </div>
         ))}
+
+        {/* Screenshots straight from the app (Tudor sample). One image per
+            theme; CSS shows the one matching data-theme. */}
+        <p className="lb-list-h lb-shots-h">{t("landing.shots.header")}</p>
+        <div className="lb-shots">
+          {SHOTS.map((s) => (
+            <figure key={s} className="lb-shot">
+              <img className="lb-shot-dark" src={`landing/${s}-dark.png`} alt={t(`tree.settings.type.${s}`)} loading="lazy" />
+              <img className="lb-shot-light" src={`landing/${s}-light.png`} alt={t(`tree.settings.type.${s}`)} loading="lazy" />
+              <figcaption>{t(`tree.settings.type.${s}`)}</figcaption>
+            </figure>
+          ))}
+        </div>
       </div>
     </div>
   );

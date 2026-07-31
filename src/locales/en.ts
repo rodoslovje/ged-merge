@@ -1571,6 +1571,7 @@ export const en = {
   "landing.feat.edit.body": "Add people, families, events, media and sources — then save clean, standards-valid GEDCOM any genealogy application can open.",
   "landing.feat.merge.title": "Merge other trees with confidence",
   "landing.feat.merge.body": "Scored candidates surface the same person in both files; you compare them side by side and confirm every change. Incoming records are reshaped to your file's style — the rest of your tree stays untouched.",
+  "landing.shots.header": "Straight from the app",
   "landing.feat.explore.title": "See, print & prove",
   "landing.feat.explore.body": "Ancestor, fan and timeline charts, family maps on historical layers, printable sheets, Ahnentafel and narrative reports — plus health checks, duplicate finding and source cleanup.",
 
