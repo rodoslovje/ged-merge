@@ -1333,7 +1333,7 @@ export const en = {
   "settings.map.overlays.hint": "Extra tile layers the Map chart can draw over the base map — e.g. a georeferenced historical survey. Layers whose period matches the map's selected years are suggested there. The list order is the stacking order — the first layer draws on top, so keep a thin reference layer (house numbers, parcels) above a full-page map. Subscription sources (e.g. Arcanum/Mapire) work with the tile URL from your account.",
   "settings.map.overlays.add": "+ Add layer",
   "settings.map.overlays.preset": "Add a free preset…",
-  "settings.map.overlays.preset.spezialkarte": "Slovenia, Croatia & Bosnia · Spezialkarte 1:75 000 (1877–1918)",
+  "settings.map.overlays.preset.spezialkarte": "Austria-Hungary · Spezialkarte 1:75 000 (1877–1918)",
   "settings.map.overlays.preset.schraembl": "Germany & Central Europe · Schraembl 1:530 000 (1797)",
   "settings.map.overlays.preset.france.etatmajor": "France · Carte de l'État-major (1820–1866)",
   "settings.map.overlays.preset.swiss.dufour": "Switzerland · Dufour Map (1845–1865)",
