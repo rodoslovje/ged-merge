@@ -801,6 +801,21 @@ button:focus-visible {
   margin: 0;
 }
 
+.lb-shot-btn {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
+  border-radius: var(--radius);
+}
+
+.lb-shot-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .lb-shot img {
   display: block;
   width: 100%;
@@ -2514,6 +2529,13 @@ button:focus-visible {
   margin-bottom: 10px;
   word-break: break-word;
 }
+/* Caption-only items (no info panel): the title sits under the image. */
+.media-lightbox-under {
+  font-weight: 600;
+  font-size: 0.95rem;
+  text-align: center;
+  color: var(--text);
+}
 .media-lightbox-meta { margin: 0 0 12px; }
 .media-lightbox-meta > div { margin-bottom: 6px; }
 .media-lightbox-meta dt { color: var(--muted); font-size: 0.78rem; }
@@ -2543,6 +2565,18 @@ button:focus-visible {
   .media-lightbox { flex-direction: column; align-items: center; }
   .person-media-stage .person-media-full { max-height: 55dvh; }
   .media-lightbox-info { flex: 1 1 auto; max-width: 95vw; width: 100%; }
+  /* Caption-only slideshows have no info panel below — let the image take the
+     screen, with the nav arrows floating over its edges. */
+  .person-media-overlay.caption-only .person-media-stage .person-media-full { max-height: 84dvh; }
+  .person-media-overlay.caption-only .person-media-stage { max-width: 97vw; }
+  .person-media-nav {
+    width: 40px;
+    height: 56px;
+    background: rgba(0, 0, 0, 0.45);
+    border-color: rgba(255, 255, 255, 0.25);
+  }
+  .person-media-prev { left: 8px; }
+  .person-media-next { right: 8px; }
 }
 
 /* Compare panel photos strip */
@@ -4337,6 +4371,9 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   position: absolute;
   inset: 0;
   overflow: auto;
+  /* One-finger touch pans natively; pinch is NOT handled by the browser (no
+     page zoom) and reaches the canvas's touch handlers, which zoom the chart. */
+  touch-action: pan-x pan-y;
   /* Flex + auto margins on the chart centre it when it is smaller than the
      canvas (filling the empty area), yet let it scroll from the top-left without
      clipping when it is larger. */
@@ -7902,6 +7939,10 @@ kbd {
   .app-head {
     padding: 10px 12px 0;
     margin-bottom: 8px;
+  }
+  /* The strip serves portrait phone captures here — taller tiles fit them. */
+  .lb-shot img {
+    height: 170px;
   }
   .app-footer {
     padding: 10px 12px 8px;

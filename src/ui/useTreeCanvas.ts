@@ -191,6 +191,55 @@ export function useTreeCanvas(
     return () => el.removeEventListener("wheel", onWheel);
   }, [zoomAround]);
 
+  // Two-finger pinch zooms toward the fingers' midpoint; moving the midpoint
+  // pans. Attached natively with { passive: false } so preventDefault blocks
+  // the browser's own pinch (page zoom) and scroll while two fingers are down —
+  // one-finger touch keeps the native momentum scroll. The `.tree-canvas`
+  // touch-action CSS (pan-x pan-y) makes the browser hand the pinch to us.
+  useEffect(() => {
+    const el = canvasRef.current;
+    if (!el) return;
+    let lastDist = 0;
+    let lastMid = { x: 0, y: 0 };
+    const measure = (e: TouchEvent) => {
+      const [a, b] = [e.touches[0], e.touches[1]];
+      return {
+        dist: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY),
+        mid: { x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 },
+      };
+    };
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 2) return;
+      ({ dist: lastDist, mid: lastMid } = measure(e));
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length !== 2 || lastDist === 0) return;
+      e.preventDefault();
+      const { dist, mid } = measure(e);
+      // Pan by the midpoint's travel first: zoomAround reads the scroll
+      // position synchronously, so the pan is folded into its target.
+      el.scrollLeft -= mid.x - lastMid.x;
+      el.scrollTop -= mid.y - lastMid.y;
+      const rect = el.getBoundingClientRect();
+      zoomAround(zoomRef.current * (dist / lastDist), mid.x - rect.left, mid.y - rect.top);
+      lastDist = dist;
+      lastMid = mid;
+    };
+    const onTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length < 2) lastDist = 0;
+    };
+    el.addEventListener("touchstart", onTouchStart, { passive: true });
+    el.addEventListener("touchmove", onTouchMove, { passive: false });
+    el.addEventListener("touchend", onTouchEnd);
+    el.addEventListener("touchcancel", onTouchEnd);
+    return () => {
+      el.removeEventListener("touchstart", onTouchStart);
+      el.removeEventListener("touchmove", onTouchMove);
+      el.removeEventListener("touchend", onTouchEnd);
+      el.removeEventListener("touchcancel", onTouchEnd);
+    };
+  }, [zoomAround]);
+
   useEffect(() => {
     window.addEventListener("resize", syncViewport);
     return () => window.removeEventListener("resize", syncViewport);
