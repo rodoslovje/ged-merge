@@ -7931,7 +7931,12 @@ kbd {
   .tools-head {
     margin-bottom: 10px;
   }
+  /* Content-width: it has the row to itself, so nothing shifts as the tool name
+     changes, and a full-width dropdown over a two-word label read as a text
+     field rather than a picker. */
   .tools-subtabs-picker {
+    width: max-content;
+    max-width: 100%;
     margin-bottom: 12px;
   }
   .tools-filter-row {
@@ -7991,8 +7996,12 @@ kbd {
     flex: 0 1 auto;
     min-width: 0;
   }
+  /* Sized to the longest kind name rather than a round number — the labels top
+     out at 67px (sl) / ~86px (en) plus the caret, gap, padding and border. A
+     fixed width, not `max-content`: the Ancestors/Descendants toggle sits beside
+     it and would shift every time the kind changed. */
   .charts-kind-picker {
-    width: 148px;
+    width: 128px;
   }
   /* The find box takes the next row — its field stretching to whatever is left
      beside the ‹ ›. */
@@ -8011,6 +8020,15 @@ kbd {
   .map-filters {
     gap: 6px 10px;
     margin-bottom: 6px;
+    /* `.tree-shell > .tree-page` zeroes the page's horizontal padding and each
+       toolbar row re-adds it; these rows never did, so the year box and the
+       first chip sat flush against the screen edge. */
+    padding-inline: 16px;
+  }
+  /* The 170px track plus two year boxes filled the row on its own. */
+  .year-slider {
+    width: 96px;
+    height: 18px;
   }
   /* The kinds used to be one sideways scroller, which put the last of them (and
      Paths, which now sits with them) off the right edge behind a swipe. Two
