@@ -155,6 +155,14 @@
             <li><a href="#edit">8. Urejanje</a></li>
             <li><a href="#merge">9. Združevanje</a></li>
             <li><a href="#tools">10. Orodja</a></li>
+            <li class="guide-toc-sub"><a href="#validate">↳ Pregled</a></li>
+            <li class="guide-toc-sub"><a href="#duplicates">↳ Dvojniki</a></li>
+            <li class="guide-toc-sub"><a href="#normalize">↳ Poenoti</a></li>
+            <li class="guide-toc-sub"><a href="#tool-privacy">↳ Zasebnost</a></li>
+            <li class="guide-toc-sub"><a href="#tool-sources">↳ Viri</a></li>
+            <li class="guide-toc-sub"><a href="#organize">↳ Uredi vire</a></li>
+            <li class="guide-toc-sub"><a href="#places">↳ Kraji</a></li>
+            <li class="guide-toc-sub"><a href="#geocode">↳ Geokodiranje krajev</a></li>
 
             <li class="guide-toc-part">IV · Skupne funkcije</li>
             <li><a href="#charts">11. Diagrami, zemljevidi in poročila</a></li>
@@ -671,7 +679,7 @@
               <strong>Viri</strong> in <strong>Kraji</strong>. Dve se odpreta iz zadnjih dveh:
               <a href="#organize">Uredi vire</a> iz Virov in <a href="#geocode">Geokodiranje krajev</a> iz Krajev.
             </p>
-            <h3>Pregled</h3>
+            <h3 id="validate">Pregled</h3>
             <p>
               Pregleda vsako osebo in družino za težave s podatki ter jih razvrsti po kategorijah: brez imena, brez
               spola, brez ključnih datumov, nepovezani zapisi, pokvarjene ali enosmerne družinske povezave, podvojeni
@@ -720,7 +728,7 @@
               <strong>Zaženi znova</strong> na vrhu pladnja znova pregleda celotno datoteko; če se je datoteka po zadnjem
               pregledu spremenila, je gumb poudarjen in to tudi pove.
             </p>
-            <h3>Dvojniki</h3>
+            <h3 id="duplicates">Dvojniki</h3>
             <p>
               Primerja vsako osebo z vsako drugo z istim pogonom kot Združevanje in navede verjetne pare dvojnikov z
               njihovo stopnjo. Par razširite za vzporedno primerjavo, nato <strong>Združi</strong> ohrani preživeli zapis
@@ -758,14 +766,14 @@
               <strong>Zavrni vse</strong> zavrnite celotno skupino naenkrat (razveljavljivo). Pri vsakem paru sta ob
               imenih izpisani oznaki zapisov GEDCOM, da ločite osebi z enakim imenom in datumi.
             </p>
-            <h3>Poenoti</h3>
+            <h3 id="normalize">Poenoti</h3>
             <p>
               Zazna prevladujočo obliko datumov, postavitev krajev in slog povezav v datoteki, nato pa ponovno izpiše
               zapise, ki odstopajo — npr. <em>1 Jan 1900</em> → <em>01.01.1900</em>, prilagodi kraje in prepiše povezave
               Matricula ali Geneanet v enotno obliko. Predogled navede primere vsake spremembe, preden prenesete
               poenoteno kopijo.
             </p>
-            <h3>Zasebnost</h3>
+            <h3 id="tool-privacy">Zasebnost</h3>
             <p>
               Izdela <strong>prečiščeno kopijo</strong> datoteke za deljenje ali objavo, v kateri so živeče osebe
               zaščitene — vaša glavna datoteka ostane nedotaknjena. GED Merge <em>sklepa</em>, kdo je verjetno še živ:
@@ -790,7 +798,7 @@
               <code>_FID</code>, <code>AFN</code>) ter vse poštne naslove, e-pošto in telefonske številke v celotni
               datoteki. Predogled prešteje, koliko oseb je prečiščenih ali odstranjenih, preden prenesete prečiščeni GEDCOM.
             </p>
-            <h3>Viri</h3>
+            <h3 id="tool-sources">Viri</h3>
             <p>
               Pregledujte vse repozitorije, zapise virov in medijske predmete, razvrščene po repozitorijih. Izbira enega
               pokaže, katere osebe in družine ga navajajo, vsaka kot povezava v <span class="gm-pill">Urejanje</span>;
@@ -821,7 +829,7 @@
               <strong>iskalnikom dvojnikov</strong> virov — eno shranjevanje uveljavi oboje. Zasebne osebe, opombe in
               mediji se nikoli ne spremenijo v navedbo (<a href="#privacy">§18</a>).
             </p>
-            <h3>Kraji</h3>
+            <h3 id="places">Kraji</h3>
             <p>
               Navede vsak kraj v hierarhiji država → kraj → hiša → naslov, s števcem uporabe pri vsakem kraju. Odprite
               kraj za seznam zapisov, ki ga uporabljajo, ali z <strong>Preimenuj</strong> na kateri koli ravni hkrati

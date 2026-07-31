@@ -155,6 +155,14 @@
             <li><a href="#edit">8. Edit</a></li>
             <li><a href="#merge">9. Merge</a></li>
             <li><a href="#tools">10. Tools</a></li>
+            <li class="guide-toc-sub"><a href="#validate">↳ Health check</a></li>
+            <li class="guide-toc-sub"><a href="#duplicates">↳ Find duplicates</a></li>
+            <li class="guide-toc-sub"><a href="#normalize">↳ Normalize</a></li>
+            <li class="guide-toc-sub"><a href="#tool-privacy">↳ Privacy</a></li>
+            <li class="guide-toc-sub"><a href="#tool-sources">↳ Sources</a></li>
+            <li class="guide-toc-sub"><a href="#organize">↳ Organize sources</a></li>
+            <li class="guide-toc-sub"><a href="#places">↳ Places</a></li>
+            <li class="guide-toc-sub"><a href="#geocode">↳ Geocode places</a></li>
 
             <li class="guide-toc-part">IV · Shared Features</li>
             <li><a href="#charts">11. Charts, maps &amp; reports</a></li>
@@ -668,7 +676,7 @@
               the last two: <a href="#organize">Organize sources</a> from Sources, and
               <a href="#geocode">Geocode places</a> from Places.
             </p>
-            <h3>Health check</h3>
+            <h3 id="validate">Health check</h3>
             <p>
               Scans every individual and family for data problems and groups them by category: no name, no sex, no vital
               dates, disconnected records, broken or one-way family links, duplicate pointers, <strong>pedigree
@@ -717,7 +725,7 @@
               on the list until it runs again. <strong>Run again</strong>, at the top of the panel, re-checks the whole
               file; when the file has changed since the last check, the button is highlighted and says so.
             </p>
-            <h3>Find duplicates</h3>
+            <h3 id="duplicates">Find duplicates</h3>
             <p>
               Compares every person against every other using the same engine as Merge, and lists likely duplicate pairs
               with their score. Expand a pair for a side-by-side comparison, then <strong>Merge</strong> to keep the
@@ -758,14 +766,14 @@
               shows both records' GEDCOM ids next to the names, so two people with the same name and dates are still
               easy to tell apart.
             </p>
-            <h3>Normalize</h3>
+            <h3 id="normalize">Normalize</h3>
             <p>
               Detects the file's own dominant date format, place layout and link style, then re-renders records that
               deviate — e.g. <em>1 Jan 1900</em> → <em>01.01.1900</em>, reshaping places, and rewriting Matricula or
               Geneanet links to a consistent form. A preview lists examples of each change before you download the
               normalized copy.
             </p>
-            <h3>Privacy</h3>
+            <h3 id="tool-privacy">Privacy</h3>
             <p>
               Produces a <strong>redacted copy</strong> of your file for sharing or publishing, with living people
               protected — your live main file is never touched. GED Merge <em>infers</em> who is likely living: anyone with
@@ -789,7 +797,7 @@
               every postal address, email or phone number across the whole file. A preview counts how many people are
               redacted or removed before you download the redacted GEDCOM.
             </p>
-            <h3>Sources</h3>
+            <h3 id="tool-sources">Sources</h3>
             <p>
               Browse every repository, source record and media object, grouped by repository. Selecting one shows which
               individuals and families cite it, each a link into <span class="gm-pill">Edit</span>; unattached media and
@@ -819,7 +827,7 @@
               when you change one, and it shares the download with the source <strong>duplicate finder</strong> — one save
               applies both. Private people, notes and media are never turned into a citation (<a href="#privacy">§18</a>).
             </p>
-            <h3>Places</h3>
+            <h3 id="places">Places</h3>
             <p>
               Lists every place in a country → locality → house → address hierarchy, with a usage count per place. Open
               a place to see the records that use it, or use <strong>Rename</strong> on any level to bulk-rename or merge
