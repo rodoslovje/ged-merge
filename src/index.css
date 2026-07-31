@@ -7931,13 +7931,28 @@ kbd {
   .tools-head {
     margin-bottom: 10px;
   }
-  /* Content-width: it has the row to itself, so nothing shifts as the tool name
-     changes, and a full-width dropdown over a two-word label read as a text
-     field rather than a picker. */
+  /* Content-width picker with the tool's own summary beside it (portalled in
+     from the panel by ToolSummary) — one row instead of two, and the count
+     reads next to the tool it counts for. A full-width dropdown over a two-word
+     label read as a text field rather than a picker. */
+  .tools-picker-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
   .tools-subtabs-picker {
     width: max-content;
-    max-width: 100%;
-    margin-bottom: 12px;
+    max-width: 60%;
+    flex: none;
+  }
+  .tools-summary-slot {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .tools-picker-row .tools-summary {
+    margin: 0;
+    text-align: right;
   }
   .tools-filter-row {
     gap: 8px;

@@ -30,6 +30,7 @@ import { PersonLink } from "../PersonLink";
 import { type ToolsScans } from "../useToolsScans";
 import { useVirtualList } from "../useVirtualList";
 import { ToolsError, ToolsLoading, TreeSearch, someMatch, useDebounced } from "./shared";
+import { ToolSummary } from "./ToolSummary";
 
 /** Default score floor for the duplicates list. Index-scale files produce
  *  thousands of weak pairs; starting high keeps the list actionable, and the
@@ -445,7 +446,7 @@ export function DuplicatesPanel({
                 )}
               </button>
             )}
-            <p className="tools-summary">
+            <ToolSummary>
               {showRejected
                 ? t("tools.duplicates.rejectedCount", { count: rejectedCount })
                 : t("tools.duplicates.found", { count: state.result.length - rejectedCount })}
@@ -461,7 +462,7 @@ export function DuplicatesPanel({
                   </button>
                 </>
               )}
-            </p>
+            </ToolSummary>
           </div>
           {rows.length === 0 ? (
             <p className="tools-clean">
