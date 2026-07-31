@@ -83,15 +83,6 @@ const SHOTS: { key: string; caption: string; ext: string }[] = [
   { key: "maphist", caption: "landing.shots.maphist",    ext: "jpg" },
 ];
 
-const TreeIcon = () => (
-  <svg viewBox="0 0 24 24" aria-hidden="true">
-    <circle cx="6.5" cy="5" r="2.2" />
-    <circle cx="17.5" cy="5" r="2.2" />
-    <circle cx="12" cy="19" r="2.2" />
-    <path d="M6.5 7.2v3.3a2 2 0 0 0 2 2H12M17.5 7.2v3.3a2 2 0 0 1-2 2H12M12 12.5v4.3" />
-  </svg>
-);
-
 interface News {
   date: string;
   items: string[];
@@ -113,10 +104,10 @@ function useLatestNews(): News | null {
       .then((r) => (r.ok ? r.text() : Promise.reject(new Error(String(r.status)))))
       .then((html) => {
         const doc = new DOMParser().parseFromString(html, "text/html");
-        const entry = doc.querySelector(".changelog-entry");
-        const date = entry?.querySelector("h2")?.textContent?.trim() ?? "";
-        // One line per bullet: the <strong> lead-in is each bullet's title.
-        const items = Array.from(entry?.querySelectorAll("li") ?? [])
+        const date = doc.querySelector(".changelog-entry h2")?.textContent?.trim() ?? "";
+        // One line per bullet, newest first, crossing entry boundaries when the
+        // newest entry has fewer than three; the <strong> lead-in is the title.
+        const items = Array.from(doc.querySelectorAll(".changelog-entry li"))
           .map((li) => li.querySelector("strong")?.textContent?.replace(/[.!]\s*$/, "").trim() ?? "")
           .filter(Boolean)
           .slice(0, 3);
@@ -318,9 +309,6 @@ export function Landing({ mainState, onLoadFile, onLoadSample, onStartNew }: Pro
                     disabled={loading}
                     tabIndex={loading ? -1 : undefined}
                   >
-                    <span className="lb-s-ico">
-                      <TreeIcon />
-                    </span>
                     <span className="lp-st-name">{t(`landing.samples.${key}.name`)}</span>
                     <span className="lp-st-count">{t(`landing.samples.${key}.count`)}</span>
                   </button>
