@@ -1012,7 +1012,7 @@ export const LIFE_ZONE_TAGS = new Set([
 
 /** Death/burial/funeral/interment/cremation tags — the terminal events a
  *  life-zone event must precede. */
-export const DEATH_ZONE_TAGS = new Set(["DEAT", "_FNRL", "BURI", "_INTE", "CREM"]);
+export const DEATH_ZONE_TAGS = new Set(["DEAT", "_FNRL", "CREM", "BURI", "_INTE"]);
 
 /** Earliest death-zone sort key among `events` with a known date, or `undefined` if none. */
 export function minDeathZoneKey(events: { tag: string; date?: GedDate }[]): number | undefined {
@@ -1099,7 +1099,7 @@ export function lifespanAnchors(events: { tag: string; date?: GedDate }[]): Life
  *  - Birth-zone tags (BIRT, BAPM, …): pinned just after the known birth date
  *    (so e.g. an undated christening still sorts after a dated birth), or
  *    key 0–5 when no birth date is known at all.
- *  - Death-zone tags (DEAT, _FNRL, BURI, _INTE, CREM): key 99_999_995–99_999_999, always last.
+ *  - Death-zone tags (DEAT, _FNRL, CREM, BURI, _INTE): key 99_999_995–99_999_999, always last.
  *  - Life-zone tags (RESI, OCCU, …): key near `midLifeKey`, between birth and death.
  */
 export function zoneSortKey(d: GedDate | undefined, tag: string, a: LifespanAnchors): number {
@@ -1118,9 +1118,12 @@ export function zoneSortKey(d: GedDate | undefined, tag: string, a: LifespanAnch
   if (BIRTH_ZONE_TAGS.has(tag)) {
     return a.maxBirthKey != null ? a.maxBirthKey + (pos >= 0 ? pos : 5) + 1 : (pos >= 0 ? pos : 5);
   }
-  if (tag === "CREM") return 99_999_999;
-  if (tag === "_INTE") return 99_999_998;
-  if (tag === "BURI") return 99_999_997;
+  // Undated terminal events, in the order they happen: the funeral follows the
+  // death, a cremation precedes the laying to rest of the ashes, and the
+  // interment is the last word on where they lie.
+  if (tag === "_INTE") return 99_999_999;
+  if (tag === "BURI") return 99_999_998;
+  if (tag === "CREM") return 99_999_997;
   if (tag === "_FNRL") return 99_999_996;
   if (tag === "DEAT") return 99_999_995;
   return a.midLifeKey + (pos === -1 ? 500 : pos * 1_000);

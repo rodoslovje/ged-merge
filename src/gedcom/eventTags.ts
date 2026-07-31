@@ -19,7 +19,7 @@ export const INDI_EVENT_TAG_ORDER = [
   "RESI", "EMIG", "IMMI", "NATU", "CENS",
   "WILL", "PROB",
   "EVEN", "FACT", "REFN",
-  "DEAT", "_FNRL", "BURI", "_INTE", "CREM",
+  "DEAT", "_FNRL", "CREM", "BURI", "_INTE",
 ];
 
 /** Family event tags in canonical order. `EVEN` is the generic custom event
