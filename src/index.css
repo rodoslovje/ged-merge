@@ -2529,6 +2529,13 @@ button:focus-visible {
   margin-bottom: 10px;
   word-break: break-word;
 }
+/* Caption-only items (no info panel): the title sits under the image. */
+.media-lightbox-under {
+  font-weight: 600;
+  font-size: 0.95rem;
+  text-align: center;
+  color: var(--text);
+}
 .media-lightbox-meta { margin: 0 0 12px; }
 .media-lightbox-meta > div { margin-bottom: 6px; }
 .media-lightbox-meta dt { color: var(--muted); font-size: 0.78rem; }

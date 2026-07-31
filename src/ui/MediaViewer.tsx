@@ -660,7 +660,13 @@ function MediaViewerOverlay({
     return () => window.removeEventListener("keydown", onKey);
   }, [items.length, onClose]);
 
-  const hasInfo = current.edit || current.title || (current.meta && current.meta.length > 0) || current.details;
+  // A title with nothing else to show (no meta rows, details or edit form)
+  // reads as a photo caption — shown under the image instead of opening the
+  // side info panel for a single line (e.g. the landing-page screenshots).
+  const captionOnly =
+    !!current.title && !current.edit && !(current.meta && current.meta.length > 0) && !current.details;
+  const hasInfo =
+    !captionOnly && (current.edit || current.title || (current.meta && current.meta.length > 0) || current.details);
 
   return (
     <div
@@ -692,6 +698,7 @@ function MediaViewerOverlay({
             allCrops={allCrops}
             cropEdit={cropEditing ? { draft: cropDraft, onDraft: setCropDraft } : undefined}
           />
+          {captionOnly && <div className="media-lightbox-under">{current.title}</div>}
         </div>
         {hasInfo && (
           <div className="media-lightbox-info">
