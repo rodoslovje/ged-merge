@@ -423,7 +423,11 @@
   margin-bottom: 4px;
   color: var(--text);
 }
-.gm-callout.note { border-left-color: var(--status-link); }
+/* Three levels of emphasis, all on the Heritage Pine palette: a note is
+   neutral, a tip carries the accent, a warning the danger colour. Note used to
+   borrow --status-link, which means "carries a link / source" in the app — a
+   link colour doing note duty, and the one blue on an otherwise warm page. */
+.gm-callout.note { border-left-color: var(--border-2); }
 .gm-callout.tip { border-left-color: var(--accent); }
 .gm-callout.warn { border-left-color: var(--danger); background: var(--danger-soft); }
 .gm-callout.warn .gm-callout-label { color: var(--danger); }
