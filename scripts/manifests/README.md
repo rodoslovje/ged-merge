@@ -184,8 +184,19 @@ only enlarge it) for ~11 000 tiles / 270 MB.
 ## Coverage
 
 805 grid cells is the series — the sheets the k.u.k. Militärgeographisches
-Institut published, plus the foreign-margin ones. The gaps that dogged the
-Commons-only build (Pula, Mali Lošinj, Prijedor, Požega, Prnjavor, Medak,
-Pelješac/Ston, Novi Sad, the Montenegrin interior) are all present in the
-Mapster catalogue and are covered. Cells with no sheet at all are open
+Institut published, plus the foreign-margin ones. **801 of them are in.** The
+gaps that dogged the Commons-only build (Pula, Mali Lošinj, Prijedor, Požega,
+Prnjavor, Medak, Pelješac/Ston, Novi Sad, the Montenegrin interior) are all in
+the Mapster catalogue and are covered; cells with no sheet at all are open
 Adriatic, where none was ever published.
+
+The four that are not in — `z02c35` Kostopol, `z25c22` Karlowitz und Titel,
+`z26c22` Alt-Pazua, `z30c20` Rogatica — have had every edition Mapster lists
+tried, and no neatline could be measured on any of them (each is a scan on a
+grey mount whose border rule is too faint to find). They need eight numbers
+measured by hand in an image editor, added as a `frame` on their manifest
+entry; the ids are the file names.
+
+How the 805 came out, for the record: 765 measured on the first pass, 26 more
+after re-fetching the rejects from a different collection (`--again`), 10 more
+after a second round, 4 left.
