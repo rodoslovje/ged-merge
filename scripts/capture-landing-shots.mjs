@@ -64,11 +64,21 @@ async function chartShot(page, file) {
   await page.screenshot({ path: file });
 }
 
-async function openMap(page) {
+/** Switch chart kind: desktop tabs, or the phone's picker dropdown. */
+async function pickKind(page, phone, name) {
+  if (phone) {
+    await page.locator(".charts-kind-picker .picker-menu-btn").click();
+    await page.locator(".picker-menu-popover").getByText(name, { exact: true }).click();
+  } else {
+    await page.getByRole("tab", { name }).click();
+  }
+}
+
+async function openMap(page, phone) {
   await page.goto(base);
   await page.locator("input.file-input").first().setInputFiles(FIXTURE);
   await openCharts(page);
-  await page.getByRole("tab", { name: "Map" }).click();
+  await pickKind(page, phone, "Map");
   await page.locator(".map-canvas.leaflet-container").waitFor();
   await page.getByRole("button", { name: "Descendants" }).click();
   await page.locator(".map-paths-chip:not(.active)").click({ timeout: 3000 }).catch(() => {});
@@ -86,12 +96,13 @@ for (const [theme, phone] of [["dark", false], ["light", false], ["dark", true],
     await page.getByRole("button", { name: "Edit", exact: true }).click();
     await page.locator(".edit-person").waitFor();
     await page.waitForTimeout(1200);
+    await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({ path: `${outDir}/edit-${theme}${m}.png` });
 
     await page.locator(".charts-open-btn").click();
     await page.locator("svg.tree-svg").waitFor();
     await chartShot(page, `${outDir}/tree-${theme}${m}.png`);
-    await page.getByRole("tab", { name: "Fan" }).click();
+    await pickKind(page, phone, "Fan");
     // The fan's layout reserves its empty lower half, so plain fit leaves it
     // small — zoom (with the app's own stepper) until the drawn content nearly
     // fills the canvas height, then centre on it.
@@ -100,8 +111,8 @@ for (const [theme, phone] of [["dark", false], ["light", false], ["dark", true],
     await page.waitForTimeout(600);
     const factor = await page.evaluate(() => {
       const canvas = document.querySelector(".tree-canvas");
-      const g = canvas.querySelector("svg g");
-      return 0.92 * canvas.clientHeight / g.getBoundingClientRect().height;
+      const r = canvas.querySelector("svg g").getBoundingClientRect();
+      return Math.min(0.94 * canvas.clientWidth / r.width, 0.92 * canvas.clientHeight / r.height);
     });
     const steps = Math.round(Math.log(factor) / Math.log(1.25));
     for (let i = 0; i < Math.abs(steps); i++) {
@@ -129,6 +140,7 @@ for (const [theme, phone] of [["dark", false], ["light", false], ["dark", true],
     await page.locator(".candidate").first().waitFor({ timeout: 90000 });
     await page.locator(".candidate").first().click();
     await page.waitForTimeout(1500);
+    await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({ path: `${outDir}/merge-${theme}${m}.png` });
     await ctx.close();
   }
@@ -137,11 +149,11 @@ for (const [theme, phone] of [["dark", false], ["light", false], ["dark", true],
   // with the Ljubljana cluster's place panel open (birth + death listed).
   {
     const { ctx, page } = await makePage(theme, false, phone);
-    await openMap(page);
+    await openMap(page, phone);
     await page.evaluate(() => {
       document.querySelector(".map-canvas")._leafletMap.setView([46.55, 15.2], 8, { animate: false });
     });
-    await page.waitForFunction(() => document.querySelectorAll('.map-canvas .leaflet-tile-loaded').length >= 8, null, { timeout: 30000 });
+    await page.waitForFunction(() => document.querySelectorAll('.map-canvas .leaflet-tile-loaded').length >= (window.innerWidth < 721 ? 4 : 8), null, { timeout: 30000 });
     await page.waitForTimeout(1000);
     const pt = await page.evaluate(() => {
       const map = document.querySelector(".map-canvas")._leafletMap;
@@ -162,12 +174,12 @@ for (const [theme, phone] of [["dark", false], ["light", false], ["dark", true],
   // hook for a precise view.
   {
     const { ctx, page } = await makePage(theme, true, phone);
-    await openMap(page);
+    await openMap(page, phone);
     await page.evaluate(() => {
       const el = document.querySelector(".map-canvas");
       el._leafletMap.setView([46.0485, 14.504], 14, { animate: false });
     });
-    await page.waitForFunction(() => document.querySelectorAll('.map-canvas .leaflet-tile-loaded').length >= 12, null, { timeout: 30000 });
+    await page.waitForFunction(() => document.querySelectorAll('.map-canvas .leaflet-tile-loaded').length >= (window.innerWidth < 721 ? 5 : 12), null, { timeout: 30000 });
     await page.locator(".map-overlays-chip").click(); // show which overlay is on
     await page.mouse.move(200, 700);
     await page.waitForTimeout(1200);
