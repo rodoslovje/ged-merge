@@ -87,6 +87,12 @@ button:focus-visible {
 }
 .app-head-brand h1 {
   flex-shrink: 0;     /* logo never shrinks */
+  /* Flex, not the default block. The wordmark inside is an inline-flex span, so
+     as a block the h1 gave it a text line box — 6px of descender space below a
+     25.5px mark, which left the glyph sitting 3px above the centre the mode tabs
+     and the ☰ beside it share. A flex container has no line box. */
+  display: flex;
+  align-items: center;
 }
 .app-head-file-pills {
   display: flex;
@@ -6601,6 +6607,23 @@ kbd {
     padding-left: 0;
     border-top: 1px solid var(--border);
     padding-top: 32px;
+  }
+  /* The file card's side column — Media for the main file, the normalization
+     report for the incoming one — is a `flex: 1` beside a metadata list sized
+     to its own content. Narrow enough and there is nothing left for it, so it
+     ran off the right edge. Below the metadata instead, full width, with the
+     divider turned through 90°. */
+  .loader-cols {
+    flex-direction: column;
+    gap: 0;
+  }
+  .loader-cols > .loader-report {
+    align-self: stretch;
+    padding-left: 0;
+    border-left: none;
+    padding-top: 14px;
+    margin-top: 2px;
+    border-top: 1px solid var(--border);
   }
   .start-selector {
     flex: 1 1 100%;
