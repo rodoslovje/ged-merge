@@ -3867,7 +3867,6 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 /* Export dropdown: one menu for every download format (mirrors the
    chart-settings popover placement). */
 .export-menu { position: relative; }
-.export-menu-caret { font-size: 0.7em; }
 .export-menu-popover {
   position: absolute;
   top: 100%;
@@ -8062,6 +8061,13 @@ kbd {
   .charts-kind-picker {
     width: 128px;
   }
+  /* The gear and download glyphs say it all on a phone — drop the "Chart" /
+     "Export" lettering so the toolbar fits. The buttons keep their
+     aria-labels and tooltips. */
+  .chart-settings-label,
+  .export-menu-label {
+    display: none;
+  }
   /* The find box takes the next row — its field stretching to whatever is left
      beside the ‹ ›. */
   .chart-find {
@@ -8104,6 +8110,19 @@ kbd {
   .map-filters-right {
     margin-left: 0;
     flex: 1 1 100%;
+  }
+  /* The Layers chip sits at the row's right edge, so its right-anchored
+     dropdown opens toward the screen instead of past its left edge. */
+  .map-overlays-wrap {
+    margin-left: auto;
+  }
+  /* Never wider than the screen (the 320px floor loses to the viewport on the
+     narrowest phones) and never taller than fits above the fold. */
+  .map-overlays-panel {
+    min-width: min(320px, calc(100vw - 32px));
+    max-width: calc(100vw - 32px);
+    max-height: 60vh;
+    overflow-y: auto;
   }
   /* Beside a `flex: 0 0 auto` button the notice's sentence was squeezed into a
      ~180px column twenty lines tall, straight across the empty-state text.

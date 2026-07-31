@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { DownloadIcon } from "./icons/DownloadIcon";
 
-// The chart-toolbar "Export ▾" dropdown: one button for every download format
+// The chart-toolbar "Export" dropdown: one button for every download format
 // instead of a growing row of per-format buttons. New formats (PNG, reports,
 // branch GEDCOM, …) become new items here, not new toolbar buttons. Mirrors the
 // ChartSettings gear's popover behavior (toggle button + outside-click close).
@@ -41,8 +41,9 @@ export function ExportMenu({ items, disabled }: { items: ExportItem[]; disabled?
         aria-haspopup="menu"
         aria-expanded={open}
         title={t("export.tooltip")}
+        aria-label={t("export.button")}
       >
-        <DownloadIcon /> {t("export.button")} <span className="export-menu-caret" aria-hidden="true">▾</span>
+        <DownloadIcon /> <span className="export-menu-label">{t("export.button")}</span>
       </button>
       {open && (
         <div className="export-menu-popover" role="menu" aria-label={t("export.button")}>
