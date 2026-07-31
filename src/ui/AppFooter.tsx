@@ -37,6 +37,17 @@ export function AppFooter({ onShortcuts }: Props) {
         v{__APP_VERSION__}
       </a>
       <Sep />
+      {/* The version number above links here too, but it doesn't read as a
+          link — the changelog needs a route in that looks like one. */}
+      <a
+        href={sl ? "posodobitve/" : "changelog/"}
+        className="app-footer-link"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        {t("footer.changelogLink")}
+      </a>
+      <Sep />
       <a
         href={sl ? "navodila/" : "guide/"}
         className="app-footer-link"

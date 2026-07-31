@@ -57,7 +57,7 @@ export default defineConfig({
         name: "GED Merge — GEDCOM merge, compare & edit",
         short_name: "GED Merge",
         description:
-          "Merge, compare and edit GEDCOM genealogy files side-by-side — resolve conflicts field by field, normalize places and dates, and find duplicates. Free, private, 100% in-browser.",
+          "The GEDCOM workbench in your browser: edit your family tree, see it as charts and maps, clean it with maintenance tools, and merge other researchers' files person by person. Free, no account — your file is never uploaded.",
         lang: "en",
         categories: ["utilities", "productivity"],
         theme_color: "#151310",

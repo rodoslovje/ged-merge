@@ -682,16 +682,34 @@ button:focus-visible {
 /* === Landing redesign (Direction B) === */
 .landing-b {
   flex: 1;
-  display: grid;
-  grid-template-columns: 0.92fr 1.08fr;
-  gap: 64px;
-  align-items: center;
-  max-width: 1180px;
+  display: flex;
+  flex-direction: column;
   width: 100%;
-  margin: 0 auto;
-  padding: 8px 16px 0;
   min-height: 0;
   overflow-y: auto;
+}
+
+/* Two columns over a full-width screenshot strip: the loader keeps its place
+   on the left, the right column maps the product (privacy bar → the four mode
+   cards → proof strip → what's new). */
+.lp-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.12fr;
+  gap: 56px;
+  align-items: start;
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 30px 48px 36px;
+  box-sizing: border-box;
+}
+
+.lp-strip {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 4px 48px 30px;
+  box-sizing: border-box;
 }
 
 .lb-left {
@@ -708,9 +726,10 @@ button:focus-visible {
 }
 
 .lb-h1 {
-  font-size: 40px;
-  line-height: 1.06;
-  letter-spacing: -0.03em;
+  font-size: 41px;
+  line-height: 1.14;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
   font-weight: 600;
   margin: 0;
 }
@@ -779,26 +798,25 @@ button:focus-visible {
   color: var(--muted);
 }
 
-.lb-dz-accepts {
-  font-family: var(--font-mono);
-  font-size: 11.5px;
-  color: var(--faint);
-  margin-top: 8px;
-}
-
-/* Screenshot strip under the feature pillars */
-.lb-shots-h {
-  margin-top: 26px;
-}
-
+/* Full-width screenshot strip under both columns */
 .lb-shots {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   gap: 12px;
 }
 
 .lb-shot {
   margin: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--panel);
+  transition: border-color 0.12s;
+}
+
+.lb-shot:hover,
+.lb-shot:focus-within {
+  border-color: color-mix(in oklch, var(--accent) 40%, var(--border));
 }
 
 .lb-shot-btn {
@@ -808,32 +826,61 @@ button:focus-visible {
   border: 0;
   background: none;
   cursor: zoom-in;
-  border-radius: var(--radius);
+  position: relative;
 }
 
 .lb-shot-btn:focus-visible {
   outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  outline-offset: -2px;
 }
 
+/* The box ratio matches the capture ratio exactly — a mismatch would make
+   `cover` silently re-crop the crop and lose the region it frames. */
 .lb-shot img {
   display: block;
   width: 100%;
-  height: 132px;
+  aspect-ratio: 1600 / 1058;
+  height: auto;
   object-fit: cover;
-  border-radius: var(--radius);
-  border: 1px solid var(--border-2);
-  background: var(--panel);
 }
 
 [data-theme="dark"] .lb-shot-light { display: none; }
 [data-theme="light"] .lb-shot-dark { display: none; }
 
+/* Expand glyph, fading in on hover: the tiles open the full-page shot. */
+.lb-shot-zoom {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Scrim + glyph sit on a photograph, not on the theme — both stay literal. */
+  background: rgba(28, 24, 18, 0.62);
+  color: #fff;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.lb-shot-btn:hover .lb-shot-zoom,
+.lb-shot-btn:focus-visible .lb-shot-zoom {
+  opacity: 1;
+}
+
+.lb-shot-zoom svg {
+  width: 14px;
+  height: 14px;
+}
+
 .lb-shot figcaption {
-  font-size: 12px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
   color: var(--muted);
-  text-align: center;
-  margin-top: 6px;
+  padding: 7px 10px;
+  border-top: 1px solid var(--border);
 }
 
 .lb-free {
@@ -955,11 +1002,49 @@ button:focus-visible {
   white-space: nowrap;
 }
 
-/* Feature list (right column) */
-.lb-list {
+/* Compact sample tiles: one row of three, name + count only — the tile
+   itself is the affordance, no per-row "Open →". */
+.lp-sample-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 7px;
+}
+
+.lp-sample-tile {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--panel);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.12s, background 0.12s;
+}
+
+.lp-sample-tile:hover {
+  border-color: color-mix(in oklch, var(--accent) 40%, var(--border));
+  background: var(--panel-2);
+}
+
+.lp-st-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.lp-st-count {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+/* Right column: privacy bar → capability grid → proof strip → what's new */
+.lp-right {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
 .lb-list-h {
@@ -971,24 +1056,62 @@ button:focus-visible {
   margin: 0 0 12px;
 }
 
-.lb-feat {
+/* Privacy: said once, and accurately — an accent bar, not a feature card. */
+.lp-privbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 16px;
+  background: color-mix(in oklch, var(--accent) 7%, var(--panel));
+  border: 1px solid color-mix(in oklch, var(--accent) 26%, var(--border));
+  border-radius: var(--radius-lg);
+}
+
+.lp-privbar svg {
+  color: var(--accent);
+  flex: none;
+}
+
+.lp-privbar p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.lp-privbar strong {
+  color: var(--text);
+  font-weight: 700;
+}
+
+/* Capability grid: 2×2, one card per mode — the page as a map of the app. */
+.lp-caps {
   display: grid;
-  grid-template-columns: 40px 1fr;
-  gap: 16px;
-  align-items: start;
-  padding: 14px 0;
-  border-bottom: 1px solid var(--border);
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
 }
 
-.lb-feat:last-child {
-  border-bottom: none;
+.lp-cap {
+  background: var(--panel);
+  padding: 18px 18px 16px;
 }
 
-.lb-feat-ico {
-  width: 40px;
-  height: 40px;
-  border-radius: 9px;
-  background: color-mix(in oklch, var(--accent) 9%, transparent);
+.lp-cap-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.lp-cap-ico {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  background: color-mix(in oklch, var(--accent) 10%, var(--panel));
   color: var(--accent);
   display: inline-flex;
   align-items: center;
@@ -996,62 +1119,185 @@ button:focus-visible {
   flex: none;
 }
 
-.lb-feat-ico svg {
-  width: 22px;
-  height: 22px;
+.lp-cap-ico svg {
+  width: 15px;
+  height: 15px;
   stroke: currentColor;
   fill: none;
-  stroke-width: 1.6;
+  stroke-width: 1.7;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
-.lb-feat h4 {
-  margin: 2px 0 3px;
-  font-size: 15.5px;
-  font-weight: 600;
-}
-
-.lb-feat p {
+.lp-cap-head h3 {
   margin: 0;
+  font-size: 16.5px;
+  font-weight: 700;
+}
+
+.lp-cap-tag {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--faint);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 2px 5px;
+  white-space: nowrap;
+}
+
+.lp-cap > p {
+  margin: 0 0 10px;
   font-size: 13.5px;
+  line-height: 1.55;
   color: var(--muted);
-  line-height: 1.45;
 }
 
-.lb-feat.lead {
-  background: color-mix(in oklch, var(--accent) 5%, transparent);
-  border-bottom: none;
-  border-radius: 11px;
-  padding: 16px 18px;
-  margin: 2px 0 8px;
-  box-shadow: inset 3px 0 0 var(--accent);
+.lp-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
 }
 
-.lb-feat.lead .lb-feat-ico {
-  background: color-mix(in oklch, var(--accent) 15%, transparent);
+.lp-chip {
+  font: 500 11px var(--font-mono);
+  color: var(--muted);
+  background: var(--panel-2);
+  border-radius: 4px;
+  padding: 3px 7px;
 }
 
-.lb-feat.lead h4 {
+/* Proof strip: numbers only, no prose. */
+.lp-proof {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.lp-proof-cell {
+  background: var(--panel);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.lp-proof-n {
+  font-size: 17px;
+  font-weight: 700;
   color: var(--accent);
+  white-space: nowrap;
 }
 
-.lb-feat.lead p {
-  color: var(--text);
+.lp-proof-l {
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: var(--faint);
+}
+
+/* What's new: the newest changelog entry's bullet titles + the way in. */
+.lp-news {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  align-items: start;
+  padding: 2px 6px 0;
+}
+
+.lp-news-tag {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  border: 1px solid color-mix(in oklch, var(--accent) 45%, var(--border));
+  border-radius: var(--radius-pill);
+  padding: 2px 8px;
+  margin-top: 1px;
+}
+
+.lp-news-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.lp-news-list li {
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lp-news-link {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--accent);
+  text-decoration: none;
+  white-space: nowrap;
+  margin-top: 1px;
+}
+
+.lp-news-link:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 1100px) {
+  .lp-grid {
+    gap: 36px;
+    padding: 22px 28px 30px;
+  }
+  .lp-strip {
+    padding: 0 28px 26px;
+  }
 }
 
 @media (max-width: 880px) {
-  .landing-b {
+  .lp-grid {
     grid-template-columns: 1fr;
     gap: 36px;
-    align-items: start;
-    max-width: 560px;
+    max-width: 620px;
+  }
+  .lp-strip {
+    max-width: 620px;
   }
   .lb-left {
     max-width: none;
   }
   .lb-h1 {
     font-size: 32px;
+  }
+  .lb-shots {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 560px) {
+  .lp-caps {
+    grid-template-columns: 1fr;
+  }
+  .lp-proof {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .lp-news {
+    grid-template-columns: auto 1fr;
+  }
+  .lp-news-link {
+    grid-column: 2;
+    justify-self: start;
   }
 }
 
@@ -7940,9 +8186,10 @@ kbd {
     padding: 10px 12px 0;
     margin-bottom: 8px;
   }
-  /* The strip serves portrait phone captures here — taller tiles fit them. */
+  /* The strip serves portrait phone captures here — the box ratio follows
+     the capture ratio so `cover` never re-crops them. */
   .lb-shot img {
-    height: 170px;
+    aspect-ratio: 739 / 1600;
   }
   .app-footer {
     padding: 10px 12px 8px;
