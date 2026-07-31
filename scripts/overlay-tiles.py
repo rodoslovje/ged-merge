@@ -302,6 +302,9 @@ SKEW_LIMIT = 3            # degrees of scan rotation looked through
 SPAN_TOLERANCE = 0.05     # how far a rule pair may sit from the printed size
 MARGIN_GAP = (2.0, 8.0)   # mm outside a border rule where the sheet goes blank
 BUNDLE_RULES = 10         # rules kept per edge, counted in from the paper edge
+PROMINENCE_SPAN = 14      # px either side of a rule where the ink must fall away
+ANCHOR_INK = 0.75         # ink fraction that marks a rule as running the whole edge
+BUNDLE_DEPTH = 9          # mm from the outer frame within which the neatline lies
 FAINT = 0.010             # span error a rule that runs half its edge is worth
 INKED = 0.006             # …and one with map rather than margin outside it
 
@@ -334,7 +337,11 @@ def _profile(ink: Image.Image, angle, horizontal):
 
 
 def _peaks(profile, floor=0.45):
-    """Rule positions in a darkness profile: local maxima, strongest first."""
+    """Rule positions in a darkness profile: local maxima, strongest first.
+
+    A rule is a line, so the profile has to come back down on both sides of it
+    within a few pixels. Insisting on that ignores the wide dark plateaus a
+    scanner surround leaves around the paper."""
     top = max(profile) if profile else 0
     if top < floor:
         return []
@@ -344,9 +351,39 @@ def _peaks(profile, floor=0.45):
             continue
         if any(abs(p - q) < 5 for q, _ in out):
             continue
-        if v >= max(profile[max(0, p - 5):p + 6]):
-            out.append((p, v))
+        if v < max(profile[max(0, p - 5):p + 6]):
+            continue
+        flanks = [profile[max(0, p - PROMINENCE_SPAN):max(1, p - PROMINENCE_SPAN + 6)],
+                  profile[p + PROMINENCE_SPAN:p + PROMINENCE_SPAN + 6]]
+        if all(f and min(f) > v - 0.2 for f in flanks):
+            continue
+        out.append((p, v))
     return sorted(out, key=lambda pv: -pv[1])
+
+
+def _paper_box(gray, scale):
+    """The paper's bounding box in a scan photographed against a dark surround.
+
+    Several libraries scan the sheet on a black platen, and that surround is
+    darker than any rule — every profile would peak on it. Everything else here
+    measures from the paper, so the paper is what the scan gets cropped to."""
+    small = gray.reduce(scale) if scale > 1 else gray
+    w, h = small.size
+    paper = _paper_tone(small)
+    lit = small.point(lambda v: 255 if v >= paper - 55 else 0)
+    rows = [v / 255 for v in lit.resize((1, h), Image.Resampling.BOX).getdata()]
+    cols = [v / 255 for v in lit.resize((w, 1), Image.Resampling.BOX).getdata()]
+
+    def span(profile):
+        lit_at = [i for i, v in enumerate(profile) if v >= 0.5]
+        return (lit_at[0], lit_at[-1] + 1) if lit_at else (0, len(profile))
+
+    x0, x1 = span(cols)
+    y0, y1 = span(rows)
+    box = (x0 * scale, y0 * scale, min(gray.size[0], x1 * scale), min(gray.size[1], y1 * scale))
+    covered = (box[2] - box[0]) * (box[3] - box[1]) / (gray.size[0] * gray.size[1])
+    narrow = (box[2] - box[0]) < gray.size[0] * 0.6 or (box[3] - box[1]) < gray.size[1] * 0.6
+    return None if covered > 0.995 or narrow else box
 
 
 def _margin_outside(profile, p, outward, mm):
@@ -365,7 +402,7 @@ def _margin_outside(profile, p, outward, mm):
     return bool(quiet) and min(quiet) <= 0.15
 
 
-def _rule_candidates(gray, scale, mm):
+def _rule_candidates(gray, scale, mm, expect):
     """Coarse fix on the border rules of all four edges.
 
     Returns {edge: ([(position, strength, graduated)], slope)} — where each
@@ -375,7 +412,12 @@ def _rule_candidates(gray, scale, mm):
     found = {}
     for name, horizontal, near_start in EDGES:
         depth = h if horizontal else w
-        thick = max(8, int(depth * 0.20))
+        # How deep to look: the sheet is a known size, so everything outside it
+        # is margin, and the margin is what the border rule can hide in. Sheets
+        # with a wide legend panel below the map have margins twice what a
+        # fixed fraction would allow for.
+        margin = depth - (expect[1] if horizontal else expect[0])
+        thick = max(8, int(min(depth * 0.38, max(depth * 0.12, margin + depth * 0.02))))
         if horizontal:
             box = (int(w * 0.12), 0, int(w * 0.88), thick) if near_start else \
                   (int(w * 0.12), h - thick, int(w * 0.88), h)
@@ -412,8 +454,12 @@ def _rule_candidates(gray, scale, mm):
         # Keep the outermost rules rather than the darkest: the neatline is
         # always among the first few lines in from the paper edge, while the
         # long straight things that rival it for ink — roads, contours, railway
-        # lines — lie deeper in, and would otherwise crowd it out.
+        # lines — lie deeper in, and would otherwise crowd it out. The first
+        # couple of millimetres are not rules at all but the cut edge of the
+        # scan, so they do not get to fill the quota.
         outward = -1 if near_start else 1
+        edge = 2 * mm if near_start else len(profile) - 1 - 2 * mm
+        peaks = [(p, v) for p, v in peaks if (p > edge if near_start else p < edge)]
         peaks = sorted(peaks, key=lambda pv: pv[0] * outward, reverse=True)[:BUNDLE_RULES]
         found[name] = ([(p + offset, v, _margin_outside(profile, p, outward, mm))
                         for p, v in peaks], math.tan(math.radians(angle)))
@@ -442,6 +488,22 @@ def _pick_pair(near, far, span):
     return best[1:] if best else None
 
 
+def _bundle_pick(cands, mm, outward):
+    """The neatline when the printed size cannot say which rule it is.
+
+    A catalogue's "600 dpi" is sometimes 450, and then no pair of rules sits
+    the predicted distance apart. What still holds is the sheet's layout: the
+    outermost full-length rule is the outer frame, and the neatline is the
+    innermost rule of the bundle that follows it within a centimetre."""
+    if not cands:
+        return None
+    anchor = next((p for p, v, _m in cands if v >= ANCHOR_INK), cands[0][0])
+    inward = -outward
+    within = [p for p, v, _m in cands
+              if 0 <= (p - anchor) * inward <= BUNDLE_DEPTH * mm and v >= 0.5]
+    return max(within, key=lambda p: (p - anchor) * inward) if within else anchor
+
+
 def detect_frame(im: Image.Image, expect=None):
     """Neatline corners of a scanned sheet, as (nw, ne, se, sw) pixel pairs.
 
@@ -452,17 +514,27 @@ def detect_frame(im: Image.Image, expect=None):
     innermost long rule per edge is taken on its own, which is only reliable on
     a clean single sheet."""
     g = im.convert("L")
+    origin = (0, 0)
+    if expect:
+        paper = _paper_box(g, max(1, round(max(g.size) / COARSE_SIDE)))
+        if paper:
+            g = g.crop(paper)
+            origin = (paper[0], paper[1])
     w, h = g.size
     hints = {}
     if expect:
         # 0.25° of latitude is 368.7 mm of paper at 1:75 000 — the scale that
         # turns the sheet layout's millimetres into this scan's pixels.
-        found = _rule_candidates(g, max(1, round(max(w, h) / COARSE_SIDE)), expect[1] / 368.7)
+        found = _rule_candidates(g, max(1, round(max(w, h) / COARSE_SIDE)),
+                                 expect[1] / 368.7, expect)
+        mm = expect[1] / 368.7
         for (a, b), span in (("left", "right"), expect[0]), (("top", "bottom"), expect[1]):
             pair = _pick_pair(found[a][0], found[b][0], span)
             if pair is None:
-                raise SystemExit(f"no {a}/{b} rule pair {span:.0f} px apart — the scan may be "
-                                 f"cropped inside its neatline, or is not this sheet")
+                pair = (_bundle_pick(found[a][0], mm, -1), _bundle_pick(found[b][0], mm, 1))
+                if None in pair:
+                    raise SystemExit(f"no {a} or {b} border rule found — the scan may be cropped "
+                                     f"inside its neatline, or is not this sheet")
             hints[a] = (pair[0], found[a][1])
             hints[b] = (pair[1], found[b][1])
 
@@ -480,11 +552,10 @@ def detect_frame(im: Image.Image, expect=None):
         y = (ha * vb + hb) / (1 - ha * va)
         return va * y + vb, y
 
-    nw = cross(edges["top"], edges["left"])
-    ne = cross(edges["top"], edges["right"])
-    se = cross(edges["bottom"], edges["right"])
-    sw = cross(edges["bottom"], edges["left"])
-    return nw, ne, se, sw
+    ox, oy = origin
+    return tuple((x + ox, y + oy) for x, y in (
+        cross(edges["top"], edges["left"]), cross(edges["top"], edges["right"]),
+        cross(edges["bottom"], edges["right"]), cross(edges["bottom"], edges["left"])))
 
 
 # ── Sheets ───────────────────────────────────────────────────────────────────

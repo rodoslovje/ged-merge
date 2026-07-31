@@ -185,25 +185,35 @@ def manifest(chosen):
 
 # ── Download ─────────────────────────────────────────────────────────────────
 
-def download(ranked, directory, jobs):
+def download(ranked, directory, jobs, again=()):
     """Fetch one scan per cell; return the edition that actually landed.
 
     Interrupted downloads resume, and a cell whose best edition 404s falls
     through to its next one, so the answer is what is on disk rather than what
-    was picked. `.fetched.json` remembers which edition that was, so a rerun
-    neither re-downloads nor mislabels."""
+    was picked. `.fetched.json` remembers every edition tried and the one in
+    use, so a rerun neither re-downloads nor mislabels — and cells listed in
+    `again` (the sheets whose neatline could not be measured) skip what has
+    been tried and fetch the next edition instead. Most measuring failures are
+    the scan's fault, not the sheet's: another library's copy usually reads."""
     os.makedirs(directory, exist_ok=True)
     state_path = os.path.join(directory, ".fetched.json")
     state = json.load(open(state_path)) if os.path.exists(state_path) else {}
+    for sid, got in list(state.items()):           # older state held the record alone
+        if "record" not in got:
+            state[sid] = {"record": got, "tried": [got["url"]]}
 
     landed, todo = {}, []
     for cell, editions in sorted(ranked.items()):
         sid = sheet_id(*cell)
         got = state.get(sid)
-        if got and os.path.exists(os.path.join(directory, f"{sid}.jpg")):
-            landed[cell] = got
+        if got and os.path.exists(os.path.join(directory, f"{sid}.jpg")) and sid not in again:
+            landed[cell] = got["record"]
         else:
-            todo.append((cell, editions))
+            fresh = [r for r in editions if r["url"] not in (got or {}).get("tried", [])]
+            if fresh:
+                todo.append((cell, fresh))
+            elif got:
+                landed[cell] = got["record"]       # nothing left to try; keep what we have
     print(f"{len(landed)} of {len(ranked)} scans already present; fetching {len(todo)}", flush=True)
 
     def one(task):
@@ -225,7 +235,8 @@ def download(ranked, directory, jobs):
             if r:
                 done += 1
                 landed[cell] = r
-                state[sid] = r
+                tried = state.get(sid, {}).get("tried", [])
+                state[sid] = {"record": r, "tried": sorted(set(tried + [r["url"]]))}
                 json.dump(state, open(state_path, "w"), ensure_ascii=False)
                 size = os.path.getsize(os.path.join(directory, f"{sid}.jpg"))
                 print(f"  [{done + failed}/{len(todo)}] {sid} {r['name'][:34]:34s} "
@@ -253,6 +264,9 @@ def main():
     ap.add_argument("--year-from", type=int, default=1873)
     ap.add_argument("--year-to", type=int, default=1920)
     ap.add_argument("--download", metavar="DIR", help="fetch the selected scans into DIR")
+    ap.add_argument("--again", metavar="IDS",
+                    help="re-fetch these sheets with an edition not tried yet — pass the ids "
+                         "--write-frames could not measure, or a file listing them")
     ap.add_argument("--jobs", type=int, default=3, help="parallel downloads (be gentle: default 3)")
     args = ap.parse_args()
 
@@ -275,7 +289,11 @@ def main():
 
     missing = 0
     if args.download:
-        chosen = download(ranked, args.download, args.jobs)
+        again = set()
+        if args.again:
+            text = open(args.again).read() if os.path.exists(args.again) else args.again
+            again = {t for t in re.split(r"[\s,]+", text) if t}
+        chosen = download(ranked, args.download, args.jobs, again)
         missing = len(ranked) - len(chosen)
     else:
         chosen = {cell: eds[0] for cell, eds in ranked.items()}
