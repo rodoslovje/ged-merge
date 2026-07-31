@@ -41,17 +41,19 @@ README.md). Each pane is then warped through that shared projection.
   --webp           write WebP tiles instead of PNG (≈ 1/3 smaller than --png8
                    at the same detail; alpha stays lossless, so sheet edges
                    and nodata cut cleanly)
+  --jobs           sheets rendered at once; sheets two grid steps apart never
+                   write the same seam tile, so they go in the same wave
 
 Measuring a whole series at once:
 
   python3 scripts/overlay-tiles.py --manifest sheets.json --write-frames measured.json
 
 detects every sheet's neatline once, checks each against the shape its bbox
-implies (a 0.5°×0.25° sheet is 2.013·cos φ times as wide as it is tall, and the
-press ran ~0.8% tighter than that), and writes a manifest with the corners
-pinned as numbers.  Sheets whose detection failed or whose frame is the wrong
-shape are listed and left out, so a bad scan cannot silently smear itself
-across the mosaic — build from the written manifest.
+implies (a 0.5°×0.25° sheet is 2.013·cos φ times as wide as it is tall), and
+writes a manifest with the corners pinned as numbers. Sheets whose detection
+failed or whose frame is the wrong shape are listed and left out, so a bad
+scan cannot silently smear itself across the mosaic — build from the written
+manifest, and re-fetch the rejects from another collection.
 
 Ferro reminder: Austro-Hungarian sheets label longitudes east of Ferro;
 Greenwich = Ferro value − 17°39'46" (≈ 17.662783°).
@@ -177,14 +179,24 @@ class Conic:
 
 
 # ── Neatline detection ───────────────────────────────────────────────────────
-# Each edge of the map frame is probed in short chunks along its length. In a
-# chunk, a rule line is a row (column) whose dark fraction across the chunk is
-# high — a chunk is short enough that scan lean can't smear the line across
-# rows — and whose immediate exterior side is paper (map content fails that
-# test, and it separates the innermost border rule from hachures that start
-# right at the frame). The innermost qualifying row per chunk, line-fitted
-# across chunks with outlier rejection, gives each edge; corner = the fitted
-# edges' intersection.
+# Finding the map frame in a scan is done twice over, coarse then fine.
+#
+# Coarse (only when the sheet's printed size is known): the margin band of each
+# edge is thresholded, squeezed along the rule so a whole edge fits in a small
+# image, and rotated through a range of angles — a border rule is the one mark
+# that runs the full width of the sheet, so at the scan's own tilt it stands up
+# out of the profile as a peak. That gives a handful of candidate rules per
+# edge, and the pair that sits the *printed* distance apart, with blank paper a
+# few millimetres outside it, is the frame. Nothing inside the map can fake
+# both at once, which is what the old innermost-rule-per-edge heuristic could
+# not tell apart from a road running parallel to the frame.
+#
+# Fine: each edge is then probed in short chunks along its length, within a
+# narrow window around the coarse fix. In a chunk, a rule is a row (column)
+# whose dark fraction is high — a chunk is short enough that scan lean can't
+# smear the line across rows — and whose immediate exterior side is paper. The
+# innermost qualifying row per chunk, line-fitted across chunks with outlier
+# rejection, gives the edge; a corner is where two fitted edges cross.
 
 EDGES = (("top", True, True), ("bottom", True, False),
          ("left", False, True), ("right", False, False))
