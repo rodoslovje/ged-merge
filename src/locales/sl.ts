@@ -1241,10 +1241,13 @@ export const sl = {
   "editSource.remove": "Odstrani",
   "event.BIRT": "Rojstvo",
   "event.BAPM": "Krst",
-  "event.CHR": "Krst",
+  // CHR je po GEDCOM krst (in poimenovanje) otroka, BAPM pa krst nasploh —
+  // v slovenščini sta oba »krst«, zato CHR nosi pojasnilo, da se v spustnem
+  // seznamu ne pojavita dve enaki izbiri.
+  "event.CHR": "Krst otroka",
   "event.CONF": "Birma",
   "event.ADOP": "Posvojitev",
-  "event.FCOM": "Prva sveta obhajila",
+  "event.FCOM": "Prvo sveto obhajilo",
   "event.OCCU": "Poklic",
   "event.EDUC": "Izobrazba",
   "event.RETI": "Upokojitev",
