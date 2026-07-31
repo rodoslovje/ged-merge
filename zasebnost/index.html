@@ -164,27 +164,27 @@
               </thead>
               <tbody>
                 <tr>
-                  <td>Branje naslova strani iz URL-ja vira</td>
-                  <td>Celoten URL, ki ste ga vnesli</td>
-                  <td>
+                  <td data-label="Kdaj">Branje naslova strani iz URL-ja vira</td>
+                  <td data-label="Kaj se pošlje">Celoten URL, ki ste ga vnesli</td>
+                  <td data-label="Komu">
                     Javni posrednik CORS — <code>api.allorigins.win</code>, <code>corsproxy.io</code>,
                     <code>api.codetabs.com</code> ali <code>r.jina.ai</code>, v tem vrstnem redu (našteti so tudi v
                     nastavitvah), od tam pa spletno mesto, na katerega URL kaže
                   </td>
                 </tr>
                 <tr>
-                  <td>Iskanje kraja ali hišne številke znotraj kraja</td>
-                  <td>Ime kraja ali naslov, ki ga iščete, in jezik vmesnika</td>
-                  <td>
+                  <td data-label="Kdaj">Iskanje kraja ali hišne številke znotraj kraja</td>
+                  <td data-label="Kaj se pošlje">Ime kraja ali naslov, ki ga iščete, in jezik vmesnika</td>
+                  <td data-label="Komu">
                     OpenStreetMap Nominatim (<code>nominatim.openstreetmap.org</code>, OpenStreetMap Foundation),
                     slovenski register nepremičnin in naslovov (<code>ipi.eprostor.gov.si</code>, GURS) ter Genealoški
                     imenik krajev GOV (<code>gov.genealogy.net</code>, Verein für Computergenealogie e.V.)
                   </td>
                 </tr>
                 <tr>
-                  <td>Prenos imenika krajev za delo brez povezave</td>
-                  <td>Koda države</td>
-                  <td><code>overpass-api.de</code> ali <code>overpass.kumi.systems</code>; izvlečke GeoNames prenesete sami z <code>download.geonames.org</code> in jih uvozite kot datoteko</td>
+                  <td data-label="Kdaj">Prenos imenika krajev za delo brez povezave</td>
+                  <td data-label="Kaj se pošlje">Koda države</td>
+                  <td data-label="Komu"><code>overpass-api.de</code> ali <code>overpass.kumi.systems</code>; izvlečke GeoNames prenesete sami z <code>download.geonames.org</code> in jih uvozite kot datoteko</td>
                 </tr>
               </tbody>
             </table>
@@ -245,24 +245,24 @@
               </thead>
               <tbody>
                 <tr>
-                  <td>Nastavitve — tema, jezik, način, prikaz in oblika zapisa, nastavitve diagramov, opuščeni namigi</td>
-                  <td>Lokalna shramba (<code>gedmerge.*</code>)</td>
-                  <td>Vedno, ko jih spreminjate</td>
+                  <td data-label="Kaj">Nastavitve — tema, jezik, način, prikaz in oblika zapisa, nastavitve diagramov, opuščeni namigi</td>
+                  <td data-label="Kje">Lokalna shramba (<code>gedmerge.*</code>)</td>
+                  <td data-label="Kdaj">Vedno, ko jih spreminjate</td>
                 </tr>
                 <tr>
-                  <td>Naložene datoteke, odločitve pri združevanju, urejanja in zgodovina razveljavitev</td>
-                  <td>IndexedDB <code>gedmerge-session</code></td>
-                  <td>Samo z vklopljenim <em>Zapomni si moje delo v tem brskalniku</em> (Nastavitve › Podatki). Ob vklopu vas brskalnik lahko vpraša za dovoljenje za trajno shranjevanje.</td>
+                  <td data-label="Kaj">Naložene datoteke, odločitve pri združevanju, urejanja in zgodovina razveljavitev</td>
+                  <td data-label="Kje">IndexedDB <code>gedmerge-session</code></td>
+                  <td data-label="Kdaj">Samo z vklopljenim <em>Zapomni si moje delo v tem brskalniku</em> (Nastavitve › Podatki). Ob vklopu vas brskalnik lahko vpraša za dovoljenje za trajno shranjevanje.</td>
                 </tr>
                 <tr>
-                  <td>Sprejeti zadetki krajev in uvoženi imeniki krajev</td>
-                  <td>IndexedDB <code>gedmerge-geo</code></td>
-                  <td>Ko sprejmete zadetek ali uvozite datoteko imenika</td>
+                  <td data-label="Kaj">Sprejeti zadetki krajev in uvoženi imeniki krajev</td>
+                  <td data-label="Kje">IndexedDB <code>gedmerge-geo</code></td>
+                  <td data-label="Kdaj">Ko sprejmete zadetek ali uvozite datoteko imenika</td>
                 </tr>
                 <tr>
-                  <td>Kazalec na vašo mapo z mediji, da se naslednjič spet odpre</td>
-                  <td>IndexedDB <code>gedmerge</code></td>
-                  <td>Ko izberete mapo z mediji</td>
+                  <td data-label="Kaj">Kazalec na vašo mapo z mediji, da se naslednjič spet odpre</td>
+                  <td data-label="Kje">IndexedDB <code>gedmerge</code></td>
+                  <td data-label="Kdaj">Ko izberete mapo z mediji</td>
                 </tr>
               </tbody>
             </table>

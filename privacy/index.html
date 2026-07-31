@@ -164,27 +164,27 @@
               </thead>
               <tbody>
                 <tr>
-                  <td>Reading back the page title of a source URL</td>
-                  <td>The full URL you entered</td>
-                  <td>
+                  <td data-label="When">Reading back the page title of a source URL</td>
+                  <td data-label="What is sent">The full URL you entered</td>
+                  <td data-label="To whom">
                     A public CORS relay — <code>api.allorigins.win</code>, <code>corsproxy.io</code>,
                     <code>api.codetabs.com</code> or <code>r.jina.ai</code>, tried in that order (Settings names them
                     too), and from there the site the URL points at
                   </td>
                 </tr>
                 <tr>
-                  <td>Searching for a place, or for a house number within a place</td>
-                  <td>The place name or address you are looking up, and your interface language</td>
-                  <td>
+                  <td data-label="When">Searching for a place, or for a house number within a place</td>
+                  <td data-label="What is sent">The place name or address you are looking up, and your interface language</td>
+                  <td data-label="To whom">
                     OpenStreetMap Nominatim (<code>nominatim.openstreetmap.org</code>, OpenStreetMap Foundation),
                     Slovenia's real-estate and address register (<code>ipi.eprostor.gov.si</code>, GURS), and the
                     Genealogical Gazetteer GOV (<code>gov.genealogy.net</code>, Verein für Computergenealogie e.V.)
                   </td>
                 </tr>
                 <tr>
-                  <td>Downloading a gazetteer for offline use</td>
-                  <td>A country code</td>
-                  <td><code>overpass-api.de</code> or <code>overpass.kumi.systems</code>; GeoNames extracts are downloaded from <code>download.geonames.org</code> by you and imported as a file</td>
+                  <td data-label="When">Downloading a gazetteer for offline use</td>
+                  <td data-label="What is sent">A country code</td>
+                  <td data-label="To whom"><code>overpass-api.de</code> or <code>overpass.kumi.systems</code>; GeoNames extracts are downloaded from <code>download.geonames.org</code> by you and imported as a file</td>
                 </tr>
               </tbody>
             </table>
@@ -245,24 +245,24 @@
               </thead>
               <tbody>
                 <tr>
-                  <td>Preferences — theme, language, mode, display and format settings, chart settings, dismissed hints</td>
-                  <td>Local storage (<code>gedmerge.*</code>)</td>
-                  <td>Always, as you change them</td>
+                  <td data-label="What">Preferences — theme, language, mode, display and format settings, chart settings, dismissed hints</td>
+                  <td data-label="Where">Local storage (<code>gedmerge.*</code>)</td>
+                  <td data-label="When">Always, as you change them</td>
                 </tr>
                 <tr>
-                  <td>Your loaded files, merge decisions, edits and undo history</td>
-                  <td>IndexedDB <code>gedmerge-session</code></td>
-                  <td>Only with <em>Remember my work in this browser</em> switched on (Settings › Data). Enabling it may prompt you for persistent storage.</td>
+                  <td data-label="What">Your loaded files, merge decisions, edits and undo history</td>
+                  <td data-label="Where">IndexedDB <code>gedmerge-session</code></td>
+                  <td data-label="When">Only with <em>Remember my work in this browser</em> switched on (Settings › Data). Enabling it may prompt you for persistent storage.</td>
                 </tr>
                 <tr>
-                  <td>Accepted place lookups and any gazetteer you imported</td>
-                  <td>IndexedDB <code>gedmerge-geo</code></td>
-                  <td>When you accept a lookup or import a gazetteer file</td>
+                  <td data-label="What">Accepted place lookups and any gazetteer you imported</td>
+                  <td data-label="Where">IndexedDB <code>gedmerge-geo</code></td>
+                  <td data-label="When">When you accept a lookup or import a gazetteer file</td>
                 </tr>
                 <tr>
-                  <td>A handle to your media folder, so it reopens next time</td>
-                  <td>IndexedDB <code>gedmerge</code></td>
-                  <td>When you choose a media folder</td>
+                  <td data-label="What">A handle to your media folder, so it reopens next time</td>
+                  <td data-label="Where">IndexedDB <code>gedmerge</code></td>
+                  <td data-label="When">When you choose a media folder</td>
                 </tr>
               </tbody>
             </table>
