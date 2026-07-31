@@ -911,7 +911,7 @@ export const en = {
   "map.pageTitle": "Places Map",
   "map.count": "{{shown}} of {{total}} events",
   "map.fit": "Fit to the plotted places",
-  "map.kinds.label": "Event kinds",
+  "map.kinds.label": "What is drawn",
   "map.kind.birth": "Birth",
   "map.kind.marriage": "Marriage",
   "map.kind.death": "Death",

@@ -6370,6 +6370,9 @@ kbd {
 .map-count {
   color: var(--muted);
   font-size: 12.5px;
+  /* The controls row aligns to the top; this is one line of text beside
+     button-height controls, so centre it against them. */
+  align-self: center;
 }
 
 /* Tile opt-in notice: floats over the offline outline until enabled. */
@@ -6748,15 +6751,18 @@ kbd {
     padding: 4px 8px;
     font-size: 0.75rem;
   }
-  /* On mobile the panel covers the whole tree, with a minimal gap to the screen
-     edges so the tree behind it doesn't peek through. */
-  .tree-compare {
+  /* The panel used to cover the whole chart, which hid the person it is about —
+     you tapped a node and it vanished behind its own details. It takes the
+     bottom half now, and `centreOn` (useTreeCanvas) puts the selected node in
+     the half still showing, so the person stays above their panel. */
+  .tree-compare,
+  .map-panel {
     width: auto;
     left: 8px;
     right: 8px;
-    top: 8px;
+    top: auto;
     bottom: 8px;
-    max-height: none;
+    max-height: 50%;
   }
 
   /* Info panel: stack main and incoming loaders vertically */
@@ -8003,16 +8009,12 @@ kbd {
     gap: 6px 10px;
     margin-bottom: 6px;
   }
-  /* Event kinds on one scrollable line rather than two wrapped rows. */
+  /* The kinds used to be one sideways scroller, which put the last of them (and
+     Paths, which now sits with them) off the right edge behind a swipe. Two
+     wrapped rows cost ~30px and show every chip. */
   .map-kinds {
-    flex-wrap: nowrap;
-    overflow-x: auto;
     min-width: 0;
     flex: 1 1 100%;
-    scrollbar-width: none;
-  }
-  .map-kinds::-webkit-scrollbar {
-    display: none;
   }
   .map-kind-chip {
     flex: 0 0 auto;

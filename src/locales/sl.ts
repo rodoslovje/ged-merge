@@ -960,7 +960,7 @@ export const sl = {
   "map.pageTitle": "Zemljevid krajev",
   "map.count": "{{shown}} od {{total}} dogodkov",
   "map.fit": "Prilagodi pogled prikazanim krajem",
-  "map.kinds.label": "Vrste dogodkov",
+  "map.kinds.label": "Kaj je izrisano",
   "map.kind.birth": "Rojstvo",
   "map.kind.marriage": "Poroka",
   "map.kind.death": "Smrt",

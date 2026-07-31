@@ -677,10 +677,8 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
               <span className="tree-mode-count">{descendantIds.size}</span>
             </button>
           </div>
-        </>
-      }
-      controlsRight={
-        <>
+          {/* Reads with the controls it counts for, rather than pinned to the
+              far right edge opposite them. */}
           <span className="map-count gm-data">
             {t("map.count", { shown: filtered.length, total: allPoints.length })}
             {showPaths &&
@@ -690,9 +688,9 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
                   : t("map.pathCount", { count: allPaths.length })
               }`}
           </span>
-          <ChartFindBox find={find} scope="map" />
         </>
       }
+      controlsRight={<ChartFindBox find={find} scope="map" />}
     >
       <div className="map-filters">
         <div className="map-kinds" role="group" aria-label={t("map.kinds.label")}>
@@ -708,18 +706,20 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
               {t(`map.kind.${kind}`)}
             </button>
           ))}
+          {/* Inside the group, not beside it: like the kind chips it picks what
+              is drawn, and as a sibling of the whole box it was pushed onto a
+              line of its own however much room the chips had left. */}
+          <button
+            type="button"
+            className={`map-kind-chip map-paths-chip${showPaths ? " active" : ""}`}
+            aria-pressed={showPaths}
+            title={t("map.paths.tooltip")}
+            onClick={() => setShowPaths((v) => !v)}
+          >
+            <PathIcon />
+            {t("map.paths")}
+          </button>
         </div>
-        {/* Paths sits with the kind chips: like them, it picks what is drawn. */}
-        <button
-          type="button"
-          className={`map-kind-chip map-paths-chip${showPaths ? " active" : ""}`}
-          aria-pressed={showPaths}
-          title={t("map.paths.tooltip")}
-          onClick={() => setShowPaths((v) => !v)}
-        >
-          <PathIcon />
-          {t("map.paths")}
-        </button>
         <div className="map-filters-right">
           <span className="map-years">
             <input
