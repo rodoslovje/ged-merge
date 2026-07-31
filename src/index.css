@@ -5937,7 +5937,11 @@ kbd {
   padding: 12px 16px;
   margin: 14px 0 4px;
 }
-.legal-notice strong {
+/* The box's own heading — its direct child, not every `strong` inside it. As a
+   descendant selector this also caught the emphasis in the prose ("both **off
+   by default**"), which then broke out of its sentence as an uppercase accent
+   block on a line of its own. */
+.legal-notice > strong {
   display: block;
   margin-bottom: 6px;
   color: var(--accent);
