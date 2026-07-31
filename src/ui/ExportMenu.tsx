@@ -41,8 +41,9 @@ export function ExportMenu({ items, disabled }: { items: ExportItem[]; disabled?
         aria-haspopup="menu"
         aria-expanded={open}
         title={t("export.tooltip")}
+        aria-label={t("export.button")}
       >
-        <DownloadIcon /> {t("export.button")} <span className="export-menu-caret" aria-hidden="true">▾</span>
+        <DownloadIcon /> <span className="export-menu-label">{t("export.button")}</span> <span className="export-menu-caret" aria-hidden="true">▾</span>
       </button>
       {open && (
         <div className="export-menu-popover" role="menu" aria-label={t("export.button")}>
