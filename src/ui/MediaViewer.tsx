@@ -676,7 +676,7 @@ function MediaViewerOverlay({
 
   return (
     <div
-      className={`person-media-overlay ${multiple && !hideTray ? "has-tray" : ""}`}
+      className={`person-media-overlay ${multiple && !hideTray ? "has-tray" : ""}${captionOnly ? " caption-only" : ""}`}
       onClick={onClose}
       role="dialog"
       aria-modal="true"

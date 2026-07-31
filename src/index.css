@@ -2565,6 +2565,18 @@ button:focus-visible {
   .media-lightbox { flex-direction: column; align-items: center; }
   .person-media-stage .person-media-full { max-height: 55dvh; }
   .media-lightbox-info { flex: 1 1 auto; max-width: 95vw; width: 100%; }
+  /* Caption-only slideshows have no info panel below — let the image take the
+     screen, with the nav arrows floating over its edges. */
+  .person-media-overlay.caption-only .person-media-stage .person-media-full { max-height: 84dvh; }
+  .person-media-overlay.caption-only .person-media-stage { max-width: 97vw; }
+  .person-media-nav {
+    width: 40px;
+    height: 56px;
+    background: rgba(0, 0, 0, 0.45);
+    border-color: rgba(255, 255, 255, 0.25);
+  }
+  .person-media-prev { left: 8px; }
+  .person-media-next { right: 8px; }
 }
 
 /* Compare panel photos strip */
