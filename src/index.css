@@ -4359,6 +4359,9 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   position: absolute;
   inset: 0;
   overflow: auto;
+  /* One-finger touch pans natively; pinch is NOT handled by the browser (no
+     page zoom) and reaches the canvas's touch handlers, which zoom the chart. */
+  touch-action: pan-x pan-y;
   /* Flex + auto margins on the chart centre it when it is smaller than the
      canvas (filling the empty area), yet let it scroll from the top-left without
      clipping when it is larger. */
