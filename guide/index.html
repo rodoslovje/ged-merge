@@ -414,10 +414,10 @@
               main file directly — no second file needed. Pick anyone from the <strong>Jump to person</strong> box, or
               click a relative's card to walk the tree; <strong>Back</strong> returns to where you came from. If the
               current person also matches your incoming file, <strong>Merge</strong> in the toolbar jumps straight to
-              that comparison, and the person header shows the same
-              <span class="gm-badge c round">C</span> / <span class="gm-badge r round">R</span> / <span class="gm-badge d round">D</span>
-              decision buttons — handy for clearing a <strong>Rejected</strong> status without leaving Edit, which puts
-              the match back in the Merge list (see <a href="#merge">§9</a>). Every change is held in memory and
+              that comparison, and the person header carries the same three decision buttons —
+              <strong>Confirm</strong>, <strong>Reject</strong> and <strong>Defer</strong> — so a match can be decided,
+              or a decision changed, without leaving Edit. What the three mean is in <a href="#merge">§9</a>. Every
+              change is held in memory and
               reversible with <span class="gm-key">Ctrl</span><span class="gm-key">Z</span> until you download.
             </p>
             <p>
@@ -600,18 +600,20 @@
             </ul>
             <h3>Marking each match</h3>
             <p>
-              Give every pair a decision, by button or shortcut:
-              <span class="gm-badge c round">C</span> <strong>Confirm</strong> (<span class="gm-key">C</span>),
-              <span class="gm-badge r round">R</span> <strong>Reject</strong> (<span class="gm-key">R</span>), or
-              <span class="gm-badge d round">D</span> <strong>Defer</strong> to decide later (<span class="gm-key">D</span>).
-              Only <strong>confirmed</strong> matches are merged on save.
+              Give every pair a decision, by button or shortcut: <strong>Confirm</strong>
+              (<span class="gm-key">C</span>), <strong>Reject</strong> (<span class="gm-key">R</span>), or
+              <strong>Defer</strong> to decide later (<span class="gm-key">D</span>). Once decided, the person carries
+              a round badge of that decision's first letter — <span class="gm-badge c round">C</span>,
+              <span class="gm-badge r round">R</span> or <span class="gm-badge d round">D</span> — on the match row, in
+              Edit and on every chart (<a href="#legend">§15</a>). Only <strong>confirmed</strong> matches are merged on
+              save.
             </p>
             <p>
-              <strong>Reject</strong> means "not the same person" — use it on a false-positive candidate so it stops
+              <strong>Reject</strong> means “not the same person” — use it on a false-positive candidate so it stops
               cluttering the list. Rejected pairs disappear from the match list immediately; only unmarked, confirmed
               and deferred candidates stay shown. To bring one back, either <span class="gm-key">Ctrl</span><span
               class="gm-key">Z</span> to undo the rejection, or open that person in <strong>Edit</strong> (<a href="#edit">§8</a>) and click
-              <span class="gm-badge r round">R</span> again to clear the status — the match reappears in the list
+              <strong>Reject</strong> again to clear the status — the match reappears in the list
               either way.
             </p>
             <h3>Compare Tree</h3>
