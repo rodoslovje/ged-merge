@@ -4,7 +4,7 @@ import type { ChangeReport, FieldChange, FamilySpouseInfo } from "../merge/merge
 import { displayName, nameTypeLabel } from "../match/relatives";
 import { childrenByTag, firstChild } from "./node";
 import { parseName } from "./name";
-import { parseCoordPair } from "./place";
+import { placeNodeCoord } from "./place";
 import { buildObjeIndex, isPointer, objeInfoOf, sourceTitle } from "./source";
 import { xrefLabel } from "./nameDisplay";
 import type { Translate } from "../locales/i18n";
@@ -165,10 +165,7 @@ const OVERLAP_KEYS = EVENT_FIELD_KEYS.filter((k) => k !== "coord");
  *  the diff instead of silently disappearing. */
 function placeCoord(node: GedNode): string {
   const plac = firstChild(node, "PLAC");
-  const map = plac && firstChild(plac, "MAP");
-  const lati = map && firstChild(map, "LATI")?.value;
-  const long = map && firstChild(map, "LONG")?.value;
-  const coord = lati && long ? parseCoordPair(lati, long) : undefined;
+  const coord = plac && placeNodeCoord(plac);
   return coord ? `${coord.lat.toFixed(4)}, ${coord.lon.toFixed(4)}` : "";
 }
 

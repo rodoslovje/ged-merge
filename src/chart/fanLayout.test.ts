@@ -59,6 +59,15 @@ describe("buildFanChart", () => {
     const sharedSegs = chart.segments.filter((s) => s.node.name === "shared");
     expect(sharedSegs).toHaveLength(2);
     expect(new Set(sharedSegs.map((s) => s.key)).size).toBe(2);
+    // Each carries the outer anchor the repeat marker hangs on — outside the
+    // status badge's inner one, and inside its own ring.
+    for (const s of sharedSegs) {
+      const rBadge = Math.hypot(s.badge.x - chart.cx, s.badge.y - chart.cy);
+      const rOuter = Math.hypot(s.outerBadge!.x - chart.cx, s.outerBadge!.y - chart.cy);
+      expect(rOuter).toBeGreaterThan(rBadge);
+    }
+    // The root disk has no ring to hang it on.
+    expect(chart.segments.find((s) => s.gen === 0)!.outerBadge).toBeUndefined();
   });
 
   it("uses a wider square canvas for a circle than a fan at the same depth", () => {

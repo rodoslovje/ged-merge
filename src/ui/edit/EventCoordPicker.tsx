@@ -59,7 +59,9 @@ export function EventCoordPicker({
   /** Coordinate this exact place+address already carries elsewhere in the file —
    *  the same house, so better still. */
   filePairCoord?: GeoCoord;
-  onPick: (coord: GeoCoord) => void;
+  /** `label` names where the coordinate came from (the register hit, the file,
+   *  "manual") — for callers that stage a pick and show its origin. */
+  onPick: (coord: GeoCoord, label?: string) => void;
   onClear: () => void;
 }) {
   const { t, i18n } = useTranslation();
@@ -176,8 +178,8 @@ export function EventCoordPicker({
     fromFile.push({ coord: fileCoord, label: t("event.coord.fromFile.place") });
   }
 
-  const take = (c: GeoCoord) => {
-    onPick(c);
+  const take = (c: GeoCoord, label: string) => {
+    onPick(c, label);
     // The same house serves every event at this place and address, so the
     // offer copies the pick to them in one further undoable step.
     if (shareAll && others > 0) share!.applyToAll(place, address, c);
@@ -198,7 +200,7 @@ export function EventCoordPicker({
       label: f.label,
       lines: [at(f.coord), t("event.coord.source.file"), t("event.coord.pinPick")],
       kind: "candidate",
-      onPick: () => take(f.coord),
+      onPick: () => take(f.coord, f.label),
     });
   }
   for (const r of rn.results) {
@@ -209,7 +211,7 @@ export function EventCoordPicker({
         Boolean,
       ),
       kind: "candidate",
-      onPick: () => take(r.coord),
+      onPick: () => take(r.coord, r.label),
     });
   }
   for (const r of osm.results) {
@@ -221,7 +223,7 @@ export function EventCoordPicker({
         Boolean,
       ),
       kind: "candidate",
-      onPick: () => take(r.coord),
+      onPick: () => take(r.coord, r.name),
     });
   }
   if (draftCoord && !pins.some((p) => sameCoord(p.coord, draftCoord))) {
@@ -287,7 +289,7 @@ export function EventCoordPicker({
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && draftCoord) {
                     e.preventDefault();
-                    take(draftCoord);
+                    take(draftCoord, t("event.coord.manual"));
                   }
                 }}
               />
@@ -295,7 +297,7 @@ export function EventCoordPicker({
                 type="button"
                 className="tools-issue-link"
                 disabled={!draftCoord}
-                onClick={() => draftCoord && take(draftCoord)}
+                onClick={() => draftCoord && take(draftCoord, t("event.coord.manual"))}
               >
                 {t("event.coord.set")}
               </button>
@@ -333,7 +335,7 @@ export function EventCoordPicker({
                 <ul className="edit-coord-results">
                   {fromFile.map((f, i) => (
                     <li key={`file-${i}`}>
-                      <button type="button" className="tools-issue-link" onClick={() => take(f.coord)}>
+                      <button type="button" className="tools-issue-link" onClick={() => take(f.coord, f.label)}>
                         {f.label}
                       </button>
                       <span className="gm-data">{at(f.coord)}</span>
@@ -362,19 +364,18 @@ export function EventCoordPicker({
               {osm.state === "done" && !osm.results.length && (
                 <p className="edit-coord-note">{t("tools.geocode.online.none")}</p>
               )}
-              {/* Why the register isn't on offer: outside Slovenia it cannot help,
-                  and inside it needs a house number to look up. */}
-              {settings.allowLinkFetch && !queries.length && (
-                <p className="edit-coord-note">
-                  {inSlovenia ? t("event.coord.noHouseNumber") : t("event.coord.notSlovenia")}
-                </p>
+              {/* Why the register isn't on offer — only where it could have been:
+                  a Slovenian place just needs a house number. Anywhere else the
+                  register was never a candidate, so saying so is noise. */}
+              {settings.allowLinkFetch && !queries.length && inSlovenia && (
+                <p className="edit-coord-note">{t("event.coord.noHouseNumber")}</p>
               )}
 
               {(rn.results.length > 0 || osm.results.length > 0) && (
                 <ul className="edit-coord-results">
                   {rn.results.map((r, i) => (
                     <li key={`rn-${i}`}>
-                      <button type="button" className="tools-issue-link" title={r.label} onClick={() => take(r.coord)}>
+                      <button type="button" className="tools-issue-link" title={r.label} onClick={() => take(r.coord, r.label)}>
                         {r.label}
                       </button>
                       <span className="gm-data">
@@ -385,7 +386,7 @@ export function EventCoordPicker({
                   ))}
                   {osm.results.map((r, i) => (
                     <li key={`osm-${i}`}>
-                      <button type="button" className="tools-issue-link" title={r.label} onClick={() => take(r.coord)}>
+                      <button type="button" className="tools-issue-link" title={r.label} onClick={() => take(r.coord, r.name)}>
                         {r.label}
                       </button>
                       <span className="gm-data">

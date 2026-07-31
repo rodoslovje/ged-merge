@@ -24,6 +24,9 @@ import { citationMark, narrativeEntry, narrativeLangFor } from "../report/narrat
 import type { Translate } from "../locales/i18n";
 import { individualFieldRows } from "../review/fields";
 import { ChartPage } from "./ChartPage";
+import { ChartFindBox } from "./ChartFindBox";
+import { useChartFind } from "./useChartFind";
+import type { FindSource } from "./chartFind";
 import { sexClass } from "./sex";
 import { TreeNodePanel } from "./TreeNodePanel";
 import { chartSlug, escapeHtml, printDocument } from "./exportSvg";
@@ -33,6 +36,7 @@ import { FileTextIcon, PrinterIcon } from "./icons/FormatIcons";
 import { ChartSettings } from "./ChartSettings";
 import { useChartSettings } from "./ChartSettingsContext";
 import { useNodeStatus } from "./useNodeStatus";
+import { useStableHandler } from "./edit/useStableHandler";
 import type { CandidateDecision } from "../review/types";
 import { useNameOf, useSettings } from "./SettingsContext";
 import { ChartRootTitle } from "./ChartRootTitle";
@@ -77,28 +81,28 @@ interface Props {
   onNavigate?: (id: string) => void;
   /** The Charts-hub kind switcher, rendered in the controls row. */
   kindSwitcher?: React.ReactNode;
-  /** Reports re-roots up to the Charts hub, so switching kinds stays on the
-   *  person the user is looking at. */
-  onRootChange?: (id: string) => void;
+  /** Re-root on another person. The hub owns the root (and records it in browser
+   *  history), so a re-root here comes back down as a new `rootId`. */
+  onRootChange: (id: string) => void;
   /** The hub-owned ancestors/descendants choice, shared with the pedigree
    *  charts so the direction survives kind switches. */
   mode: TreeMode;
   onModeChange: (mode: TreeMode) => void;
 }
 
-export function ReportView({ mainDs, rootId, startId, changedPersonIds, decisions, backLabel, onBack, onNavigate, kindSwitcher, onRootChange, mode, onModeChange }: Props) {
+export function ReportView({ mainDs, rootId: currentRootId, startId, changedPersonIds, decisions, backLabel, onBack, onNavigate, kindSwitcher, onRootChange, mode, onModeChange }: Props) {
   const { t, i18n } = useTranslation();
   const nameOf = useNameOf(REPORT_NAME_DISPLAY);
   const { settings: appSettings } = useSettings();
   const nodeStatus = useNodeStatus(changedPersonIds, decisions);
   const { settings, set } = useChartSettings();
-  const [currentRootId, setCurrentRootId] = useState(rootId);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const changeRoot = useCallback((id: string) => {
-    setCurrentRootId(id);
+  // Identity-stable, so the memoized paragraph handlers don't rebuild every
+  // render just because App passes a fresh callback.
+  const changeRoot = useStableHandler((id: string) => {
     setSelectedId(null);
-    onRootChange?.(id);
-  }, [onRootChange]);
+    onRootChange(id);
+  });
 
   // Both directions build (they also feed the toggle's count badges); the
   // toggle picks which one the page shows.
@@ -243,7 +247,8 @@ export function ReportView({ mainDs, rootId, startId, changedPersonIds, decision
     [t, privacy, exportOpts],
   );
 
-  // Cross-reference jump: scroll a numbered entry into view and flash it.
+  // Cross-reference jump: scroll a numbered entry into view and flash it. Also
+  // the find box's reveal — its keys are entry numbers.
   const jumpTo = useCallback((num: number) => {
     const el = document.getElementById(`report-entry-${num}`);
     if (!el) return;
@@ -253,6 +258,21 @@ export function ReportView({ mainDs, rootId, startId, changedPersonIds, decision
     void el.offsetWidth;
     el.classList.add("report-flash");
   }, []);
+
+  // Find-in-report, on the charts' find machinery: one position per numbered
+  // entry, in reading order. Repeat entries (`dupOf`) are skipped — they carry
+  // no anchor of their own and point at the entry that does. A name nowhere in
+  // this report offers to re-root on that person, exactly as the charts do.
+  const findSources = useMemo<FindSource[]>(
+    () =>
+      (data?.generations ?? [])
+        .flatMap((g) => g.entries)
+        .filter((e) => e.dupOf === undefined)
+        .map((e) => ({ key: String(e.num), people: [mainDs.individuals.get(e.id)] })),
+    [data, mainDs],
+  );
+  const revealEntry = useCallback((key: string) => jumpTo(Number(key)), [jumpTo]);
+  const find = useChartFind(findSources, mainDs.individuals, revealEntry, changeRoot);
 
   return (
     <ChartPage
@@ -349,6 +369,9 @@ export function ReportView({ mainDs, rootId, startId, changedPersonIds, decision
           </div>
         </>
       }
+      // The chord stays with the browser here: report entries are plain text,
+      // and native find highlights every hit and works in the print preview.
+      controlsRight={<ChartFindBox find={find} scope="report" takesFindKey={false} />}
     >
       <div className="tree-canvas-wrap">
         <div className="report-scroll">

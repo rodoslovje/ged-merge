@@ -7,7 +7,7 @@ import { overlayDisplayName, useSettings } from "../SettingsContext";
 import { createBaseLayer } from "./baseLayer";
 import { addFitControl, boundsOfCoords } from "./fitControl";
 import { ARROW_MIN_SEG_PX, PATH_STYLE, pathArrows } from "./markerStyle";
-import { resolveOverlay } from "./overlayPresets";
+import { resolveOverlay, type CoverageBox } from "./overlayPresets";
 import { syncOverlayLayers, type LiveOverlays } from "./overlayLayer";
 import { identifyAt, identifyPopupHtml, queryableOverlays } from "./overlayIdentify";
 import { arrowMarker, pathLegNumbers } from "./pathStops";
@@ -129,11 +129,55 @@ interface Props {
    *  changes the next pin pass re-fits the view — the map instance is reused
    *  across subjects instead of being remounted. */
   fitKey?: string;
+  /** How far the automatic fit may zoom in. A lone pin has no extent of its
+   *  own, so this alone decides what a single-coordinate map opens on: the
+   *  default 11 frames the surrounding region, 13 the town. */
+  fitMaxZoom?: number;
+  /** What a map with nothing plotted on it should frame — the base-map sample
+   *  in Settings. Changing it re-frames the map, and "Fit" restores it rather
+   *  than doing nothing. Ignored as soon as there are pins or context dots.  */
+  view?: MiniMapView;
+}
+
+/** An area to frame rather than a set of points. */
+export interface MiniMapView {
+  /** The ground to show, `[south, west, north, east]` in degrees. */
+  box: CoverageBox;
+  /** Never zoom out past this. A layer with a scale limit draws nothing at
+   *  country zoom, so a wide box is shown at its centre at this zoom instead
+   *  of being fitted whole — better a real sample than an empty one. */
+  minZoom?: number;
+  /** Never zoom in past this, however small the box. */
+  maxZoom?: number;
+  /** Bumped to re-apply a view the map is already framed on. The map follows
+   *  changes of the view's *value*, so without this an asked-for reframe that
+   *  lands on the same box and zoom as the last one is a no-op — and the user
+   *  may have panned or zoomed away since. */
+  nonce?: number;
+}
+
+/** Frame {@link MiniMapView.box}, within its zoom limits. Called again on
+ *  resize because the fitting zoom depends on the container's size — which is
+ *  0×0 while the map is still being laid out. */
+function applyView(map: L.Map, view: MiniMapView): void {
+  const bounds = L.latLngBounds([view.box[0], view.box[1]], [view.box[2], view.box[3]]);
+  const fitted = map.getBoundsZoom(bounds);
+  const zoom = Math.max(view.minZoom ?? 0, Math.min(view.maxZoom ?? map.getMaxZoom(), fitted));
+  map.setView(bounds.getCenter(), zoom, { animate: false });
 }
 
 const NO_CONTEXT: NonNullable<Props["context"]> = [];
 
-export default function MiniPlaceMap({ pins, context = NO_CONTEXT, path, onPickCoord, title, fitKey }: Props) {
+export default function MiniPlaceMap({
+  pins,
+  context = NO_CONTEXT,
+  path,
+  onPickCoord,
+  title,
+  fitKey,
+  fitMaxZoom = 11,
+  view,
+}: Props) {
   const { settings: appSettings } = useSettings();
   const { t } = useTranslation();
   const theme = useDocTheme();
@@ -162,6 +206,10 @@ export default function MiniPlaceMap({ pins, context = NO_CONTEXT, path, onPickC
   latestPick.current = onPickCoord;
   const latestContext = useRef(context);
   latestContext.current = context;
+  const latestFitMaxZoom = useRef(fitMaxZoom);
+  latestFitMaxZoom.current = fitMaxZoom;
+  const latestView = useRef(view);
+  latestView.current = view;
   const tRef = useRef(t);
   tRef.current = t;
 
@@ -173,6 +221,7 @@ export default function MiniPlaceMap({ pins, context = NO_CONTEXT, path, onPickC
     const map = L.map(el, { minZoom: 2, maxZoom: 18, attributionControl: false, fadeAnimation: false });
     L.control.attribution({ position: "bottomright", prefix: false }).addTo(map);
     map.setView([46.1, 14.5], 5);
+    if (latestView.current) applyView(map, latestView.current);
     map.on("click", (e: L.LeafletMouseEvent) => {
       // wrap(): a click on a repeated world copy must not yield a longitude
       // outside ±180 — it would be written into the file as-is.
@@ -181,13 +230,19 @@ export default function MiniPlaceMap({ pins, context = NO_CONTEXT, path, onPickC
     });
     // Framing what is plotted: the pins, or the context dots when a row has
     // none yet. Asked for at click time, so it follows the current subject.
-    addFitControl(map, tRef.current("map.fit"), () =>
-      boundsOfCoords(
-        latestPins.current.length
-          ? latestPins.current.map((p) => p.coord)
-          : latestContext.current.map((c) => c.coord),
-      ),
-    );
+    // With nothing plotted at all (the Settings sample) it puts the opening
+    // view back, so the button is never dead.
+    addFitControl(map, tRef.current("map.fit"), () => {
+      const coords = latestPins.current.length
+        ? latestPins.current.map((p) => p.coord)
+        : latestContext.current.map((c) => c.coord);
+      const framed = latestView.current;
+      if (!coords.length && framed) {
+        applyView(map, framed);
+        return null;
+      }
+      return boundsOfCoords(coords);
+    });
     pathLayerRef.current = L.layerGroup().addTo(map);
     pinsLayerRef.current = L.layerGroup().addTo(map);
     // The direction chevrons depend on on-screen segment lengths — redraw
@@ -207,8 +262,13 @@ export default function MiniPlaceMap({ pins, context = NO_CONTEXT, path, onPickC
     el.addEventListener("wheel", markUser, { passive: true });
     const ro = new ResizeObserver(() => {
       map.invalidateSize();
-      if (fitBoundsRef.current && !userMovedRef.current)
-        map.fitBounds(fitBoundsRef.current, { maxZoom: 11, animate: false });
+      if (userMovedRef.current) return;
+      // A framed view is re-fitted on every resize: its zoom is derived from
+      // the container's size, and the first measurement is of a 0×0 box.
+      if (latestView.current && !latestPins.current.length && !latestContext.current.length)
+        applyView(map, latestView.current);
+      else if (fitBoundsRef.current)
+        map.fitBounds(fitBoundsRef.current, { maxZoom: latestFitMaxZoom.current, animate: false });
     });
     ro.observe(el);
     mapRef.current = map;
@@ -231,12 +291,17 @@ export default function MiniPlaceMap({ pins, context = NO_CONTEXT, path, onPickC
     const map = mapRef.current;
     if (!map) return;
     baseLayerRef.current?.remove();
-    const base = createBaseLayer(appSettings.allowMapTiles, appSettings.mapTileUrl, theme).addTo(map);
+    const base = createBaseLayer(
+      appSettings.allowMapTiles,
+      appSettings.mapBasemap,
+      appSettings.mapTileUrl,
+      theme,
+    ).addTo(map);
     // The offline outline is a vector layer added after the pins — push it
     // below them or its opaque land fill hides everything already drawn.
     if (base instanceof L.GeoJSON) base.bringToBack();
     baseLayerRef.current = base;
-  }, [appSettings.allowMapTiles, appSettings.mapTileUrl, theme]);
+  }, [appSettings.allowMapTiles, appSettings.mapBasemap, appSettings.mapTileUrl, theme]);
 
   // Historical overlays: these small maps have no picker, so they draw exactly
   // the layers marked "show by default" in Settings, at the standard overlay
@@ -276,6 +341,17 @@ export default function MiniPlaceMap({ pins, context = NO_CONTEXT, path, onPickC
       map.off("click", onClick);
     };
   }, [defaultOverlays, appSettings.allowMapTiles, t]);
+
+  // A different area to frame (in Settings: a layer just switched on by
+  // default, whose coverage is elsewhere) — go there, even if the user had
+  // panned away, since asking for it is what changed the view.
+  const viewKey = view ? [...view.box, view.minZoom, view.maxZoom, view.nonce].join(":") : "";
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !latestView.current || pins.length || context.length) return;
+    userMovedRef.current = false;
+    applyView(map, latestView.current);
+  }, [viewKey, pins.length, context.length]);
 
   // A new subject on the same map instance: forget the previous fit and any
   // user pan/zoom so the next pin pass frames the new pins. Declared before
@@ -357,7 +433,7 @@ export default function MiniPlaceMap({ pins, context = NO_CONTEXT, path, onPickC
         didFitRef.current = true;
         const bounds = L.latLngBounds(fitPts.map((c) => [c.lat, c.lon] as [number, number])).pad(0.3);
         fitBoundsRef.current = bounds;
-        map.fitBounds(bounds, { maxZoom: 11, animate: false });
+        map.fitBounds(bounds, { maxZoom: latestFitMaxZoom.current, animate: false });
       }
     }
     drawPath(map, pathLayerRef.current, latestPath.current);

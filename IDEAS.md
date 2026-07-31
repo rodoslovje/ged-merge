@@ -36,6 +36,32 @@ The items most worth doing next, in rough order of payoff for real usage
    fields. `review/fields.ts` currently produces no media rows at all, so
    compare-file photos can only arrive via whole-person import.
 
+## Bugs
+
+### "One sheet" prints cut off on Android (reported 2026-07-31)
+
+On Android (reported in Brave), choosing the **One sheet** print size does not
+shrink the chart onto the page — it crops it. The system print *preview* shows
+the whole diagram on one page correctly; the PDF that gets saved is cut.
+
+Suspected cause: `printSheetSet` in `src/ui/exportSvg.ts` lays each sheet out at
+an exact pixel size and pins the paper with `@page { size: <w>px <h>px;
+margin: 0 }`, with `.gm-sheet { overflow: hidden }` and no shrink-to-fit. Chromium
+on Android takes its page size from the Android print framework's paper picker
+and does not honour a custom `@page size`, so the sheet div is laid out for a
+page of one size and rasterized onto a page of another — and because the excess
+is clipped rather than scaled, the difference shows up as a crop. That the
+preview looks right while the saved PDF does not suggests the preview and the
+final rasterization resolve the page box differently.
+
+Worth checking before fixing: whether the same happens in Chrome for Android
+(i.e. whether it is Chromium-wide or Brave-specific), and on iOS Safari.
+
+Possible fixes: express the sheet in physical units (`mm`/`in`) instead of `px`
+so it scales with whatever page the platform hands us; or drop `@page size`
+entirely on mobile and let the sheet fill `100%` of the page box; or build the
+PDF ourselves rather than going through the browser print pipeline.
+
 ## Features
 
 ### Shared-notes sharing UX (Phase C)

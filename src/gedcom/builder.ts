@@ -1,6 +1,6 @@
 import { parseDate } from "./date";
 import { parseName } from "./name";
-import { parseCoordPair, parsePlace } from "./place";
+import { parsePlace, placeNodeCoord } from "./place";
 import { firstChild } from "./node";
 import { buildSourceContext, resolveSourceCitation, type SourceContext } from "./source";
 import { isPointer, looksLikeUrl } from "./uri";
@@ -14,7 +14,6 @@ import type {
   Family,
   GedEvent,
   GedNode,
-  GeoCoord,
   Individual,
   NoteRef,
   ParseResult,
@@ -238,14 +237,6 @@ export function buildFamily(record: GedNode, media: MediaLinks, sourceCtx: Sourc
   return fam;
 }
 
-/** Read the `MAP` structure's `LATI`/`LONG` pair from a PLAC node. */
-function mapCoordUnder(parent: GedNode, mapTag: string): GeoCoord | undefined {
-  const mapNode = firstChild(parent, mapTag);
-  const lati = mapNode && firstChild(mapNode, "LATI")?.value;
-  const long = mapNode && firstChild(mapNode, "LONG")?.value;
-  return lati && long ? parseCoordPair(lati, long) : undefined;
-}
-
 function buildEvent(node: GedNode, media: MediaLinks, sourceCtx: SourceContext, noteIndex: NoteIndex = new Map()): GedEvent {
   const event: GedEvent = { tag: node.tag };
   if (node.value?.trim()) event.value = node.value.trim();
@@ -259,7 +250,7 @@ function buildEvent(node: GedNode, media: MediaLinks, sourceCtx: SourceContext, 
   if (placeNode?.value) {
     event.place = parsePlace(placeNode.value);
     if (placeNode.reshapedFrom) event.place.originalRaw = placeNode.reshapedFrom;
-    const coord = mapCoordUnder(placeNode, "MAP");
+    const coord = placeNodeCoord(placeNode);
     if (coord) event.place.coord = coord;
   }
   if (addrNode?.value) {

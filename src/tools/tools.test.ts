@@ -11,6 +11,7 @@ import { buildPlaceTree, UNSPECIFIED, UNSPECIFIED_PLACE } from "./places";
 import { fixBrokenLinks } from "./fixLinks";
 import { countInferableSex, fixSexFromRole } from "./fixSex";
 import { fixDuplicatePointers } from "./fixDuplicatePointers";
+import { countDanglingRefs, fixDanglingRefs } from "./fixDanglingRefs";
 import { bulkNormalize } from "./bulkNormalize";
 
 function dataset(text: string) {
@@ -217,6 +218,141 @@ describe("validateDataset", () => {
 0 TRLR`);
     const report = validateDataset(ds, 2026);
     expect(report.counts.parallelFamilies).toBe(0);
+  });
+
+  it("flags a child with two birth families, naming both couples", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Tone /Novak/
+1 SEX M
+1 FAMC @F1@
+1 FAMC @F2@
+0 @I2@ INDI
+1 NAME Jože /Novak/
+1 SEX M
+1 FAMS @F1@
+0 @I3@ INDI
+1 NAME Ana /Kos/
+1 SEX F
+1 FAMS @F1@
+0 @I4@ INDI
+1 NAME Janez /Zupan/
+1 SEX M
+1 FAMS @F2@
+0 @F1@ FAM
+1 HUSB @I2@
+1 WIFE @I3@
+1 CHIL @I1@
+0 @F2@ FAM
+1 HUSB @I4@
+1 CHIL @I1@
+0 TRLR`);
+    const report = validateDataset(ds, 2026);
+    const issue = report.issues.find((i) => i.category === "multipleParents");
+    expect(issue?.id).toBe("@I1@");
+    expect(issue?.messageVars?.count).toBe(2);
+    expect(issue?.messageVars?.families).toBe("Jože Novak & Ana Kos (@F1@); Janez Zupan (@F2@)");
+    expect(report.counts.multipleParents).toBe(1);
+  });
+
+  it("leaves an adoptive or foster second family alone", () => {
+    // I1's second family is marked PEDI adopted; I5's is named by an ADOP event
+    // (the 5.5.1 style, where the FAMC link itself carries no PEDI).
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Tone /Novak/
+1 SEX M
+1 FAMC @F1@
+1 FAMC @F2@
+2 PEDI adopted
+0 @I5@ INDI
+1 NAME Mica /Novak/
+1 SEX F
+1 ADOP
+2 FAMC @F2@
+1 FAMC @F1@
+1 FAMC @F2@
+0 @F1@ FAM
+1 CHIL @I1@
+1 CHIL @I5@
+0 @F2@ FAM
+1 CHIL @I1@
+1 CHIL @I5@
+0 TRLR`);
+    const report = validateDataset(ds, 2026);
+    expect(report.counts.multipleParents).toBe(0);
+  });
+
+  it("flags a small group linked only to each other, reporting the youngest", () => {
+    // The main tree (I1–I4) and a detached couple with a child (I5–I7), whose
+    // youngest is the 1930 child. I8 is alone: an orphan, not an island.
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Jože /Novak/
+1 FAMS @F1@
+0 @I2@ INDI
+1 NAME Ana /Novak/
+1 FAMS @F1@
+0 @I3@ INDI
+1 NAME Tone /Novak/
+1 FAMC @F1@
+0 @I4@ INDI
+1 NAME Mica /Novak/
+1 FAMC @F1@
+0 @I5@ INDI
+1 NAME Franc /Kos/
+1 BIRT
+2 DATE 1900
+1 FAMS @F2@
+0 @I6@ INDI
+1 NAME Neža /Kos/
+1 BIRT
+2 DATE 1902
+1 FAMS @F2@
+0 @I7@ INDI
+1 NAME Pavel /Kos/
+1 BIRT
+2 DATE 1930
+1 FAMC @F2@
+0 @I8@ INDI
+1 NAME Sam /Sam/
+0 @F1@ FAM
+1 HUSB @I1@
+1 WIFE @I2@
+1 CHIL @I3@
+1 CHIL @I4@
+0 @F2@ FAM
+1 HUSB @I5@
+1 WIFE @I6@
+1 CHIL @I7@
+0 TRLR`);
+    const report = validateDataset(ds, 2026);
+    const issue = report.issues.find((i) => i.category === "island");
+    expect(report.counts.island).toBe(1);
+    expect(issue?.id).toBe("@I7@"); // the youngest of the detached three
+    expect(issue?.messageVars?.count).toBe(3);
+    // The lone individual stays an orphan; the main tree is nobody's island.
+    expect(report.issues.filter((i) => i.category === "orphan").map((i) => i.id)).toEqual(["@I8@"]);
+  });
+
+  it("leaves the main tree alone, however small the file", () => {
+    // One family and nothing else: the only group is the file's tree.
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Jože /Novak/
+1 FAMS @F1@
+0 @I2@ INDI
+1 NAME Ana /Novak/
+1 FAMS @F1@
+0 @F1@ FAM
+1 HUSB @I1@
+1 WIFE @I2@
+0 TRLR`);
+    expect(validateDataset(ds, 2026).counts.island).toBe(0);
   });
 
   it("detects broken and non-reciprocal family links", () => {
@@ -1012,6 +1148,69 @@ describe("fixDuplicatePointers", () => {
   });
 });
 
+describe("fixDanglingRefs", () => {
+  const FILE = `0 HEAD
+1 CHAR UTF-8
+1 SUBM @U9@
+0 @I1@ INDI
+1 NAME Bo /Horvat/
+1 SEX M
+1 FAMC @F9@
+1 ADOP
+2 FAMC @F8@
+1 BIRT
+2 DATE 1900
+2 SOUR @S7@
+3 PAGE p. 12
+1 SOUR @S1@
+1 OBJE @O9@
+1 _CUSTOM @X9@
+0 @S1@ SOUR
+1 TITL Parish register
+0 TRLR`;
+
+  it("drops every dangling pointer except the ones the broken-links fix owns", () => {
+    const ds = dataset(FILE);
+    // @F9@ is the record-level FAMC (a brokenLink finding); the rest are this
+    // fix's: the ADOP's nested FAMC, the citation, the media link.
+    expect(countDanglingRefs(ds)).toBe(3);
+    expect(validateStructure(ds).counts.danglingXref).toBe(4); // …+ HEAD.SUBM
+
+    const patches = fixDanglingRefs(ds);
+    expect(patches).toHaveLength(1); // only @I1@ changed
+
+    const indi = ds.individuals.get("@I1@")!;
+    const tags = (node: { children: { tag: string; value?: string }[] }) =>
+      node.children.map((c) => `${c.tag}${c.value ? ` ${c.value}` : ""}`);
+    // The good citation, the record-level FAMC and the vendor subtree stay; the
+    // dangling OBJE and the ADOP's FAMC are gone.
+    expect(tags(indi.raw)).toEqual([
+      "NAME Bo /Horvat/", "SEX M", "FAMC @F9@", "ADOP", "BIRT", "SOUR @S1@", "_CUSTOM @X9@",
+    ]);
+    const birt = indi.raw.children.find((c) => c.tag === "BIRT")!;
+    expect(tags(birt)).toEqual(["DATE 1900"]); // the citation went with its PAGE
+    expect(countDanglingRefs(ds)).toBe(0);
+    // Untouched: the family link is still the broken-links fix's to remove.
+    expect(indi.childOf).toEqual(["@F9@"]);
+    expect(validateDataset(ds, 2026).counts.brokenLink).toBe(1);
+    // HEAD carries no xref, so its dangling SUBM can't take an undo patch.
+    expect(validateStructure(ds).counts.danglingXref).toBe(1);
+  });
+
+  it("returns no patches when every pointer resolves", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Jan /Kos/
+1 SOUR @S1@
+0 @S1@ SOUR
+1 TITL Parish register
+0 TRLR`);
+    expect(countDanglingRefs(ds)).toBe(0);
+    expect(fixDanglingRefs(ds)).toHaveLength(0);
+  });
+});
+
 describe("findDuplicates", () => {
   it("surfaces a near-identical person pair without matching anyone to themselves", () => {
     const ds = dataset(`0 HEAD
@@ -1490,8 +1689,12 @@ describe("buildPlaceTree", () => {
     const si = tree.roots.find((r) => r.name === "Slovenija");
     expect(si?.children.map((c) => c.name)).toEqual(["Ljubljana"]);
     const lj = si!.children[0];
-    // A locality with a house number is kept combined as one address node.
-    expect(lj.children[0].name).toBe("Šentvid 23");
+    // The locality stays a jurisdiction level of its own and the house hangs
+    // off it, spelled in full — so a file that numbers houses in the place
+    // value still browses by settlement.
+    expect(lj.children.map((c) => c.name)).toEqual(["Šentvid"]);
+    expect(lj.children[0].children.map((c) => c.name)).toEqual(["Šentvid 23"]);
+    expect(lj.children[0].children[0].isAddress).toBe(true);
 
     const unspecified = tree.roots.find((r) => r.name === UNSPECIFIED);
     expect(unspecified?.children.map((c) => c.name)).toEqual(["Kranj"]);
@@ -1511,12 +1714,14 @@ describe("buildPlaceTree", () => {
 2 PLAC Vas 2, Kranj, Slovenija
 0 TRLR`);
     const tree = buildPlaceTree(ds);
-    // House numbers stay combined with the locality ("Vas 2" / "Vas 10"); the
-    // numeric-aware collator must still order them 2 before 10, not lexically.
+    // House numbers stay combined with the locality ("Vas 2" / "Vas 10") under
+    // the locality's own node; the numeric-aware collator must still order them
+    // 2 before 10, not lexically.
     const kranj = tree.roots
       .find((r) => r.name === "Slovenija")!
       .children.find((c) => c.name === "Kranj")!;
-    expect(kranj.children.map((c) => c.name)).toEqual(["Vas 2", "Vas 10"]);
+    expect(kranj.children.map((c) => c.name)).toEqual(["Vas"]);
+    expect(kranj.children[0].children.map((c) => c.name)).toEqual(["Vas 2", "Vas 10"]);
   });
 
   it("buckets a standalone ADDR (no PLAC) under Unspecified place", () => {
@@ -1554,6 +1759,72 @@ describe("buildPlaceTree", () => {
     const addr = kranj!.children.find((c) => c.name === "Kidričeva 38");
     expect(addr).toBeTruthy();
     expect(addr!.uses.map((u) => u.persons.map((p) => p.id))).toEqual([["@I1@"]]);
+  });
+
+  it("reports each path's coordinate, taking the prevailing one where they disagree", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Ana /Kos/
+1 BIRT
+2 PLAC Kranj, Slovenija
+3 MAP
+4 LATI N46.23887
+4 LONG E14.35561
+1 DEAT
+2 PLAC Bled, Slovenija
+0 @I2@ INDI
+1 NAME Bo /Kos/
+1 BIRT
+2 PLAC Kranj, Slovenija
+3 MAP
+4 LATI N46.23887
+4 LONG E14.35561
+0 @I3@ INDI
+1 NAME Cita /Kos/
+1 BIRT
+2 PLAC Kranj, Slovenija
+3 MAP
+4 LATI N46.9
+4 LONG E14.9
+0 TRLR`);
+    const si = buildPlaceTree(ds).roots.find((r) => r.name === "Slovenija")!;
+    const kranj = si.children.find((c) => c.name === "Kranj")!;
+    // Two records agree, one disagrees: both spots are reported, majority first.
+    expect(kranj.coords).toEqual([
+      { coord: { lat: 46.23887, lon: 14.35561 }, n: 2 },
+      { coord: { lat: 46.9, lon: 14.9 }, n: 1 },
+    ]);
+    // A place the file never geocoded reports none, and neither does the
+    // country level above it: a coordinate belongs to the path that wrote it.
+    expect(si.children.find((c) => c.name === "Bled")!.coords).toBeUndefined();
+    expect(si.coords).toBeUndefined();
+  });
+
+  it("counts a rounding variant as the same spot, not a disagreement", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Ana /Kos/
+1 BIRT
+2 PLAC Kranj, Slovenija
+3 MAP
+4 LATI N46.23887
+4 LONG E14.35561
+0 @I2@ INDI
+1 NAME Bo /Kos/
+1 BIRT
+2 PLAC Kranj, Slovenija
+3 MAP
+4 LATI N46.2389
+4 LONG E14.3556
+0 TRLR`);
+    const kranj = buildPlaceTree(ds)
+      .roots.find((r) => r.name === "Slovenija")!
+      .children.find((c) => c.name === "Kranj")!;
+    // ~4 m apart: one spot, and its count is both mentions — otherwise every
+    // re-geocode would raise a false "the file disagrees with itself" flag.
+    expect(kranj.coords).toEqual([{ coord: { lat: 46.23887, lon: 14.35561 }, n: 2 }]);
   });
 });
 

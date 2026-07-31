@@ -1504,28 +1504,32 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     <div className="section open edit-view">
       <div className="section-body" ref={editBodyRef}>
         <div className="edit-parents">
-          {(parentFamilies.length ? parentFamilies : [undefined]).map((fam, i) => (
-            <ParentFamilyGroup
-              key={fam?.id ?? `empty-${i}`}
-              fam={fam}
-              personId={person.id}
-              dataset={dataset}
-              t={t}
-              navigate={navigate}
-              pickingSlot={pickingSlot}
-              setPickingSlot={setPickingSlot}
-              connectRelative={connectRelative}
-              addRelative={addRelative}
-              handleDetachSpouseRole={handleDetachSpouseRole}
-              cardRefCtx={cardRefCtx}
-              decisionStatusById={decisionStatusById}
-              changedPersonIds={changedPersonIds}
-              startId={startId}
-              startPersonName={startPersonName}
-              relationsGen={relationsGenRef.current}
-              undoVersion={undoVersion}
-            />
-          ))}
+          {/* One row per parent family, stacked and divided like the spouse
+              families below — two families side by side read as one couple. */}
+          <div className="edit-parent-groups">
+            {(parentFamilies.length ? parentFamilies : [undefined]).map((fam, i) => (
+              <ParentFamilyGroup
+                key={fam?.id ?? `empty-${i}`}
+                fam={fam}
+                personId={person.id}
+                dataset={dataset}
+                t={t}
+                navigate={navigate}
+                pickingSlot={pickingSlot}
+                setPickingSlot={setPickingSlot}
+                connectRelative={connectRelative}
+                addRelative={addRelative}
+                handleDetachSpouseRole={handleDetachSpouseRole}
+                cardRefCtx={cardRefCtx}
+                decisionStatusById={decisionStatusById}
+                changedPersonIds={changedPersonIds}
+                startId={startId}
+                startPersonName={startPersonName}
+                relationsGen={relationsGenRef.current}
+                undoVersion={undoVersion}
+              />
+            ))}
+          </div>
           <div className="edit-actions">
             <BackButton
               label={t("edit.back")}
@@ -1544,8 +1548,6 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
             </button>
           </div>
         </div>
-
-        <div className="edit-connector-v" />
 
         <div
           className={`edit-person ${mediaDragOver ? "media-drop-active" : ""}`}

@@ -1,8 +1,11 @@
-import { useMemo, useState, useTransition } from "react";
+import { lazy, Suspense, useMemo, useState, useTransition } from "react";
 import { useTranslation } from "react-i18next";
 import { useModalKeyboard } from "../keyboard/useModalKeyboard";
 import { useSettings, useNameOf, type MapOverlay } from "./SettingsContext";
 import { OVERLAY_PRESETS, resolveOverlay } from "./map/overlayPresets";
+import { sampleMapView, type FramedOverlay } from "./map/sampleView";
+import { BASEMAPS, CUSTOM_BASEMAP } from "./map/basemapPresets";
+import type { MiniMapPin } from "./map/MiniPlaceMap";
 import { xrefLabel, type NameOrder } from "../gedcom/nameDisplay";
 import type { PersonName } from "../gedcom/types";
 import { SUPPORTED_LANGUAGES } from "../locales/i18n";
@@ -10,6 +13,10 @@ import { PROXY_HOSTS } from "../normalize/urlMetadata";
 import { DATE_PATTERN_CHOICES, type DetectedFormats, type FormatOverrides } from "../normalize/formatOverrides";
 import { sampleDateFor } from "../normalize/formatDefaults";
 import { sexClass } from "./sex";
+
+// Leaflet is a lazy chunk everywhere else too — the Map tab loads it only when
+// the base-map sample is actually shown.
+const MiniPlaceMap = lazy(() => import("./map/MiniPlaceMap"));
 
 export type ThemeMode = "auto" | "light" | "dark";
 
@@ -111,6 +118,10 @@ const LANG_LABELS: Record<string, string> = { en: "🇬🇧 English", sl: "🇸�
  * married-surname, order and uppercase options are all visible at once. */
 const SAMPLE_NAME: PersonName = { full: "Ana Novak", given: "Ana", surname: "Novak", married: "Kovač" };
 const SAMPLE_XREF = "@I42@";
+
+/** Nothing is plotted on the sample — a stable identity so the map's marker
+ *  pass doesn't rerun on every render of this modal. */
+const NO_PINS: MiniMapPin[] = [];
 const SAMPLE_LIFESPAN = "1850–1920";
 const SAMPLE_AGE = 70;
 
@@ -149,6 +160,18 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
       if (!next.delete(id)) next.add(id);
       return next;
     });
+
+  // The layer the base-map sample frames: whichever was last switched on by
+  // default, so ticking a regional map takes the sample to the region it
+  // covers. Held by id — the layer may be edited, moved or removed meanwhile —
+  // and counted, because switching a layer on asks for its frame again even
+  // when that is the frame already shown (the sample may have been panned
+  // away from it, or another layer of the same reach may have been holding it).
+  const [framedOverlay, setFramedOverlay] = useState<FramedOverlay | null>(null);
+  const sampleView = useMemo(
+    () => sampleMapView(settings.mapOverlays, framedOverlay),
+    [settings.mapOverlays, framedOverlay],
+  );
 
   const [, startTransition] = useTransition();
   const [pendingOverrides, setPendingOverrides] = useState<FormatOverrides | null>(null);
@@ -428,24 +451,63 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                 <span className="settings-hint">{t("settings.map.tiles.hint")}</span>
               </span>
             </label>
-            {settings.allowMapTiles && (
-              <label className="settings-row settings-format-row" title={t("settings.map.tileUrl.hint")}>
-                <span className="settings-row-label">{t("settings.map.tileUrl")}</span>
-                <input
-                  type="text"
-                  className="settings-text-input"
-                  value={settings.mapTileUrl}
-                  placeholder={t("settings.map.tileUrl.default")}
-                  title={t("settings.map.tileUrl.hint")}
-                  onChange={(e) => set({ mapTileUrl: e.target.value.trim() })}
-                />
+            {/* Shown but inert until tiles are allowed: the choice is worth
+                seeing before opting in, and the toggle sits right above it. */}
+            <fieldset className="settings-fieldset" disabled={!settings.allowMapTiles}>
+              {/* The choice below, drawn: the sample redraws on every change of
+                  base map, custom URL or theme, and carries the layers marked
+                  Default — what every map in the app will then look like. It
+                  goes to the ground and the zoom of whichever of those layers
+                  was switched on last, so a layer covering another country, or
+                  drawn only at close range, is not switched on into an empty
+                  frame. Shown only once tiles are allowed: before that
+                  there is nothing to preview but the offline outline. */}
+              {settings.allowMapTiles && (
+                <div className="settings-map-preview">
+                  <Suspense fallback={<div className="tools-geo-minimap" />}>
+                    <MiniPlaceMap pins={NO_PINS} view={sampleView} />
+                  </Suspense>
+                  <p className="settings-hint">{t("settings.map.preview")}</p>
+                </div>
+              )}
+              <label className="settings-row settings-format-row" title={t("settings.map.basemap.hint")}>
+                <span className="settings-row-text">
+                  <span className="settings-row-label">{t("settings.map.base")}</span>
+                  <span className="settings-hint">{t("settings.map.basemap.hint")}</span>
+                </span>
+                <select value={settings.mapBasemap} onChange={(e) => set({ mapBasemap: e.target.value })}>
+                  {BASEMAPS.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {t(b.key)}
+                    </option>
+                  ))}
+                  <option value={CUSTOM_BASEMAP}>{t("basemap.custom")}</option>
+                </select>
               </label>
-            )}
-
+              {settings.mapBasemap === CUSTOM_BASEMAP && (
+                <label className="settings-row settings-format-row" title={t("settings.map.tileUrl.hint")}>
+                  <span className="settings-row-text">
+                    <span className="settings-row-label">{t("settings.map.tileUrl")}</span>
+                    <span className="settings-hint">{t("settings.map.tileUrl.hint")}</span>
+                  </span>
+                  <input
+                    type="text"
+                    className="settings-text-input"
+                    value={settings.mapTileUrl}
+                    placeholder={t("settings.map.tileUrl.placeholder")}
+                    onChange={(e) => set({ mapTileUrl: e.target.value.trim() })}
+                  />
+                </label>
+              )}
+            </fieldset>
           </section>
 
           <section className="settings-section">
             <h3>{t("settings.map.overlays")}</h3>
+            {!settings.allowMapTiles && <p className="settings-note">{t("settings.map.needTiles")}</p>}
+            {/* Overlays only draw where the base map does, so they follow the
+                same opt-in — visible, but inert until it is ticked. */}
+            <fieldset className="settings-fieldset" disabled={!settings.allowMapTiles}>
             <div className="settings-overlays-head">
               <p className="settings-hint">{t("settings.map.overlays.hint")}</p>
               <p className="settings-hint">{t("settings.map.overlays.sources")}</p>
@@ -499,8 +561,13 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
               // Name and "show by default" are preferences, not config — they
               // patch the stored layer directly and keep the preset link.
               const updateName = (name: string) => replace({ ...stored, name });
-              const updateDefaultOn = (defaultOn: boolean) =>
+              const updateDefaultOn = (defaultOn: boolean) => {
+                // Switching a layer on aims the sample above at it, so its
+                // effect is visible even when it covers another country. Each
+                // tick counts as its own request to be framed — see sampleView.
+                if (defaultOn) setFramedOverlay((prev) => ({ id: stored.id, seq: (prev?.seq ?? 0) + 1 }));
                 replace({ ...stored, defaultOn: defaultOn || undefined });
+              };
               const update = (patch: Partial<MapOverlay>) =>
                 replace({ ...layer, ...patch, id: stored.id, name: stored.name, presetKey: undefined });
               const yearPatch = (key: "yearFrom" | "yearTo", raw: string): Partial<MapOverlay> => {
@@ -683,6 +750,7 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                 </div>
               );
             })}
+            </fieldset>
           </section>
 
           </>
@@ -709,8 +777,15 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                   <span className="settings-row-label">{t("settings.data.clear")}</span>
                   <span className="settings-hint">{t("settings.data.clear.hint")}</span>
                 </span>
-                <button type="button" className="settings-danger-btn" onClick={onClearCache}>
-                  {t("settings.data.clear")}
+                {/* The row's label already says what is cleared, so the button
+                    only carries the verb. */}
+                <button
+                  type="button"
+                  className="settings-danger-btn"
+                  aria-label={t("settings.data.clear")}
+                  onClick={onClearCache}
+                >
+                  {t("settings.data.clear.button")}
                 </button>
               </div>
             )}

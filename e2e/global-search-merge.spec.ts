@@ -63,9 +63,9 @@ test("global search: opening a person from Edit stays in Edit (mode-aware)", asy
   await expect(page.locator(".edit-name-input").first()).toHaveValue(/Ana/);
 });
 
-test("global search: the f shortcut focuses the match name filter", async ({ page }) => {
+test("global search: Ctrl+F focuses the match name filter", async ({ page }) => {
   await loadWithMatches(page);
 
-  await page.keyboard.press("f");
+  await page.keyboard.press("ControlOrMeta+f");
   await expect(page.locator(".name-search")).toBeFocused();
 });

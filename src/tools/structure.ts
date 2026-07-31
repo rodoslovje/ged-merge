@@ -169,13 +169,41 @@ export interface DanglingXref {
   recordTag?: string;
   /** Reconstructed first offending line, for a hover tooltip. */
   tooltip: string;
+  /** True while every occurrence is a family link the record-level check owns
+   *  (see {@link isFamilyLinkPointer}) — those are reported, and repaired, as
+   *  `brokenLink` findings instead. */
+  familyLinkOnly: boolean;
+}
+
+/** Is this pointer a family link sitting directly on an INDI/FAM record?
+ *
+ *  `validateDataset`'s `brokenLink` check reports exactly these, and
+ *  `fixBrokenLinks` repairs them (it also sees the one-way links a pure xref
+ *  scan can't). So the structure pass hides them and `fixDanglingRefs` leaves
+ *  them alone, rather than listing and removing the same line twice. A `FAMC`
+ *  deeper in the tree — under an `ADOP` event, say — is nobody else's, and
+ *  stays in scope here. */
+export function isFamilyLinkPointer(recordTag: string | undefined, tag: string, depth: number): boolean {
+  if (depth !== 1) return false;
+  if (recordTag === "INDI") return tag === "FAMC" || tag === "FAMS";
+  if (recordTag === "FAM") return tag === "HUSB" || tag === "WIFE" || tag === "CHIL";
+  return false;
+}
+
+/** Is this node's value a pointer (`@X1@`) rather than plain text? "@#…@" is a
+ *  GEDCOM escape (e.g. a DATE calendar escape), not a pointer. */
+export function isPointerValue(value: string | undefined): value is string {
+  const v = value?.trim();
+  return !!v && /^@[^@]+@$/.test(v) && !v.startsWith("@#");
 }
 
 /**
  * Find every pointer value (`@xref@`) whose target record does not exist,
  * grouped by missing xref. Covers all standard-tag pointers anywhere in the
  * tree — SOUR/NOTE/OBJE citations, ASSO/ALIA associations, HEAD.SUBM, … —
- * the classes of reference the FAMC/FAMS/CHIL health check doesn't see.
+ * including the family links the record-level check owns, which carry
+ * `familyLinkOnly` so a caller can leave those to it (the save-time gate
+ * doesn't: it must catch every dangling pointer in what's about to be written).
  * Vendor-extension (`_`) subtrees are skipped: their values follow the
  * vendor's own vocabulary, not ours to audit. Pure; also used as the
  * save-time consistency check on the records about to be downloaded.
@@ -185,18 +213,25 @@ export function findDanglingXrefs(records: GedNode[]): DanglingXref[] {
   for (const r of records) if (r.xref) defined.add(r.xref);
 
   const missing = new Map<string, DanglingXref>();
-  const visit = (node: GedNode, recordId?: string, recordTag?: string): void => {
+  const visit = (node: GedNode, depth: number, recordId?: string, recordTag?: string): void => {
     if (node.tag.startsWith("_")) return;
     const v = node.value?.trim();
-    // "@#…@" is a GEDCOM escape (e.g. a DATE calendar escape), not a pointer.
-    if (v && /^@[^@]+@$/.test(v) && !v.startsWith("@#") && !defined.has(v)) {
+    if (isPointerValue(v) && !defined.has(v)) {
+      const familyLink = isFamilyLinkPointer(recordTag, node.tag, depth);
       const seen = missing.get(v);
-      if (seen) seen.count++;
-      else missing.set(v, { xref: v, count: 1, tag: node.tag, recordId, recordTag, tooltip: nodeLine(node) });
+      if (seen) {
+        seen.count++;
+        seen.familyLinkOnly &&= familyLink;
+      } else {
+        missing.set(v, {
+          xref: v, count: 1, tag: node.tag, recordId, recordTag,
+          tooltip: nodeLine(node), familyLinkOnly: familyLink,
+        });
+      }
     }
-    for (const child of node.children) visit(child, recordId, recordTag);
+    for (const child of node.children) visit(child, depth + 1, recordId, recordTag);
   };
-  for (const rec of records) visit(rec, rec.xref, rec.tag);
+  for (const rec of records) visit(rec, 0, rec.xref, rec.tag);
   return [...missing.values()];
 }
 
@@ -319,8 +354,12 @@ export function validateStructure(ds: Dataset): StructureReport {
 
   for (const rec of ds.records) visit(rec, rec.xref, rec.tag);
 
-  // (c) Pointers into nowhere: references to records that don't exist.
+  // (c) Pointers into nowhere: references to records that don't exist. Family
+  //     links on an INDI/FAM are the record-level check's ("Broken links",
+  //     which has its own fix and also sees one-way links), so they're not
+  //     repeated here.
   for (const d of findDanglingXrefs(ds.records)) {
+    if (d.familyLinkOnly) continue;
     push({
       category: "danglingXref",
       severity: "error",

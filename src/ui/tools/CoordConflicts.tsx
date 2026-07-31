@@ -6,6 +6,7 @@ import { scanPlaceCoords, type CoordConflict } from "../../tools/placeCoords";
 import { placeAddrKey } from "../../tools/geocode";
 import { parseManualCoord } from "./GeocodePlaceRow";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
+import { foldSearch } from "../globalSearch";
 import { ExpandAllToggle, GeoRowHeader, MapToggle } from "./shared";
 
 const MiniPlaceMap = lazy(() => import("../map/MiniPlaceMap"));
@@ -34,15 +35,26 @@ const keyOf = (c: CoordConflict) => placeAddrKey(c.value, c.address);
 export function CoordConflicts({
   dataset,
   onApply,
+  query,
 }: {
   dataset: Dataset;
   /** Write one coordinate onto every event at a place+address pair, replacing
    *  what is there — the same overwriting write-back the address register uses. */
   onApply: (assignments: Map<string, GeoCoord>) => number;
+  /** The page's filter, already folded — the lists below narrow with it, and a
+   *  conflict is a place like any other, so this narrows too. */
+  query: string;
 }) {
   const { t } = useTranslation();
   // Re-scanned whenever the dataset object changes, so a settled row disappears.
-  const conflicts = useMemo(() => scanPlaceCoords(dataset).conflicts, [dataset]);
+  const all = useMemo(() => scanPlaceCoords(dataset).conflicts, [dataset]);
+  const conflicts = useMemo(
+    () =>
+      query
+        ? all.filter((c) => foldSearch(c.value).includes(query) || foldSearch(c.address).includes(query))
+        : all,
+    [all, query],
+  );
   const [open, setOpen] = useState<Set<string>>(new Set());
   /** The row whose map is drawn — one at a time, and only on request. */
   const [mapOpen, setMapOpen] = useState<string | null>(null);

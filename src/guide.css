@@ -167,6 +167,29 @@
 }
 
 /* ── Article typography ──────────────────────────────────────────────────── */
+/* In-text links — the app's prose-link idiom (.loader-desc a, .report-jump,
+   a.report-source): accent, quiet at rest, underlined on hover. Without this
+   the guide's own links fell back to the browser's blue, off the palette and
+   the same in both themes. The pages are dense with § cross-references, so a
+   permanent underline on every one would fence the text in. Focus ring matches
+   `button:focus-visible` in index.css. */
+.guide-body a,
+.guide-header a {
+  color: var(--accent);
+  text-decoration: none;
+}
+.guide-body a:hover,
+.guide-header a:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.guide-body a:focus-visible,
+.guide-header a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
 .guide-body h2 {
   font-size: 1.5rem;
   margin: 48px 0 16px;
@@ -332,10 +355,17 @@
 .gm-swatch.link { background: var(--sex-male); }
 .gm-swatch.import { background: var(--status-import); }
 
-/* Blood-lineage kinship colours (see §6) — tokens from heritage-pine.css. */
+/* Blood-lineage kinship colours (see §7) — tokens from heritage-pine.css. */
 .gm-swatch.paternal { background: var(--lineage-paternal); }
 .gm-swatch.maternal { background: var(--lineage-maternal); }
 .gm-swatch.lineage-both { background: var(--accent); }
+
+/* Naming a lineage colour in prose: the word itself carries the colour the app
+   draws that line in, so it needs no swatch beside it. Same tokens as above,
+   so light and dark both follow. */
+.guide-body .gm-lineage.paternal { color: var(--lineage-paternal); }
+.guide-body .gm-lineage.maternal { color: var(--lineage-maternal); }
+.guide-body .gm-lineage.both { color: var(--accent); }
 
 /* Inline copies of the Matches column header icons — same geometry as the app's
    ICON_PROPS (viewBox 0 0 24 24, round 2.5 stroke). Colour is set per column to
@@ -393,7 +423,11 @@
   margin-bottom: 4px;
   color: var(--text);
 }
-.gm-callout.note { border-left-color: var(--status-link); }
+/* Three levels of emphasis, all on the Heritage Pine palette: a note is
+   neutral, a tip carries the accent, a warning the danger colour. Note used to
+   borrow --status-link, which means "carries a link / source" in the app — a
+   link colour doing note duty, and the one blue on an otherwise warm page. */
+.gm-callout.note { border-left-color: var(--border-2); }
 .gm-callout.tip { border-left-color: var(--accent); }
 .gm-callout.warn { border-left-color: var(--danger); background: var(--danger-soft); }
 .gm-callout.warn .gm-callout-label { color: var(--danger); }

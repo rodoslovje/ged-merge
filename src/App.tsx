@@ -46,6 +46,7 @@ import { fixBrokenLinks } from "./tools/fixLinks";
 import { fixSexFromRole } from "./tools/fixSex";
 import { fixDates } from "./tools/fixDates";
 import { fixDuplicatePointers } from "./tools/fixDuplicatePointers";
+import { fixDanglingRefs } from "./tools/fixDanglingRefs";
 import { fillPlaceCoordsFromFile } from "./tools/placeCoords";
 import { mergeDuplicateChain } from "./tools/mergeDuplicate";
 import { duplicatePairKey, parseDuplicatePairKey } from "./tools/duplicates";
@@ -1504,11 +1505,12 @@ function AppContent() {
   } else if (chartsRootId && mainDataset) {
     treeOverlay = wrapTree(
       <ChartsHub
-        // Remount when opened on a different person, so the hub's internal
-        // root follows a fresh open instead of a stale earlier visit.
-        key={chartsRootId}
         mainDs={mainDataset}
-        initialRootId={chartsRootId}
+        rootId={chartsRootId}
+        // Re-rooting is a history entry of its own (openCharts pushes one), so
+        // the browser Back button walks back through the people the user
+        // re-rooted on before it closes the hub.
+        onRootChange={(id) => openCharts(id)}
         startId={startId}
         changedPersonIds={changedPersonIds}
         decisions={decisions}
@@ -1844,6 +1846,7 @@ function AppContent() {
               onFixSexFromRole={() => applyToolPatches(fixSexFromRole(mainDataset))}
               onFixDates={() => applyToolPatches(fixDates(mainDataset))}
               onFixDuplicatePointers={() => applyToolPatches(fixDuplicatePointers(mainDataset))}
+              onFixDanglingRefs={() => applyToolPatches(fixDanglingRefs(mainDataset))}
               onFillPlaceCoords={() => applyToolPatches(fillPlaceCoordsFromFile(mainDataset))}
               onMergeDuplicate={(survivorId, removedId, decision, alsoMerge) => {
                 // Ticked parents/partners merge first: their families fold

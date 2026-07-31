@@ -210,8 +210,13 @@ export function useAppHistory(opts: AppHistoryOptions) {
     });
   }
 
-  /** Open the Charts hub on a person — at the last-used kind, or a specific one. */
+  /** Open the Charts hub on a person — at the last-used kind, or a specific one.
+   *  Also how the open hub re-roots: each person is its own history entry, so
+   *  Back returns to the chart the user came from. */
   function openCharts(id: string, kind?: ChartKind) {
+    // Re-rooting on the person already drawn (clicking the root node, picking
+    // the current target) is not a navigation — don't stack an entry for it.
+    if (id === chartsRootId && !kind) return;
     if (kind) opts.setChartKind(kind);
     const backKey = chartsRootId
       ? "edit.back" // re-root on top of an open chart: Back = the previous chart

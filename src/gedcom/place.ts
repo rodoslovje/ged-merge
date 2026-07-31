@@ -1,4 +1,5 @@
-import type { GedPlace, GeoCoord } from "./types";
+import type { GedNode, GedPlace, GeoCoord } from "./types";
+import { firstChild } from "./node";
 
 /**
  * A bracketed aside in a place value. Round and square brackets are read alike:
@@ -49,6 +50,15 @@ export function parseCoordPair(lati: string, long: string): GeoCoord | undefined
   if (lat === undefined || lon === undefined) return undefined;
   if (Math.abs(lat) > 90 || Math.abs(lon) > 180) return undefined;
   return { lat, lon };
+}
+
+/** The coordinate a `PLAC` node carries under its `MAP` structure, if any —
+ *  the one place every caller reads a stored coordinate from. */
+export function placeNodeCoord(plac: GedNode): GeoCoord | undefined {
+  const map = firstChild(plac, "MAP");
+  const lati = map && firstChild(map, "LATI")?.value;
+  const long = map && firstChild(map, "LONG")?.value;
+  return lati && long ? parseCoordPair(lati, long) : undefined;
 }
 
 /**
@@ -344,4 +354,32 @@ export function decomposePlace(raw: string): PlaceComponents {
   // next jurisdiction level (e.g. "Mestno pokopališče Kranj,Kranj" → "Kranj").
   out.locality ??= out.jurisdiction[0];
   return out;
+}
+
+/**
+ * The address a place value carries inside itself: a street with its number
+ * ("Kidričeva 38/a"), or — village numbering — the settlement with its house
+ * number ("Črni vrh 35"). Undefined when the value names jurisdictions only.
+ *
+ * A file that keeps no `ADDR` line writes the address here instead, either as
+ * the whole value ("Črni vrh 35") or packed in among the other parts ("Kranj
+ * (Slovenija), Stražišče 114 - župnija Šmartin"). The place explorer's deepest
+ * level and the address geocoder both read it from here, so the two agree on
+ * what counts as an address.
+ */
+export function placeAddressDetail(d: PlaceComponents): string | undefined {
+  if (d.street) return d.street;
+  return d.houseNumber && d.locality ? `${d.locality} ${d.houseNumber}` : undefined;
+}
+
+/**
+ * The place a value names once its address is set aside: the jurisdiction
+ * hierarchy alone, most-specific first ("Kranj, Slovenija"). This is the
+ * settlement the houses of {@link placeAddressDetail} sit in, and what groups
+ * them — "Kranj (Slovenija), Stražišče 114 - župnija Šmartin" and the same house
+ * recorded under another parish are one place. Empty when the value names no
+ * jurisdiction at all.
+ */
+export function placeWithoutAddress(d: PlaceComponents): string {
+  return d.jurisdiction.join(", ");
 }
