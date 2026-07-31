@@ -88,7 +88,32 @@ for (const theme of ["dark", "light"]) {
     await page.locator("svg.tree-svg").waitFor();
     await chartShot(page, `${outDir}/tree-${theme}.png`);
     await page.getByRole("tab", { name: "Fan" }).click();
-    await chartShot(page, `${outDir}/fan-${theme}.png`);
+    // The fan's layout reserves its empty lower half, so plain fit leaves it
+    // small — zoom (with the app's own stepper) until the drawn content nearly
+    // fills the canvas height, then centre on it.
+    await page.waitForTimeout(600);
+    await page.keyboard.press("f");
+    await page.waitForTimeout(600);
+    const factor = await page.evaluate(() => {
+      const canvas = document.querySelector(".tree-canvas");
+      const g = canvas.querySelector("svg g");
+      return 0.92 * canvas.clientHeight / g.getBoundingClientRect().height;
+    });
+    const steps = Math.round(Math.log(factor) / Math.log(1.25));
+    for (let i = 0; i < Math.abs(steps); i++) {
+      await page.locator(steps > 0 ? ".tree-zoom-btn:has-text('+')" : ".tree-zoom-btn:has-text('−')").first().click();
+      await page.waitForTimeout(120);
+    }
+    await page.waitForTimeout(400);
+    await page.evaluate(() => {
+      const canvas = document.querySelector(".tree-canvas");
+      const r = canvas.querySelector("svg g").getBoundingClientRect();
+      const c = canvas.getBoundingClientRect();
+      canvas.scrollLeft += (r.left + r.width / 2) - (c.left + c.width / 2);
+      canvas.scrollTop += (r.top + r.height / 2) - (c.top + c.height / 2);
+    });
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: `${outDir}/fan-${theme}.png` });
 
     // Merge: Europe Royal Families as main, the Tudor file as compare.
     await page.goto(base);
@@ -104,12 +129,25 @@ for (const theme of ["dark", "light"]) {
     await ctx.close();
   }
 
-  // Plain base-map shot: fixture family, no overlay.
+  // Plain base-map shot: the Slovenian/Austrian core of the family's travels,
+  // with the Ljubljana cluster's place panel open (birth + death listed).
   {
     const { ctx, page } = await makePage(theme, false);
     await openMap(page);
-    await page.waitForFunction(() => document.querySelectorAll('.map-canvas .leaflet-tile-loaded').length >= 12, null, { timeout: 30000 });
-    await page.waitForTimeout(1200);
+    await page.evaluate(() => {
+      document.querySelector(".map-canvas")._leafletMap.setView([46.55, 15.2], 8, { animate: false });
+    });
+    await page.waitForFunction(() => document.querySelectorAll('.map-canvas .leaflet-tile-loaded').length >= 8, null, { timeout: 30000 });
+    await page.waitForTimeout(1000);
+    const pt = await page.evaluate(() => {
+      const map = document.querySelector(".map-canvas")._leafletMap;
+      const p = map.latLngToContainerPoint([46.0459, 14.5038]);
+      const r = document.querySelector(".map-canvas").getBoundingClientRect();
+      return { x: r.left + p.x, y: r.top + p.y };
+    });
+    await page.mouse.click(pt.x, pt.y);
+    await page.mouse.move(200, 700); // park the pointer so no hover tooltip shows
+    await page.waitForTimeout(1500);
     await page.screenshot({ path: `${outDir}/map-${theme}.png` });
     await ctx.close();
   }
@@ -126,6 +164,8 @@ for (const theme of ["dark", "light"]) {
       el._leafletMap.setView([46.0485, 14.504], 14, { animate: false });
     });
     await page.waitForFunction(() => document.querySelectorAll('.map-canvas .leaflet-tile-loaded').length >= 12, null, { timeout: 30000 });
+    await page.locator(".map-overlays-chip").click(); // show which overlay is on
+    await page.mouse.move(200, 700);
     await page.waitForTimeout(1200);
     await page.screenshot({ path: `${outDir}/maphist-${theme}.png` });
     await ctx.close();
