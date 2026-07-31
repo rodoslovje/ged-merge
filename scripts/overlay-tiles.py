@@ -439,27 +439,20 @@ def _rule_candidates(gray, scale, mm, expect):
         ink = _ink(gray.crop(box), horizontal, scale)
         offset = 0 if near_start else depth - thick
 
-        def scan(angles):
-            # `ink` is squeezed along the rule, so the scan's own tilt appears
-            # in it steepened by that factor — the search is over real angles
-            # and converts, or a tilt of half a degree would fall outside it.
-            best = (0.0, 0.0, [], [])
-            for real in angles:
-                skewed = math.degrees(math.atan(math.tan(math.radians(real)) * scale))
-                profile = _profile(ink, skewed, horizontal)
-                peaks = _peaks(profile)
-                # Score the angle on the three darkest rules, not the darkest
-                # one: the border bundle should come into focus together, and
-                # the outer frame alone can be sharpest at a slightly different
-                # angle than the neatline that matters.
-                sharp = sum(v for _p, v in peaks[:3])
-                if sharp > best[1]:
-                    best = (real, sharp, peaks, profile)
-            return best
-
-        coarse = scan([i / 2 for i in range(-2 * SKEW_LIMIT, 2 * SKEW_LIMIT + 1)])
-        angle, _strength, peaks, profile = max(scan([coarse[0] + i / 10 for i in range(-4, 5)]),
-                                               coarse, key=lambda b: b[1])
+        # Sweep the whole tilt range at the resolution the answer needs, rather
+        # than a coarse pass followed by a refinement: at half-degree steps a
+        # rule can stay smeared out of sight at every step tried, and the
+        # refinement then polishes the wrong neighbourhood. `ink` is squeezed
+        # along the rule, so the scan's own tilt appears in it steepened by
+        # that factor — the search is over real angles and converts.
+        angle, _strength, peaks, profile = 0.0, 0.0, [], []
+        for step in range(-10 * SKEW_LIMIT, 10 * SKEW_LIMIT + 1):
+            real = step / 10
+            skewed = math.degrees(math.atan(math.tan(math.radians(real)) * scale))
+            candidate = _profile(ink, skewed, horizontal)
+            found_here = _peaks(candidate)
+            if found_here and found_here[0][1] > _strength:
+                angle, _strength, peaks, profile = real, found_here[0][1], found_here, candidate
         # The band was rotated about its own centre, so a peak sits where the
         # rule crosses the middle of the edge; only |slope| is known from this,
         # and both senses are tried when the rule is fitted at full size.
@@ -476,6 +469,7 @@ def _rule_candidates(gray, scale, mm, expect):
         found[name] = ([(p + offset, v, _margin_outside(profile, p, outward, mm))
                         for p, v in peaks], math.tan(math.radians(angle)))
     return found
+
 
 
 def _pick_pair(near, far, span):
@@ -540,8 +534,29 @@ def detect_frame(im: Image.Image, expect=None):
         found = _rule_candidates(g, max(1, round(max(w, h) / COARSE_SIDE)),
                                  expect[1] / 368.7, expect)
         mm = expect[1] / 368.7
-        for (a, b), span in (("left", "right"), expect[0]), (("top", "bottom"), expect[1]):
-            pair = _pick_pair(found[a][0], found[b][0], span)
+        axes = [(("left", "right"), expect[0]), (("top", "bottom"), expect[1])]
+        pairs = {a: _pick_pair(found[a][0], found[b][0], span) for (a, b), span in axes}
+        # One axis found is enough to say what the scan's resolution really is —
+        # catalogue dpi is often nominal — so the axis that failed gets a second
+        # try against the size this scan is actually at.
+        scale = next((abs(pair[1] - pair[0]) / span for ((a, _b), span) in axes
+                      if (pair := pairs[a])), None)
+        for (a, b), span in axes:
+            pair = pairs[a]
+            if pair is None and scale:
+                pair = _pick_pair(found[a][0], found[b][0], span * scale)
+            if pair is None and scale:
+                # Still nothing: one of the two rules never made it into the
+                # candidates — a faint or damaged edge. Anchor on the side that
+                # did, step across by the width this scan is printed at, and
+                # let the full-size pass find the rule there or fail, which is
+                # a better answer than a frame of the wrong shape.
+                near, far = _bundle_pick(found[a][0], mm, -1), _bundle_pick(found[b][0], mm, 1)
+                if near is not None and far is not None:
+                    ink = {p: v for p, v, _m in found[a][0] + found[b][0]}
+                    across = span * scale
+                    pair = ((near, near + across) if ink.get(near, 0) >= ink.get(far, 0)
+                            else (far - across, far))
             if pair is None:
                 pair = (_bundle_pick(found[a][0], mm, -1), _bundle_pick(found[b][0], mm, 1))
                 if None in pair:
@@ -656,8 +671,22 @@ class Sheet:
         quad = []
         for lon, lat in ((lon_w, lat_n), (lon_w, lat_s), (lon_e, lat_s), (lon_e, lat_n)):
             quad.extend(self.geo_to_px(lon, lat))
-        part = self.load().transform((TILE, TILE), Image.Transform.QUAD, quad,
-                                     resample=Image.Resampling.BICUBIC, fillcolor=(0, 0, 0, 0))
+        # Sample out of a crop around the quad rather than the whole scan.
+        # Pillow's QUAD transform costs time in proportion to the *source* it is
+        # handed, and one sheet is 150 megapixels against a tile's 65 thousand:
+        # cropping first is the difference between 100 ms and 5 ms a tile, which
+        # over a 300 000-tile series is hours. The 4 px pad covers what bicubic
+        # reaches for beyond the quad's corners.
+        source = self.load()
+        xs, ys = quad[0::2], quad[1::2]
+        x0, y0 = max(0, int(min(xs)) - 4), max(0, int(min(ys)) - 4)
+        x1, y1 = min(source.width, int(max(xs)) + 5), min(source.height, int(max(ys)) + 5)
+        if x1 <= x0 or y1 <= y0:
+            return  # the tile lies off the scan entirely
+        quad = [v - (x0 if i % 2 == 0 else y0) for i, v in enumerate(quad)]
+        part = source.crop((x0, y0, x1, y1)).transform(
+            (TILE, TILE), Image.Transform.QUAD, quad,
+            resample=Image.Resampling.BICUBIC, fillcolor=(0, 0, 0, 0))
         # Mask to the sheet's bbox: in mercator tile space the lon/lat box is
         # an axis-aligned rectangle, so margins beyond the neatline (and any
         # overshoot from warped paper) are clipped exactly at the sheet edge.
@@ -733,7 +762,7 @@ def _wave(sheet):
             round(south / (sheet.bbox[3] - south)) % 2)
 
 
-def build(sheets, out, base_zoom, min_zoom, png8=False, webp=0, jobs=1):
+def build(sheets, out, base_zoom, min_zoom, png8=False, webp=0, jobs=1, phase="all"):
     west = min(s.bbox[0] for s in sheets)
     south = min(s.bbox[1] for s in sheets)
     east = max(s.bbox[2] for s in sheets)
@@ -748,7 +777,7 @@ def build(sheets, out, base_zoom, min_zoom, png8=False, webp=0, jobs=1):
     # already exists on disk (a neighbour's edge) is composited into.
     count = 0
     done = 0
-    for wave in sorted({_wave(s) for s in sheets}):
+    for wave in sorted({_wave(s) for s in sheets} if phase != "parents" else ()):
         jobs_ = [({"image": s.path, "bbox": s.bbox, "frame": s.frame_arg,
                    "rotate": s.rotate, "dpi": s.dpi}, out, ext, base_z, png8, webp)
                  for s in sheets if _wave(s) == wave]
@@ -765,7 +794,7 @@ def build(sheets, out, base_zoom, min_zoom, png8=False, webp=0, jobs=1):
     print(f"z{base_z}: {count} tiles", flush=True)
 
     # Parents: stitch and halve the four children.
-    for z in range(base_z - 1, min_zoom - 1, -1):
+    for z in range(base_z - 1, min_zoom - 1, -1) if phase != "base" else ():
         made = 0
         cx0, cx1 = math.floor(lon_to_x(west, z)), math.ceil(lon_to_x(east, z))
         cy0, cy1 = math.floor(lat_to_y(north, z)), math.ceil(lat_to_y(south, z))
@@ -889,6 +918,9 @@ def main():
                     help="write WebP tiles at this quality (default 75) instead of PNG")
     ap.add_argument("--jobs", type=int, default=1,
                     help="sheets rendered at once (each holds one scan in memory)")
+    ap.add_argument("--phase", choices=("all", "base", "parents"), default="all",
+                    help="'base' cuts the deepest zoom only and 'parents' downsamples what is "
+                         "already there, so a long build can go in parts")
     ap.add_argument("--write-frames", metavar="OUT.json",
                     help="measure each manifest sheet's neatline, check it, and write a "
                          "manifest with the corners pinned — no tiles are built")
@@ -935,7 +967,7 @@ def main():
         sheets.append(Sheet(args.image, tuple(bbox), frame))
 
     build(sheets, args.out, args.base_zoom, args.min_zoom, png8=args.png8, webp=args.webp,
-          jobs=args.jobs)
+          jobs=args.jobs, phase=args.phase)
 
 
 if __name__ == "__main__":

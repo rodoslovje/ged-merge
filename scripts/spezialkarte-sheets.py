@@ -80,7 +80,10 @@ def cell_bbox(zone, col):
 
 
 def curl(url, out=None, resume=False):
-    cmd = ["curl", "-sfL", "--retry", "4", "--retry-delay", "3", "-A", UA]
+    # -g: sheets that carry both names — "Nagyszeben [Hermannstadt]" — have
+    # square brackets in their filename, which curl otherwise reads as a URL
+    # glob and refuses.
+    cmd = ["curl", "-sfLg", "--retry", "4", "--retry-delay", "3", "-A", UA]
     if out:
         cmd += ["-o", out] + (["-C", "-"] if resume and os.path.exists(out) else [])
         return subprocess.run(cmd + [url]).returncode == 0
