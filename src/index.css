@@ -7650,41 +7650,26 @@ kbd {
   background: var(--panel); color: var(--text); font: inherit; font-size: 0.85rem;
 }
 .edit-coord-manual input:focus { outline: none; border-color: var(--accent); }
-/* Phone: the panel fills the screen instead of being anchored to the pin. The
-   map goes up top where a tap can place the pin, the lookups read below it —
-   the two-column popover gave each about half of a 360px screen. */
-.edit-coord-pop--sheet {
-  inset: 0;
+/* Phone: the panel keeps its anchor under the pin — the place and address being
+   positioned stay visible above it, which is the whole point of the row — but
+   spans the screen rather than sitting in a 720px two-column box that gave the
+   map ~220px beside a ~160px result list. Stacked instead: map first, where a
+   tap places the pin, then the lookups. Its height is set inline from the room
+   left below the row, and it scrolls inside that. */
+.edit-coord-pop--phone {
+  left: 8px;
+  right: 8px;
   width: auto;
-  margin: 0;
-  padding: 10px 12px 16px;
-  border: none;
-  border-radius: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  z-index: 110;
-  background: var(--bg);
 }
-.edit-coord-sheet-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 4px;
-}
-.edit-coord-sheet-title {
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.edit-coord-pop--sheet .edit-coord-body { flex-direction: column; }
-.edit-coord-pop--sheet .edit-coord-map,
-.edit-coord-pop--sheet .edit-coord-side { flex: 0 0 auto; }
-.edit-coord-pop--sheet .edit-coord-map .tools-geo-minimap { height: 42dvh; }
-/* The list scrolls with the sheet rather than in a 260px box of its own. */
-.edit-coord-pop--sheet .edit-coord-side { max-height: none; overflow-y: visible; }
-.edit-coord-pop--sheet .edit-coord-head .edit-coord-manual { flex: 1 1 100%; }
+.edit-coord-pop--phone .edit-coord-body { flex-direction: column; }
+.edit-coord-pop--phone .edit-coord-map,
+.edit-coord-pop--phone .edit-coord-side { flex: 0 0 auto; }
+.edit-coord-pop--phone .edit-coord-map .tools-geo-minimap { height: 190px; }
+/* The list scrolls with the panel rather than in a 260px box of its own. */
+.edit-coord-pop--phone .edit-coord-side { max-height: none; overflow-y: visible; }
+.edit-coord-pop--phone .edit-coord-head .edit-coord-manual { flex: 1 1 100%; }
 .tools-geo-hint { color: var(--muted); font-size: 0.85rem; margin: 10px 0 0; }
 /* Address rows: house coordinates from the address register. */
 .tools-geo-addr-list { list-style: none; margin: 0; padding: 0; }

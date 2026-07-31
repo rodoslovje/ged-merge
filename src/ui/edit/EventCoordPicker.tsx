@@ -34,6 +34,9 @@ const IDLE = { state: "idle" as const, results: [] };
 
 /** Keep the panel this far from the window edges. */
 const EDGE = 8;
+/** Least room worth opening the phone panel into — map, manual entry and a
+ *  couple of results. Below this the row is scrolled up to make space. */
+const MIN_PHONE_PANEL = 330;
 
 export function EventCoordPicker({
   place,
@@ -74,7 +77,7 @@ export function EventCoordPicker({
   /** Where the panel is pinned in the viewport. It is positioned fixed and
    *  clamped to the window: the events table scrolls sideways and clips, so an
    *  absolutely positioned panel was cut off at either edge. */
-  const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
+  const [pos, setPos] = useState<{ left?: number; top: number; maxH?: number } | null>(null);
   /** Whether the next pick is copied to the file's other events at this exact
    *  place and address (see the offer in the panel head). On by default: the
    *  same place and address is the same house, so one position is what those
@@ -96,19 +99,26 @@ export function EventCoordPicker({
   const at = (c: GeoCoord) => `${c.lat.toFixed(5)}, ${c.lon.toFixed(5)}`;
 
   useLayoutEffect(() => {
-    // On a phone the panel is a full-screen sheet (see `.edit-coord-pop--sheet`),
-    // so there is nothing to anchor: a 720px two-column popover pinned to the pin
-    // left a ~220px map beside a ~160px result list, usually below the fold.
-    if (!open || phone) return;
+    if (!open) return;
     const position = () => {
       const anchor = boxRef.current?.getBoundingClientRect();
       if (!anchor) return;
+      const below = anchor.bottom + 4;
+      if (phone) {
+        // Always *below* the row, never flipped above it: the place and address
+        // being positioned have to stay in view, or there is no telling what the
+        // map is pinning. The width comes from CSS (screen less a margin), and
+        // whatever room is left below becomes the panel's height — it scrolls
+        // inside rather than growing off the bottom of the screen.
+        const maxH = Math.max(window.innerHeight - below - EDGE, MIN_PHONE_PANEL);
+        setPos((prev) => (prev && prev.top === below && prev.maxH === maxH ? prev : { top: below, maxH }));
+        return;
+      }
       const panel = popRef.current?.getBoundingClientRect();
       const width = panel?.width ?? Math.min(720, window.innerWidth * 0.92);
       const height = panel?.height ?? 320;
       const left = Math.max(EDGE, Math.min(anchor.left, window.innerWidth - width - EDGE));
       // Below the pin, or above it when the window has no room underneath.
-      const below = anchor.bottom + 4;
       const top = below + height > window.innerHeight - EDGE ? Math.max(EDGE, anchor.top - height - 4) : below;
       setPos((prev) => (prev && prev.left === left && prev.top === top ? prev : { left, top }));
     };
@@ -124,6 +134,17 @@ export function EventCoordPicker({
       window.removeEventListener("resize", position);
       window.removeEventListener("scroll", position, true);
     };
+  }, [open, phone]);
+
+  // Opened from a row near the foot of a phone screen there is nowhere below it
+  // to put the panel. Scroll the row up once, so it keeps its place above a
+  // panel that gets a usable height. The scroll listener above re-places it.
+  useEffect(() => {
+    if (!open || !phone) return;
+    const anchor = boxRef.current?.getBoundingClientRect();
+    if (!anchor) return;
+    const short = MIN_PHONE_PANEL - (window.innerHeight - anchor.bottom - EDGE);
+    if (short > 0) window.scrollBy({ top: short, behavior: "smooth" });
   }, [open, phone]);
 
   // Close on Escape or a click elsewhere, like the other inline Edit pickers.
@@ -262,25 +283,12 @@ export function EventCoordPicker({
       {open && (
         <div
           ref={popRef}
-          className={"edit-coord-pop" + (phone ? " edit-coord-pop--sheet" : "")}
-          style={phone ? undefined : pos ? { left: pos.left, top: pos.top } : { visibility: "hidden" }}
+          className={"edit-coord-pop" + (phone ? " edit-coord-pop--phone" : "")}
+          // On a phone `left`/`right` come from CSS (the panel spans the screen
+          // less a margin), so only the anchored top and the height it may use
+          // are set here.
+          style={pos ? { left: pos.left, top: pos.top, maxHeight: pos.maxH } : { visibility: "hidden" }}
         >
-          {/* A sheet has no "outside" to tap, so it carries the close button the
-              anchored popover doesn't need. */}
-          {phone && (
-            <div className="edit-coord-sheet-head">
-              <span className="edit-coord-sheet-title">{title}</span>
-              <button
-                type="button"
-                className="nav-btn icon-only"
-                onClick={() => setOpen(false)}
-                title={t("help.close")}
-                aria-label={t("help.close")}
-              >
-                ✕
-              </button>
-            </div>
-          )}
           {/* Head: what the event carries now, and the manual entry that can
               replace it — the two things that act on the value itself. */}
           <div className="edit-coord-head">
