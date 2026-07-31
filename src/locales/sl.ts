@@ -281,7 +281,7 @@ export const sl = {
   "tools.geocode.addr.groupMeta": "{{count}} naslovov · {{events}} dogodkov",
   "tools.geocode.addr.searchGroup": "Poišči vse ({{count}})",
   "tools.geocode.addr.noPlace": "(brez kraja)",
-  "tools.geocode.addr.mapHint": "Najdene hiše za ta kraj — kliknite buciko, da jo izberete za njen naslov.",
+  "tools.geocode.addr.mapHint": "Najdene hiše za ta kraj — kliknite oznako, da jo izberete za njen naslov.",
   "tools.geocode.addr.intro": "Ti dogodki navajajo ulico ali hišno številko — v naslovu ali kar v kraju — in so združeni po naselju, ki mu pripada. Register naslovov lahko določi točno stavbo; koordinata se shrani k naslovu, zato koordinata naselja ostane nespremenjena. Zemljevid nato prikaže hišo, kjer je ni, pa se vrne na naselje.",
   "tools.geocode.addr.inPlace": "v kraju",
   "tools.geocode.addr.inPlaceHint": "Ti dogodki hranijo hišno številko v kraju, zato je tu naveden kraj naselje, ki ostane, ko številko odmislimo. Sprejete koordinate se zapišejo v vrednost, ki jo dogodki nosijo; premik v drug kraj ni na voljo, ker prav ta vrednost nosi številko.",
@@ -1241,10 +1241,13 @@ export const sl = {
   "editSource.remove": "Odstrani",
   "event.BIRT": "Rojstvo",
   "event.BAPM": "Krst",
-  "event.CHR": "Krst",
+  // CHR je po GEDCOM krst (in poimenovanje) otroka, BAPM pa krst nasploh —
+  // v slovenščini sta oba »krst«, zato CHR nosi pojasnilo, da se v spustnem
+  // seznamu ne pojavita dve enaki izbiri.
+  "event.CHR": "Krst otroka",
   "event.CONF": "Birma",
   "event.ADOP": "Posvojitev",
-  "event.FCOM": "Prva sveta obhajila",
+  "event.FCOM": "Prvo sveto obhajilo",
   "event.OCCU": "Poklic",
   "event.EDUC": "Izobrazba",
   "event.RETI": "Upokojitev",

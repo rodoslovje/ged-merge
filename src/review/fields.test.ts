@@ -458,6 +458,34 @@ describe("event ordering", () => {
     expect(keys.indexOf("BIRT.header")).toBeLessThan(keys.indexOf("RESI.0.header"));
   });
 
+  it("orders undated terminal events by when they happen", () => {
+    // None of the five carries a date, so only the death-zone order decides:
+    // death, then what becomes of the body, then the funeral service.
+    const m = dataset(
+      `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE 1 JAN 1900\n` +
+      `1 _INTE\n2 PLAC E\n1 CREM\n2 PLAC C\n1 BURI\n2 PLAC D\n1 DEAT\n2 PLAC A\n1 _FNRL\n2 PLAC B\n0 TRLR\n`,
+    );
+    const rows = individualFieldRows(tr, m.individuals.get("@I1@"), undefined);
+    const keys = rows.filter((r) => r.isGroupHeader && r.isEventHeader).map((r) => r.key);
+    expect(keys).toEqual([
+      "BIRT.header", "DEAT.header", "CREM.header", "BURI.header", "_INTE.header", "_FNRL.header",
+    ]);
+  });
+
+  it("orders undated early-life events by when they happen", () => {
+    // Baptism, then first communion, then confirmation; adoption is not tied to
+    // a point in that sequence and sits last.
+    const m = dataset(
+      `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE 1 JAN 1900\n` +
+      `1 ADOP\n2 PLAC E\n1 CONF\n2 PLAC D\n1 FCOM\n2 PLAC C\n1 CHR\n2 PLAC B\n1 BAPM\n2 PLAC A\n0 TRLR\n`,
+    );
+    const rows = individualFieldRows(tr, m.individuals.get("@I1@"), undefined);
+    const keys = rows.filter((r) => r.isGroupHeader && r.isEventHeader).map((r) => r.key);
+    expect(keys).toEqual([
+      "BIRT.header", "BAPM.header", "CHR.header", "FCOM.header", "CONF.header", "ADOP.header",
+    ]);
+  });
+
   it("uses compare date when main event has no date", () => {
     // Main has an undated RESI; compare's 1974 date should be used for sort order.
     const m = dataset(
