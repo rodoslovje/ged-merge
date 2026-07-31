@@ -50,18 +50,23 @@ export type OverlayPreset = Omit<MapOverlay, "id" | "name"> & {
  *  custom layer. */
 export const OVERLAY_PRESETS: OverlayPreset[] = [
   {
-    // Self-hosted pyramid (deploy/tiles.gedmerge.com.caddy): 165 PD/CC0
-    // Third-Military-Survey sheets (dLib.si + NYPL + IOS/GeoPortOst scans)
-    // covering Slovenia, Croatia, Bosnia-Herzegovina, coastal Montenegro and
-    // the southern Austrian / SW Hungarian border, built with
-    // scripts/overlay-tiles.py.
+    // Self-hosted pyramid (deploy/tiles.gedmerge.com.caddy): the complete
+    // Third Military Survey, all 805 sheets of the 1:75 000 Spezialkarte, from
+    // Saxony to Montenegro and from Tyrol to Bukovina. Resolved from the
+    // Mapster catalogue and built with scripts/spezialkarte-sheets.py +
+    // scripts/overlay-tiles.py; see scripts/manifests/README.md. Each sheet is
+    // placed by its own printed graticule, converted from the survey's Bessel /
+    // Hermannskogel datum to WGS 84 — without that the sheets sit 200-450 m
+    // east of modern coordinates, by a margin that grows towards Galicia. The
+    // ~100 m that remains is the survey's own error and is left visible.
     key: "settings.map.overlays.preset.spezialkarte",
-    url: "https://tiles.gedmerge.com/spezialkarte-se-europe/{z}/{x}/{y}.png",
+    url: "https://tiles.gedmerge.com/spezialkarte-monarchy/{z}/{x}/{y}.webp",
     yearFrom: 1877,
     yearTo: 1918,
-    attribution: "Spezialkarte 1:75.000 · public domain / CC0 (dLib.si, NYPL, IOS)",
+    attribution: "Spezialkarte 1:75.000 (k.u.k. Militärgeographisches Institut) · "
+      + "public domain, scans via Mapster / mapywig.org",
     maxZoom: 14,
-    coverage: [42.25, 13.34, 47.0, 21.34],
+    coverage: [42.0, 9.34, 51.25, 27.84],
     sampleZoom: 13,
   },
   {

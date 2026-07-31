@@ -5,10 +5,14 @@ scanned public-domain map sheet to its geographic bbox and its measured
 neatline (map-frame) corners, so the pyramid can be rebuilt from the source
 scans without re-measuring.
 
+- **spezialkarte-monarchy.json** — the whole series: 805 sheets, Saxony to
+  Montenegro and Tyrol to Bukovina. Generated, not hand-written — see
+  "The whole series" below. Serves `tiles.gedmerge.com/spezialkarte-monarchy/`.
 - **spezialkarte-corridor.json** — 5-sheet Ljubljana→Zagreb demo.
-- **spezialkarte-se-europe.json** — the full 165-sheet mosaic: Slovenia,
-  Croatia, Bosnia-Herzegovina, coastal Montenegro, southern Austria and
-  south-west Hungary. Serves `tiles.gedmerge.com/spezialkarte-se-europe/`.
+- **spezialkarte-se-europe.json** — the earlier 165-sheet mosaic of Slovenia,
+  Croatia and Bosnia, measured by hand from Commons scans. Superseded by the
+  monarchy manifest, kept because its frames are the calibration the automatic
+  measurement was checked against.
 - **schraembl-1797.json** — Schraembl's *Neueste Generalkarte von Deutschland*
   (Vienna, 1797), the Holy Roman Empire on the eve of Napoleon. One conic
   projection rather than a sheet grid — see "Conic manifests" below. Serves
@@ -27,12 +31,95 @@ scans without re-measuring.
 `bbox` comes from the sheet's printed Ferro graticule: each sheet spans
 0.5° lon × 0.25° lat; Greenwich = Ferro − 17°39′46″ (17.662778°).
 
-## Getting the source scans
+## The whole series
+
+The Spezialkarte is a lattice, and every sheet carries its place in it — the
+*godło*, zone (south-counting) and column (east of Ferro). That alone fixes the
+sheet's box:
+
+    west  = (col + 53) · 0.5° − 17.662778°
+    north = 47° + (18 − zone) · 0.25°
+
+which reproduces all 165 hand-measured bboxes of `spezialkarte-se-europe.json`
+exactly. So nothing has to be measured to *place* a sheet; only its neatline
+inside its own scan does, and that is what `--write-frames` finds.
+
+    # catalogue → manifest, and fetch the scans beside it (≈49 GB, one hour)
+    python3 scripts/spezialkarte-sheets.py --manifest scans/sheets.json --download scans/
+
+    # measure every neatline, keeping only the frames that check out
+    python3 scripts/overlay-tiles.py --manifest scans/sheets.json \
+        --write-frames scripts/manifests/spezialkarte-monarchy.json --jobs 6
+
+    # build (base zoom 14 — the scans hold more, the overlay does not show it)
+    python3 scripts/overlay-tiles.py --manifest scripts/manifests/spezialkarte-monarchy.json \
+        --out public/tiles-local/spezialkarte-monarchy --base-zoom 14 --min-zoom 7 \
+        --webp --jobs 6
+
+The sheet list and the scans come from **Mapster** (igrek.amzp.pl /
+mapywig.org), which catalogues 3 600+ files over the 805 grid cells, most in
+several editions and resolutions, each row carrying its godło and a direct
+link. `spezialkarte-sheets.py` picks the newest in-period edition at the best
+resolution and falls through to the next one when a link is dead, recording in
+the manifest which edition actually landed. The scans behind it are the
+Jagiellonian Library's, the NYPL's (CC0), Slovenia's NUK/dLib and
+Regensburg's; the maps themselves are public domain by age, and Mapster asks
+that its copies be used non-commercially.
+
+### The survey's degrees are not today's degrees
+
+A sheet pinned at its printed Ferro graticule lands a few hundred metres east
+of where those coordinates fall on WGS 84: the survey was computed on the
+Bessel ellipsoid from the Hermannskogel datum. Measured against modern rivers,
+railways and main roads, the uncorrected overlay sat +172 m east at Prague,
++280 m at Vienna, +292 m at Ljubljana, +439 m at Budapest and +442 m at
+Kraków — **growing eastward**, as the old triangulation drifts away from its
+Vienna origin. That growth is the giveaway: no constant nudge can fix a map
+whose error doubles across it, but a geocentric datum shift reproduces it
+(predicting 366 / 386 / 367 / 414 / 423 m for those five).
+
+`cell_bbox` therefore converts each sheet's graticule box to WGS 84 before the
+tiler sees it, with the MGI→WGS 84 parameters of EPSG:1188 — chosen because
+they track the measurements across the whole series, where the Austrian set
+(EPSG:1618) predicts only ~56 m and would leave most of the error in place.
+The shift is applied to the *grid*, so every sheet moves by the same rule and
+neighbours cannot be pulled out of register with each other.
+
+Measured again after the rebuild, east offset before → after:
+
+| | Kranj | Ljubljana | Koper | Zagreb | Vienna | Prague | Budapest | Kraków | Lviv |
+|---|---|---|---|---|---|---|---|---|---|
+| before | +264 | +292 | +174 | +266 | +280 | +172 | +439 | +442 | +431 |
+| after | −106 | −80 | −161 | −107 | −102 | −172 | +26 | +294 | +74 |
+
+Mean |error| 307 m → 125 m, and no region ends up worse than it began (Prague
+keeps its magnitude and changes sign; Kraków stays under-corrected). What is
+left is the survey's own error and stays visible — same principle as the
+Schraembl map below: no rubber-sheeting. It is also near the floor of the
+measurement itself: these come from correlating the scans against modern
+rivers, railways and main roads, which agree to about a hundred metres at best.
+
+### Why the neatline needs a prior
+
+The obvious heuristic — take the innermost long rule with paper outside it —
+picks a road or a contour running parallel to the frame on a good fraction of
+the scans, and a frame that is 150 px out shifts that sheet by half a
+kilometre. `detect_frame` is therefore given `printed_size(bbox, dpi)`: a
+survey sheet is printed to scale, so its box on the ground and the scan's
+resolution say exactly how many pixels apart its border rules must be. It
+looks for the pair that is that distance apart, with blank paper a few
+millimetres outside them, then refines to the innermost rule of that bundle at
+full size. What is left over is caught by the shape check in `--write-frames`,
+which drops a sheet whose frame is more than 3% off the aspect its bbox
+implies rather than smearing it across its neighbours.
+
+## Getting the source scans from Commons (the older manifests)
 
 The `image` field is only a basename — the multi-GB scans are **not** in the
-repo. Fetch them from Wikimedia Commons (and, for a few sheets, NYPL's image
-endpoint) into one directory, then copy the manifest beside them and run the
-build. The three collections used:
+repo. `spezialkarte-monarchy.json` records a `url` per sheet and
+`spezialkarte-sheets.py --download` fetches them; the earlier hand-built
+manifests instead name Commons files, which are resolved like this. The three
+collections they use:
 
 - **dLib.si** (Digital Library of Slovenia) — high-resolution (~600 dpi)
   Slovenian sheets, on Commons as
@@ -127,13 +214,22 @@ python3 ../overlay-tiles.py --manifest schraembl-1797.json \
 Base zoom lands on 11 (~49 m/px, which is the scan's own resolution — z12 would
 only enlarge it) for ~11 000 tiles / 270 MB.
 
-## Coverage gaps
+## Coverage
 
-26 grid cells in the target rectangle have no reachable public scan. Most are
-open Adriatic (no sheet was ever published); the genuine content gaps are
-Pula/southern Istria, Mali Lošinj, Prijedor, Požega, Prnjavor, southern
-Velebit (Medak), Pelješac/Ston, Novi Sad, and the interior-Montenegro edge
-(Durmitor, Podgorica) where the NYPL collection stops. One Commons file
-(`Curzola und Lagosta`, NYPL1227026) is a mislabelled New York state atlas
-page and is unusable. If those scans surface later, add one manifest entry
-each and rebuild to a new path.
+805 grid cells is the series — the sheets the k.u.k. Militärgeographisches
+Institut published, plus the foreign-margin ones. **801 of them are in.** The
+gaps that dogged the Commons-only build (Pula, Mali Lošinj, Prijedor, Požega,
+Prnjavor, Medak, Pelješac/Ston, Novi Sad, the Montenegrin interior) are all in
+the Mapster catalogue and are covered; cells with no sheet at all are open
+Adriatic, where none was ever published.
+
+The four that are not in — `z02c35` Kostopol, `z25c22` Karlowitz und Titel,
+`z26c22` Alt-Pazua, `z30c20` Rogatica — have had every edition Mapster lists
+tried, and no neatline could be measured on any of them (each is a scan on a
+grey mount whose border rule is too faint to find). They need eight numbers
+measured by hand in an image editor, added as a `frame` on their manifest
+entry; the ids are the file names.
+
+How the 805 came out, for the record: 765 measured on the first pass, 26 more
+after re-fetching the rejects from a different collection (`--again`), 10 more
+after a second round, 4 left.
