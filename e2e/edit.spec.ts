@@ -43,7 +43,7 @@ test("edit mode: name, sex and event fields are editable and exportable", async 
   await page.goto("/");
 
   await page.locator('input.file-input').first().setInputFiles(SAMPLE);
-  await page.getByRole("button", { name: "Edit" }).click();
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
   await page.locator(".edit-person").waitFor();
 
   const saveBtn = page.locator(".app-head-actions .export-btn");
@@ -90,7 +90,7 @@ test("edit mode: the event-type ▾ and the + Add menu are keyboard-operable", a
   await page.goto("/");
 
   await page.locator('input.file-input').first().setInputFiles(SAMPLE);
-  await page.getByRole("button", { name: "Edit" }).click();
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
   await page.locator(".edit-person").waitFor();
 
   // Use the first event that actually has a type dropdown (not every event is
@@ -119,7 +119,7 @@ test("edit mode: family marriage fields are editable and exportable", async ({ p
   await page.goto("/");
 
   await page.locator('input.file-input').first().setInputFiles(SAMPLE);
-  await page.getByRole("button", { name: "Edit" }).click();
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
   await page.locator(".edit-person").waitFor();
 
   const marriage = page.locator(".edit-family .edit-event").first();
@@ -153,7 +153,7 @@ test("edit mode: undoing a removed source citation restores its title, not just 
   await page.goto("/");
 
   await page.locator('input.file-input').first().setInputFiles(SAMPLE);
-  await page.getByRole("button", { name: "Edit" }).click();
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
   await page.locator(".edit-person").waitFor();
 
   // Add a titled source citation at the person level.
@@ -181,7 +181,7 @@ test("edit mode: clicking a source citation opens an editable dialog, prefilled,
   await page.goto("/");
 
   await page.locator('input.file-input').first().setInputFiles(SAMPLE);
-  await page.getByRole("button", { name: "Edit" }).click();
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
   await page.locator(".edit-person").waitFor();
 
   await page.locator(".edit-name-chip-add", { hasText: "Add Source" }).first().click();
@@ -215,7 +215,7 @@ test("edit mode: a legacy link opens the Edit Source dialog prefilled with just 
   const fixture = writeLegacyLinkFixture("https://example.com/legacy-original");
   await page.goto("/");
   await page.locator('input.file-input').first().setInputFiles(fixture);
-  await page.getByRole("button", { name: "Edit" }).click();
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
   await page.locator(".edit-person").waitFor();
 
   const linkIcon = page.locator(".edit-link-icon").first();
@@ -243,7 +243,7 @@ test("edit mode: filling in a title while editing a legacy link promotes it to a
   const fixture = writeLegacyLinkFixture("https://example.com/legacy-promote");
   await page.goto("/");
   await page.locator('input.file-input').first().setInputFiles(fixture);
-  await page.getByRole("button", { name: "Edit" }).click();
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
   await page.locator(".edit-person").waitFor();
 
   await page.locator(".edit-link-icon").first().click();

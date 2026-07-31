@@ -9,7 +9,7 @@ test("edit mode: adding father/mother/partner/child creates new people and links
   await page.goto("/");
 
   await page.locator('input.file-input').first().setInputFiles(SAMPLE);
-  await page.getByRole("button", { name: "Edit" }).click();
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
   await page.locator(".edit-person").waitFor();
 
   // Navigate up the paternal line until we find someone missing their own parents.
