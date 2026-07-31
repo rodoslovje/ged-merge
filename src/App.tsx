@@ -5,7 +5,6 @@ import { useTheme } from "./ui/useTheme";
 import { useMode } from "./ui/useMode";
 import { useAppHistory } from "./ui/useAppHistory";
 import { useMatchList } from "./ui/useMatchList";
-import { useMobileWarning } from "./ui/useMobileWarning";
 import { useGedcomWorker } from "./ui/useGedcomWorker";
 import { useAutoDismissToast } from "./ui/useAutoDismissToast";
 import { initialWorkspace, workspaceReducer, type SlotState } from "./state/workspace";
@@ -217,7 +216,6 @@ function AppContent() {
   const [addPersonRequest, setAddPersonRequest] = useState<{ nonce: number; name?: string }>();
   // The pending save dialog's payload — see `SavePreview` for the field docs.
   const [preview, setPreview] = useState<SavePreview | null>(null);
-  const { showMobileWarning, dismissMobileWarning } = useMobileWarning();
   // Brief confirmation shown after a successful download; auto-dismisses.
   const [saveToast, setSaveToast] = useAutoDismissToast();
   const compareRef = useRef<HTMLDivElement>(null);
@@ -1609,12 +1607,6 @@ function AppContent() {
     {treeOverlay}
     <AutoMediaOffer main={main} />
     <div className="app" style={treeOverlay ? { display: "none" } : undefined}>
-      {showMobileWarning && (
-        <div className="mobile-warning">
-          <span>{t("app.mobileWarning")}</span>
-          <button onClick={dismissMobileWarning} title={t("help.close")}>✕</button>
-        </div>
-      )}
       <header className="app-head">
         <div className="app-head-top">
           <div className="app-head-brand">

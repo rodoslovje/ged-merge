@@ -2,7 +2,6 @@ export const en = {
   "app.title": "GED Merge",
   "app.subtitle": "Compare and merge GEDCOM files entirely in your browser.",
   "load.privacy": "Your data never leaves your device. Processed 100% in-browser.",
-  "app.mobileWarning": "This application is optimized for larger screens. For the best user experience, please use a tablet or desktop.",
   "app.reloadConfirm": "You have unsaved changes. Reload and discard them?",
   "error.title": "Something went wrong",
   "error.body": "This part of the app ran into an unexpected error. Your loaded file and progress are safe — try again, or reload the app.",

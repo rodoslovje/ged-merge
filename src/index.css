@@ -244,6 +244,82 @@ button:focus-visible {
   appearance: none;
 }
 
+/* ── Phone picker dropdown (PickerMenu) ───────────────────────────────────
+   Stands in for a segmented picker that doesn't fit across a phone: the
+   chart-kind switcher and the Tools sub-tool row. Rendered only below 720px
+   (the components decide), so no media query of its own. */
+.picker-menu {
+  position: relative;
+  min-width: 0;
+}
+.picker-menu-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 12px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.picker-menu-btn.open {
+  border-color: var(--accent);
+}
+.picker-menu-value {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+  color: var(--accent);
+}
+.picker-menu-caret {
+  flex: none;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1;
+}
+.picker-menu-popover {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 70;
+  padding: 6px;
+  max-height: calc(100dvh - 160px);
+  overflow-y: auto;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 28px rgb(0 0 0 / 0.35);
+}
+.picker-menu-item {
+  display: block;
+  width: 100%;
+  padding: 9px 10px;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.92rem;
+  text-align: left;
+  cursor: pointer;
+}
+.picker-menu-item:hover {
+  background: var(--panel-2);
+}
+.picker-menu-item.active {
+  color: var(--accent);
+  font-weight: 600;
+}
+
 /* ── Phone header ☰ menu (AppMenu) ────────────────────────────────────────
    Everything the one-row phone header can't hold: the loaded files, the
    start-person picker, and the icon buttons that sit in the header on a
@@ -349,23 +425,6 @@ button:focus-visible {
 .app-head {
   margin-bottom: 20px;
 }
-
-.mobile-warning {
-  background: #3a3320;
-  color: #fcd34d;
-  padding: 12px 16px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  font-size: 0.9rem;
-  border-radius: var(--radius);
-  margin-bottom: 16px;
-}
-.mobile-warning button {
-  background: none; border: none; color: inherit; font-size: 1.2rem; padding: 0 4px; opacity: 0.8; cursor: pointer;
-}
-.mobile-warning button:hover { opacity: 1; }
 
 /* --- collapsible sections --- */
 .section {
@@ -6437,10 +6496,6 @@ kbd {
    (search "@media" — header at ~880px, compare photos at ~720px); the bulk
    of the overrides are grouped here so cross-cutting tweaks stay together. */
 @media (max-width: 880px) {
-  .mobile-warning {
-    border-radius: 0;
-    margin-bottom: 0;
-  }
   .modal-overlay {
     padding: 0;
   }
@@ -7318,6 +7373,19 @@ kbd {
 /* Fixed-width select column pinned to the right edge, so every dropdown's
    left and right edges line up down the tab. */
 .settings-format-row select { flex-shrink: 0; width: 210px; margin-left: auto; }
+/* Phone: the label, a 210px select and the example shared one line, which left
+   the example ~90px of its 40 %-capped, ellipsised column — the one part of the
+   row that has to be read in full. Label and select keep the first line; the
+   example takes the second. Placed here rather than in the responsive section
+   at the foot of the file: the rules it overrides are the four above, and at
+   equal specificity source order decides. */
+@media (max-width: 560px) {
+  .settings-format-row { flex-wrap: wrap; row-gap: 2px; }
+  .settings-format-row select { width: auto; max-width: 62%; }
+  .settings-format-example {
+    order: 1; flex: 1 1 100%; max-width: 100%; text-align: left; padding-left: 2px;
+  }
+}
 
 /* Free-text settings inputs (custom tile URL): app input look — the browser
    default focus ring reads foreign in both themes — and room for a URL. */
@@ -7829,39 +7897,17 @@ kbd {
 
   /* --- Tools: sub-tool picker --- */
   /* Six description-carrying cards, one per row, pushed every result off the
-     first screen. Collapse them to a scrollable chip row (label only). */
+     first screen — and the scrollable chip row that replaced them still hid
+     most of the choice off the right edge. ToolsView renders the dropdown here
+     instead; all that is left is its spacing. */
   .tools-view {
     padding: 12px;
   }
   .tools-head {
     margin-bottom: 10px;
   }
-  .tools-subtabs {
-    display: flex;
-    gap: 6px;
+  .tools-subtabs-picker {
     margin-bottom: 12px;
-    overflow-x: auto;
-    scroll-snap-type: x proximity;
-    scrollbar-width: none;
-    /* Bleed to the panel edges so a half-shown chip reads as "scroll me". */
-    margin-inline: -12px;
-    padding-inline: 12px;
-  }
-  .tools-subtabs::-webkit-scrollbar {
-    display: none;
-  }
-  .tools-tab {
-    flex: 0 0 auto;
-    padding: 6px 12px;
-    border-radius: var(--radius-pill);
-    scroll-snap-align: start;
-  }
-  .tools-tab-label {
-    font-size: 0.88rem;
-    white-space: nowrap;
-  }
-  .tools-tab-desc {
-    display: none;
   }
   .tools-filter-row {
     gap: 8px;
@@ -7912,27 +7958,19 @@ kbd {
   .tree-title-kind {
     display: none;
   }
-  /* Eight kinds never fit on 390px. Scroll them instead of clipping them
-     (ChartKindTabs scrolls the active one into view). */
+  /* Eight kinds never fit on 390px, and the scroller that held them kept most
+     of the list off the right edge. ChartKindTabs renders a dropdown here — it
+     costs one row rather than one row plus a swipe, and it names the kind you
+     are on, so the Ancestors/Descendants toggle can share the row with it. */
   .tree-controls-left {
-    flex: 1 1 100%;
+    flex: 0 1 auto;
     min-width: 0;
   }
-  .charts-kind {
-    max-width: 100%;
-    overflow-x: auto;
-    scroll-snap-type: x proximity;
-    scrollbar-width: none;
+  .charts-kind-picker {
+    width: 148px;
   }
-  .charts-kind::-webkit-scrollbar {
-    display: none;
-  }
-  .charts-kind button {
-    flex: 0 0 auto;
-    scroll-snap-align: center;
-  }
-  /* With the kind switcher on its own full-width row, the find box takes the
-     next one — its field stretching to whatever is left beside the ‹ ›. */
+  /* The find box takes the next row — its field stretching to whatever is left
+     beside the ‹ ›. */
   .chart-find {
     flex: 1 1 100%;
     align-items: stretch;
@@ -7996,18 +8034,73 @@ kbd {
     flex-wrap: wrap;
     row-gap: 1px;
     overflow: visible;
+    /* The base rule centres the row's items. Once the two names take a line
+       each, that put the ▶ expander half way down the row — floating between
+       the names rather than beside the first one it opens. */
+    align-items: flex-start;
+  }
+  .tools-pair-row > .tools-pair-toggle,
+  .tools-pair-row > .tools-pair-toggle-spacer {
+    /* Back onto the first line's text baseline, which the row no longer sets. */
+    margin-top: 3px;
   }
   .tools-pair-break {
     display: block;
     flex-basis: 100%;
     height: 0;
   }
+  /* `flex-basis: 0`, not `auto`. A flex container breaks its lines on each
+     item's *content* width, and only shrinks what already landed on the line —
+     so with `auto` a long name pushed itself onto a line of its own and the
+     pair took three lines instead of two, leaving the ↔ orphaned on the
+     middle one. The row box is a fixed height the virtual list hands out (see
+     e2e/dup-cluster-repro.spec.ts), so that content simply spilled out of it.
+     With a zero basis each name always fits its line and then grows into
+     whatever is left, ellipsising if that isn't enough. */
   .tools-pairs .person-ref {
-    flex: 1 1 auto;
+    flex: 1 1 0;
+    min-width: 0;
+  }
+  /* The name is the elastic part; the xref and lifespan beside it are short and
+     stay whole. */
+  .tools-pairs .person-ref .person-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .tools-pairs .person-ref .person-xref,
+  .tools-pairs .person-ref .person-years {
+    flex: none;
   }
   /* Line 2 lines up under the names rather than under the expander. */
   .tools-pair-break + .tools-pair-sep {
     margin-left: 28px;
+  }
+
+  /* --- Search everyone --- */
+  /* The row actions were revealed by `.highlighted`, which only the keyboard
+     sets — so on a phone the Charts and Kinship buttons could not be reached at
+     all. Always shown here, on a line of their own under the name. */
+  .global-search-row {
+    flex-wrap: wrap;
+    padding: 4px 8px 8px;
+  }
+  .global-search-row .global-search-actions {
+    display: flex;
+    flex: 1 1 100%;
+    padding-left: 12px;
+  }
+  /* A long name plus its id, lifespan and kinship never shared one line; the
+     name won the ellipsis and the meta was pushed off. Name first, in full,
+     with the meta wrapping under it. */
+  .global-search-open {
+    flex-wrap: wrap;
+    row-gap: 1px;
+    padding: 8px 12px 4px;
+  }
+  .global-search-name {
+    flex: 1 1 100%;
+    white-space: normal;
   }
 
   /* --- Report --- */
