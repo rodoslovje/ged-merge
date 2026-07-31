@@ -1,0 +1,459 @@
+<!doctype html>
+<html lang="sl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="../icons/app-icon-32.png" />
+    <link rel="apple-touch-icon" href="../icons/app-icon-180.png" />
+    <meta name="theme-color" content="#151310" />
+    <title>Pravilnik o zasebnosti — GED Merge | urejevalnik GEDCOM</title>
+    <meta
+      name="description"
+      content="Kako GED Merge ravna z vašimi podatki: datoteka GEDCOM se nikoli ne naloži na strežnik, spletna iskanja in ploščice zemljevida so izbirni, vse ostalo ostane v brskalniku."
+    />
+    <link rel="canonical" href="https://gedmerge.com/zasebnost/" />
+    <link rel="alternate" hreflang="en" href="https://gedmerge.com/privacy/" />
+    <link rel="alternate" hreflang="sl" href="https://gedmerge.com/zasebnost/" />
+    <link rel="alternate" hreflang="x-default" href="https://gedmerge.com/privacy/" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="article" />
+    <meta property="og:title" content="Pravilnik o zasebnosti — GED Merge" />
+    <meta
+      property="og:description"
+      content="Vaše rodoslovno drevo se nikoli ne naloži na strežnik. Spletna iskanja in ploščice zemljevida so privzeto izklopljeni — pravilnik natančno pove, kaj lahko zapusti napravo."
+    />
+    <meta property="og:url" content="https://gedmerge.com/zasebnost/" />
+    <meta property="og:image" content="https://gedmerge.com/gedmerge-green.png" />
+    <meta property="og:image:width" content="2400" />
+    <meta property="og:image:height" content="1260" />
+    <meta property="og:site_name" content="GED Merge" />
+    <meta property="og:locale" content="sl_SI" />
+    <meta property="og:locale:alternate" content="en" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Pravilnik o zasebnosti — GED Merge" />
+    <meta name="twitter:description" content="Kaj ostane na vaši napravi, kaj jo lahko zapusti in kdo kaj obdeluje." />
+    <meta name="twitter:image" content="https://gedmerge.com/gedmerge-green.png" />
+
+    <script>
+      // Set the theme before first paint to avoid a flash: saved choice, else
+      // the OS preference. Kept in sync with the main app (App.tsx).
+      (function () {
+        try {
+          var saved = localStorage.getItem("gedmerge.theme");
+          var theme = saved || (window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+          document.documentElement.setAttribute("data-theme", theme);
+        } catch (e) {
+          document.documentElement.setAttribute("data-theme", "dark");
+        }
+      })();
+    </script>
+    <script type="module" src="/src/legal-entry.ts"></script>
+  </head>
+  <body>
+    <!-- ── Top header bar (matches the app) ─────────────────────────────────── -->
+    <header class="guide-topbar">
+      <div class="guide-topbar-inner">
+        <a class="gm-wordmark-link" href="../" aria-label="GED Merge">
+          <span class="gm-wordmark">
+            <span class="gm-wordmark-logo">
+              <svg width="33" height="33" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="9" y1="31" x2="9" y2="11" />
+                <line x1="9" y1="11" x2="20" y2="23.5" />
+                <line x1="31" y1="11" x2="20" y2="23.5" />
+                <line x1="31" y1="31" x2="31" y2="11" />
+                <circle cx="9" cy="11" r="3.3" />
+                <circle cx="31" cy="11" r="3.3" />
+                <circle cx="20" cy="23.5" r="3.3" fill="currentColor" stroke="none" />
+              </svg>
+            </span>
+            <span class="gm-wordmark-text"><span class="gm-wordmark-ged">GED</span><span class="gm-wordmark-merge">&nbsp;Merge</span></span>
+          </span>
+        </a>
+        <div class="guide-topbar-controls">
+          <button type="button" class="nav-btn icon-only" id="gm-theme" aria-label="Preklopi temo" title="Preklopi temo">🌙</button>
+          <a class="guide-lang" href="../privacy/" hreflang="en" lang="en">English</a>
+        </div>
+      </div>
+    </header>
+
+    <div class="guide-shell">
+      <!-- ── Sticky sidebar table of contents ─────────────────────────────── -->
+      <aside class="guide-side">
+        <p class="guide-side-title">Vsebina</p>
+        <nav class="guide-toc-nav" aria-label="Vsebina">
+          <ol>
+            <li><a href="#file">1. Vaša datoteka</a></li>
+            <li><a href="#online">2. Izbirne spletne storitve</a></li>
+            <li><a href="#stored">3. Podatki v vašem brskalniku</a></li>
+            <li><a href="#logs">4. Strežniški dnevniki</a></li>
+            <li><a href="#cookies">5. Piškotki</a></li>
+            <li><a href="#basis">6. Pravna podlaga (GDPR)</a></li>
+            <li><a href="#rights">7. Vaše pravice</a></li>
+            <li><a href="#retention">8. Hramba in varnost</a></li>
+            <li><a href="#children">9. Otroci</a></li>
+            <li><a href="#links">10. Povezave na druga mesta</a></li>
+            <li><a href="#changes">11. Spremembe pravilnika</a></li>
+            <li class="guide-toc-part">Glejte tudi</li>
+            <li><a href="../pogoji/">Pogoji uporabe</a></li>
+            <li><a href="../navodila/#privacy">Navodila § 18</a></li>
+          </ol>
+        </nav>
+      </aside>
+
+      <!-- ── Main article ─────────────────────────────────────────────────── -->
+      <main class="guide-main">
+        <header class="guide-header">
+          <h1>Pravilnik o zasebnosti</h1>
+          <p>
+            Kaj ostane na vaši napravi, kaj jo lahko zapusti in kdo kaj obdeluje. Napisano tako, da se da prebrati — če
+            je kaj nejasno, <a href="mailto:support@gedmerge.com">vprašajte</a>.
+          </p>
+          <p class="legal-meta">
+            Datum veljavnosti: 31. julij 2026 · Zadnja sprememba: 31. julij 2026 · Upravljavec: Luka Renko, Slovenija ·
+            <a href="mailto:support@gedmerge.com">support@gedmerge.com</a>
+          </p>
+        </header>
+
+        <article class="guide-body">
+          <div class="legal-notice">
+            <strong>Na kratko</strong>
+            <p>
+              GED Merge teče v celoti v vašem brskalniku. Vaše datoteke GEDCOM in CSV se nikoli ne naložijo na strežnik —
+              berejo, primerjajo, združujejo, izrisujejo in shranjujejo se na vaši napravi, mi pa do njih nimamo dostopa.
+              Dve funkciji, obe <strong>privzeto izklopljeni</strong>, ob vklopu pošljeta zahtevo v omrežje: spletna
+              iskanja in ploščice zemljevida. Nobena nikoli ne pošlje vaše datoteke; ven gre posamezna vrednost, ki ste
+              jo dali iskati, ali območje zemljevida, ki ga gledate. Razdelek 2 natančno pove, kaj gre kam.
+            </p>
+          </div>
+
+          <section id="file">
+            <h2><span class="guide-num">1</span>Vaša datoteka</h2>
+            <p>
+              Vsako datoteko GEDCOM (<code>.ged</code>) ali CSV, ki jo odprete, prebere JavaScript v vašem brskalniku.
+              Razčlenjevanje, poenotenje, ujemanje, združevanje, urejanje, diagrami, poročila in vsa vzdrževalna orodja
+              tečejo na vašem računalniku — večina v ozadnji niti istega zavihka. Ni nalagalne poti in ni vmesnika API:
+              strežnik postreže samo datoteke same aplikacije.
+            </p>
+            <p>
+              <strong>Shranjevanje</strong> je navaden prenos na vašo napravo. <strong>Mediji</strong> — fotografije in
+              dokumenti — se berejo iz mape, ki jo izberete, in sicer izključno na vaši napravi; nikamor se ne kopirajo.
+            </p>
+            <p>
+              Ni registracije, računa, e-poštnega naslova, plačila in nikakršne analitike. Aplikacija ne nalaga skript
+              tretjih oseb in ne pisav tretjih oseb (pisave IBM Plex streže to spletno mesto). Ko se enkrat naloži,
+              deluje tudi povsem brez omrežne povezave.
+            </p>
+          </section>
+
+          <section id="online">
+            <h2><span class="guide-num">2</span>Izbirne spletne storitve</h2>
+            <p>
+              Samo dve nastavitvi, obe <strong>privzeto izklopljeni</strong>, sploh stopita v stik s kom drugim. Med
+              tipkanjem se ne pošlje nič — zahteva nastane, ko pritisnete gumb za iskanje, sprejmete zadetek ali odprete
+              zemljevid z vklopljenimi ploščicami.
+            </p>
+
+            <h3>2.1 Spletna iskanja — Nastavitve › Napredno</h3>
+            <table class="gm-table">
+              <thead>
+                <tr><th>Kdaj</th><th>Kaj se pošlje</th><th>Komu</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Branje naslova strani iz URL-ja vira</td>
+                  <td>Celoten URL, ki ste ga vnesli</td>
+                  <td>
+                    Javni posrednik CORS — <code>api.allorigins.win</code>, <code>corsproxy.io</code>,
+                    <code>api.codetabs.com</code> ali <code>r.jina.ai</code>, v tem vrstnem redu (našteti so tudi v
+                    nastavitvah), od tam pa spletno mesto, na katerega URL kaže
+                  </td>
+                </tr>
+                <tr>
+                  <td>Iskanje kraja ali hišne številke znotraj kraja</td>
+                  <td>Ime kraja ali naslov, ki ga iščete, in jezik vmesnika</td>
+                  <td>
+                    OpenStreetMap Nominatim (<code>nominatim.openstreetmap.org</code>, OpenStreetMap Foundation),
+                    slovenski register nepremičnin in naslovov (<code>ipi.eprostor.gov.si</code>, GURS) ter Genealoški
+                    imenik krajev GOV (<code>gov.genealogy.net</code>, Verein für Computergenealogie e.V.)
+                  </td>
+                </tr>
+                <tr>
+                  <td>Prenos imenika krajev za delo brez povezave</td>
+                  <td>Koda države</td>
+                  <td><code>overpass-api.de</code> ali <code>overpass.kumi.systems</code>; izvlečke GeoNames prenesete sami z <code>download.geonames.org</code> in jih uvozite kot datoteko</td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="gm-callout warn">
+              <span class="gm-callout-label">Dobro je vedeti</span>
+              <p>
+                Ime kraja, hišna številka ali arhivski URL so rodoslovni podatek, čeprav niso oseba: povezava do
+                župnijske matične knjige pove, katero družino raziskujete. Prav zato so ta iskanja izbirna. Štiri
+                posrednike CORS upravljajo tretje osebe zunaj Evropskega gospodarskega prostora in z nobenim nimamo
+                sklenjene pogodbe o obdelavi ali drugega jamstva za prenos — če je posamezen URL za vas občutljiv,
+                pustite nastavitev izklopljeno in naslov strani vpišite ročno.
+              </p>
+            </div>
+
+            <h3>2.2 Ploščice zemljevida — Nastavitve › Zemljevid</h3>
+            <p>
+              Vsak zemljevid — Zemljevid krajev, majhni zemljevidi pod dogodki osebe, izbirnik koordinat — se riše na
+              kvadratnih ploščicah, ki jih prenese ponudnik. Zahteva razkrije območje in povečavo, ki ju gledate, kar pri
+              rodoslovnem drevesu praviloma pomeni pokrajino, kjer so živeli vaši predniki. Nikoli ne nosi vaše datoteke,
+              vaših oznak ali imen.
+            </p>
+            <ul>
+              <li>
+                <strong>Osnovni zemljevidi:</strong> CARTO, OpenStreetMap, OpenTopoMap in Esri (ArcGIS Online) ali
+                poljuben URL ploščic, ki ga vnesete sami.
+              </li>
+              <li>
+                <strong>Zgodovinski in registrski sloji</strong>, ko katerega vklopite: slovenske storitve GURS
+                (<code>ipi.eprostor.gov.si</code>), swisstopo (<code>wmts.geo.admin.ch</code>), IGN Francija
+                (<code>data.geopf.fr</code>) in <code>tiles.gedmerge.com</code>, ki je naš lastni strežnik (glejte §4).
+                Klik na sloj GURS za poizvedbo o vsebini pošlje GURS-u to eno koordinato.
+              </li>
+            </ul>
+            <p>
+              Če nastavitev ostane izklopljena, se vsak zemljevid riše na obrisu sveta, vgrajenem v aplikacijo, brez ene
+              same zahteve.
+            </p>
+
+            <h3>2.3 Kaj so ti ponudniki</h3>
+            <p>
+              Te storitve so <strong>samostojni upravljavci</strong> in ne naši obdelovalci: sami odločajo, kaj beležijo
+              in kako dolgo, po svojih pravilnikih o zasebnosti. Z njimi nimamo dogovora v vašem imenu in od njih o vas
+              ne prejmemo ničesar. Pravna podlaga za te prenose je vaša privolitev, ki jo daste z vklopom nastavitve in
+              jo kadar koli umaknete z izklopom — glejte §6. Sprejeti zadetki krajev se shranijo v vašem brskalniku
+              (§3), tako da istega kraja ni treba iskati dvakrat.
+            </p>
+          </section>
+
+          <section id="stored">
+            <h2><span class="guide-num">3</span>Podatki v vašem brskalniku</h2>
+            <p>
+              GED Merge shranjuje nekatere reči na vašo napravo, da si zapomni vaše nastavitve in, če tako želite, vaše
+              delo. Vse to ostane tam; mi tega ne moremo brati.
+            </p>
+            <table class="gm-table">
+              <thead>
+                <tr><th>Kaj</th><th>Kje</th><th>Kdaj</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Nastavitve — tema, jezik, način, prikaz in oblika zapisa, nastavitve diagramov, opuščeni namigi</td>
+                  <td>Lokalna shramba (<code>gedmerge.*</code>)</td>
+                  <td>Vedno, ko jih spreminjate</td>
+                </tr>
+                <tr>
+                  <td>Naložene datoteke, odločitve pri združevanju, urejanja in zgodovina razveljavitev</td>
+                  <td>IndexedDB <code>gedmerge-session</code></td>
+                  <td>Samo z vklopljenim <em>Zapomni si moje delo v tem brskalniku</em> (Nastavitve › Podatki). Ob vklopu vas brskalnik lahko vpraša za dovoljenje za trajno shranjevanje.</td>
+                </tr>
+                <tr>
+                  <td>Sprejeti zadetki krajev in uvoženi imeniki krajev</td>
+                  <td>IndexedDB <code>gedmerge-geo</code></td>
+                  <td>Ko sprejmete zadetek ali uvozite datoteko imenika</td>
+                </tr>
+                <tr>
+                  <td>Kazalec na vašo mapo z mediji, da se naslednjič spet odpre</td>
+                  <td>IndexedDB <code>gedmerge</code></td>
+                  <td>Ko izberete mapo z mediji</td>
+                </tr>
+              </tbody>
+            </table>
+            <p>
+              <strong>Odstranitev:</strong> <em>Počisti lokalno hranjene podatke</em> v Nastavitve › Podatki izbriše vse
+              našteto razen nastavitev — shranjene datoteke in napredek, zapomnjene zadetke krajev z uvoženimi imeniki
+              in kazalec na mapo z mediji. Če v brskalniku počistite podatke tega spletnega mesta, gredo tudi
+              nastavitve.
+            </p>
+          </section>
+
+          <section id="logs">
+            <h2><span class="guide-num">4</span>Strežniški dnevniki</h2>
+            <p>
+              Sama dostava aplikacije je običajna spletna zahteva in gre skozi dva ponudnika:
+              <strong>Hetzner Online GmbH / Hetzner Cloud</strong> (gostovanje izvornega strežnika, Nemčija) in
+              <strong>Cloudflare, Inc.</strong> (omrežje CDN in varnostni posrednik, ZDA). Oba lahko beležita običajne
+              tehnične podatke — naslov IP, vrsto brskalnika, zahtevano datoteko in časovni žig — za dostavo,
+              vzdrževanje in zaščito pred zlorabami. Ti dnevniki ne vsebujejo rodoslovnih podatkov in ne vsebine
+              datotek, ker se ta nikoli ne pošlje.
+            </p>
+            <p>
+              <code>tiles.gedmerge.com</code>, ki streže zgodovinske sloje zemljevida v naši lastni režiji, teče na isti
+              infrastrukturi. Zahteva nanj zabeleži, katera ploščica je bila prenesena in s tem, katero območje ste
+              gledali, poleg običajnih tehničnih polj. Ne nastavlja piškotkov, stopimo pa v stik z njim le, če imate
+              vklopljene ploščice zemljevida in enega od teh slojev.
+            </p>
+            <p>Teh dnevnikov ne povezujemo z ničimer drugim in iz njih ne gradimo profilov.</p>
+          </section>
+
+          <section id="cookies">
+            <h2><span class="guide-num">5</span>Piškotki</h2>
+            <p>
+              GED Merge <strong>ne nastavlja lastnih piškotkov</strong> ter ne uporablja sledilnih ali oglaševalskih
+              piškotkov in ne analitike tretjih oseb. Cloudflare kot naš varnostni posrednik lahko nastavi nujno
+              potrebne piškotke, na primer <code>__cf_bm</code> ali <code>cf_clearance</code>, da loči brskalnike od
+              botov. To so infrastrukturni piškotki: ne identificirajo vas osebno in vam ne sledijo na druga spletna
+              mesta.
+            </p>
+            <p>
+              Vnosi v lokalni shrambi in bazah IndexedDB iz §3 so bodisi funkcionalni (vaše lastne nastavitve) bodisi
+              jih vklopite sami. Nobeden se ne uporablja za sledenje in nobenega ne delimo s kom drugim, zato spletno
+              mesto nima pasice za privolitev. Če jih vaša zakonodaja obravnava drugače, jih odstranite tako, da
+              počistite podatke tega spletnega mesta.
+            </p>
+          </section>
+
+          <section id="basis">
+            <h2><span class="guide-num">6</span>Pravna podlaga (GDPR)</h2>
+            <p>
+              <strong>Upravljavec:</strong> Luka Renko, Slovenija (Evropska unija),
+              <a href="mailto:support@gedmerge.com">support@gedmerge.com</a>. Poštni naslov je na voljo na zahtevo.
+              Obseg obdelave ne zahteva pooblaščene osebe za varstvo podatkov.
+            </p>
+            <ul>
+              <li>
+                <strong>Vaši rodoslovni podatki — upravljavec ste vi, ne mi.</strong> Vaša datoteka nikoli ne pride do
+                nas, zato je ne moremo nadzorovati, razkriti ali izbrisati. Če vsebuje žive osebe, je odgovornost za
+                ravnanje z njihovimi podatki vaša; glejte <a href="../pogoji/#living">Pogoje § 3</a> in orodja za
+                prikrivanje, opisana v <a href="../navodila/#privacy">Navodilih § 18</a>.
+              </li>
+              <li>
+                <strong>Strežniški dnevniki — zakoniti interes</strong> (člen 6(1)(f) GDPR) pri dostavi, vzdrževanju in
+                varovanju spletnega mesta.
+              </li>
+              <li>
+                <strong>Izbirne spletne storitve — privolitev</strong> (člen 6(1)(a) GDPR). Nastavitvi iz §2 sta
+                privolitev; izklop nastavitve jo umakne za vse nadaljnje.
+              </li>
+              <li>
+                <strong>Obdelovalca:</strong> Hetzner (Nemčija, znotraj EU, po členu 28 GDPR) in Cloudflare (ZDA).
+                Obdelava pri Cloudflare lahko vključuje prenos v Združene države; Cloudflare trenutno sodeluje v Okviru
+                za varstvo podatkov EU–ZDA ter ponuja standardne pogodbene klavzule in dodatek o obdelavi podatkov, na
+                kar se opiramo kot na jamstvo za prenos.
+              </li>
+              <li>
+                <strong>Ponudniki iskanj in ploščic iz §2 niso naši obdelovalci.</strong> So samostojni upravljavci,
+                nekateri zunaj EGP in doseženi brez jamstva za prenos z naše strani. Prav zato sta ti funkciji izbirni
+                in privzeto izklopljeni.
+              </li>
+            </ul>
+            <p>
+              Ne izvajamo avtomatiziranega odločanja in ne oblikujemo profilov, ne oglašujemo in podatkov nismo nikoli
+              prodali ali delili za tuje namene — prodati ni česa.
+            </p>
+          </section>
+
+          <section id="rights">
+            <h2><span class="guide-num">7</span>Vaše pravice</h2>
+            <p>
+              Po GDPR imate pravico do dostopa (člen 15), popravka (člen 16), izbrisa (člen 17), omejitve obdelave
+              (člen 18), prenosljivosti (člen 20), ugovora zoper obdelavo na podlagi zakonitega interesa (člen 21) in
+              kadar koli do umika privolitve (člen 7(3)).
+            </p>
+            <p>
+              V praksi se nanašajo na tehnične dnevnike iz §4, saj je to vse, kar na naši strani obstaja: vaši
+              rodoslovni podatki nikoli niso v naših rokah, zato tam ni česa predložiti, popraviti ali izbrisati — te
+              pravice ohranja zasnova aplikacije in ne papir. Privolitev za izbirne spletne storitve umaknete z izklopom
+              nastavitve, podatke, že shranjene v brskalniku, pa odstranite tako, kot opisuje §3.
+            </p>
+            <p>
+              Za uveljavljanje pišite na <a href="mailto:support@gedmerge.com">support@gedmerge.com</a>. Imate tudi
+              pravico do pritožbe pri nadzornem organu — v Sloveniji je to
+              <a href="https://www.ip-rs.si/" target="_blank" rel="noopener noreferrer">Informacijski pooblaščenec</a> —
+              ali pri organu v državi, kjer živite ali delate.
+            </p>
+          </section>
+
+          <section id="retention">
+            <h2><span class="guide-num">8</span>Hramba in varnost</h2>
+            <p>
+              Zbirke uporabnikov ne vodimo, ker uporabniških računov ni. Strežniški dnevniki se hranijo le toliko časa,
+              kolikor ga za varnost in diagnostiko določata naša ponudnika po svojih pravilih hrambe; ne izvažamo jih in
+              ne arhiviramo. Podatki v vašem brskalniku ostanejo, dokler jih ne odstranite (§3).
+            </p>
+            <p>
+              Spletno mesto se streže prek HTTPS od začetka do konca. Ker vaše rodoslovno drevo nikoli ne zapusti naprave,
+              so resnična tveganja običajna — nenadzorovan računalnik, souporabljen profil brskalnika ali pomotoma
+              objavljena shranjena datoteka. Hranite varnostne kopije datotek GEDCOM in pred deljenjem prikrijte, kar
+              mora ostati zasebno: prav temu sta namenjena možnost <em>Skrij žive osebe</em> in orodje
+              <em>Zasebnost</em>.
+            </p>
+          </section>
+
+          <section id="children">
+            <h2><span class="guide-num">9</span>Otroci</h2>
+            <p>
+              GED Merge je raziskovalni pripomoček in ni storitev, namenjena otrokom, ne zbira pa ničesar, po čemer bi
+              bilo mogoče prepoznati obiskovalca katere koli starosti. Rodoslovna drevesa redno vsebujejo podatke o
+              otrocih; za odgovorno ravnanje s temi podatki je zadolžen uporabnik kot upravljavec (§6).
+            </p>
+          </section>
+
+          <section id="links">
+            <h2><span class="guide-num">10</span>Povezave na druga mesta</h2>
+            <p>
+              Aplikacija prikazuje povezave, ki izhajajo iz vaše datoteke — arhivi, matične knjige, pokopališki zapisi —
+              in svoje lastne povezave do imenikov krajev, ponudnikov zemljevidov in izvorne kode tega projekta. Če
+              kateri sledite, vas pripelje na mesto, ki ga ne upravljamo mi in ima svoja pravila o zasebnosti.
+            </p>
+          </section>
+
+          <section id="changes">
+            <h2><span class="guide-num">11</span>Spremembe pravilnika</h2>
+            <p>
+              GED Merge redno dobiva nove funkcije, ta pravilnik pa popravimo, kadar sprememba vpliva na to, kaj lahko
+              zapusti vašo napravo. Datum veljavnosti in datum zadnje spremembe na vrhu strani vedno povesta, katero
+              različico berete, pomembnejše spremembe pa zabeležimo med
+              <a href="../posodobitve/">posodobitvami</a>. Nadaljnja uporaba spletnega mesta po spremembi pomeni, da
+              velja trenutna različica.
+            </p>
+          </section>
+        </article>
+
+        <div class="guide-cta">
+          <p>Glejte še pogoje uporabe ali poglavje o zasebnosti v navodilih.</p>
+          <a href="../pogoji/">Pogoji uporabe</a>
+        </div>
+      </main>
+    </div>
+
+    <!-- ── Footer (matches the app) ─────────────────────────────────────────── -->
+    <footer class="app-footer guide-footer">
+      <a href="https://luka.renko.fyi" target="_blank" rel="noopener noreferrer">© 2026 Luka Renko</a>
+      <span class="app-footer-sep">·</span>
+      <a class="app-footer-link" href="../navodila/">Navodila</a>
+      <span class="app-footer-sep">·</span>
+      <a class="app-footer-link" href="../zasebnost/">Zasebnost</a>
+      <span class="app-footer-sep">·</span>
+      <a class="app-footer-link" href="../pogoji/">Pogoji</a>
+      <span class="app-footer-sep">·</span>
+      <a class="app-footer-link" href="mailto:support@gedmerge.com">Stik</a>
+    </footer>
+
+    <script>
+      // Theme toggle for the header button. Shares the app's "gedmerge.theme"
+      // key, so the choice carries over to the app and survives reloads.
+      (function () {
+        var btn = document.getElementById("gm-theme");
+        if (!btn) return;
+        function render() {
+          btn.textContent = document.documentElement.getAttribute("data-theme") === "dark" ? "🌙" : "☀️";
+        }
+        render();
+        btn.addEventListener("click", function () {
+          var next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+          document.documentElement.setAttribute("data-theme", next);
+          try { localStorage.setItem("gedmerge.theme", next); } catch (e) {}
+          render();
+        });
+      })();
+    </script>
+  </body>
+</html>

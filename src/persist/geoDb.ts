@@ -2,9 +2,12 @@
 //
 // Its own DB (like MediaFolderContext's handle store and the workspace DB),
 // deliberately separate from "gedmerge-session": the imported gazetteer and
-// the user's geocode decisions outlive any one workspace, are not gated by
+// the user's geocode decisions outlive any one workspace and are not gated by
 // the persist-workspace opt-in (importing a gazetteer file is itself the
-// deliberate action), and must survive "clear cached data". Best-effort:
+// deliberate action). Imported countries survive "clear locally stored data"
+// (public reference data, expensive to re-download); the decisions do not —
+// they are keyed by the file's own place strings (see clearDecisions).
+// Best-effort:
 // every operation swallows errors — storage failure degrades the Geocode
 // tool to "no gazetteer", never breaks the app.
 //
@@ -125,4 +128,14 @@ export async function putDecisions(decisions: GeocodeDecision[]): Promise<void> 
 
 export async function deleteDecision(key: string): Promise<void> {
   await withGeoDb((db) => requestDone(db.transaction(DECISIONS_STORE, "readwrite").objectStore(DECISIONS_STORE).delete(key)));
+}
+
+/** Forget every remembered place lookup — Settings › "Clear locally stored
+ *  data". These are keyed by the raw PLAC values of the user's own file, so
+ *  they are the user's data and a request to erase local data has to reach
+ *  them. Imported gazetteer countries are *not* touched: they are public
+ *  reference data, they carry nothing from the file, and re-downloading one is
+ *  expensive — the Geocode tool deletes them individually. */
+export async function clearDecisions(): Promise<void> {
+  await withGeoDb((db) => requestDone(db.transaction(DECISIONS_STORE, "readwrite").objectStore(DECISIONS_STORE).clear()));
 }

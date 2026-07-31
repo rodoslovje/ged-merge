@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="../icons/app-icon-32.png" />
+    <link rel="apple-touch-icon" href="../icons/app-icon-180.png" />
+    <meta name="theme-color" content="#151310" />
+    <title>Privacy Policy — GED Merge | GEDCOM editor, compare &amp; merge</title>
+    <meta
+      name="description"
+      content="How GED Merge handles your data: your GEDCOM file is never uploaded, online lookups and map tiles are opt-in, and everything else stays in your browser."
+    />
+    <link rel="canonical" href="https://gedmerge.com/privacy/" />
+    <link rel="alternate" hreflang="en" href="https://gedmerge.com/privacy/" />
+    <link rel="alternate" hreflang="sl" href="https://gedmerge.com/zasebnost/" />
+    <link rel="alternate" hreflang="x-default" href="https://gedmerge.com/privacy/" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="article" />
+    <meta property="og:title" content="Privacy Policy — GED Merge" />
+    <meta
+      property="og:description"
+      content="Your family tree is never uploaded. Online lookups and map tiles are opt-in and off by default — this policy says exactly what leaves your device."
+    />
+    <meta property="og:url" content="https://gedmerge.com/privacy/" />
+    <meta property="og:image" content="https://gedmerge.com/gedmerge-green.png" />
+    <meta property="og:image:width" content="2400" />
+    <meta property="og:image:height" content="1260" />
+    <meta property="og:site_name" content="GED Merge" />
+    <meta property="og:locale" content="en" />
+    <meta property="og:locale:alternate" content="sl_SI" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Privacy Policy — GED Merge" />
+    <meta name="twitter:description" content="What stays on your device, what can leave it, and who processes what." />
+    <meta name="twitter:image" content="https://gedmerge.com/gedmerge-green.png" />
+
+    <script>
+      // Set the theme before first paint to avoid a flash: saved choice, else
+      // the OS preference. Kept in sync with the main app (App.tsx).
+      (function () {
+        try {
+          var saved = localStorage.getItem("gedmerge.theme");
+          var theme = saved || (window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+          document.documentElement.setAttribute("data-theme", theme);
+        } catch (e) {
+          document.documentElement.setAttribute("data-theme", "dark");
+        }
+      })();
+    </script>
+    <script type="module" src="/src/legal-entry.ts"></script>
+  </head>
+  <body>
+    <!-- ── Top header bar (matches the app) ─────────────────────────────────── -->
+    <header class="guide-topbar">
+      <div class="guide-topbar-inner">
+        <a class="gm-wordmark-link" href="../" aria-label="GED Merge">
+          <span class="gm-wordmark">
+            <span class="gm-wordmark-logo">
+              <svg width="33" height="33" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="9" y1="31" x2="9" y2="11" />
+                <line x1="9" y1="11" x2="20" y2="23.5" />
+                <line x1="31" y1="11" x2="20" y2="23.5" />
+                <line x1="31" y1="31" x2="31" y2="11" />
+                <circle cx="9" cy="11" r="3.3" />
+                <circle cx="31" cy="11" r="3.3" />
+                <circle cx="20" cy="23.5" r="3.3" fill="currentColor" stroke="none" />
+              </svg>
+            </span>
+            <span class="gm-wordmark-text"><span class="gm-wordmark-ged">GED</span><span class="gm-wordmark-merge">&nbsp;Merge</span></span>
+          </span>
+        </a>
+        <div class="guide-topbar-controls">
+          <button type="button" class="nav-btn icon-only" id="gm-theme" aria-label="Toggle theme" title="Toggle theme">🌙</button>
+          <a class="guide-lang" href="../zasebnost/" hreflang="sl" lang="sl">Slovenščina</a>
+        </div>
+      </div>
+    </header>
+
+    <div class="guide-shell">
+      <!-- ── Sticky sidebar table of contents ─────────────────────────────── -->
+      <aside class="guide-side">
+        <p class="guide-side-title">Contents</p>
+        <nav class="guide-toc-nav" aria-label="Contents">
+          <ol>
+            <li><a href="#file">1. Your file</a></li>
+            <li><a href="#online">2. Optional online services</a></li>
+            <li><a href="#stored">3. Data stored in your browser</a></li>
+            <li><a href="#logs">4. Server logs</a></li>
+            <li><a href="#cookies">5. Cookies</a></li>
+            <li><a href="#basis">6. Legal basis (GDPR)</a></li>
+            <li><a href="#rights">7. Your rights</a></li>
+            <li><a href="#retention">8. Retention &amp; security</a></li>
+            <li><a href="#children">9. Children</a></li>
+            <li><a href="#links">10. Links to other sites</a></li>
+            <li><a href="#changes">11. Changes to this policy</a></li>
+            <li class="guide-toc-part">See also</li>
+            <li><a href="../terms/">Terms of Service</a></li>
+            <li><a href="../guide/#privacy">User's Guide § 18</a></li>
+          </ol>
+        </nav>
+      </aside>
+
+      <!-- ── Main article ─────────────────────────────────────────────────── -->
+      <main class="guide-main">
+        <header class="guide-header">
+          <h1>Privacy Policy</h1>
+          <p>
+            What stays on your device, what can leave it, and who processes what. Written to be read — if anything here
+            is unclear, <a href="mailto:support@gedmerge.com">ask</a>.
+          </p>
+          <p class="legal-meta">
+            Effective date: 31 July 2026 · Last updated: 31 July 2026 · Operator: Luka Renko, Slovenia ·
+            <a href="mailto:support@gedmerge.com">support@gedmerge.com</a>
+          </p>
+        </header>
+
+        <article class="guide-body">
+          <div class="legal-notice">
+            <strong>In short</strong>
+            <p>
+              GED Merge runs entirely in your web browser. Your GEDCOM and CSV files are never uploaded — they are read,
+              matched, merged, charted and saved on your own device, and we have no access to them. Two features, both
+              <strong>off by default</strong>, make network requests once you switch them on: online lookups and
+              base-map tiles. Neither ever sends your file; what goes out is a single value you asked to look up, or the
+              map area you are looking at. Section 2 says exactly what goes where.
+            </p>
+          </div>
+
+          <section id="file">
+            <h2><span class="guide-num">1</span>Your file</h2>
+            <p>
+              Any GEDCOM (<code>.ged</code>) or CSV file you open is read by JavaScript inside your browser. Parsing,
+              normalization, matching, merging, editing, the charts, the reports and every maintenance tool run on your
+              own computer — most of it in a background thread of the same browser tab. There is no upload endpoint and
+              no API: the server serves the application's own files and nothing else.
+            </p>
+            <p>
+              <strong>Saving</strong> produces an ordinary download to your device. <strong>Media</strong> — photos and
+              documents — are read from a folder you point at, on your device only; they are never copied anywhere.
+            </p>
+            <p>
+              There is no registration, no account, no email address, no payment and no analytics of any kind. The
+              application loads no third-party scripts and no third-party fonts (the IBM Plex fonts it uses are served
+              from this site). Once loaded, it keeps working with no network connection at all.
+            </p>
+          </section>
+
+          <section id="online">
+            <h2><span class="guide-num">2</span>Optional online services</h2>
+            <p>
+              Two settings, both <strong>off by default</strong>, are the only parts of GED Merge that contact anyone
+              else. Nothing is sent while you type — a request happens when you press a search button, accept a lookup,
+              or open a map with tiles enabled.
+            </p>
+
+            <h3>2.1 Online lookups — Settings › Advanced</h3>
+            <table class="gm-table">
+              <thead>
+                <tr><th>When</th><th>What is sent</th><th>To whom</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Reading back the page title of a source URL</td>
+                  <td>The full URL you entered</td>
+                  <td>
+                    A public CORS relay — <code>api.allorigins.win</code>, <code>corsproxy.io</code>,
+                    <code>api.codetabs.com</code> or <code>r.jina.ai</code>, tried in that order (Settings names them
+                    too), and from there the site the URL points at
+                  </td>
+                </tr>
+                <tr>
+                  <td>Searching for a place, or for a house number within a place</td>
+                  <td>The place name or address you are looking up, and your interface language</td>
+                  <td>
+                    OpenStreetMap Nominatim (<code>nominatim.openstreetmap.org</code>, OpenStreetMap Foundation),
+                    Slovenia's real-estate and address register (<code>ipi.eprostor.gov.si</code>, GURS), and the
+                    Genealogical Gazetteer GOV (<code>gov.genealogy.net</code>, Verein für Computergenealogie e.V.)
+                  </td>
+                </tr>
+                <tr>
+                  <td>Downloading a gazetteer for offline use</td>
+                  <td>A country code</td>
+                  <td><code>overpass-api.de</code> or <code>overpass.kumi.systems</code>; GeoNames extracts are downloaded from <code>download.geonames.org</code> by you and imported as a file</td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="gm-callout warn">
+              <span class="gm-callout-label">Worth knowing</span>
+              <p>
+                A place name, a house number or an archive URL is genealogical information even though it is not a
+                person: a parish-register link says which family you are researching. That is why these lookups are
+                opt-in. The four CORS relays are operated by third parties outside the European Economic Area, and we
+                have no data-processing agreement or transfer safeguard with any of them — if a particular URL is
+                sensitive to you, leave the setting off and type the title by hand.
+              </p>
+            </div>
+
+            <h3>2.2 Base-map tiles — Settings › Map</h3>
+            <p>
+              Every map — the Places map, the small maps under a person's events, the coordinate picker — draws on
+              square image tiles fetched from a provider. The request reveals the area and zoom level you are looking
+              at, which for a family tree usually means the region your ancestors lived in. It never carries your file,
+              your pins or your names.
+            </p>
+            <ul>
+              <li>
+                <strong>Base maps:</strong> CARTO, OpenStreetMap, OpenTopoMap and Esri (ArcGIS Online), or any tile
+                URL you enter yourself.
+              </li>
+              <li>
+                <strong>Historical and register overlays</strong>, when you switch one on: Slovenia's GURS services
+                (<code>ipi.eprostor.gov.si</code>), swisstopo (<code>wmts.geo.admin.ch</code>), IGN France
+                (<code>data.geopf.fr</code>), and <code>tiles.gedmerge.com</code>, which is our own server (see §4).
+                Clicking a GURS overlay to identify a feature sends that one map coordinate to GURS.
+              </li>
+            </ul>
+            <p>
+              Leave the setting off and every map draws on a world outline bundled with the application, with no request
+              at all.
+            </p>
+
+            <h3>2.3 The status of these providers</h3>
+            <p>
+              These services are <strong>independent controllers</strong>, not our processors: they decide for
+              themselves what they log and for how long, under their own privacy policies. We have no agreement with
+              them on your behalf and receive nothing back from them about you. Your legal basis for these transfers is
+              your consent, given by switching the setting on and withdrawable at any time by switching it off — see
+              §6. Accepted place lookups are remembered in your browser (§3) so the same place is not asked about twice.
+            </p>
+          </section>
+
+          <section id="stored">
+            <h2><span class="guide-num">3</span>Data stored in your browser</h2>
+            <p>
+              GED Merge stores things on your own device so it can remember your preferences and, if you ask it to, your
+              work. All of it stays there; none of it is readable by us.
+            </p>
+            <table class="gm-table">
+              <thead>
+                <tr><th>What</th><th>Where</th><th>When</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Preferences — theme, language, mode, display and format settings, chart settings, dismissed hints</td>
+                  <td>Local storage (<code>gedmerge.*</code>)</td>
+                  <td>Always, as you change them</td>
+                </tr>
+                <tr>
+                  <td>Your loaded files, merge decisions, edits and undo history</td>
+                  <td>IndexedDB <code>gedmerge-session</code></td>
+                  <td>Only with <em>Remember my work in this browser</em> switched on (Settings › Data). Enabling it may prompt you for persistent storage.</td>
+                </tr>
+                <tr>
+                  <td>Accepted place lookups and any gazetteer you imported</td>
+                  <td>IndexedDB <code>gedmerge-geo</code></td>
+                  <td>When you accept a lookup or import a gazetteer file</td>
+                </tr>
+                <tr>
+                  <td>A handle to your media folder, so it reopens next time</td>
+                  <td>IndexedDB <code>gedmerge</code></td>
+                  <td>When you choose a media folder</td>
+                </tr>
+              </tbody>
+            </table>
+            <p>
+              <strong>Removing it:</strong> <em>Clear locally stored data</em> in Settings › Data deletes all of the
+              above except your preferences — the cached files and progress, the remembered place lookups and imported
+              gazetteers, and the media-folder handle. Clearing this site's data in your browser removes the
+              preferences as well.
+            </p>
+          </section>
+
+          <section id="logs">
+            <h2><span class="guide-num">4</span>Server logs</h2>
+            <p>
+              Delivering the application itself is a normal web request, and it passes through two providers:
+              <strong>Hetzner Online GmbH / Hetzner Cloud</strong> (origin hosting, Germany) and
+              <strong>Cloudflare, Inc.</strong> (CDN and security proxy, USA). Both may log standard technical data —
+              IP address, browser type, requested file, timestamp — for delivery, maintenance and abuse protection.
+              These logs contain no genealogical data and no file content, because none is ever sent.
+            </p>
+            <p>
+              <code>tiles.gedmerge.com</code>, which serves the historical map overlays we host ourselves, runs on the
+              same infrastructure. A request to it records which map tile was fetched, and therefore which region you
+              were looking at, alongside the usual technical fields. It sets no cookies, and it is only contacted if you
+              have enabled map tiles and switched on one of those overlays.
+            </p>
+            <p>We do not combine these logs with anything else, and we build no profiles from them.</p>
+          </section>
+
+          <section id="cookies">
+            <h2><span class="guide-num">5</span>Cookies</h2>
+            <p>
+              GED Merge sets <strong>no cookies of its own</strong> and uses no tracking cookies, advertising cookies or
+              third-party analytics. Cloudflare, as our security proxy, may set strictly necessary cookies such as
+              <code>__cf_bm</code> or <code>cf_clearance</code> to tell browsers from bots. These are infrastructure
+              cookies: they do not identify you personally and do not follow you to other sites.
+            </p>
+            <p>
+              The local storage and IndexedDB entries listed in §3 are either functional (your own preferences) or
+              switched on by you. None of them is used for tracking or shared with anyone, which is why the site shows
+              no consent banner. If your jurisdiction treats them otherwise, clearing this site's data removes them.
+            </p>
+          </section>
+
+          <section id="basis">
+            <h2><span class="guide-num">6</span>Legal basis (GDPR)</h2>
+            <p>
+              <strong>Controller:</strong> Luka Renko, Slovenia (European Union),
+              <a href="mailto:support@gedmerge.com">support@gedmerge.com</a>. A postal address is available on request.
+              The scale of processing does not require a Data Protection Officer.
+            </p>
+            <ul>
+              <li>
+                <strong>Your genealogical data — you are the controller, not us.</strong> Your file never reaches us, so
+                we are not in a position to control, disclose or delete it. If it contains living people, the
+                responsibility for handling their data is yours; see the <a href="../terms/#living">Terms § 3</a> and
+                the redaction tools described in the <a href="../guide/#privacy">User's Guide § 18</a>.
+              </li>
+              <li>
+                <strong>Server logs — legitimate interests</strong> (Art. 6(1)(f) GDPR) in delivering, maintaining and
+                securing the site.
+              </li>
+              <li>
+                <strong>Optional online services — consent</strong> (Art. 6(1)(a) GDPR). The two settings in §2 are the
+                consent; switching a setting off withdraws it for everything that follows.
+              </li>
+              <li>
+                <strong>Processors:</strong> Hetzner (Germany, within the EU, under Art. 28 GDPR) and Cloudflare (USA).
+                Cloudflare's processing may involve a transfer to the United States; it currently participates in the
+                EU–US Data Privacy Framework and offers Standard Contractual Clauses and a Data Processing Addendum,
+                which we rely on as the safeguard.
+              </li>
+              <li>
+                <strong>The lookup and tile providers in §2 are not our processors.</strong> They are independent
+                controllers, several of them outside the EEA and reached without a transfer instrument on our side. That
+                is precisely why those features are opt-in and default to off.
+              </li>
+            </ul>
+            <p>
+              We carry out no automated decision-making and no profiling, we run no advertising, and we have never sold
+              or shared data for anyone else's purposes — there is nothing to sell.
+            </p>
+          </section>
+
+          <section id="rights">
+            <h2><span class="guide-num">7</span>Your rights</h2>
+            <p>
+              Under the GDPR you have the right of access (Art. 15), rectification (Art. 16), erasure (Art. 17),
+              restriction (Art. 18), data portability (Art. 20), objection to processing based on legitimate interests
+              (Art. 21), and withdrawal of consent at any time (Art. 7(3)).
+            </p>
+            <p>
+              In practice these are directed at the technical logs described in §4, since that is all that exists on our
+              side: your genealogical data is never in our hands, so there is nothing there for us to produce, correct
+              or erase — the architecture preserves those rights rather than the paperwork. Consent for the optional
+              online services is withdrawn by switching the setting off; data already stored in your browser is removed
+              as described in §3.
+            </p>
+            <p>
+              Write to <a href="mailto:support@gedmerge.com">support@gedmerge.com</a> to exercise any of these. You also
+              have the right to lodge a complaint with a supervisory authority — in Slovenia, the Information
+              Commissioner (<em>Informacijski pooblaščenec</em>,
+              <a href="https://www.ip-rs.si/" target="_blank" rel="noopener noreferrer">ip-rs.si</a>) — or with the
+              authority where you live or work.
+            </p>
+          </section>
+
+          <section id="retention">
+            <h2><span class="guide-num">8</span>Retention and security</h2>
+            <p>
+              We keep no database of users, because there are none. Server logs are retained only for the short periods
+              our providers apply for security and diagnostics, under their own retention policies; we do not export or
+              archive them. Data stored in your browser stays until you remove it (§3).
+            </p>
+            <p>
+              The site is served over HTTPS end to end. Since your family tree never leaves your device, the realistic
+              risks to it are the ordinary ones — an unattended computer, a shared browser profile, or a saved file
+              published somewhere by mistake. Keep backups of your GEDCOM files, and redact before you share: the
+              application's <em>Hide living people</em> option and the <em>Privacy</em> tool exist for exactly that.
+            </p>
+          </section>
+
+          <section id="children">
+            <h2><span class="guide-num">9</span>Children</h2>
+            <p>
+              GED Merge is a research utility, not a service directed at children, and it collects nothing that could
+              identify a visitor of any age. Family trees routinely contain data about children; handling that data
+              responsibly is the user's own duty as controller (§6).
+            </p>
+          </section>
+
+          <section id="links">
+            <h2><span class="guide-num">10</span>Links to other sites</h2>
+            <p>
+              The application shows links that come out of your own file — archives, parish registers, cemetery
+              records — and links of its own to gazetteers, map providers and this project's source code. Following one
+              takes you to a site we do not operate and whose privacy practices are its own.
+            </p>
+          </section>
+
+          <section id="changes">
+            <h2><span class="guide-num">11</span>Changes to this policy</h2>
+            <p>
+              GED Merge gains features regularly, and this policy is revised when a change affects what leaves your
+              device. The effective and last-updated dates at the top of the page always say which version you are
+              reading, and material changes are noted in the
+              <a href="../changelog/">changelog</a>. Continuing to use the site after a change means the current version
+              applies.
+            </p>
+          </section>
+        </article>
+
+        <div class="guide-cta">
+          <p>See also the Terms of Service, or the guide's chapter on privacy.</p>
+          <a href="../terms/">Terms of Service</a>
+        </div>
+      </main>
+    </div>
+
+    <!-- ── Footer (matches the app) ─────────────────────────────────────────── -->
+    <footer class="app-footer guide-footer">
+      <a href="https://luka.renko.fyi" target="_blank" rel="noopener noreferrer">© 2026 Luka Renko</a>
+      <span class="app-footer-sep">·</span>
+      <a class="app-footer-link" href="../guide/">User's Guide</a>
+      <span class="app-footer-sep">·</span>
+      <a class="app-footer-link" href="../privacy/">Privacy</a>
+      <span class="app-footer-sep">·</span>
+      <a class="app-footer-link" href="../terms/">Terms</a>
+      <span class="app-footer-sep">·</span>
+      <a class="app-footer-link" href="mailto:support@gedmerge.com">Contact</a>
+    </footer>
+
+    <script>
+      // Theme toggle for the header button. Shares the app's "gedmerge.theme"
+      // key, so the choice carries over to the app and survives reloads.
+      (function () {
+        var btn = document.getElementById("gm-theme");
+        if (!btn) return;
+        function render() {
+          btn.textContent = document.documentElement.getAttribute("data-theme") === "dark" ? "🌙" : "☀️";
+        }
+        render();
+        btn.addEventListener("click", function () {
+          var next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+          document.documentElement.setAttribute("data-theme", next);
+          try { localStorage.setItem("gedmerge.theme", next); } catch (e) {}
+          render();
+        });
+      })();
+    </script>
+  </body>
+</html>

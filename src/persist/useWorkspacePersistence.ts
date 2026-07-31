@@ -10,6 +10,7 @@ import {
   clearWorkspace, consumeFreshStart, loadWorkspace, requestPersistentStorage,
   saveFile, saveSession, type StoredEditState, type StoredSession,
 } from "./idb";
+import { clearDecisions } from "./geoDb";
 import { hashFile, hasPermApi } from "./fingerprint";
 import { useSettings } from "../ui/SettingsContext";
 
@@ -32,6 +33,9 @@ export interface WorkspacePersistenceOptions {
   loadFile: (role: DatasetRole, file: File, handle?: FileSystemFileHandle) => Promise<void>;
   confirmDialog: (message: string, confirmLabel: string, onConfirmAction?: () => void) => Promise<boolean>;
   setSaveToast: (msg: string | null) => void;
+  /** Drops the remembered media-folder handle (its own IndexedDB, owned by
+   *  MediaFolderContext) — part of what "clear locally stored data" promises. */
+  clearMediaFolder: () => void;
 }
 
 /**
@@ -240,9 +244,15 @@ export function useWorkspacePersistence(opts: WorkspacePersistenceOptions) {
   /** Settings → wipe the cached workspace (main/compare files + merge session)
    *  from IndexedDB. Doesn't touch the live, in-memory session — the current
    *  work stays loaded; only the persisted copy used to restore on reload goes. */
+  // Everything this browser holds *about the user's own file*: the cached
+  // workspace, the place lookups they accepted (keyed by their own PLAC
+  // values), and the handle to their media folder. Imported gazetteers stay —
+  // public data with its own per-country delete in the Geocode tool — as do the
+  // preferences, which the Privacy page says are only cleared with site data.
   async function handleClearCache() {
     if (!(await opts.confirmDialog(t("settings.data.clearConfirm"), t("confirm.continue")))) return;
-    await clearWorkspace();
+    await Promise.all([clearWorkspace(), clearDecisions()]);
+    opts.clearMediaFolder();
     opts.setSaveToast(t("settings.data.cleared"));
   }
 

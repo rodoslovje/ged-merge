@@ -5731,11 +5731,7 @@ kbd {
   color: var(--border-2);
 }
 
-/* --- legal modal content --- */
-.legal-content {
-  border-bottom-left-radius: 12px;
-  border-bottom-right-radius: 12px;
-}
+/* --- legal pages (/privacy, /terms and their Slovenian slugs) --- */
 .legal-meta {
   font-size: 0.8rem;
   color: var(--faint);
@@ -5762,12 +5758,6 @@ kbd {
   color: var(--text);
   line-height: 1.6;
 }
-.legal-content a {
-  color: var(--accent);
-  text-decoration: none;
-}
-.legal-content a:hover { text-decoration: underline; }
-
 /* --- Map chart (Charts-hub kind 7) ----------------------------------------- */
 
 /* Leaflet's internal panes/controls carry z-indexes up to ~1000 (and the
