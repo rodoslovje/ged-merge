@@ -146,10 +146,10 @@
             <li><a href="#loading">3. Nalaganje datotek</a></li>
 
             <li class="guide-toc-part">II · Glavni koncepti</li>
-            <li><a href="#score">4. Stopnja ujemanja</a></li>
-            <li><a href="#home-person">5. Izhodiščna oseba in sorodstvo</a></li>
-            <li><a href="#house-style">6. Slog datoteke in poenotenje</a></li>
-            <li><a href="#data-model">7. Viri, mediji in ohranjanje vseh podatkov</a></li>
+            <li><a href="#house-style">4. Slog datoteke in poenotenje</a></li>
+            <li><a href="#data-model">5. Viri, mediji in ohranjanje vseh podatkov</a></li>
+            <li><a href="#home-person">6. Izhodiščna oseba in sorodstvo</a></li>
+            <li><a href="#score">7. Stopnja ujemanja</a></li>
 
             <li class="guide-toc-part">III · Trije načini</li>
             <li><a href="#edit">8. Urejanje</a></li>
@@ -225,7 +225,7 @@
               <li><strong>Oznake datotek</strong> — imeni naložene glavne in vhodne datoteke. Klik na oznako pokaže ali zamenja datoteko.</li>
               <li><strong>Razveljavi / Ponovi</strong> — ena skupna zgodovina za urejanja in odločitve o združevanju (<span class="gm-key">Ctrl</span><span class="gm-key">Z</span> / <span class="gm-key">Ctrl</span><span class="gm-key">Shift</span><span class="gm-key">Z</span>).</li>
               <li><strong>Shrani GEDCOM</strong> — predogled in prenos sprememb (<span class="gm-key">Ctrl</span><span class="gm-key">S</span>).</li>
-              <li><strong>Poišči kogar koli</strong> — gumb <span class="gm-glyph">⌕</span> (ali <span class="gm-key">/</span>) najde katero koli osebo v datoteki po imenu; <span class="gm-key">Enter</span> jo odpre, <span class="gm-key">Shift</span><span class="gm-key">Enter</span> odpre njene diagrame. <strong>Filtri</strong> zožijo pogosto ime: spol, razpon letnic rojstva, kraj, ali ima oseba povezave, opombe ali vire, ali ste jo urejali, njena odločitev pri združevanju in kako blizu je vaši <a href="#home-person">izhodiščni osebi</a> (<a href="#home-person">§5</a>). Če iskanje ne najde nikogar, ponudi, da <strong>vpisano ime dodate</strong> kot novo osebo.</li>
+              <li><strong>Poišči kogar koli</strong> — gumb <span class="gm-glyph">⌕</span> (ali <span class="gm-key">/</span>) najde katero koli osebo v datoteki po imenu; <span class="gm-key">Enter</span> jo odpre, <span class="gm-key">Shift</span><span class="gm-key">Enter</span> odpre njene diagrame. <strong>Filtri</strong> zožijo pogosto ime: spol, razpon letnic rojstva, kraj, ali ima oseba povezave, opombe ali vire, ali ste jo urejali, njena odločitev pri združevanju in kako blizu je vaši <a href="#home-person">izhodiščni osebi</a> (<a href="#home-person">§6</a>). Če iskanje ne najde nikogar, ponudi, da <strong>vpisano ime dodate</strong> kot novo osebo.</li>
               <li><strong>Dodaj novo osebo</strong> — gumb <span class="gm-glyph">＋</span> (ali <span class="gm-key">N</span>) ustvari osebo brez povezav, iz katerega koli načina — glejte <a href="#edit">§8</a>.</li>
               <li><strong>Nastavitve</strong> — meni <span class="gm-glyph">⚙</span> vsebuje jezik in videz, prikaz imen in zapisov, pravila datoteke GEDCOM, zemljevid in napredne možnosti — glejte <em>Nastavitve</em> spodaj.</li>
             </ul>
@@ -255,11 +255,11 @@
               <li><strong>Jezik</strong> — angleščina ali slovenščina.</li>
               <li><strong>Videz</strong> — <em>Tema</em>: Samodejno, Svetlo ali Temno (Samodejno sledi operacijskemu sistemu).</li>
               <li><strong>Prikaz imen</strong> — <em>Vrstni red imena</em> (najprej osebno ime ali najprej priimek), <em>Priimki z velikimi črkami</em> (npr. Ana NOVAK) in <em>Prikaži poročni priimek</em>, ki ga doda v oklepaju, npr. Ana Novak (Kovač). Živ vzorec nad možnostmi pokaže izid. To spremeni le <em>prikaz</em> imen povsod; shranjeni podatki ostanejo nedotaknjeni.</li>
-              <li><strong>Prikaz</strong> — <em>Prikaži sorodstvo</em> pokaže sorodstveno vez vsake osebe do vaše <a href="#home-person">izhodiščne osebe</a> (<a href="#home-person">§5</a>) po vsej aplikaciji; <em>Prikaži oznake zapisov</em> postavi oznako zapisa GEDCOM (xref) ob ime osebe; <em>Prikaži starosti</em> pa doda starosti za razponi let in ob datumih dogodkov.</li>
+              <li><strong>Prikaz</strong> — <em>Prikaži sorodstvo</em> pokaže sorodstveno vez vsake osebe do vaše <a href="#home-person">izhodiščne osebe</a> (<a href="#home-person">§6</a>) po vsej aplikaciji; <em>Prikaži oznake zapisov</em> postavi oznako zapisa GEDCOM (xref) ob ime osebe; <em>Prikaži starosti</em> pa doda starosti za razponi let in ob datumih dogodkov.</li>
             </ul>
             <p>Preostali trije zavihki:</p>
             <ul>
-              <li><strong>GEDCOM</strong> — prepišite katero koli pravilo datoteke, ki bi ga GED Merge sicer zaznal sam; razvrščena so v skupine <em>Datumi</em>, <em>Imena</em>, <em>Kraji</em>, <em>Viri</em> in <em>Zasebnost</em>: obliko datumov, neznane dele datuma, dodatna imena, oznako za neznano ime, obliko krajev, postavitev virov in navedb, povezave strani, krstne navedbe, podvojene povezave, jezika povezav Matricula in Geneanet ter oznako zasebnosti. Vsaka vrstica pokaže vzorec tega, kar izbira zapiše, in privzeto stoji na <em>Samodejno (zaznano)</em> — sledi navadi datoteke — izbrana vrednost pa se nato uveljavi v poenotenju vhodne datoteke, <a href="#organize">Uredi vire</a>, Dodaj vir in urejanju. Izbire za datume, kraje, imena in povezave začnejo veljati ob naslednjem nalaganju datoteke. Glejte <a href="#house-style">§6</a> in <a href="#sources">§13</a>.</li>
+              <li><strong>GEDCOM</strong> — prepišite katero koli pravilo datoteke, ki bi ga GED Merge sicer zaznal sam; razvrščena so v skupine <em>Datumi</em>, <em>Imena</em>, <em>Kraji</em>, <em>Viri</em> in <em>Zasebnost</em>: obliko datumov, neznane dele datuma, dodatna imena, oznako za neznano ime, obliko krajev, postavitev virov in navedb, povezave strani, krstne navedbe, podvojene povezave, jezika povezav Matricula in Geneanet ter oznako zasebnosti. Vsaka vrstica pokaže vzorec tega, kar izbira zapiše, in privzeto stoji na <em>Samodejno (zaznano)</em> — sledi navadi datoteke — izbrana vrednost pa se nato uveljavi v poenotenju vhodne datoteke, <a href="#organize">Uredi vire</a>, Dodaj vir in urejanju. Izbire za datume, kraje, imena in povezave začnejo veljati ob naslednjem nalaganju datoteke. Glejte <a href="#house-style">§4</a> in <a href="#sources">§13</a>.</li>
               <li><strong>Zemljevid</strong> — <em>Nalagaj ploščice zemljevida</em> vklopi kartografsko podlago za vse zemljevide v aplikaciji (zahteve za ploščice razkrijejo ogledovano območje; izklopljeno = vgrajeni obris brez povezave), <em>Osnovni zemljevid</em> pa izbere, katero: CARTO, OpenStreetMap, reliefno, Esrijevo satelitsko ali topografsko ali vašo predlogo URL ploščic. Ko so ploščice dovoljene, živ vzorec nad izbirnikom izriše trenutno izbiro. <em>Dodatni sloji zemljevida</em> nastavi karte, izrisane čez osnovno karto — izberite vgrajeni brezplačni sloj (vključno s slovenskimi državnimi kartami GURS) ali dodajte svojo predlogo URL ploščic ali storitev OGC&nbsp;WMS (ime, URL, veljavna leta, navedba vira). Glejte <a href="#map">§11</a>.</li>
               <li><strong>Napredno › Spletna iskanja</strong> — <em>Poišči podatke na spletu</em>: ko vir dodate iz golega naslova URL, GED Merge prek javnega posrednika pridobi naslov strani. Isto stikalo poganja tudi prenosa imenika z OpenStreetMap in GURS z enim klikom, spletni iskanji po vrsticah (OpenStreetMap in Genealoški imenik krajev GOV) ter poizvedbe v registru naslovov GURS, ki jih uporablja <a href="#geocode">Geokodiranje krajev</a>; te storitve se kličejo neposredno, ne prek posrednika. <strong>Poleg ploščic zemljevida, ki jih vklopite posebej, so to edine funkcije, ki karkoli pošljejo z vaše naprave, in so privzeto izklopljene.</strong></li>
               <li><strong>Napredno › Lokalno hranjeni podatki</strong> — <em>Zapomni si moje delo v tem brskalniku</em> in <em>Počisti lokalno hranjene podatke</em>.</li>
@@ -309,7 +309,7 @@
             <p>
               Po nalaganju <strong>plošča s podatki o datoteki</strong> poroča, kaj je bilo prebrano — število oseb in
               družin, različico GEDCOM, kodiranje in zaznani <strong>slog datoteke</strong>: obliko datumov, postavitev
-              krajev, obliko virov in obliko imen (razloženo v <a href="#house-style">§6</a>). Za vhodno datoteko še
+              krajev, obliko virov in obliko imen (razloženo v <a href="#house-style">§4</a>). Za vhodno datoteko še
               navede, koliko datumov, krajev, povezav in imen je bilo preoblikovanih, da se ujemajo z glavno, in koliko
               razdeljenih kopij iste osebe je bilo združenih v eno.
             </p>
@@ -323,45 +323,8 @@
           <!-- ═══════════════ II. DEL — GLAVNI KONCEPTI ═══════════════ -->
           <p class="guide-part-head">II. del — Glavni koncepti</p>
 
-          <section id="score">
-            <h2><span class="guide-num">4</span>Stopnja ujemanja</h2>
-            <p>
-              Ko sta naloženi obe datoteki, GED Merge samodejno poveže osebe med njima in vsakemu paru dodeli
-              <strong>stopnjo ujemanja od 0 do 100 %</strong>. Stopnja upošteva več znakov: priimek, osebno ime, datum
-              in kraj rojstva ter smrti, starše, partnerje, otroke in poroko. Neverjetni pari se izločijo zgodaj (na
-              primer nezdružljiv priimek ali nemogoča starostna razlika), tako da seznam izpostavi resnične kandidate.
-            </p>
-            <p>
-              Visoka stopnja pomeni, da gre zelo verjetno za isto osebo; srednja stopnja je vredna skrbnega pregleda.
-              Orodje <a href="#tools">Dvojniki</a> uporablja isti pogon za prepoznavo dveh zapisov znotraj <em>ene</em>
-              datoteke, ki opisujeta isto osebo.
-            </p>
-          </section>
-
-          <section id="home-person">
-            <h2><span class="guide-num">5</span>Izhodiščna oseba in sorodstvo</h2>
-            <p>
-              Nastavite <strong>izhodiščno osebo</strong> — običajno sebe ali koren drevesa — in GED Merge razvrsti
-              ujemanja po <strong>sorodstveni razdalji</strong>: koliko sorodstvenih korakov loči vsakega kandidata od
-              izhodiščne osebe. Najbližji sorodniki se tako pojavijo prvi, vsako ujemanje pa pokaže sorodstveno vez (npr.
-              <em>Dedek</em>, <em>sestrična</em>). Smiselna izhodiščna oseba se ob nalaganju izbere samodejno;
-              kadar koli jo lahko spremenite ali počistite. <strong>Pojdi na izhodiščno osebo</strong> kadar koli vrne
-              trenutni pogled nazaj nanjo.
-            </p>
-            <p>
-              Sorodstvene oznake so <strong>obarvane po krvni liniji</strong>: sorodniki po očetovi strani so
-              <strong>modri</strong>, po materini <strong>vijolični</strong>, polnokrvni bratje in sestre
-              (»obe liniji«), potomci in izhodiščna oseba pa ohranijo nevtralni zeleni poudarek. Kadar dve osebi deli
-              krvno linijo, a nobena posamezna sorodstvena vez ne ustreza, splošna oznaka <em>Krvni sorodnik</em> nosi
-              barvo. Sorodstvo prepozna tudi polbrate/polsestre in krušna razmerja (očim/mačeha, pastorek/pastorka,
-              krušni brat/sestra) z lastnimi oznakami. Barve se pojavijo povsod, kjer je prikazano sorodstvo — glave
-              oseb, kartice sorodnikov, vozlišča drevesa in diagram sorodstva (glejte <a href="#legend">legendo</a>,
-              §15).
-            </p>
-          </section>
-
           <section id="house-style">
-            <h2><span class="guide-num">6</span>Slog datoteke in poenotenje</h2>
+            <h2><span class="guide-num">4</span>Slog datoteke in poenotenje</h2>
             <p>
               Vsaka datoteka GEDCOM ima svoja pravila — svoj <strong>slog</strong>. GED Merge zazna štiri:
             </p>
@@ -394,7 +357,7 @@
           </section>
 
           <section id="data-model">
-            <h2><span class="guide-num">7</span>Viri, mediji in ohranjanje vseh podatkov</h2>
+            <h2><span class="guide-num">5</span>Viri, mediji in ohranjanje vseh podatkov</h2>
             <p>
               GED Merge prebere <strong>celotno</strong> datoteko brez izgub: vsaka vrstica se ohrani, vključno z
               lastnimi in nestandardnimi oznakami, tako da se ob shranjevanju nič tiho ne izgubi. Poleg oseb in družin to
@@ -403,6 +366,43 @@
               koli zapis. Ti so povsod prvovrstni: dodajate in urejate jih v načinu <span class="gm-pill">Urejanje</span>
               (<a href="#sources">§13</a>, <a href="#photos">§12</a>), po celotni datoteki pa jih pregledujete v
               <span class="gm-pill">Orodjih</span>.
+            </p>
+          </section>
+
+          <section id="home-person">
+            <h2><span class="guide-num">6</span>Izhodiščna oseba in sorodstvo</h2>
+            <p>
+              Nastavite <strong>izhodiščno osebo</strong> — običajno sebe ali koren drevesa — in GED Merge najdena
+              ujemanja (<a href="#score">§7</a>) razvrsti po <strong>sorodstveni razdalji</strong>: koliko sorodstvenih
+              korakov loči vsakega kandidata od izhodiščne osebe. Najbližji sorodniki se tako pojavijo prvi, vsako ujemanje pa pokaže sorodstveno vez (npr.
+              <em>Dedek</em>, <em>sestrična</em>). Smiselna izhodiščna oseba se ob nalaganju izbere samodejno;
+              kadar koli jo lahko spremenite ali počistite. <strong>Pojdi na izhodiščno osebo</strong> kadar koli vrne
+              trenutni pogled nazaj nanjo.
+            </p>
+            <p>
+              Sorodstvene oznake so <strong>obarvane po krvni liniji</strong>: sorodniki po očetovi strani so
+              <strong>modri</strong>, po materini <strong>vijolični</strong>, polnokrvni bratje in sestre
+              (»obe liniji«), potomci in izhodiščna oseba pa ohranijo nevtralni zeleni poudarek. Kadar dve osebi deli
+              krvno linijo, a nobena posamezna sorodstvena vez ne ustreza, splošna oznaka <em>Krvni sorodnik</em> nosi
+              barvo. Sorodstvo prepozna tudi polbrate/polsestre in krušna razmerja (očim/mačeha, pastorek/pastorka,
+              krušni brat/sestra) z lastnimi oznakami. Barve se pojavijo povsod, kjer je prikazano sorodstvo — glave
+              oseb, kartice sorodnikov, vozlišča drevesa in diagram sorodstva (glejte <a href="#legend">legendo</a>,
+              §15).
+            </p>
+          </section>
+
+          <section id="score">
+            <h2><span class="guide-num">7</span>Stopnja ujemanja</h2>
+            <p>
+              Ko sta naloženi obe datoteki, GED Merge samodejno poveže osebe med njima in vsakemu paru dodeli
+              <strong>stopnjo ujemanja od 0 do 100 %</strong>. Stopnja upošteva več znakov: priimek, osebno ime, datum
+              in kraj rojstva ter smrti, starše, partnerje, otroke in poroko. Neverjetni pari se izločijo zgodaj (na
+              primer nezdružljiv priimek ali nemogoča starostna razlika), tako da seznam izpostavi resnične kandidate.
+            </p>
+            <p>
+              Visoka stopnja pomeni, da gre zelo verjetno za isto osebo; srednja stopnja je vredna skrbnega pregleda.
+              Orodje <a href="#tools">Dvojniki</a> uporablja isti pogon za prepoznavo dveh zapisov znotraj <em>ene</em>
+              datoteke, ki opisujeta isto osebo.
             </p>
           </section>
 
@@ -978,7 +978,7 @@
               <li><strong>Časovnica</strong> — najbližja družina kot časovni trakovi na skupni letni osi; glejte
                 spodaj.</li>
               <li><strong>Sorodstvo</strong> (<span class="gm-key">S</span>) — prikaže, kako je izbrana oseba v sorodu z
-                vašo <a href="#home-person">izhodiščno osebo</a> (<a href="#home-person">§5</a>); če te še ni,
+                vašo <a href="#home-person">izhodiščno osebo</a> (<a href="#home-person">§6</a>); če te še ni,
                 vas diagram zanjo takoj vpraša. Diagram razporedi verigo sorodnikov med njima, označeno z
                 natančnim sorodstvom (npr. <em>bratranec v drugem kolenu</em>). Kadar obstaja več poti, meni
                 <strong>Razpoložljive poti</strong> preklaplja med <em>najkrajšo potjo</em> in <em>krvno linijo</em>
@@ -1540,7 +1540,7 @@
                 <tr><td><span class="gm-swatch incoming"></span></td><td>Samo v vhodni datoteki</td></tr>
               </tbody>
             </table>
-            <p><strong>Barve sorodstvene linije</strong> — na sorodstvenih oznakah po vsej aplikaciji (<a href="#home-person">§5</a>):</p>
+            <p><strong>Barve sorodstvene linije</strong> — na sorodstvenih oznakah po vsej aplikaciji (<a href="#home-person">§6</a>):</p>
             <table class="gm-table">
               <tbody>
                 <tr><td><span class="gm-swatch paternal"></span></td><td>Očetova stran (paternalna linija)</td></tr>

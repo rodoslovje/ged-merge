@@ -146,10 +146,10 @@
             <li><a href="#loading">3. Loading files</a></li>
 
             <li class="guide-toc-part">II · Core Concepts</li>
-            <li><a href="#score">4. The match score</a></li>
-            <li><a href="#home-person">5. Start person &amp; kinship</a></li>
-            <li><a href="#house-style">6. House style &amp; normalization</a></li>
-            <li><a href="#data-model">7. Sources, media &amp; lossless data</a></li>
+            <li><a href="#house-style">4. House style &amp; normalization</a></li>
+            <li><a href="#data-model">5. Sources, media &amp; lossless data</a></li>
+            <li><a href="#home-person">6. Start person &amp; kinship</a></li>
+            <li><a href="#score">7. The match score</a></li>
 
             <li class="guide-toc-part">III · The Three Modes</li>
             <li><a href="#edit">8. Edit</a></li>
@@ -224,7 +224,7 @@
               <li><strong>File pills</strong> — the loaded main and incoming file names. Click a pill to see or replace that file.</li>
               <li><strong>Undo / Redo</strong> — one shared history across edits and merge decisions (<span class="gm-key">Ctrl</span><span class="gm-key">Z</span> / <span class="gm-key">Ctrl</span><span class="gm-key">Shift</span><span class="gm-key">Z</span>).</li>
               <li><strong>Save GEDCOM</strong> — preview and download your changes (<span class="gm-key">Ctrl</span><span class="gm-key">S</span>).</li>
-              <li><strong>Search everyone</strong> — the <span class="gm-glyph">⌕</span> button (or <span class="gm-key">/</span>) finds any person in the file by name; <span class="gm-key">Enter</span> opens them, <span class="gm-key">Shift</span><span class="gm-key">Enter</span> opens their charts. <strong>Filters</strong> narrow a common name down: sex, a birth-year range, a place, whether the person has links, notes or sources, whether you have edited them, their merge decision, and how close they are to your <a href="#home-person">start person</a> (<a href="#home-person">§5</a>). If the search finds nobody, it offers to <strong>add the name you typed</strong> as a new person.</li>
+              <li><strong>Search everyone</strong> — the <span class="gm-glyph">⌕</span> button (or <span class="gm-key">/</span>) finds any person in the file by name; <span class="gm-key">Enter</span> opens them, <span class="gm-key">Shift</span><span class="gm-key">Enter</span> opens their charts. <strong>Filters</strong> narrow a common name down: sex, a birth-year range, a place, whether the person has links, notes or sources, whether you have edited them, their merge decision, and how close they are to your <a href="#home-person">start person</a> (<a href="#home-person">§6</a>). If the search finds nobody, it offers to <strong>add the name you typed</strong> as a new person.</li>
               <li><strong>Add new person</strong> — the <span class="gm-glyph">＋</span> button (or <span class="gm-key">N</span>) creates a person linked to nobody, from any mode — see <a href="#edit">§8</a>.</li>
               <li><strong>Settings</strong> — the <span class="gm-glyph">⚙</span> menu holds appearance (theme and language), name and record display, and data options — see <em>Settings</em> below.</li>
             </ul>
@@ -254,11 +254,11 @@
               <li><strong>Language</strong> — English or Slovenščina.</li>
               <li><strong>Appearance</strong> — <em>Theme</em>: Automatic, Light or Dark (Automatic follows your operating system).</li>
               <li><strong>Name display</strong> — <em>Name order</em> (given name first or surname first), <em>Uppercase surnames</em> (e.g. Ana NOVAK) and <em>Show married surname</em>, which appends it in parentheses, e.g. Ana Novak (Kovač). A live sample above the options shows the result. These change how names <em>display</em> everywhere; your stored data is untouched.</li>
-              <li><strong>Display</strong> — <em>Show kinship</em> shows each person's relationship to your <a href="#home-person">start person</a> (<a href="#home-person">§5</a>) throughout the app; <em>Show record IDs</em> puts each person's GEDCOM record id (xref) next to their name; and <em>Show ages</em> adds ages after lifespans and beside event dates.</li>
+              <li><strong>Display</strong> — <em>Show kinship</em> shows each person's relationship to your <a href="#home-person">start person</a> (<a href="#home-person">§6</a>) throughout the app; <em>Show record IDs</em> puts each person's GEDCOM record id (xref) next to their name; and <em>Show ages</em> adds ages after lifespans and beside event dates.</li>
             </ul>
             <p>The other three tabs:</p>
             <ul>
-              <li><strong>GEDCOM</strong> — override any file convention GED Merge would otherwise detect, grouped as <em>Dates</em>, <em>Names</em>, <em>Places</em>, <em>Sources</em> and <em>Privacy</em>: date format, unknown date parts, alternate names, the unknown-name marker, place format, source and citation layout, page links, baptism citations, doubled links, the Matricula and Geneanet link languages, and the private-flag tag. Each row shows a sample of what the choice writes and defaults to <em>Auto (detected)</em> — following the file's own habit — but a chosen value is then enforced by the incoming-file normalizer, <a href="#tools">Organize sources</a>, Add Source and inline editing. Date, place, name and link choices take effect from the next file load. See <a href="#house-style">§6</a> and <a href="#sources">§13</a>.</li>
+              <li><strong>GEDCOM</strong> — override any file convention GED Merge would otherwise detect, grouped as <em>Dates</em>, <em>Names</em>, <em>Places</em>, <em>Sources</em> and <em>Privacy</em>: date format, unknown date parts, alternate names, the unknown-name marker, place format, source and citation layout, page links, baptism citations, doubled links, the Matricula and Geneanet link languages, and the private-flag tag. Each row shows a sample of what the choice writes and defaults to <em>Auto (detected)</em> — following the file's own habit — but a chosen value is then enforced by the incoming-file normalizer, <a href="#tools">Organize sources</a>, Add Source and inline editing. Date, place, name and link choices take effect from the next file load. See <a href="#house-style">§4</a> and <a href="#sources">§13</a>.</li>
               <li><strong>Map</strong> — <em>Load base-map tiles</em> opts in to a map background for every map in the app (tile requests reveal the viewed region; off = a built-in offline outline), and <em>Base map</em> picks which one: CARTO, OpenStreetMap, terrain, Esri satellite or topographic, or your own tile-URL template. Once tiles are allowed, a live sample above the picker draws the current choice. <em>Additional map layers</em> configures maps drawn over the base — pick a bundled free preset (including Slovenia's national GURS maps), or add your own tile-URL template or OGC&nbsp;WMS service (name, URL, valid years, attribution). See <a href="#map">§11</a>.</li>
               <li><strong>Advanced › Online lookups</strong> — <em>Look up details online</em>: when you add a source from a bare URL, GED Merge fetches its page title through a public relay. The same switch powers the one-click OpenStreetMap and GURS gazetteer downloads, the per-row online searches (OpenStreetMap and the Genealogical Gazetteer, GOV) and the GURS address-register lookups used by <a href="#geocode">Geocode places</a>; those services are called directly, not through a relay. <strong>Apart from the map tiles you opt into separately, these are the only features that send anything off your device, and they are off by default.</strong></li>
               <li><strong>Advanced › Locally stored data</strong> — <em>Remember my work in this browser</em> and <em>Clear locally stored data</em>.</li>
@@ -306,7 +306,7 @@
             <p>
               After a file loads, the <strong>file-info panel</strong> reports what was read — individual and family
               counts, GEDCOM version, encoding, and the file's detected <strong>house style</strong>: its date format,
-              place layout, source layout and name layout (explained in <a href="#house-style">§6</a>). For an incoming
+              place layout, source layout and name layout (explained in <a href="#house-style">§4</a>). For an incoming
               file it also lists how many dates, places, links and names were reshaped to match your main file, and how
               many split copies of the same person were merged into one.
             </p>
@@ -320,45 +320,8 @@
           <!-- ═══════════════ PART II — CORE CONCEPTS ═══════════════ -->
           <p class="guide-part-head">Part II — Core Concepts</p>
 
-          <section id="score">
-            <h2><span class="guide-num">4</span>The match score</h2>
-            <p>
-              When both files are loaded, GED Merge automatically pairs individuals between them and gives each pair a
-              <strong>match score from 0 to 100%</strong>. The score weighs several signals: surname, given name, birth
-              and death date and place, parents, partners, children and marriage. Implausible pairs are filtered out
-              early (for example, an irreconcilable surname or an impossible age gap), so the list surfaces genuine
-              candidates.
-            </p>
-            <p>
-              A high score means the two records are very likely the same person; a middling score is worth a careful
-              look. The <a href="#tools">Find duplicates</a> tool uses the very same engine to spot two records inside
-              <em>one</em> file that describe the same person.
-            </p>
-          </section>
-
-          <section id="home-person">
-            <h2><span class="guide-num">5</span>Start person &amp; kinship</h2>
-            <p>
-              Set a <strong>start person</strong> — usually yourself or the root of your tree — and GED Merge ranks
-              matches by <strong>kinship distance</strong>: how many relationship hops separate each candidate from your
-              start person. Your closest relatives then surface first, and each match shows its relationship (e.g.
-              <em>Grandfather</em>, <em>2nd cousin</em>). A sensible start person is chosen automatically when a file
-              loads; you can change or clear it at any time. <strong>Go to start person</strong> jumps the current view
-              back to them at any moment.
-            </p>
-            <p>
-              Kinship labels are <strong>colour-coded by blood line</strong>: relatives on the father's side show in
-              <strong>blue</strong>, the mother's side in <strong>purple-magenta</strong>, while full siblings (“both
-              lines”), descendants and the start person keep the neutral green accent. When two people share a bloodline
-              but no single named kinship fits, a generic <em>Blood relative</em> label carries the colour. Kinship also
-              recognizes half-siblings and step-relations (step-parent, step-child, step-sibling) with their own labels.
-              The colours appear wherever kinship shows — person headers, relative cards, tree nodes and the relationship
-              diagram (see the <a href="#legend">legend</a>, <a href="#legend">§15</a>).
-            </p>
-          </section>
-
           <section id="house-style">
-            <h2><span class="guide-num">6</span>House style &amp; normalization</h2>
+            <h2><span class="guide-num">4</span>House style &amp; normalization</h2>
             <p>
               Every GEDCOM has its own conventions — its <strong>house style</strong>. GED Merge detects four of them:
             </p>
@@ -391,7 +354,7 @@
           </section>
 
           <section id="data-model">
-            <h2><span class="guide-num">7</span>Sources, media &amp; lossless data</h2>
+            <h2><span class="guide-num">5</span>Sources, media &amp; lossless data</h2>
             <p>
               GED Merge reads the <strong>whole</strong> file losslessly: every line is preserved, including custom and
               non-standard tags, so nothing is silently dropped when you save. Beyond people and families, that includes
@@ -400,6 +363,43 @@
               record. These are first-class throughout: you can add and edit them in <span class="gm-pill">Edit</span>
               (<a href="#sources">§13</a>, <a href="#photos">§12</a>) and browse them across the whole file in
               <span class="gm-pill">Tools</span>.
+            </p>
+          </section>
+
+          <section id="home-person">
+            <h2><span class="guide-num">6</span>Start person &amp; kinship</h2>
+            <p>
+              Set a <strong>start person</strong> — usually yourself or the root of your tree — and GED Merge ranks
+              the matches it finds (<a href="#score">§7</a>) by <strong>kinship distance</strong>: how many relationship
+              hops separate each candidate from your start person. Your closest relatives then surface first, and each match shows its relationship (e.g.
+              <em>Grandfather</em>, <em>2nd cousin</em>). A sensible start person is chosen automatically when a file
+              loads; you can change or clear it at any time. <strong>Go to start person</strong> jumps the current view
+              back to them at any moment.
+            </p>
+            <p>
+              Kinship labels are <strong>colour-coded by blood line</strong>: relatives on the father's side show in
+              <strong>blue</strong>, the mother's side in <strong>purple-magenta</strong>, while full siblings (“both
+              lines”), descendants and the start person keep the neutral green accent. When two people share a bloodline
+              but no single named kinship fits, a generic <em>Blood relative</em> label carries the colour. Kinship also
+              recognizes half-siblings and step-relations (step-parent, step-child, step-sibling) with their own labels.
+              The colours appear wherever kinship shows — person headers, relative cards, tree nodes and the relationship
+              diagram (see the <a href="#legend">legend</a>, <a href="#legend">§15</a>).
+            </p>
+          </section>
+
+          <section id="score">
+            <h2><span class="guide-num">7</span>The match score</h2>
+            <p>
+              When both files are loaded, GED Merge automatically pairs individuals between them and gives each pair a
+              <strong>match score from 0 to 100%</strong>. The score weighs several signals: surname, given name, birth
+              and death date and place, parents, partners, children and marriage. Implausible pairs are filtered out
+              early (for example, an irreconcilable surname or an impossible age gap), so the list surfaces genuine
+              candidates.
+            </p>
+            <p>
+              A high score means the two records are very likely the same person; a middling score is worth a careful
+              look. The <a href="#tools">Find duplicates</a> tool uses the very same engine to spot two records inside
+              <em>one</em> file that describe the same person.
             </p>
           </section>
 
@@ -974,7 +974,7 @@
               <li><strong>Timeline</strong> — the immediate family as lifespan bars along one shared year axis; see
                 below.</li>
               <li><strong>Relationship</strong> (<span class="gm-key">S</span>) — traces how the selected person is
-                related to your <a href="#home-person">start person</a> (<a href="#home-person">§5</a>); if none is set
+                related to your <a href="#home-person">start person</a> (<a href="#home-person">§6</a>); if none is set
                 yet, it prompts for one inline. The diagram lays out the chain of relatives between the two, labelled
                 with the exact kinship (e.g. <em>2nd cousin once removed</em>). When more than one route exists, the
                 <strong>Available paths</strong> menu switches between the <em>shortest path</em> and a
@@ -1523,7 +1523,7 @@
                 <tr><td><span class="gm-swatch incoming"></span></td><td>Present in the incoming only</td></tr>
               </tbody>
             </table>
-            <p><strong>Kinship lineage colours</strong> — on relationship labels throughout the app (<a href="#home-person">§5</a>):</p>
+            <p><strong>Kinship lineage colours</strong> — on relationship labels throughout the app (<a href="#home-person">§6</a>):</p>
             <table class="gm-table">
               <tbody>
                 <tr><td><span class="gm-swatch paternal"></span></td><td>Father's side (paternal line)</td></tr>
