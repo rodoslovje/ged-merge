@@ -4,7 +4,6 @@ import { useUndoRedo } from "./edit-state/useUndoRedo";
 import { useTheme } from "./ui/useTheme";
 import { useMode } from "./ui/useMode";
 import { useAppHistory } from "./ui/useAppHistory";
-import { useLegalModal } from "./ui/useLegalModal";
 import { useMatchList } from "./ui/useMatchList";
 import { useMobileWarning } from "./ui/useMobileWarning";
 import { useGedcomWorker } from "./ui/useGedcomWorker";
@@ -30,7 +29,6 @@ import { downloadText } from "./ui/download";
 import { AutoMediaOffer, GedcomLoader } from "./ui/GedcomLoader";
 import { StartPersonSelector } from "./ui/StartPersonSelector";
 import { CompareTree } from "./ui/CompareTree";
-import { LegalModal } from "./ui/LegalModal";
 import { ShortcutsModal } from "./ui/ShortcutsModal";
 import { SettingsModal } from "./ui/SettingsModal";
 import { KEY, isModalOpen, isEditableTarget } from "./keyboard/shortcuts";
@@ -59,7 +57,7 @@ import { PwaReloadPrompt } from "./ui/PwaReloadPrompt";
 import { Wordmark } from "./ui/icons/LogoMark";
 import { GearIcon } from "./ui/icons/GearIcon";
 import { ChartIcon } from "./ui/icons/ChartIcon";
-import { MediaFolderProvider } from "./ui/MediaFolderContext";
+import { MediaFolderProvider, useMediaFolder } from "./ui/MediaFolderContext";
 import { saveFile, deleteFile } from "./persist/idb";
 import { hashFile } from "./persist/fingerprint";
 import { useWorkspacePersistence } from "./persist/useWorkspacePersistence";
@@ -231,9 +229,6 @@ function AppContent() {
   // Light/dark theme mode + applied `data-theme`, in a self-contained hook.
   const { themeMode, changeThemeMode } = useTheme();
 
-  // Privacy/Terms modal (also opened via a `?legal=` URL param), in a hook.
-  const { legalOpen, legalPage, openLegal, closeLegal } = useLegalModal();
-
   // App-styled confirmation dialog as a promise (`confirmDialog(...)`), in a hook.
   const { confirmDialog, confirmDialogElement } = useConfirmDialog();
 
@@ -349,6 +344,10 @@ function AppContent() {
   // Owns the worker's lifecycle; always dispatches to the latest handler above.
   const { post, reset: resetWorker } = useGedcomWorker(handleWorkerMessage, handleWorkerFailure);
 
+  // The media folder's remembered handle lives in its own IndexedDB; clearing
+  // locally stored data has to drop it along with the workspace.
+  const { clearFolder: clearMediaFolder } = useMediaFolder();
+
   // Opt-in IndexedDB persistence: startup hydration (re-feeding cached files
   // through the worker), the debounced session/main writer, the enable toggle,
   // and the on-disk external-change checks. Returns the restore-coordination
@@ -357,7 +356,7 @@ function AppContent() {
     persistEnabled: settings.persistWorkspace,
     workspace, mainDataset, editVersion, dirty, undoRedo,
     sortEligiblePersonIdsRef, post, dispatch, autoStartRef,
-    loadFile, confirmDialog, setSaveToast,
+    loadFile, confirmDialog, setSaveToast, clearMediaFolder,
   });
   const { persistEnabled, mainHandle, compareHandle } = persistence;
 
@@ -1386,13 +1385,12 @@ function AppContent() {
     });
   }
 
-  // Modals (legal / shortcuts) and the page footer are shared between the main
-  // app shell and the full-page tree views, so they're built once here. The
-  // User's Guide is the standalone /guide page (opened from the footer), not an
-  // in-app modal.
+  // Modals and the page footer are shared between the main app shell and the
+  // full-page tree views, so they're built once here. The User's Guide and the
+  // Privacy/Terms pages are standalone static pages (opened from the footer),
+  // not in-app modals.
   const appModals = (
     <>
-      <LegalModal isOpen={legalOpen} onClose={closeLegal} page={legalPage} />
       <ShortcutsModal isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
       <GlobalSearchModal
         isOpen={showGlobalSearch}
@@ -1417,7 +1415,7 @@ function AppContent() {
     </>
   );
 
-  const appFooter = <AppFooter onShortcuts={() => setShowShortcuts(true)} onLegal={openLegal} />;
+  const appFooter = <AppFooter onShortcuts={() => setShowShortcuts(true)} />;
 
   // Full-page tree views (Compare / Edit) keep the app brand title and footer
   // around the tree so the page never feels detached from the rest of the app.

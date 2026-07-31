@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="sl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="../icons/app-icon-32.png" />
+    <link rel="apple-touch-icon" href="../icons/app-icon-180.png" />
+    <meta name="theme-color" content="#151310" />
+    <title>Pogoji uporabe — GED Merge | urejevalnik GEDCOM</title>
+    <meta
+      name="description"
+      content="Pogoji uporabe GED Merge: brezplačen urejevalnik GEDCOM z odprto kodo, ki teče v brskalniku. Vaše datoteke ostanejo vaše, koda je pod licenco MIT, storitev je na voljo takšna, kakršna je."
+    />
+    <link rel="canonical" href="https://gedmerge.com/pogoji/" />
+    <link rel="alternate" hreflang="en" href="https://gedmerge.com/terms/" />
+    <link rel="alternate" hreflang="sl" href="https://gedmerge.com/pogoji/" />
+    <link rel="alternate" hreflang="x-default" href="https://gedmerge.com/terms/" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="article" />
+    <meta property="og:title" content="Pogoji uporabe — GED Merge" />
+    <meta
+      property="og:description"
+      content="Brezplačen urejevalnik GEDCOM z odprto kodo, ki teče v brskalniku. Vaše datoteke ostanejo vaše, koda je pod licenco MIT."
+    />
+    <meta property="og:url" content="https://gedmerge.com/pogoji/" />
+    <meta property="og:image" content="https://gedmerge.com/gedmerge-green.png" />
+    <meta property="og:image:width" content="2400" />
+    <meta property="og:image:height" content="1260" />
+    <meta property="og:site_name" content="GED Merge" />
+    <meta property="og:locale" content="sl_SI" />
+    <meta property="og:locale:alternate" content="en" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Pogoji uporabe — GED Merge" />
+    <meta name="twitter:description" content="Brezplačno, odprta koda, vse v brskalniku. Vaše datoteke ostanejo vaše." />
+    <meta name="twitter:image" content="https://gedmerge.com/gedmerge-green.png" />
+
+    <script>
+      // Set the theme before first paint to avoid a flash: saved choice, else
+      // the OS preference. Kept in sync with the main app (App.tsx).
+      (function () {
+        try {
+          var saved = localStorage.getItem("gedmerge.theme");
+          var theme = saved || (window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+          document.documentElement.setAttribute("data-theme", theme);
+        } catch (e) {
+          document.documentElement.setAttribute("data-theme", "dark");
+        }
+      })();
+    </script>
+    <script type="module" src="/src/legal-entry.ts"></script>
+  </head>
+  <body>
+    <!-- ── Top header bar (matches the app) ─────────────────────────────────── -->
+    <header class="guide-topbar">
+      <div class="guide-topbar-inner">
+        <a class="gm-wordmark-link" href="../" aria-label="GED Merge">
+          <span class="gm-wordmark">
+            <span class="gm-wordmark-logo">
+              <svg width="33" height="33" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="9" y1="31" x2="9" y2="11" />
+                <line x1="9" y1="11" x2="20" y2="23.5" />
+                <line x1="31" y1="11" x2="20" y2="23.5" />
+                <line x1="31" y1="31" x2="31" y2="11" />
+                <circle cx="9" cy="11" r="3.3" />
+                <circle cx="31" cy="11" r="3.3" />
+                <circle cx="20" cy="23.5" r="3.3" fill="currentColor" stroke="none" />
+              </svg>
+            </span>
+            <span class="gm-wordmark-text"><span class="gm-wordmark-ged">GED</span><span class="gm-wordmark-merge">&nbsp;Merge</span></span>
+          </span>
+        </a>
+        <div class="guide-topbar-controls">
+          <button type="button" class="nav-btn icon-only" id="gm-theme" aria-label="Preklopi temo" title="Preklopi temo">🌙</button>
+          <a class="guide-lang" href="../terms/" hreflang="en" lang="en">English</a>
+        </div>
+      </div>
+    </header>
+
+    <div class="guide-shell">
+      <!-- ── Sticky sidebar table of contents ─────────────────────────────── -->
+      <aside class="guide-side">
+        <p class="guide-side-title">Vsebina</p>
+        <nav class="guide-toc-nav" aria-label="Vsebina">
+          <ol>
+            <li><a href="#service">1. Storitev in programje</a></li>
+            <li><a href="#use">2. Dopustna uporaba</a></li>
+            <li><a href="#your-data">3. Vaše datoteke in podatki</a></li>
+            <li><a href="#third-party">4. Storitve tretjih oseb</a></li>
+            <li><a href="#warranty">5. Brez jamstev</a></li>
+            <li><a href="#liability">6. Omejitev odgovornosti</a></li>
+            <li><a href="#availability">7. Razpoložljivost in spremembe</a></li>
+            <li><a href="#law">8. Veljavno pravo in spori</a></li>
+            <li><a href="#misc">9. Druge določbe</a></li>
+            <li><a href="#contact">10. Stik</a></li>
+            <li class="guide-toc-part">Glejte tudi</li>
+            <li><a href="../zasebnost/">Pravilnik o zasebnosti</a></li>
+            <li><a href="../navodila/">Navodila za uporabo</a></li>
+          </ol>
+        </nav>
+      </aside>
+
+      <!-- ── Main article ─────────────────────────────────────────────────── -->
+      <main class="guide-main">
+        <header class="guide-header">
+          <h1>Pogoji uporabe</h1>
+          <p>
+            Pogoji, pod katerimi je na voljo gostovana aplikacija na gedmerge.com. Za samo programje velja ločena,
+            dopustnejša licenca — glejte § 1.
+          </p>
+          <p class="legal-meta">
+            Datum veljavnosti: 31. julij 2026 · Zadnja sprememba: 31. julij 2026 · Upravljavec: Luka Renko, Slovenija ·
+            <a href="mailto:support@gedmerge.com">support@gedmerge.com</a>
+          </p>
+        </header>
+
+        <article class="guide-body">
+          <div class="legal-notice">
+            <strong>Na kratko</strong>
+            <p>
+              GED Merge je brezplačen, ne potrebuje računa in pusti vaše datoteke na vaši napravi. Koda je odprta, pod
+              licenco MIT, zato jo lahko berete, spreminjate in poganjate svojo različico. Gostovana storitev je na
+              voljo takšna, kakršna je: hranite varnostne kopije in preverite, kaj je združevanje naredilo, preden se
+              nanj zanesete.
+            </p>
+          </div>
+
+          <section id="service">
+            <h2><span class="guide-num">1</span>Storitev in programje</h2>
+            <p>
+              Ti pogoji urejajo vašo uporabo <strong>gostovane aplikacije</strong> na
+              <a href="https://gedmerge.com/">gedmerge.com</a> in pripadajočih strani. Uporaba spletnega mesta pomeni,
+              da jih sprejemate. Storitev je brezplačna, ne zahteva računa in nima naročnine.
+            </p>
+            <p>
+              <strong>Izvorna koda je odprta</strong> in objavljena na
+              <a href="https://github.com/rodoslovje/ged-merge" target="_blank" rel="noopener noreferrer">github.com/rodoslovje/ged-merge</a>
+              pod <a href="https://github.com/rodoslovje/ged-merge/blob/main/LICENSE.md" target="_blank" rel="noopener noreferrer">licenco MIT</a>.
+              Programje ureja ta licenca in ne ti pogoji: kodo smete uporabljati, kopirati, spreminjati, razširjati in
+              prodajati, tudi komercialno, pod pogoji, ki jih licenca navaja. Nič v teh pogojih teh pravic ne omejuje,
+              poganjanje lastne različice pa je izrecno dobrodošlo.
+            </p>
+            <p>
+              Ločeno od kode so pridržani <strong>ime, besedna znamka in logotip GED Merge</strong> ter besedila
+              navodil, posodobitev in pravnih strani tega spletnega mesta. Prosimo, da spremenjene kopije ne
+              predstavljate kot uradni GED Merge.
+            </p>
+          </section>
+
+          <section id="use">
+            <h2><span class="guide-num">2</span>Dopustna uporaba</h2>
+            <p>Pri uporabi gostovane storitve se zavezujete, da ne boste:</p>
+            <ul>
+              <li>napadali, preobremenjevali ali kako drugače motili spletnega mesta in njegove infrastrukture ter da ga brez predhodnega dogovora ne boste preizkušali za ranljivosti;</li>
+              <li>z njim obdelovali gradiva, za katero nimate pravice, ali počeli česar koli nezakonitega;</li>
+              <li>ga uporabljali kot posrednik za obsipavanje storitev tretjih oseb iz § 4 ali za obhod omejitev pogostosti zahtev, ki jih aplikacija upošteva v vašem imenu.</li>
+            </ul>
+            <p>
+              Dobronamerna prijava varnostne pomanjkljivosti je dobrodošla na
+              <a href="mailto:support@gedmerge.com">support@gedmerge.com</a>.
+            </p>
+          </section>
+
+          <section id="your-data">
+            <h2><span class="guide-num">3</span>Vaše datoteke in podatki</h2>
+            <p>
+              Do datotek, ki jih odprete, do raziskave v njih in do vsega, kar z aplikacijo ustvarite, si
+              <strong>ne lastimo nobenih pravic</strong>. Vse ostane vaše in ostane na vaši napravi — glejte
+              <a href="../zasebnost/">pravilnik o zasebnosti</a>.
+            </p>
+            <p>
+              Sami odgovarjate za to, da imate pravico obdelovati vsebino svoje datoteke, in za njeno varno hrambo.
+              <strong>Hranite varnostne kopije.</strong> Združevanje, množično poenotenje ali čistilno orodje naenkrat
+              prepiše veliko zapisov; delajte na kopiji in preverite poročilo o spremembah, preden zamenjate svojo
+              delovno datoteko.
+            </p>
+            <p id="living">
+              <strong>Žive osebe.</strong> Rodoslovna drevesa običajno vsebujejo osebne podatke o živih ljudeh. V
+              zasebni raziskavi gre praviloma za domačo dejavnost zunaj dosega GDPR, a je ta izjema ozka: objava
+              diagrama, spletna postavitev drevesa ali pošiljanje datoteke drugemu vas lahko naredi za upravljavca z
+              vsemi obveznostmi, ki iz tega izhajajo. Kaj boste delili, odločate vi, in odgovornost za to odločitev je
+              vaša. Aplikacija ponuja dva pripomočka — možnost <em>Skrij žive osebe</em> na diagramih in v poročilih ter
+              orodje <em>Zasebnost</em>, ki izdela prikrito kopijo celotne datoteke
+              (<a href="../navodila/#privacy">Navodila § 18</a>).
+            </p>
+          </section>
+
+          <section id="third-party">
+            <h2><span class="guide-num">4</span>Storitve tretjih oseb</h2>
+            <p>
+              Z vklopljenimi izbirnimi spletnimi funkcijami aplikacija stopi v stik s storitvami, ki jih upravljajo
+              drugi: OpenStreetMap in Nominatim, Overpass, GeoNames, Genealoški imenik krajev GOV, slovenski registri in
+              zemljevidne storitve GURS, storitve ploščic CARTO, OpenTopoMap, Esri, swisstopo in IGN Francija ter javni
+              posredniki CORS, našteti v nastavitvah. Z vklopom teh funkcij sprejemate pogoje in pravila uporabe teh
+              ponudnikov.
+            </p>
+            <ul>
+              <li>
+                <strong>Ohranite navedbo vira.</strong> Zemljevidi in njihovi izvozi nosijo navedbo, ki jo posamezen
+                ponudnik zahteva. Če tako sliko objavite ali natisnete, mora navedba ostati na njej.
+              </li>
+              <li>
+                <strong>Spoštujte njihove omejitve.</strong> Aplikacija svoje zahteve zadržuje, da ostane znotraj
+                objavljenih pravil uporabe; tega ne obhajajte in je ne uporabljajte za množično zajemanje podatkov.
+              </li>
+              <li>
+                <strong>Njihove razpoložljivosti ne moremo obljubiti.</strong> Vsaka od teh storitev lahko omeji dostop,
+                se spremeni ali izgine, podatki registrov pa so lahko nepopolni ali napačni. Kar se vrne, je predlog, ki
+                ga sprejmete ali zavrnete, in nikoli razsodba o zgodovini vaše družine.
+              </li>
+            </ul>
+          </section>
+
+          <section id="warranty">
+            <h2><span class="guide-num">5</span>Brez jamstev</h2>
+            <p>
+              Storitev je na voljo <strong>»takšna, kakršna je«</strong> in <strong>»kakor je dosegljiva«</strong>, brez
+              kakršnih koli izrecnih ali molče danih jamstev, vključno s primernostjo za določen namen. Ne jamčimo, da
+              je aplikacija brez napak, da razčlenjevanje, združevanje ali preoblikovanje ohrani prav vsako podrobnost
+              posamezne datoteke, da bo delovala v vsakem brskalniku ali da bo ustrezala vašim zahtevam.
+            </p>
+            <p>
+              Datoteke GEDCOM se med seboj precej razlikujejo, združevanje pa je uredniška presoja, opravljena z
+              orodjem. Preglejte poročilo o spremembah in rezultat preverite ob svojih virih, preden ga imate za
+              dokončano raziskavo. <strong>Vedno hranite varnostno kopijo izvirnih datotek.</strong>
+            </p>
+          </section>
+
+          <section id="liability">
+            <h2><span class="guide-num">6</span>Omejitev odgovornosti</h2>
+            <p>
+              V največjem obsegu, ki ga dopušča veljavno pravo, upravljavec ne odgovarja za posredno, naključno,
+              posledično ali posebno škodo, ki bi izhajala iz vaše uporabe spletnega mesta ali nezmožnosti uporabe —
+              vključno z izgubo podatkov, poškodovanimi datotekami rodoslovnega drevesa, izgubljenim raziskovalnim časom
+              ali nezdružljivostjo z drugimi rodoslovnimi programi.
+            </p>
+            <div class="gm-callout note">
+              <span class="gm-callout-label">Česa to ne izključuje</span>
+              <p>
+                Nič v teh pogojih ne omejuje odgovornosti za naklep ali hudo malomarnost, za telesne poškodbe ali za
+                karkoli drugega, česar po slovenskem pravu ni mogoče omejiti. Če spletno mesto uporabljate kot
+                potrošnik, ne glede na § 8 v vašo korist veljajo prisilni predpisi o varstvu potrošnikov v državi vašega
+                prebivališča, ti pogoji pa jih ne omejujejo.
+              </p>
+            </div>
+          </section>
+
+          <section id="availability">
+            <h2><span class="guide-num">7</span>Razpoložljivost in spremembe</h2>
+            <p>
+              Storitev je brezplačna in brez jamstva razpoložljivosti: lahko je nedosegljiva, spremenjena ali ukinjena,
+              funkcije pa se lahko dodajo, spremenijo ali umaknejo brez obvestila. Pomembnejše spremembe zabeležimo med
+              <a href="../posodobitve/">posodobitvami</a>. Ker je aplikacija odprtokodna in teče v celoti v brskalniku,
+              lahko svojo kopijo vedno obdržite in poganjate sami — to je predvideno zdravilo zoper ukinitev.
+            </p>
+            <p>
+              Ti pogoji se lahko spremenijo; datum veljavnosti na vrhu strani pove, katera različica velja, nadaljnja
+              uporaba spletnega mesta po spremembi pa pomeni sprejem spremenjene različice.
+            </p>
+          </section>
+
+          <section id="law">
+            <h2><span class="guide-num">8</span>Veljavno pravo in spori</h2>
+            <p>
+              Za te pogoje velja pravo <strong>Republike Slovenije</strong> (Evropska unija), brez njegovih kolizijskih
+              pravil in brez Konvencije ZN o pogodbah o mednarodni prodaji blaga. Pristojna so sodišča po
+              upravljavčevem prebivališču v Sloveniji.
+            </p>
+            <p>
+              Če storitev uporabljate kot potrošnik, vas ta izbira ne prikrajša za varstvo po prisilnih predpisih prava
+              države vašega prebivališča, postopek pa lahko sprožite pred sodišči te države, kadar veljavna pravila tako
+              določajo.
+            </p>
+          </section>
+
+          <section id="misc">
+            <h2><span class="guide-num">9</span>Druge določbe</h2>
+            <p>
+              Če je posamezna določba teh pogojev neveljavna ali neizvršljiva, ostane preostanek v veljavi, neveljavna
+              določba pa se razume v najbližjem veljavnem pomenu. Če se posamezna določba enkrat ne uveljavi, to ne
+              pomeni odpovedi tej določbi. Skupaj s <a href="../zasebnost/">pravilnikom o zasebnosti</a> ti pogoji
+              predstavljajo celoten dogovor med vami in upravljavcem glede gostovane storitve. Objavljeni so v
+              angleščini in slovenščini; v primeru razhajanja velja angleška različica.
+            </p>
+          </section>
+
+          <section id="contact">
+            <h2><span class="guide-num">10</span>Stik</h2>
+            <p>
+              GED Merge upravlja <strong>Luka Renko</strong>, Slovenija. Za vprašanja o teh pogojih, pravilniku o
+              zasebnosti, napaki ali novi funkciji pišite na
+              <a href="mailto:support@gedmerge.com">support@gedmerge.com</a>. Poštni naslov je na voljo na zahtevo.
+            </p>
+          </section>
+        </article>
+
+        <div class="guide-cta">
+          <p>Glejte še pravilnik o zasebnosti ali odprite aplikacijo.</p>
+          <a href="../zasebnost/">Pravilnik o zasebnosti</a>
+        </div>
+      </main>
+    </div>
+
+    <!-- ── Footer (matches the app) ─────────────────────────────────────────── -->
+    <footer class="app-footer guide-footer">
+      <a href="https://luka.renko.fyi" target="_blank" rel="noopener noreferrer">© 2026 Luka Renko</a>
+      <span class="app-footer-sep">·</span>
+      <a class="app-footer-link" href="../navodila/">Navodila</a>
+      <span class="app-footer-sep">·</span>
+      <a class="app-footer-link" href="../zasebnost/">Zasebnost</a>
+      <span class="app-footer-sep">·</span>
+      <a class="app-footer-link" href="../pogoji/">Pogoji</a>
+      <span class="app-footer-sep">·</span>
+      <a class="app-footer-link" href="mailto:support@gedmerge.com">Stik</a>
+    </footer>
+
+    <script>
+      // Theme toggle for the header button. Shares the app's "gedmerge.theme"
+      // key, so the choice carries over to the app and survives reloads.
+      (function () {
+        var btn = document.getElementById("gm-theme");
+        if (!btn) return;
+        function render() {
+          btn.textContent = document.documentElement.getAttribute("data-theme") === "dark" ? "🌙" : "☀️";
+        }
+        render();
+        btn.addEventListener("click", function () {
+          var next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+          document.documentElement.setAttribute("data-theme", next);
+          try { localStorage.setItem("gedmerge.theme", next); } catch (e) {}
+          render();
+        });
+      })();
+    </script>
+  </body>
+</html>

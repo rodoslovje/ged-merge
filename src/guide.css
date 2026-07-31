@@ -166,6 +166,22 @@
   margin: 0 0 40px;
 }
 
+/* Legal pages: the dateline under the title, and the "in short" box at the top
+   of the article. Both classes come from index.css, which loads before this
+   file — `.guide-header p` / `.guide-body p` would otherwise win on order (and
+   on specificity for the dateline) and render them as ordinary prose. */
+.guide-header p.legal-meta {
+  font-size: 0.8rem;
+  color: var(--faint);
+  margin: 20px 0 0;
+}
+.guide-body .legal-notice p {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--text);
+  line-height: 1.65;
+}
+
 /* ── Article typography ──────────────────────────────────────────────────── */
 /* In-text links — the app's prose-link idiom (.loader-desc a, .report-jump,
    a.report-source): accent, quiet at rest, underlined on hover. Without this

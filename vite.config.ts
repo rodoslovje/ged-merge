@@ -42,7 +42,16 @@ export default defineConfig({
         // Root navigations fall back to the app shell; the standalone guide
         // and changelog pages are precached, so keep them off the fallback.
         navigateFallback: "index.html",
-        navigateFallbackDenylist: [/^\/guide\//, /^\/navodila\//, /^\/changelog\//, /^\/posodobitve\//],
+        navigateFallbackDenylist: [
+          /^\/guide\//,
+          /^\/navodila\//,
+          /^\/changelog\//,
+          /^\/posodobitve\//,
+          /^\/privacy\//,
+          /^\/zasebnost\//,
+          /^\/terms\//,
+          /^\/pogoji\//,
+        ],
       },
       manifest: {
         name: "GED Merge — GEDCOM merge, compare & edit",
@@ -68,8 +77,11 @@ export default defineConfig({
   base: "./",
   build: {
     rollupOptions: {
-      // Multi-page build: the app shell, plus static, crawlable /guide and
-      // /changelog pages (no client-side router exists to serve them otherwise).
+      // Multi-page build: the app shell, plus static, crawlable /guide,
+      // /changelog and legal pages (no client-side router exists to serve them
+      // otherwise). The legal pages are static rather than an in-app modal so
+      // they have a durable, linkable, printable address — and so their text
+      // lives in exactly one place per language.
       input: {
         main: resolve(__dirname, "index.html"),
         guide: resolve(__dirname, "guide/index.html"),
@@ -78,6 +90,11 @@ export default defineConfig({
         changelog: resolve(__dirname, "changelog/index.html"),
         // Slovenian translation of the changelog, on a localized slug for SLO SEO.
         posodobitve: resolve(__dirname, "posodobitve/index.html"),
+        privacy: resolve(__dirname, "privacy/index.html"),
+        // Slovenian legal pages, on localized slugs like the guide/changelog.
+        zasebnost: resolve(__dirname, "zasebnost/index.html"),
+        terms: resolve(__dirname, "terms/index.html"),
+        pogoji: resolve(__dirname, "pogoji/index.html"),
       },
     },
   },

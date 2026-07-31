@@ -28,6 +28,42 @@
     <xhtml:link rel="alternate" hreflang="x-default" href="https://gedmerge.com/guide/" />
   </url>
   <url>
+    <loc>https://gedmerge.com/privacy/</loc>
+    <lastmod>2026-07-31</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.4</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://gedmerge.com/privacy/" />
+    <xhtml:link rel="alternate" hreflang="sl" href="https://gedmerge.com/zasebnost/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://gedmerge.com/privacy/" />
+  </url>
+  <url>
+    <loc>https://gedmerge.com/zasebnost/</loc>
+    <lastmod>2026-07-31</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.4</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://gedmerge.com/privacy/" />
+    <xhtml:link rel="alternate" hreflang="sl" href="https://gedmerge.com/zasebnost/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://gedmerge.com/privacy/" />
+  </url>
+  <url>
+    <loc>https://gedmerge.com/terms/</loc>
+    <lastmod>2026-07-31</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.4</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://gedmerge.com/terms/" />
+    <xhtml:link rel="alternate" hreflang="sl" href="https://gedmerge.com/pogoji/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://gedmerge.com/terms/" />
+  </url>
+  <url>
+    <loc>https://gedmerge.com/pogoji/</loc>
+    <lastmod>2026-07-31</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.4</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://gedmerge.com/terms/" />
+    <xhtml:link rel="alternate" hreflang="sl" href="https://gedmerge.com/pogoji/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://gedmerge.com/terms/" />
+  </url>
+  <url>
     <loc>https://gedmerge.com/changelog/</loc>
     <lastmod>2026-07-10</lastmod>
     <changefreq>weekly</changefreq>
