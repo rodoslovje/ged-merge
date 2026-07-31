@@ -3867,7 +3867,6 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 /* Export dropdown: one menu for every download format (mirrors the
    chart-settings popover placement). */
 .export-menu { position: relative; }
-.export-menu-caret { font-size: 0.7em; }
 .export-menu-popover {
   position: absolute;
   top: 100%;
@@ -8064,11 +8063,9 @@ kbd {
   }
   /* The gear and download glyphs say it all on a phone — drop the "Chart" /
      "Export" lettering so the toolbar fits. The buttons keep their
-     aria-labels and tooltips. The ▾ goes with the lettering: beside a bare
-     icon it shrinks to a stray dot (the gear opens its popover without one). */
+     aria-labels and tooltips. */
   .chart-settings-label,
-  .export-menu-label,
-  .export-menu-caret {
+  .export-menu-label {
     display: none;
   }
   /* The find box takes the next row — its field stretching to whatever is left
