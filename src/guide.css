@@ -332,10 +332,17 @@
 .gm-swatch.link { background: var(--sex-male); }
 .gm-swatch.import { background: var(--status-import); }
 
-/* Blood-lineage kinship colours (see §6) — tokens from heritage-pine.css. */
+/* Blood-lineage kinship colours (see §7) — tokens from heritage-pine.css. */
 .gm-swatch.paternal { background: var(--lineage-paternal); }
 .gm-swatch.maternal { background: var(--lineage-maternal); }
 .gm-swatch.lineage-both { background: var(--accent); }
+
+/* Naming a lineage colour in prose: the word itself carries the colour the app
+   draws that line in, so it needs no swatch beside it. Same tokens as above,
+   so light and dark both follow. */
+.guide-body .gm-lineage.paternal { color: var(--lineage-paternal); }
+.guide-body .gm-lineage.maternal { color: var(--lineage-maternal); }
+.guide-body .gm-lineage.both { color: var(--accent); }
 
 /* Inline copies of the Matches column header icons — same geometry as the app's
    ICON_PROPS (viewBox 0 0 24 24, round 2.5 stroke). Colour is set per column to
