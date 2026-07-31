@@ -46,33 +46,19 @@ async function makePage(theme, overlays) {
 }
 
 async function openCharts(page) {
+  await page.locator(".landing-b").waitFor({ state: "detached" });
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await page.locator(".edit-person").waitFor();
   await page.locator(".charts-open-btn").click();
   await page.locator("svg.tree-svg").waitFor();
-  await page.addStyleTag({ content: ".tree-zoom{display:none!important}" });
 }
 
-/** Fit, then screenshot clipped to the drawn svg content, padded. */
+/** Fit, then screenshot the whole window — controls and header included. */
 async function chartShot(page, file) {
   await page.waitForTimeout(600);
   await page.keyboard.press("f");
   await page.waitForTimeout(600);
-  const PAD = 20;
-  const box = await page.locator(".tree-canvas-wrap").boundingBox();
-  const rect = await page.evaluate(() => {
-    const g = document.querySelector(".tree-canvas-wrap svg g");
-    const r = g.getBoundingClientRect();
-    return { x: r.x, y: r.y, w: r.width, h: r.height };
-  });
-  const x = Math.max(box.x, rect.x - PAD);
-  const y = Math.max(box.y, rect.y - PAD);
-  const clip = {
-    x, y,
-    width: Math.min(box.x + box.width, rect.x + rect.w + PAD) - x,
-    height: Math.min(box.y + box.height, rect.y + rect.h + PAD) - y,
-  };
-  await page.screenshot({ path: file, clip });
+  await page.screenshot({ path: file });
 }
 
 async function openMap(page) {
@@ -92,6 +78,7 @@ for (const theme of ["dark", "light"]) {
     const { ctx, page } = await makePage(theme, true);
     await page.goto(base);
     await page.locator(".lb-sample-row").nth(2).click();
+    await page.locator(".landing-b").waitFor({ state: "detached" });
     await page.getByRole("button", { name: "Edit", exact: true }).click();
     await page.locator(".edit-person").waitFor();
     await page.waitForTimeout(1200);
@@ -99,7 +86,6 @@ for (const theme of ["dark", "light"]) {
 
     await page.locator(".charts-open-btn").click();
     await page.locator("svg.tree-svg").waitFor();
-    await page.addStyleTag({ content: ".tree-zoom{display:none!important}" });
     await chartShot(page, `${outDir}/tree-${theme}.png`);
     await page.getByRole("tab", { name: "Fan" }).click();
     await chartShot(page, `${outDir}/fan-${theme}.png`);
@@ -107,6 +93,7 @@ for (const theme of ["dark", "light"]) {
     // Merge: Europe Royal Families as main, the Tudor file as compare.
     await page.goto(base);
     await page.locator(".lb-sample-row").nth(1).click();
+    await page.locator(".landing-b").waitFor({ state: "detached", timeout: 60000 });
     await page.locator(".edit-person, .candidate, .merge-view, .match-results").first().waitFor({ timeout: 60000 }).catch(() => {});
     await page.getByRole("button", { name: "Merge", exact: true }).click();
     await page.locator("input.file-input").last().setInputFiles(TUDOR);
@@ -121,8 +108,9 @@ for (const theme of ["dark", "light"]) {
   {
     const { ctx, page } = await makePage(theme, false);
     await openMap(page);
-    await page.waitForTimeout(3500); // let base tiles arrive
-    await page.locator(".map-canvas-wrap").screenshot({ path: `${outDir}/map-${theme}.png` });
+    await page.waitForFunction(() => document.querySelectorAll('.map-canvas .leaflet-tile-loaded').length >= 12, null, { timeout: 30000 });
+    await page.waitForTimeout(1200);
+    await page.screenshot({ path: `${outDir}/map-${theme}.png` });
     await ctx.close();
   }
 
@@ -139,7 +127,7 @@ for (const theme of ["dark", "light"]) {
     });
     await page.waitForFunction(() => document.querySelectorAll('.map-canvas .leaflet-tile-loaded').length >= 12, null, { timeout: 30000 });
     await page.waitForTimeout(1200);
-    await page.locator(".map-canvas-wrap").screenshot({ path: `${outDir}/maphist-${theme}.png` });
+    await page.screenshot({ path: `${outDir}/maphist-${theme}.png` });
     await ctx.close();
   }
 }

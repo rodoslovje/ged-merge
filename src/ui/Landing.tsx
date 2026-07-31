@@ -67,16 +67,14 @@ const FEATURES: { key: string; icon: React.ReactNode }[] = [
 ];
 
 /** Screenshot strip: image basename + the app's own label for the caption.
- *  UI shots are PNG (flat color, crisp); map scans are JPEG (photographic).
- *  `single` shots ship one theme-neutral image — the scanned historical map
- *  looks the same in either theme, and the dark capture dims it to mud. */
-const SHOTS: { key: string; caption: string; ext: string; single?: boolean }[] = [
+ *  UI shots are PNG (flat color, crisp); map scans are JPEG (photographic). */
+const SHOTS: { key: string; caption: string; ext: string }[] = [
   { key: "edit",    caption: "mode.edit",                ext: "png" },
   { key: "merge",   caption: "mode.merge",               ext: "png" },
   { key: "tree",    caption: "tree.settings.type.tree",  ext: "png" },
   { key: "fan",     caption: "tree.settings.type.fan",   ext: "png" },
   { key: "map",     caption: "map.button",               ext: "jpg" },
-  { key: "maphist", caption: "landing.shots.maphist",    ext: "jpg", single: true },
+  { key: "maphist", caption: "landing.shots.maphist",    ext: "jpg" },
 ];
 
 const TreeIcon = () => (
@@ -99,8 +97,8 @@ export function Landing({ mainState, onLoadFile, onLoadSample, onStartNew }: Pro
   function openShot(index: number) {
     const theme = document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
     openItems(
-      SHOTS.map(({ key, caption, ext, single }) => ({
-        url: `landing/${key}${single ? "" : `-${theme}`}.${ext}`,
+      SHOTS.map(({ key, caption, ext }) => ({
+        url: `landing/${key}-${theme}.${ext}`,
         title: t(caption),
       })),
       index,
@@ -300,17 +298,20 @@ export function Landing({ mainState, onLoadFile, onLoadSample, onStartNew }: Pro
             theme; CSS shows the one matching data-theme. */}
         <p className="lb-list-h lb-shots-h">{t("landing.shots.header")}</p>
         <div className="lb-shots">
-          {SHOTS.map(({ key, caption, ext, single }, i) => (
+          {SHOTS.map(({ key, caption, ext }, i) => (
             <figure key={key} className="lb-shot">
-              <button type="button" className="lb-shot-btn" onClick={() => openShot(i)} title={t(caption)}>
-                {single ? (
-                  <img src={`landing/${key}.${ext}`} alt={t(caption)} loading="lazy" />
-                ) : (
-                  <>
-                    <img className="lb-shot-dark" src={`landing/${key}-dark.${ext}`} alt={t(caption)} loading="lazy" />
-                    <img className="lb-shot-light" src={`landing/${key}-light.${ext}`} alt={t(caption)} loading="lazy" />
-                  </>
-                )}
+              {/* aria-label keeps this button's accessible name distinct from
+                  the app's mode buttons ("Edit", "Merge") — same-named buttons
+                  break assistive tech and role-based test selectors. */}
+              <button
+                type="button"
+                className="lb-shot-btn"
+                onClick={() => openShot(i)}
+                title={t(caption)}
+                aria-label={`${t(caption)} — ${t("landing.shots.header")}`}
+              >
+                <img className="lb-shot-dark" src={`landing/${key}-dark.${ext}`} alt={t(caption)} loading="lazy" />
+                <img className="lb-shot-light" src={`landing/${key}-light.${ext}`} alt={t(caption)} loading="lazy" />
               </button>
               <figcaption>{t(caption)}</figcaption>
             </figure>
