@@ -1792,8 +1792,9 @@ export const sl = {
   "landing.feat.merge.title": "Združevanje, ki mu lahko zaupate",
   "landing.feat.merge.body": "Ocenjeni kandidati izpostavijo isto osebo v obeh datotekah; primerjate ju vzporedno in vsako spremembo potrdite sami. Vhodni zapisi se preoblikujejo v slog vaše datoteke — preostanek drevesa ostane nedotaknjen.",
   "landing.shots.header": "Neposredno iz aplikacije",
+  "landing.shots.maphist": "Zgodovinski zemljevid",
   "landing.feat.explore.title": "Diagrami, zemljevidi in poročila",
-  "landing.feat.explore.body": "Diagrami prednikov, pahljača in časovnica, družinski zemljevidi z zgodovinskimi sloji, tiskanje na liste, seznami prednikov in pripovedna poročila — ter pregled datoteke, iskanje dvojnikov in urejanje virov.",
+  "landing.feat.explore.body": "Diagrami prednikov, pahljača in časovnica ter družinski zemljevidi z zgodovinskimi sloji — vgrajeno geokodiranje umesti vaše kraje do hišne številke. Poleg tega tiskanje na liste, seznami prednikov in pripovedna poročila, pregled datoteke, iskanje dvojnikov in urejanje virov.",
 
   "footer.changelog": "Novosti v tej različici",
   "footer.privacy": "Zasebnost",

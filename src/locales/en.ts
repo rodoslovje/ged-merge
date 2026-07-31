@@ -1572,8 +1572,9 @@ export const en = {
   "landing.feat.merge.title": "Merge other trees with confidence",
   "landing.feat.merge.body": "Scored candidates surface the same person in both files; you compare them side by side and confirm every change. Incoming records are reshaped to your file's style — the rest of your tree stays untouched.",
   "landing.shots.header": "Straight from the app",
+  "landing.shots.maphist": "Historical map",
   "landing.feat.explore.title": "See, print & prove",
-  "landing.feat.explore.body": "Ancestor, fan and timeline charts, family maps on historical layers, printable sheets, Ahnentafel and narrative reports — plus health checks, duplicate finding and source cleanup.",
+  "landing.feat.explore.body": "Ancestor, fan and timeline charts, and family maps on historical layers — built-in geocoding pins your places, down to the house number. Plus printable sheets, Ahnentafel and narrative reports, health checks, duplicate finding and source cleanup.",
 
   "footer.changelog": "What's new in this version",
   "footer.privacy": "Privacy",

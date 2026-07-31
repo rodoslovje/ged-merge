@@ -65,8 +65,18 @@ const FEATURES: { key: string; icon: React.ReactNode }[] = [
   },
 ];
 
-/** Chart kinds shown in the screenshot strip; captions reuse the chart-type labels. */
-const SHOTS = ["tree", "fan", "circle"] as const;
+/** Screenshot strip: image basename + the app's own label for the caption.
+ *  UI shots are PNG (flat color, crisp); map scans are JPEG (photographic).
+ *  `single` shots ship one theme-neutral image — the scanned historical map
+ *  looks the same in either theme, and the dark capture dims it to mud. */
+const SHOTS: { key: string; caption: string; ext: string; single?: boolean }[] = [
+  { key: "edit",    caption: "mode.edit",                ext: "png" },
+  { key: "merge",   caption: "mode.merge",               ext: "png" },
+  { key: "tree",    caption: "tree.settings.type.tree",  ext: "png" },
+  { key: "fan",     caption: "tree.settings.type.fan",   ext: "png" },
+  { key: "map",     caption: "map.button",               ext: "jpg" },
+  { key: "maphist", caption: "landing.shots.maphist",    ext: "jpg", single: true },
+];
 
 const TreeIcon = () => (
   <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -275,11 +285,17 @@ export function Landing({ mainState, onLoadFile, onLoadSample, onStartNew }: Pro
             theme; CSS shows the one matching data-theme. */}
         <p className="lb-list-h lb-shots-h">{t("landing.shots.header")}</p>
         <div className="lb-shots">
-          {SHOTS.map((s) => (
-            <figure key={s} className="lb-shot">
-              <img className="lb-shot-dark" src={`landing/${s}-dark.png`} alt={t(`tree.settings.type.${s}`)} loading="lazy" />
-              <img className="lb-shot-light" src={`landing/${s}-light.png`} alt={t(`tree.settings.type.${s}`)} loading="lazy" />
-              <figcaption>{t(`tree.settings.type.${s}`)}</figcaption>
+          {SHOTS.map(({ key, caption, ext, single }) => (
+            <figure key={key} className="lb-shot">
+              {single ? (
+                <img src={`landing/${key}.${ext}`} alt={t(caption)} loading="lazy" />
+              ) : (
+                <>
+                  <img className="lb-shot-dark" src={`landing/${key}-dark.${ext}`} alt={t(caption)} loading="lazy" />
+                  <img className="lb-shot-light" src={`landing/${key}-light.${ext}`} alt={t(caption)} loading="lazy" />
+                </>
+              )}
+              <figcaption>{t(caption)}</figcaption>
             </figure>
           ))}
         </div>
