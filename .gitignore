@@ -13,3 +13,6 @@ node_modules/.tmp
 /blob-report
 /coverage
 public/tiles-local/
+
+# Cached source catalogue for scripts/spezialkarte-sheets.py
+scripts/manifests/.kuk075-catalogue.html
