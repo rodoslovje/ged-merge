@@ -160,9 +160,7 @@
             <li class="guide-toc-sub"><a href="#normalize">↳ Poenoti</a></li>
             <li class="guide-toc-sub"><a href="#tool-privacy">↳ Zasebnost</a></li>
             <li class="guide-toc-sub"><a href="#tool-sources">↳ Viri</a></li>
-            <li class="guide-toc-sub"><a href="#organize">↳ Uredi vire</a></li>
             <li class="guide-toc-sub"><a href="#places">↳ Kraji</a></li>
-            <li class="guide-toc-sub"><a href="#geocode">↳ Geokodiranje krajev</a></li>
 
             <li class="guide-toc-part">IV · Skupne funkcije</li>
             <li><a href="#charts">11. Diagrami, zemljevidi in poročila</a></li>
@@ -441,7 +439,7 @@
               Osebno ime, priimek, spol in vzdevek urejate neposredno — kliknite polje, vpišite, kliknite drugam za
               shranitev. Ikona <span class="gm-glyph">×</span> počisti polje. <strong>+ Dodaj ime</strong> pripne
               alternativne različice imena (poročni priimek, ime ob rojstvu, znan kot, uradno ime in več), vsaka s svojim
-              osebnim imenom, priimkom in vrsto; ikona <span class="gm-glyph">−</span> odstrani različico.
+              osebnim imenom, priimkom in vrsto; ikona <span class="gm-glyph">×</span> odstrani različico.
             </p>
             <h3>Dogodki</h3>
             <div>
@@ -524,9 +522,9 @@
             <div>
               Plošča prikazuje tri družinske razdelke:
               <ul>
-                <li><strong>Starši</strong> — <strong>+ Dodaj očeta</strong> / <strong>+ Dodaj mater</strong> poiščeta obstoječo osebo ali dodata novo. Ikona <span class="gm-glyph">−</span> odklopi vlogo, ne da bi izbrisala zapis.</li>
-                <li><strong>Partnerji</strong> — <strong>+ Dodaj partnerja</strong> ustvari zakonsko družino. Vsaka prikazuje poroko, prek <strong>+ Dodaj družinski dogodek</strong> pa doda zaroko, ločeno življenje, ločitev, <em>status</em> zveze in dogodek po meri. Rdeči <span class="gm-glyph">−</span> na kartici partnerja napačno pripetega zakonca loči le od te poroke — odstrani samo to poročno vez, obe osebi in vse njune druge povezave (starše, druge poroke, otroke) pa pusti nedotaknjene. Družine nosijo tudi lastne opombe in povezave.</li>
-                <li><strong>Otroci</strong> — navedeni pod vsako zakonsko družino. <strong>+ Dodaj otroka</strong> doda obstoječo ali novo osebo; <span class="gm-glyph">−</span> odklopi otroka brez brisanja.</li>
+                <li><strong>Starši</strong> — <strong>+ Dodaj očeta</strong> / <strong>+ Dodaj mater</strong> poiščeta obstoječo osebo ali dodata novo. Ikona <span class="gm-glyph danger">−</span> odklopi vlogo, ne da bi izbrisala zapis.</li>
+                <li><strong>Partnerji</strong> — <strong>+ Dodaj partnerja</strong> ustvari zakonsko družino. Vsaka prikazuje poroko, prek <strong>+ Dodaj družinski dogodek</strong> pa doda zaroko, ločeno življenje, ločitev, <em>status</em> zveze in dogodek po meri. <span class="gm-glyph danger">−</span> na kartici partnerja napačno pripetega zakonca loči le od te poroke — odstrani samo to poročno vez, obe osebi in vse njune druge povezave (starše, druge poroke, otroke) pa pusti nedotaknjene. Družine nosijo tudi lastne opombe in povezave.</li>
+                <li><strong>Otroci</strong> — navedeni pod vsako zakonsko družino. <strong>+ Dodaj otroka</strong> doda obstoječo ali novo osebo; <span class="gm-glyph danger">−</span> odklopi otroka brez brisanja.</li>
               </ul>
               <p><strong>Istospolni pari.</strong> Pri istospolnem paru sta obe kartici staršev označeni <strong>Starš</strong> namesto <em>Oče</em> ali <em>Mati</em>. Zabeležite ga tako, da partnerja ali starša dodate kot običajno in novi osebi nastavite spol. V ozadju GED Merge ohrani standardno postavitev GEDCOM (po enega partnerja v vsaki zakonski vlogi), tako da datoteka ostane združljiva z drugo rodoslovno programsko opremo.</p>
             </div>
@@ -556,7 +554,7 @@
             </p>
             <h3>Odklop proti brisanju</h3>
             <p>
-              <strong>Odklop</strong> (ikona <span class="gm-glyph">−</span>) odstrani le družinsko vez — oba zapisa oseb
+              <strong>Odklop</strong> (ikona <span class="gm-glyph danger">−</span>) odstrani le družinsko vez — oba zapisa oseb
               ostaneta in ju je mogoče pozneje znova povezati. <strong>Izbriši osebo</strong> (ikona
               <span class="gm-glyph danger">🗑</span> na dnu plošče) osebo odstrani in jo odklopi povsod. Najprej zahteva
               potrditev, a se — kot vsako urejanje — pridruži zgodovini razveljavitev:
@@ -1527,7 +1525,7 @@
               <tbody>
                 <tr><td><span class="gm-glyph">+</span></td><td>Dodaj — ime, dogodek, osebo, opombo, vir, fotografijo ali družinsko vez</td></tr>
                 <tr><td><span class="gm-glyph">×</span></td><td>Počisti polje, odstrani opombo ali povezavo ali zapri okno</td></tr>
-                <tr><td><span class="gm-glyph">−</span></td><td>Odklopi družinsko vlogo (starš, partner, otrok) brez brisanja zapisa</td></tr>
+                <tr><td><span class="gm-glyph danger">−</span></td><td>Odklopi družinsko vlogo (starš, partner, otrok) brez brisanja zapisa</td></tr>
                 <tr><td><span class="gm-glyph">↗</span></td><td>Odpri pripeto povezavo v novem zavihku</td></tr>
                 <tr><td><span class="gm-glyph">✎</span></td><td>Uredi — zamenjaj konec sorodstvene poti, uredi vir ali preimenuj vrednost kraja</td></tr>
                 <tr><td><span class="gm-glyph">🔒</span></td><td>Ključavnica zasebnosti — označi osebo, družino, opombo ali medij kot zasebno (glejte <a href="#privacy">§18</a>)</td></tr>

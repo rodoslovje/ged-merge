@@ -160,9 +160,7 @@
             <li class="guide-toc-sub"><a href="#normalize">↳ Normalize</a></li>
             <li class="guide-toc-sub"><a href="#tool-privacy">↳ Privacy</a></li>
             <li class="guide-toc-sub"><a href="#tool-sources">↳ Sources</a></li>
-            <li class="guide-toc-sub"><a href="#organize">↳ Organize sources</a></li>
             <li class="guide-toc-sub"><a href="#places">↳ Places</a></li>
-            <li class="guide-toc-sub"><a href="#geocode">↳ Geocode places</a></li>
 
             <li class="guide-toc-part">IV · Shared Features</li>
             <li><a href="#charts">11. Charts, maps &amp; reports</a></li>
@@ -437,7 +435,7 @@
               Given name, surname, sex and nickname edit inline — click a field, type, click away to save. The
               <span class="gm-glyph">×</span> glyph clears a field. <strong>+ Add Name</strong> attaches alternative
               name variants (married name, name at birth, aka, formal and more), each with its own given name, surname
-              and type; the <span class="gm-glyph">−</span> glyph removes a variant.
+              and type; the <span class="gm-glyph">×</span> glyph removes a variant.
             </p>
             <h3>Events</h3>
             <div>
@@ -521,9 +519,9 @@
             <div>
               The panel shows three family sections:
               <ul>
-                <li><strong>Parents</strong> — <strong>+ Add Father</strong> / <strong>+ Add Mother</strong> search for an existing person or add a new one. The <span class="gm-glyph">−</span> glyph detaches the role without deleting the record.</li>
-                <li><strong>Partners</strong> — <strong>+ Add Partner</strong> creates a spouse family. Each shows the marriage event and adds Engagement, Separation, Divorce, a partnership <em>Status</em> and a custom event via <strong>+ Add Family Event</strong>. The red <span class="gm-glyph">−</span> on the partner's card splits a wrongly-attached spouse from just this marriage — it removes only this spousal bond, leaving both people and all their other relationships (parents, other marriages, children) untouched. Families carry their own notes and links too.</li>
-                <li><strong>Children</strong> — listed under each spouse family. <strong>+ Add Child</strong> adds an existing or new person; <span class="gm-glyph">−</span> unlinks a child without deleting them.</li>
+                <li><strong>Parents</strong> — <strong>+ Add Father</strong> / <strong>+ Add Mother</strong> search for an existing person or add a new one. The <span class="gm-glyph danger">−</span> glyph detaches the role without deleting the record.</li>
+                <li><strong>Partners</strong> — <strong>+ Add Partner</strong> creates a spouse family. Each shows the marriage event and adds Engagement, Separation, Divorce, a partnership <em>Status</em> and a custom event via <strong>+ Add Family Event</strong>. The <span class="gm-glyph danger">−</span> on the partner's card splits a wrongly-attached spouse from just this marriage — it removes only this spousal bond, leaving both people and all their other relationships (parents, other marriages, children) untouched. Families carry their own notes and links too.</li>
+                <li><strong>Children</strong> — listed under each spouse family. <strong>+ Add Child</strong> adds an existing or new person; <span class="gm-glyph danger">−</span> unlinks a child without deleting them.</li>
               </ul>
               <p><strong>Same-sex couples.</strong> A same-sex couple's two parent cards are labelled <strong>Parent</strong> rather than <em>Father</em>/<em>Mother</em>. To record one, add a partner or parent as usual and set the new person's sex. Behind the scenes GED Merge keeps the standard GEDCOM layout (one partner in each spouse role), so the file stays compatible with other genealogy software.</p>
             </div>
@@ -552,7 +550,7 @@
             </p>
             <h3>Detach vs delete</h3>
             <p>
-              <strong>Detach</strong> (the <span class="gm-glyph">−</span> glyph) only removes a family connection — both
+              <strong>Detach</strong> (the <span class="gm-glyph danger">−</span> glyph) only removes a family connection — both
               individual records survive and can be re-linked later. <strong>Delete Person</strong> (the
               <span class="gm-glyph danger">🗑</span> at the foot of the panel) removes the individual and unlinks them
               everywhere. It asks for confirmation first, but — like every edit — it joins the undo history:
@@ -1509,7 +1507,7 @@
               <tbody>
                 <tr><td><span class="gm-glyph">+</span></td><td>Add — a name, event, person, note, source, photo, or family link</td></tr>
                 <tr><td><span class="gm-glyph">×</span></td><td>Clear a field, remove a note or link, or close a dialog</td></tr>
-                <tr><td><span class="gm-glyph">−</span></td><td>Detach a family role (parent, partner, child) without deleting the record</td></tr>
+                <tr><td><span class="gm-glyph danger">−</span></td><td>Detach a family role (parent, partner, child) without deleting the record</td></tr>
                 <tr><td><span class="gm-glyph">↗</span></td><td>Open an attached link in a new tab</td></tr>
                 <tr><td><span class="gm-glyph">✎</span></td><td>Edit — swap a relationship endpoint, edit a source, or rename a place value</td></tr>
                 <tr><td><span class="gm-glyph">🔒</span></td><td>Privacy lock — mark a person, family, note or media item private (see <a href="#privacy">§18</a>)</td></tr>
