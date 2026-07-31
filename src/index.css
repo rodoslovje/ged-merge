@@ -7317,10 +7317,13 @@ kbd {
 .tools-usage-amp { color: var(--muted); margin: 0 6px; }
 .tools-usage-age { color: var(--muted); }
 .tools-usage-block { padding-left: 26px; }
+/* One width for every score, so the names beside them line up down the list
+   instead of stepping right whenever a row scores 100. Wide enough for three
+   digits at this size; the padding is trimmed to pay for it. */
 .tools-cat {
-  min-width: 32px; text-align: center;
+  min-width: 40px; text-align: center; font-variant-numeric: tabular-nums;
   font-weight: 700; font-size: 0.78rem;
-  border-radius: 5px; padding: 2px 6px;
+  border-radius: 5px; padding: 2px 3px;
   background: var(--panel-2); color: var(--muted);
 }
 .tools-cat.cat-strong { background: color-mix(in oklch, var(--state-match) 14%, transparent); color: var(--state-match); }
@@ -8090,9 +8093,13 @@ kbd {
   .tools-pairs .person-ref .person-years {
     flex: none;
   }
-  /* Line 2 lines up under the names rather than under the expander. */
+  /* Line 2 lines up under line 1: the ↔ takes the expander's indent and then
+     the score badge's own width, so the second name starts exactly under the
+     first instead of 17px to its left. */
   .tools-pair-break + .tools-pair-sep {
     margin-left: 28px;
+    min-width: 40px;
+    text-align: center;
   }
 
   /* --- Search everyone --- */
