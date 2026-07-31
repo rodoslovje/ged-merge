@@ -306,6 +306,9 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
       attributionControl: false,
     });
     L.control.attribution({ position: "bottomright", prefix: false }).addTo(map);
+    // Automation hook: lets capture/e2e scripts set a precise view (the UI
+    // offers no way to type a center/zoom).
+    (el as HTMLDivElement & { _leafletMap?: L.Map })._leafletMap = map;
     map.setView([46.1, 14.5], 5);
     // Paths render below the cluster markers, on a canvas with a click
     // tolerance so thin lines are still selectable.

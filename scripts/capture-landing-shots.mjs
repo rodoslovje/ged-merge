@@ -126,20 +126,19 @@ for (const theme of ["dark", "light"]) {
     await ctx.close();
   }
 
-  // Historical-overlay shot: same view on the Spezialkarte, zoomed in one
-  // step past the fit so the engraving reads, nudged toward the path center.
+  // Historical-overlay shot: town-level detail — Ljubljana at the overlay's
+  // native max zoom, with the fixture's two in-town locations (Trnovo birth,
+  // centre death) over the engraved street grid. Uses the map's automation
+  // hook for a precise view.
   {
     const { ctx, page } = await makePage(theme, true);
     await openMap(page);
-    await page.locator(".map-canvas .leaflet-control-zoom-in").click();
-    await page.waitForTimeout(800);
-    const box = await page.locator(".map-canvas").boundingBox();
-    const cx = box.x + box.width / 2, cy = box.y + box.height / 2;
-    await page.mouse.move(cx, cy);
-    await page.mouse.down();
-    await page.mouse.move(cx + 60, cy + 35, { steps: 8 });
-    await page.mouse.up();
-    await page.waitForTimeout(4500); // let base + overlay tiles arrive
+    await page.evaluate(() => {
+      const el = document.querySelector(".map-canvas");
+      el._leafletMap.setView([46.0485, 14.504], 14, { animate: false });
+    });
+    await page.waitForFunction(() => document.querySelectorAll('.map-canvas .leaflet-tile-loaded').length >= 12, null, { timeout: 30000 });
+    await page.waitForTimeout(1200);
     await page.locator(".map-canvas-wrap").screenshot({ path: `${outDir}/maphist-${theme}.png` });
     await ctx.close();
   }
