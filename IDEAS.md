@@ -107,6 +107,39 @@ platform API with OAuth2 solves both, and unlocks person-level linking.
   compare slot for a field-by-field merge like a compare file, and write the
   FSID back onto matched persons that lack one.
 
+### Research finds from register browsing (candidate persons)
+
+Agreed direction 2026-07-31, replacing the user's external Excel table. The
+workflow: while sequentially browsing matične knjige on Matricula, capture a
+person who *might* be a relative — with a link — for later resolution, then
+review the finds as a filterable/sortable table and eventually connect or
+discard them.
+
+- **Storage: unlinked `INDI` + `_CAND` marker.** Investigated 2026-07-31:
+  standard GEDCOM (5.5.1 and 7.0) has *no* research-log or provisional-record
+  provision, and the GEDCOM 7 extension registry has nothing in that space;
+  the only vendor precedent is Legacy's `_TODO` task records, which no other
+  program reads. Unlinked persons, however, are fully legal — so each find is
+  a real `INDI` connected to nobody, flagged `1 _CAND` (with a capture
+  `DATE`). Every Excel column maps to a standard structure: ime/priimek →
+  `NAME`; vrsta dogodka (RMK/PMK/MMK) → `BIRT`/`MARR`/`DEAT` with `DATE`;
+  knjiga + št. zapisa na strani → citation `PAGE`; Matricula link → the
+  source's URL; opomba → `NOTE`. Finds travel with the file and round-trip
+  losslessly; other software just sees ordinary unconnected persons.
+- **Quick capture**: paste the Matricula link and prefill register title/page
+  the way Organize sources' "Fetch details" already does; small form for
+  name, date, note. Creation path reuses "Add person, unattached".
+- **Finds table**: a dedicated view over `_CAND` records — name, event type,
+  date, register/page, link, note — sortable and filterable by date/type;
+  per-row open-link.
+- **Connect to the tree**: candidates live in the main file, so the
+  within-file duplicate finder / matching engine proposes candidate ↔
+  existing-person pairs for free. Confirm = drop the marker and attach via
+  existing family editing; reject = delete the record.
+- **Open points**: health check must exempt `_CAND` records from
+  unconnected-person-style warnings; SaveDialog option to strip candidates on
+  export; add `_CAND` to the vendor-tag registry.
+
 ### Sources
 - **Show source images in the Add/edit source dialog** — some sources carry a
   photo/image (OBJE); display it (at least a thumbnail) when adding/editing a
@@ -122,6 +155,8 @@ platform API with OAuth2 solves both, and unlocks person-level linking.
 - **Report generation depth** — a max-generations setting for the Ahnentafel /
   descendant register (both currently walk the whole tree).
 - **Research to-do / log** — per-person open questions, flags, research notes.
+  *(The register-browsing capture half of this is now specced — see
+  [Research finds from register browsing](#research-finds-from-register-browsing-candidate-persons).)*
 - **Map view** — plot birth/death/marriage places (geocoded) and migration
   paths. Designed — see [MAPVIEW.md](MAPVIEW.md) for the agreed phased plan.
 
