@@ -786,6 +786,15 @@ button:focus-visible {
   margin-top: 8px;
 }
 
+.lb-free {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.08em;
+  text-align: center;
+  color: var(--muted);
+  margin: 10px 0 0;
+}
+
 .lb-error {
   margin-top: 10px;
   font-size: 0.88rem;

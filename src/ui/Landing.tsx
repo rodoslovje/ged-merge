@@ -23,33 +23,11 @@ const SAMPLES: { key: string; file: string }[] = [
 
 const FEATURES: { key: string; icon: React.ReactNode }[] = [
   {
-    key: "intact",
+    key: "private",
     icon: (
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M12 3l7 2.6v5.1c0 4.4-3 7.4-7 8.9-4-1.5-7-4.5-7-8.9V5.6z" />
         <polyline points="9 12 11.3 14.3 15.5 9.6" />
-      </svg>
-    ),
-  },
-  {
-    key: "score",
-    icon: (
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <circle cx="12" cy="12" r="8" />
-        <circle cx="12" cy="12" r="3.4" />
-        <line x1="12" y1="1.6" x2="12" y2="4.2" />
-        <line x1="12" y1="19.8" x2="12" y2="22.4" />
-      </svg>
-    ),
-  },
-  {
-    key: "compare",
-    icon: (
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <circle cx="6.5" cy="5" r="2.2" />
-        <circle cx="17.5" cy="5" r="2.2" />
-        <circle cx="12" cy="19" r="2.2" />
-        <path d="M6.5 7.2v3.3a2 2 0 0 0 2 2H12M17.5 7.2v3.3a2 2 0 0 1-2 2H12M12 12.5v4.3" />
       </svg>
     ),
   },
@@ -63,32 +41,25 @@ const FEATURES: { key: string; icon: React.ReactNode }[] = [
     ),
   },
   {
-    key: "dates",
+    key: "merge",
     icon: (
       <svg viewBox="0 0 24 24" aria-hidden="true">
-        <line x1="4" y1="7" x2="20" y2="7" />
-        <line x1="4" y1="12" x2="14" y2="12" />
-        <line x1="4" y1="17" x2="18" y2="17" />
+        <circle cx="6.5" cy="5" r="2.2" />
+        <circle cx="17.5" cy="5" r="2.2" />
+        <circle cx="12" cy="19" r="2.2" />
+        <path d="M6.5 7.2v3.3a2 2 0 0 0 2 2H12M17.5 7.2v3.3a2 2 0 0 1-2 2H12M12 12.5v4.3" />
       </svg>
     ),
   },
   {
-    key: "export",
+    key: "explore",
     icon: (
       <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
-        <polyline points="14 3 14 8 19 8" />
-        <polyline points="8.6 14.5 10.8 16.7 15 12" />
-      </svg>
-    ),
-  },
-  {
-    key: "local",
-    icon: (
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <rect x="3" y="4" width="18" height="13" rx="1.6" />
-        <line x1="8.5" y1="20.5" x2="15.5" y2="20.5" />
-        <line x1="12" y1="17" x2="12" y2="20.5" />
+        <path d="M3 20a9 9 0 0 1 18 0" />
+        <path d="M7.2 20a4.8 4.8 0 0 1 9.6 0" />
+        <line x1="12" y1="20" x2="12" y2="11" />
+        <line x1="8.2" y1="12" x2="5.6" y2="13.6" />
+        <line x1="15.8" y1="12" x2="18.4" y2="13.6" />
       </svg>
     ),
   },
@@ -146,7 +117,7 @@ export function Landing({ mainState, onLoadFile, onLoadSample, onStartNew }: Pro
         <p className="lb-eyebrow">{t("landing.eyebrow")}</p>
         <h1 className="lb-h1">
           <Trans i18nKey="landing.h1">
-            Edit, compare &amp; merge GEDCOM — <em>100% in your browser</em>.
+            Edit, explore &amp; merge your family tree — <em>nothing ever leaves your browser</em>.
           </Trans>
         </h1>
         <p className="lb-sub">{t("landing.sub")}</p>
@@ -201,13 +172,46 @@ export function Landing({ mainState, onLoadFile, onLoadSample, onStartNew }: Pro
           </div>
         )}
 
+        <p className="lb-free">{t("landing.free")}</p>
+
         {mainState.status === "error" && (
           <p className="lb-error error">
             {t("loader.error", { fileName: mainState.fileName, message: mainState.message })}
           </p>
         )}
 
-        {/* Sample tray — kept mounted while loading (disabled) so the layout doesn't shift */}
+        {/* Nothing to import: begin from an empty file and add the first person
+            by hand. Sits above the samples — it is the product, the samples are
+            a demo. Same tray shape; kept mounted while loading (disabled) so
+            the layout doesn't shift. */}
+        {(mainState.status === "empty" || loading) && (
+          <div className={`lb-samples${loading ? " disabled" : ""}`} aria-hidden={loading || undefined}>
+            <p className="lb-samples-h">
+              <AddPersonIcon size={14} />
+              {t("landing.startNew.header")}
+            </p>
+            <div className="lb-sample-rows">
+              <button
+                className="lb-sample-row"
+                onClick={onStartNew}
+                type="button"
+                disabled={loading}
+                tabIndex={loading ? -1 : undefined}
+              >
+                <span className="lb-s-ico">
+                  <AddPersonIcon />
+                </span>
+                <span className="lb-s-main">
+                  <span className="lb-s-name">{t("landing.startNew.name")}</span>
+                  <span className="lb-s-meta">{t("landing.startNew.meta")}</span>
+                </span>
+                <span className="lb-s-load">{t("landing.startNew.load")}</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Sample tray */}
         {(mainState.status === "empty" || loading) && (
           <div className={`lb-samples${loading ? " disabled" : ""}`} aria-hidden={loading || undefined}>
             <p className="lb-samples-h">
@@ -249,39 +253,9 @@ export function Landing({ mainState, onLoadFile, onLoadSample, onStartNew }: Pro
             </div>
           </div>
         )}
-
-        {/* Nothing to import: begin from an empty file and add the first person
-            by hand. Same tray shape as the samples above — it is the other way
-            to arrive at a tree without a file of your own. */}
-        {(mainState.status === "empty" || loading) && (
-          <div className={`lb-samples${loading ? " disabled" : ""}`} aria-hidden={loading || undefined}>
-            <p className="lb-samples-h">
-              <AddPersonIcon size={14} />
-              {t("landing.startNew.header")}
-            </p>
-            <div className="lb-sample-rows">
-              <button
-                className="lb-sample-row"
-                onClick={onStartNew}
-                type="button"
-                disabled={loading}
-                tabIndex={loading ? -1 : undefined}
-              >
-                <span className="lb-s-ico">
-                  <AddPersonIcon />
-                </span>
-                <span className="lb-s-main">
-                  <span className="lb-s-name">{t("landing.startNew.name")}</span>
-                  <span className="lb-s-meta">{t("landing.startNew.meta")}</span>
-                </span>
-                <span className="lb-s-load">{t("landing.startNew.load")}</span>
-              </button>
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* Right: What GED Merge does */}
+      {/* Right: feature pillars */}
       <div className="lb-list">
         <p className="lb-list-h">{t("landing.list.header")}</p>
         {FEATURES.map(({ key, icon }, i) => (
