@@ -85,9 +85,19 @@ they track the measurements across the whole series, where the Austrian set
 The shift is applied to the *grid*, so every sheet moves by the same rule and
 neighbours cannot be pulled out of register with each other.
 
-What is left is roughly 100 m (Ljubljana measured +292 m before, −80 m after),
-which is the survey's own error and stays visible — same principle as the
-Schraembl map below: no rubber-sheeting.
+Measured again after the rebuild, east offset before → after:
+
+| | Kranj | Ljubljana | Koper | Zagreb | Vienna | Prague | Budapest | Kraków | Lviv |
+|---|---|---|---|---|---|---|---|---|---|
+| before | +264 | +292 | +174 | +266 | +280 | +172 | +439 | +442 | +431 |
+| after | −106 | −80 | −161 | −107 | −102 | −172 | +26 | +294 | +74 |
+
+Mean |error| 307 m → 125 m, and no region ends up worse than it began (Prague
+keeps its magnitude and changes sign; Kraków stays under-corrected). What is
+left is the survey's own error and stays visible — same principle as the
+Schraembl map below: no rubber-sheeting. It is also near the floor of the
+measurement itself: these come from correlating the scans against modern
+rivers, railways and main roads, which agree to about a hundred metres at best.
 
 ### Why the neatline needs a prior
 
