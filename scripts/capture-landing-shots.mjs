@@ -101,7 +101,12 @@ for (const [theme, phone] of [["dark", false], ["light", false], ["dark", true],
 
     await page.locator(".charts-open-btn").click();
     await page.locator("svg.tree-svg").waitFor();
-    await chartShot(page, `${outDir}/tree-${theme}${m}.png`);
+    if (phone) {
+      await page.waitForTimeout(800);
+      await page.screenshot({ path: `${outDir}/tree-${theme}${m}.png` });
+    } else {
+      await chartShot(page, `${outDir}/tree-${theme}${m}.png`);
+    }
     await pickKind(page, phone, "Fan");
     // The fan's layout reserves its empty lower half, so plain fit leaves it
     // small — zoom (with the app's own stepper) until the drawn content nearly
@@ -109,11 +114,12 @@ for (const [theme, phone] of [["dark", false], ["light", false], ["dark", true],
     await page.waitForTimeout(600);
     await page.keyboard.press("f");
     await page.waitForTimeout(600);
-    const factor = await page.evaluate(() => {
+    const factor = await page.evaluate((ph) => {
       const canvas = document.querySelector(".tree-canvas");
       const r = canvas.querySelector("svg g").getBoundingClientRect();
-      return Math.min(0.94 * canvas.clientWidth / r.width, 0.92 * canvas.clientHeight / r.height);
-    });
+      const byHeight = 0.9 * canvas.clientHeight / r.height;
+      return ph ? byHeight : Math.min(0.94 * canvas.clientWidth / r.width, byHeight);
+    }, phone);
     const steps = Math.round(Math.log(factor) / Math.log(1.25));
     for (let i = 0; i < Math.abs(steps); i++) {
       await page.locator(steps > 0 ? ".tree-zoom-btn:has-text('+')" : ".tree-zoom-btn:has-text('−')").first().click();
@@ -140,7 +146,17 @@ for (const [theme, phone] of [["dark", false], ["light", false], ["dark", true],
     await page.locator(".candidate").first().waitFor({ timeout: 90000 });
     await page.locator(".candidate").first().click();
     await page.waitForTimeout(1500);
-    await page.evaluate(() => window.scrollTo(0, 0));
+    // Desktop shows list + compare side by side from the top; the phone page
+    // is one long scroll, so bring the compare dialog itself into frame,
+    // clearing the sticky header.
+    await page.evaluate((ph) => {
+      if (!ph) { window.scrollTo(0, 0); return; }
+      const panel = document.querySelector(".section-head.compare-head") ?? document.querySelector(".compare-panel");
+      const head = document.querySelector(".app-head");
+      const inset = head ? head.getBoundingClientRect().height + 8 : 0;
+      window.scrollTo(0, panel.getBoundingClientRect().top + window.scrollY - inset);
+    }, phone);
+    await page.waitForTimeout(400);
     await page.screenshot({ path: `${outDir}/merge-${theme}${m}.png` });
     await ctx.close();
   }
