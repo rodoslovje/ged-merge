@@ -1623,6 +1623,32 @@
               <a href="../?legal=privacy">Privacy Policy</a> &amp; <a href="../?legal=terms">Terms</a> are also linked in
               the footer below.
             </p>
+            <h3>What can leave your device</h3>
+            <p>
+              Two settings, both <strong>off by default</strong>, are the only features that make a network request at
+              all. Neither ever sends your file: what goes out is the one value being looked up, or the map area being
+              drawn — never a person, a date or a record.
+            </p>
+            <ul>
+              <li><strong>Online lookups</strong> (<a href="#workspace">Settings › Advanced</a>) — sends the text you
+                are looking up. A source's <strong>URL</strong>, to read back its page title: this one goes through a
+                public relay, because the archive sites block a browser from reading their pages directly, and
+                Settings names the relays it will try. A <strong>place name or house number</strong>, sent straight to
+                OpenStreetMap, Slovenia's address register (GURS) or the Genealogical Gazetteer (GOV) when you press
+                one of the search buttons in <a href="#geocode">Geocode places</a> or pick <em>Look this place up in
+                the registers</em> while editing. And a <strong>country code</strong>, when you download a gazetteer in
+                one click. Nothing is sent until you ask: the buttons are the trigger, not the typing.</li>
+              <li><strong>Base-map tiles</strong> (<a href="#workspace">Settings › Map</a>) — every map, from the
+                <a href="#map">Places map</a> down to the small one under a person's events, draws on square tiles
+                fetched from the provider you choose, which tells that provider roughly where you are looking. Leave it
+                off and the maps draw on a built-in offline outline of the world, with no request at all. Your
+                coordinates stay in your file either way — the map fetches the ground, not your pins.</li>
+            </ul>
+            <p>
+              Accepted lookups are remembered in this browser, so the same place is not asked about twice. Everything
+              else — parsing, matching, merging, the charts, the reports and every tool — runs with no network at all,
+              which is why the app keeps working offline once loaded (<a href="#workspace">§2</a>).
+            </p>
             <h3>Marking records private</h3>
             <p>
               GED Merge understands the <strong>privacy flags</strong> other programs write — MacFamilyTree's
