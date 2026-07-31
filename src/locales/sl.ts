@@ -1786,7 +1786,7 @@ export const sl = {
   "landing.samples.load": "Odpri →",
   "landing.list.header": "Vse, kar drevo potrebuje",
   "landing.feat.private.title": "Zasebnost po zasnovi",
-  "landing.feat.private.body": "Strežnika ni. Datoteka se odpre, ureja in shrani na vaši napravi — brez računa in brez pošiljanja podatkov, nikoli.",
+  "landing.feat.private.body": "Strežnika ni. Datoteka se odpre, ureja in shrani na vaši napravi — brez računa in brez pošiljanja podatkov.",
   "landing.feat.edit.title": "Pravi urejevalnik za vaš GEDCOM",
   "landing.feat.edit.body": "Dodajajte osebe, družine, dogodke, medije in vire — nato shranite pravilno oblikovano GEDCOM datoteko, ki jo odpre katera koli rodoslovna aplikacija.",
   "landing.feat.merge.title": "Združevanje, ki mu lahko zaupate",
