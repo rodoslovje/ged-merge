@@ -8154,7 +8154,10 @@ kbd {
      a separate block hanging over the map. The toggle drops its label — the map
      glyph stands for it, with the wording in the tooltip and `aria-label` — and
      the legend simply follows it, wrapping as one run of chips. */
-  .edit-person-map-toggle-label {
+  /* Only while the map is open, which is the only time the legend is rendered
+     and the row has something to make space for. Collapsed, the glyph would be
+     alone and cryptic, so it keeps its wording. */
+  .edit-person-map-head:has(.edit-person-map-legend) .edit-person-map-toggle-label {
     display: none;
   }
   .edit-person-map-head {
