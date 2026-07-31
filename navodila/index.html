@@ -169,9 +169,8 @@
             <li class="guide-toc-part">V · Referenca</li>
             <li><a href="#legend">15. Legenda ikon in oznak</a></li>
             <li><a href="#shortcuts">16. Bližnjice na tipkovnici</a></li>
-            <li><a href="#events">17. Vrste dogodkov</a></li>
-            <li><a href="#glossary">18. Slovarček</a></li>
-            <li><a href="#privacy">19. Zasebnost</a></li>
+            <li><a href="#glossary">17. Slovarček</a></li>
+            <li><a href="#privacy">18. Zasebnost</a></li>
           </ol>
         </nav>
       </aside>
@@ -439,13 +438,19 @@
             <h3>Dogodki</h3>
             <div>
               Rojstvo je prikazano privzeto. <strong>+ Dodaj dogodek</strong> razkrije ostale, razvrščene po življenjskih
-              fazah — celoten seznam je v <a href="#events">§17</a>:
+              fazah:
               <ul>
-                <li><strong>Zgodnje življenje</strong> — Krst, Krst otroka, Prvo sveto obhajilo, Birma, Posvojitev</li>
+                <li><strong>Zgodnje življenje</strong> — Krst, Krst otroka, Prvo sveto obhajilo, Birma, Posvojitev.
+                  <em>Krst</em> je krst nasploh (GEDCOM <code>BAPM</code>), <em>Krst otroka</em> pa krst in poimenovanje
+                  otroka (<code>CHR</code>) — oznaka, ki jo pišejo predvsem angleški programi. Za slovenske župnijske
+                  vpise izberite <em>Krst</em>.</li>
                 <li><strong>Kariera</strong> — Poklic, Izobrazba, Zaključek šolanja, Upokojitev, Vojaška služba</li>
-                <li><strong>Lastnosti</strong> — Naziv, Telesni opis, Veroizpoved, Narodnost, Etnična pripadnost, Število otrok, Priznanje, Pravni posel, Listina, Zdravstveno stanje, Bolezen, Referenčna številka</li>
+                <li><strong>Lastnosti</strong> — Naziv, Telesni opis, Veroizpoved, Narodnost, Etnična pripadnost, Število
+                  otrok, Priznanje, Pravni posel, Listina, Zdravstveno stanje, Bolezen, Referenčna številka. To so po
+                  standardu GEDCOM <em>lastnosti</em> in ne dogodki: večina jih poleg običajnega datuma, kraja in virov
+                  nosi vrednost kar v sami vrstici (<code>1 OCCU Kmet</code>).</li>
                 <li><strong>Bivanje in selitve</strong> — Prebivališče, Izselitev, Priselitev, Naturalizacija, Popis</li>
-                <li><strong>Zapuščina</strong> — Oporoka, Zapuščinska obravnava, Dogodek, Dejstvo</li>
+                <li><strong>Zapuščina</strong> — Oporoka, Zapuščinska obravnava ter splošni vrsti Dogodek in Dejstvo</li>
                 <li><strong>Smrt</strong> — Smrt, Upepelitev, Pokop, Položitev v grob, Pogreb</li>
               </ul>
               <p>
@@ -467,7 +472,9 @@
                 <strong>Dogodek po meri</strong> (GEDCOM <code>EVEN</code>/<code>FACT</code>, npr. »Civilno
                 partnerstvo«) se prikaže pod svojim lastnim <strong>naslovom</strong> — urejate ga v vedno vidnem polju
                 v vrstici dogodka — namesto splošne oznake, na voljo pa je iz menija <strong>+ Dodaj dogodek</strong>
-                tako pri osebi kot pri družini.
+                tako pri osebi kot pri družini. Poleg tega menija GED Merge prebere in ohrani tudi dogodke in dejstva,
+                lastna posameznim programom, ter jih prav tako prikaže kot uredljive in združljive vrstice (glejte
+                <a href="#saving">§14</a>).
               </p>
             </div>
             <h3>Kraj, ki ga v datoteki še ni</h3>
@@ -812,7 +819,7 @@
               brez ustvarjanja vira (<span class="gm-glyph">↩</span> odznači). Orodje upošteva vaše prepise oblike v
               <a href="#workspace">Nastavitve › GEDCOM</a> in znova pregleda, ko katerega spremenite, prenos pa deli z
               <strong>iskalnikom dvojnikov</strong> virov — eno shranjevanje uveljavi oboje. Zasebne osebe, opombe in
-              mediji se nikoli ne spremenijo v navedbo (<a href="#privacy">§19</a>).
+              mediji se nikoli ne spremenijo v navedbo (<a href="#privacy">§18</a>).
             </p>
             <h3>Kraji</h3>
             <p>
@@ -1035,7 +1042,7 @@
               <li><strong>Dejstva</strong> in <strong>Zgradba</strong> (samo Poročilo) — glejte
                 <a href="#reports">spodaj</a>.</li>
               <li><strong>Zasebnost</strong> — <em>Skrij žive osebe</em> prikrije vse, za katere se sklepa, da so žive,
-                in prikaže le njihovo sorodstvo ali »Živ/a« (glejte <a href="#privacy">§19</a>), tako da je diagram
+                in prikaže le njihovo sorodstvo ali »Živ/a« (glejte <a href="#privacy">§18</a>), tako da je diagram
                 varen za deljenje.</li>
             </ul>
             <p>
@@ -1469,7 +1476,7 @@
               <li>Vpišite povzetek (»Začetno drevo«) in kliknite <strong>Commit</strong>. Ko repozitorij
                 <strong>objavite</strong> (Publish), izberite <strong>Keep this code private</strong> — vaše drevo vsebuje
                 podatke o živih sorodnikih, zato ga <strong>nikoli</strong> ne objavite v javnem repozitoriju
-                (<a href="#privacy">§19</a>) ali ga prej redaktirajte z orodjem <a href="#tools">Zaščita zasebnosti</a>.</li>
+                (<a href="#privacy">§18</a>) ali ga prej redaktirajte z orodjem <a href="#tools">Zaščita zasebnosti</a>.</li>
             </ol>
             <p><strong>Vsako sejo urejanja:</strong></p>
             <ol>
@@ -1515,7 +1522,7 @@
                 <tr><td><span class="gm-glyph">−</span></td><td>Odklopi družinsko vlogo (starš, partner, otrok) brez brisanja zapisa</td></tr>
                 <tr><td><span class="gm-glyph">↗</span></td><td>Odpri pripeto povezavo v novem zavihku</td></tr>
                 <tr><td><span class="gm-glyph">✎</span></td><td>Uredi — zamenjaj konec sorodstvene poti, uredi vir ali preimenuj vrednost kraja</td></tr>
-                <tr><td><span class="gm-glyph">🔒</span></td><td>Ključavnica zasebnosti — označi osebo, družino, opombo ali medij kot zasebno (glejte <a href="#privacy">§19</a>)</td></tr>
+                <tr><td><span class="gm-glyph">🔒</span></td><td>Ključavnica zasebnosti — označi osebo, družino, opombo ali medij kot zasebno (glejte <a href="#privacy">§18</a>)</td></tr>
                 <tr><td><span class="gm-glyph">↩</span></td><td>Razveljavi oznako — npr. odznači skupino »Odstrani sklice« v Uredi vire</td></tr>
                 <tr><td><span class="gm-glyph danger">🗑</span></td><td>Izbriši osebo (razveljavljivo s Ctrl+Z do prenosa) ali označi povezave za odstranitev</td></tr>
                 <tr><td><span class="gm-glyph">‹</span> <span class="gm-glyph">›</span></td><td>Prejšnja / naslednja fotografija v pregledovalniku</td></tr>
@@ -1608,38 +1615,9 @@
             </table>
           </section>
 
-          <section id="events">
-            <h2><span class="guide-num">17</span>Vrste dogodkov</h2>
-            <p>Celoten meni <strong>+ Dodaj dogodek</strong> pri osebi, razvrščen po življenjskih fazah:</p>
-            <ul>
-              <li><strong>Rojstvo</strong> — vedno prikazano, nikoli skrito v meniju</li>
-              <li><strong>Zgodnje življenje</strong> — Krst, Krst otroka, Prvo sveto obhajilo, Birma, Posvojitev.
-                <em>Krst</em> je krst nasploh (GEDCOM <code>BAPM</code>), <em>Krst otroka</em> pa krst in poimenovanje
-                otroka (<code>CHR</code>) — oznaka, ki jo pišejo predvsem angleški programi. Za slovenske župnijske
-                vpise izberite <em>Krst</em>.</li>
-              <li><strong>Kariera</strong> — Poklic, Izobrazba, Zaključek šolanja, Upokojitev, Vojaška služba</li>
-              <li><strong>Lastnosti</strong> — Naziv, Telesni opis, Veroizpoved, Narodnost, Etnična pripadnost, Število
-                otrok, Priznanje, Pravni posel, Listina, Zdravstveno stanje, Bolezen, Referenčna številka. To so po
-                standardu GEDCOM <em>lastnosti</em> in ne dogodki: večina jih poleg običajnega datuma, kraja in virov
-                nosi vrednost kar v sami vrstici (<code>1 OCCU Kmet</code>).</li>
-              <li><strong>Bivanje in selitve</strong> — Prebivališče, Izselitev, Priselitev, Naturalizacija, Popis</li>
-              <li><strong>Zapuščina</strong> — Oporoka, Zapuščinska obravnava ter splošni vrsti Dogodek in Dejstvo</li>
-              <li><strong>Smrt</strong> — Smrt, Upepelitev, Pokop, Položitev v grob, Pogreb</li>
-            </ul>
-            <p>
-              <strong>Družina</strong> ima poleg Poroke (ta je vedno prikazana) še Zaroko, Ločeno življenje, Ločitev,
-              <em>status</em> zveze in dogodek po meri.
-            </p>
-            <p>
-              <strong>Dogodek po meri</strong> (GEDCOM <code>EVEN</code>/<code>FACT</code>, npr. »Civilno partnerstvo«)
-              lahko dodate osebi ali družini in namesto stalne oznake nosi svoj uredljivi <strong>naslov</strong>. Poleg
-              menija GED Merge prebere in ohrani tudi dogodke in dejstva, lastna posameznim programom, ter jih prav tako
-              prikaže kot uredljive in združljive vrstice (glejte <a href="#saving">§14</a>).
-            </p>
-          </section>
 
           <section id="glossary">
-            <h2><span class="guide-num">18</span>Slovarček</h2>
+            <h2><span class="guide-num">17</span>Slovarček</h2>
             <table class="gm-table">
               <tbody>
                 <tr><td><strong>GEDCOM</strong></td><td>Standardna oblika za izmenjavo rodoslovnih dreves (<em>.ged</em>), ki jo GED Merge bere in zapisuje.</td></tr>
@@ -1656,7 +1634,7 @@
           </section>
 
           <section id="privacy">
-            <h2><span class="guide-num">19</span>Zasebnost</h2>
+            <h2><span class="guide-num">18</span>Zasebnost</h2>
             <p>
               Vse branje, ujemanje, združevanje in urejanje poteka lokalno v vašem brskalniku, na vašem računalniku —
               vključno z mapo z mediji, ki se bere le na napravi. Vaše rodoslovno drevo se nikoli ne

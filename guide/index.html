@@ -169,9 +169,8 @@
             <li class="guide-toc-part">V · Reference</li>
             <li><a href="#legend">15. Icon &amp; badge legend</a></li>
             <li><a href="#shortcuts">16. Keyboard shortcuts</a></li>
-            <li><a href="#events">17. Event types</a></li>
-            <li><a href="#glossary">18. Glossary</a></li>
-            <li><a href="#privacy">19. Privacy</a></li>
+            <li><a href="#glossary">17. Glossary</a></li>
+            <li><a href="#privacy">18. Privacy</a></li>
           </ol>
         </nav>
       </aside>
@@ -434,14 +433,19 @@
             </p>
             <h3>Events</h3>
             <div>
-              Birth shows by default. <strong>+ Add Event</strong> reveals the rest, grouped by life stage — the full
-              list is in <a href="#events">§17</a>:
+              Birth is always shown. <strong>+ Add Event</strong> reveals the rest, grouped by life stage:
               <ul>
-                <li><strong>Early Life</strong> — Baptism, Christening, First Communion, Confirmation, Adoption</li>
+                <li><strong>Early Life</strong> — Baptism, Christening, First Communion, Confirmation, Adoption.
+                  <em>Baptism</em> is baptism in general (GEDCOM <code>BAPM</code>), <em>Christening</em> the baptism
+                  and naming of a child (<code>CHR</code>); GED Merge treats Baptism as the usual one, and it is what
+                  the baptism-citation setting writes to.</li>
                 <li><strong>Career</strong> — Occupation, Education, Graduation, Retirement, Military service</li>
-                <li><strong>Attributes</strong> — Title, Physical description, Religion, Nationality, Race / ethnicity, Number of children, Award, Legal transaction, Deed, Medical, Illness, Reference number</li>
+                <li><strong>Attributes</strong> — Title, Physical description, Religion, Nationality, Race / ethnicity,
+                  Number of children, Award, Legal transaction, Deed, Medical, Illness, Reference number. These are
+                  GEDCOM <em>attributes</em> rather than events: most carry a value on the row itself
+                  (<code>1 OCCU Farmer</code>) as well as the usual date, place and sources.</li>
                 <li><strong>Residence &amp; Movement</strong> — Residence, Emigration, Immigration, Naturalization, Census</li>
-                <li><strong>Estate</strong> — Will, Probate, Event, Fact</li>
+                <li><strong>Estate</strong> — Will, Probate, and the two generic kinds, Event and Fact</li>
                 <li><strong>Death</strong> — Death, Cremation, Burial, Interment, Funeral</li>
               </ul>
               <p>
@@ -462,7 +466,9 @@
                 A <strong>custom event</strong> (a GEDCOM <code>EVEN</code>/<code>FACT</code> such as
                 “Civil Partnership”) reads under its own <strong>Title</strong> — edited in an always-visible field on
                 the event row — instead of a generic label, and is available from the <strong>+ Add Event</strong> menu
-                on both a person and a family.
+                on both a person and a family. Beyond this menu, GED Merge reads and preserves many other programs'
+                vendor-specific events and facts, and surfaces those as editable, mergeable rows too (see
+                <a href="#saving">§14</a>).
               </p>
             </div>
             <h3>A place your file has never used</h3>
@@ -811,7 +817,7 @@
               to strip a dead or obsolete URL from everywhere it appears without creating a source (<span class="gm-glyph">↩</span>
               unmarks it). The tool honors your <a href="#workspace">Settings › GEDCOM</a> format overrides and re-scans
               when you change one, and it shares the download with the source <strong>duplicate finder</strong> — one save
-              applies both. Private people, notes and media are never turned into a citation (<a href="#privacy">§19</a>).
+              applies both. Private people, notes and media are never turned into a citation (<a href="#privacy">§18</a>).
             </p>
             <h3>Places</h3>
             <p>
@@ -1031,7 +1037,7 @@
                 shared <strong>Residence bar</strong> (see <a href="#reports">Reports</a>, below).</li>
               <li><strong>Facts</strong> and <strong>Structure</strong> (Report only) — see <a href="#reports">below</a>.</li>
               <li><strong>Privacy</strong> — <em>Hide living people</em> redacts anyone inferred to be living, showing
-                only their relationship or “Living” (see <a href="#privacy">§19</a>), so the diagram is safe to
+                only their relationship or “Living” (see <a href="#privacy">§18</a>), so the diagram is safe to
                 share.</li>
             </ul>
             <p>
@@ -1452,7 +1458,7 @@
               <li>Put your <em>.ged</em> in that folder and rename it to a stable name such as <code>tree.ged</code>.</li>
               <li>Type a summary (“Initial tree”) and click <strong>Commit</strong>. When you <strong>Publish</strong> the
                 repository, choose <strong>Keep this code private</strong> — your tree holds details about living relatives,
-                so <strong>never</strong> publish it to a public repository (<a href="#privacy">§19</a>), or redact it first
+                so <strong>never</strong> publish it to a public repository (<a href="#privacy">§18</a>), or redact it first
                 with the <a href="#tools">Privacy</a> tool.</li>
             </ol>
             <p><strong>Every editing session:</strong></p>
@@ -1498,7 +1504,7 @@
                 <tr><td><span class="gm-glyph">−</span></td><td>Detach a family role (parent, partner, child) without deleting the record</td></tr>
                 <tr><td><span class="gm-glyph">↗</span></td><td>Open an attached link in a new tab</td></tr>
                 <tr><td><span class="gm-glyph">✎</span></td><td>Edit — swap a relationship endpoint, edit a source, or rename a place value</td></tr>
-                <tr><td><span class="gm-glyph">🔒</span></td><td>Privacy lock — mark a person, family, note or media item private (see <a href="#privacy">§19</a>)</td></tr>
+                <tr><td><span class="gm-glyph">🔒</span></td><td>Privacy lock — mark a person, family, note or media item private (see <a href="#privacy">§18</a>)</td></tr>
                 <tr><td><span class="gm-glyph">↩</span></td><td>Undo a mark — e.g. unmark a “Remove references” group in Organize sources</td></tr>
                 <tr><td><span class="gm-glyph danger">🗑</span></td><td>Delete a person (undoable with Ctrl+Z until you download), or mark links for removal</td></tr>
                 <tr><td><span class="gm-glyph">‹</span> <span class="gm-glyph">›</span></td><td>Previous / next photo in the lightbox</td></tr>
@@ -1590,39 +1596,9 @@
             </table>
           </section>
 
-          <section id="events">
-            <h2><span class="guide-num">17</span>Event types</h2>
-            <p>The full <strong>+ Add Event</strong> menu on a person, grouped by life stage:</p>
-            <ul>
-              <li><strong>Birth</strong> — always shown, never hidden behind the menu</li>
-              <li><strong>Early Life</strong> — Baptism, Christening, First Communion, Confirmation, Adoption.
-                <em>Baptism</em> is baptism in general (GEDCOM <code>BAPM</code>), <em>Christening</em> the baptism and
-                naming of a child (<code>CHR</code>); GED Merge treats Baptism as the usual one, and it is what the
-                baptism-citation setting writes to.</li>
-              <li><strong>Career</strong> — Occupation, Education, Graduation, Retirement, Military service</li>
-              <li><strong>Attributes</strong> — Title, Physical description, Religion, Nationality, Race / ethnicity,
-                Number of children, Award, Legal transaction, Deed, Medical, Illness, Reference number. These are
-                GEDCOM <em>attributes</em> rather than events: most carry a value on the row itself
-                (<code>1 OCCU Farmer</code>) as well as the usual date, place and sources.</li>
-              <li><strong>Residence &amp; Movement</strong> — Residence, Emigration, Immigration, Naturalization, Census</li>
-              <li><strong>Estate</strong> — Will, Probate, and the two generic kinds, Event and Fact</li>
-              <li><strong>Death</strong> — Death, Cremation, Burial, Interment, Funeral</li>
-            </ul>
-            <p>
-              A <strong>family</strong> adds Marriage (always shown), Engagement, Separation, Divorce, a partnership
-              <em>Status</em>, and a custom Event.
-            </p>
-            <p>
-              A <strong>custom event</strong> (a GEDCOM <code>EVEN</code>/<code>FACT</code>, e.g. “Civil
-              Partnership”) can be added to a person or a family and carries its own editable <strong>Title</strong>
-              in place of a fixed label. Beyond the menu, GED Merge reads and preserves many other programs'
-              vendor-specific events and facts, and surfaces them as editable, mergeable rows too (see
-              <a href="#saving">§14</a>).
-            </p>
-          </section>
 
           <section id="glossary">
-            <h2><span class="guide-num">18</span>Glossary</h2>
+            <h2><span class="guide-num">17</span>Glossary</h2>
             <table class="gm-table">
               <tbody>
                 <tr><td><strong>GEDCOM</strong></td><td>The standard family-tree exchange format (<em>.ged</em>) GED Merge reads and writes.</td></tr>
@@ -1639,7 +1615,7 @@
           </section>
 
           <section id="privacy">
-            <h2><span class="guide-num">19</span>Privacy</h2>
+            <h2><span class="guide-num">18</span>Privacy</h2>
             <p>
               All reading, matching, merging and editing happens locally in your browser, on your own computer —
               including your media folder, which is read on your device only. Your family tree is never sent to a
