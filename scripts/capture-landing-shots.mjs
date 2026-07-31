@@ -102,7 +102,14 @@ for (const [theme, phone] of [["dark", false], ["light", false], ["dark", true],
     await page.locator(".charts-open-btn").click();
     await page.locator("svg.tree-svg").waitFor();
     if (phone) {
-      await page.waitForTimeout(800);
+      // Zoom out to ~50% and pin the root at the left: root, parents and the
+      // grandparents' half-cut column — 2½ readable generations.
+      for (let i = 0; i < 3; i++) {
+        await page.locator(".tree-zoom-btn:has-text('−')").first().click();
+        await page.waitForTimeout(150);
+      }
+      await page.evaluate(() => { document.querySelector(".tree-canvas").scrollLeft = 0; });
+      await page.waitForTimeout(500);
       await page.screenshot({ path: `${outDir}/tree-${theme}${m}.png` });
     } else {
       await chartShot(page, `${outDir}/tree-${theme}${m}.png`);
@@ -117,7 +124,7 @@ for (const [theme, phone] of [["dark", false], ["light", false], ["dark", true],
     const factor = await page.evaluate((ph) => {
       const canvas = document.querySelector(".tree-canvas");
       const r = canvas.querySelector("svg g").getBoundingClientRect();
-      const byHeight = 0.9 * canvas.clientHeight / r.height;
+      const byHeight = (ph ? 0.7 : 0.9) * canvas.clientHeight / r.height;
       return ph ? byHeight : Math.min(0.94 * canvas.clientWidth / r.width, byHeight);
     }, phone);
     const steps = Math.round(Math.log(factor) / Math.log(1.25));
