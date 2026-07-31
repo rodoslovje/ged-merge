@@ -10,6 +10,7 @@ import type { MiniMapPin } from "../map/MiniPlaceMap";
 import { PinIcon } from "../icons/PinIcon";
 import { useSettings } from "../SettingsContext";
 import { useCoordShare } from "./CoordShareContext";
+import { usePhone } from "../usePhone";
 
 // Per-event coordinate control in the Edit view: the pin beside a place, and the
 // small panel it opens.
@@ -80,6 +81,7 @@ export function EventCoordPicker({
    *  events should all have — unticking is the exception. */
   const [shareAll, setShareAll] = useState(true);
   const share = useCoordShare();
+  const phone = usePhone();
   const boxRef = useRef<HTMLDivElement | null>(null);
   const popRef = useRef<HTMLDivElement | null>(null);
 
@@ -94,7 +96,10 @@ export function EventCoordPicker({
   const at = (c: GeoCoord) => `${c.lat.toFixed(5)}, ${c.lon.toFixed(5)}`;
 
   useLayoutEffect(() => {
-    if (!open) return;
+    // On a phone the panel is a full-screen sheet (see `.edit-coord-pop--sheet`),
+    // so there is nothing to anchor: a 720px two-column popover pinned to the pin
+    // left a ~220px map beside a ~160px result list, usually below the fold.
+    if (!open || phone) return;
     const position = () => {
       const anchor = boxRef.current?.getBoundingClientRect();
       if (!anchor) return;
@@ -119,7 +124,7 @@ export function EventCoordPicker({
       window.removeEventListener("resize", position);
       window.removeEventListener("scroll", position, true);
     };
-  }, [open]);
+  }, [open, phone]);
 
   // Close on Escape or a click elsewhere, like the other inline Edit pickers.
   useEffect(() => {
@@ -257,9 +262,25 @@ export function EventCoordPicker({
       {open && (
         <div
           ref={popRef}
-          className="edit-coord-pop"
-          style={pos ? { left: pos.left, top: pos.top } : { visibility: "hidden" }}
+          className={"edit-coord-pop" + (phone ? " edit-coord-pop--sheet" : "")}
+          style={phone ? undefined : pos ? { left: pos.left, top: pos.top } : { visibility: "hidden" }}
         >
+          {/* A sheet has no "outside" to tap, so it carries the close button the
+              anchored popover doesn't need. */}
+          {phone && (
+            <div className="edit-coord-sheet-head">
+              <span className="edit-coord-sheet-title">{title}</span>
+              <button
+                type="button"
+                className="nav-btn icon-only"
+                onClick={() => setOpen(false)}
+                title={t("help.close")}
+                aria-label={t("help.close")}
+              >
+                ✕
+              </button>
+            </div>
+          )}
           {/* Head: what the event carries now, and the manual entry that can
               replace it — the two things that act on the value itself. */}
           <div className="edit-coord-head">

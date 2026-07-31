@@ -2021,7 +2021,7 @@ button:focus-visible {
    the PDF paper color, not a theme surface, so it stays literal. */
 .media-lightbox-doc {
   width: min(80vw, 900px);
-  height: 85vh;
+  height: 85dvh;
   border: 0;
   border-radius: 4px;
   background: #fff;
@@ -2074,7 +2074,7 @@ button:focus-visible {
 /* Add-media picker dialog. */
 .add-media-dialog { width: min(720px, 92vw); }
 .add-media-search { margin: 0 16px; max-width: 320px; }
-/* Fill the modal's height (the .modal base is a 90vh flex column) so the grid
+/* Fill the modal's height (the .modal base is a 90dvh flex column) so the grid
  * scrolls and the footer sticks to the bottom, instead of capping the body. */
 .add-media-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 /* A lone message (loading / no matches) centers in the body rather than
@@ -2159,7 +2159,7 @@ button:focus-visible {
  * handed to (people for an individual event, families for a family one). */
 .copy-event-dialog { width: min(560px, 92vw); }
 .copy-event-search { margin: 0 16px; max-width: 260px; }
-/* Fill the modal's height (the .modal base is a 90vh flex column) so the list
+/* Fill the modal's height (the .modal base is a 90dvh flex column) so the list
  * scrolls and the footer stays put — same as the add-media body. */
 .copy-event-body { flex: 1; min-height: 0; }
 /* What the event carries, so the user can confirm they picked the right row. */
@@ -2221,7 +2221,7 @@ button:focus-visible {
 .person-media-overlay.has-tray { padding-bottom: 96px; }
 .person-media-full {
   max-width: min(90vw, 1200px);
-  max-height: 90vh;
+  max-height: 90dvh;
   object-fit: contain;
   border-radius: 4px;
   box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
@@ -2249,19 +2249,19 @@ button:focus-visible {
   gap: 12px;
   min-width: 0;
   flex: 0 1 auto;
-  max-height: 92vh;
+  max-height: 92dvh;
   /* Stay vertically centred even when the info panel (top-aligned) is taller. */
   align-self: center;
   cursor: default;
 }
-.person-media-stage .person-media-full { max-height: 80vh; max-width: 100%; }
+.person-media-stage .person-media-full { max-height: 80dvh; max-width: 100%; }
 /* Wrapper shrink-wraps the contain-fitted image so the GEDCOM 7 crop boxes can
    be positioned as plain percentages of the image (no letterboxing inside). */
 .person-media-cropwrap {
   position: relative;
   display: inline-flex;
   max-width: 100%;
-  max-height: 80vh;
+  max-height: 80dvh;
   line-height: 0;
   border-radius: 4px;
 }
@@ -2382,7 +2382,7 @@ button:focus-visible {
   align-items: flex-start;
   gap: 16px;
   max-width: 95vw;
-  max-height: 92vh;
+  max-height: 92dvh;
   cursor: default;
 }
 .media-lightbox-info {
@@ -2391,7 +2391,7 @@ button:focus-visible {
   /* Top-aligned (the lightbox uses align-items: flex-start) and bounded so a
    * long "referenced by" list scrolls within the panel instead of stretching
    * the row and pushing the photo off-centre. */
-  max-height: 92vh;
+  max-height: 92dvh;
   overflow-y: auto;
   background: var(--panel, #1e1e1e);
   color: var(--text);
@@ -2432,7 +2432,7 @@ button:focus-visible {
 }
 @media (max-width: 720px) {
   .media-lightbox { flex-direction: column; align-items: center; }
-  .person-media-stage .person-media-full { max-height: 55vh; }
+  .person-media-stage .person-media-full { max-height: 55dvh; }
   .media-lightbox-info { flex: 1 1 auto; max-width: 95vw; width: 100%; }
 }
 
@@ -5031,11 +5031,27 @@ a.report-source:hover { color: var(--accent); text-decoration: underline; }
   backdrop-filter: blur(2px);
   z-index: 100;
   /* Center whatever dialog the overlay carries; compact dialogs (shortcuts,
-     settings, confirm) float mid-screen, full-height ones fill the padding box. */
+     settings, confirm) float mid-screen, full-height ones fill the padding box.
+     Centering is done with the child's `margin: auto`, NOT `align-items:
+     center` — a flex item centered that way and taller than the overlay
+     overflows *both* ends, and the top half is then unreachable however the
+     overlay scrolls. Auto margins collapse to zero on the overflowing side
+     instead, so the dialog starts at the top edge and scrolls from there. */
   display: flex;
-  align-items: center;
   justify-content: center;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 40px;
+}
+.modal-overlay > * {
+  margin: auto;
+}
+/* Freeze the page behind an open dialog. On a phone the app is one long
+   document scroll, so a swipe that started on the overlay used to run the list
+   underneath and leave the dialog floating over unrelated content. Keyed off
+   the overlay itself rather than a hook in each of the dozen dialogs. */
+body:has(.modal-overlay) {
+  overflow: hidden;
 }
 /* Confirm dialogs sit over a preview the user needs to read (e.g. the
    Health-Check findings behind a fix confirmation) — dim but don't blur. */
@@ -5045,14 +5061,16 @@ a.report-source:hover { color: var(--accent); text-decoration: underline; }
 }
 /* Global search is a command-palette: compact, dropped from near the top. */
 .modal-overlay:has(> .global-search-modal) {
-  align-items: flex-start;
-  padding: 10vh 24px 24px;
+  padding: 10dvh 24px 24px;
+}
+.modal-overlay > .global-search-modal {
+  margin: 0 auto auto;
 }
 .global-search-modal {
   width: 100%;
   max-width: 560px;
   height: auto;
-  max-height: 70vh;
+  max-height: 70dvh;
   overflow: hidden;
 }
 .global-search-field {
@@ -5226,8 +5244,11 @@ a.report-source:hover { color: var(--accent); text-decoration: underline; }
   border-radius: 12px;
   width: 100%;
   max-width: 800px;
-  height: 90vh;
-  max-height: 1000px;
+  height: 90dvh;
+  /* `100%` is the overlay's content box — the viewport less its padding — so a
+     dialog asking for 90dvh still fits inside the frame instead of pushing the
+     overlay into a scroll. */
+  max-height: min(1000px, 100%);
   display: flex;
   flex-direction: column;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
@@ -5270,7 +5291,7 @@ a.report-source:hover { color: var(--accent); text-decoration: underline; }
 /* ── General settings (SettingsModal) ─────────────────────────────────────── */
 /* One size for every tab: a short tab (Advanced) used to shrink the dialog,
    so switching tabs resized the window under the pointer. */
-.settings-modal { max-width: 624px; height: 88vh; max-height: 88vh; }
+.settings-modal { max-width: 624px; height: 88dvh; max-height: 88dvh; }
 
 /* General / Advanced tab bar — same segmented look as .chart-settings-segmented,
  * sized to span the modal width just under the header. */
@@ -5412,7 +5433,7 @@ p.settings-note { margin: 0 0 12px; font-size: 0.82rem; color: var(--muted); lin
 .settings-radio input { flex: none; }
 
 /* ── Keyboard shortcut cheat sheet (ShortcutsModal) ───────────────────────── */
-.shortcuts-modal { max-width: 720px; height: auto; max-height: 88vh; }
+.shortcuts-modal { max-width: 720px; height: auto; max-height: 88dvh; }
 
 .shortcuts-legend {
   display: flex; flex-wrap: wrap; gap: 8px 24px;
@@ -5476,6 +5497,11 @@ kbd {
   padding: 24px;
   width: 360px;
   max-width: 90vw;
+  /* Unlike .modal this is not a full-height dialog, so it carried no height cap
+     at all — a long save summary on a phone grew past the screen and had no way
+     to scroll. */
+  max-height: 100%;
+  overflow-y: auto;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
 }
 .confirm-dialog-title {
@@ -5562,7 +5588,7 @@ kbd {
 
 /* Add/Edit Source dialog: a short, wide card that sizes to its content —
    header and footer pinned, body scrolling only when needed. */
-.add-source-dialog { width: 740px; max-width: 90vw; height: auto; max-height: 94vh; }
+.add-source-dialog { width: 740px; max-width: 90vw; height: auto; max-height: 94dvh; }
 .modal-overlay:has(> .add-source-dialog) { background: rgba(28, 24, 18, 0.42); }
 .add-source-dialog .modal-header h2 {
   display: flex;
@@ -7514,6 +7540,41 @@ kbd {
   background: var(--panel); color: var(--text); font: inherit; font-size: 0.85rem;
 }
 .edit-coord-manual input:focus { outline: none; border-color: var(--accent); }
+/* Phone: the panel fills the screen instead of being anchored to the pin. The
+   map goes up top where a tap can place the pin, the lookups read below it —
+   the two-column popover gave each about half of a 360px screen. */
+.edit-coord-pop--sheet {
+  inset: 0;
+  width: auto;
+  margin: 0;
+  padding: 10px 12px 16px;
+  border: none;
+  border-radius: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  z-index: 110;
+  background: var(--bg);
+}
+.edit-coord-sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+.edit-coord-sheet-title {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.edit-coord-pop--sheet .edit-coord-body { flex-direction: column; }
+.edit-coord-pop--sheet .edit-coord-map,
+.edit-coord-pop--sheet .edit-coord-side { flex: 0 0 auto; }
+.edit-coord-pop--sheet .edit-coord-map .tools-geo-minimap { height: 42dvh; }
+/* The list scrolls with the sheet rather than in a 260px box of its own. */
+.edit-coord-pop--sheet .edit-coord-side { max-height: none; overflow-y: visible; }
+.edit-coord-pop--sheet .edit-coord-head .edit-coord-manual { flex: 1 1 100%; }
 .tools-geo-hint { color: var(--muted); font-size: 0.85rem; margin: 10px 0 0; }
 /* Address rows: house coordinates from the address register. */
 .tools-geo-addr-list { list-style: none; margin: 0; padding: 0; }
