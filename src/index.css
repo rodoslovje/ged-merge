@@ -244,6 +244,108 @@ button:focus-visible {
   appearance: none;
 }
 
+/* ── Phone header ☰ menu (AppMenu) ────────────────────────────────────────
+   Everything the one-row phone header can't hold: the loaded files, the
+   start-person picker, and the icon buttons that sit in the header on a
+   desktop. Rendered only below 720px (App.tsx decides), so these rules need no
+   media query of their own. */
+.app-menu {
+  position: relative;
+}
+.app-menu-glyph {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+.app-menu-btn.open {
+  color: var(--accent);
+}
+.app-menu-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 70;
+  width: min(300px, calc(100vw - 24px));
+  /* Never taller than what's left below the header. */
+  max-height: calc(100dvh - 90px);
+  overflow-y: auto;
+  padding: 8px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 28px rgb(0 0 0 / 0.35);
+}
+.app-menu-group + .app-menu-group {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.app-menu-label {
+  margin: 0 0 4px;
+  padding: 0 8px;
+  color: var(--faint);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.app-menu-item,
+.app-menu-file {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 8px;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.95rem;
+  text-align: left;
+  cursor: pointer;
+}
+.app-menu-item:hover,
+.app-menu-file:hover {
+  background: var(--panel-2);
+}
+/* A file row: the name leads (it is what the user is looking for) with the
+   "Main" / "Incoming" role trailing it, and the .gm-file dot carrying the
+   accent as it does on the header pills. */
+.app-menu-file {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+}
+.app-menu-file::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+.app-menu-file-name {
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.app-menu-file-role {
+  margin-left: auto;
+  flex: none;
+  color: var(--muted);
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+}
+.app-menu-files-more {
+  color: var(--accent);
+  font-size: 0.85rem;
+}
+/* The start picker fills the panel rather than keeping its header width. */
+.app-menu-group .start-selector {
+  flex: 1 1 auto;
+  width: 100%;
+}
+
 .app-head {
   margin-bottom: 20px;
 }
@@ -6346,11 +6448,6 @@ kbd {
   .app-head-brand {
     gap: 12px;
   }
-  /* Filenames would wrap to a second row and crowd the header on narrow
-     screens; hide them rather than pushing them down. */
-  .app-head-file-pills {
-    display: none;
-  }
   .section {
     border-left: none;
     border-right: none;
@@ -6585,6 +6682,18 @@ kbd {
 @media (max-width: 560px) {
   /* Stack the name-display preview so the person sample gets its own row
      instead of being squeezed next to the "Preview" label. */
+  /* The narrowest phones, and Slovenian ("Urejanje · Združevanje · Orodja" is
+     half again as wide as the English), no longer fit the lettering beside the
+     mode tabs. Keep the mark — it is the brand and the click target; the tabs
+     are what the user came for. */
+  .gm-wordmark-text {
+    display: none;
+  }
+  .seg-btn {
+    padding: 5px 8px;
+    font-size: 0.8rem;
+  }
+
   .settings-preview {
     flex-direction: column;
     align-items: flex-start;
@@ -6647,17 +6756,53 @@ kbd {
   }
 }
 
-/* On phone-sized widths there's no longer room for the pills beside the
-   wordmark, so the pills drop to their own row while the wordmark keeps the
-   theme/language switcher. (The mode tabs live on the start-selector row below.) */
+/* Phone: one header row — wordmark, mode tabs, ☰. The pills, the start-person
+   picker and the four icon buttons all move into the ☰ menu (App.tsx renders
+   that swap, so nothing here is a hidden duplicate), and the second row exists
+   only when there is something to save or undo. */
 @media (max-width: 720px) {
-  .app-head-file-pills {
-    order: 4;
-    flex: 0 1 100%;
+  .app-head-top {
+    column-gap: 8px;
   }
-  /* Pills no longer grow on their own row, so re-pin the switcher to the right. */
-  .app-head-brand:has(.app-head-file-pills) ~ .lang-switcher {
+  /* The filenames move into the ☰ menu, which lists them and opens the same
+     info panel the pills toggle. (This used to say `display: none` from 880px
+     down with nothing taking over, which left no way at all to see or change
+     the loaded files on a phone.) */
+  .app-head-file-pills {
+    display: none;
+  }
+  .mode-tabs {
+    order: 2;
+    /* The one flexible item on the row: it shrinks before the wordmark or ☰ do,
+       and its buttons ellipsis rather than push them off the edge. */
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+  }
+  .seg-btn {
+    padding: 5px 10px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .lang-switcher {
+    order: 3;
     margin-left: auto;
+  }
+  .app-head-controls {
+    margin-top: 8px;
+  }
+  /* Nothing left on this row but Save and the history pair — right-align them
+     as a group instead of leaving the auto margin to a start selector that is
+     no longer here. */
+  .app-head-controls .app-head-actions {
+    margin-left: auto;
+  }
+  /* ↩ / ↪ alone: the words cost a third of the row and the arrows already say
+     it. The label stays in `aria-label` and the tooltip. */
+  .undo-btn-label {
+    display: none;
   }
 }
 

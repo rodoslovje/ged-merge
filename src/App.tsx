@@ -67,6 +67,8 @@ import { GlobalSearchModal, type OpenHow, type SearchRowMeta } from "./ui/Global
 import { buildSearchRows, type FilterContext } from "./ui/globalSearch";
 import { SearchIcon } from "./ui/icons/SearchIcon";
 import { AddPersonIcon } from "./ui/icons/AddPersonIcon";
+import { AppMenu, type AppMenuFile } from "./ui/AppMenu";
+import { usePhone } from "./ui/usePhone";
 import { NEW_FILE_BASENAME, newGedcomText } from "./gedcom/newFile";
 import { kinshipInfo, lineageClass } from "./match/kinship";
 import { computeDistances } from "./match/distance";
@@ -143,6 +145,14 @@ function AppContent() {
   // When the first matches arrive with no start person, focus the picker so the
   // user can start typing immediately.
   const [focusStart, setFocusStart] = useState(false);
+  // Phone layout: the header's ☰ menu, and whether it is open.
+  const phone = usePhone();
+  const [menuOpen, setMenuOpen] = useState(false);
+  // The start picker lives inside the menu on a phone, so a request to focus it
+  // has to open the menu first — otherwise the nudge lands on nothing.
+  useEffect(() => {
+    if (phone && focusStart) setMenuOpen(true);
+  }, [phone, focusStart]);
   // Keeps current decisions accessible from stable useCallback closures.
   const decisionsRef = useRef(decisions);
   decisionsRef.current = decisions;
@@ -1419,8 +1429,12 @@ function AppContent() {
 
   // Full-page tree views (Compare / Edit) keep the app brand title and footer
   // around the tree so the page never feels detached from the rest of the app.
+  // Not on a phone: the shell is a fixed frame around a canvas that wants every
+  // pixel, and the brand row repeats what the page underneath already shows —
+  // the view's own Back button is one tap from it.
   const wrapTree = (content: React.ReactNode) => (
     <div className="app tree-shell">
+      {!phone && (
       <header className="app-head tree-shell-head">
         <div className="app-head-top">
           <div className="app-head-brand">
@@ -1462,6 +1476,7 @@ function AppContent() {
           </div>
         </div>
       </header>
+      )}
       {content}
       {appFooter}
       {appModals}
@@ -1535,6 +1550,59 @@ function AppContent() {
     if (canClosePanel) setShowInfoPanel((p) => !p);
   }
 
+  /** From the ☰ menu, where the panel is out of sight: always open, never toggle. */
+  function openInfoPanel() {
+    setShowInfoPanel(true);
+  }
+
+  // ── Header pieces ────────────────────────────────────────────────────────
+  // On a phone the header is one row — brand, mode tabs, ☰ — and everything the
+  // desktop header shows beside them (file pills, start person, the four icon
+  // buttons) moves into the ☰ menu. The two pieces that swap places between the
+  // layouts are built once here and placed by `phone` below.
+  const modeTabs = (
+    <div className="mode-tabs">
+      <button
+        className={`seg-btn ${mode === "edit" ? "active" : ""}`}
+        onClick={() => { if (mode !== "edit") switchToEdit(); }}
+        title={t("mode.edit.tooltip")}
+      >
+        {t("mode.edit")}
+      </button>
+      <button
+        className={`seg-btn ${mode === "merge" ? "active" : ""}`}
+        onClick={() => { if (mode !== "merge") switchToMerge(); }}
+        title={t("mode.merge.tooltip")}
+      >
+        {t("mode.merge")}
+      </button>
+      <button
+        className={`seg-btn ${mode === "tools" ? "active" : ""}`}
+        onClick={() => { if (mode !== "tools") switchToTools(); }}
+        title={t("mode.tools.tooltip")}
+      >
+        {t("mode.tools")}
+      </button>
+    </div>
+  );
+  const startSelector = mainDataset && (
+    <StartPersonSelector
+      individuals={mainDataset.individuals}
+      startId={startId}
+      onChange={changeStart}
+      onClear={() => changeStart(undefined)}
+      onStartClick={goToStartPerson}
+      autoFocus={focusStart}
+      onAutoFocused={() => setFocusStart(false)}
+    />
+  );
+  const menuFiles: AppMenuFile[] = [
+    ...(lastMainFile ? [{ label: t("tree.main"), fileName: lastMainFile.fileName, accent: "main" as const }] : []),
+    ...(compare.status === "loaded" ? [{ label: t("tree.incoming"), fileName: compare.file.fileName, accent: "incoming" as const }] : []),
+  ];
+  const hasSaveAction = !!lastMainFile && (changedCount > 0 || confirmedCount > 0 || importCount > 0);
+  const hasHistoryAction = !!lastMainFile && (canUndo || canRedo);
+
   return (
     <>
     <PwaReloadPrompt />
@@ -1551,7 +1619,9 @@ function AppContent() {
         <div className="app-head-top">
           <div className="app-head-brand">
             <h1 onClick={handleTitleClick} className="brand-clickable">
-              <Wordmark />
+              {/* One header row on a phone: the lockup steps down so the mode
+                  tabs and ☰ fit beside it. */}
+              <Wordmark size={phone ? 17 : 22} />
             </h1>
             {(lastMainFile || compare.status === "loaded") && (
               <div className="app-head-file-pills">
@@ -1570,8 +1640,12 @@ function AppContent() {
               </div>
             )}
           </div>
+          {/* On a phone the mode tabs come up to the brand row — see the header
+              note above: the second row then only exists when there is something
+              to save or undo. */}
+          {phone && mainDataset && modeTabs}
           <div className="lang-switcher">
-            {mainDataset && (
+            {!phone && mainDataset && (
               <button
                 className="nav-btn icon-only"
                 onClick={openChartsFromHeader}
@@ -1581,7 +1655,7 @@ function AppContent() {
                 <ChartIcon size={18} />
               </button>
             )}
-            {mainDataset && (
+            {!phone && mainDataset && (
               <button
                 className="nav-btn icon-only"
                 onClick={() => setShowGlobalSearch(true)}
@@ -1591,7 +1665,7 @@ function AppContent() {
                 <SearchIcon size={18} />
               </button>
             )}
-            {mainDataset && (
+            {!phone && mainDataset && (
               <button
                 className="nav-btn icon-only"
                 onClick={() => requestAddPerson()}
@@ -1601,29 +1675,38 @@ function AppContent() {
                 <AddPersonIcon size={18} />
               </button>
             )}
-            <button
-              className="nav-btn icon-only"
-              onClick={() => setShowSettings(true)}
-              title={t("settings.title")}
-              aria-label={t("settings.title")}
-            >
-              <GearIcon size={18} />
-            </button>
+            {/* With no file loaded the menu would hold a single item, so the
+                gear stays a button of its own on the landing page. */}
+            {(!phone || !mainDataset) && (
+              <button
+                className="nav-btn icon-only"
+                onClick={() => setShowSettings(true)}
+                title={t("settings.title")}
+                aria-label={t("settings.title")}
+              >
+                <GearIcon size={18} />
+              </button>
+            )}
+            {phone && mainDataset && (
+              <AppMenu
+                open={menuOpen}
+                onOpenChange={setMenuOpen}
+                files={menuFiles}
+                onOpenFiles={openInfoPanel}
+                startSelector={startSelector}
+                onCharts={openChartsFromHeader}
+                onSearch={() => setShowGlobalSearch(true)}
+                onAddPerson={() => requestAddPerson()}
+                onSettings={() => setShowSettings(true)}
+              />
+            )}
           </div>
         </div>
-        {mainDataset && (
+        {mainDataset && (!phone || hasSaveAction || hasHistoryAction) && (
           <div className="app-head-controls">
-            <StartPersonSelector
-              individuals={mainDataset.individuals}
-              startId={startId}
-              onChange={changeStart}
-              onClear={() => changeStart(undefined)}
-              onStartClick={goToStartPerson}
-              autoFocus={focusStart}
-              onAutoFocused={() => setFocusStart(false)}
-            />
+            {!phone && startSelector}
             <div className="app-head-actions">
-              {lastMainFile && (changedCount > 0 || confirmedCount > 0 || importCount > 0) && (
+              {hasSaveAction && (
                 <button
                   className="export-btn"
                   onClick={handleSave}
@@ -1634,40 +1717,18 @@ function AppContent() {
                   {" "}({new Set([...changedPersonIds, ...changedFamilyIds, ...changedRecordIds, ...confirmedMainIds]).size + importCount})
                 </button>
               )}
-              {lastMainFile && (canUndo || canRedo) && (
+              {hasHistoryAction && (
                 <>
-                  <button className="tree-open-btn" onClick={handleUndo} disabled={!canUndo} title={t("undo.tooltip")}>
-                    ↩ {t("undo")}
+                  <button className="tree-open-btn undo-btn" onClick={handleUndo} disabled={!canUndo} title={t("undo.tooltip")} aria-label={t("undo")}>
+                    ↩ <span className="undo-btn-label">{t("undo")}</span>
                   </button>
-                  <button className="tree-open-btn" onClick={handleRedo} disabled={!canRedo} title={t("redo.tooltip")}>
-                    {t("redo")} ↪
+                  <button className="tree-open-btn undo-btn" onClick={handleRedo} disabled={!canRedo} title={t("redo.tooltip")} aria-label={t("redo")}>
+                    <span className="undo-btn-label">{t("redo")}</span> ↪
                   </button>
                 </>
               )}
             </div>
-            <div className="mode-tabs">
-              <button
-                className={`seg-btn ${mode === "edit" ? "active" : ""}`}
-                onClick={() => { if (mode !== "edit") switchToEdit(); }}
-                title={t("mode.edit.tooltip")}
-              >
-                {t("mode.edit")}
-              </button>
-              <button
-                className={`seg-btn ${mode === "merge" ? "active" : ""}`}
-                onClick={() => { if (mode !== "merge") switchToMerge(); }}
-                title={t("mode.merge.tooltip")}
-              >
-                {t("mode.merge")}
-              </button>
-              <button
-                className={`seg-btn ${mode === "tools" ? "active" : ""}`}
-                onClick={() => { if (mode !== "tools") switchToTools(); }}
-                title={t("mode.tools.tooltip")}
-              >
-                {t("mode.tools")}
-              </button>
-            </div>
+            {!phone && modeTabs}
           </div>
         )}
       </header>
