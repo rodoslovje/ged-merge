@@ -6715,9 +6715,19 @@ kbd {
   .gm-wordmark-text {
     display: none;
   }
+  /* Every pixel here buys a whole label: at 320px the Slovenian tabs
+     ("Urejanje · Združevanje · Orodja") are ~10px short of fitting beside the
+     mark and the ☰, and the difference is between "Orodja" and "Oro…". */
+  .app-head-top {
+    column-gap: 6px;
+  }
+  .mode-tabs {
+    padding: 1px;
+    gap: 1px;
+  }
   .seg-btn {
-    padding: 5px 8px;
-    font-size: 0.8rem;
+    padding: 5px 6px;
+    font-size: 0.76rem;
   }
 
   .settings-preview {
@@ -6789,6 +6799,12 @@ kbd {
 @media (max-width: 720px) {
   .app-head-top {
     column-gap: 8px;
+    /* One row, and it stays one row. A wrapping flex container breaks the line
+       on each item's *content* size and only then shrinks what is on it — so
+       the ☰ dropped to a second row while the mode tabs, which were willing to
+       shrink, never got the chance. With `nowrap` the tabs give up their width
+       instead (they are the only flexible item here). */
+    flex-wrap: nowrap;
   }
   /* The filenames move into the ☰ menu, which lists them and opens the same
      info panel the pills toggle. (This used to say `display: none` from 880px
@@ -6804,9 +6820,11 @@ kbd {
     flex: 0 1 auto;
     min-width: 0;
     overflow: hidden;
+    padding: 2px;
   }
   .seg-btn {
     padding: 5px 10px;
+    font-size: 0.8rem;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
