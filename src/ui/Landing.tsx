@@ -4,6 +4,7 @@ import type { SlotState } from "../App";
 import { pickFile, fileFromDrop, supportsFilePicker } from "./filePicker";
 import { AddPersonIcon } from "./icons/AddPersonIcon";
 import { useMediaViewer } from "./MediaViewer";
+import { usePhone } from "./usePhone";
 
 interface Props {
   mainState: SlotState;
@@ -91,6 +92,10 @@ export function Landing({ mainState, onLoadFile, onLoadSample, onStartNew }: Pro
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const { openItems } = useMediaViewer();
+  // Phones get their own portrait captures (suffix `-m`) — a desktop window is
+  // the wrong preview on the device the visitor is actually holding.
+  const phone = usePhone();
+  const suffix = phone ? "-m" : "";
 
   /** Expand a strip thumbnail into the app's shared photo viewer (prev/next,
    *  keyboard nav) with the current theme's variant of every shot. */
@@ -98,7 +103,7 @@ export function Landing({ mainState, onLoadFile, onLoadSample, onStartNew }: Pro
     const theme = document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
     openItems(
       SHOTS.map(({ key, caption, ext }) => ({
-        url: `landing/${key}-${theme}.${ext}`,
+        url: `landing/${key}-${theme}${suffix}.${ext}`,
         title: t(caption),
       })),
       index,
@@ -310,8 +315,8 @@ export function Landing({ mainState, onLoadFile, onLoadSample, onStartNew }: Pro
                 title={t(caption)}
                 aria-label={`${t(caption)} — ${t("landing.shots.header")}`}
               >
-                <img className="lb-shot-dark" src={`landing/${key}-dark.${ext}`} alt={t(caption)} loading="lazy" />
-                <img className="lb-shot-light" src={`landing/${key}-light.${ext}`} alt={t(caption)} loading="lazy" />
+                <img className="lb-shot-dark" src={`landing/${key}-dark${suffix}.${ext}`} alt={t(caption)} loading="lazy" />
+                <img className="lb-shot-light" src={`landing/${key}-light${suffix}.${ext}`} alt={t(caption)} loading="lazy" />
               </button>
               <figcaption>{t(caption)}</figcaption>
             </figure>

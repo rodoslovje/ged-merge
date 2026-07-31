@@ -20,13 +20,16 @@ mkdirSync(outDir, { recursive: true });
 
 const browser = await chromium.launch();
 
-/** New context; overlays=true switches the Spezialkarte layer on by default. */
-async function makePage(theme, overlays) {
+/** New context; overlays=true switches the Spezialkarte layer on by default;
+ *  phone=true captures the portrait mobile layout (suffix `-m`). */
+async function makePage(theme, overlays, phone) {
   const ctx = await browser.newContext({
-    viewport: { width: 1240, height: 820 },
+    viewport: phone ? { width: 390, height: 844 } : { width: 1240, height: 820 },
     deviceScaleFactor: 2,
     colorScheme: theme,
     locale: "en-US",
+    isMobile: !!phone,
+    hasTouch: !!phone,
   });
   const page = await ctx.newPage();
   await page.addInitScript(([t, ov]) => {
@@ -72,21 +75,22 @@ async function openMap(page) {
   await page.waitForTimeout(1500);
 }
 
-for (const theme of ["dark", "light"]) {
+for (const [theme, phone] of [["dark", false], ["light", false], ["dark", true], ["light", true]]) {
+  const m = phone ? "-m" : "";
   // Tudor sample: Edit view, Tree, Fan; then Europe-vs-Tudor Merge view.
   {
-    const { ctx, page } = await makePage(theme, true);
+    const { ctx, page } = await makePage(theme, true, phone);
     await page.goto(base);
     await page.locator(".lb-sample-row").nth(2).click();
     await page.locator(".landing-b").waitFor({ state: "detached" });
     await page.getByRole("button", { name: "Edit", exact: true }).click();
     await page.locator(".edit-person").waitFor();
     await page.waitForTimeout(1200);
-    await page.screenshot({ path: `${outDir}/edit-${theme}.png` });
+    await page.screenshot({ path: `${outDir}/edit-${theme}${m}.png` });
 
     await page.locator(".charts-open-btn").click();
     await page.locator("svg.tree-svg").waitFor();
-    await chartShot(page, `${outDir}/tree-${theme}.png`);
+    await chartShot(page, `${outDir}/tree-${theme}${m}.png`);
     await page.getByRole("tab", { name: "Fan" }).click();
     // The fan's layout reserves its empty lower half, so plain fit leaves it
     // small — zoom (with the app's own stepper) until the drawn content nearly
@@ -113,7 +117,7 @@ for (const theme of ["dark", "light"]) {
       canvas.scrollTop += (r.top + r.height / 2) - (c.top + c.height / 2);
     });
     await page.waitForTimeout(400);
-    await page.screenshot({ path: `${outDir}/fan-${theme}.png` });
+    await page.screenshot({ path: `${outDir}/fan-${theme}${m}.png` });
 
     // Merge: Europe Royal Families as main, the Tudor file as compare.
     await page.goto(base);
@@ -125,14 +129,14 @@ for (const theme of ["dark", "light"]) {
     await page.locator(".candidate").first().waitFor({ timeout: 90000 });
     await page.locator(".candidate").first().click();
     await page.waitForTimeout(1500);
-    await page.screenshot({ path: `${outDir}/merge-${theme}.png` });
+    await page.screenshot({ path: `${outDir}/merge-${theme}${m}.png` });
     await ctx.close();
   }
 
   // Plain base-map shot: the Slovenian/Austrian core of the family's travels,
   // with the Ljubljana cluster's place panel open (birth + death listed).
   {
-    const { ctx, page } = await makePage(theme, false);
+    const { ctx, page } = await makePage(theme, false, phone);
     await openMap(page);
     await page.evaluate(() => {
       document.querySelector(".map-canvas")._leafletMap.setView([46.55, 15.2], 8, { animate: false });
@@ -148,7 +152,7 @@ for (const theme of ["dark", "light"]) {
     await page.mouse.click(pt.x, pt.y);
     await page.mouse.move(200, 700); // park the pointer so no hover tooltip shows
     await page.waitForTimeout(1500);
-    await page.screenshot({ path: `${outDir}/map-${theme}.png` });
+    await page.screenshot({ path: `${outDir}/map-${theme}${m}.png` });
     await ctx.close();
   }
 
@@ -157,7 +161,7 @@ for (const theme of ["dark", "light"]) {
   // centre death) over the engraved street grid. Uses the map's automation
   // hook for a precise view.
   {
-    const { ctx, page } = await makePage(theme, true);
+    const { ctx, page } = await makePage(theme, true, phone);
     await openMap(page);
     await page.evaluate(() => {
       const el = document.querySelector(".map-canvas");
@@ -167,7 +171,7 @@ for (const theme of ["dark", "light"]) {
     await page.locator(".map-overlays-chip").click(); // show which overlay is on
     await page.mouse.move(200, 700);
     await page.waitForTimeout(1200);
-    await page.screenshot({ path: `${outDir}/maphist-${theme}.png` });
+    await page.screenshot({ path: `${outDir}/maphist-${theme}${m}.png` });
     await ctx.close();
   }
 }

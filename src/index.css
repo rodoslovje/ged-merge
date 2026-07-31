@@ -7928,6 +7928,10 @@ kbd {
     padding: 10px 12px 0;
     margin-bottom: 8px;
   }
+  /* The strip serves portrait phone captures here — taller tiles fit them. */
+  .lb-shot img {
+    height: 170px;
+  }
   .app-footer {
     padding: 10px 12px 8px;
     gap: 3px 5px;

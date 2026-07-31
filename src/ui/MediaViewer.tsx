@@ -23,6 +23,7 @@ import { birthDateOf } from "../gedcom/lifespan";
 import { PersonLink } from "./PersonLink";
 import { useMediaFolder } from "./MediaFolderContext";
 import { useSettings } from "./SettingsContext";
+import { usePhone } from "./usePhone";
 import { basename } from "./mediaPath";
 
 /**
@@ -663,14 +664,19 @@ function MediaViewerOverlay({
   // A title with nothing else to show (no meta rows, details or edit form)
   // reads as a photo caption — shown under the image instead of opening the
   // side info panel for a single line (e.g. the landing-page screenshots).
-  const captionOnly =
-    !!current.title && !current.edit && !(current.meta && current.meta.length > 0) && !current.details;
+  const isCaptionOnly = (it: MediaItem) =>
+    !!it.title && !it.edit && !(it.meta && it.meta.length > 0) && !it.details;
+  const captionOnly = isCaptionOnly(current);
+  // A pure caption slideshow on a phone: the tray would eat scarce height for
+  // thumbnails the arrows already replace — give the image the whole screen.
+  const phone = usePhone();
+  const hideTray = phone && items.every(isCaptionOnly);
   const hasInfo =
     !captionOnly && (current.edit || current.title || (current.meta && current.meta.length > 0) || current.details);
 
   return (
     <div
-      className={`person-media-overlay ${multiple ? "has-tray" : ""}`}
+      className={`person-media-overlay ${multiple && !hideTray ? "has-tray" : ""}`}
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -795,7 +801,7 @@ function MediaViewerOverlay({
           ›
         </button>
       )}
-      {multiple && (
+      {multiple && !hideTray && (
         <div className="person-media-tray" onClick={(e) => e.stopPropagation()}>
           {items.map((it, i) => (
             <button
