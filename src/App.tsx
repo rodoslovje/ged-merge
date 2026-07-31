@@ -1675,9 +1675,7 @@ function AppContent() {
                 <AddPersonIcon size={18} />
               </button>
             )}
-            {/* With no file loaded the menu would hold a single item, so the
-                gear stays a button of its own on the landing page. */}
-            {(!phone || !mainDataset) && (
+            {!phone && (
               <button
                 className="nav-btn icon-only"
                 onClick={() => setShowSettings(true)}
@@ -1687,16 +1685,19 @@ function AppContent() {
                 <GearIcon size={18} />
               </button>
             )}
-            {phone && mainDataset && (
+            {/* The ☰ is the phone header's one button from the landing page on,
+                so it never changes identity under the user's thumb — with no
+                file loaded it simply holds less. */}
+            {phone && (
               <AppMenu
                 open={menuOpen}
                 onOpenChange={setMenuOpen}
                 files={menuFiles}
                 onOpenFiles={openInfoPanel}
-                startSelector={startSelector}
-                onCharts={openChartsFromHeader}
-                onSearch={() => setShowGlobalSearch(true)}
-                onAddPerson={() => requestAddPerson()}
+                startSelector={mainDataset ? startSelector : undefined}
+                onCharts={mainDataset ? openChartsFromHeader : undefined}
+                onSearch={mainDataset ? () => setShowGlobalSearch(true) : undefined}
+                onAddPerson={mainDataset ? () => requestAddPerson() : undefined}
                 onSettings={() => setShowSettings(true)}
               />
             )}

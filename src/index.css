@@ -6711,8 +6711,9 @@ kbd {
   /* The narrowest phones, and Slovenian ("Urejanje · Združevanje · Orodja" is
      half again as wide as the English), no longer fit the lettering beside the
      mode tabs. Keep the mark — it is the brand and the click target; the tabs
-     are what the user came for. */
-  .gm-wordmark-text {
+     are what the user came for. Only where the tabs actually are, though: the
+     landing page has the row to itself and keeps the full lockup. */
+  .app-head-top:has(.mode-tabs) .gm-wordmark-text {
     display: none;
   }
   /* Every pixel here buys a whole label: at 320px the Slovenian tabs

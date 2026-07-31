@@ -31,7 +31,7 @@ interface Props {
   /** The start-person picker, rendered inside the panel on a phone. */
   startSelector?: React.ReactNode;
   onCharts?: () => void;
-  onSearch: () => void;
+  onSearch?: () => void;
   onAddPerson?: () => void;
   onSettings: () => void;
 }
@@ -118,9 +118,11 @@ export function AppMenu({
                 <ChartIcon size={17} /> {t("edit.charts.button")}
               </button>
             )}
-            <button role="menuitem" className="app-menu-item" onClick={() => pick(onSearch)}>
-              <SearchIcon size={17} /> {t("globalSearch.title")}
-            </button>
+            {onSearch && (
+              <button role="menuitem" className="app-menu-item" onClick={() => pick(onSearch)}>
+                <SearchIcon size={17} /> {t("globalSearch.title")}
+              </button>
+            )}
             {onAddPerson && (
               <button role="menuitem" className="app-menu-item" onClick={() => pick(onAddPerson)}>
                 <AddPersonIcon size={17} /> {t("edit.addNewPerson")}
