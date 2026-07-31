@@ -680,21 +680,14 @@ export function EventFieldsRow({
         )}
         {extraText("agency", t("event.colAgency"), show.agency, agencySlotField, agencySlotForced, agencySlotLabel, agencyClearUpdate)}
         {extraText("cause", t("event.colCause"), show.cause, causeField, causeForced, t("event.cause", { event: label }), { cause: "" })}
-        <span data-detail="note" className={"edit-event-extra edit-event-extra--note" + optCls(show.note)}>
-          <span className="edit-event-extra-label">{t("event.colNote")}</span>
-          <ClearableTextarea
-            wrapClassName="edit-event-extra-field"
-            wrapStyle={noteW(noteField.value)}
-            className={fieldCls("edit-input edit-event-note", noteField.isMerge, noteField.isDirty || noteForced)}
-            value={noteField.value}
-            title={t("event.note", { event: label })}
-            rows={1}
-            onChange={noteField.onChange}
-            onBlur={() => commitAll({})}
-            onClear={() => { noteField.clear(); commitAll({ note: "" }); }}
-          />
-        </span>
+        {/* Sources and links lead the note: the note is a textarea that grows to
+            as many lines as it holds, and after it the icons ended up alone at
+            the foot of a tall row, far from the event they belong to. */}
         <span className={"edit-event-extra edit-event-extra--sources" + optCls(sourcesShown)}>
+          {/* Labelled like every other field on the row — a bare 📖 between the
+              agency and the note said nothing about what it opens. Same wording
+              as the add-detail menu's entry for this field. */}
+          <span className="edit-event-extra-label">{t("event.colLink")}</span>
           {ev?.sources?.length || sourcesMergeVal?.length ? (
             <SourceRefs t={t} mainSources={ev?.sources} incomingSources={sourcesMergeVal} onEdit={onEditSource} />
           ) : null}
@@ -709,6 +702,20 @@ export function EventFieldsRow({
               {siteIconForUrl(link) ?? "🔗"}
             </button>
           ))}
+        </span>
+        <span data-detail="note" className={"edit-event-extra edit-event-extra--note" + optCls(show.note)}>
+          <span className="edit-event-extra-label">{t("event.colNote")}</span>
+          <ClearableTextarea
+            wrapClassName="edit-event-extra-field"
+            wrapStyle={noteW(noteField.value)}
+            className={fieldCls("edit-input edit-event-note", noteField.isMerge, noteField.isDirty || noteForced)}
+            value={noteField.value}
+            title={t("event.note", { event: label })}
+            rows={1}
+            onChange={noteField.onChange}
+            onBlur={() => commitAll({})}
+            onClear={() => { noteField.clear(); commitAll({ note: "" }); }}
+          />
         </span>
         {/* Add a source / place / note / other detail without keeping every empty
          * field on screen — the menu offers only the ones not already shown. A
