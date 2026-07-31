@@ -8,6 +8,7 @@ import { mediaMetaRows } from "../MediaViewer";
 import { type ToolsScans } from "../useToolsScans";
 import { ToolsLoading, TreeSearch, UsageList, someMatch, useDebounced } from "./shared";
 import { SourceCleanupView } from "./SourceCleanupView";
+import { ToolSummary } from "./ToolSummary";
 
 /** Lightbox side panel for a media object: the person/family records that
  *  reference the image (the descriptive caption rows are supplied separately as
@@ -399,13 +400,13 @@ export function SourcesPanel({
             onOpen={() => setView("cleanup")}
           />
         </div>
-        <p className="tools-summary">
+        <ToolSummary>
           {t("tools.sources.summary", {
             repos: tree.repoCount,
             sources: tree.sourceCount,
             media: tree.mediaCount,
           })}
-        </p>
+        </ToolSummary>
       </div>
       {empty ? (
         <p className="tools-clean">{filtering ? t("tools.search.noMatch") : t("tools.sources.none")}</p>

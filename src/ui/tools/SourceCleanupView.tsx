@@ -27,6 +27,7 @@ import { downloadText, savedName } from "../download";
 import { isEditableTarget, isModalOpen } from "../../keyboard/shortcuts";
 import { BackButton } from "../BackButton";
 import { useSettings } from "../SettingsContext";
+import { ToolSummary } from "./ToolSummary";
 
 const SITES: readonly ReshapeSite[] = ALL_SITES;
 const QUAY_CHOICES = ["", "3", "2", "1", "0"];
@@ -286,7 +287,7 @@ export function SourceCleanupView({
     <>
       <div className="tools-filter-row">
         <BackButton label={t("tools.sources.dupBack")} shortcutHint="Esc" showLabel onClick={onBack} />
-        <p className="tools-summary">
+        <ToolSummary>
           {[
             hasReshape &&
               t("tools.sources.reshapeFound", {
@@ -297,7 +298,7 @@ export function SourceCleanupView({
           ]
             .filter(Boolean)
             .join(" · ")}
-        </p>
+        </ToolSummary>
       </div>
 
       {hasReshape && (

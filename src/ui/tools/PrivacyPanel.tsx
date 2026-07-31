@@ -16,6 +16,7 @@ import { downloadOptions, ensureUtf8Charset, serializeGedcom } from "../../gedco
 import { downloadText, savedName } from "../download";
 import { PersonLink } from "../PersonLink";
 import { ToolsLoading } from "./shared";
+import { ToolSummary } from "./ToolSummary";
 
 const NAME_STRATEGIES: NameStrategy[] = ["living", "private", "initials", "initialSurname", "surnameOnly"];
 const ACTIONS: PrivacyAction[] = ["sanitize", "remove", "removeDescendants"];
@@ -227,7 +228,7 @@ export function PrivacyPanel({
         <p className="tools-clean">{t("tools.privacy.none")}</p>
       ) : (
         <div className="tools-privacy-group">
-          <p className="tools-summary">{t("tools.privacy.affected", { count: flagged.length })}</p>
+          <ToolSummary>{t("tools.privacy.affected", { count: flagged.length })}</ToolSummary>
           <p className="tools-fix-hint">
             {t("tools.privacy.breakdown", counts)}
             {counts.recentDeath > 0 && t("tools.privacy.breakdownRecent", counts)}

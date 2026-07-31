@@ -13,6 +13,7 @@ import { useNameOf, useSettings } from "./SettingsContext";
 import { useChartSettings, type ChartKind } from "./ChartSettingsContext";
 import { BackButton } from "./BackButton";
 import { ChartIcon } from "./icons/ChartIcon";
+import { MapIcon } from "./icons/MapIcon";
 import { kinshipInfo, kinshipTooltip as kinshipTooltipText, lineageClass } from "../match/kinship";
 import { decisionKey, decisionStatusByMainId, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
 import {
@@ -1709,8 +1710,20 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
           {personMap && (
             <div className="edit-person-map">
               <div className="edit-person-map-head">
-                <button className="edit-person-map-toggle" onClick={toggleMapHidden} aria-expanded={!mapHidden}>
-                  {mapHidden ? t("edit.mapShow") : t("edit.mapHide")}
+                {/* Icon + label. On a phone the label goes and the glyph stands
+                    for it, so the legend can follow on the same line instead of
+                    being pushed into a right-aligned block of its own. */}
+                <button
+                  className="edit-person-map-toggle"
+                  onClick={toggleMapHidden}
+                  aria-expanded={!mapHidden}
+                  title={mapHidden ? t("edit.mapShow") : t("edit.mapHide")}
+                  aria-label={mapHidden ? t("edit.mapShow") : t("edit.mapHide")}
+                >
+                  <MapIcon size={15} />
+                  <span className="edit-person-map-toggle-label">
+                    {mapHidden ? t("edit.mapShow") : t("edit.mapHide")}
+                  </span>
                 </button>
                 {!mapHidden && (
                   <div className="edit-person-map-legend">

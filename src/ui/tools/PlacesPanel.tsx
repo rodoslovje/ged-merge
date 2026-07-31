@@ -9,6 +9,7 @@ import { countGeocodePending, type GeoAssignment } from "../../tools/geocode";
 import { countryCode } from "../../gedcom/countryCode";
 import { ToolsLoading, TreeSearch, UsageList, useDebounced } from "./shared";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
+import { ToolSummary } from "./ToolSummary";
 
 const MiniPlaceMap = lazy(() => import("../map/MiniPlaceMap"));
 
@@ -229,9 +230,9 @@ export function PlacesPanel({
             )}
           </button>
         </div>
-        <p className="tools-summary">
+        <ToolSummary>
           {t("tools.places.summary", { countries: tree.countryCount, distinct: tree.distinctCount, uses: tree.totalUses })}
-        </p>
+        </ToolSummary>
       </div>
       {roots.length === 0 ? (
         <p className="tools-clean">{filtering ? t("tools.search.noMatch") : t("tools.places.none")}</p>

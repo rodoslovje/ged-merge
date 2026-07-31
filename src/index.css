@@ -87,6 +87,12 @@ button:focus-visible {
 }
 .app-head-brand h1 {
   flex-shrink: 0;     /* logo never shrinks */
+  /* Flex, not the default block. The wordmark inside is an inline-flex span, so
+     as a block the h1 gave it a text line box — 6px of descender space below a
+     25.5px mark, which left the glyph sitting 3px above the centre the mode tabs
+     and the ☰ beside it share. A flex container has no line box. */
+  display: flex;
+  align-items: center;
 }
 .app-head-file-pills {
   display: flex;
@@ -244,26 +250,187 @@ button:focus-visible {
   appearance: none;
 }
 
+/* ── Phone picker dropdown (PickerMenu) ───────────────────────────────────
+   Stands in for a segmented picker that doesn't fit across a phone: the
+   chart-kind switcher and the Tools sub-tool row. Rendered only below 720px
+   (the components decide), so no media query of its own. */
+.picker-menu {
+  position: relative;
+  min-width: 0;
+}
+.picker-menu-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 12px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.picker-menu-btn.open {
+  border-color: var(--accent);
+}
+.picker-menu-value {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+  color: var(--accent);
+}
+.picker-menu-caret {
+  flex: none;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1;
+}
+.picker-menu-popover {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 70;
+  padding: 6px;
+  max-height: calc(100dvh - 160px);
+  overflow-y: auto;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 28px rgb(0 0 0 / 0.35);
+}
+.picker-menu-item {
+  display: block;
+  width: 100%;
+  padding: 9px 10px;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.92rem;
+  text-align: left;
+  cursor: pointer;
+}
+.picker-menu-item:hover {
+  background: var(--panel-2);
+}
+.picker-menu-item.active {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* ── Phone header ☰ menu (AppMenu) ────────────────────────────────────────
+   Everything the one-row phone header can't hold: the loaded files, the
+   start-person picker, and the icon buttons that sit in the header on a
+   desktop. Rendered only below 720px (App.tsx decides), so these rules need no
+   media query of their own. */
+.app-menu {
+  position: relative;
+}
+.app-menu-glyph {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+.app-menu-btn.open {
+  color: var(--accent);
+}
+.app-menu-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 70;
+  width: min(300px, calc(100vw - 24px));
+  /* Never taller than what's left below the header. */
+  max-height: calc(100dvh - 90px);
+  overflow-y: auto;
+  padding: 8px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 28px rgb(0 0 0 / 0.35);
+}
+.app-menu-group + .app-menu-group {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.app-menu-label {
+  margin: 0 0 4px;
+  padding: 0 8px;
+  color: var(--faint);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.app-menu-item,
+.app-menu-file {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 8px;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.95rem;
+  text-align: left;
+  cursor: pointer;
+}
+.app-menu-item:hover,
+.app-menu-file:hover {
+  background: var(--panel-2);
+}
+/* A file row: the name leads (it is what the user is looking for) with the
+   "Main" / "Incoming" role trailing it, and the .gm-file dot carrying the
+   accent as it does on the header pills. */
+.app-menu-file {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+}
+.app-menu-file::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+.app-menu-file-name {
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.app-menu-file-role {
+  margin-left: auto;
+  flex: none;
+  color: var(--muted);
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+}
+.app-menu-files-more {
+  color: var(--accent);
+  font-size: 0.85rem;
+}
+/* The start picker fills the panel rather than keeping its header width. */
+.app-menu-group .start-selector {
+  flex: 1 1 auto;
+  width: 100%;
+}
+
 .app-head {
   margin-bottom: 20px;
 }
-
-.mobile-warning {
-  background: #3a3320;
-  color: #fcd34d;
-  padding: 12px 16px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  font-size: 0.9rem;
-  border-radius: var(--radius);
-  margin-bottom: 16px;
-}
-.mobile-warning button {
-  background: none; border: none; color: inherit; font-size: 1.2rem; padding: 0 4px; opacity: 0.8; cursor: pointer;
-}
-.mobile-warning button:hover { opacity: 1; }
 
 /* --- collapsible sections --- */
 .section {
@@ -1919,7 +2086,7 @@ button:focus-visible {
    the PDF paper color, not a theme surface, so it stays literal. */
 .media-lightbox-doc {
   width: min(80vw, 900px);
-  height: 85vh;
+  height: 85dvh;
   border: 0;
   border-radius: 4px;
   background: #fff;
@@ -1972,7 +2139,7 @@ button:focus-visible {
 /* Add-media picker dialog. */
 .add-media-dialog { width: min(720px, 92vw); }
 .add-media-search { margin: 0 16px; max-width: 320px; }
-/* Fill the modal's height (the .modal base is a 90vh flex column) so the grid
+/* Fill the modal's height (the .modal base is a 90dvh flex column) so the grid
  * scrolls and the footer sticks to the bottom, instead of capping the body. */
 .add-media-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 /* A lone message (loading / no matches) centers in the body rather than
@@ -2057,7 +2224,7 @@ button:focus-visible {
  * handed to (people for an individual event, families for a family one). */
 .copy-event-dialog { width: min(560px, 92vw); }
 .copy-event-search { margin: 0 16px; max-width: 260px; }
-/* Fill the modal's height (the .modal base is a 90vh flex column) so the list
+/* Fill the modal's height (the .modal base is a 90dvh flex column) so the list
  * scrolls and the footer stays put — same as the add-media body. */
 .copy-event-body { flex: 1; min-height: 0; }
 /* What the event carries, so the user can confirm they picked the right row. */
@@ -2119,7 +2286,7 @@ button:focus-visible {
 .person-media-overlay.has-tray { padding-bottom: 96px; }
 .person-media-full {
   max-width: min(90vw, 1200px);
-  max-height: 90vh;
+  max-height: 90dvh;
   object-fit: contain;
   border-radius: 4px;
   box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
@@ -2147,19 +2314,19 @@ button:focus-visible {
   gap: 12px;
   min-width: 0;
   flex: 0 1 auto;
-  max-height: 92vh;
+  max-height: 92dvh;
   /* Stay vertically centred even when the info panel (top-aligned) is taller. */
   align-self: center;
   cursor: default;
 }
-.person-media-stage .person-media-full { max-height: 80vh; max-width: 100%; }
+.person-media-stage .person-media-full { max-height: 80dvh; max-width: 100%; }
 /* Wrapper shrink-wraps the contain-fitted image so the GEDCOM 7 crop boxes can
    be positioned as plain percentages of the image (no letterboxing inside). */
 .person-media-cropwrap {
   position: relative;
   display: inline-flex;
   max-width: 100%;
-  max-height: 80vh;
+  max-height: 80dvh;
   line-height: 0;
   border-radius: 4px;
 }
@@ -2280,7 +2447,7 @@ button:focus-visible {
   align-items: flex-start;
   gap: 16px;
   max-width: 95vw;
-  max-height: 92vh;
+  max-height: 92dvh;
   cursor: default;
 }
 .media-lightbox-info {
@@ -2289,7 +2456,7 @@ button:focus-visible {
   /* Top-aligned (the lightbox uses align-items: flex-start) and bounded so a
    * long "referenced by" list scrolls within the panel instead of stretching
    * the row and pushing the photo off-centre. */
-  max-height: 92vh;
+  max-height: 92dvh;
   overflow-y: auto;
   background: var(--panel, #1e1e1e);
   color: var(--text);
@@ -2330,7 +2497,7 @@ button:focus-visible {
 }
 @media (max-width: 720px) {
   .media-lightbox { flex-direction: column; align-items: center; }
-  .person-media-stage .person-media-full { max-height: 55vh; }
+  .person-media-stage .person-media-full { max-height: 55dvh; }
   .media-lightbox-info { flex: 1 1 auto; max-width: 95vw; width: 100%; }
 }
 
@@ -4929,11 +5096,27 @@ a.report-source:hover { color: var(--accent); text-decoration: underline; }
   backdrop-filter: blur(2px);
   z-index: 100;
   /* Center whatever dialog the overlay carries; compact dialogs (shortcuts,
-     settings, confirm) float mid-screen, full-height ones fill the padding box. */
+     settings, confirm) float mid-screen, full-height ones fill the padding box.
+     Centering is done with the child's `margin: auto`, NOT `align-items:
+     center` — a flex item centered that way and taller than the overlay
+     overflows *both* ends, and the top half is then unreachable however the
+     overlay scrolls. Auto margins collapse to zero on the overflowing side
+     instead, so the dialog starts at the top edge and scrolls from there. */
   display: flex;
-  align-items: center;
   justify-content: center;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 40px;
+}
+.modal-overlay > * {
+  margin: auto;
+}
+/* Freeze the page behind an open dialog. On a phone the app is one long
+   document scroll, so a swipe that started on the overlay used to run the list
+   underneath and leave the dialog floating over unrelated content. Keyed off
+   the overlay itself rather than a hook in each of the dozen dialogs. */
+body:has(.modal-overlay) {
+  overflow: hidden;
 }
 /* Confirm dialogs sit over a preview the user needs to read (e.g. the
    Health-Check findings behind a fix confirmation) — dim but don't blur. */
@@ -4943,14 +5126,16 @@ a.report-source:hover { color: var(--accent); text-decoration: underline; }
 }
 /* Global search is a command-palette: compact, dropped from near the top. */
 .modal-overlay:has(> .global-search-modal) {
-  align-items: flex-start;
-  padding: 10vh 24px 24px;
+  padding: 10dvh 24px 24px;
+}
+.modal-overlay > .global-search-modal {
+  margin: 0 auto auto;
 }
 .global-search-modal {
   width: 100%;
   max-width: 560px;
   height: auto;
-  max-height: 70vh;
+  max-height: 70dvh;
   overflow: hidden;
 }
 .global-search-field {
@@ -5124,8 +5309,11 @@ a.report-source:hover { color: var(--accent); text-decoration: underline; }
   border-radius: 12px;
   width: 100%;
   max-width: 800px;
-  height: 90vh;
-  max-height: 1000px;
+  height: 90dvh;
+  /* `100%` is the overlay's content box — the viewport less its padding — so a
+     dialog asking for 90dvh still fits inside the frame instead of pushing the
+     overlay into a scroll. */
+  max-height: min(1000px, 100%);
   display: flex;
   flex-direction: column;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
@@ -5168,7 +5356,7 @@ a.report-source:hover { color: var(--accent); text-decoration: underline; }
 /* ── General settings (SettingsModal) ─────────────────────────────────────── */
 /* One size for every tab: a short tab (Advanced) used to shrink the dialog,
    so switching tabs resized the window under the pointer. */
-.settings-modal { max-width: 624px; height: 88vh; max-height: 88vh; }
+.settings-modal { max-width: 624px; height: 88dvh; max-height: 88dvh; }
 
 /* General / Advanced tab bar — same segmented look as .chart-settings-segmented,
  * sized to span the modal width just under the header. */
@@ -5310,7 +5498,7 @@ p.settings-note { margin: 0 0 12px; font-size: 0.82rem; color: var(--muted); lin
 .settings-radio input { flex: none; }
 
 /* ── Keyboard shortcut cheat sheet (ShortcutsModal) ───────────────────────── */
-.shortcuts-modal { max-width: 720px; height: auto; max-height: 88vh; }
+.shortcuts-modal { max-width: 720px; height: auto; max-height: 88dvh; }
 
 .shortcuts-legend {
   display: flex; flex-wrap: wrap; gap: 8px 24px;
@@ -5374,6 +5562,11 @@ kbd {
   padding: 24px;
   width: 360px;
   max-width: 90vw;
+  /* Unlike .modal this is not a full-height dialog, so it carried no height cap
+     at all — a long save summary on a phone grew past the screen and had no way
+     to scroll. */
+  max-height: 100%;
+  overflow-y: auto;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
 }
 .confirm-dialog-title {
@@ -5460,7 +5653,7 @@ kbd {
 
 /* Add/Edit Source dialog: a short, wide card that sizes to its content —
    header and footer pinned, body scrolling only when needed. */
-.add-source-dialog { width: 740px; max-width: 90vw; height: auto; max-height: 94vh; }
+.add-source-dialog { width: 740px; max-width: 90vw; height: auto; max-height: 94dvh; }
 .modal-overlay:has(> .add-source-dialog) { background: rgba(28, 24, 18, 0.42); }
 .add-source-dialog .modal-header h2 {
   display: flex;
@@ -5744,7 +5937,11 @@ kbd {
   padding: 12px 16px;
   margin: 14px 0 4px;
 }
-.legal-notice strong {
+/* The box's own heading — its direct child, not every `strong` inside it. As a
+   descendant selector this also caught the emphasis in the prose ("both **off
+   by default**"), which then broke out of its sentence as an uppercase accent
+   block on a line of its own. */
+.legal-notice > strong {
   display: block;
   margin-bottom: 6px;
   color: var(--accent);
@@ -6173,6 +6370,9 @@ kbd {
 .map-count {
   color: var(--muted);
   font-size: 12.5px;
+  /* The controls row aligns to the top; this is one line of text beside
+     button-height controls, so centre it against them. */
+  align-self: center;
 }
 
 /* Tile opt-in notice: floats over the offline outline until enabled. */
@@ -6309,10 +6509,6 @@ kbd {
    (search "@media" — header at ~880px, compare photos at ~720px); the bulk
    of the overrides are grouped here so cross-cutting tweaks stay together. */
 @media (max-width: 880px) {
-  .mobile-warning {
-    border-radius: 0;
-    margin-bottom: 0;
-  }
   .modal-overlay {
     padding: 0;
   }
@@ -6345,11 +6541,6 @@ kbd {
   }
   .app-head-brand {
     gap: 12px;
-  }
-  /* Filenames would wrap to a second row and crowd the header on narrow
-     screens; hide them rather than pushing them down. */
-  .app-head-file-pills {
-    display: none;
   }
   .section {
     border-left: none;
@@ -6423,6 +6614,23 @@ kbd {
     padding-left: 0;
     border-top: 1px solid var(--border);
     padding-top: 32px;
+  }
+  /* The file card's side column — Media for the main file, the normalization
+     report for the incoming one — is a `flex: 1` beside a metadata list sized
+     to its own content. Narrow enough and there is nothing left for it, so it
+     ran off the right edge. Below the metadata instead, full width, with the
+     divider turned through 90°. */
+  .loader-cols {
+    flex-direction: column;
+    gap: 0;
+  }
+  .loader-cols > .loader-report {
+    align-self: stretch;
+    padding-left: 0;
+    border-left: none;
+    padding-top: 14px;
+    margin-top: 2px;
+    border-top: 1px solid var(--border);
   }
   .start-selector {
     flex: 1 1 100%;
@@ -6543,15 +6751,18 @@ kbd {
     padding: 4px 8px;
     font-size: 0.75rem;
   }
-  /* On mobile the panel covers the whole tree, with a minimal gap to the screen
-     edges so the tree behind it doesn't peek through. */
-  .tree-compare {
+  /* The panel used to cover the whole chart, which hid the person it is about —
+     you tapped a node and it vanished behind its own details. It takes the
+     bottom half now, and `centreOn` (useTreeCanvas) puts the selected node in
+     the half still showing, so the person stays above their panel. */
+  .tree-compare,
+  .map-panel {
     width: auto;
     left: 8px;
     right: 8px;
-    top: 8px;
+    top: auto;
     bottom: 8px;
-    max-height: none;
+    max-height: 50%;
   }
 
   /* Info panel: stack main and incoming loaders vertically */
@@ -6585,6 +6796,29 @@ kbd {
 @media (max-width: 560px) {
   /* Stack the name-display preview so the person sample gets its own row
      instead of being squeezed next to the "Preview" label. */
+  /* The narrowest phones, and Slovenian ("Urejanje · Združevanje · Orodja" is
+     half again as wide as the English), no longer fit the lettering beside the
+     mode tabs. Keep the mark — it is the brand and the click target; the tabs
+     are what the user came for. Only where the tabs actually are, though: the
+     landing page has the row to itself and keeps the full lockup. */
+  .app-head-top:has(.mode-tabs) .gm-wordmark-text {
+    display: none;
+  }
+  /* Every pixel here buys a whole label: at 320px the Slovenian tabs
+     ("Urejanje · Združevanje · Orodja") are ~10px short of fitting beside the
+     mark and the ☰, and the difference is between "Orodja" and "Oro…". */
+  .app-head-top {
+    column-gap: 6px;
+  }
+  .mode-tabs {
+    padding: 1px;
+    gap: 1px;
+  }
+  .seg-btn {
+    padding: 5px 6px;
+    font-size: 0.76rem;
+  }
+
   .settings-preview {
     flex-direction: column;
     align-items: flex-start;
@@ -6647,17 +6881,61 @@ kbd {
   }
 }
 
-/* On phone-sized widths there's no longer room for the pills beside the
-   wordmark, so the pills drop to their own row while the wordmark keeps the
-   theme/language switcher. (The mode tabs live on the start-selector row below.) */
+/* Phone: one header row — wordmark, mode tabs, ☰. The pills, the start-person
+   picker and the four icon buttons all move into the ☰ menu (App.tsx renders
+   that swap, so nothing here is a hidden duplicate), and the second row exists
+   only when there is something to save or undo. */
 @media (max-width: 720px) {
-  .app-head-file-pills {
-    order: 4;
-    flex: 0 1 100%;
+  .app-head-top {
+    column-gap: 8px;
+    /* One row, and it stays one row. A wrapping flex container breaks the line
+       on each item's *content* size and only then shrinks what is on it — so
+       the ☰ dropped to a second row while the mode tabs, which were willing to
+       shrink, never got the chance. With `nowrap` the tabs give up their width
+       instead (they are the only flexible item here). */
+    flex-wrap: nowrap;
   }
-  /* Pills no longer grow on their own row, so re-pin the switcher to the right. */
-  .app-head-brand:has(.app-head-file-pills) ~ .lang-switcher {
+  /* The filenames move into the ☰ menu, which lists them and opens the same
+     info panel the pills toggle. (This used to say `display: none` from 880px
+     down with nothing taking over, which left no way at all to see or change
+     the loaded files on a phone.) */
+  .app-head-file-pills {
+    display: none;
+  }
+  .mode-tabs {
+    order: 2;
+    /* The one flexible item on the row: it shrinks before the wordmark or ☰ do,
+       and its buttons ellipsis rather than push them off the edge. */
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    padding: 2px;
+  }
+  .seg-btn {
+    padding: 5px 10px;
+    font-size: 0.8rem;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .lang-switcher {
+    order: 3;
     margin-left: auto;
+  }
+  .app-head-controls {
+    margin-top: 8px;
+  }
+  /* Nothing left on this row but Save and the history pair — right-align them
+     as a group instead of leaving the auto margin to a start selector that is
+     no longer here. */
+  .app-head-controls .app-head-actions {
+    margin-left: auto;
+  }
+  /* ↩ / ↪ alone: the words cost a third of the row and the arrows already say
+     it. The label stays in `aria-label` and the tooltip. */
+  .undo-btn-label {
+    display: none;
   }
 }
 
@@ -7039,10 +7317,13 @@ kbd {
 .tools-usage-amp { color: var(--muted); margin: 0 6px; }
 .tools-usage-age { color: var(--muted); }
 .tools-usage-block { padding-left: 26px; }
+/* One width for every score, so the names beside them line up down the list
+   instead of stepping right whenever a row scores 100. Wide enough for three
+   digits at this size; the padding is trimmed to pay for it. */
 .tools-cat {
-  min-width: 32px; text-align: center;
+  min-width: 40px; text-align: center; font-variant-numeric: tabular-nums;
   font-weight: 700; font-size: 0.78rem;
-  border-radius: 5px; padding: 2px 6px;
+  border-radius: 5px; padding: 2px 3px;
   background: var(--panel-2); color: var(--muted);
 }
 .tools-cat.cat-strong { background: color-mix(in oklch, var(--state-match) 14%, transparent); color: var(--state-match); }
@@ -7128,6 +7409,19 @@ kbd {
 /* Fixed-width select column pinned to the right edge, so every dropdown's
    left and right edges line up down the tab. */
 .settings-format-row select { flex-shrink: 0; width: 210px; margin-left: auto; }
+/* Phone: the label, a 210px select and the example shared one line, which left
+   the example ~90px of its 40 %-capped, ellipsised column — the one part of the
+   row that has to be read in full. Label and select keep the first line; the
+   example takes the second. Placed here rather than in the responsive section
+   at the foot of the file: the rules it overrides are the four above, and at
+   equal specificity source order decides. */
+@media (max-width: 560px) {
+  .settings-format-row { flex-wrap: wrap; row-gap: 2px; }
+  .settings-format-row select { width: auto; max-width: 62%; }
+  .settings-format-example {
+    order: 1; flex: 1 1 100%; max-width: 100%; text-align: left; padding-left: 2px;
+  }
+}
 
 /* Free-text settings inputs (custom tile URL): app input look — the browser
    default focus ring reads foreign in both themes — and room for a URL. */
@@ -7369,6 +7663,26 @@ kbd {
   background: var(--panel); color: var(--text); font: inherit; font-size: 0.85rem;
 }
 .edit-coord-manual input:focus { outline: none; border-color: var(--accent); }
+/* Phone: the panel keeps its anchor under the pin — the place and address being
+   positioned stay visible above it, which is the whole point of the row — but
+   spans the screen rather than sitting in a 720px two-column box that gave the
+   map ~220px beside a ~160px result list. Stacked instead: map first, where a
+   tap places the pin, then the lookups. Its height is set inline from the room
+   left below the row, and it scrolls inside that. */
+.edit-coord-pop--phone {
+  left: 8px;
+  right: 8px;
+  width: auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.edit-coord-pop--phone .edit-coord-body { flex-direction: column; }
+.edit-coord-pop--phone .edit-coord-map,
+.edit-coord-pop--phone .edit-coord-side { flex: 0 0 auto; }
+.edit-coord-pop--phone .edit-coord-map .tools-geo-minimap { height: 190px; }
+/* The list scrolls with the panel rather than in a 260px box of its own. */
+.edit-coord-pop--phone .edit-coord-side { max-height: none; overflow-y: visible; }
+.edit-coord-pop--phone .edit-coord-head .edit-coord-manual { flex: 1 1 100%; }
 .tools-geo-hint { color: var(--muted); font-size: 0.85rem; margin: 10px 0 0; }
 /* Address rows: house coordinates from the address register. */
 .tools-geo-addr-list { list-style: none; margin: 0; padding: 0; }
@@ -7418,7 +7732,10 @@ kbd {
 .edit-map-legend-item .map-kind-dot { width: 9px; height: 9px; }
 .edit-map-legend-line { width: 16px; border-top: 2px solid var(--map-path); display: inline-block; }
 .edit-person-map-toggle {
-  display: block;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
   background: none;
   border: none;
   cursor: pointer;
@@ -7428,6 +7745,7 @@ kbd {
   white-space: nowrap;
 }
 .edit-person-map-toggle:hover { color: var(--accent); }
+.edit-person-map-toggle svg { flex: none; }
 /* "Show on map" link on expanded rows not holding the (single) mini map. */
 /* One action row per candidate list: "show on map" and the online searches
    together while the map is closed, the searches alone under it when open. */
@@ -7604,39 +7922,37 @@ kbd {
 
   /* --- Tools: sub-tool picker --- */
   /* Six description-carrying cards, one per row, pushed every result off the
-     first screen. Collapse them to a scrollable chip row (label only). */
+     first screen — and the scrollable chip row that replaced them still hid
+     most of the choice off the right edge. ToolsView renders the dropdown here
+     instead; all that is left is its spacing. */
   .tools-view {
     padding: 12px;
   }
   .tools-head {
     margin-bottom: 10px;
   }
-  .tools-subtabs {
+  /* Content-width picker with the tool's own summary beside it (portalled in
+     from the panel by ToolSummary) — one row instead of two, and the count
+     reads next to the tool it counts for. A full-width dropdown over a two-word
+     label read as a text field rather than a picker. */
+  .tools-picker-row {
     display: flex;
-    gap: 6px;
+    align-items: center;
+    gap: 10px;
     margin-bottom: 12px;
-    overflow-x: auto;
-    scroll-snap-type: x proximity;
-    scrollbar-width: none;
-    /* Bleed to the panel edges so a half-shown chip reads as "scroll me". */
-    margin-inline: -12px;
-    padding-inline: 12px;
   }
-  .tools-subtabs::-webkit-scrollbar {
-    display: none;
+  .tools-subtabs-picker {
+    width: max-content;
+    max-width: 60%;
+    flex: none;
   }
-  .tools-tab {
-    flex: 0 0 auto;
-    padding: 6px 12px;
-    border-radius: var(--radius-pill);
-    scroll-snap-align: start;
+  .tools-summary-slot {
+    flex: 1 1 auto;
+    min-width: 0;
   }
-  .tools-tab-label {
-    font-size: 0.88rem;
-    white-space: nowrap;
-  }
-  .tools-tab-desc {
-    display: none;
+  .tools-picker-row .tools-summary {
+    margin: 0;
+    text-align: right;
   }
   .tools-filter-row {
     gap: 8px;
@@ -7687,27 +8003,23 @@ kbd {
   .tree-title-kind {
     display: none;
   }
-  /* Eight kinds never fit on 390px. Scroll them instead of clipping them
-     (ChartKindTabs scrolls the active one into view). */
+  /* Eight kinds never fit on 390px, and the scroller that held them kept most
+     of the list off the right edge. ChartKindTabs renders a dropdown here — it
+     costs one row rather than one row plus a swipe, and it names the kind you
+     are on, so the Ancestors/Descendants toggle can share the row with it. */
   .tree-controls-left {
-    flex: 1 1 100%;
+    flex: 0 1 auto;
     min-width: 0;
   }
-  .charts-kind {
-    max-width: 100%;
-    overflow-x: auto;
-    scroll-snap-type: x proximity;
-    scrollbar-width: none;
+  /* Sized to the longest kind name rather than a round number — the labels top
+     out at 67px (sl) / ~86px (en) plus the caret, gap, padding and border. A
+     fixed width, not `max-content`: the Ancestors/Descendants toggle sits beside
+     it and would shift every time the kind changed. */
+  .charts-kind-picker {
+    width: 128px;
   }
-  .charts-kind::-webkit-scrollbar {
-    display: none;
-  }
-  .charts-kind button {
-    flex: 0 0 auto;
-    scroll-snap-align: center;
-  }
-  /* With the kind switcher on its own full-width row, the find box takes the
-     next one — its field stretching to whatever is left beside the ‹ ›. */
+  /* The find box takes the next row — its field stretching to whatever is left
+     beside the ‹ ›. */
   .chart-find {
     flex: 1 1 100%;
     align-items: stretch;
@@ -7723,17 +8035,22 @@ kbd {
   .map-filters {
     gap: 6px 10px;
     margin-bottom: 6px;
+    /* `.tree-shell > .tree-page` zeroes the page's horizontal padding and each
+       toolbar row re-adds it; these rows never did, so the year box and the
+       first chip sat flush against the screen edge. */
+    padding-inline: 16px;
   }
-  /* Event kinds on one scrollable line rather than two wrapped rows. */
+  /* The 170px track plus two year boxes filled the row on its own. */
+  .year-slider {
+    width: 96px;
+    height: 18px;
+  }
+  /* The kinds used to be one sideways scroller, which put the last of them (and
+     Paths, which now sits with them) off the right edge behind a swipe. Two
+     wrapped rows cost ~30px and show every chip. */
   .map-kinds {
-    flex-wrap: nowrap;
-    overflow-x: auto;
     min-width: 0;
     flex: 1 1 100%;
-    scrollbar-width: none;
-  }
-  .map-kinds::-webkit-scrollbar {
-    display: none;
   }
   .map-kind-chip {
     flex: 0 0 auto;
@@ -7761,6 +8078,14 @@ kbd {
     padding: 0 16px 150px;
   }
 
+  /* --- Health check --- */
+  /* The finding shared the row with the person it is about, so it wrapped into
+     a ragged ~200px column beside them. Its own full-width line below instead:
+     the subject reads on one line, the explanation on the next. */
+  .tools-issue > .tools-issue-msg {
+    flex: 1 1 100%;
+  }
+
   /* --- Duplicates --- */
   /* One line could not hold two people: both names truncated to "Marija…",
      which defeats the one job of a duplicate list — telling two look-alikes
@@ -7771,18 +8096,77 @@ kbd {
     flex-wrap: wrap;
     row-gap: 1px;
     overflow: visible;
+    /* The base rule centres the row's items. Once the two names take a line
+       each, that put the ▶ expander half way down the row — floating between
+       the names rather than beside the first one it opens. */
+    align-items: flex-start;
+  }
+  .tools-pair-row > .tools-pair-toggle,
+  .tools-pair-row > .tools-pair-toggle-spacer {
+    /* Back onto the first line's text baseline, which the row no longer sets. */
+    margin-top: 3px;
   }
   .tools-pair-break {
     display: block;
     flex-basis: 100%;
     height: 0;
   }
+  /* `flex-basis: 0`, not `auto`. A flex container breaks its lines on each
+     item's *content* width, and only shrinks what already landed on the line —
+     so with `auto` a long name pushed itself onto a line of its own and the
+     pair took three lines instead of two, leaving the ↔ orphaned on the
+     middle one. The row box is a fixed height the virtual list hands out (see
+     e2e/dup-cluster-repro.spec.ts), so that content simply spilled out of it.
+     With a zero basis each name always fits its line and then grows into
+     whatever is left, ellipsising if that isn't enough. */
   .tools-pairs .person-ref {
-    flex: 1 1 auto;
+    flex: 1 1 0;
+    min-width: 0;
   }
-  /* Line 2 lines up under the names rather than under the expander. */
+  /* The name is the elastic part; the xref and lifespan beside it are short and
+     stay whole. */
+  .tools-pairs .person-ref .person-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .tools-pairs .person-ref .person-xref,
+  .tools-pairs .person-ref .person-years {
+    flex: none;
+  }
+  /* Line 2 lines up under line 1: the ↔ takes the expander's indent and then
+     the score badge's own width, so the second name starts exactly under the
+     first instead of 17px to its left. */
   .tools-pair-break + .tools-pair-sep {
     margin-left: 28px;
+    min-width: 40px;
+    text-align: center;
+  }
+
+  /* --- Search everyone --- */
+  /* The row actions were revealed by `.highlighted`, which only the keyboard
+     sets — so on a phone the Charts and Kinship buttons could not be reached at
+     all. Always shown here, on a line of their own under the name. */
+  .global-search-row {
+    flex-wrap: wrap;
+    padding: 4px 8px 8px;
+  }
+  .global-search-row .global-search-actions {
+    display: flex;
+    flex: 1 1 100%;
+    padding-left: 12px;
+  }
+  /* A long name plus its id, lifespan and kinship never shared one line; the
+     name won the ellipsis and the meta was pushed off. Name first, in full,
+     with the meta wrapping under it. */
+  .global-search-open {
+    flex-wrap: wrap;
+    row-gap: 1px;
+    padding: 8px 12px 4px;
+  }
+  .global-search-name {
+    flex: 1 1 100%;
+    white-space: normal;
   }
 
   /* --- Report --- */
@@ -7803,5 +8187,27 @@ kbd {
   }
   .edit-person {
     padding: 14px 14px;
+  }
+  /* Person map header. The legend was pinned to the right edge opposite the
+     toggle, so on a phone it broke into three right-aligned lines that read as
+     a separate block hanging over the map. The toggle drops its label — the map
+     glyph stands for it, with the wording in the tooltip and `aria-label` — and
+     the legend simply follows it, wrapping as one run of chips. */
+  /* Only while the map is open, which is the only time the legend is rendered
+     and the row has something to make space for. Collapsed, the glyph would be
+     alone and cryptic, so it keeps its wording. */
+  .edit-person-map-head:has(.edit-person-map-legend) .edit-person-map-toggle-label {
+    display: none;
+  }
+  .edit-person-map-head {
+    /* Not `center`: once the legend wraps to two lines, a centred glyph floats
+       between them instead of leading the first one. */
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: 4px 12px;
+  }
+  .edit-person-map-legend {
+    flex: 1 1 auto;
+    justify-content: flex-start;
   }
 }

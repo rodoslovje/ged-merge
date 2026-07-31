@@ -31,6 +31,7 @@ import { GeocodePlaceRow } from "./GeocodePlaceRow";
 import { BackButton } from "../BackButton";
 import { isEditableTarget, isModalOpen } from "../../keyboard/shortcuts";
 import { useNameOf, useSettings } from "../SettingsContext";
+import { ToolSummary } from "./ToolSummary";
 
 // The "Geocode places" tool (MAPVIEW.md phase 2). Top: the offline gazetteer
 // manager — imported GeoNames country extracts living in the gedmerge-geo
@@ -523,14 +524,14 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
       <div className="tools-filter-row">
         <BackButton label={t("tools.places.geocodeBack")} shortcutHint="Esc" showLabel onClick={onBack} />
         <TreeSearch value={search} onChange={setSearch} />
-        <p className="tools-summary">
+        <ToolSummary>
           {[
             scan.rows.length > 0 && t("tools.geocode.coverage", { distinct: scan.rows.length }),
             lastApplied !== null && t("tools.geocode.applied", { count: lastApplied }),
           ]
             .filter(Boolean)
             .join(" · ")}
-        </p>
+        </ToolSummary>
       </div>
       <p className="tools-intro">{t("tools.geocode.intro")}</p>
 

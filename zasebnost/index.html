@@ -126,7 +126,7 @@
               berejo, primerjajo, združujejo, izrisujejo in shranjujejo se na vaši napravi, mi pa do njih nimamo dostopa.
               Dve funkciji, obe <strong>privzeto izklopljeni</strong>, ob vklopu pošljeta zahtevo v omrežje: spletna
               iskanja in ploščice zemljevida. Nobena nikoli ne pošlje vaše datoteke; ven gre posamezna vrednost, ki ste
-              jo dali iskati, ali območje zemljevida, ki ga gledate. Razdelek 2 natančno pove, kaj gre kam.
+              jo dali iskati, ali območje zemljevida, ki ga gledate. <a href="#online">Razdelek 2</a> natančno pove, kaj gre kam.
             </p>
           </div>
 
@@ -164,27 +164,27 @@
               </thead>
               <tbody>
                 <tr>
-                  <td>Branje naslova strani iz URL-ja vira</td>
-                  <td>Celoten URL, ki ste ga vnesli</td>
-                  <td>
+                  <td data-label="Kdaj">Branje naslova strani iz URL-ja vira</td>
+                  <td data-label="Kaj se pošlje">Celoten URL, ki ste ga vnesli</td>
+                  <td data-label="Komu">
                     Javni posrednik CORS — <code>api.allorigins.win</code>, <code>corsproxy.io</code>,
                     <code>api.codetabs.com</code> ali <code>r.jina.ai</code>, v tem vrstnem redu (našteti so tudi v
                     nastavitvah), od tam pa spletno mesto, na katerega URL kaže
                   </td>
                 </tr>
                 <tr>
-                  <td>Iskanje kraja ali hišne številke znotraj kraja</td>
-                  <td>Ime kraja ali naslov, ki ga iščete, in jezik vmesnika</td>
-                  <td>
+                  <td data-label="Kdaj">Iskanje kraja ali hišne številke znotraj kraja</td>
+                  <td data-label="Kaj se pošlje">Ime kraja ali naslov, ki ga iščete, in jezik vmesnika</td>
+                  <td data-label="Komu">
                     OpenStreetMap Nominatim (<code>nominatim.openstreetmap.org</code>, OpenStreetMap Foundation),
                     slovenski register nepremičnin in naslovov (<code>ipi.eprostor.gov.si</code>, GURS) ter Genealoški
                     imenik krajev GOV (<code>gov.genealogy.net</code>, Verein für Computergenealogie e.V.)
                   </td>
                 </tr>
                 <tr>
-                  <td>Prenos imenika krajev za delo brez povezave</td>
-                  <td>Koda države</td>
-                  <td><code>overpass-api.de</code> ali <code>overpass.kumi.systems</code>; izvlečke GeoNames prenesete sami z <code>download.geonames.org</code> in jih uvozite kot datoteko</td>
+                  <td data-label="Kdaj">Prenos imenika krajev za delo brez povezave</td>
+                  <td data-label="Kaj se pošlje">Koda države</td>
+                  <td data-label="Komu"><code>overpass-api.de</code> ali <code>overpass.kumi.systems</code>; izvlečke GeoNames prenesete sami z <code>download.geonames.org</code> in jih uvozite kot datoteko</td>
                 </tr>
               </tbody>
             </table>
@@ -214,7 +214,7 @@
               <li>
                 <strong>Zgodovinski in registrski sloji</strong>, ko katerega vklopite: slovenske storitve GURS
                 (<code>ipi.eprostor.gov.si</code>), swisstopo (<code>wmts.geo.admin.ch</code>), IGN Francija
-                (<code>data.geopf.fr</code>) in <code>tiles.gedmerge.com</code>, ki je naš lastni strežnik (glejte §4).
+                (<code>data.geopf.fr</code>) in <code>tiles.gedmerge.com</code>, ki je naš lastni strežnik (glejte <a href="#logs">§4</a>).
                 Klik na sloj GURS za poizvedbo o vsebini pošlje GURS-u to eno koordinato.
               </li>
             </ul>
@@ -228,8 +228,8 @@
               Te storitve so <strong>samostojni upravljavci</strong> in ne naši obdelovalci: sami odločajo, kaj beležijo
               in kako dolgo, po svojih pravilnikih o zasebnosti. Z njimi nimamo dogovora v vašem imenu in od njih o vas
               ne prejmemo ničesar. Pravna podlaga za te prenose je vaša privolitev, ki jo daste z vklopom nastavitve in
-              jo kadar koli umaknete z izklopom — glejte §6. Sprejeti zadetki krajev se shranijo v vašem brskalniku
-              (§3), tako da istega kraja ni treba iskati dvakrat.
+              jo kadar koli umaknete z izklopom — glejte <a href="#basis">§6</a>. Sprejeti zadetki krajev se shranijo v vašem brskalniku
+              (<a href="#stored">§3</a>), tako da istega kraja ni treba iskati dvakrat.
             </p>
           </section>
 
@@ -245,24 +245,24 @@
               </thead>
               <tbody>
                 <tr>
-                  <td>Nastavitve — tema, jezik, način, prikaz in oblika zapisa, nastavitve diagramov, opuščeni namigi</td>
-                  <td>Lokalna shramba (<code>gedmerge.*</code>)</td>
-                  <td>Vedno, ko jih spreminjate</td>
+                  <td data-label="Kaj">Nastavitve — tema, jezik, način, prikaz in oblika zapisa, nastavitve diagramov, opuščeni namigi</td>
+                  <td data-label="Kje">Lokalna shramba (<code>gedmerge.*</code>)</td>
+                  <td data-label="Kdaj">Vedno, ko jih spreminjate</td>
                 </tr>
                 <tr>
-                  <td>Naložene datoteke, odločitve pri združevanju, urejanja in zgodovina razveljavitev</td>
-                  <td>IndexedDB <code>gedmerge-session</code></td>
-                  <td>Samo z vklopljenim <em>Zapomni si moje delo v tem brskalniku</em> (Nastavitve › Podatki). Ob vklopu vas brskalnik lahko vpraša za dovoljenje za trajno shranjevanje.</td>
+                  <td data-label="Kaj">Naložene datoteke, odločitve pri združevanju, urejanja in zgodovina razveljavitev</td>
+                  <td data-label="Kje">IndexedDB <code>gedmerge-session</code></td>
+                  <td data-label="Kdaj">Samo z vklopljenim <em>Zapomni si moje delo v tem brskalniku</em> (Nastavitve › Podatki). Ob vklopu vas brskalnik lahko vpraša za dovoljenje za trajno shranjevanje.</td>
                 </tr>
                 <tr>
-                  <td>Sprejeti zadetki krajev in uvoženi imeniki krajev</td>
-                  <td>IndexedDB <code>gedmerge-geo</code></td>
-                  <td>Ko sprejmete zadetek ali uvozite datoteko imenika</td>
+                  <td data-label="Kaj">Sprejeti zadetki krajev in uvoženi imeniki krajev</td>
+                  <td data-label="Kje">IndexedDB <code>gedmerge-geo</code></td>
+                  <td data-label="Kdaj">Ko sprejmete zadetek ali uvozite datoteko imenika</td>
                 </tr>
                 <tr>
-                  <td>Kazalec na vašo mapo z mediji, da se naslednjič spet odpre</td>
-                  <td>IndexedDB <code>gedmerge</code></td>
-                  <td>Ko izberete mapo z mediji</td>
+                  <td data-label="Kaj">Kazalec na vašo mapo z mediji, da se naslednjič spet odpre</td>
+                  <td data-label="Kje">IndexedDB <code>gedmerge</code></td>
+                  <td data-label="Kdaj">Ko izberete mapo z mediji</td>
                 </tr>
               </tbody>
             </table>
@@ -303,7 +303,7 @@
               mesta.
             </p>
             <p>
-              Vnosi v lokalni shrambi in bazah IndexedDB iz §3 so bodisi funkcionalni (vaše lastne nastavitve) bodisi
+              Vnosi v lokalni shrambi in bazah IndexedDB iz <a href="#stored">§3</a> so bodisi funkcionalni (vaše lastne nastavitve) bodisi
               jih vklopite sami. Nobeden se ne uporablja za sledenje in nobenega ne delimo s kom drugim, zato spletno
               mesto nima pasice za privolitev. Če jih vaša zakonodaja obravnava drugače, jih odstranite tako, da
               počistite podatke tega spletnega mesta.
@@ -329,7 +329,7 @@
                 varovanju spletnega mesta.
               </li>
               <li>
-                <strong>Izbirne spletne storitve — privolitev</strong> (člen 6(1)(a) GDPR). Nastavitvi iz §2 sta
+                <strong>Izbirne spletne storitve — privolitev</strong> (člen 6(1)(a) GDPR). Nastavitvi iz <a href="#online">§2</a> sta
                 privolitev; izklop nastavitve jo umakne za vse nadaljnje.
               </li>
               <li>
@@ -339,7 +339,7 @@
                 kar se opiramo kot na jamstvo za prenos.
               </li>
               <li>
-                <strong>Ponudniki iskanj in ploščic iz §2 niso naši obdelovalci.</strong> So samostojni upravljavci,
+                <strong>Ponudniki iskanj in ploščic iz <a href="#online">§2</a> niso naši obdelovalci.</strong> So samostojni upravljavci,
                 nekateri zunaj EGP in doseženi brez jamstva za prenos z naše strani. Prav zato sta ti funkciji izbirni
                 in privzeto izklopljeni.
               </li>
@@ -358,10 +358,10 @@
               kadar koli do umika privolitve (člen 7(3)).
             </p>
             <p>
-              V praksi se nanašajo na tehnične dnevnike iz §4, saj je to vse, kar na naši strani obstaja: vaši
+              V praksi se nanašajo na tehnične dnevnike iz <a href="#logs">§4</a>, saj je to vse, kar na naši strani obstaja: vaši
               rodoslovni podatki nikoli niso v naših rokah, zato tam ni česa predložiti, popraviti ali izbrisati — te
               pravice ohranja zasnova aplikacije in ne papir. Privolitev za izbirne spletne storitve umaknete z izklopom
-              nastavitve, podatke, že shranjene v brskalniku, pa odstranite tako, kot opisuje §3.
+              nastavitve, podatke, že shranjene v brskalniku, pa odstranite tako, kot opisuje <a href="#stored">§3</a>.
             </p>
             <p>
               Za uveljavljanje pišite na <a href="mailto:support@gedmerge.com">support@gedmerge.com</a>. Imate tudi
@@ -376,7 +376,7 @@
             <p>
               Zbirke uporabnikov ne vodimo, ker uporabniških računov ni. Strežniški dnevniki se hranijo le toliko časa,
               kolikor ga za varnost in diagnostiko določata naša ponudnika po svojih pravilih hrambe; ne izvažamo jih in
-              ne arhiviramo. Podatki v vašem brskalniku ostanejo, dokler jih ne odstranite (§3).
+              ne arhiviramo. Podatki v vašem brskalniku ostanejo, dokler jih ne odstranite (<a href="#stored">§3</a>).
             </p>
             <p>
               Spletno mesto se streže prek HTTPS od začetka do konca. Ker vaše rodoslovno drevo nikoli ne zapusti naprave,
@@ -392,7 +392,7 @@
             <p>
               GED Merge je raziskovalni pripomoček in ni storitev, namenjena otrokom, ne zbira pa ničesar, po čemer bi
               bilo mogoče prepoznati obiskovalca katere koli starosti. Rodoslovna drevesa redno vsebujejo podatke o
-              otrocih; za odgovorno ravnanje s temi podatki je zadolžen uporabnik kot upravljavec (§6).
+              otrocih; za odgovorno ravnanje s temi podatki je zadolžen uporabnik kot upravljavec (<a href="#basis">§6</a>).
             </p>
           </section>
 

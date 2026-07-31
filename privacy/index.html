@@ -126,7 +126,7 @@
               matched, merged, charted and saved on your own device, and we have no access to them. Two features, both
               <strong>off by default</strong>, make network requests once you switch them on: online lookups and
               base-map tiles. Neither ever sends your file; what goes out is a single value you asked to look up, or the
-              map area you are looking at. Section 2 says exactly what goes where.
+              map area you are looking at. <a href="#online">Section 2</a> says exactly what goes where.
             </p>
           </div>
 
@@ -164,27 +164,27 @@
               </thead>
               <tbody>
                 <tr>
-                  <td>Reading back the page title of a source URL</td>
-                  <td>The full URL you entered</td>
-                  <td>
+                  <td data-label="When">Reading back the page title of a source URL</td>
+                  <td data-label="What is sent">The full URL you entered</td>
+                  <td data-label="To whom">
                     A public CORS relay — <code>api.allorigins.win</code>, <code>corsproxy.io</code>,
                     <code>api.codetabs.com</code> or <code>r.jina.ai</code>, tried in that order (Settings names them
                     too), and from there the site the URL points at
                   </td>
                 </tr>
                 <tr>
-                  <td>Searching for a place, or for a house number within a place</td>
-                  <td>The place name or address you are looking up, and your interface language</td>
-                  <td>
+                  <td data-label="When">Searching for a place, or for a house number within a place</td>
+                  <td data-label="What is sent">The place name or address you are looking up, and your interface language</td>
+                  <td data-label="To whom">
                     OpenStreetMap Nominatim (<code>nominatim.openstreetmap.org</code>, OpenStreetMap Foundation),
                     Slovenia's real-estate and address register (<code>ipi.eprostor.gov.si</code>, GURS), and the
                     Genealogical Gazetteer GOV (<code>gov.genealogy.net</code>, Verein für Computergenealogie e.V.)
                   </td>
                 </tr>
                 <tr>
-                  <td>Downloading a gazetteer for offline use</td>
-                  <td>A country code</td>
-                  <td><code>overpass-api.de</code> or <code>overpass.kumi.systems</code>; GeoNames extracts are downloaded from <code>download.geonames.org</code> by you and imported as a file</td>
+                  <td data-label="When">Downloading a gazetteer for offline use</td>
+                  <td data-label="What is sent">A country code</td>
+                  <td data-label="To whom"><code>overpass-api.de</code> or <code>overpass.kumi.systems</code>; GeoNames extracts are downloaded from <code>download.geonames.org</code> by you and imported as a file</td>
                 </tr>
               </tbody>
             </table>
@@ -214,7 +214,7 @@
               <li>
                 <strong>Historical and register overlays</strong>, when you switch one on: Slovenia's GURS services
                 (<code>ipi.eprostor.gov.si</code>), swisstopo (<code>wmts.geo.admin.ch</code>), IGN France
-                (<code>data.geopf.fr</code>), and <code>tiles.gedmerge.com</code>, which is our own server (see §4).
+                (<code>data.geopf.fr</code>), and <code>tiles.gedmerge.com</code>, which is our own server (see <a href="#logs">§4</a>).
                 Clicking a GURS overlay to identify a feature sends that one map coordinate to GURS.
               </li>
             </ul>
@@ -229,7 +229,7 @@
               themselves what they log and for how long, under their own privacy policies. We have no agreement with
               them on your behalf and receive nothing back from them about you. Your legal basis for these transfers is
               your consent, given by switching the setting on and withdrawable at any time by switching it off — see
-              §6. Accepted place lookups are remembered in your browser (§3) so the same place is not asked about twice.
+              <a href="#basis">§6</a>. Accepted place lookups are remembered in your browser (<a href="#stored">§3</a>) so the same place is not asked about twice.
             </p>
           </section>
 
@@ -245,24 +245,24 @@
               </thead>
               <tbody>
                 <tr>
-                  <td>Preferences — theme, language, mode, display and format settings, chart settings, dismissed hints</td>
-                  <td>Local storage (<code>gedmerge.*</code>)</td>
-                  <td>Always, as you change them</td>
+                  <td data-label="What">Preferences — theme, language, mode, display and format settings, chart settings, dismissed hints</td>
+                  <td data-label="Where">Local storage (<code>gedmerge.*</code>)</td>
+                  <td data-label="When">Always, as you change them</td>
                 </tr>
                 <tr>
-                  <td>Your loaded files, merge decisions, edits and undo history</td>
-                  <td>IndexedDB <code>gedmerge-session</code></td>
-                  <td>Only with <em>Remember my work in this browser</em> switched on (Settings › Data). Enabling it may prompt you for persistent storage.</td>
+                  <td data-label="What">Your loaded files, merge decisions, edits and undo history</td>
+                  <td data-label="Where">IndexedDB <code>gedmerge-session</code></td>
+                  <td data-label="When">Only with <em>Remember my work in this browser</em> switched on (Settings › Data). Enabling it may prompt you for persistent storage.</td>
                 </tr>
                 <tr>
-                  <td>Accepted place lookups and any gazetteer you imported</td>
-                  <td>IndexedDB <code>gedmerge-geo</code></td>
-                  <td>When you accept a lookup or import a gazetteer file</td>
+                  <td data-label="What">Accepted place lookups and any gazetteer you imported</td>
+                  <td data-label="Where">IndexedDB <code>gedmerge-geo</code></td>
+                  <td data-label="When">When you accept a lookup or import a gazetteer file</td>
                 </tr>
                 <tr>
-                  <td>A handle to your media folder, so it reopens next time</td>
-                  <td>IndexedDB <code>gedmerge</code></td>
-                  <td>When you choose a media folder</td>
+                  <td data-label="What">A handle to your media folder, so it reopens next time</td>
+                  <td data-label="Where">IndexedDB <code>gedmerge</code></td>
+                  <td data-label="When">When you choose a media folder</td>
                 </tr>
               </tbody>
             </table>
@@ -301,7 +301,7 @@
               cookies: they do not identify you personally and do not follow you to other sites.
             </p>
             <p>
-              The local storage and IndexedDB entries listed in §3 are either functional (your own preferences) or
+              The local storage and IndexedDB entries listed in <a href="#stored">§3</a> are either functional (your own preferences) or
               switched on by you. None of them is used for tracking or shared with anyone, which is why the site shows
               no consent banner. If your jurisdiction treats them otherwise, clearing this site's data removes them.
             </p>
@@ -326,7 +326,7 @@
                 securing the site.
               </li>
               <li>
-                <strong>Optional online services — consent</strong> (Art. 6(1)(a) GDPR). The two settings in §2 are the
+                <strong>Optional online services — consent</strong> (Art. 6(1)(a) GDPR). The two settings in <a href="#online">§2</a> are the
                 consent; switching a setting off withdraws it for everything that follows.
               </li>
               <li>
@@ -336,7 +336,7 @@
                 which we rely on as the safeguard.
               </li>
               <li>
-                <strong>The lookup and tile providers in §2 are not our processors.</strong> They are independent
+                <strong>The lookup and tile providers in <a href="#online">§2</a> are not our processors.</strong> They are independent
                 controllers, several of them outside the EEA and reached without a transfer instrument on our side. That
                 is precisely why those features are opt-in and default to off.
               </li>
@@ -355,11 +355,11 @@
               (Art. 21), and withdrawal of consent at any time (Art. 7(3)).
             </p>
             <p>
-              In practice these are directed at the technical logs described in §4, since that is all that exists on our
+              In practice these are directed at the technical logs described in <a href="#logs">§4</a>, since that is all that exists on our
               side: your genealogical data is never in our hands, so there is nothing there for us to produce, correct
               or erase — the architecture preserves those rights rather than the paperwork. Consent for the optional
               online services is withdrawn by switching the setting off; data already stored in your browser is removed
-              as described in §3.
+              as described in <a href="#stored">§3</a>.
             </p>
             <p>
               Write to <a href="mailto:support@gedmerge.com">support@gedmerge.com</a> to exercise any of these. You also
@@ -375,7 +375,7 @@
             <p>
               We keep no database of users, because there are none. Server logs are retained only for the short periods
               our providers apply for security and diagnostics, under their own retention policies; we do not export or
-              archive them. Data stored in your browser stays until you remove it (§3).
+              archive them. Data stored in your browser stays until you remove it (<a href="#stored">§3</a>).
             </p>
             <p>
               The site is served over HTTPS end to end. Since your family tree never leaves your device, the realistic
@@ -390,7 +390,7 @@
             <p>
               GED Merge is a research utility, not a service directed at children, and it collects nothing that could
               identify a visitor of any age. Family trees routinely contain data about children; handling that data
-              responsibly is the user's own duty as controller (§6).
+              responsibly is the user's own duty as controller (<a href="#basis">§6</a>).
             </p>
           </section>
 

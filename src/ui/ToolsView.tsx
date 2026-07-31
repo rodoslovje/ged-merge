@@ -12,6 +12,9 @@ import { SourcesPanel } from "./tools/SourcesPanel";
 import { PlacesPanel } from "./tools/PlacesPanel";
 import type { GeoAssignment } from "../tools/geocode";
 import type { BrokenLinkRef } from "../tools/fixLinks";
+import { PickerMenu } from "./PickerMenu";
+import { usePhone } from "./usePhone";
+import { ToolSummarySlotProvider } from "./tools/ToolSummary";
 
 type Tool = "validate" | "duplicates" | "normalize" | "privacy" | "sources" | "places";
 
@@ -81,6 +84,10 @@ interface Props {
 export function ToolsView({ dataset, editVersionRef, fileName, onNavigate, active, onApplyPlaceRename, onApplyGeocode, onApplyAddressCoords, onRenamePlaceValue, onMovePlaceForAddresses, startId, onFixBrokenLinks, onFixSexFromRole, onFixDates, onFixDuplicatePointers, onFixDanglingRefs, onFillPlaceCoords, onMergeDuplicate, rejectedDuplicates, onRejectDuplicate, onRejectDuplicatesBulk, onUnrejectDuplicate }: Props) {
   const { t } = useTranslation();
   const [tool, setTool] = useState<Tool>("validate");
+  const phone = usePhone();
+  // Set by a ref callback, so the panels re-render once it exists and can
+  // portal their summary into it.
+  const [summarySlot, setSummarySlot] = useState<HTMLElement | null>(null);
   // One shared worker runs the heavy whole-file scans off the main thread;
   // the results live here (not in the panels) so switching sub-tabs or modes
   // neither restarts a scan nor loses a finished one.
@@ -100,6 +107,21 @@ export function ToolsView({ dataset, editVersionRef, fileName, onNavigate, activ
       <div className="tools-head">
         <p className="tools-stats">{t("tools.stats", stats)}</p>
       </div>
+      {/* Six description-carrying cards filled a phone screen and a half before
+          any result. A dropdown names the tool you are in and lists the rest,
+          with the tool's own summary line beside it (see ToolSummary). */}
+      {phone ? (
+        <div className="tools-picker-row">
+          <PickerMenu
+            className="tools-subtabs-picker"
+            label={t("mode.tools")}
+            value={tool}
+            onChange={setTool}
+            items={TOOLS.map((id) => ({ key: id, label: t(`tools.tool.${id}`), title: t(`tools.tool.${id}.desc`) }))}
+          />
+          <div className="tools-summary-slot" ref={setSummarySlot} />
+        </div>
+      ) : (
       <div className="tools-subtabs" role="tablist">
         {TOOLS.map((id) => (
           <button
@@ -114,6 +136,8 @@ export function ToolsView({ dataset, editVersionRef, fileName, onNavigate, activ
           </button>
         ))}
       </div>
+      )}
+      <ToolSummarySlotProvider value={phone ? summarySlot : null}>
       <div className="tools-panel">
         {tool === "validate" && (
           <ValidatePanel dataset={dataset} scans={scans} onNavigate={onNavigate} active={active} onFixBrokenLinks={onFixBrokenLinks} onFixSexFromRole={onFixSexFromRole} onFixDates={onFixDates} onFixDuplicatePointers={onFixDuplicatePointers} onFixDanglingRefs={onFixDanglingRefs} onFillPlaceCoords={onFillPlaceCoords} />
@@ -134,6 +158,7 @@ export function ToolsView({ dataset, editVersionRef, fileName, onNavigate, activ
           <PlacesPanel dataset={dataset} onNavigate={onNavigate} active={active} onApplyPlaceRename={onApplyPlaceRename} onApplyGeocode={onApplyGeocode} onApplyAddressCoords={onApplyAddressCoords} onRenamePlaceValue={onRenamePlaceValue} onMovePlaceForAddresses={onMovePlaceForAddresses} startId={startId} />
         )}
       </div>
+      </ToolSummarySlotProvider>
     </div>
   );
 }

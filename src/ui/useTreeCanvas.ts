@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { NODE_H, NODE_W, PAD, type ChartAlignment, type ChartNode, type Viewport } from "../chart/treeLayout";
+import { PHONE_QUERY } from "./usePhone";
 
 /** Zoom range and the per-click button step. Wheel zoom is continuous within this
  *  range; "fit" never magnifies past 1× so a small chart keeps its natural size. */
@@ -205,18 +206,21 @@ export function useTreeCanvas(
   // A new tree (mode switch / different root) invalidates the old selection.
   useEffect(() => setSelectedKey(null), [laid]);
 
-  // Bring a node into view. The detail panel covers the right half of the canvas,
-  // so centre the node in the left (visible) area — at a quarter of the width —
-  // not the middle. Node coordinates are native; scroll is in scaled (zoomed) px.
+  // Bring a node into view, centred in the part of the canvas the detail panel
+  // leaves showing — not in the middle of the canvas, which the panel covers.
+  // The panel takes the right half on a desktop (so: a quarter of the width) and
+  // the bottom half on a phone (so: a quarter of the height).
+  // Node coordinates are native; scroll is in scaled (zoomed) px.
   const centreOn = useCallback(
     (key: string) => {
       const n = nodesByKey.get(key);
       const el = canvasRef.current;
       if (!n || !el) return;
       const z = zoomRef.current;
+      const phone = window.matchMedia(PHONE_QUERY).matches;
       scrollTo(
-        (n.x + PAD + NODE_W / 2) * z - el.clientWidth / 4,
-        (n.y + PAD + nodeH / 2) * z - el.clientHeight / 2,
+        (n.x + PAD + NODE_W / 2) * z - el.clientWidth / (phone ? 2 : 4),
+        (n.y + PAD + nodeH / 2) * z - el.clientHeight / (phone ? 4 : 2),
       );
     },
     [nodesByKey, scrollTo, nodeH],

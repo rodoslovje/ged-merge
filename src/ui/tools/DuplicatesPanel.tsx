@@ -22,6 +22,7 @@ import {
 import { defaultChoice, type CandidateDecision, type FieldChoice, type FieldRow } from "../../review/types";
 import { type PersonNav } from "../ReadOnlyCompare";
 import { KEY, isEditableTarget, isModalOpen } from "../../keyboard/shortcuts";
+import { useStickyHeaderInset } from "../usePhone";
 import { FieldValue, LinkIcons, RelativeGrid } from "../FieldValue";
 import { SourceRefs } from "../SourceRef";
 import { ConfirmDialog } from "../ConfirmDialog";
@@ -29,6 +30,7 @@ import { PersonLink } from "../PersonLink";
 import { type ToolsScans } from "../useToolsScans";
 import { useVirtualList } from "../useVirtualList";
 import { ToolsError, ToolsLoading, TreeSearch, someMatch, useDebounced } from "./shared";
+import { ToolSummary } from "./ToolSummary";
 
 /** Default score floor for the duplicates list. Index-scale files produce
  *  thousands of weak pairs; starting high keeps the list actionable, and the
@@ -310,7 +312,11 @@ export function DuplicatesPanel({
   // An index-scale file produces six-figure pair counts — only the rows near
   // the viewport are mounted, so the whole score-sorted list stays browsable.
   // The scroll container is the ancestor `.tools-view`.
-  const virtual = useVirtualList({ count: rows.length, estimate: 34, itemsKey: rows });
+  // The phone layout scrolls the document under a sticky app header, so a row
+  // pinned to `scrollTop` lands behind it — an unfolded pair's own header row
+  // was hidden and the comparison started mid-screen.
+  const headerInset = useStickyHeaderInset();
+  const virtual = useVirtualList({ count: rows.length, estimate: 34, itemsKey: rows, scrollMargin: headerInset });
 
   // A new filter/search starts the highlight at the top; a shrinking list
   // clamps it to the last remaining row. A pending open-pair jump owns the
@@ -440,7 +446,7 @@ export function DuplicatesPanel({
                 )}
               </button>
             )}
-            <p className="tools-summary">
+            <ToolSummary>
               {showRejected
                 ? t("tools.duplicates.rejectedCount", { count: rejectedCount })
                 : t("tools.duplicates.found", { count: state.result.length - rejectedCount })}
@@ -456,7 +462,7 @@ export function DuplicatesPanel({
                   </button>
                 </>
               )}
-            </p>
+            </ToolSummary>
           </div>
           {rows.length === 0 ? (
             <p className="tools-clean">

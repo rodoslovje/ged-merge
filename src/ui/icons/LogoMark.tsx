@@ -57,7 +57,9 @@ export function Wordmark({ size = 22 }: { size?: number }) {
       <span style={{ color: "var(--accent)", display: "inline-flex" }}>
         <LogoMark size={size * 1.5} />
       </span>
-      <span style={{ fontSize: size, letterSpacing: "-0.01em", whiteSpace: "nowrap" }}>
+      {/* Classed so the narrowest phone header can drop the lettering and keep
+          the mark — see the 560px block in index.css. */}
+      <span className="gm-wordmark-text" style={{ fontSize: size, letterSpacing: "-0.01em", whiteSpace: "nowrap" }}>
         <span style={{ fontFamily: MONO_STACK, fontWeight: 600, letterSpacing: "0.02em" }}>GED</span>
         <span style={{ fontFamily: SANS_STACK, fontWeight: 600 }}>&nbsp;Merge</span>
       </span>

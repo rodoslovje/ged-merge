@@ -105,7 +105,7 @@
   position: sticky;
   top: 24px;
   align-self: start;
-  max-height: calc(100vh - 48px);
+  max-height: calc(100dvh - 48px);
   overflow-y: auto;
 }
 .guide-side-title {
@@ -538,5 +538,63 @@
   }
   .guide-body .gm-table td:first-child {
     white-space: normal;
+  }
+}
+
+/* ── Phone: a prose table stops being a table ─────────────────────────────
+   The privacy tables are three columns of sentences, so at 390px they pushed
+   the page 120px wider than the screen and the whole document scrolled
+   sideways. Sideways-scrolling a table of prose is barely better, so each row
+   becomes a block instead: the column heading, which the cells carry in
+   `data-label`, prints above its cell. Only tables whose cells carry that
+   attribute convert — the guide's own two-column reference tables already fit
+   and keep their shape. */
+@media (max-width: 720px) {
+  .guide-body .gm-table:has(td[data-label]) {
+    display: block;
+  }
+  .guide-body .gm-table:has(td[data-label]) thead {
+    /* The headings move into the rows; hidden, not removed, so the table keeps
+       its header row for assistive tech. */
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .guide-body .gm-table:has(td[data-label]) tbody,
+  .guide-body .gm-table:has(td[data-label]) tr,
+  .guide-body .gm-table:has(td[data-label]) td {
+    display: block;
+    width: auto;
+  }
+  .guide-body .gm-table:has(td[data-label]) tr {
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .guide-body .gm-table:has(td[data-label]) tr:last-child {
+    border-bottom: none;
+  }
+  .guide-body .gm-table:has(td[data-label]) td {
+    padding: 0 0 8px;
+    border-bottom: none;
+  }
+  .guide-body .gm-table:has(td[data-label]) tr td:last-child {
+    padding-bottom: 0;
+  }
+  .guide-body .gm-table:has(td[data-label]) td::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 2px;
+    color: var(--text);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  /* A URL or an IndexedDB name is one long unbreakable token; let it wrap
+     rather than set the width of the whole page. */
+  .guide-body code {
+    overflow-wrap: anywhere;
   }
 }
