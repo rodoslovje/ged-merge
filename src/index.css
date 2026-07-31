@@ -8045,6 +8045,14 @@ kbd {
     padding: 0 16px 150px;
   }
 
+  /* --- Health check --- */
+  /* The finding shared the row with the person it is about, so it wrapped into
+     a ragged ~200px column beside them. Its own full-width line below instead:
+     the subject reads on one line, the explanation on the next. */
+  .tools-issue > .tools-issue-msg {
+    flex: 1 1 100%;
+  }
+
   /* --- Duplicates --- */
   /* One line could not hold two people: both names truncated to "Marija…",
      which defeats the one job of a duplicate list — telling two look-alikes

@@ -2,6 +2,7 @@ export const sl = {
   "app.title": "GED Merge",
   "app.subtitle": "Primerjaj in združi GEDCOM datoteke v brskalniku.",
   "load.privacy": "Vaši podatki nikoli ne zapustijo vaše naprave. Vse se obdela v brskalniku.",
+  "app.brand.tooltip": "GED Merge — združevanje, primerjava in urejanje datotek GEDCOM, v celoti v vašem brskalniku. S klikom začnete znova z drugo datoteko.",
   "app.reloadConfirm": "Imate neshranjene spremembe. Ponovno naloži in jih zavrzi?",
   "error.title": "Prišlo je do napake",
   "error.body": "Ta del aplikacije je naletel na nepričakovano napako. Naložena datoteka in vaše delo sta ohranjena — poskusite znova ali ponovno naložite aplikacijo.",

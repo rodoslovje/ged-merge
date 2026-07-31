@@ -1436,7 +1436,7 @@ function AppContent() {
       <header className="app-head tree-shell-head">
         <div className="app-head-top">
           <div className="app-head-brand">
-            <h1 onClick={handleTitleClick} className="brand-clickable">
+            <h1 onClick={handleTitleClick} className="brand-clickable" title={t("app.brand.tooltip")}>
               <Wordmark />
             </h1>
             {(lastMainFile || compare.status === "loaded") && (
@@ -1610,7 +1610,7 @@ function AppContent() {
       <header className="app-head">
         <div className="app-head-top">
           <div className="app-head-brand">
-            <h1 onClick={handleTitleClick} className="brand-clickable">
+            <h1 onClick={handleTitleClick} className="brand-clickable" title={t("app.brand.tooltip")}>
               {/* One header row on a phone: the lockup steps down so the mode
                   tabs and ☰ fit beside it. */}
               <Wordmark size={phone ? 17 : 22} />
