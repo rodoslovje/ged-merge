@@ -13,13 +13,13 @@
  *  vendor events (_MILT military, _MEDC medical, _FNRL funeral, _INTE
  *  interment), which carry the same DATE/PLAC substructure. */
 export const INDI_EVENT_TAG_ORDER = [
-  "BIRT", "BAPM", "CHR", "CONF", "ADOP", "FCOM",
+  "BIRT", "BAPM", "CHR", "FCOM", "CONF", "ADOP",
   "OCCU", "EDUC", "GRAD", "RETI", "_MILT", "_MILI",
   "TITL", "DSCR", "RELI", "NATI", "RACE", "NCHI", "NOBI", "LATR", "DEED", "_MEDC", "ILL",
   "RESI", "EMIG", "IMMI", "NATU", "CENS",
   "WILL", "PROB",
   "EVEN", "FACT", "REFN",
-  "DEAT", "_FNRL", "CREM", "BURI", "_INTE",
+  "DEAT", "CREM", "BURI", "_INTE", "_FNRL",
 ];
 
 /** Family event tags in canonical order. `EVEN` is the generic custom event
