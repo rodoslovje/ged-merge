@@ -115,6 +115,42 @@ export function combineEventEdits(recordId: string, group: string, entries: Even
   }];
 }
 
+/**
+ * Whether `applyRows` may write this row's incoming value over the main's —
+ * i.e. whether it is a scalar/event field this module owns. Relatives and
+ * family rows are stitched structurally elsewhere and never overwrite, and the
+ * link rows are additive.
+ *
+ * Shared by `applyRows` and {@link snapshotMainValues} so the set of rows the
+ * merge can overwrite is the same set the confirm-time snapshot records.
+ */
+export function isOverwritableRow(row: Row, handled: Set<string>): boolean {
+  if (row.isGroupHeader || row.isEventHeader) return false;
+  if (handled.has(row.key) || row.key.startsWith("fam.")) return false;
+  if (row.key === "links" || row.key.endsWith(".links")) return false;
+  return true;
+}
+
+/**
+ * The main side's current value for every overwritable row, for stamping onto a
+ * decision as it is confirmed (see `CandidateDecision.mainFields`).
+ *
+ * Empty values are omitted: a missing key and an empty string mean the same
+ * thing here — the main had nothing in that field — so storing every blank row
+ * would only bloat the persisted session.
+ *
+ * Callers must build `rows` the way the merge does (`individualFieldRows` with
+ * the same dataset pair and no `showAge`), or the strings won't be comparable.
+ */
+export function snapshotMainValues(rows: Row[], handled: Set<string>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const row of rows) {
+    if (!isOverwritableRow(row, handled) || !row.main) continue;
+    out[row.key] = row.main;
+  }
+  return out;
+}
+
 export function applyRows(
   target: GedNode,
   incomingRecord: GedNode,
@@ -128,6 +164,10 @@ export function applyRows(
   linkFormat: LinkFormat,
   records: GedNode[],
   sourMap: SourXrefMap,
+  /** The main's values when the match was confirmed — see `mainFields`. Absent
+   *  for decisions confirmed before this was recorded, which keep the old
+   *  behaviour (the incoming choice always wins). */
+  mainAtConfirm?: Record<string, string>,
 ): void {
   let nameApplied = false;
   // Map each event's row-key prefix (e.g. "BIRT", "BIRT.0") to its display
@@ -154,6 +194,20 @@ export function applyRows(
     if (handled.has(row.key) || row.key.startsWith("fam.")) continue;
     const choice = fields[row.key] ?? defaultChoice(row as never);
     if (choice === "main") continue;
+
+    // An Edit-mode change made *after* this match was confirmed wins over the
+    // incoming value: the field choice was made against a value the user has
+    // since replaced, so honouring it would silently undo the later edit. Only
+    // "incoming" is gated — "both" appends and destroys nothing.
+    if (
+      choice === "incoming" &&
+      mainAtConfirm &&
+      isOverwritableRow(row, handled) &&
+      row.main !== (mainAtConfirm[row.key] ?? "")
+    ) {
+      report.deferred.push({ recordId, field: row.label, reason: t("merge.reason.editedAfterConfirm") });
+      continue;
+    }
 
     if (row.key === "links") {
       // The record-level "Sources" row carries both SOUR citations and plain

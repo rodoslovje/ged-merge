@@ -118,11 +118,19 @@ export interface CandidateDecision {
   status: MatchDecisionStatus;
   /** Per-field overrides; absent keys fall back to the row's default choice. */
   fields: Record<string, FieldChoice>;
-  /** Fingerprint of the main person's raw record when the decision was (last)
-   * set to confirmed. The save preview compares it against the live record and
-   * warns when Edit-mode changes landed after the confirmation — the field
-   * choices were made against values that no longer exist. */
-  mainFp?: string;
+  /**
+   * The main side's value for every overwritable field row, as it stood when
+   * the decision was (last) set to confirmed. Only non-empty values are kept —
+   * a missing key means the main had nothing there at that moment.
+   *
+   * The merge compares each row against this before letting an "incoming"
+   * choice overwrite: when the two differ, the field was edited in Edit mode
+   * *after* the match was confirmed, so the later edit wins and the incoming
+   * value is skipped (reported as deferred). A whole-record fingerprint can't
+   * drive that rule — it would suppress every field on a record because one
+   * unrelated field was touched. See {@link snapshotMainValues}.
+   */
+  mainFields?: Record<string, string>;
   /**
    * Incoming events the user has fully rejected — by editing them into a new
    * main event, or by deleting/dismissing an event that was already paired

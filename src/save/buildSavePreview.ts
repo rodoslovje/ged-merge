@@ -1,7 +1,6 @@
 import { buildEditReport, combineReports, enrichEditReport } from "../gedcom/editReport";
-import { nodeFingerprint } from "../gedcom/node";
 import { xrefLabel } from "../gedcom/nameDisplay";
-import type { Dataset, GedNode, Individual, PersonName } from "../gedcom/types";
+import type { Dataset, GedNode } from "../gedcom/types";
 import type { Translate } from "../locales/i18n";
 import type { MatchResult } from "../match/types";
 import { sortEventsByDate } from "../merge/applyFields";
@@ -53,7 +52,6 @@ export interface SavePreviewInput {
    *  output is reproducible. */
   now: Date;
   t: Translate;
-  nameOf: (subject: Individual | PersonName | undefined) => string;
 }
 
 /** The payload the save dialog renders and `handleConfirmSave` writes out. */
@@ -93,7 +91,7 @@ export function buildSavePreview(input: SavePreviewInput): SavePreview | null {
     main, mainFileName, compare, decisions, matches, importRequests,
     confirmedCount, importCount, changedPersonIds, changedFamilyIds, changedRecordIds,
     loadedPersonIds, loadedFamilyIds, personSnapshots, familySnapshots, recordSnapshots,
-    isSortEligible, now, t, nameOf,
+    isSortEligible, now, t,
   } = input;
 
   const changedCount = changedPersonIds.size + changedFamilyIds.size + changedRecordIds.size;
@@ -142,7 +140,7 @@ export function buildSavePreview(input: SavePreviewInput): SavePreview | null {
     base,
     editRecordIds,
     isMerge,
-    integrityWarnings: integrityWarnings(records, decisions, main, isMerge, t, nameOf),
+    integrityWarnings: integrityWarnings(records, decisions, main, t),
   };
 }
 
@@ -150,17 +148,18 @@ export function buildSavePreview(input: SavePreviewInput): SavePreview | null {
  * Problems worth surfacing before the user commits to the download:
  *  - a pointer in the output referencing a record that isn't there, which would
  *    corrupt the file for other software;
- *  - a confirmed match whose main person was deleted after confirming (the
- *    merge skips it entirely), or edited after confirming (the field choices
- *    were made against values that no longer exist).
+ *  - a confirmed match whose main person was deleted after confirming, which
+ *    the merge skips entirely.
+ *
+ * A field edited after its match was confirmed is *not* warned about here: the
+ * merge now stands down and keeps the edit, and says so per field in the
+ * report's deferred list (see `CandidateDecision.mainFields`).
  */
 function integrityWarnings(
   records: GedNode[],
   decisions: Map<string, CandidateDecision>,
   main: Dataset,
-  isMerge: boolean,
   t: Translate,
-  nameOf: (subject: Individual | PersonName | undefined) => string,
 ): string[] {
   const warnings: string[] = [];
 
@@ -177,12 +176,8 @@ function integrityWarnings(
     if (d.status !== "confirmed") continue;
     const parsed = parseDecisionKey(key);
     if (parsed?.kind !== "individual") continue;
-    const indi = main.individuals.get(parsed.mainId);
-    if (!indi) {
-      decisionWarnings.push(t("save.preview.orphanedDecision", { xref: xrefLabel(parsed.mainId) }));
-    } else if (isMerge && d.mainFp && d.mainFp !== nodeFingerprint(indi.raw)) {
-      decisionWarnings.push(t("save.preview.staleDecision", { name: nameOf(indi) }));
-    }
+    if (main.individuals.has(parsed.mainId)) continue;
+    decisionWarnings.push(t("save.preview.orphanedDecision", { xref: xrefLabel(parsed.mainId) }));
   }
   warnings.push(...decisionWarnings.slice(0, MAX_WARNINGS));
   if (decisionWarnings.length > MAX_WARNINGS) {

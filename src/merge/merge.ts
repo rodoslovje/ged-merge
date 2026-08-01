@@ -211,7 +211,7 @@ export function mergeDecisions(
     report.recordLabels[mainId] = displayName(mainIndi.names[0]);
     const rejectedEvents = decision.rejectedEvents?.length ? new Set(decision.rejectedEvents) : undefined;
     const rows = individualFieldRows(t, mainIndi, incoming, main, compare, placeFmt, rejectedEvents);
-    applyRows(target, incoming.raw, mainId, rows, decision.fields, report, touched, INDI_HANDLED, t, linkFormat, records, sourXrefMap);
+    applyRows(target, incoming.raw, mainId, rows, decision.fields, report, touched, INDI_HANDLED, t, linkFormat, records, sourXrefMap, decision.mainFields);
     applyIndividualRelations(mainId, mainIndi, incoming, rows, decision.fields, main, compare, ctx);
     const takenChildIds = new Set(decision.takenChildren ?? []);
     applyIndividualFamilies(mainId, mainIndi, incoming, rows, decision.fields, main, compare, ctx, takenChildIds);
