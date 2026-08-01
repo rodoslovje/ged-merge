@@ -201,7 +201,7 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
       ? !!(action.xref || action.file.trim())
       : action.kind === "addSource"
         ? !!(action.xref || action.title?.trim())
-        : action.kind === "markDeceased"
+        : action.kind === "markDeceased" || action.kind === "estimateBirth"
           ? true
           : action.kind === "convertEvent"
             ? !!(action.fromTag && action.toTag && action.fromTag !== action.toTag)
@@ -666,6 +666,7 @@ function ActionEditor({
     addSource: { kind: "addSource" },
     removeMedia: { kind: "removeMedia" },
     markDeceased: { kind: "markDeceased" },
+    estimateBirth: { kind: "estimateBirth" },
     convertEvent: { kind: "convertEvent", fromTag: firstVendor, toTag: "EVEN", type: typeFor(firstVendor) },
   };
   // For addMedia, an empty file with a (possibly empty) title marks the
@@ -765,6 +766,10 @@ function ActionEditor({
             onChange={(e) => onChange({ ...action, page: e.target.value })}
           />
         </>
+      )}
+
+      {action?.kind === "estimateBirth" && (
+        <span className="batch-hint">{t("tools.batch.estimateBirthHint")}</span>
       )}
 
       {action?.kind === "removeMedia" && (

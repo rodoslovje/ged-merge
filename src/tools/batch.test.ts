@@ -260,6 +260,69 @@ describe("applyBatchAction", () => {
     expect(again.patches).toEqual([]);
   });
 
+  it("writes ABT birth estimates without chaining, skipping anyone dated", () => {
+    // Three generations: only grandfather @I2@ is dated. His child @I1@ is
+    // estimable (parent + a generation); @I1@'s child @I3@ has no dated
+    // relative before the run, so estimating them would require chaining
+    // off @I1@'s own fresh estimate.
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Middle //
+1 FAMC @F1@
+1 FAMS @F2@
+0 @I2@ INDI
+1 NAME Grandpa //
+1 SEX M
+1 FAMS @F1@
+1 BIRT
+2 DATE 1850
+0 @I3@ INDI
+1 NAME Youngest //
+1 FAMC @F2@
+0 @I4@ INDI
+1 NAME Undated Birt //
+1 BIRT
+2 PLAC Kranj
+1 FAMS @F3@
+0 @I5@ INDI
+1 NAME Dated Spouse //
+1 SEX F
+1 BIRT
+2 DATE 12 MAY 1880
+1 FAMS @F3@
+0 @F1@ FAM
+1 HUSB @I2@
+1 CHIL @I1@
+0 @F2@ FAM
+1 HUSB @I1@
+1 CHIL @I3@
+0 @F3@ FAM
+1 HUSB @I4@
+1 WIFE @I5@
+0 TRLR`);
+    const ids = ["@I1@", "@I2@", "@I3@", "@I4@", "@I5@"];
+    const res = applyBatchAction(ds, ids, { kind: "estimateBirth" });
+    // @I1@ from father 1850, @I4@ from spouse 1880; @I2@/@I5@ dated, @I3@ unestimable.
+    expect(res.changed).toBe(2);
+    expect(res.skipped).toBe(3);
+    expect(res.patches.map((p) => p.id).sort()).toEqual(["@I1@", "@I4@"]);
+    const birtOf = (id: string) => ds.individuals.get(id)!.raw.children.find((c) => c.tag === "BIRT")!;
+    expect(birtOf("@I1@").children.map((c) => [c.tag, c.value])).toEqual([["DATE", "ABT 1878"]]);
+    // The undated BIRT node gained a DATE and kept its place.
+    expect(birtOf("@I4@").children.map((c) => [c.tag, c.value])).toEqual([
+      ["DATE", "ABT 1880"],
+      ["PLAC", "Kranj"],
+    ]);
+    // @I5@'s recorded date is untouched.
+    expect(birtOf("@I5@").children).toEqual([{ level: 2, tag: "DATE", value: "12 MAY 1880", children: [] }]);
+    // Re-running reaches @I3@ through @I1@'s now-written estimate; the rest skip.
+    const again = applyBatchAction(ds, ids, { kind: "estimateBirth" });
+    expect(again.changed).toBe(1);
+    expect(again.skipped).toBe(4);
+    expect(birtOf("@I3@").children.map((c) => [c.tag, c.value])).toEqual([["DATE", "ABT 1906"]]);
+  });
+
   it("converts vendor events to a named EVEN, keeping the substructure", () => {
     const ds = dataset(`0 HEAD
 1 CHAR UTF-8

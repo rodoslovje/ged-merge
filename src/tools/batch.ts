@@ -1,7 +1,10 @@
 import type { Dataset, GedNode, Individual, Sex } from "../gedcom/types";
 import { todayDate } from "../gedcom/age";
-import { DEATH_TAGS, birthDateOf, deathDateOf, isDeceased } from "../gedcom/lifespan";
-import { addEventNode } from "../gedcom/edit/events";
+import {
+  DEATH_TAGS, birthDateOf, birthDateText, birthYear, deathDateOf, estimateBirthYear, isDeceased,
+} from "../gedcom/lifespan";
+import { addEventNode, setEventField } from "../gedcom/edit/events";
+import { rebuildIndividual } from "../gedcom/edit/cache";
 import { collectMediaRefs, detectMediaMode } from "../gedcom/media";
 import { clearObjeNodeCache, isPointer } from "../gedcom/source";
 import { bumpSourceCacheVersion } from "../gedcom/edit/cache";
@@ -358,6 +361,13 @@ export type BatchActionSpec =
   /** Add an undated death (`1 DEAT Y` — death asserted, no details). People
    *  already carrying death evidence (death/burial/cremation) are skipped. */
   | { kind: "markDeceased" }
+  /** Write an estimated birth year as `BIRT` → `DATE ABT <year>`, derived from
+   *  dated immediate relatives (see {@link estimateBirthYear} — the same
+   *  estimate the privacy check explains). People with any dated birth/baptism
+   *  event, and people with no dated close relative, are skipped. Estimates
+   *  are computed before anything is written, so one run never chains an
+   *  estimate off another — re-running reaches one relative-hop further. */
+  | { kind: "estimateBirth" }
   /** Re-tag every `fromTag` event to `toTag`, keeping the whole substructure
    *  (dates, places, sources) and any line value. When the target is a generic
    *  `EVEN`/`FACT`, `type` writes its `TYPE` name (unless one exists already).
@@ -365,7 +375,7 @@ export type BatchActionSpec =
   | { kind: "convertEvent"; fromTag: string; toTag: string; type?: string };
 
 export const BATCH_ACTION_KINDS: BatchActionSpec["kind"][] = [
-  "addMedia", "addSource", "removeMedia", "markDeceased", "convertEvent",
+  "addMedia", "addSource", "removeMedia", "markDeceased", "estimateBirth", "convertEvent",
 ];
 
 export interface BatchApplyResult {
@@ -393,6 +403,8 @@ export function applyBatchAction(ds: Dataset, ids: string[], action: BatchAction
       return removeMediaBatch(ds, ids, action);
     case "markDeceased":
       return markDeceasedBatch(ds, ids);
+    case "estimateBirth":
+      return estimateBirthBatch(ds, ids);
     case "convertEvent":
       return convertEventBatch(ds, ids, action);
   }
@@ -449,6 +461,38 @@ function markDeceasedBatch(ds: Dataset, ids: string[]): BatchApplyResult {
     changed++;
   }
   return { patches: changed > 0 ? patchesFromSnapshots(ds, snap) : [], changed, skipped };
+}
+
+/** Write `BIRT` → `DATE ABT <estimated year>` for everyone without any dated
+ *  birth-proxy event (see the {@link BatchActionSpec} member). All estimates
+ *  are derived from the pre-run state first, then written — no chaining. */
+function estimateBirthBatch(ds: Dataset, ids: string[]): BatchApplyResult {
+  const estimates = new Map<string, number>();
+  let skipped = 0;
+  for (const id of ids) {
+    const indi = ds.individuals.get(id);
+    if (!indi) continue;
+    // Any recorded birth/baptism date — even one without a parseable year —
+    // is the researcher's data; never overwrite it with an estimate.
+    if (birthYear(indi) !== undefined || birthDateText(indi) !== undefined) {
+      skipped++;
+      continue;
+    }
+    const est = estimateBirthYear(indi, ds);
+    if (est) estimates.set(id, est.estimatedYear);
+    else skipped++;
+  }
+  const snap = snapshotRecords(ds, [...estimates.keys()], []);
+  for (const [id, year] of estimates) {
+    const indi = ds.individuals.get(id)!;
+    setEventField(indi, "BIRT", { date: `ABT ${year}` });
+    rebuildIndividual(ds, indi);
+  }
+  return {
+    patches: estimates.size > 0 ? patchesFromSnapshots(ds, snap) : [],
+    changed: estimates.size,
+    skipped,
+  };
 }
 
 function addMediaBatch(

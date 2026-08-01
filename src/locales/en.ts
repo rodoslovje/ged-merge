@@ -297,6 +297,8 @@ export const en = {
   "tools.batch.action.addSource": "Add source citation",
   "tools.batch.action.removeMedia": "Remove media",
   "tools.batch.action.markDeceased": "Mark as deceased (death without date)",
+  "tools.batch.action.estimateBirth": "Add estimated birth year (ABT)",
+  "tools.batch.estimateBirthHint": "Writes a birth date of “ABT year”, estimated from the birth years of parents, spouse or children. People who already have a birth or baptism date, and people with no dated close relative, are skipped — running the action again can reach them through the newly written estimates.",
   "tools.batch.action.convertEvent": "Convert event type",
   "tools.batch.pickMedia": "Choose an image…",
   "tools.batch.newMedia": "New image…",

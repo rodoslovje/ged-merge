@@ -346,6 +346,8 @@ export const sl = {
   "tools.batch.action.addSource": "Dodaj navedbo vira",
   "tools.batch.action.removeMedia": "Odstrani medij",
   "tools.batch.action.markDeceased": "Označi kot umrle (smrt brez datuma)",
+  "tools.batch.action.estimateBirth": "Dodaj ocenjeno leto rojstva (ABT)",
+  "tools.batch.estimateBirthHint": "Zapiše datum rojstva »ABT leto«, ocenjen iz let rojstva staršev, zakonca ali otrok. Osebe, ki datum rojstva ali krsta že imajo, in osebe brez datiranega bližnjega sorodnika so preskočene — ponoven zagon jih lahko doseže prek novo zapisanih ocen.",
   "tools.batch.action.convertEvent": "Pretvori vrsto dogodka",
   "tools.batch.pickMedia": "Izberite sliko …",
   "tools.batch.newMedia": "Nova slika …",
