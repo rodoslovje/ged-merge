@@ -17,7 +17,16 @@ import type { Dataset, GedNode, ParseResult } from "../gedcom/types";
  * (English month abbreviations) regardless of UI language.
  */
 
-/** Per-language column header translations for the simple 1:1 fields. */
+/**
+ * Per-language column header translations for the simple 1:1 fields.
+ *
+ * The strings are the site's own `col_*` i18n values. Purely informational
+ * columns are deliberately *not* listed: the export used to end with a
+ * "Rodoslovec"/"Genealogist" column that was later relabelled to
+ * "Vir"/"Source", and since we never read it, requiring it only broke
+ * imports of newer files. Only columns we actually use take part in
+ * header detection.
+ */
 interface ColumnSet {
   given: string;
   surname: string;
@@ -31,7 +40,9 @@ interface ColumnSet {
   partners: string;
   /** Combined parents column (older export format), e.g. "Starši" / "Parents". */
   parents: string;
-  genealogist: string;
+  /** Separate parent columns (newer export format), replacing `parents`. */
+  father: string;
+  mother: string;
   confidence: string;
 }
 
@@ -49,7 +60,8 @@ const COLUMN_SETS: Record<string, ColumnSet> = {
     links: "Povezave",
     partners: "Partnerji",
     parents: "Starši",
-    genealogist: "Rodoslovec",
+    father: "Oče",
+    mother: "Mati",
     confidence: "Zaupanje",
   },
   en: {
@@ -64,7 +76,8 @@ const COLUMN_SETS: Record<string, ColumnSet> = {
     links: "Links",
     partners: "Partners",
     parents: "Parents",
-    genealogist: "Genealogist",
+    father: "Father",
+    mother: "Mother",
     confidence: "Confidence",
   },
   de: {
@@ -79,7 +92,8 @@ const COLUMN_SETS: Record<string, ColumnSet> = {
     links: "Links",
     partners: "Partner",
     parents: "Eltern",
-    genealogist: "Genealoge",
+    father: "Vater",
+    mother: "Mutter",
     confidence: "Konfidenz",
   },
   hr: {
@@ -94,7 +108,8 @@ const COLUMN_SETS: Record<string, ColumnSet> = {
     links: "Poveznice",
     partners: "Partneri",
     parents: "Roditelji",
-    genealogist: "Rodoslovac",
+    father: "Otac",
+    mother: "Majka",
     confidence: "Pouzdanost",
   },
   hu: {
@@ -109,7 +124,8 @@ const COLUMN_SETS: Record<string, ColumnSet> = {
     links: "Hivatkozások",
     partners: "Partnerek",
     parents: "Szülők",
-    genealogist: "Genealógus",
+    father: "Apa",
+    mother: "Anya",
     confidence: "Megbízhatóság",
   },
   it: {
@@ -124,18 +140,11 @@ const COLUMN_SETS: Record<string, ColumnSet> = {
     links: "Collegamenti",
     partners: "Partner",
     parents: "Genitori",
-    genealogist: "Genealogista",
+    father: "Padre",
+    mother: "Madre",
     confidence: "Confidenza",
   },
 };
-
-/**
- * "Father" / "Mother" columns (newer export format, replacing the combined
- * "parents" column) are only known in English so far — not yet translated
- * for the other UI languages.
- */
-const FATHER_COLUMN = "Father";
-const MOTHER_COLUMN = "Mother";
 
 /** Prefix for the synthetic individual IDs produced from this import. */
 const ID_PREFIX = "SGI";
@@ -224,7 +233,7 @@ function stripSurnameAnnotation(value: string): string {
 }
 
 /** Column fields every export includes, regardless of which "parents" shape it uses. */
-type RequiredField = Exclude<keyof ColumnSet, "parents">;
+type RequiredField = Exclude<keyof ColumnSet, "parents" | "father" | "mother">;
 
 /** Resolved column layout for one CSV: which header row index has which field. */
 interface ColumnLayout {
@@ -241,7 +250,7 @@ function detectColumns(header: string[]): ColumnLayout | undefined {
     const index: Partial<Record<RequiredField, number>> = {};
     let ok = true;
     for (const [field, name] of Object.entries(columns) as [keyof ColumnSet, string][]) {
-      if (field === "parents") continue;
+      if (field === "parents" || field === "father" || field === "mother") continue;
       const idx = header.indexOf(name);
       if (idx < 0) {
         ok = false;
@@ -252,8 +261,8 @@ function detectColumns(header: string[]): ColumnLayout | undefined {
     if (!ok) continue;
 
     const parentsIndex = header.indexOf(columns.parents);
-    const fatherIndex = header.indexOf(FATHER_COLUMN);
-    const motherIndex = header.indexOf(MOTHER_COLUMN);
+    const fatherIndex = header.indexOf(columns.father);
+    const motherIndex = header.indexOf(columns.mother);
     return {
       index: index as Record<RequiredField, number>,
       parentsIndex: parentsIndex >= 0 ? parentsIndex : undefined,
@@ -265,7 +274,9 @@ function detectColumns(header: string[]): ColumnLayout | undefined {
 }
 
 /** Column header set for the "family matches" CSV: pairs of rows describing a
- * couple (husband + wife) rather than a single person. */
+ * couple (husband + wife) rather than a single person. As with `ColumnSet`,
+ * the trailing informational contributor/source column is left out — we never
+ * read it and its label has changed over time. */
 interface FamilyColumnSet {
   husbandName: string;
   husbandSurname: string;
@@ -281,7 +292,6 @@ interface FamilyColumnSet {
   husbandMother: string;
   wifeFather: string;
   wifeMother: string;
-  genealogist: string;
 }
 
 type FamilyField = keyof FamilyColumnSet;
@@ -303,7 +313,6 @@ const FAMILY_COLUMN_SETS: Record<string, FamilyColumnSet> = {
     husbandMother: "Husband's Mother",
     wifeFather: "Wife's Father",
     wifeMother: "Wife's Mother",
-    genealogist: "Genealogist",
   },
   sl: {
     husbandName: "Ime moža",
@@ -320,7 +329,6 @@ const FAMILY_COLUMN_SETS: Record<string, FamilyColumnSet> = {
     husbandMother: "Mati moža",
     wifeFather: "Oče žene",
     wifeMother: "Mati žene",
-    genealogist: "Rodoslovec",
   },
   hr: {
     husbandName: "Ime muža",
@@ -337,24 +345,22 @@ const FAMILY_COLUMN_SETS: Record<string, FamilyColumnSet> = {
     husbandMother: "Majka muža",
     wifeFather: "Otac žene",
     wifeMother: "Majka žene",
-    genealogist: "Rodoslovac",
   },
   de: {
-    husbandName: "Vorname des Ehemanns",
-    husbandSurname: "Nachname des Ehemanns",
-    husbandBirth: "Geburt des Ehemanns",
-    wifeName: "Vorname der Ehefrau",
-    wifeSurname: "Nachname der Ehefrau",
-    wifeBirth: "Geburt der Ehefrau",
+    husbandName: "Vorname des Mannes",
+    husbandSurname: "Nachname des Mannes",
+    husbandBirth: "Geburt des Mannes",
+    wifeName: "Vorname der Frau",
+    wifeSurname: "Nachname der Frau",
+    wifeBirth: "Geburt der Frau",
     marriageDate: "Heiratsdatum",
     marriagePlace: "Heiratsort",
     links: "Links",
     children: "Kinder",
-    husbandFather: "Vater des Ehemanns",
-    husbandMother: "Mutter des Ehemanns",
-    wifeFather: "Vater der Ehefrau",
-    wifeMother: "Mutter der Ehefrau",
-    genealogist: "Genealoge",
+    husbandFather: "Vater des Mannes",
+    husbandMother: "Mutter des Mannes",
+    wifeFather: "Vater der Frau",
+    wifeMother: "Mutter der Frau",
   },
   hu: {
     husbandName: "Férj utóneve",
@@ -371,7 +377,6 @@ const FAMILY_COLUMN_SETS: Record<string, FamilyColumnSet> = {
     husbandMother: "Férj anyja",
     wifeFather: "Feleség apja",
     wifeMother: "Feleség anyja",
-    genealogist: "Genealógus",
   },
   it: {
     husbandName: "Nome del marito",
@@ -380,15 +385,14 @@ const FAMILY_COLUMN_SETS: Record<string, FamilyColumnSet> = {
     wifeName: "Nome della moglie",
     wifeSurname: "Cognome della moglie",
     wifeBirth: "Nascita della moglie",
-    marriageDate: "Data del matrimonio",
-    marriagePlace: "Luogo del matrimonio",
+    marriageDate: "Data di matrimonio",
+    marriagePlace: "Luogo di matrimonio",
     links: "Collegamenti",
     children: "Figli",
     husbandFather: "Padre del marito",
     husbandMother: "Madre del marito",
     wifeFather: "Padre della moglie",
     wifeMother: "Madre della moglie",
-    genealogist: "Genealogista",
   },
 };
 
