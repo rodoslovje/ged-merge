@@ -420,6 +420,19 @@ function CriterionRow({
       <span className="batch-crit-label" title={c.kind === "age" ? t("tools.batch.ageHint") : undefined}>
         {t(`tools.batch.crit.${c.kind}`)}
       </span>
+      {c.kind === "name" && (
+        <select
+          className="batch-select"
+          value={c.part ?? "any"}
+          onChange={(e) =>
+            onChange({ ...c, part: e.target.value === "any" ? undefined : (e.target.value as "given" | "surname") })
+          }
+        >
+          <option value="any">{t("tools.batch.name.any")}</option>
+          <option value="given">{t("tools.batch.name.given")}</option>
+          <option value="surname">{t("tools.batch.name.surname")}</option>
+        </select>
+      )}
       {(c.kind === "name" || c.kind === "place") && (
         <input
           className="batch-input"

@@ -132,6 +132,13 @@ describe("batch criteria", () => {
     ])).toEqual(["@I4@"]);
   });
 
+  it("scopes the name filter to the given name or the surname", () => {
+    // "an" is in Ana (given) and Zupan (surname) — the scope tells them apart.
+    expect(match([{ kind: "name", text: "an" }])).toEqual(["@I1@", "@I3@"]);
+    expect(match([{ kind: "name", text: "an", part: "given" }])).toEqual(["@I1@"]);
+    expect(match([{ kind: "name", text: "an", part: "surname" }])).toEqual(["@I3@"]);
+  });
+
   it("filters by name, sex, birth year and place (accent-blind)", () => {
     expect(match([{ kind: "name", text: "kovac" }])).toEqual(["@I2@"]);
     expect(match([{ kind: "sex", value: "F" }])).toEqual(["@I1@", "@I3@"]);

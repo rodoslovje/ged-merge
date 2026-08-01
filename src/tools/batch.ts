@@ -36,7 +36,9 @@ export type LineSide = "maternal" | "paternal";
 
 /** One composable filter; a person matches when every active criterion holds. */
 export type BatchCriterion =
-  | { kind: "name"; text: string }
+  /** Text match over the name; `part` narrows it to the given name or the
+   *  surname only (absent = anywhere, incl. lifespan — the search haystack). */
+  | { kind: "name"; text: string; part?: "given" | "surname" }
   | { kind: "sex"; value: Sex }
   | { kind: "birthYear"; from?: number; to?: number }
   /** Age in whole years — at death for the deceased, to today for everyone
@@ -74,6 +76,9 @@ export interface BatchRow extends SearchRow {
   deceased: boolean;
   /** Tags of the person's lifted events/attributes (BIRT, OCCU, …). */
   eventTags: string[];
+  /** Folded given names / surnames across every name form, for scoped matching. */
+  givenText: string;
+  surnameText: string;
   /** Shared media record xrefs this person's tray references (record + events). */
   mediaXrefs: string[];
   /** Lower-cased `FILE` values of the tray's media (inline and resolved shared). */
@@ -115,6 +120,8 @@ export function buildBatchRows(
       age: ageOf(indi, now),
       deceased: isDeceased(indi),
       eventTags: indi.events.map((e) => e.tag),
+      givenText: foldSearch(indi.names.map((n) => n.given ?? "").join(" ")),
+      surnameText: foldSearch(indi.names.map((n) => n.surname ?? "").join(" ")),
       mediaXrefs: refs.filter((r) => r.xref).map((r) => r.xref!),
       mediaFiles: refs.map((r) => r.file.toLowerCase()),
       mediaCount: refs.length,
@@ -197,8 +204,10 @@ export function matchesBatch(row: BatchRow, criteria: BatchCriterion[], ctx: Bat
   for (const c of criteria) {
     switch (c.kind) {
       case "name": {
+        const hay =
+          c.part === "given" ? row.givenText : c.part === "surname" ? row.surnameText : row.searchText;
         const terms = foldSearch(c.text).split(/\s+/).filter(Boolean);
-        if (!terms.every((t) => row.searchText.includes(t))) return false;
+        if (!terms.every((t) => hay.includes(t))) return false;
         break;
       }
       case "sex":
