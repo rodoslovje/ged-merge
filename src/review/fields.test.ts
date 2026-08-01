@@ -1016,6 +1016,68 @@ describe("attached links", () => {
     expect(birtSources?.state).toBe("agree");
   });
 
+  it("matches an incoming record-level link against a citation the main keeps on an event", () => {
+    // The same Matricula page, filed at different levels: the main cites it on
+    // the death event, the incoming file hangs a bare link on the person.
+    const m = dataset(
+      `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 DEAT\n2 DATE 1834\n2 SOUR @S1@\n3 PAGE 134\n` +
+        `0 @S1@ SOUR\n1 TITL Mrliska knjiga\n1 OBJE @O1@\n0 @O1@ OBJE\n1 FILE https://data.matricula-online.eu/sl/slovenia/ljubljana/metlika/01432/?pg=134\n0 TRLR\n`,
+    );
+    const c = dataset(
+      `0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n1 DEAT\n2 DATE 1834\n` +
+        `1 WWW https://data.matricula-online.eu/sl/slovenia/ljubljana/metlika/01432/?pg=134\n0 TRLR\n`,
+    );
+    const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"));
+    const recordSources = byKey(rows, "links");
+    expect(recordSources?.incomingLinkIcons).toBeUndefined();
+    expect(recordSources?.incomingSources).toEqual(recordSources?.mainSources);
+    expect(recordSources?.state).toBe("agree");
+    expect(fieldDiffCounts(rows)).toEqual({ newCount: 0, diffCount: 0, linkCount: 0 });
+  });
+
+  it("keeps an incoming record-level link that no citation anywhere on the main covers", () => {
+    const m = dataset(
+      `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 DEAT\n2 DATE 1834\n2 SOUR @S1@\n3 PAGE 134\n` +
+        `0 @S1@ SOUR\n1 TITL Mrliska knjiga\n1 OBJE @O1@\n0 @O1@ OBJE\n1 FILE https://data.matricula-online.eu/sl/slovenia/ljubljana/metlika/01432/?pg=134\n0 TRLR\n`,
+    );
+    const c = dataset(
+      `0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n` +
+        `1 WWW https://data.matricula-online.eu/sl/slovenia/ljubljana/metlika/01432/?pg=99\n0 TRLR\n`,
+    );
+    const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"));
+    // A different page of the same book is a different record: still an import.
+    expect(byKey(rows, "links")?.incomingLinkIcons).toEqual([
+      "https://data.matricula-online.eu/sl/slovenia/ljubljana/metlika/01432/?pg=99",
+    ]);
+    expect(fieldDiffCounts(rows).linkCount).toBe(1);
+  });
+
+  it("does not let a repository-fallback citation url swallow an incoming link", () => {
+    // @S1@ has no page image of its own, so its citation falls back to the
+    // repository's website — a URL every citation from that archive shares.
+    const m = dataset(
+      `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 DEAT\n2 DATE 1834\n2 SOUR @S1@\n` +
+        `0 @S1@ SOUR\n1 TITL Mrliska knjiga\n1 REPO @R1@\n0 @R1@ REPO\n1 NAME Arhiv\n1 WWW https://arhiv.example.com\n0 TRLR\n`,
+    );
+    const c = dataset(`0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n1 WWW https://arhiv.example.com\n0 TRLR\n`);
+    const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"));
+    expect(byKey(rows, "links")?.incomingLinkIcons).toEqual(["https://arhiv.example.com"]);
+  });
+
+  it("matches an incoming link on one event against a citation the main keeps on another", () => {
+    const m = dataset(
+      `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE 1777\n2 SOUR @S1@\n3 PAGE 56\n1 DEAT\n2 DATE 1834\n` +
+        `0 @S1@ SOUR\n1 TITL Krstna knjiga\n1 OBJE @O1@\n0 @O1@ OBJE\n1 FILE https://example.com/p56\n0 TRLR\n`,
+    );
+    const c = dataset(
+      `0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE 1777\n1 DEAT\n2 DATE 1834\n2 WWW https://example.com/p56\n0 TRLR\n`,
+    );
+    const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"));
+    const deatSources = byKey(rows, "DEAT.sources");
+    expect(deatSources?.incomingLinkIcons).toBeUndefined();
+    expect(deatSources?.state).toBe("agree");
+  });
+
   it("tallies differing links into linkCount; matching links agree", () => {
     const m = dataset(
       `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 WWW https://example.com/old\n0 TRLR\n`,
