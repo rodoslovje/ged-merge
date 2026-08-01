@@ -20,7 +20,8 @@ import {
   type SavedBatchFilter,
 } from "../../tools/batch";
 import type { RecordPatch } from "../historyTypes";
-import { useNameOf } from "../SettingsContext";
+import { useNameOf, useSettings } from "../SettingsContext";
+import { createKinshipResolver, lineageClass } from "../../match/kinship";
 import { PersonLink } from "../PersonLink";
 import { useVirtualList } from "../useVirtualList";
 import { PickerMenu } from "../PickerMenu";
@@ -73,6 +74,7 @@ function mediaPickValue(ref: { xref?: string; file?: string }, options: MediaOpt
 export function BatchSection({ dataset, editVersionRef, active, onNavigate, onApplyPatches, startId }: Props) {
   const { t } = useTranslation();
   const nameOf = useNameOf();
+  const { settings } = useSettings();
 
   // Rows rebuild when the file content moves: any render while visible (tab
   // return, an undo/redo elsewhere, this panel's own apply) re-reads the
@@ -92,6 +94,13 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
     () => (startId ? computeKinship(dataset, startId) : null),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- ver stands in for in-place dataset edits
     [dataset, startId, ver],
+  );
+  /** Kinship-to-start labels for the result rows ("Show kinship" setting),
+   *  resolved lazily per rendered row and cached inside the resolver. */
+  const kinshipResolver = useMemo(
+    () => (settings.showKinship && startId ? createKinshipResolver(dataset, startId, t) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- ver stands in for in-place dataset edits
+    [dataset, startId, settings.showKinship, t, ver],
   );
   const ctx: BatchContext = useMemo(() => ({ lineSides, kinship }), [lineSides, kinship]);
 
@@ -338,22 +347,28 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
         </div>
         <ul className="batch-list">
           <li className="v-spacer" style={{ height: virtual.padTop }} ref={virtual.topRef} aria-hidden />
-          {results.slice(virtual.start, virtual.end).map((r) => (
-            <li key={r.id} className="batch-row">
-              <input
-                type="checkbox"
-                checked={!excluded.has(r.id)}
-                aria-label={r.name}
-                onChange={() => {
-                  const next = new Set(excluded);
-                  if (next.has(r.id)) next.delete(r.id);
-                  else next.add(r.id);
-                  setExcluded(next);
-                }}
-              />
-              <PersonLink dataset={dataset} id={r.id} fallback={r.name} onNavigate={onNavigate} />
-            </li>
-          ))}
+          {results.slice(virtual.start, virtual.end).map((r) => {
+            const kin = kinshipResolver?.label(r.id);
+            return (
+              <li key={r.id} className="batch-row">
+                <input
+                  type="checkbox"
+                  checked={!excluded.has(r.id)}
+                  aria-label={r.name}
+                  onChange={() => {
+                    const next = new Set(excluded);
+                    if (next.has(r.id)) next.delete(r.id);
+                    else next.add(r.id);
+                    setExcluded(next);
+                  }}
+                />
+                <PersonLink dataset={dataset} id={r.id} fallback={r.name} onNavigate={onNavigate} />
+                {kin && (
+                  <span className={`global-search-kin ${lineageClass(kinshipResolver!.lineage(r.id))}`}>{kin}</span>
+                )}
+              </li>
+            );
+          })}
           <li className="v-spacer" style={{ height: virtual.padBottom }} ref={virtual.bottomRef} aria-hidden />
         </ul>
       </div>
