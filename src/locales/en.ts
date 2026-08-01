@@ -1346,6 +1346,8 @@ export const en = {
   "event.colCause": "Cause",
   "event.colLink": "Source",
   "event.customTooltip": "Custom event ({{tag}}) — named by its Title field",
+  "event.vendorTooltip": "Non-standard tag {{tag}}",
+  "event.vendorTooltip.known": "Non-standard tag {{tag}} ({{software}}): {{meaning}}",
   "event.addLabel": "Add Event",
   "event.date": "{{event}} date",
   "event.place": "{{event}} place",

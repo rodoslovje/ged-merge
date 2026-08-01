@@ -1,5 +1,5 @@
 import type { Dataset, Family, GedDate, GedEvent, Individual, PersonName, Sex, SourceCitation } from "../gedcom/types";
-import { EDITABLE_FAM_EVENT_TAGS, INDI_EVENT_TAG_ORDER, VALUE_EVENT_TAGS } from "../gedcom/eventTags";
+import { EDITABLE_FAM_EVENT_TAGS, INDI_EVENT_TAG_ORDER, VALUE_EVENT_TAGS, eventDisplayLabel } from "../gedcom/eventTags";
 import { sourceCitationKey } from "../gedcom/source";
 import { decomposePlace } from "../gedcom/place";
 import { compareKey, foldToken } from "../match/text";
@@ -94,7 +94,7 @@ export function formatFieldLabel(t: Translate, key: string): string {
     }
   }
 
-  const name = t(`event.${tag}`, { defaultValue: EVENT_LABELS[tag] ?? tag });
+  const name = eventDisplayLabel(tag, t, EVENT_LABELS[tag]);
   if (!sub) return name;
   if (sub === "value") return name;
   if (sub === "date") return t("event.date", { event: name });
@@ -198,7 +198,7 @@ function buildEventRows(
     // editable/comparable under the "Title" label and the tag's own line
     // value (`1 EVEN <v>`) under the "Agency" label.
     const isEven = tag === "EVEN" || tag === "FACT";
-    const baseLabel = t(`event.${tag}`, { defaultValue: EVENT_LABELS[tag] ?? tag });
+    const baseLabel = eventDisplayLabel(tag, t, EVENT_LABELS[tag]);
     const headerType = isEven ? (me?.type ?? ce?.type) : undefined;
     const eventLabel = headerType?.trim() || baseLabel;
     const customTitle = isEven ? t("event.customTooltip", { tag }) : undefined;
@@ -328,7 +328,7 @@ function buildFamilyRows(
           coupleEventAges(cFam, compareDs, cEv, t));
       }
       if (etagRows.length > 0) {
-        const baseLabel = t(`event.${etag}`, { defaultValue: EVENT_LABELS[etag] ?? etag });
+        const baseLabel = eventDisplayLabel(etag, t, EVENT_LABELS[etag]);
         const headerType = isEven ? (mEv?.type ?? cEv?.type) : undefined;
         rows.push({
           key: `${famKey}.${etag}.header`,

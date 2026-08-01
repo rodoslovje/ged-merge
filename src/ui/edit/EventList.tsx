@@ -3,7 +3,7 @@ import type { Translate } from "../../locales/i18n";
 import type { RecordPatch } from "../historyTypes";
 import type { EventFieldUpdate } from "../../gedcom/edit";
 import { addEventField, removeEventAtIndex, setEventField, setEventFieldAtIndex, changeEventTagAtIndex } from "../../gedcom/edit";
-import { INDI_EVENT_TAGS } from "../../gedcom/eventTags";
+import { INDI_EVENT_TAGS, eventDisplayLabel } from "../../gedcom/eventTags";
 import { birthDateOf } from "../../gedcom/lifespan";
 import { ageBetween, fullAgeBetween } from "../../gedcom/age";
 import { lifespanAnchors, zoneSortKey } from "../../review/fields";
@@ -237,7 +237,7 @@ export const EventList = memo(function EventList({
           <EventFieldsRow
             key={`ev-${row.stableKey}-${mergeGen ?? 0}`}
             ev={row.ev}
-            label={t(`event.${row.ev.tag}`)}
+            label={eventDisplayLabel(row.ev.tag, t)}
             tag={row.ev.tag}
             t={t}
             commitField={(update, extraPatches) => {
@@ -246,7 +246,7 @@ export const EventList = memo(function EventList({
             }}
             onChangeTag={ASSIGNABLE_EVENT_TAGS.has(row.ev.tag) ? (newTag) => commit((indi) => changeEventTagAtIndex(indi, row.i, newTag)) : undefined}
             tagGroups={ASSIGNABLE_EVENT_TAGS.has(row.ev.tag) ? INDIVIDUAL_EVENT_GROUPS : undefined}
-            onCopy={onCopyEvent ? () => onCopyEvent(rawEventNodes[row.i], t(`event.${row.ev.tag}`)) : undefined}
+            onCopy={onCopyEvent ? () => onCopyEvent(rawEventNodes[row.i], eventDisplayLabel(row.ev.tag, t)) : undefined}
             onRemove={() => {
               commit((indi) => removeEventAtIndex(indi, row.i));
               if (row.compareKey) {
@@ -277,7 +277,7 @@ export const EventList = memo(function EventList({
           <EventFieldsRow
             key={`${person.id}-merge-${row.keyBase}-${mergeGen ?? 0}`}
             ev={undefined}
-            label={t(`event.${row.tag}`)}
+            label={eventDisplayLabel(row.tag, t)}
             tag={row.tag}
             t={t}
             commitField={(update, extraPatches) => {

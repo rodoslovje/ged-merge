@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { Dataset, Sex } from "../../gedcom/types";
 import { firstChild } from "../../gedcom/node";
 import { collectLocalMediaFiles } from "../../tools/mediaFiles";
-import { INDI_EVENT_TAG_ORDER } from "../../gedcom/eventTags";
+import { INDI_EVENT_TAG_ORDER, eventDisplayLabel } from "../../gedcom/eventTags";
 import {
   applyBatchAction,
   buildBatchRows,
@@ -469,7 +469,7 @@ function CriterionRow({
           <select className="batch-select" value={c.tag} onChange={(e) => onChange({ ...c, tag: e.target.value })}>
             {(eventOptions.includes(c.tag) ? eventOptions : [c.tag, ...eventOptions]).map((tag) => (
               <option key={tag} value={tag}>
-                {t(`event.${tag}`, { defaultValue: tag })}
+                {eventDisplayLabel(tag, t)}
               </option>
             ))}
           </select>
