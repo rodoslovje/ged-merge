@@ -86,6 +86,12 @@ describe("validateDataset", () => {
 2 DATE 1700
 1 DEAT
 2 DATE 1850
+0 @I5@ INDI
+1 NAME Oznaka /Umrl/
+1 SEX M
+1 BIRT
+2 DATE 1800
+1 DEAT Y
 0 @F1@ FAM
 1 HUSB @I1@
 1 WIFE @I2@
@@ -99,8 +105,59 @@ describe("validateDataset", () => {
     expect(cats).toContain("ageAtMarriage"); // I1: married at 99
     expect(cats).toContain("parentAge"); // I3: father was 100
     expect(cats).toContain("spouseAgeGap"); // 80-year gap
+    // I1: born 1800, no death evidence — "living" at 226.
+    const tooOld = report.issues.filter((i) => i.category === "livingTooOld");
+    expect(tooOld.map((i) => i.id)).toContain("@I1@");
+    expect(tooOld.find((i) => i.id === "@I1@")?.messageVars).toEqual({ age: 226, max: 99 });
+    // I5 is just as old but carries an undated DEAT Y — deceased, not flagged.
+    expect(tooOld.map((i) => i.id)).not.toContain("@I5@");
     // The father-age finding is reported on the child record.
     expect(report.issues.find((i) => i.category === "parentAge")?.id).toBe("@I3@");
+  });
+
+  it("flags events outside the lifespan, leaving burial and probate alone", () => {
+    // @I1@ lived 1850–1900: an occupation dated 1840 (before birth), a
+    // residence 1910 and a marriage 1905 (after death) are wrong; the burial
+    // in 1901 and probate in 1903 legitimately follow the death.
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Janez /Kmet/
+1 SEX M
+1 BIRT
+2 DATE 1850
+1 DEAT
+2 DATE 1900
+1 BURI
+2 DATE 1901
+1 PROB
+2 DATE 1903
+1 OCCU farmer
+2 DATE 1840
+1 RESI
+2 DATE 1910
+1 FAMS @F1@
+0 @I2@ INDI
+1 NAME Ana /Kmet/
+1 SEX F
+1 BIRT
+2 DATE 1855
+1 DEAT
+2 DATE 1930
+1 FAMS @F1@
+0 @F1@ FAM
+1 HUSB @I1@
+1 WIFE @I2@
+1 MARR
+2 DATE 1905
+0 TRLR`);
+    const report = validateDataset(ds, 2026);
+    const order = report.issues.filter((i) => i.category === "eventOrder");
+    expect(order.map((i) => [i.id, i.messageVars?.tag, i.messageKey.split(".").pop()])).toEqual([
+      ["@I1@", "OCCU", "eventBeforeBirth"],
+      ["@I1@", "RESI", "eventAfterDeath"],
+      ["@I1@", "MARR", "eventAfterDeath"],
+    ]);
   });
 
   it("flags a mother with children by two fathers in the same years", () => {
@@ -524,13 +581,13 @@ describe("validateDataset", () => {
 1 NAME Jan /Kos/
 1 SEX M
 1 BIRT
-2 DATE 1900
+2 DATE 1950
 1 FAMS @F1@
 0 @I2@ INDI
 1 NAME Mojca /Kos/
 1 SEX F
 1 BIRT
-2 DATE 1902
+2 DATE 1952
 1 FAMS @F1@
 0 @F1@ FAM
 1 HUSB @I1@
