@@ -157,7 +157,8 @@ export function individualFieldRows(
   // Record-level sources (SOUR citations) and plain links, combined into one
   // "Sources" row — same citations-plus-link-icons shape used per event — then
   // notes, all before the events.
-  pushSourcesRow(rows, "links", formatFieldLabel(t, "links"), main?.sources, compare?.sources, gatherLinks(main), gatherLinks(compare));
+  pushSourcesRow(rows, "links", formatFieldLabel(t, "links"), main?.sources, compare?.sources, gatherLinks(main), gatherLinks(compare),
+    recordCitations(main), recordCitations(compare));
   pushRow(rows, "notes", formatFieldLabel(t, "notes"), main?.notes?.join("\n"), compare?.notes?.join("\n"));
   // Private flag: shown when either side declares it; merging is additive
   // (an incoming flag is written, a main-side flag is never removed).
@@ -190,6 +191,8 @@ function buildEventRows(
   rejectedEvents: Set<string> | undefined,
   showAge: boolean,
 ): void {
+  const mainPool = recordCitations(main);
+  const comparePool = recordCitations(compare);
   for (const { tag, mainIdx, compareIdx, keyIdx, multi } of orderedEventTags(main, compare)) {
     const mainEvents = main?.events.filter((e) => e.tag === tag) ?? [];
     const compareEvents = compare?.events.filter((e) => e.tag === tag) ?? [];
@@ -229,7 +232,8 @@ function buildEventRows(
     // sub-tag (rare) isn't shown as a second Agency row.
     if (!isEven) pushRow(subRows, `${keyBase}.agency`, t("event.colAgency"), me?.agency, ce?.agency);
     pushRow(subRows, `${keyBase}.cause`, t("event.colCause"), me?.cause, ce?.cause);
-    pushSourcesRow(subRows, `${keyBase}.sources`, t("field.sources"), me?.sources, ce?.sources, me?.links, ce?.links);
+    pushSourcesRow(subRows, `${keyBase}.sources`, t("field.sources"), me?.sources, ce?.sources, me?.links, ce?.links,
+      mainPool, comparePool);
     if (showAge) {
       attachAges(subRows, `${keyBase}.date`,
         eventAgeBadges(main, mainDs, me, tag, t),
@@ -304,6 +308,8 @@ function buildFamilyRows(
       pushRelativesRow(rows, `${famKey}.partner`, formatFieldLabel(t, "partners"), mSpouseRel, cSpouseRel);
     }
 
+    const mFamPool = recordCitations(mFam);
+    const cFamPool = recordCitations(cFam);
     for (const etag of EDITABLE_FAM_EVENT_TAGS) {
       const mEv = mFam?.events.find((e) => e.tag === etag);
       const cEv = cFam?.events.find((e) => e.tag === etag);
@@ -327,7 +333,8 @@ function buildFamilyRows(
       // real AGNC sub-tag (rare) isn't shown as a second Agency row.
       if (!isEven) pushRow(etagRows, `${famKey}.${etag}.agency`, t("event.colAgency"), mEv?.agency, cEv?.agency);
       pushRow(etagRows, `${famKey}.${etag}.cause`, t("event.colCause"), mEv?.cause, cEv?.cause);
-      pushSourcesRow(etagRows, `${famKey}.${etag}.sources`, t("field.sources"), mEv?.sources, cEv?.sources, mEv?.links, cEv?.links);
+      pushSourcesRow(etagRows, `${famKey}.${etag}.sources`, t("field.sources"), mEv?.sources, cEv?.sources, mEv?.links, cEv?.links,
+        mFamPool, cFamPool);
       if (showAge) {
         attachAges(etagRows, `${famKey}.${etag}.date`,
           coupleEventAges(mFam, mainDs, mEv, t),
@@ -819,6 +826,10 @@ function gatherLinks(record: Individual | Family | undefined): string[] {
  * distinct from `SOUR` citations) ride along as icons on this same row — but a
  * link already covered by one of that side's citation URLs is dropped, since
  * the citation itself is already clickable to that URL.
+ *
+ * `mainPool`/`incomingPool` widen the link-to-citation matching to every
+ * citation that side keeps on the whole record (see {@link recordCitations}),
+ * not just the ones in this row.
  */
 function pushSourcesRow(
   rows: FieldRow[],
@@ -828,6 +839,8 @@ function pushSourcesRow(
   incoming: SourceCitation[] | undefined,
   mainLinks?: string[],
   incomingLinks?: string[],
+  mainPool: SourceCitation[] = [],
+  incomingPool: SourceCitation[] = [],
 ): void {
   const mBase = main ?? [];
   const iBase = incoming ?? [];
@@ -836,8 +849,17 @@ function pushSourcesRow(
   // citation on this side — show it as that citation (with the other side's
   // title/page) instead of a disconnected new link, so an identical source
   // doesn't read as a conflict needing a merge decision.
-  const { sources: m, remainingLinks: mRemainingLinks } = reconcileLinksAsCitations(mainLinks, mBase, iBase);
-  const { sources: i, remainingLinks: iRemainingLinks } = reconcileLinksAsCitations(incomingLinks, iBase, mBase);
+  const mRec = reconcileLinksAsCitations(mainLinks, mBase, [...iBase, ...incomingPool]);
+  const iRec = reconcileLinksAsCitations(incomingLinks, iBase, [...mBase, ...mainPool]);
+  const mRemainingLinks = mRec.remainingLinks;
+  const iRemainingLinks = iRec.remainingLinks;
+  // When the citation a link matched sits elsewhere on the other side's record
+  // (that side cites the page on an event, this one hangs a bare link on the
+  // person), it isn't in this row's other column yet — put it there too, so the
+  // row reads as agreement instead of offering to import a page the other file
+  // already cites.
+  const m = withCitations(mRec.sources, iRec.matched);
+  const i = withCitations(iRec.sources, mRec.matched);
   const mIcons = linksNotCitedAsSource(mRemainingLinks, m);
   const iIcons = linksNotCitedAsSource(iRemainingLinks, i);
   if (m.length === 0 && i.length === 0 && mIcons.length === 0 && iIcons.length === 0) return;
@@ -871,13 +893,18 @@ function linksNotCitedAsSource(links: string[] | undefined, sources: SourceCitat
  * it's added to this side's own citation list (reusing the other side's
  * title/page) and dropped from the plain-link list, rather than staying a
  * disconnected new link next to a citation that already covers it.
+ *
+ * `matched` is the subset of `otherSources` that was hit, so the caller can
+ * also surface them in the other column when they came from outside the row.
  */
 function reconcileLinksAsCitations(
   links: string[] | undefined,
   ownSources: SourceCitation[],
   otherSources: SourceCitation[],
-): { sources: SourceCitation[]; remainingLinks: string[] } {
-  if (!links?.length || !otherSources.length) return { sources: ownSources, remainingLinks: links ?? [] };
+): { sources: SourceCitation[]; matched: SourceCitation[]; remainingLinks: string[] } {
+  if (!links?.length || !otherSources.length) {
+    return { sources: ownSources, matched: [], remainingLinks: links ?? [] };
+  }
   const matched: SourceCitation[] = [];
   const remainingLinks: string[] = [];
   for (const url of links) {
@@ -886,7 +913,39 @@ function reconcileLinksAsCitations(
     if (match) matched.push(match);
     else remainingLinks.push(url);
   }
-  return matched.length ? { sources: [...ownSources, ...matched], remainingLinks } : { sources: ownSources, remainingLinks };
+  return { sources: matched.length ? [...ownSources, ...matched] : ownSources, matched, remainingLinks };
+}
+
+/** `sources` plus any of `extra` it doesn't already carry (by citation identity). */
+function withCitations(sources: SourceCitation[], extra: SourceCitation[]): SourceCitation[] {
+  if (!extra.length) return sources;
+  const have = new Set(sources.map(sourceCitationKey));
+  const added = extra.filter((c) => {
+    const key = sourceCitationKey(c);
+    if (have.has(key)) return false;
+    have.add(key);
+    return true;
+  });
+  return added.length ? [...sources, ...added] : sources;
+}
+
+/**
+ * Every citation a record carries at *any* scope — its own plus each event's —
+ * as the pool a plain link on the other side is matched against. The two files
+ * routinely attach the same archival page at different levels: one cites the
+ * parish register on the death event, the other hangs a bare link on the
+ * person. Without the whole-record view those never meet and the link reads as
+ * a new source to import.
+ *
+ * Only citations whose URL is the precise cited page (`exact`) qualify. A
+ * fallback URL is the holding repository's website, shared by every citation
+ * from that archive, so it would match any link to that site and wrongly
+ * silence a genuine import.
+ */
+function recordCitations(record: Individual | Family | undefined): SourceCitation[] {
+  if (!record) return [];
+  const all = [...(record.sources ?? []), ...record.events.flatMap((e) => e.sources ?? [])];
+  return all.filter((c) => c.exact && c.url);
 }
 
 /** Compares both citations and icon-only links together: a side "has" the
