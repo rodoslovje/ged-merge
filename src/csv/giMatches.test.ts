@@ -236,6 +236,57 @@ describe("parseGiMatchesCsv", () => {
     ]);
   });
 
+  it("puts a couple the right way round once a row says who is the father", () => {
+    // Ana's row names Marko as her partner without saying which spouse he is,
+    // so that family's slots start as a guess. Their son's row then names Marko
+    // as his father and Ana as his mother — the guess must give way, or Marko
+    // ends up recorded as his wife's wife.
+    const ana = [
+      "Ana", "Štefanič", "3 JUN 1789", "", "", "", "", "", "",
+      "Marko Kočevar | 14 MAY 1777", "", "", "Renko", "99",
+    ];
+    const son = [
+      "Marko", "Kočevar", "2 FEB 1807", "", "", "", "", "", "",
+      "", "Marko Kočevar | 14 MAY 1777", "Ana Štefanič | 3 JUN 1789", "Renko", "99",
+    ];
+    const text = [SL_HEADER_SOURCE, row(ana), row(ana), row(son), row(son)].join("\n");
+
+    const { dataset } = parseGiMatchesCsv(text);
+    expect(dataset.families.size).toBe(1);
+    const fam = [...dataset.families.values()][0];
+    const husband = dataset.individuals.get(fam.husband!)!;
+    const wife = dataset.individuals.get(fam.wife!)!;
+    expect(husband.names[0]).toEqual(expect.objectContaining({ given: "Marko", surname: "Kočevar" }));
+    expect(wife.names[0]).toEqual(expect.objectContaining({ given: "Ana", surname: "Štefanič" }));
+    // The roles the index states also give these people a sex.
+    expect(husband.sex).toBe("M");
+    expect(wife.sex).toBe("F");
+  });
+
+  it("settles a guessed marriage from a sex the CSV reveals elsewhere", () => {
+    // Ana's row names Marko as her partner without saying which spouse he is,
+    // and nothing marries them again. A later row calling Ana somebody's mother
+    // is enough to put the couple the right way round.
+    const ana = [
+      "Ana", "Štefanič", "3 JUN 1789", "", "", "", "", "", "",
+      "Marko Kočevar | 14 MAY 1777", "", "", "Renko", "99",
+    ];
+    const daughter = [
+      "Marija", "Kočevar", "8 JUL 1812", "", "", "", "", "", "",
+      "", "", "Ana Štefanič | 3 JUN 1789", "Renko", "99",
+    ];
+    const text = [SL_HEADER_SOURCE, row(ana), row(ana), row(daughter), row(daughter)].join("\n");
+
+    const { dataset } = parseGiMatchesCsv(text);
+    const marriage = [...dataset.families.values()].find((f) => f.husband && f.wife)!;
+    expect(dataset.individuals.get(marriage.husband!)!.names[0]).toEqual(
+      expect.objectContaining({ given: "Marko" }),
+    );
+    expect(dataset.individuals.get(marriage.wife!)!.names[0]).toEqual(
+      expect.objectContaining({ given: "Ana" }),
+    );
+  });
+
   it("keeps same-named relatives apart when the CSV gives no birth year", () => {
     const first = [
       "Ana", "Novak", "3 JUN 1789", "", "", "", "", "", "",
