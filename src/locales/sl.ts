@@ -1629,6 +1629,7 @@ export const sl = {
   "event.place.lookup.offlineOnly": "Samo uvoženi imenik krajev — spletne poizvedbe so izklopljene v nastavitvah.",
   "event.addr": "Naslov ({{event}})",
   "event.note": "Opomba ({{event}})",
+  "event.value": "Vrednost ({{event}})",
   "event.agency": "Ustanova ({{event}})",
   "event.type": "Vrsta ({{event}})",
   "event.cause": "Vzrok ({{event}})",
