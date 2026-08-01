@@ -288,6 +288,18 @@ describe("buildEditReport", () => {
     expect(report.changes).toHaveLength(3);
   });
 
+  it("labels an edited repository by its NAME, not its bare xref", () => {
+    const withRepo = dataset(MAIN.replace("0 @F1@", "0 @R1@ REPO\n1 NAME Matricula Online\n0 @F1@"));
+    const snapshot = dataset(wrap("0 @R1@ REPO\n1 NAME Nadškofijski arhiv\n")).records.find((r) => r.xref === "@R1@")!;
+
+    const report = buildEditReport(
+      new Set(), new Set(), withRepo, loadedPeople, loadedFams, undefined, undefined,
+      new Set(["@R1@"]), new Map([["@R1@", { value: snapshot }]]),
+    );
+    expect(report.recordLabels["@R1@"]).toBe("🏛 Matricula Online");
+    expect(report.recordKinds["@R1@"]).toBe("record");
+  });
+
   it("returns an empty report when nothing changed", () => {
     const report = buildEditReport(new Set(), new Set(), ds(), loadedPeople, loadedFams);
     expect(report).toMatchObject({ changes: [], recordsChanged: 0, newPersons: 0, newFamilies: 0 });

@@ -572,12 +572,16 @@ export function enrichEditReport(
  * or OBJE has no name to fall back on the way a person does. A source and its
  * page-image media record often share one title (the OBJE is titled after the
  * source it backs), so each carries its kind icon — 📖 source, 🔗/🖼 media,
- * the same glyphs the Sources tool uses — to keep the two rows apart.
+ * 🏛 repository, the same glyphs the Sources tool uses — to keep the rows apart.
  */
 function sharedRecordLabel(id: string, node: GedNode | undefined): string {
   if (!node) return xrefLabel(id);
-  const icon = node.tag === "SOUR" ? "📖" : node.tag === "OBJE" ? (objeInfoOf(node).url ? "🔗" : "🖼") : undefined;
-  const title = node.tag === "SOUR" ? sourceTitle(node) : node.tag === "OBJE" ? objeInfoOf(node).title : undefined;
+  const icon = node.tag === "SOUR" ? "📖" : node.tag === "OBJE" ? (objeInfoOf(node).url ? "🔗" : "🖼") : node.tag === "REPO" ? "🏛" : undefined;
+  const title =
+    node.tag === "SOUR" ? sourceTitle(node)
+    : node.tag === "OBJE" ? objeInfoOf(node).title
+    : node.tag === "REPO" ? firstChild(node, "NAME")?.value
+    : undefined;
   const label = title?.trim() || `${node.tag} ${xrefLabel(id)}`;
   return icon ? `${icon} ${label}` : label;
 }
