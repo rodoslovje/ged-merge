@@ -540,7 +540,7 @@ export const FamilySection = memo(function FamilySection({
       <div className="edit-children-wrap">
         <div className="person-card-role">{t("field.children")}</div>
         <div className="edit-children">
-          {childrenByBirth(fam, dataset.individuals).map((childId) => {
+          {fam && childrenByBirth(fam, dataset.individuals).map((childId) => {
             const childName = personName(childId);
             return (
               <PersonCard
