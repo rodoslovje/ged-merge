@@ -69,10 +69,11 @@ export function NotesEditor({
 
   // Size each note to its widest line (not its total length — a multi-line note
   // is only as wide as its longest line) so short notes sit next to each other
-  // and flow to the next line only when they don't fit.
+  // and flow to the next line only when they don't fit. The floor is generous:
+  // a freshly added note should offer a sentence's worth of typing room.
   const noteWidth = (v: string) => {
     const longest = v.split("\n").reduce((m, line) => Math.max(m, line.length), 0);
-    return { width: `${Math.min(48, Math.max(6, longest + 2))}ch` };
+    return { width: `${Math.min(48, Math.max(18, longest + 2))}ch` };
   };
 
   const noteFields = notes.map((note, i) => {
