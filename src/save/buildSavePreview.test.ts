@@ -129,7 +129,7 @@ describe("edit-only save", () => {
     )!;
     expect(out).not.toBeNull();
     expect(out.report.recordKinds["@S1@"]).toBe("record");
-    expect(out.report.recordLabels["@S1@"]).toBe("Krstna knjiga");
+    expect(out.report.recordLabels["@S1@"]).toBe("📖 Krstna knjiga");
     expect(out.report.changes).toContainEqual({
       recordId: "@S1@", field: "DATA.DATE", from: "Apr 12, 1979", to: "12 APR 1979", action: "incoming",
     });

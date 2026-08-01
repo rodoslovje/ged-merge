@@ -10,6 +10,7 @@ import { NormalizePanel } from "./tools/NormalizePanel";
 import { PrivacyPanel } from "./tools/PrivacyPanel";
 import { SourcesPanel } from "./tools/SourcesPanel";
 import type { AddSourceResult } from "./AddSourceDialog";
+import type { EditSourceFields } from "../gedcom/edit";
 import { PlacesPanel } from "./tools/PlacesPanel";
 import type { GeoAssignment } from "../tools/geocode";
 import type { BrokenLinkRef } from "../tools/fixLinks";
@@ -34,6 +35,11 @@ interface Props {
   /** Create a standalone `SOUR` record (cited by nothing yet) from the Add
    * Source dialog's confirmed fields and push to the undo stack. */
   onAddSource: (fields: AddSourceResult) => void;
+  /** Write edited fields to an existing `SOUR` record and push to the undo stack. */
+  onEditSource: (sourceXref: string, fields: EditSourceFields) => void;
+  /** Delete an uncited `SOUR` record (and its orphaned page media) and push to
+   *  the undo stack. */
+  onRemoveSource: (sourceXref: string) => void;
   /** True when the Tools tab is the visible mode. */
   active: boolean;
   /** Rename a place segment in the given records and push to the undo stack. */
@@ -85,7 +91,7 @@ interface Props {
   onUnrejectDuplicate: (aId: string, bId: string) => void;
 }
 
-export function ToolsView({ dataset, editVersionRef, fileName, onNavigate, onAddSource, active, onApplyPlaceRename, onApplyGeocode, onApplyAddressCoords, onRenamePlaceValue, onMovePlaceForAddresses, startId, onFixBrokenLinks, onFixSexFromRole, onFixDates, onFixDuplicatePointers, onFixDanglingRefs, onFillPlaceCoords, onMergeDuplicate, rejectedDuplicates, onRejectDuplicate, onRejectDuplicatesBulk, onUnrejectDuplicate }: Props) {
+export function ToolsView({ dataset, editVersionRef, fileName, onNavigate, onAddSource, onEditSource, onRemoveSource, active, onApplyPlaceRename, onApplyGeocode, onApplyAddressCoords, onRenamePlaceValue, onMovePlaceForAddresses, startId, onFixBrokenLinks, onFixSexFromRole, onFixDates, onFixDuplicatePointers, onFixDanglingRefs, onFillPlaceCoords, onMergeDuplicate, rejectedDuplicates, onRejectDuplicate, onRejectDuplicatesBulk, onUnrejectDuplicate }: Props) {
   const { t } = useTranslation();
   const [tool, setTool] = useState<Tool>("validate");
   const phone = usePhone();
@@ -156,7 +162,7 @@ export function ToolsView({ dataset, editVersionRef, fileName, onNavigate, onAdd
           <PrivacyPanel dataset={dataset} fileName={fileName} onNavigate={onNavigate} active={active} />
         )}
         {tool === "sources" && (
-          <SourcesPanel dataset={dataset} scans={scans} fileName={fileName} onNavigate={onNavigate} onAddSource={onAddSource} active={active} />
+          <SourcesPanel dataset={dataset} scans={scans} fileName={fileName} onNavigate={onNavigate} onAddSource={onAddSource} onEditSource={onEditSource} onRemoveSource={onRemoveSource} active={active} />
         )}
         {tool === "places" && (
           <PlacesPanel dataset={dataset} onNavigate={onNavigate} active={active} onApplyPlaceRename={onApplyPlaceRename} onApplyGeocode={onApplyGeocode} onApplyAddressCoords={onApplyAddressCoords} onRenamePlaceValue={onRenamePlaceValue} onMovePlaceForAddresses={onMovePlaceForAddresses} startId={startId} />

@@ -31,11 +31,12 @@ interface Props {
   t: Translate;
   /** When given, the dialog edits an existing citation instead of adding a
    * new one: no paste-and-parse box, fields are prefilled and all editable,
-   * and the footer offers Remove alongside Save/Cancel. */
+   * and the footer offers Remove alongside Save/Cancel. Omit `onRemove` to
+   * hide the Remove button (e.g. a source record other citations still use). */
   editing?: {
     fields: EditSourceFields;
     onSave: (fields: EditSourceFields) => void;
-    onRemove: () => void;
+    onRemove?: () => void;
   };
   /** Standalone mode (Tools → Sources): the confirmed fields create a `SOUR`
    * record cited by nothing yet, so a URL that matches an existing source has
@@ -264,7 +265,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
   }
 
   function handleRemove() {
-    if (!editing) return;
+    if (!editing?.onRemove) return;
     editing.onRemove();
     reset();
   }
@@ -339,7 +340,9 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
                 {field("agency", "addSource.field.agency")}
                 {field("place", "addSource.field.place")}
                 {field("filingNumber", "addSource.field.filingNumber")}
-                {field("page", "addSource.field.page")}
+                {/* Page is citation-local — editing the record itself (Tools →
+                    Sources) has no citation to carry it. */}
+                {!(standalone && editing) && field("page", "addSource.field.page")}
                 {field("note", "addSource.field.note")}
               </div>
             </>
@@ -355,7 +358,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
           </div>
         </div>
         <div className="add-source-actions">
-          {editing && (
+          {editing?.onRemove && (
             <button className="tree-open-btn add-source-remove" onClick={handleRemove}>{t("editSource.remove")}</button>
           )}
           <button className="tree-open-btn" onClick={handleClose}>{t("addSource.cancel")}</button>

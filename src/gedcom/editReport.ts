@@ -569,12 +569,17 @@ export function enrichEditReport(
 /**
  * Heading for a top-level shared record in the report: its own title when it has
  * one (a source's TITL, a media object's title), otherwise `TAG xref` — a SOUR
- * or OBJE has no name to fall back on the way a person does.
+ * or OBJE has no name to fall back on the way a person does. A source and its
+ * page-image media record often share one title (the OBJE is titled after the
+ * source it backs), so each carries its kind icon — 📖 source, 🔗/🖼 media,
+ * the same glyphs the Sources tool uses — to keep the two rows apart.
  */
 function sharedRecordLabel(id: string, node: GedNode | undefined): string {
   if (!node) return xrefLabel(id);
+  const icon = node.tag === "SOUR" ? "📖" : node.tag === "OBJE" ? (objeInfoOf(node).url ? "🔗" : "🖼") : undefined;
   const title = node.tag === "SOUR" ? sourceTitle(node) : node.tag === "OBJE" ? objeInfoOf(node).title : undefined;
-  return title?.trim() || `${node.tag} ${xrefLabel(id)}`;
+  const label = title?.trim() || `${node.tag} ${xrefLabel(id)}`;
+  return icon ? `${icon} ${label}` : label;
 }
 
 /**
@@ -684,7 +689,11 @@ export function buildEditReport(
     const snapshot = recordSnapshots?.get(id)?.value;
     recordLabels[id] = sharedRecordLabel(id, current ?? snapshot);
     recordKinds[id] = "record";
-    changes.push({ recordId: id, field: "", from: "", to: "", action: "incoming", removedRecord: !current });
+    // No snapshot means no pre-edit state was ever captured: the record was
+    // created this session (snapshots are taken from every patch's `before`),
+    // so it shows as New rather than Changed.
+    const isNew = !!current && !snapshot;
+    changes.push({ recordId: id, field: "", from: "", to: "", action: "incoming", newRecord: isNew, removedRecord: !current });
     if (current && snapshot) changes.push(...diffSharedRecordNodes(id, snapshot, current));
   }
 

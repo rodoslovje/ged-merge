@@ -56,6 +56,8 @@ import {
   setNickname,
   setNotes,
   setSex,
+  setSourceRecordFields,
+  sourceRecordEditFields,
   updateSourceCitation,
 } from "./edit";
 
@@ -1398,6 +1400,33 @@ describe("addObjeToSource", () => {
     const obje = addObjeToSource(ds.records, source.xref!, "https://example.com/book/?pg=2");
     expect(source.children.filter((c) => c.tag === "OBJE")).toHaveLength(2);
     expect(obje.children[0].value).toBe("https://example.com/book/?pg=2");
+  });
+});
+
+describe("setSourceRecordFields / sourceRecordEditFields", () => {
+  it("round-trips a standalone source: prefill, edit fields, retarget the sole OBJE", () => {
+    const ds = buildFromText(BASE);
+    const source = createSourceRecord(ds.records, { title: "Krstna knjiga", author: "Župnija", url: "https://example.com/book/?pg=1" });
+
+    const fields = sourceRecordEditFields(ds.records, source);
+    expect(fields.title).toBe("Krstna knjiga");
+    expect(fields.author).toBe("Župnija");
+    expect(fields.url).toBe("https://example.com/book/?pg=1");
+    expect(fields.objeXref).toBeDefined();
+
+    setSourceRecordFields(ds.records, source, { ...fields, title: "Poročna knjiga", url: "https://example.com/book/?pg=2" });
+    expect(source.children.find((c) => c.tag === "TITL")?.value).toBe("Poročna knjiga");
+    const obje = ds.records.find((r) => r.tag === "OBJE" && r.xref === fields.objeXref)!;
+    expect(obje.children.find((c) => c.tag === "FILE")?.value).toBe("https://example.com/book/?pg=2");
+  });
+
+  it("clearing the URL prunes the source's now-orphaned OBJE", () => {
+    const ds = buildFromText(BASE);
+    const source = createSourceRecord(ds.records, { title: "X", url: "https://example.com/a" });
+    const fields = sourceRecordEditFields(ds.records, source);
+    setSourceRecordFields(ds.records, source, { ...fields, url: undefined });
+    expect(source.children.some((c) => c.tag === "OBJE")).toBe(false);
+    expect(ds.records.some((r) => r.tag === "OBJE")).toBe(false);
   });
 });
 

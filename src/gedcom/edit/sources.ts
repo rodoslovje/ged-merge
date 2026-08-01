@@ -1,11 +1,11 @@
-import { isPointer } from "../source";
+import { isPointer, objeInfoOf } from "../source";
 import { childrenByTag, firstChild } from "../node";
 import type { Dataset, GedNode } from "../types";
 import { insertGrouped, insertOrdered, insertRecord, nextXref } from "./shared";
 
 /** Trailing block of a `SOUR` record a new `OBJE` link must stay ahead of. */
 const SOUR_TRAILING_TAGS = ["REPO", "CHAN", "CREA"] as const;
-import { bumpSourceCacheVersion } from "./cache";
+import { bumpSourceCacheVersion, getMediaAndSourceCtx } from "./cache";
 import { createMediaRecord, referencedObjeXrefs } from "./media";
 import { removeNoteRecordIfOrphaned, setSharedNoteText, type SharedNoteCtx } from "./notes";
 
@@ -112,6 +112,17 @@ export function updateSourceCitation(records: GedNode[], node: GedNode, index: n
 
   const sourceNode = records.find((r) => r.tag === "SOUR" && r.xref === sourceXref);
   if (!sourceNode) return;
+  setSourceRecordFields(records, sourceNode, fields, notes);
+}
+
+/**
+ * Write the bibliographic fields of a `SOUR` record itself — shared by
+ * {@link updateSourceCitation} (which reaches the record through a citation)
+ * and the Tools → Sources panel (which edits the record directly, no citation
+ * involved). `page` is citation-local and ignored here. `url` retargets
+ * `fields.objeXref` (or the record's sole `OBJE`), or creates a new `OBJE`.
+ */
+export function setSourceRecordFields(records: GedNode[], sourceNode: GedNode, fields: EditSourceFields, notes?: SharedNoteCtx): void {
   const setChild = (tag: string, value: string | undefined) => {
     sourceNode.children = sourceNode.children.filter((c) => c.tag !== tag);
     const trimmed = value?.trim();
@@ -171,6 +182,33 @@ export function updateSourceCitation(records: GedNode[], node: GedNode, index: n
       SOUR_TRAILING_TAGS,
     );
   }
+}
+
+/**
+ * Prefill for editing a `SOUR` record on its own (Tools → Sources) — the
+ * record's bibliographic fields, plus (when it has exactly one page image)
+ * that `OBJE`'s URL so a link edit retargets it, the same sole-OBJE rule
+ * {@link setSourceRecordFields} applies on save. A pointer `NOTE` prefills
+ * with the shared record's resolved text, matching the Edit view's dialog.
+ */
+export function sourceRecordEditFields(records: GedNode[], sourceNode: GedNode): EditSourceFields {
+  const text = (tag: string) => firstChild(sourceNode, tag)?.value?.trim() || undefined;
+  const objeChildren = childrenByTag(sourceNode, "OBJE").filter((c) => c.value);
+  const objeXref = objeChildren.length === 1 ? objeChildren[0].value!.trim() : undefined;
+  const objeNode = objeXref ? records.find((r) => r.tag === "OBJE" && r.xref === objeXref) : undefined;
+  const noteVal = text("NOTE");
+  return {
+    title: text("TITL"),
+    author: text("AUTH"),
+    periodical: text("PERI"),
+    publisher: text("PUBL"),
+    agency: text("AGNC"),
+    place: text("PLAC"),
+    filingNumber: text("FILN"),
+    note: noteVal && isPointer(noteVal) ? getMediaAndSourceCtx(records).noteIndex.get(noteVal)?.text.trim() : noteVal,
+    url: objeNode ? objeInfoOf(objeNode).url : undefined,
+    objeXref,
+  };
 }
 
 /**

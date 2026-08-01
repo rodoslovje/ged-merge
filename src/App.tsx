@@ -14,7 +14,8 @@ import { useTranslation } from "react-i18next";
 import type { Dataset, GedNode } from "./gedcom/types";
 import { cloneNode, nodeFingerprint } from "./gedcom/node";
 import { buildDataset } from "./gedcom/builder";
-import { rebuildIndividual, rebuildFamily, removeIndividual, removeFamily } from "./gedcom/edit";
+import { rebuildIndividual, rebuildFamily, removeIndividual, removeFamily, noteCtx, rebuildNoteReferrers, pruneUnreferencedSource, setSourceRecordFields, type SharedNoteCtx } from "./gedcom/edit";
+import { detectPrivacyStyle } from "./gedcom/private";
 import { downloadOptions, ensureUtf8Charset, serializeGedcom } from "./gedcom/serialize";
 import { formatReport, type ImportBranchRequest } from "./merge/merge";
 import { buildEditSaveRecords } from "./merge/editSaveRecords";
@@ -988,6 +989,29 @@ function AppContent() {
     return patches.length;
   }
 
+  /** Run a mutation over the shared `SOUR`/`OBJE`/`NOTE` records (a Tools →
+   *  Sources edit or removal) and apply the before/after diff as one undoable
+   *  patch batch — the mutation may cascade (a URL retarget creates or prunes
+   *  an `OBJE`, a note edit lands in the shared `NOTE` record), so diffing
+   *  beats enumerating what it touched. */
+  function applySharedRecordEdit(mutate: (records: GedNode[], notes: SharedNoteCtx) => void) {
+    if (!mainDataset) return;
+    const isShared = (r: GedNode) => (r.tag === "SOUR" || r.tag === "OBJE" || r.tag === "NOTE") && !!r.xref;
+    const before = new Map(mainDataset.records.filter(isShared).map((r) => [r.xref!, cloneRaw(r)]));
+    const notes = noteCtx(mainDataset.records, detectPrivacyStyle(mainDataset.records));
+    mutate(mainDataset.records, notes);
+    if (notes.changes.length) rebuildNoteReferrers(mainDataset, notes.changes);
+    const after = new Map(mainDataset.records.filter(isShared).map((r) => [r.xref!, r] as const));
+    const patches: RecordPatch[] = [];
+    for (const xref of new Set([...before.keys(), ...after.keys()])) {
+      const b = before.get(xref) ?? null;
+      const a = after.get(xref);
+      const aClone = a ? cloneRaw(a) : null;
+      if (JSON.stringify(b) !== JSON.stringify(aClone)) patches.push({ type: "record", id: xref, before: b, after: aClone });
+    }
+    applyToolPatches(patches);
+  }
+
   /** The header Charts trigger: the person the active mode is looking at, or
    *  the start person, or the file's default — so charts are reachable from
    *  every mode without first switching to Edit. */
@@ -1896,6 +1920,13 @@ function AppContent() {
                   }).extraPatches,
                 )
               }
+              onEditSource={(sourceXref, fields) =>
+                applySharedRecordEdit((records, notes) => {
+                  const node = records.find((r) => r.tag === "SOUR" && r.xref === sourceXref);
+                  if (node) setSourceRecordFields(records, node, fields, notes);
+                })
+              }
+              onRemoveSource={(sourceXref) => applySharedRecordEdit(() => pruneUnreferencedSource(mainDataset, sourceXref))}
               onApplyPlaceRename={(from, to, scope) => { applyToolPatches(applyPlaceRename(mainDataset, from, to, scope)); }}
               onApplyGeocode={(assignments) => applyToolPatches(applyGeocode(mainDataset, assignments))}
               onApplyAddressCoords={(assignments) => applyToolPatches(applyAddressCoords(mainDataset, assignments))}

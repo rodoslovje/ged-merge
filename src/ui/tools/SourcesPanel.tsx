@@ -7,6 +7,7 @@ import { MediaThumb, type MediaGalleryItem } from "../PersonMedia";
 import { mediaMetaRows } from "../MediaViewer";
 import { type ToolsScans } from "../useToolsScans";
 import { AddSourceDialog, type AddSourceResult } from "../AddSourceDialog";
+import { sourceRecordEditFields, type EditSourceFields } from "../../gedcom/edit";
 import { ToolsLoading, TreeSearch, UsageList, someMatch, useDebounced } from "./shared";
 import { SourceCleanupView } from "./SourceCleanupView";
 import { ToolSummary } from "./ToolSummary";
@@ -120,6 +121,7 @@ function TreeRow({
   href,
   titleText,
   prominent,
+  action,
   children,
 }: {
   open: boolean;
@@ -132,6 +134,8 @@ function TreeRow({
   titleText?: string;
   /** Emphasize the label as a top-level grouping (e.g. a repository). */
   prominent?: boolean;
+  /** Hover-revealed row action (e.g. the ✎ edit button on a source row). */
+  action?: ReactNode;
   children?: ReactNode;
 }) {
   return (
@@ -155,6 +159,7 @@ function TreeRow({
         >
           {label}
         </span>
+        {action}
         {href && (
           <a className="tools-tree-link" href={href} target="_blank" rel="noreferrer" title={href}>
             ↗
@@ -246,6 +251,8 @@ export function SourcesPanel({
   fileName,
   onNavigate,
   onAddSource,
+  onEditSource,
+  onRemoveSource,
   active,
 }: {
   dataset: Dataset;
@@ -255,12 +262,17 @@ export function SourcesPanel({
   /** Create a standalone `SOUR` record (cited by nothing yet) from the Add
    * Source dialog's confirmed fields — an undoable whole-file edit. */
   onAddSource: (fields: AddSourceResult) => void;
+  /** Write edited fields to an existing `SOUR` record — an undoable whole-file edit. */
+  onEditSource: (sourceXref: string, fields: EditSourceFields) => void;
+  /** Delete an uncited `SOUR` record (and its orphaned page media). */
+  onRemoveSource: (sourceXref: string) => void;
   active: boolean;
 }) {
   const { t } = useTranslation();
   const [tree, setTree] = useState<SourceTree | null>(null);
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [addOpen, setAddOpen] = useState(false);
+  const [editSrc, setEditSrc] = useState<SourceEntry | null>(null);
   const [query, setQuery] = useState("");
   // Switches the panel body between the containment tree and the cleanup tool.
   const [view, setView] = useState<"tree" | "cleanup">("tree");
@@ -275,6 +287,8 @@ export function SourcesPanel({
     setOpen(new Set());
     setQuery("");
     setView("tree");
+    setAddOpen(false);
+    setEditSrc(null);
   }, [dataset]);
 
   useEffect(() => {
@@ -322,6 +336,41 @@ export function SourcesPanel({
       for (const k of descendants) next.add(k);
       return next;
     });
+
+  // Refresh the containment tree after this panel's own add/edit/remove —
+  // the dataset mutates in place, so the [dataset] reset never fires for it.
+  const closeDialog = () => {
+    setAddOpen(false);
+    setEditSrc(null);
+  };
+  const refreshTree = () => setTree(null);
+
+  // Memoized so the dialog's prefill effect fires once per opened source, not
+  // on every panel render (a fresh `editing` object would clobber typing).
+  const editing = useMemo(() => {
+    if (!editSrc) return undefined;
+    const node = dataset.records.find((r) => r.tag === "SOUR" && r.xref === editSrc.xref);
+    if (!node) return undefined;
+    return {
+      fields: sourceRecordEditFields(dataset.records, node),
+      onSave: (fields: EditSourceFields) => {
+        onEditSource(editSrc.xref, fields);
+        closeDialog();
+        refreshTree();
+      },
+      // Remove only for a source nothing cites — deleting a cited record
+      // would leave its citations dangling.
+      ...(editSrc.usedBy.length === 0
+        ? {
+            onRemove: () => {
+              onRemoveSource(editSrc.xref);
+              closeDialog();
+              refreshTree();
+            },
+          }
+        : {}),
+    };
+  }, [editSrc, dataset, onEditSource, onRemoveSource]);
 
   const q = useDebounced(query).trim().toLowerCase();
   const filtering = q.length > 0;
@@ -447,6 +496,18 @@ export function SourcesPanel({
                         hasChildren={hasKids}
                         count={src.usedBy.length}
                         titleText={src.tooltip || src.xref}
+                        action={
+                          <button
+                            className="tools-place-edit-btn"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditSrc(src);
+                            }}
+                            title={t("editSource.title")}
+                          >
+                            ✎
+                          </button>
+                        }
                         label={
                           <>
                             {src.title || src.xref}
@@ -482,15 +543,16 @@ export function SourcesPanel({
         </ul>
       )}
       <AddSourceDialog
-        isOpen={addOpen}
-        onClose={() => setAddOpen(false)}
+        isOpen={addOpen || editing !== undefined}
+        onClose={closeDialog}
         onAdd={(fields) => {
           onAddSource(fields);
-          setAddOpen(false);
-          setTree(null); // rebuilt (now including the new record) by the active-panel effect
+          closeDialog();
+          refreshTree(); // rebuilt (now including the new record) by the active-panel effect
         }}
         dataset={dataset}
         t={t}
+        editing={editing}
         standalone
       />
     </>

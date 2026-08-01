@@ -97,7 +97,12 @@ export function SaveDialog({
     [report.changes],
   );
 
-  const newRecords = report.newPersons + report.newFamilies;
+  // Session-created shared records (a standalone SOUR/OBJE) count as new too —
+  // they aren't in newPersons/newFamilies but do grow the file's record count.
+  const newRecords =
+    report.newPersons +
+    report.newFamilies +
+    report.changes.filter((c) => c.newRecord && report.recordKinds[c.recordId] === "record").length;
 
   // Non-standard tags (e.g. _ITALIC) the merge would copy in from the
   // incoming file, grouped by tag name — unchecking one strips every instance

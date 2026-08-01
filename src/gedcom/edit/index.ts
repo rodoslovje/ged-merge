@@ -56,6 +56,7 @@ export type { MediaInfoFields } from "./media";
 export {
   createSourceRecord, addObjeToSource, attachSourceCitation,
   updateSourceCitation, removeSourceCitationAtIndex, pruneUnreferencedSource,
+  setSourceRecordFields, sourceRecordEditFields,
 } from "./sources";
 export type { EditSourceFields, NewSourceFields } from "./sources";
 
