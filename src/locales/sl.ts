@@ -347,7 +347,7 @@ export const sl = {
   "tools.batch.action.removeMedia": "Odstrani medij",
   "tools.batch.action.markDeceased": "Označi kot umrle (smrt brez datuma)",
   "tools.batch.action.estimateBirth": "Dodaj ocenjeno leto rojstva (ABT)",
-  "tools.batch.estimateBirthHint": "Zapiše datum rojstva »ABT leto«, ocenjen iz let rojstva staršev, zakonca ali otrok in zaokrožen na 5 let, da se ocene ločijo od zapisanih datumov. Osebe, ki datum rojstva ali krsta že imajo, in osebe brez datiranega bližnjega sorodnika so preskočene — ponoven zagon jih lahko doseže prek novo zapisanih ocen.",
+  "tools.batch.estimateBirthHint": "Zapiše datum rojstva »ABT leto«, ocenjen iz let rojstva staršev, zakonca, otrok ali bratov in sester ter zaokrožen na 5 let, da se ocene ločijo od zapisanih datumov. Bratje in sestre so razmaknjeni vsaj za leto po vrstnem redu otrok v družini — kjer ima kateri od njih datum, se ostali oprejo nanj. Osebe, ki datum rojstva ali krsta že imajo, in osebe brez datiranega bližnjega sorodnika so preskočene — ponoven zagon jih lahko doseže prek novo zapisanih ocen.",
   "tools.batch.action.convertEvent": "Pretvori vrsto dogodka",
   "tools.batch.pickMedia": "Izberite sliko …",
   "tools.batch.newMedia": "Nova slika …",

@@ -298,7 +298,7 @@ export const en = {
   "tools.batch.action.removeMedia": "Remove media",
   "tools.batch.action.markDeceased": "Mark as deceased (death without date)",
   "tools.batch.action.estimateBirth": "Add estimated birth year (ABT)",
-  "tools.batch.estimateBirthHint": "Writes a birth date of “ABT year”, estimated from the birth years of parents, spouse or children and rounded to the nearest 5 years so estimates stand apart from recorded dates. People who already have a birth or baptism date, and people with no dated close relative, are skipped — running the action again can reach them through the newly written estimates.",
+  "tools.batch.estimateBirthHint": "Writes a birth date of “ABT year”, estimated from the birth years of parents, spouse, children or siblings and rounded to the nearest 5 years so estimates stand apart from recorded dates. Siblings stay at least a year apart, following the family's child order — a dated sibling, where one exists, anchors the rest. People who already have a birth or baptism date, and people with no dated close relative, are skipped — running the action again can reach them through the newly written estimates.",
   "tools.batch.action.convertEvent": "Convert event type",
   "tools.batch.pickMedia": "Choose an image…",
   "tools.batch.newMedia": "New image…",

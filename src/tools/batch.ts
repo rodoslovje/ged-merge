@@ -364,10 +364,13 @@ export type BatchActionSpec =
   /** Write an estimated birth year as `BIRT` → `DATE ABT <year>` (rounded to
    *  the nearest 5, so estimates read as the rough guesses they are), derived
    *  from dated immediate relatives (see {@link estimateBirthYear} — the same
-   *  estimate the privacy check explains). People with any dated birth/baptism
-   *  event, and people with no dated close relative, are skipped. Estimates
-   *  are computed before anything is written, so one run never chains an
-   *  estimate off another — re-running reaches one relative-hop further. */
+   *  estimate the privacy check explains). Undated siblings are kept at least
+   *  `SIBLING_STEP` apart: anchored on the nearest dated sibling, or spread in
+   *  the family's child order (see the sibling pass in `estimateBirthBatch`).
+   *  People with any dated birth/baptism event, and people with no dated
+   *  close relative, are skipped. Estimates are computed before anything is
+   *  written, so one run never chains an estimate off another — re-running
+   *  reaches one relative-hop further. */
   | { kind: "estimateBirth" }
   /** Re-tag every `fromTag` event to `toTag`, keeping the whole substructure
    *  (dates, places, sources) and any line value. When the target is a generic
@@ -467,8 +470,22 @@ function markDeceasedBatch(ds: Dataset, ids: string[]): BatchApplyResult {
 /** Write `BIRT` → `DATE ABT <estimated year>` for everyone without any dated
  *  birth-proxy event (see the {@link BatchActionSpec} member). All estimates
  *  are derived from the pre-run state first, then written — no chaining. */
+/** Rounding grain for batch birth estimates — a guess on a multiple of 5
+ *  (ABT 1880, not ABT 1878) reads as the approximation it is. */
+const ESTIMATE_ROUND = 5;
+/** Minimum spacing between same-family sibling estimates. */
+const SIBLING_STEP = 1;
+
+const roundEstimate = (y: number) => Math.round(y / ESTIMATE_ROUND) * ESTIMATE_ROUND;
+
 function estimateBirthBatch(ds: Dataset, ids: string[]): BatchApplyResult {
+  // Rounded to the nearest 5 years: a 28-year generation offset would land
+  // on oddly specific years (ABT 1878) that read like computed-from-a-record
+  // precision; ABT 1880 looks like the rough guess it is.
   const estimates = new Map<string, number>();
+  /** Parent-derived estimates, grouped by the family the person is a child of —
+   *  these all share one number, so they take the sibling pass below. */
+  const parentDerived = new Map<string, string[]>();
   let skipped = 0;
   for (const id of ids) {
     const indi = ds.individuals.get(id);
@@ -480,11 +497,57 @@ function estimateBirthBatch(ds: Dataset, ids: string[]): BatchApplyResult {
       continue;
     }
     const est = estimateBirthYear(indi, ds);
-    // Rounded to the nearest 5 years: a 28-year generation offset would land
-    // on oddly specific years (ABT 1878) that read like computed-from-a-record
-    // precision; ABT 1880 looks like the rough guess it is.
-    if (est) estimates.set(id, Math.round(est.estimatedYear / 5) * 5);
-    else skipped++;
+    if (est) estimates.set(id, roundEstimate(est.estimatedYear));
+    if (est && est.relation !== "father" && est.relation !== "mother") continue;
+    // Parent-derived (or absent) estimate: queue for the sibling pass, keyed
+    // by the driving parent's family — or, with no estimate at all, by a
+    // family holding a dated sibling, the one relative estimateBirthYear
+    // itself never looks at.
+    const famId = est
+      ? (indi.childOf.find((fid) => {
+          const fam = ds.families.get(fid);
+          return fam?.husband === est.relativeId || fam?.wife === est.relativeId;
+        }) ?? indi.childOf[0])
+      : indi.childOf.find((fid) =>
+          (ds.families.get(fid)?.children ?? []).some((cid) => birthYear(ds.individuals.get(cid)) !== undefined),
+        );
+    if (famId) parentDerived.set(famId, [...(parentDerived.get(famId) ?? []), id]);
+    else if (!est) skipped++;
+  }
+  // Sibling pass: undated children of one couple would otherwise all get the
+  // identical parent+generation guess. Children are taken in the order the
+  // family lists them (usually birth order): a dated sibling is the closest
+  // evidence there is, so each estimate re-anchors on the nearest one, one
+  // SIBLING_STEP per list position away (unrounded — it follows real data);
+  // with no dated sibling the shared rounded guess stays the center and the
+  // group spreads a step apart around it. Estimates driven by the person's
+  // own spouse/children keep their number.
+  for (const [famId, group] of parentDerived) {
+    const order = ds.families.get(famId)?.children ?? [];
+    const members = order.filter((cid) => group.includes(cid));
+    const anchors = order
+      .map((cid, i) => ({ i, y: birthYear(ds.individuals.get(cid)) }))
+      .filter((a): a is { i: number; y: number } => a.y !== undefined);
+    if (anchors.length > 0) {
+      for (const cid of members) {
+        const i = order.indexOf(cid);
+        let best = anchors[0];
+        for (const a of anchors) if (Math.abs(a.i - i) < Math.abs(best.i - i)) best = a;
+        estimates.set(cid, best.y + SIBLING_STEP * (i - best.i));
+      }
+    } else if (members.length > 1) {
+      const start = estimates.get(members[0])! - SIBLING_STEP * Math.floor((members.length - 1) / 2);
+      members.forEach((cid, k) => estimates.set(cid, start + SIBLING_STEP * k));
+    }
+    // Anchoring can still collide (two children equidistant from different
+    // dated siblings) — keep the group strictly increasing in list order.
+    let prev: number | undefined;
+    for (const cid of members) {
+      let y = estimates.get(cid)!;
+      if (prev !== undefined && y <= prev) y = prev + SIBLING_STEP;
+      estimates.set(cid, y);
+      prev = y;
+    }
   }
   const snap = snapshotRecords(ds, [...estimates.keys()], []);
   for (const [id, year] of estimates) {
