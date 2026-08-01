@@ -2949,6 +2949,8 @@ button:focus-visible {
 .edit-name-chip-wrap:hover .edit-link-remove,
 .edit-name-chip-wrap:focus-within .edit-link-remove,
 .edit-name-chip-wrap .edit-link-remove:focus-visible { opacity: 1; }
+.edit-name-chip-editing:hover .edit-link-remove,
+.edit-name-chip-editing:focus-within .edit-link-remove { opacity: 1; }
 .edit-name-variant-input { font-size: 0.85rem; }
 .edit-name-type-select {
   font-size: 0.85rem;

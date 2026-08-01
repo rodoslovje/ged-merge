@@ -1432,6 +1432,7 @@ export const sl = {
   "field.private": "Zasebno",
   "field.nameType": "Vrsta imena",
   "field.sources": "Vir",
+  "field.fsid": "FamilySearch ID",
   "field.media": "Mediji",
   "source.page": "str. {{page}}",
   "source.untitled": "Vir",

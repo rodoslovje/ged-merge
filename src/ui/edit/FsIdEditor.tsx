@@ -52,6 +52,8 @@ export function FsIdEditor({
 
   function removeAt(index: number) {
     setEditing(null);
+    // The not-yet-committed input of a fresh add: nothing to remove.
+    if (index >= ids.length) { onEmptied?.(); return; }
     commit((indi) => setFsIds(indi, ids.filter((_, i) => i !== index), preferredTag));
   }
 
@@ -82,6 +84,16 @@ export function FsIdEditor({
                 }}
                 onClear={() => setValue("")}
               />
+              <button
+                type="button"
+                className="edit-link-remove"
+                title={t("edit.removeFsId")}
+                // Mousedown (with the default prevented) so the removal runs
+                // before the input's blur-commit can close the editor under it.
+                onMouseDown={(e) => { e.preventDefault(); removeAt(i); }}
+              >
+                ×
+              </button>
             </span>
           ) : (
             <span key={i} className="edit-name-chip-wrap">
@@ -102,14 +114,6 @@ export function FsIdEditor({
               >
                 {id}
                 <span className="muted"> (FamilySearch)</span>
-              </button>
-              <button
-                type="button"
-                className="edit-link-remove"
-                title={t("edit.removeFsId")}
-                onClick={() => removeAt(i)}
-              >
-                ×
               </button>
             </span>
           ),

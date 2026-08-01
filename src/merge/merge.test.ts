@@ -91,6 +91,45 @@ describe("mergeDecisions", () => {
     expect(carried).toBeLessThan(chan);
   });
 
+  it("carries an incoming FamilySearch id in the main's tag dialect (default = incoming)", () => {
+    const mainFs = dataset(wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n1 CHAN\n2 DATE 1 JAN 2020\n",
+    ));
+    const compareFs = dataset(wrap(
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 _FSFTID gpzg-cxl\n1 BIRT\n2 DATE 1850\n2 PLAC Kranj\n",
+    ));
+    const { records } = mergeDecisions(mainFs, compareFs, confirmed(), NO_MATCHES, tr);
+    const lines = serializeGedcom(records).split("\n");
+    const fsid = lines.findIndex((l) => l === "1 _FSFTID GPZG-CXL");
+    const chan = lines.findIndex((l) => l === "1 CHAN");
+    // Uppercased to the canonical form, and never stranded after the audit tags.
+    expect(fsid).toBeGreaterThan(-1);
+    expect(fsid).toBeLessThan(chan);
+  });
+
+  it("replaces a conflicting FamilySearch id in place when the user chose incoming", () => {
+    const mainFs = dataset(wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 _FID GW82-GKR\n1 SEX M\n1 BIRT\n2 DATE 1850\n",
+    ));
+    const compareFs = dataset(wrap(
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 _FSFTID GPZG-CXL\n1 BIRT\n2 DATE 1850\n",
+    ));
+    const kept = mergeDecisions(mainFs, compareFs, confirmed(), NO_MATCHES, tr);
+    // Conflicting ids stay on main unless explicitly chosen.
+    expect(serializeGedcom(kept.records)).toContain("1 _FID GW82-GKR");
+    expect(serializeGedcom(kept.records)).not.toContain("_FSFTID");
+
+    const mainFs2 = dataset(wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 _FID GW82-GKR\n1 SEX M\n1 BIRT\n2 DATE 1850\n",
+    ));
+    const taken = mergeDecisions(mainFs2, compareFs, confirmed({ fsid: "incoming" }), NO_MATCHES, tr);
+    const out = serializeGedcom(taken.records);
+    // The main's own tag and position survive; only the value changes.
+    expect(out).toContain("1 _FID GPZG-CXL");
+    expect(out).not.toContain("GW82-GKR");
+    expect(out).not.toContain("_FSFTID");
+  });
+
   it("does not touch _UID on a confirmed match that took no fields (minimal diff)", () => {
     const mainUid = dataset(wrap(
       "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 PLAC Kranj\n",

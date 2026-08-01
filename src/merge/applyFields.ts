@@ -6,6 +6,7 @@ import {
   EVENT_CHILD_ORDER,
   EVENT_LINK_TAG,
   INDI_CHILD_ORDER,
+  insertGrouped,
   insertOrdered,
   insertRecord,
   markEventTouched,
@@ -187,6 +188,8 @@ export function applyRows(
       applied = applyAdditionalNames(target, incomingRecord, choice, sourMap, report.customTags);
     } else if (row.key === "notes") {
       applied = applyNotes(target, incomingRecord, choice, sourMap, INDI_CHILD_ORDER, report.customTags);
+    } else if (row.key === "fsid") {
+      applied = applyFsIds(target, incomingRecord, choice);
     } else if (row.key === "private") {
       applied = applyPrivateFlag(target, records);
     } else if (parsed) {
@@ -395,6 +398,39 @@ export function applyNotes(
 export function applyPrivateFlag(target: GedNode, records: GedNode[]): boolean {
   if (isPrivateNode(target)) return false;
   setPrivateFlag(target, true, detectPrivacyStyle(records), records);
+  return true;
+}
+
+/** FamilySearch person-id tags (MacFamilyTree `_FID`, RootsMagic `_FSFTID`). */
+const FSID_TAGS = ["_FID", "_FSFTID"];
+
+/**
+ * Copy the incoming record's FamilySearch id(s) onto the main record,
+ * uppercased to the ids' canonical form. New ids are written with the main's
+ * own fs-tag dialect when it has one (else the incoming tag), and — like a
+ * carried `_UID` — placed with {@link insertGrouped} so they stay ahead of any
+ * trailing CHAN/CREA audit stamps. On a conflict, "incoming" replaces the
+ * main's first id in place; "both" keeps both. Ids differing only in case
+ * count as already present.
+ */
+export function applyFsIds(target: GedNode, incomingRecord: GedNode, choice: FieldChoice): boolean {
+  const incoming = incomingRecord.children.filter((c) => FSID_TAGS.includes(c.tag) && c.value?.trim());
+  if (!incoming.length) return false;
+  const existing = target.children.filter((c) => FSID_TAGS.includes(c.tag));
+  const have = new Set(existing.map((c) => (c.value ?? "").trim().toUpperCase()));
+  const fresh = incoming
+    .map((c) => c.value!.trim().toUpperCase())
+    .filter((v, i, a) => !have.has(v) && a.indexOf(v) === i);
+  if (!fresh.length) return false;
+  const tag = existing[existing.length - 1]?.tag ?? incoming[0].tag;
+  let rest = fresh;
+  if (choice !== "both" && existing.length) {
+    existing[0].value = fresh[0];
+    rest = fresh.slice(1);
+  }
+  for (const value of rest) {
+    insertGrouped(target, { level: target.level + 1, tag, value, children: [] }, ["CHAN", "CREA"]);
+  }
   return true;
 }
 

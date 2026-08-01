@@ -1207,6 +1207,7 @@ export const en = {
   "field.private": "Private",
   "field.nameType": "Name type",
   "field.sources": "Source",
+  "field.fsid": "FamilySearch ID",
   "field.media": "Media",
   "source.page": "p. {{page}}",
   "source.untitled": "Source",
