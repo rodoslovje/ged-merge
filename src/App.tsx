@@ -63,7 +63,7 @@ import { saveFile, deleteFile } from "./persist/idb";
 import { hashFile } from "./persist/fingerprint";
 import { useWorkspacePersistence } from "./persist/useWorkspacePersistence";
 import { ChartSettingsProvider, useChartSettings } from "./ui/ChartSettingsContext";
-import { SettingsProvider, useSettings, useNameOf } from "./ui/SettingsContext";
+import { DatasetProvider, SettingsProvider, useSettings, useNameOf } from "./ui/SettingsContext";
 import { GlobalSearchModal, type OpenHow, type SearchRowMeta } from "./ui/GlobalSearchModal";
 import { buildSearchRows, type FilterContext } from "./ui/globalSearch";
 import { SearchIcon } from "./ui/icons/SearchIcon";
@@ -1628,7 +1628,7 @@ function AppContent() {
   const hasHistoryAction = !!lastMainFile && (canUndo || canRedo);
 
   return (
-    <>
+    <DatasetProvider dataset={mainDataset}>
     <PwaReloadPrompt />
     {treeOverlay}
     <AutoMediaOffer main={main} />
@@ -2033,7 +2033,7 @@ function AppContent() {
           mounting them here too would duplicate every dialog in the DOM. */}
       {!treeOverlay && appModals}
     </div>
-    </>
+    </DatasetProvider>
   );
 }
 

@@ -7,10 +7,10 @@
 
 import type { Dataset, Individual } from "../gedcom/types";
 import { birthSortKey } from "../gedcom/lifespan";
+import { familiesByMarriage } from "../gedcom/familySort";
 import {
   extraFacts,
   factFor,
-  familiesOf,
   makeEntry,
   marriageFacts,
   personExtras,
@@ -73,10 +73,10 @@ export function buildDescendants(
       total++;
       firstNum.set(indi.id, num);
 
-      // Each union's children in birth order; union order follows the record.
+      // Each union's children in birth order; unions in marriage order.
       // Children are grouped per union, so each carries the union's family id,
       // the other parent's name, and its roman child index.
-      for (const fam of familiesOf(ds, indi.spouseOf)) {
+      for (const fam of familiesByMarriage(ds, indi.spouseOf)) {
         const partnerId = fam.husband === indi.id ? fam.wife : fam.husband;
         const partner = partnerId ? ds.individuals.get(partnerId) : undefined;
         const kids = fam.children

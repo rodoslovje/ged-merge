@@ -1,6 +1,6 @@
-import { createContext, useCallback, useContext, useMemo, useState } from "react";
-import type { Individual, PersonName } from "../gedcom/types";
-import { marriedSurnameOf, primaryName } from "../match/relatives";
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import type { Dataset, Individual, PersonName } from "../gedcom/types";
+import { marriedSurnamesOf, primaryName } from "../match/relatives";
 import {
   DEFAULT_NAME_DISPLAY,
   formatPersonName,
@@ -291,6 +291,15 @@ export function useSettings() {
   return useContext(SettingsContext);
 }
 
+/** The loaded main dataset, provided near the root so {@link useNameOf} can
+ *  order a person's married surnames by their unions without every name call
+ *  site threading the dataset through. */
+const DatasetContext = createContext<Dataset | undefined>(undefined);
+
+export function DatasetProvider({ dataset, children }: { dataset: Dataset | undefined; children: ReactNode }) {
+  return <DatasetContext.Provider value={dataset}>{children}</DatasetContext.Provider>;
+}
+
 /**
  * A name formatter bound to the current Name-display settings. Returns a stable
  * function for either a structured `PersonName` or an `Individual` (its primary
@@ -299,21 +308,27 @@ export function useSettings() {
  */
 export function useNameOf(overrides?: Partial<NameDisplayOptions>) {
   const { settings } = useSettings();
+  const ds = useContext(DatasetContext);
   return useCallback(
     (subject: Individual | PersonName | undefined): string => {
       // Callers may pin individual display options (e.g. the reports drop the
       // married-surname parenthetical); pass a module-level constant so the
       // returned formatter keeps a stable identity.
       const opts = overrides ? { ...settings, ...overrides } : settings;
-      // For an Individual, resolve the married surname from the whole record
-      // (inline `_MARNM` *or* a separate `TYPE married` NAME) so both styles work.
+      // For an Individual, resolve the married surname(s) from the whole record
+      // (inline `_MARNM` *or* separate `TYPE married` NAMEs) so both styles
+      // work. Multiple marriages show every married surname, comma-separated,
+      // in union order (maiden-surname repeats dropped).
       if (subject && "names" in subject) {
         const primary = primaryName(subject);
-        const married = marriedSurnameOf(subject);
+        const surname = primary?.surname?.trim().toLowerCase();
+        const married = opts.marriedSurname
+          ? marriedSurnamesOf(subject, ds).filter((m) => m.toLowerCase() !== surname).join(", ") || undefined
+          : undefined;
         return formatPersonName(primary ? { ...primary, married } : undefined, opts);
       }
       return formatPersonName(subject, opts);
     },
-    [settings, overrides],
+    [settings, overrides, ds],
   );
 }
