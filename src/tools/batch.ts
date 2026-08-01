@@ -361,8 +361,9 @@ export type BatchActionSpec =
   /** Add an undated death (`1 DEAT Y` — death asserted, no details). People
    *  already carrying death evidence (death/burial/cremation) are skipped. */
   | { kind: "markDeceased" }
-  /** Write an estimated birth year as `BIRT` → `DATE ABT <year>`, derived from
-   *  dated immediate relatives (see {@link estimateBirthYear} — the same
+  /** Write an estimated birth year as `BIRT` → `DATE ABT <year>` (rounded to
+   *  the nearest 5, so estimates read as the rough guesses they are), derived
+   *  from dated immediate relatives (see {@link estimateBirthYear} — the same
    *  estimate the privacy check explains). People with any dated birth/baptism
    *  event, and people with no dated close relative, are skipped. Estimates
    *  are computed before anything is written, so one run never chains an
@@ -479,7 +480,10 @@ function estimateBirthBatch(ds: Dataset, ids: string[]): BatchApplyResult {
       continue;
     }
     const est = estimateBirthYear(indi, ds);
-    if (est) estimates.set(id, est.estimatedYear);
+    // Rounded to the nearest 5 years: a 28-year generation offset would land
+    // on oddly specific years (ABT 1878) that read like computed-from-a-record
+    // precision; ABT 1880 looks like the rough guess it is.
+    if (est) estimates.set(id, Math.round(est.estimatedYear / 5) * 5);
     else skipped++;
   }
   const snap = snapshotRecords(ds, [...estimates.keys()], []);

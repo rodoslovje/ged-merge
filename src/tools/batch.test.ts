@@ -308,7 +308,8 @@ describe("applyBatchAction", () => {
     expect(res.skipped).toBe(3);
     expect(res.patches.map((p) => p.id).sort()).toEqual(["@I1@", "@I4@"]);
     const birtOf = (id: string) => ds.individuals.get(id)!.raw.children.find((c) => c.tag === "BIRT")!;
-    expect(birtOf("@I1@").children.map((c) => [c.tag, c.value])).toEqual([["DATE", "ABT 1878"]]);
+    // Father 1850 + a generation = 1878, rounded to the nearest 5.
+    expect(birtOf("@I1@").children.map((c) => [c.tag, c.value])).toEqual([["DATE", "ABT 1880"]]);
     // The undated BIRT node gained a DATE and kept its place.
     expect(birtOf("@I4@").children.map((c) => [c.tag, c.value])).toEqual([
       ["DATE", "ABT 1880"],
@@ -320,7 +321,7 @@ describe("applyBatchAction", () => {
     const again = applyBatchAction(ds, ids, { kind: "estimateBirth" });
     expect(again.changed).toBe(1);
     expect(again.skipped).toBe(4);
-    expect(birtOf("@I3@").children.map((c) => [c.tag, c.value])).toEqual([["DATE", "ABT 1906"]]);
+    expect(birtOf("@I3@").children.map((c) => [c.tag, c.value])).toEqual([["DATE", "ABT 1910"]]);
   });
 
   it("converts vendor events to a named EVEN, keeping the substructure", () => {
