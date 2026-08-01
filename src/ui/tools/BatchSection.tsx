@@ -70,12 +70,14 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
   const { t } = useTranslation();
   const nameOf = useNameOf();
 
-  // Rows rebuild when the file content moves — synced when the section is
-  // (re)shown and after this panel's own apply, like the scans cache.
+  // Rows rebuild when the file content moves. Deliberately no dependency
+  // array: any re-render while visible (tab return, an undo/redo elsewhere,
+  // this panel's own apply) re-reads the version counter, and the state
+  // update bails out when nothing changed.
   const [ver, setVer] = useState(() => editVersionRef.current);
   useEffect(() => {
     if (active) setVer(editVersionRef.current);
-  }, [active, editVersionRef]);
+  });
 
   // eslint-disable-next-line react-hooks/exhaustive-deps -- ver stands in for in-place dataset edits
   const rows = useMemo(() => buildBatchRows(dataset, nameOf), [dataset, nameOf, ver]);
