@@ -1,5 +1,5 @@
 import type { Dataset, Family, GedNode, Individual } from "../gedcom/types";
-import { birthDateOf, birthYear, deathYear } from "../gedcom/lifespan";
+import { DEATH_TAGS, birthDateOf, birthYear, deathYear, isDeceased } from "../gedcom/lifespan";
 import { isSameSexCouple } from "../gedcom/couple";
 
 /**
@@ -57,7 +57,9 @@ export type IssueCategory =
   | "island"
   | "orphan"
   | "deathBeforeBirth"
+  | "eventOrder"
   | "ageAtDeath"
+  | "livingTooOld"
   | "ageAtMarriage"
   | "parentAge"
   | "parallelFamilies"
@@ -101,7 +103,9 @@ const EMPTY_COUNTS: Record<IssueCategory, number> = {
   island: 0,
   orphan: 0,
   deathBeforeBirth: 0,
+  eventOrder: 0,
   ageAtDeath: 0,
+  livingTooOld: 0,
   ageAtMarriage: 0,
   parentAge: 0,
   parallelFamilies: 0,
@@ -483,6 +487,42 @@ export function validateDataset(ds: Dataset, currentYear: number = new Date().ge
       add("deathBeforeBirth", "error", "tools.validate.issue.deathBeforeBirth", { birth: by, death: dy });
     } else if (by !== undefined && dy !== undefined && dy - by > AGE_LIMITS.death.max) {
       add("ageAtDeath", "warning", "tools.validate.issue.ageAtDeath", { age: dy - by, max: AGE_LIMITS.death.max });
+    } else if (by !== undefined && !isDeceased(indi) && currentYear - by > AGE_LIMITS.death.max) {
+      // No death evidence at all (an undated DEAT still counts as deceased),
+      // yet the birth year puts them past the plausible lifespan — almost
+      // always a missing death record, not a supercentenarian.
+      add("livingTooOld", "warning", "tools.validate.issue.livingTooOld", {
+        age: currentYear - by,
+        max: AGE_LIMITS.death.max,
+      });
+    }
+
+    // Events outside the lifespan: any other dated event before the birth year
+    // or after the death year. The events the bounds come from can't trip this
+    // (their year equals the bound); a death before the birth is already the
+    // deathBeforeBirth error above, and burial/cremation/probate legitimately
+    // follow a death. Family events (marriage, divorce, …) are checked against
+    // the death only — a marriage before the birth already surfaces as an
+    // implausible age at marriage.
+    for (const e of indi.events) {
+      const year = e.date?.year;
+      if (year === undefined) continue;
+      const isDeathTag = (DEATH_TAGS as readonly string[]).includes(e.tag);
+      if (by !== undefined && year < by && !(isDeathTag && year === dy)) {
+        add("eventOrder", "warning", "tools.validate.issue.eventBeforeBirth", { tag: e.tag, year, birth: by });
+      } else if (dy !== undefined && year > dy && !isDeathTag && e.tag !== "PROB") {
+        add("eventOrder", "warning", "tools.validate.issue.eventAfterDeath", { tag: e.tag, year, death: dy });
+      }
+    }
+    if (dy !== undefined) {
+      for (const famId of indi.spouseOf) {
+        for (const e of ds.families.get(famId)?.events ?? []) {
+          const year = e.date?.year;
+          if (year !== undefined && year > dy) {
+            add("eventOrder", "warning", "tools.validate.issue.eventAfterDeath", { tag: e.tag, year, death: dy });
+          }
+        }
+      }
     }
 
     // Future dates

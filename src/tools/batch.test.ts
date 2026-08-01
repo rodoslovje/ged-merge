@@ -8,6 +8,7 @@ import {
   computeKinship,
   computeLineSides,
   matchesBatch,
+  previewBirthEstimates,
   type BatchCriterion,
   type KinshipSets,
 } from "./batch";
@@ -258,6 +259,140 @@ describe("applyBatchAction", () => {
     const again = applyBatchAction(ds, ["@I1@", "@I2@", "@I3@"], { kind: "markDeceased" });
     expect(again.changed).toBe(0);
     expect(again.patches).toEqual([]);
+  });
+
+  it("writes ABT birth estimates without chaining, skipping anyone dated", () => {
+    // Three generations: only grandfather @I2@ is dated. His child @I1@ is
+    // estimable (parent + a generation); @I1@'s child @I3@ has no dated
+    // relative before the run, so estimating them would require chaining
+    // off @I1@'s own fresh estimate.
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Middle //
+1 FAMC @F1@
+1 FAMS @F2@
+0 @I2@ INDI
+1 NAME Grandpa //
+1 SEX M
+1 FAMS @F1@
+1 BIRT
+2 DATE 1850
+0 @I3@ INDI
+1 NAME Youngest //
+1 FAMC @F2@
+0 @I4@ INDI
+1 NAME Undated Birt //
+1 BIRT
+2 PLAC Kranj
+1 FAMS @F3@
+0 @I5@ INDI
+1 NAME Dated Spouse //
+1 SEX F
+1 BIRT
+2 DATE 12 MAY 1880
+1 FAMS @F3@
+0 @F1@ FAM
+1 HUSB @I2@
+1 CHIL @I1@
+0 @F2@ FAM
+1 HUSB @I1@
+1 CHIL @I3@
+0 @F3@ FAM
+1 HUSB @I4@
+1 WIFE @I5@
+0 TRLR`);
+    const ids = ["@I1@", "@I2@", "@I3@", "@I4@", "@I5@"];
+    const res = applyBatchAction(ds, ids, { kind: "estimateBirth" });
+    // @I1@ from father 1850, @I4@ from spouse 1880; @I2@/@I5@ dated, @I3@ unestimable.
+    expect(res.changed).toBe(2);
+    expect(res.skipped).toBe(3);
+    expect(res.patches.map((p) => p.id).sort()).toEqual(["@I1@", "@I4@"]);
+    const birtOf = (id: string) => ds.individuals.get(id)!.raw.children.find((c) => c.tag === "BIRT")!;
+    // Father 1850 + a generation = 1878, rounded to the nearest 5.
+    expect(birtOf("@I1@").children.map((c) => [c.tag, c.value])).toEqual([["DATE", "ABT 1880"]]);
+    // The undated BIRT node gained a DATE and kept its place.
+    expect(birtOf("@I4@").children.map((c) => [c.tag, c.value])).toEqual([
+      ["DATE", "ABT 1880"],
+      ["PLAC", "Kranj"],
+    ]);
+    // @I5@'s recorded date is untouched.
+    expect(birtOf("@I5@").children).toEqual([{ level: 2, tag: "DATE", value: "12 MAY 1880", children: [] }]);
+    // Re-running reaches @I3@ through @I1@'s now-written estimate; the rest skip.
+    const again = applyBatchAction(ds, ids, { kind: "estimateBirth" });
+    expect(again.changed).toBe(1);
+    expect(again.skipped).toBe(4);
+    expect(birtOf("@I3@").children.map((c) => [c.tag, c.value])).toEqual([["DATE", "ABT 1910"]]);
+  });
+
+  it("keeps sibling estimates distinct: spread around the parent guess, or anchored on a dated sibling", () => {
+    // Family A: dated mother, three undated children — all would share
+    // 1850+28≈1880; instead they spread a step apart in listed order.
+    // Family B: parents undated, first child dated 1882 — the other two anchor
+    // on that sibling, and the father estimates from his child as before.
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @M1@ INDI
+1 NAME Mother //
+1 SEX F
+1 BIRT
+2 DATE 1850
+1 FAMS @FA@
+0 @C1@ INDI
+1 NAME First //
+1 FAMC @FA@
+0 @C2@ INDI
+1 NAME Second //
+1 FAMC @FA@
+0 @C3@ INDI
+1 NAME Third //
+1 FAMC @FA@
+0 @P1@ INDI
+1 NAME Father //
+1 SEX M
+1 FAMS @FB@
+0 @D1@ INDI
+1 NAME Dated //
+1 FAMC @FB@
+1 BIRT
+2 DATE 1882
+0 @C4@ INDI
+1 NAME Fourth //
+1 FAMC @FB@
+0 @C5@ INDI
+1 NAME Fifth //
+1 FAMC @FB@
+0 @FA@ FAM
+1 WIFE @M1@
+1 CHIL @C1@
+1 CHIL @C2@
+1 CHIL @C3@
+0 @FB@ FAM
+1 HUSB @P1@
+1 CHIL @D1@
+1 CHIL @C4@
+1 CHIL @C5@
+0 TRLR`);
+    const ids = ["@C1@", "@C2@", "@C3@", "@C4@", "@C5@", "@P1@"];
+    // The preview is a pure dry-run: it reports the exact years the action
+    // then writes, and dated @D1@ (queried too) gets no entry.
+    const preview = previewBirthEstimates(ds, [...ids, "@D1@"]);
+    expect(Object.fromEntries(preview)).toEqual({
+      "@C1@": 1879, "@C2@": 1880, "@C3@": 1881, "@C4@": 1883, "@C5@": 1884, "@P1@": 1855,
+    });
+    expect(ds.individuals.get("@C1@")!.raw.children.some((c) => c.tag === "BIRT")).toBe(false);
+    const res = applyBatchAction(ds, ids, { kind: "estimateBirth" });
+    expect(res.changed).toBe(6);
+    expect(res.skipped).toBe(0);
+    const abtOf = (id: string) =>
+      ds.individuals.get(id)!.raw.children.find((c) => c.tag === "BIRT")!.children[0].value;
+    // Spread a year apart around the shared 1880 guess, in the family's child order.
+    expect([abtOf("@C1@"), abtOf("@C2@"), abtOf("@C3@")]).toEqual(["ABT 1879", "ABT 1880", "ABT 1881"]);
+    // Anchored one and two years after the dated 1882 sibling (unrounded) —
+    // even though no parent is dated and estimateBirthYear finds nothing.
+    expect([abtOf("@C4@"), abtOf("@C5@")]).toEqual(["ABT 1883", "ABT 1884"]);
+    // The father's estimate comes from his own child — no sibling adjustment.
+    expect(abtOf("@P1@")).toBe("ABT 1855");
   });
 
   it("converts vendor events to a named EVEN, keeping the substructure", () => {

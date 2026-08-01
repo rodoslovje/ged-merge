@@ -3028,18 +3028,19 @@ button:focus-visible {
   cursor: pointer;
   border: none;
 }
-/* Leading item 2: the date. The cell is a fixed 8em slot with the date pushed to
- * its right edge, so the years line up in a column across rows (whether or not
- * ages are shown). The input itself is content-width — not a full-slot box — so
- * a focused date field hugs its text instead of a wide box with empty space; the
- * age badge sits just after the slot (outside it, so it never shifts the date). */
+/* Leading item 2: the date. The cell is a fixed 8em slot the input fills, with
+ * the text right-aligned so the years line up in a column across rows (whether
+ * or not ages are shown). Full-slot (not content-width) so an empty field has
+ * room for its "Date" placeholder and offers the whole slot as a click target;
+ * the age badge sits just after the slot (outside it, so it never shifts the
+ * date). */
 .edit-event-date-cell {
   flex: 0 0 8em;
   display: flex;
   align-items: center;
   justify-content: flex-end;
 }
-.edit-event-date-cell > .clearable-wrap { flex: 0 0 auto; min-width: 0; }
+.edit-event-date-cell > .clearable-wrap { flex: 1 1 auto; min-width: 0; }
 /* Age badges after the date ("Show ages" setting), e.g. "35" or "♂32 ♀28" —
  * one inner span per person, each with its own tooltip. */
 .edit-event-age {
@@ -7185,8 +7186,11 @@ kbd {
   }
 
   /* Very narrow: let the date shrink so the label + date still share a line
-   * before the body wraps beneath. */
+   * before the body wraps beneath. The full-slot input gets an explicit width
+   * here — without the fixed cell it would grow to the input's own intrinsic
+   * size instead. */
   .edit-event-date-cell { flex: 0 1 auto; justify-content: flex-start; }
+  .edit-event-date-cell > .clearable-wrap { flex: 0 1 auto; width: 8em; }
 
   /* Not enough room for the source dialog's two detail columns. */
   .add-source-details-grid { grid-template-columns: 1fr; }
@@ -7768,6 +7772,8 @@ kbd {
 .batch-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
 .batch-row input { cursor: pointer; flex: none; }
 .batch-row .tools-issue-link { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.batch-preview { color: var(--status-new); font-size: 0.78rem; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.batch-preview-skip { color: var(--muted); }
 .batch-action-editor { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
 .batch-done { margin: 0 0 10px; color: var(--accent); font-size: 0.88rem; }
 .batch-confirm { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 0.9rem; color: var(--text); }
@@ -8147,10 +8153,19 @@ kbd {
 .edit-person-map-head {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
   gap: 8px 16px;
   max-width: 560px;
   margin-bottom: 4px;
+}
+/* While the map is open the toggle drops its label — the map glyph stands for
+   it, with the wording in the tooltip and `aria-label`. The label would push
+   the last legend chip ("Paths") onto a wrapped line of its own: the six kind
+   chips plus the labelled toggle just about exhaust the 560px row. Collapsed,
+   the glyph would be alone and cryptic, so it keeps its wording (the legend is
+   only rendered while the map shows, which is what `:has` keys on). */
+.edit-person-map-head:has(.edit-person-map-legend) .edit-person-map-toggle-label {
+  display: none;
 }
 /* Compact colour legend: only the kinds actually shown. */
 .edit-person-map-legend {
@@ -8647,17 +8662,11 @@ kbd {
   .edit-person {
     padding: 14px 14px;
   }
-  /* Person map header. The legend was pinned to the right edge opposite the
-     toggle, so on a phone it broke into three right-aligned lines that read as
-     a separate block hanging over the map. The toggle drops its label — the map
-     glyph stands for it, with the wording in the tooltip and `aria-label` — and
-     the legend simply follows it, wrapping as one run of chips. */
-  /* Only while the map is open, which is the only time the legend is rendered
-     and the row has something to make space for. Collapsed, the glyph would be
-     alone and cryptic, so it keeps its wording. */
-  .edit-person-map-head:has(.edit-person-map-legend) .edit-person-map-toggle-label {
-    display: none;
-  }
+  /* Person map header (the toggle label is already hidden at every width —
+     see the base rule). The legend was pinned to the right edge opposite the
+     toggle, so on a phone it broke into right-aligned lines that read as a
+     separate block hanging over the map; here it follows the glyph instead,
+     wrapping as one left-aligned run of chips. */
   .edit-person-map-head {
     /* Not `center`: once the legend wraps to two lines, a centred glyph floats
        between them instead of leading the first one. */

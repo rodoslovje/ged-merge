@@ -12,6 +12,7 @@ import {
   computeKinship,
   computeLineSides,
   matchesBatch,
+  previewBirthEstimates,
   BATCH_ACTION_KINDS,
   BATCH_CRITERION_KINDS,
   type BatchActionSpec,
@@ -159,6 +160,15 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
     // eslint-disable-next-line react-hooks/exhaustive-deps -- ver stands in for in-place dataset edits
   }, [dataset, ver]);
 
+  /** Per-row preview of the estimate action: the year each checked person
+   *  would get (no entry = would be skipped). Recomputed when the selection
+   *  changes — unchecking a sibling re-spaces the others, as applying would. */
+  const estimatePreview = useMemo(
+    () => (action?.kind === "estimateBirth" ? previewBirthEstimates(dataset, targets.map((r) => r.id)) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- ver stands in for in-place dataset edits
+    [action?.kind, dataset, targets, ver],
+  );
+
   const virtual = useVirtualList({ count: results.length, estimate: 30, itemsKey: results });
 
   function resetReview() {
@@ -201,7 +211,7 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
       ? !!(action.xref || action.file.trim())
       : action.kind === "addSource"
         ? !!(action.xref || action.title?.trim())
-        : action.kind === "markDeceased"
+        : action.kind === "markDeceased" || action.kind === "estimateBirth"
           ? true
           : action.kind === "convertEvent"
             ? !!(action.fromTag && action.toTag && action.fromTag !== action.toTag)
@@ -363,6 +373,13 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
                   }}
                 />
                 <PersonLink dataset={dataset} id={r.id} fallback={r.name} onNavigate={onNavigate} />
+                {estimatePreview && !excluded.has(r.id) && (
+                  <span className={`batch-preview ${estimatePreview.has(r.id) ? "" : "batch-preview-skip"}`}>
+                    {estimatePreview.has(r.id)
+                      ? `→ ABT ${estimatePreview.get(r.id)}`
+                      : t("tools.batch.previewSkip")}
+                  </span>
+                )}
                 {kin && (
                   <span className={`global-search-kin ${lineageClass(kinshipResolver!.lineage(r.id))}`}>{kin}</span>
                 )}
@@ -666,6 +683,7 @@ function ActionEditor({
     addSource: { kind: "addSource" },
     removeMedia: { kind: "removeMedia" },
     markDeceased: { kind: "markDeceased" },
+    estimateBirth: { kind: "estimateBirth" },
     convertEvent: { kind: "convertEvent", fromTag: firstVendor, toTag: "EVEN", type: typeFor(firstVendor) },
   };
   // For addMedia, an empty file with a (possibly empty) title marks the
@@ -765,6 +783,10 @@ function ActionEditor({
             onChange={(e) => onChange({ ...action, page: e.target.value })}
           />
         </>
+      )}
+
+      {action?.kind === "estimateBirth" && (
+        <span className="batch-hint">{t("tools.batch.estimateBirthHint")}</span>
       )}
 
       {action?.kind === "removeMedia" && (

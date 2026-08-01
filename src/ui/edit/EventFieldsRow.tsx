@@ -263,10 +263,12 @@ export function EventFieldsRow({
   // a second row when they genuinely don't fit.
   const chW = (v: string, max = 40) => ({ width: `${Math.min(max, Math.max(6, v.trim().length + 2))}ch` });
   // Notes can be multi-line, so size them to the widest line, not the whole
-  // string's length (which would over-widen a stack of short lines).
+  // string's length (which would over-widen a stack of short lines). The floor
+  // is generous — notes are prose, and a freshly added one should offer a
+  // sentence's worth of room, not a token-sized box.
   const noteW = (v: string, max = 50) => {
     const longest = v.split("\n").reduce((m, line) => Math.max(m, line.length), 0);
-    return { width: `${Math.min(max, Math.max(6, longest + 2))}ch` };
+    return { width: `${Math.min(max, Math.max(18, longest + 2))}ch` };
   };
 
   // Compact layout: a field with no value (and not showing an incoming merge
@@ -570,12 +572,11 @@ export function EventFieldsRow({
         </div>
       </div>
 
-      {/* Leading item 2: the date — a content-width input pushed to the right of
-       * a fixed slot so the years line up; the age badge follows outside the
-       * slot so it never changes the date's position or size. */}
+      {/* Leading item 2: the date — the input fills its fixed slot (text kept
+       * right-aligned so the years line up in a column); the age badge follows
+       * outside the slot so it never changes the date's position or size. */}
       <div className={"edit-event-date-cell" + optCls(show.date)}>
         <ClearableInput
-          wrapStyle={chW(dateField.value, 14)}
           className={fieldCls("edit-input edit-event-date", dateField.isMerge, dateField.isDirty || dateForced)}
           value={dateField.value}
           placeholder={t("event.colDate")}
