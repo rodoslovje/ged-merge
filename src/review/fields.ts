@@ -736,7 +736,18 @@ function relativeCell(r: Relative): RelativeCell {
  * given name: this threshold demands a strong given-name agreement too, pairing
  * spelling variants (Ana/Anna) while keeping distinct siblings (Berta/Doris) apart.
  */
-const RELATIVE_PAIR_THRESHOLD = 0.85;
+export const RELATIVE_PAIR_THRESHOLD = 0.85;
+
+/**
+ * How alike two individuals look *as relatives* — the same name + birth-year
+ * signal that aligns partners and children in the review table, exposed so
+ * other views pair people the same way (the compare tree falls back to it for
+ * spouses the matcher never paired). At or above
+ * {@link RELATIVE_PAIR_THRESHOLD} means "the same person".
+ */
+export function relativePersonSimilarity(a: Individual, b: Individual): number {
+  return relativeSimilarity(partnerToRelative(a), partnerToRelative(b));
+}
 
 /**
  * Greedily pair main and incoming relatives by name similarity (best pairs

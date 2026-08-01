@@ -7,7 +7,7 @@ import { placeLabel } from "./nodeDisplay";
 import type { Translate } from "../locales/i18n";
 import type { MatchResult } from "../match/types";
 import { displayName, primaryName } from "../match/relatives";
-import { individualFieldRows } from "../review/fields";
+import { RELATIVE_PAIR_THRESHOLD, individualFieldRows, relativePersonSimilarity } from "../review/fields";
 import { inferPlaceExportFormat } from "../normalize/profile";
 import type { PlaceTargetFormat } from "../normalize/types";
 
@@ -326,6 +326,11 @@ function descend(
           (iu, idx) => !usedIncoming.has(idx) && iu.partner?.id === matchedId,
         );
       }
+      // Nothing in the match map: pair the spouses by name + birth year, the
+      // way the review table aligns relatives. Without this an obvious "same
+      // person" spouse the matcher never produced a candidate for is drawn
+      // twice — once per side — and the couple reads as two marriages.
+      if (iIndex < 0) iIndex = similarPartner(mu.partner, incomingUnions, usedIncoming, maps);
     }
     const iu = iIndex >= 0 ? incomingUnions[iIndex] : undefined;
     if (iIndex >= 0) usedIncoming.add(iIndex);
@@ -343,7 +348,54 @@ function descend(
   return { partners, directChildren };
 }
 
-/** Pair a union's main and incoming children through the match map. */
+/**
+ * Pair up relatives the match map says nothing about, by name and birth year —
+ * the same signal the review table aligns relatives with. The fallback for
+ * people the matcher never produced a candidate for (a genealogical-index
+ * import only pairs the people the index itself listed; a plain compare file can
+ * leave a relative out of the 1:1 assignment); without it an obvious "same
+ * person" is drawn twice, once per side, and the chart reads as two marriages or
+ * two children. Greedy, best pair first, so same-named siblings can't both land
+ * on one incoming record. Returns main id → incoming person.
+ */
+function alignByLikeness(main: Individual[], incoming: Individual[]): Map<string, Individual> {
+  const cand: { m: Individual; i: Individual; sim: number }[] = [];
+  for (const m of main) {
+    for (const i of incoming) {
+      const sim = relativePersonSimilarity(m, i);
+      if (sim >= RELATIVE_PAIR_THRESHOLD) cand.push({ m, i, sim });
+    }
+  }
+  cand.sort((a, b) => b.sim - a.sim);
+  const out = new Map<string, Individual>();
+  const taken = new Set<string>();
+  for (const c of cand) {
+    if (out.has(c.m.id) || taken.has(c.i.id)) continue;
+    out.set(c.m.id, c.i);
+    taken.add(c.i.id);
+  }
+  return out;
+}
+
+/** Index of the incoming union whose spouse looks like `mainPartner`, or -1.
+ *  Deliberately narrow: it only speaks when *neither* side is already spoken for
+ *  by the match map, so a decided pairing is never second-guessed. */
+function similarPartner(
+  mainPartner: Individual,
+  incomingUnions: Union[],
+  usedIncoming: Set<number>,
+  maps: MatchMaps,
+): number {
+  if (maps.mainToCompare.has(mainPartner.id)) return -1;
+  const free = incomingUnions
+    .map((iu, idx) => ({ idx, partner: iu.partner }))
+    .filter((c) => !usedIncoming.has(c.idx) && c.partner && !maps.compareToMain.has(c.partner.id));
+  const pick = alignByLikeness([mainPartner], free.map((c) => c.partner!)).get(mainPartner.id);
+  return pick ? free.find((c) => c.partner === pick)!.idx : -1;
+}
+
+/** Pair a union's main and incoming children through the match map, falling back
+ *  to likeness for the children it doesn't cover (see {@link alignByLikeness}). */
 function pairChildren(
   mainKids: Individual[],
   incomingKids: Individual[],
@@ -354,9 +406,20 @@ function pairChildren(
   const used = new Set<string>();
   const out: TreeNode[] = [];
 
+  const pairing = new Map<string, Individual>();
   for (const child of mainKids) {
     const matchedId = maps.mainToCompare.get(child.id);
     const paired = matchedId ? incomingById.get(matchedId) : undefined;
+    if (paired) pairing.set(child.id, paired);
+  }
+  const likeness = alignByLikeness(
+    mainKids.filter((c) => !maps.mainToCompare.has(c.id)),
+    incomingKids.filter((c) => !maps.compareToMain.has(c.id)),
+  );
+  for (const [mainId, incoming] of likeness) if (!pairing.has(mainId)) pairing.set(mainId, incoming);
+
+  for (const child of mainKids) {
+    const paired = pairing.get(child.id);
     if (paired) used.add(paired.id);
     const node = build(child, paired);
     if (node) out.push(node);

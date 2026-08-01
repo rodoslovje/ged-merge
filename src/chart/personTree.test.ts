@@ -168,6 +168,49 @@ describe("buildPersonTree (descendants)", () => {
   });
 });
 
+describe("buildPersonTree (spouse the matcher never paired)", () => {
+  const mainDs = dataset(MAIN);
+  const compareDs = dataset(COMPARE);
+  // Only the root couple's husband is a candidate — the wife is missing from the
+  // match map, as happens with a genealogical-index import (only the people the
+  // index itself listed become pairs).
+  const maps = {
+    mainToCompare: new Map([["@I2@", "@P2@"]]),
+    compareToMain: new Map([["@P2@", "@I2@"]]),
+  };
+  const build = (ds = compareDs, m = maps) =>
+    buildPersonTree(tr, mainDs.individuals.get("@I2@"), ds.individuals.get("@P2@"), mainDs, ds, m, "descendants")!;
+
+  it("pairs the spouses by name and birth year", () => {
+    const root = build();
+    expect(root.partners).toHaveLength(1);
+    const marija = root.partners[0];
+    expect(marija.main?.id).toBe("@I3@");
+    expect(marija.incoming?.id).toBe("@P3@");
+    // Their union is one family, so the children pair up under it too.
+    expect(marija.children.map((c) => c.status)).toEqual(["match"]);
+  });
+
+  it("leaves a different spouse as two one-sided nodes", () => {
+    const other = dataset(
+      COMPARE.replace("Marija /Novak/", "Terezija /Novak/").replace("2 DATE 1872\n2 PLAC Kranj", "2 DATE 1880"),
+    );
+    const root = build(other);
+    expect(root.partners.map((p) => p.status).sort()).toEqual(["incoming-only", "main-only"]);
+  });
+
+  it("never overrides a pairing the match map already made", () => {
+    // The wife is matched to someone else entirely: her incoming namesake must
+    // stay a separate, incoming-only node rather than being pulled onto her.
+    const claimed = {
+      mainToCompare: new Map([...maps.mainToCompare, ["@I3@", "@P1@"]]),
+      compareToMain: new Map([...maps.compareToMain, ["@P1@", "@I3@"]]),
+    };
+    const root = build(compareDs, claimed);
+    expect(root.partners.map((p) => p.status).sort()).toEqual(["incoming-only", "main-only"]);
+  });
+});
+
 describe("buildPersonTree (pedigree collapse)", () => {
   // The root's father and mother are siblings (children of the same couple), so
   // the grandparents appear twice in the ancestor tree — once above each parent.
