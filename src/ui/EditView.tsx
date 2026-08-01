@@ -48,6 +48,7 @@ import {
   insertRecord,
   insertRecordAt,
   noteCtx,
+  preferredFsIdTag,
   rebuildFamily,
   rebuildIndividual,
   rebuildNoteReferrers,
@@ -84,6 +85,7 @@ import { SexToggle } from "./edit/SexToggle";
 import { PrivateToggle } from "./edit/PrivateToggle";
 import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "../gedcom/private";
 import { OtherNamesEditor } from "./edit/OtherNamesEditor";
+import { FsIdEditor } from "./edit/FsIdEditor";
 import { EventList } from "./edit/EventList";
 import { CopyEventDialog, type CopyEventRequest } from "./edit/CopyEventDialog";
 import { NotesEditor } from "./edit/NotesEditor";
@@ -201,6 +203,8 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
   const noteBaselineRef = useRef(new Map<string, string[]>());
   // Whether the user has clicked "+ Add note" for the current person.
   const [notesAdded, setNotesAdded] = useState(false);
+  // Whether the user has clicked "+ FamilySearch ID" for the current person.
+  const [fsIdAdded, setFsIdAdded] = useState(false);
   // Trigger counters to add a note to a specific family (keyed by family ID).
   const [famNoteAdd, setFamNoteAdd] = useState<Record<string, number>>({});
   const [pickingSlot, setPickingSlot] = useState<{ kind: "father" | "mother" | "partner" | "child"; fam: Family | undefined } | null>(null);
@@ -307,6 +311,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     const navId = pendingApply.direction === "undo" ? pendingApply.navigateTo : pendingApply.redoNavigateTo;
     // Always reset local UI state on undo/redo so stale values don't linger.
     setNotesAdded(false);
+    setFsIdAdded(false);
     setFamNoteAdd({});
     if (navId !== undefined) {
       setSelectedId(navId);
@@ -360,6 +365,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     if (!id || id === selectedId) return;
     if (selectedId) setHistory((h) => [...h, selectedId]);
     setNotesAdded(false);
+    setFsIdAdded(false);
     setPickingSlot(null);
     setSelectedId(id);
   });
@@ -480,6 +486,8 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     () => settings.formatOverrides.privacy ?? detectPrivacyStyle(dataset.records),
     [dataset.records, settings.formatOverrides.privacy],
   );
+  // Which FamilySearch-id tag a newly added id gets — the file's own dialect.
+  const fsIdTag = useMemo(() => preferredFsIdTag(dataset), [dataset]);
   const [mediaDragOver, setMediaDragOver] = useState(false);
 
   /** After a commit whose note ctx touched shared NOTE records: refresh every
@@ -1607,6 +1615,8 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
             onAddNote={() => setNotesAdded(true)}
             showAddMedia={collectMediaRefs(person.raw, dataset.records).length === 0}
             onAddMedia={() => handleAddMedia({ kind: "individual" })}
+            showAddFsId={!fsIdAdded && !(person.fsids ?? []).length}
+            onAddFsId={() => setFsIdAdded(true)}
             marriedNameTag={marriedNameTag}
             leadingControl={
               <>
@@ -1620,6 +1630,17 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
               </>
             }
           />
+          {((person.fsids ?? []).length > 0 || fsIdAdded) && (
+            <FsIdEditor
+              key={`fsid-${person.id}-${undoVersion}`}
+              person={person}
+              preferredTag={fsIdTag}
+              addOnMount={fsIdAdded && !(person.fsids ?? []).length}
+              t={t}
+              commit={commit}
+              onEmptied={() => setFsIdAdded(false)}
+            />
+          )}
           {((person.links ?? []).length > 0 || (person.sources ?? []).length > 0 || (mergeIncomingLinks.get("links")?.length ?? 0) > 0 || (mergeIncomingSources.get("links")?.length ?? 0) > 0) && (
             <div className="edit-record-section">
               <LinksEditor

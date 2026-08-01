@@ -39,7 +39,7 @@ export {
   removeIndividual, removeFamily,
 } from "./family";
 
-export { setNotes, setFamilyNotes, setIndividualLinks, setFamilyLinks } from "./records";
+export { setNotes, setFamilyNotes, setIndividualLinks, setFamilyLinks, setFsIds, preferredFsIdTag, type FsIdTag } from "./records";
 
 export {
   noteCtx, applyNoteRefs, setSharedNoteText, setSharedNotePrivate,
