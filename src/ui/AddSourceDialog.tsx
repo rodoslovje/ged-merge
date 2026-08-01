@@ -37,6 +37,10 @@ interface Props {
     onSave: (fields: EditSourceFields) => void;
     onRemove: () => void;
   };
+  /** Standalone mode (Tools → Sources): the confirmed fields create a `SOUR`
+   * record cited by nothing yet, so a URL that matches an existing source has
+   * nothing to add — the match hint says so and the Add button is disabled. */
+  standalone?: boolean;
 }
 
 interface FormState {
@@ -65,7 +69,7 @@ function titleOf(dataset: Dataset, sourceXref: string): string | undefined {
   return rec?.children.find((c) => c.tag === "TITL")?.value?.trim();
 }
 
-export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }: Props) {
+export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, standalone }: Props) {
   const [text, setText] = useState("");
   const [fields, setFields] = useState<FormState>(EMPTY_FORM);
   const [fetching, setFetching] = useState(false);
@@ -265,7 +269,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
     reset();
   }
 
-  const canAdd = Boolean(fields.url.trim() || fields.title.trim());
+  const canAdd = Boolean(fields.url.trim() || fields.title.trim()) && !(standalone && match);
   const field = (key: keyof FormState, labelKey: string) => (
     <label className="add-source-field">
       <span>{t(labelKey)}</span>
@@ -303,7 +307,13 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
           )}
           {match && (
             <div className="add-source-hint">
-              {matchTitle ? t("addSource.matchTitled", { title: matchTitle }) : t("addSource.match")}
+              {standalone
+                ? matchTitle
+                  ? t("addSource.matchStandaloneTitled", { title: matchTitle })
+                  : t("addSource.matchStandalone")
+                : matchTitle
+                  ? t("addSource.matchTitled", { title: matchTitle })
+                  : t("addSource.match")}
             </div>
           )}
           {!match && !editing && recognized && (
@@ -334,7 +344,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing }:
               </div>
             </>
           )}
-          {match && field("page", "addSource.field.page")}
+          {match && !standalone && field("page", "addSource.field.page")}
           <div className="add-source-url-row">
             {field("url", "addSource.field.url")}
             {editing && fields.url.trim() && (

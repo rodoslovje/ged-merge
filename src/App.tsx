@@ -45,6 +45,7 @@ import { fixDates } from "./tools/fixDates";
 import { fixDuplicatePointers } from "./tools/fixDuplicatePointers";
 import { fixDanglingRefs } from "./tools/fixDanglingRefs";
 import { fillPlaceCoordsFromFile } from "./tools/placeCoords";
+import { createStandaloneSource } from "./ui/edit/standaloneSource";
 import { mergeDuplicateChain } from "./tools/mergeDuplicate";
 import { duplicatePairKey, parseDuplicatePairKey } from "./tools/duplicates";
 import { SaveDialog } from "./ui/SaveDialog";
@@ -1888,6 +1889,13 @@ function AppContent() {
                 setMode("edit");
               }}
               active={mode === "tools"}
+              onAddSource={(fields) =>
+                applyToolPatches(
+                  createStandaloneSource(mainDataset.records, fields, {
+                    sourceLayout: settings.formatOverrides.sourceLayout ?? "auto",
+                  }).extraPatches,
+                )
+              }
               onApplyPlaceRename={(from, to, scope) => { applyToolPatches(applyPlaceRename(mainDataset, from, to, scope)); }}
               onApplyGeocode={(assignments) => applyToolPatches(applyGeocode(mainDataset, assignments))}
               onApplyAddressCoords={(assignments) => applyToolPatches(applyAddressCoords(mainDataset, assignments))}

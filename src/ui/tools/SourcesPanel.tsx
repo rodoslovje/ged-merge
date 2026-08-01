@@ -6,6 +6,7 @@ import { buildSourceTree, type SourceTree, type RepoGroup, type SourceEntry, typ
 import { MediaThumb, type MediaGalleryItem } from "../PersonMedia";
 import { mediaMetaRows } from "../MediaViewer";
 import { type ToolsScans } from "../useToolsScans";
+import { AddSourceDialog, type AddSourceResult } from "../AddSourceDialog";
 import { ToolsLoading, TreeSearch, UsageList, someMatch, useDebounced } from "./shared";
 import { SourceCleanupView } from "./SourceCleanupView";
 import { ToolSummary } from "./ToolSummary";
@@ -244,17 +245,22 @@ export function SourcesPanel({
   scans,
   fileName,
   onNavigate,
+  onAddSource,
   active,
 }: {
   dataset: Dataset;
   scans: ToolsScans;
   fileName: string;
   onNavigate: (id: string) => void;
+  /** Create a standalone `SOUR` record (cited by nothing yet) from the Add
+   * Source dialog's confirmed fields — an undoable whole-file edit. */
+  onAddSource: (fields: AddSourceResult) => void;
   active: boolean;
 }) {
   const { t } = useTranslation();
   const [tree, setTree] = useState<SourceTree | null>(null);
   const [open, setOpen] = useState<Set<string>>(new Set());
+  const [addOpen, setAddOpen] = useState(false);
   const [query, setQuery] = useState("");
   // Switches the panel body between the containment tree and the cleanup tool.
   const [view, setView] = useState<"tree" | "cleanup">("tree");
@@ -388,6 +394,9 @@ export function SourcesPanel({
       <div className="tools-filter-row">
         <TreeSearch value={query} onChange={setQuery} />
         <div className="tools-chip-group">
+          <button className="tools-chip" onClick={() => setAddOpen(true)}>
+            ＋ {t("tools.sources.add")}
+          </button>
           <ScanChip
             label={t("tools.sources.cleanupToggle")}
             status={combinedScanStatus(scans.sourceDuplicates.status, scans.sourceReshape.status)}
@@ -472,6 +481,18 @@ export function SourcesPanel({
           {unattachedGroup("unattached", "tools.sources.unattached", "🖼", filtered.tree.unattachedMedia)}
         </ul>
       )}
+      <AddSourceDialog
+        isOpen={addOpen}
+        onClose={() => setAddOpen(false)}
+        onAdd={(fields) => {
+          onAddSource(fields);
+          setAddOpen(false);
+          setTree(null); // rebuilt (now including the new record) by the active-panel effect
+        }}
+        dataset={dataset}
+        t={t}
+        standalone
+      />
     </>
   );
 }

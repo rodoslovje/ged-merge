@@ -33,7 +33,6 @@ import {
   copyEventToFamily,
   copyEventToIndividual,
   createMediaRecord,
-  createSourceRecord,
   findSharedMediaByFile,
   removeMediaAt,
   reorderMedia,
@@ -59,12 +58,12 @@ import {
   setNotes,
   updateSourceCitation,
   type EditSourceFields,
-  type NewSourceFields,
   type SharedNoteChange,
   type SharedNoteCtx,
 } from "../gedcom/edit";
 import { childText, clearObjeNodeCache, findExistingSource, isPointer, resolveSourceCitation, sourceTitle, type CropRegion } from "../gedcom/source";
-import { applySiteSourceExtras, detectPageMediaStyle, smartCitationTarget } from "../tools/sourceReshape";
+import { detectPageMediaStyle, smartCitationTarget } from "../tools/sourceReshape";
+import { createStandaloneSource, pageObjeTitle } from "./edit/standaloneSource";
 import { detectMediaMode } from "../gedcom/media";
 import { useMediaFolder } from "./MediaFolderContext";
 import { AddSourceDialog, type AddSourceResult } from "./AddSourceDialog";
@@ -775,19 +774,16 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
   function resolveSourceFields(
     fields: AddSourceResult,
   ): { sourceXref: string; page?: string; pageObjeXref?: string; extraPatches: RecordPatch[] } {
-    // Page media titled the way the cleanup tool titles them (`#page - title`).
-    const objeTitle = (title: string | undefined, page: string | undefined) =>
-      fields.site && title ? (page ? `#${page} - ${title}` : title) : undefined;
-    const extraPatches: RecordPatch[] = [];
     if (fields.url) {
       const match = findExistingSource(dataset.records, fields.url);
       if (match) {
+        const extraPatches: RecordPatch[] = [];
         let pageObjeXref = match.objeXref;
         if (!match.objeXref) {
           const sourceNode = dataset.records.find((r) => r.tag === "SOUR" && r.xref === match.sourceXref)!;
           const before = cloneRaw(sourceNode);
           const page = fields.page ?? match.page;
-          const obje = addObjeToSource(dataset.records, match.sourceXref, fields.url, objeTitle(sourceTitle(sourceNode), page));
+          const obje = addObjeToSource(dataset.records, match.sourceXref, fields.url, pageObjeTitle(fields.site, sourceTitle(sourceNode), page));
           extraPatches.push({ type: "record", id: match.sourceXref, before, after: cloneRaw(sourceNode) });
           extraPatches.push({ type: "record", id: obje.xref!, before: null, after: cloneRaw(obje) });
           pageObjeXref = obje.xref ?? undefined;
@@ -795,27 +791,9 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
         return { sourceXref: match.sourceXref, page: fields.page ?? match.page, pageObjeXref, extraPatches };
       }
     }
-    const sourceNode = createSourceRecord(dataset.records, fields as NewSourceFields);
-    if (fields.site || fields.place || fields.dateRange) {
-      // A recognized site URL gets the same PLAC/DATE/REPO extras the
-      // Organize sources tool writes, so it needs no cleanup pass later;
-      // a hand-entered place still lands as PLAC in the file's place format.
-      const repo = applySiteSourceExtras(dataset.records, sourceNode, fields.site, fields.url ?? "", fields, {
-        sourceLayout: settings.formatOverrides.sourceLayout ?? "auto",
-      });
-      if (repo) extraPatches.push({ type: "record", id: repo.xref!, before: null, after: cloneRaw(repo) });
-    }
-    extraPatches.push({ type: "record", id: sourceNode.xref!, before: null, after: cloneRaw(sourceNode) });
-    const objeChild = firstChild(sourceNode, "OBJE");
-    if (objeChild?.value) {
-      const objeNode = dataset.records.find((r) => r.tag === "OBJE" && r.xref === objeChild.value);
-      if (objeNode) {
-        const title = objeTitle(fields.title, fields.page);
-        if (title) objeNode.children.push({ level: 1, tag: "TITL", value: title, children: [] });
-        extraPatches.push({ type: "record", id: objeNode.xref!, before: null, after: cloneRaw(objeNode) });
-      }
-    }
-    return { sourceXref: sourceNode.xref!, page: fields.page, pageObjeXref: objeChild?.value, extraPatches };
+    return createStandaloneSource(dataset.records, fields, {
+      sourceLayout: settings.formatOverrides.sourceLayout ?? "auto",
+    });
   }
 
   /** Link the cited page's image beside the citation ("on events" style). */
