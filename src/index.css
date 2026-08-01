@@ -3494,6 +3494,14 @@ button:focus-visible {
 .person-card-detach:focus-visible {
   background: var(--danger-soft);
 }
+/* Same control, but standing on its own at the end of a parent family that has
+   no parent cards to hang it on — so it flows in the row instead of being
+   positioned against a card. */
+.edit-parent-detach {
+  position: static;
+  align-self: center;
+  flex: 0 0 auto;
+}
 
 /* Relative picker — inline search-and-pick widget for adding relatives */
 .relative-picker {

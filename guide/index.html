@@ -525,7 +525,7 @@
             <div>
               The panel shows three family sections:
               <ul>
-                <li><strong>Parents</strong> — <strong>+ Add Father</strong> / <strong>+ Add Mother</strong> search for an existing person or add a new one. The <span class="gm-glyph danger">−</span> glyph detaches the role without deleting the record.</li>
+                <li><strong>Parents</strong> — <strong>+ Add Father</strong> / <strong>+ Add Mother</strong> search for an existing person or add a new one. The <span class="gm-glyph danger">−</span> glyph detaches the role without deleting the record. A parent block that names <em>neither</em> parent — usually a leftover second family from an import or a merge — carries its own <span class="gm-glyph danger">−</span> at the end of the row: it unlinks this person from that family, and the family record goes with it unless other children remain. The <a href="#validate">Health check</a> lists these under <strong>Family without parents</strong>.</li>
                 <li><strong>Partners</strong> — <strong>+ Add Partner</strong> creates a spouse family. Each shows the marriage event and adds Engagement, Separation, Divorce, a partnership <em>Status</em> and a custom event via <strong>+ Add Family Event</strong>. The <span class="gm-glyph danger">−</span> on the partner's card splits a wrongly-attached spouse from just this marriage — it removes only this spousal bond, leaving both people and all their other relationships (parents, other marriages, children) untouched. Families carry their own notes and links too.</li>
                 <li><strong>Children</strong> — listed under each spouse family. <strong>+ Add Child</strong> adds an existing or new person; <span class="gm-glyph danger">−</span> unlinks a child without deleting them.</li>
               </ul>
@@ -697,7 +697,9 @@
               into the husband or wife role, hiding one partner — the finding names who is hidden), <strong>two sets of
               parents</strong> (a person who is a birth child in two families at once — the finding names both couples,
               and adoptive or foster links, whether marked with a pedigree type or by an adoption event, are
-              <em>not</em> flagged), future-dated events,
+              <em>not</em> flagged), <strong>family without parents</strong> (a second parent family that names neither
+              parent, and family records nobody is in at all — remove the first kind with the <span class="gm-glyph danger">−</span>
+              on that parent block in <span class="gm-pill">Edit</span>), future-dated events,
               death before birth, <strong>events outside the lifespan</strong> (an occupation dated before the birth, a
               residence or marriage after the death — burial, cremation and probate may follow a death and are not
               flagged), <strong>living over 99</strong> (no death record, yet born so long ago they would be past the
