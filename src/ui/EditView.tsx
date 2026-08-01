@@ -1322,7 +1322,13 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
   // recorded against the same main id.
   const { placeSuggestions, placeToAddrs, placeCanonical, addrCanonical, placeCoords, pairCoords } = useMemo(
     () => buildPlaceSuggestions(dataset),
-    [dataset],
+    // tick/undoVersion, like `pairUses` below: the dataset is mutated in place,
+    // so a place, address or coordinate entered a moment ago on another record
+    // would otherwise stay invisible to every other field until the file is
+    // saved or reloaded — the one case where the suggestions are most wanted is
+    // right after the value was first typed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dataset, tick, undoVersion],
   );
   // The registers behind the place fields: what completes a place this file has
   // never written, in the layout this file writes places in.

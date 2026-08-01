@@ -24,7 +24,7 @@ import { ExpandAllToggle, ToolsError, ToolsLoading, TreeSearch, useDebounced } f
 import { createKinshipResolver } from "../../match/kinship";
 import { buildPlaceSuggestions, placeCombosOf } from "../edit/placeSuggestions";
 import { foldSearch } from "../globalSearch";
-import { PlaceLookupProvider, usePlaceLookupValue } from "../edit/PlaceLookupContext";
+import { PlaceLookupProvider, invalidateGazetteerIndex, usePlaceLookupValue } from "../edit/PlaceLookupContext";
 import { AddressCoordsSection } from "./AddressCoordsSection";
 import { CoordConflicts } from "./CoordConflicts";
 import { GeocodePlaceRow } from "./GeocodePlaceRow";
@@ -159,6 +159,10 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
   const workerRef = useRef<Worker | null>(null);
 
   const refreshGazetteer = async () => {
+    // The Edit view's lookup keeps its own index for the whole session, so an
+    // import or removal here has to drop it — otherwise the place fields answer
+    // from the gazetteer this tool has just replaced.
+    invalidateGazetteerIndex();
     const stored = await loadCountries();
     setCountries(stored.map(({ code, count, importedAt }) => ({ code, count, importedAt })).sort((a, b) => b.count - a.count));
     setIndex(stored.length ? buildGazetteerIndex(stored.flatMap((c) => c.entries)) : undefined);
