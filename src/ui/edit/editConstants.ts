@@ -2,7 +2,7 @@ import type { Family, Sex, SourceCitation } from "../../gedcom/types";
 import { EDITABLE_FAM_EVENT_TAGS, INDI_EVENT_TAG_ORDER } from "../../gedcom/eventTags";
 import type { MatchDecisionStatus } from "../../review/types";
 
-export { VALUE_EVENT_TAGS } from "../../gedcom/eventTags";
+export { VALUE_EVENT_TAGS, SECONDARY_VALUE_EVENT_TAGS } from "../../gedcom/eventTags";
 
 /** Groups for the "Add event" dropdown — BIRT is always shown so it's excluded.
  * The generic `EVEN` ("Event") and `FACT` live under Estate so they can be

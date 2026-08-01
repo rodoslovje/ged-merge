@@ -1399,6 +1399,7 @@ export const en = {
   "event.place.lookup.offlineOnly": "Only the imported gazetteer — online lookups are off in Settings.",
   "event.addr": "{{event}} address",
   "event.note": "{{event}} note",
+  "event.value": "{{event}} value",
   "event.agency": "{{event}} agency",
   "event.type": "{{event}} type",
   "event.cause": "{{event}} cause",

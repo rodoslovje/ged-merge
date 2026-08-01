@@ -76,6 +76,14 @@ export const EDITABLE_FAM_EVENT_TAGS = ["MARR", "ENGA", "SEPA", "DIV", "EVEN", "
 export const VALUE_EVENT_TAGS: Set<string> = new Set([
   "OCCU", "EDUC", "RETI",
   "TITL", "DSCR", "RELI", "NATI", "RACE", "NCHI", "NOBI", "LATR", "DEED", "ILL", "REFN",
+  "RESI",
   "_MILT", "_MILI", "_MEDC",
   "_MSTAT",
 ]);
+
+/** Value-bearing tags whose value is *supplementary* rather than the event's
+ *  substance. An occupation is its value ("Farmer"), so that value leads the
+ *  row; a residence reads as a date and a place, and its value line — where
+ *  many exporters write the street address (`1 RESI Bojanja vas 17, Metlika`)
+ *  — belongs beside them on the extras line, not in the headline slot. */
+export const SECONDARY_VALUE_EVENT_TAGS: Set<string> = new Set(["RESI"]);

@@ -13,7 +13,7 @@ import { usePlaceLookup } from "./PlaceLookupContext";
 import type { PlaceProposal } from "../../geo/placeProposal";
 import { EventCoordPicker } from "./EventCoordPicker";
 import { useField } from "./useField";
-import { VALUE_EVENT_TAGS } from "./editConstants";
+import { SECONDARY_VALUE_EVENT_TAGS, VALUE_EVENT_TAGS } from "./editConstants";
 import { placeAddrCoordKey, placeCombosOf, placeKey } from "./placeSuggestions";
 import { openPickerOnEnter } from "./openPicker";
 import type { SourceDialogTarget } from "./types";
@@ -115,6 +115,10 @@ export function EventFieldsRow({
   // in the "Agency" slot (see the field bindings below).
   const isEven = tag === "EVEN" || tag === "FACT";
   const showValue = isEven || (tag !== undefined && VALUE_EVENT_TAGS.has(tag));
+  // A residence's value is supplementary, not its headline (see
+  // `SECONDARY_VALUE_EVENT_TAGS`): the row still leads with the date, and the
+  // value rides on the extras line like the agency or the cause.
+  const valueIsExtra = showValue && !isEven && tag !== undefined && SECONDARY_VALUE_EVENT_TAGS.has(tag);
 
   // Compute merge values before hooks so they can be used as initial state.
   const kBase = mergeKeyBase ?? tag ?? "";
@@ -255,7 +259,7 @@ export function EventFieldsRow({
   // Plain events have none — their TYPE lives in the extras-line Type field
   // instead; EVEN edits its TYPE there too, relabelled "Title" and always
   // shown (a custom event is named by it).
-  const hasTitle = !isEven && showValue;
+  const hasTitle = !isEven && showValue && !valueIsExtra;
 
   // Sizes a flowing field to its content (in `ch`) so short values like "fsd"
   // don't each claim a full-width column — that content-sizing is what lets the
@@ -289,6 +293,7 @@ export function EventFieldsRow({
   const dateShown = primaryLine || Boolean(dateField.value.trim()) || dateField.isMerge;
   // A custom EVEN/FACT is named by its TYPE, so its Title field always shows.
   const typeShown = isEven || Boolean(typeField.value.trim()) || typeField.isMerge;
+  const valueExtraShown = valueIsExtra && (Boolean(valueField.value.trim()) || valueField.isMerge);
   const placeShown = Boolean(placeField.value.trim()) || placeField.isMerge;
   const addrShown = Boolean(addrField.value.trim()) || addrField.isMerge;
   const agencyShown = Boolean(agencySlotField.value.trim()) || agencySlotField.isMerge;
@@ -301,6 +306,7 @@ export function EventFieldsRow({
   // field on hover, which read as a crowded row of blank labelled inputs.
   const show = {
     date: dateShown || revealed.has("date"),
+    value: valueExtraShown || revealed.has("value"),
     place: placeShown || revealed.has("place"),
     addr: addrShown || revealed.has("addr"),
     type: typeShown || revealed.has("type"),
@@ -312,6 +318,7 @@ export function EventFieldsRow({
   // only while not already showing. Place/address adapt to the event kind
   // (ordinary events show Place on the primary line, so only Address is offered).
   const addable: { key: string; label: string }[] = [
+    ...(valueIsExtra ? [{ key: "value", label: t("event.colValue") }] : []),
     { key: "place", label: t("event.colPlace") },
     { key: "addr", label: t("event.colAddr") },
     { key: "agency", label: t("event.colAgency") },
@@ -679,6 +686,9 @@ export function EventFieldsRow({
           lookupNote: lookup && !lookup.online ? t("tools.geocode.downloadNeedsOptIn") : undefined,
           onPickProposal: pickProposal,
         })}
+        {/* The tag's own line value, for events that lead with the date instead
+            of it (RESI) — otherwise it is the primary field rendered above. */}
+        {valueIsExtra && extraText("value", t("event.colValue"), show.value, valueField, valueForced, t("event.value", { event: label }), { value: "" })}
         {extraText(
           "type",
           isEven ? t("event.colTitle") : t("event.colType"),
