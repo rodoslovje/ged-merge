@@ -157,7 +157,7 @@
             <li><a href="#tools">10. Orodja</a></li>
             <li class="guide-toc-sub"><a href="#validate">↳ Pregled</a></li>
             <li class="guide-toc-sub"><a href="#duplicates">↳ Dvojniki</a></li>
-            <li class="guide-toc-sub"><a href="#normalize">↳ Poenoti</a></li>
+            <li class="guide-toc-sub"><a href="#normalize">↳ Poenoti in paketno uredi</a></li>
             <li class="guide-toc-sub"><a href="#tool-privacy">↳ Zasebnost</a></li>
             <li class="guide-toc-sub"><a href="#tool-sources">↳ Viri</a></li>
             <li class="guide-toc-sub"><a href="#places">↳ Kraji</a></li>
@@ -676,11 +676,11 @@
               Enoklikni popravki <strong>Pregleda</strong>, združitev v <strong>Dvojnikih</strong>, preimenovanje v
               <strong>Krajih</strong> in <strong>Geokodiranje krajev</strong> pišejo v glavno datoteko sproti — vsakega
               lahko razveljavite s <span class="gm-key">Ctrl</span><span class="gm-key">Z</span> in shranite kot vsako
-              drugo urejanje. <strong>Poenoti</strong>, <strong>Zasebnost</strong> in <strong>Uredi vire</strong> pa
+              drugo urejanje, prav tako <a href="#normalize">paketna opravila</a>. <strong>Poenoti datoteko</strong>, <strong>Zasebnost</strong> in <strong>Uredi vire</strong> pa
               pripravijo ločeno datoteko za prenos. Tako ali tako se datoteka <em>.ged</em> na vašem disku nikoli ne
               prepiše: vsako shranjevanje je nova datoteka v mapi s prenosi (<a href="#saving">§14</a>).
               V izbirniku na vrhu je šest orodij —
-              <strong>Pregled</strong>, <strong>Dvojniki</strong>, <strong>Poenoti</strong>, <strong>Zasebnost</strong>,
+              <strong>Pregled</strong>, <strong>Dvojniki</strong>, <strong>Poenoti in paketno uredi</strong>, <strong>Zasebnost</strong>,
               <strong>Viri</strong> in <strong>Kraji</strong>. Dve se odpreta iz zadnjih dveh:
               <a href="#organize">Uredi vire</a> iz Virov in <a href="#geocode">Geokodiranje krajev</a> iz Krajev.
             </p>
@@ -771,12 +771,22 @@
               <strong>Zavrni vse</strong> zavrnite celotno skupino naenkrat (razveljavljivo). Pri vsakem paru sta ob
               imenih izpisani oznaki zapisov GEDCOM, da ločite osebi z enakim imenom in datumi.
             </p>
-            <h3 id="normalize">Poenoti</h3>
+            <h3 id="normalize">Poenoti in paketno uredi</h3>
             <p>
-              Zazna prevladujočo obliko datumov, postavitev krajev in slog povezav v datoteki, nato pa ponovno izpiše
-              zapise, ki odstopajo — npr. <em>1 Jan 1900</em> → <em>01.01.1900</em>, prilagodi kraje in prepiše povezave
-              Matricula ali Geneanet v enotno obliko. Predogled navede primere vsake spremembe, preden prenesete
-              poenoteno kopijo.
+              <strong>Paketna opravila</strong> izberejo osebe z zloženimi filtri — ime, spol, leto rojstva, starost
+              ob smrti, kraj, mediji (brez, kateri koli ali ena določena slika), viri ter materina ali očetova stran
+              glede na začetno osebo — in nad vsemi zadetki izvedejo en ukrep: pripnejo sliko (obstoječo ali novo),
+              dodajo navedbo vira ali sliko odstranijo. Ob vsakem zadetku je potrditveno polje, da lahko koga pred
+              izvedbo izpustite; celoten zagon je en korak razveljavitve, osebe, ki sliko ali navedbo že imajo, pa so
+              preskočene. Filter lahko skupaj z ukrepom shranite pod svojim imenom, seznam shranjenih pa vedno pokaže,
+              koliko oseb trenutno ustreza — ponavljajoče se opravilo, recimo slika za osebe, umrle pred dvajsetim
+              letom, je tako le pogled in dva klika.
+            </p>
+            <p>
+              <strong>Poenoti datoteko</strong> zazna prevladujočo obliko datumov, postavitev krajev in slog povezav v
+              datoteki, nato pa ponovno izpiše zapise, ki odstopajo — npr. <em>1 Jan 1900</em> → <em>01.01.1900</em>,
+              prilagodi kraje in prepiše povezave Matricula ali Geneanet v enotno obliko. Predogled navede primere
+              vsake spremembe, preden prenesete poenoteno kopijo.
             </p>
             <h3 id="tool-privacy">Zasebnost</h3>
             <p>
@@ -1643,7 +1653,7 @@
                 <tr><td><strong>Stopnja ujemanja</strong></td><td>0–100 % verjetnost, da gre pri dveh zapisih za isto osebo.</td></tr>
                 <tr><td><strong>Izhodiščna oseba</strong></td><td>Referenčna oseba, okoli katere se ujemanja razvrstijo po sorodstveni razdalji.</td></tr>
                 <tr><td><strong>Slog datoteke</strong></td><td>Lastna pravila datoteke za datume, kraje, vire in imena.</td></tr>
-                <tr><td><strong>Poenoti</strong></td><td>Preoblikuj zapise v en enoten slog.</td></tr>
+                <tr><td><strong>Poenoti in paketno uredi</strong></td><td>Paketni ukrepi nad filtriranimi osebami; preoblikovanje zapisov v en enoten slog.</td></tr>
                 <tr><td><strong>Mapa s fotografijami</strong></td><td>Lokalna mapa s slikovnimi datotekami, na katere se sklicuje GEDCOM.</td></tr>
                 <tr><td><strong>Repozitorij / Vir / Navedba</strong></td><td>Kje je zapis hranjen, sam zapis in sklic nanj z osebe ali dogodka.</td></tr>
               </tbody>

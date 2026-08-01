@@ -12,6 +12,7 @@ import { SourcesPanel } from "./tools/SourcesPanel";
 import { PlacesPanel } from "./tools/PlacesPanel";
 import type { GeoAssignment } from "../tools/geocode";
 import type { BrokenLinkRef } from "../tools/fixLinks";
+import type { RecordPatch } from "./historyTypes";
 import { PickerMenu } from "./PickerMenu";
 import { usePhone } from "./usePhone";
 import { ToolSummarySlotProvider } from "./tools/ToolSummary";
@@ -60,6 +61,9 @@ interface Props {
    *  of records changed, so the panel can re-validate. */
   onFixDanglingRefs: () => number;
   onFillPlaceCoords: () => number;
+  /** Apply a batch action's patches (Normalize & batch → Batch actions) as one
+   *  undo entry; returns the patch count. */
+  onApplyBatchPatches: (patches: RecordPatch[]) => number;
   /** Merge a duplicate pair: fold the removed record into the survivor (kept)
    *  per the field choices, mutating the dataset in place and pushing to undo.
    *  Returns true when the merge applied (records changed). */
@@ -81,7 +85,7 @@ interface Props {
   onUnrejectDuplicate: (aId: string, bId: string) => void;
 }
 
-export function ToolsView({ dataset, editVersionRef, fileName, onNavigate, active, onApplyPlaceRename, onApplyGeocode, onApplyAddressCoords, onRenamePlaceValue, onMovePlaceForAddresses, startId, onFixBrokenLinks, onFixSexFromRole, onFixDates, onFixDuplicatePointers, onFixDanglingRefs, onFillPlaceCoords, onMergeDuplicate, rejectedDuplicates, onRejectDuplicate, onRejectDuplicatesBulk, onUnrejectDuplicate }: Props) {
+export function ToolsView({ dataset, editVersionRef, fileName, onNavigate, active, onApplyPlaceRename, onApplyGeocode, onApplyAddressCoords, onRenamePlaceValue, onMovePlaceForAddresses, startId, onFixBrokenLinks, onFixSexFromRole, onFixDates, onFixDuplicatePointers, onFixDanglingRefs, onFillPlaceCoords, onApplyBatchPatches, onMergeDuplicate, rejectedDuplicates, onRejectDuplicate, onRejectDuplicatesBulk, onUnrejectDuplicate }: Props) {
   const { t } = useTranslation();
   const [tool, setTool] = useState<Tool>("validate");
   const phone = usePhone();
@@ -146,7 +150,7 @@ export function ToolsView({ dataset, editVersionRef, fileName, onNavigate, activ
           <DuplicatesPanel dataset={dataset} scans={scans} onNavigate={onNavigate} active={active} onMergeDuplicate={onMergeDuplicate} rejectedDuplicates={rejectedDuplicates} onRejectDuplicate={onRejectDuplicate} onRejectDuplicatesBulk={onRejectDuplicatesBulk} onUnrejectDuplicate={onUnrejectDuplicate} />
         )}
         {tool === "normalize" && (
-          <NormalizePanel dataset={dataset} scans={scans} fileName={fileName} active={active} />
+          <NormalizePanel dataset={dataset} scans={scans} fileName={fileName} active={active} editVersionRef={editVersionRef} onNavigate={onNavigate} onApplyPatches={onApplyBatchPatches} startId={startId} />
         )}
         {tool === "privacy" && (
           <PrivacyPanel dataset={dataset} fileName={fileName} onNavigate={onNavigate} active={active} />

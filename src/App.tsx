@@ -1900,6 +1900,7 @@ function AppContent() {
               onFixDuplicatePointers={() => applyToolPatches(fixDuplicatePointers(mainDataset))}
               onFixDanglingRefs={() => applyToolPatches(fixDanglingRefs(mainDataset))}
               onFillPlaceCoords={() => applyToolPatches(fillPlaceCoordsFromFile(mainDataset))}
+              onApplyBatchPatches={applyToolPatches}
               onMergeDuplicate={(survivorId, removedId, decision, alsoMerge) => {
                 // Ticked parents/partners merge first: their families fold
                 // together on their own, so this pair then finds one set of

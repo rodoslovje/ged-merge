@@ -2,12 +2,73 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../../gedcom/types";
 import type { NormalizeOptions } from "../../normalize/types";
+import type { RecordPatch } from "../historyTypes";
 import { downloadText, savedName } from "../download";
 import { revealEdgeWhitespace } from "../whitespace";
 import { type ToolsScans } from "../useToolsScans";
+import { BatchSection } from "./BatchSection";
 import { ToolsError, ToolsLoading } from "./shared";
 
-export function NormalizePanel({ dataset, scans, fileName, active }: { dataset: Dataset; scans: ToolsScans; fileName: string; active: boolean }) {
+/**
+ * The "Normalize & batch" sub-tab: two mass-change surfaces behind one toggle —
+ * the batch-actions workbench (filter people → apply one action, undoable) and
+ * the whole-file style normalization (preview → download). Both stay mounted so
+ * switching sections loses neither the built filter nor the scan preview.
+ */
+export function NormalizePanel({
+  dataset,
+  scans,
+  fileName,
+  active,
+  editVersionRef,
+  onNavigate,
+  onApplyPatches,
+  startId,
+}: {
+  dataset: Dataset;
+  scans: ToolsScans;
+  fileName: string;
+  active: boolean;
+  editVersionRef: { readonly current: number };
+  onNavigate: (id: string) => void;
+  onApplyPatches: (patches: RecordPatch[]) => number;
+  startId?: string;
+}) {
+  const { t } = useTranslation();
+  const [section, setSection] = useState<"batch" | "normalize">("batch");
+  return (
+    <>
+      <div className="batch-section-toggle" role="tablist">
+        {(["batch", "normalize"] as const).map((s) => (
+          <button
+            key={s}
+            role="tab"
+            aria-selected={section === s}
+            className={`batch-section-tab ${section === s ? "active" : ""}`}
+            onClick={() => setSection(s)}
+          >
+            {t(`tools.batch.section.${s}`)}
+          </button>
+        ))}
+      </div>
+      <div style={{ display: section === "batch" ? undefined : "none" }}>
+        <BatchSection
+          dataset={dataset}
+          editVersionRef={editVersionRef}
+          active={active && section === "batch"}
+          onNavigate={onNavigate}
+          onApplyPatches={onApplyPatches}
+          startId={startId}
+        />
+      </div>
+      <div style={{ display: section === "normalize" ? undefined : "none" }}>
+        <NormalizeFileSection dataset={dataset} scans={scans} fileName={fileName} active={active && section === "normalize"} />
+      </div>
+    </>
+  );
+}
+
+function NormalizeFileSection({ dataset, scans, fileName, active }: { dataset: Dataset; scans: ToolsScans; fileName: string; active: boolean }) {
   const { t } = useTranslation();
   // The preview report comes from the ToolsView-level worker scan cache.
   const state = scans.normalize;
