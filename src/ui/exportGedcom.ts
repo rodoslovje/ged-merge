@@ -1,6 +1,6 @@
 import type { Dataset } from "../gedcom/types";
 import { extractBranch } from "../gedcom/branchExport";
-import { downloadOptions, ensureUtf8Charset, serializeGedcom } from "../gedcom/serialize";
+import { downloadOptions, ensureUtf8Charset, serializeGedcom, stampHeadSource } from "../gedcom/serialize";
 import { downloadText } from "./download";
 
 /**
@@ -12,5 +12,6 @@ import { downloadText } from "./download";
 export function exportChartGedcom(ds: Dataset, personIds: Iterable<string>, slug: string): void {
   const { records } = extractBranch(ds, personIds);
   ensureUtf8Charset(records, ds); // records are clones; downloads are UTF-8 bytes
+  stampHeadSource(records, ds);
   downloadText(`${slug}.ged`, serializeGedcom(records, downloadOptions(ds)));
 }

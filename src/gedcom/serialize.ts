@@ -1,3 +1,4 @@
+import { nowGedcomTime, todayGedcom } from "./chanCrea";
 import { firstChild } from "./node";
 import { isPointer } from "./uri";
 import type { Dataset, GedNode } from "./types";
@@ -105,6 +106,64 @@ export function ensureUtf8Charset(
   const gedcIdx = head.children.findIndex((c) => c.tag === "GEDC");
   if (gedcIdx >= 0) head.children.splice(gedcIdx + 1, 0, node);
   else head.children.push(node);
+}
+
+/**
+ * Stamp the header with GED Merge as the producing system: HEAD.SOUR names
+ * the software that wrote *this* file (both 5.5.1 and 7.0 define it so), and
+ * HEAD.DATE is when it was written. Any previous vendor's SOUR block is
+ * replaced whole — its NAME/VERS/CORP describe a program that did not produce
+ * these bytes — which is the standard behaviour of every GEDCOM writer.
+ *
+ * Mutates the HEAD record in place; like {@link ensureUtf8Charset}, call it
+ * only on records about to be downloaded, never on plain round-trips.
+ */
+export function stampHeadSource(
+  records: GedNode[],
+  ds: Pick<Dataset, "version">,
+  date: Date = new Date(),
+): void {
+  const head = records.find((r) => r.tag === "HEAD");
+  if (!head) return;
+
+  const sour: GedNode = {
+    level: 1,
+    tag: "SOUR",
+    value: "GEDMERGE",
+    children: [
+      { level: 2, tag: "NAME", value: "GED Merge", children: [] },
+      { level: 2, tag: "VERS", value: __APP_VERSION__, children: [] },
+    ],
+  };
+  const sourIdx = head.children.findIndex((c) => c.tag === "SOUR");
+  if (sourIdx >= 0) {
+    head.children[sourIdx] = sour;
+  } else if (ds.version === "7.0") {
+    // 7.0's header structure requires GEDC first; SOUR follows it.
+    const gedcIdx = head.children.findIndex((c) => c.tag === "GEDC");
+    head.children.splice(gedcIdx + 1, 0, sour);
+  } else {
+    // 5.5.1 places SOUR first in HEAD.
+    head.children.unshift(sour);
+  }
+
+  const dateNode = firstChild(head, "DATE");
+  if (dateNode) {
+    dateNode.value = todayGedcom(date);
+    // Refresh a TIME stamp only when the header already carries one.
+    const time = firstChild(dateNode, "TIME");
+    if (time) time.value = nowGedcomTime(date);
+  } else {
+    // Both specs put DATE after SOUR (and DEST, when present).
+    const idx = head.children.findIndex((c) => c.tag === "SOUR");
+    const destIdx = head.children.findIndex((c) => c.tag === "DEST");
+    head.children.splice(Math.max(idx, destIdx) + 1, 0, {
+      level: 1,
+      tag: "DATE",
+      value: todayGedcom(date),
+      children: [],
+    });
+  }
 }
 
 function emitNode(node: GedNode, depth: number, lines: string[], maxLen?: number): void {

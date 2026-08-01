@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildDataset } from "./builder";
 import { setEventField } from "./edit";
 import { parseGedcom } from "./parser";
-import { downloadOptions, ensureUtf8Charset, LINE_LIMIT_551, serializeGedcom } from "./serialize";
+import { downloadOptions, ensureUtf8Charset, LINE_LIMIT_551, serializeGedcom, stampHeadSource } from "./serialize";
 
 /** Parse text (as bytes) then serialize back, using the detected conventions. */
 function roundTrip(text: string): string {
@@ -248,6 +248,55 @@ describe("serializeGedcom", () => {
       const parsed = parse(text);
       ensureUtf8Charset(parsed.records, { version: parsed.version, charset: "UNICODE" });
       expect(serializeGedcom(parsed.records)).toBe(text);
+    });
+  });
+
+  describe("stampHeadSource", () => {
+    const parse = (text: string) => parseGedcom(new TextEncoder().encode(text).buffer);
+    const when = new Date(2026, 7, 1, 9, 5, 42); // 1 AUG 2026
+    const stamp = `1 SOUR GEDMERGE\n2 NAME GED Merge\n2 VERS ${__APP_VERSION__}`;
+
+    it("replaces the previous vendor's whole SOUR block in place", () => {
+      const parsed = parse(
+        "0 HEAD\n1 SOUR AHN\n2 NAME Ahnenblatt\n2 VERS 3.5\n2 CORP miraheze\n" +
+          "1 DATE 3 MAY 2019\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8\n0 TRLR\n",
+      );
+      stampHeadSource(parsed.records, { version: parsed.version }, when);
+      expect(serializeGedcom(parsed.records)).toBe(
+        `0 HEAD\n${stamp}\n1 DATE 1 AUG 2026\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8\n0 TRLR\n`,
+      );
+    });
+
+    it("inserts SOUR first and DATE after it when a 5.5.1 header has neither", () => {
+      const parsed = parse("0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8\n0 TRLR\n");
+      stampHeadSource(parsed.records, { version: parsed.version }, when);
+      expect(serializeGedcom(parsed.records)).toBe(
+        `0 HEAD\n${stamp}\n1 DATE 1 AUG 2026\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8\n0 TRLR\n`,
+      );
+    });
+
+    it("keeps GEDC first in a GEDCOM 7 header", () => {
+      const parsed = parse("0 HEAD\n1 GEDC\n2 VERS 7.0\n0 TRLR\n");
+      stampHeadSource(parsed.records, { version: parsed.version }, when);
+      expect(serializeGedcom(parsed.records)).toBe(
+        `0 HEAD\n1 GEDC\n2 VERS 7.0\n${stamp}\n1 DATE 1 AUG 2026\n0 TRLR\n`,
+      );
+    });
+
+    it("refreshes an existing TIME stamp but never adds one", () => {
+      const parsed = parse(
+        "0 HEAD\n1 SOUR X\n1 DEST ANY\n1 DATE 3 MAY 2019\n2 TIME 01:02:03\n1 GEDC\n2 VERS 5.5.1\n0 TRLR\n",
+      );
+      stampHeadSource(parsed.records, { version: parsed.version }, when);
+      const out = serializeGedcom(parsed.records);
+      expect(out).toContain("1 DATE 1 AUG 2026\n2 TIME 09:05:42");
+      expect(out).not.toContain("2019");
+    });
+
+    it("is a no-op on records with no HEAD", () => {
+      const parsed = parse("0 @I1@ INDI\n1 NAME A //\n0 TRLR\n");
+      stampHeadSource(parsed.records, { version: parsed.version }, when);
+      expect(serializeGedcom(parsed.records)).toBe("0 @I1@ INDI\n1 NAME A //\n0 TRLR\n");
     });
   });
 

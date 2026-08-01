@@ -15,7 +15,7 @@ import type { Dataset, GedNode } from "./gedcom/types";
 import { cloneNode, nodeFingerprint } from "./gedcom/node";
 import { buildDataset } from "./gedcom/builder";
 import { rebuildIndividual, rebuildFamily, removeIndividual, removeFamily } from "./gedcom/edit";
-import { downloadOptions, ensureUtf8Charset, serializeGedcom } from "./gedcom/serialize";
+import { downloadOptions, ensureUtf8Charset, serializeGedcom, stampHeadSource } from "./gedcom/serialize";
 import { formatReport, type ImportBranchRequest } from "./merge/merge";
 import { buildEditSaveRecords } from "./merge/editSaveRecords";
 import { buildSavePreview, type SavePreview } from "./save/buildSavePreview";
@@ -1245,6 +1245,7 @@ function AppContent() {
     // The download is always UTF-8 bytes; a header still declaring the source
     // encoding (ANSEL, ANSI, UNICODE, …) would make other software misdecode it.
     ensureUtf8Charset(preview.records, mainDataset);
+    stampHeadSource(preview.records, mainDataset);
 
     const text = serializeGedcom(preview.records, downloadOptions(mainDataset));
     // Reuse the exact names shown in the preview dialog (already date-stamped).
