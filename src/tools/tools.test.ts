@@ -342,6 +342,51 @@ describe("validateDataset", () => {
     expect(report.counts.multipleParents).toBe(0);
   });
 
+  it("flags a second parent family that records no parents, and an empty family record", () => {
+    // I1 hangs off a real family (F1) and a leftover one (F2) with nobody in it
+    // but him — the shape an import or a merge leaves behind. F3 has no members
+    // at all. F4 is a sibling group with unknown parents: legitimate, and I5's
+    // only parent family, so it stays quiet.
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Jure /Bajt/
+1 SEX M
+1 FAMC @F1@
+1 FAMC @F2@
+0 @I2@ INDI
+1 NAME Ivan /Bajt/
+1 SEX M
+1 FAMS @F1@
+0 @I5@ INDI
+1 NAME Mica /Bajt/
+1 SEX F
+1 FAMC @F4@
+0 @I6@ INDI
+1 NAME Tone /Bajt/
+1 SEX M
+1 FAMC @F4@
+0 @F1@ FAM
+1 HUSB @I2@
+1 CHIL @I1@
+0 @F2@ FAM
+1 CHIL @I1@
+1 MARR
+2 DATE 22 MAY 1844
+0 @F3@ FAM
+0 @F4@ FAM
+1 CHIL @I5@
+1 CHIL @I6@
+0 TRLR`);
+    const report = validateDataset(ds, 2026);
+    const found = report.issues.filter((i) => i.category === "parentlessFamily");
+    expect(found.map((i) => [i.id, i.messageVars?.fam])).toEqual([
+      ["@F3@", undefined], // sorted by subject: the family id before the name
+      ["@I1@", "@F2@"],
+    ]);
+    expect(report.counts.parentlessFamily).toBe(2);
+  });
+
   it("flags a small group linked only to each other, reporting the youngest", () => {
     // The main tree (I1–I4) and a detached couple with a child (I5–I7), whose
     // youngest is the 1930 child. I8 is alone: an orphan, not an island.

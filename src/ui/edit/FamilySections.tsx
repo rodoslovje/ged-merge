@@ -109,6 +109,9 @@ interface SharedSectionProps {
   connectRelative: (kind: RelativeKind, existingId: string, fam?: Family) => void;
   addRelative: (kind: RelativeKind, fam?: Family) => void;
   handleDetachSpouseRole: (fam: Family, role: "HUSB" | "WIFE", confirmMsg: string) => void;
+  /** Unlink a child from a family — a child card in the spouse band, and this
+   *  person from a parent family that records no parents at all. */
+  handleDetachChild: (fam: Family, childId: string, confirmMsg: string) => void;
   cardRefCtx: MediaRefContext;
   decisionStatusById: Map<string, Exclude<MatchDecisionStatus, "undecided">>;
   changedPersonIds: Set<string>;
@@ -142,6 +145,7 @@ export const ParentFamilyGroup = memo(function ParentFamilyGroup({
   connectRelative,
   addRelative,
   handleDetachSpouseRole,
+  handleDetachChild,
   cardRefCtx,
   decisionStatusById,
   changedPersonIds,
@@ -271,6 +275,21 @@ export const ParentFamilyGroup = memo(function ParentFamilyGroup({
           refCtx={cardRefCtx}
         />
       )}
+      {/* A parent family that names no parent at all says nothing — it is
+          usually a leftover second `FAMC` from an import or a merge. Neither
+          parent card can carry the detach button (there is nobody on them), so
+          the family gets its own, which unlinks this person from it (and drops
+          the `FAM` record itself unless other children remain). */}
+      {fam && !fam.husband && !fam.wife && (
+        <button
+          type="button"
+          className="person-card-detach edit-parent-detach"
+          title={t("edit.detachParentFamilyTooltip")}
+          onClick={() => handleDetachChild(fam, personId, t("edit.detachParentFamilyConfirm"))}
+        >
+          &minus;
+        </button>
+      )}
     </div>
   );
 });
@@ -283,7 +302,6 @@ interface FamilySectionProps extends SharedSectionProps {
   commitFamily: FamilyCommit;
   openEditSource: OpenEditSource;
   onOpenSourceDialog: (target: SourceDialogTarget | null) => void;
-  handleDetachChild: (fam: Family, childId: string, confirmMsg: string) => void;
   onAddFamNote: (famId: string) => void;
   handleAddMedia: (owner: MediaOwner) => void;
   handleDeleteMedia: (owner: MediaOwner, addr: MediaAddress) => void;

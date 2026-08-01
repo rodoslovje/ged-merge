@@ -51,6 +51,7 @@ export type IssueCategory =
   | "roleSexConflict"
   | "multiSpouseSlot"
   | "multipleParents"
+  | "parentlessFamily"
   | "missingSex"
   | "missingName"
   | "missingVitals"
@@ -97,6 +98,7 @@ const EMPTY_COUNTS: Record<IssueCategory, number> = {
   roleSexConflict: 0,
   multiSpouseSlot: 0,
   multipleParents: 0,
+  parentlessFamily: 0,
   missingSex: 0,
   missingName: 0,
   missingVitals: 0,
@@ -572,6 +574,19 @@ export function validateDataset(ds: Dataset, currentYear: number = new Date().ge
       }
     }
 
+    // A second parent family that names no parent at all — no HUSB, no WIFE.
+    // It asserts nothing about this person's parentage, so it is a leftover
+    // from an import or a merge rather than an alternative set of parents.
+    // Only flagged when another parent family exists: a lone parentless FAMC
+    // is the ordinary way to say "siblings known, parents unknown".
+    if (indi.childOf.length > 1) {
+      for (const famId of indi.childOf) {
+        const fam = ds.families.get(famId);
+        if (!fam || fam.husband || fam.wife) continue;
+        add("parentlessFamily", "warning", "tools.validate.issue.parentlessFamily", { fam: famId });
+      }
+    }
+
     // Redundant pointer lines: the same family listed twice as FAMC/FAMS.
     for (const fam of duplicateRefs(indi.raw, "FAMC")) {
       add("duplicatePointer", "warning", "tools.validate.issue.dupFamc", { fam });
@@ -693,6 +708,16 @@ export function validateDataset(ds: Dataset, currentYear: number = new Date().ge
     const subject = fam.id;
     const add = (messageKey: string, messageVars?: Record<string, string | number>) =>
       push({ scope: "family", id: fam.id, category: "brokenLink", severity: "error", subject, messageKey, messageVars });
+
+    // Nobody at all is in this family — no spouses, no children. Partial
+    // imports and merges leave these behind; no record points at one, so it is
+    // invisible everywhere except here and in the saved file.
+    if (!fam.husband && !fam.wife && fam.children.length === 0) {
+      push({
+        scope: "family", id: fam.id, category: "parentlessFamily", severity: "warning",
+        subject, messageKey: "tools.validate.issue.familyNoMembers",
+      });
+    }
 
     for (const role of ["husband", "wife"] as const) {
       const ref = fam[role];

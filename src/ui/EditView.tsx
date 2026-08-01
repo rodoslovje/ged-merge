@@ -1513,6 +1513,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
                 connectRelative={connectRelative}
                 addRelative={addRelative}
                 handleDetachSpouseRole={handleDetachSpouseRole}
+                handleDetachChild={handleDetachChild}
                 cardRefCtx={cardRefCtx}
                 decisionStatusById={decisionStatusById}
                 changedPersonIds={changedPersonIds}
