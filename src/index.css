@@ -8149,10 +8149,19 @@ kbd {
 .edit-person-map-head {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
   gap: 8px 16px;
   max-width: 560px;
   margin-bottom: 4px;
+}
+/* While the map is open the toggle drops its label — the map glyph stands for
+   it, with the wording in the tooltip and `aria-label`. The label would push
+   the last legend chip ("Paths") onto a wrapped line of its own: the six kind
+   chips plus the labelled toggle just about exhaust the 560px row. Collapsed,
+   the glyph would be alone and cryptic, so it keeps its wording (the legend is
+   only rendered while the map shows, which is what `:has` keys on). */
+.edit-person-map-head:has(.edit-person-map-legend) .edit-person-map-toggle-label {
+  display: none;
 }
 /* Compact colour legend: only the kinds actually shown. */
 .edit-person-map-legend {
@@ -8649,17 +8658,11 @@ kbd {
   .edit-person {
     padding: 14px 14px;
   }
-  /* Person map header. The legend was pinned to the right edge opposite the
-     toggle, so on a phone it broke into three right-aligned lines that read as
-     a separate block hanging over the map. The toggle drops its label — the map
-     glyph stands for it, with the wording in the tooltip and `aria-label` — and
-     the legend simply follows it, wrapping as one run of chips. */
-  /* Only while the map is open, which is the only time the legend is rendered
-     and the row has something to make space for. Collapsed, the glyph would be
-     alone and cryptic, so it keeps its wording. */
-  .edit-person-map-head:has(.edit-person-map-legend) .edit-person-map-toggle-label {
-    display: none;
-  }
+  /* Person map header (the toggle label is already hidden at every width —
+     see the base rule). The legend was pinned to the right edge opposite the
+     toggle, so on a phone it broke into right-aligned lines that read as a
+     separate block hanging over the map; here it follows the glyph instead,
+     wrapping as one left-aligned run of chips. */
   .edit-person-map-head {
     /* Not `center`: once the legend wraps to two lines, a centred glyph floats
        between them instead of leading the first one. */
