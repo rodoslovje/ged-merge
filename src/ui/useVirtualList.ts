@@ -208,6 +208,9 @@ function scrollportTop(sc: HTMLElement): number {
 /** How many rows to render on the very first pass, before the viewport is known. */
 const INITIAL_WINDOW = 40;
 
+/** Re-renders the hook may ask for between two real scroll/resize events. */
+const SETTLE_LIMIT = 4;
+
 export function useVirtualList({
   count,
   estimate,
@@ -231,10 +234,31 @@ export function useVirtualList({
   // Data set + list width the common row height was last adopted for; see the
   // rebase guard in `measureRendered`.
   const rebasedAt = useRef<{ key: unknown; width: number } | null>(null);
+  /**
+   * Re-renders this hook has asked for since the last real scroll or resize.
+   *
+   * The spacers stand in for the unmounted rows at the model's common height,
+   * while the mounted rows contribute their true height — so whenever the two
+   * disagree by even a fraction of a pixel, the scroller's content height
+   * depends on HOW MANY rows are currently mounted. Near the end of the list
+   * the browser pins scrollTop to that content height, so a window that grows
+   * by one row shifts the scroll offset, which selects the window back one row,
+   * which shifts it again. Zoomed to 90% (rows 31.6px tall, base 32) the
+   * reported file flips between start=25 and start=26 forever, and React aborts
+   * the whole tab with "Maximum update depth exceeded".
+   *
+   * Adopting an exact base (see `measureRendered`) removes the usual source of
+   * that disagreement, but sub-pixel jitter between individual rows can always
+   * reintroduce it. So cap the settling: a genuine correction converges in two
+   * or three passes, and anything beyond that is a cycle. Being one row off at
+   * the edge of the viewport is invisible; a crashed tab is not.
+   */
+  const settling = useRef(0);
   if (keyRef.current !== itemsKey || m.count !== count) {
     keyRef.current = itemsKey;
     m.clear();
     m.setCount(count);
+    settling.current = 0;
   }
 
   function computeSlice(): { start: number; end: number; padTop: number; padBottom: number } {
@@ -274,7 +298,12 @@ export function useVirtualList({
     const bt = bottom.current;
     if (!tp || !bt) return false;
     const found: [number, number][] = [];
-    const freq = new Map<number, number>();
+    // Rows are bucketed by whole pixels to find the dominant one, but each
+    // bucket remembers a REAL measured height. Adopting the rounded number
+    // instead would leave `base` permanently off by up to half a pixel per row,
+    // and that error is what the spacers vs. the mounted rows disagree about —
+    // see the content-height feedback note on `settling` below.
+    const freq = new Map<number, { n: number; h: number }>();
     let el = tp.nextElementSibling;
     let i = rendered.current.start;
     while (el && el !== bt) {
@@ -282,7 +311,9 @@ export function useVirtualList({
       if (h > 0) {
         found.push([i, h]);
         const r = Math.round(h);
-        freq.set(r, (freq.get(r) ?? 0) + 1);
+        const bucket = freq.get(r);
+        if (bucket) bucket.n++;
+        else freq.set(r, { n: 1, h });
       }
       el = el.nextElementSibling;
       i++;
@@ -292,7 +323,7 @@ export function useVirtualList({
     // instead of piling up per-row corrections.
     let best = 0;
     let bestN = 0;
-    for (const [h, n] of freq) {
+    for (const { n, h } of freq.values()) {
       if (n > bestN) {
         best = h;
         bestN = n;
@@ -319,19 +350,48 @@ export function useVirtualList({
     const layoutChanged =
       prev === null || prev.key !== keyRef.current || Math.abs(prev.width - width) > 0.5;
     let changed = false;
-    if (bestN >= 3 && bestN / found.length >= 0.6 && layoutChanged && m.rebase(best)) {
+    if (bestN >= 3 && bestN / found.length >= 0.6 && layoutChanged) {
+      // Record the decision even when `rebase` is a no-op because the base
+      // already matched. Writing this only on a *changed* base left the guard
+      // permanently open on every list whose rows happen to be the height the
+      // previous list settled on — which is every category the user filters to,
+      // since health-check rows all look alike. Instrumenting the reported file
+      // showed `layoutChanged` true on all 71 measurement passes of a filtered
+      // list: exactly the state this guard exists to prevent.
       rebasedAt.current = { key: keyRef.current, width };
-      changed = true;
+      if (m.rebase(best)) changed = true;
     }
     for (const [idx, h] of found) changed = m.measure(idx, h) || changed;
     return changed;
   }, [m]);
 
-  const onScrollOrResize = useCallback(() => {
+  /** Re-render if the window has moved. Returns whether it asked for one. */
+  const syncSlice = useCallback((): boolean => {
     const next = getSlice.current();
     const cur = rendered.current;
-    if (next.start !== cur.start || next.end !== cur.end) bump();
+    if (next.start === cur.start && next.end === cur.end) return false;
+    bump();
+    return true;
   }, []);
+
+  // A real scroll or resize: the window is *meant* to move, so let the list
+  // settle again from scratch.
+  const onScrollOrResize = useCallback(() => {
+    settling.current = 0;
+    syncSlice();
+  }, [syncSlice]);
+
+  /** One post-commit pass: fold in the new measurements, re-render if needed. */
+  const settle = useCallback(() => {
+    const measured = measureRendered();
+    if (settling.current >= SETTLE_LIMIT) return; // cycling — leave it be
+    if (measured) {
+      settling.current++;
+      bump();
+    } else if (syncSlice()) {
+      settling.current++;
+    }
+  }, [measureRendered, syncSlice]);
 
   // Attach the scroll listener / resize observer to the (possibly changing)
   // scroll container, and re-measure after every commit.
@@ -360,16 +420,17 @@ export function useVirtualList({
         window.addEventListener("resize", onScrollOrResize);
       } else {
         ro = new ResizeObserver(() => {
-          if (measureRendered()) bump();
-          else onScrollOrResize();
+          // The scrollport itself changed size — a real layout change, so the
+          // settle budget starts over.
+          settling.current = 0;
+          settle();
         });
         ro.observe(sc);
       }
       attached.current = { el: sc, target, ro };
     }
     // Real row heights arrived (or changed) — re-render with corrected spacers.
-    if (measureRendered()) bump();
-    else onScrollOrResize();
+    settle();
   });
   useLayoutEffect(
     () => () => {
