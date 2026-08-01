@@ -1,6 +1,6 @@
 import type { GedNode } from "../../gedcom/types";
 import { firstChild } from "../../gedcom/node";
-import { createSourceRecord, type NewSourceFields } from "../../gedcom/edit";
+import { createRepoRecord, createSourceRecord, type NewSourceFields } from "../../gedcom/edit";
 import { applySiteSourceExtras, createSiteRepo, type ReshapeSite } from "../../tools/sourceReshape";
 import type { SourceLayout } from "../../normalize/types";
 import { cloneRaw, type RecordPatch } from "../historyTypes";
@@ -33,7 +33,7 @@ export function createStandaloneSource(
   // The dialog's Repository dropdown sends an explicit choice (an existing
   // xref, "" for none, or create-the-site's); without one — older callers —
   // the automatic site-repo behavior applies as before.
-  const explicitRepo = fields.repoXref !== undefined || fields.repoCreateSite;
+  const explicitRepo = fields.repoXref !== undefined || fields.repoCreateSite || !!fields.repoCreateName?.trim();
   if (fields.site || fields.place || fields.dateRange) {
     // A recognized site URL gets the same PLAC/DATE/REPO extras the
     // Organize sources tool writes, so it needs no cleanup pass later;
@@ -46,6 +46,12 @@ export function createStandaloneSource(
   }
   if (explicitRepo) {
     let repoXref = fields.repoXref?.trim() || undefined;
+    const createName = fields.repoCreateName?.trim();
+    if (!repoXref && createName) {
+      const repo = createRepoRecord(records, createName);
+      repoXref = repo.xref!;
+      extraPatches.push({ type: "record", id: repo.xref!, before: null, after: cloneRaw(repo) });
+    }
     if (!repoXref && fields.repoCreateSite && fields.site) {
       const repo = createSiteRepo(records, fields.site, fields.url ?? "", fields.agency);
       if (repo) {

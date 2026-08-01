@@ -30,6 +30,9 @@ export type AddSourceResult = NewSourceFields & {
   /** Create the recognized site's repository record and link it (the
    * dropdown's "＋ …" option). */
   repoCreateSite?: boolean;
+  /** Create a new repository with this name and link it (the dropdown's
+   * "New repository" option). */
+  repoCreateName?: string;
   /** Call number (`CALN`) written on the source's repository link. */
   repoCaln?: string;
 };
@@ -84,9 +87,11 @@ function titleOf(dataset: Dataset, sourceXref: string): string | undefined {
 export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, standalone }: Props) {
   const [text, setText] = useState("");
   const [fields, setFields] = useState<FormState>(EMPTY_FORM);
-  // The Repository dropdown: "" = none, a REPO xref, or "@create@" for the
-  // recognized site's proposed new repository.
+  // The Repository dropdown: "" = none, a REPO xref, "@create@" for the
+  // recognized site's proposed new repository, or "@new@" for a hand-named one.
   const [repoSel, setRepoSel] = useState("");
+  // Name for the "@new@" repository choice.
+  const [repoName, setRepoName] = useState("");
   // Call number (CALN) on the source's repository link.
   const [repoCaln, setRepoCaln] = useState("");
   const [fetching, setFetching] = useState(false);
@@ -167,6 +172,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
       note: match ? "" : parsed.note ?? "",
     });
     setRepoSel(match ? "" : repoDefault?.xref ?? (repoDefault?.createName && layoutPrefersRepos ? "@create@" : ""));
+    setRepoName("");
     setRepoCaln("");
   }, [editing, text, parsed, normalizedUrl, match, recognized, resolvePlace, repoDefault, layoutPrefersRepos]);
 
@@ -187,6 +193,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
       note: f.note ?? "",
     });
     setRepoSel(f.repoXref ?? "");
+    setRepoName("");
     setRepoCaln(f.repoCaln ?? "");
   }, [editing]);
 
@@ -264,6 +271,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
     setText("");
     setFields(EMPTY_FORM);
     setRepoSel("");
+    setRepoName("");
     setRepoCaln("");
     setFetching(false);
     setFetched(undefined);
@@ -297,8 +305,9 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
       // Fetched over offline-recognized — Newspapers.com carries the issue
       // date right in the citation prose, with no fetchable page behind it.
       dateRange: fetched?.dateRange ?? recognized?.proposed.dateRange,
-      repoXref: repoSel === "@create@" ? undefined : repoSel,
+      repoXref: repoSel === "@create@" || repoSel === "@new@" ? undefined : repoSel,
       repoCreateSite: repoSel === "@create@" || undefined,
+      repoCreateName: repoSel === "@new@" ? repoName.trim() || undefined : undefined,
       repoCaln: repoCaln.trim() || undefined,
     });
     reset();
@@ -309,9 +318,11 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
     // A picked repo (or an explicit clear, when the prefill carried a repo
     // field) is sent as-is; an untouched dropdown on a prefill without one
     // (the legacy-link promote) stays undefined so the automatic site-repo
-    // behavior still applies.
-    const repoXref = repoSel || (editing.fields.repoXref !== undefined ? "" : undefined);
-    editing.onSave({ ...trimmedFields(fields), objeXref: editing.fields.objeXref, repoXref, repoCaln });
+    // behavior still applies. "@new@" sends the typed name instead — and with
+    // the name still empty, the repository link is simply left as it was.
+    const repoCreateName = repoSel === "@new@" ? repoName.trim() || undefined : undefined;
+    const repoXref = repoSel === "@new@" ? undefined : repoSel || (editing.fields.repoXref !== undefined ? "" : undefined);
+    editing.onSave({ ...trimmedFields(fields), objeXref: editing.fields.objeXref, repoXref, repoCreateName, repoCaln });
     reset();
   }
 
@@ -413,8 +424,15 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
                   {!editing && !repoDefault?.xref && repoDefault?.createName && (
                     <option value="@create@">{t("addSource.repo.create", { name: repoDefault.createName })}</option>
                   )}
+                  <option value="@new@">{t("addSource.repo.new")}</option>
                 </select>
               </label>
+              {repoSel === "@new@" && (
+                <label className="add-source-field">
+                  <span>{t("addSource.field.repoName")}</span>
+                  <input className="edit-input" value={repoName} onChange={(e) => setRepoName(e.target.value)} autoFocus />
+                </label>
+              )}
               {repoSel !== "" && (
                 <label className="add-source-field">
                   <span>{t("addSource.field.caln")}</span>

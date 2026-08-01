@@ -1358,6 +1358,8 @@ export const sl = {
   "addSource.field.repo": "Hramba",
   "addSource.field.caln": "Signatura",
   "addSource.repo.create": "＋ {{name}} (novo)",
+  "addSource.repo.new": "＋ Nova hramba…",
+  "addSource.field.repoName": "Ime hrambe",
   "addSource.cancel": "Prekliči",
   "addSource.add": "Dodaj vir",
   "editRepo.title": "Uredi hrambo",

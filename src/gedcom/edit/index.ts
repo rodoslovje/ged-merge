@@ -54,7 +54,7 @@ export {
 export type { MediaInfoFields } from "./media";
 
 export {
-  createSourceRecord, addObjeToSource, attachSourceCitation,
+  createSourceRecord, createRepoRecord, addObjeToSource, attachSourceCitation,
   updateSourceCitation, removeSourceCitationAtIndex, pruneUnreferencedSource,
   setSourceRecordFields, sourceRecordEditFields, setRepoRecordFields, repoRecordEditFields,
 } from "./sources";

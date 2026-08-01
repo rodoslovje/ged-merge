@@ -82,8 +82,19 @@ function sourceCitationNodes(record: GedNode): GedNode[] {
  * `OBJE` its resolved `url` came from, so a `url` edit retargets only that
  * page's file. `repoXref` is the source's `REPO` link: an xref sets it, `""`
  * removes it, and `undefined` leaves whatever the record has untouched;
- * `repoCaln` is that link's call number (`CALN`), same tri-state. */
-export type EditSourceFields = NewSourceFields & { place?: string; page?: string; objeXref?: string; repoXref?: string; repoCaln?: string };
+ * `repoCaln` is that link's call number (`CALN`), same tri-state.
+ * `repoCreateName` creates a brand-new `REPO` record with that name and links
+ * the source to it — the dialog's "New repository" choice; wins over `repoXref`. */
+export type EditSourceFields = NewSourceFields & { place?: string; page?: string; objeXref?: string; repoXref?: string; repoCaln?: string; repoCreateName?: string };
+
+/** Create a top-level `REPO` record holding just a `NAME` — the manual "New
+ * repository" path (a site-recognized repo gets its `WWW` via `createSiteRepo`). */
+export function createRepoRecord(records: GedNode[], name: string): GedNode {
+  const repo: GedNode = { level: 0, xref: nextXref(records, "R"), tag: "REPO", children: [] };
+  repo.children.push({ level: 1, tag: "NAME", value: name.trim(), children: [] });
+  insertRecord(records, repo);
+  return repo;
+}
 
 /**
  * Update the `index`th `SOUR` citation on `node` (an event node, or a
@@ -153,8 +164,9 @@ export function setSourceRecordFields(records: GedNode[], sourceNode: GedNode, f
     setChild("NOTE", fields.note);
   }
 
-  if (fields.repoXref !== undefined) {
-    const repoXref = fields.repoXref.trim();
+  const repoCreateName = fields.repoCreateName?.trim();
+  if (fields.repoXref !== undefined || repoCreateName) {
+    const repoXref = repoCreateName ? createRepoRecord(records, repoCreateName).xref! : fields.repoXref?.trim() ?? "";
     const existingRepo = sourceNode.children.find((c) => c.tag === "REPO");
     if (!repoXref) {
       sourceNode.children = sourceNode.children.filter((c) => c.tag !== "REPO");

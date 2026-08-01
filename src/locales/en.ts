@@ -1141,6 +1141,8 @@ export const en = {
   "addSource.field.repo": "Repository",
   "addSource.field.caln": "Call number",
   "addSource.repo.create": "＋ {{name}} (new)",
+  "addSource.repo.new": "＋ New repository…",
+  "addSource.field.repoName": "Repository name",
   "addSource.cancel": "Cancel",
   "addSource.add": "Add source",
   "editRepo.title": "Edit Repository",

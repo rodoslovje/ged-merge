@@ -106,6 +106,20 @@ describe("createStandaloneSource repository choice", () => {
     expect(extraPatches.some((p) => p.id === repo.xref && p.before === null)).toBe(true);
   });
 
+  it("creates a hand-named repository and links the new source to it", () => {
+    const ds = buildFromText(WITH_REPO);
+    const { sourceXref, extraPatches } = createStandaloneSource(
+      ds.records,
+      { title: "Družinski arhiv", repoCreateName: "Župnijski arhiv Šenčur", repoCaln: "K 3" },
+      { sourceLayout: "auto" },
+    );
+    const source = ds.records.find((r) => r.xref === sourceXref)!;
+    const repo = ds.records.find((r) => r.tag === "REPO" && childText(r, "NAME") === "Župnijski arhiv Šenčur")!;
+    expect(firstChild(source, "REPO")?.value).toBe(repo.xref);
+    expect(firstChild(firstChild(source, "REPO")!, "CALN")?.value).toBe("K 3");
+    expect(extraPatches.some((p) => p.id === repo.xref && p.before === null)).toBe(true);
+  });
+
   it("an explicit no-repository choice suppresses the automatic site repo", () => {
     const ds = buildFromText(WITH_REPO);
     const { sourceXref } = createStandaloneSource(
@@ -141,6 +155,18 @@ describe("repoXref on setSourceRecordFields / setRepoRecordFields", () => {
     setSourceRecordFields(ds.records, source, { repoXref: "" });
     expect(firstChild(source, "REPO")).toBeUndefined();
     expect(sourceRecordEditFields(ds.records, source).repoXref).toBe("");
+  });
+
+  it("repoCreateName creates the repository and re-points the source's link", () => {
+    const ds = buildFromText(BASE);
+    const { sourceXref } = createStandaloneSource(ds.records, { title: "X", repoXref: "@R9@" }, { sourceLayout: "auto" });
+    const source = ds.records.find((r) => r.xref === sourceXref)!;
+    ds.records.push({ level: 0, xref: "@R9@", tag: "REPO", children: [{ level: 1, tag: "NAME", value: "Arhiv", children: [] }] });
+
+    setSourceRecordFields(ds.records, source, { repoCreateName: "Občinski arhiv Kranj" });
+    const repo = ds.records.find((r) => r.tag === "REPO" && childText(r, "NAME") === "Občinski arhiv Kranj")!;
+    expect(repo).toBeDefined();
+    expect(firstChild(source, "REPO")?.value).toBe(repo.xref);
   });
 
   it("edits a repository's fields — NAME first, multi-line address, clear removes lines", () => {
