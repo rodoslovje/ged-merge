@@ -7,6 +7,7 @@ import { firstChild } from "../../gedcom/node";
 import { eventDisplayLabel } from "../../gedcom/eventTags";
 import { collectMediaRefs } from "../../gedcom/media";
 import { coupleAgesDisplay } from "../../gedcom/age";
+import { birthSortKey } from "../../gedcom/lifespan";
 import { kinshipInfo, kinshipTooltip as kinshipTooltipText, lineageClass } from "../../match/kinship";
 import {
   addFamilyEventNode,
@@ -50,6 +51,17 @@ import type { FamilyCommit, MediaOwner, OpenEditSource, SourceDialogTarget } fro
 
 type RelativeKind = "father" | "mother" | "partner" | "child";
 export type PickingSlot = { kind: RelativeKind; fam: Family | undefined } | null;
+
+/** The family's children in birth order for display — the file's own order is
+ *  left untouched. Undated children keep their file position among themselves,
+ *  after the dated ones (sort is stable, undated keys are Infinity). */
+function childrenByBirth(fam: Family | undefined, individuals: Dataset["individuals"]): string[] {
+  return [...(fam?.children ?? [])].sort((a, b) => {
+    const ka = birthSortKey(individuals.get(a));
+    const kb = birthSortKey(individuals.get(b));
+    return ka < kb ? -1 : ka > kb ? 1 : 0;
+  });
+}
 
 /** Kinship badge props for a relative card (mirrors the person header's). */
 function kinshipChips(
@@ -528,7 +540,7 @@ export const FamilySection = memo(function FamilySection({
       <div className="edit-children-wrap">
         <div className="person-card-role">{t("field.children")}</div>
         <div className="edit-children">
-          {fam?.children.map((childId) => {
+          {childrenByBirth(fam, dataset.individuals).map((childId) => {
             const childName = personName(childId);
             return (
               <PersonCard
