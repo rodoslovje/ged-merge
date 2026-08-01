@@ -956,6 +956,10 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
         // "" (not undefined) when there is no REPO link, so the dialog's
         // dropdown shows the explicit no-repository choice.
         repoXref: childText(sourceNode, "REPO") ?? "",
+        repoCaln: (() => {
+          const repoLink = firstChild(sourceNode, "REPO");
+          return repoLink ? childText(repoLink, "CALN") ?? "" : "";
+        })(),
       },
     });
   });

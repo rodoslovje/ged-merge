@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ChangeEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useSettings } from "../SettingsContext";
 import type { Dataset } from "../../gedcom/types";
@@ -7,7 +7,7 @@ import { MediaThumb, type MediaGalleryItem } from "../PersonMedia";
 import { mediaMetaRows } from "../MediaViewer";
 import { type ToolsScans } from "../useToolsScans";
 import { AddSourceDialog, type AddSourceResult } from "../AddSourceDialog";
-import { sourceRecordEditFields, type EditSourceFields } from "../../gedcom/edit";
+import { repoRecordEditFields, sourceRecordEditFields, type EditRepoFields, type EditSourceFields } from "../../gedcom/edit";
 import { ToolsLoading, TreeSearch, UsageList, someMatch, useDebounced } from "./shared";
 import { SourceCleanupView } from "./SourceCleanupView";
 import { ToolSummary } from "./ToolSummary";
@@ -172,19 +172,21 @@ function TreeRow({
   );
 }
 
-/** Minimal editor for a repository's own record: name and link. */
+/** Editor for a repository's own record: the GEDCOM repository fields —
+ *  name, postal address, phone, e-mail, link and note. */
 function RepoEditDialog({
-  repo,
+  initial,
   onSave,
   onClose,
 }: {
-  repo: RepoGroup;
-  onSave: (fields: { name?: string; url?: string }) => void;
+  initial: EditRepoFields;
+  onSave: (fields: EditRepoFields) => void;
   onClose: () => void;
 }) {
   const { t } = useTranslation();
-  const [name, setName] = useState(repo.name ?? "");
-  const [url, setUrl] = useState(repo.url ?? "");
+  const [fields, setFields] = useState<EditRepoFields>(initial);
+  const set = (key: keyof EditRepoFields) => (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+    setFields((f) => ({ ...f, [key]: e.target.value }));
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -207,16 +209,34 @@ function RepoEditDialog({
         <div className="modal-body">
           <label className="add-source-field">
             <span>{t("editRepo.name")}</span>
-            <input className="edit-input" autoFocus value={name} onChange={(e) => setName(e.target.value)} />
+            <input className="edit-input" autoFocus value={fields.name ?? ""} onChange={set("name")} />
           </label>
           <label className="add-source-field">
+            <span>{t("editRepo.addr")}</span>
+            <textarea className="edit-input add-source-textarea" rows={2} value={fields.addr ?? ""} onChange={set("addr")} />
+          </label>
+          <div className="add-source-details-grid">
+            <label className="add-source-field">
+              <span>{t("editRepo.phone")}</span>
+              <input className="edit-input" value={fields.phone ?? ""} onChange={set("phone")} />
+            </label>
+            <label className="add-source-field">
+              <span>{t("editRepo.email")}</span>
+              <input className="edit-input" value={fields.email ?? ""} onChange={set("email")} />
+            </label>
+          </div>
+          <label className="add-source-field">
             <span>{t("addSource.field.url")}</span>
-            <input className="edit-input" value={url} onChange={(e) => setUrl(e.target.value)} />
+            <input className="edit-input" value={fields.url ?? ""} onChange={set("url")} />
+          </label>
+          <label className="add-source-field">
+            <span>{t("addSource.field.note")}</span>
+            <input className="edit-input" value={fields.note ?? ""} onChange={set("note")} />
           </label>
         </div>
         <div className="add-source-actions">
           <button className="tree-open-btn" onClick={onClose}>{t("addSource.cancel")}</button>
-          <button className="add-source-submit" onClick={() => onSave({ name: name.trim() || undefined, url: url.trim() || undefined })}>
+          <button className="add-source-submit" onClick={() => onSave(fields)}>
             {t("editSource.save")}
           </button>
         </div>
@@ -320,8 +340,8 @@ export function SourcesPanel({
   onEditSource: (sourceXref: string, fields: EditSourceFields) => void;
   /** Delete an uncited `SOUR` record (and its orphaned page media). */
   onRemoveSource: (sourceXref: string) => void;
-  /** Write a `REPO` record's name/link — an undoable whole-file edit. */
-  onEditRepo: (repoXref: string, fields: { name?: string; url?: string }) => void;
+  /** Write a `REPO` record's fields — an undoable whole-file edit. */
+  onEditRepo: (repoXref: string, fields: EditRepoFields) => void;
   active: boolean;
 }) {
   const { t } = useTranslation();
@@ -430,6 +450,13 @@ export function SourcesPanel({
         : {}),
     };
   }, [editSrc, dataset, onEditSource, onRemoveSource]);
+
+  // Prefill for the repository editor, read from the live record.
+  const repoEditInitial = useMemo(() => {
+    if (!editRepo?.xref) return undefined;
+    const node = dataset.records.find((r) => r.tag === "REPO" && r.xref === editRepo.xref);
+    return node ? repoRecordEditFields(dataset.records, node) : undefined;
+  }, [editRepo, dataset]);
 
   const q = useDebounced(query).trim().toLowerCase();
   const filtering = q.length > 0;
@@ -628,9 +655,10 @@ export function SourcesPanel({
         editing={editing}
         standalone
       />
-      {editRepo?.xref && (
+      {editRepo?.xref && repoEditInitial && (
         <RepoEditDialog
-          repo={editRepo}
+          key={editRepo.xref}
+          initial={repoEditInitial}
           onClose={closeDialog}
           onSave={(fields) => {
             onEditRepo(editRepo.xref!, fields);

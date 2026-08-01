@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { parseGedcom } from "../../gedcom/parser";
 import { buildDataset } from "../../gedcom/builder";
 import { childText, firstChild } from "../../gedcom/node";
-import { setRepoRecordFields, setSourceRecordFields, sourceRecordEditFields } from "../../gedcom/edit";
+import { repoRecordEditFields, setRepoRecordFields, setSourceRecordFields, sourceRecordEditFields } from "../../gedcom/edit";
 import { createStandaloneSource, pageObjeTitle } from "./standaloneSource";
 
 function buildFromText(text: string) {
@@ -143,12 +143,48 @@ describe("repoXref on setSourceRecordFields / setRepoRecordFields", () => {
     expect(sourceRecordEditFields(ds.records, source).repoXref).toBe("");
   });
 
-  it("edits a repository's name and link, NAME staying first", () => {
+  it("edits a repository's fields — NAME first, multi-line address, clear removes lines", () => {
+    const ds = buildFromText(BASE);
     const repo = { level: 0, xref: "@R1@", tag: "REPO", children: [{ level: 1, tag: "NAME", value: "Staro ime", children: [] }] };
-    setRepoRecordFields(repo, { name: "Novo ime", url: "https://example.com/" });
-    expect(repo.children[0].value).toBe("Novo ime");
-    expect(repo.children[1].tag).toBe("WWW");
-    setRepoRecordFields(repo, { name: "Novo ime" });
-    expect(repo.children.some((c) => c.tag === "WWW")).toBe(false);
+    ds.records.push(repo);
+
+    setRepoRecordFields(repo, {
+      name: "Nadškofijski arhiv",
+      addr: "Krekov trg 1\n1000 Ljubljana",
+      phone: "01 234 56 78",
+      email: "arhiv@rkc.si",
+      url: "https://nadskofija-ljubljana.si/arhiv/",
+      note: "Odprt ob sredah.",
+    });
+    expect(repo.children[0]).toMatchObject({ tag: "NAME", value: "Nadškofijski arhiv" });
+    const addr = repo.children.find((c) => c.tag === "ADDR")!;
+    expect(addr.value).toBe("Krekov trg 1");
+    expect(addr.children[0]).toMatchObject({ tag: "CONT", value: "1000 Ljubljana" });
+    expect(repo.children.map((c) => c.tag)).toEqual(["NAME", "ADDR", "PHON", "EMAIL", "WWW", "NOTE"]);
+
+    const fields = repoRecordEditFields(ds.records, repo);
+    expect(fields.addr).toBe("Krekov trg 1\n1000 Ljubljana");
+    expect(fields.email).toBe("arhiv@rkc.si");
+
+    // "" clears a line; undefined leaves it untouched.
+    setRepoRecordFields(repo, { url: "", addr: "" });
+    expect(repo.children.some((c) => c.tag === "WWW" || c.tag === "ADDR")).toBe(false);
+    expect(repo.children.some((c) => c.tag === "PHON")).toBe(true);
+  });
+
+  it("writes and clears the CALN call number on the source's REPO link", () => {
+    const ds = buildFromText(BASE);
+    const { sourceXref } = createStandaloneSource(
+      ds.records,
+      { title: "Krstna knjiga", repoXref: "@R1@", repoCaln: "ŽA Šenčur, K 3" },
+      { sourceLayout: "auto" },
+    );
+    const source = ds.records.find((r) => r.xref === sourceXref)!;
+    const repoLink = firstChild(source, "REPO")!;
+    expect(firstChild(repoLink, "CALN")?.value).toBe("ŽA Šenčur, K 3");
+    expect(sourceRecordEditFields(ds.records, source).repoCaln).toBe("ŽA Šenčur, K 3");
+
+    setSourceRecordFields(ds.records, source, { repoXref: "@R1@", repoCaln: "" });
+    expect(firstChild(repoLink, "CALN")).toBeUndefined();
   });
 });

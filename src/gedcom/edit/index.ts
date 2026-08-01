@@ -56,9 +56,9 @@ export type { MediaInfoFields } from "./media";
 export {
   createSourceRecord, addObjeToSource, attachSourceCitation,
   updateSourceCitation, removeSourceCitationAtIndex, pruneUnreferencedSource,
-  setSourceRecordFields, sourceRecordEditFields, setRepoRecordFields,
+  setSourceRecordFields, sourceRecordEditFields, setRepoRecordFields, repoRecordEditFields,
 } from "./sources";
-export type { EditSourceFields, NewSourceFields } from "./sources";
+export type { EditSourceFields, EditRepoFields, NewSourceFields } from "./sources";
 
 export { bumpSourceCacheVersion, getMediaAndSourceCtx, rebuildIndividual, rebuildFamily } from "./cache";
 

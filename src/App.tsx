@@ -1928,9 +1928,9 @@ function AppContent() {
               }
               onRemoveSource={(sourceXref) => applySharedRecordEdit(() => pruneUnreferencedSource(mainDataset, sourceXref))}
               onEditRepo={(repoXref, fields) =>
-                applySharedRecordEdit((records) => {
+                applySharedRecordEdit((records, notes) => {
                   const node = records.find((r) => r.tag === "REPO" && r.xref === repoXref);
-                  if (node) setRepoRecordFields(node, fields);
+                  if (node) setRepoRecordFields(node, fields, notes);
                 })
               }
               onApplyPlaceRename={(from, to, scope) => { applyToolPatches(applyPlaceRename(mainDataset, from, to, scope)); }}

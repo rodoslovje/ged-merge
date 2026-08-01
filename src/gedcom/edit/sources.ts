@@ -81,8 +81,9 @@ function sourceCitationNodes(record: GedNode): GedNode[] {
  * the site extras), the citation-local `page` and (when known) the specific
  * `OBJE` its resolved `url` came from, so a `url` edit retargets only that
  * page's file. `repoXref` is the source's `REPO` link: an xref sets it, `""`
- * removes it, and `undefined` leaves whatever the record has untouched. */
-export type EditSourceFields = NewSourceFields & { place?: string; page?: string; objeXref?: string; repoXref?: string };
+ * removes it, and `undefined` leaves whatever the record has untouched;
+ * `repoCaln` is that link's call number (`CALN`), same tri-state. */
+export type EditSourceFields = NewSourceFields & { place?: string; page?: string; objeXref?: string; repoXref?: string; repoCaln?: string };
 
 /**
  * Update the `index`th `SOUR` citation on `node` (an event node, or a
@@ -162,6 +163,13 @@ export function setSourceRecordFields(records: GedNode[], sourceNode: GedNode, f
     } else {
       insertGrouped(sourceNode, { level: sourceNode.level + 1, tag: "REPO", value: repoXref, children: [] }, ["CHAN", "CREA"]);
     }
+    // The call number rides on the repository link itself (REPO > CALN).
+    const repoLink = sourceNode.children.find((c) => c.tag === "REPO");
+    if (repoLink && fields.repoCaln !== undefined) {
+      const caln = fields.repoCaln.trim();
+      repoLink.children = repoLink.children.filter((c) => c.tag !== "CALN");
+      if (caln) repoLink.children.push({ level: repoLink.level + 1, tag: "CALN", value: caln, children: [] });
+    }
   }
 
   const url = fields.url?.trim();
@@ -197,24 +205,102 @@ export function setSourceRecordFields(records: GedNode[], sourceNode: GedNode, f
   }
 }
 
+/** Fields editable on a `REPO` record (Tools → Sources repository edit) —
+ * the GEDCOM repository set: name, postal address (multi-line, `ADDR`+`CONT`),
+ * phone, e-mail, web link and note. `undefined` leaves a field untouched,
+ * `""` clears its line. */
+export interface EditRepoFields {
+  name?: string;
+  addr?: string;
+  phone?: string;
+  email?: string;
+  url?: string;
+  note?: string;
+}
+
+/** GEDCOM's address-structure order, `NAME` first, trailing blocks last. */
+const REPO_CHILD_ORDER = ["NAME", "ADDR", "PHON", "EMAIL", "FAX", "WWW", "NOTE", "REFN", "RIN", "CHAN", "CREA"];
+
 /**
- * Write a `REPO` record's own fields (Tools → Sources repository edit).
- * A cleared field removes its line; `NAME` stays the first child and `WWW`
- * follows it, the shape the site-repo creator writes.
+ * Write a `REPO` record's own fields. The address edits only the free-text
+ * lines (`ADDR` value + `CONT`), leaving any structured sub-tags (`CITY`,
+ * `CTRY`, …) the file already has in place; a pointer `NOTE` is edited inside
+ * the shared record via `notes`, matching {@link setSourceRecordFields}.
  */
-export function setRepoRecordFields(repoNode: GedNode, fields: { name?: string; url?: string }): void {
-  const set = (tag: string, value: string | undefined, position: number) => {
-    const trimmed = value?.trim();
+export function setRepoRecordFields(repoNode: GedNode, fields: EditRepoFields, notes?: SharedNoteCtx): void {
+  const set = (tag: string, value: string | undefined) => {
+    if (value === undefined) return;
+    const trimmed = value.trim();
     const existing = repoNode.children.find((c) => c.tag === tag);
     if (existing) {
       if (trimmed) existing.value = trimmed;
       else repoNode.children = repoNode.children.filter((c) => c !== existing);
     } else if (trimmed) {
-      repoNode.children.splice(position, 0, { level: repoNode.level + 1, tag, value: trimmed, children: [] });
+      insertOrdered(repoNode, { level: repoNode.level + 1, tag, value: trimmed, children: [] }, REPO_CHILD_ORDER);
     }
   };
-  set("NAME", fields.name, 0);
-  set("WWW", fields.url, repoNode.children.findIndex((c) => c.tag === "NAME") + 1);
+  set("NAME", fields.name);
+  set("PHON", fields.phone);
+  set("EMAIL", fields.email);
+  set("WWW", fields.url);
+
+  if (fields.addr !== undefined) {
+    const lines = fields.addr.split("\n").map((s) => s.trim()).filter(Boolean);
+    let addrNode = firstChild(repoNode, "ADDR");
+    if (lines.length === 0) {
+      if (addrNode) {
+        addrNode.value = undefined;
+        addrNode.children = addrNode.children.filter((c) => c.tag !== "CONT");
+        if (addrNode.children.length === 0) repoNode.children = repoNode.children.filter((c) => c !== addrNode);
+      }
+    } else {
+      if (!addrNode) {
+        addrNode = { level: repoNode.level + 1, tag: "ADDR", children: [] };
+        insertOrdered(repoNode, addrNode, REPO_CHILD_ORDER);
+      }
+      addrNode.value = lines[0];
+      addrNode.children = [
+        ...lines.slice(1).map((l) => ({ level: addrNode!.level + 1, tag: "CONT", value: l, children: [] })),
+        ...addrNode.children.filter((c) => c.tag !== "CONT"),
+      ];
+    }
+  }
+
+  if (fields.note !== undefined) {
+    const noteNode = firstChild(repoNode, "NOTE");
+    const notePtr = noteNode?.value?.trim();
+    if (noteNode && notePtr && isPointer(notePtr) && notes) {
+      if (!fields.note.trim()) {
+        repoNode.children = repoNode.children.filter((c) => c !== noteNode);
+        removeNoteRecordIfOrphaned(notes, notePtr);
+      } else {
+        setSharedNoteText(notes, notePtr, fields.note);
+      }
+    } else {
+      set("NOTE", fields.note);
+    }
+  }
+}
+
+/** Prefill for the repository editor — the same fields {@link setRepoRecordFields}
+ * writes, with a pointer `NOTE` resolved to the shared record's text and the
+ * address joined from its `ADDR`+`CONT` lines. Missing fields come back `""`
+ * so a save writes exactly what the dialog showed. */
+export function repoRecordEditFields(records: GedNode[], repoNode: GedNode): EditRepoFields {
+  const text = (tag: string) => firstChild(repoNode, tag)?.value?.trim() || "";
+  const addrNode = firstChild(repoNode, "ADDR");
+  const addr = addrNode
+    ? [addrNode.value?.trim(), ...childrenByTag(addrNode, "CONT").map((c) => c.value?.trim())].filter(Boolean).join("\n")
+    : "";
+  const noteVal = text("NOTE");
+  return {
+    name: text("NAME"),
+    addr,
+    phone: text("PHON"),
+    email: text("EMAIL"),
+    url: text("WWW"),
+    note: noteVal && isPointer(noteVal) ? getMediaAndSourceCtx(records).noteIndex.get(noteVal)?.text.trim() ?? "" : noteVal,
+  };
 }
 
 /**
@@ -244,6 +330,10 @@ export function sourceRecordEditFields(records: GedNode[], sourceNode: GedNode):
     // "" (not undefined) when there is no REPO link: the dialog's dropdown
     // shows the explicit no-repository choice and a save writes it back as-is.
     repoXref: text("REPO") ?? "",
+    repoCaln: (() => {
+      const repoLink = firstChild(sourceNode, "REPO");
+      return repoLink ? firstChild(repoLink, "CALN")?.value?.trim() ?? "" : "";
+    })(),
   };
 }
 

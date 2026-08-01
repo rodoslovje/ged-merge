@@ -10,7 +10,7 @@ import { NormalizePanel } from "./tools/NormalizePanel";
 import { PrivacyPanel } from "./tools/PrivacyPanel";
 import { SourcesPanel } from "./tools/SourcesPanel";
 import type { AddSourceResult } from "./AddSourceDialog";
-import type { EditSourceFields } from "../gedcom/edit";
+import type { EditRepoFields, EditSourceFields } from "../gedcom/edit";
 import { PlacesPanel } from "./tools/PlacesPanel";
 import type { GeoAssignment } from "../tools/geocode";
 import type { BrokenLinkRef } from "../tools/fixLinks";
@@ -40,8 +40,8 @@ interface Props {
   /** Delete an uncited `SOUR` record (and its orphaned page media) and push to
    *  the undo stack. */
   onRemoveSource: (sourceXref: string) => void;
-  /** Write a `REPO` record's name/link and push to the undo stack. */
-  onEditRepo: (repoXref: string, fields: { name?: string; url?: string }) => void;
+  /** Write a `REPO` record's fields and push to the undo stack. */
+  onEditRepo: (repoXref: string, fields: EditRepoFields) => void;
   /** True when the Tools tab is the visible mode. */
   active: boolean;
   /** Rename a place segment in the given records and push to the undo stack. */

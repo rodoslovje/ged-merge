@@ -53,7 +53,12 @@ export function createStandaloneSource(
         extraPatches.push({ type: "record", id: repo.xref!, before: null, after: cloneRaw(repo) });
       }
     }
-    if (repoXref) sourceNode.children.push({ level: 1, tag: "REPO", value: repoXref, children: [] });
+    if (repoXref) {
+      const repoLink: GedNode = { level: 1, tag: "REPO", value: repoXref, children: [] };
+      const caln = fields.repoCaln?.trim();
+      if (caln) repoLink.children.push({ level: 2, tag: "CALN", value: caln, children: [] });
+      sourceNode.children.push(repoLink);
+    }
   }
   extraPatches.push({ type: "record", id: sourceNode.xref!, before: null, after: cloneRaw(sourceNode) });
   const objeChild = firstChild(sourceNode, "OBJE");

@@ -30,6 +30,8 @@ export type AddSourceResult = NewSourceFields & {
   /** Create the recognized site's repository record and link it (the
    * dropdown's "＋ …" option). */
   repoCreateSite?: boolean;
+  /** Call number (`CALN`) written on the source's repository link. */
+  repoCaln?: string;
 };
 
 interface Props {
@@ -85,6 +87,8 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
   // The Repository dropdown: "" = none, a REPO xref, or "@create@" for the
   // recognized site's proposed new repository.
   const [repoSel, setRepoSel] = useState("");
+  // Call number (CALN) on the source's repository link.
+  const [repoCaln, setRepoCaln] = useState("");
   const [fetching, setFetching] = useState(false);
   const [fetched, setFetched] = useState<ReshapeMeta | undefined>();
   const { settings } = useSettings();
@@ -163,6 +167,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
       note: match ? "" : parsed.note ?? "",
     });
     setRepoSel(match ? "" : repoDefault?.xref ?? (repoDefault?.createName && layoutPrefersRepos ? "@create@" : ""));
+    setRepoCaln("");
   }, [editing, text, parsed, normalizedUrl, match, recognized, resolvePlace, repoDefault, layoutPrefersRepos]);
 
   // Editing an existing citation: seed directly from its current fields.
@@ -182,6 +187,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
       note: f.note ?? "",
     });
     setRepoSel(f.repoXref ?? "");
+    setRepoCaln(f.repoCaln ?? "");
   }, [editing]);
 
   // Best-effort metadata fetch for a bare URL with nothing else to go on.
@@ -258,6 +264,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
     setText("");
     setFields(EMPTY_FORM);
     setRepoSel("");
+    setRepoCaln("");
     setFetching(false);
     setFetched(undefined);
   }
@@ -292,6 +299,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
       dateRange: fetched?.dateRange ?? recognized?.proposed.dateRange,
       repoXref: repoSel === "@create@" ? undefined : repoSel,
       repoCreateSite: repoSel === "@create@" || undefined,
+      repoCaln: repoCaln.trim() || undefined,
     });
     reset();
   }
@@ -303,7 +311,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
     // (the legacy-link promote) stays undefined so the automatic site-repo
     // behavior still applies.
     const repoXref = repoSel || (editing.fields.repoXref !== undefined ? "" : undefined);
-    editing.onSave({ ...trimmedFields(fields), objeXref: editing.fields.objeXref, repoXref });
+    editing.onSave({ ...trimmedFields(fields), objeXref: editing.fields.objeXref, repoXref, repoCaln });
     reset();
   }
 
@@ -392,20 +400,28 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
           )}
           {match && !standalone && field("page", "addSource.field.page")}
           {!match && (
-            <label className="add-source-field">
-              <span>{t("addSource.field.repo")}</span>
-              <select className="edit-input" value={repoSel} onChange={(e) => setRepoSel(e.target.value)}>
-                <option value="">{t("tools.sources.noRepo")}</option>
-                {repos.map((r) => (
-                  <option key={r.xref} value={r.xref}>
-                    {r.name}
-                  </option>
-                ))}
-                {!editing && !repoDefault?.xref && repoDefault?.createName && (
-                  <option value="@create@">{t("addSource.repo.create", { name: repoDefault.createName })}</option>
-                )}
-              </select>
-            </label>
+            <div className="add-source-details-grid">
+              <label className="add-source-field">
+                <span>{t("addSource.field.repo")}</span>
+                <select className="edit-input" value={repoSel} onChange={(e) => setRepoSel(e.target.value)}>
+                  <option value="">{t("tools.sources.noRepo")}</option>
+                  {repos.map((r) => (
+                    <option key={r.xref} value={r.xref}>
+                      {r.name}
+                    </option>
+                  ))}
+                  {!editing && !repoDefault?.xref && repoDefault?.createName && (
+                    <option value="@create@">{t("addSource.repo.create", { name: repoDefault.createName })}</option>
+                  )}
+                </select>
+              </label>
+              {repoSel !== "" && (
+                <label className="add-source-field">
+                  <span>{t("addSource.field.caln")}</span>
+                  <input className="edit-input" value={repoCaln} onChange={(e) => setRepoCaln(e.target.value)} />
+                </label>
+              )}
+            </div>
           )}
           <div className="add-source-url-row">
             {field("url", "addSource.field.url")}

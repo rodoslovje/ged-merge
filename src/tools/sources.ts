@@ -258,8 +258,9 @@ export function buildSourceTree(dataset: Dataset): SourceTree {
   const repos: RepoGroup[] = [];
   for (const rec of dataset.records) {
     if (rec.tag !== "REPO" || !rec.xref) continue;
-    const sources = repoGroups.get(rec.xref);
-    if (!sources) continue;
+    // A repository holding no sources still lists (with a 0 count) — it stays
+    // visible, editable and reachable for the Add Source repository picker.
+    const sources = repoGroups.get(rec.xref) ?? [];
     const info = repoIndex.get(rec.xref);
     repos.push({ xref: rec.xref, name: info?.name, url: info?.url, tooltip: repoTooltip(rec), sources: sources.sort(byTitle) });
   }
