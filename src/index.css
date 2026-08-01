@@ -2857,6 +2857,39 @@ button:focus-visible {
 }
 .tools-media-thumb-btn:hover .tools-media-thumb { border-color: var(--accent); }
 
+/* Person-style thumbnail tray for a source's local-file media (front pages,
+   cutouts) in the Sources tree — larger tiles than the inline row marker. */
+.tools-media-tray {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 4px 0 8px;
+}
+.tools-media-tray .tools-media-thumb {
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-sm);
+}
+.tools-media-tray .tools-media-doc { font-size: 26px; }
+.tools-media-tray .tools-media-thumb-btn { position: relative; }
+/* Usage count over the tile's corner — sits on the photo itself, so the
+   scrim/text pair stays literal in both themes. */
+.tools-media-thumb-count {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  min-width: 16px;
+  padding: 0 4px;
+  border-radius: var(--radius-pill);
+  background: rgba(0, 0, 0, 0.62);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  pointer-events: none;
+}
+
 .edit-other-names {
   display: flex;
   flex-direction: column;

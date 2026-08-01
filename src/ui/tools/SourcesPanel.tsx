@@ -4,6 +4,7 @@ import { useSettings } from "../SettingsContext";
 import type { Dataset } from "../../gedcom/types";
 import { buildSourceTree, type SourceTree, type RepoGroup, type SourceEntry, type MediaEntry } from "../../tools/sources";
 import { MediaThumb, type MediaGalleryItem } from "../PersonMedia";
+import { useMediaFolder } from "../MediaFolderContext";
 import { mediaMetaRows } from "../MediaViewer";
 import { type ToolsScans } from "../useToolsScans";
 import { AddSourceDialog, type AddSourceResult } from "../AddSourceDialog";
@@ -41,11 +42,12 @@ function MediaDetails({
 }
 
 /**
- * One `TreeRow` per `MediaEntry` in a group (a source's media, or an unattached
- * bucket). The group's local-file photos form a single navigable tray: each
- * thumbnail opens the viewer on its own photo with prev/next across the
- * siblings. URL-only entries show `iconFor(m)` instead. The tray (and each
- * photo's index in it) is computed once for the whole group.
+ * A group's `MediaEntry` list (a source's media, or an unattached bucket).
+ * With the media folder loaded, the local-file photos show as a person-style
+ * thumbnail tray — front pages, cutouts — each opening the shared viewer with
+ * prev/next across the siblings and the referenced-by panel. URL pages and
+ * (without a folder) unresolvable files stay collapsible rows. The tray (and
+ * each photo's index in it) is computed once for the whole group.
  */
 function MediaRows({
   entries,
@@ -65,6 +67,7 @@ function MediaRows({
   iconFor: (m: MediaEntry) => string;
 }) {
   const { t } = useTranslation();
+  const { folderName } = useMediaFolder();
   const { items, indexOf } = useMemo(() => {
     const photos = entries.filter((m) => !m.url && m.file);
     const items: MediaGalleryItem[] = photos.map((m) => ({
@@ -78,9 +81,30 @@ function MediaRows({
     return { items, indexOf: new Map(photos.map((m, i) => [m, i] as const)) };
   }, [entries, dataset, onNavigate, t]);
 
+  // Only with a loaded folder do file entries leave the row list for the tray —
+  // without one there is nothing to render, so the titled rows stay.
+  const trayEntries = folderName ? entries.filter((m) => indexOf.has(m)) : [];
+  const rowEntries = folderName ? entries.filter((m) => !indexOf.has(m)) : entries;
+
   return (
     <>
-      {entries.map((m) => {
+      {trayEntries.length > 0 && (
+        <div className="tools-media-tray">
+          {trayEntries.map((m) => (
+            <MediaThumb
+              key={m.xref}
+              file={m.file!}
+              icon={iconFor(m)}
+              caption={m.title || m.xref}
+              gallery={items}
+              index={indexOf.get(m)!}
+              large
+              count={m.usedBy.length}
+            />
+          ))}
+        </div>
+      )}
+      {rowEntries.map((m) => {
         const photoIndex = indexOf.get(m);
         const key = rowKey(m);
         return (

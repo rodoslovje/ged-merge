@@ -345,6 +345,8 @@ export function MediaThumb({
   details,
   gallery,
   index = 0,
+  large,
+  count,
 }: {
   file: string;
   icon: string;
@@ -361,6 +363,10 @@ export function MediaThumb({
   gallery?: MediaGalleryItem[];
   /** This photo's position within `gallery`. */
   index?: number;
+  /** Person-tray-sized tile (64px) instead of the inline row marker. */
+  large?: boolean;
+  /** Usage count shown as a small overlay badge on the tile (hidden at 0). */
+  count?: number;
 }) {
   const { folderName, resolveFile } = useMediaFolder();
   const { openItems } = useMediaViewer();
@@ -405,8 +411,8 @@ export function MediaThumb({
   return (
     <button
       type="button"
-      className="tools-media-thumb-btn"
-      title={t("media.enlarge")}
+      className={`tools-media-thumb-btn${large ? " tools-media-thumb-lg" : ""}`}
+      title={caption || t("media.enlarge")}
       onClick={(e) => { e.stopPropagation(); open(); }}
     >
       {mediaKindOf(file) === "pdf" ? (
@@ -414,6 +420,7 @@ export function MediaThumb({
       ) : (
         <img src={url} className="tools-media-thumb" alt="" />
       )}
+      {count != null && count > 0 && <span className="tools-media-thumb-count">{count}</span>}
     </button>
   );
 }
