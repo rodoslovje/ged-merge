@@ -1,4 +1,5 @@
 import type { Dataset, GedNode, Individual, Sex } from "../gedcom/types";
+import { todayDate } from "../gedcom/age";
 import { birthDateOf, deathDateOf, isDeceased } from "../gedcom/lifespan";
 import { collectMediaRefs, detectMediaMode } from "../gedcom/media";
 import { clearObjeNodeCache, isPointer } from "../gedcom/source";
@@ -37,8 +38,11 @@ export type BatchCriterion =
   | { kind: "name"; text: string }
   | { kind: "sex"; value: Sex }
   | { kind: "birthYear"; from?: number; to?: number }
-  /** Age at death in whole years; only people with dated birth *and* death qualify. */
-  | { kind: "ageAtDeath"; op: "lt" | "gte"; years: number }
+  /** Age in whole years — at death for the deceased, to today for everyone
+   *  else; people without the needed date never qualify. */
+  | { kind: "age"; op: "lt" | "gte"; years: number }
+  /** `true` selects people with no death evidence in the file, `false` the deceased. */
+  | { kind: "living"; value: boolean }
   | { kind: "place"; text: string }
   /** `none`/`any` look at the person's whole media tray; `has`/`lacks` test one
    *  specific image, identified by shared-record xref and/or `FILE` value. */
@@ -48,7 +52,7 @@ export type BatchCriterion =
 
 /** Every criterion kind, for the panel's "add filter" picker. */
 export const BATCH_CRITERION_KINDS: BatchCriterion["kind"][] = [
-  "name", "sex", "birthYear", "ageAtDeath", "place", "media", "sources", "line",
+  "name", "sex", "birthYear", "age", "living", "place", "media", "sources", "line",
 ];
 
 /**
@@ -58,8 +62,9 @@ export const BATCH_CRITERION_KINDS: BatchCriterion["kind"][] = [
  */
 export interface BatchRow extends SearchRow {
   deathYear?: number;
-  /** Whole years between dated birth and death; undefined when either is undated. */
-  ageAtDeath?: number;
+  /** Whole years from dated birth to death (deceased) or to today (living);
+   *  undefined when the needed date is missing. */
+  age?: number;
   deceased: boolean;
   /** Shared media record xrefs this person's tray references (record + events). */
   mediaXrefs: string[];
@@ -68,11 +73,14 @@ export interface BatchRow extends SearchRow {
   mediaCount: number;
 }
 
-/** Whole years lived, from the structured birth/death dates (month/day-aware
- *  when both sides record them; year difference otherwise). */
-export function ageAtDeathOf(indi: Individual): number | undefined {
+/** Whole years lived — to the structured death date for the deceased, to
+ *  today for people without death evidence (month/day-aware when both sides
+ *  record them; year difference otherwise). Deliberately uncapped, unlike
+ *  `ageBetween`: an impossibly old "living" person is a finding, not noise —
+ *  it usually means a missing death record. */
+export function ageOf(indi: Individual, now: Date): number | undefined {
   const b = birthDateOf(indi);
-  const d = deathDateOf(indi);
+  const d = isDeceased(indi) ? deathDateOf(indi) : todayDate(now);
   if (b?.year === undefined || d?.year === undefined) return undefined;
   let age = d.year - b.year;
   if (b.month !== undefined && d.month !== undefined) {
@@ -87,6 +95,7 @@ export function ageAtDeathOf(indi: Individual): number | undefined {
 export function buildBatchRows(
   dataset: Dataset,
   nameOf: (indi: Individual) => string,
+  now: Date = new Date(),
 ): BatchRow[] {
   return buildSearchRows(dataset.individuals, nameOf).map((row) => {
     const indi = dataset.individuals.get(row.id)!;
@@ -95,7 +104,7 @@ export function buildBatchRows(
     return {
       ...row,
       deathYear: d?.year,
-      ageAtDeath: ageAtDeathOf(indi),
+      age: ageOf(indi, now),
       deceased: isDeceased(indi),
       mediaXrefs: refs.filter((r) => r.xref).map((r) => r.xref!),
       mediaFiles: refs.map((r) => r.file.toLowerCase()),
@@ -135,9 +144,12 @@ export function matchesBatch(row: BatchRow, criteria: BatchCriterion[], ctx: Bat
         if (c.from !== undefined && row.birthYear < c.from) return false;
         if (c.to !== undefined && row.birthYear > c.to) return false;
         break;
-      case "ageAtDeath":
-        if (row.ageAtDeath === undefined) return false;
-        if (c.op === "lt" ? row.ageAtDeath >= c.years : row.ageAtDeath < c.years) return false;
+      case "age":
+        if (row.age === undefined) return false;
+        if (c.op === "lt" ? row.age >= c.years : row.age < c.years) return false;
+        break;
+      case "living":
+        if (row.deceased === c.value) return false;
         break;
       case "place":
         if (!row.placeText.includes(foldSearch(c.text))) return false;

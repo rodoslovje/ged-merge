@@ -155,7 +155,8 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
       name: { kind: "name", text: "" },
       sex: { kind: "sex", value: "F" },
       birthYear: { kind: "birthYear" },
-      ageAtDeath: { kind: "ageAtDeath", op: "lt", years: 20 },
+      age: { kind: "age", op: "lt", years: 20 },
+      living: { kind: "living", value: true },
       place: { kind: "place", text: "" },
       media: { kind: "media", mode: "none" },
       sources: { kind: "sources", mode: "none" },
@@ -391,7 +392,9 @@ function CriterionRow({
   const { t } = useTranslation();
   return (
     <li className="batch-crit">
-      <span className="batch-crit-label">{t(`tools.batch.crit.${c.kind}`)}</span>
+      <span className="batch-crit-label" title={c.kind === "age" ? t("tools.batch.ageHint") : undefined}>
+        {t(`tools.batch.crit.${c.kind}`)}
+      </span>
       {(c.kind === "name" || c.kind === "place") && (
         <input
           className="batch-input"
@@ -428,7 +431,17 @@ function CriterionRow({
           />
         </>
       )}
-      {c.kind === "ageAtDeath" && (
+      {c.kind === "living" && (
+        <select
+          className="batch-select"
+          value={c.value ? "yes" : "no"}
+          onChange={(e) => onChange({ ...c, value: e.target.value === "yes" })}
+        >
+          <option value="yes">{t("tools.batch.living.yes")}</option>
+          <option value="no">{t("tools.batch.living.no")}</option>
+        </select>
+      )}
+      {c.kind === "age" && (
         <>
           <select className="batch-select" value={c.op} onChange={(e) => onChange({ ...c, op: e.target.value as "lt" | "gte" })}>
             <option value="lt">{t("tools.batch.age.lt")}</option>
@@ -685,12 +698,19 @@ function isSavedFilter(f: unknown): f is SavedBatchFilter {
   );
 }
 
+/** Filters saved before the age/living split called today's "age" criterion "ageAtDeath". */
+function migrateSavedFilter(f: unknown): unknown {
+  if (!f || typeof f !== "object" || !Array.isArray((f as SavedBatchFilter).criteria)) return f;
+  const s = f as SavedBatchFilter;
+  return { ...s, criteria: s.criteria.map((c) => ((c.kind as string) === "ageAtDeath" ? { ...c, kind: "age" } : c)) };
+}
+
 function loadSavedFilters(): SavedBatchFilter[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.filter(isSavedFilter) : [];
+    return Array.isArray(parsed) ? parsed.map(migrateSavedFilter).filter(isSavedFilter) : [];
   } catch {
     return [];
   }

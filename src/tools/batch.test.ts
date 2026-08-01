@@ -86,25 +86,41 @@ describe("batch criteria", () => {
 0 @I3@ INDI
 1 NAME Cilka /Zupan/
 1 SEX F
+0 @I4@ INDI
+1 NAME Davorin /Praprotnik/
+1 SEX M
+1 BIRT
+2 DATE 2 FEB 2000
 0 @O1@ OBJE
 1 FILE died-young.png
 1 TITL Died young
 0 @S1@ SOUR
 1 TITL Parish book
 0 TRLR`);
-  const rows = buildBatchRows(ds, nameOf);
+  const rows = buildBatchRows(ds, nameOf, new Date(2026, 0, 15));
   const ctx = { lineSides: null };
   const match = (criteria: BatchCriterion[]) =>
     rows.filter((r) => matchesBatch(r, criteria, ctx)).map((r) => r.id).sort();
 
   it("matches everyone on an empty criteria list", () => {
-    expect(match([])).toEqual(["@I1@", "@I2@", "@I3@"]);
+    expect(match([])).toEqual(["@I1@", "@I2@", "@I3@", "@I4@"]);
   });
 
-  it("computes month-aware age at death", () => {
-    // Died 9 days before her 19th birthday → 18, so she counts as under 20.
-    expect(match([{ kind: "ageAtDeath", op: "lt", years: 20 }])).toEqual(["@I1@"]);
-    expect(match([{ kind: "ageAtDeath", op: "gte", years: 20 }])).toEqual(["@I2@"]);
+  it("computes month-aware age — at death for the deceased, to today for the living", () => {
+    // Ana died 9 days before her 19th birthday → 18, so she counts as under 20;
+    // Davorin has no death record → 25 at the pinned "today" (15 Jan 2026).
+    expect(match([{ kind: "age", op: "lt", years: 20 }])).toEqual(["@I1@"]);
+    expect(match([{ kind: "age", op: "gte", years: 20 }])).toEqual(["@I2@", "@I4@"]);
+  });
+
+  it("filters by living status (no death evidence)", () => {
+    expect(match([{ kind: "living", value: true }])).toEqual(["@I3@", "@I4@"]);
+    expect(match([{ kind: "living", value: false }])).toEqual(["@I1@", "@I2@"]);
+    // Living with a known age: Cilka drops out — no birth date, no age.
+    expect(match([
+      { kind: "living", value: true },
+      { kind: "age", op: "gte", years: 20 },
+    ])).toEqual(["@I4@"]);
   });
 
   it("filters by name, sex, birth year and place (accent-blind)", () => {
@@ -115,23 +131,23 @@ describe("batch criteria", () => {
   });
 
   it("filters by media presence and one specific image", () => {
-    expect(match([{ kind: "media", mode: "none" }])).toEqual(["@I2@", "@I3@"]);
+    expect(match([{ kind: "media", mode: "none" }])).toEqual(["@I2@", "@I3@", "@I4@"]);
     expect(match([{ kind: "media", mode: "any" }])).toEqual(["@I1@"]);
     expect(match([{ kind: "media", mode: "has", xref: "@O1@" }])).toEqual(["@I1@"]);
     expect(match([{ kind: "media", mode: "has", file: "DIED-YOUNG.png" }])).toEqual(["@I1@"]);
-    expect(match([{ kind: "media", mode: "lacks", xref: "@O1@" }])).toEqual(["@I2@", "@I3@"]);
+    expect(match([{ kind: "media", mode: "lacks", xref: "@O1@" }])).toEqual(["@I2@", "@I3@", "@I4@"]);
   });
 
   it("filters by source presence", () => {
     expect(match([{ kind: "sources", mode: "any" }])).toEqual(["@I2@"]);
-    expect(match([{ kind: "sources", mode: "none" }])).toEqual(["@I1@", "@I3@"]);
+    expect(match([{ kind: "sources", mode: "none" }])).toEqual(["@I1@", "@I3@", "@I4@"]);
   });
 
   it("combines criteria with AND — the died-young audit", () => {
     // Has the died-young image but reached 20: nobody in this fixture.
     expect(match([
       { kind: "media", mode: "has", xref: "@O1@" },
-      { kind: "ageAtDeath", op: "gte", years: 20 },
+      { kind: "age", op: "gte", years: 20 },
     ])).toEqual([]);
   });
 });
