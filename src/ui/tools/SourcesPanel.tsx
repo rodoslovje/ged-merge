@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ChangeEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useSettings } from "../SettingsContext";
 import type { Dataset } from "../../gedcom/types";
@@ -388,7 +388,7 @@ function initialSourceOpen(tree: SourceTree): Set<string> {
   if (topCount !== 1) return open;
   if (tree.repos.length === 1) {
     const repo = tree.repos[0];
-    open.add(`r:${repo.xref ?? "none"}:0`);
+    open.add(`r:${repo.xref ?? "none"}`);
     for (const k of repoDescendants(repo)) open.add(k);
   } else if (hasLinks) {
     open.add("unattachedLinks");
@@ -501,12 +501,15 @@ export function SourcesPanel({
 
   // Refresh the containment tree after this panel's own add/edit/remove —
   // the dataset mutates in place, so the [dataset] reset never fires for it.
+  // Rebuilt in place, keeping the expanded rows and scroll position: nulling
+  // the tree instead would flash the loading state and collapse everything
+  // back to the initial view mid-work.
   const closeDialog = () => {
     setAddOpen(false);
     setEditSrc(null);
     setEditRepo(null);
   };
-  const refreshTree = () => setTree(null);
+  const refreshTree = useCallback(() => setTree(buildSourceTree(dataset)), [dataset]);
 
   // Viewer edits change the tree's labels (title/date) — refresh it after the
   // commit. The open viewer keeps its own resolved items and stays up.
@@ -544,7 +547,7 @@ export function SourcesPanel({
           }
         : {}),
     };
-  }, [editSrc, dataset, onEditSource, onRemoveSource]);
+  }, [editSrc, dataset, onEditSource, onRemoveSource, refreshTree]);
 
   // Prefill for the repository editor, read from the live record.
   const repoEditInitial = useMemo(() => {
@@ -653,8 +656,10 @@ export function SourcesPanel({
         <p className="tools-clean">{filtering ? t("tools.search.noMatch") : t("tools.sources.none")}</p>
       ) : (
         <ul className="tools-tree">
-          {filtered.tree.repos.map((repo, ri) => {
-            const repoKey = `r:${repo.xref ?? "none"}:${ri}`;
+          {filtered.tree.repos.map((repo) => {
+            // Keyed by xref alone (unique; one synthetic no-repo bucket), so a
+            // repo stays open across rebuilds even when sorting moves it.
+            const repoKey = `r:${repo.xref ?? "none"}`;
             return (
               <TreeRow
                 key={repoKey}
