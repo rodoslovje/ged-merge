@@ -5,6 +5,8 @@ import type { Dataset } from "../../gedcom/types";
 import { buildSourceTree, type SourceTree, type RepoGroup, type SourceEntry, type MediaEntry } from "../../tools/sources";
 import { MediaThumb, type MediaGalleryItem } from "../PersonMedia";
 import { useMediaFolder } from "../MediaFolderContext";
+import { isPrivateNode } from "../../gedcom/private";
+import type { MediaEditFields } from "../MediaViewer";
 import { mediaMetaRows } from "../MediaViewer";
 import { type ToolsScans } from "../useToolsScans";
 import { AddSourceDialog, type AddSourceResult } from "../AddSourceDialog";
@@ -53,6 +55,7 @@ function MediaRows({
   entries,
   dataset,
   onNavigate,
+  onEditMediaInfo,
   isOpen,
   toggle,
   rowKey,
@@ -61,6 +64,8 @@ function MediaRows({
   entries: MediaEntry[];
   dataset: Dataset;
   onNavigate: (id: string) => void;
+  /** Write edited viewer fields to the shared `OBJE` record (undoable). */
+  onEditMediaInfo: (objeXref: string, fields: MediaEditFields) => void;
   isOpen: (key: string) => boolean;
   toggle: (key: string) => void;
   rowKey: (m: MediaEntry) => string;
@@ -70,16 +75,35 @@ function MediaRows({
   const { folderName } = useMediaFolder();
   const { items, indexOf } = useMemo(() => {
     const photos = entries.filter((m) => !m.url && m.file);
-    const items: MediaGalleryItem[] = photos.map((m) => ({
-      file: m.file!,
-      title: m.title || m.xref,
-      meta: mediaMetaRows(m, t),
-      details: (close: () => void) => (
-        <MediaDetails dataset={dataset} media={m} onNavigate={(id) => { close(); onNavigate(id); }} />
-      ),
-    }));
+    const items: MediaGalleryItem[] = photos.map((m) => {
+      const rec = dataset.records.find((r) => r.tag === "OBJE" && r.xref === m.xref);
+      return {
+        file: m.file!,
+        title: m.title || m.xref,
+        // The editor's inputs replace the static rows (same as the Edit view).
+        meta: rec ? undefined : mediaMetaRows(m, t),
+        details: (close: () => void) => (
+          <MediaDetails dataset={dataset} media={m} onNavigate={(id) => { close(); onNavigate(id); }} />
+        ),
+        // The same editable info panel the Edit view offers, committed to the
+        // shared OBJE record through the tools undo flow.
+        edit: rec
+          ? {
+              file: m.file!,
+              initial: {
+                title: m.title ?? "",
+                date: m.date ?? "",
+                place: m.place ?? "",
+                description: m.description ?? "",
+                private: isPrivateNode(rec),
+              },
+              onSave: (fields: MediaEditFields) => onEditMediaInfo(m.xref, fields),
+            }
+          : undefined,
+      };
+    });
     return { items, indexOf: new Map(photos.map((m, i) => [m, i] as const)) };
-  }, [entries, dataset, onNavigate, t]);
+  }, [entries, dataset, onNavigate, onEditMediaInfo, t]);
 
   // Only with a loaded folder do file entries leave the row list for the tray —
   // without one there is nothing to render, so the titled rows stay.
@@ -351,6 +375,7 @@ export function SourcesPanel({
   onEditSource,
   onRemoveSource,
   onEditRepo,
+  onEditMediaInfo,
   active,
 }: {
   dataset: Dataset;
@@ -366,6 +391,9 @@ export function SourcesPanel({
   onRemoveSource: (sourceXref: string) => void;
   /** Write a `REPO` record's fields — an undoable whole-file edit. */
   onEditRepo: (repoXref: string, fields: EditRepoFields) => void;
+  /** Write the viewer-edited fields of a shared `OBJE` record — an undoable
+   * whole-file edit. */
+  onEditMediaInfo: (objeXref: string, fields: MediaEditFields) => void;
   active: boolean;
 }) {
   const { t } = useTranslation();
@@ -447,6 +475,13 @@ export function SourcesPanel({
     setEditRepo(null);
   };
   const refreshTree = () => setTree(null);
+
+  // Viewer edits change the tree's labels (title/date) — refresh it after the
+  // commit. The open viewer keeps its own resolved items and stays up.
+  const editMediaInfo = (objeXref: string, fields: MediaEditFields) => {
+    onEditMediaInfo(objeXref, fields);
+    refreshTree();
+  };
 
   // Memoized so the dialog's prefill effect fires once per opened source, not
   // on every panel render (a fresh `editing` object would clobber typing).
@@ -538,6 +573,7 @@ export function SourcesPanel({
             entries={entries}
             dataset={dataset}
             onNavigate={onNavigate}
+            onEditMediaInfo={editMediaInfo}
             isOpen={isOpen}
             toggle={toggle}
             rowKey={(m) => `${key}:${m.xref}`}
@@ -645,6 +681,7 @@ export function SourcesPanel({
                           entries={src.media}
                           dataset={dataset}
                           onNavigate={onNavigate}
+                          onEditMediaInfo={editMediaInfo}
                           isOpen={isOpen}
                           toggle={toggle}
                           rowKey={(m) => `m:${m.xref}`}

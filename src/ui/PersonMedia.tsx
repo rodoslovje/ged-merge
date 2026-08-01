@@ -330,6 +330,8 @@ export interface MediaGalleryItem {
   title?: string;
   meta?: MediaItem["meta"];
   details?: MediaItem["details"];
+  /** When set, the viewer's info panel offers editing the media's fields. */
+  edit?: MediaItem["edit"];
 }
 
 /** Inline media marker used in the Sources tree: renders the resolved local
@@ -399,6 +401,7 @@ export function MediaThumb({
           title: gallery[i].title,
           meta: gallery[i].meta,
           details: gallery[i].details,
+          edit: gallery[i].edit,
         });
       }
       openItems(items, start);

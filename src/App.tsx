@@ -14,8 +14,8 @@ import { useTranslation } from "react-i18next";
 import type { Dataset, GedNode } from "./gedcom/types";
 import { cloneNode, nodeFingerprint } from "./gedcom/node";
 import { buildDataset } from "./gedcom/builder";
-import { rebuildIndividual, rebuildFamily, removeIndividual, removeFamily, noteCtx, rebuildNoteReferrers, pruneUnreferencedSource, setSourceRecordFields, setRepoRecordFields, type SharedNoteCtx } from "./gedcom/edit";
-import { detectPrivacyStyle } from "./gedcom/private";
+import { rebuildIndividual, rebuildFamily, removeIndividual, removeFamily, noteCtx, rebuildNoteReferrers, pruneUnreferencedSource, setSourceRecordFields, setRepoRecordFields, setMediaInfo, bumpSourceCacheVersion, type SharedNoteCtx } from "./gedcom/edit";
+import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "./gedcom/private";
 import { downloadOptions, ensureUtf8Charset, serializeGedcom } from "./gedcom/serialize";
 import { formatReport, type ImportBranchRequest } from "./merge/merge";
 import { buildEditSaveRecords } from "./merge/editSaveRecords";
@@ -1931,6 +1931,15 @@ function AppContent() {
                 applySharedRecordEdit((records, notes) => {
                   const node = records.find((r) => r.tag === "REPO" && r.xref === repoXref);
                   if (node) setRepoRecordFields(node, fields, notes);
+                })
+              }
+              onEditMediaInfo={(objeXref, fields) =>
+                applySharedRecordEdit((records) => {
+                  const node = records.find((r) => r.tag === "OBJE" && r.xref === objeXref);
+                  if (!node) return;
+                  setMediaInfo(node, fields);
+                  if (isPrivateNode(node) !== fields.private) setPrivateFlag(node, fields.private, detectPrivacyStyle(records), records);
+                  bumpSourceCacheVersion(records);
                 })
               }
               onApplyPlaceRename={(from, to, scope) => { applyToolPatches(applyPlaceRename(mainDataset, from, to, scope)); }}
