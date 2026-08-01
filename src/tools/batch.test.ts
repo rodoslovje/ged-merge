@@ -215,6 +215,37 @@ describe("computeKinship", () => {
 });
 
 describe("applyBatchAction", () => {
+  it("marks people deceased with an undated DEAT Y, skipping death evidence", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME A //
+1 DEAT
+2 DATE 1900
+0 @I2@ INDI
+1 NAME B //
+1 BIRT
+2 DATE 1850
+0 @I3@ INDI
+1 NAME C //
+1 BURI
+0 TRLR`);
+    const res = applyBatchAction(ds, ["@I1@", "@I2@", "@I3@"], { kind: "markDeceased" });
+    expect(res.changed).toBe(1);
+    expect(res.skipped).toBe(2);
+    expect(res.patches.map((p) => p.id)).toEqual(["@I2@"]);
+    const raw = ds.individuals.get("@I2@")!.raw;
+    const deat = raw.children.find((c) => c.tag === "DEAT")!;
+    expect(deat.value).toBe("Y");
+    expect(deat.children).toEqual([]); // undated
+    const tags = raw.children.map((c) => c.tag);
+    expect(tags.indexOf("BIRT")).toBeLessThan(tags.indexOf("DEAT")); // canonical order
+    // Re-running is a no-op: everyone now carries death evidence.
+    const again = applyBatchAction(ds, ["@I1@", "@I2@", "@I3@"], { kind: "markDeceased" });
+    expect(again.changed).toBe(0);
+    expect(again.patches).toEqual([]);
+  });
+
   it("attaches an existing shared image as a pointer and skips holders", () => {
     const ds = dataset(`0 HEAD
 1 CHAR UTF-8

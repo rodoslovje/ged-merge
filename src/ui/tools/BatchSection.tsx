@@ -188,7 +188,9 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
       ? !!(action.xref || action.file.trim())
       : action.kind === "addSource"
         ? !!(action.xref || action.title?.trim())
-        : !!(action.xref || action.file?.trim()));
+        : action.kind === "markDeceased"
+          ? true
+          : !!(action.xref || action.file?.trim()));
 
   function apply() {
     if (!action || !actionReady || targets.length === 0) return;
@@ -617,11 +619,12 @@ function ActionEditor({
     addMedia: { kind: "addMedia", file: "" },
     addSource: { kind: "addSource" },
     removeMedia: { kind: "removeMedia" },
+    markDeceased: { kind: "markDeceased" },
   };
   // For addMedia, an empty file with a (possibly empty) title marks the
   // "new image" choice — picking an existing option clears the title again.
   const mediaPick =
-    action && action.kind !== "addSource"
+    action && (action.kind === "addMedia" || action.kind === "removeMedia")
       ? action.xref || action.file
         ? mediaPickValue(action, mediaOptions)
         : action.kind === "addMedia" && action.title !== undefined

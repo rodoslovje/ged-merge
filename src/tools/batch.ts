@@ -1,6 +1,7 @@
 import type { Dataset, GedNode, Individual, Sex } from "../gedcom/types";
 import { todayDate } from "../gedcom/age";
-import { birthDateOf, deathDateOf, isDeceased } from "../gedcom/lifespan";
+import { DEATH_TAGS, birthDateOf, deathDateOf, isDeceased } from "../gedcom/lifespan";
+import { addEventNode } from "../gedcom/edit/events";
 import { collectMediaRefs, detectMediaMode } from "../gedcom/media";
 import { clearObjeNodeCache, isPointer } from "../gedcom/source";
 import { bumpSourceCacheVersion } from "../gedcom/edit/cache";
@@ -335,9 +336,14 @@ export type BatchActionSpec =
   | { kind: "addSource"; xref?: string; title?: string; page?: string }
   /** Remove every reference to one image (by xref and/or file) from the person
    *  record and its events. The shared media record itself is kept. */
-  | { kind: "removeMedia"; xref?: string; file?: string };
+  | { kind: "removeMedia"; xref?: string; file?: string }
+  /** Add an undated death (`1 DEAT Y` — death asserted, no details). People
+   *  already carrying death evidence (death/burial/cremation) are skipped. */
+  | { kind: "markDeceased" };
 
-export const BATCH_ACTION_KINDS: BatchActionSpec["kind"][] = ["addMedia", "addSource", "removeMedia"];
+export const BATCH_ACTION_KINDS: BatchActionSpec["kind"][] = [
+  "addMedia", "addSource", "removeMedia", "markDeceased",
+];
 
 export interface BatchApplyResult {
   /** Undo-stack patches for every record the action changed or created. */
@@ -362,7 +368,30 @@ export function applyBatchAction(ds: Dataset, ids: string[], action: BatchAction
       return addSourceBatch(ds, ids, action);
     case "removeMedia":
       return removeMediaBatch(ds, ids, action);
+    case "markDeceased":
+      return markDeceasedBatch(ds, ids);
   }
+}
+
+/** Add `1 DEAT Y` in canonical position to everyone without death evidence;
+ *  the already-deceased are skipped, so re-running is a no-op. */
+function markDeceasedBatch(ds: Dataset, ids: string[]): BatchApplyResult {
+  const snap = snapshotRecords(ds, ids, []);
+  let changed = 0;
+  let skipped = 0;
+  for (const id of ids) {
+    const indi = ds.individuals.get(id);
+    if (!indi) continue;
+    if (indi.raw.children.some((c) => (DEATH_TAGS as readonly string[]).includes(c.tag))) {
+      skipped++;
+      continue;
+    }
+    addEventNode(indi, "DEAT");
+    const deat = indi.raw.children.filter((c) => c.tag === "DEAT").pop()!;
+    deat.value = "Y";
+    changed++;
+  }
+  return { patches: changed > 0 ? patchesFromSnapshots(ds, snap) : [], changed, skipped };
 }
 
 function addMediaBatch(

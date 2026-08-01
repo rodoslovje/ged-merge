@@ -3,7 +3,7 @@ import type { Dataset, GedDate, Individual } from "./types";
 /** Birth proxies, in order of preference (birth, else baptism/christening). */
 const BIRTH_TAGS = ["BIRT", "BAPM", "CHR"] as const;
 /** Events that mark a person as deceased (used when no death year is recorded). */
-const DEATH_TAGS = ["DEAT", "BURI", "CREM"] as const;
+export const DEATH_TAGS = ["DEAT", "BURI", "CREM"] as const;
 
 /** The birth year — birth, else baptism/christening as a proxy — if any. */
 export function birthYear(indi: Individual | undefined): number | undefined {

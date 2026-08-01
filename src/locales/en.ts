@@ -291,6 +291,7 @@ export const en = {
   "tools.batch.action.addMedia": "Attach media",
   "tools.batch.action.addSource": "Add source citation",
   "tools.batch.action.removeMedia": "Remove media",
+  "tools.batch.action.markDeceased": "Mark as deceased (death without date)",
   "tools.batch.pickMedia": "Choose an image…",
   "tools.batch.newMedia": "New image…",
   "tools.batch.filePlaceholder": "File name or URL",

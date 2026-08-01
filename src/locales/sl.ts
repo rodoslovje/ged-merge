@@ -340,6 +340,7 @@ export const sl = {
   "tools.batch.action.addMedia": "Pripni medij",
   "tools.batch.action.addSource": "Dodaj navedbo vira",
   "tools.batch.action.removeMedia": "Odstrani medij",
+  "tools.batch.action.markDeceased": "Označi kot umrle (smrt brez datuma)",
   "tools.batch.pickMedia": "Izberite sliko …",
   "tools.batch.newMedia": "Nova slika …",
   "tools.batch.filePlaceholder": "Ime datoteke ali URL",
