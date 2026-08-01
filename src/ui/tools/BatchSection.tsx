@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset, Sex } from "../../gedcom/types";
 import { firstChild } from "../../gedcom/node";
@@ -70,14 +70,12 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
   const { t } = useTranslation();
   const nameOf = useNameOf();
 
-  // Rows rebuild when the file content moves. Deliberately no dependency
-  // array: any re-render while visible (tab return, an undo/redo elsewhere,
-  // this panel's own apply) re-reads the version counter, and the state
-  // update bails out when nothing changed.
+  // Rows rebuild when the file content moves: any render while visible (tab
+  // return, an undo/redo elsewhere, this panel's own apply) re-reads the
+  // version counter, adjusting state during render per the React pattern —
+  // guarded so it only fires when the version actually moved.
   const [ver, setVer] = useState(() => editVersionRef.current);
-  useEffect(() => {
-    if (active) setVer(editVersionRef.current);
-  });
+  if (active && ver !== editVersionRef.current) setVer(editVersionRef.current);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps -- ver stands in for in-place dataset edits
   const rows = useMemo(() => buildBatchRows(dataset, nameOf), [dataset, nameOf, ver]);
