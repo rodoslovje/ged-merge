@@ -8,6 +8,7 @@ import {
   computeKinship,
   computeLineSides,
   matchesBatch,
+  previewBirthEstimates,
   type BatchCriterion,
   type KinshipSets,
 } from "./batch";
@@ -372,7 +373,15 @@ describe("applyBatchAction", () => {
 1 CHIL @C4@
 1 CHIL @C5@
 0 TRLR`);
-    const res = applyBatchAction(ds, ["@C1@", "@C2@", "@C3@", "@C4@", "@C5@", "@P1@"], { kind: "estimateBirth" });
+    const ids = ["@C1@", "@C2@", "@C3@", "@C4@", "@C5@", "@P1@"];
+    // The preview is a pure dry-run: it reports the exact years the action
+    // then writes, and dated @D1@ (queried too) gets no entry.
+    const preview = previewBirthEstimates(ds, [...ids, "@D1@"]);
+    expect(Object.fromEntries(preview)).toEqual({
+      "@C1@": 1879, "@C2@": 1880, "@C3@": 1881, "@C4@": 1883, "@C5@": 1884, "@P1@": 1855,
+    });
+    expect(ds.individuals.get("@C1@")!.raw.children.some((c) => c.tag === "BIRT")).toBe(false);
+    const res = applyBatchAction(ds, ids, { kind: "estimateBirth" });
     expect(res.changed).toBe(6);
     expect(res.skipped).toBe(0);
     const abtOf = (id: string) =>

@@ -12,6 +12,7 @@ import {
   computeKinship,
   computeLineSides,
   matchesBatch,
+  previewBirthEstimates,
   BATCH_ACTION_KINDS,
   BATCH_CRITERION_KINDS,
   type BatchActionSpec,
@@ -158,6 +159,15 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
     return list.sort((a, b) => a.title.localeCompare(b.title));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- ver stands in for in-place dataset edits
   }, [dataset, ver]);
+
+  /** Per-row preview of the estimate action: the year each checked person
+   *  would get (no entry = would be skipped). Recomputed when the selection
+   *  changes — unchecking a sibling re-spaces the others, as applying would. */
+  const estimatePreview = useMemo(
+    () => (action?.kind === "estimateBirth" ? previewBirthEstimates(dataset, targets.map((r) => r.id)) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- ver stands in for in-place dataset edits
+    [action?.kind, dataset, targets, ver],
+  );
 
   const virtual = useVirtualList({ count: results.length, estimate: 30, itemsKey: results });
 
@@ -363,6 +373,13 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
                   }}
                 />
                 <PersonLink dataset={dataset} id={r.id} fallback={r.name} onNavigate={onNavigate} />
+                {estimatePreview && !excluded.has(r.id) && (
+                  <span className={`batch-preview ${estimatePreview.has(r.id) ? "" : "batch-preview-skip"}`}>
+                    {estimatePreview.has(r.id)
+                      ? `→ ABT ${estimatePreview.get(r.id)}`
+                      : t("tools.batch.previewSkip")}
+                  </span>
+                )}
                 {kin && (
                   <span className={`global-search-kin ${lineageClass(kinshipResolver!.lineage(r.id))}`}>{kin}</span>
                 )}

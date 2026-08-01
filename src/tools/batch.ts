@@ -467,9 +467,6 @@ function markDeceasedBatch(ds: Dataset, ids: string[]): BatchApplyResult {
   return { patches: changed > 0 ? patchesFromSnapshots(ds, snap) : [], changed, skipped };
 }
 
-/** Write `BIRT` → `DATE ABT <estimated year>` for everyone without any dated
- *  birth-proxy event (see the {@link BatchActionSpec} member). All estimates
- *  are derived from the pre-run state first, then written — no chaining. */
 /** Rounding grain for batch birth estimates — a guess on a multiple of 5
  *  (ABT 1880, not ABT 1878) reads as the approximation it is. */
 const ESTIMATE_ROUND = 5;
@@ -478,7 +475,14 @@ const SIBLING_STEP = 1;
 
 const roundEstimate = (y: number) => Math.round(y / ESTIMATE_ROUND) * ESTIMATE_ROUND;
 
-function estimateBirthBatch(ds: Dataset, ids: string[]): BatchApplyResult {
+/**
+ * The years the estimate action would write, keyed by person id — people it
+ * would skip (already dated, or nothing to estimate from) get no entry. Pure
+ * dry-run of {@link estimateBirthBatch}'s computation, shared with the panel's
+ * per-row preview. Note the result depends on the whole `ids` selection, not
+ * just the person: sibling spreading spaces the selected siblings out.
+ */
+export function previewBirthEstimates(ds: Dataset, ids: string[]): Map<string, number> {
   // Rounded to the nearest 5 years: a 28-year generation offset would land
   // on oddly specific years (ABT 1878) that read like computed-from-a-record
   // precision; ABT 1880 looks like the rough guess it is.
@@ -486,16 +490,12 @@ function estimateBirthBatch(ds: Dataset, ids: string[]): BatchApplyResult {
   /** Parent-derived estimates, grouped by the family the person is a child of —
    *  these all share one number, so they take the sibling pass below. */
   const parentDerived = new Map<string, string[]>();
-  let skipped = 0;
   for (const id of ids) {
     const indi = ds.individuals.get(id);
     if (!indi) continue;
     // Any recorded birth/baptism date — even one without a parseable year —
     // is the researcher's data; never overwrite it with an estimate.
-    if (birthYear(indi) !== undefined || birthDateText(indi) !== undefined) {
-      skipped++;
-      continue;
-    }
+    if (birthYear(indi) !== undefined || birthDateText(indi) !== undefined) continue;
     const est = estimateBirthYear(indi, ds);
     if (est) estimates.set(id, roundEstimate(est.estimatedYear));
     if (est && est.relation !== "father" && est.relation !== "mother") continue;
@@ -512,7 +512,6 @@ function estimateBirthBatch(ds: Dataset, ids: string[]): BatchApplyResult {
           (ds.families.get(fid)?.children ?? []).some((cid) => birthYear(ds.individuals.get(cid)) !== undefined),
         );
     if (famId) parentDerived.set(famId, [...(parentDerived.get(famId) ?? []), id]);
-    else if (!est) skipped++;
   }
   // Sibling pass: undated children of one couple would otherwise all get the
   // identical parent+generation guess. Children are taken in the order the
@@ -549,6 +548,15 @@ function estimateBirthBatch(ds: Dataset, ids: string[]): BatchApplyResult {
       prev = y;
     }
   }
+  return estimates;
+}
+
+/** Write `BIRT` → `DATE ABT <estimated year>` for everyone without any dated
+ *  birth-proxy event (see the {@link BatchActionSpec} member). All estimates
+ *  are derived from the pre-run state first, then written — no chaining. */
+function estimateBirthBatch(ds: Dataset, ids: string[]): BatchApplyResult {
+  const estimates = previewBirthEstimates(ds, ids);
+  const skipped = ids.filter((id) => ds.individuals.has(id) && !estimates.has(id)).length;
   const snap = snapshotRecords(ds, [...estimates.keys()], []);
   for (const [id, year] of estimates) {
     const indi = ds.individuals.get(id)!;
