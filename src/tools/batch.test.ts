@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import {
+  ANY_VENDOR_EVENT,
   applyBatchAction,
   buildBatchRows,
   computeKinship,
@@ -100,6 +101,7 @@ describe("batch criteria", () => {
 1 SEX M
 1 BIRT
 2 DATE 2 FEB 2000
+1 _MILT army
 0 @O1@ OBJE
 1 FILE died-young.png
 1 TITL Died young
@@ -164,6 +166,11 @@ describe("batch criteria", () => {
     expect(match([{ kind: "event", tag: "DEAT", mode: "lacks" }])).toEqual(["@I3@", "@I4@"]);
     expect(match([{ kind: "event", tag: "OCCU", mode: "has" }])).toEqual(["@I2@"]);
     expect(match([{ kind: "event", tag: "OCCU", mode: "lacks" }])).toEqual(["@I1@", "@I3@", "@I4@"]);
+  });
+
+  it("matches any non-standard event via the sentinel tag", () => {
+    expect(match([{ kind: "event", tag: ANY_VENDOR_EVENT, mode: "has" }])).toEqual(["@I4@"]);
+    expect(match([{ kind: "event", tag: ANY_VENDOR_EVENT, mode: "lacks" }])).toEqual(["@I1@", "@I2@", "@I3@"]);
   });
 
   it("combines criteria with AND — the died-young audit", () => {
@@ -251,6 +258,42 @@ describe("applyBatchAction", () => {
     const again = applyBatchAction(ds, ["@I1@", "@I2@", "@I3@"], { kind: "markDeceased" });
     expect(again.changed).toBe(0);
     expect(again.patches).toEqual([]);
+  });
+
+  it("converts vendor events to a named EVEN, keeping the substructure", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME A //
+1 _FNRL
+2 DATE 1 JAN 1900
+2 PLAC Kranj
+0 @I2@ INDI
+1 NAME B //
+1 _INTE
+2 DATE 1950
+0 TRLR`);
+    const res = applyBatchAction(ds, ["@I1@", "@I2@"], {
+      kind: "convertEvent", fromTag: "_FNRL", toTag: "EVEN", type: "Funeral",
+    });
+    expect(res.changed).toBe(1);
+    expect(res.skipped).toBe(1); // @I2@ has no _FNRL
+    const even = ds.individuals.get("@I1@")!.raw.children.find((c) => c.tag === "EVEN")!;
+    expect(even.children.map((c) => [c.tag, c.value])).toEqual([
+      ["TYPE", "Funeral"],
+      ["DATE", "1 JAN 1900"],
+      ["PLAC", "Kranj"],
+    ]);
+    // Re-running finds nothing left to convert.
+    const again = applyBatchAction(ds, ["@I1@", "@I2@"], {
+      kind: "convertEvent", fromTag: "_FNRL", toTag: "EVEN", type: "Funeral",
+    });
+    expect(again.changed).toBe(0);
+
+    // Standard targets take no TYPE — the tag itself is the name.
+    applyBatchAction(ds, ["@I2@"], { kind: "convertEvent", fromTag: "_INTE", toTag: "BURI", type: "x" });
+    const buri = ds.individuals.get("@I2@")!.raw.children.find((c) => c.tag === "BURI")!;
+    expect(buri.children.map((c) => c.tag)).toEqual(["DATE"]);
   });
 
   it("attaches an existing shared image as a pointer and skips holders", () => {

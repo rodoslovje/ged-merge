@@ -4,7 +4,9 @@ import type { Dataset, Sex } from "../../gedcom/types";
 import { firstChild } from "../../gedcom/node";
 import { collectLocalMediaFiles } from "../../tools/mediaFiles";
 import { INDI_EVENT_TAG_ORDER, eventDisplayLabel } from "../../gedcom/eventTags";
+import { INDIVIDUAL_EVENT_GROUPS } from "../edit/editConstants";
 import {
+  ANY_VENDOR_EVENT,
   applyBatchAction,
   buildBatchRows,
   computeKinship,
@@ -100,6 +102,8 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
     for (const r of rows) for (const tag of r.eventTags) present.add(tag);
     return INDI_EVENT_TAG_ORDER.filter((tag) => present.has(tag));
   }, [rows]);
+  /** Non-standard tags the file actually uses — the convert action's sources. */
+  const vendorEventOptions = useMemo(() => eventOptions.filter((tag) => tag.startsWith("_")), [eventOptions]);
 
   const [criteria, setCriteria] = useState<BatchCriterion[]>([]);
   const [action, setAction] = useState<BatchActionSpec | null>(null);
@@ -190,7 +194,9 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
         ? !!(action.xref || action.title?.trim())
         : action.kind === "markDeceased"
           ? true
-          : !!(action.xref || action.file?.trim()));
+          : action.kind === "convertEvent"
+            ? !!(action.fromTag && action.toTag && action.fromTag !== action.toTag)
+            : !!(action.xref || action.file?.trim()));
 
   function apply() {
     if (!action || !actionReady || targets.length === 0) return;
@@ -238,6 +244,7 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
     }
     const a = f.action;
     if (a?.kind === "removeMedia" && !mediaExists(a.xref, a.file)) return false;
+    if (a?.kind === "convertEvent" && !vendorEventOptions.includes(a.fromTag)) return false;
     if (a?.kind === "addSource" && a.xref && !a.title && !sourceOptions.some((s) => s.xref === a.xref)) return false;
     return true;
   }
@@ -357,6 +364,7 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
           action={action}
           mediaOptions={mediaOptions}
           sourceOptions={sourceOptions}
+          vendorEventOptions={vendorEventOptions}
           onChange={changeAction}
         />
         {done && <p className="batch-done">{t("tools.batch.done", done)}</p>}
@@ -480,11 +488,15 @@ function CriterionRow({
             <option value="has">{t("tools.batch.event.has")}</option>
           </select>
           <select className="batch-select" value={c.tag} onChange={(e) => onChange({ ...c, tag: e.target.value })}>
-            {(eventOptions.includes(c.tag) ? eventOptions : [c.tag, ...eventOptions]).map((tag) => (
+            {(c.tag === ANY_VENDOR_EVENT || eventOptions.includes(c.tag)
+              ? eventOptions
+              : [c.tag, ...eventOptions]
+            ).map((tag) => (
               <option key={tag} value={tag}>
                 {eventDisplayLabel(tag, t)}
               </option>
             ))}
+            <option value={ANY_VENDOR_EVENT}>{t("tools.batch.event.anyVendor")}</option>
           </select>
         </>
       )}
@@ -620,19 +632,26 @@ function ActionEditor({
   action,
   mediaOptions,
   sourceOptions,
+  vendorEventOptions,
   onChange,
 }: {
   action: BatchActionSpec | null;
   mediaOptions: MediaOption[];
   sourceOptions: Array<{ xref: string; title: string }>;
+  /** Non-standard event tags present in the file — the convert action's sources. */
+  vendorEventOptions: string[];
   onChange: (next: BatchActionSpec | null) => void;
 }) {
   const { t } = useTranslation();
+  /** The natural TYPE for a converted vendor event: its localized name. */
+  const typeFor = (tag: string) => t(`event.${tag}`, { defaultValue: "" });
+  const firstVendor = vendorEventOptions[0] ?? "";
   const fresh: Record<BatchActionSpec["kind"], BatchActionSpec> = {
     addMedia: { kind: "addMedia", file: "" },
     addSource: { kind: "addSource" },
     removeMedia: { kind: "removeMedia" },
     markDeceased: { kind: "markDeceased" },
+    convertEvent: { kind: "convertEvent", fromTag: firstVendor, toTag: "EVEN", type: typeFor(firstVendor) },
   };
   // For addMedia, an empty file with a (possibly empty) title marks the
   // "new image" choice — picking an existing option clears the title again.
@@ -739,6 +758,50 @@ function ActionEditor({
           options={mediaOptions}
           onPick={(o) => onChange({ ...action, xref: o.xref, file: o.file })}
         />
+      )}
+
+      {action?.kind === "convertEvent" && (
+        <>
+          <select
+            className="batch-select"
+            value={action.fromTag}
+            onChange={(e) => {
+              const v = e.target.value;
+              const named = action.toTag === "EVEN" || action.toTag === "FACT";
+              onChange({ ...action, fromTag: v, type: named ? typeFor(v) : action.type });
+            }}
+          >
+            {vendorEventOptions.map((tag) => (
+              <option key={tag} value={tag}>{eventDisplayLabel(tag, t)}</option>
+            ))}
+          </select>
+          <span className="batch-sep">→</span>
+          <select
+            className="batch-select"
+            value={action.toTag}
+            onChange={(e) => {
+              const v = e.target.value;
+              const named = v === "EVEN" || v === "FACT";
+              onChange({ ...action, toTag: v, type: named ? action.type?.trim() || typeFor(action.fromTag) : undefined });
+            }}
+          >
+            {INDIVIDUAL_EVENT_GROUPS.map((g) => (
+              <optgroup key={g.labelKey} label={t(g.labelKey)}>
+                {g.tags.map((tag) => (
+                  <option key={tag} value={tag}>{eventDisplayLabel(tag, t)}</option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+          {(action.toTag === "EVEN" || action.toTag === "FACT") && (
+            <input
+              className="batch-input"
+              placeholder={t("tools.batch.typePlaceholder")}
+              value={action.type ?? ""}
+              onChange={(e) => onChange({ ...action, type: e.target.value })}
+            />
+          )}
+        </>
       )}
     </div>
   );

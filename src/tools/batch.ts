@@ -12,7 +12,7 @@ import {
   createMediaRecord,
   findSharedMediaByFile,
 } from "../gedcom/edit/media";
-import { INDI_CHILD_ORDER, insertOrdered, insertRecord, nextXref } from "../gedcom/edit/shared";
+import { INDI_CHILD_ORDER, insertOrdered, insertRecord, markEventTouched, nextXref } from "../gedcom/edit/shared";
 import { buildSearchRows, foldSearch, type SearchRow } from "../ui/globalSearch";
 import { cloneRaw, patchesFromSnapshots, snapshotRecords, type RecordPatch } from "../ui/historyTypes";
 
@@ -47,7 +47,8 @@ export type BatchCriterion =
   /** `true` selects people with no death evidence in the file, `false` the deceased. */
   | { kind: "living"; value: boolean }
   /** Presence of one event/attribute on the person, by its GEDCOM tag —
-   *  `lacks BIRT` finds everyone without a birth record. */
+   *  `lacks BIRT` finds everyone without a birth record. The sentinel
+   *  {@link ANY_VENDOR_EVENT} tag matches any non-standard (`_`) event. */
   | { kind: "event"; tag: string; mode: "has" | "lacks" }
   /** Blood-line relationship to the start person (see {@link computeKinship}). */
   | { kind: "kinship"; rel: "ancestor" | "descendant" | "blood" | "notBlood" }
@@ -57,6 +58,9 @@ export type BatchCriterion =
   | { kind: "media"; mode: "none" | "any" | "has" | "lacks"; xref?: string; file?: string }
   | { kind: "sources"; mode: "none" | "any" }
   | { kind: "line"; side: LineSide };
+
+/** Sentinel `tag` for the event criterion: any non-standard (`_`) event. */
+export const ANY_VENDOR_EVENT = "_*";
 
 /** Every criterion kind, for the panel's "add filter" picker. */
 export const BATCH_CRITERION_KINDS: BatchCriterion["kind"][] = [
@@ -225,9 +229,14 @@ export function matchesBatch(row: BatchRow, criteria: BatchCriterion[], ctx: Bat
       case "living":
         if (row.deceased === c.value) return false;
         break;
-      case "event":
-        if (c.mode === "has" ? !row.eventTags.includes(c.tag) : row.eventTags.includes(c.tag)) return false;
+      case "event": {
+        const has =
+          c.tag === ANY_VENDOR_EVENT
+            ? row.eventTags.some((tg) => tg.startsWith("_"))
+            : row.eventTags.includes(c.tag);
+        if (c.mode === "has" ? !has : has) return false;
         break;
+      }
       case "kinship": {
         const k = ctx.kinship;
         if (!k) return false;
@@ -348,10 +357,15 @@ export type BatchActionSpec =
   | { kind: "removeMedia"; xref?: string; file?: string }
   /** Add an undated death (`1 DEAT Y` — death asserted, no details). People
    *  already carrying death evidence (death/burial/cremation) are skipped. */
-  | { kind: "markDeceased" };
+  | { kind: "markDeceased" }
+  /** Re-tag every `fromTag` event to `toTag`, keeping the whole substructure
+   *  (dates, places, sources) and any line value. When the target is a generic
+   *  `EVEN`/`FACT`, `type` writes its `TYPE` name (unless one exists already).
+   *  People without a `fromTag` event are skipped. */
+  | { kind: "convertEvent"; fromTag: string; toTag: string; type?: string };
 
 export const BATCH_ACTION_KINDS: BatchActionSpec["kind"][] = [
-  "addMedia", "addSource", "removeMedia", "markDeceased",
+  "addMedia", "addSource", "removeMedia", "markDeceased", "convertEvent",
 ];
 
 export interface BatchApplyResult {
@@ -379,7 +393,41 @@ export function applyBatchAction(ds: Dataset, ids: string[], action: BatchAction
       return removeMediaBatch(ds, ids, action);
     case "markDeceased":
       return markDeceasedBatch(ds, ids);
+    case "convertEvent":
+      return convertEventBatch(ds, ids, action);
   }
+}
+
+/** Re-tag `fromTag` events to `toTag` (see the {@link BatchActionSpec} member). */
+function convertEventBatch(
+  ds: Dataset,
+  ids: string[],
+  action: { fromTag: string; toTag: string; type?: string },
+): BatchApplyResult {
+  const { fromTag, toTag } = action;
+  if (!fromTag || !toTag || fromTag === toTag) return { patches: [], changed: 0, skipped: ids.length };
+  const snap = snapshotRecords(ds, ids, []);
+  const type = action.type?.trim();
+  let changed = 0;
+  let skipped = 0;
+  for (const id of ids) {
+    const indi = ds.individuals.get(id);
+    if (!indi) continue;
+    const nodes = indi.raw.children.filter((c) => c.tag === fromTag);
+    if (nodes.length === 0) {
+      skipped++;
+      continue;
+    }
+    for (const node of nodes) {
+      node.tag = toTag;
+      if (type && (toTag === "EVEN" || toTag === "FACT") && !node.children.some((c) => c.tag === "TYPE")) {
+        node.children.unshift({ level: node.level + 1, tag: "TYPE", value: type, children: [] });
+      }
+      markEventTouched(node, "changed");
+    }
+    changed++;
+  }
+  return { patches: changed > 0 ? patchesFromSnapshots(ds, snap) : [], changed, skipped };
 }
 
 /** Add `1 DEAT Y` in canonical position to everyone without death evidence;
