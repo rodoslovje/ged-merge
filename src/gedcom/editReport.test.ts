@@ -186,6 +186,19 @@ describe("enrichEditReport — event tags outside the canonical lists", () => {
 
     expect(report.changes.filter((c) => c.group === "event._UID")).toHaveLength(0);
   });
+
+  it("shows an added or edited FamilySearch id under its own field label", () => {
+    const before = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n"));
+    const after = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 _FID GPZG-CXL\n"));
+    const snapshots = new Map([["@I1@", before.individuals.get("@I1@")!.raw]]);
+    const report = enrichEditReport(baseReport("@I1@"), after, snapshots, new Map(), tr);
+
+    const fsid = report.changes.filter((c) => c.field === "field.fsid");
+    expect(fsid).toHaveLength(1);
+    expect(fsid[0].to).toBe("GPZG-CXL");
+    // And never mis-diffed as an event.
+    expect(report.changes.filter((c) => c.group === "event._FID")).toHaveLength(0);
+  });
 });
 
 // ---------------------------------------------------------------------------

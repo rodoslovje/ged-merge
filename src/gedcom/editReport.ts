@@ -373,6 +373,7 @@ function diffIndividualNodes(id: string, before: GedNode, after: GedNode, t: Tra
   const evTags = eventTagsOf(before, after, INDIVIDUAL_EVENT_TAGS);
   diffs.push(...diffEventSet(id, before, after, evTags, (tag) => t(`event.${tag}`, { defaultValue: tag }), resolveSource));
   diffs.push(...diffStringSet(id, before, after, (tag) => tag === "NOTE", t("field.notes")));
+  diffs.push(...diffStringSet(id, before, after, (tag) => tag === "_FID" || tag === "_FSFTID", t("field.fsid")));
   diffs.push(...diffStringSet(id, before, after, (tag) => RECORD_LINK_TAGS.has(tag), t("field.sources"), true));
   diffs.push(...diffSourceCitations(id, before, after, t("field.sources"), resolveSource));
   diffs.push(...diffMedia(id, before, after, t("field.media"), resolveMedia));
