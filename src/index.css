@@ -7683,18 +7683,24 @@ kbd {
   margin: 0 0 16px; padding: 12px 14px;
   background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
 }
-.batch-saved-list { list-style: none; margin: 0; padding: 0; }
-.batch-saved-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
-.batch-saved-load {
-  display: inline-flex; align-items: baseline; gap: 8px; min-width: 0;
-  background: none; border: none; padding: 0; cursor: pointer; text-align: left;
-  color: var(--text); font-size: 0.9rem;
+.batch-saved-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.batch-saved-row {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px 2px 12px;
+  background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-pill);
 }
-.batch-saved-load:hover .batch-saved-name { color: var(--accent); text-decoration: underline; }
-.batch-saved-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.batch-saved-action { color: var(--muted); font-size: 0.8rem; white-space: nowrap; }
+.batch-saved-row.active { border-color: var(--accent); background: var(--accent-soft); }
+.batch-saved-load {
+  display: inline-flex; align-items: baseline; gap: 5px; min-width: 0;
+  background: none; border: none; padding: 2px 0; cursor: pointer; text-align: left;
+  color: var(--text); font-size: 0.88rem;
+}
+.batch-saved-load:hover .batch-saved-name { color: var(--accent); }
+.batch-saved-row.active .batch-saved-name { color: var(--accent); }
+.batch-saved-name { font-weight: 600; max-width: 16rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.batch-saved-count { color: var(--muted); font-variant-numeric: tabular-nums; }
 .batch-saved-warn { cursor: help; }
-.batch-count-live { color: var(--accent); }
+.batch-count-live { color: var(--accent); font-weight: 600; }
 .batch-crit-list { list-style: none; margin: 0 0 10px; padding: 0; }
 .batch-crit { display: flex; align-items: center; gap: 8px; padding: 3px 0; flex-wrap: wrap; }
 .batch-crit-label { font-size: 0.88rem; color: var(--text); min-width: 8.5rem; }

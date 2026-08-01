@@ -94,6 +94,9 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
   const [done, setDone] = useState<{ changed: number; skipped: number } | null>(null);
   const [saved, setSaved] = useState<SavedBatchFilter[]>(loadSavedFilters);
   const [saveName, setSaveName] = useState("");
+  /** The saved filter currently loaded into the builder — its conditions and
+   *  action show below. Cleared as soon as the builder is edited by hand. */
+  const [selectedSavedId, setSelectedSavedId] = useState<string | null>(null);
 
   const results = useMemo(() => rows.filter((r) => matchesBatch(r, criteria, ctx)), [rows, criteria, ctx]);
   const targets = useMemo(() => results.filter((r) => !excluded.has(r.id)), [results, excluded]);
@@ -137,10 +140,12 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
   }
   function changeCriteria(next: BatchCriterion[]) {
     setCriteria(next);
+    setSelectedSavedId(null);
     resetReview();
   }
   function changeAction(next: BatchActionSpec | null) {
     setAction(next);
+    setSelectedSavedId(null);
     setDone(null);
     setConfirming(false);
   }
@@ -193,10 +198,12 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
     // Saving under an existing name replaces that filter.
     persist([...saved.filter((f) => f.name !== name), entry]);
     setSaveName("");
+    setSelectedSavedId(entry.id);
   }
   function loadFilter(f: SavedBatchFilter) {
     setCriteria(f.criteria);
     setAction(f.action ?? null);
+    setSelectedSavedId(f.id);
     resetReview();
   }
 
@@ -225,20 +232,22 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
           <div className="batch-block-title">{t("tools.batch.saved")}</div>
           <ul className="batch-saved-list">
             {saved.map((f, i) => (
-              <li key={f.id} className="batch-saved-row">
+              <li key={f.id} className={`batch-saved-row ${selectedSavedId === f.id ? "active" : ""}`}>
                 <button className="batch-saved-load" onClick={() => loadFilter(f)} title={t("tools.batch.load")}>
                   <span className="batch-saved-name">{f.name}</span>
-                  {f.action && <span className="batch-saved-action">{t(`tools.batch.action.${f.action.kind}`)}</span>}
+                  <span className={`batch-saved-count ${savedCounts[i] > 0 ? "batch-count-live" : ""}`}>
+                    ({savedCounts[i]})
+                  </span>
                 </button>
                 {!refsResolve(f) && (
                   <span className="batch-saved-warn" title={t("tools.batch.missingRefs")}>⚠</span>
                 )}
-                <span className={`tools-chip-count ${savedCounts[i] > 0 ? "batch-count-live" : ""}`}>
-                  {t("tools.batch.matchCount", { count: savedCounts[i] })}
-                </span>
                 <button
                   className="batch-remove"
-                  onClick={() => persist(saved.filter((s) => s.id !== f.id))}
+                  onClick={() => {
+                    persist(saved.filter((s) => s.id !== f.id));
+                    if (selectedSavedId === f.id) setSelectedSavedId(null);
+                  }}
                   title={t("tools.batch.deleteSaved")}
                 >
                   ✕
