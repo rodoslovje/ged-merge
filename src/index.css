@@ -3028,18 +3028,19 @@ button:focus-visible {
   cursor: pointer;
   border: none;
 }
-/* Leading item 2: the date. The cell is a fixed 8em slot with the date pushed to
- * its right edge, so the years line up in a column across rows (whether or not
- * ages are shown). The input itself is content-width — not a full-slot box — so
- * a focused date field hugs its text instead of a wide box with empty space; the
- * age badge sits just after the slot (outside it, so it never shifts the date). */
+/* Leading item 2: the date. The cell is a fixed 8em slot the input fills, with
+ * the text right-aligned so the years line up in a column across rows (whether
+ * or not ages are shown). Full-slot (not content-width) so an empty field has
+ * room for its "Date" placeholder and offers the whole slot as a click target;
+ * the age badge sits just after the slot (outside it, so it never shifts the
+ * date). */
 .edit-event-date-cell {
   flex: 0 0 8em;
   display: flex;
   align-items: center;
   justify-content: flex-end;
 }
-.edit-event-date-cell > .clearable-wrap { flex: 0 0 auto; min-width: 0; }
+.edit-event-date-cell > .clearable-wrap { flex: 1 1 auto; min-width: 0; }
 /* Age badges after the date ("Show ages" setting), e.g. "35" or "♂32 ♀28" —
  * one inner span per person, each with its own tooltip. */
 .edit-event-age {
@@ -7185,8 +7186,11 @@ kbd {
   }
 
   /* Very narrow: let the date shrink so the label + date still share a line
-   * before the body wraps beneath. */
+   * before the body wraps beneath. The full-slot input gets an explicit width
+   * here — without the fixed cell it would grow to the input's own intrinsic
+   * size instead. */
   .edit-event-date-cell { flex: 0 1 auto; justify-content: flex-start; }
+  .edit-event-date-cell > .clearable-wrap { flex: 0 1 auto; width: 8em; }
 
   /* Not enough room for the source dialog's two detail columns. */
   .add-source-details-grid { grid-template-columns: 1fr; }

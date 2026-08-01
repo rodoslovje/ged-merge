@@ -570,12 +570,11 @@ export function EventFieldsRow({
         </div>
       </div>
 
-      {/* Leading item 2: the date — a content-width input pushed to the right of
-       * a fixed slot so the years line up; the age badge follows outside the
-       * slot so it never changes the date's position or size. */}
+      {/* Leading item 2: the date — the input fills its fixed slot (text kept
+       * right-aligned so the years line up in a column); the age badge follows
+       * outside the slot so it never changes the date's position or size. */}
       <div className={"edit-event-date-cell" + optCls(show.date)}>
         <ClearableInput
-          wrapStyle={chW(dateField.value, 14)}
           className={fieldCls("edit-input edit-event-date", dateField.isMerge, dateField.isDirty || dateForced)}
           value={dateField.value}
           placeholder={t("event.colDate")}
