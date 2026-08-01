@@ -14,7 +14,7 @@ import { useTranslation } from "react-i18next";
 import type { Dataset, GedNode } from "./gedcom/types";
 import { cloneNode, nodeFingerprint } from "./gedcom/node";
 import { buildDataset } from "./gedcom/builder";
-import { rebuildIndividual, rebuildFamily, removeIndividual, removeFamily, noteCtx, rebuildNoteReferrers, pruneUnreferencedSource, setSourceRecordFields, type SharedNoteCtx } from "./gedcom/edit";
+import { rebuildIndividual, rebuildFamily, removeIndividual, removeFamily, noteCtx, rebuildNoteReferrers, pruneUnreferencedSource, setSourceRecordFields, setRepoRecordFields, type SharedNoteCtx } from "./gedcom/edit";
 import { detectPrivacyStyle } from "./gedcom/private";
 import { downloadOptions, ensureUtf8Charset, serializeGedcom } from "./gedcom/serialize";
 import { formatReport, type ImportBranchRequest } from "./merge/merge";
@@ -996,7 +996,7 @@ function AppContent() {
    *  beats enumerating what it touched. */
   function applySharedRecordEdit(mutate: (records: GedNode[], notes: SharedNoteCtx) => void) {
     if (!mainDataset) return;
-    const isShared = (r: GedNode) => (r.tag === "SOUR" || r.tag === "OBJE" || r.tag === "NOTE") && !!r.xref;
+    const isShared = (r: GedNode) => (r.tag === "SOUR" || r.tag === "OBJE" || r.tag === "NOTE" || r.tag === "REPO") && !!r.xref;
     const before = new Map(mainDataset.records.filter(isShared).map((r) => [r.xref!, cloneRaw(r)]));
     const notes = noteCtx(mainDataset.records, detectPrivacyStyle(mainDataset.records));
     mutate(mainDataset.records, notes);
@@ -1927,6 +1927,12 @@ function AppContent() {
                 })
               }
               onRemoveSource={(sourceXref) => applySharedRecordEdit(() => pruneUnreferencedSource(mainDataset, sourceXref))}
+              onEditRepo={(repoXref, fields) =>
+                applySharedRecordEdit((records) => {
+                  const node = records.find((r) => r.tag === "REPO" && r.xref === repoXref);
+                  if (node) setRepoRecordFields(node, fields);
+                })
+              }
               onApplyPlaceRename={(from, to, scope) => { applyToolPatches(applyPlaceRename(mainDataset, from, to, scope)); }}
               onApplyGeocode={(assignments) => applyToolPatches(applyGeocode(mainDataset, assignments))}
               onApplyAddressCoords={(assignments) => applyToolPatches(applyAddressCoords(mainDataset, assignments))}

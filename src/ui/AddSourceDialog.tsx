@@ -6,7 +6,9 @@ import { parseSourceInput } from "../gedcom/citationParse";
 import { inferMainProfile } from "../normalize/profile";
 import { rewriteLinkLang } from "../normalize/links";
 import { fetchPageHtml, fetchPageTitle } from "../normalize/urlMetadata";
-import { fetchBookMeta, makePlaceResolver, recognizeSourceUrl, SITE_ICON, type ReshapeMeta, type ReshapeSite } from "../tools/sourceReshape";
+import { fetchBookMeta, makePlaceResolver, proposedSiteRepo, recognizeSourceUrl, SITE_ICON, type ReshapeMeta, type ReshapeSite } from "../tools/sourceReshape";
+import { prefersSourceRepos } from "../gedcom/source";
+import { childText } from "../gedcom/node";
 import { useSettings } from "./SettingsContext";
 import { linkHref } from "./FieldValue";
 import type { Translate } from "../locales/i18n";
@@ -21,6 +23,13 @@ export type AddSourceResult = NewSourceFields & {
   site?: ReshapeSite;
   place?: string;
   dateRange?: string;
+  /** The Repository dropdown's explicit choice: an existing `REPO` xref, or
+   * `""` for none. Always sent by the dialog, so what it showed is what the
+   * save writes — the automatic site-repo fallback only serves older callers. */
+  repoXref?: string;
+  /** Create the recognized site's repository record and link it (the
+   * dropdown's "＋ …" option). */
+  repoCreateSite?: boolean;
 };
 
 interface Props {
@@ -73,6 +82,9 @@ function titleOf(dataset: Dataset, sourceXref: string): string | undefined {
 export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, standalone }: Props) {
   const [text, setText] = useState("");
   const [fields, setFields] = useState<FormState>(EMPTY_FORM);
+  // The Repository dropdown: "" = none, a REPO xref, or "@create@" for the
+  // recognized site's proposed new repository.
+  const [repoSel, setRepoSel] = useState("");
   const [fetching, setFetching] = useState(false);
   const [fetched, setFetched] = useState<ReshapeMeta | undefined>();
   const { settings } = useSettings();
@@ -99,6 +111,27 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
     () => (normalizedUrl ? findExistingSource(dataset.records, normalizedUrl) : undefined),
     [dataset, normalizedUrl],
   );
+  const repos = useMemo(
+    () =>
+      dataset.records
+        .filter((r) => r.tag === "REPO" && r.xref)
+        .map((r) => ({ xref: r.xref!, name: childText(r, "NAME")?.trim() || r.xref! })),
+    [dataset],
+  );
+  // What the automatic site-repo linking would pick for this URL: the site's
+  // existing repository, or the name of the one it would create. Depends only
+  // on the pasted URL (not the live form fields), so seeding the dropdown from
+  // it can't clobber the user's later edits.
+  const repoDefault = useMemo(
+    () => (recognized && normalizedUrl ? proposedSiteRepo(dataset.records, recognized.site, normalizedUrl, recognized.proposed.agency) : undefined),
+    [recognized, normalizedUrl, dataset],
+  );
+  // Whether the file's convention hangs sources off repositories — decides if
+  // the create-proposal is preselected or merely offered.
+  const layoutPrefersRepos = useMemo(() => {
+    const override = settings.formatOverrides.sourceLayout ?? "auto";
+    return override !== "auto" ? override === "repository" : prefersSourceRepos(dataset.records);
+  }, [settings.formatOverrides.sourceLayout, dataset]);
   const matchTitle = useMemo(() => (match ? titleOf(dataset, match.sourceXref) : undefined), [dataset, match]);
   const urlOnly =
     parsed.url !== undefined &&
@@ -129,7 +162,8 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
       url: normalizedUrl ?? "",
       note: match ? "" : parsed.note ?? "",
     });
-  }, [editing, text, parsed, normalizedUrl, match, recognized, resolvePlace]);
+    setRepoSel(match ? "" : repoDefault?.xref ?? (repoDefault?.createName && layoutPrefersRepos ? "@create@" : ""));
+  }, [editing, text, parsed, normalizedUrl, match, recognized, resolvePlace, repoDefault, layoutPrefersRepos]);
 
   // Editing an existing citation: seed directly from its current fields.
   useEffect(() => {
@@ -147,6 +181,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
       url: f.url ?? "",
       note: f.note ?? "",
     });
+    setRepoSel(f.repoXref ?? "");
   }, [editing]);
 
   // Best-effort metadata fetch for a bare URL with nothing else to go on.
@@ -222,6 +257,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
   function reset() {
     setText("");
     setFields(EMPTY_FORM);
+    setRepoSel("");
     setFetching(false);
     setFetched(undefined);
   }
@@ -254,13 +290,20 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
       // Fetched over offline-recognized — Newspapers.com carries the issue
       // date right in the citation prose, with no fetchable page behind it.
       dateRange: fetched?.dateRange ?? recognized?.proposed.dateRange,
+      repoXref: repoSel === "@create@" ? undefined : repoSel,
+      repoCreateSite: repoSel === "@create@" || undefined,
     });
     reset();
   }
 
   function handleSave() {
     if (!editing) return;
-    editing.onSave({ ...trimmedFields(fields), objeXref: editing.fields.objeXref });
+    // A picked repo (or an explicit clear, when the prefill carried a repo
+    // field) is sent as-is; an untouched dropdown on a prefill without one
+    // (the legacy-link promote) stays undefined so the automatic site-repo
+    // behavior still applies.
+    const repoXref = repoSel || (editing.fields.repoXref !== undefined ? "" : undefined);
+    editing.onSave({ ...trimmedFields(fields), objeXref: editing.fields.objeXref, repoXref });
     reset();
   }
 
@@ -348,6 +391,22 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
             </>
           )}
           {match && !standalone && field("page", "addSource.field.page")}
+          {!match && (
+            <label className="add-source-field">
+              <span>{t("addSource.field.repo")}</span>
+              <select className="edit-input" value={repoSel} onChange={(e) => setRepoSel(e.target.value)}>
+                <option value="">{t("tools.sources.noRepo")}</option>
+                {repos.map((r) => (
+                  <option key={r.xref} value={r.xref}>
+                    {r.name}
+                  </option>
+                ))}
+                {!editing && !repoDefault?.xref && repoDefault?.createName && (
+                  <option value="@create@">{t("addSource.repo.create", { name: repoDefault.createName })}</option>
+                )}
+              </select>
+            </label>
+          )}
           <div className="add-source-url-row">
             {field("url", "addSource.field.url")}
             {editing && fields.url.trim() && (

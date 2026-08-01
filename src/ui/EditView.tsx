@@ -953,6 +953,9 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
         url: resolved?.url,
         objeXref: resolved?.objeXref,
         page,
+        // "" (not undefined) when there is no REPO link, so the dialog's
+        // dropdown shows the explicit no-repository choice.
+        repoXref: childText(sourceNode, "REPO") ?? "",
       },
     });
   });

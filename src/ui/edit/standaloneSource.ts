@@ -1,7 +1,7 @@
 import type { GedNode } from "../../gedcom/types";
 import { firstChild } from "../../gedcom/node";
 import { createSourceRecord, type NewSourceFields } from "../../gedcom/edit";
-import { applySiteSourceExtras, type ReshapeSite } from "../../tools/sourceReshape";
+import { applySiteSourceExtras, createSiteRepo, type ReshapeSite } from "../../tools/sourceReshape";
 import type { SourceLayout } from "../../normalize/types";
 import { cloneRaw, type RecordPatch } from "../historyTypes";
 import type { AddSourceResult } from "../AddSourceDialog";
@@ -30,14 +30,30 @@ export function createStandaloneSource(
 ): { sourceXref: string; page?: string; pageObjeXref?: string; extraPatches: RecordPatch[] } {
   const extraPatches: RecordPatch[] = [];
   const sourceNode = createSourceRecord(records, fields as NewSourceFields);
+  // The dialog's Repository dropdown sends an explicit choice (an existing
+  // xref, "" for none, or create-the-site's); without one — older callers —
+  // the automatic site-repo behavior applies as before.
+  const explicitRepo = fields.repoXref !== undefined || fields.repoCreateSite;
   if (fields.site || fields.place || fields.dateRange) {
     // A recognized site URL gets the same PLAC/DATE/REPO extras the
     // Organize sources tool writes, so it needs no cleanup pass later;
     // a hand-entered place still lands as PLAC in the file's place format.
     const repo = applySiteSourceExtras(records, sourceNode, fields.site, fields.url ?? "", fields, {
       sourceLayout: opts.sourceLayout,
+      repo: explicitRepo ? "none" : "auto",
     });
     if (repo) extraPatches.push({ type: "record", id: repo.xref!, before: null, after: cloneRaw(repo) });
+  }
+  if (explicitRepo) {
+    let repoXref = fields.repoXref?.trim() || undefined;
+    if (!repoXref && fields.repoCreateSite && fields.site) {
+      const repo = createSiteRepo(records, fields.site, fields.url ?? "", fields.agency);
+      if (repo) {
+        repoXref = repo.xref!;
+        extraPatches.push({ type: "record", id: repo.xref!, before: null, after: cloneRaw(repo) });
+      }
+    }
+    if (repoXref) sourceNode.children.push({ level: 1, tag: "REPO", value: repoXref, children: [] });
   }
   extraPatches.push({ type: "record", id: sourceNode.xref!, before: null, after: cloneRaw(sourceNode) });
   const objeChild = firstChild(sourceNode, "OBJE");

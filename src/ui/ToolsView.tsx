@@ -40,6 +40,8 @@ interface Props {
   /** Delete an uncited `SOUR` record (and its orphaned page media) and push to
    *  the undo stack. */
   onRemoveSource: (sourceXref: string) => void;
+  /** Write a `REPO` record's name/link and push to the undo stack. */
+  onEditRepo: (repoXref: string, fields: { name?: string; url?: string }) => void;
   /** True when the Tools tab is the visible mode. */
   active: boolean;
   /** Rename a place segment in the given records and push to the undo stack. */
@@ -91,7 +93,7 @@ interface Props {
   onUnrejectDuplicate: (aId: string, bId: string) => void;
 }
 
-export function ToolsView({ dataset, editVersionRef, fileName, onNavigate, onAddSource, onEditSource, onRemoveSource, active, onApplyPlaceRename, onApplyGeocode, onApplyAddressCoords, onRenamePlaceValue, onMovePlaceForAddresses, startId, onFixBrokenLinks, onFixSexFromRole, onFixDates, onFixDuplicatePointers, onFixDanglingRefs, onFillPlaceCoords, onMergeDuplicate, rejectedDuplicates, onRejectDuplicate, onRejectDuplicatesBulk, onUnrejectDuplicate }: Props) {
+export function ToolsView({ dataset, editVersionRef, fileName, onNavigate, onAddSource, onEditSource, onRemoveSource, onEditRepo, active, onApplyPlaceRename, onApplyGeocode, onApplyAddressCoords, onRenamePlaceValue, onMovePlaceForAddresses, startId, onFixBrokenLinks, onFixSexFromRole, onFixDates, onFixDuplicatePointers, onFixDanglingRefs, onFillPlaceCoords, onMergeDuplicate, rejectedDuplicates, onRejectDuplicate, onRejectDuplicatesBulk, onUnrejectDuplicate }: Props) {
   const { t } = useTranslation();
   const [tool, setTool] = useState<Tool>("validate");
   const phone = usePhone();
@@ -162,7 +164,7 @@ export function ToolsView({ dataset, editVersionRef, fileName, onNavigate, onAdd
           <PrivacyPanel dataset={dataset} fileName={fileName} onNavigate={onNavigate} active={active} />
         )}
         {tool === "sources" && (
-          <SourcesPanel dataset={dataset} scans={scans} fileName={fileName} onNavigate={onNavigate} onAddSource={onAddSource} onEditSource={onEditSource} onRemoveSource={onRemoveSource} active={active} />
+          <SourcesPanel dataset={dataset} scans={scans} fileName={fileName} onNavigate={onNavigate} onAddSource={onAddSource} onEditSource={onEditSource} onRemoveSource={onRemoveSource} onEditRepo={onEditRepo} active={active} />
         )}
         {tool === "places" && (
           <PlacesPanel dataset={dataset} onNavigate={onNavigate} active={active} onApplyPlaceRename={onApplyPlaceRename} onApplyGeocode={onApplyGeocode} onApplyAddressCoords={onApplyAddressCoords} onRenamePlaceValue={onRenamePlaceValue} onMovePlaceForAddresses={onMovePlaceForAddresses} startId={startId} />

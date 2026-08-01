@@ -159,16 +159,69 @@ function TreeRow({
         >
           {label}
         </span>
-        {action}
         {href && (
           <a className="tools-tree-link" href={href} target="_blank" rel="noreferrer" title={href}>
             ↗
           </a>
         )}
         {count != null && <span className="tools-chip-count">{count}</span>}
+        {action}
       </div>
       {open && hasChildren && <div className="tools-tree-children">{children}</div>}
     </li>
+  );
+}
+
+/** Minimal editor for a repository's own record: name and link. */
+function RepoEditDialog({
+  repo,
+  onSave,
+  onClose,
+}: {
+  repo: RepoGroup;
+  onSave: (fields: { name?: string; url?: string }) => void;
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const [name, setName] = useState(repo.name ?? "");
+  const [url, setUrl] = useState(repo.url ?? "");
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal add-source-dialog" role="dialog" aria-modal="true" aria-label={t("editRepo.title")} onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>
+            <span className="add-source-badge" aria-hidden="true">🏛</span>
+            {t("editRepo.title")}
+          </h2>
+          <button className="modal-close" onClick={onClose} title={t("help.close")} aria-label={t("help.close")}>×</button>
+        </div>
+        <div className="modal-body">
+          <label className="add-source-field">
+            <span>{t("editRepo.name")}</span>
+            <input className="edit-input" autoFocus value={name} onChange={(e) => setName(e.target.value)} />
+          </label>
+          <label className="add-source-field">
+            <span>{t("addSource.field.url")}</span>
+            <input className="edit-input" value={url} onChange={(e) => setUrl(e.target.value)} />
+          </label>
+        </div>
+        <div className="add-source-actions">
+          <button className="tree-open-btn" onClick={onClose}>{t("addSource.cancel")}</button>
+          <button className="add-source-submit" onClick={() => onSave({ name: name.trim() || undefined, url: url.trim() || undefined })}>
+            {t("editSource.save")}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -253,6 +306,7 @@ export function SourcesPanel({
   onAddSource,
   onEditSource,
   onRemoveSource,
+  onEditRepo,
   active,
 }: {
   dataset: Dataset;
@@ -266,6 +320,8 @@ export function SourcesPanel({
   onEditSource: (sourceXref: string, fields: EditSourceFields) => void;
   /** Delete an uncited `SOUR` record (and its orphaned page media). */
   onRemoveSource: (sourceXref: string) => void;
+  /** Write a `REPO` record's name/link — an undoable whole-file edit. */
+  onEditRepo: (repoXref: string, fields: { name?: string; url?: string }) => void;
   active: boolean;
 }) {
   const { t } = useTranslation();
@@ -273,6 +329,7 @@ export function SourcesPanel({
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [addOpen, setAddOpen] = useState(false);
   const [editSrc, setEditSrc] = useState<SourceEntry | null>(null);
+  const [editRepo, setEditRepo] = useState<RepoGroup | null>(null);
   const [query, setQuery] = useState("");
   // Switches the panel body between the containment tree and the cleanup tool.
   const [view, setView] = useState<"tree" | "cleanup">("tree");
@@ -289,6 +346,7 @@ export function SourcesPanel({
     setView("tree");
     setAddOpen(false);
     setEditSrc(null);
+    setEditRepo(null);
   }, [dataset]);
 
   useEffect(() => {
@@ -342,6 +400,7 @@ export function SourcesPanel({
   const closeDialog = () => {
     setAddOpen(false);
     setEditSrc(null);
+    setEditRepo(null);
   };
   const refreshTree = () => setTree(null);
 
@@ -482,6 +541,20 @@ export function SourcesPanel({
                 href={repo.url}
                 titleText={repo.tooltip || repo.xref}
                 prominent
+                action={
+                  repo.xref ? (
+                    <button
+                      className="tools-place-edit-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditRepo(repo);
+                      }}
+                      title={t("editRepo.title")}
+                    >
+                      ✎
+                    </button>
+                  ) : undefined
+                }
                 label={repo.xref ? repo.name || repo.xref : t("tools.sources.noRepo")}
               >
                 <ul className="tools-tree">
@@ -555,6 +628,17 @@ export function SourcesPanel({
         editing={editing}
         standalone
       />
+      {editRepo?.xref && (
+        <RepoEditDialog
+          repo={editRepo}
+          onClose={closeDialog}
+          onSave={(fields) => {
+            onEditRepo(editRepo.xref!, fields);
+            closeDialog();
+            refreshTree();
+          }}
+        />
+      )}
     </>
   );
 }

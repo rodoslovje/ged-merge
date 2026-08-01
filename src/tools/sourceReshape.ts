@@ -1757,21 +1757,39 @@ function findSiteRepo(records: GedNode[], hostRe: RegExp, preferSlug: string | u
 /** The site's REPO for a new source: an existing one matched by WWW host
  *  (preferring the Matricula archive's), else — only when the file's
  *  convention hangs sources off repositories — a newly created record. */
-function ensureSiteRepo(
+/**
+ * What linking a recognized site's repository would do for a new source:
+ * the existing `REPO` record it would reuse (matched by WWW host, preferring
+ * the Matricula archive's), or the name of the record it would create.
+ * Lets the Add Source dialog show/preselect the repository before saving.
+ */
+export function proposedSiteRepo(
   records: GedNode[],
   site: ReshapeSite,
   url: string,
   agency: string | undefined,
-  repositoryLayout: boolean,
-): { xref: string; created?: GedNode } | undefined {
+): { xref?: string; createName?: string } | undefined {
   const repoDef = SITE_REPO[site];
   if (!repoDef) return undefined;
   const mat = site === "matricula" ? parseMatriculaUrl(url) : undefined;
   const existing = findSiteRepo(records, repoDef.hostRe, mat?.archiveSlug);
   if (existing) return { xref: existing };
-  if (!repositoryLayout) return undefined;
   // Matricula repositories are the holding archive; the other sites
   // are their own repository.
+  return { createName: (site === "matricula" && agency) || repoDef.name };
+}
+
+/** Create the site's `REPO` record (name + WWW) — the Add Source dialog's
+ *  explicit "＋ new repository" choice, unconditional on the file's layout. */
+export function createSiteRepo(
+  records: GedNode[],
+  site: ReshapeSite,
+  url: string,
+  agency: string | undefined,
+): GedNode | undefined {
+  const repoDef = SITE_REPO[site];
+  if (!repoDef) return undefined;
+  const mat = site === "matricula" ? parseMatriculaUrl(url) : undefined;
   const name = (site === "matricula" && agency) || repoDef.name;
   const www = mat
     ? `https://data.matricula-online.eu/${mat.lang}/${mat.country}/${mat.archiveSlug}/`
@@ -1780,7 +1798,22 @@ function ensureSiteRepo(
   repo.children.push({ level: 1, tag: "NAME", value: name, children: [] });
   repo.children.push({ level: 1, tag: "WWW", value: www, children: [] });
   insertRecord(records, repo);
-  return { xref: repo.xref!, created: repo };
+  return repo;
+}
+
+function ensureSiteRepo(
+  records: GedNode[],
+  site: ReshapeSite,
+  url: string,
+  agency: string | undefined,
+  repositoryLayout: boolean,
+): { xref: string; created?: GedNode } | undefined {
+  const proposal = proposedSiteRepo(records, site, url, agency);
+  if (!proposal) return undefined;
+  if (proposal.xref) return { xref: proposal.xref };
+  if (!repositoryLayout) return undefined;
+  const repo = createSiteRepo(records, site, url, agency);
+  return repo ? { xref: repo.xref!, created: repo } : undefined;
 }
 
 /**
@@ -1799,11 +1832,13 @@ export function applySiteSourceExtras(
   site: ReshapeSite | undefined,
   url: string,
   meta: { place?: string; dateRange?: string },
-  opts: { sourceLayout?: SourceLayout | "auto" } = {},
+  opts: { sourceLayout?: SourceLayout | "auto"; repo?: "auto" | "none" } = {},
 ): GedNode | undefined {
   fillField(sourceNode, "PLAC", buildPlaceResolver(records).resolve(meta.place));
   fillField(sourceNode, "DATE", houseDateFormatter(records)(meta.dateRange));
-  if (!site || firstChild(sourceNode, "REPO")) return undefined;
+  // "none": the caller handles the repository choice itself (the Add Source
+  // dialog's explicit dropdown) — only the PLAC/DATE fills apply here.
+  if (opts.repo === "none" || !site || firstChild(sourceNode, "REPO")) return undefined;
   const createRepos =
     opts.sourceLayout && opts.sourceLayout !== "auto"
       ? opts.sourceLayout === "repository"

@@ -80,8 +80,9 @@ function sourceCitationNodes(record: GedNode): GedNode[] {
  * source's `PLAC` (not part of `NewSourceFields`; a new source gets it via
  * the site extras), the citation-local `page` and (when known) the specific
  * `OBJE` its resolved `url` came from, so a `url` edit retargets only that
- * page's file. */
-export type EditSourceFields = NewSourceFields & { place?: string; page?: string; objeXref?: string };
+ * page's file. `repoXref` is the source's `REPO` link: an xref sets it, `""`
+ * removes it, and `undefined` leaves whatever the record has untouched. */
+export type EditSourceFields = NewSourceFields & { place?: string; page?: string; objeXref?: string; repoXref?: string };
 
 /**
  * Update the `index`th `SOUR` citation on `node` (an event node, or a
@@ -151,6 +152,18 @@ export function setSourceRecordFields(records: GedNode[], sourceNode: GedNode, f
     setChild("NOTE", fields.note);
   }
 
+  if (fields.repoXref !== undefined) {
+    const repoXref = fields.repoXref.trim();
+    const existingRepo = sourceNode.children.find((c) => c.tag === "REPO");
+    if (!repoXref) {
+      sourceNode.children = sourceNode.children.filter((c) => c.tag !== "REPO");
+    } else if (existingRepo) {
+      existingRepo.value = repoXref;
+    } else {
+      insertGrouped(sourceNode, { level: sourceNode.level + 1, tag: "REPO", value: repoXref, children: [] }, ["CHAN", "CREA"]);
+    }
+  }
+
   const url = fields.url?.trim();
   const soleObjeXref = sourceNode.children.filter((c) => c.tag === "OBJE" && c.value).length === 1
     ? firstChild(sourceNode, "OBJE")?.value?.trim()
@@ -185,6 +198,26 @@ export function setSourceRecordFields(records: GedNode[], sourceNode: GedNode, f
 }
 
 /**
+ * Write a `REPO` record's own fields (Tools → Sources repository edit).
+ * A cleared field removes its line; `NAME` stays the first child and `WWW`
+ * follows it, the shape the site-repo creator writes.
+ */
+export function setRepoRecordFields(repoNode: GedNode, fields: { name?: string; url?: string }): void {
+  const set = (tag: string, value: string | undefined, position: number) => {
+    const trimmed = value?.trim();
+    const existing = repoNode.children.find((c) => c.tag === tag);
+    if (existing) {
+      if (trimmed) existing.value = trimmed;
+      else repoNode.children = repoNode.children.filter((c) => c !== existing);
+    } else if (trimmed) {
+      repoNode.children.splice(position, 0, { level: repoNode.level + 1, tag, value: trimmed, children: [] });
+    }
+  };
+  set("NAME", fields.name, 0);
+  set("WWW", fields.url, repoNode.children.findIndex((c) => c.tag === "NAME") + 1);
+}
+
+/**
  * Prefill for editing a `SOUR` record on its own (Tools → Sources) — the
  * record's bibliographic fields, plus (when it has exactly one page image)
  * that `OBJE`'s URL so a link edit retargets it, the same sole-OBJE rule
@@ -208,6 +241,9 @@ export function sourceRecordEditFields(records: GedNode[], sourceNode: GedNode):
     note: noteVal && isPointer(noteVal) ? getMediaAndSourceCtx(records).noteIndex.get(noteVal)?.text.trim() : noteVal,
     url: objeNode ? objeInfoOf(objeNode).url : undefined,
     objeXref,
+    // "" (not undefined) when there is no REPO link: the dialog's dropdown
+    // shows the explicit no-repository choice and a save writes it back as-is.
+    repoXref: text("REPO") ?? "",
   };
 }
 
