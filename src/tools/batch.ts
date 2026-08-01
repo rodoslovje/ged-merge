@@ -43,6 +43,11 @@ export type BatchCriterion =
   | { kind: "age"; op: "lt" | "gte"; years: number }
   /** `true` selects people with no death evidence in the file, `false` the deceased. */
   | { kind: "living"; value: boolean }
+  /** Presence of one event/attribute on the person, by its GEDCOM tag —
+   *  `lacks BIRT` finds everyone without a birth record. */
+  | { kind: "event"; tag: string; mode: "has" | "lacks" }
+  /** Blood-line relationship to the start person (see {@link computeKinship}). */
+  | { kind: "kinship"; rel: "ancestor" | "descendant" | "blood" | "notBlood" }
   | { kind: "place"; text: string }
   /** `none`/`any` look at the person's whole media tray; `has`/`lacks` test one
    *  specific image, identified by shared-record xref and/or `FILE` value. */
@@ -52,7 +57,7 @@ export type BatchCriterion =
 
 /** Every criterion kind, for the panel's "add filter" picker. */
 export const BATCH_CRITERION_KINDS: BatchCriterion["kind"][] = [
-  "name", "sex", "birthYear", "age", "living", "place", "media", "sources", "line",
+  "name", "sex", "birthYear", "age", "living", "event", "place", "media", "sources", "kinship", "line",
 ];
 
 /**
@@ -66,6 +71,8 @@ export interface BatchRow extends SearchRow {
    *  undefined when the needed date is missing. */
   age?: number;
   deceased: boolean;
+  /** Tags of the person's lifted events/attributes (BIRT, OCCU, …). */
+  eventTags: string[];
   /** Shared media record xrefs this person's tray references (record + events). */
   mediaXrefs: string[];
   /** Lower-cased `FILE` values of the tray's media (inline and resolved shared). */
@@ -106,6 +113,7 @@ export function buildBatchRows(
       deathYear: d?.year,
       age: ageOf(indi, now),
       deceased: isDeceased(indi),
+      eventTags: indi.events.map((e) => e.tag),
       mediaXrefs: refs.filter((r) => r.xref).map((r) => r.xref!),
       mediaFiles: refs.map((r) => r.file.toLowerCase()),
       mediaCount: refs.length,
@@ -118,6 +126,62 @@ export interface BatchContext {
   /** Maternal/paternal classification relative to the home person, or null
    *  when no home person is set (a `line` criterion then matches nobody). */
   lineSides: Map<string, LineSide> | null;
+  /** Blood-line sets relative to the start person, or null when no start
+   *  person is set (a `kinship` criterion then matches nobody). */
+  kinship: KinshipSets | null;
+}
+
+/** Blood-line classification of the whole file relative to the start person. */
+export interface KinshipSets {
+  /** Transitive parents of the start person. */
+  ancestors: Set<string>;
+  /** Transitive children of the start person. */
+  descendants: Set<string>;
+  /** The start person, their ancestors, and every descendant of an ancestor
+   *  (siblings, cousins, …) — everyone related by blood, not by marriage. */
+  blood: Set<string>;
+}
+
+/** Compute {@link KinshipSets} for a start person, or null if they're unknown. */
+export function computeKinship(ds: Dataset, startId: string): KinshipSets | null {
+  if (!ds.individuals.has(startId)) return null;
+  const parentsOf = (id: string): string[] => {
+    const out: string[] = [];
+    for (const famId of ds.individuals.get(id)?.childOf ?? []) {
+      const fam = ds.families.get(famId);
+      if (!fam) continue;
+      if (fam.husband) out.push(fam.husband);
+      if (fam.wife) out.push(fam.wife);
+    }
+    return out;
+  };
+  const childrenOf = (id: string): string[] => {
+    const out: string[] = [];
+    for (const famId of ds.individuals.get(id)?.spouseOf ?? []) {
+      const fam = ds.families.get(famId);
+      if (fam) out.push(...fam.children);
+    }
+    return out;
+  };
+  const sweep = (seeds: string[], next: (id: string) => string[]): Set<string> => {
+    const seen = new Set(seeds);
+    const queue = [...seeds];
+    for (let head = 0; head < queue.length; head++) {
+      for (const id of next(queue[head])) {
+        if (!seen.has(id)) {
+          seen.add(id);
+          queue.push(id);
+        }
+      }
+    }
+    return seen;
+  };
+  const ancestors = sweep(parentsOf(startId), parentsOf);
+  return {
+    ancestors,
+    descendants: sweep(childrenOf(startId), childrenOf),
+    blood: sweep([startId, ...ancestors], childrenOf),
+  };
 }
 
 /** Whether one specific image (by shared xref and/or file) is in the row's tray. */
@@ -151,6 +215,20 @@ export function matchesBatch(row: BatchRow, criteria: BatchCriterion[], ctx: Bat
       case "living":
         if (row.deceased === c.value) return false;
         break;
+      case "event":
+        if (c.mode === "has" ? !row.eventTags.includes(c.tag) : row.eventTags.includes(c.tag)) return false;
+        break;
+      case "kinship": {
+        const k = ctx.kinship;
+        if (!k) return false;
+        const ok =
+          c.rel === "ancestor" ? k.ancestors.has(row.id)
+          : c.rel === "descendant" ? k.descendants.has(row.id)
+          : c.rel === "blood" ? k.blood.has(row.id)
+          : !k.blood.has(row.id);
+        if (!ok) return false;
+        break;
+      }
       case "place":
         if (!row.placeText.includes(foldSearch(c.text))) return false;
         break;

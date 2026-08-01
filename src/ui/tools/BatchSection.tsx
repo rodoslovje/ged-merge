@@ -3,9 +3,11 @@ import { useTranslation } from "react-i18next";
 import type { Dataset, Sex } from "../../gedcom/types";
 import { firstChild } from "../../gedcom/node";
 import { collectLocalMediaFiles } from "../../tools/mediaFiles";
+import { INDI_EVENT_TAG_ORDER } from "../../gedcom/eventTags";
 import {
   applyBatchAction,
   buildBatchRows,
+  computeKinship,
   computeLineSides,
   matchesBatch,
   BATCH_ACTION_KINDS,
@@ -84,7 +86,20 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
     // eslint-disable-next-line react-hooks/exhaustive-deps -- ver stands in for in-place dataset edits
     [dataset, startId, ver],
   );
-  const ctx: BatchContext = useMemo(() => ({ lineSides }), [lineSides]);
+  const kinship = useMemo(
+    () => (startId ? computeKinship(dataset, startId) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- ver stands in for in-place dataset edits
+    [dataset, startId, ver],
+  );
+  const ctx: BatchContext = useMemo(() => ({ lineSides, kinship }), [lineSides, kinship]);
+
+  /** Tags offered by the event filter: the life-cycle basics plus whatever
+   *  the file actually uses, in canonical order. */
+  const eventOptions = useMemo(() => {
+    const present = new Set<string>(["BIRT", "BAPM", "DEAT", "BURI", "OCCU", "RESI"]);
+    for (const r of rows) for (const tag of r.eventTags) present.add(tag);
+    return INDI_EVENT_TAG_ORDER.filter((tag) => present.has(tag));
+  }, [rows]);
 
   const [criteria, setCriteria] = useState<BatchCriterion[]>([]);
   const [action, setAction] = useState<BatchActionSpec | null>(null);
@@ -157,6 +172,8 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
       birthYear: { kind: "birthYear" },
       age: { kind: "age", op: "lt", years: 20 },
       living: { kind: "living", value: true },
+      event: { kind: "event", tag: "BIRT", mode: "lacks" },
+      kinship: { kind: "kinship", rel: "blood" },
       place: { kind: "place", text: "" },
       media: { kind: "media", mode: "none" },
       sources: { kind: "sources", mode: "none" },
@@ -215,6 +232,7 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
     for (const c of f.criteria) {
       if (c.kind === "media" && (c.mode === "has" || c.mode === "lacks") && !mediaExists(c.xref, c.file)) return false;
       if (c.kind === "line" && !lineSides) return false;
+      if (c.kind === "kinship" && !kinship) return false;
     }
     const a = f.action;
     if (a?.kind === "removeMedia" && !mediaExists(a.xref, a.file)) return false;
@@ -222,7 +240,9 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
     return true;
   }
 
-  const needsStart = criteria.some((c) => c.kind === "line") && !lineSides;
+  const needsStart =
+    (criteria.some((c) => c.kind === "line") && !lineSides) ||
+    (criteria.some((c) => c.kind === "kinship") && !kinship);
 
   return (
     <div className="batch-section">
@@ -268,6 +288,7 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
               key={i}
               c={c}
               mediaOptions={mediaOptions}
+              eventOptions={eventOptions}
               onChange={(next) => changeCriteria(criteria.map((x, j) => (j === i ? next : x)))}
               onRemove={() => changeCriteria(criteria.filter((_, j) => j !== i))}
             />
@@ -381,11 +402,13 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
 function CriterionRow({
   c,
   mediaOptions,
+  eventOptions,
   onChange,
   onRemove,
 }: {
   c: BatchCriterion;
   mediaOptions: MediaOption[];
+  eventOptions: string[];
   onChange: (next: BatchCriterion) => void;
   onRemove: () => void;
 }) {
@@ -430,6 +453,38 @@ function CriterionRow({
             onChange={(e) => onChange({ ...c, to: e.target.value === "" ? undefined : Number(e.target.value) })}
           />
         </>
+      )}
+      {c.kind === "event" && (
+        <>
+          <select
+            className="batch-select"
+            value={c.mode}
+            onChange={(e) => onChange({ ...c, mode: e.target.value as "has" | "lacks" })}
+          >
+            <option value="lacks">{t("tools.batch.event.lacks")}</option>
+            <option value="has">{t("tools.batch.event.has")}</option>
+          </select>
+          <select className="batch-select" value={c.tag} onChange={(e) => onChange({ ...c, tag: e.target.value })}>
+            {(eventOptions.includes(c.tag) ? eventOptions : [c.tag, ...eventOptions]).map((tag) => (
+              <option key={tag} value={tag}>
+                {t(`event.${tag}`, { defaultValue: tag })}
+              </option>
+            ))}
+          </select>
+        </>
+      )}
+      {c.kind === "kinship" && (
+        <select
+          className="batch-select"
+          value={c.rel}
+          onChange={(e) => onChange({ ...c, rel: e.target.value as typeof c.rel })}
+        >
+          {(["ancestor", "descendant", "blood", "notBlood"] as const).map((r) => (
+            <option key={r} value={r}>
+              {t(`tools.batch.kinship.${r}`)}
+            </option>
+          ))}
+        </select>
       )}
       {c.kind === "living" && (
         <select

@@ -4,9 +4,11 @@ import { parseGedcom } from "../gedcom/parser";
 import {
   applyBatchAction,
   buildBatchRows,
+  computeKinship,
   computeLineSides,
   matchesBatch,
   type BatchCriterion,
+  type KinshipSets,
 } from "./batch";
 
 function dataset(text: string) {
@@ -16,7 +18,8 @@ function dataset(text: string) {
 const nameOf = (indi: { names: { full: string }[] }) => indi.names[0]?.full ?? "?";
 
 /** Home @I1@ with father @I2@, mother @I3@; paternal grandfather @I4@;
- *  maternal grandmother @I5@; full sibling @I6@; home's child @I7@. */
+ *  maternal grandmother @I5@; full sibling @I6@; home's child @I7@ with
+ *  the other parent (home's partner, no blood relation) @I8@. */
 const FAMILY = `0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
@@ -47,6 +50,10 @@ const FAMILY = `0 HEAD
 0 @I7@ INDI
 1 NAME Child //
 1 FAMC @F3@
+0 @I8@ INDI
+1 NAME Partner //
+1 SEX F
+1 FAMS @F3@
 0 @F1@ FAM
 1 HUSB @I2@
 1 WIFE @I3@
@@ -60,6 +67,7 @@ const FAMILY = `0 HEAD
 1 CHIL @I3@
 0 @F3@ FAM
 1 HUSB @I1@
+1 WIFE @I8@
 1 CHIL @I7@
 0 TRLR`;
 
@@ -82,6 +90,7 @@ describe("batch criteria", () => {
 2 PLAC Škofja Loka
 1 DEAT
 2 DATE 1960
+1 OCCU Farmer
 1 SOUR @S1@
 0 @I3@ INDI
 1 NAME Cilka /Zupan/
@@ -98,7 +107,7 @@ describe("batch criteria", () => {
 1 TITL Parish book
 0 TRLR`);
   const rows = buildBatchRows(ds, nameOf, new Date(2026, 0, 15));
-  const ctx = { lineSides: null };
+  const ctx = { lineSides: null, kinship: null };
   const match = (criteria: BatchCriterion[]) =>
     rows.filter((r) => matchesBatch(r, criteria, ctx)).map((r) => r.id).sort();
 
@@ -143,6 +152,13 @@ describe("batch criteria", () => {
     expect(match([{ kind: "sources", mode: "none" }])).toEqual(["@I1@", "@I3@", "@I4@"]);
   });
 
+  it("filters by event presence — the missing-record audit", () => {
+    expect(match([{ kind: "event", tag: "BIRT", mode: "lacks" }])).toEqual(["@I3@"]);
+    expect(match([{ kind: "event", tag: "DEAT", mode: "lacks" }])).toEqual(["@I3@", "@I4@"]);
+    expect(match([{ kind: "event", tag: "OCCU", mode: "has" }])).toEqual(["@I2@"]);
+    expect(match([{ kind: "event", tag: "OCCU", mode: "lacks" }])).toEqual(["@I1@", "@I3@", "@I4@"]);
+  });
+
   it("combines criteria with AND — the died-young audit", () => {
     // Has the died-young image but reached 20: nobody in this fixture.
     expect(match([
@@ -172,6 +188,29 @@ describe("computeLineSides", () => {
   it("returns null without a home person or known parents", () => {
     expect(computeLineSides(ds, "@I99@")).toBeNull();
     expect(computeLineSides(ds, "@I4@")).toBeNull();
+  });
+});
+
+describe("computeKinship", () => {
+  const ds = dataset(FAMILY);
+  const rows = buildBatchRows(ds, nameOf);
+  const kinship = computeKinship(ds, "@I1@")!;
+  const match = (criteria: BatchCriterion[], k: KinshipSets | null = kinship) =>
+    rows.filter((r) => matchesBatch(r, criteria, { lineSides: null, kinship: k })).map((r) => r.id).sort();
+
+  it("classifies ancestors, descendants and blood relatives", () => {
+    expect(match([{ kind: "kinship", rel: "ancestor" }])).toEqual(["@I2@", "@I3@", "@I4@", "@I5@"]);
+    expect(match([{ kind: "kinship", rel: "descendant" }])).toEqual(["@I7@"]);
+    // Blood = self + ancestors + all their descendants (sibling, own child)…
+    expect(match([{ kind: "kinship", rel: "blood" }]))
+      .toEqual(["@I1@", "@I2@", "@I3@", "@I4@", "@I5@", "@I6@", "@I7@"]);
+    // …and the partner is related only by marriage.
+    expect(match([{ kind: "kinship", rel: "notBlood" }])).toEqual(["@I8@"]);
+  });
+
+  it("matches nobody without a start person", () => {
+    expect(match([{ kind: "kinship", rel: "blood" }], null)).toEqual([]);
+    expect(computeKinship(ds, "@I99@")).toBeNull();
   });
 });
 
