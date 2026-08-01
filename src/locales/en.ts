@@ -355,6 +355,8 @@ export const en = {
   "tools.sources.referencedBy_one": "Referenced by {{count}} record",
   "tools.sources.referencedBy_other": "Referenced by {{count}} records",
   "tools.sources.referencedByNone": "Not referenced by any record.",
+  "tools.sources.mediaInSources_one": "Attached to {{count}} source",
+  "tools.sources.mediaInSources_other": "Attached to {{count}} sources",
   "tools.sources.dupHeading": "Potential duplicates",
   "tools.sources.dupIntro": "Records that describe the same media, source or repository under different ids. Pick the groups to merge, then download a deduplicated GEDCOM — each group is collapsed to one record and every citation re-pointed onto it.",
   "tools.sources.dupFound_one": "{{count}} duplicate group found",

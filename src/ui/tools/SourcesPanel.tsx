@@ -6,6 +6,7 @@ import { buildSourceTree, type SourceTree, type RepoGroup, type SourceEntry, typ
 import { MediaThumb, type MediaGalleryItem } from "../PersonMedia";
 import { useMediaFolder } from "../MediaFolderContext";
 import { isPrivateNode } from "../../gedcom/private";
+import { sourceTitle } from "../../gedcom/source";
 import type { MediaEditFields } from "../MediaViewer";
 import { mediaMetaRows } from "../MediaViewer";
 import { type ToolsScans } from "../useToolsScans";
@@ -17,18 +18,25 @@ import { ToolSummary } from "./ToolSummary";
 
 /** Lightbox side panel for a media object: the person/family records that
  *  reference the image (the descriptive caption rows are supplied separately as
- *  the photo's `meta`). `onNavigate` closes the lightbox before jumping to the
- *  record in Edit mode. */
+ *  the photo's `meta`), and the sources the image is attached to as a page /
+ *  front page / cutout. `onNavigate` closes the lightbox before jumping to the
+ *  record in Edit mode; `onShowSource` closes it and filters the tree to the
+ *  clicked source. */
 function MediaDetails({
   dataset,
   media,
   onNavigate,
+  onShowSource,
 }: {
   dataset: Dataset;
   media: MediaEntry;
   onNavigate: (id: string) => void;
+  onShowSource: (title: string) => void;
 }) {
   const { t } = useTranslation();
+  const inSources = dataset.records.filter(
+    (r) => r.tag === "SOUR" && r.xref && r.children.some((c) => c.tag === "OBJE" && c.value?.trim() === media.xref),
+  );
   return (
     <>
       <div className="media-lightbox-uses-head">
@@ -38,6 +46,22 @@ function MediaDetails({
         <UsageList dataset={dataset} uses={media.usedBy} onNavigate={onNavigate} />
       ) : (
         <p className="tools-clean">{t("tools.sources.referencedByNone")}</p>
+      )}
+      {inSources.length > 0 && (
+        <>
+          <div className="media-lightbox-uses-head">
+            {t("tools.sources.mediaInSources", { count: inSources.length })}
+          </div>
+          <ul className="tools-usage">
+            {inSources.map((s) => (
+              <li key={s.xref}>
+                <button className="tools-issue-link" onClick={() => onShowSource(sourceTitle(s) || s.xref!)}>
+                  📖 {sourceTitle(s) || s.xref}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </>
   );
@@ -56,6 +80,7 @@ function MediaRows({
   dataset,
   onNavigate,
   onEditMediaInfo,
+  onShowSource,
   isOpen,
   toggle,
   rowKey,
@@ -66,6 +91,8 @@ function MediaRows({
   onNavigate: (id: string) => void;
   /** Write edited viewer fields to the shared `OBJE` record (undoable). */
   onEditMediaInfo: (objeXref: string, fields: MediaEditFields) => void;
+  /** Filter the tree to a source title (from the viewer's in-sources list). */
+  onShowSource: (title: string) => void;
   isOpen: (key: string) => boolean;
   toggle: (key: string) => void;
   rowKey: (m: MediaEntry) => string;
@@ -83,7 +110,12 @@ function MediaRows({
         // The editor's inputs replace the static rows (same as the Edit view).
         meta: rec ? undefined : mediaMetaRows(m, t),
         details: (close: () => void) => (
-          <MediaDetails dataset={dataset} media={m} onNavigate={(id) => { close(); onNavigate(id); }} />
+          <MediaDetails
+            dataset={dataset}
+            media={m}
+            onNavigate={(id) => { close(); onNavigate(id); }}
+            onShowSource={(title) => { close(); onShowSource(title); }}
+          />
         ),
         // The same editable info panel the Edit view offers, committed to the
         // shared OBJE record through the tools undo flow.
@@ -103,7 +135,7 @@ function MediaRows({
       };
     });
     return { items, indexOf: new Map(photos.map((m, i) => [m, i] as const)) };
-  }, [entries, dataset, onNavigate, onEditMediaInfo, t]);
+  }, [entries, dataset, onNavigate, onEditMediaInfo, onShowSource, t]);
 
   // Only with a loaded folder do file entries leave the row list for the tray —
   // without one there is nothing to render, so the titled rows stay.
@@ -483,6 +515,10 @@ export function SourcesPanel({
     refreshTree();
   };
 
+  // The viewer's in-sources list jumps back to the tree filtered to that
+  // source — the search expands ancestors down to the match.
+  const showSource = (title: string) => setQuery(title);
+
   // Memoized so the dialog's prefill effect fires once per opened source, not
   // on every panel render (a fresh `editing` object would clobber typing).
   const editing = useMemo(() => {
@@ -574,6 +610,7 @@ export function SourcesPanel({
             dataset={dataset}
             onNavigate={onNavigate}
             onEditMediaInfo={editMediaInfo}
+            onShowSource={showSource}
             isOpen={isOpen}
             toggle={toggle}
             rowKey={(m) => `${key}:${m.xref}`}
@@ -682,6 +719,7 @@ export function SourcesPanel({
                           dataset={dataset}
                           onNavigate={onNavigate}
                           onEditMediaInfo={editMediaInfo}
+                          onShowSource={showSource}
                           isOpen={isOpen}
                           toggle={toggle}
                           rowKey={(m) => `m:${m.xref}`}
