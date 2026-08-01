@@ -4,6 +4,7 @@ import { isSameSexCouple } from "../../gedcom/couple";
 import type { Translate } from "../../locales/i18n";
 import type { MatchDecisionStatus } from "../../review/types";
 import { firstChild } from "../../gedcom/node";
+import { eventDisplayLabel } from "../../gedcom/eventTags";
 import { collectMediaRefs } from "../../gedcom/media";
 import { coupleAgesDisplay } from "../../gedcom/age";
 import { kinshipInfo, kinshipTooltip as kinshipTooltipText, lineageClass } from "../../match/kinship";
@@ -171,7 +172,7 @@ export const ParentFamilyGroup = memo(function ParentFamilyGroup({
     ? ""
     : coupleEvent.tag === "EVEN" && coupleEvent.type
       ? coupleEvent.type
-      : t(`event.${coupleEvent.tag}`);
+      : eventDisplayLabel(coupleEvent.tag, t);
   const couplePlace = coupleEvent?.place ? coupleEvent.place.parts[0] || coupleEvent.place.raw : undefined;
   const coupleAges = settings.showAge && coupleEvent?.date && fam
     ? coupleAgesDisplay(
@@ -508,7 +509,7 @@ export const FamilySection = memo(function FamilySection({
             onOpenSourceDialog={onOpenSourceDialog}
             autoFocusDate={pendingFocusFamEventKey === `${fam.id}-${tag}`}
             onRemove={hasRealEvent ? () => commitFamily(fam, (f) => removeFamilyEvent(f, tag)) : () => dismissExtraEvent(`${famMergeKeyBase ?? `fam.${fam.id}`}.${tag}`)}
-            onCopy={eventNode ? () => onCopyFamilyEvent(fam, eventNode, t(`event.${tag}`)) : undefined}
+            onCopy={eventNode ? () => onCopyFamilyEvent(fam, eventNode, eventDisplayLabel(tag, t)) : undefined}
             onRetag={(newTag) => markFamilyTagRetagged(famMergeKeyBase ?? `fam.${fam.id}`, newTag)}
             placeSuggestions={placeSuggestions}
             placeToAddrs={placeToAddrs}

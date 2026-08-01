@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { Translate } from "../../locales/i18n";
+import { eventDisplayLabel } from "../../gedcom/eventTags";
 import { openPickerOnEnter } from "./openPicker";
 
 /** Dropdown chip that adds an event tag from a list of available tags.
@@ -42,12 +43,12 @@ export function AddEventSelect({
           ? groups.map((g) => (
               <optgroup key={g.labelKey} label={t(g.labelKey)}>
                 {g.tags.map((tag) => (
-                  <option key={tag} value={tag}>{t(`event.${tag}`)}</option>
+                  <option key={tag} value={tag}>{eventDisplayLabel(tag, t)}</option>
                 ))}
               </optgroup>
             ))
           : tags?.map((tag) => (
-              <option key={tag} value={tag}>{t(`event.${tag}`)}</option>
+              <option key={tag} value={tag}>{eventDisplayLabel(tag, t)}</option>
             ))}
       </select>
     </label>

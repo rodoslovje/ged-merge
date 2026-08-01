@@ -1,6 +1,7 @@
 import type { Family, Individual, SourceCitation, GeoCoord } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
 import { setFamilyEventField, changeFamilyEventTag } from "../../gedcom/edit";
+import { eventDisplayLabel } from "../../gedcom/eventTags";
 import { firstChild } from "../../gedcom/node";
 import { coupleAgesDisplay } from "../../gedcom/age";
 import { isSameSexCouple } from "../../gedcom/couple";
@@ -48,7 +49,7 @@ export function FamilyEventRow({
 }) {
   const { settings } = useSettings();
   const ev = fam.events.find((e) => e.tag === tag);
-  const label = t(`event.${tag}`);
+  const label = eventDisplayLabel(tag, t);
   const eventNode = firstChild(fam.raw, tag);
   const tagChoices = familyTagChoices(fam, tag);
 

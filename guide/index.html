@@ -157,7 +157,7 @@
             <li><a href="#tools">10. Tools</a></li>
             <li class="guide-toc-sub"><a href="#validate">↳ Health check</a></li>
             <li class="guide-toc-sub"><a href="#duplicates">↳ Find duplicates</a></li>
-            <li class="guide-toc-sub"><a href="#normalize">↳ Normalize</a></li>
+            <li class="guide-toc-sub"><a href="#normalize">↳ Normalize &amp; batch</a></li>
             <li class="guide-toc-sub"><a href="#tool-privacy">↳ Privacy</a></li>
             <li class="guide-toc-sub"><a href="#tool-sources">↳ Sources</a></li>
             <li class="guide-toc-sub"><a href="#places">↳ Places</a></li>
@@ -671,11 +671,11 @@
               <strong>Health check</strong>'s one-click fixes, a <strong>Find duplicates</strong> merge, a
               <strong>Places</strong> rename and <strong>Geocode places</strong> write into your main file as you work —
               each undoable with <span class="gm-key">Ctrl</span><span class="gm-key">Z</span>, and saved like any other
-              edit. <strong>Normalize</strong>, <strong>Privacy</strong> and <strong>Organize sources</strong> instead
+              edit, as do <a href="#normalize">Batch actions</a>. <strong>Normalize file</strong>, <strong>Privacy</strong> and <strong>Organize sources</strong> instead
               hand you a separate file to download. Either way the <em>.ged</em> on your disk is never rewritten: every
               save is a new file in your Downloads folder (<a href="#saving">§14</a>).
               Six tools sit in the picker at the top —
-              <strong>Health check</strong>, <strong>Find duplicates</strong>, <strong>Normalize</strong>,
+              <strong>Health check</strong>, <strong>Find duplicates</strong>, <strong>Normalize &amp; batch</strong>,
               <strong>Privacy</strong>, <strong>Sources</strong> and <strong>Places</strong>. Two more open from inside
               the last two: <a href="#organize">Organize sources</a> from Sources, and
               <a href="#geocode">Geocode places</a> from Places.
@@ -770,12 +770,28 @@
               shows both records' GEDCOM ids next to the names, so two people with the same name and dates are still
               easy to tell apart.
             </p>
-            <h3 id="normalize">Normalize</h3>
+            <h3 id="normalize">Normalize &amp; batch</h3>
             <p>
-              Detects the file's own dominant date format, place layout and link style, then re-renders records that
-              deviate — e.g. <em>1 Jan 1900</em> → <em>01.01.1900</em>, reshaping places, and rewriting Matricula or
-              Geneanet links to a consistent form. A preview lists examples of each change before you download the
-              normalized copy.
+              <strong>Batch actions</strong> select people with stackable filters — name (anywhere, or scoped to the
+              given name or surname), sex, birth year, age (at
+              death; for people without a death record, to today), living (has a death record or not), an event the
+              person has or does not have (birth, death, occupation, … — or any non-standard event), place, media
+              (none, any, or one specific image), sources, kinship to the start person (direct ancestor, descendant,
+              blood relative or neither), and maternal or paternal line relative
+              to the start person — and apply one action to every match: attach an image (existing or new), add a
+              source citation, remove an image, mark them as deceased (an undated death event — handy after
+              filtering for living people with an impossible age), or convert a non-standard event to a standard
+              type or to a named custom event, keeping its dates, places and sources. Each match has a checkbox so you can drop individuals before
+              applying; the whole run is a single undo step, and people who already carry the image or citation are
+              skipped. A filter can be saved by name together with its action, and the saved list always shows how
+              many people currently match — so a recurring chore, say giving everyone who died before age 20 a
+              died-young image, is a glance and two clicks.
+            </p>
+            <p>
+              <strong>Normalize file</strong> detects the file's own dominant date format, place layout and link
+              style, then re-renders records that deviate — e.g. <em>1 Jan 1900</em> → <em>01.01.1900</em>, reshaping
+              places, and rewriting Matricula or Geneanet links to a consistent form. A preview lists examples of each
+              change before you download the normalized copy.
             </p>
             <h3 id="tool-privacy">Privacy</h3>
             <p>
@@ -1648,7 +1664,7 @@
                 <tr><td><strong>Match score</strong></td><td>0–100% likelihood that two records are the same person.</td></tr>
                 <tr><td><strong>Start person</strong></td><td>The reference person matches are ranked around, by kinship distance.</td></tr>
                 <tr><td><strong>House style</strong></td><td>A file's own date, place, source and name conventions.</td></tr>
-                <tr><td><strong>Normalize</strong></td><td>Reshape records to one consistent house style.</td></tr>
+                <tr><td><strong>Normalize &amp; batch</strong></td><td>Batch actions on filtered people; reshape records to one consistent house style.</td></tr>
                 <tr><td><strong>Media folder</strong></td><td>The local folder holding the image files a GEDCOM references.</td></tr>
                 <tr><td><strong>Repository / Source / Citation</strong></td><td>Where a record is held, the record itself, and a reference to it from a person or event.</td></tr>
               </tbody>

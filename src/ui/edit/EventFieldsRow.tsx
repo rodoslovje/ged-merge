@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { GedEvent, GeoCoord, SourceCitation } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
+import { eventDisplayLabel, vendorEventTooltip } from "../../gedcom/eventTags";
 import type { RecordPatch } from "../historyTypes";
 import type { EventFieldUpdate } from "../../gedcom/edit";
 import { SourceRefs } from "../SourceRef";
@@ -105,6 +107,7 @@ export function EventFieldsRow({
    * "♀28"), each with its own tooltip. */
   age?: { text: string; title: string }[];
 }) {
+  const { i18n } = useTranslation();
   // A generic `EVEN`/`FACT` wears its descriptive `TYPE` as the event label
   // ("Civil Partnership"), so it reads like any built-in event — the label's
   // tooltip is what says it's custom. The TYPE itself is edited in an
@@ -514,7 +517,13 @@ export function EventFieldsRow({
             false,
             tagDirty || tagForced,
           )}
-          title={isEven ? t("event.customTooltip", { tag: tag ?? "EVEN" }) : undefined}
+          title={
+            isEven
+              ? t("event.customTooltip", { tag: tag ?? "EVEN" })
+              : tag
+                ? vendorEventTooltip(tag, t, i18n.language)
+                : undefined
+          }
         >
           {customName || label}
           {showSelect && (
@@ -537,12 +546,12 @@ export function EventFieldsRow({
                     g.labelKey ? (
                       <optgroup key={g.labelKey} label={t(g.labelKey)}>
                         {g.tags.map((tg) => (
-                          <option key={tg} value={tg}>{t(`event.${tg}`)}</option>
+                          <option key={tg} value={tg}>{eventDisplayLabel(tg, t)}</option>
                         ))}
                       </optgroup>
                     ) : (
                       g.tags.map((tg) => (
-                        <option key={`${gi}-${tg}`} value={tg}>{t(`event.${tg}`)}</option>
+                        <option key={`${gi}-${tg}`} value={tg}>{eventDisplayLabel(tg, t)}</option>
                       ))
                     ),
                   )

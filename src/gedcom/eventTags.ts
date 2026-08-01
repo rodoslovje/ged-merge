@@ -7,6 +7,9 @@
  * consumer picks it up together.
  */
 
+import type { Translate } from "../locales/i18n";
+import { VENDOR_TAGS, VENDOR_TAG_ALIASES } from "./vendorTags";
+
 /** Individual event tags in canonical life-cycle order (birth → … → death).
  *  Includes the GEDCOM attribute tags (TITL, DSCR, RELI, …) — the app models
  *  attributes as value-bearing events, like OCCU — and the Brother's Keeper
@@ -27,6 +30,29 @@ export const INDI_EVENT_TAG_ORDER = [
  *  partnership-status tag (Brother's Keeper vocabulary — "Partners", …) that
  *  normalization consolidates the other vendor encodings into. */
 export const FAM_EVENT_TAG_ORDER = ["MARR", "ENGA", "SEPA", "MARB", "MARL", "DIV", "EVEN", "_MSTAT"];
+
+/**
+ * Localized display name for an event tag. Non-standard (`_`-prefixed vendor)
+ * tags get the raw tag appended — "Funeral (_FNRL)" — so they read apart from
+ * similarly named standard events (BURI "Burial"). `fallback` replaces the
+ * default untranslated-name fallback (the tag itself).
+ */
+export function eventDisplayLabel(tag: string, t: Translate, fallback?: string): string {
+  const name = t(`event.${tag}`, { defaultValue: fallback ?? tag });
+  return tag.startsWith("_") && name !== tag ? `${name} (${tag})` : name;
+}
+
+/**
+ * Tooltip explaining a vendor event's origin — "Non-standard tag _FNRL
+ * (Brother's Keeper): funeral" — or undefined for standard tags.
+ */
+export function vendorEventTooltip(tag: string, t: Translate, lang: string): string | undefined {
+  if (!tag.startsWith("_")) return undefined;
+  const info = VENDOR_TAGS[tag] ?? VENDOR_TAGS[VENDOR_TAG_ALIASES[tag]];
+  if (!info) return t("event.vendorTooltip", { tag });
+  const meaning = lang.startsWith("sl") ? info.meaning.sl : info.meaning.en;
+  return t("event.vendorTooltip.known", { tag, software: info.software, meaning });
+}
 
 /** Event-bearing INDI children lifted into the typed `events` array. Includes
  *  MARR: some exports write a marriage event directly on the individual. */
