@@ -19,7 +19,7 @@ import {
 import { dedupeSources, type DuplicateReport, type DupGroup, type DupKind } from "../../tools/sourceDuplicates";
 import { familySpouses } from "../../tools/sources";
 import { PersonLink } from "../PersonLink";
-import { downloadOptions, ensureUtf8Charset, serializeGedcom } from "../../gedcom/serialize";
+import { downloadOptions, ensureUtf8Charset, serializeGedcom, stampHeadSource } from "../../gedcom/serialize";
 import { sourceTooltip } from "../../gedcom/source";
 import { fetchPageHtml } from "../../normalize/urlMetadata";
 import { linkKey } from "../../normalize/links";
@@ -197,6 +197,7 @@ export function SourceCleanupView({
     });
     const { records } = dedupeSources(reshaped, selectedDupGroups);
     ensureUtf8Charset(records, dataset); // downloads are UTF-8 bytes
+    stampHeadSource(records, dataset);
     const text = serializeGedcom(records, downloadOptions(dataset));
     downloadText(savedName(fileName, "ged"), text);
   }
