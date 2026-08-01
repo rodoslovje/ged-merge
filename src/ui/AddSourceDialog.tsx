@@ -124,7 +124,8 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
     () =>
       dataset.records
         .filter((r) => r.tag === "REPO" && r.xref)
-        .map((r) => ({ xref: r.xref!, name: childText(r, "NAME")?.trim() || r.xref! })),
+        .map((r) => ({ xref: r.xref!, name: childText(r, "NAME")?.trim() || r.xref! }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
     [dataset],
   );
   // What the automatic site-repo linking would pick for this URL: the site's
@@ -415,12 +416,16 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
               <label className="add-source-field">
                 <span>{t("addSource.field.repo")}</span>
                 <select className="edit-input" value={repoSel} onChange={(e) => setRepoSel(e.target.value)}>
+                  {/* The special choices sit outside the sorted repository
+                      group: no-repo first, the create actions last. */}
                   <option value="">{t("tools.sources.noRepo")}</option>
-                  {repos.map((r) => (
-                    <option key={r.xref} value={r.xref}>
-                      {r.name}
-                    </option>
-                  ))}
+                  <optgroup label={t("tools.sources.dupKind.repo")}>
+                    {repos.map((r) => (
+                      <option key={r.xref} value={r.xref}>
+                        {r.name}
+                      </option>
+                    ))}
+                  </optgroup>
                   {!editing && !repoDefault?.xref && repoDefault?.createName && (
                     <option value="@create@">{t("addSource.repo.create", { name: repoDefault.createName })}</option>
                   )}
