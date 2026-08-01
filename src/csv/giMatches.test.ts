@@ -14,6 +14,18 @@ const FAMILY_HEADER =
 const FAMILY_HEADER_SL =
   '"Ime moža","Priimek moža","Rojstvo moža","Ime žene","Priimek žene","Rojstvo žene","Datum poroke","Kraj poroke","Povezave","Otroci","Oče moža","Mati moža","Oče žene","Mati žene","Rodoslovec","Zaupanje"';
 
+// Current exports: the contributor column is labelled "Vir"/"Source" rather
+// than "Rodoslovec"/"Genealogist", and the parents arrive as separate
+// per-language "Oče"/"Mati" columns instead of the combined "Starši".
+const SL_HEADER_SOURCE =
+  '"Ime","Priimek","Datum rojstva","Kraj rojstva","Datum smrti","Kraj smrti","Datum pokopa","Kraj pokopa","Povezave","Partnerji","Oče","Mati","Vir","Zaupanje"';
+
+const FAMILY_HEADER_SL_SOURCE =
+  '"Ime moža","Priimek moža","Rojstvo moža","Ime žene","Priimek žene","Rojstvo žene","Datum poroke","Kraj poroke","Povezave","Otroci","Oče moža","Mati moža","Oče žene","Mati žene","Vir","Zaupanje"';
+
+const FAMILY_HEADER_DE =
+  '"Vorname des Mannes","Nachname des Mannes","Geburt des Mannes","Vorname der Frau","Nachname der Frau","Geburt der Frau","Heiratsdatum","Heiratsort","Links","Kinder","Vater des Mannes","Mutter des Mannes","Vater der Frau","Mutter der Frau","Quelle","Konfidenz"';
+
 function row(cells: string[]): string {
   return cells.map((c) => `"${c.replace(/"/g, '""')}"`).join(",");
 }
@@ -142,6 +154,97 @@ describe("parseGiMatchesCsv", () => {
 
     const indi = dataset.individuals.get("@SGI1@");
     expect(indi?.notes).toBeUndefined();
+  });
+
+  it("accepts the current Slovenian person header (Vir contributor column, Oče/Mati parents)", () => {
+    const mainRow = row([
+      "Marjeta", "Slobodnik (Stepan)", "8 JUL 1804", "Bojanja vas, Metlika",
+      "27 JUN 1843", "Bojanja vas, Metlika", "", "", "",
+      "Matija Stepan | 28 JUL 1808",
+      "Martin Slobodnik | 5 NOV 1771", "Margaretha Režek | 10 AUG 1772",
+      "Renko", "99",
+    ]);
+    const incomingRow = row([
+      "Marjeta", "Slobodnik", "8 JUL 1804", "Bojanja vas 43",
+      "27 JUN 1843", "Bojanja vas 43", "", "", "",
+      "Matja Stepan | 28 JUL 1808",
+      "Martin Slobodnik | 6 SEP 1771", "Marjeta Režek | ABT 1770",
+      "Kočevar", "99",
+    ]);
+    const text = `${SL_HEADER_SOURCE}\n${mainRow}\n${incomingRow}\n`;
+
+    const { dataset, pairs } = parseGiMatchesCsv(text);
+    expect(pairs).toEqual([
+      { mainKey: { given: "Marjeta", surname: "Slobodnik", birthYear: 1804 }, compareId: "@SGI1@" },
+    ]);
+
+    // The Slovenian "Oče"/"Mati" columns must become real parent records.
+    const indi = dataset.individuals.get("@SGI1@")!;
+    expect(fatherName(indi, dataset)).toEqual(expect.objectContaining({ given: "Martin", surname: "Slobodnik" }));
+    expect(motherName(indi, dataset)).toEqual(expect.objectContaining({ given: "Marjeta", surname: "Režek" }));
+    expect(partnerNames(indi, dataset)).toEqual([
+      expect.objectContaining({ given: "Matja", surname: "Stepan" }),
+    ]);
+  });
+
+  it("accepts the current Slovenian family header (Vir contributor column)", () => {
+    const mainRow = row([
+      "Štefan", "Slobodnik", "27 SEP 1768",
+      "Barbara", "Bajuk (NN)", "21 FEB 1767",
+      "15 FEB 1786", "Metlika", "",
+      "Stefan Slobodnik | 24 DEC 1793; Marko Slobodnik | 21 MAR 1796",
+      "Matija Slobodnik | 21 SEP 1726", "Ana Mateković | 7 SEP 1734", "", "",
+      "Renko", "97",
+    ]);
+    const incomingRow = row([
+      "Štefan", "Slobodnik", "27 SEP 1768",
+      "Barbara", "Bajuk", "ABT 1770",
+      "15 FEB 1786", "", "",
+      "Štefan Slobodnik | 24 DEC 1793; Marko Slobodnik | 21 MAR 1796",
+      "Matija Slobodnik | ABT 1732", "Ana Mateković | ABT 1739", "", "",
+      "Kočevar", "97",
+    ]);
+    const text = `${FAMILY_HEADER_SL_SOURCE}\n${mainRow}\n${incomingRow}\n`;
+
+    const { dataset, pairs } = parseGiMatchesCsv(text);
+    expect(pairs).toEqual([
+      { mainKey: { given: "Štefan", surname: "Slobodnik", birthYear: 1768 }, compareId: "@SGI1@" },
+      { mainKey: { given: "Barbara", surname: "Bajuk", birthYear: 1767 }, compareId: "@SGI2@" },
+    ]);
+
+    const husband = dataset.individuals.get("@SGI1@")!;
+    expect(fatherName(husband, dataset)).toEqual(expect.objectContaining({ given: "Matija", surname: "Slobodnik" }));
+    expect(childrenNames(husband, dataset)).toEqual([
+      expect.objectContaining({ given: "Štefan" }),
+      expect.objectContaining({ given: "Marko" }),
+    ]);
+  });
+
+  it("accepts the German family header", () => {
+    const mainRow = row([
+      "Anton", "Tabar", "7 JUN 1904",
+      "Frančiška", "Bernard", "6 MAR 1904",
+      "1 FEB 1931", "", "", "",
+      "", "", "Jakob Bernard | 12 JUL 1879", "Frančiška Berčič | 29 JAN 1881",
+      "Renko", "97",
+    ]);
+    const incomingRow = row([
+      "Anton", "Tabar", "7 JUN 1904",
+      "Frančiška", "Bernard", "6 MAR 1904",
+      "1 FEB 1931", "Kranj", "", "Justina Tabar | 1932",
+      "", "", "Jakob Bernard | 12 JUL 1879", "Frančiška Berčič | 29 JAN 1881",
+      "Kovačič", "97",
+    ]);
+    const text = `${FAMILY_HEADER_DE}\n${mainRow}\n${incomingRow}\n`;
+
+    const { dataset, pairs } = parseGiMatchesCsv(text);
+    expect(pairs).toEqual([
+      { mainKey: { given: "Anton", surname: "Tabar", birthYear: 1904 }, compareId: "@SGI1@" },
+      { mainKey: { given: "Frančiška", surname: "Bernard", birthYear: 1904 }, compareId: "@SGI2@" },
+    ]);
+
+    const wife = dataset.individuals.get("@SGI2@")!;
+    expect(fatherName(wife, dataset)).toEqual(expect.objectContaining({ given: "Jakob", surname: "Bernard" }));
   });
 
   it("builds father/mother and partner families from the second row's Father/Mother/Partners fields", () => {
