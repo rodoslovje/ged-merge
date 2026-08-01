@@ -50,6 +50,8 @@ import {
   setFamilyEventField,
   noteCtx,
   setFamilyNotes,
+  setFsIds,
+  preferredFsIdTag,
   setIndividualLinks,
   setMarriedName,
   setName,
@@ -932,6 +934,80 @@ describe("setIndividualLinks", () => {
     const updated = rebuildIndividual(ds, indi);
     expect(updated.links ?? []).toHaveLength(0);
     expect(serializeGedcom(ds.records)).not.toContain("WWW");
+  });
+});
+
+// ─── setFsIds ─────────────────────────────────────────────────────────────────
+
+describe("setFsIds", () => {
+  it("adds a FamilySearch id with the preferred tag, uppercased", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+    setFsIds(indi, ["gpzg-cxl"], preferredFsIdTag(ds));
+    const updated = rebuildIndividual(ds, indi);
+    expect(updated.fsids).toEqual(["GPZG-CXL"]);
+    expect(serializeGedcom(ds.records)).toContain("1 _FSFTID GPZG-CXL");
+  });
+
+  it("keeps the tag and position of an existing id when editing", () => {
+    const ds = buildFromText([
+      "0 HEAD",
+      "1 GEDC",
+      "2 VERS 5.5.1",
+      "0 @I1@ INDI",
+      "1 NAME Janez /Novak/",
+      "1 _FID GW82-GKR",
+      "1 SEX M",
+      "0 TRLR",
+      "",
+    ].join("\n"));
+    const indi = ds.individuals.get("@I1@")!;
+    setFsIds(indi, ["GPZG-CXL"], "_FSFTID");
+    const updated = rebuildIndividual(ds, indi);
+    expect(updated.fsids).toEqual(["GPZG-CXL"]);
+    const tags = indi.raw.children.map((c) => c.tag);
+    expect(tags.indexOf("_FID")).toBeLessThan(tags.indexOf("SEX"));
+    expect(serializeGedcom(ds.records)).toContain("1 _FID GPZG-CXL");
+    expect(serializeGedcom(ds.records)).not.toContain("_FSFTID");
+  });
+
+  it("removes the id nodes when given an empty list", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+    setFsIds(indi, ["GPZG-CXL"], "_FID");
+    setFsIds(indi, [], "_FID");
+    const updated = rebuildIndividual(ds, indi);
+    expect(updated.fsids).toBeUndefined();
+    expect(serializeGedcom(ds.records)).not.toContain("_FID");
+  });
+
+  it("preferredFsIdTag follows the file's existing dialect", () => {
+    const ds = buildFromText([
+      "0 HEAD",
+      "1 GEDC",
+      "2 VERS 5.5.1",
+      "0 @I1@ INDI",
+      "1 NAME A /B/",
+      "1 _FID GW82-GKR",
+      "0 TRLR",
+      "",
+    ].join("\n"));
+    expect(preferredFsIdTag(ds)).toBe("_FID");
+    expect(preferredFsIdTag(buildFromText(BASE))).toBe("_FSFTID");
+  });
+
+  it("preferredFsIdTag uses MacFamilyTree's _FID for MacFamilyTree files", () => {
+    const ds = buildFromText([
+      "0 HEAD",
+      "1 SOUR MacFamilyTree",
+      "1 GEDC",
+      "2 VERS 5.5.1",
+      "0 @I1@ INDI",
+      "1 NAME A /B/",
+      "0 TRLR",
+      "",
+    ].join("\n"));
+    expect(preferredFsIdTag(ds)).toBe("_FID");
   });
 });
 

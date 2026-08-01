@@ -76,6 +76,7 @@ export function formatFieldLabel(t: Translate, key: string): string {
   if (key === "husband") return t("field.husband");
   if (key === "wife") return t("field.wife");
   if (key === "links") return t("field.sources");
+  if (key === "fsid") return t("field.fsid");
   if (key === "notes" || key.endsWith(".notes")) return t("field.notes");
   if (key === "private" || key.endsWith(".private")) return t("field.private");
 
@@ -147,6 +148,11 @@ export function individualFieldRows(
     const cText = cExtraNames.map((n) => extraNameText(n, t)).join("\n") || undefined;
     pushRow(rows, "additionalNames", formatFieldLabel(t, "additionalNames"), mText, cText);
   }
+  // FamilySearch ids (uppercased — the canonical form — so a case-only
+  // difference between the files reads as agreement).
+  pushRow(rows, "fsid", formatFieldLabel(t, "fsid"),
+    main?.fsids?.map((s) => s.toUpperCase()).join("\n"),
+    compare?.fsids?.map((s) => s.toUpperCase()).join("\n"));
 
   // Record-level sources (SOUR citations) and plain links, combined into one
   // "Sources" row — same citations-plus-link-icons shape used per event — then

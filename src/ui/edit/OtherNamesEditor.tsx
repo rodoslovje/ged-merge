@@ -24,6 +24,8 @@ export function OtherNamesEditor({
   onAddNote,
   showAddMedia,
   onAddMedia,
+  showAddFsId,
+  onAddFsId,
   marriedNameTag,
   leadingControl,
 }: {
@@ -40,6 +42,10 @@ export function OtherNamesEditor({
    * chip belongs in this row (the tray hosts adding once photos exist). */
   showAddMedia: boolean;
   onAddMedia: () => void;
+  /** True when the person has no FamilySearch id yet — shows the "+ FamilySearch
+   * ID" chip (the chips themselves live in `FsIdEditor` below this row). */
+  showAddFsId: boolean;
+  onAddFsId: () => void;
   /** True when the main file records married surnames inline as `_MARNM`, so
    * choosing the "married" type on an added name stores it there instead of as a
    * separate `TYPE married` NAME record. */
@@ -169,6 +175,16 @@ export function OtherNamesEditor({
             onClick={onAddNote}
           >
             + {t("edit.addNote")}
+          </button>
+        )}
+        {showAddFsId && (
+          <button
+            type="button"
+            className="edit-name-chip edit-name-chip-add"
+            title={t("edit.addFsIdTooltip")}
+            onClick={onAddFsId}
+          >
+            + {t("edit.addFsId")}
           </button>
         )}
         {!hasNamesContent && addNameBtn}
