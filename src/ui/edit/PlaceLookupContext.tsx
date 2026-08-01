@@ -73,6 +73,14 @@ async function gazetteerIndex(): Promise<GazetteerIndex | undefined> {
   return cachedIndex;
 }
 
+/** Drop the cached index after the stored gazetteers change — a re-import of a
+ *  register the session already read (say, to pick up a field the older import
+ *  did not carry) would otherwise keep answering from the old entries until the
+ *  page is reloaded. Called by the Geocode tool whenever it writes the store. */
+export function invalidateGazetteerIndex(): void {
+  cachedIndex = undefined;
+}
+
 /** Build the Edit view's lookup: this file's place style plus every register. */
 export function usePlaceLookupValue(dataset: Dataset, placeSuggestions: string[]): PlaceLookup {
   const { settings } = useSettings();
