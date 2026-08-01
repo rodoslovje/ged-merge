@@ -5,6 +5,7 @@
 
 import type { Dataset, Family, GedDate, GedEvent, Individual, Sex, SourceCitation } from "../gedcom/types";
 import { birthYear, deathYear, formatLifespan, isDeceased, isPresumedLiving } from "../gedcom/lifespan";
+import { familiesByMarriage } from "../gedcom/familySort";
 import { ageAtDate } from "../gedcom/age";
 import type { Translate } from "../locales/i18n";
 import { EVENT_GLYPHS } from "../chart/timeline";
@@ -426,12 +427,7 @@ export function dated(e: GedEvent): boolean {
   return !!e.date?.raw || !!factPlace(e);
 }
 
-/** Resolve family ids to their records, keeping order, dropping dangling refs. */
-export function familiesOf(ds: Dataset, ids: string[]): Family[] {
-  return ids.map((id) => ds.families.get(id)).filter((f): f is Family => f !== undefined);
-}
-
-/** Every union's ⚭ line for a person, in record order — partner named and
+/** Every union's ⚭ line for a person, in marriage order — partner named and
  *  their living status attached (the narrative's tense needs it). Used by the
  *  register for all entries and by the Ahnentafel for the root, whose spouse
  *  isn't an ancestor and would otherwise go unmentioned. */
@@ -442,7 +438,7 @@ export function marriageFacts(
   opts: ReportFactOptions,
   nowYear: number,
 ): FactLine[] {
-  return familiesOf(ds, indi.spouseOf)
+  return familiesByMarriage(ds, indi.spouseOf)
     .map((fam) => {
       const partnerId = fam.husband === indi.id ? fam.wife : fam.husband;
       const partner = partnerId ? ds.individuals.get(partnerId) : undefined;

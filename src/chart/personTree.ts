@@ -1,5 +1,6 @@
 import type { Dataset, Family, Individual, Sex } from "../gedcom/types";
 import { birthYear, deathYear, formatLifespan, isDeceased, isPresumedLiving } from "../gedcom/lifespan";
+import { familiesByMarriage } from "../gedcom/familySort";
 import { lifespanAge } from "../gedcom/age";
 import { localityParts } from "../gedcom/place";
 import { placeLabel } from "./nodeDisplay";
@@ -210,9 +211,7 @@ interface Union {
 function unionsOf(indi: Individual | undefined, ds: Dataset): Union[] {
   if (!indi) return [];
   const unions: Union[] = [];
-  for (const famId of indi.spouseOf) {
-    const fam = ds.families.get(famId);
-    if (!fam) continue;
+  for (const fam of familiesByMarriage(ds, indi.spouseOf)) {
     const otherId = fam.husband === indi.id ? fam.wife : fam.husband;
     const partner = otherId ? ds.individuals.get(otherId) : undefined;
     const children = fam.children

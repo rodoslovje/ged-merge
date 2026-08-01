@@ -3,6 +3,7 @@ import { type RecordPatch, type PendingEditApply, cloneRaw, noteChangePatches, s
 import { useTranslation } from "react-i18next";
 import type { Dataset, Family, GedNode, GeoCoord, Individual } from "../gedcom/types";
 import { birthDateOf } from "../gedcom/lifespan";
+import { familiesByMarriage } from "../gedcom/familySort";
 import { coupleAgesDisplay, lifespanWithAge } from "../gedcom/age";
 import { isSameSexCouple } from "../gedcom/couple";
 import { childrenByTag, firstChild } from "../gedcom/node";
@@ -1467,9 +1468,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     .map((famId) => dataset.families.get(famId))
     .filter((f): f is NonNullable<typeof f> => !!f);
 
-  const spouseFamilies = person.spouseOf
-    .map((famId) => dataset.families.get(famId))
-    .filter((f): f is NonNullable<typeof f> => !!f);
+  const spouseFamilies = familiesByMarriage(dataset, person.spouseOf);
 
   const lifespan = lifespanWithAge(person, settings.showAge);
 

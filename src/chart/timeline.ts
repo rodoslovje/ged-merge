@@ -13,6 +13,7 @@ import {
   isDeceased,
   isPresumedLiving,
 } from "../gedcom/lifespan";
+import { familiesByMarriage } from "../gedcom/familySort";
 import { localityParts } from "../gedcom/place";
 import type { Translate } from "../locales/i18n";
 import { MARRIAGE_SYMBOL, placeLabel } from "./nodeDisplay";
@@ -153,7 +154,7 @@ export function buildTimeline(
       const p = fam[roleKey] ? ds.individuals.get(fam[roleKey]!) : undefined;
       if (p) {
         parents.push(p);
-        add(p, "parent", marriageMarks(t, familiesOf(ds, p.spouseOf)));
+        add(p, "parent", marriageMarks(t, familiesByMarriage(ds, p.spouseOf)));
         break;
       }
     }
@@ -163,7 +164,7 @@ export function buildTimeline(
   // that union's children are half-siblings (collected into the generation).
   const halfSiblings: Individual[] = [];
   for (const parent of parents) {
-    for (const fam of familiesOf(ds, parent.spouseOf)) {
+    for (const fam of familiesByMarriage(ds, parent.spouseOf)) {
       if (root.childOf.includes(fam.id)) continue; // the root's own family
       const partnerId = fam.husband === parent.id ? fam.wife : fam.husband;
       add(partnerId ? ds.individuals.get(partnerId) : undefined, "stepparent", marriageMarks(t, [fam]));
@@ -176,7 +177,7 @@ export function buildTimeline(
 
   // The root's generation: siblings, half-siblings and the root interleaved by
   // birth order. The root's row additionally carries their marriage(s).
-  const unions = familiesOf(ds, root.spouseOf);
+  const unions = familiesByMarriage(ds, root.spouseOf);
   const generation = childFamilies
     .flatMap((f) => f.children)
     .filter((id, i, all) => all.indexOf(id) === i && id !== root.id)
@@ -201,7 +202,7 @@ export function buildTimeline(
       .map((id) => ds.individuals.get(id))
       .filter((c): c is Individual => c !== undefined)
       .map((c) => ({ indi: c, role: "child" as TimelineRole }));
-    const stepKids = familiesOf(ds, spouse?.spouseOf ?? [])
+    const stepKids = familiesByMarriage(ds, spouse?.spouseOf ?? [])
       // Not the root's own unions — remarrying the same partner is still "child".
       .filter((f) => f.husband !== root.id && f.wife !== root.id)
       .flatMap((f) => f.children)
@@ -315,10 +316,6 @@ function eventMarks(t: Translate, indi: Individual): TimelineMark[] {
   return out;
 }
 
-/** Resolve family ids to their records, keeping order, dropping dangling refs. */
-function familiesOf(ds: Dataset, ids: string[]): Family[] {
-  return ids.map((id) => ds.families.get(id)).filter((f): f is Family => f !== undefined);
-}
 
 /** An event's display location: its street address when recorded (the leading
  *  part, house number kept — more specific than any locality), else the

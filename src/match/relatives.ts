@@ -1,6 +1,7 @@
 import type { Dataset, GedEvent, Individual, PersonName } from "../gedcom/types";
 import type { Translate } from "../locales/i18n";
 import { datesTooltipOf, lifespanOf } from "../gedcom/lifespan";
+import { familiesByMarriage } from "../gedcom/familySort";
 
 /** Conventional xrefs of "person 1" — the root individual many apps assign to
  * the start/primary person (MacFamilyTree writes `@1@`, others `@I1@`). Used as
@@ -48,21 +49,41 @@ export function nameSearchText(indi: Individual): string {
 }
 
 /**
- * The married surname to show for a person, from either source the app supports:
- *  - an inline `_MARNM` on the primary name (Gramps/PAF/Brother's Keeper style), or
- *  - a separate `1 NAME … 2 TYPE married` record (the GEDCOM-7 / standard style).
- * Returns undefined when none is recorded.
+ * Every married surname a person carries, from either source the app supports:
+ *  - an inline `_MARNM` on the primary name (Gramps/PAF/Brother's Keeper style), and
+ *  - separate `1 NAME … 2 TYPE married` records (the GEDCOM-7 / standard style).
+ * Deduplicated case-insensitively. When `ds` is given and the person has more
+ * than one, the names are ordered like the person's unions (marriage date, else
+ * children's births — {@link familiesByMarriage}) by matching each union's
+ * spouse surname; names matching no union keep their record order at the end.
  */
-export function marriedSurnameOf(indi: Individual): string | undefined {
-  const inline = indi.names[0]?.married?.trim();
-  if (inline) return inline;
+export function marriedSurnamesOf(indi: Individual, ds?: Dataset): string[] {
+  const names: string[] = [];
+  const push = (s: string | undefined) => {
+    const v = s?.trim();
+    if (v && !names.some((x) => x.toLowerCase() === v.toLowerCase())) names.push(v);
+  };
+  push(indi.names[0]?.married);
   for (const n of indi.names.slice(1)) {
-    if (n.type?.toLowerCase() === "married") {
-      const surname = (n.surname ?? n.full)?.trim();
-      if (surname) return surname;
-    }
+    if (n.type?.toLowerCase() === "married") push(n.surname ?? n.full);
   }
-  return undefined;
+  if (names.length < 2 || !ds) return names;
+
+  const remaining = [...names];
+  const ordered: string[] = [];
+  for (const fam of familiesByMarriage(ds, indi.spouseOf)) {
+    // Membership guard: with a foreign dataset (compare-side person looked up
+    // against the main file) a colliding family id must not drive the order.
+    if (fam.husband !== indi.id && fam.wife !== indi.id) continue;
+    const otherId = fam.husband === indi.id ? fam.wife : fam.husband;
+    const spouseSurname = otherId
+      ? ds.individuals.get(otherId)?.names[0]?.surname?.trim().toLowerCase()
+      : undefined;
+    if (!spouseSurname) continue;
+    const idx = remaining.findIndex((x) => x.toLowerCase() === spouseSurname);
+    if (idx !== -1) ordered.push(...remaining.splice(idx, 1));
+  }
+  return [...ordered, ...remaining];
 }
 
 /** Known `NAME`/`2 TYPE` values with a translated label; anything else is shown as-is. */
