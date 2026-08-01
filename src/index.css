@@ -7703,6 +7703,11 @@ kbd {
   background: var(--bg); color: var(--text);
   border: 1px solid var(--border); border-radius: var(--radius-sm);
 }
+.batch-input:focus, .batch-select:focus, .batch-save-name:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--accent) 35%, transparent);
+}
 .batch-input { width: 12rem; }
 .batch-input.batch-year { width: 4.5rem; font-variant-numeric: tabular-nums; }
 .batch-media-select { max-width: min(24rem, 100%); }
@@ -7721,11 +7726,9 @@ kbd {
   color: var(--accent); font-size: 0.85rem; text-decoration: underline;
 }
 .batch-list { list-style: none; margin: 0; padding: 0; max-height: 320px; overflow-y: auto; }
-.batch-row { display: flex; align-items: center; gap: 6px; }
-.batch-row-check { display: flex; align-items: baseline; gap: 8px; min-width: 0; flex: 1; cursor: pointer; padding: 4px 0; }
-.batch-row-check input { cursor: pointer; align-self: center; }
-.batch-row-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.9rem; }
-.batch-row-span { color: var(--muted); font-size: 0.8rem; white-space: nowrap; }
+.batch-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
+.batch-row input { cursor: pointer; flex: none; }
+.batch-row .tools-issue-link { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .batch-action-editor { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
 .batch-done { margin: 0 0 10px; color: var(--accent); font-size: 0.88rem; }
 .batch-confirm { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 0.9rem; color: var(--text); }

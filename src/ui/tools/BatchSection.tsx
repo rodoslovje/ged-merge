@@ -17,6 +17,7 @@ import {
 } from "../../tools/batch";
 import type { RecordPatch } from "../historyTypes";
 import { useNameOf } from "../SettingsContext";
+import { PersonLink } from "../PersonLink";
 import { useVirtualList } from "../useVirtualList";
 import { PickerMenu } from "../PickerMenu";
 
@@ -299,23 +300,18 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
           <li className="v-spacer" style={{ height: virtual.padTop }} ref={virtual.topRef} aria-hidden />
           {results.slice(virtual.start, virtual.end).map((r) => (
             <li key={r.id} className="batch-row">
-              <label className="batch-row-check">
-                <input
-                  type="checkbox"
-                  checked={!excluded.has(r.id)}
-                  onChange={() => {
-                    const next = new Set(excluded);
-                    if (next.has(r.id)) next.delete(r.id);
-                    else next.add(r.id);
-                    setExcluded(next);
-                  }}
-                />
-                <span className="batch-row-name">{r.name}</span>
-                {r.span && <span className="batch-row-span">{r.span}</span>}
-              </label>
-              <button className="tools-issue-link" onClick={() => onNavigate(r.id)} title={t("tools.batch.open")}>
-                ↗
-              </button>
+              <input
+                type="checkbox"
+                checked={!excluded.has(r.id)}
+                aria-label={r.name}
+                onChange={() => {
+                  const next = new Set(excluded);
+                  if (next.has(r.id)) next.delete(r.id);
+                  else next.add(r.id);
+                  setExcluded(next);
+                }}
+              />
+              <PersonLink dataset={dataset} id={r.id} fallback={r.name} onNavigate={onNavigate} />
             </li>
           ))}
           <li className="v-spacer" style={{ height: virtual.padBottom }} ref={virtual.bottomRef} aria-hidden />

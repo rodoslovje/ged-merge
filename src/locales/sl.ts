@@ -323,7 +323,6 @@ export const sl = {
   "tools.batch.selectedCount_other": "{{count}} izbranih",
   "tools.batch.selectAll": "Izberi vse",
   "tools.batch.selectNone": "Odznači vse",
-  "tools.batch.open": "Odpri v urejanju",
   "tools.batch.actionTitle": "Ukrep",
   "tools.batch.action.none": "Izberite ukrep …",
   "tools.batch.action.addMedia": "Pripni medij",

@@ -274,7 +274,6 @@ export const en = {
   "tools.batch.selectedCount_other": "{{count}} selected",
   "tools.batch.selectAll": "Select all",
   "tools.batch.selectNone": "Deselect all",
-  "tools.batch.open": "Open in Edit",
   "tools.batch.actionTitle": "Action",
   "tools.batch.action.none": "Choose an action…",
   "tools.batch.action.addMedia": "Attach media",
