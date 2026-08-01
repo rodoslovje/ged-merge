@@ -43,7 +43,6 @@ function input(main: Dataset, over: Partial<SavePreviewInput> = {}): SavePreview
     isSortEligible: () => false,
     now: NOW,
     t: tr,
-    nameOf: () => "Janez Novak",
     ...over,
   };
 }
@@ -221,32 +220,23 @@ describe("integrity warnings", () => {
     expect(out.integrityWarnings.some((w) => w.includes("orphanedDecision"))).toBe(true);
   });
 
-  it("warns when a confirmed decision's fingerprint no longer matches the record", () => {
-    const main = dataset(MAIN);
+  it("does not warn about a field edited after its match was confirmed", () => {
+    // That case is no longer a warning: the merge stands down and keeps the
+    // edit, reporting it per field in the deferred list instead.
     const out = buildSavePreview(
-      input(main, {
+      input(dataset(MAIN), {
         compare: dataset(COMPARE),
         confirmedCount: 1,
         matches: { individuals: [] },
         decisions: new Map([
-          [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {}, mainFp: "stale-fingerprint" }],
+          [
+            decisionKey("individual", "@I1@", "@P1@"),
+            { status: "confirmed", fields: {}, mainFields: { "BIRT.date": "an older value" } },
+          ],
         ]),
       }),
     )!;
-    expect(out.integrityWarnings.some((w) => w.includes("staleDecision"))).toBe(true);
-  });
-
-  it("does not raise a stale-fingerprint warning on an edit-only save", () => {
-    // Without a merge there are no field choices to have gone stale.
-    const out = buildSavePreview(
-      input(dataset(MAIN), {
-        changedPersonIds: new Set(["@I2@"]),
-        decisions: new Map([
-          [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {}, mainFp: "stale-fingerprint" }],
-        ]),
-      }),
-    )!;
-    expect(out.integrityWarnings.some((w) => w.includes("staleDecision"))).toBe(false);
+    expect(out.integrityWarnings).toEqual([]);
   });
 
   it("ignores decisions that are not confirmed", () => {

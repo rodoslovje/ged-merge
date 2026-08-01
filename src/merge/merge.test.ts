@@ -1399,6 +1399,80 @@ describe("mergeDecisions — pointers on a newly added person", () => {
   });
 });
 
+describe("an edit made after the match was confirmed wins", () => {
+  const compare = dataset(COMPARE);
+
+  /** A confirmed decision carrying the main's values as of the confirmation. */
+  function confirmedAt(
+    fields: Record<string, "main" | "incoming" | "both">,
+    mainFields: Record<string, string>,
+  ): Map<string, CandidateDecision> {
+    return new Map([
+      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed" as const, fields, mainFields }],
+    ]);
+  }
+
+  it("applies the incoming value when the field is untouched since confirming", () => {
+    const { records, report } = mergeDecisions(
+      dataset(MAIN), compare, confirmedAt({ given: "incoming" }, { given: "Janez" }), NO_MATCHES, tr,
+    );
+    expect(serializeGedcom(records)).toContain("1 NAME Jan;ez /Novak/");
+    expect(report.deferred).toEqual([]);
+  });
+
+  it("keeps the edited value and skips the incoming one", () => {
+    // At confirmation the main read "Marko"; it has since been edited to
+    // "Janez", so the recorded "take incoming" choice stands down.
+    const { records, report } = mergeDecisions(
+      dataset(MAIN), compare, confirmedAt({ given: "incoming" }, { given: "Marko" }), NO_MATCHES, tr,
+    );
+    expect(serializeGedcom(records)).toContain("1 NAME Janez /Novak/");
+    expect(serializeGedcom(records)).not.toContain("Jan;ez");
+    expect(report.deferred.some((d) => d.reason === "merge.reason.editedAfterConfirm")).toBe(true);
+  });
+
+  it("stands down only for the edited field, not the whole record", () => {
+    // The reason a per-field snapshot is needed rather than a record
+    // fingerprint: a birth place typed in after confirming must not suppress
+    // the unrelated given-name choice made at the same time.
+    const mainWithPlace = dataset(wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 PLAC Ljubljana\n" +
+        "0 @I2@ INDI\n1 NAME Ana /Kos/\n1 SEX F\n1 BIRT\n2 DATE 1855\n",
+    ));
+    const { records, report } = mergeDecisions(
+      mainWithPlace, compare,
+      // Snapshot omits BIRT.place — the main had none when the match was
+      // confirmed — but records the given name unchanged.
+      confirmedAt({ given: "incoming", "BIRT.place": "incoming" }, { given: "Janez" }),
+      NO_MATCHES, tr,
+    );
+    const out = serializeGedcom(records);
+    expect(out).toContain("1 NAME Jan;ez /Novak/"); // unrelated choice still applied
+    expect(out).toContain("2 PLAC Ljubljana"); // the later edit survives
+    expect(out).not.toContain("Kranj");
+    expect(report.deferred.map((d) => d.reason)).toEqual(["merge.reason.editedAfterConfirm"]);
+  });
+
+  it("keeps a value the user deleted after confirming", () => {
+    // Main's birth place was removed post-confirmation; refilling it from the
+    // incoming file would undo that deletion.
+    const { records } = mergeDecisions(
+      dataset(MAIN), compare, confirmedAt({ "BIRT.place": "incoming" }, { "BIRT.place": "Bled" }), NO_MATCHES, tr,
+    );
+    expect(serializeGedcom(records)).not.toContain("PLAC");
+  });
+
+  it("leaves decisions confirmed before snapshots existed unchanged", () => {
+    // No `mainFields` (a session restored from an older save): the recorded
+    // choice applies as it always did.
+    const { records, report } = mergeDecisions(
+      dataset(MAIN), compare, confirmed({ given: "incoming" }), NO_MATCHES, tr,
+    );
+    expect(serializeGedcom(records)).toContain("1 NAME Jan;ez /Novak/");
+    expect(report.deferred).toEqual([]);
+  });
+});
+
 /** Naive line-level diff for asserting which lines were added/removed. */
 function lineDiff(before: string, after: string): { added: string[]; removed: string[] } {
   const b = new Map<string, number>();

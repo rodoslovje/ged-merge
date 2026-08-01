@@ -12,12 +12,14 @@ import { loadedFileFromParsed } from "./state/loadedFile";
 import { useDirtyTracking } from "./edit-state/useDirtyTracking";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GedNode } from "./gedcom/types";
-import { cloneNode, nodeFingerprint } from "./gedcom/node";
+import { cloneNode } from "./gedcom/node";
 import { buildDataset } from "./gedcom/builder";
 import { rebuildIndividual, rebuildFamily, removeIndividual, removeFamily, noteCtx, rebuildNoteReferrers, pruneUnreferencedSource, setSourceRecordFields, setRepoRecordFields, setMediaInfo, bumpSourceCacheVersion, type SharedNoteCtx } from "./gedcom/edit";
 import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "./gedcom/private";
 import { downloadOptions, ensureUtf8Charset, serializeGedcom, stampHeadSource } from "./gedcom/serialize";
-import { formatReport, type ImportBranchRequest } from "./merge/merge";
+import { formatReport, INDI_HANDLED, type ImportBranchRequest } from "./merge/merge";
+import { snapshotMainValues } from "./merge/applyFields";
+import { individualFieldRows } from "./review/fields";
 import { buildEditSaveRecords } from "./merge/editSaveRecords";
 import { buildSavePreview, type SavePreview } from "./save/buildSavePreview";
 import { removeRecordFromReport } from "./gedcom/editReport";
@@ -161,15 +163,35 @@ function AppContent() {
   // []-dep callbacks like setPairStatus).
   const mainDatasetRef = useRef(mainDataset);
   mainDatasetRef.current = mainDataset;
+  const compareDatasetRef = useRef(compareDataset);
+  compareDatasetRef.current = compareDataset;
+  // `setPairStatus` is a []-dep callback, so it would otherwise stamp snapshots
+  // with the language that was active on first render.
+  const tRef = useRef(t);
+  tRef.current = t;
 
-  /** Stamp a decision being set to confirmed with the main person's current
-   *  record fingerprint, so the save preview can warn when Edit-mode changes
-   *  land on that person after the confirmation (the field choices were made
-   *  against values that may no longer exist). */
-  function stampMainFp(next: CandidateDecision, mainId: string): CandidateDecision {
+  /**
+   * Stamp a decision being set to confirmed with the main side's current value
+   * for every field the merge could overwrite, so that on save an "incoming"
+   * choice can stand down for any field the user has edited since (see
+   * `CandidateDecision.mainFields`).
+   *
+   * The rows are built exactly as `mergeDecisions` builds them — same dataset
+   * pair, inferred place format, no ages — so the two sets of strings are
+   * comparable. Re-stamped on every update while confirmed, including a change
+   * to a single field choice: choosing again is a fresh decision about the
+   * value on screen at that moment.
+   */
+  function stampMainRows(next: CandidateDecision, mainId: string, compareId: string): CandidateDecision {
     if (next.status !== "confirmed") return next;
-    const raw = mainDatasetRef.current?.individuals.get(mainId)?.raw;
-    return raw ? { ...next, mainFp: nodeFingerprint(raw) } : next;
+    const mainDs = mainDatasetRef.current;
+    const compareDs = compareDatasetRef.current;
+    const mainIndi = mainDs?.individuals.get(mainId);
+    const incoming = compareDs?.individuals.get(compareId);
+    if (!mainDs || !compareDs || !mainIndi || !incoming) return next;
+    const rejected = next.rejectedEvents?.length ? new Set(next.rejectedEvents) : undefined;
+    const rows = individualFieldRows(tRef.current, mainIndi, incoming, mainDs, compareDs, undefined, rejected);
+    return { ...next, mainFields: snapshotMainValues(rows, INDI_HANDLED) };
   }
 
   // Opt-in "graft this whole incoming branch on save" selections, made from the
@@ -907,7 +929,7 @@ function AppContent() {
     const key = decisionKey("individual", current.mainId, current.compareId);
     const wasRejected = decisions.get(key)?.status === "rejected";
     const before = new Map(decisions);
-    const after = new Map(decisions).set(key, stampMainFp(next, current.mainId));
+    const after = new Map(decisions).set(key, stampMainRows(next, current.mainId, current.compareId));
     undoRedo.push({ mode: "merge", before, after, mainId: current.mainId, compareId: current.compareId });
     dispatch({ type: "decisionsSet", decisions: after });
     if (next.status === "rejected" && !wasRejected) selectAfterReject(current.mainId, current.compareId);
@@ -924,7 +946,7 @@ function AppContent() {
     if (!parsed) return;
     const { mainId, compareId } = parsed;
     const before = new Map(decisions);
-    const after = new Map(decisions).set(key, stampMainFp(next, mainId));
+    const after = new Map(decisions).set(key, stampMainRows(next, mainId, compareId));
     undoRedo.push({ mode: "merge", before, after, mainId, compareId });
     dispatch({ type: "decisionsSet", decisions: after });
   }
@@ -938,7 +960,7 @@ function AppContent() {
       const before = decisionsRef.current;
       const cur = before.get(key);
       const nextStatus = cur?.status === status ? "undecided" : status;
-      const after = new Map(before).set(key, stampMainFp({ status: nextStatus, fields: cur?.fields ?? {} }, mainId));
+      const after = new Map(before).set(key, stampMainRows({ status: nextStatus, fields: cur?.fields ?? {} }, mainId, compareId));
       undoRedo.pushRef.current({ mode: "merge", before: new Map(before), after, mainId, compareId });
       dispatch({ type: "decisionsSet", decisions: after });
     },
@@ -1223,7 +1245,6 @@ function AppContent() {
       isSortEligible,
       now: new Date(),
       t,
-      nameOf,
     };
   }
 
