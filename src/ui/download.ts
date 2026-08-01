@@ -23,6 +23,12 @@ export function savedName(base: string, ext: string, d = new Date()): string {
   return `${baseStem(base)}.${dateStamp(d)}.gedmerge.${ext}`;
 }
 
+/** How long a downloaded blob stays reachable before its URL is released. The
+ *  browser reads the blob *after* the click returns — and if the user is asked
+ *  where to save the file, only once they answer — so the URL has to outlive the
+ *  call by more than a moment. */
+const BLOB_LIFETIME_MS = 120_000;
+
 /** Trigger a client-side download of a text file (no server round-trip). */
 export function downloadText(fileName: string, text: string, mime = "text/plain;charset=utf-8"): void {
   const blob = new Blob([text], { type: mime });
@@ -30,6 +36,15 @@ export function downloadText(fileName: string, text: string, mime = "text/plain;
   const a = document.createElement("a");
   a.href = url;
   a.download = fileName;
+  a.rel = "noopener";
+  a.style.display = "none";
+  // The anchor must be in the document: Firefox ignores a click on a detached
+  // one. Releasing the URL is deferred for the same reason the constant above
+  // gives — revoking it in this tick cancels the download that just started.
+  document.body.appendChild(a);
   a.click();
-  URL.revokeObjectURL(url);
+  setTimeout(() => {
+    a.remove();
+    URL.revokeObjectURL(url);
+  }, BLOB_LIFETIME_MS);
 }
