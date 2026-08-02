@@ -7771,6 +7771,7 @@ kbd {
 .batch-hint.batch-warn { color: var(--danger); }
 .batch-results-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; font-size: 0.88rem; color: var(--text); }
 .batch-results-count { font-weight: 600; }
+.batch-results-note { color: var(--muted); font-size: 0.85rem; }
 .batch-bar-btn {
   background: none; border: none; padding: 0; cursor: pointer;
   color: var(--accent); font-size: 0.85rem; text-decoration: underline;
@@ -7780,7 +7781,8 @@ kbd {
 .batch-row input { cursor: pointer; flex: none; }
 .batch-row .tools-issue-link { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .batch-preview { color: var(--status-new); font-size: 0.78rem; flex-shrink: 0; font-variant-numeric: tabular-nums; }
-.batch-preview-skip { color: var(--muted); }
+.batch-preview-skip, .batch-preview-off { color: var(--muted); }
+.batch-preview-note { color: var(--muted); margin-left: 6px; }
 .batch-action-editor { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
 .batch-done { margin: 0 0 10px; color: var(--accent); font-size: 0.88rem; }
 .batch-confirm { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 0.9rem; color: var(--text); }

@@ -1,4 +1,4 @@
-import type { Dataset, GedNode, Individual, Sex } from "../gedcom/types";
+import type { Dataset, Family, GedNode, Individual, Sex } from "../gedcom/types";
 import { todayDate } from "../gedcom/age";
 import {
   DEATH_TAGS, birthDateOf, birthDateText, birthYear, deathDateOf, estimateBirthYear, isDeceased,
@@ -61,6 +61,13 @@ export type BatchCriterion =
    *  `lacks BIRT` finds everyone without a birth record. The sentinel
    *  {@link ANY_VENDOR_EVENT} tag matches any non-standard (`_`) event. */
   | { kind: "event"; tag: string; mode: "has" | "lacks" }
+  /** Presence of one event across the person's unions, by its GEDCOM tag —
+   *  `lacks MARR`, next to a "has a partner" filter, finds the couples the file
+   *  never married. The sentinel {@link ANY_EVENT} tag matches a union carrying
+   *  any event at all, so `lacks` finds the unions nothing is recorded about.
+   *  `has` means one union carries it, `lacks` that none does; people with no
+   *  union at all count as lacking everything. */
+  | { kind: "familyEvent"; tag: string; mode: "has" | "lacks" }
   /** Blood-line relationship to the start person (see {@link computeKinship}). */
   | { kind: "kinship"; rel: "ancestor" | "descendant" | "blood" | "notBlood" }
   /** Presence of a close relative in the file: a partner in some union (a
@@ -76,10 +83,12 @@ export type BatchCriterion =
 
 /** Sentinel `tag` for the event criterion: any non-standard (`_`) event. */
 export const ANY_VENDOR_EVENT = "_*";
+/** Sentinel `tag` for the family-event criterion: any event whatsoever. */
+export const ANY_EVENT = "*";
 
 /** Every criterion kind, for the panel's "add filter" picker. */
 export const BATCH_CRITERION_KINDS: BatchCriterion["kind"][] = [
-  "name", "nameField", "sex", "birthYear", "age", "living", "event", "place", "media", "sources",
+  "name", "nameField", "sex", "birthYear", "age", "living", "event", "familyEvent", "place", "media", "sources",
   "relation", "kinship", "line",
 ];
 
@@ -96,6 +105,8 @@ export interface BatchRow extends SearchRow {
   deceased: boolean;
   /** Tags of the person's lifted events/attributes (BIRT, OCCU, …). */
   eventTags: string[];
+  /** The same across every union the person is a partner in (MARR, DIV, `_MSTAT`, …). */
+  familyEventTags: string[];
   /** Folded given names / surnames across every name form, for scoped matching. */
   givenText: string;
   surnameText: string;
@@ -150,6 +161,7 @@ export function buildBatchRows(
       age: ageOf(indi, now),
       deceased: isDeceased(indi),
       eventTags: indi.events.map((e) => e.tag),
+      familyEventTags: [...new Set(unions.flatMap((f) => f.events.map((e) => e.tag)))],
       givenText: foldSearch(indi.names.map((n) => n.given ?? "").join(" ")),
       surnameText: foldSearch(indi.names.map((n) => n.surname ?? "").join(" ")),
       hasGiven: !!indi.names[0]?.given?.trim(),
@@ -277,6 +289,13 @@ export function matchesBatch(row: BatchRow, criteria: BatchCriterion[], ctx: Bat
           c.tag === ANY_VENDOR_EVENT
             ? row.eventTags.some((tg) => tg.startsWith("_"))
             : row.eventTags.includes(c.tag);
+        if (c.mode === "has" ? !has : has) return false;
+        break;
+      }
+      case "familyEvent": {
+        const has = c.tag === ANY_EVENT
+          ? row.familyEventTags.length > 0
+          : row.familyEventTags.includes(c.tag);
         if (c.mode === "has" ? !has : has) return false;
         break;
       }
@@ -418,13 +437,15 @@ export type BatchActionSpec =
    *  written, so one run never chains an estimate off another — re-running
    *  reaches one relative-hop further. */
   | { kind: "estimateBirth" }
-  /** Record each person's married surname, taken from their partner: the
-   *  surname of the first union (in marriage order) whose partner has one and
-   *  whose surname isn't already the person's own. Written in the file's own
-   *  convention — inline `_MARNM` or a separate `TYPE married` name, whichever
-   *  the file uses (see {@link inferNameVariants}); a file with neither gets
-   *  the standard record form. People who already carry a married name, and
-   *  people whose partners contribute none, are skipped. */
+  /** Record each person's married surnames, taken from their partners: every
+   *  union contributes its partner's surname, in marriage order, skipping the
+   *  person's own surname and any they carry already. Written in the file's own
+   *  convention — a separate `TYPE married` name per union, or one comma-joined
+   *  inline `_MARNM`, whichever the file uses (see {@link inferNameVariants});
+   *  a file with neither gets the standard record form. People whose partners
+   *  contribute nothing new are skipped. The action writes what is selected:
+   *  whether a union looks like a marriage ({@link unionMarriage}) decides only
+   *  which rows the panel leaves unchecked. */
   | { kind: "addMarriedName" }
   /** Re-tag every `fromTag` event to `toTag`, keeping the whole substructure
    *  (dates, places, sources) and any line value. When the target is a generic
@@ -627,49 +648,189 @@ function estimateBirthBatch(ds: Dataset, ids: string[]): BatchApplyResult {
 }
 
 /**
- * The married surname the {@link BatchActionSpec} `addMarriedName` action would
- * write per person — people it would skip get no entry. Pure dry-run, shared
- * with the panel's per-row preview.
+ * How married a union looks, judged only on what the file itself records:
+ *  - `married` — a `MARR` event (even undated or a bare `Y`: its presence is
+ *    the assertion), a `DIV`/`DIVF`/`ANUL` that presupposes one, `_MSTAT
+ *    Married` or Brother's Keeper's `_MARRIED Y`;
+ *  - `unmarried` — the file says so: `_MSTAT Partners` (the canonical form
+ *    {@link normalizeFamilyStatus} consolidates the vendor vocabularies into),
+ *    a bare `_NMR` ("never married"), `_MARRIED N`;
+ *  - `unknown` — no signal either way, the ordinary case in files built from
+ *    parish records.
+ *
+ * A status the file spells out always wins over an inferred one.
  */
-export function previewMarriedNames(ds: Dataset, ids: string[]): Map<string, string> {
-  const names = new Map<string, string>();
+export type UnionMarriage = "married" | "unmarried" | "unknown";
+
+/** `_MSTAT` values asserting the couple never married. `Unknown` (MyHeritage's
+ *  REL_UNKNOWN) is deliberately absent — it states the opposite of knowing. */
+const UNMARRIED_STATUS = new Set(["partners", "partner", "unmarried", "never married", "not married", "single"]);
+/** Family events that only exist if a marriage did. */
+const MARRIAGE_EVIDENCE_TAGS = new Set(["MARR", "DIV", "DIVF", "ANUL"]);
+
+export function unionMarriage(fam: Family): UnionMarriage {
+  let unmarried = false;
+  for (const node of fam.raw.children) {
+    if (MARRIAGE_EVIDENCE_TAGS.has(node.tag)) return "married";
+    const value = node.value?.trim().toLowerCase() ?? "";
+    if (node.tag === "_MSTAT") {
+      if (value === "married") return "married";
+      if (UNMARRIED_STATUS.has(value)) unmarried = true;
+    }
+    if (node.tag === "_MARRIED") {
+      if (value === "y") return "married";
+      if (value === "n") unmarried = true;
+    }
+    if (node.tag === "_NMR" && !value) unmarried = true;
+  }
+  return unmarried ? "unmarried" : "unknown";
+}
+
+/**
+ * The children's-surname reading of an otherwise undocumented union: a child
+ * carrying the father's surname says the couple were treated as married, while
+ * children carrying only the mother's are the classic record of a birth out of
+ * wedlock. Returns `unknown` unless the children speak clearly.
+ *
+ * This leans on the patrilineal convention — true of the parish-register
+ * material these files come from, not of naming everywhere — so it is only
+ * ever consulted where {@link unionMarriage} found nothing recorded.
+ */
+export function unionMarriageByChildren(ds: Dataset, fam: Family): UnionMarriage {
+  const father = fam.husband ? ds.individuals.get(fam.husband) : undefined;
+  const mother = fam.wife ? ds.individuals.get(fam.wife) : undefined;
+  const fatherName = father?.names[0]?.surname?.trim().toLowerCase();
+  const motherName = mother?.names[0]?.surname?.trim().toLowerCase();
+  if (!fatherName || !motherName || fatherName === motherName) return "unknown";
+  let mothers = false;
+  for (const cid of fam.children) {
+    const surname = ds.individuals.get(cid)?.names[0]?.surname?.trim().toLowerCase();
+    if (!surname) continue;
+    if (surname === fatherName) return "married";
+    if (surname === motherName) mothers = true;
+  }
+  return mothers ? "unmarried" : "unknown";
+}
+
+/** One union's contribution to a person's married surnames. */
+export interface MarriedNameSource {
+  /** The partner's surname this union stands behind. */
+  surname: string;
+  /** The union's marriage evidence, the children's reading standing in where
+   *  the file records none (see {@link unionMarriageByChildren}). */
+  marriage: UnionMarriage;
+  /** The verdict came from the children's surnames, not from anything the
+   *  union records itself — a guess the panel labels as one. */
+  byChildren: boolean;
+  /** Already carried by the person — listed for the order and the preview, but
+   *  never written again. */
+  recorded: boolean;
+}
+
+/** A married surname the person already carries, split on the comma the
+ *  `_MARNM` convention has to pack several unions into one sub-tag with. */
+function recordedMarriedParts(indi: Individual): string[] {
+  return marriedSurnamesOf(indi).flatMap((s) => s.split(",").map((p) => p.trim()).filter(Boolean));
+}
+
+/**
+ * The married surnames the {@link BatchActionSpec} `addMarriedName` action
+ * would leave a person carrying — one entry per union that stands behind one,
+ * in marriage order ({@link familiesByMarriage}), each with the union's
+ * marriage evidence so the panel can leave the doubtful ones unchecked. Names
+ * the person already carries are listed too (`recorded`), so the preview reads
+ * as the end state; people who would gain nothing get no entry at all. Pure
+ * dry-run, shared with the panel's per-row preview.
+ */
+export function previewMarriedNames(ds: Dataset, ids: string[]): Map<string, MarriedNameSource[]> {
+  const names = new Map<string, MarriedNameSource[]>();
   for (const id of ids) {
     const indi = ds.individuals.get(id);
     if (!indi) continue;
-    // A recorded married name is the researcher's data — never a second guess.
-    if (marriedSurnamesOf(indi).length > 0) continue;
     const own = indi.names[0]?.surname?.trim().toLowerCase();
+    // A recorded married name is the researcher's data — never rewritten, only
+    // added to, so a second marriage still reaches a person who carries the
+    // first husband's name already.
+    const recorded = new Set(recordedMarriedParts(indi).map((s) => s.toLowerCase()));
+    const seen = new Set<string>();
+    const sources: MarriedNameSource[] = [];
     for (const fam of familiesByMarriage(ds, indi.spouseOf)) {
       if (fam.husband !== indi.id && fam.wife !== indi.id) continue;
       const otherId = fam.husband === indi.id ? fam.wife : fam.husband;
       const surname = otherId ? ds.individuals.get(otherId)?.names[0]?.surname?.trim() : undefined;
       // A partner sharing the person's own surname adds nothing — the display
       // rule that hides such a married name would hide this one too.
-      if (!surname || surname.toLowerCase() === own) continue;
-      names.set(id, surname);
-      break;
+      if (!surname || surname.toLowerCase() === own || seen.has(surname.toLowerCase())) continue;
+      seen.add(surname.toLowerCase());
+      const status = unionMarriage(fam);
+      const byChildren = status === "unknown" ? unionMarriageByChildren(ds, fam) : status;
+      sources.push({
+        surname,
+        marriage: byChildren,
+        byChildren: status === "unknown" && byChildren !== "unknown",
+        recorded: recorded.has(surname.toLowerCase()),
+      });
     }
+    if (sources.some((s) => !s.recorded)) names.set(id, sources);
   }
   return names;
 }
 
-/** Write each person's partner surname as their married name, in the file's own
- *  convention (see the {@link BatchActionSpec} member). */
+/** Why a married surname is doubtful: the union says the couple were partners
+ *  (or never married), its children carry the mother's surname, or nothing in
+ *  the file speaks of a marriage at all. */
+export type MarriedNameDoubt = "partners" | "children" | "noMarriage";
+
+/** The panel's reading of one person's {@link MarriedNameSource} list. */
+export interface MarriedNameVerdict {
+  /** Every married surname the person would end up with, in union order. */
+  surnames: string[];
+  /** The strongest doubt over the surnames that would be *added*, else null. */
+  doubt: MarriedNameDoubt | null;
+  /** A recorded marriage backs at least one of the added surnames — enough to
+   *  leave the row checked, even when another union is doubtful. */
+  evidenced: boolean;
+}
+
+export function readMarriedNames(sources: MarriedNameSource[]): MarriedNameVerdict {
+  const pending = sources.filter((s) => !s.recorded);
+  const doubt: MarriedNameDoubt | null =
+    pending.some((s) => s.marriage === "unmarried" && !s.byChildren) ? "partners"
+      : pending.some((s) => s.marriage === "unmarried") ? "children"
+        : pending.some((s) => s.marriage === "unknown") ? "noMarriage"
+          : null;
+  return {
+    surnames: sources.map((s) => s.surname),
+    doubt,
+    evidenced: pending.some((s) => s.marriage === "married"),
+  };
+}
+
+/** Write every union's partner surname as a married name, in marriage order
+ *  and in the file's own convention (see the {@link BatchActionSpec} member). */
 function addMarriedNameBatch(ds: Dataset, ids: string[]): BatchApplyResult {
   const names = previewMarriedNames(ds, ids);
   const skipped = ids.filter((id) => ds.individuals.has(id) && !names.has(id)).length;
   const snap = snapshotRecords(ds, [...names.keys()], []);
   const target = inferNameVariants(ds).married;
-  for (const [id, surname] of names) {
+  for (const [id, sources] of names) {
     const indi = ds.individuals.get(id)!;
     if (target.form === "tag") {
-      setMarriedName(indi, surname);
+      // One `_MARNM` sub-tag is all this convention has, so several unions
+      // share it comma-joined — the way the app displays a set of them anyway.
+      // Names answering no union (the researcher's own) keep the tail.
+      const union = new Set(sources.map((s) => s.surname.toLowerCase()));
+      const orphans = recordedMarriedParts(indi).filter((s) => !union.has(s.toLowerCase()));
+      setMarriedName(indi, [...sources.map((s) => s.surname), ...orphans].join(", "));
     } else {
-      // The surname-only `1 NAME /Novak/` + `2 TYPE married` pair the standard
-      // (and every file observed) uses — the given name stays on the primary.
-      addAdditionalName(indi, target.form === "record" ? target.type! : "married");
-      const added = indi.raw.children.filter((c) => c.tag === "NAME").length - 2;
-      setAdditionalName(indi, added, { given: "", surname });
+      for (const { surname, recorded } of sources) {
+        if (recorded) continue;
+        // The surname-only `1 NAME /Novak/` + `2 TYPE married` pair the standard
+        // (and every file observed) uses — the given name stays on the primary.
+        addAdditionalName(indi, target.form === "record" ? target.type! : "married");
+        const added = indi.raw.children.filter((c) => c.tag === "NAME").length - 2;
+        setAdditionalName(indi, added, { given: "", surname });
+      }
     }
     rebuildIndividual(ds, indi);
   }

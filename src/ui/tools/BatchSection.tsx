@@ -3,9 +3,10 @@ import { useTranslation } from "react-i18next";
 import type { Dataset, Sex } from "../../gedcom/types";
 import { firstChild } from "../../gedcom/node";
 import { collectLocalMediaFiles } from "../../tools/mediaFiles";
-import { INDI_EVENT_TAG_ORDER, eventDisplayLabel } from "../../gedcom/eventTags";
+import { FAM_EVENT_TAG_ORDER, INDI_EVENT_TAG_ORDER, eventDisplayLabel } from "../../gedcom/eventTags";
 import { INDIVIDUAL_EVENT_GROUPS } from "../edit/editConstants";
 import {
+  ANY_EVENT,
   ANY_VENDOR_EVENT,
   applyBatchAction,
   buildBatchRows,
@@ -14,6 +15,7 @@ import {
   matchesBatch,
   previewBirthEstimates,
   previewMarriedNames,
+  readMarriedNames,
   BATCH_ACTION_KINDS,
   BATCH_CRITERION_KINDS,
   type BatchActionSpec,
@@ -115,6 +117,13 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
   }, [rows]);
   /** Non-standard tags the file actually uses — the convert action's sources. */
   const vendorEventOptions = useMemo(() => eventOptions.filter((tag) => tag.startsWith("_")), [eventOptions]);
+  /** Tags offered by the family-event filter: marriage always (the point of the
+   *  filter is finding unions without it) plus whatever the file's unions use. */
+  const familyEventOptions = useMemo(() => {
+    const present = new Set<string>(["MARR"]);
+    for (const r of rows) for (const tag of r.familyEventTags) present.add(tag);
+    return FAM_EVENT_TAG_ORDER.filter((tag) => present.has(tag));
+  }, [rows]);
 
   const [criteria, setCriteria] = useState<BatchCriterion[]>([]);
   const [action, setAction] = useState<BatchActionSpec | null>(null);
@@ -161,35 +170,71 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
     // eslint-disable-next-line react-hooks/exhaustive-deps -- ver stands in for in-place dataset edits
   }, [dataset, ver]);
 
-  /** Per-row preview of the actions that write a computed value: what each
-   *  checked person would get (no entry = would be skipped). Recomputed when
-   *  the selection changes — unchecking a sibling re-spaces the others, as
-   *  applying would. */
-  const rowPreview = useMemo(() => {
-    const ids = targets.map((r) => r.id);
-    if (action?.kind === "estimateBirth")
-      return new Map([...previewBirthEstimates(dataset, ids)].map(([id, y]) => [id, `→ ABT ${y}`]));
-    if (action?.kind === "addMarriedName")
-      return new Map([...previewMarriedNames(dataset, ids)].map(([id, s]) => [id, `→ ${s}`]));
-    return null;
+  /** Per-row preview of the birth-estimate action: what each checked person
+   *  would get (no entry = would be skipped). Recomputed when the selection
+   *  changes — unchecking a sibling re-spaces the others, as applying would. */
+  const birthPreview = useMemo(() => {
+    if (action?.kind !== "estimateBirth") return null;
+    return new Map(
+      [...previewBirthEstimates(dataset, targets.map((r) => r.id))].map(([id, y]) => [id, { text: `→ ABT ${y}` }]),
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps -- ver stands in for in-place dataset edits
   }, [action?.kind, dataset, targets, ver]);
 
+  /** Per-row preview of the married-name action: the surnames the person would
+   *  end up carrying, plus the doubt that left the row unchecked. Computed over
+   *  every match, not just the checked ones — an unchecked row has to show what
+   *  re-checking it would write. */
+  const marriedPreview = useMemo(() => {
+    if (action?.kind !== "addMarriedName") return null;
+    return new Map(
+      [...previewMarriedNames(dataset, results.map((r) => r.id))].map(([id, sources]) => {
+        const { surnames, doubt } = readMarriedNames(sources);
+        return [id, { text: `→ ${surnames.join(", ")}`, note: doubt ? t(`tools.batch.doubt.${doubt}`) : undefined }];
+      }),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- ver stands in for in-place dataset edits
+  }, [action?.kind, dataset, results, t, ver]);
+
+  const rowPreview: Map<string, { text: string; note?: string }> | null = birthPreview ?? marriedPreview;
+  /** The married-name preview speaks for unchecked rows too (see above). */
+  const previewUnchecked = action?.kind === "addMarriedName";
+
   const virtual = useVirtualList({ count: results.length, estimate: 30, itemsKey: results });
 
-  function resetReview() {
-    setExcluded(new Set());
+  /**
+   * The rows an action wants left unchecked when it arrives: the married-name
+   * action starts with the doubtful people deselected — no marriage recorded,
+   * the couple noted as partners, or children carrying the mother's surname.
+   * The verdict only *seeds* the selection; from then on the set is the
+   * researcher's, and re-checking a row means the surname does get written.
+   */
+  function seedExclusions(nextCriteria: BatchCriterion[], nextAction: BatchActionSpec | null): ReadonlySet<string> {
+    if (nextAction?.kind !== "addMarriedName") return new Set();
+    const ids = rows.filter((r) => matchesBatch(r, nextCriteria, ctx)).map((r) => r.id);
+    const doubtful = new Set<string>();
+    for (const [id, sources] of previewMarriedNames(dataset, ids)) {
+      if (!readMarriedNames(sources).evidenced) doubtful.add(id);
+    }
+    return doubtful;
+  }
+
+  function resetReview(nextCriteria = criteria, nextAction = action) {
+    setExcluded(seedExclusions(nextCriteria, nextAction));
     setDone(null);
     setConfirming(false);
   }
   function changeCriteria(next: BatchCriterion[]) {
     setCriteria(next);
     setSelectedSavedId(null);
-    resetReview();
+    resetReview(next);
   }
   function changeAction(next: BatchActionSpec | null) {
     setAction(next);
     setSelectedSavedId(null);
+    // A new action re-seeds the selection: the previous one's doubts are not
+    // this one's, and a hand-picked selection belongs to the action it was made for.
+    setExcluded(seedExclusions(criteria, next));
     setDone(null);
     setConfirming(false);
   }
@@ -203,6 +248,7 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
       age: { kind: "age", op: "lt", years: 20 },
       living: { kind: "living", value: true },
       event: { kind: "event", tag: "BIRT", mode: "lacks" },
+      familyEvent: { kind: "familyEvent", tag: "MARR", mode: "lacks" },
       relation: { kind: "relation", rel: "spouse", mode: "has" },
       kinship: { kind: "kinship", rel: "blood" },
       place: { kind: "place", text: "" },
@@ -231,7 +277,8 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
     if (res.patches.length > 0) onApplyPatches(res.patches);
     setDone({ changed: res.changed, skipped: res.skipped });
     setConfirming(false);
-    setExcluded(new Set());
+    // Re-seeded, not cleared: whoever the action still doubts stays unchecked.
+    setExcluded(seedExclusions(criteria, action));
     setVer(editVersionRef.current);
   }
 
@@ -257,7 +304,7 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
     setCriteria(f.criteria);
     setAction(f.action ?? null);
     setSelectedSavedId(f.id);
-    resetReview();
+    resetReview(f.criteria, f.action ?? null);
   }
 
   /** Whether a saved filter's media/source/line references resolve in this file. */
@@ -325,6 +372,7 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
               c={c}
               mediaOptions={mediaOptions}
               eventOptions={eventOptions}
+              familyEventOptions={familyEventOptions}
               onChange={(next) => changeCriteria(criteria.map((x, j) => (j === i ? next : x)))}
               onRemove={() => changeCriteria(criteria.filter((_, j) => j !== i))}
             />
@@ -351,6 +399,9 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
             {t("tools.batch.matchCount", { count: results.length })}
             {excluded.size > 0 && <> · {t("tools.batch.selectedCount", { count: targets.length })}</>}
           </span>
+          {previewUnchecked && excluded.size > 0 && (
+            <span className="batch-results-note">{t("tools.batch.marriedUnchecked", { count: excluded.size })}</span>
+          )}
           {excluded.size > 0 ? (
             <button className="batch-bar-btn" onClick={() => setExcluded(new Set())}>
               {t("tools.batch.selectAll")}
@@ -381,9 +432,19 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
                   }}
                 />
                 <PersonLink dataset={dataset} id={r.id} fallback={r.name} onNavigate={onNavigate} />
-                {rowPreview && !excluded.has(r.id) && (
-                  <span className={`batch-preview ${rowPreview.has(r.id) ? "" : "batch-preview-skip"}`}>
-                    {rowPreview.get(r.id) ?? t("tools.batch.previewSkip")}
+                {rowPreview && (previewUnchecked || !excluded.has(r.id)) && (
+                  <span
+                    className={
+                      "batch-preview"
+                      + (rowPreview.has(r.id) ? "" : " batch-preview-skip")
+                      + (excluded.has(r.id) ? " batch-preview-off" : "")
+                    }
+                    title={rowPreview.get(r.id)?.note}
+                  >
+                    {rowPreview.get(r.id)?.text ?? t("tools.batch.previewSkip")}
+                    {rowPreview.get(r.id)?.note && (
+                      <span className="batch-preview-note">{rowPreview.get(r.id)!.note}</span>
+                    )}
                   </span>
                 )}
                 {kin && (
@@ -451,12 +512,14 @@ function CriterionRow({
   c,
   mediaOptions,
   eventOptions,
+  familyEventOptions,
   onChange,
   onRemove,
 }: {
   c: BatchCriterion;
   mediaOptions: MediaOption[];
   eventOptions: string[];
+  familyEventOptions: string[];
   onChange: (next: BatchCriterion) => void;
   onRemove: () => void;
 }) {
@@ -553,6 +616,29 @@ function CriterionRow({
               </option>
             ))}
             <option value={ANY_VENDOR_EVENT}>{t("tools.batch.event.anyVendor")}</option>
+          </select>
+        </>
+      )}
+      {c.kind === "familyEvent" && (
+        <>
+          <select
+            className="batch-select"
+            value={c.mode}
+            onChange={(e) => onChange({ ...c, mode: e.target.value as "has" | "lacks" })}
+          >
+            <option value="lacks">{t("tools.batch.event.lacks")}</option>
+            <option value="has">{t("tools.batch.event.has")}</option>
+          </select>
+          <select className="batch-select" value={c.tag} onChange={(e) => onChange({ ...c, tag: e.target.value })}>
+            {(c.tag === ANY_EVENT || familyEventOptions.includes(c.tag)
+              ? familyEventOptions
+              : [c.tag, ...familyEventOptions]
+            ).map((tag) => (
+              <option key={tag} value={tag}>
+                {eventDisplayLabel(tag, t)}
+              </option>
+            ))}
+            <option value={ANY_EVENT}>{t("tools.batch.event.any")}</option>
           </select>
         </>
       )}

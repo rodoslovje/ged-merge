@@ -809,7 +809,10 @@
               given name or surname), a name part the record has or lacks (given name, surname, or married name in
               either notation), sex, birth year, age (at
               death; for people without a death record, to today), living (has a death record or not), an event the
-              person has or does not have (birth, death, occupation, … — or any non-standard event), place, media
+              person has or does not have (birth, death, occupation, … — or any non-standard event), an event the
+              person's unions carry or lack (marriage, divorce, a partnership status … — or any event at all, so
+              <em>Union does not have any event</em> next to <em>Relatives has a partner</em> finds the couples the
+              file says nothing about), place, media
               (none, any, or one specific image), sources, relatives in the file (a partner, children or parents —
               present or missing), kinship to the start person (direct ancestor, descendant,
               blood relative or neither), and maternal or paternal line relative
@@ -821,12 +824,17 @@
               or children (the same estimate the Privacy tool explains), with undated siblings kept at least a year
               apart in the family's child order, anchored on a dated sibling where one exists; people with no dated
               close relative are skipped, and running the action again
-              reaches them through the estimates just written — record a <strong>married name from the partner</strong>,
-              taking the partner's surname and writing it the way the file itself writes married names (an inline
-              tag or a separate name record); with several unions the first one that contributes a surname wins, and
-              people who already have a married name are skipped — or convert a non-standard event to a standard
+              reaches them through the estimates just written — record <strong>married names from the partners</strong>,
+              taking each partner's surname and writing it the way the file itself writes married names (an inline
+              tag, comma-joined when there are several, or one name record per union); every union contributes, in
+              marriage order, so a second marriage adds a second name, and surnames the person already carries are
+              left untouched — or convert a non-standard event to a standard
               type or to a named custom event, keeping its dates, places and sources. Each match has a checkbox so you can drop individuals before
-              applying — with the estimate action, each row also previews the year that person would get; the whole run is a single undo step, and people who already carry the image or citation are
+              applying — with the estimate action, each row also previews the year that person would get, and with the
+              married-name action the surnames it would write. That action also arrives with the doubtful people
+              already unchecked, each row saying why: the union records no marriage, it is noted as a partnership, or
+              its children carry the mother's surname rather than the father's — the classic sign of a birth outside
+              marriage. Nothing is refused, though: tick such a row and the name is written. The whole run is a single undo step, and people who already carry the image or citation are
               skipped. A filter can be saved by name together with its action, and the saved list always shows how
               many people currently match — so a recurring chore, say giving everyone who died before age 20 a
               died-young image, is a glance and two clicks.
