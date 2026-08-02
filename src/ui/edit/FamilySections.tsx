@@ -32,7 +32,7 @@ import { FamilyEventRow } from "./FamilyEventRow";
 import { NotesEditor } from "./NotesEditor";
 import { LinksEditor } from "./LinksEditor";
 import { nodeId } from "./nodeId";
-import { FAMILY_HIDDEN_EVENT_TAGS, familyEventHasMergeData } from "./editConstants";
+import { FAMILY_EVENT_TAGS, familyEventHasMergeData } from "./editConstants";
 import type { FamilyCommit, MediaOwner, OpenEditSource, SourceDialogTarget } from "./types";
 
 /**
@@ -179,7 +179,7 @@ export const ParentFamilyGroup = memo(function ParentFamilyGroup({
   // failing that whatever stands in for it (a civil partnership, an
   // engagement…). An untyped generic `EVEN` only says "Event", so it is skipped.
   const datedCoupleEvents = fam?.events.filter(
-    (ev) => (ev.tag === "MARR" || FAMILY_HIDDEN_EVENT_TAGS.includes(ev.tag)) && (ev.date || ev.place),
+    (ev) => FAMILY_EVENT_TAGS.includes(ev.tag) && (ev.date || ev.place),
   ) ?? [];
   const coupleEvent =
     datedCoupleEvents.find((ev) => ev.tag === "MARR") ??
@@ -389,10 +389,10 @@ export const FamilySection = memo(function FamilySection({
   const partnerId = fam && (fam.husband === personId ? fam.wife : fam.husband);
   const partnerRole = fam && (fam.husband === personId ? "WIFE" : "HUSB");
   const partnerName = personName(partnerId ?? undefined);
-  const shownFamilyTags = FAMILY_HIDDEN_EVENT_TAGS.filter(
+  const shownFamilyTags = FAMILY_EVENT_TAGS.filter(
     (tag) => fam?.events.some((e) => e.tag === tag) || familyEventHasMergeData(famMergeKeyBase, tag, mergeHighlight, mergeIncomingSources),
   );
-  const emptyFamilyTags = FAMILY_HIDDEN_EVENT_TAGS.filter(
+  const emptyFamilyTags = FAMILY_EVENT_TAGS.filter(
     (tag) => !shownFamilyTags.includes(tag),
   );
   const partnerPickerOpen = pickingSlot?.kind === "partner" && pickingSlot.fam === fam;
@@ -493,34 +493,6 @@ export const FamilySection = memo(function FamilySection({
           }}
         />
       )}
-      {fam && (() => {
-        const marrNode = firstChild(fam.raw, "MARR");
-        return (
-          <FamilyEventRow
-            key={`${fam.id}-MARR-${marrNode ? nodeId(marrNode) : "empty"}-${undoVersion}-${mergeGen}`}
-            fam={fam}
-            tag="MARR"
-            t={t}
-            commit={commitFamily}
-            openEditSource={openEditSource}
-            onOpenSourceDialog={onOpenSourceDialog}
-            onRemove={marrNode ? () => commitFamily(fam, (f) => removeFamilyEvent(f, "MARR")) : undefined}
-            onCopy={marrNode ? () => onCopyFamilyEvent(fam, marrNode, t("event.MARR")) : undefined}
-            onRetag={(newTag) => markFamilyTagRetagged(famMergeKeyBase ?? `fam.${fam.id}`, newTag)}
-            placeSuggestions={placeSuggestions}
-            placeToAddrs={placeToAddrs}
-            placeCanonical={placeCanonical}
-            addrCanonical={addrCanonical}
-            placeCoords={placeCoords}
-            pairCoords={pairCoords}
-            mergeHighlight={mergeHighlight}
-            mergeIncomingSources={mergeIncomingSources}
-            famMergeKeyBase={famMergeKeyBase}
-            resolvedSessionFields={resolvedSessionFields}
-            individuals={dataset.individuals}
-          />
-        );
-      })()}
       {fam && shownFamilyTags.map((tag) => {
         const eventNode = firstChild(fam.raw, tag);
         const hasRealEvent = eventNode !== undefined;

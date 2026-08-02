@@ -24,10 +24,12 @@ export const INDIVIDUAL_EVENT_GROUPS = [
  * `INDIVIDUAL_EVENT_GROUPS`) — BIRT is excluded (always shown separately). */
 export const ASSIGNABLE_EVENT_TAGS: Set<string> = new Set(INDIVIDUAL_EVENT_GROUPS.flatMap((g) => g.tags));
 
-/** Family events that are hidden until explicitly added (marriage is always shown). */
-export const FAMILY_HIDDEN_EVENT_TAGS = EDITABLE_FAM_EVENT_TAGS.filter((tag) => tag !== "MARR");
-
-/** Family event tags the type-change dropdown can switch between. */
+/** Family event tags — each gets a row only once the family really has that
+ * event (or a merge brings one in), and is otherwise offered by the "Add family
+ * event" menu. Marriage is no exception: an always-shown empty MARR row claimed
+ * an event the file doesn't hold, and its type dropdown could not do anything
+ * (retagging needs a node). Also the tags the type-change dropdown switches
+ * between. */
 export const FAMILY_EVENT_TAGS = EDITABLE_FAM_EVENT_TAGS;
 
 /** Tags `tag`'s type-change dropdown may switch to: every `FAMILY_EVENT_TAGS`
