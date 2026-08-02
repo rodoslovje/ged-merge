@@ -8062,10 +8062,10 @@ kbd {
   align-items: center;
   margin: 8px 0;
 }
-/* Buttons fill their column so all three match; the prose beside them drops the
-   paragraph margins the grid gap already provides, and sits on the button's own
-   line rather than above it. */
-.tools-geo-sources > .nav-btn { width: 100%; text-align: center; }
+/* Each button hugs its own label rather than stretching to the column: the
+   column is already as wide as the longest one, so the descriptions stay in
+   line, and a two-word button no longer reads as a wide empty bar. */
+.tools-geo-sources > .nav-btn { justify-self: start; }
 .tools-geo-sources > .tools-geo-hint { margin: 0; }
 /* The OpenStreetMap download is a <select> wearing .nav-btn: one control that
    reads as a button and drops the country list open on click, the country picked
