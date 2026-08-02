@@ -1,0 +1,235 @@
+{
+ "name": "LJTRNOVSKO",
+ "cassini": {
+  "lat0": 45.928944,
+  "lon0": 14.474694,
+  "shift": [
+   80.0,
+   0.0
+  ],
+  "system": "krim"
+ },
+ "source": "Arhiv Republike Slovenije, SI AS 176/L/L303 — Franciscean cadastre",
+ "sheets": [
+  {
+   "image": "kataster-scans/226054.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=226054&docid=10&seq=1",
+   "cell": [
+    0.0,
+    8.0
+   ],
+   "frame": [
+    54.0,
+    38.7,
+    2512.1,
+    41.9,
+    2509.6,
+    2008.3,
+    51.5,
+    2005.1
+   ],
+   "source": "SI AS 176/L/L303/g/A01",
+   "placed": "printed O.C.I.17.df (1.00)"
+  },
+  {
+   "image": "kataster-scans/226055.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=226055&docid=10&seq=1",
+   "cell": [
+    1.0,
+    8.0
+   ],
+   "frame": [
+    71.2,
+    88.2,
+    2529.3,
+    95.0,
+    2523.9,
+    2061.5,
+    65.8,
+    2054.7
+   ],
+   "source": "SI AS 176/L/L303/g/A02",
+   "placed": "printed O.C.I.17.cf (1.00)"
+  },
+  {
+   "image": "kataster-scans/226056.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=226056&docid=10&seq=1",
+   "cell": [
+    0.0,
+    7.0
+   ],
+   "frame": [
+    141.5,
+    87.8,
+    2599.5,
+    87.8,
+    2599.5,
+    2054.2,
+    141.5,
+    2054.2
+   ],
+   "source": "SI AS 176/L/L303/g/A03",
+   "placed": "printed O.C.I.17.dg (1.00)"
+  },
+  {
+   "image": "kataster-scans/226057.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=226057&docid=10&seq=1",
+   "cell": [
+    1.0,
+    7.0
+   ],
+   "frame": [
+    76.4,
+    88.7,
+    2534.5,
+    80.6,
+    2541.0,
+    2047.0,
+    82.9,
+    2055.2
+   ],
+   "source": "SI AS 176/L/L303/g/A04",
+   "placed": "printed O.C.I.17.cg (1.00)"
+  },
+  {
+   "image": "kataster-scans/226058.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=226058&docid=10&seq=1",
+   "cell": [
+    0.0,
+    6.0
+   ],
+   "frame": [
+    81.9,
+    80.7,
+    2540.0,
+    86.4,
+    2535.4,
+    2052.9,
+    77.3,
+    2047.2
+   ],
+   "source": "SI AS 176/L/L303/g/A05",
+   "placed": "printed O.C.I.17.dh (1.00)"
+  },
+  {
+   "image": "kataster-scans/226059.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=226059&docid=10&seq=1",
+   "cell": [
+    1.0,
+    6.0
+   ],
+   "frame": [
+    39.4,
+    73.5,
+    2497.5,
+    74.8,
+    2496.5,
+    2041.3,
+    38.4,
+    2040.0
+   ],
+   "source": "SI AS 176/L/L303/g/A06",
+   "placed": "printed O.C.I.17.ch (1.00)"
+  },
+  {
+   "image": "kataster-scans/226060.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=226060&docid=10&seq=1",
+   "cell": [
+    3.0,
+    5.0
+   ],
+   "frame": [
+    69.2,
+    74.4,
+    2527.3,
+    75.5,
+    2526.4,
+    2042.0,
+    68.3,
+    2040.9
+   ],
+   "source": "SI AS 176/L/L303/g/A07",
+   "placed": "printed O.C.I.17.ai (1.00)"
+  },
+  {
+   "image": "kataster-scans/226061.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=226061&docid=10&seq=1",
+   "cell": [
+    0.0,
+    5.0
+   ],
+   "frame": [
+    80.5,
+    308.8,
+    2538.5,
+    308.8,
+    2538.5,
+    2275.2,
+    80.5,
+    2275.2
+   ],
+   "source": "SI AS 176/L/L303/g/A08",
+   "placed": "printed O.C.I.17.di (1.00)"
+  },
+  {
+   "image": "kataster-scans/226062.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=226062&docid=10&seq=1",
+   "cell": [
+    1.0,
+    5.0
+   ],
+   "frame": [
+    74.7,
+    77.5,
+    2532.8,
+    81.0,
+    2530.0,
+    2047.5,
+    72.0,
+    2044.0
+   ],
+   "source": "SI AS 176/L/L303/g/A09",
+   "placed": "printed O.C.I.17.ci (1.00)"
+  },
+  {
+   "image": "kataster-scans/226063.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=226063&docid=10&seq=1",
+   "cell": [
+    -2.0,
+    4.0
+   ],
+   "frame": [
+    66.9,
+    74.9,
+    2525.0,
+    82.8,
+    2518.7,
+    2049.3,
+    60.6,
+    2041.4
+   ],
+   "source": "SI AS 176/L/L303/g/A10",
+   "placed": "printed W.C.I.18.be — west of the meridian (1.00)"
+  },
+  {
+   "image": "kataster-scans/226064.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=226064&docid=10&seq=1",
+   "cell": [
+    -1.0,
+    4.0
+   ],
+   "frame": [
+    136.4,
+    111.5,
+    2594.5,
+    102.6,
+    2601.6,
+    2069.1,
+    143.5,
+    2077.9
+   ],
+   "source": "SI AS 176/L/L303/g/A11",
+   "placed": "printed W.C.I.18.ae — west of the meridian (1.00)"
+  }
+ ]
+}

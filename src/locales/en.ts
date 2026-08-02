@@ -1627,6 +1627,10 @@ export const en = {
     "Franciscean cadastre · Ljubljana, Karlovško predmestje 1:2880 (1826)",
   "settings.map.overlays.preset.kataster.podturn":
     "Franciscean cadastre · Podturn 1:2880 (1824)",
+  "settings.map.overlays.preset.kataster.ljubljanaTrnovsko":
+    "Franciscean cadastre · Ljubljana, Trnovo suburb 1:2880 (1826)",
+  "settings.map.overlays.preset.kataster.ljubljanaSvpetra":
+    "Franciscean cadastre · Ljubljana, St Peter suburb 1:2880 (1826)",
   "settings.map.overlays.preset.kataster.semic":
     "Franciscean cadastre · Semič 1:2880 (1824)",
   "settings.map.overlays.preset.kataster.metlika":
