@@ -308,7 +308,8 @@ function GazetteerList({ gaz }: { gaz: Gazetteer }) {
 
 /** The three ways in: the GURS register, any country from OpenStreetMap, or a
  *  GeoNames file. The two downloads need the online-lookups opt-in; the file
- *  import never does. */
+ *  import never does — and it sits under the paragraph that tells you where to
+ *  fetch the file, because that instruction is half the button. */
 function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
   const { t, i18n } = useTranslation();
   const { settings } = useSettings();
@@ -332,47 +333,57 @@ function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
     );
   }
   return (
-    // Three independent ways in, one per row: they are alternatives, not a
-    // sequence, and a wrapped row read as though the country picker belonged to
-    // whichever button happened to land beside it.
-    <div className="tools-geo-acquire">
+    <>
+      {/* The two one-click downloads are the same move on two sources, so they
+          share a row. */}
       {settings.allowLinkFetch && (
-        <>
-          <div className="tools-geo-option">
-            <button
-              className="nav-btn tools-run"
-              onClick={() => void gaz.downloadSlovenia()}
-              title={t("tools.geocode.gursTooltip")}
-            >
-              {t("tools.geocode.gursBtn")}
-            </button>
-          </div>
+        <div className="tools-geo-acquire">
+          <button
+            className="nav-btn tools-run"
+            onClick={() => void gaz.downloadSlovenia()}
+            title={t("tools.geocode.gursTooltip")}
+          >
+            {t("tools.geocode.gursBtn")}
+          </button>
           {/* One control, not a pair: the button opens the country list and the
               country picked is the click — the same shape as the map tab's
               "Add a free preset…". It never holds a selection, so it reads as
               its own label again the moment the download starts. */}
-          <div className="tools-geo-option">
-            <select
-              className="nav-btn tools-run tools-geo-osm"
-              title={t("tools.geocode.countryTooltip")}
-              aria-label={t("tools.geocode.downloadBtn")}
-              value=""
-              onChange={(e) => {
-                const code = e.target.value;
-                if (code) void gaz.downloadCountry(code);
-              }}
-            >
-              <option value="">{t("tools.geocode.downloadBtn")}</option>
-              {countries.map(({ code, name }) => (
-                <option key={code} value={code}>
-                  {name}
-                </option>
-              ))}
-            </select>
-          </div>
-        </>
+          <select
+            className="nav-btn tools-run tools-geo-osm"
+            title={t("tools.geocode.countryTooltip")}
+            aria-label={t("tools.geocode.downloadBtn")}
+            value=""
+            onChange={(e) => {
+              const code = e.target.value;
+              if (code) void gaz.downloadCountry(code);
+            }}
+          >
+            <option value="">{t("tools.geocode.downloadBtn")}</option>
+            {countries.map(({ code, name }) => (
+              <option key={code} value={code}>
+                {name}
+              </option>
+            ))}
+          </select>
+        </div>
       )}
-      <div className="tools-geo-option">
+      {gaz.importState?.phase === "error" && <ToolsError message={gaz.importState.message} />}
+      {/* Where the data comes from and what it costs — sources, licences, and
+          the opt-in the two downloads need. The GeoNames sentence ends in the
+          button that acts on it. */}
+      <p className="tools-geo-hint">
+        {t("tools.geocode.importHint")}{" "}
+        <a href="https://download.geonames.org/export/dump/" target="_blank" rel="noreferrer">
+          download.geonames.org/export/dump
+        </a>{" "}
+        {t("tools.geocode.importHint2")} {t("tools.geocode.gursCredit")}{" "}
+        <a href="https://www.e-prostor.gov.si/dostopi/javni-dostop/" target="_blank" rel="noreferrer">
+          e-prostor.gov.si
+        </a>
+        {!settings.allowLinkFetch && ` ${t("tools.geocode.downloadNeedsOptIn")}`}
+      </p>
+      <div className="tools-geo-acquire">
         <label className="nav-btn tools-geo-import">
           {t("tools.geocode.importBtn")}
           <input
@@ -387,27 +398,7 @@ function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
           />
         </label>
       </div>
-    </div>
-  );
-}
-
-/** Where the data comes from and what it costs — sources, licences, and the
- *  opt-in the two downloads need. */
-function GazetteerCredits() {
-  const { t } = useTranslation();
-  const { settings } = useSettings();
-  return (
-    <p className="tools-geo-hint">
-      {t("tools.geocode.importHint")}{" "}
-      <a href="https://download.geonames.org/export/dump/" target="_blank" rel="noreferrer">
-        download.geonames.org/export/dump
-      </a>{" "}
-      {t("tools.geocode.importHint2")} {t("tools.geocode.gursCredit")}{" "}
-      <a href="https://www.e-prostor.gov.si/dostopi/javni-dostop/" target="_blank" rel="noreferrer">
-        e-prostor.gov.si
-      </a>
-      {!settings.allowLinkFetch && ` ${t("tools.geocode.downloadNeedsOptIn")}`}
-    </p>
+    </>
   );
 }
 
@@ -420,8 +411,6 @@ export function GazetteerManager({ gaz }: { gaz: Gazetteer }) {
       {gaz.countries?.length === 0 && <p className="tools-geo-empty">{t("settings.geo.empty")}</p>}
       <GazetteerList gaz={gaz} />
       <GazetteerAcquire gaz={gaz} />
-      {gaz.importState?.phase === "error" && <ToolsError message={gaz.importState.message} />}
-      <GazetteerCredits />
     </div>
   );
 }
@@ -459,8 +448,6 @@ export function GazetteerSetup({ gaz }: { gaz: Gazetteer }) {
       {gaz.countries.length === 0 && <p className="tools-geo-empty">{t("tools.geocode.noGazetteer")}</p>}
       <GazetteerList gaz={gaz} />
       <GazetteerAcquire gaz={gaz} />
-      {gaz.importState?.phase === "error" && <ToolsError message={gaz.importState.message} />}
-      <GazetteerCredits />
     </div>
   );
 }

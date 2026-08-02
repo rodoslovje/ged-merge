@@ -8050,11 +8050,9 @@ kbd {
 .tools-geo-delete:hover { opacity: 1; }
 .tools-geo-empty { color: var(--muted); margin: 0 0 10px; }
 .tools-geo-import { display: inline-block; cursor: pointer; margin: 0; }
-/* One row per way in. They are alternatives, so they stack rather than share a
-   line — a wrapped row made the country picker look like it belonged to
-   whichever button ended up next to it. */
-.tools-geo-acquire { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
-.tools-geo-option { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+/* The two one-click downloads share a row; the file import has its own, under
+   the paragraph that says where to fetch the file. */
+.tools-geo-acquire { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
 /* The OpenStreetMap download is a <select> wearing .nav-btn: one control that
    reads as a button and drops the country list open on click, the country picked
    being the click itself. It only needs the font and cursor the class doesn't
@@ -8074,7 +8072,9 @@ kbd {
 .settings-geo p.tools-geo-hint {
   font-size: 0.82rem; line-height: 1.35; margin: 0 0 12px;
 }
-.settings-geo p.tools-geo-hint { margin: 10px 0 0; }
+/* It now sits between the downloads and the import button it describes, so it
+   needs air on both sides. */
+.settings-geo p.tools-geo-hint { margin: 10px 0; }
 .settings-geo .tools-geo-countries { margin-bottom: 12px; }
 /* Per-event coordinate pin + its picker panel (EventCoordPicker). */
 .edit-event-coord-wrap { position: relative; display: inline-flex; }
@@ -8148,7 +8148,7 @@ kbd {
 /* The list scrolls with the panel rather than in a 260px box of its own. */
 .edit-coord-pop--phone .edit-coord-side { max-height: none; overflow-y: visible; }
 .edit-coord-pop--phone .edit-coord-head .edit-coord-manual { flex: 1 1 100%; }
-.tools-geo-hint { color: var(--muted); font-size: 0.85rem; margin: 10px 0 0; }
+.tools-geo-hint { color: var(--muted); font-size: 0.85rem; margin: 10px 0; }
 /* Address rows: house coordinates from the address register. */
 .tools-geo-addr-list { list-style: none; margin: 0; padding: 0; }
 .tools-geo-addr-row { padding: 6px 0; border-bottom: 1px solid var(--border); }
