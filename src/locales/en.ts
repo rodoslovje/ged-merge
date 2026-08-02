@@ -1607,6 +1607,8 @@ export const en = {
     "Franciscean cadastre 1:2880 · Bitnje, all three (1826)",
   "settings.map.overlays.preset.kataster.skofjaloka":
     "Franciscean cadastre 1:2880 · Škofja Loka and Stara Loka (1825)",
+  "settings.map.overlays.preset.kataster.zabnica":
+    "Franciscean cadastre 1:2880 · Žabnica (1826)",
   "settings.map.overlays.preset.kataster.semic":
     "Franciscean cadastre 1:2880 · Semič (1824)",
   "settings.map.overlays.preset.kataster.metlika":
