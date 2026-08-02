@@ -16,7 +16,7 @@
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=225342&docid=10&seq=1",
    "cell": [
     1.0,
-    10.0
+    9.5
    ],
    "frame": [
     82.3,
@@ -29,14 +29,14 @@
     2078.1
    ],
    "source": "SI AS 176/L/L193/g/A01",
-   "placed": "printed O.C.I.16.ci (1.00)"
+   "placed": "printed O.C.I.16.ci, half a cell south (1.00)"
   },
   {
    "image": "kataster-scans/225343.jpg",
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=225343&docid=10&seq=1",
    "cell": [
     2.0,
-    10.0
+    9.5
    ],
    "frame": [
     87.1,
@@ -49,14 +49,14 @@
     2072.5
    ],
    "source": "SI AS 176/L/L193/g/A02",
-   "placed": "printed O.C.I.16.bi (1.00)"
+   "placed": "printed O.C.I.16.bi, half a cell south (1.00)"
   },
   {
    "image": "kataster-scans/225344.jpg",
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=225344&docid=10&seq=1",
    "cell": [
     1.0,
-    9.0
+    8.5
    ],
    "frame": [
     91.1,
@@ -69,7 +69,7 @@
     2066.4
    ],
    "source": "SI AS 176/L/L193/g/A03",
-   "placed": "top against the two sheets above (1.00)"
+   "placed": "printed O.C.I.17.ce.cf — half of each cell, and where St Peter's church falls (1.00)"
   }
  ]
 }

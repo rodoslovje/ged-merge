@@ -135,7 +135,7 @@
    "image": "kataster-scans/226060.jpg",
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=226060&docid=10&seq=1",
    "cell": [
-    3.0,
+    -1.0,
     5.0
    ],
    "frame": [
@@ -149,7 +149,7 @@
     2040.9
    ],
    "source": "SI AS 176/L/L303/g/A07",
-   "placed": "printed O.C.I.17.ai (1.00)"
+   "placed": "W.C.I.17.ai — west of the meridian, not O.C.I.17.ai (1.00)"
   },
   {
    "image": "kataster-scans/226061.jpg",
