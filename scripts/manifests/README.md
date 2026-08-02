@@ -19,7 +19,7 @@ scans without re-measuring.
   `tiles.gedmerge.com/schraembl-1797/`.
 - **kataster-*.json** — cadastral municipalities of the Franciscean cadastre,
   1:2880, from the Archives of the Republic of Slovenia. Eleven so far:
-  Stražišče, Kranj, Bela and Breg ob Kokri in Gorenjska; Metlika, Semič,
+  Stražišče, Kranj, Bitnje, Bela and Breg ob Kokri in Gorenjska; Metlika, Semič,
   Gradac, Podzemelj, Drašiči, Krasinec and Štrekljevec in Bela krajina. Note
   that a k.o. is named for one of its villages and holds others — Preddvor is
   in Breg ob Kokri, Osojnik in Štrekljevec, and Zgornje, Srednje and Spodnje
@@ -370,9 +370,10 @@ that are not sheet-shaped (aspect outside 1.20–1.31) are where placement fails
 | Bela | 9 | 9 |
 | Štrekljevec | 8 | 8 |
 | Stražišče | 7 | 7 |
-| Gradac | 7 | 6 |
+| Gradac | 7 | 7 |
 | Podzemelj | 6 | 6 |
 | Drašiči | 6 | 6 |
+| Bitnje | 9 | 8 |
 | Krasinec | 6 | 6 |
 | Kranj | 5 | 5 |
 | Semič | 5 | 5 |

@@ -316,17 +316,26 @@ def _fixed_size_frame(im, expect):
         return None
     step = 4
     small = im.reduce(step)
-    cols, rows = _ink_profiles(small)
     sw, sh = int(round(ew / step)), int(round(eh / step))
 
     def best(profile, span):
         pairs = [(profile[i] + profile[i + span], i) for i in range(len(profile) - span)]
         return max(pairs)
 
-    sx, cx = best(cols, sw)[1], best(cols, sw)[0]
-    sy, cy = best(rows, sh)[1], best(rows, sh)[0]
-    if cx < 0.25 or cy < 0.25:
-        return None            # no pair of rules anywhere: not a framed sheet
+    # What counts as ink depends on the sheet: on one that is mostly bare paper
+    # a low cut finds the rules, and on one washed dark over most of its face
+    # the same cut calls half the map ink and the rules stop standing out. Sweep
+    # a few and keep the cut that makes the frame stand highest.
+    picks = []
+    for quantile in (12, 25, 35, 45):
+        cols, rows = _ink_profiles(small, quantile)
+        cx, sx = best(cols, sw)
+        cy, sy = best(rows, sh)
+        if cx >= 0.25 and cy >= 0.25:
+            picks.append((cx + cy, sx, sy))
+    if not picks:
+        return None            # no pair of rules at any cut: not a framed sheet
+    _score, sx, sy = max(picks)
     # Refine at full size in a window around the coarse answer.
     pad = 3 * step
     x0 = max(0, sx * step - pad)
@@ -582,7 +591,7 @@ LETTER_BONUS = 0.30
 ORDER_BONUS = 0.15
 
 
-def place(sheets, cass, rings, min_score=0.06):
+def place(sheets, cass, rings, min_score=0.06, fixed=None):
     """Sheet → lattice cell, decided by three readings at once.
 
     None of the three is trusted alone. The wash on a sheet says which part of
@@ -594,7 +603,12 @@ def place(sheets, cass, rings, min_score=0.06):
     is outvoted rather than dragging its sheet somewhere else.
     """
     cells = cell_masks(cass, rings)
-    usable = [s for s in sheets if s["corners"] is not None]
+    # A cell somebody has already read off the paper is spoken for: it must not
+    # be offered to the assignment, or an unpinned sheet lands on top of it.
+    fixed = fixed or {}
+    for cell in fixed.values():
+        cells.pop(tuple(cell), None)
+    usable = [s for s in sheets if s["corners"] is not None and s["id"] not in fixed]
     if not cells or not usable:
         return ([dict(s, cell=None, how="no frame", score=0.0) for s in sheets],
                 None if cells else "the modern k.o. covers no lattice cell")
@@ -616,6 +630,9 @@ def place(sheets, cass, rings, min_score=0.06):
     for s in sheets:
         if s["corners"] is None:
             placed.append(dict(s, cell=None, how="no frame", score=0.0))
+            continue
+        if s["id"] in fixed:
+            placed.append(dict(s, cell=tuple(fixed[s["id"]]), how="pinned", score=1.0))
             continue
         cell = chosen.get(s["id"])
         raw = _correlate(drawn_mask(s["path"], s["corners"]), cells[cell]) if cell else 0.0
@@ -750,13 +767,15 @@ def build_manifest(vac, ko_rec, args, out_path, review):
         s["corners"], s["rotate"] = (found if found else (None, 0))
         s["letters"] = read_designation(s["path"], s["corners"]) if s["corners"] else None
 
-    placed, err = place(sheets, cass, rings)
+    pins = json.load(open(args.pin, encoding="utf-8")) if args.pin else {}
+    fixed = {sid: entry["cell"] for sid, entry in pins.items()
+             if not sid.startswith("-") and isinstance(entry, dict) and entry.get("cell")}
+    placed, err = place(sheets, cass, rings, fixed=fixed)
     if err:
         review.append("%s (%s): %s" % (name, ko_rec["sig"], err))
         return None
     # A sheet whose printed designation someone has read off the scan is the
     # last word: --pin is how a k.o. comes back from the review list.
-    pins = json.load(open(args.pin, encoding="utf-8")) if args.pin else {}
     for s in placed:
         if s["id"] in pins:
             entry = pins[s["id"]]
@@ -794,6 +813,13 @@ def build_manifest(vac, ko_rec, args, out_path, review):
             "source": s["sig"],
             "placed": "%s (%.2f)" % (s["how"], s["score"]),
         })
+    seen = {}
+    for e in entries:
+        key = tuple(e["cell"])
+        if key in seen:
+            review.append("%s: %s and %s both claim cell %s"
+                          % (name, seen[key], e["source"], list(key)))
+        seen[key] = e["source"]
     if not entries:
         return None
     return {

@@ -208,7 +208,7 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     yearTo: 1869,
     attribution: "Arhiv Republike Slovenije, SI AS 176 (Franciscejski kataster za Kranjsko)",
     maxZoom: 18,
-    coverage: [45.6519, 15.3469, 45.6932, 15.3962],
+    coverage: [45.6519, 15.3230, 45.6934, 15.3960],
     sampleZoom: 16,
   },
   {
@@ -219,6 +219,16 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     attribution: "Arhiv Republike Slovenije, SI AS 176 (Franciscejski kataster za Kranjsko)",
     maxZoom: 18,
     coverage: [45.6395, 15.1768, 45.7079, 15.2502],
+    sampleZoom: 16,
+  },
+  {
+    key: "settings.map.overlays.preset.kataster.bitnje",
+    url: "https://tiles.gedmerge.com/kataster-bitnje/{z}/{x}/{y}.webp",
+    yearFrom: 1826,
+    yearTo: 1869,
+    attribution: "Arhiv Republike Slovenije, SI AS 176 (Franciscejski kataster za Kranjsko)",
+    maxZoom: 18,
+    coverage: [46.2015, 14.2743, 46.2424, 14.3727],
     sampleZoom: 16,
   },
   {

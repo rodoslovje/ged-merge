@@ -15,7 +15,7 @@
    "image": "kataster-scans/227161.jpg",
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=227161&docid=10&seq=1",
    "cell": [
-    36,
+    35,
     -18
    ],
    "frame": [
@@ -29,28 +29,28 @@
     2024.3
    ],
    "source": "SI AS 176/N/N43/g/A01",
-   "placed": "wash shape (0.21)"
+   "placed": "moved one cell west — Radovica (1.00)"
   },
   {
    "image": "kataster-scans/227162.jpg",
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=227162&docid=10&seq=1",
    "cell": [
-    37,
+    36,
     -18
    ],
    "frame": [
-    84.0,
-    66.0,
-    2539.0,
-    66.0,
-    2539.0,
-    2030.0,
-    84.0,
-    2030.0
+    16.0,
+    29.0,
+    2471.0,
+    29.0,
+    2471.0,
+    1993.0,
+    16.0,
+    1993.0
    ],
    "rotate": 90,
    "source": "SI AS 176/N/N43/g/A02",
-   "placed": "wash shape (0.06)"
+   "placed": "moved one cell west (1.00)"
   },
   {
    "image": "kataster-scans/227163.jpg",
@@ -80,17 +80,17 @@
     -19
    ],
    "frame": [
-    108.0,
+    88.0,
     13.0,
-    2563.0,
+    2543.0,
     13.0,
-    2563.0,
+    2543.0,
     1977.0,
-    108.0,
+    88.0,
     1977.0
    ],
    "source": "SI AS 176/N/N43/g/A04",
-   "placed": "wash shape (0.53)"
+   "placed": "wash shape (0.54)"
   },
   {
    "image": "kataster-scans/227165.jpg",
@@ -100,13 +100,13 @@
     -20
    ],
    "frame": [
-    70.0,
+    87.0,
     165.0,
-    2525.0,
+    2542.0,
     165.0,
-    2525.0,
+    2542.0,
     2129.0,
-    70.0,
+    87.0,
     2129.0
    ],
    "source": "SI AS 176/N/N43/g/A05",
