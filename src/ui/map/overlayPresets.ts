@@ -288,7 +288,7 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     yearTo: 1869,
     attribution: "Arhiv Republike Slovenije, SI AS 176 (Franciscejski kataster za Kranjsko)",
     maxZoom: 18,
-    coverage: [46.2016, 14.3972, 46.2562, 14.4464],
+    coverage: [46.2152, 14.3972, 46.2562, 14.4464],
     sampleZoom: 16,
   },
   {
@@ -319,6 +319,16 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     attribution: "Arhiv Republike Slovenije, SI AS 176 (Franciscejski kataster za Kranjsko)",
     maxZoom: 18,
     coverage: [45.7359, 15.0316, 45.7771, 15.0806],
+    sampleZoom: 16,
+  },
+  {
+    key: "settings.map.overlays.preset.kataster.ljubljana",
+    url: "https://tiles.gedmerge.com/kataster-ljubljana-karlovsko/{z}/{x}/{y}.webp",
+    yearFrom: 1826,
+    yearTo: 1869,
+    attribution: "Arhiv Republike Slovenije, SI AS 176 (Franciscejski kataster za Kranjsko)",
+    maxZoom: 18,
+    coverage: [45.9968, 14.4955, 46.0514, 14.5445],
     sampleZoom: 16,
   },
   {

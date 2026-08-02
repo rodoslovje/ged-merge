@@ -1,0 +1,155 @@
+{
+ "name": "LJUBLJANA MESTO",
+ "cassini": {
+  "lat0": 45.928944,
+  "lon0": 14.474694,
+  "shift": [
+   80.0,
+   0.0
+  ],
+  "system": "krim"
+ },
+ "source": "Arhiv Republike Slovenije, SI AS 176/L/L101 — Franciscean cadastre",
+ "sheets": [
+  {
+   "image": "kataster-scans/224587.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224587&docid=10&seq=1",
+   "cell": [
+    1.0,
+    5.0
+   ],
+   "frame": [
+    93.0,
+    68.9,
+    2542.0,
+    68.9,
+    2542.0,
+    2028.1,
+    93.0,
+    2028.1
+   ],
+   "source": "SI AS 176/L/L101/g/A01",
+   "placed": "printed O.C.I.17.ci (1.00)"
+  },
+  {
+   "image": "kataster-scans/224589.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224589&docid=10&seq=1",
+   "cell": [
+    1.0,
+    7.0
+   ],
+   "frame": [
+    64.0,
+    152.9,
+    2513.0,
+    152.9,
+    2513.0,
+    2112.1,
+    64.0,
+    2112.1
+   ],
+   "source": "SI AS 176/L/L101/g/A03",
+   "placed": "printed O.C.I.17.cg (1.00)"
+  },
+  {
+   "image": "kataster-scans/224590.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224590&docid=10&seq=1",
+   "cell": [
+    2.0,
+    7.0
+   ],
+   "frame": [
+    194.0,
+    190.9,
+    2643.0,
+    190.9,
+    2643.0,
+    2150.1,
+    194.0,
+    2150.1
+   ],
+   "source": "SI AS 176/L/L101/g/A04",
+   "placed": "printed O.C.I.17.bg (1.00)"
+  },
+  {
+   "image": "kataster-scans/224591.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224591&docid=10&seq=1",
+   "cell": [
+    1.0,
+    6.0
+   ],
+   "frame": [
+    72.0,
+    91.9,
+    2521.0,
+    91.9,
+    2521.0,
+    2051.1,
+    72.0,
+    2051.1
+   ],
+   "source": "SI AS 176/L/L101/g/A05",
+   "placed": "printed O.C.I.17.ch (1.00)"
+  },
+  {
+   "image": "kataster-scans/224592.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224592&docid=10&seq=1",
+   "cell": [
+    2.0,
+    6.0
+   ],
+   "frame": [
+    152.0,
+    65.9,
+    2601.0,
+    65.9,
+    2601.0,
+    2025.1,
+    152.0,
+    2025.1
+   ],
+   "source": "SI AS 176/L/L101/g/A06",
+   "placed": "printed O.C.I.17.bh (1.00)"
+  },
+  {
+   "image": "kataster-scans/224593.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224593&docid=10&seq=1",
+   "cell": [
+    2.0,
+    5.0
+   ],
+   "frame": [
+    269.0,
+    84.6,
+    2718.0,
+    92.8,
+    2711.5,
+    2052.0,
+    262.5,
+    2043.8
+   ],
+   "source": "SI AS 176/L/L101/g/A07",
+   "placed": "printed O.C.I.17.bi (1.00)"
+  },
+  {
+   "image": "kataster-scans/224594.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224594&docid=10&seq=1",
+   "cell": [
+    1.0,
+    8.0
+   ],
+   "frame": [
+    174.0,
+    139.9,
+    2623.0,
+    139.9,
+    2623.0,
+    2099.1,
+    174.0,
+    2099.1
+   ],
+   "source": "SI AS 176/L/L101/g/A08",
+   "placed": "wash shape (0.29)"
+  }
+ ]
+}

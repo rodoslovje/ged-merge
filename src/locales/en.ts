@@ -1623,6 +1623,8 @@ export const en = {
     "Franciscean cadastre 1:2880 · Podreča and Mavčiče (1826)",
   "settings.map.overlays.preset.kataster.toplice":
     "Franciscean cadastre 1:2880 · Toplice by Dolenjske Toplice (1824)",
+  "settings.map.overlays.preset.kataster.ljubljana":
+    "Franciscean cadastre 1:2880 · Ljubljana, Karlovško predmestje (1826)",
   "settings.map.overlays.preset.kataster.semic":
     "Franciscean cadastre 1:2880 · Semič (1824)",
   "settings.map.overlays.preset.kataster.metlika":
