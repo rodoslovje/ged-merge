@@ -1812,7 +1812,7 @@ Thomas Howard + Catherine Knyvett  @F347@
   merge.field.child: set "Thomas of_Berkshire Howard"
   merge.field.child: set "Henry Howard"
   merge.field.child: set "Catherine Howard"
-  merge.field.child: set "Frances Howard"
+  merge.field.childLinked: set "Frances Howard"
 
 Catherine Knyvett  @I555@
 -------------------------

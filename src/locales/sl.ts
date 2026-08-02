@@ -1005,6 +1005,7 @@ export const sl = {
   "merge.field.husband": "Mož",
   "merge.field.wife": "Žena",
   "merge.field.child": "Otrok",
+  "merge.field.childLinked": "Otrok (zapis je že v vaši datoteki)",
   "merge.field.father": "Oče",
   "merge.field.mother": "Mati",
   "merge.field.associations": "Povezane osebe",

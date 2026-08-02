@@ -885,6 +885,7 @@ export const en = {
   "merge.field.husband": "Husband",
   "merge.field.wife": "Wife",
   "merge.field.child": "Child",
+  "merge.field.childLinked": "Child (record already in your file)",
   "merge.field.father": "Father",
   "merge.field.mother": "Mother",
   "merge.field.associations": "Associations",

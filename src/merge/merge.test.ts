@@ -350,6 +350,75 @@ describe("mergeDecisions — family structure (driven by the confirmed spouse)",
   });
 });
 
+describe("mergeDecisions — an explicitly taken child outranks a suggested match", () => {
+  // Main's family already has a son Matija born 1829; the incoming family has a
+  // son of the same name born (and died) in 1826. The matcher suggested the two
+  // are one person, but the review — which aligns children by name and birth
+  // year — showed the incoming one as an addition, and the user took it.
+  const main = dataset(
+    wrap(
+      "0 @I1@ INDI\n1 NAME Matija /Slobodnik/\n1 SEX M\n1 FAMS @F1@\n" +
+        "0 @I2@ INDI\n1 NAME Ana /Cernetic/\n1 SEX F\n1 FAMS @F1@\n" +
+        "0 @I3@ INDI\n1 NAME Matija /Slobodnik/\n1 SEX M\n1 BIRT\n2 DATE 1829\n1 FAMC @F1@\n" +
+        "0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@\n1 CHIL @I3@\n",
+    ),
+  );
+  const compare = dataset(
+    wrap(
+      "0 @P1@ INDI\n1 NAME Matija /Slobodnik/\n1 SEX M\n1 FAMS @G1@\n" +
+        "0 @P2@ INDI\n1 NAME Ana /Cernetic/\n1 SEX F\n1 FAMS @G1@\n" +
+        "0 @P4@ INDI\n1 NAME Matija /Slobodnik/\n1 SEX M\n1 BIRT\n2 DATE 1826\n1 DEAT\n2 DATE 1826\n1 FAMC @G1@\n" +
+        "0 @G1@ FAM\n1 HUSB @P1@\n1 WIFE @P2@\n1 CHIL @P4@\n",
+    ),
+  );
+  const matches = {
+    individuals: [
+      { mainId: "@I1@", compareId: "@P1@" },
+      { mainId: "@I2@", compareId: "@P2@" },
+      { mainId: "@I3@", compareId: "@P4@" }, // suggested, never confirmed
+    ],
+  } as never;
+  const decisions = new Map<string, CandidateDecision>([
+    [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {}, takenChildren: ["@P4@"] }],
+  ]);
+  const { records, report } = mergeDecisions(main, compare, decisions, matches, tr);
+  const out = serializeGedcom(records);
+
+  it("imports the taken child as a person of its own instead of dropping the pick", () => {
+    expect(report.newPersons).toBe(1);
+    expect(out).toMatch(/0 @I\d+@ INDI\n1 NAME Matija \/Slobodnik\/\n1 SEX M\n1 BIRT\n2 DATE 1826\n1 DEAT\n2 DATE 1826\n1 FAMC @F1@/);
+    expect(out).toContain("1 CHIL @I3@\n1 CHIL @I4@");
+  });
+
+  it("leaves the suggested main child untouched", () => {
+    expect(out).toContain("0 @I3@ INDI\n1 NAME Matija /Slobodnik/\n1 SEX M\n1 BIRT\n2 DATE 1829\n1 FAMC @F1@");
+  });
+
+  it("keeps the incoming record so the preview can show the new person's facts", () => {
+    const added = Object.entries(report.newIndividuals ?? {});
+    expect(added).toHaveLength(1);
+    expect(added[0][1].id).toBe("@P4@");
+    expect(added[0][1].events.map((e) => e.tag)).toEqual(["BIRT", "DEAT"]);
+  });
+
+  it("says so when a taken child is a record the main file already had", () => {
+    // Same suggestion, but this time the matched person isn't in the family:
+    // reusing it is right (no duplicate), and the report labels it as a link.
+    const mainElsewhere = dataset(
+      wrap(
+        "0 @I1@ INDI\n1 NAME Matija /Slobodnik/\n1 SEX M\n1 FAMS @F1@\n" +
+          "0 @I2@ INDI\n1 NAME Ana /Cernetic/\n1 SEX F\n1 FAMS @F1@\n" +
+          "0 @I3@ INDI\n1 NAME Matija /Slobodnik/\n1 SEX M\n1 BIRT\n2 DATE 1826\n" +
+          "0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@\n",
+      ),
+    );
+    const { records: recs, report: rep } = mergeDecisions(mainElsewhere, compare, decisions, matches, tr);
+    expect(rep.newPersons).toBe(0);
+    expect(serializeGedcom(recs)).toContain("1 CHIL @I3@");
+    expect(rep.changes.some((c) => c.field === "merge.field.childLinked")).toBe(true);
+  });
+});
+
 describe("mergeDecisions — second partner becomes its own family", () => {
   // Main: Janez (@I1@) is already married to Marija (@I2@) in @F1@. Ana (@I3@)
   // exists but is single. The incoming file marries the same Janez to Ana.
