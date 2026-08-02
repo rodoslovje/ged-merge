@@ -8048,11 +8048,26 @@ kbd {
   opacity: 0.7; padding: 2px 4px;
 }
 .tools-geo-delete:hover { opacity: 1; }
-.tools-geo-empty { color: var(--muted); margin: 0 0 10px; }
+/* The one line saying you have to do something before any of this works — the
+   weight is what makes it read as the state it is, not as another hint. */
+.tools-geo-empty { color: var(--text); font-weight: 600; margin: 0 0 10px; }
 .tools-geo-import { display: inline-block; cursor: pointer; margin: 0; }
-/* The two one-click downloads share a row; the file import has its own, under
-   the paragraph that says where to fetch the file. */
 .tools-geo-acquire { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+/* One row per source: the button that takes it, and what it gives you. The
+   button column is as wide as its widest label, so the three read as one column
+   of choices rather than three ragged lines. */
+.tools-geo-sources {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 10px 14px;
+  align-items: start;
+  margin: 10px 0;
+}
+/* Buttons fill their column so all three match; the prose beside them drops the
+   paragraph margins the grid gap already provides, and sits on the button's own
+   line rather than above it. */
+.tools-geo-sources > .nav-btn { width: 100%; text-align: center; }
+.tools-geo-sources > .tools-geo-hint { margin: 0; padding-top: 3px; }
 /* The OpenStreetMap download is a <select> wearing .nav-btn: one control that
    reads as a button and drops the country list open on click, the country picked
    being the click itself. It only needs the font and cursor the class doesn't

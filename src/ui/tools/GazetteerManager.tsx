@@ -334,62 +334,53 @@ function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
   }
   return (
     <>
-      {/* The two one-click downloads are the same move on two sources, so they
-          share a row. */}
-      {settings.allowLinkFetch && (
-        <div className="tools-geo-acquire">
-          <button
-            className="nav-btn tools-run"
-            onClick={() => void gaz.downloadSlovenia()}
-            title={t("tools.geocode.gursTooltip")}
-          >
-            {t("tools.geocode.gursBtn")}
-          </button>
-          {/* One control, not a pair: the button opens the country list and the
-              country picked is the click — the same shape as the map tab's
-              "Add a free preset…". It never holds a selection, so it reads as
-              its own label again the moment the download starts. */}
-          <select
-            className="nav-btn tools-run tools-geo-osm"
-            title={t("tools.geocode.countryTooltip")}
-            aria-label={t("tools.geocode.downloadBtn")}
-            value=""
-            onChange={(e) => {
-              const code = e.target.value;
-              if (code) void gaz.downloadCountry(code);
-            }}
-          >
-            <option value="">{t("tools.geocode.downloadBtn")}</option>
-            {countries.map(({ code, name }) => (
-              <option key={code} value={code}>
-                {name}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
       {gaz.importState?.phase === "error" && <ToolsError message={gaz.importState.message} />}
-      {/* What the two buttons above give you, and what each source asks in
-          return. */}
-      <p className="tools-geo-hint">
-        {t("tools.geocode.sourceGurs")}{" "}
-        <a href="https://www.e-prostor.gov.si/dostopi/javni-dostop/" target="_blank" rel="noreferrer">
-          e-prostor.gov.si
-        </a>
-        . {t("tools.geocode.sourceOsm")}
-        {!settings.allowLinkFetch && ` ${t("tools.geocode.downloadNeedsOptIn")}`}
-      </p>
-      {/* The fallback, and the button that takes it — for a country neither
-          download serves, and for anyone who would rather not fetch anything
-          from the app at all. */}
-      <p className="tools-geo-hint">
-        {t("tools.geocode.importHint")}{" "}
-        <a href="https://download.geonames.org/export/dump/" target="_blank" rel="noreferrer">
-          download.geonames.org/export/dump
-        </a>{" "}
-        {t("tools.geocode.importHint2")}
-      </p>
-      <div className="tools-geo-acquire">
+      {/* Each way in is its button and the sentence that explains it, side by
+          side: what the source gives you and what it asks in return is the whole
+          basis for choosing between them, so it belongs beside the click rather
+          than in a paragraph naming all three. */}
+      <div className="tools-geo-sources">
+        {settings.allowLinkFetch && (
+          <>
+            <button
+              className="nav-btn tools-run"
+              onClick={() => void gaz.downloadSlovenia()}
+              title={t("tools.geocode.gursTooltip")}
+            >
+              {t("tools.geocode.gursBtn")}
+            </button>
+            <p className="tools-geo-hint">
+              {t("tools.geocode.sourceGurs")}{" "}
+              <a href="https://www.e-prostor.gov.si/dostopi/javni-dostop/" target="_blank" rel="noreferrer">
+                e-prostor.gov.si
+              </a>
+            </p>
+            {/* One control, not a pair: the button opens the country list and
+                the country picked is the click — the same shape as the map tab's
+                "Add a free preset…". It never holds a selection, so it reads as
+                its own label again the moment the download starts. */}
+            <select
+              className="nav-btn tools-run tools-geo-osm"
+              title={t("tools.geocode.countryTooltip")}
+              aria-label={t("tools.geocode.countryTooltip")}
+              value=""
+              onChange={(e) => {
+                const code = e.target.value;
+                if (code) void gaz.downloadCountry(code);
+              }}
+            >
+              <option value="">{t("tools.geocode.downloadBtn")}</option>
+              {countries.map(({ code, name }) => (
+                <option key={code} value={code}>
+                  {name}
+                </option>
+              ))}
+            </select>
+            <p className="tools-geo-hint">{t("tools.geocode.sourceOsm")}</p>
+          </>
+        )}
+        {/* The fallback: for a country neither download serves, and for anyone
+            who would rather the app fetched nothing at all. */}
         <label className="nav-btn tools-geo-import">
           {t("tools.geocode.importBtn")}
           <input
@@ -403,7 +394,18 @@ function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
             }}
           />
         </label>
+        <p className="tools-geo-hint">
+          {t("tools.geocode.sourceGeoNames")}{" "}
+          <a href="https://download.geonames.org/export/dump/" target="_blank" rel="noreferrer">
+            download.geonames.org/export/dump
+          </a>
+          {t("tools.geocode.sourceGeoNames2")}
+        </p>
       </div>
+      <p className="tools-geo-hint">
+        {t("tools.geocode.storedLocally")}
+        {!settings.allowLinkFetch && ` ${t("tools.geocode.downloadNeedsOptIn")}`}
+      </p>
     </>
   );
 }
