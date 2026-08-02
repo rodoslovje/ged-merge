@@ -318,8 +318,13 @@ python3 scripts/kataster-sheets.py --ko-id 225872 --name STRAŽIŠČE \
 python3 scripts/kataster-sheets.py … --pin pins.json --calibrate
 
 python3 scripts/overlay-tiles.py --manifest scripts/manifests/kataster-strazisce.json \
-    --out public/tiles-local/kataster-strazisce --base-zoom 17 --min-zoom 11 --webp
+    --out public/tiles-local/kataster-strazisce --base-zoom 17 --min-zoom 2 --webp
 ```
+
+Min zoom 2 is the Map chart's own shallowest zoom, and it matters: the chart
+opens by fitting the tree's places at z10 or less, so a pyramid that stops at
+z11 is invisible until you zoom in a step. A municipality is a speck at those
+zooms and costs one tile each.
 
 Base zoom 17: the scans are 0.771 m a pixel (a sheet's neatline measures
 2460 × 1968 px for 1000 × 800 klafter, and every scan in the fond is at that one

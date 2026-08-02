@@ -50,7 +50,7 @@ Usage:
 Then build as usual:
 
   python3 scripts/overlay-tiles.py --manifest scripts/manifests/kataster-gradac.json \\
-      --out public/tiles-local/kataster-gradac --min-zoom 12 --webp
+      --out public/tiles-local/kataster-gradac --base-zoom 17 --min-zoom 2 --webp
 """
 
 import argparse
