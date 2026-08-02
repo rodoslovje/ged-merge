@@ -1827,6 +1827,16 @@ export const sl = {
     "Franciscejski kataster 1:2880 · Kranj in Rupa (1826)",
   "settings.map.overlays.preset.kataster.bela":
     "Franciscejski kataster 1:2880 · Bela pri Preddvoru (1826)",
+  "settings.map.overlays.preset.kataster.preddvor":
+    "Franciscejski kataster 1:2880 · Breg ob Kokri in Preddvor (1826)",
+  "settings.map.overlays.preset.kataster.krasinec":
+    "Franciscejski kataster 1:2880 · Krasinec (1824)",
+  "settings.map.overlays.preset.kataster.podzemelj":
+    "Franciscejski kataster 1:2880 · Podzemelj (1824)",
+  "settings.map.overlays.preset.kataster.drasici":
+    "Franciscejski kataster 1:2880 · Drašiči (1824)",
+  "settings.map.overlays.preset.kataster.osojnik":
+    "Franciscejski kataster 1:2880 · Štrekljevec in Osojnik (1824)",
   "settings.map.overlays.preset.kataster.semic":
     "Franciscejski kataster 1:2880 · Semič (1824)",
   "settings.map.overlays.preset.kataster.metlika":

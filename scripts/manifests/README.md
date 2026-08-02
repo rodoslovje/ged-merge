@@ -18,8 +18,12 @@ scans without re-measuring.
   projection rather than a sheet grid — see "Conic manifests" below. Serves
   `tiles.gedmerge.com/schraembl-1797/`.
 - **kataster-*.json** — cadastral municipalities of the Franciscean cadastre,
-  1:2880, from the Archives of the Republic of Slovenia: Stražišče, Kranj and
-  Bela in Gorenjska; Metlika, Semič and Gradac in Bela krajina. A third manifest kind: cells of
+  1:2880, from the Archives of the Republic of Slovenia. Eleven so far:
+  Stražišče, Kranj, Bela and Breg ob Kokri in Gorenjska; Metlika, Semič,
+  Gradac, Podzemelj, Drašiči, Krasinec and Štrekljevec in Bela krajina. Note
+  that a k.o. is named for one of its villages and holds others — Preddvor is
+  in Breg ob Kokri, Osojnik in Štrekljevec, and Zgornje, Srednje and Spodnje
+  Bitnje are all one k.o. Bitnje. A third manifest kind: cells of
   the survey's own Cassini-Soldner lattice — see "Cadastral manifests" below.
   Serve `tiles.gedmerge.com/kataster-<k.o.>/`.
 
@@ -359,14 +363,19 @@ some are a sheet with a corner mounted on separately, and some are trimmed
 inside their own border rule. Measured over eight municipalities, the scans
 that are not sheet-shaped (aspect outside 1.20–1.31) are where placement fails:
 
-| k.o. | sheets | placed | odd scans |
-|---|---|---|---|
-| Metlika | 9 | 9 | 1 |
-| Bela | 9 | 9 | 3 |
-| Stražišče | 7 | 7 | 1 |
-| Gradac | 7 | 6 | 1 |
-| Kranj | 5 | 5 | 0 |
-| Semič | 5 | 5 | 4 |
+| k.o. | sheets | placed |
+|---|---|---|
+| Breg ob Kokri | 11 | 11 |
+| Metlika | 9 | 9 |
+| Bela | 9 | 9 |
+| Štrekljevec | 8 | 8 |
+| Stražišče | 7 | 7 |
+| Gradac | 7 | 6 |
+| Podzemelj | 6 | 6 |
+| Drašiči | 6 | 6 |
+| Krasinec | 6 | 4 |
+| Kranj | 5 | 5 |
+| Semič | 5 | 5 |
 
 The per-edge detector alone reached 4 of Metlika's 9: it wants each border rule
 to stand out on its own, and on a faint or trimmed scan one of the four never

@@ -1,0 +1,175 @@
+{
+ "name": "ŠTREKLJEVEC",
+ "cassini": {
+  "lat0": 45.928944,
+  "lon0": 14.474694,
+  "shift": [
+   80.0,
+   0.0
+  ],
+  "system": "krim"
+ },
+ "source": "Arhiv Republike Slovenije, SI AS 176/N/N290 — Franciscean cadastre",
+ "sheets": [
+  {
+   "image": "kataster-scans/230341.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=230341&docid=10&seq=1",
+   "cell": [
+    30,
+    -17
+   ],
+   "frame": [
+    68.0,
+    87.0,
+    2528.0,
+    87.0,
+    2528.0,
+    2055.0,
+    68.0,
+    2055.0
+   ],
+   "source": "SI AS 176/N/N290/g/A01",
+   "placed": "wash shape (0.57)"
+  },
+  {
+   "image": "kataster-scans/230342.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=230342&docid=10&seq=1",
+   "cell": [
+    29,
+    -18
+   ],
+   "frame": [
+    55.5,
+    508.8,
+    2515.5,
+    499.0,
+    2523.4,
+    2467.0,
+    63.4,
+    2476.8
+   ],
+   "source": "SI AS 176/N/N290/g/A02",
+   "placed": "wash shape (0.58)"
+  },
+  {
+   "image": "kataster-scans/230343.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=230343&docid=10&seq=1",
+   "cell": [
+    30,
+    -18
+   ],
+   "frame": [
+    104.2,
+    89.3,
+    2564.2,
+    99.1,
+    2556.4,
+    2067.1,
+    96.4,
+    2057.3
+   ],
+   "source": "SI AS 176/N/N290/g/A03",
+   "placed": "wash shape (0.19)"
+  },
+  {
+   "image": "kataster-scans/230344.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=230344&docid=10&seq=1",
+   "cell": [
+    31,
+    -18
+   ],
+   "frame": [
+    87.0,
+    147.9,
+    2547.0,
+    140.1,
+    2553.3,
+    2108.1,
+    93.3,
+    2115.9
+   ],
+   "source": "SI AS 176/N/N290/g/A04",
+   "placed": "printed ag (0.74)"
+  },
+  {
+   "image": "kataster-scans/230345.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=230345&docid=10&seq=1",
+   "cell": [
+    29,
+    -19
+   ],
+   "frame": [
+    79.0,
+    89.8,
+    2539.0,
+    89.8,
+    2538.9,
+    2057.8,
+    78.9,
+    2057.8
+   ],
+   "source": "SI AS 176/N/N290/g/A05",
+   "placed": "printed ch (0.70)"
+  },
+  {
+   "image": "kataster-scans/230346.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=230346&docid=10&seq=1",
+   "cell": [
+    30,
+    -19
+   ],
+   "frame": [
+    116.0,
+    110.0,
+    2576.0,
+    110.0,
+    2576.0,
+    2078.0,
+    116.0,
+    2078.0
+   ],
+   "source": "SI AS 176/N/N290/g/A06",
+   "placed": "wash shape (0.11)"
+  },
+  {
+   "image": "kataster-scans/230347.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=230347&docid=10&seq=1",
+   "cell": [
+    30,
+    -20
+   ],
+   "frame": [
+    102.3,
+    89.1,
+    2562.3,
+    99.0,
+    2554.4,
+    2067.0,
+    94.4,
+    2057.1
+   ],
+   "source": "SI AS 176/N/N290/g/A07",
+   "placed": "wash shape (0.66)"
+  },
+  {
+   "image": "kataster-scans/230348.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=230348&docid=10&seq=1",
+   "cell": [
+    30,
+    -21
+   ],
+   "frame": [
+    90.4,
+    81.4,
+    2550.4,
+    79.8,
+    2551.6,
+    2047.8,
+    91.6,
+    2049.4
+   ],
+   "source": "SI AS 176/N/N290/g/A08",
+   "placed": "printed be (0.74)"
+  }
+ ]
+}

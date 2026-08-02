@@ -1,0 +1,135 @@
+{
+ "name": "PODZEMELJ",
+ "cassini": {
+  "lat0": 45.928944,
+  "lon0": 14.474694,
+  "shift": [
+   80.0,
+   0.0
+  ],
+  "system": "krim"
+ },
+ "source": "Arhiv Republike Slovenije, SI AS 176/N/N202 — Franciscean cadastre",
+ "sheets": [
+  {
+   "image": "kataster-scans/229216.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=229216&docid=10&seq=1",
+   "cell": [
+    32,
+    -23
+   ],
+   "frame": [
+    76.9,
+    75.6,
+    2538.3,
+    85.5,
+    2530.5,
+    2054.6,
+    69.1,
+    2044.8
+   ],
+   "source": "SI AS 176/N/N202/g/A01",
+   "placed": "wash shape (0.72)"
+  },
+  {
+   "image": "kataster-scans/229218.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=229218&docid=10&seq=1",
+   "cell": [
+    33,
+    -23
+   ],
+   "frame": [
+    81.3,
+    86.2,
+    2542.7,
+    96.1,
+    2534.8,
+    2065.2,
+    73.4,
+    2055.4
+   ],
+   "source": "SI AS 176/N/N202/g/A02",
+   "placed": "printed cg (0.64)"
+  },
+  {
+   "image": "kataster-scans/229220.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=229220&docid=10&seq=1",
+   "cell": [
+    32,
+    -24
+   ],
+   "frame": [
+    83.0,
+    93.9,
+    2544.4,
+    84.0,
+    2552.3,
+    2053.1,
+    90.9,
+    2063.0
+   ],
+   "source": "SI AS 176/N/N202/g/A03",
+   "placed": "printed dh (0.84)"
+  },
+  {
+   "image": "kataster-scans/229221.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=229221&docid=10&seq=1",
+   "cell": [
+    33,
+    -24
+   ],
+   "frame": [
+    77.3,
+    194.4,
+    2538.7,
+    194.4,
+    2538.7,
+    2163.6,
+    77.3,
+    2163.6
+   ],
+   "source": "SI AS 176/N/N202/g/A04",
+   "placed": "wash shape (0.82)"
+  },
+  {
+   "image": "kataster-scans/229223.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=229223&docid=10&seq=1",
+   "cell": [
+    31,
+    -25
+   ],
+   "frame": [
+    93.4,
+    415.1,
+    2554.8,
+    411.0,
+    2558.0,
+    2380.1,
+    96.6,
+    2384.2
+   ],
+   "source": "SI AS 176/N/N202/g/A05",
+   "placed": "printed ai (0.76)"
+  },
+  {
+   "image": "kataster-scans/229225.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=229225&docid=10&seq=1",
+   "cell": [
+    32,
+    -25
+   ],
+   "frame": [
+    112.3,
+    130.4,
+    2573.7,
+    130.4,
+    2573.7,
+    2099.6,
+    112.3,
+    2099.6
+   ],
+   "source": "SI AS 176/N/N202/g/A06",
+   "placed": "wash shape (0.41)"
+  }
+ ]
+}
