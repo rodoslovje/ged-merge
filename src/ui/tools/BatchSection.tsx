@@ -191,11 +191,13 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
   function addCriterion(kind: BatchCriterion["kind"]) {
     const fresh: Record<BatchCriterion["kind"], BatchCriterion> = {
       name: { kind: "name", text: "" },
+      nameField: { kind: "nameField", field: "surname", mode: "lacks" },
       sex: { kind: "sex", value: "F" },
       birthYear: { kind: "birthYear" },
       age: { kind: "age", op: "lt", years: 20 },
       living: { kind: "living", value: true },
       event: { kind: "event", tag: "BIRT", mode: "lacks" },
+      relation: { kind: "relation", rel: "spouse", mode: "has" },
       kinship: { kind: "kinship", rel: "blood" },
       place: { kind: "place", text: "" },
       media: { kind: "media", mode: "none" },
@@ -481,6 +483,24 @@ function CriterionRow({
           onChange={(e) => onChange({ ...c, text: e.target.value })}
         />
       )}
+      {c.kind === "nameField" && (
+        <PresenceSelect
+          prefix="tools.batch.nameField"
+          fields={["given", "surname", "married"] as const}
+          field={c.field}
+          mode={c.mode}
+          onPick={(field, mode) => onChange({ ...c, field, mode })}
+        />
+      )}
+      {c.kind === "relation" && (
+        <PresenceSelect
+          prefix="tools.batch.relation"
+          fields={["spouse", "children", "parents"] as const}
+          field={c.rel}
+          mode={c.mode}
+          onPick={(rel, mode) => onChange({ ...c, rel, mode })}
+        />
+      )}
       {c.kind === "sex" && (
         <select className="batch-select" value={c.value} onChange={(e) => onChange({ ...c, value: e.target.value as Sex })}>
           {(["M", "F", "U"] as const).map((s) => (
@@ -617,6 +637,45 @@ function CriterionRow({
         ✕
       </button>
     </li>
+  );
+}
+
+/**
+ * "Is this part of the record there?" select — one option per field × has/lacks
+ * pair, so the choice reads as a sentence ("has no married name") instead of two
+ * abstract dropdowns. The pair is encoded in the option value and split back out.
+ */
+function PresenceSelect<F extends string>({
+  prefix,
+  fields,
+  field,
+  mode,
+  onPick,
+}: {
+  prefix: string;
+  fields: readonly F[];
+  field: F;
+  mode: "has" | "lacks";
+  onPick: (field: F, mode: "has" | "lacks") => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <select
+      className="batch-select"
+      value={`${field}:${mode}`}
+      onChange={(e) => {
+        const [f, m] = e.target.value.split(":");
+        onPick(f as F, m as "has" | "lacks");
+      }}
+    >
+      {fields.flatMap((f) =>
+        (["has", "lacks"] as const).map((m) => (
+          <option key={`${f}:${m}`} value={`${f}:${m}`}>
+            {t(`${prefix}.${f}.${m}`)}
+          </option>
+        )),
+      )}
+    </select>
   );
 }
 

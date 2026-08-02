@@ -183,6 +183,96 @@ describe("batch criteria", () => {
   });
 });
 
+describe("name-part and relative presence criteria", () => {
+  // @I1@ married name inline (_MARNM), partnered; @I2@ her husband, child in a
+  // family that names no parent; @I3@ no surname, sole spouse of a family with
+  // a child; @I4@ no surname but a separate `TYPE married` name; @I5@ has a
+  // known mother; @I6@ surname only; @I7@ partnered woman with no married name.
+  const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Ana /Novak/
+2 _MARNM /Kovač/
+1 SEX F
+1 FAMS @F1@
+0 @I2@ INDI
+1 NAME Bo /Kovač/
+1 SEX M
+1 FAMS @F1@
+1 FAMC @F3@
+0 @I3@ INDI
+1 NAME Marija //
+1 SEX F
+1 FAMS @F2@
+0 @I4@ INDI
+1 NAME Jera //
+1 SEX F
+1 NAME Jera /Zupančič/
+2 TYPE married
+0 @I5@ INDI
+1 NAME Tone /Novak/
+1 SEX M
+1 FAMC @F2@
+0 @I6@ INDI
+1 NAME /Zupan/
+1 SEX F
+0 @I7@ INDI
+1 NAME Neža /Hribar/
+1 SEX F
+1 FAMS @F4@
+0 @I8@ INDI
+1 NAME Rok /Hribar/
+1 SEX M
+1 FAMS @F4@
+0 @F1@ FAM
+1 HUSB @I2@
+1 WIFE @I1@
+0 @F2@ FAM
+1 WIFE @I3@
+1 CHIL @I5@
+0 @F3@ FAM
+1 CHIL @I2@
+0 @F4@ FAM
+1 HUSB @I8@
+1 WIFE @I7@
+0 TRLR`);
+  const rows = buildBatchRows(ds, nameOf);
+  const match = (criteria: BatchCriterion[]) =>
+    rows.filter((r) => matchesBatch(r, criteria, { lineSides: null, kinship: null })).map((r) => r.id).sort();
+
+  it("reads the given name and surname off the primary name", () => {
+    expect(match([{ kind: "nameField", field: "given", mode: "lacks" }])).toEqual(["@I6@"]);
+    // @I4@ counts as surname-less: her only surname is on the married name.
+    expect(match([{ kind: "nameField", field: "surname", mode: "lacks" }])).toEqual(["@I3@", "@I4@"]);
+  });
+
+  it("finds a married name in either notation", () => {
+    expect(match([{ kind: "nameField", field: "married", mode: "has" }])).toEqual(["@I1@", "@I4@"]);
+  });
+
+  it("requires a second spouse for a partner, and a named parent for parents", () => {
+    // @I3@ is a lone spouse — a family slot on its own is not a partner.
+    expect(match([{ kind: "relation", rel: "spouse", mode: "has" }]))
+      .toEqual(["@I1@", "@I2@", "@I7@", "@I8@"]);
+    expect(match([{ kind: "relation", rel: "children", mode: "has" }])).toEqual(["@I3@"]);
+    // @I2@ is a child of @F3@, which names neither parent.
+    expect(match([{ kind: "relation", rel: "parents", mode: "has" }])).toEqual(["@I5@"]);
+  });
+
+  it("answers the two women-without-a-name audits", () => {
+    expect(match([
+      { kind: "sex", value: "F" },
+      { kind: "nameField", field: "surname", mode: "lacks" },
+      { kind: "nameField", field: "married", mode: "lacks" },
+    ])).toEqual(["@I3@"]);
+    expect(match([
+      { kind: "sex", value: "F" },
+      { kind: "relation", rel: "spouse", mode: "has" },
+      { kind: "nameField", field: "married", mode: "lacks" },
+    ])).toEqual(["@I7@"]);
+  });
+});
+
 describe("computeLineSides", () => {
   const ds = dataset(FAMILY);
   const sides = computeLineSides(ds, "@I1@")!;

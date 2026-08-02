@@ -16,6 +16,7 @@ import {
   findSharedMediaByFile,
 } from "../gedcom/edit/media";
 import { INDI_CHILD_ORDER, insertOrdered, insertRecord, markEventTouched, nextXref } from "../gedcom/edit/shared";
+import { marriedSurnamesOf } from "../match/relatives";
 import { buildSearchRows, foldSearch, type SearchRow } from "../ui/globalSearch";
 import { cloneRaw, patchesFromSnapshots, snapshotRecords, type RecordPatch } from "../ui/historyTypes";
 
@@ -42,6 +43,10 @@ export type BatchCriterion =
   /** Text match over the name; `part` narrows it to the given name or the
    *  surname only (absent = anywhere, incl. lifespan — the search haystack). */
   | { kind: "name"; text: string; part?: "given" | "surname" }
+  /** Presence of a name part rather than its text: the primary name's given
+   *  name or surname (the fields the Edit view shows), or any married surname
+   *  (inline `_MARNM` or a separate `TYPE married` name). */
+  | { kind: "nameField"; field: "given" | "surname" | "married"; mode: "has" | "lacks" }
   | { kind: "sex"; value: Sex }
   | { kind: "birthYear"; from?: number; to?: number }
   /** Age in whole years — at death for the deceased, to today for everyone
@@ -55,6 +60,10 @@ export type BatchCriterion =
   | { kind: "event"; tag: string; mode: "has" | "lacks" }
   /** Blood-line relationship to the start person (see {@link computeKinship}). */
   | { kind: "kinship"; rel: "ancestor" | "descendant" | "blood" | "notBlood" }
+  /** Presence of a close relative in the file: a partner in some union (a
+   *  family that names a second spouse), a child, or a named parent. Unlike
+   *  `kinship` this needs no start person. */
+  | { kind: "relation"; rel: "spouse" | "children" | "parents"; mode: "has" | "lacks" }
   | { kind: "place"; text: string }
   /** `none`/`any` look at the person's whole media tray; `has`/`lacks` test one
    *  specific image, identified by shared-record xref and/or `FILE` value. */
@@ -67,7 +76,8 @@ export const ANY_VENDOR_EVENT = "_*";
 
 /** Every criterion kind, for the panel's "add filter" picker. */
 export const BATCH_CRITERION_KINDS: BatchCriterion["kind"][] = [
-  "name", "sex", "birthYear", "age", "living", "event", "place", "media", "sources", "kinship", "line",
+  "name", "nameField", "sex", "birthYear", "age", "living", "event", "place", "media", "sources",
+  "relation", "kinship", "line",
 ];
 
 /**
@@ -86,6 +96,15 @@ export interface BatchRow extends SearchRow {
   /** Folded given names / surnames across every name form, for scoped matching. */
   givenText: string;
   surnameText: string;
+  /** Whether the *primary* name fills its given-name / surname field, and
+   *  whether the person carries any married surname (see {@link marriedSurnamesOf}). */
+  hasGiven: boolean;
+  hasSurname: boolean;
+  hasMarriedName: boolean;
+  /** A partner in some union, a child, a named parent — see the `relation` criterion. */
+  hasSpouse: boolean;
+  hasChildren: boolean;
+  hasParents: boolean;
   /** Shared media record xrefs this person's tray references (record + events). */
   mediaXrefs: string[];
   /** Lower-cased `FILE` values of the tray's media (inline and resolved shared). */
@@ -121,6 +140,7 @@ export function buildBatchRows(
     const indi = dataset.individuals.get(row.id)!;
     const refs = collectMediaRefs(indi.raw, dataset.records);
     const d = deathDateOf(indi);
+    const unions = indi.spouseOf.map((id) => dataset.families.get(id)).filter((f) => f !== undefined);
     return {
       ...row,
       deathYear: d?.year,
@@ -129,6 +149,17 @@ export function buildBatchRows(
       eventTags: indi.events.map((e) => e.tag),
       givenText: foldSearch(indi.names.map((n) => n.given ?? "").join(" ")),
       surnameText: foldSearch(indi.names.map((n) => n.surname ?? "").join(" ")),
+      hasGiven: !!indi.names[0]?.given?.trim(),
+      hasSurname: !!indi.names[0]?.surname?.trim(),
+      hasMarriedName: marriedSurnamesOf(indi).length > 0,
+      // A lone spouse in a family isn't a partner — single-parent families and
+      // half-built unions name one side only.
+      hasSpouse: unions.some((f) => [f.husband, f.wife].some((s) => s && s !== indi.id)),
+      hasChildren: unions.some((f) => f.children.length > 0),
+      hasParents: indi.childOf.some((id) => {
+        const f = dataset.families.get(id);
+        return !!(f?.husband || f?.wife);
+      }),
       mediaXrefs: refs.filter((r) => r.xref).map((r) => r.xref!),
       mediaFiles: refs.map((r) => r.file.toLowerCase()),
       mediaCount: refs.length,
@@ -217,6 +248,12 @@ export function matchesBatch(row: BatchRow, criteria: BatchCriterion[], ctx: Bat
         if (!terms.every((t) => hay.includes(t))) return false;
         break;
       }
+      case "nameField": {
+        const has =
+          c.field === "given" ? row.hasGiven : c.field === "surname" ? row.hasSurname : row.hasMarriedName;
+        if (c.mode === "has" ? !has : has) return false;
+        break;
+      }
       case "sex":
         if (row.sex !== c.value) return false;
         break;
@@ -237,6 +274,12 @@ export function matchesBatch(row: BatchRow, criteria: BatchCriterion[], ctx: Bat
           c.tag === ANY_VENDOR_EVENT
             ? row.eventTags.some((tg) => tg.startsWith("_"))
             : row.eventTags.includes(c.tag);
+        if (c.mode === "has" ? !has : has) return false;
+        break;
+      }
+      case "relation": {
+        const has =
+          c.rel === "spouse" ? row.hasSpouse : c.rel === "children" ? row.hasChildren : row.hasParents;
         if (c.mode === "has" ? !has : has) return false;
         break;
       }
