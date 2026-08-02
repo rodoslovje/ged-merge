@@ -118,15 +118,22 @@ function rememberRegions(country: string, list: Subdivision[]): void {
   }
 }
 
-/** Read a response body with byte progress (falls back to one shot). `total` is
- *  0 when the server announced no Content-Length — chunked transfer, which both
- *  Overpass and the GURS endpoint use — and the caller shows bytes instead of a
- *  percentage in that case. */
+/**
+ * Read a response body, counting the bytes as they arrive.
+ *
+ * Counted, never scaled: the total these downloads will come to is not
+ * knowable. The GURS endpoint sends chunked and announces no length at all,
+ * and Overpass announces one that counts the *compressed* body while the reader
+ * hands back the decompressed bytes — which read as "140 %" and then kept
+ * climbing. Whether a response was compressed is not something a cross-origin
+ * fetch may ask (`Content-Encoding` is not CORS-safelisted, `Content-Length`
+ * is), so the header cannot be corrected for, only distrusted. The caller
+ * therefore always shows megabytes, which are true.
+ */
 async function readWithProgress(
   res: Response,
   onProgress: (done: number, total: number) => void,
 ): Promise<ArrayBuffer> {
-  const total = Number(res.headers.get("content-length")) || 0;
   if (!res.body) return res.arrayBuffer();
   const reader = res.body.getReader();
   const chunks: Uint8Array[] = [];
@@ -136,7 +143,7 @@ async function readWithProgress(
     if (end) break;
     chunks.push(value);
     done += value.byteLength;
-    onProgress(done, total);
+    onProgress(done, 0);
   }
   const out = new Uint8Array(done);
   let off = 0;
