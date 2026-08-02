@@ -1593,6 +1593,10 @@ export const en = {
     "Franciscean cadastre 1:2880 · Kranj and Rupa (1826)",
   "settings.map.overlays.preset.kataster.bela":
     "Franciscean cadastre 1:2880 · Bela by Preddvor (1826)",
+  "settings.map.overlays.preset.kataster.semic":
+    "Franciscean cadastre 1:2880 · Semič (1824)",
+  "settings.map.overlays.preset.kataster.metlika":
+    "Franciscean cadastre 1:2880 · Metlika (1824)",
   "settings.map.overlays.preset.kataster.gradac":
     "Franciscean cadastre 1:2880 · Gradac by Metlika (1824)",
   "settings.map.overlays.preset.gurs.orthoHist": "Slovenia · Historical orthophoto 2011 (GURS)",

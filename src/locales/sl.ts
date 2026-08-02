@@ -1827,6 +1827,10 @@ export const sl = {
     "Franciscejski kataster 1:2880 · Kranj in Rupa (1826)",
   "settings.map.overlays.preset.kataster.bela":
     "Franciscejski kataster 1:2880 · Bela pri Preddvoru (1826)",
+  "settings.map.overlays.preset.kataster.semic":
+    "Franciscejski kataster 1:2880 · Semič (1824)",
+  "settings.map.overlays.preset.kataster.metlika":
+    "Franciscejski kataster 1:2880 · Metlika (1824)",
   "settings.map.overlays.preset.kataster.gradac":
     "Franciscejski kataster 1:2880 · Gradac pri Metliki (1824)",
   "settings.map.overlays.preset.gurs.orthoHist": "Slovenija · Zgodovinski ortofoto 2011 (GURS)",

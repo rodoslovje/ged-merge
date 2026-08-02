@@ -269,7 +269,75 @@ def _rings(coords):
 # ── placing the sheets ───────────────────────────────────────────────────────
 
 ASPECT = SHEET_W / SHEET_H            # 1.25, and every sheet's frame is that
+FALLBACK_PENALTY = 0.02               # what a fixed-size guess is worth against a real reading
 MAX_LEAN = 0.004                      # 0.23°: more tilt than a flatbed produces
+
+
+def _ink_profiles(im, quantile=25):
+    """Per-column and per-row share of dark pixels."""
+    w, h = im.size
+    px = list(im.getdata())
+    hist = im.histogram()
+    cut, seen, want = 255, 0, w * h * quantile // 100
+    for value, count in enumerate(hist):
+        seen += count
+        if seen >= want:
+            cut = value
+            break
+    cols = [0] * w
+    rows = [0] * h
+    for y in range(h):
+        base = y * w
+        run = 0
+        for x in range(w):
+            if px[base + x] < cut:
+                cols[x] += 1
+                run += 1
+        rows[y] = run
+    return [c / h for c in cols], [r / w for r in rows]
+
+
+def _fixed_size_frame(im, expect):
+    """The frame as the best place to lay a rectangle of the printed size.
+
+    The detector proper wants each border rule to stand out on its own, and on
+    a faint or trimmed scan one of the four never does. But a cadastral sheet's
+    frame is a *known* size, so there is only one rectangle to place: slide it
+    over the scan and take the position where all four edges together land on
+    the most ink. Three faint rules and one clear one still find it, which the
+    per-edge detector cannot do.
+
+    Coarse on a quarter-size copy, then refined at full size — the coarse pass
+    is what keeps a five-megapixel scan to well under a second.
+    """
+    ew, eh = int(round(expect[0])), int(round(expect[1]))
+    w, h = im.size
+    if w < ew + 4 or h < eh + 4:
+        return None
+    step = 4
+    small = im.reduce(step)
+    cols, rows = _ink_profiles(small)
+    sw, sh = int(round(ew / step)), int(round(eh / step))
+
+    def best(profile, span):
+        pairs = [(profile[i] + profile[i + span], i) for i in range(len(profile) - span)]
+        return max(pairs)
+
+    sx, cx = best(cols, sw)[1], best(cols, sw)[0]
+    sy, cy = best(rows, sh)[1], best(rows, sh)[0]
+    if cx < 0.25 or cy < 0.25:
+        return None            # no pair of rules anywhere: not a framed sheet
+    # Refine at full size in a window around the coarse answer.
+    pad = 3 * step
+    x0 = max(0, sx * step - pad)
+    y0 = max(0, sy * step - pad)
+    crop = im.crop((x0, y0, min(w, x0 + ew + 2 * pad), min(h, y0 + eh + 2 * pad)))
+    fcols, frows = _ink_profiles(crop)
+    if len(fcols) <= ew or len(frows) <= eh:
+        return None
+    fx = best(fcols, ew)[1] + x0
+    fy = best(frows, eh)[1] + y0
+    return (fx, fy), (fx + ew, fy), (fx + ew, fy + eh), (fx, fy + eh)
 
 
 def _detect(path, expect):
@@ -298,8 +366,33 @@ def _detect(path, expect):
             found = ot.detect_frame(probe, printed_mm=PRINTED_MM, **kw)
         except SystemExit:
             continue
-        out.append(tuple((x + ox, y + oy) for x, y in found))
+        out.append((0.0, tuple((x + ox, y + oy) for x, y in found)))
+    fixed = _fixed_size_frame(rgba.convert("L"), expect)
+    if fixed:
+        # It is the right shape by construction, so it would otherwise beat
+        # every real reading on shape alone; the penalty keeps it a fallback.
+        out.append((FALLBACK_PENALTY, fixed))
     return out
+
+
+def _readings(path, expect):
+    """Every reading of a scan, and the rotation it was taken at.
+
+    A few sheets were photographed on their side, and a landscape frame is not
+    findable in a portrait scan until it is stood up. The rotation that wins is
+    recorded in the manifest, where the tiler applies the same one."""
+    with Image.open(path) as im:
+        portrait = im.height > im.width
+    if not portrait:
+        return [(p, c, 0) for p, c in _detect(path, expect)]
+    tmp = path + ".rot90.png"
+    with Image.open(path) as im:
+        im.convert("RGB").rotate(90, expand=True).save(tmp)
+    try:
+        return ([(p, c, 0) for p, c in _detect(path, expect)]
+                + [(p, c, 90) for p, c in _detect(tmp, expect)])
+    finally:
+        os.remove(tmp)
 
 
 def _misshape(corners):
@@ -346,10 +439,15 @@ def frames(paths):
         seeds = [widths[len(widths) // 2] * 0.93]
     seed = sorted(seeds)[len(seeds) // 2]
 
-    best = {}
+    best, turn = {}, {}
     for path in paths:
-        readings = _detect(path, (seed, seed / ASPECT))
-        best[path] = min(readings, key=_misshape) if readings else None
+        readings = _readings(path, (seed, seed / ASPECT))
+        if not readings:
+            best[path] = None
+            continue
+        penalty, corners, rot = min(readings, key=lambda r: r[0] + _misshape(r[1]))
+        best[path] = corners
+        turn[path] = rot
     good = [_frame_size(c)[0] for c in best.values() if c is not None and _misshape(c) < 0.02]
     if not good:
         return {p: None for p in paths}
@@ -360,7 +458,8 @@ def frames(paths):
         # A reading that is still the wrong shape after all that has found
         # something other than the frame; better to report the sheet than to
         # place it on a guess.
-        out[path] = _square(corners, med_w) if corners and _misshape(corners) < 0.05 else None
+        ok = corners is not None and _misshape(corners) < 0.05
+        out[path] = (_square(corners, med_w), turn.get(path, 0)) if ok else None
     return out
 
 
@@ -645,9 +744,10 @@ def build_manifest(vac, ko_rec, args, out_path, review):
         fetch(vac.scan_url(rec["id"]), path)
         sheets.append(dict(id=rec["id"], sig=rec["sig"], path=path))
 
-    corners = frames([s["path"] for s in sheets])
+    measured = frames([s["path"] for s in sheets])
     for s in sheets:
-        s["corners"] = corners[s["path"]]
+        found = measured[s["path"]]
+        s["corners"], s["rotate"] = (found if found else (None, 0))
         s["letters"] = read_designation(s["path"], s["corners"]) if s["corners"] else None
 
     placed, err = place(sheets, cass, rings)
@@ -690,6 +790,7 @@ def build_manifest(vac, ko_rec, args, out_path, review):
             "url": vac.scan_url(s["id"]),
             "cell": list(s["cell"]),
             "frame": [round(v, 1) for c in s["corners"] for v in c],
+            **({"rotate": s["rotate"]} if s.get("rotate") else {}),
             "source": s["sig"],
             "placed": "%s (%.2f)" % (s["how"], s["score"]),
         })

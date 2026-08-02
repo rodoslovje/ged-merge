@@ -1,0 +1,115 @@
+{
+ "name": "SEMIČ",
+ "cassini": {
+  "lat0": 45.928944,
+  "lon0": 14.474694,
+  "shift": [
+   80.0,
+   0.0
+  ],
+  "system": "krim"
+ },
+ "source": "Arhiv Republike Slovenije, SI AS 176/N/N272 — Franciscean cadastre",
+ "sheets": [
+  {
+   "image": "kataster-scans/230108.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=230108&docid=10&seq=1",
+   "cell": [
+    29,
+    -20
+   ],
+   "frame": [
+    466.1,
+    994.1,
+    2931.0,
+    995.4,
+    2930.0,
+    2967.2,
+    465.1,
+    2966.0
+   ],
+   "source": "SI AS 176/N/N272/g/A01",
+   "placed": "wash shape (0.59)"
+  },
+  {
+   "image": "kataster-scans/230110.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=230110&docid=10&seq=1",
+   "cell": [
+    30,
+    -20
+   ],
+   "frame": [
+    88.8,
+    479.8,
+    2553.6,
+    469.9,
+    2561.5,
+    2441.8,
+    96.7,
+    2451.7
+   ],
+   "source": "SI AS 176/N/N272/g/A02",
+   "placed": "wash shape (0.65)"
+  },
+  {
+   "image": "kataster-scans/230112.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=230112&docid=10&seq=1",
+   "cell": [
+    28,
+    -21
+   ],
+   "frame": [
+    88.0,
+    89.2,
+    2552.8,
+    93.1,
+    2549.7,
+    2065.0,
+    84.9,
+    2061.1
+   ],
+   "source": "SI AS 176/N/N272/g/A03",
+   "placed": "wash shape (0.88)"
+  },
+  {
+   "image": "kataster-scans/230113.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=230113&docid=10&seq=1",
+   "cell": [
+    29,
+    -21
+   ],
+   "frame": [
+    89.1,
+    139.4,
+    2553.9,
+    135.5,
+    2557.1,
+    2107.3,
+    92.2,
+    2111.3
+   ],
+   "source": "SI AS 176/N/N272/g/A04",
+   "placed": "printed ce (0.14)"
+  },
+  {
+   "image": "kataster-scans/230115.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=230115&docid=10&seq=1",
+   "cell": [
+    30,
+    -21
+   ],
+   "frame": [
+    86.1,
+    84.6,
+    2550.9,
+    84.6,
+    2550.9,
+    2056.5,
+    86.0,
+    2056.4
+   ],
+   "source": "SI AS 176/N/N272/g/A05",
+   "placed": "wash shape (0.40)"
+  }
+ ]
+}

@@ -19,7 +19,7 @@ scans without re-measuring.
   `tiles.gedmerge.com/schraembl-1797/`.
 - **kataster-*.json** — cadastral municipalities of the Franciscean cadastre,
   1:2880, from the Archives of the Republic of Slovenia: Stražišče, Kranj and
-  Bela in Gorenjska, Gradac in Bela krajina. A third manifest kind: cells of
+  Bela in Gorenjska; Metlika, Semič and Gradac in Bela krajina. A third manifest kind: cells of
   the survey's own Cassini-Soldner lattice — see "Cadastral manifests" below.
   Serve `tiles.gedmerge.com/kataster-<k.o.>/`.
 
@@ -361,19 +361,26 @@ that are not sheet-shaped (aspect outside 1.20–1.31) are where placement fails
 
 | k.o. | sheets | placed | odd scans |
 |---|---|---|---|
+| Metlika | 9 | 9 | 1 |
 | Bela | 9 | 9 | 3 |
 | Stražišče | 7 | 7 | 1 |
 | Gradac | 7 | 6 | 1 |
 | Kranj | 5 | 5 | 0 |
-| Bitnje | 10 | 6 | 2 |
-| Olševek | 5 | 1 | 2 |
-| Predoslje | 3 | 1 | 1 |
-| Britof | 5 | 0 | 4 |
+| Semič | 5 | 5 | 4 |
 
-The detector wants all four border rules of one sheet in one scan. Until it can
-find *a* sheet's frame inside a composite — or reconstruct a frame from the two
-edges that are present plus the known printed size — municipalities like Britof
-cannot be placed at all, and that is the next thing to build.
+The per-edge detector alone reached 4 of Metlika's 9: it wants each border rule
+to stand out on its own, and on a faint or trimmed scan one of the four never
+does. `_fixed_size_frame` is what closed the gap. A cadastral sheet's frame is
+a *known* size, so there is only one rectangle to place — slide it over the
+scan and take the position where all four edges together land on the most ink.
+Three faint rules and one clear one still find it. It carries a penalty against
+the real readings, so it only wins where they fail, and it is checked the same
+way afterwards: by the wash, the printed letter pair and the filing order.
+
+Scans that are still beyond it: a sheet trimmed *inside* its own border rule
+(there is no rectangle of the printed size to find), and a scan holding two
+sheets at once where the fallback may bracket rules belonging to different
+ones. Those come out in `--review`.
 
 ### Rebuilding
 
