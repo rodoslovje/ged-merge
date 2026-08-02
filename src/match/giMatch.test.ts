@@ -77,6 +77,38 @@ describe("matchGiPairs", () => {
     expect(result.individuals[0].score).toBeGreaterThan(80);
   });
 
+  it("matches a partner the CSV only names inside another person's row", () => {
+    const mainRow = row(["Franc", "Vilfan", "20 JUL 1877", "", "", "", "", "", "", "", "", "Renko", "99"]);
+    // Janez is in the main file under his own name and birth year, but the CSV
+    // only ever mentions him as Franc's partner.
+    const incomingRow = row(["Franc", "Vilfan", "20 JUL 1877", "", "", "", "", "", "", "Janez Novak *1 JAN 1900", "", "Pokopališča-geneanet", "99"]);
+    const csv = `${HEADER}\n${mainRow}\n${incomingRow}\n`;
+
+    const mainDs = dataset(MAIN);
+    const { dataset: compareDs, pairs } = parseGiMatchesCsv(csv);
+
+    const result = matchGiPairs(mainDs, compareDs, pairs);
+    expect(result.individuals.map((c) => [c.mainId, c.compareId])).toEqual([
+      ["@I1@", "@SGI1@"],
+      ["@I2@", "@SGI1P1@"],
+    ]);
+  });
+
+  it("never offers a second candidate for a person the index already matched", () => {
+    const mainRow = row(["Franc", "Vilfan", "20 JUL 1877", "", "", "", "", "", "", "", "", "Renko", "99"]);
+    // The partner cell repeats Franc himself (same name, same birth year), so it
+    // must not become a second candidate competing for the same main record.
+    const incomingRow = row(["Franc", "Vilfan", "20 JUL 1877", "", "", "", "", "", "", "Franc Vilfan *20 JUL 1877", "", "Pokopališča-geneanet", "99"]);
+    const csv = `${HEADER}\n${mainRow}\n${incomingRow}\n`;
+
+    const mainDs = dataset(MAIN);
+    const { dataset: compareDs, pairs } = parseGiMatchesCsv(csv);
+
+    const result = matchGiPairs(mainDs, compareDs, pairs);
+    expect(result.individuals).toHaveLength(1);
+    expect(result.individuals[0].mainId).toBe("@I1@");
+  });
+
   it("skips a pair whose main key doesn't match any individual", () => {
     const mainRow = row([
       "Unknown",

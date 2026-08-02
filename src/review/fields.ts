@@ -260,12 +260,40 @@ function buildParentRows(
   showAge: boolean,
 ): void {
   const parentRows: FieldRow[] = [];
-  pushRelativesRow(parentRows, "father", formatFieldLabel(t, "father"), parentRelative(main, mainDs, "husband", showAge), parentRelative(compare, compareDs, "husband", showAge));
-  pushRelativesRow(parentRows, "mother", formatFieldLabel(t, "mother"), parentRelative(main, mainDs, "wife", showAge), parentRelative(compare, compareDs, "wife", showAge));
+  const mFather = parentRelative(main, mainDs, "husband", showAge);
+  const mMother = parentRelative(main, mainDs, "wife", showAge);
+  let cFather = parentRelative(compare, compareDs, "husband", showAge);
+  let cMother = parentRelative(compare, compareDs, "wife", showAge);
+  // Which parent sits in which slot is the incoming file's assertion, and a file
+  // that records no sex can have it the other way round (a genealogical index
+  // naming a couple, an export with the spouses swapped). When the two parents
+  // line up better crossed than straight, read them crossed — otherwise both
+  // parents show as one-sided, as if neither file knew them.
+  if (parentsAreCrossed(mFather, mMother, cFather, cMother)) [cFather, cMother] = [cMother, cFather];
+  pushRelativesRow(parentRows, "father", formatFieldLabel(t, "father"), mFather, cFather);
+  pushRelativesRow(parentRows, "mother", formatFieldLabel(t, "mother"), mMother, cMother);
   if (parentRows.length > 0) {
     rows.push({ key: "parents.header", label: t("field.parents"), main: "", incoming: "", state: "agree", isGroupHeader: true });
     rows.push(...parentRows);
   }
+}
+
+/**
+ * Do the incoming parents belong in the other slots? Scores the two readings —
+ * father↔father + mother↔mother against father↔mother + mother↔father — and
+ * says so when crossing them wins and at least one crossed pair is a real match.
+ * Each list holds 0 or 1 parent, as {@link parentRelative} returns.
+ */
+function parentsAreCrossed(
+  mFather: Relative[],
+  mMother: Relative[],
+  cFather: Relative[],
+  cMother: Relative[],
+): boolean {
+  const sim = (a: Relative[], b: Relative[]) =>
+    a[0] && b[0] ? relativeSimilarity(a[0], b[0]) : 0;
+  const crossed = sim(mFather, cMother) + sim(mMother, cFather);
+  return crossed > sim(mFather, cFather) + sim(mMother, cMother) && crossed >= RELATIVE_PAIR_THRESHOLD;
 }
 
 /** Per spouse-family group: the partner row, the family events (marriage,
@@ -736,7 +764,18 @@ function relativeCell(r: Relative): RelativeCell {
  * given name: this threshold demands a strong given-name agreement too, pairing
  * spelling variants (Ana/Anna) while keeping distinct siblings (Berta/Doris) apart.
  */
-const RELATIVE_PAIR_THRESHOLD = 0.85;
+export const RELATIVE_PAIR_THRESHOLD = 0.85;
+
+/**
+ * How alike two individuals look *as relatives* — the same name + birth-year
+ * signal that aligns partners and children in the review table, exposed so
+ * other views pair people the same way (the compare tree falls back to it for
+ * spouses the matcher never paired). At or above
+ * {@link RELATIVE_PAIR_THRESHOLD} means "the same person".
+ */
+export function relativePersonSimilarity(a: Individual, b: Individual): number {
+  return relativeSimilarity(partnerToRelative(a), partnerToRelative(b));
+}
 
 /**
  * Greedily pair main and incoming relatives by name similarity (best pairs

@@ -531,6 +531,13 @@
               datoteke ali iz <a href="#geocode">Geokodiranja krajev</a> (<a href="#tools">§10</a>); velja ista izbirna
               kartografska podlaga — ali vgrajeni obris brez povezave — kot pri <a href="#map">Zemljevidu krajev</a>.
             </p>
+            <p>
+              Koordinata pripada kraju, za katerega je bila zapisana, zato se ob spremembi kraja dogodka pika premakne z
+              njim: prevzame se položaj, ki ga vaša datoteka že uporablja za novi kraj, če ga nima, pa se stari izbriše,
+              namesto da bi kazal na kraj, ki ga je dogodek pravkar zapustil. Popravek <strong>naslova</strong> pri istem
+              kraju ohrani koordinato dogodka — ta je lahko hišna in natančnejša od tiste, ki jo datoteka pozna za
+              naselje.
+            </p>
             <h3>Družinska razmerja</h3>
             <div>
               Plošča prikazuje tri družinske razdelke:
@@ -600,6 +607,13 @@
               Ko sta naloženi obe datoteki, seznam <strong>Ujemanja</strong> prikaže vsak par kandidatov z njegovo
               stopnjo in — če je nastavljena izhodiščna oseba — sorodstveno razdaljo. Izbira vrstice odpre vzporedno
               primerjavo. Pomikate se s <span class="gm-key">←</span> / <span class="gm-key">→</span>.
+            </p>
+            <p>
+              Pri <strong>datoteki CSV z ujemanji</strong> seznam ni omejen na osebe, ki jih je uparil indeks: kot
+              kandidati se ponudijo tudi partnerji, starši in otroci, imenovani v posamezni vrstici, če je v glavni
+              datoteki oseba z istim imenom in letom rojstva. Taka oseba je en sam zapis, kolikorkrat jo CSV omenja —
+              enkrat kot lastno ujemanje, drugič kot nekoga partnerja — zato vhodna stran pride kot povezano drevo in
+              ne kot niz ločenih parov.
             </p>
             <h3>Filtriranje</h3>
             <p>

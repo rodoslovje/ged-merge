@@ -279,6 +279,53 @@ describe("individual parents and partners rows", () => {
     expect(byKey(rows, "fam.@F2@.partner")).toMatchObject({ main: "Tone Horvat", state: "agree" });
   });
 
+  it("reads the incoming parents crossed when they sit in the wrong slots", () => {
+    // A file that records no sex can put the parents either way round. Read
+    // straight, both parents would show as one-sided on both files at once.
+    const swapped = `0 HEAD
+0 @C@ INDI
+1 NAME Ana /Novak/
+1 FAMC @F1@
+0 @FA@ INDI
+1 NAME Janez /Novak/
+0 @MO@ INDI
+1 NAME Marija /Kos/
+0 @F1@ FAM
+1 HUSB @MO@
+1 WIFE @FA@
+1 CHIL @C@
+0 TRLR
+`;
+    const m = dataset(mainGed);
+    const c = dataset(swapped);
+    const rows = individualFieldRows(tr, m.individuals.get("@C@"), c.individuals.get("@C@"), m, c);
+    expect(byKey(rows, "father")).toMatchObject({ main: "Janez Novak", incoming: "Janez Novak" });
+    expect(byKey(rows, "mother")).toMatchObject({ main: "Marija Kos", incoming: "Marija Kos" });
+  });
+
+  it("leaves genuinely different parents in their own slots", () => {
+    const other = `0 HEAD
+0 @C@ INDI
+1 NAME Ana /Novak/
+1 FAMC @F1@
+0 @FA@ INDI
+1 NAME Peter /Zupan/
+0 @MO@ INDI
+1 NAME Jera /Hribar/
+0 @F1@ FAM
+1 HUSB @FA@
+1 WIFE @MO@
+1 CHIL @C@
+0 TRLR
+`;
+    const m = dataset(mainGed);
+    const c = dataset(other);
+    const rows = individualFieldRows(tr, m.individuals.get("@C@"), c.individuals.get("@C@"), m, c);
+    // Each parent stays one-sided on its own row — no cross-pairing.
+    expect(byKey(rows, "father")?.incoming).toContain("Peter Zupan");
+    expect(byKey(rows, "mother")?.incoming).toContain("Jera Hribar");
+  });
+
   it("omits relative rows when datasets are not supplied", () => {
     const m = dataset(mainGed);
     const rows = individualFieldRows(tr, m.individuals.get("@C@"), m.individuals.get("@C@"));

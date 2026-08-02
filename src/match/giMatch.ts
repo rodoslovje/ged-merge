@@ -21,11 +21,20 @@ export function matchGiPairs(
 ): MatchResult {
   const index = buildMainKeyIndex(mainDs);
   const individuals: IndividualCandidate[] = [];
+  // One candidate per person on each side: the pairs list leads with the CSV's
+  // own match rows and follows with the relatives named inside them, so a
+  // relative who resolves to a person the index already matched is dropped
+  // rather than shown as a second, competing candidate.
+  const usedMain = new Set<string>();
+  const usedCompare = new Set<string>();
   for (const pair of pairs) {
     const main = index.get(keyStr(pair.mainKey));
     if (!main) continue;
     const compare = compareDs.individuals.get(pair.compareId);
     if (!compare) continue;
+    if (usedMain.has(main.id) || usedCompare.has(compare.id)) continue;
+    usedMain.add(main.id);
+    usedCompare.add(compare.id);
     individuals.push(scoreIndividualPair(main, compare, mainDs, compareDs, config));
   }
   return { individuals };

@@ -1,6 +1,7 @@
 import { buildDataset } from "../gedcom/builder";
 import { parseDate } from "../gedcom/date";
-import type { Dataset, GedNode, ParseResult } from "../gedcom/types";
+import type { Dataset, GedNode, ParseResult, Sex } from "../gedcom/types";
+import { foldToken } from "../match/text";
 
 /**
  * Import for the "matches" CSV exported by a genealogical index site such as
@@ -460,13 +461,22 @@ function parsePersonMatches(dataRows: string[][], layout: ColumnLayout): GiMatch
   const colAt = (row: string[], idx: number | undefined): string =>
     idx === undefined ? "" : (row[idx] ?? "").trim();
 
-  const records: GedNode[] = [];
-  const pairs: GiPair[] = [];
+  interface Row {
+    mainKey: GiMainKey;
+    incomingRow: string[];
+    compareId: string;
+  }
+  const rows: Row[] = [];
+  const people = newPeople();
+
+  // Pass 1: one compare id per CSV row-pair, registered under the incoming
+  // person's own name + birth year *before* any relative is built — so a row
+  // that names this person as someone else's partner or parent lands on this
+  // record instead of minting a stand-in for them.
   let n = 0;
   for (let i = 0; i + 1 < dataRows.length; i += 2) {
     const mainRow = dataRows[i];
     const incomingRow = dataRows[i + 1];
-
     const mainKey: GiMainKey = {
       given: col(mainRow, "given"),
       surname: stripSurnameAnnotation(col(mainRow, "surname")),
@@ -476,11 +486,210 @@ function parsePersonMatches(dataRows: string[][], layout: ColumnLayout): GiMatch
 
     n++;
     const compareId = `@${ID_PREFIX}${n}@`;
-    records.push(...buildPairRecords(n, incomingRow, col, colAt, layout));
-    pairs.push({ mainKey, compareId });
+    rows.push({ mainKey, incomingRow, compareId });
+    claimKey(
+      people,
+      compareId,
+      dedupKey(
+        col(incomingRow, "given"),
+        stripSurnameAnnotation(col(incomingRow, "surname")),
+        parseDate(col(incomingRow, "birthDate")).year,
+      ),
+    );
   }
 
-  return finish(records, pairs);
+  // Pass 2: the row people themselves, so every record a relative can resolve to
+  // exists before the families are wired up.
+  for (const { incomingRow, compareId } of rows) {
+    addPerson(people, compareId, personIndiChildren(incomingRow, col));
+  }
+
+  // Pass 3: parents and partners, resolved through the registry.
+  for (const { incomingRow, compareId } of rows) {
+    buildPairRelatives(people, compareId, incomingRow, col, colAt, layout);
+  }
+
+  // The CSV's own rows first: they carry the index's main-side key, and a
+  // relative that resolves to the same main individual is dropped as a duplicate.
+  settleGuessedRoles(people);
+  const pairs: GiPair[] = rows.map(({ mainKey, compareId }) => ({ mainKey, compareId }));
+  for (const [compareId, mainKey] of people.relativeKeys) pairs.push({ mainKey, compareId });
+
+  return finish(people.records, pairs);
+}
+
+/**
+ * Accumulates the synthetic compare records as the CSV is read, so a person the
+ * file names in several places — a match row of their own, a partner in one row,
+ * a parent in another — becomes *one* INDI carrying all their families, instead
+ * of a disconnected stand-in per mention.
+ */
+interface People {
+  records: GedNode[];
+  /** INDI node by compare id, so pointers can be appended after creation. */
+  indi: Map<string, GedNode>;
+  /** Dedup key → compare id. Only people with a known birth year take part:
+   *  without one, two same-named relatives are as likely to be two people. */
+  idByKey: Map<string, string>;
+  /** Couple key → FAM record, so one marriage isn't recorded as two families. */
+  famByCouple: Map<string, GedNode>;
+  /** FAM id → record, for the families whose spouse slots are only a guess —
+   *  see {@link coupleFam} and {@link settleGuessedRoles}. */
+  guessedRoles: Map<string, GedNode>;
+  /** Relatives that can be offered as matches in their own right: compare id →
+   *  the name + birth year to look up in the main file. The CSV's own rows are
+   *  absent — they carry the index's main-side key instead. */
+  relativeKeys: Map<string, GiMainKey>;
+}
+
+function newPeople(): People {
+  return {
+    records: [],
+    indi: new Map(),
+    idByKey: new Map(),
+    famByCouple: new Map(),
+    guessedRoles: new Map(),
+    relativeKeys: new Map(),
+  };
+}
+
+/** Folded "given|surname|year" identity of a person, or undefined when the CSV
+ *  doesn't say enough about them to risk merging two mentions into one. */
+function dedupKey(given: string, surname: string, birthYear: number | undefined): string | undefined {
+  if (!given || !surname || birthYear === undefined) return undefined;
+  return `${foldToken(given)}|${foldToken(surname)}|${birthYear}`;
+}
+
+/** Reserve a dedup key for a compare id (first mention wins). */
+function claimKey(people: People, id: string, key: string | undefined): void {
+  if (key && !people.idByKey.has(key)) people.idByKey.set(key, id);
+}
+
+function addPerson(people: People, id: string, children: GedNode[]): GedNode {
+  const record: GedNode = { level: 0, xref: id, tag: "INDI", children };
+  people.records.push(record);
+  people.indi.set(id, record);
+  return record;
+}
+
+function addPointer(people: People, id: string, tag: "FAMS" | "FAMC", famId: string): void {
+  const record = people.indi.get(id);
+  if (!record) return;
+  if (record.children.some((c) => c.tag === tag && c.value === famId)) return;
+  record.children.push(node(1, tag, famId));
+}
+
+/** Record a person's sex, when the CSV puts them in a column or role that states
+ *  it (a father, a wife, the husband of a family row). Never overwrites. */
+function addSex(people: People, id: string, sex: Sex | undefined): void {
+  if (!sex) return;
+  const record = people.indi.get(id);
+  if (!record || record.children.some((c) => c.tag === "SEX")) return;
+  record.children.push(node(1, "SEX", sex));
+}
+
+/**
+ * Resolve one parsed relative to a compare individual: the record the CSV
+ * already has for them when they're named elsewhere too, otherwise a fresh
+ * synthetic INDI under `fallbackId`. A fresh record with a full name + birth
+ * year is also offered as a match of its own, so a partner or parent the main
+ * file already holds can be reviewed rather than only grafted.
+ */
+function resolveRelative(people: People, entry: RelativeEntry, fallbackId: string, sex?: Sex): string {
+  const { given, surname } = splitName(entry.name);
+  const birthYear = entry.date && !isAnnotation(entry.date) ? parseDate(entry.date).year : undefined;
+  const key = dedupKey(given, surname, birthYear);
+  const known = key ? people.idByKey.get(key) : undefined;
+  if (known) {
+    addSex(people, known, sex);
+    return known;
+  }
+
+  const children: GedNode[] = [node(1, "NAME", `${given} /${surname}/`)];
+  if (sex) children.push(node(1, "SEX", sex));
+  if (entry.date && !isAnnotation(entry.date)) {
+    children.push({ level: 1, tag: "BIRT", children: [node(2, "DATE", entry.date)] });
+  }
+  addPerson(people, fallbackId, children);
+  claimKey(people, fallbackId, key);
+  if (key) people.relativeKeys.set(fallbackId, { given, surname, birthYear });
+  return fallbackId;
+}
+
+/**
+ * The FAM for a couple: the one already recorded when both spouses are known and
+ * the CSV has married them elsewhere (as partners in one row, as a child's
+ * parents in another), otherwise a fresh record under `fallbackId` with the
+ * spouses' FAMS pointers attached.
+ *
+ * `rolesKnown` says whether the caller can tell husband from wife. A partner
+ * cell that names someone without saying which spouse they are is a guess (the
+ * row's own person goes to HUSB), and a guess must not outlive the first mention
+ * that does know — a father and mother, or a family row's own two columns — or
+ * the couple ends up married the wrong way round.
+ */
+function coupleFam(
+  people: People,
+  husbId: string | undefined,
+  wifeId: string | undefined,
+  fallbackId: string,
+  rolesKnown: boolean,
+): { id: string; node: GedNode; fresh: boolean } {
+  // Order-independent, since the CSV doesn't always say which spouse is which:
+  // the same couple must not become two families with the roles swapped.
+  const coupleKey = husbId && wifeId ? [husbId, wifeId].sort().join("|") : undefined;
+  const known = coupleKey ? people.famByCouple.get(coupleKey) : undefined;
+  if (known) {
+    const id = known.xref!;
+    if (rolesKnown && people.guessedRoles.delete(id)) {
+      for (const c of known.children) {
+        if (c.tag === "HUSB") c.value = husbId;
+        else if (c.tag === "WIFE") c.value = wifeId;
+      }
+    }
+    return { id, node: known, fresh: false };
+  }
+
+  const children: GedNode[] = [];
+  if (husbId) children.push(node(1, "HUSB", husbId));
+  if (wifeId) children.push(node(1, "WIFE", wifeId));
+  const record = famNode(fallbackId, children);
+  people.records.push(record);
+  if (coupleKey) people.famByCouple.set(coupleKey, record);
+  if (!rolesKnown) people.guessedRoles.set(fallbackId, record);
+  for (const id of [husbId, wifeId]) if (id) addPointer(people, id, "FAMS", fallbackId);
+  return { id: fallbackId, node: record, fresh: true };
+}
+
+/**
+ * Last word on the couples whose spouse slots were only a guess: when the sexes
+ * picked up elsewhere in the file say the two are the wrong way round, swap
+ * them. Runs once the whole CSV is read, so it sees every mention — a woman
+ * named as somebody's mother in a later row settles a marriage guessed rows
+ * earlier. Silent when the sexes are unknown or agree with the guess.
+ */
+function settleGuessedRoles(people: People): void {
+  const sexOf = (id: string | undefined): Sex | undefined => {
+    const record = id ? people.indi.get(id) : undefined;
+    return record?.children.find((c) => c.tag === "SEX")?.value as Sex | undefined;
+  };
+  for (const fam of people.guessedRoles.values()) {
+    const husb = fam.children.find((c) => c.tag === "HUSB");
+    const wife = fam.children.find((c) => c.tag === "WIFE");
+    if (!husb?.value || !wife?.value) continue;
+    const hSex = sexOf(husb.value);
+    const wSex = sexOf(wife.value);
+    if (hSex === "M" || wSex === "F") continue; // the guess holds
+    if (hSex !== "F" && wSex !== "M") continue; // nothing says otherwise
+    [husb.value, wife.value] = [wife.value, husb.value];
+  }
+  people.guessedRoles.clear();
+}
+
+/** Add a child to a family, once. */
+function addChild(fam: GedNode, childId: string): void {
+  if (fam.children.some((c) => c.tag === "CHIL" && c.value === childId)) return;
+  fam.children.push(node(1, "CHIL", childId));
 }
 
 /** One parent/partner parsed from a "Father"/"Mother"/"Partners"/"Parents" cell. */
@@ -539,80 +748,45 @@ function splitName(full: string): { given: string; surname: string } {
   return { given: stripped.slice(0, idx).trim(), surname: stripped.slice(idx + 1).trim() };
 }
 
-/** Build a synthetic INDI record for a relative parsed from a "Name | date" cell. */
-function buildRelativeIndi(xref: string, entry: RelativeEntry, famId: string, pointerTag: "FAMS" | "FAMC" = "FAMS"): GedNode {
-  const { given, surname } = splitName(entry.name);
-  const children: GedNode[] = [node(1, "NAME", `${given} /${surname}/`)];
-  if (entry.date && !isAnnotation(entry.date)) {
-    children.push({ level: 1, tag: "BIRT", children: [node(2, "DATE", entry.date)] });
-  }
-  children.push(node(1, pointerTag, famId));
-  return { level: 0, xref, tag: "INDI", children };
-}
-
 function famNode(xref: string, children: GedNode[]): GedNode {
   return { level: 0, xref, tag: "FAM", children };
 }
 
-/**
- * Build a synthetic parents FAM (father=HUSB, mother=WIFE, `childId`=CHIL)
- * plus INDI records for whichever of father/mother are present, and the FAMC
- * pointer to add to the child's INDI record. Returns no records if neither
- * parent is present.
- */
-function buildParentsRecords(
-  idPrefix: string,
-  childId: string,
-  father: RelativeEntry | undefined,
-  mother: RelativeEntry | undefined,
-): { records: GedNode[]; famc?: GedNode } {
-  if (!father && !mother) return { records: [] };
+/** The INDI children (name, events, links) of one CSV row's incoming person. */
+function personIndiChildren(
+  row: string[],
+  col: (row: string[], field: RequiredField) => string,
+): GedNode[] {
+  const children: GedNode[] = [];
+  const given = col(row, "given");
+  const surname = stripSurnameAnnotation(col(row, "surname"));
+  children.push(node(1, "NAME", `${given} /${surname}/`));
 
-  const famId = `${idPrefix}FAM@`;
-  const records: GedNode[] = [];
-  const famChildren: GedNode[] = [];
-  if (father) {
-    const id = `${idPrefix}F@`;
-    records.push(buildRelativeIndi(id, father, famId));
-    famChildren.push(node(1, "HUSB", id));
+  pushEvent(children, "BIRT", col(row, "birthDate"), col(row, "birthPlace"));
+  pushEvent(children, "DEAT", col(row, "deathDate"), col(row, "deathPlace"));
+  pushEvent(children, "BURI", col(row, "burialDate"), col(row, "burialPlace"));
+
+  for (const url of col(row, "links").split(",").map((s) => s.trim()).filter(Boolean)) {
+    children.push(node(1, "WWW", url));
   }
-  if (mother) {
-    const id = `${idPrefix}M@`;
-    records.push(buildRelativeIndi(id, mother, famId));
-    famChildren.push(node(1, "WIFE", id));
-  }
-  famChildren.push(node(1, "CHIL", childId));
-  records.push(famNode(famId, famChildren));
-  return { records, famc: node(1, "FAMC", famId) };
+  return children;
 }
 
 /**
- * Build the synthetic INDI record for one pair's incoming individual, plus
- * any synthetic INDI/FAM records needed to represent its parents and
- * partners as real family relationships.
+ * Wire one CSV row's parents and partners into the shared registry: each becomes
+ * a real family relationship, on the record the CSV already has for that person
+ * where there is one.
  */
-function buildPairRecords(
-  n: number,
+function buildPairRelatives(
+  people: People,
+  compareId: string,
   row: string[],
   col: (row: string[], field: RequiredField) => string,
   colAt: (row: string[], idx: number | undefined) => string,
   layout: ColumnLayout,
-): GedNode[] {
-  const compareId = `@${ID_PREFIX}${n}@`;
-  const indiChildren: GedNode[] = [];
-  const records: GedNode[] = [];
-
-  const given = col(row, "given");
-  const surname = stripSurnameAnnotation(col(row, "surname"));
-  indiChildren.push(node(1, "NAME", `${given} /${surname}/`));
-
-  pushEvent(indiChildren, "BIRT", col(row, "birthDate"), col(row, "birthPlace"));
-  pushEvent(indiChildren, "DEAT", col(row, "deathDate"), col(row, "deathPlace"));
-  pushEvent(indiChildren, "BURI", col(row, "burialDate"), col(row, "burialPlace"));
-
-  for (const url of col(row, "links").split(",").map((s) => s.trim()).filter(Boolean)) {
-    indiChildren.push(node(1, "WWW", url));
-  }
+): void {
+  // "@SGI3@" → "@SGI3", the prefix this row's own stand-in records are named after.
+  const prefix = compareId.slice(0, -1);
 
   // Parents: separate Father/Mother columns (newer format) take priority over
   // the combined "Parents"/"Starši" column (older format: father then mother).
@@ -623,26 +797,26 @@ function buildPairRecords(
     father = parents[0];
     mother = parents[1];
   }
-  const parents = buildParentsRecords(`@${ID_PREFIX}${n}`, compareId, father, mother);
-  records.push(...parents.records);
-  if (parents.famc) indiChildren.push(parents.famc);
+  if (father || mother) {
+    const fatherId = father ? resolveRelative(people, father, `${prefix}F@`, "M") : undefined;
+    const motherId = mother ? resolveRelative(people, mother, `${prefix}M@`, "F") : undefined;
+    const fam = coupleFam(people, fatherId, motherId, `${prefix}FAM@`, true);
+    addChild(fam.node, compareId);
+    addPointer(people, compareId, "FAMC", fam.id);
+  }
 
-  // Partners: each entry becomes its own family shared with the main individual.
-  const partners = parseRelativeList(col(row, "partners"));
-  partners.forEach((partner, i) => {
-    const partnerId = `@${ID_PREFIX}${n}P${i + 1}@`;
-    const famId = `@${ID_PREFIX}${n}PFAM${i + 1}@`;
+  // Partners: each entry is a family shared with this row's person. Only the
+  // older "Žena:"/"Mož:" format says which spouse the partner is; without it the
+  // row's own person takes the husband slot until something better is known.
+  parseRelativeList(col(row, "partners")).forEach((partner, i) => {
     const mainIsWife = partner.role === "husband";
-    const famChildren = mainIsWife
-      ? [node(1, "HUSB", partnerId), node(1, "WIFE", compareId)]
-      : [node(1, "HUSB", compareId), node(1, "WIFE", partnerId)];
-    records.push(buildRelativeIndi(partnerId, partner, famId));
-    records.push(famNode(famId, famChildren));
-    indiChildren.push(node(1, "FAMS", famId));
+    const partnerSex = partner.role === "husband" ? "M" : partner.role === "wife" ? "F" : undefined;
+    const partnerId = resolveRelative(people, partner, `${prefix}P${i + 1}@`, partnerSex);
+    addSex(people, compareId, mainIsWife ? "F" : partner.role === "wife" ? "M" : undefined);
+    const husbId = mainIsWife ? partnerId : compareId;
+    const wifeId = mainIsWife ? compareId : partnerId;
+    coupleFam(people, husbId, wifeId, `${prefix}PFAM${i + 1}@`, partner.role !== undefined);
   });
-
-  records.unshift({ level: 0, xref: compareId, tag: "INDI", children: indiChildren });
-  return records;
 }
 
 /** Push a dated/placed/linked event node, omitting it entirely when date, place
@@ -732,7 +906,8 @@ function parseFamilyMatches(dataRows: string[][], index: Record<FamilyField, num
     given: string;
     surname: string;
     birth: string;
-    famsIds: string[];
+    /** From the column this person came from — a family row states both. */
+    sex: Sex;
     father?: RelativeEntry;
     mother?: RelativeEntry;
   }
@@ -743,6 +918,7 @@ function parseFamilyMatches(dataRows: string[][], index: Record<FamilyField, num
     given: string,
     surname: string,
     birth: string,
+    sex: Sex,
   ): PersonAcc | undefined {
     const compareId = getPersonId(key);
     if (!compareId) return undefined;
@@ -753,76 +929,69 @@ function parseFamilyMatches(dataRows: string[][], index: Record<FamilyField, num
         given: given || key.given,
         surname: surname || key.surname,
         birth,
-        famsIds: [],
+        sex,
       });
     }
     return personAccs.get(compareId)!;
   }
 
-  // Build FAM records while collecting FAMS pointers and parent data.
-  const famRecords: GedNode[] = [];
-
-  for (const { famIdx, incomingRow, husbandKey, wifeKey } of entries) {
-    const famId = `@${ID_PREFIX}FAM${famIdx}@`;
-    const husbandId = getPersonId(husbandKey);
-    const wifeId = getPersonId(wifeKey);
-
-    const famChildren: GedNode[] = [];
-    if (husbandId) famChildren.push(node(1, "HUSB", husbandId));
-    if (wifeId) famChildren.push(node(1, "WIFE", wifeId));
-    const marriageLinks = col(incomingRow, "links").split(",").map((s) => s.trim()).filter(Boolean);
-    pushEvent(famChildren, "MARR", col(incomingRow, "marriageDate"), col(incomingRow, "marriagePlace"), marriageLinks);
-    parseRelativeList(col(incomingRow, "children")).forEach((child, i) => {
-      const childId = `@${ID_PREFIX}FAM${famIdx}C${i + 1}@`;
-      famRecords.push(buildRelativeIndi(childId, child, famId, "FAMC"));
-      famChildren.push(node(1, "CHIL", childId));
-    });
-    famRecords.push(famNode(famId, famChildren));
-
-    // Husband accumulator
-    const hacc = getAcc(husbandKey, col(incomingRow, "husbandName"), stripSurnameAnnotation(col(incomingRow, "husbandSurname")), col(incomingRow, "husbandBirth"));
-    if (hacc) {
-      hacc.famsIds.push(famId);
-      if (!hacc.father && !hacc.mother) {
-        hacc.father = parseRelativeList(col(incomingRow, "husbandFather"))[0];
-        hacc.mother = parseRelativeList(col(incomingRow, "husbandMother"))[0];
-      }
+  for (const { incomingRow, husbandKey, wifeKey } of entries) {
+    const hacc = getAcc(husbandKey, col(incomingRow, "husbandName"), stripSurnameAnnotation(col(incomingRow, "husbandSurname")), col(incomingRow, "husbandBirth"), "M");
+    if (hacc && !hacc.father && !hacc.mother) {
+      hacc.father = parseRelativeList(col(incomingRow, "husbandFather"))[0];
+      hacc.mother = parseRelativeList(col(incomingRow, "husbandMother"))[0];
     }
-
-    // Wife accumulator
-    const wacc = getAcc(wifeKey, col(incomingRow, "wifeName"), stripSurnameAnnotation(col(incomingRow, "wifeSurname")), col(incomingRow, "wifeBirth"));
-    if (wacc) {
-      wacc.famsIds.push(famId);
-      if (!wacc.father && !wacc.mother) {
-        wacc.father = parseRelativeList(col(incomingRow, "wifeFather"))[0];
-        wacc.mother = parseRelativeList(col(incomingRow, "wifeMother"))[0];
-      }
+    const wacc = getAcc(wifeKey, col(incomingRow, "wifeName"), stripSurnameAnnotation(col(incomingRow, "wifeSurname")), col(incomingRow, "wifeBirth"), "F");
+    if (wacc && !wacc.father && !wacc.mother) {
+      wacc.father = parseRelativeList(col(incomingRow, "wifeFather"))[0];
+      wacc.mother = parseRelativeList(col(incomingRow, "wifeMother"))[0];
     }
   }
 
   // ── Pass 4: emit one INDI per unique person ──────────────────────────────
   // IDs: person p → @SGI{p}@; their parents prefix → @SGI{p} → @SGI{p}FAM@/@SGI{p}F@/@SGI{p}M@
-  const records: GedNode[] = [...famRecords];
+  const people = newPeople();
   const pairs: GiPair[] = [];
 
   for (const acc of personAccs.values()) {
-    const { compareId, mainKey, given, surname, birth, famsIds, father, mother } = acc;
-
-    const indiChildren: GedNode[] = [node(1, "NAME", `${given} /${surname}/`)];
-    if (birth && !isAnnotation(birth)) {
-      indiChildren.push({ level: 1, tag: "BIRT", children: [node(2, "DATE", birth)] });
-    }
-    for (const famId of famsIds) indiChildren.push(node(1, "FAMS", famId));
-
-    // Parents prefix derived from compareId ("@SGI{p}@" → "@SGI{p}")
-    const parPrefix = compareId.slice(0, -1);
-    const par = buildParentsRecords(parPrefix, compareId, father, mother);
-    records.push(...par.records);
-    if (par.famc) indiChildren.push(par.famc);
-
-    records.push({ level: 0, xref: compareId, tag: "INDI", children: indiChildren });
+    const { compareId, mainKey, given, surname, birth, sex } = acc;
+    const indiChildren: GedNode[] = [node(1, "NAME", `${given} /${surname}/`), node(1, "SEX", sex)];
+    const dated = birth && !isAnnotation(birth);
+    if (dated) indiChildren.push({ level: 1, tag: "BIRT", children: [node(2, "DATE", birth)] });
+    addPerson(people, compareId, indiChildren);
+    // Registered under the *incoming* spelling and birth year, which is what a
+    // relative named in another row is written with — so a spouse who is also
+    // someone's child or parent elsewhere lands on this record.
+    claimKey(people, compareId, dedupKey(given, surname, dated ? parseDate(birth).year : undefined));
     pairs.push({ mainKey, compareId });
   }
 
-  return finish(records, pairs);
+  // ── Pass 5: marriages and the relatives named around them ────────────────
+  for (const { famIdx, incomingRow, husbandKey, wifeKey } of entries) {
+    // A family row names its two columns, so the spouse slots are asserted.
+    const fam = coupleFam(people, getPersonId(husbandKey), getPersonId(wifeKey), `@${ID_PREFIX}FAM${famIdx}@`, true);
+    if (fam.fresh) {
+      const marriageLinks = col(incomingRow, "links").split(",").map((s) => s.trim()).filter(Boolean);
+      pushEvent(fam.node.children, "MARR", col(incomingRow, "marriageDate"), col(incomingRow, "marriagePlace"), marriageLinks);
+    }
+    parseRelativeList(col(incomingRow, "children")).forEach((child, i) => {
+      const childId = resolveRelative(people, child, `@${ID_PREFIX}FAM${famIdx}C${i + 1}@`);
+      addChild(fam.node, childId);
+      addPointer(people, childId, "FAMC", fam.id);
+    });
+  }
+
+  for (const { compareId, father, mother } of personAccs.values()) {
+    if (!father && !mother) continue;
+    const prefix = compareId.slice(0, -1);
+    const fatherId = father ? resolveRelative(people, father, `${prefix}F@`, "M") : undefined;
+    const motherId = mother ? resolveRelative(people, mother, `${prefix}M@`, "F") : undefined;
+    const fam = coupleFam(people, fatherId, motherId, `${prefix}FAM@`, true);
+    addChild(fam.node, compareId);
+    addPointer(people, compareId, "FAMC", fam.id);
+  }
+
+  settleGuessedRoles(people);
+  for (const [compareId, mainKey] of people.relativeKeys) pairs.push({ mainKey, compareId });
+  return finish(people.records, pairs);
 }

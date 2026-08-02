@@ -181,24 +181,37 @@ export function EventFieldsRow({
    * The coordinate the file already uses for a place (and address), so choosing
    * an existing value brings its position along instead of leaving the new event
    * unplaced. The pair's own house coordinate wins over the settlement's.
-   *
-   * Only offered when this event has none: a coordinate already here may be more
-   * precise than the file's general one for that place, and picking the same
-   * value from the list must never quietly coarsen it.
    */
   const knownCoord = (place: string, addr: string): GeoCoord | undefined => {
-    if (coord) return undefined;
     const trimmed = place.trim();
     if (!trimmed) return undefined;
     return (addr.trim() ? pairCoords.get(placeAddrCoordKey(trimmed, addr)) : undefined) ?? placeCoords.get(placeKey(trimmed));
+  };
+
+  /**
+   * The coordinate half of a commit that sets the place and/or address.
+   *
+   * A coordinate already on the event is left alone while the place stays the
+   * same — it may be the house's own, more precise than anything the file knows
+   * for the settlement, and refining the address must never quietly coarsen it.
+   * The moment the place actually changes, though, that coordinate describes
+   * somewhere else: the file's position for the new place takes over, and when
+   * the file has none the old one is dropped rather than left pointing at the
+   * village the event just moved away from.
+   */
+  const coordUpdate = (place: string, addr: string): { coord?: GeoCoord | null } => {
+    const moved = placeKey(place.trim()) !== placeKey((ev?.place?.raw ?? "").trim());
+    if (coord && !moved) return {};
+    const known = knownCoord(place, addr);
+    if (known) return { coord: known };
+    return coord ? { coord: null } : {};
   };
 
   /** Combo pick fills both fields in one commit — shared by both hosts. */
   const pickCombo = (place: string, addr: string) => {
     placeField.set(place);
     addrField.set(addr);
-    const known = knownCoord(place, addr);
-    commitAll({ place, address: addr, ...(known ? { coord: known } : {}) });
+    commitAll({ place, address: addr, ...coordUpdate(place, addr) });
   };
   /**
    * A register's offer for a place the file has never written: its jurisdiction
@@ -639,9 +652,9 @@ export function EventFieldsRow({
             onChange={placeField.set}
             onCommit={(val) => {
               // Picking (or typing) a place the file already knows brings its
-              // coordinate along, so the event is placed without a second step.
-              const known = knownCoord(val, addrField.value);
-              commitAll({ place: val, ...(known ? { coord: known } : {}) });
+              // coordinate along, so the event is placed without a second step —
+              // and moving to a place it doesn't know clears the old position.
+              commitAll({ place: val, ...coordUpdate(val, addrField.value) });
             }}
             onClear={() => { placeField.clear(); commitAll({ place: "" }); }}
             onPickCombo={pickCombo}
@@ -675,8 +688,7 @@ export function EventFieldsRow({
           )}
         </span>
         {extraPlace("addr", t("event.colAddr"), show.addr, addrField, addrForced, placeToAddrs.get(placeKey(placeField.value)) ?? [], addrCanonical, "edit-event-addr", t("event.addr", { event: label }), (val) => {
-          const known = knownCoord(placeField.value, val);
-          commitAll({ address: val, ...(known ? { coord: known } : {}) });
+          commitAll({ address: val, ...coordUpdate(placeField.value, val) });
         }, addrCombos, pickCombo, {
           // An address is looked up inside the event's place — and only online:
           // house numbers are in the address registers, never in an imported
