@@ -437,7 +437,7 @@ export const sl = {
   "tools.geocode.waiting": "Čakanje, da storitev pripravi izvleček …",
   "tools.geocode.downloading": "Prenašanje …",
   "tools.geocode.importFailed": "Datoteke ni bilo mogoče prebrati — poskrbite, da gre za izvleček države GeoNames (.txt ali .zip).",
-  "tools.geocode.importBtn": "Datoteka GeoNames…",
+  "tools.geocode.importBtn": "Naloži…",
   "tools.geocode.sourceGeoNames": "Izvleček države, ki ga prenesete sami s strani",
   "tools.geocode.sourceGeoNames2": " — .zip ali razpakirana datoteka .txt. © GeoNames, licenca CC BY 4.0.",
   "tools.geocode.coverage": "{{distinct}} krajev brez koordinat",

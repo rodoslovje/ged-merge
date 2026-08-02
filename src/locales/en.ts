@@ -375,7 +375,7 @@ export const en = {
   "tools.geocode.waiting": "Waiting for the service to prepare the extract…",
   "tools.geocode.downloading": "Downloading…",
   "tools.geocode.importFailed": "The file could not be read — make sure it's a GeoNames .txt or .zip country extract.",
-  "tools.geocode.importBtn": "GeoNames file…",
+  "tools.geocode.importBtn": "Load…",
   "tools.geocode.sourceGeoNames": "Your own country extract, fetched by hand from",
   "tools.geocode.sourceGeoNames2": " — a .zip or unpacked .txt. © GeoNames, CC BY 4.0.",
   "tools.geocode.coverage": "{{distinct}} places without coordinates",
