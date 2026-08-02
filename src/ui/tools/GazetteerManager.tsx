@@ -91,10 +91,9 @@ export interface Gazetteer {
   /** The searchable index, built only where it is used (`withIndex`). */
   index: GazetteerIndex | undefined;
   importState: ImportState;
-  countryDraft: string;
-  setCountryDraft: (code: string) => void;
   importFile: (file: File) => Promise<void>;
-  downloadCountry: () => Promise<void>;
+  /** Fetch one country's places from OpenStreetMap, by ISO 3166-1 alpha-2. */
+  downloadCountry: (country: string) => Promise<void>;
   downloadSlovenia: () => Promise<void>;
   cancelImport: () => void;
   removeCountry: (code: string) => Promise<void>;
@@ -111,7 +110,6 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
   const [countries, setCountries] = useState<CountryMeta[] | null>(null);
   const [index, setIndex] = useState<GazetteerIndex | undefined>(undefined);
   const [importState, setImportState] = useState<ImportState>(null);
-  const [countryDraft, setCountryDraft] = useState("");
   const workerRef = useRef<Worker | null>(null);
   const fetchAbortRef = useRef<AbortController | null>(null);
 
@@ -184,8 +182,8 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
   // Direct download of a country's places — the download-then-pick round
   // trip is confusing, so fetch from Overpass (OpenStreetMap) here, gated
   // behind the same online-lookups opt-in as the other network features.
-  const downloadCountry = async () => {
-    const code = countryDraft.trim().toUpperCase();
+  const downloadCountry = async (country: string) => {
+    const code = country.trim().toUpperCase();
     if (!/^[A-Z]{2}$/.test(code)) return;
     const abort = new AbortController();
     fetchAbortRef.current = abort;
@@ -273,8 +271,6 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
     countries,
     index,
     importState,
-    countryDraft,
-    setCountryDraft,
     importFile,
     downloadCountry,
     downloadSlovenia,
@@ -351,27 +347,28 @@ function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
               {t("tools.geocode.gursBtn")}
             </button>
           </div>
+          {/* One control, not a pair: the button opens the country list and the
+              country picked is the click — the same shape as the map tab's
+              "Add a free preset…". It never holds a selection, so it reads as
+              its own label again the moment the download starts. */}
           <div className="tools-geo-option">
             <select
-              className="tools-geo-country-select"
+              className="nav-btn tools-run tools-geo-osm"
               title={t("tools.geocode.countryTooltip")}
-              value={gaz.countryDraft}
-              onChange={(e) => gaz.setCountryDraft(e.target.value)}
+              aria-label={t("tools.geocode.downloadBtn")}
+              value=""
+              onChange={(e) => {
+                const code = e.target.value;
+                if (code) void gaz.downloadCountry(code);
+              }}
             >
-              <option value="">{t("tools.geocode.countryPick")}</option>
+              <option value="">{t("tools.geocode.downloadBtn")}</option>
               {countries.map(({ code, name }) => (
                 <option key={code} value={code}>
                   {name}
                 </option>
               ))}
             </select>
-            <button
-              className="nav-btn tools-run"
-              onClick={() => void gaz.downloadCountry()}
-              disabled={!/^[A-Za-z]{2}$/.test(gaz.countryDraft.trim())}
-            >
-              {t("tools.geocode.downloadBtn")}
-            </button>
           </div>
         </>
       )}

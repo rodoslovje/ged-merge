@@ -514,7 +514,6 @@ export const sl = {
   "tools.geocode.fromFile": "iz te datoteke",
   "tools.geocode.fromFileTooltip": "Druge navedbe točno tega imena kraja v datoteki že nosijo to koordinato",
   "tools.geocode.downloadBtn": "Prenesi iz OpenStreetMap",
-  "tools.geocode.countryPick": "Izberite državo …",
   "tools.geocode.countryTooltip": "Država, katere kraje prenesemo iz OpenStreetMap (Overpass API, © sodelavci OpenStreetMap)",
   "tools.geocode.downloadFailed": "Prenos ni uspel — poskusite čez minuto (strežniki Overpass omejujejo zahteve) ali pa datoteko GeoNames prenesite s spodnje strani in jo uvozite tu.",
   "tools.geocode.gursCredit": "Slovenska naselja so iz registra prostorskih enot — © Geodetska uprava Republike Slovenije, licenca CC BY 4.0:",

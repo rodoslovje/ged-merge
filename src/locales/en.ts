@@ -438,7 +438,6 @@ export const en = {
   "tools.geocode.fromFile": "from this file",
   "tools.geocode.fromFileTooltip": "Other occurrences of exactly this place name already carry this coordinate in the file",
   "tools.geocode.downloadBtn": "Download from OpenStreetMap",
-  "tools.geocode.countryPick": "Choose a country…",
   "tools.geocode.countryTooltip": "The country whose places are fetched from OpenStreetMap (Overpass API, © OpenStreetMap contributors)",
   "tools.geocode.downloadFailed": "The download did not go through — try again in a minute (the Overpass servers rate-limit), or download a GeoNames file from the site below and import it here.",
   "tools.geocode.downloadNeedsOptIn": "Allow online lookups in Settings → Advanced.",
