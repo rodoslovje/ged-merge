@@ -400,7 +400,7 @@ function GazetteerCredits() {
 export function GazetteerManager({ gaz }: { gaz: Gazetteer }) {
   const { t } = useTranslation();
   return (
-    <div className="tools-geo-gazetteer">
+    <div className="tools-geo-gazetteer settings-geo">
       {gaz.countries?.length === 0 && <p className="tools-geo-empty">{t("settings.geo.empty")}</p>}
       <GazetteerList gaz={gaz} />
       <GazetteerAcquire gaz={gaz} />

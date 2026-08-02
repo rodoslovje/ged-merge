@@ -8061,6 +8061,18 @@ kbd {
 /* Drop .tools-run's bottom margin for every button in the row — whether it sits
    in the country-code wrapper or directly in the flex row — so they align. */
 .tools-geo-acquire .tools-run { margin: 0; }
+/* The same manager in Settings › Map. The settings section is already the frame,
+   so the card border goes; and its three paragraphs are <p>, which inside the
+   modal fall under .modal-body p (1.05rem) — restate the hint scale so they read
+   as the rows below do rather than shouting over them. */
+.settings-geo { border: none; border-radius: 0; padding: 0; margin: 0; }
+.settings-section > p.settings-hint,
+.settings-geo p.tools-geo-empty,
+.settings-geo p.tools-geo-hint {
+  font-size: 0.82rem; line-height: 1.35; margin: 0 0 12px;
+}
+.settings-geo p.tools-geo-hint { margin: 10px 0 0; }
+.settings-geo .tools-geo-countries { margin-bottom: 12px; }
 /* Per-event coordinate pin + its picker panel (EventCoordPicker). */
 .edit-event-coord-wrap { position: relative; display: inline-flex; }
 /* The pin is an inline SVG (PinIcon), not the 📍 emoji it replaced — the emoji
