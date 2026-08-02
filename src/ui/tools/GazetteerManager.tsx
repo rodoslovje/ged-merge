@@ -369,19 +369,25 @@ function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
         </div>
       )}
       {gaz.importState?.phase === "error" && <ToolsError message={gaz.importState.message} />}
-      {/* Where the data comes from and what it costs — sources, licences, and
-          the opt-in the two downloads need. The GeoNames sentence ends in the
-          button that acts on it. */}
+      {/* What the two buttons above give you, and what each source asks in
+          return. */}
+      <p className="tools-geo-hint">
+        {t("tools.geocode.sourceGurs")}{" "}
+        <a href="https://www.e-prostor.gov.si/dostopi/javni-dostop/" target="_blank" rel="noreferrer">
+          e-prostor.gov.si
+        </a>
+        . {t("tools.geocode.sourceOsm")}
+        {!settings.allowLinkFetch && ` ${t("tools.geocode.downloadNeedsOptIn")}`}
+      </p>
+      {/* The fallback, and the button that takes it — for a country neither
+          download serves, and for anyone who would rather not fetch anything
+          from the app at all. */}
       <p className="tools-geo-hint">
         {t("tools.geocode.importHint")}{" "}
         <a href="https://download.geonames.org/export/dump/" target="_blank" rel="noreferrer">
           download.geonames.org/export/dump
         </a>{" "}
-        {t("tools.geocode.importHint2")} {t("tools.geocode.gursCredit")}{" "}
-        <a href="https://www.e-prostor.gov.si/dostopi/javni-dostop/" target="_blank" rel="noreferrer">
-          e-prostor.gov.si
-        </a>
-        {!settings.allowLinkFetch && ` ${t("tools.geocode.downloadNeedsOptIn")}`}
+        {t("tools.geocode.importHint2")}
       </p>
       <div className="tools-geo-acquire">
         <label className="nav-btn tools-geo-import">

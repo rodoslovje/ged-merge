@@ -1,5 +1,6 @@
 import {
   GURS_REGISTER,
+  osmRegister,
   overpassToEntries,
   parseGeoNamesLine,
   rpeNaseljaToEntries,
@@ -74,8 +75,13 @@ self.onmessage = async (event: MessageEvent<GeoWorkerRequest>) => {
       const country = msg.country ?? "??";
       const entries = overpassToEntries(JSON.parse(new TextDecoder().decode(msg.buffer)) as OverpassJson, country);
       if (!entries.length) throw new Error("no places in the Overpass result");
-      await putCountry({ code: country, count: entries.length, importedAt: Date.now(), entries });
-      post({ type: "result", requestId, countries: [{ code: country, count: entries.length }] });
+      // Stored as "SI-OSM", not "SI": the storage key names the source, so this
+      // sits alongside a GeoNames import of the same country rather than
+      // replacing it. The entries themselves keep the bare country code, which
+      // is what lookupPlace's country gate compares.
+      const code = osmRegister(country);
+      await putCountry({ code, count: entries.length, importedAt: Date.now(), entries });
+      post({ type: "result", requestId, countries: [{ code, count: entries.length }] });
       return;
     }
     let bytes = new Uint8Array(msg.buffer);
