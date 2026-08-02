@@ -2,8 +2,9 @@ import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useModalKeyboard } from "../keyboard/useModalKeyboard";
 import type { ChangeReport, FieldChange } from "../merge/merge";
-import type { Dataset } from "../gedcom/types";
+import type { Dataset, Individual } from "../gedcom/types";
 import { lifespanOf } from "../gedcom/lifespan";
+import { eventDisplayLabel } from "../gedcom/eventTags";
 import { sexClass } from "./sex";
 import { EVENT_ORDER } from "../review/fields";
 import { vendorTagInfo } from "../gedcom/vendorTags";
@@ -207,13 +208,20 @@ export function SaveDialog({
                 // reverts a person/family snapshot, and they carry neither.
                 const canRemove = isEditRecord && !!onRemove && kind !== "record";
                 const fieldRows = g.changes.filter((c) => !c.newRecord && hasContent(c));
-                const indi = kind === "individual" ? dataset?.individuals.get(g.id) : undefined;
+                // A record added by this merge isn't in the (pre-merge) dataset,
+                // so its person styling and facts come from the incoming record
+                // it was copied from.
+                const newIndi = report.newIndividuals?.[g.id];
+                const indi = kind === "individual" ? dataset?.individuals.get(g.id) ?? newIndi : undefined;
+                const facts = newIndi ? personFacts(newIndi, t) : [];
                 const lifespan = indi ? lifespanOf(indi) : undefined;
                 const labelClass = `preview-rec${indi ? ` ${sexClass(indi.sex)}` : ""}`;
                 const spouses = kind === "family" ? report.familySpouses[g.id] : undefined;
                 const headContent = spouses?.length ? (
                   spouses.map((s, i) => {
-                    const sIndi = s.id ? dataset?.individuals.get(s.id) : undefined;
+                    const sIndi = s.id
+                      ? dataset?.individuals.get(s.id) ?? report.newIndividuals?.[s.id]
+                      : undefined;
                     const sLifespan = sIndi ? lifespanOf(sIndi) : undefined;
                     return (
                       <span key={s.id ?? i} className={sIndi ? sexClass(sIndi.sex) : undefined}>
@@ -259,6 +267,16 @@ export function SaveDialog({
                         )}
                       </span>
                     </div>
+                    {facts.length > 0 && (
+                      <ul className="preview-fields">
+                        {facts.map((f, i) => (
+                          <li key={i}>
+                            <span className="preview-field">{f.label}</span>:{" "}
+                            <span className="preview-same">{f.text}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                     {fieldRows.length > 0 && (
                       <ul className="preview-fields">
                         {groupFieldRows(fieldRows, eventOrder).map((grp, gi) =>
@@ -334,6 +352,30 @@ export function SaveDialog({
       </div>
     </div>
   );
+}
+
+/**
+ * The facts a person brings with them, as one line per event. A record added by
+ * the merge is copied into the tree wholesale rather than applied field by
+ * field, so it produces no change rows — without this its card would show
+ * nothing but a name, hiding the very data the user chose to bring in.
+ */
+function personFacts(indi: Individual, t: Translate): { label: string; text: string }[] {
+  const order = (tag: string) => {
+    const i = EVENT_ORDER.indexOf(tag);
+    return i === -1 ? EVENT_ORDER.length : i;
+  };
+  return [...indi.events]
+    .sort((a, b) => order(a.tag) - order(b.tag))
+    .map((e) => {
+      const parts = [e.date?.raw, e.place?.raw, e.address?.raw, e.value].filter(Boolean) as string[];
+      if (!parts.length) return undefined;
+      // A custom EVEN/FACT reads under its own TYPE ("Civil Partnership"), the
+      // way the review and the editor label it.
+      const custom = (e.tag === "EVEN" || e.tag === "FACT") && e.type?.trim();
+      return { label: custom || eventDisplayLabel(e.tag, t), text: parts.join(" · ") };
+    })
+    .filter((f): f is { label: string; text: string } => !!f);
 }
 
 /** Renders one event group's rows: text/segment rows as lines, with any

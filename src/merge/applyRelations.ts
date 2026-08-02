@@ -10,6 +10,7 @@ import type { Dataset, GedNode } from "../gedcom/types";
 import { displayName } from "../match/relatives";
 import type { MatchResult } from "../match/types";
 import { defaultChoice, type FieldChoice, type FieldRow, type ImportDirection } from "../review/types";
+import { relativePersonSimilarity, RELATIVE_PAIR_THRESHOLD } from "../review/fields";
 import { newSourceCitations } from "../gedcom/source";
 import type { ChangeReport } from "./merge";
 import type { Translate } from "../locales/i18n";
@@ -44,6 +45,14 @@ export interface MergeContext {
   /** Resolve an incoming individual to a main id, adding it as a new record
    *  when it has no match. Returns undefined if it can't be resolved. */
   resolve: (incomingId: string) => string | undefined;
+  /** Import an incoming individual as a fresh main record, ignoring any match
+   *  the engine suggested for it. Used where the user's explicit pick has to
+   *  outrank a suggestion (see the taken-children path). */
+  importNew: (incomingId: string) => string | undefined;
+  /** Whether a main and an incoming record are the same relative *by the rule
+   *  the review table aligns children with* — which is not the matcher's rule,
+   *  and decides what the user was shown before picking. */
+  pairedAsRelatives: (mainId: string, incomingId: string) => boolean;
   /** Display label for a main id, for the change report. */
   label: (id: string) => string;
   report: ChangeReport;
@@ -145,6 +154,10 @@ export function makeContext(
     const name = displayName(incIndi.names[0]);
     addedLabels.set(newId, name);
     report.recordLabels[newId] = name;
+    // The incoming record this person is a copy of: the save preview needs its
+    // sex, lifespan and facts to show the new person the way it shows everyone
+    // else — it can't look the fresh xref up in the (pre-merge) main dataset.
+    (report.newIndividuals ??= {})[newId] = incIndi;
     report.changes.push({ recordId: newId, field: t("merge.field.newPerson"), from: "", to: name, action: "incoming", newRecord: true, viaGraft: graftPhase || undefined });
     report.newPersons++;
     touched.add(newId);
@@ -157,6 +170,12 @@ export function makeContext(
     famNode: (id) => famNodes.get(id),
     createFamily,
     resolve: (incomingId) => incToMain.get(incomingId) ?? addNewIndividual(incomingId),
+    importNew: addNewIndividual,
+    pairedAsRelatives: (mainId, incomingId) => {
+      const m = main.individuals.get(mainId);
+      const c = compare.individuals.get(incomingId);
+      return !!m && !!c && relativePersonSimilarity(m, c) >= RELATIVE_PAIR_THRESHOLD;
+    },
     label: (id) =>
       addedLabels.get(id) ?? displayName(main.individuals.get(id)?.names[0]),
     beginGraftPhase: () => {
@@ -181,7 +200,15 @@ export function applyFamilyStructure(
   famNode: GedNode,
   incFam: import("../gedcom/types").Family,
   ctx: MergeContext,
-  opts: { spouses: boolean; takenChildren: Set<string> },
+  opts: {
+    spouses: boolean;
+    takenChildren: Set<string>;
+    /** True when `takenChildren` are children the user ticked one by one (the
+     *  review's "add this child"), rather than a whole family swept in by a
+     *  branch graft. An explicit tick outranks a suggested match; a graft must
+     *  not, or re-importing a branch would duplicate people. */
+    explicitPicks?: boolean;
+  },
 ): void {
   const famId = famNode.xref;
   if (!famId) return;
@@ -230,15 +257,27 @@ export function applyFamilyStructure(
       // Children are opt-in: only stitch in the ones the user explicitly took.
       if (!opts.takenChildren.has(incChild)) continue;
       const known = ctx.incToMain.get(incChild);
-      if (known && existing.has(known)) continue;
-      const targetId = ctx.resolve(incChild);
+      // The matcher may pair this incoming child with a main person the family
+      // already lists as a child — a pairing the review never shows, since it
+      // aligns children by its own name/birth-year rule and so offered this one
+      // as an addition. Ticking it is the user saying "that's somebody else",
+      // and an explicit pick outranks a suggestion: import the incoming record
+      // as a person of its own instead of silently dropping the tick.
+      // Guarded by that same alignment rule, so this only fires for a child the
+      // review really did put on a line of its own.
+      const takeOver =
+        opts.explicitPicks && !!known && existing.has(known) && !ctx.pairedAsRelatives(known, incChild);
+      const targetId = takeOver ? ctx.importNew(incChild) : ctx.resolve(incChild);
       if (!targetId || existing.has(targetId)) continue;
       if (addPointer(famNode, "CHIL", targetId, FAM_CHILD_ORDER)) {
         existing.add(targetId);
         linkBack(ctx, targetId, "FAMC", famId);
         ctx.report.changes.push({
           recordId: famId,
-          field: ctx.t("merge.field.child"),
+          // A child that resolved to a record the main file already had is
+          // linked in, not imported — said apart so the preview doesn't read as
+          // if the incoming person's data came along with them.
+          field: ctx.t(targetId === known ? "merge.field.childLinked" : "merge.field.child"),
           from: "",
           to: ctx.label(targetId),
           action: "incoming",
@@ -337,7 +376,7 @@ export function applyIndividualFamilies(
     let famNode = findMainSpouseFamily(mainIndi, main, mainId, otherMainId, ctx);
     if (!famNode) famNode = createPersonFamily(mainId, mainIndi.sex, ctx);
 
-    applyFamilyStructure(famNode, incFam, ctx, { spouses: takeSpouses, takenChildren: famTakenChildren });
+    applyFamilyStructure(famNode, incFam, ctx, { spouses: takeSpouses, takenChildren: famTakenChildren, explicitPicks: true });
 
     const marrEntries: EventSubEdit[] = [];
     for (const sub of ["type", "date", "place", "addr", "note", "agency", "cause"] as const) {

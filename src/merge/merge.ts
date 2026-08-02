@@ -114,6 +114,11 @@ export interface ChangeReport {
   recordKinds: Record<string, "individual" | "family" | "record">;
   /** Husband/wife (in that order) for each touched family record. */
   familySpouses: Record<string, FamilySpouseInfo[]>;
+  /** The incoming record behind each newly added person, keyed by its new main
+   *  xref. A fresh record isn't in the (pre-merge) main dataset, so the save
+   *  preview reads sex, lifespan and facts from here to show it like any other
+   *  person instead of as a bare name. */
+  newIndividuals?: Record<string, import("../gedcom/types").Individual>;
   /** Non-standard tags copied in from the incoming file, grouped by tag name,
    *  for the save preview's "exclude this tag" list. */
   customTags: Record<string, CustomTagNode[]>;
@@ -179,6 +184,7 @@ export function mergeDecisions(
     recordLabels: {},
     recordKinds: {},
     familySpouses: {},
+    newIndividuals: {},
     customTags: {},
   };
   const touched = new Set<string>();
