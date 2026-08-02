@@ -133,9 +133,11 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
   // survey's own error, and one constant per crown land moves every sheet of
   // it together rather than distorting any.
   //
-  // Two municipalities so far, hence a preset each: a cadastral overlay is
-  // only ever true of the k.o. it was drawn for, and one box spanning both
-  // would claim half of Slovenia.
+  // A preset each, because a cadastral overlay is only ever true of the k.o.
+  // it was drawn for and one box spanning several would claim ground none of
+  // them covers. Past a handful this wants a different shape — one pyramid a
+  // region, each sheet clipped to its own municipality so the blank margins
+  // stop covering the neighbour.
   {
     key: "settings.map.overlays.preset.kataster.strazisce",
     url: "https://tiles.gedmerge.com/kataster-strazisce/{z}/{x}/{y}.webp",
@@ -147,6 +149,26 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     // matched against are what the resampling costs first.
     maxZoom: 18,
     coverage: [46.2015, 14.2988, 46.2425, 14.3727],
+    sampleZoom: 16,
+  },
+  {
+    key: "settings.map.overlays.preset.kataster.kranj",
+    url: "https://tiles.gedmerge.com/kataster-kranj/{z}/{x}/{y}.webp",
+    yearFrom: 1826,
+    yearTo: 1869,
+    attribution: "Arhiv Republike Slovenije, SI AS 176 (Franciscejski kataster za Kranjsko)",
+    maxZoom: 18,
+    coverage: [46.2288, 14.3234, 46.2698, 14.3726],
+    sampleZoom: 16,
+  },
+  {
+    key: "settings.map.overlays.preset.kataster.bela",
+    url: "https://tiles.gedmerge.com/kataster-bela/{z}/{x}/{y}.webp",
+    yearFrom: 1826,
+    yearTo: 1869,
+    attribution: "Arhiv Republike Slovenije, SI AS 176 (Franciscejski kataster za Kranjsko)",
+    maxZoom: 18,
+    coverage: [46.2834, 14.3479, 46.3517, 14.4218],
     sampleZoom: 16,
   },
   {

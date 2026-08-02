@@ -1588,9 +1588,13 @@ export const en = {
   "settings.map.overlays.preset.swiss.dufour": "Switzerland · Dufour Map (1845–1865)",
   "settings.map.overlays.preset.swiss.siegfried": "Switzerland · Siegfried Map (1870–1926)",
   "settings.map.overlays.preset.kataster.strazisce":
-    "Stražišče by Kranj · Franciscean cadastre 1:2880 (1826)",
+    "Franciscean cadastre 1:2880 · Stražišče by Kranj (1826)",
+  "settings.map.overlays.preset.kataster.kranj":
+    "Franciscean cadastre 1:2880 · Kranj and Rupa (1826)",
+  "settings.map.overlays.preset.kataster.bela":
+    "Franciscean cadastre 1:2880 · Bela by Preddvor (1826)",
   "settings.map.overlays.preset.kataster.gradac":
-    "Gradac by Metlika · Franciscean cadastre 1:2880 (1824)",
+    "Franciscean cadastre 1:2880 · Gradac by Metlika (1824)",
   "settings.map.overlays.preset.gurs.orthoHist": "Slovenia · Historical orthophoto 2011 (GURS)",
   "settings.map.overlays.preset.gurs.ortho": "Slovenia · Orthophoto (GURS)",
   "settings.map.overlays.preset.gurs.topo": "Slovenia · Topographic map, to 1:2500 (GURS)",

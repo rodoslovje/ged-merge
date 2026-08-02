@@ -176,7 +176,14 @@ class Vac:
 
 
 def ko_sheets(vac, ko_uid):
-    """The image records under a k.o.'s `grafični` (graphic) group."""
+    """The image records under a k.o.'s `grafični` (graphic) group.
+
+    A large municipality's sheets are filed in more than one lettered run —
+    Bitnje has an A and a B — so the group is walked rather than listed, and
+    only records at the archive's image level are taken: a run's own folder
+    carries a preview image too, and would otherwise arrive looking like a
+    sheet.
+    """
     graphic = [c for c in vac.children(ko_uid) if "grafi" in c["title"].lower()]
     if not graphic:
         rec = vac.record(ko_uid)
@@ -184,7 +191,16 @@ def ko_sheets(vac, ko_uid):
             graphic = [rec]
     if not graphic:
         return []
-    return [s for s in vac.children(graphic[0]["id"]) if "10" in s["docids"]]
+
+    def walk(uid, depth=0):
+        for entry in vac.children(uid):
+            if entry["level"].strip().lower().startswith("slika"):
+                if "10" in entry["docids"]:
+                    yield entry
+            elif depth < 2:
+                yield from walk(entry["id"], depth + 1)
+
+    return list(walk(graphic[0]["id"]))
 
 
 # ── the modern cadastre, used only to say which section a k.o. is in ─────────
@@ -707,9 +723,16 @@ def main():
     ap.add_argument("--manifest-dir", help="directory to write one manifest per k.o. into")
     ap.add_argument("--review", help="file to list the sheets that could not be placed")
     ap.add_argument("--limit", type=int, default=0, help="stop after this many k.o. (a whole-fond trial)")
+    ap.add_argument("--list", metavar="INDEX.csv",
+                    help="with --fond: write every municipality in it, whether its sheets are "
+                         "online and which modern k.o. it answers to, and stop")
     args = ap.parse_args()
     if not args.ko_id and not args.fond:
         raise SystemExit("--ko-id or --fond is required")
+    if args.list:
+        if not args.fond:
+            raise SystemExit("--list indexes a --fond")
+        return write_index(Vac(args.cache), args.fond, args.list, args.cache)
     if not args.manifest and not args.manifest_dir:
         raise SystemExit("--manifest or --manifest-dir is required")
 
@@ -744,6 +767,42 @@ def main():
               % (len(review), " — see " + args.review if args.review else ":"), flush=True)
         if not args.review:
             print(text, flush=True)
+
+
+def write_index(vac, fond, path, cache):
+    """Every cadastral municipality in a fond, as a CSV to plan a rollout from.
+
+    A k.o. record carries a preview and a digital image of its own exactly when
+    its graphic sheets are online, so one page per municipality answers both
+    "is it there" and "what is it called". The modern k.o. of the same name is
+    looked up too, because that is what says which section of the lattice a
+    municipality sits in — and the ones with no match, or several, are the ones
+    that will need `--sifko`.
+    """
+    import csv
+    feats = gurs_all(cache)
+    by_name = {}
+    for f in feats:
+        by_name.setdefault(f["properties"]["NAZIV"].strip().upper(), []).append(f["properties"]["SIFKO"])
+    rows = []
+    for series in vac.children(str(FOND_ID[fond])):
+        kids = vac.children(series["id"])
+        for k in kids:
+            if ", k.o" not in k["title"].lower():
+                continue
+            name = re.sub(r",?\s*k\.?o\.?\s*$", "", k["title"], flags=re.I).strip()
+            codes = by_name.get(re.sub(r"\s*\([^)]*\)", "", name).strip().upper(), [])
+            rows.append(dict(name=name, sig=k["sig"], id=k["id"], district=series["title"],
+                             scanned="yes" if k["docids"] else "no",
+                             modern_sifko=";".join(str(c) for c in codes)))
+        print("%-28s %4d municipalities" % (series["sig"], len(kids)), flush=True)
+    rows.sort(key=lambda r: (r["district"], r["name"]))
+    with open(path, "w", newline="", encoding="utf-8") as fh:
+        w = csv.DictWriter(fh, fieldnames=list(rows[0]))
+        w.writeheader()
+        w.writerows(rows)
+    print("%d municipalities, %d scanned → %s"
+          % (len(rows), sum(1 for r in rows if r["scanned"] == "yes"), path), flush=True)
 
 
 def _walk_kos(vac, root, depth=0):

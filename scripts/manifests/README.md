@@ -17,11 +17,11 @@ scans without re-measuring.
   (Vienna, 1797), the Holy Roman Empire on the eve of Napoleon. One conic
   projection rather than a sheet grid — see "Conic manifests" below. Serves
   `tiles.gedmerge.com/schraembl-1797/`.
-- **kataster-strazisce.json**, **kataster-gradac.json** — two cadastral
-  municipalities of the Franciscean cadastre, 1:2880, from the Archives of the
-  Republic of Slovenia. A third manifest kind: cells of the survey's own
-  Cassini-Soldner lattice — see "Cadastral manifests" below. Serve
-  `tiles.gedmerge.com/kataster-<k.o.>/`.
+- **kataster-*.json** — cadastral municipalities of the Franciscean cadastre,
+  1:2880, from the Archives of the Republic of Slovenia: Stražišče, Kranj and
+  Bela in Gorenjska, Gradac in Bela krajina. A third manifest kind: cells of
+  the survey's own Cassini-Soldner lattice — see "Cadastral manifests" below.
+  Serve `tiles.gedmerge.com/kataster-<k.o.>/`.
 
 ## Entry shape
 
@@ -342,6 +342,38 @@ was a hill rather than a peak (0.454 → 0.472 over 200 m) and Gradac's was
 worthless, because that municipality has lost ground since 1824 and its 1824
 wash and its 2026 boundary are not the same shape. Two churches beat two
 polygons.
+
+### What the archive actually filed, and where it stops
+
+`--fond 176 --list index.csv` walks a fond and writes every municipality in it
+with its record id, whether its sheets are online, and which modern k.o. it
+answers to. Carniola: **932 municipalities, 865 of them scanned**, in three
+districts (Ljubljana 349, Novo mesto 365, Postojna 218). Of those, 589 share a
+name with exactly one modern k.o., 128 with several, and 215 with none — the
+last two groups need `--sifko`, because the name is what says which section of
+the lattice to look in.
+
+The other thing a rollout meets is that **not every scan is one whole sheet**.
+Some are a sheet photographed with a strip of its neighbour still attached,
+some are a sheet with a corner mounted on separately, and some are trimmed
+inside their own border rule. Measured over eight municipalities, the scans
+that are not sheet-shaped (aspect outside 1.20–1.31) are where placement fails:
+
+| k.o. | sheets | placed | odd scans |
+|---|---|---|---|
+| Bela | 9 | 9 | 3 |
+| Stražišče | 7 | 7 | 1 |
+| Gradac | 7 | 6 | 1 |
+| Kranj | 5 | 5 | 0 |
+| Bitnje | 10 | 6 | 2 |
+| Olševek | 5 | 1 | 2 |
+| Predoslje | 3 | 1 | 1 |
+| Britof | 5 | 0 | 4 |
+
+The detector wants all four border rules of one sheet in one scan. Until it can
+find *a* sheet's frame inside a composite — or reconstruct a frame from the two
+edges that are present plus the known printed size — municipalities like Britof
+cannot be placed at all, and that is the next thing to build.
 
 ### Rebuilding
 
