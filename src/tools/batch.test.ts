@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
+import type { Dataset } from "../gedcom/types";
 import { marriedSurnamesOf } from "../match/relatives";
 import {
   ANY_VENDOR_EVENT,
@@ -11,6 +12,9 @@ import {
   matchesBatch,
   previewBirthEstimates,
   previewMarriedNames,
+  readMarriedNames,
+  unionMarriage,
+  unionMarriageByChildren,
   type BatchCriterion,
   type KinshipSets,
 } from "./batch";
@@ -403,10 +407,11 @@ describe("addMarriedName action", () => {
   const ids = ["@I1@", "@I2@", "@I3@", "@I4@", "@I5@", "@I6@"];
 
   it("previews only the people a partner surname is available for", () => {
-    expect([...previewMarriedNames(dataset(FILE), ids)]).toEqual([
-      ["@I1@", "Kovač"],
-      // @I6@ falls through her surname-less first husband to the second union.
-      ["@I6@", "Oblak"],
+    const preview = [...previewMarriedNames(dataset(FILE), ids)].map(([id, s]) => [id, s.map((x) => x.surname)]);
+    expect(preview).toEqual([
+      ["@I1@", ["Kovač"]],
+      // @I6@'s surname-less first husband contributes nothing, the second does.
+      ["@I6@", ["Oblak"]],
     ]);
   });
 
@@ -437,6 +442,137 @@ describe("addMarriedName action", () => {
     const ds = dataset(FILE.replace("1 NAME /Rakar/\n2 TYPE married\n", ""));
     applyBatchAction(ds, ids, { kind: "addMarriedName" });
     expect(ds.individuals.get("@I1@")!.names[1]).toMatchObject({ full: "Kovač", type: "married" });
+  });
+});
+
+describe("addMarriedName across unions", () => {
+  /** @W1@ married twice — @FB@ (Kovač) in 1880 before @FA@ (Novak) in 1890,
+   *  the reverse of the file order. @W2@'s union records no marriage and her
+   *  child carries her own surname; @W3@'s is noted as a partnership. */
+  const FILE = `0 HEAD
+1 CHAR UTF-8
+0 @W1@ INDI
+1 NAME Marija /Kos/
+1 SEX F
+1 FAMS @FA@
+1 FAMS @FB@
+0 @M1@ INDI
+1 NAME Anton /Novak/
+1 SEX M
+1 FAMS @FA@
+0 @M2@ INDI
+1 NAME Blaž /Kovač/
+1 SEX M
+1 FAMS @FB@
+0 @W2@ INDI
+1 NAME Neža /Potok/
+1 SEX F
+1 FAMS @FC@
+0 @M3@ INDI
+1 NAME Ciril /Rus/
+1 SEX M
+1 FAMS @FC@
+0 @C1@ INDI
+1 NAME Jera /Potok/
+1 SEX F
+1 FAMC @FC@
+0 @W3@ INDI
+1 NAME Ema /Sever/
+1 SEX F
+1 FAMS @FD@
+0 @M4@ INDI
+1 NAME Davorin /Turk/
+1 SEX M
+1 FAMS @FD@
+0 @FA@ FAM
+1 HUSB @M1@
+1 WIFE @W1@
+1 MARR
+2 DATE 1890
+0 @FB@ FAM
+1 HUSB @M2@
+1 WIFE @W1@
+1 MARR
+2 DATE 1880
+0 @FC@ FAM
+1 HUSB @M3@
+1 WIFE @W2@
+1 CHIL @C1@
+0 @FD@ FAM
+1 HUSB @M4@
+1 WIFE @W3@
+1 _MSTAT Partners
+0 TRLR`;
+  const ids = ["@W1@", "@W2@", "@W3@"];
+  const surnamesOf = (ds: Dataset, id: string) =>
+    (previewMarriedNames(ds, [id]).get(id) ?? []).map((s) => s.surname);
+
+  it("takes a surname from every union, ordered by marriage date", () => {
+    const ds = dataset(FILE);
+    expect(surnamesOf(ds, "@W1@")).toEqual(["Kovač", "Novak"]);
+    const res = applyBatchAction(ds, ids, { kind: "addMarriedName" });
+    expect(res.changed).toBe(3);
+    const w1 = ds.individuals.get("@W1@")!;
+    expect(w1.names.map((n) => [n.full, n.type])).toEqual([
+      ["Marija Kos", undefined], ["Kovač", "married"], ["Novak", "married"],
+    ]);
+    expect(marriedSurnamesOf(w1, ds)).toEqual(["Kovač", "Novak"]);
+  });
+
+  it("comma-joins several unions into the single _MARNM the tag convention has", () => {
+    const ds = dataset(FILE.replace("0 @W3@ INDI\n1 NAME Ema /Sever/", "0 @W3@ INDI\n1 NAME Ema /Sever/\n2 _MARNM Turk"));
+    applyBatchAction(ds, ["@W1@"], { kind: "addMarriedName" });
+    const w1 = ds.individuals.get("@W1@")!;
+    expect(w1.names).toHaveLength(1);
+    expect(w1.names[0].married).toBe("Kovač, Novak");
+  });
+
+  it("adds the second marriage to a person already carrying the first name", () => {
+    const ds = dataset(FILE.replace("1 NAME Marija /Kos/", "1 NAME Marija /Kos/\n1 NAME /Kovač/\n2 TYPE married"));
+    expect(previewMarriedNames(ds, ["@W1@"]).get("@W1@")).toEqual([
+      { surname: "Kovač", marriage: "married", byChildren: false, recorded: true },
+      { surname: "Novak", marriage: "married", byChildren: false, recorded: false },
+    ]);
+    applyBatchAction(ds, ["@W1@"], { kind: "addMarriedName" });
+    expect(marriedSurnamesOf(ds.individuals.get("@W1@")!, ds)).toEqual(["Kovač", "Novak"]);
+  });
+
+  it("reads the marriage evidence a union carries, or the one its children imply", () => {
+    const ds = dataset(FILE);
+    expect(unionMarriage(ds.families.get("@FA@")!)).toBe("married");
+    expect(unionMarriage(ds.families.get("@FD@")!)).toBe("unmarried");
+    // Nothing recorded on @FC@ — the child's surname is the only signal.
+    expect(unionMarriage(ds.families.get("@FC@")!)).toBe("unknown");
+    expect(unionMarriageByChildren(ds, ds.families.get("@FC@")!)).toBe("unmarried");
+    // A child carrying the father's surname reads the other way.
+    const married = dataset(FILE.replace("1 NAME Jera /Potok/", "1 NAME Jera /Rus/"));
+    expect(unionMarriageByChildren(married, married.families.get("@FC@")!)).toBe("married");
+  });
+
+  it("leaves the doubtful people unchecked but keeps their preview", () => {
+    const ds = dataset(FILE);
+    const preview = previewMarriedNames(ds, ids);
+    expect(readMarriedNames(preview.get("@W1@")!)).toMatchObject({ doubt: null, evidenced: true });
+    expect(readMarriedNames(preview.get("@W2@")!)).toMatchObject({
+      surnames: ["Rus"], doubt: "children", evidenced: false,
+    });
+    expect(readMarriedNames(preview.get("@W3@")!)).toMatchObject({
+      surnames: ["Turk"], doubt: "partners", evidenced: false,
+    });
+    // An undocumented union is a doubt of its own, not a verdict.
+    const bare = dataset(FILE.replace("1 _MSTAT Partners\n", ""));
+    expect(readMarriedNames(previewMarriedNames(bare, ["@W3@"]).get("@W3@")!)).toMatchObject({
+      doubt: "noMarriage", evidenced: false,
+    });
+  });
+
+  it("counts a divorce and Brother's Keeper's flags as evidence either way", () => {
+    const divorced = dataset(FILE.replace("1 _MSTAT Partners", "1 DIV\n2 DATE 1899"));
+    expect(unionMarriage(divorced.families.get("@FD@")!)).toBe("married");
+    const never = dataset(FILE.replace("1 _MSTAT Partners", "1 _NMR"));
+    expect(unionMarriage(never.families.get("@FD@")!)).toBe("unmarried");
+    const flagged = dataset(FILE.replace("1 _MSTAT Partners", "1 _MARRIED N"));
+    expect(unionMarriage(flagged.families.get("@FD@")!)).toBe("unmarried");
   });
 });
 
