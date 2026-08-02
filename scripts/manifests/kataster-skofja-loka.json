@@ -1,0 +1,155 @@
+{
+ "name": "ŠKOFJA LOKA",
+ "cassini": {
+  "lat0": 45.928944,
+  "lon0": 14.474694,
+  "shift": [
+   80.0,
+   0.0
+  ],
+  "system": "krim"
+ },
+ "source": "Arhiv Republike Slovenije, SI AS 176/L/L129 — Franciscean cadastre",
+ "sheets": [
+  {
+   "image": "kataster-scans/224828.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224828&docid=10&seq=1",
+   "cell": [
+    -9,
+    18
+   ],
+   "frame": [
+    87.3,
+    80.2,
+    2557.3,
+    79.3,
+    2558.0,
+    2055.3,
+    88.0,
+    2056.2
+   ],
+   "source": "SI AS 176/L/L129/g/A01",
+   "placed": "guess: row f, printed W.III.15.a? (1.00)"
+  },
+  {
+   "image": "kataster-scans/224829.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224829&docid=10&seq=1",
+   "cell": [
+    -8,
+    18
+   ],
+   "frame": [
+    23.0,
+    0.0,
+    2493.0,
+    0.0,
+    2493.0,
+    1976.0,
+    23.0,
+    1976.0
+   ],
+   "source": "SI AS 176/L/L129/g/A02",
+   "placed": "guess: row f, no designation found (1.00)"
+  },
+  {
+   "image": "kataster-scans/224830.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224830&docid=10&seq=1",
+   "cell": [
+    -8,
+    17
+   ],
+   "frame": [
+    119.0,
+    0.0,
+    2589.0,
+    0.0,
+    2589.0,
+    1976.0,
+    119.0,
+    1976.0
+   ],
+   "source": "SI AS 176/L/L129/g/A03",
+   "placed": "guess: row g, no designation found (1.00)"
+  },
+  {
+   "image": "kataster-scans/224831.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224831&docid=10&seq=1",
+   "cell": [
+    -7,
+    18
+   ],
+   "frame": [
+    105.0,
+    45.0,
+    2575.0,
+    45.0,
+    2575.0,
+    2021.0,
+    105.0,
+    2021.0
+   ],
+   "source": "SI AS 176/L/L129/g/A04",
+   "placed": "printed W.II.15.cf (1.00)"
+  },
+  {
+   "image": "kataster-scans/224832.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224832&docid=10&seq=1",
+   "cell": [
+    -9,
+    17
+   ],
+   "frame": [
+    68.0,
+    53.0,
+    2538.0,
+    53.0,
+    2538.0,
+    2029.0,
+    68.0,
+    2029.0
+   ],
+   "source": "SI AS 176/L/L129/g/A05",
+   "placed": "printed W.III.15.ag (1.00)"
+  },
+  {
+   "image": "kataster-scans/224833.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224833&docid=10&seq=1",
+   "cell": [
+    -10,
+    17
+   ],
+   "frame": [
+    96.0,
+    498.0,
+    2566.0,
+    498.0,
+    2566.0,
+    2474.0,
+    96.0,
+    2474.0
+   ],
+   "source": "SI AS 176/L/L129/g/A06",
+   "placed": "guess: row g west, printed W.III.15.?g (1.00)"
+  },
+  {
+   "image": "kataster-scans/224834.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224834&docid=10&seq=1",
+   "cell": [
+    -7,
+    17
+   ],
+   "frame": [
+    109.0,
+    118.0,
+    2579.0,
+    118.0,
+    2579.0,
+    2094.0,
+    109.0,
+    2094.0
+   ],
+   "source": "SI AS 176/L/L129/g/A07",
+   "placed": "printed W.II.15.cg (1.00)"
+  }
+ ]
+}

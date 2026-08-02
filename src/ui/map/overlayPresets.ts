@@ -208,7 +208,7 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     yearTo: 1869,
     attribution: "Arhiv Republike Slovenije, SI AS 176 (Franciscejski kataster za Kranjsko)",
     maxZoom: 18,
-    coverage: [45.6519, 15.3469, 45.6932, 15.3962],
+    coverage: [45.6519, 15.3353, 45.7001, 15.3960],
     sampleZoom: 16,
   },
   {
@@ -229,6 +229,16 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     attribution: "Arhiv Republike Slovenije, SI AS 176 (Franciscejski kataster za Kranjsko)",
     maxZoom: 18,
     coverage: [46.2015, 14.2743, 46.2424, 14.3727],
+    sampleZoom: 16,
+  },
+  {
+    key: "settings.map.overlays.preset.kataster.skofjaloka",
+    url: "https://tiles.gedmerge.com/kataster-skofja-loka/{z}/{x}/{y}.webp",
+    yearFrom: 1825,
+    yearTo: 1869,
+    attribution: "Arhiv Republike Slovenije, SI AS 176 (Franciscejski kataster za Kranjsko)",
+    maxZoom: 18,
+    coverage: [46.1604, 14.2254, 46.1878, 14.3237],
     sampleZoom: 16,
   },
   {

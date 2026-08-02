@@ -16,7 +16,7 @@
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=225494&docid=10&seq=1",
    "cell": [
     -2,
-    30
+    28
    ],
    "frame": [
     743.6,
@@ -29,7 +29,7 @@
     2056.9
    ],
    "source": "SI AS 176/L/L222/g/A01",
-   "placed": "printed bi (0.63)"
+   "placed": "title sheet — the centre of the block (1.00)"
   },
   {
    "image": "kataster-scans/225495.jpg",
@@ -49,7 +49,7 @@
     2055.0
    ],
    "source": "SI AS 176/L/L222/g/A02",
-   "placed": "printed ce (0.89)"
+   "placed": "block position confirmed on the map (1.00)"
   },
   {
    "image": "kataster-scans/225496.jpg",
@@ -69,7 +69,7 @@
     2060.1
    ],
    "source": "SI AS 176/L/L222/g/A03",
-   "placed": "wash shape (0.40)"
+   "placed": "block position confirmed on the map (1.00)"
   },
   {
    "image": "kataster-scans/225497.jpg",
@@ -89,7 +89,7 @@
     2045.3
    ],
    "source": "SI AS 176/L/L222/g/A04",
-   "placed": "printed ae (0.89)"
+   "placed": "block position confirmed on the map (1.00)"
   },
   {
    "image": "kataster-scans/225498.jpg",
@@ -109,7 +109,7 @@
     2005.8
    ],
    "source": "SI AS 176/L/L222/g/A05",
-   "placed": "wash shape (0.81)"
+   "placed": "block position confirmed on the map (1.00)"
   },
   {
    "image": "kataster-scans/225499.jpg",
@@ -129,7 +129,7 @@
     2044.2
    ],
    "source": "SI AS 176/L/L222/g/A06",
-   "placed": "wash shape (0.12)"
+   "placed": "block position confirmed on the map (1.00)"
   },
   {
    "image": "kataster-scans/225500.jpg",
@@ -149,7 +149,7 @@
     1997.3
    ],
    "source": "SI AS 176/L/L222/g/A07",
-   "placed": "wash shape (0.78)"
+   "placed": "block position confirmed on the map (1.00)"
   },
   {
    "image": "kataster-scans/225501.jpg",
@@ -169,7 +169,7 @@
     2055.8
    ],
    "source": "SI AS 176/L/L222/g/A08",
-   "placed": "wash shape (0.60)"
+   "placed": "block position confirmed on the map (1.00)"
   },
   {
    "image": "kataster-scans/225502.jpg",
@@ -189,7 +189,7 @@
     2071.1
    ],
    "source": "SI AS 176/L/L222/g/A09",
-   "placed": "wash shape (0.21)"
+   "placed": "block position confirmed on the map (1.00)"
   },
   {
    "image": "kataster-scans/225503.jpg",
@@ -209,7 +209,7 @@
     2054.7
    ],
    "source": "SI AS 176/L/L222/g/A10",
-   "placed": "printed ag (0.57)"
+   "placed": "block position confirmed on the map (1.00)"
   },
   {
    "image": "kataster-scans/225504.jpg",
@@ -219,17 +219,17 @@
     26
    ],
    "frame": [
-    93.4,
-    93.4,
-    2553.6,
-    93.4,
-    2553.6,
-    2061.6,
-    93.4,
-    2061.6
+    88.4,
+    170.4,
+    2548.6,
+    170.4,
+    2548.6,
+    2138.6,
+    88.4,
+    2138.6
    ],
    "source": "SI AS 176/L/L222/g/A11",
-   "placed": "wash shape (0.71)"
+   "placed": "block position confirmed on the map (1.00)"
   }
  ]
 }
