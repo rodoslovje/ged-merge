@@ -1833,6 +1833,7 @@ export const sl = {
   "shortcuts.group.decisions": "Odločitve o ujemanju",
   "shortcuts.group.editing": "Urejanje",
   "shortcuts.item.addPerson": "Dodaj novo osebo (brez povezav)",
+  "shortcuts.item.commitField": "Shrani polje, ki ga urejaš, in ga zapusti",
   "shortcuts.item.save": "Shrani / prenesi GEDCOM",
   "shortcuts.item.undo": "Razveljavi",
   "shortcuts.item.redo": "Uveljavi",

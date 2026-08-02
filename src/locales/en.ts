@@ -1603,6 +1603,7 @@ export const en = {
   "shortcuts.group.decisions": "Match decisions",
   "shortcuts.group.editing": "Editing",
   "shortcuts.item.addPerson": "Add a new person (linked to nobody)",
+  "shortcuts.item.commitField": "Save the field you're typing in and leave it",
   "shortcuts.item.save": "Save / download GEDCOM",
   "shortcuts.item.undo": "Undo",
   "shortcuts.item.redo": "Redo",

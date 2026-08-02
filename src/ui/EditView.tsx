@@ -71,6 +71,7 @@ import { useMediaFolder } from "./MediaFolderContext";
 import { AddSourceDialog, type AddSourceResult } from "./AddSourceDialog";
 import { AddMediaDialog } from "./AddMediaDialog";
 import { nodeId } from "./edit/nodeId";
+import { commitFieldOnEnter } from "./edit/commitOnEnter";
 import { useStableHandler } from "./edit/useStableHandler";
 import { useMergeOverlay } from "./edit/useMergeOverlay";
 import { buildPlaceSuggestions } from "./edit/placeSuggestions";
@@ -1500,7 +1501,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
   return (
     <CoordShareProvider value={coordShare}>
     <PlaceLookupProvider value={placeLookup}>
-    <div className="section open edit-view">
+    <div className="section open edit-view" onKeyDown={commitFieldOnEnter}>
       <div className="section-body" ref={editBodyRef}>
         <div className="edit-parents">
           {/* One row per parent family, stacked and divided like the spouse
