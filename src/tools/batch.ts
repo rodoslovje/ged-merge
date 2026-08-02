@@ -61,6 +61,13 @@ export type BatchCriterion =
    *  `lacks BIRT` finds everyone without a birth record. The sentinel
    *  {@link ANY_VENDOR_EVENT} tag matches any non-standard (`_`) event. */
   | { kind: "event"; tag: string; mode: "has" | "lacks" }
+  /** Presence of one event across the person's unions, by its GEDCOM tag —
+   *  `lacks MARR`, next to a "has a partner" filter, finds the couples the file
+   *  never married. The sentinel {@link ANY_EVENT} tag matches a union carrying
+   *  any event at all, so `lacks` finds the unions nothing is recorded about.
+   *  `has` means one union carries it, `lacks` that none does; people with no
+   *  union at all count as lacking everything. */
+  | { kind: "familyEvent"; tag: string; mode: "has" | "lacks" }
   /** Blood-line relationship to the start person (see {@link computeKinship}). */
   | { kind: "kinship"; rel: "ancestor" | "descendant" | "blood" | "notBlood" }
   /** Presence of a close relative in the file: a partner in some union (a
@@ -76,10 +83,12 @@ export type BatchCriterion =
 
 /** Sentinel `tag` for the event criterion: any non-standard (`_`) event. */
 export const ANY_VENDOR_EVENT = "_*";
+/** Sentinel `tag` for the family-event criterion: any event whatsoever. */
+export const ANY_EVENT = "*";
 
 /** Every criterion kind, for the panel's "add filter" picker. */
 export const BATCH_CRITERION_KINDS: BatchCriterion["kind"][] = [
-  "name", "nameField", "sex", "birthYear", "age", "living", "event", "place", "media", "sources",
+  "name", "nameField", "sex", "birthYear", "age", "living", "event", "familyEvent", "place", "media", "sources",
   "relation", "kinship", "line",
 ];
 
@@ -96,6 +105,8 @@ export interface BatchRow extends SearchRow {
   deceased: boolean;
   /** Tags of the person's lifted events/attributes (BIRT, OCCU, …). */
   eventTags: string[];
+  /** The same across every union the person is a partner in (MARR, DIV, `_MSTAT`, …). */
+  familyEventTags: string[];
   /** Folded given names / surnames across every name form, for scoped matching. */
   givenText: string;
   surnameText: string;
@@ -150,6 +161,7 @@ export function buildBatchRows(
       age: ageOf(indi, now),
       deceased: isDeceased(indi),
       eventTags: indi.events.map((e) => e.tag),
+      familyEventTags: [...new Set(unions.flatMap((f) => f.events.map((e) => e.tag)))],
       givenText: foldSearch(indi.names.map((n) => n.given ?? "").join(" ")),
       surnameText: foldSearch(indi.names.map((n) => n.surname ?? "").join(" ")),
       hasGiven: !!indi.names[0]?.given?.trim(),
@@ -277,6 +289,13 @@ export function matchesBatch(row: BatchRow, criteria: BatchCriterion[], ctx: Bat
           c.tag === ANY_VENDOR_EVENT
             ? row.eventTags.some((tg) => tg.startsWith("_"))
             : row.eventTags.includes(c.tag);
+        if (c.mode === "has" ? !has : has) return false;
+        break;
+      }
+      case "familyEvent": {
+        const has = c.tag === ANY_EVENT
+          ? row.familyEventTags.length > 0
+          : row.familyEventTags.includes(c.tag);
         if (c.mode === "has" ? !has : has) return false;
         break;
       }

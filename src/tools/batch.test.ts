@@ -4,6 +4,7 @@ import { parseGedcom } from "../gedcom/parser";
 import type { Dataset } from "../gedcom/types";
 import { marriedSurnamesOf } from "../match/relatives";
 import {
+  ANY_EVENT,
   ANY_VENDOR_EVENT,
   applyBatchAction,
   buildBatchRows,
@@ -564,6 +565,23 @@ describe("addMarriedName across unions", () => {
     expect(readMarriedNames(previewMarriedNames(bare, ["@W3@"]).get("@W3@")!)).toMatchObject({
       doubt: "noMarriage", evidenced: false,
     });
+  });
+
+  it("filters on the events of the person's unions", () => {
+    const ds = dataset(FILE);
+    const rows = buildBatchRows(ds, nameOf);
+    const match = (c: BatchCriterion[]) =>
+      rows.filter((r) => matchesBatch(r, c, { lineSides: null, kinship: null })).map((r) => r.id).sort();
+    // The question the married-name action raises: partnered, but never married.
+    expect(match([
+      { kind: "relation", rel: "spouse", mode: "has" },
+      { kind: "familyEvent", tag: "MARR", mode: "lacks" },
+    ])).toEqual(["@M3@", "@M4@", "@W2@", "@W3@"]);
+    // @FC@ records nothing at all; @FD@ at least carries a status.
+    expect(match([{ kind: "familyEvent", tag: ANY_EVENT, mode: "lacks" }])).toEqual(["@C1@", "@M3@", "@W2@"]);
+    expect(match([{ kind: "familyEvent", tag: "_MSTAT", mode: "has" }])).toEqual(["@M4@", "@W3@"]);
+    // One union with a marriage is enough for "has".
+    expect(match([{ kind: "familyEvent", tag: "MARR", mode: "has" }])).toEqual(["@M1@", "@M2@", "@W1@"]);
   });
 
   it("counts a divorce and Brother's Keeper's flags as evidence either way", () => {

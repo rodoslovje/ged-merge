@@ -3,9 +3,10 @@ import { useTranslation } from "react-i18next";
 import type { Dataset, Sex } from "../../gedcom/types";
 import { firstChild } from "../../gedcom/node";
 import { collectLocalMediaFiles } from "../../tools/mediaFiles";
-import { INDI_EVENT_TAG_ORDER, eventDisplayLabel } from "../../gedcom/eventTags";
+import { FAM_EVENT_TAG_ORDER, INDI_EVENT_TAG_ORDER, eventDisplayLabel } from "../../gedcom/eventTags";
 import { INDIVIDUAL_EVENT_GROUPS } from "../edit/editConstants";
 import {
+  ANY_EVENT,
   ANY_VENDOR_EVENT,
   applyBatchAction,
   buildBatchRows,
@@ -116,6 +117,13 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
   }, [rows]);
   /** Non-standard tags the file actually uses — the convert action's sources. */
   const vendorEventOptions = useMemo(() => eventOptions.filter((tag) => tag.startsWith("_")), [eventOptions]);
+  /** Tags offered by the family-event filter: marriage always (the point of the
+   *  filter is finding unions without it) plus whatever the file's unions use. */
+  const familyEventOptions = useMemo(() => {
+    const present = new Set<string>(["MARR"]);
+    for (const r of rows) for (const tag of r.familyEventTags) present.add(tag);
+    return FAM_EVENT_TAG_ORDER.filter((tag) => present.has(tag));
+  }, [rows]);
 
   const [criteria, setCriteria] = useState<BatchCriterion[]>([]);
   const [action, setAction] = useState<BatchActionSpec | null>(null);
@@ -240,6 +248,7 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
       age: { kind: "age", op: "lt", years: 20 },
       living: { kind: "living", value: true },
       event: { kind: "event", tag: "BIRT", mode: "lacks" },
+      familyEvent: { kind: "familyEvent", tag: "MARR", mode: "lacks" },
       relation: { kind: "relation", rel: "spouse", mode: "has" },
       kinship: { kind: "kinship", rel: "blood" },
       place: { kind: "place", text: "" },
@@ -363,6 +372,7 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
               c={c}
               mediaOptions={mediaOptions}
               eventOptions={eventOptions}
+              familyEventOptions={familyEventOptions}
               onChange={(next) => changeCriteria(criteria.map((x, j) => (j === i ? next : x)))}
               onRemove={() => changeCriteria(criteria.filter((_, j) => j !== i))}
             />
@@ -502,12 +512,14 @@ function CriterionRow({
   c,
   mediaOptions,
   eventOptions,
+  familyEventOptions,
   onChange,
   onRemove,
 }: {
   c: BatchCriterion;
   mediaOptions: MediaOption[];
   eventOptions: string[];
+  familyEventOptions: string[];
   onChange: (next: BatchCriterion) => void;
   onRemove: () => void;
 }) {
@@ -604,6 +616,29 @@ function CriterionRow({
               </option>
             ))}
             <option value={ANY_VENDOR_EVENT}>{t("tools.batch.event.anyVendor")}</option>
+          </select>
+        </>
+      )}
+      {c.kind === "familyEvent" && (
+        <>
+          <select
+            className="batch-select"
+            value={c.mode}
+            onChange={(e) => onChange({ ...c, mode: e.target.value as "has" | "lacks" })}
+          >
+            <option value="lacks">{t("tools.batch.event.lacks")}</option>
+            <option value="has">{t("tools.batch.event.has")}</option>
+          </select>
+          <select className="batch-select" value={c.tag} onChange={(e) => onChange({ ...c, tag: e.target.value })}>
+            {(c.tag === ANY_EVENT || familyEventOptions.includes(c.tag)
+              ? familyEventOptions
+              : [c.tag, ...familyEventOptions]
+            ).map((tag) => (
+              <option key={tag} value={tag}>
+                {eventDisplayLabel(tag, t)}
+              </option>
+            ))}
+            <option value={ANY_EVENT}>{t("tools.batch.event.any")}</option>
           </select>
         </>
       )}
