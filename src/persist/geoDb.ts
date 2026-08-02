@@ -92,6 +92,14 @@ export async function putCountry(country: StoredCountry): Promise<void> {
   await withGeoDb((db) => requestDone(db.transaction(COUNTRIES_STORE, "readwrite").objectStore(COUNTRIES_STORE).put(country)));
 }
 
+/** One imported directory with its entries, or undefined when nothing is stored
+ *  under that key — what a per-region download reads before merging into it. */
+export async function getCountry(code: string): Promise<StoredCountry | undefined> {
+  return await withGeoDb((db) =>
+    requestDone(db.transaction(COUNTRIES_STORE).objectStore(COUNTRIES_STORE).get(code) as IDBRequest<StoredCountry | undefined>),
+  );
+}
+
 export async function deleteCountry(code: string): Promise<void> {
   await withGeoDb((db) => requestDone(db.transaction(COUNTRIES_STORE, "readwrite").objectStore(COUNTRIES_STORE).delete(code)));
 }

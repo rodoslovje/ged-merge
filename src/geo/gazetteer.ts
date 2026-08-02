@@ -90,6 +90,88 @@ export function parseGeoNamesLine(line: string): GazEntry | undefined {
 /** Overpass (OpenStreetMap) JSON response, reduced to what we read. */
 export interface OverpassJson {
   elements?: { lat?: number; lon?: number; tags?: Record<string, string> }[];
+  /** How Overpass reports a *failed* query: HTTP 200, a well-formed body, an
+   *  empty `elements`, and the reason in here. See {@link overpassFailure}. */
+  remark?: string;
+}
+
+/**
+ * Whether an Overpass response that arrived with HTTP 200 is in fact a failure,
+ * and of which kind. Overpass never answers a query it could not finish with an
+ * error status: a timeout comes back as valid JSON with an empty `elements` and
+ * a `remark`, and an overloaded dispatcher as a short HTML page. Taken at face
+ * value both import as "a country with no places", so both are checked here.
+ *
+ * `text` may be the tail of the body rather than the whole of it — the remark is
+ * emitted after the elements — which is why the HTML case is recognized by the
+ * error wording and not by a leading `<`.
+ *
+ * - `"timeout"` — the query was more than the service's time or memory budget.
+ *   The country needs splitting into regions; retrying it whole will not help.
+ * - `"busy"` — the service is loaded right now. Another endpoint, or another
+ *   minute, will do.
+ *
+ * The two are told apart by wording, not by the word "timeout": an overloaded
+ * dispatcher reports itself as `request_read_and_idx::timeout`, which is a
+ * queue that gave up, not a query that was too big. Only Overpass's own
+ * "Query timed out" (and its out-of-memory sibling) means the area is too large.
+ */
+export function overpassFailure(text: string): "timeout" | "busy" | undefined {
+  const remark = /"remark"\s*:\s*"([^"]*)"/.exec(text)?.[1];
+  const message = remark ?? (/<strong[^>]*>Error<\/strong>:([^<]*)/.exec(text)?.[1] ?? "");
+  if (!message) return undefined;
+  if (/timed out|out of memory/i.test(message)) return "timeout";
+  return "busy";
+}
+
+/** One ISO 3166-2 subdivision of a country — a US state, a Canadian province,
+ *  a German Bundesland — as offered when the whole country is too large for one
+ *  Overpass query. `code` is the full ISO code ("US-CA"), which is what the
+ *  area query takes. */
+export interface Subdivision {
+  code: string;
+  name: string;
+}
+
+/** Tags of the boundary relations an ISO3166-2 lookup returns. */
+interface SubdivisionJson {
+  elements?: { tags?: Record<string, string> }[];
+}
+
+/**
+ * The subdivisions of one country, from a `relation["ISO3166-2"~"^XX-"]` query.
+ *
+ * Only the coarsest level present is kept: several countries tag ISO codes at
+ * two depths (France has regions *and* departments), and the point of the list
+ * is the fewest downloads that still fit — so the larger units win. Names come
+ * from the relation's own `name`, the local official one, because that is the
+ * spelling a place in the file is written with; `int_name` fills in for a
+ * country whose script the reader cannot search in.
+ */
+export function overpassSubdivisions(data: unknown, country: string): Subdivision[] {
+  const prefix = `${country.toUpperCase()}-`;
+  const rows: { code: string; name: string; level: number }[] = [];
+  for (const el of (data as SubdivisionJson).elements ?? []) {
+    const code = el.tags?.["ISO3166-2"]?.trim();
+    const name = el.tags?.name?.trim() || el.tags?.int_name?.trim();
+    if (!code || !name || !code.toUpperCase().startsWith(prefix)) continue;
+    const level = Number(el.tags?.admin_level) || 99;
+    if (!rows.some((r) => r.code === code)) rows.push({ code: code.toUpperCase(), name, level });
+  }
+  if (!rows.length) return [];
+  const coarsest = Math.min(...rows.map((r) => r.level));
+  return rows
+    .filter((r) => r.level === coarsest)
+    .map(({ code, name }) => ({ code, name }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** The part of an ISO 3166-2 code after the country, e.g. "CA" of "US-CA" —
+ *  stored as each entry's `admin1`, the same slot a GeoNames row puts its
+ *  admin-1 code in. It is what lets a re-downloaded region replace its own
+ *  entries in the country's directory and leave the other regions alone. */
+export function subdivisionAdmin1(code: string): string {
+  return code.slice(code.indexOf("-") + 1).toUpperCase();
 }
 
 /** OSM name tags worth keeping as alternate names (exonyms, historical). */
@@ -100,7 +182,7 @@ const OSM_ALT_TAGS = ["alt_name", "old_name", "loc_name", "name:de", "name:it", 
  * country) into gazetteer entries — the direct-download alternative to a
  * GeoNames file. Data © OpenStreetMap contributors (ODbL).
  */
-export function overpassToEntries(data: OverpassJson, country: string): GazEntry[] {
+export function overpassToEntries(data: OverpassJson, country: string, admin1 = ""): GazEntry[] {
   const entries: GazEntry[] = [];
   for (const el of data.elements ?? []) {
     const name = el.tags?.name?.trim();
@@ -122,7 +204,7 @@ export function overpassToEntries(data: OverpassJson, country: string): GazEntry
       lon: el.lon,
       fclass: "P",
       country,
-      admin1: "",
+      admin1,
       population: Number(el.tags?.population) || 0,
     });
   }

@@ -5,11 +5,14 @@ import {
   buildGazetteerIndex,
   lookupPlace,
   osmRegister,
+  overpassFailure,
+  overpassSubdivisions,
   overpassToEntries,
   parseGeoNamesLine,
   rpeNaseljaToEntries,
   rpeObcinaNames,
   searchGazetteer,
+  subdivisionAdmin1,
   type GazEntry,
 } from "./gazetteer";
 import { formatCoordValue } from "../gedcom/edit";
@@ -137,6 +140,56 @@ describe("overpassToEntries", () => {
       "SI",
     );
     expect(entry.country).toBe("SI");
+  });
+});
+
+describe("a country too large for one Overpass query", () => {
+  // Real shapes, shortened: this is exactly what the United States comes back
+  // with. Both arrive as HTTP 200, and taken at face value both would import as
+  // "a country with no places" — which is what the tool used to report.
+  const TIMEOUT = `{"version": 0.6, "elements": [\n\n],\n"remark": "runtime error: Query timed out in \\"query\\" at line 1 after 201 seconds."}`;
+  const BUSY = `<p><strong style="color:#FF0000">Error</strong>: runtime error: open64: 0 Success /osm3s_osm_base Dispatcher_Client::request_read_and_idx::timeout. The server is probably too busy to handle your request. </p>`;
+
+  it("tells a timeout from a busy service, and both from a real answer", () => {
+    // The distinction is what the caller acts on: too big means split it into
+    // regions, busy means the same query will work later.
+    expect(overpassFailure(TIMEOUT)).toBe("timeout");
+    expect(overpassFailure(BUSY)).toBe("busy");
+    expect(overpassFailure(`{"elements": [{"type":"node","lat":46,"lon":14,"tags":{"name":"Kranj"}}]}`)).toBeUndefined();
+  });
+
+  it("takes the coarsest subdivisions the country tags, named as tagged", () => {
+    // France carries ISO codes on regions *and* departments; the offer is the
+    // fewest downloads that still fit, so the regions win and the departments
+    // under them are dropped.
+    const list = overpassSubdivisions(
+      {
+        elements: [
+          { tags: { "ISO3166-2": "FR-NOR", name: "Normandie", admin_level: "4" } },
+          { tags: { "ISO3166-2": "FR-BRE", name: "Bretagne", admin_level: "4" } },
+          { tags: { "ISO3166-2": "FR-14", name: "Calvados", admin_level: "6" } },
+          { tags: { "ISO3166-2": "BE-VLG", name: "Vlaanderen", admin_level: "4" } },
+          { tags: { name: "Unnamed code", admin_level: "4" } },
+        ],
+      },
+      "FR",
+    );
+    expect(list).toEqual([
+      { code: "FR-BRE", name: "Bretagne" },
+      { code: "FR-NOR", name: "Normandie" },
+    ]);
+  });
+
+  it("marks a region's entries with its own admin1 so a re-download replaces only itself", () => {
+    expect(subdivisionAdmin1("US-CA")).toBe("CA");
+    const [entry] = overpassToEntries(
+      { elements: [{ lat: 34.05, lon: -118.24, tags: { place: "city", name: "Los Angeles" } }] },
+      "US",
+      subdivisionAdmin1("US-CA"),
+    );
+    // The country stays the bare ISO code — that is what the lookup gate reads,
+    // so a region's places answer for "United States" like any other.
+    expect(entry).toMatchObject({ country: "US", admin1: "CA" });
   });
 });
 
