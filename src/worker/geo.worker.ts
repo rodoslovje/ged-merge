@@ -5,13 +5,14 @@ import {
   parseGeoNamesLine,
   rpeNaseljaToEntries,
   rpeObcinaNames,
+  subdivisionAdmin1,
   type GazEntry,
   type OverpassJson,
   type RpeNaseljaJson,
   type RpeObcineJson,
 } from "../geo/gazetteer";
 import { extractZipTxt } from "../geo/zip";
-import { putCountry } from "../persist/geoDb";
+import { getCountry, putCountry } from "../persist/geoDb";
 import type { GeoWorkerRequest, GeoWorkerResponse } from "./geoMessages";
 
 // Gazetteer import worker: decompress (if zipped), parse the tab-separated
@@ -73,15 +74,29 @@ self.onmessage = async (event: MessageEvent<GeoWorkerRequest>) => {
     }
     if (msg.format === "overpass") {
       const country = msg.country ?? "??";
-      const entries = overpassToEntries(JSON.parse(new TextDecoder().decode(msg.buffer)) as OverpassJson, country);
+      const admin1 = msg.region ? subdivisionAdmin1(msg.region) : "";
+      const entries = overpassToEntries(
+        JSON.parse(new TextDecoder().decode(msg.buffer)) as OverpassJson,
+        country,
+        admin1,
+      );
       if (!entries.length) throw new Error("no places in the Overpass result");
       // Stored as "SI-OSM", not "SI": the storage key names the source, so this
       // sits alongside a GeoNames import of the same country rather than
       // replacing it. The entries themselves keep the bare country code, which
       // is what lookupPlace's country gate compares.
       const code = osmRegister(country);
-      await putCountry({ code, count: entries.length, importedAt: Date.now(), entries });
-      post({ type: "result", requestId, countries: [{ code, count: entries.length }] });
+      // A region download is one piece of the country's directory, so it merges
+      // into it: the other regions stay, and re-fetching this one replaces only
+      // its own entries. Whole-country downloads keep replacing outright — that
+      // is a fresh copy of everything.
+      let merged = entries;
+      if (admin1) {
+        const stored = await getCountry(code);
+        merged = [...(stored?.entries ?? []).filter((e) => e.admin1 !== admin1), ...entries];
+      }
+      await putCountry({ code, count: merged.length, importedAt: Date.now(), entries: merged });
+      post({ type: "result", requestId, countries: [{ code, count: merged.length }] });
       return;
     }
     let bytes = new Uint8Array(msg.buffer);

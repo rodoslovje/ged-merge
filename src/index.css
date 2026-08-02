@@ -8050,6 +8050,19 @@ kbd {
 .tools-geo-empty { color: var(--text); font-weight: 600; margin: 0 0 10px; }
 .tools-geo-import { display: inline-block; cursor: pointer; margin: 0; }
 .tools-geo-acquire { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+/* The region offer for a country too large to fetch whole. Boxed and tinted so
+   it reads as the answer to what just happened rather than as a fourth source
+   sitting permanently among the three above. */
+.tools-geo-regions {
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--panel-2);
+  padding: 10px 12px;
+  margin: 8px 0;
+}
+.tools-geo-regions > .tools-geo-hint:first-child { margin-top: 0; }
+.tools-geo-regions > .tools-geo-hint:last-child { margin-bottom: 0; }
 /* One row per source: the button that takes it, and what it gives you. The
    button column is as wide as its widest label, so the three read as one column
    of choices rather than three ragged lines. */

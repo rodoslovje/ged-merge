@@ -1,7 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { COUNTRY_CODES } from "../../gedcom/countryCode";
-import { buildGazetteerIndex, type GazetteerIndex } from "../../geo/gazetteer";
+import {
+  buildGazetteerIndex,
+  overpassFailure,
+  overpassSubdivisions,
+  type GazetteerIndex,
+  type Subdivision,
+} from "../../geo/gazetteer";
 import { deleteCountry, loadCountries, type CountryMeta } from "../../persist/geoDb";
 import type { GeoWorkerRequest, GeoWorkerResponse } from "../../worker/geoMessages";
 import { invalidateGazetteerIndex } from "../edit/PlaceLookupContext";
@@ -28,7 +34,15 @@ import { ToolsError, ToolsLoading } from "./shared";
 type ImportStage = "waiting" | "downloading" | "parsing";
 
 type ImportState =
-  | { phase: "running"; stage: ImportStage; done: number; total: number }
+  | {
+      phase: "running";
+      stage: ImportStage;
+      done: number;
+      total: number;
+      /** What this particular download is, when one click starts many: the
+       *  region being fetched and its place in the run. */
+      note?: string;
+    }
   | { phase: "error"; message: string }
   | null;
 
@@ -60,9 +74,48 @@ const GURS_OBCINE_URL =
 const DOWNLOAD_GLYPH = "↓";
 const UPLOAD_GLYPH = "↑";
 
-/** Every place node in the country: settlements down to isolated dwellings. */
-function overpassQuery(code: string): string {
-  return `[out:json][timeout:180];area["ISO3166-1"="${code}"][admin_level=2]->.a;node(area.a)[place~"^(city|town|village|hamlet|suburb|locality|isolated_dwelling)$"];out qt;`;
+/** Every place node in the area `.a`: settlements down to isolated dwellings. */
+const PLACE_NODES =
+  `node(area.a)[place~"^(city|town|village|hamlet|suburb|locality|isolated_dwelling)$"];out qt;`;
+
+/** Every place in the country. */
+function countryQuery(code: string): string {
+  return `[out:json][timeout:180];area["ISO3166-1"="${code}"][admin_level=2]->.a;${PLACE_NODES}`;
+}
+
+/** Every place in one ISO 3166-2 subdivision ("US-CA"), for a country whose
+ *  own area is more than the service will chew through in one query. */
+function regionQuery(region: string): string {
+  return `[out:json][timeout:180];area["ISO3166-2"="${region}"]->.a;${PLACE_NODES}`;
+}
+
+/** The country's subdivisions — boundary relations, tags only, no geometry, so
+ *  it answers in seconds even where the places themselves time out. */
+function subdivisionsQuery(code: string): string {
+  return `[out:json][timeout:120];relation["ISO3166-2"~"^${code}-"][boundary=administrative];out tags;`;
+}
+
+/** Countries already known to need splitting, with the subdivisions found for
+ *  them — so the discovery (three minutes of a query timing out) happens once
+ *  per browser and not once per visit. */
+const REGIONS_KEY = "gedmerge.osmRegions";
+
+function loadKnownRegions(): Record<string, Subdivision[]> {
+  try {
+    const raw = localStorage.getItem(REGIONS_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : null;
+    return parsed && typeof parsed === "object" ? (parsed as Record<string, Subdivision[]>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function rememberRegions(country: string, list: Subdivision[]): void {
+  try {
+    localStorage.setItem(REGIONS_KEY, JSON.stringify({ ...loadKnownRegions(), [country]: list }));
+  } catch {
+    // A full or blocked storage costs the shortcut, nothing else.
+  }
 }
 
 /** Read a response body with byte progress (falls back to one shot). `total` is
@@ -92,6 +145,66 @@ async function readWithProgress(
     off += c.byteLength;
   }
   return out.buffer;
+}
+
+/** What a download attempt produced: the bytes, or why there are none. */
+type OverpassResult = { buffer: ArrayBuffer } | { failure: "timeout" | "busy" };
+
+/**
+ * Run one Overpass query, walking the endpoints until one answers.
+ *
+ * A 200 is not success: Overpass reports a query it could not finish inside its
+ * time budget as valid JSON with no elements and a `remark`, and a loaded
+ * dispatcher as a small HTML page — imported at face value, both would land as
+ * "this country has no places". {@link overpassFailure} tells the two apart, and
+ * the distinction matters to the caller: a timeout means the area is too big and
+ * has to be split, a busy service means try again.
+ */
+async function fetchOverpass(
+  query: string,
+  signal: AbortSignal,
+  onProgress: (done: number, total: number) => void,
+): Promise<OverpassResult> {
+  let timedOut = false;
+  for (const endpoint of OVERPASS_ENDPOINTS) {
+    try {
+      const res = await fetch(endpoint, {
+        method: "POST",
+        body: new URLSearchParams({ data: query }),
+        signal,
+      });
+      if (res.ok) {
+        const buffer = await readWithProgress(res, onProgress);
+        // The remark is emitted after the elements, so the tail is enough — and
+        // decoding the last few KB of a 30 MB country costs nothing.
+        const tail = new TextDecoder().decode(
+          new Uint8Array(buffer).slice(Math.max(0, buffer.byteLength - 4096)),
+        );
+        const failure = buffer.byteLength > 200 ? overpassFailure(tail) : "busy";
+        if (!failure) return { buffer };
+        if (failure === "timeout") timedOut = true;
+      }
+    } catch (e) {
+      void e;
+      if (signal.aborted) break;
+    }
+  }
+  return { failure: timedOut ? "timeout" : "busy" };
+}
+
+/** Wait, unless the run is cancelled first. */
+function sleep(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    const id = setTimeout(resolve, ms);
+    signal.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(id);
+        resolve();
+      },
+      { once: true },
+    );
+  });
 }
 
 /**
@@ -129,6 +242,14 @@ export interface Gazetteer {
   /** Fetch one country's places from OpenStreetMap, by ISO 3166-1 alpha-2. */
   downloadCountry: (country: string) => Promise<void>;
   downloadSlovenia: () => Promise<void>;
+  /** The country whose places are too many for one query, and the subdivisions
+   *  offered instead. Null whenever there is no such offer on the table. */
+  regions: { country: string; list: Subdivision[] } | null;
+  /** Fetch one ISO 3166-2 subdivision ("US-CA") into its country's directory. */
+  downloadRegion: (region: string) => Promise<void>;
+  /** Fetch every offered subdivision, one after another. */
+  downloadAllRegions: () => Promise<void>;
+  dismissRegions: () => void;
   cancelImport: () => void;
   removeCountry: (code: string) => Promise<void>;
 }
@@ -144,6 +265,7 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
   const [countries, setCountries] = useState<CountryMeta[] | null>(null);
   const [index, setIndex] = useState<GazetteerIndex | undefined>(undefined);
   const [importState, setImportState] = useState<ImportState>(null);
+  const [regions, setRegions] = useState<{ country: string; list: Subdivision[] } | null>(null);
   const workerRef = useRef<Worker | null>(null);
   const fetchAbortRef = useRef<AbortController | null>(null);
 
@@ -175,45 +297,60 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /** Hand a payload to the worker. Resolves true once it is stored, false on a
+   *  failure it has already put on screen — a batch of regions needs to know
+   *  which of its downloads landed. `note` labels the run it belongs to, and
+   *  keeps the spinner on that label instead of blanking between regions. */
   const runImport = (
     buffer: ArrayBuffer,
     fileName: string,
-    extra?: { format: "overpass"; country: string } | { format: "rpe"; obcine?: ArrayBuffer },
-  ) => {
-    // Only the GeoNames dump path reports parse progress by chunk; the Overpass
-    // and GURS payloads are converted in one shot, so leave their total at 0 and
-    // show a bare spinner rather than a 0 % that never moves.
-    setImportState({ phase: "running", stage: "parsing", done: 0, total: extra ? 0 : buffer.byteLength });
-    const worker = new Worker(new URL("../../worker/geo.worker.ts", import.meta.url), { type: "module" });
-    workerRef.current = worker;
-    const fail = (message: string) => {
-      worker.terminate();
-      workerRef.current = null;
-      setImportState({ phase: "error", message });
-    };
-    worker.onmessage = (e: MessageEvent<GeoWorkerResponse>) => {
-      const msg = e.data;
-      if (msg.type === "progress") {
-        setImportState({ phase: "running", stage: "parsing", done: msg.done, total: msg.total });
-      }
-      else if (msg.type === "result") {
+    extra?:
+      | { format: "overpass"; country: string; region?: string }
+      | { format: "rpe"; obcine?: ArrayBuffer },
+    note?: string,
+  ): Promise<boolean> =>
+    new Promise((resolve) => {
+      // Only the GeoNames dump path reports parse progress by chunk; the Overpass
+      // and GURS payloads are converted in one shot, so leave their total at 0 and
+      // show a bare spinner rather than a 0 % that never moves.
+      setImportState({ phase: "running", stage: "parsing", done: 0, total: extra ? 0 : buffer.byteLength, note });
+      const worker = new Worker(new URL("../../worker/geo.worker.ts", import.meta.url), { type: "module" });
+      workerRef.current = worker;
+      const fail = (message: string) => {
         worker.terminate();
         workerRef.current = null;
-        setImportState(null);
-        void refreshGazetteer();
-      } else fail(msg.message);
-    };
-    // A worker that fails to load or throws outside the message handler would
-    // otherwise leave the import spinner running forever — surface it instead.
-    worker.onerror = () => fail(t("tools.geocode.importFailed"));
-    worker.onmessageerror = () => fail(t("tools.geocode.importFailed"));
-    const req: GeoWorkerRequest = { type: "importGazetteer", requestId: 1, buffer, fileName, ...extra };
-    worker.postMessage(req, req.obcine ? [buffer, req.obcine] : [buffer]);
-  };
+        setImportState({ phase: "error", message });
+        resolve(false);
+      };
+      worker.onmessage = (e: MessageEvent<GeoWorkerResponse>) => {
+        const msg = e.data;
+        if (msg.type === "progress") {
+          setImportState({ phase: "running", stage: "parsing", done: msg.done, total: msg.total, note });
+        }
+        else if (msg.type === "result") {
+          worker.terminate();
+          workerRef.current = null;
+          // Mid-batch the spinner stays up under the same label: the next region
+          // starts immediately, and a blank frame between the two reads as done.
+          setImportState(note ? { phase: "running", stage: "waiting", done: 0, total: 0, note } : null);
+          void refreshGazetteer();
+          resolve(true);
+        } else fail(msg.message);
+      };
+      // A worker that fails to load or throws outside the message handler would
+      // otherwise leave the import spinner running forever — surface it instead.
+      worker.onerror = () => fail(t("tools.geocode.importFailed"));
+      worker.onmessageerror = () => fail(t("tools.geocode.importFailed"));
+      const req: GeoWorkerRequest = { type: "importGazetteer", requestId: 1, buffer, fileName, ...extra };
+      worker.postMessage(req, req.obcine ? [buffer, req.obcine] : [buffer]);
+    });
 
   const importFile = async (file: File) => {
-    runImport(await file.arrayBuffer(), file.name);
+    await runImport(await file.arrayBuffer(), file.name);
   };
+
+  const onProgress = (note?: string) => (done: number, total: number) =>
+    setImportState({ phase: "running", stage: "downloading", done, total, note });
 
   // Direct download of a country's places — the download-then-pick round
   // trip is confusing, so fetch from Overpass (OpenStreetMap) here, gated
@@ -221,35 +358,119 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
   const downloadCountry = async (country: string) => {
     const code = country.trim().toUpperCase();
     if (!/^[A-Z]{2}$/.test(code)) return;
+    setRegions(null);
+    // A country already known to be too large goes straight to its regions
+    // rather than spending another three minutes proving it again.
+    const known = loadKnownRegions()[code];
+    if (known?.length) {
+      setImportState(null);
+      setRegions({ country: code, list: known });
+      return;
+    }
     const abort = new AbortController();
     fetchAbortRef.current = abort;
     setImportState({ phase: "running", stage: "waiting", done: 0, total: 0 });
-    const onProgress = (done: number, total: number) =>
-      setImportState({ phase: "running", stage: "downloading", done, total });
     try {
-      let buffer: ArrayBuffer | undefined;
-      for (const endpoint of OVERPASS_ENDPOINTS) {
-        try {
-          const res = await fetch(endpoint, {
-            method: "POST",
-            body: new URLSearchParams({ data: overpassQuery(code) }),
-            signal: abort.signal,
-          });
-          if (res.ok) {
-            buffer = await readWithProgress(res, onProgress);
-            if (buffer.byteLength > 200) break;
-            buffer = undefined;
-          }
-        } catch (e) {
-          if (abort.signal.aborted) return;
-          void e;
-        }
+      const res = await fetchOverpass(countryQuery(code), abort.signal, onProgress());
+      if (abort.signal.aborted) return;
+      if ("buffer" in res) {
+        await runImport(res.buffer, `${code}.osm.json`, { format: "overpass", country: code });
+        return;
       }
-      if (!buffer) {
+      if (res.failure === "busy") {
         setImportState({ phase: "error", message: t("tools.geocode.downloadFailed") });
         return;
       }
-      runImport(buffer, `${code}.osm.json`, { format: "overpass", country: code });
+      await offerRegions(code, abort);
+    } finally {
+      fetchAbortRef.current = null;
+    }
+  };
+
+  // The country is more than the service will do in one query — the United
+  // States times out before it counts its places, let alone sends them. Its
+  // subdivisions each fit comfortably, and asking for them is a tags-only query
+  // that answers in seconds, so the dead end becomes a choice.
+  const offerRegions = async (code: string, abort: AbortController) => {
+    setImportState({ phase: "running", stage: "waiting", done: 0, total: 0, note: t("tools.geocode.regionsLoading") });
+    const res = await fetchOverpass(subdivisionsQuery(code), abort.signal, () => {});
+    if (abort.signal.aborted) return;
+    let list: Subdivision[] = [];
+    if ("buffer" in res) {
+      try {
+        list = overpassSubdivisions(JSON.parse(new TextDecoder().decode(res.buffer)), code);
+      } catch {
+        list = [];
+      }
+    }
+    if (!list.length) {
+      setImportState({ phase: "error", message: t("tools.geocode.tooLargeNoRegions") });
+      return;
+    }
+    rememberRegions(code, list);
+    setImportState(null);
+    setRegions({ country: code, list });
+  };
+
+  /** One region: download and import. False when it did not land — the message
+   *  is already on screen, and a batch run counts it and carries on. */
+  const fetchRegion = async (region: string, abort: AbortController, note?: string): Promise<boolean> => {
+    const country = region.slice(0, region.indexOf("-"));
+    setImportState({ phase: "running", stage: "waiting", done: 0, total: 0, note });
+    const res = await fetchOverpass(regionQuery(region), abort.signal, onProgress(note));
+    if (abort.signal.aborted) return false;
+    if (!("buffer" in res)) {
+      setImportState({
+        phase: "error",
+        message: t(res.failure === "timeout" ? "tools.geocode.regionTooLarge" : "tools.geocode.downloadFailed", {
+          region,
+        }),
+      });
+      return false;
+    }
+    return await runImport(res.buffer, `${region}.osm.json`, { format: "overpass", country, region }, note);
+  };
+
+  const downloadRegion = async (region: string) => {
+    const abort = new AbortController();
+    fetchAbortRef.current = abort;
+    try {
+      await fetchRegion(region, abort);
+    } finally {
+      fetchAbortRef.current = null;
+    }
+  };
+
+  // Every region, one after another. Sequential and unhurried on purpose: the
+  // public endpoints meter concurrent queries per address, and fifty heavy ones
+  // fired off together get the whole run refused rather than served faster.
+  // Each region is stored as it arrives, so a cancelled or half-failed run
+  // still leaves everything it did fetch.
+  const downloadAllRegions = async () => {
+    const target = regions;
+    if (!target) return;
+    const abort = new AbortController();
+    fetchAbortRef.current = abort;
+    const failed: string[] = [];
+    try {
+      for (const [i, region] of target.list.entries()) {
+        if (abort.signal.aborted) return;
+        const note = t("tools.geocode.regionProgress", {
+          name: region.name,
+          index: i + 1,
+          total: target.list.length,
+        });
+        const ok = await fetchRegion(region.code, abort, note);
+        if (abort.signal.aborted) return;
+        if (!ok) failed.push(region.name);
+        if (i < target.list.length - 1) await sleep(2000, abort.signal);
+      }
+      setImportState(
+        failed.length
+          ? { phase: "error", message: t("tools.geocode.regionAllFailed", { count: failed.length, names: failed.join(", ") }) }
+          : null,
+      );
+      if (!failed.length) setRegions(null);
     } finally {
       fetchAbortRef.current = null;
     }
@@ -283,7 +504,7 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
         if (abort.signal.aborted) return;
         void e;
       }
-      runImport(buffer, "SI.gurs-naselja.json", { format: "rpe", ...(obcine ? { obcine } : {}) });
+      await runImport(buffer, "SI.gurs-naselja.json", { format: "rpe", ...(obcine ? { obcine } : {}) });
     } catch (e) {
       if (abort.signal.aborted) return;
       void e;
@@ -313,6 +534,10 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
     importFile,
     downloadCountry,
     downloadSlovenia,
+    regions,
+    downloadRegion,
+    downloadAllRegions,
+    dismissRegions: () => setRegions(null),
     cancelImport,
     removeCountry,
   };
@@ -345,8 +570,58 @@ function GazetteerList({ gaz }: { gaz: Gazetteer }) {
   );
 }
 
+/**
+ * The way out of a country too large to fetch whole: its regions, one at a time
+ * or all of them in a row.
+ *
+ * It appears in place of an error, because a timeout on the United States is not
+ * a fault to report — the country simply has to be asked for in pieces, and the
+ * pieces are right here. The whole-country control above stays where it is: what
+ * fails for one country works for the next.
+ */
+function RegionPicker({ gaz, regions }: { gaz: Gazetteer; regions: { country: string; list: Subdivision[] } }) {
+  const { t, i18n } = useTranslation();
+  const countryName = useMemo(
+    () => new Intl.DisplayNames([i18n.language], { type: "region" }).of(regions.country) ?? regions.country,
+    [i18n.language, regions.country],
+  );
+  return (
+    <div className="tools-geo-regions">
+      <p className="tools-geo-hint">
+        {t("tools.geocode.regionIntro", { country: countryName, count: regions.list.length })}
+      </p>
+      <div className="tools-geo-acquire">
+        <select
+          className="nav-btn tools-run tools-geo-osm"
+          aria-label={t("tools.geocode.regionPick")}
+          value=""
+          onChange={(e) => {
+            const region = e.target.value;
+            if (region) void gaz.downloadRegion(region);
+          }}
+        >
+          <option value="">{`${DOWNLOAD_GLYPH} ${t("tools.geocode.regionPick")}`}</option>
+          {regions.list.map(({ code, name }) => (
+            <option key={code} value={code}>
+              {name}
+            </option>
+          ))}
+        </select>
+        <button className="nav-btn tools-run" onClick={() => void gaz.downloadAllRegions()}>
+          <span aria-hidden="true">{DOWNLOAD_GLYPH} </span>
+          {t("tools.geocode.regionAll", { count: regions.list.length })}
+        </button>
+        <button className="tools-issue-link" onClick={gaz.dismissRegions}>
+          {t("tools.geocode.regionDismiss")}
+        </button>
+      </div>
+      <p className="tools-geo-hint">{t("tools.geocode.regionAllHint", { count: regions.list.length })}</p>
+    </div>
+  );
+}
+
 /** The three ways in: the GURS register, any country from OpenStreetMap, or a
- *  GeoNames file. The two downloads need the online-lookups opt-in; the file
+ *  GeoNames file.The two downloads need the online-lookups opt-in; the file
  *  import never does — and it sits under the paragraph that tells you where to
  *  fetch the file, because that instruction is half the button. */
 function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
@@ -367,17 +642,21 @@ function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
     // Each stage says what it is actually doing: waiting on a service that sends
     // nothing until it is ready, receiving bytes, or converting them. Only the
     // wait needs a clock — the other two have their own numbers.
-    const label =
+    const stage =
       running.stage === "waiting"
         ? `${t("tools.geocode.waiting")}${waited ? ` ${waited} s` : ""}`
         : running.stage === "downloading"
           ? t("tools.geocode.downloading")
           : t("tools.geocode.importing");
+    // In a region run the region leads: which of the fifty is on the wire is
+    // the thing being waited for, and the stage is a detail of it.
+    const label = running.note ? `${running.note} — ${stage}` : stage;
     return <ToolsLoading label={label} progress={running} bytes onCancel={gaz.cancelImport} />;
   }
   return (
     <>
       {gaz.importState?.phase === "error" && <ToolsError message={gaz.importState.message} />}
+      {gaz.regions && <RegionPicker gaz={gaz} regions={gaz.regions} />}
       {/* Each way in is its button and the sentence that explains it, side by
           side: what the source gives you and what it asks in return is the whole
           basis for choosing between them, so it belongs beside the click rather

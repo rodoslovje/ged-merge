@@ -16,6 +16,11 @@ export interface GeoImportRequest {
   /** Overpass only: the country code the entries are stored under.
    *  ("rpe" is Slovenia by definition and always stores under "SI".) */
   country?: string;
+  /** Overpass only: the ISO 3166-2 subdivision this payload covers ("US-CA"),
+   *  when the country was too large to fetch whole. The entries still go into
+   *  the country's directory — they merge into it, replacing whatever an
+   *  earlier download of the *same* region left there. */
+  region?: string;
   /** "rpe" only: the RPE municipalities collection, the id→name table the
    *  settlements join to so each one can name its občina. Optional — a settled
    *  gazetteer without it simply carries no municipality. */
