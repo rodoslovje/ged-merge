@@ -16,7 +16,7 @@
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224587&docid=10&seq=1",
    "cell": [
     1.0,
-    5.0
+    8.0
    ],
    "frame": [
     93.0,
@@ -29,7 +29,27 @@
     2028.1
    ],
    "source": "SI AS 176/L/L101/g/A01",
-   "placed": "printed O.C.I.17.ci (1.00)"
+   "placed": "title sheet — top left, where Stadt Laibach adjoins (1.00)"
+  },
+  {
+   "image": "kataster-scans/224588.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224588&docid=10&seq=1",
+   "cell": [
+    1.0,
+    5.0
+   ],
+   "frame": [
+    209.0,
+    -0.1,
+    2658.0,
+    -0.1,
+    2658.0,
+    1959.1,
+    209.0,
+    1959.1
+   ],
+   "source": "SI AS 176/L/L101/g/A02",
+   "placed": " (1.00)"
   },
   {
    "image": "kataster-scans/224589.jpg",
@@ -130,26 +150,6 @@
    ],
    "source": "SI AS 176/L/L101/g/A07",
    "placed": "printed O.C.I.17.bi (1.00)"
-  },
-  {
-   "image": "kataster-scans/224594.jpg",
-   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224594&docid=10&seq=1",
-   "cell": [
-    1.0,
-    8.0
-   ],
-   "frame": [
-    174.0,
-    139.9,
-    2623.0,
-    139.9,
-    2623.0,
-    2099.1,
-    174.0,
-    2099.1
-   ],
-   "source": "SI AS 176/L/L101/g/A08",
-   "placed": "wash shape (0.29)"
   }
  ]
 }

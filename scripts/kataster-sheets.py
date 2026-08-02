@@ -644,8 +644,11 @@ def place(sheets, cass, rings, min_score=0.06, fixed=None):
                  if s["id"] in fixed else dict(s, cell=None, how="no frame", score=0.0)
                  for s in sheets], None)
     if not cells:
-        return ([dict(s, cell=None, how="no frame", score=0.0) for s in sheets],
-                "the modern k.o. covers no lattice cell")
+        # Every cell the boundary reaches is already spoken for. That is not a
+        # failure of the k.o., only of the sheets nobody has read yet.
+        return ([dict(s, cell=tuple(fixed[s["id"]]), how="pinned", score=1.0)
+                 if s["id"] in fixed else dict(s, cell=None, how="unplaced", score=0.0)
+                 for s in sheets], None)
     order = sorted(cells, key=lambda c: (-c[1], c[0]))   # north row first, then west to east
     rank = {c: i for i, c in enumerate(order)}
     table = {}
