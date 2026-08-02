@@ -29,7 +29,7 @@
     2050.2
    ],
    "source": "SI AS 176/N/N327/g/A01",
-   "placed": "printed ce (0.28)"
+   "placed": "row 1 (1.00)"
   },
   {
    "image": "kataster-scans/230853.jpg",
@@ -49,7 +49,7 @@
     2057.3
    ],
    "source": "SI AS 176/N/N327/g/A02",
-   "placed": "printed be (0.39)"
+   "placed": "row 1 (1.00)"
   },
   {
    "image": "kataster-scans/230855.jpg",
@@ -69,7 +69,7 @@
     1965.2
    ],
    "source": "SI AS 176/N/N327/g/A03",
-   "placed": "wash shape (0.38)"
+   "placed": "row 2 (1.00)"
   },
   {
    "image": "kataster-scans/230856.jpg",
@@ -89,7 +89,7 @@
     2059.6
    ],
    "source": "SI AS 176/N/N327/g/A04",
-   "placed": "wash shape (0.17)"
+   "placed": "row 2 (1.00)"
   },
   {
    "image": "kataster-scans/230858.jpg",
@@ -109,7 +109,7 @@
     2059.2
    ],
    "source": "SI AS 176/N/N327/g/A05",
-   "placed": "wash shape (0.11)"
+   "placed": "row 2 (1.00)"
   },
   {
    "image": "kataster-scans/230860.jpg",
@@ -129,14 +129,14 @@
     2082.2
    ],
    "source": "SI AS 176/N/N327/g/A06",
-   "placed": "wash shape (0.75)"
+   "placed": "row 3 (1.00)"
   },
   {
    "image": "kataster-scans/230861.jpg",
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=230861&docid=10&seq=1",
    "cell": [
-    21.0,
-    -14.0
+    22.0,
+    -13.0
    ],
    "frame": [
     0.0,
@@ -149,7 +149,7 @@
     1962.2
    ],
    "source": "SI AS 176/N/N327/g/A07",
-   "placed": "wash shape (0.33)"
+   "placed": "moved up to row 3, column 2 (1.00)"
   },
   {
    "image": "kataster-scans/230863.jpg",
@@ -169,7 +169,7 @@
     2063.3
    ],
    "source": "SI AS 176/N/N327/g/A08",
-   "placed": "wash shape (0.12)"
+   "placed": "row 3 (1.00)"
   },
   {
    "image": "kataster-scans/230865.jpg",
@@ -189,7 +189,27 @@
     2145.2
    ],
    "source": "SI AS 176/N/N327/g/A09",
-   "placed": "printed bh (0.40)"
+   "placed": "row 4 (1.00)"
+  },
+  {
+   "image": "kataster-scans/230866.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=230866&docid=10&seq=1",
+   "cell": [
+    24.0,
+    -15.0
+   ],
+   "frame": [
+    81.7,
+    101.2,
+    2534.7,
+    94.1,
+    2540.4,
+    2056.5,
+    87.4,
+    2063.6
+   ],
+   "source": "SI AS 176/N/N327/g/A10",
+   "placed": "wash shape (0.20)"
   },
   {
    "image": "kataster-scans/230868.jpg",
@@ -209,7 +229,7 @@
     2053.2
    ],
    "source": "SI AS 176/N/N327/g/A11",
-   "placed": "printed dh (0.33)"
+   "placed": "row 4 (1.00)"
   },
   {
    "image": "kataster-scans/230870.jpg",
@@ -229,7 +249,7 @@
     2052.3
    ],
    "source": "SI AS 176/N/N327/g/A12",
-   "placed": "printed bi (0.47)"
+   "placed": "row 5 (1.00)"
   },
   {
    "image": "kataster-scans/230871.jpg",
@@ -249,14 +269,14 @@
     2069.2
    ],
    "source": "SI AS 176/N/N327/g/A13",
-   "placed": "wash shape (0.31)"
+   "placed": "row 5 (1.00)"
   },
   {
    "image": "kataster-scans/230873.jpg",
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=230873&docid=10&seq=1",
    "cell": [
-    24.0,
-    -16.0
+    23.0,
+    -14.0
    ],
    "frame": [
     82.0,
@@ -269,7 +289,7 @@
     2108.2
    ],
    "source": "SI AS 176/N/N327/g/A14",
-   "placed": "wash shape (0.14)"
+   "placed": "moved from the foot of the block to row 4, column 3 (1.00)"
   }
  ]
 }
