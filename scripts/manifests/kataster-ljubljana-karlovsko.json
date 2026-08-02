@@ -1,5 +1,5 @@
 {
- "name": "LJUBLJANA MESTO",
+ "name": "LJUBLJANA",
  "cassini": {
   "lat0": 45.928944,
   "lon0": 14.474694,
@@ -56,7 +56,7 @@
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224589&docid=10&seq=1",
    "cell": [
     1.0,
-    6.9477
+    7.0
    ],
    "frame": [
     64.0,
@@ -69,14 +69,14 @@
     2112.1
    ],
    "source": "SI AS 176/L/L101/g/A03",
-   "placed": "partial sheet, hung from the cell's south edge (1.00)"
+   "placed": "hung from the cell's north edge, to meet the row above (1.00)"
   },
   {
    "image": "kataster-scans/224590.jpg",
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224590&docid=10&seq=1",
    "cell": [
     2.0,
-    6.9944
+    7.0
    ],
    "frame": [
     194.0,
@@ -89,7 +89,7 @@
     2150.1
    ],
    "source": "SI AS 176/L/L101/g/A04",
-   "placed": "partial sheet, hung from the cell's south edge (1.00)"
+   "placed": "hung from the cell's north edge, to meet the row above (1.00)"
   },
   {
    "image": "kataster-scans/224591.jpg",
