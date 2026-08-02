@@ -1789,7 +1789,7 @@ export const sl = {
   "settings.map.tileUrl.hint": "Predloga XYZ s polji {z}/{x}/{y}. Za njene pogoje in navedbo vira poskrbite sami — zemljevid je ne navede.",
   "settings.map.tileUrl.placeholder": "https://…/{z}/{x}/{y}.png",
   "settings.map.overlays": "Dodatni sloji zemljevida",
-  "settings.map.overlays.hint": "Dodatni sloji ploščic, ki jih zemljevid lahko izriše čez osnovno karto — npr. georeferencirana zgodovinska izmera. Sloje, katerih obdobje ustreza izbranim letom, zemljevid tam predlaga. Vrstni red na seznamu je vrstni red izrisa — prvi sloj se izriše na vrhu, zato naj bo tanek referenčni sloj (hišne številke, parcele) nad celostransko karto. Naročniški viri (npr. Arcanum/Mapire) delujejo z URL ploščic iz vašega računa.",
+  "settings.map.overlays.hint": "Dodatni sloji ploščic, ki jih zemljevid lahko izriše čez osnovno karto — npr. georeferencirana zgodovinska izmera. Vrstni red na seznamu je vrstni red izrisa — prvi sloj se izriše na vrhu, zato naj bo tanek referenčni sloj (hišne številke, parcele) nad celostransko karto. Naročniški viri (npr. Arcanum/Mapire) delujejo z URL ploščic iz vašega računa.",
   "settings.map.overlays.add": "+ Dodaj sloj",
   "settings.map.overlays.preset": "Dodaj brezplačen sloj…",
   "settings.map.overlays.preset.spezialkarte": "Avstro-Ogrska · Spezialkarte 1:75 000 (1877–1918)",

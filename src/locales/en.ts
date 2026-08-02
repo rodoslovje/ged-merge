@@ -1559,7 +1559,7 @@ export const en = {
   "settings.map.tileUrl.hint": "An XYZ template with {z}/{x}/{y}. Its terms and credit are yours to honour — the map shows none.",
   "settings.map.tileUrl.placeholder": "https://…/{z}/{x}/{y}.png",
   "settings.map.overlays": "Additional map layers",
-  "settings.map.overlays.hint": "Extra tile layers the Map chart can draw over the base map — e.g. a georeferenced historical survey. Layers whose period matches the map's selected years are suggested there. The list order is the stacking order — the first layer draws on top, so keep a thin reference layer (house numbers, parcels) above a full-page map. Subscription sources (e.g. Arcanum/Mapire) work with the tile URL from your account.",
+  "settings.map.overlays.hint": "Extra tile layers the Map chart can draw over the base map — e.g. a georeferenced historical survey. The list order is the stacking order — the first layer draws on top, so keep a thin reference layer (house numbers, parcels) above a full-page map. Subscription sources (e.g. Arcanum/Mapire) work with the tile URL from your account.",
   "settings.map.overlays.add": "+ Add layer",
   "settings.map.overlays.preset": "Add a free preset…",
   "settings.map.overlays.preset.spezialkarte": "Austria-Hungary · Spezialkarte 1:75 000 (1877–1918)",
