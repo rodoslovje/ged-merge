@@ -8059,15 +8059,17 @@ kbd {
 .tools-geo-sources {
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr);
-  gap: 10px 14px;
-  align-items: start;
-  margin: 10px 0;
+  gap: 6px 14px;
+  /* Centred on its own row: a button pinned to the first line of a four-line
+     description reads as a heading for it rather than as the thing it takes. */
+  align-items: center;
+  margin: 8px 0;
 }
 /* Buttons fill their column so all three match; the prose beside them drops the
    paragraph margins the grid gap already provides, and sits on the button's own
    line rather than above it. */
 .tools-geo-sources > .nav-btn { width: 100%; text-align: center; }
-.tools-geo-sources > .tools-geo-hint { margin: 0; padding-top: 3px; }
+.tools-geo-sources > .tools-geo-hint { margin: 0; }
 /* The OpenStreetMap download is a <select> wearing .nav-btn: one control that
    reads as a button and drops the country list open on click, the country picked
    being the click itself. It only needs the font and cursor the class doesn't
@@ -8085,12 +8087,15 @@ kbd {
 .settings-section > p.settings-hint,
 .settings-geo p.tools-geo-empty,
 .settings-geo p.tools-geo-hint {
-  font-size: 0.82rem; line-height: 1.35; margin: 0 0 12px;
+  font-size: 0.82rem; line-height: 1.35;
 }
-/* It now sits between the downloads and the import button it describes, so it
-   needs air on both sides. */
-.settings-geo p.tools-geo-hint { margin: 10px 0; }
-.settings-geo .tools-geo-countries { margin-bottom: 12px; }
+.settings-section > p.settings-hint,
+.settings-geo p.tools-geo-empty { margin: 0 0 12px; }
+/* Margins only on the note standing under the grid. Inside it the rows are
+   spaced by the grid gap alone — matching on the class here would beat
+   `.tools-geo-sources > .tools-geo-hint` and add a second gap on every row. */
+.settings-geo > p.tools-geo-hint { margin: 10px 0 0; }
+.settings-geo .tools-geo-countries { margin-bottom: 8px; }
 /* Per-event coordinate pin + its picker panel (EventCoordPicker). */
 .edit-event-coord-wrap { position: relative; display: inline-flex; }
 /* The pin is an inline SVG (PinIcon), not the 📍 emoji it replaced — the emoji

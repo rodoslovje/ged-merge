@@ -18,8 +18,16 @@ import { ToolsError, ToolsLoading } from "./shared";
 // sending them elsewhere at that moment would be a dead end — and shrinks to a
 // one-line summary once there is.
 
+/**
+ * What an import is doing, so the spinner can say it. The three stages are not
+ * cosmetic: Overpass computes a country's extract before it sends a single byte,
+ * so a download sits at zero bytes for ten seconds or more and a byte counter
+ * alone reads as hung. GURS, by contrast, streams from the first moment.
+ */
+type ImportStage = "waiting" | "downloading" | "parsing";
+
 type ImportState =
-  | { phase: "running"; done: number; total: number }
+  | { phase: "running"; stage: ImportStage; done: number; total: number }
   | { phase: "error"; message: string }
   | null;
 
@@ -44,6 +52,12 @@ const GURS_NASELJA_URL =
  *  candidate can name its občina. Small next to the settlements (212 rows). */
 const GURS_OBCINE_URL =
   "https://ipi.eprostor.gov.si/wfs-si-gurs-rpe/ogc/features/collections/SI.GURS.RPE:OBCINE/items?f=application%2Fgeo%2Bjson&limit=1000";
+
+/** The direction each source moves data: two fetch it from a service, one takes
+ *  it off your own disk. Plain arrows, not emoji — they inherit the button's
+ *  colour in both themes, where ⬇/⬆ would draw in their own. */
+const DOWNLOAD_GLYPH = "↓";
+const UPLOAD_GLYPH = "↑";
 
 /** Every place node in the country: settlements down to isolated dwellings. */
 function overpassQuery(code: string): string {
@@ -77,6 +91,25 @@ async function readWithProgress(
     off += c.byteLength;
   }
   return out.buffer;
+}
+
+/**
+ * Whole seconds since `active` became true, 0 when it is not. Overpass answers a
+ * country query only once it has computed the whole extract, so for ten seconds
+ * or more there is no byte to count and nothing else on screen moves — a ticking
+ * number is the difference between "working" and "hung".
+ */
+function useElapsed(active: boolean): number {
+  const [seconds, setSeconds] = useState(0);
+  useEffect(() => {
+    if (!active) {
+      setSeconds(0);
+      return;
+    }
+    const id = setInterval(() => setSeconds((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, [active]);
+  return active ? seconds : 0;
 }
 
 /** Every mounted manager, so an import made in Settings is reflected in the
@@ -149,7 +182,7 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
     // Only the GeoNames dump path reports parse progress by chunk; the Overpass
     // and GURS payloads are converted in one shot, so leave their total at 0 and
     // show a bare spinner rather than a 0 % that never moves.
-    setImportState({ phase: "running", done: 0, total: extra ? 0 : buffer.byteLength });
+    setImportState({ phase: "running", stage: "parsing", done: 0, total: extra ? 0 : buffer.byteLength });
     const worker = new Worker(new URL("../../worker/geo.worker.ts", import.meta.url), { type: "module" });
     workerRef.current = worker;
     const fail = (message: string) => {
@@ -159,7 +192,9 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
     };
     worker.onmessage = (e: MessageEvent<GeoWorkerResponse>) => {
       const msg = e.data;
-      if (msg.type === "progress") setImportState({ phase: "running", done: msg.done, total: msg.total });
+      if (msg.type === "progress") {
+        setImportState({ phase: "running", stage: "parsing", done: msg.done, total: msg.total });
+      }
       else if (msg.type === "result") {
         worker.terminate();
         workerRef.current = null;
@@ -187,8 +222,9 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
     if (!/^[A-Z]{2}$/.test(code)) return;
     const abort = new AbortController();
     fetchAbortRef.current = abort;
-    setImportState({ phase: "running", done: 0, total: 0 });
-    const onProgress = (done: number, total: number) => setImportState({ phase: "running", done, total });
+    setImportState({ phase: "running", stage: "waiting", done: 0, total: 0 });
+    const onProgress = (done: number, total: number) =>
+      setImportState({ phase: "running", stage: "downloading", done, total });
     try {
       let buffer: ArrayBuffer | undefined;
       for (const endpoint of OVERPASS_ENDPOINTS) {
@@ -224,14 +260,16 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
   const downloadSlovenia = async () => {
     const abort = new AbortController();
     fetchAbortRef.current = abort;
-    setImportState({ phase: "running", done: 0, total: 0 });
+    setImportState({ phase: "running", stage: "waiting", done: 0, total: 0 });
     try {
       const res = await fetch(GURS_NASELJA_URL, { signal: abort.signal });
       if (!res.ok) {
         setImportState({ phase: "error", message: t("tools.geocode.downloadFailed") });
         return;
       }
-      const buffer = await readWithProgress(res, (done, total) => setImportState({ phase: "running", done, total }));
+      const buffer = await readWithProgress(res, (done, total) =>
+        setImportState({ phase: "running", stage: "downloading", done, total }),
+      );
       // The municipalities are a separate collection (212 rows) joined by
       // EID_OBCINA — what lets two settlements of one name be told apart
       // ("Soteska (Kamnik)" vs "Soteska (Dolenjske Toplice)"). Failing to get
@@ -322,15 +360,19 @@ function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
       a.name.localeCompare(b.name, i18n.language),
     );
   }, [i18n.language]);
-  if (gaz.importState?.phase === "running") {
-    return (
-      <ToolsLoading
-        label={t("tools.geocode.importing")}
-        progress={gaz.importState}
-        bytes
-        onCancel={gaz.cancelImport}
-      />
-    );
+  const running = gaz.importState?.phase === "running" ? gaz.importState : undefined;
+  const waited = useElapsed(running?.stage === "waiting");
+  if (running) {
+    // Each stage says what it is actually doing: waiting on a service that sends
+    // nothing until it is ready, receiving bytes, or converting them. Only the
+    // wait needs a clock — the other two have their own numbers.
+    const label =
+      running.stage === "waiting"
+        ? `${t("tools.geocode.waiting")}${waited ? ` ${waited} s` : ""}`
+        : running.stage === "downloading"
+          ? t("tools.geocode.downloading")
+          : t("tools.geocode.importing");
+    return <ToolsLoading label={label} progress={running} bytes onCancel={gaz.cancelImport} />;
   }
   return (
     <>
@@ -347,14 +389,10 @@ function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
               onClick={() => void gaz.downloadSlovenia()}
               title={t("tools.geocode.gursTooltip")}
             >
+              <span aria-hidden="true">{DOWNLOAD_GLYPH} </span>
               {t("tools.geocode.gursBtn")}
             </button>
-            <p className="tools-geo-hint">
-              {t("tools.geocode.sourceGurs")}{" "}
-              <a href="https://www.e-prostor.gov.si/dostopi/javni-dostop/" target="_blank" rel="noreferrer">
-                e-prostor.gov.si
-              </a>
-            </p>
+            <p className="tools-geo-hint">{t("tools.geocode.sourceGurs")}</p>
             {/* One control, not a pair: the button opens the country list and
                 the country picked is the click — the same shape as the map tab's
                 "Add a free preset…". It never holds a selection, so it reads as
@@ -369,7 +407,9 @@ function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
                 if (code) void gaz.downloadCountry(code);
               }}
             >
-              <option value="">{t("tools.geocode.downloadBtn")}</option>
+              {/* The glyph rides in the option text: a closed <select> shows
+                  its selected option, and there is nothing else to draw in. */}
+              <option value="">{`${DOWNLOAD_GLYPH} ${t("tools.geocode.downloadBtn")}`}</option>
               {countries.map(({ code, name }) => (
                 <option key={code} value={code}>
                   {name}
@@ -382,6 +422,7 @@ function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
         {/* The fallback: for a country neither download serves, and for anyone
             who would rather the app fetched nothing at all. */}
         <label className="nav-btn tools-geo-import">
+          <span aria-hidden="true">{UPLOAD_GLYPH} </span>
           {t("tools.geocode.importBtn")}
           <input
             type="file"
