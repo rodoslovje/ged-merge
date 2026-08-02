@@ -15,7 +15,7 @@
    "image": "kataster-scans/224828.jpg",
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224828&docid=10&seq=1",
    "cell": [
-    -9,
+    -10,
     18
    ],
    "frame": [
@@ -29,13 +29,13 @@
     2056.2
    ],
    "source": "SI AS 176/L/L129/g/A01",
-   "placed": "guess: row f, printed W.III.15.a? (1.00)"
+   "placed": "row f, 1st — W.III.15.bf (1.00)"
   },
   {
    "image": "kataster-scans/224829.jpg",
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224829&docid=10&seq=1",
    "cell": [
-    -8,
+    -9,
     18
    ],
    "frame": [
@@ -49,14 +49,14 @@
     1976.0
    ],
    "source": "SI AS 176/L/L129/g/A02",
-   "placed": "guess: row f, no designation found (1.00)"
+   "placed": "row f, 2nd — W.III.15.af (1.00)"
   },
   {
    "image": "kataster-scans/224830.jpg",
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224830&docid=10&seq=1",
    "cell": [
     -8,
-    17
+    18
    ],
    "frame": [
     119.0,
@@ -69,7 +69,7 @@
     1976.0
    ],
    "source": "SI AS 176/L/L129/g/A03",
-   "placed": "guess: row g, no designation found (1.00)"
+   "placed": "row f, 3rd — W.II.15.df (1.00)"
   },
   {
    "image": "kataster-scans/224831.jpg",
@@ -115,7 +115,7 @@
    "image": "kataster-scans/224833.jpg",
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224833&docid=10&seq=1",
    "cell": [
-    -10,
+    -8,
     17
    ],
    "frame": [
@@ -129,7 +129,7 @@
     2474.0
    ],
    "source": "SI AS 176/L/L129/g/A06",
-   "placed": "guess: row g west, printed W.III.15.?g (1.00)"
+   "placed": "row g — W.II.15.dg (1.00)"
   },
   {
    "image": "kataster-scans/224834.jpg",
