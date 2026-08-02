@@ -16,7 +16,7 @@
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224485&docid=10&seq=1",
    "cell": [
     -4.0,
-    17.5
+    18.5
    ],
    "frame": [
     91.0,
@@ -29,7 +29,7 @@
     2818.4
    ],
    "source": "SI AS 176/L/L87/g/A01",
-   "placed": "a further sheet height south (1.00)"
+   "placed": "centre — a sheet height back up (1.00)"
   },
   {
    "image": "kataster-scans/224486.jpg",
@@ -56,7 +56,7 @@
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224487&docid=10&seq=1",
    "cell": [
     -5.0,
-    19.0
+    18.5
    ],
    "frame": [
     90.0,
@@ -69,7 +69,7 @@
     2101.5
    ],
    "source": "SI AS 176/L/L87/g/A03",
-   "placed": "JAMMA und PRASCHE title sheet — west of the row (1.00)"
+   "placed": "title sheet — half a sheet height down (1.00)"
   }
  ]
 }
