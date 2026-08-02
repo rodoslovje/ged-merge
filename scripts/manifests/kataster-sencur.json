@@ -29,7 +29,7 @@
     2012.1
    ],
    "source": "SI AS 176/L/L61/g/A01",
-   "placed": "partial sheet, hung from the cell's south edge (1.00)"
+   "placed": "row 1, west — unchanged (1.00)"
   },
   {
    "image": "kataster-scans/224298.jpg",
@@ -49,14 +49,14 @@
     2047.1
    ],
    "source": "SI AS 176/L/L61/g/A02",
-   "placed": "partial sheet, hung from the cell's south edge (1.00)"
+   "placed": "row 1, east — unchanged (1.00)"
   },
   {
    "image": "kataster-scans/224299.jpg",
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224299&docid=10&seq=1",
    "cell": [
     -3.0,
-    21.6066
+    22.0
    ],
    "frame": [
     48.0,
@@ -69,14 +69,14 @@
     2211.1
    ],
    "source": "SI AS 176/L/L61/g/A03",
-   "placed": "partial sheet, hung from the cell's south edge (1.00)"
+   "placed": "row 2 — top against row 1 (1.00)"
   },
   {
    "image": "kataster-scans/224300.jpg",
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224300&docid=10&seq=1",
    "cell": [
     -2.0,
-    21.7975
+    22.0
    ],
    "frame": [
     176.0,
@@ -89,14 +89,14 @@
     2063.1
    ],
    "source": "SI AS 176/L/L61/g/A04",
-   "placed": "partial sheet, hung from the cell's south edge (1.00)"
+   "placed": "row 2 — top against row 1 (1.00)"
   },
   {
    "image": "kataster-scans/224301.jpg",
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224301&docid=10&seq=1",
    "cell": [
     -3.0,
-    20.832
+    21.3934
    ],
    "frame": [
     88.0,
@@ -109,14 +109,14 @@
     2039.1
    ],
    "source": "SI AS 176/L/L61/g/A05",
-   "placed": "partial sheet, hung from the cell's south edge (1.00)"
+   "placed": "row 3 — top against row 2 (1.00)"
   },
   {
    "image": "kataster-scans/224302.jpg",
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224302&docid=10&seq=1",
    "cell": [
     -2.0,
-    20.9614
+    21.2025
    ],
    "frame": [
     89.0,
@@ -129,7 +129,7 @@
     2139.1
    ],
    "source": "SI AS 176/L/L61/g/A06",
-   "placed": "partial sheet, hung from the cell's south edge (1.00)"
+   "placed": "row 3 — top against row 2 (1.00)"
   }
  ]
 }
