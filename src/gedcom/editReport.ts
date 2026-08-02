@@ -358,16 +358,16 @@ function diffMedia(id: string, before: GedNode, after: GedNode, fieldLabel: stri
 
 function diffIndividualNodes(id: string, before: GedNode, after: GedNode, t: Translate, resolveMedia: MediaResolver, resolveSource: SourceResolver): FieldChange[] {
   const diffs: FieldChange[] = [];
-  const check = (field: string, from: string, to: string) => {
-    if (from !== to) diffs.push({ recordId: id, field, from, to, action: "incoming" });
+  const check = (field: string, from: string, to: string, identity?: boolean) => {
+    if (from !== to) diffs.push({ recordId: id, field, from, to, action: "incoming", identity });
   };
 
   const beforeName = getNameParts(before);
   const afterName = getNameParts(after);
-  check(t("field.given"),   beforeName.given,    afterName.given);
-  check(t("field.surname"),  beforeName.surname,  afterName.surname);
+  check(t("field.given"),   beforeName.given,    afterName.given,    true);
+  check(t("field.surname"),  beforeName.surname,  afterName.surname,  true);
   check(t("field.nickname"), beforeName.nickname, afterName.nickname);
-  check(t("field.sex"),      nodeChild(before, "SEX"), nodeChild(after, "SEX"));
+  check(t("field.sex"),      nodeChild(before, "SEX"), nodeChild(after, "SEX"), true);
   diffs.push(...diffAdditionalNames(id, before, after, t));
 
   const evTags = eventTagsOf(before, after, INDIVIDUAL_EVENT_TAGS);

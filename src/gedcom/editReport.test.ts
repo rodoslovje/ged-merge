@@ -56,6 +56,19 @@ describe("enrichEditReport — source citations", () => {
   });
 });
 
+describe("enrichEditReport — identity fields", () => {
+  it("marks name and sex as the person's own identity, unlike an event's fields", () => {
+    const before = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 DATE 1900\n"));
+    const after = dataset(wrap("0 @I1@ INDI\n1 NAME Ivan /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1901\n"));
+    const snapshots = new Map([["@I1@", before.individuals.get("@I1@")!.raw]]);
+    const report = enrichEditReport(baseReport("@I1@"), after, snapshots, new Map(), tr);
+
+    const identity = report.changes.filter((c) => c.identity).map((c) => c.field);
+    expect(identity).toEqual(["field.given", "field.sex"]);
+    expect(report.changes.find((c) => c.group === "event.BIRT")?.identity).toBeUndefined();
+  });
+});
+
 describe("enrichEditReport — event diffing", () => {
   it("marks an edited event's changed sub-field, leaving the rest in their normal color, with no new-event icon", () => {
     const before = dataset(

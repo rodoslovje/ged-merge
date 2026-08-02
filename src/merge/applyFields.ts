@@ -277,7 +277,8 @@ export function applyRows(
         // inline on the event's line — not as a separate "Source: …" text row.
         report.changes.push({ recordId, field: row.label, from: "", to: "", action: choice, group, unedited: choice === "incoming", sources: newSourceCitations(row.mainSources, row.incomingSources) });
       } else {
-        report.changes.push({ recordId, field: row.label, from: row.main, to: row.incoming, action: choice, group, unedited: choice === "incoming" });
+        const identity = row.key === "given" || row.key === "surname" || row.key === "sex";
+        report.changes.push({ recordId, field: row.label, from: row.main, to: row.incoming, action: choice, group, unedited: choice === "incoming", identity: identity || undefined });
       }
       touched.add(recordId);
     }

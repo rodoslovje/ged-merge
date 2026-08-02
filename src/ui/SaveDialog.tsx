@@ -207,7 +207,13 @@ export function SaveDialog({
                 // Records (SOUR/OBJE) aren't offered for removal — `onRemove`
                 // reverts a person/family snapshot, and they carry neither.
                 const canRemove = isEditRecord && !!onRemove && kind !== "record";
-                const fieldRows = g.changes.filter((c) => !c.newRecord && hasContent(c));
+                // A new person's name and sex are already in the card's header
+                // (spelled out, and colouring the label) — repeating them as
+                // "Given: + Jurij" rows says nothing. On an existing record the
+                // same rows are a real before/after, so they stay.
+                const fieldRows = g.changes.filter(
+                  (c) => !c.newRecord && hasContent(c) && !(c.identity && g.isNew && kind === "individual"),
+                );
                 // A record added by this merge isn't in the (pre-merge) dataset,
                 // so its person styling and facts come from the incoming record
                 // it was copied from.
@@ -442,9 +448,11 @@ function FieldValue({ c }: { c: FieldChange }) {
  *  underneath instead of repeating the event name each time. Keyed by group
  *  label (not just adjacency) so rows appended later — e.g. from a manual edit
  *  made after the merge step — still land under their existing event header.
- *  Groups are then sorted birth-to-death via `eventOrder`; non-event rows
- *  (notes, sources, …) have no entry in that map and sort after every event,
- *  keeping their original relative order (stable sort). */
+ *  Groups are then sorted: the person's own identity (name, sex) first, since
+ *  it sits on the record itself rather than on any event, then the events
+ *  birth-to-death via `eventOrder`; the remaining non-event rows (notes,
+ *  sources, …) have no entry in that map and sort last, each keeping its
+ *  original relative order (stable sort). */
 function groupFieldRows(
   rows: FieldChange[],
   eventOrder: Map<string, number>,
@@ -464,11 +472,14 @@ function groupFieldRows(
     }
     g.rows.push(c);
   }
-  groups.sort((a, b) => {
-    const oa = a.group ? eventOrder.get(a.group) ?? Infinity : Infinity;
-    const ob = b.group ? eventOrder.get(b.group) ?? Infinity : Infinity;
-    return oa - ob;
-  });
+  // Finite, so the stable sort keeps equal-ranked rows in their original order
+  // (Infinity - Infinity would hand it a NaN).
+  const LAST = Number.MAX_SAFE_INTEGER;
+  const rank = (g: { group?: string; rows: FieldChange[] }) => {
+    if (g.group) return eventOrder.get(g.group) ?? LAST;
+    return g.rows[0]?.identity ? -1 : LAST;
+  };
+  groups.sort((a, b) => rank(a) - rank(b));
   return groups;
 }
 
