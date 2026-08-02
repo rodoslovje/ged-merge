@@ -50,7 +50,7 @@ Usage:
 Then build as usual:
 
   python3 scripts/overlay-tiles.py --manifest scripts/manifests/kataster-gradac.json \\
-      --out public/tiles-local/kataster-gradac --base-zoom 17 --min-zoom 2 --webp
+      --out public/tiles-local/kataster-gradac --base-zoom 18 --min-zoom 2 --webp 90
 """
 
 import argparse
@@ -84,7 +84,11 @@ GURS_KO = ("https://ipi.eprostor.gov.si/wfs-si-gurs-kn/ogc/features/collections/
 # above Graz. `shift` is the one constant correction applied — see
 # scripts/manifests/README.md for how it is measured and why nothing else is.
 ORIGINS = {
-    "krim": dict(lat0=45.928944, lon0=14.474694, shift=[0.0, 0.0]),
+    # Krim's shift is measured, not guessed: with the datum conversion alone the
+    # churches of St. Martin and St. Bartholomew at Stražišče both come out 80 m
+    # west of where they stand, and neither north nor south. That is one number
+    # for the whole crown land — it moves every sheet of it together.
+    "krim": dict(lat0=45.928944, lon0=14.474694, shift=[80.0, 0.0]),
     "schoeckelberg": dict(lat0=47.198639, lon0=15.469167, shift=[0.0, 0.0]),
 }
 FOND_ORIGIN = {"176": "krim", "178": "krim", "179": "krim", "177": "schoeckelberg"}

@@ -126,9 +126,12 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
   // scripts/kataster-sheets.py; see scripts/manifests/README.md.
   //
   // Each sheet sits where its own printed designation puts it on the survey's
-  // Cassini-Soldner lattice — nothing is rubber-sheeted onto modern
-  // coordinates — so the ~200 m the whole grid may be out is the survey's, and
-  // it moves every sheet of a crown land together rather than distorting any.
+  // Cassini-Soldner lattice, converted from the Bessel/MGI datum it was
+  // computed on — without that the sheets land ~370 m east. Nothing is
+  // rubber-sheeted onto modern coordinates: what is left over (Stražišče's two
+  // churches fall on their drawn symbols; Gradac's is ~50 m off) is the
+  // survey's own error, and one constant per crown land moves every sheet of
+  // it together rather than distorting any.
   //
   // Two municipalities so far, hence a preset each: a cadastral overlay is
   // only ever true of the k.o. it was drawn for, and one box spanning both
@@ -139,9 +142,11 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     yearFrom: 1826,
     yearTo: 1869,
     attribution: "Arhiv Republike Slovenije, SI AS 176 (Franciscejski kataster za Kranjsko)",
-    // The scans are 0.77 m a pixel, which is z17; deeper only enlarges them.
-    maxZoom: 17,
-    coverage: [46.2019, 14.3025, 46.2429, 14.3764],
+    // Built to z18 so the scan is never downsampled: at 0.77 m a pixel it
+    // falls between z17 and z18, and the parcel numbers a land record is
+    // matched against are what the resampling costs first.
+    maxZoom: 18,
+    coverage: [46.2015, 14.2988, 46.2425, 14.3727],
     sampleZoom: 16,
   },
   {
@@ -150,8 +155,8 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     yearFrom: 1824,
     yearTo: 1869,
     attribution: "Arhiv Republike Slovenije, SI AS 176 (Franciscejski kataster za Kranjsko)",
-    maxZoom: 17,
-    coverage: [45.5850, 15.2038, 45.6261, 15.2773],
+    maxZoom: 18,
+    coverage: [45.5847, 15.2001, 45.6258, 15.2735],
     sampleZoom: 16,
   },
   // Slovenia · GURS public WMS (Geodetska uprava RS), CC BY 4.0, CORS-enabled,

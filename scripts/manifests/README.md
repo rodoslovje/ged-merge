@@ -316,20 +316,32 @@ own — one trimmed so close to its border rule that the rule has no paper
 outside it to be a rule against, and Gradac's 1853 reambulation, which is cut
 to a frame of its own and is left out rather than forced onto the lattice.
 
-### The origin, and the shift that is not applied
+### The survey's degrees are not today's degrees, here either
 
-The Krim origin here is 45°55′44.2″ N, 14°28′28.9″ E on Bessel 1841, and it is
-carried at face value: `shift` is `[0, 0]`. The check that says it can be:
-sliding today's cadastral boundary over the sheets' wash, k.o. Stražišče fits
-best 190 m west and 100 m south of nominal, but only barely — the correlation
-goes 0.454 → 0.472 over that whole distance, which is a hill, not a peak.
-Gradac's own fit lands somewhere else entirely and its correlation at nominal is
-*negative*, because that municipality has lost ground since 1824 and its 1824
-wash and its 2026 boundary are not the same shape. One shallow fit and one
-contaminated one are not grounds for moving a crown land's whole grid, so
-nothing is moved. If a k.o. with an unchanged boundary later measures a
-consistent offset, it belongs in `ORIGINS["krim"]["shift"]` — one number for
-the system, never per sheet.
+The Krim origin is 45°55′44.2″ N, 14°28′28.9″ E, and the projection is computed
+on Bessel 1841 — which is the datum the survey was computed on, not the one a
+map viewer uses. Treating its output as WGS 84 puts the sheets **370 m east** at
+Kranj, the same drift the Spezialkarte sheets showed there (+264 m); `Cassini`
+therefore converts through the same geocentric shift the 1:75 000 grid uses
+(EPSG:1188). Do this and no other correction and Stražišče lands 80 m west.
+
+`shift` closes that last 80 m, and it is measured rather than fitted to a
+shape: the churches of St. Martin and St. Bartholomew, a kilometre apart, both
+came out 80 m west and neither north nor south, so `ORIGINS["krim"]["shift"]`
+is `[80, 0]`. It is one number for the crown land — every sheet of Carniola
+moves by it together, and no sheet moves relative to its neighbour.
+
+Checked afterwards: at Stražišče the two churches sit on their drawn symbols.
+At Gradac, 60 km away and in the other half of the system, the church of St.
+Mary comes out 27 m west and 46 m south — a residual of ~50 m, which is the
+survey's own, and is left visible.
+
+An earlier attempt measured this by sliding today's cadastral boundary over the
+sheets' colour wash instead. It is recorded here as a warning: Stražišče's fit
+was a hill rather than a peak (0.454 → 0.472 over 200 m) and Gradac's was
+worthless, because that municipality has lost ground since 1824 and its 1824
+wash and its 2026 boundary are not the same shape. Two churches beat two
+polygons.
 
 ### Rebuilding
 
@@ -343,7 +355,7 @@ python3 scripts/kataster-sheets.py --ko-id 225872 --name STRAŽIŠČE \
 python3 scripts/kataster-sheets.py … --pin pins.json --calibrate
 
 python3 scripts/overlay-tiles.py --manifest scripts/manifests/kataster-strazisce.json \
-    --out public/tiles-local/kataster-strazisce --base-zoom 17 --min-zoom 2 --webp
+    --out public/tiles-local/kataster-strazisce --base-zoom 18 --min-zoom 2 --webp 90
 ```
 
 Min zoom 2 is the Map chart's own shallowest zoom, and it matters: the chart
@@ -351,10 +363,14 @@ opens by fitting the tree's places at z10 or less, so a pyramid that stops at
 z11 is invisible until you zoom in a step. A municipality is a speck at those
 zooms and costs one tile each.
 
-Base zoom 17: the scans are 0.771 m a pixel (a sheet's neatline measures
+Base zoom 18: the scans are 0.771 m a pixel (a sheet's neatline measures
 2460 × 1968 px for 1000 × 800 klafter, and every scan in the fond is at that one
-resolution), and z17 is 0.83 m a pixel at this latitude. z18 would only enlarge
-paper. A k.o. costs about 700 tiles and 2 MB; the scans are **not** in the repo
+resolution), which falls between z17 (0.83 m) and z18 (0.41 m). z17 would
+resample the scan *down* by 7%, and the red parcel numbers — the thing a land
+record is matched against — are what that costs first, so the base is z18 and
+the scan is only ever enlarged. At WebP 90 a tile is then indistinguishable
+from the scan it came from. A k.o. costs about 2 500 tiles and 12 MB; the scans
+are **not** in the repo
 — each sheet entry carries the `url` it came from, and `kataster-scans/` is
 git-ignored.
 

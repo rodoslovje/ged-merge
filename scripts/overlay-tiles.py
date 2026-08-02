@@ -188,9 +188,50 @@ class Conic:
 
 BESSEL_A = 6377397.155
 BESSEL_F = 1 / 299.1528128
+WGS84_A = 6378137.0
+WGS84_F = 1 / 298.257223563
 KLAFTER = 1.89648384          # metres in one Vienna klafter
 SHEET_W = 1000 * KLAFTER      # 1896.484 m — a cadastral sheet, east-west
 SHEET_H = 800 * KLAFTER       # 1517.187 m — and north-south
+
+# Bessel/MGI → WGS 84, the same geocentric shift the Spezialkarte grid uses
+# (EPSG:1188, fitted over the former Yugoslavia — see
+# scripts/spezialkarte-sheets.py). The cadastral survey was computed on Bessel
+# from its crown land's own origin, so its coordinates are not today's: without
+# this the sheets sit some 270 m east of where they belong at Kranj, which is
+# the same drift the 1:75 000 sheets showed there.
+DATUM_SHIFT = (682.0, -203.0, 480.0)
+
+
+def _to_geocentric(lat, lon, a, f):
+    e2 = f * (2 - f)
+    p, l = math.radians(lat), math.radians(lon)
+    n = a / math.sqrt(1 - e2 * math.sin(p) ** 2)
+    return (n * math.cos(p) * math.cos(l), n * math.cos(p) * math.sin(l),
+            n * (1 - e2) * math.sin(p))
+
+
+def _to_geodetic(x, y, z, a, f):
+    e2 = f * (2 - f)
+    lon = math.atan2(y, x)
+    r = math.hypot(x, y)
+    lat = math.atan2(z, r * (1 - e2))
+    for _ in range(6):
+        n = a / math.sqrt(1 - e2 * math.sin(lat) ** 2)
+        lat = math.atan2(z + e2 * n * math.sin(lat), r)
+    return math.degrees(lon), math.degrees(lat)
+
+
+def mgi_to_wgs84(lon, lat):
+    x, y, z = _to_geocentric(lat, lon, BESSEL_A, BESSEL_F)
+    return _to_geodetic(x + DATUM_SHIFT[0], y + DATUM_SHIFT[1], z + DATUM_SHIFT[2],
+                        WGS84_A, WGS84_F)
+
+
+def wgs84_to_mgi(lon, lat):
+    x, y, z = _to_geocentric(lat, lon, WGS84_A, WGS84_F)
+    return _to_geodetic(x - DATUM_SHIFT[0], y - DATUM_SHIFT[1], z - DATUM_SHIFT[2],
+                        BESSEL_A, BESSEL_F)
 
 
 class Cassini:
@@ -220,7 +261,15 @@ class Cassini:
                            - (35 * e2**3 / 3072) * math.sin(6 * phi))
 
     def fwd(self, lon, lat):
-        """lon/lat → (east, north) metres on the survey's grid."""
+        """WGS 84 lon/lat → (east, north) metres on the survey's grid."""
+        return self._fwd_mgi(*wgs84_to_mgi(lon, lat))
+
+    def inv(self, x, y):
+        """(east, north) metres on the survey's grid → WGS 84 lon/lat."""
+        return mgi_to_wgs84(*self._inv_mgi(x, y))
+
+    def _fwd_mgi(self, lon, lat):
+        """The projection itself, in the datum it was computed on."""
         phi, lam = math.radians(lat), math.radians(lon)
         a = (lam - self.lam0) * math.cos(phi)
         t = math.tan(phi) ** 2
@@ -231,8 +280,7 @@ class Cassini:
              + n * math.tan(phi) * (a**2 / 2 + (5 - t + 6 * c) * a**4 / 24))
         return x - self.dx, y - self.dy
 
-    def inv(self, x, y):
-        """(east, north) metres → lon/lat."""
+    def _inv_mgi(self, x, y):
         x, y = x + self.dx, y + self.dy
         e2 = self.e2
         mu = (self.m0 + y) / (BESSEL_A * (1 - e2 / 4 - 3 * e2**2 / 64 - 5 * e2**3 / 256))
@@ -254,7 +302,7 @@ class Cassini:
         # projection close that to millimetres, and the forward one is the
         # definition the sheets are placed by.
         for _ in range(2):
-            ex, ey = self.fwd(lon, lat)
+            ex, ey = self._fwd_mgi(lon, lat)
             dx_m, dy_m = (x - self.dx) - ex, (y - self.dy) - ey
             if abs(dx_m) < 1e-4 and abs(dy_m) < 1e-4:
                 break
