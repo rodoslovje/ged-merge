@@ -8050,14 +8050,17 @@ kbd {
 .tools-geo-delete:hover { opacity: 1; }
 .tools-geo-empty { color: var(--muted); margin: 0 0 10px; }
 .tools-geo-import { display: inline-block; cursor: pointer; margin: 0; }
-.tools-geo-acquire { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
-.tools-geo-download { display: inline-flex; align-items: center; gap: 8px; }
-.tools-geo-download input {
-  width: 3.2em; box-sizing: border-box; padding: 5px 8px; text-transform: uppercase;
+/* One row per way in. They are alternatives, so they stack rather than share a
+   line — a wrapped row made the country picker look like it belonged to
+   whichever button ended up next to it. */
+.tools-geo-acquire { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.tools-geo-option { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.tools-geo-country-select {
+  box-sizing: border-box; padding: 5px 8px; max-width: 16em;
   border: 1px solid var(--border); border-radius: var(--radius-sm);
   background: var(--panel-2); color: var(--text); font: inherit; font-size: 0.9rem;
 }
-.tools-geo-download input:focus { outline: none; border-color: var(--accent); }
+.tools-geo-country-select:focus { outline: none; border-color: var(--accent); }
 /* Drop .tools-run's bottom margin for every button in the row — whether it sits
    in the country-code wrapper or directly in the flex row — so they align. */
 .tools-geo-acquire .tools-run { margin: 0; }

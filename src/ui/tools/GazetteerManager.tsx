@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { COUNTRY_CODES } from "../../gedcom/countryCode";
 import { buildGazetteerIndex, type GazetteerIndex } from "../../geo/gazetteer";
 import { deleteCountry, loadCountries, type CountryMeta } from "../../persist/geoDb";
 import type { GeoWorkerRequest, GeoWorkerResponse } from "../../worker/geoMessages";
@@ -313,8 +314,17 @@ function GazetteerList({ gaz }: { gaz: Gazetteer }) {
  *  GeoNames file. The two downloads need the online-lookups opt-in; the file
  *  import never does. */
 function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { settings } = useSettings();
+  // The picker replaces a two-letter code box: nobody should have to know that
+  // Croatia is HR. Names come from the browser in the reader's own language, and
+  // fall back to the code itself where it has none.
+  const countries = useMemo(() => {
+    const names = new Intl.DisplayNames([i18n.language], { type: "region" });
+    return COUNTRY_CODES.map((code) => ({ code, name: names.of(code) ?? code })).sort((a, b) =>
+      a.name.localeCompare(b.name, i18n.language),
+    );
+  }, [i18n.language]);
   if (gaz.importState?.phase === "running") {
     return (
       <ToolsLoading
@@ -326,28 +336,35 @@ function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
     );
   }
   return (
+    // Three independent ways in, one per row: they are alternatives, not a
+    // sequence, and a wrapped row read as though the country picker belonged to
+    // whichever button happened to land beside it.
     <div className="tools-geo-acquire">
       {settings.allowLinkFetch && (
         <>
-          <button
-            className="nav-btn tools-run"
-            onClick={() => void gaz.downloadSlovenia()}
-            title={t("tools.geocode.gursTooltip")}
-          >
-            {t("tools.geocode.gursBtn")}
-          </button>
-          <span className="tools-geo-download">
-            <input
-              type="text"
-              maxLength={2}
-              placeholder={t("tools.geocode.countryCodePlaceholder")}
-              title={t("tools.geocode.countryCodeTooltip")}
+          <div className="tools-geo-option">
+            <button
+              className="nav-btn tools-run"
+              onClick={() => void gaz.downloadSlovenia()}
+              title={t("tools.geocode.gursTooltip")}
+            >
+              {t("tools.geocode.gursBtn")}
+            </button>
+          </div>
+          <div className="tools-geo-option">
+            <select
+              className="tools-geo-country-select"
+              title={t("tools.geocode.countryTooltip")}
               value={gaz.countryDraft}
               onChange={(e) => gaz.setCountryDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") void gaz.downloadCountry();
-              }}
-            />
+            >
+              <option value="">{t("tools.geocode.countryPick")}</option>
+              {countries.map(({ code, name }) => (
+                <option key={code} value={code}>
+                  {name}
+                </option>
+              ))}
+            </select>
             <button
               className="nav-btn tools-run"
               onClick={() => void gaz.downloadCountry()}
@@ -355,22 +372,24 @@ function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
             >
               {t("tools.geocode.downloadBtn")}
             </button>
-          </span>
+          </div>
         </>
       )}
-      <label className="nav-btn tools-geo-import">
-        {t("tools.geocode.importBtn")}
-        <input
-          type="file"
-          accept=".txt,.zip"
-          hidden
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            e.target.value = "";
-            if (file) void gaz.importFile(file);
-          }}
-        />
-      </label>
+      <div className="tools-geo-option">
+        <label className="nav-btn tools-geo-import">
+          {t("tools.geocode.importBtn")}
+          <input
+            type="file"
+            accept=".txt,.zip"
+            hidden
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              if (file) void gaz.importFile(file);
+            }}
+          />
+        </label>
+      </div>
     </div>
   );
 }
