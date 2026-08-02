@@ -66,6 +66,7 @@ import { hashFile } from "./persist/fingerprint";
 import { useWorkspacePersistence } from "./persist/useWorkspacePersistence";
 import { ChartSettingsProvider, useChartSettings } from "./ui/ChartSettingsContext";
 import { DatasetProvider, SettingsProvider, useSettings, useNameOf } from "./ui/SettingsContext";
+import { onSettingsRequest, type SettingsTab } from "./ui/settingsBus";
 import { GlobalSearchModal, type OpenHow, type SearchRowMeta } from "./ui/GlobalSearchModal";
 import { buildSearchRows, type FilterContext } from "./ui/globalSearch";
 import { SearchIcon } from "./ui/icons/SearchIcon";
@@ -233,6 +234,17 @@ function AppContent() {
   const [showFilters, setShowFilters] = useState(true);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  // A panel that needs a setting can send the reader straight to its tab —
+  // see settingsBus for why this is a subscription rather than a prop.
+  const [settingsTab, setSettingsTab] = useState<SettingsTab | undefined>(undefined);
+  useEffect(
+    () =>
+      onSettingsRequest((tab) => {
+        setSettingsTab(tab);
+        setShowSettings(true);
+      }),
+    [],
+  );
   const [showGlobalSearch, setShowGlobalSearch] = useState(false);
   // Outstanding "create a new, unattached person" request handed to Edit mode —
   // see EditView's `addPersonRequest`. The nonce only grows, so each request is
@@ -1465,6 +1477,7 @@ function AppContent() {
         onThemeMode={changeThemeMode}
         onClearCache={() => { setShowSettings(false); void persistence.handleClearCache(); }}
         detectedFormats={lastMainFile?.detectedFormats}
+        initialTab={settingsTab}
       />
       {confirmDialogElement}
     </>

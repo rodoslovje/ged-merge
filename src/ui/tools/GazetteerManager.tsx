@@ -6,6 +6,7 @@ import { deleteCountry, loadCountries, type CountryMeta } from "../../persist/ge
 import type { GeoWorkerRequest, GeoWorkerResponse } from "../../worker/geoMessages";
 import { invalidateGazetteerIndex } from "../edit/PlaceLookupContext";
 import { useSettings } from "../SettingsContext";
+import { requestSettings } from "../settingsBus";
 import { ToolsError, ToolsLoading } from "./shared";
 
 // The place-directory manager: the offline gazetteers (GeoNames country extracts,
@@ -472,31 +473,37 @@ export function GazetteerManager({ gaz }: { gaz: Gazetteer }) {
  */
 export function GazetteerSetup({ gaz }: { gaz: Gazetteer }) {
   const { t, i18n } = useTranslation();
-  const busy = gaz.importState !== null;
   if (gaz.countries === null) return null;
 
-  if (gaz.countries.length > 0 && !busy) {
+  // Nothing loaded: say so and point at the one place that manages them. The
+  // controls themselves are deliberately *not* repeated here — two copies of
+  // the same setup invite the reader to wonder which one is the real one, and
+  // the link costs one click.
+  if (gaz.countries.length === 0) {
     return (
       <div className="tools-geo-gazetteer">
-        <div className="tools-geo-summary">
-          <span className="tools-geo-loaded">{t("tools.geocode.loadedCountries")}</span>
-          {gaz.countries.map((c) => (
-            <span key={c.code} className="tools-geo-summary-entry">
-              <span className="tools-geo-country gm-data">{c.code}</span>
-              <span className="tools-geo-count">{c.count.toLocaleString(i18n.language)}</span>
-            </span>
-          ))}
-          <span className="tools-geo-manage">{t("tools.geocode.manageInSettings")}</span>
-        </div>
+        <p className="tools-geo-empty">{t("tools.geocode.noGazetteer")}</p>
+        <button className="tools-issue-link" onClick={() => requestSettings("map")}>
+          {t("tools.geocode.openSettings")}
+        </button>
       </div>
     );
   }
 
   return (
     <div className="tools-geo-gazetteer">
-      {gaz.countries.length === 0 && <p className="tools-geo-empty">{t("tools.geocode.noGazetteer")}</p>}
-      <GazetteerList gaz={gaz} />
-      <GazetteerAcquire gaz={gaz} />
+      <div className="tools-geo-summary">
+        <span className="tools-geo-loaded">{t("tools.geocode.loadedCountries")}</span>
+        {gaz.countries.map((c) => (
+          <span key={c.code} className="tools-geo-summary-entry">
+            <span className="tools-geo-country gm-data">{c.code}</span>
+            <span className="tools-geo-count">{c.count.toLocaleString(i18n.language)}</span>
+          </span>
+        ))}
+        <button className="tools-issue-link" onClick={() => requestSettings("map")}>
+          {t("tools.geocode.manageInSettings")}
+        </button>
+      </div>
     </div>
   );
 }
