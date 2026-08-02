@@ -527,6 +527,13 @@
               <a href="#geocode">Geocode places</a> (<a href="#tools">§10</a>); the same opt-in base map — or the
               built-in offline outline — as the <a href="#map">Places map</a> applies.
             </p>
+            <p>
+              A coordinate belongs to the place it was recorded for, so changing an event's place moves its dot with it:
+              the position your file already uses for the new place is taken, and if the file has none, the old one is
+              cleared rather than left pointing at the place the event just moved away from. Refining the
+              <strong>address</strong> at the same place keeps the event's own coordinate, which may be the house's and
+              more precise than anything the file knows for the settlement.
+            </p>
             <h3>Family relationships</h3>
             <div>
               The panel shows three family sections:
