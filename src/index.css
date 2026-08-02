@@ -8248,6 +8248,9 @@ kbd {
 .tools-geo-summary-entry { display: inline-flex; align-items: baseline; gap: 6px; }
 .tools-geo-summary .clickable { cursor: pointer; }
 .tools-geo-summary .clickable:hover { color: var(--accent); }
+/* Where the managing happens, said once and quietly — the tool's job is the list
+   below, not the setup. */
+.tools-geo-manage { color: var(--muted); font-size: 0.85rem; }
 /* The geocode list reuses the Organize-sources vocabulary (cleanup-section,
    dup-kind-head, tree rows, reshape badges); only geocode-specific bits keep
    their own classes. The search box loses its own bottom margin inside the

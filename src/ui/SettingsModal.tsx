@@ -13,6 +13,7 @@ import { PROXY_HOSTS } from "../normalize/urlMetadata";
 import { DATE_PATTERN_CHOICES, type DetectedFormats, type FormatOverrides } from "../normalize/formatOverrides";
 import { sampleDateFor } from "../normalize/formatDefaults";
 import { sexClass } from "./sex";
+import { GazetteerManager, useGazetteer } from "./tools/GazetteerManager";
 
 // Leaflet is a lazy chunk everywhere else too — the Map tab loads it only when
 // the base-map sample is actually shown.
@@ -124,6 +125,14 @@ const SAMPLE_XREF = "@I42@";
 const NO_PINS: MiniMapPin[] = [];
 const SAMPLE_LIFESPAN = "1850–1920";
 const SAMPLE_AGE = 70;
+
+/** The place directories, in the only place that owns them. Its own component so
+ *  the IndexedDB read happens when the Map tab is opened, not on every render of
+ *  a modal that spends most of its life closed. */
+function GazetteerSection() {
+  const gaz = useGazetteer();
+  return <GazetteerManager gaz={gaz} />;
+}
 
 /**
  * General settings: name-display preferences, the record-id toggle, and the
@@ -438,6 +447,15 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
 
           {tab === "map" && (
           <>
+          {/* First on the tab: the directories are what every place name in the
+              app resolves against, and the one thing here that needs setting up
+              once rather than choosing. */}
+          <section className="settings-section">
+            <h3>{t("settings.geo.title")}</h3>
+            <p className="settings-hint">{t("settings.geo.hint")}</p>
+            <GazetteerSection />
+          </section>
+
           <section className="settings-section">
             <h3>{t("settings.map.base")}</h3>
             <label className="settings-row settings-row-toggle">
