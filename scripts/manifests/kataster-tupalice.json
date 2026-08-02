@@ -1,0 +1,115 @@
+{
+ "name": "TUPALICE",
+ "cassini": {
+  "lat0": 45.928944,
+  "lon0": 14.474694,
+  "shift": [
+   80.0,
+   0.0
+  ],
+  "system": "krim"
+ },
+ "source": "Arhiv Republike Slovenije, SI AS 176/L/L304 — Franciscean cadastre",
+ "sheets": [
+  {
+   "image": "kataster-scans/226067.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=226067&docid=10&seq=1",
+   "cell": [
+    -2.0,
+    27.0
+   ],
+   "frame": [
+    90.0,
+    99.1,
+    2546.0,
+    99.1,
+    2546.0,
+    2063.9,
+    90.0,
+    2063.9
+   ],
+   "source": "SI AS 176/L/L304/g/A01",
+   "placed": "printed W.C.I.13.bg (1.00)"
+  },
+  {
+   "image": "kataster-scans/226068.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=226068&docid=10&seq=1",
+   "cell": [
+    -2.0,
+    26.0
+   ],
+   "frame": [
+    861.0,
+    91.1,
+    3317.0,
+    91.1,
+    3317.0,
+    2055.9,
+    861.0,
+    2055.9
+   ],
+   "source": "SI AS 176/L/L304/g/A02",
+   "placed": "printed W.C.I.13.bh (1.00)"
+  },
+  {
+   "image": "kataster-scans/226069.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=226069&docid=10&seq=1",
+   "cell": [
+    -3.0,
+    25.0
+   ],
+   "frame": [
+    89.0,
+    95.1,
+    2545.0,
+    95.1,
+    2545.0,
+    2059.9,
+    89.0,
+    2059.9
+   ],
+   "source": "SI AS 176/L/L304/g/A03",
+   "placed": "printed W.C.I.13.ci (1.00)"
+  },
+  {
+   "image": "kataster-scans/226070.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=226070&docid=10&seq=1",
+   "cell": [
+    -2.0,
+    25.0
+   ],
+   "frame": [
+    129.0,
+    91.1,
+    2585.0,
+    91.1,
+    2585.0,
+    2055.9,
+    129.0,
+    2055.9
+   ],
+   "source": "SI AS 176/L/L304/g/A04",
+   "placed": "printed W.C.I.13.bi (1.00)"
+  },
+  {
+   "image": "kataster-scans/226071.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=226071&docid=10&seq=1",
+   "cell": [
+    -3.0,
+    24.0
+   ],
+   "frame": [
+    542.0,
+    104.1,
+    2998.0,
+    104.1,
+    2998.0,
+    2068.9,
+    542.0,
+    2068.9
+   ],
+   "source": "SI AS 176/L/L304/g/A05",
+   "placed": "printed W.C.I.14.ce (1.00)"
+  }
+ ]
+}

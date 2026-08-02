@@ -1,0 +1,115 @@
+{
+ "name": "TOPLICE",
+ "cassini": {
+  "lat0": 45.928944,
+  "lon0": 14.474694,
+  "shift": [
+   80.0,
+   0.0
+  ],
+  "system": "krim"
+ },
+ "source": "Arhiv Republike Slovenije, SI AS 176/N/N308 — Franciscean cadastre",
+ "sheets": [
+  {
+   "image": "kataster-scans/230641.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=230641&docid=10&seq=1",
+   "cell": [
+    23.0,
+    -12.0
+   ],
+   "frame": [
+    86.0,
+    86.2,
+    2518.0,
+    86.2,
+    2518.0,
+    2031.8,
+    86.0,
+    2031.8
+   ],
+   "source": "SI AS 176/N/N308/g/A01",
+   "placed": "wash shape (0.61)"
+  },
+  {
+   "image": "kataster-scans/230642.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=230642&docid=10&seq=1",
+   "cell": [
+    24.0,
+    -12.0
+   ],
+   "frame": [
+    132.3,
+    98.4,
+    2564.3,
+    108.2,
+    2556.5,
+    2053.8,
+    124.5,
+    2044.0
+   ],
+   "source": "SI AS 176/N/N308/g/A02",
+   "placed": "wash shape (0.65)"
+  },
+  {
+   "image": "kataster-scans/230643.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=230643&docid=10&seq=1",
+   "cell": [
+    23.0,
+    -13.0
+   ],
+   "frame": [
+    87.0,
+    80.2,
+    2519.0,
+    80.2,
+    2519.0,
+    2025.8,
+    87.0,
+    2025.8
+   ],
+   "source": "SI AS 176/N/N308/g/A03",
+   "placed": "wash shape (0.73)"
+  },
+  {
+   "image": "kataster-scans/230644.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=230644&docid=10&seq=1",
+   "cell": [
+    24.0,
+    -13.0
+   ],
+   "frame": [
+    134.9,
+    97.0,
+    2566.9,
+    99.9,
+    2564.6,
+    2045.5,
+    132.6,
+    2042.6
+   ],
+   "source": "SI AS 176/N/N308/g/A04",
+   "placed": "wash shape (0.38)"
+  },
+  {
+   "image": "kataster-scans/230645.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=230645&docid=10&seq=1",
+   "cell": [
+    24.0,
+    -14.0
+   ],
+   "frame": [
+    778.0,
+    117.2,
+    3210.0,
+    117.2,
+    3210.0,
+    2062.8,
+    778.0,
+    2062.8
+   ],
+   "source": "SI AS 176/N/N308/g/A05",
+   "placed": "wash shape (0.64)"
+  }
+ ]
+}

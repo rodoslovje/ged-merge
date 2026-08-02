@@ -64,7 +64,7 @@ import subprocess
 import sys
 import tempfile
 
-from PIL import Image, ImageChops, ImageDraw, ImageOps
+from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageOps
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _spec = importlib.util.spec_from_file_location("overlay_tiles",
@@ -349,6 +349,33 @@ def _fixed_size_frame(im, expect):
     return (fx, fy), (fx + ew, fy), (fx + ew, fy + eh), (fx, fy + eh)
 
 
+def _trimmed_frame(im, expect):
+    """A frame for a scan cut down inside its own neatline.
+
+    Some sheets reach the archive trimmed: full width, but a hand's breadth of
+    the bottom gone, so no rectangle of the printed size fits. What survives is
+    the pair of side rules and the top one — the designation is printed above
+    it, which is how we know it is the top and not the bottom — and that is
+    enough. The frame is hung from there and runs off the bottom of the scan,
+    where the tiler simply finds no pixels.
+    """
+    ew, eh = int(round(expect[0])), int(round(expect[1]))
+    w, h = im.size
+    if w < ew + 4 or h >= eh + 4 or h < eh * 0.6:
+        return None
+    cols, rows = _ink_profiles(im.reduce(4), 30)
+    sw = int(round(ew / 4))
+    pairs = [(cols[i] + cols[i + sw], i) for i in range(len(cols) - sw)]
+    score, sx = max(pairs)
+    if score < 0.25:
+        return None
+    top = max((rows[i], i) for i in range(len(rows) // 6))
+    if top[0] < 0.15:
+        return None
+    x0, y0 = sx * 4, top[1] * 4
+    return (x0, y0), (x0 + ew, y0), (x0 + ew, y0 + eh), (x0, y0 + eh)
+
+
 def _detect(path, expect):
     """Every reading of one scan's neatline that is worth having.
 
@@ -376,7 +403,8 @@ def _detect(path, expect):
         except SystemExit:
             continue
         out.append((0.0, tuple((x + ox, y + oy) for x, y in found)))
-    fixed = _fixed_size_frame(rgba.convert("L"), expect)
+    grey = rgba.convert("L")
+    fixed = _fixed_size_frame(grey, expect) or _trimmed_frame(grey, expect)
     if fixed:
         # It is the right shape by construction, so it would otherwise beat
         # every real reading on shape alone; the penalty keeps it a fallback.
@@ -609,9 +637,15 @@ def place(sheets, cass, rings, min_score=0.06, fixed=None):
     for cell in fixed.values():
         cells.pop(tuple(cell), None)
     usable = [s for s in sheets if s["corners"] is not None and s["id"] not in fixed]
-    if not cells or not usable:
+    if not usable:
+        # Every sheet was read off the paper: there is nothing left to assign,
+        # which is the best case, not a failure.
+        return ([dict(s, cell=tuple(fixed[s["id"]]), how="pinned", score=1.0)
+                 if s["id"] in fixed else dict(s, cell=None, how="no frame", score=0.0)
+                 for s in sheets], None)
+    if not cells:
         return ([dict(s, cell=None, how="no frame", score=0.0) for s in sheets],
-                None if cells else "the modern k.o. covers no lattice cell")
+                "the modern k.o. covers no lattice cell")
     order = sorted(cells, key=lambda c: (-c[1], c[0]))   # north row first, then west to east
     rank = {c: i for i, c in enumerate(order)}
     table = {}
@@ -677,6 +711,120 @@ def _assign(sheets, cells, table):
         if not improved:
             break
     return chosen
+
+
+# ── closing the mosaic on itself ─────────────────────────────────────────────
+# The lattice says where a sheet belongs; the paper does not entirely agree.
+# Two centuries of damp and shrinkage, a neatline drawn by hand and a scan of
+# each, leave neighbouring sheets a few metres out of step, and at 1:2880 that
+# is a visible tear in a road. The cells stay exactly where the survey's grid
+# puts them — what is solved for here is the small offset of each sheet *within*
+# its cell, constrained to average out to nothing, so the block as a whole never
+# moves and the correction cannot drift into a fit against modern coordinates.
+
+SEAM_BAND = 90            # scan pixels either side of a cut that get compared
+SEAM_SEARCH = 90          # how far to look for the match
+SEAM_MIN_R = 0.25         # below this the seam has nothing crossing it to match
+SEAM_CANON = 2462.0       # the series' frame width in scan pixels, for the comparison raster
+
+
+def _seam_profile(mask, w, h, edge, band):
+    """Ink summed across a strip beside one edge, as a profile *along* it."""
+    if edge in ("east", "west"):
+        x0 = w - band - 4 if edge == "east" else 4
+        return [sum(mask[y * w + x] for x in range(x0, x0 + band)) for y in range(h)]
+    y0 = h - band - 4 if edge == "south" else 4
+    return [sum(mask[(y0 + dy) * w + x] for dy in range(band)) for x in range(w)]
+
+
+def _best_shift(a, b, search):
+    """Where along the cut b sits against a, and how well it matches there."""
+    best = (0, -2.0)
+    for shift in range(-search, search + 1):
+        u = a[max(0, shift):len(a) + min(0, shift)]
+        v = b[max(0, -shift):len(b) + min(0, -shift)]
+        if len(u) < len(a) // 2:
+            continue
+        r = _correlate(u, v)
+        if r > best[1]:
+            best = (shift, r)
+    return best
+
+
+def seam_offsets(placed, step=2):
+    """Per-sheet (east, north) nudge in metres that closes the seams.
+
+    A cut between two sheets carries roads, streams and parcel edges straight
+    across it, so the ink beside it reads the same from either side — offset by
+    however far the two sheets are out of step *along* the cut. A vertical cut
+    therefore measures the north-south error and a horizontal one the east-west,
+    and a block with both kinds of neighbour pins down both for every sheet.
+    """
+    by_cell = {}
+    for s in placed:
+        if s.get("cell") and s.get("corners"):
+            by_cell[(round(s["cell"][0] * 2) / 2, round(s["cell"][1] * 2) / 2)] = s
+    masks = {}
+    for cell, s in by_cell.items():
+        with Image.open(s["path"]) as im:
+            nw, ne, se, sw = s["corners"]
+            quad = [nw[0], nw[1], sw[0], sw[1], se[0], se[1], ne[0], ne[1]]
+            w, h = round(SEAM_CANON / step), round(SEAM_CANON / ASPECT / step)
+            g = im.convert("L").transform((w, h), Image.Transform.QUAD, quad,
+                                          resample=Image.Resampling.BILINEAR)
+        edge = g.filter(ImageFilter.FIND_EDGES)
+        masks[cell] = (list(edge.getdata()), w, h)
+
+    band = max(4, SEAM_BAND // step)
+    search = max(4, SEAM_SEARCH // step)
+    eqs = {"north": [], "east": []}
+    for (ix, iy), s in by_cell.items():
+        for other, axis, ea, eb in (((ix + 1, iy), "north", "east", "west"),
+                                    ((ix, iy - 1), "east", "south", "north")):
+            if other not in by_cell:
+                continue
+            ma, wa, ha = masks[(ix, iy)]
+            mb, wb, hb = masks[other]
+            a = _seam_profile(ma, wa, ha, ea, band)
+            b = _seam_profile(mb, wb, hb, eb, band)
+            shift, r = _best_shift(a, b, search)
+            if r >= SEAM_MIN_R:
+                eqs[axis].append(((ix, iy), other, shift * step, r))
+    out = {cell: [0.0, 0.0] for cell in by_cell}
+    for axis, pairs in eqs.items():
+        if not pairs:
+            continue
+        solved = _least_squares_offsets(list(by_cell), pairs)
+        metres = SHEET_H / (SEAM_CANON / ASPECT) if axis == "north" else SHEET_W / SEAM_CANON
+        for cell, value in solved.items():
+            # a positive shift means the second sheet's ink sits further along
+            # the cut, so it has to come back by that much
+            out[cell][0 if axis == "east" else 1] += -value * metres
+    return {by_cell[cell]["id"]: tuple(v) for cell, v in out.items()}, eqs
+
+
+def _least_squares_offsets(cells, pairs, rounds=400):
+    """Offsets whose differences match the measured ones and average to zero.
+
+    Gauss-Seidel rather than a matrix: a municipality has a dozen sheets and a
+    handful of seams, and this keeps the script to the standard library."""
+    x = {c: 0.0 for c in cells}
+    for _ in range(rounds):
+        acc = {c: [0.0, 0.0] for c in cells}
+        for a, b, measured, weight in pairs:
+            # want x[b] - x[a] == measured
+            err = (x[b] - x[a]) - measured
+            acc[a][0] += weight * err / 2
+            acc[a][1] += weight
+            acc[b][0] -= weight * err / 2
+            acc[b][1] += weight
+        for c in cells:
+            if acc[c][1]:
+                x[c] += acc[c][0] / acc[c][1]
+        mean = sum(x.values()) / len(x)
+        for c in cells:
+            x[c] -= mean
+    return x
 
 
 # ── calibration ──────────────────────────────────────────────────────────────
@@ -796,6 +944,16 @@ def build_manifest(vac, ko_rec, args, out_path, review):
             print("   %s: lattice fits best %+.0f m east, %+.0f m north (r %.3f)"
                   % (name, fit[0], fit[1], fit[2]), flush=True)
 
+    nudge = {}
+    if args.register:
+        nudge, seams = seam_offsets([s for s in placed if s["cell"] and s["corners"]])
+        for axis, pairs in seams.items():
+            for a, b, shift, r in pairs:
+                print("   seam %s|%s %-5s %+5.0f px (r %.2f)" % (a, b, axis, shift, r), flush=True)
+        if nudge:
+            worst = max(abs(v) for pair in nudge.values() for v in pair)
+            print("   %s: seams closed, largest sheet nudge %.1f m" % (name, worst), flush=True)
+
     entries = []
     for s in sorted(placed, key=lambda s: s["sig"]):
         if s["cell"] is None or s["corners"] is None:
@@ -803,11 +961,13 @@ def build_manifest(vac, ko_rec, args, out_path, review):
                           % (name, s["sig"], os.path.basename(s["path"]), s["how"], s["score"],
                              ", printed %s%s" % s["letters"] if s.get("letters") else ""))
             continue
+        de, dn = nudge.get(s["id"], (0.0, 0.0))
+        cell = [s["cell"][0] + de / SHEET_W, s["cell"][1] + dn / SHEET_H]
         entries.append({
             "image": os.path.relpath(os.path.abspath(s["path"]),
                                      os.path.dirname(os.path.abspath(out_path))),
             "url": vac.scan_url(s["id"]),
-            "cell": list(s["cell"]),
+            "cell": [round(v, 6) for v in cell],
             "frame": [round(v, 1) for c in s["corners"] for v in c],
             **({"rotate": s["rotate"]} if s.get("rotate") else {}),
             "source": s["sig"],
@@ -841,6 +1001,10 @@ def main():
                     help='sheets whose cell was read off the scan by hand: '
                          '{"225877": {"cell": [-5, 22], "as": "printed W.C.II.14.ag"}}, '
                          'or {"-225877": "1853 reambulation, off the lattice"} to leave one out')
+    ap.add_argument("--register", action="store_true",
+                    help="close the seams: measure how far neighbouring sheets are out of "
+                         "step along each cut and nudge each sheet inside its own cell, "
+                         "averaging to zero so the block does not move")
     ap.add_argument("--calibrate", action="store_true",
                     help="report how far the lattice sits from the modern boundary and stop "
                          "short of trusting it — the shift belongs in ORIGINS, not per k.o.")

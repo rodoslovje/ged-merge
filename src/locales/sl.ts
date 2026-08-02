@@ -1843,6 +1843,20 @@ export const sl = {
     "Franciscejski kataster 1:2880 · Škofja Loka in Stara Loka (1825)",
   "settings.map.overlays.preset.kataster.zabnica":
     "Franciscejski kataster 1:2880 · Žabnica (1826)",
+  "settings.map.overlays.preset.kataster.predoslje":
+    "Franciscejski kataster 1:2880 · Predoslje (1826)",
+  "settings.map.overlays.preset.kataster.britof":
+    "Franciscejski kataster 1:2880 · Britof in Primskovo (1826)",
+  "settings.map.overlays.preset.kataster.tupalice":
+    "Franciscejski kataster 1:2880 · Tupaliče (1826)",
+  "settings.map.overlays.preset.kataster.sencur":
+    "Franciscejski kataster 1:2880 · Šenčur (1826)",
+  "settings.map.overlays.preset.kataster.jama":
+    "Franciscejski kataster 1:2880 · Jama (1826)",
+  "settings.map.overlays.preset.kataster.mavcice":
+    "Franciscejski kataster 1:2880 · Podreča in Mavčiče (1826)",
+  "settings.map.overlays.preset.kataster.toplice":
+    "Franciscejski kataster 1:2880 · Toplice pri Dolenjskih Toplicah (1824)",
   "settings.map.overlays.preset.kataster.semic":
     "Franciscejski kataster 1:2880 · Semič (1824)",
   "settings.map.overlays.preset.kataster.metlika":

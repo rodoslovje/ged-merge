@@ -1,0 +1,95 @@
+{
+ "name": "JAMA",
+ "cassini": {
+  "lat0": 45.928944,
+  "lon0": 14.474694,
+  "shift": [
+   80.0,
+   0.0
+  ],
+  "system": "krim"
+ },
+ "source": "Arhiv Republike Slovenije, SI AS 176/L/L87 — Franciscean cadastre",
+ "sheets": [
+  {
+   "image": "kataster-scans/224485.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224485&docid=10&seq=1",
+   "cell": [
+    -4.0,
+    20.0
+   ],
+   "frame": [
+    91.0,
+    845.6,
+    2557.0,
+    845.6,
+    2557.0,
+    2818.4,
+    91.0,
+    2818.4
+   ],
+   "source": "SI AS 176/L/L87/g/A01",
+   "placed": "wash shape (0.16)"
+  },
+  {
+   "image": "kataster-scans/224486.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224486&docid=10&seq=1",
+   "cell": [
+    -4.0,
+    19.0
+   ],
+   "frame": [
+    96.0,
+    135.6,
+    2562.0,
+    135.6,
+    2562.0,
+    2108.4,
+    96.0,
+    2108.4
+   ],
+   "source": "SI AS 176/L/L87/g/A02",
+   "placed": "printed W.C.I.15.de (1.00)"
+  },
+  {
+   "image": "kataster-scans/224487.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224487&docid=10&seq=1",
+   "cell": [
+    -5.0,
+    19.0
+   ],
+   "frame": [
+    90.0,
+    128.7,
+    2556.0,
+    129.0,
+    2555.7,
+    2101.8,
+    89.7,
+    2101.5
+   ],
+   "source": "SI AS 176/L/L87/g/A03",
+   "placed": "printed W.C.II.15.ae (1.00)"
+  },
+  {
+   "image": "kataster-scans/224488.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224488&docid=10&seq=1",
+   "cell": [
+    -5.0,
+    18.0
+   ],
+   "frame": [
+    95.0,
+    218.6,
+    2561.0,
+    218.6,
+    2561.0,
+    2191.4,
+    95.0,
+    2191.4
+   ],
+   "source": "SI AS 176/L/L87/g/A04",
+   "placed": "wash shape (0.35)"
+  }
+ ]
+}

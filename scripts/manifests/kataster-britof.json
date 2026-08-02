@@ -1,0 +1,116 @@
+{
+ "name": "BRITOF",
+ "cassini": {
+  "lat0": 45.928944,
+  "lon0": 14.474694,
+  "shift": [
+   80.0,
+   0.0
+  ],
+  "system": "krim"
+ },
+ "source": "Arhiv Republike Slovenije, SI AS 176/L/L59 — Franciscean cadastre",
+ "sheets": [
+  {
+   "image": "kataster-scans/224283.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224283&docid=10&seq=1",
+   "cell": [
+    -4.0,
+    24.0
+   ],
+   "frame": [
+    76.0,
+    87.8,
+    2554.0,
+    87.8,
+    2554.0,
+    2070.2,
+    76.0,
+    2070.2
+   ],
+   "source": "SI AS 176/L/L59/g/A01",
+   "placed": "printed W.C.I.14.de (1.00)"
+  },
+  {
+   "image": "kataster-scans/224284.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224284&docid=10&seq=1",
+   "cell": [
+    -3.0,
+    24.0
+   ],
+   "frame": [
+    91.0,
+    482.8,
+    2569.0,
+    482.8,
+    2569.0,
+    2465.2,
+    91.0,
+    2465.2
+   ],
+   "source": "SI AS 176/L/L59/g/A02",
+   "placed": "W.C.I.14.ce (1.00)"
+  },
+  {
+   "image": "kataster-scans/224285.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224285&docid=10&seq=1",
+   "cell": [
+    -4.0,
+    23.0
+   ],
+   "frame": [
+    61.0,
+    70.8,
+    2539.0,
+    70.8,
+    2539.0,
+    2053.2,
+    61.0,
+    2053.2
+   ],
+   "source": "SI AS 176/L/L59/g/A03",
+   "placed": "printed W.C.I.14.df (1.00)"
+  },
+  {
+   "image": "kataster-scans/224286.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224286&docid=10&seq=1",
+   "cell": [
+    -3.0,
+    23.0
+   ],
+   "frame": [
+    156.0,
+    16.8,
+    2634.0,
+    16.8,
+    2634.0,
+    1999.2,
+    156.0,
+    1999.2
+   ],
+   "rotate": 90,
+   "source": "SI AS 176/L/L59/g/A04",
+   "placed": "W.C.I.14.cf (1.00)"
+  },
+  {
+   "image": "kataster-scans/224287.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224287&docid=10&seq=1",
+   "cell": [
+    -4.0,
+    22.0
+   ],
+   "frame": [
+    88.0,
+    5.8,
+    2566.0,
+    5.8,
+    2566.0,
+    1988.2,
+    88.0,
+    1988.2
+   ],
+   "source": "SI AS 176/L/L59/g/A05",
+   "placed": "printed W.C.I.14.dg (1.00)"
+  }
+ ]
+}
