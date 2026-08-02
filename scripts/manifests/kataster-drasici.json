@@ -15,8 +15,8 @@
    "image": "kataster-scans/227161.jpg",
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=227161&docid=10&seq=1",
    "cell": [
-    35,
-    -18
+    36,
+    -20
    ],
    "frame": [
     83.4,
@@ -29,13 +29,13 @@
     2024.3
    ],
    "source": "SI AS 176/N/N43/g/A01",
-   "placed": "moved one cell west — Radovica (1.00)"
+   "placed": "printed O.X.22.di (1.00)"
   },
   {
    "image": "kataster-scans/227162.jpg",
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=227162&docid=10&seq=1",
    "cell": [
-    36,
+    37,
     -18
    ],
    "frame": [
@@ -50,7 +50,7 @@
    ],
    "rotate": 90,
    "source": "SI AS 176/N/N43/g/A02",
-   "placed": "moved one cell west (1.00)"
+   "placed": "O.X.22.cg — the Szluin frontier on both flanks (1.00)"
   },
   {
    "image": "kataster-scans/227163.jpg",
@@ -70,7 +70,7 @@
     2013.0
    ],
    "source": "SI AS 176/N/N43/g/A03",
-   "placed": "wash shape (0.53)"
+   "placed": "printed O.X.22.dh (1.00)"
   },
   {
    "image": "kataster-scans/227164.jpg",
@@ -90,14 +90,14 @@
     1977.0
    ],
    "source": "SI AS 176/N/N43/g/A04",
-   "placed": "wash shape (0.54)"
+   "placed": "printed O.X.22.ch (1.00)"
   },
   {
    "image": "kataster-scans/227165.jpg",
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=227165&docid=10&seq=1",
    "cell": [
     36,
-    -20
+    -18
    ],
    "frame": [
     87.0,
@@ -110,7 +110,7 @@
     2129.0
    ],
    "source": "SI AS 176/N/N43/g/A05",
-   "placed": "wash shape (0.59)"
+   "placed": "O.X.22.dg — Rosalnice/Radovica/Boskovci lie off its west and south (1.00)"
   },
   {
    "image": "kataster-scans/227166.jpg",
@@ -130,7 +130,7 @@
     2132.0
    ],
    "source": "SI AS 176/N/N43/g/A06",
-   "placed": "wash shape (0.35)"
+   "placed": "O.X.22.ci — the cell the others leave (1.00)"
   }
  ]
 }
