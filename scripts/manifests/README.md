@@ -373,7 +373,7 @@ that are not sheet-shaped (aspect outside 1.20–1.31) are where placement fails
 | Gradac | 7 | 6 |
 | Podzemelj | 6 | 6 |
 | Drašiči | 6 | 6 |
-| Krasinec | 6 | 4 |
+| Krasinec | 6 | 6 |
 | Kranj | 5 | 5 |
 | Semič | 5 | 5 |
 

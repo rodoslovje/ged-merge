@@ -188,7 +188,7 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     yearTo: 1869,
     attribution: "Arhiv Republike Slovenije, SI AS 176 (Franciscejski kataster za Kranjsko)",
     maxZoom: 18,
-    coverage: [45.5707, 15.2485, 45.5984, 15.2975],
+    coverage: [45.5571, 15.2483, 45.5984, 15.2975],
     sampleZoom: 16,
   },
   {
