@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
+import { marriedSurnamesOf } from "../match/relatives";
 import {
   ANY_VENDOR_EVENT,
   applyBatchAction,
@@ -9,6 +10,7 @@ import {
   computeLineSides,
   matchesBatch,
   previewBirthEstimates,
+  previewMarriedNames,
   type BatchCriterion,
   type KinshipSets,
 } from "./batch";
@@ -316,6 +318,125 @@ describe("computeKinship", () => {
   it("matches nobody without a start person", () => {
     expect(match([{ kind: "kinship", rel: "blood" }], null)).toEqual([]);
     expect(computeKinship(ds, "@I99@")).toBeNull();
+  });
+});
+
+describe("addMarriedName action", () => {
+  /** @I1@ takes her husband's surname; @I2@ already has a married name; @I3@'s
+   *  husband has no surname; @I4@ has no partner; @I5@ married a man with her
+   *  own surname; @I6@ has two unions, the first husband surname-less. */
+  const FILE = `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Ana /Novak/
+1 SEX F
+1 FAMS @F1@
+0 @H1@ INDI
+1 NAME Bo /Kovač/
+1 SEX M
+1 FAMS @F1@
+0 @I2@ INDI
+1 NAME Cilka /Zupan/
+1 SEX F
+1 NAME /Rakar/
+2 TYPE married
+1 FAMS @F2@
+0 @H2@ INDI
+1 NAME Dare /Rakar/
+1 SEX M
+1 FAMS @F2@
+0 @I3@ INDI
+1 NAME Eva /Bizjak/
+1 SEX F
+1 FAMS @F3@
+0 @H3@ INDI
+1 NAME Franc //
+1 SEX M
+1 FAMS @F3@
+0 @I4@ INDI
+1 NAME Greta /Hribar/
+1 SEX F
+0 @I5@ INDI
+1 NAME Ida /Jereb/
+1 SEX F
+1 FAMS @F5@
+0 @H5@ INDI
+1 NAME Jaka /Jereb/
+1 SEX M
+1 FAMS @F5@
+0 @I6@ INDI
+1 NAME Klara /Lah/
+1 SEX F
+1 FAMS @F6@
+1 FAMS @F7@
+0 @H6@ INDI
+1 NAME Lojze //
+1 SEX M
+1 FAMS @F6@
+0 @H7@ INDI
+1 NAME Miha /Oblak/
+1 SEX M
+1 FAMS @F7@
+0 @F1@ FAM
+1 HUSB @H1@
+1 WIFE @I1@
+0 @F2@ FAM
+1 HUSB @H2@
+1 WIFE @I2@
+0 @F3@ FAM
+1 HUSB @H3@
+1 WIFE @I3@
+0 @F5@ FAM
+1 HUSB @H5@
+1 WIFE @I5@
+0 @F6@ FAM
+1 HUSB @H6@
+1 WIFE @I6@
+1 MARR
+2 DATE 1900
+0 @F7@ FAM
+1 HUSB @H7@
+1 WIFE @I6@
+1 MARR
+2 DATE 1910
+0 TRLR`;
+  const ids = ["@I1@", "@I2@", "@I3@", "@I4@", "@I5@", "@I6@"];
+
+  it("previews only the people a partner surname is available for", () => {
+    expect([...previewMarriedNames(dataset(FILE), ids)]).toEqual([
+      ["@I1@", "Kovač"],
+      // @I6@ falls through her surname-less first husband to the second union.
+      ["@I6@", "Oblak"],
+    ]);
+  });
+
+  it("writes the file's own record form and skips the rest", () => {
+    const ds = dataset(FILE);
+    const res = applyBatchAction(ds, ids, { kind: "addMarriedName" });
+    expect(res.changed).toBe(2);
+    expect(res.skipped).toBe(4);
+    const ana = ds.individuals.get("@I1@")!;
+    expect(ana.names.map((n) => [n.full, n.type])).toEqual([["Ana Novak", undefined], ["Kovač", "married"]]);
+    expect(ana.raw.children.filter((c) => c.tag === "NAME").map((c) => c.value)).toEqual(["Ana /Novak/", "/Kovač/"]);
+    expect(marriedSurnamesOf(ana)).toEqual(["Kovač"]);
+    // Re-running is a no-op — everyone now has a married name or no source for one.
+    expect(applyBatchAction(ds, ids, { kind: "addMarriedName" })).toMatchObject({ changed: 0, patches: [] });
+  });
+
+  it("follows a file that carries married names inline as _MARNM", () => {
+    const ds = dataset(
+      FILE.replace("1 NAME Cilka /Zupan/\n1 SEX F\n1 NAME /Rakar/\n2 TYPE married", "1 NAME Cilka /Zupan/\n2 _MARNM /Rakar/\n1 SEX F"),
+    );
+    applyBatchAction(ds, ids, { kind: "addMarriedName" });
+    const ana = ds.individuals.get("@I1@")!;
+    expect(ana.names).toHaveLength(1);
+    expect(ana.names[0].married).toBe("Kovač");
+  });
+
+  it("falls back to the standard record form when the file has no married name at all", () => {
+    const ds = dataset(FILE.replace("1 NAME /Rakar/\n2 TYPE married\n", ""));
+    applyBatchAction(ds, ids, { kind: "addMarriedName" });
+    expect(ds.individuals.get("@I1@")!.names[1]).toMatchObject({ full: "Kovač", type: "married" });
   });
 });
 

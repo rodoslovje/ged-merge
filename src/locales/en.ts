@@ -322,6 +322,8 @@ export const en = {
   "tools.batch.action.estimateBirth": "Add estimated birth year (ABT)",
   "tools.batch.previewSkip": "will be skipped",
   "tools.batch.estimateBirthHint": "Writes a birth date of “ABT year”, estimated from the birth years of parents, spouse, children or siblings and rounded to the nearest 5 years so estimates stand apart from recorded dates. Siblings stay at least a year apart, following the family's child order — a dated sibling, where one exists, anchors the rest. People who already have a birth or baptism date, and people with no dated close relative, are skipped — running the action again can reach them through the newly written estimates.",
+  "tools.batch.action.addMarriedName": "Add married name from partner",
+  "tools.batch.addMarriedNameHint": "Records the partner's surname as the person's married name, written the way this file writes married names. With several unions the first one that contributes a surname wins. People who already have a married name, and people whose partner has no surname of their own, are skipped.",
   "tools.batch.action.convertEvent": "Convert event type",
   "tools.batch.pickMedia": "Choose an image…",
   "tools.batch.newMedia": "New image…",

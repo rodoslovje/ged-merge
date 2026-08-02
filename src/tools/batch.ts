@@ -4,6 +4,9 @@ import {
   DEATH_TAGS, birthDateOf, birthDateText, birthYear, deathDateOf, estimateBirthYear, isDeceased,
 } from "../gedcom/lifespan";
 import { addEventNode, setEventField } from "../gedcom/edit/events";
+import { addAdditionalName, setAdditionalName, setMarriedName } from "../gedcom/edit/names";
+import { familiesByMarriage } from "../gedcom/familySort";
+import { inferNameVariants } from "../normalize/nameVariants";
 import { rebuildIndividual } from "../gedcom/edit/cache";
 import { collectMediaRefs, detectMediaMode } from "../gedcom/media";
 import { clearObjeNodeCache, isPointer } from "../gedcom/source";
@@ -415,6 +418,14 @@ export type BatchActionSpec =
    *  written, so one run never chains an estimate off another — re-running
    *  reaches one relative-hop further. */
   | { kind: "estimateBirth" }
+  /** Record each person's married surname, taken from their partner: the
+   *  surname of the first union (in marriage order) whose partner has one and
+   *  whose surname isn't already the person's own. Written in the file's own
+   *  convention — inline `_MARNM` or a separate `TYPE married` name, whichever
+   *  the file uses (see {@link inferNameVariants}); a file with neither gets
+   *  the standard record form. People who already carry a married name, and
+   *  people whose partners contribute none, are skipped. */
+  | { kind: "addMarriedName" }
   /** Re-tag every `fromTag` event to `toTag`, keeping the whole substructure
    *  (dates, places, sources) and any line value. When the target is a generic
    *  `EVEN`/`FACT`, `type` writes its `TYPE` name (unless one exists already).
@@ -422,7 +433,7 @@ export type BatchActionSpec =
   | { kind: "convertEvent"; fromTag: string; toTag: string; type?: string };
 
 export const BATCH_ACTION_KINDS: BatchActionSpec["kind"][] = [
-  "addMedia", "addSource", "removeMedia", "markDeceased", "estimateBirth", "convertEvent",
+  "addMedia", "addSource", "removeMedia", "markDeceased", "estimateBirth", "addMarriedName", "convertEvent",
 ];
 
 export interface BatchApplyResult {
@@ -452,6 +463,8 @@ export function applyBatchAction(ds: Dataset, ids: string[], action: BatchAction
       return markDeceasedBatch(ds, ids);
     case "estimateBirth":
       return estimateBirthBatch(ds, ids);
+    case "addMarriedName":
+      return addMarriedNameBatch(ds, ids);
     case "convertEvent":
       return convertEventBatch(ds, ids, action);
   }
@@ -611,6 +624,56 @@ function estimateBirthBatch(ds: Dataset, ids: string[]): BatchApplyResult {
     changed: estimates.size,
     skipped,
   };
+}
+
+/**
+ * The married surname the {@link BatchActionSpec} `addMarriedName` action would
+ * write per person — people it would skip get no entry. Pure dry-run, shared
+ * with the panel's per-row preview.
+ */
+export function previewMarriedNames(ds: Dataset, ids: string[]): Map<string, string> {
+  const names = new Map<string, string>();
+  for (const id of ids) {
+    const indi = ds.individuals.get(id);
+    if (!indi) continue;
+    // A recorded married name is the researcher's data — never a second guess.
+    if (marriedSurnamesOf(indi).length > 0) continue;
+    const own = indi.names[0]?.surname?.trim().toLowerCase();
+    for (const fam of familiesByMarriage(ds, indi.spouseOf)) {
+      if (fam.husband !== indi.id && fam.wife !== indi.id) continue;
+      const otherId = fam.husband === indi.id ? fam.wife : fam.husband;
+      const surname = otherId ? ds.individuals.get(otherId)?.names[0]?.surname?.trim() : undefined;
+      // A partner sharing the person's own surname adds nothing — the display
+      // rule that hides such a married name would hide this one too.
+      if (!surname || surname.toLowerCase() === own) continue;
+      names.set(id, surname);
+      break;
+    }
+  }
+  return names;
+}
+
+/** Write each person's partner surname as their married name, in the file's own
+ *  convention (see the {@link BatchActionSpec} member). */
+function addMarriedNameBatch(ds: Dataset, ids: string[]): BatchApplyResult {
+  const names = previewMarriedNames(ds, ids);
+  const skipped = ids.filter((id) => ds.individuals.has(id) && !names.has(id)).length;
+  const snap = snapshotRecords(ds, [...names.keys()], []);
+  const target = inferNameVariants(ds).married;
+  for (const [id, surname] of names) {
+    const indi = ds.individuals.get(id)!;
+    if (target.form === "tag") {
+      setMarriedName(indi, surname);
+    } else {
+      // The surname-only `1 NAME /Novak/` + `2 TYPE married` pair the standard
+      // (and every file observed) uses — the given name stays on the primary.
+      addAdditionalName(indi, target.form === "record" ? target.type! : "married");
+      const added = indi.raw.children.filter((c) => c.tag === "NAME").length - 2;
+      setAdditionalName(indi, added, { given: "", surname });
+    }
+    rebuildIndividual(ds, indi);
+  }
+  return { patches: names.size > 0 ? patchesFromSnapshots(ds, snap) : [], changed: names.size, skipped };
 }
 
 function addMediaBatch(

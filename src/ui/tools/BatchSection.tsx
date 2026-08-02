@@ -13,6 +13,7 @@ import {
   computeLineSides,
   matchesBatch,
   previewBirthEstimates,
+  previewMarriedNames,
   BATCH_ACTION_KINDS,
   BATCH_CRITERION_KINDS,
   type BatchActionSpec,
@@ -160,14 +161,19 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
     // eslint-disable-next-line react-hooks/exhaustive-deps -- ver stands in for in-place dataset edits
   }, [dataset, ver]);
 
-  /** Per-row preview of the estimate action: the year each checked person
-   *  would get (no entry = would be skipped). Recomputed when the selection
-   *  changes — unchecking a sibling re-spaces the others, as applying would. */
-  const estimatePreview = useMemo(
-    () => (action?.kind === "estimateBirth" ? previewBirthEstimates(dataset, targets.map((r) => r.id)) : null),
+  /** Per-row preview of the actions that write a computed value: what each
+   *  checked person would get (no entry = would be skipped). Recomputed when
+   *  the selection changes — unchecking a sibling re-spaces the others, as
+   *  applying would. */
+  const rowPreview = useMemo(() => {
+    const ids = targets.map((r) => r.id);
+    if (action?.kind === "estimateBirth")
+      return new Map([...previewBirthEstimates(dataset, ids)].map(([id, y]) => [id, `→ ABT ${y}`]));
+    if (action?.kind === "addMarriedName")
+      return new Map([...previewMarriedNames(dataset, ids)].map(([id, s]) => [id, `→ ${s}`]));
+    return null;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- ver stands in for in-place dataset edits
-    [action?.kind, dataset, targets, ver],
-  );
+  }, [action?.kind, dataset, targets, ver]);
 
   const virtual = useVirtualList({ count: results.length, estimate: 30, itemsKey: results });
 
@@ -213,7 +219,7 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
       ? !!(action.xref || action.file.trim())
       : action.kind === "addSource"
         ? !!(action.xref || action.title?.trim())
-        : action.kind === "markDeceased" || action.kind === "estimateBirth"
+        : action.kind === "markDeceased" || action.kind === "estimateBirth" || action.kind === "addMarriedName"
           ? true
           : action.kind === "convertEvent"
             ? !!(action.fromTag && action.toTag && action.fromTag !== action.toTag)
@@ -375,11 +381,9 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
                   }}
                 />
                 <PersonLink dataset={dataset} id={r.id} fallback={r.name} onNavigate={onNavigate} />
-                {estimatePreview && !excluded.has(r.id) && (
-                  <span className={`batch-preview ${estimatePreview.has(r.id) ? "" : "batch-preview-skip"}`}>
-                    {estimatePreview.has(r.id)
-                      ? `→ ABT ${estimatePreview.get(r.id)}`
-                      : t("tools.batch.previewSkip")}
+                {rowPreview && !excluded.has(r.id) && (
+                  <span className={`batch-preview ${rowPreview.has(r.id) ? "" : "batch-preview-skip"}`}>
+                    {rowPreview.get(r.id) ?? t("tools.batch.previewSkip")}
                   </span>
                 )}
                 {kin && (
@@ -743,6 +747,7 @@ function ActionEditor({
     removeMedia: { kind: "removeMedia" },
     markDeceased: { kind: "markDeceased" },
     estimateBirth: { kind: "estimateBirth" },
+    addMarriedName: { kind: "addMarriedName" },
     convertEvent: { kind: "convertEvent", fromTag: firstVendor, toTag: "EVEN", type: typeFor(firstVendor) },
   };
   // For addMedia, an empty file with a (possibly empty) title marks the
@@ -846,6 +851,10 @@ function ActionEditor({
 
       {action?.kind === "estimateBirth" && (
         <span className="batch-hint">{t("tools.batch.estimateBirthHint")}</span>
+      )}
+
+      {action?.kind === "addMarriedName" && (
+        <span className="batch-hint">{t("tools.batch.addMarriedNameHint")}</span>
       )}
 
       {action?.kind === "removeMedia" && (

@@ -371,6 +371,8 @@ export const sl = {
   "tools.batch.action.estimateBirth": "Dodaj ocenjeno leto rojstva (ABT)",
   "tools.batch.previewSkip": "bo preskočeno",
   "tools.batch.estimateBirthHint": "Zapiše datum rojstva »ABT leto«, ocenjen iz let rojstva staršev, zakonca, otrok ali bratov in sester ter zaokrožen na 5 let, da se ocene ločijo od zapisanih datumov. Bratje in sestre so razmaknjeni vsaj za leto po vrstnem redu otrok v družini — kjer ima kateri od njih datum, se ostali oprejo nanj. Osebe, ki datum rojstva ali krsta že imajo, in osebe brez datiranega bližnjega sorodnika so preskočene — ponoven zagon jih lahko doseže prek novo zapisanih ocen.",
+  "tools.batch.action.addMarriedName": "Dodaj poročni priimek po partnerju",
+  "tools.batch.addMarriedNameHint": "Partnerjev priimek zapiše kot poročni priimek osebe, in sicer tako, kot poročne priimke zapisuje ta datoteka. Pri več zvezah obvelja prva, ki prispeva priimek. Osebe, ki poročni priimek že imajo, in osebe, katerih partner nima svojega priimka, so preskočene.",
   "tools.batch.action.convertEvent": "Pretvori vrsto dogodka",
   "tools.batch.pickMedia": "Izberite sliko …",
   "tools.batch.newMedia": "Nova slika …",
