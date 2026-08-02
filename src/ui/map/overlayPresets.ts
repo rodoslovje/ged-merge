@@ -288,7 +288,7 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     yearTo: 1869,
     attribution: "Arhiv Republike Slovenije, SI AS 176 (Franciscejski kataster za Kranjsko)",
     maxZoom: 18,
-    coverage: [46.2152, 14.3972, 46.2562, 14.4464],
+    coverage: [46.2129, 14.3972, 46.2555, 14.4464],
     sampleZoom: 16,
   },
   {
@@ -298,7 +298,7 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     yearTo: 1869,
     attribution: "Arhiv Republike Slovenije, SI AS 176 (Franciscejski kataster za Kranjsko)",
     maxZoom: 18,
-    coverage: [46.1743, 14.3727, 46.2152, 14.4218],
+    coverage: [46.1879, 14.3481, 46.2016, 14.4218],
     sampleZoom: 16,
   },
   {
@@ -329,6 +329,16 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     attribution: "Arhiv Republike Slovenije, SI AS 176 (Franciscejski kataster za Kranjsko)",
     maxZoom: 18,
     coverage: [45.9968, 14.4955, 46.0514, 14.5445],
+    sampleZoom: 16,
+  },
+  {
+    key: "settings.map.overlays.preset.kataster.podturn",
+    url: "https://tiles.gedmerge.com/kataster-podturn/{z}/{x}/{y}.webp",
+    yearFrom: 1824,
+    yearTo: 1869,
+    attribution: "Arhiv Republike Slovenije, SI AS 176 (Franciscejski kataster za Kranjsko)",
+    maxZoom: 18,
+    coverage: [45.7086, 14.9827, 45.7910, 15.0803],
     sampleZoom: 16,
   },
   {

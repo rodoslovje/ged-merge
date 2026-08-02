@@ -15,8 +15,8 @@
    "image": "kataster-scans/224485.jpg",
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224485&docid=10&seq=1",
    "cell": [
-    -3.0,
-    20.0
+    -4.0,
+    19.0
    ],
    "frame": [
     91.0,
@@ -29,7 +29,7 @@
     2818.4
    ],
    "source": "SI AS 176/L/L87/g/A01",
-   "placed": "one cell east — Prebačevo's ground (1.00)"
+   "placed": "middle of the row (1.00)"
   },
   {
    "image": "kataster-scans/224486.jpg",
@@ -49,13 +49,13 @@
     2108.4
    ],
    "source": "SI AS 176/L/L87/g/A02",
-   "placed": "the sheet drawing Jamma and Prasche, where both villages actually are (1.00)"
+   "placed": "east of the row — the villages themselves (1.00)"
   },
   {
    "image": "kataster-scans/224487.jpg",
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224487&docid=10&seq=1",
    "cell": [
-    -4.0,
+    -5.0,
     19.0
    ],
    "frame": [
@@ -69,27 +69,7 @@
     2101.5
    ],
    "source": "SI AS 176/L/L87/g/A03",
-   "placed": "title sheet, west of it (1.00)"
-  },
-  {
-   "image": "kataster-scans/224488.jpg",
-   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224488&docid=10&seq=1",
-   "cell": [
-    -4.0,
-    18.0
-   ],
-   "frame": [
-    95.0,
-    218.6,
-    2561.0,
-    218.6,
-    2561.0,
-    2191.4,
-    95.0,
-    2191.4
-   ],
-   "source": "SI AS 176/L/L87/g/A04",
-   "placed": "south-west corner (1.00)"
+   "placed": "JAMMA und PRASCHE title sheet — west of the row (1.00)"
   }
  ]
 }

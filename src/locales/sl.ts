@@ -1822,49 +1822,51 @@ export const sl = {
   "settings.map.overlays.preset.swiss.dufour": "Švica · Karta Dufour (1845–1865)",
   "settings.map.overlays.preset.swiss.siegfried": "Švica · Karta Siegfried (1870–1926)",
   "settings.map.overlays.preset.kataster.strazisce":
-    "Franciscejski kataster 1:2880 · Stražišče pri Kranju (1826)",
+    "Franciscejski kataster · Stražišče pri Kranju 1:2880 (1826)",
   "settings.map.overlays.preset.kataster.kranj":
-    "Franciscejski kataster 1:2880 · Kranj in Rupa (1826)",
+    "Franciscejski kataster · Kranj in Rupa 1:2880 (1826)",
   "settings.map.overlays.preset.kataster.bela":
-    "Franciscejski kataster 1:2880 · Bela pri Preddvoru (1826)",
+    "Franciscejski kataster · Bela pri Preddvoru 1:2880 (1826)",
   "settings.map.overlays.preset.kataster.preddvor":
-    "Franciscejski kataster 1:2880 · Breg ob Kokri in Preddvor (1826)",
+    "Franciscejski kataster · Breg ob Kokri in Preddvor 1:2880 (1826)",
   "settings.map.overlays.preset.kataster.krasinec":
-    "Franciscejski kataster 1:2880 · Krasinec (1824)",
+    "Franciscejski kataster · Krasinec 1:2880 (1824)",
   "settings.map.overlays.preset.kataster.podzemelj":
-    "Franciscejski kataster 1:2880 · Podzemelj (1824)",
+    "Franciscejski kataster · Podzemelj 1:2880 (1824)",
   "settings.map.overlays.preset.kataster.drasici":
-    "Franciscejski kataster 1:2880 · Drašiči (1824)",
+    "Franciscejski kataster · Drašiči 1:2880 (1824)",
   "settings.map.overlays.preset.kataster.osojnik":
-    "Franciscejski kataster 1:2880 · Štrekljevec in Osojnik (1824)",
+    "Franciscejski kataster · Štrekljevec in Osojnik 1:2880 (1824)",
   "settings.map.overlays.preset.kataster.bitnje":
-    "Franciscejski kataster 1:2880 · Bitnje, vsa tri (1826)",
+    "Franciscejski kataster · Bitnje, vsa tri 1:2880 (1826)",
   "settings.map.overlays.preset.kataster.skofjaloka":
-    "Franciscejski kataster 1:2880 · Škofja Loka in Stara Loka (1825)",
+    "Franciscejski kataster · Škofja Loka in Stara Loka 1:2880 (1825)",
   "settings.map.overlays.preset.kataster.zabnica":
-    "Franciscejski kataster 1:2880 · Žabnica (1826)",
+    "Franciscejski kataster · Žabnica 1:2880 (1826)",
   "settings.map.overlays.preset.kataster.predoslje":
-    "Franciscejski kataster 1:2880 · Predoslje (1826)",
+    "Franciscejski kataster · Predoslje 1:2880 (1826)",
   "settings.map.overlays.preset.kataster.britof":
-    "Franciscejski kataster 1:2880 · Britof in Primskovo (1826)",
+    "Franciscejski kataster · Britof in Primskovo 1:2880 (1826)",
   "settings.map.overlays.preset.kataster.tupalice":
-    "Franciscejski kataster 1:2880 · Tupaliče (1826)",
+    "Franciscejski kataster · Tupaliče 1:2880 (1826)",
   "settings.map.overlays.preset.kataster.sencur":
-    "Franciscejski kataster 1:2880 · Šenčur (1826)",
+    "Franciscejski kataster · Šenčur 1:2880 (1826)",
   "settings.map.overlays.preset.kataster.jama":
-    "Franciscejski kataster 1:2880 · Jama (1826)",
+    "Franciscejski kataster · Jama 1:2880 (1826)",
   "settings.map.overlays.preset.kataster.mavcice":
-    "Franciscejski kataster 1:2880 · Podreča in Mavčiče (1826)",
+    "Franciscejski kataster · Podreča in Mavčiče 1:2880 (1826)",
   "settings.map.overlays.preset.kataster.toplice":
-    "Franciscejski kataster 1:2880 · Toplice pri Dolenjskih Toplicah (1824)",
+    "Franciscejski kataster · Toplice pri Dolenjskih Toplicah 1:2880 (1824)",
   "settings.map.overlays.preset.kataster.ljubljana":
-    "Franciscejski kataster 1:2880 · Ljubljana, Karlovško predmestje (1826)",
+    "Franciscejski kataster · Ljubljana, Karlovško predmestje 1:2880 (1826)",
+  "settings.map.overlays.preset.kataster.podturn":
+    "Franciscejski kataster · Podturn 1:2880 (1824)",
   "settings.map.overlays.preset.kataster.semic":
-    "Franciscejski kataster 1:2880 · Semič (1824)",
+    "Franciscejski kataster · Semič 1:2880 (1824)",
   "settings.map.overlays.preset.kataster.metlika":
-    "Franciscejski kataster 1:2880 · Metlika (1824)",
+    "Franciscejski kataster · Metlika 1:2880 (1824)",
   "settings.map.overlays.preset.kataster.gradac":
-    "Franciscejski kataster 1:2880 · Gradac pri Metliki (1824)",
+    "Franciscejski kataster · Gradac pri Metliki 1:2880 (1824)",
   "settings.map.overlays.preset.gurs.orthoHist": "Slovenija · Zgodovinski ortofoto 2011 (GURS)",
   "settings.map.overlays.preset.gurs.ortho": "Slovenija · Ortofoto (GURS)",
   "settings.map.overlays.preset.gurs.topo": "Slovenija · Topografska karta, do 1:2500 (GURS)",
