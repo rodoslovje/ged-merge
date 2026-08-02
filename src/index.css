@@ -5822,12 +5822,9 @@ body:has(.modal-overlay) {
 p.settings-note { margin: 0 0 12px; font-size: 0.82rem; color: var(--muted); line-height: 1.35; }
 
 /* Base-map sample above the picker: the shared mini map, given the settings
-   column's full width and its caption directly underneath. */
+   column's full width. What it is lives in its tooltip, not in a caption. */
 .settings-map-preview { margin: 0 0 12px; }
 .settings-map-preview .tools-geo-minimap { max-width: none; height: 200px; margin: 0; }
-/* As a <p> the caption falls under .modal-body p (1.05rem) — restate the hint
-   scale with higher specificity. */
-.settings-map-preview p.settings-hint { margin: 4px 0 0; font-size: 0.82rem; line-height: 1.35; }
 
 .settings-danger-btn {
   flex: none;
@@ -8048,19 +8045,55 @@ kbd {
   opacity: 0.7; padding: 2px 4px;
 }
 .tools-geo-delete:hover { opacity: 1; }
-.tools-geo-empty { color: var(--muted); margin: 0 0 10px; }
+/* The one line saying you have to do something before any of this works — the
+   weight is what makes it read as the state it is, not as another hint. */
+.tools-geo-empty { color: var(--text); font-weight: 600; margin: 0 0 10px; }
 .tools-geo-import { display: inline-block; cursor: pointer; margin: 0; }
 .tools-geo-acquire { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
-.tools-geo-download { display: inline-flex; align-items: center; gap: 8px; }
-.tools-geo-download input {
-  width: 3.2em; box-sizing: border-box; padding: 5px 8px; text-transform: uppercase;
-  border: 1px solid var(--border); border-radius: var(--radius-sm);
-  background: var(--panel-2); color: var(--text); font: inherit; font-size: 0.9rem;
+/* One row per source: the button that takes it, and what it gives you. The
+   button column is as wide as its widest label, so the three read as one column
+   of choices rather than three ragged lines. */
+.tools-geo-sources {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 6px 14px;
+  /* Centred on its own row: a button pinned to the first line of a four-line
+     description reads as a heading for it rather than as the thing it takes. */
+  align-items: center;
+  margin: 8px 0;
 }
-.tools-geo-download input:focus { outline: none; border-color: var(--accent); }
+/* Each button hugs its own label rather than stretching to the column: the
+   column is already as wide as the longest one, so the descriptions stay in
+   line, and a two-word button no longer reads as a wide empty bar. Centred in
+   that column, so the three sit on a shared axis instead of a ragged edge. */
+.tools-geo-sources > .nav-btn { justify-self: center; }
+.tools-geo-sources > .tools-geo-hint { margin: 0; }
+/* The OpenStreetMap download is a <select> wearing .nav-btn: one control that
+   reads as a button and drops the country list open on click, the country picked
+   being the click itself. It only needs the font and cursor the class doesn't
+   give a <select>. */
+.tools-geo-osm { font: inherit; font-size: 0.85rem; cursor: pointer; max-width: 20em; }
+.tools-geo-osm:focus { outline: none; border-color: var(--accent); }
 /* Drop .tools-run's bottom margin for every button in the row — whether it sits
    in the country-code wrapper or directly in the flex row — so they align. */
 .tools-geo-acquire .tools-run { margin: 0; }
+/* The same manager in Settings › Map. The settings section is already the frame,
+   so the card border goes; and its three paragraphs are <p>, which inside the
+   modal fall under .modal-body p (1.05rem) — restate the hint scale so they read
+   as the rows below do rather than shouting over them. */
+.settings-geo { border: none; border-radius: 0; padding: 0; margin: 0; }
+.settings-section > p.settings-hint,
+.settings-geo p.tools-geo-empty,
+.settings-geo p.tools-geo-hint {
+  font-size: 0.82rem; line-height: 1.35;
+}
+.settings-section > p.settings-hint,
+.settings-geo p.tools-geo-empty { margin: 0 0 12px; }
+/* Margins only on the note standing under the grid. Inside it the rows are
+   spaced by the grid gap alone — matching on the class here would beat
+   `.tools-geo-sources > .tools-geo-hint` and add a second gap on every row. */
+.settings-geo > p.tools-geo-hint { margin: 10px 0 0; }
+.settings-geo .tools-geo-countries { margin-bottom: 8px; }
 /* Per-event coordinate pin + its picker panel (EventCoordPicker). */
 .edit-event-coord-wrap { position: relative; display: inline-flex; }
 /* The pin is an inline SVG (PinIcon), not the 📍 emoji it replaced — the emoji
@@ -8133,7 +8166,7 @@ kbd {
 /* The list scrolls with the panel rather than in a 260px box of its own. */
 .edit-coord-pop--phone .edit-coord-side { max-height: none; overflow-y: visible; }
 .edit-coord-pop--phone .edit-coord-head .edit-coord-manual { flex: 1 1 100%; }
-.tools-geo-hint { color: var(--muted); font-size: 0.85rem; margin: 10px 0 0; }
+.tools-geo-hint { color: var(--muted); font-size: 0.85rem; margin: 10px 0; }
 /* Address rows: house coordinates from the address register. */
 .tools-geo-addr-list { list-style: none; margin: 0; padding: 0; }
 .tools-geo-addr-row { padding: 6px 0; border-bottom: 1px solid var(--border); }
@@ -8248,6 +8281,9 @@ kbd {
 .tools-geo-summary-entry { display: inline-flex; align-items: baseline; gap: 6px; }
 .tools-geo-summary .clickable { cursor: pointer; }
 .tools-geo-summary .clickable:hover { color: var(--accent); }
+/* Where the managing happens, said once and quietly — the tool's job is the list
+   below, not the setup. */
+.tools-geo-manage { color: var(--muted); font-size: 0.85rem; }
 /* The geocode list reuses the Organize-sources vocabulary (cleanup-section,
    dup-kind-head, tree rows, reshape badges); only geocode-specific bits keep
    their own classes. The search box loses its own bottom margin inside the

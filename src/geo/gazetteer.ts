@@ -43,6 +43,18 @@ export interface GazEntry {
  *  code, so it coexists with a GeoNames/OpenStreetMap "SI" gazetteer. */
 export const GURS_REGISTER = "SI-GURS";
 
+/**
+ * Storage key of an OpenStreetMap country download, e.g. "SI-OSM". Named after
+ * its source for the same two reasons GURS is: the list says where each
+ * directory came from, and a download no longer overwrites the GeoNames import
+ * of the same country — the two describe it differently and are worth holding
+ * together. A bare ISO code therefore means "GeoNames file", which is the only
+ * import that cannot name its own source.
+ */
+export function osmRegister(country: string): string {
+  return `${country.toUpperCase()}-OSM`;
+}
+
 /** Feature classes worth importing: settlements and admin divisions. */
 const KEEP_CLASSES = new Set(["P", "A"]);
 

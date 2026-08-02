@@ -4,6 +4,7 @@ import {
   HIGH_CONFIDENCE,
   buildGazetteerIndex,
   lookupPlace,
+  osmRegister,
   overpassToEntries,
   parseGeoNamesLine,
   rpeNaseljaToEntries,
@@ -122,6 +123,20 @@ describe("overpassToEntries", () => {
     // The converted entries match through the shared index like GeoNames rows.
     const index = buildGazetteerIndex(entries);
     expect(lookupPlace(index, "Bischoflack")[0].entry.name).toBe("Škofja Loka");
+  });
+
+  it("is stored under a key naming its source, leaving the entries' country alone", () => {
+    // The storage key says where the directory came from, so an OSM download
+    // sits beside a GeoNames "SI" import instead of overwriting it. The country
+    // gate compares the entries' own country, which stays the bare ISO code.
+    expect(osmRegister("SI")).toBe("SI-OSM");
+    expect(osmRegister("at")).toBe("AT-OSM");
+    expect(osmRegister("SI")).not.toBe(GURS_REGISTER);
+    const [entry] = overpassToEntries(
+      { elements: [{ lat: 46.05, lon: 14.5, tags: { place: "village", name: "Šentvid" } }] },
+      "SI",
+    );
+    expect(entry.country).toBe("SI");
   });
 });
 

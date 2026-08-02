@@ -268,7 +268,7 @@
             <p>The other three tabs:</p>
             <ul>
               <li><strong>GEDCOM</strong> — override any file convention GED Merge would otherwise detect, grouped as <em>Dates</em>, <em>Names</em>, <em>Places</em>, <em>Sources</em> and <em>Privacy</em>: date format, unknown date parts, alternate names, the unknown-name marker, place format, source and citation layout, page links, baptism citations, doubled links, the Matricula and Geneanet link languages, and the private-flag tag. Each row shows a sample of what the choice writes and defaults to <em>Auto (detected)</em> — following the file's own habit — but a chosen value is then enforced by the incoming-file normalizer, <a href="#tools">Organize sources</a>, Add Source and inline editing. Date, place, name and link choices take effect from the next file load. See <a href="#house-style">§4</a> and <a href="#sources">§13</a>.</li>
-              <li><strong>Map</strong> — <em>Load base-map tiles</em> opts in to a map background for every map in the app (tile requests reveal the viewed region; off = a built-in offline outline), and <em>Base map</em> picks which one: CARTO, OpenStreetMap, terrain, Esri satellite or topographic, or your own tile-URL template. Once tiles are allowed, a live sample above the picker draws the current choice. <em>Additional map layers</em> configures maps drawn over the base — pick a bundled free preset (including Slovenia's national GURS maps), or add your own tile-URL template or OGC&nbsp;WMS service (name, URL, valid years, attribution). See <a href="#map">§11</a>.</li>
+              <li><strong>Map</strong> — <em>Place directories</em> holds the gazetteers your place names are matched against: download Slovenia's GURS register or any country from OpenStreetMap, import a GeoNames file, and see what is loaded with its size and date or remove it. They live in this browser, not in the file, so they outlive the file you have open and serve every file you load; <a href="#geocode">Geocode places</a> (<a href="#tools">§10</a>) offers the same downloads while you have none. <em>Load base-map tiles</em> opts in to a map background for every map in the app (tile requests reveal the viewed region; off = a built-in offline outline), and <em>Base map</em> picks which one: CARTO, OpenStreetMap, terrain, Esri satellite or topographic, or your own tile-URL template. Once tiles are allowed, a live sample above the picker draws the current choice. <em>Additional map layers</em> configures maps drawn over the base — pick a bundled free preset (including Slovenia's national GURS maps), or add your own tile-URL template or OGC&nbsp;WMS service (name, URL, valid years, attribution). See <a href="#map">§11</a>.</li>
               <li><strong>Advanced › Online lookups</strong> — <em>Look up details online</em>: when you add a source from a bare URL, GED Merge fetches its page title through a public relay. The same switch powers the one-click OpenStreetMap and GURS gazetteer downloads, the per-row online searches (OpenStreetMap and the Genealogical Gazetteer, GOV) and the GURS address-register lookups used by <a href="#geocode">Geocode places</a>; those services are called directly, not through a relay. <strong>Apart from the map tiles you opt into separately, these are the only features that send anything off your device, and they are off by default.</strong></li>
               <li><strong>Advanced › Locally stored data</strong> — <em>Remember my work in this browser</em> and <em>Clear locally stored data</em>.</li>
             </ul>
@@ -945,20 +945,19 @@
               is reviewed by you and undoable.
             </p>
             <p>
-              Load the gazetteer with one click from <strong>OpenStreetMap</strong> (country code + Download, needs
+              Load the gazetteer with one click from <strong>OpenStreetMap</strong> (the button lists every country it knows; picking one starts the download, needs
               the online-lookups opt-in in <a href="#workspace">Settings › Advanced</a>); with
-              <strong>Download Slovenia (GURS)</strong> — all 6035 settlements from Slovenia's national register of
+              <strong>GURS (Slovenia)</strong> — all 6035 settlements from Slovenia's national register of
               spatial units, the authoritative choice for Slovenian research, and it brings the bilingual Italian and
               Hungarian names with it, so <em>Isola</em> finds <em>Izola</em>. Each settlement carries its <em>občina</em>, which is what tells the two <em>Soteska</em> apart —
               <em>Soteska (Kamnik)</em> and <em>Soteska (Dolenjske Toplice)</em> both match the name perfectly, and only the
-              municipality separates them; when your place names the municipality too, the right one wins outright. It is
-              listed on its own as
-              <span class="gm-data">SI-GURS</span>, so it sits <em>alongside</em> an OpenStreetMap or GeoNames
-              <span class="gm-data">SI</span> import instead of replacing it — the official settlements and the hamlets
-              only OpenStreetMap knows then both count, and a settlement both describe is offered once, at its official
-              coordinate. Or load a gazetteer by importing a
+              municipality separates them; when your place names the municipality too, the right one wins outright. Every directory is listed under a name saying where it came from —
+              <span class="gm-data">SI-GURS</span> here, <span class="gm-data">SI-OSM</span> for an OpenStreetMap
+              download, a bare <span class="gm-data">SI</span> for a GeoNames file — so they sit <em>alongside</em> each
+              other instead of replacing one another. The official settlements and the hamlets only OpenStreetMap knows
+              then both count, and a settlement both describe is offered once, at its official coordinate. Or load a gazetteer by importing a
               <strong>GeoNames</strong> country file (<em>.zip</em> or <em>.txt</em>) — the loaded gazetteers are listed
-              under their own heading, and the data stays in your browser. Loading a gazetteer is a one-time step — it lives in your browser, not in the file, so it survives reloads and serves every file you open; once something is loaded the whole loader folds into a single line naming what you have, which you can open again to add or remove a gazetteer. Proposals are ranked: coordinates other
+              under their own heading, and the data stays in your browser. Loading a gazetteer is a one-time step — it lives in your browser, not in the file, so it survives reloads and serves every file you open; this page never manages them, it only names what you have and links to <strong>Settings › Map › Place directories</strong> (<a href="#workspace">§2</a>), which is where they are added and removed. Proposals are ranked: coordinates other
               occurrences of the same place already carry come first, then exact and historical-name matches
               (<em>Laibach → Ljubljana</em>), then fuzzy ones. When a place names its country, matches are confined to
               that country, so a foreign place is never matched to a loaded gazetteer (<em>Belfast, Northern Ireland</em>
@@ -1032,7 +1031,11 @@
               place names, it is looked up again as a settlement in its own right, and if that is where the register
               files it the group says so — <em>6 addresses are in Klošter (Metlika), not Gradac, Metlika,
               Slovenia</em> — with a button that opens the move already filled in. This uses the same register lookup and
-              the same online opt-in, and only ever runs for places whose country is Slovenia or unstated.
+              the same online opt-in, and only ever runs for places whose country is Slovenia or unstated. Slovenia
+              reuses settlement names freely — there is a <em>Klanec</em> near Komenda and another in Kranj — so when
+              your place names its <em>občina</em>, houses filed under a different one are ranked below the local ones,
+              and a hamlet read out of the address itself must match that občina or it is not offered at all. Better no
+              answer than a house 100 km away.
             </p>
             <p>
               That means one settlement can hold different coordinates on different events, which is correct: two addresses in
@@ -1752,7 +1755,7 @@
                 Settings names the relays it will try. A <strong>place name or house number</strong>, sent straight to
                 OpenStreetMap, Slovenia's address register (GURS) or the Genealogical Gazetteer (GOV) when you press
                 one of the search buttons in <a href="#geocode">Geocode places</a> or pick <em>Look this place up in
-                the registers</em> while editing. And a <strong>country code</strong>, when you download a gazetteer in
+                the registers</em> while editing. And the <strong>country you picked</strong>, when you download a gazetteer in
                 one click. Nothing is sent until you ask: the buttons are the trigger, not the typing.</li>
               <li><strong>Base-map tiles</strong> (<a href="#workspace">Settings › Map</a>) — every map, from the
                 <a href="#map">Places map</a> down to the small one under a person's events, draws on square tiles

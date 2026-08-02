@@ -44,6 +44,14 @@ const CODES: Record<string, string> = {
   venezuela: "ve", vietnam: "vn",
 };
 
+/** Every country this table knows, as uppercase ISO 3166-1 alpha-2, deduplicated
+ *  — the same set the flags are drawn from, reused as the country picker for the
+ *  OpenStreetMap gazetteer download. Names are not taken from here: the picker
+ *  renders each code in the reader's own language through `Intl.DisplayNames`. */
+export const COUNTRY_CODES: readonly string[] = [...new Set(Object.values(CODES))]
+  .map((c) => c.toUpperCase())
+  .sort();
+
 /** Returns the ISO 3166-1 alpha-2 code (lowercase) for a country name, or undefined.
  *  Strips trailing brackets so "Macedonia (FYR)" / "Macedonia [FYR]" resolve the
  *  same as "Macedonia". */

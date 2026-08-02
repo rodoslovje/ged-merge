@@ -1,6 +1,7 @@
 import type { GeoCoord } from "../gedcom/types";
 import { countryCode } from "../gedcom/countryCode";
 import { addressStreetName, decomposePlace, looksLikeStreet } from "../gedcom/place";
+import { foldToken } from "../match/text";
 import { d96ToWgs84 } from "./d96";
 
 // RN — the GURS register of addresses (Register naslovov) — is the official
@@ -46,6 +47,11 @@ export interface RnQuery {
    *  was absorbed into — Hafnarjeva pot is naselje Kranj, not Stražišče, even
    *  though Stražišče is itself a naselje. */
   altSettlements?: string[];
+  /** The administrative levels the place names above its settlement — the občina
+   *  of "Stražišče, Kranj, Slovenia", and any wider level. The register files
+   *  every address under an OBCINA_NAZIV, so these are what tell a settlement
+   *  apart from its namesakes elsewhere in the country. */
+  parents?: string[];
 }
 
 /** One register address resolved to what the review UI needs. */
@@ -164,10 +170,15 @@ export function rnQueriesFrom(place: string | undefined, address: string | undef
   // The settlement: the outermost-first jurisdiction levels of PLAC (then ADDR),
   // skipping the country and any level that is really a street name — a packed
   // "Kidričeva cesta 38, Kranj" puts the street in locality and the town next.
-  const candidates = [...(p?.jurisdiction ?? []), a?.locality]
-    .map((s) => s?.trim())
-    .filter((s): s is string => !!s)
-    .filter((s) => !sameName(s, p?.country) && !sameName(s, a?.country) && !looksLikeStreet(s));
+  const usable = (levels: readonly (string | undefined)[]): string[] =>
+    levels
+      .map((s) => s?.trim())
+      .filter((s): s is string => !!s)
+      .filter((s) => !sameName(s, p?.country) && !sameName(s, a?.country) && !looksLikeStreet(s));
+  // PLAC's levels are kept apart because only they are administrative: ADDR's
+  // locality is another name for the same settlement, never a parent of it.
+  const placeLevels = usable(p?.jurisdiction ?? []);
+  const candidates = [...placeLevels, ...usable([a?.locality])];
   if (!candidates.length) return [];
 
   // A host that isn't the most specific place named is the street; when it *is*
@@ -178,20 +189,112 @@ export function rnQueriesFrom(place: string | undefined, address: string | undef
   // Drop the street from the settlement candidates. Identity, not vocabulary:
   // "Hafnarjeva pot" is a street but carries none of the words looksLikeStreet
   // knows, and left in it would become a bogus NASELJE_NAZIV='Hafnarjeva pot'.
+  const levels = street ? candidates.filter((s) => !sameName(s, street)) : candidates;
+
   // The file's own short form of the settlement is the same place, not another
   // one to fall back to — and left in it is dangerous, since a short form is
   // often a different real settlement elsewhere ("Sadinja vas" is also a
   // Ljubljana suburb, whose houses the widened search would happily return).
   const [settlement, ...altSettlements] = street
-    ? candidates.filter((s) => !sameName(s, street))
-    : candidates.filter((s, i) => i === 0 || !abbreviates(s, candidates[0]));
+    ? levels
+    : levels.filter((s, i) => i === 0 || !abbreviates(s, levels[0]));
   if (!settlement) return [];
+
+  // Every PLAC level above the settlement is administrative context, kept whole
+  // rather than guessing which one is the občina: a file that names a parish or a
+  // region instead simply matches no OBCINA_NAZIV, which the scoping below reads
+  // as "no opinion" rather than as a contradiction. "Kranj, Kranj" is not a
+  // duplicate to collapse — the town's own občina is the useful case.
+  const parents = (street ? placeLevels.filter((s) => !sameName(s, street)) : placeLevels)
+    .slice(1)
+    .filter((s, i, all) => all.findIndex((o) => sameName(o, s)) === i);
   return numbers.map((n) => ({
     settlement,
     ...(street ? { street } : {}),
     ...n,
     ...(altSettlements.length ? { altSettlements } : {}),
+    ...(parents.length ? { parents } : {}),
   }));
+}
+
+/**
+ * The hits whose municipality is one the place itself names. Slovenia reuses
+ * settlement names freely — there is a Klanec in Komenda, an Orehek in Postojna,
+ * a Stražišče in each of Cerknica, Prevalje and Ravne na Koroškem — and the
+ * register matches NASELJE_NAZIV across the whole country, so a name alone
+ * cheerfully answers with a house 100 km away. `OBCINA_NAZIV` is what tells them
+ * apart, and the place value usually names it already.
+ *
+ * Empty when the place names no parent, or names one the register does not know
+ * as a municipality (a parish, a region) — the caller decides whether that
+ * silence means "keep everything" or "keep nothing".
+ */
+function inParentMunicipality(hits: RnResult[], parents?: readonly string[]): RnResult[] {
+  if (!parents?.length) return [];
+  const wanted = new Set(parents.map(foldToken).filter(Boolean));
+  if (!wanted.size) return [];
+  // A hit the register filed under no municipality can't contradict anything.
+  return hits.filter((h) => !h.municipality || wanted.has(foldToken(h.municipality)));
+}
+
+/**
+ * Narrow to the place's own municipality where that is possible, and leave the
+ * hits alone where it isn't. Used on the rungs that match the settlement name the
+ * file actually wrote: a namesake in another občina is worth demoting, but a file
+ * whose second level is a parish must not lose its correct answer over it.
+ */
+export function preferParentMunicipality(hits: RnResult[], parents?: readonly string[]): RnResult[] {
+  const kept = inParentMunicipality(hits, parents);
+  return kept.length ? kept : hits;
+}
+
+/**
+ * Municipality names probed this session: folded name → does the register file
+ * any address under it. Slovenia's 212 občine are a closed set that cannot change
+ * mid-session, so one row settles a name for good.
+ */
+const municipalityProbe = new Map<string, Promise<boolean>>();
+
+/** Whether the register knows a municipality by exactly this name. One row is
+ *  enough, and a failed request answers "don't know" — which keeps the caller
+ *  lenient rather than letting a network hiccup delete good results. */
+function isMunicipality(name: string, signal?: AbortSignal): Promise<boolean> {
+  const key = foldToken(name);
+  let probe = municipalityProbe.get(key);
+  if (!probe) {
+    probe = rnFetch(`OBCINA_NAZIV=${cqlString(name)}`, signal, 1)
+      .then((data) => !!data.features?.length)
+      .catch(() => false);
+    municipalityProbe.set(key, probe);
+  }
+  return probe;
+}
+
+/**
+ * Narrow to the place's own municipality, to nothing if need be. Used only where
+ * the settlement name is our own guess rather than the file's word ({@link
+ * hostAsSettlement}): "Klanec 2" under Kranj is a hamlet of Kranj if it is
+ * anything, and Komenda's Klanec is not a worse answer but a wrong one.
+ *
+ * When nothing matches, the file's parent level is checked against the register
+ * before the hits are discarded, because "no match" has two very different
+ * causes. "Kranj" is a real občina, so a Klanec filed under Komenda contradicts
+ * it and goes. "Bela krajina" is a region the register has never heard of, so it
+ * contradicts nothing and Klošter (Metlika) stands — the file simply named a
+ * level the register does not keep.
+ */
+export async function requireParentMunicipality(
+  hits: RnResult[],
+  parents?: readonly string[],
+  signal?: AbortSignal,
+): Promise<RnResult[]> {
+  if (!parents?.length || !hits.length) return hits;
+  const kept = inParentMunicipality(hits, parents);
+  if (kept.length) return kept;
+  for (const parent of parents) {
+    if (await isMunicipality(parent, signal)) return [];
+  }
+  return hits;
 }
 
 /**
@@ -308,7 +411,9 @@ function rnFetch(filter: string, signal?: AbortSignal, limit = FETCH_LIMIT): Pro
  * a number that hangs off neither the place named nor a street of it is very
  * often a neighbouring hamlet the file files under its bigger neighbour. That
  * both finds the house and — since the result carries the register's own
- * settlement — is what reveals the misfiling.
+ * settlement — is what reveals the misfiling. Being a guess at a name, it is the
+ * one rung held to the place's own municipality ({@link requireParentMunicipality}):
+ * every other rung merely prefers it.
  *
  * Resolves to [] when nothing matches at all — including a settlement spelled
  * differently from the register (it matches case- and diacritic-sensitively),
@@ -321,7 +426,9 @@ export async function searchAddress(query: RnQuery, signal?: AbortSignal): Promi
     if (hits.length) return hits;
   }
   const asSettlement = hostAsSettlement(query);
-  if (asSettlement) return searchInSettlement(asSettlement, signal);
+  if (asSettlement) {
+    return requireParentMunicipality(await searchInSettlement(asSettlement, signal), query.parents, signal);
+  }
   return [];
 }
 
@@ -337,19 +444,27 @@ export function hostAsSettlement(query: RnQuery): RnQuery | undefined {
   return { ...rest, settlement: query.street };
 }
 
-/** The widening ladder within one settlement. */
+/** The widening ladder within one settlement. Each rung is scoped to the place's
+ *  own municipality before it is counted, so a namesake elsewhere in the country
+ *  can neither answer the row nor crowd the right house out of the six shown. */
 async function searchInSettlement(query: RnQuery, signal?: AbortSignal): Promise<RnResult[]> {
-  const exact = rnFeaturesToResults(await rnFetch(buildRnFilter(query), signal));
+  const rung = async (filter: string): Promise<RnResult[]> =>
+    preferParentMunicipality(rnFeaturesToResults(await rnFetch(filter, signal), Infinity), query.parents).slice(
+      0,
+      MAX_RESULTS,
+    );
+
+  const exact = await rung(buildRnFilter(query));
   if (exact.length) return exact;
 
   if (query.suffix) {
     const { suffix: _suffix, ...bare } = query;
-    const noSuffix = rnFeaturesToResults(await rnFetch(buildRnFilter(bare), signal));
+    const noSuffix = await rung(buildRnFilter(bare));
     if (noSuffix.length) return noSuffix;
   }
 
   if (!query.street) {
-    return rnFeaturesToResults(await rnFetch(buildRnFilter(query, { anyStreet: true }), signal));
+    return rung(buildRnFilter(query, { anyStreet: true }));
   }
   return [];
 }
@@ -375,10 +490,11 @@ export async function searchAddresses(queries: readonly RnQuery[], signal?: Abor
  *  fetched for another. Keyed by {@link groupKey}. */
 export type BatchPool = ReadonlyMap<string, RnResult[]>;
 
-/** The settlement+street a query is fetched under — what the register must match
- *  exactly, and therefore what a result is only valid for. */
-function groupKey(q: Pick<RnQuery, "settlement" | "street">): string {
-  return `${q.settlement}\u0000${q.street ?? ""}`;
+/** The settlement+street a query is fetched under, plus the municipality its hits
+ *  are scoped to — what the register must match, and therefore what a result is
+ *  only valid for. */
+function groupKey(q: Pick<RnQuery, "settlement" | "street" | "parents">): string {
+  return [q.settlement, q.street ?? "", ...(q.parents ?? [])].join("\u0000");
 }
 
 /** Numbers per batched request — keeps the filter (and the URL) a sane length. */
@@ -412,17 +528,28 @@ const BATCH_LIMIT = 1000;
  *   3. the "street" read as a settlement of its own ({@link hostAsSettlement}) —
  *      a hamlet filed under its neighbour, the case where a whole group fails
  *      at once.
+ * Each rung is scoped to the municipality the place names, rung 3 strictly — see
+ * {@link searchAddress}, whose ladder this mirrors.
  */
 export async function searchAddressBatch(
   queries: readonly RnQuery[],
   signal?: AbortSignal,
 ): Promise<BatchPool> {
-  const byPlace = new Map<string, { settlement: string; street?: string; numbers: Set<number> }>();
+  const byPlace = new Map<
+    string,
+    { settlement: string; street?: string; parents?: string[]; numbers: Set<number> }
+  >();
   for (const q of queries) {
     const key = groupKey(q);
     const g = byPlace.get(key);
     if (g) g.numbers.add(q.number);
-    else byPlace.set(key, { settlement: q.settlement, street: q.street, numbers: new Set([q.number]) });
+    else
+      byPlace.set(key, {
+        settlement: q.settlement,
+        street: q.street,
+        parents: q.parents,
+        numbers: new Set([q.number]),
+      });
   }
 
   const fetchGroup = async (
@@ -445,13 +572,23 @@ export async function searchAddressBatch(
   const pool = new Map<string, RnResult[]>();
   for (const [key, g] of byPlace) {
     const numbers = [...g.numbers].sort((a, b) => a - b);
-    let hits = await fetchGroup(g.settlement, g.street, numbers);
-    if (!hits.length && !g.street) hits = await fetchGroup(g.settlement, undefined, numbers, true);
+    const own = async (...args: Parameters<typeof fetchGroup>) =>
+      preferParentMunicipality(await fetchGroup(...args), g.parents);
+    let hits = await own(g.settlement, g.street, numbers);
+    if (!hits.length && !g.street) hits = await own(g.settlement, undefined, numbers, true);
     if (!hits.length) {
       const alt = hostAsSettlement({ settlement: g.settlement, street: g.street, number: numbers[0] });
       if (alt) {
-        hits = await fetchGroup(alt.settlement, undefined, numbers);
-        if (!hits.length) hits = await fetchGroup(alt.settlement, undefined, numbers, true);
+        // The guessed settlement is held to the place's own municipality, so a
+        // "Klanec" that is really Komenda's cannot answer a place in Kranj.
+        const guessed = async (anyStreet: boolean) =>
+          requireParentMunicipality(
+            await fetchGroup(alt.settlement, undefined, numbers, anyStreet),
+            g.parents,
+            signal,
+          );
+        hits = await guessed(false);
+        if (!hits.length) hits = await guessed(true);
       }
     }
     pool.set(key, hits);

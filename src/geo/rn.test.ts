@@ -1,8 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   buildRnFilter,
   hostAsSettlement,
   parseHouseNumbers,
+  preferParentMunicipality,
+  requireParentMunicipality,
   resultsForQuery,
   rnFeaturesToResults,
   rnQueriesFrom,
@@ -51,7 +53,13 @@ describe("rnQueriesFrom", () => {
     // Only jurisdiction levels beyond the first become fallbacks; the country is
     // never one of them.
     expect(rnQueriesFrom("Bled, Gorenjska, Slovenija", "Mlinska cesta 4")).toEqual([
-      { settlement: "Bled", street: "Mlinska cesta", number: 4, altSettlements: ["Gorenjska"] },
+      {
+        settlement: "Bled",
+        street: "Mlinska cesta",
+        number: 4,
+        altSettlements: ["Gorenjska"],
+        parents: ["Gorenjska"],
+      },
     ]);
   });
 
@@ -61,8 +69,21 @@ describe("rnQueriesFrom", () => {
     // Kranj rides along as a fallback: the register files Hafnarjeva pot under
     // naselje Kranj, not the historical village Stražišče the record names.
     expect(rnQueriesFrom("Stražišče,Kranj,Slovenia", "Hafnarjeva pot 21a / 53")).toEqual([
-      { settlement: "Stražišče", street: "Hafnarjeva pot", number: 21, suffix: "a", altSettlements: ["Kranj"] },
-      { settlement: "Stražišče", street: "Hafnarjeva pot", number: 53, altSettlements: ["Kranj"] },
+      {
+        settlement: "Stražišče",
+        street: "Hafnarjeva pot",
+        number: 21,
+        suffix: "a",
+        altSettlements: ["Kranj"],
+        parents: ["Kranj"],
+      },
+      {
+        settlement: "Stražišče",
+        street: "Hafnarjeva pot",
+        number: 53,
+        altSettlements: ["Kranj"],
+        parents: ["Kranj"],
+      },
     ]);
   });
 
@@ -80,7 +101,7 @@ describe("rnQueriesFrom and an abbreviated settlement", () => {
     // as "Sadinja vas 9". Read as a street that finds nothing — and the short
     // form is itself a different real settlement, so the fallback misses too.
     expect(rnQueriesFrom("Sadinja vas pri Dvoru, Žužemberk, Slovenija", "Sadinja vas 9")).toEqual([
-      { settlement: "Sadinja vas pri Dvoru", number: 9, altSettlements: ["Žužemberk"] },
+      { settlement: "Sadinja vas pri Dvoru", number: 9, altSettlements: ["Žužemberk"], parents: ["Žužemberk"] },
     ]);
   });
 
@@ -162,6 +183,84 @@ describe("hostAsSettlement", () => {
   it("declines a real street and an address with no street at all", () => {
     expect(hostAsSettlement({ settlement: "Kranj", street: "Kidričeva cesta", number: 38 })).toBeUndefined();
     expect(hostAsSettlement({ settlement: "Bled", number: 4 })).toBeUndefined();
+  });
+
+  it("keeps the municipality the guess must answer to", () => {
+    // Without this the guessed naselje is searched country-wide: "Klanec 2" of a
+    // Kranj record comes back as Klanec near Komenda, 20 km away.
+    expect(
+      hostAsSettlement({ settlement: "Kranj", street: "Klanec", number: 2, parents: ["Kranj"] }),
+    ).toEqual({ settlement: "Klanec", number: 2, parents: ["Kranj"] });
+  });
+});
+
+describe("municipality scoping", () => {
+  /** Names the stubbed register answers as real občine. */
+  const municipalities = new Set<string>();
+  const fetchMock = vi.fn(async (url: string | URL) => {
+    const name = decodeURIComponent(String(url)).match(/OBCINA_NAZIV='([^']*)'/)?.[1] ?? "";
+    return {
+      ok: true,
+      json: async () => ({ features: municipalities.has(name) ? [{ properties: {} }] : [] }),
+    } as unknown as Response;
+  });
+
+  beforeEach(() => {
+    municipalities.clear();
+    fetchMock.mockClear();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  const hit = (settlement: string, municipality: string | undefined, lat: number) => ({
+    coord: { lat, lon: 14.5 },
+    address: `${settlement} 2`,
+    label: `${settlement} 2`,
+    settlement,
+    ...(municipality ? { municipality } : {}),
+    number: 2,
+  });
+  const klanecKomenda = hit("Klanec", "Komenda", 46.2109);
+  const klanecKranj = hit("Klanec", "Kranj", 46.2409);
+
+  it("keeps only the place's own municipality when the register offers both", () => {
+    expect(preferParentMunicipality([klanecKomenda, klanecKranj], ["Kranj"])).toEqual([klanecKranj]);
+    // Accent- and case-blind: the file's spelling need not be the register's.
+    expect(preferParentMunicipality([klanecKomenda, klanecKranj], ["KRANJ"])).toEqual([klanecKranj]);
+  });
+
+  it("leaves the hits alone when the place names no municipality it knows", () => {
+    // "Gorenjska" is a region, not an občina — it contradicts nothing, so a
+    // preference must not turn it into a veto and lose the right house.
+    expect(preferParentMunicipality([klanecKomenda], ["Gorenjska"])).toEqual([klanecKomenda]);
+    expect(preferParentMunicipality([klanecKomenda], [])).toEqual([klanecKomenda]);
+    expect(preferParentMunicipality([klanecKomenda], undefined)).toEqual([klanecKomenda]);
+  });
+
+  it("drops a namesake outright where the settlement name was our own guess", async () => {
+    // A hit in the named občina answers without the register being consulted.
+    expect(await requireParentMunicipality([klanecKomenda, klanecKranj], ["Kranj"])).toEqual([klanecKranj]);
+    // Nothing named, nothing to check against — and no request made.
+    expect(await requireParentMunicipality([klanecKomenda], undefined)).toEqual([klanecKomenda]);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("asks the register whether the parent is an občina before discarding", async () => {
+    // "Kranj" is one, so a Klanec filed under Komenda contradicts it and goes.
+    municipalities.add("Kranj");
+    expect(await requireParentMunicipality([klanecKomenda], ["Kranj"])).toEqual([]);
+    // "Bela krajina" is a region the register does not keep, so it contradicts
+    // nothing and the only hit there is stands.
+    expect(await requireParentMunicipality([klanecKomenda], ["Bela krajina"])).toEqual([klanecKomenda]);
+    // Each name is settled once for the session, however often it is asked.
+    expect(await requireParentMunicipality([klanecKomenda], ["Bela krajina"])).toEqual([klanecKomenda]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("carries the municipality from a place value into the query", () => {
+    expect(rnQueriesFrom("Kranj,Kranj,Slovenia", "Klanec 2")).toEqual([
+      { settlement: "Kranj", street: "Klanec", number: 2, altSettlements: ["Kranj"], parents: ["Kranj"] },
+    ]);
   });
 });
 

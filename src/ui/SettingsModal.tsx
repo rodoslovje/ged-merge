@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useState, useTransition } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState, useTransition } from "react";
 import { useTranslation } from "react-i18next";
 import { useModalKeyboard } from "../keyboard/useModalKeyboard";
 import { useSettings, useNameOf, type MapOverlay } from "./SettingsContext";
@@ -13,6 +13,8 @@ import { PROXY_HOSTS } from "../normalize/urlMetadata";
 import { DATE_PATTERN_CHOICES, type DetectedFormats, type FormatOverrides } from "../normalize/formatOverrides";
 import { sampleDateFor } from "../normalize/formatDefaults";
 import { sexClass } from "./sex";
+import type { SettingsTab } from "./settingsBus";
+import { GazetteerManager, useGazetteer } from "./tools/GazetteerManager";
 
 // Leaflet is a lazy chunk everywhere else too — the Map tab loads it only when
 // the base-map sample is actually shown.
@@ -30,9 +32,12 @@ interface Props {
   /** The main file's detected formats (computed at load, in the worker) —
    *  the "Auto (detected)" examples on the GEDCOM tab. */
   detectedFormats?: DetectedFormats;
+  /** Tab to open on. Set when something elsewhere sent the reader here for a
+   *  particular setting ({@link requestSettings}); each fresh open honours it,
+   *  and switching tabs by hand from then on is the reader's business. */
+  initialTab?: SettingsTab;
 }
 
-type SettingsTab = "general" | "format" | "map" | "advanced";
 const SETTINGS_TABS: SettingsTab[] = ["general", "format", "map", "advanced"];
 
 /** One format dimension: a select whose first option is "Detected" (= no
@@ -125,17 +130,30 @@ const NO_PINS: MiniMapPin[] = [];
 const SAMPLE_LIFESPAN = "1850–1920";
 const SAMPLE_AGE = 70;
 
+/** The place directories, in the only place that owns them. Its own component so
+ *  the IndexedDB read happens when the Map tab is opened, not on every render of
+ *  a modal that spends most of its life closed. */
+function GazetteerSection() {
+  const gaz = useGazetteer();
+  return <GazetteerManager gaz={gaz} />;
+}
+
 /**
  * General settings: name-display preferences, the record-id toggle, and the
  * opt-in for online link-metadata lookups. Preferences live in
  * {@link useSettings} and persist to localStorage.
  */
-export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClearCache, detectedFormats }: Props) {
+export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClearCache, detectedFormats, initialTab }: Props) {
   const { t, i18n } = useTranslation();
   const { settings, set } = useSettings();
   const nameOf = useNameOf();
   const ref = useModalKeyboard(isOpen, onClose);
   const [tab, setTab] = useState<SettingsTab>("general");
+  // Follow the requested tab on each open, not on every render: once open, the
+  // reader's own tab clicks must stick.
+  useEffect(() => {
+    if (isOpen && initialTab) setTab(initialTab);
+  }, [isOpen, initialTab]);
   // What "Auto (detected)" resolves to — computed at load in the worker and
   // stored with the file, so showing it here costs nothing.
   const detected = detectedFormats;
@@ -438,6 +456,15 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
 
           {tab === "map" && (
           <>
+          {/* First on the tab: the directories are what every place name in the
+              app resolves against, and the one thing here that needs setting up
+              once rather than choosing. */}
+          <section className="settings-section">
+            <h3>{t("settings.geo.title")}</h3>
+            <p className="settings-hint">{t("settings.geo.hint")}</p>
+            <GazetteerSection />
+          </section>
+
           <section className="settings-section">
             <h3>{t("settings.map.base")}</h3>
             <label className="settings-row settings-row-toggle">
@@ -461,13 +488,19 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                   was switched on last, so a layer covering another country, or
                   drawn only at close range, is not switched on into an empty
                   frame. Shown only once tiles are allowed: before that
-                  there is nothing to preview but the offline outline. */}
+                  there is nothing to preview but the offline outline. Its
+                  caption is a tooltip: a live, draggable map says what it is by
+                  being one, and a line under it only crowds the tab. */}
               {settings.allowMapTiles && (
-                <div className="settings-map-preview">
+                <div
+                  className="settings-map-preview"
+                  title={t("settings.map.preview")}
+                  role="img"
+                  aria-label={t("settings.map.previewAria")}
+                >
                   <Suspense fallback={<div className="tools-geo-minimap" />}>
                     <MiniPlaceMap pins={NO_PINS} view={sampleView} />
                   </Suspense>
-                  <p className="settings-hint">{t("settings.map.preview")}</p>
                 </div>
               )}
               <label className="settings-row settings-format-row" title={t("settings.map.basemap.hint")}>
@@ -537,14 +570,14 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                 <button
                   type="button"
                   className="nav-btn"
-                  onClick={() =>
-                    set({
-                      mapOverlays: [
-                        ...settings.mapOverlays,
-                        { id: crypto.randomUUID(), name: "", url: "" },
-                      ],
-                    })
-                  }
+                  onClick={() => {
+                    // Opened expanded: a blank layer is nothing but its fields,
+                    // and adding one is a statement that you are about to fill
+                    // them in. (A preset, by contrast, arrives complete.)
+                    const id = crypto.randomUUID();
+                    set({ mapOverlays: [...settings.mapOverlays, { id, name: "", url: "" }] });
+                    setOpenOverlays((open) => new Set(open).add(id));
+                  }}
                 >
                   {t("settings.map.overlays.add")}
                 </button>
