@@ -247,7 +247,20 @@ class Cassini:
         d = x / n1
         phi = phi1 - (n1 * math.tan(phi1) / r1) * (d**2 / 2 - (1 + 3 * t1) * d**4 / 24)
         lam = self.lam0 + (d - t1 * d**3 / 3 + (1 + 3 * t1) * t1 * d**5 / 15) / math.cos(phi)
-        return math.degrees(lam), math.degrees(phi)
+        lon, lat = math.degrees(lam), math.degrees(phi)
+        # The series above is a starting point, not the answer: 60 km off the
+        # central meridian — which is only halfway across a crown land — its
+        # truncation is already metres. Two Newton steps against the forward
+        # projection close that to millimetres, and the forward one is the
+        # definition the sheets are placed by.
+        for _ in range(2):
+            ex, ey = self.fwd(lon, lat)
+            dx_m, dy_m = (x - self.dx) - ex, (y - self.dy) - ey
+            if abs(dx_m) < 1e-4 and abs(dy_m) < 1e-4:
+                break
+            lat += math.degrees(dy_m / r1)
+            lon += math.degrees(dx_m / (n1 * math.cos(math.radians(lat))))
+        return lon, lat
 
     def cell_quad(self, ix, iy, steps=8):
         """Lattice cell (ix, iy) as a lon/lat ring, clockwise from its NW corner.
