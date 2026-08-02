@@ -263,6 +263,31 @@ from grid north, which tilts a sheet by ~18 m corner to corner. Each sheet is
 therefore clipped to its cell's ring rather than to a lon/lat box, or it would
 cover its neighbour.
 
+### Finding the frame, and squaring it up
+
+Placing a sheet by its cell is only as good as the neatline it was measured
+against, and a bad edge is worse here than in a single-sheet mosaic because the
+neighbour does not follow it: 89 px of false lean across a 2460 px frame is
+68 m at the corner, and the join tears. On these scans the plain
+innermost-rule-per-edge heuristic leaned sheets by 89, 102, 107 and 160 px, and
+on one it put the sheet's own "Aufgenommen und berechnet von…" footer inside
+the map.
+
+So each scan is read every way that works — plain, told the printed size, and
+told the printed size with a margin of its own paper tone pasted back around it
+for sheets trimmed to within a few pixels of their rule — and the reading
+closest to a cadastral sheet's known shape wins. Then every frame is rebuilt as
+a rectangle of exactly the series' size (the median of the readings that check
+out: 2462 × 1970 px here) about its own **centre**, with lean clamped to 0.23°.
+The centre, not a corner, because the detector brackets an edge between the
+pair of rules the printed distance apart, so half of whatever is left over goes
+each way instead of all of it to the far edge.
+
+What remains at a join is ten metres or so in places. That is the paper's own
+two centuries of distortion and the survey's sheet-to-sheet edge matching, and
+removing it would mean nudging sheets relative to each other — fitting, which
+is exactly what this pipeline is built not to do.
+
 ### How a sheet gets placed, and what still needs a human
 
 Placement leans on three readings, scored together as one assignment so that no

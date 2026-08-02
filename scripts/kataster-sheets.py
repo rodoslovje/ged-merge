@@ -248,83 +248,120 @@ def _rings(coords):
 
 # ── placing the sheets ───────────────────────────────────────────────────────
 
+ASPECT = SHEET_W / SHEET_H            # 1.25, and every sheet's frame is that
+MAX_LEAN = 0.004                      # 0.23°: more tilt than a flatbed produces
+
+
+def _detect(path, expect):
+    """Every reading of one scan's neatline that is worth having.
+
+    The plain detector takes the innermost long rule per edge, which a road or
+    a field boundary running parallel to the frame can impersonate. Told the
+    printed size, it instead looks for the *pair* of rules that distance apart
+    with blank paper outside, which nothing inside the map can fake — but that
+    needs a candidate on both edges, so it fails where the plain one succeeds.
+    Neither wins everywhere, so both are read and the shape decides.
+    """
+    with Image.open(path) as im:
+        rgba = im.convert("RGBA")
+    tone = rgba.resize((1, 1)).getpixel((0, 0))
+    padded = Image.new("RGBA", (rgba.width + 300, rgba.height + 300), tone)
+    padded.paste(rgba, (150, 150))
+    tries = [(rgba, {}, (0, 0)),
+             (rgba, dict(expect=expect), (0, 0)),
+             # A sheet trimmed to within a few pixels of its border rule leaves
+             # the rule no paper to be a rule against; give it some of its own.
+             (padded, dict(expect=expect), (-150, -150))]
+    out = []
+    for probe, kw, (ox, oy) in tries:
+        try:
+            found = ot.detect_frame(probe, printed_mm=PRINTED_MM, **kw)
+        except SystemExit:
+            continue
+        out.append(tuple((x + ox, y + oy) for x, y in found))
+    return out
+
+
+def _misshape(corners):
+    """How far a reading is from what a cadastral sheet has to look like: the
+    wrong aspect, or a lean no scanner would introduce."""
+    w, h = _frame_size(corners)
+    if w <= 0 or h <= 0:
+        return 1e9
+    nw, ne, se, sw = corners
+    lean = max(abs(ne[1] - nw[1]), abs(se[1] - sw[1]), abs(sw[0] - nw[0]), abs(se[0] - ne[0])) / w
+    return abs((w / h) / ASPECT - 1) + max(0.0, lean - MAX_LEAN)
+
+
 def frames(paths):
     """Neatline corners per scan, with the scans holding each other honest.
 
-    A sheet is printed to scale, so every scan of a series is at one
-    resolution and every frame is the same size in pixels. Detection is run
-    once per scan; the sheets whose frame comes out the right shape set that
-    size, and a scan whose own detection is off-shape (or failed) is given the
-    agreed rectangle, hung on the corner and the top-edge angle it did find.
+    A sheet is printed to scale, so every scan of a series is at one resolution
+    and every frame is the same size in pixels and square to the scanner. Each
+    scan is read every way that works, the reading closest to that shape wins,
+    and the winners agree on a size. Every frame is then rebuilt as a rectangle
+    of exactly that size about its own centre — the centre, not a corner,
+    because the pair of rules an edge was found between brackets it, so half of
+    what is left over goes each way instead of all of it to the far edge.
+
+    Without this a single bad edge tilts a whole sheet: 89 px of false lean
+    across a 2460 px frame is 68 m at the corner, and the neighbouring sheet
+    does not follow it.
     """
-    raw, sizes = {}, []
+    # What size to tell the detector to look for has to come from the sheets
+    # themselves — one scan of the batch may be a wide crop with a hand's
+    # breadth of blank margin, so its own width says nothing. A plain pass over
+    # all of them does say it.
+    seeds = []
     for path in paths:
         with Image.open(path) as im:
             try:
-                corners = ot.detect_frame(im.convert("RGBA"), printed_mm=PRINTED_MM)
+                plain = ot.detect_frame(im.convert("RGBA"), printed_mm=PRINTED_MM)
             except SystemExit:
-                raw[path] = None
                 continue
-        raw[path] = corners
-        w, h = _frame_size(corners)
-        if abs((w / h) / (SHEET_W / SHEET_H) - 1) < 0.02:
-            sizes.append((w, h))
-    if not sizes:
+        if _misshape(plain) < 0.02:
+            seeds.append(_frame_size(plain)[0])
+    if not seeds:
+        widths = sorted(Image.open(p).width for p in paths)
+        seeds = [widths[len(widths) // 2] * 0.93]
+    seed = sorted(seeds)[len(seeds) // 2]
+
+    best = {}
+    for path in paths:
+        readings = _detect(path, (seed, seed / ASPECT))
+        best[path] = min(readings, key=_misshape) if readings else None
+    good = [_frame_size(c)[0] for c in best.values() if c is not None and _misshape(c) < 0.02]
+    if not good:
         return {p: None for p in paths}
-    med_w = sorted(w for w, _h in sizes)[len(sizes) // 2]
-    med_h = med_w * SHEET_H / SHEET_W
-    # Second pass for the scans that found nothing: now that the series' own
-    # frame size is known, detection can be told what to look for, which is
-    # what gets a border rule out of a wide blank margin or a faint edge.
-    for path, corners in list(raw.items()):
-        if corners is not None:
-            continue
-        with Image.open(path) as im:
-            rgba = im.convert("RGBA")
-        for pad in (0, 150):
-            # Some sheets were trimmed to within a few pixels of their border
-            # rule, and a rule with no paper outside it does not read as a
-            # rule. Giving the scan a margin of its own paper tone back is
-            # enough for the same detector to find it.
-            probe, off = rgba, (0, 0)
-            if pad:
-                tone = probe.resize((1, 1)).getpixel((0, 0))
-                probe = Image.new("RGBA", (rgba.width + 2 * pad, rgba.height + 2 * pad), tone)
-                probe.paste(rgba, (pad, pad))
-                off = (-pad, -pad)
-            try:
-                found = ot.detect_frame(probe, expect=(med_w, med_h), printed_mm=PRINTED_MM)
-                raw[path] = tuple((x + off[0], y + off[1]) for x, y in found)
-                break
-            except SystemExit:
-                raw[path] = None
+    med_w = sorted(good)[len(good) // 2]
+
     out = {}
-    for path, corners in raw.items():
-        if corners is None:
-            out[path] = None
-            continue
-        w, h = _frame_size(corners)
-        if abs((w / h) / (SHEET_W / SHEET_H) - 1) < 0.02:
-            out[path] = corners
-        else:
-            out[path] = _rectangle(corners, med_w, med_h)
+    for path, corners in best.items():
+        # A reading that is still the wrong shape after all that has found
+        # something other than the frame; better to report the sheet than to
+        # place it on a guess.
+        out[path] = _square(corners, med_w) if corners and _misshape(corners) < 0.05 else None
     return out
+
+
+def _square(corners, width):
+    """The reading, as an exact printed rectangle about its own centre."""
+    nw, ne, se, sw = corners
+    cx = (nw[0] + ne[0] + se[0] + sw[0]) / 4
+    cy = (nw[1] + ne[1] + se[1] + sw[1]) / 4
+    lean = ((ne[1] - nw[1]) + (se[1] - sw[1])) / 2 / max(1.0, _frame_size(corners)[0])
+    lean = max(-MAX_LEAN, min(MAX_LEAN, lean))
+    ux, uy = 1.0, lean
+    vx, vy = -lean, 1.0
+    w, h = width / 2, width / ASPECT / 2
+    return tuple((cx + ux * a + vx * b, cy + uy * a + vy * b)
+                 for a, b in ((-w, -h), (w, -h), (w, h), (-w, h)))
 
 
 def _frame_size(corners):
     nw, ne, se, sw = corners
     return (((ne[0] - nw[0]) + (se[0] - sw[0])) / 2,
             ((sw[1] - nw[1]) + (se[1] - ne[1])) / 2)
-
-
-def _rectangle(corners, w, h):
-    nw, ne, _se, _sw = corners
-    dx, dy = ne[0] - nw[0], ne[1] - nw[1]
-    n = math.hypot(dx, dy) or 1.0
-    ux, uy = dx / n, dy / n
-    vx, vy = -uy, ux
-    at = lambda a, b: (nw[0] + ux * a + vx * b, nw[1] + uy * a + vy * b)
-    return at(0, 0), at(w, 0), at(w, h), at(0, h)
 
 
 def read_designation(path, corners):
