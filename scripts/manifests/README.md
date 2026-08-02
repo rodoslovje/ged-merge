@@ -17,6 +17,11 @@ scans without re-measuring.
   (Vienna, 1797), the Holy Roman Empire on the eve of Napoleon. One conic
   projection rather than a sheet grid — see "Conic manifests" below. Serves
   `tiles.gedmerge.com/schraembl-1797/`.
+- **kataster-strazisce.json**, **kataster-gradac.json** — two cadastral
+  municipalities of the Franciscean cadastre, 1:2880, from the Archives of the
+  Republic of Slovenia. A third manifest kind: cells of the survey's own
+  Cassini-Soldner lattice — see "Cadastral manifests" below. Serve
+  `tiles.gedmerge.com/kataster-<k.o.>/`.
 
 ## Entry shape
 
@@ -213,6 +218,119 @@ python3 ../overlay-tiles.py --manifest schraembl-1797.json \
 
 Base zoom lands on 11 (~49 m/px, which is the scan's own resolution — z12 would
 only enlarge it) for ~11 000 tiles / 270 MB.
+
+## Cadastral manifests (the Franciscean cadastre, 1:2880)
+
+The Franciscean cadastre is the largest scale these lands were ever drawn at —
+every parcel, every house, every field name, surveyed in the 1820s — and the
+Archives of the Republic of Slovenia have the whole of it online, sheet by
+sheet, open to anyone, in four fonds: **SI AS 176** Carniola, **177** Styria,
+**178** Carinthia, **179** the Littoral. `scripts/kataster-sheets.py` walks
+that catalogue and writes a manifest per cadastral municipality:
+
+```json
+{ "name": "STRAŽIŠČE",
+  "cassini": { "lat0": 45.928944, "lon0": 14.474694, "shift": [0, 0] },
+  "sheets": [ { "image": "…/225877.jpg", "cell": [-5, 22],
+                "frame": [8 corner pixels], "source": "SI AS 176/L/L278/g/A04",
+                "placed": "printed W.C.II.14.ag (1.00)" } ] }
+```
+
+A sheet has no `bbox`, only its `cell`. The survey divided the land into
+sections one Austrian post mile square (4000 klafter = 7585.9 m), each into 4
+sheet columns of 1000 klafter and 5 sheet rows of 800 klafter, on
+Cassini-Soldner about the crown land's origin. So a cell fixes a sheet
+absolutely, and the tiler derives its corners from the projection.
+
+### Reading a sheet's own address
+
+Every sheet prints its designation in the top margin: `W.C.II.14.ag` is **W**est
+column **II**, section row **14**, and inside that section the sheet in column
+**a**, row **g**. Columns run **a–d from the section's eastern edge westward**
+and rows **e–i from north to south** — both established here from the sheets
+themselves, since Gradac straddles the VIII/IX section boundary and only one
+reading joins its halves, and since the archive files a k.o.'s sheets in raster
+order, which only one reading makes monotonic.
+
+Section columns are counted west and east of the origin meridian; section rows
+southward from 18 sections north of the origin parallel. Hence
+`cell = (ix, iy)` with the cell spanning `[ix·1896.484, (ix+1)·1896.484]` east
+and `[iy·1517.187, (iy+1)·1517.187]` north of the origin.
+
+A cadastral sheet is a rectangle of the *survey's* grid, not of lon/lat: at the
+eastern edge of a crown land the meridians converge about half a degree away
+from grid north, which tilts a sheet by ~18 m corner to corner. Each sheet is
+therefore clipped to its cell's ring rather than to a lon/lat box, or it would
+cover its neighbour.
+
+### How a sheet gets placed, and what still needs a human
+
+Placement leans on three readings, scored together as one assignment so that no
+single one can drag a sheet off on its own: OCR of the printed letter pair; the
+shape of the colour wash (a sheet paints its own k.o. and leaves the rest of the
+paper blank, so the wash is the k.o. clipped to that cell); and the archive's
+raster filing order. Measured against designations read by eye on the 13
+lattice sheets of these two k.o., that places about two in three.
+
+The rest is what `--review` is for, and `--pin` is how they come back:
+
+```json
+{ "225877": {"cell": [-5, 22], "as": "printed W.C.II.14.ag"},
+  "227433": {"cell": [31, -23], "as": "printed O.VIII.23.ag",
+             "frame": [86, 87, 2552, 87, 2552, 2060, 86, 2060]},
+  "-227435": "1853 reambulation, cut to its own frame — off the lattice" }
+```
+
+Both committed manifests are pinned this way, so every sheet in them sits where
+its own printed designation says and not where an algorithm guessed. What the
+automatic pass gets wrong is worth knowing for a whole-fond run: it fails where
+a municipality has since been trimmed (the wash then covers ground today's
+boundary no longer claims, so the shape argues for the wrong cell), and OCR
+turns `h` into `g` often enough to matter. Two sheets also needed help of their
+own — one trimmed so close to its border rule that the rule has no paper
+outside it to be a rule against, and Gradac's 1853 reambulation, which is cut
+to a frame of its own and is left out rather than forced onto the lattice.
+
+### The origin, and the shift that is not applied
+
+The Krim origin here is 45°55′44.2″ N, 14°28′28.9″ E on Bessel 1841, and it is
+carried at face value: `shift` is `[0, 0]`. The check that says it can be:
+sliding today's cadastral boundary over the sheets' wash, k.o. Stražišče fits
+best 190 m west and 100 m south of nominal, but only barely — the correlation
+goes 0.454 → 0.472 over that whole distance, which is a hill, not a peak.
+Gradac's own fit lands somewhere else entirely and its correlation at nominal is
+*negative*, because that municipality has lost ground since 1824 and its 1824
+wash and its 2026 boundary are not the same shape. One shallow fit and one
+contaminated one are not grounds for moving a crown land's whole grid, so
+nothing is moved. If a k.o. with an unchanged boundary later measures a
+consistent offset, it belongs in `ORIGINS["krim"]["shift"]` — one number for
+the system, never per sheet.
+
+### Rebuilding
+
+```sh
+# crawl, download the scans, propose a placement, list what needs a look
+python3 scripts/kataster-sheets.py --ko-id 225872 --name STRAŽIŠČE \
+    --scans scripts/manifests/kataster-scans \
+    --manifest scripts/manifests/kataster-strazisce.json --review review.txt
+
+# then, with the review worked through
+python3 scripts/kataster-sheets.py … --pin pins.json --calibrate
+
+python3 scripts/overlay-tiles.py --manifest scripts/manifests/kataster-strazisce.json \
+    --out public/tiles-local/kataster-strazisce --base-zoom 17 --min-zoom 11 --webp
+```
+
+Base zoom 17: the scans are 0.771 m a pixel (a sheet's neatline measures
+2460 × 1968 px for 1000 × 800 klafter, and every scan in the fond is at that one
+resolution), and z17 is 0.83 m a pixel at this latitude. z18 would only enlarge
+paper. A k.o. costs about 700 tiles and 2 MB; the scans are **not** in the repo
+— each sheet entry carries the `url` it came from, and `kataster-scans/` is
+git-ignored.
+
+Scale, for whoever runs the fond: roughly 2 700 municipalities at ~7 sheets
+each, so ~19 000 scans (~10 GB) and, at 2 MB of tiles per k.o., something like
+5 GB of pyramid.
 
 ## Coverage
 

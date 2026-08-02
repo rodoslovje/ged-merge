@@ -119,6 +119,41 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     coverage: SWITZERLAND,
     sampleZoom: 13,
   },
+  // Slovenia · the Franciscean cadastre, 1:2880 — the largest scale any
+  // historical map of these lands was ever drawn at: every field, every house,
+  // every owner's parcel number, surveyed in the 1820s. Self-hosted pyramids
+  // built from the Archives of the Republic of Slovenia's open scans with
+  // scripts/kataster-sheets.py; see scripts/manifests/README.md.
+  //
+  // Each sheet sits where its own printed designation puts it on the survey's
+  // Cassini-Soldner lattice — nothing is rubber-sheeted onto modern
+  // coordinates — so the ~200 m the whole grid may be out is the survey's, and
+  // it moves every sheet of a crown land together rather than distorting any.
+  //
+  // Two municipalities so far, hence a preset each: a cadastral overlay is
+  // only ever true of the k.o. it was drawn for, and one box spanning both
+  // would claim half of Slovenia.
+  {
+    key: "settings.map.overlays.preset.kataster.strazisce",
+    url: "https://tiles.gedmerge.com/kataster-strazisce/{z}/{x}/{y}.webp",
+    yearFrom: 1826,
+    yearTo: 1869,
+    attribution: "Arhiv Republike Slovenije, SI AS 176 (Franciscejski kataster za Kranjsko)",
+    // The scans are 0.77 m a pixel, which is z17; deeper only enlarges them.
+    maxZoom: 17,
+    coverage: [46.2019, 14.3025, 46.2429, 14.3764],
+    sampleZoom: 16,
+  },
+  {
+    key: "settings.map.overlays.preset.kataster.gradac",
+    url: "https://tiles.gedmerge.com/kataster-gradac/{z}/{x}/{y}.webp",
+    yearFrom: 1824,
+    yearTo: 1869,
+    attribution: "Arhiv Republike Slovenije, SI AS 176 (Franciscejski kataster za Kranjsko)",
+    maxZoom: 17,
+    coverage: [45.5850, 15.2038, 45.6261, 15.2773],
+    sampleZoom: 16,
+  },
   // Slovenia · GURS public WMS (Geodetska uprava RS), CC BY 4.0, CORS-enabled,
   // served in Web Mercator on demand. Reference (present-day) layers useful for
   // locating an ancestral place; no validity period, so never era-suggested.

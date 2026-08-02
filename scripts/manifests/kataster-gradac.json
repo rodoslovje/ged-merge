@@ -1,0 +1,135 @@
+{
+ "name": "GRADAC",
+ "cassini": {
+  "lat0": 45.928944,
+  "lon0": 14.474694,
+  "shift": [
+   0.0,
+   0.0
+  ],
+  "system": "krim"
+ },
+ "source": "Arhiv Republike Slovenije, SI AS 176/N/N65 — Franciscean cadastre",
+ "sheets": [
+  {
+   "image": "kataster-scans/227433.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=227433&docid=10&seq=1",
+   "cell": [
+    31,
+    -23
+   ],
+   "frame": [
+    86,
+    87,
+    2552,
+    87,
+    2552,
+    2060,
+    86,
+    2060
+   ],
+   "source": "SI AS 176/N/N65/g/A01",
+   "placed": "printed O.VIII.23.ag (1.00)"
+  },
+  {
+   "image": "kataster-scans/227434.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=227434&docid=10&seq=1",
+   "cell": [
+    32,
+    -23
+   ],
+   "frame": [
+    78.9,
+    92.4,
+    2542.7,
+    94.0,
+    2541.4,
+    2065.0,
+    77.6,
+    2063.4
+   ],
+   "source": "SI AS 176/N/N65/g/A02",
+   "placed": "printed O.IX.23.dg (1.00)"
+  },
+  {
+   "image": "kataster-scans/227436.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=227436&docid=10&seq=1",
+   "cell": [
+    31,
+    -24
+   ],
+   "frame": [
+    93.6,
+    103.9,
+    2558.8,
+    106.9,
+    2556.5,
+    2067.7,
+    94.1,
+    2073.1
+   ],
+   "source": "SI AS 176/N/N65/g/A04",
+   "placed": "printed O.VIII.23.ah (1.00)"
+  },
+  {
+   "image": "kataster-scans/227437.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=227437&docid=10&seq=1",
+   "cell": [
+    32,
+    -24
+   ],
+   "frame": [
+    125.8,
+    134.2,
+    2588.8,
+    72.0,
+    2638.5,
+    2042.3,
+    175.6,
+    2104.6
+   ],
+   "source": "SI AS 176/N/N65/g/A05",
+   "placed": "printed O.IX.23.dh (1.00)"
+  },
+  {
+   "image": "kataster-scans/227438.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=227438&docid=10&seq=1",
+   "cell": [
+    30,
+    -25
+   ],
+   "frame": [
+    103.8,
+    93.8,
+    2549.7,
+    105.4,
+    2542.4,
+    2070.5,
+    96.2,
+    2066.3
+   ],
+   "source": "SI AS 176/N/N65/g/A06",
+   "placed": "printed O.VIII.23.bi (1.00)"
+  },
+  {
+   "image": "kataster-scans/227439.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=227439&docid=10&seq=1",
+   "cell": [
+    31,
+    -25
+   ],
+   "frame": [
+    96.8,
+    100.5,
+    2560.8,
+    99.2,
+    2558.9,
+    2067.7,
+    94.5,
+    2068.0
+   ],
+   "source": "SI AS 176/N/N65/g/A07",
+   "placed": "printed O.VIII.23.ai (1.00)"
+  }
+ ]
+}

@@ -30,6 +30,12 @@ so its manifest carries a top-level "conic" block instead of per-sheet bboxes
 and lists panes of the one scan by pixel origin (see scripts/manifests/
 README.md). Each pane is then warped through that shared projection.
 
+Franciscean cadastral sheets are a third case: they are cells of one lattice
+laid out on the survey's own Cassini-Soldner grid. Their manifest carries a
+"cassini" block and gives each sheet its lattice cell instead of a bbox, and
+each sheet is clipped to its cell's ring — a grid rectangle is a tilted
+quadrilateral on the map, and a lon/lat box would cover the neighbour.
+
   --bbox W,S,E,N   geographic coordinates of the neatline (map frame) corners
   --frame          'auto' (default) finds each neatline corner locally: the
                    innermost long rule line with paper on its outer side, per
@@ -176,6 +182,92 @@ class Conic:
                 lons.append(lon)
                 lats.append(lat)
         return min(lons), min(lats), max(lons), max(lats)
+
+
+# ── Cassini-Soldner (the cadastral sheet lattice) ────────────────────────────
+
+BESSEL_A = 6377397.155
+BESSEL_F = 1 / 299.1528128
+KLAFTER = 1.89648384          # metres in one Vienna klafter
+SHEET_W = 1000 * KLAFTER      # 1896.484 m — a cadastral sheet, east-west
+SHEET_H = 800 * KLAFTER       # 1517.187 m — and north-south
+
+
+class Cassini:
+    """Cassini-Soldner on Bessel 1841, the projection the Franciscean cadastre
+    was surveyed and drawn on.
+
+    A cadastral sheet is a rectangle of this projection, not of lon/lat, so it
+    lands on the map as a quadrilateral rotated by the meridian convergence —
+    half a degree at the eastern edge of a crown land, which is 18 m across a
+    sheet corner. Sheets are therefore placed by their lattice cell and clipped
+    to their own quad, never to a lon/lat box.
+    """
+
+    def __init__(self, lat0, lon0, shift=(0.0, 0.0)):
+        self.e2 = 2 * BESSEL_F - BESSEL_F * BESSEL_F
+        self.ep2 = self.e2 / (1 - self.e2)
+        self.phi0 = math.radians(lat0)
+        self.lam0 = math.radians(lon0)
+        self.m0 = self._meridian(self.phi0)
+        self.dx, self.dy = shift
+
+    def _meridian(self, phi):
+        e2 = self.e2
+        return BESSEL_A * ((1 - e2 / 4 - 3 * e2**2 / 64 - 5 * e2**3 / 256) * phi
+                           - (3 * e2 / 8 + 3 * e2**2 / 32 + 45 * e2**3 / 1024) * math.sin(2 * phi)
+                           + (15 * e2**2 / 256 + 45 * e2**3 / 1024) * math.sin(4 * phi)
+                           - (35 * e2**3 / 3072) * math.sin(6 * phi))
+
+    def fwd(self, lon, lat):
+        """lon/lat → (east, north) metres on the survey's grid."""
+        phi, lam = math.radians(lat), math.radians(lon)
+        a = (lam - self.lam0) * math.cos(phi)
+        t = math.tan(phi) ** 2
+        c = self.ep2 * math.cos(phi) ** 2
+        n = BESSEL_A / math.sqrt(1 - self.e2 * math.sin(phi) ** 2)
+        x = n * (a - t * a**3 / 6 - (8 - t + 8 * c) * t * a**5 / 120)
+        y = (self._meridian(phi) - self.m0
+             + n * math.tan(phi) * (a**2 / 2 + (5 - t + 6 * c) * a**4 / 24))
+        return x - self.dx, y - self.dy
+
+    def inv(self, x, y):
+        """(east, north) metres → lon/lat."""
+        x, y = x + self.dx, y + self.dy
+        e2 = self.e2
+        mu = (self.m0 + y) / (BESSEL_A * (1 - e2 / 4 - 3 * e2**2 / 64 - 5 * e2**3 / 256))
+        e1 = (1 - math.sqrt(1 - e2)) / (1 + math.sqrt(1 - e2))
+        phi1 = (mu + (3 * e1 / 2 - 27 * e1**3 / 32) * math.sin(2 * mu)
+                + (21 * e1**2 / 16 - 55 * e1**4 / 32) * math.sin(4 * mu)
+                + (151 * e1**3 / 96) * math.sin(6 * mu)
+                + (1097 * e1**4 / 512) * math.sin(8 * mu))
+        t1 = math.tan(phi1) ** 2
+        n1 = BESSEL_A / math.sqrt(1 - e2 * math.sin(phi1) ** 2)
+        r1 = BESSEL_A * (1 - e2) / (1 - e2 * math.sin(phi1) ** 2) ** 1.5
+        d = x / n1
+        phi = phi1 - (n1 * math.tan(phi1) / r1) * (d**2 / 2 - (1 + 3 * t1) * d**4 / 24)
+        lam = self.lam0 + (d - t1 * d**3 / 3 + (1 + 3 * t1) * t1 * d**5 / 15) / math.cos(phi)
+        return math.degrees(lam), math.degrees(phi)
+
+    def cell_quad(self, ix, iy, steps=8):
+        """Lattice cell (ix, iy) as a lon/lat ring, clockwise from its NW corner.
+
+        The cell's edges are straight on the survey's grid and so slightly
+        curved in lon/lat; they are sampled rather than cornered, which is what
+        keeps two neighbouring sheets from leaving a sliver between them.
+        """
+        w, e = ix * SHEET_W, (ix + 1) * SHEET_W
+        s, n = iy * SHEET_H, (iy + 1) * SHEET_H
+        ring = []
+        for i in range(steps):
+            ring.append(self.inv(w + (e - w) * i / steps, n))
+        for i in range(steps):
+            ring.append(self.inv(e, n - (n - s) * i / steps))
+        for i in range(steps):
+            ring.append(self.inv(e - (e - w) * i / steps, s))
+        for i in range(steps):
+            ring.append(self.inv(w, s + (n - s) * i / steps))
+        return ring
 
 
 # ── Neatline detection ───────────────────────────────────────────────────────
@@ -510,7 +602,7 @@ def _bundle_pick(cands, mm, outward):
     return max(within, key=lambda p: (p - anchor) * inward) if within else anchor
 
 
-def detect_frame(im: Image.Image, expect=None):
+def detect_frame(im: Image.Image, expect=None, printed_mm=368.7):
     """Neatline corners of a scanned sheet, as (nw, ne, se, sw) pixel pairs.
 
     `expect` is the sheet's printed size in scan pixels — known whenever the
@@ -518,7 +610,13 @@ def detect_frame(im: Image.Image, expect=None):
     With it, the border rules are located by looking for the pair that sits the
     printed distance apart, which no interior line can fake; without it, the
     innermost long rule per edge is taken on its own, which is only reliable on
-    a clean single sheet."""
+    a clean single sheet.
+
+    `printed_mm` is how tall that sheet is on paper: it turns the layout's
+    millimetres — how far outside a rule the margin must be blank, how deep a
+    bundle of rules may run — into this scan's pixels. The default is the
+    Spezialkarte's 0.25° of latitude at 1:75 000; a cadastral sheet of 800
+    klafter at 1:2880 is 526.8 mm."""
     g = im.convert("L")
     origin = (0, 0)
     if expect:
@@ -529,11 +627,11 @@ def detect_frame(im: Image.Image, expect=None):
     w, h = g.size
     hints = {}
     if expect:
-        # 0.25° of latitude is 368.7 mm of paper at 1:75 000 — the scale that
-        # turns the sheet layout's millimetres into this scan's pixels.
+        # The sheet's printed height turns the layout's millimetres into this
+        # scan's pixels.
         found = _rule_candidates(g, max(1, round(max(w, h) / COARSE_SIDE)),
-                                 expect[1] / 368.7, expect)
-        mm = expect[1] / 368.7
+                                 expect[1] / printed_mm, expect)
+        mm = expect[1] / printed_mm
         axes = [(("left", "right"), expect[0]), (("top", "bottom"), expect[1])]
         pairs = {a: _pick_pair(found[a][0], found[b][0], span) for (a, b), span in axes}
         # One axis found is enough to say what the scan's resolution really is —
@@ -591,11 +689,18 @@ class Sheet:
     """One sheet: geometry up front, pixels loaded lazily — a large mosaic
     holds only the sheet currently being rendered in memory."""
 
-    def __init__(self, image_path, bbox, frame, rotate=0, conic=None, origin=(0, 0), dpi=0):
+    def __init__(self, image_path, bbox, frame, rotate=0, conic=None, origin=(0, 0), dpi=0,
+                 geo_quad=None, clip=None):
         self.path = image_path
         self.bbox = bbox  # (west, south, east, north)
         self.rotate = rotate
         self._im = None
+        # A sheet cut from a projection whose rectangles are not lon/lat
+        # rectangles (the cadastral lattice) carries its four geographic corners
+        # and the ring to clip itself to; `bbox` is then only its bounding box,
+        # too big to mask with.
+        self.geo_quad = geo_quad
+        self.clip = clip
         # A conic sheet is one pane of a single large scan: it carries the
         # whole map's projection plus its own pixel origin within that scan,
         # so panes need no per-sheet geometry of their own.
@@ -622,10 +727,8 @@ class Sheet:
         self.frame_arg = [v for corner in self.corners for v in corner]
         self.dpi = dpi
         west, south, east, north = bbox
-        self.h = solve_homography(
-            [(west, north), (east, north), (east, south), (west, south)],
-            [nw, ne, se, sw],
-        )
+        corners_geo = geo_quad or [(west, north), (east, north), (east, south), (west, south)]
+        self.h = solve_homography(corners_geo, [nw, ne, se, sw])
         self.frame_px_w = ((ne[0] - nw[0]) + (se[0] - sw[0])) / 2
         if frame == "auto" and VERBOSE:
             print(f"{os.path.basename(image_path)}: frame NW {tuple(round(c) for c in nw)} "
@@ -653,7 +756,9 @@ class Sheet:
     def natural_zoom(self):
         west, _s, east, _n = self.bbox
         z = 7
-        while z < 15:
+        # 18 is where a 256-px tile is about a foot of ground: no scan of a
+        # paper map holds more, so the loop always stops on the scan first.
+        while z < 18:
             need = (lon_to_x(east, z + 1) - lon_to_x(west, z + 1)) * TILE
             if need > self.frame_px_w * 1.35:
                 break
@@ -687,6 +792,20 @@ class Sheet:
         part = source.crop((x0, y0, x1, y1)).transform(
             (TILE, TILE), Image.Transform.QUAD, quad,
             resample=Image.Resampling.BICUBIC, fillcolor=(0, 0, 0, 0))
+        if self.clip is not None:
+            # A cadastral sheet's edge is a line of the survey's grid, which
+            # runs at an angle to the meridians: clip to that ring, so the
+            # scan's margin stops exactly where the neighbouring sheet starts.
+            ring = [((lon_to_x(lon, z) - tx) * TILE, (lat_to_y(lat, z) - ty) * TILE)
+                    for lon, lat in self.clip]
+            if all(x <= 0 for x, _y in ring) or all(x >= TILE for x, _y in ring) \
+                    or all(y <= 0 for _x, y in ring) or all(y >= TILE for _x, y in ring):
+                return
+            mask = Image.new("L", (TILE, TILE), 0)
+            ImageDraw.Draw(mask).polygon(ring, fill=255)
+            part.putalpha(ImageChops.multiply(part.getchannel("A"), mask))
+            tile.alpha_composite(part)
+            return
         # Mask to the sheet's bbox: in mercator tile space the lon/lat box is
         # an axis-aligned rectangle, so margins beyond the neatline (and any
         # overshoot from warped paper) are clipped exactly at the sheet edge.
@@ -730,7 +849,8 @@ def _render_base(job):
     process pool can run several sheets at once — see `build`."""
     spec, out, ext, base_z, png8, webp = job
     sheet = Sheet(spec["image"], tuple(spec["bbox"]), spec.get("frame", "auto"),
-                  rotate=spec.get("rotate", 0), dpi=spec.get("dpi", 0))
+                  rotate=spec.get("rotate", 0), dpi=spec.get("dpi", 0),
+                  geo_quad=spec.get("geo_quad"), clip=spec.get("clip"))
     sx0 = math.floor(lon_to_x(sheet.bbox[0], base_z))
     sx1 = math.ceil(lon_to_x(sheet.bbox[2], base_z))
     sy0 = math.floor(lat_to_y(sheet.bbox[3], base_z))
@@ -779,7 +899,8 @@ def build(sheets, out, base_zoom, min_zoom, png8=False, webp=0, jobs=1, phase="a
     done = 0
     for wave in sorted({_wave(s) for s in sheets} if phase != "parents" else ()):
         jobs_ = [({"image": s.path, "bbox": s.bbox, "frame": s.frame_arg,
-                   "rotate": s.rotate, "dpi": s.dpi}, out, ext, base_z, png8, webp)
+                   "rotate": s.rotate, "dpi": s.dpi,
+                   "geo_quad": s.geo_quad, "clip": s.clip}, out, ext, base_z, png8, webp)
                  for s in sheets if _wave(s) == wave]
         if jobs > 1 and len(jobs_) > 1:
             with multiprocessing.Pool(min(jobs, len(jobs_))) as pool:
@@ -940,12 +1061,24 @@ def main():
         conic = Conic(c["n"], c["lam0"], c["rho0"], c["k"], c["cx"], c["cy"],
                       prime_meridian=c.get("primeMeridian", 0.0),
                       shift=tuple(c.get("shift", (0.0, 0.0)))) if c else None
+        k = spec.get("cassini")
+        cassini = Cassini(k["lat0"], k["lon0"], shift=tuple(k.get("shift", (0.0, 0.0)))) if k else None
         for entry in spec["sheets"]:
             path = entry["image"]
             if not os.path.isabs(path):
                 path = os.path.join(base, path)
             frame = entry.get("frame", "auto")
-            if conic is not None:
+            if cassini is not None:
+                # A cadastral sheet is one cell of the survey's own lattice, so
+                # the manifest pins the cell and the projection says where its
+                # corners fall.
+                ix, iy = entry["cell"]
+                ring = cassini.cell_quad(ix, iy)
+                quad = [ring[0], ring[len(ring) // 4], ring[len(ring) // 2], ring[3 * len(ring) // 4]]
+                bbox = (min(p[0] for p in ring), min(p[1] for p in ring),
+                        max(p[0] for p in ring), max(p[1] for p in ring))
+                sheets.append(Sheet(path, bbox, frame, geo_quad=quad, clip=ring))
+            elif conic is not None:
                 # One pane of a single conic-projected scan: its bbox follows
                 # from the projection, so the manifest only pins its origin.
                 ox, oy = entry["origin"]

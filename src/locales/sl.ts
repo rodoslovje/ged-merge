@@ -1821,6 +1821,10 @@ export const sl = {
   "settings.map.overlays.preset.france.etatmajor": "Francija · Carte de l'État-major (1820–1866)",
   "settings.map.overlays.preset.swiss.dufour": "Švica · Karta Dufour (1845–1865)",
   "settings.map.overlays.preset.swiss.siegfried": "Švica · Karta Siegfried (1870–1926)",
+  "settings.map.overlays.preset.kataster.strazisce":
+    "Stražišče pri Kranju · Franciscejski kataster 1:2880 (1826)",
+  "settings.map.overlays.preset.kataster.gradac":
+    "Gradac pri Metliki · Franciscejski kataster 1:2880 (1824)",
   "settings.map.overlays.preset.gurs.orthoHist": "Slovenija · Zgodovinski ortofoto 2011 (GURS)",
   "settings.map.overlays.preset.gurs.ortho": "Slovenija · Ortofoto (GURS)",
   "settings.map.overlays.preset.gurs.topo": "Slovenija · Topografska karta, do 1:2500 (GURS)",
