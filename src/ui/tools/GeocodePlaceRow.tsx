@@ -6,7 +6,7 @@ import type { GazCandidate } from "../../geo/gazetteer";
 import { searchNominatim, type NominatimResult } from "../../geo/nominatim";
 import { searchGov, type GovResult } from "../../geo/gov";
 import { rnQueriesFrom, searchAddresses, type RnResult } from "../../geo/rn";
-import { chosenCoordFor, type ChosenCoord, type FileCoord, type GeoAssignment, type GeocodeRow } from "../../tools/geocode";
+import { chosenCoordFor, pickLabel, type ChosenCoord, type FileCoord, type GeoAssignment, type GeocodeRow } from "../../tools/geocode";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
 import type { KinshipResolver } from "../../match/kinship";
 import { lineageClass } from "../../match/kinship";
@@ -222,7 +222,7 @@ export function GeocodePlaceRow({
     if (draftCoord) onPickCoord(row, draftCoord, t("tools.geocode.manual"));
   };
   const pickCandidate = (cand: GazCandidate) =>
-    onPickCoord(row, { lat: cand.entry.lat, lon: cand.entry.lon }, cand.entry.name);
+    onPickCoord(row, { lat: cand.entry.lat, lon: cand.entry.lon }, pickLabel(cand.entry.name, cand.entry.admin));
 
   // The online searches: beside "Show on map" while the map is closed, and
   // under the map once it is open — either way one action row, not a stray
@@ -489,7 +489,7 @@ export function GeocodePlaceRow({
                 coord: r.coord,
                 label: `${r.name} · OSM`,
                 kind: c && sameCoord(c.coord, r.coord) ? ("chosen" as const) : ("candidate" as const),
-                onPick: () => onPickCoord(row, r.coord, r.name),
+                onPick: () => onPickCoord(row, r.coord, pickLabel(r.name, r.admin)),
               });
             }
             for (const r of gov.results) {
@@ -498,7 +498,7 @@ export function GeocodePlaceRow({
                 coord: r.coord,
                 label: `${r.name} · GOV`,
                 kind: c && sameCoord(c.coord, r.coord) ? ("chosen" as const) : ("candidate" as const),
-                onPick: () => onPickCoord(row, r.coord, r.name, r.govId),
+                onPick: () => onPickCoord(row, r.coord, pickLabel(r.name, r.admin), r.govId),
               });
             }
             for (const r of rn.results) {
@@ -621,7 +621,7 @@ export function GeocodePlaceRow({
                     name={`geo-${row.key}`}
                     checked={sameCoord(c?.coord, r.coord)}
                     onClick={() => sameCoord(c?.coord, r.coord) && onUnpickCoord(row)}
-                    onChange={() => onPickCoord(row, r.coord, r.name)}
+                    onChange={() => onPickCoord(row, r.coord, pickLabel(r.name, r.admin))}
                   />
                   {/* Name and parent, like the register and GOV rows — the full
                       chain would run the row off the line, and is in the title. */}
@@ -642,7 +642,7 @@ export function GeocodePlaceRow({
                     name={`geo-${row.key}`}
                     checked={sameCoord(c?.coord, r.coord)}
                     onClick={() => sameCoord(c?.coord, r.coord) && onUnpickCoord(row)}
-                    onChange={() => onPickCoord(row, r.coord, r.name, r.govId)}
+                    onChange={() => onPickCoord(row, r.coord, pickLabel(r.name, r.admin), r.govId)}
                   />
                   <span className="tools-geo-cand-name">{r.label}</span>
                   {/* The place it is part of, like the register candidates —

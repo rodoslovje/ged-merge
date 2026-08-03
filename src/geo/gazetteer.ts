@@ -404,6 +404,11 @@ export const HIGH_CONFIDENCE = 0.95;
 /** Below this a fuzzy candidate isn't worth showing. */
 const MIN_FUZZY = 0.87;
 
+/** Score for a register name that extends the written one with its parent
+ *  ("Vinji vrh" under Semič → "Vinji Vrh pri Semiču"): above the bulk-accept
+ *  bar — the parent corroborates it — but below a letter-perfect match. */
+const PARENT_QUALIFIED = 0.96;
+
 const MAX_CANDIDATES = 6;
 
 /** Same-named entries closer than this (degrees, ≈5 km at Slovenian latitudes)
@@ -444,6 +449,34 @@ export function lookupPlace(index: GazetteerIndex, rawPlace: string): GazCandida
     const exactPrimary = foldToken(e.name) === folded || (e.ascii !== "" && foldToken(e.ascii) === folded);
     consider(i, exactPrimary ? 1 : 0.93);
   }
+  // The place's own parents ("Semič" in "Vinji vrh,Semič,Slovenia"), plus a
+  // word-boundary stem test for finding one *inside* a longer settlement name:
+  // parent names inflect there — Semič → "pri Semiču", Metlika → "pri
+  // Metliki" — so the final vowel is dropped and the stem must start a word.
+  const parents = new Set(components.jurisdiction.slice(1).map(foldToken).filter(Boolean));
+  const parentStems = [...parents]
+    .map((p) => (/[aeiou]$/.test(p) ? p.slice(0, -1) : p))
+    .filter((s) => s.length >= 3);
+  const nameNamesParent = (foldedName: string) => parentStems.some((s) => foldedName.includes(" " + s));
+
+  // Parent-qualified pass: the register often files a settlement under a
+  // longer name that appends its parent — "Vinji vrh" written under Semič is
+  // the register's "Vinji Vrh pri Semiču". The plain name may exactly match
+  // other municipalities' same-named settlements, so this runs even when the
+  // exact pass scored; it is gated on the place's own parents corroborating
+  // the longer name (the entry's municipality is a named parent, or the name
+  // extension itself contains one), so it never fires on the name alone.
+  if (parents.size) {
+    const prefix = folded + " ";
+    for (const i of index.buckets.get(bucketKey(folded)) ?? []) {
+      const e = index.entries[i];
+      const foldedNames = [e.name, e.ascii, ...e.alt].filter(Boolean).map(foldToken);
+      if (!foldedNames.some((n) => n.startsWith(prefix))) continue;
+      const corroborated =
+        (!!e.admin && parents.has(foldToken(e.admin))) || foldedNames.some(nameNamesParent);
+      if (corroborated) consider(i, PARENT_QUALIFIED);
+    }
+  }
   // Fuzzy pass only when nothing matched exactly — typos and historical
   // spellings, constrained to the 2-char bucket to stay fast.
   if (!scores.size) {
@@ -475,11 +508,10 @@ export function lookupPlace(index: GazetteerIndex, rawPlace: string): GazCandida
   // the place itself names one of those parents, the others are demoted enough to
   // clear the bulk-accept ambiguity gap; when it names none, the tie stands and
   // the researcher decides. Only ever applied downward, so a match never invents
-  // confidence a plain name did not earn.
-  const parents = new Set(
-    components.jurisdiction.slice(1).map(foldToken).filter(Boolean),
-  );
-  const matchesParent = (e: GazEntry) => !!e.admin && parents.has(foldToken(e.admin));
+  // confidence a plain name did not earn. A parent-qualified name counts as
+  // matching too — that is precisely the parent agreeing.
+  const matchesParent = (e: GazEntry) =>
+    (!!e.admin && parents.has(foldToken(e.admin))) || nameNamesParent(foldToken(e.name));
   if (parents.size && candidates.some((c) => matchesParent(c.entry))) {
     for (const c of candidates) if (!matchesParent(c.entry)) c.score *= ADMIN_MISMATCH;
   }

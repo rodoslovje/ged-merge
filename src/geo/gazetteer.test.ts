@@ -330,6 +330,51 @@ describe("municipalities from the RPE join", () => {
   });
 });
 
+describe("lookupPlace parent-qualified names", () => {
+  const entry = (name: string, over: Partial<GazEntry> = {}): GazEntry => ({
+    name, ascii: "", alt: [], lat: 46, lon: 15, fclass: "P", country: "SI", admin1: "", population: 100, ...over,
+  });
+  // The register's names for the file's "Vinji vrh, Semič": the settlement in
+  // Semič is filed as "Vinji Vrh pri Semiču", while the plain name belongs to
+  // other municipalities' settlements.
+  const index = buildGazetteerIndex([
+    entry("Vinji Vrh", { admin: "Brežice", lat: 45.85, lon: 15.53 }),
+    entry("Vinji Vrh", { admin: "Šmarješke Toplice", lat: 45.88, lon: 15.28 }),
+    entry("Vinji Vrh pri Semiču", { admin: "Semič", lat: 45.66, lon: 15.19 }),
+  ]);
+
+  it("offers the register's longer name when the written parent corroborates it", () => {
+    const hits = lookupPlace(index, "Vinji vrh,Semič,Slovenia");
+    expect(hits[0].entry.name).toBe("Vinji Vrh pri Semiču");
+    expect(hits[0].score).toBeGreaterThanOrEqual(HIGH_CONFIDENCE);
+    // The same-named settlements elsewhere drop clear of the ambiguity gap.
+    expect(hits[1].score).toBeLessThanOrEqual(hits[0].score - 0.05);
+  });
+
+  it("corroborates through the inflected name alone when admin is missing", () => {
+    const noAdmin = buildGazetteerIndex([
+      entry("Kot", { lat: 46.54, lon: 16.39 }),
+      entry("Kot", { lat: 45.95, lon: 14.52 }),
+      entry("Kot pri Semiču", { lat: 45.64, lon: 15.2 }),
+    ]);
+    const hits = lookupPlace(noAdmin, "Kot, Semič, Slovenija");
+    expect(hits[0].entry.name).toBe("Kot pri Semiču");
+    expect(hits[0].score).toBeGreaterThanOrEqual(HIGH_CONFIDENCE);
+  });
+
+  it("never fires on the name alone", () => {
+    // No parent written: the plain names tie and the longer name stays out.
+    const blind = lookupPlace(index, "Vinji vrh, Slovenia");
+    expect(blind.every((c) => c.entry.name === "Vinji Vrh")).toBe(true);
+    expect(blind[0].score).toBeCloseTo(blind[1].score, 6);
+    // A different parent written: its settlement wins outright, and the
+    // longer name — uncorroborated — is not even offered.
+    const brezice = lookupPlace(index, "Vinji vrh, Brežice, Slovenia");
+    expect(brezice[0].entry.admin).toBe("Brežice");
+    expect(brezice.every((c) => c.entry.name === "Vinji Vrh")).toBe(true);
+  });
+});
+
 describe("searchGazetteer", () => {
   const entry = (name: string, over: Partial<GazEntry> = {}): GazEntry => ({
     name, ascii: "", alt: [], lat: 46, lon: 14, fclass: "P", country: "SI", admin1: "", population: 100, ...over,
