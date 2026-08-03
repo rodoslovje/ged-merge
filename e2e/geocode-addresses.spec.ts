@@ -77,3 +77,38 @@ test("houses in the place value are grouped under their settlement, and the filt
   // A filter landing on one place opens it, so the address searched for shows.
   await expect(page.getByText("Stražišče 114")).toBeVisible();
 });
+
+test("one coordinate can be given to a whole place's addresses at once", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(FILE);
+  await page.locator(".edit-person").first().waitFor({ timeout: 15000 });
+
+  await page.getByRole("button", { name: "Tools", exact: true }).click();
+  await page.getByText("Places", { exact: true }).click();
+  await page.getByRole("button", { name: /Geocoding/ }).click();
+  await page.getByRole("tab", { name: /Addresses/ }).click();
+
+  // Črni vrh keeps its two houses in the place values; neither is in any
+  // register, which is the case this flow exists for.
+  const group = page.locator(".tools-geo-addr-group").filter({ hasText: "Črni vrh" });
+  await group.locator(".tools-pair-toggle").first().click();
+  await group.getByRole("button", { name: /Place several at one coordinate/ }).click();
+
+  // Both addresses are ticked to begin with, and nothing can be taken until a
+  // position is chosen — the file gives this place none.
+  const take = group.getByRole("button", { name: /Take this for/ });
+  await expect(take).toBeDisabled();
+
+  // The panel's own picker, not the per-row ones below it.
+  await group.locator(".tools-geo-addr-move .edit-event-coord").click();
+  await page.locator(".edit-coord-manual input").fill("46.10101, 14.20202");
+  await page.getByRole("button", { name: "Set", exact: true }).click();
+  await expect(take).toBeEnabled();
+  await take.click();
+
+  // Staged for both houses, then written in one step.
+  const write = page.getByRole("button", { name: /Write address coordinates \(2\)/ });
+  await expect(write).toBeEnabled();
+  await write.click();
+  await expect(page.getByText(/Written to \d+ records?\./)).toBeVisible();
+});

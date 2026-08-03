@@ -87,6 +87,19 @@ describe("rnQueriesFrom", () => {
     ]);
   });
 
+  it("returns one query per street for a house whose street was renamed", () => {
+    // "Labore 4 / Škofjeloška 4" is one building on a street Kranj renamed, so
+    // each half is a whole address the register knows under its own name. Read
+    // as one value the street becomes "Labore 4 / Škofjeloška", which is no
+    // street at all — and the row then reports "not in the register".
+    expect(rnQueriesFrom("Kranj,Kranj,Slovenia", "Labore 4 / Škofjeloška 4 (porodnišnica)")).toEqual([
+      { settlement: "Kranj", street: "Labore", number: 4, altSettlements: ["Kranj"], parents: ["Kranj"] },
+      { settlement: "Kranj", street: "Škofjeloška", number: 4, altSettlements: ["Kranj"], parents: ["Kranj"] },
+    ]);
+    // The two names may carry the same number twice over; one query is enough.
+    expect(rnQueriesFrom("Kranj,Slovenia", "Labore 4 / Labore 4")).toHaveLength(1);
+  });
+
   it("declines when it cannot form a sound query", () => {
     expect(rnQueriesFrom("Bled, Slovenija", undefined)).toEqual([]); // no house number
     expect(rnQueriesFrom("Slovenska cesta 9", undefined)).toEqual([]); // street but no town

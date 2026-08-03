@@ -273,6 +273,13 @@ export function AddressCoordsSection({
   // destination afterwards drops the coordinate rather than moving the events
   // to a place they no longer name.
   const [movePick, setMovePick] = useState<{ place: string; assignment: GeoAssignment } | null>(null);
+  // The one-coordinate panel: which group's is open, the position chosen for it,
+  // and which of its rows take it. For the houses no register can answer — old
+  // village numbering, a farm long gone — where an approximate position shared
+  // by the whole hamlet is worth far more than no position at all.
+  const [coordGroup, setCoordGroup] = useState<string | null>(null);
+  const [coordPick, setCoordPick] = useState<{ coord: GeoCoord; label: string } | null>(null);
+  const [coordSel, setCoordSel] = useState<Set<string>>(new Set());
 
   // A filter that lands on a handful of places opens them: the address looked
   // for is one row inside a group of a hundred, and finding it should not cost a
@@ -369,6 +376,7 @@ export function AddressCoordsSection({
    *  register overrides that guess with its verdict. */
   const startMove = (group: PlaceGroup, split?: RegisterSplit) => {
     setMoveGroup(group.place);
+    setCoordGroup(null);
     setMoved(null);
     setMoveTarget(split?.place ?? split?.settlement ?? group.suggestion?.place ?? "");
     setMoveSel(new Set(split?.keys ?? group.suggestion?.keys ?? group.rows.map((r) => r.key)));
@@ -405,6 +413,46 @@ export function AddressCoordsSection({
 
   const pick = (key: string, result: RnResult) =>
     setPicked((prev) => new Map(prev).set(key, { coord: result.coord, label: result.label }));
+
+  /** Open the one-coordinate panel for a group. Every address is ticked to
+   *  begin with — the case this is for is a village the register cannot answer
+   *  at all — and the position the file already uses for the place is the
+   *  opening offer, since that is the "centre of the village" being asked for. */
+  const startCoords = (group: PlaceGroup) => {
+    setCoordGroup(group.place);
+    setMoveGroup(null);
+    setApplied(null);
+    setCoordSel(new Set(group.rows.map((r) => r.key)));
+    const fromFile = group.rows.find((r) => r.coord)?.coord;
+    setCoordPick(fromFile ? { coord: fromFile, label: t("tools.geocode.fromFile") } : null);
+  };
+
+  const closeCoords = () => {
+    setCoordGroup(null);
+    setCoordSel(new Set());
+    setCoordPick(null);
+  };
+
+  const toggleCoordRow = (key: string) =>
+    setCoordSel((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+
+  /** Stage the chosen position for every ticked address. Staged, not written:
+   *  these rows now read like any other pick, and the page's own Write button
+   *  commits them together — one undo step for the whole village. */
+  const applyCoords = () => {
+    if (!coordPick) return;
+    setPicked((prev) => {
+      const next = new Map(prev);
+      for (const key of coordSel) next.set(key, { coord: coordPick.coord, label: coordPick.label });
+      return next;
+    });
+    closeCoords();
+  };
 
   /** Rename the row's address on every event that carries it, then close the
    *  editor — the rescan (edit version) merges it into an existing row when
@@ -617,7 +665,28 @@ export function AddressCoordsSection({
                       {t("tools.geocode.addr.move")}
                     </button>
                   )}
+                  {coordGroup !== group.place && (
+                    <button
+                      className="tools-issue-link"
+                      title={t("tools.geocode.addr.bulkHint")}
+                      onClick={() => startCoords(group)}
+                    >
+                      {t("tools.geocode.addr.bulk")}
+                    </button>
+                  )}
                 </div>
+              )}
+              {isOpen && coordGroup === group.place && (
+                <BulkCoordPanel
+                  group={group}
+                  pick={coordPick}
+                  selected={coordSel}
+                  onPick={(coord, label) => setCoordPick({ coord, label: label ?? t("tools.geocode.manual") })}
+                  onClear={() => setCoordPick(null)}
+                  onSelectAll={(all) => setCoordSel(new Set(all ? group.rows.map((r) => r.key) : []))}
+                  onApply={applyCoords}
+                  onCancel={closeCoords}
+                />
               )}
               {isOpen && group.movable && moveGroup !== group.place &&
                 registerSplits(group, searches).map((split) => (
@@ -690,12 +759,14 @@ export function AddressCoordsSection({
                             hundred-odd addresses under a place, a second line per
                             row doubles the list for no gain. */}
                         <div className="tools-geo-addr-head">
-                          {moveGroup === group.place && (
+                          {/* One tick box, whichever panel is asking: the move's
+                              destination or the one coordinate for the lot. */}
+                          {(moveGroup === group.place || coordGroup === group.place) && (
                             <input
                               type="checkbox"
                               aria-label={row.address}
-                              checked={moveSel.has(row.key)}
-                              onChange={() => toggleMoveRow(row.key)}
+                              checked={(moveGroup === group.place ? moveSel : coordSel).has(row.key)}
+                              onChange={() => (moveGroup === group.place ? toggleMoveRow : toggleCoordRow)(row.key)}
                             />
                           )}
                           <span className="tools-geo-cand-name">{row.address}</span>
@@ -876,6 +947,85 @@ export function AddressCoordsSection({
         })}
       </ul>
     </section>
+  );
+}
+
+/**
+ * Give every ticked address of one place the same position.
+ *
+ * For the houses no register can answer: village numbering that has since been
+ * redrawn, a farm that no longer stands, a house named after a family rather
+ * than numbered. Their coordinate cannot be the building's, but it can be the
+ * hamlet's — near enough to put the family on a map, and far better than
+ * nothing, which is what those events have now.
+ *
+ * The position comes from the Edit view's own coordinate control, so it can be
+ * typed, taken off the map, or searched for in OpenStreetMap; the file's own
+ * coordinate for the place opens as the offer, since "the centre of the
+ * village" is usually exactly that. The picks are staged like every other one
+ * on this page — the section's Write button commits the lot as one undo step.
+ */
+function BulkCoordPanel({
+  group,
+  pick,
+  selected,
+  onPick,
+  onClear,
+  onSelectAll,
+  onApply,
+  onCancel,
+}: {
+  group: PlaceGroup;
+  pick: { coord: GeoCoord; label: string } | null;
+  selected: ReadonlySet<string>;
+  onPick: (coord: GeoCoord, label?: string) => void;
+  onClear: () => void;
+  onSelectAll: (all: boolean) => void;
+  onApply: () => void;
+  onCancel: () => void;
+}) {
+  const { t } = useTranslation();
+  const events = group.rows.filter((r) => selected.has(r.key)).reduce((n, r) => n + r.count, 0);
+  const fileCoord = group.rows.find((r) => r.coord)?.coord;
+
+  return (
+    <div
+      className="tools-place-rename tools-geo-addr-move"
+      onKeyDown={(e) => {
+        if (e.key === "Enter" && !e.defaultPrevented && pick && selected.size) onApply();
+        if (e.key === "Escape" && !e.defaultPrevented) onCancel();
+      }}
+    >
+      <p className="tools-intro">{t("tools.geocode.addr.bulkIntro")}</p>
+      <EventCoordPicker
+        place={group.place}
+        address=""
+        coord={pick?.coord}
+        title={group.place}
+        fileCoord={fileCoord}
+        onPick={onPick}
+        onClear={onClear}
+      />
+      <span className="tools-place-rename-hint">
+        {pick ? `${pick.coord.lat.toFixed(5)}, ${pick.coord.lon.toFixed(5)}` : t("tools.geocode.addr.bulkNoCoord")}
+      </span>
+      <span className="tools-place-rename-hint">
+        {t("tools.geocode.addr.moveCount", { count: selected.size, events })}
+      </span>
+      <button className="tools-issue-link" onClick={() => onSelectAll(selected.size < group.rows.length)}>
+        {selected.size < group.rows.length ? t("tools.geocode.addr.moveAll") : t("tools.geocode.addr.moveNone")}
+      </button>
+      <button
+        className="nav-btn primary tools-place-rename-apply"
+        onClick={onApply}
+        disabled={!pick || selected.size === 0}
+      >
+        {t("tools.geocode.addr.bulkApply", { count: selected.size })}
+      </button>
+      <button className="nav-btn" onClick={onCancel}>
+        {t("tools.places.rename.cancel")}
+      </button>
+    </div>
   );
 }
 
