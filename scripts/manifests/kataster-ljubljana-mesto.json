@@ -15,8 +15,8 @@
    "image": "kataster-scans/224857.jpg",
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224857&docid=10&seq=1",
    "cell": [
-    1.0,
-    8.0
+    1.0264,
+    7.967
    ],
    "frame": [
     100.0,
@@ -29,7 +29,7 @@
     2078.7
    ],
    "source": "SI AS 176/L/L133/g/A01",
-   "placed": "no printed designation; placed by the castle, Prešernov trg and Krakovo, which fall within 4% of where the sheet draws them (1.00)"
+   "placed": "placed by the castle, then +50 m east and -50 m north to bring the Ljubljanica and Gruber canal onto the basemap (1.00)"
   }
  ]
 }
