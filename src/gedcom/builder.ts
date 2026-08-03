@@ -252,6 +252,8 @@ function buildEvent(node: GedNode, media: MediaLinks, sourceCtx: SourceContext, 
     if (placeNode.reshapedFrom) event.place.originalRaw = placeNode.reshapedFrom;
     const coord = placeNodeCoord(placeNode);
     if (coord) event.place.coord = coord;
+    const form = firstChild(placeNode, "FORM")?.value?.trim();
+    if (form) event.place.form = form;
   }
   if (addrNode?.value) {
     event.address = parsePlace(addrNode.value);

@@ -323,10 +323,16 @@ function reshapePlaceNode(
 }
 
 /**
- * Rewrite one PLAC's comma form in place. Used where the layout must not be
- * touched — a FORM-pinned place, or a place on a record the reshape pass skips
- * — but the reader's chosen comma form still applies, since only whitespace
- * moves. A no-op until a form has actually been chosen (see respellSeparator).
+ * Rewrite one PLAC's comma form in place, and its FORM's along with it. Used
+ * where the layout must not be touched — a FORM-pinned place, or a place on a
+ * record the reshape pass skips — but the reader's chosen comma form still
+ * applies, since only whitespace moves. A no-op until a form has actually been
+ * chosen (see respellSeparator).
+ *
+ * FORM is a comma list of the labels the place's own parts map to, so it is
+ * respelled together with them: leaving it behind would put both spellings of
+ * the same convention on two consecutive lines. This also reaches the file-wide
+ * `HEAD`.`PLAC`.`FORM` default, a PLAC that has only a FORM to respell.
  */
 function respellPlaceNode(
   placNode: GedNode,
@@ -334,13 +340,21 @@ function respellPlaceNode(
   report: NormalizationReport,
   seen: Set<string>,
 ): void {
-  const before = placNode.value;
-  const after = respellSeparator(before, fmt);
-  if (after === undefined || after === before) return;
-  placNode.value = after;
-  placNode.reshapedFrom = before;
+  const formNode = firstChild(placNode, "FORM");
+  const changes: [GedNode, string, string][] = [];
+  for (const node of [placNode, formNode]) {
+    const before = node?.value;
+    const after = respellSeparator(before, fmt);
+    if (node && after !== undefined && after !== before) changes.push([node, before!, after]);
+  }
+  if (!changes.length) return;
+  for (const [node, before, after] of changes) {
+    node.value = after;
+    if (node === placNode) node.reshapedFrom = before;
+  }
+  // One place changed, however many of its lines carried the comma form.
   report.placesReshaped++;
-  record(report.placeExamples, seen, before!, after);
+  record(report.placeExamples, seen, changes[0][1], changes[0][2]);
 }
 
 function plainNode(tag: string, value: string): GedNode {

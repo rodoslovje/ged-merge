@@ -183,6 +183,9 @@ export interface GedPlace {
   detail?: string;
   /** Pre-reshape text, when a load-time reshape changed `raw` (see `GedNode.reshapedFrom`). */
   originalRaw?: string;
+  /** The place's `FORM`, naming the jurisdiction level each part stands for
+   *  ("Place,Upravna Enota,Country"). Only meaningful on a `PLAC`. */
+  form?: string;
 }
 
 /**

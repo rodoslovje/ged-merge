@@ -166,7 +166,27 @@ export interface PlaceTargetFormat {
    * and to fill in jurisdiction levels it omits. See {@link PlaceHierarchy}.
    */
   hierarchy?: PlaceHierarchy;
+  /**
+   * The `FORM` labels the main writes on its own places, so a place newly
+   * completed from a register can declare its levels the same way. See
+   * {@link PlaceFormVocabulary}.
+   */
+  forms?: PlaceFormVocabulary;
 }
+
+/**
+ * A file's own `PLAC`.`FORM` wording, learned from the places it already has.
+ *
+ * `FORM` names the jurisdiction level each comma part of a place stands for
+ * ("Place,Upravna Enota,Country"), so the wording is per country — the same
+ * three-part shape is "Place,Bundesland,Country" in Germany — and per depth.
+ * Keyed by both together ({@link placeFormKey}), with a depth-only entry kept
+ * for the files that label every country alike.
+ *
+ * Empty for a file that writes no `FORM` at all: that is a house style too, and
+ * one we don't override.
+ */
+export type PlaceFormVocabulary = Map<string, string>;
 
 /**
  * Place associations learned from the main tree's own attested records —

@@ -69,6 +69,36 @@ describe("a gazetteer entry as a place", () => {
     expect(proposalFromGazEntry(ZABUKOVJE, style({ depth: 2 }))!.plac).toBe("Zabukovje,Slovenija");
   });
 
+  // The chain is composed here, so what each part is is known rather than
+  // guessed — worth declaring, in the wording this file already uses.
+  const forms = new Map([
+    ["slovenia|3", "Place,Upravna Enota,Country"],
+    ["slovenia|2", "Place,Country"],
+    ["|3", "Place,Region,Country"],
+  ]);
+
+  it("declares the levels with the file's own FORM wording", () => {
+    expect(proposalFromGazEntry(ZABUKOVJE, style({}, { forms }))!.form).toBe("Place,Upravna Enota,Country");
+  });
+
+  it("matches the FORM to the depth actually written", () => {
+    expect(proposalFromGazEntry(ZABUKOVJE, style({ depth: 2 }, { forms }))!.form).toBe("Place,Country");
+  });
+
+  it("writes no FORM for a file that writes none", () => {
+    expect(proposalFromGazEntry(ZABUKOVJE, style())!.form).toBeUndefined();
+  });
+
+  it("writes no FORM where the file has never labelled this shape", () => {
+    const onlyFour = new Map([["slovenia|4", "Place,A,B,Country"]]);
+    expect(proposalFromGazEntry(ZABUKOVJE, style({}, { forms: onlyFour }))!.form).toBeUndefined();
+  });
+
+  it("never labels a packed PLAC, whose parts are not all jurisdictions", () => {
+    const p = proposalFromGazEntry(ZABUKOVJE, style({}, { layout: "packed-plac", forms }))!;
+    expect(p.form).toBeUndefined();
+  });
+
   it("keeps the file's separator and its English country spelling", () => {
     const p = proposalFromGazEntry(
       ZABUKOVJE,

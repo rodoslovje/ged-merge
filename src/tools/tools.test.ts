@@ -2055,9 +2055,11 @@ describe("bulkNormalize place separator", () => {
     const birt = out.individuals.get("@I1@")!.raw.children.find((c) => c.tag === "BIRT")!;
     const plac = birt.children.find((c) => c.tag === "PLAC")!;
     expect(plac.value).toBe("Spodnja Besnica, Kranj, Slovenija");
-    // The schema and the parts it labels are untouched, and the ADDR was not
-    // folded into the PLAC the way an unpinned structured place would be.
-    expect(plac.children.find((c) => c.tag === "FORM")?.value).toBe("Place,Upravna Enota,Country");
+    // The schema still labels the same three parts in the same order — it is
+    // respelled with them, so the two lines don't disagree about the comma
+    // form — and the ADDR was not folded into the PLAC the way an unpinned
+    // structured place would be.
+    expect(plac.children.find((c) => c.tag === "FORM")?.value).toBe("Place, Upravna Enota, Country");
     expect(plac.value!.split(",")).toHaveLength(3);
     expect(birt.children.find((c) => c.tag === "ADDR")?.value).toBe("Spodnja Besnica 12");
     expect(report.placesReshaped).toBe(1);

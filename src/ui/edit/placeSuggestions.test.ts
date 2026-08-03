@@ -127,3 +127,53 @@ describe("coordinate maps as the \"file uses locations\" signal", () => {
     expect(onlyAddressed.placeCoords.size + onlyAddressed.pairCoords.size).toBe(1);
   });
 });
+
+describe("buildPlaceSuggestions place FORM", () => {
+  it("offers the FORM the file already writes for that place", () => {
+    const sug = buildPlaceSuggestions(build(`0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 BIRT
+2 PLAC Kranj, Kranj, Slovenija
+3 FORM Place,Upravna Enota,Country
+0 TRLR
+`));
+    expect(sug.placeForms.get(placeKey("Kranj, Kranj, Slovenija"))).toBe("Place,Upravna Enota,Country");
+    // Nothing is said about a place the file has never labelled.
+    expect(sug.placeForms.get(placeKey("Bled, Slovenija"))).toBeUndefined();
+  });
+
+  it("takes the most-used wording when the file disagrees with itself", () => {
+    const sug = buildPlaceSuggestions(build(`0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 BIRT
+2 PLAC Kranj, Kranj, Slovenija
+3 FORM Place,Upravna Enota,Country
+1 DEAT
+2 PLAC Kranj, Kranj, Slovenija
+3 FORM Place,Upravna Enota,Country
+0 @I2@ INDI
+1 BIRT
+2 PLAC Kranj, Kranj, Slovenija
+3 FORM Place,Občina,Country
+0 TRLR
+`));
+    expect(sug.placeForms.get(placeKey("Kranj, Kranj, Slovenija"))).toBe("Place,Upravna Enota,Country");
+  });
+
+  it("ignores a FORM that doesn't label every part of its place", () => {
+    const sug = buildPlaceSuggestions(build(`0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 BIRT
+2 PLAC Slovenija, Slovenija
+3 FORM Place,Upravna Enota,Country
+0 TRLR
+`));
+    expect(sug.placeForms.size).toBe(0);
+  });
+});

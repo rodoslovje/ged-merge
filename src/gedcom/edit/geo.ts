@@ -17,6 +17,43 @@ export function formatCoordValue(value: number, axis: "lat" | "lon"): string {
 }
 
 /**
+ * Declare what each comma part of a `PLAC` stands for, as the standard `FORM`
+ * substructure:
+ *   2 PLAC Zgornje Bitnje, Kranj, Slovenia
+ *   3 FORM Place,Upravna Enota,Country
+ * FORM leads the PLAC's children — `setPlaceCoord` places a new `MAP` after it
+ * — and an existing one is rewritten rather than duplicated.
+ */
+export function setPlaceForm(placNode: GedNode, form: string): void {
+  const existing = placNode.children.find((c) => c.tag === "FORM");
+  if (existing) {
+    existing.value = form;
+    return;
+  }
+  placNode.children.unshift({ level: placNode.level + 1, tag: "FORM", value: form, children: [] });
+}
+
+/**
+ * Keep a place's FORM describing the place it sits on, after that place changed.
+ * A known schema — attested on this very place elsewhere in the file, or
+ * composed with it from a register — is written. With none, a FORM inherited
+ * from the *previous* place is dropped once its label count no longer matches
+ * the parts it claims to name, since it demonstrably describes something else;
+ * one that still lines up is left alone rather than guessed at.
+ */
+export function reconcilePlaceForm(placNode: GedNode, form: string | undefined): void {
+  if (form) {
+    setPlaceForm(placNode, form);
+    return;
+  }
+  const existing = placNode.children.find((c) => c.tag === "FORM");
+  if (!existing?.value || !placNode.value) return;
+  if (existing.value.split(",").length !== placNode.value.split(",").length) {
+    placNode.children = placNode.children.filter((c) => c !== existing);
+  }
+}
+
+/**
  * Remove a `PLAC` node's `_GOV` identity, leaving the `MAP` coordinate alone.
  * Used when an event moves to a different place: a coordinate is a position and
  * stays roughly true (or is replaced by the new place's), while a GOV id names

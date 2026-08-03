@@ -1328,7 +1328,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
   // on the father/mother/partner/child cards, mirroring the candidate list's
   // status chip; a "confirmed" decision wins over any other stale decision
   // recorded against the same main id.
-  const { placeSuggestions, placeToAddrs, placeCanonical, addrCanonical, placeCoords, pairCoords } = useMemo(
+  const { placeSuggestions, placeToAddrs, placeCanonical, addrCanonical, placeCoords, pairCoords, placeForms } = useMemo(
     () => buildPlaceSuggestions(dataset),
     // tick/undoVersion, like `pairUses` below: the dataset is mutated in place,
     // so a place, address or coordinate entered a moment ago on another record
@@ -1708,6 +1708,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
             placeCanonical={placeCanonical}
             addrCanonical={addrCanonical}
             placeCoords={placeCoords}
+            placeForms={placeForms}
             pairCoords={pairCoords}
             mergeHighlight={mergeHighlight}
             mergeIncomingSources={mergeIncomingSources}
@@ -1813,6 +1814,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
               placeCanonical={placeCanonical}
               addrCanonical={addrCanonical}
             placeCoords={placeCoords}
+            placeForms={placeForms}
             pairCoords={pairCoords}
               pendingFocusFamEventKey={pendingFocusFamEventKey}
               setPendingFocusFamEventKey={setPendingFocusFamEventKey}

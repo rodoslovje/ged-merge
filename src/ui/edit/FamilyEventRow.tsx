@@ -17,7 +17,7 @@ const SETTINGS_KEYS = ["showAge"] as const;
 /** Any family event row (MARR, DIV, ENGA, SEPA, …) by tag. */
 export function FamilyEventRow({
   fam, tag, t, commit, openEditSource, onOpenSourceDialog, onRemove, onCopy, onRetag, autoFocusDate,
-  placeSuggestions, placeToAddrs, placeCanonical, addrCanonical, placeCoords, pairCoords,
+  placeSuggestions, placeToAddrs, placeCanonical, addrCanonical, placeCoords, placeForms, pairCoords,
   mergeHighlight, mergeIncomingSources, famMergeKeyBase, resolvedSessionFields, individuals,
 }: {
   fam: Family; tag: string; t: Translate; commit: FamilyCommit;
@@ -37,6 +37,7 @@ export function FamilyEventRow({
   addrCanonical: Map<string, string>;
   /** Coordinate the file already uses for a place (settlement-level). */
   placeCoords: Map<string, GeoCoord>;
+  placeForms: Map<string, string>;
   /** Coordinate for a specific place+address pair (the house). */
   pairCoords: Map<string, GeoCoord>;
   mergeHighlight?: Map<string, string>;
@@ -95,8 +96,9 @@ export function FamilyEventRow({
       placeToAddrs={placeToAddrs}
       placeCanonical={placeCanonical}
       addrCanonical={addrCanonical}
-            placeCoords={placeCoords}
-            pairCoords={pairCoords}
+      placeCoords={placeCoords}
+      placeForms={placeForms}
+      pairCoords={pairCoords}
       mergeHighlight={mergeHighlight}
       mergeIncomingSources={mergeIncomingSources}
       mergeKeyBase={`${famMergeKeyBase ?? `fam.${fam.id}`}.${tag}`}

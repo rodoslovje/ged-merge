@@ -20,6 +20,14 @@ export interface PlaceSuggestions {
    * combo pick supplies both fields at once.
    */
   pairCoords: Map<string, GeoCoord>;
+  /**
+   * The `FORM` the file already writes for a place, keyed by {@link placeKey}
+   * (the most frequent one when occurrences disagree). Picking a place the file
+   * already has brings its schema along the way {@link placeCoords} brings its
+   * position — this is the file's own attested label for that exact place, not
+   * a guess about what a typed value's parts might be.
+   */
+  placeForms: Map<string, string>;
 }
 
 /** Key for the {@link PlaceSuggestions.pairCoords} map. */
@@ -41,6 +49,8 @@ export function buildPlaceSuggestions(dataset: Dataset): PlaceSuggestions {
   // Coordinate tallies, so the most frequently used wins when they disagree.
   const placeCoordCounts = new Map<string, Map<string, { coord: GeoCoord; n: number }>>();
   const pairCoordCounts = new Map<string, Map<string, { coord: GeoCoord; n: number }>>();
+  // placeKey → FORM → count.
+  const placeFormCounts = new Map<string, Map<string, number>>();
 
   function addCoord(counts: Map<string, Map<string, { coord: GeoCoord; n: number }>>, key: string, coord: GeoCoord) {
     const ck = `${coord.lat}:${coord.lon}`;
@@ -60,7 +70,15 @@ export function buildPlaceSuggestions(dataset: Dataset): PlaceSuggestions {
     forms.set(key, m);
   }
 
-  function addEventValues(placeRaw: string | undefined, addrRaw: string | undefined, coord?: GeoCoord) {
+  function addEventValues(placeRaw: string | undefined, addrRaw: string | undefined, coord?: GeoCoord, form?: string) {
+    // A FORM only describes the place it sits on if it labels every part of it;
+    // one that doesn't is this file's own mistake, not a schema to spread.
+    if (placeRaw && form && form.split(",").length === placeRaw.split(",").length) {
+      const key = placeKey(placeRaw);
+      const m = placeFormCounts.get(key) ?? new Map<string, number>();
+      m.set(form, (m.get(form) ?? 0) + 1);
+      placeFormCounts.set(key, m);
+    }
     if (placeRaw && coord) {
       const ar = addrRaw?.trim();
       // With an address the coordinate describes that house; without one it is
@@ -82,10 +100,10 @@ export function buildPlaceSuggestions(dataset: Dataset): PlaceSuggestions {
   }
 
   for (const indi of dataset.individuals.values()) {
-    for (const ev of indi.events) addEventValues(ev.place?.raw, ev.address?.raw, ev.place?.coord);
+    for (const ev of indi.events) addEventValues(ev.place?.raw, ev.address?.raw, ev.place?.coord, ev.place?.form);
   }
   for (const fam of dataset.families.values()) {
-    for (const ev of fam.events) addEventValues(ev.place?.raw, ev.address?.raw, ev.place?.coord);
+    for (const ev of fam.events) addEventValues(ev.place?.raw, ev.address?.raw, ev.place?.coord, ev.place?.form);
   }
 
   function build(forms: Map<string, Map<string, number>>): { suggestions: string[]; canonical: Map<string, string> } {
@@ -112,6 +130,16 @@ export function buildPlaceSuggestions(dataset: Dataset): PlaceSuggestions {
     placeToAddrs.set(pk, [...m.keys()].sort());
   }
 
+  /** Most frequently used value per key. */
+  function pickMostFrequent(counts: Map<string, Map<string, number>>): Map<string, string> {
+    const out = new Map<string, string>();
+    for (const [key, m] of counts) {
+      const best = [...m.entries()].sort((a, b) => b[1] - a[1])[0];
+      if (best) out.set(key, best[0]);
+    }
+    return out;
+  }
+
   /** Most frequently used coordinate per key. */
   function pickCoords(counts: Map<string, Map<string, { coord: GeoCoord; n: number }>>): Map<string, GeoCoord> {
     const out = new Map<string, GeoCoord>();
@@ -129,6 +157,7 @@ export function buildPlaceSuggestions(dataset: Dataset): PlaceSuggestions {
     addrCanonical: addr.canonical,
     placeCoords: pickCoords(placeCoordCounts),
     pairCoords: pickCoords(pairCoordCounts),
+    placeForms: pickMostFrequent(placeFormCounts),
   };
 }
 
