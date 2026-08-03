@@ -538,6 +538,11 @@ export const HIGH_CONFIDENCE = 0.95;
 /** Below this a fuzzy candidate isn't worth showing. */
 const MIN_FUZZY = 0.87;
 
+/** Score for a register name that extends the written one with its parent
+ *  ("Vinji vrh" under Semič → "Vinji Vrh pri Semiču"): above the bulk-accept
+ *  bar — the parent corroborates it — but below a letter-perfect match. */
+const PARENT_QUALIFIED = 0.96;
+
 const MAX_CANDIDATES = 6;
 
 /** Same-named entries closer than this (degrees, ≈5 km at Slovenian latitudes)
@@ -578,6 +583,44 @@ export function lookupPlace(index: GazetteerIndex, rawPlace: string): GazCandida
     const exactPrimary = foldToken(e.name) === folded || (e.ascii !== "" && foldToken(e.ascii) === folded);
     consider(i, exactPrimary ? 1 : 0.93);
   }
+  // The place's own parents ("Semič" in "Vinji vrh,Semič,Slovenia"), folded →
+  // the file's spelling, plus a word-boundary stem test for finding one
+  // *inside* a longer settlement name: parent names inflect there — Semič →
+  // "pri Semiču", Metlika → "pri Metliki" — so the final vowel is dropped and
+  // the stem must start a word. A hit returns the file's own spelling.
+  const parentSpelling = new Map<string, string>();
+  for (const part of components.jurisdiction.slice(1)) {
+    const f = foldToken(part);
+    if (f && !parentSpelling.has(f)) parentSpelling.set(f, part.trim());
+  }
+  const parents = new Set(parentSpelling.keys());
+  const parentInName = (foldedName: string): string | undefined => {
+    for (const [f, spelling] of parentSpelling) {
+      const stem = /[aeiou]$/.test(f) ? f.slice(0, -1) : f;
+      if (stem.length >= 3 && foldedName.includes(" " + stem)) return spelling;
+    }
+    return undefined;
+  };
+
+  // Parent-qualified pass: the register often files a settlement under a
+  // longer name that appends its parent — "Vinji vrh" written under Semič is
+  // the register's "Vinji Vrh pri Semiču". The plain name may exactly match
+  // other municipalities' same-named settlements, so this runs even when the
+  // exact pass scored; it is gated on the place's own parents corroborating
+  // the longer name (the entry's municipality is a named parent, or the name
+  // extension itself contains one), so it never fires on the name alone.
+  if (parents.size) {
+    const prefix = folded + " ";
+    for (const i of index.buckets.get(bucketKey(folded)) ?? []) {
+      const e = index.entries[i];
+      const foldedNames = [e.name, e.ascii, ...e.alt].filter(Boolean).map(foldToken);
+      if (!foldedNames.some((n) => n.startsWith(prefix))) continue;
+      const corroborated =
+        (!!e.admin && parents.has(foldToken(e.admin))) ||
+        foldedNames.some((n) => parentInName(n) !== undefined);
+      if (corroborated) consider(i, PARENT_QUALIFIED);
+    }
+  }
   // Fuzzy pass only when nothing matched exactly — typos and historical
   // spellings, constrained to the 2-char bucket to stay fast.
   if (!scores.size) {
@@ -611,13 +654,9 @@ export function lookupPlace(index: GazetteerIndex, rawPlace: string): GazCandida
   // the researcher decides. Only ever applied downward, so a match never invents
   // confidence a plain name did not earn. A parent is recognized under any of
   // its division's names — the file may write "Požega-Slavonia" where the entry
-  // stores "Požeško-Slavonska Županija" — and the matched candidate then shows
-  // the file's own spelling.
-  const parentSpelling = new Map<string, string>();
-  for (const part of components.jurisdiction.slice(1)) {
-    const folded = foldToken(part);
-    if (folded && !parentSpelling.has(folded)) parentSpelling.set(folded, part.trim());
-  }
+  // stores "Požeško-Slavonska Županija" — or inside a parent-qualified
+  // settlement name ("Vinji Vrh pri Semiču" for a written "Semič"), and the
+  // matched candidate then shows the file's own spelling.
   const matchedParent = (e: GazEntry): string | undefined => {
     const names = e.admin ? [e.admin] : [];
     if (e.admin1) names.push(...(index.divisions?.get(`${e.country}:${e.admin1}`) ?? []));
@@ -625,7 +664,7 @@ export function lookupPlace(index: GazetteerIndex, rawPlace: string): GazCandida
       const spelling = parentSpelling.get(foldToken(name));
       if (spelling !== undefined) return spelling;
     }
-    return undefined;
+    return parentInName(foldToken(e.name));
   };
   if (parentSpelling.size && candidates.some((c) => matchedParent(c.entry) !== undefined)) {
     for (const c of candidates) {

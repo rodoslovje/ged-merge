@@ -8,6 +8,7 @@ import {
   chosenCoordFor,
   collectPlaceValues,
   countGeocodePending,
+  countryOf,
   isRegisterAddress,
   movePlaceForAddresses,
   placeAddrKey,
@@ -375,5 +376,20 @@ describe("applyGeocode", () => {
       ]),
     );
     expect(patches).toHaveLength(0);
+  });
+});
+
+describe("countryOf", () => {
+  it("takes the last comma segment", () => {
+    expect(countryOf("Ravna Gora,Primorje-Gorski Kotar,Croatia")).toBe("Croatia");
+    expect(countryOf("Kranj, Slovenija")).toBe("Slovenija");
+    expect(countryOf("Slovenia,,Slovenia")).toBe("Slovenia");
+  });
+
+  it("gives no country when the value names none", () => {
+    // A bare settlement has no jurisdiction chain — it must not become a
+    // "country" of its own; a trailing comma means the country was omitted.
+    expect(countryOf("Kranj")).toBe("");
+    expect(countryOf("Novo mesto,")).toBe("");
   });
 });

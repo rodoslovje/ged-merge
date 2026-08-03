@@ -7493,6 +7493,11 @@ kbd {
 }
 .tools-chip.active { border-color: var(--accent); color: var(--accent); }
 .tools-chip-count { font-weight: 700; }
+/* The geocode row's occurrence count doubles as the people toggle: a button
+   drawn as the plain count chip, accent while the list below is open. */
+button.tools-count-toggle { background: none; border: none; padding: 0; font: inherit; font-weight: 700; color: inherit; cursor: pointer; }
+button.tools-count-toggle:hover,
+button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 .tools-issues, .tools-pairs { list-style: none; margin: 0; padding: 0; }
 /* Spacer standing in for the unmounted rows of a virtualized list (useVirtualList). */
 .v-spacer { flex: none; margin: 0; padding: 0; border: none; list-style: none; }
@@ -8394,6 +8399,9 @@ kbd {
 }
 .tools-geo-manual input[type="text"]:focus { outline: none; border-color: var(--accent); }
 .tools-geo-more { color: var(--muted); font-size: 0.85rem; margin: 8px 0 0; }
+/* The geocode list's two chip rows (countries, then work status) read as one
+   filter block: the second row sits closer to the first than to the list. */
+.tools-geocode .tools-chips + .tools-chips { margin-top: -6px; }
 /* Address rows grouped under their place: one collapsible group per place, so a
    file with hundreds of addresses is worked through a place at a time. */
 .tools-geo-addr-group { border-bottom: 1px solid var(--border); padding: 4px 0; }
