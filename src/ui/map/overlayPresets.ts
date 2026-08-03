@@ -18,7 +18,7 @@ export type CoverageBox = readonly [number, number, number, number];
 
 /** Coverage shared by several presets. The two national boxes are the
  *  countries' extents; the self-hosted pyramids' boxes are the real extent of
- *  the sheets that were built (scripts/manifests/*.json). */
+ *  the sheets that were built (the maptiles repo's manifests/*.json). */
 const SLOVENIA: CoverageBox = [45.42, 13.37, 46.88, 16.61];
 const SWITZERLAND: CoverageBox = [45.8, 5.95, 47.81, 10.5];
 
@@ -50,11 +50,11 @@ export type OverlayPreset = Omit<MapOverlay, "id" | "name"> & {
  *  custom layer. */
 export const OVERLAY_PRESETS: OverlayPreset[] = [
   {
-    // Self-hosted pyramid (deploy/tiles.gedmerge.com.caddy): the complete
-    // Third Military Survey, all 805 sheets of the 1:75 000 Spezialkarte, from
-    // Saxony to Montenegro and from Tyrol to Bukovina. Resolved from the
-    // Mapster catalogue and built with scripts/spezialkarte-sheets.py +
-    // scripts/overlay-tiles.py; see scripts/manifests/README.md. Each sheet is
+    // Self-hosted pyramid (built and served by the sibling maptiles repo —
+    // see its manifests/README.md and deploy/): the complete Third Military
+    // Survey, all 805 sheets of the 1:75 000 Spezialkarte, from Saxony to
+    // Montenegro and from Tyrol to Bukovina, resolved from the Mapster
+    // catalogue. Each sheet is
     // placed by its own printed graticule, converted from the survey's Bessel /
     // Hermannskogel datum to WGS 84 — without that the sheets sit 200-450 m
     // east of modern coordinates, by a margin that grows towards Galicia. The
@@ -72,7 +72,7 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
   {
     // Self-hosted pyramid: Schraembl's Neueste Generalkarte von Deutschland
     // (Vienna 1797), the Holy Roman Empire's last years, built from the David
-    // Rumsey composite scan with scripts/overlay-tiles.py. Placed by the map's
+    // Rumsey composite scan by the maptiles repo. Placed by the map's
     // own printed graticule (an equidistant conic, longitudes east of Paris),
     // so it sits ~6 km rms from modern coordinates — that residual is the
     // engraver's compilation error, not the registration's, and is deliberately
@@ -122,8 +122,8 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
   // Slovenia · the Franciscean cadastre, 1:2880 — the largest scale any
   // historical map of these lands was ever drawn at: every field, every house,
   // every owner's parcel number, surveyed in the 1820s. Self-hosted pyramids
-  // built from the Archives of the Republic of Slovenia's open scans with
-  // scripts/kataster-sheets.py; see scripts/manifests/README.md.
+  // built from the Archives of the Republic of Slovenia's open scans by the
+  // sibling maptiles repo; see its manifests/README.md.
   //
   // Each sheet sits where its own printed designation puts it on the survey's
   // Cassini-Soldner lattice, converted from the Bessel/MGI datum it was

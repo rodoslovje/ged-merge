@@ -12,10 +12,5 @@ node_modules/.tmp
 /playwright-report
 /blob-report
 /coverage
+# Locally served tile pyramids for overlay testing (built by the maptiles repo)
 public/tiles-local/
-
-# Cached source catalogue for scripts/spezialkarte-sheets.py
-scripts/manifests/.kuk075-catalogue.html
-
-# Franciscean cadastre scans (re-fetched by scripts/kataster-sheets.py)
-scripts/manifests/kataster-scans/
