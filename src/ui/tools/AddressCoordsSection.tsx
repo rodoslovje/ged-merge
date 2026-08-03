@@ -153,6 +153,7 @@ export function AddressCoordsSection({
   onMove,
   query,
   actionsHost,
+  onRenameAddress,
   kinship,
   onNavigate,
 }: {
@@ -172,6 +173,9 @@ export function AddressCoordsSection({
    *  already name and count this list, so the section shows no heading of its
    *  own while hosted. Null until the slot mounts. */
   actionsHost?: HTMLElement | null;
+  /** Rename one house's address on every event that carries it (edit/undo
+   *  pipeline); returns the number of records changed. */
+  onRenameAddress: (rawKeys: string[], fromAddress: string, toAddress: string) => number;
   /** Kinship labels for the rows' people lists — the places rows' resolver. */
   kinship?: KinshipResolver;
   /** Jump to a person in Edit mode (the rows' people lists). */
@@ -205,6 +209,9 @@ export function AddressCoordsSection({
   const [statusFilter, setStatusFilter] = useState<"all" | AddrStatus>("all");
   // Rows whose people list is open — asked for by clicking the person count.
   const [peopleOpen, setPeopleOpen] = useState<Set<string>>(new Set());
+  // The one row whose rename editor is open, and its draft.
+  const [renameKey, setRenameKey] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
 
   // Hover lists of the people behind each address's person count.
   const peopleTitles = useMemo(() => {
@@ -394,6 +401,27 @@ export function AddressCoordsSection({
 
   const pick = (key: string, result: RnResult) =>
     setPicked((prev) => new Map(prev).set(key, { coord: result.coord, label: result.label }));
+
+  /** Rename the row's address on every event that carries it, then close the
+   *  editor — the rescan (edit version) merges it into an existing row when
+   *  the new spelling already has one, which is how duplicates are joined. */
+  const applyRename = (row: AddressRow) => {
+    const to = renameDraft.trim();
+    if (!to || to === row.address) return;
+    onRenameAddress(row.rawKeys, row.address, to);
+    setRenameKey(null);
+    // The row's key changes with its address: drop state tied to the old key.
+    setPicked((prev) => {
+      const next = new Map(prev);
+      next.delete(row.key);
+      return next;
+    });
+    setSearches((prev) => {
+      const next = new Map(prev);
+      next.delete(row.key);
+      return next;
+    });
+  };
 
   /** Rows the register answered with exactly one house — safe to stage in one
    *  click, like the places list's Select confident. A hit the register files
@@ -667,6 +695,26 @@ export function AddressCoordsSection({
                             />
                           )}
                           <span className="tools-geo-cand-name">{row.address}</span>
+                          {renameKey === row.key ? (
+                            <button
+                              className="tools-place-edit-btn tools-place-edit-cancel"
+                              onClick={() => setRenameKey(null)}
+                              title={t("tools.places.rename.cancel")}
+                            >
+                              ✕
+                            </button>
+                          ) : (
+                            <button
+                              className="tools-place-edit-btn"
+                              onClick={() => {
+                                setRenameKey(row.key);
+                                setRenameDraft(row.address);
+                              }}
+                              title={t("tools.geocode.addr.renameOpen")}
+                            >
+                              ✎
+                            </button>
+                          )}
                           <span className="tools-geo-count">{t("tools.geocode.addr.uses", { count: row.count })}</span>
                           {/* Who the events belong to — count as the toggle,
                               names on hover, exactly like the places rows. */}
@@ -718,8 +766,38 @@ export function AddressCoordsSection({
                             }
                             onClear={() => unpick(row.key)}
                           />
-                          {chosen && <span className="tools-reshape-badge official">{chosen.label}</span>}
+                          {/* The staged pick, named only when it is not one
+                              of the listed results (manual, map, OSM) — a
+                              selected radio below already says the rest. */}
+                          {chosen && !search.results.some((r) => sameCoord(chosen.coord, r.coord)) && (
+                            <span className="tools-reshape-badge official">{chosen.label}</span>
+                          )}
                         </div>
+                        {renameKey === row.key && (
+                          <div
+                            className="tools-place-rename"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") applyRename(row);
+                              if (e.key === "Escape") setRenameKey(null);
+                            }}
+                          >
+                            <input
+                              type="text"
+                              className="tools-place-rename-input"
+                              value={renameDraft}
+                              autoFocus
+                              placeholder={t("tools.geocode.renameAddrPlaceholder")}
+                              onChange={(e) => setRenameDraft(e.target.value)}
+                            />
+                            <button
+                              className="nav-btn primary tools-place-rename-apply"
+                              onClick={() => applyRename(row)}
+                              disabled={!renameDraft.trim() || renameDraft.trim() === row.address}
+                            >
+                              {t("tools.places.rename.apply")}
+                            </button>
+                          </div>
+                        )}
                         {peopleOpen.has(row.key) && (
                           <>
                             <ul className="tools-usage tools-geo-people">

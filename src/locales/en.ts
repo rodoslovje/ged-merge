@@ -433,6 +433,7 @@ export const en = {
   "tools.geocode.tab.addresses": "Addresses",
   "tools.geocode.addr.introOnline": "Unlike the places tab's offline matching, these lookups ask the official register online — only on your click, behind the online-lookups opt-in in",
   "tools.geocode.settingsAdvanced": "Settings › Advanced",
+  "tools.geocode.addr.renameOpen": "Rename this address — every event at this house, in whichever form the file writes it",
   "tools.geocode.addr.selectConfidentHint": "Pick every address the register answered with exactly one house; a hit filed under a different settlement stays for review",
   "tools.geocode.addr.filter.all": "All",
   "tools.geocode.addr.filter.unsearched": "Not looked up",

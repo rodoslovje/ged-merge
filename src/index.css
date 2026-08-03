@@ -7693,6 +7693,8 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
   font-size: 1em;
   line-height: 1;
 }
+.tools-geo-addr-head:hover .tools-place-edit-btn,
+.tools-geo-addr-head:focus-within .tools-place-edit-btn,
 .tools-tree-row:hover .tools-place-edit-btn,
 .tools-tree-row:focus-within .tools-place-edit-btn { opacity: 1; width: auto; padding: 1px 5px; margin-left: 0; }
 .tools-place-edit-btn:hover { color: var(--accent); background: var(--panel-2); }

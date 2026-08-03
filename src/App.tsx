@@ -41,7 +41,7 @@ import { ErrorBoundary } from "./ui/ErrorBoundary";
 import { ErrorFallback } from "./ui/ErrorFallback";
 import { applyPlaceRename } from "./tools/placeEdit";
 import { applyGeocode, movePlaceForAddresses, renamePlaceValue } from "./tools/geocode";
-import { applyAddressCoords } from "./tools/addresses";
+import { applyAddressCoords, renameAddress } from "./tools/addresses";
 import { fixBrokenLinks } from "./tools/fixLinks";
 import { fixSexFromRole } from "./tools/fixSex";
 import { fixDates } from "./tools/fixDates";
@@ -2007,6 +2007,7 @@ function AppContent() {
                   ),
                 )
               }
+              onRenameAddress={(rawKeys, fromAddress, toAddress) => applyToolPatches(renameAddress(mainDataset, rawKeys, fromAddress, toAddress))}
               onMovePlaceForAddresses={(keys, toPlace, coord) => applyToolPatches(movePlaceForAddresses(mainDataset, keys, toPlace, coord))}
               startId={startId}
               onFixBrokenLinks={(only) => applyToolPatches(fixBrokenLinks(mainDataset, only))}

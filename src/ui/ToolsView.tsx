@@ -61,6 +61,8 @@ interface Props {
   onRenamePlaceValue: (from: string, to: string, addr?: string) => number;
   /** Batched "take the official name" renames — one undoable step. */
   onApplyOfficialNames: (renames: OfficialRename[]) => number;
+  /** Rename one house's address on every event that carries it. */
+  onRenameAddress: (rawKeys: string[], fromAddress: string, toAddress: string) => number;
   onMovePlaceForAddresses: (keys: Set<string>, toPlace: string, coord?: GeoAssignment) => number;
   /** The app-wide start person, for kinship labels in people lists. */
   startId?: string;
@@ -106,7 +108,7 @@ interface Props {
   onUnrejectDuplicate: (aId: string, bId: string) => void;
 }
 
-export function ToolsView({ dataset, editVersionRef, editVersion, fileName, onNavigate, onAddSource, onEditSource, onRemoveSource, onEditRepo, onEditMediaInfo, active, onApplyPlaceRename, onApplyGeocode, onApplyAddressCoords, onRenamePlaceValue, onApplyOfficialNames, onMovePlaceForAddresses, startId, onFixBrokenLinks, onFixSexFromRole, onFixDates, onFixDuplicatePointers, onFixDanglingRefs, onFillPlaceCoords, onApplyBatchPatches, onMergeDuplicate, rejectedDuplicates, onRejectDuplicate, onRejectDuplicatesBulk, onUnrejectDuplicate }: Props) {
+export function ToolsView({ dataset, editVersionRef, editVersion, fileName, onNavigate, onAddSource, onEditSource, onRemoveSource, onEditRepo, onEditMediaInfo, active, onApplyPlaceRename, onApplyGeocode, onApplyAddressCoords, onRenamePlaceValue, onApplyOfficialNames, onRenameAddress, onMovePlaceForAddresses, startId, onFixBrokenLinks, onFixSexFromRole, onFixDates, onFixDuplicatePointers, onFixDanglingRefs, onFillPlaceCoords, onApplyBatchPatches, onMergeDuplicate, rejectedDuplicates, onRejectDuplicate, onRejectDuplicatesBulk, onUnrejectDuplicate }: Props) {
   const { t } = useTranslation();
   const [tool, setTool] = useState<Tool>("validate");
   const phone = usePhone();
@@ -180,7 +182,7 @@ export function ToolsView({ dataset, editVersionRef, editVersion, fileName, onNa
           <SourcesPanel dataset={dataset} scans={scans} fileName={fileName} onNavigate={onNavigate} onAddSource={onAddSource} onEditSource={onEditSource} onRemoveSource={onRemoveSource} onEditRepo={onEditRepo} onEditMediaInfo={onEditMediaInfo} active={active} />
         )}
         {tool === "places" && (
-          <PlacesPanel dataset={dataset} onNavigate={onNavigate} active={active} editVersion={editVersion} onApplyPlaceRename={onApplyPlaceRename} onApplyGeocode={onApplyGeocode} onApplyAddressCoords={onApplyAddressCoords} onRenamePlaceValue={onRenamePlaceValue} onApplyOfficialNames={onApplyOfficialNames} onMovePlaceForAddresses={onMovePlaceForAddresses} startId={startId} />
+          <PlacesPanel dataset={dataset} onNavigate={onNavigate} active={active} editVersion={editVersion} onApplyPlaceRename={onApplyPlaceRename} onApplyGeocode={onApplyGeocode} onApplyAddressCoords={onApplyAddressCoords} onRenamePlaceValue={onRenamePlaceValue} onApplyOfficialNames={onApplyOfficialNames} onRenameAddress={onRenameAddress} onMovePlaceForAddresses={onMovePlaceForAddresses} startId={startId} />
         )}
       </div>
       </ToolSummarySlotProvider>

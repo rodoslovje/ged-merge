@@ -73,6 +73,8 @@ interface Props {
   /** Batched "take the official name" renames — each row renamed to the
    *  register's spelling and placed at its coordinate, all one undo step. */
   onApplyOfficialNames: (renames: OfficialRename[]) => number;
+  /** Rename one house's address on every event that carries it. */
+  onRenameAddress: (rawKeys: string[], fromAddress: string, toAddress: string) => number;
   /** Move the events at these place+address pairs to `toPlace`; `coord` is the
    *  destination's position when it came from a register pick. */
   onMovePlaceForAddresses: (keys: Set<string>, toPlace: string, coord?: GeoAssignment) => number;
@@ -87,7 +89,7 @@ interface Props {
   startId?: string;
 }
 
-export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onApplyAddressCoords, onRenamePlaceValue, onApplyOfficialNames, onMovePlaceForAddresses, onBack, onNavigate, startId }: Props) {
+export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onApplyAddressCoords, onRenamePlaceValue, onApplyOfficialNames, onRenameAddress, onMovePlaceForAddresses, onBack, onNavigate, startId }: Props) {
   const { t } = useTranslation();
   const { settings: appSettings } = useSettings();
   const nameOf = useNameOf();
@@ -618,6 +620,7 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
         query={query}
         kinship={kinship}
         onNavigate={onNavigate}
+        onRenameAddress={onRenameAddress}
         actionsHost={addrActionsEl}
       />
       </div>
