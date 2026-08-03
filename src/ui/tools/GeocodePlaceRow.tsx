@@ -578,20 +578,23 @@ export function GeocodePlaceRow({
                     onChange={() => pickCandidate(cand)}
                   />
                   <span className="tools-geo-cand-name">{cand.entry.name}</span>
-                  {/* The municipality the register files it under — the only
-                      thing that tells two same-named settlements apart. */}
-                  {cand.entry.admin && <span className="tools-geo-count">({cand.entry.admin})</span>}
+                  {/* The division the register files it under — the only thing
+                      that tells two same-named settlements apart. In the file's
+                      own spelling when the place string names the division. */}
+                  {(cand.adminDisplay ?? cand.entry.admin) && (
+                    <span className="tools-geo-count">({cand.adminDisplay ?? cand.entry.admin})</span>
+                  )}
                   <span className="gm-data">
                     {cand.entry.population > 0 && `· ${t("tools.geocode.population", { count: cand.entry.population })} · `}
                     {`${cand.entry.lat.toFixed(4)}, ${cand.entry.lon.toFixed(4)}`}
                   </span>
                   <span className="tools-geo-score">{Math.round(cand.score * 100)}%</span>
-                  {/* Source last, like the GOV/OSM/GURS rows below: the register
-                      code when the entry is from an official one (SI-GURS),
-                      otherwise the plain country code, which is all a
-                      crowd-sourced entry knows. */}
+                  {/* Source last, like the GOV/OSM/GURS rows below: the full
+                      directory id — register code (SI-GURS), download key
+                      (HR-OSM), or the bare country code, which by convention
+                      means the GeoNames file. */}
                   <span className={`tools-reshape-badge ${cand.entry.register ? "official" : "reuse"}`}>
-                    {cand.entry.register ?? cand.entry.country}
+                    {cand.entry.register ?? cand.entry.source ?? cand.entry.country}
                   </span>
                 </label>
               </li>

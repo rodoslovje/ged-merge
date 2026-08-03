@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   GURS_REGISTER,
   HIGH_CONFIDENCE,
+  attachAdmin1Names,
   buildGazetteerIndex,
   lookupPlace,
+  mergeDivisions,
   osmRegister,
   overpassFailure,
   overpassSubdivisions,
@@ -12,6 +14,7 @@ import {
   rpeNaseljaToEntries,
   rpeObcinaNames,
   searchGazetteer,
+  storedEntries,
   subdivisionAdmin1,
   type GazEntry,
 } from "./gazetteer";
@@ -48,6 +51,76 @@ describe("parseGeoNamesLine", () => {
   it("rejects malformed rows", () => {
     expect(parseGeoNamesLine("garbage")).toBeUndefined();
     expect(parseGeoNamesLine("1\tX\tX\t\tnot-a-number\t14\tP\tPPL\tSI\t\t\t\t\t\t0\t\t\t\t")).toBeUndefined();
+  });
+
+  it("keeps the feature code on admin divisions only", () => {
+    const es = entries();
+    expect(es.find((e) => e.fclass === "A")?.fcode).toBe("ADM2");
+    expect(es.filter((e) => e.fclass === "P").every((e) => e.fcode === undefined)).toBe(true);
+  });
+});
+
+describe("attachAdmin1Names", () => {
+  // A Croatian extract in miniature: the county (ADM1) row, a town inside it,
+  // a town in another county whose ADM1 row is missing, and the county seat
+  // sharing the county's name stem.
+  const HR_ROWS = [
+    "3337515\tPrimorsko-Goranska Županija\tPrimorsko-Goranska Zupanija\tPrimorje-Gorski Kotar,Primorsko-goranska\t45.31667\t14.81667\tA\tADM1\tHR\t\t12\t\t\t\t296195\t\t500\tEurope/Zagreb\t2019-09-05",
+    "3191648\tRavna Gora\tRavna Gora\t\t45.37417\t14.93944\tP\tPPL\tHR\t\t12\t\t\t\t1709\t\t800\tEurope/Zagreb\t2019-09-05",
+    "3186952\tZagreb\tZagreb\tAgram\t45.81444\t15.97798\tP\tPPLC\tHR\t\t21\t\t\t\t698966\t\t130\tEurope/Zagreb\t2019-09-05",
+    "3191281\tDelnice\tDelnice\t\t45.39833\t14.79861\tA\tADM2\tHR\t\t12\t\t\t\t5952\t\t700\tEurope/Zagreb\t2019-09-05",
+  ];
+
+  it("labels places with their ADM1 division's name", () => {
+    const es = HR_ROWS.map(parseGeoNamesLine).filter((e): e is GazEntry => !!e);
+    const divisions = attachAdmin1Names(es);
+    // Every name the division goes by, primary first — the alternate spellings
+    // are what the file-side parent match reads.
+    expect(divisions["12"]).toEqual([
+      "Primorsko-Goranska Županija",
+      "Primorsko-Goranska Zupanija",
+      "Primorje-Gorski Kotar",
+      "Primorsko-goranska",
+    ]);
+    expect(es.find((e) => e.name === "Ravna Gora")?.admin).toBe("Primorsko-Goranska Županija");
+    // The ADM2 entry sits in the county too, and gets the same label.
+    expect(es.find((e) => e.name === "Delnice")?.admin).toBe("Primorsko-Goranska Županija");
+    // No ADM1 row for code 21 in the extract — left unlabelled, not guessed.
+    expect(es.find((e) => e.name === "Zagreb")?.admin).toBeUndefined();
+    // The division row itself repeats its own name — says nothing, left off.
+    expect(es.find((e) => e.fcode === "ADM1")?.admin).toBeUndefined();
+  });
+
+  it("never overwrites an admin name another source set", () => {
+    const es = HR_ROWS.map(parseGeoNamesLine).filter((e): e is GazEntry => !!e);
+    const ravnaGora = es.find((e) => e.name === "Ravna Gora")!;
+    ravnaGora.admin = "Gorski kotar";
+    attachAdmin1Names(es);
+    expect(ravnaGora.admin).toBe("Gorski kotar");
+  });
+
+  it("does nothing when the extract carries no ADM1 rows", () => {
+    const es = entries();
+    attachAdmin1Names(es);
+    expect(es.every((e) => e.admin === undefined)).toBe(true);
+  });
+
+  it("lookupPlace recognizes the division under any of its names and answers in the file's spelling", () => {
+    // Two same-named villages in different counties; the file names its county
+    // in English ("Primorje-Gorski Kotar"), the entries store the Croatian
+    // primary name — the divisions table is what connects the two.
+    const es = HR_ROWS.map(parseGeoNamesLine).filter((e): e is GazEntry => !!e);
+    es.push({ ...es.find((e) => e.name === "Ravna Gora")!, admin1: "21", admin: undefined, lat: 46.1 });
+    const divisions = attachAdmin1Names(es);
+    const index = buildGazetteerIndex(es, mergeDivisions([{ entries: es, divisions }]));
+    const hits = lookupPlace(index, "Ravna Gora,Primorje-Gorski Kotar,Croatia");
+    const [first, second] = hits.filter((h) => h.entry.name === "Ravna Gora");
+    // The county's entry wins, labelled the way the file writes the county.
+    expect(first.entry.admin1).toBe("12");
+    expect(first.adminDisplay).toBe("Primorje-Gorski Kotar");
+    expect(second.entry.admin1).toBe("21");
+    expect(second.adminDisplay).toBeUndefined();
+    expect(second.score).toBeLessThan(first.score);
   });
 });
 
@@ -110,7 +183,7 @@ describe("lookupPlace", () => {
 
 describe("overpassToEntries", () => {
   it("converts place nodes with alternate-name tags, skips unnamed", () => {
-    const entries = overpassToEntries(
+    const { entries } = overpassToEntries(
       {
         elements: [
           { lat: 46.1655, lon: 14.3061, tags: { place: "town", name: "Škofja Loka", "name:de": "Bischoflack", population: "11987" } },
@@ -138,8 +211,51 @@ describe("overpassToEntries", () => {
     const [entry] = overpassToEntries(
       { elements: [{ lat: 46.05, lon: 14.5, tags: { place: "village", name: "Šentvid" } }] },
       "SI",
-    );
+    ).entries;
     expect(entry.country).toBe("SI");
+  });
+
+  it("storedEntries labels each entry with its directory's full id", () => {
+    const entry = (name: string, country: string, register?: string): GazEntry => ({
+      name, ascii: "", alt: [], lat: 45, lon: 15, fclass: "P", country, admin1: "", population: 0,
+      ...(register ? { register } : {}),
+    });
+    const flat = storedEntries([
+      { code: "HR", entries: [entry("Pakrac", "HR")] },
+      { code: "HR-OSM", entries: [entry("Pakrac", "HR")] },
+      { code: GURS_REGISTER, entries: [entry("Bled", "SI", GURS_REGISTER)] },
+    ]);
+    // GeoNames (store key = the bare country) keeps its plain country badge,
+    // the OSM download is named in full, a register entry keeps its register.
+    expect(flat.map((e) => e.register ?? e.source ?? e.country)).toEqual(["HR", "HR-OSM", GURS_REGISTER]);
+  });
+
+  it("reads subdivision markers: places after one carry its name and code", () => {
+    // The download queries emit each ISO 3166-2 boundary relation (no
+    // coordinate) before its places; the names collected off the marker are
+    // what lets a Croatian file say "Požega-Slavonia" and still match.
+    const { entries, divisions } = overpassToEntries(
+      {
+        elements: [
+          {
+            tags: {
+              "ISO3166-2": "HR-11",
+              name: "Požeško-slavonska županija",
+              "name:en": "Požega-Slavonia County",
+              int_name: "Požega-Slavonia",
+              boundary: "administrative",
+            },
+          },
+          { lat: 45.4366, lon: 17.1936, tags: { place: "town", name: "Pakrac" } },
+          { tags: { "ISO3166-2": "HR-08", name: "Primorsko-goranska županija", boundary: "administrative" } },
+          { lat: 45.3742, lon: 14.9394, tags: { place: "town", name: "Ravna Gora" } },
+        ],
+      },
+      "HR",
+    );
+    expect(entries[0]).toMatchObject({ name: "Pakrac", admin: "Požeško-slavonska županija", admin1: "11" });
+    expect(entries[1]).toMatchObject({ name: "Ravna Gora", admin: "Primorsko-goranska županija", admin1: "08" });
+    expect(divisions["11"]).toEqual(["Požeško-slavonska županija", "Požega-Slavonia", "Požega-Slavonia County"]);
   });
 });
 
@@ -186,7 +302,7 @@ describe("a country too large for one Overpass query", () => {
       { elements: [{ lat: 34.05, lon: -118.24, tags: { place: "city", name: "Los Angeles" } }] },
       "US",
       subdivisionAdmin1("US-CA"),
-    );
+    ).entries;
     // The country stays the bare ISO code — that is what the lookup gate reads,
     // so a region's places answer for "United States" like any other.
     expect(entry).toMatchObject({ country: "US", admin1: "CA" });

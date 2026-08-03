@@ -20,7 +20,7 @@
 //    explicit "no match" marks. Per the design (MAPVIEW.md): this cache is
 //    the ONLY home of no-match marks; they are never written into the file.
 
-import type { GazEntry } from "../geo/gazetteer";
+import type { DivisionNames, GazEntry } from "../geo/gazetteer";
 
 const DB_NAME = "gedmerge-geo";
 const DB_VERSION = 1;
@@ -33,6 +33,9 @@ export interface StoredCountry {
   count: number;
   importedAt: number;
   entries: GazEntry[];
+  /** admin1 code → the division's known names, when the source provided them.
+   *  Absent on imports made before divisions were recorded. */
+  divisions?: DivisionNames;
 }
 
 export interface CountryMeta {

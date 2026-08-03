@@ -1,4 +1,5 @@
 import {
+  attachAdmin1Names,
   GURS_REGISTER,
   osmRegister,
   overpassToEntries,
@@ -75,7 +76,7 @@ self.onmessage = async (event: MessageEvent<GeoWorkerRequest>) => {
     if (msg.format === "overpass") {
       const country = msg.country ?? "??";
       const admin1 = msg.region ? subdivisionAdmin1(msg.region) : "";
-      const entries = overpassToEntries(
+      const { entries, divisions } = overpassToEntries(
         JSON.parse(new TextDecoder().decode(msg.buffer)) as OverpassJson,
         country,
         admin1,
@@ -87,15 +88,17 @@ self.onmessage = async (event: MessageEvent<GeoWorkerRequest>) => {
       // is what lookupPlace's country gate compares.
       const code = osmRegister(country);
       // A region download is one piece of the country's directory, so it merges
-      // into it: the other regions stay, and re-fetching this one replaces only
-      // its own entries. Whole-country downloads keep replacing outright — that
-      // is a fresh copy of everything.
+      // into it: the other regions stay (their division names too), and
+      // re-fetching this one replaces only its own entries. Whole-country
+      // downloads keep replacing outright — that is a fresh copy of everything.
       let merged = entries;
+      let mergedDivisions = divisions;
       if (admin1) {
         const stored = await getCountry(code);
         merged = [...(stored?.entries ?? []).filter((e) => e.admin1 !== admin1), ...entries];
+        mergedDivisions = { ...stored?.divisions, ...divisions };
       }
-      await putCountry({ code, count: merged.length, importedAt: Date.now(), entries: merged });
+      await putCountry({ code, count: merged.length, importedAt: Date.now(), entries: merged, divisions: mergedDivisions });
       post({ type: "result", requestId, countries: [{ code, count: merged.length }] });
       return;
     }
@@ -110,7 +113,8 @@ self.onmessage = async (event: MessageEvent<GeoWorkerRequest>) => {
     if (!byCountry.size) throw new Error("no gazetteer rows recognized");
     const countries: { code: string; count: number }[] = [];
     for (const [code, entries] of byCountry) {
-      await putCountry({ code, count: entries.length, importedAt: Date.now(), entries });
+      const divisions = attachAdmin1Names(entries);
+      await putCountry({ code, count: entries.length, importedAt: Date.now(), entries, divisions });
       countries.push({ code, count: entries.length });
     }
     countries.sort((a, b) => b.count - a.count);
