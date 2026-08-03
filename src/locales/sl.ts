@@ -1854,7 +1854,7 @@ export const sl = {
   "settings.map.overlays.preset.kataster.jama":
     "Franciscejski kataster · Jama 1:2880 (1826)",
   "settings.map.overlays.preset.kataster.bregObSavi":
-    "Franciscejski kataster · Breg ob Savi, Orehek in Drulovka 1:2880 (1826)",
+    "Franciscejski kataster · Drulovka 1:2880 (1826)",
   "settings.map.overlays.preset.kataster.mavcice":
     "Franciscejski kataster · Podreča in Mavčiče 1:2880 (1826)",
   "settings.map.overlays.preset.kataster.toplice":
