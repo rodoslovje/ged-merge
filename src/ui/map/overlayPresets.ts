@@ -292,6 +292,16 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     sampleZoom: 16,
   },
   {
+    key: "settings.map.overlays.preset.kataster.huje",
+    url: "https://tiles.gedmerge.com/kataster-huje/{z}/{x}/{y}.webp",
+    yearFrom: 1826,
+    yearTo: 1869,
+    attribution: "Arhiv Republike Slovenije, SI AS 176 (Franciscejski kataster za Kranjsko)",
+    maxZoom: 18,
+    coverage: [46.2152, 14.3480, 46.2561, 14.3972],
+    sampleZoom: 16,
+  },
+  {
     key: "settings.map.overlays.preset.kataster.jamaPrase",
     url: "https://tiles.gedmerge.com/kataster-jama-prase/{z}/{x}/{y}.webp",
     yearFrom: 1826,
