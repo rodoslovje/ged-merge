@@ -7,12 +7,16 @@ import { INDI_EVENT_TAGS, eventDisplayLabel } from "../../gedcom/eventTags";
 import { birthDateOf } from "../../gedcom/lifespan";
 import { ageBetween, fullAgeBetween } from "../../gedcom/age";
 import { lifespanAnchors, zoneSortKey } from "../../review/fields";
-import { useSettings } from "../SettingsContext";
+import { useSettingsSlice } from "../SettingsContext";
 import { EventFieldsRow } from "./EventFieldsRow";
 import { memo } from "react";
 import { nodeId } from "./nodeId";
 import { EXTRA_EVENT_ORDER, INDIVIDUAL_EVENT_GROUPS, ASSIGNABLE_EVENT_TAGS } from "./editConstants";
 import type { Commit, OpenEditSource, SourceDialogTarget } from "./types";
+
+/** The preferences this file reads — subscribed field by field, so an
+ *  unrelated one changing leaves it alone (see useSettingsSlice). */
+const SETTINGS_KEYS = ["showAge"] as const;
 
 /** Events grid: BIRT always first (creates on commit), then all other events
  * in person.events order — multiple occurrences of the same tag are supported.
@@ -119,7 +123,7 @@ export const EventList = memo(function EventList({
    * person. Omitted rows (incoming-only merge suggestions) have no node yet. */
   onCopyEvent?: (node: GedNode, label: string) => void;
 }) {
-  const { settings } = useSettings();
+  const settings = useSettingsSlice(SETTINGS_KEYS);
   const birtEv = person.events.find((e) => e.tag === "BIRT");
 
   // The person's age at an event, shown after its date ("Show ages" setting);

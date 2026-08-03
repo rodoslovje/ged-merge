@@ -10,7 +10,7 @@ import { childrenByTag, firstChild } from "../gedcom/node";
 import { defaultStartId, primaryName } from "../match/relatives";
 import { splitFullName } from "../gedcom/name";
 import { AddPersonIcon } from "./icons/AddPersonIcon";
-import { useNameOf, useSettings } from "./SettingsContext";
+import { useNameOf, useSetSettings, useSettingsSlice } from "./SettingsContext";
 import { useChartSettings, type ChartKind } from "./ChartSettingsContext";
 import { BackButton } from "./BackButton";
 import { ChartIcon } from "./icons/ChartIcon";
@@ -176,13 +176,20 @@ interface Props {
  * render would bust their `React.memo` prop equality on every keystroke-commit.
  */
 
+/** The preferences this view reads — subscribed field by field, so an
+ *  unrelated one changing leaves it alone (see useSettingsSlice). Edit is the
+ *  largest tree in the app and stays mounted behind Merge and every modal, so
+ *  re-rendering it for a preference it never reads is pure waste. */
+const SETTINGS_KEYS = ["formatOverrides", "order", "showAge", "showEditMap", "showKinship"] as const;
+
 /** Edit mode's person view: parents on top, the selected person in the
  * center, partners + children on the bottom. The center panel is editable;
  * relatives navigate on click. */
 export function EditView({ dataset, fileName, startId, changeStart, onDirty, onShowCharts, marriedNameTag, navigateToId, onNavigated, onPersonChange, matchCompareIdFor, matchOrder, decisions, changedPersonIds, compareDataset, onUpdateDecision, onPushEdit, onPatchApplied, pendingApply, onApplied, addPersonRequest, active }: Props) {
   const { t } = useTranslation();
   const formatName = useNameOf();
-  const { settings, set: setSettings } = useSettings();
+  const settings = useSettingsSlice(SETTINGS_KEYS);
+  const setSettings = useSetSettings();
   // Last-used chart kind — the V shortcut reopens it (falling back to the tree
   // when the relationship diagram was last, since V means a pedigree chart).
   const { settings: chartSettings } = useChartSettings();

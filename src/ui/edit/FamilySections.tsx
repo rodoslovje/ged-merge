@@ -19,7 +19,7 @@ import {
   setFamilyNotes,
 } from "../../gedcom/edit";
 import { MARRIAGE_SYMBOL } from "../../chart/nodeDisplay";
-import { useNameOf, useSettings } from "../SettingsContext";
+import { useNameOf, useSettingsSlice } from "../SettingsContext";
 import { PersonCard } from "../PersonCard";
 import { PersonMedia } from "../PersonMedia";
 import type { MediaRefContext } from "../MediaViewer";
@@ -51,6 +51,10 @@ import type { FamilyCommit, MediaOwner, OpenEditSource, SourceDialogTarget } fro
 
 type RelativeKind = "father" | "mother" | "partner" | "child";
 export type PickingSlot = { kind: RelativeKind; fam: Family | undefined } | null;
+
+/** The preferences this file reads — subscribed field by field, so an
+ *  unrelated one changing leaves it alone (see useSettingsSlice). */
+const SETTINGS_KEYS = ["showAge", "showKinship", "formatOverrides"] as const;
 
 /** The family's children in birth order for display — the file's own order is
  *  left untouched. Undated children keep their file position among themselves,
@@ -152,7 +156,7 @@ export const ParentFamilyGroup = memo(function ParentFamilyGroup({
   startId,
   startPersonName,
 }: ParentFamilyGroupProps) {
-  const { settings } = useSettings();
+  const settings = useSettingsSlice(SETTINGS_KEYS);
   const formatName = useNameOf();
   const personName = (id: string | undefined): string => {
     if (!id) return "";
@@ -376,7 +380,7 @@ export const FamilySection = memo(function FamilySection({
   mergeGen,
   mediaGen,
 }: FamilySectionProps) {
-  const { settings } = useSettings();
+  const settings = useSettingsSlice(SETTINGS_KEYS);
   const formatName = useNameOf();
   const personName = (id: string | undefined): string => {
     if (!id) return "";

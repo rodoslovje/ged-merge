@@ -14,7 +14,7 @@ import { PersonLink } from "../PersonLink";
 import { PlaceAutocomplete } from "../edit/PlaceAutocomplete";
 import { usePlaceLookup } from "../edit/PlaceLookupContext";
 import type { PlaceSuggestions } from "../edit/placeSuggestions";
-import { useSettings } from "../SettingsContext";
+import { useSettingsSlice } from "../SettingsContext";
 import { GeoRowHeader, MapToggle } from "./shared";
 
 // One row of the Geocode-places review list: the raw PLAC value, its badge
@@ -28,6 +28,10 @@ import { GeoRowHeader, MapToggle } from "./shared";
 
 /** The expanded-row mini map, in the Leaflet lazy chunk it shares with the
  *  Map chart — the list itself must not pull Leaflet into the main bundle. */
+/** The preferences this file reads — subscribed field by field, so an
+ *  unrelated one changing leaves it alone (see useSettingsSlice). */
+const SETTINGS_KEYS = ["allowLinkFetch"] as const;
+
 const MiniPlaceMap = lazy(() => import("../map/MiniPlaceMap"));
 
 /** "lat, lon" free input → validated coordinate. */
@@ -100,7 +104,7 @@ export function GeocodePlaceRow({
   onNavigate,
 }: Props) {
   const { t, i18n } = useTranslation();
-  const { settings: appSettings } = useSettings();
+  const appSettings = useSettingsSlice(SETTINGS_KEYS);
   const lookup = usePlaceLookup();
 
   const c = chosenCoordFor(row, override, {

@@ -16,7 +16,7 @@ import { renderKeyToken } from "../keyboard/shortcuts";
 import { formatFieldLabel } from "../review/fields";
 import type { Dataset } from "../gedcom/types";
 import { candidateLifespan, formatScore, importTotal, type Candidate, type Filters, type SortKey, type SortState } from "./matchView";
-import { useSettings } from "./SettingsContext";
+import { useSettingsSlice } from "./SettingsContext";
 import { sexClass } from "./sex";
 import { useVirtualList } from "./useVirtualList";
 
@@ -40,6 +40,10 @@ interface Props {
   /** Live main dataset, to resolve each row's record for the age suffix. */
   mainDataset: Dataset | undefined;
 }
+
+/** The preferences this file reads — subscribed field by field, so an
+ *  unrelated one changing leaves it alone (see useSettingsSlice). */
+const SETTINGS_KEYS = ["showAge"] as const;
 
 /** Shared attributes for the small, language-neutral column-header icons. */
 const ICON_PROPS = {
@@ -71,7 +75,7 @@ export function MatchResults({
   mainDataset,
 }: Props) {
   const { t } = useTranslation();
-  const { settings } = useSettings();
+  const settings = useSettingsSlice(SETTINGS_KEYS);
   const total = result.individuals.length;
 
   // Rank 0 = primary (▲/▼), rank 1 = secondary (△/▽).

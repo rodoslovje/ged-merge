@@ -5,10 +5,14 @@ import { eventDisplayLabel } from "../../gedcom/eventTags";
 import { firstChild } from "../../gedcom/node";
 import { coupleAgesDisplay } from "../../gedcom/age";
 import { isSameSexCouple } from "../../gedcom/couple";
-import { useSettings } from "../SettingsContext";
+import { useSettingsSlice } from "../SettingsContext";
 import { EventFieldsRow } from "./EventFieldsRow";
 import { familyTagChoices } from "./editConstants";
 import type { FamilyCommit, OpenEditSource, SourceDialogTarget } from "./types";
+
+/** The preferences this file reads — subscribed field by field, so an
+ *  unrelated one changing leaves it alone (see useSettingsSlice). */
+const SETTINGS_KEYS = ["showAge"] as const;
 
 /** Any family event row (MARR, DIV, ENGA, SEPA, …) by tag. */
 export function FamilyEventRow({
@@ -47,7 +51,7 @@ export function FamilyEventRow({
    * setting), e.g. "♂32 ♀28". */
   individuals?: Map<string, Individual>;
 }) {
-  const { settings } = useSettings();
+  const settings = useSettingsSlice(SETTINGS_KEYS);
   const ev = fam.events.find((e) => e.tag === tag);
   const label = eventDisplayLabel(tag, t);
   const eventNode = firstChild(fam.raw, tag);

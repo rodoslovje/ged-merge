@@ -7,7 +7,7 @@ import type { StructureReport } from "../tools/structure";
 import type { DuplicateReport } from "../tools/sourceDuplicates";
 import type { ReshapeReport } from "../tools/sourceReshape";
 import type { ToolsRequest, ToolsResponse, ToolsResultMap } from "../worker/toolsMessages";
-import { useSettings } from "./SettingsContext";
+import { useSettingsSlice } from "./SettingsContext";
 
 /** Lifecycle of one whole-file scan. */
 export type AsyncState<T> =
@@ -27,6 +27,10 @@ interface ScanStates {
   sourceDuplicates: AsyncState<DuplicateReport>;
   sourceReshape: AsyncState<ReshapeReport>;
 }
+
+/** The preferences this file reads — subscribed field by field, so an
+ *  unrelated one changing leaves it alone (see useSettingsSlice). */
+const SETTINGS_KEYS = ["formatOverrides"] as const;
 
 const ALL_IDLE: ScanStates = {
   validate: { status: "idle" },
@@ -96,7 +100,7 @@ export function useToolsScans(dataset: Dataset, editVersionRef: { readonly curre
   // report must match what the apply writes). Kept in a ref so the stable
   // callbacks below always read the current value; the overrides fingerprint
   // joins that scan's freshness key, so a settings change re-scans.
-  const { settings } = useSettings();
+  const settings = useSettingsSlice(SETTINGS_KEYS);
   const formatOverridesRef = useRef(settings.formatOverrides);
   formatOverridesRef.current = settings.formatOverrides;
   const reshapeSalt = () => {

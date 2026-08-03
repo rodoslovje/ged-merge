@@ -65,7 +65,7 @@ import { saveFile, deleteFile } from "./persist/idb";
 import { hashFile } from "./persist/fingerprint";
 import { useWorkspacePersistence } from "./persist/useWorkspacePersistence";
 import { ChartSettingsProvider, useChartSettings } from "./ui/ChartSettingsContext";
-import { DatasetProvider, SettingsProvider, useSettings, useNameOf } from "./ui/SettingsContext";
+import { DatasetProvider, SettingsProvider, useSettingsSlice, useNameOf } from "./ui/SettingsContext";
 import { onSettingsRequest, type SettingsTab } from "./ui/settingsBus";
 import { GlobalSearchModal, type OpenHow, type SearchRowMeta } from "./ui/GlobalSearchModal";
 import { buildSearchRows, type FilterContext } from "./ui/globalSearch";
@@ -113,6 +113,10 @@ const MIN_MATCHING_DISPLAY_MS = 300;
 const modeLayerClass = "mode-layer";
 const modeLayerHiddenClass = "mode-layer mode-layer--hidden";
 
+/** The preferences AppContent reads — subscribed field by field, so an
+ *  unrelated one changing leaves it alone (see useSettingsSlice). */
+const APP_SETTINGS_KEYS = ["persistWorkspace", "formatOverrides", "showKinship", "showXref"] as const;
+
 // MediaFolderProvider is mounted by the `App` wrapper below, *above* the
 // full-page tree early-returns — so navigating into the Compare/Edit tree and
 // back doesn't unmount it. In Firefox the picked folder is an in-memory
@@ -120,7 +124,10 @@ const modeLayerHiddenClass = "mode-layer mode-layer--hidden";
 // would silently lose it and force the user to re-pick the folder.
 function AppContent() {
   const { t } = useTranslation();
-  const { settings } = useSettings();
+  // Four fields, not the whole object: this component renders the entire app,
+  // so subscribing to every preference meant any one of them changing
+  // re-rendered everything.
+  const settings = useSettingsSlice(APP_SETTINGS_KEYS);
   // Chart kind (tree / fan / … / relationship) — read to route chart deep-links,
   // set when an entry point asks for a specific diagram.
   const { settings: chartSettings, setKind: setChartKind } = useChartSettings();

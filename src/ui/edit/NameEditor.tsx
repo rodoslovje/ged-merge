@@ -6,11 +6,15 @@ import { lifespanTooltipOf } from "../../gedcom/age";
 import { primaryName } from "../../match/relatives";
 import { xrefLabel } from "../../gedcom/nameDisplay";
 import { sexClass } from "../sex";
-import { useSettings } from "../SettingsContext";
+import { useSettingsSlice } from "../SettingsContext";
 import { setName } from "../../gedcom/edit";
 import { ClearableInput } from "./ClearableInput";
 import type { Commit } from "./types";
 import { fieldWidth, MATCH_STATUSES } from "./editConstants";
+
+/** The preferences this file reads — subscribed field by field, so an
+ *  unrelated one changing leaves it alone (see useSettingsSlice). */
+const SETTINGS_KEYS = ["showAge", "showXref"] as const;
 
 /** Editable given/surname fields for the primary name, plus the lifespan. */
 export function NameEditor({
@@ -52,7 +56,7 @@ export function NameEditor({
   /** Delete control, placed at the far right of the decision row (or the name row if no match). */
   controls?: ReactNode;
 }) {
-  const { settings } = useSettings();
+  const settings = useSettingsSlice(SETTINGS_KEYS);
   const primary = primaryName(person);
   // Stable merge values from first render (component is keyed per person)
   const givenMergeInit = useRef(mergeHighlight?.get("given"));

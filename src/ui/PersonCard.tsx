@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import type { GedNode, Individual } from "../gedcom/types";
 import { lifespanTooltipOf, lifespanWithAge } from "../gedcom/age";
 import { xrefLabel } from "../gedcom/nameDisplay";
-import { useNameOf, useSettings } from "./SettingsContext";
+import { useNameOf, useSettingsSlice } from "./SettingsContext";
 import { sexClass } from "./sex";
 import { CardPhoto } from "./PersonMedia";
 import type { MediaRefContext } from "./MediaViewer";
@@ -45,10 +45,14 @@ interface Props {
   refCtx?: MediaRefContext;
 }
 
+/** The preferences this file reads — subscribed field by field, so an
+ *  unrelated one changing leaves it alone (see useSettingsSlice). */
+const SETTINGS_KEYS = ["showAge", "showXref"] as const;
+
 /** A clickable card for a relative (parent/partner/child) in the Edit-mode person layout. */
 export function PersonCard({ individual, roleLabel, placeholder, onSelect, onAdd, onRemove, removeTooltip, kinship, kinshipLineage, kinshipTooltip, decisionStatus, decisionLetter, decisionTooltip, modified, modifiedLetter, modifiedTooltip, records, refCtx }: Props) {
   const nameOf = useNameOf();
-  const { settings } = useSettings();
+  const settings = useSettingsSlice(SETTINGS_KEYS);
   const { t } = useTranslation();
   if (!individual) {
     return (

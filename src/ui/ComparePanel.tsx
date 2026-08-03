@@ -15,7 +15,7 @@ import {
 } from "../review/types";
 import { PersonMedia } from "./PersonMedia";
 import { useMediaFolder } from "./MediaFolderContext";
-import { useSettings } from "./SettingsContext";
+import { useSettingsSlice } from "./SettingsContext";
 import { collectMediaRefs } from "../gedcom/media";
 
 /** Which dataset a relative id belongs to. */
@@ -33,6 +33,10 @@ interface Props {
   onNavigate: (side: RelativeSide, id: string) => void;
 }
 
+/** The preferences this file reads — subscribed field by field, so an
+ *  unrelated one changing leaves it alone (see useSettingsSlice). */
+const SETTINGS_KEYS = ["showAge"] as const;
+
 const CHOICES: FieldChoice[] = ["main", "incoming", "both"];
 
 export function ComparePanel({
@@ -45,7 +49,7 @@ export function ComparePanel({
   onNavigate,
 }: Props) {
   const { t } = useTranslation();
-  const { settings } = useSettings();
+  const settings = useSettingsSlice(SETTINGS_KEYS);
   const mainPerson = {
     linkable: (id: string) => canNavigate("main", id),
     onNavigate: (id: string) => onNavigate("main", id),

@@ -22,7 +22,7 @@ import { ageAtDate, fullAgeBetween } from "../gedcom/age";
 import { birthDateOf } from "../gedcom/lifespan";
 import { PersonLink } from "./PersonLink";
 import { useMediaFolder } from "./MediaFolderContext";
-import { useSettings } from "./SettingsContext";
+import { useSettingsSlice } from "./SettingsContext";
 import { usePhone } from "./usePhone";
 import { basename } from "./mediaPath";
 
@@ -129,6 +129,10 @@ interface MediaViewerCtx {
    *  navigation / opening from Edit) so the user decides whether to edit. */
   openPerson(raw: GedNode, records: GedNode[], start?: number | MediaAddress, refCtx?: MediaRefContext, focusEdit?: boolean): void;
 }
+
+/** The preferences this file reads — subscribed field by field, so an
+ *  unrelated one changing leaves it alone (see useSettingsSlice). */
+const SETTINGS_KEYS = ["showAge"] as const;
 
 const MediaViewerContext = createContext<MediaViewerCtx>({
   openItems: () => {},
@@ -285,7 +289,7 @@ export function MediaReferencedBy({
 export function MediaViewerProvider({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
   const { resolveFile } = useMediaFolder();
-  const { settings } = useSettings();
+  const settings = useSettingsSlice(SETTINGS_KEYS);
   const showAge = settings.showAge;
   const [request, setRequest] = useState<{ items: MediaItem[]; index: number; focusEdit: boolean } | null>(null);
 

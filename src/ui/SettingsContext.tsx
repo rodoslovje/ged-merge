@@ -1,4 +1,13 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
 import type { Dataset, Individual, PersonName } from "../gedcom/types";
 import { marriedSurnamesOf, primaryName } from "../match/relatives";
 import {
@@ -145,10 +154,54 @@ interface SettingsCtx {
   set: (patch: Partial<AppSettings>) => void;
 }
 
-export const SettingsContext = createContext<SettingsCtx>({
-  settings: DEFAULTS,
+/**
+ * Preferences held outside React and read by subscription rather than handed
+ * down as a context *value*.
+ *
+ * A plain value context re-renders every consumer on every change, and the
+ * consumers here include the whole App component plus both mounted views — so
+ * adjusting one preference re-rendered the entire app, however unrelated it
+ * was. (Typing a map overlay's name in Settings did it once per keystroke.)
+ * With a store the context value never changes; each component subscribes to
+ * the fields it actually reads through {@link useSettingsSlice} and sits out
+ * changes to the rest.
+ */
+interface SettingsStore {
+  /** The current preferences. Stable between changes, so it can be compared. */
+  get: () => AppSettings;
+  /** Register for a callback on every change; returns the unsubscribe. */
+  subscribe: (onChange: () => void) => () => void;
+  set: (patch: Partial<AppSettings>) => void;
+}
+
+function createSettingsStore(): SettingsStore {
+  let current = load();
+  const listeners = new Set<() => void>();
+  return {
+    get: () => current,
+    subscribe(onChange) {
+      listeners.add(onChange);
+      return () => {
+        listeners.delete(onChange);
+      };
+    },
+    set(patch) {
+      current = { ...current, ...patch };
+      save(current);
+      // Copy first: a listener may unsubscribe as it runs.
+      for (const listener of [...listeners]) listener();
+    },
+  };
+}
+
+/** Stand-in for a tree with no provider — the defaults, and changes go nowhere. */
+const NO_STORE: SettingsStore = {
+  get: () => DEFAULTS,
+  subscribe: () => () => {},
   set: () => {},
-});
+};
+
+export const SettingsContext = createContext<SettingsStore>(NO_STORE);
 
 /** The overlay's localized display name: a manual {@link MapOverlay.name}
  *  override wins; otherwise a preset resolves through i18n; else the URL. */
@@ -272,23 +325,48 @@ function save(settings: AppSettings): void {
 }
 
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
-  const [settings, setSettings] = useState<AppSettings>(load);
-
-  const set = useCallback((patch: Partial<AppSettings>) => {
-    setSettings((prev) => {
-      const next = { ...prev, ...patch };
-      save(next);
-      return next;
-    });
-  }, []);
-
-  const value = useMemo<SettingsCtx>(() => ({ settings, set }), [settings, set]);
-
-  return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;
+  // Created once and never replaced, so the provider itself never re-renders
+  // on a preference change — only the components subscribed to what changed.
+  const [store] = useState(createSettingsStore);
+  return <SettingsContext.Provider value={store}>{children}</SettingsContext.Provider>;
 }
 
-export function useSettings() {
-  return useContext(SettingsContext);
+/**
+ * The fields named, re-rendering only when one of *those* changes. `keys`
+ * should be a module-level constant; the returned object keeps its identity
+ * for as long as every named field does, so it is safe as an effect or memo
+ * dependency.
+ */
+export function useSettingsSlice<K extends keyof AppSettings>(keys: readonly K[]): Pick<AppSettings, K> {
+  const store = useContext(SettingsContext);
+  const cache = useRef<Pick<AppSettings, K> | null>(null);
+  const snapshot = useCallback(() => {
+    const all = store.get();
+    const prev = cache.current;
+    if (prev && keys.every((k) => Object.is(prev[k], all[k]))) return prev;
+    const next = {} as Pick<AppSettings, K>;
+    for (const k of keys) next[k] = all[k];
+    cache.current = next;
+    return next;
+  }, [store, keys]);
+  return useSyncExternalStore(store.subscribe, snapshot);
+}
+
+/** Update preferences without subscribing to them — a component that only
+ *  writes never re-renders for someone else's change. */
+export function useSetSettings(): (patch: Partial<AppSettings>) => void {
+  return useContext(SettingsContext).set;
+}
+
+/**
+ * Every preference at once. Convenient, but it re-renders the caller on *any*
+ * change — prefer {@link useSettingsSlice} in anything large or repeated per
+ * row, and keep this for small components and one-off dialogs.
+ */
+export function useSettings(): SettingsCtx {
+  const store = useContext(SettingsContext);
+  const settings = useSyncExternalStore(store.subscribe, store.get);
+  return useMemo(() => ({ settings, set: store.set }), [settings, store]);
 }
 
 /** The loaded main dataset, provided near the root so {@link useNameOf} can
@@ -306,8 +384,13 @@ export function DatasetProvider({ dataset, children }: { dataset: Dataset | unde
  * name), so the existing `displayName(primaryName(indi))` call sites become
  * `nameOf(indi)`.
  */
+const NAME_DISPLAY_KEYS = ["order", "uppercaseSurname", "marriedSurname"] as const;
+
 export function useNameOf(overrides?: Partial<NameDisplayOptions>) {
-  const { settings } = useSettings();
+  // Only the three name-display fields: this hook is called on every list row
+  // in the app, and its identity change invalidates the callers' memos — so it
+  // must not move when an unrelated preference does.
+  const settings = useSettingsSlice(NAME_DISPLAY_KEYS);
   const ds = useContext(DatasetContext);
   return useCallback(
     (subject: Individual | PersonName | undefined): string => {

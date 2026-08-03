@@ -33,10 +33,14 @@ import { ChartSettings } from "./ChartSettings";
 import { ChartFindBox } from "./ChartFindBox";
 import { useChartFind } from "./useChartFind";
 import { useChartSettings } from "./ChartSettingsContext";
-import { useSettings } from "./SettingsContext";
+import { useSettingsSlice } from "./SettingsContext";
 import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 
 // Color for unmodified nodes (main pine green) and modified (amber/minor).
+/** The preferences this file reads — subscribed field by field, so an
+ *  unrelated one changing leaves it alone (see useSettingsSlice). */
+const SETTINGS_KEYS = ["showKinship"] as const;
+
 const COLOR_NORMAL = "var(--node-main)";
 const COLOR_MODIFIED = "var(--node-minor)";
 
@@ -82,7 +86,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
   const changeRoot = useStableHandler(onRootChange);
 
   const { settings } = useChartSettings();
-  const { settings: appSettings } = useSettings();
+  const appSettings = useSettingsSlice(SETTINGS_KEYS);
   const { alignment } = settings;
   // Grid is a layered chart (it reuses the tidy-tree SVG path); only fan/circle
   // are radial.
