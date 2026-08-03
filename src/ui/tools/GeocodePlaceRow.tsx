@@ -578,9 +578,12 @@ export function GeocodePlaceRow({
                     onChange={() => pickCandidate(cand)}
                   />
                   <span className="tools-geo-cand-name">{cand.entry.name}</span>
-                  {/* The municipality the register files it under — the only
-                      thing that tells two same-named settlements apart. */}
-                  {cand.entry.admin && <span className="tools-geo-count">({cand.entry.admin})</span>}
+                  {/* The division the register files it under — the only thing
+                      that tells two same-named settlements apart. In the file's
+                      own spelling when the place string names the division. */}
+                  {(cand.adminDisplay ?? cand.entry.admin) && (
+                    <span className="tools-geo-count">({cand.adminDisplay ?? cand.entry.admin})</span>
+                  )}
                   <span className="gm-data">
                     {cand.entry.population > 0 && `· ${t("tools.geocode.population", { count: cand.entry.population })} · `}
                     {`${cand.entry.lat.toFixed(4)}, ${cand.entry.lon.toFixed(4)}`}

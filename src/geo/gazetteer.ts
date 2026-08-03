@@ -94,6 +94,15 @@ export function parseGeoNamesLine(line: string): GazEntry | undefined {
 }
 
 /**
+ * Every name a division goes by, keyed by admin1 code — the primary (local)
+ * name first, then ASCII and alternate forms ("Požeško-Slavonska Županija",
+ * "Pozesko-Slavonska Zupanija", "Požega-Slavonia", …). Stored per country next
+ * to its entries so {@link lookupPlace} can recognize the division under
+ * whatever spelling the file's place strings use.
+ */
+export type DivisionNames = Record<string, string[]>;
+
+/**
  * Fill each entry's `admin` display name from the country's own ADM1 rows: a
  * GeoNames extract carries its first-level divisions (Croatian županije,
  * Austrian Bundesländer, …) as A-class entries whose `admin1` code the
@@ -101,21 +110,23 @@ export function parseGeoNamesLine(line: string): GazEntry | undefined {
  * foreign entries the same "(parent)" label — and the same same-named-places
  * disambiguation in {@link lookupPlace} — that GURS entries get from the
  * občina. Runs over one country's entries (admin1 codes collide across
- * countries); mutates in place at import time so the join is stored.
+ * countries); mutates in place at import time so the join is stored. Returns
+ * the divisions' full name lists for the country record.
  */
-export function attachAdmin1Names(entries: GazEntry[]): void {
-  const names = new Map<string, string>();
+export function attachAdmin1Names(entries: GazEntry[]): DivisionNames {
+  const divisions: DivisionNames = {};
   for (const e of entries) {
-    if (e.fcode === "ADM1" && e.admin1) names.set(e.admin1, e.name);
+    if (e.fcode !== "ADM1" || !e.admin1) continue;
+    divisions[e.admin1] = [e.name, ...(e.ascii ? [e.ascii] : []), ...e.alt];
   }
-  if (!names.size) return;
   for (const e of entries) {
     if (e.admin) continue;
-    const name = e.admin1 ? names.get(e.admin1) : undefined;
+    const name = e.admin1 ? divisions[e.admin1]?.[0] : undefined;
     // A parent repeating the place's own name says nothing (the division named
     // after its seat — and the division row itself), so it is left off.
     if (name && foldToken(name) !== foldToken(e.name)) e.admin = name;
   }
+  return divisions;
 }
 
 /** Overpass (OpenStreetMap) JSON response, reduced to what we read. */
@@ -208,16 +219,57 @@ export function subdivisionAdmin1(code: string): string {
 /** OSM name tags worth keeping as alternate names (exonyms, historical). */
 const OSM_ALT_TAGS = ["alt_name", "old_name", "loc_name", "name:de", "name:it", "name:hu", "name:en", "name:sl", "name:hr"];
 
+/** Name tags a subdivision marker relation contributes to its division's name
+ *  list — the local name first, then the international and neighbour-language
+ *  forms a file might spell it in. */
+const DIVISION_NAME_TAGS = ["name", "int_name", "name:en", ...OSM_ALT_TAGS];
+
+/** All values of `tags` under `keys`, ;-split, deduplicated, order kept. */
+function collectNames(tags: Record<string, string>, keys: string[]): string[] {
+  const names: string[] = [];
+  for (const tag of keys) {
+    for (const part of (tags[tag] ?? "").split(";")) {
+      const s = part.trim();
+      if (s && !names.includes(s)) names.push(s);
+    }
+  }
+  return names;
+}
+
 /**
  * Convert an Overpass place query result (nodes tagged `place=*` in one
  * country) into gazetteer entries — the direct-download alternative to a
  * GeoNames file. Data © OpenStreetMap contributors (ODbL).
+ *
+ * The download queries interleave each ISO 3166-2 subdivision's boundary
+ * relation (tags only, no coordinate) before that subdivision's places, and
+ * Overpass emits output statements in query order — so an element without a
+ * coordinate but with an `ISO3166-2` tag is a marker: the places after it sit
+ * in that division, and each takes its name as `admin` and its code as
+ * `admin1`. A response without markers (an older query shape) falls back to
+ * the `admin1` argument and no labels, nothing more.
  */
-export function overpassToEntries(data: OverpassJson, country: string, admin1 = ""): GazEntry[] {
+export function overpassToEntries(
+  data: OverpassJson,
+  country: string,
+  admin1 = "",
+): { entries: GazEntry[]; divisions: DivisionNames } {
   const entries: GazEntry[] = [];
+  const divisions: DivisionNames = {};
+  let markerAdmin1 = "";
+  let markerName = "";
   for (const el of data.elements ?? []) {
     const name = el.tags?.name?.trim();
-    if (!name || el.lat === undefined || el.lon === undefined) continue;
+    if (el.lat === undefined || el.lon === undefined) {
+      const iso = el.tags?.["ISO3166-2"]?.trim();
+      if (iso && name) {
+        markerAdmin1 = subdivisionAdmin1(iso);
+        markerName = name;
+        divisions[markerAdmin1] = collectNames(el.tags!, DIVISION_NAME_TAGS);
+      }
+      continue;
+    }
+    if (!name) continue;
     const alt: string[] = [];
     for (const tag of OSM_ALT_TAGS) {
       const v = el.tags?.[tag];
@@ -235,11 +287,14 @@ export function overpassToEntries(data: OverpassJson, country: string, admin1 = 
       lon: el.lon,
       fclass: "P",
       country,
-      admin1,
+      admin1: markerAdmin1 || admin1,
       population: Number(el.tags?.population) || 0,
+      // Same rule as the other sources: a parent repeating the place's own
+      // name says nothing, so it is left off.
+      ...(markerName && foldToken(markerName) !== foldToken(name) ? { admin: markerName } : {}),
     });
   }
-  return entries;
+  return { entries, divisions };
 }
 
 /** GeoJSON from the GURS RPE "NASELJA" (settlements) collection, reduced to
@@ -395,9 +450,33 @@ export interface GazetteerIndex {
   byName: Map<string, number[]>;
   /** Folded primary-name 2-char prefix → entry indices (fuzzy lookups). */
   buckets: Map<string, number[]>;
+  /** `"HR:12"` (country:admin1) → every name that division goes by. */
+  divisions?: Map<string, string[]>;
 }
 
-export function buildGazetteerIndex(entries: GazEntry[]): GazetteerIndex {
+/**
+ * The stored countries' division-name tables merged into one lookup map, keyed
+ * `"HR:12"` (entry country + admin1 code) — the register key ("HR", "HR-OSM")
+ * can't serve because two imports of one country describe the same divisions.
+ * Name lists of the same division from different sources concatenate.
+ */
+export function mergeDivisions(countries: { entries: GazEntry[]; divisions?: DivisionNames }[]): Map<string, string[]> {
+  const merged = new Map<string, string[]>();
+  for (const c of countries) {
+    if (!c.divisions) continue;
+    const country = c.entries[0]?.country;
+    if (!country) continue;
+    for (const [admin1, names] of Object.entries(c.divisions)) {
+      const key = `${country}:${admin1}`;
+      const list = merged.get(key);
+      if (!list) merged.set(key, [...names]);
+      else for (const n of names) if (!list.includes(n)) list.push(n);
+    }
+  }
+  return merged;
+}
+
+export function buildGazetteerIndex(entries: GazEntry[], divisions?: Map<string, string[]>): GazetteerIndex {
   const byName = new Map<string, number[]>();
   const buckets = new Map<string, number[]>();
   const add = (map: Map<string, number[]>, key: string, i: number) => {
@@ -419,7 +498,7 @@ export function buildGazetteerIndex(entries: GazEntry[]): GazetteerIndex {
     }
     for (const alt of e.alt) add(byName, foldToken(alt), i);
   }
-  return { entries, byName, buckets };
+  return { entries, byName, buckets, ...(divisions ? { divisions } : {}) };
 }
 
 /** One proposed match for a place string. */
@@ -427,6 +506,11 @@ export interface GazCandidate {
   entry: GazEntry;
   /** 0–1; ≥ {@link HIGH_CONFIDENCE} qualifies for bulk-accept. */
   score: number;
+  /** The entry's division in the spelling the place string itself uses
+   *  ("Požega-Slavonia" for an entry whose stored name is "Požeško-Slavonska
+   *  Županija") — shown instead of `entry.admin` when the file named the
+   *  division under one of its known names. */
+  adminDisplay?: string;
 }
 
 /** Bulk-accept threshold: exact unique name match in the right country. */
@@ -506,13 +590,30 @@ export function lookupPlace(index: GazetteerIndex, rawPlace: string): GazCandida
   // the place itself names one of those parents, the others are demoted enough to
   // clear the bulk-accept ambiguity gap; when it names none, the tie stands and
   // the researcher decides. Only ever applied downward, so a match never invents
-  // confidence a plain name did not earn.
-  const parents = new Set(
-    components.jurisdiction.slice(1).map(foldToken).filter(Boolean),
-  );
-  const matchesParent = (e: GazEntry) => !!e.admin && parents.has(foldToken(e.admin));
-  if (parents.size && candidates.some((c) => matchesParent(c.entry))) {
-    for (const c of candidates) if (!matchesParent(c.entry)) c.score *= ADMIN_MISMATCH;
+  // confidence a plain name did not earn. A parent is recognized under any of
+  // its division's names — the file may write "Požega-Slavonia" where the entry
+  // stores "Požeško-Slavonska Županija" — and the matched candidate then shows
+  // the file's own spelling.
+  const parentSpelling = new Map<string, string>();
+  for (const part of components.jurisdiction.slice(1)) {
+    const folded = foldToken(part);
+    if (folded && !parentSpelling.has(folded)) parentSpelling.set(folded, part.trim());
+  }
+  const matchedParent = (e: GazEntry): string | undefined => {
+    const names = e.admin ? [e.admin] : [];
+    if (e.admin1) names.push(...(index.divisions?.get(`${e.country}:${e.admin1}`) ?? []));
+    for (const name of names) {
+      const spelling = parentSpelling.get(foldToken(name));
+      if (spelling !== undefined) return spelling;
+    }
+    return undefined;
+  };
+  if (parentSpelling.size && candidates.some((c) => matchedParent(c.entry) !== undefined)) {
+    for (const c of candidates) {
+      const spelling = matchedParent(c.entry);
+      if (spelling === undefined) c.score *= ADMIN_MISMATCH;
+      else c.adminDisplay = spelling;
+    }
   }
 
   candidates.sort(

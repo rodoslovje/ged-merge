@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { COUNTRY_CODES } from "../../gedcom/countryCode";
 import {
   buildGazetteerIndex,
+  mergeDivisions,
   overpassFailure,
   overpassSubdivisions,
   type GazetteerIndex,
@@ -83,10 +84,33 @@ function countryQuery(code: string): string {
   return `[out:json][timeout:180];area["ISO3166-1"="${code}"][admin_level=2]->.a;${PLACE_NODES}`;
 }
 
+/** One subdivision's boundary relation (tags only — the marker the importer
+ *  reads the division's names off) followed by its places. Overpass emits
+ *  output statements in query order, so every place lands after the marker of
+ *  the division it sits in. */
+function subdivisionBlock(code: string): string {
+  return `rel["ISO3166-2"="${code}"][boundary=administrative];out tags;area["ISO3166-2"="${code}"]->.a;${PLACE_NODES}`;
+}
+
+/** Every place in the country, grouped under its subdivisions' markers so each
+ *  entry can say which county/state it sits in. Costs the server one area
+ *  expansion per subdivision, so it is only used for a moderate list — a
+ *  country with hundreds of ISO-coded municipalities gets the plain query. */
+function annotatedCountryQuery(subdivisions: Subdivision[]): string {
+  return `[out:json][timeout:180];${subdivisions.map((s) => subdivisionBlock(s.code)).join("")}`;
+}
+
+/** Above this many subdivisions the annotated whole-country query is riskier
+ *  than it is worth (Slovenia's ISO codes are its 212 municipalities) — the
+ *  plain query keeps the download working, just without division labels. */
+const MAX_ANNOTATED_SUBDIVISIONS = 60;
+
 /** Every place in one ISO 3166-2 subdivision ("US-CA"), for a country whose
- *  own area is more than the service will chew through in one query. */
+ *  own area is more than the service will chew through in one query. The
+ *  leading marker labels the entries the same way the annotated country
+ *  query does. */
 function regionQuery(region: string): string {
-  return `[out:json][timeout:180];area["ISO3166-2"="${region}"]->.a;${PLACE_NODES}`;
+  return `[out:json][timeout:180];${subdivisionBlock(region)}`;
 }
 
 /** The country's subdivisions — boundary relations, tags only, no geometry, so
@@ -281,7 +305,8 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
     setCountries(
       stored.map(({ code, count, importedAt }) => ({ code, count, importedAt })).sort((a, b) => b.count - a.count),
     );
-    if (withIndex) setIndex(stored.length ? buildGazetteerIndex(stored.flatMap((c) => c.entries)) : undefined);
+    if (withIndex)
+      setIndex(stored.length ? buildGazetteerIndex(stored.flatMap((c) => c.entries), mergeDivisions(stored)) : undefined);
   };
 
   const refreshGazetteer = async () => {
@@ -378,7 +403,17 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
     fetchAbortRef.current = abort;
     setImportState({ phase: "running", stage: "waiting", done: 0, total: 0 });
     try {
-      const res = await fetchOverpass(countryQuery(code), abort.signal, onProgress());
+      // The subdivision list first (tags only, answers in seconds): with it the
+      // places query groups every place under its county/state, so each entry
+      // can say where it is. Without one — none mapped, too many, or the list
+      // query itself failed — the plain query still downloads everything, the
+      // entries just carry no division label.
+      const subdivisions = await fetchSubdivisions(code, abort);
+      if (abort.signal.aborted) return;
+      const annotate = subdivisions.length > 0 && subdivisions.length <= MAX_ANNOTATED_SUBDIVISIONS;
+      const query = annotate ? annotatedCountryQuery(subdivisions) : countryQuery(code);
+      setImportState({ phase: "running", stage: "waiting", done: 0, total: 0 });
+      const res = await fetchOverpass(query, abort.signal, onProgress());
       if (abort.signal.aborted) return;
       if ("buffer" in res) {
         await runImport(res.buffer, `${code}.osm.json`, { format: "overpass", country: code });
@@ -388,9 +423,22 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
         setImportState({ phase: "error", message: t("tools.geocode.downloadFailed") });
         return;
       }
-      await offerRegions(code, abort);
+      await offerRegions(code, abort, subdivisions);
     } finally {
       fetchAbortRef.current = null;
+    }
+  };
+
+  /** The country's ISO 3166-2 subdivisions, or [] when it has none mapped or
+   *  the query failed — the caller treats both the same. */
+  const fetchSubdivisions = async (code: string, abort: AbortController): Promise<Subdivision[]> => {
+    setImportState({ phase: "running", stage: "waiting", done: 0, total: 0, note: t("tools.geocode.regionsLoading") });
+    const res = await fetchOverpass(subdivisionsQuery(code), abort.signal, () => {});
+    if (abort.signal.aborted || !("buffer" in res)) return [];
+    try {
+      return overpassSubdivisions(JSON.parse(new TextDecoder().decode(res.buffer)), code);
+    } catch {
+      return [];
     }
   };
 
@@ -398,18 +446,9 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
   // States times out before it counts its places, let alone sends them. Its
   // subdivisions each fit comfortably, and asking for them is a tags-only query
   // that answers in seconds, so the dead end becomes a choice.
-  const offerRegions = async (code: string, abort: AbortController) => {
-    setImportState({ phase: "running", stage: "waiting", done: 0, total: 0, note: t("tools.geocode.regionsLoading") });
-    const res = await fetchOverpass(subdivisionsQuery(code), abort.signal, () => {});
+  const offerRegions = async (code: string, abort: AbortController, prefetched?: Subdivision[]) => {
+    const list = prefetched?.length ? prefetched : await fetchSubdivisions(code, abort);
     if (abort.signal.aborted) return;
-    let list: Subdivision[] = [];
-    if ("buffer" in res) {
-      try {
-        list = overpassSubdivisions(JSON.parse(new TextDecoder().decode(res.buffer)), code);
-      } catch {
-        list = [];
-      }
-    }
     if (!list.length) {
       setImportState({ phase: "error", message: t("tools.geocode.tooLargeNoRegions") });
       return;
