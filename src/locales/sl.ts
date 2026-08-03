@@ -1261,6 +1261,12 @@ export const sl = {
   "map.emptyHint": "Zemljevid prikaže dogodke, katerih kraj vsebuje koordinate MAP (LATI/LONG). Dodate jih z Orodja → Kraji → Geokodiranje krajev, zapisujejo pa jih tudi programi, kot sta webtrees in MacFamilyTree.",
   "map.export.png": "Slika PNG",
   "map.export.png.tooltip": "Prenesi trenutni pogled zemljevida kot sliko PNG",
+  // Pripona v imenu datoteke pove, katera od obeh slik zemljevida je.
+  "map.export.png.suffix.overlays": "sloji",
+  "map.export.png.suffix.base": "osnovna",
+  "map.export.pngBase": "Slika PNG, samo osnovna karta",
+  "map.export.pngBase.tooltip":
+    "Prenesi isti pogled brez dodatnih slojev, tako da se osnovna in zgodovinska karta natančno prekrivata",
   "report.button": "Poročilo",
   "report.exportTxt.tooltip": "Prenesi to poročilo kot besedilno datoteko",
   "report.exportRtf.tooltip": "Prenesi to poročilo kot dokument RTF (za Word ali LibreOffice)",
@@ -1816,6 +1822,7 @@ export const sl = {
   "settings.map.overlays.hint": "Dodatni sloji ploščic, ki jih zemljevid lahko izriše čez osnovno karto — npr. georeferencirana zgodovinska izmera. Vrstni red na seznamu je vrstni red izrisa — prvi sloj se izriše na vrhu, zato naj bo tanek referenčni sloj (hišne številke, parcele) nad celostransko karto.",
   "settings.map.overlays.add": "+ Dodaj sloj",
   "settings.map.overlays.preset": "Dodaj brezplačen sloj…",
+  "settings.map.overlays.preset.addAll": "★ Dodaj vse brezplačne sloje",
   "settings.map.overlays.preset.spezialkarte": "Avstro-Ogrska · Spezialkarte 1:75 000 (1877–1918)",
   "settings.map.overlays.preset.schraembl": "Nemčija in srednja Evropa · Schraembl 1:530 000 (1797)",
   "settings.map.overlays.preset.france.etatmajor": "Francija · Carte de l'État-major (1820–1866)",
