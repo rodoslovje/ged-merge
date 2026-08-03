@@ -15,8 +15,8 @@
    "image": "kataster-scans/227161.jpg",
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=227161&docid=10&seq=1",
    "cell": [
-    35.5,
-    -17.5
+    35.4578167,
+    -17.6318229
    ],
    "frame": [
     83.4,
@@ -29,7 +29,7 @@
     2024.3
    ],
    "source": "SI AS 176/N/N43/g/A01",
-   "placed": "lattice cell, moved west of A02 and half a sheet north by hand"
+   "placed": "hand-placed west of A02, half a sheet north, then 80 m west and 200 m south"
   },
   {
    "image": "kataster-scans/227162.jpg",
