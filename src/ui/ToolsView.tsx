@@ -13,7 +13,7 @@ import type { AddSourceResult } from "./AddSourceDialog";
 import type { EditRepoFields, EditSourceFields } from "../gedcom/edit";
 import type { MediaEditFields } from "./MediaViewer";
 import { PlacesPanel } from "./tools/PlacesPanel";
-import type { GeoAssignment } from "../tools/geocode";
+import type { GeoAssignment, OfficialRename } from "../tools/geocode";
 import type { BrokenLinkRef } from "../tools/fixLinks";
 import type { RecordPatch } from "./historyTypes";
 import { PickerMenu } from "./PickerMenu";
@@ -56,6 +56,8 @@ interface Props {
   onApplyGeocode: (assignments: Map<string, GeoAssignment>) => number;
   onApplyAddressCoords: (assignments: Map<string, GeoCoord>) => number;
   onRenamePlaceValue: (from: string, to: string, addr?: string) => number;
+  /** Batched "take the official name" renames — one undoable step. */
+  onApplyOfficialNames: (renames: OfficialRename[]) => number;
   onMovePlaceForAddresses: (keys: Set<string>, toPlace: string, coord?: GeoAssignment) => number;
   /** The app-wide start person, for kinship labels in people lists. */
   startId?: string;
@@ -101,7 +103,7 @@ interface Props {
   onUnrejectDuplicate: (aId: string, bId: string) => void;
 }
 
-export function ToolsView({ dataset, editVersionRef, fileName, onNavigate, onAddSource, onEditSource, onRemoveSource, onEditRepo, onEditMediaInfo, active, onApplyPlaceRename, onApplyGeocode, onApplyAddressCoords, onRenamePlaceValue, onMovePlaceForAddresses, startId, onFixBrokenLinks, onFixSexFromRole, onFixDates, onFixDuplicatePointers, onFixDanglingRefs, onFillPlaceCoords, onApplyBatchPatches, onMergeDuplicate, rejectedDuplicates, onRejectDuplicate, onRejectDuplicatesBulk, onUnrejectDuplicate }: Props) {
+export function ToolsView({ dataset, editVersionRef, fileName, onNavigate, onAddSource, onEditSource, onRemoveSource, onEditRepo, onEditMediaInfo, active, onApplyPlaceRename, onApplyGeocode, onApplyAddressCoords, onRenamePlaceValue, onApplyOfficialNames, onMovePlaceForAddresses, startId, onFixBrokenLinks, onFixSexFromRole, onFixDates, onFixDuplicatePointers, onFixDanglingRefs, onFillPlaceCoords, onApplyBatchPatches, onMergeDuplicate, rejectedDuplicates, onRejectDuplicate, onRejectDuplicatesBulk, onUnrejectDuplicate }: Props) {
   const { t } = useTranslation();
   const [tool, setTool] = useState<Tool>("validate");
   const phone = usePhone();
@@ -175,7 +177,7 @@ export function ToolsView({ dataset, editVersionRef, fileName, onNavigate, onAdd
           <SourcesPanel dataset={dataset} scans={scans} fileName={fileName} onNavigate={onNavigate} onAddSource={onAddSource} onEditSource={onEditSource} onRemoveSource={onRemoveSource} onEditRepo={onEditRepo} onEditMediaInfo={onEditMediaInfo} active={active} />
         )}
         {tool === "places" && (
-          <PlacesPanel dataset={dataset} onNavigate={onNavigate} active={active} onApplyPlaceRename={onApplyPlaceRename} onApplyGeocode={onApplyGeocode} onApplyAddressCoords={onApplyAddressCoords} onRenamePlaceValue={onRenamePlaceValue} onMovePlaceForAddresses={onMovePlaceForAddresses} startId={startId} />
+          <PlacesPanel dataset={dataset} onNavigate={onNavigate} active={active} onApplyPlaceRename={onApplyPlaceRename} onApplyGeocode={onApplyGeocode} onApplyAddressCoords={onApplyAddressCoords} onRenamePlaceValue={onRenamePlaceValue} onApplyOfficialNames={onApplyOfficialNames} onMovePlaceForAddresses={onMovePlaceForAddresses} startId={startId} />
         )}
       </div>
       </ToolSummarySlotProvider>

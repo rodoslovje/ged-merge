@@ -5,7 +5,7 @@ import { buildPlaceTree, collectNodeUseIds, type PlaceNode, type PlaceTree, UNSP
 import { collectPlaceSegments, previewPlaceRename, type PlaceRenamePreview } from "../../tools/placeEdit";
 import { scanAddresses } from "../../tools/addresses";
 import { GeocodePanel } from "./GeocodePanel";
-import { countGeocodePending, type GeoAssignment } from "../../tools/geocode";
+import { countGeocodePending, type GeoAssignment, type OfficialRename } from "../../tools/geocode";
 import { countryCode } from "../../gedcom/countryCode";
 import { ToolsLoading, TreeSearch, UsageList, useDebounced } from "./shared";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
@@ -60,6 +60,7 @@ export function PlacesPanel({
   onApplyGeocode,
   onApplyAddressCoords,
   onRenamePlaceValue,
+  onApplyOfficialNames,
   onMovePlaceForAddresses,
   startId,
 }: {
@@ -70,6 +71,7 @@ export function PlacesPanel({
   onApplyGeocode: (assignments: Map<string, GeoAssignment>) => number;
   onApplyAddressCoords: (assignments: Map<string, GeoCoord>) => number;
   onRenamePlaceValue: (from: string, to: string, addr?: string) => number;
+  onApplyOfficialNames: (renames: OfficialRename[]) => number;
   onMovePlaceForAddresses: (keys: Set<string>, toPlace: string, coord?: GeoAssignment) => number;
   startId?: string;
 }) {
@@ -189,6 +191,7 @@ export function PlacesPanel({
         onApplyGeocode={onApplyGeocode}
         onApplyAddressCoords={onApplyAddressCoords}
         onRenamePlaceValue={onRenamePlaceValue}
+        onApplyOfficialNames={onApplyOfficialNames}
         onMovePlaceForAddresses={onMovePlaceForAddresses}
         onNavigate={onNavigate}
         startId={startId}

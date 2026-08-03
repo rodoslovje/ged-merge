@@ -7,6 +7,7 @@ import { searchNominatim, type NominatimResult } from "../../geo/nominatim";
 import { searchGov, type GovResult } from "../../geo/gov";
 import { rnQueriesFrom, searchAddresses, type RnResult } from "../../geo/rn";
 import { chosenCoordFor, pickLabel, type ChosenCoord, type FileCoord, type GeoAssignment, type GeocodeRow } from "../../tools/geocode";
+import { replaceLocality } from "../../tools/addresses";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
 import type { KinshipResolver } from "../../match/kinship";
 import { lineageClass } from "../../match/kinship";
@@ -116,6 +117,15 @@ export function GeocodePlaceRow({
   const lookup = usePlaceLookup();
 
   const c = chosenCoordFor(row, override, { fromFile: t("tools.geocode.fromFile") });
+
+  // "Use official name": offered when the row resolves to a register candidate
+  // whose name is not the letter-for-letter value the file writes — the
+  // parent-qualified longer names above all ("Cerovec" under Semič → "Cerovec
+  // pri Črešnjevcu"), but also a casing fix. One click renames every
+  // occurrence and writes the candidate's coordinate.
+  const officialCand =
+    c && row.candidates.find((cand) => sameCoord(c.coord, { lat: cand.entry.lat, lon: cand.entry.lon }));
+  const officialTo = officialCand ? replaceLocality(row.key, officialCand.entry.name) : undefined;
 
   // On-demand Nominatim (OSM) search for this row's raw value — the online
   // fallback for strings the offline gazetteer can't resolve, above all
@@ -327,6 +337,19 @@ export function GeocodePlaceRow({
         ) : !c ? (
           <span className="tools-tree-meta">{t("tools.geocode.noCandidate")}</span>
         ) : null}
+        {officialTo && officialCand && !marked && (
+          <button
+            className="tools-issue-link"
+            title={t("tools.geocode.official.tooltip", { name: officialCand.entry.name })}
+            onClick={() =>
+              onRename(row.key, officialTo, undefined, {
+                coord: { lat: officialCand.entry.lat, lon: officialCand.entry.lon },
+              })
+            }
+          >
+            {t("tools.geocode.official.take")}
+          </button>
+        )}
         <button
           className="tools-issue-link"
           onClick={() => onToggleNoMatch(row.key)}

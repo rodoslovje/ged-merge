@@ -1988,6 +1988,16 @@ function AppContent() {
               onApplyGeocode={(assignments) => applyToolPatches(applyGeocode(mainDataset, assignments))}
               onApplyAddressCoords={(assignments) => applyToolPatches(applyAddressCoords(mainDataset, assignments))}
               onRenamePlaceValue={(from, to, addr) => applyToolPatches(renamePlaceValue(mainDataset, from, to, addr))}
+              onApplyOfficialNames={(renames) =>
+                // One batch → one undo step: each row's rename, then the
+                // coordinate onto the renamed value.
+                applyToolPatches(
+                  renames.flatMap((r) => [
+                    ...renamePlaceValue(mainDataset, r.from, r.to),
+                    ...applyGeocode(mainDataset, new Map([[r.to, r.assignment]])),
+                  ]),
+                )
+              }
               onMovePlaceForAddresses={(keys, toPlace, coord) => applyToolPatches(movePlaceForAddresses(mainDataset, keys, toPlace, coord))}
               startId={startId}
               onFixBrokenLinks={(only) => applyToolPatches(fixBrokenLinks(mainDataset, only))}

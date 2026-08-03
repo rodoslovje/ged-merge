@@ -10,6 +10,7 @@ import {
   type ChosenCoord,
   type GeoAssignment,
   type GeocodeRow,
+  type OfficialRename,
 } from "../../tools/geocode";
 import { loadDecisions, putDecisions, type GeocodeDecision } from "../../persist/geoDb";
 import { ExpandAllToggle, ToolsLoading, TreeSearch, useDebounced } from "./shared";
@@ -20,7 +21,7 @@ import { foldSearch } from "../globalSearch";
 import { PlaceLookupProvider, usePlaceLookupValue } from "../edit/PlaceLookupContext";
 import { GazetteerSetup, useGazetteer } from "./GazetteerManager";
 import { AddressCoordsSection } from "./AddressCoordsSection";
-import { scanAddresses } from "../../tools/addresses";
+import { replaceLocality, scanAddresses } from "../../tools/addresses";
 import { CoordConflicts } from "./CoordConflicts";
 import { GeocodePlaceRow } from "./GeocodePlaceRow";
 import { BackButton } from "../BackButton";
@@ -65,6 +66,9 @@ interface Props {
    *  pipeline); with `addr`, split into PLAC `to` + an ADDR on the parent
    *  event. Returns the number of records changed. */
   onRenamePlaceValue: (from: string, to: string, addr?: string) => number;
+  /** Batched "take the official name" renames — each row renamed to the
+   *  register's spelling and placed at its coordinate, all one undo step. */
+  onApplyOfficialNames: (renames: OfficialRename[]) => number;
   /** Move the events at these place+address pairs to `toPlace`; `coord` is the
    *  destination's position when it came from a register pick. */
   onMovePlaceForAddresses: (keys: Set<string>, toPlace: string, coord?: GeoAssignment) => number;
@@ -79,7 +83,7 @@ interface Props {
   startId?: string;
 }
 
-export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, onRenamePlaceValue, onMovePlaceForAddresses, onBack, onNavigate, startId }: Props) {
+export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, onRenamePlaceValue, onApplyOfficialNames, onMovePlaceForAddresses, onBack, onNavigate, startId }: Props) {
   const { t } = useTranslation();
   const { settings: appSettings } = useSettings();
   const nameOf = useNameOf();
@@ -401,6 +405,23 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
   const { countryChips, countryAllCount, activeCountry, statusCounts, statusAllCount } = view;
   const confidentCount = scan.rows.filter((r) => r.confident && !checked.has(r.key) && !noMatch.has(r.key)).length;
 
+  // "Take official names": rows whose best proposal is the register's longer
+  // (or differently cased) spelling of the very place they write — confident
+  // ones only, so a fuzzy guess never renames anything in bulk. Scoped to the
+  // filtered rows, like the chips: what you see is what the button takes.
+  const officialFor = (row: GeocodeRow): OfficialRename | undefined => {
+    const cand = row.candidates[0];
+    if (!cand || !row.confident || noMatch.has(row.key)) return undefined;
+    const to = replaceLocality(row.key, cand.entry.name);
+    return to ? { from: row.key, to, assignment: { coord: { lat: cand.entry.lat, lon: cand.entry.lon } } } : undefined;
+  };
+  const officialRenames = rows.flatMap((r) => officialFor(r) ?? []);
+  const takeOfficialNames = () => {
+    if (!officialRenames.length) return;
+    setLastApplied(onApplyOfficialNames(officialRenames));
+    setScanGen((g) => g + 1);
+  };
+
   return (
     // The registers behind every place field on this page: the rename row and
     // the move panel below complete a place the file has never written, exactly
@@ -446,6 +467,11 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
             <button className="tools-issue-link" onClick={selectConfident} disabled={confidentCount === 0}>
               {t("tools.geocode.selectConfident", { count: confidentCount })}
             </button>
+            {officialRenames.length > 0 && (
+              <button className="tools-issue-link" onClick={takeOfficialNames} title={t("tools.geocode.official.bulkTooltip")}>
+                {t("tools.geocode.official.bulk", { count: officialRenames.length })}
+              </button>
+            )}
             <button className="tools-issue-link" onClick={() => setChecked(new Set())}>
               {t("tools.sources.dupSelectNone")}
             </button>
