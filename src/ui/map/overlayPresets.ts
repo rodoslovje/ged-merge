@@ -148,7 +148,7 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     // falls between z17 and z18, and the parcel numbers a land record is
     // matched against are what the resampling costs first.
     maxZoom: 18,
-    coverage: [46.2015, 14.2988, 46.2425, 14.3727],
+    coverage: [46.2151, 14.2988, 46.2561, 14.3727],
     sampleZoom: 16,
   },
   {
@@ -328,7 +328,7 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     yearTo: 1869,
     attribution: "Arhiv Republike Slovenije, SI AS 176 (Franciscejski kataster za Kranjsko)",
     maxZoom: 18,
-    coverage: [45.9965, 14.4955, 46.0514, 14.5445],
+    coverage: [45.9968, 14.4955, 46.0514, 14.5445],
     sampleZoom: 16,
   },
   {
