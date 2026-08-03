@@ -280,6 +280,10 @@ export function AddressCoordsSection({
   const [coordGroup, setCoordGroup] = useState<string | null>(null);
   const [coordPick, setCoordPick] = useState<{ coord: GeoCoord; label: string } | null>(null);
   const [coordSel, setCoordSel] = useState<Set<string>>(new Set());
+  /** Text the ticked addresses must start with, when the choice is a run of
+   *  them rather than the whole place — the house names of one farm, the
+   *  numbers of one hamlet. Empty means the group entire. */
+  const [coordPrefix, setCoordPrefix] = useState("");
 
   // A filter that lands on a handful of places opens them: the address looked
   // for is one row inside a group of a hundred, and finding it should not cost a
@@ -422,6 +426,7 @@ export function AddressCoordsSection({
     setCoordGroup(group.place);
     setMoveGroup(null);
     setApplied(null);
+    setCoordPrefix("");
     setCoordSel(new Set(group.rows.map((r) => r.key)));
     const fromFile = group.rows.find((r) => r.coord)?.coord;
     setCoordPick(fromFile ? { coord: fromFile, label: t("tools.geocode.fromFile") } : null);
@@ -430,7 +435,17 @@ export function AddressCoordsSection({
   const closeCoords = () => {
     setCoordGroup(null);
     setCoordSel(new Set());
+    setCoordPrefix("");
     setCoordPick(null);
+  };
+
+  /** Tick exactly the addresses that begin with `prefix` — folded, so the
+   *  diacritics need not be typed. An empty prefix is the whole group again.
+   *  Ticks made by hand afterwards stand until the next keystroke. */
+  const selectByPrefix = (group: PlaceGroup, prefix: string) => {
+    setCoordPrefix(prefix);
+    const q = foldSearch(prefix.trim());
+    setCoordSel(new Set(group.rows.filter((r) => !q || foldSearch(r.address).startsWith(q)).map((r) => r.key)));
   };
 
   const toggleCoordRow = (key: string) =>
@@ -681,6 +696,8 @@ export function AddressCoordsSection({
                   group={group}
                   pick={coordPick}
                   selected={coordSel}
+                  prefix={coordPrefix}
+                  onPrefix={(value) => selectByPrefix(group, value)}
                   onPick={(coord, label) => setCoordPick({ coord, label: label ?? t("tools.geocode.manual") })}
                   onClear={() => setCoordPick(null)}
                   onSelectAll={(all) => setCoordSel(new Set(all ? group.rows.map((r) => r.key) : []))}
@@ -969,6 +986,8 @@ function BulkCoordPanel({
   group,
   pick,
   selected,
+  prefix,
+  onPrefix,
   onPick,
   onClear,
   onSelectAll,
@@ -978,6 +997,9 @@ function BulkCoordPanel({
   group: PlaceGroup;
   pick: { coord: GeoCoord; label: string } | null;
   selected: ReadonlySet<string>;
+  /** Ticks every address starting with this text; empty means all of them. */
+  prefix: string;
+  onPrefix: (value: string) => void;
   onPick: (coord: GeoCoord, label?: string) => void;
   onClear: () => void;
   onSelectAll: (all: boolean) => void;
@@ -1008,6 +1030,30 @@ function BulkCoordPanel({
       />
       <span className="tools-place-rename-hint">
         {pick ? `${pick.coord.lat.toFixed(5)}, ${pick.coord.lon.toFixed(5)}` : t("tools.geocode.addr.bulkNoCoord")}
+      </span>
+      {/* Ticking a run of houses by what they start with — "Stražišče 11" for
+          both farms of that number, "Vas" for a hamlet whose numbering the
+          register lost. The ticks stay visible below, so what a prefix caught
+          is read off the list rather than trusted. */}
+      <span className="tools-geo-addr-chip" title={t("tools.geocode.addr.bulkPrefixHint")}>
+        {t("tools.geocode.addr.bulkPrefixLabel")}:
+        <input
+          type="text"
+          className="tools-geo-addr-chip-input"
+          value={prefix}
+          size={Math.max(10, prefix.length + 1)}
+          placeholder={t("tools.geocode.addr.bulkPrefix")}
+          onChange={(e) => onPrefix(e.target.value)}
+        />
+        {prefix && (
+          <button
+            className="tools-geo-addr-chip-clear"
+            onClick={() => onPrefix("")}
+            aria-label={t("tools.places.rename.cancel")}
+          >
+            ×
+          </button>
+        )}
       </span>
       <span className="tools-place-rename-hint">
         {t("tools.geocode.addr.moveCount", { count: selected.size, events })}

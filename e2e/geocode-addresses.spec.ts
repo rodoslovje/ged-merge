@@ -104,6 +104,13 @@ test("one coordinate can be given to a whole place's addresses at once", async (
   await page.locator(".edit-coord-manual input").fill("46.10101, 14.20202");
   await page.getByRole("button", { name: "Set", exact: true }).click();
   await expect(take).toBeEnabled();
+
+  // A prefix narrows the ticks to the houses that start with it — folded, so
+  // "crni vrh 4" reaches "Črni vrh 46" — and clearing it ticks the place again.
+  await group.locator(".tools-geo-addr-chip-input").fill("crni vrh 4");
+  await expect(group.getByRole("button", { name: /Take this for 1 address/ })).toBeEnabled();
+  await group.locator(".tools-geo-addr-chip-clear").click();
+  await expect(take).toBeEnabled();
   await take.click();
 
   // Staged for both houses, then written in one step.
