@@ -592,6 +592,51 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
     [mainDs, startId, t],
   );
 
+  // PNG snapshot of the current view. `withOverlays: false` composes the very
+  // same view with the historical layers left out, so a layered and a base-only
+  // export of one view line up pixel for pixel and can be compared side by side
+  // (or stacked in an image editor); it downloads under its own name so the two
+  // don't collide.
+  const shownOverlays = overlays.filter((o) => overlayOn.has(o.id));
+  const savePng = (withOverlays: boolean) => {
+    const map = mapRef.current;
+    const el = containerRef.current;
+    const base = baseLayerRef.current;
+    // Compose per layer (base, then overlays) so stacking and opacity match
+    // the screen even after a base-layer rebuild.
+    const baseEl = base instanceof L.TileLayer ? (base.getContainer() ?? null) : null;
+    // Painted bottom-up, so the list is walked in reverse: first listed is
+    // topmost on screen (see overlayZIndex).
+    const overlayTiles = withOverlays
+      ? [...shownOverlays].reverse().flatMap((o) => {
+          const entry = overlayLayersRef.current.get(o.id);
+          const layerEl = entry?.layer.getContainer();
+          return layerEl ? [{ el: layerEl, opacity: overlayOpacity.get(o.id) ?? OVERLAY_DEFAULT_OPACITY }] : [];
+        })
+      : [];
+    const baseAttribution = appSettings.allowMapTiles
+      ? basemapCredit(appSettings.mapBasemap, appSettings.mapTileUrl)
+      : "Natural Earth";
+    const attribution = [
+      baseAttribution,
+      ...(withOverlays ? shownOverlays.filter((o) => o.attribution).map((o) => o.attribution!) : []),
+    ]
+      .filter(Boolean)
+      .join(" · ");
+    if (map && el)
+      exportMapPng(
+        map,
+        el,
+        { base: baseEl, overlays: overlayTiles },
+        clustersRef.current,
+        showPaths ? shownPaths : [],
+        selectedPath,
+        exportTitle,
+        withOverlays ? slug : `${slug}-base`,
+        attribution,
+      );
+  };
+
   return (
     <ChartPage
       backLabel={backLabel}
@@ -623,46 +668,21 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
               icon: <ImageIcon />,
               label: t("map.export.png"),
               title: t("map.export.png.tooltip"),
-              onSelect: () => {
-                const map = mapRef.current;
-                const el = containerRef.current;
-                const base = baseLayerRef.current;
-                // Compose per layer (base, then overlays) so stacking and
-                // opacity match the screen even after a base-layer rebuild.
-                const baseEl = base instanceof L.TileLayer ? (base.getContainer() ?? null) : null;
-                // Painted bottom-up, so the list is walked in reverse: first
-                // listed is topmost on screen (see overlayZIndex).
-                const overlayTiles = [...overlays]
-                  .reverse()
-                  .filter((o) => overlayOn.has(o.id))
-                  .flatMap((o) => {
-                    const entry = overlayLayersRef.current.get(o.id);
-                    const layerEl = entry?.layer.getContainer();
-                    return layerEl ? [{ el: layerEl, opacity: overlayOpacity.get(o.id) ?? OVERLAY_DEFAULT_OPACITY }] : [];
-                  });
-                const baseAttribution = appSettings.allowMapTiles
-                  ? basemapCredit(appSettings.mapBasemap, appSettings.mapTileUrl)
-                  : "Natural Earth";
-                const attribution = [
-                  baseAttribution,
-                  ...overlays.filter((o) => overlayOn.has(o.id) && o.attribution).map((o) => o.attribution!),
-                ]
-                  .filter(Boolean)
-                  .join(" · ");
-                if (map && el)
-                  exportMapPng(
-                    map,
-                    el,
-                    { base: baseEl, overlays: overlayTiles },
-                    clustersRef.current,
-                    showPaths ? shownPaths : [],
-                    selectedPath,
-                    exportTitle,
-                    slug,
-                    attribution,
-                  );
-              },
+              onSelect: () => savePng(true),
             },
+            // Only worth offering while a layer is actually drawn — without one
+            // it would download the same picture twice.
+            ...(shownOverlays.length
+              ? [
+                  {
+                    key: "png-base",
+                    icon: <ImageIcon />,
+                    label: t("map.export.pngBase"),
+                    title: t("map.export.pngBase.tooltip"),
+                    onSelect: () => savePng(false),
+                  },
+                ]
+              : []),
           ]}
         />
         </>
