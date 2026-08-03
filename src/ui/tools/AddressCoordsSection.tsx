@@ -766,12 +766,6 @@ export function AddressCoordsSection({
                             }
                             onClear={() => unpick(row.key)}
                           />
-                          {/* The staged pick, named only when it is not one
-                              of the listed results (manual, map, OSM) — a
-                              selected radio below already says the rest. */}
-                          {chosen && !search.results.some((r) => sameCoord(chosen.coord, r.coord)) && (
-                            <span className="tools-reshape-badge official">{chosen.label}</span>
-                          )}
                         </div>
                         {renameKey === row.key && (
                           <div
