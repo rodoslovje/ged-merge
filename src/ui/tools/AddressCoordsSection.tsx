@@ -17,6 +17,7 @@ import { useNameOf, useSettings } from "../SettingsContext";
 import { lineageClass, type KinshipResolver } from "../../match/kinship";
 import { PersonLink } from "../PersonLink";
 import { ExpandAllToggle, GeoRowHeader, MapToggle } from "./shared";
+import { requestSettings } from "../settingsBus";
 
 // The ADDR half of geocoding: house coordinates from the GURS address register
 // for events whose PLAC names only the settlement. Kept apart from the place
@@ -487,7 +488,13 @@ export function AddressCoordsSection({
           <div className="tools-dup-bulk">{actions}</div>
         </div>
       )}
-      <p className="tools-intro">{t("tools.geocode.addr.intro")}</p>
+      <p className="tools-intro">
+        {t("tools.geocode.addr.intro")} {t("tools.geocode.addr.introOnline")}{" "}
+        <button className="tools-issue-link" onClick={() => requestSettings("advanced")}>
+          {t("tools.geocode.settingsAdvanced")}
+        </button>
+        .
+      </p>
       {applied !== null && <p className="tools-clean tools-clean--ok">{t("tools.geocode.addr.applied", { count: applied })}</p>}
       {moved !== null && <p className="tools-clean tools-clean--ok">{t("tools.geocode.addr.moved", { count: moved })}</p>}
       <div className="tools-chips">
