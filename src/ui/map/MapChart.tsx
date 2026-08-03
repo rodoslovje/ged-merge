@@ -803,6 +803,28 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
               </button>
               {overlaysOpen && (
                 <div className="map-overlays-panel">
+                  {/* Sticky above a list that scrolls: with a directory's worth
+                      of layers the buttons would otherwise scroll out of reach. */}
+                  {overlays.length > 1 && (
+                    <div className="map-overlays-bar">
+                      <button
+                        type="button"
+                        className="batch-bar-btn"
+                        disabled={overlayOn.size === overlays.length}
+                        onClick={() => setOverlayOn(new Set(overlays.map((o) => o.id)))}
+                      >
+                        {t("tools.batch.selectAll")}
+                      </button>
+                      <button
+                        type="button"
+                        className="batch-bar-btn"
+                        disabled={overlayOn.size === 0}
+                        onClick={() => setOverlayOn(new Set())}
+                      >
+                        {t("tools.batch.selectNone")}
+                      </button>
+                    </div>
+                  )}
                   {overlays.map((o) => {
                     const on = overlayOn.has(o.id);
                     const suggested = suggestedOverlays.has(o.id);

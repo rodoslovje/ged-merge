@@ -130,6 +130,10 @@ const NO_PINS: MiniMapPin[] = [];
 const SAMPLE_LIFESPAN = "1850–1920";
 const SAMPLE_AGE = 70;
 
+/** Sentinel option value of the preset dropdown's "add every one" entry — the
+ *  others carry an index into the list. */
+const ADD_ALL_PRESETS = "all";
+
 /** The place directories, in the only place that owns them. Its own component so
  *  the IndexedDB read happens when the Map tab is opened, not on every render of
  *  a modal that spends most of its life closed. */
@@ -550,14 +554,26 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                   value=""
                   aria-label={t("settings.map.overlays.preset")}
                   onChange={(e) => {
-                    const entry = presets[Number(e.target.value)];
-                    if (!entry) return;
-                    const { key, ...rest } = entry.preset;
                     // name stays empty so the layer's display name tracks the
                     // language via presetKey; renaming it later overrides that.
-                    set({
-                      mapOverlays: [...settings.mapOverlays, { ...rest, presetKey: key, name: "", id: crypto.randomUUID() }],
+                    const add = ({ key, ...rest }: (typeof presets)[number]["preset"]) => ({
+                      ...rest,
+                      presetKey: key,
+                      name: "",
+                      id: crypto.randomUUID(),
                     });
+                    if (e.target.value === ADD_ALL_PRESETS) {
+                      // Only the ones missing: picking this twice must not
+                      // leave the list holding every free map in duplicate.
+                      const have = new Set(settings.mapOverlays.map((o) => o.presetKey).filter(Boolean));
+                      const missing = presets.filter((p) => !have.has(p.preset.key));
+                      if (missing.length)
+                        set({ mapOverlays: [...settings.mapOverlays, ...missing.map((p) => add(p.preset))] });
+                      return;
+                    }
+                    const entry = presets[Number(e.target.value)];
+                    if (!entry) return;
+                    set({ mapOverlays: [...settings.mapOverlays, add(entry.preset)] });
                   }}
                 >
                   <option value="">{t("settings.map.overlays.preset")}</option>
@@ -566,6 +582,7 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                       {p.label}
                     </option>
                   ))}
+                  <option value={ADD_ALL_PRESETS}>{t("settings.map.overlays.preset.addAll")}</option>
                 </select>
                 <button
                   type="button"

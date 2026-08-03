@@ -6562,6 +6562,10 @@ kbd {
   /* Wide enough for the preset names, which run to "Slovenija · Topografska
      karta, do 1:2500 (GURS)" — a narrow panel cut every one of them. */
   max-width: min(520px, 90vw);
+  /* A place directory can add dozens of layers — the list scrolls inside the
+     panel instead of running off the bottom of the window. */
+  max-height: 60vh;
+  overflow-y: auto;
   padding: 8px;
   background: var(--panel);
   border: 1px solid var(--border-2);
@@ -6570,6 +6574,18 @@ kbd {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+/* Stays put while the list scrolls under it. */
+.map-overlays-bar {
+  position: sticky;
+  top: -8px;
+  z-index: 1;
+  display: flex;
+  gap: 12px;
+  margin: -8px -8px 0;
+  padding: 8px 6px 6px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border-2);
 }
 .map-overlay-row {
   display: flex;
@@ -7776,6 +7792,7 @@ kbd {
   background: none; border: none; padding: 0; cursor: pointer;
   color: var(--accent); font-size: 0.85rem; text-decoration: underline;
 }
+.batch-bar-btn:disabled { color: var(--muted); cursor: default; text-decoration: none; }
 .batch-list { list-style: none; margin: 0; padding: 0; max-height: 320px; overflow-y: auto; }
 .batch-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
 .batch-row input { cursor: pointer; flex: none; }
@@ -8588,13 +8605,11 @@ kbd {
   .map-overlays-wrap {
     margin-left: auto;
   }
-  /* Never wider than the screen (the 320px floor loses to the viewport on the
-     narrowest phones) and never taller than fits above the fold. */
+  /* Never wider than the screen — the 320px floor loses to the viewport on the
+     narrowest phones. (The height cap and its scroll are unconditional.) */
   .map-overlays-panel {
     min-width: min(320px, calc(100vw - 32px));
     max-width: calc(100vw - 32px);
-    max-height: 60vh;
-    overflow-y: auto;
   }
   /* Beside a `flex: 0 0 auto` button the notice's sentence was squeezed into a
      ~180px column twenty lines tall, straight across the empty-state text.

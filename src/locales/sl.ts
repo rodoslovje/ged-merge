@@ -1822,6 +1822,7 @@ export const sl = {
   "settings.map.overlays.hint": "Dodatni sloji ploščic, ki jih zemljevid lahko izriše čez osnovno karto — npr. georeferencirana zgodovinska izmera. Vrstni red na seznamu je vrstni red izrisa — prvi sloj se izriše na vrhu, zato naj bo tanek referenčni sloj (hišne številke, parcele) nad celostransko karto.",
   "settings.map.overlays.add": "+ Dodaj sloj",
   "settings.map.overlays.preset": "Dodaj brezplačen sloj…",
+  "settings.map.overlays.preset.addAll": "★ Dodaj vse brezplačne sloje",
   "settings.map.overlays.preset.spezialkarte": "Avstro-Ogrska · Spezialkarte 1:75 000 (1877–1918)",
   "settings.map.overlays.preset.schraembl": "Nemčija in srednja Evropa · Schraembl 1:530 000 (1797)",
   "settings.map.overlays.preset.france.etatmajor": "Francija · Carte de l'État-major (1820–1866)",
