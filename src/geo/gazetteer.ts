@@ -41,6 +41,12 @@ export interface GazEntry {
    *  gazetteers describe the same settlement; the code itself labels the
    *  candidate in the UI, since `country` stays a plain ISO code for matching. */
   register?: string;
+  /** Storage code of the directory the entry came from ("HR-OSM") when that
+   *  differs from both `register` and the bare country code — display only, so
+   *  a candidate's badge can say which directory answered. Unlike `register`
+   *  it carries no authority and never affects ranking. Filled at load time by
+   *  {@link storedEntries}, not persisted. */
+  source?: string;
 }
 
 /** Storage key of the GURS settlements import — deliberately not a bare ISO
@@ -452,6 +458,19 @@ export interface GazetteerIndex {
   buckets: Map<string, number[]>;
   /** `"HR:12"` (country:admin1) → every name that division goes by. */
   divisions?: Map<string, string[]>;
+}
+
+/**
+ * The stored directories' entries flattened for the index, each labelled with
+ * the directory it came from: an entry whose store key is neither its register
+ * nor its bare country code (an OpenStreetMap download stored as "HR-OSM")
+ * gets that key as its `source`, so the candidate badge can name the directory
+ * in full instead of showing the same "HR" for two different imports.
+ */
+export function storedEntries(countries: { code: string; entries: GazEntry[] }[]): GazEntry[] {
+  return countries.flatMap((c) =>
+    c.entries.map((e) => (e.register || e.source || c.code === e.country ? e : { ...e, source: c.code })),
+  );
 }
 
 /**

@@ -6,6 +6,7 @@ import {
   mergeDivisions,
   overpassFailure,
   overpassSubdivisions,
+  storedEntries,
   type GazetteerIndex,
   type Subdivision,
 } from "../../geo/gazetteer";
@@ -306,7 +307,7 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
       stored.map(({ code, count, importedAt }) => ({ code, count, importedAt })).sort((a, b) => b.count - a.count),
     );
     if (withIndex)
-      setIndex(stored.length ? buildGazetteerIndex(stored.flatMap((c) => c.entries), mergeDivisions(stored)) : undefined);
+      setIndex(stored.length ? buildGazetteerIndex(storedEntries(stored), mergeDivisions(stored)) : undefined);
   };
 
   const refreshGazetteer = async () => {

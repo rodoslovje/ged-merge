@@ -14,6 +14,7 @@ import {
   rpeNaseljaToEntries,
   rpeObcinaNames,
   searchGazetteer,
+  storedEntries,
   subdivisionAdmin1,
   type GazEntry,
 } from "./gazetteer";
@@ -212,6 +213,21 @@ describe("overpassToEntries", () => {
       "SI",
     ).entries;
     expect(entry.country).toBe("SI");
+  });
+
+  it("storedEntries labels each entry with its directory's full id", () => {
+    const entry = (name: string, country: string, register?: string): GazEntry => ({
+      name, ascii: "", alt: [], lat: 45, lon: 15, fclass: "P", country, admin1: "", population: 0,
+      ...(register ? { register } : {}),
+    });
+    const flat = storedEntries([
+      { code: "HR", entries: [entry("Pakrac", "HR")] },
+      { code: "HR-OSM", entries: [entry("Pakrac", "HR")] },
+      { code: GURS_REGISTER, entries: [entry("Bled", "SI", GURS_REGISTER)] },
+    ]);
+    // GeoNames (store key = the bare country) keeps its plain country badge,
+    // the OSM download is named in full, a register entry keeps its register.
+    expect(flat.map((e) => e.register ?? e.source ?? e.country)).toEqual(["HR", "HR-OSM", GURS_REGISTER]);
   });
 
   it("reads subdivision markers: places after one carry its name and code", () => {

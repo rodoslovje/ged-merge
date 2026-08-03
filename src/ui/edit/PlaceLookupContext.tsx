@@ -1,7 +1,13 @@
 import { createContext, useContext, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../../gedcom/types";
-import { buildGazetteerIndex, mergeDivisions, searchGazetteer, type GazetteerIndex } from "../../geo/gazetteer";
+import {
+  buildGazetteerIndex,
+  mergeDivisions,
+  searchGazetteer,
+  storedEntries,
+  type GazetteerIndex,
+} from "../../geo/gazetteer";
 import { searchGov } from "../../geo/gov";
 import { searchNominatim } from "../../geo/nominatim";
 import { rnQueriesFrom, searchAddresses } from "../../geo/rn";
@@ -73,7 +79,7 @@ async function gazetteerIndex(): Promise<GazetteerIndex | undefined> {
   if (cachedIndex) return cachedIndex;
   const stored = await loadCountries();
   if (!stored.length) return undefined;
-  cachedIndex = buildGazetteerIndex(stored.flatMap((c) => c.entries), mergeDivisions(stored));
+  cachedIndex = buildGazetteerIndex(storedEntries(stored), mergeDivisions(stored));
   return cachedIndex;
 }
 

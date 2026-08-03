@@ -132,9 +132,9 @@ export function proposalFromGazEntry(entry: GazEntry, style: PlaceStyle): PlaceP
   return {
     ...shaped,
     coord: { lat: entry.lat, lon: entry.lon },
-    // The register code when the entry came from an official one, otherwise the
-    // plain country code — all a crowd-sourced entry knows about its provenance.
-    source: entry.register ?? entry.country,
+    // The full directory id: register code, download key ("HR-OSM"), or the
+    // bare country code, which by convention means the GeoNames file.
+    source: entry.register ?? entry.source ?? entry.country,
     official: !!entry.register,
     detail: [entry.name, entry.admin].filter(Boolean).join(", "),
   };
