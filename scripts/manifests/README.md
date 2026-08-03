@@ -292,6 +292,29 @@ two centuries of distortion and the survey's sheet-to-sheet edge matching, and
 removing it would mean nudging sheets relative to each other — fitting, which
 is exactly what this pipeline is built not to do.
 
+### Re-reading a frame after the fact
+
+The strategies above still lose a sheet now and then, and the failure is
+invisible from the tiles: a frame that is n px out moves the sheet on the
+ground exactly as a wrong cell would, so it invites a nudge, and the nudge then
+opens a gap at the seam it used to close. Two of these went a full round of
+"move it 50 m east" before the cut was suspected.
+
+`kataster-frames.py` re-reads a manifest's frames as a matched filter instead
+of an edge walk. A neatline is a *pair* of rules a known distance apart, and
+the pair is always in the ratio 1.25, so it scores every (width, offset) whose
+two rules both land on ink and takes the best. One strong line cannot win on
+its own, which is what defeats the dark scan border and the map's own straight
+features.
+
+    kataster-frames.py --manifest <file>                       # report
+    kataster-frames.py --manifest <file> --widths 2440 2474 --fix
+
+Hold `--widths` to the fond's real band. Left free, the search buys a better
+score by drifting the scale, and 0.76 or 0.78 m/px readings are margin ink, not
+rules. The first pass over Kranjska found 43 sheets out of ~160 cut wrong,
+worst at 401 px — 309 m on the ground.
+
 ### How a sheet gets placed, and what still needs a human
 
 Placement leans on three readings, scored together as one assignment so that no
