@@ -47,6 +47,7 @@ import { createBaseLayer } from "./baseLayer";
 import { basemapCredit } from "./basemapPresets";
 import { arrowMarker, pathLegNumbers } from "./pathStops";
 import { addFitControl, boundsOfCoords } from "./fitControl";
+import { removeMap } from "./removeMap";
 import { OVERLAY_DEFAULT_OPACITY } from "./overlayConfig";
 import { identifyAt, identifyPopupHtml, queryableOverlays } from "./overlayIdentify";
 import { syncOverlayLayers, type LiveOverlays } from "./overlayLayer";
@@ -344,7 +345,7 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
     const overlayLayers = overlayLayersRef.current;
     return () => {
       map.off("moveend zoomend", bump);
-      map.remove();
+      removeMap(map);
       mapRef.current = null;
       baseLayerRef.current = null;
       overlayLayers.clear();
@@ -396,12 +397,16 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
     return () => {
       mapA.off("move zoomend", aToB);
       map.off("moveend zoomend", bToA);
-      map.remove();
+      removeMap(map);
       overlayLayersB.clear();
       markersBRef.current = null;
       baseLayerBRef.current = null;
       setMapB(null);
-      mapA.invalidateSize();
+      // On unmount the left map is already gone — cleanups run in definition
+      // order and its (earlier) lifecycle effect removed it — and resizing a
+      // removed map walks its destroyed panes ("_leaflet_pos" crash). Only a
+      // live left pane needs the un-halve resize.
+      if (mapRef.current === mapA) mapA.invalidateSize();
     };
   }, [splitView]);
 
@@ -485,6 +490,10 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
       { map: mapRef.current, active: splitView ? overlayOnLeft : overlayOn },
       ...(splitView ? [{ map: mapB, active: overlayOn }] : []),
     ];
+    // The GetFeatureInfo round trip can outlive this effect — opening the
+    // popup on a map that was torn down meanwhile (split toggled, chart
+    // left) would walk destroyed panes.
+    let alive = true;
     const offs: (() => void)[] = [];
     for (const { map, active } of panes) {
       const targets = queryable.filter((o) => active.has(o.id));
@@ -494,13 +503,14 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
         const blocks = await identifyAt(map, targets, e.latlng, (o) => overlayDisplayName(o, t), t);
         // A newer click superseded this one. Only pop up on an actual hit — a
         // click on empty ground (no house point under the cursor) stays silent.
-        if (seq !== infoSeqRef.current || !blocks.length) return;
+        if (!alive || seq !== infoSeqRef.current || !blocks.length) return;
         L.popup({ className: "map-info-popup" }).setLatLng(e.latlng).setContent(identifyPopupHtml(blocks)).openOn(map);
       };
       map.on("click", onClick);
       offs.push(() => map.off("click", onClick));
     }
     return () => {
+      alive = false;
       for (const off of offs) off();
     };
   }, [overlays, overlayOn, overlayOnLeft, appSettings.allowMapTiles, splitView, mapB, t]);

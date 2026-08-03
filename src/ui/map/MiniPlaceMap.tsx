@@ -6,6 +6,7 @@ import type { GeoCoord } from "../../gedcom/types";
 import { overlayDisplayName, useSettings } from "../SettingsContext";
 import { createBaseLayer } from "./baseLayer";
 import { addFitControl, boundsOfCoords } from "./fitControl";
+import { removeMap } from "./removeMap";
 import { ARROW_MIN_SEG_PX, PATH_STYLE, pathArrows } from "./markerStyle";
 import { resolveOverlay, type CoverageBox } from "./overlayPresets";
 import { syncOverlayLayers, type LiveOverlays } from "./overlayLayer";
@@ -278,7 +279,7 @@ export default function MiniPlaceMap({
       el.removeEventListener("pointerdown", markUser);
       el.removeEventListener("wheel", markUser);
       map.off("zoomend", redraw);
-      map.remove();
+      removeMap(map);
       mapRef.current = null;
       baseLayerRef.current = null;
       overlayLayers.clear();
