@@ -8,7 +8,7 @@ import { KEY, KEY_STATUS, STATUS_KEY, isEditableTarget, isModalOpen } from "../k
 import { useFindShortcut } from "../keyboard/useFindShortcut";
 import { kinshipInfo, kinshipTooltip as kinshipTooltipText, lineageClass } from "../match/kinship";
 import { MatchResults } from "./MatchResults";
-import { useNameOf, useSettings } from "./SettingsContext";
+import { useNameOf, useSettingsSlice } from "./SettingsContext";
 import { ComparePanel } from "./ComparePanel";
 import { Section } from "./Section";
 import { sexClass } from "./sex";
@@ -60,6 +60,10 @@ interface Props {
   active: boolean;
 }
 
+/** The preferences this file reads — subscribed field by field, so an
+ *  unrelated one changing leaves it alone (see useSettingsSlice). */
+const SETTINGS_KEYS = ["showAge", "showKinship"] as const;
+
 /** The merge workflow: incoming loader, matches list, compare panel, and the
  * merge preview/export modal. Extracted from App.tsx as the "Merge" mode body
  * — the Main GEDCOM is loaded by the shared shell. */
@@ -93,7 +97,7 @@ export function MergeView({
 }: Props) {
   const { t } = useTranslation();
   const formatName = useNameOf();
-  const { settings } = useSettings();
+  const settings = useSettingsSlice(SETTINGS_KEYS);
   const showKinship = settings.showKinship;
 
   const compareBodyRef = useRef<HTMLDivElement>(null);

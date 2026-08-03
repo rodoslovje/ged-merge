@@ -3,7 +3,7 @@ import { datesTooltipOf, lifespanOf } from "../gedcom/lifespan";
 import { lifespanAge } from "../gedcom/age";
 import { lifespanLine } from "../chart/nodeDisplay";
 import { xrefLabel } from "../gedcom/nameDisplay";
-import { useNameOf, useSettings } from "./SettingsContext";
+import { useNameOf, useSettingsSlice } from "./SettingsContext";
 import { sexClass } from "./sex";
 
 interface Props {
@@ -21,6 +21,10 @@ interface Props {
   forceXref?: boolean;
 }
 
+/** The preferences this file reads — subscribed field by field, so an
+ *  unrelated one changing leaves it alone (see useSettingsSlice). */
+const SETTINGS_KEYS = ["showAge", "showXref"] as const;
+
 /**
  * A clickable person reference styled like everywhere else in the app: the name
  * in its sex colour followed by a muted lifespan. Falls back to a plain label
@@ -28,7 +32,7 @@ interface Props {
  */
 export function PersonLink({ dataset, id, fallback, onNavigate, forceXref = false }: Props) {
   const nameOf = useNameOf();
-  const { settings } = useSettings();
+  const settings = useSettingsSlice(SETTINGS_KEYS);
   const indi = dataset.individuals.get(id);
   if (!indi) {
     return (

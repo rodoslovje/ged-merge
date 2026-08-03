@@ -24,7 +24,7 @@ import { chartSlug } from "./exportSvg";
 import { ChartExportMenu } from "./ChartExportMenu";
 import { ChartSettings } from "./ChartSettings";
 import { useChartSettings } from "./ChartSettingsContext";
-import { useNameOf, useSettings } from "./SettingsContext";
+import { useNameOf, useSettingsSlice } from "./SettingsContext";
 import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 
 // Full-page family Timeline: the root person and their immediate family
@@ -37,6 +37,10 @@ import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 // same pine faded toward the panel, so the root stands out by intensity in
 // both themes (in light mode --accent and --node-main are nearly the same
 // green, so a hue difference alone wouldn't read).
+/** The preferences this file reads — subscribed field by field, so an
+ *  unrelated one changing leaves it alone (see useSettingsSlice). */
+const SETTINGS_KEYS = ["showKinship"] as const;
+
 const COLOR_PERSON = "var(--accent)";
 const COLOR_FAMILY = "color-mix(in srgb, var(--node-main) 45%, var(--panel))";
 
@@ -133,7 +137,7 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, changedP
   const nameOf = useNameOf();
   const nodeStatus = useNodeStatus(changedPersonIds, decisions);
   const { settings } = useChartSettings();
-  const { settings: appSettings } = useSettings();
+  const appSettings = useSettingsSlice(SETTINGS_KEYS);
   // Identity-stable, so the memoized row handlers below don't rebuild every
   // render just because App passes a fresh callback.
   const changeRoot = useStableHandler(onRootChange);

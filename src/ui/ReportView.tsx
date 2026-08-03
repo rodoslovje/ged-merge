@@ -38,7 +38,7 @@ import { useChartSettings } from "./ChartSettingsContext";
 import { useNodeStatus } from "./useNodeStatus";
 import { useStableHandler } from "./edit/useStableHandler";
 import type { CandidateDecision } from "../review/types";
-import { useNameOf, useSettings } from "./SettingsContext";
+import { useNameOf, useSettingsSlice } from "./SettingsContext";
 import { ChartRootTitle } from "./ChartRootTitle";
 import { lifespanAge } from "../gedcom/age";
 import { useChartShortcuts } from "../keyboard/useChartShortcuts";
@@ -57,6 +57,10 @@ import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 
 // Same swatch convention as the Timeline: the root keeps the full-strength
 // accent, everyone else fades toward the panel.
+/** The preferences this file reads — subscribed field by field, so an
+ *  unrelated one changing leaves it alone (see useSettingsSlice). */
+const SETTINGS_KEYS = ["showKinship"] as const;
+
 const COLOR_PERSON = "var(--accent)";
 const COLOR_FAMILY = "color-mix(in srgb, var(--node-main) 45%, var(--panel))";
 
@@ -93,7 +97,7 @@ interface Props {
 export function ReportView({ mainDs, rootId: currentRootId, startId, changedPersonIds, decisions, backLabel, onBack, onNavigate, kindSwitcher, onRootChange, mode, onModeChange }: Props) {
   const { t, i18n } = useTranslation();
   const nameOf = useNameOf(REPORT_NAME_DISPLAY);
-  const { settings: appSettings } = useSettings();
+  const appSettings = useSettingsSlice(SETTINGS_KEYS);
   const nodeStatus = useNodeStatus(changedPersonIds, decisions);
   const { settings, set } = useChartSettings();
   const [selectedId, setSelectedId] = useState<string | null>(null);

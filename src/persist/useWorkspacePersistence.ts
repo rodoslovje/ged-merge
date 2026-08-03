@@ -12,7 +12,7 @@ import {
 } from "./idb";
 import { clearDecisions } from "./geoDb";
 import { hashFile, hasPermApi } from "./fingerprint";
-import { useSettings } from "../ui/SettingsContext";
+import { useSettingsSlice } from "../ui/SettingsContext";
 
 export interface WorkspacePersistenceOptions {
   /** The opt-in workspace-caching setting (`settings.persistWorkspace`). */
@@ -38,6 +38,10 @@ export interface WorkspacePersistenceOptions {
   clearMediaFolder: () => void;
 }
 
+/** The preferences this file reads — subscribed field by field, so an
+ *  unrelated one changing leaves it alone (see useSettingsSlice). */
+const SETTINGS_KEYS = ["persistWorkspace", "formatOverrides"] as const;
+
 /**
  * Opt-in IndexedDB workspace persistence: the startup hydration (re-feeding
  * cached files through the worker), the debounced session/main writer, the
@@ -59,7 +63,7 @@ export function useWorkspacePersistence(opts: WorkspacePersistenceOptions) {
   persistEnabledRef.current = persistEnabled;
   // Current format overrides for the restore-time parse posts (mount-only
   // effect — read through a ref so it sees the loaded settings).
-  const { settings } = useSettings();
+  const settings = useSettingsSlice(SETTINGS_KEYS);
   const formatOverridesRef = useRef(settings.formatOverrides);
   formatOverridesRef.current = settings.formatOverrides;
 

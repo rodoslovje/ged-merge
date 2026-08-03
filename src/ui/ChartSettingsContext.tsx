@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import type { ChartAlignment } from "../chart/treeLayout";
-import { useSettings } from "./SettingsContext";
+import { useSettingsSlice } from "./SettingsContext";
 
 // Shared, persisted configuration for the full-page diagram views (Edit Tree,
 // Compare Tree, Relationship chart). One instance drives all three so a change
@@ -23,6 +23,10 @@ export type ChartKind = PedigreeType | "relationship" | "timeline" | "map" | "re
 /** The hub kinds that are not pedigree charts: choosing them leaves `type`
  *  untouched, so leaving them restores the last pedigree chart. */
 const NON_PEDIGREE_KINDS = ["relationship", "timeline", "map", "report"] as const;
+
+/** The preferences this file reads — subscribed field by field, so an
+ *  unrelated one changing leaves it alone (see useSettingsSlice). */
+const SETTINGS_KEYS = ["showAge"] as const;
 
 export type { ChartAlignment };
 
@@ -205,7 +209,7 @@ export function ChartSettingsProvider({ children }: { children: React.ReactNode 
   // Seed the Age toggle from the global "Show ages" preference on first load, so
   // charts honour it by default (SettingsProvider wraps this one, so the global
   // value is already resolved synchronously here).
-  const { settings: appSettings } = useSettings();
+  const appSettings = useSettingsSlice(SETTINGS_KEYS);
   const [settings, setSettings] = useState<ChartSettings>(() => load(appSettings.showAge));
 
   const update = useCallback((patch: Partial<ChartSettings>) => {

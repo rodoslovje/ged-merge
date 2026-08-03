@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useModalKeyboard } from "../keyboard/useModalKeyboard";
 import { useSettings, useNameOf, type MapOverlay } from "./SettingsContext";
@@ -168,12 +168,6 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
   // stored with the file, so showing it here costs nothing.
   const detected = detectedFormats;
 
-  // Edits echo locally at once; the global settings commit — which re-renders
-  // the whole mounted app, seconds on an index-scale file — runs in an
-  // interruptible transition, so rapid changes coalesce instead of each
-  // blocking the control.
-  const [, startTransition] = useTransition();
-
   // Preset names resolved to the current language and sorted by that label.
   const presets = useMemo(
     () => OVERLAY_PRESETS.map((p) => ({ preset: p, label: t(p.key) })).sort((a, b) => a.label.localeCompare(b.label, i18n.language)),
@@ -215,13 +209,11 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
       setPendingOverlays(next);
       overlayTimer.current = setTimeout(() => {
         overlayTimer.current = undefined;
-        startTransition(() => {
-          // A keystroke landed after this commit was queued — that edit owns
-          // the list now and carries its own timer; drop this stale one.
-          if (typedOverlays.current !== next) return;
-          set({ mapOverlays: next });
-          setPendingOverlays(null);
-        });
+        // A keystroke landed after this commit was queued — that edit owns
+        // the list now and carries its own timer; drop this stale one.
+        if (typedOverlays.current !== next) return;
+        set({ mapOverlays: next });
+        setPendingOverlays(null);
       }, OVERLAY_COMMIT_MS);
     },
     [set],
@@ -254,17 +246,15 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
     [settings.mapOverlays, framedOverlay],
   );
 
-  const [pendingOverrides, setPendingOverrides] = useState<FormatOverrides | null>(null);
-  const overrides = pendingOverrides ?? settings.formatOverrides;
+  // A dropdown commits straight through: only the handful of components that
+  // read formatOverrides re-render, and they do it in the same tick as the
+  // change, so the select needs no local echo to stay responsive.
+  const overrides = settings.formatOverrides;
   const updateOverride = (key: keyof FormatOverrides, value: string) => {
     const next = { ...overrides };
     if (value) next[key] = value as never;
     else delete next[key];
-    setPendingOverrides(next);
-    startTransition(() => {
-      set({ formatOverrides: next });
-      setPendingOverrides(null);
-    });
+    set({ formatOverrides: next });
   };
 
   if (!isOpen) return null;

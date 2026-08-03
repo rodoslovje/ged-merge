@@ -8,7 +8,7 @@ import { rnQueriesFrom, searchAddresses, type RnResult } from "../../geo/rn";
 import { searchNominatim, type NominatimResult } from "../../geo/nominatim";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
 import { PinIcon } from "../icons/PinIcon";
-import { useSettings } from "../SettingsContext";
+import { useSettingsSlice } from "../SettingsContext";
 import { useCoordShare } from "./CoordShareContext";
 import { usePhone } from "../usePhone";
 
@@ -25,6 +25,10 @@ import { usePhone } from "../usePhone";
 // Slovenian house number (exact, official), and Nominatim for anywhere else —
 // so a Vienna or Chicago address is served too. Both sit behind the same
 // online-lookups opt-in and only run on their button.
+
+/** The preferences this file reads — subscribed field by field, so an
+ *  unrelated one changing leaves it alone (see useSettingsSlice). */
+const SETTINGS_KEYS = ["allowLinkFetch"] as const;
 
 const MiniPlaceMap = lazy(() => import("../map/MiniPlaceMap"));
 
@@ -69,7 +73,7 @@ export function EventCoordPicker({
   onClear: () => void;
 }) {
   const { t, i18n } = useTranslation();
-  const { settings } = useSettings();
+  const settings = useSettingsSlice(SETTINGS_KEYS);
   const [open, setOpen] = useState(false);
   const [rn, setRn] = useState<Search<RnResult>>(IDLE);
   const [osm, setOsm] = useState<Search<NominatimResult>>(IDLE);

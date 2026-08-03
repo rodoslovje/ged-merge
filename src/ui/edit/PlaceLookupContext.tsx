@@ -17,7 +17,7 @@ import {
 } from "../../geo/placeProposal";
 import { inferPlaceExportFormat } from "../../normalize/profile";
 import { loadCountries } from "../../persist/geoDb";
-import { useSettings } from "../SettingsContext";
+import { useSettingsSlice } from "../SettingsContext";
 
 // Looking a place up in the registers while editing an event — the counterpart
 // to the place autocomplete's list of places the file already knows. That list
@@ -46,6 +46,10 @@ export interface PlaceLookup {
    *  says so instead of silently returning less. */
   online: boolean;
 }
+
+/** The preferences this file reads — subscribed field by field, so an
+ *  unrelated one changing leaves it alone (see useSettingsSlice). */
+const SETTINGS_KEYS = ["allowLinkFetch"] as const;
 
 const PlaceLookupContext = createContext<PlaceLookup | null>(null);
 
@@ -83,7 +87,7 @@ export function invalidateGazetteerIndex(): void {
 
 /** Build the Edit view's lookup: this file's place style plus every register. */
 export function usePlaceLookupValue(dataset: Dataset, placeSuggestions: string[]): PlaceLookup {
-  const { settings } = useSettings();
+  const settings = useSettingsSlice(SETTINGS_KEYS);
   const { i18n } = useTranslation();
   const online = settings.allowLinkFetch;
   const language = i18n.language;
