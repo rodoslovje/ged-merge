@@ -967,7 +967,7 @@
               samo občina; kadar kraj navaja tudi občino, prava zmaga sama. Občina najde tudi imena, ki jih register
               piše daljše od vaših — <em>Vinji vrh</em> pod Semičem najde <em>Vinji Vrh pri Semiču</em> — predlog, na
               katerega se vrstica razreši, pa svojo občino vedno izpiše že v njeni vrstici, tako da istoimensko naselje
-              iz napačne občine opazite na prvi pogled. Datoteka GeoNames in prenos z
+              iz napačne občine opazite na prvi pogled. Kadar je registrsko ime daljše ali popravljeno, vrstica ponudi <strong>Prevzemi uradno ime</strong> — en klik preimenuje vse navedbe vanj in zapiše njegovo koordinato — gumb <strong>Prevzemi uradna imena</strong> nad seznamom pa enako stori za vse prikazane zanesljive vrstice, v eni potezi razveljavitve. Datoteka GeoNames in prenos z
               OpenStreetMap storita enako z najvišjimi upravnimi enotami države — hrvaški kraj nosi svojo
               <em>županijo</em>, avstrijski svojo <em>zvezno deželo</em> — enota pa je prepoznana pod katerim koli od
               svojih imen, zato datoteka z zapisom <em>Požega-Slavonia</em> še vedno kaže na <em>Požeško-slavonsko
@@ -988,11 +988,14 @@
               Seznam za pregled ostane obvladljiv tudi pri veliki datoteki. Kadar kraji v datoteki segajo v več držav,
               je nad seznamom vrsta gumbov z državami, največ krajev najprej — s klikom seznam zožite na to državo, z
               <em>Vsi</em> pa spet razširite. Druga vrsta ga zoži na vrsto preostalega dela:
-              <strong>Zanesljivi</strong> drži vrstice, ki bi jih vzel <strong>Izberi zanesljive</strong>,
-              <strong>Delno ujemanje</strong> tiste, katerih predlog je treba presoditi — dvoumno ime ali občina, ki se
-              ne ujema — <strong>Brez predloga</strong> tiste, ki zahtevajo raziskavo ali preimenovanje,
+              <strong>Zanesljivi</strong> drži ujemanja, popolna do črke in brez dvojnika,
+              <strong>Verjetni</strong> vse vrstice z oceno pod 100 % — oranžne terjajo vašo presojo, zelena ocena med
+              njimi (registrsko ime, ki ga potrdi zapisana občina) pa je še vedno varna za <strong>Izberi
+              zanesljive</strong> —
+              <strong>Dvoumni</strong> tiste, kjer se ime popolnoma ujema na več krajih hkrati,
+              <strong>Brez predloga</strong> tiste, ki zahtevajo raziskavo ali preimenovanje,
               <strong>Že odločeni</strong> pa vse, kar je že odkljukano ali označeno z »ni ujemanja«; dober ritem je
-              paketni sprejem zanesljivih, nato pregled seznama <em>Delno ujemanje</em>, <em>Brez predloga</em> pa
+              paketni sprejem zanesljivih, nato pregled seznamov <em>Verjetni</em> in <em>Dvoumni</em>, <em>Brez predloga</em> pa
               pustite za raziskovalni večer. Število na gumbu
               upošteva druge filtre — pove natanko, koliko vrstic pokaže klik nanj. Povzetek ob
               iskalniku sproti kaže napredek — koliko krajev že nosi koordinate in kolikšen delež omemb v datoteki to
@@ -1025,17 +1028,17 @@
               kliku na gumb, njuni zadetki pa se pridružijo kandidatom in oznakam na zemljevidu. <strong>Išči na
               OpenStreetMap</strong> uporablja Nominatim — najbolje za ulične naslove. Vrednosti s hišno številko v
               državi, ki jo pokriva slovenski register naslovov (<em>Šentvid pri Stični 23</em>), tu sploh ni na seznamu:
-              je stavba in ne kraj, zato jo pregledate pod njenim naseljem v razdelku <strong>Naslovi s hišno
-              številko</strong> spodaj. <strong>Išči v Genealoškem imeniku krajev (GOV)</strong>
+              je stavba in ne kraj, zato jo pregledate pod njenim naseljem na zavihku <strong>Naslovi</strong>. <strong>Išči v Genealoškem imeniku krajev (GOV)</strong>
               uporablja <a href="https://gov.genealogy.net" target="_blank" rel="noreferrer">Genealoški imenik krajev
               (GOV)</a>, katerega vnosi nosijo zgodovinska, večjezična imena krajev, nadrejeni kraj (tako da so štirje enako imenovani <em>Osredki</em> ločeni po občini) in stalni identifikator GOV; ob
               potrditvi zadetka GOV se ta identifikator zapiše tudi v datoteko kot <code>_GOV</code> (ob <code>MAP</code>),
-              kar je trajna povezava nazaj na zapis GOV za druge rodoslovne programe. Sprejeta ujemanja se predpomnijo,
-              tako da se druge datoteke razrešijo v hipu.
+              Potrjene koordinate živijo v shranjeni datoteki in nikjer drugje; brskalnik si zapomni le oznake »ni
+              ujemanja«, zato se zavrnjeni predlog ne vrne — ne v tej datoteki ne v naslednji.
             </p>
             <p>
-              Pod seznamom krajev razdelek <strong>Naslovi s hišno številko</strong> pokriva hiše in ne krajev, najde pa
-              jih tam, kjer jih hrani vaša datoteka: v <strong>naslovu</strong> dogodka ob kraju z naseljem
+              Drugi zavihek strani, <strong>Naslovi s hišno številko</strong>, pokriva hiše in ne krajev — kraji in
+              naslovi se preklapljajo z zavihkoma na vrhu, vsak s svojim številom vrstic, iskalnik pa zoži odprti
+              zavihek. Hiše najde tam, kjer jih hrani vaša datoteka: v <strong>naslovu</strong> dogodka ob kraju z naseljem
               (<em>Kranj</em> + <em>Kidričeva cesta 38</em>), kot celotno vrednost kraja (<em>Črni vrh 35</em>) ali
               stisnjeno med druge dele kraja (<em>Kranj (Slovenija), Stražišče 114 - župnija Šmartin</em>). Vsaka je
               uvrščena pod naselje, ki mu pripada, zato datoteka brez naslovnih vrstic poteka pri pregledu enako kot
@@ -1044,7 +1047,12 @@
               <code>MAP</code> pod <code>PLAC</code> — nič nestandardnega, zato jo preberejo vsi drugi programi. Seznam je
               razvrščen po krajih in zložen, najbolj obremenjeni kraj najprej, saj ima prava datoteka na stotine naslovov:
               odprite kraj, da vidite njegove naslove, jih poiščete vse naenkrat in preberete z majhnega zemljevida vseh
-              najdenih hiš — sosedje na enem zemljevidu takoj pokažejo, kateri zadetek izstopa.
+              najdenih hiš — sosedje na enem zemljevidu takoj pokažejo, kateri zadetek izstopa. Filtri nad seznamom ga
+              zožijo po stanju poizvedb — <strong>Brez poizvedbe</strong>, <strong>Z zadetki</strong>, <strong>Brez
+              zadetka</strong>, <strong>Izbrani</strong> — vsak šteje natanko to, kar klik pokaže, zato je pregled
+              prispelih odgovorov registra en klik stran. <strong>Izberi zanesljive</strong> izbere vsak naslov, ki mu je register odgovoril z natanko eno hišo — zadetek, ki ga register vodi pod drugim naseljem, izpusti, saj je to primer opozorila o razdelitvi — tako en klik po skupinski poizvedbi opravi nedvoumno večino, ostanejo pa le prava vprašanja. <span class="gm-glyph">✎</span> ob naslovu ga <strong>preimenuje</strong> na vseh dogodkih pri tej hiši — v vrstici <code>ADDR</code> ali znotraj strnjene vrednosti kraja, z ohranjenimi pripisi — tako tipkarsko napako popravite enkrat, s preimenovanjem enega zapisa v drugega pa se vrstici združita v eno hišo. In kot vrstica kraja tudi vsak naslov nosi število svojih
+              oseb: ob prehodu z miško pokaže imena, klik pa odpre osebe (s sorodstvom, kjer je vključeno), vsaka je
+              povezava v urejanje.
             </p>
             <p>
               Vrstica je ena hiša in ne en zapis: kadar datoteka isto hišo piše na več načinov — recimo isto številko pod

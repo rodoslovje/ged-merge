@@ -13,7 +13,7 @@ import type { AddSourceResult } from "./AddSourceDialog";
 import type { EditRepoFields, EditSourceFields } from "../gedcom/edit";
 import type { MediaEditFields } from "./MediaViewer";
 import { PlacesPanel } from "./tools/PlacesPanel";
-import type { GeoAssignment } from "../tools/geocode";
+import type { GeoAssignment, OfficialRename } from "../tools/geocode";
 import type { BrokenLinkRef } from "../tools/fixLinks";
 import type { RecordPatch } from "./historyTypes";
 import { PickerMenu } from "./PickerMenu";
@@ -30,6 +30,9 @@ interface Props {
   /** Content version of the dataset, bumped synchronously on every mutation —
    *  tells the scans cache when the worker's copy of the file is stale. */
   editVersionRef: { readonly current: number };
+  /** Bumped on every committed edit batch, including undo/redo — panels
+   *  whose scans walk the in-place-mutated dataset re-run off it. */
+  editVersion: number;
   /** Main file name, used to name the normalized download. */
   fileName: string;
   /** Jump to a person/family record in Edit mode. */
@@ -56,6 +59,10 @@ interface Props {
   onApplyGeocode: (assignments: Map<string, GeoAssignment>) => number;
   onApplyAddressCoords: (assignments: Map<string, GeoCoord>) => number;
   onRenamePlaceValue: (from: string, to: string, addr?: string) => number;
+  /** Batched "take the official name" renames — one undoable step. */
+  onApplyOfficialNames: (renames: OfficialRename[]) => number;
+  /** Rename one house's address on every event that carries it. */
+  onRenameAddress: (rawKeys: string[], fromAddress: string, toAddress: string) => number;
   onMovePlaceForAddresses: (keys: Set<string>, toPlace: string, coord?: GeoAssignment) => number;
   /** The app-wide start person, for kinship labels in people lists. */
   startId?: string;
@@ -101,7 +108,7 @@ interface Props {
   onUnrejectDuplicate: (aId: string, bId: string) => void;
 }
 
-export function ToolsView({ dataset, editVersionRef, fileName, onNavigate, onAddSource, onEditSource, onRemoveSource, onEditRepo, onEditMediaInfo, active, onApplyPlaceRename, onApplyGeocode, onApplyAddressCoords, onRenamePlaceValue, onMovePlaceForAddresses, startId, onFixBrokenLinks, onFixSexFromRole, onFixDates, onFixDuplicatePointers, onFixDanglingRefs, onFillPlaceCoords, onApplyBatchPatches, onMergeDuplicate, rejectedDuplicates, onRejectDuplicate, onRejectDuplicatesBulk, onUnrejectDuplicate }: Props) {
+export function ToolsView({ dataset, editVersionRef, editVersion, fileName, onNavigate, onAddSource, onEditSource, onRemoveSource, onEditRepo, onEditMediaInfo, active, onApplyPlaceRename, onApplyGeocode, onApplyAddressCoords, onRenamePlaceValue, onApplyOfficialNames, onRenameAddress, onMovePlaceForAddresses, startId, onFixBrokenLinks, onFixSexFromRole, onFixDates, onFixDuplicatePointers, onFixDanglingRefs, onFillPlaceCoords, onApplyBatchPatches, onMergeDuplicate, rejectedDuplicates, onRejectDuplicate, onRejectDuplicatesBulk, onUnrejectDuplicate }: Props) {
   const { t } = useTranslation();
   const [tool, setTool] = useState<Tool>("validate");
   const phone = usePhone();
@@ -175,7 +182,7 @@ export function ToolsView({ dataset, editVersionRef, fileName, onNavigate, onAdd
           <SourcesPanel dataset={dataset} scans={scans} fileName={fileName} onNavigate={onNavigate} onAddSource={onAddSource} onEditSource={onEditSource} onRemoveSource={onRemoveSource} onEditRepo={onEditRepo} onEditMediaInfo={onEditMediaInfo} active={active} />
         )}
         {tool === "places" && (
-          <PlacesPanel dataset={dataset} onNavigate={onNavigate} active={active} onApplyPlaceRename={onApplyPlaceRename} onApplyGeocode={onApplyGeocode} onApplyAddressCoords={onApplyAddressCoords} onRenamePlaceValue={onRenamePlaceValue} onMovePlaceForAddresses={onMovePlaceForAddresses} startId={startId} />
+          <PlacesPanel dataset={dataset} onNavigate={onNavigate} active={active} editVersion={editVersion} onApplyPlaceRename={onApplyPlaceRename} onApplyGeocode={onApplyGeocode} onApplyAddressCoords={onApplyAddressCoords} onRenamePlaceValue={onRenamePlaceValue} onApplyOfficialNames={onApplyOfficialNames} onRenameAddress={onRenameAddress} onMovePlaceForAddresses={onMovePlaceForAddresses} startId={startId} />
         )}
       </div>
       </ToolSummarySlotProvider>

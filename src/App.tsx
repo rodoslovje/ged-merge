@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { type RecordPatch, type PendingEditApply, cloneRaw, snapshotRecords, patchesFromSnapshots } from "./ui/historyTypes";
+import { type RecordPatch, type PendingEditApply, cloneRaw, coalescePatches, snapshotRecords, patchesFromSnapshots } from "./ui/historyTypes";
 import { useUndoRedo } from "./edit-state/useUndoRedo";
 import { useTheme } from "./ui/useTheme";
 import { useMode } from "./ui/useMode";
@@ -41,7 +41,7 @@ import { ErrorBoundary } from "./ui/ErrorBoundary";
 import { ErrorFallback } from "./ui/ErrorFallback";
 import { applyPlaceRename } from "./tools/placeEdit";
 import { applyGeocode, movePlaceForAddresses, renamePlaceValue } from "./tools/geocode";
-import { applyAddressCoords } from "./tools/addresses";
+import { applyAddressCoords, renameAddress } from "./tools/addresses";
 import { fixBrokenLinks } from "./tools/fixLinks";
 import { fixSexFromRole } from "./tools/fixSex";
 import { fixDates } from "./tools/fixDates";
@@ -762,7 +762,7 @@ function AppContent() {
     if (!entry) return;
     if (entry.mode === "edit") {
       if (entry.navigateTo) setNavigateToId(entry.navigateTo);
-      setMode("edit");
+      if (!entry.stay) setMode("edit");
       setPendingEditApply({ patches: entry.patches, direction: "undo", navigateTo: entry.navigateTo, redoNavigateTo: entry.redoNavigateTo });
     } else if (entry.mode === "import") {
       dispatch({ type: "importBranchesSet", branches: entry.before });
@@ -784,7 +784,7 @@ function AppContent() {
     if (entry.mode === "edit") {
       const navId = entry.redoNavigateTo ?? entry.navigateTo;
       if (navId) setNavigateToId(navId);
-      setMode("edit");
+      if (!entry.stay) setMode("edit");
       setPendingEditApply({ patches: entry.patches, direction: "redo", navigateTo: entry.navigateTo, redoNavigateTo: entry.redoNavigateTo });
     } else if (entry.mode === "import") {
       dispatch({ type: "importBranchesSet", branches: entry.after });
@@ -1005,9 +1005,9 @@ function AppContent() {
   );
 
   const handlePushEdit = useCallback(
-    (patches: RecordPatch[], navigateTo?: string, redoNavigateTo?: string) => {
+    (patches: RecordPatch[], navigateTo?: string, redoNavigateTo?: string, stay?: boolean) => {
       dirty.captureSnapshotsForPush(patches);
-      undoRedo.pushRef.current({ mode: "edit", patches, navigateTo, redoNavigateTo });
+      undoRedo.pushRef.current({ mode: "edit", patches, navigateTo, redoNavigateTo, ...(stay ? { stay } : {}) });
       bumpEdit();
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1019,7 +1019,10 @@ function AppContent() {
    *  callers can report how many records the fix touched. */
   function applyToolPatches(patches: RecordPatch[]): number {
     if (!mainDataset || patches.length === 0) return 0;
-    handlePushEdit(patches);
+    // stay: undoing a whole-file tool batch keeps the user where they are —
+    // there is no single person to show, and the Tools page they came from
+    // re-scans itself off the edit version.
+    handlePushEdit(patches, undefined, undefined, true);
     for (const p of patches) {
       // A shared record edited on its own (no owner card behind it — e.g. the
       // date repair rewriting a SOUR's DATE) is its own dirty subject; with an
@@ -1945,6 +1948,7 @@ function AppContent() {
               key={`tools-${mainLoadGen}`}
               dataset={mainDataset}
               editVersionRef={editVersionRef}
+              editVersion={editVersion}
               fileName={lastMainFile.fileName}
               onNavigate={(id) => {
                 // Tag the current entry as Tools and push an Edit entry, so the
@@ -1988,6 +1992,22 @@ function AppContent() {
               onApplyGeocode={(assignments) => applyToolPatches(applyGeocode(mainDataset, assignments))}
               onApplyAddressCoords={(assignments) => applyToolPatches(applyAddressCoords(mainDataset, assignments))}
               onRenamePlaceValue={(from, to, addr) => applyToolPatches(renamePlaceValue(mainDataset, from, to, addr))}
+              onApplyOfficialNames={(renames) =>
+                // One batch → one undo step: each row's rename, then the
+                // coordinate onto the renamed value. The two passes patch the
+                // same records, so the batch is coalesced to one patch per
+                // record — otherwise undo applies both befores and the later
+                // (already-renamed) one wins, undoing only the coordinate.
+                applyToolPatches(
+                  coalescePatches(
+                    renames.flatMap((r) => [
+                      ...renamePlaceValue(mainDataset, r.from, r.to),
+                      ...applyGeocode(mainDataset, new Map([[r.to, r.assignment]])),
+                    ]),
+                  ),
+                )
+              }
+              onRenameAddress={(rawKeys, fromAddress, toAddress) => applyToolPatches(renameAddress(mainDataset, rawKeys, fromAddress, toAddress))}
               onMovePlaceForAddresses={(keys, toPlace, coord) => applyToolPatches(movePlaceForAddresses(mainDataset, keys, toPlace, coord))}
               startId={startId}
               onFixBrokenLinks={(only) => applyToolPatches(fixBrokenLinks(mainDataset, only))}

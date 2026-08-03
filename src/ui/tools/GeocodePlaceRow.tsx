@@ -7,6 +7,7 @@ import { searchNominatim, type NominatimResult } from "../../geo/nominatim";
 import { searchGov, type GovResult } from "../../geo/gov";
 import { rnQueriesFrom, searchAddresses, type RnResult } from "../../geo/rn";
 import { chosenCoordFor, pickLabel, type ChosenCoord, type FileCoord, type GeoAssignment, type GeocodeRow } from "../../tools/geocode";
+import { replaceLocality } from "../../tools/addresses";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
 import type { KinshipResolver } from "../../match/kinship";
 import { lineageClass } from "../../match/kinship";
@@ -33,6 +34,14 @@ import { GeoRowHeader, MapToggle } from "./shared";
 const SETTINGS_KEYS = ["allowLinkFetch"] as const;
 
 const MiniPlaceMap = lazy(() => import("../map/MiniPlaceMap"));
+
+/** Badge class for a match score: green when it is going in (confident or
+ *  hand-checked), orange below 100% — the name did not match letter-perfectly,
+ *  so the score should read as a caution — grey otherwise. */
+function scoreBadgeClass(score: number, confident: boolean): string {
+  const exact = Math.round(score * 100) >= 100;
+  return `tools-geo-score${confident ? " confident" : exact ? "" : " warn"}${exact ? " exact" : ""}`;
+}
 
 /** "lat, lon" free input → validated coordinate. */
 export function parseManualCoord(text: string): GeoCoord | undefined {
@@ -107,10 +116,16 @@ export function GeocodePlaceRow({
   const appSettings = useSettingsSlice(SETTINGS_KEYS);
   const lookup = usePlaceLookup();
 
-  const c = chosenCoordFor(row, override, {
-    fromFile: t("tools.geocode.fromFile"),
-    cached: t("tools.geocode.cached"),
-  });
+  const c = chosenCoordFor(row, override, { fromFile: t("tools.geocode.fromFile") });
+
+  // "Use official name": offered when the row resolves to a register candidate
+  // whose name is not the letter-for-letter value the file writes — the
+  // parent-qualified longer names above all ("Cerovec" under Semič → "Cerovec
+  // pri Črešnjevcu"), but also a casing fix. One click renames every
+  // occurrence and writes the candidate's coordinate.
+  const officialCand =
+    c && row.candidates.find((cand) => sameCoord(c.coord, { lat: cand.entry.lat, lon: cand.entry.lon }));
+  const officialTo = officialCand ? replaceLocality(row.key, officialCand.entry.name) : undefined;
 
   // On-demand Nominatim (OSM) search for this row's raw value — the online
   // fallback for strings the offline gazetteer can't resolve, above all
@@ -187,19 +202,6 @@ export function GeocodePlaceRow({
   const [manualDraft, setManualDraft] = useState(() =>
     override && override.label === t("tools.geocode.manual") ? `${override.coord.lat}, ${override.coord.lon}` : "",
   );
-
-  // A remembered (cached) acceptance is shown with its original origin
-  // badge — file coordinate or gazetteer score — and only the tooltip
-  // says it came from a previous session; the plain "remembered" badge
-  // remains for decisions with no recognizable origin (e.g. manual).
-  const cachedCoord =
-    row.cached?.status === "accepted" && row.cached.lat !== undefined && row.cached.lon !== undefined
-      ? { lat: row.cached.lat, lon: row.cached.lon }
-      : undefined;
-  const cachedIsFile = sameCoord(cachedCoord, row.fileCoord);
-  const cachedCand = cachedCoord
-    ? row.candidates.find((cand) => sameCoord({ lat: cand.entry.lat, lon: cand.entry.lon }, cachedCoord))
-    : undefined;
 
   // Rename every occurrence of exactly this raw value, then rescan —
   // the corrected spelling gets fresh gazetteer proposals (or merges
@@ -322,23 +324,6 @@ export function GeocodePlaceRow({
           <span className="tools-reshape-badge remove" title={t("tools.geocode.noMatch")}>
             {t("tools.geocode.noMatchBadge")}
           </span>
-        ) : cachedCoord && !override ? (
-          cachedIsFile ? (
-            <span className="tools-reshape-badge new" title={`${t("tools.geocode.fromFileTooltip")} · ${t("tools.geocode.cachedTooltip")}`}>
-              {t("tools.geocode.fromFile")}
-            </span>
-          ) : cachedCand ? (
-            <span
-              className={`tools-geo-score${row.confident || isChecked ? " confident" : ""}`}
-              title={t("tools.geocode.cachedTooltip")}
-            >
-              {Math.round(cachedCand.score * 100)}%
-            </span>
-          ) : (
-            <span className="tools-reshape-badge reuse" title={t("tools.geocode.cachedTooltip")}>
-              {t("tools.geocode.cached")}
-            </span>
-          )
         ) : row.fileCoord && !override ? (
           <span className="tools-reshape-badge new" title={t("tools.geocode.fromFileTooltip")}>
             {t("tools.geocode.fromFile")}
@@ -346,12 +331,25 @@ export function GeocodePlaceRow({
         ) : row.candidates[0] && !override ? (
           // Green when confident — or hand-selected for writing: a
           // checked row's badge should read as "going in" too.
-          <span className={`tools-geo-score${row.confident || isChecked ? " confident" : ""}`}>
+          <span className={scoreBadgeClass(row.candidates[0].score, row.confident || isChecked)}>
             {Math.round(row.candidates[0].score * 100)}%
           </span>
         ) : !c ? (
           <span className="tools-tree-meta">{t("tools.geocode.noCandidate")}</span>
         ) : null}
+        {officialTo && officialCand && !marked && (
+          <button
+            className="tools-issue-link"
+            title={t("tools.geocode.official.tooltip", { name: officialCand.entry.name })}
+            onClick={() =>
+              onRename(row.key, officialTo, undefined, {
+                coord: { lat: officialCand.entry.lat, lon: officialCand.entry.lon },
+              })
+            }
+          >
+            {t("tools.geocode.official.take")}
+          </button>
+        )}
         <button
           className="tools-issue-link"
           onClick={() => onToggleNoMatch(row.key)}
@@ -567,26 +565,6 @@ export function GeocodePlaceRow({
                 </label>
               </li>
             )}
-            {/* A remembered coordinate matching neither the file's nor
-                any candidate still needs its own selectable row. */}
-            {cachedCoord && !cachedIsFile && !cachedCand && (
-              <li>
-                <label>
-                  <input
-                    type="radio"
-                    name={`geo-${row.key}`}
-                    checked={sameCoord(c?.coord, cachedCoord)}
-                    onClick={() => sameCoord(c?.coord, cachedCoord) && onUnpickCoord(row)}
-                    onChange={() => onPickCoord(row, cachedCoord, row.cached?.label ?? t("tools.geocode.cached"))}
-                  />
-                  <span className="tools-geo-cand-name">{row.cached?.label ?? t("tools.geocode.cached")}</span>
-                  <span className="gm-data">
-                    {cachedCoord.lat.toFixed(4)}, {cachedCoord.lon.toFixed(4)}
-                  </span>
-                  <span className="tools-reshape-badge reuse">{t("tools.geocode.cached")}</span>
-                </label>
-              </li>
-            )}
             {row.candidates.map((cand, i) => (
               <li key={i}>
                 <label>
@@ -608,7 +586,7 @@ export function GeocodePlaceRow({
                     {cand.entry.population > 0 && `· ${t("tools.geocode.population", { count: cand.entry.population })} · `}
                     {`${cand.entry.lat.toFixed(4)}, ${cand.entry.lon.toFixed(4)}`}
                   </span>
-                  <span className="tools-geo-score">{Math.round(cand.score * 100)}%</span>
+                  <span className={scoreBadgeClass(cand.score, false)}>{Math.round(cand.score * 100)}%</span>
                   {/* Source last, like the GOV/OSM/GURS rows below: the full
                       directory id — register code (SI-GURS), download key
                       (HR-OSM), or the bare country code, which by convention

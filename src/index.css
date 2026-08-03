@@ -7498,6 +7498,10 @@ kbd {
 button.tools-count-toggle { background: none; border: none; padding: 0; font: inherit; font-weight: 700; color: inherit; cursor: pointer; }
 button.tools-count-toggle:hover,
 button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
+/* A coordinate that opens the map it belongs on: plain data at rest, a link
+   on hover. */
+.tools-geo-coord-btn { background: none; border: none; padding: 0; font: inherit; color: inherit; cursor: pointer; }
+.tools-geo-coord-btn:hover { color: var(--accent); text-decoration: underline; }
 .tools-issues, .tools-pairs { list-style: none; margin: 0; padding: 0; }
 /* Spacer standing in for the unmounted rows of a virtualized list (useVirtualList). */
 .v-spacer { flex: none; margin: 0; padding: 0; border: none; list-style: none; }
@@ -7689,6 +7693,8 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
   font-size: 1em;
   line-height: 1;
 }
+.tools-geo-addr-head:hover .tools-place-edit-btn,
+.tools-geo-addr-head:focus-within .tools-place-edit-btn,
 .tools-tree-row:hover .tools-place-edit-btn,
 .tools-tree-row:focus-within .tools-place-edit-btn { opacity: 1; width: auto; padding: 1px 5px; margin-left: 0; }
 .tools-place-edit-btn:hover { color: var(--accent); background: var(--panel-2); }
@@ -8383,6 +8389,11 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
   border: 1px solid var(--border); border-radius: var(--radius-pill); padding: 0 6px;
 }
 .tools-geo-score.confident { color: var(--state-match); border-color: var(--state-match); }
+/* Below 100%: the name did not match letter-perfectly — a caution to look
+   before accepting, not a neutral fact. Same amber as small differences.
+   Letter-perfect 100% reads bold, so the two part at a glance. */
+.tools-geo-score.warn { color: var(--state-minor); border-color: var(--state-minor); }
+.tools-geo-score.exact { font-weight: 700; }
 .tools-geo-detail { padding: 6px 0 4px 46px; }
 .tools-geo-candidates { list-style: none; margin: 0 0 8px; padding: 0; }
 .tools-geo-candidates li { padding: 2px 0; }
@@ -8402,6 +8413,39 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 /* The geocode list's two chip rows (countries, then work status) read as one
    filter block: the second row sits closer to the first than to the list. */
 .tools-geocode .tools-chips + .tools-chips { margin-top: -6px; }
+/* The page's two work lists switch as tabs (segmented, like the chart option
+   pickers) — a long places list otherwise buries the addresses below it. The
+   row also hosts the active list's action buttons: the tabs already say what
+   and how much, so a heading line per section would repeat them. */
+.tools-geo-tabs-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 4px 0 12px; }
+.tools-geo-tabs-row .tools-geo-tabs { margin: 0; }
+.tools-geo-tabs {
+  display: inline-flex;
+  gap: 2px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 3px;
+  margin: 4px 0 12px;
+}
+.tools-geo-tabs button {
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  background: none;
+  border: none;
+  color: var(--muted);
+  border-radius: var(--radius-sm);
+  padding: 6px 16px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.tools-geo-tabs button:hover { color: var(--text); }
+.tools-geo-tabs button.active {
+  background: var(--panel);
+  color: var(--accent);
+  box-shadow: 0 1px 2px rgba(40, 34, 28, 0.12);
+}
 /* Address rows grouped under their place: one collapsible group per place, so a
    file with hundreds of addresses is worked through a place at a time. */
 .tools-geo-addr-group { border-bottom: 1px solid var(--border); padding: 4px 0; }

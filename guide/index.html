@@ -962,7 +962,7 @@
               municipality separates them; when your place names the municipality too, the right one wins outright. The
               municipality also finds names the register writes longer than yours — <em>Vinji vrh</em> under Semič finds
               <em>Vinji Vrh pri Semiču</em> — and the proposal a row resolves to always shows its municipality in the
-              row's own line, so a same-named settlement from the wrong municipality is caught at a glance. A
+              row's own line, so a same-named settlement from the wrong municipality is caught at a glance. When the register's name is the longer or corrected one, the row offers <strong>Use official name</strong> — one click renames every occurrence to it and writes its coordinate — and <strong>Take official names</strong> above the list does the same for every confident row the filters show, in one undoable step. A
               GeoNames file and an OpenStreetMap download do the same with the country's first-level divisions — a
               Croatian place carries its <em>županija</em>, an Austrian one its <em>Bundesland</em> — and the division is
               recognized under any of its names, so a file that writes <em>Požega-Slavonia</em> still points at
@@ -983,11 +983,14 @@
               The review list keeps a long file manageable. When the file's places span more than one country, a row of
               country buttons sits above the list, most places first — click one to narrow the list to that country,
               <em>All</em> to widen it again. A second row narrows by the kind of work left:
-              <strong>Confident</strong> holds the rows <strong>Select confident</strong> would take,
-              <strong>Partial match</strong> those whose proposal needs judging — an ambiguous name, or a municipality
-              that does not agree — <strong>No proposal</strong> those that need research or a rename,
+              <strong>Confident</strong> holds the letter-perfect, unambiguous matches,
+              <strong>Likely</strong> every row whose best proposal scores under 100% — amber ones need your judgement,
+              while a green score there (a register name confirmed by the written municipality) is still safe for
+              <strong>Select confident</strong> —
+              <strong>Ambiguous</strong> those whose name matches perfectly in more than one place at once,
+              <strong>No proposal</strong> those that need research or a rename,
               <strong>Decided</strong> what is already ticked or marked no-match; a good rhythm is to bulk-accept the
-              confident rows, then work through <em>Partial match</em> and leave <em>No proposal</em> for a research
+              confident rows, then work through <em>Likely</em> and <em>Ambiguous</em> and leave <em>No proposal</em> for a research
               session. Each button's count respects the other filters — it says exactly
               how many rows clicking it shows. The summary beside the search box tracks progress — how many places
               carry coordinates, and what share of the file's place mentions that covers. A row's own count is the
@@ -1017,16 +1020,17 @@
               their results joining the row's candidates and the circles on its map. <strong>Search OpenStreetMap</strong> uses OpenStreetMap
               (Nominatim) — best for street addresses. A value that names a house number in a country Slovenia's address
               register covers (<em>Šentvid pri Stični 23</em>) is not listed here at all: it is a building rather than a
-              place, so it is reviewed under its settlement in <strong>Addresses with a house number</strong> below.
+              place, so it is reviewed under its settlement on the <strong>Addresses</strong> tab.
               <strong>Search the Genealogical Gazetteer (GOV)</strong> uses the
               <a href="https://gov.genealogy.net" target="_blank" rel="noreferrer">Genealogical Gazetteer (GOV)</a>, whose
               entries carry historical, multilingual place names, the place each one is part of (so four same-named <em>Osredek</em> are told apart by their municipality) and a stable GOV id; accepting a GOV match also writes
               that id into the file as <code>_GOV</code> (a sibling of <code>MAP</code>), a durable link back to the GOV
-              record for other genealogy software. Accepted matches are cached, so other files resolve instantly.
+              record for other genealogy software. Accepted coordinates live in the file you save and nowhere else; only the “no match” marks are remembered by the browser, so a rejected proposal does not return — on this file or the next.
             </p>
             <p>
-              Below the place list, <strong>Addresses with a house number</strong> covers houses rather than places, and it
-              finds them wherever your file keeps them: in the event's own <strong>address</strong> beside a settlement
+              The page's second tab, <strong>Addresses with a house number</strong>, covers houses rather than places —
+              the places and the addresses switch as tabs at the top, each with its row count, and the search box
+              narrows whichever is open. It finds the houses wherever your file keeps them: in the event's own <strong>address</strong> beside a settlement
               place (<em>Kranj</em> + <em>Kidričeva cesta 38</em>), as the whole place value (<em>Črni vrh 35</em>), or
               packed in among the other parts of one (<em>Kranj (Slovenija), Stražišče 114 - župnija Šmartin</em>). Each
               is filed under the settlement it belongs to, so a file that writes no address lines at all reviews exactly
@@ -1035,7 +1039,11 @@
               <code>PLAC</code> <code>MAP</code> on those events — nothing non-standard, so every other program reads it.
               The list is grouped by place and collapsed, busiest first, because a real file holds hundreds of addresses:
               open a place to see its own addresses, look them all up in one go, and read them off a small map of every
-              house found there — neighbours on one map make an odd result obvious at a glance.
+              house found there — neighbours on one map make an odd result obvious at a glance. Chips above the list
+              narrow it by lookup state — <strong>Not looked up</strong>, <strong>With results</strong>, <strong>No
+              result</strong>, <strong>Picked</strong> — each counting exactly what clicking it shows, so working
+              register answers off is one chip away. <strong>Select confident</strong> stages every address the register answered with exactly one house — a hit filed under a different settlement is left out, since that is the split warning's case — so after a group lookup, one click handles the unambiguous majority and only the real questions remain. <span class="gm-glyph">✎</span> on an address <strong>renames</strong> it on every event at that house — in the <code>ADDR</code> line or inside a packed place value, annotations kept — so a typo is fixed once, and renaming one spelling onto another merges the two rows into one house. And like a place row, each address carries its person count: hover
+              it for the names, click it for the people themselves (with kinship, where enabled), each a link into Edit.
             </p>
             <p>
               A row is one house, not one spelling: where your file writes the same house several ways — the same number

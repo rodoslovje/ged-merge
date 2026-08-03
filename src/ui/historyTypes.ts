@@ -87,6 +87,31 @@ export function snapshotRecords(
  * for every snapshotted record that was removed (`after: null`) or whose raw
  * tree changed. Records left untouched produce no patch.
  */
+/**
+ * Merge sequential patches of one record into a single patch — the first
+ * patch's `before`, the last one's `after`. A batch that touches a record
+ * twice (a rename, then a coordinate onto the renamed value) must undo to the
+ * FIRST before; applied as-is, the later patch's `before` — the half-done
+ * state — would win, and undo would stop halfway.
+ */
+export function coalescePatches(patches: RecordPatch[]): RecordPatch[] {
+  const byKey = new Map<string, RecordPatch>();
+  const merged: RecordPatch[] = [];
+  for (const p of patches) {
+    const key = `${p.type}:${p.id}`;
+    const prev = byKey.get(key);
+    if (prev) {
+      prev.after = p.after;
+      if (p.after === null && p.index !== undefined) prev.index = p.index;
+    } else {
+      const copy = { ...p };
+      byKey.set(key, copy);
+      merged.push(copy);
+    }
+  }
+  return merged;
+}
+
 export function patchesFromSnapshots(dataset: Dataset, before: RecordSnapshots): RecordPatch[] {
   const patches: RecordPatch[] = [];
   const diff = (type: "individual" | "family", id: string, beforeRaw: GedNode, currentRaw: GedNode | undefined) => {

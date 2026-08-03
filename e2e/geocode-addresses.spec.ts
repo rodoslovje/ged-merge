@@ -71,6 +71,9 @@ test("houses in the place value are grouped under their settlement, and the filt
   await expect(places).toHaveCount(0);
   await expect(page.getByText("No matches.")).toBeVisible();
   await expect(groups).toHaveCount(1);
+  // The addresses sit behind their own tab; the filter kept the group and
+  // opened it, so switching over shows the address searched for.
+  await page.getByRole("tab", { name: /Addresses/ }).click();
   // A filter landing on one place opens it, so the address searched for shows.
   await expect(page.getByText("Stražišče 114")).toBeVisible();
 });

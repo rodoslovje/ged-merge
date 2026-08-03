@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
 import {
@@ -10,6 +10,7 @@ import {
   type ChosenCoord,
   type GeoAssignment,
   type GeocodeRow,
+  type OfficialRename,
 } from "../../tools/geocode";
 import { loadDecisions, putDecisions, type GeocodeDecision } from "../../persist/geoDb";
 import { ExpandAllToggle, ToolsLoading, TreeSearch, useDebounced } from "./shared";
@@ -20,6 +21,7 @@ import { foldSearch } from "../globalSearch";
 import { PlaceLookupProvider, usePlaceLookupValue } from "../edit/PlaceLookupContext";
 import { GazetteerSetup, useGazetteer } from "./GazetteerManager";
 import { AddressCoordsSection } from "./AddressCoordsSection";
+import { replaceLocality, scanAddresses } from "../../tools/addresses";
 import { CoordConflicts } from "./CoordConflicts";
 import { GeocodePlaceRow } from "./GeocodePlaceRow";
 import { BackButton } from "../BackButton";
@@ -39,25 +41,28 @@ import { ToolSummary } from "./ToolSummary";
 const NO_ROWS: GeocodeRow[] = [];
 
 /** The review chips split the list by the kind of attention a row needs:
- *  "confident" is what Select confident would take (an exact, unambiguous
- *  match), "review" a partial match — a proposal that needs judging —
- *  "noProposal" research or a rename, "decided" already handled. */
-type StatusFilter = "all" | "confident" | "review" | "noProposal" | "decided";
-const STATUS_FILTERS: StatusFilter[] = ["all", "confident", "review", "noProposal", "decided"];
+ *  "confident" a letter-perfect, unambiguous match (or the file's own
+ *  coordinate); "partial" any best proposal under 100% — grouped by the score
+ *  the row shows, so a parent-qualified 96% lands here even though its green
+ *  badge means Select confident still takes it; "review" a perfect-name tie —
+ *  several places match 100% and only the researcher can pick; "noProposal"
+ *  research or a rename; "decided" already handled. */
+type StatusFilter = "all" | "confident" | "review" | "partial" | "noProposal" | "decided";
+const STATUS_FILTERS: StatusFilter[] = ["all", "confident", "partial", "review", "noProposal", "decided"];
 
 /** A row has something to judge when any coordinate is on offer — the file's
- *  own, a gazetteer candidate, or a remembered acceptance. */
+ *  own, or a gazetteer candidate. */
 function hasProposal(row: GeocodeRow): boolean {
-  return (
-    !!row.fileCoord ||
-    row.candidates.length > 0 ||
-    (row.cached?.status === "accepted" && row.cached.lat !== undefined)
-  );
+  return !!row.fileCoord || row.candidates.length > 0;
 }
 
 interface Props {
   dataset: Dataset;
   active: boolean;
+  /** Bumped on every committed edit batch, including undo/redo — the scans
+   *  here walk the in-place-mutated dataset, so this is their only signal
+   *  that it changed under them. */
+  editVersion: number;
   /** Write the accepted coordinates (with any GOV ids) through the edit/undo
    *  pipeline; returns the number of records changed. */
   onApplyGeocode: (assignments: Map<string, GeoAssignment>) => number;
@@ -65,6 +70,11 @@ interface Props {
    *  pipeline); with `addr`, split into PLAC `to` + an ADDR on the parent
    *  event. Returns the number of records changed. */
   onRenamePlaceValue: (from: string, to: string, addr?: string) => number;
+  /** Batched "take the official name" renames — each row renamed to the
+   *  register's spelling and placed at its coordinate, all one undo step. */
+  onApplyOfficialNames: (renames: OfficialRename[]) => number;
+  /** Rename one house's address on every event that carries it. */
+  onRenameAddress: (rawKeys: string[], fromAddress: string, toAddress: string) => number;
   /** Move the events at these place+address pairs to `toPlace`; `coord` is the
    *  destination's position when it came from a register pick. */
   onMovePlaceForAddresses: (keys: Set<string>, toPlace: string, coord?: GeoAssignment) => number;
@@ -79,7 +89,7 @@ interface Props {
   startId?: string;
 }
 
-export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, onRenamePlaceValue, onMovePlaceForAddresses, onBack, onNavigate, startId }: Props) {
+export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onApplyAddressCoords, onRenamePlaceValue, onApplyOfficialNames, onRenameAddress, onMovePlaceForAddresses, onBack, onNavigate, startId }: Props) {
   const { t } = useTranslation();
   const { settings: appSettings } = useSettings();
   const nameOf = useNameOf();
@@ -115,6 +125,19 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
 
   // ── Scan + review state ───────────────────────────────────────────────────
   const [scanGen, setScanGen] = useState(0);
+  // Every edit batch — the panel's own applies, but equally an undo/redo or
+  // an edit made in another view — mutates the dataset in place, so nothing
+  // in the memo deps moves on its own. Rescan whenever the edit version has
+  // advanced while this panel is on screen; a hidden panel catches up the
+  // moment it is shown again.
+  const lastEditVersion = useRef(editVersion);
+  useEffect(() => {
+    if (!active) return;
+    if (lastEditVersion.current !== editVersion) {
+      lastEditVersion.current = editVersion;
+      setScanGen((g) => g + 1);
+    }
+  }, [active, editVersion]);
   const scan = useMemo(
     () => (decisions ? scanGeocode(dataset, index, decisions) : null),
     // scanGen re-runs the scan after an apply mutates the dataset in place.
@@ -139,6 +162,21 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
   // so a place the file has never written can be completed (chain, address,
   // coordinate) here too instead of being typed out by hand.
   const placeLookup = usePlaceLookupValue(dataset, placeSug.placeSuggestions);
+
+  // The address rows the section below reviews — scanned here because the
+  // Places/Addresses tab bar needs the count before the section renders.
+  const addrRows = useMemo(
+    () => scanAddresses(dataset),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dataset, scanGen],
+  );
+  // Which of the page's two work lists is on screen. Both stay mounted (their
+  // lookup results and staged picks must survive switching) and toggle with
+  // display, like the app's Edit/Merge views.
+  const [tab, setTab] = useState<"places" | "addresses">("places");
+  // The tab-row slot the address section portals its action buttons into —
+  // their state (staged picks) lives inside the section, the row lives here.
+  const [addrActionsEl, setAddrActionsEl] = useState<HTMLElement | null>(null);
 
   // Every coordinate the file already carries — the mini map's context dots.
   const fileCoords = useMemo(
@@ -195,11 +233,13 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
     const statusOf = (row: GeocodeRow): Exclude<StatusFilter, "all"> =>
       checked.has(row.key) || noMatch.has(row.key)
         ? "decided"
-        : row.confident
-          ? "confident"
-          : hasProposal(row)
-            ? "review"
-            : "noProposal";
+        : !row.fileCoord && row.candidates[0] && Math.round(row.candidates[0].score * 100) < 100
+          ? "partial"
+          : row.confident
+            ? "confident"
+            : hasProposal(row)
+              ? "review"
+              : "noProposal";
     const inStatus = (row: GeocodeRow) => statusFilter === "all" || statusOf(row) === statusFilter;
 
     const searched = query ? scan.rows.filter((r) => foldSearch(r.key).includes(query)) : scan.rows;
@@ -230,7 +270,7 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
       countryFilter !== null && countryChips.some((c) => c.country === countryFilter) ? countryFilter : null;
     const inCountry = (row: GeocodeRow) => activeCountry === null || countryOf(row.key) === activeCountry;
 
-    const statusCounts = { confident: 0, review: 0, noProposal: 0, decided: 0 };
+    const statusCounts = { confident: 0, review: 0, partial: 0, noProposal: 0, decided: 0 };
     let statusAllCount = 0;
     for (const row of searched) {
       if (!inCountry(row)) continue;
@@ -248,17 +288,15 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
   // covers all of them with only the rows near the viewport mounted.
   const virtual = useVirtualList({ count: rows.length, estimate: 26, itemsKey: rows });
 
-  // A fresh scan seeds the review state from the cached decisions — but
+  // A fresh scan seeds the no-match marks from the remembered decisions — but
   // in-progress picks on rows that survived the rescan (e.g. after renaming
-  // one other row) are preserved, not silently discarded.
+  // one other row) are preserved, not silently discarded. Nothing arrives
+  // pre-ticked: accepting a coordinate is this run's act, and the accepted
+  // ones live in the file once written, not in the browser.
   useEffect(() => {
     if (!scan) return;
     const keys = new Set(scan.rows.map((r) => r.key));
-    setChecked((prev) => {
-      const next = new Set([...prev].filter((k) => keys.has(k)));
-      for (const r of scan.rows) if (r.cached?.status === "accepted" && r.cached.lat !== undefined) next.add(r.key);
-      return next;
-    });
+    setChecked((prev) => new Set([...prev].filter((k) => keys.has(k))));
     setNoMatch((prev) => {
       const next = new Set([...prev].filter((k) => keys.has(k)));
       for (const r of scan.rows) if (r.cached?.status === "nomatch") next.add(r.key);
@@ -270,10 +308,7 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
   }, [scan]);
 
   const chosenFor = (row: GeocodeRow): ChosenCoord | undefined =>
-    chosenCoordFor(row, chosen.get(row.key), {
-      fromFile: t("tools.geocode.fromFile"),
-      cached: t("tools.geocode.cached"),
-    });
+    chosenCoordFor(row, chosen.get(row.key), { fromFile: t("tools.geocode.fromFile") });
 
   const toggleChecked = (key: string, on: boolean) =>
     setChecked((prev) => {
@@ -333,9 +368,9 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
         ? onApplyAddressCoords(new Map([[placeAddrKey(to, addr), coord.coord]]))
         : onApplyGeocode(new Map([[to, coord]]));
     // The two passes touch overlapping records, so the larger count is the
-    // honest "records changed", not the sum.
+    // honest "records changed", not the sum. The edit-version effect above
+    // handles the rescan.
     setLastApplied(Math.max(renamed, placed));
-    setScanGen((g) => g + 1);
   };
 
   const toggleNoMatch = (key: string) => {
@@ -368,26 +403,20 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
       if (checked.has(row.key)) {
         const c = chosenFor(row);
         if (!c) continue;
+        // Accepted coordinates go into the file and nowhere else — the saved
+        // GEDCOM is their record; only no-match marks are remembered.
         assignments.set(row.key, c.govId ? { coord: c.coord, govId: c.govId } : { coord: c.coord });
-        toStore.push({
-          key: row.key,
-          status: "accepted",
-          lat: c.coord.lat,
-          lon: c.coord.lon,
-          label: c.label,
-          ts: now,
-          ...(c.govId ? { govId: c.govId } : {}),
-        });
       } else if (noMatch.has(row.key) && row.cached?.status !== "nomatch") {
         toStore.push({ key: row.key, status: "nomatch", ts: now });
       }
     }
     const changed = assignments.size ? onApplyGeocode(assignments) : 0;
     setLastApplied(changed);
+    // Decisions reload re-keys the scan memo; dataset changes (when anything
+    // was written) rescan via the edit-version effect.
     await putDecisions(toStore);
     const fresh = await loadDecisions();
     setDecisions(fresh);
-    setScanGen((g) => g + 1);
   };
 
   // ── Rendering ─────────────────────────────────────────────────────────────
@@ -395,6 +424,22 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
 
   const { countryChips, countryAllCount, activeCountry, statusCounts, statusAllCount } = view;
   const confidentCount = scan.rows.filter((r) => r.confident && !checked.has(r.key) && !noMatch.has(r.key)).length;
+
+  // "Take official names": rows whose best proposal is the register's longer
+  // (or differently cased) spelling of the very place they write — confident
+  // ones only, so a fuzzy guess never renames anything in bulk. Scoped to the
+  // filtered rows, like the chips: what you see is what the button takes.
+  const officialFor = (row: GeocodeRow): OfficialRename | undefined => {
+    const cand = row.candidates[0];
+    if (!cand || !row.confident || noMatch.has(row.key)) return undefined;
+    const to = replaceLocality(row.key, cand.entry.name);
+    return to ? { from: row.key, to, assignment: { coord: { lat: cand.entry.lat, lon: cand.entry.lon } } } : undefined;
+  };
+  const officialRenames = rows.flatMap((r) => officialFor(r) ?? []);
+  const takeOfficialNames = () => {
+    if (!officialRenames.length) return;
+    setLastApplied(onApplyOfficialNames(officialRenames));
+  };
 
   return (
     // The registers behind every place field on this page: the rename row and
@@ -419,8 +464,6 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
             .join(" · ")}
         </ToolSummary>
       </div>
-      <p className="tools-intro">{t("tools.geocode.intro")}</p>
-
       <GazetteerSetup gaz={gaz} />
 
       {/* Above the lists, below the gazetteer: it is the only outright error on
@@ -428,13 +471,14 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
           below can resolve — but it is a finding, not part of the setup. */}
       <CoordConflicts dataset={dataset} onApply={onApplyAddressCoords} query={query} />
 
-      {scan.rows.length === 0 && <p className="tools-clean tools-clean--ok">{t("tools.geocode.allCovered")}</p>}
-
-      {scan.rows.length > 0 && (
-      <section className="tools-cleanup-section">
-        <div className="tools-dup-kind-head">
-          {t("tools.geocode.heading")}
-          <span className="tools-chip-count">{scan.rows.length}</span>
+      {/* The two work lists switch as tabs — a long places list otherwise
+          buries the addresses below it. No tabs while the file has no
+          addresses: the page is just the places list then. */}
+      {(() => {
+        const hasTabs = addrRows.length > 0;
+        // The places actions render either on the tab row (tabs shown) or in
+        // the section's own head (no addresses, no tabs) — one definition.
+        const placesActions = scan.rows.length > 0 && (
           <div className="tools-dup-bulk">
             <button className="nav-btn primary tools-run" onClick={() => void apply()} disabled={checked.size === 0 && noMatch.size === 0}>
               {t("tools.geocode.apply", { count: checked.size })}
@@ -442,6 +486,11 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
             <button className="tools-issue-link" onClick={selectConfident} disabled={confidentCount === 0}>
               {t("tools.geocode.selectConfident", { count: confidentCount })}
             </button>
+            {officialRenames.length > 0 && (
+              <button className="tools-issue-link" onClick={takeOfficialNames} title={t("tools.geocode.official.bulkTooltip")}>
+                {t("tools.geocode.official.bulk", { count: officialRenames.length })}
+              </button>
+            )}
             <button className="tools-issue-link" onClick={() => setChecked(new Set())}>
               {t("tools.sources.dupSelectNone")}
             </button>
@@ -455,7 +504,42 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
               }}
             />
           </div>
+        );
+        return (
+          <>
+      {/* The tab row carries the active list's actions too — the tabs already
+          say what and how much, so a heading line per section would repeat it. */}
+      {hasTabs && (
+        <div className="tools-geo-tabs-row">
+          <div className="tools-geo-tabs" role="tablist">
+            <button role="tab" aria-selected={tab === "places"} className={tab === "places" ? "active" : ""} onClick={() => setTab("places")}>
+              {t("tools.geocode.tab.places")} <span className="tools-chip-count">{scan.rows.length}</span>
+            </button>
+            <button role="tab" aria-selected={tab === "addresses"} className={tab === "addresses" ? "active" : ""} onClick={() => setTab("addresses")}>
+              {t("tools.geocode.tab.addresses")} <span className="tools-chip-count">{addrRows.length}</span>
+            </button>
+          </div>
+          {tab === "places" && placesActions}
+          {/* The address section owns its buttons' state; it portals them here. */}
+          {tab === "addresses" && <div className="tools-dup-bulk" ref={setAddrActionsEl} />}
         </div>
+      )}
+
+      <div style={tab === "places" ? undefined : { display: "none" }}>
+      {/* The offline-matching promise is the places tab's — the address tab
+          asks the register online and says so in its own intro. */}
+      <p className="tools-intro">{t("tools.geocode.intro")}</p>
+      {scan.rows.length === 0 && <p className="tools-clean tools-clean--ok">{t("tools.geocode.allCovered")}</p>}
+
+      {scan.rows.length > 0 && (
+      <section className="tools-cleanup-section">
+        {!hasTabs && (
+          <div className="tools-dup-kind-head">
+            {t("tools.geocode.heading")}
+            <span className="tools-chip-count">{scan.rows.length}</span>
+            {placesActions}
+          </div>
+        )}
       {/* One country's file shows no country row — there is nothing to narrow. */}
       {countryChips.length > 1 && (
         <div className="tools-chips">
@@ -522,15 +606,27 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
       </section>
       )}
 
+      </div>
+
       {/* Addresses whose house coordinate the register can supply, for events
           whose PLAC names only the settlement. Renders nothing when there are
           none, so files without ADDR lines see no change. */}
+      <div style={tab === "addresses" ? undefined : { display: "none" }}>
       <AddressCoordsSection
         dataset={dataset}
+        all={addrRows}
         onApply={onApplyAddressCoords}
         onMove={onMovePlaceForAddresses}
         query={query}
+        kinship={kinship}
+        onNavigate={onNavigate}
+        onRenameAddress={onRenameAddress}
+        actionsHost={addrActionsEl}
       />
+      </div>
+          </>
+        );
+      })()}
     </div>
     </PlaceLookupProvider>
   );

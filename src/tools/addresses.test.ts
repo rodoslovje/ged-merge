@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { serializeGedcom } from "../gedcom/serialize";
-import { applyAddressCoords, replaceLocality, scanAddresses, suggestMovedPlace } from "./addresses";
+import { applyAddressCoords, renameAddress, replaceLocality, scanAddresses, suggestMovedPlace } from "./addresses";
 import { placeAddrKey } from "./geocode";
 import { scanPlaceCoords } from "./placeCoords";
 
@@ -262,5 +262,56 @@ describe("scanAddresses and existing coordinates", () => {
   it("leaves an address alone once it has its own house coordinate", () => {
     // Distinct coordinates per address: each is house-precise, nothing to do.
     expect(scanAddresses(build(withCoords("N46.24137", "N46.23887")))).toEqual([]);
+  });
+});
+
+describe("renameAddress", () => {
+  const HOUSES = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Ana /Kos/
+1 BIRT
+2 PLAC Kranj, Slovenija
+2 ADDR Hafnarjeva pot 21
+1 RESI
+2 PLAC Kranj (Slovenija), Hafnarjeva pot 21a - župnija Šmartin
+1 DEAT
+2 PLAC Kranj, Slovenija
+2 ADDR Hafnarjeva pot 21a
+0 TRLR`;
+
+  it("rewrites the ADDR line and the packed place value alike", () => {
+    const ds = build(HOUSES);
+    const rows = scanAddresses(ds);
+    const packed = rows.find((r) => r.address === "Hafnarjeva pot 21a")!;
+    const patches = renameAddress(ds, packed.rawKeys, packed.address, "Hafnarjeva pot 53");
+    expect(patches.length).toBeGreaterThan(0);
+    const text = serializeGedcom(ds.records);
+    // The packed value keeps its annotations; only the address text changed.
+    expect(text).toContain("2 PLAC Kranj (Slovenija), Hafnarjeva pot 53 - župnija Šmartin");
+    expect(text).toContain("2 ADDR Hafnarjeva pot 53");
+    // The other house is untouched.
+    expect(text).toContain("2 ADDR Hafnarjeva pot 21\n");
+  });
+
+  it("renaming onto another row's address merges the two rows", () => {
+    const ds = build(HOUSES);
+    const rows = scanAddresses(ds);
+    const a21a = rows.find((r) => r.address === "Hafnarjeva pot 21a")!;
+    renameAddress(ds, a21a.rawKeys, a21a.address, "Hafnarjeva pot 21");
+    const after = scanAddresses(ds);
+    expect(after).toHaveLength(1);
+    expect(after[0].address).toBe("Hafnarjeva pot 21");
+    expect(after[0].count).toBe(3);
+  });
+
+  it("is a no-op for an empty or unchanged target", () => {
+    const ds = build(HOUSES);
+    const rows = scanAddresses(ds);
+    const row = rows[0];
+    expect(renameAddress(ds, row.rawKeys, row.address, row.address)).toHaveLength(0);
+    expect(renameAddress(ds, row.rawKeys, row.address, "  ")).toHaveLength(0);
   });
 });

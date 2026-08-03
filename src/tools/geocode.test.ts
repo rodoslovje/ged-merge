@@ -101,14 +101,16 @@ describe("scanGeocode", () => {
     expect(straz.missingIn).toEqual(["@I2@"]);
   });
 
-  it("attaches cached decisions and works without a gazetteer", () => {
+  it("attaches remembered no-match marks only, and works without a gazetteer", () => {
     const ds = buildFromText(SAMPLE);
     const cached = new Map([
+      // A legacy "accepted" record (from when acceptances were cached too)
+      // must be ignored: accepted coordinates live in the saved file.
       ["Kranj, Slovenija", { key: "Kranj, Slovenija", status: "accepted" as const, lat: 46.2, lon: 14.3, ts: 1 }],
       ["Neznani Kraj XY", { key: "Neznani Kraj XY", status: "nomatch" as const, ts: 1 }],
     ]);
     const scan = scanGeocode(ds, undefined, cached);
-    expect(scan.rows.find((r) => r.key === "Kranj, Slovenija")!.cached?.status).toBe("accepted");
+    expect(scan.rows.find((r) => r.key === "Kranj, Slovenija")!.cached).toBeUndefined();
     expect(scan.rows.find((r) => r.key === "Neznani Kraj XY")!.cached?.status).toBe("nomatch");
   });
 });
@@ -155,24 +157,22 @@ describe("scanGeocode and house addresses", () => {
 });
 
 describe("chosenCoordFor", () => {
-  const labels = { fromFile: "from file", cached: "cached" };
+  const labels = { fromFile: "from file" };
   const base: GeocodeRow = { key: "X", count: 1, missing: 1, candidates: [], confident: false, missingIn: [] };
   const cand = index.entries.find((e) => e.name === "Kranj")!;
 
-  it("prefers override > cached > file coordinate > best candidate", () => {
+  it("prefers override > file coordinate > best candidate", () => {
     const row: GeocodeRow = {
       ...base,
       fileCoord: { lat: 1, lon: 1 },
       candidates: [{ entry: cand, score: 1 }],
-      cached: { key: "X", status: "accepted", lat: 2, lon: 2, label: "remembered", ts: 1 },
     };
     expect(chosenCoordFor(row, { coord: { lat: 3, lon: 3 }, label: "manual" }, labels)?.coord).toEqual({ lat: 3, lon: 3 });
-    expect(chosenCoordFor(row, undefined, labels)).toEqual({ coord: { lat: 2, lon: 2 }, label: "remembered" });
-    expect(chosenCoordFor({ ...row, cached: undefined }, undefined, labels)).toEqual({
+    expect(chosenCoordFor(row, undefined, labels)).toEqual({
       coord: { lat: 1, lon: 1 },
       label: "from file",
     });
-    expect(chosenCoordFor({ ...row, cached: undefined, fileCoord: undefined }, undefined, labels)).toEqual({
+    expect(chosenCoordFor({ ...row, fileCoord: undefined }, undefined, labels)).toEqual({
       coord: { lat: cand.lat, lon: cand.lon },
       label: "Kranj",
     });

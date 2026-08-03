@@ -1,10 +1,11 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
 import { sameCoord } from "../../geo/points";
 import { resultsForQuery, searchAddressBatch, searchAddresses, type RnResult } from "../../geo/rn";
 import type { PlaceProposal } from "../../geo/placeProposal";
-import { replaceLocality, scanAddresses, suggestMovedPlace, type AddressRow } from "../../tools/addresses";
+import { replaceLocality, suggestMovedPlace, type AddressRow } from "../../tools/addresses";
 import type { GeoAssignment } from "../../tools/geocode";
 import { foldSearch } from "../globalSearch";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
@@ -12,8 +13,11 @@ import { EventCoordPicker } from "../edit/EventCoordPicker";
 import { PlaceAutocomplete } from "../edit/PlaceAutocomplete";
 import { usePlaceLookup } from "../edit/PlaceLookupContext";
 import { buildPlaceSuggestions, type PlaceSuggestions } from "../edit/placeSuggestions";
-import { useSettings } from "../SettingsContext";
+import { useNameOf, useSettings } from "../SettingsContext";
+import { lineageClass, type KinshipResolver } from "../../match/kinship";
+import { PersonLink } from "../PersonLink";
 import { ExpandAllToggle, GeoRowHeader, MapToggle } from "./shared";
+import { requestSettings } from "../settingsBus";
 
 // The ADDR half of geocoding: house coordinates from the GURS address register
 // for events whose PLAC names only the settlement. Kept apart from the place
@@ -35,6 +39,25 @@ type SearchState = { state: "idle" | "loading" | "error" | "done"; results: RnRe
 const MiniPlaceMap = lazy(() => import("../map/MiniPlaceMap"));
 
 const IDLE: SearchState = { state: "idle", results: [] };
+
+/** The lookup-state chips over the list, mirroring the places list's work
+ *  chips: what still needs a register query, what came back with houses to
+ *  judge, what the register does not know, and what is staged for writing. */
+type AddrStatus = "unsearched" | "found" | "none" | "picked";
+const ADDR_FILTERS: ("all" | AddrStatus)[] = ["all", "unsearched", "found", "none", "picked"];
+
+/** A row's lookup state right now. An error or in-flight search still counts
+ *  as "unsearched" — it has no answer yet and the lookup can be retried. */
+function addrStatus(
+  row: AddressRow,
+  searches: ReadonlyMap<string, SearchState>,
+  picked: ReadonlyMap<string, unknown>,
+): AddrStatus {
+  if (picked.has(row.key)) return "picked";
+  const s = searches.get(row.key);
+  if (s?.state === "done") return s.results.length ? "found" : "none";
+  return "unsearched";
+}
 
 /** House numbers compared as numbers: 4 · 6 · 7 · 32, not 32 · 4 · 6 · 7. */
 const BY_NUMBER = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
@@ -125,11 +148,19 @@ function groupSuggestion(place: string, rows: AddressRow[]): PlaceGroup["suggest
 
 export function AddressCoordsSection({
   dataset,
+  all,
   onApply,
   onMove,
   query,
+  actionsHost,
+  onRenameAddress,
+  kinship,
+  onNavigate,
 }: {
   dataset: Dataset;
+  /** The scanned address rows — computed by the panel, which also needs the
+   *  count for the tab that shows or hides this whole section. */
+  all: AddressRow[];
   onApply: (assignments: Map<string, GeoCoord>) => number;
   /** `coord` is the destination's own position, when it was picked from a
    *  register — the moved events are placed there instead of keeping the
@@ -138,12 +169,21 @@ export function AddressCoordsSection({
   /** The page's filter, already folded. A group whose place matches keeps all
    *  its addresses; otherwise only the addresses that match are listed. */
   query: string;
+  /** Tab-row element to render the action buttons into (portal): the tabs
+   *  already name and count this list, so the section shows no heading of its
+   *  own while hosted. Null until the slot mounts. */
+  actionsHost?: HTMLElement | null;
+  /** Rename one house's address on every event that carries it (edit/undo
+   *  pipeline); returns the number of records changed. */
+  onRenameAddress: (rawKeys: string[], fromAddress: string, toAddress: string) => number;
+  /** Kinship labels for the rows' people lists — the places rows' resolver. */
+  kinship?: KinshipResolver;
+  /** Jump to a person in Edit mode (the rows' people lists). */
+  onNavigate: (id: string) => void;
 }) {
   const { t } = useTranslation();
   const { settings } = useSettings();
-  // Re-scanned whenever the dataset object changes (applying replaces it), so
-  // rows that were just written disappear on their own.
-  const all = useMemo(() => scanAddresses(dataset), [dataset]);
+  const nameOf = useNameOf();
   const byKey = useMemo(() => new Map(all.map((row) => [row.key, row])), [all]);
   // Matching on the address alone would drop the settlement a search like
   // "Kranj" is really about, and matching on the place alone would hide the one
@@ -162,9 +202,36 @@ export function AddressCoordsSection({
     }
     return found;
   }, [rows, query]);
+  const [searches, setSearches] = useState<Map<string, SearchState>>(new Map());
+  const [picked, setPicked] = useState<Map<string, { coord: GeoCoord; label: string }>>(new Map());
+  // Which lookup state is on screen; "all" leaves the list whole. Like the
+  // places chips, a chip's count is exactly what clicking it shows.
+  const [statusFilter, setStatusFilter] = useState<"all" | AddrStatus>("all");
+  // Rows whose people list is open — asked for by clicking the person count.
+  const [peopleOpen, setPeopleOpen] = useState<Set<string>>(new Set());
+  // The one row whose rename editor is open, and its draft.
+  const [renameKey, setRenameKey] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
+
+  // Hover lists of the people behind each address's person count.
+  const peopleTitles = useMemo(() => {
+    const titles = new Map<string, string>();
+    for (const row of all) {
+      if (!row.people.length) continue;
+      const shown = row.people.slice(0, 15).map((id) => {
+        const p = dataset.individuals.get(id);
+        return p ? nameOf(p) : id;
+      });
+      const more = row.people.length - shown.length;
+      titles.set(row.key, shown.join("\n") + (more > 0 ? `\n… +${more}` : ""));
+    }
+    return titles;
+  }, [all, nameOf, dataset]);
+
   const groups = useMemo(() => {
+    const kept = statusFilter === "all" ? rows : rows.filter((r) => addrStatus(r, searches, picked) === statusFilter);
     const byPlace = new Map<string, PlaceGroup>();
-    for (const row of rows) {
+    for (const row of kept) {
       const g = byPlace.get(row.place);
       if (g) {
         g.rows.push(row);
@@ -180,7 +247,7 @@ export function AddressCoordsSection({
     }
     // Most-used places first — that is where geocoding pays off soonest.
     return [...byPlace.values()].sort((a, b) => b.events - a.events || a.place.localeCompare(b.place));
-  }, [rows]);
+  }, [rows, searches, picked, statusFilter]);
 
   // Existing place values for the move target's autocomplete, so a split lands
   // on the file's own spelling of the destination when it already has one. The
@@ -191,8 +258,6 @@ export function AddressCoordsSection({
   const [open, setOpen] = useState<Set<string>>(new Set());
   /** Groups whose map is drawn — never on open, always on request. */
   const [mapOpen, setMapOpen] = useState<Set<string>>(new Set());
-  const [searches, setSearches] = useState<Map<string, SearchState>>(new Map());
-  const [picked, setPicked] = useState<Map<string, { coord: GeoCoord; label: string }>>(new Map());
   const [applied, setApplied] = useState<number | null>(null);
   // The move panel: which group's is open, where to, and which of its rows go.
   const [moveGroup, setMoveGroup] = useState<string | null>(null);
@@ -221,6 +286,19 @@ export function AddressCoordsSection({
   if (!all.length) return null;
 
   const allOpen = groups.length > 0 && groups.every((g) => open.has(g.place));
+
+  // Faceted like the places chips: counted over the search-filtered rows, so
+  // each chip says how many addresses clicking it leaves on screen.
+  const statusCounts = { unsearched: 0, found: 0, none: 0, picked: 0 };
+  for (const row of rows) statusCounts[addrStatus(row, searches, picked)]++;
+
+  const togglePeople = (key: string) =>
+    setPeopleOpen((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
 
   const setSearch = (key: string, next: SearchState) => setSearches((prev) => new Map(prev).set(key, next));
 
@@ -324,6 +402,49 @@ export function AddressCoordsSection({
   const pick = (key: string, result: RnResult) =>
     setPicked((prev) => new Map(prev).set(key, { coord: result.coord, label: result.label }));
 
+  /** Rename the row's address on every event that carries it, then close the
+   *  editor — the rescan (edit version) merges it into an existing row when
+   *  the new spelling already has one, which is how duplicates are joined. */
+  const applyRename = (row: AddressRow) => {
+    const to = renameDraft.trim();
+    if (!to || to === row.address) return;
+    onRenameAddress(row.rawKeys, row.address, to);
+    setRenameKey(null);
+    // The row's key changes with its address: drop state tied to the old key.
+    setPicked((prev) => {
+      const next = new Map(prev);
+      next.delete(row.key);
+      return next;
+    });
+    setSearches((prev) => {
+      const next = new Map(prev);
+      next.delete(row.key);
+      return next;
+    });
+  };
+
+  /** Rows the register answered with exactly one house — safe to stage in one
+   *  click, like the places list's Select confident. A hit the register files
+   *  under a settlement other than the claimed one is NOT safe: that is the
+   *  split-warning case, and it stays for review (or the move flow). */
+  const confidentRows = rows.filter((row) => {
+    if (picked.has(row.key)) return false;
+    const results = searches.get(row.key)?.results ?? [];
+    if (results.length !== 1) return false;
+    const claimed = row.queries[0]?.settlement;
+    const hit = results[0];
+    return !(hit.settlement && claimed && foldSearch(hit.settlement) !== foldSearch(claimed));
+  });
+  const selectConfident = () =>
+    setPicked((prev) => {
+      const next = new Map(prev);
+      for (const row of confidentRows) {
+        const r = (searches.get(row.key)?.results ?? [])[0];
+        if (r) next.set(row.key, { coord: r.coord, label: r.label });
+      }
+      return next;
+    });
+
   /** Clicking the chosen option again drops the choice — a radio group has no
    *  "none" of its own, and a row picked by mistake would otherwise be written. */
   const unpick = (key: string) =>
@@ -387,31 +508,65 @@ export function AddressCoordsSection({
     setApplied(changed);
   };
 
+  const actions = (
+    <>
+      <button className="nav-btn primary tools-run" onClick={apply} disabled={picked.size === 0}>
+        {t("tools.geocode.addr.apply", { count: picked.size })}
+      </button>
+      <button
+        className="tools-issue-link"
+        onClick={selectConfident}
+        disabled={confidentRows.length === 0}
+        title={t("tools.geocode.addr.selectConfidentHint")}
+      >
+        {t("tools.geocode.selectConfident", { count: confidentRows.length })}
+      </button>
+      <button className="tools-issue-link" onClick={() => setPicked(new Map())} disabled={picked.size === 0}>
+        {t("tools.sources.dupSelectNone")}
+      </button>
+      <ExpandAllToggle
+        allOpen={allOpen}
+        onToggle={() => {
+          if (allOpen) {
+            setOpen(new Set());
+            setMapOpen(new Set());
+          } else setOpen(new Set(groups.map((g) => g.place)));
+        }}
+      />
+    </>
+  );
+
   return (
     <section className="tools-cleanup-section">
-      <div className="tools-dup-kind-head">
-        {t("tools.geocode.addr.heading", { count: rows.length, places: groups.length })}
-        <div className="tools-dup-bulk">
-          <button className="nav-btn primary tools-run" onClick={apply} disabled={picked.size === 0}>
-            {t("tools.geocode.addr.apply", { count: picked.size })}
-          </button>
-          <button className="tools-issue-link" onClick={() => setPicked(new Map())} disabled={picked.size === 0}>
-            {t("tools.sources.dupSelectNone")}
-          </button>
-          <ExpandAllToggle
-            allOpen={allOpen}
-            onToggle={() => {
-              if (allOpen) {
-                setOpen(new Set());
-                setMapOpen(new Set());
-              } else setOpen(new Set(groups.map((g) => g.place)));
-            }}
-          />
+      {actionsHost ? (
+        createPortal(actions, actionsHost)
+      ) : (
+        <div className="tools-dup-kind-head">
+          {t("tools.geocode.addr.heading", { count: rows.length, places: groups.length })}
+          <div className="tools-dup-bulk">{actions}</div>
         </div>
-      </div>
-      <p className="tools-intro">{t("tools.geocode.addr.intro")}</p>
+      )}
+      <p className="tools-intro">
+        {t("tools.geocode.addr.intro")} {t("tools.geocode.addr.introOnline")}{" "}
+        <button className="tools-issue-link" onClick={() => requestSettings("advanced")}>
+          {t("tools.geocode.settingsAdvanced")}
+        </button>
+        .
+      </p>
       {applied !== null && <p className="tools-clean tools-clean--ok">{t("tools.geocode.addr.applied", { count: applied })}</p>}
       {moved !== null && <p className="tools-clean tools-clean--ok">{t("tools.geocode.addr.moved", { count: moved })}</p>}
+      <div className="tools-chips">
+        {ADDR_FILTERS.map((f) => (
+          <button
+            key={f}
+            className={`tools-chip ${statusFilter === f ? "active" : ""}`}
+            onClick={() => setStatusFilter(f)}
+          >
+            {t(`tools.geocode.addr.filter.${f}`)}{" "}
+            <span className="tools-chip-count">{f === "all" ? rows.length : statusCounts[f]}</span>
+          </button>
+        ))}
+      </div>
       {/* Said rather than shown as an empty list: the section is the only place
           the file's addresses live, so vanishing under a filter would read as
           "this file has none". */}
@@ -540,7 +695,40 @@ export function AddressCoordsSection({
                             />
                           )}
                           <span className="tools-geo-cand-name">{row.address}</span>
+                          {renameKey === row.key ? (
+                            <button
+                              className="tools-place-edit-btn tools-place-edit-cancel"
+                              onClick={() => setRenameKey(null)}
+                              title={t("tools.places.rename.cancel")}
+                            >
+                              ✕
+                            </button>
+                          ) : (
+                            <button
+                              className="tools-place-edit-btn"
+                              onClick={() => {
+                                setRenameKey(row.key);
+                                setRenameDraft(row.address);
+                              }}
+                              title={t("tools.geocode.addr.renameOpen")}
+                            >
+                              ✎
+                            </button>
+                          )}
                           <span className="tools-geo-count">{t("tools.geocode.addr.uses", { count: row.count })}</span>
+                          {/* Who the events belong to — count as the toggle,
+                              names on hover, exactly like the places rows. */}
+                          {row.people.length > 0 && (
+                            <button
+                              className="tools-chip-count tools-count-toggle"
+                              title={peopleTitles.get(row.key)}
+                              aria-pressed={peopleOpen.has(row.key)}
+                              aria-label={t("tools.geocode.peopleToggle")}
+                              onClick={() => togglePeople(row.key)}
+                            >
+                              {row.people.length}
+                            </button>
+                          )}
                           {settings.allowLinkFetch ? (
                             <>
                               <button
@@ -578,8 +766,54 @@ export function AddressCoordsSection({
                             }
                             onClear={() => unpick(row.key)}
                           />
-                          {chosen && <span className="tools-reshape-badge official">{chosen.label}</span>}
                         </div>
+                        {renameKey === row.key && (
+                          <div
+                            className="tools-place-rename"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") applyRename(row);
+                              if (e.key === "Escape") setRenameKey(null);
+                            }}
+                          >
+                            <input
+                              type="text"
+                              className="tools-place-rename-input"
+                              value={renameDraft}
+                              autoFocus
+                              placeholder={t("tools.geocode.renameAddrPlaceholder")}
+                              onChange={(e) => setRenameDraft(e.target.value)}
+                            />
+                            <button
+                              className="nav-btn primary tools-place-rename-apply"
+                              onClick={() => applyRename(row)}
+                              disabled={!renameDraft.trim() || renameDraft.trim() === row.address}
+                            >
+                              {t("tools.places.rename.apply")}
+                            </button>
+                          </div>
+                        )}
+                        {peopleOpen.has(row.key) && (
+                          <>
+                            <ul className="tools-usage tools-geo-people">
+                              {row.people.slice(0, 30).map((id) => {
+                                const kin = kinship?.label(id);
+                                return (
+                                  <li key={id}>
+                                    <PersonLink dataset={dataset} id={id} fallback={id} onNavigate={onNavigate} />
+                                    {kin && (
+                                      <span className={`person-kinship ${lineageClass(kinship?.lineage(id))}`}>{kin}</span>
+                                    )}
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                            {row.people.length > 30 && (
+                              <p className="tools-geo-more">
+                                {t("tools.geocode.morePeople", { count: row.people.length - 30 })}
+                              </p>
+                            )}
+                          </>
+                        )}
                         {search.results.length > 0 && (
                           <ul className="tools-geo-candidates">
                             {search.results.map((r, i) => (
@@ -593,9 +827,20 @@ export function AddressCoordsSection({
                                     onClick={() => sameCoord(chosen?.coord, r.coord) && unpick(row.key)}
                                   />
                                   <span className="tools-geo-cand-name">{r.label}</span>
-                                  <span className="gm-data">
+                                  {/* The coordinate doubles as "show on the
+                                      place's map", like the places rows —
+                                      the house appears among its neighbours. */}
+                                  <button
+                                    type="button"
+                                    className="gm-data tools-geo-coord-btn"
+                                    title={t("tools.geocode.showMap")}
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      setMapOpen((prev) => new Set(prev).add(group.place));
+                                    }}
+                                  >
                                     {r.coord.lat.toFixed(5)}, {r.coord.lon.toFixed(5)}
-                                  </span>
+                                  </button>
                                   <span className="tools-reshape-badge official">GURS</span>
                                 </label>
                               </li>
