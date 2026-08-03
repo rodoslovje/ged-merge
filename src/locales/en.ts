@@ -1617,8 +1617,8 @@ export const en = {
     "Franciscean cadastre · Tupaliče 1:2880 (1826)",
   "settings.map.overlays.preset.kataster.sencur":
     "Franciscean cadastre · Šenčur 1:2880 (1826)",
-  "settings.map.overlays.preset.kataster.jama":
-    "Franciscean cadastre · Jama 1:2880 (1826)",
+  "settings.map.overlays.preset.kataster.jamaPrase":
+    "Franciscean cadastre · Jama-Praše 1:2880 (1826)",
   "settings.map.overlays.preset.kataster.drulovkaBreg":
     "Franciscean cadastre · Drulovka-Breg 1:2880 (1826)",
   "settings.map.overlays.preset.kataster.mavcice":
