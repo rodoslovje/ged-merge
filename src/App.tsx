@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { type RecordPatch, type PendingEditApply, cloneRaw, snapshotRecords, patchesFromSnapshots } from "./ui/historyTypes";
+import { type RecordPatch, type PendingEditApply, cloneRaw, coalescePatches, snapshotRecords, patchesFromSnapshots } from "./ui/historyTypes";
 import { useUndoRedo } from "./edit-state/useUndoRedo";
 import { useTheme } from "./ui/useTheme";
 import { useMode } from "./ui/useMode";
@@ -1994,12 +1994,17 @@ function AppContent() {
               onRenamePlaceValue={(from, to, addr) => applyToolPatches(renamePlaceValue(mainDataset, from, to, addr))}
               onApplyOfficialNames={(renames) =>
                 // One batch → one undo step: each row's rename, then the
-                // coordinate onto the renamed value.
+                // coordinate onto the renamed value. The two passes patch the
+                // same records, so the batch is coalesced to one patch per
+                // record — otherwise undo applies both befores and the later
+                // (already-renamed) one wins, undoing only the coordinate.
                 applyToolPatches(
-                  renames.flatMap((r) => [
-                    ...renamePlaceValue(mainDataset, r.from, r.to),
-                    ...applyGeocode(mainDataset, new Map([[r.to, r.assignment]])),
-                  ]),
+                  coalescePatches(
+                    renames.flatMap((r) => [
+                      ...renamePlaceValue(mainDataset, r.from, r.to),
+                      ...applyGeocode(mainDataset, new Map([[r.to, r.assignment]])),
+                    ]),
+                  ),
                 )
               }
               onMovePlaceForAddresses={(keys, toPlace, coord) => applyToolPatches(movePlaceForAddresses(mainDataset, keys, toPlace, coord))}
