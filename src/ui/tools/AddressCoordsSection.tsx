@@ -149,6 +149,7 @@ function groupSuggestion(place: string, rows: AddressRow[]): PlaceGroup["suggest
 export function AddressCoordsSection({
   dataset,
   all,
+  addrsByPlace,
   onApply,
   onMove,
   query,
@@ -161,6 +162,9 @@ export function AddressCoordsSection({
   /** The scanned address rows — computed by the panel, which also needs the
    *  count for the tab that shows or hides this whole section. */
   all: AddressRow[];
+  /** Every address the file writes at each place, the rename field's
+   *  completions — wider than `all`, which drops the placed houses. */
+  addrsByPlace: ReadonlyMap<string, string[]>;
   onApply: (assignments: Map<string, GeoCoord>) => number;
   /** `coord` is the destination's own position, when it was picked from a
    *  register — the moved events are placed there instead of keeping the
@@ -771,17 +775,32 @@ export function AddressCoordsSection({
                           <div
                             className="tools-place-rename"
                             onKeyDown={(e) => {
-                              if (e.key === "Enter") applyRename(row);
-                              if (e.key === "Escape") setRenameKey(null);
+                              // Enter on a highlighted suggestion, and Escape with the
+                              // dropdown open, belong to the autocomplete
+                              // (defaultPrevented); the next press is the editor's.
+                              if (e.key === "Enter" && !e.defaultPrevented) applyRename(row);
+                              if (e.key === "Escape" && !e.defaultPrevented) setRenameKey(null);
                             }}
                           >
-                            <input
-                              type="text"
-                              className="tools-place-rename-input"
+                            {/* Completed from the other houses of this same place: a
+                                rename here is usually a straggler being joined to a
+                                spelling the place already has, and typing it out again
+                                by hand is how the two miss each other by a character. */}
+                            <PlaceAutocomplete
                               value={renameDraft}
-                              autoFocus
+                              suggestions={(addrsByPlace.get(group.place) ?? []).filter((a) => a !== row.address)}
+                              canonical={places.addrCanonical}
+                              isDirty={false}
+                              className="tools-place-rename-input"
+                              wrapClassName="tools-place-rename-auto"
                               placeholder={t("tools.geocode.renameAddrPlaceholder")}
-                              onChange={(e) => setRenameDraft(e.target.value)}
+                              autoFocus
+                              // A rename may be exactly a casing fix ("Pod Gozdom" →
+                              // "pod gozdom") — the canonical map must not undo it.
+                              preserveCase
+                              onChange={setRenameDraft}
+                              onCommit={setRenameDraft}
+                              onClear={() => setRenameDraft("")}
                             />
                             <button
                               className="nav-btn primary tools-place-rename-apply"

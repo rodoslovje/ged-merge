@@ -21,7 +21,7 @@ import { foldSearch } from "../globalSearch";
 import { PlaceLookupProvider, usePlaceLookupValue } from "../edit/PlaceLookupContext";
 import { GazetteerSetup, useGazetteer } from "./GazetteerManager";
 import { AddressCoordsSection } from "./AddressCoordsSection";
-import { replaceLocality, scanAddresses } from "../../tools/addresses";
+import { addressesByPlace, replaceLocality, scanAddresses } from "../../tools/addresses";
 import { CoordConflicts } from "./CoordConflicts";
 import { GeocodePlaceRow } from "./GeocodePlaceRow";
 import { BackButton } from "../BackButton";
@@ -167,6 +167,15 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
   // Places/Addresses tab bar needs the count before the section renders.
   const addrRows = useMemo(
     () => scanAddresses(dataset),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dataset, scanGen],
+  );
+  // Every address the file writes at each place — what an address rename is
+  // offered as completions. Scanned apart from the rows above because it must
+  // include the houses those rows leave out (already placed ones): renaming a
+  // second spelling onto them is exactly how the two become one house.
+  const addrsByPlace = useMemo(
+    () => addressesByPlace(dataset),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [dataset, scanGen],
   );
@@ -615,6 +624,7 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
       <AddressCoordsSection
         dataset={dataset}
         all={addrRows}
+        addrsByPlace={addrsByPlace}
         onApply={onApplyAddressCoords}
         onMove={onMovePlaceForAddresses}
         query={query}

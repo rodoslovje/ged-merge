@@ -2,7 +2,14 @@ import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { serializeGedcom } from "../gedcom/serialize";
-import { applyAddressCoords, renameAddress, replaceLocality, scanAddresses, suggestMovedPlace } from "./addresses";
+import {
+  addressesByPlace,
+  applyAddressCoords,
+  renameAddress,
+  replaceLocality,
+  scanAddresses,
+  suggestMovedPlace,
+} from "./addresses";
 import { placeAddrKey } from "./geocode";
 import { scanPlaceCoords } from "./placeCoords";
 
@@ -313,5 +320,35 @@ describe("renameAddress", () => {
     const row = rows[0];
     expect(renameAddress(ds, row.rawKeys, row.address, row.address)).toHaveLength(0);
     expect(renameAddress(ds, row.rawKeys, row.address, "  ")).toHaveLength(0);
+  });
+});
+
+describe("addressesByPlace", () => {
+  it("collects every house of a place, however the file writes it", () => {
+    const map = addressesByPlace(build(FILE));
+    expect(map.get("Kranj, Slovenija")).toEqual(["Kidričeva cesta 38"]);
+    // Read out of the place value, so filed under the settlement left behind.
+    expect(map.get("Šentvid pri Stični, Slovenija")).toEqual(["Šentvid pri Stični 23"]);
+    // Beyond the register's reach, but still a spelling this place has.
+    expect(map.get("Wien, Austria")).toEqual(["Ringstrasse 1"]);
+  });
+
+  it("keeps a house the geocoding rows have dropped", () => {
+    const ds = build(`0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 BIRT
+2 PLAC Črni vrh 35
+1 RESI
+2 PLAC Črni vrh 46
+0 TRLR`);
+    const placed = scanAddresses(ds).find((r) => r.address === "Črni vrh 35")!;
+    applyAddressCoords(ds, new Map(placed.rawKeys.map((k) => [k, { lat: 46.10101, lon: 14.20202 }])));
+    const after = build(serializeGedcom(ds.records));
+    // Nothing left to look up for 35 — but it is still the spelling 46 could be
+    // renamed onto, so the rename's list must keep offering it.
+    expect(scanAddresses(after).map((r) => r.address)).toEqual(["Črni vrh 46"]);
+    expect(addressesByPlace(after).get("Črni vrh")).toEqual(["Črni vrh 35", "Črni vrh 46"]);
   });
 });
