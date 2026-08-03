@@ -41,10 +41,11 @@ const NO_ROWS: GeocodeRow[] = [];
 
 /** The review chips split the list by the kind of attention a row needs:
  *  "confident" is what Select confident would take (an exact, unambiguous
- *  match), "review" a partial match — a proposal that needs judging —
- *  "noProposal" research or a rename, "decided" already handled. */
-type StatusFilter = "all" | "confident" | "review" | "noProposal" | "decided";
-const STATUS_FILTERS: StatusFilter[] = ["all", "confident", "review", "noProposal", "decided"];
+ *  match); "review" a perfect-name tie — several places match 100% and only
+ *  the researcher can pick; "partial" a best proposal under 100% (the amber
+ *  scores); "noProposal" research or a rename; "decided" already handled. */
+type StatusFilter = "all" | "confident" | "review" | "partial" | "noProposal" | "decided";
+const STATUS_FILTERS: StatusFilter[] = ["all", "confident", "review", "partial", "noProposal", "decided"];
 
 /** A row has something to judge when any coordinate is on offer — the file's
  *  own, a gazetteer candidate, or a remembered acceptance. */
@@ -213,9 +214,11 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
         ? "decided"
         : row.confident
           ? "confident"
-          : hasProposal(row)
-            ? "review"
-            : "noProposal";
+          : row.candidates[0] && Math.round(row.candidates[0].score * 100) < 100
+            ? "partial"
+            : hasProposal(row)
+              ? "review"
+              : "noProposal";
     const inStatus = (row: GeocodeRow) => statusFilter === "all" || statusOf(row) === statusFilter;
 
     const searched = query ? scan.rows.filter((r) => foldSearch(r.key).includes(query)) : scan.rows;
@@ -246,7 +249,7 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
       countryFilter !== null && countryChips.some((c) => c.country === countryFilter) ? countryFilter : null;
     const inCountry = (row: GeocodeRow) => activeCountry === null || countryOf(row.key) === activeCountry;
 
-    const statusCounts = { confident: 0, review: 0, noProposal: 0, decided: 0 };
+    const statusCounts = { confident: 0, review: 0, partial: 0, noProposal: 0, decided: 0 };
     let statusAllCount = 0;
     for (const row of searched) {
       if (!inCountry(row)) continue;
