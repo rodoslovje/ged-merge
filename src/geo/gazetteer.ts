@@ -24,6 +24,10 @@ export interface GazEntry {
   country: string;
   /** Admin1 code (region), informational only. */
   admin1: string;
+  /** GeoNames feature code, kept for admin divisions only ("ADM1", "ADM2", …)
+   *  — what lets {@link attachAdmin1Names} find the region rows among the
+   *  A-class entries. Absent for settlements and non-GeoNames sources. */
+  fcode?: string;
   /** The administrative parent the source register names — for GURS, the
    *  občina. Purely for telling same-named settlements apart: Slovenia has a
    *  Soteska in Kamnik and another in Dolenjske Toplice, and the name alone
@@ -74,7 +78,7 @@ export function parseGeoNamesLine(line: string): GazEntry | undefined {
   const name = cols[1].trim();
   if (!name) return undefined;
   const ascii = cols[2].trim();
-  return {
+  const entry: GazEntry = {
     name,
     ascii: ascii && ascii !== name ? ascii : "",
     alt: cols[3] ? cols[3].split(",").map((s) => s.trim()).filter(Boolean) : [],
@@ -85,6 +89,33 @@ export function parseGeoNamesLine(line: string): GazEntry | undefined {
     admin1: cols[10] ?? "",
     population: Number(cols[14]) || 0,
   };
+  if (fclass === "A" && cols[7]) entry.fcode = cols[7];
+  return entry;
+}
+
+/**
+ * Fill each entry's `admin` display name from the country's own ADM1 rows: a
+ * GeoNames extract carries its first-level divisions (Croatian županije,
+ * Austrian Bundesländer, …) as A-class entries whose `admin1` code the
+ * populated places reference. Resolving the code to the division's name gives
+ * foreign entries the same "(parent)" label — and the same same-named-places
+ * disambiguation in {@link lookupPlace} — that GURS entries get from the
+ * občina. Runs over one country's entries (admin1 codes collide across
+ * countries); mutates in place at import time so the join is stored.
+ */
+export function attachAdmin1Names(entries: GazEntry[]): void {
+  const names = new Map<string, string>();
+  for (const e of entries) {
+    if (e.fcode === "ADM1" && e.admin1) names.set(e.admin1, e.name);
+  }
+  if (!names.size) return;
+  for (const e of entries) {
+    if (e.admin) continue;
+    const name = e.admin1 ? names.get(e.admin1) : undefined;
+    // A parent repeating the place's own name says nothing (the division named
+    // after its seat — and the division row itself), so it is left off.
+    if (name && foldToken(name) !== foldToken(e.name)) e.admin = name;
+  }
 }
 
 /** Overpass (OpenStreetMap) JSON response, reduced to what we read. */

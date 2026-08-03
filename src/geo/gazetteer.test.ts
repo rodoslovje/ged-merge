@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   GURS_REGISTER,
   HIGH_CONFIDENCE,
+  attachAdmin1Names,
   buildGazetteerIndex,
   lookupPlace,
   osmRegister,
@@ -48,6 +49,50 @@ describe("parseGeoNamesLine", () => {
   it("rejects malformed rows", () => {
     expect(parseGeoNamesLine("garbage")).toBeUndefined();
     expect(parseGeoNamesLine("1\tX\tX\t\tnot-a-number\t14\tP\tPPL\tSI\t\t\t\t\t\t0\t\t\t\t")).toBeUndefined();
+  });
+
+  it("keeps the feature code on admin divisions only", () => {
+    const es = entries();
+    expect(es.find((e) => e.fclass === "A")?.fcode).toBe("ADM2");
+    expect(es.filter((e) => e.fclass === "P").every((e) => e.fcode === undefined)).toBe(true);
+  });
+});
+
+describe("attachAdmin1Names", () => {
+  // A Croatian extract in miniature: the county (ADM1) row, a town inside it,
+  // a town in another county whose ADM1 row is missing, and the county seat
+  // sharing the county's name stem.
+  const HR_ROWS = [
+    "3337515\tPrimorsko-Goranska Županija\tPrimorsko-Goranska Zupanija\t\t45.31667\t14.81667\tA\tADM1\tHR\t\t12\t\t\t\t296195\t\t500\tEurope/Zagreb\t2019-09-05",
+    "3191648\tRavna Gora\tRavna Gora\t\t45.37417\t14.93944\tP\tPPL\tHR\t\t12\t\t\t\t1709\t\t800\tEurope/Zagreb\t2019-09-05",
+    "3186952\tZagreb\tZagreb\tAgram\t45.81444\t15.97798\tP\tPPLC\tHR\t\t21\t\t\t\t698966\t\t130\tEurope/Zagreb\t2019-09-05",
+    "3191281\tDelnice\tDelnice\t\t45.39833\t14.79861\tA\tADM2\tHR\t\t12\t\t\t\t5952\t\t700\tEurope/Zagreb\t2019-09-05",
+  ];
+
+  it("labels places with their ADM1 division's name", () => {
+    const es = HR_ROWS.map(parseGeoNamesLine).filter((e): e is GazEntry => !!e);
+    attachAdmin1Names(es);
+    expect(es.find((e) => e.name === "Ravna Gora")?.admin).toBe("Primorsko-Goranska Županija");
+    // The ADM2 entry sits in the county too, and gets the same label.
+    expect(es.find((e) => e.name === "Delnice")?.admin).toBe("Primorsko-Goranska Županija");
+    // No ADM1 row for code 21 in the extract — left unlabelled, not guessed.
+    expect(es.find((e) => e.name === "Zagreb")?.admin).toBeUndefined();
+    // The division row itself repeats its own name — says nothing, left off.
+    expect(es.find((e) => e.fcode === "ADM1")?.admin).toBeUndefined();
+  });
+
+  it("never overwrites an admin name another source set", () => {
+    const es = HR_ROWS.map(parseGeoNamesLine).filter((e): e is GazEntry => !!e);
+    const ravnaGora = es.find((e) => e.name === "Ravna Gora")!;
+    ravnaGora.admin = "Gorski kotar";
+    attachAdmin1Names(es);
+    expect(ravnaGora.admin).toBe("Gorski kotar");
+  });
+
+  it("does nothing when the extract carries no ADM1 rows", () => {
+    const es = entries();
+    attachAdmin1Names(es);
+    expect(es.every((e) => e.admin === undefined)).toBe(true);
   });
 });
 

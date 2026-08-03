@@ -1,4 +1,5 @@
 import {
+  attachAdmin1Names,
   GURS_REGISTER,
   osmRegister,
   overpassToEntries,
@@ -110,6 +111,7 @@ self.onmessage = async (event: MessageEvent<GeoWorkerRequest>) => {
     if (!byCountry.size) throw new Error("no gazetteer rows recognized");
     const countries: { code: string; count: number }[] = [];
     for (const [code, entries] of byCountry) {
+      attachAdmin1Names(entries);
       await putCountry({ code, count: entries.length, importedAt: Date.now(), entries });
       countries.push({ code, count: entries.length });
     }
