@@ -8384,8 +8384,10 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 }
 .tools-geo-score.confident { color: var(--state-match); border-color: var(--state-match); }
 /* Below 100%: the name did not match letter-perfectly — a caution to look
-   before accepting, not a neutral fact. Same amber as small differences. */
+   before accepting, not a neutral fact. Same amber as small differences.
+   Letter-perfect 100% reads bold, so the two part at a glance. */
 .tools-geo-score.warn { color: var(--state-minor); border-color: var(--state-minor); }
+.tools-geo-score.exact { font-weight: 700; }
 .tools-geo-detail { padding: 6px 0 4px 46px; }
 .tools-geo-candidates { list-style: none; margin: 0 0 8px; padding: 0; }
 .tools-geo-candidates li { padding: 2px 0; }
@@ -8406,7 +8408,11 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
    filter block: the second row sits closer to the first than to the list. */
 .tools-geocode .tools-chips + .tools-chips { margin-top: -6px; }
 /* The page's two work lists switch as tabs (segmented, like the chart option
-   pickers) — a long places list otherwise buries the addresses below it. */
+   pickers) — a long places list otherwise buries the addresses below it. The
+   row also hosts the active list's action buttons: the tabs already say what
+   and how much, so a heading line per section would repeat them. */
+.tools-geo-tabs-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 4px 0 12px; }
+.tools-geo-tabs-row .tools-geo-tabs { margin: 0; }
 .tools-geo-tabs {
   display: inline-flex;
   gap: 2px;

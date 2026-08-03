@@ -38,7 +38,8 @@ const MiniPlaceMap = lazy(() => import("../map/MiniPlaceMap"));
  *  hand-checked), orange below 100% — the name did not match letter-perfectly,
  *  so the score should read as a caution — grey otherwise. */
 function scoreBadgeClass(score: number, confident: boolean): string {
-  return `tools-geo-score${confident ? " confident" : Math.round(score * 100) < 100 ? " warn" : ""}`;
+  const exact = Math.round(score * 100) >= 100;
+  return `tools-geo-score${confident ? " confident" : exact ? "" : " warn"}${exact ? " exact" : ""}`;
 }
 
 /** "lat, lon" free input → validated coordinate. */

@@ -505,7 +505,7 @@ export const sl = {
   "tools.geocode.addr.searchGroup": "Poišči vse ({{count}})",
   "tools.geocode.addr.noPlace": "(brez kraja)",
   "tools.geocode.addr.mapHint": "Najdene hiše za ta kraj — kliknite krogec, da ga izberete za njen naslov.",
-  "tools.geocode.addr.intro": "Ti dogodki navajajo ulico ali hišno številko — v naslovu ali kar v kraju — in so združeni po naselju, ki mu pripada. Register naslovov lahko določi točno stavbo; koordinata se shrani k naslovu, zato koordinata naselja ostane nespremenjena. Zemljevid nato prikaže hišo, kjer je ni, pa se vrne na naselje.",
+  "tools.geocode.addr.intro": "Ti dogodki navajajo ulico ali hišno številko — v naslovu ali kar v kraju — in so združeni po naselju, ki mu pripada. Register naslovov lahko določi točno stavbo; koordinata se shrani k naslovu, zato koordinata naselja ostane nespremenjena. Zemljevid nato prikaže hišo, kjer je ni, pa se vrne na naselje. Za razliko od ujemanja krajev brez povezave te poizvedbe vprašajo uradni register prek spleta — samo ob vašem kliku, s privolitvijo v spletna iskanja v Nastavitve › Napredno.",
   "tools.geocode.addr.inPlace": "v kraju",
   "tools.geocode.addr.inPlaceHint": "Ti dogodki hranijo hišno številko v kraju, zato je tu naveden kraj naselje, ki ostane, ko številko odmislimo. Sprejete koordinate se zapišejo v vrednost, ki jo dogodki nosijo; premik v drug kraj ni na voljo, ker prav ta vrednost nosi številko.",
   "tools.geocode.addr.uses_one": "{{count}} dogodek",

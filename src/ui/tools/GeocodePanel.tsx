@@ -152,6 +152,9 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
   // lookup results and staged picks must survive switching) and toggle with
   // display, like the app's Edit/Merge views.
   const [tab, setTab] = useState<"places" | "addresses">("places");
+  // The tab-row slot the address section portals its action buttons into —
+  // their state (staged picks) lives inside the section, the row lives here.
+  const [addrActionsEl, setAddrActionsEl] = useState<HTMLElement | null>(null);
 
   // Every coordinate the file already carries — the mini map's context dots.
   const fileCoords = useMemo(
@@ -432,8 +435,6 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
             .join(" · ")}
         </ToolSummary>
       </div>
-      <p className="tools-intro">{t("tools.geocode.intro")}</p>
-
       <GazetteerSetup gaz={gaz} />
 
       {/* Above the lists, below the gazetteer: it is the only outright error on
@@ -444,25 +445,11 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
       {/* The two work lists switch as tabs — a long places list otherwise
           buries the addresses below it. No tabs while the file has no
           addresses: the page is just the places list then. */}
-      {addrRows.length > 0 && (
-        <div className="tools-geo-tabs" role="tablist">
-          <button role="tab" aria-selected={tab === "places"} className={tab === "places" ? "active" : ""} onClick={() => setTab("places")}>
-            {t("tools.geocode.tab.places")} <span className="tools-chip-count">{scan.rows.length}</span>
-          </button>
-          <button role="tab" aria-selected={tab === "addresses"} className={tab === "addresses" ? "active" : ""} onClick={() => setTab("addresses")}>
-            {t("tools.geocode.tab.addresses")} <span className="tools-chip-count">{addrRows.length}</span>
-          </button>
-        </div>
-      )}
-
-      <div style={tab === "places" ? undefined : { display: "none" }}>
-      {scan.rows.length === 0 && <p className="tools-clean tools-clean--ok">{t("tools.geocode.allCovered")}</p>}
-
-      {scan.rows.length > 0 && (
-      <section className="tools-cleanup-section">
-        <div className="tools-dup-kind-head">
-          {t("tools.geocode.heading")}
-          <span className="tools-chip-count">{scan.rows.length}</span>
+      {(() => {
+        const hasTabs = addrRows.length > 0;
+        // The places actions render either on the tab row (tabs shown) or in
+        // the section's own head (no addresses, no tabs) — one definition.
+        const placesActions = scan.rows.length > 0 && (
           <div className="tools-dup-bulk">
             <button className="nav-btn primary tools-run" onClick={() => void apply()} disabled={checked.size === 0 && noMatch.size === 0}>
               {t("tools.geocode.apply", { count: checked.size })}
@@ -483,7 +470,42 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
               }}
             />
           </div>
+        );
+        return (
+          <>
+      {/* The tab row carries the active list's actions too — the tabs already
+          say what and how much, so a heading line per section would repeat it. */}
+      {hasTabs && (
+        <div className="tools-geo-tabs-row">
+          <div className="tools-geo-tabs" role="tablist">
+            <button role="tab" aria-selected={tab === "places"} className={tab === "places" ? "active" : ""} onClick={() => setTab("places")}>
+              {t("tools.geocode.tab.places")} <span className="tools-chip-count">{scan.rows.length}</span>
+            </button>
+            <button role="tab" aria-selected={tab === "addresses"} className={tab === "addresses" ? "active" : ""} onClick={() => setTab("addresses")}>
+              {t("tools.geocode.tab.addresses")} <span className="tools-chip-count">{addrRows.length}</span>
+            </button>
+          </div>
+          {tab === "places" && placesActions}
+          {/* The address section owns its buttons' state; it portals them here. */}
+          {tab === "addresses" && <div className="tools-dup-bulk" ref={setAddrActionsEl} />}
         </div>
+      )}
+
+      <div style={tab === "places" ? undefined : { display: "none" }}>
+      {/* The offline-matching promise is the places tab's — the address tab
+          asks the register online and says so in its own intro. */}
+      <p className="tools-intro">{t("tools.geocode.intro")}</p>
+      {scan.rows.length === 0 && <p className="tools-clean tools-clean--ok">{t("tools.geocode.allCovered")}</p>}
+
+      {scan.rows.length > 0 && (
+      <section className="tools-cleanup-section">
+        {!hasTabs && (
+          <div className="tools-dup-kind-head">
+            {t("tools.geocode.heading")}
+            <span className="tools-chip-count">{scan.rows.length}</span>
+            {placesActions}
+          </div>
+        )}
       {/* One country's file shows no country row — there is nothing to narrow. */}
       {countryChips.length > 1 && (
         <div className="tools-chips">
@@ -564,8 +586,12 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
         query={query}
         kinship={kinship}
         onNavigate={onNavigate}
+        actionsHost={addrActionsEl}
       />
       </div>
+          </>
+        );
+      })()}
     </div>
     </PlaceLookupProvider>
   );

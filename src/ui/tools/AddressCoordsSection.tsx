@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
 import { sameCoord } from "../../geo/points";
@@ -150,6 +151,7 @@ export function AddressCoordsSection({
   onApply,
   onMove,
   query,
+  actionsHost,
   kinship,
   onNavigate,
 }: {
@@ -165,6 +167,10 @@ export function AddressCoordsSection({
   /** The page's filter, already folded. A group whose place matches keeps all
    *  its addresses; otherwise only the addresses that match are listed. */
   query: string;
+  /** Tab-row element to render the action buttons into (portal): the tabs
+   *  already name and count this list, so the section shows no heading of its
+   *  own while hosted. Null until the slot mounts. */
+  actionsHost?: HTMLElement | null;
   /** Kinship labels for the rows' people lists — the places rows' resolver. */
   kinship?: KinshipResolver;
   /** Jump to a person in Edit mode (the rows' people lists). */
@@ -451,28 +457,36 @@ export function AddressCoordsSection({
     setApplied(changed);
   };
 
+  const actions = (
+    <>
+      <button className="nav-btn primary tools-run" onClick={apply} disabled={picked.size === 0}>
+        {t("tools.geocode.addr.apply", { count: picked.size })}
+      </button>
+      <button className="tools-issue-link" onClick={() => setPicked(new Map())} disabled={picked.size === 0}>
+        {t("tools.sources.dupSelectNone")}
+      </button>
+      <ExpandAllToggle
+        allOpen={allOpen}
+        onToggle={() => {
+          if (allOpen) {
+            setOpen(new Set());
+            setMapOpen(new Set());
+          } else setOpen(new Set(groups.map((g) => g.place)));
+        }}
+      />
+    </>
+  );
+
   return (
     <section className="tools-cleanup-section">
-      <div className="tools-dup-kind-head">
-        {t("tools.geocode.addr.heading", { count: rows.length, places: groups.length })}
-        <div className="tools-dup-bulk">
-          <button className="nav-btn primary tools-run" onClick={apply} disabled={picked.size === 0}>
-            {t("tools.geocode.addr.apply", { count: picked.size })}
-          </button>
-          <button className="tools-issue-link" onClick={() => setPicked(new Map())} disabled={picked.size === 0}>
-            {t("tools.sources.dupSelectNone")}
-          </button>
-          <ExpandAllToggle
-            allOpen={allOpen}
-            onToggle={() => {
-              if (allOpen) {
-                setOpen(new Set());
-                setMapOpen(new Set());
-              } else setOpen(new Set(groups.map((g) => g.place)));
-            }}
-          />
+      {actionsHost ? (
+        createPortal(actions, actionsHost)
+      ) : (
+        <div className="tools-dup-kind-head">
+          {t("tools.geocode.addr.heading", { count: rows.length, places: groups.length })}
+          <div className="tools-dup-bulk">{actions}</div>
         </div>
-      </div>
+      )}
       <p className="tools-intro">{t("tools.geocode.addr.intro")}</p>
       {applied !== null && <p className="tools-clean tools-clean--ok">{t("tools.geocode.addr.applied", { count: applied })}</p>}
       {moved !== null && <p className="tools-clean tools-clean--ok">{t("tools.geocode.addr.moved", { count: moved })}</p>}
