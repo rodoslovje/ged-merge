@@ -79,6 +79,52 @@ function drawLogoBadge(ctx: CanvasRenderingContext2D, x: number, y: number, size
   ctx.restore();
 }
 
+/** The scale bar, drawn into the map view the way Leaflet draws it on screen:
+ *  the widest "nice" round distance that fits a target width. Leaflet's own
+ *  rounding (1, 2, 3, 5 or 10 times a power of ten) is mirrored so the export
+ *  and the live control never disagree about what the bar says. */
+function drawScaleBar(
+  ctx: CanvasRenderingContext2D,
+  map: L.Map,
+  rect: { width: number; height: number },
+  ink: string,
+  panel: string,
+): void {
+  const target = 130;
+  const y = rect.height / 2;
+  const metres = map.containerPointToLatLng([0, y]).distanceTo(map.containerPointToLatLng([target, y]));
+  if (!(metres > 0)) return;
+  const pow = Math.pow(10, Math.floor(Math.log10(metres)));
+  const d = metres / pow;
+  const round = (d >= 10 ? 10 : d >= 5 ? 5 : d >= 3 ? 3 : d >= 2 ? 2 : 1) * pow;
+  const width = target * (round / metres);
+  const label = round < 1000 ? `${round} m` : `${round / 1000} km`;
+
+  const x = 6;
+  const baseY = rect.height - 8;
+  ctx.save();
+  ctx.font = `10.5px ${SANS}`;
+  const boxW = Math.max(width, ctx.measureText(label).width + 10);
+  ctx.globalAlpha = 0.85;
+  ctx.fillStyle = panel;
+  ctx.fillRect(x, baseY - 17, boxW, 17);
+  ctx.globalAlpha = 1;
+  // A bracket open at the top, exactly as the on-screen bar draws it.
+  ctx.strokeStyle = ink;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(x + 0.5, baseY - 12.5);
+  ctx.lineTo(x + 0.5, baseY - 0.5);
+  ctx.lineTo(x + width - 0.5, baseY - 0.5);
+  ctx.lineTo(x + width - 0.5, baseY - 12.5);
+  ctx.stroke();
+  ctx.fillStyle = ink;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillText(label, x + 4, baseY - 4);
+  ctx.restore();
+}
+
 function outlineRings(): Ring[] {
   const rings: Ring[] = [];
   for (const feature of (worldOutline as GeoJSON.FeatureCollection).features) {
@@ -258,6 +304,9 @@ export function exportMapPng(
     ctx.textBaseline = "middle";
     ctx.fillText(attribution, rect.width - 6, rect.height - 9);
   }
+  // Bottom left, opposite the attribution — a cadastral extract read months
+  // later needs to say how wide its parcels are.
+  drawScaleBar(ctx, map, rect, token("--muted"), token("--panel"));
   ctx.restore();
 
   // Header: hairline divider + centred title; footer: divider, brand badge +
