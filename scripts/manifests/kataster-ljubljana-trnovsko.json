@@ -95,8 +95,8 @@
    "image": "kataster-scans/226058.jpg",
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=226058&docid=10&seq=1",
    "cell": [
-    0,
-    6.0
+    0.0,
+    5.8814
    ],
    "frame": [
     81.9,
@@ -109,7 +109,7 @@
     2047.2
    ],
    "source": "SI AS 176/L/L303/g/A05",
-   "placed": "stacked under the sheet above"
+   "placed": "row 3 west — 180 m south to close the seam above A08"
   },
   {
    "image": "kataster-scans/226059.jpg",
