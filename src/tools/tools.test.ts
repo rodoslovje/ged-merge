@@ -1983,6 +1983,60 @@ describe("collectLocalMediaFiles", () => {
   });
 });
 
+describe("bulkNormalize place separator", () => {
+  // Three commas without a space against one with: the file's own habit is the
+  // packed form, so an override is the only way to get comma + space.
+  const packed = `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Janez /Novak/
+1 BIRT
+2 PLAC Spodnja Besnica,Kranj,Slovenija
+1 DEAT
+2 PLAC Kranj, Slovenija
+0 TRLR`;
+  const placesOf = (ds: ReturnType<typeof dataset>) => {
+    const out: string[] = [];
+    for (const i of ds.individuals.values()) {
+      for (const ev of i.raw.children) {
+        for (const c of ev.children) if (c.tag === "PLAC" && c.value) out.push(c.value);
+      }
+    }
+    return out;
+  };
+
+  // This file has no ADDR lines, so its layout is the pass-through
+  // "plain-structured": its places are left verbatim unless the reader has
+  // chosen a comma form.
+  it("leaves a pass-through layout alone with no override", () => {
+    const { dataset: out } = bulkNormalize(dataset(packed));
+    expect(placesOf(out)).toEqual(["Spodnja Besnica,Kranj,Slovenija", "Kranj, Slovenija"]);
+  });
+
+  it("respells even a pass-through layout when the reader chooses one", () => {
+    const { dataset: out } = bulkNormalize(dataset(packed), undefined, { placeSeparator: "comma-space" });
+    expect(placesOf(out)).toEqual(["Spodnja Besnica, Kranj, Slovenija", "Kranj, Slovenija"]);
+    const tight = bulkNormalize(dataset(packed), undefined, { placeSeparator: "comma" });
+    expect(placesOf(tight.dataset)).toEqual(["Spodnja Besnica,Kranj,Slovenija", "Kranj,Slovenija"]);
+  });
+
+  it("writes the chosen form in a structured file, against its own majority", () => {
+    const structured = `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Janez /Novak/
+1 BIRT
+2 PLAC Spodnja Besnica,Kranj,Slovenija
+2 ADDR Spodnja Besnica 12
+1 DEAT
+2 PLAC Kranj,Kranj,Slovenija
+2 ADDR Kidričeva 38
+0 TRLR`;
+    const { dataset: out } = bulkNormalize(dataset(structured), undefined, { placeSeparator: "comma-space" });
+    expect(placesOf(out)).toEqual(["Spodnja Besnica, Kranj, Slovenija", "Kranj, Kranj, Slovenija"]);
+  });
+});
+
 describe("bulkNormalize vendor-tag dialect", () => {
   const person = (headSour: string) => `0 HEAD
 1 CHAR UTF-8${headSour ? `\n1 SOUR ${headSour}` : ""}

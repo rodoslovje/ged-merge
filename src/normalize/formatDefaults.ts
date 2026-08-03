@@ -17,6 +17,7 @@ import {
   dateLayoutFromValues,
   detectDatePlaceholder,
   detectPlaceLayout,
+  detectPlaceSeparator,
   detectUnknownNameToken,
   inferNameLayout,
 } from "./profile";
@@ -42,6 +43,7 @@ export function detectFormatDefaults(dataset: Dataset): DetectedFormats {
     date: dateLayoutFromValues(dateValues),
     datePlaceholder: dateValues.length ? (detectDatePlaceholder(dateValues) ?? "none") : undefined,
     place: placeLayout === "unknown" ? undefined : placeLayout,
+    placeSeparator: detectPlaceSeparator(placeValues),
     names: nameLayout === "none" ? undefined : nameLayout,
     unknownName: detectUnknownNameToken(dataset) ?? "blank",
     sourceLayout: sourceLayout === "unknown" ? undefined : sourceLayout,

@@ -6,6 +6,7 @@ import type { ValidationReport } from "../tools/validate";
 import type { StructureReport } from "../tools/structure";
 import type { DuplicateReport } from "../tools/sourceDuplicates";
 import type { ReshapeReport } from "../tools/sourceReshape";
+import type { FormatOverrides } from "../normalize/formatOverrides";
 import type { ToolsRequest, ToolsResponse, ToolsResultMap } from "../worker/toolsMessages";
 import { useSettingsSlice } from "./SettingsContext";
 
@@ -48,6 +49,14 @@ const REQUEST_TYPE = {
   sourceDuplicates: "sourceDuplicates",
   sourceReshape: "sourceReshape",
 } as const;
+
+/** Which format-override dimensions a scan's result depends on: a change to one
+ *  of these must re-run that scan (and only that one). Scans absent here are
+ *  independent of the reader's format choices. */
+const SALT_KEYS: Partial<Record<ScanKind, readonly (keyof FormatOverrides)[]>> = {
+  sourceReshape: ["pageMedia", "sourceLayout", "baptism", "doubledLinks"],
+  normalize: ["date", "datePlaceholder", "place", "placeSeparator", "names", "unknownName", "matriculaLang", "geneanetLang"],
+};
 
 export interface ToolsScans extends ScanStates {
   /** Start a scan unless it already ran (or is running) for this file. */
@@ -96,16 +105,17 @@ interface Pending {
  */
 export function useToolsScans(dataset: Dataset, editVersionRef: { readonly current: number }): ToolsScans {
   const [states, setStates] = useState<ScanStates>(ALL_IDLE);
-  // The source-reshape scan depends on the user's format overrides (the
-  // report must match what the apply writes). Kept in a ref so the stable
-  // callbacks below always read the current value; the overrides fingerprint
-  // joins that scan's freshness key, so a settings change re-scans.
+  // The source-reshape and normalize scans depend on the user's format
+  // overrides (the report must match what the apply writes). Kept in a ref so
+  // the stable callbacks below always read the current value; the overrides
+  // fingerprint joins those scans' freshness key, so a settings change
+  // re-scans.
   const settings = useSettingsSlice(SETTINGS_KEYS);
   const formatOverridesRef = useRef(settings.formatOverrides);
   formatOverridesRef.current = settings.formatOverrides;
-  const reshapeSalt = () => {
+  const overridesSalt = (kind: ScanKind) => {
     const o = formatOverridesRef.current;
-    return `${o.pageMedia ?? ""}|${o.sourceLayout ?? ""}|${o.baptism ?? ""}|${o.doubledLinks ?? ""}`;
+    return (SALT_KEYS[kind] ?? []).map((k) => o[k] ?? "").join("|");
   };
   // Mirror for same-tick reads (`ensure` guards against double starts before
   // the state update has rendered).
@@ -212,7 +222,7 @@ export function useToolsScans(dataset: Dataset, editVersionRef: { readonly curre
    *  whose result depends on them. */
   const scanKey = useCallback(
     (kind: ScanKind) =>
-      `${datasetSeqRef.current}:${editVersionRef.current}` + (kind === "sourceReshape" ? `:${reshapeSalt()}` : ""),
+      `${datasetSeqRef.current}:${editVersionRef.current}` + (SALT_KEYS[kind] ? `:${overridesSalt(kind)}` : ""),
     [editVersionRef],
   );
 
@@ -236,7 +246,9 @@ export function useToolsScans(dataset: Dataset, editVersionRef: { readonly curre
         post(
           kind === "sourceReshape"
             ? { type: "sourceReshape", requestId, formatOverrides: formatOverridesRef.current }
-            : { type: REQUEST_TYPE[kind], requestId },
+            : kind === "normalize"
+              ? { type: "normalizePreview", requestId, formatOverrides: formatOverridesRef.current }
+              : { type: REQUEST_TYPE[kind], requestId },
           {
             kind,
             onResult: (data) => {
@@ -335,7 +347,7 @@ export function useToolsScans(dataset: Dataset, editVersionRef: { readonly curre
         if (disposedRef.current) return;
         const requestId = nextIdRef.current++;
         post(
-          { type: "normalizeText", requestId, options },
+          { type: "normalizeText", requestId, options, formatOverrides: formatOverridesRef.current },
           {
             onResult: (data) => onText((data as ToolsResultMap["normalizeText"]).text),
             onError: (message) => {

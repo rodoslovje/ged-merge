@@ -19,7 +19,8 @@ export function reshapesLayout(layout: PlaceTargetFormat["layout"]): boolean {
  *    in and dropped, and unused middle jurisdiction levels (municipality/region)
  *    are discarded.
  *
- * Any other target layout is a pass-through.
+ * Any other target layout is a pass-through — except for the comma form, which
+ * is respelled when the reader chose one explicitly (see `separatorEnforced`).
  */
 export function reformatPlace(
   placRaw: string | undefined,
@@ -27,7 +28,7 @@ export function reformatPlace(
   fmt: PlaceTargetFormat,
 ): ReformattedPlace {
   if (!reshapesLayout(fmt.layout)) {
-    return { plac: clean(placRaw), addr: clean(addrRaw) };
+    return { plac: respellSeparator(clean(placRaw), fmt), addr: clean(addrRaw) };
   }
 
   const p = placRaw ? decomposePlace(placRaw) : undefined;
@@ -136,6 +137,17 @@ export function reformatPlace(
   out.addr = addrOut;
   if (parish) out.agency = `župnija ${parish}`;
   return out;
+}
+
+/**
+ * Rewrite the spacing around every comma to the chosen form — the only edit a
+ * pass-through layout gets, and only once the reader has actually picked a
+ * separator. Nothing but whitespace moves: the parts themselves are untouched,
+ * so a comma that separates a street rather than a jurisdiction is safe too.
+ */
+function respellSeparator(value: string | undefined, fmt: PlaceTargetFormat): string | undefined {
+  if (!value || !fmt.separatorEnforced) return value;
+  return value.replace(/\s*,\s*/g, fmt.separator);
 }
 
 const clean = (s: string | undefined): string | undefined => {

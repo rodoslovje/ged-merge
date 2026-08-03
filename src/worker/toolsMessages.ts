@@ -23,8 +23,8 @@ export type ToolsRequest =
   | { type: "validate"; requestId: number }
   | { type: "sourceDuplicates"; requestId: number }
   | { type: "sourceReshape"; requestId: number; formatOverrides?: FormatOverrides }
-  | { type: "normalizePreview"; requestId: number }
-  | { type: "normalizeText"; requestId: number; options: NormalizeOptions };
+  | { type: "normalizePreview"; requestId: number; formatOverrides?: FormatOverrides }
+  | { type: "normalizeText"; requestId: number; options: NormalizeOptions; formatOverrides?: FormatOverrides };
 
 /** Result payload for each scan request type. */
 export interface ToolsResultMap {

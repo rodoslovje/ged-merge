@@ -6,6 +6,7 @@ import type { MatchResult } from "../match/types";
 import { sortEventsByDate } from "../merge/applyFields";
 import { buildEditSaveRecords } from "../merge/editSaveRecords";
 import { mergeDecisions, type ChangeReport, type ImportBranchRequest } from "../merge/merge";
+import type { FormatOverrides } from "../normalize/formatOverrides";
 import { parseDecisionKey, type CandidateDecision } from "../review/types";
 import { findDanglingXrefs } from "../tools/structure";
 import type { SharedRecordSnapshot } from "../edit-state/useDirtyTracking";
@@ -51,6 +52,9 @@ export interface SavePreviewInput {
    *  browser's Downloads list. Injected rather than read from the clock so the
    *  output is reproducible. */
   now: Date;
+  /** The reader's Settings → GEDCOM choices, handed to the merge so places it
+   *  writes follow them. */
+  formatOverrides?: FormatOverrides;
   t: Translate;
 }
 
@@ -91,7 +95,7 @@ export function buildSavePreview(input: SavePreviewInput): SavePreview | null {
     main, mainFileName, compare, decisions, matches, importRequests,
     confirmedCount, importCount, changedPersonIds, changedFamilyIds, changedRecordIds,
     loadedPersonIds, loadedFamilyIds, personSnapshots, familySnapshots, recordSnapshots,
-    isSortEligible, now, t,
+    isSortEligible, now, formatOverrides, t,
   } = input;
 
   const changedCount = changedPersonIds.size + changedFamilyIds.size + changedRecordIds.size;
@@ -114,7 +118,7 @@ export function buildSavePreview(input: SavePreviewInput): SavePreview | null {
   let mainRecordCount: number | undefined;
   if (isMerge) {
     const { records: mergedRecords, report: mergeReport } = mergeDecisions(
-      main, compare!, decisions, matches ?? { individuals: [] }, t, importRequests,
+      main, compare!, decisions, matches ?? { individuals: [] }, t, importRequests, formatOverrides,
     );
     records = mergedRecords;
     report = editReport ? combineReports(editReport, mergeReport) : mergeReport;

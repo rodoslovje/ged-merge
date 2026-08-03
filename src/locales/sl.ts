@@ -1750,6 +1750,11 @@ export const sl = {
   "settings.format.place.packed-plac": "vse v kraju",
   "settings.format.place.plain-structured": "strukturirano, brez naslova",
   "settings.format.place.address-only": "samo naslov",
+  "settings.format.placeSeparator": "Ločilo",
+  "settings.format.placeSeparator.hint":
+    "Kaj loči dve ravni kraja. Obe obliki sta veljavni; slovnica GEDCOM 5.5.1 in njeni zgledi pišejo vejico s presledkom, tako dela tudi večina programov.",
+  "settings.format.placeSeparator.comma": "vejica",
+  "settings.format.placeSeparator.comma-space": "vejica s presledkom",
   "settings.format.names": "Dodatna imena",
   "settings.format.names.hint": "Poročna/rojstna/aka/vzdevna imena kot ločeni zapisi NAME ali vgrajene oznake (_MARNM, NICK …).",
   "settings.format.names.records": "ločeni zapisi",

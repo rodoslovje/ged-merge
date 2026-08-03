@@ -384,6 +384,30 @@ export function detectPlaceLayout(values: string[], addrCount: number): PlaceLay
   return "unknown";
 }
 
+/**
+ * Which comma form a file writes between place jurisdictions — `"comma-space"`
+ * for `Kranj, Slovenija` (the form GEDCOM 5.5.1's own grammar and examples
+ * use), `"comma"` for the packed `Kranj,Slovenija`. Majority wins, ties go to
+ * the spec form. Undefined when no place has a comma at all: no signal.
+ */
+export function detectPlaceSeparator(values: string[]): "comma" | "comma-space" | undefined {
+  let withSpace = 0;
+  let withoutSpace = 0;
+  for (const v of values) {
+    for (const m of v.matchAll(/,(\s?)/g)) {
+      if (m[1]) withSpace++;
+      else withoutSpace++;
+    }
+  }
+  if (withSpace + withoutSpace === 0) return undefined;
+  return withoutSpace > withSpace ? "comma" : "comma-space";
+}
+
+/** The literal string a {@link detectPlaceSeparator} value writes. */
+export function placeSeparatorText(kind: "comma" | "comma-space"): string {
+  return kind === "comma" ? "," : ", ";
+}
+
 type PlaceExportFormat = {
   layout: PlaceLayout;
   separator: string;
@@ -402,17 +426,9 @@ export function inferPlaceExportFormat(dataset: Dataset): PlaceExportFormat {
   if (cached) return cached;
   const values: string[] = [];
   let addrCount = 0;
-  let withSpace = 0;
-  let withoutSpace = 0;
   walkNodes(dataset.records, (node) => {
     if (node.tag === "ADDR" && node.value !== undefined) addrCount++;
-    else if (node.tag === "PLAC" && node.value !== undefined) {
-      values.push(node.value);
-      for (const m of node.value.matchAll(/,(\s?)/g)) {
-        if (m[1]) withSpace++;
-        else withoutSpace++;
-      }
-    }
+    else if (node.tag === "PLAC" && node.value !== undefined) values.push(node.value);
   });
   // Build preferred country form map: canonical-key → most-used display form in main.
   const countryForms = new Map<string, Map<string, number>>();
@@ -432,7 +448,7 @@ export function inferPlaceExportFormat(dataset: Dataset): PlaceExportFormat {
 
   const result: PlaceExportFormat = {
     layout: detectPlaceLayout(values, addrCount),
-    separator: withoutSpace > withSpace ? "," : ", ",
+    separator: placeSeparatorText(detectPlaceSeparator(values) ?? "comma-space"),
     ...(countryPreferred.size > 0 ? { countryPreferred } : {}),
     hierarchy: inferPlaceHierarchy(dataset),
   };

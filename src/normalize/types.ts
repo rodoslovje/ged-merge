@@ -149,6 +149,12 @@ export interface PlaceTargetFormat {
   /** PLAC jurisdiction-part separator, e.g. "," (Renko) or ", ". */
   separator: string;
   /**
+   * The separator was *chosen* by the reader (Settings → GEDCOM), not inferred
+   * from the file's own habit. A chosen one is imposed on every layout — even
+   * the pass-through ones, whose place text is otherwise never rewritten.
+   */
+  separatorEnforced?: boolean;
+  /**
    * Main's preferred display form for each country, keyed by the canonical
    * country token (e.g. "slovenia" → "Slovenija" or "Slovenia"). When present,
    * country names in incoming places are rewritten to match the main's spelling.

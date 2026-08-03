@@ -1515,6 +1515,11 @@ export const en = {
   "settings.format.place.packed-plac": "all in place",
   "settings.format.place.plain-structured": "structured, no address",
   "settings.format.place.address-only": "address only",
+  "settings.format.placeSeparator": "Separator",
+  "settings.format.placeSeparator.hint":
+    "What separates two jurisdictions in a place. Both forms are valid; the GEDCOM 5.5.1 grammar and its examples write comma + space, and most programs follow it.",
+  "settings.format.placeSeparator.comma": "comma",
+  "settings.format.placeSeparator.comma-space": "comma + space",
   "settings.format.names": "Alternate names",
   "settings.format.names.hint": "Married/birth/aka/nick names as separate NAME records or inline sub-tags (_MARNM, NICK…).",
   "settings.format.names.records": "separate records",

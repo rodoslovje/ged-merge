@@ -15,6 +15,7 @@ import {
   type PlaceProposal,
   type PlaceStyle,
 } from "../../geo/placeProposal";
+import { applyPlaceOverrides } from "../../normalize/formatOverrides";
 import { inferPlaceExportFormat } from "../../normalize/profile";
 import { loadCountries } from "../../persist/geoDb";
 import { useSettingsSlice } from "../SettingsContext";
@@ -49,7 +50,7 @@ export interface PlaceLookup {
 
 /** The preferences this file reads — subscribed field by field, so an
  *  unrelated one changing leaves it alone (see useSettingsSlice). */
-const SETTINGS_KEYS = ["allowLinkFetch"] as const;
+const SETTINGS_KEYS = ["allowLinkFetch", "formatOverrides"] as const;
 
 const PlaceLookupContext = createContext<PlaceLookup | null>(null);
 
@@ -90,11 +91,14 @@ export function usePlaceLookupValue(dataset: Dataset, placeSuggestions: string[]
   const settings = useSettingsSlice(SETTINGS_KEYS);
   const { i18n } = useTranslation();
   const online = settings.allowLinkFetch;
+  const overrides = settings.formatOverrides;
   const language = i18n.language;
 
   return useMemo(() => {
     const style: PlaceStyle = {
-      fmt: inferPlaceExportFormat(dataset),
+      // What the file does, unless Settings → GEDCOM says otherwise: a place
+      // completed from a register is written like the ones already there.
+      fmt: applyPlaceOverrides(inferPlaceExportFormat(dataset), overrides),
       depth: placeDepthOf(placeSuggestions),
       language,
     };
@@ -175,5 +179,5 @@ export function usePlaceLookupValue(dataset: Dataset, placeSuggestions: string[]
     };
 
     return { search, searchAddress, online };
-  }, [dataset, placeSuggestions, language, online]);
+  }, [dataset, placeSuggestions, language, online, overrides]);
 }

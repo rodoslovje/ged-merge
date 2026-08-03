@@ -1263,6 +1263,7 @@ function AppContent() {
       recordSnapshots: dirty.recordSnapshots.current,
       isSortEligible,
       now: new Date(),
+      formatOverrides: settings.formatOverrides,
       t,
     };
   }

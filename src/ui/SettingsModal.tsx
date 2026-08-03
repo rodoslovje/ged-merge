@@ -70,7 +70,10 @@ const FORMAT_GROUPS: { group: string; dims: FormatDimension[] }[] = [
   },
   {
     group: "places",
-    dims: [{ key: "place", choices: ["packed-plac", "structured-addr", "plain-structured", "address-only"] }],
+    dims: [
+      { key: "place", choices: ["packed-plac", "structured-addr", "plain-structured", "address-only"] },
+      { key: "placeSeparator", choices: ["comma", "comma-space"] },
+    ],
   },
   {
     group: "sources",
@@ -102,6 +105,7 @@ const FORMAT_SAMPLES: Partial<Record<keyof FormatOverrides, Record<string, strin
     "plain-structured": "Kranj,Slovenija",
     "address-only": "Cesta 1",
   },
+  placeSeparator: { comma: "Kranj,Slovenija", "comma-space": "Kranj, Slovenija" },
   names: { records: "1 NAME › 2 TYPE married", tags: "2 _MARNM Kovač" },
   sourceLayout: {
     paginated: "0 SOUR › 1 OBJE ×N",
@@ -115,6 +119,18 @@ const FORMAT_SAMPLES: Partial<Record<keyof FormatOverrides, Record<string, strin
   doubledLinks: { fold: "1 BIRT › 2 WWW", keep: "1 WWW + 2 WWW" },
   privacy: { PRIV: "1 PRIV", _PRIV: "1 _PRIV Y", RESN: "1 RESN privacy" },
 };
+
+/**
+ * Whether a choice is the form the GEDCOM spec itself writes — marked in the
+ * dropdown, since `<option>` can't be styled. The month-word date layouts are
+ * the spec form (its day is 1–2 digits); numeric layouts are vendor
+ * conventions. For places, 5.5.1's grammar and every example separate
+ * jurisdictions with a comma *and* a space ("Cove, Cache, Utah, USA").
+ */
+function isGedcomStandard(key: keyof FormatOverrides, choice: string): boolean {
+  if (key === "date") return choice === "D MMM YYYY" || choice === "DD MMM YYYY";
+  return key === "placeSeparator" && choice === "comma-space";
+}
 
 const THEME_MODES: ThemeMode[] = ["auto", "light", "dark"];
 const LANG_LABELS: Record<string, string> = { en: "🇬🇧 English", sl: "🇸🇮 Slovenščina" };
@@ -456,13 +472,7 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                     {choices.map((c) => (
                       <option key={c} value={c}>
                         {(verbatim ? c : t(`settings.format.${key}.${c}`)) +
-                          // The month-word layouts are the GEDCOM-standard date
-                          // form (spec day is 1–2 digits); numeric layouts are
-                          // vendor conventions. <option> can't be styled, so
-                          // the marker is part of the label.
-                          (key === "date" && (c === "D MMM YYYY" || c === "DD MMM YYYY")
-                            ? ` — ${t("settings.format.gedcomStandard")}`
-                            : "")}
+                          (isGedcomStandard(key, c) ? ` — ${t("settings.format.gedcomStandard")}` : "")}
                       </option>
                     ))}
                   </select>

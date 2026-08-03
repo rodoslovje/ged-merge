@@ -3,6 +3,7 @@ import type { NormalizationReport, NormalizeOptions } from "../normalize/types";
 import { childValue } from "../gedcom/node";
 import { nativeAliasTags } from "../gedcom/vendorTags";
 import { inferMainProfile, collectLayoutValues } from "../normalize/profile";
+import { applyFormatOverrides, type FormatOverrides } from "../normalize/formatOverrides";
 import { normalizeDataset } from "../normalize/normalize";
 
 /**
@@ -19,12 +20,18 @@ import { normalizeDataset } from "../normalize/normalize";
  * opt-in internal-tag strip, so the preview report can show what it *would*
  * remove (the panel's checkbox then decides whether the download includes it;
  * load-time normalization never runs it).
+ *
+ * `overrides` are the reader's Settings → GEDCOM choices. They win over what
+ * the file's own habit says, exactly as they do when an incoming compare file
+ * is reshaped on load — otherwise "enforce the house style" would ignore the
+ * house style the reader actually picked.
  */
 export function bulkNormalize(
   ds: Dataset,
   options?: NormalizeOptions,
+  overrides?: FormatOverrides,
 ): { dataset: Dataset; report: NormalizationReport } {
-  const profile = inferMainProfile(ds);
+  const profile = applyFormatOverrides(inferMainProfile(ds), overrides);
   const { dateValues } = collectLayoutValues(ds);
   // Vendor-tag aliases canonicalize toward the spelling *this app* supports —
   // right for an incoming compare file, wrong when the tag is the file's own
