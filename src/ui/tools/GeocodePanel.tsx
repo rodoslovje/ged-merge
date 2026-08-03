@@ -13,6 +13,7 @@ import {
 } from "../../tools/geocode";
 import { loadDecisions, putDecisions, type GeocodeDecision } from "../../persist/geoDb";
 import { ExpandAllToggle, ToolsLoading, TreeSearch, useDebounced } from "./shared";
+import { useVirtualList } from "../useVirtualList";
 import { createKinshipResolver } from "../../match/kinship";
 import { buildPlaceSuggestions, placeCombosOf } from "../edit/placeSuggestions";
 import { foldSearch } from "../globalSearch";
@@ -33,7 +34,9 @@ import { ToolSummary } from "./ToolSummary";
 // Nothing is written without review: checked rows are applied in one undoable
 // batch; "no match" marks go to the decision cache only, never into the file.
 
-const SHOW_LIMIT = 300;
+/** Stable empty-rows identity for the renders before the scan arrives — a
+ *  fresh [] every render would drop the virtual list's measurements. */
+const NO_ROWS: GeocodeRow[] = [];
 
 /** The review chips split the list by the kind of attention a row needs:
  *  "confident" is what Select confident would take (an exact, unambiguous
@@ -182,6 +185,69 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [countryFilter, setCountryFilter] = useState<string | null>(null);
 
+  // The filtered view: chip lists with faceted counts — a chip's count
+  // respects every filter except its own row's, so its number is exactly how
+  // many rows clicking it puts on screen, and the chips sort by it — plus the
+  // rows the active filters leave. Memoized because the virtual list below
+  // keys its row measurements on the rows array's identity.
+  const view = useMemo(() => {
+    if (!scan) return null;
+    const statusOf = (row: GeocodeRow): Exclude<StatusFilter, "all"> =>
+      checked.has(row.key) || noMatch.has(row.key)
+        ? "decided"
+        : row.confident
+          ? "confident"
+          : hasProposal(row)
+            ? "review"
+            : "noProposal";
+    const inStatus = (row: GeocodeRow) => statusFilter === "all" || statusOf(row) === statusFilter;
+
+    const searched = query ? scan.rows.filter((r) => foldSearch(r.key).includes(query)) : scan.rows;
+
+    // One chip per country (a place value's last comma part) in the pending
+    // list; a country the other filters empty out stays visible at 0.
+    const countryChips: { country: string; count: number }[] = [];
+    let countryAllCount = 0;
+    const byCountry = new Map<string, (typeof countryChips)[number]>();
+    for (const row of scan.rows) {
+      const country = countryOf(row.key);
+      if (!byCountry.has(country)) {
+        const chip = { country, count: 0 };
+        byCountry.set(country, chip);
+        countryChips.push(chip);
+      }
+    }
+    for (const row of searched) {
+      if (!inStatus(row)) continue;
+      byCountry.get(countryOf(row.key))!.count++;
+      countryAllCount++;
+    }
+    countryChips.sort((a, b) => b.count - a.count || a.country.localeCompare(b.country));
+
+    // A country whose last row was just resolved loses its chip — the stale
+    // pick falls back to "all" instead of filtering the list to nothing.
+    const activeCountry =
+      countryFilter !== null && countryChips.some((c) => c.country === countryFilter) ? countryFilter : null;
+    const inCountry = (row: GeocodeRow) => activeCountry === null || countryOf(row.key) === activeCountry;
+
+    const statusCounts = { confident: 0, review: 0, noProposal: 0, decided: 0 };
+    let statusAllCount = 0;
+    for (const row of searched) {
+      if (!inCountry(row)) continue;
+      statusCounts[statusOf(row)]++;
+      statusAllCount++;
+    }
+
+    const rows = searched.filter((r) => inStatus(r) && inCountry(r));
+    return { countryChips, countryAllCount, activeCountry, statusCounts, statusAllCount, rows };
+  }, [scan, query, statusFilter, countryFilter, checked, noMatch]);
+  const rows = view?.rows ?? NO_ROWS;
+
+  // Every filtered row is reachable — long lists render windowed (the same
+  // virtualization as the duplicates and health-check lists), so scrolling
+  // covers all of them with only the rows near the viewport mounted.
+  const virtual = useVirtualList({ count: rows.length, estimate: 26, itemsKey: rows });
+
   // A fresh scan seeds the review state from the cached decisions — but
   // in-progress picks on rows that survived the rescan (e.g. after renaming
   // one other row) are preserved, not silently discarded.
@@ -325,62 +391,9 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
   };
 
   // ── Rendering ─────────────────────────────────────────────────────────────
-  if (!scan || countries === null) return <ToolsLoading label={t("tools.running")} />;
+  if (!scan || countries === null || !view) return <ToolsLoading label={t("tools.running")} />;
 
-  // A row's kind of work right now: session state (ticked / no-match) makes it
-  // "decided", so the chips keep counting down as the user works.
-  const statusOf = (row: GeocodeRow): Exclude<StatusFilter, "all"> =>
-    checked.has(row.key) || noMatch.has(row.key)
-      ? "decided"
-      : row.confident
-        ? "confident"
-        : hasProposal(row)
-          ? "review"
-          : "noProposal";
-  const inStatus = (row: GeocodeRow) => statusFilter === "all" || statusOf(row) === statusFilter;
-
-  const searched = query ? scan.rows.filter((r) => foldSearch(r.key).includes(query)) : scan.rows;
-
-  // The chip rows are faceted: a chip's count respects every filter except its
-  // own row's, so its number is exactly how many rows clicking it puts on
-  // screen — and the chips sort by that number.
-  // One chip per country (a place value's last comma part) in the pending
-  // list; a country the other filters empty out stays visible at 0.
-  const countryChips: { country: string; count: number }[] = [];
-  let countryAllCount = 0;
-  {
-    const byCountry = new Map<string, (typeof countryChips)[number]>();
-    for (const row of scan.rows) {
-      const country = countryOf(row.key);
-      if (!byCountry.has(country)) {
-        const chip = { country, count: 0 };
-        byCountry.set(country, chip);
-        countryChips.push(chip);
-      }
-    }
-    for (const row of searched) {
-      if (!inStatus(row)) continue;
-      byCountry.get(countryOf(row.key))!.count++;
-      countryAllCount++;
-    }
-    countryChips.sort((a, b) => b.count - a.count || a.country.localeCompare(b.country));
-  }
-  // A country whose last row was just resolved loses its chip — the stale
-  // pick falls back to "all" instead of filtering the list to nothing.
-  const activeCountry =
-    countryFilter !== null && countryChips.some((c) => c.country === countryFilter) ? countryFilter : null;
-  const inCountry = (row: GeocodeRow) => activeCountry === null || countryOf(row.key) === activeCountry;
-
-  const statusCounts = { confident: 0, review: 0, noProposal: 0, decided: 0 };
-  let statusAllCount = 0;
-  for (const row of searched) {
-    if (!inCountry(row)) continue;
-    statusCounts[statusOf(row)]++;
-    statusAllCount++;
-  }
-
-  const rows = searched.filter((r) => inStatus(r) && inCountry(r));
-  const shown = rows.slice(0, SHOW_LIMIT);
+  const { countryChips, countryAllCount, activeCountry, statusCounts, statusAllCount } = view;
   const confidentCount = scan.rows.filter((r) => r.confident && !checked.has(r.key) && !noMatch.has(r.key)).length;
 
   return (
@@ -476,9 +489,10 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
           </button>
         ))}
       </div>
-      {!shown.length && <p className="tools-clean">{t("tools.search.noMatch")}</p>}
+      {!rows.length && <p className="tools-clean">{t("tools.search.noMatch")}</p>}
       <ul className="tools-tree">
-        {shown.map((row) => (
+        <li className="v-spacer" style={{ height: virtual.padTop }} ref={virtual.topRef} aria-hidden />
+        {rows.slice(virtual.start, virtual.end).map((row) => (
           <GeocodePlaceRow
             key={row.key}
             row={row}
@@ -503,8 +517,8 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
             onNavigate={onNavigate}
           />
         ))}
+        <li className="v-spacer" style={{ height: virtual.padBottom }} ref={virtual.bottomRef} aria-hidden />
       </ul>
-      {rows.length > SHOW_LIMIT && <p className="tools-geo-more">{t("tools.geocode.more", { count: rows.length - SHOW_LIMIT })}</p>}
       </section>
       )}
 
