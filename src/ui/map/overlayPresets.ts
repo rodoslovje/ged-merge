@@ -362,6 +362,16 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     sampleZoom: 16,
   },
   {
+    key: "settings.map.overlays.preset.kataster.ljubljanaMesto",
+    url: "https://tiles.gedmerge.com/kataster-ljubljana-mesto/{z}/{x}/{y}.webp",
+    yearFrom: 1826,
+    yearTo: 1869,
+    attribution: "Arhiv Republike Slovenije, SI AS 176 (Franciscejski kataster za Kranjsko)",
+    maxZoom: 18,
+    coverage: [46.0378, 14.4955, 46.0514, 14.5200],
+    sampleZoom: 16,
+  },
+  {
     key: "settings.map.overlays.preset.kataster.semic",
     url: "https://tiles.gedmerge.com/kataster-semic/{z}/{x}/{y}.webp",
     yearFrom: 1824,

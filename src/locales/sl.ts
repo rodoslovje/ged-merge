@@ -1865,6 +1865,8 @@ export const sl = {
     "Franciscejski kataster · Ljubljana, Trnovsko predmestje 1:2880 (1826)",
   "settings.map.overlays.preset.kataster.ljubljanaSvpetra":
     "Franciscejski kataster · Ljubljana, Šentpetrsko predmestje 1:2880 (1826)",
+  "settings.map.overlays.preset.kataster.ljubljanaMesto":
+    "Franciscejski kataster · Ljubljana mesto, s Krakovim in Gradiščem 1:2880 (1826)",
   "settings.map.overlays.preset.kataster.semic":
     "Franciscejski kataster · Semič 1:2880 (1824)",
   "settings.map.overlays.preset.kataster.metlika":

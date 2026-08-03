@@ -1,0 +1,35 @@
+{
+ "name": "LJMESTO",
+ "cassini": {
+  "lat0": 45.928944,
+  "lon0": 14.474694,
+  "shift": [
+   80.0,
+   0.0
+  ],
+  "system": "krim"
+ },
+ "source": "Arhiv Republike Slovenije, SI AS 176/L/L133 — Franciscean cadastre",
+ "sheets": [
+  {
+   "image": "kataster-scans/224857.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224857&docid=10&seq=1",
+   "cell": [
+    1.0,
+    8.0
+   ],
+   "frame": [
+    100.0,
+    136.3,
+    2528.0,
+    136.3,
+    2528.0,
+    2078.7,
+    100.0,
+    2078.7
+   ],
+   "source": "SI AS 176/L/L133/g/A01",
+   "placed": "no printed designation; placed by the castle, Prešernov trg and Krakovo, which fall within 4% of where the sheet draws them (1.00)"
+  }
+ ]
+}
