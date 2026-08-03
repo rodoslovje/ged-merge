@@ -12,7 +12,7 @@ import {
   type GeocodeRow,
 } from "../../tools/geocode";
 import { loadDecisions, putDecisions, type GeocodeDecision } from "../../persist/geoDb";
-import { ExpandAllToggle, GeoRowHeader, ToolsLoading, TreeSearch, useDebounced } from "./shared";
+import { ExpandAllToggle, ToolsLoading, TreeSearch, useDebounced } from "./shared";
 import { createKinshipResolver } from "../../match/kinship";
 import { buildPlaceSuggestions, placeCombosOf } from "../edit/placeSuggestions";
 import { foldSearch } from "../globalSearch";
@@ -175,11 +175,11 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
   // so a Slovenian place is found without reaching for its diacritics.
   const [search, setSearch] = useState("");
   const query = foldSearch(useDebounced(search.trim()));
-  // Which kind of work is on screen (chips above the list), and which country
-  // sections are folded away. Both narrow only the place list — the search box
-  // stays the page-wide filter.
+  // Which kind of work is on screen, and which country — two chip rows above
+  // the list. Both narrow only the place list; the search box stays the
+  // page-wide filter. `null` country = all of them.
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [collapsedCountries, setCollapsedCountries] = useState<Set<string>>(new Set());
+  const [countryFilter, setCountryFilter] = useState<string | null>(null);
 
   // A fresh scan seeds the review state from the cached decisions — but
   // in-progress picks on rows that survived the rescan (e.g. after renaming
@@ -333,36 +333,38 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
   const statusCounts = { review: 0, noProposal: 0, decided: 0 };
   for (const row of scan.rows) statusCounts[statusOf(row)]++;
 
-  const searched = query ? scan.rows.filter((r) => foldSearch(r.key).includes(query)) : scan.rows;
-  const rows = statusFilter === "all" ? searched : searched.filter((r) => statusOf(r) === statusFilter);
-  const confidentCount = scan.rows.filter((r) => r.confident && !checked.has(r.key) && !noMatch.has(r.key)).length;
-
-  // The filtered rows under their country (a place value's last comma part),
-  // heaviest workload first — scan order already sorts within each group.
-  const groups: { country: string; rows: GeocodeRow[]; missing: number }[] = [];
+  // One chip per country (a place value's last comma part), heaviest workload
+  // first — counted over the whole pending list, so the chips don't reshuffle
+  // as the other filters change.
+  const countryChips: { country: string; count: number; missing: number }[] = [];
   {
-    const byCountry = new Map<string, (typeof groups)[number]>();
-    for (const row of rows) {
+    const byCountry = new Map<string, (typeof countryChips)[number]>();
+    for (const row of scan.rows) {
       const country = countryOf(row.key);
       let g = byCountry.get(country);
       if (!g) {
-        g = { country, rows: [], missing: 0 };
+        g = { country, count: 0, missing: 0 };
         byCountry.set(country, g);
-        groups.push(g);
+        countryChips.push(g);
       }
-      g.rows.push(row);
+      g.count++;
       g.missing += row.missing;
     }
-    groups.sort((a, b) => b.missing - a.missing || a.country.localeCompare(b.country));
+    countryChips.sort((a, b) => b.missing - a.missing || a.country.localeCompare(b.country));
   }
+  // A country whose last row was just resolved loses its chip — the stale
+  // pick falls back to "all" instead of filtering the list to nothing.
+  const activeCountry =
+    countryFilter !== null && countryChips.some((c) => c.country === countryFilter) ? countryFilter : null;
 
-  const toggleCountry = (country: string) =>
-    setCollapsedCountries((prev) => {
-      const next = new Set(prev);
-      if (next.has(country)) next.delete(country);
-      else next.add(country);
-      return next;
-    });
+  const searched = query ? scan.rows.filter((r) => foldSearch(r.key).includes(query)) : scan.rows;
+  const rows = searched.filter(
+    (r) =>
+      (statusFilter === "all" || statusOf(r) === statusFilter) &&
+      (activeCountry === null || countryOf(r.key) === activeCountry),
+  );
+  const shown = rows.slice(0, SHOW_LIMIT);
+  const confidentCount = scan.rows.filter((r) => r.confident && !checked.has(r.key) && !noMatch.has(r.key)).length;
 
   return (
     // The registers behind every place field on this page: the rename row and
@@ -424,6 +426,27 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
             />
           </div>
         </div>
+      {/* One country's file shows no country row — there is nothing to narrow. */}
+      {countryChips.length > 1 && (
+        <div className="tools-chips">
+          <button
+            className={`tools-chip ${activeCountry === null ? "active" : ""}`}
+            onClick={() => setCountryFilter(null)}
+          >
+            {t("tools.geocode.filter.all")} <span className="tools-chip-count">{scan.rows.length}</span>
+          </button>
+          {countryChips.map((c) => (
+            <button
+              key={c.country || "?"}
+              className={`tools-chip ${activeCountry === c.country ? "active" : ""}`}
+              onClick={() => setCountryFilter(c.country)}
+            >
+              {c.country || t("tools.geocode.countryUnknown")}{" "}
+              <span className="tools-chip-count">{c.count}</span>
+            </button>
+          ))}
+        </div>
+      )}
       <div className="tools-chips">
         {STATUS_FILTERS.map((f) => (
           <button
@@ -436,9 +459,9 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
           </button>
         ))}
       </div>
-      {!rows.length && <p className="tools-clean">{t("tools.search.noMatch")}</p>}
-      {(() => {
-        const renderRow = (row: GeocodeRow) => (
+      {!shown.length && <p className="tools-clean">{t("tools.search.noMatch")}</p>}
+      <ul className="tools-tree">
+        {shown.map((row) => (
           <GeocodePlaceRow
             key={row.key}
             row={row}
@@ -462,42 +485,9 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
             onRename={renameValue}
             onNavigate={onNavigate}
           />
-        );
-        // One render budget across the groups: collapsing a large country
-        // reveals more of the next, and only truncation of open groups is
-        // reported as "more" — a folded group is folded, not hidden.
-        let budget = SHOW_LIMIT;
-        let hidden = 0;
-        const singleCountry = groups.length <= 1;
-        const rendered = groups.map((g) => {
-          const isOpen = singleCountry || !collapsedCountries.has(g.country);
-          const take = isOpen ? g.rows.slice(0, Math.max(0, budget)) : [];
-          if (isOpen) {
-            budget -= take.length;
-            hidden += g.rows.length - take.length;
-          }
-          // One country (or none named): the flat list, no header to fold.
-          if (singleCountry) return <ul key={g.country || "?"} className="tools-tree">{take.map(renderRow)}</ul>;
-          return (
-            <li key={g.country || "?"} className="tools-geo-country">
-              <GeoRowHeader
-                open={isOpen}
-                onToggle={() => toggleCountry(g.country)}
-                place={g.country || t("tools.geocode.countryUnknown")}
-              >
-                <span className="tools-chip-count">{g.rows.length}</span>
-              </GeoRowHeader>
-              {take.length > 0 && <ul className="tools-tree">{take.map(renderRow)}</ul>}
-            </li>
-          );
-        });
-        return (
-          <>
-            {singleCountry ? rendered : <ul className="tools-tree tools-geo-countries">{rendered}</ul>}
-            {hidden > 0 && <p className="tools-geo-more">{t("tools.geocode.more", { count: hidden })}</p>}
-          </>
-        );
-      })()}
+        ))}
+      </ul>
+      {rows.length > SHOW_LIMIT && <p className="tools-geo-more">{t("tools.geocode.more", { count: rows.length - SHOW_LIMIT })}</p>}
       </section>
       )}
 

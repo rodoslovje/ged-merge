@@ -8399,10 +8399,9 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 }
 .tools-geo-manual input[type="text"]:focus { outline: none; border-color: var(--accent); }
 .tools-geo-more { color: var(--muted); font-size: 0.85rem; margin: 8px 0 0; }
-/* Place rows grouped by country: a bolder tree-row header per country, its
-   rows indented one step under it. */
-.tools-geo-country > .tools-tree-row .tools-tree-label { font-weight: 600; }
-.tools-geo-country > .tools-tree { margin-left: 22px; }
+/* The geocode list's two chip rows (countries, then work status) read as one
+   filter block: the second row sits closer to the first than to the list. */
+.tools-geocode .tools-chips + .tools-chips { margin-top: -6px; }
 /* Address rows grouped under their place: one collapsible group per place, so a
    file with hundreds of addresses is worked through a place at a time. */
 .tools-geo-addr-group { border-bottom: 1px solid var(--border); padding: 4px 0; }
