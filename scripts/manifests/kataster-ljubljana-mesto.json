@@ -15,8 +15,8 @@
    "image": "kataster-scans/224857.jpg",
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224857&docid=10&seq=1",
    "cell": [
-    1.0,
-    7.967
+    1,
+    8
    ],
    "frame": [
     86.0,
@@ -29,7 +29,7 @@
     2031.6
    ],
    "source": "SI AS 176/L/L133/g/A01",
-   "placed": "placed by the castle, -50 m north of its printed cell (1.00)"
+   "placed": "lattice cell — nudge dropped"
   }
  ]
 }

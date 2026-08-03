@@ -15,8 +15,8 @@
    "image": "kataster-scans/224297.jpg",
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224297&docid=10&seq=1",
    "cell": [
-    -3.0,
-    22.9538
+    -3,
+    23
    ],
    "frame": [
     107.0,
@@ -29,14 +29,14 @@
     2012.1
    ],
    "source": "SI AS 176/L/L61/g/A01",
-   "placed": "row 1, west — unchanged (1.00)"
+   "placed": "lattice cell — nudge dropped"
   },
   {
    "image": "kataster-scans/224298.jpg",
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224298&docid=10&seq=1",
    "cell": [
-    -2.0,
-    22.8944
+    -2,
+    23
    ],
    "frame": [
     164.0,
@@ -49,7 +49,7 @@
     2047.1
    ],
    "source": "SI AS 176/L/L61/g/A02",
-   "placed": "row 1, east — unchanged (1.00)"
+   "placed": "lattice cell — nudge dropped"
   },
   {
    "image": "kataster-scans/224299.jpg",
@@ -95,8 +95,8 @@
    "image": "kataster-scans/224301.jpg",
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224301&docid=10&seq=1",
    "cell": [
-    -3.0,
-    21.3934
+    -3,
+    21
    ],
    "frame": [
     88.0,
@@ -109,14 +109,14 @@
     2039.1
    ],
    "source": "SI AS 176/L/L61/g/A05",
-   "placed": "row 3 — top against row 2 (1.00)"
+   "placed": "lattice cell — nudge dropped"
   },
   {
    "image": "kataster-scans/224302.jpg",
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224302&docid=10&seq=1",
    "cell": [
-    -2.0,
-    21.2025
+    -2,
+    21
    ],
    "frame": [
     98.0,
@@ -129,7 +129,7 @@
     2062.2
    ],
    "source": "SI AS 176/L/L61/g/A06",
-   "placed": "row 3 — top against row 2 (1.00)"
+   "placed": "lattice cell — nudge dropped"
   }
  ]
 }

@@ -15,8 +15,8 @@
    "image": "kataster-scans/227161.jpg",
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=227161&docid=10&seq=1",
    "cell": [
-    35.5,
-    -17.5
+    36,
+    -17
    ],
    "frame": [
     83.4,
@@ -29,13 +29,13 @@
     2024.3
    ],
    "source": "SI AS 176/N/N43/g/A01",
-   "placed": "first row, west — half a cell north to meet the boundary (1.00)"
+   "placed": "lattice cell — nudge dropped"
   },
   {
    "image": "kataster-scans/227162.jpg",
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=227162&docid=10&seq=1",
    "cell": [
-    36.5,
+    37,
     -18
    ],
    "frame": [
@@ -50,7 +50,7 @@
    ],
    "rotate": 90,
    "source": "SI AS 176/N/N43/g/A02",
-   "placed": "first row, east — half a cell west of the column below (1.00)"
+   "placed": "lattice cell — nudge dropped"
   },
   {
    "image": "kataster-scans/227163.jpg",

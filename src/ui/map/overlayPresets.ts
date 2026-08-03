@@ -208,7 +208,7 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     yearTo: 1869,
     attribution: "Arhiv Republike Slovenije, SI AS 176 (Franciscejski kataster za Kranjsko)",
     maxZoom: 18,
-    coverage: [45.6519, 15.3353, 45.7001, 15.3960],
+    coverage: [45.6519, 15.3469, 45.7069, 15.3962],
     sampleZoom: 16,
   },
   {
@@ -288,7 +288,7 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     yearTo: 1869,
     attribution: "Arhiv Republike Slovenije, SI AS 176 (Franciscejski kataster za Kranjsko)",
     maxZoom: 18,
-    coverage: [46.2180, 14.3972, 46.2555, 14.4464],
+    coverage: [46.2152, 14.3972, 46.2562, 14.4464],
     sampleZoom: 16,
   },
   {
@@ -298,7 +298,7 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     yearTo: 1869,
     attribution: "Arhiv Republike Slovenije, SI AS 176 (Franciscejski kataster za Kranjsko)",
     maxZoom: 18,
-    coverage: [46.1811, 14.3481, 46.2016, 14.4218],
+    coverage: [46.1879, 14.3481, 46.2016, 14.4218],
     sampleZoom: 16,
   },
   {
@@ -358,7 +358,7 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     yearTo: 1869,
     attribution: "Arhiv Republike Slovenije, SI AS 176 (Franciscejski kataster za Kranjsko)",
     maxZoom: 18,
-    coverage: [46.0472, 14.4955, 46.0745, 14.5445],
+    coverage: [46.0514, 14.4955, 46.0787, 14.5445],
     sampleZoom: 16,
   },
   {
@@ -368,7 +368,7 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     yearTo: 1869,
     attribution: "Arhiv Republike Slovenije, SI AS 176 (Franciscejski kataster za Kranjsko)",
     maxZoom: 18,
-    coverage: [46.0373, 14.4955, 46.0510, 14.5200],
+    coverage: [46.0378, 14.4955, 46.0514, 14.5200],
     sampleZoom: 16,
   },
   {

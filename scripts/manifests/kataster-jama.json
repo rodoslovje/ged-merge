@@ -55,8 +55,8 @@
    "image": "kataster-scans/224487.jpg",
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224487&docid=10&seq=1",
    "cell": [
-    -5.0,
-    18.5
+    -5,
+    19
    ],
    "frame": [
     90.0,
@@ -69,7 +69,7 @@
     2101.5
    ],
    "source": "SI AS 176/L/L87/g/A03",
-   "placed": "title sheet — half a sheet height down (1.00)"
+   "placed": "lattice cell — nudge dropped"
   }
  ]
 }

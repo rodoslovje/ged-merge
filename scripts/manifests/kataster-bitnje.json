@@ -15,7 +15,7 @@
    "image": "kataster-scans/224233.jpg",
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224233&docid=10&seq=1",
    "cell": [
-    -7.5,
+    -7,
     22
    ],
    "frame": [
@@ -29,7 +29,7 @@
     2060.1
    ],
    "source": "SI AS 176/L/L54/g/A01",
-   "placed": "printed W.C.II.14.dg | cg — half of each, mounted as one sheet (1.00)"
+   "placed": "lattice cell — nudge dropped"
   },
   {
    "image": "kataster-scans/224234.jpg",
