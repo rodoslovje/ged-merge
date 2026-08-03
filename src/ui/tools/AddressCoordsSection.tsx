@@ -755,9 +755,20 @@ export function AddressCoordsSection({
                                     onClick={() => sameCoord(chosen?.coord, r.coord) && unpick(row.key)}
                                   />
                                   <span className="tools-geo-cand-name">{r.label}</span>
-                                  <span className="gm-data">
+                                  {/* The coordinate doubles as "show on the
+                                      place's map", like the places rows —
+                                      the house appears among its neighbours. */}
+                                  <button
+                                    type="button"
+                                    className="gm-data tools-geo-coord-btn"
+                                    title={t("tools.geocode.showMap")}
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      setMapOpen((prev) => new Set(prev).add(group.place));
+                                    }}
+                                  >
                                     {r.coord.lat.toFixed(5)}, {r.coord.lon.toFixed(5)}
-                                  </span>
+                                  </button>
                                   <span className="tools-reshape-badge official">GURS</span>
                                 </label>
                               </li>
