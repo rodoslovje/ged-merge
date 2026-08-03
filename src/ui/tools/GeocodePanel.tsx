@@ -284,15 +284,6 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
     });
   };
 
-  const selectConfident = () => {
-    if (!scan) return;
-    setChecked((prev) => {
-      const next = new Set(prev);
-      for (const row of scan.rows) if (row.confident && !noMatch.has(row.key)) next.add(row.key);
-      return next;
-    });
-  };
-
   const apply = async () => {
     if (!scan) return;
     const assignments = new Map<string, GeoAssignment>();
@@ -381,7 +372,26 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
 
   const rows = searched.filter((r) => inStatus(r) && inCountry(r));
   const shown = rows.slice(0, SHOW_LIMIT);
-  const confidentCount = scan.rows.filter((r) => r.confident && !checked.has(r.key) && !noMatch.has(r.key)).length;
+
+  // Bulk selection works on the whole filtered list, not the rendered slice —
+  // the display cap limits drawing, never what a "select" button reaches. Both
+  // buttons skip no-match rows; "select all" additionally needs the row to
+  // resolve to some coordinate, or ticking it would write nothing.
+  const selectable = (row: GeocodeRow) => !checked.has(row.key) && !noMatch.has(row.key);
+  const confidentCount = rows.filter((r) => r.confident && selectable(r)).length;
+  const allCount = rows.filter((r) => selectable(r) && chosenFor(r)).length;
+  const selectConfident = () =>
+    setChecked((prev) => {
+      const next = new Set(prev);
+      for (const row of rows) if (row.confident && !noMatch.has(row.key)) next.add(row.key);
+      return next;
+    });
+  const selectAll = () =>
+    setChecked((prev) => {
+      const next = new Set(prev);
+      for (const row of rows) if (!noMatch.has(row.key) && chosenFor(row)) next.add(row.key);
+      return next;
+    });
 
   return (
     // The registers behind every place field on this page: the rename row and
@@ -428,6 +438,14 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
             </button>
             <button className="tools-issue-link" onClick={selectConfident} disabled={confidentCount === 0}>
               {t("tools.geocode.selectConfident", { count: confidentCount })}
+            </button>
+            <button
+              className="tools-issue-link"
+              onClick={selectAll}
+              disabled={allCount === 0}
+              title={t("tools.geocode.selectAllHint")}
+            >
+              {t("tools.geocode.selectAll", { count: allCount })}
             </button>
             <button className="tools-issue-link" onClick={() => setChecked(new Set())}>
               {t("tools.sources.dupSelectNone")}

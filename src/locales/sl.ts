@@ -464,6 +464,8 @@ export const sl = {
   "tools.geocode.heading": "Kraji za geokodiranje",
   "tools.geocode.noMatchBadge": "brez ujemanja",
   "tools.geocode.selectConfident": "Izberi zanesljive ({{count}})",
+  "tools.geocode.selectAll": "Izberi vse ({{count}})",
+  "tools.geocode.selectAllHint": "Označi vse vrstice, ki jih trenutni filtri zajamejo — tudi tiste čez mejo prikaza — in se razrešijo v koordinato",
   "tools.geocode.apply": "Zapiši koordinate ({{count}})",
   "tools.geocode.allCovered": "Vse navedbe krajev že imajo koordinate.",
   "tools.geocode.noCandidate": "ni ujemanja",

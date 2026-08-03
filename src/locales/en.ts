@@ -398,6 +398,8 @@ export const en = {
   "tools.geocode.heading": "Places to geocode",
   "tools.geocode.noMatchBadge": "no match",
   "tools.geocode.selectConfident": "Select confident ({{count}})",
+  "tools.geocode.selectAll": "Select all ({{count}})",
+  "tools.geocode.selectAllHint": "Tick every row the current filters match — including those past the display cap — that resolves to a coordinate",
   "tools.geocode.apply": "Write coordinates ({{count}})",
   "tools.geocode.allCovered": "Every place reference already carries coordinates.",
   "tools.geocode.noCandidate": "no match found",
