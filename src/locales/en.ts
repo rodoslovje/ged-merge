@@ -1618,8 +1618,8 @@ export const en = {
     "Franciscean cadastre · Žabnica 1:2880 (1826)",
   "settings.map.overlays.preset.kataster.predoslje":
     "Franciscean cadastre · Predoslje 1:2880 (1826)",
-  "settings.map.overlays.preset.kataster.britof":
-    "Franciscean cadastre · Britof and Primskovo 1:2880 (1826)",
+  "settings.map.overlays.preset.kataster.primskovoBritof":
+    "Franciscean cadastre · Primskovo and Britof 1:2880 (1826)",
   "settings.map.overlays.preset.kataster.tupalice":
     "Franciscean cadastre · Tupaliče 1:2880 (1826)",
   "settings.map.overlays.preset.kataster.sencur":

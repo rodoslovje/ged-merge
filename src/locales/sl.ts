@@ -1852,8 +1852,8 @@ export const sl = {
     "Franciscejski kataster · Žabnica 1:2880 (1826)",
   "settings.map.overlays.preset.kataster.predoslje":
     "Franciscejski kataster · Predoslje 1:2880 (1826)",
-  "settings.map.overlays.preset.kataster.britof":
-    "Franciscejski kataster · Britof in Primskovo 1:2880 (1826)",
+  "settings.map.overlays.preset.kataster.primskovoBritof":
+    "Franciscejski kataster · Primskovo in Britof 1:2880 (1826)",
   "settings.map.overlays.preset.kataster.tupalice":
     "Franciscejski kataster · Tupaliče 1:2880 (1826)",
   "settings.map.overlays.preset.kataster.sencur":
