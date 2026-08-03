@@ -45,7 +45,7 @@ const NO_ROWS: GeocodeRow[] = [];
  *  the researcher can pick; "partial" a best proposal under 100% (the amber
  *  scores); "noProposal" research or a rename; "decided" already handled. */
 type StatusFilter = "all" | "confident" | "review" | "partial" | "noProposal" | "decided";
-const STATUS_FILTERS: StatusFilter[] = ["all", "confident", "review", "partial", "noProposal", "decided"];
+const STATUS_FILTERS: StatusFilter[] = ["all", "confident", "partial", "review", "noProposal", "decided"];
 
 /** A row has something to judge when any coordinate is on offer — the file's
  *  own, a gazetteer candidate, or a remembered acceptance. */
