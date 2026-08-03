@@ -40,7 +40,8 @@ test("houses in the place value are grouped under their settlement, and the filt
   await page.getByText("Places", { exact: true }).click();
   await page.getByRole("button", { name: /Geocoding/ }).click();
 
-  const places = page.locator(".tools-geocode .tools-tree > li");
+  // The list renders through the virtual-list spacers — count real rows only.
+  const places = page.locator(".tools-geocode .tools-tree > li:not(.v-spacer)");
   const groups = page.locator(".tools-geo-addr-group");
 
   // The place list holds the settlements only: "Črni vrh" (the place-only
