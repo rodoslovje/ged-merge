@@ -55,7 +55,7 @@
    "image": "kataster-scans/226056.jpg",
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=226056&docid=10&seq=1",
    "cell": [
-    0.0,
+    0.0264,
     7.0
    ],
    "frame": [
@@ -69,7 +69,7 @@
     2054.2
    ],
    "source": "SI AS 176/L/L303/g/A03",
-   "placed": "stacked under the sheet above (1.00)"
+   "placed": "row 2 west — 50 m east (1.00)"
   },
   {
    "image": "kataster-scans/226057.jpg",
