@@ -32,7 +32,7 @@ import { ChartRootTitle } from "../ChartRootTitle";
 import { useChartShortcuts } from "../../keyboard/useChartShortcuts";
 import { chartSlug } from "../exportSvg";
 import { ImageIcon } from "../icons/FormatIcons";
-import { exportMapPng } from "./exportMapPng";
+import { exportMapPng, type ExportPane } from "./exportMapPng";
 import {
   ARROW_MAX_TOTAL,
   ARROW_MIN_SEG_PX,
@@ -188,10 +188,13 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
   const [overlayOpacity, setOverlayOpacity] = useState<ReadonlyMap<string, number>>(new Map());
   const [overlaysOpen, setOverlaysOpen] = useState(false);
   // Synchronized view: the map area splits into two panes sharing one
-  // center/zoom — the left stays the plain base map, the right draws the
-  // picked overlays — so a historical layer can be read against today's map
+  // center/zoom, each drawing its own pick of the overlays — so a historical
+  // layer can be read against today's map (or one survey against another)
   // side by side instead of through its transparency.
   const [splitView, setSplitView] = useState(false);
+  /** The left pane's own overlay pick, used only while the view is split —
+   *  starts empty, so the split opens as base map | overlays. */
+  const [overlayOnLeft, setOverlayOnLeft] = useState<ReadonlySet<string>>(new Set());
   /** The right pane's Leaflet map — state, not a ref, so the base-layer,
    *  overlay, identify and marker effects re-run when it (dis)appears. */
   const [mapB, setMapB] = useState<L.Map | null>(null);
@@ -286,11 +289,10 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
   const mapRef = useRef<L.Map | null>(null);
   const baseLayerRef = useRef<L.Layer | null>(null);
   /** Live overlay tile layers with the definition they were built from —
-   *  a changed URL/zoom/attribution recreates, an opacity change adjusts. */
+   *  a changed URL/zoom/attribution recreates, an opacity change adjusts.
+   *  One per pane: a Leaflet layer can't sit on two maps. */
   const overlayLayersRef = useRef<LiveOverlays>(new Map());
-  /** Which map currently hosts the overlay layers (the right pane while the
-   *  synchronized view is on) — a change clears and rebuilds them there. */
-  const overlayHostRef = useRef<L.Map | null>(null);
+  const overlayLayersBRef = useRef<LiveOverlays>(new Map());
   const containerBRef = useRef<HTMLDivElement | null>(null);
   const baseLayerBRef = useRef<L.Layer | null>(null);
   const markersBRef = useRef<L.LayerGroup | null>(null);
@@ -390,10 +392,12 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
     // The left pane just halved; Leaflet only watches window resizes itself.
     mapA.invalidateSize();
     setMapB(map);
+    const overlayLayersB = overlayLayersBRef.current;
     return () => {
       mapA.off("move zoomend", aToB);
       map.off("moveend zoomend", bToA);
       map.remove();
+      overlayLayersB.clear();
       markersBRef.current = null;
       baseLayerBRef.current = null;
       setMapB(null);
@@ -429,26 +433,27 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
 
   // Historical overlays: keep the live tile layers in sync with the picker.
   // Overlay tiles are remote fetches like the base — the same opt-in gates
-  // them (until then the picker isn't rendered either). In the synchronized
-  // view they live on the right pane; the left stays the plain base map.
+  // them (until then the picker isn't rendered either). Single view: the one
+  // map draws the picked set. Synchronized view: each pane draws its own
+  // column of the picker — the right keeps the ordinary pick, the left its
+  // own (initially empty, so the split opens against the plain base).
   useEffect(() => {
-    const map = splitView ? mapB : mapRef.current;
+    const map = mapRef.current;
     if (!map) return;
-    const live = overlayLayersRef.current;
-    if (overlayHostRef.current !== map) {
-      // Layers can't move between maps — rebuild them on the new host. (On
-      // the just-removed right pane the layers died with it; remove() on
-      // them is a no-op then.)
-      for (const entry of live.values()) entry.layer.remove();
-      live.clear();
-      overlayHostRef.current = map;
-    }
-    syncOverlayLayers(map, live, overlays, {
+    syncOverlayLayers(map, overlayLayersRef.current, overlays, {
+      enabled: appSettings.allowMapTiles,
+      isOn: (o) => (splitView ? overlayOnLeft.has(o.id) : overlayOn.has(o.id)),
+      opacityOf: (o) => overlayOpacity.get(o.id) ?? OVERLAY_DEFAULT_OPACITY,
+    });
+  }, [overlays, overlayOn, overlayOnLeft, overlayOpacity, appSettings.allowMapTiles, splitView]);
+  useEffect(() => {
+    if (!mapB) return;
+    syncOverlayLayers(mapB, overlayLayersBRef.current, overlays, {
       enabled: appSettings.allowMapTiles,
       isOn: (o) => overlayOn.has(o.id),
       opacityOf: (o) => overlayOpacity.get(o.id) ?? OVERLAY_DEFAULT_OPACITY,
     });
-  }, [overlays, overlayOn, overlayOpacity, appSettings.allowMapTiles, splitView, mapB]);
+  }, [mapB, overlays, overlayOn, overlayOpacity, appSettings.allowMapTiles]);
 
   // A layer newly marked "show by default" in Settings (reachable from the
   // chart) switches itself on here; one the user unticked in the picker stays
@@ -472,30 +477,33 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
 
   // Click-to-identify: with a queryable WMS overlay on, a map click fires a
   // WMS GetFeatureInfo for the clicked pixel and shows the attributes (for the
-  // GURS address layer, a formatted street/number) in a popup. Listens on the
-  // pane the overlays are drawn on.
+  // GURS address layer, a formatted street/number) in a popup. Each pane
+  // answers for the layers it draws.
   useEffect(() => {
-    const map = splitView ? mapB : mapRef.current;
-    if (!map) return;
-    const targets = appSettings.allowMapTiles
-      ? queryableOverlays(overlays).filter((o) => overlayOn.has(o.id))
-      : [];
-    if (!targets.length) return;
-
-    const onClick = async (e: L.LeafletMouseEvent) => {
-      const seq = ++infoSeqRef.current;
-      const blocks = await identifyAt(map, targets, e.latlng, (o) => overlayDisplayName(o, t), t);
-      // A newer click superseded this one. Only pop up on an actual hit — a
-      // click on empty ground (no house point under the cursor) stays silent.
-      if (seq !== infoSeqRef.current || !blocks.length) return;
-      L.popup({ className: "map-info-popup" }).setLatLng(e.latlng).setContent(identifyPopupHtml(blocks)).openOn(map);
-    };
-
-    map.on("click", onClick);
+    const queryable = appSettings.allowMapTiles ? queryableOverlays(overlays) : [];
+    const panes: { map: L.Map | null; active: ReadonlySet<string> }[] = [
+      { map: mapRef.current, active: splitView ? overlayOnLeft : overlayOn },
+      ...(splitView ? [{ map: mapB, active: overlayOn }] : []),
+    ];
+    const offs: (() => void)[] = [];
+    for (const { map, active } of panes) {
+      const targets = queryable.filter((o) => active.has(o.id));
+      if (!map || !targets.length) continue;
+      const onClick = async (e: L.LeafletMouseEvent) => {
+        const seq = ++infoSeqRef.current;
+        const blocks = await identifyAt(map, targets, e.latlng, (o) => overlayDisplayName(o, t), t);
+        // A newer click superseded this one. Only pop up on an actual hit — a
+        // click on empty ground (no house point under the cursor) stays silent.
+        if (seq !== infoSeqRef.current || !blocks.length) return;
+        L.popup({ className: "map-info-popup" }).setLatLng(e.latlng).setContent(identifyPopupHtml(blocks)).openOn(map);
+      };
+      map.on("click", onClick);
+      offs.push(() => map.off("click", onClick));
+    }
     return () => {
-      map.off("click", onClick);
+      for (const off of offs) off();
     };
-  }, [overlays, overlayOn, appSettings.allowMapTiles, splitView, mapB, t]);
+  }, [overlays, overlayOn, overlayOnLeft, appSettings.allowMapTiles, splitView, mapB, t]);
 
   // Era suggestion: overlays whose validity period intersects the selected
   // year window (layers with no period at all are never highlighted).
@@ -511,13 +519,23 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
     return ids;
   }, [overlays, yearFrom, yearTo, range]);
 
-  const toggleOverlay = (id: string) =>
-    setOverlayOn((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  const toggled = (prev: ReadonlySet<string>, id: string) => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    return next;
+  };
+  const toggleOverlay = (id: string) => setOverlayOn((prev) => toggled(prev, id));
+  const toggleOverlayLeft = (id: string) => setOverlayOnLeft((prev) => toggled(prev, id));
+  // Swap sides: the two panes exchange their layer picks (the left pane keeps
+  // its zoom controls and life paths — it stays the "primary" half).
+  const swapPanes = () => {
+    const left = overlayOnLeft;
+    setOverlayOnLeft(overlayOn);
+    setOverlayOn(left);
+  };
+  // The chip badge counts every drawn layer, whichever pane holds it.
+  const activeOverlayCount = splitView ? new Set([...overlayOn, ...overlayOnLeft]).size : overlayOn.size;
 
   // Zoom to the data when it first shows up — and again after the branch
   // changes (new root or A/D flip), which can move the whole point cloud.
@@ -705,49 +723,83 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
   // — ….overlays / ….base, in the interface language — so the pair of one view
   // sorts together and neither can be mistaken for the other.
   const shownOverlays = overlays.filter((o) => overlayOn.has(o.id));
-  const savePng = (withOverlays: boolean) => {
-    // In the synchronized view the overlays live on the right pane, so the
-    // layered snapshot composes from there (tile positions are read relative
-    // to the pane that drew them); the base-only one keeps the left pane.
-    const fromB = withOverlays && splitView && mapB;
-    const map = fromB ? mapB : mapRef.current;
-    const el = fromB ? containerBRef.current : containerRef.current;
-    const base = fromB ? baseLayerBRef.current : baseLayerRef.current;
-    // Compose per layer (base, then overlays) so stacking and opacity match
-    // the screen even after a base-layer rebuild.
-    const baseEl = base instanceof L.TileLayer ? (base.getContainer() ?? null) : null;
-    // Painted bottom-up, so the list is walked in reverse: first listed is
-    // topmost on screen (see overlayZIndex).
-    const overlayTiles = withOverlays
-      ? [...shownOverlays].reverse().flatMap((o) => {
-          const entry = overlayLayersRef.current.get(o.id);
-          const layerEl = entry?.layer.getContainer();
-          return layerEl ? [{ el: layerEl, opacity: overlayOpacity.get(o.id) ?? OVERLAY_DEFAULT_OPACITY }] : [];
-        })
-      : [];
+  const shownOverlaysLeft = overlays.filter((o) => overlayOnLeft.has(o.id));
+  /** What a PNG snapshots: the single map with/without its overlays, or —
+   *  in the synchronized view — the left half, the right half, or both side
+   *  by side as one image. */
+  const savePng = (target: "overlays" | "base" | "left" | "right" | "both") => {
     const baseAttribution = appSettings.allowMapTiles
       ? basemapCredit(appSettings.mapBasemap, appSettings.mapTileUrl)
       : "Natural Earth";
-    const attribution = [
-      baseAttribution,
-      ...(withOverlays ? shownOverlays.filter((o) => o.attribution).map((o) => o.attribution!) : []),
-    ]
-      .filter(Boolean)
-      .join(" · ");
-    if (map && el)
-      exportMapPng(
+    // One spec per pane, composed from that pane's own container, base and
+    // live overlay layers — tile positions are only meaningful relative to
+    // the pane that drew them. Each carries its own credit line.
+    const mkPane = (
+      map: L.Map | null,
+      el: HTMLElement | null,
+      base: L.Layer | null,
+      live: LiveOverlays,
+      picked: typeof overlays,
+      withPaths: boolean,
+    ): ExportPane | null => {
+      if (!map || !el) return null;
+      return {
         map,
-        el,
-        { base: baseEl, overlays: overlayTiles },
-        clustersRef.current,
-        showPaths ? shownPaths : [],
-        selectedPath,
-        exportTitle,
-        // Named for what the image actually holds: with no layer switched on
-        // the ordinary PNG *is* the base map, and says so.
-        `${slug}.${t(overlayTiles.length ? "map.export.png.suffix.overlays" : "map.export.png.suffix.base")}`,
-        attribution,
-      );
+        container: el,
+        tiles: {
+          // Compose per layer (base, then overlays) so stacking and opacity
+          // match the screen even after a base-layer rebuild. Painted
+          // bottom-up, so the pick is walked in reverse: first listed is
+          // topmost on screen (see overlayZIndex).
+          base: base instanceof L.TileLayer ? (base.getContainer() ?? null) : null,
+          overlays: [...picked].reverse().flatMap((o) => {
+            const layerEl = live.get(o.id)?.layer.getContainer();
+            return layerEl ? [{ el: layerEl, opacity: overlayOpacity.get(o.id) ?? OVERLAY_DEFAULT_OPACITY }] : [];
+          }),
+        },
+        attribution: [baseAttribution, ...picked.filter((o) => o.attribution).map((o) => o.attribution!)]
+          .filter(Boolean)
+          .join(" · "),
+        withPaths,
+      };
+    };
+    const left = mkPane(
+      mapRef.current,
+      containerRef.current,
+      baseLayerRef.current,
+      overlayLayersRef.current,
+      splitView ? shownOverlaysLeft : target === "overlays" ? shownOverlays : [],
+      true,
+    );
+    const right =
+      splitView && target !== "left"
+        ? mkPane(mapB, containerBRef.current, baseLayerBRef.current, overlayLayersBRef.current, shownOverlays, false)
+        : null;
+    const panes = (target === "right" ? [right] : target === "both" ? [left, right] : [left]).filter(
+      (p): p is ExportPane => p !== null,
+    );
+    if (!panes.length) return;
+    // Named for what the image actually holds: with no layer switched on the
+    // ordinary PNG *is* the base map, and says so. Split snapshots are named
+    // by their side — layers can sit on either, so content can't tell the
+    // sides apart — and the two-pane image for the view itself.
+    const suffix = splitView
+      ? target === "both"
+        ? "map.export.png.suffix.split"
+        : target === "right"
+          ? "map.export.png.suffix.right"
+          : "map.export.png.suffix.left"
+      : panes[0].tiles.overlays.length
+        ? "map.export.png.suffix.overlays"
+        : "map.export.png.suffix.base";
+    exportMapPng(
+      panes,
+      clustersRef.current,
+      showPaths ? shownPaths : [],
+      selectedPath,
+      exportTitle,
+      `${slug}.${t(suffix)}`,
+    );
   };
 
   return (
@@ -775,28 +827,56 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
           disabled={!filtered.length}
           slug={slug}
           gedcom={{ ds: mainDs, personIds: shownPersonIds }}
-          extraItems={[
-            {
-              key: "png",
-              icon: <ImageIcon />,
-              label: t("map.export.png"),
-              title: t("map.export.png.tooltip"),
-              onSelect: () => savePng(true),
-            },
-            // Only worth offering while a layer is actually drawn — without one
-            // it would download the same picture twice.
-            ...(shownOverlays.length
-              ? [
+          extraItems={
+            splitView
+              ? // The synchronized view exports as it reads: both halves side
+                // by side in one image, or either half alone.
+                [
                   {
-                    key: "png-base",
+                    key: "png-split",
                     icon: <ImageIcon />,
-                    label: t("map.export.pngBase"),
-                    title: t("map.export.pngBase.tooltip"),
-                    onSelect: () => savePng(false),
+                    label: t("map.export.pngSplit"),
+                    title: t("map.export.pngSplit.tooltip"),
+                    onSelect: () => savePng("both"),
+                  },
+                  {
+                    key: "png-left",
+                    icon: <ImageIcon />,
+                    label: t("map.export.pngLeft"),
+                    title: t("map.export.pngLeft.tooltip"),
+                    onSelect: () => savePng("left"),
+                  },
+                  {
+                    key: "png-right",
+                    icon: <ImageIcon />,
+                    label: t("map.export.pngRight"),
+                    title: t("map.export.pngRight.tooltip"),
+                    onSelect: () => savePng("right"),
                   },
                 ]
-              : []),
-          ]}
+              : [
+                  {
+                    key: "png",
+                    icon: <ImageIcon />,
+                    label: t("map.export.png"),
+                    title: t("map.export.png.tooltip"),
+                    onSelect: () => savePng("overlays"),
+                  },
+                  // Only worth offering while a layer is actually drawn — without
+                  // one it would download the same picture twice.
+                  ...(shownOverlays.length
+                    ? [
+                        {
+                          key: "png-base",
+                          icon: <ImageIcon />,
+                          label: t("map.export.pngBase"),
+                          title: t("map.export.pngBase.tooltip"),
+                          onSelect: () => savePng("base"),
+                        },
+                      ]
+                    : []),
+                ]
+          }
         />
         </>
       }
@@ -901,7 +981,7 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
             <span className="map-overlays-wrap">
               <button
                 type="button"
-                className={`map-kind-chip map-overlays-chip${overlayOn.size ? " active" : ""}`}
+                className={`map-kind-chip map-overlays-chip${activeOverlayCount ? " active" : ""}`}
                 aria-pressed={overlaysOpen}
                 aria-expanded={overlaysOpen}
                 title={t("map.overlays.tooltip")}
@@ -909,34 +989,64 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
               >
                 <LayersIcon />
                 {t("map.overlays")}
-                {overlayOn.size > 0 && <span className="tree-mode-count">{overlayOn.size}</span>}
+                {activeOverlayCount > 0 && <span className="tree-mode-count">{activeOverlayCount}</span>}
               </button>
               {overlaysOpen && (
                 <div className="map-overlays-panel">
-                  <label className="map-overlay-pick map-split-toggle" title={t("map.overlays.split.tooltip")}>
-                    <input type="checkbox" checked={splitView} onChange={(e) => setSplitView(e.target.checked)} />
-                    <span className="map-overlay-name">{t("map.overlays.split")}</span>
-                  </label>
+                  <div className="map-split-row">
+                    <label className="map-overlay-pick map-split-toggle" title={t("map.overlays.split.tooltip")}>
+                      <input type="checkbox" checked={splitView} onChange={(e) => setSplitView(e.target.checked)} />
+                      <span className="map-overlay-name">{t("map.overlays.split")}</span>
+                    </label>
+                    {splitView && (
+                      <button
+                        type="button"
+                        className="map-swap-btn"
+                        title={t("map.overlays.swap.tooltip")}
+                        onClick={swapPanes}
+                      >
+                        ⇄ {t("map.overlays.swap")}
+                      </button>
+                    )}
+                  </div>
                   {overlays.map((o) => {
                     const on = overlayOn.has(o.id);
+                    const onLeft = overlayOnLeft.has(o.id);
                     const suggested = suggestedOverlays.has(o.id);
                     const opacity = overlayOpacity.get(o.id) ?? OVERLAY_DEFAULT_OPACITY;
+                    // Split: a tick box per pane, so either half can carry the
+                    // layer (a div then — nested labels are invalid, and one
+                    // label can't serve two inputs).
+                    const PickTag = splitView ? "div" : "label";
                     return (
                       <div
                         key={o.id}
                         className={`map-overlay-row${suggested ? " suggested" : ""}`}
                         title={suggested ? t("map.overlays.suggested") : undefined}
                       >
-                        <label className="map-overlay-pick">
-                          <input type="checkbox" checked={on} onChange={() => toggleOverlay(o.id)} />
+                        <PickTag className="map-overlay-pick">
+                          {splitView ? (
+                            <span className="map-pane-pair">
+                              <label className="map-pane-box" title={t("map.overlays.pane.left")}>
+                                <input type="checkbox" checked={onLeft} onChange={() => toggleOverlayLeft(o.id)} />
+                                <span className="map-pane-letter">{t("map.overlays.pane.leftLetter")}</span>
+                              </label>
+                              <label className="map-pane-box" title={t("map.overlays.pane.right")}>
+                                <input type="checkbox" checked={on} onChange={() => toggleOverlay(o.id)} />
+                                <span className="map-pane-letter">{t("map.overlays.pane.rightLetter")}</span>
+                              </label>
+                            </span>
+                          ) : (
+                            <input type="checkbox" checked={on} onChange={() => toggleOverlay(o.id)} />
+                          )}
                           <span className="map-overlay-name">{overlayDisplayName(o, t)}</span>
                           {(o.yearFrom !== undefined || o.yearTo !== undefined) && (
                             <span className="gm-data map-overlay-years">
                               {o.yearFrom ?? "…"}–{o.yearTo ?? "…"}
                             </span>
                           )}
-                        </label>
-                        {on && (
+                        </PickTag>
+                        {(splitView ? on || onLeft : on) && (
                           <input
                             type="range"
                             className="map-overlay-opacity"
