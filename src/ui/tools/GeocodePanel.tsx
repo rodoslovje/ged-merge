@@ -530,6 +530,8 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
         onApply={onApplyAddressCoords}
         onMove={onMovePlaceForAddresses}
         query={query}
+        kinship={kinship}
+        onNavigate={onNavigate}
       />
     </div>
     </PlaceLookupProvider>

@@ -12,7 +12,9 @@ import { EventCoordPicker } from "../edit/EventCoordPicker";
 import { PlaceAutocomplete } from "../edit/PlaceAutocomplete";
 import { usePlaceLookup } from "../edit/PlaceLookupContext";
 import { buildPlaceSuggestions, type PlaceSuggestions } from "../edit/placeSuggestions";
-import { useSettings } from "../SettingsContext";
+import { useNameOf, useSettings } from "../SettingsContext";
+import { lineageClass, type KinshipResolver } from "../../match/kinship";
+import { PersonLink } from "../PersonLink";
 import { ExpandAllToggle, GeoRowHeader, MapToggle } from "./shared";
 
 // The ADDR half of geocoding: house coordinates from the GURS address register
@@ -35,6 +37,25 @@ type SearchState = { state: "idle" | "loading" | "error" | "done"; results: RnRe
 const MiniPlaceMap = lazy(() => import("../map/MiniPlaceMap"));
 
 const IDLE: SearchState = { state: "idle", results: [] };
+
+/** The lookup-state chips over the list, mirroring the places list's work
+ *  chips: what still needs a register query, what came back with houses to
+ *  judge, what the register does not know, and what is staged for writing. */
+type AddrStatus = "unsearched" | "found" | "none" | "picked";
+const ADDR_FILTERS: ("all" | AddrStatus)[] = ["all", "unsearched", "found", "none", "picked"];
+
+/** A row's lookup state right now. An error or in-flight search still counts
+ *  as "unsearched" — it has no answer yet and the lookup can be retried. */
+function addrStatus(
+  row: AddressRow,
+  searches: ReadonlyMap<string, SearchState>,
+  picked: ReadonlyMap<string, unknown>,
+): AddrStatus {
+  if (picked.has(row.key)) return "picked";
+  const s = searches.get(row.key);
+  if (s?.state === "done") return s.results.length ? "found" : "none";
+  return "unsearched";
+}
 
 /** House numbers compared as numbers: 4 · 6 · 7 · 32, not 32 · 4 · 6 · 7. */
 const BY_NUMBER = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
@@ -128,6 +149,8 @@ export function AddressCoordsSection({
   onApply,
   onMove,
   query,
+  kinship,
+  onNavigate,
 }: {
   dataset: Dataset;
   onApply: (assignments: Map<string, GeoCoord>) => number;
@@ -138,9 +161,14 @@ export function AddressCoordsSection({
   /** The page's filter, already folded. A group whose place matches keeps all
    *  its addresses; otherwise only the addresses that match are listed. */
   query: string;
+  /** Kinship labels for the rows' people lists — the places rows' resolver. */
+  kinship?: KinshipResolver;
+  /** Jump to a person in Edit mode (the rows' people lists). */
+  onNavigate: (id: string) => void;
 }) {
   const { t } = useTranslation();
   const { settings } = useSettings();
+  const nameOf = useNameOf();
   // Re-scanned whenever the dataset object changes (applying replaces it), so
   // rows that were just written disappear on their own.
   const all = useMemo(() => scanAddresses(dataset), [dataset]);
@@ -162,9 +190,33 @@ export function AddressCoordsSection({
     }
     return found;
   }, [rows, query]);
+  const [searches, setSearches] = useState<Map<string, SearchState>>(new Map());
+  const [picked, setPicked] = useState<Map<string, { coord: GeoCoord; label: string }>>(new Map());
+  // Which lookup state is on screen; "all" leaves the list whole. Like the
+  // places chips, a chip's count is exactly what clicking it shows.
+  const [statusFilter, setStatusFilter] = useState<"all" | AddrStatus>("all");
+  // Rows whose people list is open — asked for by clicking the person count.
+  const [peopleOpen, setPeopleOpen] = useState<Set<string>>(new Set());
+
+  // Hover lists of the people behind each address's person count.
+  const peopleTitles = useMemo(() => {
+    const titles = new Map<string, string>();
+    for (const row of all) {
+      if (!row.people.length) continue;
+      const shown = row.people.slice(0, 15).map((id) => {
+        const p = dataset.individuals.get(id);
+        return p ? nameOf(p) : id;
+      });
+      const more = row.people.length - shown.length;
+      titles.set(row.key, shown.join("\n") + (more > 0 ? `\n… +${more}` : ""));
+    }
+    return titles;
+  }, [all, nameOf, dataset]);
+
   const groups = useMemo(() => {
+    const kept = statusFilter === "all" ? rows : rows.filter((r) => addrStatus(r, searches, picked) === statusFilter);
     const byPlace = new Map<string, PlaceGroup>();
-    for (const row of rows) {
+    for (const row of kept) {
       const g = byPlace.get(row.place);
       if (g) {
         g.rows.push(row);
@@ -180,7 +232,7 @@ export function AddressCoordsSection({
     }
     // Most-used places first — that is where geocoding pays off soonest.
     return [...byPlace.values()].sort((a, b) => b.events - a.events || a.place.localeCompare(b.place));
-  }, [rows]);
+  }, [rows, searches, picked, statusFilter]);
 
   // Existing place values for the move target's autocomplete, so a split lands
   // on the file's own spelling of the destination when it already has one. The
@@ -191,8 +243,6 @@ export function AddressCoordsSection({
   const [open, setOpen] = useState<Set<string>>(new Set());
   /** Groups whose map is drawn — never on open, always on request. */
   const [mapOpen, setMapOpen] = useState<Set<string>>(new Set());
-  const [searches, setSearches] = useState<Map<string, SearchState>>(new Map());
-  const [picked, setPicked] = useState<Map<string, { coord: GeoCoord; label: string }>>(new Map());
   const [applied, setApplied] = useState<number | null>(null);
   // The move panel: which group's is open, where to, and which of its rows go.
   const [moveGroup, setMoveGroup] = useState<string | null>(null);
@@ -221,6 +271,19 @@ export function AddressCoordsSection({
   if (!all.length) return null;
 
   const allOpen = groups.length > 0 && groups.every((g) => open.has(g.place));
+
+  // Faceted like the places chips: counted over the search-filtered rows, so
+  // each chip says how many addresses clicking it leaves on screen.
+  const statusCounts = { unsearched: 0, found: 0, none: 0, picked: 0 };
+  for (const row of rows) statusCounts[addrStatus(row, searches, picked)]++;
+
+  const togglePeople = (key: string) =>
+    setPeopleOpen((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
 
   const setSearch = (key: string, next: SearchState) => setSearches((prev) => new Map(prev).set(key, next));
 
@@ -412,6 +475,18 @@ export function AddressCoordsSection({
       <p className="tools-intro">{t("tools.geocode.addr.intro")}</p>
       {applied !== null && <p className="tools-clean tools-clean--ok">{t("tools.geocode.addr.applied", { count: applied })}</p>}
       {moved !== null && <p className="tools-clean tools-clean--ok">{t("tools.geocode.addr.moved", { count: moved })}</p>}
+      <div className="tools-chips">
+        {ADDR_FILTERS.map((f) => (
+          <button
+            key={f}
+            className={`tools-chip ${statusFilter === f ? "active" : ""}`}
+            onClick={() => setStatusFilter(f)}
+          >
+            {t(`tools.geocode.addr.filter.${f}`)}{" "}
+            <span className="tools-chip-count">{f === "all" ? rows.length : statusCounts[f]}</span>
+          </button>
+        ))}
+      </div>
       {/* Said rather than shown as an empty list: the section is the only place
           the file's addresses live, so vanishing under a filter would read as
           "this file has none". */}
@@ -541,6 +616,19 @@ export function AddressCoordsSection({
                           )}
                           <span className="tools-geo-cand-name">{row.address}</span>
                           <span className="tools-geo-count">{t("tools.geocode.addr.uses", { count: row.count })}</span>
+                          {/* Who the events belong to — count as the toggle,
+                              names on hover, exactly like the places rows. */}
+                          {row.people.length > 0 && (
+                            <button
+                              className="tools-chip-count tools-count-toggle"
+                              title={peopleTitles.get(row.key)}
+                              aria-pressed={peopleOpen.has(row.key)}
+                              aria-label={t("tools.geocode.peopleToggle")}
+                              onClick={() => togglePeople(row.key)}
+                            >
+                              {row.people.length}
+                            </button>
+                          )}
                           {settings.allowLinkFetch ? (
                             <>
                               <button
@@ -580,6 +668,28 @@ export function AddressCoordsSection({
                           />
                           {chosen && <span className="tools-reshape-badge official">{chosen.label}</span>}
                         </div>
+                        {peopleOpen.has(row.key) && (
+                          <>
+                            <ul className="tools-usage tools-geo-people">
+                              {row.people.slice(0, 30).map((id) => {
+                                const kin = kinship?.label(id);
+                                return (
+                                  <li key={id}>
+                                    <PersonLink dataset={dataset} id={id} fallback={id} onNavigate={onNavigate} />
+                                    {kin && (
+                                      <span className={`person-kinship ${lineageClass(kinship?.lineage(id))}`}>{kin}</span>
+                                    )}
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                            {row.people.length > 30 && (
+                              <p className="tools-geo-more">
+                                {t("tools.geocode.morePeople", { count: row.people.length - 30 })}
+                              </p>
+                            )}
+                          </>
+                        )}
                         {search.results.length > 0 && (
                           <ul className="tools-geo-candidates">
                             {search.results.map((r, i) => (
