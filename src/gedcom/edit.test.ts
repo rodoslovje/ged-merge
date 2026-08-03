@@ -2048,3 +2048,65 @@ describe("connectExistingChild (family creation)", () => {
     expect(serializeGedcom(ds.records, { eol: ds.eol, finalNewline: ds.finalNewline })).toBe(before);
   });
 });
+
+describe("a place's FORM", () => {
+  const withForm = [
+    "0 HEAD",
+    "1 GEDC",
+    "2 VERS 5.5.1",
+    "0 @I1@ INDI",
+    "1 NAME Janez /Novak/",
+    "1 BIRT",
+    "2 PLAC Kranj,Kranj,Slovenija",
+    "3 FORM Place,Upravna Enota,Country",
+    "3 MAP",
+    "4 LATI N46.23958",
+    "4 LONG E14.35629",
+    "0 TRLR",
+    "",
+  ].join("\n");
+
+  const placOf = (ds: Dataset) =>
+    ds.individuals.get("@I1@")!.raw.children.find((c) => c.tag === "BIRT")!.children.find((c) => c.tag === "PLAC")!;
+
+  it("is written on a place that had none, ahead of the MAP", () => {
+    const ds = buildFromText(withForm.replace("3 FORM Place,Upravna Enota,Country\n", ""));
+    setEventField(ds.individuals.get("@I1@")!, "BIRT", {
+      place: "Bled,Radovljica,Slovenija",
+      placeForm: "Place,Upravna Enota,Country",
+    });
+    const plac = placOf(ds);
+    expect(plac.children.map((c) => c.tag)).toEqual(["FORM", "MAP"]);
+    expect(plac.children[0].value).toBe("Place,Upravna Enota,Country");
+  });
+
+  it("is replaced, not duplicated, on a place that already had one", () => {
+    const ds = buildFromText(withForm);
+    setEventField(ds.individuals.get("@I1@")!, "BIRT", {
+      place: "Zagreb,Hrvaška",
+      placeForm: "Place,Country",
+    });
+    const forms = placOf(ds).children.filter((c) => c.tag === "FORM");
+    expect(forms).toHaveLength(1);
+    expect(forms[0].value).toBe("Place,Country");
+  });
+
+  // Moving to a place nothing is known about must not leave the old schema
+  // claiming to describe it — but only when it demonstrably no longer does.
+  it("is dropped when the new place has a different number of parts", () => {
+    const ds = buildFromText(withForm);
+    setEventField(ds.individuals.get("@I1@")!, "BIRT", { place: "Zagreb,Hrvaška" });
+    expect(placOf(ds).children.some((c) => c.tag === "FORM")).toBe(false);
+  });
+
+  it("is kept when the new place still has the parts it labels", () => {
+    const ds = buildFromText(withForm);
+    setEventField(ds.individuals.get("@I1@")!, "BIRT", { place: "Bled,Radovljica,Slovenija" });
+    expect(placOf(ds).children.find((c) => c.tag === "FORM")?.value).toBe("Place,Upravna Enota,Country");
+  });
+
+  it("is lifted onto the typed model, so a pick can reuse it", () => {
+    const ds = buildFromText(withForm);
+    expect(ds.individuals.get("@I1@")!.events[0].place?.form).toBe("Place,Upravna Enota,Country");
+  });
+});

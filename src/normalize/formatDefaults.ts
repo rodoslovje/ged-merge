@@ -59,6 +59,26 @@ export function detectFormatDefaults(dataset: Dataset): DetectedFormats {
   return out;
 }
 
+/**
+ * The layout row's sample, spelled with the comma form the separator row below
+ * it resolves to — the two describe one place between them, so they must not
+ * disagree about how it is written.
+ *
+ * The packed sample's own comma is not that separator: it divides the address
+ * from the locality inside one packed value, which is always written ", "
+ * (see reformatPlace). Only the jurisdiction chain follows the setting.
+ */
+export function placeLayoutSample(layout: string, separator: string): string | undefined {
+  const chain = `Kranj${separator}Slovenija`;
+  switch (layout) {
+    case "structured-addr": return `${chain} › ADDR Cesta 1`;
+    case "packed-plac": return "Cesta 1, Kranj (Slovenija)";
+    case "plain-structured": return chain;
+    case "address-only": return "Cesta 1";
+    default: return undefined;
+  }
+}
+
 /** A concrete sample date rendered in a pattern string, e.g. "DD.MM.YYYY" →
  *  "15.06.1879" and "D Mmm YYYY" → "15 Jun 1879". */
 export function sampleDateFor(pattern: string): string {

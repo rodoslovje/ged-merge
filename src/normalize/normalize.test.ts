@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
-import { detectPlaceLayout, inferDateProfile, inferMainProfile, inferNameLayout } from "./profile";
+import {
+  detectPlaceLayout,
+  inferDateProfile,
+  inferMainProfile,
+  inferNameLayout,
+  inferPlaceExportFormat,
+  placeFormFor,
+} from "./profile";
 import { normalizeDataset } from "./normalize";
 import { formatGedDate } from "./date";
 import { parseDate } from "../gedcom/date";
@@ -1402,5 +1409,79 @@ ${halfKnown}
 0 TRLR
 `);
     expect(inferMainProfile(main).unknownName).toEqual({ form: "blank" });
+  });
+});
+
+describe("place FORM vocabulary", () => {
+  // Three shapes the file labels itself: a Slovenian three-part place, a
+  // German one (same depth, different word for the middle level) and a
+  // two-part place. The wording is per country, so it can only be reused for
+  // the country it was learned from.
+  const labelled = `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 PLAC Zabukovje,Sevnica,Slovenija
+3 FORM Place,Upravna Enota,Country
+1 DEAT
+2 PLAC Mainz,Rheinland-Pfalz,Nemčija
+3 FORM Place,Bundesland,Country
+0 @I2@ INDI
+1 BIRT
+2 PLAC Zagreb,Hrvaška
+3 FORM Place,Country
+0 TRLR`;
+
+  it("learns each country's own wording, per depth", () => {
+    const fmt = inferPlaceExportFormat(dataset(labelled));
+    expect(placeFormFor(fmt, "Bled,Radovljica,Slovenija", "Slovenija")).toBe("Place,Upravna Enota,Country");
+    expect(placeFormFor(fmt, "Trier,Rheinland-Pfalz,Nemčija", "Nemčija")).toBe("Place,Bundesland,Country");
+    expect(placeFormFor(fmt, "Split,Hrvaška", "Hrvaška")).toBe("Place,Country");
+  });
+
+  it("does not carry one country's wording over to another", () => {
+    const fmt = inferPlaceExportFormat(dataset(labelled));
+    // Three-part places exist in two countries and are worded differently, so
+    // there is nothing to say about a third country's three-part place.
+    expect(placeFormFor(fmt, "Trst,Furlanija,Italija", "Italija")).toBeUndefined();
+  });
+
+  it("reuses a wording the file applies to every country alike", () => {
+    const uniform = `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 PLAC Zabukovje,Sevnica,Slovenija
+3 FORM Place,Municipality,Country
+1 DEAT
+2 PLAC Mainz,Rheinland-Pfalz,Nemčija
+3 FORM Place,Municipality,Country
+0 TRLR`;
+    const fmt = inferPlaceExportFormat(dataset(uniform));
+    expect(placeFormFor(fmt, "Trst,Furlanija,Italija", "Italija")).toBe("Place,Municipality,Country");
+  });
+
+  it("ignores a FORM that doesn't label the place it sits on", () => {
+    const mismatched = `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 PLAC Slovenija,Slovenija
+3 FORM Place,Upravna Enota,Country
+0 TRLR`;
+    const fmt = inferPlaceExportFormat(dataset(mismatched));
+    expect(fmt.forms).toBeUndefined();
+  });
+
+  it("says nothing about a file that writes no FORM", () => {
+    const plain = `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 PLAC Zabukovje,Sevnica,Slovenija
+0 TRLR`;
+    const fmt = inferPlaceExportFormat(dataset(plain));
+    expect(fmt.forms).toBeUndefined();
+    expect(placeFormFor(fmt, "Bled,Radovljica,Slovenija", "Slovenija")).toBeUndefined();
   });
 });

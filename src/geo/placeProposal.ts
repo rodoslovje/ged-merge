@@ -1,5 +1,6 @@
 import { canonicalPlaceToken, placeCompareKey } from "../match/place";
 import { reformatPlace } from "../normalize/placeReformat";
+import { placeFormFor } from "../normalize/profile";
 import type { PlaceTargetFormat } from "../normalize/types";
 import type { GeoCoord } from "../gedcom/types";
 import type { GazEntry } from "./gazetteer";
@@ -25,6 +26,13 @@ export interface PlaceProposal {
   plac: string;
   /** ADDR text, when the source named a house and the layout keeps it apart. */
   addr?: string;
+  /**
+   * `PLAC`.`FORM` naming what each part of `plac` is, in this file's own
+   * wording — written because the chain was composed here (settlement, then
+   * administrative parent, then country), so the levels are known rather than
+   * counted. Absent when the file writes no FORM, or none for this shape.
+   */
+  form?: string;
   /** Where the register puts it — picked along with the text. */
   coord: GeoCoord;
   /** Badge text naming the answering register ("GURS", "GOV", "OSM", "SI"). */
@@ -118,7 +126,11 @@ function shape(
   const raw = chain.join(style.fmt.separator);
   const out = reformatPlace(raw, addrRaw, style.fmt);
   if (!out.plac) return undefined;
-  return { plac: out.plac, ...(out.addr ? { addr: out.addr } : {}) };
+  // Declare the levels, in the file's own wording. Read off the reshaped text
+  // rather than `chain`: the layout may have filled in a jurisdiction level the
+  // register didn't name, and the FORM has to label what was actually written.
+  const form = placeFormFor(style.fmt, out.plac, country);
+  return { plac: out.plac, ...(out.addr ? { addr: out.addr } : {}), ...(form ? { form } : {}) };
 }
 
 /** An offline gazetteer entry (GURS settlements, OpenStreetMap, GeoNames). */

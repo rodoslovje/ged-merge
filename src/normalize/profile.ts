@@ -9,8 +9,10 @@ import type {
   MainProfile,
   NumericDateFormat,
   PlaceFormatProfile,
+  PlaceFormVocabulary,
   PlaceHierarchy,
   PlaceLayout,
+  PlaceTargetFormat,
 } from "./types";
 import { detectLinkLangs } from "./links";
 import { inferNameVariants } from "./nameVariants";
@@ -413,6 +415,7 @@ type PlaceExportFormat = {
   separator: string;
   countryPreferred?: Map<string, string>;
   hierarchy: PlaceHierarchy;
+  forms?: PlaceFormVocabulary;
 };
 const placeExportFormatCache = new WeakMap<Dataset, PlaceExportFormat>();
 
@@ -425,10 +428,14 @@ export function inferPlaceExportFormat(dataset: Dataset): PlaceExportFormat {
   const cached = placeExportFormatCache.get(dataset);
   if (cached) return cached;
   const values: string[] = [];
+  const formTally = new Map<string, Map<string, number>>();
   let addrCount = 0;
   walkNodes(dataset.records, (node) => {
     if (node.tag === "ADDR" && node.value !== undefined) addrCount++;
-    else if (node.tag === "PLAC" && node.value !== undefined) values.push(node.value);
+    else if (node.tag === "PLAC" && node.value !== undefined) {
+      values.push(node.value);
+      tallyPlaceForm(formTally, node.value, firstChild(node, "FORM")?.value);
+    }
   });
   // Build preferred country form map: canonical-key → most-used display form in main.
   const countryForms = new Map<string, Map<string, number>>();
@@ -446,14 +453,75 @@ export function inferPlaceExportFormat(dataset: Dataset): PlaceExportFormat {
     if (preferred) countryPreferred.set(canonical, preferred);
   }
 
+  const forms = resolvePlaceForms(formTally);
   const result: PlaceExportFormat = {
     layout: detectPlaceLayout(values, addrCount),
     separator: placeSeparatorText(detectPlaceSeparator(values) ?? "comma-space"),
     ...(countryPreferred.size > 0 ? { countryPreferred } : {}),
     hierarchy: inferPlaceHierarchy(dataset),
+    ...(forms.size > 0 ? { forms } : {}),
   };
   placeExportFormatCache.set(dataset, result);
   return result;
+}
+
+/** Key into a {@link PlaceFormVocabulary}: the country a place ends in and how
+ *  many parts it has. An absent country keys the depth-only entry. */
+function placeFormKey(country: string | undefined, parts: number): string {
+  return `${country ? canonicalPlaceToken(country) : ""}|${parts}`;
+}
+
+/** Count the comma parts of a place value, the way a FORM's labels count. */
+function placeParts(value: string): number {
+  return value.split(",").filter((s) => s.trim()).length;
+}
+
+/** Tally one attested place → FORM pairing, under both its country-specific
+ *  key and the depth-only one. */
+function tallyPlaceForm(
+  tally: Map<string, Map<string, number>>,
+  place: string,
+  form: string | undefined,
+): void {
+  if (!form?.trim()) return;
+  const parts = placeParts(place);
+  // A FORM whose label count doesn't match the place it sits on describes
+  // neither reliably ("Slovenia,Slovenia" under three labels) — learning from
+  // it would spread one file's mistake onto every place we write next.
+  if (parts === 0 || parts !== placeParts(form)) return;
+  const country = decomposePlace(place).country;
+  for (const key of [placeFormKey(country, parts), placeFormKey(undefined, parts)]) {
+    const forms = tally.get(key) ?? new Map<string, number>();
+    bumpStr(forms, form.trim());
+    tally.set(key, forms);
+  }
+}
+
+/** Reduce each key's tally to its most-used wording. A depth-only key that the
+ *  file spells more than one way is dropped: it means this file *does* vary its
+ *  labels by country, so guessing across countries would write the wrong ones. */
+function resolvePlaceForms(tally: Map<string, Map<string, number>>): PlaceFormVocabulary {
+  const out: PlaceFormVocabulary = new Map();
+  for (const [key, forms] of tally) {
+    if (key.startsWith("|") && forms.size > 1) continue;
+    const best = mostFrequentStr(forms);
+    if (best) out.set(key, best);
+  }
+  return out;
+}
+
+/**
+ * The `FORM` this file would write for a place, or undefined when it wouldn't:
+ * it writes no FORM at all, it has never labelled a place of this shape, or the
+ * layout packs addresses into the PLAC so its parts aren't jurisdictions.
+ *
+ * Only ever answers with wording the file itself already uses.
+ */
+export function placeFormFor(fmt: PlaceTargetFormat, plac: string, country: string | undefined): string | undefined {
+  if (!fmt.forms || fmt.layout === "packed-plac") return undefined;
+  const parts = placeParts(plac);
+  if (!parts) return undefined;
+  return fmt.forms.get(placeFormKey(country, parts)) ?? fmt.forms.get(placeFormKey(undefined, parts));
 }
 
 /** Joins a learned jurisdiction chain for tallying; never appears in place text. */

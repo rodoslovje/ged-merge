@@ -2,7 +2,7 @@ import { INDI_EVENT_TAGS } from "../eventTags";
 import { childrenByTag, cloneNode, firstChild, hasChild, nodeFingerprint, removeChildren } from "../node";
 import { isPointer } from "../uri";
 import type { Family, GedNode, GeoCoord, Individual } from "../types";
-import { setPlaceCoord } from "./geo";
+import { reconcilePlaceForm, setPlaceCoord } from "./geo";
 import {
   EVENT_CHILD_ORDER, EVENT_LINK_TAG, FAM_CHILD_ORDER, INDI_CHILD_ORDER,
   insertOrdered, markEventTouched, setOrRemoveValue,
@@ -17,6 +17,13 @@ export interface EventFieldUpdate {
   date?: string;
   /** New PLAC value, or `""` to remove the place. Omit to leave unchanged. */
   place?: string;
+  /** `PLAC`.`FORM` naming the jurisdiction level of each part of `place`. Set
+   *  only where the levels are actually known: a place completed from a
+   *  register, whose chain the app composed itself, or one the file already
+   *  labels elsewhere under this very name. A place invented by typing gets
+   *  none — its parts can be counted but not identified. See
+   *  {@link reconcilePlaceForm} for what happens to a FORM already there. */
+  placeForm?: string;
   /** New ADDR value, or `""` to remove the address. Omit to leave unchanged. */
   address?: string;
   /** Coordinates for this event's place (standard `PLAC`.`MAP`), or `null` to
@@ -83,6 +90,11 @@ export function applyEventNodeUpdate(record: GedNode, eventNode: GedNode, update
   if (update.value !== undefined) eventNode.value = update.value.trim() || undefined;
   if (update.date !== undefined) setOrRemoveValue(eventNode, "DATE", update.date, EVENT_CHILD_ORDER);
   if (update.place !== undefined) setOrRemoveValue(eventNode, "PLAC", update.place, EVENT_CHILD_ORDER);
+  if (update.place !== undefined || update.placeForm) {
+    // Same rule as the coordinate below: the place has to exist to describe.
+    const plac = eventNode.children.find((c) => c.tag === "PLAC" && c.value?.trim());
+    if (plac) reconcilePlaceForm(plac, update.placeForm);
+  }
   if (update.address !== undefined) setOrRemoveValue(eventNode, "ADDR", update.address, EVENT_CHILD_ORDER);
   if (update.coord !== undefined) {
     // The place has to exist to hang a MAP on; a coordinate with no place is

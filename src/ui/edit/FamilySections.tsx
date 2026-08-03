@@ -324,6 +324,7 @@ interface FamilySectionProps extends SharedSectionProps {
   addrCanonical: Map<string, string>;
   /** Coordinate the file already uses for a place (settlement-level). */
   placeCoords: Map<string, GeoCoord>;
+  placeForms: Map<string, string>;
   /** Coordinate for a specific place+address pair (the house). */
   pairCoords: Map<string, GeoCoord>;
   pendingFocusFamEventKey: string | null;
@@ -373,6 +374,7 @@ export const FamilySection = memo(function FamilySection({
   placeCanonical,
   addrCanonical,
   placeCoords,
+  placeForms,
   pairCoords,
   pendingFocusFamEventKey,
   setPendingFocusFamEventKey,
@@ -522,6 +524,7 @@ export const FamilySection = memo(function FamilySection({
             placeCanonical={placeCanonical}
             addrCanonical={addrCanonical}
             placeCoords={placeCoords}
+            placeForms={placeForms}
             pairCoords={pairCoords}
             mergeHighlight={mergeHighlight}
             mergeIncomingSources={mergeIncomingSources}

@@ -44,6 +44,7 @@ export function EventFieldsRow({
   placeCanonical,
   addrCanonical,
   placeCoords,
+  placeForms,
   pairCoords,
   mergeHighlight,
   mergeIncomingSources,
@@ -82,6 +83,8 @@ export function EventFieldsRow({
   addrCanonical: Map<string, string>;
   /** Coordinate the file already uses for a place (settlement-level). */
   placeCoords: Map<string, GeoCoord>;
+  /** Attested FORM per place (see PlaceSuggestions.placeForms). */
+  placeForms: Map<string, string>;
   /** Coordinate for a specific place+address pair (the house). */
   pairCoords: Map<string, GeoCoord>;
   mergeHighlight?: Map<string, string>;
@@ -207,11 +210,23 @@ export function EventFieldsRow({
     return coord ? { coord: null } : {};
   };
 
+  /**
+   * The FORM half of a commit that sets the place: the schema the file already
+   * writes for that very place, so choosing an existing value brings its levels
+   * along the way {@link coordUpdate} brings its position. Nothing is inferred
+   * here — a place the file has never labelled simply gets no FORM, and the
+   * write path drops a leftover one only once it no longer fits.
+   */
+  const formUpdate = (place: string): { placeForm?: string } => {
+    const known = placeForms.get(placeKey(place.trim()));
+    return known ? { placeForm: known } : {};
+  };
+
   /** Combo pick fills both fields in one commit — shared by both hosts. */
   const pickCombo = (place: string, addr: string) => {
     placeField.set(place);
     addrField.set(addr);
-    commitAll({ place, address: addr, ...coordUpdate(place, addr) });
+    commitAll({ place, address: addr, ...coordUpdate(place, addr), ...formUpdate(place) });
   };
   /**
    * A register's offer for a place the file has never written: its jurisdiction
@@ -232,6 +247,7 @@ export function EventFieldsRow({
       ...(proposal.addr ? { address: proposal.addr } : {}),
       coord: proposal.coord,
       ...(proposal.govId ? { govId: proposal.govId } : {}),
+      ...(proposal.form ? { placeForm: proposal.form } : {}),
     });
   };
   // The address field's combos: pairs at other places (this place's own
@@ -652,9 +668,10 @@ export function EventFieldsRow({
             onChange={placeField.set}
             onCommit={(val) => {
               // Picking (or typing) a place the file already knows brings its
-              // coordinate along, so the event is placed without a second step —
-              // and moving to a place it doesn't know clears the old position.
-              commitAll({ place: val, ...coordUpdate(val, addrField.value) });
+              // coordinate and its FORM along, so the event is placed and
+              // described without a second step — and moving to a place it
+              // doesn't know clears the old position.
+              commitAll({ place: val, ...coordUpdate(val, addrField.value), ...formUpdate(val) });
             }}
             onClear={() => { placeField.clear(); commitAll({ place: "" }); }}
             onPickCombo={pickCombo}

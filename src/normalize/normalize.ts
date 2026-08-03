@@ -4,7 +4,7 @@ import { cloneNode, firstChild } from "../gedcom/node";
 import { dropPlaceholderDates, normalizeDateString } from "./date";
 import { normalizePlaceString } from "./place";
 import { rewriteLinkLang } from "./links";
-import { reformatPlace, reshapesLayout } from "./placeReformat";
+import { reformatPlace, reshapesLayout, respellSeparator } from "./placeReformat";
 import { inferDateProfile } from "./profile";
 import type { MainProfile, NormalizationReport, NormalizeOptions, NormChange, PlaceTargetFormat } from "./types";
 import { migrateVersion, versionFamily } from "./migrate";
@@ -200,6 +200,17 @@ export function normalizeDataset(
     });
   }
 
+  // The comma form is a whole-file convention, so it also reaches the places
+  // `editable` holds back from reshaping — a source's own PLAC. Only the
+  // spacing changes, so the reason those records are excluded (their layout,
+  // e.g. an archive's institutional ADDR, must not be rewritten) still holds.
+  if (options.places && profile.placeFmt.separatorEnforced) {
+    const rest = records.filter((r) => r.tag !== "INDI" && r.tag !== "FAM");
+    walkNodes(rest, (node) => {
+      if (node.tag === "PLAC") respellPlaceNode(node, profile.placeFmt, report, seenPlace);
+    });
+  }
+
   // Rewrite alternate names (married/birth/aka/nick) into the main's
   // convention — an inline sub-tag on the primary NAME vs. a separate `TYPE`
   // record — and recase `TYPE` tokens to the main's spelling, so the styles
@@ -253,8 +264,13 @@ function reshapePlaceNode(
   // A PLAC carrying an explicit FORM declares a fixed jurisdiction schema —
   // each comma part maps to a FORM label (e.g. "Place,Municipality,County,…").
   // Reshaping could drop empty or middle parts and break that alignment, so
-  // leave such places untouched.
-  if (placNode?.children.some((c) => c.tag === "FORM")) return;
+  // the layout is left alone. The comma form still applies: respelling moves
+  // whitespace only, leaving the parts and their order — and so the FORM
+  // alignment — exactly as they were.
+  if (placNode?.children.some((c) => c.tag === "FORM")) {
+    respellPlaceNode(placNode, fmt, report, seen);
+    return;
+  }
   const placRaw = placNode?.value;
   const addrRaw = addrNode?.value;
   const r = reformatPlace(placRaw, addrRaw, fmt);
@@ -304,6 +320,41 @@ function reshapePlaceNode(
 
   report.placesReshaped++;
   record(report.placeExamples, seen, before, after);
+}
+
+/**
+ * Rewrite one PLAC's comma form in place, and its FORM's along with it. Used
+ * where the layout must not be touched — a FORM-pinned place, or a place on a
+ * record the reshape pass skips — but the reader's chosen comma form still
+ * applies, since only whitespace moves. A no-op until a form has actually been
+ * chosen (see respellSeparator).
+ *
+ * FORM is a comma list of the labels the place's own parts map to, so it is
+ * respelled together with them: leaving it behind would put both spellings of
+ * the same convention on two consecutive lines. This also reaches the file-wide
+ * `HEAD`.`PLAC`.`FORM` default, a PLAC that has only a FORM to respell.
+ */
+function respellPlaceNode(
+  placNode: GedNode,
+  fmt: PlaceTargetFormat,
+  report: NormalizationReport,
+  seen: Set<string>,
+): void {
+  const formNode = firstChild(placNode, "FORM");
+  const changes: [GedNode, string, string][] = [];
+  for (const node of [placNode, formNode]) {
+    const before = node?.value;
+    const after = respellSeparator(before, fmt);
+    if (node && after !== undefined && after !== before) changes.push([node, before!, after]);
+  }
+  if (!changes.length) return;
+  for (const [node, before, after] of changes) {
+    node.value = after;
+    if (node === placNode) node.reshapedFrom = before;
+  }
+  // One place changed, however many of its lines carried the comma form.
+  report.placesReshaped++;
+  record(report.placeExamples, seen, changes[0][1], changes[0][2]);
 }
 
 function plainNode(tag: string, value: string): GedNode {

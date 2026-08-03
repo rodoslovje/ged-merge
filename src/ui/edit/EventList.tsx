@@ -39,6 +39,7 @@ export const EventList = memo(function EventList({
   placeCanonical,
   addrCanonical,
   placeCoords,
+  placeForms,
   pairCoords,
   mergeHighlight,
   mergeIncomingSources,
@@ -69,6 +70,7 @@ export const EventList = memo(function EventList({
   addrCanonical: Map<string, string>;
   /** Coordinate the file already uses for a place (settlement-level). */
   placeCoords: Map<string, GeoCoord>;
+  placeForms: Map<string, string>;
   /** Coordinate for a specific place+address pair (the house). */
   pairCoords: Map<string, GeoCoord>;
   mergeHighlight?: Map<string, string>;
@@ -227,6 +229,7 @@ export const EventList = memo(function EventList({
         placeCanonical={placeCanonical}
         addrCanonical={addrCanonical}
             placeCoords={placeCoords}
+            placeForms={placeForms}
             pairCoords={pairCoords}
         mergeHighlight={mergeHighlight}
         mergeIncomingSources={mergeIncomingSources}
@@ -267,6 +270,7 @@ export const EventList = memo(function EventList({
             placeCanonical={placeCanonical}
             addrCanonical={addrCanonical}
             placeCoords={placeCoords}
+            placeForms={placeForms}
             pairCoords={pairCoords}
             mergeHighlight={mergeHighlight}
             mergeIncomingSources={mergeIncomingSources}
@@ -310,6 +314,7 @@ export const EventList = memo(function EventList({
             placeCanonical={placeCanonical}
             addrCanonical={addrCanonical}
             placeCoords={placeCoords}
+            placeForms={placeForms}
             pairCoords={pairCoords}
             mergeHighlight={mergeHighlight}
             mergeIncomingSources={mergeIncomingSources}
