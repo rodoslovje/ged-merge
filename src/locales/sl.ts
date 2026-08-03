@@ -470,8 +470,6 @@ export const sl = {
   "tools.geocode.noCandidate": "ni ujemanja",
   "tools.geocode.noMatch": "Označi kot brez ujemanja (zapomni se, v datoteko se ne zapiše)",
   "tools.geocode.noMatchUndo": "Odznači",
-  "tools.geocode.cached": "zapomnjeno ujemanje",
-  "tools.geocode.cachedTooltip": "Potrjeno prej — zapomnjeno iz prejšnje seje",
   "tools.geocode.manual": "ročno",
   "tools.geocode.manualPlaceholder": "46,0511, 14,5051",
   "tools.geocode.manualTooltip": "Ročne koordinate: zemljepisna širina, dolžina v decimalnih stopinjah (prilepite s kateregakoli zemljevida)",

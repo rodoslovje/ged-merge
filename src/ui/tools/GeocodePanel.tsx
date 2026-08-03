@@ -50,13 +50,9 @@ type StatusFilter = "all" | "confident" | "review" | "partial" | "noProposal" | 
 const STATUS_FILTERS: StatusFilter[] = ["all", "confident", "partial", "review", "noProposal", "decided"];
 
 /** A row has something to judge when any coordinate is on offer — the file's
- *  own, a gazetteer candidate, or a remembered acceptance. */
+ *  own, or a gazetteer candidate. */
 function hasProposal(row: GeocodeRow): boolean {
-  return (
-    !!row.fileCoord ||
-    row.candidates.length > 0 ||
-    (row.cached?.status === "accepted" && row.cached.lat !== undefined)
-  );
+  return !!row.fileCoord || row.candidates.length > 0;
 }
 
 interface Props {
@@ -269,17 +265,15 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
   // covers all of them with only the rows near the viewport mounted.
   const virtual = useVirtualList({ count: rows.length, estimate: 26, itemsKey: rows });
 
-  // A fresh scan seeds the review state from the cached decisions — but
+  // A fresh scan seeds the no-match marks from the remembered decisions — but
   // in-progress picks on rows that survived the rescan (e.g. after renaming
-  // one other row) are preserved, not silently discarded.
+  // one other row) are preserved, not silently discarded. Nothing arrives
+  // pre-ticked: accepting a coordinate is this run's act, and the accepted
+  // ones live in the file once written, not in the browser.
   useEffect(() => {
     if (!scan) return;
     const keys = new Set(scan.rows.map((r) => r.key));
-    setChecked((prev) => {
-      const next = new Set([...prev].filter((k) => keys.has(k)));
-      for (const r of scan.rows) if (r.cached?.status === "accepted" && r.cached.lat !== undefined) next.add(r.key);
-      return next;
-    });
+    setChecked((prev) => new Set([...prev].filter((k) => keys.has(k))));
     setNoMatch((prev) => {
       const next = new Set([...prev].filter((k) => keys.has(k)));
       for (const r of scan.rows) if (r.cached?.status === "nomatch") next.add(r.key);
@@ -291,10 +285,7 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
   }, [scan]);
 
   const chosenFor = (row: GeocodeRow): ChosenCoord | undefined =>
-    chosenCoordFor(row, chosen.get(row.key), {
-      fromFile: t("tools.geocode.fromFile"),
-      cached: t("tools.geocode.cached"),
-    });
+    chosenCoordFor(row, chosen.get(row.key), { fromFile: t("tools.geocode.fromFile") });
 
   const toggleChecked = (key: string, on: boolean) =>
     setChecked((prev) => {
@@ -389,16 +380,9 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
       if (checked.has(row.key)) {
         const c = chosenFor(row);
         if (!c) continue;
+        // Accepted coordinates go into the file and nowhere else — the saved
+        // GEDCOM is their record; only no-match marks are remembered.
         assignments.set(row.key, c.govId ? { coord: c.coord, govId: c.govId } : { coord: c.coord });
-        toStore.push({
-          key: row.key,
-          status: "accepted",
-          lat: c.coord.lat,
-          lon: c.coord.lon,
-          label: c.label,
-          ts: now,
-          ...(c.govId ? { govId: c.govId } : {}),
-        });
       } else if (noMatch.has(row.key) && row.cached?.status !== "nomatch") {
         toStore.push({ key: row.key, status: "nomatch", ts: now });
       }

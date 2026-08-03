@@ -115,10 +115,7 @@ export function GeocodePlaceRow({
   const appSettings = useSettingsSlice(SETTINGS_KEYS);
   const lookup = usePlaceLookup();
 
-  const c = chosenCoordFor(row, override, {
-    fromFile: t("tools.geocode.fromFile"),
-    cached: t("tools.geocode.cached"),
-  });
+  const c = chosenCoordFor(row, override, { fromFile: t("tools.geocode.fromFile") });
 
   // On-demand Nominatim (OSM) search for this row's raw value — the online
   // fallback for strings the offline gazetteer can't resolve, above all
@@ -195,19 +192,6 @@ export function GeocodePlaceRow({
   const [manualDraft, setManualDraft] = useState(() =>
     override && override.label === t("tools.geocode.manual") ? `${override.coord.lat}, ${override.coord.lon}` : "",
   );
-
-  // A remembered (cached) acceptance is shown with its original origin
-  // badge — file coordinate or gazetteer score — and only the tooltip
-  // says it came from a previous session; the plain "remembered" badge
-  // remains for decisions with no recognizable origin (e.g. manual).
-  const cachedCoord =
-    row.cached?.status === "accepted" && row.cached.lat !== undefined && row.cached.lon !== undefined
-      ? { lat: row.cached.lat, lon: row.cached.lon }
-      : undefined;
-  const cachedIsFile = sameCoord(cachedCoord, row.fileCoord);
-  const cachedCand = cachedCoord
-    ? row.candidates.find((cand) => sameCoord({ lat: cand.entry.lat, lon: cand.entry.lon }, cachedCoord))
-    : undefined;
 
   // Rename every occurrence of exactly this raw value, then rescan —
   // the corrected spelling gets fresh gazetteer proposals (or merges
@@ -330,23 +314,6 @@ export function GeocodePlaceRow({
           <span className="tools-reshape-badge remove" title={t("tools.geocode.noMatch")}>
             {t("tools.geocode.noMatchBadge")}
           </span>
-        ) : cachedCoord && !override ? (
-          cachedIsFile ? (
-            <span className="tools-reshape-badge new" title={`${t("tools.geocode.fromFileTooltip")} · ${t("tools.geocode.cachedTooltip")}`}>
-              {t("tools.geocode.fromFile")}
-            </span>
-          ) : cachedCand ? (
-            <span
-              className={scoreBadgeClass(cachedCand.score, row.confident || isChecked)}
-              title={t("tools.geocode.cachedTooltip")}
-            >
-              {Math.round(cachedCand.score * 100)}%
-            </span>
-          ) : (
-            <span className="tools-reshape-badge reuse" title={t("tools.geocode.cachedTooltip")}>
-              {t("tools.geocode.cached")}
-            </span>
-          )
         ) : row.fileCoord && !override ? (
           <span className="tools-reshape-badge new" title={t("tools.geocode.fromFileTooltip")}>
             {t("tools.geocode.fromFile")}
@@ -572,26 +539,6 @@ export function GeocodePlaceRow({
                   <span className="gm-data">
                     {row.fileCoord.lat.toFixed(4)}, {row.fileCoord.lon.toFixed(4)}
                   </span>
-                </label>
-              </li>
-            )}
-            {/* A remembered coordinate matching neither the file's nor
-                any candidate still needs its own selectable row. */}
-            {cachedCoord && !cachedIsFile && !cachedCand && (
-              <li>
-                <label>
-                  <input
-                    type="radio"
-                    name={`geo-${row.key}`}
-                    checked={sameCoord(c?.coord, cachedCoord)}
-                    onClick={() => sameCoord(c?.coord, cachedCoord) && onUnpickCoord(row)}
-                    onChange={() => onPickCoord(row, cachedCoord, row.cached?.label ?? t("tools.geocode.cached"))}
-                  />
-                  <span className="tools-geo-cand-name">{row.cached?.label ?? t("tools.geocode.cached")}</span>
-                  <span className="gm-data">
-                    {cachedCoord.lat.toFixed(4)}, {cachedCoord.lon.toFixed(4)}
-                  </span>
-                  <span className="tools-reshape-badge reuse">{t("tools.geocode.cached")}</span>
                 </label>
               </li>
             )}

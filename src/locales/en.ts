@@ -404,8 +404,6 @@ export const en = {
   "tools.geocode.noCandidate": "no match found",
   "tools.geocode.noMatch": "Mark as no match (remembered, never written to the file)",
   "tools.geocode.noMatchUndo": "Unmark no-match",
-  "tools.geocode.cached": "remembered match",
-  "tools.geocode.cachedTooltip": "Accepted earlier — remembered from a previous session",
   "tools.geocode.manual": "manual",
   "tools.geocode.manualPlaceholder": "46.0511, 14.5051",
   "tools.geocode.manualTooltip": "Coordinates by hand: latitude, longitude in decimal degrees (paste from any map site)",
