@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { DATE_PATTERN_CHOICES } from "./formatOverrides";
-import { detectFormatDefaults, sampleDateFor } from "./formatDefaults";
+import { detectFormatDefaults, placeLayoutSample, sampleDateFor } from "./formatDefaults";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -146,5 +146,29 @@ describe("detectFormatDefaults", () => {
 
   it("handles an empty dataset without throwing", () => {
     expect(() => detectFormatDefaults(dataset(wrap("")))).not.toThrow();
+  });
+});
+
+// Settings › GEDCOM shows the place layout and the comma form on two rows, one
+// above the other. Both describe how a place is written, so a layout sample
+// spelled with a bare comma while the row below says "comma + space" reads as
+// a contradiction.
+describe("placeLayoutSample", () => {
+  it("spells its jurisdictions with the chosen comma form", () => {
+    expect(placeLayoutSample("structured-addr", ", ")).toBe("Kranj, Slovenija › ADDR Cesta 1");
+    expect(placeLayoutSample("structured-addr", ",")).toBe("Kranj,Slovenija › ADDR Cesta 1");
+    expect(placeLayoutSample("plain-structured", ", ")).toBe("Kranj, Slovenija");
+    expect(placeLayoutSample("plain-structured", ",")).toBe("Kranj,Slovenija");
+  });
+
+  it("leaves the packed layout's address comma alone — it is not that separator", () => {
+    const packed = "Cesta 1, Kranj (Slovenija)";
+    expect(placeLayoutSample("packed-plac", ", ")).toBe(packed);
+    expect(placeLayoutSample("packed-plac", ",")).toBe(packed);
+  });
+
+  it("has no jurisdictions to separate in an address-only layout", () => {
+    expect(placeLayoutSample("address-only", ", ")).toBe("Cesta 1");
+    expect(placeLayoutSample("unknown", ", ")).toBeUndefined();
   });
 });

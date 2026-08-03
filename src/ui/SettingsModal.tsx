@@ -11,7 +11,8 @@ import type { PersonName } from "../gedcom/types";
 import { SUPPORTED_LANGUAGES } from "../locales/i18n";
 import { PROXY_HOSTS } from "../normalize/urlMetadata";
 import { DATE_PATTERN_CHOICES, type DetectedFormats, type FormatOverrides } from "../normalize/formatOverrides";
-import { sampleDateFor } from "../normalize/formatDefaults";
+import { placeLayoutSample, sampleDateFor } from "../normalize/formatDefaults";
+import { placeSeparatorText } from "../normalize/profile";
 import { sexClass } from "./sex";
 import type { SettingsTab } from "./settingsBus";
 import { GazetteerManager, useGazetteer } from "./tools/GazetteerManager";
@@ -99,12 +100,6 @@ const FORMAT_GROUPS: { group: string; dims: FormatDimension[] }[] = [
  *  from the value instead. */
 const FORMAT_SAMPLES: Partial<Record<keyof FormatOverrides, Record<string, string>>> = {
   datePlaceholder: { none: "JUN 1879", _: "__.06.1879", "?": "??.06.1879" },
-  place: {
-    "structured-addr": "Kranj,Slovenija › ADDR Cesta 1",
-    "packed-plac": "Cesta 1, Kranj (Slovenija)",
-    "plain-structured": "Kranj,Slovenija",
-    "address-only": "Cesta 1",
-  },
   placeSeparator: { comma: "Kranj,Slovenija", "comma-space": "Kranj, Slovenija" },
   names: { records: "1 NAME › 2 TYPE married", tags: "2 _MARNM Kovač" },
   sourceLayout: {
@@ -284,6 +279,12 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
     if (key === "unknownName") return effective === "blank" ? "/Kovač/" : `${effective} /Kovač/`;
     if (key === "matriculaLang") return `…online.eu/${effective}/…`;
     if (key === "geneanetLang") return `${effective}.geneanet.org`;
+    if (key === "place") {
+      // Undetected falls back to the form the writer itself defaults to (and
+      // the one 5.5.1's own examples use), not to a bare comma.
+      const sep = overrides.placeSeparator ?? detected?.placeSeparator;
+      return placeLayoutSample(effective, placeSeparatorText(sep === "comma" ? "comma" : "comma-space"));
+    }
     return FORMAT_SAMPLES[key]?.[effective];
   };
 
