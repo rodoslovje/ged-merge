@@ -34,6 +34,13 @@ const SETTINGS_KEYS = ["allowLinkFetch"] as const;
 
 const MiniPlaceMap = lazy(() => import("../map/MiniPlaceMap"));
 
+/** Badge class for a match score: green when it is going in (confident or
+ *  hand-checked), orange below 100% — the name did not match letter-perfectly,
+ *  so the score should read as a caution — grey otherwise. */
+function scoreBadgeClass(score: number, confident: boolean): string {
+  return `tools-geo-score${confident ? " confident" : Math.round(score * 100) < 100 ? " warn" : ""}`;
+}
+
 /** "lat, lon" free input → validated coordinate. */
 export function parseManualCoord(text: string): GeoCoord | undefined {
   const m = /^\s*(-?\d+(?:[.,]\d+)?)\s*[,;\s]\s*(-?\d+(?:[.,]\d+)?)\s*$/.exec(text);
@@ -329,7 +336,7 @@ export function GeocodePlaceRow({
             </span>
           ) : cachedCand ? (
             <span
-              className={`tools-geo-score${row.confident || isChecked ? " confident" : ""}`}
+              className={scoreBadgeClass(cachedCand.score, row.confident || isChecked)}
               title={t("tools.geocode.cachedTooltip")}
             >
               {Math.round(cachedCand.score * 100)}%
@@ -346,7 +353,7 @@ export function GeocodePlaceRow({
         ) : row.candidates[0] && !override ? (
           // Green when confident — or hand-selected for writing: a
           // checked row's badge should read as "going in" too.
-          <span className={`tools-geo-score${row.confident || isChecked ? " confident" : ""}`}>
+          <span className={scoreBadgeClass(row.candidates[0].score, row.confident || isChecked)}>
             {Math.round(row.candidates[0].score * 100)}%
           </span>
         ) : !c ? (
@@ -608,7 +615,7 @@ export function GeocodePlaceRow({
                     {cand.entry.population > 0 && `· ${t("tools.geocode.population", { count: cand.entry.population })} · `}
                     {`${cand.entry.lat.toFixed(4)}, ${cand.entry.lon.toFixed(4)}`}
                   </span>
-                  <span className="tools-geo-score">{Math.round(cand.score * 100)}%</span>
+                  <span className={scoreBadgeClass(cand.score, false)}>{Math.round(cand.score * 100)}%</span>
                   {/* Source last, like the GOV/OSM/GURS rows below: the full
                       directory id — register code (SI-GURS), download key
                       (HR-OSM), or the bare country code, which by convention
