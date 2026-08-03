@@ -96,7 +96,7 @@
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=226058&docid=10&seq=1",
    "cell": [
     0.0,
-    5.8814
+    6.0
    ],
    "frame": [
     81.9,
@@ -109,7 +109,7 @@
     2047.2
    ],
    "source": "SI AS 176/L/L303/g/A05",
-   "placed": "row 3 west — 180 m south to close the seam above A08"
+   "placed": "stacked under the sheet above"
   },
   {
    "image": "kataster-scans/226059.jpg",
@@ -156,20 +156,20 @@
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=226061&docid=10&seq=1",
    "cell": [
     0.0,
-    4.9011
+    5.0
    ],
    "frame": [
-    80.5,
-    308.8,
-    2538.5,
-    308.8,
-    2538.5,
-    2275.2,
-    80.5,
-    2275.2
+    76.0,
+    80.0,
+    2534.0,
+    80.0,
+    2534.0,
+    2046.0,
+    76.0,
+    2046.0
    ],
    "source": "SI AS 176/L/L303/g/A08",
-   "placed": "row 5 centre — 150 m south to meet the Ljubljanica"
+   "placed": "row 5 centre — re-cut on the real neatline"
   },
   {
    "image": "kataster-scans/226062.jpg",
