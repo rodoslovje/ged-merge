@@ -310,15 +310,21 @@ class Cassini:
             lon += math.degrees(dx_m / (n1 * math.cos(math.radians(lat))))
         return lon, lat
 
-    def cell_quad(self, ix, iy, steps=8):
+    def cell_quad(self, ix, iy, steps=8, span=(1, 1)):
         """Lattice cell (ix, iy) as a lon/lat ring, clockwise from its NW corner.
 
         The cell's edges are straight on the survey's grid and so slightly
         curved in lon/lat; they are sampled rather than cornered, which is what
         keeps two neighbouring sheets from leaving a sliver between them.
+
+        `span` is the footprint in cells, for the scans that are not one whole
+        sheet: a scan trimmed inside its neighbour's column, or one holding a
+        band across two sheets, covers a fraction of a cell one way and more
+        than one the other, and stretching its neatline onto a 1×1 cell would
+        drift its content by hundreds of metres across the sheet.
         """
-        w, e = ix * SHEET_W, (ix + 1) * SHEET_W
-        s, n = iy * SHEET_H, (iy + 1) * SHEET_H
+        w, e = ix * SHEET_W, (ix + span[0]) * SHEET_W
+        s, n = iy * SHEET_H, (iy + span[1]) * SHEET_H
         ring = []
         for i in range(steps):
             ring.append(self.inv(w + (e - w) * i / steps, n))
@@ -751,10 +757,13 @@ class Sheet:
     holds only the sheet currently being rendered in memory."""
 
     def __init__(self, image_path, bbox, frame, rotate=0, conic=None, origin=(0, 0), dpi=0,
-                 geo_quad=None, clip=None):
+                 geo_quad=None, clip=None, solo=False):
         self.path = image_path
         self.bbox = bbox  # (west, south, east, north)
         self.rotate = rotate
+        # Not one whole grid step, so the chessboard in `_wave` cannot promise
+        # it shares no tile with a neighbour — it renders in a wave of its own.
+        self.solo = solo
         self._im = None
         # A sheet cut from a projection whose rectangles are not lon/lat
         # rectangles (the cadastral lattice) carries its four geographic corners
@@ -937,7 +946,16 @@ def _wave(sheet):
     Two sheets two grid steps apart cannot share a tile, so colouring the
     sheet grid like a chessboard of 2×2 blocks gives four waves whose members
     never write the same file — the seam tiles that neighbours composite into
-    are the whole reason the base pass is otherwise serial."""
+    are the whole reason the base pass is otherwise serial.
+
+    The colouring reads the block off the sheet's own size, so it only holds
+    while every sheet is one whole cell. A sheet that is not (a cadastral
+    `span`) gets a wave to itself instead: it would otherwise land in the same
+    wave as a neighbour it shares a seam with, and one of the two edges would
+    be overwritten rather than composited."""
+    if sheet.solo:
+        # Keyed by path, not by object, so the wave order is the same every run.
+        return (2, sheet.path)
     west, south = sheet.bbox[0], sheet.bbox[1]
     return (round(west / (sheet.bbox[2] - west)) % 2,
             round(south / (sheet.bbox[3] - south)) % 2)
@@ -1132,13 +1150,22 @@ def main():
             if cassini is not None:
                 # A cadastral sheet is one cell of the survey's own lattice, so
                 # the manifest pins the cell and the projection says where its
-                # corners fall.
+                # corners fall. `span` is for the scans that are not one whole
+                # cell — it says how many cells the neatline covers.
                 ix, iy = entry["cell"]
-                ring = cassini.cell_quad(ix, iy)
+                if entry.get("rotate"):
+                    # A lattice sheet is placed from its cell, and its frame is
+                    # measured on the scan as it lies: there is nowhere for a
+                    # rotation to apply. Say so rather than ignore it silently.
+                    print(f"{os.path.basename(path)}: 'rotate' does not apply to a "
+                          f"cadastral sheet and is ignored", flush=True)
+                span = tuple(entry.get("span", (1, 1)))
+                ring = cassini.cell_quad(ix, iy, span=span)
                 quad = [ring[0], ring[len(ring) // 4], ring[len(ring) // 2], ring[3 * len(ring) // 4]]
                 bbox = (min(p[0] for p in ring), min(p[1] for p in ring),
                         max(p[0] for p in ring), max(p[1] for p in ring))
-                sheets.append(Sheet(path, bbox, frame, geo_quad=quad, clip=ring))
+                sheets.append(Sheet(path, bbox, frame, geo_quad=quad, clip=ring,
+                                    solo=span != (1, 1)))
             elif conic is not None:
                 # One pane of a single conic-projected scan: its bbox follows
                 # from the projection, so the manifest only pins its origin.

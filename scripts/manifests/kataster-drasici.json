@@ -35,22 +35,25 @@
    "image": "kataster-scans/227162.jpg",
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=227162&docid=10&seq=1",
    "cell": [
-    36.5,
+    36.5267790,
     -18
    ],
-   "frame": [
-    16.0,
-    29.0,
-    2471.0,
-    29.0,
-    2471.0,
-    1993.0,
-    16.0,
-    1993.0
+   "span": [
+    0.7820750,
+    1.2454680
    ],
-   "rotate": 90,
+   "frame": [
+    82.4,
+    85.3,
+    2009.4,
+    85.3,
+    2009.4,
+    2540.4,
+    82.4,
+    2540.4
+   ],
    "source": "SI AS 176/N/N43/g/A02",
-   "placed": "lattice cell, moved half a sheet west by hand"
+   "placed": "printed O.X.22 dg|cg — the sheets' own lattice rules, x 1248.4 y 569.2"
   },
   {
    "image": "kataster-scans/227163.jpg",

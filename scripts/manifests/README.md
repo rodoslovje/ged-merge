@@ -246,6 +246,35 @@ sheet columns of 1000 klafter and 5 sheet rows of 800 klafter, on
 Cassini-Soldner about the crown land's origin. So a cell fixes a sheet
 absolutely, and the tiler derives its corners from the projection.
 
+### When the scan is not one whole cell
+
+`cell` may be fractional, and an entry may add `"span": [wcells, hcells]`
+(default `[1, 1]`) for the scans that are not a sheet. Both matter because the
+tiler stretches a neatline onto exactly the footprint it is given: a scan
+0.78 cells wide placed on a whole cell drifts its content progressively east,
+by ~400 m at the far edge, while every seam it shares still looks joined at the
+one edge the placement was eyeballed from.
+
+Drašiči's `227162` is the worked example. It is portrait, 1927 × 2455 px of
+neatline where a sheet is 2464 × 1971, and it carries the survey's own rules
+printed across it — a column boundary at x 1248.4 and a row boundary at
+y 569.2, labelled `dg` west and `cg` east, so the scan holds a band across two
+sheets rather than one sheet. Those rules place it outright: the row boundary
+below the band is 37·`SHEET_W` × −18·`SHEET_H`, which gives
+`cell [36.5267790, -18]` and `span [0.7820750, 1.2454680]`. Reading the scale
+off them independently returns 2464.0 px per cell width — the same number the
+neighbouring `227163` measures — which is the check that the reading is right.
+
+Two ways to confirm such a sheet, both worth doing: the scale must come out at
+the fond's own (~0.77 m/px), and the sheet's edge content must continue into
+its neighbour's when the two are laid against each other at true scale, aligned
+on a shared lattice line. The second is what distinguishes a real placement
+from a plausible one — a stretched sheet joins at one edge and nowhere else.
+
+`rotate` does **not** apply to a cadastral sheet: it is placed from its cell
+and its frame is measured on the scan as it lies. The tiler says so and ignores
+it rather than passing it on.
+
 ### Reading a sheet's own address
 
 Every sheet prints its designation in the top margin: `W.C.II.14.ag` is **W**est
