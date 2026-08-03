@@ -306,6 +306,10 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
       attributionControl: false,
     });
     L.control.attribution({ position: "bottomright", prefix: false }).addTo(map);
+    // A cadastral overlay is read at a scale — "is this parcel 40 m or 400 m
+    // across" — which zoom level alone does not answer, so the bar says what a
+    // length on screen is on the ground. Metric only: every source here is.
+    L.control.scale({ position: "bottomleft", metric: true, imperial: false, maxWidth: 130 }).addTo(map);
     // Automation hook: lets capture/e2e scripts set a precise view (the UI
     // offers no way to type a center/zoom).
     (el as HTMLDivElement & { _leafletMap?: L.Map })._leafletMap = map;

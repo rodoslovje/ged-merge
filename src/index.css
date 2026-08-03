@@ -6358,6 +6358,17 @@ kbd {
 .tools-geo-minimap .leaflet-control-attribution a {
   color: var(--accent);
 }
+/* Scale bar: the same tinted panel as the attribution it sits opposite. */
+.map-canvas .leaflet-control-scale-line {
+  background: color-mix(in srgb, var(--panel) 85%, transparent);
+  border: 1px solid var(--border);
+  border-top: none;
+  color: var(--muted);
+  font-size: 10.5px;
+  line-height: 1.3;
+  padding: 1px 5px 2px;
+  text-shadow: none;
+}
 .map-canvas .leaflet-bar a,
 .tools-geo-minimap .leaflet-bar a {
   background: var(--panel);
