@@ -1853,7 +1853,7 @@ export const sl = {
     "Franciscejski kataster · Šenčur 1:2880 (1826)",
   "settings.map.overlays.preset.kataster.jama":
     "Franciscejski kataster · Jama 1:2880 (1826)",
-  "settings.map.overlays.preset.kataster.bregObSavi":
+  "settings.map.overlays.preset.kataster.drulovka":
     "Franciscejski kataster · Drulovka 1:2880 (1826)",
   "settings.map.overlays.preset.kataster.mavcice":
     "Franciscejski kataster · Podreča in Mavčiče 1:2880 (1826)",
