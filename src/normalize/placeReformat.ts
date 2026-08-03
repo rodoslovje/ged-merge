@@ -143,9 +143,11 @@ export function reformatPlace(
  * Rewrite the spacing around every comma to the chosen form — the only edit a
  * pass-through layout gets, and only once the reader has actually picked a
  * separator. Nothing but whitespace moves: the parts themselves are untouched,
- * so a comma that separates a street rather than a jurisdiction is safe too.
+ * so a comma that separates a street rather than a jurisdiction is safe too —
+ * and so is a place whose layout must not be rewritten at all (a `FORM`-pinned
+ * PLAC, or one on a record the reshape pass leaves alone).
  */
-function respellSeparator(value: string | undefined, fmt: PlaceTargetFormat): string | undefined {
+export function respellSeparator(value: string | undefined, fmt: PlaceTargetFormat): string | undefined {
   if (!value || !fmt.separatorEnforced) return value;
   return value.replace(/\s*,\s*/g, fmt.separator);
 }

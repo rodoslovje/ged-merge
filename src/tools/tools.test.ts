@@ -2035,6 +2035,58 @@ describe("bulkNormalize place separator", () => {
     const { dataset: out } = bulkNormalize(dataset(structured), undefined, { placeSeparator: "comma-space" });
     expect(placesOf(out)).toEqual(["Spodnja Besnica, Kranj, Slovenija", "Kranj, Kranj, Slovenija"]);
   });
+
+  // A FORM-pinned place is held back from layout reshaping (its comma parts
+  // must keep aligning with the FORM labels), but respelling moves whitespace
+  // only — so the chosen comma form has to reach it too, or a file that writes
+  // FORM on every place (Ancestral Quest, MacFamilyTree) converts nothing.
+  const pinned = `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Janez /Novak/
+1 BIRT
+2 PLAC Spodnja Besnica,Kranj,Slovenija
+3 FORM Place,Upravna Enota,Country
+2 ADDR Spodnja Besnica 12
+0 TRLR`;
+
+  it("respells a FORM-pinned place without reshaping its layout", () => {
+    const { dataset: out, report } = bulkNormalize(dataset(pinned), undefined, { placeSeparator: "comma-space" });
+    const birt = out.individuals.get("@I1@")!.raw.children.find((c) => c.tag === "BIRT")!;
+    const plac = birt.children.find((c) => c.tag === "PLAC")!;
+    expect(plac.value).toBe("Spodnja Besnica, Kranj, Slovenija");
+    // The schema and the parts it labels are untouched, and the ADDR was not
+    // folded into the PLAC the way an unpinned structured place would be.
+    expect(plac.children.find((c) => c.tag === "FORM")?.value).toBe("Place,Upravna Enota,Country");
+    expect(plac.value!.split(",")).toHaveLength(3);
+    expect(birt.children.find((c) => c.tag === "ADDR")?.value).toBe("Spodnja Besnica 12");
+    expect(report.placesReshaped).toBe(1);
+  });
+
+  it("still leaves a FORM-pinned place alone when no comma form is chosen", () => {
+    const { dataset: out, report } = bulkNormalize(dataset(pinned));
+    expect(placesOf(out)).toEqual(["Spodnja Besnica,Kranj,Slovenija"]);
+    expect(report.placesReshaped).toBe(0);
+  });
+
+  // Sources are excluded from reshaping so an archive's own address is never
+  // rewritten; the comma form is a whole-file convention and still applies.
+  it("respells a place on a source record too", () => {
+    const withSource = `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Janez /Novak/
+0 @S1@ SOUR
+1 TITL Krstna knjiga
+1 DATA
+2 EVEN BIRT
+3 PLAC Spodnja Besnica,Kranj,Slovenija
+0 TRLR`;
+    const { dataset: out } = bulkNormalize(dataset(withSource), undefined, { placeSeparator: "comma-space" });
+    const sour = out.records.find((r) => r.tag === "SOUR")!;
+    const plac = sour.children.find((c) => c.tag === "DATA")!.children[0].children[0];
+    expect(plac.value).toBe("Spodnja Besnica, Kranj, Slovenija");
+  });
 });
 
 describe("bulkNormalize vendor-tag dialect", () => {
