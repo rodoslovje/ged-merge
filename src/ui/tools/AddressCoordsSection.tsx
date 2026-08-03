@@ -42,18 +42,21 @@ const IDLE: SearchState = { state: "idle", results: [] };
 
 /** The lookup-state chips over the list, mirroring the places list's work
  *  chips: what still needs a register query, what came back with houses to
- *  judge, what the register does not know, and what is staged for writing. */
-type AddrStatus = "unsearched" | "found" | "none" | "picked";
-const ADDR_FILTERS: ("all" | AddrStatus)[] = ["all", "unsearched", "found", "none", "picked"];
+ *  judge, what the register does not know, what it cannot be asked about at
+ *  all, and what is staged for writing. */
+type AddrStatus = "unsearched" | "found" | "none" | "manual" | "picked";
+const ADDR_FILTERS: ("all" | AddrStatus)[] = ["all", "unsearched", "found", "none", "manual", "picked"];
 
 /** A row's lookup state right now. An error or in-flight search still counts
- *  as "unsearched" — it has no answer yet and the lookup can be retried. */
+ *  as "unsearched" — it has no answer yet and the lookup can be retried; a row
+ *  with no query at all is "manual", since no amount of retrying will help. */
 function addrStatus(
   row: AddressRow,
   searches: ReadonlyMap<string, SearchState>,
   picked: ReadonlyMap<string, unknown>,
 ): AddrStatus {
   if (picked.has(row.key)) return "picked";
+  if (!row.queries.length) return "manual";
   const s = searches.get(row.key);
   if (s?.state === "done") return s.results.length ? "found" : "none";
   return "unsearched";
@@ -304,7 +307,7 @@ export function AddressCoordsSection({
 
   // Faceted like the places chips: counted over the search-filtered rows, so
   // each chip says how many addresses clicking it leaves on screen.
-  const statusCounts = { unsearched: 0, found: 0, none: 0, picked: 0 };
+  const statusCounts = { unsearched: 0, found: 0, none: 0, manual: 0, picked: 0 };
   for (const row of rows) statusCounts[addrStatus(row, searches, picked)]++;
 
   const togglePeople = (key: string) =>
@@ -336,7 +339,11 @@ export function AddressCoordsSection({
    * settlements), which is more than a batch can express.
    */
   const searchGroup = (group: PlaceGroup) => {
-    const pending = group.rows.filter((row) => (searches.get(row.key) ?? IDLE).state === "idle");
+    // Rows with no query are not "pending" — there is nothing to ask about, and
+    // marking them loading would leave them stuck at it.
+    const pending = group.rows.filter(
+      (row) => row.queries.length > 0 && (searches.get(row.key) ?? IDLE).state === "idle",
+    );
     if (!pending.length) return;
     setSearches((prev) => {
       const next = new Map(prev);
@@ -666,9 +673,14 @@ export function AddressCoordsSection({
                   {groupPins(group).length > 0 && (
                     <MapToggle open={mapOpen.has(group.place)} onToggle={() => toggleMap(group.place)} />
                   )}
-                  {settings.allowLinkFetch && group.rows.length > 1 && (
+                  {/* Counted over what the register can actually be asked about:
+                      a place whose houses carry no numbers has nothing to look
+                      up, and the button would promise a search that never runs. */}
+                  {settings.allowLinkFetch && group.rows.filter((r) => r.queries.length).length > 1 && (
                     <button className="tools-issue-link" onClick={() => searchGroup(group)}>
-                      {t("tools.geocode.addr.searchGroup", { count: group.rows.length })}
+                      {t("tools.geocode.addr.searchGroup", {
+                        count: group.rows.filter((r) => r.queries.length).length,
+                      })}
                     </button>
                   )}
                   {group.place && group.movable && moveGroup !== group.place && (
@@ -821,7 +833,15 @@ export function AddressCoordsSection({
                               {row.people.length}
                             </button>
                           )}
-                          {settings.allowLinkFetch ? (
+                          {/* Nothing to ask the register: an address with no
+                              house number, or one outside the country it covers.
+                              Said plainly and once — the pin beside it still
+                              places the row, by hand or off a map. */}
+                          {!row.queries.length ? (
+                            <span className="tools-geo-online-note" title={t("tools.geocode.addr.noQueryHint")}>
+                              {t("tools.geocode.addr.noQuery")}
+                            </span>
+                          ) : settings.allowLinkFetch ? (
                             <>
                               <button
                                 className="tools-issue-link"

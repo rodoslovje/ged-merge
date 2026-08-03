@@ -68,11 +68,40 @@ describe("scanAddresses", () => {
     expect(row.rawKeys).toEqual([placeAddrKey("Šentvid pri Stični 23, Slovenija", "Šentvid pri Stični 23")]);
   });
 
-  it("skips what cannot be looked up", () => {
-    // Not Slovenia: the register does not cover it.
-    expect(rows.map((r) => r.key)).not.toContain(placeAddrKey("Wien, Austria", "Ringstrasse 1"));
-    // No address at all.
+  it("lists what the register cannot answer, with no query to run", () => {
+    // Not Slovenia: the register does not cover it — but the address is still a
+    // place to be pinned by hand, so it is reviewed like any other.
+    const wien = rows.find((r) => r.key === placeAddrKey("Wien, Austria", "Ringstrasse 1"))!;
+    expect(wien.queries).toEqual([]);
+    expect(wien.count).toBe(1);
+  });
+
+  it("skips events that name no address", () => {
     expect(rows.some((r) => r.address === "")).toBe(false);
+  });
+});
+
+describe("scanAddresses and an address with no house number", () => {
+  // A hamlet named in the ADDR line: "Stražišče" is where the event happened,
+  // and it is not the place value, so nothing else in the app can place it.
+  const NO_NUMBER = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 BIRT
+2 PLAC Kranj, Slovenija
+2 ADDR Stražišče
+1 DEAT
+2 PLAC Kranj, Slovenija
+2 ADDR Stražišče 114
+0 TRLR`;
+
+  it("reviews it beside the numbered houses of the same place", () => {
+    const rows = scanAddresses(build(NO_NUMBER));
+    expect(rows.map((r) => r.address).sort()).toEqual(["Stražišče", "Stražišče 114"]);
+    // No number, so no register query — the row is placed by hand instead.
+    expect(rows.find((r) => r.address === "Stražišče")!.queries).toEqual([]);
+    expect(rows.find((r) => r.address === "Stražišče 114")!.queries).toHaveLength(1);
   });
 });
 
@@ -162,12 +191,13 @@ describe("applyAddressCoords", () => {
     const occuAt = out.split("\n").findIndex((l) => l.startsWith("1 OCCU"));
     expect(out.split("\n").slice(occuAt, occuAt + 3)).toEqual(["1 OCCU Kmet", "2 PLAC Kranj, Slovenija", "0 TRLR"]);
 
-    // Re-parsing lifts it onto that event's place, and the row is done — only
-    // the untouched Šentvid house is still worth asking about.
+    // Re-parsing lifts it onto that event's place, and the row is done — the
+    // Kranj house is gone from the list, while the untouched ones remain (the
+    // Vienna address among them: still unplaced, register or no register).
     const again = build(out);
     const resi = again.individuals.get("@I1@")!.events.find((e) => e.tag === "RESI")!;
     expect(resi.place?.coord?.lat).toBeCloseTo(HOUSE.lat, 5);
-    expect(scanAddresses(again).map((r) => r.address)).toEqual(["Šentvid pri Stični 23"]);
+    expect(scanAddresses(again).map((r) => r.address)).toEqual(["Šentvid pri Stični 23", "Ringstrasse 1"]);
   });
 
   it("leaves the health check quiet: same settlement, different addresses", () => {

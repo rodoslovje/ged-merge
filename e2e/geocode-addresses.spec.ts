@@ -78,6 +78,45 @@ test("houses in the place value are grouped under their settlement, and the filt
   await expect(page.getByText("Stražišče 114")).toBeVisible();
 });
 
+test("an address with no house number is reviewed too, with nothing to look up", async ({ page }) => {
+  const file = path.join(os.tmpdir(), "geocode-no-number.ged");
+  writeFileSync(
+    file,
+    [
+      "0 HEAD", "1 GEDC", "2 VERS 5.5.1", "1 CHAR UTF-8",
+      "0 @I1@ INDI", "1 NAME Ana /Kos/",
+      // The hamlet is in the ADDR line, with no number — the register cannot be
+      // asked, and the place value names only the town, so nothing else in the
+      // app can place this event.
+      "1 BIRT", "2 PLAC Kranj, Slovenija", "2 ADDR Stražišče",
+      "1 DEAT", "2 PLAC Kranj, Slovenija", "2 ADDR Stražišče 114",
+      "0 TRLR", "",
+    ].join("\n"),
+    "utf-8",
+  );
+
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(file);
+  await page.locator(".edit-person").first().waitFor({ timeout: 15000 });
+
+  await page.getByRole("button", { name: "Tools", exact: true }).click();
+  await page.getByText("Places", { exact: true }).click();
+  await page.getByRole("button", { name: /Geocoding/ }).click();
+  await page.getByRole("tab", { name: /Addresses/ }).click();
+
+  const group = page.locator(".tools-geo-addr-group").filter({ hasText: "Kranj, Slovenija" });
+  await group.locator(".tools-pair-toggle").first().click();
+  const rows = group.locator(".tools-geo-addr-row");
+  await expect(rows).toHaveCount(2);
+
+  // The bare hamlet says there is nothing to ask the register (the numbered
+  // house says no such thing — online lookups being opt-in is a separate
+  // matter), and the chip counts exactly the one row.
+  await expect(rows.filter({ hasText: /Stražišče(?! 114)/ })).toContainText("nothing to look up");
+  await expect(rows.filter({ hasText: "Stražišče 114" })).not.toContainText("nothing to look up");
+  await expect(page.getByRole("button", { name: /By hand only/ })).toContainText("1");
+});
+
 test("one coordinate can be given to a whole place's addresses at once", async ({ page }) => {
   await page.goto("/");
   await page.locator("input.file-input").first().setInputFiles(FILE);
