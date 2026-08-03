@@ -29,7 +29,9 @@ import {
 // crossOrigin) — base first (or the offline outline polygons), then the
 // active historical overlays at their picker opacity — then the cluster
 // circles re-drawn from data (the live markers are DOM DivIcons), then the
-// attribution line the provider terms require.
+// attribution line the provider terms require. The synchronized split view
+// exports two such panes side by side under one header/footer; every other
+// export is the one-pane case.
 
 /** The tile layers to compose, in paint order. `base` null = the offline
  *  outline; each overlay is one layer's container with its live opacity. */
@@ -37,6 +39,22 @@ export interface ExportTiles {
   base: HTMLElement | null;
   overlays: { el: HTMLElement; opacity: number }[];
 }
+
+/** One map pane of the snapshot, with everything read from its own live map
+ *  (tile positions only mean anything relative to the pane that drew them). */
+export interface ExportPane {
+  map: L.Map;
+  container: HTMLElement;
+  tiles: ExportTiles;
+  /** This pane's credit line: the base provider plus its own overlays. */
+  attribution: string;
+  /** Life paths live on the left/single map on screen — a right-half
+   *  snapshot leaves them out, like the screen does. */
+  withPaths: boolean;
+}
+
+/** Gap between side-by-side panes, mirroring the on-screen divider. */
+const PANE_GAP = 6;
 
 type Ring = [number, number][];
 
@@ -135,51 +153,22 @@ function outlineRings(): Ring[] {
   return rings;
 }
 
-export function exportMapPng(
-  map: L.Map,
-  container: HTMLElement,
-  tiles: ExportTiles,
+/** One pane's map view, drawn at `offsetX` below the header band and clipped
+ *  to its own box so tiles don't bleed into the bands or the neighbour pane. */
+function drawPane(
+  ctx: CanvasRenderingContext2D,
+  pane: ExportPane,
+  rect: DOMRect,
+  offsetX: number,
   clusters: MapCluster[],
   paths: PersonPath[],
   selectedPathId: string | null,
-  title: string,
-  slug: string,
-  attribution: string,
+  token: (name: string) => string,
+  font: string,
 ): void {
-  const rect = container.getBoundingClientRect();
-  const scale = 2;
-  const styles = getComputedStyle(document.documentElement);
-  const token = (name: string) => styles.getPropertyValue(name).trim();
-
-  // Header/footer bands around the map view, sized by the same rules as the
-  // SVG chart export (title and footer must never be squeezed).
-  const measure = document.createElement("canvas").getContext("2d");
-  const textW = (text: string, f: string) => {
-    if (!measure) return text.length * 8;
-    measure.font = f;
-    return measure.measureText(text).width;
-  };
-  const timestamp = new Date().toLocaleString();
-  const titleNeeds = textW(title, `600 18px ${SANS}`) + 2 * MARGIN_X;
-  const footerNeeds =
-    2 * MARGIN_X + BADGE_SIZE + 8 + textW(SITE, `600 12px ${SANS}`) + FOOTER_GAP + textW(timestamp, `12px ${SANS}`);
-  const totalW = Math.ceil(Math.max(rect.width, titleNeeds, footerNeeds));
-  const totalH = HEADER_H + rect.height + FOOTER_H;
-
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.round(totalW * scale);
-  canvas.height = Math.round(totalH * scale);
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return;
-  ctx.scale(scale, scale);
-
-  ctx.fillStyle = token("--bg");
-  ctx.fillRect(0, 0, totalW, totalH);
-
-  // The map view: shifted below the header (centred when the bands force a
-  // wider canvas) and clipped to its box so tiles don't bleed into the bands.
+  const { map, tiles } = pane;
   ctx.save();
-  ctx.translate((totalW - rect.width) / 2, HEADER_H);
+  ctx.translate(offsetX, HEADER_H);
   ctx.beginPath();
   ctx.rect(0, 0, rect.width, rect.height);
   ctx.clip();
@@ -226,7 +215,7 @@ export function exportMapPng(
 
   // Life paths under the markers, drawn with the same style rules as the
   // live canvas layer (weights, dimming, direction-chevron budget).
-  if (paths.length) {
+  if (pane.withPaths && paths.length) {
     const pathColor = token("--map-path");
     const anySelected = selectedPathId !== null && paths.some((p) => p.personId === selectedPathId);
     let arrowBudget = ARROW_MAX_TOTAL;
@@ -270,7 +259,6 @@ export function exportMapPng(
   }
 
   const ink = token("--accent-ink") || "#fff";
-  const font = getComputedStyle(document.body).fontFamily;
   for (const cluster of clusters) {
     const pt = map.latLngToContainerPoint([cluster.lat, cluster.lon]);
     if (pt.x < -50 || pt.y < -50 || pt.x > rect.width + 50 || pt.y > rect.height + 50) continue;
@@ -292,9 +280,9 @@ export function exportMapPng(
     }
   }
 
-  if (attribution) {
+  if (pane.attribution) {
     ctx.font = `11px ${font}`;
-    const w = ctx.measureText(attribution).width + 12;
+    const w = ctx.measureText(pane.attribution).width + 12;
     ctx.fillStyle = token("--panel");
     ctx.globalAlpha = 0.85;
     ctx.fillRect(rect.width - w, rect.height - 18, w, 18);
@@ -302,18 +290,69 @@ export function exportMapPng(
     ctx.fillStyle = token("--muted");
     ctx.textAlign = "right";
     ctx.textBaseline = "middle";
-    ctx.fillText(attribution, rect.width - 6, rect.height - 9);
+    ctx.fillText(pane.attribution, rect.width - 6, rect.height - 9);
   }
   // Bottom left, opposite the attribution — a cadastral extract read months
   // later needs to say how wide its parcels are.
   drawScaleBar(ctx, map, rect, token("--muted"), token("--panel"));
   ctx.restore();
+}
+
+export function exportMapPng(
+  panes: ExportPane[],
+  clusters: MapCluster[],
+  paths: PersonPath[],
+  selectedPathId: string | null,
+  title: string,
+  slug: string,
+): void {
+  if (!panes.length) return;
+  const rects = panes.map((p) => p.container.getBoundingClientRect());
+  const scale = 2;
+  const styles = getComputedStyle(document.documentElement);
+  const token = (name: string) => styles.getPropertyValue(name).trim();
+
+  // Header/footer bands around the map view, sized by the same rules as the
+  // SVG chart export (title and footer must never be squeezed).
+  const measure = document.createElement("canvas").getContext("2d");
+  const textW = (text: string, f: string) => {
+    if (!measure) return text.length * 8;
+    measure.font = f;
+    return measure.measureText(text).width;
+  };
+  const timestamp = new Date().toLocaleString();
+  const titleNeeds = textW(title, `600 18px ${SANS}`) + 2 * MARGIN_X;
+  const footerNeeds =
+    2 * MARGIN_X + BADGE_SIZE + 8 + textW(SITE, `600 12px ${SANS}`) + FOOTER_GAP + textW(timestamp, `12px ${SANS}`);
+  const mapsW = rects.reduce((sum, r) => sum + r.width, 0) + PANE_GAP * (panes.length - 1);
+  const mapsH = Math.max(...rects.map((r) => r.height));
+  const totalW = Math.ceil(Math.max(mapsW, titleNeeds, footerNeeds));
+  const totalH = HEADER_H + mapsH + FOOTER_H;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(totalW * scale);
+  canvas.height = Math.round(totalH * scale);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  ctx.scale(scale, scale);
+
+  ctx.fillStyle = token("--bg");
+  ctx.fillRect(0, 0, totalW, totalH);
+
+  // The panes in order, left to right (centred when the bands force a wider
+  // canvas), each clipped to its own box.
+  const font = getComputedStyle(document.body).fontFamily;
+  let paneX = (totalW - mapsW) / 2;
+  for (let i = 0; i < panes.length; i++) {
+    drawPane(ctx, panes[i], rects[i], paneX, clusters, paths, selectedPathId, token, font);
+    paneX += rects[i].width + PANE_GAP;
+  }
 
   // Header: hairline divider + centred title; footer: divider, brand badge +
   // site on the left, timestamp on the right — the SVG export's layout, in
   // the live theme's ink.
   const bandInk = token("--text") || "#000";
-  const footY = HEADER_H + rect.height;
+  const footY = HEADER_H + mapsH;
   ctx.strokeStyle = bandInk;
   ctx.globalAlpha = 0.15;
   ctx.lineWidth = 1;

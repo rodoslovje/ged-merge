@@ -6621,6 +6621,60 @@ kbd {
   width: 100%;
   margin: 0 0 2px;
 }
+/* The synchronized-view row heads the picker, set off from the layer list by
+   a hairline — it decides how the layers show, not which. The swap button
+   exchanges the two panes' picks. */
+.map-split-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 6px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.map-split-toggle {
+  align-items: center;
+  flex: 1 1 auto;
+}
+.map-swap-btn {
+  flex: 0 0 auto;
+  font-size: 11.5px;
+  padding: 2px 9px;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+}
+.map-swap-btn:hover {
+  border-color: var(--accent);
+}
+/* Split mode: one tick box per pane, labelled by side (L | R). */
+.map-pane-pair {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: 0 0 auto;
+}
+.map-pane-box {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  cursor: pointer;
+}
+.map-pane-letter {
+  font-size: 10.5px;
+  color: var(--muted);
+}
+
+/* Synchronized view: the canvas area splits into two panes that pan/zoom
+   together — the plain base map beside the overlaid one. The panes stay
+   absolute like the single canvas; only their insets divide the box. */
+.map-canvas-wrap.map-split .map-canvas {
+  inset: 0 calc(50% + 3px) 0 0;
+}
+.map-canvas-wrap.map-split .map-canvas-b {
+  inset: 0 0 0 calc(50% + 3px);
+}
 
 /* Marker tooltip: the event count under the place lines it summarizes. */
 .map-cluster-tip-count {
@@ -8624,6 +8678,14 @@ kbd {
   /* Clear the notice, which is much taller once its text wraps full-width. */
   .map-empty {
     padding: 0 16px 150px;
+  }
+  /* Half a phone's width is no map — the synchronized panes stack instead,
+     base above, overlays below. */
+  .map-canvas-wrap.map-split .map-canvas {
+    inset: 0 0 calc(50% + 3px) 0;
+  }
+  .map-canvas-wrap.map-split .map-canvas-b {
+    inset: calc(50% + 3px) 0 0 0;
   }
 
   /* --- Health check --- */
