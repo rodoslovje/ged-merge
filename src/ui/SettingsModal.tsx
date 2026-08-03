@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState, useTransition } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useTranslation } from "react-i18next";
 import { useModalKeyboard } from "../keyboard/useModalKeyboard";
 import { useSettings, useNameOf, type MapOverlay } from "./SettingsContext";
@@ -127,6 +127,12 @@ const SAMPLE_XREF = "@I42@";
 /** Nothing is plotted on the sample — a stable identity so the map's marker
  *  pass doesn't rerun on every render of this modal. */
 const NO_PINS: MiniMapPin[] = [];
+
+/** How long typing in an overlay field waits before the edit reaches the global
+ *  settings. Long enough that a word is one commit rather than one per letter,
+ *  short enough that the sample map follows a finished URL without a nudge. */
+const OVERLAY_COMMIT_MS = 400;
+
 const SAMPLE_LIFESPAN = "1850–1920";
 const SAMPLE_AGE = 70;
 
@@ -162,10 +168,12 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
   // stored with the file, so showing it here costs nothing.
   const detected = detectedFormats;
 
-  // Dropdown changes echo locally at once; the global settings commit — which
-  // re-renders the whole mounted app, seconds on an index-scale file — runs
-  // in an interruptible transition, so rapid changes coalesce instead of
-  // each blocking the select.
+  // Edits echo locally at once; the global settings commit — which re-renders
+  // the whole mounted app, seconds on an index-scale file — runs in an
+  // interruptible transition, so rapid changes coalesce instead of each
+  // blocking the control.
+  const [, startTransition] = useTransition();
+
   // Preset names resolved to the current language and sorted by that label.
   const presets = useMemo(
     () => OVERLAY_PRESETS.map((p) => ({ preset: p, label: t(p.key) })).sort((a, b) => a.label.localeCompare(b.label, i18n.language)),
@@ -183,6 +191,57 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
       return next;
     });
 
+  // Overlay edits, echoed locally and committed on a pause. Committing is not
+  // cheap: it re-renders the whole mounted app (see above), and a changed URL
+  // or WMS field also tears the live tile layer down and rebuilds it — so a
+  // commit per keystroke made typing a layer's name or endpoint crawl, and
+  // fired a tile request for every half-typed URL. Clicks (add, remove, move,
+  // the tick boxes) still commit at once; only typing waits.
+  const [pendingOverlays, setPendingOverlays] = useState<MapOverlay[] | null>(null);
+  const overlays = pendingOverlays ?? settings.mapOverlays;
+  const overlayTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const typedOverlays = useRef<MapOverlay[] | null>(null);
+
+  const setOverlays = useCallback(
+    (next: MapOverlay[], typed = false) => {
+      if (overlayTimer.current !== undefined) clearTimeout(overlayTimer.current);
+      overlayTimer.current = undefined;
+      typedOverlays.current = typed ? next : null;
+      if (!typed) {
+        setPendingOverlays(null);
+        set({ mapOverlays: next });
+        return;
+      }
+      setPendingOverlays(next);
+      overlayTimer.current = setTimeout(() => {
+        overlayTimer.current = undefined;
+        startTransition(() => {
+          // A keystroke landed after this commit was queued — that edit owns
+          // the list now and carries its own timer; drop this stale one.
+          if (typedOverlays.current !== next) return;
+          set({ mapOverlays: next });
+          setPendingOverlays(null);
+        });
+      }, OVERLAY_COMMIT_MS);
+    },
+    [set],
+  );
+
+  // Closed mid-word: commit what was typed instead of dropping it. (The modal
+  // renders null when shut but stays mounted, so this hangs off `isOpen`.)
+  useEffect(
+    () => () => {
+      if (overlayTimer.current === undefined) return;
+      clearTimeout(overlayTimer.current);
+      overlayTimer.current = undefined;
+      const typed = typedOverlays.current;
+      typedOverlays.current = null;
+      setPendingOverlays(null);
+      if (typed) set({ mapOverlays: typed });
+    },
+    [isOpen, set],
+  );
+
   // The layer the base-map sample frames: whichever was last switched on by
   // default, so ticking a regional map takes the sample to the region it
   // covers. Held by id — the layer may be edited, moved or removed meanwhile —
@@ -195,7 +254,6 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
     [settings.mapOverlays, framedOverlay],
   );
 
-  const [, startTransition] = useTransition();
   const [pendingOverrides, setPendingOverrides] = useState<FormatOverrides | null>(null);
   const overrides = pendingOverrides ?? settings.formatOverrides;
   const updateOverride = (key: keyof FormatOverrides, value: string) => {
@@ -565,15 +623,14 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                     if (e.target.value === ADD_ALL_PRESETS) {
                       // Only the ones missing: picking this twice must not
                       // leave the list holding every free map in duplicate.
-                      const have = new Set(settings.mapOverlays.map((o) => o.presetKey).filter(Boolean));
+                      const have = new Set(overlays.map((o) => o.presetKey).filter(Boolean));
                       const missing = presets.filter((p) => !have.has(p.preset.key));
-                      if (missing.length)
-                        set({ mapOverlays: [...settings.mapOverlays, ...missing.map((p) => add(p.preset))] });
+                      if (missing.length) setOverlays([...overlays, ...missing.map((p) => add(p.preset))]);
                       return;
                     }
                     const entry = presets[Number(e.target.value)];
                     if (!entry) return;
-                    set({ mapOverlays: [...settings.mapOverlays, add(entry.preset)] });
+                    setOverlays([...overlays, add(entry.preset)]);
                   }}
                 >
                   <option value="">{t("settings.map.overlays.preset")}</option>
@@ -592,7 +649,7 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                     // and adding one is a statement that you are about to fill
                     // them in. (A preset, by contrast, arrives complete.)
                     const id = crypto.randomUUID();
-                    set({ mapOverlays: [...settings.mapOverlays, { id, name: "", url: "" }] });
+                    setOverlays([...overlays, { id, name: "", url: "" }]);
                     setOpenOverlays((open) => new Set(open).add(id));
                   }}
                 >
@@ -600,17 +657,17 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                 </button>
               </span>
             </div>
-            {settings.mapOverlays.map((stored, index) => {
+            {overlays.map((stored, index) => {
               // Show the resolved config (a preset layer reflects the live
               // preset). Renaming keeps the preset link; editing any technical
               // field detaches — it captures the current config and drops the
               // presetKey so the edit sticks and the layer stops auto-tracking.
               const layer = resolveOverlay(stored);
-              const replace = (next: MapOverlay) =>
-                set({ mapOverlays: settings.mapOverlays.map((o) => (o.id === stored.id ? next : o)) });
+              const replace = (next: MapOverlay, typed = false) =>
+                setOverlays(overlays.map((o) => (o.id === stored.id ? next : o)), typed);
               // Name and "show by default" are preferences, not config — they
               // patch the stored layer directly and keep the preset link.
-              const updateName = (name: string) => replace({ ...stored, name });
+              const updateName = (name: string) => replace({ ...stored, name }, true);
               const updateDefaultOn = (defaultOn: boolean) => {
                 // Switching a layer on aims the sample above at it, so its
                 // effect is visible even when it covers another country. Each
@@ -618,8 +675,8 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                 if (defaultOn) setFramedOverlay((prev) => ({ id: stored.id, seq: (prev?.seq ?? 0) + 1 }));
                 replace({ ...stored, defaultOn: defaultOn || undefined });
               };
-              const update = (patch: Partial<MapOverlay>) =>
-                replace({ ...layer, ...patch, id: stored.id, name: stored.name, presetKey: undefined });
+              const update = (patch: Partial<MapOverlay>, typed = false) =>
+                replace({ ...layer, ...patch, id: stored.id, name: stored.name, presetKey: undefined }, typed);
               const yearPatch = (key: "yearFrom" | "yearTo", raw: string): Partial<MapOverlay> => {
                 const n = Number(raw);
                 return { [key]: raw.trim() && Number.isFinite(n) ? n : undefined };
@@ -628,10 +685,10 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
               // top), so moving a row is how a thin reference layer is put
               // above a full-page historical map.
               const move = (delta: number) => {
-                const next = [...settings.mapOverlays];
+                const next = [...overlays];
                 const [row] = next.splice(index, 1);
                 next.splice(index + delta, 0, row!);
-                set({ mapOverlays: next });
+                setOverlays(next);
               };
               const open = openOverlays.has(layer.id);
               return (
@@ -664,7 +721,7 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                       value={layer.yearFrom ?? ""}
                       placeholder={t("settings.map.overlays.from")}
                       title={t("settings.map.overlays.years.hint")}
-                      onChange={(e) => update(yearPatch("yearFrom", e.target.value))}
+                      onChange={(e) => update(yearPatch("yearFrom", e.target.value), true)}
                     />
                     <span className="settings-overlay-dash">–</span>
                     <input
@@ -673,7 +730,7 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                       value={layer.yearTo ?? ""}
                       placeholder={t("settings.map.overlays.to")}
                       title={t("settings.map.overlays.years.hint")}
-                      onChange={(e) => update(yearPatch("yearTo", e.target.value))}
+                      onChange={(e) => update(yearPatch("yearTo", e.target.value), true)}
                     />
                     <label
                       className="settings-overlay-wms settings-overlay-tail"
@@ -699,7 +756,7 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                     <button
                       type="button"
                       className="settings-overlay-move"
-                      disabled={index === settings.mapOverlays.length - 1}
+                      disabled={index === overlays.length - 1}
                       onClick={() => move(1)}
                       title={t("settings.map.overlays.moveDown")}
                       aria-label={t("settings.map.overlays.moveDown")}
@@ -709,7 +766,7 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                     <button
                       type="button"
                       className="tools-geo-delete"
-                      onClick={() => set({ mapOverlays: settings.mapOverlays.filter((o) => o.id !== layer.id) })}
+                      onClick={() => setOverlays(overlays.filter((o) => o.id !== layer.id))}
                       title={t("settings.map.overlays.remove")}
                       aria-label={t("settings.map.overlays.remove")}
                     >
@@ -725,7 +782,7 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                           value={layer.url}
                           placeholder={layer.wms ? t("settings.map.overlays.wmsUrl") : t("settings.map.overlays.url")}
                           title={layer.wms ? t("settings.map.overlays.wmsUrl.hint") : t("settings.map.overlays.url.hint")}
-                          onChange={(e) => update({ url: e.target.value.trim() })}
+                          onChange={(e) => update({ url: e.target.value.trim() }, true)}
                         />
                         <label className="settings-overlay-wms" title={t("settings.map.overlays.wms.hint")}>
                           <input
@@ -744,7 +801,7 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                             value={layer.layers ?? ""}
                             placeholder={t("settings.map.overlays.wmsLayers")}
                             title={t("settings.map.overlays.wmsLayers.hint")}
-                            onChange={(e) => update({ layers: e.target.value.trim() || undefined })}
+                            onChange={(e) => update({ layers: e.target.value.trim() || undefined }, true)}
                           />
                           <input
                             type="text"
@@ -752,7 +809,7 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                             value={layer.styles ?? ""}
                             placeholder={t("settings.map.overlays.wmsStyles")}
                             title={t("settings.map.overlays.wmsStyles.hint")}
-                            onChange={(e) => update({ styles: e.target.value.trim() || undefined })}
+                            onChange={(e) => update({ styles: e.target.value.trim() || undefined }, true)}
                           />
                           <input
                             type="text"
@@ -760,7 +817,7 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                             value={layer.queryLayers ?? ""}
                             placeholder={t("settings.map.overlays.wmsQuery")}
                             title={t("settings.map.overlays.wmsQuery.hint")}
-                            onChange={(e) => update({ queryLayers: e.target.value.trim() || undefined })}
+                            onChange={(e) => update({ queryLayers: e.target.value.trim() || undefined }, true)}
                           />
                           <input
                             type="text"
@@ -768,7 +825,7 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                             value={layer.params ?? ""}
                             placeholder={t("settings.map.overlays.wmsParams")}
                             title={t("settings.map.overlays.wmsParams.hint")}
-                            onChange={(e) => update({ params: e.target.value.trim() || undefined })}
+                            onChange={(e) => update({ params: e.target.value.trim() || undefined }, true)}
                           />
                         </>
                       )}
@@ -779,7 +836,7 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                           value={layer.attribution ?? ""}
                           placeholder={t("settings.map.overlays.attribution")}
                           title={t("settings.map.overlays.attribution.hint")}
-                          onChange={(e) => update({ attribution: e.target.value || undefined })}
+                          onChange={(e) => update({ attribution: e.target.value || undefined }, true)}
                         />
                         {!layer.wms && (
                           <input
@@ -790,7 +847,7 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                             title={t("settings.map.overlays.maxZoom.hint")}
                             onChange={(e) => {
                               const n = Number(e.target.value);
-                              update({ maxZoom: e.target.value.trim() && Number.isFinite(n) ? n : undefined });
+                              update({ maxZoom: e.target.value.trim() && Number.isFinite(n) ? n : undefined }, true);
                             }}
                           />
                         )}
