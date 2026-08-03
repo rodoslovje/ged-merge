@@ -86,8 +86,11 @@ function NormalizeFileSection({ dataset, scans, fileName, active }: { dataset: D
 
   // Run the preview in the tools worker the first time the tab is shown; the
   // result lives in the ToolsView-level cache, so revisits are instant.
+  // `ensureFresh` rather than `ensure`: the report is what Download will write,
+  // so a format choice made in Settings since it ran must re-run it — a cached
+  // report showing the old house style would be a lie about the download.
   useEffect(() => {
-    if (active) scans.ensure("normalize");
+    if (active) scans.ensureFresh("normalize");
   }, [active, scans]);
 
   function download() {

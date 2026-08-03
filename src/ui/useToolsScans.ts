@@ -113,10 +113,15 @@ export function useToolsScans(dataset: Dataset, editVersionRef: { readonly curre
   const settings = useSettingsSlice(SETTINGS_KEYS);
   const formatOverridesRef = useRef(settings.formatOverrides);
   formatOverridesRef.current = settings.formatOverrides;
-  const overridesSalt = (kind: ScanKind) => {
-    const o = formatOverridesRef.current;
-    return (SALT_KEYS[kind] ?? []).map((k) => o[k] ?? "").join("|");
-  };
+  // Read from state rather than the ref, so `scanKey` — and with it the
+  // identity of the object this hook returns — changes the moment a format
+  // choice does. That is what re-fires the panels' `ensureFresh` effects while
+  // a panel is already open; the ref serves the callbacks that must stay stable.
+  const overrides = settings.formatOverrides;
+  const overridesSalt = useCallback(
+    (kind: ScanKind) => (SALT_KEYS[kind] ?? []).map((k) => overrides[k] ?? "").join("|"),
+    [overrides],
+  );
   // Mirror for same-tick reads (`ensure` guards against double starts before
   // the state update has rendered).
   const statesRef = useRef(states);
@@ -223,7 +228,7 @@ export function useToolsScans(dataset: Dataset, editVersionRef: { readonly curre
   const scanKey = useCallback(
     (kind: ScanKind) =>
       `${datasetSeqRef.current}:${editVersionRef.current}` + (SALT_KEYS[kind] ? `:${overridesSalt(kind)}` : ""),
-    [editVersionRef],
+    [editVersionRef, overridesSalt],
   );
 
   const start = useCallback(
