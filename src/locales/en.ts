@@ -1123,6 +1123,9 @@ export const en = {
   "map.emptyHint": "The map plots events whose place carries a MAP coordinate (LATI/LONG). Add them with Tools → Places → Geocode places, or load a file from webtrees, MacFamilyTree and similar programs that write them.",
   "map.export.png": "PNG image",
   "map.export.png.tooltip": "Download the current map view as a PNG image",
+  // File-name suffixes that say which of the two map PNGs this is.
+  "map.export.png.suffix.overlays": "overlays",
+  "map.export.png.suffix.base": "base",
   "map.export.pngBase": "PNG image, base map only",
   "map.export.pngBase.tooltip":
     "Download the same view without the overlays, so the base map and the historical map line up exactly",

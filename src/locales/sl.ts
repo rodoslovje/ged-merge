@@ -1261,6 +1261,9 @@ export const sl = {
   "map.emptyHint": "Zemljevid prikaže dogodke, katerih kraj vsebuje koordinate MAP (LATI/LONG). Dodate jih z Orodja → Kraji → Geokodiranje krajev, zapisujejo pa jih tudi programi, kot sta webtrees in MacFamilyTree.",
   "map.export.png": "Slika PNG",
   "map.export.png.tooltip": "Prenesi trenutni pogled zemljevida kot sliko PNG",
+  // Pripona v imenu datoteke pove, katera od obeh slik zemljevida je.
+  "map.export.png.suffix.overlays": "sloji",
+  "map.export.png.suffix.base": "osnovna",
   "map.export.pngBase": "Slika PNG, samo osnovna karta",
   "map.export.pngBase.tooltip":
     "Prenesi isti pogled brez dodatnih slojev, tako da se osnovna in zgodovinska karta natančno prekrivata",

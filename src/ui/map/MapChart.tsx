@@ -595,8 +595,9 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
   // PNG snapshot of the current view. `withOverlays: false` composes the very
   // same view with the historical layers left out, so a layered and a base-only
   // export of one view line up pixel for pixel and can be compared side by side
-  // (or stacked in an image editor); it downloads under its own name so the two
-  // don't collide.
+  // (or stacked in an image editor). Every map PNG is named for what it holds
+  // — ….overlays / ….base, in the interface language — so the pair of one view
+  // sorts together and neither can be mistaken for the other.
   const shownOverlays = overlays.filter((o) => overlayOn.has(o.id));
   const savePng = (withOverlays: boolean) => {
     const map = mapRef.current;
@@ -632,7 +633,9 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
         showPaths ? shownPaths : [],
         selectedPath,
         exportTitle,
-        withOverlays ? slug : `${slug}-base`,
+        // Named for what the image actually holds: with no layer switched on
+        // the ordinary PNG *is* the base map, and says so.
+        `${slug}.${t(overlayTiles.length ? "map.export.png.suffix.overlays" : "map.export.png.suffix.base")}`,
         attribution,
       );
   };
