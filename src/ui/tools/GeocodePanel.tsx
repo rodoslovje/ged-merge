@@ -40,10 +40,12 @@ import { ToolSummary } from "./ToolSummary";
 const NO_ROWS: GeocodeRow[] = [];
 
 /** The review chips split the list by the kind of attention a row needs:
- *  "confident" is what Select confident would take (an exact, unambiguous
- *  match); "review" a perfect-name tie — several places match 100% and only
- *  the researcher can pick; "partial" a best proposal under 100% (the amber
- *  scores); "noProposal" research or a rename; "decided" already handled. */
+ *  "confident" a letter-perfect, unambiguous match (or the file's own
+ *  coordinate); "partial" any best proposal under 100% — grouped by the score
+ *  the row shows, so a parent-qualified 96% lands here even though its green
+ *  badge means Select confident still takes it; "review" a perfect-name tie —
+ *  several places match 100% and only the researcher can pick; "noProposal"
+ *  research or a rename; "decided" already handled. */
 type StatusFilter = "all" | "confident" | "review" | "partial" | "noProposal" | "decided";
 const STATUS_FILTERS: StatusFilter[] = ["all", "confident", "partial", "review", "noProposal", "decided"];
 
@@ -212,10 +214,10 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
     const statusOf = (row: GeocodeRow): Exclude<StatusFilter, "all"> =>
       checked.has(row.key) || noMatch.has(row.key)
         ? "decided"
-        : row.confident
-          ? "confident"
-          : row.candidates[0] && Math.round(row.candidates[0].score * 100) < 100
-            ? "partial"
+        : !row.fileCoord && row.candidates[0] && Math.round(row.candidates[0].score * 100) < 100
+          ? "partial"
+          : row.confident
+            ? "confident"
             : hasProposal(row)
               ? "review"
               : "noProposal";
