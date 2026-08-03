@@ -75,8 +75,8 @@
    "image": "kataster-scans/224482.jpg",
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224482&docid=10&seq=1",
    "cell": [
-    -4.0,
-    21.0
+    -4.5,
+    21
    ],
    "frame": [
     129.7,
@@ -89,7 +89,7 @@
     2156.3
    ],
    "source": "SI AS 176/L/L86/g/A04",
-   "placed": "printed W.C.I.14.dh (1.00)"
+   "placed": "printed W.C.I.14.dh, half a sheet west"
   }
  ]
 }

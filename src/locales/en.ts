@@ -1621,8 +1621,8 @@ export const en = {
     "Franciscean cadastre · Kokrica 1:2880 (1826)",
   "settings.map.overlays.preset.kataster.suha":
     "Franciscean cadastre · Suha 1:2880 (1826)",
-  "settings.map.overlays.preset.kataster.huje":
-    "Franciscean cadastre · Huje 1:2880 (1826)",
+  "settings.map.overlays.preset.kataster.hujeKlancCirce":
+    "Franciscean cadastre · Huje-Klanc-Čirče 1:2880 (1826)",
   "settings.map.overlays.preset.kataster.jamaPrase":
     "Franciscean cadastre · Jama-Praše 1:2880 (1826)",
   "settings.map.overlays.preset.kataster.drulovkaBreg":

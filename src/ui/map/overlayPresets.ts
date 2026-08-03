@@ -312,8 +312,8 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     sampleZoom: 16,
   },
   {
-    key: "settings.map.overlays.preset.kataster.huje",
-    url: "https://tiles.gedmerge.com/kataster-huje/{z}/{x}/{y}.webp",
+    key: "settings.map.overlays.preset.kataster.hujeKlancCirce",
+    url: "https://tiles.gedmerge.com/kataster-huje-klanc-circe/{z}/{x}/{y}.webp",
     yearFrom: 1826,
     yearTo: 1869,
     attribution: "Arhiv Republike Slovenije, SI AS 176 (Franciscejski kataster za Kranjsko)",
