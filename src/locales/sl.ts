@@ -1282,9 +1282,6 @@ export const sl = {
   "map.export.pngLeft.tooltip": "Prenesi trenutni pogled, kot ga izriše leva polovica",
   "map.export.pngRight": "Slika PNG, desna polovica",
   "map.export.pngRight.tooltip": "Prenesi trenutni pogled, kot ga izriše desna polovica",
-  "map.export.pngBase": "Slika PNG, samo osnovna karta",
-  "map.export.pngBase.tooltip":
-    "Prenesi isti pogled brez dodatnih slojev, tako da se osnovna in zgodovinska karta natančno prekrivata",
   "report.button": "Poročilo",
   "report.exportTxt.tooltip": "Prenesi to poročilo kot besedilno datoteko",
   "report.exportRtf.tooltip": "Prenesi to poročilo kot dokument RTF (za Word ali LibreOffice)",

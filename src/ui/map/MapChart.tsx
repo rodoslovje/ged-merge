@@ -716,18 +716,14 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
     [mainDs, startId, t],
   );
 
-  // PNG snapshot of the current view. `withOverlays: false` composes the very
-  // same view with the historical layers left out, so a layered and a base-only
-  // export of one view line up pixel for pixel and can be compared side by side
-  // (or stacked in an image editor). Every map PNG is named for what it holds
-  // — ….overlays / ….base, in the interface language — so the pair of one view
-  // sorts together and neither can be mistaken for the other.
+  // PNG snapshots of the current view, named for what they hold (….overlays /
+  // ….base / ….synchronized / ….left / ….right, in the interface language) so
+  // the images of one view sort together and none can be mistaken for another.
   const shownOverlays = overlays.filter((o) => overlayOn.has(o.id));
   const shownOverlaysLeft = overlays.filter((o) => overlayOnLeft.has(o.id));
-  /** What a PNG snapshots: the single map with/without its overlays, or —
-   *  in the synchronized view — the left half, the right half, or both side
-   *  by side as one image. */
-  const savePng = (target: "overlays" | "base" | "left" | "right" | "both") => {
+  /** What a PNG snapshots: the single map as drawn, or — in the synchronized
+   *  view — the left half, the right half, or both side by side as one image. */
+  const savePng = (target: "single" | "left" | "right" | "both") => {
     const baseAttribution = appSettings.allowMapTiles
       ? basemapCredit(appSettings.mapBasemap, appSettings.mapTileUrl)
       : "Natural Earth";
@@ -768,7 +764,7 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
       containerRef.current,
       baseLayerRef.current,
       overlayLayersRef.current,
-      splitView ? shownOverlaysLeft : target === "overlays" ? shownOverlays : [],
+      splitView ? shownOverlaysLeft : shownOverlays,
       true,
     );
     const right =
@@ -854,27 +850,17 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
                     onSelect: () => savePng("right"),
                   },
                 ]
-              : [
+              : // A base-only companion image needs no item of its own: the
+                // synchronized view's left/right exports cover comparing a
+                // layered and a bare view of the same ground.
+                [
                   {
                     key: "png",
                     icon: <ImageIcon />,
                     label: t("map.export.png"),
                     title: t("map.export.png.tooltip"),
-                    onSelect: () => savePng("overlays"),
+                    onSelect: () => savePng("single"),
                   },
-                  // Only worth offering while a layer is actually drawn — without
-                  // one it would download the same picture twice.
-                  ...(shownOverlays.length
-                    ? [
-                        {
-                          key: "png-base",
-                          icon: <ImageIcon />,
-                          label: t("map.export.pngBase"),
-                          title: t("map.export.pngBase.tooltip"),
-                          onSelect: () => savePng("base"),
-                        },
-                      ]
-                    : []),
                 ]
           }
         />

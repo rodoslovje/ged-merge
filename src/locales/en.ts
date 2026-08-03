@@ -1144,9 +1144,6 @@ export const en = {
   "map.export.pngLeft.tooltip": "Download the current view as the left half draws it",
   "map.export.pngRight": "PNG image, right half",
   "map.export.pngRight.tooltip": "Download the current view as the right half draws it",
-  "map.export.pngBase": "PNG image, base map only",
-  "map.export.pngBase.tooltip":
-    "Download the same view without the overlays, so the base map and the historical map line up exactly",
   "report.button": "Report",
   "report.exportTxt.tooltip": "Download this report as a plain-text file",
   "report.exportRtf.tooltip": "Download this report as an RTF document (opens in Word or LibreOffice)",
