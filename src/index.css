@@ -6621,6 +6621,23 @@ kbd {
   width: 100%;
   margin: 0 0 2px;
 }
+/* The synchronized-view toggle heads the picker, set off from the layer list
+   by a hairline — it decides how the layers show, not which. */
+.map-split-toggle {
+  align-items: center;
+  padding: 2px 6px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Synchronized view: the canvas area splits into two panes that pan/zoom
+   together — the plain base map beside the overlaid one. The panes stay
+   absolute like the single canvas; only their insets divide the box. */
+.map-canvas-wrap.map-split .map-canvas {
+  inset: 0 calc(50% + 3px) 0 0;
+}
+.map-canvas-wrap.map-split .map-canvas-b {
+  inset: 0 0 0 calc(50% + 3px);
+}
 
 /* Marker tooltip: the event count under the place lines it summarizes. */
 .map-cluster-tip-count {
@@ -8624,6 +8641,14 @@ kbd {
   /* Clear the notice, which is much taller once its text wraps full-width. */
   .map-empty {
     padding: 0 16px 150px;
+  }
+  /* Half a phone's width is no map — the synchronized panes stack instead,
+     base above, overlays below. */
+  .map-canvas-wrap.map-split .map-canvas {
+    inset: 0 0 calc(50% + 3px) 0;
+  }
+  .map-canvas-wrap.map-split .map-canvas-b {
+    inset: calc(50% + 3px) 0 0 0;
   }
 
   /* --- Health check --- */

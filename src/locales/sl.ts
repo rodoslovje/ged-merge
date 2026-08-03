@@ -1249,6 +1249,9 @@ export const sl = {
   "map.overlays.tooltip": "Dodatni sloji zemljevida — nastavite jih v Nastavitve → Zemljevid",
   "map.overlays.suggested": "Obdobje tega sloja ustreza izbranim letom",
   "map.overlays.opacity": "Prosojnost sloja",
+  "map.overlays.split": "Vzporedni pogled",
+  "map.overlays.split.tooltip":
+    "Zemljevid razdeli na polovici, ki se premikata skupaj: levo osnovna karta, desno sloji",
   "map.info.parcel": "Parcela",
   "map.info.cadastralMunicipality": "Katastrska občina",
   "map.info.area": "Površina",

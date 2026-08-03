@@ -187,6 +187,14 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
   );
   const [overlayOpacity, setOverlayOpacity] = useState<ReadonlyMap<string, number>>(new Map());
   const [overlaysOpen, setOverlaysOpen] = useState(false);
+  // Synchronized view: the map area splits into two panes sharing one
+  // center/zoom — the left stays the plain base map, the right draws the
+  // picked overlays — so a historical layer can be read against today's map
+  // side by side instead of through its transparency.
+  const [splitView, setSplitView] = useState(false);
+  /** The right pane's Leaflet map — state, not a ref, so the base-layer,
+   *  overlay, identify and marker effects re-run when it (dis)appears. */
+  const [mapB, setMapB] = useState<L.Map | null>(null);
   // Bumped on every pan/zoom so the marker pass re-runs against the new view.
   const [viewGen, setViewGen] = useState(0);
 
@@ -280,6 +288,12 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
   /** Live overlay tile layers with the definition they were built from —
    *  a changed URL/zoom/attribution recreates, an opacity change adjusts. */
   const overlayLayersRef = useRef<LiveOverlays>(new Map());
+  /** Which map currently hosts the overlay layers (the right pane while the
+   *  synchronized view is on) — a change clears and rebuilds them there. */
+  const overlayHostRef = useRef<L.Map | null>(null);
+  const containerBRef = useRef<HTMLDivElement | null>(null);
+  const baseLayerBRef = useRef<L.Layer | null>(null);
+  const markersBRef = useRef<L.LayerGroup | null>(null);
   const markersRef = useRef<L.LayerGroup | null>(null);
   const pathsRef = useRef<L.LayerGroup | null>(null);
   /** Bumped on each identify click so a slow GetFeatureInfo response that
@@ -338,6 +352,55 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
     };
   }, []);
 
+  // ── Synchronized-view right pane: a second map locked to the first ────────
+  useEffect(() => {
+    const el = containerBRef.current;
+    const mapA = mapRef.current;
+    if (!splitView || !el || !mapA) return;
+    const map = L.map(el, {
+      minZoom: 2,
+      maxZoom: 18,
+      worldCopyJump: true,
+      attributionControl: false,
+      // The panes share one zoom; wheel/pinch still work here and sync back.
+      zoomControl: false,
+    });
+    L.control.attribution({ position: "bottomright", prefix: false }).addTo(map);
+    L.control.scale({ position: "bottomleft", metric: true, imperial: false, maxWidth: 130 }).addTo(map);
+    // The same automation hook the left pane carries.
+    (el as HTMLDivElement & { _leafletMap?: L.Map })._leafletMap = map;
+    map.setView(mapA.getCenter(), mapA.getZoom());
+    markersBRef.current = L.layerGroup().addTo(map);
+    // Lock the views together. The guard stops the echo (each setView fires
+    // the other pane's handler). The left pane leads live ("move" fires per
+    // drag frame); the right pane syncs back only when its gesture ends —
+    // its live setView echo would fire moveend on the left per frame and put
+    // the marker pass in a rebuild loop.
+    let syncing = false;
+    const follow = (src: L.Map, dst: L.Map) => () => {
+      if (syncing) return;
+      syncing = true;
+      dst.setView(src.getCenter(), src.getZoom(), { animate: false });
+      syncing = false;
+    };
+    const aToB = follow(mapA, map);
+    const bToA = follow(map, mapA);
+    mapA.on("move zoomend", aToB);
+    map.on("moveend zoomend", bToA);
+    // The left pane just halved; Leaflet only watches window resizes itself.
+    mapA.invalidateSize();
+    setMapB(map);
+    return () => {
+      mapA.off("move zoomend", aToB);
+      map.off("moveend zoomend", bToA);
+      map.remove();
+      markersBRef.current = null;
+      baseLayerBRef.current = null;
+      setMapB(null);
+      mapA.invalidateSize();
+    };
+  }, [splitView]);
+
   // Base layer: opt-in provider tiles, else the bundled offline outline.
   useEffect(() => {
     const map = mapRef.current;
@@ -351,18 +414,41 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
     ).addTo(map);
   }, [appSettings.allowMapTiles, appSettings.mapBasemap, appSettings.mapTileUrl, theme]);
 
+  // The right pane draws the same base under its overlays — a historical
+  // sheet rarely covers the whole viewport, and the base gives it bearings.
+  useEffect(() => {
+    if (!mapB) return;
+    baseLayerBRef.current?.remove();
+    baseLayerBRef.current = createBaseLayer(
+      appSettings.allowMapTiles,
+      appSettings.mapBasemap,
+      appSettings.mapTileUrl,
+      theme,
+    ).addTo(mapB);
+  }, [mapB, appSettings.allowMapTiles, appSettings.mapBasemap, appSettings.mapTileUrl, theme]);
+
   // Historical overlays: keep the live tile layers in sync with the picker.
   // Overlay tiles are remote fetches like the base — the same opt-in gates
-  // them (until then the picker isn't rendered either).
+  // them (until then the picker isn't rendered either). In the synchronized
+  // view they live on the right pane; the left stays the plain base map.
   useEffect(() => {
-    const map = mapRef.current;
+    const map = splitView ? mapB : mapRef.current;
     if (!map) return;
-    syncOverlayLayers(map, overlayLayersRef.current, overlays, {
+    const live = overlayLayersRef.current;
+    if (overlayHostRef.current !== map) {
+      // Layers can't move between maps — rebuild them on the new host. (On
+      // the just-removed right pane the layers died with it; remove() on
+      // them is a no-op then.)
+      for (const entry of live.values()) entry.layer.remove();
+      live.clear();
+      overlayHostRef.current = map;
+    }
+    syncOverlayLayers(map, live, overlays, {
       enabled: appSettings.allowMapTiles,
       isOn: (o) => overlayOn.has(o.id),
       opacityOf: (o) => overlayOpacity.get(o.id) ?? OVERLAY_DEFAULT_OPACITY,
     });
-  }, [overlays, overlayOn, overlayOpacity, appSettings.allowMapTiles]);
+  }, [overlays, overlayOn, overlayOpacity, appSettings.allowMapTiles, splitView, mapB]);
 
   // A layer newly marked "show by default" in Settings (reachable from the
   // chart) switches itself on here; one the user unticked in the picker stays
@@ -377,11 +463,19 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
     if (fresh.length) setOverlayOn((prev) => new Set([...prev, ...fresh]));
   }, [appSettings.mapOverlays]);
 
+  // The synchronized view is only reachable from the overlays picker — if
+  // that goes away (tiles opted out, layers removed in Settings), fold the
+  // split back rather than stranding it with no control to close it.
+  useEffect(() => {
+    if (splitView && (!appSettings.allowMapTiles || !overlays.length)) setSplitView(false);
+  }, [splitView, appSettings.allowMapTiles, overlays.length]);
+
   // Click-to-identify: with a queryable WMS overlay on, a map click fires a
   // WMS GetFeatureInfo for the clicked pixel and shows the attributes (for the
-  // GURS address layer, a formatted street/number) in a popup.
+  // GURS address layer, a formatted street/number) in a popup. Listens on the
+  // pane the overlays are drawn on.
   useEffect(() => {
-    const map = mapRef.current;
+    const map = splitView ? mapB : mapRef.current;
     if (!map) return;
     const targets = appSettings.allowMapTiles
       ? queryableOverlays(overlays).filter((o) => overlayOn.has(o.id))
@@ -401,7 +495,7 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
     return () => {
       map.off("click", onClick);
     };
-  }, [overlays, overlayOn, appSettings.allowMapTiles, t]);
+  }, [overlays, overlayOn, appSettings.allowMapTiles, splitView, mapB, t]);
 
   // Era suggestion: overlays whose validity period intersects the selected
   // year window (layers with no period at all are never highlighted).
@@ -458,23 +552,31 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
     const clusters = clusterPoints(filtered, zoom).filter((c) => view.contains([c.lat, c.lon]));
     clustersRef.current = clusters;
     layer.clearLayers();
+    // The synchronized right pane shows the same markers — the events are what
+    // the historical layer is being read for. Same view/zoom, so the left
+    // pane's clustering holds there too; a marker can't sit on two maps, so
+    // each cluster gets one per pane.
+    const layerB = splitView ? markersBRef.current : null;
+    layerB?.clearLayers();
     for (const cluster of clusters) {
       const count = cluster.points.length;
       const size = markerSize(count);
-      const marker = L.marker([cluster.lat, cluster.lon], {
-        icon: L.divIcon({
-          className: "map-cluster",
-          html: `<div class="map-cluster-dot" style="background:var(${clusterColorVar(cluster)});width:${size}px;height:${size}px">${count > 1 ? count : ""}</div>`,
-          iconSize: [size, size],
-        }),
-        keyboard: false,
-      });
-      marker.on("click", () => openCluster(cluster));
-      marker.bindTooltip(clusterTooltip(cluster, t), { direction: "top", opacity: 0.9 });
-      layer.addLayer(marker);
+      for (const target of layerB ? [layer, layerB] : [layer]) {
+        const marker = L.marker([cluster.lat, cluster.lon], {
+          icon: L.divIcon({
+            className: "map-cluster",
+            html: `<div class="map-cluster-dot" style="background:var(${clusterColorVar(cluster)});width:${size}px;height:${size}px">${count > 1 ? count : ""}</div>`,
+            iconSize: [size, size],
+          }),
+          keyboard: false,
+        });
+        marker.on("click", () => openCluster(cluster));
+        marker.bindTooltip(clusterTooltip(cluster, t), { direction: "top", opacity: 0.9 });
+        target.addLayer(marker);
+      }
     }
     // viewGen re-runs this pass after every pan/zoom.
-  }, [filtered, viewGen, openCluster, t]);
+  }, [filtered, viewGen, openCluster, splitView, mapB, t]);
 
   // ── Life paths: one direction-marked polyline per shown person ────────────
   useEffect(() => {
@@ -604,9 +706,13 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
   // sorts together and neither can be mistaken for the other.
   const shownOverlays = overlays.filter((o) => overlayOn.has(o.id));
   const savePng = (withOverlays: boolean) => {
-    const map = mapRef.current;
-    const el = containerRef.current;
-    const base = baseLayerRef.current;
+    // In the synchronized view the overlays live on the right pane, so the
+    // layered snapshot composes from there (tile positions are read relative
+    // to the pane that drew them); the base-only one keeps the left pane.
+    const fromB = withOverlays && splitView && mapB;
+    const map = fromB ? mapB : mapRef.current;
+    const el = fromB ? containerBRef.current : containerRef.current;
+    const base = fromB ? baseLayerBRef.current : baseLayerRef.current;
     // Compose per layer (base, then overlays) so stacking and opacity match
     // the screen even after a base-layer rebuild.
     const baseEl = base instanceof L.TileLayer ? (base.getContainer() ?? null) : null;
@@ -807,6 +913,10 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
               </button>
               {overlaysOpen && (
                 <div className="map-overlays-panel">
+                  <label className="map-overlay-pick map-split-toggle" title={t("map.overlays.split.tooltip")}>
+                    <input type="checkbox" checked={splitView} onChange={(e) => setSplitView(e.target.checked)} />
+                    <span className="map-overlay-name">{t("map.overlays.split")}</span>
+                  </label>
                   {overlays.map((o) => {
                     const on = overlayOn.has(o.id);
                     const suggested = suggestedOverlays.has(o.id);
@@ -849,8 +959,9 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
           )}
         </div>
       </div>
-      <div className="tree-canvas-wrap map-canvas-wrap">
+      <div className={`tree-canvas-wrap map-canvas-wrap${splitView ? " map-split" : ""}`}>
         <div ref={containerRef} className="map-canvas" />
+        {splitView && <div ref={containerBRef} className="map-canvas map-canvas-b" />}
         {!appSettings.allowMapTiles && (
           <div className="map-tiles-notice">
             <span>{t("map.tilesNotice")}</span>

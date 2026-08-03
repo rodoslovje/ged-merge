@@ -1111,6 +1111,9 @@ export const en = {
   "map.overlays.tooltip": "Additional map layers — configure them in Settings → Map",
   "map.overlays.suggested": "This layer's period matches the selected years",
   "map.overlays.opacity": "Overlay opacity",
+  "map.overlays.split": "Synchronized view",
+  "map.overlays.split.tooltip":
+    "Split the map into two halves that move together: the plain base map on the left, the overlays on the right",
   "map.info.parcel": "Parcel",
   "map.info.cadastralMunicipality": "Cadastral municipality",
   "map.info.area": "Area",
