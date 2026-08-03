@@ -1,4 +1,5 @@
-import type { DateFormatProfile, MainProfile, NameProfile, PlaceLayout, SourceLayout } from "./types";
+import { placeSeparatorText } from "./profile";
+import type { DateFormatProfile, MainProfile, NameProfile, PlaceLayout, PlaceTargetFormat, SourceLayout } from "./types";
 
 /**
  * User-chosen overrides for the file-format conventions the app otherwise
@@ -19,6 +20,8 @@ export interface FormatOverrides {
   datePlaceholder?: "none" | "_" | "?";
   /** Place layout (see {@link PlaceLayout}). */
   place?: Exclude<PlaceLayout, "unknown">;
+  /** Between two place jurisdictions: `Kranj,Slovenija` vs `Kranj, Slovenija`. */
+  placeSeparator?: "comma" | "comma-space";
   /** Alternate-name storage: separate NAME records vs inline sub-tags. */
   names?: "records" | "tags";
   /** Unknown-name marker: "blank" to strip placeholders, or a literal token
@@ -144,10 +147,8 @@ export function applyFormatOverrides(profile: MainProfile, o: FormatOverrides | 
       };
     }
   }
-  if (o.place) {
-    out.place = { ...profile.place, layout: o.place };
-    out.placeFmt = { ...profile.placeFmt, layout: o.place };
-  }
+  if (o.place) out.place = { ...profile.place, layout: o.place };
+  out.placeFmt = applyPlaceOverrides(profile.placeFmt, o);
   if (o.names) {
     const variants = { ...profile.nameVariants };
     for (const kind of Object.keys(VARIANT_TAGS) as (keyof NameProfile)[]) {
@@ -176,6 +177,22 @@ export function applyFormatOverrides(profile: MainProfile, o: FormatOverrides | 
   return out;
 }
 
+/**
+ * The reader's place choices over a detected place format. Its own function
+ * because the write paths that never build a whole {@link MainProfile} — the
+ * Edit view's register lookup, the merge apply — need exactly this much.
+ */
+export function applyPlaceOverrides(fmt: PlaceTargetFormat, o: FormatOverrides | undefined): PlaceTargetFormat {
+  if (!o?.place && !o?.placeSeparator) return fmt;
+  return {
+    ...fmt,
+    ...(o.place ? { layout: o.place } : {}),
+    ...(o.placeSeparator
+      ? { separator: placeSeparatorText(o.placeSeparator), separatorEnforced: true }
+      : {}),
+  };
+}
+
 /** Read a persisted overrides blob field-by-field, dropping invalid values. */
 export function sanitizeFormatOverrides(raw: unknown): FormatOverrides {
   if (!raw || typeof raw !== "object") return {};
@@ -187,6 +204,7 @@ export function sanitizeFormatOverrides(raw: unknown): FormatOverrides {
   out.date = str(r.date);
   out.datePlaceholder = oneOf(r.datePlaceholder, ["none", "_", "?"] as const);
   out.place = oneOf(r.place, ["structured-addr", "packed-plac", "address-only", "plain-structured"] as const);
+  out.placeSeparator = oneOf(r.placeSeparator, ["comma", "comma-space"] as const);
   out.names = oneOf(r.names, ["records", "tags"] as const);
   out.unknownName = str(r.unknownName);
   out.sourceLayout = oneOf(r.sourceLayout, ["paginated", "repository", "literature", "inline"] as const);

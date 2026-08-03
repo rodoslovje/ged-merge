@@ -3,6 +3,7 @@ import type { MatchResult } from "../match/types";
 import { insertGrouped } from "../gedcom/edit";
 import { displayName } from "../match/relatives";
 import { inferPlaceExportFormat } from "../normalize/profile";
+import { applyPlaceOverrides, type FormatOverrides } from "../normalize/formatOverrides";
 import { individualFieldRows } from "../review/fields";
 import { decisionKey, parseDecisionKey, type CandidateDecision, type FieldChoice } from "../review/types";
 import type { Translate } from "../locales/i18n";
@@ -169,6 +170,9 @@ export function mergeDecisions(
    *  the compare tree. Applied after the confirmed-decision loop so matched
    *  anchors (and any families those decisions stitched) exist to graft onto. */
   importBranches: Iterable<ImportBranchRequest> = [],
+  /** The reader's Settings → GEDCOM choices, so a place written into the main
+   *  by this merge follows them rather than only the main's own habit. */
+  overrides?: FormatOverrides,
 ): MergeResult {
   const records = main.records.map(cloneNode);
   const sourXrefMap = buildSourXrefMap(compare.records, records);
@@ -194,7 +198,7 @@ export function mergeDecisions(
   };
   const touched = new Set<string>();
   // How the main writes places, so incoming places can be reshaped to match.
-  const placeFmt = inferPlaceExportFormat(main);
+  const placeFmt = applyPlaceOverrides(inferPlaceExportFormat(main), overrides);
   // How the main stores record-level links, so newly added links match (e.g.
   // a plain WWW line, Family Historian's _WEBTAG block, or an OBJE/FILE record).
   const linkFormat = detectLinkFormat(main);

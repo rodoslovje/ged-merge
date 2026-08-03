@@ -192,7 +192,9 @@ export function normalizeDataset(
   // structured PLAC + ADDR into one packed PLAC — so the compare/edit screens
   // already show places in the main's shape and no reshaping is needed when
   // the record is later merged or saved.
-  if (options.places && reshapesLayout(profile.placeFmt.layout)) {
+  // A pass-through layout still runs the pass when the reader has chosen a
+  // comma form: respelling it is then the one edit that pass makes.
+  if (options.places && (reshapesLayout(profile.placeFmt.layout) || profile.placeFmt.separatorEnforced)) {
     walkNodes(editable, (node) => {
       reshapePlaceNode(node, profile.placeFmt, report, seenPlace);
     });

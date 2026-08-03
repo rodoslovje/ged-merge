@@ -96,6 +96,15 @@ describe("applyFormatOverrides", () => {
     expect(out.nameVariants.birth).toEqual({ form: "record", type: "birth" }); // default for unused variant
   });
 
+  it("overrides the place separator, alone and beside a layout override", () => {
+    const spaced = applyFormatOverrides(profile(), { placeSeparator: "comma-space" });
+    expect(spaced.placeFmt).toMatchObject({ layout: "structured-addr", separator: ", " });
+    const both = applyFormatOverrides(profile(), { place: "packed-plac", placeSeparator: "comma-space" });
+    expect(both.placeFmt).toMatchObject({ layout: "packed-plac", separator: ", " });
+    // The detected "," survives when only the layout is overridden.
+    expect(applyFormatOverrides(profile(), { place: "packed-plac" }).placeFmt.separator).toBe(",");
+  });
+
   it("overrides the unknown-name token", () => {
     const out = applyFormatOverrides(profile(), { unknownName: "N.N." });
     expect(out.unknownName).toEqual({ form: "token", token: "N.N." });
@@ -109,6 +118,7 @@ describe("sanitizeFormatOverrides", () => {
         date: "DD.MM.YYYY",
         place: "packed-plac",
         names: "sideways",
+        placeSeparator: "semicolon",
         citations: "event",
         pageMedia: "banana",
         baptism: "BAPM",

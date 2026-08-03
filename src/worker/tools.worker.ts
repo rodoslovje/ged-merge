@@ -58,9 +58,11 @@ function run(req: Exclude<ToolsRequest, { type: "setDataset" }>): ToolsResultMap
       // apply will actually write.
       return { report: findReshapableLinks(dataset, new Set(ALL_SITES), reshapeOptionsFromOverrides(req.formatOverrides)) };
     case "normalizePreview":
-      return { report: bulkNormalize(dataset).report };
+      // The reader's format overrides ride along, so the preview counts what
+      // the apply will actually write.
+      return { report: bulkNormalize(dataset, undefined, req.formatOverrides).report };
     case "normalizeText": {
-      const { dataset: out } = bulkNormalize(dataset, req.options);
+      const { dataset: out } = bulkNormalize(dataset, req.options, req.formatOverrides);
       ensureUtf8Charset(out.records, out); // downloads are UTF-8 bytes
       return { text: serializeGedcom(out.records, downloadOptions(dataset)) };
     }
