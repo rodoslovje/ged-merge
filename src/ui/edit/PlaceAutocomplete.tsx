@@ -38,6 +38,7 @@ export function PlaceAutocomplete({
   placeholder,
   title,
   autoFocus,
+  preserveCase,
   onChange,
   onCommit,
   onClear,
@@ -59,6 +60,10 @@ export function PlaceAutocomplete({
   placeholder?: string;
   title?: string;
   autoFocus?: boolean;
+  /** Commit the text exactly as typed — no canonical-casing snap on blur.
+   *  For rename fields, whose very purpose may be a casing fix the canonical
+   *  map would otherwise undo (picking a suggestion still applies it). */
+  preserveCase?: boolean;
   onChange: (value: string) => void;
   onCommit: (value: string) => void;
   onClear: () => void;
@@ -155,7 +160,7 @@ export function PlaceAutocomplete({
     if (containerRef.current?.contains(e.relatedTarget as Node)) return;
     setOpen(false);
     setHighlighted(-1);
-    const norm = applyCanonical(value, canonical);
+    const norm = preserveCase ? value.trim() : applyCanonical(value, canonical);
     if (norm !== value) onChange(norm);
     onCommit(norm);
   }

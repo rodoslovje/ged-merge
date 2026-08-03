@@ -395,6 +395,9 @@ export function GeocodePlaceRow({
             wrapClassName="tools-place-rename-auto"
             placeholder={t("tools.places.rename.placeholder")}
             autoFocus
+            // A rename may be exactly a casing fix ("Velika Sela" → "Velika
+            // sela") — the canonical map must not snap it back on blur.
+            preserveCase
             onChange={setRenameDraft}
             onCommit={setRenameDraft}
             onClear={() => setRenameDraft("")}
