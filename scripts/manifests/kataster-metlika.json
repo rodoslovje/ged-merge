@@ -1,0 +1,195 @@
+{
+ "name": "METLIKA",
+ "cassini": {
+  "lat0": 45.928944,
+  "lon0": 14.474694,
+  "shift": [
+   80.0,
+   0.0
+  ],
+  "system": "krim"
+ },
+ "source": "Arhiv Republike Slovenije, SI AS 176/N/N161 — Franciscean cadastre",
+ "sheets": [
+  {
+   "image": "kataster-scans/228765.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=228765&docid=10&seq=1",
+   "cell": [
+    33,
+    -20
+   ],
+   "frame": [
+    77.4,
+    97.0,
+    2538.4,
+    95.7,
+    2539.5,
+    2064.5,
+    78.5,
+    2065.8
+   ],
+   "source": "SI AS 176/N/N161/g/A01",
+   "placed": "wash shape (0.79)"
+  },
+  {
+   "image": "kataster-scans/228767.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=228767&docid=10&seq=1",
+   "cell": [
+    34,
+    -20
+   ],
+   "frame": [
+    107.0,
+    389.0,
+    2565.0,
+    389.0,
+    2565.0,
+    2355.4,
+    107.0,
+    2355.4
+   ],
+   "source": "SI AS 176/N/N161/g/A02",
+   "placed": "wash shape (0.59)"
+  },
+  {
+   "image": "kataster-scans/228768.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=228768&docid=10&seq=1",
+   "cell": [
+    33,
+    -21
+   ],
+   "frame": [
+    86.0,
+    97.0,
+    2542.0,
+    97.0,
+    2542.0,
+    2061.8,
+    86.0,
+    2061.8
+   ],
+   "source": "SI AS 176/N/N161/g/A03",
+   "placed": "wash shape (0.72)"
+  },
+  {
+   "image": "kataster-scans/228770.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=228770&docid=10&seq=1",
+   "cell": [
+    34,
+    -21
+   ],
+   "frame": [
+    81.0,
+    83.1,
+    2542.0,
+    83.1,
+    2542.0,
+    2051.9,
+    81.0,
+    2051.9
+   ],
+   "source": "SI AS 176/N/N161/g/A04",
+   "placed": "printed O.IX.23.be (1.00)"
+  },
+  {
+   "image": "kataster-scans/228771.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=228771&docid=10&seq=1",
+   "cell": [
+    35,
+    -21
+   ],
+   "frame": [
+    93.9,
+    95.2,
+    2554.9,
+    98.2,
+    2552.5,
+    2067.0,
+    91.5,
+    2064.0
+   ],
+   "source": "SI AS 176/N/N161/g/A05",
+   "placed": "printed ae (0.41)"
+  },
+  {
+   "image": "kataster-scans/228773.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=228773&docid=10&seq=1",
+   "cell": [
+    33,
+    -22
+   ],
+   "frame": [
+    85.0,
+    90.0,
+    2539.0,
+    90.0,
+    2539.0,
+    2053.2,
+    85.0,
+    2053.2
+   ],
+   "source": "SI AS 176/N/N161/g/A06",
+   "placed": "wash shape (0.87)"
+  },
+  {
+   "image": "kataster-scans/228775.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=228775&docid=10&seq=1",
+   "cell": [
+    34,
+    -22
+   ],
+   "frame": [
+    82.4,
+    106.6,
+    2543.4,
+    110.7,
+    2540.2,
+    2079.5,
+    79.2,
+    2075.4
+   ],
+   "source": "SI AS 176/N/N161/g/A07",
+   "placed": "wash shape (0.67)"
+  },
+  {
+   "image": "kataster-scans/228776.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=228776&docid=10&seq=1",
+   "cell": [
+    35,
+    -22
+   ],
+   "frame": [
+    92.3,
+    93.9,
+    2553.3,
+    96.0,
+    2551.7,
+    2064.8,
+    90.7,
+    2062.7
+   ],
+   "source": "SI AS 176/N/N161/g/A08",
+   "placed": "wash shape (0.72)"
+  },
+  {
+   "image": "kataster-scans/228778.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=228778&docid=10&seq=1",
+   "cell": [
+    36,
+    -21
+   ],
+   "frame": [
+    52.0,
+    81.1,
+    2513.0,
+    81.1,
+    2513.0,
+    2049.9,
+    52.0,
+    2049.9
+   ],
+   "source": "SI AS 176/N/N161/g/A09",
+   "placed": "wash shape (0.13)"
+  }
+ ]
+}

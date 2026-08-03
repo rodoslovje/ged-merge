@@ -1,0 +1,95 @@
+{
+ "name": "HUJE",
+ "cassini": {
+  "lat0": 45.928944,
+  "lon0": 14.474694,
+  "shift": [
+   80.0,
+   0.0
+  ],
+  "system": "krim"
+ },
+ "source": "Arhiv Republike Slovenije, SI AS 176/L/L86 — Franciscean cadastre",
+ "sheets": [
+  {
+   "image": "kataster-scans/224479.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224479&docid=10&seq=1",
+   "cell": [
+    -5.0,
+    23.0
+   ],
+   "frame": [
+    100.3,
+    97.3,
+    2566.1,
+    105.0,
+    2559.9,
+    2077.6,
+    94.1,
+    2069.9
+   ],
+   "source": "SI AS 176/L/L86/g/A01",
+   "placed": "printed W.C.II.14.af (1.00)"
+  },
+  {
+   "image": "kataster-scans/224480.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224480&docid=10&seq=1",
+   "cell": [
+    -5.0,
+    22.0
+   ],
+   "frame": [
+    71.1,
+    49.2,
+    2536.9,
+    49.2,
+    2536.9,
+    2021.8,
+    71.1,
+    2021.8
+   ],
+   "source": "SI AS 176/L/L86/g/A02",
+   "placed": "printed W.C.II.14.ag (1.00)"
+  },
+  {
+   "image": "kataster-scans/224481.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224481&docid=10&seq=1",
+   "cell": [
+    -4.0,
+    22.0
+   ],
+   "frame": [
+    86.2,
+    105.6,
+    2551.9,
+    95.7,
+    2559.8,
+    2068.3,
+    94.1,
+    2078.2
+   ],
+   "source": "SI AS 176/L/L86/g/A03",
+   "placed": "printed W.C.I.14.dg (1.00)"
+  },
+  {
+   "image": "kataster-scans/224482.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224482&docid=10&seq=1",
+   "cell": [
+    -4.4473,
+    21
+   ],
+   "frame": [
+    129.7,
+    183.8,
+    2595.4,
+    174.3,
+    2602.9,
+    2146.9,
+    137.2,
+    2156.3
+   ],
+   "source": "SI AS 176/L/L86/g/A04",
+   "placed": "printed W.C.I.14.dh, half a sheet west"
+  }
+ ]
+}

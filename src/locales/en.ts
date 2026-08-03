@@ -1594,6 +1594,70 @@ export const en = {
   "settings.map.overlays.preset.france.etatmajor": "France · Carte de l'État-major (1820–1866)",
   "settings.map.overlays.preset.swiss.dufour": "Switzerland · Dufour Map (1845–1865)",
   "settings.map.overlays.preset.swiss.siegfried": "Switzerland · Siegfried Map (1870–1926)",
+  "settings.map.overlays.preset.kataster.strazisce":
+    "Franciscean cadastre · Stražišče by Kranj 1:2880 (1826)",
+  "settings.map.overlays.preset.kataster.kranj":
+    "Franciscean cadastre · Kranj and Rupa 1:2880 (1826)",
+  "settings.map.overlays.preset.kataster.bela":
+    "Franciscean cadastre · Bela by Preddvor 1:2880 (1826)",
+  "settings.map.overlays.preset.kataster.preddvor":
+    "Franciscean cadastre · Breg ob Kokri and Preddvor 1:2880 (1826)",
+  "settings.map.overlays.preset.kataster.krasinec":
+    "Franciscean cadastre · Krasinec 1:2880 (1824)",
+  "settings.map.overlays.preset.kataster.podzemelj":
+    "Franciscean cadastre · Podzemelj 1:2880 (1824)",
+  "settings.map.overlays.preset.kataster.drasici":
+    "Franciscean cadastre · Drašiči 1:2880 (1824)",
+  "settings.map.overlays.preset.kataster.osojnik":
+    "Franciscean cadastre · Štrekljevec and Osojnik 1:2880 (1824)",
+  "settings.map.overlays.preset.kataster.bitnje":
+    "Franciscean cadastre · Bitnje, all three 1:2880 (1826)",
+  "settings.map.overlays.preset.kataster.skofjaloka":
+    "Franciscean cadastre · Škofja Loka and Stara Loka 1:2880 (1825)",
+  "settings.map.overlays.preset.kataster.zabnica":
+    "Franciscean cadastre · Žabnica 1:2880 (1826)",
+  "settings.map.overlays.preset.kataster.predoslje":
+    "Franciscean cadastre · Predoslje 1:2880 (1826)",
+  "settings.map.overlays.preset.kataster.britof":
+    "Franciscean cadastre · Britof and Primskovo 1:2880 (1826)",
+  "settings.map.overlays.preset.kataster.tupalice":
+    "Franciscean cadastre · Tupaliče 1:2880 (1826)",
+  "settings.map.overlays.preset.kataster.sencur":
+    "Franciscean cadastre · Šenčur 1:2880 (1826)",
+  "settings.map.overlays.preset.kataster.zeje":
+    "Franciscean cadastre · Žeje and Strahinj 1:2880 (1826)",
+  "settings.map.overlays.preset.kataster.naklo":
+    "Franciscean cadastre · Naklo 1:2880 (1826)",
+  "settings.map.overlays.preset.kataster.kokrica":
+    "Franciscean cadastre · Kokrica 1:2880 (1826)",
+  "settings.map.overlays.preset.kataster.suha":
+    "Franciscean cadastre · Suha 1:2880 (1826)",
+  "settings.map.overlays.preset.kataster.hujeKlancCirce":
+    "Franciscean cadastre · Huje-Klanc-Čirče 1:2880 (1826)",
+  "settings.map.overlays.preset.kataster.jamaPrase":
+    "Franciscean cadastre · Jama-Praše 1:2880 (1826)",
+  "settings.map.overlays.preset.kataster.drulovkaBreg":
+    "Franciscean cadastre · Drulovka-Breg 1:2880 (1826)",
+  "settings.map.overlays.preset.kataster.mavcice":
+    "Franciscean cadastre · Podreča and Mavčiče 1:2880 (1826)",
+  "settings.map.overlays.preset.kataster.toplice":
+    "Franciscean cadastre · Toplice by Dolenjske Toplice 1:2880 (1824)",
+  "settings.map.overlays.preset.kataster.ljubljana":
+    "Franciscean cadastre · Ljubljana, Karlovško predmestje 1:2880 (1826)",
+  "settings.map.overlays.preset.kataster.podturn":
+    "Franciscean cadastre · Podturn 1:2880 (1824)",
+  "settings.map.overlays.preset.kataster.ljubljanaTrnovsko":
+    "Franciscean cadastre · Ljubljana, Trnovo suburb 1:2880 (1826)",
+  "settings.map.overlays.preset.kataster.ljubljanaSvpetra":
+    "Franciscean cadastre · Ljubljana, St Peter suburb 1:2880 (1826)",
+  "settings.map.overlays.preset.kataster.ljubljanaMesto":
+    "Franciscean cadastre · Ljubljana city, with Krakovo and Gradišče 1:2880 (1826)",
+  "settings.map.overlays.preset.kataster.semic":
+    "Franciscean cadastre · Semič 1:2880 (1824)",
+  "settings.map.overlays.preset.kataster.metlika":
+    "Franciscean cadastre · Metlika 1:2880 (1824)",
+  "settings.map.overlays.preset.kataster.gradac":
+    "Franciscean cadastre · Gradac by Metlika 1:2880 (1824)",
   "settings.map.overlays.preset.gurs.orthoHist": "Slovenia · Historical orthophoto 2011 (GURS)",
   "settings.map.overlays.preset.gurs.ortho": "Slovenia · Orthophoto (GURS)",
   "settings.map.overlays.preset.gurs.topo": "Slovenia · Topographic map, to 1:2500 (GURS)",

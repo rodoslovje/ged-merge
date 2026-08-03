@@ -1,0 +1,235 @@
+{
+ "name": "KOKRICA",
+ "cassini": {
+  "lat0": 45.928944,
+  "lon0": 14.474694,
+  "shift": [
+   80.0,
+   0.0
+  ],
+  "system": "krim"
+ },
+ "source": "Arhiv Republike Slovenije, SI AS 176/L/L114 — Franciscean cadastre",
+ "sheets": [
+  {
+   "image": "kataster-scans/224713.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224713&docid=10&seq=1",
+   "cell": [
+    -7,
+    28
+   ],
+   "frame": [
+    577.0,
+    103.8,
+    3040.0,
+    103.8,
+    3040.0,
+    2074.2,
+    577.0,
+    2074.2
+   ],
+   "source": "SI AS 176/L/L114/g/A01",
+   "placed": "top row, west — printed W.C.II.13.ci"
+  },
+  {
+   "image": "kataster-scans/224714.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224714&docid=10&seq=1",
+   "cell": [
+    -6.0,
+    28.0
+   ],
+   "frame": [
+    94.6,
+    88.0,
+    2557.6,
+    86.9,
+    2558.5,
+    2057.3,
+    95.5,
+    2058.4
+   ],
+   "source": "SI AS 176/L/L114/g/A02",
+   "placed": "printed W.C.II.13.bf (1.00)"
+  },
+  {
+   "image": "kataster-scans/224715.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224715&docid=10&seq=1",
+   "cell": [
+    -7.0,
+    27.0
+   ],
+   "frame": [
+    159.4,
+    93.8,
+    2622.4,
+    84.8,
+    2629.6,
+    2055.2,
+    166.6,
+    2064.2
+   ],
+   "source": "SI AS 176/L/L114/g/A03",
+   "placed": "printed W.C.II.13.cg (1.00)"
+  },
+  {
+   "image": "kataster-scans/224716.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224716&docid=10&seq=1",
+   "cell": [
+    -6.0,
+    27.0
+   ],
+   "frame": [
+    91.4,
+    110.3,
+    2554.4,
+    108.7,
+    2555.7,
+    2079.1,
+    92.7,
+    2080.7
+   ],
+   "source": "SI AS 176/L/L114/g/A04",
+   "placed": "printed W.C.II.13.bg (1.00)"
+  },
+  {
+   "image": "kataster-scans/224717.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224717&docid=10&seq=1",
+   "cell": [
+    -5.0,
+    27.0
+   ],
+   "frame": [
+    94.0,
+    109.0,
+    2554.0,
+    109.0,
+    2554.0,
+    2077.0,
+    94.0,
+    2077.0
+   ],
+   "source": "SI AS 176/L/L114/g/A05",
+   "placed": "printed W.C.II.13.ag (1.00)"
+  },
+  {
+   "image": "kataster-scans/224718.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224718&docid=10&seq=1",
+   "cell": [
+    -7.0,
+    26.0
+   ],
+   "frame": [
+    99.4,
+    122.1,
+    2562.4,
+    127.8,
+    2557.8,
+    2098.2,
+    94.8,
+    2092.5
+   ],
+   "source": "SI AS 176/L/L114/g/A06",
+   "placed": "printed W.C.II.13.ch (1.00)"
+  },
+  {
+   "image": "kataster-scans/224719.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224719&docid=10&seq=1",
+   "cell": [
+    -6.0,
+    26.0
+   ],
+   "frame": [
+    87.5,
+    110.6,
+    2550.5,
+    100.7,
+    2558.4,
+    2071.1,
+    95.4,
+    2081.0
+   ],
+   "source": "SI AS 176/L/L114/g/A07",
+   "placed": "printed W.C.II.13.bh (1.00)"
+  },
+  {
+   "image": "kataster-scans/224720.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224720&docid=10&seq=1",
+   "cell": [
+    -5.0,
+    26.0
+   ],
+   "frame": [
+    53.0,
+    86.0,
+    2523.0,
+    86.0,
+    2523.0,
+    2062.0,
+    53.0,
+    2062.0
+   ],
+   "source": "SI AS 176/L/L114/g/A08",
+   "placed": "printed W.C.II.13.ah (1.00)"
+  },
+  {
+   "image": "kataster-scans/224721.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224721&docid=10&seq=1",
+   "cell": [
+    -6.0,
+    25.0
+   ],
+   "frame": [
+    397.0,
+    62.0,
+    2863.0,
+    62.0,
+    2863.0,
+    2034.8,
+    397.0,
+    2034.8
+   ],
+   "source": "SI AS 176/L/L114/g/A09",
+   "placed": "printed W.C.II.13.bi (1.00)"
+  },
+  {
+   "image": "kataster-scans/224722.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224722&docid=10&seq=1",
+   "cell": [
+    -5.0,
+    25.0
+   ],
+   "frame": [
+    93.0,
+    156.8,
+    2556.0,
+    156.8,
+    2556.0,
+    2127.2,
+    93.0,
+    2127.2
+   ],
+   "source": "SI AS 176/L/L114/g/A10",
+   "placed": "printed W.C.II.13.ai (1.00)"
+  },
+  {
+   "image": "kataster-scans/224723.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224723&docid=10&seq=1",
+   "cell": [
+    -5.0,
+    24.0
+   ],
+   "frame": [
+    45.0,
+    91.0,
+    2507.0,
+    91.0,
+    2507.0,
+    2060.6,
+    45.0,
+    2060.6
+   ],
+   "source": "SI AS 176/L/L114/g/A11",
+   "placed": "printed W.C.II.14.ae (1.00)"
+  }
+ ]
+}

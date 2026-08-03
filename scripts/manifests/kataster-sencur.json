@@ -1,0 +1,135 @@
+{
+ "name": "SENCUR",
+ "cassini": {
+  "lat0": 45.928944,
+  "lon0": 14.474694,
+  "shift": [
+   80.0,
+   0.0
+  ],
+  "system": "krim"
+ },
+ "source": "Arhiv Republike Slovenije, SI AS 176/L/L61 — Franciscean cadastre",
+ "sheets": [
+  {
+   "image": "kataster-scans/224297.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224297&docid=10&seq=1",
+   "cell": [
+    -3,
+    23
+   ],
+   "frame": [
+    107.0,
+    40.9,
+    2571.0,
+    40.9,
+    2571.0,
+    2012.1,
+    107.0,
+    2012.1
+   ],
+   "source": "SI AS 176/L/L61/g/A01",
+   "placed": "lattice cell — nudge dropped"
+  },
+  {
+   "image": "kataster-scans/224298.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224298&docid=10&seq=1",
+   "cell": [
+    -2,
+    23
+   ],
+   "frame": [
+    164.0,
+    75.9,
+    2628.0,
+    75.9,
+    2628.0,
+    2047.1,
+    164.0,
+    2047.1
+   ],
+   "source": "SI AS 176/L/L61/g/A02",
+   "placed": "lattice cell — nudge dropped"
+  },
+  {
+   "image": "kataster-scans/224299.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224299&docid=10&seq=1",
+   "cell": [
+    -3.0,
+    22.0
+   ],
+   "frame": [
+    48.0,
+    239.9,
+    2512.0,
+    239.9,
+    2512.0,
+    2211.1,
+    48.0,
+    2211.1
+   ],
+   "source": "SI AS 176/L/L61/g/A03",
+   "placed": "row 2 — top against row 1 (1.00)"
+  },
+  {
+   "image": "kataster-scans/224300.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224300&docid=10&seq=1",
+   "cell": [
+    -2.0,
+    22.0
+   ],
+   "frame": [
+    176.0,
+    91.9,
+    2640.0,
+    91.9,
+    2640.0,
+    2063.1,
+    176.0,
+    2063.1
+   ],
+   "source": "SI AS 176/L/L61/g/A04",
+   "placed": "row 2 — top against row 1 (1.00)"
+  },
+  {
+   "image": "kataster-scans/224301.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224301&docid=10&seq=1",
+   "cell": [
+    -3,
+    21
+   ],
+   "frame": [
+    88.0,
+    67.9,
+    2552.0,
+    67.9,
+    2552.0,
+    2039.1,
+    88.0,
+    2039.1
+   ],
+   "source": "SI AS 176/L/L61/g/A05",
+   "placed": "lattice cell — nudge dropped"
+  },
+  {
+   "image": "kataster-scans/224302.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224302&docid=10&seq=1",
+   "cell": [
+    -2,
+    21
+   ],
+   "frame": [
+    98.0,
+    99.0,
+    2552.0,
+    99.0,
+    2552.0,
+    2062.2,
+    98.0,
+    2062.2
+   ],
+   "source": "SI AS 176/L/L61/g/A06",
+   "placed": "lattice cell — nudge dropped"
+  }
+ ]
+}

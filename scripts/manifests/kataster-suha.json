@@ -1,0 +1,75 @@
+{
+ "name": "SUHA",
+ "cassini": {
+  "lat0": 45.928944,
+  "lon0": 14.474694,
+  "shift": [
+   80.0,
+   0.0
+  ],
+  "system": "krim"
+ },
+ "source": "Arhiv Republike Slovenije, SI AS 176/L/L285 — Franciscean cadastre",
+ "sheets": [
+  {
+   "image": "kataster-scans/225930.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=225930&docid=10&seq=1",
+   "cell": [
+    -3.0,
+    26.0
+   ],
+   "frame": [
+    427.0,
+    78.2,
+    2869.0,
+    78.2,
+    2869.0,
+    2031.8,
+    427.0,
+    2031.8
+   ],
+   "source": "SI AS 176/L/L285/g/A01",
+   "placed": "printed W.C.I.13.ch (1.00)"
+  },
+  {
+   "image": "kataster-scans/225931.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=225931&docid=10&seq=1",
+   "cell": [
+    -4.0,
+    25.0
+   ],
+   "frame": [
+    59.0,
+    106.0,
+    2525.0,
+    106.0,
+    2525.0,
+    2078.8,
+    59.0,
+    2078.8
+   ],
+   "source": "SI AS 176/L/L285/g/A02",
+   "placed": "printed W.C.I.13.di (1.00)"
+  },
+  {
+   "image": "kataster-scans/225932.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=225932&docid=10&seq=1",
+   "cell": [
+    -3.0,
+    25.0
+   ],
+   "frame": [
+    106.0,
+    102.0,
+    2576.0,
+    102.0,
+    2576.0,
+    2078.0,
+    106.0,
+    2078.0
+   ],
+   "source": "SI AS 176/L/L285/g/A03",
+   "placed": "printed W.C.I.13.ci (1.00)"
+  }
+ ]
+}

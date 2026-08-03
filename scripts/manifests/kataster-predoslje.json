@@ -1,0 +1,75 @@
+{
+ "name": "PREDOSLJE",
+ "cassini": {
+  "lat0": 45.928944,
+  "lon0": 14.474694,
+  "shift": [
+   80.0,
+   0.0
+  ],
+  "system": "krim"
+ },
+ "source": "Arhiv Republike Slovenije, SI AS 176/L/L215 — Franciscean cadastre",
+ "sheets": [
+  {
+   "image": "kataster-scans/225462.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=225462&docid=10&seq=1",
+   "cell": [
+    -4.0,
+    26.0
+   ],
+   "frame": [
+    82.0,
+    76.0,
+    2542.0,
+    76.0,
+    2542.0,
+    2044.0,
+    82.0,
+    2044.0
+   ],
+   "source": "SI AS 176/L/L215/g/A01",
+   "placed": "printed dh (0.80)"
+  },
+  {
+   "image": "kataster-scans/225463.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=225463&docid=10&seq=1",
+   "cell": [
+    -4.0,
+    25.0
+   ],
+   "frame": [
+    559.0,
+    90.8,
+    3019.0,
+    100.6,
+    3011.1,
+    2068.6,
+    551.1,
+    2058.8
+   ],
+   "source": "SI AS 176/L/L215/g/A02",
+   "placed": "wash shape (0.44)"
+  },
+  {
+   "image": "kataster-scans/225464.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=225464&docid=10&seq=1",
+   "cell": [
+    -4.0,
+    24.0
+   ],
+   "frame": [
+    88.0,
+    103.0,
+    2548.0,
+    103.0,
+    2548.0,
+    2071.0,
+    88.0,
+    2071.0
+   ],
+   "source": "SI AS 176/L/L215/g/A03",
+   "placed": "printed de (0.82)"
+  }
+ ]
+}

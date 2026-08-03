@@ -1,0 +1,75 @@
+{
+ "name": "LJSVPETRA",
+ "cassini": {
+  "lat0": 45.928944,
+  "lon0": 14.474694,
+  "shift": [
+   80.0,
+   0.0
+  ],
+  "system": "krim"
+ },
+ "source": "Arhiv Republike Slovenije, SI AS 176/L/L193 — Franciscean cadastre",
+ "sheets": [
+  {
+   "image": "kataster-scans/225342.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=225342&docid=10&seq=1",
+   "cell": [
+    1,
+    10
+   ],
+   "frame": [
+    82.3,
+    106.3,
+    2547.0,
+    100.3,
+    2551.8,
+    2072.1,
+    87.1,
+    2078.1
+   ],
+   "source": "SI AS 176/L/L193/g/A01",
+   "placed": "lattice cell — nudge dropped"
+  },
+  {
+   "image": "kataster-scans/225343.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=225343&docid=10&seq=1",
+   "cell": [
+    2,
+    10
+   ],
+   "frame": [
+    87.1,
+    100.7,
+    2551.9,
+    90.9,
+    2559.7,
+    2062.6,
+    95.0,
+    2072.5
+   ],
+   "source": "SI AS 176/L/L193/g/A02",
+   "placed": "lattice cell — nudge dropped"
+  },
+  {
+   "image": "kataster-scans/225344.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=225344&docid=10&seq=1",
+   "cell": [
+    1,
+    9
+   ],
+   "frame": [
+    25.0,
+    91.0,
+    2473.0,
+    91.0,
+    2473.0,
+    2049.4,
+    25.0,
+    2049.4
+   ],
+   "source": "SI AS 176/L/L193/g/A03",
+   "placed": "lattice cell — nudge dropped"
+  }
+ ]
+}

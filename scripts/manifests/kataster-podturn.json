@@ -1,0 +1,295 @@
+{
+ "name": "PODTURN",
+ "cassini": {
+  "lat0": 45.928944,
+  "lon0": 14.474694,
+  "shift": [
+   80.0,
+   0.0
+  ],
+  "system": "krim"
+ },
+ "source": "Arhiv Republike Slovenije, SI AS 176/N/N327 — Franciscean cadastre",
+ "sheets": [
+  {
+   "image": "kataster-scans/230852.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=230852&docid=10&seq=1",
+   "cell": [
+    21.0,
+    -11.0
+   ],
+   "frame": [
+    70.0,
+    87.8,
+    2523.0,
+    87.8,
+    2523.0,
+    2050.2,
+    70.0,
+    2050.2
+   ],
+   "source": "SI AS 176/N/N327/g/A01",
+   "placed": "top of the column (1.00)"
+  },
+  {
+   "image": "kataster-scans/230853.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=230853&docid=10&seq=1",
+   "cell": [
+    22.0,
+    -11.0
+   ],
+   "frame": [
+    80.8,
+    94.9,
+    2533.8,
+    85.9,
+    2541.0,
+    2048.3,
+    88.0,
+    2057.3
+   ],
+   "source": "SI AS 176/N/N327/g/A02",
+   "placed": "top of the column (1.00)"
+  },
+  {
+   "image": "kataster-scans/230855.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=230855&docid=10&seq=1",
+   "cell": [
+    21,
+    -12
+   ],
+   "frame": [
+    524.0,
+    96.0,
+    2976.0,
+    96.0,
+    2976.0,
+    2057.6,
+    524.0,
+    2057.6
+   ],
+   "source": "SI AS 176/N/N327/g/A03",
+   "placed": "lattice cell — nudge dropped"
+  },
+  {
+   "image": "kataster-scans/230856.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=230856&docid=10&seq=1",
+   "cell": [
+    22,
+    -12
+   ],
+   "frame": [
+    87.5,
+    97.2,
+    2540.5,
+    90.4,
+    2545.9,
+    2052.8,
+    92.9,
+    2059.6
+   ],
+   "source": "SI AS 176/N/N327/g/A04",
+   "placed": "lattice cell — nudge dropped"
+  },
+  {
+   "image": "kataster-scans/230858.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=230858&docid=10&seq=1",
+   "cell": [
+    23.0,
+    -12.0
+   ],
+   "frame": [
+    98.0,
+    96.8,
+    2551.0,
+    96.8,
+    2551.0,
+    2059.2,
+    98.0,
+    2059.2
+   ],
+   "source": "SI AS 176/N/N327/g/A05",
+   "placed": "full sheet (1.00)"
+  },
+  {
+   "image": "kataster-scans/230860.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=230860&docid=10&seq=1",
+   "cell": [
+    21,
+    -13
+   ],
+   "frame": [
+    94.0,
+    119.8,
+    2547.0,
+    119.8,
+    2547.0,
+    2082.2,
+    94.0,
+    2082.2
+   ],
+   "source": "SI AS 176/N/N327/g/A06",
+   "placed": "lattice cell — nudge dropped"
+  },
+  {
+   "image": "kataster-scans/230861.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=230861&docid=10&seq=1",
+   "cell": [
+    22,
+    -13
+   ],
+   "frame": [
+    64.0,
+    91.0,
+    2508.0,
+    91.0,
+    2508.0,
+    2046.2,
+    64.0,
+    2046.2
+   ],
+   "source": "SI AS 176/N/N327/g/A07",
+   "placed": "lattice cell — nudge dropped"
+  },
+  {
+   "image": "kataster-scans/230863.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=230863&docid=10&seq=1",
+   "cell": [
+    23.0,
+    -13.0
+   ],
+   "frame": [
+    95.4,
+    100.9,
+    2548.4,
+    99.6,
+    2549.5,
+    2062.0,
+    96.5,
+    2063.3
+   ],
+   "source": "SI AS 176/N/N327/g/A08",
+   "placed": " (1.00)"
+  },
+  {
+   "image": "kataster-scans/230865.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=230865&docid=10&seq=1",
+   "cell": [
+    22,
+    -14
+   ],
+   "frame": [
+    94.0,
+    103.0,
+    2548.0,
+    103.0,
+    2548.0,
+    2066.2,
+    94.0,
+    2066.2
+   ],
+   "source": "SI AS 176/N/N327/g/A09",
+   "placed": "lattice cell — nudge dropped"
+  },
+  {
+   "image": "kataster-scans/230866.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=230866&docid=10&seq=1",
+   "cell": [
+    23.0,
+    -14.0
+   ],
+   "frame": [
+    81.7,
+    101.2,
+    2534.7,
+    94.1,
+    2540.4,
+    2056.5,
+    87.4,
+    2063.6
+   ],
+   "source": "SI AS 176/N/N327/g/A10",
+   "placed": "swapped;  (1.00)"
+  },
+  {
+   "image": "kataster-scans/230868.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=230868&docid=10&seq=1",
+   "cell": [
+    24.0,
+    -14.0
+   ],
+   "frame": [
+    94.0,
+    90.8,
+    2547.0,
+    90.8,
+    2547.0,
+    2053.2,
+    94.0,
+    2053.2
+   ],
+   "source": "SI AS 176/N/N327/g/A11",
+   "placed": "full sheet (1.00)"
+  },
+  {
+   "image": "kataster-scans/230870.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=230870&docid=10&seq=1",
+   "cell": [
+    22,
+    -15
+   ],
+   "frame": [
+    88.5,
+    89.9,
+    2541.5,
+    98.1,
+    2535.0,
+    2060.5,
+    82.0,
+    2052.3
+   ],
+   "source": "SI AS 176/N/N327/g/A12",
+   "placed": "lattice cell — nudge dropped"
+  },
+  {
+   "image": "kataster-scans/230871.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=230871&docid=10&seq=1",
+   "cell": [
+    23.0,
+    -15.0
+   ],
+   "frame": [
+    82.4,
+    106.8,
+    2535.4,
+    99.5,
+    2541.2,
+    2061.9,
+    88.2,
+    2069.2
+   ],
+   "source": "SI AS 176/N/N327/g/A13",
+   "placed": "full sheet (1.00)"
+  },
+  {
+   "image": "kataster-scans/230873.jpg",
+   "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=230873&docid=10&seq=1",
+   "cell": [
+    24.0,
+    -15.0
+   ],
+   "frame": [
+    78.0,
+    95.0,
+    2544.0,
+    95.0,
+    2544.0,
+    2067.8,
+    78.0,
+    2067.8
+   ],
+   "source": "SI AS 176/N/N327/g/A14",
+   "placed": "swapped;  (1.00)"
+  }
+ ]
+}

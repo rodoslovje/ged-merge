@@ -17,6 +17,15 @@ scans without re-measuring.
   (Vienna, 1797), the Holy Roman Empire on the eve of Napoleon. One conic
   projection rather than a sheet grid — see "Conic manifests" below. Serves
   `tiles.gedmerge.com/schraembl-1797/`.
+- **kataster-*.json** — cadastral municipalities of the Franciscean cadastre,
+  1:2880, from the Archives of the Republic of Slovenia. Eleven so far:
+  Stražišče, Kranj, Bitnje, Bela and Breg ob Kokri in Gorenjska; Metlika, Semič,
+  Gradac, Podzemelj, Drašiči, Krasinec and Štrekljevec in Bela krajina. Note
+  that a k.o. is named for one of its villages and holds others — Preddvor is
+  in Breg ob Kokri, Osojnik in Štrekljevec, and Zgornje, Srednje and Spodnje
+  Bitnje are all one k.o. Bitnje. A third manifest kind: cells of
+  the survey's own Cassini-Soldner lattice — see "Cadastral manifests" below.
+  Serve `tiles.gedmerge.com/kataster-<k.o.>/`.
 
 ## Entry shape
 
@@ -213,6 +222,236 @@ python3 ../overlay-tiles.py --manifest schraembl-1797.json \
 
 Base zoom lands on 11 (~49 m/px, which is the scan's own resolution — z12 would
 only enlarge it) for ~11 000 tiles / 270 MB.
+
+## Cadastral manifests (the Franciscean cadastre, 1:2880)
+
+The Franciscean cadastre is the largest scale these lands were ever drawn at —
+every parcel, every house, every field name, surveyed in the 1820s — and the
+Archives of the Republic of Slovenia have the whole of it online, sheet by
+sheet, open to anyone, in four fonds: **SI AS 176** Carniola, **177** Styria,
+**178** Carinthia, **179** the Littoral. `scripts/kataster-sheets.py` walks
+that catalogue and writes a manifest per cadastral municipality:
+
+```json
+{ "name": "STRAŽIŠČE",
+  "cassini": { "lat0": 45.928944, "lon0": 14.474694, "shift": [0, 0] },
+  "sheets": [ { "image": "…/225877.jpg", "cell": [-5, 22],
+                "frame": [8 corner pixels], "source": "SI AS 176/L/L278/g/A04",
+                "placed": "printed W.C.II.14.ag (1.00)" } ] }
+```
+
+A sheet has no `bbox`, only its `cell`. The survey divided the land into
+sections one Austrian post mile square (4000 klafter = 7585.9 m), each into 4
+sheet columns of 1000 klafter and 5 sheet rows of 800 klafter, on
+Cassini-Soldner about the crown land's origin. So a cell fixes a sheet
+absolutely, and the tiler derives its corners from the projection.
+
+### Reading a sheet's own address
+
+Every sheet prints its designation in the top margin: `W.C.II.14.ag` is **W**est
+column **II**, section row **14**, and inside that section the sheet in column
+**a**, row **g**. Columns run **a–d from the section's eastern edge westward**
+and rows **e–i from north to south** — both established here from the sheets
+themselves, since Gradac straddles the VIII/IX section boundary and only one
+reading joins its halves, and since the archive files a k.o.'s sheets in raster
+order, which only one reading makes monotonic.
+
+Section columns are counted west and east of the origin meridian; section rows
+southward from 18 sections north of the origin parallel. Hence
+`cell = (ix, iy)` with the cell spanning `[ix·1896.484, (ix+1)·1896.484]` east
+and `[iy·1517.187, (iy+1)·1517.187]` north of the origin.
+
+A cadastral sheet is a rectangle of the *survey's* grid, not of lon/lat: at the
+eastern edge of a crown land the meridians converge about half a degree away
+from grid north, which tilts a sheet by ~18 m corner to corner. Each sheet is
+therefore clipped to its cell's ring rather than to a lon/lat box, or it would
+cover its neighbour.
+
+### Finding the frame, and squaring it up
+
+Placing a sheet by its cell is only as good as the neatline it was measured
+against, and a bad edge is worse here than in a single-sheet mosaic because the
+neighbour does not follow it: 89 px of false lean across a 2460 px frame is
+68 m at the corner, and the join tears. On these scans the plain
+innermost-rule-per-edge heuristic leaned sheets by 89, 102, 107 and 160 px, and
+on one it put the sheet's own "Aufgenommen und berechnet von…" footer inside
+the map.
+
+So each scan is read every way that works — plain, told the printed size, and
+told the printed size with a margin of its own paper tone pasted back around it
+for sheets trimmed to within a few pixels of their rule — and the reading
+closest to a cadastral sheet's known shape wins. Then every frame is rebuilt as
+a rectangle of exactly the series' size (the median of the readings that check
+out: 2462 × 1970 px here) about its own **centre**, with lean clamped to 0.23°.
+The centre, not a corner, because the detector brackets an edge between the
+pair of rules the printed distance apart, so half of whatever is left over goes
+each way instead of all of it to the far edge.
+
+What remains at a join is ten metres or so in places. That is the paper's own
+two centuries of distortion and the survey's sheet-to-sheet edge matching, and
+removing it would mean nudging sheets relative to each other — fitting, which
+is exactly what this pipeline is built not to do.
+
+### Re-reading a frame after the fact
+
+The strategies above still lose a sheet now and then, and the failure is
+invisible from the tiles: a frame that is n px out moves the sheet on the
+ground exactly as a wrong cell would, so it invites a nudge, and the nudge then
+opens a gap at the seam it used to close. Two of these went a full round of
+"move it 50 m east" before the cut was suspected.
+
+`kataster-frames.py` re-reads a manifest's frames as a matched filter instead
+of an edge walk. A neatline is a *pair* of rules a known distance apart, and
+the pair is always in the ratio 1.25, so it scores every (width, offset) whose
+two rules both land on ink and takes the best. One strong line cannot win on
+its own, which is what defeats the dark scan border and the map's own straight
+features.
+
+    kataster-frames.py --manifest <file>                       # report
+    kataster-frames.py --manifest <file> --widths 2440 2474 --fix
+
+Hold `--widths` to the fond's real band. Left free, the search buys a better
+score by drifting the scale, and 0.76 or 0.78 m/px readings are margin ink, not
+rules. The first pass over Kranjska found 43 sheets out of ~160 cut wrong,
+worst at 401 px — 309 m on the ground.
+
+### How a sheet gets placed, and what still needs a human
+
+Placement leans on three readings, scored together as one assignment so that no
+single one can drag a sheet off on its own: OCR of the printed letter pair; the
+shape of the colour wash (a sheet paints its own k.o. and leaves the rest of the
+paper blank, so the wash is the k.o. clipped to that cell); and the archive's
+raster filing order. Measured against designations read by eye on the 13
+lattice sheets of these two k.o., that places about two in three.
+
+The rest is what `--review` is for, and `--pin` is how they come back:
+
+```json
+{ "225877": {"cell": [-5, 22], "as": "printed W.C.II.14.ag"},
+  "227433": {"cell": [31, -23], "as": "printed O.VIII.23.ag",
+             "frame": [86, 87, 2552, 87, 2552, 2060, 86, 2060]},
+  "-227435": "1853 reambulation, cut to its own frame — off the lattice" }
+```
+
+Both committed manifests are pinned this way, so every sheet in them sits where
+its own printed designation says and not where an algorithm guessed. What the
+automatic pass gets wrong is worth knowing for a whole-fond run: it fails where
+a municipality has since been trimmed (the wash then covers ground today's
+boundary no longer claims, so the shape argues for the wrong cell), and OCR
+turns `h` into `g` often enough to matter. Two sheets also needed help of their
+own — one trimmed so close to its border rule that the rule has no paper
+outside it to be a rule against, and Gradac's 1853 reambulation, which is cut
+to a frame of its own and is left out rather than forced onto the lattice.
+
+### The survey's degrees are not today's degrees, here either
+
+The Krim origin is 45°55′44.2″ N, 14°28′28.9″ E, and the projection is computed
+on Bessel 1841 — which is the datum the survey was computed on, not the one a
+map viewer uses. Treating its output as WGS 84 puts the sheets **370 m east** at
+Kranj, the same drift the Spezialkarte sheets showed there (+264 m); `Cassini`
+therefore converts through the same geocentric shift the 1:75 000 grid uses
+(EPSG:1188). Do this and no other correction and Stražišče lands 80 m west.
+
+`shift` closes that last 80 m, and it is measured rather than fitted to a
+shape: the churches of St. Martin and St. Bartholomew, a kilometre apart, both
+came out 80 m west and neither north nor south, so `ORIGINS["krim"]["shift"]`
+is `[80, 0]`. It is one number for the crown land — every sheet of Carniola
+moves by it together, and no sheet moves relative to its neighbour.
+
+Checked afterwards: at Stražišče the two churches sit on their drawn symbols.
+At Gradac, 60 km away and in the other half of the system, the church of St.
+Mary comes out 27 m west and 46 m south — a residual of ~50 m, which is the
+survey's own, and is left visible.
+
+An earlier attempt measured this by sliding today's cadastral boundary over the
+sheets' colour wash instead. It is recorded here as a warning: Stražišče's fit
+was a hill rather than a peak (0.454 → 0.472 over 200 m) and Gradac's was
+worthless, because that municipality has lost ground since 1824 and its 1824
+wash and its 2026 boundary are not the same shape. Two churches beat two
+polygons.
+
+### What the archive actually filed, and where it stops
+
+`--fond 176 --list index.csv` walks a fond and writes every municipality in it
+with its record id, whether its sheets are online, and which modern k.o. it
+answers to. Carniola: **932 municipalities, 865 of them scanned**, in three
+districts (Ljubljana 349, Novo mesto 365, Postojna 218). Of those, 589 share a
+name with exactly one modern k.o., 128 with several, and 215 with none — the
+last two groups need `--sifko`, because the name is what says which section of
+the lattice to look in.
+
+The other thing a rollout meets is that **not every scan is one whole sheet**.
+Some are a sheet photographed with a strip of its neighbour still attached,
+some are a sheet with a corner mounted on separately, and some are trimmed
+inside their own border rule. Measured over eight municipalities, the scans
+that are not sheet-shaped (aspect outside 1.20–1.31) are where placement fails:
+
+| k.o. | sheets | placed |
+|---|---|---|
+| Breg ob Kokri | 11 | 11 |
+| Metlika | 9 | 9 |
+| Bela | 9 | 9 |
+| Štrekljevec | 8 | 8 |
+| Stražišče | 7 | 7 |
+| Gradac | 7 | 7 |
+| Podzemelj | 6 | 6 |
+| Drašiči | 6 | 6 |
+| Breg ob Kokri | 11 | 11 |
+| Žabnica | 8 | 8 |
+| Škofja Loka | 7 | 7 |
+| Bitnje | 9 | 8 |
+| Krasinec | 6 | 6 |
+| Kranj | 5 | 5 |
+| Semič | 5 | 5 |
+
+The per-edge detector alone reached 4 of Metlika's 9: it wants each border rule
+to stand out on its own, and on a faint or trimmed scan one of the four never
+does. `_fixed_size_frame` is what closed the gap. A cadastral sheet's frame is
+a *known* size, so there is only one rectangle to place — slide it over the
+scan and take the position where all four edges together land on the most ink.
+Three faint rules and one clear one still find it. It carries a penalty against
+the real readings, so it only wins where they fail, and it is checked the same
+way afterwards: by the wash, the printed letter pair and the filing order.
+
+Scans that are still beyond it: a sheet trimmed *inside* its own border rule
+(there is no rectangle of the printed size to find), and a scan holding two
+sheets at once where the fallback may bracket rules belonging to different
+ones. Those come out in `--review`.
+
+### Rebuilding
+
+```sh
+# crawl, download the scans, propose a placement, list what needs a look
+python3 scripts/kataster-sheets.py --ko-id 225872 --name STRAŽIŠČE \
+    --scans scripts/manifests/kataster-scans \
+    --manifest scripts/manifests/kataster-strazisce.json --review review.txt
+
+# then, with the review worked through
+python3 scripts/kataster-sheets.py … --pin pins.json --calibrate
+
+python3 scripts/overlay-tiles.py --manifest scripts/manifests/kataster-strazisce.json \
+    --out public/tiles-local/kataster-strazisce --base-zoom 18 --min-zoom 2 --webp 90
+```
+
+Min zoom 2 is the Map chart's own shallowest zoom, and it matters: the chart
+opens by fitting the tree's places at z10 or less, so a pyramid that stops at
+z11 is invisible until you zoom in a step. A municipality is a speck at those
+zooms and costs one tile each.
+
+Base zoom 18: the scans are 0.771 m a pixel (a sheet's neatline measures
+2460 × 1968 px for 1000 × 800 klafter, and every scan in the fond is at that one
+resolution), which falls between z17 (0.83 m) and z18 (0.41 m). z17 would
+resample the scan *down* by 7%, and the red parcel numbers — the thing a land
+record is matched against — are what that costs first, so the base is z18 and
+the scan is only ever enlarged. At WebP 90 a tile is then indistinguishable
+from the scan it came from. A k.o. costs about 2 500 tiles and 12 MB; the scans
+are **not** in the repo
+— each sheet entry carries the `url` it came from, and `kataster-scans/` is
+git-ignored.
+
+Scale, for whoever runs the fond: roughly 2 700 municipalities at ~7 sheets
+each, so ~19 000 scans (~10 GB) and, at 2 MB of tiles per k.o., something like
+5 GB of pyramid.
 
 ## Coverage
 
