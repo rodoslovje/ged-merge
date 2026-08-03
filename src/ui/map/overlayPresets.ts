@@ -302,6 +302,16 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     sampleZoom: 16,
   },
   {
+    key: "settings.map.overlays.preset.kataster.bregObSavi",
+    url: "https://tiles.gedmerge.com/kataster-breg-ob-savi/{z}/{x}/{y}.webp",
+    yearFrom: 1826,
+    yearTo: 1869,
+    attribution: "Arhiv Republike Slovenije, SI AS 176 (Franciscejski kataster za Kranjsko)",
+    maxZoom: 18,
+    coverage: [46.1879, 14.3481, 46.2289, 14.3973],
+    sampleZoom: 16,
+  },
+  {
     key: "settings.map.overlays.preset.kataster.mavcice",
     url: "https://tiles.gedmerge.com/kataster-mavcice/{z}/{x}/{y}.webp",
     yearFrom: 1826,
