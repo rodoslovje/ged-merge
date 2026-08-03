@@ -302,8 +302,8 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     sampleZoom: 16,
   },
   {
-    key: "settings.map.overlays.preset.kataster.drulovka",
-    url: "https://tiles.gedmerge.com/kataster-drulovka/{z}/{x}/{y}.webp",
+    key: "settings.map.overlays.preset.kataster.drulovkaBreg",
+    url: "https://tiles.gedmerge.com/kataster-drulovka-breg/{z}/{x}/{y}.webp",
     yearFrom: 1826,
     yearTo: 1869,
     attribution: "Arhiv Republike Slovenije, SI AS 176 (Franciscejski kataster za Kranjsko)",
