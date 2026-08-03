@@ -20,6 +20,7 @@ import { foldSearch } from "../globalSearch";
 import { PlaceLookupProvider, usePlaceLookupValue } from "../edit/PlaceLookupContext";
 import { GazetteerSetup, useGazetteer } from "./GazetteerManager";
 import { AddressCoordsSection } from "./AddressCoordsSection";
+import { scanAddresses } from "../../tools/addresses";
 import { CoordConflicts } from "./CoordConflicts";
 import { GeocodePlaceRow } from "./GeocodePlaceRow";
 import { BackButton } from "../BackButton";
@@ -139,6 +140,18 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
   // so a place the file has never written can be completed (chain, address,
   // coordinate) here too instead of being typed out by hand.
   const placeLookup = usePlaceLookupValue(dataset, placeSug.placeSuggestions);
+
+  // The address rows the section below reviews — scanned here because the
+  // Places/Addresses tab bar needs the count before the section renders.
+  const addrRows = useMemo(
+    () => scanAddresses(dataset),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dataset, scanGen],
+  );
+  // Which of the page's two work lists is on screen. Both stay mounted (their
+  // lookup results and staged picks must survive switching) and toggle with
+  // display, like the app's Edit/Merge views.
+  const [tab, setTab] = useState<"places" | "addresses">("places");
 
   // Every coordinate the file already carries — the mini map's context dots.
   const fileCoords = useMemo(
@@ -428,6 +441,21 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
           below can resolve — but it is a finding, not part of the setup. */}
       <CoordConflicts dataset={dataset} onApply={onApplyAddressCoords} query={query} />
 
+      {/* The two work lists switch as tabs — a long places list otherwise
+          buries the addresses below it. No tabs while the file has no
+          addresses: the page is just the places list then. */}
+      {addrRows.length > 0 && (
+        <div className="tools-geo-tabs" role="tablist">
+          <button role="tab" aria-selected={tab === "places"} className={tab === "places" ? "active" : ""} onClick={() => setTab("places")}>
+            {t("tools.geocode.tab.places")} <span className="tools-chip-count">{scan.rows.length}</span>
+          </button>
+          <button role="tab" aria-selected={tab === "addresses"} className={tab === "addresses" ? "active" : ""} onClick={() => setTab("addresses")}>
+            {t("tools.geocode.tab.addresses")} <span className="tools-chip-count">{addrRows.length}</span>
+          </button>
+        </div>
+      )}
+
+      <div style={tab === "places" ? undefined : { display: "none" }}>
       {scan.rows.length === 0 && <p className="tools-clean tools-clean--ok">{t("tools.geocode.allCovered")}</p>}
 
       {scan.rows.length > 0 && (
@@ -522,17 +550,22 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
       </section>
       )}
 
+      </div>
+
       {/* Addresses whose house coordinate the register can supply, for events
           whose PLAC names only the settlement. Renders nothing when there are
           none, so files without ADDR lines see no change. */}
+      <div style={tab === "addresses" ? undefined : { display: "none" }}>
       <AddressCoordsSection
         dataset={dataset}
+        all={addrRows}
         onApply={onApplyAddressCoords}
         onMove={onMovePlaceForAddresses}
         query={query}
         kinship={kinship}
         onNavigate={onNavigate}
       />
+      </div>
     </div>
     </PlaceLookupProvider>
   );

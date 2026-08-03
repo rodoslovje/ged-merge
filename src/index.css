@@ -8402,6 +8402,35 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 /* The geocode list's two chip rows (countries, then work status) read as one
    filter block: the second row sits closer to the first than to the list. */
 .tools-geocode .tools-chips + .tools-chips { margin-top: -6px; }
+/* The page's two work lists switch as tabs (segmented, like the chart option
+   pickers) — a long places list otherwise buries the addresses below it. */
+.tools-geo-tabs {
+  display: inline-flex;
+  gap: 2px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 3px;
+  margin: 4px 0 12px;
+}
+.tools-geo-tabs button {
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  background: none;
+  border: none;
+  color: var(--muted);
+  border-radius: var(--radius-sm);
+  padding: 6px 16px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.tools-geo-tabs button:hover { color: var(--text); }
+.tools-geo-tabs button.active {
+  background: var(--panel);
+  color: var(--accent);
+  box-shadow: 0 1px 2px rgba(40, 34, 28, 0.12);
+}
 /* Address rows grouped under their place: one collapsible group per place, so a
    file with hundreds of addresses is worked through a place at a time. */
 .tools-geo-addr-group { border-bottom: 1px solid var(--border); padding: 4px 0; }

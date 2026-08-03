@@ -494,6 +494,8 @@ export const sl = {
   "tools.geocode.rn.error": "Iskanje v registru naslovov ni uspelo — poskusite znova malo pozneje.",
   "tools.geocode.rn.none": "Ni v registru naslovov — preverite zapis naselja ali izberite točko na zemljevidu.",
   "tools.geocode.addr.heading": "Naslovi s hišno številko ({{count}} v {{places}} krajih)",
+  "tools.geocode.tab.places": "Kraji",
+  "tools.geocode.tab.addresses": "Naslovi",
   "tools.geocode.addr.filter.all": "Vsi",
   "tools.geocode.addr.filter.unsearched": "Brez poizvedbe",
   "tools.geocode.addr.filter.found": "Z zadetki",

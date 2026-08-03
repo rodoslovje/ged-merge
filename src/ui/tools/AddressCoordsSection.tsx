@@ -4,7 +4,7 @@ import type { Dataset, GeoCoord } from "../../gedcom/types";
 import { sameCoord } from "../../geo/points";
 import { resultsForQuery, searchAddressBatch, searchAddresses, type RnResult } from "../../geo/rn";
 import type { PlaceProposal } from "../../geo/placeProposal";
-import { replaceLocality, scanAddresses, suggestMovedPlace, type AddressRow } from "../../tools/addresses";
+import { replaceLocality, suggestMovedPlace, type AddressRow } from "../../tools/addresses";
 import type { GeoAssignment } from "../../tools/geocode";
 import { foldSearch } from "../globalSearch";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
@@ -146,6 +146,7 @@ function groupSuggestion(place: string, rows: AddressRow[]): PlaceGroup["suggest
 
 export function AddressCoordsSection({
   dataset,
+  all,
   onApply,
   onMove,
   query,
@@ -153,6 +154,9 @@ export function AddressCoordsSection({
   onNavigate,
 }: {
   dataset: Dataset;
+  /** The scanned address rows — computed by the panel, which also needs the
+   *  count for the tab that shows or hides this whole section. */
+  all: AddressRow[];
   onApply: (assignments: Map<string, GeoCoord>) => number;
   /** `coord` is the destination's own position, when it was picked from a
    *  register — the moved events are placed there instead of keeping the
@@ -169,9 +173,6 @@ export function AddressCoordsSection({
   const { t } = useTranslation();
   const { settings } = useSettings();
   const nameOf = useNameOf();
-  // Re-scanned whenever the dataset object changes (applying replaces it), so
-  // rows that were just written disappear on their own.
-  const all = useMemo(() => scanAddresses(dataset), [dataset]);
   const byKey = useMemo(() => new Map(all.map((row) => [row.key, row])), [all]);
   // Matching on the address alone would drop the settlement a search like
   // "Kranj" is really about, and matching on the place alone would hide the one

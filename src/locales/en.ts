@@ -426,6 +426,8 @@ export const en = {
   "tools.geocode.rn.error": "The address-register search failed — try again in a moment.",
   "tools.geocode.rn.none": "Not in the address register — check the settlement's spelling, or pick a point on the map.",
   "tools.geocode.addr.heading": "Addresses with a house number ({{count}} in {{places}} places)",
+  "tools.geocode.tab.places": "Places",
+  "tools.geocode.tab.addresses": "Addresses",
   "tools.geocode.addr.filter.all": "All",
   "tools.geocode.addr.filter.unsearched": "Not looked up",
   "tools.geocode.addr.filter.found": "With results",
