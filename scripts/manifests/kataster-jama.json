@@ -15,8 +15,8 @@
    "image": "kataster-scans/224485.jpg",
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224485&docid=10&seq=1",
    "cell": [
-    -4.0,
-    19.0
+    -4,
+    18.9011
    ],
    "frame": [
     104.0,
@@ -29,7 +29,7 @@
     2945.2
    ],
    "source": "SI AS 176/L/L87/g/A01",
-   "placed": "centre — half a sheet height up, level with the east sheet (1.00)"
+   "placed": "centre — 150 m south"
   },
   {
    "image": "kataster-scans/224486.jpg",
@@ -56,7 +56,7 @@
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=224487&docid=10&seq=1",
    "cell": [
     -5,
-    19
+    18
    ],
    "frame": [
     90.0,
@@ -69,7 +69,7 @@
     2101.5
    ],
    "source": "SI AS 176/L/L87/g/A03",
-   "placed": "lattice cell — nudge dropped"
+   "placed": "west — one sheet height down"
   }
  ]
 }
