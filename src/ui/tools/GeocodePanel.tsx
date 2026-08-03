@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
 import {
@@ -59,6 +59,10 @@ function hasProposal(row: GeocodeRow): boolean {
 interface Props {
   dataset: Dataset;
   active: boolean;
+  /** Bumped on every committed edit batch, including undo/redo — the scans
+   *  here walk the in-place-mutated dataset, so this is their only signal
+   *  that it changed under them. */
+  editVersion: number;
   /** Write the accepted coordinates (with any GOV ids) through the edit/undo
    *  pipeline; returns the number of records changed. */
   onApplyGeocode: (assignments: Map<string, GeoAssignment>) => number;
@@ -83,7 +87,7 @@ interface Props {
   startId?: string;
 }
 
-export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, onRenamePlaceValue, onApplyOfficialNames, onMovePlaceForAddresses, onBack, onNavigate, startId }: Props) {
+export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onApplyAddressCoords, onRenamePlaceValue, onApplyOfficialNames, onMovePlaceForAddresses, onBack, onNavigate, startId }: Props) {
   const { t } = useTranslation();
   const { settings: appSettings } = useSettings();
   const nameOf = useNameOf();
@@ -119,6 +123,19 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
 
   // ── Scan + review state ───────────────────────────────────────────────────
   const [scanGen, setScanGen] = useState(0);
+  // Every edit batch — the panel's own applies, but equally an undo/redo or
+  // an edit made in another view — mutates the dataset in place, so nothing
+  // in the memo deps moves on its own. Rescan whenever the edit version has
+  // advanced while this panel is on screen; a hidden panel catches up the
+  // moment it is shown again.
+  const lastEditVersion = useRef(editVersion);
+  useEffect(() => {
+    if (!active) return;
+    if (lastEditVersion.current !== editVersion) {
+      lastEditVersion.current = editVersion;
+      setScanGen((g) => g + 1);
+    }
+  }, [active, editVersion]);
   const scan = useMemo(
     () => (decisions ? scanGeocode(dataset, index, decisions) : null),
     // scanGen re-runs the scan after an apply mutates the dataset in place.
@@ -349,9 +366,9 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
         ? onApplyAddressCoords(new Map([[placeAddrKey(to, addr), coord.coord]]))
         : onApplyGeocode(new Map([[to, coord]]));
     // The two passes touch overlapping records, so the larger count is the
-    // honest "records changed", not the sum.
+    // honest "records changed", not the sum. The edit-version effect above
+    // handles the rescan.
     setLastApplied(Math.max(renamed, placed));
-    setScanGen((g) => g + 1);
   };
 
   const toggleNoMatch = (key: string) => {
@@ -393,10 +410,11 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
     }
     const changed = assignments.size ? onApplyGeocode(assignments) : 0;
     setLastApplied(changed);
+    // Decisions reload re-keys the scan memo; dataset changes (when anything
+    // was written) rescan via the edit-version effect.
     await putDecisions(toStore);
     const fresh = await loadDecisions();
     setDecisions(fresh);
-    setScanGen((g) => g + 1);
   };
 
   // ── Rendering ─────────────────────────────────────────────────────────────
@@ -419,7 +437,6 @@ export function GeocodePanel({ dataset, onApplyGeocode, onApplyAddressCoords, on
   const takeOfficialNames = () => {
     if (!officialRenames.length) return;
     setLastApplied(onApplyOfficialNames(officialRenames));
-    setScanGen((g) => g + 1);
   };
 
   return (

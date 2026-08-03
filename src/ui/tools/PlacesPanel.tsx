@@ -61,6 +61,7 @@ export function PlacesPanel({
   onApplyAddressCoords,
   onRenamePlaceValue,
   onApplyOfficialNames,
+  editVersion,
   onMovePlaceForAddresses,
   startId,
 }: {
@@ -72,6 +73,7 @@ export function PlacesPanel({
   onApplyAddressCoords: (assignments: Map<string, GeoCoord>) => number;
   onRenamePlaceValue: (from: string, to: string, addr?: string) => number;
   onApplyOfficialNames: (renames: OfficialRename[]) => number;
+  editVersion: number;
   onMovePlaceForAddresses: (keys: Set<string>, toPlace: string, coord?: GeoAssignment) => number;
   startId?: string;
 }) {
@@ -192,6 +194,7 @@ export function PlacesPanel({
         onApplyAddressCoords={onApplyAddressCoords}
         onRenamePlaceValue={onRenamePlaceValue}
         onApplyOfficialNames={onApplyOfficialNames}
+        editVersion={editVersion}
         onMovePlaceForAddresses={onMovePlaceForAddresses}
         onNavigate={onNavigate}
         startId={startId}

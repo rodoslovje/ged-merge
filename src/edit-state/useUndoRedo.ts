@@ -8,6 +8,10 @@ export type UndoEntry =
       patches: RecordPatch[];
       navigateTo?: string;
       redoNavigateTo?: string;
+      /** Apply wherever the user is: a Tools-tab batch (geocode, renames,
+       *  fixes) has no one person to show, so undoing it must not yank the
+       *  session into Edit mode. */
+      stay?: boolean;
     }
   | {
       mode: "merge";
