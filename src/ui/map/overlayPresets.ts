@@ -212,8 +212,8 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     sampleZoom: 16,
   },
   {
-    key: "settings.map.overlays.preset.kataster.osojnik",
-    url: "https://tiles.gedmerge.com/kataster-osojnik/{z}/{x}/{y}.webp",
+    key: "settings.map.overlays.preset.kataster.strekljevec",
+    url: "https://tiles.gedmerge.com/kataster-strekljevec/{z}/{x}/{y}.webp",
     yearFrom: 1824,
     yearTo: 1869,
     attribution: "Arhiv Republike Slovenije, SI AS 176 (Franciscejski kataster za Kranjsko)",

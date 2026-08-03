@@ -1842,8 +1842,8 @@ export const sl = {
     "Franciscejski kataster · Podzemelj 1:2880 (1824)",
   "settings.map.overlays.preset.kataster.drasici":
     "Franciscejski kataster · Drašiči 1:2880 (1824)",
-  "settings.map.overlays.preset.kataster.osojnik":
-    "Franciscejski kataster · Štrekljevec in Osojnik 1:2880 (1824)",
+  "settings.map.overlays.preset.kataster.strekljevec":
+    "Franciscejski kataster · Štrekljevec 1:2880 (1824)",
   "settings.map.overlays.preset.kataster.bitnje":
     "Franciscejski kataster · Bitnje, vsa tri 1:2880 (1826)",
   "settings.map.overlays.preset.kataster.skofjaloka":

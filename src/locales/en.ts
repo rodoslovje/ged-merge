@@ -1608,8 +1608,8 @@ export const en = {
     "Franciscean cadastre · Podzemelj 1:2880 (1824)",
   "settings.map.overlays.preset.kataster.drasici":
     "Franciscean cadastre · Drašiči 1:2880 (1824)",
-  "settings.map.overlays.preset.kataster.osojnik":
-    "Franciscean cadastre · Štrekljevec and Osojnik 1:2880 (1824)",
+  "settings.map.overlays.preset.kataster.strekljevec":
+    "Franciscean cadastre · Štrekljevec 1:2880 (1824)",
   "settings.map.overlays.preset.kataster.bitnje":
     "Franciscean cadastre · Bitnje, all three 1:2880 (1826)",
   "settings.map.overlays.preset.kataster.skofjaloka":
