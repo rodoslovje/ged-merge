@@ -15,7 +15,7 @@
    "image": "kataster-scans/226054.jpg",
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=226054&docid=10&seq=1",
    "cell": [
-    0.0,
+    0,
     8.0
    ],
    "frame": [
@@ -29,13 +29,13 @@
     2005.1
    ],
    "source": "SI AS 176/L/L303/g/A01",
-   "placed": "printed row (1.00)"
+   "placed": "printed row"
   },
   {
    "image": "kataster-scans/226055.jpg",
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=226055&docid=10&seq=1",
    "cell": [
-    1.0,
+    1,
     8.0
    ],
    "frame": [
@@ -49,13 +49,13 @@
     2054.7
    ],
    "source": "SI AS 176/L/L303/g/A02",
-   "placed": "printed row (1.00)"
+   "placed": "printed row"
   },
   {
    "image": "kataster-scans/226056.jpg",
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=226056&docid=10&seq=1",
    "cell": [
-    0.0264,
+    0.0,
     7.0
    ],
    "frame": [
@@ -69,13 +69,13 @@
     2054.2
    ],
    "source": "SI AS 176/L/L303/g/A03",
-   "placed": "row 2 west — 50 m east (1.00)"
+   "placed": "row 2 west — flush with row 1"
   },
   {
    "image": "kataster-scans/226057.jpg",
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=226057&docid=10&seq=1",
    "cell": [
-    1.0,
+    1,
     7.0
    ],
    "frame": [
@@ -89,13 +89,13 @@
     2055.2
    ],
    "source": "SI AS 176/L/L303/g/A04",
-   "placed": "stacked under the sheet above (1.00)"
+   "placed": "stacked under the sheet above"
   },
   {
    "image": "kataster-scans/226058.jpg",
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=226058&docid=10&seq=1",
    "cell": [
-    0.0,
+    0,
     6.0
    ],
    "frame": [
@@ -109,13 +109,13 @@
     2047.2
    ],
    "source": "SI AS 176/L/L303/g/A05",
-   "placed": "stacked under the sheet above (1.00)"
+   "placed": "stacked under the sheet above"
   },
   {
    "image": "kataster-scans/226059.jpg",
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=226059&docid=10&seq=1",
    "cell": [
-    1.0,
+    1,
     6.0
    ],
    "frame": [
@@ -129,14 +129,14 @@
     2040.0
    ],
    "source": "SI AS 176/L/L303/g/A06",
-   "placed": "stacked under the sheet above (1.00)"
+   "placed": "stacked under the sheet above"
   },
   {
    "image": "kataster-scans/226060.jpg",
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=226060&docid=10&seq=1",
    "cell": [
-    -1.0,
-    5.0
+    -1,
+    5
    ],
    "frame": [
     69.2,
@@ -149,14 +149,14 @@
     2040.9
    ],
    "source": "SI AS 176/L/L303/g/A07",
-   "placed": "W.C.I.17.ai — west of the meridian, not O.C.I.17.ai (1.00)"
+   "placed": "W.C.I.17.ai — west of the meridian, not O.C.I.17.ai"
   },
   {
    "image": "kataster-scans/226061.jpg",
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=226061&docid=10&seq=1",
    "cell": [
     0.0,
-    5.0
+    4.9011
    ],
    "frame": [
     80.5,
@@ -169,13 +169,13 @@
     2275.2
    ],
    "source": "SI AS 176/L/L303/g/A08",
-   "placed": "stacked under the sheet above (1.00)"
+   "placed": "row 5 centre — 150 m south to meet the Ljubljanica"
   },
   {
    "image": "kataster-scans/226062.jpg",
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=226062&docid=10&seq=1",
    "cell": [
-    1.0,
+    1,
     5.0
    ],
    "frame": [
@@ -189,14 +189,14 @@
     2044.0
    ],
    "source": "SI AS 176/L/L303/g/A09",
-   "placed": "stacked under the sheet above (1.00)"
+   "placed": "stacked under the sheet above"
   },
   {
    "image": "kataster-scans/226063.jpg",
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=226063&docid=10&seq=1",
    "cell": [
-    -2.0,
-    4.0
+    -2,
+    4
    ],
    "frame": [
     66.9,
@@ -209,14 +209,14 @@
     2041.4
    ],
    "source": "SI AS 176/L/L303/g/A10",
-   "placed": "printed W.C.I.18.be — west of the meridian (1.00)"
+   "placed": "printed W.C.I.18.be — west of the meridian"
   },
   {
    "image": "kataster-scans/226064.jpg",
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=226064&docid=10&seq=1",
    "cell": [
-    -1.0,
-    4.0
+    -1,
+    4
    ],
    "frame": [
     136.4,
@@ -229,7 +229,7 @@
     2077.9
    ],
    "source": "SI AS 176/L/L303/g/A11",
-   "placed": "printed W.C.I.18.ae — west of the meridian (1.00)"
+   "placed": "printed W.C.I.18.ae — west of the meridian"
   }
  ]
 }

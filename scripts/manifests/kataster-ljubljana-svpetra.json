@@ -15,8 +15,8 @@
    "image": "kataster-scans/225342.jpg",
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=225342&docid=10&seq=1",
    "cell": [
-    1.0,
-    9.7436
+    1,
+    9.6909
    ],
    "frame": [
     82.3,
@@ -29,14 +29,14 @@
     2078.1
    ],
    "source": "SI AS 176/L/L193/g/A01",
-   "placed": "printed O.C.I.16.ci, 180 m north (1.00)"
+   "placed": "printed O.C.I.16.ci, 180 m north"
   },
   {
    "image": "kataster-scans/225343.jpg",
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=225343&docid=10&seq=1",
    "cell": [
-    2.0,
-    9.7436
+    2,
+    9.6909
    ],
    "frame": [
     87.1,
@@ -49,14 +49,14 @@
     2072.5
    ],
    "source": "SI AS 176/L/L193/g/A02",
-   "placed": "printed O.C.I.16.bi, 180 m north (1.00)"
+   "placed": "printed O.C.I.16.bi, 180 m north"
   },
   {
    "image": "kataster-scans/225344.jpg",
    "url": "https://vac.sjas.gov.si/vac/util/fileStream?type=2&uodid=225344&docid=10&seq=1",
    "cell": [
-    1.0,
-    8.7436
+    1,
+    8.6909
    ],
    "frame": [
     91.1,
@@ -69,7 +69,7 @@
     2066.4
    ],
    "source": "SI AS 176/L/L193/g/A03",
-   "placed": "printed O.C.I.17.ce.cf, 180 m north (1.00)"
+   "placed": "printed O.C.I.17.ce.cf, 180 m north"
   }
  ]
 }
