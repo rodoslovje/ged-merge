@@ -162,6 +162,11 @@ export function GeocodePlaceRow({
     );
   };
 
+  // The people list is asked for by clicking the header's occurrence count —
+  // expanded rows are about picking a coordinate, and thirty person links per
+  // row drowned the options they were there to support.
+  const [peopleOpen, setPeopleOpen] = useState(false);
+
   // Inline rename of this row's raw place value (fix a typo so it matches).
   // The optional address draft splits the value into PLAC + ADDR on apply.
   const [renameOpen, setRenameOpen] = useState(false);
@@ -355,7 +360,19 @@ export function GeocodePlaceRow({
         >
           {marked ? "↩" : "🗑"}
         </button>
-        <span className="tools-chip-count" title={missingInTitle}>{row.missing}</span>
+        <button
+          className="tools-chip-count tools-count-toggle"
+          title={missingInTitle}
+          aria-pressed={peopleOpen}
+          aria-label={t("tools.geocode.peopleToggle")}
+          onClick={() => {
+            const next = !peopleOpen;
+            setPeopleOpen(next);
+            if (next && !isOpen) onToggleOpen(row.key);
+          }}
+        >
+          {row.missing}
+        </button>
       </GeoRowHeader>
       {renameOpen && (
         <div
@@ -684,7 +701,9 @@ export function GeocodePlaceRow({
           </ul>
           {/* Who this unresolved place belongs to — standard person
               links (sex colour, lifespan, click to open in Edit),
-              with the kinship chip and the person's event count. */}
+              with the kinship chip and the person's event count.
+              Shown only when the header's count was clicked for it. */}
+          {peopleOpen && (
           <ul className="tools-usage tools-geo-people">
             {row.missingIn.slice(0, 30).map((id) => {
               const indi = dataset.individuals.get(id);
@@ -715,7 +734,8 @@ export function GeocodePlaceRow({
               );
             })}
           </ul>
-          {row.missingIn.length > 30 && (
+          )}
+          {peopleOpen && row.missingIn.length > 30 && (
             <p className="tools-geo-more">{t("tools.geocode.morePeople", { count: row.missingIn.length - 30 })}</p>
           )}
         </div>
