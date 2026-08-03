@@ -292,8 +292,8 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     sampleZoom: 16,
   },
   {
-    key: "settings.map.overlays.preset.kataster.zeje",
-    url: "https://tiles.gedmerge.com/kataster-zeje/{z}/{x}/{y}.webp",
+    key: "settings.map.overlays.preset.kataster.strahinjZeje",
+    url: "https://tiles.gedmerge.com/kataster-strahinj-zeje/{z}/{x}/{y}.webp",
     yearFrom: 1826,
     yearTo: 1869,
     attribution: "Arhiv Republike Slovenije, SI AS 176 (Franciscejski kataster za Kranjsko)",
@@ -302,8 +302,8 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     sampleZoom: 16,
   },
   {
-    key: "settings.map.overlays.preset.kataster.naklo",
-    url: "https://tiles.gedmerge.com/kataster-naklo/{z}/{x}/{y}.webp",
+    key: "settings.map.overlays.preset.kataster.nakloPivka",
+    url: "https://tiles.gedmerge.com/kataster-naklo-pivka/{z}/{x}/{y}.webp",
     yearFrom: 1826,
     yearTo: 1869,
     attribution: "Arhiv Republike Slovenije, SI AS 176 (Franciscejski kataster za Kranjsko)",

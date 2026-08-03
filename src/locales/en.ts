@@ -1624,10 +1624,10 @@ export const en = {
     "Franciscean cadastre · Tupaliče 1:2880 (1826)",
   "settings.map.overlays.preset.kataster.sencur":
     "Franciscean cadastre · Šenčur 1:2880 (1826)",
-  "settings.map.overlays.preset.kataster.zeje":
-    "Franciscean cadastre · Žeje and Strahinj 1:2880 (1826)",
-  "settings.map.overlays.preset.kataster.naklo":
-    "Franciscean cadastre · Naklo 1:2880 (1826)",
+  "settings.map.overlays.preset.kataster.strahinjZeje":
+    "Franciscean cadastre · Strahinj and Žeje 1:2880 (1826)",
+  "settings.map.overlays.preset.kataster.nakloPivka":
+    "Franciscean cadastre · Naklo and Pivka 1:2880 (1826)",
   "settings.map.overlays.preset.kataster.kokrica":
     "Franciscean cadastre · Kokrica 1:2880 (1826)",
   "settings.map.overlays.preset.kataster.suha":
