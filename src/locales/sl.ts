@@ -1851,6 +1851,10 @@ export const sl = {
     "Franciscejski kataster · Tupaliče 1:2880 (1826)",
   "settings.map.overlays.preset.kataster.sencur":
     "Franciscejski kataster · Šenčur 1:2880 (1826)",
+  "settings.map.overlays.preset.kataster.kokrica":
+    "Franciscejski kataster · Kokrica 1:2880 (1826)",
+  "settings.map.overlays.preset.kataster.suha":
+    "Franciscejski kataster · Suha 1:2880 (1826)",
   "settings.map.overlays.preset.kataster.huje":
     "Franciscejski kataster · Huje 1:2880 (1826)",
   "settings.map.overlays.preset.kataster.jamaPrase":
