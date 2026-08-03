@@ -501,6 +501,7 @@ export const sl = {
   "tools.geocode.tab.addresses": "Naslovi",
   "tools.geocode.addr.introOnline": "Za razliko od ujemanja krajev brez povezave te poizvedbe vprašajo uradni register prek spleta — samo ob vašem kliku, s privolitvijo v spletna iskanja v",
   "tools.geocode.settingsAdvanced": "Nastavitve › Napredno",
+  "tools.geocode.addr.selectConfidentHint": "Izbere vsak naslov, ki mu je register odgovoril z natanko eno hišo; zadetek iz drugega naselja ostane za pregled",
   "tools.geocode.addr.filter.all": "Vsi",
   "tools.geocode.addr.filter.unsearched": "Brez poizvedbe",
   "tools.geocode.addr.filter.found": "Z zadetki",

@@ -395,6 +395,28 @@ export function AddressCoordsSection({
   const pick = (key: string, result: RnResult) =>
     setPicked((prev) => new Map(prev).set(key, { coord: result.coord, label: result.label }));
 
+  /** Rows the register answered with exactly one house — safe to stage in one
+   *  click, like the places list's Select confident. A hit the register files
+   *  under a settlement other than the claimed one is NOT safe: that is the
+   *  split-warning case, and it stays for review (or the move flow). */
+  const confidentRows = rows.filter((row) => {
+    if (picked.has(row.key)) return false;
+    const results = searches.get(row.key)?.results ?? [];
+    if (results.length !== 1) return false;
+    const claimed = row.queries[0]?.settlement;
+    const hit = results[0];
+    return !(hit.settlement && claimed && foldSearch(hit.settlement) !== foldSearch(claimed));
+  });
+  const selectConfident = () =>
+    setPicked((prev) => {
+      const next = new Map(prev);
+      for (const row of confidentRows) {
+        const r = (searches.get(row.key)?.results ?? [])[0];
+        if (r) next.set(row.key, { coord: r.coord, label: r.label });
+      }
+      return next;
+    });
+
   /** Clicking the chosen option again drops the choice — a radio group has no
    *  "none" of its own, and a row picked by mistake would otherwise be written. */
   const unpick = (key: string) =>
@@ -462,6 +484,14 @@ export function AddressCoordsSection({
     <>
       <button className="nav-btn primary tools-run" onClick={apply} disabled={picked.size === 0}>
         {t("tools.geocode.addr.apply", { count: picked.size })}
+      </button>
+      <button
+        className="tools-issue-link"
+        onClick={selectConfident}
+        disabled={confidentRows.length === 0}
+        title={t("tools.geocode.addr.selectConfidentHint")}
+      >
+        {t("tools.geocode.selectConfident", { count: confidentRows.length })}
       </button>
       <button className="tools-issue-link" onClick={() => setPicked(new Map())} disabled={picked.size === 0}>
         {t("tools.sources.dupSelectNone")}
