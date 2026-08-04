@@ -871,21 +871,29 @@ export function AddressCoordsSection({
                               file", "manual" — and the position itself, so a row
                               staged with the rest of its village can be read off
                               the list rather than one tooltip at a time. */}
-                          {!chosen && row.placed && row.coord && (
-                            <span className="tools-geo-online-note" title={t("tools.geocode.addr.placedHint")}>
-                              {/* A position in force, so the pin is the green
-                                  one — the same rule every coordinate follows —
-                                  and clicking it puts the place's map up with
-                                  this point on it. */}
+                          {/* Whatever position the events already carry, said
+                              outright — its own (placed) or the settlement's,
+                              which every address here inherits. Both are worth
+                              printing: a row with no coordinate at all and one
+                              sitting on the village centre are different states
+                              of the same work, and only the text tells them
+                              apart. The pin follows the standing rule: accent
+                              for a position of this house's own, muted for the
+                              inherited one. */}
+                          {!chosen && row.coord && (
+                            <span
+                              className="tools-geo-online-note"
+                              title={t(row.placed ? "tools.geocode.addr.placedHint" : "tools.geocode.addr.inheritedHint")}
+                            >
                               <button
                                 type="button"
-                                className="gm-data gm-coord gm-coord--set tools-geo-coord-btn"
+                                className={`gm-data gm-coord tools-geo-coord-btn${row.placed ? " gm-coord--set" : ""}`}
                                 title={t("tools.geocode.showMap")}
                                 onClick={() => setMapOpen((prev) => new Set(prev).add(group.place))}
                               >
                                 {row.coord.lat.toFixed(5)}, {row.coord.lon.toFixed(5)}
                               </button>{" "}
-                              {t("tools.geocode.addr.placed")}
+                              {t(row.placed ? "tools.geocode.addr.placed" : "tools.geocode.addr.inherited")}
                             </span>
                           )}
                           {chosen && (
