@@ -4,9 +4,9 @@ import type { GeoCoord } from "../../gedcom/types";
 import { countryCode } from "../../gedcom/countryCode";
 import { decomposePlace, parseCoordInput } from "../../gedcom/place";
 import { sameCoord } from "../../geo/points";
-import { rnQueriesFrom, searchAddresses, type RnResult } from "../../geo/rn";
+import { rnQueriesFrom, searchAddresses, splitAddressVariants, type RnResult } from "../../geo/rn";
 import { placeLookupLanguage } from "../../geo/lookupLanguage";
-import { searchNominatim, type NominatimResult } from "../../geo/nominatim";
+import { osmKindLabel, searchNominatim, type NominatimResult } from "../../geo/nominatim";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
 import { PinIcon } from "../icons/PinIcon";
 import { useSettingsSlice } from "../SettingsContext";
@@ -115,6 +115,18 @@ export function EventCoordPicker({
   }, []);
   const [rn, setRn] = useState<Search<RnResult>>(IDLE);
   const [osm, setOsm] = useState<Search<NominatimResult>>(IDLE);
+  // A lookup's answers are about the place and address they were asked for, and
+  // both can change under an open panel — the bulk pin's prefix filter is typed
+  // right beside it, an address field is edited behind it. The old results then
+  // name somewhere else, so they are dropped rather than kept on show; the
+  // generation also voids any lookup still in flight, or its late answer would
+  // repopulate the list just cleared.
+  const lookupGen = useRef(0);
+  useEffect(() => {
+    lookupGen.current++;
+    setRn(IDLE);
+    setOsm(IDLE);
+  }, [place, address]);
   const [draft, setDraft] = useState("");
   /** Where the panel is pinned in the viewport. It is positioned fixed and
    *  clamped to the window: the events table scrolls sideways and clips, so an
@@ -214,14 +226,17 @@ export function EventCoordPicker({
 
   const runRegister = () => {
     if (!queries.length) return;
+    const gen = lookupGen.current;
     setRn({ state: "loading", results: [] });
     onRegisterSearch?.({ state: "loading", results: [] });
     searchAddresses(queries).then(
       (results) => {
+        if (gen !== lookupGen.current) return;
         setRn({ state: "done", results });
         onRegisterSearch?.({ state: "done", results });
       },
       () => {
+        if (gen !== lookupGen.current) return;
         setRn({ state: "error", results: [] });
         onRegisterSearch?.({ state: "error", results: [] });
       },
@@ -229,14 +244,29 @@ export function EventCoordPicker({
   };
 
   const runOnline = () => {
-    // Address first, then the place, which is how Nominatim reads best.
-    const text = [address, place].map((s) => s.trim()).filter(Boolean).join(", ");
-    if (!text) return;
+    // Address first, then the place, which is how Nominatim reads best. A house
+    // under both its old and new street name ("Labore 4 / Škofjeloška 4") is
+    // two whole addresses and each is asked on its own — read as one string it
+    // is an address no service knows (the register splits it the same way).
+    const variants = address.trim() ? splitAddressVariants(address) : [""];
+    const texts = variants
+      .map((variant) => [variant, place].map((s) => s.trim()).filter(Boolean).join(", "))
+      .filter(Boolean);
+    if (!texts.length) return;
+    const gen = lookupGen.current;
     setOsm({ state: "loading", results: [] });
     // In the language the place is written in — see placeLookupLanguage.
-    searchNominatim(text, placeLookupLanguage(place || address, i18n.language)).then(
-      (results) => setOsm({ state: "done", results }),
-      () => setOsm({ state: "error", results: [] }),
+    const lang = placeLookupLanguage(place || address, i18n.language);
+    Promise.all(texts.map((text) => searchNominatim(text, lang))).then(
+      (perVariant) => {
+        if (gen !== lookupGen.current) return;
+        const results: NominatimResult[] = [];
+        for (const r of perVariant.flat()) {
+          if (!results.some((have) => sameCoord(have.coord, r.coord))) results.push(r);
+        }
+        setOsm({ state: "done", results });
+      },
+      () => gen === lookupGen.current && setOsm({ state: "error", results: [] }),
     );
   };
 
@@ -522,9 +552,12 @@ export function EventCoordPicker({
                       <button type="button" className="tools-issue-link" title={r.label} onClick={() => take(r.coord, r.name)}>
                         {r.label}
                       </button>
-                      <span className="gm-data gm-coord">
-                        {r.coord.lat.toFixed(5)}, {r.coord.lon.toFixed(5)}{" "}
-                        <span className="tools-reshape-badge reuse">OSM</span>
+                      <span className="edit-coord-cand-line">
+                        {osmKindLabel(r, t) && <span className="tools-geo-cand-kind">{osmKindLabel(r, t)}</span>}
+                        <span className="gm-data gm-coord">
+                          {r.coord.lat.toFixed(5)}, {r.coord.lon.toFixed(5)}{" "}
+                          <span className="tools-reshape-badge reuse">OSM</span>
+                        </span>
                       </span>
                     </li>
                   ))}

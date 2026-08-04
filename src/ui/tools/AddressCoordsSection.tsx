@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
 import { stripHouseNumber } from "../../gedcom/place";
 import { sameCoord } from "../../geo/points";
-import { resultsForQuery, searchAddressBatch, searchAddresses, type RnResult } from "../../geo/rn";
+import { resultsForQuery, searchAddressBatch, searchAddresses, splitAddressVariants, type RnResult } from "../../geo/rn";
 import { placeLookupLanguage } from "../../geo/lookupLanguage";
 import { osmKindLabel, osmNamesPlace, searchNominatim, type NominatimResult } from "../../geo/nominatim";
 import type { PlaceProposal } from "../../geo/placeProposal";
@@ -271,21 +271,31 @@ export function AddressCoordsSection({
       query ? all.filter((row) => foldSearch(row.place).includes(query) || foldSearch(row.address).includes(query)) : all,
     [all, query],
   );
-  /** Groups the filter matched by *address*, which are worth opening: the row
-   *  looked for is inside, and there may be one of it under a hundred. */
-  const hits = useMemo(() => {
-    const found = new Set<string>();
-    if (query) {
-      for (const row of rows) if (foldSearch(row.address).includes(query)) found.add(row.place);
-    }
-    return found;
-  }, [rows, query]);
   const [searches, setSearches] = useState<Map<string, SearchState>>(new Map());
   /** What OpenStreetMap answered per row — the fallback for everything the
    *  address register cannot take: a house with no number, a hamlet named
    *  rather than numbered, an address outside Slovenia. */
   const [osmSearches, setOsmSearches] = useState<Map<string, OsmState>>(new Map());
   const [picked, setPicked] = useState<Map<string, { coord: GeoCoord; label: string }>>(new Map());
+  // Whether already-placed addresses are on the list at all. Off by default:
+  // the list is a worklist, and a placed row is finished work — it comes back
+  // on request, for checking a position or sharpening a rough one.
+  const [showPlaced, setShowPlaced] = useState(false);
+  /** The rows the list works over. A row with a pick staged stays whatever the
+   *  toggle says — work in progress is never hidden. */
+  const visibleRows = useMemo(
+    () => (showPlaced ? rows : rows.filter((row) => !row.placed || picked.has(row.key))),
+    [rows, showPlaced, picked],
+  );
+  /** Groups the filter matched by *address*, which are worth opening: the row
+   *  looked for is inside, and there may be one of it under a hundred. */
+  const hits = useMemo(() => {
+    const found = new Set<string>();
+    if (query) {
+      for (const row of visibleRows) if (foldSearch(row.address).includes(query)) found.add(row.place);
+    }
+    return found;
+  }, [visibleRows, query]);
   // Which lookup state is on screen; "all" leaves the list whole. Like the
   // places chips, a chip's count is exactly what clicking it shows.
   const [statusFilter, setStatusFilter] = useState<"all" | AddrStatus>("all");
@@ -315,7 +325,8 @@ export function AddressCoordsSection({
   }, [all, nameOf, dataset]);
 
   const groups = useMemo(() => {
-    const kept = statusFilter === "all" ? rows : rows.filter((r) => addrStatus(r, searches, picked, osmSearches) === statusFilter);
+    const kept =
+      statusFilter === "all" ? visibleRows : visibleRows.filter((r) => addrStatus(r, searches, picked, osmSearches) === statusFilter);
     const byPlace = new Map<string, PlaceGroup>();
     for (const row of kept) {
       const g = byPlace.get(row.place);
@@ -333,7 +344,7 @@ export function AddressCoordsSection({
     }
     // Most-used places first — that is where geocoding pays off soonest.
     return [...byPlace.values()].sort((a, b) => b.events - a.events || a.place.localeCompare(b.place));
-  }, [rows, searches, osmSearches, picked, statusFilter]);
+  }, [visibleRows, searches, osmSearches, picked, statusFilter]);
 
   // Existing place values for the move target's autocomplete, so a split lands
   // on the file's own spelling of the destination when it already has one. The
@@ -384,10 +395,12 @@ export function AddressCoordsSection({
 
   const allOpen = groups.length > 0 && groups.every((g) => open.has(g.place));
 
-  // Faceted like the places chips: counted over the search-filtered rows, so
-  // each chip says how many addresses clicking it leaves on screen.
+  // Faceted like the places chips: counted over the rows on offer, so each
+  // chip says how many addresses clicking it leaves on screen.
   const statusCounts = { unsearched: 0, found: 0, none: 0, manual: 0, placed: 0, picked: 0 };
-  for (const row of rows) statusCounts[addrStatus(row, searches, picked, osmSearches)]++;
+  for (const row of visibleRows) statusCounts[addrStatus(row, searches, picked, osmSearches)]++;
+  /** How many rows the placed toggle is holding back (or, on, has let in). */
+  const placedTotal = rows.filter((r) => r.placed && !picked.has(r.key)).length;
 
   const togglePeople = (key: string) =>
     setPeopleOpen((prev) => {
@@ -432,17 +445,26 @@ export function AddressCoordsSection({
     // names the address at all, ask again for the street or hamlet without its
     // number: OpenStreetMap knows Čirče perfectly well, and the village's own
     // position is worth far more here than a stranger's front door.
-    const named = stripHouseNumber(row.address).trim();
-    searchNominatim(compose(row.address), lang)
-      .then(async (results) => {
-        if (!named || named === row.address.trim() || results.some((r) => osmNamesPlace(r, named))) return results;
-        const wider = await searchNominatim(compose(named), lang);
-        return wider.length ? wider : results;
+    const lookup = async (variant: string): Promise<NominatimResult[]> => {
+      const named = stripHouseNumber(variant).trim();
+      const results = await searchNominatim(compose(variant), lang);
+      if (!named || named === variant.trim() || results.some((r) => osmNamesPlace(r, named))) return results;
+      const wider = await searchNominatim(compose(named), lang);
+      return wider.length ? wider : results;
+    };
+    // A house under both its old and new street name ("Labore 4 / Škofjeloška
+    // 4") is two whole addresses; each is asked on its own — read as one string
+    // it is an address no service knows — and the answers stand in one list,
+    // minus any hit another variant already placed at the same point.
+    Promise.all(splitAddressVariants(row.address).map(lookup))
+      .then((perVariant) => {
+        const results: NominatimResult[] = [];
+        for (const r of perVariant.flat()) {
+          if (!results.some((have) => sameCoord(have.coord, r.coord))) results.push(r);
+        }
+        setOsm(row.key, { state: "done", results });
       })
-      .then(
-        (results) => setOsm(row.key, { state: "done", results }),
-        () => setOsm(row.key, { state: "error", results: [] }),
-      );
+      .catch(() => setOsm(row.key, { state: "error", results: [] }));
   };
 
   /**
@@ -761,7 +783,7 @@ export function AddressCoordsSection({
         createPortal(actions, actionsHost)
       ) : (
         <div className="tools-dup-kind-head">
-          {t("tools.geocode.addr.heading", { count: rows.length, places: groups.length })}
+          {t("tools.geocode.addr.heading", { count: visibleRows.length, places: groups.length })}
           <div className="tools-dup-bulk">{actions}</div>
         </div>
       )}
@@ -775,16 +797,31 @@ export function AddressCoordsSection({
       {applied !== null && <p className="tools-clean tools-clean--ok">{t("tools.geocode.addr.applied", { count: applied })}</p>}
       {moved !== null && <p className="tools-clean tools-clean--ok">{t("tools.geocode.addr.moved", { count: moved })}</p>}
       <div className="tools-chips">
-        {ADDR_FILTERS.map((f) => (
+        {ADDR_FILTERS.filter((f) => showPlaced || f !== "placed").map((f) => (
           <button
             key={f}
             className={`tools-chip ${statusFilter === f ? "active" : ""}`}
             onClick={() => setStatusFilter(f)}
           >
             {t(`tools.geocode.addr.filter.${f}`)}{" "}
-            <span className="tools-chip-count">{f === "all" ? rows.length : statusCounts[f]}</span>
+            <span className="tools-chip-count">{f === "all" ? visibleRows.length : statusCounts[f]}</span>
           </button>
         ))}
+        {placedTotal > 0 && (
+          <label className="tools-reshape-site" title={t("tools.geocode.addr.showPlacedHint")}>
+            <input
+              type="checkbox"
+              checked={showPlaced}
+              onChange={(e) => {
+                setShowPlaced(e.target.checked);
+                // The chip the toggle takes away must not stay the active
+                // filter, or the list would sit empty with no chip saying why.
+                if (!e.target.checked && statusFilter === "placed") setStatusFilter("all");
+              }}
+            />
+            {t("tools.geocode.addr.showPlaced")} <span className="tools-chip-count">{placedTotal}</span>
+          </label>
+        )}
       </div>
       {/* Said rather than shown as an empty list: the section is the only place
           the file's addresses live, so vanishing under a filter would read as

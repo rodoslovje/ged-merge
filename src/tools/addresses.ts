@@ -105,14 +105,16 @@ export interface AddressRow {
 }
 
 /**
- * Find the place+address pairs still to be placed.
+ * Find the file's place+address pairs, marked by whether they still need
+ * placing.
  *
- * Included when the events' coordinate is either missing or no finer than the
- * settlement's — the latter so an address can still be sharpened after the place
- * flow has filled in a settlement coordinate (the Geocode-places list only offers
- * places missing one outright, so without this such an address would have nowhere
- * to be resolved). Which coordinates count as settlement-precise is worked out in
- * pass 1 below.
+ * Every pair is a row; {@link AddressRow.placed} tells finished work (a
+ * coordinate of the house's own, or at least not the settlement's) from the
+ * work list (a coordinate missing or merely inherited from the place). The
+ * finished rows ride along on purpose: the review list hides them by default
+ * but offers them back on request, for checking a position or sharpening a
+ * rough one. Which coordinates count as inherited is worked out in pass 1
+ * below.
  *
  * Whether the register could answer is NOT a condition. It was, while a register
  * hit was the only way to place a row; now that a row can be given a position by
@@ -141,14 +143,8 @@ export function scanAddresses(dataset: Dataset): AddressRow[] {
     return hit;
   };
 
-  // Pass 1: which coordinates are only settlement-precise? Two tells, because a
-  // house coordinate is by definition unique to its address:
-  //   - it sits on an event that names no address at all, or
-  //   - the same coordinate is shared by two *different* addresses — so it
-  //     cannot be either house, only the settlement they share.
-  // Checking just the first would miss a file where every event has an address
-  // (a gazetteer fill would then look house-precise and never be offered).
-  const addressesPerCoord = new Map<string, Set<string>>();
+  // Pass 1: which coordinate is each settlement's own — collected from the
+  // events that name no address (see below).
   /** place → the coordinates its address-less events use (see below). */
   const settlementCoords = new Map<string, Set<string>>();
   const collect = (raw: GedNode) =>
@@ -156,10 +152,6 @@ export function scanAddresses(dataset: Dataset): AddressRow[] {
       const coord = coordOf(plac);
       if (!coord) return;
       const { place, address } = detect(plac.value!.trim(), addr);
-      const key = `${place} ${coord.lat}:${coord.lon}`;
-      const seen = addressesPerCoord.get(key);
-      if (seen) seen.add(address);
-      else addressesPerCoord.set(key, new Set([address]));
       // The place's own position, kept apart: what an event carries when it
       // names no address is the settlement's coordinate, and a house holding
       // exactly that has not been placed — it inherited it.
@@ -172,12 +164,6 @@ export function scanAddresses(dataset: Dataset): AddressRow[] {
     });
   for (const indi of dataset.individuals.values()) collect(indi.raw);
   for (const fam of dataset.families.values()) collect(fam.raw);
-
-  /** True when this coordinate is no finer than the settlement. */
-  const isSettlementCoord = (place: string, coord: GeoCoord): boolean => {
-    const seen = addressesPerCoord.get(`${place} ${coord.lat}:${coord.lon}`);
-    return !!seen && (seen.has("") || seen.size > 1);
-  };
 
   /**
    * True when this coordinate is the settlement's own — the one the file uses
@@ -217,8 +203,6 @@ export function scanAddresses(dataset: Dataset): AddressRow[] {
       const { place, address, derived } = detect(rawPlace, addr);
       if (!address) return;
       const coord = coordOf(plac);
-      // Already sharper than the settlement — nothing left to improve.
-      if (coord && !isSettlementCoord(place, coord)) return;
       const key = placeAddrKey(place, address);
       let q = queries.get(key);
       if (!q) {
@@ -247,7 +231,9 @@ export function scanAddresses(dataset: Dataset): AddressRow[] {
       g.count++;
       if (coord) {
         g.covered++;
-        g.coord ??= coord;
+        // The row shows the position the house was given, not one it merely
+        // inherited, when its events carry both.
+        if (!g.coord || (isSettlementOwn(place, g.coord) && !isSettlementOwn(place, coord))) g.coord = coord;
         // One event placed away from the settlement is enough to call the house
         // placed: the others simply have not caught up yet.
         g.placed ||= !isSettlementOwn(place, coord);

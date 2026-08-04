@@ -140,7 +140,11 @@ describe("scanAddresses on a file that keeps no ADDR lines", () => {
     const out = serializeGedcom(ds.records);
     // Both events at 35 got it; 46 and the place-only event did not.
     expect(out.split("\n").filter((l) => l === "4 LATI N46.10101")).toHaveLength(2);
-    expect(scanAddresses(build(out)).map((r) => r.address)).toEqual(["Črni vrh 46"]);
+    // 35 is finished work now — still a row, but marked placed; 46 still waits.
+    expect(scanAddresses(build(out)).map((r) => [r.address, !!r.placed])).toEqual([
+      ["Črni vrh 35", true],
+      ["Črni vrh 46", false],
+    ]);
   });
 });
 
@@ -192,12 +196,14 @@ describe("applyAddressCoords", () => {
     expect(out.split("\n").slice(occuAt, occuAt + 3)).toEqual(["1 OCCU Kmet", "2 PLAC Kranj, Slovenija", "0 TRLR"]);
 
     // Re-parsing lifts it onto that event's place, and the row is done — the
-    // Kranj house is gone from the list, while the untouched ones remain (the
-    // Vienna address among them: still unplaced, register or no register).
+    // Kranj house is marked placed, while the untouched ones stay on the work
+    // list (the Vienna address among them: unplaced, register or no register).
     const again = build(out);
     const resi = again.individuals.get("@I1@")!.events.find((e) => e.tag === "RESI")!;
     expect(resi.place?.coord?.lat).toBeCloseTo(HOUSE.lat, 5);
-    expect(scanAddresses(again).map((r) => r.address)).toEqual(["Šentvid pri Stični 23", "Ringstrasse 1"]);
+    const rowsAfter = scanAddresses(again);
+    expect(rowsAfter.filter((r) => !r.placed).map((r) => r.address)).toEqual(["Šentvid pri Stični 23", "Ringstrasse 1"]);
+    expect(rowsAfter.find((r) => r.address === "Kidričeva cesta 38")?.placed).toBe(true);
   });
 
   it("leaves the health check quiet: same settlement, different addresses", () => {
@@ -296,9 +302,15 @@ describe("scanAddresses and existing coordinates", () => {
     expect(rows.every((r) => r.coord?.lat === 46.23887)).toBe(true);
   });
 
-  it("leaves an address alone once it has its own house coordinate", () => {
-    // Distinct coordinates per address: each is house-precise, nothing to do.
-    expect(scanAddresses(build(withCoords("N46.24137", "N46.23887")))).toEqual([]);
+  it("marks an address placed once it has its own house coordinate", () => {
+    // Distinct coordinates per address: each is house-precise — finished work,
+    // but still a row, so the review list can show it back on request.
+    const rows = scanAddresses(build(withCoords("N46.24137", "N46.23887")));
+    expect(rows.map((r) => r.address).sort()).toEqual(["Kidričeva cesta 38", "Koroška cesta 1"]);
+    expect(rows.every((r) => r.placed)).toBe(true);
+    // Each row keeps its own house coordinate, not the other's.
+    expect(rows.find((r) => r.address === "Kidričeva cesta 38")?.coord?.lat).toBe(46.24137);
+    expect(rows.find((r) => r.address === "Koroška cesta 1")?.coord?.lat).toBe(46.23887);
   });
 });
 
@@ -423,9 +435,13 @@ describe("addressesByPlace", () => {
     const placed = scanAddresses(ds).find((r) => r.address === "Črni vrh 35")!;
     applyAddressCoords(ds, new Map(placed.rawKeys.map((k) => [k, { lat: 46.10101, lon: 14.20202 }])));
     const after = build(serializeGedcom(ds.records));
-    // Nothing left to look up for 35 — but it is still the spelling 46 could be
-    // renamed onto, so the rename's list must keep offering it.
-    expect(scanAddresses(after).map((r) => r.address)).toEqual(["Črni vrh 46"]);
+    // Nothing left to look up for 35 (its row is marked placed) — and it is
+    // still the spelling 46 could be renamed onto, so the rename's list must
+    // keep offering it.
+    expect(scanAddresses(after).map((r) => [r.address, !!r.placed])).toEqual([
+      ["Črni vrh 35", true],
+      ["Črni vrh 46", false],
+    ]);
     expect(addressesByPlace(after).get("Črni vrh")).toEqual(["Črni vrh 35", "Črni vrh 46"]);
   });
 });

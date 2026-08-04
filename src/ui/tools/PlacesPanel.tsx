@@ -18,11 +18,18 @@ const MiniPlaceMap = lazy(() => import("../map/MiniPlaceMap"));
  *  "which town is this pinned in", not "which country". */
 const TOWN_ZOOM = 13;
 
+/** An address row's map answers a closer question — "which building is this" —
+ *  so it opens at house level, the same zoom the coordinate picker fits to. */
+const HOUSE_ZOOM = 17;
+
 /** Prune a place node to those whose name matches `q` (already lower-cased)
  * anywhere in the subtree. A node matching by name keeps its whole subtree;
- * otherwise only matching descendant branches are retained. Paths of nodes that
- * survive solely as ancestors of a match are collected in `autoOpen` so they can
- * be expanded down to (but not past) the matching entries. */
+ * otherwise only matching descendant branches are retained — including the
+ * node's own uses, which name the ancestor and not the match, and would
+ * otherwise list a town's every person under one matching address. Paths of
+ * nodes that survive solely as ancestors of a match are collected in
+ * `autoOpen` so they can be expanded down to (but not past) the matching
+ * entries. */
 function filterPlaceNode(node: PlaceNode, q: string, path: string, autoOpen: Set<string>): PlaceNode | null {
   if (node.name.toLowerCase().includes(q)) return node;
   const children: PlaceNode[] = [];
@@ -32,7 +39,7 @@ function filterPlaceNode(node: PlaceNode, q: string, path: string, autoOpen: Set
   }
   if (children.length === 0) return null;
   autoOpen.add(path);
-  return { ...node, children };
+  return { ...node, children, uses: [] };
 }
 
 /** Keys to open on first load: when there is a single root place, open it and
@@ -183,7 +190,9 @@ export function PlacesPanel({
   // dataset change / re-entry), since the tool works on either kind and a file
   // can be done with one and full of the other.
   const geocodePending = useMemo(() => (tree ? countGeocodePending(dataset) : 0), [dataset, tree]);
-  const addressPending = useMemo(() => (tree ? scanAddresses(dataset).length : 0), [dataset, tree]);
+  // Placed rows ride along in the scan (the review list can show them back);
+  // pending work is only what still lacks a position of its own.
+  const addressPending = useMemo(() => (tree ? scanAddresses(dataset).filter((r) => !r.placed).length : 0), [dataset, tree]);
 
   if (!tree) return <ToolsLoading label={t("tools.running")} />;
 
@@ -388,7 +397,14 @@ function PlaceTreeRow({
         >
           {labelNode}
         </span>
-        <span className="tools-chip-count">{node.count}</span>
+        {/* The count opens the node the way its name does: it is what says
+            there is a list worth opening, so it reads as the handle for it. */}
+        <span
+          className={`tools-chip-count${hasChildren ? " tools-tree-count-toggle" : ""}`}
+          onClick={hasChildren ? () => toggle(node, path) : undefined}
+        >
+          {node.count}
+        </span>
         {spots && (
           <button
             type="button"
@@ -442,7 +458,7 @@ function PlaceTreeRow({
                 kind: i === 0 ? "chosen" : "candidate",
               }))}
               fitKey={path}
-              fitMaxZoom={TOWN_ZOOM}
+              fitMaxZoom={node.isAddress ? HOUSE_ZOOM : TOWN_ZOOM}
             />
           </Suspense>
           {disputed && (
