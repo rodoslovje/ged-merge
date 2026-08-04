@@ -134,6 +134,10 @@ export interface MiniMapPin {
   /** CSS custom property naming this pin's colour (e.g. "--map-birth");
    *  defaults to the kind's standard colour. */
   colorVar?: string;
+  /** This coordinate stands for a whole place, not a point on the ground (a
+   *  settlement's own position among its houses). Drawn as a wide dashed ring
+   *  so it reads as an area and does not compete with the house pins. */
+  area?: boolean;
   /** Candidate pins: select this candidate for the row. */
   onPick?: () => void;
 }
@@ -389,7 +393,9 @@ export default function MiniPlaceMap({
 
   // Positions/kinds as a value key: re-render markers only on real changes
   // (picking a candidate flips its kind to "chosen" — that is a real change).
-  const pinsKey = pins.map((p) => `${p.coord.lat}:${p.coord.lon}:${p.kind}:${p.colorVar ?? ""}`).join("|");
+  const pinsKey = pins
+    .map((p) => `${p.coord.lat}:${p.coord.lon}:${p.kind}:${p.colorVar ?? ""}:${p.area ? "a" : ""}`)
+    .join("|");
   const pathKey = (path ?? []).map((c) => `${c.lat}:${c.lon}`).join("|");
   // Value key, like pinsKey — a caller passing a fresh array identity per
   // render must not force a marker rebuild.
@@ -425,11 +431,14 @@ export default function MiniPlaceMap({
       const marker =
         p.badge === undefined
           ? L.circleMarker([p.coord.lat, p.coord.lon], {
-              radius: chosen ? 8 : 6.5,
+              // An area pin is wide and near-hollow: the houses drawn on top of
+              // it stay readable, and its size is what says "the whole place".
+              radius: p.area ? 17 : chosen ? 8 : 6.5,
               color,
               weight: 2,
+              ...(p.area ? { dashArray: "5 4" } : {}),
               fillColor: color,
-              fillOpacity: chosen ? 0.85 : 0.45,
+              fillOpacity: p.area ? 0.12 : chosen ? 0.85 : 0.45,
               // A pin click picks the pin — it must not double as a map click.
               bubblingMouseEvents: false,
             })
@@ -447,6 +456,9 @@ export default function MiniPlaceMap({
       bindFlippingTooltip(map, marker, tooltipEl(p.label, p.lines, p.sub, p.coord));
       marker.on("click", () => latestPins.current[i]?.onPick?.());
       marker.addTo(group);
+      // Whatever order the caller listed them in, the area ring belongs under
+      // the houses standing on it.
+      if (p.area && marker instanceof L.CircleMarker) marker.bringToBack();
     });
     // Zoom to the pins once (context dots frame themselves); later pin
     // changes (picking a candidate) keep the user's pan/zoom.

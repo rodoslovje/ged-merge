@@ -562,7 +562,9 @@ export function AddressCoordsSection({
           sub: row.address,
           lines: [t("tools.geocode.addr.uses", { count: row.count })],
           kind: "candidate",
-          ...(own ? { colorVar: "--map-other" } : {}),
+          // A settlement's position covers the whole village, so it is drawn as
+          // a wide ring around its houses rather than as another house-sized dot.
+          ...(own ? { colorVar: "--map-other", area: true } : {}),
         });
       }
       // A pick of the researcher's own — typed, taken off a map, or given to the
