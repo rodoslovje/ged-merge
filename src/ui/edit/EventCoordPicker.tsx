@@ -223,15 +223,17 @@ export function EventCoordPicker({
   };
 
   // Candidate pins plus whatever is currently chosen. Each carries `lines`, so
-  // the map renders its detail panel (house, post office, coordinate, source,
-  // and that a click takes it) rather than a bare one-line tooltip — with several
-  // numbers of one renumbered house on screen, the panel is what tells them apart.
+  // the map renders its detail panel (house, post office, source, and that a
+  // click takes it) rather than a bare one-line tooltip — with several numbers
+  // of one renumbered house on screen, the panel is what tells them apart. The
+  // coordinate is not among the lines: the panel prints every pin's own
+  // position as its closing row already.
   const pins: MiniMapPin[] = [];
   for (const f of fromFile) {
     pins.push({
       coord: f.coord,
       label: f.label,
-      lines: [at(f.coord), t("event.coord.source.file"), t("event.coord.pinPick")],
+      lines: [t("event.coord.source.file"), t("event.coord.pinPick")],
       kind: "candidate",
       onPick: () => take(f.coord, f.label),
     });
@@ -240,9 +242,7 @@ export function EventCoordPicker({
     pins.push({
       coord: r.coord,
       label: r.address,
-      lines: [r.label === r.address ? "" : r.label, at(r.coord), t("event.coord.source.gurs"), t("event.coord.pinPick")].filter(
-        Boolean,
-      ),
+      lines: [r.label === r.address ? "" : r.label, t("event.coord.source.gurs"), t("event.coord.pinPick")].filter(Boolean),
       kind: "candidate",
       onPick: () => take(r.coord, r.label),
     });
@@ -252,17 +252,15 @@ export function EventCoordPicker({
     pins.push({
       coord: r.coord,
       label: r.name,
-      lines: [r.label === r.name ? "" : r.label, at(r.coord), t("event.coord.source.osm"), t("event.coord.pinPick")].filter(
-        Boolean,
-      ),
+      lines: [r.label === r.name ? "" : r.label, t("event.coord.source.osm"), t("event.coord.pinPick")].filter(Boolean),
       kind: "candidate",
       onPick: () => take(r.coord, r.name),
     });
   }
   if (draftCoord && !pins.some((p) => sameCoord(p.coord, draftCoord))) {
-    pins.push({ coord: draftCoord, label: t("event.coord.manual"), lines: [at(draftCoord)], kind: "chosen" });
+    pins.push({ coord: draftCoord, label: t("event.coord.typed"), kind: "chosen" });
   } else if (coord && !pins.some((p) => sameCoord(p.coord, coord))) {
-    pins.push({ coord, label: t("event.coord.current"), lines: [at(coord)], kind: "chosen" });
+    pins.push({ coord, label: t("event.coord.current"), kind: "chosen" });
   }
 
   // Nothing to place and nothing to show: no pin at all, so an event that names

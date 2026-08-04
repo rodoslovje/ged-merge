@@ -1708,6 +1708,7 @@ export const sl = {
   "event.coord.applyAll_other": "Nastavi tudi na {{count}} drugih dogodkih",
   "event.coord.applyAll.hint": "Izbrano koordinato zapiši še na vse druge dogodke v datoteki z istim krajem in naslovom — ista hiša, torej isti položaj.",
   "event.coord.manual": "Zemljepisna širina in dolžina, npr. 46.24137, 14.35580",
+  "event.coord.typed": "Vpisana koordinata",
   "event.coord.manualPlaceholder": "46.24137, 14.35580",
   "event.coord.noHouseNumber": "Za iskanje v registru dodajte hišno številko h kraju ali naslovu.",
   "event.coord.current": "Trenutna koordinata",

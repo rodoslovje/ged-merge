@@ -1480,6 +1480,9 @@ export const en = {
   "event.coord.applyAll_other": "Also set on {{count}} other events",
   "event.coord.applyAll.hint": "Write the picked coordinate onto every other event in the file with this same place and address — the same house, so the same position.",
   "event.coord.manual": "Latitude and longitude, e.g. 46.24137, 14.35580",
+  // What the map calls the pin for a coordinate typed into the box — the box's
+  // own help text names the format and makes no sense as a pin's name.
+  "event.coord.typed": "Typed coordinate",
   "event.coord.manualPlaceholder": "46.24137, 14.35580",
   "event.coord.noHouseNumber": "Add a house number to the place or address to look it up in the register.",
   "event.coord.current": "Current coordinate",
