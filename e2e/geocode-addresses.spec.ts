@@ -117,7 +117,7 @@ test("an address with no house number is reviewed too, with nothing to look up",
   await expect(page.getByRole("button", { name: /By hand only/ })).toContainText("1");
 });
 
-test("a house already placed says so, and its coordinate opens the map", async ({ page }) => {
+test("a house already placed says so, and its coordinate opens the panel", async ({ page }) => {
   const file = path.join(os.tmpdir(), "geocode-placed.ged");
   writeFileSync(
     file,
@@ -157,11 +157,12 @@ test("a house already placed says so, and its coordinate opens the map", async (
   );
   await expect(page.getByRole("button", { name: /Already placed/ })).toContainText("2");
 
-  // Its coordinate is the way to see the point: one click puts the place's map
-  // up, with a pin standing on it.
-  await expect(group.locator(".tools-geo-minimap")).toHaveCount(0);
+  // Its position is also the way in: one click opens the coordinate panel, with
+  // the point on its own map, so a rough placement can be sharpened.
+  await expect(page.locator(".edit-coord-pop")).toHaveCount(0);
   await placed.first().locator(".tools-geo-coord-btn").click();
-  await expect(group.locator(".leaflet-interactive").first()).toBeVisible({ timeout: 15000 });
+  await expect(page.locator(".edit-coord-pop")).toBeVisible();
+  await expect(page.locator(".edit-coord-pop .leaflet-interactive").first()).toBeVisible({ timeout: 15000 });
 });
 
 test("one coordinate can be given to a whole place's addresses at once", async ({ page }) => {
@@ -199,10 +200,10 @@ test("one coordinate can be given to a whole place's addresses at once", async (
   await expect(take).toBeEnabled();
   await take.click();
 
-  // Each row now says where its pin points, so a village staged in one go can
-  // be read off the list instead of one tooltip at a time.
-  await expect(group.locator(".tools-geo-picked")).toHaveCount(2);
-  await expect(group.locator(".tools-geo-picked").first()).toHaveText(/manual/i);
+  // Each row now says where its position came from, so a village staged in one
+  // go can be read off the list instead of one tooltip at a time.
+  await expect(group.locator(".tools-geo-picked-from")).toHaveCount(2);
+  await expect(group.locator(".tools-geo-picked-from").first()).toHaveText(/manual/i);
 
   // Staged for both houses, then written in one step.
   const write = page.getByRole("button", { name: /Write address coordinates \(2\)/ });
