@@ -441,6 +441,8 @@ export const en = {
   "tools.geocode.addr.filter.none": "No result",
   "tools.geocode.addr.filter.manual": "By hand only",
   "tools.geocode.addr.filter.placed": "Already placed",
+  "tools.geocode.addr.showPlaced": "Show already placed",
+  "tools.geocode.addr.showPlacedHint": "An address that already carries its own position is finished work and stays off the list. Tick to list those too — to check a position, or sharpen a rough one.",
   "tools.geocode.addr.placed": "(placed)",
   "tools.geocode.addr.placedHint": "This house already carries a position of its own — not the settlement's, which every address here would inherit. It stays listed in case you want to sharpen it.",
   "tools.geocode.addr.inherited": "(from the place)",
