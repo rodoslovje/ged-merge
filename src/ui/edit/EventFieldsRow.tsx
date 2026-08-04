@@ -201,10 +201,23 @@ export function EventFieldsRow({
    * somewhere else: the file's position for the new place takes over, and when
    * the file has none the old one is dropped rather than left pointing at the
    * village the event just moved away from.
+   *
+   * One exception within an unchanged place: when the *address* changes and the
+   * file has a pin for the exact new place+address pair, that pin takes over —
+   * the event moved to a house whose position the file knows, and keeping the
+   * old coordinate would leave it pointing at the house it just left. With no
+   * pin for the new pair the coordinate stays (it may be settlement-level,
+   * which another address in the same place doesn't invalidate).
    */
   const coordUpdate = (place: string, addr: string): { coord?: GeoCoord | null } => {
     const moved = placeKey(place.trim()) !== placeKey((ev?.place?.raw ?? "").trim());
-    if (coord && !moved) return {};
+    if (coord && !moved) {
+      const oldAddr = (ev?.address?.raw ?? "").trim().toLowerCase();
+      const newAddr = addr.trim().toLowerCase();
+      const pairPin =
+        newAddr && newAddr !== oldAddr ? pairCoords.get(placeAddrCoordKey(place, addr)) : undefined;
+      return pairPin ? { coord: pairPin } : {};
+    }
     const known = knownCoord(place, addr);
     if (known) return { coord: known };
     return coord ? { coord: null } : {};
