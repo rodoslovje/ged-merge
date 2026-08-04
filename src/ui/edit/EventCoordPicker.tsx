@@ -6,7 +6,7 @@ import { decomposePlace, parseCoordInput } from "../../gedcom/place";
 import { sameCoord } from "../../geo/points";
 import { rnQueriesFrom, searchAddresses, type RnResult } from "../../geo/rn";
 import { placeLookupLanguage } from "../../geo/lookupLanguage";
-import { searchNominatim, type NominatimResult } from "../../geo/nominatim";
+import { osmKindLabel, searchNominatim, type NominatimResult } from "../../geo/nominatim";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
 import { PinIcon } from "../icons/PinIcon";
 import { useSettingsSlice } from "../SettingsContext";
@@ -522,9 +522,12 @@ export function EventCoordPicker({
                       <button type="button" className="tools-issue-link" title={r.label} onClick={() => take(r.coord, r.name)}>
                         {r.label}
                       </button>
-                      <span className="gm-data gm-coord">
-                        {r.coord.lat.toFixed(5)}, {r.coord.lon.toFixed(5)}{" "}
-                        <span className="tools-reshape-badge reuse">OSM</span>
+                      <span className="edit-coord-cand-line">
+                        {osmKindLabel(r, t) && <span className="tools-geo-cand-kind">{osmKindLabel(r, t)}</span>}
+                        <span className="gm-data gm-coord">
+                          {r.coord.lat.toFixed(5)}, {r.coord.lon.toFixed(5)}{" "}
+                          <span className="tools-reshape-badge reuse">OSM</span>
+                        </span>
                       </span>
                     </li>
                   ))}
