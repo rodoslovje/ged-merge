@@ -13,6 +13,7 @@ import {
   type FieldRow,
   type RelativePair,
 } from "../review/types";
+import { rowCanKeepBoth } from "../merge/applyFields";
 import { PersonMedia } from "./PersonMedia";
 import { useMediaFolder } from "./MediaFolderContext";
 import { useSettingsSlice } from "./SettingsContext";
@@ -150,7 +151,11 @@ export function ComparePanel({
   function renderChoiceCell(row: FieldRow, choice: FieldChoice) {
     if (forceMain) return <span className="gm-main-tag">{t("compare.keepMain")}</span>;
     if (row.state === "conflict" || row.state === "incoming-only") {
-      return CHOICES.map((c) => (
+      // A single-cardinality field (sex, an event's date/place/…) can't hold
+      // two values, so "Both" would just replace — don't offer a choice that
+      // doesn't mean what it says.
+      const offered = rowCanKeepBoth(row.key) ? CHOICES : CHOICES.filter((c) => c !== "both");
+      return offered.map((c) => (
         <button
           key={c}
           className={`choice ${c}${choice === c ? " active" : ""}`}

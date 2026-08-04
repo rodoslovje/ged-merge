@@ -7,6 +7,7 @@ import type { GedNode } from "../gedcom/types";
 import { inferMainProfile } from "../normalize/profile";
 import { normalizeDataset } from "../normalize/normalize";
 import { materializeEventSources, mergeDecisions } from "./merge";
+import { rowCanKeepBoth } from "./applyFields";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -1782,6 +1783,19 @@ describe("merge xref allocation respects shared-record reservations", () => {
     expect(out).toContain("0 @O2@ OBJE\n1 FILE photo.jpg");
     // …and the new link took the next free id instead.
     expect(out).toContain("0 @O3@ OBJE\n1 FILE https://example.com/new");
+  });
+});
+
+describe("rowCanKeepBoth", () => {
+  it("matches the engine's replace-vs-append rule per row key", () => {
+    // Single-cardinality → "both" would replace, so the UI must not offer it.
+    for (const key of ["sex", "nickname", "BIRT.date", "RESI.1.place", "OCCU.value", "fam.@G1@.MARR.date", "fam.@G1@.EVEN.value"]) {
+      expect(rowCanKeepBoth(key), key).toBe(false);
+    }
+    // Genuinely repeatable → "both" appends and stays offered.
+    for (const key of ["given", "surname", "notes", "fsid", "links", "BIRT.note", "BIRT.sources", "fam.@G1@.MARR.sources", "fam.@G1@.notes"]) {
+      expect(rowCanKeepBoth(key), key).toBe(true);
+    }
   });
 });
 

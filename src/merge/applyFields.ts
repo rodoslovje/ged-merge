@@ -102,6 +102,24 @@ export function effectiveEventSubChoice(sub: EventSubField, choice: FieldChoice)
 }
 
 /**
+ * Whether "both" genuinely keeps both values for this row. False for the
+ * single-cardinality fields (SEX, NICK, an event's TYPE/DATE/PLAC/… sub-tag or
+ * line value — individual or family), where the engine treats "both" as
+ * "incoming"; the review panels use this to offer only the choices that mean
+ * what they say.
+ */
+export function rowCanKeepBoth(key: string): boolean {
+  if (key === "sex" || key === "nickname") return false;
+  const parsed = parseEventRowKey(key);
+  if (parsed) return effectiveEventSubChoice(parsed.sub, "both") === "both";
+  // Family event rows: fam.<incFamId>.<TAG>.<sub>.
+  const parts = key.split(".");
+  const famSub = key.startsWith("fam.") && parts.length >= 4 ? parts[parts.length - 1] : undefined;
+  if (isEventSubField(famSub)) return effectiveEventSubChoice(famSub, "both") === "both";
+  return true;
+}
+
+/**
  * Combines an event's changed sub-fields (date/value/place/addr/note/agency) into
  * one preview line — e.g. "Occupation: + šivilja v pokoju · 1998" — instead of a
  * separate "Date:"/"Occupation:" line each, matching the single-line look already
@@ -216,9 +234,7 @@ export function applyRows(
     // sub-node would be invalid GEDCOM, so it means "replace" — i.e. exactly
     // "incoming", held to the same edited-after-confirm gate below. Only the
     // genuinely repeatable rows (names, notes, sources, links, ids) append.
-    if (choice === "both" && (row.key === "sex" || row.key === "nickname" || (parsed && effectiveEventSubChoice(parsed.sub, "both") === "incoming"))) {
-      choice = "incoming";
-    }
+    if (choice === "both" && !rowCanKeepBoth(row.key)) choice = "incoming";
 
     // An Edit-mode change made *after* this match was confirmed wins over the
     // incoming value: the field choice was made against a value the user has

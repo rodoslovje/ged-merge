@@ -20,6 +20,7 @@ import {
   relatedSeparateRecords,
 } from "../../tools/mergeDuplicate";
 import { defaultChoice, type CandidateDecision, type FieldChoice, type FieldRow } from "../../review/types";
+import { rowCanKeepBoth } from "../../merge/applyFields";
 import { type PersonNav } from "../ReadOnlyCompare";
 import { KEY, isEditableTarget, isModalOpen } from "../../keyboard/shortcuts";
 import { useStickyHeaderInset } from "../usePhone";
@@ -732,7 +733,10 @@ function DuplicateCompare({
   function renderChoiceCell(row: FieldRow, choice: FieldChoice) {
     if (isParentRow(row.key)) return null; // driven by the shared Parents control
     if (row.state === "conflict" || row.state === "incoming-only") {
-      return CHOICES.map((c) => (
+      // Same rule as the Merge compare panel: a single-cardinality field can't
+      // keep two values, so "Both" isn't offered where it would just replace.
+      const offered = rowCanKeepBoth(row.key) ? CHOICES : CHOICES.filter((c) => c !== "both");
+      return offered.map((c) => (
         <button
           key={c}
           className={`choice ${c}${choice === c ? " active" : ""}`}
