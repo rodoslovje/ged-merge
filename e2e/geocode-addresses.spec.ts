@@ -165,6 +165,129 @@ test("a house already placed says so, and its coordinate opens the panel", async
   await expect(page.locator(".edit-coord-pop .leaflet-interactive").first()).toBeVisible({ timeout: 15000 });
 });
 
+test("a position staged for a house survives renaming that house's address", async ({ page }) => {
+  const file = path.join(os.tmpdir(), "geocode-rename-pick.ged");
+  writeFileSync(
+    file,
+    [
+      "0 HEAD", "1 GEDC", "2 VERS 5.5.1", "1 CHAR UTF-8",
+      "0 @I1@ INDI", "1 NAME Ana /Kos/",
+      // The settlement's own position, and one house that merely inherits it —
+      // the row this test places and renames.
+      "1 BIRT", "2 PLAC Kranj, Slovenija", "3 MAP", "4 LATI N46.23887", "4 LONG E14.35573",
+      "1 RESI", "2 PLAC Kranj, Slovenija", "3 MAP", "4 LATI N46.23887", "4 LONG E14.35573", "2 ADDR Drulovka 2",
+      // A second house, so the list still has a row after the first is placed.
+      "1 DEAT", "2 PLAC Kranj, Slovenija", "3 MAP", "4 LATI N46.23887", "4 LONG E14.35573", "2 ADDR Drulovka 4",
+      "0 TRLR", "",
+    ].join("\n"),
+    "utf-8",
+  );
+
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(file);
+  await page.locator(".edit-person").first().waitFor({ timeout: 15000 });
+
+  await page.getByRole("button", { name: "Tools", exact: true }).click();
+  await page.getByRole("button", { name: /Geocoding/ }).click();
+  await page.getByRole("tab", { name: /Addresses/ }).click();
+
+  const group = page.locator(".tools-geo-addr-group").first();
+  await group.locator(".tools-pair-toggle").first().click();
+  const row = group.locator(".tools-geo-addr-row").filter({ hasText: "Drulovka 2" });
+
+  // Place the house by hand: the address opens the coordinate panel.
+  await row.locator(".tools-geo-addr-name").click();
+  await page.locator(".edit-coord-manual input").fill("46.11111, 14.22222");
+  await page.getByRole("button", { name: "Set", exact: true }).click();
+  await expect(row.locator(".tools-geo-picked-from")).toHaveText(/manual/i);
+  await expect(page.getByRole("button", { name: /Write address coordinates \(1\)/ })).toBeEnabled();
+
+  // Correcting the spelling afterwards is about the name, not the position:
+  // the staged pick has to travel to the renamed row, or it is lost silently
+  // and only the rename reaches the file.
+  await row.locator(".tools-geo-addr-head").hover();
+  await row.getByTitle(/Rename/).click();
+  await row.locator(".tools-place-rename-input").fill("Drulovka 2a");
+  await row.getByRole("button", { name: "Rename", exact: true }).click();
+
+  const renamed = group.locator(".tools-geo-addr-row").filter({ hasText: "Drulovka 2a" });
+  await expect(renamed.locator(".tools-geo-picked-from")).toHaveText(/manual/i);
+  const write = page.getByRole("button", { name: /Write address coordinates \(1\)/ });
+  await expect(write).toBeEnabled();
+  await write.click();
+  await expect(page.getByText("Written to 1 record.")).toBeVisible();
+  // Placed at the position staged before the rename — the house is now
+  // house-precise, so it leaves the list of addresses still to place.
+  await expect(group.locator(".tools-geo-addr-row").filter({ hasText: "Drulovka 2a" })).toHaveCount(0);
+});
+
+test("OpenStreetMap answers the addresses the register cannot take", async ({ page }) => {
+  const file = path.join(os.tmpdir(), "geocode-osm-fallback.ged");
+  writeFileSync(
+    file,
+    [
+      "0 HEAD", "1 GEDC", "2 VERS 5.5.1", "1 CHAR UTF-8",
+      "0 @I1@ INDI", "1 NAME Ana /Kos/",
+      "1 BIRT", "2 PLAC Kranj, Slovenija", "3 MAP", "4 LATI N46.23887", "4 LONG E14.35573",
+      // A hamlet with no house number: the address register has no question to
+      // ask, so this row used to say "nothing to look up" and stop there.
+      "1 RESI", "2 PLAC Kranj, Slovenija", "2 ADDR Stražišče",
+      // A second house, so the list still has a row after the first is placed.
+      "1 DEAT", "2 PLAC Kranj, Slovenija", "2 ADDR Drulovka 4",
+      "0 TRLR", "",
+    ].join("\n"),
+    "utf-8",
+  );
+
+  // Online lookups are opt-in; the service itself is stubbed, so the test never
+  // reaches nominatim.openstreetmap.org.
+  await page.addInitScript(() => {
+    localStorage.setItem("gedmerge.settings", JSON.stringify({ allowLinkFetch: true }));
+  });
+  await page.route("**/nominatim.openstreetmap.org/**", (route) =>
+    route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          lat: "46.24500",
+          lon: "14.33500",
+          name: "Stražišče",
+          display_name: "Stražišče, Kranj, Slovenija",
+          type: "suburb",
+          address: { suburb: "Stražišče", municipality: "Kranj", country: "Slovenija" },
+        },
+      ]),
+    }),
+  );
+
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(file);
+  await page.locator(".edit-person").first().waitFor({ timeout: 15000 });
+
+  await page.getByRole("button", { name: "Tools", exact: true }).click();
+  await page.getByRole("button", { name: /Geocoding/ }).click();
+  await page.getByRole("tab", { name: /Addresses/ }).click();
+
+  const group = page.locator(".tools-geo-addr-group").first();
+  await group.locator(".tools-pair-toggle").first().click();
+  const row = group.locator(".tools-geo-addr-row").filter({ hasText: "Stražišče" });
+
+  // The register offers nothing here; OpenStreetMap does, and its hit is a
+  // candidate like any other — badged so its provenance stays visible.
+  await expect(row.getByRole("button", { name: /Search address register/ })).toHaveCount(0);
+  await row.getByRole("button", { name: "Search OpenStreetMap" }).click();
+  const candidate = row.locator(".tools-geo-candidates li").filter({ hasText: "Stražišče, Kranj" });
+  await expect(candidate).toBeVisible();
+  await expect(candidate).toContainText("OSM");
+  await expect(candidate).toContainText("46.24500, 14.33500");
+
+  await candidate.locator("input[type=radio]").check();
+  const write = page.getByRole("button", { name: /Write address coordinates \(1\)/ });
+  await expect(write).toBeEnabled();
+  await write.click();
+  await expect(page.getByText("Written to 1 record.")).toBeVisible();
+});
+
 test("one coordinate can be given to a whole place's addresses at once", async ({ page }) => {
   await page.goto("/");
   await page.locator("input.file-input").first().setInputFiles(FILE);
@@ -191,6 +314,13 @@ test("one coordinate can be given to a whole place's addresses at once", async (
   await page.locator(".edit-coord-manual input").fill("46.10101, 14.20202");
   await page.getByRole("button", { name: "Set", exact: true }).click();
   await expect(take).toBeEnabled();
+
+  // The position beside the pin opens the same panel — the coordinate on
+  // screen is the thing being changed, and every address row is opened by
+  // clicking exactly this.
+  await group.locator(".tools-geo-addr-move .tools-place-rename-hint").first().click();
+  await expect(page.locator(".edit-coord-pop")).toBeVisible();
+  await page.keyboard.press("Escape");
 
   // A prefix narrows the ticks to the houses that start with it — folded, so
   // "crni vrh 4" reaches "Črni vrh 46" — and clearing it ticks the place again.
