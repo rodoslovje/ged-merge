@@ -84,12 +84,29 @@ function tooltipEl(label: string, lines?: string[], sub?: string, coord?: GeoCoo
  *  overflow:hidden (rounded corners), so pick the side with more room. */
 function bindFlippingTooltip(map: L.Map, marker: L.CircleMarker | L.Marker, content: HTMLElement): void {
   marker.bindTooltip(content, { direction: "top", className: "minimap-tooltip" });
+  // The container carries the map's own hint as a native `title`, and the
+  // browser shows it for a hover anywhere inside — including on a pin, where it
+  // lands beside the pin's tooltip as a second, vaguer label. The specific one
+  // wins: the hint stands down while a pin tooltip is up and is put back after.
+  // (React only re-applies `title` when the prop changes, so the restore has to
+  // be ours.)
+  let held = "";
   marker.on("tooltipopen", (e) => {
+    const host = map.getContainer();
+    if (host.title) {
+      held = host.title;
+      host.removeAttribute("title");
+    }
     const dir = map.latLngToContainerPoint(marker.getLatLng()).y < map.getSize().y / 2 ? "bottom" : "top";
     if (e.tooltip.options.direction !== dir) {
       e.tooltip.options.direction = dir;
       e.tooltip.update();
     }
+  });
+  marker.on("tooltipclose", () => {
+    if (!held) return;
+    map.getContainer().title = held;
+    held = "";
   });
 }
 

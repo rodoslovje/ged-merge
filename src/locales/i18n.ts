@@ -34,4 +34,18 @@ i18n.use(initReactI18next).init({
 // Remember the user's language choice across sessions.
 i18n.on("languageChanged", (lng) => localStorage.setItem(STORAGE_KEY, lng));
 
+// Dev only: the bundles above are handed to i18next once, at init. A hot update
+// to a locale file therefore replaces the module while i18next keeps the old
+// copy, and a key added in that edit renders as its own name until the page is
+// reloaded by hand — which reads as a missing translation rather than a stale
+// one. Re-register on every hot update instead. Stripped from the build.
+if (import.meta.hot) {
+  import.meta.hot.accept(["./en", "./sl"], (mods) => {
+    const [nextEn, nextSl] = mods as [{ en: typeof en } | undefined, { sl: typeof sl } | undefined];
+    i18n.addResourceBundle("en", "translation", nextEn?.en ?? en, true, true);
+    i18n.addResourceBundle("sl", "translation", nextSl?.sl ?? sl, true, true);
+    void i18n.changeLanguage(i18n.language); // nudge the listeners into re-rendering
+  });
+}
+
 export default i18n;
