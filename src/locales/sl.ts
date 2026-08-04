@@ -456,6 +456,13 @@ export const sl = {
   "tools.geocode.filter.partial": "Možni",
   "tools.geocode.filter.noProposal": "Brez predloga",
   "tools.geocode.filter.decided": "Že odločeni",
+  "tools.geocode.filter.placed": "Že umeščeni",
+  "tools.geocode.showPlaced": "Prikaži že umeščene",
+  "tools.geocode.showPlacedHint":
+    "Kraj, katerega vse omembe že nosijo koordinate, je opravljeno delo in ga na seznamu ni. Označite, da se izpišejo tudi ti — za preverjanje lege ali izbiro boljše; nova izbira zamenja staro lego povsod, kjer je kraj zapisan brez naslova.",
+  "tools.geocode.placedBadge": "umeščen",
+  "tools.geocode.placedTooltip":
+    "Vse omembe tega kraja že nosijo to koordinato. Izbira druge ga geokodira znova — lege hiš, vezane na naslov, ostanejo nedotaknjene.",
   "tools.geocode.countryUnknown": "(država ni navedena)",
   "tools.geocode.peopleToggle": "Pokaži osebe, ki jim na tem kraju še manjkajo koordinate",
   "tools.geocode.applied_one": "{{count}} posodobljen zapis",

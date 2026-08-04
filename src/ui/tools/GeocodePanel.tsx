@@ -46,9 +46,10 @@ const NO_ROWS: GeocodeRow[] = [];
  *  the row shows, so a parent-qualified 96% lands here even though its green
  *  badge means Select confident still takes it; "review" a perfect-name tie —
  *  several places match 100% and only the researcher can pick; "noProposal"
- *  research or a rename; "decided" already handled. */
-type StatusFilter = "all" | "confident" | "review" | "partial" | "noProposal" | "decided";
-const STATUS_FILTERS: StatusFilter[] = ["all", "confident", "partial", "review", "noProposal", "decided"];
+ *  research or a rename; "decided" already handled; "placed" finished work,
+ *  on the list only while "Show already placed" is ticked. */
+type StatusFilter = "all" | "confident" | "review" | "partial" | "noProposal" | "decided" | "placed";
+const STATUS_FILTERS: StatusFilter[] = ["all", "confident", "partial", "review", "noProposal", "decided", "placed"];
 
 /** A row has something to judge when any coordinate is on offer — the file's
  *  own, or a gazetteer candidate. */
@@ -199,7 +200,7 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
   const missingInTitles = useMemo(() => {
     const titles = new Map<string, string>();
     if (!scan) return titles;
-    for (const row of scan.rows) {
+    for (const row of [...scan.rows, ...scan.placed]) {
       if (!row.missingIn.length) continue;
       const shown = row.missingIn.slice(0, 15).map((id) => {
         const p = dataset.individuals.get(id);
@@ -234,6 +235,11 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
   // page-wide filter. `null` country = all of them.
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [countryFilter, setCountryFilter] = useState<string | null>(null);
+  // Whether already-placed values are on the list at all. Off by default: the
+  // list is a worklist, and a placed value is finished work — it comes back on
+  // request, for checking a position or re-geocoding it (same rule as the
+  // address rows' toggle).
+  const [showPlaced, setShowPlaced] = useState(false);
 
   // The filtered view: chip lists with faceted counts — a chip's count
   // respects every filter except its own row's, so its number is exactly how
@@ -245,23 +251,29 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
     const statusOf = (row: GeocodeRow): Exclude<StatusFilter, "all"> =>
       checked.has(row.key) || noMatch.has(row.key)
         ? "decided"
-        : !row.fileCoord && row.candidates[0] && Math.round(row.candidates[0].score * 100) < 100
-          ? "partial"
-          : row.confident
-            ? "confident"
-            : hasProposal(row)
-              ? "review"
-              : "noProposal";
+        : row.placed
+          ? "placed"
+          : !row.fileCoord && row.candidates[0] && Math.round(row.candidates[0].score * 100) < 100
+            ? "partial"
+            : row.confident
+              ? "confident"
+              : hasProposal(row)
+                ? "review"
+                : "noProposal";
     const inStatus = (row: GeocodeRow) => statusFilter === "all" || statusOf(row) === statusFilter;
 
-    const searched = query ? scan.rows.filter((r) => foldSearch(r.key).includes(query)) : scan.rows;
+    // The rows the list works over. With the toggle off, a placed row with
+    // work in progress (checked for a re-geocode) stays — staged work is
+    // never hidden.
+    const pool = showPlaced ? [...scan.rows, ...scan.placed] : [...scan.rows, ...scan.placed.filter((r) => checked.has(r.key))];
+    const searched = query ? pool.filter((r) => foldSearch(r.key).includes(query)) : pool;
 
     // One chip per country (a place value's last comma part) in the pending
     // list; a country the other filters empty out stays visible at 0.
     const countryChips: { country: string; count: number }[] = [];
     let countryAllCount = 0;
     const byCountry = new Map<string, (typeof countryChips)[number]>();
-    for (const row of scan.rows) {
+    for (const row of pool) {
       const country = countryOf(row.key);
       if (!byCountry.has(country)) {
         const chip = { country, count: 0 };
@@ -282,7 +294,7 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
       countryFilter !== null && countryChips.some((c) => c.country === countryFilter) ? countryFilter : null;
     const inCountry = (row: GeocodeRow) => activeCountry === null || countryOf(row.key) === activeCountry;
 
-    const statusCounts = { confident: 0, review: 0, partial: 0, noProposal: 0, decided: 0 };
+    const statusCounts = { confident: 0, review: 0, partial: 0, noProposal: 0, decided: 0, placed: 0 };
     let statusAllCount = 0;
     for (const row of searched) {
       if (!inCountry(row)) continue;
@@ -291,8 +303,13 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
     }
 
     const rows = searched.filter((r) => inStatus(r) && inCountry(r));
-    return { countryChips, countryAllCount, activeCountry, statusCounts, statusAllCount, rows };
-  }, [scan, query, statusFilter, countryFilter, checked, noMatch]);
+    // What the "Show already placed" toggle offers: the placed rows the search
+    // leaves, minus those already on the list because work is staged on them.
+    const placedTotal = (query ? scan.placed.filter((r) => foldSearch(r.key).includes(query)) : scan.placed).filter(
+      (r) => !checked.has(r.key),
+    ).length;
+    return { countryChips, countryAllCount, activeCountry, statusCounts, statusAllCount, rows, placedTotal };
+  }, [scan, query, statusFilter, countryFilter, checked, noMatch, showPlaced]);
   const rows = view?.rows ?? NO_ROWS;
 
   // Every filtered row is reachable — long lists render windowed (the same
@@ -307,7 +324,7 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
   // ones live in the file once written, not in the browser.
   useEffect(() => {
     if (!scan) return;
-    const keys = new Set(scan.rows.map((r) => r.key));
+    const keys = new Set([...scan.rows, ...scan.placed].map((r) => r.key));
     setChecked((prev) => new Set([...prev].filter((k) => keys.has(k))));
     setNoMatch((prev) => {
       const next = new Set([...prev].filter((k) => keys.has(k)));
@@ -431,13 +448,17 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
     const assignments = new Map<string, GeoAssignment>();
     const toStore: GeocodeDecision[] = [];
     const now = Date.now();
-    for (const row of scan.rows) {
+    for (const row of [...scan.rows, ...scan.placed]) {
       if (checked.has(row.key)) {
         const c = chosenFor(row);
         if (!c) continue;
         // Accepted coordinates go into the file and nowhere else — the saved
-        // GEDCOM is their record; only no-match marks are remembered.
-        assignments.set(row.key, c.govId ? { coord: c.coord, govId: c.govId } : { coord: c.coord });
+        // GEDCOM is their record; only no-match marks are remembered. A placed
+        // row's pick is a re-geocode, so it may overwrite what the value
+        // already carries (address-bound house positions excepted).
+        const a: GeoAssignment = c.govId ? { coord: c.coord, govId: c.govId } : { coord: c.coord };
+        if (row.placed) a.overwrite = true;
+        assignments.set(row.key, a);
       } else if (noMatch.has(row.key) && row.cached?.status !== "nomatch") {
         toStore.push({ key: row.key, status: "nomatch", ts: now });
       }
@@ -454,7 +475,7 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
   // ── Rendering ─────────────────────────────────────────────────────────────
   if (!scan || countries === null || !view) return <ToolsLoading label={t("tools.running")} />;
 
-  const { countryChips, countryAllCount, activeCountry, statusCounts, statusAllCount } = view;
+  const { countryChips, countryAllCount, activeCountry, statusCounts, statusAllCount, placedTotal } = view;
   const confidentCount = scan.rows.filter((r) => r.confident && !checked.has(r.key) && !noMatch.has(r.key)).length;
 
   // "Take official names": rows whose best proposal is the register's longer
@@ -510,7 +531,7 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
         const hasTabs = addrRows.length > 0;
         // The places actions render either on the tab row (tabs shown) or in
         // the section's own head (no addresses, no tabs) — one definition.
-        const placesActions = scan.rows.length > 0 && (
+        const placesActions = (scan.rows.length > 0 || scan.placed.length > 0) && (
           <div className="tools-dup-bulk">
             <button className="nav-btn primary tools-run" onClick={() => void apply()} disabled={checked.size === 0 && noMatch.size === 0}>
               {t("tools.geocode.apply", { count: checked.size })}
@@ -565,7 +586,9 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
       <p className="tools-intro">{t("tools.geocode.intro")}</p>
       {scan.rows.length === 0 && <p className="tools-clean tools-clean--ok">{t("tools.geocode.allCovered")}</p>}
 
-      {scan.rows.length > 0 && (
+      {/* The placed rows keep the section alive after the worklist is done —
+          "all covered" above, and below it the toggle that lists them again. */}
+      {(scan.rows.length > 0 || scan.placed.length > 0) && (
       <section className="tools-cleanup-section">
         {!hasTabs && (
           <div className="tools-dup-kind-head">
@@ -596,7 +619,7 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
         </div>
       )}
       <div className="tools-chips">
-        {STATUS_FILTERS.map((f) => (
+        {STATUS_FILTERS.filter((f) => showPlaced || f !== "placed").map((f) => (
           <button
             key={f}
             className={`tools-chip ${statusFilter === f ? "active" : ""}`}
@@ -606,6 +629,21 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
             <span className="tools-chip-count">{f === "all" ? statusAllCount : statusCounts[f]}</span>
           </button>
         ))}
+        {(placedTotal > 0 || showPlaced) && (
+          <label className="tools-reshape-site" title={t("tools.geocode.showPlacedHint")}>
+            <input
+              type="checkbox"
+              checked={showPlaced}
+              onChange={(e) => {
+                setShowPlaced(e.target.checked);
+                // The chip the toggle takes away must not stay the active
+                // filter, or the list would sit empty with no chip saying why.
+                if (!e.target.checked && statusFilter === "placed") setStatusFilter("all");
+              }}
+            />
+            {t("tools.geocode.showPlaced")} <span className="tools-chip-count">{placedTotal}</span>
+          </label>
+        )}
       </div>
       {!rows.length && <p className="tools-clean">{t("tools.search.noMatch")}</p>}
       <ul className="tools-tree">

@@ -392,6 +392,13 @@ export const en = {
   "tools.geocode.filter.partial": "Possible",
   "tools.geocode.filter.noProposal": "No proposal",
   "tools.geocode.filter.decided": "Decided",
+  "tools.geocode.filter.placed": "Already placed",
+  "tools.geocode.showPlaced": "Show already placed",
+  "tools.geocode.showPlacedHint":
+    "A place whose every mention already carries coordinates is finished work and stays off the list. Tick to list those too — to check a position, or pick a better one; a new pick replaces the old position everywhere the place is written without an address.",
+  "tools.geocode.placedBadge": "placed",
+  "tools.geocode.placedTooltip":
+    "Every mention of this place already carries this coordinate. Picking a different one re-geocodes it — house positions bound to an address are left alone.",
   "tools.geocode.countryUnknown": "(country not stated)",
   "tools.geocode.peopleToggle": "Show the people still missing this place's coordinates",
   "tools.geocode.applied_one": "{{count}} updated record",

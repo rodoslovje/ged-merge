@@ -78,6 +78,52 @@ test("houses in the place value are grouped under their settlement, and the filt
   await expect(page.getByText("Stražišče 114")).toBeVisible();
 });
 
+test("a fully placed place hides from the worklist and returns behind the toggle", async ({ page }) => {
+  const file = path.join(os.tmpdir(), "geocode-placed-places.ged");
+  writeFileSync(
+    file,
+    [
+      "0 HEAD", "1 GEDC", "2 VERS 5.5.1", "1 CHAR UTF-8",
+      "0 @I1@ INDI", "1 NAME Ana /Kos/",
+      // Every occurrence of Ljubljana carries its coordinate — finished work.
+      "1 BIRT", "2 PLAC Ljubljana, Slovenija",
+      "3 MAP", "4 LATI N46.05108", "4 LONG E14.50513",
+      // Kranj still needs one — the worklist's only row.
+      "1 DEAT", "2 PLAC Kranj, Slovenija",
+      "0 TRLR", "",
+    ].join("\n"),
+    "utf-8",
+  );
+
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(file);
+  await page.locator(".edit-person").first().waitFor({ timeout: 15000 });
+
+  await page.getByRole("button", { name: "Tools", exact: true }).click();
+  await page.getByText("Places", { exact: true }).click();
+  await page.getByRole("button", { name: /Geocoding/ }).click();
+
+  // Only the unplaced value is on the list; no "Already placed" chip yet.
+  const places = page.locator(".tools-geocode .tools-tree > li:not(.v-spacer)");
+  await expect(places).toHaveCount(1);
+  await expect(places.first()).toContainText("Kranj");
+  await expect(page.getByRole("button", { name: /Already placed/ })).toHaveCount(0);
+
+  // The toggle brings the placed row back, marked as placed, its checkbox
+  // held until a different coordinate is picked — and the chip counts it.
+  await page.getByText("Show already placed").click();
+  await expect(places).toHaveCount(2);
+  const placedRow = places.filter({ hasText: "Ljubljana" });
+  await expect(placedRow).toContainText("placed");
+  await expect(placedRow).toContainText("46.0511, 14.5051");
+  await expect(placedRow.locator(".tools-dup-check")).toBeDisabled();
+  await expect(page.getByRole("button", { name: /Already placed/ })).toContainText("1");
+
+  // Unticking puts the finished work away again.
+  await page.getByText("Show already placed").click();
+  await expect(places).toHaveCount(1);
+});
+
 test("an address with no house number is reviewed too, with nothing to look up", async ({ page }) => {
   const file = path.join(os.tmpdir(), "geocode-no-number.ged");
   writeFileSync(

@@ -325,7 +325,9 @@ export function GeocodePlaceRow({
             type="checkbox"
             className="tools-dup-check"
             checked={isChecked}
-            disabled={!c || marked}
+            // A placed row is armed by picking a *different* coordinate —
+            // accepting the position it already holds would write nothing.
+            disabled={!c || marked || (row.placed && !override)}
             onChange={(e) => onToggleChecked(row.key, e.target.checked)}
           />
         }
@@ -377,6 +379,10 @@ export function GeocodePlaceRow({
           <span className="tools-reshape-badge remove" title={t("tools.geocode.noMatch")}>
             {t("tools.geocode.noMatchBadge")}
           </span>
+        ) : row.placed && !override ? (
+          <span className="tools-reshape-badge new" title={t("tools.geocode.placedTooltip")}>
+            {t("tools.geocode.placedBadge")}
+          </span>
         ) : row.fileCoord && !override ? (
           <span className="tools-reshape-badge new" title={t("tools.geocode.fromFileTooltip")}>
             {t("tools.geocode.fromFile")}
@@ -403,14 +409,18 @@ export function GeocodePlaceRow({
             {t("tools.geocode.official.take")}
           </button>
         )}
-        <button
-          className="tools-issue-link"
-          onClick={() => onToggleNoMatch(row.key)}
-          aria-pressed={marked}
-          title={marked ? t("tools.geocode.noMatchUndo") : t("tools.geocode.noMatch")}
-        >
-          {marked ? "↩" : "🗑"}
-        </button>
+        {/* "No match" is a verdict on an unanswered question — a placed row's
+            question is answered, so the mark is not offered there. */}
+        {!row.placed && (
+          <button
+            className="tools-issue-link"
+            onClick={() => onToggleNoMatch(row.key)}
+            aria-pressed={marked}
+            title={marked ? t("tools.geocode.noMatchUndo") : t("tools.geocode.noMatch")}
+          >
+            {marked ? "↩" : "🗑"}
+          </button>
+        )}
         <button
           className="tools-chip-count tools-count-toggle"
           title={missingInTitle}
@@ -422,7 +432,8 @@ export function GeocodePlaceRow({
             if (next && !isOpen) onToggleOpen(row.key);
           }}
         >
-          {row.missing}
+          {/* A placed row has nothing missing; its count is every occurrence. */}
+          {row.placed ? row.count : row.missing}
         </button>
       </GeoRowHeader>
       {renameOpen && (
