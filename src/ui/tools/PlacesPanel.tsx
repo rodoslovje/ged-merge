@@ -18,6 +18,10 @@ const MiniPlaceMap = lazy(() => import("../map/MiniPlaceMap"));
  *  "which town is this pinned in", not "which country". */
 const TOWN_ZOOM = 13;
 
+/** An address row's map answers a closer question — "which building is this" —
+ *  so it opens at house level, the same zoom the coordinate picker fits to. */
+const HOUSE_ZOOM = 17;
+
 /** Prune a place node to those whose name matches `q` (already lower-cased)
  * anywhere in the subtree. A node matching by name keeps its whole subtree;
  * otherwise only matching descendant branches are retained — including the
@@ -452,7 +456,7 @@ function PlaceTreeRow({
                 kind: i === 0 ? "chosen" : "candidate",
               }))}
               fitKey={path}
-              fitMaxZoom={TOWN_ZOOM}
+              fitMaxZoom={node.isAddress ? HOUSE_ZOOM : TOWN_ZOOM}
             />
           </Suspense>
           {disputed && (
