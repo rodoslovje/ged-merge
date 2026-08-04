@@ -818,7 +818,7 @@ function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
               <a href="https://ipi.eprostor.gov.si/jv/" target="_blank" rel="noreferrer">
                 Geodetska uprava Republike Slovenije
               </a>
-              {t("tools.geocode.sourceGursLicense")}
+              {t("tools.geocode.licenseCcBy")}
             </p>
             <button
               className="nav-btn tools-run"
@@ -858,7 +858,13 @@ function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
                 </option>
               ))}
             </select>
-            <p className="tools-geo-hint">{t("tools.geocode.sourceOsm")}</p>
+            <p className="tools-geo-hint">
+              {t("tools.geocode.sourceOsm")} {t("tools.geocode.sourceOsmCredit")}{" "}
+              <a href="https://www.openstreetmap.org" target="_blank" rel="noreferrer">
+                OpenStreetMap
+              </a>
+              {t("tools.geocode.sourceOsmLicense")}
+            </p>
           </>
         )}
         {/* The fallback: for a country neither download serves, and for anyone
@@ -882,7 +888,13 @@ function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
           <a href="https://download.geonames.org/export/dump/" target="_blank" rel="noreferrer">
             download.geonames.org/export/dump
           </a>
-          {t("tools.geocode.sourceGeoNames2")}
+          {t("tools.geocode.sourceGeoNames2")}©{" "}
+          {/* Two links, two different things: the dump above is where the file
+              is fetched from, this one is the project being credited. */}
+          <a href="https://www.geonames.org/" target="_blank" rel="noreferrer">
+            GeoNames
+          </a>
+          {t("tools.geocode.licenseCcBy")}
         </p>
       </div>
       <p className="tools-geo-hint">

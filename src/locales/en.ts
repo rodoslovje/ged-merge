@@ -384,7 +384,7 @@ export const en = {
   "tools.geocode.importFailed": "The file could not be read — make sure it's a GeoNames .txt or .zip country extract.",
   "tools.geocode.importBtn": "Load…",
   "tools.geocode.sourceGeoNames": "Your own country extract, fetched by hand from",
-  "tools.geocode.sourceGeoNames2": " — a .zip or unpacked .txt. © GeoNames, CC BY 4.0.",
+  "tools.geocode.sourceGeoNames2": " — a .zip or unpacked .txt. ",
   "tools.geocode.progress": "{{covered}}/{{total}} places have coordinates · {{pct}}% of mentions",
   "tools.geocode.filter.all": "All",
   "tools.geocode.filter.confident": "Confident",
@@ -498,13 +498,17 @@ export const en = {
   "tools.geocode.regionAllFailed_one": "{{count}} region did not come through: {{names}}. Take it on its own when the service is quieter.",
   "tools.geocode.regionAllFailed_other": "{{count}} regions did not come through: {{names}}. Take them one by one when the service is quieter.",
   "tools.geocode.downloadNeedsOptIn": "Allow online lookups in Settings → Advanced.",
-  // The credit that follows each of these two is assembled around a link to the
-  // agency's own portal: "© <agency>" + this tail. The agency name is a proper
-  // noun and lives in the markup, untranslated.
+  // The credit that follows each of these is assembled around a link to the
+  // source's own site: "© <name>" + the licence tail. The name is a proper noun
+  // and lives in the markup, untranslated.
   "tools.geocode.sourceGurs": "Every Slovenian settlement from the official register of spatial units, bilingual names included — the authoritative choice for Slovenian research.",
-  "tools.geocode.sourceGursLicense": ", CC BY 4.0.",
+  "tools.geocode.licenseCcBy": ", CC BY 4.0.",
   "tools.geocode.sourceDgu": "Croatian settlements, villages, hamlets and city quarters from the official register of geographical names, historical and bilingual forms included — the authoritative choice for Croatian research.",
-  "tools.geocode.sourceOsm": "Any country you pick from the list. Hamlets too, where an official register names none. © OpenStreetMap contributors, ODbL.",
+  "tools.geocode.sourceOsm": "Any country you pick from the list. Hamlets too, where an official register names none.",
+  // Around the linked name, which sits mid-credit here: "© OpenStreetMap
+  // contributors" — and after "© sodelavci" in Slovenian.
+  "tools.geocode.sourceOsmCredit": "©",
+  "tools.geocode.sourceOsmLicense": " contributors, ODbL.",
   "tools.geocode.storedLocally": "Whichever you load stays in this browser; nothing is sent anywhere. Directories add up rather than replace each other: one settlement described by two of them is proposed once, at the official coordinate, while two different places sharing a name stay separate for you to choose between.",
   "tools.geocode.gursBtn": "GURS (Slovenia)",
   "tools.geocode.gursTooltip": "All 6035 Slovenian settlements from the official register of spatial units (Geodetska uprava RS, CC BY 4.0), including the Italian and Hungarian bilingual names. A ~45 MB download; only the settlement centres are kept.",
