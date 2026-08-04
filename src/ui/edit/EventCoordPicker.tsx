@@ -245,13 +245,16 @@ export function EventCoordPicker({
   const others = share ? share.countOthers(place, address) : 0;
 
   /** What the file itself already knows about this address / place. Anything
-   *  equal to the current coordinate is left out — it would propose a no-op. */
-  const fromFile: { coord: GeoCoord; label: string }[] = [];
+   *  equal to the current coordinate is left out — it would propose a no-op.
+   *  `place` marks the settlement's own position: it covers the whole village
+   *  rather than standing on one house, so the map draws it as an area and its
+   *  name says as much (the Addresses list draws the same thing the same way). */
+  const fromFile: { coord: GeoCoord; label: string; place?: boolean }[] = [];
   if (filePairCoord && !sameCoord(filePairCoord, coord)) {
     fromFile.push({ coord: filePairCoord, label: t("event.coord.fromFile.address") });
   }
   if (fileCoord && !sameCoord(fileCoord, coord) && !sameCoord(fileCoord, filePairCoord)) {
-    fromFile.push({ coord: fileCoord, label: t("event.coord.fromFile.place") });
+    fromFile.push({ coord: fileCoord, label: t("tools.geocode.addr.placePin"), place: true });
   }
 
   // `label` says where the coordinate came from, and the lists that stage a
@@ -284,7 +287,7 @@ export function EventCoordPicker({
       label: c.label,
       lines: [c.detail, c.source, t("event.coord.pinPick")].filter((s): s is string => !!s),
       kind: sameCoord(c.coord, coord) ? "chosen" : "candidate",
-      ...(candidates!.length > 1 ? { badge: i + 1 } : {}),
+      badge: i + 1,
       onPick: () => take(c.coord, c.label),
     });
   });
@@ -294,6 +297,9 @@ export function EventCoordPicker({
       label: f.label,
       lines: [t("event.coord.source.file"), t("event.coord.pinPick")],
       kind: "candidate",
+      // The settlement's position is not a house: a wide neutral ring, so it
+      // frames the candidates standing on it instead of competing with them.
+      ...(f.place ? { colorVar: "--map-other", area: true } : {}),
       onPick: () => take(f.coord, f.label),
     });
   }
@@ -443,7 +449,7 @@ export function EventCoordPicker({
                   {candidates.map((c, i) => (
                     <li key={`cand-${i}`}>
                       <span className="edit-coord-cand-line">
-                        {candidates.length > 1 && <span className="tools-geo-cand-num">{i + 1}</span>}
+                        <span className="tools-geo-cand-num">{i + 1}</span>
                         <button type="button" className="tools-issue-link" title={c.label} onClick={() => take(c.coord, c.label)}>
                           {c.label}
                         </button>

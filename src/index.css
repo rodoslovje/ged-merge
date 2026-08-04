@@ -8301,6 +8301,11 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
    inside the map instead of one endless nowrap line. */
 .minimap-tooltip { white-space: normal; max-width: 280px; }
 .minimap-tooltip .minimap-tip-title { font-weight: 600; }
+/* The address inside a tooltip: muted like the address lists elsewhere, but
+   without their pin. The tooltip closes on the pin's own coordinate, and two
+   pins in four lines — one against the street, one against the numbers — read
+   as two positions when there is only ever one. */
+.minimap-tooltip .minimap-tip-addr { color: var(--muted); }
 /* The person's places map below the Edit-view event list. */
 .edit-person-map { margin: 12px 0 4px; }
 /* Header row above the map: hide/show toggle left, colour legend right. */
@@ -8413,10 +8418,29 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 .tools-geo-detail { padding: 6px 0 4px 46px; }
 .tools-geo-candidates { list-style: none; margin: 0 0 8px; padding: 0; }
 .tools-geo-candidates li { padding: 2px 0; }
-.tools-geo-candidates label { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.9rem; }
+.tools-geo-candidates label { position: relative; display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.9rem; }
 .tools-geo-cand-name { font-weight: 500; }
-/* The answer's number, tying a line in the list to its pin on the map — drawn
-   only when a row has more than one, since a single answer needs no key. */
+/* The answer's number, which is also the row's radio: it ties the line to its
+   pin on the coordinate panel's map, so a separate round control beside it
+   would be a second dot saying less. The input keeps the keyboard and screen
+   readers served — clipped, not display:none, so it stays focusable — and the
+   number carries checked, hover and focus. */
+.tools-geo-cand-radio {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.tools-geo-cand-radio:checked + .tools-geo-cand-num {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+}
+.tools-geo-candidates label:hover .tools-geo-cand-num { border-color: var(--accent); color: var(--accent); }
+.tools-geo-candidates label:hover .tools-geo-cand-radio:checked + .tools-geo-cand-num { color: var(--bg); }
+.tools-geo-cand-radio:focus-visible + .tools-geo-cand-num { outline: 2px solid var(--accent); outline-offset: 2px; }
 .tools-geo-cand-num {
   flex: none;
   display: inline-flex;
@@ -8433,6 +8457,13 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 /* What the hit is ("suburb", "service road") — the only thing telling apart
    several OpenStreetMap answers that carry one and the same display line. */
 .tools-geo-cand-kind { color: var(--muted); font-size: 0.8rem; }
+/* An answer that names another place entirely: a warning, not a detail, since
+   taking it would put the family in the wrong village. */
+.tools-geo-cand-elsewhere {
+  color: var(--state-minor);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
 .tools-geo-manual { display: flex; align-items: center; gap: 8px; }
 .tools-geo-online-note { color: var(--muted); font-size: 0.8rem; }
 /* Where a staged position came from, inside the row's coordinate control. A

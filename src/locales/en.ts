@@ -447,6 +447,8 @@ export const en = {
   "tools.geocode.addr.placePin": "The place's own position",
   "tools.geocode.addr.openHint": "Place this house: a map to pick on, the address register, or coordinates by hand.",
   "tools.geocode.addr.inheritedHint": "These events carry the settlement's own position — the one every address here inherits — so this house has still to be placed. Taking a position of its own replaces it.",
+  "tools.geocode.addr.elsewhere": "in {{place}}",
+  "tools.geocode.addr.elsewhereHint": "This answer names no part of the address searched for: OpenStreetMap matched the house number somewhere else. Take it only if the house really moved or was renumbered.",
   "tools.geocode.addr.noQuery": "nothing to look up",
   "tools.geocode.addr.noQueryHint": "The address register needs a house number in Slovenia; this address names none, or lies elsewhere. Place it with the pin, or give a run of them one position with “Place several at one coordinate”.",
   "tools.geocode.addr.filter.picked": "Picked",
@@ -1495,6 +1497,7 @@ export const en = {
   // What an OpenStreetMap hit is, printed beside results that share a name (see
   // osmKindLabel). Keyed class.type where the type alone would mislead — a
   // "residential" highway is a street, a "residential" landuse is a district.
+  "osm.kind.highway.bus_stop": "bus stop",
   "osm.kind.highway.residential": "residential street",
   "osm.kind.highway.living_street": "living street",
   "osm.kind.highway.service": "service road",
@@ -1526,7 +1529,6 @@ export const en = {
   "osm.kind.administrative": "administrative area",
   "event.coord.pinPick": "Click to use this coordinate",
   "event.coord.fromFile.address": "Same address elsewhere in this file",
-  "event.coord.fromFile.place": "This place elsewhere in this file",
   "event.coord.source.file": "Already in this file",
   "event.coord.mapHint": "Circles: proposals (click to use one) · click anywhere else to fill the coordinate box",
   "event.colAddr": "Address",

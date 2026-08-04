@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { osmKindLabel, parseNominatimResponse } from "./nominatim";
+import { osmKindLabel, osmNamesPlace, parseNominatimResponse } from "./nominatim";
 
 describe("parseNominatimResponse", () => {
   it("maps jsonv2 rows to coordinates with short and full labels", () => {
@@ -110,5 +110,44 @@ describe("osmKindLabel", () => {
   it("says nothing when the service gave no type", () => {
     const [bare] = parseNominatimResponse([{ lat: "46", lon: "14", name: "Q", display_name: "Q" }]);
     expect(osmKindLabel(bare, t)).toBe("");
+  });
+});
+
+describe("osmNamesPlace", () => {
+  // The real answer to "Čirče 5, Kranj, Slovenija": house number 5 of a village
+  // on the other side of the municipality, with not a word of Čirče in it.
+  const [stray] = parseNominatimResponse([
+    {
+      lat: "46.20983",
+      lon: "14.38831",
+      name: "5",
+      display_name: "5, Breg ob Savi, Drulovka, Mavčiče, Kranj, 4211, Slovenija",
+      category: "building",
+      type: "yes",
+      address: { house_number: "5", hamlet: "Breg ob Savi", municipality: "Kranj" },
+    },
+  ]);
+  const [real] = parseNominatimResponse([
+    {
+      lat: "46.22566",
+      lon: "14.37088",
+      name: "Čirče",
+      display_name: "Čirče, Kranj, 4000, Slovenija",
+      category: "place",
+      type: "suburb",
+      address: { suburb: "Čirče", municipality: "Kranj" },
+    },
+  ]);
+
+  it("rejects an answer that names none of the address asked for", () => {
+    expect(osmNamesPlace(stray, "Čirče")).toBe(false);
+    expect(osmNamesPlace(real, "Čirče")).toBe(true);
+  });
+
+  it("matches the name wherever the answer carries it, accents aside", () => {
+    // The road, the locality and the display chain all count, folded.
+    expect(osmNamesPlace(stray, "Breg ob Savi")).toBe(true);
+    expect(osmNamesPlace(real, "circe")).toBe(true);
+    expect(osmNamesPlace(real, "")).toBe(true);
   });
 });

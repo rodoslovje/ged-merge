@@ -1,5 +1,6 @@
 import type { GeoCoord } from "../gedcom/types";
 import type { Translate } from "../locales/i18n";
+import { foldSearch } from "../ui/globalSearch";
 
 // Nominatim (nominatim.openstreetmap.org) free-text place/address search —
 // the online fallback for strings the offline gazetteer can't resolve,
@@ -127,10 +128,34 @@ export function parseNominatimResponse(data: unknown): NominatimResult[] {
 export function osmKindLabel(result: NominatimResult, t: Translate): string {
   const kind = result.kind?.trim();
   if (!kind) return "";
-  const raw = result.category === "highway" ? `${kind} road` : kind.replace(/_/g, " ");
+  const words = kind.replace(/_/g, " ");
+  const raw = result.category === "highway" ? `${words} road` : words;
   return result.category
     ? t(`osm.kind.${result.category}.${kind}`, { defaultValue: t(`osm.kind.${kind}`, { defaultValue: raw }) })
     : t(`osm.kind.${kind}`, { defaultValue: raw });
+}
+
+/**
+ * Whether a hit actually names the thing that was asked for.
+ *
+ * Nominatim answers a free-text address it cannot place with whatever else
+ * carries part of it: "Čirče 5, Kranj" comes back as "5, Breg ob Savi,
+ * Drulovka, Mavčiče, Kranj" — house number 5 of a different village, with not a
+ * word of Čirče in it. The name asked for has to appear somewhere in the answer,
+ * or the answer is about somewhere else.
+ *
+ * Compared fold-blind against the display line and the named parts, so
+ * "Stražišče" matches whether it comes back as the road, the suburb or a
+ * segment of the chain.
+ */
+export function osmNamesPlace(result: NominatimResult, name: string): boolean {
+  const want = foldSearch(name).trim();
+  if (!want) return true;
+  const haystack = [result.label, result.name, result.parts?.road, result.parts?.locality, result.parts?.admin]
+    .filter(Boolean)
+    .map((s) => foldSearch(s!))
+    .join(" | ");
+  return haystack.includes(want);
 }
 
 // One shared queue so concurrent callers still respect the 1 req/s policy.

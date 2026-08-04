@@ -281,7 +281,8 @@ test("OpenStreetMap answers the addresses the register cannot take", async ({ pa
   await expect(candidate).toContainText("OSM");
   await expect(candidate).toContainText("46.24500, 14.33500");
 
-  await candidate.locator("input[type=radio]").check();
+  // The number is the row's radio — clicking it stages the answer.
+  await candidate.locator(".tools-geo-cand-num").click();
   const write = page.getByRole("button", { name: /Write address coordinates \(1\)/ });
   await expect(write).toBeEnabled();
   await write.click();

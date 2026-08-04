@@ -55,7 +55,10 @@ function tooltipEl(label: string, lines?: string[], sub?: string, coord?: GeoCoo
   el.appendChild(head);
   if (sub) {
     const addr = document.createElement("div");
-    addr.className = "place-suggestion-addr";
+    // Muted like an address anywhere else, but without the address pin: this
+    // tooltip closes on the pin's own coordinate, and the two pins together
+    // read as two positions where there is only one.
+    addr.className = "minimap-tip-addr";
     addr.textContent = sub;
     el.appendChild(addr);
   }
