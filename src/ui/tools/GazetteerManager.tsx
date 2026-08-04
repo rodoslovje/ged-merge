@@ -18,8 +18,9 @@ import { requestSettings } from "../settingsBus";
 import { ToolsError, ToolsLoading } from "./shared";
 
 // The place-directory manager: the offline gazetteers (GeoNames country extracts,
-// OpenStreetMap downloads, the GURS register of Slovenian settlements) that live
-// in the gedmerge-geo IndexedDB and back every place lookup in the app.
+// OpenStreetMap downloads, the GURS register of Slovenian settlements and the DGU
+// register of Croatian geographical names) that live in the gedmerge-geo
+// IndexedDB and back every place lookup in the app.
 //
 // It is one-time setup that outlives the file, so Settings → Map owns it. The
 // Geocode places tool keeps the same controls for as long as there is nothing
@@ -69,6 +70,51 @@ const GURS_NASELJA_URL =
  *  candidate can name its občina. Small next to the settlements (212 rows). */
 const GURS_OBCINE_URL =
   "https://ipi.eprostor.gov.si/wfs-si-gurs-rpe/ogc/features/collections/SI.GURS.RPE:OBCINE/items?f=application%2Fgeo%2Bjson&limit=1000";
+
+/**
+ * The populated-place feature kinds of the DGU register of geographical names,
+ * by the register's own `vrstaobiljezjaid`: naselje (234), zaselak (242), selo
+ * (237), dio naselja (236), gradska četvrt (233), napušteno naselje (191), the
+ * farmstead group — salaš, majur, stancija (124) — and the two city kinds, grad
+ * (321) and glavni grad (231).
+ *
+ * The register holds 128 000 names of everything a map shows, hills and springs
+ * and bus stops included, and asking for the lot would download 25 MB of
+ * features no place string will ever match. These nine kinds are the ones a
+ * birth entry names: with the hamlets and the abandoned settlements in, and the
+ * terrain out, it comes to some 24 000 places in 8 MB.
+ *
+ * The city kinds are here because three cities — Pula, Buje and Poreč — are
+ * filed under no other one: the register has no settlement row for them at all,
+ * so leaving the kind out loses them outright. The other 123 do repeat a
+ * settlement of their own name, and {@link rgiPlacesToEntries} drops those.
+ */
+const DGU_PLACE_KINDS = [124, 191, 231, 233, 234, 236, 237, 242, 321];
+
+/** The register of geographical names — Croatia's authoritative place
+ *  directory, served as GeoJSON with CORS open, so the browser fetches it
+ *  directly. Points, not polygons, so there is no centroid to compute.
+ *  Data © Državna geodetska uprava. */
+const DGU_PLACES_URL =
+  "https://rgi.dgu.hr/geoserver/wfs?service=WFS&version=2.0.0&request=GetFeature" +
+  "&typeNames=rgi:v_imjesto_geoime_gs&outputFormat=application/json&srsName=EPSG:4326&count=50000" +
+  "&propertyName=im_id,pisanje_imena,jeziknaziv,status_imena,og_ime,vrstaobiljezjaid,geom" +
+  `&CQL_FILTER=${encodeURIComponent(`vrstaobiljezjaid IN (${DGU_PLACE_KINDS.join(",")})`)}`;
+
+/** One RPJ administrative-unit table, asked for without its geometry — the
+ *  counties are 3 KB that way and the municipalities 75 KB, against megabytes
+ *  of boundary polygons nothing here would draw. */
+function dguUnitsUrl(layer: string, properties: string): string {
+  return (
+    "https://rgi.dgu.hr/geoserver/wfs?service=WFS&version=2.0.0&request=GetFeature" +
+    `&typeNames=rgi:${layer}&outputFormat=application/json&count=1000&propertyName=${properties}`
+  );
+}
+
+/** The municipalities each place's `og_ime` names, with the county each belongs
+ *  to, and the counties themselves — together, which county a place sits in. */
+const DGU_OPCINE_URL = dguUnitsUrl("rpj_opcina", "og_ime,zupanija_id");
+const DGU_ZUPANIJE_URL = dguUnitsUrl("rpj_zupanija", "id,naziv,rb");
 
 /** The direction each source moves data: two fetch it from a service, one takes
  *  it off your own disk. Plain arrows, not emoji — they inherit the button's
@@ -179,6 +225,27 @@ async function readWithProgress(
   return out.buffer;
 }
 
+/** A small side table the main payload is joined against — the municipalities a
+ *  register's places name, the counties those belong to. Undefined when it did
+ *  not arrive: none of them is worth failing an import over, the places simply
+ *  come in without whatever the table would have told them. */
+async function fetchBuffer(url: string, signal: AbortSignal): Promise<ArrayBuffer | undefined> {
+  try {
+    const res = await fetch(url, { signal });
+    return res.ok ? await res.arrayBuffer() : undefined;
+  } catch (e) {
+    void e;
+    return undefined;
+  }
+}
+
+/** What a payload is, beyond a GeoNames dump — the shape the worker converts it
+ *  under, plus whatever that shape needs alongside the bytes. */
+type ImportExtra =
+  | { format: "overpass"; country: string; region?: string }
+  | { format: "rpe"; obcine?: ArrayBuffer }
+  | { format: "rgi"; opcine?: ArrayBuffer; zupanije?: ArrayBuffer };
+
 /** What a download attempt produced: the bytes, or why there are none. */
 type OverpassResult = { buffer: ArrayBuffer } | { failure: "timeout" | "busy" };
 
@@ -274,6 +341,7 @@ export interface Gazetteer {
   /** Fetch one country's places from OpenStreetMap, by ISO 3166-1 alpha-2. */
   downloadCountry: (country: string) => Promise<void>;
   downloadSlovenia: () => Promise<void>;
+  downloadCroatia: () => Promise<void>;
   /** The country whose places are too many for one query, and the subdivisions
    *  offered instead. Null whenever there is no such offer on the table. */
   regions: { country: string; list: Subdivision[] } | null;
@@ -337,9 +405,7 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
   const runImport = (
     buffer: ArrayBuffer,
     fileName: string,
-    extra?:
-      | { format: "overpass"; country: string; region?: string }
-      | { format: "rpe"; obcine?: ArrayBuffer },
+    extra?: ImportExtra,
     note?: string,
   ): Promise<boolean> =>
     new Promise((resolve) => {
@@ -375,7 +441,10 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
       worker.onerror = () => fail(t("tools.geocode.importFailed"));
       worker.onmessageerror = () => fail(t("tools.geocode.importFailed"));
       const req: GeoWorkerRequest = { type: "importGazetteer", requestId: 1, buffer, fileName, ...extra };
-      worker.postMessage(req, req.obcine ? [buffer, req.obcine] : [buffer]);
+      // Every buffer in the request is transferred, whatever the format called
+      // it — the payload plus whichever side tables came with it.
+      const transfer = Object.values(req).filter((v): v is ArrayBuffer => v instanceof ArrayBuffer);
+      worker.postMessage(req, transfer);
     });
 
   const importFile = async (file: File) => {
@@ -523,15 +592,21 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
     }
   };
 
-  // One-click Slovenian gazetteer from GURS. Same opt-in gate and progress
-  // handling as the Overpass download, but a single known endpoint — a failure
-  // here is a real outage, so there is no fallback list to walk.
-  const downloadSlovenia = async () => {
+  // One-click national register. Same opt-in gate and progress handling as the
+  // Overpass download, but a single known endpoint — a failure here is a real
+  // outage, so there is no fallback list to walk. `extra` runs once the register
+  // itself is in hand, for a source that needs a second request to make sense
+  // of it.
+  const downloadRegister = async (
+    url: string,
+    fileName: string,
+    extra: (signal: AbortSignal) => Promise<ImportExtra>,
+  ) => {
     const abort = new AbortController();
     fetchAbortRef.current = abort;
     setImportState({ phase: "running", stage: "waiting", done: 0, total: 0 });
     try {
-      const res = await fetch(GURS_NASELJA_URL, { signal: abort.signal });
+      const res = await fetch(url, { signal: abort.signal });
       if (!res.ok) {
         setImportState({ phase: "error", message: t("tools.geocode.downloadFailed") });
         return;
@@ -539,19 +614,9 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
       const buffer = await readWithProgress(res, (done, total) =>
         setImportState({ phase: "running", stage: "downloading", done, total }),
       );
-      // The municipalities are a separate collection (212 rows) joined by
-      // EID_OBCINA — what lets two settlements of one name be told apart
-      // ("Soteska (Kamnik)" vs "Soteska (Dolenjske Toplice)"). Failing to get
-      // it is not fatal: the settlements are still worth importing without it.
-      let obcine: ArrayBuffer | undefined;
-      try {
-        const oRes = await fetch(GURS_OBCINE_URL, { signal: abort.signal });
-        if (oRes.ok) obcine = await oRes.arrayBuffer();
-      } catch (e) {
-        if (abort.signal.aborted) return;
-        void e;
-      }
-      await runImport(buffer, "SI.gurs-naselja.json", { format: "rpe", ...(obcine ? { obcine } : {}) });
+      const options = await extra(abort.signal);
+      if (abort.signal.aborted) return;
+      await runImport(buffer, fileName, options);
     } catch (e) {
       if (abort.signal.aborted) return;
       void e;
@@ -560,6 +625,28 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
       fetchAbortRef.current = null;
     }
   };
+
+  const downloadSlovenia = () =>
+    downloadRegister(GURS_NASELJA_URL, "SI.gurs-naselja.json", async (signal) => {
+      // The municipalities are a separate collection (212 rows) joined by
+      // EID_OBCINA — what lets two settlements of one name be told apart
+      // ("Soteska (Kamnik)" vs "Soteska (Dolenjske Toplice)").
+      const obcine = await fetchBuffer(GURS_OBCINE_URL, signal);
+      return { format: "rpe", ...(obcine ? { obcine } : {}) };
+    });
+
+  // The register names each place's municipality on the feature itself, but the
+  // county it sits in — what a place string written in English calls
+  // "Primorje-Gorski Kotar" — takes the two administrative-unit tables. They are
+  // 78 KB together, and failing to get them costs the county and nothing else.
+  const downloadCroatia = () =>
+    downloadRegister(DGU_PLACES_URL, "HR.dgu-imena.json", async (signal) => {
+      const [opcine, zupanije] = await Promise.all([
+        fetchBuffer(DGU_OPCINE_URL, signal),
+        fetchBuffer(DGU_ZUPANIJE_URL, signal),
+      ]);
+      return { format: "rgi", ...(opcine ? { opcine } : {}), ...(zupanije ? { zupanije } : {}) };
+    });
 
   const cancelImport = () => {
     fetchAbortRef.current?.abort();
@@ -581,6 +668,7 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
     importFile,
     downloadCountry,
     downloadSlovenia,
+    downloadCroatia,
     regions,
     downloadRegion,
     downloadAllRegions,
@@ -667,10 +755,11 @@ function RegionPicker({ gaz, regions }: { gaz: Gazetteer; regions: { country: st
   );
 }
 
-/** The three ways in: the GURS register, any country from OpenStreetMap, or a
- *  GeoNames file.The two downloads need the online-lookups opt-in; the file
- *  import never does — and it sits under the paragraph that tells you where to
- *  fetch the file, because that instruction is half the button. */
+/** The ways in: the two national registers (GURS, DGU), any country from
+ *  OpenStreetMap, or a GeoNames file. The downloads need the online-lookups
+ *  opt-in; the file import never does — and it sits under the paragraph that
+ *  tells you where to fetch the file, because that instruction is half the
+ *  button. */
 function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
   const { t, i18n } = useTranslation();
   const { settings } = useSettings();
@@ -720,6 +809,15 @@ function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
               {t("tools.geocode.gursBtn")}
             </button>
             <p className="tools-geo-hint">{t("tools.geocode.sourceGurs")}</p>
+            <button
+              className="nav-btn tools-run"
+              onClick={() => void gaz.downloadCroatia()}
+              title={t("tools.geocode.dguTooltip")}
+            >
+              <span aria-hidden="true">{DOWNLOAD_GLYPH} </span>
+              {t("tools.geocode.dguBtn")}
+            </button>
+            <p className="tools-geo-hint">{t("tools.geocode.sourceDgu")}</p>
             {/* One control, not a pair: the button opens the country list and
                 the country picked is the click — the same shape as the map tab's
                 "Add a free preset…". It never holds a selection, so it reads as

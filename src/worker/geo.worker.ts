@@ -1,14 +1,20 @@
 import {
   attachAdmin1Names,
+  DGU_REGISTER,
   GURS_REGISTER,
   osmRegister,
   overpassToEntries,
   parseGeoNamesLine,
+  rgiCountyIndex,
+  rgiPlacesToEntries,
   rpeNaseljaToEntries,
   rpeObcinaNames,
   subdivisionAdmin1,
   type GazEntry,
   type OverpassJson,
+  type RgiOpcineJson,
+  type RgiPlacesJson,
+  type RgiZupanijeJson,
   type RpeNaseljaJson,
   type RpeObcineJson,
 } from "../geo/gazetteer";
@@ -71,6 +77,35 @@ self.onmessage = async (event: MessageEvent<GeoWorkerRequest>) => {
       // country "SI", which is what lookupPlace's country gate compares.
       await putCountry({ code: GURS_REGISTER, count: entries.length, importedAt: Date.now(), entries });
       post({ type: "result", requestId, countries: [{ code: GURS_REGISTER, count: entries.length }] });
+      return;
+    }
+    if (msg.format === "rgi") {
+      // The two administrative-unit tables are what let a place name its county;
+      // either one missing costs the county and nothing else.
+      const counties =
+        msg.opcine && msg.zupanije
+          ? rgiCountyIndex(
+              JSON.parse(new TextDecoder().decode(msg.opcine)) as RgiOpcineJson,
+              JSON.parse(new TextDecoder().decode(msg.zupanije)) as RgiZupanijeJson,
+            )
+          : undefined;
+      const entries = rgiPlacesToEntries(
+        JSON.parse(new TextDecoder().decode(msg.buffer)) as RgiPlacesJson,
+        counties?.byUnit,
+      );
+      if (!entries.length) throw new Error("no places in the DGU result");
+      // Same storage rule as GURS: its own key, so it complements rather than
+      // replaces an "HR" or "HR-OSM" directory. The entries stay country "HR",
+      // and the county codes are the ISO 3166-2 digits those directories use
+      // too, so all of their name lists for a county pool into one.
+      await putCountry({
+        code: DGU_REGISTER,
+        count: entries.length,
+        importedAt: Date.now(),
+        entries,
+        ...(counties ? { divisions: counties.divisions } : {}),
+      });
+      post({ type: "result", requestId, countries: [{ code: DGU_REGISTER, count: entries.length }] });
       return;
     }
     if (msg.format === "overpass") {

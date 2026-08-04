@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  DGU_REGISTER,
   GURS_REGISTER,
   HIGH_CONFIDENCE,
   attachAdmin1Names,
@@ -11,6 +12,8 @@ import {
   overpassSubdivisions,
   overpassToEntries,
   parseGeoNamesLine,
+  rgiCountyIndex,
+  rgiPlacesToEntries,
   rpeNaseljaToEntries,
   rpeObcinaNames,
   searchGazetteer,
@@ -443,6 +446,259 @@ describe("municipalities from the RPE join", () => {
   it("leaves the tie alone when the place names neither municipality", () => {
     const hits = lookupPlace(buildGazetteerIndex(soteska(names)), "Soteska, Šentjakob ob Savi, Slovenija");
     expect(hits[0].score).toBeCloseTo(hits[1].score, 6);
+  });
+});
+
+/** One feature of the DGU register of geographical names. */
+const row = (
+  im_id: number | null,
+  pisanje_imena: string,
+  over: { jeziknaziv?: string; status_imena?: string; og_ime?: string; lon?: number; lat?: number } = {},
+) => ({
+  properties: {
+    im_id,
+    pisanje_imena,
+    jeziknaziv: over.jeziknaziv ?? "Hrvatski",
+    status_imena: over.status_imena ?? "službeno",
+    og_ime: over.og_ime ?? "KONAVLE",
+  },
+  geometry: { type: "Point", coordinates: [over.lon ?? 18.36, over.lat ?? 42.51] },
+});
+
+describe("rgiPlacesToEntries", () => {
+  it("takes each place's point, its municipality and its register mark", () => {
+    const entries = rgiPlacesToEntries({ features: [row(1, "Mihatovići", { lon: 18.366, lat: 42.512 })] });
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({
+      name: "Mihatovići",
+      alt: [],
+      country: "HR",
+      fclass: "P",
+      population: 0,
+      register: DGU_REGISTER,
+      // Recased from the register's "KONAVLE".
+      admin: "Konavle",
+    });
+    expect(entries[0].lon).toBeCloseTo(18.366, 6);
+    expect(entries[0].lat).toBeCloseTo(42.512, 6);
+  });
+
+  it("recases a shouted municipality, leaves a written-out one, drops one that repeats the place", () => {
+    const [novigrad, sesvete, split] = rgiPlacesToEntries({
+      features: [
+        row(1, "Novigrad", { og_ime: "NOVIGRAD - CITTANOVA" }),
+        row(2, "Sesvete", { og_ime: "Grad Zagreb" }),
+        row(3, "Split", { og_ime: "SPLIT" }),
+      ],
+    });
+    expect(novigrad.admin).toBe("Novigrad - Cittanova");
+    expect(sesvete.admin).toBe("Grad Zagreb");
+    expect(split.admin).toBeUndefined();
+  });
+
+  it("folds a place's several names into one entry, the official Croatian one leading", () => {
+    const entries = rgiPlacesToEntries({
+      features: [
+        row(7, "Vörösmart", { jeziknaziv: "Mađarski" }),
+        row(7, "Zmajevac"),
+        row(7, "Змајевац", { jeziknaziv: "Srpski" }),
+        row(7, "Zmajevac", { status_imena: "povijesno" }),
+      ],
+    });
+    expect(entries).toHaveLength(1);
+    expect(entries[0].name).toBe("Zmajevac");
+    // Every other spelling stays reachable, without repeating the primary.
+    expect(entries[0].alt).toEqual(["Vörösmart", "Змајевац"]);
+    // …and resolves through the index, so a Hungarian place string in an older
+    // record still finds the Croatian settlement.
+    expect(lookupPlace(buildGazetteerIndex(entries), "Vörösmart")[0].entry.name).toBe("Zmajevac");
+  });
+
+  it("falls back through official-in-any-language to the first row", () => {
+    const [italian, unofficial] = rgiPlacesToEntries({
+      features: [
+        row(1, "Antanel", { jeziknaziv: "Talijanski" }),
+        row(2, "Stara Peć", { status_imena: "povijesno" }),
+        row(2, "Nova Peć", { status_imena: "ostalo" }),
+      ],
+    });
+    expect(italian.name).toBe("Antanel");
+    expect(unofficial.name).toBe("Stara Peć");
+    expect(unofficial.alt).toEqual(["Nova Peć"]);
+  });
+
+  it("skips rows with no name or no usable point, and never groups two under a missing id", () => {
+    const entries = rgiPlacesToEntries({
+      features: [
+        row(1, "   "),
+        { properties: { im_id: 2, pisanje_imena: "Bez oblika" }, geometry: null },
+        { properties: { im_id: 3, pisanje_imena: "Poligon" }, geometry: { type: "Polygon", coordinates: [[[15, 46]]] } },
+        { properties: { im_id: 4, pisanje_imena: "Pokvareno" }, geometry: { type: "Point", coordinates: ["x", 46] } },
+        row(null, "Prvi"),
+        row(null, "Drugi"),
+      ],
+    });
+    expect(entries.map((e) => e.name)).toEqual(["Prvi", "Drugi"]);
+  });
+});
+
+describe("rgiPlacesToEntries and the register's cities", () => {
+  const city = (im_id: number, name: string, over: { og_ime?: string; lon?: number; lat?: number } = {}) => {
+    const f = row(im_id, name, over);
+    return { ...f, properties: { ...f.properties, vrstaobiljezjaid: 321 } };
+  };
+  const settlement = (im_id: number, name: string, over: { og_ime?: string; lon?: number; lat?: number } = {}) => {
+    const f = row(im_id, name, over);
+    return { ...f, properties: { ...f.properties, vrstaobiljezjaid: 234 } };
+  };
+
+  it("drops a city that repeats a settlement of its own name nearby", () => {
+    // The register pins Samobor's city 5 km off its settlement, and parents the
+    // two differently — one place, written twice.
+    const entries = rgiPlacesToEntries({
+      features: [
+        city(1, "Samobor", { og_ime: "Zagrebačka županija", lon: 15.6462, lat: 45.788 }),
+        settlement(2, "Samobor", { og_ime: "SAMOBOR", lon: 15.7092, lat: 45.8019 }),
+      ],
+    });
+    expect(entries).toHaveLength(1);
+    // The survivor is the settlement: pinned in the town, and parented by its
+    // own municipality — which, repeating its name, shows no parent at all.
+    expect(entries[0].lon).toBeCloseTo(15.7092, 6);
+    expect(entries[0].admin).toBeUndefined();
+  });
+
+  it("keeps a city the register files under no settlement at all", () => {
+    // Pula, Buje and Poreč are exactly this: only the city kind names them.
+    const entries = rgiPlacesToEntries({
+      features: [city(1, "Pula", { og_ime: "Istarska županija", lon: 13.8481, lat: 44.8666 })],
+    });
+    expect(entries.map((e) => e.name)).toEqual(["Pula"]);
+  });
+
+  it("keeps a city whose namesake settlement is a different place far away", () => {
+    // The city of Otok in Vukovar-Srijem against the villages called Otok — 200
+    // km apart, and both real.
+    const entries = rgiPlacesToEntries({
+      features: [
+        city(1, "Otok", { og_ime: "Vukovarsko-srijemska županija", lon: 18.88, lat: 45.15 }),
+        settlement(2, "Otok", { og_ime: "OTOK", lon: 16.7, lat: 43.49 }),
+      ],
+    });
+    expect(entries).toHaveLength(2);
+  });
+
+  it("recovers the bare name of a bilingual one written as a single string", () => {
+    const [buje, bale, tar] = rgiPlacesToEntries({
+      features: [
+        // The register holds the joined form and one half; the other half —
+        // the name a file writes — appears nowhere.
+        city(1, "Buje-Buie", { og_ime: "BUJE - BUIE" }),
+        city(1, "Buie", { og_ime: "BUJE - BUIE" }),
+        // Not even a half here: the spaced hyphen in the municipality is what
+        // says this is a language pair and not a compound name.
+        settlement(2, "Bale-Valle", { og_ime: "BALE - VALLE" }),
+        settlement(3, "Tar-Tore", { og_ime: "TAR-VABRIGA - TORRE-ABREGA" }),
+      ],
+    });
+    expect(buje.alt).toEqual(["Buie", "Buje"]);
+    expect(bale.alt).toEqual(["Bale", "Valle"]);
+    expect(tar.alt).toEqual(["Tar", "Tore"]);
+  });
+
+  it("leaves a genuinely hyphenated name alone", () => {
+    const entries = rgiPlacesToEntries({
+      features: [
+        // A compound municipality name: one hyphen, no spaces, one language.
+        settlement(1, "Ivanić-Grad", { og_ime: "IVANIĆ-GRAD" }),
+        settlement(2, "Vojnić-Breg", { og_ime: "BEDEKOVČINA" }),
+        settlement(3, "Sveti Vid-Miholjice", { og_ime: "MALINSKA-DUBAŠNICA" }),
+        // A bilingual pair of compounds — which half belongs to which language
+        // is not something the hyphens say, so it stays whole.
+        settlement(4, "Kaštelir-Labinci-Castelliere-S.Domenica", {
+          og_ime: "KAŠTELIR-LABINCI - CASTELLIERE-S. DOMENICA",
+        }),
+      ],
+    });
+    expect(entries.every((e) => e.alt.length === 0)).toBe(true);
+  });
+
+  it("treats a feature with no kind as a settlement", () => {
+    const entries = rgiPlacesToEntries({ features: [row(1, "Bez vrste")] });
+    expect(entries.map((e) => e.name)).toEqual(["Bez vrste"]);
+  });
+});
+
+describe("the DGU county join", () => {
+  const zupanije = {
+    features: [
+      { properties: { id: 8, naziv: "Primorsko-goranska županija", rb: 8 } },
+      { properties: { id: 11, naziv: "Požeško-slavonska županija", rb: 11 } },
+      { properties: { id: 21, naziv: "Grad Zagreb", rb: 21 } },
+      { properties: { id: 99, naziv: "  " } },
+    ],
+  };
+  const opcine = {
+    features: [
+      { properties: { og_ime: "RAVNA GORA", zupanija_id: 8 } },
+      { properties: { og_ime: "LIPIK", zupanija_id: 11 } },
+      // The same municipality name in two counties — the register really has
+      // three of these, and neither county may claim it.
+      { properties: { og_ime: "OTOK", zupanija_id: 8 } },
+      { properties: { og_ime: "OTOK", zupanija_id: 11 } },
+      { properties: { og_ime: "NEZNANO", zupanija_id: 404 } },
+    ],
+  };
+
+  it("keys municipalities by county, drops the ambiguous ones, and knows the counties themselves", () => {
+    const { byUnit, divisions } = rgiCountyIndex(opcine, zupanije);
+    expect(byUnit.get("RAVNA GORA")).toBe("08");
+    expect(byUnit.get("LIPIK")).toBe("11");
+    expect(byUnit.has("OTOK")).toBe(false);
+    expect(byUnit.has("NEZNANO")).toBe(false);
+    // A city-county's places name the county where others name a municipality.
+    expect(byUnit.get("GRAD ZAGREB")).toBe("21");
+    // Official Croatian name first, then the forms an English-language file uses.
+    expect(divisions["08"]).toEqual([
+      "Primorsko-goranska županija",
+      // The bare adjective a file is as likely to write as the full name.
+      "Primorsko-goranska",
+      "Primorje-Gorski Kotar",
+      "Primorje-Gorski Kotar County",
+    ]);
+    // No "županija" to strip, so nothing extra.
+    expect(divisions["21"]).toEqual(["Grad Zagreb", "City of Zagreb"]);
+    expect(divisions["99"]).toBeUndefined();
+  });
+
+  it("resolves a county written in English, and demotes the same name elsewhere", () => {
+    const { byUnit, divisions } = rgiCountyIndex(opcine, zupanije);
+    const entries = rgiPlacesToEntries(
+      {
+        features: [
+          row(1, "Stara Sušica", { og_ime: "RAVNA GORA", lon: 15.0028, lat: 45.3763 }),
+          // A second Stara Sušica, two counties away: a perfect name match too.
+          row(2, "Stara Sušica", { og_ime: "LIPIK", lon: 17.1, lat: 45.44 }),
+        ],
+      },
+      byUnit,
+    );
+    expect(entries.map((e) => e.admin1)).toEqual(["08", "11"]);
+    const index = buildGazetteerIndex(entries, mergeDivisions([{ entries, divisions }]));
+    const hits = lookupPlace(index, "Stara Sušica, Primorje-Gorski Kotar, Croatia");
+    expect(hits[0].entry.admin).toBe("Ravna Gora");
+    // Clear of the ambiguity gap, so bulk-accept can take it.
+    expect(hits[0].score).toBeGreaterThan(hits[1].score + 0.05);
+    // …and the candidate is labelled with the file's own spelling of the county.
+    expect(hits[0].adminDisplay).toBe("Primorje-Gorski Kotar");
+    // The Croatian name of the same county does the same job.
+    expect(lookupPlace(index, "Stara Sušica, Primorsko-goranska županija, Croatia")[0].entry.admin).toBe("Ravna Gora");
+  });
+
+  it("imports the places unchanged when the unit tables did not arrive", () => {
+    const [entry] = rgiPlacesToEntries({ features: [row(1, "Stara Sušica", { og_ime: "RAVNA GORA" })] });
+    expect(entry.admin1).toBe("");
+    expect(entry.admin).toBe("Ravna Gora");
   });
 });
 

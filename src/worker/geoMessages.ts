@@ -7,14 +7,15 @@
 export interface GeoImportRequest {
   type: "importGazetteer";
   requestId: number;
-  /** The payload bytes — a GeoNames extract (.txt/.zip), Overpass JSON, or
-   *  the GURS RPE settlements GeoJSON. */
+  /** The payload bytes — a GeoNames extract (.txt/.zip), Overpass JSON, the
+   *  GURS RPE settlements GeoJSON, or the DGU register of geographical names. */
   buffer: ArrayBuffer;
   fileName: string;
   /** Payload shape; "geonames" when omitted. */
-  format?: "geonames" | "overpass" | "rpe";
-  /** Overpass only: the country code the entries are stored under.
-   *  ("rpe" is Slovenia by definition and always stores under "SI".) */
+  format?: "geonames" | "overpass" | "rpe" | "rgi";
+  /** Overpass only: the country code the entries are stored under. ("rpe" and
+   *  "rgi" are Slovenia and Croatia by definition and store under their own
+   *  register keys.) */
   country?: string;
   /** Overpass only: the ISO 3166-2 subdivision this payload covers ("US-CA"),
    *  when the country was too large to fetch whole. The entries still go into
@@ -25,6 +26,12 @@ export interface GeoImportRequest {
    *  settlements join to so each one can name its občina. Optional — a settled
    *  gazetteer without it simply carries no municipality. */
   obcine?: ArrayBuffer;
+  /** "rgi" only: the RPJ municipalities and counties tables, which together say
+   *  which county each place sits in. Optional in the same way — without them
+   *  the places still import, they just cannot corroborate a county named in
+   *  the file. */
+  opcine?: ArrayBuffer;
+  zupanije?: ArrayBuffer;
 }
 
 export type GeoWorkerRequest = GeoImportRequest;
