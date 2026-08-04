@@ -283,6 +283,28 @@ export function AddressCoordsSection({
    *  rather than numbered, an address outside Slovenia. */
   const [osmSearches, setOsmSearches] = useState<Map<string, OsmState>>(new Map());
   const [picked, setPicked] = useState<Map<string, { coord: GeoCoord; label: string }>>(new Map());
+  // A rescan can re-key rows from outside this section — a place renamed on
+  // the Places tab, an edit made in Edit mode — leaving staged work under keys
+  // no row carries any more. Drop exactly those entries, or the Write button
+  // counts picks it cannot write. Keyed on the rescan (not on the staged maps),
+  // so work this section re-keys itself — applyRename carries a pick to the
+  // new spelling before the rescan lands — is never caught mid-flight.
+  useEffect(() => {
+    const dropGone = <V,>(prev: Map<string, V>) => {
+      let changed = false;
+      const next = new Map(prev);
+      for (const key of next.keys()) {
+        if (!byKey.has(key)) {
+          next.delete(key);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    };
+    setPicked(dropGone);
+    setSearches(dropGone);
+    setOsmSearches(dropGone);
+  }, [byKey]);
   // Whether already-placed addresses are on the list at all. Off by default:
   // the list is a worklist, and a placed row is finished work — it comes back
   // on request, for checking a position or sharpening a rough one.
