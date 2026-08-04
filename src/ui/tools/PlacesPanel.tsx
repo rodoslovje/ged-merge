@@ -391,7 +391,14 @@ function PlaceTreeRow({
         >
           {labelNode}
         </span>
-        <span className="tools-chip-count">{node.count}</span>
+        {/* The count opens the node the way its name does: it is what says
+            there is a list worth opening, so it reads as the handle for it. */}
+        <span
+          className={`tools-chip-count${hasChildren ? " tools-tree-count-toggle" : ""}`}
+          onClick={hasChildren ? () => toggle(node, path) : undefined}
+        >
+          {node.count}
+        </span>
         {spots && (
           <button
             type="button"
