@@ -350,6 +350,57 @@ test("hits that share a name are told apart by what they are, and numbered onto 
   await expect(pop.locator(".mini-pin-badge")).toHaveCount(3);
 });
 
+test("the lookup answers in the language the file writes, not the interface's", async ({ page }) => {
+  const file = path.join(os.tmpdir(), "geocode-osm-language.ged");
+  writeFileSync(
+    file,
+    [
+      "0 HEAD", "1 GEDC", "2 VERS 5.5.1", "1 CHAR UTF-8",
+      "0 @I1@ INDI", "1 NAME Ana /Kos/",
+      // Two places, two languages: an American one written in English, and a
+      // Slovenian one written in Slovenian. The interface is English here, so
+      // the second is the one that proves the language follows the file.
+      "1 BIRT", "2 PLAC Joliet, Will, Illinois, United States", "2 ADDR Parks Avenue",
+      "1 DEAT", "2 PLAC Kranj, Slovenija", "2 ADDR Huje",
+      "0 TRLR", "",
+    ].join("\n"),
+    "utf-8",
+  );
+
+  const asked: string[] = [];
+  await page.addInitScript(() => {
+    localStorage.setItem("gedmerge.settings", JSON.stringify({ allowLinkFetch: true }));
+  });
+  await page.route("**/nominatim.openstreetmap.org/**", (route) => {
+    asked.push(route.request().url());
+    return route.fulfill({ contentType: "application/json", body: "[]" });
+  });
+
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(file);
+  await page.locator(".edit-person").first().waitFor({ timeout: 15000 });
+  await page.getByRole("button", { name: "Tools", exact: true }).click();
+  await page.getByRole("button", { name: /Geocoding/ }).click();
+  await page.getByRole("tab", { name: /Addresses/ }).click();
+
+  for (const group of await page.locator(".tools-geo-addr-group").all()) {
+    await group.locator(".tools-pair-toggle").first().click();
+  }
+  const search = page.getByRole("button", { name: "Search OpenStreetMap" });
+  // The button goes once its row has an answer, so the list shrinks under the
+  // loop: take the count first, and always click whichever is left.
+  const rows = await search.count();
+  for (let i = 0; i < rows; i++) {
+    await search.first().click();
+    // Nominatim allows one request a second and the client queues to match.
+    await expect.poll(() => asked.length, { timeout: 10000 }).toBe(i + 1);
+  }
+
+  const query = (part: string) => asked.find((u) => decodeURIComponent(u).includes(part)) ?? "";
+  expect(query("United States")).toContain("accept-language=en");
+  expect(query("Kranj, Slovenija")).toContain("accept-language=sl");
+});
+
 test("one coordinate can be given to a whole place's addresses at once", async ({ page }) => {
   await page.goto("/");
   await page.locator("input.file-input").first().setInputFiles(FILE);

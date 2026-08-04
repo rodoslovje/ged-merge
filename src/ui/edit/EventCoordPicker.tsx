@@ -5,6 +5,7 @@ import { countryCode } from "../../gedcom/countryCode";
 import { decomposePlace, parseCoordInput } from "../../gedcom/place";
 import { sameCoord } from "../../geo/points";
 import { rnQueriesFrom, searchAddresses, type RnResult } from "../../geo/rn";
+import { placeLookupLanguage } from "../../geo/lookupLanguage";
 import { searchNominatim, type NominatimResult } from "../../geo/nominatim";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
 import { PinIcon } from "../icons/PinIcon";
@@ -232,7 +233,8 @@ export function EventCoordPicker({
     const text = [address, place].map((s) => s.trim()).filter(Boolean).join(", ");
     if (!text) return;
     setOsm({ state: "loading", results: [] });
-    searchNominatim(text, i18n.language).then(
+    // In the language the place is written in — see placeLookupLanguage.
+    searchNominatim(text, placeLookupLanguage(place || address, i18n.language)).then(
       (results) => setOsm({ state: "done", results }),
       () => setOsm({ state: "error", results: [] }),
     );

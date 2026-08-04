@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
 import { sameCoord } from "../../geo/points";
 import { resultsForQuery, searchAddressBatch, searchAddresses, type RnResult } from "../../geo/rn";
+import { placeLookupLanguage } from "../../geo/lookupLanguage";
 import { osmKindLabel, searchNominatim, type NominatimResult } from "../../geo/nominatim";
 import type { PlaceProposal } from "../../geo/placeProposal";
 import { replaceLocality, suggestMovedPlace, type AddressRow } from "../../tools/addresses";
@@ -399,7 +400,10 @@ export function AddressCoordsSection({
     const text = [row.address, row.place].map((s) => s.trim()).filter(Boolean).join(", ");
     if (!text) return;
     setOsm(row.key, { state: "loading", results: [] });
-    searchNominatim(text, i18n.language).then(
+    // Asked in the language the place is written in, not the interface's: a
+    // file that says "United States" must not be answered "Združene države
+    // Amerike", or the answer names a country the file does not.
+    searchNominatim(text, placeLookupLanguage(row.place, i18n.language)).then(
       (results) => setOsm(row.key, { state: "done", results }),
       () => setOsm(row.key, { state: "error", results: [] }),
     );

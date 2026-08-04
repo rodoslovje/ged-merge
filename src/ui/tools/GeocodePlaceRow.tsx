@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
 import { sameCoord } from "../../geo/points";
 import type { GazCandidate } from "../../geo/gazetteer";
+import { placeLookupLanguage } from "../../geo/lookupLanguage";
 import { searchNominatim, type NominatimResult } from "../../geo/nominatim";
 import { searchGov, type GovResult } from "../../geo/gov";
 import { rnQueriesFrom, searchAddresses, type RnResult } from "../../geo/rn";
@@ -137,7 +138,8 @@ export function GeocodePlaceRow({
   });
   const runOnlineSearch = () => {
     setOnline({ state: "loading", results: [] });
-    searchNominatim(row.key, i18n.language).then(
+    // In the language this place value is written in — see placeLookupLanguage.
+    searchNominatim(row.key, placeLookupLanguage(row.key, i18n.language)).then(
       (results) => setOnline({ state: "done", results }),
       () => setOnline({ state: "error", results: [] }),
     );
@@ -153,7 +155,9 @@ export function GeocodePlaceRow({
   });
   const runGovSearch = () => {
     setGov({ state: "loading", results: [] });
-    searchGov(row.key, i18n.language).then(
+    // GOV holds each place's name in several languages and picks one by this
+    // argument, so it follows the file's language for the same reason.
+    searchGov(row.key, placeLookupLanguage(row.key, i18n.language)).then(
       (results) => setGov({ state: "done", results }),
       () => setGov({ state: "error", results: [] }),
     );
