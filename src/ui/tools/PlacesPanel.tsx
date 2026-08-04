@@ -20,9 +20,12 @@ const TOWN_ZOOM = 13;
 
 /** Prune a place node to those whose name matches `q` (already lower-cased)
  * anywhere in the subtree. A node matching by name keeps its whole subtree;
- * otherwise only matching descendant branches are retained. Paths of nodes that
- * survive solely as ancestors of a match are collected in `autoOpen` so they can
- * be expanded down to (but not past) the matching entries. */
+ * otherwise only matching descendant branches are retained — including the
+ * node's own uses, which name the ancestor and not the match, and would
+ * otherwise list a town's every person under one matching address. Paths of
+ * nodes that survive solely as ancestors of a match are collected in
+ * `autoOpen` so they can be expanded down to (but not past) the matching
+ * entries. */
 function filterPlaceNode(node: PlaceNode, q: string, path: string, autoOpen: Set<string>): PlaceNode | null {
   if (node.name.toLowerCase().includes(q)) return node;
   const children: PlaceNode[] = [];
@@ -32,7 +35,7 @@ function filterPlaceNode(node: PlaceNode, q: string, path: string, autoOpen: Set
   }
   if (children.length === 0) return null;
   autoOpen.add(path);
-  return { ...node, children };
+  return { ...node, children, uses: [] };
 }
 
 /** Keys to open on first load: when there is a single root place, open it and
