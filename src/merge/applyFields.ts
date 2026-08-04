@@ -12,12 +12,14 @@ import {
   markEventTouched,
   NAME_CHILD_ORDER,
   nextXref,
+  writeNameValue,
 } from "../gedcom/edit";
 import { findExistingSource, newSourceCitations, sourceContentKey } from "../gedcom/source";
 import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "../gedcom/private";
-import type { Dataset, GedNode } from "../gedcom/types";
+import type { Dataset, GedNode, PersonName } from "../gedcom/types";
 import { childrenByTag, childText, cloneNode, firstChild, hasChild, removeChildren } from "../gedcom/node";
 import { parseDate } from "../gedcom/date";
+import { parseName } from "../gedcom/name";
 import { linkKey } from "../normalize/links";
 import { lifespanAnchors, zoneSortKey } from "../review/fields";
 import { defaultChoice, type FieldChoice, type FieldRow } from "../review/types";
@@ -84,6 +86,20 @@ export const SUB_LABEL_KEY: Record<string, string> = {
 
 /** Order in which an event's changed sub-fields are joined into one preview line. */
 export const SUB_JOIN_ORDER = ["type", "value", "date", "place", "addr", "note", "agency", "cause"];
+
+/** The event sub-fields that may legally repeat under one event, so "both" can
+ *  genuinely append a second one. Everything else (TYPE, DATE, PLAC, ADDR,
+ *  AGNC, CAUS, the line value) is {0:1} per event. */
+const REPEATABLE_EVENT_SUBS = new Set<EventSubField>(["note", "sources"]);
+
+/** The choice to actually apply for an event sub-field: "both" on a
+ *  single-cardinality sub means "replace" — a second DATE/PLAC under one event
+ *  would be invalid GEDCOM, and overwriting while reporting "added" hid what
+ *  really happened. Shared by the individual row loop and the family-event
+ *  application in applyRelations. */
+export function effectiveEventSubChoice(sub: EventSubField, choice: FieldChoice): FieldChoice {
+  return choice === "both" && !REPEATABLE_EVENT_SUBS.has(sub) ? "incoming" : choice;
+}
 
 /**
  * Combines an event's changed sub-fields (date/value/place/addr/note/agency) into
@@ -169,7 +185,6 @@ export function applyRows(
    *  behaviour (the incoming choice always wins). */
   mainAtConfirm?: Record<string, string>,
 ): void {
-  let nameApplied = false;
   // Map each event's row-key prefix (e.g. "BIRT", "BIRT.0") to its display
   // name, so date/place/note/source changes can be grouped under one header
   // in the save preview instead of repeating the event name on every line.
@@ -192,13 +207,23 @@ export function applyRows(
     if (row.state === "agree" || row.state === "main-only") continue;
     // Handled elsewhere (family spouses/children go through applyFamilyStructure).
     if (handled.has(row.key) || row.key.startsWith("fam.")) continue;
-    const choice = fields[row.key] ?? defaultChoice(row as never);
+    let choice = fields[row.key] ?? defaultChoice(row as never);
     if (choice === "main") continue;
+    const parsed = parseEventRowKey(row.key);
+
+    // "Both" on a field that can hold only one value (SEX, NICK, an event's
+    // TYPE/DATE/PLAC/… sub-tag or line value) cannot keep two: writing a second
+    // sub-node would be invalid GEDCOM, so it means "replace" — i.e. exactly
+    // "incoming", held to the same edited-after-confirm gate below. Only the
+    // genuinely repeatable rows (names, notes, sources, links, ids) append.
+    if (choice === "both" && (row.key === "sex" || row.key === "nickname" || (parsed && effectiveEventSubChoice(parsed.sub, "both") === "incoming"))) {
+      choice = "incoming";
+    }
 
     // An Edit-mode change made *after* this match was confirmed wins over the
     // incoming value: the field choice was made against a value the user has
     // since replaced, so honouring it would silently undo the later edit. Only
-    // "incoming" is gated — "both" appends and destroys nothing.
+    // "incoming" is gated — a surviving "both" appends and destroys nothing.
     if (
       choice === "incoming" &&
       mainAtConfirm &&
@@ -216,7 +241,7 @@ export function applyRows(
         report.changes.push({ recordId, field: row.label, from: "", to: "", action: choice, unedited: choice === "incoming", sources: newSourceCitations(row.mainSources, row.incomingSources) });
         touched.add(recordId);
       }
-      const added = applyLinks(target, row.incomingLinkIcons ?? [], row.mainLinkIcons ?? [], linkFormat, records);
+      const added = applyLinks(target, row.incomingLinkIcons ?? [], row.mainLinkIcons ?? [], linkFormat, records, reservedXrefs(sourMap));
       if (added.length) {
         report.changes.push({ recordId, field: row.label, from: "", to: "", action: choice, unedited: choice === "incoming", links: added });
         touched.add(recordId);
@@ -229,11 +254,8 @@ export function applyRows(
     }
 
     let applied = false;
-    const parsed = parseEventRowKey(row.key);
     if (row.key === "given" || row.key === "surname") {
-      if (nameApplied) continue; // the whole NAME line is taken as a unit
-      applied = applyName(target, incomingRecord, choice, sourMap, report.customTags);
-      nameApplied = applied;
+      applied = applyNamePart(target, incomingRecord, row.key, choice, sourMap, report.customTags);
     } else if (row.key === "sex") {
       applied = setChild(target, "SEX", incomingRecord, choice, INDI_CHILD_ORDER, sourMap, undefined, report.customTags);
     } else if (row.key === "nickname") {
@@ -317,6 +339,10 @@ export function applyLinks(
   mainLinks: string[],
   linkFormat: LinkFormat,
   records: GedNode[],
+  /** Output xrefs already promised to compare shared records (the values of
+   *  the SourXrefMap) — a minted link record must not squat on one, or the
+   *  promised import would be skipped and its pointers would resolve here. */
+  reservedXrefs?: ReadonlySet<string>,
 ): string[] {
   const existing = new Set(mainLinks.map(linkKey));
   const added: string[] = [];
@@ -329,7 +355,7 @@ export function applyLinks(
       if (!sourceMatch.objeXref) addObjeToSource(records, sourceMatch.sourceXref, url);
       attachSourceCitation(target, sourceMatch.sourceXref, sourceMatch.page, INDI_CHILD_ORDER);
     } else {
-      insertOrdered(target, buildLinkNode(linkFormat, url, records), INDI_CHILD_ORDER);
+      insertOrdered(target, buildLinkNode(linkFormat, url, records, reservedXrefs), INDI_CHILD_ORDER);
     }
     added.push(url);
   }
@@ -341,14 +367,14 @@ export function applyLinks(
  * appends a new top-level `OBJE` record holding the URL in `FILE` and returns
  * a pointer to it.
  */
-function buildLinkNode(format: LinkFormat, url: string, records: GedNode[]): GedNode {
+function buildLinkNode(format: LinkFormat, url: string, records: GedNode[], reservedXrefs?: ReadonlySet<string>): GedNode {
   if (format === "WEBTAG") {
     const webtag = newNode("_WEBTAG");
     webtag.children.push(newNode("URL", url));
     return webtag;
   }
   if (format === "OBJE") {
-    const xref = nextXref(records, "O");
+    const xref = nextXref(records, "O", reservedXrefs);
     const obje = newNode("OBJE", undefined, xref);
     obje.children.push(newNode("FILE", url));
     // Insert before TRLR (which must stay last) rather than appending.
@@ -398,26 +424,64 @@ export function detectLinkFormat(main: Dataset): LinkFormat {
   return "WWW";
 }
 
-/** Replace or (for "both") add the primary NAME line from the incoming record. */
-export function applyName(
+/** Build the sub-tag map `parseName` expects from a NAME node's children.
+ *  `SECG` is left out: parseName folds it into the given name, and writing
+ *  that fold back into the slash value would duplicate the sub-tag's content. */
+function parseNameNode(name: GedNode): PersonName {
+  const subTags = new Map<string, string>();
+  for (const c of name.children) {
+    if (c.tag === "SECG" || subTags.has(c.tag) || !c.value?.trim()) continue;
+    subTags.set(c.tag, c.value.trim());
+  }
+  return parseName(name.value, subTags);
+}
+
+/**
+ * Apply one name-part row (given or surname) on its own, so the two rows'
+ * choices are honoured independently — given=incoming with surname=main must
+ * not smuggle the incoming surname in.
+ *
+ * "both" keeps both full names by appending the incoming NAME as an
+ * additional name record (once — the other part row choosing "both" finds it
+ * already there). A scalar "incoming" rewrites only that part of the main's
+ * primary NAME value, keeping the other part, any inline suffix, and all
+ * sub-structure (NICK, SOUR, NSFX, …): the nickname and additional-names rows
+ * own their own merges, and swapping the whole node would overrule them.
+ */
+export function applyNamePart(
   target: GedNode,
   incomingRecord: GedNode,
+  part: "given" | "surname",
   choice: FieldChoice,
   sourMap: SourXrefMap,
   customTags: Record<string, CustomTagNode[]>,
 ): boolean {
   const incName = firstChild(incomingRecord, "NAME");
   if (!incName) return false;
-  const clone = cloneNodeRemapped(incName, sourMap);
-  collectCustomTags(clone, customTags);
-  const idx = target.children.findIndex((c) => c.tag === "NAME");
-  if (choice === "both" || idx < 0) {
+  if (choice === "both") {
+    const clone = cloneNodeRemapped(incName, sourMap);
+    const cloneValue = (clone.value ?? "").trim();
+    if (childrenByTag(target, "NAME").some((n) => (n.value ?? "").trim() === cloneValue)) return false;
+    collectCustomTags(clone, customTags);
+    const idx = target.children.findIndex((c) => c.tag === "NAME");
     if (idx < 0) insertOrdered(target, clone, INDI_CHILD_ORDER);
     else insertAt(target, idx + 1, clone);
-  } else {
-    target.children[idx] = clone;
+    return true;
   }
-  return true;
+  const incParsed = parseNameNode(incName);
+  const incPart = part === "given" ? incParsed.given : incParsed.surname;
+  if (!incPart) return false;
+  let name = firstChild(target, "NAME");
+  if (!name) {
+    name = newNode("NAME");
+    insertOrdered(target, name, INDI_CHILD_ORDER);
+  }
+  const current = parseNameNode(name);
+  const given = part === "given" ? incPart : current.given ?? "";
+  const surname = part === "surname" ? incPart : current.surname ?? "";
+  const before = name.value;
+  writeNameValue(name, given, surname);
+  return name.value !== before;
 }
 
 /**
@@ -855,6 +919,18 @@ function sharedContentKey(rec: GedNode): string | undefined {
  * record.
  */
 export type SourXrefMap = ReadonlyMap<string, string>;
+
+/** The output xrefs a SourXrefMap has promised to compare shared records —
+ *  cached per map, since applyRows asks once per record-level links row. */
+const reservedXrefsCache = new WeakMap<SourXrefMap, Set<string>>();
+export function reservedXrefs(sourMap: SourXrefMap): ReadonlySet<string> {
+  let set = reservedXrefsCache.get(sourMap);
+  if (!set) {
+    set = new Set(sourMap.values());
+    reservedXrefsCache.set(sourMap, set);
+  }
+  return set;
+}
 
 /**
  * Pre-compute the xref translation table for all compare shared records

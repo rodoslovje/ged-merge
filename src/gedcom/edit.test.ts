@@ -744,6 +744,44 @@ describe("setName", () => {
     expect(text).not.toContain("SURN");
   });
 
+  it("keeps an inline trailing suffix when rewriting the parts", () => {
+    // "Jr" lives in the slash value but belongs to neither part — editing the
+    // given name must not delete it from the saved file.
+    const ds = buildFromText([
+      "0 HEAD",
+      "1 GEDC",
+      "2 VERS 5.5.1",
+      "0 @I1@ INDI",
+      "1 NAME John /Smith/ Jr",
+      "0 TRLR",
+      "",
+    ].join("\n"));
+    const indi = ds.individuals.get("@I1@")!;
+    setName(indi, { given: "Johann", surname: "Smith" });
+
+    expect(serializeGedcom(ds.records)).toContain("1 NAME Johann /Smith/ Jr");
+    expect(rebuildIndividual(ds, indi).names[0].suffix).toBe("Jr");
+  });
+
+  it("does not mistake a surname-first trailing given name for a suffix", () => {
+    // "/Novak/ Janez" is a surname-first writer: the trailing token is the
+    // given name being replaced, not a suffix to preserve.
+    const ds = buildFromText([
+      "0 HEAD",
+      "1 GEDC",
+      "2 VERS 5.5.1",
+      "0 @I1@ INDI",
+      "1 NAME /Novak/ Janez",
+      "0 TRLR",
+      "",
+    ].join("\n"));
+    const indi = ds.individuals.get("@I1@")!;
+    setName(indi, { given: "Tone", surname: "Novak" });
+
+    expect(serializeGedcom(ds.records)).toContain("1 NAME Tone /Novak/");
+    expect(serializeGedcom(ds.records)).not.toContain("Janez");
+  });
+
   it("replaces a / typed into a name part with a space (slash-form delimiter)", () => {
     const ds = buildFromText(BASE);
     const indi = ds.individuals.get("@I1@")!;

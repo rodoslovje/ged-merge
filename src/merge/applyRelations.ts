@@ -10,7 +10,7 @@ import type { Dataset, GedNode } from "../gedcom/types";
 import { displayName } from "../match/relatives";
 import type { MatchResult } from "../match/types";
 import { defaultChoice, type FieldChoice, type FieldRow, type ImportDirection } from "../review/types";
-import { relativePersonSimilarity, RELATIVE_PAIR_THRESHOLD } from "../review/fields";
+import { pairedMainFamilies, relativePersonSimilarity, RELATIVE_PAIR_THRESHOLD } from "../review/fields";
 import { newSourceCitations } from "../gedcom/source";
 import type { ChangeReport } from "./merge";
 import type { Translate } from "../locales/i18n";
@@ -23,11 +23,14 @@ import {
   cloneNodeRemapped,
   collectCustomTags,
   combineEventEdits,
+  effectiveEventSubChoice,
   newNode,
+  reservedXrefs,
   stripForeignPointers,
   SUB_LABEL_KEY,
   SUB_TAG,
   type EventSubEdit,
+  type EventSubField,
   type SourXrefMap,
 } from "./applyFields";
 
@@ -45,6 +48,9 @@ export interface MergeContext {
   /** Resolve an incoming individual to a main id, adding it as a new record
    *  when it has no match. Returns undefined if it can't be resolved. */
   resolve: (incomingId: string) => string | undefined;
+  /** The main id an incoming individual already resolves to — a match, or a
+   *  new record an earlier decision created — without creating anything. */
+  resolved: (incomingId: string) => string | undefined;
   /** Import an incoming individual as a fresh main record, ignoring any match
    *  the engine suggested for it. Used where the user's explicit pick has to
    *  outrank a suggestion (see the taken-children path). */
@@ -96,6 +102,11 @@ export function makeContext(
 
   const used = new Set<string>();
   for (const r of records) if (r.xref) used.add(r.xref);
+  // Output xrefs promised to compare shared records (imported at the end by
+  // importSourRecords): a fresh INDI/FAM id must not squat on one, or the
+  // promised import would be skipped and its pointers would resolve to the
+  // squatter.
+  for (const outXref of reservedXrefs(sourXrefMap)) used.add(outXref);
   const counters = new Map<string, number>();
   const allocXref = (prefix = "I"): string => {
     let n = counters.get(prefix) ?? 1;
@@ -170,6 +181,7 @@ export function makeContext(
     famNode: (id) => famNodes.get(id),
     createFamily,
     resolve: (incomingId) => incToMain.get(incomingId) ?? addNewIndividual(incomingId),
+    resolved: (incomingId) => incToMain.get(incomingId) ?? addedFromIncoming.get(incomingId),
     importNew: addNewIndividual,
     pairedAsRelatives: (mainId, incomingId) => {
       const m = main.individuals.get(mainId);
@@ -346,6 +358,12 @@ export function applyIndividualFamilies(
   /** Incoming child ids the user opted to stitch in (see `CandidateDecision.takenChildren`). */
   takenChildIds: Set<string>,
 ): void {
+  // The main family each incoming family was paired with in the review — the
+  // pair whose rows the user actually judged. The merge writes into exactly
+  // that family: its own spouse-matching heuristics below are only a fallback
+  // for families the review left unpaired, so a marriage date reviewed against
+  // one family can never land in another.
+  const reviewPairs = pairedMainFamilies(mainIndi, incomingIndi, main, compare);
   for (const incFamId of incomingIndi.spouseOf) {
     // A family with both spouses confirmed as matches is visited once per
     // spouse; only stitch it in on the first visit, or append-style fields
@@ -359,9 +377,11 @@ export function applyIndividualFamilies(
     // Children this family contributes that the user opted to take.
     const famTakenChildren = new Set(incFam.children.filter((id) => takenChildIds.has(id)));
     const takeChildren = famTakenChildren.size > 0;
-    const marriageChoice = (sub: string): FieldChoice | undefined => {
+    const marriageChoice = (sub: EventSubField): FieldChoice | undefined => {
       const key = `${famKey}.MARR.${sub}`;
-      return wantsIncoming(rows, fields, key) ? fields[key] ?? "incoming" : undefined;
+      return wantsIncoming(rows, fields, key)
+        ? effectiveEventSubChoice(sub, fields[key] ?? "incoming")
+        : undefined;
     };
     const EVENT_SUBS = ["type", "value", "date", "place", "addr", "note", "agency", "cause", "sources"] as const;
     const wantFamEvent = EDITABLE_FAM_EVENT_TAGS.some((etag) =>
@@ -371,9 +391,13 @@ export function applyIndividualFamilies(
     ctx.processedFamIds.add(incFamId);
 
     const otherIncId = incFam.husband === incomingIndi.id ? incFam.wife : incFam.husband;
-    const otherMainId = otherIncId ? ctx.incToMain.get(otherIncId) : undefined;
+    // `resolved`, not `incToMain`: the spouse may be a new record another
+    // decision already imported, and their family must be found, not re-made.
+    const otherMainId = otherIncId ? ctx.resolved(otherIncId) : undefined;
 
-    let famNode = findMainSpouseFamily(mainIndi, main, mainId, otherMainId, ctx);
+    const reviewMainFamId = reviewPairs.get(incFamId);
+    let famNode = reviewMainFamId ? ctx.famNode(reviewMainFamId) : undefined;
+    famNode ??= findMainSpouseFamily(mainId, otherMainId, ctx, incomingIndi.spouseOf.length, mainIndi);
     if (!famNode) famNode = createPersonFamily(mainId, mainIndi.sex, ctx);
 
     applyFamilyStructure(famNode, incFam, ctx, { spouses: takeSpouses, takenChildren: famTakenChildren, explicitPicks: true });
@@ -413,7 +437,7 @@ export function applyIndividualFamilies(
       for (const sub of ["type", "value", "date", "place", "addr", "note", "agency", "cause"] as const) {
         const key = `${famKey}.${evTag}.${sub}`;
         if (!wantsIncoming(rows, fields, key)) continue;
-        const choice = fields[key] ?? "incoming";
+        const choice = effectiveEventSubChoice(sub, fields[key] ?? "incoming");
         const rowIncoming = rows.find((r) => r.key === key)?.incoming ?? "";
         let applied: boolean;
         if (sub === "value") {
@@ -476,19 +500,42 @@ export function applyIndividualFamilies(
   }
 }
 
-/** Find the main family pairing this person with the given (matched) spouse. */
+/**
+ * Find the main family pairing this person with the given (matched) spouse.
+ *
+ * Reads the *live* merged tree — the person's FAMS pointers on their cloned
+ * node and each family's current HUSB/WIFE — not the pre-merge dataset: a
+ * family created or stitched by an earlier decision in this same merge exists
+ * only there, and re-reading the original `spouseOf` would miss it and mint a
+ * duplicate family for the same couple (double FAMS/FAMC on everyone in it).
+ */
 function findMainSpouseFamily(
-  mainIndi: import("../gedcom/types").Individual,
-  main: Dataset,
   mainId: string,
   otherMainId: string | undefined,
   ctx: MergeContext,
+  /** How many families the *incoming* person belongs to — the lone-family
+   *  fallback below needs a single marriage on each side, or a person with
+   *  several incoming marriages would collapse them all into their first
+   *  main-side family. */
+  incomingFamCount: number,
+  /** Pre-merge fallback for the person's family list, when the live node is
+   *  somehow absent. */
+  fallbackIndi?: import("../gedcom/types").Individual,
 ): GedNode | undefined {
-  for (const famId of mainIndi.spouseOf) {
-    const fam = main.families.get(famId);
-    if (!fam) continue;
-    const other = fam.husband === mainId ? fam.wife : fam.husband;
-    if (otherMainId ? other === otherMainId : !other) return ctx.famNode(famId);
+  const node = ctx.indiNode(mainId);
+  const famIds = node
+    ? node.children.filter((c) => c.tag === "FAMS" && c.value).map((c) => c.value!)
+    : fallbackIndi?.spouseOf ?? [];
+  const otherSpouse = (famNode: GedNode): string | undefined => {
+    const husb = firstChild(famNode, "HUSB")?.value;
+    const wife = firstChild(famNode, "WIFE")?.value;
+    return husb === mainId ? wife : husb;
+  };
+  for (const famId of famIds) {
+    const famNode = ctx.famNode(famId);
+    if (!famNode) continue;
+    const other = otherSpouse(famNode);
+    if (otherMainId ? other === otherMainId : !other) return famNode;
   }
   // Single marriage on each side: pair the lone families even without a match id
   // — but not when the incoming partner is a *different* confirmed individual
@@ -496,12 +543,10 @@ function findMainSpouseFamily(
   // it gets its own new family instead of colliding with this one. (An unmatched
   // partner keeps collapsing here, so a missed match still surfaces as a
   // "different spouse" conflict rather than silently spawning a duplicate.)
-  if (mainIndi.spouseOf.length === 1) {
-    const fam = main.families.get(mainIndi.spouseOf[0]);
-    const other = fam && (fam.husband === mainId ? fam.wife : fam.husband);
-    if (!(otherMainId && other && other !== otherMainId)) {
-      return ctx.famNode(mainIndi.spouseOf[0]);
-    }
+  if (famIds.length === 1 && incomingFamCount === 1) {
+    const famNode = ctx.famNode(famIds[0]);
+    const other = famNode && otherSpouse(famNode);
+    if (famNode && !(otherMainId && other && other !== otherMainId)) return famNode;
   }
   return undefined;
 }
@@ -688,11 +733,13 @@ function importDescendants(
     const incFam = compare.families.get(incFamId);
     if (!incFam) continue;
     const otherIncId = incFam.husband === incId ? incFam.wife : incFam.husband;
-    const otherMainId = otherIncId ? ctx.incToMain.get(otherIncId) : undefined;
+    // `resolved`, not `incToMain`: a confirmed decision may already have
+    // imported this spouse as a new record and stitched a family around them —
+    // that family must be reused, or the graft would duplicate it (double
+    // FAMS/FAMC on the whole household).
+    const otherMainId = otherIncId ? ctx.resolved(otherIncId) : undefined;
 
-    let famNode = mainIndi
-      ? findMainSpouseFamily(mainIndi, main, mainId, otherMainId, ctx)
-      : undefined;
+    let famNode = findMainSpouseFamily(mainId, otherMainId, ctx, incIndi.spouseOf.length, mainIndi);
     if (!famNode) famNode = createPersonFamily(mainId, sex, ctx);
 
     // Bring the spouse and every child of this union; `applyFamilyStructure`

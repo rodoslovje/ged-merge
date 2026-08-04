@@ -1542,6 +1542,256 @@ describe("an edit made after the match was confirmed wins", () => {
   });
 });
 
+describe("mergeDecisions — name parts are independent choices", () => {
+  // Main-only NAME sub-structure (SOUR, NICK) and the inline suffix must
+  // survive a per-part take; the incoming surname must not ride along with a
+  // chosen given name.
+  const mainNamed = () => dataset(wrap(
+    "0 @I1@ INDI\n1 NAME Janez /Novak/ st.\n2 NICK Jani\n2 SOUR @S1@\n1 SEX M\n1 BIRT\n2 DATE 1850\n" +
+      "0 @S1@ SOUR\n1 TITL Krstna knjiga\n",
+  ));
+  const compareNamed = () => dataset(wrap(
+    "0 @P1@ INDI\n1 NAME Johann /Neumann/\n1 SEX M\n1 BIRT\n2 DATE 1850\n",
+  ));
+
+  it("takes the given name without smuggling in the incoming surname", () => {
+    const { records } = mergeDecisions(
+      mainNamed(), compareNamed(), confirmed({ given: "incoming", surname: "main", nickname: "main" }), NO_MATCHES, tr,
+    );
+    const out = serializeGedcom(records);
+    expect(out).toContain("1 NAME Johann /Novak/ st.");
+    expect(out).not.toContain("Neumann");
+    // The main's own NAME sub-structure is untouched by a part swap.
+    expect(out).toContain("2 NICK Jani");
+    expect(out).toContain("2 SOUR @S1@");
+  });
+
+  it("takes the surname alone, keeping the main's given name and suffix", () => {
+    const { records } = mergeDecisions(
+      mainNamed(), compareNamed(), confirmed({ given: "main", surname: "incoming", nickname: "main" }), NO_MATCHES, tr,
+    );
+    const out = serializeGedcom(records);
+    expect(out).toContain("1 NAME Janez /Neumann/ st.");
+    expect(out).not.toContain("Johann");
+  });
+
+  it("appends the incoming NAME once when both part rows choose \"both\"", () => {
+    const { records } = mergeDecisions(
+      mainNamed(), compareNamed(), confirmed({ given: "both", surname: "both", nickname: "main" }), NO_MATCHES, tr,
+    );
+    const out = serializeGedcom(records);
+    expect(out.match(/1 NAME /g)).toHaveLength(2);
+    expect(out).toContain("1 NAME Janez /Novak/ st.");
+    expect(out).toContain("1 NAME Johann /Neumann/");
+  });
+});
+
+describe("mergeDecisions — \"both\" on a single-cardinality field replaces", () => {
+  it("never writes a second DATE or SEX under one event/record", () => {
+    const main = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n"));
+    const compare = dataset(wrap("0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 2 FEB 1850\n"));
+    const { records } = mergeDecisions(main, compare, confirmed({ "BIRT.date": "both", sex: "both" }), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    // One DATE, holding the incoming value — not an invalid duplicate pair.
+    expect(out.match(/2 DATE /g)).toHaveLength(1);
+    expect(out).toContain("2 DATE 2 FEB 1850");
+    expect(out.match(/1 SEX /g)?.filter((_, i, a) => a.length && i < 2).length).toBeLessThanOrEqual(2);
+    // @I1@'s record carries exactly one SEX line.
+    const i1 = out.slice(out.indexOf("0 @I1@ INDI"), out.indexOf("0 @I2@"));
+    expect(i1.match(/1 SEX /g)).toHaveLength(1);
+  });
+
+  it("holds a replacing \"both\" to the edited-after-confirm gate", () => {
+    // The user chose "both" for the birth date, then edited that date in Edit
+    // mode. "Both" replaces here, so the later edit must win exactly as it
+    // does for "incoming".
+    const main = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1849\n"));
+    const compare = dataset(wrap("0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 2 FEB 1850\n"));
+    const decisions = new Map<string, CandidateDecision>();
+    decisions.set(decisionKey("individual", "@I1@", "@P1@"), {
+      status: "confirmed",
+      fields: { "BIRT.date": "both" },
+      // Snapshot taken at confirm time said the main's date was "1850" — the
+      // live main now reads "1849", i.e. edited since.
+      mainFields: { given: "Janez", surname: "Novak", sex: "sexM", "BIRT.date": "1850" },
+    });
+    const { records, report } = mergeDecisions(main, compare, decisions, NO_MATCHES, tr);
+    expect(serializeGedcom(records)).toContain("2 DATE 1849");
+    expect(report.deferred.some((d) => d.reason === "merge.reason.editedAfterConfirm")).toBe(true);
+  });
+});
+
+describe("mergeDecisions — one family for a couple, however it is reached", () => {
+  it("grafting descendants reuses the family a confirmed decision created", () => {
+    // A confirmed match takes the partner and child, creating a new family;
+    // the user also asks for the whole descendants branch. The graft must
+    // fill gaps in that same family, not mint a parallel one.
+    const main = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n"));
+    const compare = dataset(
+      wrap(
+        "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @G1@\n" +
+          "0 @P2@ INDI\n1 NAME Marija /Kos/\n1 SEX F\n1 FAMS @G1@\n" +
+          "0 @P3@ INDI\n1 NAME Tone /Novak/\n1 SEX M\n1 FAMC @G1@\n" +
+          "0 @G1@ FAM\n1 HUSB @P1@\n1 WIFE @P2@\n1 CHIL @P3@\n",
+      ),
+    );
+    const matches = { individuals: [{ mainId: "@I1@", compareId: "@P1@" }] } as never;
+    const decisions = new Map<string, CandidateDecision>();
+    decisions.set(decisionKey("individual", "@I1@", "@P1@"), {
+      status: "confirmed",
+      fields: { "fam.@G1@.partner": "incoming" },
+      takenChildren: ["@P3@"],
+    });
+    const { records, report } = mergeDecisions(main, compare, decisions, matches, tr, [
+      { incomingId: "@P1@", direction: "descendants" },
+    ]);
+    const out = serializeGedcom(records);
+    expect(report.newFamilies).toBe(1);
+    expect(out.match(/0 @F\d+@ FAM/g)).toHaveLength(1);
+    // No double FAMS/FAMC anywhere in the stitched household.
+    const anchorStart = out.indexOf("0 @I1@ INDI");
+    const anchor = out.slice(anchorStart, out.indexOf("\n0 @", anchorStart + 1));
+    expect(anchor.match(/1 FAMS /g)).toHaveLength(1);
+    expect(out.match(/1 FAMC /g)).toHaveLength(1);
+  });
+
+  it("a person with several incoming marriages gets a family per marriage", () => {
+    // The lone-family fallback needs a single marriage on each side — three
+    // incoming unions must not collapse into the first one created.
+    const main = dataset(wrap("0 @I1@ INDI\n1 NAME Lettice /Knollys/\n1 SEX F\n"));
+    const compare = dataset(
+      wrap(
+        "0 @P1@ INDI\n1 NAME Lettice /Knollys/\n1 SEX F\n1 FAMS @G1@\n1 FAMS @G2@\n" +
+          "0 @P2@ INDI\n1 NAME Walter /Devereux/\n1 SEX M\n1 FAMS @G1@\n" +
+          "0 @P3@ INDI\n1 NAME Robert /Dudley/\n1 SEX M\n1 FAMS @G2@\n" +
+          "0 @G1@ FAM\n1 HUSB @P2@\n1 WIFE @P1@\n" +
+          "0 @G2@ FAM\n1 HUSB @P3@\n1 WIFE @P1@\n",
+      ),
+    );
+    const matches = { individuals: [{ mainId: "@I1@", compareId: "@P1@" }] } as never;
+    const { records, report } = mergeDecisions(main, compare, new Map(), matches, tr, [
+      { incomingId: "@P1@", direction: "descendants" },
+    ]);
+    const out = serializeGedcom(records);
+    expect(report.newFamilies).toBe(2);
+    expect(out.match(/0 @F\d+@ FAM/g)).toHaveLength(2);
+    expect(report.deferred).toEqual([]);
+  });
+});
+
+describe("mergeDecisions — family choices from both spouses' cards", () => {
+  const mainCouple = () => dataset(
+    wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F1@\n" +
+        "0 @I2@ INDI\n1 NAME Marija /Novak/\n1 SEX F\n1 FAMS @F1@\n" +
+        "0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@\n1 MARR\n2 DATE 1880\n",
+    ),
+  );
+  const compareCouple = () => dataset(
+    wrap(
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @G1@\n" +
+        "0 @P2@ INDI\n1 NAME Marija /Novak/\n1 SEX F\n1 FAMS @G1@\n" +
+        "0 @G1@ FAM\n1 HUSB @P1@\n1 WIFE @P2@\n1 MARR\n2 DATE 2 FEB 1880\n2 PLAC Kranj\n",
+    ),
+  );
+  const coupleMatches = {
+    individuals: [
+      { mainId: "@I1@", compareId: "@P1@" },
+      { mainId: "@I2@", compareId: "@P2@" },
+    ],
+  } as never;
+
+  it("applies the second spouse's explicit choice though the first spouse's turn stitched the family", () => {
+    // The husband confirms with defaults (the incoming-only marriage place
+    // processes the family and marks it done); the wife's card carries the
+    // explicit date choice. Confirmation order must not decide whether it
+    // applies.
+    const decisions = new Map<string, CandidateDecision>();
+    decisions.set(decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {} });
+    decisions.set(decisionKey("individual", "@I2@", "@P2@"), {
+      status: "confirmed",
+      fields: { "fam.@G1@.MARR.date": "incoming" },
+    });
+    const { records } = mergeDecisions(mainCouple(), compareCouple(), decisions, coupleMatches, tr);
+    const out = serializeGedcom(records);
+    expect(out).toContain("2 DATE 2 FEB 1880");
+    expect(out).toContain("2 PLAC Kranj");
+    expect(out.match(/0 @F\d*1?@ FAM|0 @F1@ FAM/g)).toBeTruthy();
+    // Still stitched exactly once — no duplicate family, no doubled MARR.
+    expect(out.match(/1 MARR/g)).toHaveLength(1);
+  });
+});
+
+describe("mergeDecisions — marriage facts land in the family the review showed", () => {
+  it("writes into the review-paired family, not the first spouseless one", () => {
+    // Main: a spouseless family first in FAMS order, then the real one with
+    // the namesake wife. The incoming wife is unmatched, so the merge's own
+    // spouse lookup would fall through to the spouseless F1 — but the review
+    // paired G1 with F2 (spouse similarity), and that is where the user read
+    // the rows they judged.
+    const main = dataset(
+      wrap(
+        "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F1@\n1 FAMS @F2@\n" +
+          "0 @I2@ INDI\n1 NAME Marija /Kos/\n1 SEX F\n1 BIRT\n2 DATE 1858\n1 FAMS @F2@\n" +
+          "0 @F1@ FAM\n1 HUSB @I1@\n" +
+          "0 @F2@ FAM\n1 HUSB @I1@\n1 WIFE @I2@\n",
+      ),
+    );
+    const compare = dataset(
+      wrap(
+        "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @G1@\n" +
+          "0 @P2@ INDI\n1 NAME Marija /Kos/\n1 SEX F\n1 BIRT\n2 DATE 1858\n1 FAMS @G1@\n" +
+          "0 @G1@ FAM\n1 HUSB @P1@\n1 WIFE @P2@\n1 MARR\n2 DATE 1880\n",
+      ),
+    );
+    const matches = { individuals: [{ mainId: "@I1@", compareId: "@P1@" }] } as never;
+    const { records } = mergeDecisions(main, compare, confirmedAtKey("@I1@", "@P1@"), matches, tr);
+    const out = serializeGedcom(records);
+    const f1 = out.slice(out.indexOf("0 @F1@ FAM"), out.indexOf("0 @F2@ FAM"));
+    const f2 = out.slice(out.indexOf("0 @F2@ FAM"));
+    expect(f2).toContain("1 MARR");
+    expect(f2).toContain("2 DATE 1880");
+    expect(f1).not.toContain("1 MARR");
+  });
+});
+
+describe("merge xref allocation respects shared-record reservations", () => {
+  it("a minted link record never squats on an xref promised to a compare import", () => {
+    // Main stores links as OBJE records; @O1@ exists, so a new link would
+    // naturally mint @O2@ — but the compare's photo record already holds
+    // @O2@, promised to the import that runs after the decisions. The link
+    // must skip to @O3@ and the photo must arrive intact.
+    const main = dataset(
+      wrap(
+        "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n1 OBJE @O1@\n" +
+          "0 @O1@ OBJE\n1 FILE https://example.com/old\n",
+      ),
+    );
+    const compare = dataset(
+      wrap(
+        "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 SOUR @S9@\n1 WWW https://example.com/new\n" +
+          "0 @S9@ SOUR\n1 TITL Krstna knjiga\n1 OBJE @O2@\n" +
+          "0 @O2@ OBJE\n1 FILE photo.jpg\n",
+      ),
+    );
+    const { records } = mergeDecisions(main, compare, confirmed({ links: "both" }), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    // The imported source still reaches its photo record…
+    expect(out).toContain("0 @S9@ SOUR");
+    expect(out).toContain("1 OBJE @O2@");
+    expect(out).toContain("0 @O2@ OBJE\n1 FILE photo.jpg");
+    // …and the new link took the next free id instead.
+    expect(out).toContain("0 @O3@ OBJE\n1 FILE https://example.com/new");
+  });
+});
+
+/** A confirmed decision keyed to an explicit pair, with default fields. */
+function confirmedAtKey(mainId: string, compareId: string): Map<string, CandidateDecision> {
+  const m = new Map<string, CandidateDecision>();
+  m.set(decisionKey("individual", mainId, compareId), { status: "confirmed", fields: {} });
+  return m;
+}
+
 /** Naive line-level diff for asserting which lines were added/removed. */
 function lineDiff(before: string, after: string): { added: string[]; removed: string[] } {
   const b = new Map<string, number>();

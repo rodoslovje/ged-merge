@@ -17,7 +17,7 @@ import { buildDataset } from "./gedcom/builder";
 import { rebuildIndividual, rebuildFamily, removeIndividual, removeFamily, noteCtx, rebuildNoteReferrers, pruneUnreferencedSource, setSourceRecordFields, setRepoRecordFields, setMediaInfo, bumpSourceCacheVersion, type SharedNoteCtx } from "./gedcom/edit";
 import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "./gedcom/private";
 import { downloadOptions, ensureUtf8Charset, serializeGedcom, stampHeadSource } from "./gedcom/serialize";
-import { formatReport, INDI_HANDLED, type ImportBranchRequest } from "./merge/merge";
+import { formatReport, INDI_HANDLED, mergePlaceFormat, type ImportBranchRequest } from "./merge/merge";
 import { snapshotMainValues } from "./merge/applyFields";
 import { individualFieldRows } from "./review/fields";
 import { buildEditSaveRecords } from "./merge/editSaveRecords";
@@ -177,6 +177,10 @@ function AppContent() {
   // with the language that was active on first render.
   const tRef = useRef(t);
   tRef.current = t;
+  // Same for the Settings → GEDCOM overrides: the snapshot's rows must be built
+  // with the place format the merge itself will use (see stampMainRows).
+  const formatOverridesRef = useRef(settings.formatOverrides);
+  formatOverridesRef.current = settings.formatOverrides;
 
   /**
    * Stamp a decision being set to confirmed with the main side's current value
@@ -185,10 +189,11 @@ function AppContent() {
    * `CandidateDecision.mainFields`).
    *
    * The rows are built exactly as `mergeDecisions` builds them — same dataset
-   * pair, inferred place format, no ages — so the two sets of strings are
-   * comparable. Re-stamped on every update while confirmed, including a change
-   * to a single field choice: choosing again is a fresh decision about the
-   * value on screen at that moment.
+   * pair, same place format (`mergePlaceFormat`, the main's habit plus the
+   * Settings overrides), no ages — so the two sets of strings are comparable.
+   * Re-stamped on every update while confirmed, including a change to a single
+   * field choice: choosing again is a fresh decision about the value on screen
+   * at that moment.
    */
   function stampMainRows(next: CandidateDecision, mainId: string, compareId: string): CandidateDecision {
     if (next.status !== "confirmed") return next;
@@ -198,7 +203,8 @@ function AppContent() {
     const incoming = compareDs?.individuals.get(compareId);
     if (!mainDs || !compareDs || !mainIndi || !incoming) return next;
     const rejected = next.rejectedEvents?.length ? new Set(next.rejectedEvents) : undefined;
-    const rows = individualFieldRows(tRef.current, mainIndi, incoming, mainDs, compareDs, undefined, rejected);
+    const placeFmt = mergePlaceFormat(mainDs, formatOverridesRef.current);
+    const rows = individualFieldRows(tRef.current, mainIndi, incoming, mainDs, compareDs, placeFmt, rejected);
     return { ...next, mainFields: snapshotMainValues(rows, INDI_HANDLED) };
   }
 
