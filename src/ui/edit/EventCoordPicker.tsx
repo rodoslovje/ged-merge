@@ -115,6 +115,18 @@ export function EventCoordPicker({
   }, []);
   const [rn, setRn] = useState<Search<RnResult>>(IDLE);
   const [osm, setOsm] = useState<Search<NominatimResult>>(IDLE);
+  // A lookup's answers are about the place and address they were asked for, and
+  // both can change under an open panel — the bulk pin's prefix filter is typed
+  // right beside it, an address field is edited behind it. The old results then
+  // name somewhere else, so they are dropped rather than kept on show; the
+  // generation also voids any lookup still in flight, or its late answer would
+  // repopulate the list just cleared.
+  const lookupGen = useRef(0);
+  useEffect(() => {
+    lookupGen.current++;
+    setRn(IDLE);
+    setOsm(IDLE);
+  }, [place, address]);
   const [draft, setDraft] = useState("");
   /** Where the panel is pinned in the viewport. It is positioned fixed and
    *  clamped to the window: the events table scrolls sideways and clips, so an
@@ -214,14 +226,17 @@ export function EventCoordPicker({
 
   const runRegister = () => {
     if (!queries.length) return;
+    const gen = lookupGen.current;
     setRn({ state: "loading", results: [] });
     onRegisterSearch?.({ state: "loading", results: [] });
     searchAddresses(queries).then(
       (results) => {
+        if (gen !== lookupGen.current) return;
         setRn({ state: "done", results });
         onRegisterSearch?.({ state: "done", results });
       },
       () => {
+        if (gen !== lookupGen.current) return;
         setRn({ state: "error", results: [] });
         onRegisterSearch?.({ state: "error", results: [] });
       },
@@ -232,11 +247,12 @@ export function EventCoordPicker({
     // Address first, then the place, which is how Nominatim reads best.
     const text = [address, place].map((s) => s.trim()).filter(Boolean).join(", ");
     if (!text) return;
+    const gen = lookupGen.current;
     setOsm({ state: "loading", results: [] });
     // In the language the place is written in — see placeLookupLanguage.
     searchNominatim(text, placeLookupLanguage(place || address, i18n.language)).then(
-      (results) => setOsm({ state: "done", results }),
-      () => setOsm({ state: "error", results: [] }),
+      (results) => gen === lookupGen.current && setOsm({ state: "done", results }),
+      () => gen === lookupGen.current && setOsm({ state: "error", results: [] }),
     );
   };
 
