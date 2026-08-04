@@ -221,7 +221,11 @@ export function ComparePanel({
             // Children instead get a per-child take/skip toggle (`renderPair`).
             return (
               <tr key={row.key} className={`field ${row.state}`}>
-                <td className="f-label">{row.displayLabel ?? row.label}</td>
+                {/* An address row is pinned, so "Kidričeva cesta 38" beside the
+                    event's place reads as the house it is. */}
+                <td className={"f-label" + (row.key.endsWith(".addr") ? " gm-addr" : "")}>
+                  {row.displayLabel ?? row.label}
+                </td>
                 {row.relatives ? (
                   <td className="f-rel" colSpan={3}>
                     <RelativeGrid

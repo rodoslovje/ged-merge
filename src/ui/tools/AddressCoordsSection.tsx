@@ -798,7 +798,7 @@ export function AddressCoordsSection({
                               onChange={() => (moveGroup === group.place ? toggleMoveRow : toggleCoordRow)(row.key)}
                             />
                           )}
-                          <span className="tools-geo-cand-name">{row.address}</span>
+                          <span className="tools-geo-cand-name gm-addr">{row.address}</span>
                           {renameKey === row.key ? (
                             <button
                               className="tools-place-edit-btn tools-place-edit-cancel"
@@ -878,6 +878,21 @@ export function AddressCoordsSection({
                             }
                             onClear={() => unpick(row.key)}
                           />
+                          {/* What the pin now holds, beside it: the address of the
+                              position taken — the register's own line, "from this
+                              file", "manual". A staged row otherwise showed only a
+                              filled pin, leaving the whole village's approximate
+                              position readable only one tooltip at a time. */}
+                          {chosen && (
+                            <span
+                              // No pin of its own: it sits against the picker's
+                              // pin, which is the mark this text belongs to.
+                              className="tools-geo-picked"
+                              title={`${chosen.coord.lat.toFixed(5)}, ${chosen.coord.lon.toFixed(5)}`}
+                            >
+                              {chosen.label}
+                            </span>
+                          )}
                         </div>
                         {renameKey === row.key && (
                           <div
@@ -953,7 +968,7 @@ export function AddressCoordsSection({
                                     onChange={() => pick(row.key, r)}
                                     onClick={() => sameCoord(chosen?.coord, r.coord) && unpick(row.key)}
                                   />
-                                  <span className="tools-geo-cand-name">{r.label}</span>
+                                  <span className="tools-geo-cand-name gm-addr">{r.label}</span>
                                   {/* The coordinate doubles as "show on the
                                       place's map", like the places rows —
                                       the house appears among its neighbours. */}
@@ -1056,7 +1071,7 @@ function BulkCoordPanel({
           register lost. The ticks stay visible below, so what a prefix caught
           is read off the list rather than trusted. */}
       <span className="tools-geo-addr-chip" title={t("tools.geocode.addr.bulkPrefixHint")}>
-        {t("tools.geocode.addr.bulkPrefixLabel")}:
+        <span className="gm-addr">{t("tools.geocode.addr.bulkPrefixLabel")}:</span>
         <input
           type="text"
           className="tools-geo-addr-chip-input"

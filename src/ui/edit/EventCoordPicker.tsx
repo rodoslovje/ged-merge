@@ -208,6 +208,9 @@ export function EventCoordPicker({
     fromFile.push({ coord: fileCoord, label: t("event.coord.fromFile.place") });
   }
 
+  // `label` says where the coordinate came from, and the lists that stage a
+  // pick print it — so it must stay a short name of the source ("manual", the
+  // register's address line), never a field's help text.
   const take = (c: GeoCoord, label: string) => {
     onPick(c, label);
     // The same house serves every event at this place and address, so the
@@ -322,7 +325,7 @@ export function EventCoordPicker({
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && draftCoord) {
                     e.preventDefault();
-                    take(draftCoord, t("event.coord.manual"));
+                    take(draftCoord, t("tools.geocode.manual"));
                   }
                 }}
               />
@@ -330,7 +333,7 @@ export function EventCoordPicker({
                 type="button"
                 className="tools-issue-link"
                 disabled={!draftCoord}
-                onClick={() => draftCoord && take(draftCoord, t("event.coord.manual"))}
+                onClick={() => draftCoord && take(draftCoord, t("tools.geocode.manual"))}
               >
                 {t("event.coord.set")}
               </button>

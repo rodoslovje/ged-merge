@@ -81,7 +81,9 @@ export function ReadOnlyCompare({
           const hasSources = !!(row.mainSources || row.incomingSources || row.mainLinkIcons || row.incomingLinkIcons);
           return (
             <tr key={row.key} className={`field ${row.state}`}>
-              <td className="f-label">{row.displayLabel ?? row.label}</td>
+              <td className={"f-label" + (row.key.endsWith(".addr") ? " gm-addr" : "")}>
+                {row.displayLabel ?? row.label}
+              </td>
               {row.relatives ? (
                 <td className="f-rel" colSpan={valueCols}>
                   <RelativeGrid

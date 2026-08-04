@@ -3153,6 +3153,9 @@ button:focus-visible {
 .edit-event:hover .edit-event-extra-label,
 .edit-event:has(:focus-visible) .edit-event-extra-label { display: inline; }
 .edit-event-extra-field { min-width: 0; }
+/* The address field's standing mark (see the label rule above: names are shown
+   only on hover, and an address needs telling apart from the place beside it). */
+.edit-event-addr-pin { flex: none; display: inline-flex; align-items: center; color: var(--faint); }
 .edit-event-extra--sources { gap: 4px; flex-wrap: wrap; }
 /* The note is content-sized like the other fields (it wraps its text within
  * that width); when long it pushes the whole body to a second row. */
@@ -8401,6 +8404,17 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 .tools-geo-cand-name { font-weight: 500; }
 .tools-geo-manual { display: flex; align-items: center; gap: 8px; }
 .tools-geo-online-note { color: var(--muted); font-size: 0.8rem; }
+/* The position a row is staged at, printed beside its pin. Accent-coloured
+   like the other "this will be written" marks, and truncated rather than
+   wrapped: a register line can be longer than the address it answers. */
+.tools-geo-picked {
+  color: var(--status-new);
+  font-size: 0.8rem;
+  max-width: 22em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 /* Type-scoped: the row also holds the option's radio, which must keep its
    native size so it lines up under the candidate radios above. */
 .tools-geo-manual input[type="text"] {

@@ -152,6 +152,11 @@ test("one coordinate can be given to a whole place's addresses at once", async (
   await expect(take).toBeEnabled();
   await take.click();
 
+  // Each row now says where its pin points, so a village staged in one go can
+  // be read off the list instead of one tooltip at a time.
+  await expect(group.locator(".tools-geo-picked")).toHaveCount(2);
+  await expect(group.locator(".tools-geo-picked").first()).toHaveText(/manual/i);
+
   // Staged for both houses, then written in one step.
   const write = page.getByRole("button", { name: /Write address coordinates \(2\)/ });
   await expect(write).toBeEnabled();

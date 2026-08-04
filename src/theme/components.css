@@ -25,6 +25,32 @@
    so a field doesn't change typeface when you switch from Compare to Edit. */
 .edit-input                 { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 
+/* ---------------- House addresses ---------------- */
+/* A pin before the value, wherever an address is shown: on its own "Stražišče
+   11" or "Kidričeva cesta 38" reads as just another name, and the app puts it
+   beside places, parishes and farm names it is not. Drawn as a mask filled with
+   currentColor (the PinIcon path), so it takes the colour of whatever text it
+   marks and needs no per-theme rule. The classes listed alongside .gm-addr are
+   address-only already, so every list, dropdown and map tooltip using them is
+   marked without touching its markup. */
+.gm-addr::before,
+.tools-geo-row-addr::before,
+.place-suggestion-addr::before {
+  content: "";
+  display: inline-block;
+  width: 0.8em;
+  height: 0.8em;
+  margin-right: 0.22em;
+  vertical-align: -0.06em;
+  background: currentColor;
+  opacity: 0.7;
+  -webkit-mask: var(--pin-mask) center / contain no-repeat;
+  mask: var(--pin-mask) center / contain no-repeat;
+}
+/* The separator these two already print sits before the pin — " · 📍 addr". */
+.tools-geo-row-addr::before,
+.place-suggestion-addr::before { margin-left: 0.1em; }
+
 /* ---------------- Match list: N / D / link counts ---------------- */
 .nd.new   { color: var(--state-match); }
 .nd.diff  { color: var(--state-minor); }

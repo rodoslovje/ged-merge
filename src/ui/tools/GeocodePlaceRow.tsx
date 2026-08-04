@@ -422,7 +422,7 @@ export function GeocodePlaceRow({
             lookupNote={lookup && !lookup.online ? t("event.place.lookup.offlineOnly") : undefined}
           />
           <span className="tools-geo-addr-chip" title={t("tools.geocode.renameAddrTooltip")}>
-            {t("event.colAddr")}:
+            <span className="gm-addr">{t("event.colAddr")}:</span>
             <input
               type="text"
               className="tools-geo-addr-chip-input"
@@ -649,7 +649,9 @@ export function GeocodePlaceRow({
                     onClick={() => sameCoord(c?.coord, r.coord) && onUnpickCoord(row)}
                     onChange={() => onPickCoord(row, r.coord, r.address)}
                   />
-                  <span className="tools-geo-cand-name">{r.label}</span>
+                  {/* A register hit is a house, not a place — pinned, so it is
+                      not read as another spelling of the settlement above. */}
+                  <span className="tools-geo-cand-name gm-addr">{r.label}</span>
                   <span className="gm-data">
                     {r.coord.lat.toFixed(4)}, {r.coord.lon.toFixed(4)}
                   </span>

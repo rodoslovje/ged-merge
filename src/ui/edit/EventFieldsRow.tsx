@@ -16,6 +16,7 @@ import { useField } from "./useField";
 import { SECONDARY_VALUE_EVENT_TAGS, VALUE_EVENT_TAGS } from "./editConstants";
 import { placeAddrCoordKey, placeCombosOf, placeKey } from "./placeSuggestions";
 import { openPickerOnEnter } from "./openPicker";
+import { PinIcon } from "../icons/PinIcon";
 import type { SourceDialogTarget } from "./types";
 
 /** Sentinel `<option>` values for the action entries at the end of the
@@ -521,6 +522,14 @@ export function EventFieldsRow({
     return (
       <span key={key} data-detail={key} className={"edit-event-extra" + optCls(shown)}>
         <span className="edit-event-extra-label">{labelText}</span>
+        {/* The extras' labels are hidden at rest, so an address would sit beside
+            the place looking like one more name for it. The pin is the field's
+            standing mark: this value is a house on the ground. */}
+        {key === "addr" && (
+          <span className="edit-event-addr-pin" title={labelText} aria-hidden="true">
+            <PinIcon size={11} />
+          </span>
+        )}
         <PlaceAutocomplete
           value={field.value}
           suggestions={suggestions}
