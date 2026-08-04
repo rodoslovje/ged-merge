@@ -51,11 +51,15 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
   if (req.type === "setStart") {
     startId = req.id || undefined; // empty id clears the start person
     if (lastResult && mainDataset) {
-      post({ type: "matching" });
-      lastResult = startId
-        ? applyDistanceRanking(lastResult, mainDataset, startId)
-        : clearDistanceRanking(lastResult);
-      post({ type: "matched", result: lastResult });
+      try {
+        post({ type: "matching" });
+        lastResult = startId
+          ? applyDistanceRanking(lastResult, mainDataset, startId)
+          : clearDistanceRanking(lastResult);
+        post({ type: "matched", result: lastResult });
+      } catch (err) {
+        post({ type: "matchFailed", message: errorMessage(err) });
+      }
     }
     return;
   }
@@ -76,15 +80,16 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
       compareCsvPairs = pairs;
       compareRaw = { fileName: req.fileName, dataset };
       emitCompare(req.fileName, dataset);
-      maybeMatch();
     } catch (err) {
       post({
         type: "error",
         role: "compare",
         fileName: req.fileName,
-        message: err instanceof Error ? err.message : String(err),
+        message: errorMessage(err),
       });
+      return;
     }
+    tryMatch();
     return;
   }
   if (req.type !== "parse") return;
@@ -128,17 +133,35 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
       compareCsvPairs = undefined;
       emitCompare(req.fileName, dataset);
     }
-
-    maybeMatch();
   } catch (err) {
     post({
       type: "error",
       role: req.role,
       fileName: req.fileName,
-      message: err instanceof Error ? err.message : String(err),
+      message: errorMessage(err),
     });
+    return;
   }
+  // Outside the parse try/catch on purpose: by now `parsed` has been posted
+  // and the slot is genuinely loaded, so a throw in the match pipeline must
+  // not be reported as a parse error — that would flip a healthy slot to
+  // error, evict its cached file, and leave the matching spinner up forever.
+  tryMatch();
 };
+
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+/** Run {@link maybeMatch}, converting a match-pipeline throw into a
+ *  `matchFailed` message instead of letting it fall out of the handler. */
+function tryMatch(): void {
+  try {
+    maybeMatch();
+  } catch (err) {
+    post({ type: "matchFailed", message: errorMessage(err) });
+  }
+}
 
 /** Decode an ArrayBuffer as UTF-8 text, stripping a leading BOM if present. */
 function decodeCsv(buffer: ArrayBuffer): string {

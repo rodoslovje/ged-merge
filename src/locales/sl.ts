@@ -2106,6 +2106,8 @@ export const sl = {
   "save.preview.download": "Prenesi GEDCOM",
   "save.preview.removeChange": "Odstrani iz shranjevanja",
   "save.toast": "Shranjeno — prenesenih datotek: {{count}}.",
+  "match.failed": "Iskanje ujemanj ni uspelo: {{message}}",
+  "persist.writeFailed": "Predpomnilnika delovnega okolja ni bilo mogoče shraniti — obnovitev ob ponovnem nalaganju morda ne bo delovala, dokler se prostor ne sprosti.",
   "edit.charts.button": "Diagrami",
   "edit.charts.tooltip": "Diagrami za trenutno osebo — drevo, pahljača, sorodstvo … (V)",
   "charts.header.tooltip": "Diagrami — rodoslovno drevo, pahljača, sorodstvo in časovnica",

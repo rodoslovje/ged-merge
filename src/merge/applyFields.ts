@@ -3,6 +3,7 @@ import {
   addObjeToSource,
   attachSourceCitation,
   bumpSourceCacheVersion,
+  EDITABLE_LINK_TAGS,
   EVENT_CHILD_ORDER,
   EVENT_LINK_TAG,
   INDI_CHILD_ORDER,
@@ -722,8 +723,9 @@ export function applyRecordSources(
   return true;
 }
 
-/** Tags an event's own attached link can use (besides a `SOUR` citation). */
-const EVENT_LINK_TAGS = new Set(["WWW", "URL", "_URL", "_LINK", "_WEBTAG"]);
+/** Tags an event's own attached link can use (besides a `SOUR` citation) —
+ *  the edit layer's shared list, so review, edit and merge agree. */
+const EVENT_LINK_TAGS = new Set<string>(EDITABLE_LINK_TAGS);
 
 /** An event's own plain links — everything `linksNotCitedAsSource` (review/fields.ts) excludes is already a `SOUR` citation, so this mirrors that by simply reading the raw tags. */
 function eventLinkUrls(event: GedNode | undefined): string[] {

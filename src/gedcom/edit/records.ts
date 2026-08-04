@@ -1,9 +1,9 @@
 import type { Dataset, Family, Individual, NoteRef } from "../types";
-import { FAM_CHILD_ORDER, INDI_CHILD_ORDER, insertGrouped, insertOrdered } from "./shared";
+import { EDITABLE_LINK_TAGS, FAM_CHILD_ORDER, INDI_CHILD_ORDER, insertGrouped, insertOrdered } from "./shared";
 import { applyNoteRefs, type SharedNoteCtx } from "./notes";
 
 /** Tags used for record-level links (top-level on INDI/FAM records). */
-const RECORD_LINK_TAGS = ["WWW", "URL", "_URL", "_WEBTAG"];
+const RECORD_LINK_TAGS: readonly string[] = EDITABLE_LINK_TAGS;
 
 /** Tags carrying a FamilySearch person id (MacFamilyTree / RootsMagic dialects). */
 const FSID_TAGS = ["_FID", "_FSFTID"];

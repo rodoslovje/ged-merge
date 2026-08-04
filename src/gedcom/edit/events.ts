@@ -4,7 +4,7 @@ import { isPointer } from "../uri";
 import type { Family, GedNode, GeoCoord, Individual } from "../types";
 import { reconcilePlaceForm, setPlaceCoord } from "./geo";
 import {
-  EVENT_CHILD_ORDER, EVENT_LINK_TAG, FAM_CHILD_ORDER, INDI_CHILD_ORDER,
+  EDITABLE_LINK_TAGS, EVENT_CHILD_ORDER, EVENT_LINK_TAG, FAM_CHILD_ORDER, INDI_CHILD_ORDER,
   insertOrdered, markEventTouched, setOrRemoveValue,
 } from "./shared";
 import { removeNoteRecordIfOrphaned, setSharedNoteText, type SharedNoteCtx } from "./notes";
@@ -53,7 +53,10 @@ export interface EventFieldUpdate {
 }
 
 function setLinks(event: GedNode, links: string[]): void {
-  removeChildren(event, EVENT_LINK_TAG);
+  // Remove every link-bearing tag, not only the WWW we write: an event-level
+  // URL/_URL/_LINK/_WEBTAG shows as a link, so "remove" must really remove it
+  // (and replacing must not leave the original beside the new WWW copy).
+  removeChildren(event, EDITABLE_LINK_TAGS);
   for (const link of links) {
     const trimmed = link.trim();
     if (!trimmed) continue;

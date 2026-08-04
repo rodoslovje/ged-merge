@@ -973,6 +973,48 @@ describe("setIndividualLinks", () => {
     expect(updated.links ?? []).toHaveLength(0);
     expect(serializeGedcom(ds.records)).not.toContain("WWW");
   });
+
+  it("really removes a link stored under a vendor tag (_LINK)", () => {
+    // The editors used to each keep their own link-tag subset: a `_LINK`
+    // showed as a link but survived "remove", and committing then wrote a
+    // duplicate WWW beside the original — which resurrected on the next open.
+    const ds = buildFromText([
+      "0 HEAD",
+      "1 GEDC",
+      "2 VERS 5.5.1",
+      "0 @I1@ INDI",
+      "1 NAME Janez /Novak/",
+      "1 _LINK https://example.com/vendor",
+      "0 TRLR",
+      "",
+    ].join("\n"));
+    const indi = ds.individuals.get("@I1@")!;
+    expect(indi.links).toEqual(["https://example.com/vendor"]);
+    setIndividualLinks(indi, []);
+    const updated = rebuildIndividual(ds, indi);
+    expect(updated.links ?? []).toHaveLength(0);
+    expect(serializeGedcom(ds.records)).not.toContain("_LINK");
+  });
+
+  it("replacing an event's vendor-tag link doesn't leave the original beside the copy", () => {
+    const ds = buildFromText([
+      "0 HEAD",
+      "1 GEDC",
+      "2 VERS 5.5.1",
+      "0 @I1@ INDI",
+      "1 NAME Janez /Novak/",
+      "1 DEAT",
+      "2 DATE 1920",
+      "2 URL https://example.com/old",
+      "0 TRLR",
+      "",
+    ].join("\n"));
+    const indi = ds.individuals.get("@I1@")!;
+    setEventField(indi, "DEAT", { links: ["https://example.com/new"] });
+    const updated = rebuildIndividual(ds, indi);
+    expect(updated.events.find((e) => e.tag === "DEAT")?.links).toEqual(["https://example.com/new"]);
+    expect(serializeGedcom(ds.records)).not.toContain("https://example.com/old");
+  });
 });
 
 // ─── setFsIds ─────────────────────────────────────────────────────────────────

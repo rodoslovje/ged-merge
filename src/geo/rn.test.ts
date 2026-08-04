@@ -5,6 +5,7 @@ import {
   parseHouseNumbers,
   requireParentMunicipality,
   searchAddress,
+  searchAddressBatch,
   resultsForQuery,
   rnFeaturesToResults,
   rnQueriesFrom,
@@ -308,6 +309,46 @@ describe("municipality scoping", () => {
     expect(rnQueriesFrom("Kranj,Kranj,Slovenia", "Klanec 2")).toEqual([
       { settlement: "Kranj", street: "Klanec", number: 2, altSettlements: ["Kranj"], parents: ["Kranj"] },
     ]);
+  });
+});
+
+describe("searchAddressBatch", () => {
+  const hafnarjevaKranj = {
+    properties: {
+      OBCINA_NAZIV: "Kranj",
+      NASELJE_NAZIV: "Kranj",
+      ULICA_NAZIV: "Hafnarjeva pot",
+      HS_STEVILKA: 21,
+      POSTNI_OKOLIS_SIFRA: 4000,
+      POSTNI_OKOLIS_NAZIV: "Kranj",
+      E: 449693,
+      N: 121366,
+    },
+  };
+  const fetchMock = vi.fn(async (url: string | URL) => {
+    const filter = decodeURIComponent(String(url));
+    // The street is filed under naselje Kranj, not Stražišče — the documented
+    // register misfiling the alternate-settlement rung exists for.
+    const features =
+      filter.includes("NASELJE_NAZIV='Kranj'") && filter.includes("HS_STEVILKA IN (21)") ? [hafnarjevaKranj] : [];
+    return { ok: true, json: async () => ({ features }) } as unknown as Response;
+  });
+  beforeEach(() => {
+    fetchMock.mockClear();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("walks the alternate settlements the per-address ladder walks", async () => {
+    // "Search all N" must find what the row's own lookup finds: the file says
+    // Stražišče, the register files Hafnarjeva pot under Kranj.
+    const queries = [
+      { settlement: "Stražišče", street: "Hafnarjeva pot", number: 21, altSettlements: ["Kranj"] },
+    ];
+    const pool = await searchAddressBatch(queries);
+    const hits = resultsForQuery(queries, pool);
+    expect(hits.map((h) => h.settlement)).toEqual(["Kranj"]);
+    expect(hits[0].address).toBe("Hafnarjeva pot 21");
   });
 });
 
