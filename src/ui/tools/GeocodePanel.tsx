@@ -424,6 +424,27 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
     // honest "records changed", not the sum. The edit-version effect above
     // handles the rescan.
     setLastApplied(Math.max(renamed, placed));
+    // A plain respelling keeps the row's staged work — the pick is about the
+    // place, not its spelling (the address rows' rename makes the same call).
+    // Where the rename merges into a row with its own staged pick, that one
+    // stands. A register pick has no work to carry: it resolves the row here,
+    // and an addr split re-keys the events past any place row.
+    if (renamed && !coord && !addr) {
+      setChosen((prev) => {
+        const carried = prev.get(from);
+        const next = new Map(prev);
+        next.delete(from);
+        if (carried && !next.has(to)) next.set(to, carried);
+        return next;
+      });
+      setChecked((prev) => {
+        if (!prev.has(from)) return prev;
+        const next = new Set(prev);
+        next.delete(from);
+        next.add(to);
+        return next;
+      });
+    }
   };
 
   const toggleNoMatch = (key: string) => {
@@ -468,6 +489,14 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
       }
     }
     const changed = assignments.size ? onApplyGeocode(assignments) : 0;
+    // A written row is finished work and must leave the staged sets: now that
+    // placed rows with staged work stay on the worklist, a tick left behind
+    // would keep the row listed — and the next Write would write it again,
+    // this time overwriting.
+    if (assignments.size) {
+      setChecked((prev) => new Set([...prev].filter((k) => !assignments.has(k))));
+      setChosen((prev) => new Map([...prev].filter(([k]) => !assignments.has(k))));
+    }
     setLastApplied(changed);
     // Decisions reload re-keys the scan memo; dataset changes (when anything
     // was written) rescan via the edit-version effect.

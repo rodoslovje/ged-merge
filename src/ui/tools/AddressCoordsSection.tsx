@@ -283,6 +283,28 @@ export function AddressCoordsSection({
    *  rather than numbered, an address outside Slovenia. */
   const [osmSearches, setOsmSearches] = useState<Map<string, OsmState>>(new Map());
   const [picked, setPicked] = useState<Map<string, { coord: GeoCoord; label: string }>>(new Map());
+  // A rescan can re-key rows from outside this section — a place renamed on
+  // the Places tab, an edit made in Edit mode — leaving staged work under keys
+  // no row carries any more. Drop exactly those entries, or the Write button
+  // counts picks it cannot write. Keyed on the rescan (not on the staged maps),
+  // so work this section re-keys itself — applyRename carries a pick to the
+  // new spelling before the rescan lands — is never caught mid-flight.
+  useEffect(() => {
+    const dropGone = <V,>(prev: Map<string, V>) => {
+      let changed = false;
+      const next = new Map(prev);
+      for (const key of next.keys()) {
+        if (!byKey.has(key)) {
+          next.delete(key);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    };
+    setPicked(dropGone);
+    setSearches(dropGone);
+    setOsmSearches(dropGone);
+  }, [byKey]);
   // Whether already-placed addresses are on the list at all. Off by default:
   // the list is a worklist, and a placed row is finished work — it comes back
   // on request, for checking a position or sharpening a rough one.
@@ -560,11 +582,19 @@ export function AddressCoordsSection({
     for (const key of moveSel) for (const raw of byKey.get(key)?.rawKeys ?? []) keys.add(raw);
     const changed = onMove(keys, moveTarget, pick);
     closeMove();
-    // The moved rows are keyed by their old place, so every pick and lookup
-    // against them is stale — and the destination is worth looking up afresh.
-    setPicked(new Map());
-    setSearches(new Map());
-    setOsmSearches(new Map());
+    // The moved rows are keyed by their old place, so their picks and lookups
+    // are stale — and their destination rows, under new keys, start unasked,
+    // which is worth a fresh look. Every other row keeps its key across the
+    // rescan, so what is staged there stands: accepting one move must not
+    // throw away the rest of the worklist.
+    const dropMoved = <V,>(prev: Map<string, V>) => {
+      const next = new Map(prev);
+      for (const key of moveSel) next.delete(key);
+      return next;
+    };
+    setPicked(dropMoved);
+    setSearches(dropMoved);
+    setOsmSearches(dropMoved);
     setMoved(changed);
   };
 
@@ -749,9 +779,17 @@ export function AddressCoordsSection({
       for (const raw of byKey.get(key)?.rawKeys ?? []) assignments.set(raw, v.coord);
     }
     const changed = onApply(assignments);
+    // The written rows are done and leave the worklist; the answers held by
+    // the rows still waiting were to questions the write did not change, so
+    // they stand — writing one wave must not cost the next its lookups.
+    const dropWritten = <V,>(prev: Map<string, V>) => {
+      const next = new Map(prev);
+      for (const key of picked.keys()) next.delete(key);
+      return next;
+    };
+    setSearches(dropWritten);
+    setOsmSearches(dropWritten);
     setPicked(new Map());
-    setSearches(new Map());
-    setOsmSearches(new Map());
     setApplied(changed);
   };
 

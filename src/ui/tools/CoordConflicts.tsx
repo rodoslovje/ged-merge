@@ -102,10 +102,16 @@ export function CoordConflicts({
   const apply = () => {
     if (!picked.size) return;
     const changed = onApply(new Map(picked));
+    // Only the settled rows are done: a "lat, lon" being typed on another row,
+    // and the rows still open for review, are the next wave's work and stay.
+    setManual((prev) => {
+      const next = new Map(prev);
+      for (const key of picked.keys()) next.delete(key);
+      return next;
+    });
+    setOpen((prev) => new Set([...prev].filter((k) => !picked.has(k))));
+    setMapOpen((prev) => (prev && picked.has(prev) ? null : prev));
     setPicked(new Map());
-    setManual(new Map());
-    setOpen(new Set());
-    setMapOpen(null);
     setApplied(changed);
   };
 
