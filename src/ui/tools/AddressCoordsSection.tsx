@@ -821,15 +821,13 @@ export function AddressCoordsSection({
                               onChange={() => (moveGroup === group.place ? toggleMoveRow : toggleCoordRow)(row.key)}
                             />
                           )}
-                          {/* Green once this house has a position — the one it
-                              is staged at, or the one its events already carry
-                              — muted while it has none, exactly as the Edit
-                              view's pin reads. */}
-                          <span
-                            className={`tools-geo-cand-name gm-addr${chosen || row.placed ? " gm-addr--set" : ""}`}
-                          >
-                            {row.address}
-                          </span>
+                          {/* No pin before the address here: the row's own
+                              coordinate control draws one two words later, and
+                              two pins side by side read as one smudged glyph.
+                              Whether this house is placed is said outright by
+                              the position and "(placed)" further along the
+                              line. */}
+                          <span className="tools-geo-cand-name">{row.address}</span>
                           {renameKey === row.key ? (
                             <button
                               className="tools-place-edit-btn tools-place-edit-cancel"
