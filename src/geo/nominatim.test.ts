@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseNominatimResponse } from "./nominatim";
+import { osmKindLabel, osmNamesPlace, parseNominatimResponse } from "./nominatim";
 
 describe("parseNominatimResponse", () => {
   it("maps jsonv2 rows to coordinates with short and full labels", () => {
@@ -66,5 +66,88 @@ describe("parseNominatimResponse", () => {
     ).toEqual([]);
     expect(parseNominatimResponse({ error: "Unable to geocode" })).toEqual([]);
     expect(parseNominatimResponse(undefined)).toEqual([]);
+  });
+});
+
+describe("osmKindLabel", () => {
+  // The case this exists for: OpenStreetMap answers "Huje, Kranj" with the
+  // suburb, the street named after it and a service road off that street —
+  // three rows whose display lines are word for word identical.
+  const raw = [
+    { lat: "46.2424", lon: "14.3614", name: "Huje", display_name: "Huje, Kranj, 4000, Slovenija", category: "place", type: "suburb" },
+    { lat: "46.2408", lon: "14.3591", name: "Huje", display_name: "Huje, Kranj, 4000, Slovenija", category: "highway", type: "residential" },
+    { lat: "46.2423", lon: "14.3597", name: "Huje", display_name: "Huje, Kranj, 4000, Slovenija", category: "highway", type: "service" },
+  ];
+  // Stands in for i18next: the keys these entries would resolve, nothing else.
+  const strings: Record<string, string> = {
+    "osm.kind.suburb": "suburb",
+    "osm.kind.highway.residential": "residential street",
+    "osm.kind.highway.service": "service road",
+  };
+  const t = (key: string, opts?: Record<string, unknown>) =>
+    strings[key] ?? (opts?.defaultValue as string) ?? key;
+
+  it("names what each hit is, so identical display lines are told apart", () => {
+    const results = parseNominatimResponse(raw);
+    expect(results.map((r) => osmKindLabel(r, t))).toEqual(["suburb", "residential street", "service road"]);
+  });
+
+  it("falls back to OpenStreetMap's own words for a pair with no translation", () => {
+    const [quarry] = parseNominatimResponse([
+      { lat: "46", lon: "14", name: "X", display_name: "X", category: "landuse", type: "quarry" },
+    ]);
+    expect(osmKindLabel(quarry, t)).toBe("quarry");
+    const [track] = parseNominatimResponse([
+      { lat: "46", lon: "14", name: "Y", display_name: "Y", category: "highway", type: "byway" },
+    ]);
+    expect(osmKindLabel(track, t)).toBe("byway road");
+    const [isolated] = parseNominatimResponse([
+      { lat: "46", lon: "14", name: "Z", display_name: "Z", category: "place", type: "isolated_dwelling" },
+    ]);
+    expect(osmKindLabel(isolated, t)).toBe("isolated dwelling");
+  });
+
+  it("says nothing when the service gave no type", () => {
+    const [bare] = parseNominatimResponse([{ lat: "46", lon: "14", name: "Q", display_name: "Q" }]);
+    expect(osmKindLabel(bare, t)).toBe("");
+  });
+});
+
+describe("osmNamesPlace", () => {
+  // The real answer to "Čirče 5, Kranj, Slovenija": house number 5 of a village
+  // on the other side of the municipality, with not a word of Čirče in it.
+  const [stray] = parseNominatimResponse([
+    {
+      lat: "46.20983",
+      lon: "14.38831",
+      name: "5",
+      display_name: "5, Breg ob Savi, Drulovka, Mavčiče, Kranj, 4211, Slovenija",
+      category: "building",
+      type: "yes",
+      address: { house_number: "5", hamlet: "Breg ob Savi", municipality: "Kranj" },
+    },
+  ]);
+  const [real] = parseNominatimResponse([
+    {
+      lat: "46.22566",
+      lon: "14.37088",
+      name: "Čirče",
+      display_name: "Čirče, Kranj, 4000, Slovenija",
+      category: "place",
+      type: "suburb",
+      address: { suburb: "Čirče", municipality: "Kranj" },
+    },
+  ]);
+
+  it("rejects an answer that names none of the address asked for", () => {
+    expect(osmNamesPlace(stray, "Čirče")).toBe(false);
+    expect(osmNamesPlace(real, "Čirče")).toBe(true);
+  });
+
+  it("matches the name wherever the answer carries it, accents aside", () => {
+    // The road, the locality and the display chain all count, folded.
+    expect(osmNamesPlace(stray, "Breg ob Savi")).toBe(true);
+    expect(osmNamesPlace(real, "circe")).toBe(true);
+    expect(osmNamesPlace(real, "")).toBe(true);
   });
 });

@@ -2,11 +2,15 @@ import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
+import { stripHouseNumber } from "../../gedcom/place";
 import { sameCoord } from "../../geo/points";
 import { resultsForQuery, searchAddressBatch, searchAddresses, type RnResult } from "../../geo/rn";
+import { placeLookupLanguage } from "../../geo/lookupLanguage";
+import { osmKindLabel, osmNamesPlace, searchNominatim, type NominatimResult } from "../../geo/nominatim";
 import type { PlaceProposal } from "../../geo/placeProposal";
 import { replaceLocality, suggestMovedPlace, type AddressRow } from "../../tools/addresses";
-import type { GeoAssignment } from "../../tools/geocode";
+import { placeAddrKey, type GeoAssignment } from "../../tools/geocode";
+import type { Translate } from "../../locales/i18n";
 import { foldSearch } from "../globalSearch";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
 import { EventCoordPicker } from "../edit/EventCoordPicker";
@@ -36,9 +40,14 @@ import { requestSettings } from "../settingsBus";
 
 type SearchState = { state: "idle" | "loading" | "error" | "done"; results: RnResult[] };
 
+/** The same, for the OpenStreetMap fallback below — a separate state per row,
+ *  because the two lookups answer independently and a row may have both. */
+type OsmState = { state: "idle" | "loading" | "error" | "done"; results: NominatimResult[] };
+
 const MiniPlaceMap = lazy(() => import("../map/MiniPlaceMap"));
 
 const IDLE: SearchState = { state: "idle", results: [] };
+const OSM_IDLE: OsmState = { state: "idle", results: [] };
 
 /** The lookup-state chips over the list, mirroring the places list's work
  *  chips: what still needs a register query, what came back with houses to
@@ -54,6 +63,7 @@ function addrStatus(
   row: AddressRow,
   searches: ReadonlyMap<string, SearchState>,
   picked: ReadonlyMap<string, unknown>,
+  osm: ReadonlyMap<string, OsmState>,
 ): AddrStatus {
   if (picked.has(row.key)) return "picked";
   // Already carrying a position of its own — the hamlet's, say, given to the
@@ -61,10 +71,66 @@ function addrStatus(
   // sharpening, but it is not work waiting to be done and does not read as any
   // of the lookup states below.
   if (row.placed) return "placed";
+  // OpenStreetMap only ever *upgrades* a row: houses it found are answers to
+  // judge, exactly like the register's. Finding none leaves the row where it
+  // was — a row the register cannot be asked about at all is still by hand.
+  if ((osm.get(row.key)?.results.length ?? 0) > 0) return "found";
   if (!row.queries.length) return "manual";
   const s = searches.get(row.key);
   if (s?.state === "done") return s.results.length ? "found" : "none";
   return "unsearched";
+}
+
+/** One answer offered for a row, whichever service found it. `label` is the
+ *  line shown and staged as the pick's origin; `source` is its badge. */
+interface AddrCandidate {
+  coord: GeoCoord;
+  label: string;
+  /** What the hit is — "suburb", "service road" — where the service says so.
+   *  OpenStreetMap answers one name with the place, the street named after it
+   *  and every service road off it, all under the same display line. */
+  detail?: string;
+  /** Set when the hit does not name this address at all: the place it names
+   *  instead. A free-text search for a house the service does not know answers
+   *  with the same number in another village. */
+  elsewhere?: string;
+  source: "GURS" | "OSM";
+  badgeClass: "official" | "reuse";
+}
+
+/** A row's answers as one list: the register's first — it is the official
+ *  record of the house — then OpenStreetMap's, minus any hit already standing
+ *  at the same point, so the two services agreeing reads as one answer. An
+ *  OpenStreetMap hit that names somewhere else entirely goes last, marked with
+ *  the place it does name. */
+function rowCandidates(search: SearchState, osm: OsmState, address: string, t: Translate): AddrCandidate[] {
+  const out: AddrCandidate[] = search.results.map((r) => ({
+    coord: r.coord,
+    label: r.label,
+    source: "GURS",
+    badgeClass: "official",
+  }));
+  const named = stripHouseNumber(address).trim();
+  const strays: AddrCandidate[] = [];
+  for (const r of osm.results) {
+    if (out.some((c) => sameCoord(c.coord, r.coord))) continue;
+    const detail = osmKindLabel(r, t);
+    const cand: AddrCandidate = {
+      coord: r.coord,
+      label: r.label,
+      ...(detail ? { detail } : {}),
+      source: "OSM",
+      badgeClass: "reuse",
+    };
+    // Not this address at all: OpenStreetMap matched the house number against
+    // another village. Kept — a renumbered house does turn up this way — but
+    // named for what it is and pushed below the answers that do fit.
+    if (named && !osmNamesPlace(r, named)) {
+      const where = r.parts?.locality ?? r.admin;
+      strays.push({ ...cand, elsewhere: where || r.name });
+    } else out.push(cand);
+  }
+  return [...out, ...strays];
 }
 
 /** House numbers compared as numbers: 4 · 6 · 7 · 32, not 32 · 4 · 6 · 7. */
@@ -193,7 +259,7 @@ export function AddressCoordsSection({
   /** Jump to a person in Edit mode (the rows' people lists). */
   onNavigate: (id: string) => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { settings } = useSettings();
   const nameOf = useNameOf();
   const byKey = useMemo(() => new Map(all.map((row) => [row.key, row])), [all]);
@@ -215,6 +281,10 @@ export function AddressCoordsSection({
     return found;
   }, [rows, query]);
   const [searches, setSearches] = useState<Map<string, SearchState>>(new Map());
+  /** What OpenStreetMap answered per row — the fallback for everything the
+   *  address register cannot take: a house with no number, a hamlet named
+   *  rather than numbered, an address outside Slovenia. */
+  const [osmSearches, setOsmSearches] = useState<Map<string, OsmState>>(new Map());
   const [picked, setPicked] = useState<Map<string, { coord: GeoCoord; label: string }>>(new Map());
   // Which lookup state is on screen; "all" leaves the list whole. Like the
   // places chips, a chip's count is exactly what clicking it shows.
@@ -245,7 +315,7 @@ export function AddressCoordsSection({
   }, [all, nameOf, dataset]);
 
   const groups = useMemo(() => {
-    const kept = statusFilter === "all" ? rows : rows.filter((r) => addrStatus(r, searches, picked) === statusFilter);
+    const kept = statusFilter === "all" ? rows : rows.filter((r) => addrStatus(r, searches, picked, osmSearches) === statusFilter);
     const byPlace = new Map<string, PlaceGroup>();
     for (const row of kept) {
       const g = byPlace.get(row.place);
@@ -263,7 +333,7 @@ export function AddressCoordsSection({
     }
     // Most-used places first — that is where geocoding pays off soonest.
     return [...byPlace.values()].sort((a, b) => b.events - a.events || a.place.localeCompare(b.place));
-  }, [rows, searches, picked, statusFilter]);
+  }, [rows, searches, osmSearches, picked, statusFilter]);
 
   // Existing place values for the move target's autocomplete, so a split lands
   // on the file's own spelling of the destination when it already has one. The
@@ -317,7 +387,7 @@ export function AddressCoordsSection({
   // Faceted like the places chips: counted over the search-filtered rows, so
   // each chip says how many addresses clicking it leaves on screen.
   const statusCounts = { unsearched: 0, found: 0, none: 0, manual: 0, placed: 0, picked: 0 };
-  for (const row of rows) statusCounts[addrStatus(row, searches, picked)]++;
+  for (const row of rows) statusCounts[addrStatus(row, searches, picked, osmSearches)]++;
 
   const togglePeople = (key: string) =>
     setPeopleOpen((prev) => {
@@ -335,6 +405,44 @@ export function AddressCoordsSection({
       (results) => setSearch(row.key, { state: "done", results }),
       () => setSearch(row.key, { state: "error", results: [] }),
     );
+  };
+
+  const setOsm = (key: string, next: OsmState) => setOsmSearches((prev) => new Map(prev).set(key, next));
+
+  /**
+   * Ask OpenStreetMap for this one address — the register's fallback, and the
+   * only lookup for the rows it cannot take at all.
+   *
+   * One row at a time, never a group: Nominatim's policy is one request per
+   * second and no bulk use, so the batch the register offers has no counterpart
+   * here. The query is the address ahead of its place, which is how the service
+   * reads an address best (the Edit view's picker asks in the same order).
+   */
+  const runOnline = (row: AddressRow) => {
+    const compose = (addr: string) => [addr, row.place].map((s) => s.trim()).filter(Boolean).join(", ");
+    if (!compose(row.address)) return;
+    setOsm(row.key, { state: "loading", results: [] });
+    // Asked in the language the place is written in, not the interface's: a
+    // file that says "United States" must not be answered "Združene države
+    // Amerike", or the answer names a country the file does not.
+    const lang = placeLookupLanguage(row.place, i18n.language);
+    // A house OpenStreetMap has never been told about is answered with whatever
+    // else carries that number — "Čirče 5, Kranj" comes back as "5, Breg ob
+    // Savi", a house of another village entirely. When nothing that came back
+    // names the address at all, ask again for the street or hamlet without its
+    // number: OpenStreetMap knows Čirče perfectly well, and the village's own
+    // position is worth far more here than a stranger's front door.
+    const named = stripHouseNumber(row.address).trim();
+    searchNominatim(compose(row.address), lang)
+      .then(async (results) => {
+        if (!named || named === row.address.trim() || results.some((r) => osmNamesPlace(r, named))) return results;
+        const wider = await searchNominatim(compose(named), lang);
+        return wider.length ? wider : results;
+      })
+      .then(
+        (results) => setOsm(row.key, { state: "done", results }),
+        () => setOsm(row.key, { state: "error", results: [] }),
+      );
   };
 
   /**
@@ -428,10 +536,11 @@ export function AddressCoordsSection({
     // against them is stale — and the destination is worth looking up afresh.
     setPicked(new Map());
     setSearches(new Map());
+    setOsmSearches(new Map());
     setMoved(changed);
   };
 
-  const pick = (key: string, result: RnResult) =>
+  const pick = (key: string, result: { coord: GeoCoord; label: string }) =>
     setPicked((prev) => new Map(prev).set(key, { coord: result.coord, label: result.label }));
 
   /** Open the one-coordinate panel for a group. Every address is ticked to
@@ -493,13 +602,29 @@ export function AddressCoordsSection({
     if (!to || to === row.address) return;
     onRenameAddress(row.rawKeys, row.address, to);
     setRenameKey(null);
-    // The row's key changes with its address: drop state tied to the old key.
+    // The row's key changes with its address, so state tied to the old key has
+    // to travel with it. A position staged here is about the *house*, not its
+    // spelling — dropping it silently lost a pick the row still displayed, and
+    // the rename was written on its own. Where the rename joins the row to one
+    // that already carries a pick, that pick stands: both name the same house,
+    // and the surviving row is the one the list now shows.
+    const renamedKey = placeAddrKey(row.place, to);
     setPicked((prev) => {
+      const carried = prev.get(row.key);
+      const next = new Map(prev);
+      next.delete(row.key);
+      if (carried && !next.has(renamedKey)) next.set(renamedKey, carried);
+      return next;
+    });
+    // The answers, by contrast, were to a question about the old spelling —
+    // both services were asked for that address, so the renamed row starts
+    // unasked, as the list's own comment beside the lookup says.
+    setSearches((prev) => {
       const next = new Map(prev);
       next.delete(row.key);
       return next;
     });
-    setSearches((prev) => {
+    setOsmSearches((prev) => {
       const next = new Map(prev);
       next.delete(row.key);
       return next;
@@ -579,19 +704,11 @@ export function AddressCoordsSection({
           kind: "chosen",
         });
       }
-      for (const r of (searches.get(row.key) ?? IDLE).results) {
-        pins.push({
-          coord: r.coord,
-          label: r.label,
-          // Which of the place's addresses this pin answers, how much of the
-          // file rides on it, and that a click takes it. Its position closes
-          // the tooltip on its own (see MiniPlaceMap).
-          sub: row.address,
-          lines: [t("tools.geocode.addr.uses", { count: row.count }), t("event.coord.pinPick")],
-          kind: sameCoord(chosen?.coord, r.coord) ? "chosen" : "candidate",
-          onPick: () => pick(row.key, r),
-        });
-      }
+      // The answers a lookup returned are deliberately NOT drawn here. This map
+      // is the place's — a hundred addresses' worth of candidates on it says
+      // nothing about any one of them, and buries the positions that are
+      // actually in force. Candidates belong to the one address they answer, on
+      // the map inside its coordinate panel, where they are numbered.
     }
     return pins;
   };
@@ -606,6 +723,7 @@ export function AddressCoordsSection({
     const changed = onApply(assignments);
     setPicked(new Map());
     setSearches(new Map());
+    setOsmSearches(new Map());
     setApplied(changed);
   };
 
@@ -816,7 +934,9 @@ export function AddressCoordsSection({
                 <ul className="tools-tree-children tools-geo-addr-sublist">
                   {group.rows.map((row) => {
                     const search = searches.get(row.key) ?? IDLE;
+                    const osm = osmSearches.get(row.key) ?? OSM_IDLE;
                     const chosen = picked.get(row.key);
+                    const candidates = rowCandidates(search, osm, row.address, t);
                     return (
                       <li key={row.key} className="tools-geo-addr-row">
                         {/* Address, usage and its own lookup on one line — with a
@@ -920,8 +1040,15 @@ export function AddressCoordsSection({
                             address={row.address}
                             coord={chosen?.coord}
                             title={row.address}
-                            fileCoord={row.coord}
+                            // A position of this house's own is exactly what
+                            // `filePairCoord` means; anything else the row holds
+                            // is the settlement's, which the panel draws as the
+                            // area it is rather than as another house.
+                            {...(row.placed ? { filePairCoord: row.coord } : { fileCoord: row.coord })}
                             hideTrigger
+                            // Everything the row found, so the panel's map draws
+                            // the lot under the row's own numbers.
+                            candidates={candidates}
                             open={coordOpen === row.key}
                             onOpenChange={(next) => setCoordOpen(next ? row.key : null)}
                             // A register lookup run inside the panel is this
@@ -943,9 +1070,16 @@ export function AddressCoordsSection({
                               of houses below, and asking again returns it. A
                               rename makes a new row, which starts unasked. */}
                           {!row.queries.length ? (
-                            <span className="tools-geo-online-note" title={t("tools.geocode.addr.noQueryHint")}>
-                              {t("tools.geocode.addr.noQuery")}
-                            </span>
+                            // Nothing for the *register* to answer. Said only
+                            // where it settles the row: with OpenStreetMap on
+                            // offer below there is something to look up after
+                            // all, and the button says so better than a note
+                            // denying it.
+                            !settings.allowLinkFetch && (
+                              <span className="tools-geo-online-note" title={t("tools.geocode.addr.noQueryHint")}>
+                                {t("tools.geocode.addr.noQuery")}
+                              </span>
+                            )
                           ) : !settings.allowLinkFetch ? (
                             <span className="tools-geo-online-note">{t("tools.geocode.downloadNeedsOptIn")}</span>
                           ) : (
@@ -966,6 +1100,34 @@ export function AddressCoordsSection({
                               )}
                               {search.state === "done" && !search.results.length && (
                                 <span className="tools-geo-online-note">{t("tools.geocode.rn.none")}</span>
+                              )}
+                            </>
+                          )}
+                          {/* OpenStreetMap, the register's fallback: it covers
+                              the addresses GURS cannot take — a house with no
+                              number, a hamlet, anything outside Slovenia — and
+                              often names a house the register spells otherwise.
+                              One row at a time, never a whole place: the service
+                              allows one request per second and no bulk use. */}
+                          {settings.allowLinkFetch && (
+                            <>
+                              {osm.state !== "done" && (
+                                <button
+                                  className="tools-issue-link"
+                                  disabled={osm.state === "loading"}
+                                  title={t("tools.geocode.online.tooltip")}
+                                  onClick={() => runOnline(row)}
+                                >
+                                  {osm.state === "loading"
+                                    ? t("tools.geocode.online.searching")
+                                    : t("tools.geocode.online.search")}
+                                </button>
+                              )}
+                              {osm.state === "error" && (
+                                <span className="tools-geo-online-note">{t("tools.geocode.online.error")}</span>
+                              )}
+                              {osm.state === "done" && !osm.results.length && (
+                                <span className="tools-geo-online-note">{t("tools.geocode.online.none")}</span>
                               )}
                             </>
                           )}
@@ -1048,38 +1210,61 @@ export function AddressCoordsSection({
                             )}
                           </>
                         )}
-                        {search.results.length > 0 && (
+                        {candidates.length > 0 && (
                           <ul className="tools-geo-candidates">
-                            {search.results.map((r, i) => (
+                            {candidates.map((r, i) => (
                               <li key={i}>
                                 <label title={r.label}>
+                                  {/* The number *is* the radio: it ties the line
+                                      to its pin on the panel's map, and a second
+                                      round control beside it would be one dot too
+                                      many. The input stays for the keyboard and
+                                      for screen readers, clipped out of sight —
+                                      the number renders its state. */}
                                   <input
                                     type="radio"
+                                    className="tools-geo-cand-radio"
                                     name={`addr-${row.key}`}
+                                    aria-label={`${i + 1}. ${r.label}`}
                                     checked={sameCoord(chosen?.coord, r.coord)}
                                     onChange={() => pick(row.key, r)}
                                     onClick={() => sameCoord(chosen?.coord, r.coord) && unpick(row.key)}
                                   />
+                                  <span className="tools-geo-cand-num">{i + 1}</span>
                                   {/* No pin before the answer either: its own
                                       coordinate carries one at the end of the
                                       line, and the row above already reads as
                                       addresses. */}
                                   <span className="tools-geo-cand-name">{r.label}</span>
-                                  {/* The coordinate doubles as "show on the
-                                      place's map", like the places rows —
-                                      the house appears among its neighbours. */}
+                                  {/* What this hit is, where the service says —
+                                      the one thing telling identical lines apart. */}
+                                  {r.detail && <span className="tools-geo-cand-kind">{r.detail}</span>}
+                                  {/* Not this address: the place the answer
+                                      really names, so a house number matched in
+                                      the next village over cannot be taken for
+                                      the house being placed. */}
+                                  {r.elsewhere && (
+                                    <span className="tools-geo-cand-elsewhere" title={t("tools.geocode.addr.elsewhereHint")}>
+                                      {t("tools.geocode.addr.elsewhere", { place: r.elsewhere })}
+                                    </span>
+                                  )}
+                                  {/* Every answer's coordinate opens the row's
+                                      own coordinate panel, which draws them all
+                                      on one map under these same numbers: which
+                                      of several is the house is a question only
+                                      the map answers. */}
                                   <button
                                     type="button"
                                     className="gm-data gm-coord tools-geo-coord-btn"
-                                    title={t("tools.geocode.showMap")}
+                                    title={t("tools.geocode.addr.openHint")}
                                     onClick={(e) => {
                                       e.preventDefault();
-                                      setMapOpen((prev) => new Set(prev).add(group.place));
+                                      setCoordOpen(row.key);
                                     }}
                                   >
                                     {r.coord.lat.toFixed(5)}, {r.coord.lon.toFixed(5)}
                                   </button>
-                                  <span className="tools-reshape-badge official">GURS</span>
+                                  <span className={`tools-reshape-badge ${r.badgeClass}`}>{r.source}</span>
                                 </label>
                               </li>
                             ))}
@@ -1140,6 +1325,9 @@ function BulkCoordPanel({
   const { t } = useTranslation();
   const events = group.rows.filter((r) => selected.has(r.key)).reduce((n, r) => n + r.count, 0);
   const fileCoord = group.rows.find((r) => r.coord)?.coord;
+  /** Held here because two controls open the one panel — the pin and the
+   *  position beside it — exactly as an address row does it. */
+  const [open, setOpen] = useState(false);
 
   return (
     <div
@@ -1152,18 +1340,33 @@ function BulkCoordPanel({
       <p className="tools-intro">{t("tools.geocode.addr.bulkIntro")}</p>
       <EventCoordPicker
         place={group.place}
-        address=""
+        // The prefix that ticked these rows is also what they are: "Stražišče"
+        // under Kranj, "Vas" under a hamlet. Handing it over as the address
+        // asks the registers about that place — "Stražišče, Kranj" rather than
+        // Kranj alone — which is the position being looked for. Empty prefix,
+        // empty address: then the whole place is ticked and its own centre is
+        // exactly the answer.
+        address={prefix.trim()}
         coord={pick?.coord}
         title={group.place}
         fileCoord={fileCoord}
+        open={open}
+        onOpenChange={setOpen}
         onPick={onPick}
         onClear={onClear}
       />
       {/* The position picked, beside the pin that picked it — unmarked, since
-          that pin is the mark and stands right against this text. */}
-      <span className={"tools-place-rename-hint" + (pick ? " gm-data" : "")}>
+          that pin is the mark and stands right against this text. It opens the
+          panel too: a position on screen is the thing being changed, and every
+          address row below is opened by clicking exactly this. */}
+      <button
+        type="button"
+        className={"tools-place-rename-hint tools-geo-coord-btn" + (pick ? " gm-data" : "")}
+        title={t("tools.geocode.addr.openHint")}
+        onClick={() => setOpen(true)}
+      >
         {pick ? `${pick.coord.lat.toFixed(5)}, ${pick.coord.lon.toFixed(5)}` : t("tools.geocode.addr.bulkNoCoord")}
-      </span>
+      </button>
       {/* Ticking a run of houses by what they start with — "Stražišče 11" for
           both farms of that number, "Vas" for a hamlet whose numbering the
           register lost. The ticks stay visible below, so what a prefix caught

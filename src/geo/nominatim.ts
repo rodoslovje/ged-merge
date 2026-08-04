@@ -1,4 +1,6 @@
 import type { GeoCoord } from "../gedcom/types";
+import type { Translate } from "../locales/i18n";
+import { foldSearch } from "../ui/globalSearch";
 
 // Nominatim (nominatim.openstreetmap.org) free-text place/address search —
 // the online fallback for strings the offline gazetteer can't resolve,
@@ -22,8 +24,12 @@ export interface NominatimResult {
    *  row says which of several same-named places it is without spelling out the
    *  whole chain (the full line stays in the row's tooltip). */
   admin?: string;
-  /** Feature type ("house", "village", …), informational. */
+  /** Feature type ("house", "village", "residential", …). */
   kind?: string;
+  /** The feature's class ("place", "highway", "building", …). Kept with
+   *  {@link kind}, which only means something beside it: `residential` is a
+   *  street under `highway` and a whole quarter under `landuse`. */
+  category?: string;
   /**
    * The row's structured address, when the service returned one. The display
    * line alone cannot be read as a place: it mixes postcodes, roads and
@@ -52,6 +58,7 @@ interface RawResult {
   name?: string;
   display_name?: string;
   type?: string;
+  category?: string;
   address?: Record<string, string | undefined>;
 }
 
@@ -86,6 +93,7 @@ export function parseNominatimResponse(data: unknown): NominatimResult[] {
     const parent = label.split(",")[1]?.trim();
     if (parent && parent !== name) result.admin = parent;
     if (row.type) result.kind = row.type;
+    if (row.category) result.category = row.category;
     if (row.address) {
       const parts = {
         ...opt("house", pick(row.address, ["house_number"])),
@@ -101,6 +109,53 @@ export function parseNominatimResponse(data: unknown): NominatimResult[] {
     out.push(result);
   }
   return out;
+}
+
+/**
+ * What a hit actually *is*, in a word or two — "suburb", "residential street",
+ * "service road" — for the lists that show several results under one name.
+ *
+ * OpenStreetMap answers a village name with the place itself, the street named
+ * after it, and every service road off that street, and their display lines are
+ * word for word identical ("Huje, Kranj, 4000, Slovenija" three times over).
+ * The class and type are what tell them apart, so they are printed beside the
+ * line rather than kept in the object unread.
+ *
+ * Translated where the pair is one this file's readers actually meet, and left
+ * in OpenStreetMap's own English word otherwise — an untranslated "quarry" says
+ * more than nothing at all.
+ */
+export function osmKindLabel(result: NominatimResult, t: Translate): string {
+  const kind = result.kind?.trim();
+  if (!kind) return "";
+  const words = kind.replace(/_/g, " ");
+  const raw = result.category === "highway" ? `${words} road` : words;
+  return result.category
+    ? t(`osm.kind.${result.category}.${kind}`, { defaultValue: t(`osm.kind.${kind}`, { defaultValue: raw }) })
+    : t(`osm.kind.${kind}`, { defaultValue: raw });
+}
+
+/**
+ * Whether a hit actually names the thing that was asked for.
+ *
+ * Nominatim answers a free-text address it cannot place with whatever else
+ * carries part of it: "Čirče 5, Kranj" comes back as "5, Breg ob Savi,
+ * Drulovka, Mavčiče, Kranj" — house number 5 of a different village, with not a
+ * word of Čirče in it. The name asked for has to appear somewhere in the answer,
+ * or the answer is about somewhere else.
+ *
+ * Compared fold-blind against the display line and the named parts, so
+ * "Stražišče" matches whether it comes back as the road, the suburb or a
+ * segment of the chain.
+ */
+export function osmNamesPlace(result: NominatimResult, name: string): boolean {
+  const want = foldSearch(name).trim();
+  if (!want) return true;
+  const haystack = [result.label, result.name, result.parts?.road, result.parts?.locality, result.parts?.admin]
+    .filter(Boolean)
+    .map((s) => foldSearch(s!))
+    .join(" | ");
+  return haystack.includes(want);
 }
 
 // One shared queue so concurrent callers still respect the 1 req/s policy.

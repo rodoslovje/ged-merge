@@ -3,7 +3,8 @@ import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
 import { sameCoord } from "../../geo/points";
 import type { GazCandidate } from "../../geo/gazetteer";
-import { searchNominatim, type NominatimResult } from "../../geo/nominatim";
+import { placeLookupLanguage } from "../../geo/lookupLanguage";
+import { osmKindLabel, searchNominatim, type NominatimResult } from "../../geo/nominatim";
 import { searchGov, type GovResult } from "../../geo/gov";
 import { rnQueriesFrom, searchAddresses, type RnResult } from "../../geo/rn";
 import { chosenCoordFor, pickLabel, type ChosenCoord, type FileCoord, type GeoAssignment, type GeocodeRow } from "../../tools/geocode";
@@ -137,7 +138,8 @@ export function GeocodePlaceRow({
   });
   const runOnlineSearch = () => {
     setOnline({ state: "loading", results: [] });
-    searchNominatim(row.key, i18n.language).then(
+    // In the language this place value is written in — see placeLookupLanguage.
+    searchNominatim(row.key, placeLookupLanguage(row.key, i18n.language)).then(
       (results) => setOnline({ state: "done", results }),
       () => setOnline({ state: "error", results: [] }),
     );
@@ -153,7 +155,9 @@ export function GeocodePlaceRow({
   });
   const runGovSearch = () => {
     setGov({ state: "loading", results: [] });
-    searchGov(row.key, i18n.language).then(
+    // GOV holds each place's name in several languages and picks one by this
+    // argument, so it follows the file's language for the same reason.
+    searchGov(row.key, placeLookupLanguage(row.key, i18n.language)).then(
       (results) => setGov({ state: "done", results }),
       () => setGov({ state: "error", results: [] }),
     );
@@ -225,6 +229,30 @@ export function GeocodePlaceRow({
   };
   const pickCandidate = (cand: GazCandidate) =>
     onPickCoord(row, { lat: cand.entry.lat, lon: cand.entry.lon }, pickLabel(cand.entry.name, cand.adminDisplay ?? cand.entry.admin));
+
+  /**
+   * Every position the option list offers, in the order it shows them. The
+   * index is the number printed beside each option — and the number its pin
+   * wears on the map, so a row four registers answered at four points is read
+   * by matching numbers instead of guessing which dot is which line.
+   *
+   * Keyed by coordinate rather than by list position, so two registers that
+   * agree on a point share one number: they are one place, and the map has one
+   * pin for them.
+   */
+  const optionCoords: GeoCoord[] = [
+    ...(row.fileCoord ? [row.fileCoord] : []),
+    ...row.candidates.map((cand) => ({ lat: cand.entry.lat, lon: cand.entry.lon })),
+    ...online.results.map((r) => r.coord),
+    ...gov.results.map((r) => r.coord),
+    ...rn.results.map((r) => r.coord),
+  ];
+  const numberOf = (coord: GeoCoord): number | undefined => {
+    const i = optionCoords.findIndex((o) => sameCoord(o, coord));
+    return i === -1 ? undefined : i + 1;
+  };
+  /** The manual entry closes the list, so it takes the number after them all. */
+  const manualNumber = optionCoords.length + 1;
 
   // The online searches: beside "Show on map" while the map is closed, and
   // under the map once it is open — either way one action row, not a stray
@@ -500,21 +528,35 @@ export function GeocodePlaceRow({
               );
             // Candidate pins (click = pick), the chosen coordinate
             // highlighted, plus a live pin for a parseable manual draft.
-            const pins: MiniMapPin[] = row.candidates.map((cand) => ({
-              coord: { lat: cand.entry.lat, lon: cand.entry.lon },
-              label: `${cand.entry.name} · ${Math.round(cand.score * 100)}%`,
-              kind:
-                c && sameCoord(c.coord, { lat: cand.entry.lat, lon: cand.entry.lon })
-                  ? ("chosen" as const)
-                  : ("candidate" as const),
-              onPick: () => pickCandidate(cand),
-            }));
+            // Each pin wears the number its option carries in the list below,
+            // so four answers at four points are read by matching numbers.
+            const pins: MiniMapPin[] = [];
+            if (row.fileCoord)
+              pins.push({
+                coord: row.fileCoord,
+                label: t("tools.geocode.fromFile"),
+                kind: c && sameCoord(c.coord, row.fileCoord) ? ("chosen" as const) : ("candidate" as const),
+                badge: numberOf(row.fileCoord),
+                onPick: () => onPickCoord(row, row.fileCoord!, t("tools.geocode.fromFile")),
+              });
+            for (const cand of row.candidates) {
+              const coord = { lat: cand.entry.lat, lon: cand.entry.lon };
+              if (pins.some((p) => sameCoord(p.coord, coord))) continue;
+              pins.push({
+                coord,
+                label: `${cand.entry.name} · ${Math.round(cand.score * 100)}%`,
+                kind: c && sameCoord(c.coord, coord) ? ("chosen" as const) : ("candidate" as const),
+                badge: numberOf(coord),
+                onPick: () => pickCandidate(cand),
+              });
+            }
             for (const r of online.results) {
               if (pins.some((p) => sameCoord(p.coord, r.coord))) continue;
               pins.push({
                 coord: r.coord,
                 label: `${r.name} · OSM`,
                 kind: c && sameCoord(c.coord, r.coord) ? ("chosen" as const) : ("candidate" as const),
+                badge: numberOf(r.coord),
                 onPick: () => onPickCoord(row, r.coord, pickLabel(r.name, r.admin)),
               });
             }
@@ -524,6 +566,7 @@ export function GeocodePlaceRow({
                 coord: r.coord,
                 label: `${r.name} · GOV`,
                 kind: c && sameCoord(c.coord, r.coord) ? ("chosen" as const) : ("candidate" as const),
+                badge: numberOf(r.coord),
                 onPick: () => onPickCoord(row, r.coord, pickLabel(r.name, r.admin), r.govId),
               });
             }
@@ -533,19 +576,25 @@ export function GeocodePlaceRow({
                 coord: r.coord,
                 label: `${r.address} · GURS`,
                 kind: c && sameCoord(c.coord, r.coord) ? ("chosen" as const) : ("candidate" as const),
+                badge: numberOf(r.coord),
                 onPick: () => onPickCoord(row, r.coord, r.address),
               });
             }
             if (c && !pins.some((p) => sameCoord(p.coord, c.coord)))
               pins.push({ coord: c.coord, label: c.label, kind: "chosen" });
             if (draftCoord && !pins.some((p) => sameCoord(p.coord, draftCoord)))
-              pins.push({ coord: draftCoord, label: t("tools.geocode.manual"), kind: "chosen" });
+              pins.push({ coord: draftCoord, label: t("tools.geocode.manual"), kind: "chosen", badge: manualNumber });
             return (
               <Suspense fallback={<div className="tools-geo-minimap" />}>
                 <MiniPlaceMap
                   pins={pins}
                   context={fileCoords}
                   title={t("tools.geocode.mapPickHint")}
+                  // Village scale, not the default region: answers for one name
+                  // often sit a few hundred metres apart (the place, the street
+                  // named after it), and at region zoom they pile into one dot.
+                  // Candidates genuinely far apart still fit by their bounds.
+                  fitMaxZoom={14}
                   // Re-frame when an online lookup brings in new coordinates —
                   // otherwise the map keeps the view it fitted on open and the
                   // fresh candidates can sit outside it entirely.
@@ -573,16 +622,24 @@ export function GeocodePlaceRow({
           <ul className="tools-geo-candidates">
             {/* The file's own coordinate as the first option — it is
                 the default proposal, so it must show as selected. */}
+            {/* Each option's number is also its radio, and the number its pin
+                wears on the map above: a row answered by four registers at four
+                points is read by matching numbers rather than by guessing which
+                dot is which line. Two answers at the very same point share a
+                number, which is the truth about them. */}
             {row.fileCoord && (
               <li>
                 <label>
                   <input
                     type="radio"
+                    className="tools-geo-cand-radio"
                     name={`geo-${row.key}`}
+                    aria-label={t("tools.geocode.fromFile")}
                     checked={sameCoord(c?.coord, row.fileCoord)}
                     onClick={() => sameCoord(c?.coord, row.fileCoord) && onUnpickCoord(row)}
                     onChange={() => onPickCoord(row, row.fileCoord!, t("tools.geocode.fromFile"))}
                   />
+                  <span className="tools-geo-cand-num">{numberOf(row.fileCoord)}</span>
                   <span className="tools-geo-cand-name">{t("tools.geocode.fromFile")}</span>
                   <span className="gm-data gm-coord">
                     {row.fileCoord.lat.toFixed(4)}, {row.fileCoord.lon.toFixed(4)}
@@ -595,11 +652,14 @@ export function GeocodePlaceRow({
                 <label>
                   <input
                     type="radio"
+                    className="tools-geo-cand-radio"
                     name={`geo-${row.key}`}
+                    aria-label={cand.entry.name}
                     checked={sameCoord(c?.coord, { lat: cand.entry.lat, lon: cand.entry.lon })}
                     onClick={() => sameCoord(c?.coord, { lat: cand.entry.lat, lon: cand.entry.lon }) && onUnpickCoord(row)}
                     onChange={() => pickCandidate(cand)}
                   />
+                  <span className="tools-geo-cand-num">{numberOf({ lat: cand.entry.lat, lon: cand.entry.lon })}</span>
                   <span className="tools-geo-cand-name">{cand.entry.name}</span>
                   {/* The division the register files it under — the only thing
                       that tells two same-named settlements apart. In the file's
@@ -639,15 +699,22 @@ export function GeocodePlaceRow({
                 <label title={r.label}>
                   <input
                     type="radio"
+                    className="tools-geo-cand-radio"
                     name={`geo-${row.key}`}
+                    aria-label={r.name}
                     checked={sameCoord(c?.coord, r.coord)}
                     onClick={() => sameCoord(c?.coord, r.coord) && onUnpickCoord(row)}
                     onChange={() => onPickCoord(row, r.coord, pickLabel(r.name, r.admin))}
                   />
+                  <span className="tools-geo-cand-num">{numberOf(r.coord)}</span>
                   {/* Name and parent, like the register and GOV rows — the full
                       chain would run the row off the line, and is in the title. */}
                   <span className="tools-geo-cand-name">{r.name}</span>
                   {r.admin && <span className="tools-geo-count">({r.admin})</span>}
+                  {/* What the hit is: OpenStreetMap answers one name with the
+                      place, the street named after it and the service road off
+                      that, all three spelled identically. */}
+                  {osmKindLabel(r, t) && <span className="tools-geo-cand-kind">{osmKindLabel(r, t)}</span>}
                   <span className="gm-data gm-coord">
                     {r.coord.lat.toFixed(4)}, {r.coord.lon.toFixed(4)}
                   </span>
@@ -660,11 +727,14 @@ export function GeocodePlaceRow({
                 <label title={`${r.label} · GOV ${r.govId}`}>
                   <input
                     type="radio"
+                    className="tools-geo-cand-radio"
                     name={`geo-${row.key}`}
+                    aria-label={r.label}
                     checked={sameCoord(c?.coord, r.coord)}
                     onClick={() => sameCoord(c?.coord, r.coord) && onUnpickCoord(row)}
                     onChange={() => onPickCoord(row, r.coord, pickLabel(r.name, r.admin), r.govId)}
                   />
+                  <span className="tools-geo-cand-num">{numberOf(r.coord)}</span>
                   <span className="tools-geo-cand-name">{r.label}</span>
                   {/* The place it is part of, like the register candidates —
                       four same-named Osredek differ only in this. */}
@@ -681,11 +751,14 @@ export function GeocodePlaceRow({
                 <label title={r.label}>
                   <input
                     type="radio"
+                    className="tools-geo-cand-radio"
                     name={`geo-${row.key}`}
+                    aria-label={r.address}
                     checked={sameCoord(c?.coord, r.coord)}
                     onClick={() => sameCoord(c?.coord, r.coord) && onUnpickCoord(row)}
                     onChange={() => onPickCoord(row, r.coord, r.address)}
                   />
+                  <span className="tools-geo-cand-num">{numberOf(r.coord)}</span>
                   {/* A register hit is a house, not a place — pinned, so it is
                       not read as another spelling of the settlement above. */}
                   <span className="tools-geo-cand-name gm-addr">{r.label}</span>
@@ -702,12 +775,15 @@ export function GeocodePlaceRow({
               <label>
                 <input
                   type="radio"
+                  className="tools-geo-cand-radio"
                   name={`geo-${row.key}`}
+                  aria-label={t("tools.geocode.manual")}
                   checked={manualChosen}
                   onClick={() => manualChosen && onUnpickCoord(row)}
                   disabled={!draftCoord}
                   onChange={setManual}
                 />
+                <span className="tools-geo-cand-num">{manualNumber}</span>
                 <span className="tools-geo-cand-name">{t("tools.geocode.manual")}</span>
               </label>
               <input

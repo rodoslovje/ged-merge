@@ -9,6 +9,7 @@ import {
   type GazetteerIndex,
 } from "../../geo/gazetteer";
 import { searchGov } from "../../geo/gov";
+import { placeLookupLanguage } from "../../geo/lookupLanguage";
 import { searchNominatim } from "../../geo/nominatim";
 import { rnQueriesFrom, searchAddresses } from "../../geo/rn";
 import {
@@ -141,10 +142,15 @@ export function usePlaceLookupValue(dataset: Dataset, placeSuggestions: string[]
         // The address register only applies when the text names a house number
         // in Slovenia; the other two take any free text.
         const rnQueries = rnQueriesFrom(text, undefined);
+        // Answered in the language the query is written in, not the reader's:
+        // a file that says "United States" must get "United States" back, or
+        // the proposal composed from the answer names the country twice over
+        // in two languages (see placeLookupLanguage).
+        const answerLang = placeLookupLanguage(text, language);
         const [rn, gov, osm] = await Promise.allSettled([
           rnQueries.length ? searchAddresses(rnQueries) : Promise.resolve([]),
-          searchGov(text, language),
-          searchNominatim(text, language),
+          searchGov(text, answerLang),
+          searchNominatim(text, answerLang),
         ]);
         if (rn.status === "fulfilled") for (const r of rn.value) add(proposalFromRn(r, style));
         if (gov.status === "fulfilled") for (const r of gov.value) add(proposalFromGov(r, style));
@@ -173,8 +179,12 @@ export function usePlaceLookupValue(dataset: Dataset, placeSuggestions: string[]
       const rnQueries = rnQueriesFrom(place || undefined, text);
       const [rn, osm] = await Promise.allSettled([
         rnQueries.length ? searchAddresses(rnQueries) : Promise.resolve([]),
-        // Address first, then the place — the order Nominatim reads best.
-        searchNominatim([text, place].map((s) => s.trim()).filter(Boolean).join(", "), language),
+        // Address first, then the place — the order Nominatim reads best, in
+        // the language the event's place is written in.
+        searchNominatim(
+          [text, place].map((s) => s.trim()).filter(Boolean).join(", "),
+          placeLookupLanguage(place, language),
+        ),
       ]);
       if (rn.status === "fulfilled") for (const r of rn.value) add(proposalFromRn(r, style));
       if (osm.status === "fulfilled") for (const r of osm.value) add(proposalFromNominatim(r, style));
