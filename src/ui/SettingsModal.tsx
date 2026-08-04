@@ -390,18 +390,8 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
               </div>
             </fieldset>
 
-            <label className="settings-row settings-row-toggle">
-              <input
-                type="checkbox"
-                checked={settings.uppercaseSurname}
-                onChange={(e) => set({ uppercaseSurname: e.target.checked })}
-              />
-              <span className="settings-row-text">
-                <span className="settings-row-label">{t("settings.name.uppercase")}</span>
-                <span className="settings-hint">{t("settings.name.uppercase.hint")}</span>
-              </span>
-            </label>
-
+            {/* The married surname first: it decides which name is shown at
+                all, where uppercasing only decides how it is drawn. */}
             <label className="settings-row settings-row-toggle">
               <input
                 type="checkbox"
@@ -413,10 +403,36 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                 <span className="settings-hint">{t("settings.name.married.hint")}</span>
               </span>
             </label>
+
+            <label className="settings-row settings-row-toggle">
+              <input
+                type="checkbox"
+                checked={settings.uppercaseSurname}
+                onChange={(e) => set({ uppercaseSurname: e.target.checked })}
+              />
+              <span className="settings-row-text">
+                <span className="settings-row-label">{t("settings.name.uppercase")}</span>
+                <span className="settings-hint">{t("settings.name.uppercase.hint")}</span>
+              </span>
+            </label>
           </section>
 
           <section className="settings-section">
             <h3>{t("settings.display.title")}</h3>
+            {/* Ages first: they show on every file, whereas kinship only says
+                anything once a start person is set. */}
+            <label className="settings-row settings-row-toggle">
+              <input
+                type="checkbox"
+                checked={settings.showAge}
+                onChange={(e) => set({ showAge: e.target.checked })}
+              />
+              <span className="settings-row-text">
+                <span className="settings-row-label">{t("settings.display.age")}</span>
+                <span className="settings-hint">{t("settings.display.age.hint")}</span>
+              </span>
+            </label>
+
             <label className="settings-row settings-row-toggle">
               <input
                 type="checkbox"
@@ -438,18 +454,6 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
               <span className="settings-row-text">
                 <span className="settings-row-label">{t("settings.display.xref")}</span>
                 <span className="settings-hint">{t("settings.display.xref.hint")}</span>
-              </span>
-            </label>
-
-            <label className="settings-row settings-row-toggle">
-              <input
-                type="checkbox"
-                checked={settings.showAge}
-                onChange={(e) => set({ showAge: e.target.checked })}
-              />
-              <span className="settings-row-text">
-                <span className="settings-row-label">{t("settings.display.age")}</span>
-                <span className="settings-hint">{t("settings.display.age.hint")}</span>
               </span>
             </label>
           </section>
