@@ -555,6 +555,18 @@ export function AddressCoordsSection({
           kind: "candidate",
         });
       }
+      // A pick of the researcher's own — typed, taken off a map, or given to the
+      // whole village at once. It is not among the answers below, so without
+      // this the map opened without the very position being staged.
+      if (chosen && !pins.some((p) => sameCoord(p.coord, chosen.coord))) {
+        pins.push({
+          coord: chosen.coord,
+          label: chosen.label,
+          sub: row.address,
+          lines: [t("tools.geocode.addr.uses", { count: row.count })],
+          kind: "chosen",
+        });
+      }
       for (const r of (searches.get(row.key) ?? IDLE).results) {
         pins.push({
           coord: r.coord,
@@ -877,10 +889,19 @@ export function AddressCoordsSection({
                               the list rather than one tooltip at a time. */}
                           {!chosen && row.placed && row.coord && (
                             <span className="tools-geo-online-note" title={t("tools.geocode.addr.placedHint")}>
-                              {t("tools.geocode.addr.placed")}{" "}
-                              <span className="gm-data">
+                              {/* A position in force, so the pin is the green
+                                  one — the same rule every coordinate follows —
+                                  and clicking it puts the place's map up with
+                                  this point on it. */}
+                              <button
+                                type="button"
+                                className="gm-data gm-coord gm-coord--set tools-geo-coord-btn"
+                                title={t("tools.geocode.showMap")}
+                                onClick={() => setMapOpen((prev) => new Set(prev).add(group.place))}
+                              >
                                 {row.coord.lat.toFixed(5)}, {row.coord.lon.toFixed(5)}
-                              </span>
+                              </button>{" "}
+                              {t("tools.geocode.addr.placed")}
                             </span>
                           )}
                           {chosen && (
@@ -890,9 +911,14 @@ export function AddressCoordsSection({
                               className="tools-geo-picked"
                             >
                               {chosen.label}{" "}
-                              <span className="gm-data">
+                              <button
+                                type="button"
+                                className="gm-data gm-coord gm-coord--set tools-geo-coord-btn"
+                                title={t("tools.geocode.showMap")}
+                                onClick={() => setMapOpen((prev) => new Set(prev).add(group.place))}
+                              >
                                 {chosen.coord.lat.toFixed(5)}, {chosen.coord.lon.toFixed(5)}
-                              </span>
+                              </button>
                             </span>
                           )}
                           {/* The register comes after the position, being the way

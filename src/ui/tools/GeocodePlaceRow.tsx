@@ -611,7 +611,19 @@ export function GeocodePlaceRow({
                     {cand.entry.population > 0 && `· ${t("tools.geocode.population", { count: cand.entry.population })} · `}
                     {`${cand.entry.lat.toFixed(4)}, ${cand.entry.lon.toFixed(4)}`}
                   </span>
-                  <span className={scoreBadgeClass(cand.score, false)}>{Math.round(cand.score * 100)}%</span>
+                  {/* Green means "this is going in", the same as in the row's
+                      header — so the candidate the row is actually on wears the
+                      header's colour, and the rest are judged on their score
+                      alone. Passing `false` here made a header's green 99% read
+                      amber, and its green 100% read neutral, one line apart. */}
+                  <span
+                    className={scoreBadgeClass(
+                      cand.score,
+                      sameCoord(c?.coord, { lat: cand.entry.lat, lon: cand.entry.lon }) && (row.confident || isChecked),
+                    )}
+                  >
+                    {Math.round(cand.score * 100)}%
+                  </span>
                   {/* Source last, like the GOV/OSM/GURS rows below: the full
                       directory id — register code (SI-GURS), download key
                       (HR-OSM), or the bare country code, which by convention

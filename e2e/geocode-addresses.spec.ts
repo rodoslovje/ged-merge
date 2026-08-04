@@ -117,6 +117,53 @@ test("an address with no house number is reviewed too, with nothing to look up",
   await expect(page.getByRole("button", { name: /By hand only/ })).toContainText("1");
 });
 
+test("a house already placed says so, and its coordinate opens the map", async ({ page }) => {
+  const file = path.join(os.tmpdir(), "geocode-placed.ged");
+  writeFileSync(
+    file,
+    [
+      "0 HEAD", "1 GEDC", "2 VERS 5.5.1", "1 CHAR UTF-8",
+      "0 @I1@ INDI", "1 NAME Ana /Kos/",
+      // Kranj's own position: the event that names no address.
+      "1 BIRT", "2 PLAC Kranj, Slovenija", "3 MAP", "4 LATI N46.23887", "4 LONG E14.35573",
+      // Two houses of one hamlet, placed together at its centre.
+      "1 RESI", "2 PLAC Kranj, Slovenija", "3 MAP", "4 LATI N46.21806", "4 LONG E14.36897", "2 ADDR Drulovka 2",
+      "1 DEAT", "2 PLAC Kranj, Slovenija", "3 MAP", "4 LATI N46.21806", "4 LONG E14.36897", "2 ADDR Drulovka 4",
+      // And one that has had nothing done to it.
+      "1 CENS", "2 PLAC Kranj, Slovenija", "2 ADDR Cesta na Klanec 55",
+      "0 TRLR", "",
+    ].join("\n"),
+    "utf-8",
+  );
+
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(file);
+  await page.locator(".edit-person").first().waitFor({ timeout: 15000 });
+
+  await page.getByRole("button", { name: "Tools", exact: true }).click();
+  await page.getByRole("button", { name: /Geocoding/ }).click();
+  await page.getByRole("tab", { name: /Addresses/ }).click();
+
+  const group = page.locator(".tools-geo-addr-group").first();
+  await group.locator(".tools-pair-toggle").first().click();
+
+  // The hamlet's two houses are placed; the third is not, and the chip counts
+  // exactly the two.
+  const placed = group.locator(".tools-geo-addr-row").filter({ hasText: "(placed)" });
+  await expect(placed).toHaveCount(2);
+  await expect(placed.first()).toContainText("46.21806, 14.36897");
+  await expect(group.locator(".tools-geo-addr-row").filter({ hasText: "Cesta na Klanec 55" })).not.toContainText(
+    "(placed)",
+  );
+  await expect(page.getByRole("button", { name: /Already placed/ })).toContainText("2");
+
+  // Its coordinate is the way to see the point: one click puts the place's map
+  // up, with a pin standing on it.
+  await expect(group.locator(".tools-geo-minimap")).toHaveCount(0);
+  await placed.first().locator(".tools-geo-coord-btn").click();
+  await expect(group.locator(".leaflet-interactive").first()).toBeVisible({ timeout: 15000 });
+});
+
 test("one coordinate can be given to a whole place's addresses at once", async ({ page }) => {
   await page.goto("/");
   await page.locator("input.file-input").first().setInputFiles(FILE);

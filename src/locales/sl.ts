@@ -509,7 +509,7 @@ export const sl = {
   "tools.geocode.addr.filter.none": "Brez zadetka",
   "tools.geocode.addr.filter.manual": "Samo ročno",
   "tools.geocode.addr.filter.placed": "Že umeščeni",
-  "tools.geocode.addr.placed": "umeščen na",
+  "tools.geocode.addr.placed": "(umeščen)",
   "tools.geocode.addr.placedHint": "Ta hiša že nosi svojo lego — ne naselja, ki bi jo podedoval vsak naslov tukaj. Na seznamu ostane, če jo želite še natančneje določiti.",
   "tools.geocode.addr.noQuery": "ni kaj poiskati",
   "tools.geocode.addr.noQueryHint": "Register naslovov potrebuje hišno številko v Sloveniji; ta naslov je nima ali pa leži drugje. Umestite ga z oznako kraja ali dajte celemu nizu eno lego z »Več naslovov na eno koordinato«.",
