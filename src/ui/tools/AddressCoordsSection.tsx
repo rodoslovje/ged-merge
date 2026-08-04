@@ -224,6 +224,10 @@ export function AddressCoordsSection({
   // The one row whose rename editor is open, and its draft.
   const [renameKey, setRenameKey] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
+  /** Which row's coordinate panel is open. Held here rather than inside the
+   *  picker because the row opens it from two controls — the address and the
+   *  pin — with the rename ✎ between them. */
+  const [coordOpen, setCoordOpen] = useState<string | null>(null);
 
   // Hover lists of the people behind each address's person count.
   const peopleTitles = useMemo(() => {
@@ -827,38 +831,19 @@ export function AddressCoordsSection({
                               onChange={() => (moveGroup === group.place ? toggleMoveRow : toggleCoordRow)(row.key)}
                             />
                           )}
-                          {/* The address, its pin and the position it holds are
-                              one control: clicking anywhere on them opens the
-                              Edit view's coordinate panel — map to pick on,
-                              register lookup, manual entry — which is the one
-                              thing a row is opened for. The house the register
-                              cannot find is reachable here too; a pick is
-                              staged like the radios below, and nothing is
-                              written until Write. */}
-                          <EventCoordPicker
-                            place={row.place}
-                            address={row.address}
-                            coord={chosen?.coord}
-                            title={row.address}
-                            fileCoord={row.coord}
-                            onPick={(coord, label) =>
-                              setPicked((prev) =>
-                                new Map(prev).set(row.key, { coord, label: label ?? t("tools.geocode.manual") }),
-                              )
-                            }
-                            onClear={() => unpick(row.key)}
-                            trigger={
-                              <>
-                                <span className="tools-geo-cand-name">{row.address}</span>
-                                {(chosen?.coord ?? row.coord) && (
-                                  <span className="gm-data tools-geo-row-coord">
-                                    {(chosen?.coord ?? row.coord)!.lat.toFixed(5)},{" "}
-                                    {(chosen?.coord ?? row.coord)!.lon.toFixed(5)}
-                                  </span>
-                                )}
-                              </>
-                            }
-                          />
+                          {/* The address opens the coordinate panel too — map to
+                              pick on, register lookup, manual entry, which is
+                              the one thing a row is opened for. It is its own
+                              button rather than part of the pin's, because the
+                              rename ✎ sits between the two and buttons do not
+                              nest; both drive the same open state. */}
+                          <button
+                            className="tools-geo-addr-name"
+                            title={t("tools.geocode.addr.openHint")}
+                            onClick={() => setCoordOpen(row.key)}
+                          >
+                            {row.address}
+                          </button>
                           {renameKey === row.key ? (
                             <button
                               className="tools-place-edit-btn tools-place-edit-cancel"
@@ -879,6 +864,36 @@ export function AddressCoordsSection({
                               ✎
                             </button>
                           )}
+                          {/* The pin and the position it points at: green once
+                              this house holds one — staged or already in the
+                              file — muted while it holds none. The house the
+                              register cannot find is placed from here; a pick
+                              is staged like the radios below, and nothing is
+                              written until Write. */}
+                          <EventCoordPicker
+                            place={row.place}
+                            address={row.address}
+                            coord={chosen?.coord}
+                            title={row.address}
+                            fileCoord={row.coord}
+                            marked={!!(chosen?.coord ?? row.coord)}
+                            open={coordOpen === row.key}
+                            onOpenChange={(next) => setCoordOpen(next ? row.key : null)}
+                            onPick={(coord, label) =>
+                              setPicked((prev) =>
+                                new Map(prev).set(row.key, { coord, label: label ?? t("tools.geocode.manual") }),
+                              )
+                            }
+                            onClear={() => unpick(row.key)}
+                            trigger={
+                              (chosen?.coord ?? row.coord) && (
+                                <span className="gm-data tools-geo-row-coord">
+                                  {(chosen?.coord ?? row.coord)!.lat.toFixed(5)},{" "}
+                                  {(chosen?.coord ?? row.coord)!.lon.toFixed(5)}
+                                </span>
+                              )
+                            }
+                          />
                           {/* What that position is, now that the control itself
                               prints it: the house's own (placed) or the
                               settlement's, which every address here inherits —

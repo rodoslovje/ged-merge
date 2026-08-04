@@ -8207,20 +8207,24 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
    than greyscale-filtered — the glyph now takes a real colour. */
 .edit-event-coord--empty { color: var(--muted); opacity: 0.4; }
 .edit-event-coord--empty:hover { color: var(--muted); opacity: 0.75; }
-/* The button carries a label as well as the pin (the Addresses tool's row): the
-   text keeps the list's own colour and weight — only the pin takes the control's
-   colour — and the whole run is the click target, underlined on hover the way a
-   link is. Full opacity even while unplaced: the muting is the pin's business,
-   not the address's. */
+/* The button carries the coordinate as well as the pin (the Addresses tool's
+   row). The pin keeps the control's colour — green once a position is held —
+   while the numbers stay plain data, and the pair is one click target,
+   underlined on hover the way a link is. */
 .edit-event-coord--labelled {
-  line-height: inherit; gap: 0.4em; padding: 2px 4px; opacity: 1;
-  color: var(--muted); font: inherit; text-align: left;
+  line-height: inherit; gap: 0.35em; padding: 2px 4px; opacity: 1;
+  font: inherit; text-align: left;
 }
 .edit-event-coord--labelled:hover { opacity: 1; }
-.edit-event-coord--labelled > span { color: var(--fg); }
-.edit-event-coord--labelled:hover > span { text-decoration: underline; }
-.edit-event-coord--labelled .tools-geo-row-coord { color: var(--muted); }
-.edit-event-coord:not(.edit-event-coord--empty).edit-event-coord--labelled { color: var(--accent); }
+.edit-event-coord--labelled .tools-geo-row-coord { color: var(--fg); }
+.edit-event-coord--labelled:hover .tools-geo-row-coord { text-decoration: underline; }
+/* The address beside it: the row's own text, a button only so that it opens the
+   same panel the pin does. */
+.tools-geo-addr-name {
+  background: none; border: none; padding: 0; cursor: pointer;
+  font: inherit; font-weight: 500; color: inherit;
+}
+.tools-geo-addr-name:hover { text-decoration: underline; }
 /* Two-column popover: the value being edited across the top, then the map to
    pick on beside the candidates to pick from — a stacked layout pushed the map
    below the fold behind whatever the search returned. */

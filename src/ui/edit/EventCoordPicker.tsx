@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { GeoCoord } from "../../gedcom/types";
 import { countryCode } from "../../gedcom/countryCode";
@@ -52,6 +52,9 @@ export function EventCoordPicker({
   onPick,
   onClear,
   trigger,
+  marked,
+  open: controlledOpen,
+  onOpenChange,
 }: {
   /** The event's current place text (as edited). */
   place: string;
@@ -74,13 +77,35 @@ export function EventCoordPicker({
   onClear: () => void;
   /** Drawn inside the button after the pin. In Edit the pin alone is the
    *  control, sitting beside the fields it belongs to; the Addresses tool has
-   *  no such field to sit beside, so it puts the address and its position in
-   *  here and the whole thing opens the panel. */
+   *  no such field to sit beside, so it puts the position in here and the pin
+   *  and the numbers open the panel together. */
   trigger?: React.ReactNode;
+  /** Paint the pin as "a position is set" regardless of {@link coord}. For a
+   *  caller whose row already carries a position it cannot hand over as
+   *  `coord` — the Addresses tool stages picks, so `coord` is the *staged* one
+   *  and the file's own would put a Clear button on something it cannot clear. */
+  marked?: boolean;
+  /** Controlled open state, for a caller that opens the panel from a control of
+   *  its own as well (the Addresses row's address text). Uncontrolled — the
+   *  button alone — when omitted. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const { t, i18n } = useTranslation();
   const settings = useSettingsSlice(SETTINGS_KEYS);
-  const [open, setOpen] = useState(false);
+  const [openState, setOpenState] = useState(false);
+  const open = controlledOpen ?? openState;
+  // Stable across renders — the Escape/outside-click effect below closes through
+  // it, and a setter that changed identity every render would re-bind those
+  // document listeners on every keystroke in the panel.
+  const latest = useRef({ open, controlledOpen, onOpenChange });
+  latest.current = { open, controlledOpen, onOpenChange };
+  const setOpen = useCallback((next: boolean | ((prev: boolean) => boolean)) => {
+    const { open: now, controlledOpen: controlled, onOpenChange: notify } = latest.current;
+    const value = typeof next === "function" ? next(now) : next;
+    if (controlled === undefined) setOpenState(value);
+    notify?.(value);
+  }, []);
   const [rn, setRn] = useState<Search<RnResult>>(IDLE);
   const [osm, setOsm] = useState<Search<NominatimResult>>(IDLE);
   const [draft, setDraft] = useState("");
@@ -178,7 +203,7 @@ export function EventCoordPicker({
       document.removeEventListener("keydown", onKey, true);
       document.removeEventListener("mousedown", onDown);
     };
-  }, [open]);
+  }, [open, setOpen]);
 
   const runRegister = () => {
     if (!queries.length) return;
@@ -282,7 +307,7 @@ export function EventCoordPicker({
         type="button"
         className={
           "edit-event-coord" +
-          (coord ? "" : " edit-event-coord--empty") +
+          (marked ?? !!coord ? "" : " edit-event-coord--empty") +
           (trigger ? " edit-event-coord--labelled" : "")
         }
         title={

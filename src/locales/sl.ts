@@ -513,6 +513,7 @@ export const sl = {
   "tools.geocode.addr.placedHint": "Ta hiša že nosi svojo lego — ne naselja, ki bi jo podedoval vsak naslov tukaj. Na seznamu ostane, če jo želite še natančneje določiti.",
   "tools.geocode.addr.inherited": "(iz kraja)",
   "tools.geocode.addr.placePin": "Lega samega kraja",
+  "tools.geocode.addr.openHint": "Umestite to hišo: zemljevid za izbiro, register naslovov ali ročni vnos koordinat.",
   "tools.geocode.addr.inheritedHint": "Ti dogodki nosijo lego samega naselja — tisto, ki jo podeduje vsak naslov tukaj — zato hiša še čaka na umestitev. Ko prevzame svojo lego, jo ta zamenja.",
   "tools.geocode.addr.noQuery": "ni kaj poiskati",
   "tools.geocode.addr.noQueryHint": "Register naslovov potrebuje hišno številko v Sloveniji; ta naslov je nima ali pa leži drugje. Umestite ga z oznako kraja ali dajte celemu nizu eno lego z »Več naslovov na eno koordinato«.",
