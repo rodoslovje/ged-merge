@@ -342,6 +342,19 @@ function AppContent() {
         }
         return;
       }
+      if (msg.type === "matchFailed") {
+        // The files are fine — only the match pipeline threw. Stop the spinner
+        // and say so; the slots (and their cached files) stay as they are.
+        if (matchedTimerRef.current != null) {
+          window.clearTimeout(matchedTimerRef.current);
+          matchedTimerRef.current = null;
+        }
+        matchingStartRef.current = null;
+        dispatch({ type: "matchingStopped" });
+        persistence.hydratedRef.current = true; // a failed restore must not block persistence
+        setSaveToast(t("match.failed", { message: msg.message }));
+        return;
+      }
       if (msg.type === "parsed") {
         const file = loadedFileFromParsed(msg);
         // slotLoaded also records lastMainFile when role is "main".
@@ -490,12 +503,7 @@ function AppContent() {
     }
     // Drop stale results + decisions; the worker will emit fresh matches once
     // both sides are (re)loaded and re-normalized.
-    dispatch({ type: "matchesCleared" });
-    dispatch({ type: "decisionsCleared" });
-    dispatch({ type: "importBranchesCleared" });
-    setPendingEditApply(null);
-    setPreview(null);
-    setOpenMatches(false);
+    clearMatchState();
     if (role === "main") {
       undoRedo.clearAll();
       dirty.prepareForLoad();
@@ -583,14 +591,31 @@ function AppContent() {
     // Merge entries reference the now-gone incoming file; edits stay valid.
     undoRedo.dropMergeEntries();
     dispatch({ type: "slotCleared", role: "compare" });
+    clearMatchState();
+    setSelectedId(null);
+    post({ type: "clearCompare" });
+  }
+
+  /**
+   * Drop everything derived from the current match result: the result itself,
+   * decisions, branch-import requests, the pending save preview — and a
+   * `matched` still held back by the minimum-spinner timer, which would
+   * otherwise fire *after* this clear and resurrect a match list whose
+   * incoming file is gone. Shared by loadFile and unloadCompare so neither
+   * can forget a step the other remembered.
+   */
+  function clearMatchState() {
+    if (matchedTimerRef.current != null) {
+      window.clearTimeout(matchedTimerRef.current);
+      matchedTimerRef.current = null;
+    }
+    matchingStartRef.current = null;
     dispatch({ type: "matchesCleared" });
     dispatch({ type: "decisionsCleared" });
     dispatch({ type: "importBranchesCleared" });
     setPendingEditApply(null);
     setPreview(null);
     setOpenMatches(false);
-    setSelectedId(null);
-    post({ type: "clearCompare" });
   }
 
   function changeStart(id: string | undefined) {
@@ -1997,7 +2022,7 @@ function AppContent() {
               onEditRepo={(repoXref, fields) =>
                 applySharedRecordEdit((records, notes) => {
                   const node = records.find((r) => r.tag === "REPO" && r.xref === repoXref);
-                  if (node) setRepoRecordFields(node, fields, notes);
+                  if (node) setRepoRecordFields(records, node, fields, notes);
                 })
               }
               onEditMediaInfo={(objeXref, fields) =>

@@ -1169,7 +1169,7 @@ export function AddressCoordsSection({
                             <span className="tools-geo-online-note">{t("tools.geocode.downloadNeedsOptIn")}</span>
                           ) : (
                             <>
-                              {search.state !== "done" && (
+                              {(search.state !== "done" || !search.results.length) && (
                                 <button
                                   className="tools-issue-link"
                                   disabled={search.state === "loading"}
@@ -1183,6 +1183,11 @@ export function AddressCoordsSection({
                               {search.state === "error" && (
                                 <span className="tools-geo-online-note">{t("tools.geocode.rn.error")}</span>
                               )}
+                              {/* "No match" is not final: the group batch can't
+                                  walk the per-address ladder's outer rungs, so
+                                  the button above stays and asks the full
+                                  ladder — suffix retry, any street, the outer
+                                  settlements — for this one row. */}
                               {search.state === "done" && !search.results.length && (
                                 <span className="tools-geo-online-note">{t("tools.geocode.rn.none")}</span>
                               )}

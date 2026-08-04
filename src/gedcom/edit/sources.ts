@@ -93,6 +93,8 @@ export function createRepoRecord(records: GedNode[], name: string): GedNode {
   const repo: GedNode = { level: 0, xref: nextXref(records, "R"), tag: "REPO", children: [] };
   repo.children.push({ level: 1, tag: "NAME", value: name.trim(), children: [] });
   insertRecord(records, repo);
+  // A new top-level REPO stales the cached repo index (see cache.ts).
+  bumpSourceCacheVersion(records);
   return repo;
 }
 
@@ -182,6 +184,10 @@ export function setSourceRecordFields(records: GedNode[], sourceNode: GedNode, f
       repoLink.children = repoLink.children.filter((c) => c.tag !== "CALN");
       if (caln) repoLink.children.push({ level: repoLink.level + 1, tag: "CALN", value: caln, children: [] });
     }
+    // Retargeting the source's REPO link changes which repository its
+    // citations fall back to for a URL — resolved from the cached repo index,
+    // so the cache must be rebuilt before the next rebuildIndividual.
+    bumpSourceCacheVersion(records);
   }
 
   const url = fields.url?.trim();
@@ -239,7 +245,7 @@ const REPO_CHILD_ORDER = ["NAME", "ADDR", "PHON", "EMAIL", "FAX", "WWW", "NOTE",
  * `CTRY`, …) the file already has in place; a pointer `NOTE` is edited inside
  * the shared record via `notes`, matching {@link setSourceRecordFields}.
  */
-export function setRepoRecordFields(repoNode: GedNode, fields: EditRepoFields, notes?: SharedNoteCtx): void {
+export function setRepoRecordFields(records: GedNode[], repoNode: GedNode, fields: EditRepoFields, notes?: SharedNoteCtx): void {
   const set = (tag: string, value: string | undefined) => {
     if (value === undefined) return;
     const trimmed = value.trim();
@@ -292,6 +298,11 @@ export function setRepoRecordFields(repoNode: GedNode, fields: EditRepoFields, n
       set("NOTE", fields.note);
     }
   }
+  // The cached repo index is a *snapshot* of each REPO's NAME/WWW (unlike the
+  // source index, which holds live nodes), so editing a repository's fields
+  // stales it — without this, citations kept resolving their repo-fallback
+  // URL against the pre-edit snapshot for the rest of the session.
+  bumpSourceCacheVersion(records);
 }
 
 /** Prefill for the repository editor — the same fields {@link setRepoRecordFields}

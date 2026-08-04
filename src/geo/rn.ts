@@ -1,3 +1,4 @@
+import { GEO_FETCH_TIMEOUT_MS, timeoutSignal } from "./net";
 import type { GeoCoord } from "../gedcom/types";
 import { countryCode } from "../gedcom/countryCode";
 import { addressStreetName, decomposePlace, looksLikeStreet } from "../gedcom/place";
@@ -430,7 +431,7 @@ function rnFetch(filter: string, signal?: AbortSignal, limit = FETCH_LIMIT): Pro
     const url =
       `${ENDPOINT}?f=${encodeURIComponent("application/geo+json")}` +
       `&filter-lang=cql-text&limit=${limit}&filter=${encodeURIComponent(filter)}`;
-    const res = await fetch(url, signal ? { signal } : {});
+    const res = await fetch(url, { signal: timeoutSignal(GEO_FETCH_TIMEOUT_MS, signal) });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as RnFeatureCollection;
   };
@@ -587,7 +588,7 @@ export async function searchAddressBatch(
 ): Promise<BatchPool> {
   const byPlace = new Map<
     string,
-    { settlement: string; street?: string; parents?: string[]; numbers: Set<number> }
+    { settlement: string; street?: string; parents?: string[]; altSettlements?: string[]; numbers: Set<number> }
   >();
   for (const q of queries) {
     const key = groupKey(q);
@@ -598,6 +599,9 @@ export async function searchAddressBatch(
         settlement: q.settlement,
         street: q.street,
         parents: q.parents,
+        // Alternates derive from the place value, so every query of the group
+        // (same settlement+street+parents) carries the same list.
+        altSettlements: q.altSettlements ? [...q.altSettlements] : undefined,
         numbers: new Set([q.number]),
       });
   }
@@ -626,6 +630,14 @@ export async function searchAddressBatch(
       requireParentMunicipality(await fetchGroup(...args), g.parents, signal);
     let hits = await own(g.settlement, g.street, numbers);
     if (!hits.length && !g.street) hits = await own(g.settlement, undefined, numbers, true);
+    // The settlement the file names may not be the one the register files the
+    // street under — walk the same alternates the per-address ladder does
+    // (searchAddress), each with the same inner rungs, before guessing.
+    for (const alt of g.altSettlements ?? []) {
+      if (hits.length) break;
+      hits = await own(alt, g.street, numbers);
+      if (!hits.length && !g.street) hits = await own(alt, undefined, numbers, true);
+    }
     if (!hits.length) {
       const alt = hostAsSettlement({ settlement: g.settlement, street: g.street, number: numbers[0] });
       if (alt) {

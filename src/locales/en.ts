@@ -1882,6 +1882,8 @@ export const en = {
   "save.preview.download": "Download GEDCOM",
   "save.preview.removeChange": "Remove from Save",
   "save.toast": "Saved — {{count}} file(s) downloaded.",
+  "match.failed": "Matching failed: {{message}}",
+  "persist.writeFailed": "Could not save the workspace cache — restore on reload may not work until storage frees up.",
   "edit.charts.button": "Charts",
   "edit.charts.tooltip": "Charts for the current person — tree, fan, relationship… (V)",
   "charts.header.tooltip": "Charts — family tree, fan chart, relationship & timeline diagrams",

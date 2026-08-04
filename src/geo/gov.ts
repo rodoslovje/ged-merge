@@ -1,3 +1,4 @@
+import { GEO_FETCH_TIMEOUT_MS, timeoutSignal } from "./net";
 import type { GeoCoord } from "../gedcom/types";
 import { foldToken, jaroWinkler } from "../match/text";
 import { decomposePlace } from "../gedcom/place";
@@ -187,6 +188,7 @@ function govCall(operation: string, inner: string): Promise<string> {
       method: "POST",
       headers: { "Content-Type": "text/xml;charset=UTF-8", SOAPAction: '""' },
       body,
+      signal: timeoutSignal(GEO_FETCH_TIMEOUT_MS),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.text();

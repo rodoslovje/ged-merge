@@ -8,7 +8,7 @@ import type { useDirtyTracking } from "../edit-state/useDirtyTracking";
 import type { useUndoRedo } from "../edit-state/useUndoRedo";
 import {
   clearWorkspace, consumeFreshStart, loadWorkspace, requestPersistentStorage,
-  saveFile, saveSession, type StoredEditState, type StoredSession,
+  saveFile, saveMainAndSession, type StoredEditState, type StoredSession,
 } from "./idb";
 import { clearDecisions } from "./geoDb";
 import { hashFile, hasPermApi } from "./fingerprint";
@@ -100,6 +100,14 @@ export function useWorkspacePersistence(opts: WorkspacePersistenceOptions) {
   // fire-and-forget original write from loadFile can't race and clobber a later
   // edited write. False after a fresh main load → the next debounce caches it.
   const mainCachedRef = useRef(false);
+  // The editVersion whose serialization is in the cache. Re-serializing the
+  // whole dataset is the expensive part of a persistence tick, so the blob is
+  // rewritten only when the dataset actually changed since the last write —
+  // not on every decision click that merely re-runs the debounced effect.
+  const lastMainWriteVersionRef = useRef<number | null>(null);
+  // A cache-write failure is reported once (per failure streak), not on every
+  // 800 ms tick — and a later success re-arms the warning.
+  const writeFailureToldRef = useRef(false);
   // Live FileSystemFileHandle for main/compare, when the browser supports the
   // File System Access API and the file was picked/dropped via one (Firefox/
   // Safari, or a plain drag of a file without a resolvable handle, leave this
@@ -288,22 +296,24 @@ export function useWorkspacePersistence(opts: WorkspacePersistenceOptions) {
         ? { ...dirty.serialize(), sortEligiblePersonIds: [...sortEligiblePersonIdsRef.current], ...undoRedo.serialize() }
         : undefined;
       // Cache the main's *current* serialization (edited or original) — this
-      // effect is the sole main writer. Re-serialize when the dataset has been
-      // edited, or once when it hasn't been cached yet this session (a pure-merge
-      // session then serializes only that first time, not on every decision). It
-      // is written before the session below, so a session record always points
-      // at an already-committed main.
-      if (mainDataset && (edited || !mainCachedRef.current)) {
-        await saveFile("main", {
-          fileName: mainFileName,
-          blob: new Blob([serializeGedcom(mainDataset.records, { eol: mainDataset.eol, finalNewline: mainDataset.finalNewline })]),
-          savedAt: Date.now(),
-          originalHash: mainOriginalHashRef.current ?? undefined,
-          handle: mainHandle ?? undefined,
-        });
-        mainCachedRef.current = true;
-      }
-      await saveSession({
+      // effect is the sole main writer. Re-serialize only when the dataset has
+      // actually changed since the last blob write (or was never cached this
+      // session): serializing a large file is the expensive part of a tick,
+      // and a decision click that changes only the session must not pay it.
+      // Blob and session go in one transaction (saveMainAndSession) so a
+      // failure between them can't leave an edited main beside a stale session.
+      const needBlob =
+        !!mainDataset && (!mainCachedRef.current || (edited && lastMainWriteVersionRef.current !== editVersion));
+      const file = needBlob
+        ? {
+            fileName: mainFileName,
+            blob: new Blob([serializeGedcom(mainDataset.records, { eol: mainDataset.eol, finalNewline: mainDataset.finalNewline })]),
+            savedAt: Date.now(),
+            originalHash: mainOriginalHashRef.current ?? undefined,
+            handle: mainHandle ?? undefined,
+          }
+        : undefined;
+      const ok = await saveMainAndSession(file, {
         mainFileName,
         compareFileName: compare.status === "loaded" ? compare.file.fileName : undefined,
         decisions: Array.from(decisions),
@@ -313,6 +323,19 @@ export function useWorkspacePersistence(opts: WorkspacePersistenceOptions) {
         editState,
         savedAt: Date.now(),
       });
+      if (ok) {
+        if (needBlob) {
+          mainCachedRef.current = true;
+          lastMainWriteVersionRef.current = editVersion;
+        }
+        writeFailureToldRef.current = false;
+      } else if (!writeFailureToldRef.current) {
+        // The user opted into restore-on-reload; if the cache can't be
+        // written (quota, eviction), silence would let them find out the
+        // hard way. Say it once per failure streak.
+        writeFailureToldRef.current = true;
+        opts.setSaveToast(t("persist.writeFailed"));
+      }
     }, 800);
     return () => window.clearTimeout(handle);
     // eslint-disable-next-line react-hooks/exhaustive-deps

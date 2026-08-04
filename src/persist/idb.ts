@@ -121,7 +121,12 @@ function openDb(): Promise<IDBDatabase | null> {
       if (!db.objectStoreNames.contains(SESSION_STORE)) db.createObjectStore(SESSION_STORE);
     };
     req.onsuccess = () => resolve(req.result);
-    req.onerror = () => resolve(null);
+    req.onerror = () => {
+      // Don't cache a transient open failure (a briefly locked profile at
+      // boot) as "no persistence forever" — the next operation retries.
+      dbPromise = undefined;
+      resolve(null);
+    };
   });
   return dbPromise;
 }
@@ -207,6 +212,35 @@ export function saveSession(session: StoredSession): Promise<void> {
   return withDb(
     (db) => idbPut(db, SESSION_STORE, SESSION_KEY, { ...session, schema: SESSION_SCHEMA }),
     undefined,
+  );
+}
+
+/**
+ * Write the (possibly edited) main blob and the session in ONE transaction, so
+ * a failure — or a tab closing — between the two can never persist an edited
+ * main beside a stale edit-state: hydration would then diff pre-edit snapshots
+ * against a dataset they don't describe. `file` is optional for the common
+ * tick where only the session changed. Unlike the other operations this
+ * reports failure (false: quota, eviction, no IndexedDB at all), so the
+ * debounced writer can tell the user that restore-on-reload is broken instead
+ * of failing silently forever.
+ */
+export function saveMainAndSession(file: StoredFile | undefined, session: StoredSession): Promise<boolean> {
+  return withDb<boolean>(
+    (db) =>
+      new Promise((resolve) => {
+        try {
+          const tx = db.transaction(file ? [FILES_STORE, SESSION_STORE] : [SESSION_STORE], "readwrite");
+          if (file) tx.objectStore(FILES_STORE).put(file, "main");
+          tx.objectStore(SESSION_STORE).put({ ...session, schema: SESSION_SCHEMA }, SESSION_KEY);
+          tx.oncomplete = () => resolve(true);
+          tx.onerror = () => resolve(false);
+          tx.onabort = () => resolve(false);
+        } catch {
+          resolve(false);
+        }
+      }),
+    false,
   );
 }
 

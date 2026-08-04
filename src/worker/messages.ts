@@ -96,4 +96,13 @@ export interface MatchSuccess {
   result: MatchResult;
 }
 
-export type WorkerResponse = ParseSuccess | ParseFailure | MatchProgress | MatchSuccess;
+/** The match pipeline threw after the files themselves parsed fine. Distinct
+ *  from `error`: the loaded slots are still valid — only the match result is
+ *  missing — so the app must stop the matching spinner without failing a slot
+ *  or evicting its cached file. */
+export interface MatchFailure {
+  type: "matchFailed";
+  message: string;
+}
+
+export type WorkerResponse = ParseSuccess | ParseFailure | MatchProgress | MatchSuccess | MatchFailure;

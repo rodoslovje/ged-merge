@@ -32,6 +32,18 @@ export const NAME_CHILD_ORDER = ["NPFX", "GIVN", "NICK", "SPFX", "SURN", "_MARNM
 export const EVENT_LINK_TAG = "WWW";
 
 /**
+ * Every tag whose line IS a link, wherever links are edited or merged —
+ * record-level and event-level alike. One list on purpose: the editors used
+ * to each keep their own subset, so a `_LINK` (or an event-level `URL`) showed
+ * as a link but survived "remove", and committing then wrote a duplicate
+ * `WWW` beside it. The builder's LINK_TAGS additionally includes `FILE` for
+ * URL *detection*; it is deliberately absent here — FILE lines are media and
+ * must never be swept by a link edit. `_WEBTAG` carries its URL on a child
+ * line and is removed as a whole block.
+ */
+export const EDITABLE_LINK_TAGS = ["WWW", "URL", "_URL", "_LINK", "_WEBTAG"] as const;
+
+/**
  * Flag an event node as added or modified, so save-time audit stamping
  * (`stampChanCrea`) writes CHAN/CREA onto exactly this event. "new" wins over
  * "changed": once an event is created in this session, later field edits to it

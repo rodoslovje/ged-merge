@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { parseGedcom } from "../../gedcom/parser";
 import { buildDataset } from "../../gedcom/builder";
 import { childText, firstChild } from "../../gedcom/node";
-import { repoRecordEditFields, setRepoRecordFields, setSourceRecordFields, sourceRecordEditFields } from "../../gedcom/edit";
+import { rebuildIndividual, repoRecordEditFields, setRepoRecordFields, setSourceRecordFields, sourceRecordEditFields } from "../../gedcom/edit";
 import { createStandaloneSource, pageObjeTitle } from "./standaloneSource";
 
 function buildFromText(text: string) {
@@ -174,7 +174,7 @@ describe("repoXref on setSourceRecordFields / setRepoRecordFields", () => {
     const repo = { level: 0, xref: "@R1@", tag: "REPO", children: [{ level: 1, tag: "NAME", value: "Staro ime", children: [] }] };
     ds.records.push(repo);
 
-    setRepoRecordFields(repo, {
+    setRepoRecordFields(ds.records, repo, {
       name: "Nadškofijski arhiv",
       addr: "Krekov trg 1\n1000 Ljubljana",
       phone: "01 234 56 78",
@@ -193,9 +193,38 @@ describe("repoXref on setSourceRecordFields / setRepoRecordFields", () => {
     expect(fields.email).toBe("arhiv@rkc.si");
 
     // "" clears a line; undefined leaves it untouched.
-    setRepoRecordFields(repo, { url: "", addr: "" });
+    setRepoRecordFields(ds.records, repo, { url: "", addr: "" });
     expect(repo.children.some((c) => c.tag === "WWW" || c.tag === "ADDR")).toBe(false);
     expect(repo.children.some((c) => c.tag === "PHON")).toBe(true);
+  });
+
+  it("a repo edit reaches citations resolved after it (cache bumped)", () => {
+    // The repo index is a snapshot of each REPO's NAME/WWW; without the bump,
+    // a rebuilt person kept resolving its citation's repo-fallback URL against
+    // the pre-edit snapshot for the rest of the session.
+    const ds = buildFromText([
+      "0 HEAD",
+      "1 GEDC",
+      "2 VERS 5.5.1",
+      "0 @I1@ INDI",
+      "1 NAME Test /Person/",
+      "1 BIRT",
+      "2 SOUR @S1@",
+      "0 @S1@ SOUR",
+      "1 TITL Census",
+      "1 REPO @R1@",
+      "0 @R1@ REPO",
+      "1 NAME Archive",
+      "1 WWW https://old.example.com/",
+      "0 TRLR",
+      "",
+    ].join("\n"));
+    const indi = ds.individuals.get("@I1@")!;
+    // Warm the cache the way any prior edit commit would.
+    expect(rebuildIndividual(ds, indi).events[0].sources?.[0].url).toBe("https://old.example.com/");
+    const repo = ds.records.find((r) => r.tag === "REPO" && r.xref === "@R1@")!;
+    setRepoRecordFields(ds.records, repo, { url: "https://new.example.com/" });
+    expect(rebuildIndividual(ds, indi).events[0].sources?.[0].url).toBe("https://new.example.com/");
   });
 
   it("writes and clears the CALN call number on the source's REPO link", () => {
