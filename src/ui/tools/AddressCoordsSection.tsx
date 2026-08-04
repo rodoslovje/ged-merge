@@ -1033,7 +1033,11 @@ export function AddressCoordsSection({
                                     onChange={() => pick(row.key, r)}
                                     onClick={() => sameCoord(chosen?.coord, r.coord) && unpick(row.key)}
                                   />
-                                  <span className="tools-geo-cand-name gm-addr">{r.label}</span>
+                                  {/* No pin before the answer either: its own
+                                      coordinate carries one at the end of the
+                                      line, and the row above already reads as
+                                      addresses. */}
+                                  <span className="tools-geo-cand-name">{r.label}</span>
                                   {/* The coordinate doubles as "show on the
                                       place's map", like the places rows —
                                       the house appears among its neighbours. */}
