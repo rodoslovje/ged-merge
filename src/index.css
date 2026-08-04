@@ -8207,17 +8207,15 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
    than greyscale-filtered — the glyph now takes a real colour. */
 .edit-event-coord--empty { color: var(--muted); opacity: 0.4; }
 .edit-event-coord--empty:hover { color: var(--muted); opacity: 0.75; }
-/* The button carries the coordinate as well as the pin (the Addresses tool's
-   row). The pin keeps the control's colour — green once a position is held —
-   while the numbers stay plain data, and the pair is one click target,
-   underlined on hover the way a link is. */
+/* The button draws a position instead of the bare pin (the Addresses tool's
+   row): the place rows' "→ source · pinned coordinate", so a taken position
+   reads the same on both lists. Colour and pin come from .tools-tree-meta and
+   .gm-coord inside it; the button only makes the run clickable. */
 .edit-event-coord--labelled {
-  line-height: inherit; gap: 0.35em; padding: 2px 4px; opacity: 1;
-  font: inherit; text-align: left;
+  line-height: inherit; padding: 2px 2px; opacity: 1;
+  font: inherit; text-align: left; color: inherit;
 }
-.edit-event-coord--labelled:hover { opacity: 1; }
-.edit-event-coord--labelled .tools-geo-row-coord { color: var(--fg); }
-.edit-event-coord--labelled:hover .tools-geo-row-coord { text-decoration: underline; }
+.edit-event-coord--labelled:hover { opacity: 1; text-decoration: underline; }
 /* The address beside it: the row's own text, a button only so that it opens the
    same panel the pin does. */
 .tools-geo-addr-name {
@@ -8419,13 +8417,10 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 .tools-geo-cand-name { font-weight: 500; }
 .tools-geo-manual { display: flex; align-items: center; gap: 8px; }
 .tools-geo-online-note { color: var(--muted); font-size: 0.8rem; }
-/* The position a row is staged at, printed beside its pin. Accent-coloured
-   like the other "this will be written" marks. */
-.tools-geo-picked { color: var(--status-new); font-size: 0.8rem; white-space: nowrap; }
-/* Where that position came from — truncated rather than wrapped, since a
-   register line can be longer than the address it answers, and it is the one
-   part of the note that may run out of room: the coordinate after the arrow
-   stays whole. */
+/* Where a staged position came from, inside the row's coordinate control. A
+   register line can run longer than the address it answers, so this one part
+   truncates rather than wrapping — the coordinate after it is what the row is
+   read for and stays whole. */
 .tools-geo-picked-from {
   display: inline-block;
   max-width: 22em;

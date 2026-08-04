@@ -75,10 +75,10 @@ export function EventCoordPicker({
    *  "manual") — for callers that stage a pick and show its origin. */
   onPick: (coord: GeoCoord, label?: string) => void;
   onClear: () => void;
-  /** Drawn inside the button after the pin. In Edit the pin alone is the
-   *  control, sitting beside the fields it belongs to; the Addresses tool has
-   *  no such field to sit beside, so it puts the position in here and the pin
-   *  and the numbers open the panel together. */
+  /** What the button draws, in place of the bare pin. In Edit the pin alone is
+   *  the control, sitting beside the fields it belongs to; the Addresses tool
+   *  has no such field to sit beside, so it draws the position it holds — its
+   *  own pin included — and that whole run opens the panel. */
   trigger?: React.ReactNode;
   /** Paint the pin as "a position is set" regardless of {@link coord}. For a
    *  caller whose row already carries a position it cannot hand over as
@@ -318,8 +318,7 @@ export function EventCoordPicker({
         aria-label={t("event.coord.open", { event: title })}
         onClick={() => setOpen((v) => !v)}
       >
-        <PinIcon />
-        {trigger}
+        {trigger ?? <PinIcon />}
       </button>
       {open && (
         <div

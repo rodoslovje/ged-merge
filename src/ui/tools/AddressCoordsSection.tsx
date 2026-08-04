@@ -886,10 +886,30 @@ export function AddressCoordsSection({
                             }
                             onClear={() => unpick(row.key)}
                             trigger={
+                              // The place rows' own shape for a position taken:
+                              // → where it came from · the coordinate, pinned
+                              // and accent once it is this house's own. A row
+                              // holding nothing keeps the bare pin (no trigger),
+                              // which is what says "coordinates live here".
                               (chosen?.coord ?? row.coord) && (
-                                <span className="gm-data tools-geo-row-coord">
-                                  {(chosen?.coord ?? row.coord)!.lat.toFixed(5)},{" "}
-                                  {(chosen?.coord ?? row.coord)!.lon.toFixed(5)}
+                                <span className="tools-tree-meta">
+                                  {chosen && (
+                                    <>
+                                      →{" "}
+                                      <span className="tools-geo-picked-from" title={chosen.label}>
+                                        {chosen.label}
+                                      </span>{" "}
+                                      ·{" "}
+                                    </>
+                                  )}
+                                  <span
+                                    className={
+                                      "gm-data gm-coord" + (chosen || row.placed ? " gm-coord--set" : "")
+                                    }
+                                  >
+                                    {(chosen?.coord ?? row.coord)!.lat.toFixed(5)},{" "}
+                                    {(chosen?.coord ?? row.coord)!.lon.toFixed(5)}
+                                  </span>
                                 </span>
                               )
                             }
@@ -906,17 +926,6 @@ export function AddressCoordsSection({
                               title={t(row.placed ? "tools.geocode.addr.placedHint" : "tools.geocode.addr.inheritedHint")}
                             >
                               {t(row.placed ? "tools.geocode.addr.placed" : "tools.geocode.addr.inherited")}
-                            </span>
-                          )}
-                          {/* Where a staged position came from — the register's
-                              own line, "from this file", "manual" — so a row
-                              staged with the rest of its village is read off
-                              the list rather than one tooltip at a time. */}
-                          {chosen && (
-                            <span className="tools-geo-picked">
-                              <span className="tools-geo-picked-from" title={chosen.label}>
-                                {chosen.label}
-                              </span>
                             </span>
                           )}
                           {/* The register comes after the position, being the way
