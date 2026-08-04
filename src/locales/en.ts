@@ -505,8 +505,9 @@ export const en = {
   "tools.geocode.licenseCcBy": ", CC BY 4.0.",
   "tools.geocode.sourceDgu": "Croatian settlements, villages, hamlets and city quarters from the official register of geographical names, historical and bilingual forms included — the authoritative choice for Croatian research.",
   // Croatia's national open-data licence, which is what DGU publishes its
-  // registers under — named in Croatian, as the licence itself is.
-  "tools.geocode.licenseOtvorenaDozvola": ", Otvorena dozvola.",
+  // registers under. Named as the licence names itself in each language —
+  // "Open Licence" is its own English title, not a translation of ours.
+  "tools.geocode.licenseOpen": ", Open Licence.",
   "tools.geocode.sourceOsm": "Any country you pick from the list. Hamlets too, where an official register names none.",
   // Around the linked name, which sits mid-credit here: "© OpenStreetMap
   // contributors" — and after "© sodelavci" in Slovenian.

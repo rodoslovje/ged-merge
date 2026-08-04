@@ -833,7 +833,7 @@ function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
               <a href="https://geoportal.dgu.hr/" target="_blank" rel="noreferrer">
                 Državna geodetska uprava
               </a>
-              {t("tools.geocode.licenseOtvorenaDozvola")}
+              {t("tools.geocode.licenseOpen")}
             </p>
             {/* One control, not a pair: the button opens the country list and
                 the country picked is the click — the same shape as the map tab's
