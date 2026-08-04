@@ -555,7 +555,7 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
       {/* Above the lists, below the gazetteer: it is the only outright error on
           the page — coordinates that contradict each other, which no lookup
           below can resolve — but it is a finding, not part of the setup. */}
-      <CoordConflicts dataset={dataset} onApply={onApplyAddressCoords} query={query} />
+      <CoordConflicts dataset={dataset} scanGen={scanGen} onApply={onApplyAddressCoords} query={query} />
 
       {/* The two work lists switch as tabs — a long places list otherwise
           buries the addresses below it. No tabs while the file has no
@@ -730,6 +730,7 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
         dataset={dataset}
         all={addrRows}
         addrsByPlace={addrsByPlace}
+        places={placeSug}
         onApply={onApplyAddressCoords}
         onMove={onMovePlaceForAddresses}
         query={query}

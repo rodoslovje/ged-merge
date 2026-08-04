@@ -15,6 +15,16 @@ describe("text primitives", () => {
     expect(jaroWinkler("smith", "jones")).toBeLessThan(0.5);
   });
 
+  it("jaroWinkler memo keys can't collide across multi-word pairs", () => {
+    // The cache key joins a and b with a literal NUL. Were it a space,
+    // ("kranjc novak","kos") and ("kranjc","novak kos") would share a key
+    // and the second call would return the first pair's cached score.
+    const first = jaroWinkler("kranjc novak", "kos");
+    const second = jaroWinkler("kranjc", "novak kos");
+    expect(second).not.toBe(first);
+    expect(second).toBe(jaroWinkler("kranjc", "novak kos"));
+  });
+
   it("soundex groups homophones", () => {
     expect(soundex("Smith")).toBe(soundex("Smyth"));
     expect(soundex("Robert")).toBe("R163");

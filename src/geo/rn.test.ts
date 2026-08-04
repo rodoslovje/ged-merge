@@ -278,6 +278,18 @@ describe("municipality scoping", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
+  it("does not remember a failed občina probe as 'not a municipality'", async () => {
+    const klosterCrnomelj = hit("Klošter", "Črnomelj", 45.6);
+    // The register is unreachable the first time "Metlika" is probed: the veto
+    // fails open for this lookup — a hiccup must not delete good results.
+    fetchMock.mockRejectedValueOnce(new Error("network down"));
+    expect(await requireParentMunicipality([klosterCrnomelj], ["Metlika"])).toEqual([klosterCrnomelj]);
+    // The failure is not cached: once the register answers again, the next
+    // lookup re-probes and the wrong-občina namesake is vetoed after all.
+    municipalities.add("Metlika");
+    expect(await requireParentMunicipality([klosterCrnomelj], ["Metlika"])).toEqual([]);
+  });
+
   it("vetoes a namesake on the ordinary rungs, not only on the guessed one", async () => {
     // The whole ladder for "Sv. Duh 6" under Škofja Loka: the settlement name
     // is the file's own word, yet the only register hit is Dravograd's Sv. Duh.

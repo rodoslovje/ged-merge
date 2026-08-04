@@ -215,6 +215,14 @@ function AppContent() {
   // the bump in the tick the mutation happens (the tools worker's dataset
   // cache re-validates against just-fixed data before React re-renders).
   const editVersionRef = useRef(0);
+  // The editVersion at which the live dataset last matched the cached main
+  // blob (0 on load, advanced on save). "Is the dataset edited?" is
+  // editVersion !== this — not editVersion > 0 — because confirming a save
+  // rebuilds the dataset in place and must bump editVersion like any other
+  // mutation (every memo and panel keyed on it has to see the new baseline,
+  // even in a merge-only session where it still sat at 0) without making the
+  // freshly-saved dataset look edited to the persistence writer.
+  const cleanEditVersionRef = useRef(0);
   const bumpEdit = useCallback(() => {
     editVersionRef.current += 1;
     setEditVersion((v) => v + 1);
@@ -405,7 +413,7 @@ function AppContent() {
   // refs the worker handlers above and the load/save flows below share.
   const persistence = useWorkspacePersistence({
     persistEnabled: settings.persistWorkspace,
-    workspace, mainDataset, editVersion, dirty, undoRedo,
+    workspace, mainDataset, editVersion, cleanEditVersionRef, dirty, undoRedo,
     sortEligiblePersonIdsRef, post, dispatch, autoStartRef,
     loadFile, confirmDialog, setSaveToast, clearMediaFolder,
   });
@@ -487,6 +495,7 @@ function AppContent() {
       dirty.prepareForLoad();
       setEditVersion(0); // new file → dataset matches the cached original again
       editVersionRef.current = 0;
+      cleanEditVersionRef.current = 0;
       sortEligiblePersonIdsRef.current = new Set();
       setChartsRootId(null);
       dispatch({ type: "setStart", id: undefined }); // start person is opt-in; reset on (re)load
@@ -607,6 +616,7 @@ function AppContent() {
         if (!persistence.expectCompareRef.current) undoRedo.dropMergeEntries();
         sortEligiblePersonIdsRef.current = new Set(es.sortEligiblePersonIds);
         setEditVersion(1); // mark dataset as edited so further edits keep persisting
+        editVersionRef.current = 1; // keep the sync ref on the same counter
         hydrated = true;
       } catch (err) {
         console.warn("Discarding incompatible cached edit state:", err);
@@ -1363,11 +1373,15 @@ function AppContent() {
     // The saved file is the new baseline — undo/redo entries refer to a state
     // that no longer exists, so there's nothing left to meaningfully undo into.
     undoRedo.clearAll();
-    // The cached main text (written just above) now equals the live dataset,
-    // so drop the "dataset is edited" flag and mark the main cached — the
-    // debounce (sole main writer) then leaves it alone until the next edit.
-    setEditVersion(0);
-    editVersionRef.current = 0;
+    // The in-place rebuild above changed the dataset like any edit would, so
+    // every memo and panel keyed on editVersion must see a bump — in a
+    // merge-only session the counter still sits at 0, and without the bump
+    // global search and kinship would keep serving the pre-merge dataset.
+    bumpEdit();
+    // The cached main text (written just above) equals the rebuilt dataset:
+    // remember this version as clean and mark the main cached — the debounce
+    // (sole main writer) then leaves it alone until the next edit.
+    cleanEditVersionRef.current = editVersionRef.current;
     persistence.mainCachedRef.current = true;
   }
 

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
 import { sameCoord } from "../../geo/points";
@@ -34,10 +34,14 @@ const keyOf = (c: CoordConflict) => placeAddrKey(c.value, c.address);
  */
 export function CoordConflicts({
   dataset,
+  scanGen,
   onApply,
   query,
 }: {
   dataset: Dataset;
+  /** The page's rescan generation — the dataset is mutated in place, so this
+   *  is what actually moves when an apply, undo or edit changes it. */
+  scanGen: number;
   /** Write one coordinate onto every event at a place+address pair, replacing
    *  what is there — the same overwriting write-back the address register uses. */
   onApply: (assignments: Map<string, GeoCoord>) => number;
@@ -46,8 +50,11 @@ export function CoordConflicts({
   query: string;
 }) {
   const { t } = useTranslation();
-  // Re-scanned whenever the dataset object changes, so a settled row disappears.
-  const all = useMemo(() => scanPlaceCoords(dataset).conflicts, [dataset]);
+  const all = useMemo(
+    () => scanPlaceCoords(dataset).conflicts,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dataset, scanGen],
+  );
   const conflicts = useMemo(
     () =>
       query
@@ -62,6 +69,17 @@ export function CoordConflicts({
   /** Free "lat, lon" text per row, for a coordinate that is in neither list. */
   const [manual, setManual] = useState<Map<string, string>>(new Map());
   const [applied, setApplied] = useState<number | null>(null);
+
+  // A rescan can settle or remove rows (an apply, an undo, an edit in another
+  // view). Picks and drafts on rows that vanished must go with them — a stale
+  // pick would otherwise be written back, invisibly, by the next Apply.
+  useEffect(() => {
+    const keys = new Set(all.map(keyOf));
+    setOpen((prev) => new Set([...prev].filter((k) => keys.has(k))));
+    setPicked((prev) => new Map([...prev].filter(([k]) => keys.has(k))));
+    setManual((prev) => new Map([...prev].filter(([k]) => keys.has(k))));
+    setMapOpen((prev) => (prev && keys.has(prev) ? prev : null));
+  }, [all]);
 
   if (!conflicts.length) return null;
 
