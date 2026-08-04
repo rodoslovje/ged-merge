@@ -1052,17 +1052,21 @@ export function AddressCoordsSection({
                               {/* The tag belongs to the position, so it is part
                                   of the same control rather than dead text
                                   beside it — a click anywhere on the run opens
-                                  the panel. */}
+                                  the panel. A placed house wears the same chip
+                                  a placed place row does. */}
                               {!chosen && row.coord && (
-                                <span
-                                  className="tools-geo-addr-tag"
-                                  title={t(
-                                    row.placed ? "tools.geocode.addr.placedHint" : "tools.geocode.addr.inheritedHint",
-                                  )}
-                                >
+                                <>
                                   {" "}
-                                  {t(row.placed ? "tools.geocode.addr.placed" : "tools.geocode.addr.inherited")}
-                                </span>
+                                  {row.placed ? (
+                                    <span className="tools-reshape-badge new" title={t("tools.geocode.addr.placedHint")}>
+                                      {t("tools.geocode.placedBadge")}
+                                    </span>
+                                  ) : (
+                                    <span className="tools-geo-addr-tag" title={t("tools.geocode.addr.inheritedHint")}>
+                                      {t("tools.geocode.addr.inherited")}
+                                    </span>
+                                  )}
+                                </>
                               )}
                             </button>
                           )}

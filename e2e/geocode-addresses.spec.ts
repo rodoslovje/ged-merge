@@ -202,12 +202,13 @@ test("a house already placed says so, and its coordinate opens the panel", async
   // Ticking "Show already placed" lists the hamlet's two placed houses again;
   // the third is still not placed, and the returned chip counts exactly the two.
   await page.getByText("Show already placed").click();
-  const placed = group.locator(".tools-geo-addr-row").filter({ hasText: "(placed)" });
+  // A placed house wears the same "placed" chip a placed place row does.
+  const placed = group.locator(".tools-geo-addr-row").filter({ has: page.locator(".tools-reshape-badge") });
   await expect(placed).toHaveCount(2);
   await expect(placed.first()).toContainText("46.21806, 14.36897");
-  await expect(group.locator(".tools-geo-addr-row").filter({ hasText: "Cesta na Klanec 55" })).not.toContainText(
-    "(placed)",
-  );
+  await expect(
+    group.locator(".tools-geo-addr-row").filter({ hasText: "Cesta na Klanec 55" }).locator(".tools-reshape-badge"),
+  ).toHaveCount(0);
   await expect(page.getByRole("button", { name: /Already placed/ })).toContainText("2");
 
   // Its position is also the way in: one click opens the coordinate panel, with

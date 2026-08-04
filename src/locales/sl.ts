@@ -518,7 +518,6 @@ export const sl = {
   "tools.geocode.addr.filter.placed": "Že umeščeni",
   "tools.geocode.addr.showPlaced": "Prikaži že umeščene",
   "tools.geocode.addr.showPlacedHint": "Naslov, ki že nosi svojo lego, je opravljeno delo in ga na seznamu ni. Označite, da se izpišejo tudi ti — za preverjanje lege ali njeno natančnejšo določitev.",
-  "tools.geocode.addr.placed": "(umeščen)",
   "tools.geocode.addr.placedHint": "Ta hiša že nosi svojo lego — ne naselja, ki bi jo podedoval vsak naslov tukaj. Na seznamu ostane, če jo želite še natančneje določiti.",
   "tools.geocode.addr.inherited": "(iz kraja)",
   "tools.geocode.addr.placePin": "Lega samega kraja",
