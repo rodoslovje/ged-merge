@@ -8207,17 +8207,8 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
    than greyscale-filtered — the glyph now takes a real colour. */
 .edit-event-coord--empty { color: var(--muted); opacity: 0.4; }
 .edit-event-coord--empty:hover { color: var(--muted); opacity: 0.75; }
-/* The button draws a position instead of the bare pin (the Addresses tool's
-   row): the place rows' "→ source · pinned coordinate", so a taken position
-   reads the same on both lists. Colour and pin come from .tools-tree-meta and
-   .gm-coord inside it; the button only makes the run clickable. */
-.edit-event-coord--labelled {
-  line-height: inherit; padding: 2px 2px; opacity: 1;
-  font: inherit; text-align: left; color: inherit;
-}
-.edit-event-coord--labelled:hover { opacity: 1; text-decoration: underline; }
-/* The address beside it: the row's own text, a button only so that it opens the
-   same panel the pin does. */
+/* The address in the Addresses tool's row: the row's own text, a button only so
+   that it opens the coordinate panel — which is what a row is opened for. */
 .tools-geo-addr-name {
   background: none; border: none; padding: 0; cursor: pointer;
   font: inherit; font-weight: 500; color: inherit;

@@ -864,57 +864,63 @@ export function AddressCoordsSection({
                               ✎
                             </button>
                           )}
-                          {/* The pin and the position it points at: green once
-                              this house holds one — staged or already in the
-                              file — muted while it holds none. The house the
-                              register cannot find is placed from here; a pick
-                              is staged like the radios below, and nothing is
-                              written until Write. */}
+                          {/* The position this row holds, in the place rows' own
+                              shape: → where it came from · the pinned
+                              coordinate, accent once it is this house's own.
+                              Clicking it puts the place's map up on that point,
+                              exactly as a place row's does — placing the house
+                              is the address's job, beside it. */}
+                          {(chosen?.coord ?? row.coord) && (
+                            <button
+                              type="button"
+                              className="tools-tree-meta tools-geo-coord-btn"
+                              title={t("tools.geocode.showMap")}
+                              onClick={() => setMapOpen((prev) => new Set(prev).add(group.place))}
+                            >
+                              {chosen && (
+                                <>
+                                  →{" "}
+                                  <span className="tools-geo-picked-from" title={chosen.label}>
+                                    {chosen.label}
+                                  </span>{" "}
+                                  ·{" "}
+                                </>
+                              )}
+                              <span className={"gm-data gm-coord" + (chosen || row.placed ? " gm-coord--set" : "")}>
+                                {(chosen?.coord ?? row.coord)!.lat.toFixed(5)},{" "}
+                                {(chosen?.coord ?? row.coord)!.lon.toFixed(5)}
+                              </span>
+                            </button>
+                          )}
+                          {/* The panel itself, with no button of its own: the
+                              address above opens it, and the coordinate beside
+                              it belongs to the map. The house the register
+                              cannot find is placed in here; a pick is staged
+                              like the radios below, and nothing is written
+                              until Write. */}
                           <EventCoordPicker
                             place={row.place}
                             address={row.address}
                             coord={chosen?.coord}
                             title={row.address}
                             fileCoord={row.coord}
-                            marked={!!(chosen?.coord ?? row.coord)}
+                            hideTrigger
                             open={coordOpen === row.key}
                             onOpenChange={(next) => setCoordOpen(next ? row.key : null)}
+                            // A register lookup run inside the panel is this
+                            // row's lookup: its houses land in the list under
+                            // the address, and the row's own register link goes
+                            // — the answer is already here, and asking again
+                            // returns it.
+                            onRegisterSearch={(next) => setSearch(row.key, next)}
                             onPick={(coord, label) =>
                               setPicked((prev) =>
                                 new Map(prev).set(row.key, { coord, label: label ?? t("tools.geocode.manual") }),
                               )
                             }
                             onClear={() => unpick(row.key)}
-                            trigger={
-                              // The place rows' own shape for a position taken:
-                              // → where it came from · the coordinate, pinned
-                              // and accent once it is this house's own. A row
-                              // holding nothing keeps the bare pin (no trigger),
-                              // which is what says "coordinates live here".
-                              (chosen?.coord ?? row.coord) && (
-                                <span className="tools-tree-meta">
-                                  {chosen && (
-                                    <>
-                                      →{" "}
-                                      <span className="tools-geo-picked-from" title={chosen.label}>
-                                        {chosen.label}
-                                      </span>{" "}
-                                      ·{" "}
-                                    </>
-                                  )}
-                                  <span
-                                    className={
-                                      "gm-data gm-coord" + (chosen || row.placed ? " gm-coord--set" : "")
-                                    }
-                                  >
-                                    {(chosen?.coord ?? row.coord)!.lat.toFixed(5)},{" "}
-                                    {(chosen?.coord ?? row.coord)!.lon.toFixed(5)}
-                                  </span>
-                                </span>
-                              )
-                            }
                           />
-                          {/* What that position is, now that the control itself
+                          {/* What that position is, now that the row itself
                               prints it: the house's own (placed) or the
                               settlement's, which every address here inherits —
                               a row on the village centre and one with nothing

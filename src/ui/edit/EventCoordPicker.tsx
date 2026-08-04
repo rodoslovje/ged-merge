@@ -51,10 +51,10 @@ export function EventCoordPicker({
   filePairCoord,
   onPick,
   onClear,
-  trigger,
-  marked,
+  hideTrigger,
   open: controlledOpen,
   onOpenChange,
+  onRegisterSearch,
 }: {
   /** The event's current place text (as edited). */
   place: string;
@@ -75,21 +75,21 @@ export function EventCoordPicker({
    *  "manual") — for callers that stage a pick and show its origin. */
   onPick: (coord: GeoCoord, label?: string) => void;
   onClear: () => void;
-  /** What the button draws, in place of the bare pin. In Edit the pin alone is
-   *  the control, sitting beside the fields it belongs to; the Addresses tool
-   *  has no such field to sit beside, so it draws the position it holds — its
-   *  own pin included — and that whole run opens the panel. */
-  trigger?: React.ReactNode;
-  /** Paint the pin as "a position is set" regardless of {@link coord}. For a
-   *  caller whose row already carries a position it cannot hand over as
-   *  `coord` — the Addresses tool stages picks, so `coord` is the *staged* one
-   *  and the file's own would put a Clear button on something it cannot clear. */
-  marked?: boolean;
+  /** Draw no button at all — the panel alone, opened by a control of the
+   *  caller's own (the Addresses row opens it from the address text, and keeps
+   *  its coordinate as the link to the place's map). Only useful together with
+   *  the controlled {@link open}. */
+  hideTrigger?: boolean;
   /** Controlled open state, for a caller that opens the panel from a control of
    *  its own as well (the Addresses row's address text). Uncontrolled — the
    *  button alone — when omitted. */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  /** Every register lookup run in here, reported as it lands. A caller that
+   *  keeps its own list of register answers (the Addresses tool) can then show
+   *  this one exactly as if it had been run from that list — the same houses,
+   *  under the same address — instead of asking the register twice. */
+  onRegisterSearch?: (state: { state: "loading" | "error" | "done"; results: RnResult[] }) => void;
 }) {
   const { t, i18n } = useTranslation();
   const settings = useSettingsSlice(SETTINGS_KEYS);
@@ -208,9 +208,16 @@ export function EventCoordPicker({
   const runRegister = () => {
     if (!queries.length) return;
     setRn({ state: "loading", results: [] });
+    onRegisterSearch?.({ state: "loading", results: [] });
     searchAddresses(queries).then(
-      (results) => setRn({ state: "done", results }),
-      () => setRn({ state: "error", results: [] }),
+      (results) => {
+        setRn({ state: "done", results });
+        onRegisterSearch?.({ state: "done", results });
+      },
+      () => {
+        setRn({ state: "error", results: [] });
+        onRegisterSearch?.({ state: "error", results: [] });
+      },
     );
   };
 
@@ -303,23 +310,21 @@ export function EventCoordPicker({
 
   return (
     <span className="edit-event-coord-wrap" ref={boxRef}>
-      <button
-        type="button"
-        className={
-          "edit-event-coord" +
-          (marked ?? !!coord ? "" : " edit-event-coord--empty") +
-          (trigger ? " edit-event-coord--labelled" : "")
-        }
-        title={
-          coord
-            ? t("event.coord", { coords: `${coord.lat.toFixed(5)}, ${coord.lon.toFixed(5)}` })
-            : t("event.coord.none", { event: title })
-        }
-        aria-label={t("event.coord.open", { event: title })}
-        onClick={() => setOpen((v) => !v)}
-      >
-        {trigger ?? <PinIcon />}
-      </button>
+      {!hideTrigger && (
+        <button
+          type="button"
+          className={"edit-event-coord" + (coord ? "" : " edit-event-coord--empty")}
+          title={
+            coord
+              ? t("event.coord", { coords: `${coord.lat.toFixed(5)}, ${coord.lon.toFixed(5)}` })
+              : t("event.coord.none", { event: title })
+          }
+          aria-label={t("event.coord.open", { event: title })}
+          onClick={() => setOpen((v) => !v)}
+        >
+          <PinIcon />
+        </button>
+      )}
       {open && (
         <div
           ref={popRef}
