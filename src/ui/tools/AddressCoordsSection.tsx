@@ -674,13 +674,21 @@ export function AddressCoordsSection({
                   {/* Counted over what the register can actually be asked about:
                       a place whose houses carry no numbers has nothing to look
                       up, and the button would promise a search that never runs. */}
-                  {settings.allowLinkFetch && group.rows.filter((r) => r.queries.length).length > 1 && (
-                    <button className="tools-issue-link" onClick={() => searchGroup(group)}>
-                      {t("tools.geocode.addr.searchGroup", {
-                        count: group.rows.filter((r) => r.queries.length).length,
-                      })}
-                    </button>
-                  )}
+                  {(() => {
+                    // Counted over what is actually left to ask: rows the
+                    // register cannot answer, and rows it already has, are not
+                    // part of the offer — the button would run a search that
+                    // does nothing and still name a number for it.
+                    const askable = group.rows.filter(
+                      (r) => r.queries.length && (searches.get(r.key) ?? IDLE).state === "idle",
+                    ).length;
+                    if (!settings.allowLinkFetch || askable < 2) return null;
+                    return (
+                      <button className="tools-issue-link" onClick={() => searchGroup(group)}>
+                        {t("tools.geocode.addr.searchGroup", { count: askable })}
+                      </button>
+                    );
+                  })()}
                   {group.place && group.movable && moveGroup !== group.place && (
                     <button
                       className="tools-issue-link"
@@ -839,33 +847,6 @@ export function AddressCoordsSection({
                               {row.people.length}
                             </button>
                           )}
-                          {/* Nothing to ask the register: an address with no
-                              house number, or one outside the country it covers.
-                              Said plainly and once — the pin beside it still
-                              places the row, by hand or off a map. */}
-                          {!row.queries.length ? (
-                            <span className="tools-geo-online-note" title={t("tools.geocode.addr.noQueryHint")}>
-                              {t("tools.geocode.addr.noQuery")}
-                            </span>
-                          ) : settings.allowLinkFetch ? (
-                            <>
-                              <button
-                                className="tools-issue-link"
-                                disabled={search.state === "loading"}
-                                onClick={() => runSearch(row)}
-                              >
-                                {search.state === "loading" ? t("tools.geocode.rn.searching") : t("tools.geocode.rn.search")}
-                              </button>
-                              {search.state === "error" && (
-                                <span className="tools-geo-online-note">{t("tools.geocode.rn.error")}</span>
-                              )}
-                              {search.state === "done" && !search.results.length && (
-                                <span className="tools-geo-online-note">{t("tools.geocode.rn.none")}</span>
-                              )}
-                            </>
-                          ) : (
-                            <span className="tools-geo-online-note">{t("tools.geocode.downloadNeedsOptIn")}</span>
-                          )}
                           {/* The Edit view's own coordinate control, so a house
                               the register cannot find is still reachable here:
                               type a coordinate, pick one off the map, or search
@@ -886,18 +867,52 @@ export function AddressCoordsSection({
                           />
                           {/* What the pin now holds, beside it: the address of the
                               position taken — the register's own line, "from this
-                              file", "manual". A staged row otherwise showed only a
-                              filled pin, leaving the whole village's approximate
-                              position readable only one tooltip at a time. */}
+                              file", "manual" — and the position itself, so a row
+                              staged with the rest of its village can be read off
+                              the list rather than one tooltip at a time. */}
                           {chosen && (
                             <span
                               // No pin of its own: it sits against the picker's
                               // pin, which is the mark this text belongs to.
                               className="tools-geo-picked"
-                              title={`${chosen.coord.lat.toFixed(5)}, ${chosen.coord.lon.toFixed(5)}`}
                             >
-                              {chosen.label}
+                              {chosen.label}{" "}
+                              <span className="gm-data">
+                                {chosen.coord.lat.toFixed(5)}, {chosen.coord.lon.toFixed(5)}
+                              </span>
                             </span>
+                          )}
+                          {/* The register comes after the position, being the way
+                              to reach one rather than a fact about the row — and
+                              it goes once it has answered: the answer is the list
+                              of houses below, and asking again returns it. A
+                              rename makes a new row, which starts unasked. */}
+                          {!row.queries.length ? (
+                            <span className="tools-geo-online-note" title={t("tools.geocode.addr.noQueryHint")}>
+                              {t("tools.geocode.addr.noQuery")}
+                            </span>
+                          ) : !settings.allowLinkFetch ? (
+                            <span className="tools-geo-online-note">{t("tools.geocode.downloadNeedsOptIn")}</span>
+                          ) : (
+                            <>
+                              {search.state !== "done" && (
+                                <button
+                                  className="tools-issue-link"
+                                  disabled={search.state === "loading"}
+                                  onClick={() => runSearch(row)}
+                                >
+                                  {search.state === "loading"
+                                    ? t("tools.geocode.rn.searching")
+                                    : t("tools.geocode.rn.search")}
+                                </button>
+                              )}
+                              {search.state === "error" && (
+                                <span className="tools-geo-online-note">{t("tools.geocode.rn.error")}</span>
+                              )}
+                              {search.state === "done" && !search.results.length && (
+                                <span className="tools-geo-online-note">{t("tools.geocode.rn.none")}</span>
+                              )}
+                            </>
                           )}
                         </div>
                         {renameKey === row.key && (

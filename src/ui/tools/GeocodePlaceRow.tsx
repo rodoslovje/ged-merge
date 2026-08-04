@@ -229,12 +229,17 @@ export function GeocodePlaceRow({
   // The online searches: beside "Show on map" while the map is closed, and
   // under the map once it is open — either way one action row, not a stray
   // entry at the bottom of the candidate list.
+  // A search that has answered takes its button away: the answer is the option
+  // list below, and asking the same register the same question again returns
+  // it. An error keeps the button, since retrying is the whole recourse — and
+  // renaming the place makes a new row, whose searches start unasked.
   const searchActions = appSettings.allowLinkFetch && (
     <>
                 {/* Only for a value that names a house number — the register
                     resolves houses, not settlements. */}
                 {rnQueries.length > 0 && (
                   <>
+                    {rn.state !== "done" && (
                     <button
                       className="tools-issue-link"
                       disabled={rn.state === "loading"}
@@ -243,12 +248,14 @@ export function GeocodePlaceRow({
                     >
                       {rn.state === "loading" ? t("tools.geocode.rn.searching") : t("tools.geocode.rn.search")}
                     </button>
+                    )}
                     {rn.state === "error" && <span className="tools-geo-online-note">{t("tools.geocode.rn.error")}</span>}
                     {rn.state === "done" && !rn.results.length && (
                       <span className="tools-geo-online-note">{t("tools.geocode.rn.none")}</span>
                     )}
                   </>
                 )}
+                {online.state !== "done" && (
                 <button
                   className="tools-issue-link"
                   disabled={online.state === "loading"}
@@ -257,10 +264,12 @@ export function GeocodePlaceRow({
                 >
                   {online.state === "loading" ? t("tools.geocode.online.searching") : t("tools.geocode.online.search")}
                 </button>
+                )}
                 {online.state === "error" && <span className="tools-geo-online-note">{t("tools.geocode.online.error")}</span>}
                 {online.state === "done" && !online.results.length && (
                   <span className="tools-geo-online-note">{t("tools.geocode.online.none")}</span>
                 )}
+                {gov.state !== "done" && (
                 <button
                   className="tools-issue-link"
                   disabled={gov.state === "loading"}
@@ -269,6 +278,7 @@ export function GeocodePlaceRow({
                 >
                   {gov.state === "loading" ? t("tools.geocode.gov.searching") : t("tools.geocode.gov.search")}
                 </button>
+                )}
                 {gov.state === "error" && <span className="tools-geo-online-note">{t("tools.geocode.gov.error")}</span>}
                 {gov.state === "done" && !gov.results.length && (
                   <span className="tools-geo-online-note">{t("tools.geocode.gov.none")}</span>
