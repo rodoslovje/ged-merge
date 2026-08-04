@@ -8244,6 +8244,12 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 .edit-coord-results { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .edit-coord-results li { display: flex; flex-direction: column; }
 .edit-coord-results .tools-issue-link { text-align: left; }
+/* An answer handed in by the list that opened this panel: its number and name
+   on one line, what it is and where it sits on the next. Rows of their own, or
+   the enclosing column would stretch the number's circle and the source badge
+   to the full width of the side panel. */
+.edit-coord-cand-line { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.edit-coord-cand-line .tools-reshape-badge { flex: none; }
 .edit-coord-manual { display: flex; align-items: center; gap: 6px; }
 .edit-coord-manual input {
   flex: 1; min-width: 0; padding: 4px 6px;
@@ -8409,18 +8415,40 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 .tools-geo-candidates li { padding: 2px 0; }
 .tools-geo-candidates label { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.9rem; }
 .tools-geo-cand-name { font-weight: 500; }
+/* The answer's number, tying a line in the list to its pin on the map — drawn
+   only when a row has more than one, since a single answer needs no key. */
+.tools-geo-cand-num {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5em;
+  height: 1.5em;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+/* What the hit is ("suburb", "service road") — the only thing telling apart
+   several OpenStreetMap answers that carry one and the same display line. */
+.tools-geo-cand-kind { color: var(--muted); font-size: 0.8rem; }
 .tools-geo-manual { display: flex; align-items: center; gap: 8px; }
 .tools-geo-online-note { color: var(--muted); font-size: 0.8rem; }
 /* Where a staged position came from, inside the row's coordinate control. A
    register line can run longer than the address it answers, so this one part
-   truncates rather than wrapping — the coordinate after it is what the row is
-   read for and stays whole. */
+   is boxed and wraps inside its box — the coordinate after it is what the row
+   is read for and stays whole.
+   Top-aligned, not bottom: an inline-block with hidden overflow takes its
+   baseline from its bottom edge, so a line that wrapped to two rows dropped the
+   → and the coordinate beside it to the *last* row, adrift from the address the
+   arrow points away from. */
 .tools-geo-picked-from {
   display: inline-block;
   max-width: 22em;
   overflow: hidden;
   text-overflow: ellipsis;
-  vertical-align: bottom;
+  vertical-align: top;
 }
 /* Type-scoped: the row also holds the option's radio, which must keep its
    native size so it lines up under the candidate radios above. */

@@ -4,10 +4,11 @@ import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
 import { sameCoord } from "../../geo/points";
 import { resultsForQuery, searchAddressBatch, searchAddresses, type RnResult } from "../../geo/rn";
-import { searchNominatim, type NominatimResult } from "../../geo/nominatim";
+import { osmKindLabel, searchNominatim, type NominatimResult } from "../../geo/nominatim";
 import type { PlaceProposal } from "../../geo/placeProposal";
 import { replaceLocality, suggestMovedPlace, type AddressRow } from "../../tools/addresses";
 import { placeAddrKey, type GeoAssignment } from "../../tools/geocode";
+import type { Translate } from "../../locales/i18n";
 import { foldSearch } from "../globalSearch";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
 import { EventCoordPicker } from "../edit/EventCoordPicker";
@@ -83,6 +84,10 @@ function addrStatus(
 interface AddrCandidate {
   coord: GeoCoord;
   label: string;
+  /** What the hit is — "suburb", "service road" — where the service says so.
+   *  OpenStreetMap answers one name with the place, the street named after it
+   *  and every service road off it, all under the same display line. */
+  detail?: string;
   source: "GURS" | "OSM";
   badgeClass: "official" | "reuse";
 }
@@ -90,7 +95,7 @@ interface AddrCandidate {
 /** A row's answers as one list: the register's first — it is the official
  *  record of the house — then OpenStreetMap's, minus any hit already standing
  *  at the same point, so the two services agreeing reads as one answer. */
-function rowCandidates(search: SearchState, osm: OsmState): AddrCandidate[] {
+function rowCandidates(search: SearchState, osm: OsmState, t: Translate): AddrCandidate[] {
   const out: AddrCandidate[] = search.results.map((r) => ({
     coord: r.coord,
     label: r.label,
@@ -99,7 +104,8 @@ function rowCandidates(search: SearchState, osm: OsmState): AddrCandidate[] {
   }));
   for (const r of osm.results) {
     if (out.some((c) => sameCoord(c.coord, r.coord))) continue;
-    out.push({ coord: r.coord, label: r.label, source: "OSM", badgeClass: "reuse" });
+    const detail = osmKindLabel(r, t);
+    out.push({ coord: r.coord, label: r.label, ...(detail ? { detail } : {}), source: "OSM", badgeClass: "reuse" });
   }
   return out;
 }
@@ -658,7 +664,7 @@ export function AddressCoordsSection({
           kind: "chosen",
         });
       }
-      for (const r of rowCandidates(searches.get(row.key) ?? IDLE, osmSearches.get(row.key) ?? OSM_IDLE)) {
+      for (const r of rowCandidates(searches.get(row.key) ?? IDLE, osmSearches.get(row.key) ?? OSM_IDLE, t)) {
         pins.push({
           coord: r.coord,
           label: r.label,
@@ -898,7 +904,7 @@ export function AddressCoordsSection({
                     const search = searches.get(row.key) ?? IDLE;
                     const osm = osmSearches.get(row.key) ?? OSM_IDLE;
                     const chosen = picked.get(row.key);
-                    const candidates = rowCandidates(search, osm);
+                    const candidates = rowCandidates(search, osm, t);
                     return (
                       <li key={row.key} className="tools-geo-addr-row">
                         {/* Address, usage and its own lookup on one line — with a
@@ -1004,6 +1010,9 @@ export function AddressCoordsSection({
                             title={row.address}
                             fileCoord={row.coord}
                             hideTrigger
+                            // Everything the row found, so the panel's map draws
+                            // the lot under the row's own numbers.
+                            candidates={candidates}
                             open={coordOpen === row.key}
                             onOpenChange={(next) => setCoordOpen(next ? row.key : null)}
                             // A register lookup run inside the panel is this
@@ -1177,21 +1186,33 @@ export function AddressCoordsSection({
                                     onChange={() => pick(row.key, r)}
                                     onClick={() => sameCoord(chosen?.coord, r.coord) && unpick(row.key)}
                                   />
+                                  {/* Numbered once there is more than one answer:
+                                      several hits under one name is the ordinary
+                                      case ("Huje" is a suburb, the street named
+                                      after it and a service road off that), and
+                                      the number is what ties this line to its
+                                      pin on the map in the panel. */}
+                                  {candidates.length > 1 && <span className="tools-geo-cand-num">{i + 1}</span>}
                                   {/* No pin before the answer either: its own
                                       coordinate carries one at the end of the
                                       line, and the row above already reads as
                                       addresses. */}
                                   <span className="tools-geo-cand-name">{r.label}</span>
-                                  {/* The coordinate doubles as "show on the
-                                      place's map", like the places rows —
-                                      the house appears among its neighbours. */}
+                                  {/* What this hit is, where the service says —
+                                      the one thing telling identical lines apart. */}
+                                  {r.detail && <span className="tools-geo-cand-kind">{r.detail}</span>}
+                                  {/* Every answer's coordinate opens the row's
+                                      own coordinate panel, which draws them all
+                                      on one map under these same numbers: which
+                                      of several is the house is a question only
+                                      the map answers. */}
                                   <button
                                     type="button"
                                     className="gm-data gm-coord tools-geo-coord-btn"
-                                    title={t("tools.geocode.showMap")}
+                                    title={t("tools.geocode.addr.openHint")}
                                     onClick={(e) => {
                                       e.preventDefault();
-                                      setMapOpen((prev) => new Set(prev).add(group.place));
+                                      setCoordOpen(row.key);
                                     }}
                                   >
                                     {r.coord.lat.toFixed(5)}, {r.coord.lon.toFixed(5)}

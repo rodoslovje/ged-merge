@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseNominatimResponse } from "./nominatim";
+import { osmKindLabel, parseNominatimResponse } from "./nominatim";
 
 describe("parseNominatimResponse", () => {
   it("maps jsonv2 rows to coordinates with short and full labels", () => {
@@ -66,5 +66,49 @@ describe("parseNominatimResponse", () => {
     ).toEqual([]);
     expect(parseNominatimResponse({ error: "Unable to geocode" })).toEqual([]);
     expect(parseNominatimResponse(undefined)).toEqual([]);
+  });
+});
+
+describe("osmKindLabel", () => {
+  // The case this exists for: OpenStreetMap answers "Huje, Kranj" with the
+  // suburb, the street named after it and a service road off that street —
+  // three rows whose display lines are word for word identical.
+  const raw = [
+    { lat: "46.2424", lon: "14.3614", name: "Huje", display_name: "Huje, Kranj, 4000, Slovenija", category: "place", type: "suburb" },
+    { lat: "46.2408", lon: "14.3591", name: "Huje", display_name: "Huje, Kranj, 4000, Slovenija", category: "highway", type: "residential" },
+    { lat: "46.2423", lon: "14.3597", name: "Huje", display_name: "Huje, Kranj, 4000, Slovenija", category: "highway", type: "service" },
+  ];
+  // Stands in for i18next: the keys these entries would resolve, nothing else.
+  const strings: Record<string, string> = {
+    "osm.kind.suburb": "suburb",
+    "osm.kind.highway.residential": "residential street",
+    "osm.kind.highway.service": "service road",
+  };
+  const t = (key: string, opts?: Record<string, unknown>) =>
+    strings[key] ?? (opts?.defaultValue as string) ?? key;
+
+  it("names what each hit is, so identical display lines are told apart", () => {
+    const results = parseNominatimResponse(raw);
+    expect(results.map((r) => osmKindLabel(r, t))).toEqual(["suburb", "residential street", "service road"]);
+  });
+
+  it("falls back to OpenStreetMap's own words for a pair with no translation", () => {
+    const [quarry] = parseNominatimResponse([
+      { lat: "46", lon: "14", name: "X", display_name: "X", category: "landuse", type: "quarry" },
+    ]);
+    expect(osmKindLabel(quarry, t)).toBe("quarry");
+    const [track] = parseNominatimResponse([
+      { lat: "46", lon: "14", name: "Y", display_name: "Y", category: "highway", type: "byway" },
+    ]);
+    expect(osmKindLabel(track, t)).toBe("byway road");
+    const [isolated] = parseNominatimResponse([
+      { lat: "46", lon: "14", name: "Z", display_name: "Z", category: "place", type: "isolated_dwelling" },
+    ]);
+    expect(osmKindLabel(isolated, t)).toBe("isolated dwelling");
+  });
+
+  it("says nothing when the service gave no type", () => {
+    const [bare] = parseNominatimResponse([{ lat: "46", lon: "14", name: "Q", display_name: "Q" }]);
+    expect(osmKindLabel(bare, t)).toBe("");
   });
 });

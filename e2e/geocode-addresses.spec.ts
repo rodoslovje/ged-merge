@@ -288,6 +288,68 @@ test("OpenStreetMap answers the addresses the register cannot take", async ({ pa
   await expect(page.getByText("Written to 1 record.")).toBeVisible();
 });
 
+test("hits that share a name are told apart by what they are, and numbered onto one map", async ({ page }) => {
+  const file = path.join(os.tmpdir(), "geocode-osm-samename.ged");
+  writeFileSync(
+    file,
+    [
+      "0 HEAD", "1 GEDC", "2 VERS 5.5.1", "1 CHAR UTF-8",
+      "0 @I1@ INDI", "1 NAME Ana /Kos/",
+      "1 BIRT", "2 PLAC Kranj, Slovenija", "3 MAP", "4 LATI N46.23958", "4 LONG E14.35629",
+      "1 RESI", "2 PLAC Kranj, Slovenija", "2 ADDR Huje",
+      "0 TRLR", "",
+    ].join("\n"),
+    "utf-8",
+  );
+
+  await page.addInitScript(() => {
+    localStorage.setItem("gedmerge.settings", JSON.stringify({ allowLinkFetch: true }));
+  });
+  // What OpenStreetMap really answers for "Huje, Kranj": the suburb, the street
+  // named after it, and a service road off that street — three rows whose
+  // display lines are word for word the same.
+  await page.route("**/nominatim.openstreetmap.org/**", (route) =>
+    route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify([
+        { lat: "46.2424418", lon: "14.3613533", name: "Huje", display_name: "Huje, Kranj, 4000, Slovenija", category: "place", type: "suburb" },
+        { lat: "46.2407809", lon: "14.3591113", name: "Huje", display_name: "Huje, Kranj, 4000, Slovenija", category: "highway", type: "residential" },
+        { lat: "46.2423203", lon: "14.3597308", name: "Huje", display_name: "Huje, Kranj, 4000, Slovenija", category: "highway", type: "service" },
+      ]),
+    }),
+  );
+
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(file);
+  await page.locator(".edit-person").first().waitFor({ timeout: 15000 });
+
+  await page.getByRole("button", { name: "Tools", exact: true }).click();
+  await page.getByRole("button", { name: /Geocoding/ }).click();
+  await page.getByRole("tab", { name: /Addresses/ }).click();
+
+  const group = page.locator(".tools-geo-addr-group").first();
+  await group.locator(".tools-pair-toggle").first().click();
+  const row = group.locator(".tools-geo-addr-row").filter({ has: page.getByRole("button", { name: "Huje", exact: true }) });
+  await row.getByRole("button", { name: "Search OpenStreetMap" }).click();
+
+  const candidates = row.locator(".tools-geo-candidates li");
+  await expect(candidates).toHaveCount(3);
+  // The display lines are identical, so what each hit *is* carries the answer,
+  // and the numbers tie each line to its pin.
+  await expect(candidates.nth(0)).toContainText("suburb");
+  await expect(candidates.nth(1)).toContainText("residential street");
+  await expect(candidates.nth(2)).toContainText("service road");
+  await expect(candidates.locator(".tools-geo-cand-num")).toHaveText(["1", "2", "3"]);
+
+  // Any answer's coordinate opens the row's own panel, which draws all three
+  // under those same numbers — the map is what tells them apart.
+  await candidates.nth(2).locator(".tools-geo-coord-btn").click();
+  const pop = page.locator(".edit-coord-pop");
+  await expect(pop).toBeVisible();
+  await expect(pop.locator(".edit-coord-results .tools-geo-cand-num")).toHaveText(["1", "2", "3"]);
+  await expect(pop.locator(".mini-pin-badge")).toHaveCount(3);
+});
+
 test("one coordinate can be given to a whole place's addresses at once", async ({ page }) => {
   await page.goto("/");
   await page.locator("input.file-input").first().setInputFiles(FILE);

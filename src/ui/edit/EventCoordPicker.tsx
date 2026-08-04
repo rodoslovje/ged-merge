@@ -52,6 +52,7 @@ export function EventCoordPicker({
   onPick,
   onClear,
   hideTrigger,
+  candidates,
   open: controlledOpen,
   onOpenChange,
   onRegisterSearch,
@@ -85,6 +86,11 @@ export function EventCoordPicker({
    *  button alone — when omitted. */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  /** Answers the caller already holds for this very address — the register's
+   *  and OpenStreetMap's, as its own list shows them. They are drawn on the map
+   *  and listed here under the same numbers, so "which of these three is the
+   *  house" is asked of the map rather than of three identical lines. */
+  candidates?: { coord: GeoCoord; label: string; detail?: string; source?: string; badgeClass?: string }[];
   /** Every register lookup run in here, reported as it lands. A caller that
    *  keeps its own list of register answers (the Addresses tool) can then show
    *  this one exactly as if it had been run from that list — the same houses,
@@ -267,6 +273,19 @@ export function EventCoordPicker({
   // coordinate is not among the lines: the panel prints every pin's own
   // position as its closing row already.
   const pins: MiniMapPin[] = [];
+  // The caller's own answers first, numbered as its list numbers them — the
+  // numbers are the only way to read a pin back to the line it came from when
+  // several hits share one name.
+  (candidates ?? []).forEach((c, i) => {
+    pins.push({
+      coord: c.coord,
+      label: c.label,
+      lines: [c.detail, c.source, t("event.coord.pinPick")].filter((s): s is string => !!s),
+      kind: sameCoord(c.coord, coord) ? "chosen" : "candidate",
+      ...(candidates!.length > 1 ? { badge: i + 1 } : {}),
+      onPick: () => take(c.coord, c.label),
+    });
+  });
   for (const f of fromFile) {
     pins.push({
       coord: f.coord,
@@ -277,6 +296,7 @@ export function EventCoordPicker({
     });
   }
   for (const r of rn.results) {
+    if (pins.some((p) => sameCoord(p.coord, r.coord))) continue;
     pins.push({
       coord: r.coord,
       label: r.address,
@@ -389,14 +409,22 @@ export function EventCoordPicker({
                   <MiniPlaceMap
                     pins={pins}
                     title={t("event.coord.mapHint")}
+                    // House level, not the default region: what is being chosen
+                    // here is one building among its neighbours, and three hits
+                    // a few hundred metres apart pile into one dot at zoom 11.
+                    fitMaxZoom={17}
                     // Keyed on the found coordinates, so each new result set
                     // re-frames the map around all of them — a renumbered house
                     // can be two addresses a kilometre apart. The typed draft is
                     // deliberately left out: re-fitting on every keystroke would
                     // make the map jump while someone is still typing.
+                    // The answers handed in by the caller count as found ones:
+                    // opening the panel on a list of three hits must frame all
+                    // three, or the numbered pins are read off half a map.
                     fitKey={
-                      [...rn.results, ...osm.results].map((r) => `${r.coord.lat},${r.coord.lon}`).join("|") ||
-                      `${place} ${address}`
+                      [...(candidates ?? []), ...rn.results, ...osm.results]
+                        .map((r) => `${r.coord.lat},${r.coord.lon}`)
+                        .join("|") || `${place} ${address}`
                     }
                     onPickCoord={(c) => setDraft(`${c.lat.toFixed(5)}, ${c.lon.toFixed(5)}`)}
                   />
@@ -405,6 +433,29 @@ export function EventCoordPicker({
             )}
 
             <div className="edit-coord-side">
+              {/* The answers the caller already has, under the numbers its own
+                  list shows — the map above draws the same numbers, which is
+                  what separates three hits spelled exactly alike. */}
+              {!!candidates?.length && (
+                <ul className="edit-coord-results">
+                  {candidates.map((c, i) => (
+                    <li key={`cand-${i}`}>
+                      <span className="edit-coord-cand-line">
+                        {candidates.length > 1 && <span className="tools-geo-cand-num">{i + 1}</span>}
+                        <button type="button" className="tools-issue-link" title={c.label} onClick={() => take(c.coord, c.label)}>
+                          {c.label}
+                        </button>
+                      </span>
+                      <span className="edit-coord-cand-line">
+                        {c.detail && <span className="tools-geo-cand-kind">{c.detail}</span>}
+                        <span className="gm-data gm-coord">{at(c.coord)}</span>
+                        {c.source && <span className={`tools-reshape-badge ${c.badgeClass ?? "reuse"}`}>{c.source}</span>}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
               {fromFile.length > 0 && (
                 <ul className="edit-coord-results">
                   {fromFile.map((f, i) => (
