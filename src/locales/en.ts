@@ -469,7 +469,7 @@ export const en = {
   "tools.geocode.addr.inPlaceHint": "These events keep the house number in their place, so the place named here is the settlement that remains once it is set aside. Accepted coordinates are written to the value the events carry; moving them to another place is not offered, because that value is what holds the number.",
   "tools.geocode.addr.uses_one": "{{count}} event",
   "tools.geocode.addr.uses_other": "{{count}} events",
-  "tools.geocode.addr.apply": "Write address coordinates ({{count}})",
+  "tools.geocode.addr.apply": "Write coordinates ({{count}})",
   "tools.geocode.addr.applied_one": "Written to {{count}} record.",
   "tools.geocode.addr.applied_other": "Written to {{count}} records.",
   "tools.geocode.addr.move": "Move to another place…",

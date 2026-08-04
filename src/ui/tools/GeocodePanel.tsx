@@ -102,8 +102,12 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
     [dataset, startId, appSettings.showKinship, t],
   );
 
-  // Esc returns to the Places tree, like leaving Organize sources.
+  // Esc returns to the Places tree, like leaving Organize sources. Only while
+  // this panel is the one on screen: it stays mounted (staged picks must
+  // survive a switch to Edit and back), so without the gate an Esc pressed in
+  // another view would silently "go back" here and drop all staged work.
   useEffect(() => {
+    if (!active) return;
     function onKey(e: KeyboardEvent) {
       if (e.key !== "Escape" || isEditableTarget(e.target) || isModalOpen()) return;
       e.preventDefault();
@@ -111,7 +115,7 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onBack]);
+  }, [active, onBack]);
 
   // The place directories every lookup here draws on. Settings → Map manages
   // them; this panel needs the built index for the review list below, and offers
