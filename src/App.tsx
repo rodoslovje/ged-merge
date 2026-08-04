@@ -17,7 +17,7 @@ import { buildDataset } from "./gedcom/builder";
 import { rebuildIndividual, rebuildFamily, removeIndividual, removeFamily, noteCtx, rebuildNoteReferrers, pruneUnreferencedSource, setSourceRecordFields, setRepoRecordFields, setMediaInfo, bumpSourceCacheVersion, type SharedNoteCtx } from "./gedcom/edit";
 import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "./gedcom/private";
 import { downloadOptions, ensureUtf8Charset, serializeGedcom, stampHeadSource } from "./gedcom/serialize";
-import { formatReport, INDI_HANDLED, type ImportBranchRequest } from "./merge/merge";
+import { formatReport, INDI_HANDLED, mergePlaceFormat, type ImportBranchRequest } from "./merge/merge";
 import { snapshotMainValues } from "./merge/applyFields";
 import { individualFieldRows } from "./review/fields";
 import { buildEditSaveRecords } from "./merge/editSaveRecords";
@@ -177,6 +177,10 @@ function AppContent() {
   // with the language that was active on first render.
   const tRef = useRef(t);
   tRef.current = t;
+  // Same for the Settings → GEDCOM overrides: the snapshot's rows must be built
+  // with the place format the merge itself will use (see stampMainRows).
+  const formatOverridesRef = useRef(settings.formatOverrides);
+  formatOverridesRef.current = settings.formatOverrides;
 
   /**
    * Stamp a decision being set to confirmed with the main side's current value
@@ -185,10 +189,11 @@ function AppContent() {
    * `CandidateDecision.mainFields`).
    *
    * The rows are built exactly as `mergeDecisions` builds them — same dataset
-   * pair, inferred place format, no ages — so the two sets of strings are
-   * comparable. Re-stamped on every update while confirmed, including a change
-   * to a single field choice: choosing again is a fresh decision about the
-   * value on screen at that moment.
+   * pair, same place format (`mergePlaceFormat`, the main's habit plus the
+   * Settings overrides), no ages — so the two sets of strings are comparable.
+   * Re-stamped on every update while confirmed, including a change to a single
+   * field choice: choosing again is a fresh decision about the value on screen
+   * at that moment.
    */
   function stampMainRows(next: CandidateDecision, mainId: string, compareId: string): CandidateDecision {
     if (next.status !== "confirmed") return next;
@@ -198,7 +203,8 @@ function AppContent() {
     const incoming = compareDs?.individuals.get(compareId);
     if (!mainDs || !compareDs || !mainIndi || !incoming) return next;
     const rejected = next.rejectedEvents?.length ? new Set(next.rejectedEvents) : undefined;
-    const rows = individualFieldRows(tRef.current, mainIndi, incoming, mainDs, compareDs, undefined, rejected);
+    const placeFmt = mergePlaceFormat(mainDs, formatOverridesRef.current);
+    const rows = individualFieldRows(tRef.current, mainIndi, incoming, mainDs, compareDs, placeFmt, rejected);
     return { ...next, mainFields: snapshotMainValues(rows, INDI_HANDLED) };
   }
 
@@ -215,6 +221,14 @@ function AppContent() {
   // the bump in the tick the mutation happens (the tools worker's dataset
   // cache re-validates against just-fixed data before React re-renders).
   const editVersionRef = useRef(0);
+  // The editVersion at which the live dataset last matched the cached main
+  // blob (0 on load, advanced on save). "Is the dataset edited?" is
+  // editVersion !== this — not editVersion > 0 — because confirming a save
+  // rebuilds the dataset in place and must bump editVersion like any other
+  // mutation (every memo and panel keyed on it has to see the new baseline,
+  // even in a merge-only session where it still sat at 0) without making the
+  // freshly-saved dataset look edited to the persistence writer.
+  const cleanEditVersionRef = useRef(0);
   const bumpEdit = useCallback(() => {
     editVersionRef.current += 1;
     setEditVersion((v) => v + 1);
@@ -405,7 +419,7 @@ function AppContent() {
   // refs the worker handlers above and the load/save flows below share.
   const persistence = useWorkspacePersistence({
     persistEnabled: settings.persistWorkspace,
-    workspace, mainDataset, editVersion, dirty, undoRedo,
+    workspace, mainDataset, editVersion, cleanEditVersionRef, dirty, undoRedo,
     sortEligiblePersonIdsRef, post, dispatch, autoStartRef,
     loadFile, confirmDialog, setSaveToast, clearMediaFolder,
   });
@@ -487,6 +501,7 @@ function AppContent() {
       dirty.prepareForLoad();
       setEditVersion(0); // new file → dataset matches the cached original again
       editVersionRef.current = 0;
+      cleanEditVersionRef.current = 0;
       sortEligiblePersonIdsRef.current = new Set();
       setChartsRootId(null);
       dispatch({ type: "setStart", id: undefined }); // start person is opt-in; reset on (re)load
@@ -607,6 +622,7 @@ function AppContent() {
         if (!persistence.expectCompareRef.current) undoRedo.dropMergeEntries();
         sortEligiblePersonIdsRef.current = new Set(es.sortEligiblePersonIds);
         setEditVersion(1); // mark dataset as edited so further edits keep persisting
+        editVersionRef.current = 1; // keep the sync ref on the same counter
         hydrated = true;
       } catch (err) {
         console.warn("Discarding incompatible cached edit state:", err);
@@ -1363,11 +1379,15 @@ function AppContent() {
     // The saved file is the new baseline — undo/redo entries refer to a state
     // that no longer exists, so there's nothing left to meaningfully undo into.
     undoRedo.clearAll();
-    // The cached main text (written just above) now equals the live dataset,
-    // so drop the "dataset is edited" flag and mark the main cached — the
-    // debounce (sole main writer) then leaves it alone until the next edit.
-    setEditVersion(0);
-    editVersionRef.current = 0;
+    // The in-place rebuild above changed the dataset like any edit would, so
+    // every memo and panel keyed on editVersion must see a bump — in a
+    // merge-only session the counter still sits at 0, and without the bump
+    // global search and kinship would keep serving the pre-merge dataset.
+    bumpEdit();
+    // The cached main text (written just above) equals the rebuilt dataset:
+    // remember this version as clean and mark the main cached — the debounce
+    // (sole main writer) then leaves it alone until the next edit.
+    cleanEditVersionRef.current = editVersionRef.current;
     persistence.mainCachedRef.current = true;
   }
 

@@ -295,14 +295,20 @@ const municipalityProbe = new Map<string, Promise<boolean>>();
 
 /** Whether the register knows a municipality by exactly this name. One row is
  *  enough, and a failed request answers "don't know" — which keeps the caller
- *  lenient rather than letting a network hiccup delete good results. */
+ *  lenient rather than letting a network hiccup delete good results. The
+ *  failure itself is not cached: "don't know" makes the veto fail open, and a
+ *  hiccup (or an aborted lookup) remembered for the whole session would keep
+ *  offering wrong-občina namesakes long after the network recovered. */
 function isMunicipality(name: string, signal?: AbortSignal): Promise<boolean> {
   const key = foldToken(name);
   let probe = municipalityProbe.get(key);
   if (!probe) {
     probe = rnFetch(`OBCINA_NAZIV=${cqlString(name)}`, signal, 1)
       .then((data) => !!data.features?.length)
-      .catch(() => false);
+      .catch(() => {
+        if (municipalityProbe.get(key) === probe) municipalityProbe.delete(key);
+        return false;
+      });
     municipalityProbe.set(key, probe);
   }
   return probe;

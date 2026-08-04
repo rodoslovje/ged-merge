@@ -20,6 +20,7 @@ import {
   relatedSeparateRecords,
 } from "../../tools/mergeDuplicate";
 import { defaultChoice, type CandidateDecision, type FieldChoice, type FieldRow } from "../../review/types";
+import { rowCanKeepBoth } from "../../merge/applyFields";
 import { type PersonNav } from "../ReadOnlyCompare";
 import { KEY, isEditableTarget, isModalOpen } from "../../keyboard/shortcuts";
 import { useStickyHeaderInset } from "../usePhone";
@@ -570,6 +571,7 @@ export function DuplicatesPanel({
                     {open && (
                       <DuplicateCompare
                         dataset={dataset}
+                        active={active}
                         pair={p}
                         fieldsCache={fieldsCache.current}
                         onNavigate={onNavigate}
@@ -602,6 +604,7 @@ const CHOICES: FieldChoice[] = ["main", "incoming", "both"];
  */
 function DuplicateCompare({
   dataset,
+  active,
   pair,
   fieldsCache,
   onNavigate,
@@ -610,6 +613,10 @@ function DuplicateCompare({
   onOpenPair,
 }: {
   dataset: Dataset;
+  /** Whether the Tools view is the one on screen — this panel stays mounted
+   *  behind Edit/Merge (CSS display), so window-level shortcuts must not fire
+   *  from a hidden comparison. */
+  active: boolean;
   pair: DuplicatePair;
   fieldsCache: Map<string, Record<string, FieldChoice>>;
   onNavigate: (id: string) => void;
@@ -664,6 +671,12 @@ function DuplicateCompare({
     setFieldsState(next);
   };
   const [confirming, setConfirming] = useState(false);
+  // A confirm dialog left open when the user switches views would stay mounted
+  // (the Tools view hides with CSS display) and its overlay makes isModalOpen()
+  // dead-key the visible view — so leaving the view withdraws the question.
+  useEffect(() => {
+    if (!active) setConfirming(false);
+  }, [active]);
   // Re-seed defaults if the underlying rows change (e.g. dataset edited
   // elsewhere) — but not on mount, or remounting would drop cached choices.
   const seededRows = useRef(rows);
@@ -679,6 +692,7 @@ function DuplicateCompare({
   // confirmation (same as clicking Merge), R rejects immediately (same as
   // clicking Reject — reversible from the Rejected list, so no confirm needed).
   useEffect(() => {
+    if (!active) return;
     function onKey(e: KeyboardEvent) {
       if (isEditableTarget(e.target) || isModalOpen()) return;
       if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
@@ -688,7 +702,7 @@ function DuplicateCompare({
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [pair, onReject]);
+  }, [active, pair, onReject]);
 
   const nav: PersonNav = {
     linkable: (id) => dataset.individuals.has(id),
@@ -719,7 +733,10 @@ function DuplicateCompare({
   function renderChoiceCell(row: FieldRow, choice: FieldChoice) {
     if (isParentRow(row.key)) return null; // driven by the shared Parents control
     if (row.state === "conflict" || row.state === "incoming-only") {
-      return CHOICES.map((c) => (
+      // Same rule as the Merge compare panel: a single-cardinality field can't
+      // keep two values, so "Both" isn't offered where it would just replace.
+      const offered = rowCanKeepBoth(row.key) ? CHOICES : CHOICES.filter((c) => c !== "both");
+      return offered.map((c) => (
         <button
           key={c}
           className={`choice ${c}${choice === c ? " active" : ""}`}

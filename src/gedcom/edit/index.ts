@@ -29,6 +29,7 @@ export type { EventFieldUpdate, CopyEventBlock } from "./events";
 export {
   setName, setNickname, setMarriedName, setAdditionalName,
   foldAdditionalNameToMarnm, addAdditionalName, removeAdditionalName, setSex,
+  writeNameValue,
 } from "./names";
 export type { NameVariantUpdate } from "./names";
 

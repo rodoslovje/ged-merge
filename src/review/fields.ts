@@ -512,6 +512,27 @@ function pairFamilies(
  * merge's preview — need this to look up highlight/incoming data by the
  * main family id they have on hand.
  */
+/**
+ * Incoming family id → the main family id the review paired it with — i.e.
+ * the pair whose rows the user actually saw and judged (`pairFamilies` is
+ * what `buildFamilyRows` renders). The merge writes family-row choices into
+ * exactly this family, so review and merge can never disagree about which
+ * main family a choice was made against. Unpaired incoming families are
+ * absent; the merge falls back to its own spouse matching for those.
+ */
+export function pairedMainFamilies(
+  main: Individual | undefined,
+  compare: Individual | undefined,
+  mainDs: Dataset,
+  compareDs: Dataset,
+): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const pair of pairFamilies(main, compare, mainDs, compareDs)) {
+    if (pair.mainFam && pair.compareFam) map.set(pair.compareFam.id, pair.mainFam.id);
+  }
+  return map;
+}
+
 export function familyMergeKeyBases(
   main: Individual | undefined,
   compare: Individual | undefined,

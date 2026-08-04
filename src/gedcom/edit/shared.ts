@@ -153,7 +153,13 @@ function noteInsertedXref(records: GedNode[], xref: string | undefined): void {
 }
 
 /** Find the next unused `@<prefix><n>@` xref among the top-level records. */
-export function nextXref(records: GedNode[], prefix: string): string {
+export function nextXref(
+  records: GedNode[],
+  prefix: string,
+  /** Xrefs promised elsewhere (e.g. to a pending shared-record import) that a
+   *  fresh id must skip over even though no record carries them yet. */
+  reserved?: ReadonlySet<string>,
+): string {
   const maxes = xrefCacheFor(records);
   let max = maxes.get(prefix);
   if (max === undefined) {
@@ -164,8 +170,10 @@ export function nextXref(records: GedNode[], prefix: string): string {
       if (m) max = Math.max(max, parseInt(m[1], 10));
     }
   }
-  maxes.set(prefix, max + 1);
-  return `@${prefix}${max + 1}@`;
+  let next = max + 1;
+  if (reserved) while (reserved.has(`@${prefix}${next}@`)) next++;
+  maxes.set(prefix, next);
+  return `@${prefix}${next}@`;
 }
 
 /** Append a new top-level record after the last existing record of the same

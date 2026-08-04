@@ -3,6 +3,7 @@ import type { MatchResult } from "../match/types";
 import { insertGrouped } from "../gedcom/edit";
 import { displayName } from "../match/relatives";
 import { inferPlaceExportFormat } from "../normalize/profile";
+import type { PlaceTargetFormat } from "../normalize/types";
 import { applyPlaceOverrides, type FormatOverrides } from "../normalize/formatOverrides";
 import { individualFieldRows } from "../review/fields";
 import { decisionKey, parseDecisionKey, type CandidateDecision, type FieldChoice } from "../review/types";
@@ -147,6 +148,17 @@ export const INDI_HANDLED = new Set([
 ]);
 
 /**
+ * The place layout the merge writes with: the main's own habit, overridden by
+ * the reader's Settings → GEDCOM choices. One function shared by
+ * `mergeDecisions` and the confirm-time `mainFields` snapshot (App's
+ * `stampMainRows`), so the two build their comparison rows from the same
+ * format and the edited-after-confirm gate compares like with like.
+ */
+export function mergePlaceFormat(main: Dataset, overrides?: FormatOverrides): PlaceTargetFormat {
+  return applyPlaceOverrides(inferPlaceExportFormat(main), overrides);
+}
+
+/**
  * Apply confirmed match decisions to a clone of the main tree, taking each
  * field the user chose from the incoming side (or "both"). Untouched records are
  * left as identical clones, so serializing the result yields a minimal diff
@@ -198,7 +210,7 @@ export function mergeDecisions(
   };
   const touched = new Set<string>();
   // How the main writes places, so incoming places can be reshaped to match.
-  const placeFmt = applyPlaceOverrides(inferPlaceExportFormat(main), overrides);
+  const placeFmt = mergePlaceFormat(main, overrides);
   // How the main stores record-level links, so newly added links match (e.g.
   // a plain WWW line, Family Historian's _WEBTAG block, or an OBJE/FILE record).
   const linkFormat = detectLinkFormat(main);
@@ -212,6 +224,24 @@ export function mergeDecisions(
     if (parsed?.kind === "individual") rejectedPairs.add(`${parsed.mainId}|${parsed.compareId}`);
   }
   const ctx = makeContext(main, compare, matches, records, indiNodes, famNodes, report, touched, t, sourXrefMap, rejectedPairs);
+
+  // A family with both spouses confirmed is stitched only once — on the first
+  // spouse's turn (see processedFamIds). Its rows, though, were reviewed on
+  // *both* spouses' cards, so merge every confirmed decision's family-row
+  // choices (and child ticks) up front and let that first turn apply them all;
+  // otherwise the second spouse's explicit picks would be silently dropped by
+  // confirmation order. When both spouses chose the same key, the later
+  // confirmation wins — choosing again is the fresher decision.
+  const famFields: Record<string, FieldChoice> = {};
+  const allTakenChildren = new Set<string>();
+  for (const [key, decision] of decisions) {
+    if (decision.status !== "confirmed") continue;
+    if (parseDecisionKey(key)?.kind !== "individual") continue;
+    for (const id of decision.takenChildren ?? []) allTakenChildren.add(id);
+    for (const [k, v] of Object.entries(decision.fields)) {
+      if (k.startsWith("fam.")) famFields[k] = v;
+    }
+  }
 
   for (const [key, decision] of decisions) {
     if (decision.status !== "confirmed") continue;
@@ -228,8 +258,7 @@ export function mergeDecisions(
     const rows = individualFieldRows(t, mainIndi, incoming, main, compare, placeFmt, rejectedEvents);
     applyRows(target, incoming.raw, mainId, rows, decision.fields, report, touched, INDI_HANDLED, t, linkFormat, records, sourXrefMap, decision.mainFields);
     applyIndividualRelations(mainId, mainIndi, incoming, rows, decision.fields, main, compare, ctx);
-    const takenChildIds = new Set(decision.takenChildren ?? []);
-    applyIndividualFamilies(mainId, mainIndi, incoming, rows, decision.fields, main, compare, ctx, takenChildIds);
+    applyIndividualFamilies(mainId, mainIndi, incoming, rows, { ...decision.fields, ...famFields }, main, compare, ctx, allTakenChildren);
     // Canonical event order, but only when this decision actually wrote
     // something — a confirmed match that took no fields must leave the record
     // byte-identical (the minimal-diff guarantee), not silently reorder it.

@@ -20,14 +20,21 @@ function syncNamePart(node: GedNode, tag: "GIVN" | "SURN", value: string): void 
  * Write `given`/`surname` into a NAME node's slash-form value. The slash value
  * is the source of truth (it's what `parseName` reads first); any existing
  * `GIVN`/`SURN` sub-tags are updated to match so they can't drift out of sync.
+ * An inline trailing suffix already in the value ("John /Smith/ Jr") belongs
+ * to neither part and is kept — per `parseName`, a trailing token is a suffix
+ * only when something precedes the slashes; otherwise it is the given name of
+ * a surname-first writer, which this rewrite replaces anyway.
  */
-function writeNameValue(node: GedNode, given: string, surname: string): void {
+export function writeNameValue(node: GedNode, given: string, surname: string): void {
   // `/` is the slash-form's surname delimiter and has no escape in GEDCOM —
   // a part containing one would corrupt the value ("Janez/Ivan /Novak/" reads
   // back with surname "Ivan "). Replace it with a space to keep the name legible.
   const g = given.replace(/\s*\/\s*/g, " ").trim();
   const s = surname.replace(/\s*\/\s*/g, " ").trim();
-  node.value = s ? `${g} /${s}/`.trim() : g;
+  const slash = (node.value ?? "").match(/^(.*?)\/[^/]*\/(.*)$/);
+  const suffix = slash && slash[1].trim() ? slash[2].trim() : "";
+  const base = s ? `${g} /${s}/`.trim() : g;
+  node.value = [base, suffix].filter(Boolean).join(" ");
   syncNamePart(node, "GIVN", g);
   syncNamePart(node, "SURN", s);
 }

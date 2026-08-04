@@ -20,8 +20,12 @@ export interface WorkspacePersistenceOptions {
   workspace: WorkspaceState;
   /** The live (possibly edited) main dataset — what the debounced writer serializes. */
   mainDataset: Dataset | undefined;
-  /** Bumps on every dataset-mutating edit; > 0 = differs from the loaded file. */
+  /** Bumps on every dataset-mutating edit (a confirmed save's in-place rebuild
+   *  included). "Edited" is measured against `cleanEditVersionRef`, not 0. */
   editVersion: number;
+  /** The editVersion at which the dataset last matched the cached main blob —
+   *  0 on load, advanced by App on save. */
+  cleanEditVersionRef: { readonly current: number };
   dirty: ReturnType<typeof useDirtyTracking>;
   undoRedo: ReturnType<typeof useUndoRedo>;
   sortEligiblePersonIdsRef: MutableRefObject<Set<string>>;
@@ -266,7 +270,7 @@ export function useWorkspacePersistence(opts: WorkspacePersistenceOptions) {
   // history). Debounced because these change rapidly while working; keyed to the
   // loaded main/compare so a stale restore can be skipped.
   const { main, compare, lastMainFile, decisions, importBranches, rejectedDuplicates, startId } = opts.workspace;
-  const { mainDataset, editVersion, dirty, undoRedo, sortEligiblePersonIdsRef } = opts;
+  const { mainDataset, editVersion, cleanEditVersionRef, dirty, undoRedo, sortEligiblePersonIdsRef } = opts;
   useEffect(() => {
     if (!persistEnabled) return; // caching is opt-in
     const mainFileName = lastMainFile?.fileName;
@@ -279,7 +283,7 @@ export function useWorkspacePersistence(opts: WorkspacePersistenceOptions) {
     // slotLoading dispatch also cancels any already-scheduled write below.
     if (main.status !== "loaded") return;
     const handle = window.setTimeout(async () => {
-      const edited = editVersion > 0; // dataset differs from the cached original
+      const edited = editVersion !== cleanEditVersionRef.current; // dataset differs from the cached original
       const editState: StoredEditState | undefined = edited
         ? { ...dirty.serialize(), sortEligiblePersonIds: [...sortEligiblePersonIdsRef.current], ...undoRedo.serialize() }
         : undefined;

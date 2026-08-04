@@ -16,7 +16,7 @@ import type { MiniMapPin } from "../map/MiniPlaceMap";
 import { EventCoordPicker } from "../edit/EventCoordPicker";
 import { PlaceAutocomplete } from "../edit/PlaceAutocomplete";
 import { usePlaceLookup } from "../edit/PlaceLookupContext";
-import { buildPlaceSuggestions, type PlaceSuggestions } from "../edit/placeSuggestions";
+import type { PlaceSuggestions } from "../edit/placeSuggestions";
 import { useNameOf, useSettings } from "../SettingsContext";
 import { lineageClass, type KinshipResolver } from "../../match/kinship";
 import { PersonLink } from "../PersonLink";
@@ -230,6 +230,7 @@ export function AddressCoordsSection({
   dataset,
   all,
   addrsByPlace,
+  places,
   onApply,
   onMove,
   query,
@@ -245,6 +246,11 @@ export function AddressCoordsSection({
   /** Every address the file writes at each place, the rename field's
    *  completions — wider than `all`, which drops the placed houses. */
   addrsByPlace: ReadonlyMap<string, string[]>;
+  /** Existing place values for the move target's autocomplete — the panel's
+   *  own scanGen-keyed list, so a place renamed this session is offered under
+   *  its new spelling (the dataset mutates in place; a local memo would not
+   *  see the change). */
+  places: PlaceSuggestions;
   onApply: (assignments: Map<string, GeoCoord>) => number;
   /** `coord` is the destination's own position, when it was picked from a
    *  register — the moved events are placed there instead of keeping the
@@ -373,12 +379,6 @@ export function AddressCoordsSection({
     // Most-used places first — that is where geocoding pays off soonest.
     return [...byPlace.values()].sort((a, b) => b.events - a.events || a.place.localeCompare(b.place));
   }, [visibleRows, searches, osmSearches, picked, statusFilter]);
-
-  // Existing place values for the move target's autocomplete, so a split lands
-  // on the file's own spelling of the destination when it already has one. The
-  // Edit fields' own list, so the destination is offered the same way — and
-  // canonically cased — wherever a place is typed.
-  const places = useMemo(() => buildPlaceSuggestions(dataset), [dataset]);
 
   const [open, setOpen] = useState<Set<string>>(new Set());
   /** Groups whose map is drawn — never on open, always on request. */
