@@ -4,7 +4,7 @@ import type { GeoCoord } from "../../gedcom/types";
 import { countryCode } from "../../gedcom/countryCode";
 import { decomposePlace, parseCoordInput } from "../../gedcom/place";
 import { sameCoord } from "../../geo/points";
-import { rnQueriesFrom, searchAddresses, type RnResult } from "../../geo/rn";
+import { rnQueriesFrom, searchAddresses, splitAddressVariants, type RnResult } from "../../geo/rn";
 import { placeLookupLanguage } from "../../geo/lookupLanguage";
 import { osmKindLabel, searchNominatim, type NominatimResult } from "../../geo/nominatim";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
@@ -244,14 +244,28 @@ export function EventCoordPicker({
   };
 
   const runOnline = () => {
-    // Address first, then the place, which is how Nominatim reads best.
-    const text = [address, place].map((s) => s.trim()).filter(Boolean).join(", ");
-    if (!text) return;
+    // Address first, then the place, which is how Nominatim reads best. A house
+    // under both its old and new street name ("Labore 4 / Škofjeloška 4") is
+    // two whole addresses and each is asked on its own — read as one string it
+    // is an address no service knows (the register splits it the same way).
+    const variants = address.trim() ? splitAddressVariants(address) : [""];
+    const texts = variants
+      .map((variant) => [variant, place].map((s) => s.trim()).filter(Boolean).join(", "))
+      .filter(Boolean);
+    if (!texts.length) return;
     const gen = lookupGen.current;
     setOsm({ state: "loading", results: [] });
     // In the language the place is written in — see placeLookupLanguage.
-    searchNominatim(text, placeLookupLanguage(place || address, i18n.language)).then(
-      (results) => gen === lookupGen.current && setOsm({ state: "done", results }),
+    const lang = placeLookupLanguage(place || address, i18n.language);
+    Promise.all(texts.map((text) => searchNominatim(text, lang))).then(
+      (perVariant) => {
+        if (gen !== lookupGen.current) return;
+        const results: NominatimResult[] = [];
+        for (const r of perVariant.flat()) {
+          if (!results.some((have) => sameCoord(have.coord, r.coord))) results.push(r);
+        }
+        setOsm({ state: "done", results });
+      },
       () => gen === lookupGen.current && setOsm({ state: "error", results: [] }),
     );
   };

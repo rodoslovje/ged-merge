@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
 import { stripHouseNumber } from "../../gedcom/place";
 import { sameCoord } from "../../geo/points";
-import { resultsForQuery, searchAddressBatch, searchAddresses, type RnResult } from "../../geo/rn";
+import { resultsForQuery, searchAddressBatch, searchAddresses, splitAddressVariants, type RnResult } from "../../geo/rn";
 import { placeLookupLanguage } from "../../geo/lookupLanguage";
 import { osmKindLabel, osmNamesPlace, searchNominatim, type NominatimResult } from "../../geo/nominatim";
 import type { PlaceProposal } from "../../geo/placeProposal";
@@ -432,17 +432,26 @@ export function AddressCoordsSection({
     // names the address at all, ask again for the street or hamlet without its
     // number: OpenStreetMap knows Čirče perfectly well, and the village's own
     // position is worth far more here than a stranger's front door.
-    const named = stripHouseNumber(row.address).trim();
-    searchNominatim(compose(row.address), lang)
-      .then(async (results) => {
-        if (!named || named === row.address.trim() || results.some((r) => osmNamesPlace(r, named))) return results;
-        const wider = await searchNominatim(compose(named), lang);
-        return wider.length ? wider : results;
+    const lookup = async (variant: string): Promise<NominatimResult[]> => {
+      const named = stripHouseNumber(variant).trim();
+      const results = await searchNominatim(compose(variant), lang);
+      if (!named || named === variant.trim() || results.some((r) => osmNamesPlace(r, named))) return results;
+      const wider = await searchNominatim(compose(named), lang);
+      return wider.length ? wider : results;
+    };
+    // A house under both its old and new street name ("Labore 4 / Škofjeloška
+    // 4") is two whole addresses; each is asked on its own — read as one string
+    // it is an address no service knows — and the answers stand in one list,
+    // minus any hit another variant already placed at the same point.
+    Promise.all(splitAddressVariants(row.address).map(lookup))
+      .then((perVariant) => {
+        const results: NominatimResult[] = [];
+        for (const r of perVariant.flat()) {
+          if (!results.some((have) => sameCoord(have.coord, r.coord))) results.push(r);
+        }
+        setOsm(row.key, { state: "done", results });
       })
-      .then(
-        (results) => setOsm(row.key, { state: "done", results }),
-        () => setOsm(row.key, { state: "error", results: [] }),
-      );
+      .catch(() => setOsm(row.key, { state: "error", results: [] }));
   };
 
   /**
