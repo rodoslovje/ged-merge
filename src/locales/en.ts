@@ -30,7 +30,7 @@ export const en = {
   "mode.edit.tooltip": "Browse and edit individuals in your main GEDCOM file (E)",
   "mode.tools": "Tools",
   "mode.tools.tooltip": "Maintenance tools that work on your whole main GEDCOM file (T)",
-  "tools.stats": "{{indi}} individuals · {{fam}} families · {{sources}} sources · {{media}} media · {{places}} places",
+  "tools.stats": "{{indi}} individuals · {{fam}} families · {{places}} places · {{sources}} sources · {{media}} media",
   "tools.running": "Working…",
   "tools.scan.cancelled": "Scan cancelled.",
   "tools.scan.rerun": "Run again",

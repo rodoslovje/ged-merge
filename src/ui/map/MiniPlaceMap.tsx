@@ -41,10 +41,11 @@ function drawPath(map: L.Map, layer: L.LayerGroup | null, path: GeoCoord[] | und
 /** Tooltip content as a DOM element — textContent, never HTML, because the
  *  labels carry file data (place names). The street address, when the events
  *  here name one, goes on its own row under the place, muted like the place
- *  picker's suggestions. Caps the detail lines at 8. */
-function tooltipEl(label: string, lines?: string[], sub?: string): HTMLElement {
+ *  picker's suggestions, and the coordinate closes the tooltip in the app's
+ *  standing form: pinned, mono, five decimals. Caps the detail lines at 8. */
+function tooltipEl(label: string, lines?: string[], sub?: string, coord?: GeoCoord): HTMLElement {
   const el = document.createElement("div");
-  if (!lines?.length && !sub) {
+  if (!lines?.length && !sub && !coord) {
     el.textContent = label;
     return el;
   }
@@ -68,6 +69,12 @@ function tooltipEl(label: string, lines?: string[], sub?: string): HTMLElement {
     const more = document.createElement("div");
     more.textContent = `… +${(lines?.length ?? 0) - shown.length}`;
     el.appendChild(more);
+  }
+  if (coord) {
+    const at = document.createElement("div");
+    at.className = "gm-data gm-coord gm-coord--set";
+    at.textContent = `${coord.lat.toFixed(5)}, ${coord.lon.toFixed(5)}`;
+    el.appendChild(at);
   }
   return el;
 }
@@ -420,7 +427,7 @@ export default function MiniPlaceMap({
                 iconAnchor: [12, 12],
               }),
             });
-      bindFlippingTooltip(map, marker, tooltipEl(p.label, p.lines, p.sub));
+      bindFlippingTooltip(map, marker, tooltipEl(p.label, p.lines, p.sub, p.coord));
       marker.on("click", () => latestPins.current[i]?.onPick?.());
       marker.addTo(group);
     });

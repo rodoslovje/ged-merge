@@ -545,7 +545,8 @@ export function AddressCoordsSection({
         pins.push({
           coord: row.coord,
           label: t("tools.geocode.fromFile"),
-          lines: [row.address, t("tools.geocode.addr.uses", { count: row.count })],
+          sub: row.address,
+          lines: [t("tools.geocode.addr.uses", { count: row.count })],
           kind: "candidate",
         });
       }
@@ -553,14 +554,11 @@ export function AddressCoordsSection({
         pins.push({
           coord: r.coord,
           label: r.label,
-          // Which of the place's addresses this pin answers, how much of the file
-          // rides on it, where it is, and that a click takes it.
-          lines: [
-            row.address,
-            t("tools.geocode.addr.uses", { count: row.count }),
-            `${r.coord.lat.toFixed(5)}, ${r.coord.lon.toFixed(5)}`,
-            t("event.coord.pinPick"),
-          ],
+          // Which of the place's addresses this pin answers, how much of the
+          // file rides on it, and that a click takes it. Its position closes
+          // the tooltip on its own (see MiniPlaceMap).
+          sub: row.address,
+          lines: [t("tools.geocode.addr.uses", { count: row.count }), t("event.coord.pinPick")],
           kind: sameCoord(chosen?.coord, r.coord) ? "chosen" : "candidate",
           onPick: () => pick(row.key, r),
         });

@@ -168,7 +168,8 @@ export function CoordConflicts({
                         ...c.coords.map(
                           (x): MiniMapPin => ({
                             coord: x.coord,
-                            label: `${x.coord.lat.toFixed(5)}, ${x.coord.lon.toFixed(5)}`,
+                            label: c.value,
+                            ...(c.address ? { sub: c.address } : {}),
                             lines: [t("tools.geocode.addr.uses", { count: x.n }), t("event.coord.pinPick")],
                             badge: x.n,
                             kind: sameCoord(chosen, x.coord) ? "chosen" : "candidate",

@@ -22,7 +22,7 @@ import { ToolSummarySlotProvider } from "./tools/ToolSummary";
 
 type Tool = "validate" | "duplicates" | "normalize" | "privacy" | "sources" | "places";
 
-const TOOLS: Tool[] = ["validate", "duplicates", "normalize", "privacy", "sources", "places"];
+const TOOLS: Tool[] = ["places", "sources", "validate", "duplicates", "normalize", "privacy"];
 
 interface Props {
   /** The live main dataset — every tool operates on the whole file. */

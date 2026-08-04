@@ -30,7 +30,7 @@ export const sl = {
   "mode.edit.tooltip": "Pregledujte in urejajte osebe v vaši glavni datoteki GEDCOM (E)",
   "mode.tools": "Orodja",
   "mode.tools.tooltip": "Vzdrževalna orodja, ki delujejo na celotni glavni datoteki GEDCOM (T)",
-  "tools.stats": "{{indi}} oseb · {{fam}} družin · {{sources}} virov · {{media}} medijev · {{places}} krajev",
+  "tools.stats": "{{indi}} oseb · {{fam}} družin · {{places}} krajev · {{sources}} virov · {{media}} medijev",
   "tools.running": "Obdelujem…",
   "tools.scan.cancelled": "Iskanje je bilo prekinjeno.",
   "tools.scan.rerun": "Zaženi znova",

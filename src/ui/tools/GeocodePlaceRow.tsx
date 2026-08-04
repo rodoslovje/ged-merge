@@ -316,9 +316,24 @@ export function GeocodePlaceRow({
           </button>
         )}
         {c && (
-          <span className="tools-tree-meta">
+          // The position this row is about to take, and the way to look at it:
+          // one click opens the row and puts its map on screen (the places tree
+          // reads its coordinate the same way), another puts the map away.
+          <button
+            type="button"
+            className="tools-tree-meta tools-geo-coord-btn"
+            title={t("tools.geocode.showMap")}
+            onClick={() => {
+              const showing = isOpen && hasMap;
+              if (!isOpen) onToggleOpen(row.key);
+              // Claiming toggles, so it is called only when that lands on the
+              // state wanted: show it when it is not this row's, hide it when
+              // the row is already open with the map up.
+              if (showing || !hasMap) onClaimMap(row.key);
+            }}
+          >
             → {c.label} · <span className="gm-data gm-coord gm-coord--set">{c.coord.lat.toFixed(4)}, {c.coord.lon.toFixed(4)}</span>
-          </span>
+          </button>
         )}
         {marked ? (
           <span className="tools-reshape-badge remove" title={t("tools.geocode.noMatch")}>

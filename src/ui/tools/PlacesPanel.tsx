@@ -307,6 +307,27 @@ function PlaceTreeRow({
 
   const nodeScope = useMemo(() => collectNodeUseIds(node), [node]);
 
+  /**
+   * What this row's map pins are about, for their tooltips: the place, and the
+   * address when the row *is* one (address levels are their own nodes).
+   *
+   * The place is taken from a record that sits exactly here, so it carries the
+   * file's own spelling and separators; with no such record — a node that only
+   * holds children — the path is read back outwards ("Otlica, Ajdovščina,
+   * Slovenia"), which is the order every place value in the app is written in.
+   */
+  const pinAddress =
+    node.isAddress && node.name !== UNSPECIFIED && node.name !== UNSPECIFIED_PLACE ? node.name : undefined;
+  const pinPlace = useMemo(() => {
+    const raw = node.uses[0]?.raw?.trim();
+    if (raw) return raw;
+    return path
+      .split("/")
+      .filter((seg) => seg && seg !== UNSPECIFIED && seg !== UNSPECIFIED_PLACE)
+      .reverse()
+      .join(", ");
+  }, [node.uses, path]);
+
   const hasChildren = node.children.length > 0 || node.uses.length > 0;
   const open = isOpen(path);
   const isSynthetic = node.name === UNSPECIFIED || node.name === UNSPECIFIED_PLACE;
@@ -406,7 +427,12 @@ function PlaceTreeRow({
             <MiniPlaceMap
               pins={spots.map((s, i): MiniMapPin => ({
                 coord: s.coord,
-                label: `${s.coord.lat.toFixed(5)}, ${s.coord.lon.toFixed(5)}`,
+                // The place this pin is about, written as the file writes it —
+                // the tooltip prints the coordinate itself on its own last row,
+                // so naming it here would say the numbers twice and the place
+                // not at all.
+                label: pinPlace,
+                ...(pinAddress ? { sub: pinAddress } : {}),
                 // The count only means something once there is a rival spot to
                 // weigh it against.
                 lines: disputed ? [t("tools.places.coord.spotUses", { count: s.n })] : undefined,
