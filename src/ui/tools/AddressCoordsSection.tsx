@@ -889,12 +889,17 @@ export function AddressCoordsSection({
                             </span>
                           )}
                           {chosen && (
-                            <span
-                              // No pin of its own: it sits against the picker's
-                              // pin, which is the mark this text belongs to.
-                              className="tools-geo-picked"
-                            >
-                              {chosen.label}{" "}
+                            <span className="tools-geo-picked">
+                              {/* Where the position came from → the position
+                                  itself, the way a place row prints its pick.
+                                  Only the source line is allowed to run out of
+                                  room: the coordinate is what the row is being
+                                  read for, so it stays whole and the address
+                                  ellipsises before it. */}
+                              <span className="tools-geo-picked-from" title={chosen.label}>
+                                {chosen.label}
+                              </span>{" "}
+                              →{" "}
                               <button
                                 type="button"
                                 className="gm-data gm-coord gm-coord--set tools-geo-coord-btn"
