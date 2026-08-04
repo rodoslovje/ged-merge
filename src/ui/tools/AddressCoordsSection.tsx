@@ -560,11 +560,19 @@ export function AddressCoordsSection({
     for (const key of moveSel) for (const raw of byKey.get(key)?.rawKeys ?? []) keys.add(raw);
     const changed = onMove(keys, moveTarget, pick);
     closeMove();
-    // The moved rows are keyed by their old place, so every pick and lookup
-    // against them is stale — and the destination is worth looking up afresh.
-    setPicked(new Map());
-    setSearches(new Map());
-    setOsmSearches(new Map());
+    // The moved rows are keyed by their old place, so their picks and lookups
+    // are stale — and their destination rows, under new keys, start unasked,
+    // which is worth a fresh look. Every other row keeps its key across the
+    // rescan, so what is staged there stands: accepting one move must not
+    // throw away the rest of the worklist.
+    const dropMoved = <V,>(prev: Map<string, V>) => {
+      const next = new Map(prev);
+      for (const key of moveSel) next.delete(key);
+      return next;
+    };
+    setPicked(dropMoved);
+    setSearches(dropMoved);
+    setOsmSearches(dropMoved);
     setMoved(changed);
   };
 
@@ -749,9 +757,17 @@ export function AddressCoordsSection({
       for (const raw of byKey.get(key)?.rawKeys ?? []) assignments.set(raw, v.coord);
     }
     const changed = onApply(assignments);
+    // The written rows are done and leave the worklist; the answers held by
+    // the rows still waiting were to questions the write did not change, so
+    // they stand — writing one wave must not cost the next its lookups.
+    const dropWritten = <V,>(prev: Map<string, V>) => {
+      const next = new Map(prev);
+      for (const key of picked.keys()) next.delete(key);
+      return next;
+    };
+    setSearches(dropWritten);
+    setOsmSearches(dropWritten);
     setPicked(new Map());
-    setSearches(new Map());
-    setOsmSearches(new Map());
     setApplied(changed);
   };
 
