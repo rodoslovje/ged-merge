@@ -175,6 +175,31 @@ describe("scanGeocode and house addresses", () => {
   });
 });
 
+describe("scanGeocode row order", () => {
+  const WITH_NUMBERS = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 BIRT
+2 PLAC Ringstrasse 10, Wien, Austria
+1 RESI
+2 PLAC Ringstrasse 4, Wien, Austria
+1 DEAT
+2 PLAC Ringstrasse 2, Wien, Austria
+0 TRLR
+`;
+
+  it("orders embedded house numbers numerically, not as text", () => {
+    const ds = buildFromText(WITH_NUMBERS);
+    const keys = scanGeocode(ds, undefined, new Map()).rows.map((r) => r.key);
+    expect(keys).toEqual([
+      "Ringstrasse 2, Wien, Austria",
+      "Ringstrasse 4, Wien, Austria",
+      "Ringstrasse 10, Wien, Austria",
+    ]);
+  });
+});
+
 describe("chosenCoordFor", () => {
   const labels = { fromFile: "from file" };
   const base: GeocodeRow = { key: "X", count: 1, missing: 1, candidates: [], confident: false, missingIn: [] };
