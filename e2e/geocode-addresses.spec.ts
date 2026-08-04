@@ -147,8 +147,15 @@ test("a house already placed says so, and its coordinate opens the panel", async
   const group = page.locator(".tools-geo-addr-group").first();
   await group.locator(".tools-pair-toggle").first().click();
 
-  // The hamlet's two houses are placed; the third is not, and the chip counts
-  // exactly the two.
+  // Placed houses are finished work and stay off the list by default — the
+  // worklist holds only the house that has had nothing done to it, and the
+  // "Already placed" chip is gone with them.
+  await expect(group.locator(".tools-geo-addr-row")).toHaveCount(1);
+  await expect(page.getByRole("button", { name: /Already placed/ })).toHaveCount(0);
+
+  // Ticking "Show already placed" lists the hamlet's two placed houses again;
+  // the third is still not placed, and the returned chip counts exactly the two.
+  await page.getByText("Show already placed").click();
   const placed = group.locator(".tools-geo-addr-row").filter({ hasText: "(placed)" });
   await expect(placed).toHaveCount(2);
   await expect(placed.first()).toContainText("46.21806, 14.36897");
