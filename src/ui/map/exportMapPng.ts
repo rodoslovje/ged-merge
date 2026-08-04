@@ -13,6 +13,7 @@ import {
   SANS,
   SITE,
 } from "../exportSvg";
+import { downloadBlob } from "../download";
 import {
   ARROW_MAX_TOTAL,
   ARROW_MIN_SEG_PX,
@@ -383,12 +384,6 @@ export function exportMapPng(
   ctx.globalAlpha = 1;
 
   canvas.toBlob((blob) => {
-    if (!blob) return;
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${slug}.gedmerge.png`;
-    a.click();
-    URL.revokeObjectURL(url);
+    if (blob) downloadBlob(`${slug}.gedmerge.png`, blob);
   }, "image/png");
 }
