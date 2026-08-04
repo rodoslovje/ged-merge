@@ -1277,28 +1277,9 @@ export function AddressCoordsSection({
                             </button>
                           </div>
                         )}
-                        {peopleOpen.has(row.key) && (
-                          <>
-                            <ul className="tools-usage tools-geo-people">
-                              {row.people.slice(0, 30).map((id) => {
-                                const kin = kinship?.label(id);
-                                return (
-                                  <li key={id}>
-                                    <PersonLink dataset={dataset} id={id} fallback={id} onNavigate={onNavigate} />
-                                    {kin && (
-                                      <span className={`person-kinship ${lineageClass(kinship?.lineage(id))}`}>{kin}</span>
-                                    )}
-                                  </li>
-                                );
-                              })}
-                            </ul>
-                            {row.people.length > 30 && (
-                              <p className="tools-geo-more">
-                                {t("tools.geocode.morePeople", { count: row.people.length - 30 })}
-                              </p>
-                            )}
-                          </>
-                        )}
+                        {/* The lookup's answers directly under the row they
+                            answer — the people list, however long, comes after,
+                            like the place rows'. */}
                         {candidates.length > 0 && (
                           <ul className="tools-geo-candidates">
                             {candidates.map((r, i) => (
@@ -1358,6 +1339,28 @@ export function AddressCoordsSection({
                               </li>
                             ))}
                           </ul>
+                        )}
+                        {peopleOpen.has(row.key) && (
+                          <>
+                            <ul className="tools-usage tools-geo-people">
+                              {row.people.slice(0, 30).map((id) => {
+                                const kin = kinship?.label(id);
+                                return (
+                                  <li key={id}>
+                                    <PersonLink dataset={dataset} id={id} fallback={id} onNavigate={onNavigate} />
+                                    {kin && (
+                                      <span className={`person-kinship ${lineageClass(kinship?.lineage(id))}`}>{kin}</span>
+                                    )}
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                            {row.people.length > 30 && (
+                              <p className="tools-geo-more">
+                                {t("tools.geocode.morePeople", { count: row.people.length - 30 })}
+                              </p>
+                            )}
+                          </>
                         )}
                       </li>
                     );
