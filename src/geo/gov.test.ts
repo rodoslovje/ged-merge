@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { parseSearchIds, parseObject, scoreObject, type GovObject } from "./gov";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { parseSearchIds, parseObject, scoreObject, searchGov, type GovObject } from "./gov";
 import { foldToken } from "../match/text";
 
 const SEARCH_RESPONSE =
@@ -103,5 +103,28 @@ describe("scoreObject", () => {
   it("drops objects with no coordinate or no name", () => {
     expect(scoreObject({ id: "x", names: [{ lang: "slo", value: "Kranj" }] }, foldToken("Kranj"), "sl")).toBeUndefined();
     expect(scoreObject({ id: "x", coord: { lat: 46, lon: 14 }, names: [] }, foldToken("Kranj"), "sl")).toBeUndefined();
+  });
+});
+
+describe("searchGov failure paths", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  it("a failed request rejects its caller without wedging the shared queue", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout"] });
+    const empty = "<env><out></out></env>";
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("network down"))
+      .mockResolvedValue({ ok: true, text: async () => empty } as unknown as Response);
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(searchGov("Kranj", "sl")).rejects.toThrow("network down");
+    const second = searchGov("Bled", "sl");
+    await vi.advanceTimersByTimeAsync(1000); // the request spacing
+    await expect(second).resolves.toEqual([]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
