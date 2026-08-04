@@ -877,9 +877,9 @@ export function AddressCoordsSection({
                               printing: a row with no coordinate at all and one
                               sitting on the village centre are different states
                               of the same work, and only the text tells them
-                              apart. The pin follows the standing rule: accent
-                              for a position of this house's own, muted for the
-                              inherited one. */}
+                              apart. No pin of its own: the row's coordinate
+                              control draws one immediately before it, and that
+                              is the mark this value belongs to. */}
                           {!chosen && row.coord && (
                             <span
                               className="tools-geo-online-note"
@@ -887,7 +887,7 @@ export function AddressCoordsSection({
                             >
                               <button
                                 type="button"
-                                className={`gm-data gm-coord tools-geo-coord-btn${row.placed ? " gm-coord--set" : ""}`}
+                                className="gm-data tools-geo-coord-btn"
                                 title={t("tools.geocode.showMap")}
                                 onClick={() => setMapOpen((prev) => new Set(prev).add(group.place))}
                               >
@@ -1140,7 +1140,9 @@ function BulkCoordPanel({
         onPick={onPick}
         onClear={onClear}
       />
-      <span className={"tools-place-rename-hint" + (pick ? " gm-coord gm-coord--set" : "")}>
+      {/* The position picked, beside the pin that picked it — unmarked, since
+          that pin is the mark and stands right against this text. */}
+      <span className={"tools-place-rename-hint" + (pick ? " gm-data" : "")}>
         {pick ? `${pick.coord.lat.toFixed(5)}, ${pick.coord.lon.toFixed(5)}` : t("tools.geocode.addr.bulkNoCoord")}
       </span>
       {/* Ticking a run of houses by what they start with — "Stražišče 11" for
