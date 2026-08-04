@@ -521,6 +521,9 @@ export function EventFieldsRow({
     return (
       <span key={key} data-detail={key} className={"edit-event-extra" + optCls(shown)}>
         <span className="edit-event-extra-label">{labelText}</span>
+        {/* No pin of its own here: the event's coordinate pin already stands
+            between the place and the address, and two in a row read as two
+            different marks. */}
         <PlaceAutocomplete
           value={field.value}
           suggestions={suggestions}

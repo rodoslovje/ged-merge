@@ -168,7 +168,8 @@ export function CoordConflicts({
                         ...c.coords.map(
                           (x): MiniMapPin => ({
                             coord: x.coord,
-                            label: `${x.coord.lat.toFixed(5)}, ${x.coord.lon.toFixed(5)}`,
+                            label: c.value,
+                            ...(c.address ? { sub: c.address } : {}),
                             lines: [t("tools.geocode.addr.uses", { count: x.n }), t("event.coord.pinPick")],
                             badge: x.n,
                             kind: sameCoord(chosen, x.coord) ? "chosen" : "candidate",
@@ -205,7 +206,7 @@ export function CoordConflicts({
                             onChange={() => pick(key, x.coord)}
                             onClick={() => sameCoord(chosen, x.coord) && unpick(key)}
                           />
-                          <span className="gm-data">
+                          <span className="gm-data gm-coord gm-coord--set">
                             {x.coord.lat.toFixed(5)}, {x.coord.lon.toFixed(5)}
                           </span>
                           <span className="tools-geo-count">{t("tools.geocode.addr.uses", { count: x.n })}</span>

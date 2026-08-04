@@ -2,7 +2,14 @@ import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { serializeGedcom } from "../gedcom/serialize";
-import { applyAddressCoords, renameAddress, replaceLocality, scanAddresses, suggestMovedPlace } from "./addresses";
+import {
+  addressesByPlace,
+  applyAddressCoords,
+  renameAddress,
+  replaceLocality,
+  scanAddresses,
+  suggestMovedPlace,
+} from "./addresses";
 import { placeAddrKey } from "./geocode";
 import { scanPlaceCoords } from "./placeCoords";
 
@@ -61,11 +68,40 @@ describe("scanAddresses", () => {
     expect(row.rawKeys).toEqual([placeAddrKey("Šentvid pri Stični 23, Slovenija", "Šentvid pri Stični 23")]);
   });
 
-  it("skips what cannot be looked up", () => {
-    // Not Slovenia: the register does not cover it.
-    expect(rows.map((r) => r.key)).not.toContain(placeAddrKey("Wien, Austria", "Ringstrasse 1"));
-    // No address at all.
+  it("lists what the register cannot answer, with no query to run", () => {
+    // Not Slovenia: the register does not cover it — but the address is still a
+    // place to be pinned by hand, so it is reviewed like any other.
+    const wien = rows.find((r) => r.key === placeAddrKey("Wien, Austria", "Ringstrasse 1"))!;
+    expect(wien.queries).toEqual([]);
+    expect(wien.count).toBe(1);
+  });
+
+  it("skips events that name no address", () => {
     expect(rows.some((r) => r.address === "")).toBe(false);
+  });
+});
+
+describe("scanAddresses and an address with no house number", () => {
+  // A hamlet named in the ADDR line: "Stražišče" is where the event happened,
+  // and it is not the place value, so nothing else in the app can place it.
+  const NO_NUMBER = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 BIRT
+2 PLAC Kranj, Slovenija
+2 ADDR Stražišče
+1 DEAT
+2 PLAC Kranj, Slovenija
+2 ADDR Stražišče 114
+0 TRLR`;
+
+  it("reviews it beside the numbered houses of the same place", () => {
+    const rows = scanAddresses(build(NO_NUMBER));
+    expect(rows.map((r) => r.address).sort()).toEqual(["Stražišče", "Stražišče 114"]);
+    // No number, so no register query — the row is placed by hand instead.
+    expect(rows.find((r) => r.address === "Stražišče")!.queries).toEqual([]);
+    expect(rows.find((r) => r.address === "Stražišče 114")!.queries).toHaveLength(1);
   });
 });
 
@@ -155,12 +191,13 @@ describe("applyAddressCoords", () => {
     const occuAt = out.split("\n").findIndex((l) => l.startsWith("1 OCCU"));
     expect(out.split("\n").slice(occuAt, occuAt + 3)).toEqual(["1 OCCU Kmet", "2 PLAC Kranj, Slovenija", "0 TRLR"]);
 
-    // Re-parsing lifts it onto that event's place, and the row is done — only
-    // the untouched Šentvid house is still worth asking about.
+    // Re-parsing lifts it onto that event's place, and the row is done — the
+    // Kranj house is gone from the list, while the untouched ones remain (the
+    // Vienna address among them: still unplaced, register or no register).
     const again = build(out);
     const resi = again.individuals.get("@I1@")!.events.find((e) => e.tag === "RESI")!;
     expect(resi.place?.coord?.lat).toBeCloseTo(HOUSE.lat, 5);
-    expect(scanAddresses(again).map((r) => r.address)).toEqual(["Šentvid pri Stični 23"]);
+    expect(scanAddresses(again).map((r) => r.address)).toEqual(["Šentvid pri Stični 23", "Ringstrasse 1"]);
   });
 
   it("leaves the health check quiet: same settlement, different addresses", () => {
@@ -313,5 +350,82 @@ describe("renameAddress", () => {
     const row = rows[0];
     expect(renameAddress(ds, row.rawKeys, row.address, row.address)).toHaveLength(0);
     expect(renameAddress(ds, row.rawKeys, row.address, "  ")).toHaveLength(0);
+  });
+});
+
+describe("scanAddresses and a hamlet placed by hand", () => {
+  // Two Drulovka houses given one approximate position — the hamlet's centre,
+  // not Kranj's — plus a Kranj event with no address at all, which is what the
+  // settlement's own coordinate looks like.
+  const HAMLET = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 BIRT
+2 PLAC Kranj, Slovenija
+3 MAP
+4 LATI N46.23887
+4 LONG E14.35573
+1 RESI
+2 PLAC Kranj, Slovenija
+3 MAP
+4 LATI N46.21806
+4 LONG E14.36897
+2 ADDR Drulovka 2
+1 DEAT
+2 PLAC Kranj, Slovenija
+3 MAP
+4 LATI N46.21806
+4 LONG E14.36897
+2 ADDR Drulovka 4
+1 CENS
+2 PLAC Kranj, Slovenija
+2 ADDR Cesta na Klanec 55
+0 TRLR`;
+
+  const rows = scanAddresses(build(HAMLET));
+
+  it("marks the houses that carry a position of their own", () => {
+    // Both are still listed — one shared position can always be sharpened —
+    // but they are no longer waiting to be placed, and say so.
+    const drulovka = rows.filter((r) => r.address.startsWith("Drulovka"));
+    expect(drulovka).toHaveLength(2);
+    expect(drulovka.every((r) => r.placed)).toBe(true);
+  });
+
+  it("leaves a house with no position of its own unmarked", () => {
+    const klanec = rows.find((r) => r.address === "Cesta na Klanec 55")!;
+    expect(klanec.placed).toBeUndefined();
+    expect(klanec.coord).toBeUndefined();
+  });
+});
+
+describe("addressesByPlace", () => {
+  it("collects every house of a place, however the file writes it", () => {
+    const map = addressesByPlace(build(FILE));
+    expect(map.get("Kranj, Slovenija")).toEqual(["Kidričeva cesta 38"]);
+    // Read out of the place value, so filed under the settlement left behind.
+    expect(map.get("Šentvid pri Stični, Slovenija")).toEqual(["Šentvid pri Stični 23"]);
+    // Beyond the register's reach, but still a spelling this place has.
+    expect(map.get("Wien, Austria")).toEqual(["Ringstrasse 1"]);
+  });
+
+  it("keeps a house the geocoding rows have dropped", () => {
+    const ds = build(`0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 BIRT
+2 PLAC Črni vrh 35
+1 RESI
+2 PLAC Črni vrh 46
+0 TRLR`);
+    const placed = scanAddresses(ds).find((r) => r.address === "Črni vrh 35")!;
+    applyAddressCoords(ds, new Map(placed.rawKeys.map((k) => [k, { lat: 46.10101, lon: 14.20202 }])));
+    const after = build(serializeGedcom(ds.records));
+    // Nothing left to look up for 35 — but it is still the spelling 46 could be
+    // renamed onto, so the rename's list must keep offering it.
+    expect(scanAddresses(after).map((r) => r.address)).toEqual(["Črni vrh 46"]);
+    expect(addressesByPlace(after).get("Črni vrh")).toEqual(["Črni vrh 35", "Črni vrh 46"]);
   });
 });

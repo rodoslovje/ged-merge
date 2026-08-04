@@ -13,6 +13,7 @@ test("a non-UTF-8 file is told it will be saved as UTF-8", async ({ page }) => {
   await page.goto("/");
   await page.locator("input.file-input").first().setInputFiles(W1250);
   await page.getByRole("button", { name: "Tools", exact: true }).click();
+  await page.getByText("Health check", { exact: true }).first().click();
 
   const note = page.locator(".tools-note");
   await expect(note).toHaveCount(1);
@@ -30,6 +31,7 @@ test("a UTF-8 file gets no encoding notice", async ({ page }) => {
   await page.goto("/");
   await page.locator("input.file-input").first().setInputFiles(UTF8);
   await page.getByRole("button", { name: "Tools", exact: true }).click();
+  await page.getByText("Health check", { exact: true }).first().click();
   await page.locator(".tools-fix-list").first().waitFor();
   await expect(page.locator(".tools-note")).toHaveCount(0);
 });

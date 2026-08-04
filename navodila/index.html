@@ -951,7 +951,9 @@
               Kraj, za katerega ima datoteka koordinato, jo pokaže ob števcu, zato med brskanjem po drevesu vidite tudi,
               kaj še ni geokodirano. To je koordinata, zapisana prav za to raven: kraj, poimenovan le s pokrajino, nosi
               pokrajinsko. S <strong>klikom na koordinato</strong> se pod vrstico odpre mali zemljevid — najhitrejši
-              način, da opazite kraj, ki je po tihem pripet v napačno državo.
+              način, da opazite kraj, ki je po tihem pripet v napačno državo. Ob prehodu z miško oznaka pove kraj, kot ga
+              piše vaša datoteka, njegov naslov, kadar je vrstica naslov, in v zadnji vrstici koordinato. Enako deluje
+              seznam za geokodiranje: klik na koordinato, ki jo bo vrstica prevzela, odpre to vrstico in njen zemljevid.
             </p>
             <p>
               Kjer si zapisi v datoteki nasprotujejo o legi kraja, vrstica pokaže prevladujočo koordinato in za njo
@@ -1043,7 +1045,11 @@
               jo pripisuje register — napačno zapisana ali nikoli razrešena vrednost je tako popravljena in umeščena v
               enem koraku. Kar imenik brez
               povezave ne razreši, po vrsticah pokrijeta dve spletni iskanji — obe za isto spletno privolitvijo in samo ob
-              kliku na gumb, njuni zadetki pa se pridružijo kandidatom in oznakam na zemljevidu. <strong>Išči na
+              kliku na gumb, njuni zadetki pa se pridružijo kandidatom in oznakam na zemljevidu. Iskanje, ki je odgovorilo,
+              svoj gumb pospravi — odgovor je seznam možnosti, isto vprašanje istemu registru pa vrne isto; ob
+              preimenovanju kraja se iskanja za novo vrednost spet ponudijo. S klikom na že izbrano možnost jo
+              počistite: vrstica ostane brez koordinate in neoznačena, tako da kraja, ki ste ga zavrnili, gumb
+              <strong>Izberi zanesljive</strong> ne zapiše po tihem. <strong>Išči na
               OpenStreetMap</strong> uporablja Nominatim — najbolje za ulične naslove. Vrednosti s hišno številko v
               državi, ki jo pokriva slovenski register naslovov (<em>Šentvid pri Stični 23</em>), tu sploh ni na seznamu:
               je stavba in ne kraj, zato jo pregledate pod njenim naseljem na zavihku <strong>Naslovi</strong>. <strong>Išči v Genealoškem imeniku krajev (GOV)</strong>
@@ -1054,7 +1060,7 @@
               ujemanja«, zato se zavrnjeni predlog ne vrne — ne v tej datoteki ne v naslednji.
             </p>
             <p>
-              Drugi zavihek strani, <strong>Naslovi s hišno številko</strong>, pokriva hiše in ne krajev — kraji in
+              Drugi zavihek strani, <strong>Naslovi za umestitev</strong>, pokriva hiše in ne krajev — kraji in
               naslovi se preklapljajo z zavihkoma na vrhu, vsak s svojim številom vrstic, iskalnik pa zoži odprti
               zavihek. Hiše najde tam, kjer jih hrani vaša datoteka: v <strong>naslovu</strong> dogodka ob kraju z naseljem
               (<em>Kranj</em> + <em>Kidričeva cesta 38</em>), kot celotno vrednost kraja (<em>Črni vrh 35</em>) ali
@@ -1067,8 +1073,13 @@
               odprite kraj, da vidite njegove naslove, jih poiščete vse naenkrat in preberete z majhnega zemljevida vseh
               najdenih hiš — sosedje na enem zemljevidu takoj pokažejo, kateri zadetek izstopa. Filtri nad seznamom ga
               zožijo po stanju poizvedb — <strong>Brez poizvedbe</strong>, <strong>Z zadetki</strong>, <strong>Brez
-              zadetka</strong>, <strong>Izbrani</strong> — vsak šteje natanko to, kar klik pokaže, zato je pregled
-              prispelih odgovorov registra en klik stran. <strong>Izberi zanesljive</strong> izbere vsak naslov, ki mu je register odgovoril z natanko eno hišo — zadetek, ki ga register vodi pod drugim naseljem, izpusti, saj je to primer opozorila o razdelitvi — tako en klik po skupinski poizvedbi opravi nedvoumno večino, ostanejo pa le prava vprašanja. <span class="gm-glyph">✎</span> ob naslovu ga <strong>preimenuje</strong> na vseh dogodkih pri tej hiši — v vrstici <code>ADDR</code> ali znotraj strnjene vrednosti kraja, z ohranjenimi pripisi — tako tipkarsko napako popravite enkrat, s preimenovanjem enega zapisa v drugega pa se vrstici združita v eno hišo. In kot vrstica kraja tudi vsak naslov nosi število svojih
+              zadetka</strong>, <strong>Samo ročno</strong>, <strong>Izbrani</strong> — vsak šteje natanko to, kar klik
+              pokaže, zato je pregled prispelih odgovorov registra en klik stran. Seznam navede vse naslove, ne le tistih,
+              na katere register lahko odgovori: zaselek brez številke (<em>Stražišče</em>), hišo, znano po domačijskem
+              imenu, naslov v tujini. Ti namesto povezave do registra povedo <em>ni kaj poiskati</em> in se zberejo pod
+              <strong>Samo ročno</strong>, hiša, ki že nosi svojo lego — recimo lego zaselka, dodeljeno celemu nizu
+              naenkrat — pa izpiše to lego in za njo <em>(umeščen)</em> ter se zbere pod <strong>Že umeščeni</strong>. Na seznamu
+              ostane, ker je približno lego mogoče še izostriti; delo, ki čaka, je vse ostalo — umestite jih z oznako kraja ali cel niz naenkrat, kot je opisano spodaj. Oznaka kraja je znak za lego: stoji pred vsako izpisano koordinato in pred vsakim naslovom v teh seznamih, medla, dokler ni nič umeščeno, in zelena, ko je. <strong>Izberi zanesljive</strong> izbere vsak naslov, ki mu je register odgovoril z natanko eno hišo — zadetek, ki ga register vodi pod drugim naseljem, izpusti, saj je to primer opozorila o razdelitvi — tako en klik po skupinski poizvedbi opravi nedvoumno večino, ostanejo pa le prava vprašanja. <span class="gm-glyph">✎</span> ob naslovu ga <strong>preimenuje</strong> na vseh dogodkih pri tej hiši — v vrstici <code>ADDR</code> ali znotraj strnjene vrednosti kraja, z ohranjenimi pripisi — tako tipkarsko napako popravite enkrat, s preimenovanjem enega zapisa v drugega pa se vrstici združita v eno hišo. Polje za preimenovanje se med tipkanjem dopolnjuje iz drugih naslovov pri istem kraju — tudi iz že umeščenih hiš, ki jih seznam ne prikazuje več — tako da je združitev dveh zapisov izbira in ne ponovno tipkanje. <strong>Več naslovov na eno koordinato…</strong> v glavi skupine je za hiše, na katere noben register ne odgovori — staro vaško oštevilčenje, domačija, ki je ni več: označite naslove, izberite eno lego (dovolj je središče vasi, prva ponudba pa je koordinata, ki jo datoteka vodi pri tem kraju) in prevzamejo jo vsi označeni naslovi. Na začetku je označen ves kraj; polje <em>Se začne z</em> zoži izbor na naslove, ki se začnejo z vpisanim besedilom — <em>Stražišče 11</em> zajame obe domačiji te hišne številke — oznake pa ostanejo vidne, tako da pred prevzemom preberete, kaj je zajel. Izbire so pripravljene kot vse druge, zato jih <strong>Zapiši koordinate naslovov</strong> potrdi za celo vas v enem koraku razveljavitve. Vsaka koordinata, ki jo vrstica izpiše, s klikom odpre zemljevid kraja na njej. Pripravljena vrstica izpiše, kam njena oznaka zdaj kaže — naslov iz registra, <em>iz te datoteke</em>, <em>ročno</em> — in ob tem koordinato, tako da vas, umeščeno v eni potezi, preberete s seznama in ne oznako za oznako. Povezava do registra stoji za to lego in izgine, ko je odgovorila; ob preimenovanju naslova se spet pokaže. In kot vrstica kraja tudi vsak naslov nosi število svojih
               oseb: ob prehodu z miško pokaže imena, klik pa odpre osebe (s sorodstvom, kjer je vključeno), vsaka je
               povezava v urejanje.
             </p>
@@ -1076,7 +1087,9 @@
               Vrstica je ena hiša in ne en zapis: kadar datoteka isto hišo piše na več načinov — recimo isto številko pod
               dvema župnijama — se te združijo v eno vrstico, ob potrditvi pa se koordinata zapiše v vse. Kadar star
               zapis ohranja več številk, ker se je oštevilčenje spremenilo (<em>Hafnarjeva pot 21a / 53</em>), se
-              poiščejo vse in ponudita obe hiši — zapis ne pove, katera je katera, zato je izbira vaša. Vsaka vrstica
+              poiščejo vse in ponudita obe hiši — zapis ne pove, katera je katera, zato je izbira vaša. Hišo, ki je
+              zapisana pod dvema <em>imenoma</em> ulice, ker se je ulica preimenovala (<em>Labore 4 / Škofjeloška 4</em>),
+              prebere kot dva cela naslova in vsako ime poišče posebej. Vsaka vrstica
               nosi tudi isto zeleno <span class="gm-glyph pin"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2a7.5 7.5 0 0 0-7.5 7.5c0 5.05 6.36 11.62 6.63 11.9a1.2 1.2 0 0 0 1.74 0c.27-.28 6.63-6.85 6.63-11.9A7.5 7.5 0 0 0 12 2Zm0 10.2a2.7 2.7 0 1 1 0-5.4 2.7 2.7 0 0 1 0 5.4Z"/></svg></span> oznako kraja kot dogodek v
               urejanju: kliknite jo, da vnesete ali prilepite koordinato, izberete točko na zemljevidu ali poiščete na
               OpenStreetMap — tako umestite hišo, ki je register ne pozna. Kadar je prikazani kraj naselje, ki ostane, ko
@@ -1739,6 +1752,7 @@
                 <tr><td><span class="gm-glyph danger">−</span></td><td>Odklopi družinsko vlogo (starš, partner, otrok) brez brisanja zapisa</td></tr>
                 <tr><td><span class="gm-glyph">↗</span></td><td>Odpri pripeto povezavo v novem zavihku</td></tr>
                 <tr><td><span class="gm-glyph">✎</span></td><td>Uredi — zamenjaj konec sorodstvene poti, uredi vir ali preimenuj vrednost kraja</td></tr>
+                <tr><td><span class="gm-glyph pin"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2a7.5 7.5 0 0 0-7.5 7.5c0 5.05 6.36 11.62 6.63 11.9a1.2 1.2 0 0 0 1.74 0c.27-.28 6.63-6.85 6.63-11.9A7.5 7.5 0 0 0 12 2Zm0 10.2a2.7 2.7 0 1 1 0-5.4 2.7 2.7 0 0 1 0 5.4Z"/></svg></span></td><td>Lega: koordinate, kjer koli so izpisane, in hišni naslovi, ki jim pripadajo. Medla, dokler ni nič umeščeno, zelena, ko je</td></tr>
                 <tr><td><span class="gm-glyph">🔒</span></td><td>Ključavnica zasebnosti — označi osebo, družino, opombo ali medij kot zasebno (glejte <a href="#privacy">§18</a>)</td></tr>
                 <tr><td><span class="gm-glyph">↩</span></td><td>Razveljavi oznako — npr. odznači skupino »Odstrani sklice« v Uredi vire</td></tr>
                 <tr><td><span class="gm-glyph danger">🗑</span></td><td>Izbriši osebo (razveljavljivo s Ctrl+Z do prenosa) ali označi povezave za odstranitev</td></tr>

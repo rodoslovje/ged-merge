@@ -229,12 +229,17 @@ export function GeocodePlaceRow({
   // The online searches: beside "Show on map" while the map is closed, and
   // under the map once it is open — either way one action row, not a stray
   // entry at the bottom of the candidate list.
+  // A search that has answered takes its button away: the answer is the option
+  // list below, and asking the same register the same question again returns
+  // it. An error keeps the button, since retrying is the whole recourse — and
+  // renaming the place makes a new row, whose searches start unasked.
   const searchActions = appSettings.allowLinkFetch && (
     <>
                 {/* Only for a value that names a house number — the register
                     resolves houses, not settlements. */}
                 {rnQueries.length > 0 && (
                   <>
+                    {rn.state !== "done" && (
                     <button
                       className="tools-issue-link"
                       disabled={rn.state === "loading"}
@@ -243,12 +248,14 @@ export function GeocodePlaceRow({
                     >
                       {rn.state === "loading" ? t("tools.geocode.rn.searching") : t("tools.geocode.rn.search")}
                     </button>
+                    )}
                     {rn.state === "error" && <span className="tools-geo-online-note">{t("tools.geocode.rn.error")}</span>}
                     {rn.state === "done" && !rn.results.length && (
                       <span className="tools-geo-online-note">{t("tools.geocode.rn.none")}</span>
                     )}
                   </>
                 )}
+                {online.state !== "done" && (
                 <button
                   className="tools-issue-link"
                   disabled={online.state === "loading"}
@@ -257,10 +264,12 @@ export function GeocodePlaceRow({
                 >
                   {online.state === "loading" ? t("tools.geocode.online.searching") : t("tools.geocode.online.search")}
                 </button>
+                )}
                 {online.state === "error" && <span className="tools-geo-online-note">{t("tools.geocode.online.error")}</span>}
                 {online.state === "done" && !online.results.length && (
                   <span className="tools-geo-online-note">{t("tools.geocode.online.none")}</span>
                 )}
+                {gov.state !== "done" && (
                 <button
                   className="tools-issue-link"
                   disabled={gov.state === "loading"}
@@ -269,6 +278,7 @@ export function GeocodePlaceRow({
                 >
                   {gov.state === "loading" ? t("tools.geocode.gov.searching") : t("tools.geocode.gov.search")}
                 </button>
+                )}
                 {gov.state === "error" && <span className="tools-geo-online-note">{t("tools.geocode.gov.error")}</span>}
                 {gov.state === "done" && !gov.results.length && (
                   <span className="tools-geo-online-note">{t("tools.geocode.gov.none")}</span>
@@ -316,9 +326,24 @@ export function GeocodePlaceRow({
           </button>
         )}
         {c && (
-          <span className="tools-tree-meta">
-            → {c.label} · <span className="gm-data">{c.coord.lat.toFixed(4)}, {c.coord.lon.toFixed(4)}</span>
-          </span>
+          // The position this row is about to take, and the way to look at it:
+          // one click opens the row and puts its map on screen (the places tree
+          // reads its coordinate the same way), another puts the map away.
+          <button
+            type="button"
+            className="tools-tree-meta tools-geo-coord-btn"
+            title={t("tools.geocode.showMap")}
+            onClick={() => {
+              const showing = isOpen && hasMap;
+              if (!isOpen) onToggleOpen(row.key);
+              // Claiming toggles, so it is called only when that lands on the
+              // state wanted: show it when it is not this row's, hide it when
+              // the row is already open with the map up.
+              if (showing || !hasMap) onClaimMap(row.key);
+            }}
+          >
+            → {c.label} · <span className="gm-data gm-coord gm-coord--set">{c.coord.lat.toFixed(4)}, {c.coord.lon.toFixed(4)}</span>
+          </button>
         )}
         {marked ? (
           <span className="tools-reshape-badge remove" title={t("tools.geocode.noMatch")}>
@@ -559,7 +584,7 @@ export function GeocodePlaceRow({
                     onChange={() => onPickCoord(row, row.fileCoord!, t("tools.geocode.fromFile"))}
                   />
                   <span className="tools-geo-cand-name">{t("tools.geocode.fromFile")}</span>
-                  <span className="gm-data">
+                  <span className="gm-data gm-coord">
                     {row.fileCoord.lat.toFixed(4)}, {row.fileCoord.lon.toFixed(4)}
                   </span>
                 </label>
@@ -582,11 +607,23 @@ export function GeocodePlaceRow({
                   {(cand.adminDisplay ?? cand.entry.admin) && (
                     <span className="tools-geo-count">({cand.adminDisplay ?? cand.entry.admin})</span>
                   )}
-                  <span className="gm-data">
+                  <span className="gm-data gm-coord">
                     {cand.entry.population > 0 && `· ${t("tools.geocode.population", { count: cand.entry.population })} · `}
                     {`${cand.entry.lat.toFixed(4)}, ${cand.entry.lon.toFixed(4)}`}
                   </span>
-                  <span className={scoreBadgeClass(cand.score, false)}>{Math.round(cand.score * 100)}%</span>
+                  {/* Green means "this is going in", the same as in the row's
+                      header — so the candidate the row is actually on wears the
+                      header's colour, and the rest are judged on their score
+                      alone. Passing `false` here made a header's green 99% read
+                      amber, and its green 100% read neutral, one line apart. */}
+                  <span
+                    className={scoreBadgeClass(
+                      cand.score,
+                      sameCoord(c?.coord, { lat: cand.entry.lat, lon: cand.entry.lon }) && (row.confident || isChecked),
+                    )}
+                  >
+                    {Math.round(cand.score * 100)}%
+                  </span>
                   {/* Source last, like the GOV/OSM/GURS rows below: the full
                       directory id — register code (SI-GURS), download key
                       (HR-OSM), or the bare country code, which by convention
@@ -611,7 +648,7 @@ export function GeocodePlaceRow({
                       chain would run the row off the line, and is in the title. */}
                   <span className="tools-geo-cand-name">{r.name}</span>
                   {r.admin && <span className="tools-geo-count">({r.admin})</span>}
-                  <span className="gm-data">
+                  <span className="gm-data gm-coord">
                     {r.coord.lat.toFixed(4)}, {r.coord.lon.toFixed(4)}
                   </span>
                   <span className="tools-reshape-badge reuse">OSM</span>
@@ -632,7 +669,7 @@ export function GeocodePlaceRow({
                   {/* The place it is part of, like the register candidates —
                       four same-named Osredek differ only in this. */}
                   {r.admin && <span className="tools-geo-count">({r.admin})</span>}
-                  <span className="gm-data">
+                  <span className="gm-data gm-coord">
                     {r.coord.lat.toFixed(4)}, {r.coord.lon.toFixed(4)}
                   </span>
                   <span className="tools-reshape-badge new">GOV</span>
@@ -649,8 +686,10 @@ export function GeocodePlaceRow({
                     onClick={() => sameCoord(c?.coord, r.coord) && onUnpickCoord(row)}
                     onChange={() => onPickCoord(row, r.coord, r.address)}
                   />
-                  <span className="tools-geo-cand-name">{r.label}</span>
-                  <span className="gm-data">
+                  {/* A register hit is a house, not a place — pinned, so it is
+                      not read as another spelling of the settlement above. */}
+                  <span className="tools-geo-cand-name gm-addr">{r.label}</span>
+                  <span className="gm-data gm-coord">
                     {r.coord.lat.toFixed(4)}, {r.coord.lon.toFixed(4)}
                   </span>
                   <span className="tools-reshape-badge official">GURS</span>

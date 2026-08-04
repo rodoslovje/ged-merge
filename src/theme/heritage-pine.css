@@ -71,6 +71,12 @@
   --map-land:      #22302a;         /* offline fallback land fill on --bg water */
   --map-path:      #cf7fb4;         /* life-path lines — deliberately off the kind palette */
 
+  /* ---- glyph masks ---- */
+  /* The map-pin path (the PinIcon component's), for ::before markers that fill
+     it with currentColor — a shape, not a colour, so one definition serves
+     both themes. */
+  --pin-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23000' fill-rule='evenodd' clip-rule='evenodd' d='M12 2a7.5 7.5 0 0 0-7.5 7.5c0 5.05 6.36 11.62 6.63 11.9a1.2 1.2 0 0 0 1.74 0c.27-.28 6.63-6.85 6.63-11.9A7.5 7.5 0 0 0 12 2Zm0 10.2a2.7 2.7 0 1 1 0-5.4 2.7 2.7 0 0 1 0 5.4Z'/%3E%3C/svg%3E");
+
   /* ---- shape ---- */
   --radius-sm:   6px;
   --radius:      8px;

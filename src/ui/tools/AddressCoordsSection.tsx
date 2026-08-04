@@ -42,18 +42,26 @@ const IDLE: SearchState = { state: "idle", results: [] };
 
 /** The lookup-state chips over the list, mirroring the places list's work
  *  chips: what still needs a register query, what came back with houses to
- *  judge, what the register does not know, and what is staged for writing. */
-type AddrStatus = "unsearched" | "found" | "none" | "picked";
-const ADDR_FILTERS: ("all" | AddrStatus)[] = ["all", "unsearched", "found", "none", "picked"];
+ *  judge, what the register does not know, what it cannot be asked about at
+ *  all, and what is staged for writing. */
+type AddrStatus = "unsearched" | "found" | "none" | "manual" | "placed" | "picked";
+const ADDR_FILTERS: ("all" | AddrStatus)[] = ["all", "unsearched", "found", "none", "manual", "placed", "picked"];
 
 /** A row's lookup state right now. An error or in-flight search still counts
- *  as "unsearched" — it has no answer yet and the lookup can be retried. */
+ *  as "unsearched" — it has no answer yet and the lookup can be retried; a row
+ *  with no query at all is "manual", since no amount of retrying will help. */
 function addrStatus(
   row: AddressRow,
   searches: ReadonlyMap<string, SearchState>,
   picked: ReadonlyMap<string, unknown>,
 ): AddrStatus {
   if (picked.has(row.key)) return "picked";
+  // Already carrying a position of its own — the hamlet's, say, given to the
+  // whole run of houses at once. Still listed, since a rough position may want
+  // sharpening, but it is not work waiting to be done and does not read as any
+  // of the lookup states below.
+  if (row.placed) return "placed";
+  if (!row.queries.length) return "manual";
   const s = searches.get(row.key);
   if (s?.state === "done") return s.results.length ? "found" : "none";
   return "unsearched";
@@ -149,6 +157,7 @@ function groupSuggestion(place: string, rows: AddressRow[]): PlaceGroup["suggest
 export function AddressCoordsSection({
   dataset,
   all,
+  addrsByPlace,
   onApply,
   onMove,
   query,
@@ -161,6 +170,9 @@ export function AddressCoordsSection({
   /** The scanned address rows — computed by the panel, which also needs the
    *  count for the tab that shows or hides this whole section. */
   all: AddressRow[];
+  /** Every address the file writes at each place, the rename field's
+   *  completions — wider than `all`, which drops the placed houses. */
+  addrsByPlace: ReadonlyMap<string, string[]>;
   onApply: (assignments: Map<string, GeoCoord>) => number;
   /** `coord` is the destination's own position, when it was picked from a
    *  register — the moved events are placed there instead of keeping the
@@ -269,6 +281,17 @@ export function AddressCoordsSection({
   // destination afterwards drops the coordinate rather than moving the events
   // to a place they no longer name.
   const [movePick, setMovePick] = useState<{ place: string; assignment: GeoAssignment } | null>(null);
+  // The one-coordinate panel: which group's is open, the position chosen for it,
+  // and which of its rows take it. For the houses no register can answer — old
+  // village numbering, a farm long gone — where an approximate position shared
+  // by the whole hamlet is worth far more than no position at all.
+  const [coordGroup, setCoordGroup] = useState<string | null>(null);
+  const [coordPick, setCoordPick] = useState<{ coord: GeoCoord; label: string } | null>(null);
+  const [coordSel, setCoordSel] = useState<Set<string>>(new Set());
+  /** Text the ticked addresses must start with, when the choice is a run of
+   *  them rather than the whole place — the house names of one farm, the
+   *  numbers of one hamlet. Empty means the group entire. */
+  const [coordPrefix, setCoordPrefix] = useState("");
 
   // A filter that lands on a handful of places opens them: the address looked
   // for is one row inside a group of a hundred, and finding it should not cost a
@@ -289,7 +312,7 @@ export function AddressCoordsSection({
 
   // Faceted like the places chips: counted over the search-filtered rows, so
   // each chip says how many addresses clicking it leaves on screen.
-  const statusCounts = { unsearched: 0, found: 0, none: 0, picked: 0 };
+  const statusCounts = { unsearched: 0, found: 0, none: 0, manual: 0, placed: 0, picked: 0 };
   for (const row of rows) statusCounts[addrStatus(row, searches, picked)]++;
 
   const togglePeople = (key: string) =>
@@ -321,7 +344,11 @@ export function AddressCoordsSection({
    * settlements), which is more than a batch can express.
    */
   const searchGroup = (group: PlaceGroup) => {
-    const pending = group.rows.filter((row) => (searches.get(row.key) ?? IDLE).state === "idle");
+    // Rows with no query are not "pending" — there is nothing to ask about, and
+    // marking them loading would leave them stuck at it.
+    const pending = group.rows.filter(
+      (row) => row.queries.length > 0 && (searches.get(row.key) ?? IDLE).state === "idle",
+    );
     if (!pending.length) return;
     setSearches((prev) => {
       const next = new Map(prev);
@@ -365,6 +392,7 @@ export function AddressCoordsSection({
    *  register overrides that guess with its verdict. */
   const startMove = (group: PlaceGroup, split?: RegisterSplit) => {
     setMoveGroup(group.place);
+    setCoordGroup(null);
     setMoved(null);
     setMoveTarget(split?.place ?? split?.settlement ?? group.suggestion?.place ?? "");
     setMoveSel(new Set(split?.keys ?? group.suggestion?.keys ?? group.rows.map((r) => r.key)));
@@ -401,6 +429,57 @@ export function AddressCoordsSection({
 
   const pick = (key: string, result: RnResult) =>
     setPicked((prev) => new Map(prev).set(key, { coord: result.coord, label: result.label }));
+
+  /** Open the one-coordinate panel for a group. Every address is ticked to
+   *  begin with — the case this is for is a village the register cannot answer
+   *  at all — and the position the file already uses for the place is the
+   *  opening offer, since that is the "centre of the village" being asked for. */
+  const startCoords = (group: PlaceGroup) => {
+    setCoordGroup(group.place);
+    setMoveGroup(null);
+    setApplied(null);
+    setCoordPrefix("");
+    setCoordSel(new Set(group.rows.map((r) => r.key)));
+    const fromFile = group.rows.find((r) => r.coord)?.coord;
+    setCoordPick(fromFile ? { coord: fromFile, label: t("tools.geocode.fromFile") } : null);
+  };
+
+  const closeCoords = () => {
+    setCoordGroup(null);
+    setCoordSel(new Set());
+    setCoordPrefix("");
+    setCoordPick(null);
+  };
+
+  /** Tick exactly the addresses that begin with `prefix` — folded, so the
+   *  diacritics need not be typed. An empty prefix is the whole group again.
+   *  Ticks made by hand afterwards stand until the next keystroke. */
+  const selectByPrefix = (group: PlaceGroup, prefix: string) => {
+    setCoordPrefix(prefix);
+    const q = foldSearch(prefix.trim());
+    setCoordSel(new Set(group.rows.filter((r) => !q || foldSearch(r.address).startsWith(q)).map((r) => r.key)));
+  };
+
+  const toggleCoordRow = (key: string) =>
+    setCoordSel((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+
+  /** Stage the chosen position for every ticked address. Staged, not written:
+   *  these rows now read like any other pick, and the page's own Write button
+   *  commits them together — one undo step for the whole village. */
+  const applyCoords = () => {
+    if (!coordPick) return;
+    setPicked((prev) => {
+      const next = new Map(prev);
+      for (const key of coordSel) next.set(key, { coord: coordPick.coord, label: coordPick.label });
+      return next;
+    });
+    closeCoords();
+  };
 
   /** Rename the row's address on every event that carries it, then close the
    *  editor — the rescan (edit version) merges it into an existing row when
@@ -471,22 +550,32 @@ export function AddressCoordsSection({
         pins.push({
           coord: row.coord,
           label: t("tools.geocode.fromFile"),
-          lines: [row.address, t("tools.geocode.addr.uses", { count: row.count })],
+          sub: row.address,
+          lines: [t("tools.geocode.addr.uses", { count: row.count })],
           kind: "candidate",
+        });
+      }
+      // A pick of the researcher's own — typed, taken off a map, or given to the
+      // whole village at once. It is not among the answers below, so without
+      // this the map opened without the very position being staged.
+      if (chosen && !pins.some((p) => sameCoord(p.coord, chosen.coord))) {
+        pins.push({
+          coord: chosen.coord,
+          label: chosen.label,
+          sub: row.address,
+          lines: [t("tools.geocode.addr.uses", { count: row.count })],
+          kind: "chosen",
         });
       }
       for (const r of (searches.get(row.key) ?? IDLE).results) {
         pins.push({
           coord: r.coord,
           label: r.label,
-          // Which of the place's addresses this pin answers, how much of the file
-          // rides on it, where it is, and that a click takes it.
-          lines: [
-            row.address,
-            t("tools.geocode.addr.uses", { count: row.count }),
-            `${r.coord.lat.toFixed(5)}, ${r.coord.lon.toFixed(5)}`,
-            t("event.coord.pinPick"),
-          ],
+          // Which of the place's addresses this pin answers, how much of the
+          // file rides on it, and that a click takes it. Its position closes
+          // the tooltip on its own (see MiniPlaceMap).
+          sub: row.address,
+          lines: [t("tools.geocode.addr.uses", { count: row.count }), t("event.coord.pinPick")],
           kind: sameCoord(chosen?.coord, r.coord) ? "chosen" : "candidate",
           onPick: () => pick(row.key, r),
         });
@@ -599,11 +688,24 @@ export function AddressCoordsSection({
                   {groupPins(group).length > 0 && (
                     <MapToggle open={mapOpen.has(group.place)} onToggle={() => toggleMap(group.place)} />
                   )}
-                  {settings.allowLinkFetch && group.rows.length > 1 && (
-                    <button className="tools-issue-link" onClick={() => searchGroup(group)}>
-                      {t("tools.geocode.addr.searchGroup", { count: group.rows.length })}
-                    </button>
-                  )}
+                  {/* Counted over what the register can actually be asked about:
+                      a place whose houses carry no numbers has nothing to look
+                      up, and the button would promise a search that never runs. */}
+                  {(() => {
+                    // Counted over what is actually left to ask: rows the
+                    // register cannot answer, and rows it already has, are not
+                    // part of the offer — the button would run a search that
+                    // does nothing and still name a number for it.
+                    const askable = group.rows.filter(
+                      (r) => r.queries.length && (searches.get(r.key) ?? IDLE).state === "idle",
+                    ).length;
+                    if (!settings.allowLinkFetch || askable < 2) return null;
+                    return (
+                      <button className="tools-issue-link" onClick={() => searchGroup(group)}>
+                        {t("tools.geocode.addr.searchGroup", { count: askable })}
+                      </button>
+                    );
+                  })()}
                   {group.place && group.movable && moveGroup !== group.place && (
                     <button
                       className="tools-issue-link"
@@ -613,7 +715,30 @@ export function AddressCoordsSection({
                       {t("tools.geocode.addr.move")}
                     </button>
                   )}
+                  {coordGroup !== group.place && (
+                    <button
+                      className="tools-issue-link"
+                      title={t("tools.geocode.addr.bulkHint")}
+                      onClick={() => startCoords(group)}
+                    >
+                      {t("tools.geocode.addr.bulk")}
+                    </button>
+                  )}
                 </div>
+              )}
+              {isOpen && coordGroup === group.place && (
+                <BulkCoordPanel
+                  group={group}
+                  pick={coordPick}
+                  selected={coordSel}
+                  prefix={coordPrefix}
+                  onPrefix={(value) => selectByPrefix(group, value)}
+                  onPick={(coord, label) => setCoordPick({ coord, label: label ?? t("tools.geocode.manual") })}
+                  onClear={() => setCoordPick(null)}
+                  onSelectAll={(all) => setCoordSel(new Set(all ? group.rows.map((r) => r.key) : []))}
+                  onApply={applyCoords}
+                  onCancel={closeCoords}
+                />
               )}
               {isOpen && group.movable && moveGroup !== group.place &&
                 registerSplits(group, searches).map((split) => (
@@ -686,15 +811,25 @@ export function AddressCoordsSection({
                             hundred-odd addresses under a place, a second line per
                             row doubles the list for no gain. */}
                         <div className="tools-geo-addr-head">
-                          {moveGroup === group.place && (
+                          {/* One tick box, whichever panel is asking: the move's
+                              destination or the one coordinate for the lot. */}
+                          {(moveGroup === group.place || coordGroup === group.place) && (
                             <input
                               type="checkbox"
                               aria-label={row.address}
-                              checked={moveSel.has(row.key)}
-                              onChange={() => toggleMoveRow(row.key)}
+                              checked={(moveGroup === group.place ? moveSel : coordSel).has(row.key)}
+                              onChange={() => (moveGroup === group.place ? toggleMoveRow : toggleCoordRow)(row.key)}
                             />
                           )}
-                          <span className="tools-geo-cand-name">{row.address}</span>
+                          {/* Green once this house has a position — the one it
+                              is staged at, or the one its events already carry
+                              — muted while it has none, exactly as the Edit
+                              view's pin reads. */}
+                          <span
+                            className={`tools-geo-cand-name gm-addr${chosen || row.placed ? " gm-addr--set" : ""}`}
+                          >
+                            {row.address}
+                          </span>
                           {renameKey === row.key ? (
                             <button
                               className="tools-place-edit-btn tools-place-edit-cancel"
@@ -729,25 +864,6 @@ export function AddressCoordsSection({
                               {row.people.length}
                             </button>
                           )}
-                          {settings.allowLinkFetch ? (
-                            <>
-                              <button
-                                className="tools-issue-link"
-                                disabled={search.state === "loading"}
-                                onClick={() => runSearch(row)}
-                              >
-                                {search.state === "loading" ? t("tools.geocode.rn.searching") : t("tools.geocode.rn.search")}
-                              </button>
-                              {search.state === "error" && (
-                                <span className="tools-geo-online-note">{t("tools.geocode.rn.error")}</span>
-                              )}
-                              {search.state === "done" && !search.results.length && (
-                                <span className="tools-geo-online-note">{t("tools.geocode.rn.none")}</span>
-                              )}
-                            </>
-                          ) : (
-                            <span className="tools-geo-online-note">{t("tools.geocode.downloadNeedsOptIn")}</span>
-                          )}
                           {/* The Edit view's own coordinate control, so a house
                               the register cannot find is still reachable here:
                               type a coordinate, pick one off the map, or search
@@ -766,22 +882,108 @@ export function AddressCoordsSection({
                             }
                             onClear={() => unpick(row.key)}
                           />
+                          {/* What the pin now holds, beside it: the address of the
+                              position taken — the register's own line, "from this
+                              file", "manual" — and the position itself, so a row
+                              staged with the rest of its village can be read off
+                              the list rather than one tooltip at a time. */}
+                          {!chosen && row.placed && row.coord && (
+                            <span className="tools-geo-online-note" title={t("tools.geocode.addr.placedHint")}>
+                              {/* A position in force, so the pin is the green
+                                  one — the same rule every coordinate follows —
+                                  and clicking it puts the place's map up with
+                                  this point on it. */}
+                              <button
+                                type="button"
+                                className="gm-data gm-coord gm-coord--set tools-geo-coord-btn"
+                                title={t("tools.geocode.showMap")}
+                                onClick={() => setMapOpen((prev) => new Set(prev).add(group.place))}
+                              >
+                                {row.coord.lat.toFixed(5)}, {row.coord.lon.toFixed(5)}
+                              </button>{" "}
+                              {t("tools.geocode.addr.placed")}
+                            </span>
+                          )}
+                          {chosen && (
+                            <span
+                              // No pin of its own: it sits against the picker's
+                              // pin, which is the mark this text belongs to.
+                              className="tools-geo-picked"
+                            >
+                              {chosen.label}{" "}
+                              <button
+                                type="button"
+                                className="gm-data gm-coord gm-coord--set tools-geo-coord-btn"
+                                title={t("tools.geocode.showMap")}
+                                onClick={() => setMapOpen((prev) => new Set(prev).add(group.place))}
+                              >
+                                {chosen.coord.lat.toFixed(5)}, {chosen.coord.lon.toFixed(5)}
+                              </button>
+                            </span>
+                          )}
+                          {/* The register comes after the position, being the way
+                              to reach one rather than a fact about the row — and
+                              it goes once it has answered: the answer is the list
+                              of houses below, and asking again returns it. A
+                              rename makes a new row, which starts unasked. */}
+                          {!row.queries.length ? (
+                            <span className="tools-geo-online-note" title={t("tools.geocode.addr.noQueryHint")}>
+                              {t("tools.geocode.addr.noQuery")}
+                            </span>
+                          ) : !settings.allowLinkFetch ? (
+                            <span className="tools-geo-online-note">{t("tools.geocode.downloadNeedsOptIn")}</span>
+                          ) : (
+                            <>
+                              {search.state !== "done" && (
+                                <button
+                                  className="tools-issue-link"
+                                  disabled={search.state === "loading"}
+                                  onClick={() => runSearch(row)}
+                                >
+                                  {search.state === "loading"
+                                    ? t("tools.geocode.rn.searching")
+                                    : t("tools.geocode.rn.search")}
+                                </button>
+                              )}
+                              {search.state === "error" && (
+                                <span className="tools-geo-online-note">{t("tools.geocode.rn.error")}</span>
+                              )}
+                              {search.state === "done" && !search.results.length && (
+                                <span className="tools-geo-online-note">{t("tools.geocode.rn.none")}</span>
+                              )}
+                            </>
+                          )}
                         </div>
                         {renameKey === row.key && (
                           <div
                             className="tools-place-rename"
                             onKeyDown={(e) => {
-                              if (e.key === "Enter") applyRename(row);
-                              if (e.key === "Escape") setRenameKey(null);
+                              // Enter on a highlighted suggestion, and Escape with the
+                              // dropdown open, belong to the autocomplete
+                              // (defaultPrevented); the next press is the editor's.
+                              if (e.key === "Enter" && !e.defaultPrevented) applyRename(row);
+                              if (e.key === "Escape" && !e.defaultPrevented) setRenameKey(null);
                             }}
                           >
-                            <input
-                              type="text"
-                              className="tools-place-rename-input"
+                            {/* Completed from the other houses of this same place: a
+                                rename here is usually a straggler being joined to a
+                                spelling the place already has, and typing it out again
+                                by hand is how the two miss each other by a character. */}
+                            <PlaceAutocomplete
                               value={renameDraft}
-                              autoFocus
+                              suggestions={(addrsByPlace.get(group.place) ?? []).filter((a) => a !== row.address)}
+                              canonical={places.addrCanonical}
+                              isDirty={false}
+                              className="tools-place-rename-input"
+                              wrapClassName="tools-place-rename-auto"
                               placeholder={t("tools.geocode.renameAddrPlaceholder")}
-                              onChange={(e) => setRenameDraft(e.target.value)}
+                              autoFocus
+                              // A rename may be exactly a casing fix ("Pod Gozdom" →
+                              // "pod gozdom") — the canonical map must not undo it.
+                              preserveCase
+                              onChange={setRenameDraft}
+                              onCommit={setRenameDraft}
+                              onClear={() => setRenameDraft("")}
                             />
                             <button
                               className="nav-btn primary tools-place-rename-apply"
@@ -826,13 +1028,13 @@ export function AddressCoordsSection({
                                     onChange={() => pick(row.key, r)}
                                     onClick={() => sameCoord(chosen?.coord, r.coord) && unpick(row.key)}
                                   />
-                                  <span className="tools-geo-cand-name">{r.label}</span>
+                                  <span className="tools-geo-cand-name gm-addr">{r.label}</span>
                                   {/* The coordinate doubles as "show on the
                                       place's map", like the places rows —
                                       the house appears among its neighbours. */}
                                   <button
                                     type="button"
-                                    className="gm-data tools-geo-coord-btn"
+                                    className="gm-data gm-coord tools-geo-coord-btn"
                                     title={t("tools.geocode.showMap")}
                                     onClick={(e) => {
                                       e.preventDefault();
@@ -857,6 +1059,114 @@ export function AddressCoordsSection({
         })}
       </ul>
     </section>
+  );
+}
+
+/**
+ * Give every ticked address of one place the same position.
+ *
+ * For the houses no register can answer: village numbering that has since been
+ * redrawn, a farm that no longer stands, a house named after a family rather
+ * than numbered. Their coordinate cannot be the building's, but it can be the
+ * hamlet's — near enough to put the family on a map, and far better than
+ * nothing, which is what those events have now.
+ *
+ * The position comes from the Edit view's own coordinate control, so it can be
+ * typed, taken off the map, or searched for in OpenStreetMap; the file's own
+ * coordinate for the place opens as the offer, since "the centre of the
+ * village" is usually exactly that. The picks are staged like every other one
+ * on this page — the section's Write button commits the lot as one undo step.
+ */
+function BulkCoordPanel({
+  group,
+  pick,
+  selected,
+  prefix,
+  onPrefix,
+  onPick,
+  onClear,
+  onSelectAll,
+  onApply,
+  onCancel,
+}: {
+  group: PlaceGroup;
+  pick: { coord: GeoCoord; label: string } | null;
+  selected: ReadonlySet<string>;
+  /** Ticks every address starting with this text; empty means all of them. */
+  prefix: string;
+  onPrefix: (value: string) => void;
+  onPick: (coord: GeoCoord, label?: string) => void;
+  onClear: () => void;
+  onSelectAll: (all: boolean) => void;
+  onApply: () => void;
+  onCancel: () => void;
+}) {
+  const { t } = useTranslation();
+  const events = group.rows.filter((r) => selected.has(r.key)).reduce((n, r) => n + r.count, 0);
+  const fileCoord = group.rows.find((r) => r.coord)?.coord;
+
+  return (
+    <div
+      className="tools-place-rename tools-geo-addr-move"
+      onKeyDown={(e) => {
+        if (e.key === "Enter" && !e.defaultPrevented && pick && selected.size) onApply();
+        if (e.key === "Escape" && !e.defaultPrevented) onCancel();
+      }}
+    >
+      <p className="tools-intro">{t("tools.geocode.addr.bulkIntro")}</p>
+      <EventCoordPicker
+        place={group.place}
+        address=""
+        coord={pick?.coord}
+        title={group.place}
+        fileCoord={fileCoord}
+        onPick={onPick}
+        onClear={onClear}
+      />
+      <span className={"tools-place-rename-hint" + (pick ? " gm-coord gm-coord--set" : "")}>
+        {pick ? `${pick.coord.lat.toFixed(5)}, ${pick.coord.lon.toFixed(5)}` : t("tools.geocode.addr.bulkNoCoord")}
+      </span>
+      {/* Ticking a run of houses by what they start with — "Stražišče 11" for
+          both farms of that number, "Vas" for a hamlet whose numbering the
+          register lost. The ticks stay visible below, so what a prefix caught
+          is read off the list rather than trusted. */}
+      <span className="tools-geo-addr-chip" title={t("tools.geocode.addr.bulkPrefixHint")}>
+        {t("tools.geocode.addr.bulkPrefixLabel")}:
+        <input
+          type="text"
+          className="tools-geo-addr-chip-input"
+          value={prefix}
+          size={Math.max(10, prefix.length + 1)}
+          placeholder={t("tools.geocode.addr.bulkPrefix")}
+          onChange={(e) => onPrefix(e.target.value)}
+        />
+        {prefix && (
+          <button
+            className="tools-geo-addr-chip-clear"
+            onClick={() => onPrefix("")}
+            aria-label={t("tools.places.rename.cancel")}
+          >
+            ×
+          </button>
+        )}
+      </span>
+      <span className="tools-place-rename-hint">
+        {t("tools.geocode.addr.moveCount", { count: selected.size, events })}
+      </span>
+      <button className="tools-issue-link" onClick={() => onSelectAll(selected.size < group.rows.length)}>
+        {selected.size < group.rows.length ? t("tools.geocode.addr.moveAll") : t("tools.geocode.addr.moveNone")}
+      </button>
+      <button
+        className="nav-btn primary tools-place-rename-apply"
+        onClick={onApply}
+        disabled={!pick || selected.size === 0}
+      >
+        {t("tools.geocode.addr.bulkApply", { count: selected.size })}
+      </button>
+      <button className="nav-btn" onClick={onCancel}>
+        {t("tools.places.rename.cancel")}
+      </button>
+    </div>
   );
 }
 

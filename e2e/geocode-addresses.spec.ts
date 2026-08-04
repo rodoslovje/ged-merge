@@ -77,3 +77,136 @@ test("houses in the place value are grouped under their settlement, and the filt
   // A filter landing on one place opens it, so the address searched for shows.
   await expect(page.getByText("Stražišče 114")).toBeVisible();
 });
+
+test("an address with no house number is reviewed too, with nothing to look up", async ({ page }) => {
+  const file = path.join(os.tmpdir(), "geocode-no-number.ged");
+  writeFileSync(
+    file,
+    [
+      "0 HEAD", "1 GEDC", "2 VERS 5.5.1", "1 CHAR UTF-8",
+      "0 @I1@ INDI", "1 NAME Ana /Kos/",
+      // The hamlet is in the ADDR line, with no number — the register cannot be
+      // asked, and the place value names only the town, so nothing else in the
+      // app can place this event.
+      "1 BIRT", "2 PLAC Kranj, Slovenija", "2 ADDR Stražišče",
+      "1 DEAT", "2 PLAC Kranj, Slovenija", "2 ADDR Stražišče 114",
+      "0 TRLR", "",
+    ].join("\n"),
+    "utf-8",
+  );
+
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(file);
+  await page.locator(".edit-person").first().waitFor({ timeout: 15000 });
+
+  await page.getByRole("button", { name: "Tools", exact: true }).click();
+  await page.getByText("Places", { exact: true }).click();
+  await page.getByRole("button", { name: /Geocoding/ }).click();
+  await page.getByRole("tab", { name: /Addresses/ }).click();
+
+  const group = page.locator(".tools-geo-addr-group").filter({ hasText: "Kranj, Slovenija" });
+  await group.locator(".tools-pair-toggle").first().click();
+  const rows = group.locator(".tools-geo-addr-row");
+  await expect(rows).toHaveCount(2);
+
+  // The bare hamlet says there is nothing to ask the register (the numbered
+  // house says no such thing — online lookups being opt-in is a separate
+  // matter), and the chip counts exactly the one row.
+  await expect(rows.filter({ hasText: /Stražišče(?! 114)/ })).toContainText("nothing to look up");
+  await expect(rows.filter({ hasText: "Stražišče 114" })).not.toContainText("nothing to look up");
+  await expect(page.getByRole("button", { name: /By hand only/ })).toContainText("1");
+});
+
+test("a house already placed says so, and its coordinate opens the map", async ({ page }) => {
+  const file = path.join(os.tmpdir(), "geocode-placed.ged");
+  writeFileSync(
+    file,
+    [
+      "0 HEAD", "1 GEDC", "2 VERS 5.5.1", "1 CHAR UTF-8",
+      "0 @I1@ INDI", "1 NAME Ana /Kos/",
+      // Kranj's own position: the event that names no address.
+      "1 BIRT", "2 PLAC Kranj, Slovenija", "3 MAP", "4 LATI N46.23887", "4 LONG E14.35573",
+      // Two houses of one hamlet, placed together at its centre.
+      "1 RESI", "2 PLAC Kranj, Slovenija", "3 MAP", "4 LATI N46.21806", "4 LONG E14.36897", "2 ADDR Drulovka 2",
+      "1 DEAT", "2 PLAC Kranj, Slovenija", "3 MAP", "4 LATI N46.21806", "4 LONG E14.36897", "2 ADDR Drulovka 4",
+      // And one that has had nothing done to it.
+      "1 CENS", "2 PLAC Kranj, Slovenija", "2 ADDR Cesta na Klanec 55",
+      "0 TRLR", "",
+    ].join("\n"),
+    "utf-8",
+  );
+
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(file);
+  await page.locator(".edit-person").first().waitFor({ timeout: 15000 });
+
+  await page.getByRole("button", { name: "Tools", exact: true }).click();
+  await page.getByRole("button", { name: /Geocoding/ }).click();
+  await page.getByRole("tab", { name: /Addresses/ }).click();
+
+  const group = page.locator(".tools-geo-addr-group").first();
+  await group.locator(".tools-pair-toggle").first().click();
+
+  // The hamlet's two houses are placed; the third is not, and the chip counts
+  // exactly the two.
+  const placed = group.locator(".tools-geo-addr-row").filter({ hasText: "(placed)" });
+  await expect(placed).toHaveCount(2);
+  await expect(placed.first()).toContainText("46.21806, 14.36897");
+  await expect(group.locator(".tools-geo-addr-row").filter({ hasText: "Cesta na Klanec 55" })).not.toContainText(
+    "(placed)",
+  );
+  await expect(page.getByRole("button", { name: /Already placed/ })).toContainText("2");
+
+  // Its coordinate is the way to see the point: one click puts the place's map
+  // up, with a pin standing on it.
+  await expect(group.locator(".tools-geo-minimap")).toHaveCount(0);
+  await placed.first().locator(".tools-geo-coord-btn").click();
+  await expect(group.locator(".leaflet-interactive").first()).toBeVisible({ timeout: 15000 });
+});
+
+test("one coordinate can be given to a whole place's addresses at once", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(FILE);
+  await page.locator(".edit-person").first().waitFor({ timeout: 15000 });
+
+  await page.getByRole("button", { name: "Tools", exact: true }).click();
+  await page.getByText("Places", { exact: true }).click();
+  await page.getByRole("button", { name: /Geocoding/ }).click();
+  await page.getByRole("tab", { name: /Addresses/ }).click();
+
+  // Črni vrh keeps its two houses in the place values; neither is in any
+  // register, which is the case this flow exists for.
+  const group = page.locator(".tools-geo-addr-group").filter({ hasText: "Črni vrh" });
+  await group.locator(".tools-pair-toggle").first().click();
+  await group.getByRole("button", { name: /Place several at one coordinate/ }).click();
+
+  // Both addresses are ticked to begin with, and nothing can be taken until a
+  // position is chosen — the file gives this place none.
+  const take = group.getByRole("button", { name: /Take this for/ });
+  await expect(take).toBeDisabled();
+
+  // The panel's own picker, not the per-row ones below it.
+  await group.locator(".tools-geo-addr-move .edit-event-coord").click();
+  await page.locator(".edit-coord-manual input").fill("46.10101, 14.20202");
+  await page.getByRole("button", { name: "Set", exact: true }).click();
+  await expect(take).toBeEnabled();
+
+  // A prefix narrows the ticks to the houses that start with it — folded, so
+  // "crni vrh 4" reaches "Črni vrh 46" — and clearing it ticks the place again.
+  await group.locator(".tools-geo-addr-chip-input").fill("crni vrh 4");
+  await expect(group.getByRole("button", { name: /Take this for 1 address/ })).toBeEnabled();
+  await group.locator(".tools-geo-addr-chip-clear").click();
+  await expect(take).toBeEnabled();
+  await take.click();
+
+  // Each row now says where its pin points, so a village staged in one go can
+  // be read off the list instead of one tooltip at a time.
+  await expect(group.locator(".tools-geo-picked")).toHaveCount(2);
+  await expect(group.locator(".tools-geo-picked").first()).toHaveText(/manual/i);
+
+  // Staged for both houses, then written in one step.
+  const write = page.getByRole("button", { name: /Write address coordinates \(2\)/ });
+  await expect(write).toBeEnabled();
+  await write.click();
+  await expect(page.getByText(/Written to \d+ records?\./)).toBeVisible();
+});

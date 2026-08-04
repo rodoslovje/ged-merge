@@ -22,7 +22,7 @@ import { ToolSummarySlotProvider } from "./tools/ToolSummary";
 
 type Tool = "validate" | "duplicates" | "normalize" | "privacy" | "sources" | "places";
 
-const TOOLS: Tool[] = ["validate", "duplicates", "normalize", "privacy", "sources", "places"];
+const TOOLS: Tool[] = ["places", "sources", "validate", "duplicates", "normalize", "privacy"];
 
 interface Props {
   /** The live main dataset — every tool operates on the whole file. */
@@ -110,7 +110,9 @@ interface Props {
 
 export function ToolsView({ dataset, editVersionRef, editVersion, fileName, onNavigate, onAddSource, onEditSource, onRemoveSource, onEditRepo, onEditMediaInfo, active, onApplyPlaceRename, onApplyGeocode, onApplyAddressCoords, onRenamePlaceValue, onApplyOfficialNames, onRenameAddress, onMovePlaceForAddresses, startId, onFixBrokenLinks, onFixSexFromRole, onFixDates, onFixDuplicatePointers, onFixDanglingRefs, onFillPlaceCoords, onApplyBatchPatches, onMergeDuplicate, rejectedDuplicates, onRejectDuplicate, onRejectDuplicatesBulk, onUnrejectDuplicate }: Props) {
   const { t } = useTranslation();
-  const [tool, setTool] = useState<Tool>("validate");
+  // Places leads the tabs and is where most work starts, so it is what Tools
+  // opens on; the choice then stands for the rest of the session.
+  const [tool, setTool] = useState<Tool>("places");
   const phone = usePhone();
   // Set by a ref callback, so the panels re-render once it exists and can
   // portal their summary into it.

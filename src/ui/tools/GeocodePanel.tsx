@@ -21,7 +21,7 @@ import { foldSearch } from "../globalSearch";
 import { PlaceLookupProvider, usePlaceLookupValue } from "../edit/PlaceLookupContext";
 import { GazetteerSetup, useGazetteer } from "./GazetteerManager";
 import { AddressCoordsSection } from "./AddressCoordsSection";
-import { replaceLocality, scanAddresses } from "../../tools/addresses";
+import { addressesByPlace, replaceLocality, scanAddresses } from "../../tools/addresses";
 import { CoordConflicts } from "./CoordConflicts";
 import { GeocodePlaceRow } from "./GeocodePlaceRow";
 import { BackButton } from "../BackButton";
@@ -170,6 +170,15 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [dataset, scanGen],
   );
+  // Every address the file writes at each place — what an address rename is
+  // offered as completions. Scanned apart from the rows above because it must
+  // include the houses those rows leave out (already placed ones): renaming a
+  // second spelling onto them is exactly how the two become one house.
+  const addrsByPlace = useMemo(
+    () => addressesByPlace(dataset),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dataset, scanGen],
+  );
   // Which of the page's two work lists is on screen. Both stay mounted (their
   // lookup results and staged picks must survive switching) and toggle with
   // display, like the app's Edit/Merge views.
@@ -204,6 +213,9 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
 
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [chosen, setChosen] = useState<Map<string, ChosenCoord>>(new Map());
+  /** Rows whose coordinate the researcher has cleared: the pre-selected default
+   *  must not come back on its own (see chosenFor). */
+  const [cleared, setCleared] = useState<Set<string>>(new Set());
   const [noMatch, setNoMatch] = useState<Set<string>>(new Set());
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   // The one row whose mini map is mounted — a Leaflet instance per expanded
@@ -303,12 +315,24 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
       return next;
     });
     setChosen((prev) => new Map([...prev].filter(([k]) => keys.has(k))));
+    setCleared((prev) => new Set([...prev].filter((k) => keys.has(k))));
     setExpanded((prev) => new Set([...prev].filter((k) => keys.has(k))));
     setMapKey((prev) => (prev && keys.has(prev) ? prev : null));
   }, [scan]);
 
+  /**
+   * The row's coordinate as it stands: the pick, else what the row proposes by
+   * default (the file's own, else the best candidate).
+   *
+   * Unless the researcher has said no to it — `cleared`. A radio group has no
+   * "none" of its own, and here the default is pre-selected, so without this a
+   * click on the chosen option dropped the pick and the default walked straight
+   * back in. Saying no has to stick until something is picked.
+   */
   const chosenFor = (row: GeocodeRow): ChosenCoord | undefined =>
-    chosenCoordFor(row, chosen.get(row.key), { fromFile: t("tools.geocode.fromFile") });
+    cleared.has(row.key)
+      ? undefined
+      : chosenCoordFor(row, chosen.get(row.key), { fromFile: t("tools.geocode.fromFile") });
 
   const toggleChecked = (key: string, on: boolean) =>
     setChecked((prev) => {
@@ -324,6 +348,12 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
   const pickCoord = (row: GeocodeRow, coord: GeoCoord, label: string, govId?: string) => {
     setChosen((prev) => new Map(prev).set(row.key, govId ? { coord, label, govId } : { coord, label }));
     toggleChecked(row.key, true);
+    setCleared((prev) => {
+      if (!prev.has(row.key)) return prev;
+      const next = new Set(prev);
+      next.delete(row.key);
+      return next;
+    });
     setNoMatch((prev) => {
       const next = new Set(prev);
       next.delete(row.key);
@@ -331,14 +361,16 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
     });
   };
 
-  /** Drop a row's pick: the coordinate goes back to whatever the row proposes by
-   *  default, and the row is unticked so nothing of it is written. */
+  /** Drop a row's pick: the row is left with no coordinate at all — not with
+   *  the default it opened with — and unticked, so nothing of it is written
+   *  until something is picked again. */
   const unpickCoord = (row: GeocodeRow) => {
     setChosen((prev) => {
       const next = new Map(prev);
       next.delete(row.key);
       return next;
     });
+    setCleared((prev) => new Set(prev).add(row.key));
     toggleChecked(row.key, false);
   };
 
@@ -389,7 +421,7 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
     if (!scan) return;
     setChecked((prev) => {
       const next = new Set(prev);
-      for (const row of scan.rows) if (row.confident && !noMatch.has(row.key)) next.add(row.key);
+      for (const row of scan.rows) if (row.confident && !noMatch.has(row.key) && !cleared.has(row.key)) next.add(row.key);
       return next;
     });
   };
@@ -615,6 +647,7 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
       <AddressCoordsSection
         dataset={dataset}
         all={addrRows}
+        addrsByPlace={addrsByPlace}
         onApply={onApplyAddressCoords}
         onMove={onMovePlaceForAddresses}
         query={query}

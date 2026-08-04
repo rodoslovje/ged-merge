@@ -100,6 +100,40 @@ export function parseHouseNumbers(raw: string): { number: number; suffix?: strin
   return out;
 }
 
+/** A segment that names a street (or settlement) of its own and then a house
+ *  number — "Škofjeloška 4", as opposed to the bare "26" or the suffix "a"
+ *  that a slash separates from the number before it. */
+const OWN_STREET = /^\D+\s\d/;
+
+/**
+ * The whole addresses a value lists, when a slash separates more than numbers.
+ *
+ * A house whose *street* was renamed is recorded with both names — "Labore 4 /
+ * Škofjeloška 4" is one building on a street Kranj renamed — and each half is a
+ * complete address the register can answer. Read as one string it is neither:
+ * the street becomes "Labore 4 / Škofjeloška", which no register knows.
+ *
+ * Only a segment naming its own street starts a new variant, so the far more
+ * common lists of numbers alone ("16 / 26", the suffix in "38/a") stay one
+ * address and go on to {@link parseHouseNumbers}, which is what reads those.
+ */
+export function splitAddressVariants(value: string): string[] {
+  const parts = value.split("/");
+  if (parts.length < 2) return [value.trim()];
+  const out: string[] = [];
+  for (const part of parts) {
+    const segment = part.trim();
+    if (!segment) continue;
+    if (!out.length) out.push(segment);
+    else if (OWN_STREET.test(segment)) out.push(segment);
+    // A tail that names no street of its own belongs to the address before it.
+    else out[out.length - 1] += ` / ${segment}`;
+  }
+  // One address after all — handed back exactly as the file writes it, so the
+  // ordinary path sees the untouched text.
+  return out.length > 1 ? out : [value.trim()];
+}
+
 /** A CQL string literal — single quotes double up. */
 function cqlString(value: string): string {
   return `'${value.replace(/'/g, "''")}'`;
@@ -149,6 +183,21 @@ function abbreviates(host: string | undefined, settlement: string | undefined): 
  * pointless traffic.
  */
 export function rnQueriesFrom(place: string | undefined, address: string | undefined): RnQuery[] {
+  // A house recorded under both its old and its new street name is two whole
+  // addresses in one value; each is looked up on its own, since the register
+  // knows them as different streets (see {@link splitAddressVariants}).
+  const variants = address?.trim() ? splitAddressVariants(address) : [];
+  if (variants.length > 1) {
+    const seen = new Set<string>();
+    return variants
+      .flatMap((variant) => rnQueriesFrom(place, variant))
+      .filter((q) => {
+        const key = JSON.stringify(q);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+  }
   const p = place?.trim() ? decomposePlace(place) : undefined;
   const a = address?.trim() ? decomposePlace(address) : undefined;
 
