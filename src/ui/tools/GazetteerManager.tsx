@@ -808,7 +808,17 @@ function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
               <span aria-hidden="true">{DOWNLOAD_GLYPH} </span>
               {t("tools.geocode.gursBtn")}
             </button>
-            <p className="tools-geo-hint">{t("tools.geocode.sourceGurs")}</p>
+            {/* The register's own public viewer, after the credit: what the
+                download holds is a national dataset, and the place to see it in
+                full — or check one settlement against the source — is the
+                agency's map, not this app. Same shape as the GeoNames line
+                below, which points at where its file comes from. */}
+            <p className="tools-geo-hint">
+              {t("tools.geocode.sourceGurs")} ·{" "}
+              <a href="https://ipi.eprostor.gov.si/jv/" target="_blank" rel="noreferrer">
+                ipi.eprostor.gov.si/jv
+              </a>
+            </p>
             <button
               className="nav-btn tools-run"
               onClick={() => void gaz.downloadCroatia()}
@@ -817,7 +827,12 @@ function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
               <span aria-hidden="true">{DOWNLOAD_GLYPH} </span>
               {t("tools.geocode.dguBtn")}
             </button>
-            <p className="tools-geo-hint">{t("tools.geocode.sourceDgu")}</p>
+            <p className="tools-geo-hint">
+              {t("tools.geocode.sourceDgu")} ·{" "}
+              <a href="https://geoportal.dgu.hr/" target="_blank" rel="noreferrer">
+                geoportal.dgu.hr
+              </a>
+            </p>
             {/* One control, not a pair: the button opens the country list and
                 the country picked is the click — the same shape as the map tab's
                 "Add a free preset…". It never holds a selection, so it reads as

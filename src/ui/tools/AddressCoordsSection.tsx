@@ -850,20 +850,6 @@ export function AddressCoordsSection({
                               ✎
                             </button>
                           )}
-                          <span className="tools-geo-count">{t("tools.geocode.addr.uses", { count: row.count })}</span>
-                          {/* Who the events belong to — count as the toggle,
-                              names on hover, exactly like the places rows. */}
-                          {row.people.length > 0 && (
-                            <button
-                              className="tools-chip-count tools-count-toggle"
-                              title={peopleTitles.get(row.key)}
-                              aria-pressed={peopleOpen.has(row.key)}
-                              aria-label={t("tools.geocode.peopleToggle")}
-                              onClick={() => togglePeople(row.key)}
-                            >
-                              {row.people.length}
-                            </button>
-                          )}
                           {/* The Edit view's own coordinate control, so a house
                               the register cannot find is still reachable here:
                               type a coordinate, pick one off the map, or search
@@ -952,6 +938,22 @@ export function AddressCoordsSection({
                                 <span className="tools-geo-online-note">{t("tools.geocode.rn.none")}</span>
                               )}
                             </>
+                          )}
+                          {/* Who the events belong to — count as the toggle,
+                              names on hover, last on the line, exactly like the
+                              places rows. How many events there are is not
+                              shown: the people are what the row is read for,
+                              and the group header above counts the events. */}
+                          {row.people.length > 0 && (
+                            <button
+                              className="tools-chip-count tools-count-toggle"
+                              title={peopleTitles.get(row.key)}
+                              aria-pressed={peopleOpen.has(row.key)}
+                              aria-label={t("tools.geocode.peopleToggle")}
+                              onClick={() => togglePeople(row.key)}
+                            >
+                              {row.people.length}
+                            </button>
                           )}
                         </div>
                         {renameKey === row.key && (
