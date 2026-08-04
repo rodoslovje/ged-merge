@@ -224,6 +224,10 @@ export function AddressCoordsSection({
   // The one row whose rename editor is open, and its draft.
   const [renameKey, setRenameKey] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
+  /** Which row's coordinate panel is open. Held here rather than inside the
+   *  picker because the row opens it from two controls — the address and the
+   *  pin — with the rename ✎ between them. */
+  const [coordOpen, setCoordOpen] = useState<string | null>(null);
 
   // Hover lists of the people behind each address's person count.
   const peopleTitles = useMemo(() => {
@@ -547,12 +551,18 @@ export function AddressCoordsSection({
       // coordinate, shared by the whole place. Without it the map opens empty
       // until a lookup has run, which made "show on map" look broken.
       if (row.coord && !pins.some((p) => sameCoord(p.coord, row.coord))) {
+        // The settlement's own position is not a house and must not look like
+        // one: a village whose addresses all inherit it would otherwise put a
+        // candidate-coloured pin on the church square, competing with the
+        // register's real answers. Neutral colour, and it says what it is.
+        const own = !row.placed;
         pins.push({
           coord: row.coord,
-          label: t("tools.geocode.fromFile"),
+          label: t(own ? "tools.geocode.addr.placePin" : "tools.geocode.fromFile"),
           sub: row.address,
           lines: [t("tools.geocode.addr.uses", { count: row.count })],
           kind: "candidate",
+          ...(own ? { colorVar: "--map-other" } : {}),
         });
       }
       // A pick of the researcher's own — typed, taken off a map, or given to the
@@ -821,15 +831,19 @@ export function AddressCoordsSection({
                               onChange={() => (moveGroup === group.place ? toggleMoveRow : toggleCoordRow)(row.key)}
                             />
                           )}
-                          {/* Green once this house has a position — the one it
-                              is staged at, or the one its events already carry
-                              — muted while it has none, exactly as the Edit
-                              view's pin reads. */}
-                          <span
-                            className={`tools-geo-cand-name gm-addr${chosen || row.placed ? " gm-addr--set" : ""}`}
+                          {/* The address opens the coordinate panel too — map to
+                              pick on, register lookup, manual entry, which is
+                              the one thing a row is opened for. It is its own
+                              button rather than part of the pin's, because the
+                              rename ✎ sits between the two and buttons do not
+                              nest; both drive the same open state. */}
+                          <button
+                            className="tools-geo-addr-name"
+                            title={t("tools.geocode.addr.openHint")}
+                            onClick={() => setCoordOpen(row.key)}
                           >
                             {row.address}
-                          </span>
+                          </button>
                           {renameKey === row.key ? (
                             <button
                               className="tools-place-edit-btn tools-place-edit-cancel"
@@ -850,31 +864,70 @@ export function AddressCoordsSection({
                               ✎
                             </button>
                           )}
-                          <span className="tools-geo-count">{t("tools.geocode.addr.uses", { count: row.count })}</span>
-                          {/* Who the events belong to — count as the toggle,
-                              names on hover, exactly like the places rows. */}
-                          {row.people.length > 0 && (
+                          {/* The position this row holds, in the place rows' own
+                              shape: → where it came from · the pinned
+                              coordinate, accent once it is this house's own.
+                              Clicking it puts the place's map up on that point,
+                              exactly as a place row's does — placing the house
+                              is the address's job, beside it. */}
+                          {(chosen?.coord ?? row.coord) && (
                             <button
-                              className="tools-chip-count tools-count-toggle"
-                              title={peopleTitles.get(row.key)}
-                              aria-pressed={peopleOpen.has(row.key)}
-                              aria-label={t("tools.geocode.peopleToggle")}
-                              onClick={() => togglePeople(row.key)}
+                              type="button"
+                              className="tools-tree-meta tools-geo-coord-btn"
+                              title={t("tools.geocode.addr.openHint")}
+                              onClick={() => setCoordOpen(row.key)}
                             >
-                              {row.people.length}
+                              {chosen && (
+                                <>
+                                  →{" "}
+                                  <span className="tools-geo-picked-from" title={chosen.label}>
+                                    {chosen.label}
+                                  </span>{" "}
+                                  ·{" "}
+                                </>
+                              )}
+                              <span className={"gm-data gm-coord" + (chosen || row.placed ? " gm-coord--set" : "")}>
+                                {(chosen?.coord ?? row.coord)!.lat.toFixed(5)},{" "}
+                                {(chosen?.coord ?? row.coord)!.lon.toFixed(5)}
+                              </span>
+                              {/* The tag belongs to the position, so it is part
+                                  of the same control rather than dead text
+                                  beside it — a click anywhere on the run opens
+                                  the panel. */}
+                              {!chosen && row.coord && (
+                                <span
+                                  className="tools-geo-addr-tag"
+                                  title={t(
+                                    row.placed ? "tools.geocode.addr.placedHint" : "tools.geocode.addr.inheritedHint",
+                                  )}
+                                >
+                                  {" "}
+                                  {t(row.placed ? "tools.geocode.addr.placed" : "tools.geocode.addr.inherited")}
+                                </span>
+                              )}
                             </button>
                           )}
-                          {/* The Edit view's own coordinate control, so a house
-                              the register cannot find is still reachable here:
-                              type a coordinate, pick one off the map, or search
-                              OpenStreetMap. It stages the pick like the radios
-                              above — nothing is written until Write. */}
+                          {/* The panel itself, with no button of its own: the
+                              address above opens it, and the coordinate beside
+                              it belongs to the map. The house the register
+                              cannot find is placed in here; a pick is staged
+                              like the radios below, and nothing is written
+                              until Write. */}
                           <EventCoordPicker
                             place={row.place}
                             address={row.address}
                             coord={chosen?.coord}
                             title={row.address}
                             fileCoord={row.coord}
+                            hideTrigger
+                            open={coordOpen === row.key}
+                            onOpenChange={(next) => setCoordOpen(next ? row.key : null)}
+                            // A register lookup run inside the panel is this
+                            // row's lookup: its houses land in the list under
+                            // the address, and the row's own register link goes
+                            // — the answer is already here, and asking again
+                            // returns it.
+                            onRegisterSearch={(next) => setSearch(row.key, next)}
                             onPick={(coord, label) =>
                               setPicked((prev) =>
                                 new Map(prev).set(row.key, { coord, label: label ?? t("tools.geocode.manual") }),
@@ -882,45 +935,6 @@ export function AddressCoordsSection({
                             }
                             onClear={() => unpick(row.key)}
                           />
-                          {/* What the pin now holds, beside it: the address of the
-                              position taken — the register's own line, "from this
-                              file", "manual" — and the position itself, so a row
-                              staged with the rest of its village can be read off
-                              the list rather than one tooltip at a time. */}
-                          {!chosen && row.placed && row.coord && (
-                            <span className="tools-geo-online-note" title={t("tools.geocode.addr.placedHint")}>
-                              {/* A position in force, so the pin is the green
-                                  one — the same rule every coordinate follows —
-                                  and clicking it puts the place's map up with
-                                  this point on it. */}
-                              <button
-                                type="button"
-                                className="gm-data gm-coord gm-coord--set tools-geo-coord-btn"
-                                title={t("tools.geocode.showMap")}
-                                onClick={() => setMapOpen((prev) => new Set(prev).add(group.place))}
-                              >
-                                {row.coord.lat.toFixed(5)}, {row.coord.lon.toFixed(5)}
-                              </button>{" "}
-                              {t("tools.geocode.addr.placed")}
-                            </span>
-                          )}
-                          {chosen && (
-                            <span
-                              // No pin of its own: it sits against the picker's
-                              // pin, which is the mark this text belongs to.
-                              className="tools-geo-picked"
-                            >
-                              {chosen.label}{" "}
-                              <button
-                                type="button"
-                                className="gm-data gm-coord gm-coord--set tools-geo-coord-btn"
-                                title={t("tools.geocode.showMap")}
-                                onClick={() => setMapOpen((prev) => new Set(prev).add(group.place))}
-                              >
-                                {chosen.coord.lat.toFixed(5)}, {chosen.coord.lon.toFixed(5)}
-                              </button>
-                            </span>
-                          )}
                           {/* The register comes after the position, being the way
                               to reach one rather than a fact about the row — and
                               it goes once it has answered: the answer is the list
@@ -952,6 +966,22 @@ export function AddressCoordsSection({
                                 <span className="tools-geo-online-note">{t("tools.geocode.rn.none")}</span>
                               )}
                             </>
+                          )}
+                          {/* Who the events belong to — count as the toggle,
+                              names on hover, last on the line, exactly like the
+                              places rows. How many events there are is not
+                              shown: the people are what the row is read for,
+                              and the group header above counts the events. */}
+                          {row.people.length > 0 && (
+                            <button
+                              className="tools-chip-count tools-count-toggle"
+                              title={peopleTitles.get(row.key)}
+                              aria-pressed={peopleOpen.has(row.key)}
+                              aria-label={t("tools.geocode.peopleToggle")}
+                              onClick={() => togglePeople(row.key)}
+                            >
+                              {row.people.length}
+                            </button>
                           )}
                         </div>
                         {renameKey === row.key && (
@@ -1028,7 +1058,11 @@ export function AddressCoordsSection({
                                     onChange={() => pick(row.key, r)}
                                     onClick={() => sameCoord(chosen?.coord, r.coord) && unpick(row.key)}
                                   />
-                                  <span className="tools-geo-cand-name gm-addr">{r.label}</span>
+                                  {/* No pin before the answer either: its own
+                                      coordinate carries one at the end of the
+                                      line, and the row above already reads as
+                                      addresses. */}
+                                  <span className="tools-geo-cand-name">{r.label}</span>
                                   {/* The coordinate doubles as "show on the
                                       place's map", like the places rows —
                                       the house appears among its neighbours. */}
@@ -1123,7 +1157,9 @@ function BulkCoordPanel({
         onPick={onPick}
         onClear={onClear}
       />
-      <span className={"tools-place-rename-hint" + (pick ? " gm-coord gm-coord--set" : "")}>
+      {/* The position picked, beside the pin that picked it — unmarked, since
+          that pin is the mark and stands right against this text. */}
+      <span className={"tools-place-rename-hint" + (pick ? " gm-data" : "")}>
         {pick ? `${pick.coord.lat.toFixed(5)}, ${pick.coord.lon.toFixed(5)}` : t("tools.geocode.addr.bulkNoCoord")}
       </span>
       {/* Ticking a run of houses by what they start with — "Stražišče 11" for

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { GeoCoord } from "../../gedcom/types";
 import { countryCode } from "../../gedcom/countryCode";
@@ -51,6 +51,10 @@ export function EventCoordPicker({
   filePairCoord,
   onPick,
   onClear,
+  hideTrigger,
+  open: controlledOpen,
+  onOpenChange,
+  onRegisterSearch,
 }: {
   /** The event's current place text (as edited). */
   place: string;
@@ -71,10 +75,37 @@ export function EventCoordPicker({
    *  "manual") — for callers that stage a pick and show its origin. */
   onPick: (coord: GeoCoord, label?: string) => void;
   onClear: () => void;
+  /** Draw no button at all — the panel alone, opened by a control of the
+   *  caller's own (the Addresses row opens it from the address text, and keeps
+   *  its coordinate as the link to the place's map). Only useful together with
+   *  the controlled {@link open}. */
+  hideTrigger?: boolean;
+  /** Controlled open state, for a caller that opens the panel from a control of
+   *  its own as well (the Addresses row's address text). Uncontrolled — the
+   *  button alone — when omitted. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /** Every register lookup run in here, reported as it lands. A caller that
+   *  keeps its own list of register answers (the Addresses tool) can then show
+   *  this one exactly as if it had been run from that list — the same houses,
+   *  under the same address — instead of asking the register twice. */
+  onRegisterSearch?: (state: { state: "loading" | "error" | "done"; results: RnResult[] }) => void;
 }) {
   const { t, i18n } = useTranslation();
   const settings = useSettingsSlice(SETTINGS_KEYS);
-  const [open, setOpen] = useState(false);
+  const [openState, setOpenState] = useState(false);
+  const open = controlledOpen ?? openState;
+  // Stable across renders — the Escape/outside-click effect below closes through
+  // it, and a setter that changed identity every render would re-bind those
+  // document listeners on every keystroke in the panel.
+  const latest = useRef({ open, controlledOpen, onOpenChange });
+  latest.current = { open, controlledOpen, onOpenChange };
+  const setOpen = useCallback((next: boolean | ((prev: boolean) => boolean)) => {
+    const { open: now, controlledOpen: controlled, onOpenChange: notify } = latest.current;
+    const value = typeof next === "function" ? next(now) : next;
+    if (controlled === undefined) setOpenState(value);
+    notify?.(value);
+  }, []);
   const [rn, setRn] = useState<Search<RnResult>>(IDLE);
   const [osm, setOsm] = useState<Search<NominatimResult>>(IDLE);
   const [draft, setDraft] = useState("");
@@ -172,14 +203,21 @@ export function EventCoordPicker({
       document.removeEventListener("keydown", onKey, true);
       document.removeEventListener("mousedown", onDown);
     };
-  }, [open]);
+  }, [open, setOpen]);
 
   const runRegister = () => {
     if (!queries.length) return;
     setRn({ state: "loading", results: [] });
+    onRegisterSearch?.({ state: "loading", results: [] });
     searchAddresses(queries).then(
-      (results) => setRn({ state: "done", results }),
-      () => setRn({ state: "error", results: [] }),
+      (results) => {
+        setRn({ state: "done", results });
+        onRegisterSearch?.({ state: "done", results });
+      },
+      () => {
+        setRn({ state: "error", results: [] });
+        onRegisterSearch?.({ state: "error", results: [] });
+      },
     );
   };
 
@@ -223,15 +261,17 @@ export function EventCoordPicker({
   };
 
   // Candidate pins plus whatever is currently chosen. Each carries `lines`, so
-  // the map renders its detail panel (house, post office, coordinate, source,
-  // and that a click takes it) rather than a bare one-line tooltip — with several
-  // numbers of one renumbered house on screen, the panel is what tells them apart.
+  // the map renders its detail panel (house, post office, source, and that a
+  // click takes it) rather than a bare one-line tooltip — with several numbers
+  // of one renumbered house on screen, the panel is what tells them apart. The
+  // coordinate is not among the lines: the panel prints every pin's own
+  // position as its closing row already.
   const pins: MiniMapPin[] = [];
   for (const f of fromFile) {
     pins.push({
       coord: f.coord,
       label: f.label,
-      lines: [at(f.coord), t("event.coord.source.file"), t("event.coord.pinPick")],
+      lines: [t("event.coord.source.file"), t("event.coord.pinPick")],
       kind: "candidate",
       onPick: () => take(f.coord, f.label),
     });
@@ -240,9 +280,7 @@ export function EventCoordPicker({
     pins.push({
       coord: r.coord,
       label: r.address,
-      lines: [r.label === r.address ? "" : r.label, at(r.coord), t("event.coord.source.gurs"), t("event.coord.pinPick")].filter(
-        Boolean,
-      ),
+      lines: [r.label === r.address ? "" : r.label, t("event.coord.source.gurs"), t("event.coord.pinPick")].filter(Boolean),
       kind: "candidate",
       onPick: () => take(r.coord, r.label),
     });
@@ -252,17 +290,15 @@ export function EventCoordPicker({
     pins.push({
       coord: r.coord,
       label: r.name,
-      lines: [r.label === r.name ? "" : r.label, at(r.coord), t("event.coord.source.osm"), t("event.coord.pinPick")].filter(
-        Boolean,
-      ),
+      lines: [r.label === r.name ? "" : r.label, t("event.coord.source.osm"), t("event.coord.pinPick")].filter(Boolean),
       kind: "candidate",
       onPick: () => take(r.coord, r.name),
     });
   }
   if (draftCoord && !pins.some((p) => sameCoord(p.coord, draftCoord))) {
-    pins.push({ coord: draftCoord, label: t("event.coord.manual"), lines: [at(draftCoord)], kind: "chosen" });
+    pins.push({ coord: draftCoord, label: t("event.coord.typed"), kind: "chosen" });
   } else if (coord && !pins.some((p) => sameCoord(p.coord, coord))) {
-    pins.push({ coord, label: t("event.coord.current"), lines: [at(coord)], kind: "chosen" });
+    pins.push({ coord, label: t("event.coord.current"), kind: "chosen" });
   }
 
   // Nothing to place and nothing to show: no pin at all, so an event that names
@@ -274,19 +310,21 @@ export function EventCoordPicker({
 
   return (
     <span className="edit-event-coord-wrap" ref={boxRef}>
-      <button
-        type="button"
-        className={"edit-event-coord" + (coord ? "" : " edit-event-coord--empty")}
-        title={
-          coord
-            ? t("event.coord", { coords: `${coord.lat.toFixed(5)}, ${coord.lon.toFixed(5)}` })
-            : t("event.coord.none", { event: title })
-        }
-        aria-label={t("event.coord.open", { event: title })}
-        onClick={() => setOpen((v) => !v)}
-      >
-        <PinIcon />
-      </button>
+      {!hideTrigger && (
+        <button
+          type="button"
+          className={"edit-event-coord" + (coord ? "" : " edit-event-coord--empty")}
+          title={
+            coord
+              ? t("event.coord", { coords: `${coord.lat.toFixed(5)}, ${coord.lon.toFixed(5)}` })
+              : t("event.coord.none", { event: title })
+          }
+          aria-label={t("event.coord.open", { event: title })}
+          onClick={() => setOpen((v) => !v)}
+        >
+          <PinIcon />
+        </button>
+      )}
       {open && (
         <div
           ref={popRef}

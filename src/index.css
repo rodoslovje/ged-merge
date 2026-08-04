@@ -8207,6 +8207,16 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
    than greyscale-filtered — the glyph now takes a real colour. */
 .edit-event-coord--empty { color: var(--muted); opacity: 0.4; }
 .edit-event-coord--empty:hover { color: var(--muted); opacity: 0.75; }
+/* What a position is — (placed), (from the place) — inside the control that
+   prints it: muted and small, so the numbers stay the thing being read. */
+.tools-geo-addr-tag { color: var(--muted); font-size: 0.8rem; }
+/* The address in the Addresses tool's row: the row's own text, a button only so
+   that it opens the coordinate panel — which is what a row is opened for. */
+.tools-geo-addr-name {
+  background: none; border: none; padding: 0; cursor: pointer;
+  font: inherit; font-weight: 500; color: inherit;
+}
+.tools-geo-addr-name:hover { text-decoration: underline; }
 /* Two-column popover: the value being edited across the top, then the map to
    pick on beside the candidates to pick from — a stacked layout pushed the map
    below the fold behind whatever the search returned. */
@@ -8401,16 +8411,16 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 .tools-geo-cand-name { font-weight: 500; }
 .tools-geo-manual { display: flex; align-items: center; gap: 8px; }
 .tools-geo-online-note { color: var(--muted); font-size: 0.8rem; }
-/* The position a row is staged at, printed beside its pin. Accent-coloured
-   like the other "this will be written" marks, and truncated rather than
-   wrapped: a register line can be longer than the address it answers. */
-.tools-geo-picked {
-  color: var(--status-new);
-  font-size: 0.8rem;
+/* Where a staged position came from, inside the row's coordinate control. A
+   register line can run longer than the address it answers, so this one part
+   truncates rather than wrapping — the coordinate after it is what the row is
+   read for and stays whole. */
+.tools-geo-picked-from {
+  display: inline-block;
   max-width: 22em;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  vertical-align: bottom;
 }
 /* Type-scoped: the row also holds the option's radio, which must keep its
    native size so it lines up under the candidate radios above. */

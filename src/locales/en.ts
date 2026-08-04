@@ -384,7 +384,7 @@ export const en = {
   "tools.geocode.importFailed": "The file could not be read — make sure it's a GeoNames .txt or .zip country extract.",
   "tools.geocode.importBtn": "Load…",
   "tools.geocode.sourceGeoNames": "Your own country extract, fetched by hand from",
-  "tools.geocode.sourceGeoNames2": " — a .zip or unpacked .txt. © GeoNames, CC BY 4.0.",
+  "tools.geocode.sourceGeoNames2": " — a .zip or unpacked .txt. ",
   "tools.geocode.progress": "{{covered}}/{{total}} places have coordinates · {{pct}}% of mentions",
   "tools.geocode.filter.all": "All",
   "tools.geocode.filter.confident": "Confident",
@@ -443,6 +443,10 @@ export const en = {
   "tools.geocode.addr.filter.placed": "Already placed",
   "tools.geocode.addr.placed": "(placed)",
   "tools.geocode.addr.placedHint": "This house already carries a position of its own — not the settlement's, which every address here would inherit. It stays listed in case you want to sharpen it.",
+  "tools.geocode.addr.inherited": "(from the place)",
+  "tools.geocode.addr.placePin": "The place's own position",
+  "tools.geocode.addr.openHint": "Place this house: a map to pick on, the address register, or coordinates by hand.",
+  "tools.geocode.addr.inheritedHint": "These events carry the settlement's own position — the one every address here inherits — so this house has still to be placed. Taking a position of its own replaces it.",
   "tools.geocode.addr.noQuery": "nothing to look up",
   "tools.geocode.addr.noQueryHint": "The address register needs a house number in Slovenia; this address names none, or lies elsewhere. Place it with the pin, or give a run of them one position with “Place several at one coordinate”.",
   "tools.geocode.addr.filter.picked": "Picked",
@@ -498,9 +502,21 @@ export const en = {
   "tools.geocode.regionAllFailed_one": "{{count}} region did not come through: {{names}}. Take it on its own when the service is quieter.",
   "tools.geocode.regionAllFailed_other": "{{count}} regions did not come through: {{names}}. Take them one by one when the service is quieter.",
   "tools.geocode.downloadNeedsOptIn": "Allow online lookups in Settings → Advanced.",
-  "tools.geocode.sourceGurs": "Every Slovenian settlement from the official register of spatial units, bilingual names included — the authoritative choice for Slovenian research. © Geodetska uprava Republike Slovenije, CC BY 4.0.",
-  "tools.geocode.sourceDgu": "Croatian settlements, villages, hamlets and city quarters from the official register of geographical names, historical and bilingual forms included — the authoritative choice for Croatian research. © Državna geodetska uprava.",
-  "tools.geocode.sourceOsm": "Any country you pick from the list. Hamlets too, where an official register names none. © OpenStreetMap contributors, ODbL.",
+  // The credit that follows each of these is assembled around a link to the
+  // source's own site: "© <name>" + the licence tail. The name is a proper noun
+  // and lives in the markup, untranslated.
+  "tools.geocode.sourceGurs": "Every Slovenian settlement from the official register of spatial units, bilingual names included — the authoritative choice for Slovenian research.",
+  "tools.geocode.licenseCcBy": ", CC BY 4.0.",
+  "tools.geocode.sourceDgu": "Croatian settlements, villages, hamlets and city quarters from the official register of geographical names, historical and bilingual forms included — the authoritative choice for Croatian research.",
+  // Croatia's national open-data licence, which is what DGU publishes its
+  // registers under. Named as the licence names itself in each language —
+  // "Open Licence" is its own English title, not a translation of ours.
+  "tools.geocode.licenseOpen": ", Open Licence.",
+  "tools.geocode.sourceOsm": "Any country you pick from the list. Hamlets too, where an official register names none.",
+  // Around the linked name, which sits mid-credit here: "© OpenStreetMap
+  // contributors" — and after "© sodelavci" in Slovenian.
+  "tools.geocode.sourceOsmCredit": "©",
+  "tools.geocode.sourceOsmLicense": " contributors, ODbL.",
   "tools.geocode.storedLocally": "Whichever you load stays in this browser; nothing is sent anywhere. Directories add up rather than replace each other: one settlement described by two of them is proposed once, at the official coordinate, while two different places sharing a name stay separate for you to choose between.",
   "tools.geocode.gursBtn": "GURS (Slovenia)",
   "tools.geocode.gursTooltip": "All 6035 Slovenian settlements from the official register of spatial units (Geodetska uprava RS, CC BY 4.0), including the Italian and Hungarian bilingual names. A ~45 MB download; only the settlement centres are kept.",
@@ -1468,6 +1484,9 @@ export const en = {
   "event.coord.applyAll_other": "Also set on {{count}} other events",
   "event.coord.applyAll.hint": "Write the picked coordinate onto every other event in the file with this same place and address — the same house, so the same position.",
   "event.coord.manual": "Latitude and longitude, e.g. 46.24137, 14.35580",
+  // What the map calls the pin for a coordinate typed into the box — the box's
+  // own help text names the format and makes no sense as a pin's name.
+  "event.coord.typed": "Typed coordinate",
   "event.coord.manualPlaceholder": "46.24137, 14.35580",
   "event.coord.noHouseNumber": "Add a house number to the place or address to look it up in the register.",
   "event.coord.current": "Current coordinate",

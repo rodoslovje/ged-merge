@@ -808,7 +808,18 @@ function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
               <span aria-hidden="true">{DOWNLOAD_GLYPH} </span>
               {t("tools.geocode.gursBtn")}
             </button>
-            <p className="tools-geo-hint">{t("tools.geocode.sourceGurs")}</p>
+            {/* The credit names the agency, so the agency's name is the link —
+                to its own public viewer, where the dataset this download holds
+                can be seen in full or one settlement checked against its
+                source. The name itself is a proper noun in either language and
+                stays out of the locale files. */}
+            <p className="tools-geo-hint">
+              {t("tools.geocode.sourceGurs")} ©{" "}
+              <a href="https://ipi.eprostor.gov.si/jv/" target="_blank" rel="noreferrer">
+                Geodetska uprava Republike Slovenije
+              </a>
+              {t("tools.geocode.licenseCcBy")}
+            </p>
             <button
               className="nav-btn tools-run"
               onClick={() => void gaz.downloadCroatia()}
@@ -817,7 +828,13 @@ function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
               <span aria-hidden="true">{DOWNLOAD_GLYPH} </span>
               {t("tools.geocode.dguBtn")}
             </button>
-            <p className="tools-geo-hint">{t("tools.geocode.sourceDgu")}</p>
+            <p className="tools-geo-hint">
+              {t("tools.geocode.sourceDgu")} ©{" "}
+              <a href="https://geoportal.dgu.hr/" target="_blank" rel="noreferrer">
+                Državna geodetska uprava
+              </a>
+              {t("tools.geocode.licenseOpen")}
+            </p>
             {/* One control, not a pair: the button opens the country list and
                 the country picked is the click — the same shape as the map tab's
                 "Add a free preset…". It never holds a selection, so it reads as
@@ -841,7 +858,13 @@ function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
                 </option>
               ))}
             </select>
-            <p className="tools-geo-hint">{t("tools.geocode.sourceOsm")}</p>
+            <p className="tools-geo-hint">
+              {t("tools.geocode.sourceOsm")} {t("tools.geocode.sourceOsmCredit")}{" "}
+              <a href="https://www.openstreetmap.org" target="_blank" rel="noreferrer">
+                OpenStreetMap
+              </a>
+              {t("tools.geocode.sourceOsmLicense")}
+            </p>
           </>
         )}
         {/* The fallback: for a country neither download serves, and for anyone
@@ -865,7 +888,13 @@ function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
           <a href="https://download.geonames.org/export/dump/" target="_blank" rel="noreferrer">
             download.geonames.org/export/dump
           </a>
-          {t("tools.geocode.sourceGeoNames2")}
+          {t("tools.geocode.sourceGeoNames2")}©{" "}
+          {/* Two links, two different things: the dump above is where the file
+              is fetched from, this one is the project being credited. */}
+          <a href="https://www.geonames.org/" target="_blank" rel="noreferrer">
+            GeoNames
+          </a>
+          {t("tools.geocode.licenseCcBy")}
         </p>
       </div>
       <p className="tools-geo-hint">
