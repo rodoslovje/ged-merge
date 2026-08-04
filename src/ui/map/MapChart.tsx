@@ -331,9 +331,11 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
     // offers no way to type a center/zoom).
     (el as HTMLDivElement & { _leafletMap?: L.Map })._leafletMap = map;
     map.setView([46.1, 14.5], 5);
-    // Paths render below the cluster markers, on a canvas with a click
-    // tolerance so thin lines are still selectable.
-    pathRendererRef.current = L.canvas({ tolerance: 8 });
+    // Paths render below the cluster markers as SVG — vector strokes stay
+    // crisp at any page zoom / pixel ratio, where a canvas bitmap goes jagged
+    // in Safari (its devicePixelRatio ignores page zoom). Thin lines stay
+    // selectable via a wide transparent hit line per path (see below).
+    pathRendererRef.current = L.svg();
     pathsRef.current = L.layerGroup().addTo(map);
     markersRef.current = L.layerGroup().addTo(map);
     // Reads the filtered points at click time (see latestFiltered), so the
@@ -614,8 +616,8 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
     if (!map || !layer || !renderer) return;
     layer.clearLayers();
     if (!showPaths) return;
-    // Canvas strokes can't use var() — resolve the token per theme, like the
-    // offline outline does.
+    // Stroke colours are set as literal SVG attributes (no var()) — resolve
+    // the token per theme, like the offline outline does.
     const color = getComputedStyle(document.documentElement).getPropertyValue("--map-path").trim();
     const anySelected = selectedPath !== null;
     const view = map.getBounds().pad(0.5);
@@ -630,16 +632,28 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
           ? PATH_STYLE.opacitySelected
           : PATH_STYLE.opacityDimmed
         : PATH_STYLE.opacity;
-      const line = L.polyline(latlngs, { renderer, color, weight, opacity, lineCap: "round", lineJoin: "round" });
+      const line = L.polyline(latlngs, {
+        renderer,
+        color,
+        weight,
+        opacity,
+        lineCap: "round",
+        lineJoin: "round",
+        interactive: false,
+      });
+      // An invisible wide twin carries the pointer events: SVG has no click
+      // tolerance, so this replaces the old canvas tolerance (8px per side).
+      const hit = L.polyline(latlngs, { renderer, color, weight: weight + 16, opacity: 0 });
       const indi = mainDs.individuals.get(path.personId);
       // Element content, not string: names must not be interpreted as HTML.
       const tip = document.createElement("span");
       tip.textContent = indi ? `${nameOf(indi)} · ${lifespanOf(indi)}` : path.personId;
-      line.bindTooltip(tip, { sticky: true, direction: "top", opacity: 0.9 });
-      line.on("click", () => setSelectedPath((prev) => (prev === path.personId ? null : path.personId)));
-      line.on("mouseover", () => line.setStyle({ weight: weight + 1.5, opacity: 1 }));
-      line.on("mouseout", () => line.setStyle({ weight, opacity }));
+      hit.bindTooltip(tip, { sticky: true, direction: "top", opacity: 0.9 });
+      hit.on("click", () => setSelectedPath((prev) => (prev === path.personId ? null : path.personId)));
+      hit.on("mouseover", () => line.setStyle({ weight: weight + 1.5, opacity: 1 }));
+      hit.on("mouseout", () => line.setStyle({ weight, opacity }));
       layer.addLayer(line);
+      layer.addLayer(hit);
       // The singled-out path numbers its legs along the line.
       if (isSel) for (const m of pathLegNumbers(map, path.stops.map((s) => s.coord))) layer.addLayer(m);
       // Direction chevrons — on everything while nothing is selected, and on
