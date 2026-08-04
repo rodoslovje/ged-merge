@@ -874,8 +874,8 @@ export function AddressCoordsSection({
                             <button
                               type="button"
                               className="tools-tree-meta tools-geo-coord-btn"
-                              title={t("tools.geocode.showMap")}
-                              onClick={() => setMapOpen((prev) => new Set(prev).add(group.place))}
+                              title={t("tools.geocode.addr.openHint")}
+                              onClick={() => setCoordOpen(row.key)}
                             >
                               {chosen && (
                                 <>
@@ -890,6 +890,21 @@ export function AddressCoordsSection({
                                 {(chosen?.coord ?? row.coord)!.lat.toFixed(5)},{" "}
                                 {(chosen?.coord ?? row.coord)!.lon.toFixed(5)}
                               </span>
+                              {/* The tag belongs to the position, so it is part
+                                  of the same control rather than dead text
+                                  beside it — a click anywhere on the run opens
+                                  the panel. */}
+                              {!chosen && row.coord && (
+                                <span
+                                  className="tools-geo-addr-tag"
+                                  title={t(
+                                    row.placed ? "tools.geocode.addr.placedHint" : "tools.geocode.addr.inheritedHint",
+                                  )}
+                                >
+                                  {" "}
+                                  {t(row.placed ? "tools.geocode.addr.placed" : "tools.geocode.addr.inherited")}
+                                </span>
+                              )}
                             </button>
                           )}
                           {/* The panel itself, with no button of its own: the
@@ -920,20 +935,6 @@ export function AddressCoordsSection({
                             }
                             onClear={() => unpick(row.key)}
                           />
-                          {/* What that position is, now that the row itself
-                              prints it: the house's own (placed) or the
-                              settlement's, which every address here inherits —
-                              a row on the village centre and one with nothing
-                              at all are different states of the same work, and
-                              only these words tell them apart. */}
-                          {!chosen && row.coord && (
-                            <span
-                              className="tools-geo-online-note"
-                              title={t(row.placed ? "tools.geocode.addr.placedHint" : "tools.geocode.addr.inheritedHint")}
-                            >
-                              {t(row.placed ? "tools.geocode.addr.placed" : "tools.geocode.addr.inherited")}
-                            </span>
-                          )}
                           {/* The register comes after the position, being the way
                               to reach one rather than a fact about the row — and
                               it goes once it has answered: the answer is the list

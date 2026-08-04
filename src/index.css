@@ -8207,6 +8207,9 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
    than greyscale-filtered — the glyph now takes a real colour. */
 .edit-event-coord--empty { color: var(--muted); opacity: 0.4; }
 .edit-event-coord--empty:hover { color: var(--muted); opacity: 0.75; }
+/* What a position is — (placed), (from the place) — inside the control that
+   prints it: muted and small, so the numbers stay the thing being read. */
+.tools-geo-addr-tag { color: var(--muted); font-size: 0.8rem; }
 /* The address in the Addresses tool's row: the row's own text, a button only so
    that it opens the coordinate panel — which is what a row is opened for. */
 .tools-geo-addr-name {
