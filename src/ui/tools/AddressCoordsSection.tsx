@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
 import { stripHouseNumber } from "../../gedcom/place";
-import { sameCoord } from "../../geo/points";
+import { formatCoord, sameCoord } from "../../geo/points";
 import { resultsForQuery, searchAddressBatch, searchAddresses, splitAddressVariants, type RnResult } from "../../geo/rn";
 import { placeLookupLanguage } from "../../geo/lookupLanguage";
 import { osmKindLabel, osmNamesPlace, osmShortLabel, searchNominatim, type NominatimResult } from "../../geo/nominatim";
@@ -1090,8 +1090,7 @@ export function AddressCoordsSection({
                                 </>
                               )}
                               <span className={"gm-data gm-coord" + (chosen || row.placed ? " gm-coord--set" : "")}>
-                                {(chosen?.coord ?? row.coord)!.lat.toFixed(5)},{" "}
-                                {(chosen?.coord ?? row.coord)!.lon.toFixed(5)}
+                                {formatCoord((chosen?.coord ?? row.coord)!)}
                               </span>
                               {/* The tag belongs to the position, so it is part
                                   of the same control rather than dead text
@@ -1352,7 +1351,7 @@ export function AddressCoordsSection({
                                       setCoordOpen(row.key);
                                     }}
                                   >
-                                    {r.coord.lat.toFixed(5)}, {r.coord.lon.toFixed(5)}
+                                    {formatCoord(r.coord)}
                                   </button>
                                   <span className={`tools-reshape-badge ${r.badgeClass}`}>{r.source}</span>
                                 </label>
@@ -1455,7 +1454,7 @@ function BulkCoordPanel({
         title={t("tools.geocode.addr.openHint")}
         onClick={() => setOpen(true)}
       >
-        {pick ? `${pick.coord.lat.toFixed(5)}, ${pick.coord.lon.toFixed(5)}` : t("tools.geocode.addr.bulkNoCoord")}
+        {pick ? formatCoord(pick.coord) : t("tools.geocode.addr.bulkNoCoord")}
       </button>
       {/* Ticking a run of houses by what they start with — "Stražišče 11" for
           both farms of that number, "Vas" for a hamlet whose numbering the

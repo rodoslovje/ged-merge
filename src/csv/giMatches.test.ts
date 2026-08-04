@@ -347,6 +347,29 @@ describe("parseGiMatchesCsv", () => {
     ]);
   });
 
+  it("recognises the same spouse across family rows despite diacritic drift", () => {
+    // The wife is "Rožič" in one row-pair and "Rozic" in the next — index
+    // exports drift like this. The dedup key folds diacritics (the same
+    // giPersonKey the matcher uses), so she must become ONE compare person in
+    // two marriages, not two people each wired into a different family.
+    const pair = (husband: string, wifeSurname: string, marriage: string) => [
+      row([husband, "Novak", "1 JAN 1850", "Marija", wifeSurname, "3 MAR 1852", marriage, "Kranj", "", "", "", "", "", "", "Renko", "97"]),
+      row([husband, "Novak", "1 JAN 1850", "Marija", wifeSurname, "3 MAR 1852", marriage, "", "", "", "", "", "", "", "Kočevar", "97"]),
+    ];
+    const text = [
+      FAMILY_HEADER,
+      ...pair("Janez", "Rožič", "10 FEB 1875"),
+      ...pair("Anton", "Rozic", "12 APR 1890"),
+      "",
+    ].join("\n");
+
+    const { dataset } = parseGiMatchesCsv(text);
+    const marijas = [...dataset.individuals.values()].filter((i) => i.names[0]?.given === "Marija");
+    expect(marijas).toHaveLength(1);
+    expect(marijas[0].spouseOf).toHaveLength(2);
+    expect(partnerNames(marijas[0], dataset).map((n) => n.given)).toEqual(["Janez", "Anton"]);
+  });
+
   it("accepts the German family header", () => {
     const mainRow = row([
       "Anton", "Tabar", "7 JUN 1904",

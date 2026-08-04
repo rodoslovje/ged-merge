@@ -157,6 +157,18 @@ export interface GiMainKey {
   birthYear?: number;
 }
 
+/**
+ * The one folded "given|surname|year" spelling of a person key — shared by
+ * every consumer (row dedup here, the main-side index in match/giMatch).
+ * Diacritic-blind via foldToken on purpose: three builders used to exist and
+ * the family-rows one folded case only, so a spouse written "Rožič" in one
+ * row and "Rozic" in another minted two compare people, each wired into a
+ * different marriage.
+ */
+export function giPersonKey(key: GiMainKey): string {
+  return `${foldToken(key.given)}|${foldToken(key.surname)}|${key.birthYear ?? ""}`;
+}
+
 /** One CSV match pair: the main-side key plus the synthetic compare individual it produced. */
 export interface GiPair {
   mainKey: GiMainKey;
@@ -557,7 +569,7 @@ function newPeople(): People {
  *  doesn't say enough about them to risk merging two mentions into one. */
 function dedupKey(given: string, surname: string, birthYear: number | undefined): string | undefined {
   if (!given || !surname || birthYear === undefined) return undefined;
-  return `${foldToken(given)}|${foldToken(surname)}|${birthYear}`;
+  return giPersonKey({ given, surname, birthYear });
 }
 
 /** Reserve a dedup key for a compare id (first mention wins). */
@@ -845,9 +857,7 @@ function parseFamilyMatches(dataRows: string[][], index: Record<FamilyField, num
   const col = (row: string[], field: FamilyField): string => (row[index[field]] ?? "").trim();
 
   /** Normalised dedup key: used to recognise the same person across rows. */
-  function keyStr(key: GiMainKey): string {
-    return `${key.given.toLowerCase()}|${key.surname.toLowerCase()}|${key.birthYear ?? ""}`;
-  }
+  const keyStr = giPersonKey;
 
   // ── Pass 1: collect all valid family row-pairs ──────────────────────────
   interface FamilyEntry {

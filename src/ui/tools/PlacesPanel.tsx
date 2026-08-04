@@ -10,6 +10,7 @@ import { countryCode } from "../../gedcom/countryCode";
 import { ToolsLoading, TreeSearch, UsageList, useDebounced } from "./shared";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
 import { ToolSummary } from "./ToolSummary";
+import { formatCoord } from "../../geo/points";
 
 const MiniPlaceMap = lazy(() => import("../map/MiniPlaceMap"));
 
@@ -413,7 +414,7 @@ function PlaceTreeRow({
             title={t(disputed ? "tools.places.coord.disputed" : "tools.places.coord")}
             onClick={() => setMapOpen((v) => !v)}
           >
-            {spots[0].coord.lat.toFixed(5)}, {spots[0].coord.lon.toFixed(5)}
+            {formatCoord(spots[0].coord)}
             {disputed && <span className="tools-place-coord-warn">⚠ {t("tools.places.coord.spots", { count: spots.length })}</span>}
           </button>
         )}

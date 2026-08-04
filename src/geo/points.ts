@@ -36,6 +36,13 @@ export function eventKindOf(tag: string): MapEventKind {
 
 /** Exact coordinate equality (the review UIs' "is this the chosen pin" test);
  *  tolerant of either side missing. */
+/** The one "lat, lon" display spelling (5 decimals ≈ 1 m), used wherever a
+ *  coordinate is shown or pre-filled — hand-rolling it per site let the
+ *  precision drift. */
+export function formatCoord(c: GeoCoord): string {
+  return `${c.lat.toFixed(5)}, ${c.lon.toFixed(5)}`;
+}
+
 export function sameCoord(a: GeoCoord | undefined, b: GeoCoord | undefined): boolean {
   return !!a && !!b && a.lat === b.lat && a.lon === b.lon;
 }

@@ -469,7 +469,12 @@ export function plausibleIndividualMatch(
   dsA: Dataset,
   dsB: Dataset,
 ): boolean {
-  return nameGate(a, b, gates) && temporalGate(a, b, gates, dsA, dsB);
+  // Cheap gate first: the temporal check is memoized map lookups, while the
+  // name gate pays Jaro-Winkler — and the blocking keys are era-unbounded, so
+  // same-surname pairs centuries apart reach here and should fall to the year
+  // comparison before any string similarity runs. Order changes no outcome
+  // (both must pass), only who pays for the rejection.
+  return temporalGate(a, b, gates, dsA, dsB) && nameGate(a, b, gates);
 }
 
 function nameGate(a: Individual, b: Individual, gates: MatchConfig["gates"]): boolean {

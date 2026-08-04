@@ -89,7 +89,28 @@ interface Props {
    *  register offer picked in the input and places the renamed value at once. */
   onRename: (from: string, to: string, addr?: string, coord?: GeoAssignment) => void;
   onNavigate: (id: string) => void;
+  /** This row's on-demand lookup results, owned by the panel: the list is
+   *  virtualized, so a row scrolled out of the window unmounts — results held
+   *  here (and half-spent rate-limited requests with them) must survive that,
+   *  the way AddressCoordsSection already keeps its rows' searches. */
+  lookups?: RowLookups;
+  onLookupsChange: (key: string, patch: Partial<RowLookups>) => void;
 }
+
+/** One on-demand lookup's lifecycle, per service. */
+export interface LookupState<T> {
+  state: "idle" | "loading" | "error" | "done";
+  results: T[];
+}
+
+/** A row's three on-demand lookups (absent = never asked). */
+export interface RowLookups {
+  online?: LookupState<NominatimResult>;
+  gov?: LookupState<GovResult>;
+  rn?: LookupState<RnResult>;
+}
+
+const IDLE: LookupState<never> = { state: "idle", results: [] };
 
 export function GeocodePlaceRow({
   row,
@@ -112,6 +133,8 @@ export function GeocodePlaceRow({
   onToggleNoMatch,
   onRename,
   onNavigate,
+  lookups,
+  onLookupsChange,
 }: Props) {
   const { t, i18n } = useTranslation();
   const appSettings = useSettingsSlice(SETTINGS_KEYS);
@@ -132,16 +155,13 @@ export function GeocodePlaceRow({
   // fallback for strings the offline gazetteer can't resolve, above all
   // street addresses. Behind the online opt-in; the query text leaves the
   // device, so it only ever runs from this explicit button.
-  const [online, setOnline] = useState<{ state: "idle" | "loading" | "error" | "done"; results: NominatimResult[] }>({
-    state: "idle",
-    results: [],
-  });
+  const online: LookupState<NominatimResult> = lookups?.online ?? IDLE;
   const runOnlineSearch = () => {
-    setOnline({ state: "loading", results: [] });
+    onLookupsChange(row.key, { online: { state: "loading", results: [] } });
     // In the language this place value is written in — see placeLookupLanguage.
     searchNominatim(row.key, placeLookupLanguage(row.key, i18n.language)).then(
-      (results) => setOnline({ state: "done", results }),
-      () => setOnline({ state: "error", results: [] }),
+      (results) => onLookupsChange(row.key, { online: { state: "done", results } }),
+      () => onLookupsChange(row.key, { online: { state: "error", results: [] } }),
     );
   };
 
@@ -149,17 +169,14 @@ export function GeocodePlaceRow({
   // multilingual historical names and a stable GOV id. Same online opt-in and
   // explicit-button model as Nominatim; accepting a GOV match also writes the
   // GEDCOM-L `_GOV` id into the file.
-  const [gov, setGov] = useState<{ state: "idle" | "loading" | "error" | "done"; results: GovResult[] }>({
-    state: "idle",
-    results: [],
-  });
+  const gov: LookupState<GovResult> = lookups?.gov ?? IDLE;
   const runGovSearch = () => {
-    setGov({ state: "loading", results: [] });
+    onLookupsChange(row.key, { gov: { state: "loading", results: [] } });
     // GOV holds each place's name in several languages and picks one by this
     // argument, so it follows the file's language for the same reason.
     searchGov(row.key, placeLookupLanguage(row.key, i18n.language)).then(
-      (results) => setGov({ state: "done", results }),
-      () => setGov({ state: "error", results: [] }),
+      (results) => onLookupsChange(row.key, { gov: { state: "done", results } }),
+      () => onLookupsChange(row.key, { gov: { state: "error", results: [] } }),
     );
   };
 
@@ -168,16 +185,13 @@ export function GeocodePlaceRow({
   // that is what the register resolves; the settlement alone is the offline
   // gazetteer's job. Same online opt-in and explicit-button model as the others.
   const rnQueries = useMemo(() => rnQueriesFrom(row.key, undefined), [row.key]);
-  const [rn, setRn] = useState<{ state: "idle" | "loading" | "error" | "done"; results: RnResult[] }>({
-    state: "idle",
-    results: [],
-  });
+  const rn: LookupState<RnResult> = lookups?.rn ?? IDLE;
   const runRnSearch = () => {
     if (!rnQueries.length) return;
-    setRn({ state: "loading", results: [] });
+    onLookupsChange(row.key, { rn: { state: "loading", results: [] } });
     searchAddresses(rnQueries).then(
-      (results) => setRn({ state: "done", results }),
-      () => setRn({ state: "error", results: [] }),
+      (results) => onLookupsChange(row.key, { rn: { state: "done", results } }),
+      () => onLookupsChange(row.key, { rn: { state: "error", results: [] } }),
     );
   };
 

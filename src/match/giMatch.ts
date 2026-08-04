@@ -1,9 +1,8 @@
 import type { Dataset, Individual } from "../gedcom/types";
-import type { GiMainKey, GiPair } from "../csv/giMatches";
+import { giPersonKey, type GiPair } from "../csv/giMatches";
 import { birthYear } from "../gedcom/lifespan";
 import { primaryName } from "./relatives";
 import { scoreIndividualPair } from "./scoreIndividual";
-import { foldToken } from "./text";
 import { DEFAULT_CONFIG, type IndividualCandidate, type MatchConfig, type MatchResult } from "./types";
 
 /**
@@ -40,10 +39,9 @@ export function matchGiPairs(
   return { individuals };
 }
 
-/** Folded "given|surname|birthYear" key, shared by index-building and lookup. */
-function keyStr(key: GiMainKey): string {
-  return `${foldToken(key.given)}|${foldToken(key.surname)}|${key.birthYear ?? ""}`;
-}
+/** Folded "given|surname|birthYear" key, shared by index-building and lookup —
+ *  the same spelling the CSV import dedupes rows with. */
+const keyStr = giPersonKey;
 
 /** Index main individuals by their folded name+birth-year key, built once so
  *  resolving every CSV pair is an O(1) lookup instead of an O(mainSize) scan.

@@ -13,6 +13,7 @@ import { syncOverlayLayers, type LiveOverlays } from "./overlayLayer";
 import { identifyAt, identifyPopupHtml, queryableOverlays } from "./overlayIdentify";
 import { arrowMarker, pathLegNumbers } from "./pathStops";
 import { useDocTheme } from "./useDocTheme";
+import { formatCoord } from "../../geo/points";
 
 /** Draw the life path — polyline plus direction chevrons — into `layer`.
  *  The chevrons are screen-space (like the Map chart's), so this re-runs on
@@ -76,7 +77,7 @@ function tooltipEl(label: string, lines?: string[], sub?: string, coord?: GeoCoo
   if (coord) {
     const at = document.createElement("div");
     at.className = "gm-data gm-coord gm-coord--set";
-    at.textContent = `${coord.lat.toFixed(5)}, ${coord.lon.toFixed(5)}`;
+    at.textContent = formatCoord(coord);
     el.appendChild(at);
   }
   return el;
