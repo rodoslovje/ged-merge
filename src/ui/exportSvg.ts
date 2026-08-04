@@ -14,6 +14,7 @@
 // chart. White is what the paper it is headed for looks like anyway.
 
 import { fillScale, pageBox, paperPx, type PrintPaper } from "../chart/sheets";
+import { downloadBlob } from "./download";
 
 // The presentation properties worth baking in. Deliberately omits `transform`
 // (kept as the element's attribute — a CSS matrix would fight it) and layout
@@ -554,12 +555,7 @@ export function serialize(svg: SVGSVGElement): string {
 export async function downloadSvg(live: SVGSVGElement, fileName: string, opts: SvgExportOptions): Promise<void> {
   const { svg } = await buildExportSvg(live, opts);
   const blob = new Blob([serialize(svg)], { type: "image/svg+xml;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = withExportStem(fileName, "svg");
-  a.click();
-  URL.revokeObjectURL(url);
+  downloadBlob(withExportStem(fileName, "svg"), blob);
 }
 
 /**

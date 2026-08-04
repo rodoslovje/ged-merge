@@ -29,9 +29,17 @@ export function savedName(base: string, ext: string, d = new Date()): string {
  *  call by more than a moment. */
 const BLOB_LIFETIME_MS = 120_000;
 
-/** Trigger a client-side download of a text file (no server round-trip). */
-export function downloadText(fileName: string, text: string, mime = "text/plain;charset=utf-8"): void {
-  const blob = new Blob([text], { type: mime });
+/** How far apart two downloads are fired. Safari — most visibly an installed
+ *  PWA on macOS — takes only one download from a burst of anchor clicks: a save
+ *  that writes the `.ged` and its report landed the report alone, the `.ged`
+ *  having been superseded before it reached Downloads. So a second file waits
+ *  its turn instead of racing the first. */
+const DOWNLOAD_GAP_MS = 900;
+
+/** Epoch ms at which the next queued download may fire. */
+let nextDownloadAt = 0;
+
+function triggerDownload(fileName: string, blob: Blob): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -47,4 +55,21 @@ export function downloadText(fileName: string, text: string, mime = "text/plain;
     a.remove();
     URL.revokeObjectURL(url);
   }, BLOB_LIFETIME_MS);
+}
+
+/** Trigger a client-side download of a blob (no server round-trip). The first
+ *  call fires inside the user gesture that asked for it; any call following
+ *  close behind is spaced out by {@link DOWNLOAD_GAP_MS}, so a save that writes
+ *  several files delivers all of them. */
+export function downloadBlob(fileName: string, blob: Blob): void {
+  const now = Date.now();
+  const at = Math.max(now, nextDownloadAt);
+  nextDownloadAt = at + DOWNLOAD_GAP_MS;
+  if (at <= now) triggerDownload(fileName, blob);
+  else setTimeout(() => triggerDownload(fileName, blob), at - now);
+}
+
+/** Trigger a client-side download of a text file. */
+export function downloadText(fileName: string, text: string, mime = "text/plain;charset=utf-8"): void {
+  downloadBlob(fileName, new Blob([text], { type: mime }));
 }
