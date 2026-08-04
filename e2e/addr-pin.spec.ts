@@ -3,8 +3,9 @@ import { writeFileSync } from "fs";
 import os from "os";
 import path from "path";
 
-// The address pin: every address the UI shows carries it, so a bare "Stražišče
-// 11" is not read as one more name for the place beside it.
+// The pin: it marks a position, wherever one is printed. An address does not
+// carry one of its own in the geocoding list — the position beside it does, and
+// two pins in a row read as one smudged glyph.
 
 const FILE = path.join(os.tmpdir(), "addr-pin.ged");
 
@@ -15,6 +16,11 @@ writeFileSync(
     "0 @I1@ INDI", "1 NAME Ana /Kos/",
     "1 BIRT", "2 PLAC Kranj, Slovenija", "3 MAP", "4 LATI N46.24137", "4 LONG E14.35580", "2 ADDR Stražišče 114",
     "1 DEAT", "2 PLAC Kranj, Slovenija", "2 ADDR Stražišče",
+    // The place's own position — an event naming no address — so the house
+    // above is holding the settlement's coordinate rather than one of its own,
+    // which is the state that prints a coordinate on the row.
+    "0 @I2@ INDI", "1 NAME Jože /Kos/",
+    "1 BIRT", "2 PLAC Kranj, Slovenija", "3 MAP", "4 LATI N46.24137", "4 LONG E14.35580",
     "0 TRLR", "",
   ].join("\n"),
   "utf-8",
@@ -30,7 +36,7 @@ async function pinned(page: import("@playwright/test").Page, selector: string) {
   });
 }
 
-test("addresses are shown with a pin, in both themes", async ({ page }) => {
+test("a position is pinned, an address is not, in both themes", async ({ page }) => {
   await page.goto("/");
   await page.locator("input.file-input").first().setInputFiles(FILE);
   await page.locator(".edit-person").first().waitFor({ timeout: 15000 });
@@ -46,21 +52,25 @@ test("addresses are shown with a pin, in both themes", async ({ page }) => {
   await expect(page.locator(".edit-coord-current .gm-coord--set")).toBeVisible();
   await page.keyboard.press("Escape");
 
-  // The geocode list: the address row itself.
+  // The geocode list: the address row itself. The address is bare; the position
+  // it holds carries the pin.
   await page.getByRole("button", { name: "Tools", exact: true }).click();
   await page.getByText("Places", { exact: true }).click();
   await page.getByRole("button", { name: /Geocoding/ }).click();
   await page.getByRole("tab", { name: /Addresses/ }).click();
   await page.locator(".tools-geo-addr-group .tools-pair-toggle").first().click();
-  const row = await pinned(page, ".tools-geo-addr-row .tools-geo-cand-name");
-  expect(row.mask).toContain("svg");
-  // Unplaced houses: the pin is there but muted, like Edit's empty one.
-  await expect(page.locator(".tools-geo-addr-row .gm-addr--set")).toHaveCount(0);
-
+  await page.locator(".tools-geo-addr-row .tools-geo-addr-name").first().waitFor();
+  const name = await pinned(page, ".tools-geo-addr-row .tools-geo-addr-name");
+  expect(name.mask).not.toContain("svg");
+  const coord = await pinned(page, ".tools-geo-addr-row .gm-coord");
+  expect(coord.mask).toContain("svg");
+  // This house holds the settlement's position, not one of its own, so the pin
+  // stays muted — the accent one means "placed".
+  await expect(page.locator(".tools-geo-addr-row .gm-coord--set")).toHaveCount(0);
 
   // The mask is a shape, not a colour: it survives the light theme, where it
   // takes the text colour like everything else.
   await page.evaluate(() => document.documentElement.setAttribute("data-theme", "light"));
-  const light = await pinned(page, ".tools-geo-addr-row .tools-geo-cand-name");
+  const light = await pinned(page, ".tools-geo-addr-row .gm-coord");
   expect(light.mask).toContain("svg");
 });
