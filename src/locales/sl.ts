@@ -582,6 +582,7 @@ export const sl = {
   "tools.geocode.sourceGurs": "Vsa slovenska naselja iz uradnega registra prostorskih enot, skupaj z dvojezičnimi imeni — za slovensko rodoslovje najzanesljivejša izbira.",
   "tools.geocode.licenseCcBy": ", licenca CC BY 4.0.",
   "tools.geocode.sourceDgu": "Hrvaška naselja, vasi, zaselki in mestne četrti iz uradnega registra zemljepisnih imen, skupaj z zgodovinskimi in dvojezičnimi oblikami — za hrvaško rodoslovje najzanesljivejša izbira.",
+  "tools.geocode.licenseOtvorenaDozvola": ", licenca Otvorena dozvola.",
   "tools.geocode.sourceOsm": "Katera koli država s seznama. Tudi zaselki, kjer jih uradni register ne imenuje.",
   "tools.geocode.sourceOsmCredit": "© sodelavci",
   "tools.geocode.sourceOsmLicense": ", licenca ODbL.",
