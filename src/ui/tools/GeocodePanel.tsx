@@ -577,7 +577,16 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
                 {t("tools.geocode.official.bulk", { count: officialRenames.length })}
               </button>
             )}
-            <button className="tools-issue-link" onClick={() => setChecked(new Set())}>
+            {/* Clearing the selection drops the staged picks too, not just the
+                ticks — a pick left behind keeps its radio lit and comes back
+                with the next tick. Rows fall back to their scan default. */}
+            <button
+              className="tools-issue-link"
+              onClick={() => {
+                setChecked(new Set());
+                setChosen(new Map());
+              }}
+            >
               {t("tools.sources.dupSelectNone")}
             </button>
             <ExpandAllToggle
