@@ -6,7 +6,7 @@ import { decomposePlace, parseCoordInput } from "../../gedcom/place";
 import { sameCoord } from "../../geo/points";
 import { rnQueriesFrom, searchAddresses, splitAddressVariants, type RnResult } from "../../geo/rn";
 import { placeLookupLanguage } from "../../geo/lookupLanguage";
-import { osmKindLabel, searchNominatim, type NominatimResult } from "../../geo/nominatim";
+import { osmKindLabel, osmShortLabel, searchNominatim, type NominatimResult } from "../../geo/nominatim";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
 import { PinIcon } from "../icons/PinIcon";
 import { useSettingsSlice } from "../SettingsContext";
@@ -345,10 +345,11 @@ export function EventCoordPicker({
   }
   for (const r of osm.results) {
     if (pins.some((p) => sameCoord(p.coord, r.coord))) continue;
+    const short = osmShortLabel(r);
     pins.push({
       coord: r.coord,
       label: r.name,
-      lines: [r.label === r.name ? "" : r.label, t("event.coord.source.osm"), t("event.coord.pinPick")].filter(Boolean),
+      lines: [short === r.name ? "" : short, t("event.coord.source.osm"), t("event.coord.pinPick")].filter(Boolean),
       kind: "candidate",
       onPick: () => take(r.coord, r.name),
     });
@@ -549,8 +550,10 @@ export function EventCoordPicker({
                   ))}
                   {osm.results.map((r, i) => (
                     <li key={`osm-${i}`}>
+                      {/* The short composed line; the raw display chain, with
+                          its quarters and postcodes, stays in the tooltip. */}
                       <button type="button" className="tools-issue-link" title={r.label} onClick={() => take(r.coord, r.name)}>
-                        {r.label}
+                        {osmShortLabel(r)}
                       </button>
                       <span className="edit-coord-cand-line">
                         {osmKindLabel(r, t) && <span className="tools-geo-cand-kind">{osmKindLabel(r, t)}</span>}

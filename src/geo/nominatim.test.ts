@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { osmKindLabel, osmNamesPlace, parseNominatimResponse } from "./nominatim";
+import { osmKindLabel, osmNamesPlace, osmShortLabel, parseNominatimResponse } from "./nominatim";
 
 describe("parseNominatimResponse", () => {
   it("maps jsonv2 rows to coordinates with short and full labels", () => {
@@ -66,6 +66,51 @@ describe("parseNominatimResponse", () => {
     ).toEqual([]);
     expect(parseNominatimResponse({ error: "Unable to geocode" })).toEqual([]);
     expect(parseNominatimResponse(undefined)).toEqual([]);
+  });
+});
+
+describe("osmShortLabel", () => {
+  it("composes name and placing parts, skipping quarters, units and postcodes", () => {
+    const [r] = parseNominatimResponse([
+      {
+        lat: "46.1",
+        lon: "14.5",
+        name: "Sv. Jakob",
+        display_name:
+          "Sv. Jakob, Stanežiče, Gunclje, Četrtna skupnost Šentvid, Stanežiče, Ljubljana, Upravna Enota Ljubljana, 1210, Slovenia",
+        type: "chapel",
+        address: { village: "Stanežiče", municipality: "Ljubljana", postcode: "1210", country: "Slovenia" },
+      },
+    ]);
+    expect(osmShortLabel(r)).toBe("Sv. Jakob, Stanežiče, Ljubljana, Slovenia");
+  });
+
+  it("folds a house's own number into its street line, and collapses repeats", () => {
+    const [r] = parseNominatimResponse([
+      {
+        lat: "46.2",
+        lon: "14.3",
+        name: "21",
+        display_name: "21, Hafnarjeva pot, Stražišče, Kranj, Kranj, 4000, Slovenija",
+        type: "house",
+        address: {
+          house_number: "21",
+          road: "Hafnarjeva pot",
+          village: "Stražišče",
+          municipality: "Kranj",
+          city: "Kranj",
+          country: "Slovenija",
+        },
+      },
+    ]);
+    expect(osmShortLabel(r)).toBe("Hafnarjeva pot 21, Stražišče, Kranj, Slovenija");
+  });
+
+  it("falls back to the display line without structured parts", () => {
+    const [r] = parseNominatimResponse([
+      { lat: "46", lon: "14", name: "Kranj", display_name: "Kranj, Gorenjska, Slovenija" },
+    ]);
+    expect(osmShortLabel(r)).toBe("Kranj, Gorenjska, Slovenija");
   });
 });
 

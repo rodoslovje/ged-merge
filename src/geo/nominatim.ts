@@ -136,6 +136,35 @@ export function osmKindLabel(result: NominatimResult, t: Translate): string {
 }
 
 /**
+ * A short readable line for a hit — its name and the parts that place it
+ * (street with house number, settlement, municipality, country) — instead of
+ * the raw display line, which interleaves city quarters, administrative units
+ * and postcodes ("Sv. Jakob, Stanežiče, Gunclje, Četrtna skupnost Šentvid,
+ * Stanežiče, Ljubljana, Upravna Enota Ljubljana, 1210, Slovenia"). Repeated
+ * segments collapse (fold-blind), so the municipality spelt like its city
+ * appears once. Where the service returned no structured parts — or too few to
+ * beat the display line — that line stands, since it is all there is.
+ */
+export function osmShortLabel(result: NominatimResult): string {
+  const p = result.parts;
+  if (!p) return result.label;
+  const segs: string[] = [];
+  const push = (value?: string) => {
+    if (!value) return;
+    const folded = foldSearch(value);
+    if (!segs.some((s) => foldSearch(s) === folded)) segs.push(value);
+  };
+  // A house hit's own name is often just its number, which the road segment
+  // below already carries.
+  if (result.name !== p.house) push(result.name);
+  if (p.road) push([p.road, p.house].filter(Boolean).join(" "));
+  push(p.locality);
+  push(p.admin);
+  push(p.country);
+  return segs.length > 1 ? segs.join(", ") : result.label;
+}
+
+/**
  * Whether a hit actually names the thing that was asked for.
  *
  * Nominatim answers a free-text address it cannot place with whatever else
