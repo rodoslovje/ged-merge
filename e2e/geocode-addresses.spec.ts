@@ -78,6 +78,94 @@ test("houses in the place value are grouped under their settlement, and the filt
   await expect(page.getByText("Stražišče 114")).toBeVisible();
 });
 
+test("a fully placed place hides from the worklist and returns behind the toggle", async ({ page }) => {
+  const file = path.join(os.tmpdir(), "geocode-placed-places.ged");
+  writeFileSync(
+    file,
+    [
+      "0 HEAD", "1 GEDC", "2 VERS 5.5.1", "1 CHAR UTF-8",
+      "0 @I1@ INDI", "1 NAME Ana /Kos/",
+      // Every occurrence of Ljubljana carries its coordinate — finished work.
+      "1 BIRT", "2 PLAC Ljubljana, Slovenija",
+      "3 MAP", "4 LATI N46.05108", "4 LONG E14.50513",
+      // Kranj still needs one — the worklist's only row.
+      "1 DEAT", "2 PLAC Kranj, Slovenija",
+      "0 TRLR", "",
+    ].join("\n"),
+    "utf-8",
+  );
+
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(file);
+  await page.locator(".edit-person").first().waitFor({ timeout: 15000 });
+
+  await page.getByRole("button", { name: "Tools", exact: true }).click();
+  await page.getByText("Places", { exact: true }).click();
+  await page.getByRole("button", { name: /Geocoding/ }).click();
+
+  // Only the unplaced value is on the list; no "Already placed" chip yet.
+  const places = page.locator(".tools-geocode .tools-tree > li:not(.v-spacer)");
+  await expect(places).toHaveCount(1);
+  await expect(places.first()).toContainText("Kranj");
+  await expect(page.getByRole("button", { name: /Already placed/ })).toHaveCount(0);
+
+  // The toggle brings the placed row back, marked as placed, its checkbox
+  // held until a different coordinate is picked — and the chip counts it.
+  await page.getByText("Show already placed").click();
+  await expect(places).toHaveCount(2);
+  const placedRow = places.filter({ hasText: "Ljubljana" });
+  await expect(placedRow).toContainText("placed");
+  await expect(placedRow).toContainText("46.0511, 14.5051");
+  await expect(placedRow.locator(".tools-dup-check")).toBeDisabled();
+  await expect(page.getByRole("button", { name: /Already placed/ })).toContainText("1");
+
+  // Unticking puts the finished work away again.
+  await page.getByText("Show already placed").click();
+  await expect(places).toHaveCount(1);
+});
+
+test("staged picks survive a trip to Edit, including a stray Escape there", async ({ page }) => {
+  const file = path.join(os.tmpdir(), "geocode-staged-state.ged");
+  writeFileSync(
+    file,
+    [
+      "0 HEAD", "1 GEDC", "2 VERS 5.5.1", "1 CHAR UTF-8",
+      "0 @I1@ INDI", "1 NAME Ana /Kos/",
+      // One occurrence carries the coordinate, one is missing — a confident
+      // "from this file" row Select confident can stage.
+      "1 BIRT", "2 PLAC Kranj, Slovenija",
+      "3 MAP", "4 LATI N46.23887", "4 LONG E14.35561",
+      "1 DEAT", "2 PLAC Kranj, Slovenija",
+      "1 RESI", "2 PLAC Novo mesto, Slovenija",
+      "0 TRLR", "",
+    ].join("\n"),
+    "utf-8",
+  );
+
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(file);
+  await page.locator(".edit-person").first().waitFor({ timeout: 15000 });
+
+  await page.getByRole("button", { name: "Tools", exact: true }).click();
+  await page.getByText("Places", { exact: true }).click();
+  await page.getByRole("button", { name: /Geocoding/ }).click();
+
+  await page.getByRole("button", { name: /Select confident/ }).click();
+  const checked = page.locator(".tools-geocode .tools-dup-check:checked");
+  await expect(checked).toHaveCount(1);
+
+  // A detour through Edit, with an Escape pressed on the page body there —
+  // the hidden geocode panel must not treat it as its own "go back" (that
+  // used to unmount the panel and drop every staged tick).
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await expect(page.locator(".edit-person").first()).toBeVisible();
+  await page.locator("body").press("Escape");
+  await page.getByRole("button", { name: "Tools", exact: true }).click();
+
+  await expect(page.locator(".tools-geocode")).toBeVisible();
+  await expect(checked).toHaveCount(1);
+});
+
 test("an address with no house number is reviewed too, with nothing to look up", async ({ page }) => {
   const file = path.join(os.tmpdir(), "geocode-no-number.ged");
   writeFileSync(
@@ -156,12 +244,13 @@ test("a house already placed says so, and its coordinate opens the panel", async
   // Ticking "Show already placed" lists the hamlet's two placed houses again;
   // the third is still not placed, and the returned chip counts exactly the two.
   await page.getByText("Show already placed").click();
-  const placed = group.locator(".tools-geo-addr-row").filter({ hasText: "(placed)" });
+  // A placed house wears the same "placed" chip a placed place row does.
+  const placed = group.locator(".tools-geo-addr-row").filter({ has: page.locator(".tools-reshape-badge") });
   await expect(placed).toHaveCount(2);
   await expect(placed.first()).toContainText("46.21806, 14.36897");
-  await expect(group.locator(".tools-geo-addr-row").filter({ hasText: "Cesta na Klanec 55" })).not.toContainText(
-    "(placed)",
-  );
+  await expect(
+    group.locator(".tools-geo-addr-row").filter({ hasText: "Cesta na Klanec 55" }).locator(".tools-reshape-badge"),
+  ).toHaveCount(0);
   await expect(page.getByRole("button", { name: /Already placed/ })).toContainText("2");
 
   // Its position is also the way in: one click opens the coordinate panel, with
@@ -207,7 +296,7 @@ test("a position staged for a house survives renaming that house's address", asy
   await page.locator(".edit-coord-manual input").fill("46.11111, 14.22222");
   await page.getByRole("button", { name: "Set", exact: true }).click();
   await expect(row.locator(".tools-geo-picked-from")).toHaveText(/manual/i);
-  await expect(page.getByRole("button", { name: /Write address coordinates \(1\)/ })).toBeEnabled();
+  await expect(page.getByRole("button", { name: /Write coordinates \(1\)/ })).toBeEnabled();
 
   // Correcting the spelling afterwards is about the name, not the position:
   // the staged pick has to travel to the renamed row, or it is lost silently
@@ -219,7 +308,7 @@ test("a position staged for a house survives renaming that house's address", asy
 
   const renamed = group.locator(".tools-geo-addr-row").filter({ hasText: "Drulovka 2a" });
   await expect(renamed.locator(".tools-geo-picked-from")).toHaveText(/manual/i);
-  const write = page.getByRole("button", { name: /Write address coordinates \(1\)/ });
+  const write = page.getByRole("button", { name: /Write coordinates \(1\)/ });
   await expect(write).toBeEnabled();
   await write.click();
   await expect(page.getByText("Written to 1 record.")).toBeVisible();
@@ -290,7 +379,7 @@ test("OpenStreetMap answers the addresses the register cannot take", async ({ pa
 
   // The number is the row's radio — clicking it stages the answer.
   await candidate.locator(".tools-geo-cand-num").click();
-  const write = page.getByRole("button", { name: /Write address coordinates \(1\)/ });
+  const write = page.getByRole("button", { name: /Write coordinates \(1\)/ });
   await expect(write).toBeEnabled();
   await write.click();
   await expect(page.getByText("Written to 1 record.")).toBeVisible();
@@ -457,7 +546,7 @@ test("one coordinate can be given to a whole place's addresses at once", async (
   await expect(group.locator(".tools-geo-picked-from").first()).toHaveText(/manual/i);
 
   // Staged for both houses, then written in one step.
-  const write = page.getByRole("button", { name: /Write address coordinates \(2\)/ });
+  const write = page.getByRole("button", { name: /Write coordinates \(2\)/ });
   await expect(write).toBeEnabled();
   await write.click();
   await expect(page.getByText(/Written to \d+ records?\./)).toBeVisible();

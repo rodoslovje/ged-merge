@@ -101,6 +101,25 @@ describe("scanGeocode", () => {
     expect(straz.missingIn).toEqual(["@I2@"]);
   });
 
+  it("lists fully covered values apart, as placed rows without a lookup", () => {
+    const ds = buildFromText(SAMPLE);
+    const scan = scanGeocode(ds, index, new Map());
+    // "Ljubljana, Slovenija" is finished work: not in the worklist, offered
+    // behind "Show already placed" with its own coordinate and everyone the
+    // value occurs on — and no gazetteer candidates (nothing was looked up).
+    expect(scan.rows.find((r) => r.key === "Ljubljana, Slovenija")).toBeUndefined();
+    expect(scan.placed).toHaveLength(1);
+    const lj = scan.placed[0];
+    expect(lj.key).toBe("Ljubljana, Slovenija");
+    expect(lj.placed).toBe(true);
+    expect(lj.missing).toBe(0);
+    expect(lj.count).toBe(1);
+    expect(lj.fileCoord).toEqual({ lat: 46.05108, lon: 14.50513 });
+    expect(lj.candidates).toHaveLength(0);
+    expect(lj.confident).toBe(false);
+    expect(lj.missingIn).toEqual(["@I1@"]);
+  });
+
   it("attaches remembered no-match marks only, and works without a gazetteer", () => {
     const ds = buildFromText(SAMPLE);
     const cached = new Map([
@@ -376,6 +395,46 @@ describe("applyGeocode", () => {
       ]),
     );
     expect(patches).toHaveLength(0);
+  });
+
+  it("overwrite re-geocodes a placed value, sparing address-bound house pins", () => {
+    const REGEOCODE = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 NAME A /B/
+1 BIRT
+2 PLAC Vinji Vrh, Slovenija
+3 MAP
+4 LATI N45.9
+4 LONG E15.3
+3 _GOV object_old
+1 RESI
+2 ADDR Vinji Vrh 5
+2 PLAC Vinji Vrh, Slovenija
+3 MAP
+4 LATI N45.91234
+4 LONG E15.31234
+1 DEAT
+2 PLAC Vinji Vrh, Slovenija
+0 TRLR
+`;
+    const ds = buildFromText(REGEOCODE);
+    const patches = applyGeocode(
+      ds,
+      new Map([["Vinji Vrh, Slovenija", { coord: { lat: 45.85, lon: 15.35 }, overwrite: true }]]),
+    );
+    expect(patches.map((p) => p.id)).toEqual(["@I1@"]);
+    const events = ds.individuals.get("@I1@")!.events;
+    // The settlement occurrence moves to the new pick, and the stale _GOV —
+    // which named the old position — goes with it.
+    expect(events.find((e) => e.tag === "BIRT")!.place?.coord).toEqual({ lat: 45.85, lon: 15.35 });
+    const text = serializeDataset(ds);
+    expect(text).not.toContain("_GOV");
+    // The address-bound occurrence keeps its own house position.
+    expect(events.find((e) => e.tag === "RESI")!.place?.coord).toEqual({ lat: 45.91234, lon: 15.31234 });
+    // The occurrence with no coordinate is filled, as any geocode write is.
+    expect(events.find((e) => e.tag === "DEAT")!.place?.coord).toEqual({ lat: 45.85, lon: 15.35 });
   });
 });
 

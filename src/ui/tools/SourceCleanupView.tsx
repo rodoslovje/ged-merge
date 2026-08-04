@@ -77,6 +77,7 @@ export function SourceCleanupView({
   fileName,
   onNavigate,
   onBack,
+  active,
 }: {
   /** Null when that scan failed — the other tool keeps working. */
   reshapeReport: ReshapeReport | null;
@@ -85,6 +86,9 @@ export function SourceCleanupView({
   fileName: string;
   onNavigate: (id: string) => void;
   onBack: () => void;
+  /** Whether this view is the one on screen — the Esc-to-leave shortcut must
+   *  not fire from a hidden, still-mounted panel (it would drop its state). */
+  active: boolean;
 }) {
   const { t } = useTranslation();
   const { settings } = useSettings();
@@ -127,8 +131,10 @@ export function SourceCleanupView({
   const [dupExcluded, setDupExcluded] = useState<Set<string>>(new Set());
   const [survivors, setSurvivors] = useState<Map<string, string>>(new Map());
 
-  // Esc leaves the sub-page, matching the chart overlays.
+  // Esc leaves the sub-page, matching the chart overlays — but only while it
+  // is the view on screen (see the `active` prop).
   useEffect(() => {
+    if (!active) return;
     function onKey(e: KeyboardEvent) {
       if (e.key !== "Escape" || isEditableTarget(e.target) || isModalOpen()) return;
       e.preventDefault();
@@ -136,7 +142,7 @@ export function SourceCleanupView({
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onBack]);
+  }, [active, onBack]);
 
   const toggleIn = (set: (fn: (s: Set<string>) => Set<string>) => void) => (id: string) =>
     set((s) => {

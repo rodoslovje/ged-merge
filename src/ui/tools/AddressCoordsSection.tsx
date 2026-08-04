@@ -6,7 +6,7 @@ import { stripHouseNumber } from "../../gedcom/place";
 import { sameCoord } from "../../geo/points";
 import { resultsForQuery, searchAddressBatch, searchAddresses, splitAddressVariants, type RnResult } from "../../geo/rn";
 import { placeLookupLanguage } from "../../geo/lookupLanguage";
-import { osmKindLabel, osmNamesPlace, searchNominatim, type NominatimResult } from "../../geo/nominatim";
+import { osmKindLabel, osmNamesPlace, osmShortLabel, searchNominatim, type NominatimResult } from "../../geo/nominatim";
 import type { PlaceProposal } from "../../geo/placeProposal";
 import { replaceLocality, suggestMovedPlace, type AddressRow } from "../../tools/addresses";
 import { placeAddrKey, type GeoAssignment } from "../../tools/geocode";
@@ -94,6 +94,9 @@ interface AddrCandidate {
    *  instead. A free-text search for a house the service does not know answers
    *  with the same number in another village. */
   elsewhere?: string;
+  /** The service's full display line, when `label` is a shortened form of it —
+   *  kept as the option's tooltip. */
+  title?: string;
   source: "GURS" | "OSM";
   badgeClass: "official" | "reuse";
 }
@@ -115,9 +118,12 @@ function rowCandidates(search: SearchState, osm: OsmState, address: string, t: T
   for (const r of osm.results) {
     if (out.some((c) => sameCoord(c.coord, r.coord))) continue;
     const detail = osmKindLabel(r, t);
+    // The short composed line; the raw display chain stays in the tooltip.
+    const label = osmShortLabel(r);
     const cand: AddrCandidate = {
       coord: r.coord,
-      label: r.label,
+      label,
+      ...(label !== r.label ? { title: r.label } : {}),
       ...(detail ? { detail } : {}),
       source: "OSM",
       badgeClass: "reuse",
@@ -1052,17 +1058,21 @@ export function AddressCoordsSection({
                               {/* The tag belongs to the position, so it is part
                                   of the same control rather than dead text
                                   beside it — a click anywhere on the run opens
-                                  the panel. */}
+                                  the panel. A placed house wears the same chip
+                                  a placed place row does. */}
                               {!chosen && row.coord && (
-                                <span
-                                  className="tools-geo-addr-tag"
-                                  title={t(
-                                    row.placed ? "tools.geocode.addr.placedHint" : "tools.geocode.addr.inheritedHint",
-                                  )}
-                                >
+                                <>
                                   {" "}
-                                  {t(row.placed ? "tools.geocode.addr.placed" : "tools.geocode.addr.inherited")}
-                                </span>
+                                  {row.placed ? (
+                                    <span className="tools-reshape-badge new" title={t("tools.geocode.addr.placedHint")}>
+                                      {t("tools.geocode.placedBadge")}
+                                    </span>
+                                  ) : (
+                                    <span className="tools-geo-addr-tag" title={t("tools.geocode.addr.inheritedHint")}>
+                                      {t("tools.geocode.addr.inherited")}
+                                    </span>
+                                  )}
+                                </>
                               )}
                             </button>
                           )}
@@ -1251,7 +1261,7 @@ export function AddressCoordsSection({
                           <ul className="tools-geo-candidates">
                             {candidates.map((r, i) => (
                               <li key={i}>
-                                <label title={r.label}>
+                                <label title={r.title ?? r.label}>
                                   {/* The number *is* the radio: it ties the line
                                       to its pin on the panel's map, and a second
                                       round control beside it would be one dot too

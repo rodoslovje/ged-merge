@@ -587,6 +587,7 @@ export function SourcesPanel({
         fileName={fileName}
         onNavigate={onNavigate}
         onBack={() => setView("tree")}
+        active={active}
       />
     );
 
