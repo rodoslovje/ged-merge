@@ -44,8 +44,8 @@ const IDLE: SearchState = { state: "idle", results: [] };
  *  chips: what still needs a register query, what came back with houses to
  *  judge, what the register does not know, what it cannot be asked about at
  *  all, and what is staged for writing. */
-type AddrStatus = "unsearched" | "found" | "none" | "manual" | "picked";
-const ADDR_FILTERS: ("all" | AddrStatus)[] = ["all", "unsearched", "found", "none", "manual", "picked"];
+type AddrStatus = "unsearched" | "found" | "none" | "manual" | "placed" | "picked";
+const ADDR_FILTERS: ("all" | AddrStatus)[] = ["all", "unsearched", "found", "none", "manual", "placed", "picked"];
 
 /** A row's lookup state right now. An error or in-flight search still counts
  *  as "unsearched" — it has no answer yet and the lookup can be retried; a row
@@ -56,6 +56,11 @@ function addrStatus(
   picked: ReadonlyMap<string, unknown>,
 ): AddrStatus {
   if (picked.has(row.key)) return "picked";
+  // Already carrying a position of its own — the hamlet's, say, given to the
+  // whole run of houses at once. Still listed, since a rough position may want
+  // sharpening, but it is not work waiting to be done and does not read as any
+  // of the lookup states below.
+  if (row.placed) return "placed";
   if (!row.queries.length) return "manual";
   const s = searches.get(row.key);
   if (s?.state === "done") return s.results.length ? "found" : "none";
@@ -307,7 +312,7 @@ export function AddressCoordsSection({
 
   // Faceted like the places chips: counted over the search-filtered rows, so
   // each chip says how many addresses clicking it leaves on screen.
-  const statusCounts = { unsearched: 0, found: 0, none: 0, manual: 0, picked: 0 };
+  const statusCounts = { unsearched: 0, found: 0, none: 0, manual: 0, placed: 0, picked: 0 };
   for (const row of rows) statusCounts[addrStatus(row, searches, picked)]++;
 
   const togglePeople = (key: string) =>
@@ -809,7 +814,7 @@ export function AddressCoordsSection({
                               — muted while it has none, exactly as the Edit
                               view's pin reads. */}
                           <span
-                            className={`tools-geo-cand-name gm-addr${chosen || row.coord ? " gm-addr--set" : ""}`}
+                            className={`tools-geo-cand-name gm-addr${chosen || row.placed ? " gm-addr--set" : ""}`}
                           >
                             {row.address}
                           </span>
@@ -870,6 +875,14 @@ export function AddressCoordsSection({
                               file", "manual" — and the position itself, so a row
                               staged with the rest of its village can be read off
                               the list rather than one tooltip at a time. */}
+                          {!chosen && row.placed && row.coord && (
+                            <span className="tools-geo-online-note" title={t("tools.geocode.addr.placedHint")}>
+                              {t("tools.geocode.addr.placed")}{" "}
+                              <span className="gm-data">
+                                {row.coord.lat.toFixed(5)}, {row.coord.lon.toFixed(5)}
+                              </span>
+                            </span>
+                          )}
                           {chosen && (
                             <span
                               // No pin of its own: it sits against the picker's

@@ -353,6 +353,53 @@ describe("renameAddress", () => {
   });
 });
 
+describe("scanAddresses and a hamlet placed by hand", () => {
+  // Two Drulovka houses given one approximate position — the hamlet's centre,
+  // not Kranj's — plus a Kranj event with no address at all, which is what the
+  // settlement's own coordinate looks like.
+  const HAMLET = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 BIRT
+2 PLAC Kranj, Slovenija
+3 MAP
+4 LATI N46.23887
+4 LONG E14.35573
+1 RESI
+2 PLAC Kranj, Slovenija
+3 MAP
+4 LATI N46.21806
+4 LONG E14.36897
+2 ADDR Drulovka 2
+1 DEAT
+2 PLAC Kranj, Slovenija
+3 MAP
+4 LATI N46.21806
+4 LONG E14.36897
+2 ADDR Drulovka 4
+1 CENS
+2 PLAC Kranj, Slovenija
+2 ADDR Cesta na Klanec 55
+0 TRLR`;
+
+  const rows = scanAddresses(build(HAMLET));
+
+  it("marks the houses that carry a position of their own", () => {
+    // Both are still listed — one shared position can always be sharpened —
+    // but they are no longer waiting to be placed, and say so.
+    const drulovka = rows.filter((r) => r.address.startsWith("Drulovka"));
+    expect(drulovka).toHaveLength(2);
+    expect(drulovka.every((r) => r.placed)).toBe(true);
+  });
+
+  it("leaves a house with no position of its own unmarked", () => {
+    const klanec = rows.find((r) => r.address === "Cesta na Klanec 55")!;
+    expect(klanec.placed).toBeUndefined();
+    expect(klanec.coord).toBeUndefined();
+  });
+});
+
 describe("addressesByPlace", () => {
   it("collects every house of a place, however the file writes it", () => {
     const map = addressesByPlace(build(FILE));
