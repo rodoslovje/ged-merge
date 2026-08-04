@@ -8207,6 +8207,20 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
    than greyscale-filtered — the glyph now takes a real colour. */
 .edit-event-coord--empty { color: var(--muted); opacity: 0.4; }
 .edit-event-coord--empty:hover { color: var(--muted); opacity: 0.75; }
+/* The button carries a label as well as the pin (the Addresses tool's row): the
+   text keeps the list's own colour and weight — only the pin takes the control's
+   colour — and the whole run is the click target, underlined on hover the way a
+   link is. Full opacity even while unplaced: the muting is the pin's business,
+   not the address's. */
+.edit-event-coord--labelled {
+  line-height: inherit; gap: 0.4em; padding: 2px 4px; opacity: 1;
+  color: var(--muted); font: inherit; text-align: left;
+}
+.edit-event-coord--labelled:hover { opacity: 1; }
+.edit-event-coord--labelled > span { color: var(--fg); }
+.edit-event-coord--labelled:hover > span { text-decoration: underline; }
+.edit-event-coord--labelled .tools-geo-row-coord { color: var(--muted); }
+.edit-event-coord:not(.edit-event-coord--empty).edit-event-coord--labelled { color: var(--accent); }
 /* Two-column popover: the value being edited across the top, then the map to
    pick on beside the candidates to pick from — a stacked layout pushed the map
    below the fold behind whatever the search returned. */

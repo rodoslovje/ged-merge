@@ -827,13 +827,38 @@ export function AddressCoordsSection({
                               onChange={() => (moveGroup === group.place ? toggleMoveRow : toggleCoordRow)(row.key)}
                             />
                           )}
-                          {/* No pin before the address here: the row's own
-                              coordinate control draws one two words later, and
-                              two pins side by side read as one smudged glyph.
-                              Whether this house is placed is said outright by
-                              the position and "(placed)" further along the
-                              line. */}
-                          <span className="tools-geo-cand-name">{row.address}</span>
+                          {/* The address, its pin and the position it holds are
+                              one control: clicking anywhere on them opens the
+                              Edit view's coordinate panel — map to pick on,
+                              register lookup, manual entry — which is the one
+                              thing a row is opened for. The house the register
+                              cannot find is reachable here too; a pick is
+                              staged like the radios below, and nothing is
+                              written until Write. */}
+                          <EventCoordPicker
+                            place={row.place}
+                            address={row.address}
+                            coord={chosen?.coord}
+                            title={row.address}
+                            fileCoord={row.coord}
+                            onPick={(coord, label) =>
+                              setPicked((prev) =>
+                                new Map(prev).set(row.key, { coord, label: label ?? t("tools.geocode.manual") }),
+                              )
+                            }
+                            onClear={() => unpick(row.key)}
+                            trigger={
+                              <>
+                                <span className="tools-geo-cand-name">{row.address}</span>
+                                {(chosen?.coord ?? row.coord) && (
+                                  <span className="gm-data tools-geo-row-coord">
+                                    {(chosen?.coord ?? row.coord)!.lat.toFixed(5)},{" "}
+                                    {(chosen?.coord ?? row.coord)!.lon.toFixed(5)}
+                                  </span>
+                                )}
+                              </>
+                            }
+                          />
                           {renameKey === row.key ? (
                             <button
                               className="tools-place-edit-btn tools-place-edit-cancel"
@@ -854,74 +879,29 @@ export function AddressCoordsSection({
                               ✎
                             </button>
                           )}
-                          {/* The Edit view's own coordinate control, so a house
-                              the register cannot find is still reachable here:
-                              type a coordinate, pick one off the map, or search
-                              OpenStreetMap. It stages the pick like the radios
-                              above — nothing is written until Write. */}
-                          <EventCoordPicker
-                            place={row.place}
-                            address={row.address}
-                            coord={chosen?.coord}
-                            title={row.address}
-                            fileCoord={row.coord}
-                            onPick={(coord, label) =>
-                              setPicked((prev) =>
-                                new Map(prev).set(row.key, { coord, label: label ?? t("tools.geocode.manual") }),
-                              )
-                            }
-                            onClear={() => unpick(row.key)}
-                          />
-                          {/* What the pin now holds, beside it: the address of the
-                              position taken — the register's own line, "from this
-                              file", "manual" — and the position itself, so a row
-                              staged with the rest of its village can be read off
-                              the list rather than one tooltip at a time. */}
-                          {/* Whatever position the events already carry, said
-                              outright — its own (placed) or the settlement's,
-                              which every address here inherits. Both are worth
-                              printing: a row with no coordinate at all and one
-                              sitting on the village centre are different states
-                              of the same work, and only the text tells them
-                              apart. No pin of its own: the row's coordinate
-                              control draws one immediately before it, and that
-                              is the mark this value belongs to. */}
+                          {/* What that position is, now that the control itself
+                              prints it: the house's own (placed) or the
+                              settlement's, which every address here inherits —
+                              a row on the village centre and one with nothing
+                              at all are different states of the same work, and
+                              only these words tell them apart. */}
                           {!chosen && row.coord && (
                             <span
                               className="tools-geo-online-note"
                               title={t(row.placed ? "tools.geocode.addr.placedHint" : "tools.geocode.addr.inheritedHint")}
                             >
-                              <button
-                                type="button"
-                                className="gm-data tools-geo-coord-btn"
-                                title={t("tools.geocode.showMap")}
-                                onClick={() => setMapOpen((prev) => new Set(prev).add(group.place))}
-                              >
-                                {row.coord.lat.toFixed(5)}, {row.coord.lon.toFixed(5)}
-                              </button>{" "}
                               {t(row.placed ? "tools.geocode.addr.placed" : "tools.geocode.addr.inherited")}
                             </span>
                           )}
+                          {/* Where a staged position came from — the register's
+                              own line, "from this file", "manual" — so a row
+                              staged with the rest of its village is read off
+                              the list rather than one tooltip at a time. */}
                           {chosen && (
                             <span className="tools-geo-picked">
-                              {/* Where the position came from → the position
-                                  itself, the way a place row prints its pick.
-                                  Only the source line is allowed to run out of
-                                  room: the coordinate is what the row is being
-                                  read for, so it stays whole and the address
-                                  ellipsises before it. */}
                               <span className="tools-geo-picked-from" title={chosen.label}>
                                 {chosen.label}
-                              </span>{" "}
-                              →{" "}
-                              <button
-                                type="button"
-                                className="gm-data gm-coord gm-coord--set tools-geo-coord-btn"
-                                title={t("tools.geocode.showMap")}
-                                onClick={() => setMapOpen((prev) => new Set(prev).add(group.place))}
-                              >
-                                {chosen.coord.lat.toFixed(5)}, {chosen.coord.lon.toFixed(5)}
-                              </button>
+                              </span>
                             </span>
                           )}
                           {/* The register comes after the position, being the way

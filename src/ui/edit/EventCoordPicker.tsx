@@ -51,6 +51,7 @@ export function EventCoordPicker({
   filePairCoord,
   onPick,
   onClear,
+  trigger,
 }: {
   /** The event's current place text (as edited). */
   place: string;
@@ -71,6 +72,11 @@ export function EventCoordPicker({
    *  "manual") — for callers that stage a pick and show its origin. */
   onPick: (coord: GeoCoord, label?: string) => void;
   onClear: () => void;
+  /** Drawn inside the button after the pin. In Edit the pin alone is the
+   *  control, sitting beside the fields it belongs to; the Addresses tool has
+   *  no such field to sit beside, so it puts the address and its position in
+   *  here and the whole thing opens the panel. */
+  trigger?: React.ReactNode;
 }) {
   const { t, i18n } = useTranslation();
   const settings = useSettingsSlice(SETTINGS_KEYS);
@@ -274,7 +280,11 @@ export function EventCoordPicker({
     <span className="edit-event-coord-wrap" ref={boxRef}>
       <button
         type="button"
-        className={"edit-event-coord" + (coord ? "" : " edit-event-coord--empty")}
+        className={
+          "edit-event-coord" +
+          (coord ? "" : " edit-event-coord--empty") +
+          (trigger ? " edit-event-coord--labelled" : "")
+        }
         title={
           coord
             ? t("event.coord", { coords: `${coord.lat.toFixed(5)}, ${coord.lon.toFixed(5)}` })
@@ -284,6 +294,7 @@ export function EventCoordPicker({
         onClick={() => setOpen((v) => !v)}
       >
         <PinIcon />
+        {trigger}
       </button>
       {open && (
         <div
