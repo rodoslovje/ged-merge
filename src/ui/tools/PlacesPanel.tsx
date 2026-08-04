@@ -190,7 +190,9 @@ export function PlacesPanel({
   // dataset change / re-entry), since the tool works on either kind and a file
   // can be done with one and full of the other.
   const geocodePending = useMemo(() => (tree ? countGeocodePending(dataset) : 0), [dataset, tree]);
-  const addressPending = useMemo(() => (tree ? scanAddresses(dataset).length : 0), [dataset, tree]);
+  // Placed rows ride along in the scan (the review list can show them back);
+  // pending work is only what still lacks a position of its own.
+  const addressPending = useMemo(() => (tree ? scanAddresses(dataset).filter((r) => !r.placed).length : 0), [dataset, tree]);
 
   if (!tree) return <ToolsLoading label={t("tools.running")} />;
 

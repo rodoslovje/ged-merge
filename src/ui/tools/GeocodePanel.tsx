@@ -548,7 +548,9 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
               {t("tools.geocode.tab.places")} <span className="tools-chip-count">{scan.rows.length}</span>
             </button>
             <button role="tab" aria-selected={tab === "addresses"} className={tab === "addresses" ? "active" : ""} onClick={() => setTab("addresses")}>
-              {t("tools.geocode.tab.addresses")} <span className="tools-chip-count">{addrRows.length}</span>
+              {/* The worklist count: placed rows are in addrRows but hidden by
+                  default, so counting them would promise more than the tab shows. */}
+              {t("tools.geocode.tab.addresses")} <span className="tools-chip-count">{addrRows.filter((r) => !r.placed).length}</span>
             </button>
           </div>
           {tab === "places" && placesActions}
