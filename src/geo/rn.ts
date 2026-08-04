@@ -287,17 +287,6 @@ function inParentMunicipality(hits: RnResult[], parents?: readonly string[]): Rn
 }
 
 /**
- * Narrow to the place's own municipality where that is possible, and leave the
- * hits alone where it isn't. Used on the rungs that match the settlement name the
- * file actually wrote: a namesake in another občina is worth demoting, but a file
- * whose second level is a parish must not lose its correct answer over it.
- */
-export function preferParentMunicipality(hits: RnResult[], parents?: readonly string[]): RnResult[] {
-  const kept = inParentMunicipality(hits, parents);
-  return kept.length ? kept : hits;
-}
-
-/**
  * Municipality names probed this session: folded name → does the register file
  * any address under it. Slovenia's 212 občine are a closed set that cannot change
  * mid-session, so one row settles a name for good.
@@ -320,10 +309,11 @@ function isMunicipality(name: string, signal?: AbortSignal): Promise<boolean> {
 }
 
 /**
- * Narrow to the place's own municipality, to nothing if need be. Used only where
- * the settlement name is our own guess rather than the file's word ({@link
- * hostAsSettlement}): "Klanec 2" under Kranj is a hamlet of Kranj if it is
- * anything, and Komenda's Klanec is not a worse answer but a wrong one.
+ * Narrow to the place's own municipality, to nothing if need be. Every rung is
+ * held to it: whether the settlement name is the file's own word or our guess
+ * ({@link hostAsSettlement}), a namesake in another občina that happens to own
+ * the number is not a worse answer but a wrong one — Komenda's Klanec for a
+ * Kranj record, Dravograd's Sv. Duh for one in Škofja Loka.
  *
  * When nothing matches, the file's parent level is checked against the register
  * before the hits are discarded, because "no match" has two very different
@@ -460,9 +450,13 @@ function rnFetch(filter: string, signal?: AbortSignal, limit = FETCH_LIMIT): Pro
  * a number that hangs off neither the place named nor a street of it is very
  * often a neighbouring hamlet the file files under its bigger neighbour. That
  * both finds the house and — since the result carries the register's own
- * settlement — is what reveals the misfiling. Being a guess at a name, it is the
- * one rung held to the place's own municipality ({@link requireParentMunicipality}):
- * every other rung merely prefers it.
+ * settlement — is what reveals the misfiling.
+ *
+ * Every rung is held to the place's own municipality ({@link
+ * requireParentMunicipality}): settlement names repeat across the country, and a
+ * namesake that happens to own the number is a wrong answer, not a fallback —
+ * "Sv. Duh 6" under Škofja Loka must not be answered by the Sv. Duh in
+ * Dravograd just because the Škofja Loka village no longer numbers a 6.
  *
  * Resolves to [] when nothing matches at all — including a settlement spelled
  * differently from the register (it matches case- and diacritic-sensitively),
@@ -475,9 +469,7 @@ export async function searchAddress(query: RnQuery, signal?: AbortSignal): Promi
     if (hits.length) return hits;
   }
   const asSettlement = hostAsSettlement(query);
-  if (asSettlement) {
-    return requireParentMunicipality(await searchInSettlement(asSettlement, signal), query.parents, signal);
-  }
+  if (asSettlement) return searchInSettlement(asSettlement, signal);
   return [];
 }
 
@@ -493,15 +485,18 @@ export function hostAsSettlement(query: RnQuery): RnQuery | undefined {
   return { ...rest, settlement: query.street };
 }
 
-/** The widening ladder within one settlement. Each rung is scoped to the place's
+/** The widening ladder within one settlement. Each rung is held to the place's
  *  own municipality before it is counted, so a namesake elsewhere in the country
  *  can neither answer the row nor crowd the right house out of the six shown. */
 async function searchInSettlement(query: RnQuery, signal?: AbortSignal): Promise<RnResult[]> {
   const rung = async (filter: string): Promise<RnResult[]> =>
-    preferParentMunicipality(rnFeaturesToResults(await rnFetch(filter, signal), Infinity), query.parents).slice(
-      0,
-      MAX_RESULTS,
-    );
+    (
+      await requireParentMunicipality(
+        rnFeaturesToResults(await rnFetch(filter, signal), Infinity),
+        query.parents,
+        signal,
+      )
+    ).slice(0, MAX_RESULTS);
 
   const exact = await rung(buildRnFilter(query));
   if (exact.length) return exact;
@@ -577,7 +572,7 @@ const BATCH_LIMIT = 1000;
  *   3. the "street" read as a settlement of its own ({@link hostAsSettlement}) —
  *      a hamlet filed under its neighbour, the case where a whole group fails
  *      at once.
- * Each rung is scoped to the municipality the place names, rung 3 strictly — see
+ * Each rung is held to the municipality the place names — see
  * {@link searchAddress}, whose ladder this mirrors.
  */
 export async function searchAddressBatch(
@@ -622,7 +617,7 @@ export async function searchAddressBatch(
   for (const [key, g] of byPlace) {
     const numbers = [...g.numbers].sort((a, b) => a - b);
     const own = async (...args: Parameters<typeof fetchGroup>) =>
-      preferParentMunicipality(await fetchGroup(...args), g.parents);
+      requireParentMunicipality(await fetchGroup(...args), g.parents, signal);
     let hits = await own(g.settlement, g.street, numbers);
     if (!hits.length && !g.street) hits = await own(g.settlement, undefined, numbers, true);
     if (!hits.length) {

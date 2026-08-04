@@ -3,8 +3,8 @@ import {
   buildRnFilter,
   hostAsSettlement,
   parseHouseNumbers,
-  preferParentMunicipality,
   requireParentMunicipality,
+  searchAddress,
   resultsForQuery,
   rnFeaturesToResults,
   rnQueriesFrom,
@@ -208,14 +208,34 @@ describe("hostAsSettlement", () => {
 });
 
 describe("municipality scoping", () => {
+  // The register's only "Sv. Duh 6" — the Škofja Loka village of the same name
+  // no longer numbers a 6, so a country-wide name match finds just this one.
+  const svDuhDravograd = {
+    properties: {
+      OBCINA_NAZIV: "Dravograd",
+      NASELJE_NAZIV: "Sv. Duh",
+      ULICA_NAZIV: null,
+      HS_STEVILKA: 6,
+      POSTNI_OKOLIS_SIFRA: 2370,
+      POSTNI_OKOLIS_NAZIV: "Dravograd",
+      E: 518682,
+      N: 53264,
+    },
+  };
+
   /** Names the stubbed register answers as real občine. */
   const municipalities = new Set<string>();
   const fetchMock = vi.fn(async (url: string | URL) => {
-    const name = decodeURIComponent(String(url)).match(/OBCINA_NAZIV='([^']*)'/)?.[1] ?? "";
-    return {
-      ok: true,
-      json: async () => ({ features: municipalities.has(name) ? [{ properties: {} }] : [] }),
-    } as unknown as Response;
+    const filter = decodeURIComponent(String(url));
+    const name = filter.match(/OBCINA_NAZIV='([^']*)'/)?.[1];
+    const features = name
+      ? municipalities.has(name)
+        ? [{ properties: {} }]
+        : []
+      : filter.includes("NASELJE_NAZIV='Sv. Duh'")
+        ? [svDuhDravograd]
+        : [];
+    return { ok: true, json: async () => ({ features }) } as unknown as Response;
   });
 
   beforeEach(() => {
@@ -236,23 +256,11 @@ describe("municipality scoping", () => {
   const klanecKomenda = hit("Klanec", "Komenda", 46.2109);
   const klanecKranj = hit("Klanec", "Kranj", 46.2409);
 
-  it("keeps only the place's own municipality when the register offers both", () => {
-    expect(preferParentMunicipality([klanecKomenda, klanecKranj], ["Kranj"])).toEqual([klanecKranj]);
-    // Accent- and case-blind: the file's spelling need not be the register's.
-    expect(preferParentMunicipality([klanecKomenda, klanecKranj], ["KRANJ"])).toEqual([klanecKranj]);
-  });
-
-  it("leaves the hits alone when the place names no municipality it knows", () => {
-    // "Gorenjska" is a region, not an občina — it contradicts nothing, so a
-    // preference must not turn it into a veto and lose the right house.
-    expect(preferParentMunicipality([klanecKomenda], ["Gorenjska"])).toEqual([klanecKomenda]);
-    expect(preferParentMunicipality([klanecKomenda], [])).toEqual([klanecKomenda]);
-    expect(preferParentMunicipality([klanecKomenda], undefined)).toEqual([klanecKomenda]);
-  });
-
-  it("drops a namesake outright where the settlement name was our own guess", async () => {
+  it("keeps only the place's own municipality when the register offers both", async () => {
     // A hit in the named občina answers without the register being consulted.
     expect(await requireParentMunicipality([klanecKomenda, klanecKranj], ["Kranj"])).toEqual([klanecKranj]);
+    // Accent- and case-blind: the file's spelling need not be the register's.
+    expect(await requireParentMunicipality([klanecKomenda, klanecKranj], ["KRANJ"])).toEqual([klanecKranj]);
     // Nothing named, nothing to check against — and no request made.
     expect(await requireParentMunicipality([klanecKomenda], undefined)).toEqual([klanecKomenda]);
     expect(fetchMock).not.toHaveBeenCalled();
@@ -268,6 +276,20 @@ describe("municipality scoping", () => {
     // Each name is settled once for the session, however often it is asked.
     expect(await requireParentMunicipality([klanecKomenda], ["Bela krajina"])).toEqual([klanecKomenda]);
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("vetoes a namesake on the ordinary rungs, not only on the guessed one", async () => {
+    // The whole ladder for "Sv. Duh 6" under Škofja Loka: the settlement name
+    // is the file's own word, yet the only register hit is Dravograd's Sv. Duh.
+    // Škofja Loka is a real občina, so the hit contradicts it and the row must
+    // read "not in the register" rather than offer a house 100 km away.
+    municipalities.add("Škofja Loka");
+    expect(await searchAddress({ settlement: "Sv. Duh", number: 6, parents: ["Škofja Loka", "Slovenia"] })).toEqual(
+      [],
+    );
+    // With no parent level to contradict, the countrywide hit still answers.
+    const hits = await searchAddress({ settlement: "Sv. Duh", number: 6 });
+    expect(hits.map((h) => h.municipality)).toEqual(["Dravograd"]);
   });
 
   it("carries the municipality from a place value into the query", () => {
