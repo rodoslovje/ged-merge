@@ -547,12 +547,18 @@ export function AddressCoordsSection({
       // coordinate, shared by the whole place. Without it the map opens empty
       // until a lookup has run, which made "show on map" look broken.
       if (row.coord && !pins.some((p) => sameCoord(p.coord, row.coord))) {
+        // The settlement's own position is not a house and must not look like
+        // one: a village whose addresses all inherit it would otherwise put a
+        // candidate-coloured pin on the church square, competing with the
+        // register's real answers. Neutral colour, and it says what it is.
+        const own = !row.placed;
         pins.push({
           coord: row.coord,
-          label: t("tools.geocode.fromFile"),
+          label: t(own ? "tools.geocode.addr.placePin" : "tools.geocode.fromFile"),
           sub: row.address,
           lines: [t("tools.geocode.addr.uses", { count: row.count })],
           kind: "candidate",
+          ...(own ? { colorVar: "--map-other" } : {}),
         });
       }
       // A pick of the researcher's own — typed, taken off a map, or given to the

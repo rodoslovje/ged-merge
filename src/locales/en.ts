@@ -444,6 +444,7 @@ export const en = {
   "tools.geocode.addr.placed": "(placed)",
   "tools.geocode.addr.placedHint": "This house already carries a position of its own — not the settlement's, which every address here would inherit. It stays listed in case you want to sharpen it.",
   "tools.geocode.addr.inherited": "(from the place)",
+  "tools.geocode.addr.placePin": "The place's own position",
   "tools.geocode.addr.inheritedHint": "These events carry the settlement's own position — the one every address here inherits — so this house has still to be placed. Taking a position of its own replaces it.",
   "tools.geocode.addr.noQuery": "nothing to look up",
   "tools.geocode.addr.noQueryHint": "The address register needs a house number in Slovenia; this address names none, or lies elsewhere. Place it with the pin, or give a run of them one position with “Place several at one coordinate”.",
