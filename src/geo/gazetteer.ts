@@ -444,6 +444,135 @@ export function rpeNaseljaToEntries(data: RpeNaseljaJson, obcine?: ReadonlyMap<s
   return entries;
 }
 
+/** Storage key of the Croatian DGU import — the same shape and the same reason
+ *  as {@link GURS_REGISTER}: it sits alongside a GeoNames or OpenStreetMap "HR"
+ *  directory instead of replacing it. */
+export const DGU_REGISTER = "HR-DGU";
+
+/**
+ * GeoJSON from the DGU Register of Geographical Names (`v_imjesto_geoime_gs`),
+ * reduced to what we read. Unlike the Slovenian RPE collection this one is
+ * points, so there is no centroid to compute — but it is a register of *names*,
+ * not of places, so a place that goes by several of them arrives as several
+ * features sharing an `im_id`.
+ */
+export interface RgiPlacesJson {
+  features?: {
+    properties?: {
+      im_id?: unknown;
+      pisanje_imena?: unknown;
+      jeziknaziv?: unknown;
+      status_imena?: unknown;
+      og_ime?: unknown;
+    } | null;
+    geometry?: { type?: unknown; coordinates?: unknown } | null;
+  }[];
+}
+
+/** The register writes its administrative units in capitals ("NOVIGRAD -
+ *  CITTANOVA"), which as a candidate's parent label would shout. Recased word
+ *  by word — a word being what follows a space, a hyphen, a slash or an opening
+ *  bracket. A value that is *not* all capitals ("Grad Zagreb", "Karlovačka
+ *  županija") is left exactly as it stands: the register has written that one
+ *  out properly, and recasing it would only capitalize what shouldn't be. */
+function titleCase(name: string): string {
+  if (name !== name.toLocaleUpperCase("hr")) return name;
+  return name
+    .toLocaleLowerCase("hr")
+    .replace(/(^|[\s\-–/(])(\p{L})/gu, (_, before: string, first: string) => before + first.toLocaleUpperCase("hr"));
+}
+
+/** The one row that gives a place its primary name: the official Croatian form,
+ *  failing that any official one, failing that whatever came first. The rest
+ *  become alternate names — which is where the Italian, Hungarian and Serbian
+ *  forms of a bilingual settlement, and the historical ones, end up. */
+function primaryNameRow<T extends { language: string; status: string }>(rows: T[]): T {
+  return (
+    rows.find((r) => r.language === "Hrvatski" && r.status === "službeno") ??
+    rows.find((r) => r.status === "službeno") ??
+    rows[0]
+  );
+}
+
+/**
+ * Convert the DGU register of geographical names into gazetteer entries — the
+ * authoritative Croatian counterpart to {@link rpeNaseljaToEntries}. The caller
+ * asks the service for the populated-place feature kinds only, so what arrives
+ * is settlements, villages, hamlets, city quarters, farmsteads and abandoned
+ * settlements; the features are grouped by `im_id` so a place named in two
+ * languages, or under a historical name, becomes one entry with alternates
+ * rather than two entries in the same spot. The municipality (`og_ime`) becomes
+ * the parent label that tells same-named places apart.
+ *
+ * Data: Državna geodetska uprava, Registar geografskih imena.
+ */
+export function rgiPlacesToEntries(data: RgiPlacesJson): GazEntry[] {
+  interface Row {
+    name: string;
+    language: string;
+    status: string;
+    admin: string;
+    lat: number;
+    lon: number;
+  }
+  // Insertion-ordered, so the output follows the register's own order rather
+  // than the numeric ids — a place's rows arrive together.
+  const byPlace = new Map<string, Row[]>();
+  let unkeyed = 0;
+  for (const feature of data.features ?? []) {
+    const props = feature.properties;
+    const name = typeof props?.pisanje_imena === "string" ? props.pisanje_imena.trim() : "";
+    if (!name) continue;
+    if (feature.geometry?.type !== "Point") continue;
+    const coords = feature.geometry.coordinates;
+    if (!Array.isArray(coords) || coords.length < 2) continue;
+    const lon = Number(coords[0]);
+    const lat = Number(coords[1]);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+    const admin = typeof props?.og_ime === "string" ? props.og_ime.trim() : "";
+    const row: Row = {
+      name,
+      language: typeof props?.jeziknaziv === "string" ? props.jeziknaziv : "",
+      status: typeof props?.status_imena === "string" ? props.status_imena : "",
+      admin,
+      lat,
+      lon,
+    };
+    // A row with no place id cannot be grouped, so it stands alone — better a
+    // duplicate entry than two unrelated places merged under a missing key.
+    const key = props?.im_id === undefined || props.im_id === null ? `#${unkeyed++}` : String(props.im_id);
+    const rows = byPlace.get(key);
+    if (rows) rows.push(row);
+    else byPlace.set(key, [row]);
+  }
+
+  const entries: GazEntry[] = [];
+  for (const rows of byPlace.values()) {
+    const primary = primaryNameRow(rows);
+    const alt: string[] = [];
+    for (const r of rows) {
+      if (r.name !== primary.name && !alt.includes(r.name)) alt.push(r.name);
+    }
+    // Same rule as every other source: a parent repeating the place's own name
+    // says nothing (a city and the municipality named after it), so it is left off.
+    const admin = primary.admin ? titleCase(primary.admin) : "";
+    entries.push({
+      name: primary.name,
+      ascii: "",
+      alt,
+      lat: primary.lat,
+      lon: primary.lon,
+      fclass: "P",
+      country: "HR",
+      admin1: "",
+      population: 0,
+      register: DGU_REGISTER,
+      ...(admin && foldToken(admin) !== foldToken(primary.name) ? { admin } : {}),
+    });
+  }
+  return entries;
+}
+
 /** Fuzzy-match bucket key: first two folded characters. */
 function bucketKey(folded: string): string {
   return folded.slice(0, 2);

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  DGU_REGISTER,
   GURS_REGISTER,
   HIGH_CONFIDENCE,
   attachAdmin1Names,
@@ -11,6 +12,7 @@ import {
   overpassSubdivisions,
   overpassToEntries,
   parseGeoNamesLine,
+  rgiPlacesToEntries,
   rpeNaseljaToEntries,
   rpeObcinaNames,
   searchGazetteer,
@@ -443,6 +445,99 @@ describe("municipalities from the RPE join", () => {
   it("leaves the tie alone when the place names neither municipality", () => {
     const hits = lookupPlace(buildGazetteerIndex(soteska(names)), "Soteska, Šentjakob ob Savi, Slovenija");
     expect(hits[0].score).toBeCloseTo(hits[1].score, 6);
+  });
+});
+
+describe("rgiPlacesToEntries", () => {
+  /** One feature of the DGU register of geographical names. */
+  const row = (
+    im_id: number | null,
+    pisanje_imena: string,
+    over: { jeziknaziv?: string; status_imena?: string; og_ime?: string; lon?: number; lat?: number } = {},
+  ) => ({
+    properties: {
+      im_id,
+      pisanje_imena,
+      jeziknaziv: over.jeziknaziv ?? "Hrvatski",
+      status_imena: over.status_imena ?? "službeno",
+      og_ime: over.og_ime ?? "KONAVLE",
+    },
+    geometry: { type: "Point", coordinates: [over.lon ?? 18.36, over.lat ?? 42.51] },
+  });
+
+  it("takes each place's point, its municipality and its register mark", () => {
+    const entries = rgiPlacesToEntries({ features: [row(1, "Mihatovići", { lon: 18.366, lat: 42.512 })] });
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({
+      name: "Mihatovići",
+      alt: [],
+      country: "HR",
+      fclass: "P",
+      population: 0,
+      register: DGU_REGISTER,
+      // Recased from the register's "KONAVLE".
+      admin: "Konavle",
+    });
+    expect(entries[0].lon).toBeCloseTo(18.366, 6);
+    expect(entries[0].lat).toBeCloseTo(42.512, 6);
+  });
+
+  it("recases a shouted municipality, leaves a written-out one, drops one that repeats the place", () => {
+    const [novigrad, sesvete, split] = rgiPlacesToEntries({
+      features: [
+        row(1, "Novigrad", { og_ime: "NOVIGRAD - CITTANOVA" }),
+        row(2, "Sesvete", { og_ime: "Grad Zagreb" }),
+        row(3, "Split", { og_ime: "SPLIT" }),
+      ],
+    });
+    expect(novigrad.admin).toBe("Novigrad - Cittanova");
+    expect(sesvete.admin).toBe("Grad Zagreb");
+    expect(split.admin).toBeUndefined();
+  });
+
+  it("folds a place's several names into one entry, the official Croatian one leading", () => {
+    const entries = rgiPlacesToEntries({
+      features: [
+        row(7, "Vörösmart", { jeziknaziv: "Mađarski" }),
+        row(7, "Zmajevac"),
+        row(7, "Змајевац", { jeziknaziv: "Srpski" }),
+        row(7, "Zmajevac", { status_imena: "povijesno" }),
+      ],
+    });
+    expect(entries).toHaveLength(1);
+    expect(entries[0].name).toBe("Zmajevac");
+    // Every other spelling stays reachable, without repeating the primary.
+    expect(entries[0].alt).toEqual(["Vörösmart", "Змајевац"]);
+    // …and resolves through the index, so a Hungarian place string in an older
+    // record still finds the Croatian settlement.
+    expect(lookupPlace(buildGazetteerIndex(entries), "Vörösmart")[0].entry.name).toBe("Zmajevac");
+  });
+
+  it("falls back through official-in-any-language to the first row", () => {
+    const [italian, unofficial] = rgiPlacesToEntries({
+      features: [
+        row(1, "Antanel", { jeziknaziv: "Talijanski" }),
+        row(2, "Stara Peć", { status_imena: "povijesno" }),
+        row(2, "Nova Peć", { status_imena: "ostalo" }),
+      ],
+    });
+    expect(italian.name).toBe("Antanel");
+    expect(unofficial.name).toBe("Stara Peć");
+    expect(unofficial.alt).toEqual(["Nova Peć"]);
+  });
+
+  it("skips rows with no name or no usable point, and never groups two under a missing id", () => {
+    const entries = rgiPlacesToEntries({
+      features: [
+        row(1, "   "),
+        { properties: { im_id: 2, pisanje_imena: "Bez oblika" }, geometry: null },
+        { properties: { im_id: 3, pisanje_imena: "Poligon" }, geometry: { type: "Polygon", coordinates: [[[15, 46]]] } },
+        { properties: { im_id: 4, pisanje_imena: "Pokvareno" }, geometry: { type: "Point", coordinates: ["x", 46] } },
+        row(null, "Prvi"),
+        row(null, "Drugi"),
+      ],
+    });
+    expect(entries.map((e) => e.name)).toEqual(["Prvi", "Drugi"]);
   });
 });
 

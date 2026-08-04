@@ -1,14 +1,17 @@
 import {
   attachAdmin1Names,
+  DGU_REGISTER,
   GURS_REGISTER,
   osmRegister,
   overpassToEntries,
   parseGeoNamesLine,
+  rgiPlacesToEntries,
   rpeNaseljaToEntries,
   rpeObcinaNames,
   subdivisionAdmin1,
   type GazEntry,
   type OverpassJson,
+  type RgiPlacesJson,
   type RpeNaseljaJson,
   type RpeObcineJson,
 } from "../geo/gazetteer";
@@ -71,6 +74,15 @@ self.onmessage = async (event: MessageEvent<GeoWorkerRequest>) => {
       // country "SI", which is what lookupPlace's country gate compares.
       await putCountry({ code: GURS_REGISTER, count: entries.length, importedAt: Date.now(), entries });
       post({ type: "result", requestId, countries: [{ code: GURS_REGISTER, count: entries.length }] });
+      return;
+    }
+    if (msg.format === "rgi") {
+      const entries = rgiPlacesToEntries(JSON.parse(new TextDecoder().decode(msg.buffer)) as RgiPlacesJson);
+      if (!entries.length) throw new Error("no places in the DGU result");
+      // Same storage rule as GURS: its own key, so it complements rather than
+      // replaces an "HR" or "HR-OSM" directory. The entries stay country "HR".
+      await putCountry({ code: DGU_REGISTER, count: entries.length, importedAt: Date.now(), entries });
+      post({ type: "result", requestId, countries: [{ code: DGU_REGISTER, count: entries.length }] });
       return;
     }
     if (msg.format === "overpass") {

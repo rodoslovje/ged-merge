@@ -7,14 +7,15 @@
 export interface GeoImportRequest {
   type: "importGazetteer";
   requestId: number;
-  /** The payload bytes — a GeoNames extract (.txt/.zip), Overpass JSON, or
-   *  the GURS RPE settlements GeoJSON. */
+  /** The payload bytes — a GeoNames extract (.txt/.zip), Overpass JSON, the
+   *  GURS RPE settlements GeoJSON, or the DGU register of geographical names. */
   buffer: ArrayBuffer;
   fileName: string;
   /** Payload shape; "geonames" when omitted. */
-  format?: "geonames" | "overpass" | "rpe";
-  /** Overpass only: the country code the entries are stored under.
-   *  ("rpe" is Slovenia by definition and always stores under "SI".) */
+  format?: "geonames" | "overpass" | "rpe" | "rgi";
+  /** Overpass only: the country code the entries are stored under. ("rpe" and
+   *  "rgi" are Slovenia and Croatia by definition and store under their own
+   *  register keys.) */
   country?: string;
   /** Overpass only: the ISO 3166-2 subdivision this payload covers ("US-CA"),
    *  when the country was too large to fetch whole. The entries still go into
