@@ -453,7 +453,7 @@ export const sl = {
   "tools.geocode.filter.all": "Vsi",
   "tools.geocode.filter.confident": "Zanesljivi",
   "tools.geocode.filter.review": "Dvoumni",
-  "tools.geocode.filter.partial": "Verjetni",
+  "tools.geocode.filter.partial": "Možni",
   "tools.geocode.filter.noProposal": "Brez predloga",
   "tools.geocode.filter.decided": "Že odločeni",
   "tools.geocode.countryUnknown": "(država ni navedena)",

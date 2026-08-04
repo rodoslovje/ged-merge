@@ -469,6 +469,103 @@ export interface RgiPlacesJson {
   }[];
 }
 
+/** The RPJ municipalities table (`rpj_opcina`), fetched without geometry: the
+ *  name each place's `og_ime` carries, and the county it belongs to. */
+export interface RgiOpcineJson {
+  features?: { properties?: { og_ime?: unknown; zupanija_id?: unknown } | null }[];
+}
+
+/** The RPJ counties table (`rpj_zupanija`), fetched without geometry. `rb` is
+ *  the county's official number, which is also the ISO 3166-2 code's digits —
+ *  HR-08 is `rb` 8, Primorsko-goranska. */
+export interface RgiZupanijeJson {
+  features?: { properties?: { id?: unknown; naziv?: unknown; rb?: unknown } | null }[];
+}
+
+/**
+ * What each Croatian county goes by besides its official Croatian name, which
+ * the register supplies itself. English forms are here because a GEDCOM written
+ * in English names the county in English — "Ravna Gora, Primorje-Gorski Kotar,
+ * Croatia" — and the register has no idea what that is; both the bare form and
+ * the "… County" one are listed because files use either. Keyed by the county's
+ * ISO 3166-2 digits, which is also what a GeoNames or OpenStreetMap import of
+ * Croatia stores, so the two directories' name lists pool.
+ *
+ * Croatia's counties were drawn in 1992 and have not moved since, so this is a
+ * fixed table rather than something to fetch.
+ */
+const HR_COUNTY_ALIASES: Record<string, string[]> = {
+  // Never a bare "Zagreb" for this one: written alone, Zagreb is the city — the
+  // separate county 21 — and claiming it here would corroborate both.
+  "01": ["Zagreb County"],
+  "02": ["Krapina-Zagorje", "Krapina-Zagorje County"],
+  "03": ["Sisak-Moslavina", "Sisak-Moslavina County"],
+  "04": ["Karlovac", "Karlovac County"],
+  "05": ["Varaždin", "Varaždin County"],
+  "06": ["Koprivnica-Križevci", "Koprivnica-Križevci County"],
+  "07": ["Bjelovar-Bilogora", "Bjelovar-Bilogora County"],
+  "08": ["Primorje-Gorski Kotar", "Primorje-Gorski Kotar County"],
+  "09": ["Lika-Senj", "Lika-Senj County"],
+  "10": ["Virovitica-Podravina", "Virovitica-Podravina County"],
+  "11": ["Požega-Slavonia", "Požega-Slavonia County"],
+  "12": ["Brod-Posavina", "Brod-Posavina County"],
+  "13": ["Zadar", "Zadar County"],
+  "14": ["Osijek-Baranja", "Osijek-Baranja County"],
+  "15": ["Šibenik-Knin", "Šibenik-Knin County"],
+  "16": ["Vukovar-Srijem", "Vukovar-Srijem County"],
+  "17": ["Split-Dalmatia", "Split-Dalmatia County"],
+  "18": ["Istria", "Istria County", "Istra"],
+  "19": ["Dubrovnik-Neretva", "Dubrovnik-Neretva County"],
+  "20": ["Međimurje", "Međimurje County"],
+  "21": ["City of Zagreb"],
+};
+
+/**
+ * The county lookup the places join through: a municipality's name (as `og_ime`
+ * writes it, in capitals) → the county's ISO 3166-2 digits, plus the county
+ * name lists those digits stand for.
+ *
+ * The register's places name their municipality as a *string*, not by id — the
+ * `administrativna_jedinica_id` they do carry belongs to another register's
+ * numbering — so the join is by name. Three municipality names are used twice
+ * over (Privlaka, Otok, Sveta Nedelja), and those are left out rather than
+ * assigned to whichever county came first: a wrong county would demote the
+ * right candidate, while a missing one only leaves the place as it was. A
+ * county's own name is registered too, since the places of a city-county carry
+ * that instead of a municipality.
+ */
+export function rgiCountyIndex(
+  opcine: RgiOpcineJson,
+  zupanije: RgiZupanijeJson,
+): { byUnit: Map<string, string>; divisions: DivisionNames } {
+  const codes = new Map<number, string>();
+  const divisions: DivisionNames = {};
+  const byUnit = new Map<string, string>();
+  for (const feature of zupanije.features ?? []) {
+    const id = feature.properties?.id;
+    const naziv = feature.properties?.naziv;
+    const rb = feature.properties?.rb;
+    if (typeof id !== "number" || typeof naziv !== "string" || !naziv.trim()) continue;
+    const code = String(typeof rb === "number" ? rb : id).padStart(2, "0");
+    codes.set(id, code);
+    divisions[code] = [naziv.trim(), ...(HR_COUNTY_ALIASES[code] ?? [])];
+  }
+  const ambiguous = new Set<string>();
+  for (const feature of opcine.features ?? []) {
+    const name = typeof feature.properties?.og_ime === "string" ? feature.properties.og_ime.trim() : "";
+    const zupanija = feature.properties?.zupanija_id;
+    const code = typeof zupanija === "number" ? codes.get(zupanija) : undefined;
+    if (!name || !code) continue;
+    const key = name.toLocaleUpperCase("hr");
+    const seen = byUnit.get(key);
+    if (seen === undefined) byUnit.set(key, code);
+    else if (seen !== code) ambiguous.add(key);
+  }
+  for (const key of ambiguous) byUnit.delete(key);
+  for (const [code, names] of Object.entries(divisions)) byUnit.set(names[0].toLocaleUpperCase("hr"), code);
+  return { byUnit, divisions };
+}
+
 /** The register writes its administrative units in capitals ("NOVIGRAD -
  *  CITTANOVA"), which as a candidate's parent label would shout. Recased word
  *  by word — a word being what follows a space, a hyphen, a slash or an opening
@@ -502,11 +599,14 @@ function primaryNameRow<T extends { language: string; status: string }>(rows: T[
  * settlements; the features are grouped by `im_id` so a place named in two
  * languages, or under a historical name, becomes one entry with alternates
  * rather than two entries in the same spot. The municipality (`og_ime`) becomes
- * the parent label that tells same-named places apart.
+ * the parent label that tells same-named places apart, and — given the county
+ * lookup from {@link rgiCountyIndex} — the county it sits in becomes the
+ * entry's `admin1`, so a place written with its county in any language the
+ * county is known by resolves to the right one.
  *
  * Data: Državna geodetska uprava, Registar geografskih imena.
  */
-export function rgiPlacesToEntries(data: RgiPlacesJson): GazEntry[] {
+export function rgiPlacesToEntries(data: RgiPlacesJson, counties?: ReadonlyMap<string, string>): GazEntry[] {
   interface Row {
     name: string;
     language: string;
@@ -564,7 +664,7 @@ export function rgiPlacesToEntries(data: RgiPlacesJson): GazEntry[] {
       lon: primary.lon,
       fclass: "P",
       country: "HR",
-      admin1: "",
+      admin1: (primary.admin && counties?.get(primary.admin.toLocaleUpperCase("hr"))) || "",
       population: 0,
       register: DGU_REGISTER,
       ...(admin && foldToken(admin) !== foldToken(primary.name) ? { admin } : {}),

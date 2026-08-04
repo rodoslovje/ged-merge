@@ -26,6 +26,12 @@ export interface GeoImportRequest {
    *  settlements join to so each one can name its občina. Optional — a settled
    *  gazetteer without it simply carries no municipality. */
   obcine?: ArrayBuffer;
+  /** "rgi" only: the RPJ municipalities and counties tables, which together say
+   *  which county each place sits in. Optional in the same way — without them
+   *  the places still import, they just cannot corroborate a county named in
+   *  the file. */
+  opcine?: ArrayBuffer;
+  zupanije?: ArrayBuffer;
 }
 
 export type GeoWorkerRequest = GeoImportRequest;

@@ -389,7 +389,7 @@ export const en = {
   "tools.geocode.filter.all": "All",
   "tools.geocode.filter.confident": "Confident",
   "tools.geocode.filter.review": "Ambiguous",
-  "tools.geocode.filter.partial": "Likely",
+  "tools.geocode.filter.partial": "Possible",
   "tools.geocode.filter.noProposal": "No proposal",
   "tools.geocode.filter.decided": "Decided",
   "tools.geocode.countryUnknown": "(country not stated)",

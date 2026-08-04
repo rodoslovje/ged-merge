@@ -101,6 +101,21 @@ const DGU_PLACES_URL =
   "&propertyName=im_id,pisanje_imena,jeziknaziv,status_imena,og_ime,geom" +
   `&CQL_FILTER=${encodeURIComponent(`vrstaobiljezjaid IN (${DGU_PLACE_KINDS.join(",")})`)}`;
 
+/** One RPJ administrative-unit table, asked for without its geometry — the
+ *  counties are 3 KB that way and the municipalities 75 KB, against megabytes
+ *  of boundary polygons nothing here would draw. */
+function dguUnitsUrl(layer: string, properties: string): string {
+  return (
+    "https://rgi.dgu.hr/geoserver/wfs?service=WFS&version=2.0.0&request=GetFeature" +
+    `&typeNames=rgi:${layer}&outputFormat=application/json&count=1000&propertyName=${properties}`
+  );
+}
+
+/** The municipalities each place's `og_ime` names, with the county each belongs
+ *  to, and the counties themselves — together, which county a place sits in. */
+const DGU_OPCINE_URL = dguUnitsUrl("rpj_opcina", "og_ime,zupanija_id");
+const DGU_ZUPANIJE_URL = dguUnitsUrl("rpj_zupanija", "id,naziv,rb");
+
 /** The direction each source moves data: two fetch it from a service, one takes
  *  it off your own disk. Plain arrows, not emoji — they inherit the button's
  *  colour in both themes, where ⬇/⬆ would draw in their own. */
@@ -210,12 +225,26 @@ async function readWithProgress(
   return out.buffer;
 }
 
+/** A small side table the main payload is joined against — the municipalities a
+ *  register's places name, the counties those belong to. Undefined when it did
+ *  not arrive: none of them is worth failing an import over, the places simply
+ *  come in without whatever the table would have told them. */
+async function fetchBuffer(url: string, signal: AbortSignal): Promise<ArrayBuffer | undefined> {
+  try {
+    const res = await fetch(url, { signal });
+    return res.ok ? await res.arrayBuffer() : undefined;
+  } catch (e) {
+    void e;
+    return undefined;
+  }
+}
+
 /** What a payload is, beyond a GeoNames dump — the shape the worker converts it
  *  under, plus whatever that shape needs alongside the bytes. */
 type ImportExtra =
   | { format: "overpass"; country: string; region?: string }
   | { format: "rpe"; obcine?: ArrayBuffer }
-  | { format: "rgi" };
+  | { format: "rgi"; opcine?: ArrayBuffer; zupanije?: ArrayBuffer };
 
 /** What a download attempt produced: the bytes, or why there are none. */
 type OverpassResult = { buffer: ArrayBuffer } | { failure: "timeout" | "busy" };
@@ -412,7 +441,10 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
       worker.onerror = () => fail(t("tools.geocode.importFailed"));
       worker.onmessageerror = () => fail(t("tools.geocode.importFailed"));
       const req: GeoWorkerRequest = { type: "importGazetteer", requestId: 1, buffer, fileName, ...extra };
-      worker.postMessage(req, req.obcine ? [buffer, req.obcine] : [buffer]);
+      // Every buffer in the request is transferred, whatever the format called
+      // it — the payload plus whichever side tables came with it.
+      const transfer = Object.values(req).filter((v): v is ArrayBuffer => v instanceof ArrayBuffer);
+      worker.postMessage(req, transfer);
     });
 
   const importFile = async (file: File) => {
@@ -598,22 +630,23 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
     downloadRegister(GURS_NASELJA_URL, "SI.gurs-naselja.json", async (signal) => {
       // The municipalities are a separate collection (212 rows) joined by
       // EID_OBCINA — what lets two settlements of one name be told apart
-      // ("Soteska (Kamnik)" vs "Soteska (Dolenjske Toplice)"). Failing to get
-      // it is not fatal: the settlements are still worth importing without it.
-      let obcine: ArrayBuffer | undefined;
-      try {
-        const res = await fetch(GURS_OBCINE_URL, { signal });
-        if (res.ok) obcine = await res.arrayBuffer();
-      } catch (e) {
-        void e;
-      }
+      // ("Soteska (Kamnik)" vs "Soteska (Dolenjske Toplice)").
+      const obcine = await fetchBuffer(GURS_OBCINE_URL, signal);
       return { format: "rpe", ...(obcine ? { obcine } : {}) };
     });
 
-  // Croatia needs no second request: the register of geographical names carries
-  // each place's municipality on the feature itself.
+  // The register names each place's municipality on the feature itself, but the
+  // county it sits in — what a place string written in English calls
+  // "Primorje-Gorski Kotar" — takes the two administrative-unit tables. They are
+  // 78 KB together, and failing to get them costs the county and nothing else.
   const downloadCroatia = () =>
-    downloadRegister(DGU_PLACES_URL, "HR.dgu-imena.json", async () => ({ format: "rgi" }));
+    downloadRegister(DGU_PLACES_URL, "HR.dgu-imena.json", async (signal) => {
+      const [opcine, zupanije] = await Promise.all([
+        fetchBuffer(DGU_OPCINE_URL, signal),
+        fetchBuffer(DGU_ZUPANIJE_URL, signal),
+      ]);
+      return { format: "rgi", ...(opcine ? { opcine } : {}), ...(zupanije ? { zupanije } : {}) };
+    });
 
   const cancelImport = () => {
     fetchAbortRef.current?.abort();
