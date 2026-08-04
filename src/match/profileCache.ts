@@ -14,8 +14,11 @@ import { childrenNames, fatherName, findEvent, motherName, parentNames, partnerN
 function memoize<R>(fn: (indi: Individual, ds: Dataset) => R): (indi: Individual, ds: Dataset) => R {
   const cache = new WeakMap<Individual, R>();
   return (indi, ds) => {
-    const hit = cache.get(indi);
-    if (hit !== undefined) return hit;
+    // has(), not a get() !== undefined check: "no father" IS the memoized
+    // answer for every terminal ancestor, and treating it as a miss redid
+    // the family walk several times per scored pair in the O(main×compare)
+    // loop — precisely where the cache matters most.
+    if (cache.has(indi)) return cache.get(indi) as R;
     const value = fn(indi, ds);
     cache.set(indi, value);
     return value;

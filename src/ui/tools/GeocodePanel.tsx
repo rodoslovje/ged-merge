@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
 import {
@@ -23,7 +23,7 @@ import { GazetteerSetup, useGazetteer } from "./GazetteerManager";
 import { AddressCoordsSection } from "./AddressCoordsSection";
 import { addressesByPlace, replaceLocality, scanAddresses } from "../../tools/addresses";
 import { CoordConflicts } from "./CoordConflicts";
-import { GeocodePlaceRow } from "./GeocodePlaceRow";
+import { GeocodePlaceRow, type RowLookups } from "./GeocodePlaceRow";
 import { BackButton } from "../BackButton";
 import { isEditableTarget, isModalOpen } from "../../keyboard/shortcuts";
 import { useNameOf, useSettings } from "../SettingsContext";
@@ -218,6 +218,14 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
 
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [chosen, setChosen] = useState<Map<string, ChosenCoord>>(new Map());
+  // Each row's on-demand OSM/GOV/register results, keyed by row key. Owned
+  // here — not in the row — because the list is virtualized: a row scrolled
+  // out of the window unmounts, and its fetched results (from rate-limited
+  // services) must be there when it scrolls back.
+  const [rowLookups, setRowLookups] = useState<Map<string, RowLookups>>(new Map());
+  const patchRowLookups = useCallback((key: string, patch: Partial<RowLookups>) => {
+    setRowLookups((prev) => new Map(prev).set(key, { ...prev.get(key), ...patch }));
+  }, []);
   /** Rows whose coordinate the researcher has cleared: the pre-selected default
    *  must not come back on its own (see chosenFor). */
   const [cleared, setCleared] = useState<Set<string>>(new Set());
@@ -339,6 +347,7 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
     setCleared((prev) => new Set([...prev].filter((k) => keys.has(k))));
     setExpanded((prev) => new Set([...prev].filter((k) => keys.has(k))));
     setMapKey((prev) => (prev && keys.has(prev) ? prev : null));
+    setRowLookups((prev) => new Map([...prev].filter(([k]) => keys.has(k))));
   }, [scan]);
 
   /**
@@ -713,6 +722,8 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
             onToggleNoMatch={toggleNoMatch}
             onRename={renameValue}
             onNavigate={onNavigate}
+            lookups={rowLookups.get(row.key)}
+            onLookupsChange={patchRowLookups}
           />
         ))}
         <li className="v-spacer" style={{ height: virtual.padBottom }} ref={virtual.bottomRef} aria-hidden />

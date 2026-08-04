@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
-import { sameCoord } from "../../geo/points";
+import { formatCoord, sameCoord } from "../../geo/points";
 import { scanPlaceCoords, type CoordConflict } from "../../tools/placeCoords";
 import { placeAddrKey } from "../../tools/geocode";
 import { parseManualCoord } from "./GeocodePlaceRow";
@@ -111,7 +111,7 @@ export function CoordConflicts({
   /** A point off the map's own pins: remembered as text so the row shows what
    *  was picked, and chosen in the same move. */
   const pickPoint = (key: string, coord: GeoCoord) => {
-    setManual((prev) => new Map(prev).set(key, `${coord.lat.toFixed(5)}, ${coord.lon.toFixed(5)}`));
+    setManual((prev) => new Map(prev).set(key, formatCoord(coord)));
     pick(key, coord);
   };
 
@@ -231,7 +231,7 @@ export function CoordConflicts({
                             onClick={() => sameCoord(chosen, x.coord) && unpick(key)}
                           />
                           <span className="gm-data gm-coord gm-coord--set">
-                            {x.coord.lat.toFixed(5)}, {x.coord.lon.toFixed(5)}
+                            {formatCoord(x.coord)}
                           </span>
                           <span className="tools-geo-count">{t("tools.geocode.addr.uses", { count: x.n })}</span>
                         </label>

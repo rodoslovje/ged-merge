@@ -4,10 +4,23 @@
   "version": "0.0.0",
   "type": "module",
   "description": "Browser-only GEDCOM editor: edit a family tree, merge a second GEDCOM into it field by field, and maintain the whole file — with no upload and no backend",
-  "keywords": ["gedcom", "genealogy", "family-tree", "merge", "ancestry", "offline-first", "browser-only"],
+  "keywords": [
+    "gedcom",
+    "genealogy",
+    "family-tree",
+    "merge",
+    "ancestry",
+    "offline-first",
+    "browser-only"
+  ],
   "homepage": "https://gedmerge.com",
-  "repository": { "type": "git", "url": "git+https://github.com/rodoslovje/ged-merge.git" },
-  "bugs": { "url": "https://github.com/rodoslovje/ged-merge/issues" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rodoslovje/ged-merge.git"
+  },
+  "bugs": {
+    "url": "https://github.com/rodoslovje/ged-merge/issues"
+  },
   "author": "Luka Renko",
   "license": "MIT",
   "scripts": {
@@ -38,6 +51,7 @@
     "@vitest/coverage-v8": "^4.1.9",
     "eslint": "^10.5.0",
     "eslint-plugin-react-hooks": "^7.1.1",
+    "fake-indexeddb": "^6.2.5",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.62.0",
     "vite": "^8.0.16",

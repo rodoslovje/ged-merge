@@ -238,8 +238,11 @@ function sanitizePyramid(v: unknown): NativePyramid | undefined {
   return out;
 }
 
-/** Keep only well-formed overlay entries from a stored blob. */
-function sanitizeOverlays(v: unknown): MapOverlay[] {
+/** Keep only well-formed overlay entries from a stored blob. Every field of
+ *  {@link MapOverlay} must be carried through here — a field this function
+ *  doesn't know is silently stripped from the user's saved config on the next
+ *  load. Exported for the parity test that enforces exactly that. */
+export function sanitizeOverlays(v: unknown): MapOverlay[] {
   if (!Array.isArray(v)) return [];
   const out: MapOverlay[] = [];
   for (const o of v as Partial<MapOverlay>[]) {

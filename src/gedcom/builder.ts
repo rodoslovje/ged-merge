@@ -298,8 +298,9 @@ export type NoteIndex = Map<string, NoteIndexEntry>;
 /** Tags whose value is, by convention, a link/URL even without a scheme. */
 export const LINK_TAGS = new Set(["WWW", "URL", "_URL", "_LINK", "_WEBTAG", "FILE"]);
 
-/** Matches one or more http(s) URLs embedded anywhere in a line value. */
-const URL_RE = /https?:\/\/[^\s<>"]+/gi;
+/** Matches one or more http(s) URLs embedded anywhere in a line value.
+ *  Shared with citationParse — one spelling of "what counts as a URL". */
+export const URL_RE = /https?:\/\/[^\s<>"]+/gi;
 
 /** Closing/void tags that represent a line break in rich-text-pasted note markup. */
 const HTML_BLOCK_BREAK_RE = /<\/(?:p|div|li|h[1-6]|blockquote)>|<br\s*\/?>/gi;
@@ -449,7 +450,7 @@ function collectLinks(node: GedNode, media: MediaLinks, out: string[] = []): str
 }
 
 /** Drop trailing punctuation a URL regex may swallow from surrounding prose. */
-function stripTrailingPunct(url: string): string {
+export function stripTrailingPunct(url: string): string {
   return url.replace(/[.,;:)\]}>"']+$/, "");
 }
 

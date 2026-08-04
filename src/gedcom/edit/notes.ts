@@ -100,11 +100,34 @@ export function setSharedNotePrivate(ctx: SharedNoteCtx, xref: string, on: boole
  *  after the referring pointer node has been removed from its owner). */
 export function removeNoteRecordIfOrphaned(ctx: SharedNoteCtx, xref: string): void {
   if (countNoteRefs(ctx.records, xref) > 0) return;
+  removeNoteRecord(ctx, xref);
+}
+
+/** Unconditional removal half of {@link removeNoteRecordIfOrphaned} — the
+ *  caller has already established the record is orphaned. */
+function removeNoteRecord(ctx: SharedNoteCtx, xref: string): void {
   const index = ctx.records.findIndex((r) => r.tag === "NOTE" && r.xref === xref);
   if (index === -1) return;
   const [rec] = ctx.records.splice(index, 1);
   bumpSourceCacheVersion(ctx.records);
   ctx.changes.push({ xref, before: cloneNode(rec), after: null, index });
+}
+
+/** One tree walk counting the remaining references of several NOTE xrefs at
+ *  once — a commit dropping k shared notes used to walk the whole dataset k
+ *  times over via per-xref {@link countNoteRefs}. */
+function countNoteRefsMulti(records: GedNode[], xrefs: ReadonlySet<string>): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const x of xrefs) counts.set(x, 0);
+  const walk = (node: GedNode): void => {
+    for (const child of node.children) {
+      const v = child.tag === "NOTE" ? child.value?.trim() : undefined;
+      if (v !== undefined && counts.has(v)) counts.set(v, counts.get(v)! + 1);
+      walk(child);
+    }
+  };
+  for (const rec of records) walk(rec);
+  return counts;
 }
 
 /**
@@ -141,8 +164,12 @@ export function applyNoteRefs(ctx: SharedNoteCtx, ownerRaw: GedNode, refs: NoteR
   }
 
   const kept = new Set(refs.map((r) => r.xref).filter(Boolean));
-  for (const xref of prevXrefs) {
-    if (!kept.has(xref)) removeNoteRecordIfOrphaned(ctx, xref);
+  const dropped = new Set(prevXrefs.filter((x) => !kept.has(x)));
+  if (dropped.size) {
+    const counts = countNoteRefsMulti(ctx.records, dropped);
+    for (const xref of dropped) {
+      if (counts.get(xref) === 0) removeNoteRecord(ctx, xref);
+    }
   }
 }
 

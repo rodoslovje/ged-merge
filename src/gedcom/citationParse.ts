@@ -19,12 +19,7 @@ export interface ParsedCitation {
   note?: string;
 }
 
-const URL_RE = /https?:\/\/[^\s<>"]+/gi;
-
-/** Drop trailing punctuation a URL regex may swallow from surrounding prose. */
-function stripTrailingPunct(url: string): string {
-  return url.replace(/[.,;:)\]}>"']+$/, "");
-}
+import { stripTrailingPunct, URL_RE } from "./builder";
 
 /** A quoted title: Slovenian/German-style »…«, curly “…”, straight "…", or '…'. */
 const QUOTE_RE = /»([^»«]+)«|“([^“”]+)”|"([^"]+)"|'([^']+)'/;

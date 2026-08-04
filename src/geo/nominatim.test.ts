@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { osmKindLabel, osmNamesPlace, osmShortLabel, parseNominatimResponse } from "./nominatim";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { osmKindLabel, osmNamesPlace, osmShortLabel, parseNominatimResponse, searchNominatim } from "./nominatim";
 
 describe("parseNominatimResponse", () => {
   it("maps jsonv2 rows to coordinates with short and full labels", () => {
@@ -194,5 +194,37 @@ describe("osmNamesPlace", () => {
     expect(osmNamesPlace(stray, "Breg ob Savi")).toBe(true);
     expect(osmNamesPlace(real, "circe")).toBe(true);
     expect(osmNamesPlace(real, "")).toBe(true);
+  });
+});
+
+describe("searchNominatim failure paths", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  it("a failed request rejects its caller without wedging the shared queue", async () => {
+    // All requests flow through one module-level throttle queue: the failure
+    // must reject only its own caller, and the next request must still run.
+    vi.useFakeTimers({ toFake: ["setTimeout"] });
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("network down"))
+      .mockResolvedValue({ ok: true, json: async () => [] } as unknown as Response);
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(searchNominatim("Kranj", "sl")).rejects.toThrow("network down");
+    const second = searchNominatim("Bled", "sl");
+    await vi.advanceTimersByTimeAsync(1500); // the 1 req/s spacing
+    await expect(second).resolves.toEqual([]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("an HTTP error surfaces as a rejection too", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout"] });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 503 } as unknown as Response));
+    const p = searchNominatim("Kranj", "sl");
+    await vi.advanceTimersByTimeAsync(1500);
+    await expect(p).rejects.toThrow("HTTP 503");
   });
 });

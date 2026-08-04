@@ -114,11 +114,15 @@ export function normalizeDataset(
         node.tag = canonical;
       }
     });
-    // Consolidate the vendor partnership-status encodings (MyHeritage REL_*
-    // events, FTM _STAT, the BK _NMR/_MSTAT/_MARRIED trio) into `_MSTAT`,
-    // agreeing _FREL/_MREL child relationships into standard FAMC PEDI, and
-    // `_UPD` last-updated stamps into the standard CHAN structure.
-    for (const change of [...normalizeFamilyStatus(editable), ...normalizePedigree(records), ...convertUpdToChan(editable)]) {
+    // Agree _FREL/_MREL child relationships into standard FAMC PEDI, and
+    // `_UPD` last-updated stamps into the standard CHAN structure. The
+    // partnership-status consolidation (`normalizeFamilyStatus`) runs *after*
+    // the value walk below instead: its "redundant companion" cleanup keeps a
+    // bare `_NMR` that still has children, and a placeholder-date child
+    // (`2 DATE __.__.____`) only disappears in that walk — consolidating
+    // first left a stray `_NMR` that the next load would then remove,
+    // breaking normalize's fixed-point guarantee.
+    for (const change of [...normalizePedigree(records), ...convertUpdToChan(editable)]) {
       report.vendorTagsRenamed++;
       record(report.vendorTagExamples, seenVendor, change.before, change.after);
     }
@@ -184,6 +188,17 @@ export function normalizeDataset(
         report.datesChanged++;
         record(report.dateExamples, seenDate, before, "(blank)");
       }
+    }
+  }
+
+  // Consolidate the vendor partnership-status encodings (MyHeritage REL_*
+  // events, FTM _STAT, the BK _NMR/_MSTAT/_MARRIED trio) into `_MSTAT`.
+  // Deliberately after the date walk and the placeholder-date drop — see the
+  // vendor-rename block above for why.
+  if (options.vendorTags) {
+    for (const change of normalizeFamilyStatus(editable)) {
+      report.vendorTagsRenamed++;
+      record(report.vendorTagExamples, seenVendor, change.before, change.after);
     }
   }
 

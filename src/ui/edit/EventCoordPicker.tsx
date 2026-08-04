@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { GeoCoord } from "../../gedcom/types";
 import { countryCode } from "../../gedcom/countryCode";
 import { decomposePlace, parseCoordInput } from "../../gedcom/place";
-import { sameCoord } from "../../geo/points";
+import { formatCoord, sameCoord } from "../../geo/points";
 import { rnQueriesFrom, searchAddresses, splitAddressVariants, type RnResult } from "../../geo/rn";
 import { placeLookupLanguage } from "../../geo/lookupLanguage";
 import { osmKindLabel, osmShortLabel, searchNominatim, type NominatimResult } from "../../geo/nominatim";
@@ -150,7 +150,7 @@ export function EventCoordPicker({
   }, [place, address]);
   const draftCoord = parseCoordInput(draft);
   /** One coordinate, as the panel and the pin panels print it. */
-  const at = (c: GeoCoord) => `${c.lat.toFixed(5)}, ${c.lon.toFixed(5)}`;
+  const at = formatCoord;
 
   useLayoutEffect(() => {
     if (!open) return;
@@ -375,7 +375,7 @@ export function EventCoordPicker({
           className={"edit-event-coord" + (coord ? "" : " edit-event-coord--empty")}
           title={
             coord
-              ? t("event.coord", { coords: `${coord.lat.toFixed(5)}, ${coord.lon.toFixed(5)}` })
+              ? t("event.coord", { coords: formatCoord(coord) })
               : t("event.coord.none", { event: title })
           }
           aria-label={t("event.coord.open", { event: title })}
@@ -399,7 +399,7 @@ export function EventCoordPicker({
             {coord && (
               <div className="edit-coord-current">
                 <span className="gm-data gm-coord gm-coord--set">
-                  {coord.lat.toFixed(5)}, {coord.lon.toFixed(5)}
+                  {formatCoord(coord)}
                 </span>
                 <button type="button" className="tools-issue-link" onClick={() => { onClear(); setOpen(false); }}>
                   {t("event.coord.clear")}
@@ -465,7 +465,7 @@ export function EventCoordPicker({
                         .map((r) => `${r.coord.lat},${r.coord.lon}`)
                         .join("|") || `${place} ${address}`
                     }
-                    onPickCoord={(c) => setDraft(`${c.lat.toFixed(5)}, ${c.lon.toFixed(5)}`)}
+                    onPickCoord={(c) => setDraft(formatCoord(c))}
                   />
                 </div>
               </Suspense>
@@ -543,7 +543,7 @@ export function EventCoordPicker({
                         {r.label}
                       </button>
                       <span className="gm-data gm-coord">
-                        {r.coord.lat.toFixed(5)}, {r.coord.lon.toFixed(5)}{" "}
+                        {formatCoord(r.coord)}{" "}
                         <span className="tools-reshape-badge official">GURS</span>
                       </span>
                     </li>
@@ -558,7 +558,7 @@ export function EventCoordPicker({
                       <span className="edit-coord-cand-line">
                         {osmKindLabel(r, t) && <span className="tools-geo-cand-kind">{osmKindLabel(r, t)}</span>}
                         <span className="gm-data gm-coord">
-                          {r.coord.lat.toFixed(5)}, {r.coord.lon.toFixed(5)}{" "}
+                          {formatCoord(r.coord)}{" "}
                           <span className="tools-reshape-badge reuse">OSM</span>
                         </span>
                       </span>
