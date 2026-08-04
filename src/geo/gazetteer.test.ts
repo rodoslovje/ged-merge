@@ -542,6 +542,93 @@ describe("rgiPlacesToEntries", () => {
   });
 });
 
+describe("rgiPlacesToEntries and the register's cities", () => {
+  const city = (im_id: number, name: string, over: { og_ime?: string; lon?: number; lat?: number } = {}) => {
+    const f = row(im_id, name, over);
+    return { ...f, properties: { ...f.properties, vrstaobiljezjaid: 321 } };
+  };
+  const settlement = (im_id: number, name: string, over: { og_ime?: string; lon?: number; lat?: number } = {}) => {
+    const f = row(im_id, name, over);
+    return { ...f, properties: { ...f.properties, vrstaobiljezjaid: 234 } };
+  };
+
+  it("drops a city that repeats a settlement of its own name nearby", () => {
+    // The register pins Samobor's city 5 km off its settlement, and parents the
+    // two differently — one place, written twice.
+    const entries = rgiPlacesToEntries({
+      features: [
+        city(1, "Samobor", { og_ime: "Zagrebačka županija", lon: 15.6462, lat: 45.788 }),
+        settlement(2, "Samobor", { og_ime: "SAMOBOR", lon: 15.7092, lat: 45.8019 }),
+      ],
+    });
+    expect(entries).toHaveLength(1);
+    // The survivor is the settlement: pinned in the town, and parented by its
+    // own municipality — which, repeating its name, shows no parent at all.
+    expect(entries[0].lon).toBeCloseTo(15.7092, 6);
+    expect(entries[0].admin).toBeUndefined();
+  });
+
+  it("keeps a city the register files under no settlement at all", () => {
+    // Pula, Buje and Poreč are exactly this: only the city kind names them.
+    const entries = rgiPlacesToEntries({
+      features: [city(1, "Pula", { og_ime: "Istarska županija", lon: 13.8481, lat: 44.8666 })],
+    });
+    expect(entries.map((e) => e.name)).toEqual(["Pula"]);
+  });
+
+  it("keeps a city whose namesake settlement is a different place far away", () => {
+    // The city of Otok in Vukovar-Srijem against the villages called Otok — 200
+    // km apart, and both real.
+    const entries = rgiPlacesToEntries({
+      features: [
+        city(1, "Otok", { og_ime: "Vukovarsko-srijemska županija", lon: 18.88, lat: 45.15 }),
+        settlement(2, "Otok", { og_ime: "OTOK", lon: 16.7, lat: 43.49 }),
+      ],
+    });
+    expect(entries).toHaveLength(2);
+  });
+
+  it("recovers the bare name of a bilingual one written as a single string", () => {
+    const [buje, bale, tar] = rgiPlacesToEntries({
+      features: [
+        // The register holds the joined form and one half; the other half —
+        // the name a file writes — appears nowhere.
+        city(1, "Buje-Buie", { og_ime: "BUJE - BUIE" }),
+        city(1, "Buie", { og_ime: "BUJE - BUIE" }),
+        // Not even a half here: the spaced hyphen in the municipality is what
+        // says this is a language pair and not a compound name.
+        settlement(2, "Bale-Valle", { og_ime: "BALE - VALLE" }),
+        settlement(3, "Tar-Tore", { og_ime: "TAR-VABRIGA - TORRE-ABREGA" }),
+      ],
+    });
+    expect(buje.alt).toEqual(["Buie", "Buje"]);
+    expect(bale.alt).toEqual(["Bale", "Valle"]);
+    expect(tar.alt).toEqual(["Tar", "Tore"]);
+  });
+
+  it("leaves a genuinely hyphenated name alone", () => {
+    const entries = rgiPlacesToEntries({
+      features: [
+        // A compound municipality name: one hyphen, no spaces, one language.
+        settlement(1, "Ivanić-Grad", { og_ime: "IVANIĆ-GRAD" }),
+        settlement(2, "Vojnić-Breg", { og_ime: "BEDEKOVČINA" }),
+        settlement(3, "Sveti Vid-Miholjice", { og_ime: "MALINSKA-DUBAŠNICA" }),
+        // A bilingual pair of compounds — which half belongs to which language
+        // is not something the hyphens say, so it stays whole.
+        settlement(4, "Kaštelir-Labinci-Castelliere-S.Domenica", {
+          og_ime: "KAŠTELIR-LABINCI - CASTELLIERE-S. DOMENICA",
+        }),
+      ],
+    });
+    expect(entries.every((e) => e.alt.length === 0)).toBe(true);
+  });
+
+  it("treats a feature with no kind as a settlement", () => {
+    const entries = rgiPlacesToEntries({ features: [row(1, "Bez vrste")] });
+    expect(entries.map((e) => e.name)).toEqual(["Bez vrste"]);
+  });
+});
+
 describe("the DGU county join", () => {
   const zupanije = {
     features: [
@@ -574,9 +661,13 @@ describe("the DGU county join", () => {
     // Official Croatian name first, then the forms an English-language file uses.
     expect(divisions["08"]).toEqual([
       "Primorsko-goranska županija",
+      // The bare adjective a file is as likely to write as the full name.
+      "Primorsko-goranska",
       "Primorje-Gorski Kotar",
       "Primorje-Gorski Kotar County",
     ]);
+    // No "županija" to strip, so nothing extra.
+    expect(divisions["21"]).toEqual(["Grad Zagreb", "City of Zagreb"]);
     expect(divisions["99"]).toBeUndefined();
   });
 

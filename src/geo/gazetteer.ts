@@ -464,10 +464,31 @@ export interface RgiPlacesJson {
       jeziknaziv?: unknown;
       status_imena?: unknown;
       og_ime?: unknown;
+      vrstaobiljezjaid?: unknown;
     } | null;
     geometry?: { type?: unknown; coordinates?: unknown } | null;
   }[];
 }
+
+/** The register's feature kinds for a city — `grad (jls)` and `glavni grad`.
+ *  A city is a local-government unit as much as a place, so the register files
+ *  one at its administrative label point and, separately, as the settlement of
+ *  the same name; see {@link CITY_DUPLICATE_DEG}. */
+const RGI_CITY_KINDS = new Set([321, 231]);
+
+/**
+ * How far apart a city and the settlement of its own name may sit and still be
+ * the one place. The register pins the city at its own label point, which for
+ * Samobor is 5 km from the settlement's and for Senj 12 km — while the nearest
+ * genuine namesake pair (the city of Otok and the villages called Otok) is 200
+ * km apart. Anything inside this is the same place written twice, and the city
+ * copy is dropped; anything beyond is two places.
+ *
+ * Wider than {@link DUPLICATE_DEG}, which collapses twins at *lookup* time
+ * across whole directories, and cannot be widened to suit this: 20 km there
+ * would swallow genuinely distinct neighbouring villages.
+ */
+const CITY_DUPLICATE_DEG = 0.2;
 
 /** The RPJ municipalities table (`rpj_opcina`), fetched without geometry: the
  *  name each place's `og_ime` carries, and the county it belongs to. */
@@ -548,7 +569,13 @@ export function rgiCountyIndex(
     if (typeof id !== "number" || typeof naziv !== "string" || !naziv.trim()) continue;
     const code = String(typeof rb === "number" ? rb : id).padStart(2, "0");
     codes.set(id, code);
-    divisions[code] = [naziv.trim(), ...(HR_COUNTY_ALIASES[code] ?? [])];
+    const official = naziv.trim();
+    // Files routinely write the county as the bare adjective the official name
+    // opens with — "Pula, Istarska, Croatia" for Istarska županija — so that
+    // form counts as one of its names too. Grad Zagreb has no such suffix and
+    // contributes nothing extra.
+    const short = official.replace(/\s+županija$/i, "");
+    divisions[code] = [official, ...(short !== official ? [short] : []), ...(HR_COUNTY_ALIASES[code] ?? [])];
   }
   const ambiguous = new Set<string>();
   for (const feature of opcine.features ?? []) {
@@ -579,6 +606,61 @@ function titleCase(name: string): string {
     .replace(/(^|[\s\-–/(])(\p{L})/gu, (_, before: string, first: string) => before + first.toLocaleUpperCase("hr"));
 }
 
+/**
+ * The halves of a bilingual name the register wrote as one string — but only
+ * where the place's other names prove that is what it is.
+ *
+ * Istrian towns are officially named in both languages, and the register files
+ * that either as two rows ("Pula", "Pola") or as one ("Buje-Buie"). Where it
+ * files only the joined form, the bare Croatian name a file actually writes —
+ * "Buje", "Umag" — appears nowhere, and the place is missed.
+ *
+ * Splitting on the hyphen alone would invent names for the genuinely hyphenated
+ * ones (Ivanić-Grad is not Ivanić and Grad), so a half is only taken on one of
+ * two pieces of evidence from the register itself:
+ *
+ * - Its counterpart is already one of the place's names. The register has said
+ *   "Buie" belongs here, so "Buje-Buie" minus "Buie" belongs here too.
+ * - The municipality is written as a bilingual pair. The register separates the
+ *   two languages of a unit name with a *spaced* hyphen and joins a genuinely
+ *   compound one with a bare hyphen — "BALE - VALLE" against "IVANIĆ-GRAD" —
+ *   so a place of one hyphen inside a spaced-pair municipality is a pair as
+ *   well. That is what rescues Bale, Tar and Grožnjan, whose bilingual name the
+ *   register files as a single row with no half to match against.
+ */
+function splitJoinedNames(names: string[], admin: string): string[] {
+  const folded = new Set(names.map(foldToken));
+  const extra: string[] = [];
+  const bilingualUnit = /\S\s+-\s+\S/.test(admin);
+  for (const name of names) {
+    // One hyphen only: a name of several is a compound whose halves this rule
+    // cannot place ("Kaštelir-Labinci-Castelliere-S.Domenica").
+    if (!bilingualUnit || name.split("-").length !== 2) continue;
+    for (const half of name.split("-").map((s) => s.trim())) {
+      if (!half || folded.has(foldToken(half))) continue;
+      folded.add(foldToken(half));
+      extra.push(half);
+    }
+  }
+  for (const name of names) {
+    const parts = name.split("-");
+    for (let cut = 1; cut < parts.length; cut++) {
+      const left = parts.slice(0, cut).join("-").trim();
+      const right = parts.slice(cut).join("-").trim();
+      if (!left || !right) continue;
+      for (const [half, other] of [
+        [left, right],
+        [right, left],
+      ]) {
+        if (!folded.has(foldToken(half)) || folded.has(foldToken(other))) continue;
+        folded.add(foldToken(other));
+        extra.push(other);
+      }
+    }
+  }
+  return extra;
+}
+
 /** The one row that gives a place its primary name: the official Croatian form,
  *  failing that any official one, failing that whatever came first. The rest
  *  become alternate names — which is where the Italian, Hungarian and Serbian
@@ -595,10 +677,12 @@ function primaryNameRow<T extends { language: string; status: string }>(rows: T[
  * Convert the DGU register of geographical names into gazetteer entries — the
  * authoritative Croatian counterpart to {@link rpeNaseljaToEntries}. The caller
  * asks the service for the populated-place feature kinds only, so what arrives
- * is settlements, villages, hamlets, city quarters, farmsteads and abandoned
- * settlements; the features are grouped by `im_id` so a place named in two
- * languages, or under a historical name, becomes one entry with alternates
- * rather than two entries in the same spot. The municipality (`og_ime`) becomes
+ * is cities, settlements, villages, hamlets, city quarters, farmsteads and
+ * abandoned settlements; the features are grouped by `im_id` so a place named
+ * in two languages, or under a historical name, becomes one entry with
+ * alternates rather than two entries in the same spot, and a city that repeats
+ * a settlement of its own name is dropped in favour of it — see
+ * {@link CITY_DUPLICATE_DEG}. The municipality (`og_ime`) becomes
  * the parent label that tells same-named places apart, and — given the county
  * lookup from {@link rgiCountyIndex} — the county it sits in becomes the
  * entry's `admin1`, so a place written with its county in any language the
@@ -614,6 +698,7 @@ export function rgiPlacesToEntries(data: RgiPlacesJson, counties?: ReadonlyMap<s
     admin: string;
     lat: number;
     lon: number;
+    city: boolean;
   }
   // Insertion-ordered, so the output follows the register's own order rather
   // than the numeric ids — a place's rows arrive together.
@@ -637,6 +722,7 @@ export function rgiPlacesToEntries(data: RgiPlacesJson, counties?: ReadonlyMap<s
       admin,
       lat,
       lon,
+      city: typeof props?.vrstaobiljezjaid === "number" && RGI_CITY_KINDS.has(props.vrstaobiljezjaid),
     };
     // A row with no place id cannot be grouped, so it stands alone — better a
     // duplicate entry than two unrelated places merged under a missing key.
@@ -647,12 +733,15 @@ export function rgiPlacesToEntries(data: RgiPlacesJson, counties?: ReadonlyMap<s
   }
 
   const entries: GazEntry[] = [];
+  const cityAt: number[] = [];
   for (const rows of byPlace.values()) {
     const primary = primaryNameRow(rows);
+    if (primary.city) cityAt.push(entries.length);
     const alt: string[] = [];
     for (const r of rows) {
       if (r.name !== primary.name && !alt.includes(r.name)) alt.push(r.name);
     }
+    alt.push(...splitJoinedNames([primary.name, ...alt], primary.admin));
     // Same rule as every other source: a parent repeating the place's own name
     // says nothing (a city and the municipality named after it), so it is left off.
     const admin = primary.admin ? titleCase(primary.admin) : "";
@@ -670,7 +759,37 @@ export function rgiPlacesToEntries(data: RgiPlacesJson, counties?: ReadonlyMap<s
       ...(admin && foldToken(admin) !== foldToken(primary.name) ? { admin } : {}),
     });
   }
-  return entries;
+
+  // A city is a local-government unit as well as a place, and the register files
+  // it both ways: Samobor arrives once as the city, pinned at its administrative
+  // label point and parented by its county, and once as the settlement, pinned
+  // in the town and parented by its municipality. The settlement is the better
+  // of the two, so the city copy goes — unless there is no settlement near
+  // enough to be it, which is how Pula, Buje and Poreč survive: the register
+  // holds no settlement row for those at all.
+  if (!cityAt.length) return entries;
+  const cities = new Set(cityAt);
+  // The settlements indexed by folded name once, rather than folding all 24 000
+  // of them again for each of the 126 cities.
+  const settlements = new Map<string, number[]>();
+  for (let i = 0; i < entries.length; i++) {
+    if (cities.has(i)) continue;
+    const folded = foldToken(entries[i].name);
+    const list = settlements.get(folded);
+    if (list) list.push(i);
+    else settlements.set(folded, [i]);
+  }
+  const drop = new Set(
+    cityAt.filter((i) => {
+      const city = entries[i];
+      return (settlements.get(foldToken(city.name)) ?? []).some(
+        (j) =>
+          Math.abs(entries[j].lat - city.lat) < CITY_DUPLICATE_DEG &&
+          Math.abs(entries[j].lon - city.lon) < CITY_DUPLICATE_DEG,
+      );
+    }),
+  );
+  return drop.size ? entries.filter((_, i) => !drop.has(i)) : entries;
 }
 
 /** Fuzzy-match bucket key: first two folded characters. */

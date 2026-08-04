@@ -74,22 +74,22 @@ const GURS_OBCINE_URL =
 /**
  * The populated-place feature kinds of the DGU register of geographical names,
  * by the register's own `vrstaobiljezjaid`: naselje (234), zaselak (242), selo
- * (237), dio naselja (236), gradska četvrt (233), napušteno naselje (191) and
- * the farmstead group — salaš, majur, stancija (124).
+ * (237), dio naselja (236), gradska četvrt (233), napušteno naselje (191), the
+ * farmstead group — salaš, majur, stancija (124) — and the two city kinds, grad
+ * (321) and glavni grad (231).
  *
  * The register holds 128 000 names of everything a map shows, hills and springs
  * and bus stops included, and asking for the lot would download 25 MB of
- * features no place string will ever match. These seven kinds are the ones a
+ * features no place string will ever match. These nine kinds are the ones a
  * birth entry names: with the hamlets and the abandoned settlements in, and the
  * terrain out, it comes to some 24 000 places in 8 MB.
  *
- * The city kinds (321, 231) are deliberately not among them. Every one of the
- * 126 is also filed as a settlement, so they would arrive as a second Samobor
- * and a second Zagreb — pinned a few kilometres off the first, which is far
- * enough that the same-place rule does not collapse the pair, and labelled with
- * the county rather than the municipality every other row names.
+ * The city kinds are here because three cities — Pula, Buje and Poreč — are
+ * filed under no other one: the register has no settlement row for them at all,
+ * so leaving the kind out loses them outright. The other 123 do repeat a
+ * settlement of their own name, and {@link rgiPlacesToEntries} drops those.
  */
-const DGU_PLACE_KINDS = [124, 191, 233, 234, 236, 237, 242];
+const DGU_PLACE_KINDS = [124, 191, 231, 233, 234, 236, 237, 242, 321];
 
 /** The register of geographical names — Croatia's authoritative place
  *  directory, served as GeoJSON with CORS open, so the browser fetches it
@@ -98,7 +98,7 @@ const DGU_PLACE_KINDS = [124, 191, 233, 234, 236, 237, 242];
 const DGU_PLACES_URL =
   "https://rgi.dgu.hr/geoserver/wfs?service=WFS&version=2.0.0&request=GetFeature" +
   "&typeNames=rgi:v_imjesto_geoime_gs&outputFormat=application/json&srsName=EPSG:4326&count=50000" +
-  "&propertyName=im_id,pisanje_imena,jeziknaziv,status_imena,og_ime,geom" +
+  "&propertyName=im_id,pisanje_imena,jeziknaziv,status_imena,og_ime,vrstaobiljezjaid,geom" +
   `&CQL_FILTER=${encodeURIComponent(`vrstaobiljezjaid IN (${DGU_PLACE_KINDS.join(",")})`)}`;
 
 /** One RPJ administrative-unit table, asked for without its geometry — the
