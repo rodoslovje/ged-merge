@@ -3153,9 +3153,6 @@ button:focus-visible {
 .edit-event:hover .edit-event-extra-label,
 .edit-event:has(:focus-visible) .edit-event-extra-label { display: inline; }
 .edit-event-extra-field { min-width: 0; }
-/* The address field's standing mark (see the label rule above: names are shown
-   only on hover, and an address needs telling apart from the place beside it). */
-.edit-event-addr-pin { flex: none; display: inline-flex; align-items: center; color: var(--faint); }
 .edit-event-extra--sources { gap: 4px; flex-wrap: wrap; }
 /* The note is content-sized like the other fields (it wraps its text within
  * that width); when long it pushes the whole body to a second row. */

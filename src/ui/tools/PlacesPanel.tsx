@@ -371,7 +371,7 @@ function PlaceTreeRow({
         {spots && (
           <button
             type="button"
-            className="tools-tree-meta gm-data tools-place-coord"
+            className="tools-tree-meta gm-data gm-coord gm-coord--set tools-place-coord"
             aria-expanded={mapOpen}
             title={t(disputed ? "tools.places.coord.disputed" : "tools.places.coord")}
             onClick={() => setMapOpen((v) => !v)}

@@ -798,7 +798,15 @@ export function AddressCoordsSection({
                               onChange={() => (moveGroup === group.place ? toggleMoveRow : toggleCoordRow)(row.key)}
                             />
                           )}
-                          <span className="tools-geo-cand-name gm-addr">{row.address}</span>
+                          {/* Green once this house has a position — the one it
+                              is staged at, or the one its events already carry
+                              — muted while it has none, exactly as the Edit
+                              view's pin reads. */}
+                          <span
+                            className={`tools-geo-cand-name gm-addr${chosen || row.coord ? " gm-addr--set" : ""}`}
+                          >
+                            {row.address}
+                          </span>
                           {renameKey === row.key ? (
                             <button
                               className="tools-place-edit-btn tools-place-edit-cancel"
@@ -974,7 +982,7 @@ export function AddressCoordsSection({
                                       the house appears among its neighbours. */}
                                   <button
                                     type="button"
-                                    className="gm-data tools-geo-coord-btn"
+                                    className="gm-data gm-coord tools-geo-coord-btn"
                                     title={t("tools.geocode.showMap")}
                                     onClick={(e) => {
                                       e.preventDefault();
@@ -1063,7 +1071,7 @@ function BulkCoordPanel({
         onPick={onPick}
         onClear={onClear}
       />
-      <span className="tools-place-rename-hint">
+      <span className={"tools-place-rename-hint" + (pick ? " gm-coord gm-coord--set" : "")}>
         {pick ? `${pick.coord.lat.toFixed(5)}, ${pick.coord.lon.toFixed(5)}` : t("tools.geocode.addr.bulkNoCoord")}
       </span>
       {/* Ticking a run of houses by what they start with — "Stražišče 11" for
@@ -1071,7 +1079,7 @@ function BulkCoordPanel({
           register lost. The ticks stay visible below, so what a prefix caught
           is read off the list rather than trusted. */}
       <span className="tools-geo-addr-chip" title={t("tools.geocode.addr.bulkPrefixHint")}>
-        <span className="gm-addr">{t("tools.geocode.addr.bulkPrefixLabel")}:</span>
+        {t("tools.geocode.addr.bulkPrefixLabel")}:
         <input
           type="text"
           className="tools-geo-addr-chip-input"

@@ -28,25 +28,47 @@
 /* ---------------- House addresses ---------------- */
 /* A pin before the value, wherever an address is shown: on its own "Stražišče
    11" or "Kidričeva cesta 38" reads as just another name, and the app puts it
-   beside places, parishes and farm names it is not. Drawn as a mask filled with
-   currentColor (the PinIcon path), so it takes the colour of whatever text it
-   marks and needs no per-theme rule. The classes listed alongside .gm-addr are
-   address-only already, so every list, dropdown and map tooltip using them is
-   marked without touching its markup. */
+   beside places, parishes and farm names it is not.
+ *
+ * The same pin the Edit view's coordinate button draws (the PinIcon path, as a
+ * mask), at the same 14px and with the same two states, so one glyph means one
+ * thing across the app: muted while nothing has been placed there, accent once
+ * a position is set (.gm-addr--set — the caller knows, the CSS cannot).
+ * The classes listed alongside .gm-addr are address-only already, so every
+ * list, dropdown and map tooltip using them is marked without markup changes. */
 .gm-addr::before,
 .tools-geo-row-addr::before,
 .place-suggestion-addr::before {
   content: "";
   display: inline-block;
-  width: 0.8em;
-  height: 0.8em;
-  margin-right: 0.22em;
-  vertical-align: -0.06em;
-  background: currentColor;
-  opacity: 0.7;
+  width: 14px;
+  height: 14px;
+  margin-right: 0.2em;
+  vertical-align: -2px;
+  background: var(--muted);
+  opacity: 0.4;
   -webkit-mask: var(--pin-mask) center / contain no-repeat;
   mask: var(--pin-mask) center / contain no-repeat;
 }
+.gm-addr--set::before { background: var(--accent); opacity: 0.85; }
+
+/* ---------------- Coordinates ---------------- */
+/* The same pin before a "46.24137, 14.35580" pair, so the numbers read as a
+   position rather than an id or a measurement. Muted for a candidate on offer,
+   accent (--set) for the position actually in force. */
+.gm-coord::before {
+  content: "";
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin-right: 0.2em;
+  vertical-align: -2px;
+  background: var(--muted);
+  opacity: 0.4;
+  -webkit-mask: var(--pin-mask) center / contain no-repeat;
+  mask: var(--pin-mask) center / contain no-repeat;
+}
+.gm-coord--set::before { background: var(--accent); opacity: 0.85; }
 /* The separator these two already print sits before the pin — " · 📍 addr". */
 .tools-geo-row-addr::before,
 .place-suggestion-addr::before { margin-left: 0.1em; }

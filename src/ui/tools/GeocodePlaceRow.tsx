@@ -317,7 +317,7 @@ export function GeocodePlaceRow({
         )}
         {c && (
           <span className="tools-tree-meta">
-            → {c.label} · <span className="gm-data">{c.coord.lat.toFixed(4)}, {c.coord.lon.toFixed(4)}</span>
+            → {c.label} · <span className="gm-data gm-coord gm-coord--set">{c.coord.lat.toFixed(4)}, {c.coord.lon.toFixed(4)}</span>
           </span>
         )}
         {marked ? (
@@ -422,7 +422,7 @@ export function GeocodePlaceRow({
             lookupNote={lookup && !lookup.online ? t("event.place.lookup.offlineOnly") : undefined}
           />
           <span className="tools-geo-addr-chip" title={t("tools.geocode.renameAddrTooltip")}>
-            <span className="gm-addr">{t("event.colAddr")}:</span>
+            {t("event.colAddr")}:
             <input
               type="text"
               className="tools-geo-addr-chip-input"
@@ -559,7 +559,7 @@ export function GeocodePlaceRow({
                     onChange={() => onPickCoord(row, row.fileCoord!, t("tools.geocode.fromFile"))}
                   />
                   <span className="tools-geo-cand-name">{t("tools.geocode.fromFile")}</span>
-                  <span className="gm-data">
+                  <span className="gm-data gm-coord">
                     {row.fileCoord.lat.toFixed(4)}, {row.fileCoord.lon.toFixed(4)}
                   </span>
                 </label>
@@ -582,7 +582,7 @@ export function GeocodePlaceRow({
                   {(cand.adminDisplay ?? cand.entry.admin) && (
                     <span className="tools-geo-count">({cand.adminDisplay ?? cand.entry.admin})</span>
                   )}
-                  <span className="gm-data">
+                  <span className="gm-data gm-coord">
                     {cand.entry.population > 0 && `· ${t("tools.geocode.population", { count: cand.entry.population })} · `}
                     {`${cand.entry.lat.toFixed(4)}, ${cand.entry.lon.toFixed(4)}`}
                   </span>
@@ -611,7 +611,7 @@ export function GeocodePlaceRow({
                       chain would run the row off the line, and is in the title. */}
                   <span className="tools-geo-cand-name">{r.name}</span>
                   {r.admin && <span className="tools-geo-count">({r.admin})</span>}
-                  <span className="gm-data">
+                  <span className="gm-data gm-coord">
                     {r.coord.lat.toFixed(4)}, {r.coord.lon.toFixed(4)}
                   </span>
                   <span className="tools-reshape-badge reuse">OSM</span>
@@ -632,7 +632,7 @@ export function GeocodePlaceRow({
                   {/* The place it is part of, like the register candidates —
                       four same-named Osredek differ only in this. */}
                   {r.admin && <span className="tools-geo-count">({r.admin})</span>}
-                  <span className="gm-data">
+                  <span className="gm-data gm-coord">
                     {r.coord.lat.toFixed(4)}, {r.coord.lon.toFixed(4)}
                   </span>
                   <span className="tools-reshape-badge new">GOV</span>
@@ -652,7 +652,7 @@ export function GeocodePlaceRow({
                   {/* A register hit is a house, not a place — pinned, so it is
                       not read as another spelling of the settlement above. */}
                   <span className="tools-geo-cand-name gm-addr">{r.label}</span>
-                  <span className="gm-data">
+                  <span className="gm-data gm-coord">
                     {r.coord.lat.toFixed(4)}, {r.coord.lon.toFixed(4)}
                   </span>
                   <span className="tools-reshape-badge official">GURS</span>
