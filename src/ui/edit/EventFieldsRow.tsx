@@ -39,6 +39,7 @@ export function EventFieldsRow({
   onEditSource,
   onOpenSourceDialog,
   autoFocusLead,
+  focusLeadNonce,
   placeSuggestions,
   placeToAddrs,
   placeCanonical,
@@ -80,6 +81,10 @@ export function EventFieldsRow({
    * value for value-events (whose date field starts hidden) — so a freshly
    * added event can be typed into immediately. */
   autoFocusLead?: boolean;
+  /** Increment to focus the lead input of an already-mounted row — the
+   * always-present Birth row, which quick-add targets instead of duplicating
+   * (autoFocusLead only fires on mount). */
+  focusLeadNonce?: number;
   placeSuggestions: string[];
   placeToAddrs: Map<string, string[]>;
   placeCanonical: Map<string, string>;
@@ -310,15 +315,16 @@ export function EventFieldsRow({
   // don't each claim a full-width column — that content-sizing is what lets the
   // place and the secondary fields pack onto one wrapped line and only spill to
   // a second row when they genuinely don't fit. The floor keeps an empty or
-  // short field a sensible typing target rather than a token-sized box.
-  const chW = (v: string, max = 40) => ({ width: `${Math.min(max, Math.max(12, v.trim().length + 2))}ch` });
+  // short field a sensible typing target rather than a token-sized box; the +4
+  // (not a snug +2) leaves the ~2.5ch the input reserves for its × button.
+  const chW = (v: string, max = 40) => ({ width: `${Math.min(max, Math.max(12, v.trim().length + 4))}ch` });
   // Notes can be multi-line, so size them to the widest line, not the whole
   // string's length (which would over-widen a stack of short lines). The floor
   // is generous — notes are prose, and a freshly added one should offer a
   // sentence's worth of room, not a token-sized box.
   const noteW = (v: string, max = 50) => {
     const longest = v.split("\n").reduce((m, line) => Math.max(m, line.length), 0);
-    return { width: `${Math.min(max, Math.max(18, longest + 2))}ch` };
+    return { width: `${Math.min(max, Math.max(18, longest + 4))}ch` };
   };
 
   // Compact layout: a field with no value (and not showing an incoming merge
@@ -395,6 +401,18 @@ export function EventFieldsRow({
     el?.focus();
     setFocusKey(null);
   }, [focusKey]);
+
+  // Quick-add targeting this already-mounted row (the Birth row): each nonce
+  // bump focuses the lead input. The ref guard skips the mount run, so a row
+  // remounting on person switch doesn't steal focus for a stale bump.
+  const seenFocusNonce = useRef(focusLeadNonce ?? 0);
+  useEffect(() => {
+    if (!focusLeadNonce || focusLeadNonce === seenFocusNonce.current) return;
+    seenFocusNonce.current = focusLeadNonce;
+    rootRef.current
+      ?.querySelector<HTMLInputElement>(primaryLine ? "input.edit-event-date" : "input.edit-event-value")
+      ?.focus();
+  }, [focusLeadNonce, primaryLine]);
 
   // The event-type label becomes a dropdown when the tag can be reassigned
   // and/or the event copied or removed — the latter two via "Copy event to…" /

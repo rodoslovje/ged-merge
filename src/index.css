@@ -3538,6 +3538,11 @@ button:focus-visible {
   flex: 1;
   min-width: 0;
 }
+/* The text reserves the × button's zone, so a click at the end of the text
+   places the caret there instead of clearing the field (the × used to sit
+   right over the last characters). */
+.clearable-wrap > input,
+.clearable-wrap--textarea > textarea { padding-right: 18px; }
 .input-clear {
   position: absolute;
   right: 3px;
@@ -8055,6 +8060,22 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
   font-size: 0.82rem;
   line-height: 1.35;
 }
+/* Settings › Quick add events: the ordered chips (each digit is its shortcut)
+ * plus the add picker. */
+.settings-quick-events {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.settings-quick-chip { cursor: default; }
+.settings-quick-num {
+  color: var(--muted);
+  font-size: 0.75em;
+  margin-right: 6px;
+}
+
 .settings-overlays-actions {
   display: flex;
   align-items: center;
