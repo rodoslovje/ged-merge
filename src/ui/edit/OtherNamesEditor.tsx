@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { Individual } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
 import { addAdditionalName, removeAdditionalName, setNickname, setMarriedName } from "../../gedcom/edit";
@@ -23,6 +23,7 @@ export function OtherNamesEditor({
   onAddMedia,
   showAddFsId,
   onAddFsId,
+  addNameNonce,
   marriedNameTag,
   leadingControl,
 }: {
@@ -41,6 +42,8 @@ export function OtherNamesEditor({
    * ID" chip (the chips themselves live in `FsIdEditor` below this row). */
   showAddFsId: boolean;
   onAddFsId: () => void;
+  /** Increment to add an alternative name and open it for editing (⌥⇧A). */
+  addNameNonce?: number;
   /** True when the main file records married surnames inline as `_MARNM`, so
    * choosing the "married" type on an added name stores it there instead of as a
    * separate `TYPE married` NAME record. */
@@ -52,6 +55,16 @@ export function OtherNamesEditor({
   const primary = primaryName(person);
   const extraNames = person.names.slice(1);
   const hasNamesContent = editing !== null || !!primary?.nickname || !!primary?.married || extraNames.length > 0;
+
+  // ⌥⇧A does what the "+ Add Name" chip does. The ref guard skips the value
+  // seen at mount, so a remount on person switch adds nothing by itself.
+  const seenAddNameNonce = useRef(addNameNonce ?? 0);
+  useEffect(() => {
+    if (!addNameNonce || addNameNonce === seenAddNameNonce.current) return;
+    seenAddNameNonce.current = addNameNonce;
+    commit((indi) => addAdditionalName(indi, "aka"));
+    setEditing(person.names.length - 1);
+  }, [addNameNonce, commit, person]);
 
   const addNameBtn = (
     <button

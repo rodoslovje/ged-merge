@@ -424,6 +424,8 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     add: () => {},
     openMenu: () => {},
   });
+  /** The person-level actions ⌥⇧ letters reach, read at event time. */
+  const editActionRef = useRef<Record<string, () => void>>({});
   // The scrollable person panel — Up/Down scroll this instead of navigating
   // when it actually has overflow to scroll.
   const editBodyRef = useRef<HTMLDivElement>(null);
@@ -431,22 +433,33 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   useEffect(() => {
     if (!active) return;
     function onKey(e: KeyboardEvent) {
-      // ⌥1–⌥9 / ⌥0 fire even while typing in a field — the bare digits must
-      // keep typing dates there. Option/Alt on purpose: browsers reserve
-      // ⌘digit (macOS) and Ctrl+digit (Windows/Linux) for tab switching,
-      // while ⌥digit reaches the page. Matched on e.code: with Option held,
-      // e.key is the special character the layout produces (¡, ™ …), and the
-      // ctrlKey guard also keeps AltGr (Ctrl+Alt) layouts typing theirs. The
-      // field being typed in commits itself when focus moves to the new
-      // event's input.
-      if (e.altKey && !e.metaKey && !e.ctrlKey && !e.shiftKey && /^Digit[0-9]$/.test(e.code) && !isModalOpen()) {
-        const { tags, add, openMenu } = quickAddRef.current;
+      // ⌥⇧ — the one family of edit shortcuts that fires even while typing in a
+      // field, so a record can be filled in without the keyboard leaving it.
+      //
+      // ⌥⇧ and not ⌥ alone: Windows and Linux browsers claim ⌥E (Chrome's menu,
+      // Firefox's Edit) and ⌥S (Firefox's History) as menu accelerators, which a
+      // page cannot take back. Not ⌃⌥ either — that is AltGr, which types € and
+      // the diacritics on a Slovenian layout — nor ⌃⇧, where N, P, M and T are
+      // the browser's own. Matched on e.code because with Option held e.key is
+      // whatever the layout composes (å, π, ™); the ctrlKey guard keeps AltGr
+      // typing its characters. The field being typed in commits itself when the
+      // action moves focus.
+      //
+      // A key already answered by the event row the keyboard is in (its own note
+      // and source) arrives here handled — see EventFieldsRow.
+      if (e.altKey && e.shiftKey && !e.metaKey && !e.ctrlKey && !isModalOpen() && !e.defaultPrevented) {
         const id = shortcutRef.current.selectedId;
         if (!id) return;
-        const digit = Number(e.code.slice(-1));
-        if (digit === 0) { e.preventDefault(); openMenu(); return; }
-        const tag = tags[digit - 1];
-        if (tag) { e.preventDefault(); add(tag); }
+        if (/^Digit[0-9]$/.test(e.code)) {
+          const { tags, add, openMenu } = quickAddRef.current;
+          const digit = Number(e.code.slice(-1));
+          if (digit === 0) { e.preventDefault(); openMenu(); return; }
+          const tag = tags[digit - 1];
+          if (tag) { e.preventDefault(); add(tag); }
+          return;
+        }
+        const action = editActionRef.current[e.code];
+        if (action) { e.preventDefault(); action(); }
         return;
       }
       if (isEditableTarget(e.target) || isModalOpen()) return;
@@ -477,18 +490,6 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
       const statusHit = KEY_STATUS[key];
       if (statusHit) {
         if (decKey) { e.preventDefault(); toggle(statusHit); }
-        return;
-      }
-      if (/^[0-9]$/.test(e.key)) {
-        // Quick-add events, in the order configured in Settings; 0 opens the
-        // full "+ Add event" menu.
-        const { tags, add, openMenu } = quickAddRef.current;
-        if (e.key === "0") {
-          if (id) { e.preventDefault(); openMenu(); }
-          return;
-        }
-        const tag = tags[Number(e.key) - 1];
-        if (tag && id) { e.preventDefault(); add(tag); }
         return;
       }
       if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
@@ -586,6 +587,8 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   const [birtFocusNonce, setBirtFocusNonce] = useState(0);
   const [rowFocus, setRowFocus] = useState<{ nodeId: number; nonce: number } | null>(null);
   const [addEventMenuNonce, setAddEventMenuNonce] = useState(0);
+  /** Bumped by ⌥⇧A: adds an alternative name and opens it for editing. */
+  const [addNameNonce, setAddNameNonce] = useState(0);
   const addIndividualEvent = useStableHandler((tag: string) => {
     if (!person) return;
     if (tag === "BIRT") {
@@ -608,6 +611,17 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     tags: settings.quickEventTags,
     add: addIndividualEvent,
     openMenu: () => setAddEventMenuNonce((n) => n + 1),
+  };
+  // ⌥⇧ letters, by physical key. Note and Source are the person's here; inside
+  // an event row that row answers them first, for the event (EventFieldsRow).
+  editActionRef.current = {
+    KeyE: () => setAddEventMenuNonce((n) => n + 1),
+    KeyN: () => setNotesAdded(true),
+    KeyA: () => setAddNameNonce((n) => n + 1),
+    KeyS: () => setSourceDialogTarget({ kind: "individual" }),
+    KeyM: () => handleAddMedia({ kind: "individual" }),
+    KeyP: () =>
+      commit((indi) => setPrivateFlag(indi.raw, !indi.private, privacyStyle, dataset.records)),
   };
 
   const commitFamily: FamilyCommit = useStableHandler((fam: Family, mutate: (fam: Family, noteCtx: SharedNoteCtx) => void, extraPatches?: RecordPatch[]) => {
@@ -1750,6 +1764,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
             onAddNote={() => setNotesAdded(true)}
             showAddMedia={collectMediaRefs(person.raw, dataset.records).length === 0}
             onAddMedia={() => handleAddMedia({ kind: "individual" })}
+            addNameNonce={addNameNonce}
             showAddFsId={!fsIdAdded && !(person.fsids ?? []).length}
             onAddFsId={() => setFsIdAdded(true)}
             marriedNameTag={marriedNameTag}

@@ -613,8 +613,25 @@ export function EventFieldsRow({
     );
   }
 
+  /**
+   * ⌥⇧N and ⌥⇧S belong to the event the keyboard is in: a note or a source
+   * added while typing a burial is the burial's, not the person's. Handled here
+   * so the row's own closures do the work, and marked handled — EditView's
+   * window listener runs afterwards and stands down for the person.
+   */
+  function onRowKeyDown(e: React.KeyboardEvent) {
+    if (!e.altKey || !e.shiftKey || e.metaKey || e.ctrlKey || e.defaultPrevented) return;
+    if (e.code === "KeyN") {
+      e.preventDefault();
+      addDetail("note");
+    } else if (e.code === "KeyS") {
+      e.preventDefault();
+      onAddSource();
+    }
+  }
+
   return (
-    <div className="edit-event" ref={rootRef}>
+    <div className="edit-event" ref={rootRef} onKeyDown={onRowKeyDown}>
       {/* Column 1: event-type label with the expand toggle beside it. When the
        * tag can be reassigned and/or the event removed, the label becomes an
        * app-styled menu — type choices (if any) plus "Copy event to…" /
