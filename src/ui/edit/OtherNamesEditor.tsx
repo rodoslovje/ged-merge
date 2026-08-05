@@ -145,7 +145,7 @@ export function OtherNamesEditor({
           tooltip={t("edit.addEventTooltip")}
           t={t}
           onAdd={onAddEvent}
-          className="edit-name-chip edit-name-chip-add add-chip-select"
+          className="edit-name-chip edit-name-chip-add"
         />
         {showAddMedia && (
           <button

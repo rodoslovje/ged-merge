@@ -2998,12 +2998,10 @@ button:focus-visible {
  * ("Naturalization") still overflows left as before rather than breaking
  * mid-word. */
 .edit-event-label { flex: none; width: auto; max-width: 100%; text-align: right; color: var(--muted); }
-/* The type-change control is a native <select> stretched invisibly over the
- * label (so it picks up the same click target and keyboard handling as a
- * regular select) with only the small ▾ caret showing — the label text
- * itself stays a plain, unconstrained string so long labels (e.g.
- * "Naturalization") keep overflowing exactly as before instead of being
- * clipped by a select's fixed-width rendering. */
+/* The type-change control is a DropdownMenu trigger button styled as the
+ * plain label with only the small ▾ caret showing — the label text stays an
+ * unconstrained string so long labels (e.g. "Naturalization") keep
+ * overflowing exactly as before. */
 .edit-event-label--select { position: relative; padding-right: 15px; cursor: pointer; }
 .edit-event-label--select:hover,
 .edit-event-label--select:focus-within { color: var(--text); }
@@ -3020,15 +3018,6 @@ button:focus-visible {
   line-height: 1;
   opacity: 1;
   color: var(--accent);
-}
-.edit-event-type-select {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  opacity: 0;
-  cursor: pointer;
-  border: none;
 }
 /* Leading item 2: the date. The cell is a fixed 8em slot the input fills, with
  * the text right-aligned so the years line up in a column across rows (whether
@@ -3087,11 +3076,10 @@ button:focus-visible {
  * the "+ Detail" menu, not revealed en masse (which read as a crowded row of
  * blank labelled inputs). */
 .edit-event .ev-collapsed { display: none; }
-/* The "+ Add" menu is a real (visible) <select> styled as a dashed chip, so it
- * opens reliably from the keyboard (Tab to it, then Space / Enter / ↓) — unlike
- * the opacity-0 overlay chips. At rest it's collapsed to nothing but stays in
- * the DOM and focusable (so it keeps its place in the tab order and focus can
- * return to it after a dialog closes); it expands to a chip on hover, on focus,
+/* The "+ Add" menu is a DropdownMenu trigger styled as a dashed chip. At rest
+ * it's collapsed to nothing but stays in the DOM and focusable (so it keeps
+ * its place in the tab order and focus can return to it after a dialog
+ * closes); it expands to a chip on hover, on focus, while its menu is open,
  * or when any field in the event is focused. */
 .edit-event-addfield {
   width: 0;
@@ -3112,6 +3100,7 @@ button:focus-visible {
    while being edited, so typing in the row still keeps it shown. */
 .edit-event:hover .edit-event-addfield,
 .edit-event:has(:focus-visible) .edit-event-addfield,
+.edit-event-addfield[aria-expanded="true"],
 .edit-event-addfield:focus {
   width: auto;
   opacity: 1;
@@ -3189,24 +3178,12 @@ button:focus-visible {
 }
 .add-chip:hover,
 .add-chip:focus-visible { border-color: var(--accent); color: var(--text); }
-.add-chip-select {
-  position: relative;
-  display: inline-block;
-  cursor: pointer;
-  user-select: none;
-}
-/* The overlay <select> is at opacity 0, so keyboard focus shows on the chip
- * label instead — this is what makes "+ Add", the event-type ▾ and the
- * add-event chips reachable and operable from the keyboard (Tab to focus, then
- * Space / Enter / ↓ opens the menu). */
-.add-chip-select:focus-within { border-color: var(--accent); color: var(--text); }
-.add-chip-select-inner {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  opacity: 0;
-  cursor: inherit;
+/* Caret inside the sex-picker trigger, standing in for the native select's
+ * dropdown glyphs. */
+.sex-select-caret {
+  margin-left: 4px;
+  color: var(--muted);
+  font-size: 0.85em;
 }
 
 /* Edit mode: inline-editable fields */
@@ -3302,16 +3279,14 @@ button:focus-visible {
 
 /* One consistent keyboard-focus ring for every edit chip / dropdown — the
  * add-event / add-source / add-note chips, the Sex picker, the event-type ▾ and
- * the "+ Add" field menu — so focus looks the same whether the control is a
- * button, a plain <select>, or a <label> wrapping an opacity-0 overlay select
- * (which needs :focus-within, since the select's own ring is invisible). */
+ * the "+ Add" field menu — so focus looks the same across all of them (they
+ * are all buttons now; the menus themselves are DropdownMenu popups). */
 .sex-select:focus-visible,
 .edit-name-chip-add:focus-visible,
 .add-chip:focus-visible,
-.add-chip-select:focus-within,
 .edit-link-add:focus-visible,
 .edit-event-addfield:focus-visible,
-.edit-event-label--select:focus-within {
+.edit-event-label--select:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
   border-radius: var(--radius-sm);
@@ -3668,6 +3643,65 @@ button:focus-visible {
   font-size: 0.82rem;
 }
 .place-suggestion-note { color: var(--muted); }
+
+/* App-styled dropdown menus (DropdownMenu.tsx) — the themed popup replacing
+ * native <select> popups for the menu-like pickers (event type ▾, "+ Add
+ * event", "+ Detail", sex). The trigger is a button carrying the caller's
+ * existing chip/label classes; :where() keeps this reset at zero specificity
+ * so those classes always win regardless of source order. */
+:where(.dd-reset) {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.dd-menu {
+  position: fixed;
+  z-index: 1200; /* above the 1100 modal layer — menus can anchor inside dialogs */
+  min-width: 140px;
+  max-width: min(420px, 90vw);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 4px 0;
+  background: var(--panel);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+}
+.dd-menu:focus { outline: none; }
+.dd-group + .dd-group {
+  margin-top: 2px;
+  border-top: 1px solid var(--border);
+  padding-top: 2px;
+}
+.dd-group-label {
+  padding: 6px 10px 2px;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.dd-item {
+  position: relative;
+  padding: 5px 10px 5px 26px; /* left room for the ✓ current mark */
+  font-size: 0.88rem;
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dd-item--active { background: var(--accent-soft); }
+.dd-item--current::before {
+  content: "✓";
+  position: absolute;
+  left: 9px;
+  color: var(--accent);
+}
 
 /* Record-level links and notes sections (individual and family) */
 .edit-record-section {
