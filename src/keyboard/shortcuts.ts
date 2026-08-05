@@ -80,6 +80,9 @@ export interface ShortcutItem {
    * "mod" is rendered as ⌘ on macOS, Ctrl elsewhere.
    */
   keys: string[][];
+  /** How the alternatives read: "/" between interchangeable keys (the default),
+   *  "–" when they are the ends of a run (1–9). */
+  sep?: "or" | "range";
   /** i18n key for the human-readable description. */
   descKey: string;
 }
@@ -100,7 +103,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     items: [
       { keys: [["mod", "S"]], descKey: "shortcuts.item.save" },
       { keys: [["mod", "Z"]], descKey: "shortcuts.item.undo" },
-      { keys: [["mod", "Shift", "Z"], ["mod", "Y"]], descKey: "shortcuts.item.redo" },
+      { keys: [["mod", "shift", "Z"], ["mod", "Y"]], descKey: "shortcuts.item.redo" },
       { keys: [["mod", "F"]], descKey: "shortcuts.item.find" },
       { keys: [["/"]], descKey: "shortcuts.item.globalSearch" },
       { keys: [["?"]], descKey: "shortcuts.item.help" },
@@ -137,18 +140,25 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     column: "right",
     items: [
       { keys: [[KEY.addPerson.toUpperCase()]], descKey: "shortcuts.item.addPerson" },
-      { keys: [["1"], ["9"]], descKey: "shortcuts.item.quickEvent" },
-      { keys: [["0"]], descKey: "shortcuts.item.addEventMenu" },
-      // Option/Alt, not "mod": ⌘digit / Ctrl+digit are the browser's own tab
-      // switch — ⌥digit is what reaches the page even inside a field.
-      { keys: [["alt", "1"], ["alt", "9"]], descKey: "shortcuts.item.quickEventTyping" },
+      // ⌥⇧, so they fire inside a field too — and clear of the browser's own:
+      // ⌥E/⌥S are menu accelerators on Windows and Linux, ⌃⌥ is AltGr, and
+      // ⌃⇧N/P/M belong to the browser (see the EditView key handler).
+      // The menu first, then the one-click events — the order of the row they
+      // stand for, under the event list.
+      { keys: [["alt", "shift", "E"]], descKey: "shortcuts.item.addEventMenu" },
+      { keys: [["alt", "shift", "1"], ["alt", "shift", "9"]], sep: "range", descKey: "shortcuts.item.quickEvent" },
+      { keys: [["alt", "shift", "N"], ["alt", "shift", "S"]], descKey: "shortcuts.item.addNoteSource" },
+      { keys: [["alt", "shift", "A"], ["alt", "shift", "I"], ["alt", "shift", "L"]], descKey: "shortcuts.item.addNameMediaPrivate" },
+      { keys: [["alt", "shift", "F"], ["alt", "shift", "M"]], descKey: "shortcuts.item.addParent" },
+      { keys: [["alt", "shift", "P"], ["alt", "shift", "C"]], descKey: "shortcuts.item.addPartnerChild" },
       { keys: [["Enter"]], descKey: "shortcuts.item.commitField" },
     ],
   },
   {
     titleKey: "shortcuts.group.decisions",
     category: "app",
-    column: "right",
+    // Left, to balance the editing group opposite: it is much the longest.
+    column: "left",
     items: [
       { keys: [[KEY.confirm.toUpperCase()]], descKey: "shortcuts.item.confirm" },
       { keys: [[KEY.reject.toUpperCase()]], descKey: "shortcuts.item.reject" },
@@ -160,7 +170,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     category: "app",
     column: "right",
     items: [
-      { keys: [["1"], ["8"]], descKey: "shortcuts.item.chartKind" },
+      { keys: [["1"], ["8"]], sep: "range", descKey: "shortcuts.item.chartKind" },
       { keys: [[CHART_KEY.ancestors.toUpperCase()], [CHART_KEY.descendants.toUpperCase()]], descKey: "shortcuts.item.chartDirection" },
       { keys: [["+"], ["−"]], descKey: "shortcuts.item.chartZoom" },
       { keys: [[CHART_KEY.zoomReset]], descKey: "shortcuts.item.chartZoomReset" },
@@ -171,8 +181,18 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
 
 /** Render "mod" for the current platform; pass other tokens through unchanged. */
 export function renderKeyToken(token: string): string {
-  if (token !== "mod" && token !== "alt") return token;
-  const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
-  if (token === "alt") return isMac ? "⌥" : "Alt";
-  return isMac ? "⌘" : "Ctrl";
+  if (token === "alt") return isMacKeyboard() ? "⌥" : "Alt";
+  if (token === "shift") return isMacKeyboard() ? "⇧" : "Shift";
+  if (token === "mod") return isMacKeyboard() ? "⌘" : "Ctrl";
+  return token;
+}
+
+function isMacKeyboard(): boolean {
+  return typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
+}
+
+/** The ⌥⇧ combination as it reads on this platform: the glyphs run together on
+ *  a Mac ("⌥⇧1"), the words need joining anywhere else ("Alt+Shift+1"). */
+export function altShiftLabel(key: string): string {
+  return isMacKeyboard() ? `⌥⇧${key}` : `Alt+Shift+${key}`;
 }

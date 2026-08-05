@@ -2959,6 +2959,29 @@ button:focus-visible {
 .edit-name-chip-add:focus-visible { opacity: 1; }
 /* Action chips row — always visible */
 .edit-other-names-actions .edit-name-chip-add { opacity: 1; }
+/* The row that adds an event, under the list it adds to. Always visible (it is
+   the way to add an event, not an incidental extra on another row), led by the
+   "+ Add event" menu. Sized like the person's own chip row above —
+   it sits outside `.edit-other-names`, so it states the size and spacing that
+   row inherits from there rather than taking the panel's. */
+.edit-event-add-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  padding: 8px 0 2px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.edit-event-add-row .edit-name-chip-add { opacity: 1; }
+/* An event the person can only have one of and already has: its button leads to
+   the row holding it rather than writing a second one, so it reads as a
+   destination — solid-bordered and without the "+" — not an offer to add. */
+.edit-name-chip--recorded {
+  border-style: solid;
+  border-color: var(--border);
+  color: var(--muted);
+}
 .edit-name-chip-add:hover,
 .edit-name-chip-add:focus-visible,
 .edit-name-chip-add:focus-within { border-color: var(--accent); color: var(--text); }
@@ -5973,21 +5996,32 @@ p.settings-note { margin: 0 0 12px; font-size: 0.82rem; color: var(--muted); lin
 .shortcuts-col { min-width: 0; }
 .shortcuts-group { break-inside: avoid; }
 .shortcuts-group h3 {
-  font-size: 1.05rem; margin: 12px 0 8px; padding-bottom: 6px;
+  font-size: 1.05rem; margin: 10px 0 4px; padding-bottom: 4px;
   color: var(--accent); border-bottom: 1px solid var(--border);
 }
 /* Each group is a two-column grid: a shared key column (sized by the widest
-   combo in the group) and left-aligned descriptions, so rows line up instead
-   of rag-wrapping against the right edge. */
+   combo in the group, and no wider — a floor under it left short keys like S
+   stranded far from what they do) and left-aligned descriptions, so rows line
+   up instead of rag-wrapping against the right edge. */
 .shortcuts-group dl {
-  display: grid; grid-template-columns: minmax(88px, max-content) 1fr;
+  display: grid; grid-template-columns: max-content 1fr;
   align-items: center; margin: 0;
 }
 .shortcuts-row { display: contents; }
-.shortcuts-row dt { margin: 0; padding: 5px 16px 5px 0; }
-.shortcuts-row dd { margin: 0; padding: 5px 0; color: var(--muted); font-size: 0.98rem; }
+/* Tight rows: a stacked combo already stands two lines tall, so the padding
+   that suited one-line rows spread the list down the page. */
+.shortcuts-row dt { margin: 0; padding: 2px 8px 2px 0; }
+.shortcuts-row dd { margin: 0; padding: 2px 0; color: var(--muted); font-size: 0.98rem; }
 
+/* Modifiers shared by every key of a shortcut take a line of their own, with
+   the keys that differ beneath: ⌥⇧ over "F / M / P / C" keeps the column narrow
+   — the more so where the modifiers are spelled out (Alt, Shift). Stacking is a
+   column, not a wrap: a wrapped row still reserves the width of the single line
+   it would have been, which is the width this is meant to save. */
 .kbd-combo { display: inline-flex; align-items: center; gap: 6px; }
+.kbd-combo:has(.kbd-mods) { flex-direction: column; align-items: flex-start; gap: 2px; }
+.kbd-mods,
+.kbd-keys { display: inline-flex; align-items: center; gap: 4px; }
 .kbd-chord { display: inline-flex; align-items: center; gap: 4px; }
 .kbd-or { color: var(--muted); font-size: 0.85rem; }
 

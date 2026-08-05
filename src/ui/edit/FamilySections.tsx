@@ -405,7 +405,9 @@ export const FamilySection = memo(function FamilySection({
   const childPickerOpen = pickingSlot?.kind === "child" && pickingSlot.fam === fam;
 
   return (
-    <div className="edit-family">
+    // The id is on the element so a keyboard shortcut can tell which family the
+    // cursor is in, and add a child (or a partner) to that one.
+    <div className="edit-family" data-fam-id={fam?.id}>
       <div className="edit-family-header">
         <div className="person-card-role">{t("field.partners")}</div>
         <div className="edit-family-card-row">

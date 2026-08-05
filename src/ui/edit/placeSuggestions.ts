@@ -41,7 +41,7 @@ export function placeKey(raw: string): string {
 
 /** House numbers compare as numbers ("Breg 2" before "Breg 11"), like the
  *  geocoding lists (src/tools/addresses.ts). */
-const BY_HOUSE_NUMBER = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
+export const BY_HOUSE_NUMBER = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
 
 /** Collect all unique PLAC and ADDR values from a dataset and build canonical
  * maps (most-frequent casing wins) for normalize-on-blur. */

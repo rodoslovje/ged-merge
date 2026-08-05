@@ -380,6 +380,35 @@ export function EventFieldsRow({
     { key: "note", label: t("event.colNote") },
   ].filter((f) => f.key === "source" || !show[f.key as keyof typeof show]);
 
+  /**
+   * The fields a typical event is filled in, in the order they are typed: an
+   * event that leads with a value (Occupation, Title) starts there, every other
+   * starts at its date, and the place follows either. Enter walks this chain,
+   * revealing the next field on the way — the usual date and place are typed
+   * straight through, with no trip to the "+ Add" menu, and Enter on the last
+   * of them commits and hands the keyboard back as it does anywhere else.
+   */
+  const entryChain = primaryLine ? ["date", "place"] : ["value", "date", "place"];
+
+  /** Move to the field after `key` in the entry chain. Returns false at the end
+   *  of it, leaving Enter to mean what it usually does. */
+  function advanceEntry(key: string): boolean {
+    const next = entryChain[entryChain.indexOf(key) + 1];
+    if (!next) return false;
+    setRevealed((prev) => (prev.has(next) ? prev : new Set(prev).add(next)));
+    setFocusKey(next);
+    return true;
+  }
+
+  /** Enter in a chain field steps to the next one. `preventDefault` both stops
+   *  the form-wide "Enter commits and blurs" rule from firing instead and
+   *  marks the key as spoken for. */
+  const entryKeyDown = (key: string) => (e: React.KeyboardEvent) => {
+    if (e.key !== "Enter" || e.defaultPrevented) return;
+    if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+    if (advanceEntry(key)) e.preventDefault();
+  };
+
   function addDetail(key: string) {
     if (key === "source") {
       onAddSource();
@@ -396,7 +425,7 @@ export function EventFieldsRow({
   useEffect(() => {
     if (!focusKey) return;
     const el = rootRef.current?.querySelector<HTMLElement>(
-      `[data-detail="${focusKey}"] input, [data-detail="${focusKey}"] textarea`,
+      `[data-detail="${focusKey}"] input, [data-detail="${focusKey}"] textarea, input[data-detail="${focusKey}"]`,
     );
     el?.focus();
     setFocusKey(null);
@@ -584,8 +613,25 @@ export function EventFieldsRow({
     );
   }
 
+  /**
+   * ⌥⇧N and ⌥⇧S belong to the event the keyboard is in: a note or a source
+   * added while typing a burial is the burial's, not the person's. Handled here
+   * so the row's own closures do the work, and marked handled — EditView's
+   * window listener runs afterwards and stands down for the person.
+   */
+  function onRowKeyDown(e: React.KeyboardEvent) {
+    if (!e.altKey || !e.shiftKey || e.metaKey || e.ctrlKey || e.defaultPrevented) return;
+    if (e.code === "KeyN") {
+      e.preventDefault();
+      addDetail("note");
+    } else if (e.code === "KeyS") {
+      e.preventDefault();
+      onAddSource();
+    }
+  }
+
   return (
-    <div className="edit-event" ref={rootRef}>
+    <div className="edit-event" ref={rootRef} onKeyDown={onRowKeyDown}>
       {/* Column 1: event-type label with the expand toggle beside it. When the
        * tag can be reassigned and/or the event removed, the label becomes an
        * app-styled menu — type choices (if any) plus "Copy event to…" /
@@ -645,12 +691,14 @@ export function EventFieldsRow({
        * outside the slot so it never changes the date's position or size. */}
       <div className={"edit-event-date-cell" + optCls(show.date)}>
         <ClearableInput
+          data-detail="date"
           className={fieldCls("edit-input edit-event-date", dateField.isMerge, dateField.isDirty || dateForced)}
           value={dateField.value}
           placeholder={t("event.colDate")}
           title={t("event.date", { event: label })}
           autoFocus={autoFocusLead && primaryLine}
           onChange={dateField.onChange}
+          onKeyDown={entryKeyDown("date")}
           onBlur={() => commitAll({})}
           onClear={() => { dateField.clear(); commitAll({ date: "" }); }}
         />
@@ -672,6 +720,7 @@ export function EventFieldsRow({
          * shown); ordinary events lead with the date, already rendered above. */}
         {!primaryLine && (
           <ClearableInput
+            data-detail="value"
             wrapClassName="edit-event-primary"
             wrapStyle={chW(valueField.value, 60)}
             className={fieldCls("edit-input edit-event-value", valueField.isMerge, valueField.isDirty || valueForced)}
@@ -680,6 +729,7 @@ export function EventFieldsRow({
             title={label}
             autoFocus={autoFocusLead && !primaryLine}
             onChange={valueField.onChange}
+            onKeyDown={entryKeyDown("value")}
             onBlur={() => commitAll({})}
             onClear={() => { valueField.clear(); commitAll({ value: "" }); }}
           />

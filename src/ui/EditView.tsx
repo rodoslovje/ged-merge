@@ -90,6 +90,7 @@ import { SexToggle } from "./edit/SexToggle";
 import { PrivateToggle } from "./edit/PrivateToggle";
 import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "../gedcom/private";
 import { OtherNamesEditor } from "./edit/OtherNamesEditor";
+import { EventAddRow } from "./edit/EventAddRow";
 import { FsIdEditor } from "./edit/FsIdEditor";
 import { EventList } from "./edit/EventList";
 import { CopyEventDialog, type CopyEventRequest } from "./edit/CopyEventDialog";
@@ -218,7 +219,11 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   // Bumped after every edit to force a re-render — the dataset is mutated
   // in place, so React has no other signal that `person` changed.
   const [tick, setTick] = useState(0);
-  const focusNextName = useRef(false);
+  /** Where the keyboard should land when the next person is opened: on their
+   *  name, or — when the name was written in full from the text the user typed
+   *  into the picker — straight on the birth date, the field that is filled
+   *  next and a dozen buttons away in the tab order. */
+  const focusNextField = useRef<"name" | "birth" | null>(null);
   // Per-person snapshot of notes at the last clean/saved state, so newly added
   // or edited notes can render bold. Refreshed whenever the person has no unsaved
   // edits (freshly opened or just saved); preserved once it's being edited.
@@ -411,7 +416,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   const chartKind = chartSettings.kind;
   const shortcutRef = useRef({ selectedId, onShowCharts, chartKind, startId, matchOrder, navigate, goBack, matchDecKey, toggleMatchStatus });
   shortcutRef.current = { selectedId, onShowCharts, chartKind, startId, matchOrder, navigate, goBack, matchDecKey, toggleMatchStatus };
-  // Quick-add events (digits 1–9; 0 opens the Add-event menu). Fed from below
+  // Quick-add events (⌥⇧1–9). Fed from below
   // (the handler is defined after `commit`), read through the ref at event
   // time like shortcutRef.
   const quickAddRef = useRef<{ tags: string[]; add: (tag: string) => void; openMenu: () => void }>({
@@ -419,6 +424,8 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     add: () => {},
     openMenu: () => {},
   });
+  /** The person-level actions ⌥⇧ letters reach, read at event time. */
+  const editActionRef = useRef<Record<string, () => void>>({});
   // The scrollable person panel — Up/Down scroll this instead of navigating
   // when it actually has overflow to scroll.
   const editBodyRef = useRef<HTMLDivElement>(null);
@@ -426,22 +433,32 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   useEffect(() => {
     if (!active) return;
     function onKey(e: KeyboardEvent) {
-      // ⌥1–⌥9 / ⌥0 fire even while typing in a field — the bare digits must
-      // keep typing dates there. Option/Alt on purpose: browsers reserve
-      // ⌘digit (macOS) and Ctrl+digit (Windows/Linux) for tab switching,
-      // while ⌥digit reaches the page. Matched on e.code: with Option held,
-      // e.key is the special character the layout produces (¡, ™ …), and the
-      // ctrlKey guard also keeps AltGr (Ctrl+Alt) layouts typing theirs. The
-      // field being typed in commits itself when focus moves to the new
-      // event's input.
-      if (e.altKey && !e.metaKey && !e.ctrlKey && !e.shiftKey && /^Digit[0-9]$/.test(e.code) && !isModalOpen()) {
-        const { tags, add, openMenu } = quickAddRef.current;
+      // ⌥⇧ — the one family of edit shortcuts that fires even while typing in a
+      // field, so a record can be filled in without the keyboard leaving it.
+      //
+      // ⌥⇧ and not ⌥ alone: Windows and Linux browsers claim ⌥E (Chrome's menu,
+      // Firefox's Edit) and ⌥S (Firefox's History) as menu accelerators, which a
+      // page cannot take back. Not ⌃⌥ either — that is AltGr, which types € and
+      // the diacritics on a Slovenian layout — nor ⌃⇧, where N, P, M and T are
+      // the browser's own. Matched on e.code because with Option held e.key is
+      // whatever the layout composes (å, π, ™); the ctrlKey guard keeps AltGr
+      // typing its characters. The field being typed in commits itself when the
+      // action moves focus.
+      //
+      // A key already answered by the event row the keyboard is in (its own note
+      // and source) arrives here handled — see EventFieldsRow.
+      if (e.altKey && e.shiftKey && !e.metaKey && !e.ctrlKey && !isModalOpen() && !e.defaultPrevented) {
         const id = shortcutRef.current.selectedId;
         if (!id) return;
-        const digit = Number(e.code.slice(-1));
-        if (digit === 0) { e.preventDefault(); openMenu(); return; }
-        const tag = tags[digit - 1];
-        if (tag) { e.preventDefault(); add(tag); }
+        if (/^Digit[1-9]$/.test(e.code)) {
+          // 0 had opened the "+ Add event" menu; E does that, and says so.
+          const { tags, add } = quickAddRef.current;
+          const tag = tags[Number(e.code.slice(-1)) - 1];
+          if (tag) { e.preventDefault(); add(tag); }
+          return;
+        }
+        const action = editActionRef.current[e.code];
+        if (action) { e.preventDefault(); action(); }
         return;
       }
       if (isEditableTarget(e.target) || isModalOpen()) return;
@@ -472,18 +489,6 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
       const statusHit = KEY_STATUS[key];
       if (statusHit) {
         if (decKey) { e.preventDefault(); toggle(statusHit); }
-        return;
-      }
-      if (/^[0-9]$/.test(e.key)) {
-        // Quick-add events, in the order configured in Settings; 0 opens the
-        // full "+ Add event" menu.
-        const { tags, add, openMenu } = quickAddRef.current;
-        if (e.key === "0") {
-          if (id) { e.preventDefault(); openMenu(); }
-          return;
-        }
-        const tag = tags[Number(e.key) - 1];
-        if (tag && id) { e.preventDefault(); add(tag); }
         return;
       }
       if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
@@ -581,6 +586,8 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   const [birtFocusNonce, setBirtFocusNonce] = useState(0);
   const [rowFocus, setRowFocus] = useState<{ nodeId: number; nonce: number } | null>(null);
   const [addEventMenuNonce, setAddEventMenuNonce] = useState(0);
+  /** Bumped by ⌥⇧A: adds an alternative name and opens it for editing. */
+  const [addNameNonce, setAddNameNonce] = useState(0);
   const addIndividualEvent = useStableHandler((tag: string) => {
     if (!person) return;
     if (tag === "BIRT") {
@@ -603,6 +610,61 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     tags: settings.quickEventTags,
     add: addIndividualEvent,
     openMenu: () => setAddEventMenuNonce((n) => n + 1),
+  };
+  /** The spouse family the keyboard is in, if it is in one. */
+  function famAtCursor(): Family | undefined {
+    const el = (document.activeElement as HTMLElement | null)?.closest?.("[data-fam-id]");
+    const id = el?.getAttribute("data-fam-id");
+    return id ? spouseFamilies.find((f) => f.id === id) : undefined;
+  }
+
+  /**
+   * Open the picker for the first empty slot of this kind — what clicking the
+   * "+ Add …" placeholder does. A parent goes in a parent family, one being
+   * created when the person has none. A partner or a child goes in a spouse
+   * family: the one the keyboard is in, else the only one there is. With
+   * several families and the keyboard in none of them there is no answer to
+   * "which family", so nothing happens.
+   */
+  function openRelativeSlot(kind: "father" | "mother" | "partner" | "child") {
+    if (kind === "father" || kind === "mother") {
+      const held = (f: Family) => (kind === "father" ? f.husband : f.wife);
+      const fam = parentFamilies.find((f) => !held(f));
+      if (!fam && parentFamilies.length) return; // every parent family names one
+      setPickingSlot({ kind, fam });
+      return;
+    }
+    if (!person) return;
+    const personId = person.id;
+    const cursorFam = famAtCursor();
+    const partnerless = (f: Family) => !(f.husband === personId ? f.wife : f.husband);
+    if (kind === "partner") {
+      const fam = cursorFam && partnerless(cursorFam) ? cursorFam : spouseFamilies.find(partnerless);
+      if (!fam && spouseFamilies.length) return; // every family names a partner
+      setPickingSlot({ kind, fam });
+      return;
+    }
+    const fam = cursorFam ?? (spouseFamilies.length <= 1 ? spouseFamilies[0] : undefined);
+    if (!fam && spouseFamilies.length) return; // several families, none chosen
+    setPickingSlot({ kind, fam });
+  }
+
+  // ⌥⇧ letters, by physical key. Note and Source are the person's here; inside
+  // an event row that row answers them first, for the event (EventFieldsRow).
+  editActionRef.current = {
+    KeyE: () => setAddEventMenuNonce((n) => n + 1),
+    KeyN: () => setNotesAdded(true),
+    KeyA: () => setAddNameNonce((n) => n + 1),
+    KeyS: () => setSourceDialogTarget({ kind: "individual" }),
+    // Media is I for image and privacy L for the lock it shows: M and P belong
+    // to Mother and Partner, which are named far more often than either.
+    KeyI: () => handleAddMedia({ kind: "individual" }),
+    KeyL: () =>
+      commit((indi) => setPrivateFlag(indi.raw, !indi.private, privacyStyle, dataset.records)),
+    KeyF: () => openRelativeSlot("father"),
+    KeyM: () => openRelativeSlot("mother"),
+    KeyP: () => openRelativeSlot("partner"),
+    KeyC: () => openRelativeSlot("child"),
   };
 
   const commitFamily: FamilyCommit = useStableHandler((fam: Family, mutate: (fam: Family, noteCtx: SharedNoteCtx) => void, extraPatches?: RecordPatch[]) => {
@@ -1225,7 +1287,9 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     // family — so the save report lists it and CHAN stamping covers it.
     for (const p of patches) if (p.type !== "record") onDirty(p.type, p.id);
     relationsGenRef.current += 1;
-    focusNextName.current = true;
+    // A name the picker's text wrote in full needs no visit: the birth date is
+    // what gets typed next.
+    focusNextField.current = given?.trim() && defaultSurname?.trim() ? "birth" : "name";
     navigate(added.id);
   });
 
@@ -1251,7 +1315,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     );
     onDirty("individual", added.id);
     relationsGenRef.current += 1;
-    focusNextName.current = true;
+    focusNextField.current = parts?.given?.trim() && parts?.surname?.trim() ? "birth" : "name";
     navigate(added.id);
   });
 
@@ -1694,8 +1758,9 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
               t={t}
               lifespan={lifespan}
               commit={commit}
-              focusOnMount={focusNextName.current}
-              onMounted={() => { focusNextName.current = false; }}
+              focusOnMount={focusNextField.current === "name"}
+              onMounted={() => { focusNextField.current = null; }}
+              onEnterPastName={() => setBirtFocusNonce((n) => n + 1)}
               mergeHighlight={mergeHighlight}
               hasMatch={!!matchCompareId}
               matchStatus={matchStatus}
@@ -1736,21 +1801,13 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
             person={person}
             t={t}
             commit={commit}
-            // Single-instance events the person already has leave the menu —
-            // the quick buttons for them stay and focus the existing row.
-            emptyEventGroups={INDIVIDUAL_EVENT_GROUPS.map((g) => ({
-              labelKey: g.labelKey,
-              tags: g.tags.filter((tg) => !(SINGLE_EVENT_TAGS.has(tg) && childrenByTag(person.raw, tg).length > 0)),
-            })).filter((g) => g.tags.length > 0)}
-            onAddEvent={addIndividualEvent}
-            quickEventTags={settings.quickEventTags}
-            addEventMenuNonce={addEventMenuNonce}
             showAddLink={!(person.links ?? []).length && !(person.sources ?? []).length && !mergeIncomingLinks.get("links")?.length && !mergeIncomingSources.get("links")?.length}
             onAddLink={() => setSourceDialogTarget({ kind: "individual" })}
             showAddNote={!notesAdded && !(person.noteRefs ?? []).some((r) => r.text.trim())}
             onAddNote={() => setNotesAdded(true)}
             showAddMedia={collectMediaRefs(person.raw, dataset.records).length === 0}
             onAddMedia={() => handleAddMedia({ kind: "individual" })}
+            addNameNonce={addNameNonce}
             showAddFsId={!fsIdAdded && !(person.fsids ?? []).length}
             onAddFsId={() => setFsIdAdded(true)}
             marriedNameTag={marriedNameTag}
@@ -1846,11 +1903,31 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
             onMaterializeEventNode={markMaterializedEvent}
             pendingFocusNodeId={pendingFocusEventNodeId}
             birtFocusNonce={birtFocusNonce}
+            focusBirthOnMount={focusNextField.current === "birth"}
             rowFocus={rowFocus}
             undoVersion={undoVersion}
             mergeGen={mergeGen}
             birthParentAges={birthParentAges}
             onCopyEvent={onCopyIndividualEvent}
+          />
+          <EventAddRow
+            groups={INDIVIDUAL_EVENT_GROUPS.map((g) => ({
+              labelKey: g.labelKey,
+              // Single-instance events the person already has leave the menu —
+              // their quick button stays and leads to the existing row.
+              tags: g.tags.filter((tg) => !(SINGLE_EVENT_TAGS.has(tg) && childrenByTag(person.raw, tg).length > 0)),
+            })).filter((g) => g.tags.length > 0)}
+            t={t}
+            onAddEvent={addIndividualEvent}
+            quickEventTags={settings.quickEventTags}
+            addEventMenuNonce={addEventMenuNonce}
+            recordedTags={
+              new Set(
+                (settings.quickEventTags ?? []).filter(
+                  (tg) => SINGLE_EVENT_TAGS.has(tg) && childrenByTag(person.raw, tg).length > 0,
+                ),
+              )
+            }
           />
           {personMap && (
             <div className="edit-person-map">

@@ -7,20 +7,50 @@ interface Props {
   onClose: () => void;
 }
 
+/**
+ * The keys of one shortcut. Chords that share their modifiers state them once,
+ * on a line of their own with the keys that differ beneath — "⌥⇧" over
+ * "F / M / P / C" rather than the same modifiers four times across the column,
+ * which is wider still where they are spelled Alt and Shift.
+ */
 function Combo({ item }: { item: ShortcutItem }) {
+  // Only worth hoisting when the modifiers actually repeat: a lone ⌘S reads
+  // better on one line than stacked.
+  const shared: string[] = [];
+  const first = item.keys[0] ?? [];
+  if (item.keys.length > 1) {
+    for (let i = 0; i < first.length - 1; i++) {
+      const token = first[i];
+      if (!MODIFIERS.has(token) || !item.keys.every((chord) => chord[i] === token)) break;
+      shared.push(token);
+    }
+  }
+  const rest = item.keys.map((chord) => chord.slice(shared.length));
+  const separator = item.sep === "range" ? "–" : "/";
   return (
     <span className="kbd-combo">
-      {item.keys.map((chord, ci) => (
-        <span key={ci} className="kbd-chord">
-          {ci > 0 && <span className="kbd-or">/</span>}
-          {chord.map((token, ti) => (
-            <kbd key={ti}>{renderKeyToken(token)}</kbd>
+      {shared.length > 0 && (
+        <span className="kbd-mods">
+          {shared.map((token, i) => (
+            <kbd key={`m${i}`}>{renderKeyToken(token)}</kbd>
           ))}
         </span>
-      ))}
+      )}
+      <span className="kbd-keys">
+        {rest.map((chord, ci) => (
+          <span key={ci} className="kbd-chord">
+            {ci > 0 && <span className="kbd-or">{separator}</span>}
+            {chord.map((token, ti) => (
+              <kbd key={ti}>{renderKeyToken(token)}</kbd>
+            ))}
+          </span>
+        ))}
+      </span>
     </span>
   );
 }
+
+const MODIFIERS = new Set(["mod", "alt", "shift"]);
 
 function ShortcutsGroup({ group }: { group: ShortcutGroup }) {
   const { t } = useTranslation();
