@@ -117,6 +117,11 @@ interface Props {
   changeStart: (id: string | undefined) => void;
   /** Called whenever the dataset is mutated so the parent can track which records changed. */
   onDirty: (type: "individual" | "family", id: string) => void;
+  /** Settle the dirty state of every record an edit touched, from what each one
+   *  holds now — for edits that can put a record back as they go (see
+   *  `connectRelative`), where marking each touched record dirty would leave an
+   *  unchanged one flagged as unsaved. */
+  onRecordsSettled: (patches: RecordPatch[]) => void;
   /** Open the Charts hub on this person — at the last-used kind, or a specific
    *  one (the V/R shortcuts deep-link to a pedigree chart / the relationship). */
   onShowCharts: (id: string, kind?: ChartKind) => void;
@@ -193,7 +198,7 @@ const SINGLE_EVENT_TAGS = new Set(["BIRT", "DEAT", "BURI"]);
 /** Edit mode's person view: parents on top, the selected person in the
  * center, partners + children on the bottom. The center panel is editable;
  * relatives navigate on click. */
-export function EditView({ dataset, fileName, startId, changeStart, onDirty, onShowCharts, marriedNameTag, navigateToId, onNavigated, onPersonChange, matchCompareIdFor, matchOrder, decisions, changedPersonIds, compareDataset, onUpdateDecision, onPushEdit, onPatchApplied, pendingApply, onApplied, addPersonRequest, active }: Props) {
+export function EditView({ dataset, fileName, startId, changeStart, onDirty, onRecordsSettled, onShowCharts, marriedNameTag, navigateToId, onNavigated, onPersonChange, matchCompareIdFor, matchOrder, decisions, changedPersonIds, compareDataset, onUpdateDecision, onPushEdit, onPatchApplied, pendingApply, onApplied, addPersonRequest, active }: Props) {
   const { t } = useTranslation();
   const formatName = useNameOf();
   const settings = useSettingsSlice(SETTINGS_KEYS);
@@ -1161,22 +1166,12 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     } else if (kind === "father") {
       defaultSurname = primaryName(person)?.surname || undefined;
     }
-    // Typed text is read per the display-order setting: the last token is the
-    // surname in given-surname order, the first in surname-given. A single
-    // token is a given name — the surname often arrives from the context.
-    let given: string | undefined;
-    const tokens = typedName?.trim() ? typedName.trim().split(/\s+/) : [];
-    if (tokens.length === 1) {
-      given = tokens[0];
-    } else if (tokens.length > 1) {
-      if (settings.order === "surname-given") {
-        defaultSurname = tokens[0];
-        given = tokens.slice(1).join(" ");
-      } else {
-        given = tokens.slice(0, -1).join(" ");
-        defaultSurname = tokens[tokens.length - 1];
-      }
-    }
+    // Typed text is read per the display-order setting and given its capitals
+    // (see splitFullName). A lone word is a given name, so a surname coming
+    // from the family context above still stands.
+    const typed = typedName?.trim() ? splitFullName(typedName, settings.order) : undefined;
+    const given = typed?.given;
+    if (typed?.surname) defaultSurname = typed.surname;
     if (given || defaultSurname) {
       setName(added, { given, surname: defaultSurname });
       rebuildIndividual(dataset, added);
@@ -1275,45 +1270,54 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     const existing = dataset.individuals.get(existingId);
     if (!existing) return;
 
-    const beforePerson = cloneRaw(person.raw);
-    const beforeExisting = cloneRaw(existing.raw);
-    const beforeFam = fam ? cloneRaw(fam.raw) : null;
-    const prevSpouseOf = new Set(person.spouseOf);
-    const prevChildOf = new Set(person.childOf);
+    // Snapshot both people, every family either already belongs to, and every
+    // other member of those families, so the diff afterwards catches whatever
+    // the connect did — including a family it dissolved (connecting the second
+    // parent moves the child into the couple's existing family and drops the
+    // stub, which unlinks the FAMS of the parent already sitting there). A
+    // hand-listed set of patches misses those, and undo restores the record
+    // without the pointers back into it.
+    const knownFamIds = new Set<string>([
+      ...person.spouseOf,
+      ...person.childOf,
+      ...existing.spouseOf,
+      ...existing.childOf,
+      ...(fam ? [fam.id] : []),
+    ]);
+    const knownIndiIds = new Set<string>([person.id, existingId]);
+    for (const famId of knownFamIds) {
+      const f = dataset.families.get(famId);
+      if (!f) continue;
+      for (const id of [f.husband, f.wife, ...f.children]) if (id) knownIndiIds.add(id);
+    }
+    const before = snapshotRecords(dataset, knownIndiIds, knownFamIds);
 
     if (kind === "father") connectExistingParent(dataset, person, existingId, fam, "father");
     else if (kind === "mother") connectExistingParent(dataset, person, existingId, fam, "mother");
     else if (kind === "partner") connectExistingPartner(dataset, person, existingId, fam);
     else connectExistingChild(dataset, person, existingId, fam);
 
-    const patches: RecordPatch[] = [
-      { type: "individual", id: person.id, before: beforePerson, after: cloneRaw(person.raw) },
-      { type: "individual", id: existingId, before: beforeExisting, after: cloneRaw(existing.raw) },
-    ];
-    if (fam) {
-      patches.push({ type: "family", id: fam.id, before: beforeFam!, after: cloneRaw(fam.raw) });
-    } else {
-      const seenFams = new Set<string>();
-      const updatedPerson = dataset.individuals.get(person.id);
-      const updatedExisting = dataset.individuals.get(existingId);
-      for (const famId of [
-        ...(updatedPerson?.spouseOf ?? []),
-        ...(updatedPerson?.childOf ?? []),
-        ...(updatedExisting?.spouseOf ?? []),
-        ...(updatedExisting?.childOf ?? []),
-      ]) {
-        if (!prevSpouseOf.has(famId) && !prevChildOf.has(famId) && !seenFams.has(famId)) {
-          seenFams.add(famId);
-          const newFam = dataset.families.get(famId);
-          if (newFam) patches.push({ type: "family", id: famId, before: null, after: cloneRaw(newFam.raw) });
-        }
-      }
+    const patches: RecordPatch[] = patchesFromSnapshots(dataset, before);
+    // Plus any family the connect created — no snapshot exists to diff it against.
+    const updatedPerson = dataset.individuals.get(person.id);
+    const updatedExisting = dataset.individuals.get(existingId);
+    for (const famId of new Set([
+      ...(updatedPerson?.spouseOf ?? []),
+      ...(updatedPerson?.childOf ?? []),
+      ...(updatedExisting?.spouseOf ?? []),
+      ...(updatedExisting?.childOf ?? []),
+    ])) {
+      if (knownFamIds.has(famId)) continue;
+      const newFam = dataset.families.get(famId);
+      if (newFam) patches.push({ type: "family", id: famId, before: null, after: cloneRaw(newFam.raw) });
     }
 
     onPushEdit(patches, selectedId);
-    // Mark everything the connect touched — both persons plus the modified or
-    // newly created family — so the save report lists it all.
-    for (const p of patches) if (p.type !== "record") onDirty(p.type, p.id);
+    // Everything the connect touched — both people, the family it changed or
+    // created, and any it dissolved on the way — settled one by one: joining
+    // the couple's existing family drops the stub the first parent made, which
+    // leaves that parent's record exactly as it was found.
+    onRecordsSettled(patches);
     relationsGenRef.current += 1;
     setPickingSlot(null);
     setTick((v) => v + 1);

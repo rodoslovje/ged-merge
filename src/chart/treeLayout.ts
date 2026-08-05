@@ -190,12 +190,12 @@ export function flatten(
       });
       prev = p;
       for (const c of p.children) {
-        // Grid: a union child hoisted onto the person's own lane (layoutGrid's
-        // compaction) connects from the person — a straight horizontal line —
-        // rather than elbowing up from the spouse a lane below.
-        const inline = connector === "elbow" && (alignment === "lr" ? c.y === n.y : c.x === n.x);
-        const from = inline ? n : p;
-        edges.push({ id: `${from.key}->${c.key}`, d: edgePath(from, c, alignment, connector, nodeH) });
+        // Every child of the union leaves from the same box, so they share one
+        // trunk that branches to each of them — including the child grid
+        // compaction hoists onto the person's own lane, which used to get its
+        // own straight line from the person and so read as that person's alone
+        // while its siblings hung off the spouse.
+        edges.push({ id: `${p.key}->${c.key}`, d: edgePath(p, c, alignment, connector, nodeH) });
         walk(c);
       }
     }
@@ -242,8 +242,9 @@ function edgePath(
     }
     // Depth runs right. Every child of a node forks from one shared point — the
     // parent box's right edge, mid-height: a short stem to a junction in the
-    // column gap, a vertical bus down to the child's lane, then a stub into its
-    // left edge. The inline first child (same lane) collapses to a straight line.
+    // column gap, a vertical bus to the child's lane (up or down), then a stub
+    // into its left edge. A child on the parent's own lane needs no bus, so its
+    // path collapses to a straight line.
     const startX = parent.x + NODE_W;
     const startY = parent.y + nodeH / 2;
     const junctionX = parent.x + NODE_W + COL_GAP / 2;

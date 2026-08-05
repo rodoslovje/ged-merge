@@ -5,6 +5,16 @@ import { serializeGedcom } from "../gedcom/serialize";
 import type { Dataset, GedNode } from "../gedcom/types";
 import { decisionKey, type CandidateDecision } from "../review/types";
 import { buildSavePreview, type SavePreviewInput } from "./buildSavePreview";
+import { cloneNode } from "../gedcom/node";
+
+/** The pre-edit baseline of a record that has since been edited. A snapshot
+ *  identical to the record means nothing was actually changed, and the report
+ *  passes over it — so a test about a *changed* record needs the two to differ. */
+function editedFrom(ds: Dataset, id: string): GedNode {
+  const raw = cloneNode(ds.individuals.get(id)!.raw);
+  raw.children.push({ level: 1, tag: "NOTE", value: "since removed", children: [] });
+  return raw;
+}
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -188,7 +198,7 @@ describe("merge save", () => {
       ...mergeInput(),
       main,
       changedPersonIds: new Set(["@I2@"]),
-      personSnapshots: new Map([["@I2@", dataset(MAIN).individuals.get("@I2@")!.raw]]),
+      personSnapshots: new Map([["@I2@", editedFrom(dataset(MAIN), "@I2@")]]),
     })!;
     expect(Object.keys(out.report.recordKinds)).toContain("@I2@");
   });
@@ -269,7 +279,7 @@ describe("the report", () => {
     const out = buildSavePreview(
       input(dataset(MAIN), {
         changedPersonIds: new Set(["@I1@"]),
-        personSnapshots: new Map([["@I1@", dataset(MAIN).individuals.get("@I1@")!.raw]]),
+        personSnapshots: new Map([["@I1@", editedFrom(dataset(MAIN), "@I1@")]]),
       }),
     )!;
     expect(out.report.recordLabels["@I1@"]).toBe("Janez Novak");

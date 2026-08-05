@@ -2018,6 +2018,89 @@ describe("connectExistingParent", () => {
     expect(serializeGedcom(ds.records, { eol: ds.eol, finalNewline: ds.finalNewline })).toBe(before);
   });
 
+  /** The couple already have a family (with another child and a marriage); the
+   *  child is being attached to them one parent at a time. Pointers on both
+   *  sides, as a real file carries them. */
+  const COUPLE =
+    "0 @I1@ INDI\n1 SEX M\n" +
+    "0 @P1@ INDI\n1 SEX M\n1 FAMS @FX@\n" +
+    "0 @P2@ INDI\n1 SEX F\n1 FAMS @FX@\n" +
+    "0 @S1@ INDI\n1 SEX F\n1 FAMC @FX@\n" +
+    "0 @FX@ FAM\n1 HUSB @P1@\n1 WIFE @P2@\n1 CHIL @S1@\n1 MARR\n2 DATE 1 JAN 1890\n";
+
+  it("puts the child in the couple's existing family instead of duplicating it", () => {
+    const ds = buildFromText(COUPLE);
+    const person = ds.individuals.get("@I1@")!;
+    // Father first: with no parent family yet, this makes a stub holding him.
+    connectExistingParent(ds, person, "@P1@", undefined, "father");
+    const stubId = rebuildIndividual(ds, person).childOf[0];
+    expect(stubId).not.toBe("@FX@");
+    // Naming the mother completes a couple who already have @FX@.
+    connectExistingParent(ds, person, "@P2@", ds.families.get(stubId)!, "mother");
+
+    expect(rebuildIndividual(ds, person).childOf).toEqual(["@FX@"]);
+    expect(rebuildFamily(ds, ds.families.get("@FX@")!).children).toContain("@I1@");
+    // The stub is gone, so the pair are recorded as a couple exactly once.
+    expect(ds.families.has(stubId)).toBe(false);
+    expect([...ds.families.values()].filter((f) => f.husband === "@P1@" && f.wife === "@P2@")).toHaveLength(1);
+    // Neither parent keeps a pointer to the family that went.
+    for (const id of ["@P1@", "@P2@"]) {
+      expect(rebuildIndividual(ds, ds.individuals.get(id)!).spouseOf).toEqual(["@FX@"]);
+    }
+  });
+
+  it("keeps the child among the existing family's children in birth order", () => {
+    const ds = buildFromText(
+      "0 @I1@ INDI\n1 SEX M\n1 BIRT\n2 DATE 1 JAN 1880\n" +
+      "0 @P1@ INDI\n1 SEX M\n1 FAMS @FX@\n0 @P2@ INDI\n1 SEX F\n1 FAMS @FX@\n" +
+      "0 @S1@ INDI\n1 SEX F\n1 FAMC @FX@\n1 BIRT\n2 DATE 1 JAN 1875\n" +
+      "0 @S2@ INDI\n1 SEX F\n1 FAMC @FX@\n1 BIRT\n2 DATE 1 JAN 1885\n" +
+      "0 @FX@ FAM\n1 HUSB @P1@\n1 WIFE @P2@\n1 CHIL @S1@\n1 CHIL @S2@\n",
+    );
+    const person = ds.individuals.get("@I1@")!;
+    connectExistingParent(ds, person, "@P1@", undefined, "father");
+    const stubId = rebuildIndividual(ds, person).childOf[0];
+    connectExistingParent(ds, person, "@P2@", ds.families.get(stubId)!, "mother");
+
+    expect(rebuildFamily(ds, ds.families.get("@FX@")!).children).toEqual(["@S1@", "@I1@", "@S2@"]);
+  });
+
+  it("leaves a parent family that holds more than the one child alone", () => {
+    // @F1@ is a real mother-and-siblings family, not a stub: filling its father
+    // would mean merging two families, which is not this action's call.
+    const ds = buildFromText(
+      COUPLE + "0 @I2@ INDI\n1 SEX M\n1 FAMC @F1@\n" +
+        "0 @F1@ FAM\n1 WIFE @P2@\n1 CHIL @I1@\n1 CHIL @I2@\n",
+    );
+    connectExistingParent(ds, ds.individuals.get("@I1@")!, "@P1@", ds.families.get("@F1@")!, "father");
+
+    expect(rebuildFamily(ds, ds.families.get("@F1@")!).husband).toBe("@P1@");
+    expect(ds.families.has("@FX@")).toBe(true);
+  });
+
+  it("leaves a stub that carries a marriage of its own alone", () => {
+    const ds = buildFromText(
+      COUPLE.replace("0 @I1@ INDI\n1 SEX M\n", "0 @I1@ INDI\n1 SEX M\n1 FAMC @F1@\n") +
+        "0 @F1@ FAM\n1 HUSB @P1@\n1 CHIL @I1@\n1 MARR\n2 DATE 2 FEB 1888\n",
+    );
+    connectExistingParent(ds, ds.individuals.get("@I1@")!, "@P2@", ds.families.get("@F1@")!, "mother");
+
+    expect(rebuildFamily(ds, ds.families.get("@F1@")!).wife).toBe("@P2@");
+    expect(rebuildIndividual(ds, ds.individuals.get("@I1@")!).childOf).toEqual(["@F1@"]);
+  });
+
+  it("still fills the slot when the couple have no family of their own", () => {
+    const ds = buildFromText(TEXT);  // @P1@ and @P2@ are unconnected
+    const person = ds.individuals.get("@I1@")!;
+    connectExistingParent(ds, person, "@P1@", undefined, "father");
+    const famId = rebuildIndividual(ds, person).childOf[0];
+    connectExistingParent(ds, person, "@P2@", ds.families.get(famId)!, "mother");
+
+    const fam = rebuildFamily(ds, ds.families.get(famId)!);
+    expect([fam.husband, fam.wife]).toEqual(["@P1@", "@P2@"]);
+    expect(fam.children).toEqual(["@I1@"]);
+  });
+
   it("does not duplicate a FAMS link the parent already carries", () => {
     const ds = buildFromText(TEXT + "0 @F1@ FAM\n1 CHIL @I1@\n");
     const fam = ds.families.get("@F1@")!;

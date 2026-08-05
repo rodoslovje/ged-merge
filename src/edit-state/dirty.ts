@@ -1,5 +1,6 @@
 import type { GedNode } from "../gedcom/types";
 import { cloneRaw, type RecordPatch } from "../ui/historyTypes";
+import { nodesEqual } from "../gedcom/node";
 
 export type RecordKind = "individual" | "family";
 
@@ -18,17 +19,6 @@ export type SnapshotOp =
 export interface PatchApplyOps {
   dirty: DirtyOp[];
   snapshots: SnapshotOp[];
-}
-
-/** Structural equality for GedNode trees — more robust than JSON.stringify. */
-export function nodesEqual(a: GedNode, b: GedNode): boolean {
-  return (
-    a.tag === b.tag &&
-    a.value === b.value &&
-    a.xref === b.xref &&
-    a.children.length === b.children.length &&
-    a.children.every((c, i) => nodesEqual(c, b.children[i]))
-  );
 }
 
 /**

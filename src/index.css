@@ -1675,9 +1675,13 @@ button:focus-visible {
 .start-clear:hover {
   color: var(--text);
 }
-.start-options {
+/* The two person lookups — the start-person field and the relative picker —
+   drop the same list: an overlay of roomy rows at the body text size, the one
+   under the cursor or the keyboard tinted with the accent. Only their widths
+   differ (see each below). */
+.start-options,
+.relative-picker-list {
   list-style: none;
-  margin: 4px 0 0;
   padding: 4px;
   max-height: 240px;
   overflow-y: auto;
@@ -1687,11 +1691,15 @@ button:focus-visible {
   position: absolute;
   top: 100%;
   left: 0;
-  right: 0;
-  min-width: 230px;
   z-index: 5;
 }
-.start-option {
+.start-options {
+  margin: 4px 0 0;
+  right: 0;
+  min-width: 230px;
+}
+.start-option,
+.relative-picker-option {
   display: block;
   width: 100%;
   text-align: left;
@@ -1702,9 +1710,12 @@ button:focus-visible {
   border-radius: var(--radius-sm);
 }
 .start-option:hover,
-.start-option.highlighted { background: var(--accent-soft); }
+.start-option.highlighted,
+.relative-picker-option:hover,
+.relative-picker-option.highlighted { background: var(--accent-soft); }
 .start-option.active { color: var(--accent); }
-.start-empty { padding: 6px 8px; }
+.start-empty,
+.relative-picker-empty { padding: 6px 8px; }
 
 /* --- matching indicator --- */
 .matching {
@@ -2153,6 +2164,24 @@ button:focus-visible {
 /* Kinship sits right after the name in the compare header, left-aligned to
    match Edit mode's name row (rather than pushed to the far right). */
 .compare-head .person-kinship { margin-left: 0; }
+/* A person offered in a lookup list (pick a relative, pick the start person)
+   wears the same label as the card they will become: sex-coloured name, record
+   id, lifespan. Those rows are plain blocks that clip with an ellipsis, which
+   cannot reach inside an inline-flex label — so the row becomes a flex line and
+   the name is what gives up width, leaving the years legible at the end. */
+.relative-picker-option:has(.person-label),
+.start-option:has(.person-label) {
+  display: flex;
+  align-items: center;
+}
+.relative-picker-option .person-label,
+.start-option .person-label { font-size: inherit; flex-wrap: nowrap; }
+/* A name too long even for the widened list wraps onto a second line rather
+   than being cut off — a truncated name is the one thing these rows must not
+   do, since picking the wrong person is the cost. */
+.relative-picker-option .person-name,
+.start-option .person-name { white-space: normal; overflow-wrap: anywhere; }
+
 .person-name-group {
   display: inline-flex;
   align-items: center;
@@ -3020,14 +3049,16 @@ button:focus-visible {
   opacity: 1;
   color: var(--accent);
 }
-/* Leading item 2: the date. The cell is a fixed 8em slot the input fills, with
- * the text right-aligned so the years line up in a column across rows (whether
- * or not ages are shown). Full-slot (not content-width) so an empty field has
- * room for its "Date" placeholder and offers the whole slot as a click target;
- * the age badge sits just after the slot (outside it, so it never shifts the
- * date). */
+/* Leading item 2: the date. The cell is a fixed slot the input fills, with the
+ * text right-aligned so the years line up in a column across rows (whether or
+ * not ages are shown). Full-slot (not content-width) so an empty field has room
+ * for its "Date" placeholder and offers the whole slot as a click target; the
+ * age badge sits just after the slot (outside it, so it never shifts the date).
+ * The width holds a full "23 AUG 1868" *plus* the ~18px the input reserves on
+ * the right for its × button — at 8em the last digit was clipped, in every
+ * engine, and Safari's wider mono metrics made it plainest. */
 .edit-event-date-cell {
-  flex: 0 0 8em;
+  flex: 0 0 9em;
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -3480,11 +3511,15 @@ button:focus-visible {
 }
 
 /* Relative picker — inline search-and-pick widget for adding relatives */
+/* The results hang below the field as an overlay (like the start-person
+   lookup), so they can be wider than the narrow relative slot they sit in and
+   show a full name — the slot itself must not grow, or picking a mother would
+   shove the father's card sideways. */
 .relative-picker {
+  position: relative;
   width: 100%;
   border: 1px dashed var(--border);
   border-radius: var(--radius);
-  overflow: hidden;
   background: var(--bg);
 }
 .relative-picker-input {
@@ -3492,7 +3527,8 @@ button:focus-visible {
   width: 100%;
   border: none;
   border-bottom: 1px solid var(--border);
-  border-radius: 0;
+  /* Follows the wrapper's corners itself, now that the wrapper no longer clips. */
+  border-radius: var(--radius) var(--radius) 0 0;
   padding: 6px 10px;
   background: transparent;
   font: inherit;
@@ -3503,32 +3539,19 @@ button:focus-visible {
 }
 .relative-picker-input::placeholder { color: var(--muted); }
 .relative-picker-list {
-  list-style: none;
-  margin: 0;
-  padding: 2px;
-  max-height: 180px;
-  overflow-y: auto;
+  /* At least as wide as the slot, as wide as the longest name needs, and never
+     wider than the panel can show — the slot itself must stay narrow, or
+     picking a mother would shove the father's card sideways. Raised above the
+     cards it covers, and shadowed to sit clear of them. */
+  margin-top: 2px;
+  min-width: 100%;
+  width: max-content;
+  max-width: min(380px, 80vw);
+  box-sizing: border-box;
+  z-index: 30;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
 }
-.relative-picker-option {
-  display: block;
-  width: 100%;
-  text-align: left;
-  background: none;
-  border: none;
-  color: var(--text);
-  padding: 5px 8px;
-  border-radius: 5px;
-  font: inherit;
-  font-size: 0.85rem;
-  cursor: pointer;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.relative-picker-option.highlighted,
-.relative-picker-option:hover { background: var(--panel); }
 .relative-picker-new { color: var(--accent); font-weight: 500; }
-.relative-picker-empty { padding: 5px 8px; font-size: 0.85rem; }
 
 /* Clearable input wrapper — positions the × button at the right edge */
 .clearable-wrap {
@@ -3677,7 +3700,6 @@ button:focus-visible {
   border-radius: var(--radius-sm);
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
 }
-.dd-menu:focus { outline: none; }
 .dd-group + .dd-group {
   margin-top: 2px;
   border-top: 1px solid var(--border);
@@ -7336,7 +7358,7 @@ kbd {
    * here — without the fixed cell it would grow to the input's own intrinsic
    * size instead. */
   .edit-event-date-cell { flex: 0 1 auto; justify-content: flex-start; }
-  .edit-event-date-cell > .clearable-wrap { flex: 0 1 auto; width: 8em; }
+  .edit-event-date-cell > .clearable-wrap { flex: 0 1 auto; width: 9em; }
 
   /* Not enough room for the source dialog's two detail columns. */
   .add-source-details-grid { grid-template-columns: 1fr; }

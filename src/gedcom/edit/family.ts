@@ -118,10 +118,38 @@ export function addChild(dataset: Dataset, person: Individual, fam: Family | und
   return rebuildIndividual(dataset, child);
 }
 
+/** The family that already records `aId` and `bId` as the couple, if there is
+ *  one — what a second parent joining their child should be put into, rather
+ *  than a fresh record naming the same two people. `exceptId` skips the family
+ *  being filled in. */
+function coupleFamily(dataset: Dataset, aId: string, bId: string, exceptId: string): Family | undefined {
+  for (const fam of dataset.families.values()) {
+    if (fam.id === exceptId) continue;
+    if ((fam.husband === aId && fam.wife === bId) || (fam.husband === bId && fam.wife === aId)) return fam;
+  }
+  return undefined;
+}
+
+/** Whether `fam` is nothing more than the stub the previous "add parent" step
+ *  left behind — one parent, `childId` as its only child, and no content of its
+ *  own (no marriage, events, sources or notes) — so moving the child out and
+ *  dropping it loses nothing. A family with other children or anything recorded
+ *  about it is real, and is left alone even if it duplicates a couple. */
+function isBareParentStub(fam: Family, childId: string): boolean {
+  if (fam.children.length !== 1 || fam.children[0] !== childId) return false;
+  return fam.raw.children.every((c) => c.tag === "HUSB" || c.tag === "WIFE" || c.tag === "CHIL");
+}
+
 /**
  * Connect an existing individual as a parent of `person`.
  * If `fam` is given (an existing parent family missing that role), the
  * individual fills its HUSB/WIFE slot; otherwise a new family is created.
+ *
+ * Naming the second parent completes a couple, and that couple may already have
+ * a family of their own — the usual case being a child whose father was added a
+ * moment ago, creating a stub, and whose mother turns out to be that father's
+ * wife. Filling the stub would leave the pair recorded twice, so the child
+ * joins the family they already have and the stub goes.
  */
 export function connectExistingParent(
   dataset: Dataset,
@@ -133,6 +161,25 @@ export function connectExistingParent(
   const tag: "HUSB" | "WIFE" = role === "father" ? "HUSB" : "WIFE";
   const parent = dataset.individuals.get(parentId);
   if (!parent) return;
+
+  const otherParentId = fam ? (tag === "HUSB" ? fam.wife : fam.husband) : undefined;
+  if (fam && otherParentId && otherParentId !== parentId && isBareParentStub(fam, person.id)) {
+    const existing = coupleFamily(dataset, parentId, otherParentId, fam.id);
+    if (existing) {
+      // Drop the stub first: that unlinks the child's FAMC and the other
+      // parent's FAMS to it, leaving only the pointers into the real family.
+      removeFamily(dataset, fam);
+      if (!existing.children.includes(person.id)) addFamilyChild(dataset, existing, person.id);
+      if (!person.raw.children.some((c) => c.tag === "FAMC" && c.value === existing.id))
+        addFamilyLink(person, "FAMC", existing.id);
+      if (!parent.raw.children.some((c) => c.tag === "FAMS" && c.value === existing.id))
+        addFamilyLink(parent, "FAMS", existing.id);
+      rebuildFamily(dataset, existing);
+      rebuildIndividual(dataset, person);
+      rebuildIndividual(dataset, parent);
+      return;
+    }
+  }
 
   if (!fam) {
     fam = addFamily(dataset);
