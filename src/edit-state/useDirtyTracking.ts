@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import type { GedNode, Dataset } from "../gedcom/types";
 import type { RecordPatch } from "../ui/historyTypes";
 import { cloneRaw } from "../ui/historyTypes";
+import { nodesEqual } from "../gedcom/node";
 import {
   computePatchApplyOps,
   computePushCaptureOps,
@@ -155,6 +156,42 @@ export function useDirtyTracking() {
     applyOps(dirty, snapshots);
   }
 
+  /**
+   * Re-decide whether a record still counts as changed, and return whether it
+   * does. For an edit that can undo an earlier one within the session — the
+   * second parent of a child dissolves the stub family the first one made, and
+   * takes back the pointer it put on that first parent — leaving the flag set
+   * would mark a record as unsaved that the file will receive exactly as it
+   * was.
+   *
+   * Only safe once the mutation is complete: `markDirty` deliberately does not
+   * do this, because callers may mark a record before touching it, and a check
+   * there would read the state as unchanged and drop a real edit.
+   */
+  function reconcile(kind: RecordKind, id: string, dataset: Dataset): boolean {
+    const raw = kind === "individual" ? dataset.individuals.get(id)?.raw : dataset.families.get(id)?.raw;
+    const snaps = snapshotsFor(kind);
+    if (!raw) {
+      // A record the file never had leaves nothing behind when it goes; a
+      // loaded one going missing is itself the change.
+      if (loadedIdsFor(kind).current.has(id)) {
+        markDirty(kind, id, dataset);
+        return true;
+      }
+      snaps.current.delete(id);
+      removeDirty(kind, id);
+      return false;
+    }
+    const snapshot = snaps.current.get(id);
+    if (snapshot && nodesEqual(raw, snapshot)) {
+      snaps.current.delete(id);
+      removeDirty(kind, id);
+      return false;
+    }
+    markDirty(kind, id, dataset);
+    return true;
+  }
+
   /** Remove a record from the dirty set while keeping its snapshot (e.g. after
    *  Remove from save reverts it, but undo still needs to know the original). */
   function removeDirty(kind: RecordKind, id: string) {
@@ -258,6 +295,7 @@ export function useDirtyTracking() {
     markRecordDirty,
     captureSnapshotsForPush,
     onPatchApplied,
+    reconcile,
     removeDirty,
     prepareForLoad,
     resetOnLoad,

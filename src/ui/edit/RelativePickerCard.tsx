@@ -12,6 +12,9 @@ import { foldSearch } from "../globalSearch";
  *  name reads identically whether it sits on a card or in this list. */
 const SETTINGS_KEYS = ["showAge", "showXref"] as const;
 
+/** Rows offered at once — a page the user can scan, not the whole file. */
+const MAX_OPTIONS = 10;
+
 /** Inline picker that lets the user either search for an existing person or add a new one. */
 export function RelativePickerCard({
   roleLabel,
@@ -48,30 +51,45 @@ export function RelativePickerCard({
     return () => document.removeEventListener("mousedown", onMouseDown);
   }, [onCancel]);
 
+  // Every person, prepared once and left in name order. Formatting a name
+  // resolves married surnames from the whole dataset and reading a lifespan
+  // parses dates, so doing this per keystroke — as it used to — cost the length
+  // of the file on every letter typed.
+  const people = useMemo(
+    () =>
+      [...individuals.values()]
+        .filter((i) => i.id !== excludeId)
+        .map((i) => {
+          const name = nameOf(i);
+          const span = lifespanWithAge(i, settings.showAge);
+          return {
+            id: i.id,
+            indi: i,
+            name,
+            span,
+            sex: i.sex,
+            xref: xrefLabel(i.id),
+            // Searchable on every name the person carries, not just the one on
+            // show: a maiden name still finds them while married names are
+            // displayed, and the record id finds them outright.
+            search: foldSearch(`${nameSearchText(i)} ${name} ${span} ${i.id}`),
+          };
+        })
+        .sort((a, b) => a.name.localeCompare(b.name) || a.span.localeCompare(b.span)),
+    [individuals, excludeId, nameOf, settings.showAge],
+  );
+
+  // Typing only walks that list, and stops at the first full page of matches.
   const options = useMemo(() => {
     const q = foldSearch(query.trim());
-    return [...individuals.values()]
-      .filter((i) => i.id !== excludeId)
-      .map((i) => {
-        const name = nameOf(i);
-        const span = lifespanWithAge(i, settings.showAge);
-        return {
-          id: i.id,
-          name,
-          span,
-          sex: i.sex,
-          xref: xrefLabel(i.id),
-          tooltip: lifespanTooltipOf(i, settings.showAge, t),
-          // Searchable on every name the person carries, not just the one on
-          // show: a maiden name still finds them while married names are
-          // displayed, and the record id finds them outright.
-          search: foldSearch(`${nameSearchText(i)} ${name} ${span} ${i.id}`),
-        };
-      })
-      .sort((a, b) => a.name.localeCompare(b.name) || a.span.localeCompare(b.span))
-      .filter((o) => !q || o.search.includes(q))
-      .slice(0, 10);
-  }, [individuals, excludeId, query, nameOf, settings.showAge, t]);
+    const shown: typeof people = [];
+    for (const p of people) {
+      if (q && !p.search.includes(q)) continue;
+      shown.push(p);
+      if (shown.length === MAX_OPTIONS) break;
+    }
+    return shown;
+  }, [people, query]);
 
   useEffect(() => { setActiveIdx(0); }, [query]);
 
@@ -114,7 +132,7 @@ export function RelativePickerCard({
             <li key={o.id}>
               <button
                 className={`relative-picker-option${i + 1 === activeIdx ? " highlighted" : ""}`}
-                title={o.tooltip}
+                title={lifespanTooltipOf(o.indi, settings.showAge, t)}
                 onMouseEnter={() => setActiveIdx(i + 1)}
                 onMouseDown={(e) => { e.preventDefault(); onPickExisting(o.id); }}
               >

@@ -1329,6 +1329,19 @@ function AppContent() {
     if (type === "individual") sortEligiblePersonIdsRef.current.add(id);
   }
 
+  /** Dirty state for a completed edit, decided per record from what it now
+   *  holds — so a record the edit put back the way it was stops counting as
+   *  unsaved (see `reconcile`). For edits whose reach is known only afterwards,
+   *  from the patches they turned out to produce. */
+  function handleEditRecordsSettled(patches: RecordPatch[]) {
+    if (!mainDataset) return;
+    for (const p of patches) {
+      if (p.type === "record") continue;
+      const stillDirty = dirty.reconcile(p.type, p.id, mainDataset);
+      if (stillDirty && p.type === "individual") sortEligiblePersonIdsRef.current.add(p.id);
+    }
+  }
+
   function handleConfirmSave() {
     if (!preview || !mainDataset) return;
 
@@ -1965,6 +1978,7 @@ function AppContent() {
               startId={startId}
               changeStart={changeStart}
               onDirty={handleEditDirty}
+              onRecordsSettled={handleEditRecordsSettled}
               onShowCharts={openCharts}
               marriedNameTag={lastMainFile.marriedNameTag}
               navigateToId={navigateToId}

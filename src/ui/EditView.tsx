@@ -117,6 +117,11 @@ interface Props {
   changeStart: (id: string | undefined) => void;
   /** Called whenever the dataset is mutated so the parent can track which records changed. */
   onDirty: (type: "individual" | "family", id: string) => void;
+  /** Settle the dirty state of every record an edit touched, from what each one
+   *  holds now — for edits that can put a record back as they go (see
+   *  `connectRelative`), where marking each touched record dirty would leave an
+   *  unchanged one flagged as unsaved. */
+  onRecordsSettled: (patches: RecordPatch[]) => void;
   /** Open the Charts hub on this person — at the last-used kind, or a specific
    *  one (the V/R shortcuts deep-link to a pedigree chart / the relationship). */
   onShowCharts: (id: string, kind?: ChartKind) => void;
@@ -193,7 +198,7 @@ const SINGLE_EVENT_TAGS = new Set(["BIRT", "DEAT", "BURI"]);
 /** Edit mode's person view: parents on top, the selected person in the
  * center, partners + children on the bottom. The center panel is editable;
  * relatives navigate on click. */
-export function EditView({ dataset, fileName, startId, changeStart, onDirty, onShowCharts, marriedNameTag, navigateToId, onNavigated, onPersonChange, matchCompareIdFor, matchOrder, decisions, changedPersonIds, compareDataset, onUpdateDecision, onPushEdit, onPatchApplied, pendingApply, onApplied, addPersonRequest, active }: Props) {
+export function EditView({ dataset, fileName, startId, changeStart, onDirty, onRecordsSettled, onShowCharts, marriedNameTag, navigateToId, onNavigated, onPersonChange, matchCompareIdFor, matchOrder, decisions, changedPersonIds, compareDataset, onUpdateDecision, onPushEdit, onPatchApplied, pendingApply, onApplied, addPersonRequest, active }: Props) {
   const { t } = useTranslation();
   const formatName = useNameOf();
   const settings = useSettingsSlice(SETTINGS_KEYS);
@@ -1308,9 +1313,11 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     }
 
     onPushEdit(patches, selectedId);
-    // Mark everything the connect touched — both persons plus the modified or
-    // newly created family — so the save report lists it all.
-    for (const p of patches) if (p.type !== "record") onDirty(p.type, p.id);
+    // Everything the connect touched — both people, the family it changed or
+    // created, and any it dissolved on the way — settled one by one: joining
+    // the couple's existing family drops the stub the first parent made, which
+    // leaves that parent's record exactly as it was found.
+    onRecordsSettled(patches);
     relationsGenRef.current += 1;
     setPickingSlot(null);
     setTick((v) => v + 1);

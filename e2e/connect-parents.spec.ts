@@ -160,3 +160,23 @@ test("a new person typed into the picker gets their capitals", async ({ page }) 
   await expect(page.locator(".edit-name-input").first()).toHaveValue("Janez");
   await expect(page.locator(".edit-name-input").nth(1)).toHaveValue("Novak");
 });
+
+// Whichever parent is attached first, the other completes the couple — and the
+// first one's own record ends up exactly as it was found, so neither should
+// wear the "changed" chip.
+for (const [first, second] of [["Marija", "Matevz"], ["Matevz", "Marija"]] as const) {
+  test(`attaching ${first} then ${second} leaves neither marked as changed`, async ({ page }) => {
+    await page.goto("/");
+    await page.locator("input.file-input").first().setInputFiles(writeCoupleFixture());
+    await page.getByRole("button", { name: "Edit", exact: true }).click();
+    await page.locator(".edit-person").waitFor();
+
+    const slotOf = (name: string) => (name === "Matevz" ? /Add Father/i : /Add Mother/i);
+    await pickExistingParent(page, slotOf(first), first);
+    await pickExistingParent(page, slotOf(second), second);
+
+    // The chip rides on the parent cards in the parents block.
+    const chips = page.locator(".edit-parents .status-chip.modified");
+    await expect(chips).toHaveCount(0);
+  });
+}

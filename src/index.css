@@ -1675,9 +1675,13 @@ button:focus-visible {
 .start-clear:hover {
   color: var(--text);
 }
-.start-options {
+/* The two person lookups — the start-person field and the relative picker —
+   drop the same list: an overlay of roomy rows at the body text size, the one
+   under the cursor or the keyboard tinted with the accent. Only their widths
+   differ (see each below). */
+.start-options,
+.relative-picker-list {
   list-style: none;
-  margin: 4px 0 0;
   padding: 4px;
   max-height: 240px;
   overflow-y: auto;
@@ -1687,11 +1691,15 @@ button:focus-visible {
   position: absolute;
   top: 100%;
   left: 0;
-  right: 0;
-  min-width: 230px;
   z-index: 5;
 }
-.start-option {
+.start-options {
+  margin: 4px 0 0;
+  right: 0;
+  min-width: 230px;
+}
+.start-option,
+.relative-picker-option {
   display: block;
   width: 100%;
   text-align: left;
@@ -1702,9 +1710,12 @@ button:focus-visible {
   border-radius: var(--radius-sm);
 }
 .start-option:hover,
-.start-option.highlighted { background: var(--accent-soft); }
+.start-option.highlighted,
+.relative-picker-option:hover,
+.relative-picker-option.highlighted { background: var(--accent-soft); }
 .start-option.active { color: var(--accent); }
-.start-empty { padding: 6px 8px; }
+.start-empty,
+.relative-picker-empty { padding: 6px 8px; }
 
 /* --- matching indicator --- */
 .matching {
@@ -3528,47 +3539,19 @@ button:focus-visible {
 }
 .relative-picker-input::placeholder { color: var(--muted); }
 .relative-picker-list {
-  list-style: none;
-  margin: 0;
-  padding: 2px;
-  max-height: 180px;
-  overflow-y: auto;
-  position: absolute;
-  top: 100%;
-  left: 0;
-  z-index: 30;
   /* At least as wide as the slot, as wide as the longest name needs, and never
-     wider than the panel can show. */
+     wider than the panel can show — the slot itself must stay narrow, or
+     picking a mother would shove the father's card sideways. Raised above the
+     cards it covers, and shadowed to sit clear of them. */
+  margin-top: 2px;
   min-width: 100%;
   width: max-content;
   max-width: min(380px, 80vw);
   box-sizing: border-box;
-  margin-top: 2px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  z-index: 30;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
 }
-.relative-picker-option {
-  display: block;
-  width: 100%;
-  text-align: left;
-  background: none;
-  border: none;
-  color: var(--text);
-  padding: 5px 8px;
-  border-radius: 5px;
-  font: inherit;
-  font-size: 0.85rem;
-  cursor: pointer;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.relative-picker-option.highlighted,
-.relative-picker-option:hover { background: var(--panel); }
 .relative-picker-new { color: var(--accent); font-weight: 500; }
-.relative-picker-empty { padding: 5px 8px; font-size: 0.85rem; }
 
 /* Clearable input wrapper — positions the × button at the right edge */
 .clearable-wrap {
