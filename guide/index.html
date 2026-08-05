@@ -558,7 +558,7 @@
             <div>
               The panel shows three family sections:
               <ul>
-                <li><strong>Parents</strong> — <strong>+ Add Father</strong> / <strong>+ Add Mother</strong> search for an existing person or add a new one. The <span class="gm-glyph danger">−</span> glyph detaches the role without deleting the record. A parent block that names <em>neither</em> parent — usually a leftover second family from an import or a merge — carries its own <span class="gm-glyph danger">−</span> at the end of the row: it unlinks this person from that family, and the family record goes with it unless other children remain. The <a href="#validate">Health check</a> lists these under <strong>Family without parents</strong>.</li>
+                <li><strong>Parents</strong> — <strong>+ Add Father</strong> / <strong>+ Add Mother</strong> search for an existing person or add a new one. Naming the second parent completes a couple: if those two already have a family of their own, the child joins it — alongside their marriage and any other children — rather than a fresh record for the same pair. The <span class="gm-glyph danger">−</span> glyph detaches the role without deleting the record. A parent block that names <em>neither</em> parent — usually a leftover second family from an import or a merge — carries its own <span class="gm-glyph danger">−</span> at the end of the row: it unlinks this person from that family, and the family record goes with it unless other children remain. The <a href="#validate">Health check</a> lists these under <strong>Family without parents</strong>.</li>
                 <li><strong>Partners</strong> — <strong>+ Add Partner</strong> creates a spouse family. Each family shows the events it actually records; <strong>+ Add Family Event</strong> adds Marriage, Engagement, Separation, Divorce, a partnership <em>Status</em> or a custom event, and the event's own <span class="gm-glyph">▾</span> menu removes it again. The <span class="gm-glyph danger">−</span> on the partner's card splits a wrongly-attached spouse from just this marriage — it removes only this spousal bond, leaving both people and all their other relationships (parents, other marriages, children) untouched. Families carry their own notes and links too.</li>
                 <li><strong>Children</strong> — listed under each spouse family. <strong>+ Add Child</strong> adds an existing or new person; <span class="gm-glyph danger">−</span> unlinks a child without deleting them.</li>
               </ul>
@@ -576,7 +576,8 @@
             <p>
               Two other places lead here. A <strong>search that finds nobody</strong>
               (<span class="gm-key">/</span>) offers to add the name you typed — the given name and surname are split
-              the way your name-display order writes them, so correct it in the name field if the guess is wrong. And a
+              the way your name-display order writes them and given their capitals (a word you typed in capitals is
+              left as it is), so correct it in the name field if the guess is wrong. And a
               file with <strong>no people at all</strong> shows the same button in place of the person panel.
             </p>
             <h3>Notes, sources &amp; photos</h3>
