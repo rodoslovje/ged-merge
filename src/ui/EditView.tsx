@@ -218,7 +218,11 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   // Bumped after every edit to force a re-render — the dataset is mutated
   // in place, so React has no other signal that `person` changed.
   const [tick, setTick] = useState(0);
-  const focusNextName = useRef(false);
+  /** Where the keyboard should land when the next person is opened: on their
+   *  name, or — when the name was written in full from the text the user typed
+   *  into the picker — straight on the birth date, the field that is filled
+   *  next and a dozen buttons away in the tab order. */
+  const focusNextField = useRef<"name" | "birth" | null>(null);
   // Per-person snapshot of notes at the last clean/saved state, so newly added
   // or edited notes can render bold. Refreshed whenever the person has no unsaved
   // edits (freshly opened or just saved); preserved once it's being edited.
@@ -1225,7 +1229,9 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     // family — so the save report lists it and CHAN stamping covers it.
     for (const p of patches) if (p.type !== "record") onDirty(p.type, p.id);
     relationsGenRef.current += 1;
-    focusNextName.current = true;
+    // A name the picker's text wrote in full needs no visit: the birth date is
+    // what gets typed next.
+    focusNextField.current = given?.trim() && defaultSurname?.trim() ? "birth" : "name";
     navigate(added.id);
   });
 
@@ -1251,7 +1257,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     );
     onDirty("individual", added.id);
     relationsGenRef.current += 1;
-    focusNextName.current = true;
+    focusNextField.current = parts?.given?.trim() && parts?.surname?.trim() ? "birth" : "name";
     navigate(added.id);
   });
 
@@ -1694,8 +1700,9 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
               t={t}
               lifespan={lifespan}
               commit={commit}
-              focusOnMount={focusNextName.current}
-              onMounted={() => { focusNextName.current = false; }}
+              focusOnMount={focusNextField.current === "name"}
+              onMounted={() => { focusNextField.current = null; }}
+              onEnterPastName={() => setBirtFocusNonce((n) => n + 1)}
               mergeHighlight={mergeHighlight}
               hasMatch={!!matchCompareId}
               matchStatus={matchStatus}
@@ -1846,6 +1853,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
             onMaterializeEventNode={markMaterializedEvent}
             pendingFocusNodeId={pendingFocusEventNodeId}
             birtFocusNonce={birtFocusNonce}
+            focusBirthOnMount={focusNextField.current === "birth"}
             rowFocus={rowFocus}
             undoVersion={undoVersion}
             mergeGen={mergeGen}

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import React, { useEffect, useRef, useState, type ReactNode } from "react";
 import type { Individual } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
 import type { MatchDecisionStatus } from "../../review/types";
@@ -23,6 +23,7 @@ export function NameEditor({
   lifespan,
   commit,
   focusOnMount,
+  onEnterPastName,
   onMounted,
   mergeHighlight,
   hasMatch,
@@ -39,6 +40,9 @@ export function NameEditor({
   lifespan?: string;
   commit: Commit;
   focusOnMount?: boolean;
+  /** Enter on the surname — the end of the name — carries on to the event the
+   *  person is usually given next (their birth). */
+  onEnterPastName?: () => void;
   onMounted?: () => void;
   mergeHighlight?: Map<string, string>;
   /** True when this person has an incoming match candidate. */
@@ -64,6 +68,17 @@ export function NameEditor({
   const [given, setGiven] = useState(givenMergeInit.current ?? primary?.given ?? "");
   const [surname, setSurname] = useState(surnameMergeInit.current ?? primary?.surname ?? "");
   const givenRef = useRef<HTMLInputElement>(null);
+  const surnameRef = useRef<HTMLInputElement>(null);
+
+  /** Enter steps along the name and out the far end of it, the way it steps
+   *  through an event's fields — the fast path from a new person to their
+   *  birth date, which is otherwise a dozen buttons away in the tab order. */
+  const enterMovesOn = (go: () => void) => (e: React.KeyboardEvent) => {
+    if (e.key !== "Enter" || e.defaultPrevented) return;
+    if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+    e.preventDefault();
+    go();
+  };
 
   useEffect(() => {
     if (focusOnMount) givenRef.current?.focus();
@@ -92,16 +107,19 @@ export function NameEditor({
           placeholder={t("field.given")}
           title={t("field.given")}
           onChange={(e) => setGiven(e.target.value)}
+          onKeyDown={enterMovesOn(() => surnameRef.current?.focus())}
           onBlur={() => commitName(given, surname)}
           onClear={() => { setGiven(""); commitName("", surname); }}
         />
         <ClearableInput
+          ref={surnameRef}
           className={`edit-input edit-name-input ${sexClass(person.sex)}${surnameIsMerge ? " edit-input--merge" : ""}`}
           wrapStyle={{ width: fieldWidth(surname, t("field.surname")) }}
           value={surname}
           placeholder={t("field.surname")}
           title={t("field.surname")}
           onChange={(e) => setSurname(e.target.value)}
+          onKeyDown={onEnterPastName ? enterMovesOn(onEnterPastName) : undefined}
           onBlur={() => commitName(given, surname)}
           onClear={() => { setSurname(""); commitName(given, ""); }}
         />

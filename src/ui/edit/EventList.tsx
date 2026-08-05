@@ -55,6 +55,7 @@ export const EventList = memo(function EventList({
   onMaterializeEventNode,
   pendingFocusNodeId,
   birtFocusNonce,
+  focusBirthOnMount,
   rowFocus,
   undoVersion,
   mergeGen,
@@ -118,6 +119,10 @@ export const EventList = memo(function EventList({
   /** Bumped by quick-add "Birth": focuses the always-present Birth row's lead
    * input instead of adding a duplicate BIRT event. */
   birtFocusNonce?: number;
+  /** True while opening a person whose name arrived complete (typed into the
+   *  picker): the birth date is where the typing carries on, so the row takes
+   *  the keyboard as it mounts. */
+  focusBirthOnMount?: boolean;
   /** Quick-adding a single-instance event the person already has (Death,
    * Burial) focuses that row instead — the target node id plus a nonce. */
   rowFocus?: { nodeId: number; nonce: number } | null;
@@ -233,6 +238,7 @@ export const EventList = memo(function EventList({
         onEditSource={birtOriginalIdx >= 0 ? (idx) => openEditSource(rawEventNodes[birtOriginalIdx], idx, { kind: "individual", indi: person }) : undefined}
         onOpenSourceDialog={onOpenSourceDialog}
         focusLeadNonce={birtFocusNonce}
+        autoFocusLead={focusBirthOnMount}
         placeSuggestions={placeSuggestions}
         placeToAddrs={placeToAddrs}
         placeCanonical={placeCanonical}
