@@ -463,7 +463,18 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
 
           <section className="settings-section">
             <h3>{t("settings.editing.title")}</h3>
-            <div className="settings-row">
+            <label className="settings-row settings-row-toggle">
+              <input
+                type="checkbox"
+                checked={settings.marriedNameFromPartner}
+                onChange={(e) => set({ marriedNameFromPartner: e.target.checked })}
+              />
+              <span className="settings-row-text">
+                <span className="settings-row-label">{t("settings.editing.marriedFromPartner")}</span>
+                <span className="settings-hint">{t("settings.editing.marriedFromPartner.hint")}</span>
+              </span>
+            </label>
+            <div className="settings-row settings-quick-head">
               <span className="settings-row-text">
                 <span className="settings-row-label">{t("settings.quickEvents.title")}</span>
                 <span className="settings-hint">{t("settings.quickEvents.hint")}</span>
@@ -505,17 +516,6 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                 />
               )}
             </div>
-            <label className="settings-row settings-row-toggle">
-              <input
-                type="checkbox"
-                checked={settings.marriedNameFromPartner}
-                onChange={(e) => set({ marriedNameFromPartner: e.target.checked })}
-              />
-              <span className="settings-row-text">
-                <span className="settings-row-label">{t("settings.editing.marriedFromPartner")}</span>
-                <span className="settings-hint">{t("settings.editing.marriedFromPartner.hint")}</span>
-              </span>
-            </label>
           </section>
           </>
           )}

@@ -8065,12 +8065,14 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
  * plus the add picker. Styled on their own, not with the Edit card's chip
  * classes — those stay invisible until an Edit container is hovered, which
  * nothing in this modal ever is. */
+/* The quick-events block follows the toggle rows — give its heading room. */
+.settings-quick-head { margin-top: 14px; }
 .settings-quick-events {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  margin: 8px 0 14px; /* breathe before the section's next row */
+  margin-top: 8px;
 }
 .settings-quick-chip {
   display: inline-flex;
