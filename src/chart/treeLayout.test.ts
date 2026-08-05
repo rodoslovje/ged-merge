@@ -168,17 +168,54 @@ describe("grid layout", () => {
     expect(mother.y).toBe(2 * ROW_STEP);
   });
 
-  it("seats a spouse on its own lane and shares it with the union's first child", () => {
+  it("hoists the union's first child onto the person's lane; the second shares the spouse's", () => {
     // Descendants: A, spouse B, children c and d.
     const root = node("A", [], [node("B", [node("c"), node("d")])]);
     const { root: placed } = layoutGrid(root, "lr");
     const [B] = placed.partners;
     const [c, d] = B.children;
-    // A on lane 0; spouse B on its own lane (same column); c shares B's lane, d steps down.
-    expect([placed.y, B.y, c.y, d.y]).toEqual([0, ROW_STEP, ROW_STEP, 2 * ROW_STEP]);
+    // c rises to A's own lane; spouse B sits pinned below A; d shares B's lane.
+    expect([placed.y, B.y, c.y, d.y]).toEqual([0, ROW_STEP, 0, ROW_STEP]);
     expect(B.x).toBe(placed.x);
     expect(c.x).toBe(placed.x + COL_STEP);
     expect(d.x).toBe(c.x);
+  });
+
+  it("connects a hoisted first child from the person with a straight horizontal line", () => {
+    const root = node("A", [], [node("B", [node("c"), node("d")])]);
+    const { edges } = flatten(layoutGrid(root, "lr").root, "lr", "elbow");
+    // The inline child hangs off A (not the spouse) and its path never leaves mid-height.
+    const toC = edges.find((e) => e.id === "A->c")!;
+    expect(toC.d).toBe(`M${NODE_W},${NODE_H / 2} H${NODE_W + 40} V${NODE_H / 2} H${COL_STEP}`);
+    // The second child still hangs off the spouse — horizontal too, on the shared lane.
+    expect(edges.some((e) => e.id === "B->d")).toBe(true);
+  });
+
+  it("drops the second child below the first child's whole subtree", () => {
+    // c's own union (spouse S, kids g and h) occupies lanes 0–1, so d lands on lane 2.
+    const c = node("c", [], [node("S", [node("g"), node("h")])]);
+    const root = node("A", [], [node("B", [c, node("d")])]);
+    const { root: placed } = layoutGrid(root, "lr");
+    const [B] = placed.partners;
+    const [placedC, d] = B.children;
+    const [S] = placedC.partners;
+    const [g, h] = S.children;
+    expect([placedC.y, S.y, g.y, h.y]).toEqual([0, ROW_STEP, 0, ROW_STEP]);
+    expect(d.y).toBe(2 * ROW_STEP);
+  });
+
+  it("leaves later unions on their own lanes, first child sharing the spouse's", () => {
+    const root = node("A", [], [
+      node("P1", [node("a"), node("b")]),
+      node("P2", [node("e"), node("f")]),
+    ]);
+    const { root: placed } = layoutGrid(root, "lr");
+    const [P1, P2] = placed.partners;
+    const [a, b] = P1.children;
+    const [e, f] = P2.children;
+    // First union compacted; the second keeps the classic spouse-lane sharing.
+    expect([a.y, P1.y, b.y]).toEqual([0, ROW_STEP, ROW_STEP]);
+    expect([P2.y, e.y, f.y]).toEqual([2 * ROW_STEP, 2 * ROW_STEP, 3 * ROW_STEP]);
   });
 
   it("transposes to top→bottom: depth runs down, lanes run across", () => {

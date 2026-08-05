@@ -190,7 +190,12 @@ export function flatten(
       });
       prev = p;
       for (const c of p.children) {
-        edges.push({ id: `${p.key}->${c.key}`, d: edgePath(p, c, alignment, connector, nodeH) });
+        // Grid: a union child hoisted onto the person's own lane (layoutGrid's
+        // compaction) connects from the person — a straight horizontal line —
+        // rather than elbowing up from the spouse a lane below.
+        const inline = connector === "elbow" && (alignment === "lr" ? c.y === n.y : c.x === n.x);
+        const from = inline ? n : p;
+        edges.push({ id: `${from.key}->${c.key}`, d: edgePath(from, c, alignment, connector, nodeH) });
         walk(c);
       }
     }
@@ -447,12 +452,14 @@ export function layout(
  * (the depth axis) exactly like the tidy tree, but each person snaps to a regular
  * lane on the breadth axis so boxes line up like a spreadsheet.
  *
- * It's compact: a node shares its lane with its *first* next-column child, so an
- * only-child lineage stays on a single row and merely steps one column per
- * generation — the start person sits top-left and the direct line runs straight
- * across. A lane is only spent on extra siblings and on each spouse (who shares
- * the person's column, so can't share the row). The result reads like an indented
- * spreadsheet.
+ * It's compact: a node shares its lane with its *first* next-column child —
+ * whether a direct child or its first union's first child — so an only-child
+ * lineage stays on a single row and merely steps one column per generation: the
+ * start person sits top-left and the direct line runs straight across. The
+ * spouse sits pinned on the lane right below the person (same column, so it
+ * can't share the row) and the union's second child shares *that* lane in turn.
+ * A lane is only spent on further siblings and on each spouse. The result reads
+ * like an indented spreadsheet.
  *
  * Same `{ root, width, height }` contract as `layout`, so `flatten`, the
  * connectors, the minimap and the SVG export consume it unchanged. Pair it with
@@ -485,7 +492,22 @@ export function layoutGrid(
 
     // Spouses share the person's column, so each takes a fresh lane below; a
     // spouse in turn shares its lane with its own first child.
-    const partners: Placed[] = node.partners.map((p) => {
+    const partners: Placed[] = node.partners.map((p, pi) => {
+      // The first union's first child rises onto the person's still-free lane,
+      // so the direct line runs straight across and the union spends no lane on
+      // it. The spouse stays pinned right below the person, and the second
+      // child shares the spouse's lane (when the first child's subtree allows).
+      if (pi === 0 && !claimed && p.children.length > 0) {
+        claimed = true;
+        const pLane = myLane + 1;
+        const first = place(p.children[0], depth + 1);
+        const rest = p.children.slice(1).map((c) => {
+          lane = Math.max(lane + 1, pLane);
+          return place(c, depth + 1);
+        });
+        lane = Math.max(lane, pLane); // the spouse's lane is spent either way
+        return { ...p, x, y: pLane * breadthStep, children: [first, ...rest], partners: [] };
+      }
       const pLane = ++lane;
       let pClaimed = false;
       const pChildren = p.children.map((c) => {
