@@ -10,6 +10,7 @@ import { fetchBookMeta, makePlaceResolver, proposedSiteRepo, recognizeSourceUrl,
 import { prefersSourceRepos } from "../gedcom/source";
 import { childText } from "../gedcom/node";
 import { useSettings } from "./SettingsContext";
+import { SelectMenu } from "./DropdownMenu";
 import { linkHref } from "./FieldValue";
 import type { Translate } from "../locales/i18n";
 
@@ -415,22 +416,28 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
             <div className="add-source-details-grid">
               <label className="add-source-field">
                 <span>{t("addSource.field.repo")}</span>
-                <select className="edit-input" value={repoSel} onChange={(e) => setRepoSel(e.target.value)}>
-                  {/* The special choices sit outside the sorted repository
-                      group: no-repo first, the create actions last. */}
-                  <option value="">{t("tools.sources.noRepo")}</option>
-                  <optgroup label={t("tools.sources.dupKind.repo")}>
-                    {repos.map((r) => (
-                      <option key={r.xref} value={r.xref}>
-                        {r.name}
-                      </option>
-                    ))}
-                  </optgroup>
-                  {!editing && !repoDefault?.xref && repoDefault?.createName && (
-                    <option value="@create@">{t("addSource.repo.create", { name: repoDefault.createName })}</option>
-                  )}
-                  <option value="@new@">{t("addSource.repo.new")}</option>
-                </select>
+                <SelectMenu
+                  className="edit-input"
+                  value={repoSel}
+                  onChange={setRepoSel}
+                  // The special choices sit outside the sorted repository
+                  // group: no-repo first, the create actions last.
+                  groups={[
+                    { items: [{ value: "", label: t("tools.sources.noRepo") }] },
+                    {
+                      label: t("tools.sources.dupKind.repo"),
+                      items: repos.map((r) => ({ value: r.xref, label: r.name })),
+                    },
+                    {
+                      items: [
+                        ...(!editing && !repoDefault?.xref && repoDefault?.createName
+                          ? [{ value: "@create@", label: t("addSource.repo.create", { name: repoDefault.createName }) }]
+                          : []),
+                        { value: "@new@", label: t("addSource.repo.new") },
+                      ],
+                    },
+                  ]}
+                />
               </label>
               {repoSel === "@new@" && (
                 <label className="add-source-field">

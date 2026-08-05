@@ -16,6 +16,65 @@ export interface DropdownGroup {
 const EDGE = 8;
 const MAX_MENU_H = 480;
 
+export interface SelectMenuOption {
+  value: string;
+  label: ReactNode;
+}
+
+/**
+ * Form-select equivalent of {@link DropdownMenu}: the trigger shows the
+ * current option's label (or `placeholder` while nothing matches) plus a ▾
+ * caret, and picking an option calls `onChange` with its value — a drop-in
+ * for the native `<select>`-with-options pattern, minus the OS-drawn popup.
+ * Pass `options` for a flat list or `groups` for optgroup-style headings.
+ */
+export function SelectMenu({
+  value,
+  onChange,
+  options,
+  groups,
+  placeholder,
+  className,
+  title,
+  ariaLabel,
+  style,
+  disabled,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  options?: SelectMenuOption[];
+  groups?: DropdownGroup[];
+  /** Trigger text while `value` matches no option — the native pattern's
+   *  disabled first option ("Pick a source…") or an action picker's label. */
+  placeholder?: ReactNode;
+  className?: string;
+  title?: string;
+  ariaLabel?: string;
+  style?: CSSProperties;
+  disabled?: boolean;
+}) {
+  const menuGroups = groups ?? [{ items: options ?? [] }];
+  const current = menuGroups.flatMap((g) => g.items).find((o) => o.value === value);
+  return (
+    <DropdownMenu
+      groups={menuGroups}
+      current={value}
+      onSelect={onChange}
+      className={`select-menu${className ? ` ${className}` : ""}`}
+      title={title}
+      ariaLabel={ariaLabel}
+      style={style}
+      disabled={disabled}
+      trigger={
+        <>
+          <span className="select-menu-value">{current ? current.label : placeholder ?? value}</span>
+          <span className="select-menu-caret" aria-hidden="true">▾</span>
+        </>
+      }
+    />
+  );
+}
+
 /**
  * App-styled replacement for the native `<select>`-as-menu pattern (the event
  * type ▾ label, "+ Add event", "+ Detail", the sex picker): a trigger button
@@ -37,6 +96,8 @@ export function DropdownMenu({
   trigger,
   className,
   title,
+  ariaLabel,
+  style,
   disabled,
 }: {
   groups: DropdownGroup[];
@@ -49,10 +110,13 @@ export function DropdownMenu({
    *  with `dd-reset` styling applied by the component. */
   className?: string;
   title?: string;
+  ariaLabel?: string;
+  /** Inline style for the trigger (e.g. the score pickers' value colour). */
+  style?: CSSProperties;
   disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const [style, setStyle] = useState<CSSProperties>();
+  const [menuPos, setMenuPos] = useState<CSSProperties>();
   const [active, setActive] = useState(-1);
   const btnRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -66,7 +130,7 @@ export function DropdownMenu({
     const above = rect.top - EDGE;
     // Drop down unless the space below is cramped and above beats it.
     const up = below < 240 && above > below;
-    setStyle({
+    setMenuPos({
       left: rect.left,
       maxHeight: Math.min(MAX_MENU_H, up ? above : below),
       ...(up ? { bottom: window.innerHeight - rect.top + 2 } : { top: rect.bottom + 2 }),
@@ -93,7 +157,7 @@ export function DropdownMenu({
     const el = menuRef.current;
     if (!el) return;
     const overflow = el.getBoundingClientRect().right - (window.innerWidth - EDGE);
-    if (overflow > 0) setStyle((s) => ({ ...s, left: Math.max(EDGE, Number(s?.left ?? 0) - overflow) }));
+    if (overflow > 0) setMenuPos((s) => ({ ...s, left: Math.max(EDGE, Number(s?.left ?? 0) - overflow) }));
     el.focus();
   }, [open]);
 
@@ -161,7 +225,11 @@ export function DropdownMenu({
         close(true);
         break;
       case "Tab":
-        close(false);
+        // Close and hand focus back to the trigger (not the default Tab
+        // target): the menu lives at the end of <body>, so the default move
+        // would drop focus out of any modal hosting the trigger.
+        e.preventDefault();
+        close(true);
         break;
     }
   }
@@ -176,6 +244,8 @@ export function DropdownMenu({
         type="button"
         className={`dd-reset${className ? ` ${className}` : ""}`}
         title={title}
+        aria-label={ariaLabel}
+        style={style}
         disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={open}
@@ -194,7 +264,7 @@ export function DropdownMenu({
           <div
             ref={menuRef}
             className="dd-menu"
-            style={style}
+            style={menuPos}
             role="listbox"
             tabIndex={-1}
             onKeyDown={onMenuKeyDown}

@@ -4,6 +4,7 @@ import type { Translate } from "../../locales/i18n";
 import { setAdditionalName, removeAdditionalName, foldAdditionalNameToMarnm } from "../../gedcom/edit";
 import { ADDITIONAL_NAME_TYPES, nameTypeLabel } from "../../match/relatives";
 import { ClearableInput } from "./ClearableInput";
+import { SelectMenu } from "../DropdownMenu";
 import type { Commit } from "./types";
 import { fieldWidth } from "./editConstants";
 
@@ -64,12 +65,11 @@ export function NameVariantEditor({
         onBlur={() => commitFields(given, surname)}
         onClear={() => { setSurname(""); commitFields(given, ""); }}
       />
-      <select
+      <SelectMenu
         className="edit-input edit-name-type-select"
         value={name?.type ?? "aka"}
         title={t("field.nameType")}
-        onChange={(e) => {
-          const next = e.target.value;
+        onChange={(next) => {
           // Main stores married surnames inline as `_MARNM`: fold this record
           // into it instead of keeping a separate `TYPE married` NAME record.
           if (next === "married" && marriedNameTag) {
@@ -79,13 +79,8 @@ export function NameVariantEditor({
             commit((indi) => setAdditionalName(indi, index, { type: next }));
           }
         }}
-      >
-        {ADDITIONAL_NAME_TYPES.map((opt) => (
-          <option key={opt} value={opt}>
-            {nameTypeLabel(opt, t)}
-          </option>
-        ))}
-      </select>
+        options={ADDITIONAL_NAME_TYPES.map((opt) => ({ value: opt, label: nameTypeLabel(opt, t) }))}
+      />
       <button
         type="button"
         className="edit-link-remove"

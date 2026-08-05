@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useModalKeyboard } from "../keyboard/useModalKeyboard";
+import { SelectMenu } from "./DropdownMenu";
 import { useSettings, useNameOf, type MapOverlay } from "./SettingsContext";
 import { OVERLAY_PRESETS, resolveOverlay } from "./map/overlayPresets";
 import { sampleMapView, type FramedOverlay } from "./map/sampleView";
@@ -469,18 +470,19 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                 <label key={key} className="settings-row settings-format-row" title={t(`settings.format.${key}.hint`)}>
                   <span className="settings-row-label">{t(`settings.format.${key}`)}</span>
                   <span className="settings-format-example gm-data">{formatExample({ key, choices, verbatim })}</span>
-                  <select
+                  <SelectMenu
                     value={(overrides[key] as string | undefined) ?? ""}
-                    onChange={(e) => updateOverride(key, e.target.value)}
-                  >
-                    <option value="">{t("settings.format.detected")}</option>
-                    {choices.map((c) => (
-                      <option key={c} value={c}>
-                        {(verbatim ? c : t(`settings.format.${key}.${c}`)) +
-                          (isGedcomStandard(key, c) ? ` — ${t("settings.format.gedcomStandard")}` : "")}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(v) => updateOverride(key, v)}
+                    options={[
+                      { value: "", label: t("settings.format.detected") },
+                      ...choices.map((c) => ({
+                        value: c,
+                        label:
+                          (verbatim ? c : t(`settings.format.${key}.${c}`)) +
+                          (isGedcomStandard(key, c) ? ` — ${t("settings.format.gedcomStandard")}` : ""),
+                      })),
+                    ]}
+                  />
                 </label>
               ))}
             </section>
@@ -575,14 +577,14 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                   <span className="settings-row-label">{t("settings.map.base")}</span>
                   <span className="settings-hint">{t("settings.map.basemap.hint")}</span>
                 </span>
-                <select value={settings.mapBasemap} onChange={(e) => set({ mapBasemap: e.target.value })}>
-                  {BASEMAPS.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {t(b.key)}
-                    </option>
-                  ))}
-                  <option value={CUSTOM_BASEMAP}>{t("basemap.custom")}</option>
-                </select>
+                <SelectMenu
+                  value={settings.mapBasemap}
+                  onChange={(v) => set({ mapBasemap: v })}
+                  options={[
+                    ...BASEMAPS.map((b) => ({ value: b.id, label: t(b.key) })),
+                    { value: CUSTOM_BASEMAP, label: t("basemap.custom") },
+                  ]}
+                />
               </label>
               {settings.mapBasemap === CUSTOM_BASEMAP && (
                 <label className="settings-row settings-format-row" title={t("settings.map.tileUrl.hint")}>
@@ -612,11 +614,12 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
               <p className="settings-hint">{t("settings.map.overlays.hint")}</p>
               <p className="settings-hint">{t("settings.map.overlays.sources")}</p>
               <span className="settings-overlays-actions">
-                <select
+                <SelectMenu
                   className="settings-overlay-preset"
                   value=""
-                  aria-label={t("settings.map.overlays.preset")}
-                  onChange={(e) => {
+                  placeholder={t("settings.map.overlays.preset")}
+                  ariaLabel={t("settings.map.overlays.preset")}
+                  onChange={(picked) => {
                     // name stays empty so the layer's display name tracks the
                     // language via presetKey; renaming it later overrides that.
                     const add = ({ key, ...rest }: (typeof presets)[number]["preset"]) => ({
@@ -625,7 +628,7 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                       name: "",
                       id: crypto.randomUUID(),
                     });
-                    if (e.target.value === ADD_ALL_PRESETS) {
+                    if (picked === ADD_ALL_PRESETS) {
                       // Only the ones missing: picking this twice must not
                       // leave the list holding every free map in duplicate.
                       const have = new Set(overlays.map((o) => o.presetKey).filter(Boolean));
@@ -633,19 +636,15 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                       if (missing.length) setOverlays([...overlays, ...missing.map((p) => add(p.preset))]);
                       return;
                     }
-                    const entry = presets[Number(e.target.value)];
+                    const entry = presets[Number(picked)];
                     if (!entry) return;
                     setOverlays([...overlays, add(entry.preset)]);
                   }}
-                >
-                  <option value="">{t("settings.map.overlays.preset")}</option>
-                  {presets.map((p, i) => (
-                    <option key={p.preset.key} value={i}>
-                      {p.label}
-                    </option>
-                  ))}
-                  <option value={ADD_ALL_PRESETS}>{t("settings.map.overlays.preset.addAll")}</option>
-                </select>
+                  options={[
+                    ...presets.map((p, i) => ({ value: String(i), label: p.label })),
+                    { value: ADD_ALL_PRESETS, label: t("settings.map.overlays.preset.addAll") },
+                  ]}
+                />
                 <button
                   type="button"
                   className="nav-btn"

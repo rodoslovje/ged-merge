@@ -13,6 +13,7 @@ import {
   type MatchDecisionStatus,
 } from "../review/types";
 import { renderKeyToken } from "../keyboard/shortcuts";
+import { SelectMenu } from "./DropdownMenu";
 import { formatFieldLabel } from "../review/fields";
 import type { Dataset } from "../gedcom/types";
 import { candidateLifespan, formatScore, importTotal, type Candidate, type Filters, type SortKey, type SortState } from "./matchView";
@@ -132,18 +133,16 @@ export function MatchResults({
           </div>
           <div className="filter-row">
             <label className="filter-score" title={t("filter.scoreTooltip")}>
-              <select
+              <SelectMenu
                 className="score-select"
-                value={filters.minScore}
+                value={String(filters.minScore)}
                 style={{ color: scoreColor(filters.minScore) }}
-                onChange={(e) => onFilters({ ...filters, minScore: Number(e.target.value) })}
-              >
-                {[50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100].map((v) => (
-                  <option key={v} value={v} style={{ color: "var(--text)" }}>
-                    {v === 100 ? "100" : `≥ ${v}`}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => onFilters({ ...filters, minScore: Number(v) })}
+                options={[50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100].map((v) => ({
+                  value: String(v),
+                  label: v === 100 ? "100" : `≥ ${v}`,
+                }))}
+              />
             </label>
             <label className="filter-check" title={t("filter.newPeopleTooltip")}>
               <input
