@@ -27,31 +27,31 @@ async function openEdit(page: import("@playwright/test").Page) {
 test("Enter walks a date event from its date to its place", async ({ page }) => {
   await openEdit(page);
   await page.getByRole("button", { name: /^\+ Residence$/ }).click();
-  expect(await focusedField(page)).toBe("edit-event-date");
+  await expect.poll(() => focusedField(page)).toBe("edit-event-date");
 
   await page.keyboard.type("1 JAN 1900");
   await page.keyboard.press("Enter");
-  expect(await focusedField(page)).toBe("edit-event-place");
+  await expect.poll(() => focusedField(page)).toBe("edit-event-place");
 
   await page.keyboard.type("Ljubljana, Slovenija");
   // The place is the last of them, so Enter means what it does anywhere else:
   // commit, and hand the keyboard back to the app.
   await page.keyboard.press("Enter");
-  expect(await focusedField(page)).toBe("BODY");
+  await expect.poll(() => focusedField(page)).toBe("BODY");
 });
 
 test("an event that leads with a value starts there, then date, then place", async ({ page }) => {
   await openEdit(page);
   await page.getByRole("button", { name: /^\+ Occupation$/ }).click();
-  expect(await focusedField(page)).toBe("edit-event-value");
+  await expect.poll(() => focusedField(page)).toBe("edit-event-value");
 
   await page.keyboard.type("Kmet");
   await page.keyboard.press("Enter");
-  expect(await focusedField(page)).toBe("edit-event-date");
+  await expect.poll(() => focusedField(page)).toBe("edit-event-date");
 
   await page.keyboard.type("1 JAN 1900");
   await page.keyboard.press("Enter");
-  expect(await focusedField(page)).toBe("edit-event-place");
+  await expect.poll(() => focusedField(page)).toBe("edit-event-place");
 });
 
 test("everything typed along the way is written", async ({ page }) => {

@@ -154,7 +154,8 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
   {
     titleKey: "shortcuts.group.decisions",
     category: "app",
-    column: "right",
+    // Left, to balance the editing group opposite: it is much the longest.
+    column: "left",
     items: [
       { keys: [[KEY.confirm.toUpperCase()]], descKey: "shortcuts.item.confirm" },
       { keys: [[KEY.reject.toUpperCase()]], descKey: "shortcuts.item.reject" },

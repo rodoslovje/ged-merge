@@ -41,7 +41,7 @@ test("a person named in full from the search bar opens on the birth date", async
   await openEdit(page);
   await addFromSearch(page, "xylo zorn");
 
-  expect(await focused(page)).toBe("edit-event-date");
+  await expect.poll(() => focused(page)).toBe("edit-event-date");
   await expect(page.locator(".edit-name-input").first()).toHaveValue("Xylo");
   await expect(page.locator(".edit-name-input").nth(1)).toHaveValue("Zorn");
 });
@@ -50,25 +50,25 @@ test("a person named only in part opens on the name, to finish it", async ({ pag
   await openEdit(page);
   await addFromSearch(page, "xylo");
 
-  expect(await focused(page)).toBe("edit-name-input");
+  await expect.poll(() => focused(page)).toBe("edit-name-input");
 });
 
 test("Enter runs the name into the birth date and on through the event", async ({ page }) => {
   await openEdit(page);
   // One word names them only in part, so the keyboard waits on the name.
   await addFromSearch(page, "xylo");
-  expect(await focused(page)).toBe("edit-name-input");
+  await expect.poll(() => focused(page)).toBe("edit-name-input");
 
   await page.keyboard.press("Enter");
-  expect(await focused(page)).toBe("edit-name-input"); // the surname
+  await expect.poll(() => focused(page)).toBe("edit-name-input"); // the surname
 
   await page.keyboard.type("Zorn");
   await page.keyboard.press("Enter");
-  expect(await focused(page)).toBe("edit-event-date");
+  await expect.poll(() => focused(page)).toBe("edit-event-date");
 
   await page.keyboard.type("1 JAN 1900");
   await page.keyboard.press("Enter");
-  expect(await focused(page)).toBe("edit-event-place");
+  await expect.poll(() => focused(page)).toBe("edit-event-place");
 
   // Everything typed on the way is kept.
   await expect(page.locator(".edit-name-input").first()).toHaveValue("Xylo");
