@@ -79,7 +79,8 @@ test("editing the address at the same place keeps the event's own position", asy
 
   const row = page.locator(".edit-person").first().locator(".edit-event").first();
   await row.locator(".edit-event-place").first().click();
-  await row.locator(".edit-event-addfield").selectOption("addr");
+  await row.locator(".edit-event-addfield").click();
+  await page.locator('.dd-menu .dd-item[data-value="addr"]').click();
   await row.locator(".edit-event-addr").first().fill("Lesce 8");
   await page.keyboard.press("Tab");
 

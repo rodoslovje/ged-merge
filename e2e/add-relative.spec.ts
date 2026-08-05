@@ -25,7 +25,8 @@ test("edit mode: adding father/mother/partner/child creates new people and links
   await page.locator(".relative-picker-new").click();
   await page.locator(".edit-name-input").first().waitFor();
   await page.locator(".edit-name-input").first().fill("New Father");
-  await page.locator(".sex-select").selectOption("M");
+  await page.locator(".sex-select").click();
+  await page.locator('.dd-menu .dd-item[data-value="M"]').click();
 
   // The new father's only family is the one he now shares with the ancestor as
   // a child — "+ Add partner" fills its missing WIFE slot, i.e. adds the ancestor's mother.

@@ -28,13 +28,20 @@ function writeLegacyLinkFixture(url: string): string {
   return filePath;
 }
 
+/** Pick an entry from an app-styled DropdownMenu: click the trigger, then the
+ * portalled menu item carrying the wanted value. */
+async function pickMenu(trigger: Locator, value: string) {
+  await trigger.click();
+  await trigger.page().locator(`.dd-menu .dd-item[data-value="${value}"]`).click();
+}
+
 /** Fill an event field, first adding it via the event's "+ Add" menu when it
  * isn't already shown (place/address/etc. only render once they have a value).
  * Assumes another field in the row is focused so the menu is revealed. */
 async function setEventField(row: Locator, cls: string, key: string, value: string) {
   const input = row.locator(`.${cls}`).first();
   if (!(await input.isVisible())) {
-    await row.locator(".edit-event-addfield").selectOption(key);
+    await pickMenu(row.locator(".edit-event-addfield"), key);
   }
   await input.fill(value);
 }
@@ -55,7 +62,7 @@ test("edit mode: name, sex and event fields are editable and exportable", async 
   await given.fill(`${oldGiven} TEST`);
   await surname.click(); // blur
 
-  await page.locator(".sex-select").selectOption("M");
+  await pickMenu(page.locator(".sex-select"), "M");
 
   const birth = page.locator(".edit-event").first();
   await birth.locator(".edit-event-date").fill("1 JAN 1900");
@@ -63,7 +70,7 @@ test("edit mode: name, sex and event fields are editable and exportable", async 
   // menu when the event doesn't already have them.
   await setEventField(birth, "edit-event-place", "place", "Ljubljana, Slovenija");
   await setEventField(birth, "edit-event-addr", "addr", "Glavni trg 1");
-  await birth.locator(".edit-event-addfield").selectOption("source");
+  await pickMenu(birth.locator(".edit-event-addfield"), "source");
   const sourceDialog = page.locator(".add-source-dialog");
   await sourceDialog.locator(".add-source-textarea").fill("https://example.com/test");
   await sourceDialog.getByRole("button", { name: "Add source", exact: true }).click();
@@ -95,23 +102,26 @@ test("edit mode: the event-type ▾ and the + Add menu are keyboard-operable", a
 
   // Use the first event that actually has a type dropdown (not every event is
   // reassignable/removable, e.g. a bare birth).
-  const ev = page.locator(".edit-event", { has: page.locator(".edit-event-type-select") }).first();
+  const ev = page.locator(".edit-event", { has: page.locator(".edit-event-label--select") }).first();
 
-  // The event-type dropdown (a <select> overlaid on the label) can be focused
-  // from the keyboard — this is what drives changing the type / removing the
-  // event without a mouse.
-  const typeSelect = ev.locator(".edit-event-type-select");
-  await typeSelect.focus();
-  await expect(typeSelect).toBeFocused();
+  // The event-type menu (a DropdownMenu on the label) can be focused and
+  // opened from the keyboard — this is what drives changing the type /
+  // removing the event without a mouse.
+  const typeBtn = ev.locator(".edit-event-label--select");
+  await typeBtn.focus();
+  await expect(typeBtn).toBeFocused();
+  await typeBtn.press("Enter");
   // Its menu includes the "Remove this event" entry.
-  await expect(typeSelect.locator("option", { hasText: "Remove this event" })).toHaveCount(1);
+  await expect(page.locator(".dd-menu .dd-item", { hasText: "Remove this event" })).toHaveCount(1);
+  await page.keyboard.press("Escape");
 
   // The + Add menu is reachable and operable from the keyboard, and the field
   // it adds receives focus so editing continues on the keyboard.
-  const addSelect = ev.locator(".edit-event-addfield");
-  await addSelect.focus();
-  await expect(addSelect).toBeFocused();
-  await addSelect.selectOption("cause");
+  const addBtn = ev.locator(".edit-event-addfield");
+  await addBtn.focus();
+  await expect(addBtn).toBeFocused();
+  await addBtn.press("Enter");
+  await page.locator('.dd-menu .dd-item[data-value="cause"]').click();
   await expect(ev.locator('[data-detail="cause"] input')).toBeFocused();
 });
 
@@ -126,7 +136,7 @@ test("edit mode: family marriage fields are editable and exportable", async ({ p
   await marriage.locator(".edit-event-date").fill("3 MAR 1999");
   await setEventField(marriage, "edit-event-place", "place", "Maribor, Slovenija");
   await setEventField(marriage, "edit-event-addr", "addr", "Trg 5");
-  await marriage.locator(".edit-event-addfield").selectOption("source");
+  await pickMenu(marriage.locator(".edit-event-addfield"), "source");
   const sourceDialog = page.locator(".add-source-dialog");
   await sourceDialog.locator(".add-source-textarea").fill("https://example.com/marr");
   await sourceDialog.getByRole("button", { name: "Add source", exact: true }).click();

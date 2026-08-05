@@ -296,6 +296,7 @@ export function DropdownMenu({
                       <div
                         key={item.value}
                         role="option"
+                        data-value={item.value}
                         aria-selected={item.value === current}
                         className={
                           "dd-item" +
