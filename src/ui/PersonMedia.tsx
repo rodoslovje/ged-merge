@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useId, useMemo, useState, type CSSProperties } from "react";
 import type { GedNode } from "../gedcom/types";
 import { cropOf, isPointer, looksLikeUrl, objeNodesFor, type CropRegion } from "../gedcom/source";
 import { useMediaFolder } from "./MediaFolderContext";
@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { useMediaViewer, type MediaItem, type MediaRefContext } from "./MediaViewer";
 import { collectMediaRefs, isPrimaryMedia, type MediaAddress, type MediaRef } from "../gedcom/media";
 import { mediaKindOf } from "./mediaPath";
+import { cropFit } from "./cropFit";
 
 /** Edit-mode controls for a record's media tray. When supplied, the tray always
  *  renders (even with no photos), each thumb gains a delete affordance and can
@@ -77,11 +78,8 @@ export function CroppedImg({
   const [nat, setNat] = useState<{ w: number; h: number } | null>(null);
   let imgStyle: CSSProperties;
   if (nat) {
-    const scale = Math.max(size / crop.width, size / crop.height);
-    const clampOffset = (centered: number, min: number) => Math.min(0, Math.max(min, centered));
-    const left = clampOffset(size / 2 - (crop.left + crop.width / 2) * scale, size - nat.w * scale);
-    const top = clampOffset(size / 2 - (crop.top + crop.height / 2) * scale, size - nat.h * scale);
-    imgStyle = { position: "absolute", left, top, width: nat.w * scale, height: nat.h * scale, maxWidth: "none" };
+    const box = cropFit(nat, crop, size);
+    imgStyle = { position: "absolute", left: box.x, top: box.y, width: box.w, height: box.h, maxWidth: "none" };
   } else {
     imgStyle = { width: size, height: size, objectFit: "cover" };
   }
@@ -253,9 +251,11 @@ export function CardPhoto({ raw, records, refCtx }: { raw: GedNode; records: Ged
 }
 
 /** Photo thumbnail for a tree node — each node manages its own async resolution.
- *  Rendered via <foreignObject> + <img> (not SVG <image>) so it reuses the same
- *  reliable HTML image path as the rest of the app. Clicking opens the shared
- *  viewer with that record's full photo set. */
+ *  Drawn with native SVG (`<image>` + a rounded `<clipPath>`), never
+ *  `<foreignObject>`: WebKit paints foreignObject content *ignoring the ancestor
+ *  `<g transform>`*, so on Safari a node photo landed at the diagram's top-left
+ *  corner instead of in its box. Clicking opens the shared viewer with that
+ *  record's full photo set. */
 export function TreeNodePhoto({
   node,
   mainRecords,
@@ -280,6 +280,8 @@ export function TreeNodePhoto({
   const { folderName, resolveFile } = useMediaFolder();
   const { openPerson } = useMediaViewer();
   const [url, setUrl] = useState<string | null>(null);
+  // React's ids carry colons, which an id in a `url(#…)` reference may not.
+  const clipId = `node-photo-${useId().replace(/[^\w-]/g, "")}`;
 
   const source = useMemo(() => {
     if (node.main?.raw) {
@@ -300,27 +302,52 @@ export function TreeNodePhoto({
     return () => { cancelled = true; };
   }, [folderName, source, resolveFile]);
 
+  // Only a marked crop needs the intrinsic size; a plain photo cover-fits itself.
+  const nat = useNaturalSize(source?.crop && url ? url : null);
+
   if (!url || !source) return null;
   const open = (e: React.MouseEvent) => {
     e.stopPropagation();
     openPerson(source.raw, source.records, 0, source.refCtx);
   };
+  // The crop is drawn as the whole photo, scaled and offset so the marked region
+  // fills the box; the clip does what the HTML thumbnail's `overflow: hidden`
+  // did. Until the intrinsic size arrives, cover-fit the photo as a whole.
+  const box = source.crop && nat ? cropFit(nat, source.crop, size) : null;
   return (
-    <foreignObject x={x} y={y} width={size} height={size}>
-      {source.crop ? (
-        <span style={{ display: "block", cursor: "zoom-in" }} onClick={open}>
-          <CroppedImg url={url} crop={source.crop} size={size} style={{ borderRadius: 5 }} />
-        </span>
-      ) : (
-        <img
-          src={url}
-          alt=""
-          style={{ width: size, height: size, objectFit: "cover", borderRadius: 5, display: "block", cursor: "zoom-in" }}
-          onClick={open}
+    <>
+      <clipPath id={clipId}>
+        <rect x={x} y={y} width={size} height={size} rx={5} ry={5} />
+      </clipPath>
+      <g clipPath={`url(#${clipId})`} style={{ cursor: "zoom-in" }} onClick={open}>
+        <image
+          href={url}
+          x={box ? x + box.x : x}
+          y={box ? y + box.y : y}
+          width={box ? box.w : size}
+          height={box ? box.h : size}
+          preserveAspectRatio={box ? "none" : "xMidYMid slice"}
         />
-      )}
-    </foreignObject>
+      </g>
+    </>
   );
+}
+
+/** The intrinsic pixel size of an image URL, once it has loaded (null until
+ *  then, and for a null url). SVG's `<image>` has no `naturalWidth`, so the
+ *  chart-node photos read it off a throwaway HTML image — the same object URL,
+ *  so the browser serves it from cache rather than re-reading the file. */
+function useNaturalSize(url: string | null): { w: number; h: number } | null {
+  const [nat, setNat] = useState<{ w: number; h: number } | null>(null);
+  useEffect(() => {
+    if (!url) { setNat(null); return; }
+    let cancelled = false;
+    const probe = new Image();
+    probe.onload = () => { if (!cancelled) setNat({ w: probe.naturalWidth, h: probe.naturalHeight }); };
+    probe.src = url;
+    return () => { cancelled = true; };
+  }, [url]);
+  return nat;
 }
 
 /** One photo in a Sources-tree gallery: its local file plus the caption and
