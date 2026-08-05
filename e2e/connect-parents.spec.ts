@@ -119,3 +119,44 @@ test("undoing the mother restores the family the connect dissolved, pointers and
   // this has to be read off the file.
   expect(pointerPairs(await saveAndRead(page))).toEqual([]);
 });
+
+test("the save preview shows only what the file will receive", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(writeCoupleFixture());
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.locator(".edit-person").waitFor();
+
+  await pickExistingParent(page, /Add Father/i, "Matevz");
+  await pickExistingParent(page, /Add Mother/i, "Marija");
+
+  await page.locator(".app-head-actions .export-btn").click();
+  const preview = page.locator(".save-preview, .preview-body, .modal").first();
+  await preview.waitFor();
+
+  // The stub family the first step made is gone, so nothing is "new"; the
+  // father's own record is back exactly as it was, so he is not a change
+  // either. What is left: the child gains parents, the family gains the child.
+  await expect(preview.getByText(/^NEW$/i)).toHaveCount(0);
+  const cards = preview.locator(".preview-card");
+  await expect(cards).toHaveCount(2);
+  await expect(preview.locator(".preview-stat-num").first()).toHaveText("2");
+  // One card is the son gaining parents, the other the couple's family gaining
+  // a child. Neither is the father on his own.
+  const heads = await preview.locator(".preview-card-head").allInnerTexts();
+  expect(heads.some((h) => h.includes("Matevz") && h.includes("Marija"))).toBe(true);
+  expect(heads.filter((h) => h.includes("Matevz") && !h.includes("Marija"))).toEqual([]);
+});
+
+test("a new person typed into the picker gets their capitals", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(writeCoupleFixture());
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.locator(".edit-person").waitFor();
+
+  await page.locator(".edit-parents .person-card-add").filter({ hasText: /Add Father/i }).first().click();
+  await page.locator(".relative-picker-input").fill("janez novak");
+  await page.locator(".relative-picker-new").click();
+
+  await expect(page.locator(".edit-name-input").first()).toHaveValue("Janez");
+  await expect(page.locator(".edit-name-input").nth(1)).toHaveValue("Novak");
+});

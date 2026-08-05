@@ -101,6 +101,18 @@ export function cloneNode(n: GedNode): GedNode {
   return c;
 }
 
+/** Structural equality for node trees — more robust than comparing serialized
+ * forms, and the way "is this record back to how it was?" is asked. */
+export function nodesEqual(a: GedNode, b: GedNode): boolean {
+  return (
+    a.tag === b.tag &&
+    a.value === b.value &&
+    a.xref === b.xref &&
+    a.children.length === b.children.length &&
+    a.children.every((c, i) => nodesEqual(c, b.children[i]))
+  );
+}
+
 /** Small stable fingerprint of a node tree (djb2 over its serialized form) —
  * cheap change detection (e.g. "was this record edited since?"), not
  * cryptographic. Two structurally equal trees always fingerprint the same. */

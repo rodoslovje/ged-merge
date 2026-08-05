@@ -2165,8 +2165,11 @@ button:focus-visible {
 }
 .relative-picker-option .person-label,
 .start-option .person-label { font-size: inherit; flex-wrap: nowrap; }
+/* A name too long even for the widened list wraps onto a second line rather
+   than being cut off — a truncated name is the one thing these rows must not
+   do, since picking the wrong person is the cost. */
 .relative-picker-option .person-name,
-.start-option .person-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.start-option .person-name { white-space: normal; overflow-wrap: anywhere; }
 
 .person-name-group {
   display: inline-flex;
@@ -3497,11 +3500,15 @@ button:focus-visible {
 }
 
 /* Relative picker — inline search-and-pick widget for adding relatives */
+/* The results hang below the field as an overlay (like the start-person
+   lookup), so they can be wider than the narrow relative slot they sit in and
+   show a full name — the slot itself must not grow, or picking a mother would
+   shove the father's card sideways. */
 .relative-picker {
+  position: relative;
   width: 100%;
   border: 1px dashed var(--border);
   border-radius: var(--radius);
-  overflow: hidden;
   background: var(--bg);
 }
 .relative-picker-input {
@@ -3509,7 +3516,8 @@ button:focus-visible {
   width: 100%;
   border: none;
   border-bottom: 1px solid var(--border);
-  border-radius: 0;
+  /* Follows the wrapper's corners itself, now that the wrapper no longer clips. */
+  border-radius: var(--radius) var(--radius) 0 0;
   padding: 6px 10px;
   background: transparent;
   font: inherit;
@@ -3525,6 +3533,21 @@ button:focus-visible {
   padding: 2px;
   max-height: 180px;
   overflow-y: auto;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 30;
+  /* At least as wide as the slot, as wide as the longest name needs, and never
+     wider than the panel can show. */
+  min-width: 100%;
+  width: max-content;
+  max-width: min(380px, 80vw);
+  box-sizing: border-box;
+  margin-top: 2px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
 }
 .relative-picker-option {
   display: block;

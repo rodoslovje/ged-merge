@@ -2,7 +2,7 @@ import { EDITABLE_FAM_EVENT_TAGS, INDI_EVENT_TAG_ORDER } from "./eventTags";
 import type { Dataset, GedNode } from "./types";
 import type { ChangeReport, FieldChange, FamilySpouseInfo } from "../merge/merge";
 import { displayName, nameTypeLabel } from "../match/relatives";
-import { childrenByTag, firstChild } from "./node";
+import { childrenByTag, firstChild, nodesEqual } from "./node";
 import { parseName } from "./name";
 import { placeNodeCoord } from "./place";
 import { buildObjeIndex, isPointer, objeInfoOf, sourceTitle } from "./source";
@@ -623,6 +623,27 @@ function diffSharedRecordNodes(id: string, before: GedNode, after: GedNode): Fie
   return changes;
 }
 
+/**
+ * Whether a record marked changed in fact leaves the file exactly as it was, so
+ * the save report should pass over it. Two ways that happens, both from an edit
+ * later undoing an earlier one within the session:
+ *
+ *  - it was created and then removed again (connecting a second parent moves the
+ *    child into the couple's existing family and drops the stub the first parent
+ *    made) — it never reached the file and is not there now; or
+ *  - it exists but is identical to the baseline snapshot taken when it first
+ *    went dirty (that stub's other parent, whose pointer to it was added and
+ *    then taken away) — nothing of it is written differently.
+ *
+ * The dirty flag stays put either way: it only decides whether Save is offered,
+ * and offering it once too often is harmless, while the report must describe
+ * what the file will actually receive.
+ */
+function contributesNothing(raw: GedNode | undefined, isNew: boolean, snapshot: GedNode | undefined): boolean {
+  if (!raw) return isNew;
+  return snapshot !== undefined && nodesEqual(raw, snapshot);
+}
+
 export function buildEditReport(
   changedPersonIds: Set<string>,
   changedFamilyIds: Set<string>,
@@ -646,6 +667,7 @@ export function buildEditReport(
   for (const id of changedPersonIds) {
     const indi = dataset.individuals.get(id);
     const isNew = !loadedPersonIds.has(id);
+    if (contributesNothing(indi?.raw, isNew, personSnapshots?.get(id))) continue;
     const isRemoved = !indi && !isNew;
     let label: string;
     if (indi) {
@@ -681,6 +703,7 @@ export function buildEditReport(
       if (name) entries.push({ id: spouseId, name });
     }
     const isNew = !loadedFamilyIds.has(id);
+    if (contributesNothing(fam?.raw, isNew, famSnap)) continue;
     const isRemoved = !fam && !isNew;
     recordLabels[id] = entries.map((e) => e.name).join(" + ") || id;
     recordKinds[id] = "family";
@@ -705,7 +728,7 @@ export function buildEditReport(
   return {
     changes,
     deferred: [],
-    recordsChanged: changedPersonIds.size + changedFamilyIds.size + (changedRecordIds?.size ?? 0),
+    recordsChanged: new Set(changes.map((c) => c.recordId)).size,
     newPersons,
     newFamilies,
     recordLabels,

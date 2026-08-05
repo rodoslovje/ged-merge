@@ -1,7 +1,41 @@
 import { describe, expect, it } from "vitest";
-import { splitFullName } from "./name";
+import { capitalizeTypedName, splitFullName } from "./name";
+
+describe("capitalizeTypedName", () => {
+  it("gives a hurriedly typed name its capitals", () => {
+    expect(capitalizeTypedName("ana stare")).toBe("Ana Stare");
+    expect(capitalizeTypedName("ana marija terezija")).toBe("Ana Marija Terezija");
+  });
+
+  it("leaves a word that was not typed all in lower case alone", () => {
+    // The uppercase-surname convention, and names with a capital inside.
+    expect(capitalizeTypedName("ana STARE")).toBe("Ana STARE");
+    expect(capitalizeTypedName("john McDonald")).toBe("John McDonald");
+    expect(capitalizeTypedName("Ana Stare")).toBe("Ana Stare");
+  });
+
+  it("capitalizes each part of a hyphenated or apostrophed name", () => {
+    expect(capitalizeTypedName("ana-marija stare")).toBe("Ana-Marija Stare");
+    expect(capitalizeTypedName("d'angelo")).toBe("D'Angelo");
+  });
+
+  it("handles letters outside ASCII", () => {
+    expect(capitalizeTypedName("živa čebular")).toBe("Živa Čebular");
+    expect(capitalizeTypedName("šuštaršič")).toBe("Šuštaršič");
+  });
+
+  it("leaves empty and blank text as it is", () => {
+    expect(capitalizeTypedName("")).toBe("");
+    expect(capitalizeTypedName("   ")).toBe("   ");
+  });
+});
 
 describe("splitFullName", () => {
+  it("capitalizes the typed text as it splits it", () => {
+    expect(splitFullName("ana stare")).toEqual({ given: "Ana", surname: "Stare" });
+    expect(splitFullName("stare ana", "surname-given")).toEqual({ surname: "Stare", given: "Ana" });
+  });
+
   it("takes the last token as the surname in given-surname order", () => {
     expect(splitFullName("Janez Novak")).toEqual({ given: "Janez", surname: "Novak" });
     expect(splitFullName("Ana Marija Novak")).toEqual({ given: "Ana Marija", surname: "Novak" });

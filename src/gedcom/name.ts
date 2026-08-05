@@ -30,8 +30,22 @@ export function isUnknownNameToken(text: string | undefined): boolean {
  * word typed into a search box is more often a first name — and either way the
  * new person's name field opens focused for correction.
  */
+/**
+ * Give a name typed in a hurry its capitals: "ana stare" → "Ana Stare". Only
+ * words written entirely in lower case are touched, so a deliberate "STARE"
+ * (the uppercase-surname convention some files use) or a "McDonald" stays as
+ * typed. Hyphenated and apostrophed parts each take their own capital.
+ */
+export function capitalizeTypedName(text: string): string {
+  return text.replace(/\S+/g, (word) =>
+    word === word.toLowerCase()
+      ? word.replace(/(^|[-'\u2019])(\p{Ll})/gu, (_m, sep: string, ch: string) => sep + ch.toUpperCase())
+      : word,
+  );
+}
+
 export function splitFullName(text: string, order: NameOrder = "given-surname"): { given?: string; surname?: string } {
-  const parts = text.trim().split(/\s+/).filter(Boolean);
+  const parts = capitalizeTypedName(text.trim()).split(/\s+/).filter(Boolean);
   if (parts.length === 0) return {};
   if (parts.length === 1) return { given: parts[0] };
   if (order === "surname-given") return { surname: parts[0], given: parts.slice(1).join(" ") };

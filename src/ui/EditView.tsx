@@ -1161,22 +1161,12 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     } else if (kind === "father") {
       defaultSurname = primaryName(person)?.surname || undefined;
     }
-    // Typed text is read per the display-order setting: the last token is the
-    // surname in given-surname order, the first in surname-given. A single
-    // token is a given name — the surname often arrives from the context.
-    let given: string | undefined;
-    const tokens = typedName?.trim() ? typedName.trim().split(/\s+/) : [];
-    if (tokens.length === 1) {
-      given = tokens[0];
-    } else if (tokens.length > 1) {
-      if (settings.order === "surname-given") {
-        defaultSurname = tokens[0];
-        given = tokens.slice(1).join(" ");
-      } else {
-        given = tokens.slice(0, -1).join(" ");
-        defaultSurname = tokens[tokens.length - 1];
-      }
-    }
+    // Typed text is read per the display-order setting and given its capitals
+    // (see splitFullName). A lone word is a given name, so a surname coming
+    // from the family context above still stands.
+    const typed = typedName?.trim() ? splitFullName(typedName, settings.order) : undefined;
+    const given = typed?.given;
+    if (typed?.surname) defaultSurname = typed.surname;
     if (given || defaultSurname) {
       setName(added, { given, surname: defaultSurname });
       rebuildIndividual(dataset, added);

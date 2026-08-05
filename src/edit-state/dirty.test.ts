@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { computePatchApplyOps, computePushCaptureOps, nodesEqual, shouldCaptureFallbackSnapshot } from "./dirty";
+import { computePatchApplyOps, computePushCaptureOps, shouldCaptureFallbackSnapshot } from "./dirty";
+import { nodesEqual } from "../gedcom/node";
 import type { GedNode } from "../gedcom/types";
 import type { RecordPatch } from "../ui/historyTypes";
 

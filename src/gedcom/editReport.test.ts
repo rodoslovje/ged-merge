@@ -3,6 +3,7 @@ import { buildDataset } from "./builder";
 import { parseGedcom } from "./parser";
 import type { ChangeReport } from "../merge/merge";
 import { buildEditReport, combineReports, enrichEditReport, removeRecordFromReport } from "./editReport";
+import { cloneNode } from "./node";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -266,8 +267,40 @@ describe("buildEditReport", () => {
   });
 
   it("falls back to the xref when neither the record nor a snapshot names them", () => {
-    const report = buildEditReport(new Set(["@GONE@"]), new Set(), ds(), loadedPeople, loadedFams);
+    const report = buildEditReport(new Set(["@GONE@"]), new Set(), ds(), new Set(["@GONE@"]), loadedFams);
     expect(report.recordLabels["@GONE@"]).toBe("@GONE@");
+  });
+
+  // An edit can undo an earlier one within the session — connecting the second
+  // parent drops the stub family the first parent created, and takes back the
+  // pointer it added to the other parent. Both are still flagged dirty; neither
+  // leaves a mark on the file, so neither belongs in the report.
+  it("passes over a record created and then removed again", () => {
+    const report = buildEditReport(new Set(), new Set(["@FSTUB@"]), ds(), loadedPeople, loadedFams);
+
+    expect(report.changes).toEqual([]);
+    expect(report.newFamilies).toBe(0);
+    expect(report.recordsChanged).toBe(0);
+  });
+
+  it("passes over a record edited back to how it was", () => {
+    const current = ds();
+    // Its baseline snapshot is the record exactly as it stands now.
+    const snapshots = new Map([["@I1@", cloneNode(current.individuals.get("@I1@")!.raw)]]);
+    const report = buildEditReport(new Set(["@I1@"]), new Set(), current, loadedPeople, loadedFams, snapshots);
+
+    expect(report.changes).toEqual([]);
+    expect(report.recordsChanged).toBe(0);
+  });
+
+  it("still reports a record that differs from its baseline", () => {
+    const current = ds();
+    const snapshot = cloneNode(current.individuals.get("@I1@")!.raw);
+    snapshot.children.push({ level: 1, tag: "NOTE", value: "gone since", children: [] });
+    const report = buildEditReport(new Set(["@I1@"]), new Set(), current, loadedPeople, loadedFams, new Map([["@I1@", snapshot]]));
+
+    expect(report.changes).toHaveLength(1);
+    expect(report.recordsChanged).toBe(1);
   });
 
   it("labels a family by its spouses, husband first", () => {
