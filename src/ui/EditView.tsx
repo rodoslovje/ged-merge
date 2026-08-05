@@ -1275,39 +1275,46 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     const existing = dataset.individuals.get(existingId);
     if (!existing) return;
 
-    const beforePerson = cloneRaw(person.raw);
-    const beforeExisting = cloneRaw(existing.raw);
-    const beforeFam = fam ? cloneRaw(fam.raw) : null;
-    const prevSpouseOf = new Set(person.spouseOf);
-    const prevChildOf = new Set(person.childOf);
+    // Snapshot both people, every family either already belongs to, and every
+    // other member of those families, so the diff afterwards catches whatever
+    // the connect did — including a family it dissolved (connecting the second
+    // parent moves the child into the couple's existing family and drops the
+    // stub, which unlinks the FAMS of the parent already sitting there). A
+    // hand-listed set of patches misses those, and undo restores the record
+    // without the pointers back into it.
+    const knownFamIds = new Set<string>([
+      ...person.spouseOf,
+      ...person.childOf,
+      ...existing.spouseOf,
+      ...existing.childOf,
+      ...(fam ? [fam.id] : []),
+    ]);
+    const knownIndiIds = new Set<string>([person.id, existingId]);
+    for (const famId of knownFamIds) {
+      const f = dataset.families.get(famId);
+      if (!f) continue;
+      for (const id of [f.husband, f.wife, ...f.children]) if (id) knownIndiIds.add(id);
+    }
+    const before = snapshotRecords(dataset, knownIndiIds, knownFamIds);
 
     if (kind === "father") connectExistingParent(dataset, person, existingId, fam, "father");
     else if (kind === "mother") connectExistingParent(dataset, person, existingId, fam, "mother");
     else if (kind === "partner") connectExistingPartner(dataset, person, existingId, fam);
     else connectExistingChild(dataset, person, existingId, fam);
 
-    const patches: RecordPatch[] = [
-      { type: "individual", id: person.id, before: beforePerson, after: cloneRaw(person.raw) },
-      { type: "individual", id: existingId, before: beforeExisting, after: cloneRaw(existing.raw) },
-    ];
-    if (fam) {
-      patches.push({ type: "family", id: fam.id, before: beforeFam!, after: cloneRaw(fam.raw) });
-    } else {
-      const seenFams = new Set<string>();
-      const updatedPerson = dataset.individuals.get(person.id);
-      const updatedExisting = dataset.individuals.get(existingId);
-      for (const famId of [
-        ...(updatedPerson?.spouseOf ?? []),
-        ...(updatedPerson?.childOf ?? []),
-        ...(updatedExisting?.spouseOf ?? []),
-        ...(updatedExisting?.childOf ?? []),
-      ]) {
-        if (!prevSpouseOf.has(famId) && !prevChildOf.has(famId) && !seenFams.has(famId)) {
-          seenFams.add(famId);
-          const newFam = dataset.families.get(famId);
-          if (newFam) patches.push({ type: "family", id: famId, before: null, after: cloneRaw(newFam.raw) });
-        }
-      }
+    const patches: RecordPatch[] = patchesFromSnapshots(dataset, before);
+    // Plus any family the connect created — no snapshot exists to diff it against.
+    const updatedPerson = dataset.individuals.get(person.id);
+    const updatedExisting = dataset.individuals.get(existingId);
+    for (const famId of new Set([
+      ...(updatedPerson?.spouseOf ?? []),
+      ...(updatedPerson?.childOf ?? []),
+      ...(updatedExisting?.spouseOf ?? []),
+      ...(updatedExisting?.childOf ?? []),
+    ])) {
+      if (knownFamIds.has(famId)) continue;
+      const newFam = dataset.families.get(famId);
+      if (newFam) patches.push({ type: "family", id: famId, before: null, after: cloneRaw(newFam.raw) });
     }
 
     onPushEdit(patches, selectedId);
