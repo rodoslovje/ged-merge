@@ -5841,7 +5841,7 @@ body:has(.modal-overlay) {
 /* ── General settings (SettingsModal) ─────────────────────────────────────── */
 /* One size for every tab: a short tab (Advanced) used to shrink the dialog,
    so switching tabs resized the window under the pointer. */
-.settings-modal { max-width: 624px; height: 88dvh; max-height: 88dvh; }
+.settings-modal { max-width: 749px; height: 88dvh; max-height: 88dvh; }
 
 /* General / Advanced tab bar — same segmented look as .chart-settings-segmented,
  * sized to span the modal width just under the header. */
@@ -8123,19 +8123,21 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
  * nothing in this modal ever is. */
 /* The quick-events block follows the toggle rows — give its heading room. */
 .settings-quick-head { margin-top: 14px; }
+/* The buttons this list configures, shown as they will appear under the event
+   list in Edit: same chips, same size, so what is being set up looks like what
+   it produces. Only the leading key number and the × belong to Settings. */
 .settings-quick-events {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 4px 8px;
   margin-top: 8px;
+  font-size: 0.85rem;
+  color: var(--muted);
 }
 .settings-quick-chip {
   display: inline-flex;
   align-items: center;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 2px 8px;
   cursor: default;
 }
 .settings-quick-num {
@@ -8143,17 +8145,9 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
   font-size: 0.75em;
   margin-right: 6px;
 }
-/* The add picker reads as a button at rest: a dashed chip with its "+ Add"
- * label always visible (the SelectMenu trigger supplies the ▾ caret). */
-.settings-quick-add {
-  border: 1px dashed var(--border-2);
-  color: var(--muted);
-}
-.settings-quick-add:hover,
-.settings-quick-add[aria-expanded="true"] {
-  border-color: var(--accent);
-  color: var(--text);
-}
+/* Chips in Edit fade in with the row they sit on; here the list is the point,
+   so they stand at rest. */
+.settings-quick-events .edit-name-chip-add { opacity: 1; }
 
 .settings-overlays-actions {
   display: flex;
