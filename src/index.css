@@ -2960,14 +2960,18 @@ button:focus-visible {
 /* Action chips row — always visible */
 .edit-other-names-actions .edit-name-chip-add { opacity: 1; }
 /* The row that adds an event, under the list it adds to. Always visible (it is
-   the way to add an event, not an incidental extra on another row), and the
-   "+ Add event" menu closes it. */
+   the way to add an event, not an incidental extra on another row), led by the
+   "+ Add event" menu. Sized like the person's own chip row above —
+   it sits outside `.edit-other-names`, so it states the size and spacing that
+   row inherits from there rather than taking the panel's. */
 .edit-event-add-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: 4px 8px;
   padding: 8px 0 2px;
+  font-size: 0.85rem;
+  color: var(--muted);
 }
 .edit-event-add-row .edit-name-chip-add { opacity: 1; }
 /* An event the person can only have one of and already has: its button leads to

@@ -14,13 +14,13 @@ async function openEdit(page: import("@playwright/test").Page) {
 
 // The buttons that add an event belong under the list they add to — and out of
 // the tab path between the name and the first event field.
-test("the event buttons sit below the event list, the menu last", async ({ page }) => {
+test("the event buttons sit below the event list, the menu first", async ({ page }) => {
   await openEdit(page);
 
   const row = page.locator(".edit-event-add-row");
   const labels = await row.locator("button").allInnerTexts();
-  expect(labels[labels.length - 1]).toMatch(/Add Event/i);
-  expect(labels.slice(0, -1).join(" ")).toContain("Birth");
+  expect(labels[0]).toMatch(/Add Event/i);
+  expect(labels.slice(1).join(" ")).toContain("Birth");
 
   // Below the person's own event list (the family sections' events come later
   // still, in their own blocks).

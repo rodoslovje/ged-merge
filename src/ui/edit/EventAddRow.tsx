@@ -4,9 +4,9 @@ import { AddEventSelect } from "./AddEventSelect";
 
 /**
  * The row that adds an event, sitting under the event list it adds to — the way
- * "+ Add child" sits under the children. The one-click events configured in
- * Settings come first, in their configured order (digits 1–9 mirror them), and
- * the "+ Add event" menu closes the row for everything else.
+ * "+ Add child" sits under the children. The "+ Add event" menu leads, and the
+ * one-click events configured in Settings follow in their configured order
+ * (⌥⇧1–9 mirror them).
  *
  * An event a person can only have one of and already has keeps its button: it
  * jumps to the row that holds it rather than writing a second one, and says so
@@ -27,13 +27,22 @@ export function EventAddRow({
   t: Translate;
   onAddEvent: (tag: string) => void;
   quickEventTags?: string[];
-  /** Increment to open the "+ Add event" menu (the 0 key shortcut). */
+  /** Increment to open the "+ Add event" menu (⌥⇧0). */
   addEventMenuNonce?: number;
   recordedTags: Set<string>;
 }) {
   const quick = quickEventTags ?? [];
   return (
     <div className="edit-event-add-row">
+      <AddEventSelect
+        groups={groups}
+        label={t("edit.addEvent")}
+        tooltip={t("edit.addEventTooltip")}
+        t={t}
+        onAdd={onAddEvent}
+        className="edit-name-chip edit-name-chip-add"
+        openNonce={addEventMenuNonce}
+      />
       {quick.map((tag, i) => {
         const recorded = recordedTags.has(tag);
         const event = eventDisplayLabel(tag, t);
@@ -53,15 +62,6 @@ export function EventAddRow({
           </button>
         );
       })}
-      <AddEventSelect
-        groups={groups}
-        label={t("edit.addEvent")}
-        tooltip={t("edit.addEventTooltip")}
-        t={t}
-        onAdd={onAddEvent}
-        className="edit-name-chip edit-name-chip-add"
-        openNonce={addEventMenuNonce}
-      />
     </div>
   );
 }
