@@ -15,7 +15,8 @@ test("the dialog lists the editing shortcuts as they are bound", async ({ page }
   expect(text.some((r) => /(⌥ ⇧|Alt Shift) E\b/.test(r))).toBe(true);
   expect(text.some((r) => /(⌥ ⇧|Alt Shift) N \/ S/.test(r))).toBe(true);
   expect(text.some((r) => /(⌥ ⇧|Alt Shift) A \/ I \/ L/.test(r))).toBe(true);
-  expect(text.some((r) => /(⌥ ⇧|Alt Shift) F \/ M \/ P \/ C/.test(r))).toBe(true);
+  expect(text.some((r) => /(⌥ ⇧|Alt Shift) F \/ M/.test(r))).toBe(true);
+  expect(text.some((r) => /(⌥ ⇧|Alt Shift) P \/ C/.test(r))).toBe(true);
   // The digits used to be listed on their own, without a modifier.
   expect(text.some((r) => /^1 – 9|^1 \/ 9/.test(r))).toBe(false);
 });

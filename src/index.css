@@ -6000,24 +6000,28 @@ p.settings-note { margin: 0 0 12px; font-size: 0.82rem; color: var(--muted); lin
   color: var(--accent); border-bottom: 1px solid var(--border);
 }
 /* Each group is a two-column grid: a shared key column (sized by the widest
-   combo in the group) and left-aligned descriptions, so rows line up instead
-   of rag-wrapping against the right edge. */
+   combo in the group, and no wider — a floor under it left short keys like S
+   stranded far from what they do) and left-aligned descriptions, so rows line
+   up instead of rag-wrapping against the right edge. */
 .shortcuts-group dl {
-  display: grid; grid-template-columns: minmax(88px, max-content) 1fr;
+  display: grid; grid-template-columns: max-content 1fr;
   align-items: center; margin: 0;
 }
 .shortcuts-row { display: contents; }
 /* Tight rows: a stacked combo already stands two lines tall, so the padding
    that suited one-line rows spread the list down the page. */
-.shortcuts-row dt { margin: 0; padding: 2px 12px 2px 0; }
+.shortcuts-row dt { margin: 0; padding: 2px 8px 2px 0; }
 .shortcuts-row dd { margin: 0; padding: 2px 0; color: var(--muted); font-size: 0.98rem; }
 
 /* Modifiers shared by every key of a shortcut take a line of their own, with
    the keys that differ beneath: ⌥⇧ over "F / M / P / C" keeps the column narrow
-   — the more so where the modifiers are spelled out (Alt, Shift). The 100%
-   basis is what breaks the line. */
-.kbd-combo { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; }
-.kbd-mods { display: inline-flex; align-items: center; gap: 4px; flex-basis: 100%; }
+   — the more so where the modifiers are spelled out (Alt, Shift). Stacking is a
+   column, not a wrap: a wrapped row still reserves the width of the single line
+   it would have been, which is the width this is meant to save. */
+.kbd-combo { display: inline-flex; align-items: center; gap: 6px; }
+.kbd-combo:has(.kbd-mods) { flex-direction: column; align-items: flex-start; gap: 2px; }
+.kbd-mods,
+.kbd-keys { display: inline-flex; align-items: center; gap: 4px; }
 .kbd-chord { display: inline-flex; align-items: center; gap: 4px; }
 .kbd-or { color: var(--muted); font-size: 0.85rem; }
 

@@ -36,14 +36,16 @@ function Combo({ item }: { item: ShortcutItem }) {
           ))}
         </span>
       )}
-      {rest.map((chord, ci) => (
-        <span key={ci} className="kbd-chord">
-          {ci > 0 && <span className="kbd-or">{separator}</span>}
-          {chord.map((token, ti) => (
-            <kbd key={ti}>{renderKeyToken(token)}</kbd>
-          ))}
-        </span>
-      ))}
+      <span className="kbd-keys">
+        {rest.map((chord, ci) => (
+          <span key={ci} className="kbd-chord">
+            {ci > 0 && <span className="kbd-or">{separator}</span>}
+            {chord.map((token, ti) => (
+              <kbd key={ti}>{renderKeyToken(token)}</kbd>
+            ))}
+          </span>
+        ))}
+      </span>
     </span>
   );
 }
