@@ -29,10 +29,17 @@ function writeLegacyLinkFixture(url: string): string {
 }
 
 /** Pick an entry from an app-styled DropdownMenu: click the trigger, then the
- * portalled menu item carrying the wanted value. */
+ * portalled menu item carrying the wanted value. Any in-progress field edit is
+ * blurred first — its blur-commit remounts the event row, which would unmount
+ * a menu opened in the same click. */
 async function pickMenu(trigger: Locator, value: string) {
+  const page = trigger.page();
+  await page.evaluate(() => {
+    const el = document.activeElement as HTMLElement | null;
+    if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA")) el.blur();
+  });
   await trigger.click();
-  await trigger.page().locator(`.dd-menu .dd-item[data-value="${value}"]`).click();
+  await page.locator(`.dd-menu .dd-item[data-value="${value}"]`).click();
 }
 
 /** Fill an event field, first adding it via the event's "+ Add" menu when it
