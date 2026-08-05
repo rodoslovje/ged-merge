@@ -12,6 +12,11 @@ interface Item {
   place: string;
   addr?: string;
   proposal?: PlaceProposal;
+  /** A place offered on its own from a field that is not the place field (the
+   *  address field, which reaches other settlements through the pair list):
+   *  picking it sets the place and clears the address, rather than writing the
+   *  place's name into the field the user is typing in. */
+  movesPlace?: boolean;
 }
 
 type SearchState = { state: "idle" | "loading" | "error" | "done"; query: string; results: PlaceProposal[] };
@@ -133,6 +138,23 @@ export function PlaceAutocomplete({
           (cb) => cb.addr,
         )
       : [];
+    // Naming a place here means the place itself, so offer it plainly before
+    // any of its houses: picking it moves the event and takes the place's own
+    // coordinate, leaving the address empty. Only for combos matched on their
+    // place text — someone typing a house number means the house.
+    const barePlaces: Item[] = [];
+    if (matchCombosByPlace && onPickCombo) {
+      const seen = new Set(plain.map((item) => placeCompareKey(item.place)));
+      for (const cb of byPrefix(
+        comboHits.filter((cb) => cb.place.toLowerCase().includes(q)),
+        (cb) => cb.place,
+      )) {
+        const key = placeCompareKey(cb.place);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        barePlaces.push({ place: cb.place, movesPlace: true });
+      }
+    }
     // Round-robin across places: the pair list is grouped per place, so one
     // place with many matching houses (Breg ob Savi's "Breg 2…22") would
     // otherwise crowd every other matching place (Breg ob Kokri's) out of the
@@ -157,7 +179,7 @@ export function PlaceAutocomplete({
     // hits — with 8+ matching places the address pairs would otherwise never
     // surface at all.
     const comboRoom = matchCombosByPlace ? 0 : Math.min(withAddr.length, 3);
-    const fromFile = [...plain.slice(0, 8 - comboRoom), ...withAddr].slice(0, 8);
+    const fromFile = [...barePlaces, ...plain.slice(0, 8 - comboRoom), ...withAddr].slice(0, 8);
     // Register offers sit below the file's own places: what the file already
     // uses is the better answer whenever it fits, and only the rest needs a
     // register. They are shown for the query they were fetched for, so an
@@ -180,8 +202,10 @@ export function PlaceAutocomplete({
     // the usual change+commit pair.
     if (item.proposal && onPickProposal) {
       onPickProposal(item.proposal);
-    } else if (item.addr && onPickCombo) {
-      onPickCombo(item.place, item.addr);
+    } else if ((item.addr || item.movesPlace) && onPickCombo) {
+      // "" for a bare place: the pair pick writes both fields, so the address
+      // this field holds is cleared as the event moves.
+      onPickCombo(item.place, item.addr ?? "");
     } else {
       onChange(item.place);
       onCommit(item.place);
