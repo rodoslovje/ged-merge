@@ -17,6 +17,7 @@ import {
   type NameOrder,
 } from "../gedcom/nameDisplay";
 import { sanitizeFormatOverrides, type FormatOverrides } from "../normalize/formatOverrides";
+import { INDI_EVENT_TAGS } from "../gedcom/eventTags";
 import type { NativePyramid } from "./map/tilePlan";
 import { CUSTOM_BASEMAP, isKnownBasemap } from "./map/basemapPresets";
 
@@ -130,6 +131,9 @@ export interface AppSettings extends NameDisplayOptions {
    *  workspace. Opt-in: off by default, and only when on may the browser be
    *  asked for persistent storage. */
   persistWorkspace: boolean;
+  /** Quick-add event buttons on the Edit person card, in order — digits 1–9
+   *  add them from the keyboard. Empty = no quick row. */
+  quickEventTags: string[];
 }
 
 const DEFAULTS: AppSettings = {
@@ -145,7 +149,24 @@ const DEFAULTS: AppSettings = {
   mapOverlays: [],
   formatOverrides: {},
   persistWorkspace: false,
+  quickEventTags: ["BIRT", "RESI", "DEAT", "BURI"],
 };
+
+/** Digits 1–9 trigger the quick-add buttons, so the list is capped at nine. */
+export const MAX_QUICK_EVENTS = 9;
+
+/** Known individual-event tags only, deduped, at most nine. A saved empty list
+ *  is the user's "no quick buttons" choice and stays empty — only a blob from
+ *  before this setting existed falls back to the defaults. */
+function sanitizeQuickEventTags(v: unknown): string[] {
+  if (!Array.isArray(v)) return DEFAULTS.quickEventTags;
+  const seen = new Set<string>();
+  for (const tag of v) {
+    if (typeof tag === "string" && INDI_EVENT_TAGS.has(tag) && tag !== "MARR") seen.add(tag);
+    if (seen.size === MAX_QUICK_EVENTS) break;
+  }
+  return [...seen];
+}
 
 const STORAGE_KEY = "gedmerge.settings";
 
@@ -313,6 +334,7 @@ function load(): AppSettings {
         ...sanitizeFormatOverrides(parsed.formatOverrides),
       },
       persistWorkspace: bool(parsed.persistWorkspace, DEFAULTS.persistWorkspace),
+      quickEventTags: sanitizeQuickEventTags(parsed.quickEventTags),
     };
   } catch {
     return DEFAULTS;

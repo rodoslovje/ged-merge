@@ -137,6 +137,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     column: "right",
     items: [
       { keys: [[KEY.addPerson.toUpperCase()]], descKey: "shortcuts.item.addPerson" },
+      { keys: [["1"], ["9"]], descKey: "shortcuts.item.quickEvent" },
       { keys: [["Enter"]], descKey: "shortcuts.item.commitField" },
     ],
   },

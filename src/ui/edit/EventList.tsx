@@ -54,6 +54,7 @@ export const EventList = memo(function EventList({
   materializedEventIds,
   onMaterializeEventNode,
   pendingFocusNodeId,
+  birtFocusNonce,
   undoVersion,
   mergeGen,
   birthParentAges,
@@ -113,6 +114,9 @@ export const EventList = memo(function EventList({
   /** Record an event node (by `nodeId`) as freshly materialized from a merge suggestion. */
   onMaterializeEventNode?: (id: number) => void;
   pendingFocusNodeId?: number | null;
+  /** Bumped by quick-add "Birth": focuses the always-present Birth row's lead
+   * input instead of adding a duplicate BIRT event. */
+  birtFocusNonce?: number;
   undoVersion?: number;
   /** Bumped whenever the confirmed-match merge preview recomputes; folded into
    * row keys so a row already mounted before a match was confirmed remounts
@@ -224,6 +228,7 @@ export const EventList = memo(function EventList({
         onAddSource={() => onOpenSourceDialog({ kind: "event", commitField: (update, extraPatches) => commit((indi) => setEventField(indi, "BIRT", update), extraPatches) })}
         onEditSource={birtOriginalIdx >= 0 ? (idx) => openEditSource(rawEventNodes[birtOriginalIdx], idx, { kind: "individual", indi: person }) : undefined}
         onOpenSourceDialog={onOpenSourceDialog}
+        focusLeadNonce={birtFocusNonce}
         placeSuggestions={placeSuggestions}
         placeToAddrs={placeToAddrs}
         placeCanonical={placeCanonical}

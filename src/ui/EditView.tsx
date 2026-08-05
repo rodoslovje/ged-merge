@@ -180,7 +180,7 @@ interface Props {
  *  unrelated one changing leaves it alone (see useSettingsSlice). Edit is the
  *  largest tree in the app and stays mounted behind Merge and every modal, so
  *  re-rendering it for a preference it never reads is pure waste. */
-const SETTINGS_KEYS = ["formatOverrides", "order", "showAge", "showEditMap", "showKinship"] as const;
+const SETTINGS_KEYS = ["formatOverrides", "order", "showAge", "showEditMap", "showKinship", "quickEventTags"] as const;
 
 /** Edit mode's person view: parents on top, the selected person in the
  * center, partners + children on the bottom. The center panel is editable;
@@ -398,6 +398,9 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
   const chartKind = chartSettings.kind;
   const shortcutRef = useRef({ selectedId, onShowCharts, chartKind, startId, matchOrder, navigate, goBack, matchDecKey, toggleMatchStatus });
   shortcutRef.current = { selectedId, onShowCharts, chartKind, startId, matchOrder, navigate, goBack, matchDecKey, toggleMatchStatus };
+  // Quick-add events (digits 1–9). Fed from below (the handler is defined
+  // after `commit`), read through the ref at event time like shortcutRef.
+  const quickAddRef = useRef<{ tags: string[]; add: (tag: string) => void }>({ tags: [], add: () => {} });
   // The scrollable person panel — Up/Down scroll this instead of navigating
   // when it actually has overflow to scroll.
   const editBodyRef = useRef<HTMLDivElement>(null);
@@ -433,6 +436,13 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
       const statusHit = KEY_STATUS[key];
       if (statusHit) {
         if (decKey) { e.preventDefault(); toggle(statusHit); }
+        return;
+      }
+      if (/^[1-9]$/.test(e.key)) {
+        // Quick-add events, in the order configured in Settings.
+        const { tags, add } = quickAddRef.current;
+        const tag = tags[Number(e.key) - 1];
+        if (tag && id) { e.preventDefault(); add(tag); }
         return;
       }
       if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
@@ -521,6 +531,24 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     afterNoteChanges(notes.changes, person.id);
     setTick((v) => v + 1);
   });
+
+  // Add an event to the selected person and focus its lead input — the "+ Add
+  // event" menu, the quick-add buttons and the digit shortcuts all land here.
+  // Birth is the exception: its row always exists (possibly empty), so quick-
+  // adding it focuses that row instead of writing a duplicate BIRT node.
+  const [birtFocusNonce, setBirtFocusNonce] = useState(0);
+  const addIndividualEvent = useStableHandler((tag: string) => {
+    if (!person) return;
+    if (tag === "BIRT") {
+      setBirtFocusNonce((n) => n + 1);
+      return;
+    }
+    commit((indi) => addEventNode(indi, tag));
+    // addEventNode inserts as the last child with this tag, so find it now.
+    const sameTag = childrenByTag(person.raw, tag);
+    if (sameTag.length) setPendingFocusEventNodeId(nodeId(sameTag[sameTag.length - 1]));
+  });
+  quickAddRef.current = { tags: settings.quickEventTags, add: addIndividualEvent };
 
   const commitFamily: FamilyCommit = useStableHandler((fam: Family, mutate: (fam: Family, noteCtx: SharedNoteCtx) => void, extraPatches?: RecordPatch[]) => {
     const before = cloneRaw(fam.raw);
@@ -1617,12 +1645,8 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
             t={t}
             commit={commit}
             emptyEventGroups={INDIVIDUAL_EVENT_GROUPS as unknown as { labelKey: string; tags: string[] }[]}
-            onAddEvent={(tag) => {
-              commit((indi) => addEventNode(indi, tag));
-              // addEventNode inserts as the last child with this tag, so find it now.
-              const sameTag = childrenByTag(person.raw, tag);
-              if (sameTag.length) setPendingFocusEventNodeId(nodeId(sameTag[sameTag.length - 1]));
-            }}
+            onAddEvent={addIndividualEvent}
+            quickEventTags={settings.quickEventTags}
             showAddLink={!(person.links ?? []).length && !(person.sources ?? []).length && !mergeIncomingLinks.get("links")?.length && !mergeIncomingSources.get("links")?.length}
             onAddLink={() => setSourceDialogTarget({ kind: "individual" })}
             showAddNote={!notesAdded && !(person.noteRefs ?? []).some((r) => r.text.trim())}
@@ -1723,6 +1747,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
             materializedEventIds={materializedEventIds}
             onMaterializeEventNode={markMaterializedEvent}
             pendingFocusNodeId={pendingFocusEventNodeId}
+            birtFocusNonce={birtFocusNonce}
             undoVersion={undoVersion}
             mergeGen={mergeGen}
             birthParentAges={birthParentAges}

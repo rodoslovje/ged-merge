@@ -2,7 +2,9 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import { useTranslation } from "react-i18next";
 import { useModalKeyboard } from "../keyboard/useModalKeyboard";
 import { SelectMenu } from "./DropdownMenu";
-import { useSettings, useNameOf, type MapOverlay } from "./SettingsContext";
+import { useSettings, useNameOf, MAX_QUICK_EVENTS, type MapOverlay } from "./SettingsContext";
+import { INDIVIDUAL_EVENT_GROUPS } from "./edit/editConstants";
+import { eventDisplayLabel } from "../gedcom/eventTags";
 import { OVERLAY_PRESETS, resolveOverlay } from "./map/overlayPresets";
 import { sampleMapView, type FramedOverlay } from "./map/sampleView";
 import { BASEMAPS, CUSTOM_BASEMAP } from "./map/basemapPresets";
@@ -457,6 +459,46 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                 <span className="settings-hint">{t("settings.display.xref.hint")}</span>
               </span>
             </label>
+          </section>
+
+          <section className="settings-section">
+            <h3>{t("settings.quickEvents.title")}</h3>
+            <p className="settings-hint">{t("settings.quickEvents.hint")}</p>
+            <div className="settings-quick-events">
+              {settings.quickEventTags.map((tag, i) => (
+                <span key={tag} className="edit-name-chip-wrap">
+                  <span className="edit-name-chip settings-quick-chip">
+                    <span className="settings-quick-num gm-data">{i + 1}</span>
+                    {eventDisplayLabel(tag, t)}
+                  </span>
+                  <button
+                    type="button"
+                    className="edit-link-remove"
+                    title={t("settings.quickEvents.remove")}
+                    onClick={() => set({ quickEventTags: settings.quickEventTags.filter((x) => x !== tag) })}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+              {settings.quickEventTags.length < MAX_QUICK_EVENTS && (
+                <SelectMenu
+                  className="edit-name-chip edit-name-chip-add settings-quick-add"
+                  value=""
+                  placeholder={`+ ${t("settings.quickEvents.add")}`}
+                  onChange={(tag) => set({ quickEventTags: [...settings.quickEventTags, tag] })}
+                  groups={INDIVIDUAL_EVENT_GROUPS.map((g, i) => ({
+                    label: t(g.labelKey),
+                    // BIRT lives outside the menu groups (its row is always
+                    // shown in Edit) but is a valid quick button — offer it
+                    // with the early-life group.
+                    items: (i === 0 ? ["BIRT", ...g.tags] : [...g.tags])
+                      .filter((tag) => !settings.quickEventTags.includes(tag))
+                      .map((tag) => ({ value: tag, label: eventDisplayLabel(tag, t) })),
+                  })).filter((g) => g.items.length > 0)}
+                />
+              )}
+            </div>
           </section>
           </>
           )}
