@@ -143,8 +143,10 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       // ⌥⇧, so they fire inside a field too — and clear of the browser's own:
       // ⌥E/⌥S are menu accelerators on Windows and Linux, ⌃⌥ is AltGr, and
       // ⌃⇧N/P/M belong to the browser (see the EditView key handler).
-      { keys: [["alt", "shift", "1"], ["alt", "shift", "9"]], sep: "range", descKey: "shortcuts.item.quickEvent" },
+      // The menu first, then the one-click events — the order of the row they
+      // stand for, under the event list.
       { keys: [["alt", "shift", "E"]], descKey: "shortcuts.item.addEventMenu" },
+      { keys: [["alt", "shift", "1"], ["alt", "shift", "9"]], sep: "range", descKey: "shortcuts.item.quickEvent" },
       { keys: [["alt", "shift", "N"], ["alt", "shift", "S"]], descKey: "shortcuts.item.addNoteSource" },
       { keys: [["alt", "shift", "A"], ["alt", "shift", "I"], ["alt", "shift", "L"]], descKey: "shortcuts.item.addNameMediaPrivate" },
       { keys: [["alt", "shift", "F"], ["alt", "shift", "M"]], descKey: "shortcuts.item.addParent" },
