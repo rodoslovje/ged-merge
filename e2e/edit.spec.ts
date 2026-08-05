@@ -42,13 +42,20 @@ async function pickMenu(trigger: Locator, value: string) {
   await page.locator(`.dd-menu .dd-item[data-value="${value}"]`).click();
 }
 
+/** Open an event row's "+ Add" menu and pick a detail. The pointer parks on
+ * the row's label cell first: the collapsed chip expands on row hover, and
+ * hovering the chip's own (moving) spot makes it flicker under the cursor. */
+async function addEventDetail(row: Locator, key: string) {
+  await row.locator(".edit-event-type-row").hover();
+  await pickMenu(row.locator(".edit-event-addfield"), key);
+}
+
 /** Fill an event field, first adding it via the event's "+ Add" menu when it
- * isn't already shown (place/address/etc. only render once they have a value).
- * Assumes another field in the row is focused so the menu is revealed. */
+ * isn't already shown (place/address/etc. only render once they have a value). */
 async function setEventField(row: Locator, cls: string, key: string, value: string) {
   const input = row.locator(`.${cls}`).first();
   if (!(await input.isVisible())) {
-    await pickMenu(row.locator(".edit-event-addfield"), key);
+    await addEventDetail(row, key);
   }
   await input.fill(value);
 }
@@ -77,7 +84,7 @@ test("edit mode: name, sex and event fields are editable and exportable", async 
   // menu when the event doesn't already have them.
   await setEventField(birth, "edit-event-place", "place", "Ljubljana, Slovenija");
   await setEventField(birth, "edit-event-addr", "addr", "Glavni trg 1");
-  await pickMenu(birth.locator(".edit-event-addfield"), "source");
+  await addEventDetail(birth, "source");
   const sourceDialog = page.locator(".add-source-dialog");
   await sourceDialog.locator(".add-source-textarea").fill("https://example.com/test");
   await sourceDialog.getByRole("button", { name: "Add source", exact: true }).click();
@@ -143,7 +150,7 @@ test("edit mode: family marriage fields are editable and exportable", async ({ p
   await marriage.locator(".edit-event-date").fill("3 MAR 1999");
   await setEventField(marriage, "edit-event-place", "place", "Maribor, Slovenija");
   await setEventField(marriage, "edit-event-addr", "addr", "Trg 5");
-  await pickMenu(marriage.locator(".edit-event-addfield"), "source");
+  await addEventDetail(marriage, "source");
   const sourceDialog = page.locator(".add-source-dialog");
   await sourceDialog.locator(".add-source-textarea").fill("https://example.com/marr");
   await sourceDialog.getByRole("button", { name: "Add source", exact: true }).click();
