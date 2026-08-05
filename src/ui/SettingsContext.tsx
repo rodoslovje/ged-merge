@@ -152,7 +152,7 @@ const DEFAULTS: AppSettings = {
   mapOverlays: [],
   formatOverrides: {},
   persistWorkspace: false,
-  quickEventTags: ["BIRT", "RESI", "DEAT", "BURI"],
+  quickEventTags: ["BIRT", "RESI", "OCCU", "DEAT", "BURI"],
   marriedNameFromPartner: false,
 };
 
