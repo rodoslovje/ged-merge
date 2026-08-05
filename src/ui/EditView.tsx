@@ -413,17 +413,21 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
   useEffect(() => {
     if (!active) return;
     function onKey(e: KeyboardEvent) {
-      // ⌃1–⌃9 / ⌃0 fire even while typing in a field — the bare digits must
-      // keep typing dates there. Control (not ⌘) on purpose: browsers reserve
-      // ⌘digit (macOS) and Ctrl+digit (Windows/Linux) for tab switching, and
-      // plain ⌃digit is what macOS leaves to the page. The field being typed
-      // in commits itself when focus moves to the new event's input.
-      if (e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && /^[0-9]$/.test(e.key) && !isModalOpen()) {
+      // ⌥1–⌥9 / ⌥0 fire even while typing in a field — the bare digits must
+      // keep typing dates there. Option/Alt on purpose: browsers reserve
+      // ⌘digit (macOS) and Ctrl+digit (Windows/Linux) for tab switching,
+      // while ⌥digit reaches the page. Matched on e.code: with Option held,
+      // e.key is the special character the layout produces (¡, ™ …), and the
+      // ctrlKey guard also keeps AltGr (Ctrl+Alt) layouts typing theirs. The
+      // field being typed in commits itself when focus moves to the new
+      // event's input.
+      if (e.altKey && !e.metaKey && !e.ctrlKey && !e.shiftKey && /^Digit[0-9]$/.test(e.code) && !isModalOpen()) {
         const { tags, add, openMenu } = quickAddRef.current;
         const id = shortcutRef.current.selectedId;
         if (!id) return;
-        if (e.key === "0") { e.preventDefault(); openMenu(); return; }
-        const tag = tags[Number(e.key) - 1];
+        const digit = Number(e.code.slice(-1));
+        if (digit === 0) { e.preventDefault(); openMenu(); return; }
+        const tag = tags[digit - 1];
         if (tag) { e.preventDefault(); add(tag); }
         return;
       }

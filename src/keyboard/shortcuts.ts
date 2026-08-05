@@ -139,9 +139,9 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: [[KEY.addPerson.toUpperCase()]], descKey: "shortcuts.item.addPerson" },
       { keys: [["1"], ["9"]], descKey: "shortcuts.item.quickEvent" },
       { keys: [["0"]], descKey: "shortcuts.item.addEventMenu" },
-      // Control, not "mod": ⌘digit / Ctrl+digit are the browser's own tab
-      // switch — plain ⌃digit is what reaches the page even inside a field.
-      { keys: [["⌃", "1"], ["⌃", "9"]], descKey: "shortcuts.item.quickEventTyping" },
+      // Option/Alt, not "mod": ⌘digit / Ctrl+digit are the browser's own tab
+      // switch — ⌥digit is what reaches the page even inside a field.
+      { keys: [["alt", "1"], ["alt", "9"]], descKey: "shortcuts.item.quickEventTyping" },
       { keys: [["Enter"]], descKey: "shortcuts.item.commitField" },
     ],
   },
@@ -171,7 +171,8 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
 
 /** Render "mod" for the current platform; pass other tokens through unchanged. */
 export function renderKeyToken(token: string): string {
-  if (token !== "mod") return token;
+  if (token !== "mod" && token !== "alt") return token;
   const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
+  if (token === "alt") return isMac ? "⌥" : "Alt";
   return isMac ? "⌘" : "Ctrl";
 }
