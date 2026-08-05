@@ -217,14 +217,16 @@ function blobToDataUrl(blob: Blob): Promise<string> {
   });
 }
 
-// Node photos render as <img> inside <foreignObject> with an object-URL src,
-// which is meaningless outside this page session — inline each as a data URI.
+// Node photos point at an object URL, which is meaningless outside this page
+// session — inline each as a data URI. Chart nodes draw SVG `<image href>`;
+// `<img src>` covers any HTML still exported inside a `<foreignObject>`.
 async function embedImages(clone: SVGSVGElement): Promise<void> {
-  const imgs = Array.from(clone.querySelectorAll("img"));
+  const imgs = Array.from(clone.querySelectorAll<Element>("img, image"));
   const cache = new Map<string, string>();
   await Promise.all(
     imgs.map(async (img) => {
-      const src = img.getAttribute("src");
+      const attr = img.tagName.toLowerCase() === "img" ? "src" : "href";
+      const src = img.getAttribute(attr) ?? img.getAttribute("xlink:href");
       if (!src || src.startsWith("data:")) return;
       let data = cache.get(src);
       if (data === undefined) {
@@ -236,8 +238,12 @@ async function embedImages(clone: SVGSVGElement): Promise<void> {
         }
         cache.set(src, data);
       }
-      if (data) img.setAttribute("src", data);
-      else img.remove();
+      if (data) {
+        img.setAttribute(attr, data);
+        // An `xlink:href` left beside the new `href` would win in renderers that
+        // still prefer it, pointing them back at the dead object URL.
+        img.removeAttribute("xlink:href");
+      } else img.remove();
     }),
   );
 }
