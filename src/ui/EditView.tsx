@@ -612,6 +612,44 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     add: addIndividualEvent,
     openMenu: () => setAddEventMenuNonce((n) => n + 1),
   };
+  /** The spouse family the keyboard is in, if it is in one. */
+  function famAtCursor(): Family | undefined {
+    const el = (document.activeElement as HTMLElement | null)?.closest?.("[data-fam-id]");
+    const id = el?.getAttribute("data-fam-id");
+    return id ? spouseFamilies.find((f) => f.id === id) : undefined;
+  }
+
+  /**
+   * Open the picker for the first empty slot of this kind — what clicking the
+   * "+ Add …" placeholder does. A parent goes in a parent family, one being
+   * created when the person has none. A partner or a child goes in a spouse
+   * family: the one the keyboard is in, else the only one there is. With
+   * several families and the keyboard in none of them there is no answer to
+   * "which family", so nothing happens.
+   */
+  function openRelativeSlot(kind: "father" | "mother" | "partner" | "child") {
+    if (kind === "father" || kind === "mother") {
+      const held = (f: Family) => (kind === "father" ? f.husband : f.wife);
+      const fam = parentFamilies.find((f) => !held(f));
+      if (!fam && parentFamilies.length) return; // every parent family names one
+      setPickingSlot({ kind, fam });
+      return;
+    }
+    if (!person) return;
+    const personId = person.id;
+    const cursorFam = famAtCursor();
+    const partnerless = (f: Family) => !(f.husband === personId ? f.wife : f.husband);
+    if (kind === "partner") {
+      const fam = cursorFam && partnerless(cursorFam) ? cursorFam : spouseFamilies.find(partnerless);
+      if (!fam && spouseFamilies.length) return; // every family names a partner
+      setPickingSlot({ kind, fam });
+      return;
+    }
+    const fam = cursorFam ?? (spouseFamilies.length <= 1 ? spouseFamilies[0] : undefined);
+    if (!fam && spouseFamilies.length) return; // several families, none chosen
+    setPickingSlot({ kind, fam });
+  }
+
   // ⌥⇧ letters, by physical key. Note and Source are the person's here; inside
   // an event row that row answers them first, for the event (EventFieldsRow).
   editActionRef.current = {
@@ -619,9 +657,15 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     KeyN: () => setNotesAdded(true),
     KeyA: () => setAddNameNonce((n) => n + 1),
     KeyS: () => setSourceDialogTarget({ kind: "individual" }),
-    KeyM: () => handleAddMedia({ kind: "individual" }),
-    KeyP: () =>
+    // Media is I for image and privacy L for the lock it shows: M and P belong
+    // to Mother and Partner, which are named far more often than either.
+    KeyI: () => handleAddMedia({ kind: "individual" }),
+    KeyL: () =>
       commit((indi) => setPrivateFlag(indi.raw, !indi.private, privacyStyle, dataset.records)),
+    KeyF: () => openRelativeSlot("father"),
+    KeyM: () => openRelativeSlot("mother"),
+    KeyP: () => openRelativeSlot("partner"),
+    KeyC: () => openRelativeSlot("child"),
   };
 
   const commitFamily: FamilyCommit = useStableHandler((fam: Family, mutate: (fam: Family, noteCtx: SharedNoteCtx) => void, extraPatches?: RecordPatch[]) => {

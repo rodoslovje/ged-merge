@@ -75,8 +75,36 @@ test("the letters reach the person's own actions", async ({ page }) => {
   await expect(page.locator(".dd-menu")).toBeVisible();
   await page.keyboard.press("Escape");
 
-  // P — the privacy flag.
+  // L — the privacy flag (the lock it shows; P belongs to Partner).
   await page.locator(".edit-name-input").first().click();
-  await altShift(page, "KeyP");
+  await altShift(page, "KeyL");
   await expect(page.locator(".edit-person .private-toggle, .edit-person [title*='rivate']").first()).toBeVisible();
+});
+
+// F, M, P and C open the picker on the "+ Add …" slot they name.
+test("the relative letters open the picker on their own empty slot", async ({ page }) => {
+  await openEdit(page);
+  // A person made from the search bar is attached to nobody, so every slot the
+  // letters name stands empty.
+  await page.getByRole("button", { name: /Search everyone/i }).click();
+  await page.locator(".global-search-input").fill("xylo zorn");
+  await page.locator(".global-search-create").click();
+  await page.locator(".edit-parents .person-card-add").first().waitFor();
+
+  await page.locator(".edit-name-input").first().click();
+  await altShift(page, "KeyF");
+  const picker = page.locator(".edit-parents .relative-picker");
+  await expect(picker).toHaveCount(1);
+  await expect(picker.locator(".relative-picker-input")).toBeFocused();
+  await page.keyboard.press("Escape");
+
+  await page.locator(".edit-name-input").first().click();
+  await altShift(page, "KeyM");
+  await expect(page.locator(".edit-parents .relative-picker")).toHaveCount(1);
+  await page.keyboard.press("Escape");
+
+  // C — a child, in the person's only family.
+  await page.locator(".edit-name-input").first().click();
+  await altShift(page, "KeyC");
+  await expect(page.locator(".edit-families .relative-picker")).toHaveCount(1);
 });
