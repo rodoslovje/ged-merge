@@ -2153,6 +2153,21 @@ button:focus-visible {
 /* Kinship sits right after the name in the compare header, left-aligned to
    match Edit mode's name row (rather than pushed to the far right). */
 .compare-head .person-kinship { margin-left: 0; }
+/* A person offered in a lookup list (pick a relative, pick the start person)
+   wears the same label as the card they will become: sex-coloured name, record
+   id, lifespan. Those rows are plain blocks that clip with an ellipsis, which
+   cannot reach inside an inline-flex label — so the row becomes a flex line and
+   the name is what gives up width, leaving the years legible at the end. */
+.relative-picker-option:has(.person-label),
+.start-option:has(.person-label) {
+  display: flex;
+  align-items: center;
+}
+.relative-picker-option .person-label,
+.start-option .person-label { font-size: inherit; flex-wrap: nowrap; }
+.relative-picker-option .person-name,
+.start-option .person-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 .person-name-group {
   display: inline-flex;
   align-items: center;

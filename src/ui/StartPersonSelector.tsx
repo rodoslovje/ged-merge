@@ -1,11 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Individual } from "../gedcom/types";
-import { datesTooltipOf, lifespanOf } from "../gedcom/lifespan";
 import { nameSearchText } from "../match/relatives";
+import { lifespanTooltipOf, lifespanWithAge } from "../gedcom/age";
+import { xrefLabel } from "../gedcom/nameDisplay";
 import { foldSearch } from "./globalSearch";
-import { useNameOf } from "./SettingsContext";
+import { useNameOf, useSettingsSlice } from "./SettingsContext";
+import { sexClass } from "./sex";
 import { SearchIcon } from "./icons/SearchIcon";
+
+/** The preferences the rows read — the same the person cards honour, so a name
+ *  reads identically wherever it appears. */
+const SETTINGS_KEYS = ["showAge", "showXref"] as const;
 
 interface Props {
   individuals: Map<string, Individual>;
@@ -60,6 +66,7 @@ export function StartPersonSelector({
   const listRef = useRef<HTMLUListElement>(null);
   const { t } = useTranslation();
   const nameOf = useNameOf();
+  const settings = useSettingsSlice(SETTINGS_KEYS);
 
   useEffect(() => {
     if (autoFocus) {
@@ -75,13 +82,22 @@ export function StartPersonSelector({
     () =>
       [...individuals.values()]
         .map((i) => {
-          const span = lifespanOf(i);
+          const span = lifespanWithAge(i, settings.showAge);
           const name = nameOf(i);
-          const search = foldSearch(span ? `${nameSearchText(i)} ${span}` : nameSearchText(i));
-          return { id: i.id, text: span ? `${name} ${span}` : name, title: datesTooltipOf(i), search };
+          const search = foldSearch(`${nameSearchText(i)} ${span} ${i.id}`);
+          return {
+            id: i.id,
+            name,
+            span,
+            sex: i.sex,
+            xref: xrefLabel(i.id),
+            text: span ? `${name} ${span}` : name,
+            title: lifespanTooltipOf(i, settings.showAge, t),
+            search,
+          };
         })
         .sort((a, b) => a.text.localeCompare(b.text)),
-    [individuals, nameOf],
+    [individuals, nameOf, settings.showAge, t],
   );
 
   const filtered = useMemo(() => {
@@ -213,7 +229,11 @@ export function StartPersonSelector({
                     onMouseEnter={() => setActiveIndex(i)}
                     onClick={() => confirm(o.id)}
                   >
-                    {o.text}
+                    <span className={`person-label ${sexClass(o.sex)}`}>
+                      <span className="person-name">{o.name}</span>
+                      {settings.showXref && <span className="person-xref gm-data">{o.xref}</span>}
+                      {o.span && <span className="person-years gm-data">{o.span}</span>}
+                    </span>
                   </button>
                 </li>
               );

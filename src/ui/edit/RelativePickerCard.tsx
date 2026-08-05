@@ -1,8 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { Individual } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
-import { lifespanLabel } from "../../match/relatives";
+import { nameSearchText } from "../../match/relatives";
+import { lifespanTooltipOf, lifespanWithAge } from "../../gedcom/age";
+import { xrefLabel } from "../../gedcom/nameDisplay";
+import { useNameOf, useSettingsSlice } from "../SettingsContext";
+import { sexClass } from "../sex";
 import { foldSearch } from "../globalSearch";
+
+/** The preferences the rows read — the same ones the person cards honour, so a
+ *  name reads identically whether it sits on a card or in this list. */
+const SETTINGS_KEYS = ["showAge", "showXref"] as const;
 
 /** Inline picker that lets the user either search for an existing person or add a new one. */
 export function RelativePickerCard({
@@ -23,6 +31,8 @@ export function RelativePickerCard({
   onCancel: () => void;
   t: Translate;
 }) {
+  const nameOf = useNameOf();
+  const settings = useSettingsSlice(SETTINGS_KEYS);
   const [query, setQuery] = useState("");
   const [activeIdx, setActiveIdx] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -42,11 +52,26 @@ export function RelativePickerCard({
     const q = foldSearch(query.trim());
     return [...individuals.values()]
       .filter((i) => i.id !== excludeId)
-      .map((i) => ({ id: i.id, text: lifespanLabel(i) }))
-      .sort((a, b) => a.text.localeCompare(b.text))
-      .filter((o) => !q || foldSearch(o.text).includes(q))
+      .map((i) => {
+        const name = nameOf(i);
+        const span = lifespanWithAge(i, settings.showAge);
+        return {
+          id: i.id,
+          name,
+          span,
+          sex: i.sex,
+          xref: xrefLabel(i.id),
+          tooltip: lifespanTooltipOf(i, settings.showAge, t),
+          // Searchable on every name the person carries, not just the one on
+          // show: a maiden name still finds them while married names are
+          // displayed, and the record id finds them outright.
+          search: foldSearch(`${nameSearchText(i)} ${name} ${span} ${i.id}`),
+        };
+      })
+      .sort((a, b) => a.name.localeCompare(b.name) || a.span.localeCompare(b.span))
+      .filter((o) => !q || o.search.includes(q))
       .slice(0, 10);
-  }, [individuals, excludeId, query]);
+  }, [individuals, excludeId, query, nameOf, settings.showAge, t]);
 
   useEffect(() => { setActiveIdx(0); }, [query]);
 
@@ -89,10 +114,15 @@ export function RelativePickerCard({
             <li key={o.id}>
               <button
                 className={`relative-picker-option${i + 1 === activeIdx ? " highlighted" : ""}`}
+                title={o.tooltip}
                 onMouseEnter={() => setActiveIdx(i + 1)}
                 onMouseDown={(e) => { e.preventDefault(); onPickExisting(o.id); }}
               >
-                {o.text}
+                <span className={`person-label ${sexClass(o.sex)}`}>
+                  <span className="person-name">{o.name}</span>
+                  {settings.showXref && <span className="person-xref gm-data">{o.xref}</span>}
+                  {o.span && <span className="person-years gm-data">{o.span}</span>}
+                </span>
               </button>
             </li>
           ))}
