@@ -181,14 +181,18 @@ describe("grid layout", () => {
     expect(d.x).toBe(c.x);
   });
 
-  it("connects a hoisted first child from the person with a straight horizontal line", () => {
+  it("forks every child of a union off one shared trunk on the spouse", () => {
     const root = node("A", [], [node("B", [node("c"), node("d")])]);
     const { edges } = flatten(layoutGrid(root, "lr").root, "lr", "elbow");
-    // The inline child hangs off A (not the spouse) and its path never leaves mid-height.
-    const toC = edges.find((e) => e.id === "A->c")!;
-    expect(toC.d).toBe(`M${NODE_W},${NODE_H / 2} H${NODE_W + 40} V${NODE_H / 2} H${COL_STEP}`);
-    // The second child still hangs off the spouse — horizontal too, on the shared lane.
-    expect(edges.some((e) => e.id === "B->d")).toBe(true);
+    const toC = edges.find((e) => e.id === "B->c")!;
+    const toD = edges.find((e) => e.id === "B->d")!;
+    // Both leave B's right edge and turn at the same junction in the column
+    // gap — c branching up to the hoisted lane, d running straight on.
+    const stem = `M${NODE_W},${ROW_STEP + NODE_H / 2} H${NODE_W + 40}`;
+    expect(toC.d).toBe(`${stem} V${NODE_H / 2} H${COL_STEP}`);
+    expect(toD.d).toBe(`${stem} V${ROW_STEP + NODE_H / 2} H${COL_STEP}`);
+    // No child of the union hangs off the person directly any more.
+    expect(edges.some((e) => e.id === "A->c")).toBe(false);
   });
 
   it("drops the second child below the first child's whole subtree", () => {
