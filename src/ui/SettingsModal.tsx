@@ -17,6 +17,7 @@ import { DATE_PATTERN_CHOICES, type DetectedFormats, type FormatOverrides } from
 import { placeLayoutSample, sampleDateFor } from "../normalize/formatDefaults";
 import { placeSeparatorText } from "../normalize/profile";
 import { sexClass } from "./sex";
+import { altShiftLabel } from "../keyboard/shortcuts";
 import type { SettingsTab } from "./settingsBus";
 import { GazetteerManager, useGazetteer } from "./tools/GazetteerManager";
 
@@ -477,7 +478,7 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
             <div className="settings-row settings-quick-head">
               <span className="settings-row-text">
                 <span className="settings-row-label">{t("settings.quickEvents.title")}</span>
-                <span className="settings-hint">{t("settings.quickEvents.hint")}</span>
+                <span className="settings-hint">{t("settings.quickEvents.hint", { keys: altShiftLabel("1–9") })}</span>
               </span>
             </div>
             <div className="settings-quick-events">

@@ -172,7 +172,16 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
 /** Render "mod" for the current platform; pass other tokens through unchanged. */
 export function renderKeyToken(token: string): string {
   if (token !== "mod" && token !== "alt") return token;
-  const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
-  if (token === "alt") return isMac ? "⌥" : "Alt";
-  return isMac ? "⌘" : "Ctrl";
+  if (token === "alt") return isMacKeyboard() ? "⌥" : "Alt";
+  return isMacKeyboard() ? "⌘" : "Ctrl";
+}
+
+function isMacKeyboard(): boolean {
+  return typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
+}
+
+/** The ⌥⇧ combination as it reads on this platform: the glyphs run together on
+ *  a Mac ("⌥⇧1"), the words need joining anywhere else ("Alt+Shift+1"). */
+export function altShiftLabel(key: string): string {
+  return isMacKeyboard() ? `⌥⇧${key}` : `Alt+Shift+${key}`;
 }

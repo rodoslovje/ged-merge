@@ -1,12 +1,13 @@
 import type { Translate } from "../../locales/i18n";
 import { eventDisplayLabel } from "../../gedcom/eventTags";
 import { AddEventSelect } from "./AddEventSelect";
+import { altShiftLabel } from "../../keyboard/shortcuts";
 
 /**
  * The row that adds an event, sitting under the event list it adds to — the way
  * "+ Add child" sits under the children. The "+ Add event" menu leads, and the
  * one-click events configured in Settings follow in their configured order
- * (⌥⇧1–9 mirror them).
+ * (⌥⇧1–9 mirror them; ⌥⇧E opens the menu).
  *
  * An event a person can only have one of and already has keeps its button: it
  * jumps to the row that holds it rather than writing a second one, and says so
@@ -27,7 +28,7 @@ export function EventAddRow({
   t: Translate;
   onAddEvent: (tag: string) => void;
   quickEventTags?: string[];
-  /** Increment to open the "+ Add event" menu (⌥⇧0). */
+  /** Increment to open the "+ Add event" menu (⌥⇧E). */
   addEventMenuNonce?: number;
   recordedTags: Set<string>;
 }) {
@@ -53,8 +54,8 @@ export function EventAddRow({
             className={"edit-name-chip edit-name-chip-add" + (recorded ? " edit-name-chip--recorded" : "")}
             title={
               recorded
-                ? t("edit.quickAdd.goTo", { event, key: i + 1 })
-                : t("edit.quickAdd.tooltip", { event, key: i + 1 })
+                ? t("edit.quickAdd.goTo", { event, key: altShiftLabel(String(i + 1)) })
+                : t("edit.quickAdd.tooltip", { event, key: altShiftLabel(String(i + 1)) })
             }
             onClick={() => onAddEvent(tag)}
           >

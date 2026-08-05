@@ -416,7 +416,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   const chartKind = chartSettings.kind;
   const shortcutRef = useRef({ selectedId, onShowCharts, chartKind, startId, matchOrder, navigate, goBack, matchDecKey, toggleMatchStatus });
   shortcutRef.current = { selectedId, onShowCharts, chartKind, startId, matchOrder, navigate, goBack, matchDecKey, toggleMatchStatus };
-  // Quick-add events (digits 1–9; 0 opens the Add-event menu). Fed from below
+  // Quick-add events (⌥⇧1–9). Fed from below
   // (the handler is defined after `commit`), read through the ref at event
   // time like shortcutRef.
   const quickAddRef = useRef<{ tags: string[]; add: (tag: string) => void; openMenu: () => void }>({
@@ -450,11 +450,10 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
       if (e.altKey && e.shiftKey && !e.metaKey && !e.ctrlKey && !isModalOpen() && !e.defaultPrevented) {
         const id = shortcutRef.current.selectedId;
         if (!id) return;
-        if (/^Digit[0-9]$/.test(e.code)) {
-          const { tags, add, openMenu } = quickAddRef.current;
-          const digit = Number(e.code.slice(-1));
-          if (digit === 0) { e.preventDefault(); openMenu(); return; }
-          const tag = tags[digit - 1];
+        if (/^Digit[1-9]$/.test(e.code)) {
+          // 0 had opened the "+ Add event" menu; E does that, and says so.
+          const { tags, add } = quickAddRef.current;
+          const tag = tags[Number(e.code.slice(-1)) - 1];
           if (tag) { e.preventDefault(); add(tag); }
           return;
         }
