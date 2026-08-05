@@ -264,7 +264,7 @@ export const EventList = memo(function EventList({
             onAddSource={() => onOpenSourceDialog({ kind: "event", commitField: (update, extraPatches) => commit((indi) => setEventFieldAtIndex(indi, row.i, update), extraPatches) })}
             onEditSource={(idx) => openEditSource(rawEventNodes[row.i], idx, { kind: "individual", indi: person })}
             onOpenSourceDialog={onOpenSourceDialog}
-            autoFocusDate={row.stableKey === pendingFocusNodeId}
+            autoFocusLead={row.stableKey === pendingFocusNodeId}
             placeSuggestions={placeSuggestions}
             placeToAddrs={placeToAddrs}
             placeCanonical={placeCanonical}

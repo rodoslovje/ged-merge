@@ -515,7 +515,7 @@ export const FamilySection = memo(function FamilySection({
             commit={commitFamily}
             openEditSource={openEditSource}
             onOpenSourceDialog={onOpenSourceDialog}
-            autoFocusDate={pendingFocusFamEventKey === `${fam.id}-${tag}`}
+            autoFocusLead={pendingFocusFamEventKey === `${fam.id}-${tag}`}
             onRemove={hasRealEvent ? () => commitFamily(fam, (f) => removeFamilyEvent(f, tag)) : () => dismissExtraEvent(`${famMergeKeyBase ?? `fam.${fam.id}`}.${tag}`)}
             onCopy={eventNode ? () => onCopyFamilyEvent(fam, eventNode, eventDisplayLabel(tag, t)) : undefined}
             onRetag={(newTag) => markFamilyTagRetagged(famMergeKeyBase ?? `fam.${fam.id}`, newTag)}
