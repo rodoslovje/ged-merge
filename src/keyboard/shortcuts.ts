@@ -80,6 +80,9 @@ export interface ShortcutItem {
    * "mod" is rendered as ⌘ on macOS, Ctrl elsewhere.
    */
   keys: string[][];
+  /** How the alternatives read: "/" between interchangeable keys (the default),
+   *  "–" when they are the ends of a run (1–9). */
+  sep?: "or" | "range";
   /** i18n key for the human-readable description. */
   descKey: string;
 }
@@ -100,7 +103,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     items: [
       { keys: [["mod", "S"]], descKey: "shortcuts.item.save" },
       { keys: [["mod", "Z"]], descKey: "shortcuts.item.undo" },
-      { keys: [["mod", "Shift", "Z"], ["mod", "Y"]], descKey: "shortcuts.item.redo" },
+      { keys: [["mod", "shift", "Z"], ["mod", "Y"]], descKey: "shortcuts.item.redo" },
       { keys: [["mod", "F"]], descKey: "shortcuts.item.find" },
       { keys: [["/"]], descKey: "shortcuts.item.globalSearch" },
       { keys: [["?"]], descKey: "shortcuts.item.help" },
@@ -137,11 +140,14 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     column: "right",
     items: [
       { keys: [[KEY.addPerson.toUpperCase()]], descKey: "shortcuts.item.addPerson" },
-      { keys: [["1"], ["9"]], descKey: "shortcuts.item.quickEvent" },
-      { keys: [["0"]], descKey: "shortcuts.item.addEventMenu" },
-      // Option/Alt, not "mod": ⌘digit / Ctrl+digit are the browser's own tab
-      // switch — ⌥digit is what reaches the page even inside a field.
-      { keys: [["alt", "1"], ["alt", "9"]], descKey: "shortcuts.item.quickEventTyping" },
+      // ⌥⇧, so they fire inside a field too — and clear of the browser's own:
+      // ⌥E/⌥S are menu accelerators on Windows and Linux, ⌃⌥ is AltGr, and
+      // ⌃⇧N/P/M belong to the browser (see the EditView key handler).
+      { keys: [["alt", "shift", "1"], ["alt", "shift", "9"]], sep: "range", descKey: "shortcuts.item.quickEvent" },
+      { keys: [["alt", "shift", "E"]], descKey: "shortcuts.item.addEventMenu" },
+      { keys: [["alt", "shift", "N"], ["alt", "shift", "S"]], descKey: "shortcuts.item.addNoteSource" },
+      { keys: [["alt", "shift", "A"], ["alt", "shift", "I"], ["alt", "shift", "L"]], descKey: "shortcuts.item.addNameMediaPrivate" },
+      { keys: [["alt", "shift", "F"], ["alt", "shift", "M"], ["alt", "shift", "P"], ["alt", "shift", "C"]], descKey: "shortcuts.item.addRelative" },
       { keys: [["Enter"]], descKey: "shortcuts.item.commitField" },
     ],
   },
@@ -160,7 +166,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     category: "app",
     column: "right",
     items: [
-      { keys: [["1"], ["8"]], descKey: "shortcuts.item.chartKind" },
+      { keys: [["1"], ["8"]], sep: "range", descKey: "shortcuts.item.chartKind" },
       { keys: [[CHART_KEY.ancestors.toUpperCase()], [CHART_KEY.descendants.toUpperCase()]], descKey: "shortcuts.item.chartDirection" },
       { keys: [["+"], ["−"]], descKey: "shortcuts.item.chartZoom" },
       { keys: [[CHART_KEY.zoomReset]], descKey: "shortcuts.item.chartZoomReset" },
@@ -171,9 +177,10 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
 
 /** Render "mod" for the current platform; pass other tokens through unchanged. */
 export function renderKeyToken(token: string): string {
-  if (token !== "mod" && token !== "alt") return token;
   if (token === "alt") return isMacKeyboard() ? "⌥" : "Alt";
-  return isMacKeyboard() ? "⌘" : "Ctrl";
+  if (token === "shift") return isMacKeyboard() ? "⇧" : "Shift";
+  if (token === "mod") return isMacKeyboard() ? "⌘" : "Ctrl";
+  return token;
 }
 
 function isMacKeyboard(): boolean {
