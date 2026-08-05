@@ -26,6 +26,14 @@ writeFileSync(
     // (a pin recorded against a house describes that house, not the village).
     "0 @I4@ INDI", "1 NAME Neža /Kern/", "1 SEX F",
     "1 BIRT", "2 PLAC Zgornje Bitnje,Kranj,Slovenia", "3 MAP", "4 LATI N46.2", "4 LONG E14.3",
+    // A second settlement whose name also contains "bitnje", and houses entered
+    // in no particular order, so grouping and numeric order are both visible.
+    "0 @I5@ INDI", "1 NAME Ivan /Kern/", "1 SEX M",
+    "1 BIRT", "2 PLAC Spodnje Bitnje,Kranj,Slovenia", "2 ADDR Spodnje Bitnje 11",
+    "0 @I6@ INDI", "1 NAME Ema /Kern/", "1 SEX F",
+    "1 BIRT", "2 PLAC Spodnje Bitnje,Kranj,Slovenia", "2 ADDR Spodnje Bitnje 2",
+    "0 @I7@ INDI", "1 NAME Rok /Kern/", "1 SEX M",
+    "1 BIRT", "2 PLAC Zgornje Bitnje,Kranj,Slovenia", "2 ADDR Zgornje Bitnje 2",
     // The person edited below, whose birth names neither place nor address.
     "0 @I3@ INDI", "1 NAME Anton /Kern/", "1 SEX M", "1 BIRT", "2 DATE 31 MAY 1897",
     "0 TRLR", "",
@@ -91,4 +99,20 @@ test("a typed house number still offers the house, not the settlement", async ({
 
   // Matched on the address text, so the pair leads — no bare-place row above it.
   await expect(page.locator(".place-suggestion").first()).toContainText("Zgornje Bitnje 13");
+});
+
+test("a place's houses stand together, in house-number order", async ({ page }) => {
+  const addr = await antonsAddressField(page);
+  await addr.fill("bitnje");
+
+  const rows = await page.locator(".place-suggestion").allInnerTexts();
+  const pairs = rows.filter((r) => r.includes("·")).map((r) => r.replace(/\s+/g, " ").trim());
+
+  // Each settlement's houses are consecutive — no interleaving between places.
+  const places = pairs.map((r) => r.split("·")[0].trim());
+  expect(new Set(places).size).toBe(places.filter((p, i) => i === 0 || p !== places[i - 1]).length);
+
+  // And within a settlement the numbers read 2, 7, 13 — not 13, 2, 7.
+  const zgornje = pairs.filter((r) => r.startsWith("Zgornje Bitnje")).map((r) => r.split("·")[1].trim());
+  expect(zgornje).toEqual(["Zgornje Bitnje 2", "Zgornje Bitnje 7", "Zgornje Bitnje 13"]);
 });

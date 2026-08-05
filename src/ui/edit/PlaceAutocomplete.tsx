@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ClearableInput } from "./ClearableInput";
-import { applyCanonical } from "./placeSuggestions";
+import { applyCanonical, BY_HOUSE_NUMBER } from "./placeSuggestions";
 import { proposalKey, type PlaceProposal } from "../../geo/placeProposal";
 import { placeCompareKey } from "../../match/place";
 
@@ -154,6 +154,11 @@ export function PlaceAutocomplete({
         seen.add(key);
         barePlaces.push({ place: cb.place, movesPlace: true });
       }
+      barePlaces.sort(
+        (a, b) =>
+          Number(b.place.toLowerCase().startsWith(q)) - Number(a.place.toLowerCase().startsWith(q)) ||
+          a.place.localeCompare(b.place),
+      );
     }
     // Round-robin across places: the pair list is grouped per place, so one
     // place with many matching houses (Breg ob Savi's "Breg 2…22") would
@@ -166,20 +171,45 @@ export function PlaceAutocomplete({
       else byPlace.set(cb.place, [cb]);
     }
     const buckets = [...byPlace.values()];
-    const withAddr: Item[] = [];
+    const picked: { place: string; addr: string }[] = [];
     const rounds = buckets.length ? Math.max(...buckets.map((b) => b.length)) : 0;
     for (let i = 0; i < rounds; i++) {
       for (const b of buckets) {
-        if (i < b.length) withAddr.push({ place: b[i].place, addr: b[i].addr });
+        if (i < b.length) picked.push(b[i]);
       }
     }
+    // Shown grouped, though: a place's houses stand together and in house-number
+    // order ("Breg 2" before "Breg 11"), and the places named by what was typed
+    // — or holding a house named by it — lead. Round-robin decides *which* pairs
+    // fit the cap; it is no order to read a list in.
+    const shownOrder = (pairs: { place: string; addr: string }[]): Item[] => {
+      const groups = new Map<string, { place: string; addr: string }[]>();
+      for (const cb of pairs) {
+        const bucket = groups.get(cb.place);
+        if (bucket) bucket.push(cb);
+        else groups.set(cb.place, [cb]);
+      }
+      return [...groups.values()]
+        .map((items) => ({
+          items: [...items].sort((a, b) => BY_HOUSE_NUMBER.compare(a.addr, b.addr)),
+          lead:
+            items[0].place.toLowerCase().startsWith(q) ||
+            items.some((cb) => cb.addr.toLowerCase().startsWith(q))
+              ? 0
+              : 1,
+        }))
+        .sort((a, b) => a.lead - b.lead || a.items[0].place.localeCompare(b.items[0].place))
+        .flatMap((g) => g.items.map((cb) => ({ place: cb.place, addr: cb.addr })));
+    };
     // The address field puts its own place's addresses (the plain list) first,
     // in full: they are the answers "from here", and pairs at other places only
     // fill what room is left. The place field instead reserves room for combo
     // hits — with 8+ matching places the address pairs would otherwise never
     // surface at all.
-    const comboRoom = matchCombosByPlace ? 0 : Math.min(withAddr.length, 3);
-    const fromFile = [...barePlaces, ...plain.slice(0, 8 - comboRoom), ...withAddr].slice(0, 8);
+    const comboRoom = matchCombosByPlace ? 0 : Math.min(picked.length, 3);
+    const plainPart = plain.slice(0, 8 - comboRoom);
+    const room = Math.max(0, 8 - barePlaces.length - plainPart.length);
+    const fromFile = [...barePlaces, ...plainPart, ...shownOrder(picked.slice(0, room))];
     // Register offers sit below the file's own places: what the file already
     // uses is the better answer whenever it fits, and only the rest needs a
     // register. They are shown for the query they were fetched for, so an
