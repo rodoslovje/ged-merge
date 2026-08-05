@@ -39,6 +39,10 @@ export function placeKey(raw: string): string {
   return raw.trim().split(",").map((p) => p.trim().toLowerCase()).join("|");
 }
 
+/** House numbers compare as numbers ("Breg 2" before "Breg 11"), like the
+ *  geocoding lists (src/tools/addresses.ts). */
+const BY_HOUSE_NUMBER = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
+
 /** Collect all unique PLAC and ADDR values from a dataset and build canonical
  * maps (most-frequent casing wins) for normalize-on-blur. */
 export function buildPlaceSuggestions(dataset: Dataset): PlaceSuggestions {
@@ -127,7 +131,9 @@ export function buildPlaceSuggestions(dataset: Dataset): PlaceSuggestions {
 
   const placeToAddrs = new Map<string, string[]>();
   for (const [pk, m] of placeAddrForms) {
-    placeToAddrs.set(pk, [...m.keys()].sort());
+    // Numeric house-number order (Breg 2 before Breg 11), matching the
+    // geocoding lists — this feeds the address autocomplete and combos.
+    placeToAddrs.set(pk, [...m.keys()].sort((a, b) => BY_HOUSE_NUMBER.compare(a, b)));
   }
 
   /** Most frequently used value per key. */

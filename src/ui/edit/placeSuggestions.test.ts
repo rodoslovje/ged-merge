@@ -177,3 +177,32 @@ describe("buildPlaceSuggestions place FORM", () => {
     expect(sug.placeForms.size).toBe(0);
   });
 });
+
+describe("address ordering", () => {
+  it("sorts a place's addresses by house number, not lexicographically", () => {
+    const sug = buildPlaceSuggestions(build(`0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 BIRT
+2 PLAC Tupaliče, Preddvor, Slovenija
+2 ADDR Tupaliče 11
+1 RESI
+2 PLAC Tupaliče, Preddvor, Slovenija
+2 ADDR Tupaliče 8
+1 CENS
+2 PLAC Tupaliče, Preddvor, Slovenija
+2 ADDR Tupaliče 9 (pd Celar)
+1 EVEN
+2 PLAC Tupaliče, Preddvor, Slovenija
+2 ADDR Tupaliče 13
+0 TRLR
+`));
+    expect(sug.placeToAddrs.get(placeKey("Tupaliče, Preddvor, Slovenija"))).toEqual([
+      "Tupaliče 8",
+      "Tupaliče 9 (pd Celar)",
+      "Tupaliče 11",
+      "Tupaliče 13",
+    ]);
+  });
+});
