@@ -777,6 +777,7 @@ export const en = {
   "edit.addNameTooltip": "Add an alternative name (married, name at birth, aka…)",
   "edit.addEvent": "Add Event",
   "edit.addEventTooltip": "Add a new event to this person",
+  "edit.quickAdd.goTo": "Go to {{event}} — already recorded (key {{key}})",
   "edit.quickAdd.tooltip": "Add {{event}} (key {{key}})",
   "edit.addFamilyEvent": "Add Family Event",
   "edit.addFamilyEventTooltip": "Add a new event to this family",

@@ -861,6 +861,7 @@ export const sl = {
   "edit.addNameTooltip": "Dodaj alternativno ime (poročno, ime ob rojstvu, vzdevek…)",
   "edit.addEvent": "Dodaj dogodek",
   "edit.addEventTooltip": "Dodaj nov dogodek tej osebi",
+  "edit.quickAdd.goTo": "Pojdi na dogodek {{event}} — že vpisan (tipka {{key}})",
   "edit.quickAdd.tooltip": "Dodaj dogodek {{event}} (tipka {{key}})",
   "edit.addFamilyEvent": "Dodaj družinski dogodek",
   "edit.addFamilyEventTooltip": "Dodaj nov dogodek tej družini",

@@ -2959,6 +2959,25 @@ button:focus-visible {
 .edit-name-chip-add:focus-visible { opacity: 1; }
 /* Action chips row — always visible */
 .edit-other-names-actions .edit-name-chip-add { opacity: 1; }
+/* The row that adds an event, under the list it adds to. Always visible (it is
+   the way to add an event, not an incidental extra on another row), and the
+   "+ Add event" menu closes it. */
+.edit-event-add-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 0 2px;
+}
+.edit-event-add-row .edit-name-chip-add { opacity: 1; }
+/* An event the person can only have one of and already has: its button leads to
+   the row holding it rather than writing a second one, so it reads as a
+   destination — solid-bordered and without the "+" — not an offer to add. */
+.edit-name-chip--recorded {
+  border-style: solid;
+  border-color: var(--border);
+  color: var(--muted);
+}
 .edit-name-chip-add:hover,
 .edit-name-chip-add:focus-visible,
 .edit-name-chip-add:focus-within { border-color: var(--accent); color: var(--text); }

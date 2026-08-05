@@ -90,6 +90,7 @@ import { SexToggle } from "./edit/SexToggle";
 import { PrivateToggle } from "./edit/PrivateToggle";
 import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "../gedcom/private";
 import { OtherNamesEditor } from "./edit/OtherNamesEditor";
+import { EventAddRow } from "./edit/EventAddRow";
 import { FsIdEditor } from "./edit/FsIdEditor";
 import { EventList } from "./edit/EventList";
 import { CopyEventDialog, type CopyEventRequest } from "./edit/CopyEventDialog";
@@ -1743,15 +1744,6 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
             person={person}
             t={t}
             commit={commit}
-            // Single-instance events the person already has leave the menu —
-            // the quick buttons for them stay and focus the existing row.
-            emptyEventGroups={INDIVIDUAL_EVENT_GROUPS.map((g) => ({
-              labelKey: g.labelKey,
-              tags: g.tags.filter((tg) => !(SINGLE_EVENT_TAGS.has(tg) && childrenByTag(person.raw, tg).length > 0)),
-            })).filter((g) => g.tags.length > 0)}
-            onAddEvent={addIndividualEvent}
-            quickEventTags={settings.quickEventTags}
-            addEventMenuNonce={addEventMenuNonce}
             showAddLink={!(person.links ?? []).length && !(person.sources ?? []).length && !mergeIncomingLinks.get("links")?.length && !mergeIncomingSources.get("links")?.length}
             onAddLink={() => setSourceDialogTarget({ kind: "individual" })}
             showAddNote={!notesAdded && !(person.noteRefs ?? []).some((r) => r.text.trim())}
@@ -1859,6 +1851,25 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
             mergeGen={mergeGen}
             birthParentAges={birthParentAges}
             onCopyEvent={onCopyIndividualEvent}
+          />
+          <EventAddRow
+            groups={INDIVIDUAL_EVENT_GROUPS.map((g) => ({
+              labelKey: g.labelKey,
+              // Single-instance events the person already has leave the menu —
+              // their quick button stays and leads to the existing row.
+              tags: g.tags.filter((tg) => !(SINGLE_EVENT_TAGS.has(tg) && childrenByTag(person.raw, tg).length > 0)),
+            })).filter((g) => g.tags.length > 0)}
+            t={t}
+            onAddEvent={addIndividualEvent}
+            quickEventTags={settings.quickEventTags}
+            addEventMenuNonce={addEventMenuNonce}
+            recordedTags={
+              new Set(
+                (settings.quickEventTags ?? []).filter(
+                  (tg) => SINGLE_EVENT_TAGS.has(tg) && childrenByTag(person.raw, tg).length > 0,
+                ),
+              )
+            }
           />
           {personMap && (
             <div className="edit-person-map">
