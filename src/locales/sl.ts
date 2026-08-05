@@ -2067,6 +2067,7 @@ export const sl = {
   "shortcuts.group.editing": "Urejanje",
   "shortcuts.item.addPerson": "Dodaj novo osebo (brez povezav)",
   "shortcuts.item.quickEvent": "Dodaj hitri dogodek (kot je nastavljeno v nastavitvah)",
+  "shortcuts.item.addEventMenu": "Odpri meni Dodaj dogodek",
   "shortcuts.item.commitField": "Shrani polje, ki ga urejaš, in ga zapusti",
   "shortcuts.item.save": "Shrani / prenesi GEDCOM",
   "shortcuts.item.undo": "Razveljavi",

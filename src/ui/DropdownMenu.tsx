@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 export interface DropdownItem {
@@ -99,6 +99,7 @@ export function DropdownMenu({
   ariaLabel,
   style,
   disabled,
+  openNonce,
 }: {
   groups: DropdownGroup[];
   /** Value marked as the active choice (✓); omit for action menus. */
@@ -114,6 +115,9 @@ export function DropdownMenu({
   /** Inline style for the trigger (e.g. the score pickers' value colour). */
   style?: CSSProperties;
   disabled?: boolean;
+  /** Increment to open the menu programmatically (a keyboard shortcut). The
+   *  first value seen at mount never opens — only a later change does. */
+  openNonce?: number;
 }) {
   const [open, setOpen] = useState(false);
   const [menuPos, setMenuPos] = useState<CSSProperties>();
@@ -121,9 +125,9 @@ export function DropdownMenu({
   const btnRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const flat = groups.flatMap((g) => g.items);
+  const flat = useMemo(() => groups.flatMap((g) => g.items), [groups]);
 
-  function openMenu() {
+  const openMenu = useCallback(() => {
     const rect = btnRef.current?.getBoundingClientRect();
     if (!rect || flat.length === 0) return;
     const below = window.innerHeight - rect.bottom - EDGE;
@@ -138,7 +142,7 @@ export function DropdownMenu({
     const cur = current !== undefined ? flat.findIndex((i) => i.value === current) : -1;
     setActive(cur >= 0 ? cur : 0);
     setOpen(true);
-  }
+  }, [flat, current]);
 
   function close(refocus: boolean) {
     setOpen(false);
@@ -149,6 +153,17 @@ export function DropdownMenu({
     close(true);
     onSelect(value);
   }
+
+  // A shortcut-driven open: bring the trigger into view (the fixed-position
+  // menu anchors to its on-screen rect), then open. The nonce guard skips the
+  // mount run and makes the extra re-runs from openMenu's identity harmless.
+  const seenOpenNonce = useRef(openNonce ?? 0);
+  useEffect(() => {
+    if (!openNonce || openNonce === seenOpenNonce.current) return;
+    seenOpenNonce.current = openNonce;
+    btnRef.current?.scrollIntoView({ block: "nearest" });
+    openMenu();
+  }, [openNonce, openMenu]);
 
   // Keep the menu on-screen horizontally (its width is only known once
   // rendered) and hand it focus so the arrow keys work immediately.

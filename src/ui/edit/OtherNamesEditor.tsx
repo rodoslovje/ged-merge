@@ -20,6 +20,7 @@ export function OtherNamesEditor({
   emptyEventGroups,
   onAddEvent,
   quickEventTags,
+  addEventMenuNonce,
   showAddLink,
   onAddLink,
   showAddNote,
@@ -39,6 +40,8 @@ export function OtherNamesEditor({
   /** Quick-add buttons (Settings › Quick add events), in order — rendered on
    *  their own row with the "+ Add event" menu; digits 1–9 mirror them. */
   quickEventTags?: string[];
+  /** Increment to open the "+ Add event" menu (the 0 key shortcut). */
+  addEventMenuNonce?: number;
   showAddLink: boolean;
   onAddLink: () => void;
   showAddNote: boolean;
@@ -74,6 +77,7 @@ export function OtherNamesEditor({
       t={t}
       onAdd={onAddEvent}
       className="edit-name-chip edit-name-chip-add"
+      openNonce={addEventMenuNonce}
     />
   );
 

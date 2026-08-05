@@ -398,9 +398,14 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
   const chartKind = chartSettings.kind;
   const shortcutRef = useRef({ selectedId, onShowCharts, chartKind, startId, matchOrder, navigate, goBack, matchDecKey, toggleMatchStatus });
   shortcutRef.current = { selectedId, onShowCharts, chartKind, startId, matchOrder, navigate, goBack, matchDecKey, toggleMatchStatus };
-  // Quick-add events (digits 1–9). Fed from below (the handler is defined
-  // after `commit`), read through the ref at event time like shortcutRef.
-  const quickAddRef = useRef<{ tags: string[]; add: (tag: string) => void }>({ tags: [], add: () => {} });
+  // Quick-add events (digits 1–9; 0 opens the Add-event menu). Fed from below
+  // (the handler is defined after `commit`), read through the ref at event
+  // time like shortcutRef.
+  const quickAddRef = useRef<{ tags: string[]; add: (tag: string) => void; openMenu: () => void }>({
+    tags: [],
+    add: () => {},
+    openMenu: () => {},
+  });
   // The scrollable person panel — Up/Down scroll this instead of navigating
   // when it actually has overflow to scroll.
   const editBodyRef = useRef<HTMLDivElement>(null);
@@ -438,9 +443,14 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
         if (decKey) { e.preventDefault(); toggle(statusHit); }
         return;
       }
-      if (/^[1-9]$/.test(e.key)) {
-        // Quick-add events, in the order configured in Settings.
-        const { tags, add } = quickAddRef.current;
+      if (/^[0-9]$/.test(e.key)) {
+        // Quick-add events, in the order configured in Settings; 0 opens the
+        // full "+ Add event" menu.
+        const { tags, add, openMenu } = quickAddRef.current;
+        if (e.key === "0") {
+          if (id) { e.preventDefault(); openMenu(); }
+          return;
+        }
         const tag = tags[Number(e.key) - 1];
         if (tag && id) { e.preventDefault(); add(tag); }
         return;
@@ -537,6 +547,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
   // Birth is the exception: its row always exists (possibly empty), so quick-
   // adding it focuses that row instead of writing a duplicate BIRT node.
   const [birtFocusNonce, setBirtFocusNonce] = useState(0);
+  const [addEventMenuNonce, setAddEventMenuNonce] = useState(0);
   const addIndividualEvent = useStableHandler((tag: string) => {
     if (!person) return;
     if (tag === "BIRT") {
@@ -548,7 +559,11 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     const sameTag = childrenByTag(person.raw, tag);
     if (sameTag.length) setPendingFocusEventNodeId(nodeId(sameTag[sameTag.length - 1]));
   });
-  quickAddRef.current = { tags: settings.quickEventTags, add: addIndividualEvent };
+  quickAddRef.current = {
+    tags: settings.quickEventTags,
+    add: addIndividualEvent,
+    openMenu: () => setAddEventMenuNonce((n) => n + 1),
+  };
 
   const commitFamily: FamilyCommit = useStableHandler((fam: Family, mutate: (fam: Family, noteCtx: SharedNoteCtx) => void, extraPatches?: RecordPatch[]) => {
     const before = cloneRaw(fam.raw);
@@ -1647,6 +1662,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
             emptyEventGroups={INDIVIDUAL_EVENT_GROUPS as unknown as { labelKey: string; tags: string[] }[]}
             onAddEvent={addIndividualEvent}
             quickEventTags={settings.quickEventTags}
+            addEventMenuNonce={addEventMenuNonce}
             showAddLink={!(person.links ?? []).length && !(person.sources ?? []).length && !mergeIncomingLinks.get("links")?.length && !mergeIncomingSources.get("links")?.length}
             onAddLink={() => setSourceDialogTarget({ kind: "individual" })}
             showAddNote={!notesAdded && !(person.noteRefs ?? []).some((r) => r.text.trim())}

@@ -11,6 +11,7 @@ export function AddEventSelect({
   t,
   onAdd,
   className = "add-chip",
+  openNonce,
 }: {
   tags?: string[];
   groups?: { labelKey: string; tags: string[] }[];
@@ -19,6 +20,8 @@ export function AddEventSelect({
   t: Translate;
   onAdd: (tag: string) => void;
   className?: string;
+  /** Increment to open the menu from a keyboard shortcut (see DropdownMenu). */
+  openNonce?: number;
 }) {
   const menuGroups: DropdownGroup[] = groups
     ? groups
@@ -36,6 +39,7 @@ export function AddEventSelect({
       trigger={<>+ {label}</>}
       className={className}
       title={tooltip}
+      openNonce={openNonce}
     />
   );
 }

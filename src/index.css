@@ -2926,6 +2926,7 @@ button:focus-visible {
 .edit-name-row:hover .edit-name-chip-add,
 .edit-other-names:hover .edit-name-chip-add,
 .edit-other-names-row:hover .edit-name-chip-add,
+.edit-name-chip-add[aria-expanded="true"],
 .edit-name-chip-add:focus-visible { opacity: 1; }
 /* Action chips row — always visible */
 .edit-other-names-actions .edit-name-chip-add { opacity: 1; }
