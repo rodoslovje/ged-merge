@@ -1117,7 +1117,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     return undefined;
   }
 
-  const addRelative = useStableHandler((kind: "father" | "mother" | "partner" | "child", fam?: Family) => {
+  const addRelative = useStableHandler((kind: "father" | "mother" | "partner" | "child", fam?: Family, typedName?: string) => {
     if (!person) return;
     const beforePerson = cloneRaw(person.raw);
     const beforeFam = fam ? cloneRaw(fam.raw) : null;
@@ -1131,7 +1131,10 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
           ? addChild(dataset, person, fam)
           : addParent(dataset, person, fam, kind);
 
-    // Pre-fill surname from family context
+    // Pre-fill the name: the picker's typed text seeds it (the user already
+    // wrote the name, so the card must not open empty); the family context
+    // supplies a surname default otherwise. setName writes both parts at
+    // once, so they are resolved together before the single call.
     let defaultSurname: string | undefined;
     if (kind === "child") {
       // Inherit from the father of the family the child was added to
@@ -1141,8 +1144,24 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     } else if (kind === "father") {
       defaultSurname = primaryName(person)?.surname || undefined;
     }
-    if (defaultSurname) {
-      setName(added, { surname: defaultSurname });
+    // Typed text is read per the display-order setting: the last token is the
+    // surname in given-surname order, the first in surname-given. A single
+    // token is a given name — the surname often arrives from the context.
+    let given: string | undefined;
+    const tokens = typedName?.trim() ? typedName.trim().split(/\s+/) : [];
+    if (tokens.length === 1) {
+      given = tokens[0];
+    } else if (tokens.length > 1) {
+      if (settings.order === "surname-given") {
+        defaultSurname = tokens[0];
+        given = tokens.slice(1).join(" ");
+      } else {
+        given = tokens.slice(0, -1).join(" ");
+        defaultSurname = tokens[tokens.length - 1];
+      }
+    }
+    if (given || defaultSurname) {
+      setName(added, { given, surname: defaultSurname });
       rebuildIndividual(dataset, added);
     }
 

@@ -111,7 +111,7 @@ interface SharedSectionProps {
   pickingSlot: PickingSlot;
   setPickingSlot: (slot: PickingSlot) => void;
   connectRelative: (kind: RelativeKind, existingId: string, fam?: Family) => void;
-  addRelative: (kind: RelativeKind, fam?: Family) => void;
+  addRelative: (kind: RelativeKind, fam?: Family, typedName?: string) => void;
   handleDetachSpouseRole: (fam: Family, role: "HUSB" | "WIFE", confirmMsg: string) => void;
   /** Unlink a child from a family — a child card in the spouse band, and this
    *  person from a parent family that records no parents at all. */
@@ -214,7 +214,7 @@ export const ParentFamilyGroup = memo(function ParentFamilyGroup({
           individuals={dataset.individuals}
           excludeId={personId}
           onPickExisting={(id) => connectRelative("father", id, fam)}
-          onAddNew={() => { setPickingSlot(null); addRelative("father", fam); }}
+          onAddNew={(typed) => { setPickingSlot(null); addRelative("father", fam, typed); }}
           onCancel={() => setPickingSlot(null)}
           t={t}
         />
@@ -260,7 +260,7 @@ export const ParentFamilyGroup = memo(function ParentFamilyGroup({
           individuals={dataset.individuals}
           excludeId={personId}
           onPickExisting={(id) => connectRelative("mother", id, fam)}
-          onAddNew={() => { setPickingSlot(null); addRelative("mother", fam); }}
+          onAddNew={(typed) => { setPickingSlot(null); addRelative("mother", fam, typed); }}
           onCancel={() => setPickingSlot(null)}
           t={t}
         />
@@ -414,7 +414,7 @@ export const FamilySection = memo(function FamilySection({
               individuals={dataset.individuals}
               excludeId={personId}
               onPickExisting={(id) => connectRelative("partner", id, fam)}
-              onAddNew={() => { setPickingSlot(null); addRelative("partner", fam); }}
+              onAddNew={(typed) => { setPickingSlot(null); addRelative("partner", fam, typed); }}
               onCancel={() => setPickingSlot(null)}
               t={t}
             />
@@ -559,7 +559,7 @@ export const FamilySection = memo(function FamilySection({
               individuals={dataset.individuals}
               excludeId={personId}
               onPickExisting={(id) => connectRelative("child", id, fam)}
-              onAddNew={() => { setPickingSlot(null); addRelative("child", fam); }}
+              onAddNew={(typed) => { setPickingSlot(null); addRelative("child", fam, typed); }}
               onCancel={() => setPickingSlot(null)}
               t={t}
             />

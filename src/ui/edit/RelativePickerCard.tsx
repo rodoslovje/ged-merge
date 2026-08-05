@@ -18,7 +18,8 @@ export function RelativePickerCard({
   individuals: Map<string, Individual>;
   excludeId: string;
   onPickExisting: (id: string) => void;
-  onAddNew: () => void;
+  /** Create a new person; the typed query rides along to seed their name. */
+  onAddNew: (typedName: string) => void;
   onCancel: () => void;
   t: Translate;
 }) {
@@ -57,7 +58,7 @@ export function RelativePickerCard({
     if (e.key === "ArrowUp") { e.preventDefault(); setActiveIdx((i) => Math.max(i - 1, 0)); }
     if (e.key === "Enter") {
       e.preventDefault();
-      if (activeIdx === 0) onAddNew();
+      if (activeIdx === 0) onAddNew(query.trim());
       else onPickExisting(options[activeIdx - 1].id);
     }
   }
@@ -79,7 +80,7 @@ export function RelativePickerCard({
             <button
               className={`relative-picker-option relative-picker-new${activeIdx === 0 ? " highlighted" : ""}`}
               onMouseEnter={() => setActiveIdx(0)}
-              onMouseDown={(e) => { e.preventDefault(); onAddNew(); }}
+              onMouseDown={(e) => { e.preventDefault(); onAddNew(query.trim()); }}
             >
               + {t("edit.addNewPerson")}
             </button>
