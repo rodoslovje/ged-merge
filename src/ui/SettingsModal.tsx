@@ -467,7 +467,7 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
             <div className="settings-quick-events">
               {settings.quickEventTags.map((tag, i) => (
                 <span key={tag} className="edit-name-chip-wrap">
-                  <span className="edit-name-chip settings-quick-chip">
+                  <span className="settings-quick-chip">
                     <span className="settings-quick-num gm-data">{i + 1}</span>
                     {eventDisplayLabel(tag, t)}
                   </span>
@@ -483,7 +483,7 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
               ))}
               {settings.quickEventTags.length < MAX_QUICK_EVENTS && (
                 <SelectMenu
-                  className="edit-name-chip edit-name-chip-add settings-quick-add"
+                  className="settings-quick-add"
                   value=""
                   placeholder={`+ ${t("settings.quickEvents.add")}`}
                   onChange={(tag) => set({ quickEventTags: [...settings.quickEventTags, tag] })}
