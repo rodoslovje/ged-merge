@@ -6,6 +6,7 @@ import { lifespanAge } from "../gedcom/age";
 import { PAD, nodeHeight } from "../chart/treeLayout";
 import { formatMarriage, lifespanLine, placeLabel } from "../chart/nodeDisplay";
 import { useTreeCanvas } from "./useTreeCanvas";
+import { SelectMenu } from "./DropdownMenu";
 import { ChartFindBox } from "./ChartFindBox";
 import { useChartFind } from "./useChartFind";
 import { createKinshipResolver, lineageClass } from "../match/kinship";
@@ -262,11 +263,11 @@ export function RelationshipChart({ mainDs, startId, targetId, changedPersonIds,
         <div className="tree-controls">
           <label className="relchart-paths">
             {t("relpath.availablePaths")}
-            <select value={optionIdx} onChange={(e) => setOptionIdx(Number(e.target.value))}>
-              {options.map((o, i) => (
-                <option key={i} value={i}>{o.label}</option>
-              ))}
-            </select>
+            <SelectMenu
+              value={String(optionIdx)}
+              onChange={(v) => setOptionIdx(Number(v))}
+              options={options.map((o, i) => ({ value: String(i), label: o.label }))}
+            />
           </label>
         </div>
       )}

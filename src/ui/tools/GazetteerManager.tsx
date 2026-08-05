@@ -16,6 +16,7 @@ import { invalidateGazetteerIndex } from "../edit/PlaceLookupContext";
 import { useSettings } from "../SettingsContext";
 import { requestSettings } from "../settingsBus";
 import { ToolsError, ToolsLoading } from "./shared";
+import { SelectMenu } from "../DropdownMenu";
 
 // The place-directory manager: the offline gazetteers (GeoNames country extracts,
 // OpenStreetMap downloads, the GURS register of Slovenian settlements and the DGU
@@ -726,22 +727,16 @@ function RegionPicker({ gaz, regions }: { gaz: Gazetteer; regions: { country: st
         {t("tools.geocode.regionIntro", { country: countryName, count: regions.list.length })}
       </p>
       <div className="tools-geo-acquire">
-        <select
+        <SelectMenu
           className="nav-btn tools-run tools-geo-osm"
-          aria-label={t("tools.geocode.regionPick")}
+          ariaLabel={t("tools.geocode.regionPick")}
           value=""
-          onChange={(e) => {
-            const region = e.target.value;
+          placeholder={`${DOWNLOAD_GLYPH} ${t("tools.geocode.regionPick")}`}
+          onChange={(region) => {
             if (region) void gaz.downloadRegion(region);
           }}
-        >
-          <option value="">{`${DOWNLOAD_GLYPH} ${t("tools.geocode.regionPick")}`}</option>
-          {regions.list.map(({ code, name }) => (
-            <option key={code} value={code}>
-              {name}
-            </option>
-          ))}
-        </select>
+          options={regions.list.map(({ code, name }) => ({ value: code, label: name }))}
+        />
         <button className="nav-btn tools-run" onClick={() => void gaz.downloadAllRegions()}>
           <span aria-hidden="true">{DOWNLOAD_GLYPH} </span>
           {t("tools.geocode.regionAll", { count: regions.list.length })}
@@ -839,25 +834,17 @@ function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
                 the country picked is the click — the same shape as the map tab's
                 "Add a free preset…". It never holds a selection, so it reads as
                 its own label again the moment the download starts. */}
-            <select
+            <SelectMenu
               className="nav-btn tools-run tools-geo-osm"
               title={t("tools.geocode.countryTooltip")}
-              aria-label={t("tools.geocode.countryTooltip")}
+              ariaLabel={t("tools.geocode.countryTooltip")}
               value=""
-              onChange={(e) => {
-                const code = e.target.value;
+              placeholder={`${DOWNLOAD_GLYPH} ${t("tools.geocode.downloadBtn")}`}
+              onChange={(code) => {
                 if (code) void gaz.downloadCountry(code);
               }}
-            >
-              {/* The glyph rides in the option text: a closed <select> shows
-                  its selected option, and there is nothing else to draw in. */}
-              <option value="">{`${DOWNLOAD_GLYPH} ${t("tools.geocode.downloadBtn")}`}</option>
-              {countries.map(({ code, name }) => (
-                <option key={code} value={code}>
-                  {name}
-                </option>
-              ))}
-            </select>
+              options={countries.map(({ code, name }) => ({ value: code, label: name }))}
+            />
             <p className="tools-geo-hint">
               {t("tools.geocode.sourceOsm")} {t("tools.geocode.sourceOsmCredit")}{" "}
               <a href="https://www.openstreetmap.org" target="_blank" rel="noreferrer">

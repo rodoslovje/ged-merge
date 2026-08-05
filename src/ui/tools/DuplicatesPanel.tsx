@@ -26,6 +26,7 @@ import { KEY, isEditableTarget, isModalOpen } from "../../keyboard/shortcuts";
 import { useStickyHeaderInset } from "../usePhone";
 import { FieldValue, LinkIcons, RelativeGrid } from "../FieldValue";
 import { SourceRefs } from "../SourceRef";
+import { SelectMenu } from "../DropdownMenu";
 import { ConfirmDialog } from "../ConfirmDialog";
 import { PersonLink } from "../PersonLink";
 import { type ToolsScans } from "../useToolsScans";
@@ -426,18 +427,16 @@ export function DuplicatesPanel({
             <TreeSearch value={query} onChange={setQuery} />
             {!showRejected && (
               <label className="tools-dup-score" title={t("tools.duplicates.scoreFilter")}>
-                <select
+                <SelectMenu
                   className="score-select"
-                  value={minScore}
+                  value={String(minScore)}
                   style={{ color: CAT_COLOR[categorize(minScore / 100, DEFAULT_CONFIG)] }}
-                  onChange={(e) => setMinScore(Number(e.target.value))}
-                >
-                  {SCORE_STEPS.map((v) => (
-                    <option key={v} value={v} style={{ color: "var(--text)" }}>
-                      {v === 100 ? "100" : `≥ ${v}`}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => setMinScore(Number(v))}
+                  options={SCORE_STEPS.map((v) => ({
+                    value: String(v),
+                    label: v === 100 ? "100" : `≥ ${v}`,
+                  }))}
+                />
               </label>
             )}
             {rejectedCount > 0 && (

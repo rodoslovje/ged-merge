@@ -29,6 +29,7 @@ import { createKinshipResolver, lineageClass } from "../../match/kinship";
 import { PersonLink } from "../PersonLink";
 import { useVirtualList } from "../useVirtualList";
 import { PickerMenu } from "../PickerMenu";
+import { SelectMenu } from "../DropdownMenu";
 
 /**
  * Tools → Normalize & batch → Batch actions: stackable filters over the whole
@@ -530,17 +531,15 @@ function CriterionRow({
         {t(`tools.batch.crit.${c.kind}`)}
       </span>
       {c.kind === "name" && (
-        <select
+        <SelectMenu
           className="batch-select"
           value={c.part ?? "any"}
-          onChange={(e) =>
-            onChange({ ...c, part: e.target.value === "any" ? undefined : (e.target.value as "given" | "surname") })
-          }
-        >
-          <option value="any">{t("tools.batch.name.any")}</option>
-          <option value="given">{t("tools.batch.name.given")}</option>
-          <option value="surname">{t("tools.batch.name.surname")}</option>
-        </select>
+          onChange={(v) => onChange({ ...c, part: v === "any" ? undefined : (v as "given" | "surname") })}
+          options={(["any", "given", "surname"] as const).map((p) => ({
+            value: p,
+            label: t(`tools.batch.name.${p}`),
+          }))}
+        />
       )}
       {(c.kind === "name" || c.kind === "place") && (
         <input
@@ -569,13 +568,12 @@ function CriterionRow({
         />
       )}
       {c.kind === "sex" && (
-        <select className="batch-select" value={c.value} onChange={(e) => onChange({ ...c, value: e.target.value as Sex })}>
-          {(["M", "F", "U"] as const).map((s) => (
-            <option key={s} value={s}>
-              {t(`sex.${s}`)}
-            </option>
-          ))}
-        </select>
+        <SelectMenu
+          className="batch-select"
+          value={c.value}
+          onChange={(v) => onChange({ ...c, value: v as Sex })}
+          options={(["M", "F", "U"] as const).map((s) => ({ value: s, label: t(`sex.${s}`) }))}
+        />
       )}
       {c.kind === "birthYear" && (
         <>
@@ -598,79 +596,87 @@ function CriterionRow({
       )}
       {c.kind === "event" && (
         <>
-          <select
+          <SelectMenu
             className="batch-select"
             value={c.mode}
-            onChange={(e) => onChange({ ...c, mode: e.target.value as "has" | "lacks" })}
-          >
-            <option value="lacks">{t("tools.batch.event.lacks")}</option>
-            <option value="has">{t("tools.batch.event.has")}</option>
-          </select>
-          <select className="batch-select" value={c.tag} onChange={(e) => onChange({ ...c, tag: e.target.value })}>
-            {(c.tag === ANY_VENDOR_EVENT || eventOptions.includes(c.tag)
-              ? eventOptions
-              : [c.tag, ...eventOptions]
-            ).map((tag) => (
-              <option key={tag} value={tag}>
-                {eventDisplayLabel(tag, t)}
-              </option>
-            ))}
-            <option value={ANY_VENDOR_EVENT}>{t("tools.batch.event.anyVendor")}</option>
-          </select>
+            onChange={(v) => onChange({ ...c, mode: v as "has" | "lacks" })}
+            options={[
+              { value: "lacks", label: t("tools.batch.event.lacks") },
+              { value: "has", label: t("tools.batch.event.has") },
+            ]}
+          />
+          <SelectMenu
+            className="batch-select"
+            value={c.tag}
+            onChange={(v) => onChange({ ...c, tag: v })}
+            options={[
+              ...(c.tag === ANY_VENDOR_EVENT || eventOptions.includes(c.tag)
+                ? eventOptions
+                : [c.tag, ...eventOptions]
+              ).map((tag) => ({ value: tag, label: eventDisplayLabel(tag, t) })),
+              { value: ANY_VENDOR_EVENT, label: t("tools.batch.event.anyVendor") },
+            ]}
+          />
         </>
       )}
       {c.kind === "familyEvent" && (
         <>
-          <select
+          <SelectMenu
             className="batch-select"
             value={c.mode}
-            onChange={(e) => onChange({ ...c, mode: e.target.value as "has" | "lacks" })}
-          >
-            <option value="lacks">{t("tools.batch.event.lacks")}</option>
-            <option value="has">{t("tools.batch.event.has")}</option>
-          </select>
-          <select className="batch-select" value={c.tag} onChange={(e) => onChange({ ...c, tag: e.target.value })}>
-            {(c.tag === ANY_EVENT || familyEventOptions.includes(c.tag)
-              ? familyEventOptions
-              : [c.tag, ...familyEventOptions]
-            ).map((tag) => (
-              <option key={tag} value={tag}>
-                {eventDisplayLabel(tag, t)}
-              </option>
-            ))}
-            <option value={ANY_EVENT}>{t("tools.batch.event.any")}</option>
-          </select>
+            onChange={(v) => onChange({ ...c, mode: v as "has" | "lacks" })}
+            options={[
+              { value: "lacks", label: t("tools.batch.event.lacks") },
+              { value: "has", label: t("tools.batch.event.has") },
+            ]}
+          />
+          <SelectMenu
+            className="batch-select"
+            value={c.tag}
+            onChange={(v) => onChange({ ...c, tag: v })}
+            options={[
+              ...(c.tag === ANY_EVENT || familyEventOptions.includes(c.tag)
+                ? familyEventOptions
+                : [c.tag, ...familyEventOptions]
+              ).map((tag) => ({ value: tag, label: eventDisplayLabel(tag, t) })),
+              { value: ANY_EVENT, label: t("tools.batch.event.any") },
+            ]}
+          />
         </>
       )}
       {c.kind === "kinship" && (
-        <select
+        <SelectMenu
           className="batch-select"
           value={c.rel}
-          onChange={(e) => onChange({ ...c, rel: e.target.value as typeof c.rel })}
-        >
-          {(["ancestor", "descendant", "blood", "notBlood"] as const).map((r) => (
-            <option key={r} value={r}>
-              {t(`tools.batch.kinship.${r}`)}
-            </option>
-          ))}
-        </select>
+          onChange={(v) => onChange({ ...c, rel: v as typeof c.rel })}
+          options={(["ancestor", "descendant", "blood", "notBlood"] as const).map((r) => ({
+            value: r,
+            label: t(`tools.batch.kinship.${r}`),
+          }))}
+        />
       )}
       {c.kind === "living" && (
-        <select
+        <SelectMenu
           className="batch-select"
           value={c.value ? "yes" : "no"}
-          onChange={(e) => onChange({ ...c, value: e.target.value === "yes" })}
-        >
-          <option value="yes">{t("tools.batch.living.yes")}</option>
-          <option value="no">{t("tools.batch.living.no")}</option>
-        </select>
+          onChange={(v) => onChange({ ...c, value: v === "yes" })}
+          options={[
+            { value: "yes", label: t("tools.batch.living.yes") },
+            { value: "no", label: t("tools.batch.living.no") },
+          ]}
+        />
       )}
       {c.kind === "age" && (
         <>
-          <select className="batch-select" value={c.op} onChange={(e) => onChange({ ...c, op: e.target.value as "lt" | "gte" })}>
-            <option value="lt">{t("tools.batch.age.lt")}</option>
-            <option value="gte">{t("tools.batch.age.gte")}</option>
-          </select>
+          <SelectMenu
+            className="batch-select"
+            value={c.op}
+            onChange={(v) => onChange({ ...c, op: v as "lt" | "gte" })}
+            options={[
+              { value: "lt", label: t("tools.batch.age.lt") },
+              { value: "gte", label: t("tools.batch.age.gte") },
+            ]}
+          />
           <input
             className="batch-input batch-year"
             type="number"
@@ -683,17 +689,15 @@ function CriterionRow({
       )}
       {c.kind === "media" && (
         <>
-          <select
+          <SelectMenu
             className="batch-select"
             value={c.mode}
-            onChange={(e) => onChange({ ...c, mode: e.target.value as typeof c.mode })}
-          >
-            {(["none", "any", "has", "lacks"] as const).map((m) => (
-              <option key={m} value={m}>
-                {t(`tools.batch.media.${m}`)}
-              </option>
-            ))}
-          </select>
+            onChange={(v) => onChange({ ...c, mode: v as typeof c.mode })}
+            options={(["none", "any", "has", "lacks"] as const).map((m) => ({
+              value: m,
+              label: t(`tools.batch.media.${m}`),
+            }))}
+          />
           {(c.mode === "has" || c.mode === "lacks") && (
             <MediaSelect
               value={mediaPickValue(c, mediaOptions)}
@@ -704,24 +708,26 @@ function CriterionRow({
         </>
       )}
       {c.kind === "sources" && (
-        <select
+        <SelectMenu
           className="batch-select"
           value={c.mode}
-          onChange={(e) => onChange({ ...c, mode: e.target.value as "none" | "any" })}
-        >
-          <option value="none">{t("tools.batch.sourcesFilter.none")}</option>
-          <option value="any">{t("tools.batch.sourcesFilter.any")}</option>
-        </select>
+          onChange={(v) => onChange({ ...c, mode: v as "none" | "any" })}
+          options={[
+            { value: "none", label: t("tools.batch.sourcesFilter.none") },
+            { value: "any", label: t("tools.batch.sourcesFilter.any") },
+          ]}
+        />
       )}
       {c.kind === "line" && (
-        <select
+        <SelectMenu
           className="batch-select"
           value={c.side}
-          onChange={(e) => onChange({ ...c, side: e.target.value as "maternal" | "paternal" })}
-        >
-          <option value="maternal">{t("tools.batch.line.maternal")}</option>
-          <option value="paternal">{t("tools.batch.line.paternal")}</option>
-        </select>
+          onChange={(v) => onChange({ ...c, side: v as "maternal" | "paternal" })}
+          options={[
+            { value: "maternal", label: t("tools.batch.line.maternal") },
+            { value: "paternal", label: t("tools.batch.line.paternal") },
+          ]}
+        />
       )}
       <button className="batch-remove" onClick={onRemove} title={t("tools.batch.removeFilter")}>
         ✕
@@ -750,22 +756,20 @@ function PresenceSelect<F extends string>({
 }) {
   const { t } = useTranslation();
   return (
-    <select
+    <SelectMenu
       className="batch-select"
       value={`${field}:${mode}`}
-      onChange={(e) => {
-        const [f, m] = e.target.value.split(":");
+      onChange={(v) => {
+        const [f, m] = v.split(":");
         onPick(f as F, m as "has" | "lacks");
       }}
-    >
-      {fields.flatMap((f) =>
-        (["has", "lacks"] as const).map((m) => (
-          <option key={`${f}:${m}`} value={`${f}:${m}`}>
-            {t(`${prefix}.${f}.${m}`)}
-          </option>
-        )),
+      options={fields.flatMap((f) =>
+        (["has", "lacks"] as const).map((m) => ({
+          value: `${f}:${m}`,
+          label: t(`${prefix}.${f}.${m}`),
+        })),
       )}
-    </select>
+    />
   );
 }
 
@@ -784,26 +788,20 @@ function MediaSelect({
 }) {
   const { t } = useTranslation();
   return (
-    <select
+    <SelectMenu
       className="batch-select batch-media-select"
       value={value}
-      onChange={(e) => {
-        const key = e.target.value;
+      placeholder={t("tools.batch.pickMedia")}
+      onChange={(key) => {
         if (key === NEW_KEY) onPick({ file: "" });
         const opt = options.find((o) => o.key === key);
         if (opt) onPick({ xref: opt.xref, file: opt.file });
       }}
-    >
-      <option value="" disabled>
-        {t("tools.batch.pickMedia")}
-      </option>
-      {options.map((o) => (
-        <option key={o.key} value={o.key}>
-          {o.title ? `${o.title} — ${o.file}` : o.file}
-        </option>
-      ))}
-      {allowNew && <option value={NEW_KEY}>{t("tools.batch.newMedia")}</option>}
-    </select>
+      options={[
+        ...options.map((o) => ({ value: o.key, label: o.title ? `${o.title} — ${o.file}` : o.file })),
+        ...(allowNew ? [{ value: NEW_KEY, label: t("tools.batch.newMedia") }] : []),
+      ]}
+    />
   );
 }
 
@@ -850,21 +848,18 @@ function ActionEditor({
     action?.kind === "addSource" ? (action.xref ?? (action.title !== undefined ? NEW_KEY : "")) : "";
   return (
     <div className="batch-action-editor">
-      <select
+      <SelectMenu
         className="batch-select"
         value={action?.kind ?? ""}
-        onChange={(e) => {
-          const k = e.target.value as BatchActionSpec["kind"] | "";
+        onChange={(v) => {
+          const k = v as BatchActionSpec["kind"] | "";
           onChange(k === "" ? null : fresh[k]);
         }}
-      >
-        <option value="">{t("tools.batch.action.none")}</option>
-        {BATCH_ACTION_KINDS.map((k) => (
-          <option key={k} value={k}>
-            {t(`tools.batch.action.${k}`)}
-          </option>
-        ))}
-      </select>
+        options={[
+          { value: "", label: t("tools.batch.action.none") },
+          ...BATCH_ACTION_KINDS.map((k) => ({ value: k, label: t(`tools.batch.action.${k}`) })),
+        ]}
+      />
 
       {action?.kind === "addMedia" && (
         <>
@@ -899,25 +894,19 @@ function ActionEditor({
 
       {action?.kind === "addSource" && (
         <>
-          <select
+          <SelectMenu
             className="batch-select batch-media-select"
             value={sourcePick}
-            onChange={(e) => {
-              const v = e.target.value;
+            placeholder={t("tools.batch.pickSource")}
+            onChange={(v) => {
               if (v === NEW_KEY) onChange({ kind: "addSource", title: "", page: action.page });
               else onChange({ kind: "addSource", xref: v, page: action.page });
             }}
-          >
-            <option value="" disabled>
-              {t("tools.batch.pickSource")}
-            </option>
-            {sourceOptions.map((s) => (
-              <option key={s.xref} value={s.xref}>
-                {s.title}
-              </option>
-            ))}
-            <option value={NEW_KEY}>{t("tools.batch.newSource")}</option>
-          </select>
+            options={[
+              ...sourceOptions.map((s) => ({ value: s.xref, label: s.title })),
+              { value: NEW_KEY, label: t("tools.batch.newSource") },
+            ]}
+          />
           {sourcePick === NEW_KEY && (
             <input
               className="batch-input"
@@ -953,37 +942,28 @@ function ActionEditor({
 
       {action?.kind === "convertEvent" && (
         <>
-          <select
+          <SelectMenu
             className="batch-select"
             value={action.fromTag}
-            onChange={(e) => {
-              const v = e.target.value;
+            onChange={(v) => {
               const named = action.toTag === "EVEN" || action.toTag === "FACT";
               onChange({ ...action, fromTag: v, type: named ? typeFor(v) : action.type });
             }}
-          >
-            {vendorEventOptions.map((tag) => (
-              <option key={tag} value={tag}>{eventDisplayLabel(tag, t)}</option>
-            ))}
-          </select>
+            options={vendorEventOptions.map((tag) => ({ value: tag, label: eventDisplayLabel(tag, t) }))}
+          />
           <span className="batch-sep">→</span>
-          <select
+          <SelectMenu
             className="batch-select"
             value={action.toTag}
-            onChange={(e) => {
-              const v = e.target.value;
+            onChange={(v) => {
               const named = v === "EVEN" || v === "FACT";
               onChange({ ...action, toTag: v, type: named ? action.type?.trim() || typeFor(action.fromTag) : undefined });
             }}
-          >
-            {INDIVIDUAL_EVENT_GROUPS.map((g) => (
-              <optgroup key={g.labelKey} label={t(g.labelKey)}>
-                {g.tags.map((tag) => (
-                  <option key={tag} value={tag}>{eventDisplayLabel(tag, t)}</option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
+            groups={INDIVIDUAL_EVENT_GROUPS.map((g) => ({
+              label: t(g.labelKey),
+              items: g.tags.map((tag) => ({ value: tag, label: eventDisplayLabel(tag, t) })),
+            }))}
+          />
           {(action.toTag === "EVEN" || action.toTag === "FACT") && (
             <input
               className="batch-input"

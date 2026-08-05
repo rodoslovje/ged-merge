@@ -1,10 +1,8 @@
-import { useState } from "react";
 import type { Translate } from "../../locales/i18n";
 import { eventDisplayLabel } from "../../gedcom/eventTags";
-import { openPickerOnEnter } from "./openPicker";
+import { DropdownMenu, type DropdownGroup } from "../DropdownMenu";
 
-/** Dropdown chip that adds an event tag from a list of available tags.
- * Resets to the placeholder after selection. */
+/** Dropdown chip that adds an event tag from a list of available tags. */
 export function AddEventSelect({
   tags,
   groups,
@@ -12,7 +10,8 @@ export function AddEventSelect({
   tooltip,
   t,
   onAdd,
-  className = "add-chip add-chip-select",
+  className = "add-chip",
+  openNonce,
 }: {
   tags?: string[];
   groups?: { labelKey: string; tags: string[] }[];
@@ -21,36 +20,26 @@ export function AddEventSelect({
   t: Translate;
   onAdd: (tag: string) => void;
   className?: string;
+  /** Increment to open the menu from a keyboard shortcut (see DropdownMenu). */
+  openNonce?: number;
 }) {
-  const [value, setValue] = useState("");
-  const hasAny = tags?.length || groups?.some((g) => g.tags.length);
-  if (!hasAny) return null;
+  const menuGroups: DropdownGroup[] = groups
+    ? groups
+        .filter((g) => g.tags.length)
+        .map((g) => ({
+          label: t(g.labelKey),
+          items: g.tags.map((tag) => ({ value: tag, label: eventDisplayLabel(tag, t) })),
+        }))
+    : [{ items: (tags ?? []).map((tag) => ({ value: tag, label: eventDisplayLabel(tag, t) })) }];
+  if (!menuGroups.some((g) => g.items.length)) return null;
   return (
-    <label className={className} title={tooltip}>
-      + {label}
-      <select
-        className="add-chip-select-inner"
-        value={value}
-        onKeyDown={openPickerOnEnter}
-        onChange={(e) => {
-          const tag = e.target.value;
-          setValue("");
-          if (tag) onAdd(tag);
-        }}
-      >
-        <option value="" />
-        {groups
-          ? groups.map((g) => (
-              <optgroup key={g.labelKey} label={t(g.labelKey)}>
-                {g.tags.map((tag) => (
-                  <option key={tag} value={tag}>{eventDisplayLabel(tag, t)}</option>
-                ))}
-              </optgroup>
-            ))
-          : tags?.map((tag) => (
-              <option key={tag} value={tag}>{eventDisplayLabel(tag, t)}</option>
-            ))}
-      </select>
-    </label>
+    <DropdownMenu
+      groups={menuGroups}
+      onSelect={onAdd}
+      trigger={<>+ {label}</>}
+      className={className}
+      title={tooltip}
+      openNonce={openNonce}
+    />
   );
 }

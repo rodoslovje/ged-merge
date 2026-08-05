@@ -16,7 +16,7 @@ const SETTINGS_KEYS = ["showAge"] as const;
 
 /** Any family event row (MARR, DIV, ENGA, SEPA, …) by tag. */
 export function FamilyEventRow({
-  fam, tag, t, commit, openEditSource, onOpenSourceDialog, onRemove, onCopy, onRetag, autoFocusDate,
+  fam, tag, t, commit, openEditSource, onOpenSourceDialog, onRemove, onCopy, onRetag, autoFocusLead,
   placeSuggestions, placeToAddrs, placeCanonical, addrCanonical, placeCoords, placeForms, pairCoords,
   mergeHighlight, mergeIncomingSources, famMergeKeyBase, resolvedSessionFields, individuals,
 }: {
@@ -30,7 +30,7 @@ export function FamilyEventRow({
    * caller can flag the now-occupied slot as session-dirty — see
    * `resolvedSessionFields`. */
   onRetag?: (newTag: string) => void;
-  autoFocusDate?: boolean;
+  autoFocusLead?: boolean;
   placeSuggestions: string[];
   placeToAddrs: Map<string, string[]>;
   placeCanonical: Map<string, string>;
@@ -91,7 +91,7 @@ export function FamilyEventRow({
       onAddSource={() => onOpenSourceDialog({ kind: "event", commitField: (update, extraPatches) => commit(fam, (f) => setFamilyEventField(f, tag, update), extraPatches) })}
       onEditSource={eventNode ? (idx) => openEditSource(eventNode, idx, { kind: "family", fam }) : undefined}
       onOpenSourceDialog={onOpenSourceDialog}
-      autoFocusDate={autoFocusDate}
+      autoFocusLead={autoFocusLead}
       placeSuggestions={placeSuggestions}
       placeToAddrs={placeToAddrs}
       placeCanonical={placeCanonical}

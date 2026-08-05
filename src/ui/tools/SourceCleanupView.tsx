@@ -26,6 +26,7 @@ import { linkKey } from "../../normalize/links";
 import { downloadText, savedName } from "../download";
 import { isEditableTarget, isModalOpen } from "../../keyboard/shortcuts";
 import { BackButton } from "../BackButton";
+import { SelectMenu } from "../DropdownMenu";
 import { useSettings } from "../SettingsContext";
 import { ToolSummary } from "./ToolSummary";
 
@@ -51,13 +52,14 @@ function QuaySelect({ value, onChange }: { value: string; onChange: (value: stri
   return (
     <label className="tools-reshape-site" title={t("tools.sources.reshapeQuayHint")}>
       {t("tools.sources.reshapeQuay")}
-      <select value={value} onChange={(e) => onChange(e.target.value)}>
-        {QUAY_CHOICES.map((q) => (
-          <option key={q} value={q}>
-            {q === "" ? t("tools.sources.reshapeQuay.none") : `${q} – ${t(`tools.sources.reshapeQuay.${q}`)}`}
-          </option>
-        ))}
-      </select>
+      <SelectMenu
+        value={value}
+        onChange={onChange}
+        options={QUAY_CHOICES.map((q) => ({
+          value: q,
+          label: q === "" ? t("tools.sources.reshapeQuay.none") : `${q} – ${t(`tools.sources.reshapeQuay.${q}`)}`,
+        }))}
+      />
     </label>
   );
 }
@@ -765,23 +767,24 @@ function MemberRow({
         {m.page && ` · ${t("tools.sources.reshapePage", { page: m.page })}`}
       </span>
       {!m.foldedInto && (
-        <select
+        <SelectMenu
           className="tools-quay-mini"
           value={quay}
-          onChange={(e) => onQuay(e.target.value)}
+          onChange={onQuay}
           title={t("tools.sources.reshapeQuayHint")}
-        >
-          <option value="">
-            {defaultQuay
-              ? `${defaultQuay} – ${t(`tools.sources.reshapeQuay.${defaultQuay}`)}`
-              : t("tools.sources.reshapeQuay.none")}
-          </option>
-          {["3", "2", "1", "0"].map((q) => (
-            <option key={q} value={q}>
-              {q} – {t(`tools.sources.reshapeQuay.${q}`)}
-            </option>
-          ))}
-        </select>
+          options={[
+            {
+              value: "",
+              label: defaultQuay
+                ? `${defaultQuay} – ${t(`tools.sources.reshapeQuay.${defaultQuay}`)}`
+                : t("tools.sources.reshapeQuay.none"),
+            },
+            ...["3", "2", "1", "0"].map((q) => ({
+              value: q,
+              label: `${q} – ${t(`tools.sources.reshapeQuay.${q}`)}`,
+            })),
+          ]}
+        />
       )}
       {linkKey(m.url) !== groupUrlKey && (
         <a className="tools-tree-meta" href={m.url} target="_blank" rel="noreferrer" title={m.url}>

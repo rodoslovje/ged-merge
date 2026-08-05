@@ -61,7 +61,9 @@ export function familyEventHasMergeData(
  * keep name fields compact instead of stretching to fill the row. */
 export function fieldWidth(value: string, placeholder: string, minLen = 3): string {
   const len = value.length > 0 ? value.length : placeholder.length;
-  return `${Math.max(len, minLen) + 3}ch`;
+  // +4, not a snug +2: the input reserves ~2.5ch on the right for the × clear
+  // button (see .clearable-wrap in index.css), which must not cover the text.
+  return `${Math.max(len, minLen) + 4}ch`;
 }
 
 /** Display order for extra merge events (tags not yet in main) and secondary

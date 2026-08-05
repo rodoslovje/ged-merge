@@ -52,10 +52,13 @@ import {
   preferredFsIdTag,
   rebuildFamily,
   rebuildIndividual,
+  addAdditionalName,
   rebuildNoteReferrers,
   removeIndividual,
   removeSourceCitationAtIndex,
+  setAdditionalName,
   setIndividualLinks,
+  setMarriedName,
   setName,
   setNotes,
   updateSourceCitation,
@@ -180,7 +183,12 @@ interface Props {
  *  unrelated one changing leaves it alone (see useSettingsSlice). Edit is the
  *  largest tree in the app and stays mounted behind Merge and every modal, so
  *  re-rendering it for a preference it never reads is pure waste. */
-const SETTINGS_KEYS = ["formatOverrides", "order", "showAge", "showEditMap", "showKinship"] as const;
+const SETTINGS_KEYS = ["formatOverrides", "order", "showAge", "showEditMap", "showKinship", "quickEventTags", "marriedNameFromPartner"] as const;
+
+/** Events a person has at most one of: adding again focuses the existing row
+ *  (Birth's always-present row included) instead of writing a duplicate, and
+ *  the "+ Add event" menu stops offering them once present. */
+const SINGLE_EVENT_TAGS = new Set(["BIRT", "DEAT", "BURI"]);
 
 /** Edit mode's person view: parents on top, the selected person in the
  * center, partners + children on the bottom. The center panel is editable;
@@ -398,6 +406,14 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
   const chartKind = chartSettings.kind;
   const shortcutRef = useRef({ selectedId, onShowCharts, chartKind, startId, matchOrder, navigate, goBack, matchDecKey, toggleMatchStatus });
   shortcutRef.current = { selectedId, onShowCharts, chartKind, startId, matchOrder, navigate, goBack, matchDecKey, toggleMatchStatus };
+  // Quick-add events (digits 1–9; 0 opens the Add-event menu). Fed from below
+  // (the handler is defined after `commit`), read through the ref at event
+  // time like shortcutRef.
+  const quickAddRef = useRef<{ tags: string[]; add: (tag: string) => void; openMenu: () => void }>({
+    tags: [],
+    add: () => {},
+    openMenu: () => {},
+  });
   // The scrollable person panel — Up/Down scroll this instead of navigating
   // when it actually has overflow to scroll.
   const editBodyRef = useRef<HTMLDivElement>(null);
@@ -405,6 +421,24 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
   useEffect(() => {
     if (!active) return;
     function onKey(e: KeyboardEvent) {
+      // ⌥1–⌥9 / ⌥0 fire even while typing in a field — the bare digits must
+      // keep typing dates there. Option/Alt on purpose: browsers reserve
+      // ⌘digit (macOS) and Ctrl+digit (Windows/Linux) for tab switching,
+      // while ⌥digit reaches the page. Matched on e.code: with Option held,
+      // e.key is the special character the layout produces (¡, ™ …), and the
+      // ctrlKey guard also keeps AltGr (Ctrl+Alt) layouts typing theirs. The
+      // field being typed in commits itself when focus moves to the new
+      // event's input.
+      if (e.altKey && !e.metaKey && !e.ctrlKey && !e.shiftKey && /^Digit[0-9]$/.test(e.code) && !isModalOpen()) {
+        const { tags, add, openMenu } = quickAddRef.current;
+        const id = shortcutRef.current.selectedId;
+        if (!id) return;
+        const digit = Number(e.code.slice(-1));
+        if (digit === 0) { e.preventDefault(); openMenu(); return; }
+        const tag = tags[digit - 1];
+        if (tag) { e.preventDefault(); add(tag); }
+        return;
+      }
       if (isEditableTarget(e.target) || isModalOpen()) return;
       if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
       const { selectedId: id, onShowCharts: showCharts, chartKind: kind, startId: hId, matchOrder: order, navigate: nav, goBack: back, matchDecKey: decKey, toggleMatchStatus: toggle } = shortcutRef.current;
@@ -433,6 +467,18 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
       const statusHit = KEY_STATUS[key];
       if (statusHit) {
         if (decKey) { e.preventDefault(); toggle(statusHit); }
+        return;
+      }
+      if (/^[0-9]$/.test(e.key)) {
+        // Quick-add events, in the order configured in Settings; 0 opens the
+        // full "+ Add event" menu.
+        const { tags, add, openMenu } = quickAddRef.current;
+        if (e.key === "0") {
+          if (id) { e.preventDefault(); openMenu(); }
+          return;
+        }
+        const tag = tags[Number(e.key) - 1];
+        if (tag && id) { e.preventDefault(); add(tag); }
         return;
       }
       if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
@@ -521,6 +567,38 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     afterNoteChanges(notes.changes, person.id);
     setTick((v) => v + 1);
   });
+
+  // Add an event to the selected person and focus its lead input — the "+ Add
+  // event" menu, the quick-add buttons and the digit shortcuts all land here.
+  // Single-instance events never duplicate: Birth's row always exists (possibly
+  // empty) and is focused; an existing Death/Burial row is focused instead of
+  // a second one being written.
+  const [birtFocusNonce, setBirtFocusNonce] = useState(0);
+  const [rowFocus, setRowFocus] = useState<{ nodeId: number; nonce: number } | null>(null);
+  const [addEventMenuNonce, setAddEventMenuNonce] = useState(0);
+  const addIndividualEvent = useStableHandler((tag: string) => {
+    if (!person) return;
+    if (tag === "BIRT") {
+      setBirtFocusNonce((n) => n + 1);
+      return;
+    }
+    if (SINGLE_EVENT_TAGS.has(tag)) {
+      const existing = childrenByTag(person.raw, tag);
+      if (existing.length) {
+        setRowFocus((prev) => ({ nodeId: nodeId(existing[existing.length - 1]), nonce: (prev?.nonce ?? 0) + 1 }));
+        return;
+      }
+    }
+    commit((indi) => addEventNode(indi, tag));
+    // addEventNode inserts as the last child with this tag, so find it now.
+    const sameTag = childrenByTag(person.raw, tag);
+    if (sameTag.length) setPendingFocusEventNodeId(nodeId(sameTag[sameTag.length - 1]));
+  });
+  quickAddRef.current = {
+    tags: settings.quickEventTags,
+    add: addIndividualEvent,
+    openMenu: () => setAddEventMenuNonce((n) => n + 1),
+  };
 
   const commitFamily: FamilyCommit = useStableHandler((fam: Family, mutate: (fam: Family, noteCtx: SharedNoteCtx) => void, extraPatches?: RecordPatch[]) => {
     const before = cloneRaw(fam.raw);
@@ -1056,7 +1134,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     return undefined;
   }
 
-  const addRelative = useStableHandler((kind: "father" | "mother" | "partner" | "child", fam?: Family) => {
+  const addRelative = useStableHandler((kind: "father" | "mother" | "partner" | "child", fam?: Family, typedName?: string) => {
     if (!person) return;
     const beforePerson = cloneRaw(person.raw);
     const beforeFam = fam ? cloneRaw(fam.raw) : null;
@@ -1070,7 +1148,10 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
           ? addChild(dataset, person, fam)
           : addParent(dataset, person, fam, kind);
 
-    // Pre-fill surname from family context
+    // Pre-fill the name: the picker's typed text seeds it (the user already
+    // wrote the name, so the card must not open empty); the family context
+    // supplies a surname default otherwise. setName writes both parts at
+    // once, so they are resolved together before the single call.
     let defaultSurname: string | undefined;
     if (kind === "child") {
       // Inherit from the father of the family the child was added to
@@ -1080,9 +1161,44 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
     } else if (kind === "father") {
       defaultSurname = primaryName(person)?.surname || undefined;
     }
-    if (defaultSurname) {
-      setName(added, { surname: defaultSurname });
+    // Typed text is read per the display-order setting: the last token is the
+    // surname in given-surname order, the first in surname-given. A single
+    // token is a given name — the surname often arrives from the context.
+    let given: string | undefined;
+    const tokens = typedName?.trim() ? typedName.trim().split(/\s+/) : [];
+    if (tokens.length === 1) {
+      given = tokens[0];
+    } else if (tokens.length > 1) {
+      if (settings.order === "surname-given") {
+        defaultSurname = tokens[0];
+        given = tokens.slice(1).join(" ");
+      } else {
+        given = tokens.slice(0, -1).join(" ");
+        defaultSurname = tokens[tokens.length - 1];
+      }
+    }
+    if (given || defaultSurname) {
+      setName(added, { given, surname: defaultSurname });
       rebuildIndividual(dataset, added);
+    }
+
+    // A newly added wife takes the husband's surname as her married name
+    // (Settings › Editing, opt-in), written in the file's own convention:
+    // inline _MARNM or a separate TYPE married NAME record. Only with a
+    // primary NAME to hang it on — a married-name-only record would
+    // masquerade as the person's name.
+    if (kind === "partner" && settings.marriedNameFromPartner && added.sex === "F" && person.sex === "M") {
+      const husbandSurname = primaryName(person)?.surname?.trim();
+      const nameCount = childrenByTag(added.raw, "NAME").length;
+      if (husbandSurname && nameCount > 0) {
+        if (marriedNameTag) {
+          setMarriedName(added, husbandSurname);
+        } else {
+          addAdditionalName(added, "married");
+          setAdditionalName(added, nameCount - 1, { surname: husbandSurname });
+        }
+        rebuildIndividual(dataset, added);
+      }
     }
 
     const patches: RecordPatch[] = [
@@ -1616,13 +1732,15 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
             person={person}
             t={t}
             commit={commit}
-            emptyEventGroups={INDIVIDUAL_EVENT_GROUPS as unknown as { labelKey: string; tags: string[] }[]}
-            onAddEvent={(tag) => {
-              commit((indi) => addEventNode(indi, tag));
-              // addEventNode inserts as the last child with this tag, so find it now.
-              const sameTag = childrenByTag(person.raw, tag);
-              if (sameTag.length) setPendingFocusEventNodeId(nodeId(sameTag[sameTag.length - 1]));
-            }}
+            // Single-instance events the person already has leave the menu —
+            // the quick buttons for them stay and focus the existing row.
+            emptyEventGroups={INDIVIDUAL_EVENT_GROUPS.map((g) => ({
+              labelKey: g.labelKey,
+              tags: g.tags.filter((tg) => !(SINGLE_EVENT_TAGS.has(tg) && childrenByTag(person.raw, tg).length > 0)),
+            })).filter((g) => g.tags.length > 0)}
+            onAddEvent={addIndividualEvent}
+            quickEventTags={settings.quickEventTags}
+            addEventMenuNonce={addEventMenuNonce}
             showAddLink={!(person.links ?? []).length && !(person.sources ?? []).length && !mergeIncomingLinks.get("links")?.length && !mergeIncomingSources.get("links")?.length}
             onAddLink={() => setSourceDialogTarget({ kind: "individual" })}
             showAddNote={!notesAdded && !(person.noteRefs ?? []).some((r) => r.text.trim())}
@@ -1723,6 +1841,8 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
             materializedEventIds={materializedEventIds}
             onMaterializeEventNode={markMaterializedEvent}
             pendingFocusNodeId={pendingFocusEventNodeId}
+            birtFocusNonce={birtFocusNonce}
+            rowFocus={rowFocus}
             undoVersion={undoVersion}
             mergeGen={mergeGen}
             birthParentAges={birthParentAges}

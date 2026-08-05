@@ -7,6 +7,7 @@ import { NicknameEditor } from "./NicknameEditor";
 import { MarriedNameEditor } from "./MarriedNameEditor";
 import { NameVariantEditor } from "./NameVariantEditor";
 import { AddEventSelect } from "./AddEventSelect";
+import { eventDisplayLabel } from "../../gedcom/eventTags";
 import type { Commit } from "./types";
 
 /** Nickname plus any further `NAME` records (married/maiden/aka/…), shown as
@@ -18,6 +19,8 @@ export function OtherNamesEditor({
   commit,
   emptyEventGroups,
   onAddEvent,
+  quickEventTags,
+  addEventMenuNonce,
   showAddLink,
   onAddLink,
   showAddNote,
@@ -34,6 +37,11 @@ export function OtherNamesEditor({
   commit: Commit;
   emptyEventGroups: { labelKey: string; tags: string[] }[];
   onAddEvent: (tag: string) => void;
+  /** Quick-add buttons (Settings › Quick add events), in order — rendered on
+   *  their own row with the "+ Add event" menu; digits 1–9 mirror them. */
+  quickEventTags?: string[];
+  /** Increment to open the "+ Add event" menu (the 0 key shortcut). */
+  addEventMenuNonce?: number;
   showAddLink: boolean;
   onAddLink: () => void;
   showAddNote: boolean;
@@ -57,6 +65,21 @@ export function OtherNamesEditor({
   const primary = primaryName(person);
   const extraNames = person.names.slice(1);
   const hasNamesContent = editing !== null || !!primary?.nickname || !!primary?.married || extraNames.length > 0;
+  const quick = quickEventTags ?? [];
+
+  // With quick buttons configured, "+ Add event" moves to its own row and the
+  // quick events line up beside it; without any it stays in the actions row.
+  const addEventChip = (
+    <AddEventSelect
+      groups={emptyEventGroups}
+      label={t("edit.addEvent")}
+      tooltip={t("edit.addEventTooltip")}
+      t={t}
+      onAdd={onAddEvent}
+      className="edit-name-chip edit-name-chip-add"
+      openNonce={addEventMenuNonce}
+    />
+  );
 
   const addNameBtn = (
     <button
@@ -139,14 +162,7 @@ export function OtherNamesEditor({
       {/* Action chips row — always present */}
       <div className="edit-other-names-row edit-other-names-actions">
         {leadingControl}
-        <AddEventSelect
-          groups={emptyEventGroups}
-          label={t("edit.addEvent")}
-          tooltip={t("edit.addEventTooltip")}
-          t={t}
-          onAdd={onAddEvent}
-          className="edit-name-chip edit-name-chip-add add-chip-select"
-        />
+        {quick.length === 0 && addEventChip}
         {showAddMedia && (
           <button
             type="button"
@@ -189,6 +205,24 @@ export function OtherNamesEditor({
         )}
         {!hasNamesContent && addNameBtn}
       </div>
+      {/* Quick-add row: the event menu plus the configured one-click events.
+       *  Digits 1–9 trigger the same buttons in this order (EditView). */}
+      {quick.length > 0 && (
+        <div className="edit-other-names-row edit-other-names-actions">
+          {addEventChip}
+          {quick.map((tag, i) => (
+            <button
+              key={tag}
+              type="button"
+              className="edit-name-chip edit-name-chip-add"
+              title={t("edit.quickAdd.tooltip", { event: eventDisplayLabel(tag, t), key: i + 1 })}
+              onClick={() => onAddEvent(tag)}
+            >
+              + {eventDisplayLabel(tag, t)}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

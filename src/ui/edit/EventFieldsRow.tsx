@@ -15,7 +15,7 @@ import { EventCoordPicker } from "./EventCoordPicker";
 import { useField } from "./useField";
 import { SECONDARY_VALUE_EVENT_TAGS, VALUE_EVENT_TAGS } from "./editConstants";
 import { placeAddrCoordKey, placeCombosOf, placeKey } from "./placeSuggestions";
-import { openPickerOnEnter } from "./openPicker";
+import { DropdownMenu } from "../DropdownMenu";
 import type { SourceDialogTarget } from "./types";
 
 /** Sentinel `<option>` values for the action entries at the end of the
@@ -38,7 +38,8 @@ export function EventFieldsRow({
   onAddSource,
   onEditSource,
   onOpenSourceDialog,
-  autoFocusDate,
+  autoFocusLead,
+  focusLeadNonce,
   placeSuggestions,
   placeToAddrs,
   placeCanonical,
@@ -76,7 +77,14 @@ export function EventFieldsRow({
   onAddSource: () => void;
   onEditSource?: (index: number) => void;
   onOpenSourceDialog: (target: SourceDialogTarget) => void;
-  autoFocusDate?: boolean;
+  /** Focus the row's lead input on mount — the date for ordinary events, the
+   * value for value-events (whose date field starts hidden) — so a freshly
+   * added event can be typed into immediately. */
+  autoFocusLead?: boolean;
+  /** Increment to focus the lead input of an already-mounted row — the
+   * always-present Birth row, which quick-add targets instead of duplicating
+   * (autoFocusLead only fires on mount). */
+  focusLeadNonce?: number;
   placeSuggestions: string[];
   placeToAddrs: Map<string, string[]>;
   placeCanonical: Map<string, string>;
@@ -306,15 +314,17 @@ export function EventFieldsRow({
   // Sizes a flowing field to its content (in `ch`) so short values like "fsd"
   // don't each claim a full-width column — that content-sizing is what lets the
   // place and the secondary fields pack onto one wrapped line and only spill to
-  // a second row when they genuinely don't fit.
-  const chW = (v: string, max = 40) => ({ width: `${Math.min(max, Math.max(6, v.trim().length + 2))}ch` });
+  // a second row when they genuinely don't fit. The floor keeps an empty or
+  // short field a sensible typing target rather than a token-sized box; the +4
+  // (not a snug +2) leaves the ~2.5ch the input reserves for its × button.
+  const chW = (v: string, max = 40) => ({ width: `${Math.min(max, Math.max(12, v.trim().length + 4))}ch` });
   // Notes can be multi-line, so size them to the widest line, not the whole
   // string's length (which would over-widen a stack of short lines). The floor
   // is generous — notes are prose, and a freshly added one should offer a
   // sentence's worth of room, not a token-sized box.
   const noteW = (v: string, max = 50) => {
     const longest = v.split("\n").reduce((m, line) => Math.max(m, line.length), 0);
-    return { width: `${Math.min(max, Math.max(18, longest + 2))}ch` };
+    return { width: `${Math.min(max, Math.max(18, longest + 4))}ch` };
   };
 
   // Compact layout: a field with no value (and not showing an incoming merge
@@ -391,6 +401,18 @@ export function EventFieldsRow({
     el?.focus();
     setFocusKey(null);
   }, [focusKey]);
+
+  // Quick-add targeting this already-mounted row (the Birth row): each nonce
+  // bump focuses the lead input. The ref guard skips the mount run, so a row
+  // remounting on person switch doesn't steal focus for a stale bump.
+  const seenFocusNonce = useRef(focusLeadNonce ?? 0);
+  useEffect(() => {
+    if (!focusLeadNonce || focusLeadNonce === seenFocusNonce.current) return;
+    seenFocusNonce.current = focusLeadNonce;
+    rootRef.current
+      ?.querySelector<HTMLInputElement>(primaryLine ? "input.edit-event-date" : "input.edit-event-value")
+      ?.focus();
+  }, [focusLeadNonce, primaryLine]);
 
   // The event-type label becomes a dropdown when the tag can be reassigned
   // and/or the event copied or removed — the latter two via "Copy event to…" /
@@ -511,7 +533,8 @@ export function EventFieldsRow({
   }
 
   // A place/address field on the flowing body: a hover label + a content-sized
-  // autocomplete. Used for Address (all events) and, on value-events, Place.
+  // autocomplete. Hosts the Address field (the Place field renders inline in
+  // the body below).
   function extraPlace(
     key: string,
     labelText: string,
@@ -542,6 +565,9 @@ export function EventFieldsRow({
           suggestions={suggestions}
           canonical={canonical}
           combos={combos}
+          // This hosts the address field, where the pair list is the only
+          // route to another settlement — so a typed place name matches too.
+          matchCombosByPlace
           isDirty={field.isDirty || forced}
           isMerge={field.isMerge}
           className={"edit-input " + cls}
@@ -561,67 +587,57 @@ export function EventFieldsRow({
   return (
     <div className="edit-event" ref={rootRef}>
       {/* Column 1: event-type label with the expand toggle beside it. When the
-       * tag can be reassigned and/or the event removed, a hidden <select>
-       * overlay turns the label into a menu — type choices (if any) plus a
-       * "Remove this event" entry at the end. */}
+       * tag can be reassigned and/or the event removed, the label becomes an
+       * app-styled menu — type choices (if any) plus "Copy event to…" /
+       * "Remove this event" entries at the end. */}
       <div className="edit-event-type-row">
-        <div
-          className={fieldCls(
-            showSelect ? "edit-event-label edit-event-label--select" : "edit-event-label",
-            false,
-            tagDirty || tagForced,
-          )}
-          title={
-            isEven
-              ? t("event.customTooltip", { tag: tag ?? "EVEN" })
-              : tag
-                ? vendorEventTooltip(tag, t, i18n.language)
-                : undefined
-          }
-        >
-          {customName || label}
-          {showSelect && (
-            <>
-              <span className="edit-event-type-caret" aria-hidden="true">▾</span>
-              <select
-                className="edit-event-type-select"
-                value={tag}
-                title={onChangeTag ? t("edit.changeEventType") : onCopy ? t("edit.copyEvent") : t("edit.removeEvent")}
-                onKeyDown={openPickerOnEnter}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  if (v === COPY_OPTION) onCopy?.();
-                  else if (v === REMOVE_OPTION) onRemove?.();
-                  else if (onChangeTag && v !== tag) onChangeTag(v);
-                }}
-              >
-                {onChangeTag && tagGroups ? (
-                  tagGroups.map((g, gi) =>
-                    g.labelKey ? (
-                      <optgroup key={g.labelKey} label={t(g.labelKey)}>
-                        {g.tags.map((tg) => (
-                          <option key={tg} value={tg}>{eventDisplayLabel(tg, t)}</option>
-                        ))}
-                      </optgroup>
-                    ) : (
-                      g.tags.map((tg) => (
-                        <option key={`${gi}-${tg}`} value={tg}>{eventDisplayLabel(tg, t)}</option>
-                      ))
-                    ),
-                  )
-                ) : (
-                  <option value={tag}>{label}</option>
-                )}
-                {onCopy && (
-                  <option value={COPY_OPTION}>{t("edit.copyEvent")}</option>
-                )}
-                {onRemove && (
-                  <option value={REMOVE_OPTION}>{t("edit.removeEvent")}</option>
-                )}
-              </select>
-            </>
-          )}
-        </div>
+        {showSelect ? (
+          <DropdownMenu
+            className={fieldCls("edit-event-label edit-event-label--select", false, tagDirty || tagForced)}
+            title={onChangeTag ? t("edit.changeEventType") : onCopy ? t("edit.copyEvent") : t("edit.removeEvent")}
+            current={onChangeTag ? tag : undefined}
+            groups={[
+              ...(onChangeTag && tagGroups
+                ? tagGroups.map((g) => ({
+                    label: g.labelKey ? t(g.labelKey) : undefined,
+                    items: g.tags.map((tg) => ({ value: tg, label: eventDisplayLabel(tg, t) })),
+                  }))
+                : []),
+              ...(onCopy || onRemove
+                ? [{
+                    items: [
+                      ...(onCopy ? [{ value: COPY_OPTION, label: t("edit.copyEvent") }] : []),
+                      ...(onRemove ? [{ value: REMOVE_OPTION, label: t("edit.removeEvent") }] : []),
+                    ],
+                  }]
+                : []),
+            ]}
+            onSelect={(v) => {
+              if (v === COPY_OPTION) onCopy?.();
+              else if (v === REMOVE_OPTION) onRemove?.();
+              else if (onChangeTag && v !== tag) onChangeTag(v);
+            }}
+            trigger={
+              <>
+                {customName || label}
+                <span className="edit-event-type-caret" aria-hidden="true">▾</span>
+              </>
+            }
+          />
+        ) : (
+          <div
+            className={fieldCls("edit-event-label", false, tagDirty || tagForced)}
+            title={
+              isEven
+                ? t("event.customTooltip", { tag: tag ?? "EVEN" })
+                : tag
+                  ? vendorEventTooltip(tag, t, i18n.language)
+                  : undefined
+            }
+          >
+            {customName || label}
+          </div>
+        )}
       </div>
 
       {/* Leading item 2: the date — the input fills its fixed slot (text kept
@@ -633,7 +649,7 @@ export function EventFieldsRow({
           value={dateField.value}
           placeholder={t("event.colDate")}
           title={t("event.date", { event: label })}
-          autoFocus={autoFocusDate}
+          autoFocus={autoFocusLead && primaryLine}
           onChange={dateField.onChange}
           onBlur={() => commitAll({})}
           onClear={() => { dateField.clear(); commitAll({ date: "" }); }}
@@ -662,6 +678,7 @@ export function EventFieldsRow({
             value={valueField.value}
             placeholder={t("event.colTitle")}
             title={label}
+            autoFocus={autoFocusLead && !primaryLine}
             onChange={valueField.onChange}
             onBlur={() => commitAll({})}
             onClear={() => { valueField.clear(); commitAll({ value: "" }); }}
@@ -783,25 +800,15 @@ export function EventFieldsRow({
           />
         </span>
         {/* Add a source / place / note / other detail without keeping every empty
-         * field on screen — the menu offers only the ones not already shown. A
-         * real (visible) <select> so it's reliably keyboard-openable, unlike the
-         * opacity-0 overlay chips. */}
+         * field on screen — the menu offers only the ones not already shown. */}
         {addable.length > 0 && (
-          <select
+          <DropdownMenu
             className="edit-event-addfield"
-            value=""
             title={t("edit.addDetailTooltip")}
-            onKeyDown={openPickerOnEnter}
-            onChange={(e) => {
-              const k = e.target.value;
-              if (k) addDetail(k);
-            }}
-          >
-            <option value="">+ {t("edit.addDetail")}</option>
-            {addable.map((f) => (
-              <option key={f.key} value={f.key}>{f.label}</option>
-            ))}
-          </select>
+            groups={[{ items: addable.map((f) => ({ value: f.key, label: f.label })) }]}
+            onSelect={addDetail}
+            trigger={<>+ {t("edit.addDetail")}</>}
+          />
         )}
       </div>
     </div>

@@ -9,8 +9,8 @@ const NON_TEXT_INPUTS = new Set(["checkbox", "radio", "button", "submit", "reset
  * instead of typing an "m" into the place you just finished.
  *
  * Left alone:
- *   • textareas and `<select>`s — Enter means a line break there, or opens the
- *     native picker (see {@link import("./openPicker").openPickerOnEnter});
+ *   • textareas — Enter means a line break there — and the DropdownMenu
+ *     triggers, whose Enter opens the menu (they are buttons);
  *   • a field that already consumed Enter itself (picking a place suggestion,
  *     choosing a relative), signalled the usual way with `preventDefault`;
  *   • anything inside a dialog, which runs its own keyboard rules.

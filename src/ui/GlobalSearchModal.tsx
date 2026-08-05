@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useModalKeyboard } from "../keyboard/useModalKeyboard";
 import type { Sex } from "../gedcom/types";
 import type { MatchDecisionStatus } from "../review/types";
+import { SelectMenu } from "./DropdownMenu";
 import { AddPersonIcon } from "./icons/AddPersonIcon";
 import { SearchIcon } from "./icons/SearchIcon";
 import { sexClass } from "./sex";
@@ -243,32 +244,33 @@ export function GlobalSearchModal({ isOpen, onClose, rows, onOpen, filterContext
             {startId && (
               <div className="gsf-group">
                 <span className="gsf-label">{t("globalSearch.facet.kinship")}</span>
-                <select
+                <SelectMenu
                   className="gsf-select"
-                  value={filters.maxKinship ?? ""}
-                  onChange={(e) => setFilters((f) => ({ ...f, maxKinship: e.target.value ? Number(e.target.value) : undefined }))}
-                >
-                  <option value="">{t("globalSearch.facet.any")}</option>
-                  {KINSHIP_PRESETS.map((hops) => (
-                    <option key={hops} value={hops}>{t("globalSearch.facet.withinHops", { count: hops })}</option>
-                  ))}
-                </select>
+                  value={filters.maxKinship !== undefined ? String(filters.maxKinship) : ""}
+                  onChange={(v) => setFilters((f) => ({ ...f, maxKinship: v ? Number(v) : undefined }))}
+                  options={[
+                    { value: "", label: t("globalSearch.facet.any") },
+                    ...KINSHIP_PRESETS.map((hops) => ({
+                      value: String(hops),
+                      label: t("globalSearch.facet.withinHops", { count: hops }),
+                    })),
+                  ]}
+                />
               </div>
             )}
 
             {hasDecisions && (
               <div className="gsf-group">
                 <span className="gsf-label">{t("globalSearch.facet.decision")}</span>
-                <select
+                <SelectMenu
                   className="gsf-select"
                   value={filters.decision ?? ""}
-                  onChange={(e) => setFilters((f) => ({ ...f, decision: (e.target.value || undefined) as MatchDecisionStatus | undefined }))}
-                >
-                  <option value="">{t("globalSearch.facet.any")}</option>
-                  {DECISION_STATUSES.map((s) => (
-                    <option key={s} value={s}>{t(`status.${s}`)}</option>
-                  ))}
-                </select>
+                  onChange={(v) => setFilters((f) => ({ ...f, decision: (v || undefined) as MatchDecisionStatus | undefined }))}
+                  options={[
+                    { value: "", label: t("globalSearch.facet.any") },
+                    ...DECISION_STATUSES.map((s) => ({ value: s, label: t(`status.${s}`) })),
+                  ]}
+                />
               </div>
             )}
 
