@@ -5841,7 +5841,7 @@ body:has(.modal-overlay) {
 /* ── General settings (SettingsModal) ─────────────────────────────────────── */
 /* One size for every tab: a short tab (Advanced) used to shrink the dialog,
    so switching tabs resized the window under the pointer. */
-.settings-modal { max-width: 624px; height: 88dvh; max-height: 88dvh; }
+.settings-modal { max-width: 749px; height: 88dvh; max-height: 88dvh; }
 
 /* General / Advanced tab bar — same segmented look as .chart-settings-segmented,
  * sized to span the modal width just under the header. */
