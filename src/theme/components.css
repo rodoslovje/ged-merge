@@ -37,8 +37,7 @@
  * The classes listed alongside .gm-addr are address-only already, so every
  * list, dropdown and map tooltip using them is marked without markup changes. */
 .gm-addr::before,
-.tools-geo-row-addr::before,
-.place-suggestion-addr::before {
+.tools-geo-row-addr::before {
   content: "";
   display: inline-block;
   width: 14px;
@@ -69,9 +68,10 @@
   mask: var(--pin-mask) center / contain no-repeat;
 }
 .gm-coord--set::before { background: var(--accent); opacity: 0.85; }
-/* The separator these two already print sits before the pin — " · 📍 addr". */
-.tools-geo-row-addr::before,
-.place-suggestion-addr::before { margin-left: 0.1em; }
+/* The separator already printed sits before the pin — " · 📍 addr". (The
+   autocomplete dropdown's combo rows carry no pin: every row there is an
+   address, so the glyph would say nothing.) */
+.tools-geo-row-addr::before { margin-left: 0.1em; }
 
 /* ---------------- Match list: N / D / link counts ---------------- */
 .nd.new   { color: var(--state-match); }
