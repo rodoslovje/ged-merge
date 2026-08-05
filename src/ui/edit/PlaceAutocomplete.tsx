@@ -110,14 +110,27 @@ export function PlaceAutocomplete({
   const filtered = useMemo((): Item[] => {
     const q = value.trim().toLowerCase();
     if (!q) return [];
-    const plain: Item[] = suggestions.filter((s) => s.toLowerCase().includes(q)).map((s) => ({ place: s }));
+    // A match at the start of the text reads as "the one you meant" more than
+    // a hit buried inside a longer name ("Sv. Peter" before "Pokopališče ob
+    // cerkvi sv. Martin"), so starts-with matches lead, list order otherwise.
+    const byPrefix = <T,>(items: T[], text: (item: T) => string): T[] => [
+      ...items.filter((item) => text(item).toLowerCase().startsWith(q)),
+      ...items.filter((item) => !text(item).toLowerCase().startsWith(q)),
+    ];
+    const plain: Item[] = byPrefix(
+      suggestions.filter((s) => s.toLowerCase().includes(q)),
+      (s) => s,
+    ).map((s) => ({ place: s }));
     // Combos when the query matches the address text (or, where the host
     // opted in, the place text — see matchCombosByPlace).
     const comboHits = onPickCombo
-      ? (combos ?? []).filter(
-          (cb) =>
-            cb.addr.toLowerCase().includes(q) ||
-            (matchCombosByPlace && cb.place.toLowerCase().includes(q)),
+      ? byPrefix(
+          (combos ?? []).filter(
+            (cb) =>
+              cb.addr.toLowerCase().includes(q) ||
+              (matchCombosByPlace && cb.place.toLowerCase().includes(q)),
+          ),
+          (cb) => cb.addr,
         )
       : [];
     // Round-robin across places: the pair list is grouped per place, so one
@@ -138,9 +151,12 @@ export function PlaceAutocomplete({
         if (i < b.length) withAddr.push({ place: b[i].place, addr: b[i].addr });
       }
     }
-    // Reserve room for combo hits: with 8+ plain matches the address lookup
-    // would otherwise never surface at all.
-    const comboRoom = Math.min(withAddr.length, 3);
+    // The address field puts its own place's addresses (the plain list) first,
+    // in full: they are the answers "from here", and pairs at other places only
+    // fill what room is left. The place field instead reserves room for combo
+    // hits — with 8+ matching places the address pairs would otherwise never
+    // surface at all.
+    const comboRoom = matchCombosByPlace ? 0 : Math.min(withAddr.length, 3);
     const fromFile = [...plain.slice(0, 8 - comboRoom), ...withAddr].slice(0, 8);
     // Register offers sit below the file's own places: what the file already
     // uses is the better answer whenever it fits, and only the rest needs a
