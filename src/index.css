@@ -8070,7 +8070,7 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  margin-top: 8px;
+  margin: 8px 0 14px; /* breathe before the section's next row */
 }
 .settings-quick-chip {
   display: inline-flex;

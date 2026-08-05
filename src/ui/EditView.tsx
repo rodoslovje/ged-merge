@@ -52,10 +52,13 @@ import {
   preferredFsIdTag,
   rebuildFamily,
   rebuildIndividual,
+  addAdditionalName,
   rebuildNoteReferrers,
   removeIndividual,
   removeSourceCitationAtIndex,
+  setAdditionalName,
   setIndividualLinks,
+  setMarriedName,
   setName,
   setNotes,
   updateSourceCitation,
@@ -180,7 +183,12 @@ interface Props {
  *  unrelated one changing leaves it alone (see useSettingsSlice). Edit is the
  *  largest tree in the app and stays mounted behind Merge and every modal, so
  *  re-rendering it for a preference it never reads is pure waste. */
-const SETTINGS_KEYS = ["formatOverrides", "order", "showAge", "showEditMap", "showKinship", "quickEventTags"] as const;
+const SETTINGS_KEYS = ["formatOverrides", "order", "showAge", "showEditMap", "showKinship", "quickEventTags", "marriedNameFromPartner"] as const;
+
+/** Events a person has at most one of: adding again focuses the existing row
+ *  (Birth's always-present row included) instead of writing a duplicate, and
+ *  the "+ Add event" menu stops offering them once present. */
+const SINGLE_EVENT_TAGS = new Set(["BIRT", "DEAT", "BURI"]);
 
 /** Edit mode's person view: parents on top, the selected person in the
  * center, partners + children on the bottom. The center panel is editable;
@@ -562,15 +570,24 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
 
   // Add an event to the selected person and focus its lead input — the "+ Add
   // event" menu, the quick-add buttons and the digit shortcuts all land here.
-  // Birth is the exception: its row always exists (possibly empty), so quick-
-  // adding it focuses that row instead of writing a duplicate BIRT node.
+  // Single-instance events never duplicate: Birth's row always exists (possibly
+  // empty) and is focused; an existing Death/Burial row is focused instead of
+  // a second one being written.
   const [birtFocusNonce, setBirtFocusNonce] = useState(0);
+  const [rowFocus, setRowFocus] = useState<{ nodeId: number; nonce: number } | null>(null);
   const [addEventMenuNonce, setAddEventMenuNonce] = useState(0);
   const addIndividualEvent = useStableHandler((tag: string) => {
     if (!person) return;
     if (tag === "BIRT") {
       setBirtFocusNonce((n) => n + 1);
       return;
+    }
+    if (SINGLE_EVENT_TAGS.has(tag)) {
+      const existing = childrenByTag(person.raw, tag);
+      if (existing.length) {
+        setRowFocus((prev) => ({ nodeId: nodeId(existing[existing.length - 1]), nonce: (prev?.nonce ?? 0) + 1 }));
+        return;
+      }
     }
     commit((indi) => addEventNode(indi, tag));
     // addEventNode inserts as the last child with this tag, so find it now.
@@ -1165,6 +1182,25 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
       rebuildIndividual(dataset, added);
     }
 
+    // A newly added wife takes the husband's surname as her married name
+    // (Settings › Editing, opt-in), written in the file's own convention:
+    // inline _MARNM or a separate TYPE married NAME record. Only with a
+    // primary NAME to hang it on — a married-name-only record would
+    // masquerade as the person's name.
+    if (kind === "partner" && settings.marriedNameFromPartner && added.sex === "F" && person.sex === "M") {
+      const husbandSurname = primaryName(person)?.surname?.trim();
+      const nameCount = childrenByTag(added.raw, "NAME").length;
+      if (husbandSurname && nameCount > 0) {
+        if (marriedNameTag) {
+          setMarriedName(added, husbandSurname);
+        } else {
+          addAdditionalName(added, "married");
+          setAdditionalName(added, nameCount - 1, { surname: husbandSurname });
+        }
+        rebuildIndividual(dataset, added);
+      }
+    }
+
     const patches: RecordPatch[] = [
       { type: "individual", id: person.id, before: beforePerson, after: cloneRaw(person.raw) },
       { type: "individual", id: added.id, before: null, after: cloneRaw(added.raw) },
@@ -1696,7 +1732,12 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
             person={person}
             t={t}
             commit={commit}
-            emptyEventGroups={INDIVIDUAL_EVENT_GROUPS as unknown as { labelKey: string; tags: string[] }[]}
+            // Single-instance events the person already has leave the menu —
+            // the quick buttons for them stay and focus the existing row.
+            emptyEventGroups={INDIVIDUAL_EVENT_GROUPS.map((g) => ({
+              labelKey: g.labelKey,
+              tags: g.tags.filter((tg) => !(SINGLE_EVENT_TAGS.has(tg) && childrenByTag(person.raw, tg).length > 0)),
+            })).filter((g) => g.tags.length > 0)}
             onAddEvent={addIndividualEvent}
             quickEventTags={settings.quickEventTags}
             addEventMenuNonce={addEventMenuNonce}
@@ -1801,6 +1842,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
             onMaterializeEventNode={markMaterializedEvent}
             pendingFocusNodeId={pendingFocusEventNodeId}
             birtFocusNonce={birtFocusNonce}
+            rowFocus={rowFocus}
             undoVersion={undoVersion}
             mergeGen={mergeGen}
             birthParentAges={birthParentAges}

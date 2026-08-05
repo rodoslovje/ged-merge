@@ -134,6 +134,9 @@ export interface AppSettings extends NameDisplayOptions {
   /** Quick-add event buttons on the Edit person card, in order — digits 1–9
    *  add them from the keyboard. Empty = no quick row. */
   quickEventTags: string[];
+  /** Adding a wife to a husband with a known surname records his surname as
+   *  her married name (in the file's own convention). Opt-in. */
+  marriedNameFromPartner: boolean;
 }
 
 const DEFAULTS: AppSettings = {
@@ -150,6 +153,7 @@ const DEFAULTS: AppSettings = {
   formatOverrides: {},
   persistWorkspace: false,
   quickEventTags: ["BIRT", "RESI", "DEAT", "BURI"],
+  marriedNameFromPartner: false,
 };
 
 /** Digits 1–9 trigger the quick-add buttons, so the list is capped at nine. */
@@ -335,6 +339,7 @@ function load(): AppSettings {
       },
       persistWorkspace: bool(parsed.persistWorkspace, DEFAULTS.persistWorkspace),
       quickEventTags: sanitizeQuickEventTags(parsed.quickEventTags),
+      marriedNameFromPartner: bool(parsed.marriedNameFromPartner, DEFAULTS.marriedNameFromPartner),
     };
   } catch {
     return DEFAULTS;

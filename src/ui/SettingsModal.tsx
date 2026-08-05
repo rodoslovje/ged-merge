@@ -462,8 +462,13 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
           </section>
 
           <section className="settings-section">
-            <h3>{t("settings.quickEvents.title")}</h3>
-            <p className="settings-hint">{t("settings.quickEvents.hint")}</p>
+            <h3>{t("settings.editing.title")}</h3>
+            <div className="settings-row">
+              <span className="settings-row-text">
+                <span className="settings-row-label">{t("settings.quickEvents.title")}</span>
+                <span className="settings-hint">{t("settings.quickEvents.hint")}</span>
+              </span>
+            </div>
             <div className="settings-quick-events">
               {settings.quickEventTags.map((tag, i) => (
                 <span key={tag} className="edit-name-chip-wrap">
@@ -484,6 +489,7 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
               {settings.quickEventTags.length < MAX_QUICK_EVENTS && (
                 <SelectMenu
                   className="settings-quick-add"
+                  title={t("settings.quickEvents.add")}
                   value=""
                   placeholder={`+ ${t("settings.quickEvents.add")}`}
                   onChange={(tag) => set({ quickEventTags: [...settings.quickEventTags, tag] })}
@@ -499,6 +505,17 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                 />
               )}
             </div>
+            <label className="settings-row settings-row-toggle">
+              <input
+                type="checkbox"
+                checked={settings.marriedNameFromPartner}
+                onChange={(e) => set({ marriedNameFromPartner: e.target.checked })}
+              />
+              <span className="settings-row-text">
+                <span className="settings-row-label">{t("settings.editing.marriedFromPartner")}</span>
+                <span className="settings-hint">{t("settings.editing.marriedFromPartner.hint")}</span>
+              </span>
+            </label>
           </section>
           </>
           )}

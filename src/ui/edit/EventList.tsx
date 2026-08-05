@@ -55,6 +55,7 @@ export const EventList = memo(function EventList({
   onMaterializeEventNode,
   pendingFocusNodeId,
   birtFocusNonce,
+  rowFocus,
   undoVersion,
   mergeGen,
   birthParentAges,
@@ -117,6 +118,9 @@ export const EventList = memo(function EventList({
   /** Bumped by quick-add "Birth": focuses the always-present Birth row's lead
    * input instead of adding a duplicate BIRT event. */
   birtFocusNonce?: number;
+  /** Quick-adding a single-instance event the person already has (Death,
+   * Burial) focuses that row instead — the target node id plus a nonce. */
+  rowFocus?: { nodeId: number; nonce: number } | null;
   undoVersion?: number;
   /** Bumped whenever the confirmed-match merge preview recomputes; folded into
    * row keys so a row already mounted before a match was confirmed remounts
@@ -270,6 +274,7 @@ export const EventList = memo(function EventList({
             onEditSource={(idx) => openEditSource(rawEventNodes[row.i], idx, { kind: "individual", indi: person })}
             onOpenSourceDialog={onOpenSourceDialog}
             autoFocusLead={row.stableKey === pendingFocusNodeId}
+            focusLeadNonce={rowFocus && rowFocus.nodeId === row.stableKey ? rowFocus.nonce : undefined}
             placeSuggestions={placeSuggestions}
             placeToAddrs={placeToAddrs}
             placeCanonical={placeCanonical}
