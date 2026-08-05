@@ -413,6 +413,20 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onS
   useEffect(() => {
     if (!active) return;
     function onKey(e: KeyboardEvent) {
+      // ⌃1–⌃9 / ⌃0 fire even while typing in a field — the bare digits must
+      // keep typing dates there. Control (not ⌘) on purpose: browsers reserve
+      // ⌘digit (macOS) and Ctrl+digit (Windows/Linux) for tab switching, and
+      // plain ⌃digit is what macOS leaves to the page. The field being typed
+      // in commits itself when focus moves to the new event's input.
+      if (e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && /^[0-9]$/.test(e.key) && !isModalOpen()) {
+        const { tags, add, openMenu } = quickAddRef.current;
+        const id = shortcutRef.current.selectedId;
+        if (!id) return;
+        if (e.key === "0") { e.preventDefault(); openMenu(); return; }
+        const tag = tags[Number(e.key) - 1];
+        if (tag) { e.preventDefault(); add(tag); }
+        return;
+      }
       if (isEditableTarget(e.target) || isModalOpen()) return;
       if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
       const { selectedId: id, onShowCharts: showCharts, chartKind: kind, startId: hId, matchOrder: order, navigate: nav, goBack: back, matchDecKey: decKey, toggleMatchStatus: toggle } = shortcutRef.current;

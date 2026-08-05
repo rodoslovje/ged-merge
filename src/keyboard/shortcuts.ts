@@ -139,6 +139,9 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: [[KEY.addPerson.toUpperCase()]], descKey: "shortcuts.item.addPerson" },
       { keys: [["1"], ["9"]], descKey: "shortcuts.item.quickEvent" },
       { keys: [["0"]], descKey: "shortcuts.item.addEventMenu" },
+      // Control, not "mod": ⌘digit / Ctrl+digit are the browser's own tab
+      // switch — plain ⌃digit is what reaches the page even inside a field.
+      { keys: [["⌃", "1"], ["⌃", "9"]], descKey: "shortcuts.item.quickEventTyping" },
       { keys: [["Enter"]], descKey: "shortcuts.item.commitField" },
     ],
   },

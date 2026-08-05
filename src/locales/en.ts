@@ -1844,6 +1844,7 @@ export const en = {
   "shortcuts.item.addPerson": "Add a new person (linked to nobody)",
   "shortcuts.item.quickEvent": "Add a quick event (as set up in Settings)",
   "shortcuts.item.addEventMenu": "Open the Add Event menu",
+  "shortcuts.item.quickEventTyping": "The same (and ⌃0) while typing in a field",
   "shortcuts.item.commitField": "Save the field you're typing in and leave it",
   "shortcuts.item.save": "Save / download GEDCOM",
   "shortcuts.item.undo": "Undo",
