@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 export interface DropdownItem {
@@ -86,8 +86,16 @@ export function SelectMenu({
  * overflow can clip it (the events grid clips absolutely-positioned popups),
  * and drops up when the space below the trigger is too tight. It closes on
  * outside pointer-down, Escape (swallowed, so stay-mounted panels' own Esc
- * handlers never see it), scroll outside the list, resize, or selection —
- * returning focus to the trigger.
+ * handlers never see it), scroll outside the list, resize, or selection.
+ *
+ * Focus stays on the trigger the whole time it is open — as a native `<select>`
+ * keeps focus on itself while its popup shows — and the keyboard is driven from
+ * there, with `aria-activedescendant` naming the highlighted row. Moving focus
+ * into the portalled list instead would fire a focus-out that hosts closing on
+ * blur (the inline name/nickname editors) read as "the user left", unmounting
+ * the trigger and the menu with it. Opening also focuses the trigger explicitly:
+ * Safari does not focus a button on click, so without it the keys would go
+ * nowhere and the host would see focus leave for `<body>`.
  */
 export function DropdownMenu({
   groups,
@@ -124,12 +132,33 @@ export function DropdownMenu({
   const [active, setActive] = useState(-1);
   const btnRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const listId = useId();
+  // Mirrors `open` synchronously. Two keys pressed inside one render pass would
+  // both read a stale `open` from the state, so the second ArrowDown re-opened
+  // the menu — resetting the highlight to the current value — instead of moving
+  // down. The handlers branch on this, the render on the state.
+  const openRef = useRef(false);
+  const setOpenState = useCallback((next: boolean) => {
+    openRef.current = next;
+    setOpen(next);
+  }, []);
+  // The highlighted row is mirrored for the same reason: Enter arriving in the
+  // same render pass as the arrow that moved the highlight would otherwise pick
+  // the row the highlight had just left.
+  const activeRef = useRef(-1);
+  const setActiveIndex = useCallback((next: number) => {
+    activeRef.current = next;
+    setActive(next);
+  }, []);
 
   const flat = useMemo(() => groups.flatMap((g) => g.items), [groups]);
 
   const openMenu = useCallback(() => {
     const rect = btnRef.current?.getBoundingClientRect();
     if (!rect || flat.length === 0) return;
+    // Safari leaves a clicked button unfocused: take focus before the list
+    // shows, so the keys land here and the host sees focus stay inside.
+    btnRef.current?.focus();
     const below = window.innerHeight - rect.bottom - EDGE;
     const above = rect.top - EDGE;
     // Drop down unless the space below is cramped and above beats it.
@@ -140,12 +169,12 @@ export function DropdownMenu({
       ...(up ? { bottom: window.innerHeight - rect.top + 2 } : { top: rect.bottom + 2 }),
     });
     const cur = current !== undefined ? flat.findIndex((i) => i.value === current) : -1;
-    setActive(cur >= 0 ? cur : 0);
-    setOpen(true);
-  }, [flat, current]);
+    setActiveIndex(cur >= 0 ? cur : 0);
+    setOpenState(true);
+  }, [flat, current, setOpenState, setActiveIndex]);
 
   function close(refocus: boolean) {
-    setOpen(false);
+    setOpenState(false);
     if (refocus) btnRef.current?.focus();
   }
 
@@ -166,14 +195,13 @@ export function DropdownMenu({
   }, [openNonce, openMenu]);
 
   // Keep the menu on-screen horizontally (its width is only known once
-  // rendered) and hand it focus so the arrow keys work immediately.
+  // rendered). Focus is not moved here — see the component comment.
   useLayoutEffect(() => {
     if (!open) return;
     const el = menuRef.current;
     if (!el) return;
     const overflow = el.getBoundingClientRect().right - (window.innerWidth - EDGE);
     if (overflow > 0) setMenuPos((s) => ({ ...s, left: Math.max(EDGE, Number(s?.left ?? 0) - overflow) }));
-    el.focus();
   }, [open]);
 
   // While open: any pointer-down outside dismisses; scrolling anywhere but
@@ -184,13 +212,13 @@ export function DropdownMenu({
     const onPointerDown = (e: PointerEvent) => {
       const t = e.target as Node;
       if (menuRef.current?.contains(t) || btnRef.current?.contains(t)) return;
-      setOpen(false);
+      setOpenState(false);
     };
     const onScroll = (e: Event) => {
       if (menuRef.current?.contains(e.target as Node)) return;
-      setOpen(false);
+      setOpenState(false);
     };
-    const onResize = () => setOpen(false);
+    const onResize = () => setOpenState(false);
     document.addEventListener("pointerdown", onPointerDown, true);
     document.addEventListener("scroll", onScroll, true);
     window.addEventListener("resize", onResize);
@@ -199,7 +227,7 @@ export function DropdownMenu({
       document.removeEventListener("scroll", onScroll, true);
       window.removeEventListener("resize", onResize);
     };
-  }, [open]);
+  }, [open, setOpenState]);
 
   // Keep the keyboard-active row visible as the selection moves.
   useEffect(() => {
@@ -213,25 +241,27 @@ export function DropdownMenu({
     switch (e.key) {
       case "ArrowDown":
         e.preventDefault();
-        setActive((a) => Math.min(flat.length - 1, a + 1));
+        setActiveIndex(Math.min(flat.length - 1, activeRef.current + 1));
         break;
       case "ArrowUp":
         e.preventDefault();
-        setActive((a) => Math.max(0, a - 1));
+        setActiveIndex(Math.max(0, activeRef.current - 1));
         break;
       case "Home":
         e.preventDefault();
-        setActive(0);
+        setActiveIndex(0);
         break;
       case "End":
         e.preventDefault();
-        setActive(flat.length - 1);
+        setActiveIndex(flat.length - 1);
         break;
       case "Enter":
-      case " ":
+      case " ": {
         e.preventDefault();
-        if (active >= 0 && active < flat.length) pick(flat[active].value);
+        const idx = activeRef.current;
+        if (idx >= 0 && idx < flat.length) pick(flat[idx].value);
         break;
+      }
       case "Escape":
         // Swallow it: an Esc that escapes the menu can reach a stay-mounted
         // panel's window handler and discard staged work there.
@@ -240,11 +270,9 @@ export function DropdownMenu({
         close(true);
         break;
       case "Tab":
-        // Close and hand focus back to the trigger (not the default Tab
-        // target): the menu lives at the end of <body>, so the default move
-        // would drop focus out of any modal hosting the trigger.
-        e.preventDefault();
-        close(true);
+        // Close, then let Tab do its ordinary thing: focus is already on the
+        // trigger, so the next stop is the one following it in the document.
+        setOpenState(false);
         break;
     }
   }
@@ -264,9 +292,26 @@ export function DropdownMenu({
         disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={open}
-        onClick={() => (open ? close(false) : openMenu())}
+        aria-controls={open ? listId : undefined}
+        aria-activedescendant={open && active >= 0 ? `${listId}-${active}` : undefined}
+        // Take focus on the press, not on the click: Safari focuses no button
+        // on click, so the field the user was editing would otherwise blur to
+        // <body> here — and a host that closes on blur (the inline name editor)
+        // would unmount this trigger before the click could open anything.
+        // preventDefault suppresses the browser's own focus handling; the click
+        // still fires.
+        onMouseDown={(e) => {
+          e.preventDefault();
+          btnRef.current?.focus();
+        }}
+        onClick={() => (openRef.current ? close(false) : openMenu())}
         onKeyDown={(e) => {
-          if (!open && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
+          // While open the trigger still holds focus, so it drives the list.
+          if (openRef.current) {
+            onMenuKeyDown(e);
+            return;
+          }
+          if (e.key === "ArrowDown" || e.key === "ArrowUp") {
             e.preventDefault();
             openMenu();
           }
@@ -276,14 +321,7 @@ export function DropdownMenu({
       </button>
       {open &&
         createPortal(
-          <div
-            ref={menuRef}
-            className="dd-menu"
-            style={menuPos}
-            role="listbox"
-            tabIndex={-1}
-            onKeyDown={onMenuKeyDown}
-          >
+          <div ref={menuRef} id={listId} className="dd-menu" style={menuPos} role="listbox">
             {groups.map((g, gi) => {
               const start = base;
               base += g.items.length;
@@ -295,6 +333,7 @@ export function DropdownMenu({
                     return (
                       <div
                         key={item.value}
+                        id={`${listId}-${idx}`}
                         role="option"
                         data-value={item.value}
                         aria-selected={item.value === current}
@@ -303,7 +342,7 @@ export function DropdownMenu({
                           (idx === active ? " dd-item--active" : "") +
                           (item.value === current ? " dd-item--current" : "")
                         }
-                        onMouseEnter={() => setActive(idx)}
+                        onMouseEnter={() => setActiveIndex(idx)}
                         // Mouse-down, not click: selection must beat the input
                         // blur/commit cycle the way native option picks do.
                         onMouseDown={(e) => {
