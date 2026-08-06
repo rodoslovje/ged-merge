@@ -1534,6 +1534,7 @@ export const sl = {
   "compare.conflict": "razlika",
   "compare.conflicts": "razlik",
   "compare.keepMain": "glavni",
+  "compare.relativesHint": "Letnice so tu za prepoznavo osebe in se v tej vrstici ne prevzamejo. Datumi in imena vsakega sorodnika pridejo, ko potrdite njegovo lastno ujemanje.",
   "compare.decisionTooltip": "{{action}} to ujemanje ({{key}})",
   "choice.main.label": "G",
   "choice.main.title": "Ohrani glavno",

@@ -1311,6 +1311,7 @@ export const en = {
   "compare.conflict": "conflict",
   "compare.conflicts": "conflicts",
   "compare.keepMain": "main",
+  "compare.relativesHint": "The years shown identify the person — they are not merged here. Each relative's own dates and names arrive when you confirm that person's own match.",
   "compare.decisionTooltip": "{{action}} this match ({{key}})",
   "choice.main.label": "M",
   "choice.main.title": "Keep main value",
