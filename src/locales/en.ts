@@ -406,6 +406,8 @@ export const en = {
   "tools.geocode.peopleToggle": "Show the people still missing this place's coordinates",
   "tools.geocode.applied_one": "{{count}} updated record",
   "tools.geocode.applied_other": "{{count}} updated records",
+  "tools.geocode.appliedNone": "nothing to change — the file already holds these coordinates",
+  "tools.geocode.armHint": "Pick a coordinate below to write it",
   "tools.geocode.heading": "Places to geocode",
   "tools.geocode.noMatchBadge": "no match",
   "tools.geocode.selectConfident": "Select confident ({{count}})",

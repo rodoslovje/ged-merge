@@ -66,6 +66,10 @@ interface Props {
   marked: boolean;
   /** The user's explicit pick for this row, when any (panel-owned). */
   override?: ChosenCoord;
+  /** The user has said no to the row's default proposal (panel-owned). The row
+   *  then stands with no coordinate at all — the panel's write pass skips it,
+   *  so it must not go on showing the default as if it were going in. */
+  isCleared: boolean;
   /** Context dots for the mini map: every coordinate the file carries. */
   fileCoords: FileCoord[];
   /** Suggestions for the rename input (the Edit fields' lists). */
@@ -120,6 +124,7 @@ export function GeocodePlaceRow({
   hasMap,
   marked,
   override,
+  isCleared,
   fileCoords,
   placeSug,
   placeCombos,
@@ -140,7 +145,10 @@ export function GeocodePlaceRow({
   const appSettings = useSettingsSlice(SETTINGS_KEYS);
   const lookup = usePlaceLookup();
 
-  const c = chosenCoordFor(row, override, { fromFile: t("tools.geocode.fromFile") });
+  // What this row would write, as the panel's write pass computes it — the
+  // cleared state included, or the row would offer (and let you tick) a
+  // coordinate the write then skips.
+  const c = isCleared ? undefined : chosenCoordFor(row, override, { fromFile: t("tools.geocode.fromFile") });
 
   // "Use official name": offered when the row resolves to a register candidate
   // whose name is not the letter-for-letter value the file writes — the
@@ -342,6 +350,9 @@ export function GeocodePlaceRow({
             // A placed row is armed by picking a *different* coordinate —
             // accepting the position it already holds would write nothing.
             disabled={!c || marked || (row.placed && !override)}
+            // Why it cannot be ticked: the row has nothing to write until a
+            // coordinate is picked (never proposed, or the proposal declined).
+            title={!c && !marked ? t("tools.geocode.armHint") : undefined}
             onChange={(e) => onToggleChecked(row.key, e.target.checked)}
           />
         }
