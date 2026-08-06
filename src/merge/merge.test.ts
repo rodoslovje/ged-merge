@@ -463,6 +463,62 @@ describe("mergeDecisions — second partner becomes its own family", () => {
     expect(report.deferred).toHaveLength(0);
   });
 
+  it("joins the second marriage main already records, rather than adding another", () => {
+    // Main knows both wives and both marriages. The incoming union names the
+    // second wife, so it pairs with *her* family — the first marriage is never
+    // a candidate, and nothing new is created.
+    const bothUnions = dataset(
+      wrap(
+        "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F1@\n1 FAMS @F2@\n" +
+          "0 @I2@ INDI\n1 NAME Marija /Kos/\n1 SEX F\n1 FAMS @F1@\n" +
+          "0 @I3@ INDI\n1 NAME Ana /Hribar/\n1 SEX F\n1 FAMS @F2@\n" +
+          "0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@\n" +
+          "0 @F2@ FAM\n1 HUSB @I1@\n1 WIFE @I3@\n",
+      ),
+    );
+    const withPlace = dataset(
+      wrap(
+        "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @G1@\n" +
+          "0 @P5@ INDI\n1 NAME Ana /Hribar/\n1 SEX F\n1 FAMS @G1@\n" +
+          "0 @G1@ FAM\n1 HUSB @P1@\n1 WIFE @P5@\n1 MARR\n2 PLAC Kranj\n",
+      ),
+    );
+    const matches = {
+      individuals: [
+        { mainId: "@I1@", compareId: "@P1@" },
+        { mainId: "@I3@", compareId: "@P5@" },
+      ],
+    } as never;
+    const decisions = new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: { "fam.@G1@.MARR.place": "incoming" } }],
+    ]);
+    const { records, report } = mergeDecisions(bothUnions, withPlace, decisions, matches, tr);
+    const out = serializeGedcom(records);
+    expect(out).toContain("0 @F2@ FAM\n1 HUSB @I1@\n1 WIFE @I3@\n1 MARR\n2 PLAC Kranj");
+    expect(out).toContain("0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@\n");
+    expect(report.newFamilies).toBe(0);
+    expect(report.newPersons).toBe(0);
+  });
+
+  it("reuses a second wife main already has as a person, without duplicating her", () => {
+    // Ana is in main but married to nobody. The matcher pairs the two Anas
+    // (it does so readily — same name is enough), so she is linked into the
+    // new family rather than imported a second time.
+    const matches = {
+      individuals: [
+        { mainId: "@I1@", compareId: "@P1@" },
+        { mainId: "@I3@", compareId: "@P5@" },
+      ],
+    } as never;
+    const decisions = new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {} }],
+    ]);
+    const { records, report } = mergeDecisions(main, compare, decisions, matches, tr);
+    expect(serializeGedcom(records)).toMatch(/0 @F\d+@ FAM\n1 HUSB @I1@\n1 WIFE @I3@/);
+    expect(report.newPersons).toBe(0);
+    expect(report.newFamilies).toBe(1);
+  });
+
   it("gives an unmatched second partner their own family too", () => {
     // Ana is NOT matched to anyone in main. She is still plainly not Marija, so
     // the review put her union in a family of its own and the user ticked her
