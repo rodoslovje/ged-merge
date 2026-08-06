@@ -405,6 +405,78 @@ describe("familyMergeKeyBases", () => {
   });
 });
 
+describe("aligning a relative who has no given name", () => {
+  const family = (children: string, ids: string) => `0 HEAD
+0 @H@ INDI
+1 NAME Franc /Kalan/
+1 SEX M
+1 FAMS @F@
+0 @W@ INDI
+1 NAME Uršula /Ješe/
+1 SEX F
+1 FAMS @F@
+${children}0 @F@ FAM
+1 HUSB @H@
+1 WIFE @W@
+${ids}0 TRLR
+`;
+  const child = (id: string, name: string, birth: string, death = "") =>
+    `0 ${id} INDI\n1 NAME ${name}\n1 BIRT\n2 DATE ${birth}\n${death ? `1 DEAT\n2 DATE ${death}\n` : ""}1 FAMC @F@\n`;
+  const kids = (rows: FieldRow[]) =>
+    (byKey(rows, "fam.@F@.children")?.relatives ?? []).map(
+      (p) => `${p.main?.text ?? "—"} | ${p.incoming?.text ?? "—"}`,
+    );
+
+  it("does not let a shared surname pair an unnamed infant with a sibling", () => {
+    // The incoming file holds an infant recorded with no given name, born the
+    // year before Katarina. Scored on the parts both names have, the surname is
+    // the only one — a perfect 1.0 against every child in the family.
+    const m = dataset(family(child("@C1@", "Katarina /Kalan/", "3 MAR 1854", "1857"), "1 CHIL @C1@\n"));
+    const c = dataset(
+      family(
+        child("@D0@", "/Kalan/", "1853", "1853") + child("@D1@", "Katarina /Kalan/", "3 MAR 1854", "1857"),
+        "1 CHIL @D0@\n1 CHIL @D1@\n",
+      ),
+    );
+    const rows = individualFieldRows(tr, m.individuals.get("@H@"), c.individuals.get("@H@"), m, c);
+    expect(kids(rows)).toEqual([
+      "Katarina Kalan 1854–1857 | Katarina Kalan 1854–1857",
+      "— | Kalan 1853–1853",
+    ]);
+  });
+
+  it("pairs an unnamed child when the dates say so", () => {
+    // Same person, named in one file and not the other: birth and death agree,
+    // so the dates stand in for the missing name.
+    const m = dataset(family(child("@C1@", "Katarina /Kalan/", "3 MAR 1854", "1857"), "1 CHIL @C1@\n"));
+    const c = dataset(family(child("@D1@", "/Kalan/", "3 MAR 1854", "1857"), "1 CHIL @D1@\n"));
+    const rows = individualFieldRows(tr, m.individuals.get("@H@"), c.individuals.get("@H@"), m, c);
+    expect(kids(rows)).toEqual(["Katarina Kalan 1854–1857 | Kalan 1854–1857"]);
+  });
+
+  it("keeps two same-year births apart when the day contradicts them", () => {
+    const m = dataset(family(child("@C1@", "Katarina /Kalan/", "3 MAR 1854"), "1 CHIL @C1@\n"));
+    const c = dataset(family(child("@D1@", "/Kalan/", "19 NOV 1854"), "1 CHIL @D1@\n"));
+    const rows = individualFieldRows(tr, m.individuals.get("@H@"), c.individuals.get("@H@"), m, c);
+    expect(kids(rows)).toEqual(["Katarina Kalan 1854 | —", "— | Kalan 1854"]);
+  });
+
+  it("refuses to pair on an estimated birth year", () => {
+    const m = dataset(family(child("@C1@", "Katarina /Kalan/", "ABT 1854"), "1 CHIL @C1@\n"));
+    const c = dataset(family(child("@D1@", "/Kalan/", "ABT 1854"), "1 CHIL @D1@\n"));
+    const rows = individualFieldRows(tr, m.individuals.get("@H@"), c.individuals.get("@H@"), m, c);
+    expect(kids(rows)).toEqual(["Katarina Kalan 1854 | —", "— | Kalan 1854"]);
+  });
+
+  it("treats a placeholder given name as no name at all", () => {
+    // "NN" compares as a perfect match with "NN" while identifying nobody.
+    const m = dataset(family(child("@C1@", "NN /Kalan/", "1854"), "1 CHIL @C1@\n"));
+    const c = dataset(family(child("@D1@", "NN /Kalan/", "1858"), "1 CHIL @D1@\n"));
+    const rows = individualFieldRows(tr, m.individuals.get("@H@"), c.individuals.get("@H@"), m, c);
+    expect(kids(rows)).toEqual(["NN Kalan 1854 | —", "— | NN Kalan 1858"]);
+  });
+});
+
 describe("pairing unions by their partners", () => {
   // One man, one union on each side — but two plainly different women. Nothing
   // may pull these into one family group.

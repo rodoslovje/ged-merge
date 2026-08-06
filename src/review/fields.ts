@@ -4,7 +4,7 @@ import { sourceCitationKey } from "../gedcom/source";
 import { decomposePlace } from "../gedcom/place";
 import { compareKey, foldToken } from "../match/text";
 import { canonicalPlaceToken, placeCompareKey } from "../match/place";
-import { dateCompareKey, givenSimilarity, nameSimilarity } from "../match/similarity";
+import { comparableName, dateCompareKey, givenSimilarity, nameSimilarity } from "../match/similarity";
 import { findEvent, fullDatesLabel, lifespanLabel, displayName, nameTypeLabel } from "../match/relatives";
 import { birthDateOf, formatLifespan, isDeceased } from "../gedcom/lifespan";
 import { dateToSortKey } from "../gedcom/date";
@@ -410,13 +410,16 @@ function relativeYears(indi: Individual, showAge: boolean): string {
 }
 
 function partnerToRelative(partner: Individual, showAge = false): Relative {
+  const birth = findEvent(partner, "BIRT")?.date;
   return {
     id: partner.id,
     name: partner.names[0],
     text: lifespanLabel(partner),
     full: fullDatesLabel(partner),
-    birthYear: findEvent(partner, "BIRT")?.date?.year,
-    birthApprox: findEvent(partner, "BIRT")?.date?.qualifier !== "exact",
+    birthYear: birth?.year,
+    birthApprox: birth?.qualifier !== "exact",
+    birthDay: birth?.month != null && birth.day != null ? birth.month * 100 + birth.day : undefined,
+    deathYear: findEvent(partner, "DEAT")?.date?.year,
     displayName: displayName(partner.names[0]),
     years: relativeYears(partner, showAge),
     sex: partner.sex,
@@ -575,18 +578,7 @@ function parentRelative(
   showAge = false,
 ): Relative[] {
   const parent = indi ? parentIndi(indi, ds, role) : undefined;
-  if (!parent) return [];
-  return [{
-    id: parent.id,
-    name: parent.names[0],
-    text: lifespanLabel(parent),
-    full: fullDatesLabel(parent),
-    birthYear: findEvent(parent, "BIRT")?.date?.year,
-    birthApprox: findEvent(parent, "BIRT")?.date?.qualifier !== "exact",
-    displayName: displayName(parent.names[0]),
-    years: relativeYears(parent, showAge),
-    sex: parent.sex,
-  }];
+  return parent ? [partnerToRelative(parent, showAge)] : [];
 }
 
 interface Relative {
@@ -601,6 +593,11 @@ interface Relative {
   /** True when the birth year is an estimate (ABT/EST/CAL) rather than an
    *  exact assertion — widens how much a birth-year gap counts against pairing. */
   birthApprox?: boolean;
+  /** Day within the year (month × 100 + day), when the birth is that precise —
+   *  tells two children of one birth year apart. */
+  birthDay?: number;
+  /** Death year, when known. */
+  deathYear?: number;
   /** Display name. */
   displayName?: string;
   years?: string;
@@ -876,6 +873,20 @@ function alignRelatives(main: Relative[], incoming: Relative[]): RelativePair[] 
 }
 
 /**
+ * Do the dates alone say these are one person? Asked only when a name can't
+ * (see {@link relativeSimilarity}), so the bar is agreement, not mere absence
+ * of conflict: both births known, asserted rather than estimated, in the same
+ * year, and never contradicted by the day within that year or by a death year.
+ */
+function datesIdentify(a: Relative, b: Relative): boolean {
+  if (a.birthYear == null || b.birthYear == null) return false;
+  if (a.birthApprox || b.birthApprox) return false;
+  if (a.birthYear !== b.birthYear) return false;
+  if (a.birthDay != null && b.birthDay != null && a.birthDay !== b.birthDay) return false;
+  return !(a.deathYear != null && b.deathYear != null && a.deathYear !== b.deathYear);
+}
+
+/**
  * Similarity of two relatives, used to align children/partners. The name (given
  * + surname) is the base signal; birth year then nudges the score so the pairing
  * lines people up by name *and* birth: a shared birth year rescues a borderline
@@ -883,9 +894,21 @@ function alignRelatives(main: Relative[], incoming: Relative[]): RelativePair[] 
  * pull same-named siblings apart so they don't collapse onto one line.
  */
 function relativeSimilarity(a: Relative, b: Relative): number {
-  const nameSim = a.name && b.name
-    ? nameSimilarity(a.name, b.name) ?? 0
-    : foldToken(a.text) === foldToken(b.text) ? 1 : 0;
+  // Placeholders ("NN", "?", "Living") name nobody, so they count as missing
+  // here exactly as they do in the matcher — two of them are not a match.
+  const an = comparableName(a.name);
+  const bn = comparableName(b.name);
+
+  // A surname is the one thing everybody in the family shares, so on its own it
+  // identifies nobody: an infant recorded without a given name would otherwise
+  // score a *perfect* name match against each of its siblings in turn (the
+  // weighted average is taken over the parts both sides have, and the surname
+  // is the only one). Without a given name on both sides the dates have to
+  // carry the pairing. The matcher holds its own pairs to the same bar — see
+  // the `anchored` rule in scoreIndividual.
+  if (!an?.given || !bn?.given) return datesIdentify(a, b) ? RELATIVE_PAIR_THRESHOLD : 0;
+
+  const nameSim = nameSimilarity(an, bn) ?? 0;
 
   if (a.birthYear == null || b.birthYear == null) return nameSim;
   const gap = Math.abs(a.birthYear - b.birthYear);
