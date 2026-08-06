@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
 import { buildPlaceTree, collectNodeUseIds, type PlaceNode, type PlaceTree, UNSPECIFIED, UNSPECIFIED_PLACE } from "../../tools/places";
-import { collectPlaceSegments, previewPlaceRename, type PlaceRenamePreview } from "../../tools/placeEdit";
+import { previewPlaceRename, type PlaceRenamePreview } from "../../tools/placeEdit";
 import { scanAddresses } from "../../tools/addresses";
 import { GeocodePanel } from "./GeocodePanel";
 import { countGeocodePending, type GeoAssignment, type OfficialRename } from "../../tools/geocode";
@@ -153,8 +153,20 @@ export function PlacesPanel({
   // Filtering expands ancestors down to (not past) the matches; the user expands further.
   const isOpen = (key: string) => autoOpen.has(key) || open.has(key);
 
-  // All distinct segments for rename autocomplete — recomputed whenever the tree rebuilds.
-  const allSegments = useMemo(() => tree ? collectPlaceSegments(dataset) : [], [tree, dataset]);
+  // What a rename may complete to: the names beside the one being renamed, per
+  // parent path. A rename is a merge into a name the *same* place already has
+  // — the houses of another town are no help and read as this town's own
+  // ("Breg 13 (pd Miklavž)" offered while renaming a Breg ob Kokri house).
+  // Built from the unfiltered tree so a search doesn't hide merge targets.
+  const siblingNames = useMemo(() => {
+    const map = new Map<string, string[]>();
+    const walk = (nodes: PlaceNode[], parent: string) => {
+      map.set(parent, nodes.map((n) => n.name));
+      for (const n of nodes) walk(n.children, parent ? `${parent}/${n.name}` : n.name);
+    };
+    if (tree) walk(tree.roots, "");
+    return map;
+  }, [tree]);
 
   function handleRename(from: string, to: string, scope: Set<string>) {
     // Capture the path of `from` in the current tree before rebuild so we can
@@ -275,7 +287,8 @@ export function PlacesPanel({
               onNavigate={onNavigate}
               onRename={handleRename}
               onGeocode={() => setView("geocode")}
-              allSegments={allSegments}
+              siblings={siblingNames.get("") ?? []}
+              siblingNames={siblingNames}
             />
           ))}
         </ul>
@@ -294,7 +307,8 @@ function PlaceTreeRow({
   onNavigate,
   onRename,
   onGeocode,
-  allSegments,
+  siblings,
+  siblingNames,
 }: {
   dataset: Dataset;
   node: PlaceNode;
@@ -306,7 +320,11 @@ function PlaceTreeRow({
   onRename: (from: string, to: string, scope: Set<string>) => void;
   /** Open the geocode tool, where a disputed coordinate can be settled. */
   onGeocode: () => void;
-  allSegments: string[];
+  /** The names sitting beside this one under the same parent — what a rename
+   *  of this node may complete to, and what makes it a merge. */
+  siblings: string[];
+  /** Every level's sibling names, keyed by parent path, for the children. */
+  siblingNames: Map<string, string[]>;
 }) {
   const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
@@ -315,6 +333,10 @@ function PlaceTreeRow({
   /** The row's own mini map, opened by clicking its coordinate. Per-row state:
    *  several may stand open, and each is its own lazy map instance. */
   const [mapOpen, setMapOpen] = useState(false);
+  /** The records written at exactly this place, listed only when asked for:
+   *  opening a place is about the places under it, not about its hundreds of
+   *  people. */
+  const [peopleOpen, setPeopleOpen] = useState(false);
 
   const spots = node.coords?.length ? node.coords : undefined;
   /** The file puts this place in more than one spot — one of them is wrong. */
@@ -343,7 +365,10 @@ function PlaceTreeRow({
       .join(", ");
   }, [node.uses, path]);
 
-  const hasChildren = node.children.length > 0 || node.uses.length > 0;
+  /** The triangle is about the places under this one; the people written at
+   *  exactly this place are the count's business, opened on their own. */
+  const hasKids = node.children.length > 0;
+  const hasUses = node.uses.length > 0;
   const open = isOpen(path);
   const isSynthetic = node.name === UNSPECIFIED || node.name === UNSPECIFIED_PLACE;
   const name =
@@ -380,12 +405,12 @@ function PlaceTreeRow({
   const applyDisabled = targetTrimmed === node.name;
   // Show "Delete" when target is cleared; "Merge" when it already exists.
   const isDelete = !applyDisabled && targetTrimmed === "";
-  const isMerge = !applyDisabled && !isDelete && allSegments.includes(targetTrimmed);
+  const isMerge = !applyDisabled && !isDelete && siblings.includes(targetTrimmed);
 
   return (
     <li className={node.isAddress ? "tools-tree-node tools-tree-addr" : "tools-tree-node"}>
       <div className="tools-tree-row">
-        {hasChildren ? (
+        {hasKids ? (
           <button
             className={`tools-pair-toggle ${open ? "open" : ""}`}
             onClick={() => toggle(node, path)}
@@ -397,31 +422,13 @@ function PlaceTreeRow({
           <span className="tools-tree-bullet">·</span>
         )}
         <span
-          className={`tools-tree-label${hasChildren ? " clickable" : ""}${depth === 0 ? " lead" : ""}`}
-          onClick={hasChildren ? () => toggle(node, path) : undefined}
+          className={`tools-tree-label${hasKids ? " clickable" : ""}${depth === 0 ? " lead" : ""}`}
+          onClick={hasKids ? () => toggle(node, path) : undefined}
         >
           {labelNode}
         </span>
-        {/* The count opens the node the way its name does: it is what says
-            there is a list worth opening, so it reads as the handle for it. */}
-        <span
-          className={`tools-chip-count${hasChildren ? " tools-tree-count-toggle" : ""}`}
-          onClick={hasChildren ? () => toggle(node, path) : undefined}
-        >
-          {node.count}
-        </span>
-        {spots && (
-          <button
-            type="button"
-            className="tools-tree-meta gm-data gm-coord gm-coord--set tools-place-coord"
-            aria-expanded={mapOpen}
-            title={t(disputed ? "tools.places.coord.disputed" : "tools.places.coord")}
-            onClick={() => setMapOpen((v) => !v)}
-          >
-            {formatCoord(spots[0].coord)}
-            {disputed && <span className="tools-place-coord-warn">⚠ {t("tools.places.coord.spots", { count: spots.length })}</span>}
-          </button>
-        )}
+        {/* The rename mark sits directly beside the name it rewrites — the same
+            spot the geocode place rows and the address rows put it in. */}
         {!isSynthetic && !editing && (
           <button
             className="tools-place-edit-btn"
@@ -438,6 +445,33 @@ function PlaceTreeRow({
             title={t("tools.places.rename.cancel")}
           >
             ✕
+          </button>
+        )}
+        {/* The count is the handle for the people: the triangle opens the places
+            under this one, this opens the records written at exactly this one —
+            the same division the geocode place rows make. */}
+        {hasUses ? (
+          <button
+            className="tools-chip-count tools-count-toggle"
+            aria-pressed={peopleOpen}
+            title={t("tools.places.peopleToggle", { count: node.uses.length })}
+            onClick={() => setPeopleOpen((v) => !v)}
+          >
+            {node.count}
+          </button>
+        ) : (
+          <span className="tools-chip-count">{node.count}</span>
+        )}
+        {spots && (
+          <button
+            type="button"
+            className="tools-tree-meta gm-data gm-coord gm-coord--set tools-place-coord"
+            aria-expanded={mapOpen}
+            title={t(disputed ? "tools.places.coord.disputed" : "tools.places.coord")}
+            onClick={() => setMapOpen((v) => !v)}
+          >
+            {formatCoord(spots[0].coord)}
+            {disputed && <span className="tools-place-coord-warn">⚠ {t("tools.places.coord.spots", { count: spots.length })}</span>}
           </button>
         )}
       </div>
@@ -493,7 +527,7 @@ function PlaceTreeRow({
               dark popup over the light app) and cannot be styled at all. */}
           <PlaceAutocomplete
             value={renameValue}
-            suggestions={allSegments.filter((s) => s !== node.name)}
+            suggestions={siblings.filter((s) => s !== node.name)}
             canonical={EMPTY_CANONICAL}
             isDirty={false}
             className="tools-place-rename-input"
@@ -524,7 +558,15 @@ function PlaceTreeRow({
         </div>
       )}
 
-      {open && hasChildren && (
+      {/* Directly under the count that asked for it, above the sub-places, so
+          the click and its list stay together however deep the tree is open. */}
+      {peopleOpen && hasUses && (
+        <div className="tools-tree-children">
+          <UsageList dataset={dataset} uses={node.uses} onNavigate={onNavigate} />
+        </div>
+      )}
+
+      {open && hasKids && (
         <div className="tools-tree-children">
           <ul className="tools-tree">
             {node.children.map((child) => (
@@ -539,7 +581,8 @@ function PlaceTreeRow({
                 onNavigate={onNavigate}
                 onRename={onRename}
                 onGeocode={onGeocode}
-                allSegments={allSegments}
+                siblings={siblingNames.get(path) ?? node.children.map((c) => c.name)}
+                siblingNames={siblingNames}
               />
             ))}
           </ul>

@@ -7823,8 +7823,6 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 .tools-tree-label { color: var(--text); }
 .tools-tree-label.clickable { cursor: pointer; }
 .tools-tree-label.clickable:hover { color: var(--accent); }
-.tools-tree-count-toggle { cursor: pointer; }
-.tools-tree-count-toggle:hover { color: var(--accent); }
 /* Top-level groupings (repository / country) stand out from nested levels. */
 .tools-tree-label.lead { font-weight: 600; font-size: 1.08em; letter-spacing: 0.01em; }
 .tools-tree-addr > .tools-tree-row > .tools-tree-label { color: var(--muted); font-style: italic; }
