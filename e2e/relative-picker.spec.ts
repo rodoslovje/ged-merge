@@ -81,3 +81,19 @@ test("picker finds a person by a name it is not showing", async ({ page }) => {
   await picker.locator(".relative-picker-input").fill("Stare");
   await expect(picker.locator(".relative-picker-option", { hasText: "Ana" })).toHaveCount(1);
 });
+
+test("picker finds a person by the opening letters of each name", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(writeFixture());
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.locator(".edit-person").waitFor();
+
+  // "an sta" is not a run of letters anywhere in "Ana Stare" — each word of the
+  // query has to be matched on its own for this to find her.
+  const picker = await search(page, "an sta");
+  await expect(picker.locator(".relative-picker-option", { hasText: "Ana" })).toHaveCount(1);
+
+  // And the order of the two doesn't matter.
+  await picker.locator(".relative-picker-input").fill("sta an");
+  await expect(picker.locator(".relative-picker-option", { hasText: "Ana" })).toHaveCount(1);
+});

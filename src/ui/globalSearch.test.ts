@@ -5,6 +5,8 @@ import {
   buildSearchRows,
   searchPeople,
   hasActiveFilters,
+  matchesTerms,
+  queryTerms,
   NO_FILTERS,
   MAX_RESULTS,
   type FilterContext,
@@ -168,6 +170,26 @@ describe("searchPeople — facets", () => {
 
   it("combines a query with facets", () => {
     expect(searchPeople(rows, "mar", filters({ sex: "M" }), noCtx).map((r) => r.name)).toEqual(["Marko Novak"]);
+  });
+});
+
+describe("queryTerms / matchesTerms", () => {
+  const hay = "sebastjan kalan 1828-";
+
+  it("matches the opening letters of each name part, in any order", () => {
+    expect(matchesTerms(hay, queryTerms("sebas kala"))).toBe(true);
+    expect(matchesTerms(hay, queryTerms("kala sebas"))).toBe(true);
+    expect(matchesTerms(hay, queryTerms("  seb   kal  "))).toBe(true);
+  });
+
+  it("requires every term and folds accents on both sides", () => {
+    expect(matchesTerms(hay, queryTerms("sebas novak"))).toBe(false);
+    expect(matchesTerms("marija kovacic", queryTerms("Kovačič"))).toBe(true);
+  });
+
+  it("treats a blank query as no restriction", () => {
+    expect(queryTerms("   ")).toEqual([]);
+    expect(matchesTerms(hay, queryTerms("   "))).toBe(true);
   });
 });
 

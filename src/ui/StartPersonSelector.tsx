@@ -4,7 +4,7 @@ import type { Individual } from "../gedcom/types";
 import { nameSearchText } from "../match/relatives";
 import { lifespanTooltipOf, lifespanWithAge } from "../gedcom/age";
 import { xrefLabel } from "../gedcom/nameDisplay";
-import { foldSearch } from "./globalSearch";
+import { foldSearch, matchesTerms, queryTerms } from "./globalSearch";
 import { useNameOf, useSettingsSlice } from "./SettingsContext";
 import { sexClass } from "./sex";
 import { SearchIcon } from "./icons/SearchIcon";
@@ -112,10 +112,8 @@ export function StartPersonSelector({
     // Every whitespace-separated term must appear somewhere in the person's name
     // text, in any order — so "rezka jeko" finds someone with nick "Rezka" and
     // married name "Jekovec" even though those live in different name fields.
-    const terms = foldSearch(query.trim()).split(/\s+/).filter(Boolean);
-    const base = terms.length
-      ? options.filter((o) => terms.every((term) => o.search.includes(term)))
-      : options;
+    const terms = queryTerms(query);
+    const base = terms.length ? options.filter((o) => matchesTerms(o.search, terms)) : options;
     return base.slice(0, MAX_RESULTS);
   }, [options, query]);
 

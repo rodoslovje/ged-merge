@@ -27,6 +27,12 @@ export interface AppHistoryOptions {
   setMode: (mode: Mode) => void;
   setSelectedId: (sel: SelRef) => void;
   setNavigateToId: (id: string) => void;
+  /** Hand Edit the person a Back/Forward press restored (see EditView's
+   *  `historyToId`), as opposed to a fresh navigation. */
+  setHistoryPersonId: (id: string) => void;
+  /** False when the id no longer names a record — a history entry for a person
+   *  since deleted (or absorbed by a merge) is skipped rather than opened. */
+  hasPerson: (id: string) => boolean;
   setChartKind: (kind: ChartKind) => void;
 }
 
@@ -67,6 +73,17 @@ export function useAppHistory(opts: AppHistoryOptions) {
   // reload can detach it synchronously before navigating.
   const beforeUnloadRef = useRef<((e: BeforeUnloadEvent) => void) | null>(null);
 
+  // The person the *current* history entry stands for, so opening someone else
+  // in Edit knows whether it is a new step (push an entry) or the app catching
+  // up with the entry the Back button just restored (record nothing). Kept as
+  // the recorded id rather than a "restoring" flag: a restore that lands on the
+  // person already open leaves no flag behind to go stale.
+  const editEntryPersonRef = useRef<string | undefined>(undefined);
+  // Whether any entry has recorded a person yet. The first person the app opens
+  // belongs on the entry already there — pushing for it would leave an entry
+  // that names nobody, and Back to it would appear to do nothing.
+  const editEntryStartedRef = useRef(false);
+
   // True while a full-page overlay covers the mode views — mode switching (and
   // the hidden views' own bare-key handlers, via their `active` props) must not
   // act on the app underneath. A ref so mount-only key handlers can read it.
@@ -89,7 +106,7 @@ export function useAppHistory(opts: AppHistoryOptions) {
         gedPage?: string; gedTree?: TreeView; gedSel?: SelRef;
         gedChartsId?: string; gedChartsBack?: string;
         gedEditTreeId?: string; gedRelId?: string;
-        gedMode?: Mode; gedNavigateTo?: string;
+        gedMode?: Mode; gedNavigateTo?: string; gedEditPerson?: string;
       };
       // Landing on the leave-guard = the user pressed Back from the app's main
       // entry and is about to leave the app. Intercept it.
@@ -123,6 +140,19 @@ export function useAppHistory(opts: AppHistoryOptions) {
       // case the current mode is left untouched.
       if (st.gedMode) optsRef.current.setMode(st.gedMode);
       if (st.gedNavigateTo) optsRef.current.setNavigateToId(st.gedNavigateTo);
+      // The person this entry stands for in Edit. Walking back through the
+      // people opened one after another is what the Back button *should* do, so
+      // the leave prompt only arrives once there is nothing left to go back to.
+      if (st.gedEditPerson) {
+        if (!optsRef.current.hasPerson(st.gedEditPerson)) {
+          // The record is gone (deleted, or absorbed by a duplicate merge) —
+          // this entry has nothing to open, so keep going the way we were.
+          window.history.back();
+          return;
+        }
+        editEntryPersonRef.current = st.gedEditPerson;
+        optsRef.current.setHistoryPersonId(st.gedEditPerson);
+      }
       // Restore a remembered compare selection (set when a person link pushed it).
       if (st.gedSel) {
         const { mainId, compareId } = st.gedSel;
@@ -166,6 +196,40 @@ export function useAppHistory(opts: AppHistoryOptions) {
     }
     markFreshStart();
     window.location.reload();
+  }
+
+  /**
+   * Record the person Edit has just opened as a browser-history step, so the
+   * browser Back button walks back through the people the user opened — the
+   * same path Edit's own Back button takes — instead of going straight to the
+   * "leave the page?" guard. Called on every change of the edited person, so
+   * it ignores the ones that are the app *following* history rather than
+   * making it: the restore a Back press triggered, and re-opening whoever the
+   * current entry already stands for.
+   */
+  function recordEditPerson(id: string) {
+    if (id === editEntryPersonRef.current) return;
+    editEntryPersonRef.current = id;
+    if (!editEntryStartedRef.current) {
+      // First person of the session: name them on the entry we're already on.
+      editEntryStartedRef.current = true;
+      window.history.replaceState({ ...window.history.state, gedEditPerson: id }, "");
+      return;
+    }
+    // Note which view the entry we're leaving shows, unless it says already —
+    // a caller that pushes its own entry (Tools) has recorded the truer answer,
+    // since by now the mode has flipped to Edit.
+    if (!window.history.state?.gedMode) {
+      window.history.replaceState({ ...window.history.state, gedMode: optsRef.current.mode }, "");
+    }
+    window.history.pushState({ gedMode: "edit", gedEditPerson: id }, "");
+  }
+
+  /** Tell the history state machine that an entry a caller pushed itself
+   *  already stands for this person, so opening them isn't recorded twice. */
+  function markEditEntry(id: string) {
+    editEntryPersonRef.current = id;
+    editEntryStartedRef.current = true;
   }
 
   /** Record the current compare selection in the current history entry so the
@@ -249,5 +313,7 @@ export function useAppHistory(opts: AppHistoryOptions) {
     changeTreeMode,
     openCharts,
     discardAndReload,
+    recordEditPerson,
+    markEditEntry,
   };
 }
