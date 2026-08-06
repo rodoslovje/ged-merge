@@ -2143,8 +2143,8 @@ export const sl = {
   "redo.tooltip": "Ponovi zadnjo razveljavljeno spremembo (Ctrl+Shift+Z)",
 
   "landing.eyebrow": "Brezplačno · brez računa · vaša datoteka ostane pri vas",
-  "landing.h1": "Celotna delavnica za GEDCOM — <1>v vašem brskalniku</1>.",
-  "landing.sub": "Odprite datoteko, ki jo že imate. Uredite jo, izrišite diagrame, poglejte kraje na zemljevidu, počistite napake in združite datoteke drugih raziskovalcev osebo za osebo. Vaša datoteka ostane na vaši napravi.",
+  "landing.h1": "Celotna delavnica za družinsko drevo — <1>v vašem brskalniku</1>.",
+  "landing.sub": "Odprite svojo datoteko GEDCOM, ki jo že imate. Uredite jo, izrišite diagrame, poglejte kraje na zemljevidu, počistite napake in združite datoteke drugih raziskovalcev osebo za osebo. Vaša datoteka ostane na vaši napravi.",
   "landing.trust": "Datoteka se nikamor ne pošlje · brez računa · deluje brez povezave",
   "landing.dropzone.title": "Sem spustite glavno .ged datoteko",
   "landing.dropzone.hint": "ali kliknite za izbiro",

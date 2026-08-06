@@ -1919,8 +1919,8 @@ export const en = {
   "redo.tooltip": "Redo last undone change (Ctrl+Shift+Z)",
 
   "landing.eyebrow": "Free · no account · your file is never uploaded",
-  "landing.h1": "The whole GEDCOM workbench — <1>in your browser</1>.",
-  "landing.sub": "Open the file you already own. Edit it, chart it, map it, clean it, and merge other researchers' files person by person. Your file stays on your device.",
+  "landing.h1": "The whole family tree workbench — <1>in your browser</1>.",
+  "landing.sub": "Open your GEDCOM file — the one you already have. Edit it, chart it, map it, clean it, and merge other researchers' files person by person. Your file stays on your device.",
   "landing.trust": "Your file is never uploaded · no account · works offline",
   "landing.dropzone.title": "Drop your main .ged file here",
   "landing.dropzone.hint": "or click to browse",

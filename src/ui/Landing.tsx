@@ -196,7 +196,7 @@ export function Landing({ mainState, onLoadFile, onLoadSample, onStartNew }: Pro
           <p className="lb-eyebrow">{t("landing.eyebrow")}</p>
           <h1 className="lb-h1">
             <Trans i18nKey="landing.h1">
-              The whole GEDCOM workbench — <em>in your browser</em>.
+              The whole family tree workbench — <em>in your browser</em>.
             </Trans>
           </h1>
           <p className="lb-sub">{t("landing.sub")}</p>
