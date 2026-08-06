@@ -87,6 +87,29 @@ test("Escape closes a menu without closing its host editor", async ({ page }) =>
   await expect(page.locator(".edit-name-chip-editing")).toBeVisible();
 });
 
+// A menu is placed against its trigger and cannot follow it, so a scroll that
+// carries the trigger away dismisses it. What must NOT dismiss it is a scroll
+// that left the trigger where it is — including the scroll-into-view that
+// delivers its event a frame after the click it belongs to, which used to shut
+// the menu the moment it opened (~6 runs in 10 of the quick-events spec).
+test("a scroll dismisses a menu only when it moves the anchor", async ({ page }) => {
+  await openEdit(page);
+  await page.locator('button[title*="etting"]').first().click();
+  await page.locator(".settings-quick-events").waitFor();
+
+  const trigger = page.locator(".settings-quick-add");
+  await openMenu(trigger, () => trigger.click());
+
+  // A scroll event over the dialog that left it exactly where it was — what a
+  // scroll-into-view from the opening click delivers, one frame late.
+  await page.locator(".modal-body").evaluate((el) => el.dispatchEvent(new Event("scroll", { bubbles: true })));
+  await expect(page.locator(".dd-menu")).toBeVisible();
+
+  // Scrolling the dialog body moves the anchor, and the menu goes.
+  await page.locator(".modal-body").evaluate((el) => { el.scrollTop = Math.max(0, el.scrollTop - 120); });
+  await expect(page.locator(".dd-menu")).toHaveCount(0);
+});
+
 // The date slot must hold a full "23 AUG 1868" plus the ~18px the input keeps
 // clear for its × button, or the last digit is clipped.
 test("a full event date fits its slot", async ({ page }) => {

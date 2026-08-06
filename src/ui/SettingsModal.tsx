@@ -181,6 +181,15 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
   useEffect(() => {
     if (isOpen && initialTab) setTab(initialTab);
   }, [isOpen, initialTab]);
+  // Every tab starts at its top. The panel is one scroll box shared by all of
+  // them, so without this a tab opened after a long scroll on another one lands
+  // somewhere in its middle — past its first heading, with no sign of what was
+  // skipped.
+  const bodyRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (bodyRef.current) bodyRef.current.scrollTop = 0;
+  }, [tab]);
+
   // What "Auto (detected)" resolves to — computed at load in the worker and
   // stored with the file, so showing it here costs nothing.
   const detected = detectedFormats;
@@ -332,7 +341,7 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
             </button>
           ))}
         </div>
-        <div className="modal-body">
+        <div className="modal-body" ref={bodyRef}>
           {tab === "general" && (
           <>
           <section className="settings-section">

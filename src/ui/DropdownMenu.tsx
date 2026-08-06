@@ -158,7 +158,11 @@ export function DropdownMenu({
     if (!rect || flat.length === 0) return;
     // Safari leaves a clicked button unfocused: take focus before the list
     // shows, so the keys land here and the host sees focus stay inside.
-    btnRef.current?.focus();
+    // preventScroll: the trigger was just pressed, so it is already in view —
+    // and scrolling it "into view" anyway would both invalidate the rect
+    // measured above and fire a scroll that the dismiss effect below reads as
+    // the anchor moving, closing the menu the same click just opened.
+    btnRef.current?.focus({ preventScroll: true });
     const below = window.innerHeight - rect.bottom - EDGE;
     const above = rect.top - EDGE;
     // Drop down unless the space below is cramped and above beats it.
@@ -209,6 +213,17 @@ export function DropdownMenu({
   // anchor may have moved, and native popups behave the same way.
   useEffect(() => {
     if (!open) return;
+    // Where the anchor sat when the menu was placed. A scroll dismisses only if
+    // the anchor has actually moved since — a scroll *event* is delivered a
+    // frame after the position changed, so the scroll that brought the trigger
+    // into view for the very click that opened this menu arrives once it is
+    // already showing, and would otherwise shut it on the way up.
+    const placedAt = btnRef.current?.getBoundingClientRect();
+    const anchorMoved = () => {
+      const now = btnRef.current?.getBoundingClientRect();
+      if (!placedAt || !now) return true;
+      return Math.abs(now.top - placedAt.top) > 1 || Math.abs(now.left - placedAt.left) > 1;
+    };
     const onPointerDown = (e: PointerEvent) => {
       const t = e.target as Node;
       if (menuRef.current?.contains(t) || btnRef.current?.contains(t)) return;
@@ -216,6 +231,7 @@ export function DropdownMenu({
     };
     const onScroll = (e: Event) => {
       if (menuRef.current?.contains(e.target as Node)) return;
+      if (!anchorMoved()) return;
       setOpenState(false);
     };
     const onResize = () => setOpenState(false);
@@ -229,12 +245,21 @@ export function DropdownMenu({
     };
   }, [open, setOpenState]);
 
-  // Keep the keyboard-active row visible as the selection moves.
+  // Keep the keyboard-active row visible as the selection moves — by scrolling
+  // the list itself, never `scrollIntoView`. That walks up and scrolls every
+  // scrollable ancestor: anchored inside a dialog it scrolls the dialog body,
+  // and the dismiss effect above reads that scroll as the anchor moving and
+  // closes the menu the opening click just opened. The maths below is what
+  // `block: "nearest"` does, confined to `.dd-menu`.
   useEffect(() => {
     if (!open) return;
-    menuRef.current
-      ?.querySelector(".dd-item--active")
-      ?.scrollIntoView({ block: "nearest" });
+    const list = menuRef.current;
+    const row = list?.querySelector(".dd-item--active");
+    if (!list || !row) return;
+    const listBox = list.getBoundingClientRect();
+    const rowBox = row.getBoundingClientRect();
+    if (rowBox.top < listBox.top) list.scrollTop -= listBox.top - rowBox.top;
+    else if (rowBox.bottom > listBox.bottom) list.scrollTop += rowBox.bottom - listBox.bottom;
   }, [open, active]);
 
   function onMenuKeyDown(e: React.KeyboardEvent) {
@@ -299,10 +324,10 @@ export function DropdownMenu({
         // <body> here — and a host that closes on blur (the inline name editor)
         // would unmount this trigger before the click could open anything.
         // preventDefault suppresses the browser's own focus handling; the click
-        // still fires.
+        // still fires. preventScroll for the reason given in `openMenu`.
         onMouseDown={(e) => {
           e.preventDefault();
-          btnRef.current?.focus();
+          btnRef.current?.focus({ preventScroll: true });
         }}
         onClick={() => (openRef.current ? close(false) : openMenu())}
         onKeyDown={(e) => {
