@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import type { Translate } from "../locales/i18n";
 import type { Dataset } from "../gedcom/types";
@@ -17,6 +17,7 @@ import { rowCanKeepBoth } from "../merge/applyFields";
 import { PersonMedia } from "./PersonMedia";
 import { useMediaFolder } from "./MediaFolderContext";
 import { useSettingsSlice } from "./SettingsContext";
+import { useNodeStatus } from "./useNodeStatus";
 import { collectMediaRefs } from "../gedcom/media";
 
 /** Which dataset a relative id belongs to. */
@@ -27,6 +28,10 @@ interface Props {
   mainDs: Dataset;
   compareDs: Dataset;
   decision: CandidateDecision | undefined;
+  /** Every decision taken so far, so a relative can show its own C/R/D chip. */
+  decisions: Map<string, CandidateDecision>;
+  /** Main individuals carrying unsaved edits, for a relative's "M" chip. */
+  changedPersonIds: Set<string> | undefined;
   onChange: (next: CandidateDecision) => void;
   /** True when the person on `side` with this id is reachable in the match list. */
   canNavigate: (side: RelativeSide, id: string) => boolean;
@@ -45,6 +50,8 @@ export function ComparePanel({
   mainDs,
   compareDs,
   decision,
+  decisions,
+  changedPersonIds,
   onChange,
   canNavigate,
   onNavigate,
@@ -75,6 +82,27 @@ export function ComparePanel({
     const c = compareIndi ? collectMediaRefs(compareIndi.raw, compareDs.records).length : 0;
     return m + c > 0;
   }, [folderName, mainIndi, compareIndi, mainDs.records, compareDs.records]);
+  // A relative's own working state: the C/R/D of their own match and the "M" of
+  // an unsaved edit — the same chips the match list, the Edit cards and the tree
+  // nodes show, so a parent/partner/child already dealt with reads as done here
+  // instead of having to be looked up in the list.
+  const nodeStatus = useNodeStatus(changedPersonIds, decisions);
+  const mainBadges = useCallback((id: string) => {
+    const dec = nodeStatus.decisionOf(id);
+    const modified = nodeStatus.modifiedOf(id);
+    if (!dec && !modified) return null;
+    return (
+      <>
+        {dec && (
+          <span className={`status-chip ${dec.status}`} title={t(`status.${dec.status}`)}>{dec.letter}</span>
+        )}
+        {modified && (
+          <span className="status-chip modified" title={t("edit.tree.modified")}>{nodeStatus.modifiedLetter}</span>
+        )}
+      </>
+    );
+  }, [nodeStatus, t]);
+
   const rows = useMemo<FieldRow[]>(() => {
     const rejectedEvents = decision?.rejectedEvents?.length ? new Set(decision.rejectedEvents) : undefined;
     return individualFieldRows(t, mainIndi, compareIndi, mainDs, compareDs, undefined, rejectedEvents, settings.showAge);
@@ -242,6 +270,7 @@ export function ComparePanel({
                       incomingChosen={choice !== "main"}
                       mainPerson={mainPerson}
                       incomingPerson={incomingPerson}
+                      mainBadges={mainBadges}
                       {...(row.perChildChoice
                         ? { renderPair: renderChildPair }
                         : { renderChoice: () => renderChoiceCell(row, choice) })}

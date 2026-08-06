@@ -4097,6 +4097,15 @@ button:focus-visible {
 .rel-grid.with-choice .rel-cell:nth-child(3) { padding-top: 6px; }
 .rel-grid.with-choice .rel-cell:nth-last-child(3) { padding-bottom: 6px; }
 .rel-cell.rel-choice { white-space: nowrap; }
+/* A main relative's own working state (C/R/D decision, M for unsaved edits),
+   sized down from the match list's 18px so a compact relatives line keeps its
+   height. */
+.rel-cell .status-chip {
+  width: 15px;
+  height: 15px;
+  line-height: 15px;
+  font-size: 0.64rem;
+}
 /* Divider between the two halves, matching the table's main/incoming border. */
 .compare td.f-rel { border-right: none; }
 .compare .rel-cell.rel-incoming { border-left: 1px solid var(--border); }

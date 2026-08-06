@@ -38,6 +38,8 @@ interface Props {
   onSelectNext: () => void;
   onSelect: (index: number) => void;
   decisions: Map<string, CandidateDecision>;
+  /** Main individuals with unsaved edits — the "M" chip on a relative's name. */
+  changedPersonIds: Set<string> | undefined;
   showFilters: boolean;
   setShowFilters: Dispatch<SetStateAction<boolean>>;
   startId: string | undefined;
@@ -80,6 +82,7 @@ export function MergeView({
   onSelectNext,
   onSelect,
   decisions,
+  changedPersonIds,
   showFilters,
   setShowFilters,
   startId,
@@ -350,6 +353,8 @@ export function MergeView({
                       mainDs={mainDataset}
                       compareDs={compareDataset}
                       decision={decisions.get(decisionKey("individual", current.mainId, current.compareId))}
+                      decisions={decisions}
+                      changedPersonIds={changedPersonIds}
                       onChange={onUpdateDecision}
                       canNavigate={canNavigatePerson}
                       onNavigate={onNavigatePerson}
