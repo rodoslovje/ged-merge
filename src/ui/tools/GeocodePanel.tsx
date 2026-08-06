@@ -553,7 +553,11 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
                 total: scan.coveredDistinct + scan.rows.length,
                 pct: Math.round((100 * scan.coveredOccurrences) / scan.totalOccurrences),
               }),
-            lastApplied !== null && t("tools.geocode.applied", { count: lastApplied }),
+            // A write that changed nothing says so in words: "0 updated
+            // records" is read as the button having done nothing at all,
+            // when what happened is that the file already held the position.
+            lastApplied !== null &&
+              (lastApplied === 0 ? t("tools.geocode.appliedNone") : t("tools.geocode.applied", { count: lastApplied })),
           ]
             .filter(Boolean)
             .join(" · ")}
@@ -709,6 +713,7 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
             hasMap={mapKey === row.key}
             marked={noMatch.has(row.key)}
             override={chosen.get(row.key)}
+            isCleared={cleared.has(row.key)}
             fileCoords={fileCoords}
             placeSug={placeSug}
             placeCombos={placeCombos}

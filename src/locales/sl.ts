@@ -472,6 +472,8 @@ export const sl = {
   "tools.geocode.applied_two": "{{count}} posodobljena zapisa",
   "tools.geocode.applied_few": "{{count}} posodobljeni zapisi",
   "tools.geocode.applied_other": "{{count}} posodobljenih zapisov",
+  "tools.geocode.appliedNone": "ni kaj spremeniti — datoteka te koordinate že ima",
+  "tools.geocode.armHint": "Za zapis spodaj izberite koordinato",
   "tools.geocode.heading": "Kraji za geokodiranje",
   "tools.geocode.noMatchBadge": "brez ujemanja",
   "tools.geocode.selectConfident": "Izberi zanesljive ({{count}})",
