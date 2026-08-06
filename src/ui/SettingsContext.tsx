@@ -8,11 +8,13 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
+import { useTranslation } from "react-i18next";
 import type { Dataset, Individual, PersonName } from "../gedcom/types";
 import { marriedSurnamesOf, primaryName } from "../match/relatives";
 import {
   DEFAULT_NAME_DISPLAY,
   formatPersonName,
+  UNNAMED,
   type NameDisplayOptions,
   type NameOrder,
 } from "../gedcom/nameDisplay";
@@ -422,6 +424,16 @@ export function useNameOf(overrides?: Partial<NameDisplayOptions>) {
   // must not move when an unrelated preference does.
   const settings = useSettingsSlice(NAME_DISPLAY_KEYS);
   const ds = useContext(DatasetContext);
+  // The name builders are pure and shared with the worker, so they cannot
+  // translate; they hand back the UNNAMED sentinel for a person the file names
+  // nowhere and this — the point where a name reaches the screen — puts it into
+  // the reader's language. `t` moves only when the language does, which is
+  // exactly when every displayed name has to be recomputed anyway.
+  const { t } = useTranslation();
+  const unnamed = useCallback(
+    (name: string) => (name === UNNAMED ? t("name.unnamed", { defaultValue: UNNAMED }) : name),
+    [t],
+  );
   return useCallback(
     (subject: Individual | PersonName | undefined): string => {
       // Callers may pin individual display options (e.g. the reports drop the
@@ -438,10 +450,10 @@ export function useNameOf(overrides?: Partial<NameDisplayOptions>) {
         const married = opts.marriedSurname
           ? marriedSurnamesOf(subject, ds).filter((m) => m.toLowerCase() !== surname).join(", ") || undefined
           : undefined;
-        return formatPersonName(primary ? { ...primary, married } : undefined, opts);
+        return unnamed(formatPersonName(primary ? { ...primary, married } : undefined, opts));
       }
-      return formatPersonName(subject, opts);
+      return unnamed(formatPersonName(subject, opts));
     },
-    [settings, overrides, ds],
+    [settings, overrides, ds, unnamed],
   );
 }

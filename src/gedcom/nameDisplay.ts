@@ -12,6 +12,15 @@ export interface NameDisplayOptions {
   marriedSurname: boolean;
 }
 
+/**
+ * Stand-in for a person the file names nowhere. A sentinel, not copy: the
+ * modules that build names are pure (the worker imports them, so they can hold
+ * no i18n), and every one of them returns this exact string. Whoever puts a
+ * name on screen swaps it for the translated `name.unnamed` — `useNameOf` for
+ * the app's own name formatting, the review rows for theirs.
+ */
+export const UNNAMED = "(unnamed)";
+
 /** Bare record id for display, without the surrounding `@`s (e.g. `@I12@` → `I12`). */
 export function xrefLabel(id: string): string {
   return id.replace(/@/g, "");
@@ -26,7 +35,7 @@ export const DEFAULT_NAME_DISPLAY: NameDisplayOptions = {
 
 /** Historical display: the reconstructed full name, with sensible fallbacks. */
 function displayBase(n: PersonName): string {
-  return n.full?.trim() || [n.given, n.surname].filter(Boolean).join(" ") || "(unnamed)";
+  return n.full?.trim() || [n.given, n.surname].filter(Boolean).join(" ") || UNNAMED;
 }
 
 /**
@@ -37,7 +46,7 @@ function displayBase(n: PersonName): string {
  * to it in either order — "Ana Novak (Kovač)" but "Novak (Kovač), Ana".
  */
 export function formatPersonName(n: PersonName | undefined, opts: NameDisplayOptions): string {
-  if (!n) return "(unnamed)";
+  if (!n) return UNNAMED;
 
   const given = n.given?.trim();
   const surname = n.surname?.trim();
@@ -54,7 +63,7 @@ export function formatPersonName(n: PersonName | undefined, opts: NameDisplayOpt
   // any married surname at the end.
   if (!surname) {
     const base = displayBase(n);
-    return base === "(unnamed)" ? base : `${base}${marriedTail}`;
+    return base === UNNAMED ? base : `${base}${marriedTail}`;
   }
 
   const sur = opts.uppercaseSurname ? surname.toUpperCase() : surname;

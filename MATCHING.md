@@ -42,7 +42,8 @@ parse → normalize (compare reshaped to main's conventions, see src/normalize/)
   → 2 hard gates        sex / name / era vetoes
   → 3 scoring           weighted components + penalties + ceiling
   → 4 1:1 assignment    greedy by score
-  → 5 relationship link co-parents of matched children override name/date
+  → 5 relationship link co-parents of matched children, and children of
+                        matched couples, override name/date
   → 6 relative boost    corroborated pairs floored into the 90s
   → 7 incoming-duplicate consolidation (same person split across incoming records)
   → (optional) kinship re-ranking from the home person
@@ -108,8 +109,13 @@ Pairs failing any gate are never scored:
   names and ordering matter less). The loose given gate deliberately admits
   nickname/cross-language variants; precision is recovered later by penalties.
 - **Era**: representative years (birth, else estimate, else death/marriage)
-  more than 30 years apart, or a lifespan impossibility (one died before the
-  other was born).
+  more than 30 years apart, or a lifespan impossibility — one died before the
+  other was born, or before the other *married*. Nobody weds after their own
+  death, so this second rule is what separates a child who died at seven from
+  the same-named woman who married sixteen years later; it retires a whole
+  class of false positive (the dead infant paired with its adult namesake)
+  that names and birth years alone score in the 90s. A same-year marriage is
+  allowed: a widow's wedding and a spouse's death can share a year.
 
 ### 3. Scoring (`scoreIndividualPair`, `src/match/scoreIndividual.ts`)
 
@@ -198,6 +204,24 @@ what recovers maiden-vs-married surnames and nickname mothers ("Slavka" vs
 `relationshipLinked: true` for the UI's 🌳 flag. An existing assignment is
 only displaced by a link with strictly more matched-relative corroboration.
 
+A second, **child-side pass** (`childrenOfMatchedCouples`) then does the
+reverse: the children of a couple that is itself confidently matched. The two
+directions are not symmetric, and the difference is the design. A family has
+exactly one father and one mother, so a matched child *pins* a parent — which
+is why the parent pass may ignore names outright and recover a maiden surname.
+A family has many children, so a matched couple pins the sibling *set*, not
+which sibling is which: every main child would be equally corroborated against
+every incoming one, and a namesake sibling (the child named after a dead older
+one) would link arbitrarily. So here the couple supplies the *evidence* and each
+pair's own score does the *pairing* — candidates pass the same hard gates the
+scorer uses and are taken best-first, one child to one child, within the
+family. What this buys is the case the plain assignment loses: a fully
+corroborated child (right parents, right birth date, right house) outscored by
+a stray same-named record carrying no place, no parents and no dates, which is
+charged for nothing because a component missing on one side is skipped rather
+than penalized. Measured on Renko ↔ Fajfar this was a 0.1-point loss (96.7 vs
+96.8) that then handed the correct record to an unrelated 56.6 pair.
+
 ### 6. Relative-corroboration boost (`boostByMatchedRelatives`)
 
 After assignment, any pair with ≥2 relatives that are *themselves matched*
@@ -221,7 +245,9 @@ signal is several incoming records all matching the *same* main person: the
 runner-ups that lost the 1:1 assignment are candidate duplicates of the
 winner. Before consolidating (the worker merges them into the kept record),
 each runner-up must survive hard vetoes — given similarity ≥ 0.85, birth
-years within 3, no parent conflict per the shared three-band verdict — and
+years within 3, no parent conflict per the shared three-band verdict, plus the
+scorer's own sex/name/era gates (consolidation *merges* two records, so it has
+no business accepting a pair the matcher would have refused to score) — and
 score ≥ 85 against the kept record directly. Erring high here means a missed
 consolidation (harmless); the vetoes exist because a wrong one merges two
 different people silently.

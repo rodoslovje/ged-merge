@@ -197,6 +197,40 @@ describe("plausibility gates", () => {
     ).toHaveLength(0);
   });
 
+  it("rejects when one died before the other married", () => {
+    // A child who died at seven is not the woman who married sixteen years
+    // later, however well the name and the birth year agree.
+    expect(
+      matchDatasets(
+        dataset(`0 HEAD\n1 GEDC\n2 VERS 5.5.1
+0 @M@ INDI\n1 NAME Marija /Novak/\n1 BIRT\n2 DATE 10 SEP 1847\n1 DEAT\n2 DATE 7 SEP 1855
+0 TRLR\n`),
+        dataset(`0 HEAD\n1 GEDC\n2 VERS 5.5.1
+0 @C@ INDI\n1 NAME Marija /Novak/\n1 BIRT\n2 DATE ABT 1848\n1 FAMS @F@
+0 @H@ INDI\n1 NAME Franc /Perko/\n1 SEX M\n1 FAMS @F@
+0 @F@ FAM\n1 HUSB @H@\n1 WIFE @C@\n1 MARR\n2 DATE 1873
+0 TRLR\n`),
+      ).individuals,
+    ).toHaveLength(0);
+  });
+
+  it("allows a marriage in the same year as the other's death", () => {
+    // A widow's wedding and her husband's death can share a year, so only a
+    // strictly later marriage is impossible.
+    expect(
+      matchDatasets(
+        dataset(`0 HEAD\n1 GEDC\n2 VERS 5.5.1
+0 @M@ INDI\n1 NAME Marija /Novak/\n1 BIRT\n2 DATE 1847\n1 DEAT\n2 DATE 1873
+0 TRLR\n`),
+        dataset(`0 HEAD\n1 GEDC\n2 VERS 5.5.1
+0 @C@ INDI\n1 NAME Marija /Novak/\n1 BIRT\n2 DATE 1847\n1 FAMS @F@
+0 @H@ INDI\n1 NAME Franc /Perko/\n1 SEX M\n1 FAMS @F@
+0 @F@ FAM\n1 HUSB @H@\n1 WIFE @C@\n1 MARR\n2 DATE 1873
+0 TRLR\n`),
+      ).individuals,
+    ).toHaveLength(1);
+  });
+
   it("keeps plausible pairs (same name, close birth years)", () => {
     const r = pair(
       "0 @M@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 DATE 1850",
@@ -736,6 +770,66 @@ describe("relationship pass: does not steal a parent-corroborated match for a sp
 
   it("leaves the duplicate unmatched to the main Irena", () => {
     expect(r.individuals.some((c) => c.mainId === "@IRENA@" && c.compareId === "@DUP@")).toBe(false);
+  });
+});
+
+describe("relationship pass: links a child of a matched couple, overriding an evidence-free rival", () => {
+  // Main Marija, child of Martin + Marija Jerše, born 10 SEP 1847 at Srednja
+  // Bela 16. The incoming file holds her as a child of the same (matched)
+  // couple, spelled "Jekovc" and with the place abbreviated — plus a stray
+  // "Marija Jekovec ~1848" carrying no place, no parents and no death, which
+  // outscores her precisely because it has nothing to disagree on.
+  const main = `0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8
+0 @MDAD@ INDI\n1 NAME Martin /Jekovec/\n1 SEX M\n1 BIRT\n2 DATE 2 OCT 1806\n1 FAMS @MF@
+0 @MMUM@ INDI\n1 NAME Marija /Jerše/\n1 SEX F\n1 BIRT\n2 DATE 21 MAY 1810\n1 FAMS @MF@
+0 @MKID@ INDI\n1 NAME Marija /Jekovec/\n1 SEX F\n1 BIRT\n2 DATE 10 SEP 1847\n2 PLAC Srednja Bela, Preddvor, Slovenia\n2 ADDR Srednja Bela 16\n1 FAMC @MF@
+0 @MF@ FAM\n1 HUSB @MDAD@\n1 WIFE @MMUM@\n1 CHIL @MKID@
+0 TRLR\n`;
+  const compare = `0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8
+0 @CDAD@ INDI\n1 NAME Martin /Jekovc/\n1 SEX M\n1 BIRT\n2 DATE 2 OCT 1806\n1 FAMS @CF@
+0 @CMUM@ INDI\n1 NAME Marija /Jerše/\n1 SEX F\n1 BIRT\n2 DATE 21 MAY 1810\n1 FAMS @CF@
+0 @CKID@ INDI\n1 NAME Marija /Jekovc/\n1 SEX F\n1 BIRT\n2 DATE 10 SEP 1847\n2 PLAC Sr. Bela\n2 ADDR Sr. Bela 16\n1 FAMC @CF@
+0 @CF@ FAM\n1 HUSB @CDAD@\n1 WIFE @CMUM@\n1 CHIL @CKID@
+0 @STRAY@ INDI\n1 NAME Marija /Jekovec/\n1 SEX F\n1 BIRT\n2 DATE ABT 1848
+0 TRLR\n`;
+  const r = matchDatasets(dataset(main), dataset(compare));
+
+  it("matches the child to her counterpart in the matched family", () => {
+    const kid = r.individuals.find((c) => c.mainId === "@MKID@");
+    expect(kid).toBeDefined();
+    expect(kid!.compareId).toBe("@CKID@");
+    expect(kid!.relationshipLinked).toBe(true);
+  });
+
+  it("drops the evidence-free rival the override displaced", () => {
+    expect(r.individuals.some((c) => c.compareId === "@STRAY@")).toBe(false);
+  });
+
+  it("does not link when only one parent is matched", () => {
+    // The father alone is a single point of evidence — below the bar, so the
+    // stray keeps the child (the pairing falls back to plain scoring).
+    const m2 = main.replace("Marija /Jerše/", "Terezija /Ambrožič/");
+    const r2 = matchDatasets(dataset(m2), dataset(compare));
+    expect(r2.individuals.find((c) => c.mainId === "@MKID@")?.relationshipLinked).toBeUndefined();
+  });
+});
+
+describe("relationship pass: pairs namesake siblings by their own records, not arbitrarily", () => {
+  // Both files give the same matched couple two daughters called Marija — the
+  // second named after the first, routine in parish registers. The couple
+  // corroborates both equally, so only their own births can tell them apart.
+  const family = (surname: string) => `0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8
+0 @DAD@ INDI\n1 NAME Martin /${surname}/\n1 SEX M\n1 BIRT\n2 DATE 1806\n1 FAMS @F@
+0 @MUM@ INDI\n1 NAME Marija /Jerše/\n1 SEX F\n1 BIRT\n2 DATE 1810\n1 FAMS @F@
+0 @OLD@ INDI\n1 NAME Marija /${surname}/\n1 SEX F\n1 BIRT\n2 DATE 26 SEP 1840\n1 FAMC @F@
+0 @YOUNG@ INDI\n1 NAME Marija /${surname}/\n1 SEX F\n1 BIRT\n2 DATE 10 SEP 1847\n1 FAMC @F@
+0 @F@ FAM\n1 HUSB @DAD@\n1 WIFE @MUM@\n1 CHIL @OLD@\n1 CHIL @YOUNG@
+0 TRLR\n`;
+  const r = matchDatasets(dataset(family("Jekovec")), dataset(family("Jekovc")));
+
+  it("keeps each sister with her own birth date", () => {
+    expect(r.individuals.find((c) => c.mainId === "@OLD@")?.compareId).toBe("@OLD@");
+    expect(r.individuals.find((c) => c.mainId === "@YOUNG@")?.compareId).toBe("@YOUNG@");
   });
 });
 

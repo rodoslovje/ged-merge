@@ -514,15 +514,27 @@ function temporalGate(
     return false;
   }
 
-  // Lifespan impossibility: one died before the other was born.
+  // Lifespan impossibility: one died before the other was born — or married.
+  // Nobody marries after their own death, so a record that outlives the other's
+  // death by a wedding is a different person however well the names agree (a
+  // child who died at seven vs. the woman who married in 1873).
   const da = deathYear(a);
   const bb = birthYear(b);
   if (da !== undefined && bb !== undefined && da < bb) return false;
   const db = deathYear(b);
   const ba = birthYear(a);
   if (db !== undefined && ba !== undefined && db < ba) return false;
+  if (da !== undefined && marriedAfter(da, b, dsB)) return false;
+  if (db !== undefined && marriedAfter(db, a, dsA)) return false;
 
   return true;
+}
+
+/** True when the person has a dated marriage later than `deathYear` — the death
+ *  recorded on the *other* record of the pair. A same-year marriage is left
+ *  alone: a widow(er)'s year of death and a wedding can share one. */
+function marriedAfter(deathYear: number, indi: Individual, ds: Dataset): boolean {
+  return cachedMarriageEvents(indi, ds).some((e) => e.date?.year !== undefined && e.date.year > deathYear);
 }
 
 /** A representative year placing the person in time: a recorded date if any,

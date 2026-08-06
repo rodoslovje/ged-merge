@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useId, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
 import { buildPlaceTree, collectNodeUseIds, type PlaceNode, type PlaceTree, UNSPECIFIED, UNSPECIFIED_PLACE } from "../../tools/places";
@@ -11,6 +11,12 @@ import { ToolsLoading, TreeSearch, UsageList, useDebounced } from "./shared";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
 import { ToolSummary } from "./ToolSummary";
 import { formatCoord } from "../../geo/points";
+import { PlaceAutocomplete } from "../edit/PlaceAutocomplete";
+
+/** The rename field completes from the file's own place segments, which are
+ *  already exactly as the file writes them — there is no separate canonical
+ *  spelling to snap to. */
+const EMPTY_CANONICAL = new Map<string, string>();
 
 const MiniPlaceMap = lazy(() => import("../map/MiniPlaceMap"));
 
@@ -303,7 +309,6 @@ function PlaceTreeRow({
   allSegments: string[];
 }) {
   const { t } = useTranslation();
-  const uid = useId();
   const [editing, setEditing] = useState(false);
   const [renameValue, setRenameValue] = useState("");
   const debouncedRename = useDebounced(renameValue, 250);
@@ -371,7 +376,6 @@ function PlaceTreeRow({
     setRenameValue("");
   }
 
-  const datalistId = `place-segs-${uid}`;
   const targetTrimmed = renameValue.trim();
   const applyDisabled = targetTrimmed === node.name;
   // Show "Delete" when target is cleared; "Merge" when it already exists.
@@ -474,22 +478,34 @@ function PlaceTreeRow({
       )}
 
       {editing && (
-        <div className="tools-place-rename">
-          <datalist id={datalistId}>
-            {allSegments.map((s) => <option key={s} value={s} />)}
-          </datalist>
-          <input
-            type="text"
-            className="tools-place-rename-input"
+        <div
+          className="tools-place-rename"
+          onKeyDown={(e) => {
+            // Enter on a highlighted suggestion, and Escape with the dropdown
+            // open, belong to the autocomplete (defaultPrevented); the next
+            // press is the editor's — same contract as the address rename row.
+            if (e.key === "Enter" && !e.defaultPrevented && !applyDisabled) handleApply();
+            if (e.key === "Escape" && !e.defaultPrevented) setEditing(false);
+          }}
+        >
+          {/* The app's own dropdown, not a native <datalist>: the browser
+              renders that one in system chrome, which ignores the theme (a
+              dark popup over the light app) and cannot be styled at all. */}
+          <PlaceAutocomplete
             value={renameValue}
-            list={datalistId}
-            autoFocus
+            suggestions={allSegments.filter((s) => s !== node.name)}
+            canonical={EMPTY_CANONICAL}
+            isDirty={false}
+            className="tools-place-rename-input"
+            wrapClassName="tools-place-rename-auto"
             placeholder={t("tools.places.rename.placeholder")}
-            onChange={(e) => setRenameValue(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !applyDisabled) handleApply();
-              if (e.key === "Escape") setEditing(false);
-            }}
+            autoFocus
+            // A rename may be exactly a casing fix, which the canonical map
+            // would otherwise undo — as on the address rename row.
+            preserveCase
+            onChange={setRenameValue}
+            onCommit={setRenameValue}
+            onClear={() => setRenameValue("")}
           />
           {preview && (
             <span className="tools-place-rename-hint">

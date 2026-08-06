@@ -1504,3 +1504,44 @@ describe("aligned relative lists (children/partners)", () => {
     expect(lines.map((l) => l.match(/Ana|Berta|Cilka/)?.[0])).toEqual(["Ana", "Berta", "Cilka"]);
   });
 });
+
+describe("family header naming", () => {
+  const header = (body: string) => {
+    const ds = dataset(`0 HEAD\n1 GEDC\n2 VERS 5.5.1\n${body}0 TRLR\n`);
+    return byKey(individualFieldRows(tr, ds.individuals.get("@H@"), undefined, ds, ds), "fam.@F@.header")?.label;
+  };
+
+  it("names a family with no second parent for what it is", () => {
+    // Nobody to name the family after — "Family with (unnamed)" would read as a
+    // nameless partner who isn't there at all.
+    expect(
+      header(
+        `0 @H@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F@\n` +
+          `0 @K@ INDI\n1 NAME Ana /Novak/\n1 FAMC @F@\n` +
+          `0 @F@ FAM\n1 HUSB @H@\n1 CHIL @K@\n`,
+      ),
+    ).toBe("field.familyNoPartner");
+  });
+
+  it("keeps the 'with' form for a partner the file leaves nameless", () => {
+    // The partner exists as a record, so the family is still "with" someone —
+    // under the translated stand-in, not the builders' English sentinel.
+    expect(
+      header(
+        `0 @H@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F@\n` +
+          `0 @W@ INDI\n1 SEX F\n1 FAMS @F@\n` +
+          `0 @F@ FAM\n1 HUSB @H@\n1 WIFE @W@\n`,
+      ),
+    ).toBe("field.familyWith");
+  });
+
+  it("names the partner when the file does", () => {
+    expect(
+      header(
+        `0 @H@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F@\n` +
+          `0 @W@ INDI\n1 NAME Ana /Kos/\n1 SEX F\n1 FAMS @F@\n` +
+          `0 @F@ FAM\n1 HUSB @H@\n1 WIFE @W@\n`,
+      ),
+    ).toBe("field.familyWith");
+  });
+});

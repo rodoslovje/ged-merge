@@ -224,8 +224,12 @@ function findIncomingDuplicateClusters(
       if (!cand) continue;
       // Hard vetoes a weighted-average score can't be trusted to enforce:
       // a distinct sibling (given name), a namesake (birth years far apart), or
-      // a same-named cousin (conflicting parents) is never one person.
+      // a same-named cousin (conflicting parents) is never one person. The
+      // scorer's own gates apply too — consolidation is a merge of two records
+      // and has no business accepting a pair the matcher would have refused to
+      // score, e.g. one whose lifespan ends before the other's wedding.
       if (differentGiven(keep, cand) || birthYearsTooFar(keep, cand) || parentsVerdict(keep, cand, compareDs) === "conflict") continue;
+      if (sexConflicts(keep, cand) || !plausibleIndividualMatch(keep, cand, config.gates, compareDs, compareDs)) continue;
       // The strong gate: the two incoming records must be a direct duplicate of
       // each other, not merely two look-alikes of the same main.
       if (scoreIndividualPair(keep, cand, compareDs, compareDs, config).score < DUP_PAIR_SCORE) continue;
@@ -393,6 +397,9 @@ function parentFamilies(
  * given. This recovers a parent whose name/birth differs wildly across the two
  * files (e.g. a maiden vs married surname, or a nickname like "Slavka" vs
  * "Stanislava Marija") but whose child — and often spouse — clearly match.
+ *
+ * A second, child-side pass then does the reverse for the children of matched
+ * couples — see {@link childrenOfMatchedCouples}.
  */
 function linkByRelationships(
   assigned: IndividualCandidate[],
@@ -459,23 +466,28 @@ function linkByRelationships(
   // must not be stolen by a same-named duplicate that merely shares the spouse).
   const corrob = (m: Individual, c: Individual) =>
     matchedRelativeCount(m, c, mainToCompare, scoreOf, mainDs, compareDs);
-  for (const { main, compare } of strongestFirst) {
-    if (mainToCompare.get(main.id) === compare.id) continue; // already linked
-    if (usedMain.has(main.id) || usedCompare.has(compare.id)) continue;
+  /** Connect this pair unless something better already holds either record. */
+  const tryLink = (main: Individual, compare: Individual): void => {
+    if (mainToCompare.get(main.id) === compare.id) return; // already linked
+    if (usedMain.has(main.id) || usedCompare.has(compare.id)) return;
     // Never displace an identity established by a shared record uid.
-    if (uidMain.has(main.id) || uidCompare.has(compare.id)) continue;
+    if (uidMain.has(main.id) || uidCompare.has(compare.id)) return;
     const linkCorrob = corrob(main, compare);
     const oldCompareId = mainToCompare.get(main.id);
     const oldMainId = compareToMain.get(compare.id);
     const oldCompare = oldCompareId ? compareDs.individuals.get(oldCompareId) : undefined;
     const oldMain = oldMainId ? mainDs.individuals.get(oldMainId) : undefined;
     // Skip if either record's current match is at least as corroborated.
-    if (oldCompare && corrob(main, oldCompare) >= linkCorrob) continue;
-    if (oldMain && corrob(oldMain, compare) >= linkCorrob) continue;
+    if (oldCompare && corrob(main, oldCompare) >= linkCorrob) return;
+    if (oldMain && corrob(oldMain, compare) >= linkCorrob) return;
     const cand = scoreIndividualPair(main, compare, mainDs, compareDs, config);
     links.push({ ...cand, relationshipLinked: true });
     usedMain.add(main.id);
     usedCompare.add(compare.id);
+  };
+  for (const { main, compare } of strongestFirst) tryLink(main, compare);
+  for (const { main, compare } of childrenOfMatchedCouples(mainDs, compareDs, config, mainToCompare, confident)) {
+    tryLink(main, compare);
   }
   if (links.length === 0) return assigned;
 
@@ -487,6 +499,87 @@ function linkByRelationships(
     (a) => !linkedMain.has(a.mainId) && !linkedCompare.has(a.compareId),
   );
   return [...kept, ...links].sort(byScoreDesc);
+}
+
+/**
+ * The child-side counterpart of {@link linkByRelationships}: pairs of children
+ * whose *couples* are confidently matched to each other.
+ *
+ * The two directions are not symmetric, and the difference decides the design.
+ * A family has exactly one father and one mother, so a matched child *pins* a
+ * parent outright — which is why the parent pass may ignore names entirely and
+ * recover a mother recorded under a maiden surname. A family has many children,
+ * so a matched couple pins the sibling *set* but not which sibling is which:
+ * every main child would otherwise be equally "corroborated" against every
+ * incoming one, and a namesake sibling (the child named after a dead older one,
+ * routine in parish registers) would link arbitrarily.
+ *
+ * So the couple supplies the evidence and each pair's own score does the
+ * pairing: within a matched family, candidate pairs pass the same hard gates the
+ * scorer uses and are then taken best-first, one child to one child. What this
+ * buys is the case the plain assignment loses — a fully corroborated child
+ * outscored by a stray same-named record that carries no place, no parents and
+ * no dates to disagree on, and so is charged for nothing.
+ */
+function childrenOfMatchedCouples(
+  mainDs: Dataset,
+  compareDs: Dataset,
+  config: MatchConfig,
+  mainToCompare: Map<string, string>,
+  confident: (mainId: string) => boolean,
+): Array<{ main: Individual; compare: Individual; score: number }> {
+  const out: Array<{ main: Individual; compare: Individual; score: number }> = [];
+  for (const mFam of mainDs.families.values()) {
+    if (mFam.children.length === 0) continue;
+    // Both parents must be recorded and confidently matched: one matched parent
+    // is a single point of evidence, below the bar the parent pass holds itself
+    // to (see MIN_RELATIONSHIP_EVIDENCE), and would pair up step-siblings.
+    const parents = [mFam.husband, mFam.wife].filter((id): id is string => id !== undefined);
+    if (parents.length < MIN_RELATIONSHIP_EVIDENCE) continue;
+    const mapped = parents
+      .filter((id) => confident(id))
+      .map((id) => mainToCompare.get(id))
+      .filter((id): id is string => id !== undefined);
+    if (mapped.length < MIN_RELATIONSHIP_EVIDENCE) continue;
+    // The incoming families in which *every* matched counterpart is a partner —
+    // i.e. the same couple on the other side.
+    let shared: string[] | undefined;
+    for (const id of mapped) {
+      const spouseOf = compareDs.individuals.get(id)?.spouseOf ?? [];
+      shared = shared === undefined ? [...spouseOf] : shared.filter((f) => spouseOf.includes(f));
+    }
+    for (const cFamId of shared ?? []) {
+      const cFam = compareDs.families.get(cFamId);
+      if (!cFam) continue;
+      const pairs: Array<{ main: Individual; compare: Individual; score: number }> = [];
+      for (const mChildId of mFam.children) {
+        const mChild = mainDs.individuals.get(mChildId);
+        if (!mChild) continue;
+        for (const cChildId of cFam.children) {
+          const cChild = compareDs.individuals.get(cChildId);
+          if (!cChild) continue;
+          if (sexConflicts(mChild, cChild)) continue;
+          if (!plausibleIndividualMatch(mChild, cChild, config.gates, mainDs, compareDs)) continue;
+          const cand = scoreIndividualPair(mChild, cChild, mainDs, compareDs, config);
+          if (cand.score / 100 < config.minScore) continue;
+          pairs.push({ main: mChild, compare: cChild, score: cand.score });
+        }
+      }
+      // One child to one child within this family, best pair first — so the
+      // namesake siblings sort themselves out by their own dates and places.
+      pairs.sort((a, b) => b.score - a.score);
+      const takenMain = new Set<string>();
+      const takenCompare = new Set<string>();
+      for (const p of pairs) {
+        if (takenMain.has(p.main.id) || takenCompare.has(p.compare.id)) continue;
+        takenMain.add(p.main.id);
+        takenCompare.add(p.compare.id);
+        out.push(p);
+      }
+    }
+  }
+  // Strongest child pairs first, so a contested record goes to its best claim.
+  return out.sort((a, b) => b.score - a.score);
 }
 
 /**
