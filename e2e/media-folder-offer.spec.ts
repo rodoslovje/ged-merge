@@ -32,6 +32,8 @@ test("the media-folder offer gives three answers and honours the never one", asy
   await expect(dialog.getByRole("button", { name: "Select Folder" })).toBeVisible();
   await expect(dialog.getByRole("button", { name: "Later" })).toBeVisible();
   await expect(dialog.locator("input[type=checkbox]")).toHaveCount(0);
+  // Enter takes the offer — never the answer that retires the prompt for good.
+  await expect(dialog.getByRole("button", { name: "Select Folder" })).toBeFocused();
 
   // "Later" leaves the offer standing for the next load…
   await dialog.getByRole("button", { name: "Later" }).click();

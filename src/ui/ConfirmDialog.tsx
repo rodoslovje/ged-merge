@@ -13,6 +13,10 @@ interface Props {
   /** Style the confirm button as destructive (red). Use only for irreversible
    *  actions like delete/remove; benign prompts keep the neutral accent style. */
   danger?: boolean;
+  /** Open with the confirm button focused, so Enter takes the offer. Opt-in:
+   *  most callers here ask before discarding work (replace the file, clear the
+   *  cache, reload), where Enter must not be the answer. Ignored for `danger`. */
+  defaultConfirm?: boolean;
   /** When set, renders a checkbox above the actions. `checked`/`onCheckedChange`
    *  let the caller persist the choice (e.g. a "Never ask again" preference). */
   checkboxLabel?: string;
@@ -24,12 +28,14 @@ interface Props {
   onAlt?: () => void;
 }
 
-export function ConfirmDialog({ message, confirmLabel, onConfirm, onCancel, cancelLabel, danger, checkboxLabel, checked, onCheckedChange, altLabel, onAlt }: Props) {
+export function ConfirmDialog({ message, confirmLabel, onConfirm, onCancel, cancelLabel, danger, defaultConfirm, checkboxLabel, checked, onCheckedChange, altLabel, onAlt }: Props) {
   const { t } = useTranslation();
   const ref = useModalKeyboard(true, onCancel);
   // The trap parks focus on the first focusable control, which the optional
   // checkbox would win — leaving Enter doing nothing. Hand it to the button
-  // that answers the question: Cancel, or the sole action when there is none.
+  // that answers the question: the confirm when the caller says Enter should
+  // take it (or when it stands alone), otherwise Cancel.
+  const focusConfirm = cancelLabel === null || (!!defaultConfirm && !danger);
   const defaultBtn = useRef<HTMLButtonElement>(null);
   useEffect(() => { defaultBtn.current?.focus(); }, []);
   const [title, body] = message.split("\n\n");
@@ -50,14 +56,14 @@ export function ConfirmDialog({ message, confirmLabel, onConfirm, onCancel, canc
         )}
         <div className="confirm-dialog-actions">
           {cancelLabel !== null && (
-            <button type="button" className="btn-secondary" ref={defaultBtn} onClick={onCancel}>
+            <button type="button" className="btn-secondary" ref={focusConfirm ? undefined : defaultBtn} onClick={onCancel}>
               {cancelLabel ?? t("confirm.cancel")}
             </button>
           )}
           <button
             type="button"
             className={`confirm-dialog-confirm ${danger ? "danger" : ""}`}
-            ref={cancelLabel === null ? defaultBtn : undefined}
+            ref={focusConfirm ? defaultBtn : undefined}
             onClick={onConfirm}
           >
             {confirmLabel}

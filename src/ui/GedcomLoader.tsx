@@ -52,6 +52,7 @@ export function AutoMediaOffer({ main }: { main: SlotState }) {
       message={t("loader.mediaFolder.autoOffer", { count: offerCount })}
       confirmLabel={t("loader.mediaFolder.select")}
       cancelLabel={t("loader.mediaFolder.later")}
+      defaultConfirm
       altLabel={t("loader.mediaFolder.neverAsk")}
       onAlt={() => { suppressMediaOffer(); setOfferCount(null); }}
       onConfirm={() => { setOfferCount(null); openFolder(); }}
