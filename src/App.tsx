@@ -717,6 +717,9 @@ function AppContent() {
   visibleIndexRef.current = visibleIndex;
 
   const [navigateToId, setNavigateToId] = useState<string | undefined>(undefined);
+  // The person a Back/Forward press restored, kept apart from `navigateToId` so
+  // Edit can tell "the browser moved me" from "open this person".
+  const [historyPersonId, setHistoryPersonId] = useState<string | undefined>(undefined);
 
   // Browser-history/overlay state machine: the full-page overlays (Compare
   // Tree / Charts hub), popstate restoration of mode/selection/navigation, and
@@ -725,8 +728,12 @@ function AppContent() {
     treeView, chartsRootId, setChartsRootId, chartsBackKey,
     overlayOpen, overlayOpenRef, hasUnsavedChangesRef,
     openTree, rerootTree, showInMatches, changeTreeMode, openCharts,
-    discardAndReload,
-  } = useAppHistory({ confirmDialog, current, mode, setMode, setSelectedId, setNavigateToId, setChartKind });
+    discardAndReload, recordEditPerson, markEditEntry,
+  } = useAppHistory({
+    confirmDialog, current, mode, setMode, setSelectedId, setNavigateToId, setChartKind,
+    setHistoryPersonId,
+    hasPerson: (id) => !!mainDatasetRef.current?.individuals.has(id),
+  });
 
   const canNavigatePerson = useCallback(
     (side: "main" | "incoming", id: string) =>
@@ -2000,7 +2007,14 @@ function AppContent() {
               marriedNameTag={lastMainFile.marriedNameTag}
               navigateToId={navigateToId}
               onNavigated={() => setNavigateToId(undefined)}
-              onPersonChange={setEditPersonId}
+              historyToId={historyPersonId}
+              onHistoryNavigated={() => setHistoryPersonId(undefined)}
+              onPersonChange={(id) => {
+                setEditPersonId(id);
+                // Every person opened in Edit is a browser-history step, so
+                // Back walks back through them like Edit's own Back button.
+                recordEditPerson(id);
+              }}
               matchCompareIdFor={matches ? (id) => indexByMain.get(id)?.compareId : undefined}
               matchOrder={matches ? visibleMainOrder : undefined}
               decisions={decisions}
@@ -2030,8 +2044,12 @@ function AppContent() {
               onNavigate={(id) => {
                 // Tag the current entry as Tools and push an Edit entry, so the
                 // browser Back button returns to the Tools tab we came from.
+                // Pushed here rather than left to Edit's own person-history
+                // step, which would run once the mode had already flipped and
+                // so could no longer tell which tab the person was opened from.
                 window.history.replaceState({ ...window.history.state, gedMode: "tools" }, "");
-                window.history.pushState({ gedMode: "edit", gedNavigateTo: id }, "");
+                markEditEntry(id);
+                window.history.pushState({ gedMode: "edit", gedEditPerson: id }, "");
                 setNavigateToId(id);
                 setMode("edit");
               }}

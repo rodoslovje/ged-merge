@@ -134,6 +134,13 @@ interface Props {
   /** Called once after `navigateToId` has been honoured, so the parent can reset
    *  it and re-request the same person again later (e.g. the "go start" icon). */
   onNavigated?: () => void;
+  /** Open this person because the browser Back/Forward button landed on the
+   *  history entry that stands for them — like `navigateToId`, but it rewinds
+   *  Edit's own Back stack instead of stacking another step onto it. */
+  historyToId?: string;
+  /** Called once after `historyToId` has been honoured, so the parent can reset
+   *  it and restore the same person again on a later Back press. */
+  onHistoryNavigated?: () => void;
   /** Called whenever the currently-shown person changes, so the parent can
    * jump Merge to that same person's match candidate when switching modes
    * (tab click or the "m" shortcut), instead of leaving Merge on whatever it
@@ -199,7 +206,7 @@ const SINGLE_EVENT_TAGS = new Set(["BIRT", "DEAT", "BURI"]);
 /** Edit mode's person view: parents on top, the selected person in the
  * center, partners + children on the bottom. The center panel is editable;
  * relatives navigate on click. */
-export function EditView({ dataset, fileName, startId, changeStart, onDirty, onRecordsSettled, onShowCharts, marriedNameTag, navigateToId, onNavigated, onPersonChange, matchCompareIdFor, matchOrder, decisions, changedPersonIds, compareDataset, onUpdateDecision, onPushEdit, onPatchApplied, pendingApply, onApplied, addPersonRequest, active }: Props) {
+export function EditView({ dataset, fileName, startId, changeStart, onDirty, onRecordsSettled, onShowCharts, marriedNameTag, navigateToId, onNavigated, historyToId, onHistoryNavigated, onPersonChange, matchCompareIdFor, matchOrder, decisions, changedPersonIds, compareDataset, onUpdateDecision, onPushEdit, onPatchApplied, pendingApply, onApplied, addPersonRequest, active }: Props) {
   const { t } = useTranslation();
   const formatName = useNameOf();
   const settings = useSettingsSlice(SETTINGS_KEYS);
@@ -397,6 +404,23 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     setSelectedId(id);
   });
 
+  /** Open a person the browser Back/Forward button landed on. Same as
+   *  `navigate`, except the stack behind Edit's own Back button is rewound to
+   *  that person when they are on it, so the two buttons keep walking one path
+   *  rather than each undoing the other. */
+  const navigateFromHistory = useStableHandler((id: string) => {
+    if (!id || id === selectedId) return;
+    setHistory((h) => {
+      const i = h.lastIndexOf(id);
+      if (i >= 0) return h.slice(0, i);
+      return selectedId ? [...h, selectedId] : h;
+    });
+    setNotesAdded(false);
+    setFsIdAdded(false);
+    setPickingSlot(null);
+    setSelectedId(id);
+  });
+
   const goBack = useStableHandler(() => {
     setHistory((h) => {
       // Skip entries whose record is gone (deleted, or absorbed by a duplicate
@@ -522,6 +546,14 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigateToId]);
+
+  useEffect(() => {
+    if (historyToId) {
+      navigateFromHistory(historyToId);
+      onHistoryNavigated?.();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [historyToId]);
 
   useEffect(() => {
     if (selectedId) onPersonChange?.(selectedId);
