@@ -258,6 +258,7 @@ export function applyFamilyStructure(
           to: ctx.label(targetId),
           action: "incoming",
           unedited: true,
+          spouseSlot: true,
         });
         ctx.touched.add(famId);
       }
@@ -630,7 +631,7 @@ function setSpouseSlot(
   }
   addPointer(famNode, role, personId, FAM_CHILD_ORDER);
   linkBack(ctx, personId, "FAMS", famId);
-  ctx.report.changes.push({ recordId: famId, field: label, from: "", to: ctx.label(personId), action: "incoming", unedited: true });
+  ctx.report.changes.push({ recordId: famId, field: label, from: "", to: ctx.label(personId), action: "incoming", unedited: true, spouseSlot: true });
   ctx.touched.add(famId);
 }
 

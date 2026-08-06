@@ -648,6 +648,13 @@ describe("mergeDecisions — import whole subtrees from the compare tree", () =>
     // The anchor sits in a child family with the matched father as husband.
     expect(out).toMatch(/0 @I1@ INDI[\s\S]*1 FAMC/);
     expect(out).toContain("1 HUSB @I2@");
+    // Who fills a family's spouse slot is flagged, so the preview can leave it
+    // off a new family's card — the header already names both spouses there.
+    expect(report.changes.filter((c) => c.spouseSlot).map((c) => c.to)).toEqual([
+      "Oce Novak",
+      "Ded Novak", // the grandfather fills the father's own child family
+      "Mati Kos",
+    ]);
   });
 
   it("stops the ancestor walk where the main file already records a different parent", () => {

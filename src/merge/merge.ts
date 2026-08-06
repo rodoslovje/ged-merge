@@ -59,6 +59,11 @@ export interface FieldChange {
    *  omits them from a *new* person's card, whose header already spells the name
    *  out and colours it by sex. */
   identity?: boolean;
+  /** The family's own identity — who fills its husband/wife slot. The preview
+   *  omits these from a *new* family's card, whose header already names both
+   *  spouses with their lifespans; on an existing family the same row is a real
+   *  before/after and stays. */
+  spouseSlot?: boolean;
   /** Set when an existing event was modified (not newly added/removed) — the preview
    *  renders these pieces in place of `from`/`to`, coloring each by whether the edit
    *  actually touched it, instead of treating the whole line as one new value. */
