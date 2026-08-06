@@ -1161,6 +1161,17 @@ describe("normalizeDataset (placeholder-place dropping)", () => {
     expect(resi.address).toBeUndefined();
   });
 
+  // The incoming file is being reshaped to the house style anyway, so its
+  // stray spaces are tidied before they reach the merged file. (One's own file
+  // is left alone — see the bulk-normalize test.)
+  it("still tidies whitespace in an incoming place value", () => {
+    const { indi } = normalizeCompare(
+      ["0 HEAD", "1 CHAR UTF-8", "0 @I1@ INDI", "1 BIRT", "2 PLAC Jama,  Kranj, Slovenia ", "0 TRLR"].join("\n"),
+    );
+    const plac = indi.raw.children.find((c) => c.tag === "BIRT")!.children.find((c) => c.tag === "PLAC")!;
+    expect(plac.value).toBe("Jama, Kranj, Slovenia");
+  });
+
   it("keeps a place where any part is real", () => {
     const { indi } = normalizeCompare(`0 HEAD
 1 CHAR UTF-8

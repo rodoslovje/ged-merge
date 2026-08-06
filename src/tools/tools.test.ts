@@ -2013,6 +2013,23 @@ describe("bulkNormalize place separator", () => {
     expect(placesOf(out)).toEqual(["Spodnja Besnica,Kranj,Slovenija", "Kranj, Slovenija"]);
   });
 
+  // Trailing and doubled spaces are invisible on screen, so rewriting them on
+  // one's own file only buys a diff of thousands of lines nobody can read.
+  it("leaves place whitespace exactly as the file wrote it", () => {
+    const spaced = [
+      "0 HEAD",
+      "1 CHAR UTF-8",
+      "0 @I1@ INDI",
+      "1 NAME Janez /Novak/",
+      "1 RESI",
+      "2 DATE 1949",
+      "2 PLAC United States, , , , ", // the trailing space is the point of this test
+      "0 TRLR",
+    ].join("\n");
+    const { dataset: out } = bulkNormalize(dataset(spaced));
+    expect(placesOf(out)).toEqual(["United States, , , , "]);
+  });
+
   it("respells even a pass-through layout when the reader chooses one", () => {
     const { dataset: out } = bulkNormalize(dataset(packed), undefined, { placeSeparator: "comma-space" });
     expect(placesOf(out)).toEqual(["Spodnja Besnica, Kranj, Slovenija", "Kranj, Slovenija"]);

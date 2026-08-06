@@ -161,6 +161,7 @@ export function normalizeDataset(
     } else if (node.tag === "PLAC" || node.tag === "ADDR") {
       // Place text is left as-is; only tidy whitespace, and do so silently
       // (whitespace fixes are not interesting enough to count or list).
+      if (!options.places || options.tidyPlaceWhitespace === false) return;
       node.value = normalizePlaceString(node.value);
     } else if (LINK_TAGS.has(node.tag) && looksLikeUrl(node.value)) {
       if (!options.links) return;
