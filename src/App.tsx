@@ -1291,6 +1291,7 @@ function AppContent() {
     return {
       main: mainDs,
       mainFileName: fileName,
+      homeId: startId,
       compare: compareDataset,
       decisions,
       matches,

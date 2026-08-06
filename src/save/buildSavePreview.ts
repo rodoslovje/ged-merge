@@ -1,5 +1,6 @@
 import { buildEditReport, combineReports, enrichEditReport } from "../gedcom/editReport";
 import { xrefLabel } from "../gedcom/nameDisplay";
+import { NEW_FILE_BASENAME, newFileBase } from "../gedcom/newFile";
 import type { Dataset, GedNode } from "../gedcom/types";
 import type { Translate } from "../locales/i18n";
 import type { MatchResult } from "../match/types";
@@ -23,6 +24,8 @@ export interface SavePreviewInput {
   main: Dataset;
   /** Name of the loaded main file — the download stem is derived from it. */
   mainFileName: string;
+  /** The home person, whose surname names a file still called `new-tree`. */
+  homeId?: string;
   /** The incoming file, when one is loaded. A merge without it is impossible
    *  (a restored session can carry decisions whose compare failed to load). */
   compare: Dataset | undefined;
@@ -92,7 +95,7 @@ export interface SavePreview {
  */
 export function buildSavePreview(input: SavePreviewInput): SavePreview | null {
   const {
-    main, mainFileName, compare, decisions, matches, importRequests,
+    main, mainFileName, homeId, compare, decisions, matches, importRequests,
     confirmedCount, importCount, changedPersonIds, changedFamilyIds, changedRecordIds,
     loadedPersonIds, loadedFamilyIds, personSnapshots, familySnapshots, recordSnapshots,
     isSortEligible, now, formatOverrides, t,
@@ -103,7 +106,10 @@ export function buildSavePreview(input: SavePreviewInput): SavePreview | null {
   const isMerge = (confirmedCount > 0 || importCount > 0) && !!compare;
   if (!isMerge && changedCount === 0) return null;
 
-  const base = baseStem(mainFileName);
+  // A tree started from nothing downloads under the name of the family in it,
+  // not the placeholder it was created with.
+  const stem = baseStem(mainFileName);
+  const base = stem === NEW_FILE_BASENAME ? (newFileBase(main, homeId) ?? stem) : stem;
   const editRecordIds = new Set([...changedPersonIds, ...changedFamilyIds]);
 
   const editReport = changedCount > 0

@@ -156,6 +156,35 @@ describe("download names", () => {
     expect(out.files[1]).toMatch(/^rodovnik.*\.report\.txt$/);
   });
 
+  // A tree started from nothing is called `new-tree` until it is saved; the
+  // download takes the name of the family in it instead.
+  it("names a still-unnamed tree after its home person", () => {
+    const edited = { changedPersonIds: new Set(["@I1@"]), mainFileName: "new-tree.ged" };
+    const out = buildSavePreview(input(dataset(MAIN), edited))!;
+    expect(out.base).toBe("Novak");
+    expect(out.files[0]).toMatch(/^Novak\..*\.ged$/);
+
+    const home = buildSavePreview(input(dataset(MAIN), { ...edited, homeId: "@I2@" }))!;
+    expect(home.base).toBe("Kos");
+  });
+
+  it("keeps the placeholder when no surname is on offer", () => {
+    const noSurname = wrap("0 @I1@ INDI\n1 NAME Janez\n");
+    const out = buildSavePreview(input(dataset(noSurname), {
+      changedPersonIds: new Set(["@I1@"]),
+      mainFileName: "new-tree.ged",
+    }))!;
+    expect(out.base).toBe("new-tree");
+  });
+
+  it("leaves a real file name alone, whoever the home person is", () => {
+    const out = buildSavePreview(input(dataset(MAIN), {
+      changedPersonIds: new Set(["@I1@"]),
+      homeId: "@I2@",
+    }))!;
+    expect(out.base).toBe("rodovnik");
+  });
+
   it("is reproducible for a fixed `now`", () => {
     const a = buildSavePreview(input(dataset(MAIN), { changedPersonIds: new Set(["@I1@"]) }))!;
     const b = buildSavePreview(input(dataset(MAIN), { changedPersonIds: new Set(["@I1@"]) }))!;
