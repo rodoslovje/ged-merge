@@ -1555,6 +1555,8 @@ export const sl = {
   "field.husband": "Mož",
   "field.wife": "Žena",
   "field.familyWith": "Družina z: {{name}}",
+  "field.familyNoPartner": "Družina brez partnerja",
+  "name.unnamed": "(brez imena)",
   "field.nickname": "Vzdevek",
   "field.childOf": "Otrok v",
   "field.spouseOf": "Zakonec v",

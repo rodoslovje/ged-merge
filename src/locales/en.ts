@@ -1332,6 +1332,10 @@ export const en = {
   "field.husband": "Husband",
   "field.wife": "Wife",
   "field.familyWith": "Family with {{name}}",
+  // A family record naming only this person as a parent — its children have no
+  // second parent recorded, so there is nobody to name the family after.
+  "field.familyNoPartner": "Family with no partner",
+  "name.unnamed": "(unnamed)",
   "field.nickname": "Nickname",
   "field.childOf": "Child of",
   "field.spouseOf": "Spouse of",

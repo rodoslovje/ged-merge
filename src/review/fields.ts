@@ -15,6 +15,13 @@ import { inferPlaceExportFormat } from "../normalize/profile";
 import { linkKey } from "../normalize/links";
 import { reshapesLayout } from "../normalize/placeReformat";
 import type { PlaceTargetFormat } from "../normalize/types";
+import { UNNAMED } from "../gedcom/nameDisplay";
+
+/** Swap the name builders' untranslatable stand-in for a person the file names
+ *  nowhere (see {@link UNNAMED}) for the translated one. */
+function translateUnnamed(name: string, t: Translate): string {
+  return name === UNNAMED ? t("name.unnamed", { defaultValue: UNNAMED }) : name;
+}
 
 /** Friendly labels for the event tags we surface in review. */
 const EVENT_LABELS: Record<string, string> = {
@@ -321,11 +328,18 @@ function buildFamilyRows(
     const mSpouseRel = mSpouse ? [partnerToRelative(mSpouse, showAge)] : [];
     const cSpouseRel = cSpouse ? [partnerToRelative(cSpouse, showAge)] : [];
 
-    const spouseName = displayName(mSpouse?.names[0] ?? cSpouse?.names[0]) || "?";
+    // A family whose only recorded parent is this person has nobody to be named
+    // after — "Family with (unnamed)" reads as a nameless partner who does not
+    // exist. A partner who is merely nameless still gets the "with" form, under
+    // the translated stand-in.
+    const spouse = mSpouse ?? cSpouse;
+    const spouseName = translateUnnamed(displayName(spouse?.names[0]), t);
 
     rows.push({
       key: `${famKey}.header`,
-      label: t("field.familyWith", { name: spouseName, defaultValue: `Family with ${spouseName}` }),
+      label: spouse
+        ? t("field.familyWith", { name: spouseName, defaultValue: `Family with ${spouseName}` })
+        : t("field.familyNoPartner", { defaultValue: "Family with no partner" }),
       main: "",
       incoming: "",
       state: "agree",
