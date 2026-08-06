@@ -5,7 +5,7 @@ import { childValue } from "../../gedcom/node";
 import { lifespanOf } from "../../gedcom/lifespan";
 import { individualCopyBlock, familyCopyBlock, type CopyEventBlock } from "../../gedcom/edit";
 import { useNameOf } from "../SettingsContext";
-import { foldSearch } from "../globalSearch";
+import { foldSearch, matchesTerms, queryTerms } from "../globalSearch";
 
 /** An event the user asked to copy, and where it came from. */
 export interface CopyEventRequest {
@@ -146,9 +146,9 @@ export function CopyEventDialog({
     return [{ key: "others" as GroupKey, title: t("copyEvent.families"), rows }];
   }, [kind, dataset, sourceId, node, nameOf, t]);
 
-  const q = foldSearch(query.trim());
+  const terms = queryTerms(query);
   const shown = groups
-    .map((g) => ({ ...g, rows: g.rows.filter((r) => !q || r.search.includes(q)) }))
+    .map((g) => ({ ...g, rows: g.rows.filter((r) => matchesTerms(r.search, terms)) }))
     .filter((g) => g.rows.length > 0);
 
   function toggle(id: string) {

@@ -4,6 +4,7 @@ import type { Translate } from "../locales/i18n";
 import { lifespanTooltipOf, lifespanWithAge } from "../gedcom/age";
 import { datesTooltip, formatLifespan } from "../gedcom/lifespan";
 import { decisionKey, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
+import { foldSearch, matchesTerms, queryTerms } from "./globalSearch";
 
 export type Candidate = IndividualCandidate;
 
@@ -127,12 +128,14 @@ export const DEFAULT_FILTERS: Filters = {
 };
 
 export function applyFilters<T extends Candidate>(list: T[], f: Filters): T[] {
-  const q = f.nameQuery.trim().toLowerCase();
-  if (!q && !f.onlyNew && !f.onlyDiff && !f.onlyLinks && !f.onlyImports && f.minScore <= 0)
+  // Name terms match independently and accent-blind, like every other person
+  // search: "sebas kala" finds "Sebastjan Kalan", "ziva" finds "Živa".
+  const terms = queryTerms(f.nameQuery);
+  if (!terms.length && !f.onlyNew && !f.onlyDiff && !f.onlyLinks && !f.onlyImports && f.minScore <= 0)
     return list;
   return list.filter(
     (c) =>
-      (!q || c.name.toLowerCase().includes(q)) &&
+      matchesTerms(foldSearch(c.name), terms) &&
       (!f.onlyNew || (c.newCount ?? 0) > 0) &&
       (!f.onlyDiff || (c.diffCount ?? 0) > 0) &&
       (!f.onlyLinks || (c.linkCount ?? 0) > 0) &&

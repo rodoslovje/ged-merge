@@ -1,7 +1,7 @@
 import type { Individual } from "../gedcom/types";
 import { lifespanOf, birthSortKey } from "../gedcom/lifespan";
 import { nameSearchText } from "../match/relatives";
-import { foldSearch } from "./globalSearch";
+import { foldSearch, matchesTerms, queryTerms } from "./globalSearch";
 
 /**
  * Find-in-chart: locate a person *already drawn* on the current diagram and move
@@ -61,11 +61,6 @@ export function buildFindEntries(sources: Iterable<FindSource>): FindEntry[] {
   return entries;
 }
 
-/** Split a query into folded terms; empty when the query is blank. */
-function queryTerms(query: string): string[] {
-  return foldSearch(query.trim()).split(/\s+/).filter(Boolean);
-}
-
 /**
  * Every position on the chart matching the query — all terms must appear, in any
  * order, so "kov marija" finds "Marija Kovačič". An empty query matches nothing:
@@ -74,7 +69,7 @@ function queryTerms(query: string): string[] {
 export function findHits(entries: FindEntry[], query: string): FindEntry[] {
   const terms = queryTerms(query);
   if (!terms.length) return [];
-  return entries.filter((e) => terms.every((term) => e.text.includes(term)));
+  return entries.filter((e) => matchesTerms(e.text, terms));
 }
 
 /**
@@ -95,8 +90,7 @@ export function findOffChart(
   let bestKey = Infinity;
   for (const indi of individuals.values()) {
     if (onChart.has(indi.id)) continue;
-    const text = personText(indi);
-    if (!terms.every((term) => text.includes(term))) continue;
+    if (!matchesTerms(personText(indi), terms)) continue;
     const key = birthSortKey(indi);
     if (!best || key < bestKey) {
       best = indi;

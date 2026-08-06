@@ -6,7 +6,7 @@ import { lifespanTooltipOf, lifespanWithAge } from "../../gedcom/age";
 import { xrefLabel } from "../../gedcom/nameDisplay";
 import { useNameOf, useSettingsSlice } from "../SettingsContext";
 import { sexClass } from "../sex";
-import { foldSearch } from "../globalSearch";
+import { foldSearch, matchesTerms, queryTerms } from "../globalSearch";
 
 /** The preferences the rows read — the same ones the person cards honour, so a
  *  name reads identically whether it sits on a card or in this list. */
@@ -80,11 +80,14 @@ export function RelativePickerCard({
   );
 
   // Typing only walks that list, and stops at the first full page of matches.
+  // Each word of the query is matched on its own, so a few opening letters of
+  // the given name and of the surname are enough: "sebas kala" finds
+  // "Sebastjan Kalan", and the two may sit in different name fields.
   const options = useMemo(() => {
-    const q = foldSearch(query.trim());
+    const terms = queryTerms(query);
     const shown: typeof people = [];
     for (const p of people) {
-      if (q && !p.search.includes(q)) continue;
+      if (!matchesTerms(p.search, terms)) continue;
       shown.push(p);
       if (shown.length === MAX_OPTIONS) break;
     }

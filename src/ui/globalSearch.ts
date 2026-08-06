@@ -46,6 +46,24 @@ export function foldSearch(s: string): string {
   return s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
 }
 
+/**
+ * Split a query into folded search terms; empty for a blank query.
+ * Every person-search box in the app runs the query through this, so a typed
+ * name never has to be contiguous: the terms are matched independently.
+ */
+export function queryTerms(query: string): string[] {
+  return foldSearch(query.trim()).split(/\s+/).filter(Boolean);
+}
+
+/**
+ * True when every term appears somewhere in the (already folded) haystack, in
+ * any order — so "sebas kala" finds "Sebastjan Kalan" and "kov marija" finds
+ * "Marija Kovačič". No terms means no restriction.
+ */
+export function matchesTerms(text: string, terms: string[]): boolean {
+  return terms.every((term) => text.includes(term));
+}
+
 /** True when the individual carries a URL on the record or any of its events. */
 function anyLinks(indi: Individual): boolean {
   return (indi.links?.length ?? 0) > 0 || indi.events.some((e) => (e.links?.length ?? 0) > 0);
@@ -159,10 +177,6 @@ export function hasActiveFilters(f: GlobalFilters): boolean {
   );
 }
 
-function matchesQuery(row: SearchRow, terms: string[]): boolean {
-  return terms.every((term) => row.searchText.includes(term));
-}
-
 function matchesFilters(row: SearchRow, f: GlobalFilters, ctx: FilterContext): boolean {
   if (f.sex !== undefined && row.sex !== f.sex) return false;
   if (f.bornFrom !== undefined && (row.birthYear === undefined || row.birthYear < f.bornFrom)) return false;
@@ -194,11 +208,11 @@ export function searchPeople(
   filters: GlobalFilters,
   ctx: FilterContext,
 ): SearchRow[] {
-  const terms = foldSearch(query.trim()).split(/\s+/).filter(Boolean);
+  const terms = queryTerms(query);
   const active = hasActiveFilters(filters);
   const out: SearchRow[] = [];
   for (const row of rows) {
-    if (terms.length && !matchesQuery(row, terms)) continue;
+    if (!matchesTerms(row.searchText, terms)) continue;
     if (active && !matchesFilters(row, filters, ctx)) continue;
     out.push(row);
     if (out.length >= MAX_RESULTS) break;
