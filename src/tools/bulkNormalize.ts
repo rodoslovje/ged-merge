@@ -43,5 +43,7 @@ export function bulkNormalize(
   return normalizeDataset(ds, profile, dateValues, {
     ...(options ?? { dates: true, places: true, links: true, names: true, vendorTags: true, stripInternal: true }),
     preserveVendorTags,
+    // Never on one's own file — see `NormalizeOptions.tidyPlaceWhitespace`.
+    tidyPlaceWhitespace: false,
   });
 }

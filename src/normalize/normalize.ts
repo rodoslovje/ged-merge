@@ -2,7 +2,7 @@ import { buildDataset, LINK_TAGS, looksLikeUrl } from "../gedcom/builder";
 import type { Dataset, GedNode, ParseResult } from "../gedcom/types";
 import { cloneNode, firstChild } from "../gedcom/node";
 import { dropPlaceholderDates, normalizeDateString } from "./date";
-import { normalizePlaceString } from "./place";
+import { dropPlaceholderPlaces, normalizePlaceString } from "./place";
 import { rewriteLinkLang } from "./links";
 import { reformatPlace, reshapesLayout, respellSeparator } from "./placeReformat";
 import { inferDateProfile } from "./profile";
@@ -161,6 +161,7 @@ export function normalizeDataset(
     } else if (node.tag === "PLAC" || node.tag === "ADDR") {
       // Place text is left as-is; only tidy whitespace, and do so silently
       // (whitespace fixes are not interesting enough to count or list).
+      if (!options.places || options.tidyPlaceWhitespace === false) return;
       node.value = normalizePlaceString(node.value);
     } else if (LINK_TAGS.has(node.tag) && looksLikeUrl(node.value)) {
       if (!options.links) return;
@@ -187,6 +188,20 @@ export function normalizeDataset(
       for (const before of dropPlaceholderDates(rec)) {
         report.datesChanged++;
         record(report.dateExamples, seenDate, before, "(blank)");
+      }
+    }
+  }
+
+  // An all-placeholder place ("----", "unknown") says only what an absent tag
+  // already says. Drop it so the compare view shows a difference only where one
+  // side actually knows something — the place analog of the placeholder-date
+  // drop above. Runs after the whitespace tidy so a spaced "- - -" is judged on
+  // its tidied text.
+  if (options.places) {
+    for (const rec of editable) {
+      for (const before of dropPlaceholderPlaces(rec)) {
+        report.placesReshaped++;
+        record(report.placeExamples, seenPlace, before, "(blank)");
       }
     }
   }

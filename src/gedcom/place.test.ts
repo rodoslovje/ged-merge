@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decomposePlace, localityParts, parsePlace, stripParishLabel } from "./place";
+import { decomposePlace, isUnknownPlaceValue, localityParts, parsePlace, stripParishLabel } from "./place";
 
 describe("decomposePlace", () => {
   it("splits a structured comma place (Renko PLAC)", () => {
@@ -9,6 +9,19 @@ describe("decomposePlace", () => {
     expect(p.jurisdiction).toEqual(["Srednje Bitnje", "Kranj", "Slovenia"]);
     expect(p.houseNumber).toBeUndefined();
     expect(p.street).toBeUndefined();
+  });
+
+  // The dangling-separator cleanup ("Zgornje Bitnje 42 - (pd V dolini)") used
+  // to eat the last dash of an all-dash placeholder, so the place explorer
+  // listed a "----" place as "---" and no search for it found anything.
+  it("keeps a placeholder place whole, dash for dash", () => {
+    expect(decomposePlace("----").jurisdiction).toEqual(["----"]);
+    expect(decomposePlace("-").jurisdiction).toEqual(["-"]);
+    expect(decomposePlace("----, Kranj").jurisdiction).toEqual(["----", "Kranj"]);
+  });
+
+  it("still drops a separator left dangling by a removed aside", () => {
+    expect(decomposePlace("Zgornje Bitnje 42 - (pd V dolini)").houseNumber).toBe("42");
   });
 
   it("extracts house number and 'po domače' name from a Renko ADDR", () => {
@@ -149,6 +162,23 @@ describe("parsePlace", () => {
     expect(parsePlace("Zgornje Bitnje 52 [pd Urbanov Jaka], Kranj").detail).toBe("52");
     expect(localityParts(parsePlace("Zgornje Bitnje 52 [pd Urbanov Jaka], Kranj")))
       .toEqual(["Zgornje Bitnje", "Kranj"]);
+  });
+});
+
+describe("isUnknownPlaceValue", () => {
+  it.each(["----", "?", "unknown", "N.N.", "Neznano", "----, ----, ----", "  ...  "])(
+    "reads %s as saying only 'unknown'",
+    (raw) => {
+      expect(isUnknownPlaceValue(raw)).toBe(true);
+    },
+  );
+
+  it.each(["", "   ", "Kranj", "----, Kranj, Slovenia", "Nova vas", "N"])("leaves %s alone", (raw) => {
+    expect(isUnknownPlaceValue(raw)).toBe(false);
+  });
+
+  it("is false for a missing value", () => {
+    expect(isUnknownPlaceValue(undefined)).toBe(false);
   });
 });
 

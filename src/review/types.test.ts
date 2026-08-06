@@ -4,6 +4,7 @@ import {
   decisionStatusByMainId,
   findConfirmedDecision,
   parseDecisionKey,
+  toggleDecisionStatus,
   type CandidateDecision,
 } from "./types";
 
@@ -27,6 +28,46 @@ describe("parseDecisionKey", () => {
     ["blank compare id", "individual:@I1@:"],
   ])("rejects a malformed key (%s)", (_case, key) => {
     expect(parseDecisionKey(key)).toBeUndefined();
+  });
+});
+
+describe("toggleDecisionStatus", () => {
+  it("sets the status on a pair that has none yet", () => {
+    expect(toggleDecisionStatus(undefined, "confirmed")).toEqual({ status: "confirmed", fields: {} });
+  });
+
+  it("clears back to undecided when the status is pressed again", () => {
+    expect(toggleDecisionStatus(confirmed(), "confirmed").status).toBe("undecided");
+  });
+
+  it("switches straight between two decided statuses", () => {
+    expect(toggleDecisionStatus(rejected(), "confirmed").status).toBe("confirmed");
+  });
+
+  // A child is ticked in the compare panel while the match is still
+  // undecided; confirming afterwards must not throw the tick away.
+  it("keeps ticked children and dismissed events across a status change", () => {
+    const before: CandidateDecision = {
+      status: "undecided",
+      fields: { surname: "incoming" },
+      takenChildren: ["@P4@"],
+      rejectedEvents: ["BIRT:1"],
+    };
+    expect(toggleDecisionStatus(before, "confirmed")).toEqual({
+      status: "confirmed",
+      fields: { surname: "incoming" },
+      takenChildren: ["@P4@"],
+      rejectedEvents: ["BIRT:1"],
+    });
+  });
+
+  it("keeps them through confirm → undecided → confirm", () => {
+    const before: CandidateDecision = { status: "undecided", fields: {}, takenChildren: ["@P4@"] };
+    const round = toggleDecisionStatus(
+      toggleDecisionStatus(toggleDecisionStatus(before, "confirmed"), "confirmed"),
+      "confirmed",
+    );
+    expect(round).toEqual({ status: "confirmed", fields: {}, takenChildren: ["@P4@"] });
   });
 });
 

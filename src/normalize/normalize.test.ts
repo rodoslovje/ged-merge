@@ -1116,6 +1116,102 @@ describe("normalizeDataset (placeholder-date dropping)", () => {
   });
 });
 
+describe("normalizeDataset (placeholder-place dropping)", () => {
+  const MAIN_PLAIN = `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 PLAC Jama, Kranj, Slovenia
+0 TRLR
+`;
+
+  function normalizeCompare(compare: string) {
+    const { dataset: out, report } = normalizeDataset(dataset(compare), inferMainProfile(dataset(MAIN_PLAIN)));
+    return { indi: out.individuals.get("@I1@")!, report };
+  }
+
+  it("drops an all-placeholder PLAC so it stops showing as a difference", () => {
+    const { indi, report } = normalizeCompare(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 DATE ABT 1670
+2 PLAC ----
+1 DEAT
+2 PLAC unknown
+0 TRLR
+`);
+    expect(indi.events.find((e) => e.tag === "BIRT")!.place).toBeUndefined();
+    expect(indi.events.find((e) => e.tag === "BIRT")!.date?.raw).toBe("ABT 1670"); // rest of the event untouched
+    expect(indi.events.find((e) => e.tag === "DEAT")!.place).toBeUndefined();
+    expect(report.placeExamples).toContainEqual({ before: "----", after: "(blank)" });
+  });
+
+  it("drops a placeholder written out part by part, and a placeholder ADDR", () => {
+    const { indi } = normalizeCompare(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 RESI
+2 PLAC ????, ????
+2 ADDR N.N.
+0 TRLR
+`);
+    const resi = indi.events.find((e) => e.tag === "RESI")!;
+    expect(resi.place).toBeUndefined();
+    expect(resi.address).toBeUndefined();
+  });
+
+  // The incoming file is being reshaped to the house style anyway, so its
+  // stray spaces are tidied before they reach the merged file. (One's own file
+  // is left alone — see the bulk-normalize test.)
+  it("still tidies whitespace in an incoming place value", () => {
+    const { indi } = normalizeCompare(
+      ["0 HEAD", "1 CHAR UTF-8", "0 @I1@ INDI", "1 BIRT", "2 PLAC Jama,  Kranj, Slovenia ", "0 TRLR"].join("\n"),
+    );
+    const plac = indi.raw.children.find((c) => c.tag === "BIRT")!.children.find((c) => c.tag === "PLAC")!;
+    expect(plac.value).toBe("Jama, Kranj, Slovenia");
+  });
+
+  it("keeps a place where any part is real", () => {
+    const { indi } = normalizeCompare(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 PLAC ----, Kranj, Slovenia
+0 TRLR
+`);
+    expect(indi.events.find((e) => e.tag === "BIRT")!.place?.raw).toBe("----, Kranj, Slovenia");
+  });
+
+  it("keeps a placeholder PLAC that carries a subtree, so nothing else is lost", () => {
+    const { indi } = normalizeCompare(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 PLAC ----
+3 NOTE the parish register gives no place
+0 TRLR
+`);
+    expect(indi.events.find((e) => e.tag === "BIRT")!.place?.raw).toBe("----");
+  });
+
+  it("leaves placeholder places alone when place normalization is switched off", () => {
+    const { dataset: out } = normalizeDataset(
+      dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 PLAC ----
+0 TRLR
+`),
+      inferMainProfile(dataset(MAIN_PLAIN)),
+      undefined,
+      { dates: true, places: false, links: true, names: true, vendorTags: true },
+    );
+    expect(out.individuals.get("@I1@")!.events[0].place?.raw).toBe("----");
+  });
+});
+
 describe("parseDate (2-digit years)", () => {
   it("expands 2-digit years in numeric dates (window picks the 1900s for 32–99)", () => {
     expect(parseDate("20.02.89", "DMY")).toMatchObject({ day: 20, month: 2, year: 1989 });

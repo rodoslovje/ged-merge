@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import type { MatchResult } from "../match/types";
 import { buildPersonTree, buildMatchMaps, countImportable } from "../chart/personTree";
-import { decisionKey, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
+import { decisionKey, toggleDecisionStatus, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
 import { KEY, KEY_STATUS, STATUS_KEY, isEditableTarget, isModalOpen } from "../keyboard/shortcuts";
 import { useFindShortcut } from "../keyboard/useFindShortcut";
 import { kinshipInfo, kinshipTooltip as kinshipTooltipText, lineageClass } from "../match/kinship";
@@ -181,7 +181,7 @@ export function MergeView({
 
   function toggleStatus(next: MatchDecisionStatus) {
     if (!current) return;
-    onUpdateDecision({ status: status === next ? "undecided" : next, fields });
+    onUpdateDecision(toggleDecisionStatus(currentDecision, next));
   }
 
   /** Reveal the match list and its filter row, then focus the name filter —

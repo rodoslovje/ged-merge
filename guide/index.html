@@ -349,8 +349,11 @@
               When you load an <strong>incoming</strong> file, GED Merge <strong>normalizes</strong> it to your main file's
               house style before comparing — reformatting its dates, reshaping its places, rewriting links (Matricula,
               Geneanet) and reshaping name variants — so the comparison is like-for-like and anything you merge in
-              already matches your file's conventions. The <a href="#tools">Normalize</a> tool applies the same idea
-              <em>within</em> a single (main) file, bringing outliers in line with the file's own dominant style.
+              already matches your file's conventions. A value that only says <em>unknown</em> — a date, name or place
+              written as <code>____</code>, <code>----</code> or <code>N.N.</code> — is dropped rather than carried over,
+              so it never shows up as a difference against your own empty field. The <a href="#tools">Normalize</a> tool
+              applies the same idea <em>within</em> a single (main) file, bringing outliers in line with the file's own
+              dominant style; on your own file it leaves place spelling and spacing exactly as you wrote them.
             </p>
             <p>
               GED Merge also reconciles the two files' <strong>GEDCOM version</strong>. If the incoming file uses a

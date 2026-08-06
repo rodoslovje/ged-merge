@@ -250,6 +250,17 @@ export interface NormalizeOptions {
   names: boolean;
   /** Rewrite vendor-tag synonyms to their canonical form (`_MILI` → `_MILT`). */
   vendorTags: boolean;
+  /**
+   * Collapse runs of spaces and trim the ends of every `PLAC`/`ADDR` value.
+   * On by default: an incoming compare file is being reshaped to the house
+   * style anyway, and its stray spaces are not something the reader typed.
+   *
+   * The bulk tool turns it off, because on one's *own* file the same tidy
+   * rewrites every place that ever ended in a space — thousands of lines whose
+   * change is invisible on screen and drowns the real edits in the diff. Places
+   * there are still reshaped and respelled; only the whitespace is left alone.
+   */
+  tidyPlaceWhitespace?: boolean;
   /** Alias source-tags the vendorTags pass must leave untouched. The
    * bulk-normalize tool sets it to the file's own native dialect
    * (`nativeAliasTags`), so e.g. a MacFamilyTree file keeps its `MISE` instead

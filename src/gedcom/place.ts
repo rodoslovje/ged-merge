@@ -1,5 +1,6 @@
 import type { GedNode, GedPlace, GeoCoord } from "./types";
 import { firstChild } from "./node";
+import { isUnknownNameToken } from "./name";
 
 /**
  * A bracketed aside in a place value. Round and square brackets are read alike:
@@ -35,6 +36,21 @@ export function parsePlace(raw: string): GedPlace {
   const m = parts.length ? HOUSE_NUMBER.exec(parts[0]) : null;
   if (m) place.detail = m[1];
   return place;
+}
+
+/**
+ * Whether a `PLAC`/`ADDR` value says nothing but "unknown" — every one of its
+ * comma parts is a placeholder (`----`, `????`, `N.N.`, "unknown", "neznano"),
+ * as in "----" or "----, ----, ----". The vocabulary is the one
+ * {@link isUnknownNameToken} defines, so a file's placeholder habit is read the
+ * same way wherever it appears.
+ *
+ * A partly-known place ("----, Kranj, Slovenia") is real data and is not a
+ * placeholder — only the whole value counts.
+ */
+export function isUnknownPlaceValue(raw: string | undefined): boolean {
+  const parts = parsePlace(raw ?? "").parts;
+  return parts.length > 0 && parts.every((p) => isUnknownNameToken(p));
 }
 
 /**
@@ -301,7 +317,10 @@ export function decomposePlace(raw: string): PlaceComponents {
   // Removing a trailing parenthetical can leave a dangling separator
   // ("Zgornje Bitnje 42 - (pd V dolini)" → "Zgornje Bitnje 42 -"); strip it so
   // the house number stays at the end of the segment and still parses.
-  s = s.replace(/\s*[-–]\s*$/, "").trim();
+  // Not on a value that is nothing but placeholder punctuation ("----"): there
+  // the last dash is the value, not a separator, and eating it left the place
+  // explorer listing a "----" place under a name no search for it would match.
+  if (!isUnknownPlaceValue(s)) s = s.replace(/\s*[-–]\s*$/, "").trim();
 
   // 3. Comma segments: locality, further jurisdictions, and any inline address.
   const segments = s.split(",").map(tidy).filter(Boolean);
