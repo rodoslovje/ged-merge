@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useModalKeyboard } from "../keyboard/useModalKeyboard";
 
@@ -26,6 +27,11 @@ interface Props {
 export function ConfirmDialog({ message, confirmLabel, onConfirm, onCancel, cancelLabel, danger, checkboxLabel, checked, onCheckedChange, altLabel, onAlt }: Props) {
   const { t } = useTranslation();
   const ref = useModalKeyboard(true, onCancel);
+  // The trap parks focus on the first focusable control, which the optional
+  // checkbox would win — leaving Enter doing nothing. Hand it to the button
+  // that answers the question: Cancel, or the sole action when there is none.
+  const defaultBtn = useRef<HTMLButtonElement>(null);
+  useEffect(() => { defaultBtn.current?.focus(); }, []);
   const [title, body] = message.split("\n\n");
   return (
     <div className="modal-overlay" onClick={onCancel}>
@@ -43,23 +49,27 @@ export function ConfirmDialog({ message, confirmLabel, onConfirm, onCancel, canc
           </label>
         )}
         <div className="confirm-dialog-actions">
-          {altLabel && onAlt && (
-            <button type="button" className="btn-secondary" onClick={onAlt}>
-              {altLabel}
-            </button>
-          )}
           {cancelLabel !== null && (
-            <button type="button" className="btn-secondary" onClick={onCancel}>
+            <button type="button" className="btn-secondary" ref={defaultBtn} onClick={onCancel}>
               {cancelLabel ?? t("confirm.cancel")}
             </button>
           )}
           <button
             type="button"
             className={`confirm-dialog-confirm ${danger ? "danger" : ""}`}
+            ref={cancelLabel === null ? defaultBtn : undefined}
             onClick={onConfirm}
           >
             {confirmLabel}
           </button>
+          {/* Last in the DOM, first on screen (CSS `order`): opening focus and
+              Tab must not land on the lasting answer before the two ordinary
+              ones — the dialog focuses whichever control comes first. */}
+          {altLabel && onAlt && (
+            <button type="button" className="btn-secondary confirm-dialog-alt" onClick={onAlt}>
+              {altLabel}
+            </button>
+          )}
         </div>
       </div>
     </div>

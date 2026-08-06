@@ -278,11 +278,13 @@ export function MediaFolderProvider({ children }: { children: React.ReactNode })
       try {
         // On Brave the picker must fire from inside the warning's OK click to
         // keep the user gesture alive; elsewhere call it directly.
+        // The notice explains the browser's wording; it isn't a second yes/no —
+        // the user already asked for the folder — so it acknowledges only.
         const dir = isBrave && warn
           ? await askDialogThen(
               t("loader.mediaFolder.firefoxWarning"),
-              t("confirm.ok"),
-              t("confirm.cancel"),
+              t("confirm.continue"),
+              null,
               pick,
               true,
             )
@@ -303,11 +305,11 @@ export function MediaFolderProvider({ children }: { children: React.ReactNode })
       if ((isFirefox || isBrave) && warn) {
         const ok = await askDialog(
           t("loader.mediaFolder.firefoxWarning"),
-          t("confirm.ok"),
-          t("confirm.cancel"),
+          t("confirm.continue"),
+          null,
           true,
         );
-        if (!ok) return;
+        if (!ok) return; // dismissed with Esc / a click outside
       }
       inputRef.current.click();
     } else {

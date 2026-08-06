@@ -6053,7 +6053,9 @@ kbd {
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 24px;
-  width: 360px;
+  /* Wide enough for three actions on one row — a dialog that offers a third
+     answer must not push it onto a line of its own. */
+  width: 440px;
   max-width: 90vw;
   /* Unlike .modal this is not a full-height dialog, so it carried no height cap
      at all — a long save summary on a phone grew past the screen and had no way
@@ -6091,6 +6093,13 @@ kbd {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
+}
+/* The lasting answer ("never again") sits apart from the two that decide only
+   this one time, so it can't be hit while reaching for Cancel. It is last in
+   the DOM (see ConfirmDialog) and pulled to the left edge here. */
+.confirm-dialog-alt {
+  order: -1;
+  margin-right: auto;
 }
 .confirm-dialog-confirm {
   background: var(--accent);
