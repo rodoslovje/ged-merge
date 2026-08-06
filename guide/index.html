@@ -726,7 +726,11 @@
               <span class="gm-swatch main"></span> main file only, <span class="gm-swatch incoming"></span> incoming only.
               From here you can re-root on any person, mark a status, or use
               <strong>+ Bring ancestors</strong> / <strong>+ Bring descendants</strong> to graft a whole incoming branch
-              into your main file on save. The <strong>Chart</strong> settings, zoom controls, overview minimap and
+              into your main file on save. An ancestor import stops wherever the two files disagree about a parent: if
+              your file already records someone else as this person's father, that incoming father and everyone above
+              him stay out rather than landing in your file attached to nothing, and the save preview says so by name
+              under <strong>Kept as in your file</strong> (<a href="#saving">§14</a>). The <strong>Chart</strong>
+              settings, zoom controls, overview minimap and
               <strong>Export</strong> menu all work here just like the other diagrams (see <a href="#charts">§11</a>) —
               except there's no GEDCOM export, since a compare tree can include incoming-only people not yet in your
               main file.
@@ -1633,15 +1637,17 @@
             <p>
               Saving is one unified flow for both edits and merges. <strong>Save GEDCOM</strong>
               (<span class="gm-key">Ctrl</span><span class="gm-key">S</span>) opens a <strong>preview</strong> listing
-              every change — persons and families changed, fields applied, new records added, and anything that could
-              not be merged. Each entry carries a badge: <span class="gm-badge b">New</span>,
+              every change — persons and families changed, fields applied, new records added, and anything your file
+              kept as it was. Each entry carries a badge: <span class="gm-badge b">New</span>,
               <span class="gm-badge i">Incoming</span>, <span class="gm-badge c">Edited</span> or
               <span class="gm-badge r">Removed</span>. Use <strong>Remove from Save</strong> to drop any single change
               before downloading. The preview covers <strong>every</strong> event, whatever its tag — events outside the
               common list (adult christening, LDS baptism, marriage banns, vendor-specific events) show their changes too —
               and written place <strong>coordinates</strong> appear as the event's changed field. A
               <span class="gm-badge b">New</span> person carries their name in the usual sex colour with their lifespan,
-              and lists the facts they bring with them.
+              and lists the facts they bring with them. A person arriving with a whole branch
+              (<span class="gm-badge b">Incoming</span>) shows name and lifespan only, so a graft of hundreds stays
+              readable.
             </p>
             <p>
               A child you took from the incoming file is added as a person of their own. If your file already holds that
@@ -1651,10 +1657,17 @@
             </p>
             <p>
               If you edit a field <em>after</em> confirming a match, your edit wins. The merge leaves that field alone
-              instead of overwriting it with the incoming value, and lists it under <strong>Not merged</strong> in the
-              preview so you can see what stood down. This is per field, not per person — the rest of that match still
-              applies as you chose. To take the incoming value after all, choose it again on the match: a confirmation
-              is always judged against the values on screen at that moment.
+              instead of overwriting it with the incoming value, and lists it under <strong>Kept as in your file</strong>
+              in the preview so you can see what stood down. This is per field, not per person — the rest of that match
+              still applies as you chose. To take the incoming value after all, choose it again on the match: a
+              confirmation is always judged against the values on screen at that moment.
+            </p>
+            <p>
+              <strong>Kept as in your file</strong> gathers everything the incoming file said differently and your file
+              kept: a field you edited after confirming, a marriage slot already filled by someone else, a parent your
+              file already records. Each line names the family or person, which record was kept and which incoming one
+              stood down — nothing there was changed or lost, and the two names usually tell you at a glance whether
+              they are the same person spelled twice, worth merging later, or genuinely two different people.
             </p>
             <p>
               <strong>Download GEDCOM</strong> writes two files: the new <em>.ged</em> and a plain-text

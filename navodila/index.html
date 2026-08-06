@@ -731,7 +731,11 @@
               razlike, <span class="gm-swatch major"></span> večje razlike, <span class="gm-swatch main"></span> samo
               glavni, <span class="gm-swatch incoming"></span> samo vhodni. Od tu lahko za koren postavite katero koli
               osebo, dodelite stanje ali z <strong>+ Prinesi prednike</strong> / <strong>+ Prinesi potomce</strong> ob
-              shranjevanju v glavno datoteko vključite celotno vhodno vejo. Nastavitve <strong>Diagrama</strong>, gumbi za
+              shranjevanju v glavno datoteko vključite celotno vhodno vejo. Uvoz prednikov se ustavi povsod, kjer se
+              datoteki o staršu ne strinjata: če vaša datoteka kot očeta te osebe že navaja nekoga drugega, vhodni oče in
+              vsi nad njim ostanejo zunaj, namesto da bi v vaši datoteki pristali brez povezave, predogled shranjevanja
+              pa to poimensko pove pod <strong>Ohranjeno iz vaše datoteke</strong> (<a href="#saving">§14</a>).
+              Nastavitve <strong>Diagrama</strong>, gumbi za
               povečavo, pregledna sličica in meni <strong>Izvoz</strong> tu delujejo enako kot pri drugih diagramih
               (glejte <a href="#charts">§11</a>) — le izvoza GEDCOM ni, ker primerjalno drevo lahko vključuje osebe samo iz
               vhodne datoteke, ki še niso v vaši glavni.
@@ -1644,15 +1648,17 @@
             <p>
               Shranjevanje je enoten potek za urejanja in združevanja. <strong>Shrani GEDCOM</strong>
               (<span class="gm-key">Ctrl</span><span class="gm-key">S</span>) odpre <strong>predogled</strong> z vsako
-              spremembo — spremenjene osebe in družine, uporabljena polja, dodani novi zapisi in vse, česar ni bilo mogoče
-              združiti. Vsak vnos nosi oznako: <span class="gm-badge b">Nov</span>,
+              spremembo — spremenjene osebe in družine, uporabljena polja, dodani novi zapisi in vse, kar je vaša
+              datoteka obdržala po svoje. Vsak vnos nosi oznako: <span class="gm-badge b">Nov</span>,
               <span class="gm-badge i">Vhodna</span>, <span class="gm-badge c">Spremenjen</span> ali
               <span class="gm-badge r">Odstranjen</span>. Z <strong>Odstrani iz shranjevanja</strong> pred prenosom
               opustite posamezno spremembo. Predogled zajema <strong>vsak</strong> dogodek, ne glede na oznako — pokažejo
               se tudi spremembe dogodkov zunaj običajnega seznama (krst odraslega, LDS krst, oklici, dogodki posameznih
               programov) — zapisane <strong>koordinate</strong> kraja pa se prikažejo kot spremenjeno polje dogodka.
               Oseba z oznako <span class="gm-badge b">Nov</span> ima ime v običajni barvi spola in ob njem življenjsko
-              dobo, pod imenom pa našteje podatke, ki jih prinaša.
+              dobo, pod imenom pa našteje podatke, ki jih prinaša. Oseba, ki pride s celotno linijo
+              (<span class="gm-badge i">Vhodna</span>), pokaže samo ime in življenjsko dobo, da ostane tudi uvoz nekaj sto
+              oseb pregleden.
             </p>
             <p>
               Otrok, ki ga prevzamete iz vhodne datoteke, se doda kot samostojna oseba. Če to osebo vaša datoteka že ima
@@ -1663,9 +1669,16 @@
             <p>
               Če polje uredite <em>po</em> tem, ko ste potrdili ujemanje, obvelja vaš popravek. Združevanje takega polja
               ne prepiše z vrednostjo iz vhodne datoteke, ampak ga v predogledu našteje pod
-              <strong>Ni bilo mogoče združiti</strong>, da vidite, česa ni uveljavilo. To velja za posamezno polje, ne za
-              celo osebo — preostanek ujemanja se uveljavi tako, kot ste izbrali. Če vrednost iz vhodne datoteke vseeno
-              želite, jo pri ujemanju izberite znova: potrditev vedno velja za vrednosti, ki so takrat na zaslonu.
+              <strong>Ohranjeno iz vaše datoteke</strong>, da vidite, česa ni uveljavilo. To velja za posamezno polje, ne
+              za celo osebo — preostanek ujemanja se uveljavi tako, kot ste izbrali. Če vrednost iz vhodne datoteke
+              vseeno želite, jo pri ujemanju izberite znova: potrditev vedno velja za vrednosti, ki so takrat na zaslonu.
+            </p>
+            <p>
+              <strong>Ohranjeno iz vaše datoteke</strong> zbere vse, kar je vhodna datoteka povedala drugače, vaša pa je
+              obdržala svoje: polje, ki ste ga uredili po potrditvi, zakonsko mesto, ki ga že zaseda nekdo drug, starš,
+              ki ga vaša datoteka že navaja. Vsaka vrstica poimenuje družino ali osebo, zapis, ki je ostal, in vhodnega,
+              ki se ni uveljavil — nič od tega ni bilo spremenjeno ali izgubljeno, imeni pa navadno že na pogled povesta,
+              ali gre za isto osebo, zapisano dvakrat, ali res za dve različni.
             </p>
             <p>
               <strong>Prenesi GEDCOM</strong> zapiše dve datoteki: novo <em>.ged</em> in besedilno

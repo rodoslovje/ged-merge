@@ -1,10 +1,10 @@
 GED Merge change report
 =======================
 
-Records changed:  446
-Fields applied:   704
-New persons:      239
-New families:     163
+Records changed:  194
+Fields applied:   304
+New persons:      91
+New families:     59
 Deferred:         6
 
 Applied changes
@@ -216,46 +216,42 @@ John Neville + Catherine Parr  @F77@
 ------------------------------------
   event.colDate: set "1533"
 
-Tudor Fychan of_Pemmynydd  @I352@
----------------------------------
-  merge.field.newPerson: set "Tudor Fychan of_Pemmynydd"
-
 Tudor Fychan of_Pemmynydd + Margaret  @F203@
 --------------------------------------------
   merge.field.newFamily: set ""
   merge.field.father: set "Tudor Fychan of_Pemmynydd"
   merge.field.mother: set "Margaret"
 
-Goronwy_Ap Tudor  @I353@
-------------------------
-  merge.field.newPerson: set "Goronwy_Ap Tudor"
+Tudor Fychan of_Pemmynydd  @I352@
+---------------------------------
+  merge.field.newPerson: set "Tudor Fychan of_Pemmynydd"
 
 Goronwy_Ap Tudor  @F204@
 ------------------------
   merge.field.newFamily: set ""
   merge.field.father: set "Goronwy_Ap Tudor"
 
-Tudor Hen  @I354@
------------------
-  merge.field.newPerson: set "Tudor Hen"
+Goronwy_Ap Tudor  @I353@
+------------------------
+  merge.field.newPerson: set "Goronwy_Ap Tudor"
 
 Tudor Hen  @F205@
 -----------------
   merge.field.newFamily: set ""
   merge.field.father: set "Tudor Hen"
 
-Goronwy  @I355@
----------------
-  merge.field.newPerson: set "Goronwy"
+Tudor Hen  @I354@
+-----------------
+  merge.field.newPerson: set "Tudor Hen"
 
 Goronwy  @F206@
 ---------------
   merge.field.newFamily: set ""
   merge.field.father: set "Goronwy"
 
-Ednyfed Fychan  @I356@
-----------------------
-  merge.field.newPerson: set "Ednyfed Fychan"
+Goronwy  @I355@
+---------------
+  merge.field.newPerson: set "Goronwy"
 
 Ednyfed Fychan + Gwenllian  @F207@
 ----------------------------------
@@ -263,134 +259,134 @@ Ednyfed Fychan + Gwenllian  @F207@
   merge.field.father: set "Ednyfed Fychan"
   merge.field.mother: set "Gwenllian"
 
+Ednyfed Fychan  @I356@
+----------------------
+  merge.field.newPerson: set "Ednyfed Fychan"
+
 Gwenllian  @I357@
 -----------------
   merge.field.newPerson: set "Gwenllian"
-
-Rhys_Ap Gruffydd  @I358@
-------------------------
-  merge.field.newPerson: set "Rhys_Ap Gruffydd"
 
 Rhys_Ap Gruffydd  @F208@
 ------------------------
   merge.field.newFamily: set ""
   merge.field.father: set "Rhys_Ap Gruffydd"
 
-Gruffydd  @I359@
-----------------
-  merge.field.newPerson: set "Gruffydd"
+Rhys_Ap Gruffydd  @I358@
+------------------------
+  merge.field.newPerson: set "Rhys_Ap Gruffydd"
 
 Gruffydd  @F209@
 ----------------
   merge.field.newFamily: set ""
   merge.field.father: set "Gruffydd"
 
-Rhys_Ap Twedwr  @I360@
-----------------------
-  merge.field.newPerson: set "Rhys_Ap Twedwr"
+Gruffydd  @I359@
+----------------
+  merge.field.newPerson: set "Gruffydd"
 
 Rhys_Ap Twedwr  @F210@
 ----------------------
   merge.field.newFamily: set ""
   merge.field.father: set "Rhys_Ap Twedwr"
 
-Tewdwr Mawr the_Great  @I361@
------------------------------
-  merge.field.newPerson: set "Tewdwr Mawr the_Great"
+Rhys_Ap Twedwr  @I360@
+----------------------
+  merge.field.newPerson: set "Rhys_Ap Twedwr"
 
 Tewdwr Mawr the_Great  @F211@
 -----------------------------
   merge.field.newFamily: set ""
   merge.field.father: set "Tewdwr Mawr the_Great"
 
-Cadell  @I362@
---------------
-  merge.field.newPerson: set "Cadell"
+Tewdwr Mawr the_Great  @I361@
+-----------------------------
+  merge.field.newPerson: set "Tewdwr Mawr the_Great"
 
 Cadell  @F212@
 --------------
   merge.field.newFamily: set ""
   merge.field.father: set "Cadell"
 
-Einion  @I363@
+Cadell  @I362@
 --------------
-  merge.field.newPerson: set "Einion"
+  merge.field.newPerson: set "Cadell"
 
 Einion  @F213@
 --------------
   merge.field.newFamily: set ""
   merge.field.father: set "Einion"
 
-Owain  @I364@
--------------
-  merge.field.newPerson: set "Owain"
+Einion  @I363@
+--------------
+  merge.field.newPerson: set "Einion"
 
 Owain  @F214@
 -------------
   merge.field.newFamily: set ""
   merge.field.father: set "Owain"
 
-Hywel Dda (the_Good)  @I365@
-----------------------------
-  merge.field.newPerson: set "Hywel Dda (the_Good)"
+Owain  @I364@
+-------------
+  merge.field.newPerson: set "Owain"
 
 Hywel Dda (the_Good)  @F215@
 ----------------------------
   merge.field.newFamily: set ""
   merge.field.father: set "Hywel Dda (the_Good)"
 
-Cadell  @I366@
---------------
-  merge.field.newPerson: set "Cadell"
+Hywel Dda (the_Good)  @I365@
+----------------------------
+  merge.field.newPerson: set "Hywel Dda (the_Good)"
 
 Cadell  @F216@
 --------------
   merge.field.newFamily: set ""
   merge.field.father: set "Cadell"
 
-Rhodri Mawr (the_Great)  @I367@
--------------------------------
-  merge.field.newPerson: set "Rhodri Mawr (the_Great)"
+Cadell  @I366@
+--------------
+  merge.field.newPerson: set "Cadell"
 
 Rhodri Mawr (the_Great)  @F217@
 -------------------------------
   merge.field.newFamily: set ""
   merge.field.father: set "Rhodri Mawr (the_Great)"
 
+Rhodri Mawr (the_Great)  @I367@
+-------------------------------
+  merge.field.newPerson: set "Rhodri Mawr (the_Great)"
+
 Margaret  @I368@
 ----------------
   merge.field.newPerson: set "Margaret"
-
-Thomas  @I369@
---------------
-  merge.field.newPerson: set "Thomas"
 
 Thomas  @F218@
 --------------
   merge.field.newFamily: set ""
   merge.field.father: set "Thomas"
 
-Llywelyn  @I370@
-----------------
-  merge.field.newPerson: set "Llywelyn"
+Thomas  @I369@
+--------------
+  merge.field.newPerson: set "Thomas"
 
 Llywelyn  @F219@
 ----------------
   merge.field.newFamily: set ""
   merge.field.father: set "Llywelyn"
 
-Owain  @I371@
--------------
-  merge.field.newPerson: set "Owain"
+Llywelyn  @I370@
+----------------
+  merge.field.newPerson: set "Llywelyn"
 
 Owain  @F220@
 -------------
   merge.field.newFamily: set ""
   merge.field.father: set "Owain"
 
-Maredudd Ap_Owain  @I372@
--------------------------
-  merge.field.newPerson: set "Maredudd Ap_Owain"
+Owain  @I371@
+-------------
+  merge.field.newPerson: set "Owain"
 
 Maredudd Ap_Owain + Eleanor  @F221@
 -----------------------------------
@@ -398,13 +394,13 @@ Maredudd Ap_Owain + Eleanor  @F221@
   merge.field.father: set "Maredudd Ap_Owain"
   merge.field.mother: set "Eleanor"
 
+Maredudd Ap_Owain  @I372@
+-------------------------
+  merge.field.newPerson: set "Maredudd Ap_Owain"
+
 Eleanor  @I373@
 ---------------
   merge.field.newPerson: set "Eleanor"
-
-Maelgwn Fychan  @I374@
-----------------------
-  merge.field.newPerson: set "Maelgwn Fychan"
 
 Maelgwn Fychan + Angharad  @F222@
 ---------------------------------
@@ -412,13 +408,13 @@ Maelgwn Fychan + Angharad  @F222@
   merge.field.father: set "Maelgwn Fychan"
   merge.field.mother: set "Angharad"
 
+Maelgwn Fychan  @I374@
+----------------------
+  merge.field.newPerson: set "Maelgwn Fychan"
+
 Angharad  @I375@
 ----------------
   merge.field.newPerson: set "Angharad"
-
-Llywelyn Fawr the_Great  @I376@
--------------------------------
-  merge.field.newPerson: set "Llywelyn Fawr the_Great"
 
 Llywelyn Fawr the_Great + ...  @F223@
 -------------------------------------
@@ -426,18 +422,18 @@ Llywelyn Fawr the_Great + ...  @F223@
   merge.field.father: set "Llywelyn Fawr the_Great"
   merge.field.mother: set "..."
 
-Iorwerth Drwyndwn  @I377@
--------------------------
-  merge.field.newPerson: set "Iorwerth Drwyndwn"
+Llywelyn Fawr the_Great  @I376@
+-------------------------------
+  merge.field.newPerson: set "Llywelyn Fawr the_Great"
 
 Iorwerth Drwyndwn  @F224@
 -------------------------
   merge.field.newFamily: set ""
   merge.field.father: set "Iorwerth Drwyndwn"
 
-Owain Gwynedd  @I378@
----------------------
-  merge.field.newPerson: set "Owain Gwynedd"
+Iorwerth Drwyndwn  @I377@
+-------------------------
+  merge.field.newPerson: set "Iorwerth Drwyndwn"
 
 Owain Gwynedd + ...  @F225@
 ---------------------------
@@ -445,54 +441,54 @@ Owain Gwynedd + ...  @F225@
   merge.field.father: set "Owain Gwynedd"
   merge.field.mother: set "..."
 
-Gruffydd Ap_Cynan  @I379@
--------------------------
-  merge.field.newPerson: set "Gruffydd Ap_Cynan"
+Owain Gwynedd  @I378@
+---------------------
+  merge.field.newPerson: set "Owain Gwynedd"
 
 Gruffydd Ap_Cynan  @F226@
 -------------------------
   merge.field.newFamily: set ""
   merge.field.father: set "Gruffydd Ap_Cynan"
 
-Cynan  @I380@
--------------
-  merge.field.newPerson: set "Cynan"
+Gruffydd Ap_Cynan  @I379@
+-------------------------
+  merge.field.newPerson: set "Gruffydd Ap_Cynan"
 
 Cynan  @F227@
 -------------
   merge.field.newFamily: set ""
   merge.field.father: set "Cynan"
 
-Iago  @I381@
-------------
-  merge.field.newPerson: set "Iago"
+Cynan  @I380@
+-------------
+  merge.field.newPerson: set "Cynan"
 
 Iago  @F228@
 ------------
   merge.field.newFamily: set ""
   merge.field.father: set "Iago"
 
-Idwal  @I382@
--------------
-  merge.field.newPerson: set "Idwal"
+Iago  @I381@
+------------
+  merge.field.newPerson: set "Iago"
 
 Idwal  @F229@
 -------------
   merge.field.newFamily: set ""
   merge.field.father: set "Idwal"
 
-Meurig  @I383@
---------------
-  merge.field.newPerson: set "Meurig"
+Idwal  @I382@
+-------------
+  merge.field.newPerson: set "Idwal"
 
 Meurig  @F230@
 --------------
   merge.field.newFamily: set ""
   merge.field.father: set "Meurig"
 
-Idwal Foel (the_Bald)  @I384@
------------------------------
-  merge.field.newPerson: set "Idwal Foel (the_Bald)"
+Meurig  @I383@
+--------------
+  merge.field.newPerson: set "Meurig"
 
 Idwal Foel (the_Bald) + ...  @F231@
 -----------------------------------
@@ -500,14 +496,18 @@ Idwal Foel (the_Bald) + ...  @F231@
   merge.field.father: set "Idwal Foel (the_Bald)"
   merge.field.mother: set "..."
 
-Anarawd  @I385@
----------------
-  merge.field.newPerson: set "Anarawd"
+Idwal Foel (the_Bald)  @I384@
+-----------------------------
+  merge.field.newPerson: set "Idwal Foel (the_Bald)"
 
 Anarawd  @F232@
 ---------------
   merge.field.newFamily: set ""
   merge.field.father: set "Anarawd"
+
+Anarawd  @I385@
+---------------
+  merge.field.newPerson: set "Anarawd"
 
 Rhodri Mawr (the_Great)  @F233@
 -------------------------------
@@ -526,1172 +526,16 @@ Rhodri Mawr (the_Great)  @F233@
 -----------
   merge.field.newPerson: set "..."
 
-Charles_VI the_Beloved  @I389@
-------------------------------
-  merge.field.newPerson: set "Charles_VI the_Beloved"
-
-Charles_V the_Wise  @I390@
---------------------------
-  merge.field.newPerson: set "Charles_V the_Wise"
-
-Charles_V the_Wise + Joan of_Bourbon  @F234@
---------------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Charles_V the_Wise"
-  merge.field.mother: set "Joan of_Bourbon"
-
-John_II the_Good  @I391@
-------------------------
-  merge.field.newPerson: set "John_II the_Good"
-
-John_II the_Good + Bonne of_Luxemburg  @F235@
----------------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "John_II the_Good"
-  merge.field.mother: set "Bonne of_Luxemburg"
-
-Philip_VI of_Valois  @I392@
----------------------------
-  merge.field.newPerson: set "Philip_VI of_Valois"
-
-Philip_VI of_Valois + Joan of_Burgundy  @F236@
-----------------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Philip_VI of_Valois"
-  merge.field.mother: set "Joan of_Burgundy"
-
-Charles de_Valois  @I393@
--------------------------
-  merge.field.newPerson: set "Charles de_Valois"
-
-Charles de_Valois  @F237@
--------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Charles de_Valois"
-
-Joan of_Burgundy  @I394@
-------------------------
-  merge.field.newPerson: set "Joan of_Burgundy"
-
-Bonne of_Luxemburg  @I395@
---------------------------
-  merge.field.newPerson: set "Bonne of_Luxemburg"
-
-Joan of_Bourbon  @I396@
------------------------
-  merge.field.newPerson: set "Joan of_Bourbon"
-
-Isabelle of_Bavaria  @I397@
----------------------------
-  merge.field.newPerson: set "Isabelle of_Bavaria"
-
-John of_Gaunt  @I398@
----------------------
-  merge.field.newPerson: set "John of_Gaunt"
-
-Edward_III  @I399@
-------------------
-  merge.field.newPerson: set "Edward_III"
-
-Edward_III + Philippa of_Hainault  @F238@
------------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Edward_III"
-  merge.field.mother: set "Philippa of_Hainault"
-
-Edward_II  @I400@
------------------
-  merge.field.newPerson: set "Edward_II"
-
-Edward_II + Isabella of_France  @F239@
---------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Edward_II"
-  merge.field.mother: set "Isabella of_France"
-
-Edward_I (Longshanks)  @I401@
------------------------------
-  merge.field.newPerson: set "Edward_I (Longshanks)"
-
-Edward_I (Longshanks) + Eleanor of_Castile  @F240@
---------------------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Edward_I (Longshanks)"
-  merge.field.mother: set "Eleanor of_Castile"
-
-Henry_III  @I402@
------------------
-  merge.field.newPerson: set "Henry_III"
-
-Henry_III + Eleanor of_Provence  @F241@
----------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Henry_III"
-  merge.field.mother: set "Eleanor of_Provence"
-
-John Lackland  @I403@
----------------------
-  merge.field.newPerson: set "John Lackland"
-
-John Lackland + Isabella of_Angouleme  @F242@
----------------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "John Lackland"
-  merge.field.mother: set "Isabella of_Angouleme"
-
-Henry_II Curtmantle  @I404@
----------------------------
-  merge.field.newPerson: set "Henry_II Curtmantle"
-
-Henry_II Curtmantle + Eleanor of_Aquitaine  @F243@
---------------------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Henry_II Curtmantle"
-  merge.field.mother: set "Eleanor of_Aquitaine"
-
-Geoffrey_V Plantagenet  @I405@
-------------------------------
-  merge.field.newPerson: set "Geoffrey_V Plantagenet"
-
-Geoffrey_V Plantagenet + Matilda  @F244@
-----------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Geoffrey_V Plantagenet"
-  merge.field.mother: set "Matilda"
-
-Matilda  @I406@
----------------
-  merge.field.newPerson: set "Matilda"
-
-Henry_I Beauclerc  @I407@
--------------------------
-  merge.field.newPerson: set "Henry_I Beauclerc"
-
-Henry_I Beauclerc + Matilda (Edith) of_Scotland  @F245@
--------------------------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Henry_I Beauclerc"
-  merge.field.mother: set "Matilda (Edith) of_Scotland"
-
-William_I the_Conqueror  @I408@
--------------------------------
-  merge.field.newPerson: set "William_I the_Conqueror"
-
-William_I the_Conqueror + Matilda of_Flanders  @F246@
------------------------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "William_I the_Conqueror"
-  merge.field.mother: set "Matilda of_Flanders"
-
-Robert the_Devil  @I409@
-------------------------
-  merge.field.newPerson: set "Robert the_Devil"
-
-Robert the_Devil + Herleva  @F247@
-----------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Robert the_Devil"
-  merge.field.mother: set "Herleva"
-
-Richard_II of_Normandy  @I410@
-------------------------------
-  merge.field.newPerson: set "Richard_II of_Normandy"
-
-Richard_II of_Normandy + Judith of_Brittany  @F248@
----------------------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Richard_II of_Normandy"
-  merge.field.mother: set "Judith of_Brittany"
-
-Richard_I the_Fearless of_Normandy  @I411@
-------------------------------------------
-  merge.field.newPerson: set "Richard_I the_Fearless of_Normandy"
-
-Richard_I the_Fearless of_Normandy + Gunnor of_Denmark  @F249@
---------------------------------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Richard_I the_Fearless of_Normandy"
-  merge.field.mother: set "Gunnor of_Denmark"
-
-Gunnor of_Denmark  @I412@
--------------------------
-  merge.field.newPerson: set "Gunnor of_Denmark"
-
-Judith of_Brittany  @I413@
---------------------------
-  merge.field.newPerson: set "Judith of_Brittany"
-
-Herleva  @I414@
----------------
-  merge.field.newPerson: set "Herleva"
-
-Matilda of_Flanders  @I415@
----------------------------
-  merge.field.newPerson: set "Matilda of_Flanders"
-
-Baldwin_V of_Flanders  @I416@
------------------------------
-  merge.field.newPerson: set "Baldwin_V of_Flanders"
-
-Baldwin_V of_Flanders  @F250@
------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Baldwin_V of_Flanders"
-
-Matilda (Edith) of_Scotland  @I417@
------------------------------------
-  merge.field.newPerson: set "Matilda (Edith) of_Scotland"
-
-Malcolm_III Canmore  @I418@
----------------------------
-  merge.field.newPerson: set "Malcolm_III Canmore"
-
-Malcolm_III Canmore + St_Margaret  @F251@
------------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Malcolm_III Canmore"
-  merge.field.mother: set "St_Margaret"
-
-Duncan_I  @I419@
-----------------
-  merge.field.newPerson: set "Duncan_I"
-
-Duncan_I + Sybil  @F252@
-------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Duncan_I"
-  merge.field.mother: set "Sybil"
-
-Crinan  @I420@
---------------
-  merge.field.newPerson: set "Crinan"
-
-Crinan + Bethoc  @F253@
------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Crinan"
-  merge.field.mother: set "Bethoc"
-
-Bethoc  @I421@
---------------
-  merge.field.newPerson: set "Bethoc"
-
-Malcolm_II  @I422@
-------------------
-  merge.field.newPerson: set "Malcolm_II"
-
-Malcolm_II  @F254@
-------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Malcolm_II"
-
-Kenneth_II  @I423@
-------------------
-  merge.field.newPerson: set "Kenneth_II"
-
-Kenneth_II  @F255@
-------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Kenneth_II"
-
-Malcolm_I  @I424@
------------------
-  merge.field.newPerson: set "Malcolm_I"
-
-Malcolm_I  @F256@
------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Malcolm_I"
-
-Donald_II  @I425@
------------------
-  merge.field.newPerson: set "Donald_II"
-
-Donald_II  @F257@
------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Donald_II"
-
-Constantine_II  @I426@
-----------------------
-  merge.field.newPerson: set "Constantine_II"
-
-Constantine_II  @F258@
-----------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Constantine_II"
-
-Kenneth_I MacAlpin  @I427@
---------------------------
-  merge.field.newPerson: set "Kenneth_I MacAlpin"
-
-Kenneth_I MacAlpin  @F259@
---------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Kenneth_I MacAlpin"
-
-Alpin  @I428@
--------------
-  merge.field.newPerson: set "Alpin"
-
-Alpin  @F260@
--------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Alpin"
-
-Sybil  @I429@
--------------
-  merge.field.newPerson: set "Sybil"
-
-St_Margaret  @I430@
--------------------
-  merge.field.newPerson: set "St_Margaret"
-
-Edward Athling  @I431@
-----------------------
-  merge.field.newPerson: set "Edward Athling"
-
-Edward Athling + Agatha  @F261@
--------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Edward Athling"
-  merge.field.mother: set "Agatha"
-
-Edmund_II Ironside  @I432@
---------------------------
-  merge.field.newPerson: set "Edmund_II Ironside"
-
-Edmund_II Ironside + Ealdgyth  @F262@
--------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Edmund_II Ironside"
-  merge.field.mother: set "Ealdgyth"
-
-Ethelred_II the_Unready  @I433@
--------------------------------
-  merge.field.newPerson: set "Ethelred_II the_Unready"
-
-Ethelred_II the_Unready + Elfreda (Elfgiva)  @F263@
----------------------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Ethelred_II the_Unready"
-  merge.field.mother: set "Elfreda (Elfgiva)"
-
-Edgar the_Peaceful  @I434@
---------------------------
-  merge.field.newPerson: set "Edgar the_Peaceful"
-
-Edgar the_Peaceful + Elfrida  @F264@
-------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Edgar the_Peaceful"
-  merge.field.mother: set "Elfrida"
-
-Edmund_I the_Elder  @I435@
---------------------------
-  merge.field.newPerson: set "Edmund_I the_Elder"
-
-Edmund_I the_Elder + St._Elgiva  @F265@
----------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Edmund_I the_Elder"
-  merge.field.mother: set "St._Elgiva"
-
-Edward the_Elder  @I436@
-------------------------
-  merge.field.newPerson: set "Edward the_Elder"
-
-Edward the_Elder + Edgiva  @F266@
----------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Edward the_Elder"
-  merge.field.mother: set "Edgiva"
-
-Alfred the_Great  @I437@
-------------------------
-  merge.field.newPerson: set "Alfred the_Great"
-
-Alfred the_Great + Ealhswith  @F267@
-------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Alfred the_Great"
-  merge.field.mother: set "Ealhswith"
-
-Ethelwulf  @I438@
------------------
-  merge.field.newPerson: set "Ethelwulf"
-
-Ethelwulf + Osburh  @F268@
---------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Ethelwulf"
-  merge.field.mother: set "Osburh"
-
-Egbert  @I439@
---------------
-  merge.field.newPerson: set "Egbert"
-
-Egbert + Redburh  @F269@
-------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Egbert"
-  merge.field.mother: set "Redburh"
-
-Ealhmund of_Kent  @I440@
-------------------------
-  merge.field.newPerson: set "Ealhmund of_Kent"
-
-Ealhmund of_Kent  @F270@
-------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Ealhmund of_Kent"
-
-Eaba  @I441@
-------------
-  merge.field.newPerson: set "Eaba"
-
-Eaba  @F271@
-------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Eaba"
-
-Eoppa  @I442@
--------------
-  merge.field.newPerson: set "Eoppa"
-
-Eoppa  @F272@
--------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Eoppa"
-
-Ingild  @I443@
---------------
-  merge.field.newPerson: set "Ingild"
-
-Ingild  @F273@
---------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Ingild"
-
-Cenred  @I444@
---------------
-  merge.field.newPerson: set "Cenred"
-
-Cenred  @F274@
---------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Cenred"
-
-Ceolwald  @I445@
-----------------
-  merge.field.newPerson: set "Ceolwald"
-
-Ceolwald  @F275@
-----------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Ceolwald"
-
-Cuthwulf (Cutha)  @I446@
-------------------------
-  merge.field.newPerson: set "Cuthwulf (Cutha)"
-
-Cuthwulf (Cutha)  @F276@
-------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Cuthwulf (Cutha)"
-
-Cuthwine  @I447@
-----------------
-  merge.field.newPerson: set "Cuthwine"
-
-Cuthwine  @F277@
-----------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Cuthwine"
-
-Ceawlin  @I448@
----------------
-  merge.field.newPerson: set "Ceawlin"
-
-Ceawlin  @F278@
----------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Ceawlin"
-
-Cynric  @I449@
---------------
-  merge.field.newPerson: set "Cynric"
-
-Cynric  @F279@
---------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Cynric"
-
-Cerdic  @I450@
---------------
-  merge.field.newPerson: set "Cerdic"
-
-Cerdic  @F280@
---------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Cerdic"
-
-Elesa  @I451@
--------------
-  merge.field.newPerson: set "Elesa"
-
-Elesa  @F281@
--------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Elesa"
-
-Elsa  @I452@
-------------
-  merge.field.newPerson: set "Elsa"
-
-Elsa  @F282@
-------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Elsa"
-
-Gewis  @I453@
--------------
-  merge.field.newPerson: set "Gewis"
-
-Gewis  @F283@
--------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Gewis"
-
-Wig  @I454@
------------
-  merge.field.newPerson: set "Wig"
-
-Wig  @F284@
------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Wig"
-
-Freawine  @I455@
-----------------
-  merge.field.newPerson: set "Freawine"
-
-Freawine  @F285@
-----------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Freawine"
-
-Frithogar  @I456@
------------------
-  merge.field.newPerson: set "Frithogar"
-
-Frithogar  @F286@
------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Frithogar"
-
-Brond  @I457@
--------------
-  merge.field.newPerson: set "Brond"
-
-Brond  @F287@
--------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Brond"
-
-Baeldaeg  @I458@
-----------------
-  merge.field.newPerson: set "Baeldaeg"
-
-Baeldaeg  @F288@
-----------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Baeldaeg"
-
-Woden  @I459@
--------------
-  merge.field.newPerson: set "Woden"
-
-Woden  @F289@
--------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Woden"
-
-Frithuwald  @I460@
-------------------
-  merge.field.newPerson: set "Frithuwald"
-
-Frithuwald  @F290@
-------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Frithuwald"
-
-Frealaf  @I461@
----------------
-  merge.field.newPerson: set "Frealaf"
-
-Frealaf  @F291@
----------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Frealaf"
-
-Frithuwulf  @I462@
-------------------
-  merge.field.newPerson: set "Frithuwulf"
-
-Frithuwulf  @F292@
-------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Frithuwulf"
-
-Finn  @I463@
-------------
-  merge.field.newPerson: set "Finn"
-
-Finn  @F293@
-------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Finn"
-
-Godwulf  @I464@
----------------
-  merge.field.newPerson: set "Godwulf"
-
-Godwulf  @F294@
----------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Godwulf"
-
-Geata  @I465@
--------------
-  merge.field.newPerson: set "Geata"
-
-Geata  @F295@
--------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Geata"
-
-Taetwa  @I466@
---------------
-  merge.field.newPerson: set "Taetwa"
-
-Taetwa  @F296@
---------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Taetwa"
-
-Beaw  @I467@
-------------
-  merge.field.newPerson: set "Beaw"
-
-Beaw  @F297@
-------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Beaw"
-
-Sceldwa  @I468@
----------------
-  merge.field.newPerson: set "Sceldwa"
-
-Sceldwa  @F298@
----------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Sceldwa"
-
-Heremod  @I469@
----------------
-  merge.field.newPerson: set "Heremod"
-
-Heremod  @F299@
----------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Heremod"
-
-Itermon  @I470@
----------------
-  merge.field.newPerson: set "Itermon"
-
-Itermon  @F300@
----------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Itermon"
-
-Hathra  @I471@
---------------
-  merge.field.newPerson: set "Hathra"
-
-Hathra  @F301@
---------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Hathra"
-
-Hwala  @I472@
--------------
-  merge.field.newPerson: set "Hwala"
-
-Hwala  @F302@
--------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Hwala"
-
-Bedwig  @I473@
---------------
-  merge.field.newPerson: set "Bedwig"
-
-Bedwig  @F303@
---------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Bedwig"
-
-Sceaf  @I474@
--------------
-  merge.field.newPerson: set "Sceaf"
-
-Sceaf  @F304@
--------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Sceaf"
-
-Redburh  @I475@
----------------
-  merge.field.newPerson: set "Redburh"
-
-Osburh  @I476@
---------------
-  merge.field.newPerson: set "Osburh"
-
-Oslac  @I477@
--------------
-  merge.field.newPerson: set "Oslac"
-
-Oslac  @F305@
--------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Oslac"
-
-Ealhswith  @I478@
------------------
-  merge.field.newPerson: set "Ealhswith"
-
-Ethelred Mucel  @I479@
-----------------------
-  merge.field.newPerson: set "Ethelred Mucel"
-
-Ethelred Mucel  @F306@
-----------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Ethelred Mucel"
-
-Edgiva  @I480@
---------------
-  merge.field.newPerson: set "Edgiva"
-
-St._Elgiva  @I481@
-------------------
-  merge.field.newPerson: set "St._Elgiva"
-
-Elfrida  @I482@
----------------
-  merge.field.newPerson: set "Elfrida"
-
-Ordgar of_Devon Ealdorman  @I483@
----------------------------------
-  merge.field.newPerson: set "Ordgar of_Devon Ealdorman"
-
-Ordgar of_Devon Ealdorman  @F307@
----------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Ordgar of_Devon Ealdorman"
-
-Elfreda (Elfgiva)  @I484@
--------------------------
-  merge.field.newPerson: set "Elfreda (Elfgiva)"
-
-Thored  @I485@
---------------
-  merge.field.newPerson: set "Thored"
-
-Thored  @F308@
---------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Thored"
-
-Gunnor  @I486@
---------------
-  merge.field.newPerson: set "Gunnor"
-
-Gunnor  @F309@
---------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Gunnor"
-
-Ealdgyth  @I487@
-----------------
-  merge.field.newPerson: set "Ealdgyth"
-
-Agatha  @I488@
---------------
-  merge.field.newPerson: set "Agatha"
-
-Stephen_I  @I489@
------------------
-  merge.field.newPerson: set "Stephen_I"
-
-Stephen_I  @F310@
------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Stephen_I"
-
-Eleanor of_Aquitaine  @I490@
-----------------------------
-  merge.field.newPerson: set "Eleanor of_Aquitaine"
-
-William_X of_Aquitaine  @I491@
-------------------------------
-  merge.field.newPerson: set "William_X of_Aquitaine"
-
-William_X of_Aquitaine  @F311@
-------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "William_X of_Aquitaine"
-
-Isabella of_Angouleme  @I492@
------------------------------
-  merge.field.newPerson: set "Isabella of_Angouleme"
-
-Aymer of_Angouleme Taillefer  @I493@
-------------------------------------
-  merge.field.newPerson: set "Aymer of_Angouleme Taillefer"
-
-Aymer of_Angouleme Taillefer + Alice de_Courtenay  @F312@
----------------------------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Aymer of_Angouleme Taillefer"
-  merge.field.mother: set "Alice de_Courtenay"
-
-Alice de_Courtenay  @I494@
---------------------------
-  merge.field.newPerson: set "Alice de_Courtenay"
-
-Eleanor of_Provence  @I495@
----------------------------
-  merge.field.newPerson: set "Eleanor of_Provence"
-
-Raymond of_Provence  @I496@
----------------------------
-  merge.field.newPerson: set "Raymond of_Provence"
-
-Raymond of_Provence  @F313@
----------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Raymond of_Provence"
-
-Eleanor of_Castile  @I497@
---------------------------
-  merge.field.newPerson: set "Eleanor of_Castile"
-
-Ferdinand_III  @I498@
----------------------
-  merge.field.newPerson: set "Ferdinand_III"
-
-Ferdinand_III  @F314@
----------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Ferdinand_III"
-
-Alfonso_IX  @I499@
-------------------
-  merge.field.newPerson: set "Alfonso_IX"
-
-Alfonso_IX + Berengaria  @F315@
--------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Alfonso_IX"
-  merge.field.mother: set "Berengaria"
-
-Berengaria  @I500@
-------------------
-  merge.field.newPerson: set "Berengaria"
-
-Alfonso_VIII  @I501@
---------------------
-  merge.field.newPerson: set "Alfonso_VIII"
-
-Alfonso_VIII + Eleanor  @F316@
-------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Alfonso_VIII"
-  merge.field.mother: set "Eleanor"
-
-Sancho_III  @I502@
-------------------
-  merge.field.newPerson: set "Sancho_III"
-
-Sancho_III  @F317@
-------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Sancho_III"
-
-Eleanor  @I503@
----------------
-  merge.field.newPerson: set "Eleanor"
-
-Henry_II Curtmantle + Eleanor of_Aquitaine  @F318@
---------------------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Henry_II Curtmantle"
-  merge.field.mother: set "Eleanor of_Aquitaine"
-
-Isabella of_France  @I504@
---------------------------
-  merge.field.newPerson: set "Isabella of_France"
-
-Philip_IV the_Fair  @I505@
---------------------------
-  merge.field.newPerson: set "Philip_IV the_Fair"
-
-Philip_IV the_Fair + Joan of_Navarre  @F319@
---------------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Philip_IV the_Fair"
-  merge.field.mother: set "Joan of_Navarre"
-
-Philip_III the_Bold  @I506@
----------------------------
-  merge.field.newPerson: set "Philip_III the_Bold"
-
-Philip_III the_Bold + Mary of_Brabant  @F320@
----------------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Philip_III the_Bold"
-  merge.field.mother: set "Mary of_Brabant"
-
-Louis_IX (St._Louis)  @I507@
-----------------------------
-  merge.field.newPerson: set "Louis_IX (St._Louis)"
-
-Louis_IX (St._Louis) + Margaret of_Provence  @F321@
----------------------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Louis_IX (St._Louis)"
-  merge.field.mother: set "Margaret of_Provence"
-
-Louis_VIII the_Lion  @I508@
----------------------------
-  merge.field.newPerson: set "Louis_VIII the_Lion"
-
-Louis_VIII the_Lion + Blanche of_Castile  @F322@
-------------------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Louis_VIII the_Lion"
-  merge.field.mother: set "Blanche of_Castile"
-
-Philip_II Augustus  @I509@
---------------------------
-  merge.field.newPerson: set "Philip_II Augustus"
-
-Philip_II Augustus + Isabella of_Hainault  @F323@
--------------------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Philip_II Augustus"
-  merge.field.mother: set "Isabella of_Hainault"
-
-Louis_VII the_Younger  @I510@
------------------------------
-  merge.field.newPerson: set "Louis_VII the_Younger"
-
-Louis_VII the_Younger + Adele of_Champagne  @F324@
---------------------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Louis_VII the_Younger"
-  merge.field.mother: set "Adele of_Champagne"
-
-Louis_VI the_Fat  @I511@
-------------------------
-  merge.field.newPerson: set "Louis_VI the_Fat"
-
-Louis_VI the_Fat + Adelaide of_Savoy  @F325@
---------------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Louis_VI the_Fat"
-  merge.field.mother: set "Adelaide of_Savoy"
-
-Philip_I the_Fair  @I512@
--------------------------
-  merge.field.newPerson: set "Philip_I the_Fair"
-
-Philip_I the_Fair + Bertha of_Holland  @F326@
----------------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Philip_I the_Fair"
-  merge.field.mother: set "Bertha of_Holland"
-
-Henry_I  @I513@
----------------
-  merge.field.newPerson: set "Henry_I"
-
-Henry_I + Anne of_Kiev  @F327@
-------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Henry_I"
-  merge.field.mother: set "Anne of_Kiev"
-
-Robert_II the_Pious  @I514@
----------------------------
-  merge.field.newPerson: set "Robert_II the_Pious"
-
-Robert_II the_Pious + Constance of_Arles  @F328@
-------------------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Robert_II the_Pious"
-  merge.field.mother: set "Constance of_Arles"
-
-Hugh Capet  @I515@
-------------------
-  merge.field.newPerson: set "Hugh Capet"
-
-Hugh Capet  @F329@
-------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Hugh Capet"
-
-Constance of_Arles  @I516@
---------------------------
-  merge.field.newPerson: set "Constance of_Arles"
-
-Anne of_Kiev  @I517@
---------------------
-  merge.field.newPerson: set "Anne of_Kiev"
-
-Bertha of_Holland  @I518@
--------------------------
-  merge.field.newPerson: set "Bertha of_Holland"
-
-Adelaide of_Savoy  @I519@
--------------------------
-  merge.field.newPerson: set "Adelaide of_Savoy"
-
-Adele of_Champagne  @I520@
---------------------------
-  merge.field.newPerson: set "Adele of_Champagne"
-
-Isabella of_Hainault  @I521@
-----------------------------
-  merge.field.newPerson: set "Isabella of_Hainault"
-
-Blanche of_Castile  @I522@
---------------------------
-  merge.field.newPerson: set "Blanche of_Castile"
-
-Alfonso_IX  @F330@
-------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Alfonso_IX"
-
-Margaret of_Provence  @I523@
-----------------------------
-  merge.field.newPerson: set "Margaret of_Provence"
-
-Raymond of_Provence Berenger  @I524@
-------------------------------------
-  merge.field.newPerson: set "Raymond of_Provence Berenger"
-
-Raymond of_Provence Berenger  @F331@
-------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Raymond of_Provence Berenger"
-
-Mary of_Brabant  @I525@
------------------------
-  merge.field.newPerson: set "Mary of_Brabant"
-
-Joan of_Navarre  @I526@
------------------------
-  merge.field.newPerson: set "Joan of_Navarre"
-
-Philippa of_Hainault  @I527@
-----------------------------
-  merge.field.newPerson: set "Philippa of_Hainault"
-
-William of_Hainault  @I528@
----------------------------
-  merge.field.newPerson: set "William of_Hainault"
-
-William of_Hainault  @F332@
----------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "William of_Hainault"
-
-Catherine Swynford Roet  @I529@
--------------------------------
-  merge.field.newPerson: set "Catherine Swynford Roet"
-
-Payne of_Guienne Roet  @I530@
------------------------------
-  merge.field.newPerson: set "Payne of_Guienne Roet"
-
-Payne of_Guienne Roet  @F333@
------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Payne of_Guienne Roet"
-
-Thomas Holland  @I531@
-----------------------
-  merge.field.newPerson: set "Thomas Holland"
-
-Joan  @I532@
-------------
-  merge.field.newPerson: set "Joan"
-
-Edmund of_Woodstock  @I533@
----------------------------
-  merge.field.newPerson: set "Edmund of_Woodstock"
-
-Edmund of_Woodstock + Margaret of_Liddell Wake  @F334@
-------------------------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Edmund of_Woodstock"
-  merge.field.mother: set "Margaret of_Liddell Wake"
-
-Edward_I (Longshanks) + Marguerite of_France  @F335@
-----------------------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Edward_I (Longshanks)"
-  merge.field.mother: set "Marguerite of_France"
-
-Marguerite of_France  @I534@
-----------------------------
-  merge.field.newPerson: set "Marguerite of_France"
-
-Philip_III the_Bold + Mary of_Brabant  @F336@
----------------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Philip_III the_Bold"
-  merge.field.mother: set "Mary of_Brabant"
-
-Margaret of_Liddell Wake  @I535@
---------------------------------
-  merge.field.newPerson: set "Margaret of_Liddell Wake"
-
-John  @I536@
-------------
-  merge.field.newPerson: set "John"
-
-John  @F337@
-------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "John"
-
-Thomas Howard + Anne of_York  @F338@
+Thomas Howard + Anne of_York  @F234@
 ------------------------------------
   merge.field.newFamily: set ""
   merge.field.wife: set "Anne of_York"
 
-Anne of_York  @I537@
+Anne of_York  @I389@
 --------------------
   merge.field.newPerson: set "Anne of_York"
 
-Henry Howard  @I538@
+Henry Howard  @I390@
 --------------------
   merge.field.newPerson: set "Henry Howard"
 
@@ -1700,11 +544,11 @@ Thomas Howard + Elizabeth Stafford  @F106@
   merge.field.child: set "Henry Howard"
   merge.field.child: set "Thomas Howard"
 
-Thomas Howard  @I539@
+Thomas Howard  @I391@
 ---------------------
   merge.field.newPerson: set "Thomas Howard"
 
-Henry Howard + Frances de_Vere  @F339@
+Henry Howard + Frances de_Vere  @F235@
 --------------------------------------
   merge.field.newFamily: set ""
   merge.field.wife: set "Frances de_Vere"
@@ -1714,96 +558,96 @@ Henry Howard + Frances de_Vere  @F339@
   merge.field.child: set "Jane Howard"
   merge.field.child: set "Margaret Howard"
 
-Frances de_Vere  @I540@
+Frances de_Vere  @I392@
 -----------------------
   merge.field.newPerson: set "Frances de_Vere"
 
-Thomas Howard  @I541@
+Thomas Howard  @I393@
 ---------------------
   merge.field.newPerson: set "Thomas Howard"
 
-Henry of_Northhampton Howard  @I542@
+Henry of_Northhampton Howard  @I394@
 ------------------------------------
   merge.field.newPerson: set "Henry of_Northhampton Howard"
 
-Catherine Howard  @I543@
+Catherine Howard  @I395@
 ------------------------
   merge.field.newPerson: set "Catherine Howard"
 
-Jane Howard  @I544@
+Jane Howard  @I396@
 -------------------
   merge.field.newPerson: set "Jane Howard"
 
-Margaret Howard  @I545@
+Margaret Howard  @I397@
 -----------------------
   merge.field.newPerson: set "Margaret Howard"
 
-Thomas Howard + Mary Fitzalan  @F340@
+Thomas Howard + Mary Fitzalan  @F236@
 -------------------------------------
   merge.field.newFamily: set ""
   merge.field.wife: set "Mary Fitzalan"
   merge.field.child: set "Philip Howard"
 
-Mary Fitzalan  @I546@
+Mary Fitzalan  @I398@
 ---------------------
   merge.field.newPerson: set "Mary Fitzalan"
 
-Philip Howard  @I547@
+Philip Howard  @I399@
 ---------------------
   merge.field.newPerson: set "Philip Howard"
 
-Philip Howard + Anne Dacre  @F341@
+Philip Howard + Anne Dacre  @F237@
 ----------------------------------
   merge.field.newFamily: set ""
   merge.field.wife: set "Anne Dacre"
   merge.field.child: set "Thomas Howard"
 
-Anne Dacre  @I548@
+Anne Dacre  @I400@
 ------------------
   merge.field.newPerson: set "Anne Dacre"
 
-Thomas Howard  @I549@
+Thomas Howard  @I401@
 ---------------------
   merge.field.newPerson: set "Thomas Howard"
 
-Thomas Howard + Aletheia Talbot  @F342@
+Thomas Howard + Aletheia Talbot  @F238@
 ---------------------------------------
   merge.field.newFamily: set ""
   merge.field.wife: set "Aletheia Talbot"
 
-Aletheia Talbot  @I550@
+Aletheia Talbot  @I402@
 -----------------------
   merge.field.newPerson: set "Aletheia Talbot"
 
-Thomas Howard + Margaret Audley  @F343@
+Thomas Howard + Margaret Audley  @F239@
 ---------------------------------------
   merge.field.newFamily: set ""
   merge.field.wife: set "Margaret Audley"
   merge.field.child: set "Thomas Howard"
   merge.field.child: set "William Howard"
 
-Margaret Audley  @I551@
+Margaret Audley  @I403@
 -----------------------
   merge.field.newPerson: set "Margaret Audley"
 
-Thomas Howard  @I552@
+Thomas Howard  @I404@
 ---------------------
   merge.field.newPerson: set "Thomas Howard"
 
-William Howard  @I553@
+William Howard  @I405@
 ----------------------
   merge.field.newPerson: set "William Howard"
 
-Thomas Howard + Mary Dacre  @F344@
+Thomas Howard + Mary Dacre  @F240@
 ----------------------------------
   merge.field.newFamily: set ""
   merge.field.wife: set "Mary Dacre"
 
-Mary Dacre  @I554@
+Mary Dacre  @I406@
 ------------------
   merge.field.newPerson: set "Mary Dacre"
 
-Thomas Howard + Catherine Knyvett  @F345@
+Thomas Howard + Catherine Knyvett  @F241@
 -----------------------------------------
   merge.field.newFamily: set ""
   merge.field.wife: set "Catherine Knyvett"
@@ -1813,99 +657,99 @@ Thomas Howard + Catherine Knyvett  @F345@
   merge.field.child: set "Catherine Howard"
   merge.field.childLinked: set "Frances Howard"
 
-Catherine Knyvett  @I555@
+Catherine Knyvett  @I407@
 -------------------------
   merge.field.newPerson: set "Catherine Knyvett"
 
-Theophilus Howard  @I556@
+Theophilus Howard  @I408@
 -------------------------
   merge.field.newPerson: set "Theophilus Howard"
 
-Thomas of_Berkshire Howard  @I557@
+Thomas of_Berkshire Howard  @I409@
 ----------------------------------
   merge.field.newPerson: set "Thomas of_Berkshire Howard"
 
-Henry Howard  @I558@
+Henry Howard  @I410@
 --------------------
   merge.field.newPerson: set "Henry Howard"
 
-Catherine Howard  @I559@
+Catherine Howard  @I411@
 ------------------------
   merge.field.newPerson: set "Catherine Howard"
 
-Theophilus Howard + Elizabeth Dunbar  @F346@
+Theophilus Howard + Elizabeth Dunbar  @F242@
 --------------------------------------------
   merge.field.newFamily: set ""
   merge.field.wife: set "Elizabeth Dunbar"
 
-Elizabeth Dunbar  @I560@
+Elizabeth Dunbar  @I412@
 ------------------------
   merge.field.newPerson: set "Elizabeth Dunbar"
 
-Thomas of_Berkshire Howard + Elizabeth Cecil  @F347@
+Thomas of_Berkshire Howard + Elizabeth Cecil  @F243@
 ----------------------------------------------------
   merge.field.newFamily: set ""
   merge.field.wife: set "Elizabeth Cecil"
 
-Elizabeth Cecil  @I561@
+Elizabeth Cecil  @I413@
 -----------------------
   merge.field.newPerson: set "Elizabeth Cecil"
 
-Henry Howard + Elizabeth Bassett  @F348@
+Henry Howard + Elizabeth Bassett  @F244@
 ----------------------------------------
   merge.field.newFamily: set ""
   merge.field.wife: set "Elizabeth Bassett"
 
-Elizabeth Bassett  @I562@
+Elizabeth Bassett  @I414@
 -------------------------
   merge.field.newPerson: set "Elizabeth Bassett"
 
-William of_Berkshire Cecil + Catherine Howard  @F349@
+William of_Berkshire Cecil + Catherine Howard  @F245@
 -----------------------------------------------------
   merge.field.newFamily: set ""
   merge.field.husband: set "William of_Berkshire Cecil"
 
-William of_Berkshire Cecil  @I563@
+William of_Berkshire Cecil  @I415@
 ----------------------------------
   merge.field.newPerson: set "William of_Berkshire Cecil"
 
-Robert Devereux + Frances Howard  @F350@
+Robert Devereux + Frances Howard  @F246@
 ----------------------------------------
   merge.field.newFamily: set ""
   merge.field.husband: set "Robert Devereux"
 
-Robert Devereux  @I564@
+Robert Devereux  @I416@
 -----------------------
   merge.field.newPerson: set "Robert Devereux"
 
-Robert Carr + Frances Howard  @F351@
+Robert Carr + Frances Howard  @F247@
 ------------------------------------
   merge.field.newFamily: set ""
   merge.field.husband: set "Robert Carr"
 
-Robert Carr  @I565@
+Robert Carr  @I417@
 -------------------
   merge.field.newPerson: set "Robert Carr"
 
-William Howard + Elizabeth Dacre  @F352@
+William Howard + Elizabeth Dacre  @F248@
 ----------------------------------------
   merge.field.newFamily: set ""
   merge.field.wife: set "Elizabeth Dacre"
 
-Elizabeth Dacre  @I566@
+Elizabeth Dacre  @I418@
 -----------------------
   merge.field.newPerson: set "Elizabeth Dacre"
 
-Thomas Howard + Gertrude Lyte  @F353@
+Thomas Howard + Gertrude Lyte  @F249@
 -------------------------------------
   merge.field.newFamily: set ""
   merge.field.wife: set "Gertrude Lyte"
 
-Gertrude Lyte  @I567@
+Gertrude Lyte  @I419@
 ---------------------
   merge.field.newPerson: set "Gertrude Lyte"
 
-George Rochford Boleyn  @I568@
+George Rochford Boleyn  @I420@
 ------------------------------
   merge.field.newPerson: set "George Rochford Boleyn"
 
@@ -1914,31 +758,31 @@ Thomas Boleyn + Elizabeth Howard  @F125@
   merge.field.child: set "George Rochford Boleyn"
   merge.field.child: set "Mary Boleyn"
 
-Mary Boleyn  @I569@
+Mary Boleyn  @I421@
 -------------------
   merge.field.newPerson: set "Mary Boleyn"
 
-William Carey + Mary Boleyn  @F354@
+William Carey + Mary Boleyn  @F250@
 -----------------------------------
   merge.field.newFamily: set ""
   merge.field.husband: set "William Carey"
   merge.field.child: set "Henry Carey"
   merge.field.child: set "Catherine Carey"
 
-Henry Carey  @I570@
+Henry Carey  @I422@
 -------------------
   merge.field.newPerson: set "Henry Carey"
 
-Catherine Carey  @I571@
+Catherine Carey  @I423@
 -----------------------
   merge.field.newPerson: set "Catherine Carey"
 
-Henry Carey + Anne Morgan  @F355@
+Henry Carey + Anne Morgan  @F251@
 ---------------------------------
   merge.field.newFamily: set ""
   merge.field.wife: set "Anne Morgan"
 
-Francis Knollys + Catherine Carey  @F356@
+Francis Knollys + Catherine Carey  @F252@
 -----------------------------------------
   merge.field.newFamily: set ""
   merge.field.husband: set "Francis Knollys"
@@ -1948,85 +792,85 @@ Francis Knollys + Catherine Carey  @F356@
   merge.field.child: set "Anne Knollys"
   merge.field.child: set "Catherine Knollys"
 
-Francis Knollys  @I572@
+Francis Knollys  @I424@
 -----------------------
   merge.field.newPerson: set "Francis Knollys"
 
-Henry Knollys  @I573@
+Henry Knollys  @I425@
 ---------------------
   merge.field.newPerson: set "Henry Knollys"
 
-William Knollys  @I574@
+William Knollys  @I426@
 -----------------------
   merge.field.newPerson: set "William Knollys"
 
-Lettice Knollys  @I575@
+Lettice Knollys  @I427@
 -----------------------
   merge.field.newPerson: set "Lettice Knollys"
 
-Anne Knollys  @I576@
+Anne Knollys  @I428@
 --------------------
   merge.field.newPerson: set "Anne Knollys"
 
-Catherine Knollys  @I577@
+Catherine Knollys  @I429@
 -------------------------
   merge.field.newPerson: set "Catherine Knollys"
 
-Henry Knollys + Margaret Cave  @F357@
+Henry Knollys + Margaret Cave  @F253@
 -------------------------------------
   merge.field.newFamily: set ""
   merge.field.wife: set "Margaret Cave"
 
-Margaret Cave  @I578@
+Margaret Cave  @I430@
 ---------------------
   merge.field.newPerson: set "Margaret Cave"
 
-Walter Devereux + Lettice Knollys  @F358@
+Walter Devereux + Lettice Knollys  @F254@
 -----------------------------------------
   merge.field.newFamily: set ""
   merge.field.husband: set "Walter Devereux"
 
-Walter Devereux  @I579@
+Walter Devereux  @I431@
 -----------------------
   merge.field.newPerson: set "Walter Devereux"
 
-Robert of_Leicester Dudley + Lettice Knollys  @F359@
+Robert of_Leicester Dudley + Lettice Knollys  @F255@
 ----------------------------------------------------
   merge.field.newFamily: set ""
   merge.field.husband: set "Robert of_Leicester Dudley"
 
-Robert of_Leicester Dudley  @I580@
+Robert of_Leicester Dudley  @I432@
 ----------------------------------
   merge.field.newPerson: set "Robert of_Leicester Dudley"
 
-Christopher Blount + Lettice Knollys  @F360@
+Christopher Blount + Lettice Knollys  @F256@
 --------------------------------------------
   merge.field.newFamily: set ""
   merge.field.husband: set "Christopher Blount"
 
-Christopher Blount  @I581@
+Christopher Blount  @I433@
 --------------------------
   merge.field.newPerson: set "Christopher Blount"
 
-Thomas Leighton + Anne Knollys  @F361@
+Thomas Leighton + Anne Knollys  @F257@
 --------------------------------------
   merge.field.newFamily: set ""
   merge.field.husband: set "Thomas Leighton"
 
-Thomas Leighton  @I582@
+Thomas Leighton  @I434@
 -----------------------
   merge.field.newPerson: set "Thomas Leighton"
 
-Gerald Fitzgerald + Catherine Knollys  @F362@
+Gerald Fitzgerald + Catherine Knollys  @F258@
 ---------------------------------------------
   merge.field.newFamily: set ""
   merge.field.husband: set "Gerald Fitzgerald"
 
-Gerald Fitzgerald  @I583@
+Gerald Fitzgerald  @I435@
 -------------------------
   merge.field.newPerson: set "Gerald Fitzgerald"
 
-Son Tudor  @I584@
+Son Tudor  @I436@
 -----------------
   merge.field.newPerson: set "Son Tudor"
 
@@ -2034,7 +878,7 @@ Henry Tudor + Anne Boleyn  @F32@
 --------------------------------
   merge.field.child: set "Son Tudor"
 
-Joyce Culpeper  @I585@
+Joyce Culpeper  @I437@
 ----------------------
   merge.field.newPerson: set "Joyce Culpeper"
 
@@ -2042,28 +886,28 @@ Edmund Howard + Joyce Culpeper  @F74@
 -------------------------------------
   merge.field.wife: set "Joyce Culpeper"
 
-Edmund Howard + Dorothy Troyes  @F363@
+Edmund Howard + Dorothy Troyes  @F259@
 --------------------------------------
   merge.field.newFamily: set ""
   merge.field.wife: set "Dorothy Troyes"
 
-Dorothy Troyes  @I586@
+Dorothy Troyes  @I438@
 ----------------------
   merge.field.newPerson: set "Dorothy Troyes"
 
-Not applied (needs relationship/link merge)
--------------------------------------------
-@F187@
-------
-  merge.field.father: merge.reason.familyHasHusband
-  merge.field.mother: merge.reason.familyHasWife
+Kept as in your file (the incoming file said otherwise)
+-------------------------------------------------------
+Charles VI de Valois + Isabeau von Bayern-Ingolstadt  @F187@
+------------------------------------------------------------
+  merge.field.father: merge.reason.parentKeptAncestors
+  merge.field.mother: merge.reason.parentKept
 
-@F177@
-------
-  merge.field.father: merge.reason.familyHasHusband
-  merge.field.mother: merge.reason.familyHasWife
+John of Gaunt + Katherine de Roët,  @F177@
+------------------------------------------
+  merge.field.father: merge.reason.parentKeptAncestors
+  merge.field.mother: merge.reason.parentKeptAncestors
 
-@F194@
-------
-  merge.field.father: merge.reason.familyHasHusband
-  merge.field.mother: merge.reason.familyHasWife
+Thomas Holland + Alice FitzAlan  @F194@
+---------------------------------------
+  merge.field.father: merge.reason.parentKept
+  merge.field.mother: merge.reason.parentKeptAncestors
