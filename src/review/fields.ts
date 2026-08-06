@@ -4,7 +4,7 @@ import { sourceCitationKey } from "../gedcom/source";
 import { decomposePlace } from "../gedcom/place";
 import { compareKey, foldToken } from "../match/text";
 import { canonicalPlaceToken, placeCompareKey } from "../match/place";
-import { dateCompareKey, nameSimilarity } from "../match/similarity";
+import { comparableName, dateCompareKey, givenSimilarity, nameSimilarity } from "../match/similarity";
 import { findEvent, fullDatesLabel, lifespanLabel, displayName, nameTypeLabel } from "../match/relatives";
 import { birthDateOf, formatLifespan, isDeceased } from "../gedcom/lifespan";
 import { dateToSortKey } from "../gedcom/date";
@@ -410,13 +410,16 @@ function relativeYears(indi: Individual, showAge: boolean): string {
 }
 
 function partnerToRelative(partner: Individual, showAge = false): Relative {
+  const birth = findEvent(partner, "BIRT")?.date;
   return {
     id: partner.id,
     name: partner.names[0],
     text: lifespanLabel(partner),
     full: fullDatesLabel(partner),
-    birthYear: findEvent(partner, "BIRT")?.date?.year,
-    birthApprox: findEvent(partner, "BIRT")?.date?.qualifier !== "exact",
+    birthYear: birth?.year,
+    birthApprox: birth?.qualifier !== "exact",
+    birthDay: birth?.month != null && birth.day != null ? birth.month * 100 + birth.day : undefined,
+    deathYear: findEvent(partner, "DEAT")?.date?.year,
     displayName: displayName(partner.names[0]),
     years: relativeYears(partner, showAge),
     sex: partner.sex,
@@ -453,27 +456,38 @@ function pairFamilies(
       const mSpouse = mSpouseId ? mainDs.individuals.get(mSpouseId) : undefined;
       const cSpouse = cSpouseId ? compareDs.individuals.get(cSpouseId) : undefined;
 
+      /** Share of this main family's children that also appear in the incoming
+       *  one — the evidence that two unions are the same when their partners
+       *  don't say so themselves. */
+      const childOverlap = (): number => {
+        const mKids = mf.children.map(id => mainDs.individuals.get(id)).filter(Boolean) as Individual[];
+        const cKids = cf.children.map(id => compareDs.individuals.get(id)).filter(Boolean) as Individual[];
+        let matches = 0;
+        mKids.forEach(mk => {
+          if (cKids.some(ck => relativeSimilarity(partnerToRelative(mk), partnerToRelative(ck)) >= RELATIVE_PAIR_THRESHOLD)) {
+            matches++;
+          }
+        });
+        return matches > 0 ? matches / Math.max(mKids.length, cKids.length) : 0;
+      };
+
       let sim = 0;
       if (mSpouse && cSpouse) {
-         const mRel = partnerToRelative(mSpouse);
-         const cRel = partnerToRelative(cSpouse);
-         sim = relativeSimilarity(mRel, cRel);
+         // Both unions name a partner, so the partners decide: two people are
+         // the same one only at the bar the table uses everywhere else
+         // (RELATIVE_PAIR_THRESHOLD). Below it they are different people, and
+         // pairing the unions would file one person's marriage under another's
+         // — the two are shown as separate families instead, unless matching
+         // children prove the couple is the same after all.
+         sim = samePartner(partnerToRelative(mSpouse), partnerToRelative(cSpouse))
+           ? Math.max(relativeSimilarity(partnerToRelative(mSpouse), partnerToRelative(cSpouse)), PARTNER_PAIR_SCORE)
+           : childOverlap();
+      } else if (mFams.length === 1 && cFams.length === 1) {
+         // One union on each side and no partner named on one of them: nothing
+         // else to confuse them with.
+         sim = 1;
       } else {
-         if (mFams.length === 1 && cFams.length === 1) {
-           sim = 1;
-         } else {
-           const mKids = mf.children.map(id => mainDs.individuals.get(id)).filter(Boolean) as Individual[];
-           const cKids = cf.children.map(id => compareDs.individuals.get(id)).filter(Boolean) as Individual[];
-           let matches = 0;
-           mKids.forEach(mk => {
-             if (cKids.some(ck => relativeSimilarity(partnerToRelative(mk), partnerToRelative(ck)) >= RELATIVE_PAIR_THRESHOLD)) {
-               matches++;
-             }
-           });
-           if (matches > 0) {
-             sim = matches / Math.max(mKids.length, cKids.length);
-           }
-         }
+         sim = childOverlap();
       }
 
       if (sim >= 0.5) {
@@ -564,18 +578,7 @@ function parentRelative(
   showAge = false,
 ): Relative[] {
   const parent = indi ? parentIndi(indi, ds, role) : undefined;
-  if (!parent) return [];
-  return [{
-    id: parent.id,
-    name: parent.names[0],
-    text: lifespanLabel(parent),
-    full: fullDatesLabel(parent),
-    birthYear: findEvent(parent, "BIRT")?.date?.year,
-    birthApprox: findEvent(parent, "BIRT")?.date?.qualifier !== "exact",
-    displayName: displayName(parent.names[0]),
-    years: relativeYears(parent, showAge),
-    sex: parent.sex,
-  }];
+  return parent ? [partnerToRelative(parent, showAge)] : [];
 }
 
 interface Relative {
@@ -590,6 +593,11 @@ interface Relative {
   /** True when the birth year is an estimate (ABT/EST/CAL) rather than an
    *  exact assertion — widens how much a birth-year gap counts against pairing. */
   birthApprox?: boolean;
+  /** Day within the year (month × 100 + day), when the birth is that precise —
+   *  tells two children of one birth year apart. */
+  birthDay?: number;
+  /** Death year, when known. */
+  deathYear?: number;
   /** Display name. */
   displayName?: string;
   years?: string;
@@ -799,6 +807,31 @@ export function relativePersonSimilarity(a: Individual, b: Individual): number {
 }
 
 /**
+ * Score given to a union pair joined on the partner's given name alone (see
+ * {@link samePartner}) — above the 0.5 bar `pairFamilies` admits candidates at,
+ * but below any full-name agreement, so a partner who matches outright still
+ * wins the pairing when both compete for the same union.
+ */
+const PARTNER_PAIR_SCORE = 0.6;
+
+/**
+ * Are these two partners the same person? Their whole names agreeing at
+ * {@link RELATIVE_PAIR_THRESHOLD} settles it. Failing that, an equally strong
+ * *given* name still does, provided no two known birth years contradict it:
+ * a wife carried under her maiden name in one file and her married name in the
+ * other shares only her given name ("Ana Novak" vs "Ana Bratuša" scores 0.67),
+ * and that is a spelling of one woman, not two marriages.
+ */
+function samePartner(a: Relative, b: Relative): boolean {
+  if (relativeSimilarity(a, b) >= RELATIVE_PAIR_THRESHOLD) return true;
+  if (a.birthYear != null && b.birthYear != null && a.birthYear !== b.birthYear) return false;
+  const aGiven = a.name?.given?.trim();
+  const bGiven = b.name?.given?.trim();
+  if (!aGiven || !bGiven) return false;
+  return givenSimilarity(aGiven, bGiven) >= RELATIVE_PAIR_THRESHOLD;
+}
+
+/**
  * Greedily pair main and incoming relatives by name similarity (best pairs
  * first), then emit aligned pairs: matched relatives share a pair in main
  * order, main-only relatives get a pair with no incoming side, and any
@@ -840,6 +873,20 @@ function alignRelatives(main: Relative[], incoming: Relative[]): RelativePair[] 
 }
 
 /**
+ * Do the dates alone say these are one person? Asked only when a name can't
+ * (see {@link relativeSimilarity}), so the bar is agreement, not mere absence
+ * of conflict: both births known, asserted rather than estimated, in the same
+ * year, and never contradicted by the day within that year or by a death year.
+ */
+function datesIdentify(a: Relative, b: Relative): boolean {
+  if (a.birthYear == null || b.birthYear == null) return false;
+  if (a.birthApprox || b.birthApprox) return false;
+  if (a.birthYear !== b.birthYear) return false;
+  if (a.birthDay != null && b.birthDay != null && a.birthDay !== b.birthDay) return false;
+  return !(a.deathYear != null && b.deathYear != null && a.deathYear !== b.deathYear);
+}
+
+/**
  * Similarity of two relatives, used to align children/partners. The name (given
  * + surname) is the base signal; birth year then nudges the score so the pairing
  * lines people up by name *and* birth: a shared birth year rescues a borderline
@@ -847,9 +894,21 @@ function alignRelatives(main: Relative[], incoming: Relative[]): RelativePair[] 
  * pull same-named siblings apart so they don't collapse onto one line.
  */
 function relativeSimilarity(a: Relative, b: Relative): number {
-  const nameSim = a.name && b.name
-    ? nameSimilarity(a.name, b.name) ?? 0
-    : foldToken(a.text) === foldToken(b.text) ? 1 : 0;
+  // Placeholders ("NN", "?", "Living") name nobody, so they count as missing
+  // here exactly as they do in the matcher — two of them are not a match.
+  const an = comparableName(a.name);
+  const bn = comparableName(b.name);
+
+  // A surname is the one thing everybody in the family shares, so on its own it
+  // identifies nobody: an infant recorded without a given name would otherwise
+  // score a *perfect* name match against each of its siblings in turn (the
+  // weighted average is taken over the parts both sides have, and the surname
+  // is the only one). Without a given name on both sides the dates have to
+  // carry the pairing. The matcher holds its own pairs to the same bar — see
+  // the `anchored` rule in scoreIndividual.
+  if (!an?.given || !bn?.given) return datesIdentify(a, b) ? RELATIVE_PAIR_THRESHOLD : 0;
+
+  const nameSim = nameSimilarity(an, bn) ?? 0;
 
   if (a.birthYear == null || b.birthYear == null) return nameSim;
   const gap = Math.abs(a.birthYear - b.birthYear);

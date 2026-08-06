@@ -463,16 +463,113 @@ describe("mergeDecisions — second partner becomes its own family", () => {
     expect(report.deferred).toHaveLength(0);
   });
 
-  it("still defers (no duplicate family) when the second partner is an unmatched person", () => {
-    // Ana is NOT matched, so it can't be confirmed as a distinct individual —
-    // the conflict is surfaced for the user rather than silently spawning a family.
+  it("joins the second marriage main already records, rather than adding another", () => {
+    // Main knows both wives and both marriages. The incoming union names the
+    // second wife, so it pairs with *her* family — the first marriage is never
+    // a candidate, and nothing new is created.
+    const bothUnions = dataset(
+      wrap(
+        "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F1@\n1 FAMS @F2@\n" +
+          "0 @I2@ INDI\n1 NAME Marija /Kos/\n1 SEX F\n1 FAMS @F1@\n" +
+          "0 @I3@ INDI\n1 NAME Ana /Hribar/\n1 SEX F\n1 FAMS @F2@\n" +
+          "0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@\n" +
+          "0 @F2@ FAM\n1 HUSB @I1@\n1 WIFE @I3@\n",
+      ),
+    );
+    const withPlace = dataset(
+      wrap(
+        "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @G1@\n" +
+          "0 @P5@ INDI\n1 NAME Ana /Hribar/\n1 SEX F\n1 FAMS @G1@\n" +
+          "0 @G1@ FAM\n1 HUSB @P1@\n1 WIFE @P5@\n1 MARR\n2 PLAC Kranj\n",
+      ),
+    );
+    const matches = {
+      individuals: [
+        { mainId: "@I1@", compareId: "@P1@" },
+        { mainId: "@I3@", compareId: "@P5@" },
+      ],
+    } as never;
+    const decisions = new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: { "fam.@G1@.MARR.place": "incoming" } }],
+    ]);
+    const { records, report } = mergeDecisions(bothUnions, withPlace, decisions, matches, tr);
+    const out = serializeGedcom(records);
+    expect(out).toContain("0 @F2@ FAM\n1 HUSB @I1@\n1 WIFE @I3@\n1 MARR\n2 PLAC Kranj");
+    expect(out).toContain("0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@\n");
+    expect(report.newFamilies).toBe(0);
+    expect(report.newPersons).toBe(0);
+  });
+
+  it("reuses a second wife main already has as a person, without duplicating her", () => {
+    // Ana is in main but married to nobody. The matcher pairs the two Anas
+    // (it does so readily — same name is enough), so she is linked into the
+    // new family rather than imported a second time.
+    const matches = {
+      individuals: [
+        { mainId: "@I1@", compareId: "@P1@" },
+        { mainId: "@I3@", compareId: "@P5@" },
+      ],
+    } as never;
+    const decisions = new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {} }],
+    ]);
+    const { records, report } = mergeDecisions(main, compare, decisions, matches, tr);
+    expect(serializeGedcom(records)).toMatch(/0 @F\d+@ FAM\n1 HUSB @I1@\n1 WIFE @I3@/);
+    expect(report.newPersons).toBe(0);
+    expect(report.newFamilies).toBe(1);
+  });
+
+  it("gives an unmatched second partner their own family too", () => {
+    // Ana is NOT matched to anyone in main. She is still plainly not Marija, so
+    // the review put her union in a family of its own and the user ticked her
+    // there: she joins as a new person in a new family. (Collapsing her into
+    // Marija's marriage instead only ever produced a "different spouse"
+    // deferral — the tick doing nothing at all.)
     const matches = { individuals: [{ mainId: "@I1@", compareId: "@P1@" }] } as never;
     const decisions = new Map<string, CandidateDecision>([
       [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {} }],
     ]);
-    const { report } = mergeDecisions(main, compare, decisions, matches, tr);
-    expect(report.newFamilies).toBe(0);
-    expect(report.deferred.length).toBeGreaterThan(0);
+    const { records, report } = mergeDecisions(main, compare, decisions, matches, tr);
+    const out = serializeGedcom(records);
+    expect(out).toContain("0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@");
+    expect(out).toMatch(/0 @F\d+@ FAM\n1 HUSB @I1@\n1 WIFE @I\d+@/);
+    expect(report.newFamilies).toBe(1);
+    expect(report.deferred).toHaveLength(0);
+  });
+
+  it("defers when a union paired by its children names a different partner", () => {
+    // The two unions share their child, so they are the same marriage however
+    // the mother is written — but here the incoming mother is matched to a main
+    // person other than the one in the WIFE slot. That is a real conflict, and
+    // it is still reported rather than overwritten.
+    const withChild = dataset(
+      wrap(
+        "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F1@\n" +
+          "0 @I2@ INDI\n1 NAME Marija /Kos/\n1 SEX F\n1 FAMS @F1@\n" +
+          "0 @I3@ INDI\n1 NAME Ana /Hribar/\n1 SEX F\n" +
+          "0 @I4@ INDI\n1 NAME Ota /Novak/\n1 SEX F\n1 BIRT\n2 DATE 1880\n1 FAMC @F1@\n" +
+          "0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@\n1 CHIL @I4@\n",
+      ),
+    );
+    const rival = dataset(
+      wrap(
+        "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @G1@\n" +
+          "0 @P5@ INDI\n1 NAME Ana /Hribar/\n1 SEX F\n1 FAMS @G1@\n" +
+          "0 @P6@ INDI\n1 NAME Ota /Novak/\n1 SEX F\n1 BIRT\n2 DATE 1880\n1 FAMC @G1@\n" +
+          "0 @G1@ FAM\n1 HUSB @P1@\n1 WIFE @P5@\n1 CHIL @P6@\n",
+      ),
+    );
+    const matches = {
+      individuals: [
+        { mainId: "@I1@", compareId: "@P1@" },
+        { mainId: "@I3@", compareId: "@P5@" },
+      ],
+    } as never;
+    const decisions = new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: { "fam.@G1@.partner": "incoming" } }],
+    ]);
+    const { report } = mergeDecisions(withChild, rival, decisions, matches, tr);
+    expect(report.deferred.some((d) => d.reason === "merge.reason.mainHasSpouse")).toBe(true);
   });
 });
 
@@ -1796,6 +1893,49 @@ describe("rowCanKeepBoth", () => {
     for (const key of ["given", "surname", "notes", "fsid", "links", "BIRT.note", "BIRT.sources", "fam.@G1@.MARR.sources", "fam.@G1@.notes"]) {
       expect(rowCanKeepBoth(key), key).toBe(true);
     }
+  });
+});
+
+describe("mergeDecisions — a second union with a different partner", () => {
+  // Nejc is married to Neja in main and to Katja in the incoming file: two
+  // plainly different women, so the review shows two families and the merge
+  // must leave the first marriage alone and build the second one beside it.
+  const main = wrap(
+    "0 @I1@ INDI\n1 NAME Nejc /Bratuša/\n1 SEX M\n1 FAMS @F1@\n" +
+      "0 @I2@ INDI\n1 NAME Neja /Bizjak/\n1 SEX F\n1 FAMS @F1@\n" +
+      "0 @I3@ INDI\n1 NAME Ota /Bratuša/\n1 SEX F\n1 FAMC @F1@\n" +
+      "0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@\n1 CHIL @I3@\n1 MARR\n2 DATE 5 NOV 2024\n",
+  );
+  const compare = wrap(
+    "0 @P1@ INDI\n1 NAME Nejc /Bratuša/\n1 SEX M\n1 FAMS @PF@\n" +
+      "0 @P2@ INDI\n1 NAME Katja /Špiler/\n1 SEX F\n1 FAMS @PF@\n" +
+      "0 @P3@ INDI\n1 NAME Aljoša /Bratuša/\n1 SEX M\n1 FAMC @PF@\n" +
+      "0 @PF@ FAM\n1 HUSB @P1@\n1 WIFE @P2@\n1 CHIL @P3@\n1 MARR\n2 PLAC Križe\n",
+  );
+  const matches = { individuals: [{ mainId: "@I1@", compareId: "@P1@" }], families: [] } as never;
+
+  it("adds the new partner and their child as a second family, leaving the first intact", () => {
+    const decisions = new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I1@", "@P1@"), {
+        status: "confirmed",
+        fields: { "fam.@PF@.partner": "incoming", "fam.@PF@.MARR.place": "incoming" },
+        takenChildren: ["@P3@"],
+      }],
+    ]);
+    const out = serializeGedcom(mergeDecisions(dataset(main), dataset(compare), decisions, matches, tr).records);
+
+    // The original marriage is untouched: same wife, same child, same date.
+    expect(out).toContain("0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@\n1 CHIL @I3@\n1 MARR\n2 DATE 5 NOV 2024");
+    // Katja and Aljoša arrive as new people in a family of their own.
+    const newFam = out.match(/0 (@F\d+@) FAM\n1 HUSB @I1@\n1 WIFE (@[^@]+@)\n1 CHIL (@[^@]+@)\n1 MARR\n2 PLAC Križe/);
+    expect(newFam).not.toBeNull();
+    const [, newFamId, wifeId, childId] = newFam!;
+    expect(newFamId).not.toBe("@F1@");
+    expect(out).toContain(`0 ${wifeId} INDI\n1 NAME Katja /Špiler/`);
+    expect(out).toContain(`0 ${childId} INDI\n1 NAME Aljoša /Bratuša/`);
+    // Neja is not touched, and Nejc now belongs to both marriages.
+    expect(out).toContain("0 @I2@ INDI\n1 NAME Neja /Bizjak/\n1 SEX F\n1 FAMS @F1@\n");
+    expect(out).toMatch(/0 @I1@ INDI[\s\S]*?1 FAMS @F1@\n1 FAMS @F\d+@/);
   });
 });
 
