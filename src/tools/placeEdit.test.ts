@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { applyPlaceRename, collectPlaceSegments, previewPlaceRename } from "./placeEdit";
+import { buildPlaceTree, collectNodeUseIds, UNSPECIFIED } from "./places";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -241,5 +242,44 @@ describe("collectPlaceSegments", () => {
 
   it("returns nothing for a dataset with no places", () => {
     expect(collectPlaceSegments(dataset(wrap("0 @I1@ INDI\n1 NAME A /B/\n")))).toEqual([]);
+  });
+});
+
+describe("rename scope of a family's own place", () => {
+  // A marriage place lives on the FAM record but is browsed under its spouses,
+  // so the Places tree hands the rename a scope built from the node's uses. If
+  // that scope names the people instead of the record, the family is left out
+  // of its own rename: the preview reports "no matching records" and applying
+  // it changes nothing.
+  const build = () =>
+    dataset(
+      wrap(
+        "0 @I1@ INDI\n1 NAME A /B/\n1 FAMS @F1@\n" +
+          "0 @I2@ INDI\n1 NAME C /D/\n1 FAMS @F1@\n" +
+          "0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@\n1 MARR\n2 PLAC Sr. Bela\n2 ADDR Sr. Bela 16\n",
+      ),
+    );
+  const placeNode = (ds: ReturnType<typeof build>) =>
+    buildPlaceTree(ds).roots.find((r) => r.name === UNSPECIFIED)!.children.find((c) => c.name === "Sr. Bela")!;
+
+  it("carries the FAM id, so the tree's scope reaches the record", () => {
+    expect(collectNodeUseIds(placeNode(build()))).toEqual(new Set(["@F1@"]));
+  });
+
+  it("renames a place used only by a family, scoped to that node", () => {
+    const ds = build();
+    const scope = collectNodeUseIds(placeNode(ds));
+
+    expect(previewPlaceRename(ds, "Sr. Bela", "Srednja Bela", scope).affectedCount).toBe(1);
+    expect(applyPlaceRename(ds, "Sr. Bela", "Srednja Bela", scope)).toHaveLength(1);
+    expect(ds.families.get("@F1@")!.raw.children[2].children[0].value).toBe("Srednja Bela");
+  });
+
+  it("renames the address written on a family too", () => {
+    const ds = build();
+    const addr = placeNode(ds).children.find((c) => c.name === "Sr. Bela 16")!;
+    expect(addr.isAddress).toBe(true);
+    applyPlaceRename(ds, "Sr. Bela 16", "Srednja Bela 16 (pd Prah)", collectNodeUseIds(addr));
+    expect(ds.families.get("@F1@")!.raw.children[2].children[1].value).toBe("Srednja Bela 16 (pd Prah)");
   });
 });
