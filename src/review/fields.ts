@@ -247,6 +247,12 @@ function buildEventRows(
         eventAgeBadges(compare, compareDs, ce, tag, t));
     }
     for (const r of subRows) { r.eventMainIdx = mainIdx; r.eventCompareIdx = effectiveCompareIdx; }
+    // An event's own line value (`1 REFN Mlinar`, an attribute's text) is
+    // labelled with the event's name — which the group header directly above
+    // already says. The repeat carries nothing, and a long one (Referenčna
+    // številka, Etnična pripadnost) overruns the narrow label column and
+    // collides with the value, so the row goes label-less under its header.
+    for (const r of subRows) if (r.label === eventLabel) r.displayLabel = "";
     if (subRows.length > 0) {
       rows.push({
         key: `${keyBase}.header`, label: eventLabel, labelTitle: customTitle, main: "", incoming: "", state: "agree", isGroupHeader: true, isEventHeader: true,

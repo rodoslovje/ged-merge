@@ -160,6 +160,65 @@ describe("validateDataset", () => {
     ]);
   });
 
+  it("flags a child born after a parent's death, sparing the posthumous one", () => {
+    // Jožef † 1897 and Marija † 1920 are the parents of: @I3@ born 1921 (24
+    // years after the father, a year after the mother — both wrong), @I4@ born
+    // 1898, the posthumous child the father's year of grace covers, and @I5@,
+    // born 1925 but linked as adopted, whom neither death binds.
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Jožef /Gregorič/
+1 SEX M
+1 BIRT
+2 DATE 1896
+1 DEAT
+2 DATE 1897
+1 FAMS @F1@
+0 @I2@ INDI
+1 NAME Marija /Gregorič/
+1 SEX F
+1 BIRT
+2 DATE 1896
+1 DEAT
+2 DATE 1920
+1 FAMS @F1@
+0 @I3@ INDI
+1 NAME Ivana /Gregorin/
+1 SEX F
+1 BIRT
+2 DATE 1921
+1 FAMC @F1@
+0 @I4@ INDI
+1 NAME Posmrtni /Gregorič/
+1 SEX M
+1 BIRT
+2 DATE 1898
+1 FAMC @F1@
+0 @I5@ INDI
+1 NAME Posvojeni /Gregorič/
+1 SEX M
+1 BIRT
+2 DATE 1925
+1 FAMC @F1@
+2 PEDI adopted
+0 @F1@ FAM
+1 HUSB @I1@
+1 WIFE @I2@
+1 CHIL @I3@
+1 CHIL @I4@
+1 CHIL @I5@
+0 TRLR`);
+    const report = validateDataset(ds, 2026);
+    const found = report.issues.filter((i) => i.category === "bornAfterParentDeath");
+    expect(found.map((i) => [i.id, i.messageKey.split(".").pop()])).toEqual([
+      ["@I3@", "bornAfterFatherDeath"],
+      ["@I3@", "bornAfterMotherDeath"],
+    ]);
+    expect(found[0].messageVars).toEqual({ birth: 1921, death: 1897 });
+    expect(report.counts.bornAfterParentDeath).toBe(2);
+  });
+
   it("flags a mother with children by two fathers in the same years", () => {
     // Marija has Kotnik children 1862–1872 and, in the middle of that run, a
     // Žnidar child in 1866 — impossible for one mother.
