@@ -241,7 +241,10 @@ export function applyFamilyStructure(
           ctx.report.deferred.push({
             recordId: famId,
             field: ctx.t(role === "HUSB" ? "merge.field.husband" : "merge.field.wife"),
-            reason: ctx.t("merge.reason.mainHasSpouse"),
+            reason: ctx.t("merge.reason.mainHasSpouse", {
+              kept: ctx.label(mainSlot),
+              incoming: ctx.label(targetId),
+            }),
           });
         }
         continue;
@@ -255,6 +258,7 @@ export function applyFamilyStructure(
           to: ctx.label(targetId),
           action: "incoming",
           unedited: true,
+          spouseSlot: true,
         });
         ctx.touched.add(famId);
       }
@@ -610,17 +614,24 @@ function setSpouseSlot(
   const existing = firstChild(famNode, role);
   if (existing) {
     if (existing.value !== personId) {
+      // Both sides are named: "the family already has a different husband" says
+      // nothing the user can act on, while "your file keeps Martin Drinovec, so
+      // Martin Drinovc was not linked" tells them exactly which two records to
+      // look at — and, usually, that the two are the same man spelled twice.
       ctx.report.deferred.push({
         recordId: famId,
         field: label,
-        reason: ctx.t(role === "HUSB" ? "merge.reason.familyHasHusband" : "merge.reason.familyHasWife"),
+        reason: ctx.t("merge.reason.mainHasSpouse", {
+          kept: ctx.label(existing.value!),
+          incoming: ctx.label(personId),
+        }),
       });
     }
     return;
   }
   addPointer(famNode, role, personId, FAM_CHILD_ORDER);
   linkBack(ctx, personId, "FAMS", famId);
-  ctx.report.changes.push({ recordId: famId, field: label, from: "", to: ctx.label(personId), action: "incoming", unedited: true });
+  ctx.report.changes.push({ recordId: famId, field: label, from: "", to: ctx.label(personId), action: "incoming", unedited: true, spouseSlot: true });
   ctx.touched.add(famId);
 }
 
@@ -710,12 +721,44 @@ function importAncestors(
   ];
   for (const [role, incParentId, labelKey] of parents) {
     if (!incParentId) continue;
+    childFam ??= ensureChildFamily(mainId, main, ctx);
+    // Who already holds this slot decides whether the branch can be walked at
+    // all. If the main file records someone else as this person's father, the
+    // two files disagree about the parentage, and grafting the incoming parent
+    // anyway would drop them — and every ancestor above them — into the file
+    // hanging off nothing: a detached duplicate lineage the user never asked
+    // for. So the walk stops here, *before* `resolve` creates anybody, and the
+    // preview reports whose parent was kept and what was left behind.
+    const occupant = firstChild(childFam.node, role)?.value;
+    if (occupant && ctx.resolved(incParentId) !== occupant) {
+      ctx.report.deferred.push({
+        recordId: childFam.id,
+        field: ctx.t(labelKey),
+        reason: ctx.t(
+          hasIncomingAncestors(incParentId, compare)
+            ? "merge.reason.parentKeptAncestors"
+            : "merge.reason.parentKept",
+          {
+            kept: ctx.label(occupant),
+            incoming: displayName(compare.individuals.get(incParentId)?.names[0]),
+          },
+        ),
+      });
+      continue;
+    }
     const parentMainId = ctx.resolve(incParentId);
     if (!parentMainId) continue;
-    childFam ??= ensureChildFamily(mainId, main, ctx);
     setSpouseSlot(childFam.node, role, parentMainId, ctx.t(labelKey), ctx);
     importAncestors(incParentId, main, compare, ctx, visited);
   }
+}
+
+/** Whether an incoming person has a parent of their own — i.e. whether stopping
+ *  the walk at them leaves a further lineage behind, which the message says. */
+function hasIncomingAncestors(incId: string, compare: Dataset): boolean {
+  const famId = compare.individuals.get(incId)?.childOf[0];
+  const fam = famId ? compare.families.get(famId) : undefined;
+  return !!(fam?.husband || fam?.wife);
 }
 
 /** Recursively import an incoming person's spouses, children, and their descendants. */

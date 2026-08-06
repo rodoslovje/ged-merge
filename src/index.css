@@ -6355,6 +6355,13 @@ kbd {
   padding: 2px 8px; border-radius: var(--radius-pill); white-space: nowrap;
 }
 .preview-badge.is-new { background: color-mix(in srgb, var(--state-incoming) 22%, transparent); color: var(--state-incoming); }
+/* Both badges mark a record that wasn't in the file before, so they share the
+   incoming hue; the outline says this one arrived as part of a whole branch
+   rather than stitched in by a confirmed match. */
+.preview-badge.is-incoming {
+  background: transparent; color: var(--state-incoming);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--state-incoming) 55%, transparent);
+}
 .preview-badge.is-edit { background: var(--panel-2); color: var(--muted); }
 .preview-badge.is-removed { background: var(--danger-soft); color: var(--danger); }
 .edit-tree-badge {

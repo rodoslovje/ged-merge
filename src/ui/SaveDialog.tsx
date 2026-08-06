@@ -161,7 +161,7 @@ export function SaveDialog({
               />
             )}
             {report.deferred.length > 0 && (
-              <Stat value={report.deferred.length} label={t("preview.stat.deferred")} warn />
+              <Stat value={report.deferred.length} label={t("preview.stat.deferred")} />
             )}
           </div>
 
@@ -184,7 +184,8 @@ export function SaveDialog({
 
           {report.deferred.length > 0 && (
             <section className="preview-section">
-              <h3 className="preview-warn">{t("preview.notMerged")}</h3>
+              <h3>{t("preview.notMerged")}</h3>
+              <p className="preview-note">{t("preview.notMergedHint")}</p>
               <ul className="preview-deferred">
                 {report.deferred.map((d, i) => (
                   <li key={i}>
@@ -207,22 +208,35 @@ export function SaveDialog({
                 // Records (SOUR/OBJE) aren't offered for removal — `onRemove`
                 // reverts a person/family snapshot, and they carry neither.
                 const canRemove = isEditRecord && !!onRemove && kind !== "record";
+                const spouses = kind === "family" ? report.familySpouses[g.id] : undefined;
                 // A new person's name and sex are already in the card's header
                 // (spelled out, and colouring the label) — repeating them as
-                // "Given: + Jurij" rows says nothing. On an existing record the
+                // "Given: + Jurij" rows says nothing. A new family's header
+                // names both spouses the same way, so its "Father: + Borut
+                // Bratuša" rows say nothing either. On an existing record the
                 // same rows are a real before/after, so they stay.
                 const fieldRows = g.changes.filter(
-                  (c) => !c.newRecord && hasContent(c) && !(c.identity && g.isNew && kind === "individual"),
+                  (c) =>
+                    !c.newRecord &&
+                    hasContent(c) &&
+                    !(c.identity && g.isNew && kind === "individual") &&
+                    !(c.spouseSlot && g.isNew && spouses?.length),
                 );
                 // A record added by this merge isn't in the (pre-merge) dataset,
                 // so its person styling and facts come from the incoming record
                 // it was copied from.
                 const newIndi = report.newIndividuals?.[g.id];
                 const indi = kind === "individual" ? dataset?.individuals.get(g.id) ?? newIndi : undefined;
-                const facts = newIndi ? personFacts(newIndi, t) : [];
+                // A whole-branch import can run to hundreds of people, and
+                // spelling out every fact of every one of them buries the
+                // handful of cards the user actually has to check. A grafted
+                // person is a copy the user asked for wholesale, so the name
+                // and years in the head say enough; people stitched in by a
+                // confirmed match keep their facts, where the detail is the
+                // point.
+                const facts = newIndi && !g.isImported ? personFacts(newIndi, t) : [];
                 const lifespan = indi ? lifespanOf(indi) : undefined;
                 const labelClass = `preview-rec${indi ? ` ${sexClass(indi.sex)}` : ""}`;
-                const spouses = kind === "family" ? report.familySpouses[g.id] : undefined;
                 const headContent = spouses?.length ? (
                   spouses.map((s, i) => {
                     const sIndi = s.id
@@ -259,7 +273,13 @@ export function SaveDialog({
                         </span>
                       )}
                       <span className="preview-card-head-right">
-                        <span className={`preview-badge ${g.isImported ? "is-incoming" : g.isNew ? "is-new" : g.isRemoved ? "is-removed" : "is-edit"}`}>
+                        {/* "New" and "Incoming" both mark a record the file
+                            didn't have; only the route differs, so each says
+                            which one it took. */}
+                        <span
+                          className={`preview-badge ${g.isImported ? "is-incoming" : g.isNew ? "is-new" : g.isRemoved ? "is-removed" : "is-edit"}`}
+                          title={g.isImported ? t("preview.badge.incomingHint") : g.isNew ? t("preview.badge.newHint") : undefined}
+                        >
                           {g.isImported ? t("preview.badge.incoming") : g.isNew ? t("preview.badge.new") : g.isRemoved ? t("preview.badge.removed") : t("preview.badge.edited")}
                         </span>
                         {canRemove && (

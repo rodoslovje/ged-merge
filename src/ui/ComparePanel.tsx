@@ -226,7 +226,14 @@ export function ComparePanel({
             // Children instead get a per-child take/skip toggle (`renderPair`).
             return (
               <tr key={row.key} className={`field ${row.state}`}>
-                <td className="f-label">{row.displayLabel ?? row.label}</td>
+                {/* A relatives row compares the two lists as text, so a
+                    relative's differing years colour it — but those years only
+                    identify the person here; their own data merges from their
+                    own match. Say so, or the colour reads as a difference this
+                    row could resolve. */}
+                <td className="f-label" title={row.relatives ? t("compare.relativesHint") : undefined}>
+                  {row.displayLabel ?? row.label}
+                </td>
                 {row.relatives ? (
                   <td className="f-rel" colSpan={3}>
                     <RelativeGrid

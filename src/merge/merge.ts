@@ -59,6 +59,11 @@ export interface FieldChange {
    *  omits them from a *new* person's card, whose header already spells the name
    *  out and colours it by sex. */
   identity?: boolean;
+  /** The family's own identity — who fills its husband/wife slot. The preview
+   *  omits these from a *new* family's card, whose header already names both
+   *  spouses with their lifespans; on an existing family the same row is a real
+   *  before/after and stays. */
+  spouseSlot?: boolean;
   /** Set when an existing event was modified (not newly added/removed) — the preview
    *  renders these pieces in place of `from`/`to`, coloring each by whether the edit
    *  actually touched it, instead of treating the whole line as one new value. */
@@ -277,8 +282,11 @@ export function mergeDecisions(
   ctx.beginGraftPhase();
   applyImportBranches(importBranches, main, compare, ctx);
 
-  // Derive record kinds from node maps built during merge.
-  for (const c of report.changes) {
+  // Derive record kinds from node maps built during merge. Deferred rows count
+  // as well as changes: a family the merge left untouched *because* the two
+  // files disagreed appears nowhere else, and without a kind here it would miss
+  // the labelling pass below and be reported to the user as a bare xref.
+  for (const c of [...report.changes, ...report.deferred]) {
     if (report.recordKinds[c.recordId]) continue;
     if (indiNodes.has(c.recordId)) report.recordKinds[c.recordId] = "individual";
     else if (famNodes.has(c.recordId)) report.recordKinds[c.recordId] = "family";
@@ -397,8 +405,8 @@ export function formatReport(report: ChangeReport, title = "GED Merge change rep
   }
 
   if (report.deferred.length) {
-    lines.push("Not applied (needs relationship/link merge)");
-    lines.push("-------------------------------------------");
+    lines.push("Kept as in your file (the incoming file said otherwise)");
+    lines.push("-------------------------------------------------------");
     const byRecord = new Map<string, typeof report.deferred>();
     for (const d of report.deferred) {
       const group = byRecord.get(d.recordId) ?? [];

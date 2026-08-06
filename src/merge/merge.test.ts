@@ -648,6 +648,60 @@ describe("mergeDecisions — import whole subtrees from the compare tree", () =>
     // The anchor sits in a child family with the matched father as husband.
     expect(out).toMatch(/0 @I1@ INDI[\s\S]*1 FAMC/);
     expect(out).toContain("1 HUSB @I2@");
+    // Who fills a family's spouse slot is flagged, so the preview can leave it
+    // off a new family's card — the header already names both spouses there.
+    expect(report.changes.filter((c) => c.spouseSlot).map((c) => c.to)).toEqual([
+      "Oce Novak",
+      "Ded Novak", // the grandfather fills the father's own child family
+      "Mati Kos",
+    ]);
+  });
+
+  it("stops the ancestor walk where the main file already records a different parent", () => {
+    // Main knows the anchor's father (Stari Novak) and mother. The incoming file
+    // names a *different*, unmatched couple as his parents — and hangs three more
+    // generations off them. Grafting those in would drop a whole rival lineage
+    // into the file connected to nothing, so the walk stops at the disagreement.
+    const main = dataset(
+      wrap(
+        "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMC @F1@\n" +
+          "0 @I2@ INDI\n1 NAME Stari /Novak/\n1 SEX M\n1 FAMS @F1@\n" +
+          "0 @I3@ INDI\n1 NAME Stara /Novak/\n1 SEX F\n1 FAMS @F1@\n" +
+          "0 @F1@ FAM\n1 HUSB @I2@\n1 WIFE @I3@\n1 CHIL @I1@\n",
+      ),
+    );
+    const compare = dataset(
+      wrap(
+        "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMC @G1@\n" +
+          "0 @P2@ INDI\n1 NAME Tujec /Kovac/\n1 SEX M\n1 FAMS @G1@\n1 FAMC @G2@\n" +
+          "0 @P3@ INDI\n1 NAME Tujka /Zupan/\n1 SEX F\n1 FAMS @G1@\n" +
+          "0 @P4@ INDI\n1 NAME Praded /Kovac/\n1 SEX M\n1 FAMS @G2@\n" +
+          "0 @G1@ FAM\n1 HUSB @P2@\n1 WIFE @P3@\n1 CHIL @P1@\n" +
+          "0 @G2@ FAM\n1 HUSB @P4@\n1 CHIL @P2@\n",
+      ),
+    );
+    const matches = { individuals: [{ mainId: "@I1@", compareId: "@P1@" }] } as never;
+
+    const { records, report } = mergeDecisions(main, compare, NO_DECISIONS, matches, tr, [
+      { incomingId: "@P1@", direction: "ancestors" },
+    ]);
+    const out = serializeGedcom(records);
+
+    // Neither the rival parents nor the generation above them come in.
+    expect(report.newPersons).toBe(0);
+    expect(out).not.toContain("Tujec /Kovac/");
+    expect(out).not.toContain("Tujka /Zupan/");
+    expect(out).not.toContain("Praded /Kovac/");
+    // The main file's own parents are untouched.
+    expect(serializeGedcom(records)).toBe(serializeGedcom(main.records));
+    // Both slots are reported, and the father — who has a lineage above him —
+    // says so, while the mother (a leaf on the incoming side) does not.
+    expect(report.deferred.map((d) => [d.recordId, d.field, d.reason])).toEqual([
+      ["@F1@", "merge.field.father", "merge.reason.parentKeptAncestors"],
+      ["@F1@", "merge.field.mother", "merge.reason.parentKept"],
+    ]);
+    // The family is named in the preview rather than shown as a bare xref.
+    expect(report.recordLabels["@F1@"]).toBe("Stari Novak + Stara Novak");
   });
 
   it("does nothing when there are no import requests", () => {
