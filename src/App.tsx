@@ -25,7 +25,7 @@ import { buildSavePreview, type SavePreview } from "./save/buildSavePreview";
 import { removeRecordFromReport } from "./gedcom/editReport";
 import { defaultStartId } from "./match/relatives";
 import type { DatasetRole, WorkerRequest, WorkerResponse } from "./worker/messages";
-import { decisionKey, importKey, parseDecisionKey, parseImportKey, type CandidateDecision, type ImportDirection, type MatchDecisionStatus } from "./review/types";
+import { decisionKey, importKey, parseDecisionKey, parseImportKey, toggleDecisionStatus, type CandidateDecision, type ImportDirection, type MatchDecisionStatus } from "./review/types";
 import { nowGedcomTime, stampChanCrea, todayGedcom } from "./gedcom/chanCrea";
 import { baseStem, downloadText } from "./ui/download";
 import { AutoMediaOffer, GedcomLoader } from "./ui/GedcomLoader";
@@ -1024,16 +1024,15 @@ function AppContent() {
     dispatch({ type: "decisionsSet", decisions: after });
   }
 
-  // Set a pair's status while keeping its field choices; clicking the active
-  // status again clears it back to undecided. Used by the compare tree, where a
-  // node may be a person that never appeared in the candidate list.
+  // Set a pair's status while keeping the rest of its decision; clicking the
+  // active status again clears it back to undecided. Used by the compare tree,
+  // where a node may be a person that never appeared in the candidate list.
   const setPairStatus = useCallback(
     (mainId: string, compareId: string, status: MatchDecisionStatus) => {
       const key = decisionKey("individual", mainId, compareId);
       const before = decisionsRef.current;
-      const cur = before.get(key);
-      const nextStatus = cur?.status === status ? "undecided" : status;
-      const after = new Map(before).set(key, stampMainRows({ status: nextStatus, fields: cur?.fields ?? {} }, mainId, compareId));
+      const next = toggleDecisionStatus(before.get(key), status);
+      const after = new Map(before).set(key, stampMainRows(next, mainId, compareId));
       undoRedo.pushRef.current({ mode: "merge", before: new Map(before), after, mainId, compareId });
       dispatch({ type: "decisionsSet", decisions: after });
     },

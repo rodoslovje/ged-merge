@@ -158,6 +158,29 @@ export interface CandidateDecision {
   takenChildren?: string[];
 }
 
+/**
+ * The decision that results from pressing `next` on a pair currently holding
+ * `decision` — pressing the status it already has clears it back to undecided.
+ *
+ * Everything else the decision carries rides along: field choices, ticked
+ * incoming children (`takenChildren`) and dismissed incoming events
+ * (`rejectedEvents`) are chosen in the compare panel, usually *before* the
+ * match is confirmed, and a status button says nothing about them. Every
+ * status control goes through this — the decision bar, its keyboard
+ * shortcuts, the same bar in Edit mode and the compare tree — so none of them
+ * can rebuild a decision from scratch and drop those picks.
+ */
+export function toggleDecisionStatus(
+  decision: CandidateDecision | undefined,
+  next: MatchDecisionStatus,
+): CandidateDecision {
+  return {
+    ...decision,
+    fields: decision?.fields ?? {},
+    status: decision?.status === next ? "undecided" : next,
+  };
+}
+
 /** Stable key for storing a decision against a candidate pair. */
 export function decisionKey(kind: MatchKind, mainId: string, compareId: string): string {
   return `${kind}:${mainId}:${compareId}`;

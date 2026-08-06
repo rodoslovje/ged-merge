@@ -16,7 +16,7 @@ import { BackButton } from "./BackButton";
 import { ChartIcon } from "./icons/ChartIcon";
 import { MapIcon } from "./icons/MapIcon";
 import { kinshipInfo, kinshipTooltip as kinshipTooltipText, lineageClass } from "../match/kinship";
-import { decisionKey, decisionStatusByMainId, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
+import { decisionKey, decisionStatusByMainId, toggleDecisionStatus, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
 import {
   addChild,
   addEventNode,
@@ -389,7 +389,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
 
   function toggleMatchStatus(next: MatchDecisionStatus) {
     if (!matchDecKey || !onUpdateDecision) return;
-    onUpdateDecision(matchDecKey, { status: matchStatus === next ? "undecided" : next, fields: matchDecision?.fields ?? {} });
+    onUpdateDecision(matchDecKey, toggleDecisionStatus(matchDecision, next));
   }
 
   // Identity-stable across renders (latest-ref wrappers), so the memoized
