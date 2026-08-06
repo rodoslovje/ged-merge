@@ -15,6 +15,11 @@ const SETTINGS_KEYS = ["showAge", "showXref"] as const;
 
 interface Props {
   individuals: Map<string, Individual>;
+  /** Bump on every edit. The dataset is mutated in place, so the map's identity
+   *  never changes and the option labels would otherwise be built once and go
+   *  stale — visibly so for a person named after they were picked, who would
+   *  stay "(unnamed)" here while their card already reads their name. */
+  version?: number;
   startId: string | undefined;
   onChange: (id: string) => void;
   onClear?: () => void;
@@ -47,6 +52,7 @@ const MAX_RESULTS = 50;
  */
 export function StartPersonSelector({
   individuals,
+  version,
   startId,
   onChange,
   onClear,
@@ -97,7 +103,9 @@ export function StartPersonSelector({
           };
         })
         .sort((a, b) => a.text.localeCompare(b.text)),
-    [individuals, nameOf, settings.showAge, t],
+    // `version` is a cache-buster, not a value this reads — see the prop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [individuals, version, nameOf, settings.showAge, t],
   );
 
   const filtered = useMemo(() => {

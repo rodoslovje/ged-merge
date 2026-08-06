@@ -27,7 +27,7 @@ import { defaultStartId } from "./match/relatives";
 import type { DatasetRole, WorkerRequest, WorkerResponse } from "./worker/messages";
 import { decisionKey, importKey, parseDecisionKey, parseImportKey, type CandidateDecision, type ImportDirection, type MatchDecisionStatus } from "./review/types";
 import { nowGedcomTime, stampChanCrea, todayGedcom } from "./gedcom/chanCrea";
-import { downloadText } from "./ui/download";
+import { baseStem, downloadText } from "./ui/download";
 import { AutoMediaOffer, GedcomLoader } from "./ui/GedcomLoader";
 import { StartPersonSelector } from "./ui/StartPersonSelector";
 import { CompareTree } from "./ui/CompareTree";
@@ -666,16 +666,22 @@ function AppContent() {
   // who later clears the start person isn't overridden.
   useEffect(() => {
     if (main.status !== "loaded" || autoStartRef.current) return;
+    const ds = main.file.dataset;
+    // A tree just started holds nobody, so there is no one to be the start
+    // person yet. Leave the attempt open (this runs again on every edit) and
+    // the first person added takes the role.
+    if (ds.individuals.size === 0) return;
     autoStartRef.current = true;
     if (startId) return;
-    const start = defaultStartId(main.file.dataset);
+    // A file of one is that one person — no point asking.
+    const start = defaultStartId(ds) ?? (ds.individuals.size === 1 ? ds.individuals.keys().next().value : undefined);
     if (start) {
       changeStart(start);
     } else {
       setFocusStart(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [main.status]);
+  }, [main.status, editVersion]);
 
   // In merge mode, also attempt once when first match results arrive (covers
   // the case where main loaded before the worker finished computing matches).
@@ -687,7 +693,7 @@ function AppContent() {
     const start = ds ? defaultStartId(ds) : undefined;
     if (start) {
       changeStart(start);
-    } else {
+    } else if (ds && ds.individuals.size > 0) {
       setFocusStart(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1376,15 +1382,22 @@ function AppContent() {
     downloadText(preview.files[0], text);
     downloadText(preview.files[1], formatReport(preview.report, "GED Save change report"));
 
+    // A save can name the file better than it was created with — a tree started
+    // from nothing arrives as `new-tree` and leaves under its family's surname
+    // (see `newFileBase`). Carry that onto the open file so the header, the
+    // cache and the next save all agree with what was just downloaded. Undated:
+    // the stamp belongs to each download, not to the file being worked on.
+    const savedFileName = `${preview.base}.ged`;
+    const renamed = !!lastMainFile && lastMainFile.fileName !== savedFileName
+      && baseStem(lastMainFile.fileName) !== preview.base;
+    const mainFileName = renamed ? savedFileName : lastMainFile?.fileName ?? savedFileName;
+    if (renamed) dispatch({ type: "mainRenamed", fileName: savedFileName });
+
     // The saved file is the new main baseline — refresh the cache so a reload
     // restores the saved state (the confirmed decisions are now baked in and
     // cleared below, so the persisted session debounce will write them away).
     if (persistEnabled) {
-      void saveFile("main", {
-        fileName: lastMainFile?.fileName ?? `${preview.base}.ged`,
-        blob: new Blob([text]),
-        savedAt: Date.now(),
-      });
+      void saveFile("main", { fileName: mainFileName, blob: new Blob([text]), savedAt: Date.now() });
     }
 
     // The downloaded file is the new main baseline — rebuild the live dataset
@@ -1713,9 +1726,12 @@ function AppContent() {
       </button>
     </div>
   );
-  const startSelector = mainDataset && (
+  // Hidden on a file with nobody in it: there is no one to pick, and the empty
+  // Edit view already offers the only thing to do.
+  const startSelector = mainDataset && mainDataset.individuals.size > 0 && (
     <StartPersonSelector
       individuals={mainDataset.individuals}
+      version={editVersion}
       startId={startId}
       onChange={changeStart}
       onClear={() => changeStart(undefined)}

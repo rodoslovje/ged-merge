@@ -90,6 +90,7 @@ export type WorkspaceAction =
   | { type: "slotLoaded"; role: DatasetRole; file: LoadedFile }
   | { type: "slotError"; role: DatasetRole; fileName: string; message: string }
   | { type: "slotCleared"; role: DatasetRole }
+  | { type: "mainRenamed"; fileName: string }
   | { type: "matchingStarted" }
   | { type: "matchingStopped" }
   | { type: "matched"; result: MatchResult }
@@ -131,6 +132,20 @@ export function workspaceReducer(state: WorkspaceState, action: WorkspaceAction)
 
     case "slotCleared":
       return { ...state, [slotKey(action.role)]: { status: "empty" } };
+
+    case "mainRenamed": {
+      // A save can give a file a better name than it was created with (see
+      // `newFileBase`). Same file, same dataset, same generation: only the label
+      // changes, so nothing keyed on `mainLoadGen` remounts.
+      if (!state.lastMainFile || state.lastMainFile.fileName === action.fileName) return state;
+      const lastMainFile = { ...state.lastMainFile, fileName: action.fileName };
+      // Rebuilt from the one new object, so `main.file === lastMainFile` still
+      // holds. A main mid-reload is a different file and keeps its own name.
+      const main = state.main.status === "loaded" && state.main.file.fileName === state.lastMainFile.fileName
+        ? { status: "loaded" as const, file: lastMainFile }
+        : state.main;
+      return { ...state, main, lastMainFile };
+    }
 
     case "matchingStarted":
       return state.matching ? state : { ...state, matching: true };

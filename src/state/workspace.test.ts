@@ -77,6 +77,36 @@ describe("workspaceReducer — slots", () => {
     expect(s.lastMainFile).toBe(fm);
   });
 
+  // A save can give a file a better name than it was created with; the open
+  // file follows it without counting as a new load.
+  it("renames the main in both slots, keeping the dataset and generation", () => {
+    const fm = file("new-tree.ged");
+    const loaded = workspaceReducer(initialWorkspace, { type: "slotLoaded", role: "main", file: fm });
+    const s = workspaceReducer(loaded, { type: "mainRenamed", fileName: "Novak.ged" });
+
+    expect(s.lastMainFile?.fileName).toBe("Novak.ged");
+    expect(s.main).toEqual({ status: "loaded", file: s.lastMainFile });
+    expect(s.lastMainFile?.dataset).toBe(fm.dataset); // same file, only relabelled
+    expect(s.mainLoadGen).toBe(loaded.mainLoadGen); // …so nothing keyed on it remounts
+  });
+
+  it("ignores a rename that changes nothing, or with no main loaded", () => {
+    const loaded = workspaceReducer(initialWorkspace, { type: "slotLoaded", role: "main", file: file("a.ged") });
+    expect(workspaceReducer(loaded, { type: "mainRenamed", fileName: "a.ged" })).toBe(loaded);
+    expect(workspaceReducer(initialWorkspace, { type: "mainRenamed", fileName: "a.ged" })).toBe(initialWorkspace);
+  });
+
+  it("leaves a main mid-reload under its own name", () => {
+    const s = reduce(
+      initialWorkspace,
+      { type: "slotLoaded", role: "main", file: file("old.ged") },
+      { type: "slotLoading", role: "main", fileName: "incoming.ged" },
+      { type: "mainRenamed", fileName: "Novak.ged" },
+    );
+    expect(s.main).toEqual({ status: "loading", fileName: "incoming.ged" });
+    expect(s.lastMainFile?.fileName).toBe("Novak.ged");
+  });
+
   it("handles error and cleared", () => {
     const s1 = workspaceReducer(initialWorkspace, {
       type: "slotError", role: "compare", fileName: "bad.ged", message: "boom",
