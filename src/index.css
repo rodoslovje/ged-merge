@@ -33,6 +33,17 @@ button:focus-visible {
   outline-offset: 2px;
 }
 
+/* A decorative icon must not swallow its host's tooltip. Safari resolves a
+   `title` for SVG content from an SVG <title> child only — unlike Chrome and
+   Firefox it does not walk up to the HTML ancestor carrying the attribute — so
+   hovering the icon inside a titled chip (⚠ Warnings: 2, the status badges)
+   showed nothing there at all. Letting the pointer through hands the hover to
+   the element that owns the title. Scoped to `aria-hidden` icons directly
+   inside a titled element, so nothing interactive is affected. */
+[title] > svg[aria-hidden="true"] {
+  pointer-events: none;
+}
+
 .app {
   width: 100%;
   margin: 0 auto;
