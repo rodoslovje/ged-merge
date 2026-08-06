@@ -63,6 +63,7 @@ export type IssueCategory =
   | "livingTooOld"
   | "ageAtMarriage"
   | "parentAge"
+  | "bornAfterParentDeath"
   | "parallelFamilies"
   | "spouseAgeGap"
   | "futureDate";
@@ -110,6 +111,7 @@ const EMPTY_COUNTS: Record<IssueCategory, number> = {
   livingTooOld: 0,
   ageAtMarriage: 0,
   parentAge: 0,
+  bornAfterParentDeath: 0,
   parallelFamilies: 0,
   spouseAgeGap: 0,
   futureDate: 0,
@@ -344,6 +346,15 @@ interface ChildBirth {
   year: number;
 }
 
+/** True when this child is linked to the family as *born* to it: no `PEDI` /
+ *  `_MREL` at all, or one that still means birth. An adopted or foster child is
+ *  not bound by the couple's own lifespans or birth intervals. */
+function isBirthChildLink(child: Individual, famId: string): boolean {
+  const famc = child.raw.children.find((c) => c.tag === "FAMC" && c.value === famId);
+  const pedi = famc?.children.find((c) => c.tag === "PEDI" || c.tag === "_MREL")?.value;
+  return pedi === undefined || BIOLOGICAL_PEDI.has(pedi.trim().toLowerCase());
+}
+
 /**
  * The children of `fam` that carry a birth (or christening) date and are linked
  * to it as births — an adopted or foster child legitimately overlaps a mother's
@@ -354,9 +365,7 @@ function datedBirthChildren(fam: Family, ds: Dataset): ChildBirth[] {
   for (const childId of fam.children) {
     const child = ds.individuals.get(childId);
     if (!child) continue;
-    const famc = child.raw.children.find((c) => c.tag === "FAMC" && c.value === fam.id);
-    const pedi = famc?.children.find((c) => c.tag === "PEDI" || c.tag === "_MREL")?.value;
-    if (pedi !== undefined && !BIOLOGICAL_PEDI.has(pedi.trim().toLowerCase())) continue;
+    if (!isBirthChildLink(child, fam.id)) continue;
     const d = birthDateOf(child);
     if (d?.year === undefined) continue;
     out.push({ indi: child, month: d.year * 12 + ((d.month ?? 6) - 1), year: d.year });
@@ -673,6 +682,34 @@ export function validateDataset(ds: Dataset, currentYear: number = new Date().ge
           scope: "individual", id: child.id, category: "parentAge", severity: "warning",
           subject: subjectOf(child), messageKey: "tools.validate.issue.motherAge",
           messageVars: { age: cb - wb, min: AGE_LIMITS.motherAtBirth.min, max: AGE_LIMITS.motherAtBirth.max },
+        });
+      }
+
+      // A child born after a parent was already dead. The father's side allows
+      // a year of grace — a posthumous child is born within months of him, and
+      // year-only dates blur that further — while the mother's does not: she
+      // can die bearing the child (same year), but not before it. Only birth
+      // links are held to this; a widow may adopt.
+      // Beyond that margin the years contradict each other: the child hangs off
+      // the wrong family, or a death (often an infant namesake's) sits on the
+      // wrong record. That second case also costs a real merge match — the
+      // matcher refuses to identify a person with one who married after their
+      // recorded death (see MATCHING.md, hard gates).
+      if (!isBirthChildLink(child, fam.id)) continue;
+      const hd = deathYear(husband);
+      const wd = deathYear(wife);
+      if (hd !== undefined && cb > hd + 1) {
+        push({
+          scope: "individual", id: child.id, category: "bornAfterParentDeath", severity: "warning",
+          subject: subjectOf(child), messageKey: "tools.validate.issue.bornAfterFatherDeath",
+          messageVars: { birth: cb, death: hd },
+        });
+      }
+      if (wd !== undefined && cb > wd) {
+        push({
+          scope: "individual", id: child.id, category: "bornAfterParentDeath", severity: "warning",
+          subject: subjectOf(child), messageKey: "tools.validate.issue.bornAfterMotherDeath",
+          messageVars: { birth: cb, death: wd },
         });
       }
     }

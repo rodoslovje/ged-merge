@@ -1971,6 +1971,7 @@ function AppContent() {
               onSelectNext={onSelectNext}
               onSelect={select}
               decisions={decisions}
+              changedPersonIds={changedPersonIds}
               showFilters={showFilters}
               setShowFilters={setShowFilters}
               startId={startId}

@@ -154,6 +154,18 @@ describe("attribute tags and vendor events (BK premium support)", () => {
     expect(byKey(rows, "ILL.date")?.main).toBe("22 JUN 1966");
   });
 
+  it("leaves the value row label-less when its group header already says it", () => {
+    const rows = individualFieldRows(tr, person("1 REFN Mlinar"), undefined);
+    const header = rows.find((r) => r.isEventHeader && r.key === "REFN.header");
+    const value = byKey(rows, "REFN.value");
+    // The label itself stays (reports and merge keys read it); only the
+    // on-screen repeat under the header is dropped.
+    expect(value?.label).toBe(header?.label);
+    expect(value?.displayLabel).toBe("");
+    // A sub-row that says something the header doesn't keeps its label.
+    expect(byKey(rows, "DEAT.date")?.displayLabel).toBeUndefined();
+  });
+
   it("lifts Brother's Keeper _INTE/_FNRL/_MILT as events with date and place", () => {
     const rows = individualFieldRows(tr,
       dataset(`0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE 1850\n1 DEAT\n2 DATE 20 APR 1910\n1 _MILT vojak\n2 DATE 1871\n1 _FNRL\n2 DATE 24 APR 1910\n2 PLAC Tunjice\n1 _INTE\n2 PLAC Tunjice\n0 TRLR\n`).individuals.get("@I1@"),

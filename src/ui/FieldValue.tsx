@@ -115,6 +115,7 @@ export function RelativeGrid({
   renderChoice,
   renderPair,
   singleColumn = false,
+  mainBadges,
 }: {
   pairs: RelativePair[];
   mainChosen: boolean;
@@ -133,16 +134,26 @@ export function RelativeGrid({
     incomingChosen: boolean;
     choice?: React.ReactNode;
   };
+  /** Chips shown after a main relative's name — their own merge decision and
+   *  unsaved-edit state, so the relatives rows carry the same C/R/D/M marks the
+   *  match list and the Edit cards do. Returns null for a person with neither. */
+  mainBadges?: (id: string) => React.ReactNode;
 }) {
   const hasChoiceCol = !!renderChoice || !!renderPair;
-  const renderCell = (cell: RelativeCell | undefined, person: RelativePerson) => {
+  const renderCell = (
+    cell: RelativeCell | undefined,
+    person: RelativePerson,
+    badges?: (id: string) => React.ReactNode,
+  ) => {
     if (!cell || !cell.text) return " ";
-    let content: React.ReactNode = cell.text;
+    const badge = cell.id && badges ? badges(cell.id) : null;
+    let content: React.ReactNode = badge ? <>{cell.text}{badge}</> : cell.text;
     if (cell.name) {
       content = (
         <span className={`person-label ${sexClass(cell.sex)}`}>
           <span className="person-name">{cell.name}</span>
           {cell.years && <span className="person-years gm-data">{cell.years}</span>}
+          {badge}
         </span>
       );
     }
@@ -154,7 +165,7 @@ export function RelativeGrid({
       <div className="rel-grid single-col">
         {pairs.map((p, i) => (
           <div key={i} className="rel-cell f-val gm-data" title={p.main?.title}>
-            {renderCell(p.main, mainPerson)}
+            {renderCell(p.main, mainPerson, mainBadges)}
           </div>
         ))}
       </div>
@@ -174,7 +185,7 @@ export function RelativeGrid({
               className={`rel-cell f-val gm-data${mChosen ? " chosen" : ""}`}
               title={p.main?.title}
             >
-              {renderCell(p.main, mainPerson)}
+              {renderCell(p.main, mainPerson, mainBadges)}
             </div>
             <div
               className={`rel-cell rel-incoming f-val gm-data${iChosen ? " chosen" : ""}`}

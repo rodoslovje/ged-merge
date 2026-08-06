@@ -710,6 +710,13 @@
               save.
             </p>
             <p>
+              The badge follows the person into the compare panel's <strong>parents, partners and children</strong>
+              rows, next to their name in the Main column, together with the
+              <span class="gm-badge mod round">M</span> of a record you have edited. So while you work through one
+              match you can see which of their relatives are already decided and which still await you, without going
+              back to the list.
+            </p>
+            <p>
               <strong>Reject</strong> means “not the same person” — use it on a false-positive candidate so it stops
               cluttering the list. Rejected pairs disappear from the match list immediately; only unmarked, confirmed
               and deferred candidates stay shown. To bring one back, either <span class="gm-key">Ctrl</span><span
@@ -778,7 +785,11 @@
               flagged), <strong>living over 99</strong> (no death record, yet born so long ago they would be past the
               plausible lifespan today — almost always a missing death record; the batch <em>mark as deceased</em>
               action closes them in one step), implausible ages
-              (at death, at marriage, parent's age, spouse age gap), and <strong>children by two fathers at
+              (at death, at marriage, parent's age, spouse age gap), <strong>born after a parent's death</strong>
+              (a child whose birth year follows a parent's death — the father's side allows the posthumous child born
+              within the year, the mother's does not, and adopted or foster links are not flagged; either the child sits
+              in the wrong family or one of the dates belongs to somebody else, often a same-named infant, which also
+              costs you the merge match for that person), and <strong>children by two fathers at
               once</strong> — a mother whose children with one partner are interleaved in time with her children by
               another, which usually means a child or a whole sibling set hangs off the wrong family (consecutive
               marriages and adopted children are not flagged). <strong>Detached groups</strong> catches what a single
@@ -1809,8 +1820,8 @@
                 <tr><td><span class="gm-glyph">‹</span> <span class="gm-glyph">›</span></td><td>Previous / next photo in the lightbox</td></tr>
               </tbody>
             </table>
-            <p><strong>Status badges</strong> — round chips on candidate rows (Merge) and on every chart's nodes or
-              entries. The <strong>Badges</strong> toggle in Chart settings (<a href="#charts">§11</a>) shows or hides these on charts; on the
+            <p><strong>Status badges</strong> — round chips on candidate rows (Merge), on the relatives listed in the
+              compare panel, and on every chart's nodes or entries. The <strong>Badges</strong> toggle in Chart settings (<a href="#charts">§11</a>) shows or hides these on charts; on the
               Merge match list, confirmed and deferred badges always show — a rejected match is removed from the list
               instead of being badged there (see <a href="#merge">§9</a>).</p>
             <table class="gm-table">
@@ -1819,7 +1830,7 @@
                 <tr><td><span class="gm-badge c round">C</span></td><td>Confirmed match — it will be merged on save</td></tr>
                 <tr><td><span class="gm-badge r round">R</span></td><td>Rejected match — not the same person; hidden from the Merge match list</td></tr>
                 <tr><td><span class="gm-badge d round">D</span></td><td>Deferred — decide later</td></tr>
-                <tr><td><span class="gm-badge mod round">M</span></td><td>Modified — a record you changed in Edit (shown on charts)</td></tr>
+                <tr><td><span class="gm-badge mod round">M</span></td><td>Modified — a record you changed in Edit (shown on charts and beside a relative in the compare panel)</td></tr>
                 <tr><td><span class="gm-badge rep">+7</span></td><td>Relatives not shown — the <em>Generations</em> limit (<a href="#charts">§11</a>) stops the chart at this person; the number counts their descendants (or ancestors) left off. Click it to re-root the chart on them.</td></tr>
                 <tr><td><span class="gm-badge rep round">→</span></td><td>Repeated person — already shown elsewhere in the chart, where their branch is drawn; this position is deliberately left empty, and the badge is a link that takes you there (see <a href="#charts">§11</a>)</td></tr>
                 <tr><td><span class="gm-badge rep round">3</span></td><td>Continues on sheet 3 — printed sheets only (<em>PDF</em>, <a href="#printing">§11</a>): this person's line didn't fit on the current sheet and carries on over the numbered one</td></tr>
