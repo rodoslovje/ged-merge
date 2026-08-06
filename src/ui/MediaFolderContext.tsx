@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import { useTranslation } from "react-i18next";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { mediaKindOf, pathSegments } from "./mediaPath";
+import { mediaWarnSuppressed, suppressMediaWarn } from "./mediaPrefs";
 
 const DB_NAME = "gedmerge";
 const STORE_NAME = "mediaFolder";
@@ -195,13 +196,15 @@ export function MediaFolderProvider({ children }: { children: React.ReactNode })
   // Hidden <input webkitdirectory> for Firefox fallback
   const inputRef = useRef<HTMLInputElement | null>(null);
   // App-styled confirm/alert dialog (replaces native window.confirm/alert).
-  // `cancelLabel: null` renders an acknowledge-only alert.
+  // `cancelLabel: null` renders an acknowledge-only alert; `silenceable` adds
+  // the "Don't warn me again" tick that suppresses the browser-upload notice.
   const [dialog, setDialog] = useState<
-    { message: string; confirmLabel: string; cancelLabel: string | null; resolve: (ok: boolean) => void } | null
+    { message: string; confirmLabel: string; cancelLabel: string | null; silenceable?: boolean; resolve: (ok: boolean) => void } | null
   >(null);
+  const [silenced, setSilenced] = useState(false);
   const askDialog = useCallback(
-    (message: string, confirmLabel: string, cancelLabel: string | null) =>
-      new Promise<boolean>((resolve) => setDialog({ message, confirmLabel, cancelLabel, resolve })),
+    (message: string, confirmLabel: string, cancelLabel: string | null, silenceable?: boolean) =>
+      new Promise<boolean>((resolve) => setDialog({ message, confirmLabel, cancelLabel, silenceable, resolve })),
     []
   );
   // Like askDialog, but runs `onConfirm` synchronously the moment OK is clicked,
@@ -215,12 +218,14 @@ export function MediaFolderProvider({ children }: { children: React.ReactNode })
       confirmLabel: string,
       cancelLabel: string | null,
       onConfirm: () => Promise<T>,
+      silenceable?: boolean,
     ) =>
       new Promise<T | null>((resolve, reject) =>
         setDialog({
           message,
           confirmLabel,
           cancelLabel,
+          silenceable,
           resolve: (ok) => (ok ? onConfirm().then(resolve, reject) : resolve(null)),
         }),
       ),
@@ -258,10 +263,12 @@ export function MediaFolderProvider({ children }: { children: React.ReactNode })
     // dialog is unambiguous, so they skip it. Detect Brave once up front, since
     // we don't know yet which path Brave will take (its File System Access
     // support has historically been gated, dropping it to the fallback).
+    // Once the user has ticked "Don't warn me again", neither path warns.
     const brave = (
       navigator as unknown as { brave?: { isBrave?: () => Promise<boolean> } }
     ).brave;
     const isBrave = brave?.isBrave ? await brave.isBrave() : false;
+    const warn = !mediaWarnSuppressed();
 
     if ("showDirectoryPicker" in window) {
       const pick = () =>
@@ -271,12 +278,15 @@ export function MediaFolderProvider({ children }: { children: React.ReactNode })
       try {
         // On Brave the picker must fire from inside the warning's OK click to
         // keep the user gesture alive; elsewhere call it directly.
-        const dir = isBrave
+        // The notice explains the browser's wording; it isn't a second yes/no —
+        // the user already asked for the folder — so it acknowledges only.
+        const dir = isBrave && warn
           ? await askDialogThen(
               t("loader.mediaFolder.firefoxWarning"),
-              t("confirm.ok"),
-              t("confirm.cancel"),
+              t("confirm.continue"),
+              null,
               pick,
+              true,
             )
           : await pick();
         if (!dir) return; // warning dialog cancelled
@@ -292,13 +302,14 @@ export function MediaFolderProvider({ children }: { children: React.ReactNode })
       // Firefox and Brave show the misleading "upload" dialog, so warn first.
       // Safari's picker is unambiguous, so skip the warning.
       const isFirefox = /firefox/i.test(navigator.userAgent);
-      if (isFirefox || isBrave) {
+      if ((isFirefox || isBrave) && warn) {
         const ok = await askDialog(
           t("loader.mediaFolder.firefoxWarning"),
-          t("confirm.ok"),
-          t("confirm.cancel"),
+          t("confirm.continue"),
+          null,
+          true,
         );
-        if (!ok) return;
+        if (!ok) return; // dismissed with Esc / a click outside
       }
       inputRef.current.click();
     } else {
@@ -468,8 +479,18 @@ export function MediaFolderProvider({ children }: { children: React.ReactNode })
           message={dialog.message}
           confirmLabel={dialog.confirmLabel}
           cancelLabel={dialog.cancelLabel}
-          onConfirm={() => { dialog.resolve(true); setDialog(null); }}
-          onCancel={() => { dialog.resolve(false); setDialog(null); }}
+          checkboxLabel={dialog.silenceable ? t("loader.mediaFolder.noWarn") : undefined}
+          checked={silenced}
+          onCheckedChange={setSilenced}
+          // Persist before resolving: on the Brave path `resolve` opens the
+          // folder picker synchronously to keep the user gesture alive.
+          onConfirm={() => {
+            if (dialog.silenceable && silenced) suppressMediaWarn();
+            dialog.resolve(true);
+            setDialog(null);
+            setSilenced(false);
+          }}
+          onCancel={() => { dialog.resolve(false); setDialog(null); setSilenced(false); }}
         />
       )}
     </MediaFolderContext.Provider>

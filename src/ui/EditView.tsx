@@ -1677,7 +1677,9 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
         <div className="section-body">
           <p className="gm-file main gm-data" title={`${t("tree.main")}: ${fileName}`}>{fileName}</p>
           <p className="muted">{t("edit.empty")}</p>
-          <button className="tree-open-btn edit-empty-add" onClick={() => addStandalonePerson()}>
+          {/* The only thing to do on a file with nobody in it, so it opens
+              focused — Enter starts the first person. */}
+          <button className="tree-open-btn edit-empty-add" autoFocus onClick={() => addStandalonePerson()}>
             <AddPersonIcon size={15} /> {t("edit.addNewPerson")}
           </button>
         </div>

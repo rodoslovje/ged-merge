@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { buildDataset } from "./builder";
 import { addIndividual } from "./edit";
-import { newGedcomText } from "./newFile";
+import { newFileBase, newGedcomText } from "./newFile";
 import { parseGedcom } from "./parser";
 import { serializeGedcom } from "./serialize";
+import type { Dataset } from "./types";
 
 /**
  * The empty-file skeleton is fed straight into the ordinary load path, so the
@@ -36,5 +37,46 @@ describe("newGedcomText", () => {
 
     const reloaded = buildDataset(parseGedcom(toBuffer(serializeGedcom(ds.records))));
     expect([...reloaded.individuals.keys()]).toEqual(["@I1@"]);
+  });
+});
+
+/** The browser cannot read the account name its user is logged in under, so a
+ *  file created from nothing takes its name from the family inside it. */
+describe("newFileBase", () => {
+  const load = (lines: string[]): Dataset =>
+    buildDataset(parseGedcom(new TextEncoder().encode([
+      "0 HEAD", "1 GEDC", "2 VERS 5.5.1", "1 CHAR UTF-8", ...lines, "0 TRLR", "",
+    ].join("\n")).buffer as ArrayBuffer));
+
+  it("takes the first person's surname", () => {
+    expect(newFileBase(load(["0 @I1@ INDI", "1 NAME Janez /Novak/"]))).toBe("Novak");
+  });
+
+  it("prefers the home person over the first in the file", () => {
+    const ds = load([
+      "0 @I1@ INDI", "1 NAME Janez /Novak/",
+      "0 @I2@ INDI", "1 NAME Ana /Stare/",
+    ]);
+    expect(newFileBase(ds, "@I2@")).toBe("Stare");
+    // An id no longer in the file falls back rather than yielding nothing.
+    expect(newFileBase(ds, "@I9@")).toBe("Novak");
+  });
+
+  it("declines an empty file, a given name only, and a placeholder surname", () => {
+    expect(newFileBase(load([]))).toBeNull();
+    expect(newFileBase(load(["0 @I1@ INDI", "1 NAME Janez"]))).toBeNull();
+    expect(newFileBase(load(["0 @I1@ INDI", "1 NAME Janez /?/"]))).toBeNull();
+    expect(newFileBase(load(["0 @I1@ INDI", "1 NAME Janez /Neznano/"]))).toBeNull();
+  });
+
+  it("makes the surname safe to write to disk", () => {
+    // Separators would break the `{base}.{date}.gedmerge.ged` convention, and
+    // a slash would read as a path.
+    expect(newFileBase(load(["0 @I1@ INDI", "1 NAME A /St. Clair/"]))).toBe("St-Clair");
+    expect(newFileBase(load(["0 @I1@ INDI", "1 NAME A /van der Berg/"]))).toBe("van-der-Berg");
+    // Nothing is left dangling at either end.
+    expect(newFileBase(load(["0 @I1@ INDI", "1 NAME A /Novak\\/"]))).toBe("Novak");
+    // Letters outside ASCII are ordinary in a surname and stay as written.
+    expect(newFileBase(load(["0 @I1@ INDI", "1 NAME A /Šuštaršič/"]))).toBe("Šuštaršič");
   });
 });

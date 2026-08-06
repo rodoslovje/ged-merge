@@ -125,6 +125,7 @@ function useLatestNews(): News | null {
 export function Landing({ mainState, onLoadFile, onLoadSample, onStartNew }: Props) {
   const { t, i18n } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
+  const dropRef = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState(false);
   const { openItems } = useMediaViewer();
   const news = useLatestNews();
@@ -147,6 +148,15 @@ export function Landing({ mainState, onLoadFile, onLoadSample, onStartNew }: Pro
   }
 
   const loading = mainState.status === "loading";
+
+  // The page exists to open a file, so Enter should do that without hunting for
+  // the drop zone by Tab first. Re-runs when a load ends: on success the landing
+  // is gone, on failure the zone is back and holds focus for another try.
+  useEffect(() => {
+    // preventScroll: on a phone the zone sits below the hero, and jumping past
+    // the headline to reach it is worse than leaving it out of view.
+    if (!loading) dropRef.current?.focus({ preventScroll: true });
+  }, [loading]);
 
   function onChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -201,6 +211,7 @@ export function Landing({ mainState, onLoadFile, onLoadSample, onStartNew }: Pro
             </div>
           ) : (
             <div
+              ref={dropRef}
               className={`lb-drop${dragging ? " dragover" : ""}`}
               role="button"
               tabIndex={0}
