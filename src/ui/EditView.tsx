@@ -554,6 +554,21 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   // Which FamilySearch-id tag a newly added id gets — the file's own dialect.
   const fsIdTag = useMemo(() => preferredFsIdTag(dataset), [dataset]);
   const [mediaDragOver, setMediaDragOver] = useState(false);
+  /** A file drag that crosses the person panel but ends somewhere else — dropped
+   *  on the loader, or abandoned outside the window — never delivers a `drop`
+   *  here, and its closing `dragleave` fires at whichever child the pointer last
+   *  sat over. Only end-of-drag events on the window reliably put the highlight
+   *  out again. */
+  useEffect(() => {
+    if (!mediaDragOver) return;
+    const clear = () => setMediaDragOver(false);
+    window.addEventListener("drop", clear);
+    window.addEventListener("dragend", clear);
+    return () => {
+      window.removeEventListener("drop", clear);
+      window.removeEventListener("dragend", clear);
+    };
+  }, [mediaDragOver]);
 
   /** After a commit whose note ctx touched shared NOTE records: refresh every
    *  other referrer's stale projection and remount the note editors. */
@@ -1748,7 +1763,11 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
             e.preventDefault();
             setMediaDragOver(true);
           }}
-          onDragLeave={(e) => { if (e.currentTarget === e.target) setMediaDragOver(false); }}
+          onDragLeave={(e) => {
+            // Leaving for a child of the panel is not leaving the panel.
+            const next = e.relatedTarget as Node | null;
+            if (!next || !e.currentTarget.contains(next)) setMediaDragOver(false);
+          }}
           onDrop={handleMediaDrop}
         >
           <div className="edit-person-header">
