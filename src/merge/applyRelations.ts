@@ -397,7 +397,14 @@ export function applyIndividualFamilies(
 
     const reviewMainFamId = reviewPairs.get(incFamId);
     let famNode = reviewMainFamId ? ctx.famNode(reviewMainFamId) : undefined;
-    famNode ??= findMainSpouseFamily(mainId, otherMainId, ctx, incomingIndi.spouseOf.length, mainIndi);
+    famNode ??= findMainSpouseFamily(mainId, otherMainId, ctx, incomingIndi.spouseOf.length, mainIndi,
+      // The review pairs a union with a main family whenever the two could be
+      // the same marriage; leaving this one unpaired means it showed the user a
+      // family of its own, with a partner it judged a different person. Honour
+      // that: this union gets its own new family rather than collapsing into
+      // the person's lone existing one, which would file a second wife and her
+      // children under the first wife's marriage.
+      !reviewPairs.has(incFamId));
     if (!famNode) famNode = createPersonFamily(mainId, mainIndi.sex, ctx);
 
     applyFamilyStructure(famNode, incFam, ctx, { spouses: takeSpouses, takenChildren: famTakenChildren, explicitPicks: true });
@@ -521,6 +528,9 @@ function findMainSpouseFamily(
   /** Pre-merge fallback for the person's family list, when the live node is
    *  somehow absent. */
   fallbackIndi?: import("../gedcom/types").Individual,
+  /** The review showed this union as a family of its own — skip the lone-family
+   *  collapse below, which exists for unions the review never ruled on. */
+  reviewedAsOwnFamily = false,
 ): GedNode | undefined {
   const node = ctx.indiNode(mainId);
   const famIds = node
@@ -543,7 +553,7 @@ function findMainSpouseFamily(
   // it gets its own new family instead of colliding with this one. (An unmatched
   // partner keeps collapsing here, so a missed match still surfaces as a
   // "different spouse" conflict rather than silently spawning a duplicate.)
-  if (famIds.length === 1 && incomingFamCount === 1) {
+  if (!reviewedAsOwnFamily && famIds.length === 1 && incomingFamCount === 1) {
     const famNode = ctx.famNode(famIds[0]);
     const other = famNode && otherSpouse(famNode);
     if (famNode && !(otherMainId && other && other !== otherMainId)) return famNode;

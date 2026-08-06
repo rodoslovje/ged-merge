@@ -3,7 +3,7 @@ import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { inferMainProfile } from "../normalize/profile";
 import { normalizeDataset } from "../normalize/normalize";
-import { familyMergeKeyBases, fieldDiffCounts, individualFieldRows } from "./fields";
+import { familyMergeKeyBases, fieldDiffCounts, individualFieldRows, pairedMainFamilies } from "./fields";
 import type { FieldRow } from "./types";
 
 function dataset(text: string) {
@@ -402,6 +402,76 @@ describe("familyMergeKeyBases", () => {
     const c = dataset(statusGed("@F2@", "Partners"));
     const rows = individualFieldRows(tr, m.individuals.get("@C@"), c.individuals.get("@C@"), m, c);
     expect(byKey(rows, "fam.@F2@._MSTAT.value")).toMatchObject({ main: "Partners", incoming: "Partners", state: "agree" });
+  });
+});
+
+describe("pairing unions by their partners", () => {
+  // One man, one union on each side — but two plainly different women. Nothing
+  // may pull these into one family group.
+  const union = (famId: string, wifeName: string, wifeId: string, extra = "") => `0 HEAD
+0 @H@ INDI
+1 NAME Nejc /Bratuša/
+1 SEX M
+1 FAMS ${famId}
+0 ${wifeId} INDI
+1 NAME ${wifeName}
+1 SEX F
+1 FAMS ${famId}
+0 ${famId} FAM
+1 HUSB @H@
+1 WIFE ${wifeId}
+${extra}0 TRLR
+`;
+
+  it("keeps unions with clearly different partners as two families", () => {
+    const m = dataset(union("@F1@", "Neja /Bizjak/", "@W1@", "1 MARR\n2 DATE 5 NOV 2024\n"));
+    const c = dataset(union("@F2@", "Katja /Špiler/", "@W2@", "1 MARR\n2 PLAC Križe\n"));
+    const rows = individualFieldRows(tr, m.individuals.get("@H@"), c.individuals.get("@H@"), m, c);
+
+    // Each union keeps its own group, so neither partner is offered as a
+    // replacement for the other.
+    expect(byKey(rows, "fam.@F1@.partner")).toMatchObject({ main: "Neja Bizjak", state: "main-only" });
+    expect(byKey(rows, "fam.@F2@.partner")).toMatchObject({ incoming: "Katja Špiler", state: "incoming-only" });
+    // ...and the incoming marriage place lands in the incoming union's group,
+    // not on the main union's wedding.
+    expect(byKey(rows, "fam.@F2@.MARR.place")).toMatchObject({ incoming: "Križe", state: "incoming-only" });
+    expect(byKey(rows, "fam.@F1@.MARR.place")).toBeUndefined();
+    expect(pairedMainFamilies(m.individuals.get("@H@"), c.individuals.get("@H@"), m, c).size).toBe(0);
+  });
+
+  it("pairs a partner recorded under her maiden name in one file and her married name in the other", () => {
+    const m = dataset(union("@F1@", "Ana /Novak/", "@W1@"));
+    const c = dataset(union("@F2@", "Ana /Bratuša/", "@W2@", "1 MARR\n2 PLAC Križe\n"));
+    const rows = individualFieldRows(tr, m.individuals.get("@H@"), c.individuals.get("@H@"), m, c);
+
+    expect(byKey(rows, "fam.@F2@.MARR.place")).toMatchObject({ incoming: "Križe", state: "incoming-only" });
+    expect(pairedMainFamilies(m.individuals.get("@H@"), c.individuals.get("@H@"), m, c).get("@F2@")).toBe("@F1@");
+  });
+
+  it("pairs unions whose partners differ but whose children match", () => {
+    const withChild = (famId: string, wifeName: string, wifeId: string, childId: string) =>
+      union(famId, wifeName, wifeId, `1 CHIL ${childId}\n`) .replace(
+        "0 TRLR",
+        `0 ${childId} INDI\n1 NAME Ota /Bratuša/\n1 BIRT\n2 DATE 2025\n1 FAMC ${famId}\n0 TRLR`,
+      );
+    const m = dataset(withChild("@F1@", "Neja /Bizjak/", "@W1@", "@C1@"));
+    const c = dataset(withChild("@F2@", "Katja /Špiler/", "@W2@", "@C2@"));
+
+    expect(pairedMainFamilies(m.individuals.get("@H@"), c.individuals.get("@H@"), m, c).get("@F2@")).toBe("@F1@");
+  });
+
+  it("still pairs the lone unions when one of them names no partner", () => {
+    const m = dataset(`0 HEAD
+0 @H@ INDI
+1 NAME Nejc /Bratuša/
+1 SEX M
+1 FAMS @F1@
+0 @F1@ FAM
+1 HUSB @H@
+0 TRLR
+`);
+    const c = dataset(union("@F2@", "Katja /Špiler/", "@W2@"));
+    expect(pairedMainFamilies(m.individuals.get("@H@"), c.individuals.get("@H@"), m, c).get("@F2@")).toBe("@F1@");
   });
 });
 
