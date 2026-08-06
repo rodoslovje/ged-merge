@@ -17,9 +17,13 @@ interface Props {
   checkboxLabel?: string;
   checked?: boolean;
   onCheckedChange?: (checked: boolean) => void;
+  /** Optional third action, shown left of Cancel — for a dismissal that also
+   *  decides something, e.g. "Later" vs "Don't ask again". */
+  altLabel?: string;
+  onAlt?: () => void;
 }
 
-export function ConfirmDialog({ message, confirmLabel, onConfirm, onCancel, cancelLabel, danger, checkboxLabel, checked, onCheckedChange }: Props) {
+export function ConfirmDialog({ message, confirmLabel, onConfirm, onCancel, cancelLabel, danger, checkboxLabel, checked, onCheckedChange, altLabel, onAlt }: Props) {
   const { t } = useTranslation();
   const ref = useModalKeyboard(true, onCancel);
   const [title, body] = message.split("\n\n");
@@ -39,6 +43,11 @@ export function ConfirmDialog({ message, confirmLabel, onConfirm, onCancel, canc
           </label>
         )}
         <div className="confirm-dialog-actions">
+          {altLabel && onAlt && (
+            <button type="button" className="btn-secondary" onClick={onAlt}>
+              {altLabel}
+            </button>
+          )}
           {cancelLabel !== null && (
             <button type="button" className="btn-secondary" onClick={onCancel}>
               {cancelLabel ?? t("confirm.cancel")}

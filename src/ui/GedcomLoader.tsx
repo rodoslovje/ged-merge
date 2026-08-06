@@ -7,6 +7,7 @@ import type { SlotState } from "../App";
 import { useMediaFolder } from "./MediaFolderContext";
 import { revealEdgeWhitespace } from "./whitespace";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { mediaOfferSuppressed, suppressMediaOffer } from "./mediaPrefs";
 import { pickFile, fileFromDrop, supportsFilePicker, type AcceptSpec } from "./filePicker";
 
 function countLocalMedia(records: GedNode[]): number {
@@ -25,10 +26,6 @@ function countLocalMedia(records: GedNode[]): number {
 // session instead, so each loaded file is offered at most once.
 let offeredFor: string | null = null;
 
-// Persisted across sessions: when the user ticks "Never ask again" we stop
-// auto-offering the photo folder entirely (they can still open it manually).
-const NEVER_OFFER_KEY = "mediaFolderNeverOffer";
-
 /** Always-mounted companion to GedcomLoader: detects local media in the main file
  *  and offers the photo-folder picker as soon as the file loads, regardless of
  *  whether the info panel (which contains GedcomLoader) is currently visible. */
@@ -36,11 +33,10 @@ export function AutoMediaOffer({ main }: { main: SlotState }) {
   const { t } = useTranslation();
   const { folderName, openFolder } = useMediaFolder();
   const [offerCount, setOfferCount] = useState<number | null>(null);
-  const [neverAsk, setNeverAsk] = useState(false);
 
   useEffect(() => {
     if (main.status !== "loaded" || folderName) return;
-    if (localStorage.getItem(NEVER_OFFER_KEY) === "true") return;
+    if (mediaOfferSuppressed()) return;
     const { fileName, dataset } = main.file;
     if (offeredFor === fileName) return;
     offeredFor = fileName;
@@ -48,22 +44,18 @@ export function AutoMediaOffer({ main }: { main: SlotState }) {
     if (n > 0) setOfferCount(n);
   }, [main, folderName]);
 
-  function dismiss() {
-    if (neverAsk) localStorage.setItem(NEVER_OFFER_KEY, "true");
-    setOfferCount(null);
-  }
-
   if (offerCount === null) return null;
+  // Three answers, no checkbox: connect now, not this time, or never again.
+  // The Esc key and a click outside land on "Later" — the reversible one.
   return (
     <ConfirmDialog
       message={t("loader.mediaFolder.autoOffer", { count: offerCount })}
       confirmLabel={t("loader.mediaFolder.select")}
       cancelLabel={t("loader.mediaFolder.later")}
-      checkboxLabel={t("loader.mediaFolder.neverAsk")}
-      checked={neverAsk}
-      onCheckedChange={setNeverAsk}
-      onConfirm={() => { dismiss(); openFolder(); }}
-      onCancel={dismiss}
+      altLabel={t("loader.mediaFolder.neverAsk")}
+      onAlt={() => { suppressMediaOffer(); setOfferCount(null); }}
+      onConfirm={() => { setOfferCount(null); openFolder(); }}
+      onCancel={() => setOfferCount(null)}
     />
   );
 }

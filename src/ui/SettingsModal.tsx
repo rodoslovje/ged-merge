@@ -17,6 +17,7 @@ import { DATE_PATTERN_CHOICES, type DetectedFormats, type FormatOverrides } from
 import { placeLayoutSample, sampleDateFor } from "../normalize/formatDefaults";
 import { placeSeparatorText } from "../normalize/profile";
 import { sexClass } from "./sex";
+import { anyMediaDialogSuppressed, resetMediaDialogs } from "./mediaPrefs";
 import { altShiftLabel } from "../keyboard/shortcuts";
 import { AddEventSelect } from "./edit/AddEventSelect";
 import type { SettingsTab } from "./settingsBus";
@@ -183,6 +184,13 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
   // What "Auto (detected)" resolves to — computed at load in the worker and
   // stored with the file, so showing it here costs nothing.
   const detected = detectedFormats;
+
+  // The media dialogs the user has silenced. They live in localStorage, not in
+  // the settings object, so re-read on each open instead of holding a copy.
+  const [mediaSilenced, setMediaSilenced] = useState(anyMediaDialogSuppressed);
+  useEffect(() => {
+    if (isOpen) setMediaSilenced(anyMediaDialogSuppressed());
+  }, [isOpen]);
 
   // Preset names resolved to the current language and sorted by that label.
   const presets = useMemo(
@@ -960,6 +968,22 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                   onClick={onClearCache}
                 >
                   {t("settings.data.clear.button")}
+                </button>
+              </div>
+            )}
+            {mediaSilenced && (
+              <div className="settings-row">
+                <span className="settings-row-text">
+                  <span className="settings-row-label">{t("settings.data.mediaDialogs")}</span>
+                  <span className="settings-hint">{t("settings.data.mediaDialogs.hint")}</span>
+                </span>
+                <button
+                  type="button"
+                  className="nav-btn"
+                  aria-label={t("settings.data.mediaDialogs")}
+                  onClick={() => { resetMediaDialogs(); setMediaSilenced(false); }}
+                >
+                  {t("settings.data.mediaDialogs.button")}
                 </button>
               </div>
             )}
