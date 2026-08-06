@@ -645,6 +645,8 @@ export const en = {
   "tools.places.coord.disputedNote_one": "This place is written at {{count}} spot.",
   "tools.places.coord.disputedNote_other": "This place is written at {{count}} different spots.",
   "tools.places.coord.settle": "Settle it in Geocode places →",
+  "tools.places.peopleToggle_one": "{{count}} record written at exactly this place — click to list it",
+  "tools.places.peopleToggle_other": "{{count}} records written at exactly this place — click to list them",
   "tools.places.rename.open": "Rename this place segment",
   "tools.places.rename.cancel": "Cancel",
   "tools.places.rename.placeholder": "New name…",
