@@ -212,8 +212,17 @@ export function parseAddressMember(member: string, settlements: ReadonlyMap<numb
   for (let m = DESIGNATOR.exec(member); m; m = DESIGNATOR.exec(member)) {
     const value = m[1].trim();
     if (m[2] === "addressNumber") number = Number(value);
-    else if (m[2] === "addressNumberExtension") ext = value.toLowerCase().slice(0, 1);
-    else if (m[2] === "addressNumber2ndExtension") ext2 = Number(value) || 0;
+    // Both extensions are stored in one small column each — a letter as a code
+    // point, the second as a byte — so anything that would not fit is dropped
+    // rather than silently wrapped into a different house. The register's own
+    // values are a single Latin letter and a number under 50.
+    else if (m[2] === "addressNumberExtension") {
+      const letter = value.toLowerCase().slice(0, 1);
+      ext = (letter.codePointAt(0) ?? 0) <= 0xffff ? letter : "";
+    } else if (m[2] === "addressNumber2ndExtension") {
+      const second = Number(value);
+      ext2 = Number.isInteger(second) && second > 0 && second <= 255 ? second : 0;
+    }
   }
   if (!Number.isFinite(number) || number <= 0) return undefined;
 
