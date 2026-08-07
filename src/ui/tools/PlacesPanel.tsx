@@ -6,6 +6,7 @@ import { previewPlaceRename, type PlaceRenamePreview } from "../../tools/placeEd
 import { scanAddresses } from "../../tools/addresses";
 import { useDatasetDerivations } from "../DatasetDerivations";
 import { GeocodePanel } from "./GeocodePanel";
+import { RegisterPanel } from "./RegisterPanel";
 import { countGeocodePending, type GeoAssignment, type OfficialRename } from "../../tools/geocode";
 import { countryCode } from "../../gedcom/countryCode";
 import { ToolsLoading, TreeSearch, UsageList, useDebounced } from "./shared";
@@ -101,7 +102,7 @@ export function PlacesPanel({
   const [query, setQuery] = useState("");
   // Switches the panel body between the containment tree and the geocode tool
   // (same pattern as the Sources panel hosting Organize sources).
-  const [view, setView] = useState<"tree" | "geocode">("tree");
+  const [view, setView] = useState<"tree" | "geocode" | "register">("tree");
 
   useEffect(() => {
     setTree(null);
@@ -221,6 +222,23 @@ export function PlacesPanel({
 
   if (!tree) return <ToolsLoading label={t("tools.running")} />;
 
+  if (view === "register")
+    return (
+      <RegisterPanel
+        dataset={dataset}
+        active={active}
+        editVersion={editVersion}
+        onApplyOfficialNames={onApplyOfficialNames}
+        onRenameAddress={onRenameAddress}
+        onNavigate={onNavigate}
+        startId={startId}
+        onBack={() => {
+          setView("tree");
+          setTree(null);
+        }}
+      />
+    );
+
   if (view === "geocode")
     return (
       <GeocodePanel
@@ -271,6 +289,17 @@ export function PlacesPanel({
             {addressPending > 0 && (
               <span className="tools-chip-count">{t("tools.places.geocodeChipAddr", { count: addressPending })}</span>
             )}
+          </button>
+          {/* Compliance beside geocoding, not inside it: geocoding is a
+              worklist — what is left to place — while this reads the whole file
+              and holds it against the registers. Two questions, two pages. */}
+          <button
+            type="button"
+            className="tools-chip"
+            title={t("tools.places.registerChipHint")}
+            onClick={() => setView("register")}
+          >
+            {t("tools.places.registerToggle")}
           </button>
         </div>
         <ToolSummary>

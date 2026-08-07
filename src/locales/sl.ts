@@ -523,6 +523,8 @@ export const sl = {
   "tools.geocode.tab.places": "Kraji",
   "tools.geocode.tab.addresses": "Naslovi",
   "tools.geocode.tab.register": "Skladnost",
+  "tools.places.registerToggle": "Skladnost",
+  "tools.places.registerChipHint": "Vsak kraj in naslov iz datoteke primerjaj z uradnim registrom njegove države in poglej, kje se zapisa ne ujemata.",
   "tools.register.tab.places": "Kraji",
   "tools.register.tab.addresses": "Naslovi",
   "tools.registerAddr.intro": "Vsak naslov v državi, katere register naslovov ste prenesli, primerjan z njim: ulica, zapisana drugače, ali hiša, ki jo register vodi pod drugim naseljem. Hišne številke, ki jih register nima več, so samo preštete in ne naštete — vaško oštevilčenje je bilo v 20. stoletju povsod prenovljeno, zato je stara številka, ki je register ne pozna, običajno pravilna taka, kot je.",

@@ -462,6 +462,9 @@ export const en = {
   // decision with a visible answer.
   // The two compliance lists as two tabs. Named for what each holds, not
   // repeated as "compliance of…": the tab above them already says that.
+  // The compliance page, opened from the Places tree beside geocoding.
+  "tools.places.registerToggle": "Compliance",
+  "tools.places.registerChipHint": "Hold every place and address the file writes against the official register of its country, and see what the two disagree about.",
   "tools.register.tab.places": "Places",
   "tools.register.tab.addresses": "Addresses",
   "tools.registerAddr.intro": "Every address in a country whose address register you have downloaded, held against it: the street spelt otherwise, or the house filed under a different settlement. House numbers the register no longer has are counted rather than listed — village numbering was redone wholesale in the twentieth century, so an old number missing from it is usually right as it stands.",
