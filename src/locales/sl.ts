@@ -543,7 +543,7 @@ export const sl = {
   "tools.registerAddr.hint.addrElsewhere": "Register vodi to hišo pod drugim naseljem, kot ga imenuje kraj — dogodki morda spadajo v sosednjo vas.",
   "tools.registerAddr.hint.addrSpelling": "Register ulico zapiše drugače.",
   "tools.registerAddr.hint.addrMissing": "Register v tem naselju nima take hišne številke. Privzeto ni na seznamu: pri datoteki z župnijskimi vpisi je to običajno stanje in ne napaka.",
-  "tools.registerAddr.take": "Prevzemi uradni zapis",
+  "tools.registerAddr.takeHint": "Na vseh dogodkih pri tej hiši zapiši »{{address}}« — tako jo piše register.",
   "tools.registerAddr.move": "register: {{place}}",
   "tools.registerAddr.moveHint": "Te dogodke premaknite na zavihku Naslovi, kjer je hišo pred zapisom mogoče potrditi na zemljevidu.",
   "tools.register.heading": "Kraji v primerjavi z registrom",

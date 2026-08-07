@@ -19,7 +19,7 @@ import {
 import type { AddressRow } from "../../tools/addresses";
 import { REGISTER_DISMISSED } from "../../tools/registerCheck";
 import { useLocalRegisters } from "../useLocalRegisters";
-import { AppliedNote, GeoPeopleList } from "./shared";
+import { AppliedNote, GeoPeopleList, GeoRowHeader } from "./shared";
 
 // The compliance tab's second half: the file's houses held against a downloaded
 // address register.
@@ -33,6 +33,16 @@ import { AppliedNote, GeoPeopleList } from "./shared";
 //
 // See addressCheck.ts for why a number the register does not have is counted
 // rather than listed.
+
+/** Which badge colour a verdict wears, in the vocabulary the places findings
+ *  use: "new" for a value that would become a different place, "official" for
+ *  the register's own wording, and the link colour for the aside that proposes
+ *  nothing to take. */
+const BADGE: Record<AddressVerdict, string> = {
+  addrElsewhere: "new",
+  addrSpelling: "official",
+  addrMissing: "reuse",
+};
 
 /** Addresses resolved per pass, so a long file fills in rather than freezing. */
 const CHUNK = 200;
@@ -70,6 +80,14 @@ export function AddressCheckSection({
   const [verdictFilter, setVerdictFilter] = useState<"all" | AddressVerdict>("all");
   const [showDismissed, setShowDismissed] = useState(false);
   const [peopleOpen, setPeopleOpen] = useState<Set<string>>(new Set());
+
+  const togglePeople = (key: string) =>
+    setPeopleOpen((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
   const [applied, setApplied] = useState<number | null>(null);
 
   /** The rows a stored register could answer — what the button offers, and all
@@ -211,67 +229,83 @@ export function AddressCheckSection({
               <AppliedNote count={applied} />
               {!view.rows.length && <p className="tools-clean">{t("tools.search.noMatch")}</p>}
               <ul className="tools-tree tools-register-list">
-                {view.rows.slice(0, MAX_ROWS).map((f) => (
-                  <li key={f.key} className={`tools-tree-node${f.dismissed ? " dismissed" : ""}`}>
-                    <div className="tools-geo-addr-line">
-                      <span className="tools-geo-addr-name gm-data">{f.written}</span>
-                      <span className="tools-geo-addr-place">{f.place}</span>
-                      {f.official && (
-                        <>
-                          <span aria-hidden="true">→</span>
-                          <span className="tools-reshape-to gm-data">{f.official}</span>
-                        </>
-                      )}
-                      <span className={`tools-reshape-badge ${f.verdict === ADDRESS_ASIDE ? "" : "official"}`}>
-                        {t(`tools.registerAddr.verdict.${f.verdict}`)}
-                      </span>
-                      <button
-                        className="tools-geo-count tools-geo-people-toggle"
-                        onClick={() =>
-                          setPeopleOpen((prev) => {
-                            const next = new Set(prev);
-                            if (next.has(f.key)) next.delete(f.key);
-                            else next.add(f.key);
-                            return next;
-                          })
-                        }
+                {view.rows.slice(0, MAX_ROWS).map((f) => {
+                  const isOpen = peopleOpen.has(f.key);
+                  return (
+                    <li key={f.key} className={`tools-tree-node${f.dismissed ? " dismissed" : ""}`}>
+                      {/* The shape the places findings use: the value the file
+                          writes leads with the place it sits in beside it, the
+                          register's answer follows, and the verdict, the
+                          actions and the person count are pinned right, so the
+                          eye runs down two clean columns. */}
+                      <GeoRowHeader
+                        open={isOpen}
+                        onToggle={() => togglePeople(f.key)}
+                        place={f.written}
+                        address={f.place}
                       >
-                        {t("tools.geocode.addr.uses", { count: f.count })}
-                      </button>
-                      {f.officialAddress && !f.dismissed && (
-                        <button className="tools-issue-link" onClick={() => takeOfficial(f)}>
-                          {t("tools.registerAddr.take")}
-                        </button>
-                      )}
-                      {/* The move belongs to the Addresses tab, which has the
-                          machinery for it (and the map to check it on). Named
-                          here, done there. */}
-                      {f.verdict === "addrElsewhere" && f.officialPlace && (
-                        <span className="tools-geo-online-note" title={t("tools.registerAddr.moveHint")}>
-                          {t("tools.registerAddr.move", { place: f.officialPlace })}
+                        {f.official && (
+                          <>
+                            <span aria-hidden="true" className="tools-geo-row-addr">→</span>
+                            <span className="tools-geo-cand-name">{f.official}</span>
+                          </>
+                        )}
+                        <span className="tools-register-end">
+                          <span
+                            className={`tools-reshape-badge ${BADGE[f.verdict]}`}
+                            title={t(`tools.registerAddr.hint.${f.verdict}`)}
+                          >
+                            {t(`tools.registerAddr.verdict.${f.verdict}`)}
+                          </span>
+                          {f.officialAddress && !f.dismissed && (
+                            <button
+                              className="tools-issue-link"
+                              onClick={() => takeOfficial(f)}
+                              title={t("tools.registerAddr.takeHint", { address: f.officialAddress })}
+                            >
+                              {t("tools.geocode.official.take")}
+                            </button>
+                          )}
+                          <button
+                            className="tools-issue-link"
+                            onClick={() => void dismiss(f)}
+                            title={t("tools.register.dismissHint")}
+                          >
+                            {f.dismissed ? t("tools.geocode.restore") : t("tools.geocode.hide")}
+                          </button>
+                          <button
+                            className="tools-chip-count tools-count-toggle"
+                            aria-pressed={isOpen}
+                            aria-label={t("tools.geocode.peopleToggle")}
+                            onClick={() => togglePeople(f.key)}
+                          >
+                            {f.people.length}
+                          </button>
                         </span>
+                      </GeoRowHeader>
+                      {isOpen && (
+                        <div className="tools-geo-conflict-body">
+                          {/* Where the register would put these events. Named
+                              rather than done: the move belongs on the Addresses
+                              tab, which has the map to check the house on before
+                              anything is written. */}
+                          {f.verdict === "addrElsewhere" && f.officialPlace && (
+                            <p className="tools-fix-hint" title={t("tools.registerAddr.moveHint")}>
+                              {t("tools.registerAddr.move", { place: f.officialPlace })}
+                            </p>
+                          )}
+                          <GeoPeopleList
+                            dataset={dataset}
+                            ids={f.people}
+                            place={f.place}
+                            kinship={kinship}
+                            onNavigate={onNavigate}
+                          />
+                        </div>
                       )}
-                      {!f.dismissed && (
-                        <button
-                          className="tools-issue-link"
-                          title={t("tools.register.dismissHint")}
-                          onClick={() => void dismiss(f)}
-                        >
-                          {t("tools.geocode.hide")}
-                        </button>
-                      )}
-                    </div>
-                    {peopleOpen.has(f.key) && (
-                      <GeoPeopleList
-                        dataset={dataset}
-                        ids={f.people}
-                        place={f.place}
-                        kinship={kinship}
-                        onNavigate={onNavigate}
-                      />
-                    )}
-                  </li>
-                ))}
+                    </li>
+                  );
+                })}
               </ul>
               {view.rows.length > MAX_ROWS && (
                 <p className="tools-clean">{t("tools.geocode.more", { count: view.rows.length - MAX_ROWS })}</p>
