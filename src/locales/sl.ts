@@ -554,7 +554,7 @@ export const sl = {
   "tools.registerAddr.move": "register: {{place}}",
   "tools.registerAddr.moveHint": "Te dogodke premaknite na zavihku Naslovi, kjer je hišo pred zapisom mogoče potrditi na zemljevidu.",
   "tools.register.heading": "Kraji v primerjavi z registrom",
-  "tools.register.intro": "Vsak kraj, ki ga datoteka piše v državi, pokriti z enim vaših imenikov krajev, se primerja z njim — zapis imena, enota, ki mu pripada, koordinata, ki jo nosi, in ali se je v kraj prikradel hišni naslov. Kadar isto državo opisujeta dva imenika, odgovorita oba, uradni register pa ima prednost. Najdbe so v presojo, ne napake: register opisuje državo, kakršna je danes, vaša datoteka pa, kakršna je bila, zato je ime, ki ga register ne pozna več, pogosto povsem pravo. Take zavrnite in ne bodo več na seznamu.",
+  "tools.register.intro": "Vsak kraj v državi, katere imenik krajev ste naložili, se primerja z njim: kako je ime zapisano, kam je kraj uvrščen, kje leži in ali je vanj zašel še hišni naslov. Kadar isto državo pokrivata dva imenika, odgovorita oba, prednost pa ima uradni register. To niso napake, ampak vprašanja za vašo presojo: register opisuje današnjo državo, vaša datoteka pa nekdanjo, zato je ime, ki ga register ne pozna več, pogosto povsem pravilno. Takega skrijte in ne bo več na seznamu.",
   "tools.register.summary": "{{ok}} od {{checked}} se ujema · {{registers}}",
   "tools.register.forms": "Ravni v vaši datoteki:",
   "tools.register.verdict.address": "Naslov",
