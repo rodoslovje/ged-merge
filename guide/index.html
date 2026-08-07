@@ -1202,13 +1202,13 @@
               instead of asking where a place is, it asks whether your file writes it the way the directory does. Every
               place in a country any loaded directory covers is held against it — GURS for Slovenia, DGU for Croatia,
               but equally an OpenStreetMap download for Austria or a GeoNames file for the United States — and only the
-              disagreements are listed, under six labels: <strong>not in register</strong>
-              (no settlement of that name in the country the place names), <strong>several places</strong> (the name fits
-              more than one entry and nothing tells them apart), <strong>other municipality</strong> (the
-              directory files the settlement under an <em>občina</em> your place does not name), <strong>spelled
-              differently</strong> (diacritics, capitalisation, or a longer official form), <strong>address in
-              place</strong> (a house number sitting inside the place value, in a file that otherwise keeps addresses on
-              their own <code>ADDR</code> line) and <strong>position off</strong> (the coordinate in your file is more
+              disagreements are listed, each under the one word for what disagrees: <strong>unknown</strong>
+              (no settlement of that name in the country the place names), <strong>ambiguous</strong> (the name fits
+              more than one entry and nothing tells them apart), <strong>municipality</strong> (the
+              directory files the settlement under an <em>občina</em> your place does not name),
+              <strong>spelling</strong> (diacritics, capitalisation, or a longer official form), <strong>address</strong>
+              (a house number sitting inside the place value, in a file that otherwise keeps addresses on
+              their own <code>ADDR</code> line) and <strong>position</strong> (the coordinate in your file is more
               than ten kilometres from where the directory puts the place — usually a place geocoded to a same-named
               village elsewhere). Where two directories describe one country, both answer, and an official register
               outranks the rest, so where GURS or DGU knows the place it is the one that decides.
@@ -1221,7 +1221,14 @@
               arrives on it; a name fitting several places waits for you to pick with the radio, since choosing between
               them is the whole question. <strong>Use official name</strong> then renames every occurrence to the picked
               option (moving the address out, where that is the answer), and <strong>Use official names</strong> above
-              the list does every row that has an answer at once, in one undoable step. The row's count is the people
+              the list does every row that has an answer at once, in one undoable step. <strong>Show on map</strong> —
+              or a click on any answer's coordinate — draws the answers as numbered pins, the number on the pin being
+              the number beside the line, with the file's own position for the place as a dashed ring beside them: which
+              of six same-named places is yours is a question only a map answers. <strong>Look wider</strong> adds the
+              places whose name merely <em>contains</em> the one written — <em>Bela</em> finding Spodnja, Srednja and
+              Zgornja Bela — which the check itself never offers, since a name that is one word of a longer name is a
+              lead rather than an answer; they join the row's options, numbered after them, and can be taken like any
+              other. The row's count is the people
               whose events write the place; click it for them, each a link into Edit. Unlike the places list, this one
               looks at the places that already carry coordinates too: a file geocoded years ago has never had its
               spellings checked, and that is exactly where a register earns its keep. It is the page's opening tab

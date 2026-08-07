@@ -1208,12 +1208,12 @@
               kraj, ampak ali ga vaša datoteka piše tako, kot ga piše imenik. Vsak kraj v državi, ki jo pokriva kateri
               koli naloženi imenik, se primerja z njim — GURS za Slovenijo, DGU za Hrvaško, prav tako pa prenos
               OpenStreetMap za Avstrijo ali datoteka GeoNames za Združene države — na seznamu pa so samo odstopanja, pod
-              šestimi oznakami: <strong>ni v registru</strong> (v državi, ki jo kraj navaja, ni naselja s tem imenom),
-              <strong>več krajev</strong> (ime ustreza več vnosom, nič pa jih ne loči), <strong>druga
-              občina</strong> (imenik uvršča naselje v občino, ki je vaš kraj ne navaja), <strong>drugačen zapis</strong>
-              (strešice, velika začetnica ali daljša uradna oblika), <strong>naslov v kraju</strong> (hišna številka v
+              vsak pod eno besedo za tisto, kar odstopa: <strong>neznan</strong> (v državi, ki jo kraj navaja, ni naselja s tem imenom),
+              <strong>dvoumen</strong> (ime ustreza več vnosom, nič pa jih ne loči), <strong>občina</strong>
+              (imenik uvršča naselje v občino, ki je vaš kraj ne navaja), <strong>zapis</strong>
+              (strešice, velika začetnica ali daljša uradna oblika), <strong>naslov</strong> (hišna številka v
               vrednosti kraja, čeprav datoteka naslove sicer piše v svojo vrstico <code>ADDR</code>) in
-              <strong>odmaknjena lega</strong> (koordinata v datoteki je več kot deset kilometrov od tam, kamor kraj
+              <strong>lega</strong> (koordinata v datoteki je več kot deset kilometrov od tam, kamor kraj
               postavlja imenik — običajno je kraj geokodiran na enakoimensko vas drugod). Kadar isto državo opisujeta
               dva imenika, odgovorita oba, uradni register pa ima prednost: kjer kraj pozna GURS ali DGU, odloča on.
             </p>
@@ -1225,7 +1225,14 @@
               postavljena, ime, ki ustreza več krajem, pa počaka na vašo izbiro z okroglim gumbom, saj je prav izbira med
               njimi celotno vprašanje. <strong>Prevzemi uradno ime</strong> nato preimenuje vse navedbe v izbrano možnost
               (in naslov preseli, kadar je to odgovor), <strong>Prevzemi uradna imena</strong> nad seznamom pa opravi vse
-              vrstice z odgovorom naenkrat, v enem koraku, ki ga je mogoče razveljaviti. Števec vrstice so ljudje, katerih
+              vrstice z odgovorom naenkrat, v enem koraku, ki ga je mogoče razveljaviti. <strong>Pokaži na
+              zemljevidu</strong> — ali klik na koordinato katerega koli odgovora — odgovore nariše kot oštevilčene
+              oznake, kjer je številka na oznaki ista kot ob vrstici, ob njih pa s črtkanim obročem še lego, ki jo kraju
+              daje datoteka: kateri od šestih enakoimenskih krajev je vaš, odgovori le zemljevid. <strong>Poišči
+              širše</strong> doda kraje, katerih ime zapisano ime le <em>vsebuje</em> — <em>Bela</em> najde Spodnjo,
+              Srednjo in Zgornjo Belo — česar preverjanje samo nikoli ne ponudi, saj je ime, ki je ena beseda daljšega
+              imena, namig in ne odgovor; pridružijo se možnostim vrstice, oštevilčene za njimi, in jih je mogoče
+              prevzeti kot vsako drugo. Števec vrstice so ljudje, katerih
               dogodki pišejo ta kraj; klik nanj jih pokaže, vsak je povezava v Urejanje. Za razliko od seznama krajev ta
               pogleda tudi kraje, ki koordinate že imajo: datoteki, geokodirani pred leti, zapisov ni preveril še nihče,
               in prav tam se register najbolj obrestuje. Kjer je imenik naložen, se stran odpre prav na tem zavihku.

@@ -8313,6 +8313,9 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
    grouping span carries no layout of its own (`contents`), so its children take
    the row's own spacing rather than sitting in a column of their own. */
 .tools-register-end { display: contents; }
+/* A badge here names a directory or a verdict in one or two words: it must not
+   shrink to "SI-GU…" or "SPELLED DIFFERE…" when a long place fills the row. */
+.tools-register-list .tools-reshape-badge { flex: none; }
 /* A dismissed row is on the list only because it was asked for — it reads as
    settled, not as work. */
 .tools-register-list .tools-tree-node.dismissed { opacity: 0.6; }
