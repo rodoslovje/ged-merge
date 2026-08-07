@@ -4,6 +4,7 @@ import type { Dataset, GeoCoord } from "../../gedcom/types";
 import { buildPlaceTree, collectNodeUseIds, type PlaceNode, type PlaceTree, UNSPECIFIED, UNSPECIFIED_PLACE } from "../../tools/places";
 import { previewPlaceRename, type PlaceRenamePreview } from "../../tools/placeEdit";
 import { scanAddresses } from "../../tools/addresses";
+import { useDatasetDerivations } from "../DatasetDerivations";
 import { GeocodePanel } from "./GeocodePanel";
 import { countGeocodePending, type GeoAssignment, type OfficialRename } from "../../tools/geocode";
 import { countryCode } from "../../gedcom/countryCode";
@@ -94,6 +95,7 @@ export function PlacesPanel({
   startId?: string;
 }) {
   const { t } = useTranslation();
+  const derivations = useDatasetDerivations();
   const [tree, setTree] = useState<PlaceTree | null>(null);
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
@@ -211,7 +213,11 @@ export function PlacesPanel({
   const geocodePending = useMemo(() => (tree ? countGeocodePending(dataset) : 0), [dataset, tree]);
   // Placed rows ride along in the scan (the review list can show them back);
   // pending work is only what still lacks a position of its own.
-  const addressPending = useMemo(() => (tree ? scanAddresses(dataset).filter((r) => !r.placed).length : 0), [dataset, tree]);
+  const addressPending = useMemo(
+    () => (tree ? (derivations?.addressRows() ?? scanAddresses(dataset)).filter((r) => !r.placed).length : 0),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dataset, tree],
+  );
 
   if (!tree) return <ToolsLoading label={t("tools.running")} />;
 

@@ -22,6 +22,7 @@ import { loadDecisions, putDecisions, type GeocodeDecision } from "../../persist
 import { AppliedNote, ExpandAllToggle, ToolsLoading, TreeSearch, useDebounced } from "./shared";
 import { useVirtualList } from "../useVirtualList";
 import { createKinshipResolver } from "../../match/kinship";
+import { useDatasetDerivations } from "../DatasetDerivations";
 import { buildPlaceSuggestions, placeCombosOf } from "../edit/placeSuggestions";
 import { foldSearch } from "../globalSearch";
 import { PlaceLookupProvider, usePlaceLookupValue, usePlaceStyle } from "../edit/PlaceLookupContext";
@@ -102,13 +103,10 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
   const { t } = useTranslation();
   const { settings: appSettings } = useSettings();
   const nameOf = useNameOf();
-
-  // Kinship labels for the expanded row's people list — same resolver and
-  // display gate (the Kinship display setting) as the Map's event panel.
-  const kinship = useMemo(
-    () => (startId && appSettings.showKinship ? createKinshipResolver(dataset, startId, t) : undefined),
-    [dataset, startId, appSettings.showKinship, t],
-  );
+  // The whole-file derivations, shared with Edit — computed once per edit
+  // instead of once per panel. Read inside scanGen-keyed memos below, so a
+  // hidden panel still defers its catch-up to the moment it is shown.
+  const derivations = useDatasetDerivations();
 
   // Esc returns to the Places tree, like leaving Organize sources. Only while
   // this panel is the one on screen: it stays mounted (staged picks must
@@ -161,7 +159,7 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
   // Existing place values for the rename input's autocomplete — the same
   // suggestion list (and canonical casing) the Edit-mode event fields use.
   const placeSug = useMemo(
-    () => buildPlaceSuggestions(dataset),
+    () => derivations?.placeSuggestions() ?? buildPlaceSuggestions(dataset),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [dataset, scanGen],
   );
@@ -183,9 +181,21 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
   // The address rows the section below reviews — scanned here because the
   // Places/Addresses tab bar needs the count before the section renders.
   const addrRows = useMemo(
-    () => scanAddresses(dataset),
+    () => derivations?.addressRows() ?? scanAddresses(dataset),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [dataset, scanGen],
+  );
+  // Kinship labels for the expanded row's people list — same resolver and
+  // display gate (the Kinship display setting) as the Map's event panel.
+  // scanGen keys the refresh: a merge or edit used to leave these labels
+  // stale until the whole panel remounted.
+  const kinship = useMemo(
+    () =>
+      startId && appSettings.showKinship
+        ? (derivations?.kinship(startId) ?? createKinshipResolver(dataset, startId, t))
+        : undefined,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dataset, scanGen, startId, appSettings.showKinship, t],
   );
   // Every address the file writes at each place — what an address rename is
   // offered as completions. Scanned apart from the rows above because it must
