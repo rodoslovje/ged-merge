@@ -109,13 +109,13 @@ test("the compliance page: official name taken, an unknown place dismissed and r
   await spelling.getByRole("button", { name: "Use official name" }).click();
   await expect(page.getByText(/1 of 2 match/)).toBeVisible({ timeout: 15000 });
 
-  // Dismissing the unknown place files it under "Show dismissed" (a decision
+  // Hiding the unknown place files it under "Show hidden" (a decision
   // in this browser, never in the file) — and restoring brings it back.
   await unknown.getByRole("button", { name: "Hide" }).click();
   await expect(row(/Neznanovo, Slovenija/)).toHaveCount(0);
-  await page.getByText("Show dismissed").click();
+  await page.getByText("Show hidden").click();
   await expect(row(/Neznanovo, Slovenija/).first()).toBeVisible();
   await row(/Neznanovo, Slovenija/).first().getByRole("button", { name: "Restore" }).click();
-  await page.getByText("Show dismissed").click();
+  await page.getByText("Show hidden").click();
   await expect(row(/Neznanovo, Slovenija/).first()).toBeVisible();
 });
