@@ -46,6 +46,9 @@ interface Props {
   onApplyOfficialNames: (renames: OfficialRename[]) => number;
   /** Rename one house's address on every event that carries it. */
   onRenameAddress: (rawKeys: string[], fromAddress: string, toAddress: string) => number;
+  /** Rename every occurrence of exactly one raw place value — the row's ✎, for
+   *  a correction of the researcher's own rather than the register's. */
+  onRenamePlaceValue: (from: string, to: string, addr?: string) => number;
   /** Return to the Places tree. */
   onBack: () => void;
   /** Jump to a person in Edit mode (the expanded row's people list). */
@@ -60,6 +63,7 @@ export function RegisterPanel({
   editVersion,
   onApplyOfficialNames,
   onRenameAddress,
+  onRenamePlaceValue,
   onBack,
   onNavigate,
   startId,
@@ -221,6 +225,8 @@ export function RegisterPanel({
           fileCoords={fileCoords}
           query={query}
           actionsHost={shown === "places" ? tabActionsEl : null}
+          onRename={(from, to) => void onRenamePlaceValue(from, to)}
+          placeSug={placeSug}
           onApplyOfficialNames={onApplyOfficialNames}
           onDecisionsChanged={() => void loadDecisions().then(setDecisions)}
         />

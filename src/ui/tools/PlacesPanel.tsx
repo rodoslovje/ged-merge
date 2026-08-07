@@ -230,6 +230,7 @@ export function PlacesPanel({
         editVersion={editVersion}
         onApplyOfficialNames={onApplyOfficialNames}
         onRenameAddress={onRenameAddress}
+        onRenamePlaceValue={onRenamePlaceValue}
         onNavigate={onNavigate}
         startId={startId}
         onBack={() => {

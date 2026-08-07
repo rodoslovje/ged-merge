@@ -15,6 +15,7 @@ import {
 import { foldSearch } from "../globalSearch";
 import { proposalFromGazEntry, type PlaceStyle } from "../../geo/placeProposal";
 import { AppliedNote, ExpandAllToggle, GeoPeopleList, GeoRowHeader, MapToggle, RowMap } from "./shared";
+import { PlaceAutocomplete } from "../edit/PlaceAutocomplete";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
 import type { Dataset } from "../../gedcom/types";
 import type { KinshipResolver } from "../../match/kinship";
@@ -62,6 +63,8 @@ const BADGE: Record<RegisterVerdict, string> = {
 export function RegisterCheckSection({
   report,
   dataset,
+  onRename,
+  placeSug,
   index,
   style,
   kinship,
@@ -96,6 +99,13 @@ export function RegisterCheckSection({
   onApplyOfficialNames: (renames: OfficialRename[]) => number;
   /** Re-read the decision cache after a dismissal is written. */
   onDecisionsChanged: () => void;
+  /** Rename every occurrence of exactly this raw place value. The register's
+   *  own spelling is one click away, but a finding is often the prompt to write
+   *  a correction of your own — a historical name spelt as the parish wrote it,
+   *  a level the register has no opinion about. */
+  onRename: (from: string, to: string) => void;
+  /** The file's own place values, for the rename box's completions. */
+  placeSug: { placeSuggestions: string[]; placeCanonical: Map<string, string> };
 }) {
   const { t } = useTranslation();
   const [verdictFilter, setVerdictFilter] = useState<"all" | RegisterVerdict>("all");
@@ -118,6 +128,19 @@ export function RegisterCheckSection({
   /** Answers a row asked for beyond the ones its name matches outright — see
    *  {@link searchWider}. Kept per row, since each is its own question. */
   const [wider, setWider] = useState<Map<string, GazEntry[]>>(new Map());
+  /** The row whose name is being edited, and the text so far. One at a time:
+   *  the box replaces the row's own line, so two open at once would be two
+   *  rows claiming the same edit. */
+  const [renaming, setRenaming] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
+
+  /** Write the edited name over every occurrence of the row's raw value, and
+   *  close the box. A draft that says nothing new is simply a cancel. */
+  const applyRename = (from: string) => {
+    const to = renameDraft.trim();
+    if (to && to !== from) onRename(from, to);
+    setRenaming(null);
+  };
 
   /**
    * Widen a row's answers: every place in the loaded directories whose name
@@ -435,6 +458,31 @@ export function RegisterCheckSection({
                       follows it, and the badge, the actions and the person
                       count sit at the end. */}
                   <GeoRowHeader open={isOpen} onToggle={() => toggleOpen(f.key)} place={f.key}>
+                    {/* ✎ (U+270E), the same edit mark the places tree, the
+                        addresses list and Organize sources use. It writes the
+                        raw value the row is about, so it is the one action here
+                        that does not go through the register at all — a finding
+                        is often the prompt to spell something your own way. */}
+                    {renaming === f.key ? (
+                      <button
+                        className="tools-place-edit-btn tools-place-edit-cancel"
+                        onClick={() => setRenaming(null)}
+                        title={t("tools.places.rename.cancel")}
+                      >
+                        ✕
+                      </button>
+                    ) : (
+                      <button
+                        className="tools-place-edit-btn"
+                        onClick={() => {
+                          setRenaming(f.key);
+                          setRenameDraft(f.key);
+                        }}
+                        title={t("tools.geocode.renameOpen")}
+                      >
+                        ✎
+                      </button>
+                    )}
                     {chosen >= 0 ? (
                       <>
                         {options[chosen].entry && (
@@ -494,6 +542,38 @@ export function RegisterCheckSection({
                       </button>
                     </span>
                   </GeoRowHeader>
+                  {renaming === f.key && (
+                    <div
+                      className="tools-place-rename"
+                      onKeyDown={(e) => {
+                        // Enter with a highlighted suggestion, and Escape with
+                        // an open dropdown, belong to the autocomplete; the next
+                        // press reaches the editor.
+                        if (e.key === "Enter" && !e.defaultPrevented) applyRename(f.key);
+                        if (e.key === "Escape" && !e.defaultPrevented) setRenaming(null);
+                      }}
+                    >
+                      <PlaceAutocomplete
+                        value={renameDraft}
+                        suggestions={placeSug.placeSuggestions}
+                        canonical={placeSug.placeCanonical}
+                        isDirty={false}
+                        className="tools-place-rename-input"
+                        wrapClassName="tools-place-rename-auto"
+                        placeholder={t("tools.places.rename.placeholder")}
+                        autoFocus
+                        // A rename may be exactly a casing fix — the canonical
+                        // map must not snap it back on blur.
+                        preserveCase
+                        onChange={setRenameDraft}
+                        onCommit={setRenameDraft}
+                        onClear={() => setRenameDraft("")}
+                      />
+                      <button className="tools-issue-link" onClick={() => applyRename(f.key)}>
+                        {t("tools.places.rename.apply")}
+                      </button>
+                    </div>
+                  )}
                   {isOpen && (
                     <div className="tools-geo-conflict-body">
                       {/* The register's answers, one numbered option per line —
