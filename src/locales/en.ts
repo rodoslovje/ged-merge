@@ -498,6 +498,7 @@ export const en = {
   "tools.geocode.addr.placedHint": "This house already carries a position of its own — not the settlement's, which every address here would inherit. It stays listed in case you want to sharpen it.",
   "tools.geocode.addr.inherited": "(from the place)",
   "tools.geocode.addr.placePin": "The place's own position",
+  "tools.geocode.addr.coordHint": "Open this house to see where the position came from, and to move it",
   "tools.geocode.addr.openHint": "Place this house: a map to pick on, the address register, or coordinates by hand.",
   "tools.geocode.addr.inheritedHint": "These events carry the settlement's own position — the one every address here inherits — so this house has still to be placed. Taking a position of its own replaces it.",
   "tools.geocode.addr.elsewhere": "in {{place}}",

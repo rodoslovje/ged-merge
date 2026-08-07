@@ -1062,6 +1062,20 @@ export function AddressCoordsSection({
                             hundred-odd addresses under a place, a second line per
                             row doubles the list for no gain. */}
                         <div className="tools-geo-addr-head">
+                          {/* The handle every row on this page opens from, in
+                              the same leading position: the address and its
+                              coordinate beside it are shortcuts to the very
+                              same panel, but only this one says, open or shut,
+                              which state the row is in. */}
+                          <button
+                            className={`tools-pair-toggle ${coordOpen === row.key ? "open" : ""}`}
+                            aria-expanded={coordOpen === row.key}
+                            aria-label={row.address}
+                            title={t("tools.geocode.addr.openHint")}
+                            onClick={() => setCoordOpen(coordOpen === row.key ? null : row.key)}
+                          >
+                            ▶
+                          </button>
                           {/* One tick box, whichever panel is asking: the move's
                               destination or the one coordinate for the lot. */}
                           {(moveGroup === group.place || coordGroup === group.place) && (
@@ -1081,7 +1095,7 @@ export function AddressCoordsSection({
                           <button
                             className="tools-geo-addr-name"
                             title={t("tools.geocode.addr.openHint")}
-                            onClick={() => setCoordOpen(row.key)}
+                            onClick={() => setCoordOpen(coordOpen === row.key ? null : row.key)}
                           >
                             {row.address}
                           </button>
@@ -1115,8 +1129,8 @@ export function AddressCoordsSection({
                             <button
                               type="button"
                               className="tools-tree-meta tools-geo-coord-btn"
-                              title={t("tools.geocode.addr.openHint")}
-                              onClick={() => setCoordOpen(row.key)}
+                              title={t("tools.geocode.addr.coordHint")}
+                              onClick={() => setCoordOpen(coordOpen === row.key ? null : row.key)}
                             >
                               {chosen && (
                                 <>
