@@ -488,8 +488,11 @@ export const en = {
   "tools.register.heading": "Places against the register",
   "tools.register.intro": "Every place the file writes in a country one of your place directories covers is held against it — its spelling, the jurisdiction it belongs to, the position it carries, and whether a house address has ended up inside the place. Where two directories describe one country, both answer, and an official register outranks the rest. Findings are for you to weigh, not errors: a register describes the country as it is today, while your file describes it as it was, so a name it no longer knows may well be the right one. Dismiss those and they stay off the list.",
   "tools.register.summary": "{{ok}} of {{checked}} match · {{registers}}",
-  "tools.register.forms": "Your file labels its levels:",
-  "tools.register.formsHint": "The file's own PLAC.FORM line for each country — what it calls each part of a place. It is what says whether the middle of a place is a county or a municipality, and the parent is held against the register at that level. A country whose places carry no FORM is not listed.",
+  // Shown as a country chip's tooltip: what this file calls the levels of
+  // that country's places. It is what says whether the middle of a place is a
+  // county or a municipality, and the parent is held against the register at
+  // that level.
+  "tools.register.forms": "Levels in your file:",
   "tools.register.verdict.address": "Address",
   "tools.register.hint.address": "This place value carries a house address, while the file otherwise keeps addresses on their own ADDR line. Taking the answer moves the house there and leaves the settlement in the place.",
   "tools.register.skipped": "{{count}} left out",

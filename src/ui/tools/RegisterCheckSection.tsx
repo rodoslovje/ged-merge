@@ -270,6 +270,14 @@ export function RegisterCheckSection({
 
   if (!report || !view) return null;
 
+  /** The file's own FORM for a country's places, as the chip's tooltip. Empty
+   *  for a country whose places carry none, which leaves the chip its plain
+   *  self rather than an explanation of an absence. */
+  const formOf = (country: string): string | undefined => {
+    const form = report.forms.find((f) => f.country === country)?.form;
+    return form ? `${t("tools.register.forms")} ${form}` : undefined;
+  };
+
   /** The rename the row's picked answer amounts to: rename every occurrence to
    *  that place, and take the register's coordinate where the file has none.
    *  Nothing to rename on a dismissed row, on one with no answer picked, or
@@ -365,22 +373,6 @@ export function RegisterCheckSection({
           </>
         )}
       </p>
-      {/* What the file itself calls the levels of its places. It is the answer
-          to what every parent finding turns on — whether the middle of a place
-          is a county or a municipality — and the file writes it in a line
-          nothing else here shows. */}
-      {report.forms.length > 0 && (
-        <p className="tools-fix-hint" title={t("tools.register.formsHint")}>
-          {t("tools.register.forms")}{" "}
-          {report.forms.map((f, i) => (
-            <span key={f.country}>
-              {i > 0 && " · "}
-              {f.country}: <span className="tools-register-form">{f.form}</span>
-            </span>
-          ))}
-        </p>
-      )}
-
       {report.registers.length > 0 && report.findings.length === 0 && (
         <p className="tools-clean tools-clean--ok">{t("tools.register.clean")}</p>
       )}
@@ -400,6 +392,13 @@ export function RegisterCheckSection({
                   key={c.code}
                   className={`tools-chip ${view.activeCountry === c.code ? "active" : ""}`}
                   onClick={() => setCountryFilter(c.code)}
+                  // What this file calls the levels of *this* country's places —
+                  // the answer to what every parent finding turns on, and the
+                  // one thing here the file states and nothing else shows. It
+                  // was a paragraph naming every country at once; a level naming
+                  // is about one country at a time, and the chip is already
+                  // that country.
+                  title={formOf(c.code)}
                 >
                   {c.unknown ? t("tools.geocode.countryUnknown") : c.name}{" "}
                   <span className="tools-chip-count">{c.count}</span>
