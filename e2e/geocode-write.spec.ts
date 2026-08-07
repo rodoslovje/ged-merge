@@ -39,12 +39,12 @@ test("a declined proposal writes nothing — and says so instead of arming the b
   const row = page.locator(".tools-geocode .tools-tree > li:not(.v-spacer)").first();
   await expect(row).toContainText("Kranj, Kranj, Slovenia");
   const coord = row.locator(".tools-geo-coord-btn");
-  const check = row.locator("input.tools-dup-check");
   const write = page.getByRole("button", { name: /^Write coordinates/ });
 
   // The file's own coordinate is the standing proposal — shown, but nothing is
-  // ticked until the researcher says so.
+  // staged until the researcher picks it.
   await expect(coord).toContainText("46.2396, 14.3563");
+  await expect(coord).not.toHaveClass(/staged/);
   await expect(write).toContainText("(0)");
 
   await row.locator(".tools-pair-toggle").click();
@@ -52,24 +52,23 @@ test("a declined proposal writes nothing — and says so instead of arming the b
   // The radio itself sits under its number badge — click the option the way a
   // reader does, on its line.
   const fromFileOption = row.locator("label").filter({ hasText: "from this file" });
-  await expect(fromFile).toBeChecked();
-
-  // Declining it: the row keeps no coordinate, so there is nothing to tick and
-  // nothing the Write button could do with it.
-  await fromFileOption.click();
   await expect(fromFile).not.toBeChecked();
-  await expect(coord).toHaveCount(0);
-  await expect(check).toBeDisabled();
-  await expect(write).toContainText("(0)");
 
-  // Taking it back arms the row, and the write reaches the mention that had no
-  // coordinate — one record, not zero.
+  // Picking it is what stages the row: the header's coordinate says so, and the
+  // write reaches the mention that had no coordinate — one record, not zero.
   await fromFileOption.click();
   await expect(fromFile).toBeChecked();
-  await expect(check).toBeChecked();
+  await expect(coord).toHaveClass(/staged/);
   await expect(write).toContainText("(1)");
 
+  // Picking it again drops it — a radio group has no "none" of its own.
+  await fromFileOption.click();
+  await expect(fromFile).not.toBeChecked();
+  await expect(coord).not.toHaveClass(/staged/);
+  await expect(write).toContainText("(0)");
+
+  await fromFileOption.click();
   await write.click();
-  await expect(page.getByText("1 updated record")).toBeVisible();
+  await expect(page.getByText("1 record updated")).toBeVisible();
   await expect(page.getByText("Every place reference already carries coordinates.")).toBeVisible();
 });

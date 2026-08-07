@@ -7665,6 +7665,10 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
    on hover. */
 .tools-geo-coord-btn { background: none; border: none; padding: 0; font: inherit; color: inherit; cursor: pointer; }
 .tools-geo-coord-btn:hover { color: var(--accent); text-decoration: underline; }
+/* A picked coordinate is what the next Write puts in the file: it carries the
+   same "going in" green the staged address pins and score badges wear, so a
+   collapsed row still says whether it is staged. */
+.tools-geo-coord-btn.staged { color: var(--state-match); font-weight: 600; }
 .tools-issues, .tools-pairs { list-style: none; margin: 0; padding: 0; }
 /* Spacer standing in for the unmounted rows of a virtualized list (useVirtualList). */
 .v-spacer { flex: none; margin: 0; padding: 0; border: none; list-style: none; }

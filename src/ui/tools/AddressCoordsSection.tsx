@@ -9,7 +9,7 @@ import { placeLookupLanguage } from "../../geo/lookupLanguage";
 import { osmKindLabel, osmNamesPlace, osmShortLabel, searchNominatim, type NominatimResult } from "../../geo/nominatim";
 import type { PlaceProposal } from "../../geo/placeProposal";
 import { replaceLocality, suggestMovedPlace, type AddressRow } from "../../tools/addresses";
-import { placeAddrKey, type GeoAssignment } from "../../tools/geocode";
+import { countryOf, placeAddrKey, type GeoAssignment } from "../../tools/geocode";
 import type { Translate } from "../../locales/i18n";
 import { foldSearch } from "../globalSearch";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
@@ -333,6 +333,9 @@ export function AddressCoordsSection({
   // Which lookup state is on screen; "all" leaves the list whole. Like the
   // places chips, a chip's count is exactly what clicking it shows.
   const [statusFilter, setStatusFilter] = useState<"all" | AddrStatus>("all");
+  /** The country on screen — a place value's last comma part, the same key the
+   *  places and compliance lists chip on. `null` = all of them. */
+  const [countryFilter, setCountryFilter] = useState<string | null>(null);
   // Rows whose people list is open — asked for by clicking the person count.
   const [peopleOpen, setPeopleOpen] = useState<Set<string>>(new Set());
   // The one row whose rename editor is open, and its draft.
@@ -358,9 +361,29 @@ export function AddressCoordsSection({
     return titles;
   }, [all, nameOf, dataset]);
 
+  // One chip per country the addresses stand in, counting the addresses each
+  // click would show — a chip's count respects every filter except its own,
+  // exactly as in the two lists beside this one.
+  const countryChips = useMemo(() => {
+    const inStatus = (r: AddressRow) =>
+      statusFilter === "all" || addrStatus(r, searches, picked, osmSearches) === statusFilter;
+    const counts = new Map<string, number>();
+    for (const row of visibleRows) {
+      const c = countryOf(row.place);
+      counts.set(c, (counts.get(c) ?? 0) + (inStatus(row) ? 1 : 0));
+    }
+    return [...counts].map(([country, count]) => ({ country, count })).sort(
+      (a, b) => b.count - a.count || a.country.localeCompare(b.country),
+    );
+  }, [visibleRows, statusFilter, searches, picked, osmSearches]);
+  const activeCountry =
+    countryFilter !== null && countryChips.some((c) => c.country === countryFilter) ? countryFilter : null;
+
   const groups = useMemo(() => {
-    const kept =
-      statusFilter === "all" ? visibleRows : visibleRows.filter((r) => addrStatus(r, searches, picked, osmSearches) === statusFilter);
+    const inCountry = (r: AddressRow) => activeCountry === null || countryOf(r.place) === activeCountry;
+    const kept = visibleRows
+      .filter(inCountry)
+      .filter((r) => statusFilter === "all" || addrStatus(r, searches, picked, osmSearches) === statusFilter);
     const byPlace = new Map<string, PlaceGroup>();
     for (const row of kept) {
       const g = byPlace.get(row.place);
@@ -378,7 +401,7 @@ export function AddressCoordsSection({
     }
     // Most-used places first — that is where geocoding pays off soonest.
     return [...byPlace.values()].sort((a, b) => b.events - a.events || a.place.localeCompare(b.place));
-  }, [visibleRows, searches, osmSearches, picked, statusFilter]);
+  }, [visibleRows, searches, osmSearches, picked, statusFilter, activeCountry]);
 
   const [open, setOpen] = useState<Set<string>>(new Set());
   /** Groups whose map is drawn — never on open, always on request. */
@@ -831,6 +854,28 @@ export function AddressCoordsSection({
         </button>
         .
       </p>
+      {/* One country's file has nothing to narrow, so the row appears from two
+          up — the same rule the places list follows. */}
+      {countryChips.length > 1 && (
+        <div className="tools-chips">
+          <button
+            className={`tools-chip ${activeCountry === null ? "active" : ""}`}
+            onClick={() => setCountryFilter(null)}
+          >
+            {t("tools.geocode.filter.all")}{" "}
+            <span className="tools-chip-count">{countryChips.reduce((n, c) => n + c.count, 0)}</span>
+          </button>
+          {countryChips.map((c) => (
+            <button
+              key={c.country || "?"}
+              className={`tools-chip ${activeCountry === c.country ? "active" : ""}`}
+              onClick={() => setCountryFilter(c.country)}
+            >
+              {c.country || t("tools.geocode.countryUnknown")} <span className="tools-chip-count">{c.count}</span>
+            </button>
+          ))}
+        </div>
+      )}
       <div className="tools-chips">
         {ADDR_FILTERS.filter((f) => showPlaced || f !== "placed").map((f) => (
           <button
