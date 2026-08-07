@@ -3,9 +3,9 @@ import { firstChild } from "../gedcom/node";
 import { decomposePlace, parseCoordPair, placeAddressDetail } from "../gedcom/place";
 import { rnQueriesFrom } from "../geo/rn";
 import { clearPlaceGov, rebuildFamily, rebuildIndividual, setPlaceCoord } from "../gedcom/edit";
+import { sameWrittenCoord } from "../gedcom/edit/geo";
 import { cloneRaw, type RecordPatch } from "../ui/historyTypes";
 import { HIGH_CONFIDENCE, lookupPlace, type GazCandidate, type GazetteerIndex } from "../geo/gazetteer";
-import { sameCoord } from "../geo/points";
 import type { GeocodeDecision } from "../persist/geoDb";
 import { placeCollator } from "./places";
 
@@ -395,18 +395,29 @@ export function renamePlaceValue(dataset: Dataset, from: string, to: string, add
     let changed = false;
     walkPlacNodes(raw, (plac, parent) => {
       if (plac.value!.trim() !== from) return;
-      plac.value = target;
+      // Count only what is actually written: with an unchanged place part and
+      // an ADDR already carrying a value, a node used to count as "changed"
+      // anyway — inflating the report and pushing an empty patch. A value that
+      // differs only by surrounding whitespace is also left alone (never
+      // rewrite the user's own spacing unasked).
+      let wrote = false;
+      if (plac.value!.trim() !== target) {
+        plac.value = target;
+        wrote = true;
+      }
       if (addrTarget) {
         // The ADDR sibling lives on the PLAC's parent event.
         const existing = parent.children.find((c) => c.tag === "ADDR");
         if (!existing) {
           const at = parent.children.indexOf(plac) + 1;
           parent.children.splice(at, 0, { level: plac.level, tag: "ADDR", value: addrTarget, children: [] });
+          wrote = true;
         } else if (!existing.value?.trim()) {
           existing.value = addrTarget;
+          wrote = true;
         }
       }
-      changed = true;
+      if (wrote) changed = true;
     });
     return changed;
   });
@@ -513,7 +524,15 @@ export function applyGeocode(dataset: Dataset, assignments: ReadonlyMap<string, 
       const a = assignments.get(plac.value!.trim());
       if (!a) return;
       const existing = coordOf(plac);
-      if (existing && !(a.overwrite && !addr && !sameCoord(existing, a.coord))) return;
+      if (existing) {
+        // Only an overwrite may replace a coordinate the value carries, an
+        // address-bound one never (that house's own position) — and a re-pick
+        // of the position already written, compared at the precision the file
+        // stores, changes nothing and must write nothing. A pick bringing a
+        // new GOV identity still writes (the id is the change).
+        if (!a.overwrite || addr) return;
+        if (sameWrittenCoord(existing, a.coord) && !a.govId) return;
+      }
       // A stale _GOV names the old position; it only survives a move when the
       // new pick brings its own id (setPlaceCoord then replaces it).
       if (existing && !a.govId) clearPlaceGov(plac);
@@ -544,7 +563,9 @@ export function applyGeocodeByAddress(
       const a = assignments.get(placeAddrKey(plac.value!.trim(), addr));
       if (!a) return;
       const existing = coordOf(plac);
-      if (existing && (!overwrite || sameCoord(existing, a.coord))) return;
+      // Same rule as applyGeocode: compared at written precision, so re-picking
+      // the position a house already holds is a no-op, not a "change".
+      if (existing && (!overwrite || (sameWrittenCoord(existing, a.coord) && !a.govId))) return;
       setPlaceCoord(plac, a.coord, a.govId);
       changed = true;
     });

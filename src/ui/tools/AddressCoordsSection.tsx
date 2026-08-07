@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
 import { stripHouseNumber } from "../../gedcom/place";
 import { formatCoord, sameCoord } from "../../geo/points";
-import { resultsForQuery, searchAddressBatch, searchAddresses, splitAddressVariants, type RnResult } from "../../geo/rn";
+import { batchAnswered, resultsForQuery, searchAddressBatch, searchAddresses, splitAddressVariants, type RnResult } from "../../geo/rn";
 import { placeLookupLanguage } from "../../geo/lookupLanguage";
 import { osmKindLabel, osmNamesPlace, osmShortLabel, searchNominatim, type NominatimResult } from "../../geo/nominatim";
 import type { PlaceProposal } from "../../geo/placeProposal";
@@ -544,7 +544,17 @@ export function AddressCoordsSection({
       (pool) =>
         setSearches((prev) => {
           const next = new Map(prev);
-          for (const row of pending) next.set(row.key, { state: "done", results: resultsForQuery(row.queries, pool) });
+          // A group the batch could not fetch (one timeout used to fail the
+          // whole place) marks only its own rows as errors — the groups that
+          // resolved keep their answers.
+          for (const row of pending) {
+            next.set(
+              row.key,
+              batchAnswered(row.queries, pool)
+                ? { state: "done", results: resultsForQuery(row.queries, pool) }
+                : { state: "error", results: [] },
+            );
+          }
           return next;
         }),
       () =>

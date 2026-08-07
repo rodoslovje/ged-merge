@@ -259,8 +259,14 @@ export function RegisterCheckSection({
 
   const dismiss = async (f: RegisterFinding) => {
     const key = registerDecisionKey(f.key);
-    if (f.dismissed) await deleteDecision(key);
-    else await putDecisions([{ key, status: REGISTER_DISMISSED, ts: Date.now() }]);
+    try {
+      if (f.dismissed) await deleteDecision(key);
+      else await putDecisions([{ key, status: REGISTER_DISMISSED, ts: Date.now() }]);
+    } catch {
+      // An IndexedDB failure was an unhandled rejection and the toggle
+      // silently stayed put. There is nothing better to do than leave the row
+      // as it is — the refresh below re-reads whatever state actually holds.
+    }
     onDecisionsChanged();
   };
 
@@ -486,7 +492,10 @@ export function RegisterCheckSection({
                       )}
                       {mapOpen === f.key && (
                             <RowMap
-                              fitKey={f.key}
+                              // The wider search adds pins that can sit far
+                              // outside the fitted view — re-frame when its
+                              // results land (same idea as the places row).
+                              fitKey={`${f.key}:${wider.get(f.key)?.length ?? 0}`}
                               context={fileCoords}
                               pins={[
                                   ...options.flatMap((o, i): MiniMapPin[] =>

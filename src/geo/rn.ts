@@ -245,9 +245,10 @@ export function rnQueriesFrom(place: string | undefined, address: string | undef
   // one to fall back to — and left in it is dangerous, since a short form is
   // often a different real settlement elsewhere ("Sadinja vas" is also a
   // Ljubljana suburb, whose houses the widened search would happily return).
-  const [settlement, ...altSettlements] = street
-    ? levels
-    : levels.filter((s, i) => i === 0 || !abbreviates(s, levels[0]));
+  // Applied with a street too: "Kranj,Kranj" made the settlement its own
+  // alternate, and every unmatched address re-ran the whole ladder against an
+  // identical filter — a second of dead round-trips per house.
+  const [settlement, ...altSettlements] = levels.filter((s, i) => i === 0 || !abbreviates(s, levels[0]));
   if (!settlement) return [];
 
   // Every PLAC level above the settlement is administrative context, kept whole
@@ -528,12 +529,27 @@ async function searchInSettlement(query: RnQuery, signal?: AbortSignal): Promise
  */
 export async function searchAddresses(queries: readonly RnQuery[], signal?: AbortSignal): Promise<RnResult[]> {
   const merged: RnResult[] = [];
+  // One variant's network failure must not discard the houses the others
+  // already found ("21a / 53" is two lookups); but when nothing was found and
+  // something failed, that failure is the answer — swallowing it would let a
+  // hiccup read as "no such house".
+  let failure: unknown;
+  let failed = false;
   for (const query of queries) {
-    for (const hit of await searchAddress(query, signal)) {
+    let hits: RnResult[];
+    try {
+      hits = await searchAddress(query, signal);
+    } catch (err) {
+      failure = err;
+      failed = true;
+      continue;
+    }
+    for (const hit of hits) {
       if (merged.some((m) => m.coord.lat === hit.coord.lat && m.coord.lon === hit.coord.lon)) continue;
       merged.push(hit);
     }
   }
+  if (!merged.length && failed) throw failure;
   return merged;
 }
 
@@ -625,37 +641,55 @@ export async function searchAddressBatch(
 
   const pool = new Map<string, RnResult[]>();
   for (const [key, g] of byPlace) {
-    const numbers = [...g.numbers].sort((a, b) => a - b);
-    const own = async (...args: Parameters<typeof fetchGroup>) =>
-      requireParentMunicipality(await fetchGroup(...args), g.parents, signal);
-    let hits = await own(g.settlement, g.street, numbers);
-    if (!hits.length && !g.street) hits = await own(g.settlement, undefined, numbers, true);
-    // The settlement the file names may not be the one the register files the
-    // street under — walk the same alternates the per-address ladder does
-    // (searchAddress), each with the same inner rungs, before guessing.
-    for (const alt of g.altSettlements ?? []) {
-      if (hits.length) break;
-      hits = await own(alt, g.street, numbers);
-      if (!hits.length && !g.street) hits = await own(alt, undefined, numbers, true);
-    }
-    if (!hits.length) {
-      const alt = hostAsSettlement({ settlement: g.settlement, street: g.street, number: numbers[0] });
-      if (alt) {
-        // The guessed settlement is held to the place's own municipality, so a
-        // "Klanec" that is really Komenda's cannot answer a place in Kranj.
-        const guessed = async (anyStreet: boolean) =>
-          requireParentMunicipality(
-            await fetchGroup(alt.settlement, undefined, numbers, anyStreet),
-            g.parents,
-            signal,
-          );
-        hits = await guessed(false);
-        if (!hits.length) hits = await guessed(true);
+    // One group's network failure must not throw away the groups already
+    // resolved — a 37-address place used to lose all 37 to one timeout. A
+    // failed group is simply absent from the pool, which {@link batchAnswered}
+    // reads as "ask again", never as the rows having no match.
+    try {
+      const numbers = [...g.numbers].sort((a, b) => a - b);
+      const own = async (...args: Parameters<typeof fetchGroup>) =>
+        requireParentMunicipality(await fetchGroup(...args), g.parents, signal);
+      let hits = await own(g.settlement, g.street, numbers);
+      if (!hits.length && !g.street) hits = await own(g.settlement, undefined, numbers, true);
+      // The settlement the file names may not be the one the register files the
+      // street under — walk the same alternates the per-address ladder does
+      // (searchAddress), each with the same inner rungs, before guessing.
+      for (const alt of g.altSettlements ?? []) {
+        if (hits.length) break;
+        hits = await own(alt, g.street, numbers);
+        if (!hits.length && !g.street) hits = await own(alt, undefined, numbers, true);
       }
+      if (!hits.length) {
+        const alt = hostAsSettlement({ settlement: g.settlement, street: g.street, number: numbers[0] });
+        if (alt) {
+          // The guessed settlement is held to the place's own municipality, so a
+          // "Klanec" that is really Komenda's cannot answer a place in Kranj.
+          const guessed = async (anyStreet: boolean) =>
+            requireParentMunicipality(
+              await fetchGroup(alt.settlement, undefined, numbers, anyStreet),
+              g.parents,
+              signal,
+            );
+          hits = await guessed(false);
+          if (!hits.length) hits = await guessed(true);
+        }
+      }
+      pool.set(key, hits);
+    } catch {
+      // Absent from the pool — see above.
     }
-    pool.set(key, hits);
   }
   return pool;
+}
+
+/**
+ * Whether the batch actually answered every group these queries belong to. A
+ * group whose fetch failed is absent from its pool, and its rows must read as
+ * "try again" — with the per-row button still offering the full ladder — never
+ * as "the register has no such house".
+ */
+export function batchAnswered(queries: readonly RnQuery[], pool: BatchPool): boolean {
+  return queries.every((q) => pool.has(groupKey(q)));
 }
 
 /**

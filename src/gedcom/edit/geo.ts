@@ -17,6 +17,21 @@ export function formatCoordValue(value: number, axis: "lat" | "lon"): string {
 }
 
 /**
+ * Whether two coordinates serialize to the same `LATI`/`LONG` text — the
+ * equality that matters for "would writing this change anything". Exact float
+ * comparison is the wrong test there: a candidate carries full precision while
+ * the file holds the written 5-decimal form, so re-picking the very entry a
+ * value came from compared unequal and "rewrote" every occurrence with
+ * byte-identical text — a nonzero change count and an empty undo step.
+ */
+export function sameWrittenCoord(a: GeoCoord, b: GeoCoord): boolean {
+  return (
+    formatCoordValue(a.lat, "lat") === formatCoordValue(b.lat, "lat") &&
+    formatCoordValue(a.lon, "lon") === formatCoordValue(b.lon, "lon")
+  );
+}
+
+/**
  * Declare what each comma part of a `PLAC` stands for, as the standard `FORM`
  * substructure:
  *   2 PLAC Zgornje Bitnje, Kranj, Slovenia

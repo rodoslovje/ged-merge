@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  batchAnswered,
   buildRnFilter,
   hostAsSettlement,
   parseHouseNumbers,
@@ -93,9 +94,11 @@ describe("rnQueriesFrom", () => {
     // each half is a whole address the register knows under its own name. Read
     // as one value the street becomes "Labore 4 / Škofjeloška", which is no
     // street at all — and the row then reports "not in the register".
+    // The settlement is not its own alternate: "Kranj,Kranj" used to re-run
+    // the whole ladder against an identical filter for every unmatched house.
     expect(rnQueriesFrom("Kranj,Kranj,Slovenia", "Labore 4 / Škofjeloška 4 (porodnišnica)")).toEqual([
-      { settlement: "Kranj", street: "Labore", number: 4, altSettlements: ["Kranj"], parents: ["Kranj"] },
-      { settlement: "Kranj", street: "Škofjeloška", number: 4, altSettlements: ["Kranj"], parents: ["Kranj"] },
+      { settlement: "Kranj", street: "Labore", number: 4, parents: ["Kranj"] },
+      { settlement: "Kranj", street: "Škofjeloška", number: 4, parents: ["Kranj"] },
     ]);
     // The two names may carry the same number twice over; one query is enough.
     expect(rnQueriesFrom("Kranj,Slovenia", "Labore 4 / Labore 4")).toHaveLength(1);
@@ -307,7 +310,7 @@ describe("municipality scoping", () => {
 
   it("carries the municipality from a place value into the query", () => {
     expect(rnQueriesFrom("Kranj,Kranj,Slovenia", "Klanec 2")).toEqual([
-      { settlement: "Kranj", street: "Klanec", number: 2, altSettlements: ["Kranj"], parents: ["Kranj"] },
+      { settlement: "Kranj", street: "Klanec", number: 2, parents: ["Kranj"] },
     ]);
   });
 });
@@ -349,6 +352,26 @@ describe("searchAddressBatch", () => {
     const hits = resultsForQuery(queries, pool);
     expect(hits.map((h) => h.settlement)).toEqual(["Kranj"]);
     expect(hits[0].address).toBe("Hafnarjeva pot 21");
+    expect(batchAnswered(queries, pool)).toBe(true);
+  });
+
+  it("keeps the groups that resolved when another group's fetch fails", async () => {
+    // A 37-address place used to lose all 37 answers to one timeout: the
+    // failed group must read as unanswered ("try again"), never as "no such
+    // house", while the resolved group keeps its houses.
+    fetchMock.mockImplementation(async (url: string | URL) => {
+      const filter = decodeURIComponent(String(url));
+      if (filter.includes("NASELJE_NAZIV='Propade'")) throw new Error("HTTP 503");
+      const features =
+        filter.includes("NASELJE_NAZIV='Kranj'") && filter.includes("HS_STEVILKA IN (21)") ? [hafnarjevaKranj] : [];
+      return { ok: true, json: async () => ({ features }) } as unknown as Response;
+    });
+    const good = [{ settlement: "Kranj", street: "Hafnarjeva pot", number: 21 }];
+    const bad = [{ settlement: "Propade", number: 5 }];
+    const pool = await searchAddressBatch([...good, ...bad]);
+    expect(resultsForQuery(good, pool).map((h) => h.address)).toEqual(["Hafnarjeva pot 21"]);
+    expect(batchAnswered(good, pool)).toBe(true);
+    expect(batchAnswered(bad, pool)).toBe(false);
   });
 });
 

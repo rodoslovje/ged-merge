@@ -4,6 +4,7 @@ import type { Translate } from "../locales/i18n";
 import type { Dataset } from "../gedcom/types";
 import type { IndividualCandidate } from "../match/types";
 import { individualFieldRows } from "../review/fields";
+import { mergePlaceFormat } from "../merge/merge";
 import { FieldValue, LinkIcons, RelativeGrid } from "./FieldValue";
 import { SourceRefs } from "./SourceRef";
 import {
@@ -41,7 +42,7 @@ interface Props {
 
 /** The preferences this file reads — subscribed field by field, so an
  *  unrelated one changing leaves it alone (see useSettingsSlice). */
-const SETTINGS_KEYS = ["showAge"] as const;
+const SETTINGS_KEYS = ["showAge", "formatOverrides"] as const;
 
 const CHOICES: FieldChoice[] = ["main", "incoming", "both"];
 
@@ -103,10 +104,18 @@ export function ComparePanel({
     );
   }, [nodeStatus, t]);
 
+  // The same place format the merge applies with — the main's habit *plus* the
+  // Settings › GEDCOM overrides. Built without the overrides, the panel's
+  // address rows could show a different split than the one the confirm-time
+  // snapshot and the save actually use.
+  const placeFmt = useMemo(
+    () => mergePlaceFormat(mainDs, settings.formatOverrides),
+    [mainDs, settings.formatOverrides],
+  );
   const rows = useMemo<FieldRow[]>(() => {
     const rejectedEvents = decision?.rejectedEvents?.length ? new Set(decision.rejectedEvents) : undefined;
-    return individualFieldRows(t, mainIndi, compareIndi, mainDs, compareDs, undefined, rejectedEvents, settings.showAge);
-  }, [mainIndi, compareIndi, mainDs, compareDs, t, decision, settings.showAge]);
+    return individualFieldRows(t, mainIndi, compareIndi, mainDs, compareDs, placeFmt, rejectedEvents, settings.showAge);
+  }, [mainIndi, compareIndi, mainDs, compareDs, t, decision, settings.showAge, placeFmt]);
 
   const status = decision?.status ?? "undecided";
   const fields = decision?.fields ?? {};

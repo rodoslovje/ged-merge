@@ -199,14 +199,41 @@ function govCall(operation: string, inner: string): Promise<string> {
 }
 
 /**
- * Parent names resolved this session, by GOV id. GOV has no municipality table
- * the way GURS does — every parent is its own object, one request each — but
- * they repeat heavily: the candidates of one query often share a district, and
- * across a file the same dozen municipalities recur, so after the first few
- * searches most parents are already here. `undefined` is cached too, so a
- * parent that could not be resolved is not asked for again.
+ * Parent-name lookups this session, by GOV id and UI language. GOV has no
+ * municipality table the way GURS does — every parent is its own object, one
+ * request each — but they repeat heavily: the candidates of one query often
+ * share a district, and across a file the same dozen municipalities recur, so
+ * after the first few searches most parents are already here.
+ *
+ * A *successful* answer with no usable name is cached as `undefined` (asking
+ * again cannot help). A *failed* request is forgotten instead: one transient
+ * 502 while resolving a municipality used to blank that district's labels for
+ * the whole session — and the label is the only thing telling four same-named
+ * Osredek apart. Promises are stored (not values) so two concurrent searches
+ * wanting the same parent share one request. The language sits in the key
+ * because the cached name is language-dependent.
  */
-const parentNames = new Map<string, string | undefined>();
+const parentNames = new Map<string, Promise<string | undefined>>();
+
+function parentNameFor(id: string, language: string): Promise<string | undefined> {
+  const key = `${id}:${language}`;
+  let p = parentNames.get(key);
+  if (!p) {
+    const created: Promise<string | undefined> = govCall("getObject", `<itemId>${xmlEscape(id)}</itemId>`).then(
+      (resp) => {
+        const obj = parseObject(resp);
+        return obj ? parentName(obj, language) : undefined;
+      },
+      (err) => {
+        if (parentNames.get(key) === created) parentNames.delete(key);
+        throw err;
+      },
+    );
+    p = created;
+    parentNames.set(key, p);
+  }
+  return p;
+}
 
 /** Best display name of a parent object for the UI language. */
 function parentName(obj: GovObject, language: string): string | undefined {
@@ -226,16 +253,17 @@ async function attachParents(
   parents: ReadonlyMap<string, string | undefined>,
   language: string,
 ): Promise<void> {
-  const wanted = [...new Set([...parents.values()].filter((id): id is string => !!id && !parentNames.has(id)))];
+  const wanted = [...new Set([...parents.values()].filter((id): id is string => !!id))];
+  const names = new Map<string, string | undefined>();
   await Promise.all(
     wanted.map(async (id) => {
-      const obj = await govCall("getObject", `<itemId>${xmlEscape(id)}</itemId>`).then(parseObject, () => undefined);
-      parentNames.set(id, obj ? parentName(obj, language) : undefined);
+      // A failure costs this call its label only — the cache forgets it.
+      names.set(id, await parentNameFor(id, language).catch(() => undefined));
     }),
   );
   for (const r of results) {
     const parentId = parents.get(r.govId);
-    const name = parentId ? parentNames.get(parentId) : undefined;
+    const name = parentId ? names.get(parentId) : undefined;
     // A parent repeating the place's own name says nothing (a village inside
     // the municipality it is named after), so it is left off.
     if (name && foldToken(name) !== foldToken(r.name)) r.admin = name;

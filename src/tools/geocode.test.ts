@@ -288,6 +288,37 @@ describe("renamePlaceValue", () => {
     const text = serializeDataset(ds);
     expect(text).toContain("2 PLAC Stražišče, Kranj, Slovenija\n3 MAP\n4 LATI N46.2331\n4 LONG E14.3308");
   });
+
+  it("does not count a record whose place is unchanged and whose ADDR already has a value", () => {
+    // An unchanged place part plus an occupied ADDR writes nothing — reporting
+    // it as a changed record inflated the note and pushed an empty undo step.
+    const withAddr = buildFromText(`0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 BIRT
+2 PLAC Neznani Kraj XY
+2 ADDR Glavni trg 1
+0 TRLR
+`);
+    expect(renamePlaceValue(withAddr, "Neznani Kraj XY", "Neznani Kraj XY", "Glavni trg 2")).toHaveLength(0);
+  });
+});
+
+describe("applyGeocode write-noop precision", () => {
+  it("re-picking the position a value already holds writes nothing", () => {
+    // The file stores 5 decimals; a gazetteer candidate carries full precision.
+    // Compared exactly, re-accepting the very entry a value came from read as a
+    // change and rewrote every occurrence with byte-identical text.
+    const ds = buildFromText(SAMPLE);
+    const assignments = new Map([
+      ["Ljubljana, Slovenija", { coord: { lat: 46.051082, lon: 14.505129 }, overwrite: true }],
+    ]);
+    expect(applyGeocode(ds, assignments)).toHaveLength(0);
+    // A genuinely different position still overwrites.
+    const moved = new Map([["Ljubljana, Slovenija", { coord: { lat: 46.06, lon: 14.51 }, overwrite: true }]]);
+    expect(applyGeocode(ds, moved)).toHaveLength(1);
+  });
 });
 
 describe("movePlaceForAddresses", () => {
