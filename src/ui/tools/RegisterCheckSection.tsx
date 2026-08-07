@@ -661,7 +661,17 @@ export function RegisterCheckSection({
                                     aria-label={o.place}
                                     checked={chosen === i}
                                     onChange={() => pick(f.key, i)}
-                                    onClick={() => chosen === i && unpick(f.key)}
+                                    // Only an explicit pick can be taken back
+                                    // by clicking it again. A row arrives with
+                                    // its answer already *shown* as chosen
+                                    // without being picked (see chosenIndex),
+                                    // and a checked radio fires no change
+                                    // event — so reading that click as "take it
+                                    // back" left the one verdict that waits to
+                                    // be picked by hand unable to be picked at
+                                    // all: it stayed out of "Use official
+                                    // names" however often it was clicked.
+                                    onClick={() => (picked.get(f.key) === i ? unpick(f.key) : pick(f.key, i))}
                                   />
                                   <span className="tools-geo-cand-num">{i + 1}</span>
                                   <span className="tools-geo-cand-name">{o.place}</span>
