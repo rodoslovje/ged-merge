@@ -26,6 +26,7 @@ import {
 import type { RecordPatch } from "../historyTypes";
 import { useNameOf, useSettings } from "../SettingsContext";
 import { createKinshipResolver, lineageClass } from "../../match/kinship";
+import { useDatasetDerivations } from "../DatasetDerivations";
 import { PersonLink } from "../PersonLink";
 import { useVirtualList } from "../useVirtualList";
 import { PickerMenu } from "../PickerMenu";
@@ -78,6 +79,7 @@ function mediaPickValue(ref: { xref?: string; file?: string }, options: MediaOpt
 
 export function BatchSection({ dataset, editVersionRef, active, onNavigate, onApplyPatches, startId }: Props) {
   const { t } = useTranslation();
+  const derivations = useDatasetDerivations();
   const nameOf = useNameOf();
   const { settings } = useSettings();
 
@@ -103,7 +105,10 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
   /** Kinship-to-start labels for the result rows ("Show kinship" setting),
    *  resolved lazily per rendered row and cached inside the resolver. */
   const kinshipResolver = useMemo(
-    () => (settings.showKinship && startId ? createKinshipResolver(dataset, startId, t) : null),
+    () =>
+      settings.showKinship && startId
+        ? (derivations?.kinship(startId) ?? createKinshipResolver(dataset, startId, t))
+        : null,
     // eslint-disable-next-line react-hooks/exhaustive-deps -- ver stands in for in-place dataset edits
     [dataset, startId, settings.showKinship, t, ver],
   );

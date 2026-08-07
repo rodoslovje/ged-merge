@@ -2,7 +2,7 @@ import type { Dataset, GeoCoord } from "../gedcom/types";
 import { decomposePlace, isUnknownPlaceValue, placeAddressDetail } from "../gedcom/place";
 import { countryCode } from "../gedcom/countryCode";
 import { foldToken } from "../match/text";
-import { lookupPlace, PARENT_QUALIFIED, saintKey, type GazEntry, type GazetteerIndex } from "../geo/gazetteer";
+import { lookupPlace, PARENT_QUALIFIED, qualifierKey, type GazEntry, type GazetteerIndex } from "../geo/gazetteer";
 import { inferPlaceParentLevels, sameUnitName, type PlaceParentLevels } from "../geo/placeLevels";
 import { distanceKm } from "../geo/points";
 import { reformatPlace } from "../normalize/placeReformat";
@@ -245,9 +245,9 @@ function writtenAsRegistered(written: string, entry: GazEntry): boolean {
  *  register does is then {@link writtenAsRegistered}'s question. */
 function sameName(written: string, entry: GazEntry): boolean {
   const folded = foldToken(written);
-  const saint = saintKey(written);
+  const saint = qualifierKey(written);
   return [entry.name, entry.ascii, ...entry.alt].some(
-    (n) => n && (foldToken(n) === folded || (!!saint && saintKey(n) === saint)),
+    (n) => n && (foldToken(n) === folded || (!!saint && qualifierKey(n) === saint)),
   );
 }
 

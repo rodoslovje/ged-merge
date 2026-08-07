@@ -13,6 +13,7 @@ import {
   reconcilePicksAfterScan,
   scanGeocode,
   scanKeys,
+  type GeocodeScan,
   type ChosenCoord,
   type GeoAssignment,
   type GeocodeRow,
@@ -22,6 +23,7 @@ import { loadDecisions, putDecisions, type GeocodeDecision } from "../../persist
 import { AppliedNote, ExpandAllToggle, ToolsLoading, TreeSearch, useDebounced } from "./shared";
 import { useVirtualList } from "../useVirtualList";
 import { createKinshipResolver } from "../../match/kinship";
+import { useDatasetDerivations } from "../DatasetDerivations";
 import { buildPlaceSuggestions, placeCombosOf } from "../edit/placeSuggestions";
 import { foldSearch } from "../globalSearch";
 import { PlaceLookupProvider, usePlaceLookupValue, usePlaceStyle } from "../edit/PlaceLookupContext";
@@ -31,7 +33,7 @@ import { addressesByPlace, replaceLocality, scanAddresses } from "../../tools/ad
 import { CoordConflicts } from "./CoordConflicts";
 import { GeocodePlaceRow, type RowLookups } from "./GeocodePlaceRow";
 import { RegisterCheckSection } from "./RegisterCheckSection";
-import { checkPlacesAgainstRegister } from "../../tools/registerCheck";
+import { checkPlacesAgainstRegister, type RegisterCheckReport } from "../../tools/registerCheck";
 import { BackButton } from "../BackButton";
 import { isEditableTarget, isModalOpen } from "../../keyboard/shortcuts";
 import { useNameOf, useSettings } from "../SettingsContext";
@@ -102,13 +104,10 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
   const { t } = useTranslation();
   const { settings: appSettings } = useSettings();
   const nameOf = useNameOf();
-
-  // Kinship labels for the expanded row's people list — same resolver and
-  // display gate (the Kinship display setting) as the Map's event panel.
-  const kinship = useMemo(
-    () => (startId && appSettings.showKinship ? createKinshipResolver(dataset, startId, t) : undefined),
-    [dataset, startId, appSettings.showKinship, t],
-  );
+  // The whole-file derivations, shared with Edit — computed once per edit
+  // instead of once per panel. Read inside scanGen-keyed memos below, so a
+  // hidden panel still defers its catch-up to the moment it is shown.
+  const derivations = useDatasetDerivations();
 
   // Esc returns to the Places tree, like leaving Organize sources. Only while
   // this panel is the one on screen: it stays mounted (staged picks must
@@ -151,17 +150,24 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
       setScanGen((g) => g + 1);
     }
   }, [active, editVersion]);
-  const scan = useMemo(
-    () => (decisions ? scanGeocode(dataset, index, decisions) : null),
+  // Deferred behind a paint (the same reason useToolsScans defers): the scan
+  // is a whole-file pass with a gazetteer lookup per distinct place, and run
+  // inside a render-time memo it blocked the frame that showed the page —
+  // seconds of white on an index-scale file. The page's loading state already
+  // covers the beat where `scan` is still null.
+  const [scan, setScan] = useState<GeocodeScan | null>(null);
+  useEffect(() => {
+    if (!decisions) return;
     // scanGen re-runs the scan after an apply mutates the dataset in place.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [dataset, index, decisions, scanGen],
-  );
+    const id = window.setTimeout(() => setScan(scanGeocode(dataset, index, decisions)), 0);
+    return () => window.clearTimeout(id);
+     
+  }, [dataset, index, decisions, scanGen]);
 
   // Existing place values for the rename input's autocomplete — the same
   // suggestion list (and canonical casing) the Edit-mode event fields use.
   const placeSug = useMemo(
-    () => buildPlaceSuggestions(dataset),
+    () => derivations?.placeSuggestions() ?? buildPlaceSuggestions(dataset),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [dataset, scanGen],
   );
@@ -183,9 +189,21 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
   // The address rows the section below reviews — scanned here because the
   // Places/Addresses tab bar needs the count before the section renders.
   const addrRows = useMemo(
-    () => scanAddresses(dataset),
+    () => derivations?.addressRows() ?? scanAddresses(dataset),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [dataset, scanGen],
+  );
+  // Kinship labels for the expanded row's people list — same resolver and
+  // display gate (the Kinship display setting) as the Map's event panel.
+  // scanGen keys the refresh: a merge or edit used to leave these labels
+  // stale until the whole panel remounted.
+  const kinship = useMemo(
+    () =>
+      startId && appSettings.showKinship
+        ? (derivations?.kinship(startId) ?? createKinshipResolver(dataset, startId, t))
+        : undefined,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dataset, scanGen, startId, appSettings.showKinship, t],
   );
   // Every address the file writes at each place — what an address rename is
   // offered as completions. Scanned apart from the rows above because it must
@@ -220,12 +238,23 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
   // Run with the page's other scans, not on opening the tab: the tab's count is
   // the reason to open it, and a lookup per place is the same pass the places
   // list above already makes (over fewer of them).
-  const registerReport = useMemo(
-    () => (hasRegister && decisions ? checkPlacesAgainstRegister(dataset, index, decisions, placeStyle.fmt) : null),
+  // Deferred like `scan` above, for the same reason — this is the page's other
+  // whole-file, lookup-per-place pass. The section renders nothing for a null
+  // report, so the beat before it lands shows the page rather than blocking it.
+  const [registerReport, setRegisterReport] = useState<RegisterCheckReport | null>(null);
+  useEffect(() => {
+    if (!hasRegister || !decisions) {
+      setRegisterReport(null);
+      return;
+    }
     // scanGen re-runs the check after a rename mutates the dataset in place.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [dataset, index, decisions, hasRegister, placeStyle, scanGen],
-  );
+    const id = window.setTimeout(
+      () => setRegisterReport(checkPlacesAgainstRegister(dataset, index, decisions, placeStyle.fmt)),
+      0,
+    );
+    return () => window.clearTimeout(id);
+     
+  }, [dataset, index, decisions, hasRegister, placeStyle, scanGen]);
   // The tab-row slot the address and register sections portal their action
   // buttons into — their state (staged picks, filters) lives inside the
   // section, the row lives here. Only the section on screen fills it.

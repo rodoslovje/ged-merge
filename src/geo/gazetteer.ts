@@ -793,24 +793,62 @@ export function rgiPlacesToEntries(data: RgiPlacesJson, counties?: ReadonlyMap<s
 }
 
 /**
- * The saint words a place name is built on, in every form the registers and the
- * files use: "Sv.", "Sveti/Sveta/Sveto", the German "St."/"Sankt". A register
- * abbreviates where a file spells out — GURS writes "Sv. Duh" for the village
- * near Škofja Loka that a researcher writes as "Sveti Duh" — and neither the
- * exact pass nor the fuzzy one sees through that: "sveti duh" and "sv. duh"
- * share too little.
+ * The qualifier words Slovenian place names are built on, each in every form
+ * the registers and the files use, mapped to one canonical stem. A register
+ * spells out what a file abbreviates (and the other way round): GURS writes
+ * "Sv. Duh" where a researcher writes "Sveti Duh", a file writes "Sp. Idrija"
+ * where the register holds "Spodnja Idrija" — and neither the exact pass nor
+ * the fuzzy one sees through that ("sp. idrija" and "spodnja idrija" share too
+ * little). Inflected endings (-a/-e/-i/-o) map to the same stem, so the case a
+ * name happens to stand in does not matter. Single-letter abbreviations (V.,
+ * M., D., G.) are recognized only with their dot — bare "v" is a preposition
+ * ("Sela v Kamniku"), not a qualifier.
  */
-const SAINT_WORD = /\b(?:sveti|sveta|sveto|svete|svetega|svetem|sankt|sv|st)\b\.?/g;
+const QUALIFIER_CANON: ReadonlyMap<string, string> = new Map<string, string>([
+  ...["sveti", "sveta", "sveto", "svete", "svetega", "svetem", "sankt", "sv", "sv.", "st", "st."].map(
+    (w) => [w, "sv"] as const,
+  ),
+  ...["spodnja", "spodnje", "spodnji", "spodnjo", "sp", "sp."].map((w) => [w, "spodnj"] as const),
+  ...["zgornja", "zgornje", "zgornji", "zgornjo", "zg", "zg."].map((w) => [w, "zgornj"] as const),
+  ...["srednja", "srednje", "srednji", "srednjo", "sr", "sr."].map((w) => [w, "srednj"] as const),
+  ...["velika", "velike", "veliki", "veliko", "vel", "vel.", "v."].map((w) => [w, "velik"] as const),
+  ...["mala", "male", "mali", "malo", "mal", "mal.", "m."].map((w) => [w, "mal"] as const),
+  ...["dolenja", "dolenje", "dolenji", "dolenjo", "dolnja", "dolnje", "dolnji", "dol.", "d."].map(
+    (w) => [w, "dolenj"] as const,
+  ),
+  ...["gorenja", "gorenje", "gorenji", "gorenjo", "gornja", "gornje", "gornji", "gor.", "g."].map(
+    (w) => [w, "gorenj"] as const,
+  ),
+  ...["nova", "nove", "novi", "novo", "n."].map((w) => [w, "nov"] as const),
+  ...["stara", "stare", "stari", "staro"].map((w) => [w, "star"] as const),
+]);
 
-/** A name with its saint words reduced to one form, so the abbreviation a
- *  register uses and the word a file writes meet: "Sveti Duh" and "Sv. Duh"
- *  both become "sv duh". Empty when the name is nothing but a saint word. */
-export function saintKey(name: string): string {
+/** One folded token with its trailing dot, the unit the table above keys on. */
+const QUALIFIER_TOKEN = /[^\s.]+\.?/g;
+
+/**
+ * A name with its qualifier words reduced to canonical stems, so the form a
+ * register uses and the word a file writes meet: "Sveti Duh" and "Sv. Duh"
+ * both become "sv duh", "Sp. Idrija" and "Spodnja Idrija" both "spodnj
+ * idrija". Empty when the name carries no qualifier at all (the key would just
+ * repeat the folded name) — and when it is nothing *but* qualifiers ("Nova
+ * vas" is a name, "Sv." alone is not).
+ */
+export function qualifierKey(name: string): string {
   const folded = foldToken(name);
-  if (!SAINT_WORD.test(folded)) return "";
-  SAINT_WORD.lastIndex = 0;
-  const out = folded.replace(SAINT_WORD, "sv").replace(/\s+/g, " ").trim();
-  return out === "sv" ? "" : out;
+  let qualified = false;
+  let bare = false;
+  const out = folded.replace(QUALIFIER_TOKEN, (token) => {
+    const canon = QUALIFIER_CANON.get(token);
+    if (canon !== undefined) {
+      qualified = true;
+      return canon;
+    }
+    bare = true;
+    return token.endsWith(".") ? token.slice(0, -1) : token;
+  });
+  if (!qualified || !bare) return "";
+  return out.replace(/\s+/g, " ").trim();
 }
 
 /** Fuzzy-match bucket key: first two folded characters. */
@@ -823,9 +861,9 @@ export interface GazetteerIndex {
   entries: GazEntry[];
   /** Folded name/ascii/alt → entry indices (exact lookups). */
   byName: Map<string, number[]>;
-  /** {@link saintKey} → entry indices, for the names a register abbreviates
+  /** {@link qualifierKey} → entry indices, for the names a register abbreviates
    *  and a file spells out. Absent on an index built before this existed. */
-  saints?: Map<string, number[]>;
+  qualifiers?: Map<string, number[]>;
   /** Folded primary-name 2-char prefix → entry indices (fuzzy lookups). */
   buckets: Map<string, number[]>;
   /** `"HR:12"` (country:admin1) → every name that division goes by. */
@@ -874,7 +912,7 @@ export function mergeDivisions(countries: { entries: GazEntry[]; divisions?: Div
 
 export function buildGazetteerIndex(entries: GazEntry[], divisions?: Map<string, string[]>): GazetteerIndex {
   const byName = new Map<string, number[]>();
-  const saints = new Map<string, number[]>();
+  const qualifiers = new Map<string, number[]>();
   const buckets = new Map<string, number[]>();
   const adminNames = new Map<string, Set<string>>();
   const addAdmin = (country: string, name: string | undefined) => {
@@ -907,8 +945,8 @@ export function buildGazetteerIndex(entries: GazEntry[], divisions?: Map<string,
     // register's "Sv. Duh" (and the other way round). Kept in the same map, and
     // scored below a literal match where it is read (see lookupPlace).
     for (const name of [e.name, e.ascii, ...e.alt]) {
-      const key = name && saintKey(name);
-      if (key && key !== foldToken(name)) add(saints, key, i);
+      const key = name && qualifierKey(name);
+      if (key && key !== foldToken(name)) add(qualifiers, key, i);
     }
     addAdmin(e.country, e.admin);
   }
@@ -918,7 +956,7 @@ export function buildGazetteerIndex(entries: GazEntry[], divisions?: Map<string,
       for (const name of names) addAdmin(country, name);
     }
   }
-  return { entries, byName, saints, buckets, adminNames, ...(divisions ? { divisions } : {}) };
+  return { entries, byName, qualifiers, buckets, adminNames, ...(divisions ? { divisions } : {}) };
 }
 
 /** One proposed match for a place string. */
@@ -949,7 +987,7 @@ export const PARENT_QUALIFIED = 0.96;
 /** Score for a name matched through its saint spelling ("Sveti Duh" for the
  *  register's "Sv. Duh"): the same place under the other convention, so above
  *  the parent-qualified bar and just below a literal match. */
-const SAINT_FORM = 0.98;
+const QUALIFIER_FORM = 0.98;
 
 const MAX_CANDIDATES = 6;
 
@@ -1023,8 +1061,8 @@ function lookupPlaceUncached(index: GazetteerIndex, rawPlace: string): GazCandid
   // The same name under the other saint spelling. Just below a literal match,
   // and above the parent-qualified bar, so a "Sv. Duh" in the občina the place
   // names outranks a literal "Sveti Duh" in another one.
-  const saintFolded = saintKey(locality);
-  if (saintFolded) for (const i of index.saints?.get(saintFolded) ?? []) consider(i, SAINT_FORM);
+  const qualifierFolded = qualifierKey(locality);
+  if (qualifierFolded) for (const i of index.qualifiers?.get(qualifierFolded) ?? []) consider(i, QUALIFIER_FORM);
   // The place's own parents ("Semič" in "Vinji vrh,Semič,Slovenia"), folded →
   // the file's spelling, plus a word-boundary stem test for finding one
   // *inside* a longer settlement name: parent names inflect there — Semič →
@@ -1149,13 +1187,13 @@ function lookupPlaceUncached(index: GazetteerIndex, rawPlace: string): GazCandid
 }
 
 /** The same settlement described by two gazetteers: near-identical position and
- *  the same name — compared through {@link saintKey}, so GURS's "Sv. Duh" and
+ *  the same name — compared through {@link qualifierKey}, so GURS's "Sv. Duh" and
  *  an OSM import's "Sveti Duh" at one coordinate collapse like any other twin
  *  pair instead of posing as an ambiguity. */
 function isTwin(a: GazEntry, b: GazEntry): boolean {
   if (Math.abs(a.lat - b.lat) >= DUPLICATE_DEG || Math.abs(a.lon - b.lon) >= DUPLICATE_DEG) return false;
-  const nameA = saintKey(a.name) || foldToken(a.name);
-  const nameB = saintKey(b.name) || foldToken(b.name);
+  const nameA = qualifierKey(a.name) || foldToken(a.name);
+  const nameB = qualifierKey(b.name) || foldToken(b.name);
   return nameA === nameB;
 }
 
@@ -1196,7 +1234,7 @@ export function searchGazetteer(
   // and a place by its German exonym ("Bischoflack"), and neither shares the
   // typed text's opening two characters. This runs once per lookup, on the
   // user's click — not per keystroke — so the pass is affordable.
-  const saintQuery = saintKey(locality);
+  const qualifierQuery = qualifierKey(locality);
   // The query as a whole word inside a longer name, at either end or between
   // separators — "srednja bela" and "bela vodica" both carry the word "bela";
   // "belaci" does not, it only starts with those letters.
@@ -1222,7 +1260,7 @@ export function searchGazetteer(
       else if (n.startsWith(folded)) rank = Math.min(rank, 2);
       else if (n.includes(folded)) rank = Math.min(rank, 3);
       // "Sveti Duh" finds the register's "Sv. Duh" here as well.
-      else if (saintQuery && saintKey(raw) === saintQuery) rank = Math.min(rank, 0);
+      else if (qualifierQuery && qualifierKey(raw) === qualifierQuery) rank = Math.min(rank, 0);
       // A misspelling shares no substring to be found by — "Mrkopolje" for the
       // register's "Mrkopalj" — so the last tier asks how alike the two names
       // are instead. Gated on a length within a few letters, which keeps the

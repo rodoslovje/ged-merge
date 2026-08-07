@@ -238,11 +238,35 @@ describe("searchNominatim failure paths", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  it("an HTTP error surfaces as a rejection too", async () => {
+  it("an HTTP error retries once, then surfaces as a rejection", async () => {
     vi.useFakeTimers({ toFake: ["setTimeout"] });
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 503 } as unknown as Response));
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: false, status: 503, headers: new Headers() } as unknown as Response);
+    vi.stubGlobal("fetch", fetchMock);
     const p = searchNominatim("Kranj", "sl");
+    // The queue spacing, then geoFetch's one polite retry pause.
+    await vi.advanceTimersByTimeAsync(1500);
     await vi.advanceTimersByTimeAsync(1500);
     await expect(p).rejects.toThrow("HTTP 503");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("a rate-limited request honours Retry-After and succeeds on the retry", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout"] });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 429,
+        headers: new Headers({ "Retry-After": "2" }),
+      } as unknown as Response)
+      .mockResolvedValue({ ok: true, json: async () => [] } as unknown as Response);
+    vi.stubGlobal("fetch", fetchMock);
+    const p = searchNominatim("Kranj", "sl");
+    await vi.advanceTimersByTimeAsync(1500); // queue spacing
+    await vi.advanceTimersByTimeAsync(2000); // the server's own Retry-After
+    await expect(p).resolves.toEqual([]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

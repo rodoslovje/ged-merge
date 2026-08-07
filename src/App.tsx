@@ -66,6 +66,7 @@ import { hashFile } from "./persist/fingerprint";
 import { useWorkspacePersistence } from "./persist/useWorkspacePersistence";
 import { ChartSettingsProvider, useChartSettings } from "./ui/ChartSettingsContext";
 import { DatasetProvider, SettingsProvider, useSettingsSlice, useNameOf } from "./ui/SettingsContext";
+import { DatasetDerivationsProvider } from "./ui/DatasetDerivations";
 import { onSettingsRequest, type SettingsTab } from "./ui/settingsBus";
 import { GlobalSearchModal, type OpenHow, type SearchRowMeta } from "./ui/GlobalSearchModal";
 import { buildSearchRows, type FilterContext } from "./ui/globalSearch";
@@ -1773,6 +1774,7 @@ function AppContent() {
 
   return (
     <DatasetProvider dataset={mainDataset}>
+    <DatasetDerivationsProvider dataset={mainDataset} version={editVersion}>
     <PwaReloadPrompt />
     {treeOverlay}
     <AutoMediaOffer main={main} />
@@ -2209,6 +2211,7 @@ function AppContent() {
           mounting them here too would duplicate every dialog in the DOM. */}
       {!treeOverlay && appModals}
     </div>
+    </DatasetDerivationsProvider>
     </DatasetProvider>
   );
 }

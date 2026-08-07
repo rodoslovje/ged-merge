@@ -470,6 +470,47 @@ describe("municipalities from the RPE join", () => {
   });
 });
 
+describe("qualifier spellings (Sp./Zg./Vel./… beside Sv.)", () => {
+  const entry = (name: string, over: Partial<GazEntry> = {}): GazEntry => ({
+    name, ascii: "", alt: [], lat: 46.0, lon: 14.0, fclass: "P", country: "SI", admin1: "", population: 100, ...over,
+  });
+
+  it("a file's abbreviation finds the register's spelt-out settlement", () => {
+    // 'Sp. Idrija' used to report as Unknown: only saint words had an
+    // expansion table, and the fuzzy pass cannot bridge five missing letters.
+    const index = buildGazetteerIndex([entry("Spodnja Idrija", { register: "SI-GURS" })]);
+    const hits = lookupPlace(index, "Sp. Idrija, Slovenija");
+    expect(hits).toHaveLength(1);
+    expect(hits[0].entry.name).toBe("Spodnja Idrija");
+    expect(hits[0].score).toBeGreaterThanOrEqual(HIGH_CONFIDENCE);
+  });
+
+  it("works the other way round, and across inflected endings", () => {
+    const index = buildGazetteerIndex([entry("Zg. Gorje", { register: "SI-GURS" })]);
+    expect(lookupPlace(index, "Zgornje Gorje, Slovenija")).toHaveLength(1);
+    // Dolenja/Dolnja are one stem: the historical spelling still matches.
+    const dol = buildGazetteerIndex([entry("Dolenja vas", { register: "SI-GURS" })]);
+    expect(lookupPlace(dol, "Dolnja vas, Slovenija")).toHaveLength(1);
+  });
+
+  it("keeps a bare single letter a preposition, not a qualifier", () => {
+    // "V. Lašče" abbreviates Velike Lašče — but "Sela v Kamniku" must not
+    // read its "v" as "Velika": only the dotted form qualifies.
+    const index = buildGazetteerIndex([entry("Velike Lašče", { register: "SI-GURS" })]);
+    expect(lookupPlace(index, "V. Lašče, Slovenija")).toHaveLength(1);
+    expect(lookupPlace(index, "v Lašče, Slovenija")).toHaveLength(0);
+  });
+
+  it("different qualifiers stay different places", () => {
+    const index = buildGazetteerIndex([
+      entry("Spodnja Bela", { register: "SI-GURS", lat: 46.29, lon: 14.38 }),
+      entry("Zgornja Bela", { register: "SI-GURS", lat: 46.3, lon: 14.4 }),
+    ]);
+    const hits = lookupPlace(index, "Sp. Bela, Slovenija");
+    expect(hits.map((c) => c.entry.name)).toEqual(["Spodnja Bela"]);
+  });
+});
+
 describe("lookupPlace twin collapse across saint spellings", () => {
   const entry = (name: string, over: Partial<GazEntry> = {}): GazEntry => ({
     name, ascii: "", alt: [], lat: 46.24, lon: 14.34, fclass: "P", country: "SI", admin1: "", population: 100, ...over,

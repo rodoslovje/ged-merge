@@ -17,7 +17,7 @@ import { SECONDARY_VALUE_EVENT_TAGS, VALUE_EVENT_TAGS } from "./editConstants";
 import { placeAddrCoordKey, placeCombosOf, placeKey } from "./placeSuggestions";
 import { DropdownMenu } from "../DropdownMenu";
 import type { SourceDialogTarget } from "./types";
-import { harvestedLinksOf } from "./LinksEditor";
+import { harvestedLinksOf, linkEditing } from "./LinksEditor";
 
 /** Sentinel `<option>` values for the action entries at the end of the
  * event-type dropdown (distinct from any real tag). */
@@ -461,26 +461,14 @@ export function EventFieldsRow({
     return base;
   }
 
-  function commitLinks(next: string[]) {
-    setLinks(next);
-    commitField({ links: next.map((l) => l.trim()).filter(Boolean) });
-  }
-
-  /** Links have been merged into Sources in the UI: clicking a legacy link's
-   * icon opens the same Edit Source dialog, prefilled with just its URL. */
-  function openEditLink(index: number) {
-    onOpenSourceDialog({
-      kind: "edit-link",
-      url: links[index],
-      commitRename: (url) => commitLinks(links.map((l, i) => (i === index ? url : l))),
-      commitRemove: () => commitLinks(links.filter((_, i) => i !== index)),
-      commitPromote: (sourceXref, page, extraPatches) => {
-        const remaining = links.filter((_, i) => i !== index);
-        setLinks(remaining);
-        commitField({ links: remaining, addSource: { sourceXref, page } }, extraPatches);
-      },
-    });
-  }
+  const { openEditLink } = linkEditing(
+    links,
+    setLinks,
+    (next) => commitField({ links: next }),
+    (sourceXref, page, extraPatches, remaining) =>
+      commitField({ links: remaining, addSource: { sourceXref, page } }, extraPatches),
+    onOpenSourceDialog,
+  );
 
   /**
    * Commit all of this row's current field values together, not just the one

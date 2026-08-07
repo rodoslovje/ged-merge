@@ -17,6 +17,41 @@ export function harvestedLinksOf(all: string[] | undefined, editable: string[] |
   return (all ?? []).filter((l) => !(editable ?? []).some((e) => e.toLowerCase() === l.toLowerCase()));
 }
 
+/**
+ * The link-chip editing plumbing shared by the record-level editor below and
+ * the event rows (EventFieldsRow): committing a changed list, and opening a
+ * chip in the Edit Source dialog with its rename/remove/promote continuations.
+ * One implementation on purpose — the editable-vs-harvested split was fixed
+ * here once already, and a second copy is where such fixes get lost.
+ */
+export function linkEditing(
+  links: string[],
+  setLinks: (next: string[]) => void,
+  commit: (next: string[]) => void,
+  promote: (sourceXref: string, page: string | undefined, extraPatches: RecordPatch[], remaining: string[]) => void,
+  onOpenSourceDialog: (target: SourceDialogTarget) => void,
+) {
+  const commitLinks = (next: string[]) => {
+    setLinks(next);
+    commit(next.map((l) => l.trim()).filter(Boolean));
+  };
+  /** Links have been merged into Sources in the UI: clicking a legacy link's
+   * icon opens the same Edit Source dialog, prefilled with just its URL. */
+  const openEditLink = (index: number) =>
+    onOpenSourceDialog({
+      kind: "edit-link",
+      url: links[index],
+      commitRename: (url) => commitLinks(links.map((l, i) => (i === index ? url : l))),
+      commitRemove: () => commitLinks(links.filter((_, i) => i !== index)),
+      commitPromote: (sourceXref, page, extraPatches) => {
+        const remaining = links.filter((_, i) => i !== index);
+        setLinks(remaining);
+        promote(sourceXref, page, extraPatches, remaining);
+      },
+    });
+  return { commitLinks, openEditLink };
+}
+
 /** A list of single-line link inputs, each removable. When `sectionLabel` is
  * provided it renders its own header row with the label and an add button. */
 export function LinksEditor({
@@ -58,26 +93,7 @@ export function LinksEditor({
   const existingKeys = new Set(links.map(linkKey));
   const previewLinks = (incomingLinks ?? []).filter((url) => !existingKeys.has(linkKey(url)));
 
-  function commitLinks(next: string[]) {
-    setLinks(next);
-    onCommit(next.map((l) => l.trim()).filter(Boolean));
-  }
-
-  /** Links have been merged into Sources in the UI: clicking a legacy link's
-   * icon opens the same Edit Source dialog, prefilled with just its URL. */
-  function openEditLink(index: number) {
-    onOpenSourceDialog({
-      kind: "edit-link",
-      url: links[index],
-      commitRename: (url) => commitLinks(links.map((l, i) => (i === index ? url : l))),
-      commitRemove: () => commitLinks(links.filter((_, i) => i !== index)),
-      commitPromote: (sourceXref, page, extraPatches) => {
-        const remaining = links.filter((_, i) => i !== index);
-        setLinks(remaining);
-        onAttachSource(sourceXref, page, extraPatches, remaining);
-      },
-    });
-  }
+  const { openEditLink } = linkEditing(links, setLinks, onCommit, onAttachSource, onOpenSourceDialog);
 
   // Citation icons (real SOUR + legacy 🔗 links + incoming-merge previews) all
   // sit together so the whole sources block reads as a single row.

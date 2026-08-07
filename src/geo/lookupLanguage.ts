@@ -22,16 +22,27 @@ function fold(value: string): string {
   return foldSearch(value).replace(/[^a-z0-9]+/g, "");
 }
 
+/** `${code}:${lang}` → that language's name for the country. Every lookup
+ *  ladder asks this per candidate language, and `Intl.DisplayNames` is not a
+ *  cheap constructor — a dozen fresh instances per row click adds up. The
+ *  world's country names do not change mid-session. */
+const countryNameCache = new Map<string, string | undefined>();
+
 /** What `lang` calls the country with this ISO code, or undefined when the
  *  runtime cannot say (an unknown code, or no Intl data for the language). */
 function countryNameIn(code: string, lang: string): string | undefined {
+  const key = `${code.toUpperCase()}:${lang}`;
+  if (countryNameCache.has(key)) return countryNameCache.get(key);
+  let name: string | undefined;
   try {
-    const name = new Intl.DisplayNames([lang], { type: "region" }).of(code.toUpperCase());
+    const resolved = new Intl.DisplayNames([lang], { type: "region" }).of(code.toUpperCase());
     // A code Intl does not know comes back as the code itself.
-    return name && name.toUpperCase() !== code.toUpperCase() ? name : undefined;
+    name = resolved && resolved.toUpperCase() !== code.toUpperCase() ? resolved : undefined;
   } catch {
-    return undefined;
+    name = undefined;
   }
+  countryNameCache.set(key, name);
+  return name;
 }
 
 /**
