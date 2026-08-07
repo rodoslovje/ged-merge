@@ -915,6 +915,46 @@ describe("normalizeDataset (main-learned place hierarchy)", () => {
     expect(birt.address?.raw).toBe("Zgornje Bitnje 165");
   });
 
+  it("does not relocate a village-numbered address that shortens the locality's name", () => {
+    // Village numbering often writes the settlement short: houses in "Breg ob
+    // Savi" are addressed "Breg N". That name is not a street and identifies no
+    // village of its own, so a record already filed in *another* Breg —
+    // "Breg ob Kokri", a different municipality entirely — must stay where it
+    // is. It used to be moved to Breg ob Savi while keeping Preddvor as its
+    // municipality, inventing a place that exists nowhere.
+    let g = `0 HEAD\n1 CHAR UTF-8\n`;
+    for (let i = 1; i <= 8; i++)
+      g += `0 @S${i}@ INDI\n1 BIRT\n2 PLAC Breg ob Savi,Kranj,Slovenia\n2 ADDR Breg ${i}\n`;
+    g += `0 TRLR\n`;
+    const main = dataset(g);
+    const compare = dataset(
+      `0 HEAD\n1 CHAR UTF-8\n0 @P1@ INDI\n1 BIRT\n` +
+      `2 PLAC Breg ob Kokri,Preddvor,Slovenia\n2 ADDR Breg 12 (pd Boštek)\n0 TRLR\n`,
+    );
+    const { dataset: out, report } = normalizeDataset(compare, inferMainProfile(main));
+    const birt = out.individuals.get("@P1@")!.events.find((e) => e.tag === "BIRT")!;
+    expect(birt.place?.raw).toBe("Breg ob Kokri,Preddvor,Slovenia");
+    expect(birt.address?.raw).toBe("Breg 12 (pd Boštek)");
+    expect(report.placesReshaped).toBe(0);
+  });
+
+  it("does not append a country to itself as its own parent level", () => {
+    // One record written "Italy, Italy" (an import repeating the country as a
+    // municipality) used to teach that the parent of Italy is Italy, so every
+    // plain "Italy" in the file was doubled. Nothing stands above a country.
+    const main = dataset(
+      `0 HEAD\n1 CHAR UTF-8\n` +
+      `0 @I1@ INDI\n1 BIRT\n2 PLAC Italy, Italy\n` +
+      `0 @I2@ INDI\n1 BIRT\n2 PLAC Kranj, Kranj, Slovenia\n2 ADDR Kidričeva 38\n0 TRLR\n`,
+    );
+    const compare = dataset(
+      `0 HEAD\n1 CHAR UTF-8\n0 @P1@ INDI\n1 BIRT\n2 PLAC Italy\n0 TRLR\n`,
+    );
+    const { dataset: out } = normalizeDataset(compare, inferMainProfile(main));
+    const birt = out.individuals.get("@P1@")!.events.find((e) => e.tag === "BIRT")!;
+    expect(birt.place?.raw).toBe("Italy");
+  });
+
   it("keeps a 'po domače' house name once when a dangling dash precedes it in the ADDR", () => {
     const main = dataset(
       `0 HEAD\n1 CHAR UTF-8\n` +

@@ -1,4 +1,10 @@
-import { addressStreetName, decomposePlace, looksLikeFacility, stripHouseNumber } from "../gedcom/place";
+import {
+  addressStreetName,
+  decomposePlace,
+  disambiguatesLocality,
+  looksLikeFacility,
+  stripHouseNumber,
+} from "../gedcom/place";
 import { canonicalPlaceToken } from "../match/place";
 import type { PlaceTargetFormat, ReformattedPlace } from "./types";
 
@@ -59,16 +65,15 @@ export function reformatPlace(
     // the same number-free form inferPlaceHierarchy learned it as.
     const streetHint = street ? stripHouseNumber(street) : undefined;
     const addrStreet = addressStreetName(addrRaw);
-    // A "street" that is just the locality repeated before a house number
-    // ("Zgornje Bitnje 165") is not a disambiguating street — the locality is
-    // already as specific as it gets. Using it as a hint would relocate the
-    // record to wherever that same name happens to appear as a street under a
-    // *different* locality in the main, overriding an already-correct place.
+    // A "street" that is just the locality's own name before a house number
+    // ("Zgornje Bitnje 165", "Breg 12" under "Breg ob Kokri") is not a
+    // disambiguating street — the locality is already as specific as it gets.
+    // Using it as a hint would relocate the record to wherever that same name
+    // happens to appear under a *different* locality in the main, overriding an
+    // already-correct place (see disambiguatesLocality).
     const { localityOfStreet } = fmt.hierarchy;
     const streetLocality = (s: string | undefined): string | undefined =>
-      s && s.toLowerCase() !== locality?.toLowerCase()
-        ? localityOfStreet.get(s.toLowerCase())
-        : undefined;
+      disambiguatesLocality(s, locality) ? localityOfStreet.get(s!.toLowerCase()) : undefined;
     const hinted = streetLocality(streetHint) || streetLocality(addrStreet);
     if (hinted && hinted.toLowerCase() !== locality?.toLowerCase()) {
       locality = hinted;

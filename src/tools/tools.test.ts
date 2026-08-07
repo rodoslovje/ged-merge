@@ -2167,6 +2167,57 @@ describe("bulkNormalize place separator", () => {
   });
 });
 
+// Normalizing one's own file re-renders its layout; it must never rewrite which
+// place a record names. Both cases below did exactly that, and the report
+// presented the move as a reshape.
+describe("bulkNormalize never renames a place", () => {
+  const placesOf = (ds: ReturnType<typeof dataset>) => {
+    const out: string[] = [];
+    for (const i of ds.individuals.values()) {
+      for (const ev of i.raw.children) {
+        for (const c of ev.children) if (c.tag === "PLAC" && c.value) out.push(c.value);
+      }
+    }
+    return out;
+  };
+
+  it("leaves two same-named villages where they are, however their houses are numbered", () => {
+    const bregs = `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 PLAC Breg ob Savi,Kranj,Slovenia
+2 ADDR Breg 21
+0 @I2@ INDI
+1 BIRT
+2 PLAC Breg ob Kokri,Preddvor,Slovenia
+2 ADDR Breg 12 (pd Boštek)
+0 TRLR`;
+    const { dataset: out, report } = bulkNormalize(dataset(bregs));
+    expect(placesOf(out)).toEqual(["Breg ob Savi,Kranj,Slovenia", "Breg ob Kokri,Preddvor,Slovenia"]);
+    expect(report.placesReshaped).toBe(0);
+  });
+
+  it("does not double a country the file writes once as its own parent", () => {
+    const italy = `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 PLAC Italy, Italy
+0 @I2@ INDI
+1 BIRT
+2 PLAC Italy
+0 @I3@ INDI
+1 BIRT
+2 PLAC Kranj, Kranj, Slovenia
+2 ADDR Kidričeva 38
+0 TRLR`;
+    const { dataset: out } = bulkNormalize(dataset(italy));
+    expect(placesOf(out)).toContain("Italy");
+    expect(placesOf(out)).not.toContain("Italy, Italy, Italy");
+  });
+});
+
 describe("bulkNormalize vendor-tag dialect", () => {
   const person = (headSour: string) => `0 HEAD
 1 CHAR UTF-8${headSour ? `\n1 SOUR ${headSour}` : ""}
