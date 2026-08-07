@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { deleteDecision, putDecisions } from "../../persist/geoDb";
-import { pickLabel, type OfficialRename } from "../../tools/geocode";
+import { countryOf, pickLabel, type OfficialRename } from "../../tools/geocode";
 import {
   directoryOf,
   registerDecisionKey,
@@ -135,12 +135,29 @@ export function RegisterCheckSection({
     const inCountry = (f: RegisterFinding) => activeCountry === null || f.country === activeCountry;
     const inVerdict = (f: RegisterFinding) => verdictFilter === "all" || f.verdict === verdictFilter;
 
-    const countryChips = countries.map((code) => ({
-      code,
-      name: countryNameOf(code, i18n.language) ?? code,
-      unknown: !code,
-      count: searched.filter((f) => f.country === code && inVerdict(f)).length,
-    }));
+    // A chip is named the way the *file* names that country — "Slovenia" where
+    // the file writes Slovenia, even when the reader's language would say
+    // Slovenija — so the buttons here read like the ones over the places list,
+    // which are the file's own last comma parts. Places whose country the file
+    // spells two ways still share one chip (they are one country), under
+    // whichever spelling it uses most.
+    const spellings = new Map<string, Map<string, number>>();
+    for (const f of pool) {
+      const written = countryOf(f.key);
+      if (!written) continue;
+      const tally = spellings.get(f.country) ?? new Map<string, number>();
+      tally.set(written, (tally.get(written) ?? 0) + 1);
+      spellings.set(f.country, tally);
+    }
+    const countryChips = countries.map((code) => {
+      const written = [...(spellings.get(code) ?? new Map())].sort((a, b) => b[1] - a[1])[0]?.[0];
+      return {
+        code,
+        name: written ?? countryNameOf(code, i18n.language) ?? code,
+        unknown: !written && !code,
+        count: searched.filter((f) => f.country === code && inVerdict(f)).length,
+      };
+    });
     countryChips.sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
     const countryAll = searched.filter(inVerdict).length;
 

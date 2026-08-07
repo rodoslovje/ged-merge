@@ -904,6 +904,23 @@ const ADMIN_MISMATCH = 0.85;
 const DUPLICATE_DEG = 0.05;
 
 /**
+ * Answers per raw place value, for the index they were found in.
+ *
+ * The same question is asked of the same string several times over: the geocode
+ * review list and the compliance check both look up every place in the file, and
+ * both run again after each edit. The answer depends on nothing but the string
+ * and the index, and the expensive half — the fuzzy pass over a 2-char bucket,
+ * which a value nothing matches exactly always reaches — is by far the costliest
+ * work either scan does. Cached like {@link foldToken} and the geocode tool's
+ * address test, and dropped wholesale when the index changes (a directory
+ * imported or deleted).
+ *
+ * The arrays handed out are shared: treat them as read-only.
+ */
+const lookupCache = new Map<string, GazCandidate[]>();
+let lookupCacheIndex: GazetteerIndex | undefined;
+
+/**
  * Candidates for one raw place string: the locality part is matched exactly
  * (primary/ascii/alternate names), then fuzzily within its 2-char bucket;
  * a country named in the place string gates the candidates to that country
@@ -913,6 +930,18 @@ const DUPLICATE_DEG = 0.05;
  * country's entries stay eligible — we can't rule anything out.
  */
 export function lookupPlace(index: GazetteerIndex, rawPlace: string): GazCandidate[] {
+  if (lookupCacheIndex !== index) {
+    lookupCache.clear();
+    lookupCacheIndex = index;
+  }
+  const hit = lookupCache.get(rawPlace);
+  if (hit) return hit;
+  const out = lookupPlaceUncached(index, rawPlace);
+  lookupCache.set(rawPlace, out);
+  return out;
+}
+
+function lookupPlaceUncached(index: GazetteerIndex, rawPlace: string): GazCandidate[] {
   const components = decomposePlace(rawPlace);
   const locality = components.locality ?? rawPlace.split(",")[0].trim();
   if (!locality) return [];
