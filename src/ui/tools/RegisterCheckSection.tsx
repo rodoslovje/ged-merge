@@ -13,7 +13,7 @@ import {
   type RegisterVerdict,
 } from "../../tools/registerCheck";
 import { foldSearch } from "../globalSearch";
-import { countryNameOf, proposalFromGazEntry, type PlaceStyle } from "../../geo/placeProposal";
+import { proposalFromGazEntry, type PlaceStyle } from "../../geo/placeProposal";
 import { ExpandAllToggle, GeoPeopleList, GeoRowHeader } from "./shared";
 import type { Dataset } from "../../gedcom/types";
 import type { KinshipResolver } from "../../match/kinship";
@@ -76,7 +76,7 @@ export function RegisterCheckSection({
   /** Re-read the decision cache after a dismissal is written. */
   onDecisionsChanged: () => void;
 }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const [verdictFilter, setVerdictFilter] = useState<"all" | RegisterVerdict>("all");
   /** ISO code of the country on screen, or null for all of them. */
   const [countryFilter, setCountryFilter] = useState<string | null>(null);
@@ -127,40 +127,28 @@ export function RegisterCheckSection({
     const pool = report.findings.filter((f) => showDismissed || !f.dismissed);
     const searched = query ? pool.filter((f) => foldSearch(f.key).includes(query)) : pool;
 
-    // One chip per country the findings are in — a file researched in one
-    // country has nothing to narrow, so the row only appears from two up.
+    // One chip per country, read off the place value itself — its last comma
+    // part, exactly as the places list reads its own country buttons, so the
+    // two rows of chips say the same thing about the same file and a country is
+    // named the way the file names it. A value that names no country goes under
+    // "unspecified" rather than being filed under whichever country its answers
+    // happen to be in: nothing in the file says it is there, and the whole point
+    // of a row whose name fits four countries is that they are all still open.
     const countries: string[] = [];
-    for (const f of pool) for (const c of f.countries) if (!countries.includes(c)) countries.push(c);
+    for (const f of pool) {
+      const c = countryOf(f.key);
+      if (!countries.includes(c)) countries.push(c);
+    }
     const activeCountry = countryFilter !== null && countries.includes(countryFilter) ? countryFilter : null;
-    // A finding counts under every country it touches, so a name that fits
-    // places in four of them is on all four lists — and each list shows only
-    // that country's answers (see the options below).
-    const inCountry = (f: RegisterFinding) => activeCountry === null || f.countries.includes(activeCountry);
+    const inCountry = (f: RegisterFinding) => activeCountry === null || countryOf(f.key) === activeCountry;
     const inVerdict = (f: RegisterFinding) => verdictFilter === "all" || f.verdict === verdictFilter;
 
-    // A chip is named the way the *file* names that country — "Slovenia" where
-    // the file writes Slovenia, even when the reader's language would say
-    // Slovenija — so the buttons here read like the ones over the places list,
-    // which are the file's own last comma parts. Places whose country the file
-    // spells two ways still share one chip (they are one country), under
-    // whichever spelling it uses most.
-    const spellings = new Map<string, Map<string, number>>();
-    for (const f of pool) {
-      const written = countryOf(f.key);
-      if (!written || f.countries.length !== 1) continue;
-      const tally = spellings.get(f.countries[0]) ?? new Map<string, number>();
-      tally.set(written, (tally.get(written) ?? 0) + 1);
-      spellings.set(f.countries[0], tally);
-    }
-    const countryChips = countries.map((code) => {
-      const written = [...(spellings.get(code) ?? new Map())].sort((a, b) => b[1] - a[1])[0]?.[0];
-      return {
-        code,
-        name: written ?? countryNameOf(code, i18n.language) ?? code,
-        unknown: !written && !code,
-        count: searched.filter((f) => f.countries.includes(code) && inVerdict(f)).length,
-      };
-    });
+    const countryChips = countries.map((code) => ({
+      code,
+      name: code,
+      unknown: !code,
+      count: searched.filter((f) => countryOf(f.key) === code && inVerdict(f)).length,
+    }));
     countryChips.sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
     const countryAll = searched.filter(inVerdict).length;
 
@@ -178,7 +166,7 @@ export function RegisterCheckSection({
       activeCountry,
       dismissedTotal,
     };
-  }, [report, query, verdictFilter, countryFilter, showDismissed, i18n.language]);
+  }, [report, query, verdictFilter, countryFilter, showDismissed]);
 
   if (!report || !view) return null;
 
@@ -397,12 +385,6 @@ export function RegisterCheckSection({
                       {options.length > 0 && (
                         <ul className="tools-geo-candidates">
                           {options.map((o, i) => (
-                            // Narrowing to a country narrows the answers with
-                            // it: on the Croatia list, the Croatian Bela is the
-                            // one being asked about. The numbers stay the
-                            // answer's own, so a row reads the same however it
-                            // is filtered.
-                            view.activeCountry !== null && o.entry && o.entry.country !== view.activeCountry ? null : (
                             <li key={i}>
                               <label>
                                 <input
@@ -430,7 +412,6 @@ export function RegisterCheckSection({
                                 )}
                               </label>
                             </li>
-                            )
                           ))}
                         </ul>
                       )}

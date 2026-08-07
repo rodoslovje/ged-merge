@@ -84,12 +84,6 @@ export interface RegisterFinding {
    *  of a family event. The row's count, and the list behind it. */
   people: string[];
   verdict: RegisterVerdict;
-  /** ISO country codes the finding belongs to — the matched entry's, or the
-   *  country the place itself names when nothing matched. A name that fits
-   *  places in several countries belongs to each of them: a value naming no
-   *  country of its own really could be any of the four Bela, and filtering to
-   *  one country must neither hide the row nor pretend the others are it. */
-  countries: string[];
   /** The locality as the file writes it. */
   written: string;
   /** The register entry the value resolves to (absent for `notFound`). */
@@ -287,7 +281,6 @@ export function checkPlacesAgainstRegister(
           count: g.count,
           people: [...g.people],
           verdict: "address",
-          countries: components.country ? [countryCode(components.country)?.toUpperCase() ?? ""] : [""],
           written,
           official: split.plac,
           officialAddr: split.addr,
@@ -342,7 +335,6 @@ export function checkPlacesAgainstRegister(
         count: g.count,
         people: [...g.people],
         verdict: "notFound",
-        countries: [wantCountry],
         written,
         dismissed: isDismissed(decisions, key, "notFound"),
       });
@@ -367,7 +359,6 @@ export function checkPlacesAgainstRegister(
           count: g.count,
           people: [...g.people],
           verdict: "ambiguous",
-          countries: [...new Set(tied.map((c) => c.entry.country))],
           written,
           entry: best,
           alternatives: tied.map((c) => c.entry),
@@ -391,7 +382,6 @@ export function checkPlacesAgainstRegister(
         count: g.count,
         people: [...g.people],
         verdict: "admin",
-        countries: [best.country],
         written,
         entry: best,
         writtenAdmin: namedAdmin,
@@ -409,7 +399,6 @@ export function checkPlacesAgainstRegister(
         count: g.count,
         people: [...g.people],
         verdict: "spelling",
-        countries: [best.country],
         written,
         entry: best,
         ...(official ? { official } : {}),
@@ -427,7 +416,6 @@ export function checkPlacesAgainstRegister(
           count: g.count,
           people: [...g.people],
           verdict: "far",
-          countries: [best.country],
           written,
           entry: best,
           fileCoord,
