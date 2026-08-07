@@ -544,7 +544,11 @@ export function RegisterCheckSection({
                             ))}
                           </ul>
                       )}
-                      {!options.length && <p className="tools-clean">{t(`tools.register.hint.${f.verdict}`)}</p>}
+                      {/* A row with no answer to offer says why, in the body's
+                          own quiet voice — `tools-clean` is the page's "nothing
+                          to report" line and brings a paragraph's padding with
+                          it. */}
+                      {!options.length && <p className="tools-fix-hint">{t(`tools.register.hint.${f.verdict}`)}</p>}
                       {peopleOpen.has(f.key) && (
                         <GeoPeopleList
                           dataset={dataset}
