@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
 import { buildPlaceTree, collectNodeUseIds, type PlaceNode, type PlaceTree, UNSPECIFIED, UNSPECIFIED_PLACE } from "../../tools/places";
 import { previewPlaceRename, type PlaceRenamePreview } from "../../tools/placeEdit";
-import { scanAddresses } from "../../tools/addresses";
+import { scanAddresses, type AddressRename } from "../../tools/addresses";
 import { useDatasetDerivations } from "../DatasetDerivations";
 import { GeocodePanel } from "./GeocodePanel";
 import { RegisterPanel } from "./RegisterPanel";
@@ -77,7 +77,7 @@ export function PlacesPanel({
   onApplyAddressCoords,
   onRenamePlaceValue,
   onApplyOfficialNames,
-  onRenameAddress,
+  onRenameAddresses,
   editVersion,
   onMovePlaceForAddresses,
   startId,
@@ -90,7 +90,7 @@ export function PlacesPanel({
   onApplyAddressCoords: (assignments: Map<string, GeoCoord>) => number;
   onRenamePlaceValue: (from: string, to: string, addr?: string) => number;
   onApplyOfficialNames: (renames: OfficialRename[]) => number;
-  onRenameAddress: (rawKeys: string[], fromAddress: string, toAddress: string) => number;
+  onRenameAddresses: (renames: AddressRename[]) => number;
   editVersion: number;
   onMovePlaceForAddresses: (keys: Set<string>, toPlace: string, coord?: GeoAssignment) => number;
   startId?: string;
@@ -229,7 +229,7 @@ export function PlacesPanel({
         active={active}
         editVersion={editVersion}
         onApplyOfficialNames={onApplyOfficialNames}
-        onRenameAddress={onRenameAddress}
+        onRenameAddresses={onRenameAddresses}
         onRenamePlaceValue={onRenamePlaceValue}
         onNavigate={onNavigate}
         startId={startId}
@@ -249,7 +249,7 @@ export function PlacesPanel({
         onApplyAddressCoords={onApplyAddressCoords}
         onRenamePlaceValue={onRenamePlaceValue}
         onApplyOfficialNames={onApplyOfficialNames}
-        onRenameAddress={onRenameAddress}
+        onRenameAddresses={onRenameAddresses}
         editVersion={editVersion}
         onMovePlaceForAddresses={onMovePlaceForAddresses}
         onNavigate={onNavigate}

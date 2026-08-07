@@ -255,6 +255,40 @@ export function TreeSearch({ value, onChange }: { value: string; onChange: (v: s
 // same map. These are what keeps them looking like one tool rather than three.
 
 /**
+ * The ▶ every list on these two pages opens a row from.
+ *
+ * Its own component rather than part of {@link GeoRowHeader}: the geocoding
+ * addresses row lays its head out itself — a checkbox, the address, a rename ✎
+ * and a pin all on one line — so it cannot take the whole header, but the caret
+ * is the piece that has to look and behave the same everywhere, and it was
+ * copied out by hand there.
+ */
+export function RowCaret({
+  open,
+  onToggle,
+  label,
+  title,
+}: {
+  open: boolean;
+  onToggle: () => void;
+  /** What the caret opens, for a screen reader — the row's own name. */
+  label?: string;
+  title?: string;
+}) {
+  return (
+    <button
+      className={`tools-pair-toggle ${open ? "open" : ""}`}
+      aria-expanded={open}
+      {...(label ? { "aria-label": label } : {})}
+      {...(title ? { title } : {})}
+      onClick={onToggle}
+    >
+      ▶
+    </button>
+  );
+}
+
+/**
  * A list row's collapsible header: an optional leading control (the place
  * list's write checkbox), the caret, the place — and the address beside it when
  * the row is about a place+address pair — then whatever else the list shows.
@@ -265,24 +299,35 @@ export function GeoRowHeader({
   place,
   address,
   before,
+  caret = true,
+  className,
   children,
 }: {
   open: boolean;
   onToggle: () => void;
   place: React.ReactNode;
+  /** Extra classes on the row line — for the address lists, whose rows carry
+   *  enough on one line to need it to wrap. */
+  className?: string;
   /** Shown after the place, muted — for the lists whose unit is a pair. */
   address?: string;
   /** Rendered before the caret (a checkbox, in the place list). */
   before?: React.ReactNode;
+  /** False on a row that has nothing to disclose. Its people are reached by
+   *  their own count, as everywhere else, and a caret standing open over an
+   *  empty body would only promise a detail the row does not have. */
+  caret?: boolean;
   children?: React.ReactNode;
 }) {
   return (
-    <div className="tools-tree-row">
+    <div className={className ? `tools-tree-row ${className}` : "tools-tree-row"}>
       {before}
-      <button className={`tools-pair-toggle ${open ? "open" : ""}`} aria-expanded={open} onClick={onToggle}>
-        ▶
-      </button>
-      <span className="tools-tree-label clickable" onClick={onToggle}>
+      {caret ? (
+        <RowCaret open={open} onToggle={onToggle} />
+      ) : (
+        <span className="tools-pair-toggle-spacer" aria-hidden="true" />
+      )}
+      <span className={caret ? "tools-tree-label clickable" : "tools-tree-label"} onClick={caret ? onToggle : undefined}>
         {place}
         {address && <span className="tools-geo-row-addr"> · {address}</span>}
       </span>

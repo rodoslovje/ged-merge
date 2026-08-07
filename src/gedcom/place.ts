@@ -276,6 +276,18 @@ export function addressStreetName(addrRaw: string | undefined): string | undefin
   if (a.street) return stripHouseNumber(a.street);
   return a.houseNumber ? a.locality : undefined;
 }
+/** A written value's bracketed tail — "(pd Adam)", "(dom starejših)",
+ *  "[porodnišnica]" — with the space before it, or "" when it ends in none.
+ *
+ *  This is the researcher's own note about the house: what it is called locally,
+ *  what stands there. No register knows it and none can supply it, so anything
+ *  rewriting an address from a register must carry it across rather than let the
+ *  official spelling swallow it. */
+export function bracketedTail(value: string): string {
+  const m = value.trimEnd().match(new RegExp(String.raw`(?:\s*${BRACKETED})+$`));
+  return m ? ` ${m[0].trim()}` : "";
+}
+
 /** Street-type words: a segment with one is an address, even without a number. */
 const STREET_WORDS = /\b(?:ulica|cesta|trg|naselje|nabrežje|drevored)\b/i;
 
@@ -328,6 +340,44 @@ export function isCountryName(s: string | undefined): boolean {
   const name = s.trim().toLowerCase();
   return COUNTRIES.has(name) || (name.startsWith("the ") && COUNTRIES.has(name.slice(4)));
 }
+/**
+ * Countries whose place values are administrative hierarchies and nothing else —
+ * city, county, state, country — so a bare number standing between two of those
+ * levels is a research reference rather than a house.
+ *
+ * Reading it as a house is right across Central Europe, where a village numbers
+ * its houses directly and the file writes that number as a level of its own:
+ * "Ravna Gora, 12, Primorje-Gorski Kotar, Croatia" *is* house 12. It is wrong
+ * for "Chicago (Districts 1251-1500), 1445, Cook, Illinois, United States",
+ * where 1445 is a census enumeration district — and the file said so in its own
+ * aside. Read as a house it proposed lifting a research reference onto an ADDR
+ * line, and filled the addresses lists with American houses that never existed.
+ *
+ * A deny-list rather than a list of the countries that do number this way: a
+ * country nobody thought of keeps today's reading, which at worst leaves a
+ * finding to dismiss, where forgetting one would lose real house numbers.
+ * Sovereign or not — a file writes "England" and "Northern Ireland" as its
+ * country level, and the rule is about how the value is built, not about
+ * statehood.
+ */
+const NO_VILLAGE_NUMBERING = new Set([
+  "united states", "united states of america", "usa", "u.s.a.", "us", "zda",
+  "canada", "kanada",
+  "australia", "avstralija",
+  "new zealand", "nova zelandija",
+  "united kingdom", "uk", "great britain", "velika britanija",
+  "england", "anglija", "scotland", "škotska", "skotska", "wales",
+  "ireland", "irska", "northern ireland", "severna irska",
+  "south africa", "južna afrika", "juzna afrika",
+]);
+
+/** Whether a bare number inside this country's place values is a house number —
+ *  see {@link NO_VILLAGE_NUMBERING}. A value naming no country is treated as one
+ *  that does: these files leave Slovenia implicit, as the address lookups do. */
+function numbersItsHouses(country: string | undefined): boolean {
+  return !country || !NO_VILLAGE_NUMBERING.has(country.trim().toLowerCase());
+}
+
 /** Facility/landmark words: such a segment is a place detail, not a jurisdiction. */
 const FACILITY_WORDS =
   /\b(?:porodnišnica|bolnišnica|bolnica|pokopališče|grad|samostan|cerkev|kapela)\b/i;
@@ -388,6 +438,15 @@ export function decomposePlace(raw: string): PlaceComponents {
 
   // 3. Comma segments: locality, further jurisdictions, and any inline address.
   const segments = s.split(",").map(tidy).filter(Boolean);
+  // Which country the value names, settled before the segments are read: the
+  // bare-number rule below turns on it, and the country is the last segment —
+  // it would not be known yet when the number is judged. A bracketed country
+  // (step 2) has already answered.
+  let named = out.country;
+  for (let i = segments.length - 1; i >= 0 && !named; i--) {
+    if (isCountryName(segments[i])) named = segments[i];
+  }
+  const housesAreNumbered = numbersItsHouses(named);
   segments.forEach((seg, i) => {
     // A trailing number that merely numbers an administrative unit is not a
     // house number, and the segment carrying it is a jurisdiction level like
@@ -398,7 +457,15 @@ export function decomposePlace(raw: string): PlaceComponents {
     // ("Hrašenski Vrh, 26, Kapela") would misfile — or, on a re-normalize,
     // silently drop — the number.
     if (BARE_HOUSE_NUMBER.test(seg)) {
-      out.houseNumber = normNum(seg);
+      if (housesAreNumbered) {
+        out.houseNumber = normNum(seg);
+        return;
+      }
+      // Where houses are not numbered this way, the number is a level of the
+      // value like any other — kept, not dropped: normalize rebuilds a value
+      // out of these parts, so a number discarded here would be discarded from
+      // the file, and whatever it references would be gone for good.
+      out.jurisdiction.push(seg);
       return;
     }
     if (i === 0) {

@@ -2124,7 +2124,15 @@ function AppContent() {
                   ),
                 )
               }
-              onRenameAddress={(rawKeys, fromAddress, toAddress) => applyToolPatches(renameAddress(mainDataset, rawKeys, fromAddress, toAddress))}
+              onRenameAddresses={(renames) =>
+                // One batch → one undo step, the way the official-name renames
+                // above are applied: a list of houses taken from the register in
+                // a single act must come back in a single act too. Coalesced
+                // because two houses of one village share records.
+                applyToolPatches(
+                  coalescePatches(renames.flatMap((r) => renameAddress(mainDataset, r.rawKeys, r.from, r.to))),
+                )
+              }
               onMovePlaceForAddresses={(keys, toPlace, coord) => applyToolPatches(movePlaceForAddresses(mainDataset, keys, toPlace, coord))}
               startId={startId}
               onFixBrokenLinks={(only) => applyToolPatches(fixBrokenLinks(mainDataset, only))}

@@ -44,6 +44,30 @@ describe("checkAddressesAgainstRegister", () => {
     expect(report).toMatchObject({ checked: 1, ok: 0, skipped: 0 });
   });
 
+  it("carries the file's own bracketed note into the spelling it would write", () => {
+    const r = row({
+      key: "kranj|kidriceva 38 (porodnisnica)",
+      place: "Kranj, Slovenija",
+      address: "Kidričeva 38 (porodnišnica)",
+    });
+    const report = checkAddressesAgainstRegister(
+      [r],
+      new Map([
+        [
+          r.key,
+          [hit({ address: "Kidričeva cesta 38", street: "Kidričeva cesta", settlement: "Kranj", label: "Kidričeva cesta 38, 4000 Kranj" })],
+        ],
+      ]),
+      NO_DECISIONS,
+    );
+    // The note is the researcher's, not the register's: taking the official
+    // spelling must not swallow what only the file knows about the house.
+    expect(report.findings[0]).toMatchObject({
+      verdict: "addrSpelling",
+      officialAddress: "Kidričeva cesta 38 (porodnišnica)",
+    });
+  });
+
   it("reports a house the register files under another settlement", () => {
     const r = row({ key: "gradac|kloster 12", place: "Gradac, Metlika, Slovenija", address: "Klošter 12" });
     const report = checkAddressesAgainstRegister(

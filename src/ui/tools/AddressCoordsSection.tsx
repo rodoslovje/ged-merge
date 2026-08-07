@@ -9,7 +9,7 @@ import { useLocalRegisters } from "../useLocalRegisters";
 import { placeLookupLanguage } from "../../geo/lookupLanguage";
 import { osmKindLabel, osmNamesPlace, osmShortLabel, searchNominatim, type NominatimResult } from "../../geo/nominatim";
 import type { PlaceProposal } from "../../geo/placeProposal";
-import { replaceLocality, suggestMovedPlace, type AddressRow } from "../../tools/addresses";
+import { replaceLocality, suggestMovedPlace, type AddressRename, type AddressRow } from "../../tools/addresses";
 import { countryOf, placeAddrKey, type GeoAssignment } from "../../tools/geocode";
 import type { Translate } from "../../locales/i18n";
 import { foldSearch } from "../globalSearch";
@@ -19,9 +19,9 @@ import { PlaceAutocomplete } from "../edit/PlaceAutocomplete";
 import { usePlaceLookup } from "../edit/PlaceLookupContext";
 import type { PlaceSuggestions } from "../edit/placeSuggestions";
 import { useNameOf, useSettings } from "../SettingsContext";
-import { lineageClass, type KinshipResolver } from "../../match/kinship";
-import { PersonLink } from "../PersonLink";
-import { AppliedNote, ExpandAllToggle, GeoRowHeader, MapToggle, RowMap } from "./shared";
+import type { KinshipResolver } from "../../match/kinship";
+import { loadDecisions, putDecisions } from "../../persist/geoDb";
+import { AppliedNote, ExpandAllToggle, GeoPeopleList, GeoRowHeader, MapToggle, RowCaret, RowMap } from "./shared";
 import { requestSettings } from "../settingsBus";
 
 // The ADDR half of geocoding: house coordinates from the GURS address register
@@ -261,7 +261,7 @@ export function AddressCoordsSection({
   onMove,
   query,
   actionsHost,
-  onRenameAddress,
+  onRenameAddresses,
   kinship,
   onNavigate,
 }: {
@@ -291,7 +291,7 @@ export function AddressCoordsSection({
   actionsHost?: HTMLElement | null;
   /** Rename one house's address on every event that carries it (edit/undo
    *  pipeline); returns the number of records changed. */
-  onRenameAddress: (rawKeys: string[], fromAddress: string, toAddress: string) => number;
+  onRenameAddresses: (renames: AddressRename[]) => number;
   /** Kinship labels for the rows' people lists — the places rows' resolver. */
   kinship?: KinshipResolver;
   /** Jump to a person in Edit mode (the rows' people lists). */
@@ -351,11 +351,49 @@ export function AddressCoordsSection({
   // the list is a worklist, and a placed row is finished work — it comes back
   // on request, for checking a position or sharpening a rough one.
   const [showPlaced, setShowPlaced] = useState(false);
+  /** Houses put away as unanswerable — old village numbering, a farm long gone,
+   *  a hamlet no register has ever held. Every other list on these two pages
+   *  lets a row be judged and set aside; this one did not, so a house nothing
+   *  could ever answer sat on the worklist for good and was counted in every
+   *  chip above it. Staged like the picks and written by the same button, the
+   *  way the places worklist remembers its own. */
+  const [noMatch, setNoMatch] = useState<Set<string>>(new Set());
+  const [showHidden, setShowHidden] = useState(false);
+  /** Bumped by a write, so the remembered decisions are re-read after it. */
+  const [applyGen, setApplyGen] = useState(0);
+  /** What the decision store already remembers, re-read when a write lands. A
+   *  row re-keyed by a rename simply is not in it, and starts unjudged. */
+  useEffect(() => {
+    let live = true;
+    void loadDecisions().then((stored) => {
+      if (!live) return;
+      setNoMatch((prev) => {
+        const next = new Set(prev);
+        for (const row of all) if (stored.get(row.key)?.status === "nomatch") next.add(row.key);
+        return next;
+      });
+    });
+    return () => {
+      live = false;
+    };
+  }, [all, applyGen]);
+  const toggleNoMatch = (key: string) =>
+    setNoMatch((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
   /** The rows the list works over. A row with a pick staged stays whatever the
-   *  toggle says — work in progress is never hidden. */
+   *  toggles say — work in progress is never hidden. */
   const visibleRows = useMemo(
-    () => (showPlaced ? rows : rows.filter((row) => !row.placed || picked.has(row.key))),
-    [rows, showPlaced, picked],
+    () =>
+      rows.filter(
+        (row) =>
+          picked.has(row.key) ||
+          ((showPlaced || !row.placed) && (showHidden || !noMatch.has(row.key))),
+      ),
+    [rows, showPlaced, showHidden, picked, noMatch],
   );
   /** Groups the filter matched by *address*, which are worth opening: the row
    *  looked for is inside, and there may be one of it under a hundred. */
@@ -519,7 +557,6 @@ export function AddressCoordsSection({
       (row) => row.queries.length > 0 && isOfflineQuery(row.queries) && !autoAsked.current.has(row.key),
     );
     if (!pending.length) return;
-    for (const row of pending) autoAsked.current.add(row.key);
 
     // By place, so each settlement's bucket is read once however many houses of
     // it are on the list, and in small passes so a file spanning hundreds of
@@ -532,18 +569,43 @@ export function AddressCoordsSection({
     }
     const places = [...byPlace.values()];
 
+    /** A row is "asked" from the moment its own chunk is fetched until that
+     *  fetch has been applied — never before, and never any longer.
+     *
+     *  Claiming the whole list up front, as this did, made the pass
+     *  unrepeatable: anything that cancels the loop — a rescan, a pick, the
+     *  placed toggle, all of which rebuild `visibleRows` — stranded every row
+     *  the loop had not reached yet, because the effect replacing it found them
+     *  already marked and returned at once. Under StrictMode's
+     *  mount → cleanup → mount that was the entire list on the very first
+     *  render, so the automatic lookup never ran at all and a file's addresses
+     *  sat at "not asked yet" with a register in the browser that could answer
+     *  every one of them. */
+    const claim = (chunk: readonly AddressRow[]) => {
+      for (const row of chunk) autoAsked.current.add(row.key);
+    };
+    const release = (chunk: readonly AddressRow[]) => {
+      for (const row of chunk) autoAsked.current.delete(row.key);
+    };
+
     let cancelled = false;
     void (async () => {
       for (let at = 0; at < places.length; at += AUTO_SEARCH_PLACES) {
         if (cancelled) return;
         const chunk = places.slice(at, at + AUTO_SEARCH_PLACES).flat();
+        claim(chunk);
         try {
           const pool = await searchAddressBatch(chunk.flatMap((row) => row.queries));
-          if (cancelled) return;
+          if (cancelled) {
+            release(chunk);
+            return;
+          }
           applyPool(chunk, pool);
         } catch {
           // A local lookup that throws is a broken store, not a row's fault:
-          // leave those rows untouched so their own button can still be tried.
+          // leave those rows untouched — and unclaimed, so the next pass or
+          // their own button can still try them.
+          release(chunk);
           if (cancelled) return;
         }
       }
@@ -561,11 +623,21 @@ export function AddressCoordsSection({
   const allOpen = groups.length > 0 && groups.every((g) => open.has(g.place));
 
   // Faceted like the places chips: counted over the rows on offer, so each
-  // chip says how many addresses clicking it leaves on screen.
+  // chip says how many addresses clicking it leaves on screen. A chip respects
+  // every filter except its own — so with a country picked these count that
+  // country's addresses alone, just as the country chips above respect the
+  // status one.
   const statusCounts = { unsearched: 0, found: 0, none: 0, manual: 0, placed: 0, picked: 0 };
-  for (const row of visibleRows) statusCounts[addrStatus(row, searches, picked, osmSearches)]++;
+  let statusAllCount = 0;
+  for (const row of visibleRows) {
+    if (activeCountry !== null && countryOf(row.place) !== activeCountry) continue;
+    statusCounts[addrStatus(row, searches, picked, osmSearches)]++;
+    statusAllCount++;
+  }
   /** How many rows the placed toggle is holding back (or, on, has let in). */
   const placedTotal = rows.filter((r) => r.placed && !picked.has(r.key)).length;
+  /** The same for the houses set aside as unanswerable. */
+  const hiddenTotal = rows.filter((r) => noMatch.has(r.key) && !picked.has(r.key)).length;
 
   const togglePeople = (key: string) =>
     setPeopleOpen((prev) => {
@@ -788,7 +860,7 @@ export function AddressCoordsSection({
   const applyRename = (row: AddressRow) => {
     const to = renameDraft.trim();
     if (!to || to === row.address) return;
-    onRenameAddress(row.rawKeys, row.address, to);
+    onRenameAddresses([{ rawKeys: row.rawKeys, from: row.address, to }]);
     setRenameKey(null);
     // The row's key changes with its address, so state tied to the old key has
     // to travel with it. A position staged here is about the *house*, not its
@@ -909,6 +981,13 @@ export function AddressCoordsSection({
       for (const raw of byKey.get(key)?.rawKeys ?? []) assignments.set(raw, v.coord);
     }
     const changed = onApply(assignments);
+    // The rows set aside are remembered here, not in the file — the same store
+    // and the same status the places worklist writes, so a reload does not put
+    // a judged house back on the list. Staged until now, so nothing is written
+    // by a click that was only meant to tidy the view.
+    const now = Date.now();
+    const toStore = [...noMatch].filter((key) => byKey.has(key)).map((key) => ({ key, status: "nomatch" as const, ts: now }));
+    if (toStore.length) void putDecisions(toStore);
     // The written rows are done and leave the worklist; the answers held by
     // the rows still waiting were to questions the write did not change, so
     // they stand — writing one wave must not cost the next its lookups.
@@ -921,11 +1000,16 @@ export function AddressCoordsSection({
     setOsmSearches(dropWritten);
     setPicked(new Map());
     setApplied(changed);
+    setApplyGen((g) => g + 1);
   };
 
   const actions = (
     <>
-      <button className="nav-btn primary tools-run" onClick={apply} disabled={picked.size === 0}>
+      <button
+        className="nav-btn primary tools-run"
+        onClick={apply}
+        disabled={picked.size === 0 && noMatch.size === 0}
+      >
         {t("tools.geocode.addr.apply", { count: picked.size })}
       </button>
       <button
@@ -961,9 +1045,11 @@ export function AddressCoordsSection({
         </button>
         .
       </p>
-      {/* One country's file has nothing to narrow, so the row appears from two
-          up — the same rule the places list follows. */}
-      {countryChips.length > 1 && (
+      {/* Shown even where the file names a single country: which country these
+          addresses stand in is worth stating outright, and a filter row that
+          comes and goes with the data reads as a glitch rather than a choice.
+          All four geocoding lists follow the same rule. */}
+      {countryChips.length > 0 && (
         <div className="tools-chips">
           <button
             className={`tools-chip ${activeCountry === null ? "active" : ""}`}
@@ -991,7 +1077,7 @@ export function AddressCoordsSection({
             onClick={() => setStatusFilter(f)}
           >
             {t(`tools.geocode.addr.filter.${f}`)}{" "}
-            <span className="tools-chip-count">{f === "all" ? visibleRows.length : statusCounts[f]}</span>
+            <span className="tools-chip-count">{f === "all" ? statusAllCount : statusCounts[f]}</span>
           </button>
         ))}
         {/* A view control, beside the other view controls. */}
@@ -1017,6 +1103,12 @@ export function AddressCoordsSection({
               }}
             />
             {t("tools.geocode.addr.showPlaced")} <span className="tools-chip-count">{placedTotal}</span>
+          </label>
+        )}
+        {(hiddenTotal > 0 || showHidden) && (
+          <label className="tools-reshape-site" title={t("tools.geocode.addr.showHiddenHint")}>
+            <input type="checkbox" checked={showHidden} onChange={(e) => setShowHidden(e.target.checked)} />
+            {t("tools.register.showDismissed")} <span className="tools-chip-count">{hiddenTotal}</span>
           </label>
         )}
       </div>
@@ -1183,15 +1275,12 @@ export function AddressCoordsSection({
                               coordinate beside it are shortcuts to the very
                               same panel, but only this one says, open or shut,
                               which state the row is in. */}
-                          <button
-                            className={`tools-pair-toggle ${coordOpen === row.key ? "open" : ""}`}
-                            aria-expanded={coordOpen === row.key}
-                            aria-label={row.address}
+                          <RowCaret
+                            open={coordOpen === row.key}
+                            label={row.address}
                             title={t("tools.geocode.addr.openHint")}
-                            onClick={() => setCoordOpen(coordOpen === row.key ? null : row.key)}
-                          >
-                            ▶
-                          </button>
+                            onToggle={() => setCoordOpen(coordOpen === row.key ? null : row.key)}
+                          />
                           {/* One tick box, whichever panel is asking: the move's
                               destination or the one coordinate for the lot. */}
                           {(moveGroup === group.place || coordGroup === group.place) && (
@@ -1394,6 +1483,22 @@ export function AddressCoordsSection({
                               )}
                             </>
                           )}
+                          {/* Set the house aside, as every other list on these
+                              two pages allows. Not a pick and not an answer: a
+                              judgement that nothing will ever answer this one,
+                              so it stops being counted as work left. */}
+                          <button
+                            className="tools-issue-link"
+                            onClick={() => toggleNoMatch(row.key)}
+                            aria-pressed={noMatch.has(row.key)}
+                            title={
+                              noMatch.has(row.key)
+                                ? t("tools.geocode.noMatchUndo")
+                                : t("tools.geocode.addr.noMatchHint")
+                            }
+                          >
+                            {noMatch.has(row.key) ? t("tools.geocode.restore") : t("tools.geocode.hide")}
+                          </button>
                           {/* Who the events belong to — count as the toggle,
                               names on hover, last on the line, exactly like the
                               places rows. How many events there are is not
@@ -1514,27 +1619,18 @@ export function AddressCoordsSection({
                             ))}
                           </ul>
                         )}
+                        {/* The list the other three geocoding lists show. This
+                            one had a copy of it, which drifted: same links and
+                            kinship labels, but none of the per-person event
+                            count that says how much of this house is theirs. */}
                         {peopleOpen.has(row.key) && (
-                          <>
-                            <ul className="tools-usage tools-geo-people">
-                              {row.people.slice(0, 30).map((id) => {
-                                const kin = kinship?.label(id);
-                                return (
-                                  <li key={id}>
-                                    <PersonLink dataset={dataset} id={id} fallback={id} onNavigate={onNavigate} />
-                                    {kin && (
-                                      <span className={`person-kinship ${lineageClass(kinship?.lineage(id))}`}>{kin}</span>
-                                    )}
-                                  </li>
-                                );
-                              })}
-                            </ul>
-                            {row.people.length > 30 && (
-                              <p className="tools-geo-more">
-                                {t("tools.geocode.morePeople", { count: row.people.length - 30 })}
-                              </p>
-                            )}
-                          </>
+                          <GeoPeopleList
+                            dataset={dataset}
+                            ids={row.people}
+                            place={row.place}
+                            kinship={kinship}
+                            onNavigate={onNavigate}
+                          />
                         )}
                       </li>
                     );

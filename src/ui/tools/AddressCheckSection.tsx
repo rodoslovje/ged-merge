@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { searchLocalAddress } from "../../geo/addressLookup";
 import type { AddressHit } from "../../geo/addressRegister";
@@ -6,7 +7,7 @@ import { isOfflineQuery } from "../../geo/rn";
 import { foldSearch } from "../globalSearch";
 import type { Dataset } from "../../gedcom/types";
 import type { KinshipResolver } from "../../match/kinship";
-import { putDecisions, type GeocodeDecision } from "../../persist/geoDb";
+import { deleteDecision, putDecisions, type GeocodeDecision } from "../../persist/geoDb";
 import {
   addressDecisionKey,
   ADDRESS_ASIDE,
@@ -16,20 +17,20 @@ import {
   type AddressFinding,
   type AddressVerdict,
 } from "../../tools/addressCheck";
-import type { AddressRow } from "../../tools/addresses";
+import type { AddressRename, AddressRow } from "../../tools/addresses";
+import { countryOf } from "../../tools/geocode";
 import { REGISTER_DISMISSED } from "../../tools/registerCheck";
 import { useLocalRegisters } from "../useLocalRegisters";
-import { AppliedNote, GeoPeopleList, GeoRowHeader } from "./shared";
+import { AppliedNote, ExpandAllToggle, GeoPeopleList, GeoRowHeader, MapToggle, RowMap } from "./shared";
 
 // The compliance tab's second half: the file's houses held against a downloaded
 // address register.
 //
-// Asked for, never automatic. The places above are checked the moment the tab
-// opens because a gazetteer is already in memory; the houses need a register
-// that most files will not have, and holding a whole file's addresses against
-// one is a decision with a visible answer — thousands of rows, most of them
-// about numbering that changed a century ago. So the section is a button until
-// it is pressed, and it is not offered at all where no register is stored.
+// Run when the tab is opened, and not before. A register most files will not
+// have is what this needs, so the section is not offered at all where none is
+// stored; where one is, holding the whole file against it is IndexedDB reads and
+// nothing more, and making that a button only meant the answer went unseen.
+// The button remains for the progress it reports while a long file fills in.
 //
 // See addressCheck.ts for why a number the register does not have is counted
 // rather than listed.
@@ -53,6 +54,7 @@ const MAX_ROWS = 300;
 
 export function AddressCheckSection({
   hidden,
+  actionsHost,
   onCount,
   rows,
   dataset,
@@ -60,7 +62,7 @@ export function AddressCheckSection({
   query,
   kinship,
   onNavigate,
-  onRenameAddress,
+  onRenameAddresses,
   onDecisionsChanged,
 }: {
   /** Every place+address pair in the file — the Addresses tab's own rows. */
@@ -71,13 +73,17 @@ export function AddressCheckSection({
   kinship?: KinshipResolver;
   onNavigate: (id: string) => void;
   /** Rewrite one house's address on every event carrying it. */
-  onRenameAddress: (rawKeys: string[], fromAddress: string, toAddress: string) => number;
+  onRenameAddresses: (renames: AddressRename[]) => number;
   onDecisionsChanged: () => void;
   dataset: Dataset;
   /** Kept mounted but off screen while the other compliance tab is shown — a
    *  report costs a pass over the file, and switching tabs must not throw it
    *  away. */
   hidden?: boolean;
+  /** Tab-row element to render this list's own buttons into (portal) — where
+   *  the other three geocoding lists keep theirs. Null until the slot mounts,
+   *  and while the other compliance tab is the one on screen. */
+  actionsHost?: HTMLElement | null;
   /** How many findings there are, for the tab that names this list. Null until
    *  the check has been run, so the tab promises no count for work not done. */
   onCount: (count: number | null) => void;
@@ -87,9 +93,39 @@ export function AddressCheckSection({
   const [report, setReport] = useState<AddressCheckReport | null>(null);
   const [running, setRunning] = useState<{ done: number; total: number } | null>(null);
   const [verdictFilter, setVerdictFilter] = useState<"all" | AddressVerdict>("all");
+  /** The country on screen — `null` = all of them. */
+  const [countryFilter, setCountryFilter] = useState<string | null>(null);
   const [showDismissed, setShowDismissed] = useState(false);
+  /** Rows whose detail is showing, and — separately — rows showing their people.
+   *  Two questions, two toggles: the caret asks what the register says about
+   *  this house, the person count asks whom it belongs to. Opening one used to
+   *  open both, so every glance at a row's detail unrolled thirty person links
+   *  nobody had asked for. The places list beside this one splits them the same
+   *  way. */
+  const [open, setOpen] = useState<Set<string>>(new Set());
   const [peopleOpen, setPeopleOpen] = useState<Set<string>>(new Set());
+  /** Which places are unfolded, folded away to begin with exactly as on the
+   *  geocoding addresses list: a village of fifty findings is one line naming
+   *  the place and counting them, and the list is read by places first. */
+  const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
+  /** The one row showing its map — one at a time, as on the places list. */
+  const [mapOpen, setMapOpen] = useState<string | null>(null);
 
+  const toggleGroup = (place: string) =>
+    setOpenGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(place)) next.delete(place);
+      else next.add(place);
+      return next;
+    });
+
+  const toggleOpen = (key: string) =>
+    setOpen((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
   const togglePeople = (key: string) =>
     setPeopleOpen((prev) => {
       const next = new Set(prev);
@@ -124,23 +160,51 @@ export function AddressCheckSection({
     setRunning(null);
   };
 
+  /** Which set of rows the check has already been run for, so opening the tab
+   *  twice does not run it twice. */
+  const ranFor = useRef<AddressRow[] | null>(null);
+  // Run when the tab is opened, and again after an edit re-scans the file. The
+  // button remains for the progress it reports, but it should not have been the
+  // only way in: a stored register answers a whole file in IndexedDB reads —
+  // that is the very argument by which the geocoding addresses list looks its
+  // own rows up unasked, and the places half of this page has always checked
+  // itself the moment the page is opened. Held until the tab is actually shown,
+  // so a file whose houses are never looked at pays nothing.
+  useEffect(() => {
+    if (hidden || !askable.length || ranFor.current === askable) return;
+    ranFor.current = askable;
+    void run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hidden, askable]);
+
+  /** Hide a finding, or — on one already hidden — bring it back. The restore
+   *  half was missing: the button read "Prikaži" and wrote the dismissal again,
+   *  so a row put away by mistake could not be fetched out. The places list has
+   *  always deleted the decision instead; this now does the same. */
   const dismiss = async (f: AddressFinding) => {
     const key = addressDecisionKey(f.key);
-    await putDecisions([{ key, status: REGISTER_DISMISSED, ts: Date.now() }]);
+    if (f.dismissed) await deleteDecision(key);
+    else await putDecisions([{ key, status: REGISTER_DISMISSED, ts: Date.now() }]);
     setReport((prev) =>
       prev
-        ? { ...prev, findings: prev.findings.map((o) => (o.key === f.key ? { ...o, dismissed: true } : o)) }
+        ? { ...prev, findings: prev.findings.map((o) => (o.key === f.key ? { ...o, dismissed: !f.dismissed } : o)) }
         : prev,
     );
     onDecisionsChanged();
   };
 
-  const takeOfficial = (f: AddressFinding) => {
-    if (!f.officialAddress) return;
-    setApplied(onRenameAddress(f.rawKeys, f.written, f.officialAddress));
-    // The row is answered; drop it rather than leave it claiming a
-    // disagreement the file no longer has.
-    setReport((prev) => (prev ? { ...prev, findings: prev.findings.filter((o) => o.key !== f.key) } : prev));
+  /** Take the register's spelling for these houses, all in one undoable step —
+   *  the places list's "take the official names" for addresses. Rows answered
+   *  this way leave the report rather than stay, claiming a disagreement the
+   *  file no longer has. */
+  const takeOfficial = (list: readonly AddressFinding[]) => {
+    const renames = list
+      .filter((f) => f.officialAddress)
+      .map((f) => ({ rawKeys: f.rawKeys, from: f.written, to: f.officialAddress! }));
+    if (!renames.length) return;
+    setApplied(onRenameAddresses(renames));
+    const done = new Set(list.map((f) => f.key));
+    setReport((prev) => (prev ? { ...prev, findings: prev.findings.filter((o) => !done.has(o.key)) } : prev));
   };
 
   // What the tab above shows. Not derived there: the report is this section's
@@ -159,21 +223,47 @@ export function AddressCheckSection({
         (showDismissed || !f.dismissed) &&
         (verdictFilter === ADDRESS_ASIDE ? f.verdict === ADDRESS_ASIDE : f.verdict !== ADDRESS_ASIDE),
     );
-    const counts = { addrElsewhere: 0, addrSpelling: 0, addrMissing: 0 };
-    for (const f of report.findings) if (showDismissed || !f.dismissed) counts[f.verdict]++;
     const matched = query
       ? pool.filter((f) => foldSearch(f.place).includes(query) || foldSearch(f.written).includes(query))
       : pool;
-    const rows =
-      verdictFilter === "all" || verdictFilter === ADDRESS_ASIDE
-        ? matched
-        : matched.filter((f) => f.verdict === verdictFilter);
+    const inVerdict = (f: AddressFinding) =>
+      verdictFilter === "all" || verdictFilter === ADDRESS_ASIDE || f.verdict === verdictFilter;
+
+    // One chip per country the findings stand in — the place value's last comma
+    // part, the key the places compliance list and both geocoding lists chip on,
+    // so all four say the same thing about the same file. Shown even where the
+    // file names a single country: which country was held against which register
+    // is worth stating outright, and a filter row that comes and goes with the
+    // data reads as a glitch rather than as a choice.
+    const countries: string[] = [];
+    for (const f of pool) {
+      const c = countryOf(f.place);
+      if (!countries.includes(c)) countries.push(c);
+    }
+    const activeCountry = countryFilter !== null && countries.includes(countryFilter) ? countryFilter : null;
+    const inCountry = (f: AddressFinding) => activeCountry === null || countryOf(f.place) === activeCountry;
+    const countryChips = countries.map((code) => ({
+      code,
+      unknown: !code,
+      count: matched.filter((f) => countryOf(f.place) === code && inVerdict(f)).length,
+    }));
+    countryChips.sort((a, b) => b.count - a.count || a.code.localeCompare(b.code));
+    const countryAll = matched.filter(inVerdict).length;
+
+    // Every chip respects each filter but its own, so a picked country narrows
+    // the verdict counts exactly as a picked verdict narrows the country counts.
+    const counts = { addrElsewhere: 0, addrSpelling: 0, addrMissing: 0 };
+    for (const f of report.findings) if ((showDismissed || !f.dismissed) && inCountry(f)) counts[f.verdict]++;
+    const rows = matched.filter((f) => inVerdict(f) && inCountry(f));
     // Grouped under the place the houses belong to, the way the Addresses tab
     // groups its own rows: eleven findings in Ravna Gora are one village's
     // eleven houses, and repeating the place on every line said so eleven
     // times while hiding that they were one place at all.
+    // The cap is applied here, where it is also announced below. It was
+    // declared and reported but never applied: the note said 200 findings were
+    // waiting behind the search while every one of them was on screen.
     const byPlace = new Map<string, AddressFinding[]>();
-    for (const f of rows) {
+    for (const f of rows.slice(0, MAX_ROWS)) {
       const list = byPlace.get(f.place);
       if (list) list.push(f);
       else byPlace.set(f.place, [f]);
@@ -186,28 +276,53 @@ export function AddressCheckSection({
       groups,
       counts,
       all: counts.addrElsewhere + counts.addrSpelling,
+      countryChips,
+      countryAll,
+      activeCountry,
       dismissedTotal: report.findings.filter((f) => f.dismissed).length,
     };
-  }, [report, query, verdictFilter, showDismissed]);
+  }, [report, query, verdictFilter, countryFilter, showDismissed]);
 
   // Nothing stored for any country the file writes: the check cannot be made,
   // and a disabled button explaining why would only be a second copy of the
   // download it wants (Settings › Map). Say nothing at all.
   if (!askable.length) return null;
 
+  const allGroupsOpen = !!view && view.groups.length > 0 && view.groups.every((g) => openGroups.has(g.place));
+  /** Every listed house whose spelling the register would rewrite — what the
+   *  bulk button offers, counted over what is on screen so the number and the
+   *  list agree. */
+  const bulk = view ? view.rows.filter((f) => f.officialAddress && !f.dismissed) : [];
+
+  // The run button and the bulk take belong beside the tabs, where the other
+  // three geocoding lists keep theirs.
+  const actions = (
+    <>
+      {!report ? (
+        <button className="nav-btn tools-run" disabled={!!running} onClick={() => void run()}>
+          {running
+            ? t("tools.registerAddr.running", { done: running.done, total: running.total })
+            : t("tools.registerAddr.check", { count: askable.length })}
+        </button>
+      ) : (
+        bulk.length > 0 && (
+          <button
+            className="nav-btn primary tools-run"
+            onClick={() => takeOfficial(bulk)}
+            title={t("tools.registerAddr.takeAllHint")}
+          >
+            {t("tools.registerAddr.takeAll", { count: bulk.length })}
+          </button>
+        )
+      )}
+      <AppliedNote count={applied} />
+    </>
+  );
+
   return (
     <section className="tools-cleanup-section" style={hidden ? { display: "none" } : undefined}>
+      {actionsHost ? createPortal(actions, actionsHost) : <p className="tools-fix-hint">{actions}</p>}
       <p className="tools-intro">{t("tools.registerAddr.intro")}</p>
-
-      {!report && (
-        <p className="tools-fix-hint">
-          <button className="nav-btn tools-run" disabled={!!running} onClick={() => void run()}>
-            {running
-              ? t("tools.registerAddr.running", { done: running.done, total: running.total })
-              : t("tools.registerAddr.check", { count: askable.length })}
-          </button>
-        </p>
-      )}
 
       {report && (
         <>
@@ -229,6 +344,24 @@ export function AddressCheckSection({
             <>
               <div className="tools-chips">
                 <button
+                  className={`tools-chip ${view.activeCountry === null ? "active" : ""}`}
+                  onClick={() => setCountryFilter(null)}
+                >
+                  {t("tools.geocode.filter.all")} <span className="tools-chip-count">{view.countryAll}</span>
+                </button>
+                {view.countryChips.map((c) => (
+                  <button
+                    key={c.code || "?"}
+                    className={`tools-chip ${view.activeCountry === c.code ? "active" : ""}`}
+                    onClick={() => setCountryFilter(c.code)}
+                  >
+                    {c.unknown ? t("tools.geocode.countryUnknown") : c.code}{" "}
+                    <span className="tools-chip-count">{c.count}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="tools-chips">
+                <button
                   className={`tools-chip ${verdictFilter === "all" ? "active" : ""}`}
                   onClick={() => setVerdictFilter("all")}
                 >
@@ -244,6 +377,18 @@ export function AddressCheckSection({
                     {t(`tools.registerAddr.verdict.${v}`)} <span className="tools-chip-count">{view.counts[v]}</span>
                   </button>
                 ))}
+                {/* A view control, beside the other view controls — the same
+                    place the geocoding addresses list keeps its own. */}
+                <ExpandAllToggle
+                  allOpen={allGroupsOpen}
+                  onToggle={() => {
+                    if (allGroupsOpen) {
+                      setOpenGroups(new Set());
+                      setOpen(new Set());
+                      setPeopleOpen(new Set());
+                    } else setOpenGroups(new Set(view.groups.map((g) => g.place)));
+                  }}
+                />
                 {(view.dismissedTotal > 0 || showDismissed) && (
                   <label className="tools-reshape-site" title={t("tools.register.showDismissedHint")}>
                     <input
@@ -256,25 +401,46 @@ export function AddressCheckSection({
                   </label>
                 )}
               </div>
-              <AppliedNote count={applied} />
               {!view.rows.length && <p className="tools-clean">{t("tools.search.noMatch")}</p>}
-              <ul className="tools-tree tools-register-list">
-                {view.groups.map((group) => (
-                  <li key={group.place} className="tools-geo-addr-group">
-                    {/* The place the houses under it belong to, named once. */}
-                    <div className="tools-tree-row">
-                      <span className="tools-tree-label lead">
-                        {group.place || t("tools.geocode.addr.noPlace")}
-                      </span>
-                      <span className="tools-geo-count">
-                        {t("tools.registerAddr.groupMeta", { count: group.findings.length })}
-                      </span>
-                    </div>
-                    <ul className="tools-tree">
-                {group.findings.map((f) => {
-                  const isOpen = peopleOpen.has(f.key);
+              <ul className="tools-geo-addr-list tools-register-list">
+                {view.groups.map((group) => {
+                  const groupOpen = openGroups.has(group.place);
                   return (
-                    <li key={f.key} className={`tools-tree-node${f.dismissed ? " dismissed" : ""}`}>
+                  <li key={group.place} className="tools-geo-addr-group">
+                    {/* The place the houses under it belong to, named once and
+                        folding them away — the geocoding addresses list's own
+                        group header, so a village of fifty findings is one line
+                        until it is asked for. */}
+                    <GeoRowHeader
+                      open={groupOpen}
+                      onToggle={() => toggleGroup(group.place)}
+                      place={group.place || t("tools.geocode.addr.noPlace")}
+                    >
+                      {/* The geocoding list's own group line, string and all:
+                          how many houses, and how many events hang on them. */}
+                      <span className="tools-geo-count">
+                        {t("tools.geocode.addr.groupMeta", {
+                          count: group.findings.length,
+                          events: group.findings.reduce((n, f) => n + f.count, 0),
+                        })}
+                      </span>
+                    </GeoRowHeader>
+                    {groupOpen && (
+                    // The geocoding addresses list's own nesting: the houses sit
+                    // indented under the place, behind the rule that says they
+                    // belong to it. This list had them flush with the group
+                    // heading, so a village and its houses read as one flat run.
+                    <ul className="tools-tree-children tools-geo-addr-sublist">
+                {group.findings.map((f) => {
+                  // What a row has to disclose: where the register files this
+                  // house, or — for a spelling — the register's own full line
+                  // behind the address that would replace it. A number the
+                  // register lacks says all it has to say on the header line.
+                  const hasDetail = (f.verdict === "addrElsewhere" && !!f.officialPlace) || !!f.officialAddress;
+                  const showPeople = peopleOpen.has(f.key);
+                  const isOpen = (hasDetail && open.has(f.key)) || showPeople;
+                  return (
+                    <li key={f.key} className={`tools-geo-addr-row${f.dismissed ? " dismissed" : ""}`}>
                       {/* The shape the places findings use: the value the file
                           writes leads with the place it sits in beside it, the
                           register's answer follows, and the verdict, the
@@ -282,7 +448,11 @@ export function AddressCheckSection({
                           eye runs down two clean columns. */}
                       <GeoRowHeader
                         open={isOpen}
-                        onToggle={() => togglePeople(f.key)}
+                        caret={hasDetail}
+                        // The address lists' row line: it wraps, and it is the
+                        // smaller type a house sits in, so both read alike.
+                        className="tools-geo-addr-head"
+                        onToggle={() => toggleOpen(f.key)}
                         // Not the header's `address` slot, and not
                         // .tools-geo-row-addr: that class draws the pin that
                         // marks a *position* everywhere in the app, and this
@@ -290,10 +460,20 @@ export function AddressCheckSection({
                         // and the pin said otherwise twice per line.
                         place={f.written}
                       >
-                        {f.official && (
+                        {/* After the arrow stands what the file would say once
+                            the row is taken — the exact replacement, note and
+                            all, not the register's line it is derived from.
+                            That line is a postal address with a post code the
+                            file never wanted, and reading it here left the one
+                            question that matters ("what will my record say?")
+                            answered only by trying it. It is still shown, below,
+                            as the answer this is drawn from. A row with nothing
+                            to write shows the register's line itself: there the
+                            register's own words are the whole finding. */}
+                        {(f.officialAddress ?? f.official) && (
                           <>
                             <span aria-hidden="true" className="tools-register-place">→</span>
-                            <span className="tools-geo-cand-name">{f.official}</span>
+                            <span className="tools-geo-cand-name">{f.officialAddress ?? f.official}</span>
                           </>
                         )}
                         <span className="tools-register-end">
@@ -306,7 +486,7 @@ export function AddressCheckSection({
                           {f.officialAddress && !f.dismissed && (
                             <button
                               className="tools-issue-link"
-                              onClick={() => takeOfficial(f)}
+                              onClick={() => takeOfficial([f])}
                               title={t("tools.registerAddr.takeHint", { address: f.officialAddress })}
                             >
                               {t("tools.geocode.official.take")}
@@ -321,7 +501,7 @@ export function AddressCheckSection({
                           </button>
                           <button
                             className="tools-chip-count tools-count-toggle"
-                            aria-pressed={isOpen}
+                            aria-pressed={showPeople}
                             aria-label={t("tools.geocode.peopleToggle")}
                             onClick={() => togglePeople(f.key)}
                           >
@@ -335,29 +515,89 @@ export function AddressCheckSection({
                               rather than done: the move belongs on the Addresses
                               tab, which has the map to check the house on before
                               anything is written. */}
-                          {f.verdict === "addrElsewhere" && f.officialPlace && (
+                          {open.has(f.key) && f.verdict === "addrElsewhere" && f.officialPlace && (
                             <p className="tools-fix-hint" title={t("tools.registerAddr.moveHint")}>
                               {t("tools.registerAddr.move", { place: f.officialPlace })}
                             </p>
                           )}
-                          <GeoPeopleList
-                            dataset={dataset}
-                            ids={f.people}
-                            place={f.place}
-                            kinship={kinship}
-                            onNavigate={onNavigate}
-                          />
+                          {/* Where the register puts the house — the question
+                              behind every finding here, and the one a name
+                              alone cannot settle. Asked for by a click, like
+                              every other map on this page, and never drawn
+                              before that: Leaflet is a lazy chunk. */}
+                          {open.has(f.key) && f.coord && (
+                            <div className="tools-geo-actions">
+                              <MapToggle
+                                open={mapOpen === f.key}
+                                onToggle={() => setMapOpen(mapOpen === f.key ? null : f.key)}
+                              />
+                            </div>
+                          )}
+                          {mapOpen === f.key && f.coord && (
+                            <RowMap
+                              fitKey={f.key}
+                              fitMaxZoom={17}
+                              pins={[
+                                {
+                                  coord: f.coord,
+                                  label: f.official ?? f.written,
+                                  ...(f.settlement ? { sub: f.settlement } : {}),
+                                  kind: "candidate",
+                                },
+                              ]}
+                            />
+                          )}
+                          {/* The register's own answer, in the shape every other
+                              geocoding list shows an answer in — one option to
+                              take or leave. Taking it writes the address above,
+                              which is this line minus the post code and plus
+                              whatever note the file's own value ends with. */}
+                          {open.has(f.key) && f.officialAddress && f.official && (
+                            <ul className="tools-geo-candidates">
+                              <li>
+                                <label>
+                                  <input
+                                    type="radio"
+                                    className="tools-geo-cand-radio"
+                                    name={`registerAddr-${f.key}`}
+                                    aria-label={f.official}
+                                    disabled={f.dismissed}
+                                    checked={false}
+                                    onChange={() => takeOfficial([f])}
+                                  />
+                                  {/* The number IS the control everywhere on
+                                      these pages — the input itself is clipped
+                                      to a pixel, so an option without it drew
+                                      no control at all — and it ties the line
+                                      to the pin the map above draws for it. */}
+                                  <span className="tools-geo-cand-num">1</span>
+                                  <span className="tools-geo-cand-name">{f.official}</span>
+                                </label>
+                              </li>
+                            </ul>
+                          )}
+                          {showPeople && (
+                            <GeoPeopleList
+                              dataset={dataset}
+                              ids={f.people}
+                              place={f.place}
+                              kinship={kinship}
+                              onNavigate={onNavigate}
+                            />
+                          )}
                         </div>
                       )}
                     </li>
                   );
                 })}
                     </ul>
+                    )}
                   </li>
-                ))}
+                  );
+                })}
               </ul>
               {view.rows.length > MAX_ROWS && (
-                <p className="tools-clean">{t("tools.geocode.more", { count: view.rows.length - MAX_ROWS })}</p>
+                <p className="tools-fix-hint">{t("tools.geocode.more", { count: view.rows.length - MAX_ROWS })}</p>
               )}
             </>
           )}
