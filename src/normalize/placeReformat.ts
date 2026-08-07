@@ -75,12 +75,20 @@ export function reformatPlace(
     const streetLocality = (s: string | undefined): string | undefined =>
       disambiguatesLocality(s, locality) ? localityOfStreet.get(s!.toLowerCase()) : undefined;
     const hinted = streetLocality(streetHint) || streetLocality(addrStreet);
+    let relocated = false;
     if (hinted && hinted.toLowerCase() !== locality?.toLowerCase()) {
       locality = hinted;
       jurisdiction = [hinted, ...jurisdiction.slice(1)];
+      relocated = true;
     }
+    // Fill in the levels above the locality: the ones the incoming place omits,
+    // and — when the street just moved the record to a different locality — the
+    // ones it brought along from the old one, which are no longer its own. A
+    // village does not inherit its neighbour's municipality just because the
+    // two chains are the same length. Only when the main knows no chain for the
+    // new locality does the old tail stand, for want of anything better.
     const parents = locality && fmt.hierarchy.parentOf.get(locality.toLowerCase());
-    if (parents && parents.length > jurisdiction.length - 1) {
+    if (parents && (relocated || parents.length > jurisdiction.length - 1)) {
       jurisdiction = [jurisdiction[0] ?? locality, ...parents];
     }
   }

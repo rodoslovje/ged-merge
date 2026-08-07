@@ -938,6 +938,25 @@ describe("normalizeDataset (main-learned place hierarchy)", () => {
     expect(report.placesReshaped).toBe(0);
   });
 
+  it("takes the municipality of the locality the street moved the record to", () => {
+    // The street says Stražišče, which the main files under Kranj — so the
+    // incoming Naklo, brought along from the place the record used to name,
+    // must go with it. The two chains are the same length, and the backfill
+    // used to fire only on a longer one, leaving "Stražišče,Naklo,Slovenia":
+    // the right village under the wrong municipality.
+    const compare = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @P1@ INDI
+1 RESI
+2 PLAC Naklo,Naklo,Slovenia
+2 ADDR Hafnarjeva pot 5
+0 TRLR
+`);
+    const { dataset: out } = normalizeDataset(compare, inferMainProfile(main));
+    const resi = out.individuals.get("@P1@")!.events.find((e) => e.tag === "RESI")!;
+    expect(resi.place?.raw).toBe("Stražišče,Kranj,Slovenia");
+  });
+
   it("does not append a country to itself as its own parent level", () => {
     // One record written "Italy, Italy" (an import repeating the country as a
     // municipality) used to teach that the parent of Italy is Italy, so every
