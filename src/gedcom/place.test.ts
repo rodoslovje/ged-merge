@@ -6,6 +6,8 @@ import {
   isUnknownPlaceValue,
   localityParts,
   parsePlace,
+  placeAddressDetail,
+  placeWithoutAddress,
   stripParishLabel,
 } from "./place";
 
@@ -113,6 +115,25 @@ describe("decomposePlace", () => {
     expect(mid.locality).toBe("Hrašenski Vrh");
     expect(mid.houseNumber).toBe("26");
     expect(mid.street).toBeUndefined();
+  });
+
+  it("does not read a bare number as a house where houses are not numbered that way", () => {
+    // A census enumeration district, which the value's own aside names. Read as
+    // a house it offered to lift a research reference onto an ADDR line.
+    const us = decomposePlace("Chicago (Districts 1251-1500), 1445, Cook, Illinois, United States");
+    expect(us.houseNumber).toBeUndefined();
+    expect(us.street).toBeUndefined();
+    expect(us.locality).toBe("Chicago");
+    // Kept as a level of its own, never dropped: normalize rebuilds the value
+    // out of these parts, so a discarded number would leave the file for good.
+    expect(placeWithoutAddress(us)).toBe("Chicago, 1445, Cook, Illinois, United States");
+    expect(placeAddressDetail(us)).toBeUndefined();
+
+    // The same shape in a country that does number its houses this way is a
+    // house, exactly as before.
+    const hr = decomposePlace("Ravna Gora, 12, Primorje-Gorski Kotar, Croatia");
+    expect(hr.houseNumber).toBe("12");
+    expect(placeAddressDetail(hr)).toBe("Ravna Gora 12");
   });
 
   it("does not read a renumbering chain ending in a word as a house number", () => {
