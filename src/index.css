@@ -8324,6 +8324,12 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 /* A badge here names a directory or a verdict in one or two words: it must not
    shrink to "SI-GU…" or "SPELLED DIFFERE…" when a long place fills the row. */
 .tools-register-list .tools-reshape-badge { flex: none; }
+/* The place an address finding sits in, and the arrow to the register's own
+   wording. Muted like .tools-geo-row-addr but deliberately NOT that class: that
+   one draws the pin marking a position, and these rows hold no coordinate —
+   they are two spellings of one house, and a pin on each half claimed a
+   placement neither of them is. */
+.tools-register-place { color: var(--muted); font-weight: normal; }
 /* A dismissed row is on the list only because it was asked for — it reads as
    settled, not as work. */
 .tools-register-list .tools-tree-node.dismissed { opacity: 0.6; }

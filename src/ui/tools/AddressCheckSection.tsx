@@ -241,12 +241,21 @@ export function AddressCheckSection({
                       <GeoRowHeader
                         open={isOpen}
                         onToggle={() => togglePeople(f.key)}
-                        place={f.written}
-                        address={f.place}
+                        // Not the header's `address` slot, and not
+                        // .tools-geo-row-addr: that class draws the pin that
+                        // marks a *position* everywhere in the app, and this
+                        // row holds none — it is two ways of writing one house,
+                        // and the pin said otherwise twice per line.
+                        place={
+                          <>
+                            {f.written}
+                            <span className="tools-register-place"> · {f.place}</span>
+                          </>
+                        }
                       >
                         {f.official && (
                           <>
-                            <span aria-hidden="true" className="tools-geo-row-addr">→</span>
+                            <span aria-hidden="true" className="tools-register-place">→</span>
                             <span className="tools-geo-cand-name">{f.official}</span>
                           </>
                         )}
