@@ -226,6 +226,34 @@ describe("disambiguatesLocality", () => {
   });
 });
 
+describe("a place value that is nothing but a country", () => {
+  it("names that country and no locality", () => {
+    // Read as a locality — which every leading segment otherwise is — these
+    // landed under "no country", so a file's "Italy" sat among the unplaceable
+    // rather than at the head of its own country.
+    for (const value of ["Italy", "United States", "Slovenija", "The Netherlands"]) {
+      const d = decomposePlace(value);
+      expect(d.country, value).toBe(value);
+      expect(d.locality, value).toBeUndefined();
+      expect(d.jurisdiction, value).toEqual([value]);
+    }
+  });
+
+  it("leaves a leading segment with anything after it a locality", () => {
+    // "Luxembourg, Luxembourg" is a city in a country, and the first segment
+    // stays the city however much it looks like the second.
+    const d = decomposePlace("Luxembourg, Luxembourg");
+    expect(d.locality).toBe("Luxembourg");
+    expect(d.country).toBe("Luxembourg");
+  });
+
+  it("still reads an ordinary single-segment place as a locality", () => {
+    const d = decomposePlace("Kranj");
+    expect(d.locality).toBe("Kranj");
+    expect(d.country).toBeUndefined();
+  });
+});
+
 describe("isCountryName", () => {
   it("knows a country by its English or local name, whatever the case", () => {
     expect(isCountryName("Italy")).toBe(true);

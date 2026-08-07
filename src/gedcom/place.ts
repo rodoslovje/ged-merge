@@ -296,9 +296,16 @@ export function disambiguatesLocality(name: string | undefined, locality: string
 /**
  * Whether a place name is a country in its own right. Such a name has no
  * jurisdiction above it, so nothing may be appended to it as a parent level.
+ *
+ * The English definite article is read past: a file writes "The Netherlands"
+ * where the list holds "netherlands", and the same goes for the Gambia, the
+ * Bahamas and the Philippines. A place genuinely named "The <country>" and
+ * meaning something else is not a case worth protecting against.
  */
 export function isCountryName(s: string | undefined): boolean {
-  return !!s && COUNTRIES.has(s.trim().toLowerCase());
+  if (!s) return false;
+  const name = s.trim().toLowerCase();
+  return COUNTRIES.has(name) || (name.startsWith("the ") && COUNTRIES.has(name.slice(4)));
 }
 /** Facility/landmark words: such a segment is a place detail, not a jurisdiction. */
 const FACILITY_WORDS =
@@ -371,6 +378,17 @@ export function decomposePlace(raw: string): PlaceComponents {
       return;
     }
     if (i === 0) {
+      // A value that is nothing but a country name IS that country — it names
+      // no locality at all. Read as a locality (which every leading segment
+      // otherwise is) it landed under "no country", so a file's "Italy" and
+      // "United States" sat among the unplaceable rather than at the head of
+      // their own countries. Only the *whole* value counts: a leading segment
+      // with anything after it is a locality, however it is spelt.
+      if (segments.length === 1 && isCountryName(seg)) {
+        out.country = seg;
+        out.jurisdiction.push(seg);
+        return;
+      }
       // A leading segment that names a facility ("Mestno pokopališče Kranj",
       // "Splošna bolnišnica Maribor") is itself the address detail, not a
       // jurisdiction level — the locality comes from the next comma segment.
@@ -396,7 +414,7 @@ export function decomposePlace(raw: string): PlaceComponents {
       out.street ??= seg;
     } else {
       // A further jurisdiction level (municipality, region, country).
-      if (!out.country && COUNTRIES.has(seg.toLowerCase())) out.country = seg;
+      if (!out.country && isCountryName(seg)) out.country = seg;
       out.jurisdiction.push(seg);
     }
   });
@@ -407,7 +425,10 @@ export function decomposePlace(raw: string): PlaceComponents {
   }
   // The leading segment was a facility name, not a locality — fall back to the
   // next jurisdiction level (e.g. "Mestno pokopališče Kranj,Kranj" → "Kranj").
-  out.locality ??= out.jurisdiction[0];
+  // Not when the value is nothing but a country: that names no locality, and
+  // the fallback would hand it its own country as one.
+  const countryOnly = !!out.country && out.jurisdiction.length === 1 && out.jurisdiction[0] === out.country;
+  if (!countryOnly) out.locality ??= out.jurisdiction[0];
   return out;
 }
 
