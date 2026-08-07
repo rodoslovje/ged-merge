@@ -372,6 +372,7 @@ export const en = {
   "tools.geocode.loadedCountriesHint": "All imported gazetteers are used for matching. They are stored in this browser.",
   "tools.geocode.dir.gurs": "GURS Register of Spatial Units — Slovenia's official register of settlements",
   "tools.geocode.dir.dgu": "DGU Register of Geographical Names — Croatia's official register of place names",
+  "tools.geocode.dir.dguAddresses": "DGU Address Register — every Croatian house number with its own coordinate, stored in this browser",
   "tools.geocode.dir.osm": "Places from OpenStreetMap: {{country}}",
   "tools.geocode.dir.geonames": "GeoNames file: {{country}}",
   "tools.geocode.manageInSettings": "Manage in Settings → Map",
@@ -386,7 +387,10 @@ export const en = {
   "tools.geocode.renameAddrPlaceholder": "address…",
   "tools.geocode.countryMeta": "{{count}} places · imported {{date}}",
   "tools.geocode.deleteCountry": "Remove this country's gazetteer",
+  "tools.geocode.addressMeta": "{{count}} addresses · imported {{date}}",
+  "tools.geocode.deleteAddresses": "Remove this address register",
   "tools.geocode.importing": "Importing gazetteer…",
+  "tools.geocode.storing": "Storing addresses in this browser…",
   "tools.geocode.waiting": "Waiting for the service to prepare the extract…",
   "tools.geocode.downloading": "Downloading…",
   "tools.geocode.importFailed": "The file could not be read — make sure it's a GeoNames .txt or .zip country extract.",
@@ -437,8 +441,11 @@ export const en = {
   "tools.geocode.gov.searching": "Searching GOV…",
   "tools.geocode.gov.error": "The GOV search failed — try again in a moment.",
   "tools.geocode.gov.none": "No GOV match.",
-  "tools.geocode.rn.search": "Search address register (GURS)",
+  "tools.geocode.rn.search": "Search address register",
   "tools.geocode.rn.tooltip": "Looks this house number up in Slovenia's official address register (GURS) — the exact coordinate of the building, not the middle of the settlement. Sends the address on this click only.",
+  // The Croatian register is a download that lives in this browser, so the
+  // sentence about sending the address would be untrue of it.
+  "tools.geocode.rn.tooltipLocal": "Looks this house number up in Croatia's official address register (DGU), downloaded to this browser — the exact coordinate of the building, not the middle of the settlement. Nothing leaves your device.",
   "tools.geocode.rn.searching": "Searching GURS…",
   "tools.geocode.rn.error": "The GURS search failed — try again in a moment.",
   "tools.geocode.rn.none": "Not in the address register — check the settlement's spelling, or pick a point on the map.",
@@ -512,7 +519,7 @@ export const en = {
   "tools.geocode.addr.elsewhere": "in {{place}}",
   "tools.geocode.addr.elsewhereHint": "This answer names no part of the address searched for: OpenStreetMap matched the house number somewhere else. Take it only if the house really moved or was renumbered.",
   "tools.geocode.addr.noQuery": "nothing to look up",
-  "tools.geocode.addr.noQueryHint": "The address register needs a house number in Slovenia; this address names none, or lies elsewhere. Place it with the pin, or give a run of them one position with “Place several at one coordinate”.",
+  "tools.geocode.addr.noQueryHint": "The address register needs a house number in Slovenia or Croatia; this address names none, or lies elsewhere. Place it with the pin, or give a run of them one position with “Place several at one coordinate”.",
   "tools.geocode.addr.filter.picked": "Picked",
   "tools.geocode.addr.groupMeta": "{{count}} addresses · {{events}} events",
   "tools.geocode.addr.searchGroup": "Look up all ({{count}})",
@@ -576,6 +583,7 @@ export const en = {
   // registers under. Named as the licence names itself in each language —
   // "Open Licence" is its own English title, not a translation of ours.
   "tools.geocode.licenseOpen": ", Open Licence.",
+  "tools.geocode.sourceDguAddresses": "Every house number in Croatia with its own coordinate, so a Croatian address is placed on its building rather than on its village. Downloaded once and kept, because Croatia publishes no address service to ask.",
   "tools.geocode.sourceOsm": "Any country you pick from the list. Hamlets too, where an official register names none.",
   // Around the linked name, which sits mid-credit here: "© OpenStreetMap
   // contributors" — and after "© sodelavci" in Slovenian.
@@ -586,6 +594,8 @@ export const en = {
   "tools.geocode.gursTooltip": "All 6035 Slovenian settlements from the official register of spatial units (Geodetska uprava RS, CC BY 4.0), including the Italian and Hungarian bilingual names. A ~45 MB download; only the settlement centres are kept.",
   "tools.geocode.dguBtn": "DGU (Croatia)",
   "tools.geocode.dguTooltip": "Some 24 000 Croatian populated places from the register of geographical names (Državna geodetska uprava) — settlements, villages, hamlets, city quarters and abandoned settlements, with their Italian, Hungarian, Serbian and historical names. An ~8 MB download.",
+  "tools.geocode.dguAddressesBtn": "DGU addresses (Croatia)",
+  "tools.geocode.dguAddressesTooltip": "All 1.68 million Croatian addresses from the DGU address register (Državna geodetska uprava, INSPIRE download) — street, house number and post office, each with its own coordinate. An ~85 MB download that takes a few minutes to prepare and needs about 40 MB of space in this browser; afterwards every Croatian address is looked up here, with no network at all.",
   "tools.geocode.more_one": "…and {{count}} more row — narrow the list with the search box.",
   "tools.geocode.more_other": "…and {{count}} more rows — narrow the list with the search box.",
   "tools.geocode.morePeople_one": "…and {{count}} more person.",

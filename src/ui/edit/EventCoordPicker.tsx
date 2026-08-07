@@ -4,7 +4,7 @@ import type { GeoCoord } from "../../gedcom/types";
 import { countryCode } from "../../gedcom/countryCode";
 import { decomposePlace, parseCoordInput } from "../../gedcom/place";
 import { formatCoord, sameCoord } from "../../geo/points";
-import { rnQueriesFrom, searchAddresses, splitAddressVariants, type RnResult } from "../../geo/rn";
+import { isOfflineQuery, rnQueriesFrom, searchAddresses, splitAddressVariants, type RnResult } from "../../geo/rn";
 import { placeLookupLanguage } from "../../geo/lookupLanguage";
 import { osmKindLabel, osmShortLabel, searchNominatim, type NominatimResult } from "../../geo/nominatim";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
@@ -165,10 +165,14 @@ export function EventCoordPicker({
   const popRef = useRef<HTMLDivElement | null>(null);
 
   const queries = useMemo(() => rnQueriesFrom(place || undefined, address || undefined), [place, address]);
-  /** Whether the register could ever apply here — Slovenia, or no country named. */
-  const inSlovenia = useMemo(() => {
+  /** Whether the register can answer these without the network. */
+  const registerLocal = isOfflineQuery(queries);
+  /** Whether a register could ever apply here — one of the two countries with a
+   *  house-level register, or no country named at all. */
+  const inRegisterCountry = useMemo(() => {
     const named = decomposePlace(address || place).country ?? decomposePlace(place).country;
-    return !named || countryCode(named)?.toUpperCase() === "SI";
+    const code = named ? countryCode(named)?.toUpperCase() : undefined;
+    return !code || code === "SI" || code === "HR";
   }, [place, address]);
   const draftCoord = parseCoordInput(draft);
   /** One coordinate, as the panel and the pin panels print it. */
@@ -530,16 +534,22 @@ export function EventCoordPicker({
                 </ul>
               )}
 
-              {settings.allowLinkFetch ? (
+              {/* The register is offered whenever it can answer without the
+                  network — a Croatian address is already in this browser, and
+                  the online opt-in governs what leaves the device. The
+                  OpenStreetMap search beside it always needs it. */}
+              {settings.allowLinkFetch || registerLocal ? (
                 <div className="edit-coord-actions">
                   {queries.length > 0 && (
                     <button type="button" className="tools-issue-link" disabled={busy} onClick={runRegister}>
                       {rn.state === "loading" ? t("tools.geocode.rn.searching") : t("tools.geocode.rn.search")}
                     </button>
                   )}
-                  <button type="button" className="tools-issue-link" disabled={busy} onClick={runOnline}>
-                    {osm.state === "loading" ? t("tools.geocode.online.searching") : t("tools.geocode.online.search")}
-                  </button>
+                  {settings.allowLinkFetch && (
+                    <button type="button" className="tools-issue-link" disabled={busy} onClick={runOnline}>
+                      {osm.state === "loading" ? t("tools.geocode.online.searching") : t("tools.geocode.online.search")}
+                    </button>
+                  )}
                 </div>
               ) : (
                 <p className="edit-coord-note">{t("tools.geocode.downloadNeedsOptIn")}</p>
@@ -551,9 +561,10 @@ export function EventCoordPicker({
                 <p className="edit-coord-note">{t("tools.geocode.online.none")}</p>
               )}
               {/* Why the register isn't on offer — only where it could have been:
-                  a Slovenian place just needs a house number. Anywhere else the
-                  register was never a candidate, so saying so is noise. */}
-              {settings.allowLinkFetch && !queries.length && inSlovenia && (
+                  a Slovenian or Croatian place just needs a house number.
+                  Anywhere else the register was never a candidate, so saying so
+                  is noise. */}
+              {settings.allowLinkFetch && !queries.length && inRegisterCountry && (
                 <p className="edit-coord-note">{t("event.coord.noHouseNumber")}</p>
               )}
 

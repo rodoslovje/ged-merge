@@ -18,8 +18,15 @@ import {
   type RpeNaseljaJson,
   type RpeObcineJson,
 } from "../geo/gazetteer";
-import { extractZipTxt } from "../geo/zip";
-import { getCountry, putCountry } from "../persist/geoDb";
+import {
+  AddressCollector,
+  parseAddressMember,
+  parseAdminUnitNames,
+  parsePostalDescriptors,
+  parseThoroughfareNames,
+} from "../geo/hrAd";
+import { extractZipTxt, zipEntries, zipEntryStream, type ZipEntry } from "../geo/zip";
+import { getCountry, putAddressRegister, putCountry } from "../persist/geoDb";
 import type { GeoWorkerRequest, GeoWorkerResponse } from "./geoMessages";
 
 // Gazetteer import worker: decompress (if zipped), parse the tab-separated
@@ -56,11 +63,96 @@ function parseDump(bytes: Uint8Array<ArrayBuffer>, requestId: number): Map<strin
   return byCountry;
 }
 
+// --- The Croatian address register ---------------------------------------
+//
+// Four GML files in one zip. Three are side tables small enough to read whole;
+// the fourth is 2.6 GB and is never held — see importHrAddresses.
+
+/** One zip entry decoded to a string. For the side tables only: the address
+ *  file is far past the length a JS string may reach. */
+async function entryText(buffer: ArrayBuffer, entry: ZipEntry): Promise<string> {
+  const decoder = new TextDecoder();
+  const reader = zipEntryStream(buffer, entry).getReader();
+  let out = "";
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    out += decoder.decode(value, { stream: true });
+  }
+  return out + decoder.decode();
+}
+
+/** Members are separated by this; a chunk boundary can fall anywhere inside
+ *  one, so the tail is carried over to the next chunk. */
+const MEMBER_END = "</wfs:member>";
+
+/**
+ * Parse the INSPIRE address download into per-settlement buckets and store it.
+ *
+ * The 2.6 GB of Address.gml is read as a stream and split member by member, so
+ * the worker never holds more than one chunk of it plus the buckets themselves
+ * — the difference between an import that runs on an ordinary laptop and one
+ * that cannot run at all.
+ */
+async function importHrAddresses(buffer: ArrayBuffer, requestId: number): Promise<number> {
+  const entries = zipEntries(buffer);
+  const entryNamed = (name: string) =>
+    entries.find((e) => e.name.toLowerCase().endsWith(name.toLowerCase()));
+  const adminEntry = entryNamed("AdminUnitName.gml");
+  const addressEntry = entryNamed("Address.gml");
+  if (!adminEntry || !addressEntry) throw new Error("the download is missing its address or settlement file");
+
+  const settlements = parseAdminUnitNames(await entryText(buffer, adminEntry));
+  if (!settlements.size) throw new Error("no settlements in the address register");
+  // Street and post names are what an answer *reads* like, not whether it can
+  // be found: a download missing them still places every house.
+  const streetEntry = entryNamed("ThoroughfareName.gml");
+  const postEntry = entryNamed("PostalDescriptor.gml");
+  const streets = streetEntry ? parseThoroughfareNames(await entryText(buffer, streetEntry)) : new Map<number, string>();
+  const posts = postEntry
+    ? parsePostalDescriptors(await entryText(buffer, postEntry))
+    : new Map<number, { line: string; name: string }>();
+
+  const collector = new AddressCollector(settlements, streets, posts);
+  const decoder = new TextDecoder();
+  const reader = zipEntryStream(buffer, addressEntry).getReader();
+  const total = addressEntry.uncompressedSize;
+  let read = 0;
+  let carry = "";
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    read += value.byteLength;
+    const text = carry + decoder.decode(value, { stream: true });
+    const parts = text.split(MEMBER_END);
+    carry = parts.pop() ?? "";
+    for (const part of parts) {
+      const row = parseAddressMember(part, settlements);
+      if (row) collector.add(row);
+    }
+    post({ type: "progress", requestId, done: read, total });
+  }
+  const last = parseAddressMember(carry + decoder.decode(), settlements);
+  if (last) collector.add(last);
+  if (!collector.count) throw new Error("no addresses in the register download");
+
+  const buckets = collector.buckets();
+  await putAddressRegister(collector.index(Date.now()), buckets, (done, all) =>
+    post({ type: "progress", requestId, done, total: all, stage: "storing" }),
+  );
+  return collector.count;
+}
+
 self.onmessage = async (event: MessageEvent<GeoWorkerRequest>) => {
   const msg = event.data;
   if (msg.type !== "importGazetteer") return;
   const { requestId } = msg;
   try {
+    if (msg.format === "hr-ad") {
+      const count = await importHrAddresses(msg.buffer, requestId);
+      post({ type: "addressRegister", requestId, country: "HR", count });
+      return;
+    }
     if (msg.format === "rpe") {
       const obcine = msg.obcine
         ? rpeObcinaNames(JSON.parse(new TextDecoder().decode(msg.obcine)) as RpeObcineJson)

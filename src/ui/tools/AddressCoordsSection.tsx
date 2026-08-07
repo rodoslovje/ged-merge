@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
 import { stripHouseNumber } from "../../gedcom/place";
 import { formatCoord, sameCoord } from "../../geo/points";
-import { batchAnswered, resultsForQuery, searchAddressBatch, searchAddresses, splitAddressVariants, type RnResult } from "../../geo/rn";
+import { batchAnswered, isOfflineQuery, resultsForQuery, searchAddressBatch, searchAddresses, splitAddressVariants, type RnResult } from "../../geo/rn";
 import { placeLookupLanguage } from "../../geo/lookupLanguage";
 import { osmKindLabel, osmNamesPlace, osmShortLabel, searchNominatim, type NominatimResult } from "../../geo/nominatim";
 import type { PlaceProposal } from "../../geo/placeProposal";
@@ -962,11 +962,14 @@ export function AddressCoordsSection({
                     // does nothing and still name a number for it.
                     const askable = group.rows.filter(
                       (r) => r.queries.length && (searches.get(r.key) ?? IDLE).state === "idle",
-                    ).length;
-                    if (!settings.allowLinkFetch || askable < 2) return null;
+                    );
+                    // A whole Croatian village is answered from this browser,
+                    // so the online opt-in does not gate it — see isOfflineQuery.
+                    const local = askable.every((r) => isOfflineQuery(r.queries));
+                    if ((!settings.allowLinkFetch && !local) || askable.length < 2) return null;
                     return (
                       <button className="tools-issue-link" onClick={() => searchGroup(group)}>
-                        {t("tools.geocode.addr.searchGroup", { count: askable })}
+                        {t("tools.geocode.addr.searchGroup", { count: askable.length })}
                       </button>
                     );
                   })()}
@@ -1229,7 +1232,7 @@ export function AddressCoordsSection({
                                 {t("tools.geocode.addr.noQuery")}
                               </span>
                             )
-                          ) : !settings.allowLinkFetch ? (
+                          ) : !settings.allowLinkFetch && !isOfflineQuery(row.queries) ? (
                             <span className="tools-geo-online-note">{t("tools.geocode.downloadNeedsOptIn")}</span>
                           ) : (
                             <>
