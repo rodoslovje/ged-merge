@@ -933,7 +933,7 @@ export function GazetteerSetup({ gaz }: { gaz: Gazetteer }) {
   return (
     <div className="tools-geo-gazetteer">
       <div className="tools-geo-summary">
-        <span className="tools-geo-loaded">{t("tools.geocode.loadedCountries")}</span>
+        <span className="tools-geo-loaded" title={t("tools.geocode.loadedCountriesHint")}>{t("tools.geocode.loadedCountries")}</span>
         {gaz.countries.map((c) => (
           <span key={c.code} className="tools-geo-summary-entry">
             <span className="tools-geo-country gm-data">{c.code}</span>
