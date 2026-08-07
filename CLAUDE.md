@@ -114,7 +114,7 @@ Sanity check after CSS edits: every referenced var must resolve to a definition,
 | `src/chart/` | Pure chart data + geometry: person tree builder (`personTree`), layered/fan/relationship layouts, timeline rows, per-node display rules (`nodeDisplay`) — no React |
 | `src/report/` | Pure text-report builders: Ahnentafel + NGSQ descendant register (`model`, `text`) |
 | `src/csv/` | Genealogical index CSV import |
-| `src/tools/` | Whole-file maintenance tools (Tools tab): validation/health check, within-file duplicate finder, bulk normalize — pure functions run on the main thread |
+| `src/tools/` | Whole-file maintenance tools (Tools tab): validation/health check, within-file duplicate finder, bulk normalize — pure functions; the heavy scans run in `tools.worker`, the geocode scans on the main thread behind a paint |
 | `src/ui/` | React components |
 | `src/locales/` | i18n strings (English `en`, Slovenian `sl`) via i18next |
 | `src/worker/` | Web Worker entry point + message types |
