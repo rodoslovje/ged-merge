@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { searchLocalAddress } from "../../geo/addressLookup";
 import type { AddressHit } from "../../geo/addressRegister";
@@ -52,6 +52,8 @@ const CHUNK = 200;
 const MAX_ROWS = 300;
 
 export function AddressCheckSection({
+  hidden,
+  onCount,
   rows,
   dataset,
   decisions,
@@ -72,6 +74,13 @@ export function AddressCheckSection({
   onRenameAddress: (rawKeys: string[], fromAddress: string, toAddress: string) => number;
   onDecisionsChanged: () => void;
   dataset: Dataset;
+  /** Kept mounted but off screen while the other compliance tab is shown — a
+   *  report costs a pass over the file, and switching tabs must not throw it
+   *  away. */
+  hidden?: boolean;
+  /** How many findings there are, for the tab that names this list. Null until
+   *  the check has been run, so the tab promises no count for work not done. */
+  onCount: (count: number | null) => void;
 }) {
   const { t } = useTranslation();
   useLocalRegisters();
@@ -134,6 +143,13 @@ export function AddressCheckSection({
     setReport((prev) => (prev ? { ...prev, findings: prev.findings.filter((o) => o.key !== f.key) } : prev));
   };
 
+  // What the tab above shows. Not derived there: the report is this section's
+  // own state, since running the check is this section's own action.
+  const findingCount = report ? report.findings.filter((f) => !f.dismissed).length : null;
+  useEffect(() => {
+    onCount(findingCount);
+  }, [findingCount, onCount]);
+
   const view = useMemo(() => {
     if (!report) return null;
     // The aside verdict is off the default list on purpose — see addressCheck.
@@ -162,11 +178,7 @@ export function AddressCheckSection({
   if (!askable.length) return null;
 
   return (
-    <section className="tools-cleanup-section">
-      <div className="tools-dup-kind-head">
-        {t("tools.registerAddr.heading")}
-        {report && <span className="tools-chip-count">{report.findings.length}</span>}
-      </div>
+    <section className="tools-cleanup-section" style={hidden ? { display: "none" } : undefined}>
       <p className="tools-intro">{t("tools.registerAddr.intro")}</p>
 
       {!report && (

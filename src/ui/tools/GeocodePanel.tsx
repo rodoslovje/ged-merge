@@ -34,6 +34,8 @@ import { CoordConflicts } from "./CoordConflicts";
 import { GeocodePlaceRow, type RowLookups } from "./GeocodePlaceRow";
 import { RegisterCheckSection } from "./RegisterCheckSection";
 import { AddressCheckSection } from "./AddressCheckSection";
+import { isOfflineQuery } from "../../geo/rn";
+import { useLocalRegisters } from "../useLocalRegisters";
 import { checkPlacesAgainstRegister, type RegisterCheckReport } from "../../tools/registerCheck";
 import { BackButton } from "../BackButton";
 import { isEditableTarget, isModalOpen } from "../../keyboard/shortcuts";
@@ -260,6 +262,24 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
   // buttons into — their state (staged picks, filters) lives inside the
   // section, the row lives here. Only the section on screen fills it.
   const [tabActionsEl, setTabActionsEl] = useState<HTMLElement | null>(null);
+
+  // Compliance has two lists — the places and the houses — and stacked in one
+  // tab they read as one endless list whose halves are told apart only by a
+  // heading a screen and a half down. Two tabs of their own, the way the
+  // worklists above are two tabs.
+  const [registerTab, setRegisterTab] = useState<"places" | "addresses">("places");
+  // Subscribed so the tab appears the moment a register lands, and disappears
+  // when one is dropped: what it offers is exactly what a stored register can
+  // answer, which is the same condition the section renders on.
+  useLocalRegisters();
+  const addrCheckable = useMemo(
+    () => addrRows.filter((r) => r.queries.length > 0 && isOfflineQuery(r.queries)).length,
+    [addrRows],
+  );
+  /** How many address findings the section below has, once it has been asked —
+   *  null while it never has, which is what keeps the tab from promising a
+   *  count for work not yet done. */
+  const [addrFindings, setAddrFindings] = useState<number | null>(null);
 
   // Every coordinate the file already carries — the mini map's context dots.
   const fileCoords = useMemo(
@@ -794,6 +814,37 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
           of its country, and what the two disagree about. */}
       {hasRegister && (
         <div style={tab === "register" ? undefined : { display: "none" }}>
+          {/* The two compliance lists as two tabs, the way the worklists above
+              are two tabs. Both stay mounted — the address report costs a pass
+              over the file to build, and switching back must not throw it
+              away. The addresses tab appears only where a stored register can
+              answer something, which is the same condition the section itself
+              renders on. */}
+          {addrCheckable > 0 && (
+            <div className="tools-geo-tabs tools-geo-subtabs" role="tablist">
+              <button
+                role="tab"
+                aria-selected={registerTab === "places"}
+                className={registerTab === "places" ? "active" : ""}
+                onClick={() => setRegisterTab("places")}
+              >
+                {t("tools.register.tab.places")}{" "}
+                <span className="tools-chip-count">
+                  {registerReport?.findings.filter((f) => !f.dismissed).length ?? 0}
+                </span>
+              </button>
+              <button
+                role="tab"
+                aria-selected={registerTab === "addresses"}
+                className={registerTab === "addresses" ? "active" : ""}
+                onClick={() => setRegisterTab("addresses")}
+              >
+                {t("tools.register.tab.addresses")}
+                {addrFindings !== null && <span className="tools-chip-count"> {addrFindings}</span>}
+              </button>
+            </div>
+          )}
+          <div style={registerTab === "places" ? undefined : { display: "none" }}>
           <RegisterCheckSection
             report={registerReport}
             dataset={dataset}
@@ -807,8 +858,11 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
             onApplyOfficialNames={onApplyOfficialNames}
             onDecisionsChanged={() => void loadDecisions().then(setDecisions)}
           />
+          </div>
           {decisions && (
             <AddressCheckSection
+              hidden={registerTab !== "addresses"}
+              onCount={setAddrFindings}
               rows={addrRows}
               dataset={dataset}
               decisions={decisions}

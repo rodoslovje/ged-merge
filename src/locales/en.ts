@@ -460,7 +460,10 @@ export const en = {
   // The compliance tab's address half. Asked for rather than run: the houses
   // need a downloaded register, and holding a whole file against one is a
   // decision with a visible answer.
-  "tools.registerAddr.heading": "Addresses against the register",
+  // The two compliance lists as two tabs. Named for what each holds, not
+  // repeated as "compliance of…": the tab above them already says that.
+  "tools.register.tab.places": "Places",
+  "tools.register.tab.addresses": "Addresses",
   "tools.registerAddr.intro": "Every address in a country whose address register you have downloaded, held against it: the street spelt otherwise, or the house filed under a different settlement. House numbers the register no longer has are counted rather than listed — village numbering was redone wholesale in the twentieth century, so an old number missing from it is usually right as it stands.",
   "tools.registerAddr.check_one": "Check {{count}} address",
   "tools.registerAddr.check_other": "Check {{count}} addresses",

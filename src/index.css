@@ -8749,6 +8749,17 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
   padding: 3px;
   margin: 4px 0 12px;
 }
+/* The compliance tab's own two tabs. Smaller than the tabs above them and
+   without their frame, so the nesting reads as a nesting rather than as a
+   second row of equals. */
+.tools-geo-subtabs {
+  background: none;
+  border: none;
+  padding: 0;
+  gap: 4px;
+  margin: 0 0 6px;
+}
+.tools-geo-subtabs button { font-size: 0.85rem; padding: 4px 12px; }
 .tools-geo-tabs button {
   font: inherit;
   font-size: 0.9rem;
