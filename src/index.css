@@ -8574,6 +8574,9 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 /* One action row per candidate list: "show on map" and the online searches
    together while the map is closed, the searches alone under it when open. */
 .tools-geo-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 0 0 6px; }
+/* The map toggle carries the pin that marks a position everywhere else in the
+   app; it sits on the text's baseline rather than above it. */
+.tools-map-toggle { display: inline-flex; align-items: center; gap: 5px; }
 /* The geocode row's people list: breathing room between the person link,
    the kinship chip and the event-count chip. */
 .tools-geo-people li { gap: 8px; }

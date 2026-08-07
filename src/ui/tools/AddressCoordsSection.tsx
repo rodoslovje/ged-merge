@@ -558,13 +558,16 @@ export function AddressCoordsSection({
 
   const toggleMap = (place: string) => setMapOpen((prev) => (prev === place ? null : place));
 
-  const toggle = (place: string) =>
+  const toggle = (place: string) => {
+    // The place's houses on its map, from the moment it is opened by hand.
+    setMapOpen((prev) => (open.has(place) ? (prev === place ? null : prev) : place));
     setOpen((prev) => {
       const next = new Set(prev);
       if (next.has(place)) next.delete(place);
       else next.add(place);
       return next;
     });
+  };
 
   /** Open the move panel for a group, pre-filled with what its addresses
    *  suggest — the whole group when they suggest nothing. A `split` from the

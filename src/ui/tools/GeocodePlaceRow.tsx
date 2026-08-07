@@ -360,12 +360,10 @@ export function GeocodePlaceRow({
             className={`tools-tree-meta tools-geo-coord-btn${override ? " staged" : ""}`}
             title={override ? t("tools.geocode.stagedHint") : t("tools.geocode.showMap")}
             onClick={() => {
-              const showing = isOpen && hasMap;
+              // Opening the row draws the map, so a shut row needs nothing more.
+              // On an open one this is the way to put the map up or away.
               if (!isOpen) onToggleOpen(row.key);
-              // The toggle is called only when that lands on the state wanted:
-              // show the map when it is not this row's, hide it when the row is
-              // already open with the map up.
-              if (showing || !hasMap) onToggleMap(row.key);
+              else onToggleMap(row.key);
             }}
           >
             → {c.label} · <span className="gm-data gm-coord gm-coord--set">{c.coord.lat.toFixed(4)}, {c.coord.lon.toFixed(4)}</span>
@@ -554,7 +552,7 @@ export function GeocodePlaceRow({
               if (pins.some((p) => sameCoord(p.coord, coord))) continue;
               pins.push({
                 coord,
-                label: `${cand.entry.name} · ${Math.round(cand.score * 100)}%`,
+                label: `${pickLabel(cand.entry.name, cand.adminDisplay ?? cand.entry.admin)} · ${Math.round(cand.score * 100)}%`,
                 kind: c && sameCoord(c.coord, coord) ? ("chosen" as const) : ("candidate" as const),
                 badge: numberOf(coord),
                 onPick: () => pickCandidate(cand),
@@ -564,7 +562,7 @@ export function GeocodePlaceRow({
               if (pins.some((p) => sameCoord(p.coord, r.coord))) continue;
               pins.push({
                 coord: r.coord,
-                label: `${r.name} · OSM`,
+                label: `${pickLabel(r.name, r.admin)} · OSM`,
                 kind: c && sameCoord(c.coord, r.coord) ? ("chosen" as const) : ("candidate" as const),
                 badge: numberOf(r.coord),
                 onPick: () => onPickCoord(row, r.coord, pickLabel(r.name, r.admin)),
@@ -574,7 +572,7 @@ export function GeocodePlaceRow({
               if (pins.some((p) => sameCoord(p.coord, r.coord))) continue;
               pins.push({
                 coord: r.coord,
-                label: `${r.name} · GOV`,
+                label: `${pickLabel(r.name, r.admin)} · GOV`,
                 kind: c && sameCoord(c.coord, r.coord) ? ("chosen" as const) : ("candidate" as const),
                 badge: numberOf(r.coord),
                 onPick: () => onPickCoord(row, r.coord, pickLabel(r.name, r.admin), r.govId),

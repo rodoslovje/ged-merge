@@ -7,6 +7,7 @@ import type { MiniMapPin } from "../map/MiniPlaceMap";
 import type { SourceUse } from "../../tools/sources";
 import { lineageClass, type KinshipResolver } from "../../match/kinship";
 import { PersonLink } from "../PersonLink";
+import { PinIcon } from "../icons/PinIcon";
 
 const MiniPlaceMap = lazy(() => import("../map/MiniPlaceMap"));
 
@@ -290,12 +291,20 @@ export function GeoRowHeader({
   );
 }
 
-/** Show or hide a row's map. The map is never drawn until asked for: Leaflet is
- *  a lazy chunk, and a list of hundreds of rows must not mount hundreds of them. */
+/**
+ * Show or hide a row's map. Opening a row by hand draws it already — the Edit
+ * view's coordinate panel does the same, and it is the same question — so this
+ * is how it is put away, and how it is fetched back for a row opened some other
+ * way (through its people count, or by Expand all, which deliberately mounts
+ * none: Leaflet is a lazy chunk and a list runs to hundreds of rows).
+ *
+ * It carries the app's pin, which marks a position everywhere else.
+ */
 export function MapToggle({ open, onToggle }: { open: boolean; onToggle: () => void }) {
   const { t } = useTranslation();
   return (
-    <button className="tools-issue-link" onClick={onToggle}>
+    <button className="tools-issue-link tools-map-toggle" onClick={onToggle}>
+      <PinIcon />
       {t(open ? "tools.geocode.hideMap" : "tools.geocode.showMap")}
     </button>
   );

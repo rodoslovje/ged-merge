@@ -129,12 +129,18 @@ export function RegisterCheckSection({
     setWider((prev) => new Map(prev).set(f.key, found));
   };
 
-  const toggleOpen = (key: string) =>
+  const toggleOpen = (key: string) => {
+    const willOpen = !open.has(key);
     setOpen((prev) => {
       const next = new Set(prev);
       if (!next.delete(key)) next.add(key);
       return next;
     });
+    // Which of six same-named places is the one is a question for the map, so a
+    // row opened by hand arrives with it — as an Edit coordinate panel does.
+    // Expand all, and the people count, leave it to the toggle.
+    setMapOpen((prev) => (willOpen ? key : prev === key ? null : prev));
+  };
   const togglePeople = (key: string) => {
     setPeopleOpen((prev) => {
       const next = new Set(prev);

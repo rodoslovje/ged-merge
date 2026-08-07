@@ -409,9 +409,10 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
       else next.delete(key);
       return next;
     });
-    // The map is never opened for you — it is asked for, like everywhere else
-    // on this page. Closing the row does free it.
-    if (!willOpen && mapKey === key) setMapKey(null);
+    // A row opened by hand brings its map with it — that is what it was opened
+    // for, and the Edit view's coordinate panel behaves the same way. Expand
+    // all sets the open set directly and so mounts none; closing frees it.
+    setMapKey((prev) => (willOpen ? key : prev === key ? null : prev));
   };
 
   const renameValue = (from: string, to: string, addr?: string, coord?: GeoAssignment) => {
