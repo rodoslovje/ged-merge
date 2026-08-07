@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { PlaceTargetFormat } from "../normalize/types";
-import type { GazEntry } from "./gazetteer";
+import { buildGazetteerIndex, type GazEntry } from "./gazetteer";
+import { inferPlaceParentLevels } from "./placeLevels";
 import type { RnResult } from "./rn";
 import {
   countryNameOf,
@@ -123,6 +124,24 @@ describe("a gazetteer entry as a place", () => {
   it("keeps a municipality named after its own seat, the way such files write it", () => {
     const p = proposalFromGazEntry({ ...ZABUKOVJE, name: "Sevnica" }, style())!;
     expect(p.plac).toBe("Sevnica,Sevnica,Slovenija");
+  });
+
+  it("names the level this file writes above a settlement", () => {
+    // A file writing counties gets the county; the municipality would be the
+    // right place at the wrong level, and would not look like its neighbours.
+    const sinac: GazEntry = { ...ZABUKOVJE, name: "Sinac", country: "HR", admin: "Otočac", admin1: "09" };
+    const levels = inferPlaceParentLevels(
+      ["Stipernica, Krapina-Zagorje, Hrvaška"],
+      buildGazetteerIndex(
+        [sinac, { ...sinac, name: "Stipernica", admin: "Pregrada", admin1: "02" }],
+        new Map([
+          ["HR:02", ["Krapinsko-zagorska županija", "Krapinsko-zagorska", "Krapina-Zagorje"]],
+          ["HR:09", ["Ličko-senjska županija", "Ličko-senjska", "Lika-Senj"]],
+        ]),
+      ),
+    );
+    expect(proposalFromGazEntry(sinac, style({ parentLevels: levels }))!.plac).toBe("Sinac,Lika-Senj,Hrvaška");
+    expect(proposalFromGazEntry(sinac, style())!.plac).toBe("Sinac,Otočac,Hrvaška");
   });
 });
 

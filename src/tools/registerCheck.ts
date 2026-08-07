@@ -3,8 +3,10 @@ import { decomposePlace, isUnknownPlaceValue, placeAddressDetail } from "../gedc
 import { countryCode } from "../gedcom/countryCode";
 import { foldToken } from "../match/text";
 import { lookupPlace, PARENT_QUALIFIED, saintKey, type GazEntry, type GazetteerIndex } from "../geo/gazetteer";
+import { inferPlaceParentLevels } from "../geo/placeLevels";
 import { distanceKm } from "../geo/points";
 import { reformatPlace } from "../normalize/placeReformat";
+import { placeFormFor } from "../normalize/profile";
 import type { PlaceTargetFormat } from "../normalize/types";
 import { coordOf, isRegisterAddress, walkPlaceAddr } from "./geocode";
 import { replaceLocality } from "./addresses";
@@ -31,7 +33,8 @@ import type { GeocodeDecision } from "../persist/geoDb";
  * - `notFound` the register knows no such place (research, or a rename)
  * - `ambiguous` the name fits several register entries and nothing tells them
  *   apart — no single entry can be said to be the one meant
- * - `admin` the file files the place under a municipality the register doesn't
+ * - `admin` the file files the place under a parent the register doesn't — the
+ *   municipality or, for a file that writes the level above it, the county
  * - `spelling` the register writes the name differently
  * - `site` the directory knows the place from its second level on: the first
  *   names a cemetery, a township, an election precinct — something inside the
@@ -99,8 +102,9 @@ export interface RegisterFinding {
   /** The house address to move onto the event's own `ADDR` line, with `official`
    *  holding the place left behind (`address`). */
   officialAddr?: string;
-  /** The municipality the file names, when it is one the register knows but
-   *  does not file this place under (`admin`). */
+  /** The parent the file names — a municipality, or a county for a file that
+   *  writes that level — when the register knows it but does not file this
+   *  place under it (`admin`). */
   writtenAdmin?: string;
   /** The register entries a `ambiguous` name fits equally well. */
   alternatives?: GazEntry[];
@@ -123,9 +127,20 @@ export interface RegisterCheckReport {
   skipped: number;
   /** Registers the check drew on, e.g. `["SI-GURS", "HR-DGU"]`. */
   registers: string[];
+  /**
+   * What the file's own `PLAC`.`FORM` calls the levels of the places checked,
+   * one line per country and in the file's own wording ("Mjesto, Županija,
+   * Država").
+   *
+   * Reported because it is the file's own answer to the question every parent
+   * finding turns on — whether the middle of a place is a county or a
+   * municipality — and it is written nowhere the reader can see. Empty for a
+   * file that labels no places, which is a house style too.
+   */
+  forms: { country: string; form: string }[];
 }
 
-const EMPTY: RegisterCheckReport = { findings: [], checked: 0, ok: 0, skipped: 0, registers: [] };
+const EMPTY: RegisterCheckReport = { findings: [], checked: 0, ok: 0, skipped: 0, registers: [], forms: [] };
 
 /** The directory an entry came from, under the name the rest of the app shows:
  *  the official register's code (SI-GURS, HR-DGU), the download key (AT-OSM),
@@ -134,15 +149,35 @@ export function directoryOf(entry: GazEntry): string {
   return entry.register ?? entry.source ?? entry.country;
 }
 
-/** Two administrative names for the same body: equal once folded, or one
- *  contained in the other ("Zagrebačka" for the file's "Zagrebačka županija").
- *  The containment arm needs a substantial stem so short names don't collide. */
+/** Words that name a *kind* of jurisdiction rather than the jurisdiction: what
+ *  separates "Zagrebačka" from "Zagrebačka županija", and "Zagreb" from "Grad
+ *  Zagreb". Everything else in a name identifies it. */
+const UNIT_WORDS = new Set([
+  "zupanija", "obcina", "opcina", "opstina", "okraj", "okres", "kotar",
+  "county", "district", "municipality", "city", "town", "grad", "mesto", "mjesto",
+  "gemeinde", "kreis", "comune", "province", "provincia",
+]);
+
+/** Two administrative names for the same body: equal once folded and once the
+ *  words naming the kind of unit are set aside, so a file's "Zagrebačka
+ *  županija" is the register's "Zagrebačka".
+ *
+ *  Nothing looser. This used to accept one name *contained* in the other, which
+ *  quietly equates places that merely share a stem — Kranj with Kranjska Gora,
+ *  and every Croatian county with the town it is named after ("Požega" inside
+ *  "Požega-Slavonia", "Sisak" inside "Sisak-Moslavina"), which turned a file
+ *  written at county level into one finding per place. */
 function sameAdmin(a: string, b: string): boolean {
   const x = foldToken(a);
   const y = foldToken(b);
   if (!x || !y) return false;
   if (x === y) return true;
-  return (x.length >= 4 && y.includes(x)) || (y.length >= 4 && x.includes(y));
+  const stripped = withoutUnitWords(x);
+  return !!stripped && stripped === withoutUnitWords(y);
+}
+
+function withoutUnitWords(folded: string): string {
+  return folded.split(" ").filter((w) => !UNIT_WORDS.has(w)).join(" ");
 }
 
 /**
@@ -234,15 +269,19 @@ export function checkPlacesAgainstRegister(
   // GeoNames file.
   const registers: string[] = [];
   const covered = new Set<string>();
-  const adminNames: string[] = [];
+  // Municipality names per country, not pooled: a Slovenian občina must not
+  // make a Croatian place's parent look like a municipality the register knows.
+  const adminNames = new Map<string, string[]>();
   const seenAdmin = new Set<string>();
   for (const e of index.entries) {
     const directory = directoryOf(e);
     if (!registers.includes(directory)) registers.push(directory);
     covered.add(e.country);
-    if (e.admin && !seenAdmin.has(e.admin)) {
-      seenAdmin.add(e.admin);
-      adminNames.push(e.admin);
+    if (e.admin && !seenAdmin.has(`${e.country}:${e.admin}`)) {
+      seenAdmin.add(`${e.country}:${e.admin}`);
+      const names = adminNames.get(e.country) ?? [];
+      names.push(e.admin);
+      adminNames.set(e.country, names);
     }
   }
   if (!covered.size) return EMPTY;
@@ -278,7 +317,14 @@ export function checkPlacesAgainstRegister(
   for (const fam of dataset.families.values())
     visit(fam.raw, [fam.husband, fam.wife].filter((id): id is string => !!id));
 
+  // How this file names the level above a settlement, read off the places it
+  // already has — the difference between a county and a municipality standing
+  // in the same slot.
+  const levels = inferPlaceParentLevels([...groups.keys()], index, fmt);
+
   const findings: RegisterFinding[] = [];
+  /** Country display name → its FORM lines, by how many places carry each. */
+  const formTally = new Map<string, Map<string, number>>();
   let checked = 0;
   let ok = 0;
   let skipped = 0;
@@ -332,6 +378,17 @@ export function checkPlacesAgainstRegister(
     if (countryCode(written)) {
       skipped++;
       continue;
+    }
+
+    // What this file itself says the levels of a place like this one are.
+    // Counted by occurrences, so a country written at two depths reports the
+    // labels of the shape it mostly uses rather than the first one seen.
+    const country = components.country;
+    const form = fmt && country ? placeFormFor(fmt, key, country) : undefined;
+    if (form && country) {
+      const byForm = formTally.get(country) ?? new Map<string, number>();
+      byForm.set(form, (byForm.get(form) ?? 0) + g.count);
+      formTally.set(country, byForm);
     }
 
     // Only a name the register holds letter-for-letter (bar diacritics and case)
@@ -419,15 +476,41 @@ export function checkPlacesAgainstRegister(
       }
     }
 
-    // The municipality the file names, when the register knows it as one. A
-    // parent it does not recognize (a region, a parish, the country) says
-    // nothing about where the register files the place, so it is passed over.
-    const namedAdmin = components.jurisdiction
+    // The parent the file names above the settlement, held against the register
+    // at *its own* level. The register describes two: the municipality every
+    // entry names, and the division above it (a županija, a county) whose code
+    // the entries of some countries carry. A file writes one or the other as a
+    // house style, and a county held against a municipality could only ever be
+    // reported as disagreeing — which is what a file written at county level
+    // used to get, one finding per place.
+    //
+    // A parent the register recognizes at neither level (a region it does not
+    // list, a parish, the country) says nothing about where the place is filed,
+    // so it is passed over as before.
+    const parents = components.jurisdiction
       .slice(1)
       .map((p) => p.trim())
-      .find((p) => p && adminNames.some((a) => sameAdmin(a, p)));
-    if (namedAdmin && best.admin && !sameAdmin(best.admin, namedAdmin)) {
-      const official = replaceSegment(key, namedAdmin, best.admin);
+      .filter(Boolean);
+    const divisionsHere = levels.divisionNamesIn(best.country);
+    const namedDivision = parents.find((p) => divisionsHere.some((d) => sameAdmin(d, p)));
+    let disagrees: { writtenAdmin: string; to: string | undefined } | undefined;
+    if (namedDivision) {
+      // An entry the register could file under no division cannot contradict
+      // one — the county join is by name, and a few names it cannot resolve.
+      const own = levels.divisionNamesOf(best);
+      if (own.length && !own.some((d) => sameAdmin(d, namedDivision))) {
+        disagrees = { writtenAdmin: namedDivision, to: levels.divisionNameOf(best) };
+      }
+    } else {
+      const namedAdmin = parents.find((p) =>
+        (adminNames.get(best.country) ?? []).some((a) => sameAdmin(a, p)),
+      );
+      if (namedAdmin && best.admin && !sameAdmin(best.admin, namedAdmin)) {
+        disagrees = { writtenAdmin: namedAdmin, to: best.admin };
+      }
+    }
+    if (disagrees) {
+      const official = disagrees.to ? replaceSegment(key, disagrees.writtenAdmin, disagrees.to) : undefined;
       findings.push({
         key,
         count: g.count,
@@ -435,7 +518,7 @@ export function checkPlacesAgainstRegister(
         verdict: "admin",
         written,
         entry: best,
-        writtenAdmin: namedAdmin,
+        writtenAdmin: disagrees.writtenAdmin,
         ...(official ? { official } : {}),
         ...(fileCoord ? { fileCoord } : {}),
         dismissed: isDismissed(decisions, key, "admin"),
@@ -487,7 +570,13 @@ export function checkPlacesAgainstRegister(
       b.count - a.count ||
       placeCollator.compare(a.key, b.key),
   );
-  return { findings, checked, ok, skipped, registers };
+  const forms = [...formTally]
+    .map(([country, byForm]) => ({
+      country,
+      form: [...byForm].sort((a, b) => b[1] - a[1])[0][0],
+    }))
+    .sort((a, b) => placeCollator.compare(a.country, b.country));
+  return { findings, checked, ok, skipped, registers, forms };
 }
 
 /** Whether this finding was dismissed earlier. A "no match" mark from the

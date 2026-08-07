@@ -40,6 +40,40 @@ const REGISTER = buildGazetteerIndex([
   si("Soteska", "Dolenjske Toplice", 45.78, 15.02),
 ]);
 
+/** A Croatian register settlement: its općina as `admin`, the code of the
+ *  županija above it as `admin1` — the shape the DGU import produces. */
+function hr(name: string, admin: string, admin1: string, lat: number, lon: number): GazEntry {
+  return {
+    name,
+    ascii: "",
+    alt: [],
+    lat,
+    lon,
+    fclass: "P",
+    country: "HR",
+    admin1,
+    admin,
+    population: 0,
+    register: "HR-DGU",
+  };
+}
+
+/** The county name lists the DGU import stores beside its places: the official
+ *  name, the bare adjective, then the English forms a file may well write. */
+const HR_REGISTER = buildGazetteerIndex(
+  [
+    hr("Bektež", "Kutjevo", "11", 45.42, 17.88),
+    hr("Španovica", "Pakrac", "11", 45.42, 17.2),
+    hr("Stipernica", "Pregrada", "02", 46.16, 15.75),
+    hr("Sinac", "Otočac", "09", 44.85, 15.25),
+  ],
+  new Map([
+    ["HR:11", ["Požeško-slavonska županija", "Požeško-slavonska", "Požega-Slavonia", "Požega-Slavonia County"]],
+    ["HR:02", ["Krapinsko-zagorska županija", "Krapinsko-zagorska", "Krapina-Zagorje", "Krapina-Zagorje County"]],
+    ["HR:09", ["Ličko-senjska županija", "Ličko-senjska", "Lika-Senj", "Lika-Senj County"]],
+  ]),
+);
+
 function place(value: string, map?: string) {
   return `1 BIRT\n2 PLAC ${value}${map ? `\n3 MAP\n${map}` : ""}`;
 }
@@ -206,6 +240,68 @@ describe("checkPlacesAgainstRegister", () => {
     const ds = fileWith(place("Vrh, Litija, Slovenija"));
     const { findings } = checkPlacesAgainstRegister(ds, REGISTER, NO_DECISIONS);
     expect(findings[0].official).toBe("Vrh, Šmartno pri Litiji, Slovenija");
+  });
+
+  it("holds a place written at county level against counties, not municipalities", () => {
+    // A file that writes "settlement, županija, Croatia" throughout used to get
+    // one finding per place: the county was read as a municipality (every
+    // Croatian county contains the name of the town it is named after) and then
+    // held against the općina the register files the settlement under. The bulk
+    // rename would have written the općina over the county in every one.
+    const ds = fileWith(place("Bektež, Požega-Slavonia, Croatia"), place("Stipernica, Krapina-Zagorje, Croatia"));
+    const report = checkPlacesAgainstRegister(ds, HR_REGISTER, NO_DECISIONS);
+    expect(report.findings).toEqual([]);
+    expect(report.ok).toBe(2);
+  });
+
+  it("reports a county the register files the place under a different one of", () => {
+    const ds = fileWith(place("Sinac, Krapina-Zagorje, Croatia"));
+    const { findings } = checkPlacesAgainstRegister(ds, HR_REGISTER, NO_DECISIONS);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].verdict).toBe("admin");
+    expect(findings[0].writtenAdmin).toBe("Krapina-Zagorje");
+    // Corrected to the county, in the wording this file writes counties in —
+    // not to the općina, which would be the wrong level for this file.
+    expect(findings[0].official).toBe("Sinac, Lika-Senj, Croatia");
+  });
+
+  it("still holds a place written at municipality level against municipalities", () => {
+    const ds = fileWith(place("Bektež, Pakrac, Croatia"));
+    const { findings } = checkPlacesAgainstRegister(ds, HR_REGISTER, NO_DECISIONS);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].verdict).toBe("admin");
+    expect(findings[0].official).toBe("Bektež, Kutjevo, Croatia");
+  });
+
+  it("does not read one name as another it merely contains", () => {
+    // "Kranj" is not "Kranjska Gora", and "Požega" is not "Požega-Slavonia".
+    const ds = fileWith(place("Vrh, Šmartno, Slovenija"));
+    const { findings } = checkPlacesAgainstRegister(ds, REGISTER, NO_DECISIONS);
+    // "Šmartno" alone is no municipality the register knows, so it says nothing
+    // about where the place is filed and the row is passed over — rather than
+    // being taken for "Šmartno pri Litiji" on a shared stem.
+    expect(findings).toEqual([]);
+  });
+
+  it("reads a unit word as the kind of unit, not part of its name", () => {
+    const index = buildGazetteerIndex([{ ...si("Vrh", "Zagrebačka", 45.8, 16.0), country: "HR", register: "HR-DGU" }]);
+    const ds = fileWith(place("Vrh, Zagrebačka županija, Croatia"));
+    expect(checkPlacesAgainstRegister(ds, index, NO_DECISIONS).findings).toEqual([]);
+  });
+
+  it("reports what the file's own FORM calls the levels of its places", () => {
+    const ds = fileWith(place("Vrh, Litija, Slovenija"));
+    const fmt: PlaceTargetFormat = {
+      layout: "plain-structured",
+      separator: ", ",
+      // Keyed by the country's canonical token and the part count, the way
+      // inferPlaceExportFormat learns it from the file's own places.
+      forms: new Map([["slovenia|3", "Kraj, Občina, Država"]]),
+    };
+    const report = checkPlacesAgainstRegister(ds, REGISTER, NO_DECISIONS, fmt);
+    expect(report.forms).toEqual([{ country: "Slovenija", form: "Kraj, Občina, Država" }]);
+    // A file that labels nothing reports nothing — that is a house style too.
+    expect(checkPlacesAgainstRegister(ds, REGISTER, NO_DECISIONS).forms).toEqual([]);
   });
 
   it("counts the people writing a place, both spouses of a family event included", () => {

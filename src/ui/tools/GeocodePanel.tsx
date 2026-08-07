@@ -170,8 +170,9 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
   // coordinate) here too instead of being typed out by hand.
   const placeLookup = usePlaceLookupValue(dataset, placeSug.placeSuggestions);
   // The same layout those lookups write in, for the register check's own
-  // rendering of a register entry as a place.
-  const placeStyle = usePlaceStyle(dataset, placeSug.placeSuggestions);
+  // rendering of a register entry as a place — with the directories on hand, so
+  // an entry is named under the level this file writes above a settlement.
+  const placeStyle = usePlaceStyle(dataset, placeSug.placeSuggestions, index);
 
   // The address rows the section below reviews — scanned here because the
   // Places/Addresses tab bar needs the count before the section renders.

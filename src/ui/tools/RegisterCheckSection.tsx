@@ -297,6 +297,21 @@ export function RegisterCheckSection({
           </>
         )}
       </p>
+      {/* What the file itself calls the levels of its places. It is the answer
+          to what every parent finding turns on — whether the middle of a place
+          is a county or a municipality — and the file writes it in a line
+          nothing else here shows. */}
+      {report.forms.length > 0 && (
+        <p className="tools-fix-hint" title={t("tools.register.formsHint")}>
+          {t("tools.register.forms")}{" "}
+          {report.forms.map((f, i) => (
+            <span key={f.country}>
+              {i > 0 && " · "}
+              {f.country}: <span className="tools-register-form">{f.form}</span>
+            </span>
+          ))}
+        </p>
+      )}
 
       {report.registers.length > 0 && report.findings.length === 0 && (
         <p className="tools-clean tools-clean--ok">{t("tools.register.clean")}</p>

@@ -10,6 +10,7 @@ import {
 } from "../../geo/gazetteer";
 import { searchGov } from "../../geo/gov";
 import { placeLookupLanguage } from "../../geo/lookupLanguage";
+import { inferPlaceParentLevels, type PlaceParentLevels } from "../../geo/placeLevels";
 import { searchNominatim } from "../../geo/nominatim";
 import { rnQueriesFrom, searchAddresses } from "../../geo/rn";
 import {
@@ -24,6 +25,7 @@ import {
 } from "../../geo/placeProposal";
 import { applyPlaceOverrides } from "../../normalize/formatOverrides";
 import { inferPlaceExportFormat } from "../../normalize/profile";
+import type { PlaceTargetFormat } from "../../normalize/types";
 import { loadCountries } from "../../persist/geoDb";
 import { useSettingsSlice } from "../SettingsContext";
 
@@ -100,19 +102,26 @@ export function invalidateGazetteerIndex(): void {
  * register's answer looks like the places already in the file rather than like
  * the register.
  */
-export function usePlaceStyle(dataset: Dataset, placeSuggestions: string[]): PlaceStyle {
+export function usePlaceStyle(
+  dataset: Dataset,
+  placeSuggestions: string[],
+  index?: GazetteerIndex,
+): PlaceStyle {
   const settings = useSettingsSlice(SETTINGS_KEYS);
   const { i18n } = useTranslation();
   const overrides = settings.formatOverrides;
   const language = i18n.language;
-  return useMemo(
-    () => ({
-      fmt: applyPlaceOverrides(inferPlaceExportFormat(dataset), overrides),
+  return useMemo(() => {
+    const fmt = applyPlaceOverrides(inferPlaceExportFormat(dataset), overrides);
+    return {
+      fmt,
       depth: placeDepthOf(placeSuggestions),
       language,
-    }),
-    [dataset, placeSuggestions, overrides, language],
-  );
+      // Only a loaded directory can tell a county from a municipality; without
+      // one the parent stays the municipality, as it always was.
+      ...(index ? { parentLevels: inferPlaceParentLevels(placeSuggestions, index, fmt) } : {}),
+    };
+  }, [dataset, placeSuggestions, overrides, language, index]);
 }
 
 /** Build the Edit view's lookup: this file's place style plus every register. */
@@ -148,7 +157,12 @@ export function usePlaceLookupValue(dataset: Dataset, placeSuggestions: string[]
       // Offline first: an imported register answers instantly, is authoritative
       // for the country it covers, and costs no request.
       const index = await gazetteerIndex();
-      if (index) for (const entry of searchGazetteer(index, text)) add(proposalFromGazEntry(entry, style));
+      if (index) {
+        // Only a register entry has a level to choose between; the online
+        // sources below name their own parent and there is nothing to pick.
+        const styled = { ...style, parentLevels: parentLevelsFor(index, placeSuggestions, style.fmt) };
+        for (const entry of searchGazetteer(index, text)) add(proposalFromGazEntry(entry, styled));
+      }
 
       if (online) {
         // The address register only applies when the text names a house number
@@ -207,5 +221,24 @@ export function usePlaceLookupValue(dataset: Dataset, placeSuggestions: string[]
     };
 
     return { search, searchAddress, online };
-  }, [style, online]);
+  }, [style, placeSuggestions, online]);
+}
+
+/** The parent level read off this file's places and the directories loaded,
+ *  kept between lookups: a search runs on every keystroke, while neither the
+ *  file's places nor the index changes identity between them. */
+let cachedLevels:
+  | { index: GazetteerIndex; places: readonly string[]; fmt: PlaceTargetFormat; levels: PlaceParentLevels }
+  | undefined;
+function parentLevelsFor(
+  index: GazetteerIndex,
+  places: readonly string[],
+  fmt: PlaceTargetFormat,
+): PlaceParentLevels {
+  if (cachedLevels?.index === index && cachedLevels.places === places && cachedLevels.fmt === fmt) {
+    return cachedLevels.levels;
+  }
+  const levels = inferPlaceParentLevels(places, index, fmt);
+  cachedLevels = { index, places, fmt, levels };
+  return levels;
 }
