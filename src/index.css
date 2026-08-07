@@ -8308,9 +8308,11 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 /* --- Geocode places (Tools tab) -------------------------------------------- */
 
 /* Register check: one line per disagreement — the place as the file writes it,
-   then the register's own wording of it, and at the right end the verdict, what
-   can be done about it and the people it concerns. */
-.tools-register-end { margin-left: auto; display: flex; align-items: center; gap: 12px; flex: none; }
+   then the register's own wording of it, the verdict, what can be done about it
+   and the people it concerns, all reading left to right like a places row. The
+   grouping span carries no layout of its own (`contents`), so its children take
+   the row's own spacing rather than sitting in a column of their own. */
+.tools-register-end { display: contents; }
 /* A dismissed row is on the list only because it was asked for — it reads as
    settled, not as work. */
 .tools-register-list .tools-tree-node.dismissed { opacity: 0.6; }
