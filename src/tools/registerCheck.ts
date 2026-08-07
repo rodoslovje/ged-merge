@@ -2,7 +2,7 @@ import type { Dataset, GeoCoord } from "../gedcom/types";
 import { decomposePlace, isUnknownPlaceValue, placeAddressDetail } from "../gedcom/place";
 import { countryCode } from "../gedcom/countryCode";
 import { foldToken } from "../match/text";
-import { lookupPlace, PARENT_QUALIFIED, type GazEntry, type GazetteerIndex } from "../geo/gazetteer";
+import { lookupPlace, PARENT_QUALIFIED, saintKey, type GazEntry, type GazetteerIndex } from "../geo/gazetteer";
 import { distanceKm } from "../geo/points";
 import { reformatPlace } from "../normalize/placeReformat";
 import type { PlaceTargetFormat } from "../normalize/types";
@@ -193,7 +193,10 @@ function writtenAsRegistered(written: string, entry: GazEntry): boolean {
  *  register does is then {@link writtenAsRegistered}'s question. */
 function sameName(written: string, entry: GazEntry): boolean {
   const folded = foldToken(written);
-  return [entry.name, entry.ascii, ...entry.alt].some((n) => n && foldToken(n) === folded);
+  const saint = saintKey(written);
+  return [entry.name, entry.ascii, ...entry.alt].some(
+    (n) => n && (foldToken(n) === folded || (!!saint && saintKey(n) === saint)),
+  );
 }
 
 /**
@@ -338,6 +341,7 @@ export function checkPlacesAgainstRegister(
     // judges it against a map, but not to assert here that the register spells
     // the place differently or files it elsewhere. Left in, "Slovenia" is
     // reported as misspelling "Šlovrenc".
+    const fileCoord = [...g.coords.values()].sort((a, b) => b.n - a.n)[0]?.coord;
     const answersFor = (value: string) => {
       const name = (decomposePlace(value).locality ?? value.split(",")[0]).trim();
       return lookupPlace(index, value).filter(
@@ -370,6 +374,7 @@ export function checkPlacesAgainstRegister(
           written: split.lead,
           entry: under[0].entry,
           official: split.rest,
+          ...(fileCoord ? { fileCoord } : {}),
           ...(fmt?.layout === "structured-addr" ? { officialAddr: split.lead } : {}),
           dismissed: isDismissed(decisions, key, "site"),
         });
@@ -381,12 +386,12 @@ export function checkPlacesAgainstRegister(
         people: [...g.people],
         verdict: "notFound",
         written,
+        ...(fileCoord ? { fileCoord } : {}),
         dismissed: isDismissed(decisions, key, "notFound"),
       });
       continue;
     }
     checked++;
-    const fileCoord = [...g.coords.values()].sort((a, b) => b.n - a.n)[0]?.coord;
 
     // Same name, several register entries. A coordinate in the file settles it
     // — the nearest entry is the place meant — and only without one does the
@@ -407,6 +412,7 @@ export function checkPlacesAgainstRegister(
           written,
           entry: best,
           alternatives: tied.map((c) => c.entry),
+          ...(fileCoord ? { fileCoord } : {}),
           dismissed: isDismissed(decisions, key, "ambiguous"),
         });
         continue;

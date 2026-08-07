@@ -220,6 +220,22 @@ describe("checkPlacesAgainstRegister", () => {
     expect(findings[0].people.sort()).toEqual(["@I1@", "@I2@"]);
   });
 
+  it("reads the register's abbreviated saint as the name the file spells out", () => {
+    // GURS registers the village by Škofja Loka as "Sv. Duh"; a researcher
+    // writes "Sveti Duh". Without the two meeting, the only answer is the Sveti
+    // Duh in another občina — reported as a municipality the register denies.
+    const index = buildGazetteerIndex([
+      si("Sv. Duh", "Škofja Loka", 46.1667, 14.2833),
+      si("Sveti Duh", "Bloke", 45.797, 14.5225),
+    ]);
+    const ds = fileWith(place("Sveti Duh, Škofja Loka, Slovenija"));
+    const { findings } = checkPlacesAgainstRegister(ds, index, NO_DECISIONS);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].verdict).toBe("spelling");
+    expect(findings[0].entry?.admin).toBe("Škofja Loka");
+    expect(findings[0].official).toBe("Sv. Duh, Škofja Loka, Slovenija");
+  });
+
   it("recognizes a cemetery standing in a place the directory does know", () => {
     // The register has no "Saint Mary Cemetery"; it has Kranj, which the value
     // names one level down. That is a level to move, not a place to research.

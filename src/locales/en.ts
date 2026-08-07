@@ -468,6 +468,7 @@ export const en = {
   "tools.register.detail.far": "{{km}} km away",
   "tools.register.options_one": "{{count}} possible place",
   "tools.register.options_other": "{{count}} possible places",
+  "tools.register.currentPin": "where the file puts it now",
   "tools.register.showOnMap": "Show this answer on the row's map",
   "tools.register.wider": "Look wider",
   "tools.register.widerHint": "Also offer places whose name merely contains this one — “Bela” finding Spodnja, Srednja and Zgornja Bela. Leads to judge, not answers: the check itself only ever matches a name letter for letter.",

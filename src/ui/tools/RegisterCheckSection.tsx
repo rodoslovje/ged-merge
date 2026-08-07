@@ -434,14 +434,14 @@ export function RegisterCheckSection({
                           the same list, and the same numbered radios, the
                           places and addresses rows offer their candidates in.
                           Picking one is what the rename then writes. */}
-                      {options.length > 0 && (
-                        <>
-                          {/* Which of six same-named places is the one is a
-                              question only a map answers, so the row draws its
-                              answers as the numbered pins the option lines
-                              carry — asked for by a click on any coordinate,
-                              or on the toggle, and never drawn before that
-                              (Leaflet is a lazy chunk). */}
+                      {/* Which of six same-named places is the one is a
+                          question only a map answers, so the row draws its
+                          answers as the numbered pins the option lines carry,
+                          and the position the file records for the place beside
+                          them — asked for by a click on any coordinate, or on
+                          the toggle, and never drawn before that (Leaflet is a
+                          lazy chunk). A row with neither has nothing to draw. */}
+                      {(options.some((o) => o.entry) || f.fileCoord) && (
                           <div className="tools-geo-actions">
                             <MapToggle
                               open={mapOpen === f.key}
@@ -463,7 +463,8 @@ export function RegisterCheckSection({
                               <span className="tools-geo-count">{t("tools.register.widerNone")}</span>
                             )}
                           </div>
-                          {mapOpen === f.key && (
+                      )}
+                      {mapOpen === f.key && (
                             <Suspense fallback={<div className="tools-geo-minimap" />}>
                               <MiniPlaceMap
                                 pins={[
@@ -488,7 +489,8 @@ export function RegisterCheckSection({
                                     ? [
                                         {
                                           coord: f.fileCoord,
-                                          label: t("tools.geocode.fromFile"),
+                                          label: t("tools.register.currentPin"),
+                                          lines: [f.key],
                                           kind: "candidate" as const,
                                           area: true,
                                         },
@@ -499,6 +501,7 @@ export function RegisterCheckSection({
                               />
                             </Suspense>
                           )}
+                      {options.length > 0 && (
                           <ul className="tools-geo-candidates">
                             {options.map((o, i) => (
                               <li key={i}>
@@ -541,7 +544,6 @@ export function RegisterCheckSection({
                               </li>
                             ))}
                           </ul>
-                        </>
                       )}
                       {!options.length && <p className="tools-clean">{t(`tools.register.hint.${f.verdict}`)}</p>}
                       {peopleOpen.has(f.key) && (

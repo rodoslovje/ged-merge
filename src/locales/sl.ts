@@ -538,6 +538,7 @@ export const sl = {
   "tools.register.options_two": "{{count}} možna kraja",
   "tools.register.options_few": "{{count}} možni kraji",
   "tools.register.options_other": "{{count}} možnih krajev",
+  "tools.register.currentPin": "kamor ga zdaj postavlja datoteka",
   "tools.register.showOnMap": "Pokaži ta odgovor na zemljevidu vrstice",
   "tools.register.wider": "Poišči širše",
   "tools.register.widerHint": "Ponudi tudi kraje, katerih ime tega le vsebuje — »Bela« najde Spodnjo, Srednjo in Zgornjo Belo. To so namigi za presojo, ne odgovori: preverjanje samo ujema imena le črko za črko.",
