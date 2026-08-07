@@ -2,6 +2,7 @@ import { foldToken } from "../match/text";
 import { getAddressBucket, getAddressIndex } from "../persist/geoDb";
 import {
   bucketKey,
+  readStoredIndex,
   scopeToParents,
   searchBucket,
   type AddressBucket,
@@ -85,10 +86,25 @@ function setStored(next: Set<RegisterCountry>): void {
   for (const fn of watchers) fn();
 }
 
-/** Re-read what is stored, for the synchronous answer above. */
+/**
+ * Re-read what is stored, for the synchronous answer above.
+ *
+ * Each country on its own, and every failure swallowed: one unreadable register
+ * must never hide a good one. It did once — Croatia's index, stored under an
+ * older field name, threw inside this loop, so the whole thing rejected and
+ * Slovenia was never registered as local either. Every address row then kept
+ * its "search the register" button and nothing was looked up automatically,
+ * with a perfectly good register sitting in the browser.
+ */
 async function refreshStored(): Promise<void> {
   const next = new Set<RegisterCountry>();
-  for (const country of COUNTRIES) if (await loadIndex(country)) next.add(country);
+  for (const country of COUNTRIES) {
+    try {
+      if (await loadIndex(country)) next.add(country);
+    } catch {
+      // Not stored, as far as everything above is concerned.
+    }
+  }
   setStored(next);
 }
 
@@ -105,23 +121,37 @@ export function invalidateAddressRegisters(): void {
 function loadIndex(country: RegisterCountry): Promise<LoadedIndex | undefined> {
   let loading = indexes.get(country);
   if (!loading) {
-    loading = getAddressIndex(country).then((index) => {
-      if (!index) return undefined;
-      const byName = new Map<string, string[]>();
-      for (const s of index.settlements) {
-        const key = foldToken(s.name);
-        if (!key) continue;
-        const ids = byName.get(key);
-        if (ids) ids.push(s.id);
-        else byName.set(key, [s.id]);
-      }
-      return {
-        index,
-        byName,
-        parentNames: new Set(index.parentNames.map(foldToken)),
-        settlementNames: new Set([...byName.keys()]),
-      };
-    });
+    loading = getAddressIndex(country)
+      .then((raw) => {
+        // Read leniently: a register stored by an earlier version of this app is
+        // worth far more than the field names it happens to use — see
+        // readStoredIndex.
+        const index = readStoredIndex(raw);
+        if (!index) return undefined;
+        const byName = new Map<string, string[]>();
+        for (const s of index.settlements) {
+          const key = foldToken(s.name);
+          if (!key) continue;
+          const ids = byName.get(key);
+          if (ids) ids.push(s.id);
+          else byName.set(key, [s.id]);
+        }
+        return {
+          index,
+          byName,
+          parentNames: new Set(index.parentNames.map(foldToken)),
+          settlementNames: new Set([...byName.keys()]),
+        };
+      })
+      // A store this cannot read is "no register here", never a throw. The
+      // promise is cached, so a rejection would poison every later lookup of
+      // the session as well as surfacing as an unhandled rejection — which is
+      // exactly how a renamed field once broke the whole tool. Forgotten rather
+      // than remembered, so a re-import gets a fresh attempt.
+      .catch(() => {
+        if (indexes.get(country) === loading) indexes.delete(country);
+        return undefined;
+      });
     indexes.set(country, loading);
   }
   return loading;

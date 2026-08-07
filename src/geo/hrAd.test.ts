@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   AddressCollector,
+  readStoredIndex,
   scopeToParents,
   searchBucket,
   streetKey,
@@ -284,5 +285,40 @@ describe("scopeToParents", () => {
 
   it("keeps everything when the place names no parent", () => {
     expect(scopeToParents(hits, undefined, known)).toEqual(hits);
+  });
+});
+
+describe("readStoredIndex", () => {
+  it("reads a register stored before Slovenia existed here", () => {
+    // The first release held Croatia alone: the parent names were post offices
+    // and were called that, and the settlement ids were numbers. Read strictly,
+    // such a store threw on every lookup — an 85 MB download lost to a rename.
+    const legacy = {
+      country: "HR",
+      count: 1681462,
+      importedAt: 1000,
+      settlements: [{ id: 5000585, name: "Andraševec", count: 24 }],
+      postNames: ["Oroslavje"],
+    };
+    expect(readStoredIndex(legacy)).toEqual({
+      country: "HR",
+      count: 1681462,
+      importedAt: 1000,
+      settlements: [{ id: "5000585", name: "Andraševec", count: 24 }],
+      parentNames: ["Oroslavje"],
+    });
+  });
+
+  it("reads the current shape unchanged, and refuses what is not an index", () => {
+    const current = {
+      country: "SI" as const,
+      count: 2,
+      importedAt: 5,
+      settlements: [{ id: "110300000100999436", name: "Kočevje", count: 2 }],
+      parentNames: ["Kočevje"],
+    };
+    expect(readStoredIndex(current)).toEqual(current);
+    expect(readStoredIndex(undefined)).toBeUndefined();
+    expect(readStoredIndex({ country: "HR" })).toBeUndefined();
   });
 });

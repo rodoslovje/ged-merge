@@ -51,7 +51,11 @@ export interface AddressRow {
 export interface AddressBucket {
   /** Store key: `<country>:<settlementId>`. */
   key: string;
-  country: RegisterCountry;
+  /** Optional because a bucket stored by the first release of this store — when
+   *  Croatia was the only register — carries no country. Nothing reads it; the
+   *  key already says which country a bucket is, and re-downloading 85 MB to
+   *  add a field nothing asks for would be absurd. */
+  country?: RegisterCountry;
   name: string;
   municipality?: string;
   /** Street names this bucket's rows index into. */
@@ -106,6 +110,34 @@ export interface AddressHit {
 /** The bucket store key for one settlement. */
 export function bucketKey(country: RegisterCountry, id: string): string {
   return `${country}:${id}`;
+}
+
+/**
+ * A stored index read back, whatever version wrote it.
+ *
+ * The first release of this store held Croatia alone, and called the names
+ * above a settlement `postNames` — post offices were all it had, Croatia's
+ * addresses naming no municipality. Slovenia's do, so the field became
+ * `parentNames`, and a register stored before that came back with the new name
+ * undefined and every lookup throwing.
+ *
+ * Read leniently rather than migrated, because the alternative is asking for
+ * an 85 MB download again over a renamed field. The settlement ids are read
+ * the same way: they were numbers while Croatia's were small enough to be, and
+ * became strings for Slovenia's, which run past the largest integer a JS number
+ * holds exactly — both spell the same store key.
+ */
+export function readStoredIndex(raw: unknown): AddressIndex | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const index = raw as Partial<AddressIndex> & { postNames?: string[] };
+  if (!index.country || !Array.isArray(index.settlements)) return undefined;
+  return {
+    country: index.country,
+    count: index.count ?? 0,
+    importedAt: index.importedAt ?? 0,
+    settlements: index.settlements.map((s) => ({ id: String(s.id), name: s.name, count: s.count })),
+    parentNames: index.parentNames ?? index.postNames ?? [],
+  };
 }
 
 // ---------------------------------------------------------------------------

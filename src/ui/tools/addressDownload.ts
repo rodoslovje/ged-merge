@@ -34,9 +34,21 @@ export type AddressDownloadState =
   | { phase: "error"; country: RegisterCountry; message: string }
   | { phase: "done"; country: RegisterCountry; count: number };
 
-let state: AddressDownloadState = { phase: "idle" };
-let worker: Worker | null = null;
+// Carried across Vite's hot updates in development. An import takes minutes,
+// and every save reloads this module — which without this would drop the worker
+// on the floor, reset the bar to idle and leave the download running invisibly
+// until the tab closed. In a production build `import.meta.hot` is undefined and
+// this is a plain module-level pair.
+const kept = (import.meta.hot?.data ?? {}) as { state?: AddressDownloadState; worker?: Worker | null };
+
+let state: AddressDownloadState = kept.state ?? { phase: "idle" };
+let worker: Worker | null = kept.worker ?? null;
 const watchers = new Set<() => void>();
+
+import.meta.hot?.dispose((data: { state?: AddressDownloadState; worker?: Worker | null }) => {
+  data.state = state;
+  data.worker = worker;
+});
 
 /** The current state. A stable reference between changes, so it can back a
  *  `useSyncExternalStore`. */
@@ -59,20 +71,11 @@ export function addressDownloadRunning(): boolean {
   return state.phase === "running";
 }
 
-/**
- * Fetch and store one country's address register.
- *
- * Everything happens in the worker — the fetching too, since for Slovenia it is
- * 116 requests and for Croatia an 85 MB file, and neither belongs on the main
- * thread. Resolves nothing: watch the state.
- */
-export function startAddressDownload(country: RegisterCountry): void {
-  if (state.phase === "running") return;
-  cancelAddressDownload();
-  set({ phase: "running", country, stage: "waiting", done: 0, total: 0 });
-
-  const w = new Worker(new URL("../../worker/geo.worker.ts", import.meta.url), { type: "module" });
-  worker = w;
+/** Bind a worker's messages to this module's state. Its own function because a
+ *  hot update carries the worker across but not the closures the old copy of
+ *  this module bound to it — rebinding is what keeps a surviving import driving
+ *  the bar instead of running on invisibly. */
+function attach(w: Worker, country: RegisterCountry): void {
   const finish = (next: AddressDownloadState) => {
     w.terminate();
     if (worker === w) worker = null;
@@ -102,7 +105,27 @@ export function startAddressDownload(country: RegisterCountry): void {
   // otherwise leave the bar running for ever.
   w.onerror = (e) => finish({ phase: "error", country, message: e.message || "worker failed" });
   w.onmessageerror = () => finish({ phase: "error", country, message: "worker failed" });
+}
 
+// An import carried across a hot update is still running: take over its
+// messages, or the bar it is driving belongs to a module nothing renders.
+if (worker && state.phase === "running") attach(worker, state.country);
+
+/**
+ * Fetch and store one country's address register.
+ *
+ * Everything happens in the worker — the fetching too, since for Slovenia it is
+ * 116 requests and for Croatia an 85 MB file, and neither belongs on the main
+ * thread. Returns nothing: watch the state.
+ */
+export function startAddressDownload(country: RegisterCountry): void {
+  if (state.phase === "running") return;
+  cancelAddressDownload();
+  set({ phase: "running", country, stage: "waiting", done: 0, total: 0 });
+
+  const w = new Worker(new URL("../../worker/geo.worker.ts", import.meta.url), { type: "module" });
+  worker = w;
+  attach(w, country);
   const req: GeoWorkerRequest = { type: "downloadAddresses", requestId: 1, country };
   w.postMessage(req);
 }
