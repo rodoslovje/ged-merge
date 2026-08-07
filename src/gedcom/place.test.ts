@@ -226,6 +226,71 @@ describe("disambiguatesLocality", () => {
   });
 });
 
+describe("an administrative unit numbered like a house", () => {
+  it("keeps its number and stays a jurisdiction level", () => {
+    // A US census file is full of these, and read as houses they became
+    // address findings by the dozen — a compliance list offering to move
+    // twenty-eight enumeration districts onto ADDR lines.
+    for (const value of [
+      "Justice Precinct 4",
+      "Detroit Ward 19",
+      "Judicial Township 16",
+      "Election Precinct 7",
+      "Supervisorial District 1",
+      "Beat 2",
+    ]) {
+      const d = decomposePlace(`${value}, Reeves, Texas, United States`);
+      expect(d.locality, value).toBe(value);
+      expect(d.houseNumber, value).toBeUndefined();
+      expect(d.street, value).toBeUndefined();
+    }
+  });
+
+  it("stays a level even in the middle of a place", () => {
+    const d = decomposePlace("Area B, Port Arthur, Justice Precinct 2, Jefferson, Texas, United States");
+    expect(d.jurisdiction).toContain("Justice Precinct 2");
+    expect(d.street).toBeUndefined();
+    expect(d.houseNumber).toBeUndefined();
+  });
+
+  it("still reads a real house number on a street of that name", () => {
+    // The word before the number is what decides: "Ward Street 12" ends in
+    // "Street 12", not "Ward 12".
+    const d = decomposePlace("Ward Street 12, Kranj, Slovenija");
+    expect(d.houseNumber).toBe("12");
+    const village = decomposePlace("Črni vrh 35, Slovenija");
+    expect(village.houseNumber).toBe("35");
+  });
+});
+
+describe("a place value that is nothing but a country", () => {
+  it("names that country and no locality", () => {
+    // Read as a locality — which every leading segment otherwise is — these
+    // landed under "no country", so a file's "Italy" sat among the unplaceable
+    // rather than at the head of its own country.
+    for (const value of ["Italy", "United States", "Slovenija", "The Netherlands"]) {
+      const d = decomposePlace(value);
+      expect(d.country, value).toBe(value);
+      expect(d.locality, value).toBeUndefined();
+      expect(d.jurisdiction, value).toEqual([value]);
+    }
+  });
+
+  it("leaves a leading segment with anything after it a locality", () => {
+    // "Luxembourg, Luxembourg" is a city in a country, and the first segment
+    // stays the city however much it looks like the second.
+    const d = decomposePlace("Luxembourg, Luxembourg");
+    expect(d.locality).toBe("Luxembourg");
+    expect(d.country).toBe("Luxembourg");
+  });
+
+  it("still reads an ordinary single-segment place as a locality", () => {
+    const d = decomposePlace("Kranj");
+    expect(d.locality).toBe("Kranj");
+    expect(d.country).toBeUndefined();
+  });
+});
+
 describe("isCountryName", () => {
   it("knows a country by its English or local name, whatever the case", () => {
     expect(isCountryName("Italy")).toBe(true);

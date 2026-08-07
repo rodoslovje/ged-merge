@@ -116,6 +116,9 @@ export interface RegisterFinding {
   /** The house address to move onto the event's own `ADDR` line, with `official`
    *  holding the place left behind (`address`). */
   officialAddr?: string;
+  /** What each comma part of `official` stands for, in this file's own wording —
+   *  written as the renamed value's `FORM`. */
+  officialForm?: string;
   /** The parent the file names — a municipality, or a county for a file that
    *  writes that level — when the register knows it but does not file this
    *  place under it (`admin`). */
@@ -585,6 +588,32 @@ export function checkPlacesAgainstRegister(
       }
     }
     ok++;
+  }
+
+  // The label line each proposal deserves. A value taken from a register
+  // arrives with its levels known, and the file's own attested FORM for a place
+  // of that shape is what says so in the file's own wording — so "Kranj,
+  // Slovenija" taken over "Kranj, , , Slovenija" gets the two-level labels
+  // rather than keeping the four-level ones, which would then name parts the
+  // value no longer has. Absent where the file attests no FORM for that shape:
+  // the write then drops a stale one rather than inventing a line.
+  for (const f of findings) {
+    if (!f.official || !fmt) continue;
+    const country = decomposePlace(f.official).country;
+    // A `region` row is the one case the file's own labels for that *shape*
+    // would get wrong. Its correction drops the level that repeats or says
+    // nothing and keeps the lead — and the lead is the region, which is why the
+    // row is here at all. Labelled by shape, "Međimurje, Croatia" would take
+    // the two-level line every Croatian place uses and call a county a Place.
+    // Its own FORM already answers this: "Place, Regija, Country" minus the
+    // Place slot the file never had a settlement for is "Regija, Country".
+    const own = f.verdict === "region" ? placeFormFor(fmt, f.key, country) : undefined;
+    const ownLabels = own?.split(",") ?? [];
+    const form =
+      ownLabels.length === f.key.split(",").length && ownLabels.length === f.official.split(",").length + 1
+        ? ownLabels.slice(1).join(",")
+        : placeFormFor(fmt, f.official, country);
+    if (form) f.officialForm = form;
   }
 
   const rank = (v: RegisterVerdict) => REGISTER_VERDICTS.indexOf(v);

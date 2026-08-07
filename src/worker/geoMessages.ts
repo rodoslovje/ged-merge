@@ -34,9 +34,36 @@ export interface GeoImportRequest {
   zupanije?: ArrayBuffer;
 }
 
-export type GeoWorkerRequest = GeoImportRequest;
+/**
+ * Fetch and store a national address register, fetching included.
+ *
+ * The worker does the downloading as well as the parsing for both countries:
+ * Croatia's is an 85 MB file and Slovenia's 116 requests, neither of which
+ * belongs on the main thread — and, more to the point, an import that owns its
+ * whole job can outlive the dialog that started it (see addressDownload.ts).
+ */
+export interface AddressDownloadRequest {
+  type: "downloadAddresses";
+  requestId: number;
+  country: "SI" | "HR";
+}
+
+export type GeoWorkerRequest = GeoImportRequest | AddressDownloadRequest;
 
 export type GeoWorkerResponse =
-  | { type: "progress"; requestId: number; done: number; total: number }
+  | {
+      type: "progress";
+      requestId: number;
+      done: number;
+      total: number;
+      /** What the numbers are counting, when it is not the default reading of
+       *  the payload — an address import passes through all three, and each is
+       *  long enough on its own that a bar left saying the wrong thing (or
+       *  sitting at 100 %) would read as hung. */
+      stage?: "downloading" | "parsing" | "storing";
+    }
   | { type: "result"; requestId: number; countries: { code: string; count: number }[] }
+  /** An address register was stored — a different store, and a different line
+   *  in the manager, from the place directories a "result" reports. */
+  | { type: "addressRegister"; requestId: number; country: string; count: number }
   | { type: "error"; requestId: number; message: string };

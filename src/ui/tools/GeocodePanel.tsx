@@ -26,14 +26,12 @@ import { createKinshipResolver } from "../../match/kinship";
 import { useDatasetDerivations } from "../DatasetDerivations";
 import { buildPlaceSuggestions, placeCombosOf } from "../edit/placeSuggestions";
 import { foldSearch } from "../globalSearch";
-import { PlaceLookupProvider, usePlaceLookupValue, usePlaceStyle } from "../edit/PlaceLookupContext";
+import { PlaceLookupProvider, usePlaceLookupValue } from "../edit/PlaceLookupContext";
 import { GazetteerSetup, useGazetteer } from "./GazetteerManager";
 import { AddressCoordsSection } from "./AddressCoordsSection";
 import { addressesByPlace, replaceLocality, scanAddresses } from "../../tools/addresses";
 import { CoordConflicts } from "./CoordConflicts";
 import { GeocodePlaceRow, type RowLookups } from "./GeocodePlaceRow";
-import { RegisterCheckSection } from "./RegisterCheckSection";
-import { checkPlacesAgainstRegister, type RegisterCheckReport } from "../../tools/registerCheck";
 import { BackButton } from "../BackButton";
 import { isEditableTarget, isModalOpen } from "../../keyboard/shortcuts";
 import { useNameOf, useSettings } from "../SettingsContext";
@@ -181,10 +179,6 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
   // so a place the file has never written can be completed (chain, address,
   // coordinate) here too instead of being typed out by hand.
   const placeLookup = usePlaceLookupValue(dataset, placeSug.placeSuggestions);
-  // The same layout those lookups write in, for the register check's own
-  // rendering of a register entry as a place — with the directories on hand, so
-  // an entry is named under the level this file writes above a settlement.
-  const placeStyle = usePlaceStyle(dataset, placeSug.placeSuggestions, index);
 
   // The address rows the section below reviews — scanned here because the
   // Places/Addresses tab bar needs the count before the section renders.
@@ -217,47 +211,17 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
   // Which of the page's work lists is on screen. They stay mounted (their
   // lookup results and staged picks must survive switching) and toggle with
   // display, like the app's Edit/Merge views.
-  const [pickedTab, setPickedTab] = useState<"places" | "addresses" | "register" | null>(null);
+  const [pickedTab, setPickedTab] = useState<"places" | "addresses" | null>(null);
   // The compliance report needs something to hold the file to: any place
   // directory loaded will do — an official register (GURS, DGU) decides where
   // it knows the place, and an OpenStreetMap or GeoNames directory answers for
   // the countries no register covers.
-  const hasRegister = !!index?.entries.length;
-  // Until a tab is clicked, the page opens on the compliance report where there
-  // is a register to hold the file to — the directories load after the first
-  // render, so this cannot be a mere initial state. A pinned tab that stops
-  // existing (its directory deleted, its addresses renamed away) falls back
+  // A pinned tab that stops existing (its addresses renamed away) falls back
   // rather than leaving the page blank.
-  const tab =
-    pickedTab === "register" && !hasRegister
-      ? "places"
-      : pickedTab === "addresses" && !addrRows.length
-        ? "places"
-        : (pickedTab ?? (hasRegister ? "register" : "places"));
+  const tab = pickedTab === "addresses" && !addrRows.length ? "places" : (pickedTab ?? "places");
   const setTab = setPickedTab;
-  // Run with the page's other scans, not on opening the tab: the tab's count is
-  // the reason to open it, and a lookup per place is the same pass the places
-  // list above already makes (over fewer of them).
-  // Deferred like `scan` above, for the same reason — this is the page's other
-  // whole-file, lookup-per-place pass. The section renders nothing for a null
-  // report, so the beat before it lands shows the page rather than blocking it.
-  const [registerReport, setRegisterReport] = useState<RegisterCheckReport | null>(null);
-  useEffect(() => {
-    if (!hasRegister || !decisions) {
-      setRegisterReport(null);
-      return;
-    }
-    // scanGen re-runs the check after a rename mutates the dataset in place.
-    const id = window.setTimeout(
-      () => setRegisterReport(checkPlacesAgainstRegister(dataset, index, decisions, placeStyle.fmt)),
-      0,
-    );
-    return () => window.clearTimeout(id);
-     
-  }, [dataset, index, decisions, hasRegister, placeStyle, scanGen]);
-  // The tab-row slot the address and register sections portal their action
-  // buttons into — their state (staged picks, filters) lives inside the
-  // section, the row lives here. Only the section on screen fills it.
+  // The tab-row slot the address section portals its action buttons into — its
+  // state (staged picks, filters) lives inside the section, the row lives here.
   const [tabActionsEl, setTabActionsEl] = useState<HTMLElement | null>(null);
 
   // Every coordinate the file already carries — the mini map's context dots.
@@ -589,7 +553,7 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
           buries the addresses below it. No tabs while the file has no
           addresses: the page is just the places list then. */}
       {(() => {
-        const hasTabs = addrRows.length > 0 || hasRegister;
+        const hasTabs = addrRows.length > 0;
         // The places actions render either on the tab row (tabs shown) or in
         // the section's own head (no addresses, no tabs) — one definition.
         const placesActions = (scan.rows.length > 0 || scan.placed.length > 0) && (
@@ -624,24 +588,6 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
       {hasTabs && (
         <div className="tools-geo-tabs-row">
           <div className="tools-geo-tabs" role="tablist">
-            {/* Compliance leads: it is the one list that reads the whole file
-                rather than what is left to do, so it is where a session starts —
-                see what disagrees with the register, then go and place things. */}
-            {hasRegister && (
-              <button
-                role="tab"
-                aria-selected={tab === "register"}
-                className={tab === "register" ? "active" : ""}
-                onClick={() => setTab("register")}
-              >
-                {/* What is left to weigh: the dismissed findings are settled and
-                    off the list, so counting them would ask for work twice. */}
-                {t("tools.geocode.tab.register")}{" "}
-                <span className="tools-chip-count">
-                  {registerReport?.findings.filter((f) => !f.dismissed).length ?? 0}
-                </span>
-              </button>
-            )}
             <button role="tab" aria-selected={tab === "places"} className={tab === "places" ? "active" : ""} onClick={() => setTab("places")}>
               {t("tools.geocode.tab.places")} <span className="tools-chip-count">{scan.rows.length}</span>
             </button>
@@ -654,9 +600,8 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
             )}
           </div>
           {tab === "places" && placesActions}
-          {/* The address and register sections own their buttons' state; they
-              portal them here. */}
-          {(tab === "addresses" || tab === "register") && <div className="tools-dup-bulk" ref={setTabActionsEl} />}
+          {/* The address section owns its buttons' state; it portals them here. */}
+          {tab === "addresses" && <div className="tools-dup-bulk" ref={setTabActionsEl} />}
         </div>
       )}
 
@@ -791,23 +736,6 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
 
       {/* The compliance report: every place held against the official register
           of its country, and what the two disagree about. */}
-      {hasRegister && (
-        <div style={tab === "register" ? undefined : { display: "none" }}>
-          <RegisterCheckSection
-            report={registerReport}
-            dataset={dataset}
-            index={index}
-            style={placeStyle}
-            kinship={kinship}
-            onNavigate={onNavigate}
-            fileCoords={fileCoords}
-            query={query}
-            actionsHost={tab === "register" ? tabActionsEl : null}
-            onApplyOfficialNames={onApplyOfficialNames}
-            onDecisionsChanged={() => void loadDecisions().then(setDecisions)}
-          />
-        </div>
-      )}
           </>
         );
       })()}

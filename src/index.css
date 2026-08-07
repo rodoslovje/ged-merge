@@ -8324,12 +8324,16 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 /* A badge here names a directory or a verdict in one or two words: it must not
    shrink to "SI-GU…" or "SPELLED DIFFERE…" when a long place fills the row. */
 .tools-register-list .tools-reshape-badge { flex: none; }
+/* Muted secondary text in the compliance lists: the place an address finding
+   sits in, the arrow to the register's wording, the house a split would move
+   out. Deliberately NOT .tools-geo-row-addr, which draws the pin that marks a
+   value as a house address — these rows hold no coordinate, and what a split
+   proposes to move is only *shaped* like a house ("Justice Precinct 4" is an
+   enumeration district), so the pin asserted twice over what is not there. */
+.tools-register-place { color: var(--muted); font-weight: normal; }
 /* A dismissed row is on the list only because it was asked for — it reads as
    settled, not as work. */
 .tools-register-list .tools-tree-node.dismissed { opacity: 0.6; }
-/* The file's own FORM labels, quoted from the file: set apart from the sentence
-   around them the way the examples list sets its samples apart. */
-.tools-register-form { font-family: ui-monospace, monospace; color: var(--text); }
 
 .tools-geo-gazetteer {
   border: 1px solid var(--border);
@@ -8382,6 +8386,16 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
    that column, so the three sit on a shared axis instead of a ragged edge. */
 .tools-geo-sources > .nav-btn { justify-self: center; }
 .tools-geo-sources > .tools-geo-hint { margin: 0; }
+/* A national register's two downloads under the name they share. The name is a
+   label rather than words inside both buttons — repeated it would say the same
+   thing twice, and what tells the buttons apart is places against addresses. */
+.tools-geo-source { display: grid; justify-items: center; gap: 4px; }
+.tools-geo-source-name {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.tools-geo-source-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
 /* The OpenStreetMap download is a <select> wearing .nav-btn: one control that
    reads as a button and drops the country list open on click, the country picked
    being the click itself. It only needs the font and cursor the class doesn't
@@ -8733,6 +8747,17 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
   padding: 3px;
   margin: 4px 0 12px;
 }
+/* The compliance tab's own two tabs. Smaller than the tabs above them and
+   without their frame, so the nesting reads as a nesting rather than as a
+   second row of equals. */
+.tools-geo-subtabs {
+  background: none;
+  border: none;
+  padding: 0;
+  gap: 4px;
+  margin: 0 0 6px;
+}
+.tools-geo-subtabs button { font-size: 0.85rem; padding: 4px 12px; }
 .tools-geo-tabs button {
   font: inherit;
   font-size: 0.9rem;

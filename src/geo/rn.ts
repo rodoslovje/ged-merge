@@ -4,12 +4,22 @@ import { countryCode } from "../gedcom/countryCode";
 import { addressStreetName, decomposePlace, looksLikeStreet } from "../gedcom/place";
 import { foldToken } from "../match/text";
 import { d96ToWgs84 } from "./d96";
+import { hasLocalRegister, localRegisters, searchLocalAddress } from "./addressLookup";
 
 // RN — the GURS register of addresses (Register naslovov) — is the official
 // Slovenian address gazetteer: every house number in the country with its exact
 // coordinate. It serves CORS `*`, so the browser queries it directly (no relay),
 // and it is opt-in behind the same online-lookups setting as the Nominatim and
 // GOV searches.
+//
+// This module is also where an address lookup is *dispatched*. A query carries
+// the country whose register can answer it, and a country whose register has
+// been *downloaded* is answered from this browser instead (addressLookup.ts) —
+// always for Croatia, which publishes no service to ask, and for Slovenia
+// whenever the download is there, falling back to the ladder below when it is
+// not. The query and result shapes are shared, so everything downstream — the
+// review rows, the batch pool, the pick UI — is written once and neither side
+// knows which register answered.
 //
 // Where the settlements register (RPE) places a village, this places the *house*
 // within it, which is what a genealogical ADDR — or a PLAC carrying a hišna
@@ -34,6 +44,10 @@ const MAX_RESULTS = 6;
 
 /** What the register is asked for: a house number, and the place around it. */
 export interface RnQuery {
+  /** Which country's register answers this — "HR" for the offline Croatian
+   *  register, absent for Slovenia's, which is the default and the only one
+   *  a value naming no country at all can mean. */
+  country?: "HR";
   /** Settlement (naselje) the number belongs to. */
   settlement: string;
   /** Street name without its number, when the address names one. */
@@ -176,12 +190,14 @@ function abbreviates(host: string | undefined, settlement: string | undefined): 
  * `addressStreetName` already yields "the name the number sits on" for either
  * shape, so the only question left is whether that name *is* the settlement.
  *
+ * Both registers are read this way: the query shape is the same, and the country
+ * the value names decides which of them the query is marked for.
+ *
  * Returns one query per house number the value names — several when the numbering
  * changed over time ("21a / 53"), so every candidate house can be offered. Empty
  * when there is no house number to look up, when no settlement can be identified
- * (a bare "Slovenska cesta 9" names no town), or when either value names a country
- * other than Slovenia — the register covers only Slovenia, so querying it would be
- * pointless traffic.
+ * (a bare "Slovenska cesta 9" names no town), or when the value names a country
+ * neither register covers — asking either would be pointless traffic.
  */
 export function rnQueriesFrom(place: string | undefined, address: string | undefined): RnQuery[] {
   // A house recorded under both its old and its new street name is two whole
@@ -202,11 +218,17 @@ export function rnQueriesFrom(place: string | undefined, address: string | undef
   const p = place?.trim() ? decomposePlace(place) : undefined;
   const a = address?.trim() ? decomposePlace(address) : undefined;
 
-  // A country either side names must be Slovenia; an unnamed country is fine
-  // (most files leave it implicit) and still worth trying.
-  for (const country of [p?.country, a?.country]) {
-    if (country && countryCode(country)?.toUpperCase() !== "SI") return [];
-  }
+  // Which register can answer at all. Slovenia and Croatia are the two with a
+  // house-level register here; an unnamed country is fine (most files leave it
+  // implicit) and reads as Slovenia, which is what it has always meant. A value
+  // naming both — a place in one country, an ADDR in the other — is a
+  // contradiction no register should be asked to resolve.
+  const named = [p?.country, a?.country]
+    .map((c) => (c ? countryCode(c)?.toUpperCase() : undefined))
+    .filter((c): c is string => !!c);
+  if (named.some((c) => c !== "SI" && c !== "HR")) return [];
+  if (new Set(named).size > 1) return [];
+  const country = named[0] === "HR" ? ("HR" as const) : undefined;
 
   // The house number(s): ADDR is the more specific field, so it wins.
   const rawNumber = a?.houseNumber ?? p?.houseNumber;
@@ -260,12 +282,31 @@ export function rnQueriesFrom(place: string | undefined, address: string | undef
     .slice(1)
     .filter((s, i, all) => all.findIndex((o) => sameName(o, s)) === i);
   return numbers.map((n) => ({
+    ...(country ? { country } : {}),
     settlement,
     ...(street ? { street } : {}),
     ...n,
     ...(altSettlements.length ? { altSettlements } : {}),
     ...(parents.length ? { parents } : {}),
   }));
+}
+
+/**
+ * Whether these queries can be answered without the network — every one of them
+ * belonging to a country whose register this browser has downloaded.
+ *
+ * The online-lookups setting exists to control what leaves the device, so it
+ * has nothing to say about such a query: the register is already here, and the
+ * lookup is an IndexedDB read. The UI asks this before hiding a register button
+ * behind that opt-in, which is why the answer has to come without awaiting
+ * anything (see addressLookup's `localRegisters`).
+ *
+ * False for an empty list — there is nothing to answer, and "yes, offline" would
+ * read as an offer.
+ */
+export function isOfflineQuery(queries: readonly RnQuery[]): boolean {
+  const stored = localRegisters();
+  return queries.length > 0 && queries.every((q) => stored.has(q.country ?? "SI"));
 }
 
 /**
@@ -463,6 +504,13 @@ function rnFetch(filter: string, signal?: AbortSignal, limit = FETCH_LIMIT): Pro
  * manual pick.
  */
 export async function searchAddress(query: RnQuery, signal?: AbortSignal): Promise<RnResult[]> {
+  // A downloaded register answers instead, walking the same ladder offline.
+  // Croatia has no alternative — there is no service to ask — so its query goes
+  // there whether or not anything is stored, and an empty answer is the honest
+  // one. Slovenia falls through to the ladder below when nothing is stored.
+  if (query.country === "HR" || (await hasLocalRegister("SI"))) {
+    return searchLocalAddress(query.country ?? "SI", query);
+  }
   for (const settlement of [query.settlement, ...(query.altSettlements ?? [])]) {
     const hits = await searchInSettlement({ ...query, settlement }, signal);
     if (hits.length) return hits;
@@ -550,9 +598,10 @@ export type BatchPool = ReadonlyMap<string, RnResult[]>;
 
 /** The settlement+street a query is fetched under, plus the municipality its hits
  *  are scoped to — what the register must match, and therefore what a result is
- *  only valid for. */
-function groupKey(q: Pick<RnQuery, "settlement" | "street" | "parents">): string {
-  return [q.settlement, q.street ?? "", ...(q.parents ?? [])].join("\u0000");
+ *  only valid for. The country leads it because it decides *which* register was
+ *  asked: two same-named villages either side of the border must never pool. */
+function groupKey(q: Pick<RnQuery, "country" | "settlement" | "street" | "parents">): string {
+  return [q.country ?? "SI", q.settlement, q.street ?? "", ...(q.parents ?? [])].join("\u0000");
 }
 
 /** Numbers per batched request — keeps the filter (and the URL) a sane length. */
@@ -595,14 +644,27 @@ export async function searchAddressBatch(
 ): Promise<BatchPool> {
   const byPlace = new Map<
     string,
-    { settlement: string; street?: string; parents?: string[]; altSettlements?: string[]; numbers: Set<number> }
+    {
+      country?: "HR";
+      settlement: string;
+      street?: string;
+      parents?: string[];
+      altSettlements?: string[];
+      numbers: Set<number>;
+      /** The group's queries as written, kept whole for the registers that
+       *  answer a query at a time rather than a number list. */
+      queries: RnQuery[];
+    }
   >();
   for (const q of queries) {
     const key = groupKey(q);
     const g = byPlace.get(key);
-    if (g) g.numbers.add(q.number);
-    else
+    if (g) {
+      g.numbers.add(q.number);
+      g.queries.push(q);
+    } else
       byPlace.set(key, {
+        ...(q.country ? { country: q.country } : {}),
         settlement: q.settlement,
         street: q.street,
         parents: q.parents,
@@ -610,6 +672,7 @@ export async function searchAddressBatch(
         // (same settlement+street+parents) carries the same list.
         altSettlements: q.altSettlements ? [...q.altSettlements] : undefined,
         numbers: new Set([q.number]),
+        queries: [q],
       });
   }
 
@@ -632,6 +695,20 @@ export async function searchAddressBatch(
 
   const pool = new Map<string, RnResult[]>();
   for (const [key, g] of byPlace) {
+    // Croatia's register is in this browser: there is no request to batch, and
+    // the bucket the group's first house reads is the one every other house of
+    // it reads too, so asking house by house costs a single IndexedDB read.
+    if (g.country === "HR") {
+      const hits: RnResult[] = [];
+      for (const q of g.queries) {
+        for (const hit of await searchLocalAddress(g.country ?? "SI", q)) {
+          if (hits.some((h) => h.coord.lat === hit.coord.lat && h.coord.lon === hit.coord.lon)) continue;
+          hits.push(hit);
+        }
+      }
+      pool.set(key, hits);
+      continue;
+    }
     // One group's network failure must not throw away the groups already
     // resolved — a 37-address place used to lose all 37 to one timeout. A
     // failed group is simply absent from the pool, which {@link batchAnswered}

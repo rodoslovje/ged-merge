@@ -6,6 +6,7 @@ import { previewPlaceRename, type PlaceRenamePreview } from "../../tools/placeEd
 import { scanAddresses } from "../../tools/addresses";
 import { useDatasetDerivations } from "../DatasetDerivations";
 import { GeocodePanel } from "./GeocodePanel";
+import { RegisterPanel } from "./RegisterPanel";
 import { countGeocodePending, type GeoAssignment, type OfficialRename } from "../../tools/geocode";
 import { countryCode } from "../../gedcom/countryCode";
 import { ToolsLoading, TreeSearch, UsageList, useDebounced } from "./shared";
@@ -101,7 +102,7 @@ export function PlacesPanel({
   const [query, setQuery] = useState("");
   // Switches the panel body between the containment tree and the geocode tool
   // (same pattern as the Sources panel hosting Organize sources).
-  const [view, setView] = useState<"tree" | "geocode">("tree");
+  const [view, setView] = useState<"tree" | "geocode" | "register">("tree");
 
   useEffect(() => {
     setTree(null);
@@ -221,6 +222,24 @@ export function PlacesPanel({
 
   if (!tree) return <ToolsLoading label={t("tools.running")} />;
 
+  if (view === "register")
+    return (
+      <RegisterPanel
+        dataset={dataset}
+        active={active}
+        editVersion={editVersion}
+        onApplyOfficialNames={onApplyOfficialNames}
+        onRenameAddress={onRenameAddress}
+        onRenamePlaceValue={onRenamePlaceValue}
+        onNavigate={onNavigate}
+        startId={startId}
+        onBack={() => {
+          setView("tree");
+          setTree(null);
+        }}
+      />
+    );
+
   if (view === "geocode")
     return (
       <GeocodePanel
@@ -249,6 +268,19 @@ export function PlacesPanel({
       <div className="tools-filter-row">
         <TreeSearch value={query} onChange={setQuery} />
         <div className="tools-chip-group">
+          {/* Compliance leads, and beside geocoding rather than inside it: this
+              reads the whole file and says what disagrees with the registers,
+              while geocoding is a worklist of what is left to place. Checking
+              what you have comes before filling in what you lack — and a name
+              corrected here is one the geocoder can then match. */}
+          <button
+            type="button"
+            className="tools-chip"
+            title={t("tools.places.registerChipHint")}
+            onClick={() => setView("register")}
+          >
+            {t("tools.places.registerToggle")}
+          </button>
           <button
             type="button"
             className="tools-chip"

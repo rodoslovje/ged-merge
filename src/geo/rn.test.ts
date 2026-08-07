@@ -107,8 +107,37 @@ describe("rnQueriesFrom", () => {
   it("declines when it cannot form a sound query", () => {
     expect(rnQueriesFrom("Bled, Slovenija", undefined)).toEqual([]); // no house number
     expect(rnQueriesFrom("Slovenska cesta 9", undefined)).toEqual([]); // street but no town
-    expect(rnQueriesFrom("Wien, Austria", "Ringstrasse 1")).toEqual([]); // not Slovenia
+    expect(rnQueriesFrom("Wien, Austria", "Ringstrasse 1")).toEqual([]); // neither register
     expect(rnQueriesFrom(undefined, undefined)).toEqual([]);
+  });
+});
+
+describe("rnQueriesFrom and the country that answers it", () => {
+  it("marks a Croatian place for the Croatian register", () => {
+    expect(rnQueriesFrom("Andraševec, Oroslavje, Hrvaška", "Brežna ulica 33")).toEqual([
+      {
+        country: "HR",
+        settlement: "Andraševec",
+        street: "Brežna ulica",
+        number: 33,
+        altSettlements: ["Oroslavje"],
+        parents: ["Oroslavje"],
+      },
+    ]);
+  });
+
+  it("leaves a Slovenian or unstated place unmarked", () => {
+    // Absent, not "SI": an unnamed country has always meant Slovenia here, and
+    // every stored query and pool key is written on that reading.
+    expect(rnQueriesFrom("Bled, Slovenija", "Bled 4")[0].country).toBeUndefined();
+    expect(rnQueriesFrom("Bled", "Bled 4")[0].country).toBeUndefined();
+  });
+
+  it("refuses a value naming one country's place and another's address", () => {
+    // Two countries in one value is a contradiction; neither register should be
+    // asked to resolve it, and answering from either would place the house in
+    // the wrong country.
+    expect(rnQueriesFrom("Andraševec, Hrvaška", "Brežna ulica 33, Slovenija")).toEqual([]);
   });
 });
 
@@ -469,7 +498,7 @@ describe("resultsForQuery", () => {
   // back 4a/4b — each row must take only the houses that are its own. The pool
   // is keyed by the settlement+street the group was fetched under.
   const pool = new Map([
-    ["Srednje Bitnje\u0000", [hit(2, undefined, 46.21), hit(4, undefined, 46.22), hit(4, "a", 46.23), hit(5, "b", 46.24)]],
+    ["SI\u0000Srednje Bitnje\u0000", [hit(2, undefined, 46.21), hit(4, undefined, 46.22), hit(4, "a", 46.23), hit(5, "b", 46.24)]],
   ]);
 
   it("gives a row only the number and suffix it asked for", () => {
@@ -510,8 +539,8 @@ describe("resultsForQuery", () => {
     // rows claimed them by house number alone, so "Sadinja Vas 5" was answered
     // by the "Vrtača 5" fetched for a different address of the same place.
     const mixed = new Map([
-      ["Vrtača\u0000", [{ ...hit(5, undefined, 45.65), settlement: "Vrtača", address: "Vrtača 5" }]],
-      ["Sadinja vas pri Dvoru\u0000", [{ ...hit(9, undefined, 45.83), settlement: "Sadinja vas pri Dvoru" }]],
+      ["SI\u0000Vrtača\u0000", [{ ...hit(5, undefined, 45.65), settlement: "Vrtača", address: "Vrtača 5" }]],
+      ["SI\u0000Sadinja vas pri Dvoru\u0000", [{ ...hit(9, undefined, 45.83), settlement: "Sadinja vas pri Dvoru" }]],
     ]);
     expect(resultsForQuery([{ settlement: "Vrtača", street: "Sadinja Vas", number: 5 }], mixed)).toEqual([]);
     expect(resultsForQuery([{ settlement: "Vrtača", number: 5 }], mixed).map((r) => r.address)).toEqual(["Vrtača 5"]);

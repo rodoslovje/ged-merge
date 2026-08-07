@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { COUNTRY_CODES } from "../../gedcom/countryCode";
 import {
@@ -13,7 +13,15 @@ import {
   type Subdivision,
 } from "../../geo/gazetteer";
 import { countryNameOf } from "../../geo/placeProposal";
-import { deleteCountry, loadCountries, type CountryMeta } from "../../persist/geoDb";
+import { addressRegisterInfo, invalidateAddressRegisters } from "../../geo/addressLookup";
+import {
+  addressDownloadState,
+  cancelAddressDownload,
+  clearAddressDownload,
+  startAddressDownload,
+  watchAddressDownload,
+} from "./addressDownload";
+import { deleteAddressRegister, deleteCountry, loadCountries, type CountryMeta } from "../../persist/geoDb";
 import type { GeoWorkerRequest, GeoWorkerResponse } from "../../worker/geoMessages";
 import { invalidateGazetteerIndex } from "../edit/PlaceLookupContext";
 import { useSettings } from "../SettingsContext";
@@ -24,7 +32,15 @@ import { SelectMenu } from "../DropdownMenu";
 // The place-directory manager: the offline gazetteers (GeoNames country extracts,
 // OpenStreetMap downloads, the GURS register of Slovenian settlements and the DGU
 // register of Croatian geographical names) that live in the gedmerge-geo
-// IndexedDB and back every place lookup in the app.
+// IndexedDB and back every place lookup in the app — and, alongside them, the
+// two national *address* registers (GURS's and DGU's), downloaded here for the
+// same reason and dropped here the same way, but answering houses rather than
+// places (see addressRegister.ts).
+//
+// Each source is one row: who it comes from, named once, and what of theirs you
+// can take. A register offers two things, its settlements and its house
+// numbers, and they differ in cost by an order of magnitude — hence two buttons
+// under one name and one description.
 //
 // It is one-time setup that outlives the file, so Settings → Map owns it. The
 // Geocode places tool keeps the same controls for as long as there is nothing
@@ -33,12 +49,14 @@ import { SelectMenu } from "../DropdownMenu";
 // one-line summary once there is.
 
 /**
- * What an import is doing, so the spinner can say it. The three stages are not
+ * What an import is doing, so the spinner can say it. The stages are not
  * cosmetic: Overpass computes a country's extract before it sends a single byte,
  * so a download sits at zero bytes for ten seconds or more and a byte counter
- * alone reads as hung. GURS, by contrast, streams from the first moment.
+ * alone reads as hung. GURS, by contrast, streams from the first moment. The
+ * address register adds a fourth: writing 6759 villages into the browser's own
+ * database takes long enough that a full bar would read as hung in its turn.
  */
-type ImportStage = "waiting" | "downloading" | "parsing";
+type ImportStage = "waiting" | "downloading" | "parsing" | "storing";
 
 type ImportState =
   | {
@@ -333,11 +351,23 @@ function useElapsed(active: boolean): number {
  *  Geocode tool underneath it (and the other way round) without a reload. */
 const listeners = new Set<() => void>();
 
+/** A stored national address register — a different kind of thing from the
+ *  place directories beside it: houses, not settlements, and read straight out
+ *  of IndexedDB instead of an index built in memory. */
+export interface AddressRegisterMeta {
+  country: string;
+  count: number;
+  importedAt: number;
+}
+
 /** What {@link useGazetteer} hands its controls — and, in the Geocode tool, the
  *  built index the whole review list is scored against. */
 export interface Gazetteer {
   /** Null until IndexedDB has answered; empty array = nothing imported yet. */
   countries: CountryMeta[] | null;
+  /** The stored address registers — at most one, Croatia's, today. Null until
+   *  IndexedDB has answered. */
+  addressRegisters: AddressRegisterMeta[] | null;
   /** The searchable index, built only where it is used (`withIndex`). */
   index: GazetteerIndex | undefined;
   importState: ImportState;
@@ -346,6 +376,10 @@ export interface Gazetteer {
   downloadCountry: (country: string) => Promise<void>;
   downloadSlovenia: () => Promise<void>;
   downloadCroatia: () => Promise<void>;
+  /** Fetch a national address register — the houses, not the places. */
+  downloadCroatiaAddresses: () => Promise<void>;
+  downloadSloveniaAddresses: () => Promise<void>;
+  removeAddressRegister: (country: string) => Promise<void>;
   /** The country whose places are too many for one query, and the subdivisions
    *  offered instead. Null whenever there is no such offer on the table. */
   regions: { country: string; list: Subdivision[] } | null;
@@ -367,17 +401,36 @@ export interface Gazetteer {
 export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}): Gazetteer {
   const { t } = useTranslation();
   const [countries, setCountries] = useState<CountryMeta[] | null>(null);
+  const [addressRegisters, setAddressRegisters] = useState<AddressRegisterMeta[] | null>(null);
   const [index, setIndex] = useState<GazetteerIndex | undefined>(undefined);
   const [importState, setImportState] = useState<ImportState>(null);
   const [regions, setRegions] = useState<{ country: string; list: Subdivision[] } | null>(null);
   const workerRef = useRef<Worker | null>(null);
   const fetchAbortRef = useRef<AbortController | null>(null);
 
+  // An address import runs outside this component, so its progress is read
+  // rather than held — and a manager mounting halfway through one picks it up.
+  const download = useSyncExternalStore(watchAddressDownload, addressDownloadState, addressDownloadState);
+  useEffect(() => {
+    if (download.phase === "done") {
+      void refreshGazetteer();
+      clearAddressDownload();
+    }
+    // refreshGazetteer is recreated each render; the phase is what matters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [download.phase]);
+
   const reload = async () => {
     const stored = await loadCountries();
     setCountries(
       stored.map(({ code, count, importedAt }) => ({ code, count, importedAt })).sort((a, b) => b.count - a.count),
     );
+    const registers: AddressRegisterMeta[] = [];
+    for (const country of ["SI", "HR"] as const) {
+      const info = await addressRegisterInfo(country);
+      if (info) registers.push({ country, ...info });
+    }
+    setAddressRegisters(registers);
     if (withIndex)
       setIndex(stored.length ? buildGazetteerIndex(storedEntries(stored), mergeDivisions(stored)) : undefined);
   };
@@ -385,8 +438,11 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
   const refreshGazetteer = async () => {
     // The Edit view's lookup keeps its own index for the whole session, so an
     // import or removal here has to drop it — otherwise the place fields answer
-    // from the gazetteer this manager has just replaced.
+    // from the gazetteer this manager has just replaced. The address register
+    // caches its own index and buckets for the same reason and needs the same
+    // clearing.
     invalidateGazetteerIndex();
+    invalidateAddressRegisters();
     await reload();
     for (const listener of listeners) listener();
   };
@@ -428,9 +484,15 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
       worker.onmessage = (e: MessageEvent<GeoWorkerResponse>) => {
         const msg = e.data;
         if (msg.type === "progress") {
-          setImportState({ phase: "running", stage: "parsing", done: msg.done, total: msg.total, note });
+          setImportState({
+            phase: "running",
+            stage: msg.stage === "storing" ? "storing" : "parsing",
+            done: msg.done,
+            total: msg.total,
+            note,
+          });
         }
-        else if (msg.type === "result") {
+        else if (msg.type === "result" || msg.type === "addressRegister") {
           worker.terminate();
           workerRef.current = null;
           // Mid-batch the spinner stays up under the same label: the next region
@@ -652,11 +714,23 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
       return { format: "rgi", ...(opcine ? { opcine } : {}), ...(zupanije ? { zupanije } : {}) };
     });
 
+  // The houses, as opposed to the places above. Both countries' imports run in
+  // addressDownload's own worker rather than this component's: they take
+  // minutes, and this component is unmounted the moment Settings changes tab.
+  const downloadCroatiaAddresses = async () => startAddressDownload("HR");
+  const downloadSloveniaAddresses = async () => startAddressDownload("SI");
+
+  const removeAddressRegister = async (country: string) => {
+    await deleteAddressRegister(country);
+    await refreshGazetteer();
+  };
+
   const cancelImport = () => {
     fetchAbortRef.current?.abort();
     fetchAbortRef.current = null;
     workerRef.current?.terminate();
     workerRef.current = null;
+    cancelAddressDownload();
     setImportState(null);
   };
 
@@ -665,14 +739,27 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
     await refreshGazetteer();
   };
 
+  // The address import's state, shown through the same spinner as the imports
+  // this component does run itself.
+  const addressState: ImportState =
+    download.phase === "running"
+      ? { phase: "running", stage: download.stage, done: download.done, total: download.total }
+      : download.phase === "error"
+        ? { phase: "error", message: download.message }
+        : null;
+
   return {
     countries,
+    addressRegisters,
     index,
-    importState,
+    importState: addressState ?? importState,
     importFile,
     downloadCountry,
     downloadSlovenia,
     downloadCroatia,
+    downloadCroatiaAddresses,
+    downloadSloveniaAddresses,
+    removeAddressRegister,
     regions,
     downloadRegion,
     downloadAllRegions,
@@ -692,14 +779,17 @@ function directoryTitle(code: string, language: string, t: (key: string, opts?: 
   return code.endsWith("-OSM") ? t("tools.geocode.dir.osm", { country }) : t("tools.geocode.dir.geonames", { country });
 }
 
-/** What is imported, with the date and a way to drop it again. */
+/** What is imported, with the date and a way to drop it again. The address
+ *  registers sit in the same list, marked for what they are: they are imported
+ *  the same way, they are dropped the same way, and a reader wants one answer
+ *  to "what does this browser hold". */
 function GazetteerList({ gaz }: { gaz: Gazetteer }) {
   const { t, i18n } = useTranslation();
   const dateFmt = new Intl.DateTimeFormat(i18n.language);
-  if (!gaz.countries?.length) return null;
+  if (!gaz.countries?.length && !gaz.addressRegisters?.length) return null;
   return (
     <ul className="tools-geo-countries">
-      {gaz.countries.map((c) => (
+      {gaz.countries?.map((c) => (
         <li key={c.code}>
           <span className="tools-geo-country gm-data" title={directoryTitle(c.code, i18n.language, t)}>{c.code}</span>
           <span className="tools-geo-count">
@@ -710,6 +800,26 @@ function GazetteerList({ gaz }: { gaz: Gazetteer }) {
             onClick={() => void gaz.removeCountry(c.code)}
             title={t("tools.geocode.deleteCountry")}
             aria-label={t("tools.geocode.deleteCountry")}
+          >
+            🗑
+          </button>
+        </li>
+      ))}
+      {gaz.addressRegisters?.map((a) => (
+        <li key={`addr-${a.country}`}>
+          {/* "HR-ADR", in the same shape as the "HR-DGU" of the places above:
+              the code names the source, and this source is the addresses. */}
+          <span className="tools-geo-country gm-data" title={t("tools.geocode.dir.dguAddresses")}>
+            {`${a.country}-ADR`}
+          </span>
+          <span className="tools-geo-count">
+            {t("tools.geocode.addressMeta", { count: a.count, date: dateFmt.format(a.importedAt) })}
+          </span>
+          <button
+            className="tools-geo-delete"
+            onClick={() => void gaz.removeAddressRegister(a.country)}
+            title={t("tools.geocode.deleteAddresses")}
+            aria-label={t("tools.geocode.deleteAddresses")}
           >
             🗑
           </button>
@@ -763,6 +873,53 @@ function RegionPicker({ gaz, regions }: { gaz: Gazetteer; regions: { country: st
   );
 }
 
+/**
+ * One source, named once above whatever it offers.
+ *
+ * The source's name is a label rather than words inside each control: a
+ * register offers two downloads, and "GURS (Slovenia)" written into both would
+ * say the same thing twice while what actually tells them apart — places
+ * against addresses — is left to fight for the remaining space. With the name
+ * lifted out, every row reads the same way: who it comes from, then what of
+ * theirs you can take.
+ */
+function SourceGroup({ name, children }: { name: string; children: ReactNode }) {
+  return (
+    <div className="tools-geo-source">
+      <span className="tools-geo-source-name">{name}</span>
+      <div className="tools-geo-source-actions">{children}</div>
+    </div>
+  );
+}
+
+/** A national register's pair: its settlements, and its house numbers. They
+ *  share one description — choosing between GURS and DGU is choosing a country,
+ *  while choosing between the two buttons is the smaller decision the tooltips
+ *  carry, since what they cost differs by an order of magnitude. */
+function RegisterSource({
+  name,
+  places,
+  addresses,
+}: {
+  name: string;
+  places: { onClick: () => void; title: string };
+  addresses: { onClick: () => void; title: string };
+}) {
+  const { t } = useTranslation();
+  return (
+    <SourceGroup name={name}>
+      <button className="nav-btn tools-run" onClick={places.onClick} title={places.title}>
+        <span aria-hidden="true">{DOWNLOAD_GLYPH} </span>
+        {t("tools.geocode.sourcePlaces")}
+      </button>
+      <button className="nav-btn tools-run" onClick={addresses.onClick} title={addresses.title}>
+        <span aria-hidden="true">{DOWNLOAD_GLYPH} </span>
+        {t("tools.geocode.sourceAddresses")}
+      </button>
+    </SourceGroup>
+  );
+}
+
 /** The ways in: the two national registers (GURS, DGU), any country from
  *  OpenStreetMap, or a GeoNames file. The downloads need the online-lookups
  *  opt-in; the file import never does — and it sits under the paragraph that
@@ -791,7 +948,9 @@ function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
         ? `${t("tools.geocode.waiting")}${waited ? ` ${waited} s` : ""}`
         : running.stage === "downloading"
           ? t("tools.geocode.downloading")
-          : t("tools.geocode.importing");
+          : running.stage === "storing"
+            ? t("tools.geocode.storing")
+            : t("tools.geocode.importing");
     // In a region run the region leads: which of the fifty is on the wire is
     // the thing being waited for, and the stage is a detail of it.
     const label = running.note ? `${running.note} — ${stage}` : stage;
@@ -808,19 +967,19 @@ function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
       <div className="tools-geo-sources">
         {settings.allowLinkFetch && (
           <>
-            <button
-              className="nav-btn tools-run"
-              onClick={() => void gaz.downloadSlovenia()}
-              title={t("tools.geocode.gursTooltip")}
-            >
-              <span aria-hidden="true">{DOWNLOAD_GLYPH} </span>
-              {t("tools.geocode.gursBtn")}
-            </button>
             {/* The credit names the agency, so the agency's name is the link —
-                to its own public viewer, where the dataset this download holds
-                can be seen in full or one settlement checked against its
-                source. The name itself is a proper noun in either language and
-                stays out of the locale files. */}
+                to its own public viewer, where the datasets this row holds can
+                be seen in full or one settlement checked against its source.
+                The name itself is a proper noun in either language and stays
+                out of the locale files. */}
+            <RegisterSource
+              name={t("tools.geocode.gursName")}
+              places={{ onClick: () => void gaz.downloadSlovenia(), title: t("tools.geocode.gursTooltip") }}
+              addresses={{
+                onClick: () => void gaz.downloadSloveniaAddresses(),
+                title: t("tools.geocode.gursAddressesTooltip"),
+              }}
+            />
             <p className="tools-geo-hint">
               {t("tools.geocode.sourceGurs")} ©{" "}
               <a href="https://ipi.eprostor.gov.si/jv/" target="_blank" rel="noreferrer">
@@ -828,14 +987,14 @@ function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
               </a>
               {t("tools.geocode.licenseCcBy")}
             </p>
-            <button
-              className="nav-btn tools-run"
-              onClick={() => void gaz.downloadCroatia()}
-              title={t("tools.geocode.dguTooltip")}
-            >
-              <span aria-hidden="true">{DOWNLOAD_GLYPH} </span>
-              {t("tools.geocode.dguBtn")}
-            </button>
+            <RegisterSource
+              name={t("tools.geocode.dguName")}
+              places={{ onClick: () => void gaz.downloadCroatia(), title: t("tools.geocode.dguTooltip") }}
+              addresses={{
+                onClick: () => void gaz.downloadCroatiaAddresses(),
+                title: t("tools.geocode.dguAddressesTooltip"),
+              }}
+            />
             <p className="tools-geo-hint">
               {t("tools.geocode.sourceDgu")} ©{" "}
               <a href="https://geoportal.dgu.hr/" target="_blank" rel="noreferrer">
@@ -843,21 +1002,24 @@ function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
               </a>
               {t("tools.geocode.licenseOpen")}
             </p>
-            {/* One control, not a pair: the button opens the country list and
-                the country picked is the click — the same shape as the map tab's
+            {/* One control, not a pair: OpenStreetMap has no address register
+                to offer, and the control opens the country list where the
+                country picked is the click — the same shape as the map tab's
                 "Add a free preset…". It never holds a selection, so it reads as
                 its own label again the moment the download starts. */}
-            <SelectMenu
-              className="nav-btn tools-run tools-geo-osm"
-              title={t("tools.geocode.countryTooltip")}
-              ariaLabel={t("tools.geocode.countryTooltip")}
-              value=""
-              placeholder={`${DOWNLOAD_GLYPH} ${t("tools.geocode.downloadBtn")}`}
-              onChange={(code) => {
-                if (code) void gaz.downloadCountry(code);
-              }}
-              options={countries.map(({ code, name }) => ({ value: code, label: name }))}
-            />
+            <SourceGroup name="OpenStreetMap">
+              <SelectMenu
+                className="nav-btn tools-run tools-geo-osm"
+                title={t("tools.geocode.countryTooltip")}
+                ariaLabel={t("tools.geocode.countryTooltip")}
+                value=""
+                placeholder={`${DOWNLOAD_GLYPH} ${t("tools.geocode.sourcePlaces")}`}
+                onChange={(code) => {
+                  if (code) void gaz.downloadCountry(code);
+                }}
+                options={countries.map(({ code, name }) => ({ value: code, label: name }))}
+              />
+            </SourceGroup>
             <p className="tools-geo-hint">
               {t("tools.geocode.sourceOsm")} {t("tools.geocode.sourceOsmCredit")}{" "}
               <a href="https://www.openstreetmap.org" target="_blank" rel="noreferrer">
@@ -868,21 +1030,25 @@ function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
           </>
         )}
         {/* The fallback: for a country neither download serves, and for anyone
-            who would rather the app fetched nothing at all. */}
-        <label className="nav-btn tools-geo-import">
-          <span aria-hidden="true">{UPLOAD_GLYPH} </span>
-          {t("tools.geocode.importBtn")}
-          <input
-            type="file"
-            accept=".txt,.zip"
-            hidden
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              e.target.value = "";
-              if (file) void gaz.importFile(file);
-            }}
-          />
-        </label>
+            who would rather the app fetched nothing at all. Named like the rows
+            above even though the arrow points the other way — where the data
+            comes from is the thing being chosen either way. */}
+        <SourceGroup name="GeoNames">
+          <label className="nav-btn tools-geo-import">
+            <span aria-hidden="true">{UPLOAD_GLYPH} </span>
+            {t("tools.geocode.importBtn")}
+            <input
+              type="file"
+              accept=".txt,.zip"
+              hidden
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = "";
+                if (file) void gaz.importFile(file);
+              }}
+            />
+          </label>
+        </SourceGroup>
         <p className="tools-geo-hint">
           {t("tools.geocode.sourceGeoNames")}{" "}
           <a href="https://download.geonames.org/export/dump/" target="_blank" rel="noreferrer">
@@ -931,8 +1097,9 @@ export function GazetteerSetup({ gaz }: { gaz: Gazetteer }) {
   // Nothing loaded: say so and point at the one place that manages them. The
   // controls themselves are deliberately *not* repeated here — two copies of
   // the same setup invite the reader to wonder which one is the real one, and
-  // the link costs one click.
-  if (gaz.countries.length === 0) {
+  // the link costs one click. An address register on its own counts as loaded:
+  // it answers houses, which is most of what this tool is asked for.
+  if (gaz.countries.length === 0 && !gaz.addressRegisters?.length) {
     return (
       <div className="tools-geo-gazetteer">
         <p className="tools-geo-empty">{t("tools.geocode.noGazetteer")}</p>
@@ -951,6 +1118,12 @@ export function GazetteerSetup({ gaz }: { gaz: Gazetteer }) {
           <span key={c.code} className="tools-geo-summary-entry" title={directoryTitle(c.code, i18n.language, t)}>
             <span className="tools-geo-country gm-data">{c.code}</span>
             <span className="tools-geo-count">{c.count.toLocaleString(i18n.language)}</span>
+          </span>
+        ))}
+        {gaz.addressRegisters?.map((a) => (
+          <span key={`addr-${a.country}`} className="tools-geo-summary-entry" title={t("tools.geocode.dir.dguAddresses")}>
+            <span className="tools-geo-country gm-data">{`${a.country}-ADR`}</span>
+            <span className="tools-geo-count">{a.count.toLocaleString(i18n.language)}</span>
           </span>
         ))}
         <button className="tools-issue-link" onClick={() => requestSettings("map")}>

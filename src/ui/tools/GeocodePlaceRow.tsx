@@ -6,7 +6,8 @@ import type { GazCandidate } from "../../geo/gazetteer";
 import { placeLookupLanguage } from "../../geo/lookupLanguage";
 import { osmKindLabel, searchNominatim, type NominatimResult } from "../../geo/nominatim";
 import { searchGov, type GovResult } from "../../geo/gov";
-import { rnQueriesFrom, searchAddresses, type RnResult } from "../../geo/rn";
+import { isOfflineQuery, rnQueriesFrom, searchAddresses, type RnResult } from "../../geo/rn";
+import { useLocalRegisters } from "../useLocalRegisters";
 import { chosenCoordFor, pickLabel, type ChosenCoord, type FileCoord, type GeoAssignment, type GeocodeRow } from "../../tools/geocode";
 import { replaceLocality } from "../../tools/addresses";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
@@ -268,7 +269,16 @@ export function GeocodePlaceRow({
   // list below, and asking the same register the same question again returns
   // it. An error keeps the button, since retrying is the whole recourse — and
   // renaming the place makes a new row, whose searches start unasked.
-  const searchActions = appSettings.allowLinkFetch && (
+  // The register lookup is offered on its own terms: a Croatian address is
+  // answered out of this browser, so the online-lookups opt-in — which is about
+  // what leaves the device — has nothing to say about it. The searches below it
+  // all go over the wire and stay behind the opt-in.
+  // Subscribed, not read: what matters is that this row re-renders when a
+  // register is stored or dropped, so the button stops hiding behind an opt-in
+  // that no longer applies to it.
+  useLocalRegisters();
+  const registerLocal = isOfflineQuery(rnQueries);
+  const registerActions = (appSettings.allowLinkFetch || registerLocal) && (
     <>
                 {/* Only for a value that names a house number — the register
                     resolves houses, not settlements. */}
@@ -278,7 +288,7 @@ export function GeocodePlaceRow({
                     <button
                       className="tools-issue-link"
                       disabled={rn.state === "loading"}
-                      title={t("tools.geocode.rn.tooltip")}
+                      title={t(registerLocal ? "tools.geocode.rn.tooltipLocal" : "tools.geocode.rn.tooltip")}
                       onClick={runRnSearch}
                     >
                       {rn.state === "loading" ? t("tools.geocode.rn.searching") : t("tools.geocode.rn.search")}
@@ -290,6 +300,14 @@ export function GeocodePlaceRow({
                     )}
                   </>
                 )}
+    </>
+  );
+
+  const searchActions = (
+    <>
+      {registerActions}
+      {appSettings.allowLinkFetch && (
+        <>
                 {online.state !== "done" && (
                 <button
                   className="tools-issue-link"
@@ -318,7 +336,9 @@ export function GeocodePlaceRow({
                 {gov.state === "done" && !gov.results.length && (
                   <span className="tools-geo-online-note">{t("tools.geocode.gov.none")}</span>
                 )}
-      </>
+        </>
+      )}
+    </>
   );
 
   return (
