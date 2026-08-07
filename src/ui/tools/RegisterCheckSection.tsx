@@ -451,6 +451,9 @@ export function RegisterCheckSection({
               const chosen = chosenIndex(f, options, picked);
               const rename = renameFor(f, options, chosen);
               const isOpen = open.has(f.key) || peopleOpen.has(f.key);
+              /** Whether the bulk rename waits for this row to be picked by
+               *  hand — which is what its radio then marks. */
+              const held = BULK_HELD_BACK.includes(f.verdict);
               return (
                 <li key={f.key} className={`tools-tree-node${f.dismissed ? " dismissed" : ""}`}>
                   {/* The same row shape as the places and addresses lists: the
@@ -659,7 +662,17 @@ export function RegisterCheckSection({
                                     className="tools-geo-cand-radio"
                                     name={`register-${f.key}`}
                                     aria-label={o.place}
-                                    checked={chosen === i}
+                                    // A verdict the sweep holds back starts
+                                    // with an *empty* circle, however plainly
+                                    // the row shows what it would write: what
+                                    // the circle marks here is "I have read
+                                    // this and agree", which is the whole
+                                    // reason those two wait. Filled by default
+                                    // it asked to be confirmed by a click that
+                                    // looked as though it had already been
+                                    // made — and the row then sat out of "Use
+                                    // official names" with no way to say so.
+                                    checked={held ? picked.get(f.key) === i : chosen === i}
                                     onChange={() => pick(f.key, i)}
                                     // Only an explicit pick can be taken back
                                     // by clicking it again. A row arrives with
