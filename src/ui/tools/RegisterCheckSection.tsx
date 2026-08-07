@@ -141,7 +141,11 @@ export function RegisterCheckSection({
   const searchWider = (f: RegisterFinding, known: RegisterOption[]) => {
     if (!index) return;
     const seen = new Set(known.map((o) => (o.entry ? `${o.entry.name}:${o.entry.lat}:${o.entry.lon}` : o.place)));
-    const found = searchGazetteer(index, f.key, 12, true).filter(
+    // 18, not a screenful less: a short name collects many exact and prefix
+    // hits across directories ("Bela" has a dozen), and the qualified villages
+    // the search exists to surface — "Srednja Bela", "Zgornja Bela" — rank
+    // below all of them, so a tight cap cut off exactly the useful rows.
+    const found = searchGazetteer(index, f.key, 18, true).filter(
       (e) => !seen.has(`${e.name}:${e.lat}:${e.lon}`),
     );
     setWider((prev) => new Map(prev).set(f.key, found));
@@ -168,6 +172,16 @@ export function RegisterCheckSection({
     setOpen((prev) => new Set(prev).add(key));
   };
   const pick = (key: string, index: number) => setPicked((prev) => new Map(prev).set(key, index));
+  // A checked radio fires no change event, so taking a pick back needs the
+  // click itself — the same pattern as the places and addresses tabs. Without
+  // it a mispick on an `ambiguous` row is irrevocable and silently joins the
+  // bulk-rename count.
+  const unpick = (key: string) =>
+    setPicked((prev) => {
+      const next = new Map(prev);
+      next.delete(key);
+      return next;
+    });
 
   // A rename, an undo or an edit elsewhere re-runs the check, and the rows it
   // settles leave the list. Their open state and picks go with them — the same
@@ -265,8 +279,14 @@ export function RegisterCheckSection({
 
   const dismiss = async (f: RegisterFinding) => {
     const key = registerDecisionKey(f.key);
-    if (f.dismissed) await deleteDecision(key);
-    else await putDecisions([{ key, status: REGISTER_DISMISSED, ts: Date.now() }]);
+    try {
+      if (f.dismissed) await deleteDecision(key);
+      else await putDecisions([{ key, status: REGISTER_DISMISSED, ts: Date.now() }]);
+    } catch {
+      // An IndexedDB failure was an unhandled rejection and the toggle
+      // silently stayed put. There is nothing better to do than leave the row
+      // as it is — the refresh below re-reads whatever state actually holds.
+    }
     onDecisionsChanged();
   };
 
@@ -507,7 +527,10 @@ export function RegisterCheckSection({
                       )}
                       {mapOpen === f.key && (
                             <RowMap
-                              fitKey={f.key}
+                              // The wider search adds pins that can sit far
+                              // outside the fitted view — re-frame when its
+                              // results land (same idea as the places row).
+                              fitKey={`${f.key}:${wider.get(f.key)?.length ?? 0}`}
                               context={fileCoords}
                               pins={[
                                   ...options.flatMap((o, i): MiniMapPin[] =>
@@ -553,6 +576,7 @@ export function RegisterCheckSection({
                                     aria-label={o.place}
                                     checked={chosen === i}
                                     onChange={() => pick(f.key, i)}
+                                    onClick={() => chosen === i && unpick(f.key)}
                                   />
                                   <span className="tools-geo-cand-num">{i + 1}</span>
                                   <span className="tools-geo-cand-name">{o.place}</span>

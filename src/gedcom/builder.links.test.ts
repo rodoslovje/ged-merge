@@ -8,6 +8,55 @@ function buildFromText(text: string) {
   return buildDataset(parsed);
 }
 
+describe("editableLinks vs harvested links", () => {
+  // Regression: the link editors used to edit the full harvest — removing a
+  // note-borne URL was a no-op (it reappeared on the next rebuild) and any
+  // link edit rewrote the harvested URLs as duplicate WWW lines.
+  it("keeps only the node's own link-tag values editable, not note/media URLs", () => {
+    const text = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @M1@ OBJE
+1 FILE https://example.org/photo.jpg
+0 @I1@ INDI
+1 NAME Test /Person/
+1 WWW https://example.org/profile
+1 NOTE See https://example.org/article for details
+1 OBJE @M1@
+1 BIRT
+2 DATE 1 JAN 1900
+2 WWW https://example.org/birth-record
+2 NOTE Scan at https://example.org/scan
+0 TRLR
+`;
+    const ds = buildFromText(text);
+    const indi = ds.individuals.get("@I1@")!;
+    expect(indi.links).toEqual([
+      "https://example.org/profile",
+      "https://example.org/article",
+      "https://example.org/photo.jpg",
+    ]);
+    expect(indi.editableLinks).toEqual(["https://example.org/profile"]);
+    const birt = indi.events.find((e) => e.tag === "BIRT")!;
+    expect(birt.links).toEqual(["https://example.org/birth-record", "https://example.org/scan"]);
+    expect(birt.editableLinks).toEqual(["https://example.org/birth-record"]);
+  });
+
+  it("leaves editableLinks absent when every link is harvested", () => {
+    const text = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 NAME Test /Person/
+1 NOTE Only https://example.org/from-note here
+0 TRLR
+`;
+    const indi = buildFromText(text).individuals.get("@I1@")!;
+    expect(indi.links).toEqual(["https://example.org/from-note"]);
+    expect(indi.editableLinks).toBeUndefined();
+  });
+});
+
 describe("collectLinks CONC/CONT handling", () => {
   it("reassembles a WWW value wrapped with CONC", () => {
     const text = `0 HEAD

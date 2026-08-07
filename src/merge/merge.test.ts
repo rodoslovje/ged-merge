@@ -762,6 +762,78 @@ describe("mergeDecisions — family touched via both confirmed spouses", () => {
   });
 });
 
+describe("mergeDecisions — the freshest family-row choice wins across spouses", () => {
+  // Both spouses' cards show the same fam.* rows; the merge collects them all
+  // and, on disagreement, honours the decision that iterates LAST — which the
+  // app keeps meaning "updated most recently" via withFreshDecision. This
+  // pins the contract from the engine's side.
+  const mainFor = () => dataset(
+    wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F1@\n" +
+        "0 @I2@ INDI\n1 NAME Marija /Kos/\n1 SEX F\n1 FAMS @F1@\n" +
+        "0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@\n1 MARR\n2 DATE 1900\n",
+    ),
+  );
+  const compare = dataset(
+    wrap(
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @G1@\n" +
+        "0 @P2@ INDI\n1 NAME Marija /Kos/\n1 SEX F\n1 FAMS @G1@\n" +
+        "0 @G1@ FAM\n1 HUSB @P1@\n1 WIFE @P2@\n1 MARR\n2 DATE 1901\n",
+    ),
+  );
+  const matches = {
+    individuals: [
+      { mainId: "@I1@", compareId: "@P1@" },
+      { mainId: "@I2@", compareId: "@P2@" },
+    ],
+  } as never;
+  const husband = decisionKey("individual", "@I1@", "@P1@");
+  const wife = decisionKey("individual", "@I2@", "@P2@");
+  const confirmedWith = (date: "main" | "incoming"): CandidateDecision =>
+    ({ status: "confirmed", fields: { "fam.@G1@.MARR.date": date } });
+
+  it("the later-iterating decision's pick applies", () => {
+    const wifeLast = new Map([[husband, confirmedWith("main")], [wife, confirmedWith("incoming")]]);
+    expect(serializeGedcom(mergeDecisions(mainFor(), compare, wifeLast, matches, tr).records)).toContain("2 DATE 1901");
+    const husbandLast = new Map([[wife, confirmedWith("incoming")], [husband, confirmedWith("main")]]);
+    expect(serializeGedcom(mergeDecisions(mainFor(), compare, husbandLast, matches, tr).records)).toContain("2 DATE 1900");
+  });
+});
+
+describe("mergeDecisions — a conflicting parent choice defers instead of applying", () => {
+  // Both files name a father, and they disagree. The merge never replaces a
+  // linked parent: an explicit "incoming" on the father row must change
+  // nothing and surface in the report — which is why the review panel offers
+  // only "main" on such rows.
+  const main = dataset(
+    wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMC @F1@\n" +
+        "0 @I5@ INDI\n1 NAME Stari /Novak/\n1 SEX M\n1 FAMS @F1@\n" +
+        "0 @F1@ FAM\n1 HUSB @I5@\n1 CHIL @I1@\n",
+    ),
+  );
+  const compare = dataset(
+    wrap(
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMC @PF@\n" +
+        "0 @P5@ INDI\n1 NAME Drugi /Oce/\n1 SEX M\n1 FAMS @PF@\n" +
+        "0 @PF@ FAM\n1 HUSB @P5@\n1 CHIL @P1@\n",
+    ),
+  );
+
+  it("keeps the main's father, imports nothing, and reports the disagreement", () => {
+    const decisions = new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: { father: "incoming" } }],
+    ]);
+    const { records, report } = mergeDecisions(main, compare, decisions, NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    expect(out).toContain("0 @F1@ FAM\n1 HUSB @I5@");
+    // The refused link used to still import the incoming father — a
+    // disconnected record nobody chose to add.
+    expect(out).not.toContain("Drugi /Oce/");
+    expect(report.deferred.some((d) => d.reason === "merge.reason.mainHasSpouse")).toBe(true);
+  });
+});
+
 describe("mergeDecisions — family custom EVEN", () => {
   const main = dataset(
     wrap(
@@ -1691,6 +1763,29 @@ describe("an edit made after the match was confirmed wins", () => {
     );
     expect(serializeGedcom(records)).toContain("1 NAME Jan;ez /Novak/");
     expect(report.deferred).toEqual([]);
+  });
+
+  it("gates the record-level Sources row: a citation added after confirming is not stripped", () => {
+    // "Incoming" on the Sources row replaces the main's SOUR citations — the
+    // one destructive overwrite that used to bypass the mainFields gate. The
+    // main's citation here was added after the confirmation snapshot (which
+    // recorded a different Sources text), so the choice stands down.
+    const mainSourced = dataset(wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 SOUR @S1@\n1 BIRT\n2 DATE 1850\n" +
+        "0 @S1@ SOUR\n1 TITL Krstna knjiga\n",
+    ));
+    const compareSourced = dataset(wrap(
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 SOUR @S9@\n1 BIRT\n2 DATE 1850\n" +
+        "0 @S9@ SOUR\n1 TITL Poročna knjiga\n",
+    ));
+    const { records, report } = mergeDecisions(
+      mainSourced, compareSourced,
+      confirmedAt({ links: "incoming" }, { links: "Stara knjiga" }),
+      NO_MATCHES, tr,
+    );
+    const out = serializeGedcom(records);
+    expect(out).toContain("1 SOUR @S1@");
+    expect(report.deferred.some((d) => d.reason === "merge.reason.editedAfterConfirm")).toBe(true);
   });
 });
 

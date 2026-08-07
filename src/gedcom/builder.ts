@@ -22,6 +22,7 @@ import type {
 } from "./types";
 
 import { ALL_EVENT_TAGS, FAM_EVENT_TAGS, INDI_EVENT_TAGS } from "./eventTags";
+import { EDITABLE_LINK_TAGS } from "./edit/shared";
 
 /** An empty, fully-typed `Dataset` — for callers that need a valid compare side
  *  with nothing in it (e.g. single-file chart building). Fresh on every call, so
@@ -180,6 +181,8 @@ export function buildIndividual(record: GedNode, media: MediaLinks, sourceCtx: S
   if (uids.length) indi.uids = dedupe(uids);
   if (fsids.length) indi.fsids = dedupe(fsids);
   if (links.length) indi.links = dedupe(links);
+  const editableIndiLinks = collectEditableLinks(record);
+  if (editableIndiLinks.length) indi.editableLinks = dedupe(editableIndiLinks);
   if (notes.length) indi.notes = notes;
   if (notesFull.length && notesFull.join("\x1f") !== notes.join("\x1f")) indi.notesWithLinks = notesFull;
   if (noteRefs.length) indi.noteRefs = noteRefs;
@@ -229,6 +232,8 @@ export function buildFamily(record: GedNode, media: MediaLinks, sourceCtx: Sourc
   if (husband) fam.husband = husband;
   if (wife) fam.wife = wife;
   if (links.length) fam.links = dedupe(links);
+  const editableFamLinks = collectEditableLinks(record);
+  if (editableFamLinks.length) fam.editableLinks = dedupe(editableFamLinks);
   if (notes.length) fam.notes = notes;
   if (notesFull.length && notesFull.join("\x1f") !== notes.join("\x1f")) fam.notesWithLinks = notesFull;
   if (noteRefs.length) fam.noteRefs = noteRefs;
@@ -274,6 +279,8 @@ function buildEvent(node: GedNode, media: MediaLinks, sourceCtx: SourceContext, 
     if (noteFull && noteFull !== noteStripped) event.noteWithLinks = noteFull;
   }
   if (links.length) event.links = dedupe(links);
+  const editable = collectEditableLinks(node);
+  if (editable.length) event.editableLinks = dedupe(editable);
   const sources = node.children
     .filter((c) => c.tag === "SOUR")
     .map((c) => resolveSourceCitation(c, sourceCtx))
@@ -428,6 +435,25 @@ function collectNote(
  * index; any other line contributes http(s) URLs found inside its text (e.g. a
  * URL mentioned in a NOTE).
  */
+/**
+ * Values of the node's own direct link-bearing tags (WWW/URL/… — the set a
+ * link edit rewrites, see `EDITABLE_LINK_TAGS`). This is the editable subset
+ * of {@link collectLinks}'s harvest: URLs pulled out of note text, shared
+ * media records or nested lines have their home elsewhere — rewriting them
+ * as WWW lines would duplicate them, and "removing" them would be a no-op,
+ * so the editors must never be handed those.
+ */
+function collectEditableLinks(node: GedNode): string[] {
+  const out: string[] = [];
+  for (const child of node.children) {
+    const v = child.value?.trim();
+    if (v && EDITABLE_LINK_TAGS.includes(child.tag as (typeof EDITABLE_LINK_TAGS)[number])) {
+      out.push(v.replace(/\n/g, ""));
+    }
+  }
+  return out;
+}
+
 function collectLinks(node: GedNode, media: MediaLinks, out: string[] = []): string[] {
   const v = node.value?.trim();
   if (v) {

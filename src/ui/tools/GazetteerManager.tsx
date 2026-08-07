@@ -3,6 +3,8 @@ import { useTranslation } from "react-i18next";
 import { COUNTRY_CODES } from "../../gedcom/countryCode";
 import {
   buildGazetteerIndex,
+  DGU_REGISTER,
+  GURS_REGISTER,
   mergeDivisions,
   overpassFailure,
   overpassSubdivisions,
@@ -10,6 +12,7 @@ import {
   type GazetteerIndex,
   type Subdivision,
 } from "../../geo/gazetteer";
+import { countryNameOf } from "../../geo/placeProposal";
 import { deleteCountry, loadCountries, type CountryMeta } from "../../persist/geoDb";
 import type { GeoWorkerRequest, GeoWorkerResponse } from "../../worker/geoMessages";
 import { invalidateGazetteerIndex } from "../edit/PlaceLookupContext";
@@ -679,6 +682,16 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
   };
 }
 
+/** What a directory code stands for, spelled out for the chip's tooltip: the
+ *  official registers by name, a "-OSM" key as an OpenStreetMap download, and
+ *  a bare country code — by convention — as a GeoNames file. */
+function directoryTitle(code: string, language: string, t: (key: string, opts?: Record<string, unknown>) => string): string {
+  if (code === GURS_REGISTER) return t("tools.geocode.dir.gurs");
+  if (code === DGU_REGISTER) return t("tools.geocode.dir.dgu");
+  const country = countryNameOf(code.slice(0, 2), language) ?? code.slice(0, 2);
+  return code.endsWith("-OSM") ? t("tools.geocode.dir.osm", { country }) : t("tools.geocode.dir.geonames", { country });
+}
+
 /** What is imported, with the date and a way to drop it again. */
 function GazetteerList({ gaz }: { gaz: Gazetteer }) {
   const { t, i18n } = useTranslation();
@@ -688,7 +701,7 @@ function GazetteerList({ gaz }: { gaz: Gazetteer }) {
     <ul className="tools-geo-countries">
       {gaz.countries.map((c) => (
         <li key={c.code}>
-          <span className="tools-geo-country gm-data">{c.code}</span>
+          <span className="tools-geo-country gm-data" title={directoryTitle(c.code, i18n.language, t)}>{c.code}</span>
           <span className="tools-geo-count">
             {t("tools.geocode.countryMeta", { count: c.count, date: dateFmt.format(c.importedAt) })}
           </span>
@@ -933,9 +946,9 @@ export function GazetteerSetup({ gaz }: { gaz: Gazetteer }) {
   return (
     <div className="tools-geo-gazetteer">
       <div className="tools-geo-summary">
-        <span className="tools-geo-loaded">{t("tools.geocode.loadedCountries")}</span>
+        <span className="tools-geo-loaded" title={t("tools.geocode.loadedCountriesHint")}>{t("tools.geocode.loadedCountries")}</span>
         {gaz.countries.map((c) => (
-          <span key={c.code} className="tools-geo-summary-entry">
+          <span key={c.code} className="tools-geo-summary-entry" title={directoryTitle(c.code, i18n.language, t)}>
             <span className="tools-geo-country gm-data">{c.code}</span>
             <span className="tools-geo-count">{c.count.toLocaleString(i18n.language)}</span>
           </span>

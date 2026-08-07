@@ -153,8 +153,12 @@ export function combineEventEdits(recordId: string, group: string, entries: Even
 /**
  * Whether `applyRows` may write this row's incoming value over the main's —
  * i.e. whether it is a scalar/event field this module owns. Relatives and
- * family rows are stitched structurally elsewhere and never overwrite, and the
- * link rows are additive.
+ * family rows are stitched structurally elsewhere and never overwrite, and an
+ * event's link row is additive. The record-level "links" (Sources) row *is*
+ * included: its "incoming" choice strips the main's SOUR citations, which is
+ * exactly the destructive overwrite the edited-after-confirm gate exists to
+ * stop — a citation added in Edit after confirming must not be silently
+ * replaced at save time.
  *
  * Shared by `applyRows` and {@link snapshotMainValues} so the set of rows the
  * merge can overwrite is the same set the confirm-time snapshot records.
@@ -162,7 +166,7 @@ export function combineEventEdits(recordId: string, group: string, entries: Even
 export function isOverwritableRow(row: Row, handled: Set<string>): boolean {
   if (row.isGroupHeader || row.isEventHeader) return false;
   if (handled.has(row.key) || row.key.startsWith("fam.")) return false;
-  if (row.key === "links" || row.key.endsWith(".links")) return false;
+  if (row.key.endsWith(".links")) return false;
   return true;
 }
 

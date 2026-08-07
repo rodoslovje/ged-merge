@@ -112,6 +112,33 @@ describe("gedcom.worker pipeline", () => {
     expect(types()).toEqual(["parsed"]);
   });
 
+  it("consolidates incoming duplicates, re-emits the cleaned compare, then matches", async () => {
+    // Two incoming records that are the same person (both pair with the one
+    // main Janez) are merged into one before the result is announced. The
+    // whole session then reads from the consolidated compare, so the exact
+    // sequence — parsed(compare) again, with the consolidation counted in its
+    // report, and only then matched — is the contract App.tsx builds on.
+    const compareDup = wrap(
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 2 FEB 1850\n" +
+        "0 @P2@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 2 FEB 1850\n1 DEAT\n2 DATE 1 MAR 1900\n",
+    );
+    const send = await freshWorker();
+    send({ type: "parse", role: "main", fileName: "a.ged", buffer: enc(MAIN) });
+    send({ type: "parse", role: "compare", fileName: "b.ged", buffer: enc(compareDup) });
+    expect(types()).toEqual(["parsed", "parsed", "matching", "parsed", "matched"]);
+    const reEmit = posted[3];
+    if (reEmit.type !== "parsed") throw new Error("expected a parsed re-emit");
+    expect(reEmit.report?.consolidatedDuplicates).toBe(1);
+    // One survivor carrying the merged data; no pair references the merged-away id.
+    const pairs = lastMatched()!.individuals;
+    expect(pairs).toHaveLength(1);
+    const survivor = pairs[0].compareId;
+    expect(reEmit.dataset.individuals.has(survivor)).toBe(true);
+    expect(reEmit.dataset.individuals.size).toBe(1);
+    // The merged-away record's own facts travelled onto the survivor.
+    expect(reEmit.dataset.individuals.get(survivor)!.events.some((e) => e.tag === "DEAT")).toBe(true);
+  });
+
   it("an unreadable matches CSV fails the compare slot, not the worker", async () => {
     const send = await freshWorker();
     send({ type: "parse", role: "main", fileName: "a.ged", buffer: enc(MAIN) });

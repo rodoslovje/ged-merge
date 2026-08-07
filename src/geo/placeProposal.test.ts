@@ -70,6 +70,18 @@ describe("a gazetteer entry as a place", () => {
     expect(proposalFromGazEntry(ZABUKOVJE, style({ depth: 2 }))!.plac).toBe("Zabukovje,Slovenija");
   });
 
+  it("keeps a locality named with a facility word ('Bela Cerkev') in its own proposal", () => {
+    // The reformatter's heuristics read a leading "… cerkev/grad/…" segment as
+    // a church or castle detail — right for "Mestno pokopališče Kranj", wrong
+    // for the real villages Bela Cerkev, Nova Cerkev or Grad. The register
+    // knows the segment is a locality, so the proposal must never lose it:
+    // this entry used to surface (and would have been written!) as its
+    // municipality, "Šmarješke Toplice, Slovenija".
+    const belaCerkev: GazEntry = { ...ZABUKOVJE, name: "Bela Cerkev", admin: "Šmarješke Toplice" };
+    const p = proposalFromGazEntry(belaCerkev, style())!;
+    expect(p.plac).toBe("Bela Cerkev,Šmarješke Toplice,Slovenija");
+  });
+
   // The chain is composed here, so what each part is is known rather than
   // guessed — worth declaring, in the wording this file already uses.
   const forms = new Map([

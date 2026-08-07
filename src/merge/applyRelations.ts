@@ -336,6 +336,27 @@ export function applyIndividualRelations(
     if (!wantsIncoming(rows, fields, key)) continue;
     const incParentId = incomingParentId(incomingIndi, compare, role);
     if (!incParentId) continue;
+    // Peek at the slot before materializing the incoming parent: with a
+    // different parent already linked, setSpouseSlot refuses the link — and
+    // importing first used to leave the incoming parent in the file as a
+    // disconnected record nobody chose to add. Deferred here with the same
+    // wording, naming the incoming person from the compare file directly.
+    const existingFamId =
+      ctx.indiNode(mainId)?.children.find((c) => c.tag === "FAMC")?.value ?? main.individuals.get(mainId)?.childOf[0];
+    const existingFamNode = existingFamId ? ctx.famNode(existingFamId) : undefined;
+    const occupant = existingFamNode ? firstChild(existingFamNode, role)?.value : undefined;
+    if (occupant && occupant !== ctx.resolved(incParentId)) {
+      const incName = compare.individuals.get(incParentId)?.names[0];
+      ctx.report.deferred.push({
+        recordId: existingFamId!,
+        field: ctx.t(labelKey),
+        reason: ctx.t("merge.reason.mainHasSpouse", {
+          kept: ctx.label(occupant),
+          incoming: incName ? displayName(incName) : incParentId,
+        }),
+      });
+      continue;
+    }
     const targetId = ctx.resolve(incParentId);
     if (!targetId) continue;
     childFam ??= ensureChildFamily(mainId, main, ctx);

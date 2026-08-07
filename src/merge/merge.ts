@@ -236,12 +236,20 @@ export function mergeDecisions(
   // choices (and child ticks) up front and let that first turn apply them all;
   // otherwise the second spouse's explicit picks would be silently dropped by
   // confirmation order. When both spouses chose the same key, the later
-  // confirmation wins — choosing again is the fresher decision.
+  // confirmation wins — the app moves an updated decision to the end of the
+  // map (see withFreshDecision), so iteration order here IS recency order.
   const famFields: Record<string, FieldChoice> = {};
   const allTakenChildren = new Set<string>();
   for (const [key, decision] of decisions) {
     if (decision.status !== "confirmed") continue;
-    if (parseDecisionKey(key)?.kind !== "individual") continue;
+    const parsed = parseDecisionKey(key);
+    if (parsed?.kind !== "individual") continue;
+    // A stale decision whose records are gone (its main person deleted in
+    // Edit, or the compare id no longer present) is skipped by the merge loop
+    // below — its shared-family picks and child ticks must not leak in through
+    // the surviving spouse's stitch either.
+    if (!indiNodes.get(parsed.mainId) || !main.individuals.get(parsed.mainId) || !compare.individuals.get(parsed.compareId))
+      continue;
     for (const id of decision.takenChildren ?? []) allTakenChildren.add(id);
     for (const [k, v] of Object.entries(decision.fields)) {
       if (k.startsWith("fam.")) famFields[k] = v;

@@ -17,6 +17,7 @@ import { SECONDARY_VALUE_EVENT_TAGS, VALUE_EVENT_TAGS } from "./editConstants";
 import { placeAddrCoordKey, placeCombosOf, placeKey } from "./placeSuggestions";
 import { DropdownMenu } from "../DropdownMenu";
 import type { SourceDialogTarget } from "./types";
+import { harvestedLinksOf } from "./LinksEditor";
 
 /** Sentinel `<option>` values for the action entries at the end of the
  * event-type dropdown (distinct from any real tag). */
@@ -288,7 +289,13 @@ export function EventFieldsRow({
   // field to compare against).
   const initialTagRef = useRef(tag);
   const tagDirty = tag !== undefined && tag !== initialTagRef.current;
-  const [links, setLinks] = useState<string[]>(ev?.links ?? []);
+  // Only the event's own WWW/URL-tag links are editable. The rest of
+  // `ev.links` is harvested — URLs living in note text or shared media
+  // records: rewriting those as WWW lines would duplicate them, and
+  // "removing" one would be a no-op (the chip reappears on the next
+  // rebuild), so they render as read-only chips below.
+  const [links, setLinks] = useState<string[]>(ev?.editableLinks ?? []);
+  const harvestedLinks = harvestedLinksOf(ev?.links, ev?.editableLinks);
   // Secondary fields the user chose to add via the "+ Detail" menu on a sparse
   // event (they start empty). `focusKey` moves focus to the one just added.
   const [revealed, setRevealed] = useState<Set<string>>(new Set());
@@ -352,7 +359,7 @@ export function EventFieldsRow({
   const causeShown = Boolean(causeField.value.trim()) || causeField.isMerge;
   const noteShown = Boolean(noteField.value.trim()) || noteField.isMerge;
   const sourcesShown =
-    Boolean(ev?.sources?.length) || Boolean(sourcesMergeVal?.length) || links.length > 0;
+    Boolean(ev?.sources?.length) || Boolean(sourcesMergeVal?.length) || links.length > 0 || harvestedLinks.length > 0;
   // A field renders when it has content OR the user added it from the "+ Detail"
   // menu. Empty, un-added fields stay hidden — no more revealing every empty
   // field on hover, which read as a crowded row of blank labelled inputs.
@@ -512,6 +519,13 @@ export function EventFieldsRow({
     if (override.note === undefined && !noteField.isMerge && noteField.value === noteField.initial) {
       delete merged.note;
     }
+    // An untouched place is omitted for the same reason: re-sending it runs
+    // reconcilePlaceForm, which deletes a PLAC.FORM whose labels don't match
+    // the place's comma count — raw-layer loss as collateral of, say, a
+    // date-only edit. A merge-incoming place still materializes.
+    if (override.place === undefined && !placeField.isMerge && placeField.value === placeField.initial) {
+      delete merged.place;
+    }
     // Fields with no text input behind them have no `initial` to compare against,
     // so an override carrying one is a change by definition. Without this, picking
     // a coordinate while every text field stays as it was reads as "unchanged" and
@@ -521,7 +535,7 @@ export function EventFieldsRow({
       !nonTextChange &&
       (merged.date ?? "") === dateField.initial &&
       (merged.value ?? "") === valueField.initial &&
-      (merged.place ?? "") === placeField.initial &&
+      (merged.place === undefined || merged.place === placeField.initial) &&
       (merged.address ?? "") === addrField.initial &&
       (merged.note === undefined || merged.note === noteField.initial) &&
       (merged.agency ?? "") === agencyField.initial &&
@@ -833,6 +847,18 @@ export function EventFieldsRow({
             >
               {siteIconForUrl(link) ?? "🔗"}
             </button>
+          ))}
+          {harvestedLinks.map((link) => (
+            <a
+              key={link}
+              className="link-icon"
+              href={link}
+              target="_blank"
+              rel="noreferrer"
+              title={`${link}\n${t("edit.harvestedLink")}`}
+            >
+              {siteIconForUrl(link) ?? "🔗"}
+            </a>
           ))}
         </span>
         <span data-detail="note" className={"edit-event-extra edit-event-extra--note" + optCls(show.note)}>

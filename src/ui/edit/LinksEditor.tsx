@@ -8,10 +8,20 @@ import { siteIconForUrl } from "../../tools/sourceReshape";
 import { linkKey } from "../../normalize/links";
 import type { SourceDialogTarget } from "./types";
 
+/** The harvested (read-only) remainder of a record's or event's links:
+ * everything the projection gathered that no editable link tag carries — URLs
+ * living in note text or shared media records. Rewriting those as WWW lines
+ * would duplicate them, and "removing" one would be a no-op (the chip
+ * reappears on the next rebuild), so the editors must never offer that. */
+export function harvestedLinksOf(all: string[] | undefined, editable: string[] | undefined): string[] {
+  return (all ?? []).filter((l) => !(editable ?? []).some((e) => e.toLowerCase() === l.toLowerCase()));
+}
+
 /** A list of single-line link inputs, each removable. When `sectionLabel` is
  * provided it renders its own header row with the label and an add button. */
 export function LinksEditor({
   links: initialLinks,
+  harvestedLinks,
   sources,
   incomingLinks,
   incomingSources,
@@ -24,6 +34,8 @@ export function LinksEditor({
   onAttachSource,
 }: {
   links: string[];
+  /** Read-only links from note text / shared media (see {@link harvestedLinksOf}). */
+  harvestedLinks?: string[];
   /** Real `SOUR` citations added via "Add Source" — shown as icons alongside the legacy links. */
   sources?: SourceCitation[];
   /** Links a confirmed merge will add that aren't in `links` yet — previewed
@@ -84,6 +96,18 @@ export function LinksEditor({
         >
           {siteIconForUrl(link) ?? "🔗"}
         </button>
+      ))}
+      {(harvestedLinks ?? []).map((url) => (
+        <a
+          key={`harvested-${url}`}
+          href={linkHref(url)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="link-icon"
+          title={`${url}\n${t("edit.harvestedLink")}`}
+        >
+          {siteIconForUrl(url) ?? "🔗"}
+        </a>
       ))}
       {previewLinks.map((url, i) => (
         <a

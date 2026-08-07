@@ -5,6 +5,7 @@ import {
   findConfirmedDecision,
   parseDecisionKey,
   toggleDecisionStatus,
+  withFreshDecision,
   type CandidateDecision,
 } from "./types";
 
@@ -151,5 +152,23 @@ describe("findConfirmedDecision", () => {
 
   it("returns undefined for undefined decisions", () => {
     expect(findConfirmedDecision(undefined, "@I1@")).toBeUndefined();
+  });
+});
+
+describe("withFreshDecision", () => {
+  // Regression: merge apply collects shared family-row picks across both
+  // spouses' decisions in iteration order with last-write-wins — but Map.set
+  // on an existing key keeps its original position, so "the later confirmation
+  // wins" silently meant "the earlier one wins" for any pair updated in place.
+  it("moves an updated decision to the end of the iteration order", () => {
+    const husband = decisionKey("individual", "@I1@", "@P1@");
+    const wife = decisionKey("individual", "@I2@", "@P2@");
+    let decisions = new Map<string, CandidateDecision>();
+    decisions = withFreshDecision(decisions, husband, confirmed({ "fam.@PF@.MARR.date": "incoming" }));
+    decisions = withFreshDecision(decisions, wife, confirmed({ "fam.@PF@.MARR.date": "main" }));
+    // The husband's pick changes last — his decision must now iterate last.
+    decisions = withFreshDecision(decisions, husband, confirmed({ "fam.@PF@.MARR.date": "both" }));
+    expect([...decisions.keys()]).toEqual([wife, husband]);
+    expect(decisions.size).toBe(2);
   });
 });

@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
-import { type RecordPatch, type PendingEditApply, cloneRaw, noteChangePatches, snapshotRecords, patchesFromSnapshots } from "./historyTypes";
+import { type RecordPatch, type PendingEditApply, cloneRaw, dropNoopPatches, noteChangePatches, snapshotRecords, patchesFromSnapshots } from "./historyTypes";
 import { useTranslation } from "react-i18next";
 import type { Dataset, Family, GedNode, GeoCoord, Individual } from "../gedcom/types";
 import { birthDateOf } from "../gedcom/lifespan";
@@ -101,7 +101,7 @@ import { kindsColorVar } from "./map/markerStyle";
 
 /** The person's places map, in the shared Leaflet lazy chunk. */
 const MiniPlaceMap = lazy(() => import("./map/MiniPlaceMap"));
-import { LinksEditor } from "./edit/LinksEditor";
+import { harvestedLinksOf, LinksEditor } from "./edit/LinksEditor";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { PersonMedia } from "./PersonMedia";
 import { useMediaViewer, type MediaEditFields, type MediaRefContext } from "./MediaViewer";
@@ -1305,10 +1305,14 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
       }
     }
 
-    const patches: RecordPatch[] = [
+    // The anchor person's raw is untouched when the relative joins an existing
+    // family (the links live on the family and the new record) — dropNoopPatches
+    // removes that empty patch so the person is neither marked dirty nor
+    // CHAN-stamped for an addition that never changed their record.
+    const patches: RecordPatch[] = dropNoopPatches([
       { type: "individual", id: person.id, before: beforePerson, after: cloneRaw(person.raw) },
       { type: "individual", id: added.id, before: null, after: cloneRaw(added.raw) },
-    ];
+    ]);
     if (fam) {
       patches.push({ type: "family", id: fam.id, before: beforeFam!, after: cloneRaw(fam.raw) });
     } else {
@@ -1891,7 +1895,8 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
             <div className="edit-record-section">
               <LinksEditor
                 key={`rlinks-${person.id}-${undoVersion}`}
-                links={person.links ?? []}
+                links={person.editableLinks ?? []}
+                harvestedLinks={harvestedLinksOf(person.links, person.editableLinks)}
                 sources={person.sources ?? []}
                 incomingLinks={mergeIncomingLinks.get("links")}
                 incomingSources={mergeIncomingSources.get("links")}

@@ -2,7 +2,7 @@
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { inferSourceFormat } from "../gedcom/source";
-import { applyFormatOverrides } from "../normalize/formatOverrides";
+import { applyFormatOverrides, applyPlaceOverrides, type FormatOverrides } from "../normalize/formatOverrides";
 import { detectPageMediaStyle, hasSourcePageMedia } from "../tools/sourceReshape";
 import { detectFormatDefaults } from "../normalize/formatDefaults";
 import type { NameLayout, PlaceLayout, SourceLayout } from "../normalize/types";
@@ -32,6 +32,10 @@ import type { WorkerRequest, WorkerResponse } from "./messages";
  *  - setStart       -> re-rank the last match result by distance to that person.
  */
 let profile: MainProfile | undefined;
+/** The Settings › GEDCOM overrides the main was parsed with — annotateCounts
+ *  must count with the same place format the review panel shows and the merge
+ *  applies, not with the file's bare habit. */
+let mainOverrides: FormatOverrides | undefined;
 let mainDataset: Dataset | undefined;
 let compareRaw: { fileName: string; dataset: Dataset } | undefined;
 let compareNormalized: Dataset | undefined;
@@ -99,6 +103,7 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
 
     if (req.role === "main") {
       mainDataset = dataset;
+      mainOverrides = req.formatOverrides;
       profile = applyFormatOverrides(inferMainProfile(dataset), req.formatOverrides);
       // A silent re-feed only rebuilds internal state (see ParseRequest.silent);
       // the main thread keeps its existing main file + edit tracking.
@@ -235,7 +240,10 @@ const rawLabel = (key: string) => key;
 /** Attach per-candidate "new" and "differing" field counts plus the importable
  *  ancestor/descendant counts for the results table. */
 function annotateCounts(result: MatchResult, main: Dataset, compare: Dataset): MatchResult {
-  const placeFmt = inferPlaceExportFormat(main);
+  // The same format the review rows and the merge use (mergePlaceFormat):
+  // counted without the overrides, a diff badge could disagree with the rows
+  // the panel actually shows.
+  const placeFmt = applyPlaceOverrides(inferPlaceExportFormat(main), mainOverrides);
   const maps = buildMatchMaps(result);
   const importable = (mainInd: Individual | undefined, compareInd: Individual | undefined, mode: TreeMode) => {
     const tree = buildPersonTree(rawLabel, mainInd, compareInd, main, compare, maps, mode);

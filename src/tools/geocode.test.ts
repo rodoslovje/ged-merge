@@ -5,13 +5,18 @@ import { serializeDataset } from "../gedcom/serialize";
 import { buildGazetteerIndex, parseGeoNamesLine, type GazEntry } from "../geo/gazetteer";
 import {
   applyGeocode,
+  buildWriteSet,
+  carryPickAcrossRename,
   chosenCoordFor,
   collectPlaceValues,
+  confidentCandidate,
   countGeocodePending,
   countryOf,
   isRegisterAddress,
   movePlaceForAddresses,
   placeAddrKey,
+  reconcileNoMatchAfterScan,
+  reconcilePicksAfterScan,
   renamePlaceValue,
   scanGeocode,
   type GeocodeRow,
@@ -131,6 +136,24 @@ describe("scanGeocode", () => {
     const scan = scanGeocode(ds, undefined, cached);
     expect(scan.rows.find((r) => r.key === "Kranj, Slovenija")!.cached).toBeUndefined();
     expect(scan.rows.find((r) => r.key === "Neznani Kraj XY")!.cached?.status).toBe("nomatch");
+  });
+});
+
+describe("confidentCandidate", () => {
+  const cand = (score: number) => ({ entry: parseGeoNamesLine(GAZ_ROWS[0])!, score });
+
+  it("holds bulk actions to a clear, high-scoring name match", () => {
+    expect(confidentCandidate([cand(0.99)])).toBe(true);
+    expect(confidentCandidate([cand(0.99), cand(0.9)])).toBe(true);
+  });
+
+  it("refuses a fuzzy guess, an ambiguous pair, and an empty list", () => {
+    // A row can be `confident` merely because the file already carries a
+    // coordinate for it — that must never let a fuzzy candidate through to
+    // the bulk rename, which is why the name's own confidence is separate.
+    expect(confidentCandidate([cand(0.89)])).toBe(false);
+    expect(confidentCandidate([cand(0.99), cand(0.97)])).toBe(false);
+    expect(confidentCandidate([])).toBe(false);
   });
 });
 
@@ -268,6 +291,90 @@ describe("renamePlaceValue", () => {
     renamePlaceValue(ds, "Stražišče,Kranj,Slovenia", "Stražišče, Kranj, Slovenija");
     const text = serializeDataset(ds);
     expect(text).toContain("2 PLAC Stražišče, Kranj, Slovenija\n3 MAP\n4 LATI N46.2331\n4 LONG E14.3308");
+  });
+
+  it("does not count a record whose place is unchanged and whose ADDR already has a value", () => {
+    // An unchanged place part plus an occupied ADDR writes nothing — reporting
+    // it as a changed record inflated the note and pushed an empty undo step.
+    const withAddr = buildFromText(`0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 BIRT
+2 PLAC Neznani Kraj XY
+2 ADDR Glavni trg 1
+0 TRLR
+`);
+    expect(renamePlaceValue(withAddr, "Neznani Kraj XY", "Neznani Kraj XY", "Glavni trg 2")).toHaveLength(0);
+  });
+});
+
+describe("staged review state", () => {
+  const row = (key: string, over: Partial<GeocodeRow> = {}): GeocodeRow => ({
+    key, count: 1, missing: 1, candidates: [], confident: false, missingIn: [], ...over,
+  });
+  const scanOf = (rows: GeocodeRow[], placed: GeocodeRow[] = []) => ({
+    rows, placed, coveredDistinct: 0, totalOccurrences: rows.length, coveredOccurrences: 0,
+  });
+  const pick = { coord: { lat: 46.1, lon: 14.2 }, label: "x" };
+
+  it("a rescan keeps picks and marks on surviving keys only, and seeds cached no-matches", () => {
+    // The incident this pins: renaming one row rescans the list, and every
+    // *other* row's staged work used to be at risk of silent discard.
+    const scan = scanOf(
+      [row("Kranj"), row("Neznano", { cached: { key: "Neznano", status: "nomatch", ts: 1 } })],
+      [row("Bled", { missing: 0, placed: true })],
+    );
+    const chosen = reconcilePicksAfterScan(scan, new Map([["Kranj", pick], ["Izginuli", pick], ["Bled", pick]]));
+    expect([...chosen.keys()]).toEqual(["Kranj", "Bled"]);
+    const noMatch = reconcileNoMatchAfterScan(scan, new Set(["Izginuli"]));
+    expect([...noMatch]).toEqual(["Neznano"]);
+  });
+
+  it("a rename carries the pick to the new key, unless that row has its own", () => {
+    const carried = carryPickAcrossRename(new Map([["Krajn", pick]]), "Krajn", "Kranj");
+    expect(carried.get("Kranj")).toBe(pick);
+    expect(carried.has("Krajn")).toBe(false);
+    // Merging into a row with staged work of its own: that one stands.
+    const own = { coord: { lat: 46.9, lon: 14.9 }, label: "own" };
+    const merged = carryPickAcrossRename(new Map([["Krajn", pick], ["Kranj", own]]), "Krajn", "Kranj");
+    expect(merged.get("Kranj")).toBe(own);
+    expect(merged.has("Krajn")).toBe(false);
+  });
+
+  it("the write set overwrites only for placed rows, and remembers only new no-matches", () => {
+    const scan = scanOf(
+      [row("Kranj"), row("Neznano", { cached: { key: "Neznano", status: "nomatch", ts: 1 } }), row("Novo")],
+      [row("Bled", { missing: 0, placed: true })],
+    );
+    const gov = { ...pick, govId: "object_1" };
+    const { assignments, toStore } = buildWriteSet(
+      scan,
+      new Map([["Kranj", gov], ["Bled", pick]]),
+      new Set(["Neznano", "Novo"]),
+      99,
+    );
+    // A pending row's pick fills gaps; only the placed row's is a re-geocode.
+    expect(assignments.get("Kranj")).toEqual({ coord: pick.coord, govId: "object_1" });
+    expect(assignments.get("Bled")).toEqual({ coord: pick.coord, overwrite: true });
+    // The already-cached no-match is not stored again.
+    expect(toStore).toEqual([{ key: "Novo", status: "nomatch", ts: 99 }]);
+  });
+});
+
+describe("applyGeocode write-noop precision", () => {
+  it("re-picking the position a value already holds writes nothing", () => {
+    // The file stores 5 decimals; a gazetteer candidate carries full precision.
+    // Compared exactly, re-accepting the very entry a value came from read as a
+    // change and rewrote every occurrence with byte-identical text.
+    const ds = buildFromText(SAMPLE);
+    const assignments = new Map([
+      ["Ljubljana, Slovenija", { coord: { lat: 46.051082, lon: 14.505129 }, overwrite: true }],
+    ]);
+    expect(applyGeocode(ds, assignments)).toHaveLength(0);
+    // A genuinely different position still overwrites.
+    const moved = new Map([["Ljubljana, Slovenija", { coord: { lat: 46.06, lon: 14.51 }, overwrite: true }]]);
+    expect(applyGeocode(ds, moved)).toHaveLength(1);
   });
 });
 

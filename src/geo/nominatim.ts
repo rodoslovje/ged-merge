@@ -90,9 +90,6 @@ export function parseNominatimResponse(data: unknown): NominatimResult[] {
     const name = row.name?.trim() || label.split(",")[0].trim();
     if (!name) continue;
     const result: NominatimResult = { coord: { lat, lon }, name, label: label || name };
-    // The chain's next level up, unless it merely repeats the name.
-    const parent = label.split(",")[1]?.trim();
-    if (parent && parent !== name) result.admin = parent;
     if (row.type) result.kind = row.type;
     if (row.category) result.category = row.category;
     if (row.address) {
@@ -107,6 +104,13 @@ export function parseNominatimResponse(data: unknown): NominatimResult[] {
       };
       if (Object.keys(parts).length) result.parts = parts;
     }
+    // The place this one sits in, for the slot the UI shows beside the name the
+    // way the registers' občina is shown. The structured parts are the real
+    // jurisdiction; the display line's second segment is only a fallback — for
+    // a house it is the *street* ("38, Kidričeva cesta, Kranj, …"), which is
+    // not an administrative parent.
+    const parent = result.parts?.admin ?? label.split(",")[1]?.trim();
+    if (parent && parent !== name) result.admin = parent;
     out.push(result);
   }
   return out;

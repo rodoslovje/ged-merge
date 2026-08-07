@@ -16,6 +16,24 @@ describe("parseNominatimResponse", () => {
     ]);
   });
 
+  it("shows a house's municipality, not its street, as the parent", () => {
+    // For a house the display line's second segment is the road — putting it
+    // in the slot the UI reserves for the administrative parent read like a
+    // municipality named "Kidričeva cesta". The structured parts are the real
+    // jurisdiction; the display line is only the fallback.
+    const rows = [
+      {
+        lat: "46.2389",
+        lon: "14.3556",
+        name: "38",
+        display_name: "38, Kidričeva cesta, Kranj, 4000 Kranj, Slovenija",
+        type: "house",
+        address: { house_number: "38", road: "Kidričeva cesta", city: "Kranj", municipality: "Kranj" },
+      },
+    ];
+    expect(parseNominatimResponse(rows)[0].admin).toBe("Kranj");
+  });
+
   it("leaves the parent off when there is none, or it repeats the name", () => {
     const rows = [
       { lat: "46", lon: "14", name: "Slovenija", display_name: "Slovenija" },

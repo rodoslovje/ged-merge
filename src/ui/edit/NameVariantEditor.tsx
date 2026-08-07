@@ -33,6 +33,11 @@ export function NameVariantEditor({
   const [surname, setSurname] = useState(name?.surname ?? "");
 
   function commitFields(nextGiven: string, nextSurname: string) {
+    // Only a real change may write: setAdditionalName canonicalizes the NAME
+    // line's slash form, so an unguarded blur would rewrite the user's own
+    // formatting on a mere click-in/click-out (same guard as NameEditor).
+    const current = person.names[index + 1];
+    if (nextGiven === (current?.given ?? "") && nextSurname === (current?.surname ?? "")) return;
     commit((indi) => setAdditionalName(indi, index, { given: nextGiven, surname: nextSurname }));
   }
 

@@ -82,6 +82,30 @@ test("merge candidates: day-exact pair matches, Living placeholders do not", asy
   await expect(page.locator(".candidate").first()).toContainText("Janez Novak");
 });
 
+test("a merge decision undoes and redoes as one step", async ({ page }) => {
+  // The unified undo stack's merge entries restore whole decision maps by
+  // value — previously the only uncovered entry kind. Confirm → undo → redo
+  // must land back on exactly the same decision.
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(MAIN);
+  await page.locator(".edit-person").first().waitFor({ timeout: 15000 });
+
+  await page.getByRole("button", { name: "Merge", exact: true }).click();
+  await page.locator("input.file-input").last().setInputFiles(COMPARE);
+  await page.locator(".candidate").first().waitFor({ timeout: 30000 });
+
+  await page.locator(".candidate").first().click();
+  const bar = page.locator(".compare-name-decisions");
+  await bar.getByRole("button", { name: "Confirm" }).click();
+  await expect(bar.locator(".decision.confirmed.active")).toBeVisible();
+
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(bar.locator(".decision.confirmed.active")).toHaveCount(0);
+
+  await page.keyboard.press("ControlOrMeta+Shift+z");
+  await expect(bar.locator(".decision.confirmed.active")).toBeVisible();
+});
+
 test("duplicate finder: same-named cousins with conflicting fathers are not flagged", async ({ page }) => {
   await page.goto("/");
   await page.locator("input.file-input").first().setInputFiles(COUSINS);

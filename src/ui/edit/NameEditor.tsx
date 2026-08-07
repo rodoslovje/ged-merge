@@ -87,6 +87,12 @@ export function NameEditor({
   }, []);
 
   function commitName(nextGiven: string, nextSurname: string) {
+    // Only a real change may write: setName canonicalizes the NAME line
+    // (slash form, spacing), so an unguarded blur would rewrite the user's own
+    // formatting on a mere click-in/click-out. Compared against the record's
+    // current parse, so an uncommitted merge suggestion still commits.
+    const current = primaryName(person);
+    if (nextGiven === (current?.given ?? "") && nextSurname === (current?.surname ?? "")) return;
     commit((indi) => setName(indi, { given: nextGiven, surname: nextSurname }));
   }
 

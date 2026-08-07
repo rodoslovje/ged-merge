@@ -261,6 +261,11 @@ export interface GedEvent {
   noteXref?: string;
   /** URLs (WWW/URL/_LINK/OBJE.FILE or embedded in text) attached to this event. */
   links?: string[];
+  /** The subset of `links` borne by the event's own direct link tags
+   *  (WWW/URL/…) — the only ones a link edit may rewrite. The rest live in
+   *  note text or shared media records: rewriting those as WWW lines would
+   *  duplicate them, and "removing" them would be a no-op. */
+  editableLinks?: string[];
   /** Source citations (`SOUR`) attached to this event. */
   sources?: SourceCitation[];
 }
@@ -276,6 +281,8 @@ export interface Individual {
   spouseOf: string[];
   /** URLs attached directly to the record (not to a specific event). */
   links?: string[];
+  /** The subset of `links` a link edit may rewrite — see GedEvent.editableLinks. */
+  editableLinks?: string[];
   /** Free-text NOTE records attached directly to the individual. */
   notes?: string[];
   /** The same notes with their URLs kept in place — present only when `notes`
@@ -309,6 +316,8 @@ export interface Family {
   events: GedEvent[]; // MARR, DIV, …
   /** URLs attached directly to the family record (not to a specific event). */
   links?: string[];
+  /** The subset of `links` a link edit may rewrite — see GedEvent.editableLinks. */
+  editableLinks?: string[];
   /** Free-text NOTE records attached directly to the family. */
   notes?: string[];
   /** The same notes with their URLs kept in place (see {@link Individual.notesWithLinks}). */

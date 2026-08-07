@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { type RecordPatch, type PendingEditApply, cloneRaw, coalescePatches, snapshotRecords, patchesFromSnapshots } from "./ui/historyTypes";
+import { type RecordPatch, type PendingEditApply, cloneRaw, coalescePatches, dropNoopPatches, snapshotRecords, patchesFromSnapshots } from "./ui/historyTypes";
 import { useUndoRedo } from "./edit-state/useUndoRedo";
 import { useTheme } from "./ui/useTheme";
 import { useMode } from "./ui/useMode";
@@ -25,7 +25,7 @@ import { buildSavePreview, type SavePreview } from "./save/buildSavePreview";
 import { removeRecordFromReport } from "./gedcom/editReport";
 import { defaultStartId } from "./match/relatives";
 import type { DatasetRole, WorkerRequest, WorkerResponse } from "./worker/messages";
-import { decisionKey, importKey, parseDecisionKey, parseImportKey, toggleDecisionStatus, type CandidateDecision, type ImportDirection, type MatchDecisionStatus } from "./review/types";
+import { decisionKey, importKey, parseDecisionKey, parseImportKey, toggleDecisionStatus, withFreshDecision, type CandidateDecision, type ImportDirection, type MatchDecisionStatus } from "./review/types";
 import { nowGedcomTime, stampChanCrea, todayGedcom } from "./gedcom/chanCrea";
 import { baseStem, downloadText } from "./ui/download";
 import { AutoMediaOffer, GedcomLoader } from "./ui/GedcomLoader";
@@ -355,6 +355,15 @@ function AppContent() {
         setSaveToast(t("match.failed", { message: msg.message }));
         return;
       }
+      // A parse (or parse failure) for a file the user has since superseded:
+      // when the slot is already loading a *different* file, this response
+      // belongs to the earlier load — accepting it would show stale data and,
+      // for the main, hand the dirty-tracking baseline the wrong dataset. The
+      // newer load's own response is on its way and wins by arriving last.
+      if (msg.type === "parsed" || msg.type === "error") {
+        const slot = msg.role === "main" ? main : compare;
+        if (slot.status === "loading" && slot.fileName !== msg.fileName) return;
+      }
       if (msg.type === "parsed") {
         const file = loadedFileFromParsed(msg);
         // slotLoaded also records lastMainFile when role is "main".
@@ -658,8 +667,11 @@ function AppContent() {
       dirty.resetOnLoad(main.file.dataset);
       sortEligiblePersonIdsRef.current = new Set();
     }
+  // mainLoadGen: two loads can overlap (load A, load B before A parses) with
+  // `status` reading "loaded" for both — the generation counter bumps per
+  // slotLoaded, so the baseline is re-taken from the file that actually won.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [main.status]);
+  }, [main.status, mainLoadGen]);
 
   // When the main finishes loading, default the start person to its root
   // individual if present. Attempted once per file (autoStartRef), so a user
@@ -1002,7 +1014,7 @@ function AppContent() {
     const key = decisionKey("individual", current.mainId, current.compareId);
     const wasRejected = decisions.get(key)?.status === "rejected";
     const before = new Map(decisions);
-    const after = new Map(decisions).set(key, stampMainRows(next, current.mainId, current.compareId));
+    const after = withFreshDecision(decisions, key, stampMainRows(next, current.mainId, current.compareId));
     undoRedo.push({ mode: "merge", before, after, mainId: current.mainId, compareId: current.compareId });
     dispatch({ type: "decisionsSet", decisions: after });
     if (next.status === "rejected" && !wasRejected) selectAfterReject(current.mainId, current.compareId);
@@ -1019,7 +1031,7 @@ function AppContent() {
     if (!parsed) return;
     const { mainId, compareId } = parsed;
     const before = new Map(decisions);
-    const after = new Map(decisions).set(key, stampMainRows(next, mainId, compareId));
+    const after = withFreshDecision(decisions, key, stampMainRows(next, mainId, compareId));
     undoRedo.push({ mode: "merge", before, after, mainId, compareId });
     dispatch({ type: "decisionsSet", decisions: after });
   }
@@ -1032,7 +1044,7 @@ function AppContent() {
       const key = decisionKey("individual", mainId, compareId);
       const before = decisionsRef.current;
       const next = toggleDecisionStatus(before.get(key), status);
-      const after = new Map(before).set(key, stampMainRows(next, mainId, compareId));
+      const after = withFreshDecision(before, key, stampMainRows(next, mainId, compareId));
       undoRedo.pushRef.current({ mode: "merge", before: new Map(before), after, mainId, compareId });
       dispatch({ type: "decisionsSet", decisions: after });
     },
@@ -1059,8 +1071,13 @@ function AppContent() {
 
   const handlePushEdit = useCallback(
     (patches: RecordPatch[], navigateTo?: string, redoNavigateTo?: string, stay?: boolean) => {
-      dirty.captureSnapshotsForPush(patches);
-      undoRedo.pushRef.current({ mode: "edit", patches, navigateTo, redoNavigateTo, ...(stay ? { stay } : {}) });
+      // A patch whose before and after are identical records nothing: pushing
+      // it would create an empty undo step and CHAN-stamp an untouched record
+      // at save time. Filtered here, centrally, so no caller has to remember.
+      const real = dropNoopPatches(patches);
+      if (real.length === 0) return;
+      dirty.captureSnapshotsForPush(real);
+      undoRedo.pushRef.current({ mode: "edit", patches: real, navigateTo, redoNavigateTo, ...(stay ? { stay } : {}) });
       bumpEdit();
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1070,7 +1087,8 @@ function AppContent() {
   /** Shared tail of every Tools-tab fix action: record the patch batch as one
    *  undo entry and mark each touched record dirty. Returns the patch count so
    *  callers can report how many records the fix touched. */
-  function applyToolPatches(patches: RecordPatch[]): number {
+  function applyToolPatches(rawPatches: RecordPatch[]): number {
+    const patches = dropNoopPatches(rawPatches);
     if (!mainDataset || patches.length === 0) return 0;
     // stay: undoing a whole-file tool batch keeps the user where they are —
     // there is no single person to show, and the Tools page they came from
