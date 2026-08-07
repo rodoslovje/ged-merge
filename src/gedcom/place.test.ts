@@ -226,6 +226,43 @@ describe("disambiguatesLocality", () => {
   });
 });
 
+describe("an administrative unit numbered like a house", () => {
+  it("keeps its number and stays a jurisdiction level", () => {
+    // A US census file is full of these, and read as houses they became
+    // address findings by the dozen — a compliance list offering to move
+    // twenty-eight enumeration districts onto ADDR lines.
+    for (const value of [
+      "Justice Precinct 4",
+      "Detroit Ward 19",
+      "Judicial Township 16",
+      "Election Precinct 7",
+      "Supervisorial District 1",
+      "Beat 2",
+    ]) {
+      const d = decomposePlace(`${value}, Reeves, Texas, United States`);
+      expect(d.locality, value).toBe(value);
+      expect(d.houseNumber, value).toBeUndefined();
+      expect(d.street, value).toBeUndefined();
+    }
+  });
+
+  it("stays a level even in the middle of a place", () => {
+    const d = decomposePlace("Area B, Port Arthur, Justice Precinct 2, Jefferson, Texas, United States");
+    expect(d.jurisdiction).toContain("Justice Precinct 2");
+    expect(d.street).toBeUndefined();
+    expect(d.houseNumber).toBeUndefined();
+  });
+
+  it("still reads a real house number on a street of that name", () => {
+    // The word before the number is what decides: "Ward Street 12" ends in
+    // "Street 12", not "Ward 12".
+    const d = decomposePlace("Ward Street 12, Kranj, Slovenija");
+    expect(d.houseNumber).toBe("12");
+    const village = decomposePlace("Črni vrh 35, Slovenija");
+    expect(village.houseNumber).toBe("35");
+  });
+});
+
 describe("a place value that is nothing but a country", () => {
   it("names that country and no locality", () => {
     // Read as a locality — which every leading segment otherwise is — these

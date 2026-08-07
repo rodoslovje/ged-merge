@@ -599,7 +599,20 @@ export function checkPlacesAgainstRegister(
   // the write then drops a stale one rather than inventing a line.
   for (const f of findings) {
     if (!f.official || !fmt) continue;
-    const form = placeFormFor(fmt, f.official, decomposePlace(f.official).country);
+    const country = decomposePlace(f.official).country;
+    // A `region` row is the one case the file's own labels for that *shape*
+    // would get wrong. Its correction drops the level that repeats or says
+    // nothing and keeps the lead — and the lead is the region, which is why the
+    // row is here at all. Labelled by shape, "Međimurje, Croatia" would take
+    // the two-level line every Croatian place uses and call a county a Place.
+    // Its own FORM already answers this: "Place, Regija, Country" minus the
+    // Place slot the file never had a settlement for is "Regija, Country".
+    const own = f.verdict === "region" ? placeFormFor(fmt, f.key, country) : undefined;
+    const ownLabels = own?.split(",") ?? [];
+    const form =
+      ownLabels.length === f.key.split(",").length && ownLabels.length === f.official.split(",").length + 1
+        ? ownLabels.slice(1).join(",")
+        : placeFormFor(fmt, f.official, country);
     if (form) f.officialForm = form;
   }
 

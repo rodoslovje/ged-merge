@@ -236,8 +236,29 @@ const HOUSE_TAIL = new RegExp(String.raw`\s+(${HOUSE_NUM_PART}(?:\s*\/\s*${HOUSE
  * street name of its own. */
 const BARE_HOUSE_NUMBER = new RegExp(String.raw`^${HOUSE_NUM_PART}(?:\s*\/\s*${HOUSE_NUM_PART})*$`);
 
+/**
+ * Administrative units a census names by number, whose value therefore *ends*
+ * in one without naming a house: "Justice Precinct 4", "Detroit Ward 19",
+ * "Judicial Township 16", "Election Precinct 7", "Supervisorial District 1",
+ * "Beat 2". A US file is full of them, and read as houses they became address
+ * findings by the dozen — a compliance list offering to move twenty-eight
+ * enumeration districts onto ADDR lines, and a geocoder trying to place them
+ * as buildings.
+ *
+ * Matched on the word *before* the number, so a real address on a street of
+ * that name is untouched: "Ward Street 12" ends in "Street 12", not "Ward 12".
+ */
+const NUMBERED_UNIT = /\b(?:ward|precinct|township|district|beat|range|borough|barangay|arrondissement|okrug|rajon)\s+\d/i;
+
+/** Whether a segment's trailing number belongs to a house, or merely numbers
+ *  an administrative unit ({@link NUMBERED_UNIT}). */
+function numbersAUnit(segment: string): boolean {
+  return NUMBERED_UNIT.test(segment);
+}
+
 /** Strip a trailing house number from a street/locality segment, leaving the name alone. */
 export function stripHouseNumber(segment: string): string {
+  if (numbersAUnit(segment)) return segment.trim();
   return segment.replace(HOUSE_TAIL, "").trim();
 }
 
@@ -368,7 +389,10 @@ export function decomposePlace(raw: string): PlaceComponents {
   // 3. Comma segments: locality, further jurisdictions, and any inline address.
   const segments = s.split(",").map(tidy).filter(Boolean);
   segments.forEach((seg, i) => {
-    const hm = seg.match(HOUSE_TAIL);
+    // A trailing number that merely numbers an administrative unit is not a
+    // house number, and the segment carrying it is a jurisdiction level like
+    // any other — see NUMBERED_UNIT.
+    const hm = numbersAUnit(seg) ? null : seg.match(HOUSE_TAIL);
     // A number-only segment is the house number for the surrounding place,
     // wherever it appears; treating it as a locality ("26 (Kapela)") or street
     // ("Hrašenski Vrh, 26, Kapela") would misfile — or, on a re-normalize,
@@ -404,7 +428,7 @@ export function decomposePlace(raw: string): PlaceComponents {
     if (FACILITY_WORDS.test(seg)) {
       // A landmark like "porodnišnica" / "pokopališče Blejska Dobrava".
       out.facility = out.facility ? `${out.facility}; ${seg}` : seg;
-    } else if (/\d/.test(seg)) {
+    } else if (/\d/.test(seg) && !numbersAUnit(seg)) {
       // An address segment: street ("Kidričeva 38/a") or "Locality 52".
       if (hm) out.houseNumber = normNum(hm[1]);
       const name = (hm ? seg.slice(0, hm.index) : seg).trim();
