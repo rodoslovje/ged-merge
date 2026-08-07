@@ -189,11 +189,23 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
   // Which of the page's work lists is on screen. They stay mounted (their
   // lookup results and staged picks must survive switching) and toggle with
   // display, like the app's Edit/Merge views.
-  const [tab, setTab] = useState<"places" | "addresses" | "register">("places");
+  const [pickedTab, setPickedTab] = useState<"places" | "addresses" | "register" | null>(null);
   // The compliance report is offered only where there is an authority to hold
   // the file to: an official national register (GURS, DGU). A crowd-sourced
   // directory can propose a coordinate but cannot say a spelling is wrong.
   const hasRegister = useMemo(() => !!index?.entries.some((e) => e.register), [index]);
+  // Until a tab is clicked, the page opens on the compliance report where there
+  // is a register to hold the file to — the directories load after the first
+  // render, so this cannot be a mere initial state. A pinned tab that stops
+  // existing (its directory deleted, its addresses renamed away) falls back
+  // rather than leaving the page blank.
+  const tab =
+    pickedTab === "register" && !hasRegister
+      ? "places"
+      : pickedTab === "addresses" && !addrRows.length
+        ? "places"
+        : (pickedTab ?? (hasRegister ? "register" : "places"));
+  const setTab = setPickedTab;
   // Run with the page's other scans, not on opening the tab: the tab's count is
   // the reason to open it, and a lookup per place is the same pass the places
   // list above already makes (over fewer of them).
@@ -636,16 +648,9 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
       {hasTabs && (
         <div className="tools-geo-tabs-row">
           <div className="tools-geo-tabs" role="tablist">
-            <button role="tab" aria-selected={tab === "places"} className={tab === "places" ? "active" : ""} onClick={() => setTab("places")}>
-              {t("tools.geocode.tab.places")} <span className="tools-chip-count">{scan.rows.length}</span>
-            </button>
-            {addrRows.length > 0 && (
-              <button role="tab" aria-selected={tab === "addresses"} className={tab === "addresses" ? "active" : ""} onClick={() => setTab("addresses")}>
-                {/* The worklist count: placed rows are in addrRows but hidden by
-                    default, so counting them would promise more than the tab shows. */}
-                {t("tools.geocode.tab.addresses")} <span className="tools-chip-count">{addrRows.filter((r) => !r.placed).length}</span>
-              </button>
-            )}
+            {/* Compliance leads: it is the one list that reads the whole file
+                rather than what is left to do, so it is where a session starts —
+                see what disagrees with the register, then go and place things. */}
             {hasRegister && (
               <button
                 role="tab"
@@ -659,6 +664,16 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
                 <span className="tools-chip-count">
                   {registerReport?.findings.filter((f) => !f.dismissed).length ?? 0}
                 </span>
+              </button>
+            )}
+            <button role="tab" aria-selected={tab === "places"} className={tab === "places" ? "active" : ""} onClick={() => setTab("places")}>
+              {t("tools.geocode.tab.places")} <span className="tools-chip-count">{scan.rows.length}</span>
+            </button>
+            {addrRows.length > 0 && (
+              <button role="tab" aria-selected={tab === "addresses"} className={tab === "addresses" ? "active" : ""} onClick={() => setTab("addresses")}>
+                {/* The worklist count: placed rows are in addrRows but hidden by
+                    default, so counting them would promise more than the tab shows. */}
+                {t("tools.geocode.tab.addresses")} <span className="tools-chip-count">{addrRows.filter((r) => !r.placed).length}</span>
               </button>
             )}
           </div>

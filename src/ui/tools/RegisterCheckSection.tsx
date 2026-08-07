@@ -12,6 +12,7 @@ import {
   type RegisterVerdict,
 } from "../../tools/registerCheck";
 import { foldSearch } from "../globalSearch";
+import { countryNameOf } from "../../geo/placeProposal";
 
 // The Register tab: every place the file writes in a country an official
 // register covers, held against that register, with the disagreements listed.
@@ -59,21 +60,52 @@ export function RegisterCheckSection({
   /** Re-read the decision cache after a dismissal is written. */
   onDecisionsChanged: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [verdictFilter, setVerdictFilter] = useState<"all" | RegisterVerdict>("all");
+  /** ISO code of the country on screen, or null for all of them. */
+  const [countryFilter, setCountryFilter] = useState<string | null>(null);
   const [showDismissed, setShowDismissed] = useState(false);
   const [applied, setApplied] = useState<number | null>(null);
 
+  // Two chip rows, faceted the way the places list's are: a chip's count
+  // respects every filter except its own row's, so the number on it is exactly
+  // how many rows clicking it puts on screen.
   const view = useMemo(() => {
     if (!report) return null;
     const pool = report.findings.filter((f) => showDismissed || !f.dismissed);
     const searched = query ? pool.filter((f) => foldSearch(f.key).includes(query)) : pool;
+
+    // One chip per country the findings are in — a file researched in one
+    // country has nothing to narrow, so the row only appears from two up.
+    const countries: string[] = [];
+    for (const f of pool) if (!countries.includes(f.country)) countries.push(f.country);
+    const activeCountry = countryFilter !== null && countries.includes(countryFilter) ? countryFilter : null;
+    const inCountry = (f: RegisterFinding) => activeCountry === null || f.country === activeCountry;
+    const inVerdict = (f: RegisterFinding) => verdictFilter === "all" || f.verdict === verdictFilter;
+
+    const countryChips = countries.map((code) => ({
+      code,
+      name: countryNameOf(code, i18n.language) ?? code,
+      count: searched.filter((f) => f.country === code && inVerdict(f)).length,
+    }));
+    countryChips.sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+    const countryAll = searched.filter(inVerdict).length;
+
     const counts = { notFound: 0, ambiguous: 0, admin: 0, spelling: 0, far: 0 };
-    for (const f of searched) counts[f.verdict]++;
-    const rows = verdictFilter === "all" ? searched : searched.filter((f) => f.verdict === verdictFilter);
+    for (const f of searched) if (inCountry(f)) counts[f.verdict]++;
+
+    const rows = searched.filter((f) => inVerdict(f) && inCountry(f));
     const dismissedTotal = report.findings.filter((f) => f.dismissed).length;
-    return { rows, counts, all: searched.length, dismissedTotal };
-  }, [report, query, verdictFilter, showDismissed]);
+    return {
+      rows,
+      counts,
+      all: searched.filter(inCountry).length,
+      countryChips,
+      countryAll,
+      activeCountry,
+      dismissedTotal,
+    };
+  }, [report, query, verdictFilter, countryFilter, showDismissed, i18n.language]);
 
   if (!report || !view) return null;
 
@@ -138,6 +170,25 @@ export function RegisterCheckSection({
 
       {report.findings.length > 0 && (
         <>
+          {view.countryChips.length > 1 && (
+            <div className="tools-chips">
+              <button
+                className={`tools-chip ${view.activeCountry === null ? "active" : ""}`}
+                onClick={() => setCountryFilter(null)}
+              >
+                {t("tools.geocode.filter.all")} <span className="tools-chip-count">{view.countryAll}</span>
+              </button>
+              {view.countryChips.map((c) => (
+                <button
+                  key={c.code}
+                  className={`tools-chip ${view.activeCountry === c.code ? "active" : ""}`}
+                  onClick={() => setCountryFilter(c.code)}
+                >
+                  {c.name} <span className="tools-chip-count">{c.count}</span>
+                </button>
+              ))}
+            </div>
+          )}
           <div className="tools-chips">
             <button
               className={`tools-chip ${verdictFilter === "all" ? "active" : ""}`}

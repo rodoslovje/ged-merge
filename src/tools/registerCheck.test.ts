@@ -156,6 +156,14 @@ describe("checkPlacesAgainstRegister", () => {
     expect(checkPlacesAgainstRegister(ds, osm, NO_DECISIONS).checked).toBe(0);
   });
 
+  it("labels each finding with the country it is in — the filter chips' key", () => {
+    const ds = fileWith(place("Sentjur, Slovenija"), place("Neznani Kraj XY, Slovenija"));
+    const { findings } = checkPlacesAgainstRegister(ds, REGISTER, NO_DECISIONS);
+    // Matched or not, a finding always names a covered country: the matched
+    // entry's, else the one the place itself writes.
+    expect(findings.map((f) => f.country)).toEqual(["SI", "SI"]);
+  });
+
   it("leaves house numbers to the address rows", () => {
     const ds = fileWith(place("Črni Vrh 35, Slovenija"));
     const report = checkPlacesAgainstRegister(ds, REGISTER, NO_DECISIONS);

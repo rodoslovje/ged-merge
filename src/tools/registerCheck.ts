@@ -68,6 +68,10 @@ export interface RegisterFinding {
   /** PLAC occurrences of this value in the file. */
   count: number;
   verdict: RegisterVerdict;
+  /** ISO country code the finding belongs to — the matched register entry's,
+   *  or the country the place itself names when nothing matched. Always one of
+   *  the covered countries, which is what makes it a filter. */
+  country: string;
   /** The locality as the file writes it. */
   written: string;
   /** The register entry the value resolves to (absent for `notFound`). */
@@ -219,6 +223,7 @@ export function checkPlacesAgainstRegister(
         key,
         count: g.count,
         verdict: "notFound",
+        country: wantCountry,
         written,
         dismissed: isDismissed(decisions, key, "notFound"),
       });
@@ -245,6 +250,7 @@ export function checkPlacesAgainstRegister(
           key,
           count: g.count,
           verdict: "ambiguous",
+          country: best.country,
           written,
           entry: best,
           alternatives: tied.map((c) => c.entry),
@@ -266,6 +272,7 @@ export function checkPlacesAgainstRegister(
         key,
         count: g.count,
         verdict: "admin",
+        country: best.country,
         written,
         entry: best,
         writtenAdmin: namedAdmin,
@@ -281,6 +288,7 @@ export function checkPlacesAgainstRegister(
         key,
         count: g.count,
         verdict: "spelling",
+        country: best.country,
         written,
         entry: best,
         ...(official ? { official } : {}),
@@ -297,6 +305,7 @@ export function checkPlacesAgainstRegister(
           key,
           count: g.count,
           verdict: "far",
+          country: best.country,
           written,
           entry: best,
           fileCoord,
