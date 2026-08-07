@@ -443,7 +443,7 @@ export const en = {
   "tools.geocode.official.bulkTooltip": "Rename every confident row shown to its register name and write the coordinate — one undoable step",
   "tools.geocode.tab.places": "Places",
   "tools.geocode.tab.addresses": "Addresses",
-  "tools.geocode.tab.register": "Register check",
+  "tools.geocode.tab.register": "Compliance",
   "tools.register.heading": "Places against the register",
   "tools.register.intro": "Every place the file writes in a country an official register covers is held against that register — its spelling, the municipality it belongs to, and the position it carries. Findings are for you to weigh, not errors: a register describes the country as it is today, while your file describes it as it was, so a name it no longer knows may well be the right one. Dismiss those and they stay off the list.",
   "tools.register.summary": "{{checked}} places checked against {{registers}}, {{ok}} agree.",

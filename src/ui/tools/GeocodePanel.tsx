@@ -194,15 +194,14 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
   // the file to: an official national register (GURS, DGU). A crowd-sourced
   // directory can propose a coordinate but cannot say a spelling is wrong.
   const hasRegister = useMemo(() => !!index?.entries.some((e) => e.register), [index]);
-  // Run once the tab has been opened, and from then on with every rescan: the
-  // check looks up every place in the file, placed ones included, which is a
-  // pass no one asked for while another tab is on screen.
-  const [registerSeen, setRegisterSeen] = useState(false);
+  // Run with the page's other scans, not on opening the tab: the tab's count is
+  // the reason to open it, and a lookup per place is the same pass the places
+  // list above already makes (over fewer of them).
   const registerReport = useMemo(
-    () => (registerSeen && decisions ? checkPlacesAgainstRegister(dataset, index, decisions) : null),
+    () => (hasRegister && decisions ? checkPlacesAgainstRegister(dataset, index, decisions) : null),
     // scanGen re-runs the check after a rename mutates the dataset in place.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [dataset, index, decisions, registerSeen, scanGen],
+    [dataset, index, decisions, hasRegister, scanGen],
   );
   // The tab-row slot the address and register sections portal their action
   // buttons into — their state (staged picks, filters) lives inside the
@@ -652,17 +651,14 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
                 role="tab"
                 aria-selected={tab === "register"}
                 className={tab === "register" ? "active" : ""}
-                onClick={() => {
-                  setRegisterSeen(true);
-                  setTab("register");
-                }}
+                onClick={() => setTab("register")}
               >
-                {/* No count until the check has run — the tab is what starts it,
-                    and a number guessed before it would be a promise. */}
-                {t("tools.geocode.tab.register")}
-                {registerReport && (
-                  <span className="tools-chip-count">{registerReport.findings.filter((f) => !f.dismissed).length}</span>
-                )}
+                {/* What is left to weigh: the dismissed findings are settled and
+                    off the list, so counting them would ask for work twice. */}
+                {t("tools.geocode.tab.register")}{" "}
+                <span className="tools-chip-count">
+                  {registerReport?.findings.filter((f) => !f.dismissed).length ?? 0}
+                </span>
               </button>
             )}
           </div>

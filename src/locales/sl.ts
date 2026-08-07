@@ -511,7 +511,7 @@ export const sl = {
   "tools.geocode.official.bulkTooltip": "Vse prikazane zanesljive vrstice preimenuje v registrsko ime in zapiše koordinato — ena poteza razveljavitve",
   "tools.geocode.tab.places": "Kraji",
   "tools.geocode.tab.addresses": "Naslovi",
-  "tools.geocode.tab.register": "Skladnost z registrom",
+  "tools.geocode.tab.register": "Skladnost",
   "tools.register.heading": "Kraji v primerjavi z registrom",
   "tools.register.intro": "Vsak kraj, ki ga datoteka piše v državi z uradnim registrom, se primerja z njim — zapis imena, občina, ki mu pripada, in koordinata, ki jo nosi. Najdbe so v presojo, ne napake: register opisuje državo, kakršna je danes, vaša datoteka pa, kakršna je bila, zato je ime, ki ga register ne pozna več, pogosto povsem pravo. Take zavrnite in ne bodo več na seznamu.",
   "tools.register.summary": "Preverjenih {{checked}} krajev z registrom {{registers}}, ujemanj {{ok}}.",
