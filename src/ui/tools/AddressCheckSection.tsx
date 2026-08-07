@@ -164,8 +164,26 @@ export function AddressCheckSection({
     const matched = query
       ? pool.filter((f) => foldSearch(f.place).includes(query) || foldSearch(f.written).includes(query))
       : pool;
+    const rows =
+      verdictFilter === "all" || verdictFilter === ADDRESS_ASIDE
+        ? matched
+        : matched.filter((f) => f.verdict === verdictFilter);
+    // Grouped under the place the houses belong to, the way the Addresses tab
+    // groups its own rows: eleven findings in Ravna Gora are one village's
+    // eleven houses, and repeating the place on every line said so eleven
+    // times while hiding that they were one place at all.
+    const byPlace = new Map<string, AddressFinding[]>();
+    for (const f of rows) {
+      const list = byPlace.get(f.place);
+      if (list) list.push(f);
+      else byPlace.set(f.place, [f]);
+    }
+    const groups = [...byPlace]
+      .map(([place, findings]) => ({ place, findings }))
+      .sort((a, b) => b.findings.length - a.findings.length || a.place.localeCompare(b.place));
     return {
-      rows: verdictFilter === "all" || verdictFilter === ADDRESS_ASIDE ? matched : matched.filter((f) => f.verdict === verdictFilter),
+      rows,
+      groups,
       counts,
       all: counts.addrElsewhere + counts.addrSpelling,
       dismissedTotal: report.findings.filter((f) => f.dismissed).length,
@@ -241,7 +259,19 @@ export function AddressCheckSection({
               <AppliedNote count={applied} />
               {!view.rows.length && <p className="tools-clean">{t("tools.search.noMatch")}</p>}
               <ul className="tools-tree tools-register-list">
-                {view.rows.slice(0, MAX_ROWS).map((f) => {
+                {view.groups.map((group) => (
+                  <li key={group.place} className="tools-geo-addr-group">
+                    {/* The place the houses under it belong to, named once. */}
+                    <div className="tools-tree-row">
+                      <span className="tools-tree-label lead">
+                        {group.place || t("tools.geocode.addr.noPlace")}
+                      </span>
+                      <span className="tools-geo-count">
+                        {t("tools.registerAddr.groupMeta", { count: group.findings.length })}
+                      </span>
+                    </div>
+                    <ul className="tools-tree">
+                {group.findings.map((f) => {
                   const isOpen = peopleOpen.has(f.key);
                   return (
                     <li key={f.key} className={`tools-tree-node${f.dismissed ? " dismissed" : ""}`}>
@@ -258,12 +288,7 @@ export function AddressCheckSection({
                         // marks a *position* everywhere in the app, and this
                         // row holds none — it is two ways of writing one house,
                         // and the pin said otherwise twice per line.
-                        place={
-                          <>
-                            {f.written}
-                            <span className="tools-register-place"> · {f.place}</span>
-                          </>
-                        }
+                        place={f.written}
                       >
                         {f.official && (
                           <>
@@ -327,6 +352,9 @@ export function AddressCheckSection({
                     </li>
                   );
                 })}
+                    </ul>
+                  </li>
+                ))}
               </ul>
               {view.rows.length > MAX_ROWS && (
                 <p className="tools-clean">{t("tools.geocode.more", { count: view.rows.length - MAX_ROWS })}</p>

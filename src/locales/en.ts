@@ -468,6 +468,8 @@ export const en = {
   "tools.register.tab.places": "Places",
   "tools.register.tab.addresses": "Addresses",
   "tools.registerAddr.intro": "Every address in a country whose address register you have downloaded, held against it: the street spelt otherwise, or the house filed under a different settlement. House numbers the register no longer has are counted rather than listed — village numbering was redone wholesale in the twentieth century, so an old number missing from it is usually right as it stands.",
+  "tools.registerAddr.groupMeta_one": "{{count}} address",
+  "tools.registerAddr.groupMeta_other": "{{count}} addresses",
   "tools.registerAddr.check_one": "Check {{count}} address",
   "tools.registerAddr.check_other": "Check {{count}} addresses",
   "tools.registerAddr.running": "Checking… {{done}} / {{total}}",
