@@ -1064,13 +1064,18 @@
             </p>
             <p>
               The compliance check has a second half where an address register is downloaded:
-              its own <strong>Addresses</strong> tab beside <strong>Places</strong> on the <strong>Compliance</strong> page, which the Places tree opens beside <em>Geocoding</em>. It is a button rather than a report —
-              the places are checked as the tab opens, addresses only when you ask — and the tab appears only for a
+              its own <strong>Addresses</strong> tab beside <strong>Places</strong> on the <strong>Compliance</strong> page, which the Places tree opens beside <em>Geocoding</em>. Both halves check
+              themselves as their tab opens, and this one appears only for a
               country whose register you hold. What it reports is disagreement: a street the register spells otherwise
               (<em>Kidričeva 38</em> against its <em>Kidričeva cesta 38</em>), and a house the register files under a
               different settlement than your place names, which is the one worth acting on since the events may belong
-              to the next village. <strong>Use official spelling</strong> rewrites the address on every event carrying
-              it, and a finding can be dismissed like any other. House numbers the register no longer has are
+              to the next village. The arrow shows exactly what your record would say — the register's spelling, keeping
+              any note of your own the value ends with, so <em>Kidričeva 38 (porodnišnica)</em> becomes
+              <em>Kidričeva cesta 38 (porodnišnica)</em> — and opening the row shows the register's own full line and
+              the map of where it puts the house. <strong>Use official spelling</strong> rewrites the address on every
+              event carrying it; <strong>Take official addresses</strong> beside the tabs does that for every house on
+              the list in one undoable step. A finding can be hidden like any other, and brought back with
+              <strong>Show hidden</strong>. House numbers the register no longer has are
               <em>counted, not listed</em> — village numbering was redone wholesale in the twentieth century, so an old
               number missing from a modern register is usually right as it stands; their chip shows how many there are
               and opens them if you want to look.
@@ -1100,7 +1105,13 @@
               <em>Stražišče</em> or <em>Draga</em> from another, both countries reusing settlement names freely.
             </p>
             <p>
-              The review list keeps a long file manageable. When the file's places span more than one country, a row of
+              A house nothing will ever answer — old numbering, a farm long gone — can be set aside with
+              <strong>Hide</strong>: it leaves the worklist and stops counting as work left, and
+              <strong>Show hidden</strong> lists it again. Like a picked coordinate it is staged until you write, and
+              like a dismissal it is remembered in this browser and never written to the file.
+            </p>
+            <p>
+              The review list keeps a long file manageable. A row of
               country buttons sits above the list, most places first — click one to narrow the list to that country,
               <em>All</em> to widen it again. A second row narrows by the kind of work left:
               <strong>Confident</strong> holds the letter-perfect, unambiguous matches,
