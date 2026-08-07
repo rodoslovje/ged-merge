@@ -220,6 +220,30 @@ describe("checkPlacesAgainstRegister", () => {
     expect(findings[0].people.sort()).toEqual(["@I1@", "@I2@"]);
   });
 
+  it("recognizes a cemetery standing in a place the directory does know", () => {
+    // The register has no "Saint Mary Cemetery"; it has Kranj, which the value
+    // names one level down. That is a level to move, not a place to research.
+    const ds = fileWith(place("Saint Mary Cemetery, Kranj, Slovenija"));
+    const fmt: PlaceTargetFormat = { layout: "structured-addr", separator: ", " };
+    const { findings } = checkPlacesAgainstRegister(ds, REGISTER, NO_DECISIONS, fmt);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].verdict).toBe("site");
+    expect(findings[0].written).toBe("Saint Mary Cemetery");
+    expect(findings[0].official).toBe("Kranj, Slovenija");
+    expect(findings[0].officialAddr).toBe("Saint Mary Cemetery");
+    expect(findings[0].entry?.name).toBe("Kranj");
+  });
+
+  it("drops the empty segment a split leaves behind, and stays unknown when nothing under it matches", () => {
+    const ds = fileWith(place("Adkin District, , Kranj, Slovenija"), place("Nikjer, Nikjer drugje, Slovenija"));
+    const { findings } = checkPlacesAgainstRegister(ds, REGISTER, NO_DECISIONS);
+    const site = findings.find((f) => f.verdict === "site")!;
+    expect(site.official).toBe("Kranj, Slovenija");
+    // No ADDR to move to in a file that packs its addresses into the place.
+    expect(site.officialAddr).toBeUndefined();
+    expect(findings.find((f) => f.key.startsWith("Nikjer"))?.verdict).toBe("notFound");
+  });
+
   it("leaves house numbers to the address rows where the file itself writes them in the place", () => {
     const ds = fileWith(place("Črni Vrh 35, Slovenija"));
     const report = checkPlacesAgainstRegister(ds, REGISTER, NO_DECISIONS);

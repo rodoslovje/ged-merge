@@ -46,6 +46,7 @@ const BADGE: Record<RegisterVerdict, string> = {
   ambiguous: "reuse",
   admin: "remove",
   spelling: "official",
+  site: "new",
   address: "new",
   far: "reuse",
 };
@@ -192,7 +193,7 @@ export function RegisterCheckSection({
     countryChips.sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
     const countryAll = searched.filter(inVerdict).length;
 
-    const counts: Record<RegisterVerdict, number> = { notFound: 0, ambiguous: 0, admin: 0, spelling: 0, address: 0, far: 0 };
+    const counts: Record<RegisterVerdict, number> = { notFound: 0, ambiguous: 0, admin: 0, spelling: 0, site: 0, address: 0, far: 0 };
     for (const f of searched) if (inCountry(f)) counts[f.verdict]++;
 
     const rows = searched.filter((f) => inVerdict(f) && inCountry(f));
@@ -289,8 +290,18 @@ export function RegisterCheckSection({
         </div>
       )}
       <p className="tools-intro">{t("tools.register.intro")}</p>
-      <p className="tools-fix-hint">{summary}</p>
-      {report.skipped > 0 && <p className="tools-fix-hint">{t("tools.register.skipped", { count: report.skipped })}</p>}
+      {/* One line of standing: how much agrees, out of how much was looked at,
+          against what — with the places nothing could judge counted at its end
+          rather than given a paragraph of their own. */}
+      <p className="tools-fix-hint">
+        {summary}
+        {report.skipped > 0 && (
+          <>
+            {" · "}
+            <span title={t("tools.register.skippedHint")}>{t("tools.register.skipped", { count: report.skipped })}</span>
+          </>
+        )}
+      </p>
       {applied !== null && <p className="tools-clean tools-clean--ok">{t("tools.geocode.applied", { count: applied })}</p>}
 
       {report.registers.length > 0 && report.findings.length === 0 && (
@@ -591,6 +602,9 @@ function optionsOf(f: RegisterFinding, style: PlaceStyle, wider?: readonly GazEn
   if ((f.verdict === "spelling" || f.verdict === "admin") && f.entry) {
     return [{ entry: f.entry, place: f.official ?? placeTextOf(f.entry, style) }, ...widened];
   }
+  if (f.verdict === "site" && f.entry && f.official) {
+    return [{ entry: f.entry, place: f.official, ...(f.officialAddr ? { addr: f.officialAddr } : {}) }, ...widened];
+  }
   if (f.verdict === "notFound") return widened;
   // The place/address split: the settlement left in PLAC, the house on its own
   // ADDR line, both already shaped by the file's own layout.
@@ -613,7 +627,10 @@ function optionsOf(f: RegisterFinding, style: PlaceStyle, wider?: readonly GazEn
 function chosenIndex(f: RegisterFinding, options: RegisterOption[], picked: ReadonlyMap<string, number>): number {
   const own = picked.get(f.key);
   if (own !== undefined && own < options.length) return own;
-  return f.verdict !== "ambiguous" && options.length > 0 ? 0 : -1;
+  // `site` joins `ambiguous` in waiting: a cemetery written into the place is a
+  // habit as much as a mistake, and moving it is a decision per row — not
+  // something a bulk button should do to a whole file on its own.
+  return f.verdict !== "ambiguous" && f.verdict !== "site" && options.length > 0 ? 0 : -1;
 }
 
 function placeTextOf(entry: GazEntry, style: PlaceStyle): string {

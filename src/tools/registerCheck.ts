@@ -33,19 +33,23 @@ import type { GeocodeDecision } from "../persist/geoDb";
  *   apart — no single entry can be said to be the one meant
  * - `admin` the file files the place under a municipality the register doesn't
  * - `spelling` the register writes the name differently
+ * - `site` the directory knows the place from its second level on: the first
+ *   names a cemetery, a township, an election precinct — something inside the
+ *   place rather than the place itself
  * - `address` the value carries a house address, in a file that keeps addresses
  *   on their own `ADDR` line — the one finding about the file's own convention
  *   rather than the register's, and the reason it belongs here is that a place
  *   holding a house number can never be held to a register of settlements
  * - `far` the coordinate in the file is nowhere near the register's position
  */
-export type RegisterVerdict = "notFound" | "ambiguous" | "admin" | "spelling" | "address" | "far";
+export type RegisterVerdict = "notFound" | "ambiguous" | "admin" | "spelling" | "site" | "address" | "far";
 
 export const REGISTER_VERDICTS: RegisterVerdict[] = [
   "notFound",
   "ambiguous",
   "admin",
   "spelling",
+  "site",
   "address",
   "far",
 ];
@@ -157,6 +161,22 @@ function replaceSegment(place: string, from: string, to: string): string | undef
   if (at < 0 || from === to) return undefined;
   segments[at] = segments[at].replace(from, to);
   return segments.join(",");
+}
+
+/** The place value without its most specific level, and that level on its own:
+ *  "Saint Mary Nativity Cemetery, Crest Hill, Will, Illinois, United States"
+ *  splits into the cemetery and the place it stands in. Empty segments left
+ *  behind by the split go with it — files write "Adkin District, , McDowell,
+ *  …" — but nothing else is touched, so the rest reads exactly as the file
+ *  wrote it. Undefined when there is no level left underneath. */
+function splitLeadingLevel(place: string): { lead: string; rest: string } | undefined {
+  const segments = place.split(",");
+  const lead = segments[0]?.trim();
+  if (!lead) return undefined;
+  let i = 1;
+  while (i < segments.length && !segments[i].trim()) i++;
+  const rest = segments.slice(i).join(",").trim();
+  return rest ? { lead, rest } : undefined;
 }
 
 /** The place's own name for this entry, when the file writes it under one of
@@ -318,9 +338,13 @@ export function checkPlacesAgainstRegister(
     // judges it against a map, but not to assert here that the register spells
     // the place differently or files it elsewhere. Left in, "Slovenia" is
     // reported as misspelling "Šlovrenc".
-    const candidates = lookupPlace(index, key).filter(
-      (c) => covered.has(c.entry.country) && (sameName(written, c.entry) || c.score >= PARENT_QUALIFIED),
-    );
+    const answersFor = (value: string) => {
+      const name = (decomposePlace(value).locality ?? value.split(",")[0]).trim();
+      return lookupPlace(index, value).filter(
+        (c) => covered.has(c.entry.country) && (sameName(name, c.entry) || c.score >= PARENT_QUALIFIED),
+      );
+    };
+    const candidates = answersFor(key);
     if (!candidates.length) {
       // Nothing matched. Only a value that says which country it is in can be
       // held to a register — otherwise we would report every foreign place in a
@@ -330,6 +354,27 @@ export function checkPlacesAgainstRegister(
         continue;
       }
       checked++;
+      // Before calling it unknown: the directory may know the place perfectly
+      // well from its second level on, the first naming a cemetery, a township
+      // or an election precinct — something standing *in* the place rather than
+      // the place itself. That is a level to move, not a place to research, and
+      // where the file keeps addresses apart it has somewhere to move to.
+      const split = splitLeadingLevel(key);
+      const under = split ? answersFor(split.rest) : [];
+      if (split && under.length) {
+        findings.push({
+          key,
+          count: g.count,
+          people: [...g.people],
+          verdict: "site",
+          written: split.lead,
+          entry: under[0].entry,
+          official: split.rest,
+          ...(fmt?.layout === "structured-addr" ? { officialAddr: split.lead } : {}),
+          dismissed: isDismissed(decisions, key, "site"),
+        });
+        continue;
+      }
       findings.push({
         key,
         count: g.count,
