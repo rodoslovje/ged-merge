@@ -43,11 +43,19 @@ const MAX_ROWS = 300;
  * change and takes it with one click — but "Use official names" passes them by
  * until the row is picked by hand.
  *
- * Both are corrections to the *record* rather than to the register's wording of
- * a place: a county standing in for the village in it, or a level left blank,
- * is a habit as much as a mistake, and one worth reading before writing.
+ * These are corrections to the *record* rather than to the register's wording
+ * of a place: a county standing in for the village in it, or a level left
+ * blank, is a habit as much as a mistake, and one worth reading before writing.
+ *
+ * `address` joins them for a sharper reason. It does not reword a value, it
+ * takes text out of PLAC and writes it on the event's own ADDR line — and what
+ * it reads as a house is a value ending in a number, which a US census file
+ * trips on every row: "Justice Precinct 4", "Detroit Ward 19", "Ward 3" are
+ * enumeration districts, and no bulk action should turn twenty-eight of them
+ * into street addresses because they end in a digit. Offered per row, where the
+ * reader can see it is a precinct; never swept.
  */
-const BULK_HELD_BACK: RegisterVerdict[] = ["region", "notFound"];
+const BULK_HELD_BACK: RegisterVerdict[] = ["region", "notFound", "address"];
 
 const BADGE: Record<RegisterVerdict, string> = {
   notFound: "remove",
@@ -497,7 +505,13 @@ export function RegisterCheckSection({
                         )}
                         <span className="tools-geo-cand-name">{options[chosen].place}</span>
                         {options[chosen].addr && (
-                          <span className="tools-geo-row-addr">· {options[chosen].addr}</span>
+                          // Not .tools-geo-row-addr: that class draws the pin
+                          // that marks a value as a house address, and what
+                          // this row proposes to split off is only *shaped*
+                          // like one — a value ending in a number. "Justice
+                          // Precinct 4" and "Detroit Ward 19" are census
+                          // districts, and a pin on them asserts a house.
+                          <span className="tools-register-place">· {options[chosen].addr}</span>
                         )}
                       </>
                     ) : (
@@ -689,7 +703,7 @@ export function RegisterCheckSection({
                                   <span className="tools-geo-cand-name">{o.place}</span>
                                   {/* The house the split moves onto the event's
                                       own ADDR line, shown where it will land. */}
-                                  {o.addr && <span className="tools-geo-row-addr">ADDR: {o.addr}</span>}
+                                  {o.addr && <span className="tools-register-place">ADDR: {o.addr}</span>}
                                   {o.entry && (
                                     <>
                                       {/* The coordinate opens the map on this
