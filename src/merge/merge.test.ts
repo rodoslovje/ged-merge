@@ -1692,6 +1692,29 @@ describe("an edit made after the match was confirmed wins", () => {
     expect(serializeGedcom(records)).toContain("1 NAME Jan;ez /Novak/");
     expect(report.deferred).toEqual([]);
   });
+
+  it("gates the record-level Sources row: a citation added after confirming is not stripped", () => {
+    // "Incoming" on the Sources row replaces the main's SOUR citations — the
+    // one destructive overwrite that used to bypass the mainFields gate. The
+    // main's citation here was added after the confirmation snapshot (which
+    // recorded a different Sources text), so the choice stands down.
+    const mainSourced = dataset(wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 SOUR @S1@\n1 BIRT\n2 DATE 1850\n" +
+        "0 @S1@ SOUR\n1 TITL Krstna knjiga\n",
+    ));
+    const compareSourced = dataset(wrap(
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 SOUR @S9@\n1 BIRT\n2 DATE 1850\n" +
+        "0 @S9@ SOUR\n1 TITL Poročna knjiga\n",
+    ));
+    const { records, report } = mergeDecisions(
+      mainSourced, compareSourced,
+      confirmedAt({ links: "incoming" }, { links: "Stara knjiga" }),
+      NO_MATCHES, tr,
+    );
+    const out = serializeGedcom(records);
+    expect(out).toContain("1 SOUR @S1@");
+    expect(report.deferred.some((d) => d.reason === "merge.reason.editedAfterConfirm")).toBe(true);
+  });
 });
 
 describe("mergeDecisions — name parts are independent choices", () => {

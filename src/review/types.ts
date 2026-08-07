@@ -186,6 +186,26 @@ export function decisionKey(kind: MatchKind, mainId: string, compareId: string):
   return `${kind}:${mainId}:${compareId}`;
 }
 
+/**
+ * The decisions map with `key` set to `value` — and moved to the END of the
+ * map's iteration order. Merge apply collects shared family-row picks
+ * (`famFields`) across both spouses' decisions in iteration order with
+ * last-write-wins, so "the fresher confirmation wins" is only true if an
+ * update really is last: `Map.set` on an existing key keeps its original
+ * position, which silently made it *first*-confirmation-wins for any pair
+ * updated in place.
+ */
+export function withFreshDecision(
+  prev: ReadonlyMap<string, CandidateDecision>,
+  key: string,
+  value: CandidateDecision,
+): Map<string, CandidateDecision> {
+  const next = new Map(prev);
+  next.delete(key);
+  next.set(key, value);
+  return next;
+}
+
 /** A {@link decisionKey} split back into its parts. */
 export interface ParsedDecisionKey {
   kind: MatchKind;

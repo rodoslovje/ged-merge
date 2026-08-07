@@ -178,6 +178,13 @@ export function ComparePanel({
 
   function renderChoiceCell(row: FieldRow, choice: FieldChoice) {
     if (forceMain) return <span className="gm-main-tag">{t("compare.keepMain")}</span>;
+    // Two files naming different fathers/mothers: the merge never replaces a
+    // linked parent (the disagreement is kept and listed in the save report),
+    // so offering Incoming/Both here would promise what apply refuses. An
+    // incoming-only parent still gets the buttons — an empty slot is fillable.
+    if (row.state === "conflict" && (row.key === "father" || row.key === "mother")) {
+      return <span className="gm-main-tag" title={t("compare.parentConflict")}>{t("compare.keepMain")}</span>;
+    }
     if (row.state === "conflict" || row.state === "incoming-only") {
       // A single-cardinality field (sex, an event's date/place/…) can't hold
       // two values, so "Both" would just replace — don't offer a choice that

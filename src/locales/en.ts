@@ -1359,6 +1359,7 @@ export const en = {
   "compare.conflict": "conflict",
   "compare.conflicts": "conflicts",
   "compare.keepMain": "main",
+  "compare.parentConflict": "The two files name different parents. A merge never replaces a linked parent — your file's stays, the disagreement is listed in the save report, and Edit is the place to change the link.",
   "compare.relativesHint": "The years shown identify the person — they are not merged here. Each relative's own dates and names arrive when you confirm that person's own match.",
   "compare.decisionTooltip": "{{action}} this match ({{key}})",
   "choice.main.label": "M",
