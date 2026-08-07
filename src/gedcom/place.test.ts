@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { decomposePlace, isUnknownPlaceValue, localityParts, parsePlace, stripParishLabel } from "./place";
+import {
+  decomposePlace,
+  disambiguatesLocality,
+  isCountryName,
+  isUnknownPlaceValue,
+  localityParts,
+  parsePlace,
+  stripParishLabel,
+} from "./place";
 
 describe("decomposePlace", () => {
   it("splits a structured comma place (Renko PLAC)", () => {
@@ -191,5 +199,42 @@ describe("stripParishLabel", () => {
 
   it("leaves an unrelated agency value untouched", () => {
     expect(stripParishLabel("Maribor hospital")).toBeUndefined();
+  });
+});
+
+describe("disambiguatesLocality", () => {
+  it("rejects village numbering that repeats the locality's own name", () => {
+    // "Breg 12" is house 12 of Breg ob Kokri, not a clue pointing at some other
+    // village whose addresses are also written "Breg N".
+    expect(disambiguatesLocality("Breg", "Breg ob Kokri")).toBe(false);
+    expect(disambiguatesLocality("Bitnje", "Zgornje Bitnje")).toBe(false);
+    expect(disambiguatesLocality("Zgornje Bitnje", "Zgornje Bitnje")).toBe(false);
+  });
+
+  it("accepts a name with no word in common — a genuinely different settlement", () => {
+    expect(disambiguatesLocality("Gorenja Sava", "Kranj")).toBe(true);
+  });
+
+  it("accepts a real street even when it shares the locality's name", () => {
+    expect(disambiguatesLocality("Hafnarjeva pot", "Stražišče")).toBe(true);
+    expect(disambiguatesLocality("Breg ulica", "Breg ob Kokri")).toBe(true);
+  });
+
+  it("has nothing to say without a name, and nothing to weigh against without a locality", () => {
+    expect(disambiguatesLocality(undefined, "Kranj")).toBe(false);
+    expect(disambiguatesLocality("Kidričeva", undefined)).toBe(true);
+  });
+});
+
+describe("isCountryName", () => {
+  it("knows a country by its English or local name, whatever the case", () => {
+    expect(isCountryName("Italy")).toBe(true);
+    expect(isCountryName(" slovenija ")).toBe(true);
+    expect(isCountryName("UNITED STATES")).toBe(true);
+  });
+
+  it("is false for a settlement and for nothing at all", () => {
+    expect(isCountryName("Kranj")).toBe(false);
+    expect(isCountryName(undefined)).toBe(false);
   });
 });

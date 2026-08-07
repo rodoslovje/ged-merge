@@ -264,6 +264,42 @@ const STREET_WORDS = /\b(?:ulica|cesta|trg|naselje|nabrežje|drevored)\b/i;
 export function looksLikeStreet(segment: string): boolean {
   return STREET_WORDS.test(segment);
 }
+
+/** The whole words of a place name, lowercased, for comparing two names word by word. */
+const nameWords = (s: string): string[] =>
+  s.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+
+/**
+ * Whether an address name says something the locality doesn't already say — the
+ * test for using it as a hint to a *different*, more specific locality.
+ *
+ * Village numbering writes the settlement's own name before the house number,
+ * often shortened: "Breg 12" under "Breg ob Kokri", "Bitnje 165" under "Zgornje
+ * Bitnje". That name identifies no street and disambiguates nothing, so it must
+ * never pull the record to another settlement that happens to share the word —
+ * "Breg 12" is house 12 of this Breg, not evidence of Breg ob Savi. Any whole
+ * word in common is enough to disqualify the name: leaving a place as written is
+ * always safe, moving it to the wrong village is not.
+ *
+ * A name carrying a street-type word ("Hafnarjeva pot", "Kidričeva cesta") is a
+ * real street and always qualifies, as does one with no word in common
+ * ("Gorenja Sava" under "Kranj") — those are the cases the hint exists for.
+ */
+export function disambiguatesLocality(name: string | undefined, locality: string | undefined): boolean {
+  if (!name) return false;
+  if (!locality) return true;
+  if (looksLikeStreet(name)) return true;
+  const localityWords = new Set(nameWords(locality));
+  return !nameWords(name).some((w) => localityWords.has(w));
+}
+
+/**
+ * Whether a place name is a country in its own right. Such a name has no
+ * jurisdiction above it, so nothing may be appended to it as a parent level.
+ */
+export function isCountryName(s: string | undefined): boolean {
+  return !!s && COUNTRIES.has(s.trim().toLowerCase());
+}
 /** Facility/landmark words: such a segment is a place detail, not a jurisdiction. */
 const FACILITY_WORDS =
   /\b(?:porodnišnica|bolnišnica|bolnica|pokopališče|grad|samostan|cerkev|kapela)\b/i;

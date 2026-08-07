@@ -1,4 +1,12 @@
-import { addressStreetName, decomposePlace, parseCoordPair, parsePlace, stripHouseNumber } from "../gedcom/place";
+import {
+  addressStreetName,
+  decomposePlace,
+  disambiguatesLocality,
+  isCountryName,
+  parseCoordPair,
+  parsePlace,
+  stripHouseNumber,
+} from "../gedcom/place";
 import { canonicalPlaceToken } from "../match/place";
 import { LINK_TAGS, looksLikeUrl } from "../gedcom/builder";
 import { detectPrivacyStyleIfAny } from "../gedcom/private";
@@ -545,7 +553,11 @@ export function inferPlaceHierarchy(dataset: Dataset): PlaceHierarchy {
     const p = decomposePlace(placNode.value);
     if (!p.locality) return;
 
-    if (p.jurisdiction.length >= 2) {
+    // A country is the top of the hierarchy: nothing stands above it. A file
+    // that writes "Italy, Italy" (an import repeating the country as its own
+    // municipality) must not teach that a bare "Italy" is missing a level —
+    // every plain country name in the file would then be doubled.
+    if (p.jurisdiction.length >= 2 && !isCountryName(p.locality)) {
       bumpStr(getForms(parentTally, p.locality.toLowerCase()), p.jurisdiction.slice(1).join(CHAIN_SEP));
     }
 
@@ -562,9 +574,13 @@ export function inferPlaceHierarchy(dataset: Dataset): PlaceHierarchy {
     // attached) or a separate ADDR (structured layout, already number-free).
     // We learn streets only, not parishes: a parish often spans many villages,
     // so its most-common locality is an unreliable plurality, not a real clue.
+    // Learn only names that really disambiguate: village numbering repeats the
+    // settlement's own name before the house number ("Breg 12" in "Breg ob
+    // Kokri"), and learning that as a street would teach the reshaper to move
+    // every other "Breg N" address to this village (see disambiguatesLocality).
     const streetName = (p.street && stripHouseNumber(p.street)) || addressStreetName(addrNode?.value);
-    if (streetName && streetName.toLowerCase() !== p.locality.toLowerCase()) {
-      bumpStr(getForms(streetTally, streetName.toLowerCase()), p.locality);
+    if (disambiguatesLocality(streetName, p.locality)) {
+      bumpStr(getForms(streetTally, streetName!.toLowerCase()), p.locality);
     }
   });
 

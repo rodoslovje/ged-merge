@@ -1,4 +1,10 @@
-import { addressStreetName, decomposePlace, looksLikeFacility, stripHouseNumber } from "../gedcom/place";
+import {
+  addressStreetName,
+  decomposePlace,
+  disambiguatesLocality,
+  looksLikeFacility,
+  stripHouseNumber,
+} from "../gedcom/place";
 import { canonicalPlaceToken } from "../match/place";
 import type { PlaceTargetFormat, ReformattedPlace } from "./types";
 
@@ -59,23 +65,30 @@ export function reformatPlace(
     // the same number-free form inferPlaceHierarchy learned it as.
     const streetHint = street ? stripHouseNumber(street) : undefined;
     const addrStreet = addressStreetName(addrRaw);
-    // A "street" that is just the locality repeated before a house number
-    // ("Zgornje Bitnje 165") is not a disambiguating street — the locality is
-    // already as specific as it gets. Using it as a hint would relocate the
-    // record to wherever that same name happens to appear as a street under a
-    // *different* locality in the main, overriding an already-correct place.
+    // A "street" that is just the locality's own name before a house number
+    // ("Zgornje Bitnje 165", "Breg 12" under "Breg ob Kokri") is not a
+    // disambiguating street — the locality is already as specific as it gets.
+    // Using it as a hint would relocate the record to wherever that same name
+    // happens to appear under a *different* locality in the main, overriding an
+    // already-correct place (see disambiguatesLocality).
     const { localityOfStreet } = fmt.hierarchy;
     const streetLocality = (s: string | undefined): string | undefined =>
-      s && s.toLowerCase() !== locality?.toLowerCase()
-        ? localityOfStreet.get(s.toLowerCase())
-        : undefined;
+      disambiguatesLocality(s, locality) ? localityOfStreet.get(s!.toLowerCase()) : undefined;
     const hinted = streetLocality(streetHint) || streetLocality(addrStreet);
+    let relocated = false;
     if (hinted && hinted.toLowerCase() !== locality?.toLowerCase()) {
       locality = hinted;
       jurisdiction = [hinted, ...jurisdiction.slice(1)];
+      relocated = true;
     }
+    // Fill in the levels above the locality: the ones the incoming place omits,
+    // and — when the street just moved the record to a different locality — the
+    // ones it brought along from the old one, which are no longer its own. A
+    // village does not inherit its neighbour's municipality just because the
+    // two chains are the same length. Only when the main knows no chain for the
+    // new locality does the old tail stand, for want of anything better.
     const parents = locality && fmt.hierarchy.parentOf.get(locality.toLowerCase());
-    if (parents && parents.length > jurisdiction.length - 1) {
+    if (parents && (relocated || parents.length > jurisdiction.length - 1)) {
       jurisdiction = [jurisdiction[0] ?? locality, ...parents];
     }
   }
