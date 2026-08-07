@@ -188,12 +188,14 @@ function abbreviates(host: string | undefined, settlement: string | undefined): 
  * `addressStreetName` already yields "the name the number sits on" for either
  * shape, so the only question left is whether that name *is* the settlement.
  *
+ * Both registers are read this way: the query shape is the same, and the country
+ * the value names decides which of them the query is marked for.
+ *
  * Returns one query per house number the value names — several when the numbering
  * changed over time ("21a / 53"), so every candidate house can be offered. Empty
  * when there is no house number to look up, when no settlement can be identified
- * (a bare "Slovenska cesta 9" names no town), or when either value names a country
- * other than Slovenia — the register covers only Slovenia, so querying it would be
- * pointless traffic.
+ * (a bare "Slovenska cesta 9" names no town), or when the value names a country
+ * neither register covers — asking either would be pointless traffic.
  */
 export function rnQueriesFrom(place: string | undefined, address: string | undefined): RnQuery[] {
   // A house recorded under both its old and its new street name is two whole

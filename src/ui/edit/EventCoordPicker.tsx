@@ -22,10 +22,12 @@ import { usePhone } from "../usePhone";
 // event may name a different address than the next), which is exactly the grain
 // the Edit view works at.
 //
-// Two lookups, because the address register is Slovenia-only: GURS for a
-// Slovenian house number (exact, official), and Nominatim for anywhere else —
-// so a Vienna or Chicago address is served too. Both sit behind the same
-// online-lookups opt-in and only run on their button.
+// Two lookups, because the address registers cover two countries: GURS for a
+// Slovenian house number and the downloaded DGU register for a Croatian one
+// (exact, official, either way), and Nominatim for anywhere else — so a Vienna
+// or Chicago address is served too. Both run only on their button. The
+// online-lookups opt-in gates the ones that go over the wire; the Croatian
+// register is already in this browser, so it answers either way.
 
 /** The preferences this file reads — subscribed field by field, so an
  *  unrelated one changing leaves it alone (see useSettingsSlice). */
