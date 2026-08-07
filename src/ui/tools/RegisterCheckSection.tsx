@@ -150,6 +150,16 @@ export function RegisterCheckSection({
     setOpen((prev) => new Set(prev).add(key));
   };
   const pick = (key: string, index: number) => setPicked((prev) => new Map(prev).set(key, index));
+  // A checked radio fires no change event, so taking a pick back needs the
+  // click itself — the same pattern as the places and addresses tabs. Without
+  // it a mispick on an `ambiguous` row is irrevocable and silently joins the
+  // bulk-rename count.
+  const unpick = (key: string) =>
+    setPicked((prev) => {
+      const next = new Map(prev);
+      next.delete(key);
+      return next;
+    });
 
   // A rename, an undo or an edit elsewhere re-runs the check, and the rows it
   // settles leave the list. Their open state and picks go with them — the same
@@ -518,6 +528,7 @@ export function RegisterCheckSection({
                                     aria-label={o.place}
                                     checked={chosen === i}
                                     onChange={() => pick(f.key, i)}
+                                    onClick={() => chosen === i && unpick(f.key)}
                                   />
                                   <span className="tools-geo-cand-num">{i + 1}</span>
                                   <span className="tools-geo-cand-name">{o.place}</span>

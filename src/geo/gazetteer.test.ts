@@ -447,6 +447,62 @@ describe("municipalities from the RPE join", () => {
     const hits = lookupPlace(buildGazetteerIndex(soteska(names)), "Soteska, Šentjakob ob Savi, Slovenija");
     expect(hits[0].score).toBeCloseTo(hits[1].score, 6);
   });
+
+  it("demotes even a sole candidate when the named parent is a municipality the directory knows", () => {
+    // The file writes the Dolenjske Toplice Soteska; the directory only holds
+    // the Kamnik one (plus another settlement that teaches it the municipality
+    // name). A single wrong-občina entry is not a tie — it is the wrong
+    // village, and it must not reach bulk-accept confidence.
+    const entries = soteska(names).filter((e) => e.admin === "Kamnik");
+    const teacher = soteska(names).find((e) => e.admin === "Dolenjske Toplice")!;
+    const index = buildGazetteerIndex([...entries, { ...teacher, name: "Podturn" }]);
+    const hits = lookupPlace(index, "Soteska, Dolenjske Toplice, Slovenija");
+    expect(hits).toHaveLength(1);
+    expect(hits[0].score).toBeLessThan(HIGH_CONFIDENCE);
+  });
+
+  it("keeps a sole candidate's confidence when the named parent is nothing the directory can check", () => {
+    const index = buildGazetteerIndex(soteska(names).filter((e) => e.admin === "Kamnik"));
+    // "Gorenjska" is a region, not a municipality the directory knows: the
+    // candidate cannot be held against it, so its score stands.
+    const hits = lookupPlace(index, "Soteska, Gorenjska, Slovenija");
+    expect(hits[0].score).toBeGreaterThanOrEqual(HIGH_CONFIDENCE);
+  });
+});
+
+describe("lookupPlace twin collapse across saint spellings", () => {
+  const entry = (name: string, over: Partial<GazEntry> = {}): GazEntry => ({
+    name, ascii: "", alt: [], lat: 46.24, lon: 14.34, fclass: "P", country: "SI", admin1: "", population: 100, ...over,
+  });
+
+  it("collapses the register's abbreviation and an import's spelt-out name at one coordinate", () => {
+    // GURS writes "Sv. Duh", an OSM import "Sveti Duh", for the same village.
+    // Left apart they score 1.0 and 0.98 — inside the ambiguity gap — and every
+    // saint-named settlement in a two-directory country reads as ambiguous.
+    const index = buildGazetteerIndex([
+      entry("Sv. Duh", { register: "SI-GURS" }),
+      entry("Sveti Duh", { lat: 46.241, lon: 14.341 }),
+    ]);
+    const hits = lookupPlace(index, "Sveti Duh, Slovenija");
+    // The survivor is the best answer *for this string* — the exact spelling —
+    // and it now stands alone at full confidence instead of tying its twin.
+    expect(hits).toHaveLength(1);
+    expect(hits[0].entry.name).toBe("Sveti Duh");
+    expect(hits[0].score).toBe(1);
+    // The name search ties the pair on rank instead, so there the register
+    // entry is the one kept.
+    const found = searchGazetteer(index, "Sveti Duh");
+    expect(found).toHaveLength(1);
+    expect(found[0].register).toBe("SI-GURS");
+  });
+
+  it("keeps same-named saints genuinely far apart separate", () => {
+    const index = buildGazetteerIndex([
+      entry("Sv. Duh", { register: "SI-GURS" }),
+      entry("Sveti Duh", { lat: 46.7, lon: 15.6 }),
+    ]);
+    expect(lookupPlace(index, "Sveti Duh, Slovenija")).toHaveLength(2);
+  });
 });
 
 /** One feature of the DGU register of geographical names. */

@@ -830,6 +830,11 @@ export interface GazetteerIndex {
   buckets: Map<string, number[]>;
   /** `"HR:12"` (country:admin1) → every name that division goes by. */
   divisions?: Map<string, string[]>;
+  /** Country → folded names of every municipality/division the directory
+   *  knows for it. A place value naming one of these as a parent claims a
+   *  jurisdiction the directory can check — a candidate somewhere else is not
+   *  a weaker answer but a wrong one (see lookupPlace). */
+  adminNames?: Map<string, Set<string>>;
 }
 
 /**
@@ -871,6 +876,15 @@ export function buildGazetteerIndex(entries: GazEntry[], divisions?: Map<string,
   const byName = new Map<string, number[]>();
   const saints = new Map<string, number[]>();
   const buckets = new Map<string, number[]>();
+  const adminNames = new Map<string, Set<string>>();
+  const addAdmin = (country: string, name: string | undefined) => {
+    if (!name) return;
+    const folded = foldToken(name);
+    if (!folded) return;
+    const set = adminNames.get(country);
+    if (set) set.add(folded);
+    else adminNames.set(country, new Set([folded]));
+  };
   const add = (map: Map<string, number[]>, key: string, i: number) => {
     if (!key) return;
     const list = map.get(key);
@@ -896,8 +910,15 @@ export function buildGazetteerIndex(entries: GazEntry[], divisions?: Map<string,
       const key = name && saintKey(name);
       if (key && key !== foldToken(name)) add(saints, key, i);
     }
+    addAdmin(e.country, e.admin);
   }
-  return { entries, byName, saints, buckets, ...(divisions ? { divisions } : {}) };
+  if (divisions) {
+    for (const [key, names] of divisions) {
+      const country = key.split(":")[0];
+      for (const name of names) addAdmin(country, name);
+    }
+  }
+  return { entries, byName, saints, buckets, adminNames, ...(divisions ? { divisions } : {}) };
 }
 
 /** One proposed match for a place string. */
@@ -1087,11 +1108,24 @@ function lookupPlaceUncached(index: GazetteerIndex, rawPlace: string): GazCandid
     }
     return parentInName(foldToken(e.name));
   };
-  if (parentSpelling.size && candidates.some((c) => matchedParent(c.entry) !== undefined)) {
+  if (parentSpelling.size) {
+    // A sibling candidate in a named parent breaks the tie downward, as before.
+    // But even a *sole* candidate is demoted when a named parent is a
+    // municipality the directory knows and the candidate is not in it: the file
+    // wrote "Sveti Duh, Škofja Loka" and the only entry the index holds is the
+    // Bloke one — that is not a tie, it is the wrong village, and it must not
+    // reach bulk-accept confidence. When no named parent is anything the
+    // directory can check (a region, a historic province), the tie stands.
+    const anyMatched = candidates.some((c) => matchedParent(c.entry) !== undefined);
     for (const c of candidates) {
       const spelling = matchedParent(c.entry);
-      if (spelling === undefined) c.score *= ADMIN_MISMATCH;
-      else c.adminDisplay = spelling;
+      if (spelling !== undefined) {
+        c.adminDisplay = spelling;
+        continue;
+      }
+      const known = index.adminNames?.get(c.entry.country);
+      const namesKnownAdmin = known !== undefined && [...parentSpelling.keys()].some((f) => known.has(f));
+      if (anyMatched || namesKnownAdmin) c.score *= ADMIN_MISMATCH;
     }
   }
 
@@ -1109,16 +1143,20 @@ function lookupPlaceUncached(index: GazetteerIndex, rawPlace: string): GazCandid
   // entry. Same-named places genuinely far apart stay separate.
   const merged: GazCandidate[] = [];
   for (const c of candidates) {
-    const folded = foldToken(c.entry.name);
-    const twin = merged.some(
-      (k) =>
-        foldToken(k.entry.name) === folded &&
-        Math.abs(k.entry.lat - c.entry.lat) < DUPLICATE_DEG &&
-        Math.abs(k.entry.lon - c.entry.lon) < DUPLICATE_DEG,
-    );
-    if (!twin) merged.push(c);
+    if (!merged.some((k) => isTwin(k.entry, c.entry))) merged.push(c);
   }
   return merged.slice(0, MAX_CANDIDATES);
+}
+
+/** The same settlement described by two gazetteers: near-identical position and
+ *  the same name — compared through {@link saintKey}, so GURS's "Sv. Duh" and
+ *  an OSM import's "Sveti Duh" at one coordinate collapse like any other twin
+ *  pair instead of posing as an ambiguity. */
+function isTwin(a: GazEntry, b: GazEntry): boolean {
+  if (Math.abs(a.lat - b.lat) >= DUPLICATE_DEG || Math.abs(a.lon - b.lon) >= DUPLICATE_DEG) return false;
+  const nameA = saintKey(a.name) || foldToken(a.name);
+  const nameB = saintKey(b.name) || foldToken(b.name);
+  return nameA === nameB;
 }
 
 /**
@@ -1144,12 +1182,12 @@ export function searchGazetteer(index: GazetteerIndex, rawQuery: string, limit =
   // and a place by its German exonym ("Bischoflack"), and neither shares the
   // typed text's opening two characters. This runs once per lookup, on the
   // user's click — not per keystroke — so the pass is affordable.
+  const saintQuery = saintKey(locality);
   const scored: { entry: GazEntry; rank: number }[] = [];
   for (const e of index.entries) {
     if (wantCountry && e.country !== wantCountry) continue;
     // 0 = the whole name, 1 = a prefix of it, 2 = contained anywhere.
     let rank = 3;
-    const saintQuery = saintKey(locality);
     for (const raw of [e.name, e.ascii, ...e.alt]) {
       if (!raw) continue;
       const n = foldToken(raw);
@@ -1173,14 +1211,7 @@ export function searchGazetteer(index: GazetteerIndex, rawQuery: string, limit =
   // first, which the sort already made the authoritative one.
   const out: GazEntry[] = [];
   for (const { entry } of scored) {
-    const name = foldToken(entry.name);
-    const twin = out.some(
-      (k) =>
-        foldToken(k.name) === name &&
-        Math.abs(k.lat - entry.lat) < DUPLICATE_DEG &&
-        Math.abs(k.lon - entry.lon) < DUPLICATE_DEG,
-    );
-    if (!twin) out.push(entry);
+    if (!out.some((k) => isTwin(k, entry))) out.push(entry);
     if (out.length >= limit) break;
   }
   return out;

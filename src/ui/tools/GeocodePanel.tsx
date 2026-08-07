@@ -4,6 +4,7 @@ import type { Dataset, GeoCoord } from "../../gedcom/types";
 import {
   chosenCoordFor,
   collectFileCoords,
+  confidentCandidate,
   countryOf,
   placeAddrKey,
   scanGeocode,
@@ -522,13 +523,19 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
 
   // "Take official names": rows whose best proposal is the register's longer
   // (or differently cased) spelling of the very place they write — confident
-  // ones only, so a fuzzy guess never renames anything in bulk. Scoped to the
-  // filtered rows, like the chips: what you see is what the button takes.
+  // *candidates* only, so a fuzzy guess never renames anything in bulk. The
+  // row-level `confident` flag is not enough here: a row is also confident
+  // merely because the file already carries a coordinate for it, and that says
+  // nothing about the candidate's name. A row the file has placed keeps its
+  // own coordinate through the rename. Scoped to the filtered rows, like the
+  // chips: what you see is what the button takes.
   const officialFor = (row: GeocodeRow): OfficialRename | undefined => {
     const cand = row.candidates[0];
-    if (!cand || !row.confident || noMatch.has(row.key)) return undefined;
+    if (!cand || !confidentCandidate(row.candidates) || noMatch.has(row.key)) return undefined;
     const to = replaceLocality(row.key, cand.entry.name);
-    return to ? { from: row.key, to, assignment: { coord: { lat: cand.entry.lat, lon: cand.entry.lon } } } : undefined;
+    if (!to) return undefined;
+    const coord = row.fileCoord ?? { lat: cand.entry.lat, lon: cand.entry.lon };
+    return { from: row.key, to, assignment: { coord } };
   };
   const officialRenames = rows.flatMap((r) => officialFor(r) ?? []);
   const takeOfficialNames = () => {

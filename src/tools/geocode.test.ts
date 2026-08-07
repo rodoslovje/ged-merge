@@ -7,6 +7,7 @@ import {
   applyGeocode,
   chosenCoordFor,
   collectPlaceValues,
+  confidentCandidate,
   countGeocodePending,
   countryOf,
   isRegisterAddress,
@@ -131,6 +132,24 @@ describe("scanGeocode", () => {
     const scan = scanGeocode(ds, undefined, cached);
     expect(scan.rows.find((r) => r.key === "Kranj, Slovenija")!.cached).toBeUndefined();
     expect(scan.rows.find((r) => r.key === "Neznani Kraj XY")!.cached?.status).toBe("nomatch");
+  });
+});
+
+describe("confidentCandidate", () => {
+  const cand = (score: number) => ({ entry: parseGeoNamesLine(GAZ_ROWS[0])!, score });
+
+  it("holds bulk actions to a clear, high-scoring name match", () => {
+    expect(confidentCandidate([cand(0.99)])).toBe(true);
+    expect(confidentCandidate([cand(0.99), cand(0.9)])).toBe(true);
+  });
+
+  it("refuses a fuzzy guess, an ambiguous pair, and an empty list", () => {
+    // A row can be `confident` merely because the file already carries a
+    // coordinate for it — that must never let a fuzzy candidate through to
+    // the bulk rename, which is why the name's own confidence is separate.
+    expect(confidentCandidate([cand(0.89)])).toBe(false);
+    expect(confidentCandidate([cand(0.99), cand(0.97)])).toBe(false);
+    expect(confidentCandidate([])).toBe(false);
   });
 });
 
