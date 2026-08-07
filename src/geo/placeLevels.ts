@@ -35,6 +35,38 @@ const LEVEL_WORDS: Record<ParentLevel, string[]> = {
   admin: ["obcina", "opcina", "opstina", "municipality", "commune", "comune", "gemeinde", "kreis", "upravna enota", "okres"],
 };
 
+/** Words that name a *kind* of jurisdiction rather than the jurisdiction: what
+ *  separates "Zagrebačka" from "Zagrebačka županija", and "Zagreb" from "Grad
+ *  Zagreb". Everything else in a name identifies it. */
+const UNIT_WORDS = new Set([
+  "zupanija", "obcina", "opcina", "opstina", "okraj", "okres", "kotar",
+  "county", "district", "municipality", "city", "town", "grad", "mesto", "mjesto",
+  "gemeinde", "kreis", "comune", "province", "provincia",
+]);
+
+function withoutUnitWords(folded: string): string {
+  return folded.split(" ").filter((w) => !UNIT_WORDS.has(w)).join(" ");
+}
+
+/**
+ * Two names for one administrative body: equal once folded and once the words
+ * naming the kind of unit are set aside, so a file's "Zagrebačka županija" is
+ * the register's "Zagrebačka".
+ *
+ * Nothing looser. This used to accept one name *contained* in the other, which
+ * quietly equates places that merely share a stem — Kranj with Kranjska Gora,
+ * and every Croatian county with the town it is named after ("Požega" inside
+ * "Požega-Slavonia", "Sisak" inside "Sisak-Moslavina").
+ */
+export function sameUnitName(a: string, b: string): boolean {
+  const x = foldToken(a);
+  const y = foldToken(b);
+  if (!x || !y) return false;
+  if (x === y) return true;
+  const stripped = withoutUnitWords(x);
+  return !!stripped && stripped === withoutUnitWords(y);
+}
+
 /** The level a `FORM` label names, when it names one of the two at all. */
 function levelOfLabel(label: string): ParentLevel | undefined {
   const folded = foldToken(label);
@@ -66,6 +98,10 @@ export interface PlaceParentLevels {
   divisionNameOf(entry: GazEntry): string | undefined;
   /** Every division name in this country, for recognizing a segment as one. */
   divisionNamesIn(country: string): readonly string[];
+  /** Which division of this country a name stands for (`"HR:20"`), if any —
+   *  how a place value's segment is recognized as naming a county rather than
+   *  a settlement, and how two spellings are told to be the same county. */
+  divisionKeyIn(country: string, name: string): string | undefined;
 }
 
 /** A file that has no places yet, or an index with nothing in it: municipality
@@ -76,6 +112,7 @@ export const MUNICIPALITY_LEVELS: PlaceParentLevels = {
   divisionNamesOf: () => [],
   divisionNameOf: () => undefined,
   divisionNamesIn: () => [],
+  divisionKeyIn: () => undefined,
 };
 
 /** The division key an entry is filed under, e.g. `"HR:11"`. */
@@ -201,11 +238,26 @@ export function inferPlaceParentLevels(
     return names[Math.min(preferredRank, names.length - 1)];
   };
 
+  // Exact spelling first — the register's own name lists cover the official
+  // form, the bare adjective and the English one — then the looser test, for a
+  // file that appends or drops the word naming the kind of unit.
+  const divisionKeyIn = (country: string, name: string): string | undefined => {
+    const folded = foldToken(name.trim());
+    if (!folded) return undefined;
+    const exact = divisionOfName.get(folded);
+    if (exact?.startsWith(`${country}:`)) return exact;
+    for (const [key, names] of namesOfDivision) {
+      if (key.startsWith(`${country}:`) && names.some((n) => sameUnitName(n, name))) return key;
+    }
+    return undefined;
+  };
+
   return {
     levelOf: (country) => levels.get(country) ?? "admin",
     divisionNamesOf,
     divisionNameOf,
     divisionNamesIn: (country) => divisionsByCountry.get(country) ?? [],
+    divisionKeyIn,
     // No division on the entry (the register could not join one) leaves the
     // municipality: a level too low is still true, an invented one is not.
     parentOf: (entry) =>

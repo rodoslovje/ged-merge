@@ -38,6 +38,7 @@ const MAX_ROWS = 300;
  *  loud one, a different spelling the mildest. */
 const BADGE: Record<RegisterVerdict, string> = {
   notFound: "remove",
+  region: "new",
   ambiguous: "reuse",
   admin: "remove",
   spelling: "official",
@@ -197,7 +198,7 @@ export function RegisterCheckSection({
     countryChips.sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
     const countryAll = searched.filter(inVerdict).length;
 
-    const counts: Record<RegisterVerdict, number> = { notFound: 0, ambiguous: 0, admin: 0, spelling: 0, site: 0, address: 0, far: 0 };
+    const counts = Object.fromEntries(REGISTER_VERDICTS.map((v) => [v, 0])) as Record<RegisterVerdict, number>;
     for (const f of searched) if (inCountry(f)) counts[f.verdict]++;
 
     const rows = searched.filter((f) => inVerdict(f) && inCountry(f));
@@ -631,7 +632,13 @@ function optionsOf(f: RegisterFinding, style: PlaceStyle, wider?: readonly GazEn
   if (f.verdict === "site" && f.entry && f.official) {
     return [{ entry: f.entry, place: f.official, ...(f.officialAddr ? { addr: f.officialAddr } : {}) }, ...widened];
   }
-  if (f.verdict === "notFound") return widened;
+  // A name the directory knows as a county, and an unknown one carrying a level
+  // that says nothing, both answer with the value one level shorter. There is
+  // no register entry behind it: the correction is to the writing, not a place.
+  if ((f.verdict === "region" || f.verdict === "notFound") && f.official) {
+    return [{ place: f.official }, ...widened];
+  }
+  if (f.verdict === "notFound" || f.verdict === "region") return widened;
   // The place/address split: the settlement left in PLAC, the house on its own
   // ADDR line, both already shaped by the file's own layout.
   if (f.verdict === "address" && f.official && f.officialAddr) {
@@ -653,10 +660,15 @@ function optionsOf(f: RegisterFinding, style: PlaceStyle, wider?: readonly GazEn
 function chosenIndex(f: RegisterFinding, options: RegisterOption[], picked: ReadonlyMap<string, number>): number {
   const own = picked.get(f.key);
   if (own !== undefined && own < options.length) return own;
-  // `site` joins `ambiguous` in waiting: a cemetery written into the place is a
-  // habit as much as a mistake, and moving it is a decision per row — not
-  // something a bulk button should do to a whole file on its own.
-  return f.verdict !== "ambiguous" && f.verdict !== "site" && options.length > 0 ? 0 : -1;
+  // `site` and `region` join `ambiguous` in waiting: a cemetery written into
+  // the place, or a county standing in for the village in it, is a habit as
+  // much as a mistake, and rewriting one is a decision per row — not something
+  // a bulk button should do to a whole file on its own.
+  // A place the register does not hold waits for the same reason: its only
+  // answer is a level dropped, and that is a judgement about the record.
+  const waits =
+    f.verdict === "ambiguous" || f.verdict === "site" || f.verdict === "region" || f.verdict === "notFound";
+  return !waits && options.length > 0 ? 0 : -1;
 }
 
 function placeTextOf(entry: GazEntry, style: PlaceStyle): string {

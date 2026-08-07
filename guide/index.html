@@ -1208,7 +1208,9 @@
               place in a country any loaded directory covers is held against it — GURS for Slovenia, DGU for Croatia,
               but equally an OpenStreetMap download for Austria or a GeoNames file for the United States — and only the
               disagreements are listed, each under the one word for what disagrees: <strong>Unknown</strong>
-              (no settlement of that name in the country the place names), <strong>Ambiguous</strong> (the name fits
+              (no settlement of that name in the country the place names), <strong>Region</strong> (the name is one
+              the directory knows as a county or region rather than a settlement — an event known only by the wider
+              area it happened in, which no register of settlements can ever match), <strong>Ambiguous</strong> (the name fits
               more than one entry and nothing tells them apart), <strong>Jurisdiction</strong> (the
               directory files the settlement under a parent your place does not name),
               <strong>Spelling</strong> (diacritics, capitalisation, or a longer official form), <strong>Extra
@@ -1230,7 +1232,12 @@
               A correction is offered at the same level, and in your own wording of it — <em>Lika-Senj</em> for a file
               that writes county names in English, <em>Ličko-senjska županija</em> for one that writes them in full.
               Where your own names cannot settle it (Croatia has both a Karlovac county and a Karlovac city), your
-              file's own <code>PLAC</code>.<code>FORM</code> labels do. Those labels are shown under the summary line,
+              file's own <code>PLAC</code>.<code>FORM</code> labels do. The same knowledge is what recognises a
+              <strong>Region</strong>: a value whose own name is a county needs no settlement found for it, and where
+              such a value carries a level that says nothing — the county written twice over, <em>Međimurje,
+              Međimurje, Croatia</em>, or a level left blank by an export, <em>Slavonia, , Croatia</em> — the row
+              offers the same place one comma shorter. It waits for your click rather than joining the bulk rename:
+              a wider area standing in for the village in it is a habit as much as a mistake. Those labels are shown under the summary line,
               one per country — <em>Mjesto, Županija, Država</em> — since they are your file's own statement of what
               the middle of a place means, and nothing else displays them. A file that labels no places shows nothing
               there, which is a house style too.

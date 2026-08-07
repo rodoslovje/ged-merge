@@ -71,6 +71,9 @@ const HR_REGISTER = buildGazetteerIndex(
     ["HR:11", ["Požeško-slavonska županija", "Požeško-slavonska", "Požega-Slavonia", "Požega-Slavonia County"]],
     ["HR:02", ["Krapinsko-zagorska županija", "Krapinsko-zagorska", "Krapina-Zagorje", "Krapina-Zagorje County"]],
     ["HR:09", ["Ličko-senjska županija", "Ličko-senjska", "Lika-Senj", "Lika-Senj County"]],
+    // A county with no settlement of the fixture in it — the register knows its
+    // name all the same, which is the whole point of the `region` verdict.
+    ["HR:20", ["Međimurska županija", "Međimurska", "Međimurje", "Međimurje County"]],
   ]),
 );
 
@@ -240,6 +243,41 @@ describe("checkPlacesAgainstRegister", () => {
     const ds = fileWith(place("Vrh, Litija, Slovenija"));
     const { findings } = checkPlacesAgainstRegister(ds, REGISTER, NO_DECISIONS);
     expect(findings[0].official).toBe("Vrh, Šmartno pri Litiji, Slovenija");
+  });
+
+  it("names a county written as a place for what it is, and offers it a level shorter", () => {
+    // "Međimurje, Međimurje, Croatia" is the county twice over: no register of
+    // settlements can ever match it, and the second level says nothing.
+    const ds = fileWith(place("Međimurje, Međimurje, Croatia"));
+    const { findings } = checkPlacesAgainstRegister(ds, HR_REGISTER, NO_DECISIONS);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].verdict).toBe("region");
+    expect(findings[0].official).toBe("Međimurje, Croatia");
+  });
+
+  it("reads the county under any of its names, the file's own included", () => {
+    const ds = fileWith(place("Krapina-Zagorje, Krapinsko-zagorska županija, Croatia"));
+    const { findings } = checkPlacesAgainstRegister(ds, HR_REGISTER, NO_DECISIONS);
+    expect(findings[0].verdict).toBe("region");
+    // Two spellings of one county, so the second level is still a repetition.
+    expect(findings[0].official).toBe("Krapina-Zagorje, Croatia");
+  });
+
+  it("offers to drop a level left blank, even where the name is simply unknown", () => {
+    // Slavonia is a historical region spanning several counties — no register
+    // lists it, so the verdict stands — but the empty level is still a comma
+    // to lose.
+    const ds = fileWith(place("Slavonia, , Croatia"));
+    const { findings } = checkPlacesAgainstRegister(ds, HR_REGISTER, NO_DECISIONS);
+    expect(findings[0].verdict).toBe("notFound");
+    expect(findings[0].official).toBe("Slavonia, Croatia");
+  });
+
+  it("leaves a two-level place alone: there is no level to drop", () => {
+    const ds = fileWith(place("Međimurje, Croatia"));
+    const { findings } = checkPlacesAgainstRegister(ds, HR_REGISTER, NO_DECISIONS);
+    expect(findings[0].verdict).toBe("region");
+    expect(findings[0].official).toBeUndefined();
   });
 
   it("holds a place written at county level against counties, not municipalities", () => {

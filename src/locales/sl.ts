@@ -525,6 +525,8 @@ export const sl = {
   "tools.register.noRegister": "V Nastavitve › Zemljevid naložite imenik krajev — uradni register (slovenski GURS, hrvaški DGU), OpenStreetMap ali datoteko GeoNames — da bo kraje mogoče primerjati z njim.",
   "tools.register.clean": "Vsi kraji se ujemajo s svojim imenikom.",
   "tools.register.verdict.notFound": "Neznan",
+  "tools.register.verdict.region": "Pokrajina",
+  "tools.register.hint.region": "Imenik to ime pozna kot županijo ali pokrajino, ne kot naselje, zato se z registrom naselij ne bo nikoli ujelo — največkrat gre za dogodek, ki je znan le po širšem območju. Nič ni narobe; kadar vrednost to raven ponovi ali eno pusti prazno, je ponujena krajša oblika.",
   "tools.register.verdict.ambiguous": "Dvoumen",
   "tools.register.verdict.admin": "Uvrstitev",
   "tools.register.verdict.spelling": "Zapis",

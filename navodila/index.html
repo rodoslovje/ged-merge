@@ -1212,6 +1212,8 @@
               koli naloženi imenik, se primerja z njim — GURS za Slovenijo, DGU za Hrvaško, prav tako pa prenos
               OpenStreetMap za Avstrijo ali datoteka GeoNames za Združene države — na seznamu pa so samo odstopanja, pod
               vsak pod eno besedo za tisto, kar odstopa: <strong>Neznan</strong> (v državi, ki jo kraj navaja, ni naselja s tem imenom),
+              <strong>Pokrajina</strong> (ime imenik pozna kot županijo ali pokrajino in ne kot naselje — dogodek, ki
+              je znan le po širšem območju in ga register naselij ne more ujeti),
               <strong>Dvoumen</strong> (ime ustreza več vnosom, nič pa jih ne loči), <strong>Uvrstitev</strong>
               (imenik uvršča naselje pod enoto, ki je vaš kraj ne navaja), <strong>Zapis</strong>
               (strešice, velika začetnica ali daljša uradna oblika), <strong>Dodatna raven</strong> (imenik kraj pozna
@@ -1231,7 +1233,12 @@
               zgolj zato, ker piše raven, ki jo piše vedno. Popravek je ponujen na isti ravni in z vašimi besedami —
               <em>Lika-Senj</em> datoteki, ki županije piše po angleško, <em>Ličko-senjska županija</em> tisti, ki jih
               piše v polni obliki. Kadar vaša imena ne zadoščajo (Hrvaška ima Karlovačko županijo in mesto Karlovac),
-              odloči vrstica <code>PLAC</code>.<code>FORM</code> iz vaše datoteke. Te oznake so izpisane pod povzetkom,
+              odloči vrstica <code>PLAC</code>.<code>FORM</code> iz vaše datoteke. Isto znanje prepozna
+              <strong>Pokrajino</strong>: vrednosti, ki se sama imenuje po županiji, ni treba iskati naselja, in kadar
+              taka vrednost nosi raven, ki nič ne pove — dvakrat zapisano županijo, <em>Međimurje, Međimurje,
+              Croatia</em>, ali raven, ki jo je izvoz pustil prazno, <em>Slavonia, , Croatia</em> — vrstica ponudi isti
+              kraj z eno vejico manj. Počaka na vaš klik in se ne pridruži množičnemu preimenovanju: širše območje
+              namesto vasi v njem je prav toliko navada kot napaka. Te oznake so izpisane pod povzetkom,
               po ena na državo — <em>Mjesto, Županija, Država</em> — saj so izjava vaše datoteke o tem, kaj sredina
               kraja pomeni, in jih drugje ni videti. Datoteka, ki krajev ne označuje, tam nima ničesar, kar je prav
               tako njena navada.

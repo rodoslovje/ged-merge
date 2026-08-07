@@ -3,7 +3,7 @@ import { decomposePlace, isUnknownPlaceValue, placeAddressDetail } from "../gedc
 import { countryCode } from "../gedcom/countryCode";
 import { foldToken } from "../match/text";
 import { lookupPlace, PARENT_QUALIFIED, saintKey, type GazEntry, type GazetteerIndex } from "../geo/gazetteer";
-import { inferPlaceParentLevels } from "../geo/placeLevels";
+import { inferPlaceParentLevels, sameUnitName, type PlaceParentLevels } from "../geo/placeLevels";
 import { distanceKm } from "../geo/points";
 import { reformatPlace } from "../normalize/placeReformat";
 import { placeFormFor } from "../normalize/profile";
@@ -31,6 +31,9 @@ import type { GeocodeDecision } from "../persist/geoDb";
  * What a place and its register entry disagree about, worst first.
  *
  * - `notFound` the register knows no such place (research, or a rename)
+ * - `region` the name is one the directory knows as a county or region rather
+ *   than as a settlement, so no settlement will ever match it — an event known
+ *   only by the wider area it happened in
  * - `ambiguous` the name fits several register entries and nothing tells them
  *   apart — no single entry can be said to be the one meant
  * - `admin` the file files the place under a parent the register doesn't — the
@@ -45,10 +48,19 @@ import type { GeocodeDecision } from "../persist/geoDb";
  *   holding a house number can never be held to a register of settlements
  * - `far` the coordinate in the file is nowhere near the register's position
  */
-export type RegisterVerdict = "notFound" | "ambiguous" | "admin" | "spelling" | "site" | "address" | "far";
+export type RegisterVerdict =
+  | "notFound"
+  | "region"
+  | "ambiguous"
+  | "admin"
+  | "spelling"
+  | "site"
+  | "address"
+  | "far";
 
 export const REGISTER_VERDICTS: RegisterVerdict[] = [
   "notFound",
+  "region",
   "ambiguous",
   "admin",
   "spelling",
@@ -95,9 +107,11 @@ export interface RegisterFinding {
   written: string;
   /** The register entry the value resolves to (absent for `notFound`). */
   entry?: GazEntry;
-  /** The whole place value with the register's spelling of the locality —
-   *  what "Use official name" writes. Absent when the value's leading segment
-   *  is not its settlement (packed formats), so nothing can be swapped safely. */
+  /** The whole place value as the finding would have it written — the
+   *  register's spelling of the locality, its parent swapped, or a level that
+   *  says nothing dropped. What "Use official name" writes. Absent when there
+   *  is nothing to propose: a packed value whose leading segment is not its
+   *  settlement, or a place the register simply does not hold. */
   official?: string;
   /** The house address to move onto the event's own `ADDR` line, with `official`
    *  holding the place left behind (`address`). */
@@ -149,35 +163,38 @@ export function directoryOf(entry: GazEntry): string {
   return entry.register ?? entry.source ?? entry.country;
 }
 
-/** Words that name a *kind* of jurisdiction rather than the jurisdiction: what
- *  separates "Zagrebačka" from "Zagrebačka županija", and "Zagreb" from "Grad
- *  Zagreb". Everything else in a name identifies it. */
-const UNIT_WORDS = new Set([
-  "zupanija", "obcina", "opcina", "opstina", "okraj", "okres", "kotar",
-  "county", "district", "municipality", "city", "town", "grad", "mesto", "mjesto",
-  "gemeinde", "kreis", "comune", "province", "provincia",
-]);
+/** Two administrative names for the same body — {@link sameUnitName}, which the
+ *  division lookup uses for the same question one level up. */
+const sameAdmin = sameUnitName;
 
-/** Two administrative names for the same body: equal once folded and once the
- *  words naming the kind of unit are set aside, so a file's "Zagrebačka
- *  županija" is the register's "Zagrebačka".
- *
- *  Nothing looser. This used to accept one name *contained* in the other, which
- *  quietly equates places that merely share a stem — Kranj with Kranjska Gora,
- *  and every Croatian county with the town it is named after ("Požega" inside
- *  "Požega-Slavonia", "Sisak" inside "Sisak-Moslavina"), which turned a file
- *  written at county level into one finding per place. */
-function sameAdmin(a: string, b: string): boolean {
-  const x = foldToken(a);
-  const y = foldToken(b);
-  if (!x || !y) return false;
-  if (x === y) return true;
-  const stripped = withoutUnitWords(x);
-  return !!stripped && stripped === withoutUnitWords(y);
-}
-
-function withoutUnitWords(folded: string): string {
-  return folded.split(" ").filter((w) => !UNIT_WORDS.has(w)).join(" ");
+/**
+ * The place value with its second level dropped, when that level says nothing:
+ * it is blank ("Slavonia, , Croatia" — a comma left behind by an export) or it
+ * merely repeats the first ("Međimurje, Međimurje, Croatia", the same county
+ * written twice). Both are how a value that names a region rather than a
+ * settlement tends to reach a three-level file, and one comma less is the whole
+ * correction. Every other level, the file's separator and its spacing stay
+ * exactly as they are. Undefined when there is no such level to drop.
+ */
+function redundantLevelDropped(
+  place: string,
+  country: string,
+  levels: PlaceParentLevels,
+): string | undefined {
+  const segments = place.split(",");
+  // Dropping one must leave a place still naming something and its country.
+  if (segments.length < 3) return undefined;
+  const lead = segments[0].trim();
+  const next = segments[1].trim();
+  if (!lead) return undefined;
+  const leadDivision = levels.divisionKeyIn(country, lead);
+  const repeats =
+    !next ||
+    foldToken(next) === foldToken(lead) ||
+    (!!leadDivision && levels.divisionKeyIn(country, next) === leadDivision);
+  if (!repeats) return undefined;
+  const out = [segments[0], ...segments.slice(2)].join(",");
+  return out.trim() && out !== place ? out : undefined;
 }
 
 /**
@@ -437,14 +454,22 @@ export function checkPlacesAgainstRegister(
         });
         continue;
       }
+      // Nor is a name the directory holds as a *county* a place to research: no
+      // register of settlements will ever match "Međimurje", because it is the
+      // county the event is known by rather than the village in it. Said as
+      // much, with the level that merely repeats it — or the blank one an
+      // export left behind — offered for dropping, one comma less.
+      const verdict = levels.divisionKeyIn(wantCountry, written) ? "region" : "notFound";
+      const shorter = redundantLevelDropped(key, wantCountry, levels);
       findings.push({
         key,
         count: g.count,
         people: [...g.people],
-        verdict: "notFound",
+        verdict,
         written,
+        ...(shorter ? { official: shorter } : {}),
         ...(fileCoord ? { fileCoord } : {}),
-        dismissed: isDismissed(decisions, key, "notFound"),
+        dismissed: isDismissed(decisions, key, verdict),
       });
       continue;
     }
@@ -589,5 +614,5 @@ function isDismissed(
   verdict: RegisterVerdict,
 ): boolean {
   if (decisions.get(registerDecisionKey(key))?.status === REGISTER_DISMISSED) return true;
-  return verdict === "notFound" && decisions.get(key)?.status === "nomatch";
+  return (verdict === "notFound" || verdict === "region") && decisions.get(key)?.status === "nomatch";
 }

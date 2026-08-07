@@ -457,6 +457,8 @@ export const en = {
   "tools.register.noRegister": "Load a place directory in Settings › Map — an official register (Slovenia's GURS, Croatia's DGU), OpenStreetMap or a GeoNames file — to check places against it.",
   "tools.register.clean": "Every place matches its directory.",
   "tools.register.verdict.notFound": "Unknown",
+  "tools.register.verdict.region": "Region",
+  "tools.register.hint.region": "The directory knows this name as a county or region, not as a settlement, so no register of settlements will ever match it — most often an event known only by the wider area it happened in. Nothing here is wrong; where the value repeats that level or leaves one blank, the shorter form is offered.",
   "tools.register.verdict.ambiguous": "Ambiguous",
   "tools.register.verdict.admin": "Jurisdiction",
   "tools.register.verdict.spelling": "Spelling",
