@@ -7,7 +7,7 @@ import type { MiniMapPin } from "../map/MiniPlaceMap";
 import type { SourceUse } from "../../tools/sources";
 import { lineageClass, type KinshipResolver } from "../../match/kinship";
 import { PersonLink } from "../PersonLink";
-import { PinIcon } from "../icons/PinIcon";
+import { MapIcon } from "../icons/MapIcon";
 
 const MiniPlaceMap = lazy(() => import("../map/MiniPlaceMap"));
 
@@ -298,14 +298,17 @@ export function GeoRowHeader({
  * way (through its people count, or by Expand all, which deliberately mounts
  * none: Leaflet is a lazy chunk and a list runs to hundreds of rows).
  *
- * It carries the app's pin, which marks a position everywhere else.
+ * Icon and words are the Edit view's own map toggle's: a folded map, "Show
+ * map" / "Hide map". The pin is for a position — a coordinate an event holds —
+ * and this is not that.
  */
 export function MapToggle({ open, onToggle }: { open: boolean; onToggle: () => void }) {
   const { t } = useTranslation();
+  const label = t(open ? "edit.mapHide" : "edit.mapShow");
   return (
-    <button className="tools-issue-link tools-map-toggle" onClick={onToggle}>
-      <PinIcon />
-      {t(open ? "tools.geocode.hideMap" : "tools.geocode.showMap")}
+    <button className="tools-issue-link tools-map-toggle" onClick={onToggle} aria-expanded={open} title={label}>
+      <MapIcon size={15} />
+      {label}
     </button>
   );
 }
