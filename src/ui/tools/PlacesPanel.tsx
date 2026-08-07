@@ -267,6 +267,19 @@ export function PlacesPanel({
       <div className="tools-filter-row">
         <TreeSearch value={query} onChange={setQuery} />
         <div className="tools-chip-group">
+          {/* Compliance leads, and beside geocoding rather than inside it: this
+              reads the whole file and says what disagrees with the registers,
+              while geocoding is a worklist of what is left to place. Checking
+              what you have comes before filling in what you lack — and a name
+              corrected here is one the geocoder can then match. */}
+          <button
+            type="button"
+            className="tools-chip"
+            title={t("tools.places.registerChipHint")}
+            onClick={() => setView("register")}
+          >
+            {t("tools.places.registerToggle")}
+          </button>
           <button
             type="button"
             className="tools-chip"
@@ -289,17 +302,6 @@ export function PlacesPanel({
             {addressPending > 0 && (
               <span className="tools-chip-count">{t("tools.places.geocodeChipAddr", { count: addressPending })}</span>
             )}
-          </button>
-          {/* Compliance beside geocoding, not inside it: geocoding is a
-              worklist — what is left to place — while this reads the whole file
-              and holds it against the registers. Two questions, two pages. */}
-          <button
-            type="button"
-            className="tools-chip"
-            title={t("tools.places.registerChipHint")}
-            onClick={() => setView("register")}
-          >
-            {t("tools.places.registerToggle")}
           </button>
         </div>
         <ToolSummary>
