@@ -432,14 +432,9 @@ export function RegisterCheckSection({
                 {t(`tools.register.verdict.${v}`)} <span className="tools-chip-count">{view.counts[v]}</span>
               </button>
             ))}
-            {(view.dismissedTotal > 0 || showDismissed) && (
-              <label className="tools-reshape-site" title={t("tools.register.showDismissedHint")}>
-                <input type="checkbox" checked={showDismissed} onChange={(e) => setShowDismissed(e.target.checked)} />
-                {t("tools.register.showDismissed")} <span className="tools-chip-count">{view.dismissedTotal}</span>
-              </label>
-            )}
             {/* Opening every row is a way of looking at the list, like the
-                chips beside it — not one of the writes above. */}
+                chips beside it — not one of the writes above. Before the
+                "show hidden" box, which is the order all four lists use. */}
             <ExpandAllToggle
               allOpen={allOpen}
               onToggle={() => {
@@ -450,6 +445,12 @@ export function RegisterCheckSection({
                 } else setOpen(new Set(view.rows.map((f) => f.key)));
               }}
             />
+            {(view.dismissedTotal > 0 || showDismissed) && (
+              <label className="tools-reshape-site" title={t("tools.register.showDismissedHint")}>
+                <input type="checkbox" checked={showDismissed} onChange={(e) => setShowDismissed(e.target.checked)} />
+                {t("tools.register.showDismissed")} <span className="tools-chip-count">{view.dismissedTotal}</span>
+              </label>
+            )}
           </div>
 
           {!view.rows.length && <p className="tools-clean">{t("tools.search.noMatch")}</p>}

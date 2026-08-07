@@ -9,7 +9,7 @@ import { useLocalRegisters } from "../useLocalRegisters";
 import { placeLookupLanguage } from "../../geo/lookupLanguage";
 import { osmKindLabel, osmNamesPlace, osmShortLabel, searchNominatim, type NominatimResult } from "../../geo/nominatim";
 import type { PlaceProposal } from "../../geo/placeProposal";
-import { replaceLocality, suggestMovedPlace, type AddressRow } from "../../tools/addresses";
+import { replaceLocality, suggestMovedPlace, type AddressRename, type AddressRow } from "../../tools/addresses";
 import { countryOf, placeAddrKey, type GeoAssignment } from "../../tools/geocode";
 import type { Translate } from "../../locales/i18n";
 import { foldSearch } from "../globalSearch";
@@ -19,9 +19,8 @@ import { PlaceAutocomplete } from "../edit/PlaceAutocomplete";
 import { usePlaceLookup } from "../edit/PlaceLookupContext";
 import type { PlaceSuggestions } from "../edit/placeSuggestions";
 import { useNameOf, useSettings } from "../SettingsContext";
-import { lineageClass, type KinshipResolver } from "../../match/kinship";
-import { PersonLink } from "../PersonLink";
-import { AppliedNote, ExpandAllToggle, GeoRowHeader, MapToggle, RowMap } from "./shared";
+import type { KinshipResolver } from "../../match/kinship";
+import { AppliedNote, ExpandAllToggle, GeoPeopleList, GeoRowHeader, MapToggle, RowMap } from "./shared";
 import { requestSettings } from "../settingsBus";
 
 // The ADDR half of geocoding: house coordinates from the GURS address register
@@ -261,7 +260,7 @@ export function AddressCoordsSection({
   onMove,
   query,
   actionsHost,
-  onRenameAddress,
+  onRenameAddresses,
   kinship,
   onNavigate,
 }: {
@@ -291,7 +290,7 @@ export function AddressCoordsSection({
   actionsHost?: HTMLElement | null;
   /** Rename one house's address on every event that carries it (edit/undo
    *  pipeline); returns the number of records changed. */
-  onRenameAddress: (rawKeys: string[], fromAddress: string, toAddress: string) => number;
+  onRenameAddresses: (renames: AddressRename[]) => number;
   /** Kinship labels for the rows' people lists — the places rows' resolver. */
   kinship?: KinshipResolver;
   /** Jump to a person in Edit mode (the rows' people lists). */
@@ -820,7 +819,7 @@ export function AddressCoordsSection({
   const applyRename = (row: AddressRow) => {
     const to = renameDraft.trim();
     if (!to || to === row.address) return;
-    onRenameAddress(row.rawKeys, row.address, to);
+    onRenameAddresses([{ rawKeys: row.rawKeys, from: row.address, to }]);
     setRenameKey(null);
     // The row's key changes with its address, so state tied to the old key has
     // to travel with it. A position staged here is about the *house*, not its
@@ -1548,27 +1547,18 @@ export function AddressCoordsSection({
                             ))}
                           </ul>
                         )}
+                        {/* The list the other three geocoding lists show. This
+                            one had a copy of it, which drifted: same links and
+                            kinship labels, but none of the per-person event
+                            count that says how much of this house is theirs. */}
                         {peopleOpen.has(row.key) && (
-                          <>
-                            <ul className="tools-usage tools-geo-people">
-                              {row.people.slice(0, 30).map((id) => {
-                                const kin = kinship?.label(id);
-                                return (
-                                  <li key={id}>
-                                    <PersonLink dataset={dataset} id={id} fallback={id} onNavigate={onNavigate} />
-                                    {kin && (
-                                      <span className={`person-kinship ${lineageClass(kinship?.lineage(id))}`}>{kin}</span>
-                                    )}
-                                  </li>
-                                );
-                              })}
-                            </ul>
-                            {row.people.length > 30 && (
-                              <p className="tools-geo-more">
-                                {t("tools.geocode.morePeople", { count: row.people.length - 30 })}
-                              </p>
-                            )}
-                          </>
+                          <GeoPeopleList
+                            dataset={dataset}
+                            ids={row.people}
+                            place={row.place}
+                            kinship={kinship}
+                            onNavigate={onNavigate}
+                          />
                         )}
                       </li>
                     );

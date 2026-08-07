@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { searchLocalAddress } from "../../geo/addressLookup";
 import type { AddressHit } from "../../geo/addressRegister";
@@ -6,7 +7,7 @@ import { isOfflineQuery } from "../../geo/rn";
 import { foldSearch } from "../globalSearch";
 import type { Dataset } from "../../gedcom/types";
 import type { KinshipResolver } from "../../match/kinship";
-import { putDecisions, type GeocodeDecision } from "../../persist/geoDb";
+import { deleteDecision, putDecisions, type GeocodeDecision } from "../../persist/geoDb";
 import {
   addressDecisionKey,
   ADDRESS_ASIDE,
@@ -16,7 +17,7 @@ import {
   type AddressFinding,
   type AddressVerdict,
 } from "../../tools/addressCheck";
-import type { AddressRow } from "../../tools/addresses";
+import type { AddressRename, AddressRow } from "../../tools/addresses";
 import { countryOf } from "../../tools/geocode";
 import { REGISTER_DISMISSED } from "../../tools/registerCheck";
 import { useLocalRegisters } from "../useLocalRegisters";
@@ -54,6 +55,7 @@ const MAX_ROWS = 300;
 
 export function AddressCheckSection({
   hidden,
+  actionsHost,
   onCount,
   rows,
   dataset,
@@ -61,7 +63,7 @@ export function AddressCheckSection({
   query,
   kinship,
   onNavigate,
-  onRenameAddress,
+  onRenameAddresses,
   onDecisionsChanged,
 }: {
   /** Every place+address pair in the file — the Addresses tab's own rows. */
@@ -72,13 +74,17 @@ export function AddressCheckSection({
   kinship?: KinshipResolver;
   onNavigate: (id: string) => void;
   /** Rewrite one house's address on every event carrying it. */
-  onRenameAddress: (rawKeys: string[], fromAddress: string, toAddress: string) => number;
+  onRenameAddresses: (renames: AddressRename[]) => number;
   onDecisionsChanged: () => void;
   dataset: Dataset;
   /** Kept mounted but off screen while the other compliance tab is shown — a
    *  report costs a pass over the file, and switching tabs must not throw it
    *  away. */
   hidden?: boolean;
+  /** Tab-row element to render this list's own buttons into (portal) — where
+   *  the other three geocoding lists keep theirs. Null until the slot mounts,
+   *  and while the other compliance tab is the one on screen. */
+  actionsHost?: HTMLElement | null;
   /** How many findings there are, for the tab that names this list. Null until
    *  the check has been run, so the tab promises no count for work not done. */
   onCount: (count: number | null) => void;
@@ -153,23 +159,34 @@ export function AddressCheckSection({
     setRunning(null);
   };
 
+  /** Hide a finding, or — on one already hidden — bring it back. The restore
+   *  half was missing: the button read "Prikaži" and wrote the dismissal again,
+   *  so a row put away by mistake could not be fetched out. The places list has
+   *  always deleted the decision instead; this now does the same. */
   const dismiss = async (f: AddressFinding) => {
     const key = addressDecisionKey(f.key);
-    await putDecisions([{ key, status: REGISTER_DISMISSED, ts: Date.now() }]);
+    if (f.dismissed) await deleteDecision(key);
+    else await putDecisions([{ key, status: REGISTER_DISMISSED, ts: Date.now() }]);
     setReport((prev) =>
       prev
-        ? { ...prev, findings: prev.findings.map((o) => (o.key === f.key ? { ...o, dismissed: true } : o)) }
+        ? { ...prev, findings: prev.findings.map((o) => (o.key === f.key ? { ...o, dismissed: !f.dismissed } : o)) }
         : prev,
     );
     onDecisionsChanged();
   };
 
-  const takeOfficial = (f: AddressFinding) => {
-    if (!f.officialAddress) return;
-    setApplied(onRenameAddress(f.rawKeys, f.written, f.officialAddress));
-    // The row is answered; drop it rather than leave it claiming a
-    // disagreement the file no longer has.
-    setReport((prev) => (prev ? { ...prev, findings: prev.findings.filter((o) => o.key !== f.key) } : prev));
+  /** Take the register's spelling for these houses, all in one undoable step —
+   *  the places list's "take the official names" for addresses. Rows answered
+   *  this way leave the report rather than stay, claiming a disagreement the
+   *  file no longer has. */
+  const takeOfficial = (list: readonly AddressFinding[]) => {
+    const renames = list
+      .filter((f) => f.officialAddress)
+      .map((f) => ({ rawKeys: f.rawKeys, from: f.written, to: f.officialAddress! }));
+    if (!renames.length) return;
+    setApplied(onRenameAddresses(renames));
+    const done = new Set(list.map((f) => f.key));
+    setReport((prev) => (prev ? { ...prev, findings: prev.findings.filter((o) => !done.has(o.key)) } : prev));
   };
 
   // What the tab above shows. Not derived there: the report is this section's
@@ -224,8 +241,11 @@ export function AddressCheckSection({
     // groups its own rows: eleven findings in Ravna Gora are one village's
     // eleven houses, and repeating the place on every line said so eleven
     // times while hiding that they were one place at all.
+    // The cap is applied here, where it is also announced below. It was
+    // declared and reported but never applied: the note said 200 findings were
+    // waiting behind the search while every one of them was on screen.
     const byPlace = new Map<string, AddressFinding[]>();
-    for (const f of rows) {
+    for (const f of rows.slice(0, MAX_ROWS)) {
       const list = byPlace.get(f.place);
       if (list) list.push(f);
       else byPlace.set(f.place, [f]);
@@ -251,20 +271,40 @@ export function AddressCheckSection({
   if (!askable.length) return null;
 
   const allGroupsOpen = !!view && view.groups.length > 0 && view.groups.every((g) => openGroups.has(g.place));
+  /** Every listed house whose spelling the register would rewrite — what the
+   *  bulk button offers, counted over what is on screen so the number and the
+   *  list agree. */
+  const bulk = view ? view.rows.filter((f) => f.officialAddress && !f.dismissed) : [];
+
+  // The run button and the bulk take belong beside the tabs, where the other
+  // three geocoding lists keep theirs.
+  const actions = (
+    <>
+      {!report ? (
+        <button className="nav-btn tools-run" disabled={!!running} onClick={() => void run()}>
+          {running
+            ? t("tools.registerAddr.running", { done: running.done, total: running.total })
+            : t("tools.registerAddr.check", { count: askable.length })}
+        </button>
+      ) : (
+        bulk.length > 0 && (
+          <button
+            className="nav-btn primary tools-run"
+            onClick={() => takeOfficial(bulk)}
+            title={t("tools.registerAddr.takeAllHint")}
+          >
+            {t("tools.registerAddr.takeAll", { count: bulk.length })}
+          </button>
+        )
+      )}
+      <AppliedNote count={applied} />
+    </>
+  );
 
   return (
     <section className="tools-cleanup-section" style={hidden ? { display: "none" } : undefined}>
+      {actionsHost ? createPortal(actions, actionsHost) : <p className="tools-fix-hint">{actions}</p>}
       <p className="tools-intro">{t("tools.registerAddr.intro")}</p>
-
-      {!report && (
-        <p className="tools-fix-hint">
-          <button className="nav-btn tools-run" disabled={!!running} onClick={() => void run()}>
-            {running
-              ? t("tools.registerAddr.running", { done: running.done, total: running.total })
-              : t("tools.registerAddr.check", { count: askable.length })}
-          </button>
-        </p>
-      )}
 
       {report && (
         <>
@@ -343,7 +383,6 @@ export function AddressCheckSection({
                   </label>
                 )}
               </div>
-              <AppliedNote count={applied} />
               {!view.rows.length && <p className="tools-clean">{t("tools.search.noMatch")}</p>}
               <ul className="tools-geo-addr-list tools-register-list">
                 {view.groups.map((group) => {
@@ -417,7 +456,7 @@ export function AddressCheckSection({
                           {f.officialAddress && !f.dismissed && (
                             <button
                               className="tools-issue-link"
-                              onClick={() => takeOfficial(f)}
+                              onClick={() => takeOfficial([f])}
                               title={t("tools.registerAddr.takeHint", { address: f.officialAddress })}
                             >
                               {t("tools.geocode.official.take")}
@@ -467,7 +506,7 @@ export function AddressCheckSection({
                                     aria-label={f.official}
                                     disabled={f.dismissed}
                                     checked={false}
-                                    onChange={() => takeOfficial(f)}
+                                    onChange={() => takeOfficial([f])}
                                   />
                                   <span className="tools-geo-cand-name">{f.official}</span>
                                 </label>
@@ -495,7 +534,7 @@ export function AddressCheckSection({
                 })}
               </ul>
               {view.rows.length > MAX_ROWS && (
-                <p className="tools-clean">{t("tools.geocode.more", { count: view.rows.length - MAX_ROWS })}</p>
+                <p className="tools-fix-hint">{t("tools.geocode.more", { count: view.rows.length - MAX_ROWS })}</p>
               )}
             </>
           )}

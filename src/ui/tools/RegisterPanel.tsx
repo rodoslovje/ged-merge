@@ -4,7 +4,7 @@ import type { Dataset } from "../../gedcom/types";
 import { collectFileCoords, type OfficialRename } from "../../tools/geocode";
 import { loadDecisions, type GeocodeDecision } from "../../persist/geoDb";
 import { checkPlacesAgainstRegister, type RegisterCheckReport } from "../../tools/registerCheck";
-import { scanAddresses } from "../../tools/addresses";
+import { scanAddresses, type AddressRename } from "../../tools/addresses";
 import { isOfflineQuery } from "../../geo/rn";
 import { createKinshipResolver } from "../../match/kinship";
 import { useDatasetDerivations } from "../DatasetDerivations";
@@ -45,7 +45,7 @@ interface Props {
    *  register's spelling and placed at its coordinate, all one undo step. */
   onApplyOfficialNames: (renames: OfficialRename[]) => number;
   /** Rename one house's address on every event that carries it. */
-  onRenameAddress: (rawKeys: string[], fromAddress: string, toAddress: string) => number;
+  onRenameAddresses: (renames: AddressRename[]) => number;
   /** Rename every occurrence of exactly one raw place value — the row's ✎, for
    *  a correction of the researcher's own rather than the register's. */
   onRenamePlaceValue: (from: string, to: string, addr?: string) => number;
@@ -62,7 +62,7 @@ export function RegisterPanel({
   active,
   editVersion,
   onApplyOfficialNames,
-  onRenameAddress,
+  onRenameAddresses,
   onRenamePlaceValue,
   onBack,
   onNavigate,
@@ -233,6 +233,7 @@ export function RegisterPanel({
       </div>
       <AddressCheckSection
         hidden={shown !== "addresses"}
+        actionsHost={shown === "addresses" ? tabActionsEl : null}
         onCount={setAddrFindings}
         rows={addrRows}
         dataset={dataset}
@@ -240,7 +241,7 @@ export function RegisterPanel({
         query={query}
         kinship={kinship}
         onNavigate={onNavigate}
-        onRenameAddress={onRenameAddress}
+        onRenameAddresses={onRenameAddresses}
         onDecisionsChanged={() => void loadDecisions().then(setDecisions)}
       />
     </div>

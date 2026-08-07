@@ -298,6 +298,15 @@ export function addressesByPlace(dataset: Dataset): Map<string, string[]> {
   );
 }
 
+/** One house's rename, as the lists ask for it. A list of these is applied in a
+ *  single undo step — see the `onRenameAddresses` prop the panels carry. */
+export interface AddressRename {
+  /** The row's raw place+address spellings ({@link AddressRow.rawKeys}). */
+  rawKeys: string[];
+  from: string;
+  to: string;
+}
+
 /**
  * Rename one house's address on every event that carries it — the ADDR-line
  * form and the packed-in-PLAC form both. `rawKeys` are the row's raw

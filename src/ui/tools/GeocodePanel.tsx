@@ -29,7 +29,7 @@ import { foldSearch } from "../globalSearch";
 import { PlaceLookupProvider, usePlaceLookupValue } from "../edit/PlaceLookupContext";
 import { GazetteerSetup, useGazetteer } from "./GazetteerManager";
 import { AddressCoordsSection } from "./AddressCoordsSection";
-import { addressesByPlace, replaceLocality, scanAddresses } from "../../tools/addresses";
+import { addressesByPlace, replaceLocality, scanAddresses, type AddressRename } from "../../tools/addresses";
 import { CoordConflicts } from "./CoordConflicts";
 import { GeocodePlaceRow, type RowLookups } from "./GeocodePlaceRow";
 import { BackButton } from "../BackButton";
@@ -83,7 +83,7 @@ interface Props {
    *  register's spelling and placed at its coordinate, all one undo step. */
   onApplyOfficialNames: (renames: OfficialRename[]) => number;
   /** Rename one house's address on every event that carries it. */
-  onRenameAddress: (rawKeys: string[], fromAddress: string, toAddress: string) => number;
+  onRenameAddresses: (renames: AddressRename[]) => number;
   /** Move the events at these place+address pairs to `toPlace`; `coord` is the
    *  destination's position when it came from a register pick. */
   onMovePlaceForAddresses: (keys: Set<string>, toPlace: string, coord?: GeoAssignment) => number;
@@ -98,7 +98,7 @@ interface Props {
   startId?: string;
 }
 
-export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onApplyAddressCoords, onRenamePlaceValue, onApplyOfficialNames, onRenameAddress, onMovePlaceForAddresses, onBack, onNavigate, startId }: Props) {
+export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onApplyAddressCoords, onRenamePlaceValue, onApplyOfficialNames, onRenameAddresses, onMovePlaceForAddresses, onBack, onNavigate, startId }: Props) {
   const { t } = useTranslation();
   const { settings: appSettings } = useSettings();
   const nameOf = useNameOf();
@@ -729,7 +729,7 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
         query={query}
         kinship={kinship}
         onNavigate={onNavigate}
-        onRenameAddress={onRenameAddress}
+        onRenameAddresses={onRenameAddresses}
         actionsHost={tab === "addresses" ? tabActionsEl : null}
       />
       </div>
