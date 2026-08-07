@@ -561,9 +561,17 @@ export function AddressCoordsSection({
   const allOpen = groups.length > 0 && groups.every((g) => open.has(g.place));
 
   // Faceted like the places chips: counted over the rows on offer, so each
-  // chip says how many addresses clicking it leaves on screen.
+  // chip says how many addresses clicking it leaves on screen. A chip respects
+  // every filter except its own — so with a country picked these count that
+  // country's addresses alone, just as the country chips above respect the
+  // status one.
   const statusCounts = { unsearched: 0, found: 0, none: 0, manual: 0, placed: 0, picked: 0 };
-  for (const row of visibleRows) statusCounts[addrStatus(row, searches, picked, osmSearches)]++;
+  let statusAllCount = 0;
+  for (const row of visibleRows) {
+    if (activeCountry !== null && countryOf(row.place) !== activeCountry) continue;
+    statusCounts[addrStatus(row, searches, picked, osmSearches)]++;
+    statusAllCount++;
+  }
   /** How many rows the placed toggle is holding back (or, on, has let in). */
   const placedTotal = rows.filter((r) => r.placed && !picked.has(r.key)).length;
 
@@ -991,7 +999,7 @@ export function AddressCoordsSection({
             onClick={() => setStatusFilter(f)}
           >
             {t(`tools.geocode.addr.filter.${f}`)}{" "}
-            <span className="tools-chip-count">{f === "all" ? visibleRows.length : statusCounts[f]}</span>
+            <span className="tools-chip-count">{f === "all" ? statusAllCount : statusCounts[f]}</span>
           </button>
         ))}
         {/* A view control, beside the other view controls. */}
