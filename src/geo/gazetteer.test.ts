@@ -822,6 +822,28 @@ describe("searchGazetteer", () => {
     ]);
   });
 
+  it("ranks the query as a whole word above a mere substring", () => {
+    // Slovenian qualified villages put the qualifier first, so the register's
+    // forms of a written "Bela" — Srednja/Zgornja Bela — are mid-name matches.
+    // They must outrank names that merely contain the letters, and must not be
+    // crowded out entirely (the old two-tier ranking listed every "Bela…"
+    // prefix above them and a tight caller cap cut them off).
+    const index = buildGazetteerIndex([
+      entry("Cimbela"),
+      entry("Srednja Bela"),
+      entry("Zgornja Bela"),
+      entry("Belaci"),
+      entry("Bela"),
+    ]);
+    expect(searchGazetteer(index, "Bela").map((e) => e.name)).toEqual([
+      "Bela",
+      "Belaci",
+      "Srednja Bela",
+      "Zgornja Bela",
+      "Cimbela",
+    ]);
+  });
+
   it("matches diacritics and alternate names, and honours the limit", () => {
     const index = buildGazetteerIndex([
       entry("Škofja Loka", { alt: ["Bischoflack"] }),

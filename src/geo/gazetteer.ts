@@ -1162,9 +1162,12 @@ function isTwin(a: GazEntry, b: GazEntry): boolean {
 /**
  * Name search over the loaded gazetteers: entries whose name (primary, ASCII or
  * alternate) is the typed text, then those that start with it, then those that
- * merely contain it. Unlike {@link lookupPlace} — which resolves a *complete*
- * place string the file already carries — this serves a place being typed that
- * the file does not know yet, so the register can supply its full form.
+ * carry it as a whole word ("Srednja Bela" for "Bela" — Slovenian qualified
+ * villages put the qualifier first, so the register's forms of a bare name are
+ * mid-name matches), then those that merely contain it. Unlike
+ * {@link lookupPlace} — which resolves a *complete* place string the file
+ * already carries — this serves a place being typed that the file does not
+ * know yet, so the register can supply its full form.
  *
  * A country named after a comma restricts the results the same way lookupPlace
  * gates its candidates, so "Bela, Austria" is not answered from a Slovenian
@@ -1183,21 +1186,30 @@ export function searchGazetteer(index: GazetteerIndex, rawQuery: string, limit =
   // typed text's opening two characters. This runs once per lookup, on the
   // user's click — not per keystroke — so the pass is affordable.
   const saintQuery = saintKey(locality);
+  // The query as a whole word inside a longer name, at either end or between
+  // separators — "srednja bela" and "bela vodica" both carry the word "bela";
+  // "belaci" does not, it only starts with those letters.
+  const wordRe = new RegExp(
+    `(?:^|[^\\p{L}\\p{N}])${folded.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:$|[^\\p{L}\\p{N}])`,
+    "u",
+  );
   const scored: { entry: GazEntry; rank: number }[] = [];
   for (const e of index.entries) {
     if (wantCountry && e.country !== wantCountry) continue;
-    // 0 = the whole name, 1 = a prefix of it, 2 = contained anywhere.
-    let rank = 3;
+    // 0 = the whole name, 1 = a prefix of it, 2 = a whole word of it,
+    // 3 = contained anywhere.
+    let rank = 4;
     for (const raw of [e.name, e.ascii, ...e.alt]) {
       if (!raw) continue;
       const n = foldToken(raw);
       if (n === folded) rank = Math.min(rank, 0);
       else if (n.startsWith(folded)) rank = Math.min(rank, 1);
-      else if (n.includes(folded)) rank = Math.min(rank, 2);
+      else if (wordRe.test(n)) rank = Math.min(rank, 2);
+      else if (n.includes(folded)) rank = Math.min(rank, 3);
       // "Sveti Duh" finds the register's "Sv. Duh" here as well.
       else if (saintQuery && saintKey(raw) === saintQuery) rank = Math.min(rank, 0);
     }
-    if (rank < 3) scored.push({ entry: e, rank });
+    if (rank < 4) scored.push({ entry: e, rank });
   }
   scored.sort(
     (a, b) =>

@@ -123,7 +123,11 @@ export function RegisterCheckSection({
   const searchWider = (f: RegisterFinding, known: RegisterOption[]) => {
     if (!index) return;
     const seen = new Set(known.map((o) => (o.entry ? `${o.entry.name}:${o.entry.lat}:${o.entry.lon}` : o.place)));
-    const found = searchGazetteer(index, f.written, 12).filter(
+    // 18, not a screenful less: a short name collects many exact and prefix
+    // hits across directories ("Bela" has a dozen), and the qualified villages
+    // the search exists to surface — "Srednja Bela", "Zgornja Bela" — rank
+    // below all of them, so a tight cap cut off exactly the useful rows.
+    const found = searchGazetteer(index, f.written, 18).filter(
       (e) => !seen.has(`${e.name}:${e.lat}:${e.lon}`),
     );
     setWider((prev) => new Map(prev).set(f.key, found));
