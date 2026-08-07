@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { coalescePatches, snapshotRecords, patchesFromSnapshots, type RecordPatch } from "./historyTypes";
+import { coalescePatches, dropNoopPatches, snapshotRecords, patchesFromSnapshots, type RecordPatch } from "./historyTypes";
 import { insertRecordAt } from "../gedcom/edit";
 import type { Dataset, GedNode, Individual } from "../gedcom/types";
 
@@ -93,5 +93,28 @@ describe("coalescePatches", () => {
     expect((merged[0].before as GedNode).value).toBe("a");
     expect(merged[0].after).toBeNull();
     expect(merged[0].index).toBe(3);
+  });
+});
+
+// ── dropNoopPatches ────────────────────────────────────────────────────────
+// Regression: adding a relative into an existing family pushed an unchanged
+// patch for the anchor person, falsely marking them dirty and CHAN-stamping
+// an untouched record at save time.
+
+describe("dropNoopPatches", () => {
+  it("drops patches whose before and after are identical, keeping real ones", () => {
+    const patches: RecordPatch[] = [
+      { type: "individual", id: "@I1@", before: node("same"), after: node("same") },
+      { type: "individual", id: "@I2@", before: node("old"), after: node("new") },
+    ];
+    expect(dropNoopPatches(patches).map((p) => p.id)).toEqual(["@I2@"]);
+  });
+
+  it("always keeps creations and deletions", () => {
+    const patches: RecordPatch[] = [
+      { type: "individual", id: "@I3@", before: null, after: node("born") },
+      { type: "family", id: "@F1@", before: node("gone"), after: null, index: 4 },
+    ];
+    expect(dropNoopPatches(patches)).toEqual(patches);
   });
 });

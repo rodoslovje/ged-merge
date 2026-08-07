@@ -781,6 +781,7 @@ export const en = {
   "edit.addDetail": "Add",
   "edit.addDetailTooltip": "Add a source, address, note or other detail to this event",
   "edit.removeLink": "Remove this link",
+  "edit.harvestedLink": "This link lives in a note or media record — edit or remove it there",
   "edit.copyEvent": "Copy event to…",
   "edit.removeEvent": "Remove this event",
   "edit.changeEventType": "Change event type",

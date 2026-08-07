@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { type RecordPatch, type PendingEditApply, cloneRaw, coalescePatches, snapshotRecords, patchesFromSnapshots } from "./ui/historyTypes";
+import { type RecordPatch, type PendingEditApply, cloneRaw, coalescePatches, dropNoopPatches, snapshotRecords, patchesFromSnapshots } from "./ui/historyTypes";
 import { useUndoRedo } from "./edit-state/useUndoRedo";
 import { useTheme } from "./ui/useTheme";
 import { useMode } from "./ui/useMode";
@@ -1059,8 +1059,13 @@ function AppContent() {
 
   const handlePushEdit = useCallback(
     (patches: RecordPatch[], navigateTo?: string, redoNavigateTo?: string, stay?: boolean) => {
-      dirty.captureSnapshotsForPush(patches);
-      undoRedo.pushRef.current({ mode: "edit", patches, navigateTo, redoNavigateTo, ...(stay ? { stay } : {}) });
+      // A patch whose before and after are identical records nothing: pushing
+      // it would create an empty undo step and CHAN-stamp an untouched record
+      // at save time. Filtered here, centrally, so no caller has to remember.
+      const real = dropNoopPatches(patches);
+      if (real.length === 0) return;
+      dirty.captureSnapshotsForPush(real);
+      undoRedo.pushRef.current({ mode: "edit", patches: real, navigateTo, redoNavigateTo, ...(stay ? { stay } : {}) });
       bumpEdit();
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1070,7 +1075,8 @@ function AppContent() {
   /** Shared tail of every Tools-tab fix action: record the patch batch as one
    *  undo entry and mark each touched record dirty. Returns the patch count so
    *  callers can report how many records the fix touched. */
-  function applyToolPatches(patches: RecordPatch[]): number {
+  function applyToolPatches(rawPatches: RecordPatch[]): number {
+    const patches = dropNoopPatches(rawPatches);
     if (!mainDataset || patches.length === 0) return 0;
     // stay: undoing a whole-file tool batch keeps the user where they are —
     // there is no single person to show, and the Tools page they came from

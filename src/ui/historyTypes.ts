@@ -112,6 +112,20 @@ export function coalescePatches(patches: RecordPatch[]): RecordPatch[] {
   return merged;
 }
 
+/**
+ * Drop patches that record no change (before and after deeply equal). Such a
+ * patch carries no information — undo would reapply the identical tree — but
+ * left in a batch it falsely marks its record dirty, lands a CHAN stamp on an
+ * untouched record at save time, and makes the file disagree with its own
+ * change report. Creation (`before: null`) and deletion (`after: null`)
+ * patches always stand.
+ */
+export function dropNoopPatches(patches: RecordPatch[]): RecordPatch[] {
+  return patches.filter(
+    (p) => !(p.before && p.after && JSON.stringify(p.before) === JSON.stringify(p.after)),
+  );
+}
+
 export function patchesFromSnapshots(dataset: Dataset, before: RecordSnapshots): RecordPatch[] {
   const patches: RecordPatch[] = [];
   const diff = (type: "individual" | "family", id: string, beforeRaw: GedNode, currentRaw: GedNode | undefined) => {

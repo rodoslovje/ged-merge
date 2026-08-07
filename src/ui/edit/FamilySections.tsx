@@ -30,7 +30,7 @@ import { PrivateToggle } from "./PrivateToggle";
 import { detectPrivacyStyle, setPrivateFlag } from "../../gedcom/private";
 import { FamilyEventRow } from "./FamilyEventRow";
 import { NotesEditor } from "./NotesEditor";
-import { LinksEditor } from "./LinksEditor";
+import { harvestedLinksOf, LinksEditor } from "./LinksEditor";
 import { nodeId } from "./nodeId";
 import { FAMILY_EVENT_TAGS, familyEventHasMergeData } from "./editConstants";
 import type { FamilyCommit, MediaOwner, OpenEditSource, SourceDialogTarget } from "./types";
@@ -574,7 +574,8 @@ export const FamilySection = memo(function FamilySection({
         <div className="edit-record-section">
           <LinksEditor
             key={`flinks-${fam.id}-${undoVersion}`}
-            links={fam.links ?? []}
+            links={fam.editableLinks ?? []}
+            harvestedLinks={harvestedLinksOf(fam.links, fam.editableLinks)}
             sources={fam.sources ?? []}
             sectionLabel={t("field.sources")}
             t={t}
