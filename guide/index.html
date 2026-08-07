@@ -533,7 +533,9 @@
               Each offer is already written the way <em>your</em> file writes places: the same layout, the same comma
               separator, the same spelling of the country, and the same number of jurisdiction levels — a file that
               writes <em>Kranj,Kranj,Slovenija</em> is offered <em>Zabukovje,Sevnica,Slovenija</em>, a file that writes
-              only locality and country is offered <em>Zabukovje,Slovenija</em>. A badge names the answering register.
+              only locality and country is offered <em>Zabukovje,Slovenija</em>. The level above the settlement is the
+              one your places name for that country — the municipality, or the county where you write counties (see
+              <a href="#geocode">§10</a>). A badge names the answering register.
               Picking one fills in the place, its <strong>address</strong> when you typed a house number the address
               register recognised, and the <strong>coordinate</strong> that register puts it at — in one step you can
               undo as one.
@@ -1207,8 +1209,8 @@
               but equally an OpenStreetMap download for Austria or a GeoNames file for the United States — and only the
               disagreements are listed, each under the one word for what disagrees: <strong>Unknown</strong>
               (no settlement of that name in the country the place names), <strong>Ambiguous</strong> (the name fits
-              more than one entry and nothing tells them apart), <strong>Municipality</strong> (the
-              directory files the settlement under an <em>občina</em> your place does not name),
+              more than one entry and nothing tells them apart), <strong>Jurisdiction</strong> (the
+              directory files the settlement under a parent your place does not name),
               <strong>Spelling</strong> (diacritics, capitalisation, or a longer official form), <strong>Extra
               level</strong> (the directory knows the place from its second level on — the first names a cemetery, a
               township, an election precinct, something standing <em>in</em> the place), <strong>Address</strong>
@@ -1217,6 +1219,21 @@
               than ten kilometres from where the directory puts the place — usually a place geocoded to a same-named
               village elsewhere). Where two directories describe one country, both answer, and an official register
               outranks the rest, so where GURS or DGU knows the place it is the one that decides.
+            </p>
+            <p>
+              The <strong>Jurisdiction</strong> finding is judged at whatever level your file writes. A register
+              describes two of them — the municipality it files every settlement under (<em>občina</em>,
+              <em>općina</em>) and, for Croatia, the county above it (<em>županija</em>) — and a file writes one or the
+              other throughout. Which one yours writes is read off your own places, per country, so a file saying
+              <em>Bektež, Požega-Slavonia, Croatia</em> is held against counties and one saying <em>Bektež, Kutjevo,
+              Croatia</em> against municipalities; neither is reported merely for naming the level it always names.
+              A correction is offered at the same level, and in your own wording of it — <em>Lika-Senj</em> for a file
+              that writes county names in English, <em>Ličko-senjska županija</em> for one that writes them in full.
+              Where your own names cannot settle it (Croatia has both a Karlovac county and a Karlovac city), your
+              file's own <code>PLAC</code>.<code>FORM</code> labels do. Those labels are shown under the summary line,
+              one per country — <em>Mjesto, Županija, Država</em> — since they are your file's own statement of what
+              the middle of a place means, and nothing else displays them. A file that labels no places shows nothing
+              there, which is a house style too.
             </p>
             <p>
               Opening a row lists the answers as numbered options, the way the places and addresses rows list their
