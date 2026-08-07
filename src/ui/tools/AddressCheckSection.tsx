@@ -416,12 +416,21 @@ export function AddressCheckSection({
                       onToggle={() => toggleGroup(group.place)}
                       place={group.place || t("tools.geocode.addr.noPlace")}
                     >
+                      {/* The geocoding list's own group line, string and all:
+                          how many houses, and how many events hang on them. */}
                       <span className="tools-geo-count">
-                        {t("tools.registerAddr.groupMeta", { count: group.findings.length })}
+                        {t("tools.geocode.addr.groupMeta", {
+                          count: group.findings.length,
+                          events: group.findings.reduce((n, f) => n + f.count, 0),
+                        })}
                       </span>
                     </GeoRowHeader>
                     {groupOpen && (
-                    <ul className="tools-tree">
+                    // The geocoding addresses list's own nesting: the houses sit
+                    // indented under the place, behind the rule that says they
+                    // belong to it. This list had them flush with the group
+                    // heading, so a village and its houses read as one flat run.
+                    <ul className="tools-tree-children tools-geo-addr-sublist">
                 {group.findings.map((f) => {
                   // What a row has to disclose: where the register files this
                   // house, or — for a spelling — the register's own full line
@@ -431,7 +440,7 @@ export function AddressCheckSection({
                   const showPeople = peopleOpen.has(f.key);
                   const isOpen = (hasDetail && open.has(f.key)) || showPeople;
                   return (
-                    <li key={f.key} className={`tools-tree-node${f.dismissed ? " dismissed" : ""}`}>
+                    <li key={f.key} className={`tools-geo-addr-row${f.dismissed ? " dismissed" : ""}`}>
                       {/* The shape the places findings use: the value the file
                           writes leads with the place it sits in beside it, the
                           register's answer follows, and the verdict, the
@@ -440,6 +449,9 @@ export function AddressCheckSection({
                       <GeoRowHeader
                         open={isOpen}
                         caret={hasDetail}
+                        // The address lists' row line: it wraps, and it is the
+                        // smaller type a house sits in, so both read alike.
+                        className="tools-geo-addr-head"
                         onToggle={() => toggleOpen(f.key)}
                         // Not the header's `address` slot, and not
                         // .tools-geo-row-addr: that class draws the pin that
@@ -553,6 +565,12 @@ export function AddressCheckSection({
                                     checked={false}
                                     onChange={() => takeOfficial([f])}
                                   />
+                                  {/* The number IS the control everywhere on
+                                      these pages — the input itself is clipped
+                                      to a pixel, so an option without it drew
+                                      no control at all — and it ties the line
+                                      to the pin the map above draws for it. */}
+                                  <span className="tools-geo-cand-num">1</span>
                                   <span className="tools-geo-cand-name">{f.official}</span>
                                 </label>
                               </li>

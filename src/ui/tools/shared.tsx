@@ -300,11 +300,15 @@ export function GeoRowHeader({
   address,
   before,
   caret = true,
+  className,
   children,
 }: {
   open: boolean;
   onToggle: () => void;
   place: React.ReactNode;
+  /** Extra classes on the row line — for the address lists, whose rows carry
+   *  enough on one line to need it to wrap. */
+  className?: string;
   /** Shown after the place, muted — for the lists whose unit is a pair. */
   address?: string;
   /** Rendered before the caret (a checkbox, in the place list). */
@@ -316,7 +320,7 @@ export function GeoRowHeader({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="tools-tree-row">
+    <div className={className ? `tools-tree-row ${className}` : "tools-tree-row"}>
       {before}
       {caret ? (
         <RowCaret open={open} onToggle={onToggle} />
