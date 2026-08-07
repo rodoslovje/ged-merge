@@ -7,6 +7,7 @@ import {
   parseThoroughfareNames,
   scopeToParents,
   searchBucket,
+  streetKey,
   type HrAddressBucket,
 } from "./hrAd";
 
@@ -201,6 +202,25 @@ describe("searchBucket", () => {
     expect(searchBucket(ANDRASEVEC, { number: 33, street: "Brežna" }).map((h) => h.address)).toEqual([
       "Brežna ulica 33",
     ]);
+  });
+
+  it("sees through the street-type word either side writes", () => {
+    // Vrbovsko has exactly two houses numbered 75 — Senjsko 75 and Ivana Gorana
+    // Kovačića 75 — and a file writing "Ul. Senjsko 75" used to match neither,
+    // so the widest rung offered both. The type word identifies nothing.
+    for (const street of ["Ul. Brežna", "Ulica Brežna", "Brežna ul."]) {
+      expect(searchBucket(ANDRASEVEC, { number: 33, street }).map((h) => h.address)).toEqual([
+        "Brežna ulica 33",
+      ]);
+    }
+  });
+
+  it("keeps a street named after nothing but a type word comparable", () => {
+    // "Trg" and "Obala" are real street names; reduced to their identifying
+    // words they are empty, so those are compared as written instead.
+    expect(streetKey("Trg")).toBe("");
+    expect(streetKey("Ul. Senjsko")).toBe("senjsko");
+    expect(streetKey("Ivana Gorana Kovačića")).toBe("ivana gorana kovacica");
   });
 
   it("offers every street's house when the file names no street", () => {

@@ -359,6 +359,49 @@ export interface HrBucketQuery {
   street?: string;
 }
 
+/**
+ * The street-type words a Croatian address is built with, spelt out and
+ * abbreviated. They carry no identity — the street is the *name* beside them —
+ * and which of the two forms is written is a house style, not a fact about the
+ * street: the register holds "Senjsko" where a file writes "Ul. Senjsko", and
+ * "Ulica hrvatskih branitelja" where a file writes "Ul. hrvatskih branitelja".
+ *
+ * Recognized only as whole tokens, with the dot where the abbreviation carries
+ * one, so a street actually *named* after one of these words is untouched.
+ */
+const STREET_TYPE_WORDS = new Set([
+  "ulica", "ul", "ul.", "cesta", "c.", "trg", "put", "prilaz", "odvojak",
+  "setaliste", "set.", "obala", "aleja", "poljana", "dvor", "stube", "naselje",
+  "park", "nabrezje", "drevored",
+]);
+
+/**
+ * A street name reduced to the words that identify it — its type words dropped,
+ * so the file's form and the register's compare as the same street.
+ *
+ * Empty when the name is nothing but type words ("Trg", "Obala" are real street
+ * names in their own right); the caller then compares the names as written,
+ * which is the only honest reading left.
+ */
+export function streetKey(name: string): string {
+  return foldToken(name)
+    .split(/\s+/)
+    .filter((w) => w && !STREET_TYPE_WORDS.has(w))
+    .join(" ");
+}
+
+/** Whether two street names name the same street — either as written or by the
+ *  words that identify them, and in either direction, since either side may be
+ *  the abbreviated one ("Ilica" for the register's "Ilica ulica"). */
+function sameStreet(written: string, foldedWritten: string, registerName: string): boolean {
+  if (!registerName) return false;
+  const folded = foldToken(registerName);
+  if (folded.startsWith(foldedWritten) || foldedWritten.startsWith(folded)) return true;
+  const a = streetKey(written);
+  const b = streetKey(registerName);
+  return !!a && !!b && (b.startsWith(a) || a.startsWith(b));
+}
+
 /** Read one row out of a bucket. */
 function hitAt(bucket: HrAddressBucket, i: number): HrAddressHit {
   const street = bucket.streets[bucket.st[i]] ?? "";
@@ -387,9 +430,11 @@ function hitAt(bucket: HrAddressBucket, i: number): HrAddressHit {
  * The houses one bucket holds for a query, narrowest reading first.
  *
  * The same widening ladder the Slovenian register is walked with, done locally:
- *   1. the street as written, matched as a prefix — files abbreviate ("Ilica"
- *      for "Ilica ulica"), and a street the register renamed since simply finds
- *      nothing here and falls through;
+ *   1. the street as written, matched as a prefix and again on the words that
+ *      identify it ({@link streetKey}) — files abbreviate ("Ilica" for "Ilica
+ *      ulica") and write the type word where the register leaves it out ("Ul.
+ *      Senjsko" for "Senjsko") — while a street the register renamed since
+ *      simply finds nothing here and falls through;
  *   2. with no street named, the houses the village numbers directly — the rows
  *      whose "street" is the settlement's own name;
  *   3. failing either, every house in the settlement carrying that number, which
@@ -409,10 +454,7 @@ export function searchBucket(bucket: HrAddressBucket, query: HrBucketQuery): HrA
   let scoped: number[];
   if (query.street) {
     const wanted = foldToken(query.street);
-    scoped = rows.filter((i) => {
-      const s = streetOf(i);
-      return !!s && (s.startsWith(wanted) || wanted.startsWith(s));
-    });
+    scoped = rows.filter((i) => sameStreet(query.street!, wanted, bucket.streets[bucket.st[i]] ?? ""));
   } else {
     scoped = rows.filter((i) => streetOf(i) === settlement);
   }
