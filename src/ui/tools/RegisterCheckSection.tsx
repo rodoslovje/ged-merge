@@ -1,8 +1,8 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { deleteDecision, putDecisions } from "../../persist/geoDb";
-import { countryOf, pickLabel, type OfficialRename } from "../../tools/geocode";
+import { countryOf, pickLabel, type FileCoord, type OfficialRename } from "../../tools/geocode";
 import {
   directoryOf,
   registerDecisionKey,
@@ -14,7 +14,7 @@ import {
 } from "../../tools/registerCheck";
 import { foldSearch } from "../globalSearch";
 import { proposalFromGazEntry, type PlaceStyle } from "../../geo/placeProposal";
-import { AppliedNote, ExpandAllToggle, GeoPeopleList, GeoRowHeader, MapToggle } from "./shared";
+import { AppliedNote, ExpandAllToggle, GeoPeopleList, GeoRowHeader, MapToggle, RowMap } from "./shared";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
 import type { Dataset } from "../../gedcom/types";
 import type { KinshipResolver } from "../../match/kinship";
@@ -29,11 +29,6 @@ import { searchGazetteer, type GazEntry, type GazetteerIndex } from "../../geo/g
 // without a click. The one write on offer is the rename the file's own
 // "Use official name" already performs in the Places tab, applied here to
 // places that are long since geocoded and would never appear there.
-
-/** The expanded row's map, in the Leaflet lazy chunk it shares with the Map
- *  chart and the other geocode lists — a list of hundreds of rows must not
- *  mount hundreds of maps, so it is drawn only when a row asks for it. */
-const MiniPlaceMap = lazy(() => import("../map/MiniPlaceMap"));
 
 /** How many rows are painted before the list defers to the filters — the same
  *  cap the coordinate conflicts above use. */
@@ -58,6 +53,7 @@ export function RegisterCheckSection({
   style,
   kinship,
   onNavigate,
+  fileCoords,
   query,
   actionsHost,
   onApplyOfficialNames,
@@ -75,6 +71,8 @@ export function RegisterCheckSection({
   kinship?: KinshipResolver;
   /** Jump to a person in Edit mode (the people list). */
   onNavigate: (id: string) => void;
+  /** Every coordinate the file carries — context dots on a row's map. */
+  fileCoords: FileCoord[];
   /** The page-wide search, already folded. */
   query: string;
   /** Tab-row element the action buttons render into (portal). */
@@ -467,9 +465,10 @@ export function RegisterCheckSection({
                           </div>
                       )}
                       {mapOpen === f.key && (
-                            <Suspense fallback={<div className="tools-geo-minimap" />}>
-                              <MiniPlaceMap
-                                pins={[
+                            <RowMap
+                              fitKey={f.key}
+                              context={fileCoords}
+                              pins={[
                                   ...options.flatMap((o, i): MiniMapPin[] =>
                                     o.entry
                                       ? [
@@ -499,9 +498,7 @@ export function RegisterCheckSection({
                                       ]
                                     : []),
                                 ]}
-                                fitKey={f.key}
-                              />
-                            </Suspense>
+                            />
                           )}
                       {options.length > 0 && (
                           <ul className="tools-geo-candidates">

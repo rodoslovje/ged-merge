@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
@@ -20,7 +20,7 @@ import type { PlaceSuggestions } from "../edit/placeSuggestions";
 import { useNameOf, useSettings } from "../SettingsContext";
 import { lineageClass, type KinshipResolver } from "../../match/kinship";
 import { PersonLink } from "../PersonLink";
-import { AppliedNote, ExpandAllToggle, GeoRowHeader, MapToggle } from "./shared";
+import { AppliedNote, ExpandAllToggle, GeoRowHeader, MapToggle, RowMap } from "./shared";
 import { requestSettings } from "../settingsBus";
 
 // The ADDR half of geocoding: house coordinates from the GURS address register
@@ -43,8 +43,6 @@ type SearchState = { state: "idle" | "loading" | "error" | "done"; results: RnRe
 /** The same, for the OpenStreetMap fallback below — a separate state per row,
  *  because the two lookups answer independently and a row may have both. */
 type OsmState = { state: "idle" | "loading" | "error" | "done"; results: NominatimResult[] };
-
-const MiniPlaceMap = lazy(() => import("../map/MiniPlaceMap"));
 
 const IDLE: SearchState = { state: "idle", results: [] };
 const OSM_IDLE: OsmState = { state: "idle", results: [] };
@@ -404,8 +402,10 @@ export function AddressCoordsSection({
   }, [visibleRows, searches, osmSearches, picked, statusFilter, activeCountry]);
 
   const [open, setOpen] = useState<Set<string>>(new Set());
-  /** Groups whose map is drawn — never on open, always on request. */
-  const [mapOpen, setMapOpen] = useState<Set<string>>(new Set());
+  /** The one group whose map is drawn — never on open, always on request, and
+   *  one at a time: a map is a Leaflet instance, and this list runs to hundreds
+   *  of places (the same rule the places and compliance lists follow). */
+  const [mapOpen, setMapOpen] = useState<string | null>(null);
   const [applied, setApplied] = useState<number | null>(null);
   // The move panel: which group's is open, where to, and which of its rows go.
   const [moveGroup, setMoveGroup] = useState<string | null>(null);
@@ -556,13 +556,7 @@ export function AddressCoordsSection({
     );
   };
 
-  const toggleMap = (place: string) =>
-    setMapOpen((prev) => {
-      const next = new Set(prev);
-      if (next.has(place)) next.delete(place);
-      else next.add(place);
-      return next;
-    });
+  const toggleMap = (place: string) => setMapOpen((prev) => (prev === place ? null : place));
 
   const toggle = (place: string) =>
     setOpen((prev) => {
@@ -893,7 +887,7 @@ export function AddressCoordsSection({
           onToggle={() => {
             if (allOpen) {
               setOpen(new Set());
-              setMapOpen(new Set());
+              setMapOpen(null);
             } else setOpen(new Set(groups.map((g) => g.place)));
           }}
         />
@@ -943,7 +937,7 @@ export function AddressCoordsSection({
                   {/* The place's houses on one map — asked for, like every other
                       map on this page, and drawn above the addresses it is about. */}
                   {groupPins(group).length > 0 && (
-                    <MapToggle open={mapOpen.has(group.place)} onToggle={() => toggleMap(group.place)} />
+                    <MapToggle open={mapOpen === group.place} onToggle={() => toggleMap(group.place)} />
                   )}
                   {/* Counted over what the register can actually be asked about:
                       a place whose houses carry no numbers has nothing to look
@@ -1042,19 +1036,17 @@ export function AddressCoordsSection({
                   onCancel={closeMove}
                 />
               )}
-              {isOpen && mapOpen.has(group.place) && (() => {
+              {isOpen && mapOpen === group.place && (() => {
                 const pins = groupPins(group);
                 if (!pins.length) return null;
                 return (
-                  <Suspense fallback={<div className="tools-geo-minimap" />}>
-                    <MiniPlaceMap
-                      pins={pins}
-                      title={t("tools.geocode.addr.mapHint")}
-                      // Re-frame as each lookup lands, so the view always holds
-                      // every house found so far for this place.
-                      fitKey={`${group.place} ${pins.map((p) => `${p.coord.lat},${p.coord.lon}`).join("|")}`}
-                    />
-                  </Suspense>
+                  <RowMap
+                    pins={pins}
+                    title={t("tools.geocode.addr.mapHint")}
+                    // Re-frame as each lookup lands, so the view always holds
+                    // every house found so far for this place.
+                    fitKey={`${group.place} ${pins.map((p) => `${p.coord.lat},${p.coord.lon}`).join("|")}`}
+                  />
                 );
               })()}
               {isOpen && (

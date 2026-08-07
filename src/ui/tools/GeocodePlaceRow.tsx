@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
 import { sameCoord } from "../../geo/points";
@@ -15,7 +15,7 @@ import { PlaceAutocomplete } from "../edit/PlaceAutocomplete";
 import { usePlaceLookup } from "../edit/PlaceLookupContext";
 import type { PlaceSuggestions } from "../edit/placeSuggestions";
 import { useSettingsSlice } from "../SettingsContext";
-import { GeoPeopleList, GeoRowHeader, MapToggle } from "./shared";
+import { GeoPeopleList, GeoRowHeader, MapToggle, RowMap } from "./shared";
 
 // One row of the Geocode-places review list: the raw PLAC value, its badge
 // (file coordinate / score / remembered / no-match), the rename editor, and —
@@ -26,13 +26,9 @@ import { GeoPeopleList, GeoRowHeader, MapToggle } from "./shared";
 // no-match, expanded) stays with the panel — it must survive rescans and
 // drive the apply pass.
 
-/** The expanded-row mini map, in the Leaflet lazy chunk it shares with the
- *  Map chart — the list itself must not pull Leaflet into the main bundle. */
 /** The preferences this file reads — subscribed field by field, so an
  *  unrelated one changing leaves it alone (see useSettingsSlice). */
 const SETTINGS_KEYS = ["allowLinkFetch"] as const;
-
-const MiniPlaceMap = lazy(() => import("../map/MiniPlaceMap"));
 
 /** Badge class for a match score: green when it is going in (confident or
  *  hand-checked), orange below 100% — the name did not match letter-perfectly,
@@ -72,7 +68,7 @@ interface Props {
   /** Hover list of the people this place is missing at (precomputed). */
   missingInTitle?: string;
   onToggleOpen: (key: string) => void;
-  onClaimMap: (key: string) => void;
+  onToggleMap: (key: string) => void;
   /** Choose a coordinate for the row; `govId` is set only for GOV picks and
    *  drives the `_GOV` write-back. */
   onPickCoord: (row: GeocodeRow, coord: GeoCoord, label: string, govId?: string) => void;
@@ -121,7 +117,7 @@ export function GeocodePlaceRow({
   kinship,
   missingInTitle,
   onToggleOpen,
-  onClaimMap,
+  onToggleMap,
   onPickCoord,
   onUnpickCoord,
   onToggleNoMatch,
@@ -366,10 +362,10 @@ export function GeocodePlaceRow({
             onClick={() => {
               const showing = isOpen && hasMap;
               if (!isOpen) onToggleOpen(row.key);
-              // Claiming toggles, so it is called only when that lands on the
-              // state wanted: show it when it is not this row's, hide it when
-              // the row is already open with the map up.
-              if (showing || !hasMap) onClaimMap(row.key);
+              // The toggle is called only when that lands on the state wanted:
+              // show the map when it is not this row's, hide it when the row is
+              // already open with the map up.
+              if (showing || !hasMap) onToggleMap(row.key);
             }}
           >
             → {c.label} · <span className="gm-data gm-coord gm-coord--set">{c.coord.lat.toFixed(4)}, {c.coord.lon.toFixed(4)}</span>
@@ -528,16 +524,18 @@ export function GeocodePlaceRow({
               gov.results.length > 0 ||
               rn.results.length > 0 ||
               fileCoords.length > 0;
-            // Closed (or nothing to plot): one row of actions — show the map,
-            // then the searches. A row with no candidates at all is exactly
-            // where the searches are needed, so they must not go with the map.
-            if (!hasMap || !plottable)
-              return (
-                <div className="tools-geo-actions">
-                  {plottable && <MapToggle open={false} onToggle={() => onClaimMap(row.key)} />}
-                  {searchActions}
-                </div>
-              );
+            // The row's actions stand in one place whether the map is up or
+            // not — above it, as in the addresses and compliance lists. A row
+            // with no candidates at all is exactly where the searches are
+            // needed, so they are there either way; only the map's own toggle
+            // waits for something to draw.
+            const actions = (
+              <div className="tools-geo-actions">
+                {plottable && <MapToggle open={hasMap} onToggle={() => onToggleMap(row.key)} />}
+                {searchActions}
+              </div>
+            );
+            if (!hasMap || !plottable) return actions;
             // Candidate pins (click = pick), the chosen coordinate
             // highlighted, plus a live pin for a parseable manual draft.
             // Each pin wears the number its option carries in the list below,
@@ -597,8 +595,9 @@ export function GeocodePlaceRow({
             if (draftCoord && !pins.some((p) => sameCoord(p.coord, draftCoord)))
               pins.push({ coord: draftCoord, label: t("tools.geocode.manual"), kind: "chosen", badge: manualNumber });
             return (
-              <Suspense fallback={<div className="tools-geo-minimap" />}>
-                <MiniPlaceMap
+              <>
+                {actions}
+                <RowMap
                   pins={pins}
                   context={fileCoords}
                   title={t("tools.geocode.mapPickHint")}
@@ -622,13 +621,7 @@ export function GeocodePlaceRow({
                     onPickCoord(row, coord, t("tools.geocode.manual"));
                   }}
                 />
-                {/* Open: the searches move under the map, where their results
-                    land as new pins. */}
-                <div className="tools-geo-actions">
-                  <MapToggle open onToggle={() => onClaimMap(row.key)} />
-                  {searchActions}
-                </div>
-              </Suspense>
+              </>
             );
           })()}
           <ul className="tools-geo-candidates">

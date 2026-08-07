@@ -732,7 +732,7 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
             kinship={kinship}
             missingInTitle={missingInTitles.get(row.key)}
             onToggleOpen={toggleOpen}
-            onClaimMap={(key) => setMapKey((prev) => (prev === key ? null : key))}
+            onToggleMap={(key) => setMapKey((prev) => (prev === key ? null : key))}
             onPickCoord={pickCoord}
             onUnpickCoord={unpickCoord}
             onToggleNoMatch={toggleNoMatch}
@@ -779,6 +779,7 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
             style={placeStyle}
             kinship={kinship}
             onNavigate={onNavigate}
+            fileCoords={fileCoords}
             query={query}
             actionsHost={tab === "register" ? tabActionsEl : null}
             onApplyOfficialNames={onApplyOfficialNames}

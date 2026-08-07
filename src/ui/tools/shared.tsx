@@ -1,11 +1,14 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { renderKeyToken } from "../../keyboard/shortcuts";
 import { useFindShortcutOn } from "../../keyboard/useFindShortcut";
-import type { Dataset } from "../../gedcom/types";
+import type { Dataset, GeoCoord } from "../../gedcom/types";
+import type { MiniMapPin } from "../map/MiniPlaceMap";
 import type { SourceUse } from "../../tools/sources";
 import { lineageClass, type KinshipResolver } from "../../match/kinship";
 import { PersonLink } from "../PersonLink";
+
+const MiniPlaceMap = lazy(() => import("../map/MiniPlaceMap"));
 
 /** A Tools-tab "working…" placeholder: the same spinner + accent row the file
  *  loader uses for "Parsing and validating…", shown while a panel computes.
@@ -67,6 +70,46 @@ export function UsageList({ dataset, uses, onNavigate }: { dataset: Dataset; use
         </li>
       ))}
     </ul>
+  );
+}
+
+/**
+ * A row's own map, in the Leaflet lazy chunk it shares with the Map chart — the
+ * one way the three geocoding lists draw one. Each of them mounts at most one:
+ * a list runs to hundreds of rows, and a map is never drawn until a row asks
+ * for it, so the fallback below is what a row shows for the moment it takes to
+ * arrive.
+ */
+export function RowMap({
+  pins,
+  context,
+  title,
+  fitKey,
+  fitMaxZoom,
+  onPickCoord,
+}: {
+  pins: MiniMapPin[];
+  /** Faint dots for the coordinates the file already carries elsewhere — the
+   *  family cluster that tells two same-named places apart. */
+  context?: { coord: GeoCoord; name: string }[];
+  title?: string;
+  fitKey?: string;
+  /** Closer than the default region framing, where answers for one name sit a
+   *  few hundred metres apart and would otherwise pile into one dot. */
+  fitMaxZoom?: number;
+  onPickCoord?: (coord: GeoCoord) => void;
+}) {
+  return (
+    <Suspense fallback={<div className="tools-geo-minimap" />}>
+      <MiniPlaceMap
+        pins={pins}
+        {...(context ? { context } : {})}
+        {...(title ? { title } : {})}
+        {...(fitKey ? { fitKey } : {})}
+        {...(fitMaxZoom ? { fitMaxZoom } : {})}
+        {...(onPickCoord ? { onPickCoord } : {})}
+      />
+    </Suspense>
   );
 }
 
