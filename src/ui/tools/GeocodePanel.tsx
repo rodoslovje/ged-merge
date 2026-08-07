@@ -2,12 +2,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
 import {
+  buildWriteSet,
+  carryPickAcrossRename,
   chosenCoordFor,
   collectFileCoords,
   confidentCandidate,
   countryOf,
   placeAddrKey,
+  reconcileNoMatchAfterScan,
+  reconcilePicksAfterScan,
   scanGeocode,
+  scanKeys,
   type ChosenCoord,
   type GeoAssignment,
   type GeocodeRow,
@@ -368,16 +373,12 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
   // ones live in the file once written, not in the browser.
   useEffect(() => {
     if (!scan) return;
-    const keys = new Set([...scan.rows, ...scan.placed].map((r) => r.key));
-    setNoMatch((prev) => {
-      const next = new Set([...prev].filter((k) => keys.has(k)));
-      for (const r of scan.rows) if (r.cached?.status === "nomatch") next.add(r.key);
-      return next;
-    });
-    setChosen((prev) => new Map([...prev].filter(([k]) => keys.has(k))));
+    const keys = scanKeys(scan);
+    setNoMatch((prev) => reconcileNoMatchAfterScan(scan, prev));
+    setChosen((prev) => reconcilePicksAfterScan(scan, prev));
     setExpanded((prev) => new Set([...prev].filter((k) => keys.has(k))));
     setMapKey((prev) => (prev && keys.has(prev) ? prev : null));
-    setRowLookups((prev) => new Map([...prev].filter(([k]) => keys.has(k))));
+    setRowLookups((prev) => reconcilePicksAfterScan(scan, prev));
   }, [scan]);
 
   /** Choose a coordinate for the row: staging it, and dropping any no-match
@@ -438,13 +439,7 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
     // stands. A register pick has no work to carry: it resolves the row here,
     // and an addr split re-keys the events past any place row.
     if (renamed && !coord && !addr) {
-      setChosen((prev) => {
-        const carried = prev.get(from);
-        const next = new Map(prev);
-        next.delete(from);
-        if (carried && !next.has(to)) next.set(to, carried);
-        return next;
-      });
+      setChosen((prev) => carryPickAcrossRename(prev, from, to));
     }
   };
 
@@ -484,23 +479,11 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
 
   const apply = async () => {
     if (!scan) return;
-    const assignments = new Map<string, GeoAssignment>();
-    const toStore: GeocodeDecision[] = [];
-    const now = Date.now();
-    for (const row of [...scan.rows, ...scan.placed]) {
-      const c = chosen.get(row.key);
-      if (c) {
-        // Accepted coordinates go into the file and nowhere else — the saved
-        // GEDCOM is their record; only no-match marks are remembered. A placed
-        // row's pick is a re-geocode, so it may overwrite what the value
-        // already carries (address-bound house positions excepted).
-        const a: GeoAssignment = c.govId ? { coord: c.coord, govId: c.govId } : { coord: c.coord };
-        if (row.placed) a.overwrite = true;
-        assignments.set(row.key, a);
-      } else if (noMatch.has(row.key) && row.cached?.status !== "nomatch") {
-        toStore.push({ key: row.key, status: "nomatch", ts: now });
-      }
-    }
+    // Accepted coordinates go into the file and nowhere else — the saved
+    // GEDCOM is their record; only no-match marks are remembered. A placed
+    // row's pick is a re-geocode, so it may overwrite what the value
+    // already carries (address-bound house positions excepted).
+    const { assignments, toStore } = buildWriteSet(scan, chosen, noMatch, Date.now());
     const changed = assignments.size ? onApplyGeocode(assignments) : 0;
     // A written row is finished work and must leave the staged sets: now that
     // placed rows with staged work stay on the worklist, a tick left behind

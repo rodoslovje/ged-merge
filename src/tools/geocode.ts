@@ -572,3 +572,77 @@ export function applyGeocodeByAddress(
     return changed;
   });
 }
+
+// ── Staged review state ─────────────────────────────────────────────────────
+// The panel's picks and no-match marks between a scan and the Write. Kept as
+// pure functions because their invariants are exactly where this tool's
+// incident history lives: a rescan silently discarding in-progress picks, a
+// rename orphaning (or clobbering) a staged coordinate, a written row's
+// leftover tick re-writing — this time overwriting — on the next Write.
+
+/** Every key the scan currently knows — the only keys staged state may hold. */
+export function scanKeys(scan: GeocodeScan): Set<string> {
+  return new Set([...scan.rows, ...scan.placed].map((r) => r.key));
+}
+
+/**
+ * Staged picks after a rescan: work on rows that survived (e.g. after renaming
+ * one *other* row) is preserved, not silently discarded; keys the scan no
+ * longer produces drop theirs. Nothing arrives pre-picked — accepting a
+ * coordinate is this run's act.
+ */
+export function reconcilePicksAfterScan<T>(scan: GeocodeScan, prev: ReadonlyMap<string, T>): Map<string, T> {
+  const keys = scanKeys(scan);
+  return new Map([...prev].filter(([k]) => keys.has(k)));
+}
+
+/** No-match marks after a rescan: marks on vanished keys drop, and remembered
+ *  no-match decisions seed the set. */
+export function reconcileNoMatchAfterScan(scan: GeocodeScan, prev: ReadonlySet<string>): Set<string> {
+  const keys = scanKeys(scan);
+  const next = new Set([...prev].filter((k) => keys.has(k)));
+  for (const r of scan.rows) if (r.cached?.status === "nomatch") next.add(r.key);
+  return next;
+}
+
+/**
+ * The staged pick carried across a plain respelling rename: the pick is about
+ * the *place*, not its spelling, so it follows the row to its new key — unless
+ * the rename merges into a row with staged work of its own, which stands.
+ */
+export function carryPickAcrossRename<T>(prev: ReadonlyMap<string, T>, from: string, to: string): Map<string, T> {
+  const carried = prev.get(from);
+  const next = new Map(prev);
+  next.delete(from);
+  if (carried !== undefined && !next.has(to)) next.set(to, carried);
+  return next;
+}
+
+/**
+ * What one Write does with the staged state: an assignment per staged pick —
+ * a pick on a `placed` row is a deliberate re-geocode, so only those carry
+ * `overwrite` — plus the no-match marks to remember (only the ones not already
+ * cached). The caller must then drop exactly the written keys from the staged
+ * picks: a tick left behind would keep the row listed, and the next Write
+ * would write it again, this time overwriting.
+ */
+export function buildWriteSet(
+  scan: GeocodeScan,
+  chosen: ReadonlyMap<string, ChosenCoord>,
+  noMatch: ReadonlySet<string>,
+  now: number,
+): { assignments: Map<string, GeoAssignment>; toStore: GeocodeDecision[] } {
+  const assignments = new Map<string, GeoAssignment>();
+  const toStore: GeocodeDecision[] = [];
+  for (const row of [...scan.rows, ...scan.placed]) {
+    const c = chosen.get(row.key);
+    if (c) {
+      const a: GeoAssignment = c.govId ? { coord: c.coord, govId: c.govId } : { coord: c.coord };
+      if (row.placed) a.overwrite = true;
+      assignments.set(row.key, a);
+    } else if (noMatch.has(row.key) && row.cached?.status !== "nomatch") {
+      toStore.push({ key: row.key, status: "nomatch", ts: now });
+    }
+  }
+  return { assignments, toStore };
+}
