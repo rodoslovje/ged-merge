@@ -441,7 +441,7 @@ export function GeocodePlaceRow({
             aria-pressed={marked}
             title={marked ? t("tools.geocode.noMatchUndo") : t("tools.geocode.noMatch")}
           >
-            {marked ? "↩" : "🗑"}
+            {marked ? t("tools.geocode.restore") : t("tools.geocode.hide")}
           </button>
         )}
         <button

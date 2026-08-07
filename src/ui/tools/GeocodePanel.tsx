@@ -13,7 +13,7 @@ import {
   type OfficialRename,
 } from "../../tools/geocode";
 import { loadDecisions, putDecisions, type GeocodeDecision } from "../../persist/geoDb";
-import { ExpandAllToggle, ToolsLoading, TreeSearch, useDebounced } from "./shared";
+import { AppliedNote, ExpandAllToggle, ToolsLoading, TreeSearch, useDebounced } from "./shared";
 import { useVirtualList } from "../useVirtualList";
 import { createKinshipResolver } from "../../match/kinship";
 import { buildPlaceSuggestions, placeCombosOf } from "../edit/placeSuggestions";
@@ -585,11 +585,6 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
                 total: scan.coveredDistinct + scan.rows.length,
                 pct: Math.round((100 * scan.coveredOccurrences) / scan.totalOccurrences),
               }),
-            // A write that changed nothing says so in words: "0 updated
-            // records" is read as the button having done nothing at all,
-            // when what happened is that the file already held the position.
-            lastApplied !== null &&
-              (lastApplied === 0 ? t("tools.geocode.appliedNone") : t("tools.geocode.applied", { count: lastApplied })),
           ]
             .filter(Boolean)
             .join(" · ")}
@@ -634,15 +629,7 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
             >
               {t("tools.sources.dupSelectNone")}
             </button>
-            <ExpandAllToggle
-              allOpen={rows.length > 0 && rows.every((r) => expanded.has(r.key))}
-              onToggle={() => {
-                if (rows.length > 0 && rows.every((r) => expanded.has(r.key))) {
-                  setExpanded(new Set());
-                  setMapKey(null);
-                } else setExpanded(new Set(rows.map((r) => r.key)));
-              }}
-            />
+            <AppliedNote count={lastApplied} />
           </div>
         );
         return (
@@ -737,6 +724,16 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
             <span className="tools-chip-count">{f === "all" ? statusAllCount : statusCounts[f]}</span>
           </button>
         ))}
+        {/* A view control, beside the other view controls. */}
+        <ExpandAllToggle
+          allOpen={rows.length > 0 && rows.every((r) => expanded.has(r.key))}
+          onToggle={() => {
+            if (rows.length > 0 && rows.every((r) => expanded.has(r.key))) {
+              setExpanded(new Set());
+              setMapKey(null);
+            } else setExpanded(new Set(rows.map((r) => r.key)));
+          }}
+        />
         {(placedTotal > 0 || showPlaced) && (
           <label className="tools-reshape-site" title={t("tools.geocode.showPlacedHint")}>
             <input

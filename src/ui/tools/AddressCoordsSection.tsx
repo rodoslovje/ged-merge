@@ -20,7 +20,7 @@ import type { PlaceSuggestions } from "../edit/placeSuggestions";
 import { useNameOf, useSettings } from "../SettingsContext";
 import { lineageClass, type KinshipResolver } from "../../match/kinship";
 import { PersonLink } from "../PersonLink";
-import { ExpandAllToggle, GeoRowHeader, MapToggle } from "./shared";
+import { AppliedNote, ExpandAllToggle, GeoRowHeader, MapToggle } from "./shared";
 import { requestSettings } from "../settingsBus";
 
 // The ADDR half of geocoding: house coordinates from the GURS address register
@@ -809,15 +809,8 @@ export function AddressCoordsSection({
       <button className="tools-issue-link" onClick={() => setPicked(new Map())} disabled={picked.size === 0}>
         {t("tools.sources.dupSelectNone")}
       </button>
-      <ExpandAllToggle
-        allOpen={allOpen}
-        onToggle={() => {
-          if (allOpen) {
-            setOpen(new Set());
-            setMapOpen(new Set());
-          } else setOpen(new Set(groups.map((g) => g.place)));
-        }}
-      />
+      <AppliedNote count={applied} />
+      {moved !== null && <span className="tools-applied-note">{t("tools.geocode.addr.moved", { count: moved })}</span>}
     </>
   );
 
@@ -838,8 +831,6 @@ export function AddressCoordsSection({
         </button>
         .
       </p>
-      {applied !== null && <p className="tools-clean tools-clean--ok">{t("tools.geocode.addr.applied", { count: applied })}</p>}
-      {moved !== null && <p className="tools-clean tools-clean--ok">{t("tools.geocode.addr.moved", { count: moved })}</p>}
       <div className="tools-chips">
         {ADDR_FILTERS.filter((f) => showPlaced || f !== "placed").map((f) => (
           <button
@@ -851,6 +842,16 @@ export function AddressCoordsSection({
             <span className="tools-chip-count">{f === "all" ? visibleRows.length : statusCounts[f]}</span>
           </button>
         ))}
+        {/* A view control, beside the other view controls. */}
+        <ExpandAllToggle
+          allOpen={allOpen}
+          onToggle={() => {
+            if (allOpen) {
+              setOpen(new Set());
+              setMapOpen(new Set());
+            } else setOpen(new Set(groups.map((g) => g.place)));
+          }}
+        />
         {placedTotal > 0 && (
           <label className="tools-reshape-site" title={t("tools.geocode.addr.showPlacedHint")}>
             <input

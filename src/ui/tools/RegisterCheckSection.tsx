@@ -14,7 +14,7 @@ import {
 } from "../../tools/registerCheck";
 import { foldSearch } from "../globalSearch";
 import { proposalFromGazEntry, type PlaceStyle } from "../../geo/placeProposal";
-import { ExpandAllToggle, GeoPeopleList, GeoRowHeader, MapToggle } from "./shared";
+import { AppliedNote, ExpandAllToggle, GeoPeopleList, GeoRowHeader, MapToggle } from "./shared";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
 import type { Dataset } from "../../gedcom/types";
 import type { KinshipResolver } from "../../match/kinship";
@@ -257,16 +257,7 @@ export function RegisterCheckSection({
           {t("tools.register.takeAll", { count: bulk.length })}
         </button>
       )}
-      <ExpandAllToggle
-        allOpen={allOpen}
-        onToggle={() => {
-          if (allOpen) {
-            setOpen(new Set());
-            setPeopleOpen(new Set());
-            setMapOpen(null);
-          } else setOpen(new Set(view.rows.map((f) => f.key)));
-        }}
-      />
+      <AppliedNote count={applied} />
     </>
   );
 
@@ -302,7 +293,6 @@ export function RegisterCheckSection({
           </>
         )}
       </p>
-      {applied !== null && <p className="tools-clean tools-clean--ok">{t("tools.geocode.applied", { count: applied })}</p>}
 
       {report.registers.length > 0 && report.findings.length === 0 && (
         <p className="tools-clean tools-clean--ok">{t("tools.register.clean")}</p>
@@ -353,6 +343,18 @@ export function RegisterCheckSection({
                 {t("tools.register.showDismissed")} <span className="tools-chip-count">{view.dismissedTotal}</span>
               </label>
             )}
+            {/* Opening every row is a way of looking at the list, like the
+                chips beside it — not one of the writes above. */}
+            <ExpandAllToggle
+              allOpen={allOpen}
+              onToggle={() => {
+                if (allOpen) {
+                  setOpen(new Set());
+                  setPeopleOpen(new Set());
+                  setMapOpen(null);
+                } else setOpen(new Set(view.rows.map((f) => f.key)));
+              }}
+            />
           </div>
 
           {!view.rows.length && <p className="tools-clean">{t("tools.search.noMatch")}</p>}
@@ -416,7 +418,7 @@ export function RegisterCheckSection({
                         onClick={() => void dismiss(f)}
                         title={f.dismissed ? t("tools.register.undismissHint") : t("tools.register.dismissHint")}
                       >
-                        {f.dismissed ? t("tools.register.undismiss") : t("tools.register.dismiss")}
+                        {f.dismissed ? t("tools.geocode.restore") : t("tools.geocode.hide")}
                       </button>
                       <button
                         className="tools-chip-count tools-count-toggle"

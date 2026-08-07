@@ -71,6 +71,24 @@ export function UsageList({ dataset, uses, onNavigate }: { dataset: Dataset; use
 }
 
 /**
+ * What the last write on this list did, standing at the end of the list's own
+ * action row rather than in a paragraph of its own: the eye is on the button it
+ * just pressed, and a line appearing under the intro moves the whole list down
+ * to say so. A write that changed nothing says so in words — "0 updated
+ * records" reads as the button having done nothing at all, when what happened
+ * is that the file already held the value.
+ */
+export function AppliedNote({ count }: { count: number | null }) {
+  const { t } = useTranslation();
+  if (count === null) return null;
+  return (
+    <span className="tools-applied-note">
+      {count === 0 ? t("tools.geocode.appliedNone") : t("tools.geocode.applied", { count })}
+    </span>
+  );
+}
+
+/**
  * Who a place belongs to: the standard person links (sex colour, lifespan, click
  * to open in Edit), each with its kinship chip and the number of events that
  * person has at this exact place, whose labels and dates make up its tooltip.

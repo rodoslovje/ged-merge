@@ -8307,6 +8307,10 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 
 /* --- Geocode places (Tools tab) -------------------------------------------- */
 
+/* What the last write did: at the far end of the list's action row, away from
+   the buttons and alone on that side, so it is seen without being read past. */
+.tools-applied-note { color: var(--state-match); font-size: 0.85rem; font-weight: 600; margin-left: auto; }
+
 /* Register check: one line per disagreement — the place as the file writes it,
    then the register's own wording of it, the verdict, what can be done about it
    and the people it concerns, all reading left to right like a places row. The
@@ -8706,6 +8710,9 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
    row also hosts the active list's action buttons: the tabs already say what
    and how much, so a heading line per section would repeat them. */
 .tools-geo-tabs-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 4px 0 12px; }
+/* The active list's actions take the rest of the row, so what the last write
+   did can stand at its far end rather than beside the buttons. */
+.tools-geo-tabs-row > .tools-dup-bulk { flex: 1 1 auto; }
 .tools-geo-tabs-row .tools-geo-tabs { margin: 0; }
 .tools-geo-tabs {
   display: inline-flex;
