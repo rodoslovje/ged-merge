@@ -4,6 +4,7 @@ import { renderKeyToken } from "../../keyboard/shortcuts";
 import { useFindShortcutOn } from "../../keyboard/useFindShortcut";
 import type { Dataset } from "../../gedcom/types";
 import type { SourceUse } from "../../tools/sources";
+import { lineageClass, type KinshipResolver } from "../../match/kinship";
 import { PersonLink } from "../PersonLink";
 
 /** A Tools-tab "working…" placeholder: the same spinner + accent row the file
@@ -66,6 +67,72 @@ export function UsageList({ dataset, uses, onNavigate }: { dataset: Dataset; use
         </li>
       ))}
     </ul>
+  );
+}
+
+/**
+ * Who a place belongs to: the standard person links (sex colour, lifespan, click
+ * to open in Edit), each with its kinship chip and the number of events that
+ * person has at this exact place, whose labels and dates make up its tooltip.
+ *
+ * Shared by the place lists that hang one off a row's count — the geocode review
+ * and the register check ask the same question of the same value, so they answer
+ * it the same way.
+ */
+export function GeoPeopleList({
+  dataset,
+  ids,
+  place,
+  kinship,
+  onNavigate,
+  limit = 30,
+}: {
+  dataset: Dataset;
+  ids: readonly string[];
+  /** The exact raw PLAC value the people are listed for. */
+  place: string;
+  kinship?: KinshipResolver;
+  onNavigate: (id: string) => void;
+  limit?: number;
+}) {
+  const { t } = useTranslation();
+  return (
+    <>
+      <ul className="tools-usage tools-geo-people">
+        {ids.slice(0, limit).map((id) => {
+          const indi = dataset.individuals.get(id);
+          const kin = kinship?.label(id);
+          // The person's events at this exact place — their own and their
+          // families', matching how the scans attribute a family PLAC to both
+          // spouses.
+          const placeEvents = indi
+            ? [...indi.events, ...indi.spouseOf.flatMap((fid) => dataset.families.get(fid)?.events ?? [])].filter(
+                (ev) => ev.place?.raw.trim() === place,
+              )
+            : [];
+          const placeEventsTitle = placeEvents
+            .map((ev) => {
+              const label = ev.tag === "EVEN" && ev.type ? ev.type : t(`event.${ev.tag}`, { defaultValue: ev.tag });
+              return ev.date?.raw ? `${label}: ${ev.date.raw}` : label;
+            })
+            .join("\n");
+          return (
+            <li key={id}>
+              <PersonLink dataset={dataset} id={id} fallback={id} onNavigate={onNavigate} />
+              {kin && <span className={`person-kinship ${lineageClass(kinship?.lineage(id))}`}>{kin}</span>}
+              {indi && placeEvents.length > 0 && (
+                <span className="tools-chip-count" title={placeEventsTitle}>
+                  {placeEvents.length}
+                </span>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      {ids.length > limit && (
+        <p className="tools-geo-more">{t("tools.geocode.morePeople", { count: ids.length - limit })}</p>
+      )}
+    </>
   );
 }
 

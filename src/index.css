@@ -8307,18 +8307,13 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 
 /* --- Geocode places (Tools tab) -------------------------------------------- */
 
-/* Register check: one line per disagreement — verdict badge, the place as the
-   file writes it, and what the register says instead. The actions sit at the
-   far end so the eye can run down the places without crossing them. */
-.tools-register-row {
-  display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px;
-  padding: 3px 0;
-}
-.tools-register-detail { color: var(--muted); font-size: 0.85rem; }
-.tools-register-actions { margin-left: auto; display: flex; align-items: baseline; gap: 12px; }
+/* Register check: one line per disagreement — the place as the file writes it,
+   then the register's own wording of it, and at the right end the verdict, what
+   can be done about it and the people it concerns. */
+.tools-register-end { margin-left: auto; display: flex; align-items: center; gap: 12px; flex: none; }
 /* A dismissed row is on the list only because it was asked for — it reads as
    settled, not as work. */
-.tools-register-row.dismissed { opacity: 0.6; }
+.tools-register-list .tools-tree-node.dismissed { opacity: 0.6; }
 
 .tools-geo-gazetteer {
   border: 1px solid var(--border);

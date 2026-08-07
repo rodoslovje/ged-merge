@@ -13,6 +13,9 @@ import {
 } from "../../tools/registerCheck";
 import { foldSearch } from "../globalSearch";
 import { countryNameOf } from "../../geo/placeProposal";
+import { GeoPeopleList, GeoRowHeader } from "./shared";
+import type { Dataset } from "../../gedcom/types";
+import type { KinshipResolver } from "../../match/kinship";
 
 // The Register tab: every place the file writes in a country an official
 // register covers, held against that register, with the disagreements listed.
@@ -40,15 +43,21 @@ const BADGE: Record<RegisterVerdict, string> = {
 
 export function RegisterCheckSection({
   report,
+  dataset,
+  kinship,
+  onNavigate,
   query,
   actionsHost,
   onApplyOfficialNames,
   onDecisionsChanged,
 }: {
-  /** The check's result, or null until the tab has been opened — it looks up
-   *  every place in the file, which is work no one asked for while another tab
-   *  is on screen. */
+  /** The check's result, or null while no official register is loaded. */
   report: RegisterCheckReport | null;
+  dataset: Dataset;
+  /** Kinship labels for a row's people list — the places rows' resolver. */
+  kinship?: KinshipResolver;
+  /** Jump to a person in Edit mode (the people list). */
+  onNavigate: (id: string) => void;
   /** The page-wide search, already folded. */
   query: string;
   /** Tab-row element the action buttons render into (portal). */
@@ -66,6 +75,15 @@ export function RegisterCheckSection({
   const [countryFilter, setCountryFilter] = useState<string | null>(null);
   const [showDismissed, setShowDismissed] = useState(false);
   const [applied, setApplied] = useState<number | null>(null);
+  /** Rows whose people list is open — asked for by clicking the row's count,
+   *  exactly as in the places list. */
+  const [peopleOpen, setPeopleOpen] = useState<Set<string>>(new Set());
+  const togglePeople = (key: string) =>
+    setPeopleOpen((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(key)) next.add(key);
+      return next;
+    });
 
   // Two chip rows, faceted the way the places list's are: a chip's count
   // respects every filter except its own row's, so the number on it is exactly
@@ -109,11 +127,14 @@ export function RegisterCheckSection({
 
   if (!report || !view) return null;
 
-  /** The rename a spelling row offers: to the register's name, keeping every
-   *  outer level the file writes. Absent when the value's leading segment is
-   *  not its settlement — there is nothing safe to swap then. */
+  /** The rename a row offers: the place as the register would have it — its
+   *  spelling of the settlement, or the municipality it files it under — with
+   *  every other level the file writes left alone. Absent where nothing can be
+   *  swapped safely, and on the verdicts a rename does not answer (a place the
+   *  register does not hold, a name fitting several entries, a coordinate that
+   *  is off — none of those is a wording question). */
   const renameFor = (f: RegisterFinding): OfficialRename | undefined =>
-    f.verdict === "spelling" && f.official && f.entry && !f.dismissed
+    (f.verdict === "spelling" || f.verdict === "admin") && f.official && f.entry && !f.dismissed
       ? { from: f.key, to: f.official, assignment: { coord: { lat: f.entry.lat, lon: f.entry.lon } } }
       : undefined;
 
@@ -215,33 +236,68 @@ export function RegisterCheckSection({
           </div>
 
           {!view.rows.length && <p className="tools-clean">{t("tools.search.noMatch")}</p>}
-          <ul className="tools-tree">
+          <ul className="tools-tree tools-register-list">
             {view.rows.slice(0, MAX_ROWS).map((f) => {
               const rename = renameFor(f);
+              const open = peopleOpen.has(f.key);
               return (
-                <li key={f.key} className={`tools-tree-node tools-register-row${f.dismissed ? " dismissed" : ""}`}>
-                  <span className={`tools-reshape-badge ${BADGE[f.verdict]}`}>{t(`tools.register.verdict.${f.verdict}`)}</span>
-                  <span className="tools-geo-cand-name">{f.key}</span>
-                  <span className="tools-geo-count">{t("tools.geocode.addr.uses", { count: f.count })}</span>
-                  <span className="tools-register-detail">{detailOf(f, t)}</span>
-                  <span className="tools-register-actions">
-                    {rename && (
+                <li key={f.key} className={`tools-tree-node${f.dismissed ? " dismissed" : ""}`}>
+                  {/* The same row shape as the places and addresses lists: the
+                      value the file writes leads, what the register answers
+                      follows it, and the badge, the actions and the person
+                      count sit at the end. */}
+                  <GeoRowHeader open={open} onToggle={() => togglePeople(f.key)} place={f.key}>
+                    {f.entry?.register && (
+                      <span className="tools-reshape-badge official" title={t("tools.register.registerBadgeHint")}>
+                        {f.entry.register}
+                      </span>
+                    )}
+                    <span className="tools-geo-cand-name">{suggestionOf(f)}</span>
+                    {f.verdict === "far" && (
+                      <span className="tools-geo-count">{t("tools.register.detail.far", { km: Math.round(f.distanceKm ?? 0) })}</span>
+                    )}
+                    {/* The verdict, what can be done about it and who it
+                        concerns, pinned to the right of the row so the eye can
+                        run down the places and the badges in two clean columns. */}
+                    <span className="tools-register-end">
+                      <span className={`tools-reshape-badge ${BADGE[f.verdict]}`} title={t(`tools.register.hint.${f.verdict}`)}>
+                        {t(`tools.register.verdict.${f.verdict}`)}
+                      </span>
+                      {rename && (
+                        <button
+                          className="tools-issue-link"
+                          onClick={() => setApplied(onApplyOfficialNames([rename]))}
+                          title={t("tools.register.takeHint", { place: rename.to })}
+                        >
+                          {t("tools.geocode.official.take")}
+                        </button>
+                      )}
                       <button
                         className="tools-issue-link"
-                        onClick={() => setApplied(onApplyOfficialNames([rename]))}
-                        title={t("tools.geocode.official.tooltip", { name: f.entry!.name })}
+                        onClick={() => void dismiss(f)}
+                        title={f.dismissed ? t("tools.register.undismissHint") : t("tools.register.dismissHint")}
                       >
-                        {t("tools.geocode.official.take")}
+                        {f.dismissed ? t("tools.register.undismiss") : t("tools.register.dismiss")}
                       </button>
-                    )}
-                    <button
-                      className="tools-issue-link"
-                      onClick={() => void dismiss(f)}
-                      title={f.dismissed ? t("tools.register.undismissHint") : t("tools.register.dismissHint")}
-                    >
-                      {f.dismissed ? t("tools.register.undismiss") : t("tools.register.dismiss")}
-                    </button>
-                  </span>
+                      <button
+                        className="tools-chip-count tools-count-toggle"
+                        aria-pressed={open}
+                        aria-label={t("tools.geocode.peopleToggle")}
+                        onClick={() => togglePeople(f.key)}
+                      >
+                        {f.people.length}
+                      </button>
+                    </span>
+                  </GeoRowHeader>
+                  {open && (
+                    <GeoPeopleList
+                      dataset={dataset}
+                      ids={f.people}
+                      place={f.key}
+                      kinship={kinship}
+                      onNavigate={onNavigate}
+                    />
+                  )}
                 </li>
               );
             })}
@@ -255,25 +311,15 @@ export function RegisterCheckSection({
   );
 }
 
-/** What the row says about the disagreement — one line, the register's side of
- *  it: the name it uses, the municipality it files the place under, the places
- *  a name fits, or how far the file's coordinate sits from its position. */
-function detailOf(f: RegisterFinding, t: (key: string, opts?: Record<string, unknown>) => string): string {
-  switch (f.verdict) {
-    case "notFound":
-      return t("tools.register.detail.notFound");
-    case "ambiguous":
-      return t("tools.register.detail.ambiguous", {
-        places: (f.alternatives ?? []).map((e) => pickLabel(e.name, e.admin)).join(" · "),
-      });
-    case "admin":
-      return t("tools.register.detail.admin", { admin: f.entry?.admin ?? "", written: f.writtenAdmin ?? "" });
-    case "spelling":
-      return t("tools.register.detail.spelling", { name: pickLabel(f.entry!.name, f.entry!.admin) });
-    case "far":
-      return t("tools.register.detail.far", {
-        km: Math.round(f.distanceKm ?? 0),
-        name: pickLabel(f.entry!.name, f.entry!.admin),
-      });
-  }
+/**
+ * The register's side of the row: the whole place as it would have it — the
+ * value the file writes with the one level the register disagrees about swapped,
+ * so it reads in the file's own place format and is exactly what "Use official
+ * name" would write. Where no such value can be composed, the entry itself
+ * stands in; where the name fits several entries, all of them do.
+ */
+function suggestionOf(f: RegisterFinding): string {
+  if (f.official) return f.official;
+  if (f.verdict === "ambiguous") return (f.alternatives ?? []).map((e) => pickLabel(e.name, e.admin)).join(" · ");
+  return f.entry ? pickLabel(f.entry.name, f.entry.admin) : "";
 }

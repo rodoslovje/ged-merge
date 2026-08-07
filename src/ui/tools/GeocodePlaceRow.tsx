@@ -11,13 +11,11 @@ import { chosenCoordFor, pickLabel, type ChosenCoord, type FileCoord, type GeoAs
 import { replaceLocality } from "../../tools/addresses";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
 import type { KinshipResolver } from "../../match/kinship";
-import { lineageClass } from "../../match/kinship";
-import { PersonLink } from "../PersonLink";
 import { PlaceAutocomplete } from "../edit/PlaceAutocomplete";
 import { usePlaceLookup } from "../edit/PlaceLookupContext";
 import type { PlaceSuggestions } from "../edit/placeSuggestions";
 import { useSettingsSlice } from "../SettingsContext";
-import { GeoRowHeader, MapToggle } from "./shared";
+import { GeoPeopleList, GeoRowHeader, MapToggle } from "./shared";
 
 // One row of the Geocode-places review list: the raw PLAC value, its badge
 // (file coordinate / score / remembered / no-match), the rename editor, and —
@@ -834,44 +832,16 @@ export function GeocodePlaceRow({
               />
             </li>
           </ul>
-          {/* Who this unresolved place belongs to — standard person
-              links (sex colour, lifespan, click to open in Edit),
-              with the kinship chip and the person's event count.
-              Shown only when the header's count was clicked for it. */}
+          {/* Who this unresolved place belongs to — shown only when the
+              header's count was clicked for it. */}
           {peopleOpen && (
-          <ul className="tools-usage tools-geo-people">
-            {row.missingIn.slice(0, 30).map((id) => {
-              const indi = dataset.individuals.get(id);
-              const kin = kinship?.label(id);
-              // The person's events at this exact place (own + spouse
-              // family events, matching how scanGeocode attributes
-              // family PLACs to the spouses) — listed in the tooltip.
-              const placeEvents = indi
-                ? [...indi.events, ...indi.spouseOf.flatMap((fid) => dataset.families.get(fid)?.events ?? [])]
-                    .filter((ev) => ev.place?.raw.trim() === row.key)
-                : [];
-              const placeEventsTitle = placeEvents
-                .map((ev) => {
-                  const label = ev.tag === "EVEN" && ev.type ? ev.type : t(`event.${ev.tag}`, { defaultValue: ev.tag });
-                  return ev.date?.raw ? `${label}: ${ev.date.raw}` : label;
-                })
-                .join("\n");
-              return (
-                <li key={id}>
-                  <PersonLink dataset={dataset} id={id} fallback={id} onNavigate={onNavigate} />
-                  {kin && <span className={`person-kinship ${lineageClass(kinship?.lineage(id))}`}>{kin}</span>}
-                  {indi && placeEvents.length > 0 && (
-                    <span className="tools-chip-count" title={placeEventsTitle}>
-                      {placeEvents.length}
-                    </span>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-          )}
-          {peopleOpen && row.missingIn.length > 30 && (
-            <p className="tools-geo-more">{t("tools.geocode.morePeople", { count: row.missingIn.length - 30 })}</p>
+            <GeoPeopleList
+              dataset={dataset}
+              ids={row.missingIn}
+              place={row.key}
+              kinship={kinship}
+              onNavigate={onNavigate}
+            />
           )}
         </div>
       )}

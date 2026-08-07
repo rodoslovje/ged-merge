@@ -812,6 +812,9 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
         <div style={tab === "register" ? undefined : { display: "none" }}>
           <RegisterCheckSection
             report={registerReport}
+            dataset={dataset}
+            kinship={kinship}
+            onNavigate={onNavigate}
             query={query}
             actionsHost={tab === "register" ? tabActionsEl : null}
             onApplyOfficialNames={onApplyOfficialNames}

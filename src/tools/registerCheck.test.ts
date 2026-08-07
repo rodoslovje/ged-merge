@@ -156,6 +156,46 @@ describe("checkPlacesAgainstRegister", () => {
     expect(checkPlacesAgainstRegister(ds, osm, NO_DECISIONS).checked).toBe(0);
   });
 
+  it("says nothing about a value that names only a country", () => {
+    // "Slovenia, Slovenia" is an event known by its country alone; a register of
+    // settlements has no answer for it, and matching the country name against
+    // settlement names is how it came to be reported as misspelling "Šlovrenc".
+    const ds = fileWith(place("Slovenia, Slovenia"), place("Slovenija"));
+    const report = checkPlacesAgainstRegister(ds, REGISTER, NO_DECISIONS);
+    expect(report.findings).toEqual([]);
+    expect(report.checked).toBe(0);
+    expect(report.skipped).toBe(2);
+  });
+
+  it("never claims a merely similar name is the place misspelt", () => {
+    // Šlovrenc is close enough for the geocode list to offer as a coordinate,
+    // but the register does not hold this name and must not be said to spell it.
+    const ds = fileWith(place("Šlovrenj, Slovenija"));
+    const { findings } = checkPlacesAgainstRegister(ds, REGISTER, NO_DECISIONS);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].verdict).toBe("notFound");
+    expect(findings[0].entry).toBeUndefined();
+    expect(findings[0].official).toBeUndefined();
+  });
+
+  it("proposes the file's own place with the register's municipality in it", () => {
+    const ds = fileWith(place("Vrh, Litija, Slovenija"));
+    const { findings } = checkPlacesAgainstRegister(ds, REGISTER, NO_DECISIONS);
+    expect(findings[0].official).toBe("Vrh, Šmartno pri Litiji, Slovenija");
+  });
+
+  it("counts the people writing a place, both spouses of a family event included", () => {
+    const ds = buildFromText(
+      `0 HEAD\n1 GEDC\n2 VERS 5.5.1\n` +
+        `0 @I1@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 PLAC Sentjur, Slovenija\n` +
+        `0 @I2@ INDI\n1 NAME Marija /Novak/\n` +
+        `0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@\n1 MARR\n2 PLAC Sentjur, Slovenija\n0 TRLR\n`,
+    );
+    const { findings } = checkPlacesAgainstRegister(ds, REGISTER, NO_DECISIONS);
+    expect(findings[0].count).toBe(2);
+    expect(findings[0].people.sort()).toEqual(["@I1@", "@I2@"]);
+  });
+
   it("labels each finding with the country it is in — the filter chips' key", () => {
     const ds = fileWith(place("Sentjur, Slovenija"), place("Neznani Kraj XY, Slovenija"));
     const { findings } = checkPlacesAgainstRegister(ds, REGISTER, NO_DECISIONS);

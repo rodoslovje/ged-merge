@@ -888,8 +888,10 @@ const MIN_FUZZY = 0.87;
 
 /** Score for a register name that extends the written one with its parent
  *  ("Vinji vrh" under Semič → "Vinji Vrh pri Semiču"): above the bulk-accept
- *  bar — the parent corroborates it — but below a letter-perfect match. */
-const PARENT_QUALIFIED = 0.96;
+ *  bar — the parent corroborates it — but below a letter-perfect match. It is
+ *  also the floor above which a candidate is *this* place rather than one that
+ *  merely resembles it, which is what the register check holds names to. */
+export const PARENT_QUALIFIED = 0.96;
 
 const MAX_CANDIDATES = 6;
 

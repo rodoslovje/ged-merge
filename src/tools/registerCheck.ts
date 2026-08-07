@@ -2,7 +2,7 @@ import type { Dataset, GeoCoord } from "../gedcom/types";
 import { decomposePlace, isUnknownPlaceValue } from "../gedcom/place";
 import { countryCode } from "../gedcom/countryCode";
 import { foldToken } from "../match/text";
-import { HIGH_CONFIDENCE, lookupPlace, type GazEntry, type GazetteerIndex } from "../geo/gazetteer";
+import { lookupPlace, PARENT_QUALIFIED, type GazEntry, type GazetteerIndex } from "../geo/gazetteer";
 import { distanceKm } from "../geo/points";
 import { coordOf, isRegisterAddress, walkPlaceAddr } from "./geocode";
 import { replaceLocality } from "./addresses";
@@ -67,6 +67,9 @@ export interface RegisterFinding {
   key: string;
   /** PLAC occurrences of this value in the file. */
   count: number;
+  /** Everyone whose events write this place — the individual, or both spouses
+   *  of a family event. The row's count, and the list behind it. */
+  people: string[];
   verdict: RegisterVerdict;
   /** ISO country code the finding belongs to — the matched register entry's,
    *  or the country the place itself names when nothing matched. Always one of
@@ -119,12 +122,39 @@ function sameAdmin(a: string, b: string): boolean {
   return (x.length >= 4 && y.includes(x)) || (y.length >= 4 && x.includes(y));
 }
 
+/**
+ * The place value with one comma segment swapped — the register's municipality
+ * in place of the one the file names ("Mavčiče, Medvode, Slovenia" → "Mavčiče,
+ * Kranj, Slovenia").
+ *
+ * A swap rather than a freshly composed chain: every other level, the file's own
+ * separator and any annotation it carries (a parish suffix, a house name) stay
+ * exactly as they are, so the corrected value still looks like its neighbours.
+ * Returns undefined when the segment is not there to swap.
+ */
+function replaceSegment(place: string, from: string, to: string): string | undefined {
+  const segments = place.split(",");
+  const at = segments.findIndex((s) => s.trim() === from);
+  if (at < 0 || from === to) return undefined;
+  segments[at] = segments[at].replace(from, to);
+  return segments.join(",");
+}
+
 /** The place's own name for this entry, when the file writes it under one of
  *  the register's official spellings (primary or a bilingual alternate). The
  *  ASCII form is deliberately not accepted: "Sentjur" is a stripped spelling,
  *  not one the register uses. */
 function writtenAsRegistered(written: string, entry: GazEntry): boolean {
   return entry.name === written || entry.alt.some((a) => a === written);
+}
+
+/** The looser test behind it: the same name once diacritics and case are set
+ *  aside — "Sentjur" for "Šentjur", "capodistria" for "Capodistria". This is
+ *  what makes a candidate *this* place; whether the file spells it the way the
+ *  register does is then {@link writtenAsRegistered}'s question. */
+function sameName(written: string, entry: GazEntry): boolean {
+  const folded = foldToken(written);
+  return [entry.name, entry.ascii, ...entry.alt].some((n) => n && foldToken(n) === folded);
 }
 
 /**
@@ -166,20 +196,24 @@ export function checkPlacesAgainstRegister(
   }
   if (!covered.size) return EMPTY;
 
-  // Distinct values with their occurrence count and the settlement coordinate
-  // the file records for them — the most frequent one carried by an event with
-  // no address (an address-bound coordinate is that house's, not the place's,
-  // the same rule scanGeocode's `fileCoord` follows).
-  const groups = new Map<string, { count: number; coords: Map<string, { coord: GeoCoord; n: number }> }>();
-  const visit = (raw: Parameters<typeof walkPlaceAddr>[0]) =>
+  // Distinct values with the people writing them, their occurrence count and the
+  // settlement coordinate the file records for them — the most frequent one
+  // carried by an event with no address (an address-bound coordinate is that
+  // house's, not the place's, the same rule scanGeocode's `fileCoord` follows).
+  const groups = new Map<
+    string,
+    { count: number; coords: Map<string, { coord: GeoCoord; n: number }>; people: Set<string> }
+  >();
+  const visit = (raw: Parameters<typeof walkPlaceAddr>[0], personIds: string[]) =>
     walkPlaceAddr(raw, (plac, addr) => {
       const key = plac.value!.trim();
       let g = groups.get(key);
       if (!g) {
-        g = { count: 0, coords: new Map() };
+        g = { count: 0, coords: new Map(), people: new Set() };
         groups.set(key, g);
       }
       g.count++;
+      for (const id of personIds) g.people.add(id);
       if (addr) return;
       const coord = coordOf(plac);
       if (!coord) return;
@@ -188,8 +222,10 @@ export function checkPlacesAgainstRegister(
       if (hit) hit.n++;
       else g.coords.set(ck, { coord, n: 1 });
     });
-  for (const indi of dataset.individuals.values()) visit(indi.raw);
-  for (const fam of dataset.families.values()) visit(fam.raw);
+  for (const indi of dataset.individuals.values()) visit(indi.raw, [indi.id]);
+  // A family event belongs to both spouses, the way scanGeocode attributes them.
+  for (const fam of dataset.families.values())
+    visit(fam.raw, [fam.husband, fam.wife].filter((id): id is string => !!id));
 
   const findings: RegisterFinding[] = [];
   let checked = 0;
@@ -208,8 +244,29 @@ export function checkPlacesAgainstRegister(
       skipped++;
       continue;
     }
+    // A value whose most specific level is a country names no settlement at all
+    // ("Slovenia", or the doubled "Slovenia, Slovenia" a file writes for an
+    // event known only by its country). A register of settlements has nothing
+    // to say about it, and matching the country's name against settlement names
+    // is how "Slovenia" ends up proposed as "Šlovrenc".
+    if (countryCode(written)) {
+      skipped++;
+      continue;
+    }
 
-    const candidates = lookupPlace(index, key).filter((c) => c.entry.register && covered.has(c.entry.country));
+    // Only a name the register holds letter-for-letter (bar diacritics and case)
+    // — or its own longer form of it, corroborated by the place's own parents —
+    // can be said to be *this* place. A merely similar name is a guess: good
+    // enough to offer as a coordinate in the geocode list, where the researcher
+    // judges it against a map, but not to assert here that the register spells
+    // the place differently or files it elsewhere. Left in, "Slovenia" is
+    // reported as misspelling "Šlovrenc".
+    const candidates = lookupPlace(index, key).filter(
+      (c) =>
+        c.entry.register &&
+        covered.has(c.entry.country) &&
+        (sameName(written, c.entry) || c.score >= PARENT_QUALIFIED),
+    );
     if (!candidates.length) {
       // Nothing matched. Only a value that says which country it is in can be
       // held to a register — otherwise we would report every foreign place in a
@@ -222,6 +279,7 @@ export function checkPlacesAgainstRegister(
       findings.push({
         key,
         count: g.count,
+        people: [...g.people],
         verdict: "notFound",
         country: wantCountry,
         written,
@@ -235,10 +293,7 @@ export function checkPlacesAgainstRegister(
     // Same name, several register entries. A coordinate in the file settles it
     // — the nearest entry is the place meant — and only without one does the
     // tie stand as a finding of its own.
-    const tied =
-      candidates[0].score >= HIGH_CONFIDENCE
-        ? candidates.filter((c) => c.score > candidates[0].score - AMBIGUITY_GAP)
-        : [candidates[0]];
+    const tied = candidates.filter((c) => c.score > candidates[0].score - AMBIGUITY_GAP);
     let best = candidates[0].entry;
     if (tied.length > 1) {
       if (fileCoord) {
@@ -249,6 +304,7 @@ export function checkPlacesAgainstRegister(
         findings.push({
           key,
           count: g.count,
+          people: [...g.people],
           verdict: "ambiguous",
           country: best.country,
           written,
@@ -268,14 +324,17 @@ export function checkPlacesAgainstRegister(
       .map((p) => p.trim())
       .find((p) => p && adminNames.some((a) => sameAdmin(a, p)));
     if (namedAdmin && best.admin && !sameAdmin(best.admin, namedAdmin)) {
+      const official = replaceSegment(key, namedAdmin, best.admin);
       findings.push({
         key,
         count: g.count,
+        people: [...g.people],
         verdict: "admin",
         country: best.country,
         written,
         entry: best,
         writtenAdmin: namedAdmin,
+        ...(official ? { official } : {}),
         ...(fileCoord ? { fileCoord } : {}),
         dismissed: isDismissed(decisions, key, "admin"),
       });
@@ -287,6 +346,7 @@ export function checkPlacesAgainstRegister(
       findings.push({
         key,
         count: g.count,
+        people: [...g.people],
         verdict: "spelling",
         country: best.country,
         written,
@@ -304,6 +364,7 @@ export function checkPlacesAgainstRegister(
         findings.push({
           key,
           count: g.count,
+          people: [...g.people],
           verdict: "far",
           country: best.country,
           written,
