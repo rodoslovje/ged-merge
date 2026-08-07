@@ -1,4 +1,4 @@
-import { GEO_FETCH_TIMEOUT_MS, timeoutSignal } from "./net";
+import { createThrottledQueue, geoFetch } from "./net";
 import type { GeoCoord } from "../gedcom/types";
 import { countryCode } from "../gedcom/countryCode";
 import { addressStreetName, decomposePlace, looksLikeStreet } from "../gedcom/place";
@@ -419,26 +419,17 @@ export function rnFeaturesToResults(data: RnFeatureCollection, max = MAX_RESULTS
 }
 
 // One shared queue so concurrent rows still space their requests out.
-let queueTail: Promise<unknown> = Promise.resolve();
-let lastStart = 0;
+const enqueue = createThrottledQueue(INTERVAL_MS);
 
 /** Run one throttled register request and return the parsed response. */
 function rnFetch(filter: string, signal?: AbortSignal, limit = FETCH_LIMIT): Promise<RnFeatureCollection> {
-  const run = async (): Promise<RnFeatureCollection> => {
-    if (signal?.aborted) throw new DOMException("aborted", "AbortError");
-    const wait = lastStart + INTERVAL_MS - Date.now();
-    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
-    lastStart = Date.now();
+  return enqueue(async () => {
     const url =
       `${ENDPOINT}?f=${encodeURIComponent("application/geo+json")}` +
       `&filter-lang=cql-text&limit=${limit}&filter=${encodeURIComponent(filter)}`;
-    const res = await fetch(url, { signal: timeoutSignal(GEO_FETCH_TIMEOUT_MS, signal) });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const res = await geoFetch(url, {}, signal);
     return (await res.json()) as RnFeatureCollection;
-  };
-  const p = queueTail.then(run, run);
-  queueTail = p.catch(() => undefined);
-  return p;
+  }, signal);
 }
 
 /**

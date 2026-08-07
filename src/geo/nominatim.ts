@@ -1,4 +1,4 @@
-import { GEO_FETCH_TIMEOUT_MS, timeoutSignal } from "./net";
+import { createThrottledQueue, geoFetch } from "./net";
 import type { GeoCoord } from "../gedcom/types";
 import type { Translate } from "../locales/i18n";
 import { foldSearch } from "../ui/globalSearch";
@@ -193,27 +193,19 @@ export function osmNamesPlace(result: NominatimResult, name: string): boolean {
 }
 
 // One shared queue so concurrent callers still respect the 1 req/s policy.
-let queueTail: Promise<unknown> = Promise.resolve();
-let lastStart = 0;
+const enqueue = createThrottledQueue(INTERVAL_MS);
 
 /**
  * Search Nominatim for a free-text place/address string. Requests are
  * serialized and spaced ≥1 s apart; the caller gates this behind the online
  * opt-in. Rejects on network/HTTP errors.
  */
-export function searchNominatim(query: string, language: string): Promise<NominatimResult[]> {
-  const run = async (): Promise<NominatimResult[]> => {
-    const wait = lastStart + INTERVAL_MS - Date.now();
-    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
-    lastStart = Date.now();
+export function searchNominatim(query: string, language: string, signal?: AbortSignal): Promise<NominatimResult[]> {
+  return enqueue(async () => {
     // addressdetails: the named parts a hit needs to become a place or an
     // address, rather than only the coordinate its display line carries.
     const url = `${ENDPOINT}?format=jsonv2&addressdetails=1&limit=5&q=${encodeURIComponent(query)}&accept-language=${encodeURIComponent(language)}`;
-    const res = await fetch(url, { headers: { Accept: "application/json" }, signal: timeoutSignal(GEO_FETCH_TIMEOUT_MS) });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const res = await geoFetch(url, { headers: { Accept: "application/json" } }, signal);
     return parseNominatimResponse(await res.json());
-  };
-  const p = queueTail.then(run, run);
-  queueTail = p.catch(() => undefined);
-  return p;
+  }, signal);
 }

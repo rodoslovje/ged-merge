@@ -1,4 +1,4 @@
-import { GEO_FETCH_TIMEOUT_MS, timeoutSignal } from "./net";
+import { createThrottledQueue, geoFetch } from "./net";
 import type { GeoCoord } from "../gedcom/types";
 import { foldToken, jaroWinkler } from "../match/text";
 import { decomposePlace } from "../gedcom/place";
@@ -172,30 +172,25 @@ export function scoreObject(obj: GovObject, foldedLocality: string, language: st
 
 // One shared queue so a search's own fan-out — and concurrent rows — respect
 // the spacing. Each POST starts ≥ INTERVAL_MS after the previous one.
-let queueTail: Promise<unknown> = Promise.resolve();
-let lastStart = 0;
+const enqueue = createThrottledQueue(INTERVAL_MS);
 
 /** Send one SOAP call through the shared throttle; returns the response text. */
-function govCall(operation: string, inner: string): Promise<string> {
-  const run = async (): Promise<string> => {
-    const wait = lastStart + INTERVAL_MS - Date.now();
-    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
-    lastStart = Date.now();
+function govCall(operation: string, inner: string, signal?: AbortSignal): Promise<string> {
+  return enqueue(async () => {
     const body =
       `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ws="${NS}">` +
       `<soapenv:Body><ws:${operation}>${inner}</ws:${operation}></soapenv:Body></soapenv:Envelope>`;
-    const res = await fetch(ENDPOINT, {
-      method: "POST",
-      headers: { "Content-Type": "text/xml;charset=UTF-8", SOAPAction: '""' },
-      body,
-      signal: timeoutSignal(GEO_FETCH_TIMEOUT_MS),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const res = await geoFetch(
+      ENDPOINT,
+      {
+        method: "POST",
+        headers: { "Content-Type": "text/xml;charset=UTF-8", SOAPAction: '""' },
+        body,
+      },
+      signal,
+    );
     return res.text();
-  };
-  const p = queueTail.then(run, run);
-  queueTail = p.catch(() => undefined);
-  return p;
+  }, signal);
 }
 
 /**
@@ -277,17 +272,17 @@ async function attachParents(
  * Rejects on a network/HTTP failure of the initial search; individual object
  * lookups that fail are skipped.
  */
-export async function searchGov(query: string, language: string): Promise<GovResult[]> {
+export async function searchGov(query: string, language: string, signal?: AbortSignal): Promise<GovResult[]> {
   const locality = decomposePlace(query).locality ?? query.split(",")[0].trim();
   const foldedLocality = foldToken(locality);
   if (!foldedLocality) return [];
 
-  const searchXml = await govCall("searchByName", `<placename>${xmlEscape(locality)}</placename>`);
+  const searchXml = await govCall("searchByName", `<placename>${xmlEscape(locality)}</placename>`, signal);
   const ids = parseSearchIds(searchXml).slice(0, MAX_LOOKUPS);
   if (!ids.length) return [];
 
   const objects = await Promise.all(
-    ids.map((id) => govCall("getObject", `<itemId>${xmlEscape(id)}</itemId>`).then(parseObject, () => undefined)),
+    ids.map((id) => govCall("getObject", `<itemId>${xmlEscape(id)}</itemId>`, signal).then(parseObject, () => undefined)),
   );
 
   const results: (GovResult & { score: number })[] = [];

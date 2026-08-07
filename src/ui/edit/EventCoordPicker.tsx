@@ -122,11 +122,33 @@ export function EventCoordPicker({
   // generation also voids any lookup still in flight, or its late answer would
   // repopulate the list just cleared.
   const lookupGen = useRef(0);
-  useEffect(() => {
+  // One controller per generation: voiding a generation also takes its
+  // requests off the wire — and off the provider's shared throttle queue,
+  // where an abandoned ladder used to keep every later lookup waiting.
+  const lookupAbort = useRef<AbortController | null>(null);
+  const voidLookups = () => {
     lookupGen.current++;
+    lookupAbort.current?.abort();
+    lookupAbort.current = null;
+  };
+  const lookupSignal = () => (lookupAbort.current ??= new AbortController()).signal;
+  useEffect(() => {
+    voidLookups();
     setRn(IDLE);
     setOsm(IDLE);
+   
   }, [place, address]);
+  // Closing the panel abandons whatever is on the wire; a search left mid-air
+  // must not read as still loading when the panel reopens.
+  useEffect(() => {
+    if (open) return;
+    voidLookups();
+    setRn((prev) => (prev.state === "loading" ? IDLE : prev));
+    setOsm((prev) => (prev.state === "loading" ? IDLE : prev));
+   
+  }, [open]);
+   
+  useEffect(() => () => voidLookups(), []);
   const [draft, setDraft] = useState("");
   /** Where the panel is pinned in the viewport. It is positioned fixed and
    *  clamped to the window: the events table scrolls sideways and clips, so an
@@ -229,7 +251,7 @@ export function EventCoordPicker({
     const gen = lookupGen.current;
     setRn({ state: "loading", results: [] });
     onRegisterSearch?.({ state: "loading", results: [] });
-    searchAddresses(queries).then(
+    searchAddresses(queries, lookupSignal()).then(
       (results) => {
         if (gen !== lookupGen.current) return;
         setRn({ state: "done", results });
@@ -257,7 +279,7 @@ export function EventCoordPicker({
     setOsm({ state: "loading", results: [] });
     // In the language the place is written in — see placeLookupLanguage.
     const lang = placeLookupLanguage(place || address, i18n.language);
-    Promise.all(texts.map((text) => searchNominatim(text, lang))).then(
+    Promise.all(texts.map((text) => searchNominatim(text, lang, lookupSignal()))).then(
       (perVariant) => {
         if (gen !== lookupGen.current) return;
         const results: NominatimResult[] = [];
