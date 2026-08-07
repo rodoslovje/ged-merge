@@ -89,6 +89,12 @@ export interface AddressHit {
   coord: { lat: number; lon: number };
   /** "Brežna ulica 33", or "Bapča 22" where the village numbers directly. */
   address: string;
+  /** The street alone, as the register spells it. "" where it files none —
+   *  which is how Slovenia records a village that numbers its houses directly,
+   *  Croatia naming the "street" after the village instead. Kept apart from
+   *  {@link address} because the compliance check compares it with the street
+   *  the file writes, and only that half. */
+  street: string;
   post?: string;
   label: string;
   settlement: string;
@@ -305,6 +311,7 @@ function hitAt(bucket: AddressBucket, i: number): AddressHit {
   return {
     coord: { lat: bucket.lat[i] / COORD_SCALE, lon: bucket.lon[i] / COORD_SCALE },
     address,
+    street,
     ...(post ? { post } : {}),
     label: parts.join(", "),
     settlement: bucket.name,

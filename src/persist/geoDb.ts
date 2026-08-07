@@ -155,7 +155,13 @@ export async function putAddressRegister(
   buckets: readonly AddressBucket[],
   onProgress?: (done: number, total: number) => void,
 ): Promise<void> {
-  await withGeoDb(async (db) => {
+  // Deliberately NOT withGeoDb: every other call here is best-effort, because
+  // losing a cached decision degrades a tool rather than breaking it. A register
+  // import is the opposite — minutes of downloading whose only product is this
+  // write, so a failure (a full disk, a browser refusing the quota) has to reach
+  // the user as a failure instead of ending as a spinner that simply stops.
+  const db = await openGeoDb();
+  try {
     await clearAddressRegister(db, index.country);
     for (let at = 0; at < buckets.length; at += BUCKET_CHUNK) {
       const chunk = buckets.slice(at, at + BUCKET_CHUNK);
@@ -170,7 +176,9 @@ export async function putAddressRegister(
       onProgress?.(Math.min(at + BUCKET_CHUNK, buckets.length), buckets.length);
     }
     await requestDone(db.transaction(ADDR_INDEX_STORE, "readwrite").objectStore(ADDR_INDEX_STORE).put(index));
-  });
+  } finally {
+    db.close();
+  }
 }
 
 /** Drop every bucket of one country, plus its index. */

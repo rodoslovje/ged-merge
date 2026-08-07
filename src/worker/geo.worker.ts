@@ -28,7 +28,7 @@ import {
 } from "../geo/hrAd";
 import { parseSiAddressPage, parseSiPostCodes, siAddressPageUrl, siPostalUrl, SI_AD_PAGE, type SiFeatureCollection } from "../geo/siAd";
 import { extractZipTxt, zipEntries, zipEntryStream, type ZipEntry } from "../geo/zip";
-import { getCountry, putAddressRegister, putCountry } from "../persist/geoDb";
+import { getAddressIndex, getCountry, putAddressRegister, putCountry } from "../persist/geoDb";
 import type { GeoWorkerRequest, GeoWorkerResponse } from "./geoMessages";
 
 // Gazetteer import worker: decompress (if zipped), parse the tab-separated
@@ -72,6 +72,39 @@ function parseDump(bytes: Uint8Array<ArrayBuffer>, requestId: number): Map<strin
 // 116 pages off a WFS, fetched here rather than on the main thread so a gigabyte
 // of JSON is parsed and dropped page by page. Both end in the same buckets.
 
+/**
+ * The Croatian address register, as the DGU's INSPIRE download service serves
+ * it: every one of the country's 1.68 million house numbers with its
+ * coordinate, refreshed weekly, CORS open so this worker can fetch it directly.
+ *
+ * A download and not a query because there is nothing to query: Croatia's
+ * address WFS is open to Croatian public bodies only, which is what the DGU
+ * answers when asked. Data © Državna geodetska uprava.
+ */
+const DGU_ADDRESSES_URL = "https://geoportal.dgu.hr/services/atom/INSPIRE_Addresses_(AD).zip";
+
+/** Read a response to the end, counting the bytes as they arrive. */
+async function readAll(res: Response, onProgress: (done: number) => void): Promise<ArrayBuffer> {
+  if (!res.body) return res.arrayBuffer();
+  const reader = res.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let done = 0;
+  for (;;) {
+    const { value, done: end } = await reader.read();
+    if (end) break;
+    chunks.push(value);
+    done += value.byteLength;
+    onProgress(done);
+  }
+  const out = new Uint8Array(done);
+  let off = 0;
+  for (const c of chunks) {
+    out.set(c, off);
+    off += c.byteLength;
+  }
+  return out.buffer;
+}
+
 /** One zip entry decoded to a string. For the side tables only: the address
  *  file is far past the length a JS string may reach. */
 async function entryText(buffer: ArrayBuffer, entry: ZipEntry): Promise<string> {
@@ -98,7 +131,18 @@ const MEMBER_END = "</wfs:member>";
  * — the difference between an import that runs on an ordinary laptop and one
  * that cannot run at all.
  */
-async function importHrAddresses(buffer: ArrayBuffer, requestId: number): Promise<number> {
+async function importHrAddresses(requestId: number): Promise<number> {
+  // Fetched here rather than handed in: an import that owns its whole job can
+  // outlive the dialog that started it (see addressDownload.ts). The announced
+  // length can be believed — it is a zip, so what the server counts and what
+  // the reader hands back are the same bytes.
+  const res = await fetch(DGU_ADDRESSES_URL);
+  if (!res.ok) throw new Error(`the address download answered HTTP ${res.status}`);
+  const total = Number(res.headers.get("content-length")) || 0;
+  const buffer = await readAll(res, (done) =>
+    post({ type: "progress", requestId, done, total, stage: "downloading" }),
+  );
+
   const entries = zipEntries(buffer);
   const entryNamed = (name: string) =>
     entries.find((e) => e.name.toLowerCase().endsWith(name.toLowerCase()));
@@ -121,7 +165,6 @@ async function importHrAddresses(buffer: ArrayBuffer, requestId: number): Promis
   const collector = new AddressCollector("HR");
   const decoder = new TextDecoder();
   const reader = zipEntryStream(buffer, addressEntry).getReader();
-  const total = addressEntry.uncompressedSize;
   let read = 0;
   let carry = "";
   for (;;) {
@@ -135,7 +178,7 @@ async function importHrAddresses(buffer: ArrayBuffer, requestId: number): Promis
       const row = parseAddressMember(part, tables);
       if (row) collector.add(row);
     }
-    post({ type: "progress", requestId, done: read, total });
+    post({ type: "progress", requestId, done: read, total: addressEntry.uncompressedSize, stage: "parsing" });
   }
   const last = parseAddressMember(carry + decoder.decode(), tables);
   if (last) collector.add(last);
@@ -186,7 +229,7 @@ async function importSiAddresses(requestId: number): Promise<number> {
     const rows = parseSiAddressPage(body, posts);
     for (const row of rows) collector.add(row);
     total = body.numberMatched ?? total;
-    post({ type: "progress", requestId, done: collector.count, total });
+    post({ type: "progress", requestId, done: collector.count, total, stage: "downloading" });
     // The service stops answering with features once the collection runs out;
     // a short page is the last one. Counting against numberMatched instead
     // would trust a total that can change between pages.
@@ -204,7 +247,14 @@ self.onmessage = async (event: MessageEvent<GeoWorkerRequest>) => {
   const msg = event.data;
   if (msg.type === "downloadAddresses") {
     try {
-      const count = await importSiAddresses(msg.requestId);
+      const count =
+        msg.country === "HR" ? await importHrAddresses(msg.requestId) : await importSiAddresses(msg.requestId);
+      // Read the index back before calling it done. The store is the only
+      // product of a run that takes minutes, and a write that failed — a full
+      // disk, a refused quota — must not be reported as a success that leaves
+      // the manager showing nothing and saying nothing.
+      const stored = await getAddressIndex(msg.country);
+      if (!stored) throw new Error("the register could not be stored in this browser");
       post({ type: "addressRegister", requestId: msg.requestId, country: msg.country, count });
     } catch (e) {
       post({ type: "error", requestId: msg.requestId, message: e instanceof Error ? e.message : String(e) });
@@ -214,11 +264,6 @@ self.onmessage = async (event: MessageEvent<GeoWorkerRequest>) => {
   if (msg.type !== "importGazetteer") return;
   const { requestId } = msg;
   try {
-    if (msg.format === "hr-ad") {
-      const count = await importHrAddresses(msg.buffer, requestId);
-      post({ type: "addressRegister", requestId, country: "HR", count });
-      return;
-    }
     if (msg.format === "rpe") {
       const obcine = msg.obcine
         ? rpeObcinaNames(JSON.parse(new TextDecoder().decode(msg.obcine)) as RpeObcineJson)

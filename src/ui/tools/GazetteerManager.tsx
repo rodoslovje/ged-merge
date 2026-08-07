@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { COUNTRY_CODES } from "../../gedcom/countryCode";
 import {
@@ -14,6 +14,13 @@ import {
 } from "../../geo/gazetteer";
 import { countryNameOf } from "../../geo/placeProposal";
 import { addressRegisterInfo, invalidateAddressRegisters } from "../../geo/addressLookup";
+import {
+  addressDownloadState,
+  cancelAddressDownload,
+  clearAddressDownload,
+  startAddressDownload,
+  watchAddressDownload,
+} from "./addressDownload";
 import { deleteAddressRegister, deleteCountry, loadCountries, type CountryMeta } from "../../persist/geoDb";
 import type { GeoWorkerRequest, GeoWorkerResponse } from "../../worker/geoMessages";
 import { invalidateGazetteerIndex } from "../edit/PlaceLookupContext";
@@ -115,19 +122,6 @@ const DGU_PLACES_URL =
   "&typeNames=rgi:v_imjesto_geoime_gs&outputFormat=application/json&srsName=EPSG:4326&count=50000" +
   "&propertyName=im_id,pisanje_imena,jeziknaziv,status_imena,og_ime,vrstaobiljezjaid,geom" +
   `&CQL_FILTER=${encodeURIComponent(`vrstaobiljezjaid IN (${DGU_PLACE_KINDS.join(",")})`)}`;
-
-/**
- * The Croatian address register, as the DGU's INSPIRE download service serves
- * it: every one of the country's 1.68 million house numbers with its
- * coordinate, refreshed weekly, CORS open so the browser can fetch it directly.
- *
- * A download and not a query because there is nothing to query: Croatia's
- * address WFS is open to Croatian public bodies only, which is what the DGU
- * answers when asked. So this is 85 MB fetched once and kept, and every lookup
- * afterwards is local — see hrAd.ts for what becomes of the 2.6 GB of GML
- * inside. Data © Državna geodetska uprava.
- */
-const DGU_ADDRESSES_URL = "https://geoportal.dgu.hr/services/atom/INSPIRE_Addresses_(AD).zip";
 
 /** One RPJ administrative-unit table, asked for without its geometry — the
  *  counties are 3 KB that way and the municipalities 75 KB, against megabytes
@@ -232,11 +226,6 @@ function rememberRegions(country: string, list: Subdivision[]): void {
 async function readWithProgress(
   res: Response,
   onProgress: (done: number, total: number) => void,
-  /** A length the caller knows to be true, when it does. The one source that
-   *  can say so is the address register: it is a zip, so what the server
-   *  announces and what the reader hands back are the same bytes — and 85 MB
-   *  is long enough a download to deserve a real percentage. */
-  total = 0,
 ): Promise<ArrayBuffer> {
   if (!res.body) return res.arrayBuffer();
   const reader = res.body.getReader();
@@ -247,7 +236,7 @@ async function readWithProgress(
     if (end) break;
     chunks.push(value);
     done += value.byteLength;
-    onProgress(done, total);
+    onProgress(done, 0);
   }
   const out = new Uint8Array(done);
   let off = 0;
@@ -277,8 +266,7 @@ async function fetchBuffer(url: string, signal: AbortSignal): Promise<ArrayBuffe
 type ImportExtra =
   | { format: "overpass"; country: string; region?: string }
   | { format: "rpe"; obcine?: ArrayBuffer }
-  | { format: "rgi"; opcine?: ArrayBuffer; zupanije?: ArrayBuffer }
-  | { format: "hr-ad" };
+  | { format: "rgi"; opcine?: ArrayBuffer; zupanije?: ArrayBuffer };
 
 /** What a download attempt produced: the bytes, or why there are none. */
 type OverpassResult = { buffer: ArrayBuffer } | { failure: "timeout" | "busy" };
@@ -419,6 +407,18 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
   const [regions, setRegions] = useState<{ country: string; list: Subdivision[] } | null>(null);
   const workerRef = useRef<Worker | null>(null);
   const fetchAbortRef = useRef<AbortController | null>(null);
+
+  // An address import runs outside this component, so its progress is read
+  // rather than held — and a manager mounting halfway through one picks it up.
+  const download = useSyncExternalStore(watchAddressDownload, addressDownloadState, addressDownloadState);
+  useEffect(() => {
+    if (download.phase === "done") {
+      void refreshGazetteer();
+      clearAddressDownload();
+    }
+    // refreshGazetteer is recreated each render; the phase is what matters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [download.phase]);
 
   const reload = async () => {
     const stored = await loadCountries();
@@ -667,8 +667,6 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
     url: string,
     fileName: string,
     extra: (signal: AbortSignal) => Promise<ImportExtra>,
-    /** Whether the announced length can be believed — see {@link readWithProgress}. */
-    trustLength = false,
   ) => {
     const abort = new AbortController();
     fetchAbortRef.current = abort;
@@ -679,11 +677,8 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
         setImportState({ phase: "error", message: t("tools.geocode.downloadFailed") });
         return;
       }
-      const announced = trustLength ? Number(res.headers.get("content-length")) || 0 : 0;
-      const buffer = await readWithProgress(
-        res,
-        (done, total) => setImportState({ phase: "running", stage: "downloading", done, total }),
-        announced,
+      const buffer = await readWithProgress(res, (done, total) =>
+        setImportState({ phase: "running", stage: "downloading", done, total }),
       );
       const options = await extra(abort.signal);
       if (abort.signal.aborted) return;
@@ -719,47 +714,11 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
       return { format: "rgi", ...(opcine ? { opcine } : {}), ...(zupanije ? { zupanije } : {}) };
     });
 
-  // The houses, as opposed to the places above. One zip, no side tables — every
-  // name an address needs is inside it.
-  const downloadCroatiaAddresses = () =>
-    downloadRegister(DGU_ADDRESSES_URL, "HR.dgu-adrese.zip", async () => ({ format: "hr-ad" }), true);
-
-  /**
-   * Slovenia's houses, which are not a file but 116 pages off a service — so
-   * the worker does the fetching too, and there is no buffer to hand it. The
-   * spinner opens on "waiting" because the first page takes a couple of seconds
-   * and its own progress only becomes a percentage once the total is known.
-   */
-  const downloadSloveniaAddresses = (): Promise<void> =>
-    new Promise((resolve) => {
-      setImportState({ phase: "running", stage: "waiting", done: 0, total: 0 });
-      const worker = new Worker(new URL("../../worker/geo.worker.ts", import.meta.url), { type: "module" });
-      workerRef.current = worker;
-      const finish = (state: ImportState) => {
-        worker.terminate();
-        workerRef.current = null;
-        setImportState(state);
-        resolve();
-      };
-      worker.onmessage = (e: MessageEvent<GeoWorkerResponse>) => {
-        const msg = e.data;
-        if (msg.type === "progress") {
-          setImportState({
-            phase: "running",
-            stage: msg.stage === "storing" ? "storing" : "downloading",
-            done: msg.done,
-            total: msg.total,
-          });
-        } else if (msg.type === "addressRegister") {
-          finish(null);
-          void refreshGazetteer();
-        } else if (msg.type === "error") finish({ phase: "error", message: msg.message });
-      };
-      worker.onerror = () => finish({ phase: "error", message: t("tools.geocode.downloadFailed") });
-      worker.onmessageerror = () => finish({ phase: "error", message: t("tools.geocode.downloadFailed") });
-      const req: GeoWorkerRequest = { type: "downloadAddresses", requestId: 1, country: "SI" };
-      worker.postMessage(req);
-    });
+  // The houses, as opposed to the places above. Both countries' imports run in
+  // addressDownload's own worker rather than this component's: they take
+  // minutes, and this component is unmounted the moment Settings changes tab.
+  const downloadCroatiaAddresses = async () => startAddressDownload("HR");
+  const downloadSloveniaAddresses = async () => startAddressDownload("SI");
 
   const removeAddressRegister = async (country: string) => {
     await deleteAddressRegister(country);
@@ -771,6 +730,7 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
     fetchAbortRef.current = null;
     workerRef.current?.terminate();
     workerRef.current = null;
+    cancelAddressDownload();
     setImportState(null);
   };
 
@@ -779,11 +739,20 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
     await refreshGazetteer();
   };
 
+  // The address import's state, shown through the same spinner as the imports
+  // this component does run itself.
+  const addressState: ImportState =
+    download.phase === "running"
+      ? { phase: "running", stage: download.stage, done: download.done, total: download.total }
+      : download.phase === "error"
+        ? { phase: "error", message: download.message }
+        : null;
+
   return {
     countries,
     addressRegisters,
     index,
-    importState,
+    importState: addressState ?? importState,
     importFile,
     downloadCountry,
     downloadSlovenia,

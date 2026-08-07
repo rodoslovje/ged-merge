@@ -11,11 +11,8 @@ export interface GeoImportRequest {
    *  GURS RPE settlements GeoJSON, or the DGU register of geographical names. */
   buffer: ArrayBuffer;
   fileName: string;
-  /** Payload shape; "geonames" when omitted. "hr-ad" is the Croatian INSPIRE
-   *  address download — a zip whose 2.6 GB of GML the worker streams rather
-   *  than decodes, and which lands in the address stores, not the country
-   *  ones. */
-  format?: "geonames" | "overpass" | "rpe" | "rgi" | "hr-ad";
+  /** Payload shape; "geonames" when omitted. */
+  format?: "geonames" | "overpass" | "rpe" | "rgi";
   /** Overpass only: the country code the entries are stored under. ("rpe" and
    *  "rgi" are Slovenia and Croatia by definition and store under their own
    *  register keys.) */
@@ -37,14 +34,18 @@ export interface GeoImportRequest {
   zupanije?: ArrayBuffer;
 }
 
-/** Fetch a national address register the worker pages through itself. Croatia's
- *  arrives as one file the main thread downloads and transfers (see
- *  {@link GeoImportRequest}'s "hr-ad"); Slovenia's is 116 requests, which belong
- *  where the parsing is rather than on the main thread. */
+/**
+ * Fetch and store a national address register, fetching included.
+ *
+ * The worker does the downloading as well as the parsing for both countries:
+ * Croatia's is an 85 MB file and Slovenia's 116 requests, neither of which
+ * belongs on the main thread — and, more to the point, an import that owns its
+ * whole job can outlive the dialog that started it (see addressDownload.ts).
+ */
 export interface AddressDownloadRequest {
   type: "downloadAddresses";
   requestId: number;
-  country: "SI";
+  country: "SI" | "HR";
 }
 
 export type GeoWorkerRequest = GeoImportRequest | AddressDownloadRequest;
@@ -56,10 +57,10 @@ export type GeoWorkerResponse =
       done: number;
       total: number;
       /** What the numbers are counting, when it is not the default reading of
-       *  the payload. The address register spends its last stretch writing
-       *  thousands of records, which is long enough that a bar sitting at
-       *  100 % would read as hung. */
-      stage?: "storing";
+       *  the payload — an address import passes through all three, and each is
+       *  long enough on its own that a bar left saying the wrong thing (or
+       *  sitting at 100 %) would read as hung. */
+      stage?: "downloading" | "parsing" | "storing";
     }
   | { type: "result"; requestId: number; countries: { code: string; count: number }[] }
   /** An address register was stored — a different store, and a different line
