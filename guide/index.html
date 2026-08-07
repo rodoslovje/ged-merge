@@ -1028,7 +1028,7 @@
               Load the gazetteer with one click from <strong>OpenStreetMap</strong> (the button lists every country it knows; picking one starts the download, needs
               the online-lookups opt-in in <a href="#workspace">Settings › Advanced</a>); with
               <strong>GURS (Slovenia)</strong> — all 6035 settlements from Slovenia's national register of
-              spatial units, the authoritative choice for Slovenian research, and it brings the bilingual Italian and
+              spatial units, the authoritative choice for Slovenia, and it brings the bilingual Italian and
               Hungarian names with it, so <em>Isola</em> finds <em>Izola</em>. Each settlement carries its <em>občina</em>, which is what tells the two <em>Soteska</em> apart —
               <em>Soteska (Kamnik)</em> and <em>Soteska (Dolenjske Toplice)</em> both match the name perfectly, and only the
               municipality separates them; when your place names the municipality too, the right one wins outright. Croatia has a
@@ -1063,18 +1063,23 @@
               page work: the pick is the staging, there is nothing else to tick.
             </p>
             <p>
-              Croatia's houses come the other way round. Slovenia's address register answers a house number over the
-              wire, one question at a time; Croatia publishes no such service, so <strong>DGU addresses (Croatia)</strong>
-              in <strong>Settings › Map › Place directories</strong> downloads the register instead — all 1.68 million
-              Croatian addresses with street, house number, post office and each one's own coordinate. It is an ~85 MB
-              download that takes a few minutes to prepare and settles at some 40 MB in this browser, and it is a
-              one-time step like a gazetteer: it survives reloads and serves every file you open, and it is listed and
-              removed beside the place directories under <span class="gm-data">HR-ADR</span>. Afterwards every Croatian
-              address is placed on its building without touching the network at all — which is also why those lookups
-              are offered whether or not <em>Look up details online</em> is on, and why a whole village of them answers
-              at once rather than a second apart. Where a village numbers its houses directly the register knows that
-              too, and an answer names the post office it is filed under — which is what tells one <em>Draga</em> from
-              another, Croatia having 313 settlement names borne by more than one place.
+              Each national register offers a second download beside its places: its <strong>addresses</strong> — every
+              house number in the country, with street, post office and its own coordinate. Ordinarily a house number is
+              looked up over the wire, one question at a time and a second apart, and Croatia cannot even do that, since
+              it publishes no address service at all. Downloaded instead, the whole register sits in this browser:
+              <strong>Addresses</strong> under <strong>GURS (Slovenia)</strong> brings 575 773 Slovenian houses (~45 MB,
+              several minutes), and under <strong>DGU (Croatia)</strong> all 1.68 million Croatian ones (~85 MB, a few
+              minutes, some 40 MB of space). Either is a one-time step like a gazetteer — it survives reloads and serves
+              every file you open, and is listed and removed beside the place directories under
+              <span class="gm-data">SI-ADR</span> or <span class="gm-data">HR-ADR</span>.
+            </p>
+            <p>
+              What changes afterwards: every address in that country is placed on its building without touching the
+              network at all, so a whole village answers at once instead of a second apart, and those lookups are
+              offered whether or not <em>Look up details online</em> is on — nothing leaves the device to make them.
+              Where a village numbers its houses directly, the register knows that too. And an answer names the level it
+              is filed under — Slovenia's <em>občina</em>, Croatia's post office — which is what tells one
+              <em>Stražišče</em> or <em>Draga</em> from another, both countries reusing settlement names freely.
             </p>
             <p>
               The review list keeps a long file manageable. When the file's places span more than one country, a row of

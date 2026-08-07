@@ -4,7 +4,7 @@ import { countryCode } from "../gedcom/countryCode";
 import { addressStreetName, decomposePlace, looksLikeStreet } from "../gedcom/place";
 import { foldToken } from "../match/text";
 import { d96ToWgs84 } from "./d96";
-import { searchHrAddress } from "./hrRegister";
+import { hasLocalRegister, localRegisters, searchLocalAddress } from "./addressLookup";
 
 // RN — the GURS register of addresses (Register naslovov) — is the official
 // Slovenian address gazetteer: every house number in the country with its exact
@@ -12,12 +12,14 @@ import { searchHrAddress } from "./hrRegister";
 // and it is opt-in behind the same online-lookups setting as the Nominatim and
 // GOV searches.
 //
-// This module is also where an address lookup is *dispatched*: a query carries
-// the country whose register can answer it, and Croatia's is answered offline
-// from the downloaded register instead (hrRegister.ts). The query and result
-// shapes are shared, so everything downstream — the review rows, the batch
-// pool, the pick UI — is written once and neither side knows which register
-// answered.
+// This module is also where an address lookup is *dispatched*. A query carries
+// the country whose register can answer it, and a country whose register has
+// been *downloaded* is answered from this browser instead (addressLookup.ts) —
+// always for Croatia, which publishes no service to ask, and for Slovenia
+// whenever the download is there, falling back to the ladder below when it is
+// not. The query and result shapes are shared, so everything downstream — the
+// review rows, the batch pool, the pick UI — is written once and neither side
+// knows which register answered.
 //
 // Where the settlements register (RPE) places a village, this places the *house*
 // within it, which is what a genealogical ADDR — or a PLAC carrying a hišna
@@ -290,18 +292,21 @@ export function rnQueriesFrom(place: string | undefined, address: string | undef
 }
 
 /**
- * Whether these queries can be answered without the network.
+ * Whether these queries can be answered without the network — every one of them
+ * belonging to a country whose register this browser has downloaded.
  *
  * The online-lookups setting exists to control what leaves the device, so it
- * has nothing to say about a Croatian address: the register is already here,
- * and the lookup is an IndexedDB read. The UI asks this before hiding a
- * register button behind that opt-in.
+ * has nothing to say about such a query: the register is already here, and the
+ * lookup is an IndexedDB read. The UI asks this before hiding a register button
+ * behind that opt-in, which is why the answer has to come without awaiting
+ * anything (see addressLookup's `localRegisters`).
  *
  * False for an empty list — there is nothing to answer, and "yes, offline" would
  * read as an offer.
  */
 export function isOfflineQuery(queries: readonly RnQuery[]): boolean {
-  return queries.length > 0 && queries.every((q) => q.country === "HR");
+  const stored = localRegisters();
+  return queries.length > 0 && queries.every((q) => stored.has(q.country ?? "SI"));
 }
 
 /**
@@ -499,9 +504,13 @@ function rnFetch(filter: string, signal?: AbortSignal, limit = FETCH_LIMIT): Pro
  * manual pick.
  */
 export async function searchAddress(query: RnQuery, signal?: AbortSignal): Promise<RnResult[]> {
-  // Croatia's houses are not on a service to walk a ladder against — they are
-  // in this browser, and hrRegister walks the same ladder over them offline.
-  if (query.country === "HR") return searchHrAddress(query);
+  // A downloaded register answers instead, walking the same ladder offline.
+  // Croatia has no alternative — there is no service to ask — so its query goes
+  // there whether or not anything is stored, and an empty answer is the honest
+  // one. Slovenia falls through to the ladder below when nothing is stored.
+  if (query.country === "HR" || (await hasLocalRegister("SI"))) {
+    return searchLocalAddress(query.country ?? "SI", query);
+  }
   for (const settlement of [query.settlement, ...(query.altSettlements ?? [])]) {
     const hits = await searchInSettlement({ ...query, settlement }, signal);
     if (hits.length) return hits;
@@ -692,7 +701,7 @@ export async function searchAddressBatch(
     if (g.country === "HR") {
       const hits: RnResult[] = [];
       for (const q of g.queries) {
-        for (const hit of await searchHrAddress(q)) {
+        for (const hit of await searchLocalAddress(g.country ?? "SI", q)) {
           if (hits.some((h) => h.coord.lat === hit.coord.lat && h.coord.lon === hit.coord.lon)) continue;
           hits.push(hit);
         }

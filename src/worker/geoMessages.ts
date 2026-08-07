@@ -37,7 +37,17 @@ export interface GeoImportRequest {
   zupanije?: ArrayBuffer;
 }
 
-export type GeoWorkerRequest = GeoImportRequest;
+/** Fetch a national address register the worker pages through itself. Croatia's
+ *  arrives as one file the main thread downloads and transfers (see
+ *  {@link GeoImportRequest}'s "hr-ad"); Slovenia's is 116 requests, which belong
+ *  where the parsing is rather than on the main thread. */
+export interface AddressDownloadRequest {
+  type: "downloadAddresses";
+  requestId: number;
+  country: "SI";
+}
+
+export type GeoWorkerRequest = GeoImportRequest | AddressDownloadRequest;
 
 export type GeoWorkerResponse =
   | {

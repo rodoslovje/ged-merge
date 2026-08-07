@@ -558,7 +558,6 @@ export const en = {
   "tools.geocode.addr.splitMove": "Move them to {{place}}",
   "tools.geocode.fromFile": "from this file",
   "tools.geocode.fromFileTooltip": "Other occurrences of exactly this place name already carry this coordinate in the file",
-  "tools.geocode.downloadBtn": "OpenStreetMap",
   "tools.geocode.countryTooltip": "The country whose places are fetched from OpenStreetMap (Overpass API, © OpenStreetMap contributors)",
   "tools.geocode.downloadFailed": "The download did not go through — try again in a minute (the Overpass servers rate-limit), or download a GeoNames file from the site below and import it here.",
   "tools.geocode.regionsLoading": "Too large for one download — looking up the regions",
@@ -576,25 +575,28 @@ export const en = {
   // The credit that follows each of these is assembled around a link to the
   // source's own site: "© <name>" + the licence tail. The name is a proper noun
   // and lives in the markup, untranslated.
-  "tools.geocode.sourceGurs": "Every Slovenian settlement from the official register of spatial units, bilingual names included — the authoritative choice for Slovenian research.",
+  "tools.geocode.sourceGurs": "Every Slovenian settlement from the official register of spatial units, bilingual names included, and every house number in the country with its own coordinate — the authoritative choice for Slovenia.",
   "tools.geocode.licenseCcBy": ", CC BY 4.0.",
-  "tools.geocode.sourceDgu": "Croatian settlements, villages, hamlets and city quarters from the official register of geographical names, historical and bilingual forms included — the authoritative choice for Croatian research.",
+  "tools.geocode.sourceDgu": "Croatian settlements, villages, hamlets and city quarters from the official register of geographical names, historical and bilingual forms included, and every house number in the country with its own coordinate — the authoritative choice for Croatia.",
   // Croatia's national open-data licence, which is what DGU publishes its
   // registers under. Named as the licence names itself in each language —
   // "Open Licence" is its own English title, not a translation of ours.
   "tools.geocode.licenseOpen": ", Open Licence.",
-  "tools.geocode.sourceDguAddresses": "Every house number in Croatia with its own coordinate, so a Croatian address is placed on its building rather than on its village. Downloaded once and kept, because Croatia publishes no address service to ask.",
   "tools.geocode.sourceOsm": "Any country you pick from the list. Hamlets too, where an official register names none.",
   // Around the linked name, which sits mid-credit here: "© OpenStreetMap
   // contributors" — and after "© sodelavci" in Slovenian.
   "tools.geocode.sourceOsmCredit": "©",
   "tools.geocode.sourceOsmLicense": " contributors, ODbL.",
   "tools.geocode.storedLocally": "Whichever you load stays in this browser; nothing is sent anywhere. Directories add up rather than replace each other: one settlement described by two of them is proposed once, at the official coordinate, while two different places sharing a name stay separate for you to choose between.",
-  "tools.geocode.gursBtn": "GURS (Slovenia)",
+  // The register's name labels its pair of buttons; the buttons themselves say
+  // only which half of it they fetch.
+  "tools.geocode.gursName": "GURS (Slovenia)",
+  "tools.geocode.dguName": "DGU (Croatia)",
+  "tools.geocode.sourcePlaces": "Places",
+  "tools.geocode.sourceAddresses": "Addresses",
   "tools.geocode.gursTooltip": "All 6035 Slovenian settlements from the official register of spatial units (Geodetska uprava RS, CC BY 4.0), including the Italian and Hungarian bilingual names. A ~45 MB download; only the settlement centres are kept.",
-  "tools.geocode.dguBtn": "DGU (Croatia)",
   "tools.geocode.dguTooltip": "Some 24 000 Croatian populated places from the register of geographical names (Državna geodetska uprava) — settlements, villages, hamlets, city quarters and abandoned settlements, with their Italian, Hungarian, Serbian and historical names. An ~8 MB download.",
-  "tools.geocode.dguAddressesBtn": "DGU addresses (Croatia)",
+  "tools.geocode.gursAddressesTooltip": "All 575 773 Slovenian addresses from the official address register (Geodetska uprava RS, CC BY 4.0, INSPIRE download) — street, house number, municipality and post office, each with its own coordinate. A ~45 MB download that takes several minutes; afterwards every Slovenian address is looked up here, with no network at all and a whole village answered at once.",
   "tools.geocode.dguAddressesTooltip": "All 1.68 million Croatian addresses from the DGU address register (Državna geodetska uprava, INSPIRE download) — street, house number and post office, each with its own coordinate. An ~85 MB download that takes a few minutes to prepare and needs about 40 MB of space in this browser; afterwards every Croatian address is looked up here, with no network at all.",
   "tools.geocode.more_one": "…and {{count}} more row — narrow the list with the search box.",
   "tools.geocode.more_other": "…and {{count}} more rows — narrow the list with the search box.",

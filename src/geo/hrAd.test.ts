@@ -1,14 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
   AddressCollector,
+  scopeToParents,
+  searchBucket,
+  streetKey,
+  type AddressBucket,
+} from "./addressRegister";
+import {
   parseAddressMember,
   parseAdminUnitNames,
   parsePostalDescriptors,
   parseThoroughfareNames,
-  scopeToParents,
-  searchBucket,
-  streetKey,
-  type HrAddressBucket,
 } from "./hrAd";
 
 // Fixtures cut down from the real INSPIRE download — the same element order and
@@ -67,6 +69,7 @@ function addressMember(opts: {
 const settlements = parseAdminUnitNames(ADMIN_UNITS);
 const streets = parseThoroughfareNames(STREETS);
 const posts = parsePostalDescriptors(POSTS);
+const TABLES = { settlements, streets, posts };
 
 describe("parsing the register's side tables", () => {
   it("keeps the settlements and leaves the country out", () => {
@@ -83,7 +86,7 @@ describe("parsing the register's side tables", () => {
 });
 
 describe("parseAddressMember", () => {
-  const parse = (member: string) => parseAddressMember(member, settlements);
+  const parse = (member: string) => parseAddressMember(member, TABLES);
 
   it("reads a town address, projecting its position", () => {
     const row = parse(
@@ -97,7 +100,7 @@ describe("parseAddressMember", () => {
         settlementId: 5000585,
       }),
     );
-    expect(row).toMatchObject({ settlementId: 5000585, streetId: 2156774419, number: 33, ext: "", ext2: 0 });
+    expect(row).toMatchObject({ settlementId: "5000585", settlement: "Andraševec", street: "Brežna ulica", post: "49243 Oroslavje", number: 33, ext: "", ext2: 0 });
     expect(row?.lat).toBeCloseTo(46.00325, 4);
     expect(row?.lon).toBeCloseTo(15.94829, 4);
   });
@@ -171,10 +174,10 @@ describe("parseAddressMember", () => {
 });
 
 /** Build the buckets a list of members collects into. */
-function bucketsOf(members: string[]): HrAddressBucket[] {
-  const collector = new AddressCollector(settlements, streets, posts);
+function bucketsOf(members: string[]): AddressBucket[] {
+  const collector = new AddressCollector("HR");
   for (const m of members) {
-    const row = parseAddressMember(m, settlements);
+    const row = parseAddressMember(m, TABLES);
     if (row) collector.add(row);
   }
   return collector.buckets();
@@ -262,7 +265,7 @@ describe("searchBucket", () => {
 describe("scopeToParents", () => {
   const hits = searchBucket(ANDRASEVEC, { number: 33, street: "Brežna ulica" });
   const known = {
-    postNames: new Set(["oroslavje", "velika gorica", "metlika"]),
+    parentNames: new Set(["oroslavje", "velika gorica", "metlika"]),
     settlementNames: new Set(["andrasevec", "bapca"]),
   };
 

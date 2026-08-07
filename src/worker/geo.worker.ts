@@ -18,13 +18,15 @@ import {
   type RpeNaseljaJson,
   type RpeObcineJson,
 } from "../geo/gazetteer";
+import { AddressCollector } from "../geo/addressRegister";
 import {
-  AddressCollector,
   parseAddressMember,
   parseAdminUnitNames,
   parsePostalDescriptors,
   parseThoroughfareNames,
+  type HrSideTables,
 } from "../geo/hrAd";
+import { parseSiAddressPage, parseSiPostCodes, siAddressPageUrl, siPostalUrl, SI_AD_PAGE, type SiFeatureCollection } from "../geo/siAd";
 import { extractZipTxt, zipEntries, zipEntryStream, type ZipEntry } from "../geo/zip";
 import { getCountry, putAddressRegister, putCountry } from "../persist/geoDb";
 import type { GeoWorkerRequest, GeoWorkerResponse } from "./geoMessages";
@@ -63,10 +65,12 @@ function parseDump(bytes: Uint8Array<ArrayBuffer>, requestId: number): Map<strin
   return byCountry;
 }
 
-// --- The Croatian address register ---------------------------------------
+// --- The national address registers ---------------------------------------
 //
-// Four GML files in one zip. Three are side tables small enough to read whole;
-// the fourth is 2.6 GB and is never held — see importHrAddresses.
+// Croatia arrives as four GML files in one zip: three side tables small enough
+// to read whole, and a fourth of 2.6 GB that is never held. Slovenia arrives as
+// 116 pages off a WFS, fetched here rather than on the main thread so a gigabyte
+// of JSON is parsed and dropped page by page. Both end in the same buckets.
 
 /** One zip entry decoded to a string. For the side tables only: the address
  *  file is far past the length a JS string may reach. */
@@ -108,12 +112,13 @@ async function importHrAddresses(buffer: ArrayBuffer, requestId: number): Promis
   // be found: a download missing them still places every house.
   const streetEntry = entryNamed("ThoroughfareName.gml");
   const postEntry = entryNamed("PostalDescriptor.gml");
-  const streets = streetEntry ? parseThoroughfareNames(await entryText(buffer, streetEntry)) : new Map<number, string>();
-  const posts = postEntry
-    ? parsePostalDescriptors(await entryText(buffer, postEntry))
-    : new Map<number, { line: string; name: string }>();
+  const tables: HrSideTables = {
+    settlements,
+    streets: streetEntry ? parseThoroughfareNames(await entryText(buffer, streetEntry)) : new Map(),
+    posts: postEntry ? parsePostalDescriptors(await entryText(buffer, postEntry)) : new Map(),
+  };
 
-  const collector = new AddressCollector(settlements, streets, posts);
+  const collector = new AddressCollector("HR");
   const decoder = new TextDecoder();
   const reader = zipEntryStream(buffer, addressEntry).getReader();
   const total = addressEntry.uncompressedSize;
@@ -127,12 +132,12 @@ async function importHrAddresses(buffer: ArrayBuffer, requestId: number): Promis
     const parts = text.split(MEMBER_END);
     carry = parts.pop() ?? "";
     for (const part of parts) {
-      const row = parseAddressMember(part, settlements);
+      const row = parseAddressMember(part, tables);
       if (row) collector.add(row);
     }
     post({ type: "progress", requestId, done: read, total });
   }
-  const last = parseAddressMember(carry + decoder.decode(), settlements);
+  const last = parseAddressMember(carry + decoder.decode(), tables);
   if (last) collector.add(last);
   if (!collector.count) throw new Error("no addresses in the register download");
 
@@ -143,8 +148,69 @@ async function importHrAddresses(buffer: ArrayBuffer, requestId: number): Promis
   return collector.count;
 }
 
+/**
+ * Fetch and store the Slovenian address register, page by page.
+ *
+ * The fetching happens here rather than on the main thread because there is a
+ * lot of it: 575 773 addresses come to something over a gigabyte of JSON, which
+ * only stays manageable because each page is parsed into rows and then dropped.
+ * (On the wire it is far less — the service gzips about 27-fold and the browser
+ * asks for that itself — but decompressed is what a parser sees.)
+ *
+ * Progress counts addresses against the total the first page declares, which is
+ * a true percentage from the second page onwards.
+ */
+async function importSiAddresses(requestId: number): Promise<number> {
+  // The post codes first: 466 rows in one request, and what turns a register
+  // answer's "Adlešiči" into "8341 Adlešiči". Failing to get them costs the
+  // code on the label and nothing else.
+  let posts: Map<string, string> | undefined;
+  try {
+    const res = await fetch(siPostalUrl());
+    if (res.ok) posts = parseSiPostCodes((await res.json()) as SiFeatureCollection);
+  } catch {
+    posts = undefined;
+  }
+
+  const collector = new AddressCollector("SI");
+  let total = 0;
+  // A backstop, not a plan: the loop ends on a short page. But `startIndex` is
+  // exactly the parameter the *other* GURS endpoint silently ignores — which
+  // would make every page the first one and this loop run for ever — so the
+  // country's own size, doubled, is the point at which something is wrong.
+  const maxPages = 2 * Math.ceil(700_000 / SI_AD_PAGE);
+  for (let page = 0; page < maxPages; page++) {
+    const res = await fetch(siAddressPageUrl(page * SI_AD_PAGE));
+    if (!res.ok) throw new Error(`the address service answered HTTP ${res.status}`);
+    const body = (await res.json()) as SiFeatureCollection;
+    const rows = parseSiAddressPage(body, posts);
+    for (const row of rows) collector.add(row);
+    total = body.numberMatched ?? total;
+    post({ type: "progress", requestId, done: collector.count, total });
+    // The service stops answering with features once the collection runs out;
+    // a short page is the last one. Counting against numberMatched instead
+    // would trust a total that can change between pages.
+    if (!body.numberReturned || body.numberReturned < SI_AD_PAGE) break;
+  }
+  if (!collector.count) throw new Error("no addresses in the register download");
+
+  await putAddressRegister(collector.index(Date.now()), collector.buckets(), (done, all) =>
+    post({ type: "progress", requestId, done, total: all, stage: "storing" }),
+  );
+  return collector.count;
+}
+
 self.onmessage = async (event: MessageEvent<GeoWorkerRequest>) => {
   const msg = event.data;
+  if (msg.type === "downloadAddresses") {
+    try {
+      const count = await importSiAddresses(msg.requestId);
+      post({ type: "addressRegister", requestId: msg.requestId, country: msg.country, count });
+    } catch (e) {
+      post({ type: "error", requestId: msg.requestId, message: e instanceof Error ? e.message : String(e) });
+    }
+    return;
+  }
   if (msg.type !== "importGazetteer") return;
   const { requestId } = msg;
   try {

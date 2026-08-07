@@ -23,14 +23,14 @@
 //    remembered here: writing them into the GEDCOM is the user's act, and a
 //    fresh run should ask again rather than arrive pre-decided (the "accepted"
 //    status below survives only to read and ignore records from before this).
-//  - "addrIndex" / "addrBuckets": a downloaded national *address* register —
-//    Croatia's, the one country whose houses cannot be asked for online. The
-//    index is one record per country; the buckets are one record per
+//  - "addrIndex" / "addrBuckets": the downloaded national *address*
+//    registers — every house number of a country, with its own coordinate.
+//    The index is one record per country; the buckets are one record per
 //    settlement, so a lookup reads exactly the village it is about. Public
 //    reference data like the countries above, and kept on the same terms.
 
 import type { DivisionNames, GazEntry } from "../geo/gazetteer";
-import type { HrAddressBucket, HrAddressIndex } from "../geo/hrAd";
+import type { AddressBucket, AddressIndex } from "../geo/addressRegister";
 
 const DB_NAME = "gedmerge-geo";
 const DB_VERSION = 2;
@@ -151,8 +151,8 @@ const BUCKET_CHUNK = 250;
  * villages are mostly missing. `onProgress` is called with buckets written.
  */
 export async function putAddressRegister(
-  index: HrAddressIndex,
-  buckets: readonly HrAddressBucket[],
+  index: AddressIndex,
+  buckets: readonly AddressBucket[],
   onProgress?: (done: number, total: number) => void,
 ): Promise<void> {
   await withGeoDb(async (db) => {
@@ -187,11 +187,11 @@ async function clearAddressRegister(db: IDBDatabase, country: string): Promise<v
 }
 
 /** What address register is stored for a country, if any. */
-export async function getAddressIndex(country: string): Promise<HrAddressIndex | undefined> {
+export async function getAddressIndex(country: string): Promise<AddressIndex | undefined> {
   return await withGeoDb((db) =>
     requestDone(
       db.transaction(ADDR_INDEX_STORE).objectStore(ADDR_INDEX_STORE).get(country) as IDBRequest<
-        HrAddressIndex | undefined
+        AddressIndex | undefined
       >,
     ),
   );
@@ -199,11 +199,11 @@ export async function getAddressIndex(country: string): Promise<HrAddressIndex |
 
 /** One settlement's addresses. Undefined when nothing is stored under that key,
  *  which a lookup reads as "this village has no houses in the register". */
-export async function getAddressBucket(key: string): Promise<HrAddressBucket | undefined> {
+export async function getAddressBucket(key: string): Promise<AddressBucket | undefined> {
   return await withGeoDb((db) =>
     requestDone(
       db.transaction(ADDR_BUCKETS_STORE).objectStore(ADDR_BUCKETS_STORE).get(key) as IDBRequest<
-        HrAddressBucket | undefined
+        AddressBucket | undefined
       >,
     ),
   );

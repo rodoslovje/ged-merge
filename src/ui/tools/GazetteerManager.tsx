@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { COUNTRY_CODES } from "../../gedcom/countryCode";
 import {
@@ -13,7 +13,7 @@ import {
   type Subdivision,
 } from "../../geo/gazetteer";
 import { countryNameOf } from "../../geo/placeProposal";
-import { hrRegisterInfo, invalidateHrRegister } from "../../geo/hrRegister";
+import { addressRegisterInfo, invalidateAddressRegisters } from "../../geo/addressLookup";
 import { deleteAddressRegister, deleteCountry, loadCountries, type CountryMeta } from "../../persist/geoDb";
 import type { GeoWorkerRequest, GeoWorkerResponse } from "../../worker/geoMessages";
 import { invalidateGazetteerIndex } from "../edit/PlaceLookupContext";
@@ -26,9 +26,14 @@ import { SelectMenu } from "../DropdownMenu";
 // OpenStreetMap downloads, the GURS register of Slovenian settlements and the DGU
 // register of Croatian geographical names) that live in the gedmerge-geo
 // IndexedDB and back every place lookup in the app — and, alongside them, the
-// DGU register of Croatian *addresses*, which is downloaded here for the same
-// reason and dropped here the same way, but answers houses rather than places
-// (see hrAd.ts).
+// two national *address* registers (GURS's and DGU's), downloaded here for the
+// same reason and dropped here the same way, but answering houses rather than
+// places (see addressRegister.ts).
+//
+// Each source is one row: who it comes from, named once, and what of theirs you
+// can take. A register offers two things, its settlements and its house
+// numbers, and they differ in cost by an order of magnitude — hence two buttons
+// under one name and one description.
 //
 // It is one-time setup that outlives the file, so Settings → Map owns it. The
 // Geocode places tool keeps the same controls for as long as there is nothing
@@ -383,8 +388,9 @@ export interface Gazetteer {
   downloadCountry: (country: string) => Promise<void>;
   downloadSlovenia: () => Promise<void>;
   downloadCroatia: () => Promise<void>;
-  /** Fetch the Croatian address register — the houses, not the places. */
+  /** Fetch a national address register — the houses, not the places. */
   downloadCroatiaAddresses: () => Promise<void>;
+  downloadSloveniaAddresses: () => Promise<void>;
   removeAddressRegister: (country: string) => Promise<void>;
   /** The country whose places are too many for one query, and the subdivisions
    *  offered instead. Null whenever there is no such offer on the table. */
@@ -419,8 +425,12 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
     setCountries(
       stored.map(({ code, count, importedAt }) => ({ code, count, importedAt })).sort((a, b) => b.count - a.count),
     );
-    const hr = await hrRegisterInfo();
-    setAddressRegisters(hr ? [{ country: "HR", ...hr }] : []);
+    const registers: AddressRegisterMeta[] = [];
+    for (const country of ["SI", "HR"] as const) {
+      const info = await addressRegisterInfo(country);
+      if (info) registers.push({ country, ...info });
+    }
+    setAddressRegisters(registers);
     if (withIndex)
       setIndex(stored.length ? buildGazetteerIndex(storedEntries(stored), mergeDivisions(stored)) : undefined);
   };
@@ -432,7 +442,7 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
     // caches its own index and buckets for the same reason and needs the same
     // clearing.
     invalidateGazetteerIndex();
-    invalidateHrRegister();
+    invalidateAddressRegisters();
     await reload();
     for (const listener of listeners) listener();
   };
@@ -714,6 +724,43 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
   const downloadCroatiaAddresses = () =>
     downloadRegister(DGU_ADDRESSES_URL, "HR.dgu-adrese.zip", async () => ({ format: "hr-ad" }), true);
 
+  /**
+   * Slovenia's houses, which are not a file but 116 pages off a service — so
+   * the worker does the fetching too, and there is no buffer to hand it. The
+   * spinner opens on "waiting" because the first page takes a couple of seconds
+   * and its own progress only becomes a percentage once the total is known.
+   */
+  const downloadSloveniaAddresses = (): Promise<void> =>
+    new Promise((resolve) => {
+      setImportState({ phase: "running", stage: "waiting", done: 0, total: 0 });
+      const worker = new Worker(new URL("../../worker/geo.worker.ts", import.meta.url), { type: "module" });
+      workerRef.current = worker;
+      const finish = (state: ImportState) => {
+        worker.terminate();
+        workerRef.current = null;
+        setImportState(state);
+        resolve();
+      };
+      worker.onmessage = (e: MessageEvent<GeoWorkerResponse>) => {
+        const msg = e.data;
+        if (msg.type === "progress") {
+          setImportState({
+            phase: "running",
+            stage: msg.stage === "storing" ? "storing" : "downloading",
+            done: msg.done,
+            total: msg.total,
+          });
+        } else if (msg.type === "addressRegister") {
+          finish(null);
+          void refreshGazetteer();
+        } else if (msg.type === "error") finish({ phase: "error", message: msg.message });
+      };
+      worker.onerror = () => finish({ phase: "error", message: t("tools.geocode.downloadFailed") });
+      worker.onmessageerror = () => finish({ phase: "error", message: t("tools.geocode.downloadFailed") });
+      const req: GeoWorkerRequest = { type: "downloadAddresses", requestId: 1, country: "SI" };
+      worker.postMessage(req);
+    });
+
   const removeAddressRegister = async (country: string) => {
     await deleteAddressRegister(country);
     await refreshGazetteer();
@@ -742,6 +789,7 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
     downloadSlovenia,
     downloadCroatia,
     downloadCroatiaAddresses,
+    downloadSloveniaAddresses,
     removeAddressRegister,
     regions,
     downloadRegion,
@@ -856,6 +904,53 @@ function RegionPicker({ gaz, regions }: { gaz: Gazetteer; regions: { country: st
   );
 }
 
+/**
+ * One source, named once above whatever it offers.
+ *
+ * The source's name is a label rather than words inside each control: a
+ * register offers two downloads, and "GURS (Slovenia)" written into both would
+ * say the same thing twice while what actually tells them apart — places
+ * against addresses — is left to fight for the remaining space. With the name
+ * lifted out, every row reads the same way: who it comes from, then what of
+ * theirs you can take.
+ */
+function SourceGroup({ name, children }: { name: string; children: ReactNode }) {
+  return (
+    <div className="tools-geo-source">
+      <span className="tools-geo-source-name">{name}</span>
+      <div className="tools-geo-source-actions">{children}</div>
+    </div>
+  );
+}
+
+/** A national register's pair: its settlements, and its house numbers. They
+ *  share one description — choosing between GURS and DGU is choosing a country,
+ *  while choosing between the two buttons is the smaller decision the tooltips
+ *  carry, since what they cost differs by an order of magnitude. */
+function RegisterSource({
+  name,
+  places,
+  addresses,
+}: {
+  name: string;
+  places: { onClick: () => void; title: string };
+  addresses: { onClick: () => void; title: string };
+}) {
+  const { t } = useTranslation();
+  return (
+    <SourceGroup name={name}>
+      <button className="nav-btn tools-run" onClick={places.onClick} title={places.title}>
+        <span aria-hidden="true">{DOWNLOAD_GLYPH} </span>
+        {t("tools.geocode.sourcePlaces")}
+      </button>
+      <button className="nav-btn tools-run" onClick={addresses.onClick} title={addresses.title}>
+        <span aria-hidden="true">{DOWNLOAD_GLYPH} </span>
+        {t("tools.geocode.sourceAddresses")}
+      </button>
+    </SourceGroup>
+  );
+}
+
 /** The ways in: the two national registers (GURS, DGU), any country from
  *  OpenStreetMap, or a GeoNames file. The downloads need the online-lookups
  *  opt-in; the file import never does — and it sits under the paragraph that
@@ -903,19 +998,19 @@ function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
       <div className="tools-geo-sources">
         {settings.allowLinkFetch && (
           <>
-            <button
-              className="nav-btn tools-run"
-              onClick={() => void gaz.downloadSlovenia()}
-              title={t("tools.geocode.gursTooltip")}
-            >
-              <span aria-hidden="true">{DOWNLOAD_GLYPH} </span>
-              {t("tools.geocode.gursBtn")}
-            </button>
             {/* The credit names the agency, so the agency's name is the link —
-                to its own public viewer, where the dataset this download holds
-                can be seen in full or one settlement checked against its
-                source. The name itself is a proper noun in either language and
-                stays out of the locale files. */}
+                to its own public viewer, where the datasets this row holds can
+                be seen in full or one settlement checked against its source.
+                The name itself is a proper noun in either language and stays
+                out of the locale files. */}
+            <RegisterSource
+              name={t("tools.geocode.gursName")}
+              places={{ onClick: () => void gaz.downloadSlovenia(), title: t("tools.geocode.gursTooltip") }}
+              addresses={{
+                onClick: () => void gaz.downloadSloveniaAddresses(),
+                title: t("tools.geocode.gursAddressesTooltip"),
+              }}
+            />
             <p className="tools-geo-hint">
               {t("tools.geocode.sourceGurs")} ©{" "}
               <a href="https://ipi.eprostor.gov.si/jv/" target="_blank" rel="noreferrer">
@@ -923,14 +1018,14 @@ function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
               </a>
               {t("tools.geocode.licenseCcBy")}
             </p>
-            <button
-              className="nav-btn tools-run"
-              onClick={() => void gaz.downloadCroatia()}
-              title={t("tools.geocode.dguTooltip")}
-            >
-              <span aria-hidden="true">{DOWNLOAD_GLYPH} </span>
-              {t("tools.geocode.dguBtn")}
-            </button>
+            <RegisterSource
+              name={t("tools.geocode.dguName")}
+              places={{ onClick: () => void gaz.downloadCroatia(), title: t("tools.geocode.dguTooltip") }}
+              addresses={{
+                onClick: () => void gaz.downloadCroatiaAddresses(),
+                title: t("tools.geocode.dguAddressesTooltip"),
+              }}
+            />
             <p className="tools-geo-hint">
               {t("tools.geocode.sourceDgu")} ©{" "}
               <a href="https://geoportal.dgu.hr/" target="_blank" rel="noreferrer">
@@ -938,39 +1033,24 @@ function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
               </a>
               {t("tools.geocode.licenseOpen")}
             </p>
-            {/* The Croatian houses. Its own button rather than a part of the
-                one above, because what it costs is its own decision: this is
-                85 MB and some minutes, where the places are 8 MB and seconds. */}
-            <button
-              className="nav-btn tools-run"
-              onClick={() => void gaz.downloadCroatiaAddresses()}
-              title={t("tools.geocode.dguAddressesTooltip")}
-            >
-              <span aria-hidden="true">{DOWNLOAD_GLYPH} </span>
-              {t("tools.geocode.dguAddressesBtn")}
-            </button>
-            <p className="tools-geo-hint">
-              {t("tools.geocode.sourceDguAddresses")} ©{" "}
-              <a href="https://geoportal.dgu.hr/services/atom/ad/xml" target="_blank" rel="noreferrer">
-                Državna geodetska uprava
-              </a>
-              {t("tools.geocode.licenseOpen")}
-            </p>
-            {/* One control, not a pair: the button opens the country list and
-                the country picked is the click — the same shape as the map tab's
+            {/* One control, not a pair: OpenStreetMap has no address register
+                to offer, and the control opens the country list where the
+                country picked is the click — the same shape as the map tab's
                 "Add a free preset…". It never holds a selection, so it reads as
                 its own label again the moment the download starts. */}
-            <SelectMenu
-              className="nav-btn tools-run tools-geo-osm"
-              title={t("tools.geocode.countryTooltip")}
-              ariaLabel={t("tools.geocode.countryTooltip")}
-              value=""
-              placeholder={`${DOWNLOAD_GLYPH} ${t("tools.geocode.downloadBtn")}`}
-              onChange={(code) => {
-                if (code) void gaz.downloadCountry(code);
-              }}
-              options={countries.map(({ code, name }) => ({ value: code, label: name }))}
-            />
+            <SourceGroup name="OpenStreetMap">
+              <SelectMenu
+                className="nav-btn tools-run tools-geo-osm"
+                title={t("tools.geocode.countryTooltip")}
+                ariaLabel={t("tools.geocode.countryTooltip")}
+                value=""
+                placeholder={`${DOWNLOAD_GLYPH} ${t("tools.geocode.sourcePlaces")}`}
+                onChange={(code) => {
+                  if (code) void gaz.downloadCountry(code);
+                }}
+                options={countries.map(({ code, name }) => ({ value: code, label: name }))}
+              />
+            </SourceGroup>
             <p className="tools-geo-hint">
               {t("tools.geocode.sourceOsm")} {t("tools.geocode.sourceOsmCredit")}{" "}
               <a href="https://www.openstreetmap.org" target="_blank" rel="noreferrer">
@@ -981,21 +1061,25 @@ function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
           </>
         )}
         {/* The fallback: for a country neither download serves, and for anyone
-            who would rather the app fetched nothing at all. */}
-        <label className="nav-btn tools-geo-import">
-          <span aria-hidden="true">{UPLOAD_GLYPH} </span>
-          {t("tools.geocode.importBtn")}
-          <input
-            type="file"
-            accept=".txt,.zip"
-            hidden
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              e.target.value = "";
-              if (file) void gaz.importFile(file);
-            }}
-          />
-        </label>
+            who would rather the app fetched nothing at all. Named like the rows
+            above even though the arrow points the other way — where the data
+            comes from is the thing being chosen either way. */}
+        <SourceGroup name="GeoNames">
+          <label className="nav-btn tools-geo-import">
+            <span aria-hidden="true">{UPLOAD_GLYPH} </span>
+            {t("tools.geocode.importBtn")}
+            <input
+              type="file"
+              accept=".txt,.zip"
+              hidden
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = "";
+                if (file) void gaz.importFile(file);
+              }}
+            />
+          </label>
+        </SourceGroup>
         <p className="tools-geo-hint">
           {t("tools.geocode.sourceGeoNames")}{" "}
           <a href="https://download.geonames.org/export/dump/" target="_blank" rel="noreferrer">
