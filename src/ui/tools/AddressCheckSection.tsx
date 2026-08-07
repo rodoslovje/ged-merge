@@ -286,10 +286,11 @@ export function AddressCheckSection({
                     </div>
                     <ul className="tools-tree">
                 {group.findings.map((f) => {
-                  // The one thing a row has to disclose: where the register
-                  // files this house. Every other verdict says all it has to
-                  // say on the header line.
-                  const hasDetail = f.verdict === "addrElsewhere" && !!f.officialPlace;
+                  // What a row has to disclose: where the register files this
+                  // house, or — for a spelling — the register's own full line
+                  // behind the address that would replace it. A number the
+                  // register lacks says all it has to say on the header line.
+                  const hasDetail = (f.verdict === "addrElsewhere" && !!f.officialPlace) || !!f.officialAddress;
                   const showPeople = peopleOpen.has(f.key);
                   const isOpen = (hasDetail && open.has(f.key)) || showPeople;
                   return (
@@ -310,10 +311,20 @@ export function AddressCheckSection({
                         // and the pin said otherwise twice per line.
                         place={f.written}
                       >
-                        {f.official && (
+                        {/* After the arrow stands what the file would say once
+                            the row is taken — the exact replacement, note and
+                            all, not the register's line it is derived from.
+                            That line is a postal address with a post code the
+                            file never wanted, and reading it here left the one
+                            question that matters ("what will my record say?")
+                            answered only by trying it. It is still shown, below,
+                            as the answer this is drawn from. A row with nothing
+                            to write shows the register's line itself: there the
+                            register's own words are the whole finding. */}
+                        {(f.officialAddress ?? f.official) && (
                           <>
                             <span aria-hidden="true" className="tools-register-place">→</span>
-                            <span className="tools-geo-cand-name">{f.official}</span>
+                            <span className="tools-geo-cand-name">{f.officialAddress ?? f.official}</span>
                           </>
                         )}
                         <span className="tools-register-end">
@@ -355,10 +366,33 @@ export function AddressCheckSection({
                               rather than done: the move belongs on the Addresses
                               tab, which has the map to check the house on before
                               anything is written. */}
-                          {hasDetail && open.has(f.key) && (
+                          {open.has(f.key) && f.verdict === "addrElsewhere" && f.officialPlace && (
                             <p className="tools-fix-hint" title={t("tools.registerAddr.moveHint")}>
                               {t("tools.registerAddr.move", { place: f.officialPlace })}
                             </p>
+                          )}
+                          {/* The register's own answer, in the shape every other
+                              geocoding list shows an answer in — one option to
+                              take or leave. Taking it writes the address above,
+                              which is this line minus the post code and plus
+                              whatever note the file's own value ends with. */}
+                          {open.has(f.key) && f.officialAddress && f.official && (
+                            <ul className="tools-geo-candidates">
+                              <li>
+                                <label>
+                                  <input
+                                    type="radio"
+                                    className="tools-geo-cand-radio"
+                                    name={`registerAddr-${f.key}`}
+                                    aria-label={f.official}
+                                    disabled={f.dismissed}
+                                    checked={false}
+                                    onChange={() => takeOfficial(f)}
+                                  />
+                                  <span className="tools-geo-cand-name">{f.official}</span>
+                                </label>
+                              </li>
+                            </ul>
                           )}
                           {showPeople && (
                             <GeoPeopleList

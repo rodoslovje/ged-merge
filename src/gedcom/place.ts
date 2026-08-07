@@ -276,6 +276,18 @@ export function addressStreetName(addrRaw: string | undefined): string | undefin
   if (a.street) return stripHouseNumber(a.street);
   return a.houseNumber ? a.locality : undefined;
 }
+/** A written value's bracketed tail — "(pd Adam)", "(dom starejših)",
+ *  "[porodnišnica]" — with the space before it, or "" when it ends in none.
+ *
+ *  This is the researcher's own note about the house: what it is called locally,
+ *  what stands there. No register knows it and none can supply it, so anything
+ *  rewriting an address from a register must carry it across rather than let the
+ *  official spelling swallow it. */
+export function bracketedTail(value: string): string {
+  const m = value.trimEnd().match(new RegExp(String.raw`(?:\s*${BRACKETED})+$`));
+  return m ? ` ${m[0].trim()}` : "";
+}
+
 /** Street-type words: a segment with one is an address, even without a number. */
 const STREET_WORDS = /\b(?:ulica|cesta|trg|naselje|nabrežje|drevored)\b/i;
 

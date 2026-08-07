@@ -1,4 +1,4 @@
-import { addressStreetName } from "../gedcom/place";
+import { addressStreetName, bracketedTail } from "../gedcom/place";
 import type { AddressHit } from "../geo/addressRegister";
 import { foldToken } from "../match/text";
 import type { GeocodeDecision } from "../persist/geoDb";
@@ -66,8 +66,11 @@ export interface AddressFinding {
   /** The register's own line for this house — what a rename would write
    *  (`addrSpelling`), or simply what it holds (`addrElsewhere`). */
   official?: string;
-  /** The address alone, as the register spells it — what `addrSpelling`
-   *  writes onto the `ADDR` line. */
+  /** Exactly what `addrSpelling` writes onto the `ADDR` line: the register's own
+   *  spelling of the address, carrying over any bracketed note the written value
+   *  ends with ("Kidričeva 38/a (porodnišnica)" → "Kidričeva cesta 38/a
+   *  (porodnišnica)"). The note is the researcher's, not the register's, and a
+   *  rewrite that dropped it would lose what only the file knows. */
   officialAddress?: string;
   /** The settlement the register files the house under (`addrElsewhere`). */
   settlement?: string;
@@ -163,7 +166,10 @@ export function checkAddressesAgainstRegister(
     // compliance finding.
     const street = addressStreetName(row.address);
     if (street && hit.street && foldToken(street) !== foldToken(hit.street)) {
-      add("addrSpelling", { official: hit.label, officialAddress: hit.address });
+      add("addrSpelling", {
+        official: hit.label,
+        officialAddress: `${hit.address}${bracketedTail(row.address)}`,
+      });
       continue;
     }
     ok++;
