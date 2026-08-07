@@ -130,9 +130,12 @@ export function RegisterCheckSection({
     // One chip per country the findings are in — a file researched in one
     // country has nothing to narrow, so the row only appears from two up.
     const countries: string[] = [];
-    for (const f of pool) if (!countries.includes(f.country)) countries.push(f.country);
+    for (const f of pool) for (const c of f.countries) if (!countries.includes(c)) countries.push(c);
     const activeCountry = countryFilter !== null && countries.includes(countryFilter) ? countryFilter : null;
-    const inCountry = (f: RegisterFinding) => activeCountry === null || f.country === activeCountry;
+    // A finding counts under every country it touches, so a name that fits
+    // places in four of them is on all four lists — and each list shows only
+    // that country's answers (see the options below).
+    const inCountry = (f: RegisterFinding) => activeCountry === null || f.countries.includes(activeCountry);
     const inVerdict = (f: RegisterFinding) => verdictFilter === "all" || f.verdict === verdictFilter;
 
     // A chip is named the way the *file* names that country — "Slovenia" where
@@ -144,10 +147,10 @@ export function RegisterCheckSection({
     const spellings = new Map<string, Map<string, number>>();
     for (const f of pool) {
       const written = countryOf(f.key);
-      if (!written) continue;
-      const tally = spellings.get(f.country) ?? new Map<string, number>();
+      if (!written || f.countries.length !== 1) continue;
+      const tally = spellings.get(f.countries[0]) ?? new Map<string, number>();
       tally.set(written, (tally.get(written) ?? 0) + 1);
-      spellings.set(f.country, tally);
+      spellings.set(f.countries[0], tally);
     }
     const countryChips = countries.map((code) => {
       const written = [...(spellings.get(code) ?? new Map())].sort((a, b) => b[1] - a[1])[0]?.[0];
@@ -155,7 +158,7 @@ export function RegisterCheckSection({
         code,
         name: written ?? countryNameOf(code, i18n.language) ?? code,
         unknown: !written && !code,
-        count: searched.filter((f) => f.country === code && inVerdict(f)).length,
+        count: searched.filter((f) => f.countries.includes(code) && inVerdict(f)).length,
       };
     });
     countryChips.sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
@@ -394,6 +397,12 @@ export function RegisterCheckSection({
                       {options.length > 0 && (
                         <ul className="tools-geo-candidates">
                           {options.map((o, i) => (
+                            // Narrowing to a country narrows the answers with
+                            // it: on the Croatia list, the Croatian Bela is the
+                            // one being asked about. The numbers stay the
+                            // answer's own, so a row reads the same however it
+                            // is filtered.
+                            view.activeCountry !== null && o.entry && o.entry.country !== view.activeCountry ? null : (
                             <li key={i}>
                               <label>
                                 <input
@@ -421,6 +430,7 @@ export function RegisterCheckSection({
                                 )}
                               </label>
                             </li>
+                            )
                           ))}
                         </ul>
                       )}

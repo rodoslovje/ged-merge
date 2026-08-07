@@ -123,6 +123,19 @@ describe("checkPlacesAgainstRegister", () => {
     expect(checkPlacesAgainstRegister(placed, REGISTER, NO_DECISIONS).findings).toEqual([]);
   });
 
+  it("files a name that fits several countries under every one of them", () => {
+    // "Bela" with no country of its own is a place in Slovenia and one in
+    // Croatia; a researcher filtering to Croatia must still see the row.
+    const index = buildGazetteerIndex([
+      si("Bela", "Ajdovščina", 45.85, 14.03),
+      { ...si("Bela", "Novi Marof", 46.2, 16.25), country: "HR", register: "HR-DGU" },
+    ]);
+    const { findings } = checkPlacesAgainstRegister(fileWith(place("Bela")), index, NO_DECISIONS);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].verdict).toBe("ambiguous");
+    expect(findings[0].countries.sort()).toEqual(["HR", "SI"]);
+  });
+
   it("reports a coordinate nowhere near the register's position", () => {
     const ds = fileWith(place("Kranj, Slovenija", "4 LATI N45.50\n4 LONG E15.50"));
     const { findings } = checkPlacesAgainstRegister(ds, REGISTER, NO_DECISIONS);
@@ -163,9 +176,9 @@ describe("checkPlacesAgainstRegister", () => {
     const report = checkPlacesAgainstRegister(ds, osm, NO_DECISIONS);
     expect(report.registers).toEqual(["AT-OSM"]);
     expect(report.checked).toBe(2);
-    expect(report.findings.map((f) => [f.verdict, f.country])).toEqual([
-      ["notFound", "AT"],
-      ["spelling", "AT"],
+    expect(report.findings.map((f) => [f.verdict, f.countries])).toEqual([
+      ["notFound", ["AT"]],
+      ["spelling", ["AT"]],
     ]);
     expect(report.findings[1].entry?.name).toBe("Wien");
   });
@@ -215,7 +228,7 @@ describe("checkPlacesAgainstRegister", () => {
     const { findings } = checkPlacesAgainstRegister(ds, REGISTER, NO_DECISIONS);
     // Matched or not, a finding always names a covered country: the matched
     // entry's, else the one the place itself writes.
-    expect(findings.map((f) => f.country)).toEqual(["SI", "SI"]);
+    expect(findings.map((f) => f.countries)).toEqual([["SI"], ["SI"]]);
   });
 
   it("leaves house numbers to the address rows where the file itself writes them in the place", () => {

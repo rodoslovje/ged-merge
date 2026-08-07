@@ -84,10 +84,12 @@ export interface RegisterFinding {
    *  of a family event. The row's count, and the list behind it. */
   people: string[];
   verdict: RegisterVerdict;
-  /** ISO country code the finding belongs to — the matched register entry's,
-   *  or the country the place itself names when nothing matched. Always one of
-   *  the covered countries, which is what makes it a filter. */
-  country: string;
+  /** ISO country codes the finding belongs to — the matched entry's, or the
+   *  country the place itself names when nothing matched. A name that fits
+   *  places in several countries belongs to each of them: a value naming no
+   *  country of its own really could be any of the four Bela, and filtering to
+   *  one country must neither hide the row nor pretend the others are it. */
+  countries: string[];
   /** The locality as the file writes it. */
   written: string;
   /** The register entry the value resolves to (absent for `notFound`). */
@@ -285,7 +287,7 @@ export function checkPlacesAgainstRegister(
           count: g.count,
           people: [...g.people],
           verdict: "address",
-          country: components.country ? (countryCode(components.country)?.toUpperCase() ?? "") : "",
+          countries: components.country ? [countryCode(components.country)?.toUpperCase() ?? ""] : [""],
           written,
           official: split.plac,
           officialAddr: split.addr,
@@ -340,7 +342,7 @@ export function checkPlacesAgainstRegister(
         count: g.count,
         people: [...g.people],
         verdict: "notFound",
-        country: wantCountry,
+        countries: [wantCountry],
         written,
         dismissed: isDismissed(decisions, key, "notFound"),
       });
@@ -365,7 +367,7 @@ export function checkPlacesAgainstRegister(
           count: g.count,
           people: [...g.people],
           verdict: "ambiguous",
-          country: best.country,
+          countries: [...new Set(tied.map((c) => c.entry.country))],
           written,
           entry: best,
           alternatives: tied.map((c) => c.entry),
@@ -389,7 +391,7 @@ export function checkPlacesAgainstRegister(
         count: g.count,
         people: [...g.people],
         verdict: "admin",
-        country: best.country,
+        countries: [best.country],
         written,
         entry: best,
         writtenAdmin: namedAdmin,
@@ -407,7 +409,7 @@ export function checkPlacesAgainstRegister(
         count: g.count,
         people: [...g.people],
         verdict: "spelling",
-        country: best.country,
+        countries: [best.country],
         written,
         entry: best,
         ...(official ? { official } : {}),
@@ -425,7 +427,7 @@ export function checkPlacesAgainstRegister(
           count: g.count,
           people: [...g.people],
           verdict: "far",
-          country: best.country,
+          countries: [best.country],
           written,
           entry: best,
           fileCoord,
