@@ -546,7 +546,7 @@ export const sl = {
   "tools.register.currentPin": "kamor ga zdaj postavlja datoteka",
   "tools.register.showOnMap": "Pokaži ta odgovor na zemljevidu vrstice",
   "tools.register.wider": "Poišči širše",
-  "tools.register.widerHint": "Ponudi tudi kraje, katerih ime tega le vsebuje — »Bela« najde Spodnjo, Srednjo in Zgornjo Belo. To so namigi za presojo, ne odgovori: preverjanje samo ujema imena le črko za črko.",
+  "tools.register.widerHint": "Ponudi tudi kraje, katerih ime tega le vsebuje — »Bela« najde Spodnjo, Srednjo in Zgornjo Belo — ali mu je le podobno, kar je edini način, da se najde napačen zapis: »Mrkopolje« najde Mrkopalj. To so namigi za presojo, ne odgovori: preverjanje samo ujema imena le črko za črko, namig pa nikoli ni odgovor, na katerem vrstica pristane.",
   "tools.register.widerNone": "v imenikih ni ničesar več",
   "tools.register.registerBadgeHint": "Imenik, iz katerega je odgovor — kjer kraj pozna uradni register, odloča ta",
   "tools.register.takeHint": "Preimenuje vse navedbe v registrski zapis — »{{place}}« — v enem koraku, ki ga je mogoče razveljaviti",

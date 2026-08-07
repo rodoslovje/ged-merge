@@ -36,6 +36,18 @@ const MAX_ROWS = 300;
 
 /** Badge colour per verdict: the register knowing nothing of a place is the
  *  loud one, a different spelling the mildest. */
+/**
+ * Verdicts whose answer a bulk rename never sweeps on its own. Each row still
+ * arrives on its answer and offers to write it — the reader sees what would
+ * change and takes it with one click — but "Use official names" passes them by
+ * until the row is picked by hand.
+ *
+ * Both are corrections to the *record* rather than to the register's wording of
+ * a place: a county standing in for the village in it, or a level left blank,
+ * is a habit as much as a mistake, and one worth reading before writing.
+ */
+const BULK_HELD_BACK: RegisterVerdict[] = ["region", "notFound"];
+
 const BADGE: Record<RegisterVerdict, string> = {
   notFound: "remove",
   region: "new",
@@ -110,7 +122,12 @@ export function RegisterCheckSection({
   /**
    * Widen a row's answers: every place in the loaded directories whose name
    * merely *contains* the written one — "Bela" finding Spodnja, Srednja and
-   * Zgornja Bela, or "Vrh" the dozen names built on it.
+   * Zgornja Bela, or "Vrh" the dozen names built on it — and then those that
+   * merely resemble it, which is the only way a misspelling is ever found:
+   * nothing relates "Mrkopolje" to the register's "Mrkopalj" by substring.
+   *
+   * Searched under the row's whole value, not its locality alone, so the
+   * country it names bounds the answers the way it bounds the check itself.
    *
    * Not offered by default, and not offered for every row: the check holds a
    * name to a letter-for-letter match, which is what keeps it from claiming
@@ -124,7 +141,7 @@ export function RegisterCheckSection({
   const searchWider = (f: RegisterFinding, known: RegisterOption[]) => {
     if (!index) return;
     const seen = new Set(known.map((o) => (o.entry ? `${o.entry.name}:${o.entry.lat}:${o.entry.lon}` : o.place)));
-    const found = searchGazetteer(index, f.written, 12).filter(
+    const found = searchGazetteer(index, f.key, 12, true).filter(
       (e) => !seen.has(`${e.name}:${e.lat}:${e.lon}`),
     );
     setWider((prev) => new Map(prev).set(f.key, found));
@@ -237,8 +254,10 @@ export function RegisterCheckSection({
 
   /** What "Use official names" would write: every shown row that has an answer
    *  to take. A row whose several places nobody has chosen between is not one
-   *  of them — that is the researcher's call, one row at a time. */
+   *  of them — that is the researcher's call, one row at a time — and neither
+   *  is a row whose verdict is held back from the sweep until picked by hand. */
   const bulk = view.rows.flatMap((f) => {
+    if (BULK_HELD_BACK.includes(f.verdict) && !picked.has(f.key)) return [];
     const options = optionsOf(f, style, wider.get(f.key));
     return renameFor(f, options, chosenIndex(f, options, picked)) ?? [];
   });
@@ -602,6 +621,9 @@ interface RegisterOption {
   place: string;
   addr?: string;
   entry?: GazEntry;
+  /** Turned up by the wider search rather than by the check itself — a lead to
+   *  judge, never an answer, so it is never the option a row arrives on. */
+  wide?: true;
 }
 
 /**
@@ -622,7 +644,7 @@ interface RegisterOption {
 function optionsOf(f: RegisterFinding, style: PlaceStyle, wider?: readonly GazEntry[]): RegisterOption[] {
   // Places found by a wider search stand after the answers the name matched
   // outright, in the order the search ranked them.
-  const widened = (wider ?? []).map((entry) => ({ entry, place: placeTextOf(entry, style) }));
+  const widened = (wider ?? []).map((entry) => ({ entry, place: placeTextOf(entry, style), wide: true as const }));
   if (f.verdict === "ambiguous") {
     return [...(f.alternatives ?? []).map((entry) => ({ entry, place: placeTextOf(entry, style) })), ...widened];
   }
@@ -660,15 +682,16 @@ function optionsOf(f: RegisterFinding, style: PlaceStyle, wider?: readonly GazEn
 function chosenIndex(f: RegisterFinding, options: RegisterOption[], picked: ReadonlyMap<string, number>): number {
   const own = picked.get(f.key);
   if (own !== undefined && own < options.length) return own;
-  // `site` and `region` join `ambiguous` in waiting: a cemetery written into
-  // the place, or a county standing in for the village in it, is a habit as
-  // much as a mistake, and rewriting one is a decision per row — not something
-  // a bulk button should do to a whole file on its own.
-  // A place the register does not hold waits for the same reason: its only
-  // answer is a level dropped, and that is a judgement about the record.
-  const waits =
-    f.verdict === "ambiguous" || f.verdict === "site" || f.verdict === "region" || f.verdict === "notFound";
-  return !waits && options.length > 0 ? 0 : -1;
+  // `site` joins `ambiguous` in waiting: a cemetery written into the place is a
+  // habit as much as a mistake, and which level to move is the whole question.
+  // Everything else arrives on its answer, so the row shows what it would
+  // write. Whether a bulk rename may *sweep* that answer is a separate question
+  // — see BULK_HELD_BACK.
+  //
+  // A wider lead is never that answer: it is a name that merely resembles or
+  // contains the written one, and a row must not arrive already claiming one.
+  if (f.verdict === "ambiguous" || f.verdict === "site") return -1;
+  return options.length > 0 && !options[0].wide ? 0 : -1;
 }
 
 function placeTextOf(entry: GazEntry, style: PlaceStyle): string {

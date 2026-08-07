@@ -476,7 +476,7 @@ export const en = {
   "tools.register.currentPin": "where the file puts it now",
   "tools.register.showOnMap": "Show this answer on the row's map",
   "tools.register.wider": "Look wider",
-  "tools.register.widerHint": "Also offer places whose name merely contains this one — “Bela” finding Spodnja, Srednja and Zgornja Bela. Leads to judge, not answers: the check itself only ever matches a name letter for letter.",
+  "tools.register.widerHint": "Also offer places whose name merely contains this one — “Bela” finding Spodnja, Srednja and Zgornja Bela — or merely resembles it, which is the only way a misspelling is found: “Mrkopolje” finds Mrkopalj. Leads to judge, not answers: the check itself only ever matches a name letter for letter, and a lead is never the answer a row arrives on.",
   "tools.register.widerNone": "nothing further in the directories",
   "tools.register.registerBadgeHint": "The directory this answer came from — an official register decides where it knows the place",
   "tools.register.takeHint": "Rename every occurrence to the register's own wording — “{{place}}” — in one undoable step",
