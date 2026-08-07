@@ -3,6 +3,7 @@ import { parseGedcom } from "../gedcom/parser";
 import { buildDataset } from "../gedcom/builder";
 import { buildGazetteerIndex, GURS_REGISTER, type GazEntry } from "../geo/gazetteer";
 import type { GeocodeDecision } from "../persist/geoDb";
+import type { PlaceTargetFormat } from "../normalize/types";
 import { checkPlacesAgainstRegister, registerDecisionKey, REGISTER_DISMISSED } from "./registerCheck";
 
 function buildFromText(text: string) {
@@ -146,14 +147,27 @@ describe("checkPlacesAgainstRegister", () => {
     expect(findings.every((f) => f.dismissed)).toBe(true);
   });
 
-  it("counts every occurrence of a value and returns nothing without a register", () => {
+  it("counts every occurrence of a value and returns nothing with no directory at all", () => {
     const ds = fileWith(place("Sentjur, Slovenija"), place("Sentjur, Slovenija"));
     expect(checkPlacesAgainstRegister(ds, REGISTER, NO_DECISIONS).findings[0].count).toBe(2);
     expect(checkPlacesAgainstRegister(ds, undefined, NO_DECISIONS).findings).toEqual([]);
-    // An OpenStreetMap import is not a register: it can neither answer for a
-    // country nor put one in scope.
-    const osm = buildGazetteerIndex([{ ...si("Sentjur", "", 46.2, 15.4), register: undefined }]);
-    expect(checkPlacesAgainstRegister(ds, osm, NO_DECISIONS).checked).toBe(0);
+  });
+
+  it("answers from any loaded directory, not the official registers alone", () => {
+    // An OpenStreetMap download for a country no register covers: it puts that
+    // country in scope and answers for it, under its own directory name.
+    const osm = buildGazetteerIndex([
+      { ...si("Wien", "Wien", 48.2083, 16.3731), country: "AT", register: undefined, source: "AT-OSM" },
+    ]);
+    const ds = fileWith(place("wien, Avstrija"), place("Nikjer, Avstrija"));
+    const report = checkPlacesAgainstRegister(ds, osm, NO_DECISIONS);
+    expect(report.registers).toEqual(["AT-OSM"]);
+    expect(report.checked).toBe(2);
+    expect(report.findings.map((f) => [f.verdict, f.country])).toEqual([
+      ["notFound", "AT"],
+      ["spelling", "AT"],
+    ]);
+    expect(report.findings[1].entry?.name).toBe("Wien");
   });
 
   it("says nothing about a value that names only a country", () => {
@@ -204,10 +218,25 @@ describe("checkPlacesAgainstRegister", () => {
     expect(findings.map((f) => f.country)).toEqual(["SI", "SI"]);
   });
 
-  it("leaves house numbers to the address rows", () => {
+  it("leaves house numbers to the address rows where the file itself writes them in the place", () => {
     const ds = fileWith(place("Črni Vrh 35, Slovenija"));
     const report = checkPlacesAgainstRegister(ds, REGISTER, NO_DECISIONS);
     expect(report.findings).toEqual([]);
     expect(report.checked).toBe(0);
+    expect(report.skipped).toBe(1);
+  });
+
+  it("offers to move a house address onto ADDR where that is the file's way", () => {
+    const ds = fileWith(place("Kranj, Slovenija"), place("Stražišče 114, Kranj, Slovenija"));
+    const fmt: PlaceTargetFormat = { layout: "structured-addr", separator: ", " };
+    const { findings } = checkPlacesAgainstRegister(ds, REGISTER, NO_DECISIONS, fmt);
+    const split = findings.find((f) => f.verdict === "address")!;
+    expect(split.key).toBe("Stražišče 114, Kranj, Slovenija");
+    expect(split.officialAddr).toBe("Stražišče 114");
+    expect(split.official).not.toContain("114");
+    // Without that layout the value is the Addresses tab's business, as before.
+    expect(checkPlacesAgainstRegister(ds, REGISTER, NO_DECISIONS).findings.some((f) => f.verdict === "address")).toBe(
+      false,
+    );
   });
 });

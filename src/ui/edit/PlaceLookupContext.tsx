@@ -93,23 +93,35 @@ export function invalidateGazetteerIndex(): void {
   cachedIndex = undefined;
 }
 
-/** Build the Edit view's lookup: this file's place style plus every register. */
-export function usePlaceLookupValue(dataset: Dataset, placeSuggestions: string[]): PlaceLookup {
+/**
+ * How this file writes places: what it does, unless Settings → GEDCOM says
+ * otherwise. Anything a register hands the user — a completed place in the Edit
+ * fields, the alternatives the compliance check lists — is written in it, so a
+ * register's answer looks like the places already in the file rather than like
+ * the register.
+ */
+export function usePlaceStyle(dataset: Dataset, placeSuggestions: string[]): PlaceStyle {
   const settings = useSettingsSlice(SETTINGS_KEYS);
   const { i18n } = useTranslation();
-  const online = settings.allowLinkFetch;
   const overrides = settings.formatOverrides;
   const language = i18n.language;
-
-  return useMemo(() => {
-    const style: PlaceStyle = {
-      // What the file does, unless Settings → GEDCOM says otherwise: a place
-      // completed from a register is written like the ones already there.
+  return useMemo(
+    () => ({
       fmt: applyPlaceOverrides(inferPlaceExportFormat(dataset), overrides),
       depth: placeDepthOf(placeSuggestions),
       language,
-    };
+    }),
+    [dataset, placeSuggestions, overrides, language],
+  );
+}
 
+/** Build the Edit view's lookup: this file's place style plus every register. */
+export function usePlaceLookupValue(dataset: Dataset, placeSuggestions: string[]): PlaceLookup {
+  const settings = useSettingsSlice(SETTINGS_KEYS);
+  const online = settings.allowLinkFetch;
+  const style = usePlaceStyle(dataset, placeSuggestions);
+
+  return useMemo(() => {
     /** Collector shared by both lookups: first offer for a place wins, so the
      *  official register's wording outranks a later source's. */
     const collector = () => {
@@ -146,7 +158,7 @@ export function usePlaceLookupValue(dataset: Dataset, placeSuggestions: string[]
         // a file that says "United States" must get "United States" back, or
         // the proposal composed from the answer names the country twice over
         // in two languages (see placeLookupLanguage).
-        const answerLang = placeLookupLanguage(text, language);
+        const answerLang = placeLookupLanguage(text, style.language);
         const [rn, gov, osm] = await Promise.allSettled([
           rnQueries.length ? searchAddresses(rnQueries) : Promise.resolve([]),
           searchGov(text, answerLang),
@@ -183,7 +195,7 @@ export function usePlaceLookupValue(dataset: Dataset, placeSuggestions: string[]
         // the language the event's place is written in.
         searchNominatim(
           [text, place].map((s) => s.trim()).filter(Boolean).join(", "),
-          placeLookupLanguage(place, language),
+          placeLookupLanguage(place, style.language),
         ),
       ]);
       if (rn.status === "fulfilled") for (const r of rn.value) add(proposalFromRn(r, style));
@@ -195,5 +207,5 @@ export function usePlaceLookupValue(dataset: Dataset, placeSuggestions: string[]
     };
 
     return { search, searchAddress, online };
-  }, [dataset, placeSuggestions, language, online, overrides]);
+  }, [style, online]);
 }

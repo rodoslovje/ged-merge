@@ -18,7 +18,7 @@ import { useVirtualList } from "../useVirtualList";
 import { createKinshipResolver } from "../../match/kinship";
 import { buildPlaceSuggestions, placeCombosOf } from "../edit/placeSuggestions";
 import { foldSearch } from "../globalSearch";
-import { PlaceLookupProvider, usePlaceLookupValue } from "../edit/PlaceLookupContext";
+import { PlaceLookupProvider, usePlaceLookupValue, usePlaceStyle } from "../edit/PlaceLookupContext";
 import { GazetteerSetup, useGazetteer } from "./GazetteerManager";
 import { AddressCoordsSection } from "./AddressCoordsSection";
 import { addressesByPlace, replaceLocality, scanAddresses } from "../../tools/addresses";
@@ -169,6 +169,9 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
   // so a place the file has never written can be completed (chain, address,
   // coordinate) here too instead of being typed out by hand.
   const placeLookup = usePlaceLookupValue(dataset, placeSug.placeSuggestions);
+  // The same layout those lookups write in, for the register check's own
+  // rendering of a register entry as a place.
+  const placeStyle = usePlaceStyle(dataset, placeSug.placeSuggestions);
 
   // The address rows the section below reviews — scanned here because the
   // Places/Addresses tab bar needs the count before the section renders.
@@ -190,10 +193,11 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
   // lookup results and staged picks must survive switching) and toggle with
   // display, like the app's Edit/Merge views.
   const [pickedTab, setPickedTab] = useState<"places" | "addresses" | "register" | null>(null);
-  // The compliance report is offered only where there is an authority to hold
-  // the file to: an official national register (GURS, DGU). A crowd-sourced
-  // directory can propose a coordinate but cannot say a spelling is wrong.
-  const hasRegister = useMemo(() => !!index?.entries.some((e) => e.register), [index]);
+  // The compliance report needs something to hold the file to: any place
+  // directory loaded will do — an official register (GURS, DGU) decides where
+  // it knows the place, and an OpenStreetMap or GeoNames directory answers for
+  // the countries no register covers.
+  const hasRegister = !!index?.entries.length;
   // Until a tab is clicked, the page opens on the compliance report where there
   // is a register to hold the file to — the directories load after the first
   // render, so this cannot be a mere initial state. A pinned tab that stops
@@ -210,10 +214,10 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
   // the reason to open it, and a lookup per place is the same pass the places
   // list above already makes (over fewer of them).
   const registerReport = useMemo(
-    () => (hasRegister && decisions ? checkPlacesAgainstRegister(dataset, index, decisions) : null),
+    () => (hasRegister && decisions ? checkPlacesAgainstRegister(dataset, index, decisions, placeStyle.fmt) : null),
     // scanGen re-runs the check after a rename mutates the dataset in place.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [dataset, index, decisions, hasRegister, scanGen],
+    [dataset, index, decisions, hasRegister, placeStyle, scanGen],
   );
   // The tab-row slot the address and register sections portal their action
   // buttons into — their state (staged picks, filters) lives inside the
@@ -813,6 +817,7 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
           <RegisterCheckSection
             report={registerReport}
             dataset={dataset}
+            style={placeStyle}
             kinship={kinship}
             onNavigate={onNavigate}
             query={query}

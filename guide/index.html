@@ -1199,34 +1199,45 @@
             </p>
             <p>
               The page's first tab, <strong>Compliance</strong>, puts the same directories to a different question:
-              instead of asking where a place is, it asks whether your file writes it the way the official register does.
-              Every place in a country a national register covers is held against that register — Slovenia's GURS,
-              Croatia's DGU — and only the disagreements are listed, under five labels: <strong>not in register</strong>
+              instead of asking where a place is, it asks whether your file writes it the way the directory does. Every
+              place in a country any loaded directory covers is held against it — GURS for Slovenia, DGU for Croatia,
+              but equally an OpenStreetMap download for Austria or a GeoNames file for the United States — and only the
+              disagreements are listed, under six labels: <strong>not in register</strong>
               (no settlement of that name in the country the place names), <strong>several places</strong> (the name fits
-              more than one register entry and nothing tells them apart), <strong>other municipality</strong> (the
-              register files the settlement under an <em>občina</em> your place does not name), <strong>spelled
-              differently</strong> (diacritics, capitalisation, or a longer official form) and <strong>position
-              off</strong> (the coordinate in your file is more than ten kilometres from where the register puts the
-              place — usually a place geocoded to a same-named village elsewhere). Each row says what the register holds
-              instead, and a differently spelled one offers <strong>Use official name</strong>, the same rename the
-              places list gives — with <strong>Use official names</strong> above the list doing every row shown at once,
-              in one undoable step. Unlike the places list, this one looks at the places that already carry coordinates
-              too: a file geocoded years ago has never had its spellings checked, and that is exactly where the register
-              earns its keep. It is the page's opening tab wherever a register is loaded — what disagrees with the
-              register is worth seeing before the geocoding work itself. Where the file reaches into both countries, a
-              row of country buttons sits above the labels; each count says exactly how many rows clicking it shows.
+              more than one entry and nothing tells them apart), <strong>other municipality</strong> (the
+              directory files the settlement under an <em>občina</em> your place does not name), <strong>spelled
+              differently</strong> (diacritics, capitalisation, or a longer official form), <strong>address in
+              place</strong> (a house number sitting inside the place value, in a file that otherwise keeps addresses on
+              their own <code>ADDR</code> line) and <strong>position off</strong> (the coordinate in your file is more
+              than ten kilometres from where the directory puts the place — usually a place geocoded to a same-named
+              village elsewhere). Where two directories describe one country, both answer, and an official register
+              outranks the rest, so where GURS or DGU knows the place it is the one that decides.
+            </p>
+            <p>
+              Opening a row lists the answers as numbered options, the way the places and addresses rows list their
+              candidates: each is a whole place written in your file's own layout — <em>Mavčiče, Kranj, Slovenia</em>
+              against your <em>Mavčiče, Medvode, Slovenia</em> — with the directory that answered badged beside it, and
+              the address split showing the house on the <code>ADDR</code> line it would move to. A row with one answer
+              arrives on it; a name fitting several places waits for you to pick with the radio, since choosing between
+              them is the whole question. <strong>Use official name</strong> then renames every occurrence to the picked
+              option (moving the address out, where that is the answer), and <strong>Use official names</strong> above
+              the list does every row that has an answer at once, in one undoable step. The row's count is the people
+              whose events write the place; click it for them, each a link into Edit. Unlike the places list, this one
+              looks at the places that already carry coordinates too: a file geocoded years ago has never had its
+              spellings checked, and that is exactly where a register earns its keep. It is the page's opening tab
+              wherever a directory is loaded. Where the file reaches into more than one country, a row of country
+              buttons sits above the labels; each count says exactly how many rows clicking it shows.
             </p>
             <p>
               A finding is for your judgement, not an error. A register describes the country as it is today, while your
               file describes it as it was — settlements were renamed, merged and abolished, parishes and municipalities
-              redrawn — so a name the register no longer knows is often the correct historical one. <strong>Dismiss</strong>
+              redrawn — so a name it no longer knows is often the correct historical one. <strong>Dismiss</strong>
               accepts a place as written and takes it off the list; dismissals are remembered in this browser, never
-              written into your file, and <strong>Show dismissed</strong> brings them back. Two rules keep the report
-              honest: a place naming a country you hold no register for is left out entirely, and a place naming no
-              country at all is judged only if a register does match it — so a foreign place is never accused of not
-              existing. The check needs an official register: an OpenStreetMap or GeoNames directory can propose a
-              coordinate, but it is not an authority on how a name is spelled, and the tab appears only once GURS or DGU
-              is loaded.
+              written into your file, and <strong>Show dismissed</strong> brings them back. Three rules keep the report
+              honest: a place naming a country you hold no directory for is left out entirely; a place naming no
+              country at all is judged only if a directory does match it, so a foreign place is never accused of not
+              existing; and a name is only ever said to be misspelt when the directory holds it letter for letter bar
+              diacritics and case, so a merely similar name is left to the places list, where you judge it against a map.
             </p>
             <p>
               In <a href="#edit">Edit</a>, an event with a place shows a green <span class="gm-glyph pin"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2a7.5 7.5 0 0 0-7.5 7.5c0 5.05 6.36 11.62 6.63 11.9a1.2 1.2 0 0 0 1.74 0c.27-.28 6.63-6.85 6.63-11.9A7.5 7.5 0 0 0 12 2Zm0 10.2a2.7 2.7 0 1 1 0-5.4 2.7 2.7 0 0 1 0 5.4Z"/></svg></span> pin after it — solid

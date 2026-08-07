@@ -1,9 +1,11 @@
 import type { Dataset, GeoCoord } from "../gedcom/types";
-import { decomposePlace, isUnknownPlaceValue } from "../gedcom/place";
+import { decomposePlace, isUnknownPlaceValue, placeAddressDetail } from "../gedcom/place";
 import { countryCode } from "../gedcom/countryCode";
 import { foldToken } from "../match/text";
 import { lookupPlace, PARENT_QUALIFIED, type GazEntry, type GazetteerIndex } from "../geo/gazetteer";
 import { distanceKm } from "../geo/points";
+import { reformatPlace } from "../normalize/placeReformat";
+import type { PlaceTargetFormat } from "../normalize/types";
 import { coordOf, isRegisterAddress, walkPlaceAddr } from "./geocode";
 import { replaceLocality } from "./addresses";
 import { placeCollator } from "./places";
@@ -31,11 +33,22 @@ import type { GeocodeDecision } from "../persist/geoDb";
  *   apart — no single entry can be said to be the one meant
  * - `admin` the file files the place under a municipality the register doesn't
  * - `spelling` the register writes the name differently
+ * - `address` the value carries a house address, in a file that keeps addresses
+ *   on their own `ADDR` line — the one finding about the file's own convention
+ *   rather than the register's, and the reason it belongs here is that a place
+ *   holding a house number can never be held to a register of settlements
  * - `far` the coordinate in the file is nowhere near the register's position
  */
-export type RegisterVerdict = "notFound" | "ambiguous" | "admin" | "spelling" | "far";
+export type RegisterVerdict = "notFound" | "ambiguous" | "admin" | "spelling" | "address" | "far";
 
-export const REGISTER_VERDICTS: RegisterVerdict[] = ["notFound", "ambiguous", "admin", "spelling", "far"];
+export const REGISTER_VERDICTS: RegisterVerdict[] = [
+  "notFound",
+  "ambiguous",
+  "admin",
+  "spelling",
+  "address",
+  "far",
+];
 
 /** The decision status a dismissed finding is remembered under — "this wording
  *  is right as it stands, stop reporting it" (a historical name the register no
@@ -83,6 +96,9 @@ export interface RegisterFinding {
    *  what "Use official name" writes. Absent when the value's leading segment
    *  is not its settlement (packed formats), so nothing can be swapped safely. */
   official?: string;
+  /** The house address to move onto the event's own `ADDR` line, with `official`
+   *  holding the place left behind (`address`). */
+  officialAddr?: string;
   /** The municipality the file names, when it is one the register knows but
    *  does not file this place under (`admin`). */
   writtenAdmin?: string;
@@ -110,6 +126,13 @@ export interface RegisterCheckReport {
 }
 
 const EMPTY: RegisterCheckReport = { findings: [], checked: 0, ok: 0, skipped: 0, registers: [] };
+
+/** The directory an entry came from, under the name the rest of the app shows:
+ *  the official register's code (SI-GURS, HR-DGU), the download key (AT-OSM),
+ *  or the bare country code, which by convention means a GeoNames file. */
+export function directoryOf(entry: GazEntry): string {
+  return entry.register ?? entry.source ?? entry.country;
+}
 
 /** Two administrative names for the same body: equal once folded, or one
  *  contained in the other ("Zagrebačka" for the file's "Zagrebačka županija").
@@ -158,14 +181,21 @@ function sameName(written: string, entry: GazEntry): boolean {
 }
 
 /**
- * Hold every place value in the file against the loaded official registers.
+ * Hold every place value in the file against the place directories loaded —
+ * every one of them, not the official registers alone: a file researched in
+ * Austria and the United States is held to the OpenStreetMap and GeoNames
+ * directories the researcher loaded for those countries, the same way a
+ * Slovenian one is held to GURS. Where two directories describe one country,
+ * both answer, and each answer says which directory it came from; an official
+ * register outranks the rest, so where GURS or DGU knows the place it is the
+ * one that decides.
  *
  * Scope is decided per value, and deliberately narrow — a report full of places
  * we cannot judge is worse than a short one:
- * - names a country with an official register loaded → checked, and reported as
- *   `notFound` when the register has nothing;
- * - names a country with no register loaded → left out entirely;
- * - names no country → checked only if a register does match it, so a place
+ * - names a country a directory covers → checked, and reported as `notFound`
+ *   when nothing in that directory holds the name;
+ * - names a country no directory covers → left out entirely;
+ * - names no country → checked only if a directory does match it, so a place
  *   that might be anywhere is never accused of not existing.
  *
  * House numbers written into the place value are left to the Addresses tab, and
@@ -175,19 +205,21 @@ export function checkPlacesAgainstRegister(
   dataset: Dataset,
   index: GazetteerIndex | undefined,
   decisions: ReadonlyMap<string, GeocodeDecision>,
+  fmt?: PlaceTargetFormat,
 ): RegisterCheckReport {
   if (!index) return EMPTY;
 
-  // The registers on hand, and the countries they cover. An entry without a
-  // `register` (OpenStreetMap, GeoNames) is not authoritative: it can neither
-  // put a country in scope nor answer for one.
+  // The directories on hand and the countries they cover, each under the name
+  // the rest of the app calls it by: the register code (SI-GURS), the download
+  // key (AT-OSM), or the bare country code, which by convention means a
+  // GeoNames file.
   const registers: string[] = [];
   const covered = new Set<string>();
   const adminNames: string[] = [];
   const seenAdmin = new Set<string>();
   for (const e of index.entries) {
-    if (!e.register) continue;
-    if (!registers.includes(e.register)) registers.push(e.register);
+    const directory = directoryOf(e);
+    if (!registers.includes(directory)) registers.push(directory);
     covered.add(e.country);
     if (e.admin && !seenAdmin.has(e.admin)) {
       seenAdmin.add(e.admin);
@@ -233,10 +265,40 @@ export function checkPlacesAgainstRegister(
   let skipped = 0;
 
   for (const [key, g] of groups) {
-    if (!key || isUnknownPlaceValue(key) || isRegisterAddress(key)) continue;
+    if (!key || isUnknownPlaceValue(key)) continue;
     const components = decomposePlace(key);
     const written = (components.locality ?? key.split(",")[0]).trim();
     if (!written) continue;
+
+    // A house address written into the place value. Where the file keeps
+    // addresses on their own ADDR line, this one is out of step with the rest
+    // of it — and it is also why the value can never be held to a register of
+    // settlements, since "Črni vrh 35" is a building. The split is proposed in
+    // the file's own layout, which is what decides where each part belongs.
+    const address = placeAddressDetail(components);
+    if (address) {
+      const split = fmt?.layout === "structured-addr" ? reformatPlace(key, undefined, fmt) : undefined;
+      if (split?.addr && split.plac && split.plac !== key) {
+        checked++;
+        findings.push({
+          key,
+          count: g.count,
+          people: [...g.people],
+          verdict: "address",
+          country: components.country ? (countryCode(components.country)?.toUpperCase() ?? "") : "",
+          written,
+          official: split.plac,
+          officialAddr: split.addr,
+          dismissed: isDismissed(decisions, key, "address"),
+        });
+      } else {
+        // The file writes its addresses this way, or the split would change
+        // nothing: either way the houses are the Addresses tab's business.
+        skipped++;
+      }
+      continue;
+    }
+    if (isRegisterAddress(key)) continue;
     const wantCountry = components.country ? countryCode(components.country)?.toUpperCase() : undefined;
     // A country we can name but hold no register for: out of scope, and said so
     // in the summary rather than silently dropped.
@@ -262,10 +324,7 @@ export function checkPlacesAgainstRegister(
     // the place differently or files it elsewhere. Left in, "Slovenia" is
     // reported as misspelling "Šlovrenc".
     const candidates = lookupPlace(index, key).filter(
-      (c) =>
-        c.entry.register &&
-        covered.has(c.entry.country) &&
-        (sameName(written, c.entry) || c.score >= PARENT_QUALIFIED),
+      (c) => covered.has(c.entry.country) && (sameName(written, c.entry) || c.score >= PARENT_QUALIFIED),
     );
     if (!candidates.length) {
       // Nothing matched. Only a value that says which country it is in can be
