@@ -1057,9 +1057,10 @@
               jih druge navedbe istega kraja že nosijo, nato natančna in zgodovinsko-imenska ujemanja
               (<em>Laibach → Ljubljana</em>), nato približna. Kadar kraj navaja državo, so ujemanja omejena na to državo,
               tako da tuj kraj nikoli ni ujet z naloženim imenikom (<em>Belfast, Northern Ireland</em> ne postane
-              <em>Bela</em> v Sloveniji). <strong>Izberi zanesljive</strong> paketno izbere le
-              nedvoumna ujemanja.
-            </p>
+              <em>Bela</em> v Sloveniji). <strong>Izberi zanesljive</strong> za vsako nedvoumno vrstico naenkrat izbere koordinato, ki jo ta že
+              predlaga. Nič ni pripravljeno, dokler ni izbrano: vrstica svoj predlog pokaže od začetka, izbira — v
+              vrstici ali s tem gumbom — pa ga uvrsti v naslednji zapis, kar koordinata pove z zeleno barvo. Ponovna
+              izbira ga opusti. Tako delujejo vsi trije seznami na strani: izbira je priprava, drugega za obkljukati ni.</p>
             <p>
               Seznam za pregled ostane obvladljiv tudi pri veliki datoteki. Kadar kraji v datoteki segajo v več držav,
               je nad seznamom vrsta gumbov z državami, največ krajev najprej — s klikom seznam zožite na to državo, z
@@ -1202,6 +1203,55 @@
               ugibanjih, ni nobeno od njih — kliknite kamor koli na zemljevidu ali koordinato vnesite oziroma prilepite,
               in ta postane izbrana. Tudi dopolnjevanje koordinat v <a href="#tools">Pregledu</a>
               kopira samo znotraj enega naslova, zato se lega hiše ne more razširiti po naselju.
+            </p>
+            <p>
+              Prvi zavihek strani, <strong>Skladnost</strong>, iste imenike vpraša nekaj drugega: ne kje je
+              kraj, ampak ali ga vaša datoteka piše tako, kot ga piše imenik. Vsak kraj v državi, ki jo pokriva kateri
+              koli naloženi imenik, se primerja z njim — GURS za Slovenijo, DGU za Hrvaško, prav tako pa prenos
+              OpenStreetMap za Avstrijo ali datoteka GeoNames za Združene države — na seznamu pa so samo odstopanja, pod
+              vsak pod eno besedo za tisto, kar odstopa: <strong>Neznan</strong> (v državi, ki jo kraj navaja, ni naselja s tem imenom),
+              <strong>Dvoumen</strong> (ime ustreza več vnosom, nič pa jih ne loči), <strong>Občina</strong>
+              (imenik uvršča naselje v občino, ki je vaš kraj ne navaja), <strong>Zapis</strong>
+              (strešice, velika začetnica ali daljša uradna oblika), <strong>Dodatna raven</strong> (imenik kraj pozna
+              od druge ravni naprej — prva imenuje pokopališče, okraj ali volilni okoliš, torej nekaj <em>v</em> kraju),
+              <strong>Naslov</strong> (hišna številka v
+              vrednosti kraja, čeprav datoteka naslove sicer piše v svojo vrstico <code>ADDR</code>) in
+              <strong>Lega</strong> (koordinata v datoteki je več kot deset kilometrov od tam, kamor kraj
+              postavlja imenik — običajno je kraj geokodiran na enakoimensko vas drugod). Kadar isto državo opisujeta
+              dva imenika, odgovorita oba, uradni register pa ima prednost: kjer kraj pozna GURS ali DGU, odloča on.
+            </p>
+            <p>
+              Odprta vrstica ponudi odgovore kot oštevilčene možnosti, tako kot vrstice krajev in naslovov ponudijo svoje
+              kandidate: vsaka je cel kraj, zapisan v postavitvi vaše datoteke — <em>Mavčiče, Kranj, Slovenia</em> ob
+              vašem <em>Mavčiče, Medvode, Slovenia</em> — z oznako imenika, ki je odgovoril, pri delitvi naslova pa se
+              vidi tudi hiša na vrstici <code>ADDR</code>, kamor se bo preselila. Vrstica z enim odgovorom je nanj že
+              postavljena, ime, ki ustreza več krajem, pa počaka na vašo izbiro z okroglim gumbom, saj je prav izbira med
+              njimi celotno vprašanje. <strong>Prevzemi uradno ime</strong> nato preimenuje vse navedbe v izbrano možnost
+              (in naslov preseli, kadar je to odgovor), <strong>Prevzemi uradna imena</strong> nad seznamom pa opravi vse
+              vrstice z odgovorom naenkrat, v enem koraku, ki ga je mogoče razveljaviti. <strong>Pokaži na
+              zemljevidu</strong> — ali klik na koordinato katerega koli odgovora — odgovore nariše kot oštevilčene
+              oznake, kjer je številka na oznaki ista kot ob vrstici, ob njih pa s črtkanim obročem še lego, ki jo kraju
+              daje datoteka: kateri od šestih enakoimenskih krajev je vaš, odgovori le zemljevid. <strong>Poišči
+              širše</strong> doda kraje, katerih ime zapisano ime le <em>vsebuje</em> — <em>Bela</em> najde Spodnjo,
+              Srednjo in Zgornjo Belo — česar preverjanje samo nikoli ne ponudi, saj je ime, ki je ena beseda daljšega
+              imena, namig in ne odgovor; pridružijo se možnostim vrstice, oštevilčene za njimi, in jih je mogoče
+              prevzeti kot vsako drugo. Števec vrstice so ljudje, katerih
+              dogodki pišejo ta kraj; klik nanj jih pokaže, vsak je povezava v Urejanje. Za razliko od seznama krajev ta
+              pogleda tudi kraje, ki koordinate že imajo: datoteki, geokodirani pred leti, zapisov ni preveril še nihče,
+              in prav tam se register najbolj obrestuje. Kjer je imenik naložen, se stran odpre prav na tem zavihku.
+              Kadar datoteka sega v več držav, je nad oznakami še vrstica gumbov z državami; vsak števec pove natanko,
+              koliko vrstic pokaže klik nanj.
+            </p>
+            <p>
+              Najdba je v vašo presojo, ne napaka. Register opisuje državo, kakršna je danes, vaša datoteka pa, kakršna je
+              bila — naselja so se preimenovala, združevala in ukinjala, župnije in občine so se prerisale — zato je ime,
+              ki ga ne pozna več, pogosto povsem pravo zgodovinsko ime. <strong>Zavrni</strong> sprejme kraj tak,
+              kot je zapisan, in ga umakne s seznama; zavrnitve se zapomni ta brskalnik, v datoteko se ne zapišejo, z
+              <strong>Prikaži zavrnjene</strong> pa se vrnejo na seznam. Poročilo ostaja pošteno ob treh pravilih: kraj, ki
+              navaja državo, za katero nimate imenika, je povsem izpuščen; kraj, ki države ne navaja, je presojan le,
+              če se imenik nanj vseeno ujame, tako da tuj kraj nikoli ni obtožen, da ga ni; ime pa velja za napačno
+              zapisano samo, kadar ga imenik pozna črko za črko, brez ozira na strešice in velike začetnice — le podobno
+              ime ostane seznamu krajev, kjer ga presodite ob zemljevidu.
             </p>
             <p>
               V <a href="#edit">Urejanju</a> ima dogodek s krajem za njim zeleno oznako kraja <span class="gm-glyph pin"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2a7.5 7.5 0 0 0-7.5 7.5c0 5.05 6.36 11.62 6.63 11.9a1.2 1.2 0 0 0 1.74 0c.27-.28 6.63-6.85 6.63-11.9A7.5 7.5 0 0 0 12 2Zm0 10.2a2.7 2.7 0 1 1 0-5.4 2.7 2.7 0 0 1 0 5.4Z"/></svg></span> — poln, kadar

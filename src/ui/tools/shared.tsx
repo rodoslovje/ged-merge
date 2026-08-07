@@ -1,10 +1,15 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { renderKeyToken } from "../../keyboard/shortcuts";
 import { useFindShortcutOn } from "../../keyboard/useFindShortcut";
-import type { Dataset } from "../../gedcom/types";
+import type { Dataset, GeoCoord } from "../../gedcom/types";
+import type { MiniMapPin } from "../map/MiniPlaceMap";
 import type { SourceUse } from "../../tools/sources";
+import { lineageClass, type KinshipResolver } from "../../match/kinship";
 import { PersonLink } from "../PersonLink";
+import { MapIcon } from "../icons/MapIcon";
+
+const MiniPlaceMap = lazy(() => import("../map/MiniPlaceMap"));
 
 /** A Tools-tab "working…" placeholder: the same spinner + accent row the file
  *  loader uses for "Parsing and validating…", shown while a panel computes.
@@ -66,6 +71,130 @@ export function UsageList({ dataset, uses, onNavigate }: { dataset: Dataset; use
         </li>
       ))}
     </ul>
+  );
+}
+
+/**
+ * A row's own map, in the Leaflet lazy chunk it shares with the Map chart — the
+ * one way the three geocoding lists draw one. Each of them mounts at most one:
+ * a list runs to hundreds of rows, and a map is never drawn until a row asks
+ * for it, so the fallback below is what a row shows for the moment it takes to
+ * arrive.
+ */
+export function RowMap({
+  pins,
+  context,
+  title,
+  fitKey,
+  fitMaxZoom,
+  onPickCoord,
+}: {
+  pins: MiniMapPin[];
+  /** Faint dots for the coordinates the file already carries elsewhere — the
+   *  family cluster that tells two same-named places apart. */
+  context?: { coord: GeoCoord; name: string }[];
+  title?: string;
+  fitKey?: string;
+  /** Closer than the default region framing, where answers for one name sit a
+   *  few hundred metres apart and would otherwise pile into one dot. */
+  fitMaxZoom?: number;
+  onPickCoord?: (coord: GeoCoord) => void;
+}) {
+  return (
+    <Suspense fallback={<div className="tools-geo-minimap" />}>
+      <MiniPlaceMap
+        pins={pins}
+        {...(context ? { context } : {})}
+        {...(title ? { title } : {})}
+        {...(fitKey ? { fitKey } : {})}
+        {...(fitMaxZoom ? { fitMaxZoom } : {})}
+        {...(onPickCoord ? { onPickCoord } : {})}
+      />
+    </Suspense>
+  );
+}
+
+/**
+ * What the last write on this list did, standing at the end of the list's own
+ * action row rather than in a paragraph of its own: the eye is on the button it
+ * just pressed, and a line appearing under the intro moves the whole list down
+ * to say so. A write that changed nothing says so in words — "0 updated
+ * records" reads as the button having done nothing at all, when what happened
+ * is that the file already held the value.
+ */
+export function AppliedNote({ count }: { count: number | null }) {
+  const { t } = useTranslation();
+  if (count === null) return null;
+  return (
+    <span className="tools-applied-note">
+      {count === 0 ? t("tools.geocode.appliedNone") : t("tools.geocode.applied", { count })}
+    </span>
+  );
+}
+
+/**
+ * Who a place belongs to: the standard person links (sex colour, lifespan, click
+ * to open in Edit), each with its kinship chip and the number of events that
+ * person has at this exact place, whose labels and dates make up its tooltip.
+ *
+ * Shared by the place lists that hang one off a row's count — the geocode review
+ * and the register check ask the same question of the same value, so they answer
+ * it the same way.
+ */
+export function GeoPeopleList({
+  dataset,
+  ids,
+  place,
+  kinship,
+  onNavigate,
+  limit = 30,
+}: {
+  dataset: Dataset;
+  ids: readonly string[];
+  /** The exact raw PLAC value the people are listed for. */
+  place: string;
+  kinship?: KinshipResolver;
+  onNavigate: (id: string) => void;
+  limit?: number;
+}) {
+  const { t } = useTranslation();
+  return (
+    <>
+      <ul className="tools-usage tools-geo-people">
+        {ids.slice(0, limit).map((id) => {
+          const indi = dataset.individuals.get(id);
+          const kin = kinship?.label(id);
+          // The person's events at this exact place — their own and their
+          // families', matching how the scans attribute a family PLAC to both
+          // spouses.
+          const placeEvents = indi
+            ? [...indi.events, ...indi.spouseOf.flatMap((fid) => dataset.families.get(fid)?.events ?? [])].filter(
+                (ev) => ev.place?.raw.trim() === place,
+              )
+            : [];
+          const placeEventsTitle = placeEvents
+            .map((ev) => {
+              const label = ev.tag === "EVEN" && ev.type ? ev.type : t(`event.${ev.tag}`, { defaultValue: ev.tag });
+              return ev.date?.raw ? `${label}: ${ev.date.raw}` : label;
+            })
+            .join("\n");
+          return (
+            <li key={id}>
+              <PersonLink dataset={dataset} id={id} fallback={id} onNavigate={onNavigate} />
+              {kin && <span className={`person-kinship ${lineageClass(kinship?.lineage(id))}`}>{kin}</span>}
+              {indi && placeEvents.length > 0 && (
+                <span className="tools-chip-count" title={placeEventsTitle}>
+                  {placeEvents.length}
+                </span>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      {ids.length > limit && (
+        <p className="tools-geo-more">{t("tools.geocode.morePeople", { count: ids.length - limit })}</p>
+      )}
+    </>
   );
 }
 
@@ -162,13 +291,24 @@ export function GeoRowHeader({
   );
 }
 
-/** Show or hide a row's map. The map is never drawn until asked for: Leaflet is
- *  a lazy chunk, and a list of hundreds of rows must not mount hundreds of them. */
+/**
+ * Show or hide a row's map. Opening a row by hand draws it already — the Edit
+ * view's coordinate panel does the same, and it is the same question — so this
+ * is how it is put away, and how it is fetched back for a row opened some other
+ * way (through its people count, or by Expand all, which deliberately mounts
+ * none: Leaflet is a lazy chunk and a list runs to hundreds of rows).
+ *
+ * Icon and words are the Edit view's own map toggle's: a folded map, "Show
+ * map" / "Hide map". The pin is for a position — a coordinate an event holds —
+ * and this is not that.
+ */
 export function MapToggle({ open, onToggle }: { open: boolean; onToggle: () => void }) {
   const { t } = useTranslation();
+  const label = t(open ? "edit.mapHide" : "edit.mapShow");
   return (
-    <button className="tools-issue-link" onClick={onToggle}>
-      {t(open ? "tools.geocode.hideMap" : "tools.geocode.showMap")}
+    <button className="tools-issue-link tools-map-toggle" onClick={onToggle} aria-expanded={open} title={label}>
+      <MapIcon size={15} />
+      {label}
     </button>
   );
 }

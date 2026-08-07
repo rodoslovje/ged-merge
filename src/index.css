@@ -7665,6 +7665,10 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
    on hover. */
 .tools-geo-coord-btn { background: none; border: none; padding: 0; font: inherit; color: inherit; cursor: pointer; }
 .tools-geo-coord-btn:hover { color: var(--accent); text-decoration: underline; }
+/* A picked coordinate is what the next Write puts in the file: it carries the
+   same "going in" green the staged address pins and score badges wear, so a
+   collapsed row still says whether it is staged. */
+.tools-geo-coord-btn.staged { color: var(--state-match); font-weight: 600; }
 .tools-issues, .tools-pairs { list-style: none; margin: 0; padding: 0; }
 /* Spacer standing in for the unmounted rows of a virtualized list (useVirtualList). */
 .v-spacer { flex: none; margin: 0; padding: 0; border: none; list-style: none; }
@@ -8307,6 +8311,23 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 
 /* --- Geocode places (Tools tab) -------------------------------------------- */
 
+/* What the last write did: at the far end of the list's action row, away from
+   the buttons and alone on that side, so it is seen without being read past. */
+.tools-applied-note { color: var(--state-match); font-size: 0.85rem; font-weight: 600; margin-left: auto; }
+
+/* Register check: one line per disagreement — the place as the file writes it,
+   then the register's own wording of it, the verdict, what can be done about it
+   and the people it concerns, all reading left to right like a places row. The
+   grouping span carries no layout of its own (`contents`), so its children take
+   the row's own spacing rather than sitting in a column of their own. */
+.tools-register-end { display: contents; }
+/* A badge here names a directory or a verdict in one or two words: it must not
+   shrink to "SI-GU…" or "SPELLED DIFFERE…" when a long place fills the row. */
+.tools-register-list .tools-reshape-badge { flex: none; }
+/* A dismissed row is on the list only because it was asked for — it reads as
+   settled, not as work. */
+.tools-register-list .tools-tree-node.dismissed { opacity: 0.6; }
+
 .tools-geo-gazetteer {
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -8553,6 +8574,9 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 /* One action row per candidate list: "show on map" and the online searches
    together while the map is closed, the searches alone under it when open. */
 .tools-geo-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 0 0 6px; }
+/* The map toggle carries the pin that marks a position everywhere else in the
+   app; it sits on the text's baseline rather than above it. */
+.tools-map-toggle { display: inline-flex; align-items: center; gap: 5px; }
 /* The geocode row's people list: breathing room between the person link,
    the kinship chip and the event-count chip. */
 .tools-geo-people li { gap: 8px; }
@@ -8693,6 +8717,9 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
    row also hosts the active list's action buttons: the tabs already say what
    and how much, so a heading line per section would repeat them. */
 .tools-geo-tabs-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 4px 0 12px; }
+/* The active list's actions take the rest of the row, so what the last write
+   did can stand at its far end rather than beside the buttons. */
+.tools-geo-tabs-row > .tools-dup-bulk { flex: 1 1 auto; }
 .tools-geo-tabs-row .tools-geo-tabs { margin: 0; }
 .tools-geo-tabs {
   display: inline-flex;

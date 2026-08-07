@@ -2096,8 +2096,10 @@ function AppContent() {
                 applyToolPatches(
                   coalescePatches(
                     renames.flatMap((r) => [
-                      ...renamePlaceValue(mainDataset, r.from, r.to),
-                      ...applyGeocode(mainDataset, new Map([[r.to, r.assignment]])),
+                      ...renamePlaceValue(mainDataset, r.from, r.to, r.addr),
+                      // A rewording with no register match behind it (the
+                      // place/address split) brings no coordinate to write.
+                      ...(r.assignment ? applyGeocode(mainDataset, new Map([[r.to, r.assignment]])) : []),
                     ]),
                   ),
                 )

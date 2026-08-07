@@ -792,6 +792,27 @@ export function rgiPlacesToEntries(data: RgiPlacesJson, counties?: ReadonlyMap<s
   return drop.size ? entries.filter((_, i) => !drop.has(i)) : entries;
 }
 
+/**
+ * The saint words a place name is built on, in every form the registers and the
+ * files use: "Sv.", "Sveti/Sveta/Sveto", the German "St."/"Sankt". A register
+ * abbreviates where a file spells out — GURS writes "Sv. Duh" for the village
+ * near Škofja Loka that a researcher writes as "Sveti Duh" — and neither the
+ * exact pass nor the fuzzy one sees through that: "sveti duh" and "sv. duh"
+ * share too little.
+ */
+const SAINT_WORD = /\b(?:sveti|sveta|sveto|svete|svetega|svetem|sankt|sv|st)\b\.?/g;
+
+/** A name with its saint words reduced to one form, so the abbreviation a
+ *  register uses and the word a file writes meet: "Sveti Duh" and "Sv. Duh"
+ *  both become "sv duh". Empty when the name is nothing but a saint word. */
+export function saintKey(name: string): string {
+  const folded = foldToken(name);
+  if (!SAINT_WORD.test(folded)) return "";
+  SAINT_WORD.lastIndex = 0;
+  const out = folded.replace(SAINT_WORD, "sv").replace(/\s+/g, " ").trim();
+  return out === "sv" ? "" : out;
+}
+
 /** Fuzzy-match bucket key: first two folded characters. */
 function bucketKey(folded: string): string {
   return folded.slice(0, 2);
@@ -802,6 +823,9 @@ export interface GazetteerIndex {
   entries: GazEntry[];
   /** Folded name/ascii/alt → entry indices (exact lookups). */
   byName: Map<string, number[]>;
+  /** {@link saintKey} → entry indices, for the names a register abbreviates
+   *  and a file spells out. Absent on an index built before this existed. */
+  saints?: Map<string, number[]>;
   /** Folded primary-name 2-char prefix → entry indices (fuzzy lookups). */
   buckets: Map<string, number[]>;
   /** `"HR:12"` (country:admin1) → every name that division goes by. */
@@ -845,6 +869,7 @@ export function mergeDivisions(countries: { entries: GazEntry[]; divisions?: Div
 
 export function buildGazetteerIndex(entries: GazEntry[], divisions?: Map<string, string[]>): GazetteerIndex {
   const byName = new Map<string, number[]>();
+  const saints = new Map<string, number[]>();
   const buckets = new Map<string, number[]>();
   const add = (map: Map<string, number[]>, key: string, i: number) => {
     if (!key) return;
@@ -864,8 +889,15 @@ export function buildGazetteerIndex(entries: GazEntry[], divisions?: Map<string,
       add(buckets, bucketKey(fa), i);
     }
     for (const alt of e.alt) add(byName, foldToken(alt), i);
+    // A saint's name under its other spelling, so "Sveti Duh" reaches the
+    // register's "Sv. Duh" (and the other way round). Kept in the same map, and
+    // scored below a literal match where it is read (see lookupPlace).
+    for (const name of [e.name, e.ascii, ...e.alt]) {
+      const key = name && saintKey(name);
+      if (key && key !== foldToken(name)) add(saints, key, i);
+    }
   }
-  return { entries, byName, buckets, ...(divisions ? { divisions } : {}) };
+  return { entries, byName, saints, buckets, ...(divisions ? { divisions } : {}) };
 }
 
 /** One proposed match for a place string. */
@@ -888,8 +920,15 @@ const MIN_FUZZY = 0.87;
 
 /** Score for a register name that extends the written one with its parent
  *  ("Vinji vrh" under Semič → "Vinji Vrh pri Semiču"): above the bulk-accept
- *  bar — the parent corroborates it — but below a letter-perfect match. */
-const PARENT_QUALIFIED = 0.96;
+ *  bar — the parent corroborates it — but below a letter-perfect match. It is
+ *  also the floor above which a candidate is *this* place rather than one that
+ *  merely resembles it, which is what the register check holds names to. */
+export const PARENT_QUALIFIED = 0.96;
+
+/** Score for a name matched through its saint spelling ("Sveti Duh" for the
+ *  register's "Sv. Duh"): the same place under the other convention, so above
+ *  the parent-qualified bar and just below a literal match. */
+const SAINT_FORM = 0.98;
 
 const MAX_CANDIDATES = 6;
 
@@ -902,6 +941,23 @@ const ADMIN_MISMATCH = 0.85;
 const DUPLICATE_DEG = 0.05;
 
 /**
+ * Answers per raw place value, for the index they were found in.
+ *
+ * The same question is asked of the same string several times over: the geocode
+ * review list and the compliance check both look up every place in the file, and
+ * both run again after each edit. The answer depends on nothing but the string
+ * and the index, and the expensive half — the fuzzy pass over a 2-char bucket,
+ * which a value nothing matches exactly always reaches — is by far the costliest
+ * work either scan does. Cached like {@link foldToken} and the geocode tool's
+ * address test, and dropped wholesale when the index changes (a directory
+ * imported or deleted).
+ *
+ * The arrays handed out are shared: treat them as read-only.
+ */
+const lookupCache = new Map<string, GazCandidate[]>();
+let lookupCacheIndex: GazetteerIndex | undefined;
+
+/**
  * Candidates for one raw place string: the locality part is matched exactly
  * (primary/ascii/alternate names), then fuzzily within its 2-char bucket;
  * a country named in the place string gates the candidates to that country
@@ -911,6 +967,18 @@ const DUPLICATE_DEG = 0.05;
  * country's entries stay eligible — we can't rule anything out.
  */
 export function lookupPlace(index: GazetteerIndex, rawPlace: string): GazCandidate[] {
+  if (lookupCacheIndex !== index) {
+    lookupCache.clear();
+    lookupCacheIndex = index;
+  }
+  const hit = lookupCache.get(rawPlace);
+  if (hit) return hit;
+  const out = lookupPlaceUncached(index, rawPlace);
+  lookupCache.set(rawPlace, out);
+  return out;
+}
+
+function lookupPlaceUncached(index: GazetteerIndex, rawPlace: string): GazCandidate[] {
   const components = decomposePlace(rawPlace);
   const locality = components.locality ?? rawPlace.split(",")[0].trim();
   if (!locality) return [];
@@ -931,6 +999,11 @@ export function lookupPlace(index: GazetteerIndex, rawPlace: string): GazCandida
     const exactPrimary = foldToken(e.name) === folded || (e.ascii !== "" && foldToken(e.ascii) === folded);
     consider(i, exactPrimary ? 1 : 0.93);
   }
+  // The same name under the other saint spelling. Just below a literal match,
+  // and above the parent-qualified bar, so a "Sv. Duh" in the občina the place
+  // names outranks a literal "Sveti Duh" in another one.
+  const saintFolded = saintKey(locality);
+  if (saintFolded) for (const i of index.saints?.get(saintFolded) ?? []) consider(i, SAINT_FORM);
   // The place's own parents ("Semič" in "Vinji vrh,Semič,Slovenia"), folded →
   // the file's spelling, plus a word-boundary stem test for finding one
   // *inside* a longer settlement name: parent names inflect there — Semič →
@@ -1076,12 +1149,15 @@ export function searchGazetteer(index: GazetteerIndex, rawQuery: string, limit =
     if (wantCountry && e.country !== wantCountry) continue;
     // 0 = the whole name, 1 = a prefix of it, 2 = contained anywhere.
     let rank = 3;
+    const saintQuery = saintKey(locality);
     for (const raw of [e.name, e.ascii, ...e.alt]) {
       if (!raw) continue;
       const n = foldToken(raw);
       if (n === folded) rank = Math.min(rank, 0);
       else if (n.startsWith(folded)) rank = Math.min(rank, 1);
       else if (n.includes(folded)) rank = Math.min(rank, 2);
+      // "Sveti Duh" finds the register's "Sv. Duh" here as well.
+      else if (saintQuery && saintKey(raw) === saintQuery) rank = Math.min(rank, 0);
     }
     if (rank < 3) scored.push({ entry: e, rank });
   }

@@ -1040,7 +1040,7 @@
               county tells them apart. The
               municipality also finds names the register writes longer than yours — <em>Vinji vrh</em> under Semič finds
               <em>Vinji Vrh pri Semiču</em> — and the proposal a row resolves to always shows its municipality in the
-              row's own line, so a same-named settlement from the wrong municipality is caught at a glance. When the register's name is the longer or corrected one, the row offers <strong>Use official name</strong> — one click renames every occurrence to it and writes its coordinate — and <strong>Take official names</strong> above the list does the same for every confident row the filters show, in one undoable step. A
+              row's own line, so a same-named settlement from the wrong municipality is caught at a glance. When the register's name is the longer or corrected one, the row offers <strong>Use official name</strong> — one click renames every occurrence to it and writes its coordinate — and <strong>Use official names</strong> above the list does the same for every confident row the filters show, in one undoable step. A
               GeoNames file and an OpenStreetMap download do the same with the country's first-level divisions — a
               Croatian place carries its <em>županija</em>, an Austrian one its <em>Bundesland</em> — and the division is
               recognized under any of its names, so a file that writes <em>Požega-Slavonia</em> still points at
@@ -1054,8 +1054,11 @@
               occurrences of the same place already carry come first, then exact and historical-name matches
               (<em>Laibach → Ljubljana</em>), then fuzzy ones. When a place names its country, matches are confined to
               that country, so a foreign place is never matched to a loaded gazetteer (<em>Belfast, Northern Ireland</em>
-              won't become <em>Bela</em> in Slovenia). <strong>Select confident</strong> bulk-picks only the
-              unambiguous matches.
+              won't become <em>Bela</em> in Slovenia). <strong>Select confident</strong> picks, for every unambiguous row at once,
+              the coordinate it already proposes. Nothing is staged until it is picked: a row's proposal is shown from
+              the start, and choosing it — in the row, or through that button — is what puts it in the next write, which
+              the coordinate then says by turning green. Picking it again drops it. This is how all three lists on the
+              page work: the pick is the staging, there is nothing else to tick.
             </p>
             <p>
               The review list keeps a long file manageable. When the file's places span more than one country, a row of
@@ -1077,10 +1080,9 @@
               different coordinate (from the row's searches, its map or by hand) stages a write that replaces the old
               position everywhere the place stands without an address, while a house position bound to an address is never
               touched. The summary beside the search box tracks progress — how many places
-              carry coordinates, and what share of the file's place mentions that covers. A row's own count is the
-              number of occurrences still missing the coordinate — on a placed row, of every occurrence it has; clicking
-              it opens the people they belong to (with
-              kinship, where enabled), which otherwise stay out of the way.
+              carry coordinates, and what share of the file's place mentions that covers. A row's own count is the people whose events write
+              that place — the number is what clicking it shows, here as in the other two lists: the people themselves
+              (with kinship, where enabled), each a link into Edit.
             </p>
             <p>
               A country OpenStreetMap will not send in one piece — the United States is the usual one — is offered
@@ -1091,7 +1093,7 @@
               one go is still a job for a GeoNames file.
             </p>
             <p>
-              All three lists on this page read the same way: a row names its place (and its address, where the row is about one), opens on a click, offers its <strong>map</strong> only when you ask for it, and collects your picks until the list's own button at its top writes them in one undoable step. The map shows candidate places as clickable pins, your chosen
+              All three lists on this page read the same way: a row names its place (and its address, where the row is about one), opens on a click — bringing its <strong>map</strong> with it, as an event's coordinate panel does in <a href="#edit">Edit</a>; the pinned toggle beside it puts the map away, and fetches it back for a row opened by <em>Expand all</em>, which deliberately draws none — and collects your picks until the list's own button at its top writes them in one undoable step. The map shows candidate places as clickable pins, your chosen
               coordinate highlighted, and the file's other known coordinates as faint dots, so same-named places are told
               apart by position; click anywhere else on the map to hand-pick a point. A row also offers alternatives, a
               typed coordinate, or a remembered “no match” mark, and a <span class="gm-glyph">✎</span> button to
@@ -1127,7 +1129,8 @@
               looked up in the same register. The coordinate is written as ordinary
               <code>PLAC</code> <code>MAP</code> on those events — nothing non-standard, so every other program reads it.
               The list is grouped by place and collapsed, busiest first, because a real file holds hundreds of addresses:
-              open a place to see its own addresses, look them all up in one go, and read the positions they hold off a small map of the place — what is in force and what is staged, not the candidates: those belong to the one address they answer, and are drawn on the map inside its own coordinate panel. Chips above the list
+              open a place to see its own addresses, look them all up in one go, and read the positions they hold off a small map of the place — what is in force and what is staged, not the candidates: those belong to the one address they answer, and are drawn on the map inside its own coordinate panel. Where the file's addresses span more than one country, a row of country buttons narrows the list to one of
+              them, as over the places. Chips above the list
               narrow it by lookup state — <strong>Not looked up</strong>, <strong>With results</strong>, <strong>No
               result</strong>, <strong>By hand only</strong>, <strong>Picked</strong> — each counting exactly what clicking
               it shows, so working register answers off is one chip away. Every address is listed, not only the ones the
@@ -1196,6 +1199,57 @@
               undoable step. When none of them is right — a maternity hospital recorded at three different guesses is none
               of the three — click anywhere on the map, or type or paste a coordinate, and that becomes the choice. The <a href="#tools">Health check</a>'s coordinate fill likewise copies only within one address,
               so a house's position can never spread across a settlement.
+            </p>
+            <p>
+              The page's first tab, <strong>Compliance</strong>, puts the same directories to a different question:
+              instead of asking where a place is, it asks whether your file writes it the way the directory does. Every
+              place in a country any loaded directory covers is held against it — GURS for Slovenia, DGU for Croatia,
+              but equally an OpenStreetMap download for Austria or a GeoNames file for the United States — and only the
+              disagreements are listed, each under the one word for what disagrees: <strong>Unknown</strong>
+              (no settlement of that name in the country the place names), <strong>Ambiguous</strong> (the name fits
+              more than one entry and nothing tells them apart), <strong>Municipality</strong> (the
+              directory files the settlement under an <em>občina</em> your place does not name),
+              <strong>Spelling</strong> (diacritics, capitalisation, or a longer official form), <strong>Extra
+              level</strong> (the directory knows the place from its second level on — the first names a cemetery, a
+              township, an election precinct, something standing <em>in</em> the place), <strong>Address</strong>
+              (a house number sitting inside the place value, in a file that otherwise keeps addresses on
+              their own <code>ADDR</code> line) and <strong>Position</strong> (the coordinate in your file is more
+              than ten kilometres from where the directory puts the place — usually a place geocoded to a same-named
+              village elsewhere). Where two directories describe one country, both answer, and an official register
+              outranks the rest, so where GURS or DGU knows the place it is the one that decides.
+            </p>
+            <p>
+              Opening a row lists the answers as numbered options, the way the places and addresses rows list their
+              candidates: each is a whole place written in your file's own layout — <em>Mavčiče, Kranj, Slovenia</em>
+              against your <em>Mavčiče, Medvode, Slovenia</em> — with the directory that answered badged beside it, and
+              the address split showing the house on the <code>ADDR</code> line it would move to. A row with one answer
+              arrives on it; a name fitting several places waits for you to pick with the radio, since choosing between
+              them is the whole question. <strong>Use official name</strong> then renames every occurrence to the picked
+              option (moving the address out, where that is the answer), and <strong>Use official names</strong> above
+              the list does every row that has an answer at once, in one undoable step. <strong>Show on map</strong> —
+              or a click on any answer's coordinate — draws the answers as numbered pins, the number on the pin being
+              the number beside the line, with the file's own position for the place as a dashed ring beside them: which
+              of six same-named places is yours is a question only a map answers. <strong>Look wider</strong> adds the
+              places whose name merely <em>contains</em> the one written — <em>Bela</em> finding Spodnja, Srednja and
+              Zgornja Bela — which the check itself never offers, since a name that is one word of a longer name is a
+              lead rather than an answer; they join the row's options, numbered after them, and can be taken like any
+              other. The row's count is the people
+              whose events write the place; click it for them, each a link into Edit. Unlike the places list, this one
+              looks at the places that already carry coordinates too: a file geocoded years ago has never had its
+              spellings checked, and that is exactly where a register earns its keep. It is the page's opening tab
+              wherever a directory is loaded. Where the file reaches into more than one country, a row of country
+              buttons sits above the labels; each count says exactly how many rows clicking it shows.
+            </p>
+            <p>
+              A finding is for your judgement, not an error. A register describes the country as it is today, while your
+              file describes it as it was — settlements were renamed, merged and abolished, parishes and municipalities
+              redrawn — so a name it no longer knows is often the correct historical one. <strong>Dismiss</strong>
+              accepts a place as written and takes it off the list; dismissals are remembered in this browser, never
+              written into your file, and <strong>Show dismissed</strong> brings them back. Three rules keep the report
+              honest: a place naming a country you hold no directory for is left out entirely; a place naming no
+              country at all is judged only if a directory does match it, so a foreign place is never accused of not
+              existing; and a name is only ever said to be misspelt when the directory holds it letter for letter bar
+              diacritics and case, so a merely similar name is left to the places list, where you judge it against a map.
             </p>
             <p>
               In <a href="#edit">Edit</a>, an event with a place shows a green <span class="gm-glyph pin"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2a7.5 7.5 0 0 0-7.5 7.5c0 5.05 6.36 11.62 6.63 11.9a1.2 1.2 0 0 0 1.74 0c.27-.28 6.63-6.85 6.63-11.9A7.5 7.5 0 0 0 12 2Zm0 10.2a2.7 2.7 0 1 1 0-5.4 2.7 2.7 0 0 1 0 5.4Z"/></svg></span> pin after it — solid

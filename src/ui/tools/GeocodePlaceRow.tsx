@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
 import { sameCoord } from "../../geo/points";
@@ -11,13 +11,11 @@ import { chosenCoordFor, pickLabel, type ChosenCoord, type FileCoord, type GeoAs
 import { replaceLocality } from "../../tools/addresses";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
 import type { KinshipResolver } from "../../match/kinship";
-import { lineageClass } from "../../match/kinship";
-import { PersonLink } from "../PersonLink";
 import { PlaceAutocomplete } from "../edit/PlaceAutocomplete";
 import { usePlaceLookup } from "../edit/PlaceLookupContext";
 import type { PlaceSuggestions } from "../edit/placeSuggestions";
 import { useSettingsSlice } from "../SettingsContext";
-import { GeoRowHeader, MapToggle } from "./shared";
+import { GeoPeopleList, GeoRowHeader, MapToggle, RowMap } from "./shared";
 
 // One row of the Geocode-places review list: the raw PLAC value, its badge
 // (file coordinate / score / remembered / no-match), the rename editor, and —
@@ -28,13 +26,9 @@ import { GeoRowHeader, MapToggle } from "./shared";
 // no-match, expanded) stays with the panel — it must survive rescans and
 // drive the apply pass.
 
-/** The expanded-row mini map, in the Leaflet lazy chunk it shares with the
- *  Map chart — the list itself must not pull Leaflet into the main bundle. */
 /** The preferences this file reads — subscribed field by field, so an
  *  unrelated one changing leaves it alone (see useSettingsSlice). */
 const SETTINGS_KEYS = ["allowLinkFetch"] as const;
-
-const MiniPlaceMap = lazy(() => import("../map/MiniPlaceMap"));
 
 /** Badge class for a match score: green when it is going in (confident or
  *  hand-checked), orange below 100% — the name did not match letter-perfectly,
@@ -58,7 +52,6 @@ export function parseManualCoord(text: string): GeoCoord | undefined {
 interface Props {
   row: GeocodeRow;
   dataset: Dataset;
-  isChecked: boolean;
   isOpen: boolean;
   /** This row currently owns the single mounted mini map. */
   hasMap: boolean;
@@ -66,10 +59,6 @@ interface Props {
   marked: boolean;
   /** The user's explicit pick for this row, when any (panel-owned). */
   override?: ChosenCoord;
-  /** The user has said no to the row's default proposal (panel-owned). The row
-   *  then stands with no coordinate at all — the panel's write pass skips it,
-   *  so it must not go on showing the default as if it were going in. */
-  isCleared: boolean;
   /** Context dots for the mini map: every coordinate the file carries. */
   fileCoords: FileCoord[];
   /** Suggestions for the rename input (the Edit fields' lists). */
@@ -78,9 +67,8 @@ interface Props {
   kinship?: KinshipResolver;
   /** Hover list of the people this place is missing at (precomputed). */
   missingInTitle?: string;
-  onToggleChecked: (key: string, on: boolean) => void;
   onToggleOpen: (key: string) => void;
-  onClaimMap: (key: string) => void;
+  onToggleMap: (key: string) => void;
   /** Choose a coordinate for the row; `govId` is set only for GOV picks and
    *  drives the `_GOV` write-back. */
   onPickCoord: (row: GeocodeRow, coord: GeoCoord, label: string, govId?: string) => void;
@@ -119,20 +107,17 @@ const IDLE: LookupState<never> = { state: "idle", results: [] };
 export function GeocodePlaceRow({
   row,
   dataset,
-  isChecked,
   isOpen,
   hasMap,
   marked,
   override,
-  isCleared,
   fileCoords,
   placeSug,
   placeCombos,
   kinship,
   missingInTitle,
-  onToggleChecked,
   onToggleOpen,
-  onClaimMap,
+  onToggleMap,
   onPickCoord,
   onUnpickCoord,
   onToggleNoMatch,
@@ -145,10 +130,10 @@ export function GeocodePlaceRow({
   const appSettings = useSettingsSlice(SETTINGS_KEYS);
   const lookup = usePlaceLookup();
 
-  // What this row would write, as the panel's write pass computes it — the
-  // cleared state included, or the row would offer (and let you tick) a
-  // coordinate the write then skips.
-  const c = isCleared ? undefined : chosenCoordFor(row, override, { fromFile: t("tools.geocode.fromFile") });
+  // What the row offers: its pick, else the coordinate it proposes by default.
+  // Only a pick is written — `override` is that pick — so everything here that
+  // says "going in" reads it rather than `c`.
+  const c = chosenCoordFor(row, override, { fromFile: t("tools.geocode.fromFile") });
 
   // "Use official name": offered when the row resolves to a register candidate
   // whose name is not the letter-for-letter value the file writes — the
@@ -245,7 +230,7 @@ export function GeocodePlaceRow({
   // The manual coordinate as a selectable option: parsed draft (typed
   // or map-picked), checked when it is the row's chosen coordinate.
   const draftCoord = parseManualCoord(manualDraft);
-  const manualChosen = !!c && !!draftCoord && sameCoord(c.coord, draftCoord);
+  const manualChosen = !!override && !!draftCoord && sameCoord(override.coord, draftCoord);
   const setManual = () => {
     if (draftCoord) onPickCoord(row, draftCoord, t("tools.geocode.manual"));
   };
@@ -342,20 +327,6 @@ export function GeocodePlaceRow({
         open={isOpen}
         onToggle={() => onToggleOpen(row.key)}
         place={<span className={marked ? "tools-reshape-removed" : undefined}>{row.key}</span>}
-        before={
-          <input
-            type="checkbox"
-            className="tools-dup-check"
-            checked={isChecked}
-            // A placed row is armed by picking a *different* coordinate —
-            // accepting the position it already holds would write nothing.
-            disabled={!c || marked || (row.placed && !override)}
-            // Why it cannot be ticked: the row has nothing to write until a
-            // coordinate is picked (never proposed, or the proposal declined).
-            title={!c && !marked ? t("tools.geocode.armHint") : undefined}
-            onChange={(e) => onToggleChecked(row.key, e.target.checked)}
-          />
-        }
       >
         {renameOpen ? (
           <button
@@ -386,15 +357,13 @@ export function GeocodePlaceRow({
           // reads its coordinate the same way), another puts the map away.
           <button
             type="button"
-            className="tools-tree-meta tools-geo-coord-btn"
-            title={t("tools.geocode.showMap")}
+            className={`tools-tree-meta tools-geo-coord-btn${override ? " staged" : ""}`}
+            title={override ? t("tools.geocode.stagedHint") : t("tools.geocode.showMap")}
             onClick={() => {
-              const showing = isOpen && hasMap;
+              // Opening the row draws the map, so a shut row needs nothing more.
+              // On an open one this is the way to put the map up or away.
               if (!isOpen) onToggleOpen(row.key);
-              // Claiming toggles, so it is called only when that lands on the
-              // state wanted: show it when it is not this row's, hide it when
-              // the row is already open with the map up.
-              if (showing || !hasMap) onClaimMap(row.key);
+              else onToggleMap(row.key);
             }}
           >
             → {c.label} · <span className="gm-data gm-coord gm-coord--set">{c.coord.lat.toFixed(4)}, {c.coord.lon.toFixed(4)}</span>
@@ -415,7 +384,7 @@ export function GeocodePlaceRow({
         ) : row.candidates[0] && !override ? (
           // Green when confident — or hand-selected for writing: a
           // checked row's badge should read as "going in" too.
-          <span className={scoreBadgeClass(row.candidates[0].score, row.confident || isChecked)}>
+          <span className={scoreBadgeClass(row.candidates[0].score, !!override)}>
             {Math.round(row.candidates[0].score * 100)}%
           </span>
         ) : !c ? (
@@ -443,7 +412,7 @@ export function GeocodePlaceRow({
             aria-pressed={marked}
             title={marked ? t("tools.geocode.noMatchUndo") : t("tools.geocode.noMatch")}
           >
-            {marked ? "↩" : "🗑"}
+            {marked ? t("tools.geocode.restore") : t("tools.geocode.hide")}
           </button>
         )}
         <button
@@ -457,8 +426,9 @@ export function GeocodePlaceRow({
             if (next && !isOpen) onToggleOpen(row.key);
           }}
         >
-          {/* A placed row has nothing missing; its count is every occurrence. */}
-          {row.placed ? row.count : row.missing}
+          {/* The people the value belongs to — which is what clicking it
+              shows, here as in the addresses and compliance lists. */}
+          {row.missingIn.length}
         </button>
       </GeoRowHeader>
       {renameOpen && (
@@ -552,16 +522,18 @@ export function GeocodePlaceRow({
               gov.results.length > 0 ||
               rn.results.length > 0 ||
               fileCoords.length > 0;
-            // Closed (or nothing to plot): one row of actions — show the map,
-            // then the searches. A row with no candidates at all is exactly
-            // where the searches are needed, so they must not go with the map.
-            if (!hasMap || !plottable)
-              return (
-                <div className="tools-geo-actions">
-                  {plottable && <MapToggle open={false} onToggle={() => onClaimMap(row.key)} />}
-                  {searchActions}
-                </div>
-              );
+            // The row's actions stand in one place whether the map is up or
+            // not — above it, as in the addresses and compliance lists. A row
+            // with no candidates at all is exactly where the searches are
+            // needed, so they are there either way; only the map's own toggle
+            // waits for something to draw.
+            const actions = (
+              <div className="tools-geo-actions">
+                {plottable && <MapToggle open={hasMap} onToggle={() => onToggleMap(row.key)} />}
+                {searchActions}
+              </div>
+            );
+            if (!hasMap || !plottable) return actions;
             // Candidate pins (click = pick), the chosen coordinate
             // highlighted, plus a live pin for a parseable manual draft.
             // Each pin wears the number its option carries in the list below,
@@ -580,7 +552,7 @@ export function GeocodePlaceRow({
               if (pins.some((p) => sameCoord(p.coord, coord))) continue;
               pins.push({
                 coord,
-                label: `${cand.entry.name} · ${Math.round(cand.score * 100)}%`,
+                label: `${pickLabel(cand.entry.name, cand.adminDisplay ?? cand.entry.admin)} · ${Math.round(cand.score * 100)}%`,
                 kind: c && sameCoord(c.coord, coord) ? ("chosen" as const) : ("candidate" as const),
                 badge: numberOf(coord),
                 onPick: () => pickCandidate(cand),
@@ -590,7 +562,7 @@ export function GeocodePlaceRow({
               if (pins.some((p) => sameCoord(p.coord, r.coord))) continue;
               pins.push({
                 coord: r.coord,
-                label: `${r.name} · OSM`,
+                label: `${pickLabel(r.name, r.admin)} · OSM`,
                 kind: c && sameCoord(c.coord, r.coord) ? ("chosen" as const) : ("candidate" as const),
                 badge: numberOf(r.coord),
                 onPick: () => onPickCoord(row, r.coord, pickLabel(r.name, r.admin)),
@@ -600,7 +572,7 @@ export function GeocodePlaceRow({
               if (pins.some((p) => sameCoord(p.coord, r.coord))) continue;
               pins.push({
                 coord: r.coord,
-                label: `${r.name} · GOV`,
+                label: `${pickLabel(r.name, r.admin)} · GOV`,
                 kind: c && sameCoord(c.coord, r.coord) ? ("chosen" as const) : ("candidate" as const),
                 badge: numberOf(r.coord),
                 onPick: () => onPickCoord(row, r.coord, pickLabel(r.name, r.admin), r.govId),
@@ -621,8 +593,9 @@ export function GeocodePlaceRow({
             if (draftCoord && !pins.some((p) => sameCoord(p.coord, draftCoord)))
               pins.push({ coord: draftCoord, label: t("tools.geocode.manual"), kind: "chosen", badge: manualNumber });
             return (
-              <Suspense fallback={<div className="tools-geo-minimap" />}>
-                <MiniPlaceMap
+              <>
+                {actions}
+                <RowMap
                   pins={pins}
                   context={fileCoords}
                   title={t("tools.geocode.mapPickHint")}
@@ -646,13 +619,7 @@ export function GeocodePlaceRow({
                     onPickCoord(row, coord, t("tools.geocode.manual"));
                   }}
                 />
-                {/* Open: the searches move under the map, where their results
-                    land as new pins. */}
-                <div className="tools-geo-actions">
-                  <MapToggle open onToggle={() => onClaimMap(row.key)} />
-                  {searchActions}
-                </div>
-              </Suspense>
+              </>
             );
           })()}
           <ul className="tools-geo-candidates">
@@ -671,8 +638,8 @@ export function GeocodePlaceRow({
                     className="tools-geo-cand-radio"
                     name={`geo-${row.key}`}
                     aria-label={t("tools.geocode.fromFile")}
-                    checked={sameCoord(c?.coord, row.fileCoord)}
-                    onClick={() => sameCoord(c?.coord, row.fileCoord) && onUnpickCoord(row)}
+                    checked={sameCoord(override?.coord, row.fileCoord)}
+                    onClick={() => sameCoord(override?.coord, row.fileCoord) && onUnpickCoord(row)}
                     onChange={() => onPickCoord(row, row.fileCoord!, t("tools.geocode.fromFile"))}
                   />
                   <span className="tools-geo-cand-num">{numberOf(row.fileCoord)}</span>
@@ -691,8 +658,8 @@ export function GeocodePlaceRow({
                     className="tools-geo-cand-radio"
                     name={`geo-${row.key}`}
                     aria-label={cand.entry.name}
-                    checked={sameCoord(c?.coord, { lat: cand.entry.lat, lon: cand.entry.lon })}
-                    onClick={() => sameCoord(c?.coord, { lat: cand.entry.lat, lon: cand.entry.lon }) && onUnpickCoord(row)}
+                    checked={sameCoord(override?.coord, { lat: cand.entry.lat, lon: cand.entry.lon })}
+                    onClick={() => sameCoord(override?.coord, { lat: cand.entry.lat, lon: cand.entry.lon }) && onUnpickCoord(row)}
                     onChange={() => pickCandidate(cand)}
                   />
                   <span className="tools-geo-cand-num">{numberOf({ lat: cand.entry.lat, lon: cand.entry.lon })}</span>
@@ -715,7 +682,7 @@ export function GeocodePlaceRow({
                   <span
                     className={scoreBadgeClass(
                       cand.score,
-                      sameCoord(c?.coord, { lat: cand.entry.lat, lon: cand.entry.lon }) && (row.confident || isChecked),
+                      sameCoord(override?.coord, { lat: cand.entry.lat, lon: cand.entry.lon }),
                     )}
                   >
                     {Math.round(cand.score * 100)}%
@@ -738,8 +705,8 @@ export function GeocodePlaceRow({
                     className="tools-geo-cand-radio"
                     name={`geo-${row.key}`}
                     aria-label={r.name}
-                    checked={sameCoord(c?.coord, r.coord)}
-                    onClick={() => sameCoord(c?.coord, r.coord) && onUnpickCoord(row)}
+                    checked={sameCoord(override?.coord, r.coord)}
+                    onClick={() => sameCoord(override?.coord, r.coord) && onUnpickCoord(row)}
                     onChange={() => onPickCoord(row, r.coord, pickLabel(r.name, r.admin))}
                   />
                   <span className="tools-geo-cand-num">{numberOf(r.coord)}</span>
@@ -766,8 +733,8 @@ export function GeocodePlaceRow({
                     className="tools-geo-cand-radio"
                     name={`geo-${row.key}`}
                     aria-label={r.label}
-                    checked={sameCoord(c?.coord, r.coord)}
-                    onClick={() => sameCoord(c?.coord, r.coord) && onUnpickCoord(row)}
+                    checked={sameCoord(override?.coord, r.coord)}
+                    onClick={() => sameCoord(override?.coord, r.coord) && onUnpickCoord(row)}
                     onChange={() => onPickCoord(row, r.coord, pickLabel(r.name, r.admin), r.govId)}
                   />
                   <span className="tools-geo-cand-num">{numberOf(r.coord)}</span>
@@ -790,8 +757,8 @@ export function GeocodePlaceRow({
                     className="tools-geo-cand-radio"
                     name={`geo-${row.key}`}
                     aria-label={r.address}
-                    checked={sameCoord(c?.coord, r.coord)}
-                    onClick={() => sameCoord(c?.coord, r.coord) && onUnpickCoord(row)}
+                    checked={sameCoord(override?.coord, r.coord)}
+                    onClick={() => sameCoord(override?.coord, r.coord) && onUnpickCoord(row)}
                     onChange={() => onPickCoord(row, r.coord, r.address)}
                   />
                   <span className="tools-geo-cand-num">{numberOf(r.coord)}</span>
@@ -834,44 +801,16 @@ export function GeocodePlaceRow({
               />
             </li>
           </ul>
-          {/* Who this unresolved place belongs to — standard person
-              links (sex colour, lifespan, click to open in Edit),
-              with the kinship chip and the person's event count.
-              Shown only when the header's count was clicked for it. */}
+          {/* Who this unresolved place belongs to — shown only when the
+              header's count was clicked for it. */}
           {peopleOpen && (
-          <ul className="tools-usage tools-geo-people">
-            {row.missingIn.slice(0, 30).map((id) => {
-              const indi = dataset.individuals.get(id);
-              const kin = kinship?.label(id);
-              // The person's events at this exact place (own + spouse
-              // family events, matching how scanGeocode attributes
-              // family PLACs to the spouses) — listed in the tooltip.
-              const placeEvents = indi
-                ? [...indi.events, ...indi.spouseOf.flatMap((fid) => dataset.families.get(fid)?.events ?? [])]
-                    .filter((ev) => ev.place?.raw.trim() === row.key)
-                : [];
-              const placeEventsTitle = placeEvents
-                .map((ev) => {
-                  const label = ev.tag === "EVEN" && ev.type ? ev.type : t(`event.${ev.tag}`, { defaultValue: ev.tag });
-                  return ev.date?.raw ? `${label}: ${ev.date.raw}` : label;
-                })
-                .join("\n");
-              return (
-                <li key={id}>
-                  <PersonLink dataset={dataset} id={id} fallback={id} onNavigate={onNavigate} />
-                  {kin && <span className={`person-kinship ${lineageClass(kinship?.lineage(id))}`}>{kin}</span>}
-                  {indi && placeEvents.length > 0 && (
-                    <span className="tools-chip-count" title={placeEventsTitle}>
-                      {placeEvents.length}
-                    </span>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-          )}
-          {peopleOpen && row.missingIn.length > 30 && (
-            <p className="tools-geo-more">{t("tools.geocode.morePeople", { count: row.missingIn.length - 30 })}</p>
+            <GeoPeopleList
+              dataset={dataset}
+              ids={row.missingIn}
+              place={row.key}
+              kinship={kinship}
+              onNavigate={onNavigate}
+            />
           )}
         </div>
       )}

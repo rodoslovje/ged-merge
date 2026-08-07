@@ -109,14 +109,14 @@ test("a fully placed place hides from the worklist and returns behind the toggle
   await expect(places.first()).toContainText("Kranj");
   await expect(page.getByRole("button", { name: /Already placed/ })).toHaveCount(0);
 
-  // The toggle brings the placed row back, marked as placed, its checkbox
-  // held until a different coordinate is picked — and the chip counts it.
+  // The toggle brings the placed row back, marked as placed and staged by
+  // nothing until a different coordinate is picked — and the chip counts it.
   await page.getByText("Show already placed").click();
   await expect(places).toHaveCount(2);
   const placedRow = places.filter({ hasText: "Ljubljana" });
   await expect(placedRow).toContainText("placed");
   await expect(placedRow).toContainText("46.0511, 14.5051");
-  await expect(placedRow.locator(".tools-dup-check")).toBeDisabled();
+  await expect(placedRow.locator(".tools-geo-coord-btn.staged")).toHaveCount(0);
   await expect(page.getByRole("button", { name: /Already placed/ })).toContainText("1");
 
   // Unticking puts the finished work away again.
@@ -151,8 +151,8 @@ test("staged picks survive a trip to Edit, including a stray Escape there", asyn
   await page.getByRole("button", { name: /Geocoding/ }).click();
 
   await page.getByRole("button", { name: /Select confident/ }).click();
-  const checked = page.locator(".tools-geocode .tools-dup-check:checked");
-  await expect(checked).toHaveCount(1);
+  const staged = page.locator(".tools-geocode .tools-geo-coord-btn.staged");
+  await expect(staged).toHaveCount(1);
 
   // A detour through Edit, with an Escape pressed on the page body there —
   // the hidden geocode panel must not treat it as its own "go back" (that
@@ -163,7 +163,7 @@ test("staged picks survive a trip to Edit, including a stray Escape there", asyn
   await page.getByRole("button", { name: "Tools", exact: true }).click();
 
   await expect(page.locator(".tools-geocode")).toBeVisible();
-  await expect(checked).toHaveCount(1);
+  await expect(staged).toHaveCount(1);
 });
 
 test("an address with no house number is reviewed too, with nothing to look up", async ({ page }) => {
@@ -311,7 +311,7 @@ test("a position staged for a house survives renaming that house's address", asy
   const write = page.getByRole("button", { name: /Write coordinates \(1\)/ });
   await expect(write).toBeEnabled();
   await write.click();
-  await expect(page.getByText("Written to 1 record.")).toBeVisible();
+  await expect(page.getByText("1 record updated")).toBeVisible();
   // Placed at the position staged before the rename — the house is now
   // house-precise, so it leaves the list of addresses still to place.
   await expect(group.locator(".tools-geo-addr-row").filter({ hasText: "Drulovka 2a" })).toHaveCount(0);
@@ -382,7 +382,7 @@ test("OpenStreetMap answers the addresses the register cannot take", async ({ pa
   const write = page.getByRole("button", { name: /Write coordinates \(1\)/ });
   await expect(write).toBeEnabled();
   await write.click();
-  await expect(page.getByText("Written to 1 record.")).toBeVisible();
+  await expect(page.getByText("1 record updated")).toBeVisible();
 });
 
 test("hits that share a name are told apart by what they are, and numbered onto one map", async ({ page }) => {
@@ -549,5 +549,5 @@ test("one coordinate can be given to a whole place's addresses at once", async (
   const write = page.getByRole("button", { name: /Write coordinates \(2\)/ });
   await expect(write).toBeEnabled();
   await write.click();
-  await expect(page.getByText(/Written to \d+ records?\./)).toBeVisible();
+  await expect(page.getByText(/\d+ records? updated/)).toBeVisible();
 });

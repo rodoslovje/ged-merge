@@ -13,17 +13,19 @@ import {
   type OfficialRename,
 } from "../../tools/geocode";
 import { loadDecisions, putDecisions, type GeocodeDecision } from "../../persist/geoDb";
-import { ExpandAllToggle, ToolsLoading, TreeSearch, useDebounced } from "./shared";
+import { AppliedNote, ExpandAllToggle, ToolsLoading, TreeSearch, useDebounced } from "./shared";
 import { useVirtualList } from "../useVirtualList";
 import { createKinshipResolver } from "../../match/kinship";
 import { buildPlaceSuggestions, placeCombosOf } from "../edit/placeSuggestions";
 import { foldSearch } from "../globalSearch";
-import { PlaceLookupProvider, usePlaceLookupValue } from "../edit/PlaceLookupContext";
+import { PlaceLookupProvider, usePlaceLookupValue, usePlaceStyle } from "../edit/PlaceLookupContext";
 import { GazetteerSetup, useGazetteer } from "./GazetteerManager";
 import { AddressCoordsSection } from "./AddressCoordsSection";
 import { addressesByPlace, replaceLocality, scanAddresses } from "../../tools/addresses";
 import { CoordConflicts } from "./CoordConflicts";
 import { GeocodePlaceRow, type RowLookups } from "./GeocodePlaceRow";
+import { RegisterCheckSection } from "./RegisterCheckSection";
+import { checkPlacesAgainstRegister } from "../../tools/registerCheck";
 import { BackButton } from "../BackButton";
 import { isEditableTarget, isModalOpen } from "../../keyboard/shortcuts";
 import { useNameOf, useSettings } from "../SettingsContext";
@@ -167,6 +169,9 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
   // so a place the file has never written can be completed (chain, address,
   // coordinate) here too instead of being typed out by hand.
   const placeLookup = usePlaceLookupValue(dataset, placeSug.placeSuggestions);
+  // The same layout those lookups write in, for the register check's own
+  // rendering of a register entry as a place.
+  const placeStyle = usePlaceStyle(dataset, placeSug.placeSuggestions);
 
   // The address rows the section below reviews — scanned here because the
   // Places/Addresses tab bar needs the count before the section renders.
@@ -184,13 +189,40 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [dataset, scanGen],
   );
-  // Which of the page's two work lists is on screen. Both stay mounted (their
+  // Which of the page's work lists is on screen. They stay mounted (their
   // lookup results and staged picks must survive switching) and toggle with
   // display, like the app's Edit/Merge views.
-  const [tab, setTab] = useState<"places" | "addresses">("places");
-  // The tab-row slot the address section portals its action buttons into —
-  // their state (staged picks) lives inside the section, the row lives here.
-  const [addrActionsEl, setAddrActionsEl] = useState<HTMLElement | null>(null);
+  const [pickedTab, setPickedTab] = useState<"places" | "addresses" | "register" | null>(null);
+  // The compliance report needs something to hold the file to: any place
+  // directory loaded will do — an official register (GURS, DGU) decides where
+  // it knows the place, and an OpenStreetMap or GeoNames directory answers for
+  // the countries no register covers.
+  const hasRegister = !!index?.entries.length;
+  // Until a tab is clicked, the page opens on the compliance report where there
+  // is a register to hold the file to — the directories load after the first
+  // render, so this cannot be a mere initial state. A pinned tab that stops
+  // existing (its directory deleted, its addresses renamed away) falls back
+  // rather than leaving the page blank.
+  const tab =
+    pickedTab === "register" && !hasRegister
+      ? "places"
+      : pickedTab === "addresses" && !addrRows.length
+        ? "places"
+        : (pickedTab ?? (hasRegister ? "register" : "places"));
+  const setTab = setPickedTab;
+  // Run with the page's other scans, not on opening the tab: the tab's count is
+  // the reason to open it, and a lookup per place is the same pass the places
+  // list above already makes (over fewer of them).
+  const registerReport = useMemo(
+    () => (hasRegister && decisions ? checkPlacesAgainstRegister(dataset, index, decisions, placeStyle.fmt) : null),
+    // scanGen re-runs the check after a rename mutates the dataset in place.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dataset, index, decisions, hasRegister, placeStyle, scanGen],
+  );
+  // The tab-row slot the address and register sections portal their action
+  // buttons into — their state (staged picks, filters) lives inside the
+  // section, the row lives here. Only the section on screen fills it.
+  const [tabActionsEl, setTabActionsEl] = useState<HTMLElement | null>(null);
 
   // Every coordinate the file already carries — the mini map's context dots.
   const fileCoords = useMemo(
@@ -216,7 +248,9 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
     return titles;
   }, [scan, nameOf, dataset]);
 
-  const [checked, setChecked] = useState<Set<string>>(new Set());
+  /** The coordinate each row is staged to write. A row is staged by picking
+   *  one — there is no separate tick — the way an address is staged by its
+   *  pick and a compliance row by its answer. */
   const [chosen, setChosen] = useState<Map<string, ChosenCoord>>(new Map());
   // Each row's on-demand OSM/GOV/register results, keyed by row key. Owned
   // here — not in the row — because the list is virtualized: a row scrolled
@@ -226,9 +260,6 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
   const patchRowLookups = useCallback((key: string, patch: Partial<RowLookups>) => {
     setRowLookups((prev) => new Map(prev).set(key, { ...prev.get(key), ...patch }));
   }, []);
-  /** Rows whose coordinate the researcher has cleared: the pre-selected default
-   *  must not come back on its own (see chosenFor). */
-  const [cleared, setCleared] = useState<Set<string>>(new Set());
   const [noMatch, setNoMatch] = useState<Set<string>>(new Set());
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   // The one row whose mini map is mounted — a Leaflet instance per expanded
@@ -261,7 +292,7 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
   const view = useMemo(() => {
     if (!scan) return null;
     const statusOf = (row: GeocodeRow): Exclude<StatusFilter, "all"> =>
-      checked.has(row.key) || noMatch.has(row.key)
+      chosen.has(row.key) || noMatch.has(row.key)
         ? "decided"
         : row.placed
           ? "placed"
@@ -277,7 +308,7 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
     // The rows the list works over. With the toggle off, a placed row with
     // work in progress (checked for a re-geocode) stays — staged work is
     // never hidden.
-    const pool = showPlaced ? [...scan.rows, ...scan.placed] : [...scan.rows, ...scan.placed.filter((r) => checked.has(r.key))];
+    const pool = showPlaced ? [...scan.rows, ...scan.placed] : [...scan.rows, ...scan.placed.filter((r) => chosen.has(r.key))];
     const searched = query ? pool.filter((r) => foldSearch(r.key).includes(query)) : pool;
 
     // One chip per country (a place value's last comma part) in the pending
@@ -318,10 +349,10 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
     // What the "Show already placed" toggle offers: the placed rows the search
     // leaves, minus those already on the list because work is staged on them.
     const placedTotal = (query ? scan.placed.filter((r) => foldSearch(r.key).includes(query)) : scan.placed).filter(
-      (r) => !checked.has(r.key),
+      (r) => !chosen.has(r.key),
     ).length;
     return { countryChips, countryAllCount, activeCountry, statusCounts, statusAllCount, rows, placedTotal };
-  }, [scan, query, statusFilter, countryFilter, checked, noMatch, showPlaced]);
+  }, [scan, query, statusFilter, countryFilter, chosen, noMatch, showPlaced]);
   const rows = view?.rows ?? NO_ROWS;
 
   // Every filtered row is reachable — long lists render windowed (the same
@@ -337,53 +368,22 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
   useEffect(() => {
     if (!scan) return;
     const keys = new Set([...scan.rows, ...scan.placed].map((r) => r.key));
-    setChecked((prev) => new Set([...prev].filter((k) => keys.has(k))));
     setNoMatch((prev) => {
       const next = new Set([...prev].filter((k) => keys.has(k)));
       for (const r of scan.rows) if (r.cached?.status === "nomatch") next.add(r.key);
       return next;
     });
     setChosen((prev) => new Map([...prev].filter(([k]) => keys.has(k))));
-    setCleared((prev) => new Set([...prev].filter((k) => keys.has(k))));
     setExpanded((prev) => new Set([...prev].filter((k) => keys.has(k))));
     setMapKey((prev) => (prev && keys.has(prev) ? prev : null));
     setRowLookups((prev) => new Map([...prev].filter(([k]) => keys.has(k))));
   }, [scan]);
 
-  /**
-   * The row's coordinate as it stands: the pick, else what the row proposes by
-   * default (the file's own, else the best candidate).
-   *
-   * Unless the researcher has said no to it — `cleared`. A radio group has no
-   * "none" of its own, and here the default is pre-selected, so without this a
-   * click on the chosen option dropped the pick and the default walked straight
-   * back in. Saying no has to stick until something is picked.
-   */
-  const chosenFor = (row: GeocodeRow): ChosenCoord | undefined =>
-    cleared.has(row.key)
-      ? undefined
-      : chosenCoordFor(row, chosen.get(row.key), { fromFile: t("tools.geocode.fromFile") });
-
-  const toggleChecked = (key: string, on: boolean) =>
-    setChecked((prev) => {
-      const next = new Set(prev);
-      if (on) next.add(key);
-      else next.delete(key);
-      return next;
-    });
-
-  /** Choose a coordinate for the row: remember it, check the row, and drop
-   *  a no-match mark — shared by every option (candidate, file, cached, GOV).
-   *  A govId is carried only by GOV picks and ends up in the `_GOV` write-back. */
+  /** Choose a coordinate for the row: staging it, and dropping any no-match
+   *  mark — shared by every option (candidate, file, cached, GOV). A govId is
+   *  carried only by GOV picks and ends up in the `_GOV` write-back. */
   const pickCoord = (row: GeocodeRow, coord: GeoCoord, label: string, govId?: string) => {
     setChosen((prev) => new Map(prev).set(row.key, govId ? { coord, label, govId } : { coord, label }));
-    toggleChecked(row.key, true);
-    setCleared((prev) => {
-      if (!prev.has(row.key)) return prev;
-      const next = new Set(prev);
-      next.delete(row.key);
-      return next;
-    });
     setNoMatch((prev) => {
       const next = new Set(prev);
       next.delete(row.key);
@@ -391,17 +391,14 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
     });
   };
 
-  /** Drop a row's pick: the row is left with no coordinate at all — not with
-   *  the default it opened with — and unticked, so nothing of it is written
-   *  until something is picked again. */
+  /** Drop a row's pick: the row goes back to merely proposing something, and
+   *  the next Write passes over it. */
   const unpickCoord = (row: GeocodeRow) => {
     setChosen((prev) => {
       const next = new Map(prev);
       next.delete(row.key);
       return next;
     });
-    setCleared((prev) => new Set(prev).add(row.key));
-    toggleChecked(row.key, false);
   };
 
   const toggleOpen = (key: string) => {
@@ -412,9 +409,10 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
       else next.delete(key);
       return next;
     });
-    // The map is never opened for you — it is asked for, like everywhere else
-    // on this page. Closing the row does free it.
-    if (!willOpen && mapKey === key) setMapKey(null);
+    // A row opened by hand brings its map with it — that is what it was opened
+    // for, and the Edit view's coordinate panel behaves the same way. Expand
+    // all sets the open set directly and so mounts none; closing frees it.
+    setMapKey((prev) => (willOpen ? key : prev === key ? null : prev));
   };
 
   const renameValue = (from: string, to: string, addr?: string, coord?: GeoAssignment) => {
@@ -446,13 +444,6 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
         if (carried && !next.has(to)) next.set(to, carried);
         return next;
       });
-      setChecked((prev) => {
-        if (!prev.has(from)) return prev;
-        const next = new Set(prev);
-        next.delete(from);
-        next.add(to);
-        return next;
-      });
     }
   };
 
@@ -462,17 +453,30 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
       if (next.has(key)) next.delete(key);
       else {
         next.add(key);
-        toggleChecked(key, false);
+        // A row put aside writes nothing: its pick goes with it.
+        setChosen((picks) => {
+          if (!picks.has(key)) return picks;
+          const rest = new Map(picks);
+          rest.delete(key);
+          return rest;
+        });
       }
       return next;
     });
   };
 
+  /** Stage every row whose proposal is safe to take unseen — the file's own
+   *  coordinate, or a letter-perfect unambiguous match — by picking that
+   *  proposal for it. A row already carrying a pick is left as it is. */
   const selectConfident = () => {
     if (!scan) return;
-    setChecked((prev) => {
-      const next = new Set(prev);
-      for (const row of scan.rows) if (row.confident && !noMatch.has(row.key) && !cleared.has(row.key)) next.add(row.key);
+    setChosen((prev) => {
+      const next = new Map(prev);
+      for (const row of scan.rows) {
+        if (!row.confident || noMatch.has(row.key) || next.has(row.key)) continue;
+        const proposal = chosenCoordFor(row, undefined, { fromFile: t("tools.geocode.fromFile") });
+        if (proposal) next.set(row.key, proposal);
+      }
       return next;
     });
   };
@@ -483,9 +487,8 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
     const toStore: GeocodeDecision[] = [];
     const now = Date.now();
     for (const row of [...scan.rows, ...scan.placed]) {
-      if (checked.has(row.key)) {
-        const c = chosenFor(row);
-        if (!c) continue;
+      const c = chosen.get(row.key);
+      if (c) {
         // Accepted coordinates go into the file and nowhere else — the saved
         // GEDCOM is their record; only no-match marks are remembered. A placed
         // row's pick is a re-geocode, so it may overwrite what the value
@@ -502,10 +505,7 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
     // placed rows with staged work stay on the worklist, a tick left behind
     // would keep the row listed — and the next Write would write it again,
     // this time overwriting.
-    if (assignments.size) {
-      setChecked((prev) => new Set([...prev].filter((k) => !assignments.has(k))));
-      setChosen((prev) => new Map([...prev].filter(([k]) => !assignments.has(k))));
-    }
+    if (assignments.size) setChosen((prev) => new Map([...prev].filter(([k]) => !assignments.has(k))));
     setLastApplied(changed);
     // Decisions reload re-keys the scan memo; dataset changes (when anything
     // was written) rescan via the edit-version effect.
@@ -518,7 +518,7 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
   if (!scan || countries === null || !view) return <ToolsLoading label={t("tools.running")} />;
 
   const { countryChips, countryAllCount, activeCountry, statusCounts, statusAllCount, placedTotal } = view;
-  const confidentCount = scan.rows.filter((r) => r.confident && !checked.has(r.key) && !noMatch.has(r.key)).length;
+  const confidentCount = scan.rows.filter((r) => r.confident && !chosen.has(r.key) && !noMatch.has(r.key)).length;
 
   // "Take official names": rows whose best proposal is the register's longer
   // (or differently cased) spelling of the very place they write — confident
@@ -553,11 +553,6 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
                 total: scan.coveredDistinct + scan.rows.length,
                 pct: Math.round((100 * scan.coveredOccurrences) / scan.totalOccurrences),
               }),
-            // A write that changed nothing says so in words: "0 updated
-            // records" is read as the button having done nothing at all,
-            // when what happened is that the file already held the position.
-            lastApplied !== null &&
-              (lastApplied === 0 ? t("tools.geocode.appliedNone") : t("tools.geocode.applied", { count: lastApplied })),
           ]
             .filter(Boolean)
             .join(" · ")}
@@ -574,13 +569,13 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
           buries the addresses below it. No tabs while the file has no
           addresses: the page is just the places list then. */}
       {(() => {
-        const hasTabs = addrRows.length > 0;
+        const hasTabs = addrRows.length > 0 || hasRegister;
         // The places actions render either on the tab row (tabs shown) or in
         // the section's own head (no addresses, no tabs) — one definition.
         const placesActions = (scan.rows.length > 0 || scan.placed.length > 0) && (
           <div className="tools-dup-bulk">
-            <button className="nav-btn primary tools-run" onClick={() => void apply()} disabled={checked.size === 0 && noMatch.size === 0}>
-              {t("tools.geocode.apply", { count: checked.size })}
+            <button className="nav-btn primary tools-run" onClick={() => void apply()} disabled={chosen.size === 0 && noMatch.size === 0}>
+              {t("tools.geocode.apply", { count: chosen.size })}
             </button>
             <button className="tools-issue-link" onClick={selectConfident} disabled={confidentCount === 0}>
               {t("tools.geocode.selectConfident", { count: confidentCount })}
@@ -595,22 +590,11 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
                 with the next tick. Rows fall back to their scan default. */}
             <button
               className="tools-issue-link"
-              onClick={() => {
-                setChecked(new Set());
-                setChosen(new Map());
-              }}
+              onClick={() => setChosen(new Map())}
             >
               {t("tools.sources.dupSelectNone")}
             </button>
-            <ExpandAllToggle
-              allOpen={rows.length > 0 && rows.every((r) => expanded.has(r.key))}
-              onToggle={() => {
-                if (rows.length > 0 && rows.every((r) => expanded.has(r.key))) {
-                  setExpanded(new Set());
-                  setMapKey(null);
-                } else setExpanded(new Set(rows.map((r) => r.key)));
-              }}
-            />
+            <AppliedNote count={lastApplied} />
           </div>
         );
         return (
@@ -620,18 +604,39 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
       {hasTabs && (
         <div className="tools-geo-tabs-row">
           <div className="tools-geo-tabs" role="tablist">
+            {/* Compliance leads: it is the one list that reads the whole file
+                rather than what is left to do, so it is where a session starts —
+                see what disagrees with the register, then go and place things. */}
+            {hasRegister && (
+              <button
+                role="tab"
+                aria-selected={tab === "register"}
+                className={tab === "register" ? "active" : ""}
+                onClick={() => setTab("register")}
+              >
+                {/* What is left to weigh: the dismissed findings are settled and
+                    off the list, so counting them would ask for work twice. */}
+                {t("tools.geocode.tab.register")}{" "}
+                <span className="tools-chip-count">
+                  {registerReport?.findings.filter((f) => !f.dismissed).length ?? 0}
+                </span>
+              </button>
+            )}
             <button role="tab" aria-selected={tab === "places"} className={tab === "places" ? "active" : ""} onClick={() => setTab("places")}>
               {t("tools.geocode.tab.places")} <span className="tools-chip-count">{scan.rows.length}</span>
             </button>
-            <button role="tab" aria-selected={tab === "addresses"} className={tab === "addresses" ? "active" : ""} onClick={() => setTab("addresses")}>
-              {/* The worklist count: placed rows are in addrRows but hidden by
-                  default, so counting them would promise more than the tab shows. */}
-              {t("tools.geocode.tab.addresses")} <span className="tools-chip-count">{addrRows.filter((r) => !r.placed).length}</span>
-            </button>
+            {addrRows.length > 0 && (
+              <button role="tab" aria-selected={tab === "addresses"} className={tab === "addresses" ? "active" : ""} onClick={() => setTab("addresses")}>
+                {/* The worklist count: placed rows are in addrRows but hidden by
+                    default, so counting them would promise more than the tab shows. */}
+                {t("tools.geocode.tab.addresses")} <span className="tools-chip-count">{addrRows.filter((r) => !r.placed).length}</span>
+              </button>
+            )}
           </div>
           {tab === "places" && placesActions}
-          {/* The address section owns its buttons' state; it portals them here. */}
-          {tab === "addresses" && <div className="tools-dup-bulk" ref={setAddrActionsEl} />}
+          {/* The address and register sections own their buttons' state; they
+              portal them here. */}
+          {(tab === "addresses" || tab === "register") && <div className="tools-dup-bulk" ref={setTabActionsEl} />}
         </div>
       )}
 
@@ -684,6 +689,16 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
             <span className="tools-chip-count">{f === "all" ? statusAllCount : statusCounts[f]}</span>
           </button>
         ))}
+        {/* A view control, beside the other view controls. */}
+        <ExpandAllToggle
+          allOpen={rows.length > 0 && rows.every((r) => expanded.has(r.key))}
+          onToggle={() => {
+            if (rows.length > 0 && rows.every((r) => expanded.has(r.key))) {
+              setExpanded(new Set());
+              setMapKey(null);
+            } else setExpanded(new Set(rows.map((r) => r.key)));
+          }}
+        />
         {(placedTotal > 0 || showPlaced) && (
           <label className="tools-reshape-site" title={t("tools.geocode.showPlacedHint")}>
             <input
@@ -708,20 +723,17 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
             key={row.key}
             row={row}
             dataset={dataset}
-            isChecked={checked.has(row.key)}
             isOpen={expanded.has(row.key)}
             hasMap={mapKey === row.key}
             marked={noMatch.has(row.key)}
             override={chosen.get(row.key)}
-            isCleared={cleared.has(row.key)}
             fileCoords={fileCoords}
             placeSug={placeSug}
             placeCombos={placeCombos}
             kinship={kinship}
             missingInTitle={missingInTitles.get(row.key)}
-            onToggleChecked={toggleChecked}
             onToggleOpen={toggleOpen}
-            onClaimMap={(key) => setMapKey((prev) => (prev === key ? null : key))}
+            onToggleMap={(key) => setMapKey((prev) => (prev === key ? null : key))}
             onPickCoord={pickCoord}
             onUnpickCoord={unpickCoord}
             onToggleNoMatch={toggleNoMatch}
@@ -753,9 +765,29 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
         kinship={kinship}
         onNavigate={onNavigate}
         onRenameAddress={onRenameAddress}
-        actionsHost={addrActionsEl}
+        actionsHost={tab === "addresses" ? tabActionsEl : null}
       />
       </div>
+
+      {/* The compliance report: every place held against the official register
+          of its country, and what the two disagree about. */}
+      {hasRegister && (
+        <div style={tab === "register" ? undefined : { display: "none" }}>
+          <RegisterCheckSection
+            report={registerReport}
+            dataset={dataset}
+            index={index}
+            style={placeStyle}
+            kinship={kinship}
+            onNavigate={onNavigate}
+            fileCoords={fileCoords}
+            query={query}
+            actionsHost={tab === "register" ? tabActionsEl : null}
+            onApplyOfficialNames={onApplyOfficialNames}
+            onDecisionsChanged={() => void loadDecisions().then(setDecisions)}
+          />
+        </div>
+      )}
           </>
         );
       })()}

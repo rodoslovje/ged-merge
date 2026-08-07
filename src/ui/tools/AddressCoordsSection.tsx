@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
@@ -9,7 +9,7 @@ import { placeLookupLanguage } from "../../geo/lookupLanguage";
 import { osmKindLabel, osmNamesPlace, osmShortLabel, searchNominatim, type NominatimResult } from "../../geo/nominatim";
 import type { PlaceProposal } from "../../geo/placeProposal";
 import { replaceLocality, suggestMovedPlace, type AddressRow } from "../../tools/addresses";
-import { placeAddrKey, type GeoAssignment } from "../../tools/geocode";
+import { countryOf, placeAddrKey, type GeoAssignment } from "../../tools/geocode";
 import type { Translate } from "../../locales/i18n";
 import { foldSearch } from "../globalSearch";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
@@ -20,7 +20,7 @@ import type { PlaceSuggestions } from "../edit/placeSuggestions";
 import { useNameOf, useSettings } from "../SettingsContext";
 import { lineageClass, type KinshipResolver } from "../../match/kinship";
 import { PersonLink } from "../PersonLink";
-import { ExpandAllToggle, GeoRowHeader, MapToggle } from "./shared";
+import { AppliedNote, ExpandAllToggle, GeoRowHeader, MapToggle, RowMap } from "./shared";
 import { requestSettings } from "../settingsBus";
 
 // The ADDR half of geocoding: house coordinates from the GURS address register
@@ -43,8 +43,6 @@ type SearchState = { state: "idle" | "loading" | "error" | "done"; results: RnRe
 /** The same, for the OpenStreetMap fallback below — a separate state per row,
  *  because the two lookups answer independently and a row may have both. */
 type OsmState = { state: "idle" | "loading" | "error" | "done"; results: NominatimResult[] };
-
-const MiniPlaceMap = lazy(() => import("../map/MiniPlaceMap"));
 
 const IDLE: SearchState = { state: "idle", results: [] };
 const OSM_IDLE: OsmState = { state: "idle", results: [] };
@@ -333,6 +331,9 @@ export function AddressCoordsSection({
   // Which lookup state is on screen; "all" leaves the list whole. Like the
   // places chips, a chip's count is exactly what clicking it shows.
   const [statusFilter, setStatusFilter] = useState<"all" | AddrStatus>("all");
+  /** The country on screen — a place value's last comma part, the same key the
+   *  places and compliance lists chip on. `null` = all of them. */
+  const [countryFilter, setCountryFilter] = useState<string | null>(null);
   // Rows whose people list is open — asked for by clicking the person count.
   const [peopleOpen, setPeopleOpen] = useState<Set<string>>(new Set());
   // The one row whose rename editor is open, and its draft.
@@ -358,9 +359,29 @@ export function AddressCoordsSection({
     return titles;
   }, [all, nameOf, dataset]);
 
+  // One chip per country the addresses stand in, counting the addresses each
+  // click would show — a chip's count respects every filter except its own,
+  // exactly as in the two lists beside this one.
+  const countryChips = useMemo(() => {
+    const inStatus = (r: AddressRow) =>
+      statusFilter === "all" || addrStatus(r, searches, picked, osmSearches) === statusFilter;
+    const counts = new Map<string, number>();
+    for (const row of visibleRows) {
+      const c = countryOf(row.place);
+      counts.set(c, (counts.get(c) ?? 0) + (inStatus(row) ? 1 : 0));
+    }
+    return [...counts].map(([country, count]) => ({ country, count })).sort(
+      (a, b) => b.count - a.count || a.country.localeCompare(b.country),
+    );
+  }, [visibleRows, statusFilter, searches, picked, osmSearches]);
+  const activeCountry =
+    countryFilter !== null && countryChips.some((c) => c.country === countryFilter) ? countryFilter : null;
+
   const groups = useMemo(() => {
-    const kept =
-      statusFilter === "all" ? visibleRows : visibleRows.filter((r) => addrStatus(r, searches, picked, osmSearches) === statusFilter);
+    const inCountry = (r: AddressRow) => activeCountry === null || countryOf(r.place) === activeCountry;
+    const kept = visibleRows
+      .filter(inCountry)
+      .filter((r) => statusFilter === "all" || addrStatus(r, searches, picked, osmSearches) === statusFilter);
     const byPlace = new Map<string, PlaceGroup>();
     for (const row of kept) {
       const g = byPlace.get(row.place);
@@ -378,11 +399,13 @@ export function AddressCoordsSection({
     }
     // Most-used places first — that is where geocoding pays off soonest.
     return [...byPlace.values()].sort((a, b) => b.events - a.events || a.place.localeCompare(b.place));
-  }, [visibleRows, searches, osmSearches, picked, statusFilter]);
+  }, [visibleRows, searches, osmSearches, picked, statusFilter, activeCountry]);
 
   const [open, setOpen] = useState<Set<string>>(new Set());
-  /** Groups whose map is drawn — never on open, always on request. */
-  const [mapOpen, setMapOpen] = useState<Set<string>>(new Set());
+  /** The one group whose map is drawn — never on open, always on request, and
+   *  one at a time: a map is a Leaflet instance, and this list runs to hundreds
+   *  of places (the same rule the places and compliance lists follow). */
+  const [mapOpen, setMapOpen] = useState<string | null>(null);
   const [applied, setApplied] = useState<number | null>(null);
   // The move panel: which group's is open, where to, and which of its rows go.
   const [moveGroup, setMoveGroup] = useState<string | null>(null);
@@ -533,21 +556,18 @@ export function AddressCoordsSection({
     );
   };
 
-  const toggleMap = (place: string) =>
-    setMapOpen((prev) => {
-      const next = new Set(prev);
-      if (next.has(place)) next.delete(place);
-      else next.add(place);
-      return next;
-    });
+  const toggleMap = (place: string) => setMapOpen((prev) => (prev === place ? null : place));
 
-  const toggle = (place: string) =>
+  const toggle = (place: string) => {
+    // The place's houses on its map, from the moment it is opened by hand.
+    setMapOpen((prev) => (open.has(place) ? (prev === place ? null : prev) : place));
     setOpen((prev) => {
       const next = new Set(prev);
       if (next.has(place)) next.delete(place);
       else next.add(place);
       return next;
     });
+  };
 
   /** Open the move panel for a group, pre-filled with what its addresses
    *  suggest — the whole group when they suggest nothing. A `split` from the
@@ -809,15 +829,8 @@ export function AddressCoordsSection({
       <button className="tools-issue-link" onClick={() => setPicked(new Map())} disabled={picked.size === 0}>
         {t("tools.sources.dupSelectNone")}
       </button>
-      <ExpandAllToggle
-        allOpen={allOpen}
-        onToggle={() => {
-          if (allOpen) {
-            setOpen(new Set());
-            setMapOpen(new Set());
-          } else setOpen(new Set(groups.map((g) => g.place)));
-        }}
-      />
+      <AppliedNote count={applied} />
+      {moved !== null && <span className="tools-applied-note">{t("tools.geocode.addr.moved", { count: moved })}</span>}
     </>
   );
 
@@ -838,8 +851,28 @@ export function AddressCoordsSection({
         </button>
         .
       </p>
-      {applied !== null && <p className="tools-clean tools-clean--ok">{t("tools.geocode.addr.applied", { count: applied })}</p>}
-      {moved !== null && <p className="tools-clean tools-clean--ok">{t("tools.geocode.addr.moved", { count: moved })}</p>}
+      {/* One country's file has nothing to narrow, so the row appears from two
+          up — the same rule the places list follows. */}
+      {countryChips.length > 1 && (
+        <div className="tools-chips">
+          <button
+            className={`tools-chip ${activeCountry === null ? "active" : ""}`}
+            onClick={() => setCountryFilter(null)}
+          >
+            {t("tools.geocode.filter.all")}{" "}
+            <span className="tools-chip-count">{countryChips.reduce((n, c) => n + c.count, 0)}</span>
+          </button>
+          {countryChips.map((c) => (
+            <button
+              key={c.country || "?"}
+              className={`tools-chip ${activeCountry === c.country ? "active" : ""}`}
+              onClick={() => setCountryFilter(c.country)}
+            >
+              {c.country || t("tools.geocode.countryUnknown")} <span className="tools-chip-count">{c.count}</span>
+            </button>
+          ))}
+        </div>
+      )}
       <div className="tools-chips">
         {ADDR_FILTERS.filter((f) => showPlaced || f !== "placed").map((f) => (
           <button
@@ -851,6 +884,16 @@ export function AddressCoordsSection({
             <span className="tools-chip-count">{f === "all" ? visibleRows.length : statusCounts[f]}</span>
           </button>
         ))}
+        {/* A view control, beside the other view controls. */}
+        <ExpandAllToggle
+          allOpen={allOpen}
+          onToggle={() => {
+            if (allOpen) {
+              setOpen(new Set());
+              setMapOpen(null);
+            } else setOpen(new Set(groups.map((g) => g.place)));
+          }}
+        />
         {placedTotal > 0 && (
           <label className="tools-reshape-site" title={t("tools.geocode.addr.showPlacedHint")}>
             <input
@@ -897,7 +940,7 @@ export function AddressCoordsSection({
                   {/* The place's houses on one map — asked for, like every other
                       map on this page, and drawn above the addresses it is about. */}
                   {groupPins(group).length > 0 && (
-                    <MapToggle open={mapOpen.has(group.place)} onToggle={() => toggleMap(group.place)} />
+                    <MapToggle open={mapOpen === group.place} onToggle={() => toggleMap(group.place)} />
                   )}
                   {/* Counted over what the register can actually be asked about:
                       a place whose houses carry no numbers has nothing to look
@@ -996,19 +1039,17 @@ export function AddressCoordsSection({
                   onCancel={closeMove}
                 />
               )}
-              {isOpen && mapOpen.has(group.place) && (() => {
+              {isOpen && mapOpen === group.place && (() => {
                 const pins = groupPins(group);
                 if (!pins.length) return null;
                 return (
-                  <Suspense fallback={<div className="tools-geo-minimap" />}>
-                    <MiniPlaceMap
-                      pins={pins}
-                      title={t("tools.geocode.addr.mapHint")}
-                      // Re-frame as each lookup lands, so the view always holds
-                      // every house found so far for this place.
-                      fitKey={`${group.place} ${pins.map((p) => `${p.coord.lat},${p.coord.lon}`).join("|")}`}
-                    />
-                  </Suspense>
+                  <RowMap
+                    pins={pins}
+                    title={t("tools.geocode.addr.mapHint")}
+                    // Re-frame as each lookup lands, so the view always holds
+                    // every house found so far for this place.
+                    fitKey={`${group.place} ${pins.map((p) => `${p.coord.lat},${p.coord.lon}`).join("|")}`}
+                  />
                 );
               })()}
               {isOpen && (
@@ -1024,6 +1065,20 @@ export function AddressCoordsSection({
                             hundred-odd addresses under a place, a second line per
                             row doubles the list for no gain. */}
                         <div className="tools-geo-addr-head">
+                          {/* The handle every row on this page opens from, in
+                              the same leading position: the address and its
+                              coordinate beside it are shortcuts to the very
+                              same panel, but only this one says, open or shut,
+                              which state the row is in. */}
+                          <button
+                            className={`tools-pair-toggle ${coordOpen === row.key ? "open" : ""}`}
+                            aria-expanded={coordOpen === row.key}
+                            aria-label={row.address}
+                            title={t("tools.geocode.addr.openHint")}
+                            onClick={() => setCoordOpen(coordOpen === row.key ? null : row.key)}
+                          >
+                            ▶
+                          </button>
                           {/* One tick box, whichever panel is asking: the move's
                               destination or the one coordinate for the lot. */}
                           {(moveGroup === group.place || coordGroup === group.place) && (
@@ -1043,7 +1098,7 @@ export function AddressCoordsSection({
                           <button
                             className="tools-geo-addr-name"
                             title={t("tools.geocode.addr.openHint")}
-                            onClick={() => setCoordOpen(row.key)}
+                            onClick={() => setCoordOpen(coordOpen === row.key ? null : row.key)}
                           >
                             {row.address}
                           </button>
@@ -1077,8 +1132,8 @@ export function AddressCoordsSection({
                             <button
                               type="button"
                               className="tools-tree-meta tools-geo-coord-btn"
-                              title={t("tools.geocode.addr.openHint")}
-                              onClick={() => setCoordOpen(row.key)}
+                              title={t("tools.geocode.addr.coordHint")}
+                              onClick={() => setCoordOpen(coordOpen === row.key ? null : row.key)}
                             >
                               {chosen && (
                                 <>
