@@ -33,6 +33,7 @@ import { addressesByPlace, replaceLocality, scanAddresses } from "../../tools/ad
 import { CoordConflicts } from "./CoordConflicts";
 import { GeocodePlaceRow, type RowLookups } from "./GeocodePlaceRow";
 import { RegisterCheckSection } from "./RegisterCheckSection";
+import { AddressCheckSection } from "./AddressCheckSection";
 import { checkPlacesAgainstRegister, type RegisterCheckReport } from "../../tools/registerCheck";
 import { BackButton } from "../BackButton";
 import { isEditableTarget, isModalOpen } from "../../keyboard/shortcuts";
@@ -806,6 +807,18 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
             onApplyOfficialNames={onApplyOfficialNames}
             onDecisionsChanged={() => void loadDecisions().then(setDecisions)}
           />
+          {decisions && (
+            <AddressCheckSection
+              rows={addrRows}
+              dataset={dataset}
+              decisions={decisions}
+              query={query}
+              kinship={kinship}
+              onNavigate={onNavigate}
+              onRenameAddress={onRenameAddress}
+              onDecisionsChanged={() => void loadDecisions().then(setDecisions)}
+            />
+          )}
         </div>
       )}
           </>
