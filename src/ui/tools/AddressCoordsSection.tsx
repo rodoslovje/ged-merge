@@ -519,7 +519,6 @@ export function AddressCoordsSection({
       (row) => row.queries.length > 0 && isOfflineQuery(row.queries) && !autoAsked.current.has(row.key),
     );
     if (!pending.length) return;
-    for (const row of pending) autoAsked.current.add(row.key);
 
     // By place, so each settlement's bucket is read once however many houses of
     // it are on the list, and in small passes so a file spanning hundreds of
@@ -532,18 +531,43 @@ export function AddressCoordsSection({
     }
     const places = [...byPlace.values()];
 
+    /** A row is "asked" from the moment its own chunk is fetched until that
+     *  fetch has been applied — never before, and never any longer.
+     *
+     *  Claiming the whole list up front, as this did, made the pass
+     *  unrepeatable: anything that cancels the loop — a rescan, a pick, the
+     *  placed toggle, all of which rebuild `visibleRows` — stranded every row
+     *  the loop had not reached yet, because the effect replacing it found them
+     *  already marked and returned at once. Under StrictMode's
+     *  mount → cleanup → mount that was the entire list on the very first
+     *  render, so the automatic lookup never ran at all and a file's addresses
+     *  sat at "not asked yet" with a register in the browser that could answer
+     *  every one of them. */
+    const claim = (chunk: readonly AddressRow[]) => {
+      for (const row of chunk) autoAsked.current.add(row.key);
+    };
+    const release = (chunk: readonly AddressRow[]) => {
+      for (const row of chunk) autoAsked.current.delete(row.key);
+    };
+
     let cancelled = false;
     void (async () => {
       for (let at = 0; at < places.length; at += AUTO_SEARCH_PLACES) {
         if (cancelled) return;
         const chunk = places.slice(at, at + AUTO_SEARCH_PLACES).flat();
+        claim(chunk);
         try {
           const pool = await searchAddressBatch(chunk.flatMap((row) => row.queries));
-          if (cancelled) return;
+          if (cancelled) {
+            release(chunk);
+            return;
+          }
           applyPool(chunk, pool);
         } catch {
           // A local lookup that throws is a broken store, not a row's fault:
-          // leave those rows untouched so their own button can still be tried.
+          // leave those rows untouched — and unclaimed, so the next pass or
+          // their own button can still try them.
+          release(chunk);
           if (cancelled) return;
         }
       }
