@@ -7,6 +7,7 @@ import { placeLookupLanguage } from "../../geo/lookupLanguage";
 import { osmKindLabel, searchNominatim, type NominatimResult } from "../../geo/nominatim";
 import { searchGov, type GovResult } from "../../geo/gov";
 import { isOfflineQuery, rnQueriesFrom, searchAddresses, type RnResult } from "../../geo/rn";
+import { useLocalRegisters } from "../useLocalRegisters";
 import { chosenCoordFor, pickLabel, type ChosenCoord, type FileCoord, type GeoAssignment, type GeocodeRow } from "../../tools/geocode";
 import { replaceLocality } from "../../tools/addresses";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
@@ -272,6 +273,10 @@ export function GeocodePlaceRow({
   // answered out of this browser, so the online-lookups opt-in — which is about
   // what leaves the device — has nothing to say about it. The searches below it
   // all go over the wire and stay behind the opt-in.
+  // Subscribed, not read: what matters is that this row re-renders when a
+  // register is stored or dropped, so the button stops hiding behind an opt-in
+  // that no longer applies to it.
+  useLocalRegisters();
   const registerLocal = isOfflineQuery(rnQueries);
   const registerActions = (appSettings.allowLinkFetch || registerLocal) && (
     <>

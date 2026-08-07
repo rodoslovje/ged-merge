@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
 import { stripHouseNumber } from "../../gedcom/place";
 import { formatCoord, sameCoord } from "../../geo/points";
-import { batchAnswered, isOfflineQuery, resultsForQuery, searchAddressBatch, searchAddresses, splitAddressVariants, type RnQuery, type RnResult } from "../../geo/rn";
+import { batchAnswered, isOfflineQuery, resultsForQuery, searchAddressBatch, searchAddresses, splitAddressVariants, type BatchPool, type RnQuery, type RnResult } from "../../geo/rn";
+import { useLocalRegisters } from "../useLocalRegisters";
 import { placeLookupLanguage } from "../../geo/lookupLanguage";
 import { osmKindLabel, osmNamesPlace, osmShortLabel, searchNominatim, type NominatimResult } from "../../geo/nominatim";
 import type { PlaceProposal } from "../../geo/placeProposal";
@@ -161,6 +162,12 @@ const BY_NUMBER = new Intl.Collator(undefined, { numeric: true, sensitivity: "ba
 /** How many places a filter may open by itself. */
 const AUTO_OPEN_LIMIT = 20;
 
+/** Places resolved per pass of the automatic register lookup. Small on purpose:
+ *  each pass renders its answers before the next starts, so a file spanning
+ *  hundreds of villages fills the list in front of you instead of holding the
+ *  first paint until the last house is settled. */
+const AUTO_SEARCH_PLACES = 8;
+
 /** Addresses of one place, with the totals its header shows. */
 interface PlaceGroup {
   place: string;
@@ -303,6 +310,13 @@ export function AddressCoordsSection({
     [all, query],
   );
   const [searches, setSearches] = useState<Map<string, SearchState>>(new Map());
+  /** Which countries can be answered from this browser — read only to re-render
+   *  when a register lands or is dropped, so the pass below runs then. */
+  const registers = useLocalRegisters();
+  /** Rows the automatic pass has already taken, so it never asks twice — and
+   *  never on a row whose own button is mid-flight. Cleared with the searches
+   *  themselves when a rescan re-keys the rows. */
+  const autoAsked = useRef(new Set<string>());
   /** What OpenStreetMap answered per row — the fallback for everything the
    *  address register cannot take: a house with no number, a hamlet named
    *  rather than numbered, an address outside Slovenia. */
@@ -329,6 +343,9 @@ export function AddressCoordsSection({
     setPicked(dropGone);
     setSearches(dropGone);
     setOsmSearches(dropGone);
+    // A re-keyed row is a new row: it has no answer any more, so the automatic
+    // pass has to be allowed to ask about it again.
+    for (const key of autoAsked.current) if (!byKey.has(key)) autoAsked.current.delete(key);
   }, [byKey]);
   // Whether already-placed addresses are on the list at all. Off by default:
   // the list is a worklist, and a placed row is finished work — it comes back
@@ -463,6 +480,82 @@ export function AddressCoordsSection({
     });
   }, [hits]);
 
+  /** Unpack a batch's pool onto the rows it was fetched for. A group the batch
+   *  could not fetch (one timeout used to fail the whole place) marks only its
+   *  own rows as errors — the groups that resolved keep their answers. */
+  const applyPool = (pending: readonly AddressRow[], pool: BatchPool) =>
+    setSearches((prev) => {
+      const next = new Map(prev);
+      for (const row of pending) {
+        next.set(
+          row.key,
+          batchAnswered(row.queries, pool)
+            ? { state: "done", results: resultsForQuery(row.queries, pool) }
+            : { state: "error", results: [] },
+        );
+      }
+      return next;
+    });
+
+  // ---- Answering the list by itself, where that costs nothing --------------
+  //
+  // A stored register is an IndexedDB read: no throttle, no request per house,
+  // nothing over the wire. That is the only reason these rows ever needed a
+  // button — asking a public service for a village of 37 houses meant "well
+  // over a hundred throttled requests" (see searchGroup) and could not be done
+  // unbidden. With the register here, the click buys nothing, and the Places
+  // tab has always shown its proposals from the start.
+  //
+  // Only rows a *stored* register can answer are taken: anything needing GURS
+  // over the wire, OpenStreetMap or GOV keeps its button, because those cost
+  // someone else's service and the user's opt-in governs them.
+  //
+  // Finding is not staging. Every row still arrives with candidates to judge
+  // and nothing written; what changes is that the list can say "not in the
+  // register" honestly instead of "not asked yet", which is what makes the
+  // status chips and Select confident mean anything on first sight.
+  useEffect(() => {
+    const pending = visibleRows.filter(
+      (row) => row.queries.length > 0 && isOfflineQuery(row.queries) && !autoAsked.current.has(row.key),
+    );
+    if (!pending.length) return;
+    for (const row of pending) autoAsked.current.add(row.key);
+
+    // By place, so each settlement's bucket is read once however many houses of
+    // it are on the list, and in small passes so a file spanning hundreds of
+    // villages fills the list in progressively rather than freezing it.
+    const byPlace = new Map<string, AddressRow[]>();
+    for (const row of pending) {
+      const list = byPlace.get(row.place);
+      if (list) list.push(row);
+      else byPlace.set(row.place, [row]);
+    }
+    const places = [...byPlace.values()];
+
+    let cancelled = false;
+    void (async () => {
+      for (let at = 0; at < places.length; at += AUTO_SEARCH_PLACES) {
+        if (cancelled) return;
+        const chunk = places.slice(at, at + AUTO_SEARCH_PLACES).flat();
+        try {
+          const pool = await searchAddressBatch(chunk.flatMap((row) => row.queries));
+          if (cancelled) return;
+          applyPool(chunk, pool);
+        } catch {
+          // A local lookup that throws is a broken store, not a row's fault:
+          // leave those rows untouched so their own button can still be tried.
+          if (cancelled) return;
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // `searches` is deliberately not a dependency — the ref above is what stops
+    // a row being asked twice, and depending on the answers would re-run this
+    // on every one of them.
+  }, [visibleRows, registers]);
+
   if (!all.length) return null;
 
   const allOpen = groups.length > 0 && groups.every((g) => open.has(g.place));
@@ -562,22 +655,7 @@ export function AddressCoordsSection({
       return next;
     });
     searchAddressBatch(pending.flatMap((row) => row.queries)).then(
-      (pool) =>
-        setSearches((prev) => {
-          const next = new Map(prev);
-          // A group the batch could not fetch (one timeout used to fail the
-          // whole place) marks only its own rows as errors — the groups that
-          // resolved keep their answers.
-          for (const row of pending) {
-            next.set(
-              row.key,
-              batchAnswered(row.queries, pool)
-                ? { state: "done", results: resultsForQuery(row.queries, pool) }
-                : { state: "error", results: [] },
-            );
-          }
-          return next;
-        }),
+      (pool) => applyPool(pending, pool),
       () =>
         setSearches((prev) => {
           const next = new Map(prev);
@@ -586,6 +664,7 @@ export function AddressCoordsSection({
         }),
     );
   };
+
 
   const toggleMap = (place: string) => setMapOpen((prev) => (prev === place ? null : place));
 
@@ -1257,7 +1336,18 @@ export function AddressCoordsSection({
                             <span className="tools-geo-online-note">{t("tools.geocode.downloadNeedsOptIn")}</span>
                           ) : (
                             <>
-                              {(search.state !== "done" || !search.results.length) && (
+                              {/* "No match" is not final where the batch was a
+                                  *shortcut*: the online group fetch cannot walk
+                                  the per-address ladder's outer rungs, so the
+                                  button stays and asks the full ladder — suffix
+                                  retry, any street, the outer settlements — for
+                                  this one row. A stored register is different:
+                                  it walked that whole ladder already, house by
+                                  house, so the answer is final and offering to
+                                  ask again would only promise what it cannot
+                                  give. */}
+                              {(search.state !== "done" ||
+                                (!search.results.length && !isOfflineQuery(row.queries))) && (
                                 <button
                                   className="tools-issue-link"
                                   disabled={search.state === "loading"}
@@ -1271,11 +1361,6 @@ export function AddressCoordsSection({
                               {search.state === "error" && (
                                 <span className="tools-geo-online-note">{t("tools.geocode.rn.error")}</span>
                               )}
-                              {/* "No match" is not final: the group batch can't
-                                  walk the per-address ladder's outer rungs, so
-                                  the button above stays and asks the full
-                                  ladder — suffix retry, any street, the outer
-                                  settlements — for this one row. */}
                               {search.state === "done" && !search.results.length && (
                                 <span className="tools-geo-online-note">{t("tools.geocode.rn.none")}</span>
                               )}

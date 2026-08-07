@@ -5,6 +5,7 @@ import { countryCode } from "../../gedcom/countryCode";
 import { decomposePlace, parseCoordInput } from "../../gedcom/place";
 import { formatCoord, sameCoord } from "../../geo/points";
 import { isOfflineQuery, rnQueriesFrom, searchAddresses, splitAddressVariants, type RnResult } from "../../geo/rn";
+import { useLocalRegisters } from "../useLocalRegisters";
 import { placeLookupLanguage } from "../../geo/lookupLanguage";
 import { osmKindLabel, osmShortLabel, searchNominatim, type NominatimResult } from "../../geo/nominatim";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
@@ -167,6 +168,9 @@ export function EventCoordPicker({
   const popRef = useRef<HTMLDivElement | null>(null);
 
   const queries = useMemo(() => rnQueriesFrom(place || undefined, address || undefined), [place, address]);
+  // Subscribed, not read — see GeocodePlaceRow: the panel has to re-render when
+  // a register lands, or it keeps whichever answer it first rendered with.
+  useLocalRegisters();
   /** Whether the register can answer these without the network. */
   const registerLocal = isOfflineQuery(queries);
   /** Whether a register could ever apply here — one of the two countries with a
