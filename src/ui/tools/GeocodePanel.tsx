@@ -24,6 +24,8 @@ import { AddressCoordsSection } from "./AddressCoordsSection";
 import { addressesByPlace, replaceLocality, scanAddresses } from "../../tools/addresses";
 import { CoordConflicts } from "./CoordConflicts";
 import { GeocodePlaceRow, type RowLookups } from "./GeocodePlaceRow";
+import { RegisterCheckSection } from "./RegisterCheckSection";
+import { checkPlacesAgainstRegister } from "../../tools/registerCheck";
 import { BackButton } from "../BackButton";
 import { isEditableTarget, isModalOpen } from "../../keyboard/shortcuts";
 import { useNameOf, useSettings } from "../SettingsContext";
@@ -184,13 +186,28 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [dataset, scanGen],
   );
-  // Which of the page's two work lists is on screen. Both stay mounted (their
+  // Which of the page's work lists is on screen. They stay mounted (their
   // lookup results and staged picks must survive switching) and toggle with
   // display, like the app's Edit/Merge views.
-  const [tab, setTab] = useState<"places" | "addresses">("places");
-  // The tab-row slot the address section portals its action buttons into —
-  // their state (staged picks) lives inside the section, the row lives here.
-  const [addrActionsEl, setAddrActionsEl] = useState<HTMLElement | null>(null);
+  const [tab, setTab] = useState<"places" | "addresses" | "register">("places");
+  // The compliance report is offered only where there is an authority to hold
+  // the file to: an official national register (GURS, DGU). A crowd-sourced
+  // directory can propose a coordinate but cannot say a spelling is wrong.
+  const hasRegister = useMemo(() => !!index?.entries.some((e) => e.register), [index]);
+  // Run once the tab has been opened, and from then on with every rescan: the
+  // check looks up every place in the file, placed ones included, which is a
+  // pass no one asked for while another tab is on screen.
+  const [registerSeen, setRegisterSeen] = useState(false);
+  const registerReport = useMemo(
+    () => (registerSeen && decisions ? checkPlacesAgainstRegister(dataset, index, decisions) : null),
+    // scanGen re-runs the check after a rename mutates the dataset in place.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dataset, index, decisions, registerSeen, scanGen],
+  );
+  // The tab-row slot the address and register sections portal their action
+  // buttons into — their state (staged picks, filters) lives inside the
+  // section, the row lives here. Only the section on screen fills it.
+  const [tabActionsEl, setTabActionsEl] = useState<HTMLElement | null>(null);
 
   // Every coordinate the file already carries — the mini map's context dots.
   const fileCoords = useMemo(
@@ -574,7 +591,7 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
           buries the addresses below it. No tabs while the file has no
           addresses: the page is just the places list then. */}
       {(() => {
-        const hasTabs = addrRows.length > 0;
+        const hasTabs = addrRows.length > 0 || hasRegister;
         // The places actions render either on the tab row (tabs shown) or in
         // the section's own head (no addresses, no tabs) — one definition.
         const placesActions = (scan.rows.length > 0 || scan.placed.length > 0) && (
@@ -623,15 +640,36 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
             <button role="tab" aria-selected={tab === "places"} className={tab === "places" ? "active" : ""} onClick={() => setTab("places")}>
               {t("tools.geocode.tab.places")} <span className="tools-chip-count">{scan.rows.length}</span>
             </button>
-            <button role="tab" aria-selected={tab === "addresses"} className={tab === "addresses" ? "active" : ""} onClick={() => setTab("addresses")}>
-              {/* The worklist count: placed rows are in addrRows but hidden by
-                  default, so counting them would promise more than the tab shows. */}
-              {t("tools.geocode.tab.addresses")} <span className="tools-chip-count">{addrRows.filter((r) => !r.placed).length}</span>
-            </button>
+            {addrRows.length > 0 && (
+              <button role="tab" aria-selected={tab === "addresses"} className={tab === "addresses" ? "active" : ""} onClick={() => setTab("addresses")}>
+                {/* The worklist count: placed rows are in addrRows but hidden by
+                    default, so counting them would promise more than the tab shows. */}
+                {t("tools.geocode.tab.addresses")} <span className="tools-chip-count">{addrRows.filter((r) => !r.placed).length}</span>
+              </button>
+            )}
+            {hasRegister && (
+              <button
+                role="tab"
+                aria-selected={tab === "register"}
+                className={tab === "register" ? "active" : ""}
+                onClick={() => {
+                  setRegisterSeen(true);
+                  setTab("register");
+                }}
+              >
+                {/* No count until the check has run — the tab is what starts it,
+                    and a number guessed before it would be a promise. */}
+                {t("tools.geocode.tab.register")}
+                {registerReport && (
+                  <span className="tools-chip-count">{registerReport.findings.filter((f) => !f.dismissed).length}</span>
+                )}
+              </button>
+            )}
           </div>
           {tab === "places" && placesActions}
-          {/* The address section owns its buttons' state; it portals them here. */}
-          {tab === "addresses" && <div className="tools-dup-bulk" ref={setAddrActionsEl} />}
+          {/* The address and register sections own their buttons' state; they
+              portal them here. */}
+          {(tab === "addresses" || tab === "register") && <div className="tools-dup-bulk" ref={setTabActionsEl} />}
         </div>
       )}
 
@@ -753,9 +791,23 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
         kinship={kinship}
         onNavigate={onNavigate}
         onRenameAddress={onRenameAddress}
-        actionsHost={addrActionsEl}
+        actionsHost={tab === "addresses" ? tabActionsEl : null}
       />
       </div>
+
+      {/* The compliance report: every place held against the official register
+          of its country, and what the two disagree about. */}
+      {hasRegister && (
+        <div style={tab === "register" ? undefined : { display: "none" }}>
+          <RegisterCheckSection
+            report={registerReport}
+            query={query}
+            actionsHost={tab === "register" ? tabActionsEl : null}
+            onApplyOfficialNames={onApplyOfficialNames}
+            onDecisionsChanged={() => void loadDecisions().then(setDecisions)}
+          />
+        </div>
+      )}
           </>
         );
       })()}

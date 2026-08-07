@@ -47,6 +47,19 @@ export function sameCoord(a: GeoCoord | undefined, b: GeoCoord | undefined): boo
   return !!a && !!b && a.lat === b.lat && a.lon === b.lon;
 }
 
+/** Great-circle distance between two positions, in kilometres (haversine on a
+ *  spherical earth — good to a few metres at these distances, which is far
+ *  finer than anything asking the question needs). */
+export function distanceKm(a: GeoCoord, b: GeoCoord): number {
+  const R = 6371;
+  const rad = Math.PI / 180;
+  const dLat = (b.lat - a.lat) * rad;
+  const dLon = (b.lon - a.lon) * rad;
+  const h =
+    Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
 /** One plottable event occurrence. */
 export interface MapPoint {
   /** Everyone the event belongs to — the individual, or both spouses of a

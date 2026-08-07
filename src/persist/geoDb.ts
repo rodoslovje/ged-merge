@@ -16,7 +16,9 @@
 //    ISO country code, holding its parsed entries wholesale (one get loads a
 //    country; no per-row cursor traffic).
 //  - "decisions": one record per reviewed place string, keyed by the exact
-//    raw PLAC value — explicit "no match" marks only. This cache is their ONLY
+//    raw PLAC value — explicit "no match" marks — plus the register check's
+//    dismissals, under the same value behind a "register:" prefix so the two
+//    judgements never overwrite each other. This cache is their ONLY
 //    home; they are never written into the file. Accepted coordinates are NOT
 //    remembered here: writing them into the GEDCOM is the user's act, and a
 //    fresh run should ask again rather than arrive pre-decided (the "accepted"
@@ -49,9 +51,12 @@ export interface CountryMeta {
 export interface GeocodeDecision {
   /** Exact raw PLAC value this decision applies to. */
   key: string;
-  /** Only "nomatch" is written since 2026-08; "accepted" still parses so a
-   *  store from an earlier version loads cleanly, but it is filtered out. */
-  status: "accepted" | "nomatch";
+  /** "nomatch" — the geocode review found the place in no gazetteer;
+   *  "historic" — the register check was told this wording is right as it
+   *  stands (a historical name the register no longer knows, most often).
+   *  "accepted" still parses so a store from an earlier version loads
+   *  cleanly, but it is filtered out. */
+  status: "accepted" | "nomatch" | "historic";
   lat?: number;
   lon?: number;
   /** Display label of the accepted match (gazetteer name or "manual"). */
@@ -126,7 +131,9 @@ export async function loadDecisions(): Promise<Map<string, GeocodeDecision>> {
   );
   // Legacy "accepted" records (from when acceptances were cached too) are
   // ignored: an accepted coordinate's home is the saved GEDCOM, not this store.
-  return new Map((all ?? []).filter((d) => d.status === "nomatch").map((d) => [d.key, d]));
+  return new Map(
+    (all ?? []).filter((d) => d.status === "nomatch" || d.status === "historic").map((d) => [d.key, d]),
+  );
 }
 
 export async function putDecisions(decisions: GeocodeDecision[]): Promise<void> {
