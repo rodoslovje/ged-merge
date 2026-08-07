@@ -1,6 +1,7 @@
 import type { Dataset, GedNode } from "../gedcom/types";
 import { cloneRaw } from "../ui/historyTypes";
 import { rebuildIndividual, rebuildFamily } from "../gedcom/edit";
+import { reconcilePlaceForm } from "../gedcom/edit/geo";
 import type { RecordPatch } from "../ui/historyTypes";
 
 function escapeRegex(s: string): string {
@@ -75,6 +76,9 @@ function renameInNode(node: GedNode, from: string, to: string): boolean {
       const next = renameInValue(child.value, from, to);
       if (next !== null) {
         child.value = next;
+        // A FORM names each comma part of the value it sits on; a rename that
+        // changes how many parts there are leaves it describing something else.
+        if (child.tag === "PLAC") reconcilePlaceForm(child, undefined);
         changed = true;
       }
     }

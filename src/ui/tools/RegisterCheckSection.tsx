@@ -263,6 +263,11 @@ export function RegisterCheckSection({
       to: o.place,
       ...(o.addr ? { addr: o.addr } : {}),
       ...(o.entry ? { assignment: { coord: { lat: o.entry.lat, lon: o.entry.lon } } } : {}),
+      // The label line the new value deserves, when the option taken is the
+      // one the check proposed. A pick made from the register's other answers
+      // carries no computed form, and the write then drops a stale one rather
+      // than keeping a line naming levels the value no longer has.
+      ...(f.officialForm && o.place === f.official ? { form: f.officialForm } : {}),
     };
   };
 

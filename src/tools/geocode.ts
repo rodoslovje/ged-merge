@@ -3,7 +3,7 @@ import { firstChild } from "../gedcom/node";
 import { decomposePlace, parseCoordPair, placeAddressDetail } from "../gedcom/place";
 import { rnQueriesFrom } from "../geo/rn";
 import { clearPlaceGov, rebuildFamily, rebuildIndividual, setPlaceCoord } from "../gedcom/edit";
-import { sameWrittenCoord } from "../gedcom/edit/geo";
+import { reconcilePlaceForm, sameWrittenCoord } from "../gedcom/edit/geo";
 import { cloneRaw, type RecordPatch } from "../ui/historyTypes";
 import { HIGH_CONFIDENCE, lookupPlace, type GazCandidate, type GazetteerIndex } from "../geo/gazetteer";
 import type { GeocodeDecision } from "../persist/geoDb";
@@ -149,6 +149,13 @@ export interface OfficialRename {
   /** Where to place the renamed value. Absent when the step is a rewording
    *  rather than a register match, and there is no coordinate to write. */
   assignment?: GeoAssignment;
+  /** What each comma part of `to` stands for, in this file's own wording —
+   *  written as the value's `FORM`. A name taken from a register arrives with
+   *  its levels known, so the label line that describes them should be written
+   *  too rather than left saying what the old value's levels were. Absent when
+   *  the file attests no FORM for a place of that shape, in which case a stale
+   *  one is dropped rather than guessed at. */
+  form?: string;
 }
 
 /** A pick's display label: the entry's name with its administrative parent —
@@ -387,7 +394,13 @@ export function collectFileCoords(dataset: Dataset): FileCoord[] {
  * event (an ADDR already carrying a value is left untouched). Mutates the
  * dataset in place and returns RecordPatch[] for the unified undo stack.
  */
-export function renamePlaceValue(dataset: Dataset, from: string, to: string, addr?: string): RecordPatch[] {
+export function renamePlaceValue(
+  dataset: Dataset,
+  from: string,
+  to: string,
+  addr?: string,
+  form?: string,
+): RecordPatch[] {
   const target = to.trim();
   const addrTarget = addr?.trim() ?? "";
   if (!target || (target === from && !addrTarget)) return [];
@@ -403,6 +416,11 @@ export function renamePlaceValue(dataset: Dataset, from: string, to: string, add
       let wrote = false;
       if (plac.value!.trim() !== target) {
         plac.value = target;
+        // The FORM names each comma part of the value it sits on. A rename that
+        // changes how many parts there are leaves it describing something else,
+        // so it is rewritten from the register's own levels where the caller
+        // knows them and dropped where it no longer lines up.
+        reconcilePlaceForm(plac, form);
         wrote = true;
       }
       if (addrTarget) {
@@ -462,6 +480,9 @@ export function movePlaceForAddresses(
       if (!keys.has(placeAddrKey(plac.value!.trim(), addr))) return;
       if (plac.value!.trim() === target) return;
       plac.value = target;
+      // The moved value has its own levels; a FORM describing the old place's
+      // is no longer true of it (see reconcilePlaceForm).
+      reconcilePlaceForm(plac, undefined);
       clearPlaceGov(plac);
       if (targetCoord) setPlaceCoord(plac, targetCoord.coord, targetCoord.govId);
       changed = true;

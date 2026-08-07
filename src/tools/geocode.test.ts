@@ -265,6 +265,45 @@ describe("renamePlaceValue", () => {
     expect(text).toContain("2 PLAC Stražišče,Kranj,Slovenia");
   });
 
+  it("keeps the FORM describing the value it sits on", () => {
+    // A FORM names each comma part of its PLAC. A rename that changes how many
+    // parts there are leaves it naming levels the value no longer has —
+    // "United States, , , , United States" collapsing to "United States" under
+    // a five-label FORM was the case that showed it.
+    const ds = buildFromText(`0 HEAD
+0 @I9@ INDI
+1 NAME Test /Case/
+1 BIRT
+2 PLAC United States, , , , United States
+3 FORM Place, Municipality, County, State, Country
+1 DEAT
+2 PLAC Kranj, Slovenija
+3 FORM Place, Country
+0 TRLR
+`);
+    renamePlaceValue(ds, "United States, , , , United States", "United States");
+    const text = serializeDataset(ds);
+    expect(text).toContain("2 PLAC United States\n");
+    expect(text).not.toContain("Place, Municipality, County, State, Country");
+    // A FORM that still lines up with its value is left exactly as written.
+    expect(text).toContain("3 FORM Place, Country");
+  });
+
+  it("writes the register's own levels when the caller knows them", () => {
+    const ds = buildFromText(`0 HEAD
+0 @I9@ INDI
+1 NAME Test /Case/
+1 BIRT
+2 PLAC Kranj, , , Slovenija
+3 FORM Place, Municipality, Region, Country
+0 TRLR
+`);
+    renamePlaceValue(ds, "Kranj, , , Slovenija", "Kranj, Slovenija", undefined, "Place, Country");
+    const text = serializeDataset(ds);
+    expect(text).toContain("2 PLAC Kranj, Slovenija\n");
+    expect(text).toContain("3 FORM Place, Country");
+  });
+
   it("is a no-op for an empty or unchanged target", () => {
     const ds = buildFromText(SAMPLE);
     expect(renamePlaceValue(ds, "Kranj, Slovenija", "  ")).toEqual([]);

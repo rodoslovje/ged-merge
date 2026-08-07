@@ -116,6 +116,9 @@ export interface RegisterFinding {
   /** The house address to move onto the event's own `ADDR` line, with `official`
    *  holding the place left behind (`address`). */
   officialAddr?: string;
+  /** What each comma part of `official` stands for, in this file's own wording —
+   *  written as the renamed value's `FORM`. */
+  officialForm?: string;
   /** The parent the file names — a municipality, or a county for a file that
    *  writes that level — when the register knows it but does not file this
    *  place under it (`admin`). */
@@ -585,6 +588,19 @@ export function checkPlacesAgainstRegister(
       }
     }
     ok++;
+  }
+
+  // The label line each proposal deserves. A value taken from a register
+  // arrives with its levels known, and the file's own attested FORM for a place
+  // of that shape is what says so in the file's own wording — so "Kranj,
+  // Slovenija" taken over "Kranj, , , Slovenija" gets the two-level labels
+  // rather than keeping the four-level ones, which would then name parts the
+  // value no longer has. Absent where the file attests no FORM for that shape:
+  // the write then drops a stale one rather than inventing a line.
+  for (const f of findings) {
+    if (!f.official || !fmt) continue;
+    const form = placeFormFor(fmt, f.official, decomposePlace(f.official).country);
+    if (form) f.officialForm = form;
   }
 
   const rank = (v: RegisterVerdict) => REGISTER_VERDICTS.indexOf(v);
