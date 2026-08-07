@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
 import { stripHouseNumber } from "../../gedcom/place";
 import { formatCoord, sameCoord } from "../../geo/points";
-import { batchAnswered, isOfflineQuery, resultsForQuery, searchAddressBatch, searchAddresses, splitAddressVariants, type RnResult } from "../../geo/rn";
+import { batchAnswered, isOfflineQuery, resultsForQuery, searchAddressBatch, searchAddresses, splitAddressVariants, type RnQuery, type RnResult } from "../../geo/rn";
 import { placeLookupLanguage } from "../../geo/lookupLanguage";
 import { osmKindLabel, osmNamesPlace, osmShortLabel, searchNominatim, type NominatimResult } from "../../geo/nominatim";
 import type { PlaceProposal } from "../../geo/placeProposal";
@@ -95,8 +95,20 @@ interface AddrCandidate {
   /** The service's full display line, when `label` is a shortened form of it —
    *  kept as the option's tooltip. */
   title?: string;
-  source: "GURS" | "OSM";
+  /** Which register or service answered — the badge beside the option. The
+   *  address registers are national, so the badge is the country's own:
+   *  GURS for Slovenia, DGU for Croatia. */
+  source: "GURS" | "DGU" | "OSM";
   badgeClass: "official" | "reuse";
+}
+
+/** The address register that answers a row, by the name it is known under. */
+type RegisterName = "GURS" | "DGU";
+
+/** Which of the two a row's queries go to — the country decides, and a row with
+ *  no query to run never shows a register badge either way. */
+function registerOf(row: { queries: readonly RnQuery[] }): RegisterName {
+  return row.queries[0]?.country === "HR" ? "DGU" : "GURS";
 }
 
 /** A row's answers as one list: the register's first — it is the official
@@ -104,11 +116,17 @@ interface AddrCandidate {
  *  at the same point, so the two services agreeing reads as one answer. An
  *  OpenStreetMap hit that names somewhere else entirely goes last, marked with
  *  the place it does name. */
-function rowCandidates(search: SearchState, osm: OsmState, address: string, t: Translate): AddrCandidate[] {
+function rowCandidates(
+  search: SearchState,
+  osm: OsmState,
+  address: string,
+  t: Translate,
+  register: RegisterName,
+): AddrCandidate[] {
   const out: AddrCandidate[] = search.results.map((r) => ({
     coord: r.coord,
     label: r.label,
-    source: "GURS",
+    source: register,
     badgeClass: "official",
   }));
   const named = stripHouseNumber(address).trim();
@@ -169,6 +187,8 @@ interface RegisterSplit {
   place?: string;
   keys: string[];
   events: number;
+  /** The register whose verdict this is, for the badge that carries it. */
+  register: RegisterName;
 }
 
 /**
@@ -201,6 +221,7 @@ function registerSplits(group: PlaceGroup, searches: ReadonlyMap<string, SearchS
         ...(replaceLocality(group.place, hit.settlement) ? { place: replaceLocality(group.place, hit.settlement) } : {}),
         keys: [row.key],
         events: row.count,
+        register: registerOf(row),
       });
     }
   }
@@ -1010,7 +1031,7 @@ export function AddressCoordsSection({
               {isOpen && group.movable && moveGroup !== group.place &&
                 registerSplits(group, searches).map((split) => (
                   <p key={split.settlement} className="tools-geo-addr-split">
-                    <span className="tools-reshape-badge official">GURS</span>{" "}
+                    <span className="tools-reshape-badge official">{split.register}</span>{" "}
                     {t("tools.geocode.addr.splitFound", {
                       count: split.keys.length,
                       events: split.events,
@@ -1071,7 +1092,7 @@ export function AddressCoordsSection({
                     const search = searches.get(row.key) ?? IDLE;
                     const osm = osmSearches.get(row.key) ?? OSM_IDLE;
                     const chosen = picked.get(row.key);
-                    const candidates = rowCandidates(search, osm, row.address, t);
+                    const candidates = rowCandidates(search, osm, row.address, t, registerOf(row));
                     return (
                       <li key={row.key} className="tools-geo-addr-row">
                         {/* Address, usage and its own lookup on one line — with a
@@ -1261,8 +1282,8 @@ export function AddressCoordsSection({
                             </>
                           )}
                           {/* OpenStreetMap, the register's fallback: it covers
-                              the addresses GURS cannot take — a house with no
-                              number, a hamlet, anything outside Slovenia — and
+                              the addresses no register can take — a house with
+                              no number, a hamlet, a country neither covers — and
                               often names a house the register spells otherwise.
                               One row at a time, never a whole place: the service
                               allows one request per second and no bulk use. */}
