@@ -126,11 +126,18 @@ function shape(
   const raw = chain.join(style.fmt.separator);
   const out = reformatPlace(raw, addrRaw, style.fmt);
   if (!out.plac) return undefined;
+  // The reformatter re-parses the composed text with the file's heuristics —
+  // and a real village named with a facility word ("Bela Cerkev", "Grad",
+  // "Nova Cerkev") re-parses as a church or castle *detail*, vanishing from
+  // its own proposal (and, picked, being written wrong). Here the locality is
+  // not a guess — the register said so — so when the reshaped text lost it,
+  // keep the plainly composed chain instead.
+  const plac = canonicalPlaceToken(out.plac).includes(canonicalPlaceToken(locality)) ? out.plac : raw;
   // Declare the levels, in the file's own wording. Read off the reshaped text
   // rather than `chain`: the layout may have filled in a jurisdiction level the
   // register didn't name, and the FORM has to label what was actually written.
-  const form = placeFormFor(style.fmt, out.plac, country);
-  return { plac: out.plac, ...(out.addr ? { addr: out.addr } : {}), ...(form ? { form } : {}) };
+  const form = placeFormFor(style.fmt, plac, country);
+  return { plac, ...(out.addr ? { addr: out.addr } : {}), ...(form ? { form } : {}) };
 }
 
 /** An offline gazetteer entry (GURS settlements, OpenStreetMap, GeoNames). */
