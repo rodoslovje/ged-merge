@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { deleteDecision, putDecisions } from "../../persist/geoDb";
@@ -14,10 +14,11 @@ import {
 } from "../../tools/registerCheck";
 import { foldSearch } from "../globalSearch";
 import { proposalFromGazEntry, type PlaceStyle } from "../../geo/placeProposal";
-import { ExpandAllToggle, GeoPeopleList, GeoRowHeader } from "./shared";
+import { ExpandAllToggle, GeoPeopleList, GeoRowHeader, MapToggle } from "./shared";
+import type { MiniMapPin } from "../map/MiniPlaceMap";
 import type { Dataset } from "../../gedcom/types";
 import type { KinshipResolver } from "../../match/kinship";
-import type { GazEntry } from "../../geo/gazetteer";
+import { searchGazetteer, type GazEntry, type GazetteerIndex } from "../../geo/gazetteer";
 
 // The Register tab: every place the file writes in a country an official
 // register covers, held against that register, with the disagreements listed.
@@ -28,6 +29,11 @@ import type { GazEntry } from "../../geo/gazetteer";
 // without a click. The one write on offer is the rename the file's own
 // "Use official name" already performs in the Places tab, applied here to
 // places that are long since geocoded and would never appear there.
+
+/** The expanded row's map, in the Leaflet lazy chunk it shares with the Map
+ *  chart and the other geocode lists — a list of hundreds of rows must not
+ *  mount hundreds of maps, so it is drawn only when a row asks for it. */
+const MiniPlaceMap = lazy(() => import("../map/MiniPlaceMap"));
 
 /** How many rows are painted before the list defers to the filters — the same
  *  cap the coordinate conflicts above use. */
@@ -47,6 +53,7 @@ const BADGE: Record<RegisterVerdict, string> = {
 export function RegisterCheckSection({
   report,
   dataset,
+  index,
   style,
   kinship,
   onNavigate,
@@ -58,6 +65,8 @@ export function RegisterCheckSection({
   /** The check's result, or null while no official register is loaded. */
   report: RegisterCheckReport | null;
   dataset: Dataset;
+  /** The loaded directories, for the wider search a row can ask for. */
+  index: GazetteerIndex | undefined;
   /** How this file writes places — the layout every register answer here is
    *  shown in, so the reader compares like with like. */
   style: PlaceStyle;
@@ -91,6 +100,35 @@ export function RegisterCheckSection({
    *  Rows with a single answer need no pick; a name fitting several places has
    *  no default, since choosing between them is the whole question. */
   const [picked, setPicked] = useState<Map<string, number>>(new Map());
+  /** The one row whose map is mounted — one Leaflet instance for the list, so
+   *  opening another row's map takes it from the first. */
+  const [mapOpen, setMapOpen] = useState<string | null>(null);
+  /** Answers a row asked for beyond the ones its name matches outright — see
+   *  {@link searchWider}. Kept per row, since each is its own question. */
+  const [wider, setWider] = useState<Map<string, GazEntry[]>>(new Map());
+
+  /**
+   * Widen a row's answers: every place in the loaded directories whose name
+   * merely *contains* the written one — "Bela" finding Spodnja, Srednja and
+   * Zgornja Bela, or "Vrh" the dozen names built on it.
+   *
+   * Not offered by default, and not offered for every row: the check holds a
+   * name to a letter-for-letter match, which is what keeps it from claiming
+   * that "Slovenia" is a misspelt "Šlovrenc", and a name that is one word of a
+   * longer name is a lead rather than an answer. It is also a scan of every
+   * entry in every directory (a quarter of a million rows for a GeoNames
+   * country), which is affordable on one row's click and not per place in the
+   * file. The same search, on the same terms, that the place fields in Edit
+   * offer.
+   */
+  const searchWider = (f: RegisterFinding, known: RegisterOption[]) => {
+    if (!index) return;
+    const seen = new Set(known.map((o) => (o.entry ? `${o.entry.name}:${o.entry.lat}:${o.entry.lon}` : o.place)));
+    const found = searchGazetteer(index, f.written, 12).filter(
+      (e) => !seen.has(`${e.name}:${e.lat}:${e.lon}`),
+    );
+    setWider((prev) => new Map(prev).set(f.key, found));
+  };
 
   const toggleOpen = (key: string) =>
     setOpen((prev) => {
@@ -117,6 +155,8 @@ export function RegisterCheckSection({
     setOpen((prev) => new Set([...prev].filter((k) => keys.has(k))));
     setPeopleOpen((prev) => new Set([...prev].filter((k) => keys.has(k))));
     setPicked((prev) => new Map([...prev].filter(([k]) => keys.has(k))));
+    setMapOpen((prev) => (prev && keys.has(prev) ? prev : null));
+    setWider((prev) => new Map([...prev].filter(([k]) => keys.has(k))));
   }, [report]);
 
   // Two chip rows, faceted the way the places list's are: a chip's count
@@ -193,7 +233,7 @@ export function RegisterCheckSection({
    *  to take. A row whose several places nobody has chosen between is not one
    *  of them — that is the researcher's call, one row at a time. */
   const bulk = view.rows.flatMap((f) => {
-    const options = optionsOf(f, style);
+    const options = optionsOf(f, style, wider.get(f.key));
     return renameFor(f, options, chosenIndex(f, options, picked)) ?? [];
   });
   const allOpen = view.rows.length > 0 && view.rows.every((f) => open.has(f.key));
@@ -222,6 +262,7 @@ export function RegisterCheckSection({
           if (allOpen) {
             setOpen(new Set());
             setPeopleOpen(new Set());
+            setMapOpen(null);
           } else setOpen(new Set(view.rows.map((f) => f.key)));
         }}
       />
@@ -306,7 +347,7 @@ export function RegisterCheckSection({
           {!view.rows.length && <p className="tools-clean">{t("tools.search.noMatch")}</p>}
           <ul className="tools-tree tools-register-list">
             {view.rows.slice(0, MAX_ROWS).map((f) => {
-              const options = optionsOf(f, style);
+              const options = optionsOf(f, style, wider.get(f.key));
               const chosen = chosenIndex(f, options, picked);
               const rename = renameFor(f, options, chosen);
               const isOpen = open.has(f.key) || peopleOpen.has(f.key);
@@ -383,37 +424,113 @@ export function RegisterCheckSection({
                           places and addresses rows offer their candidates in.
                           Picking one is what the rename then writes. */}
                       {options.length > 0 && (
-                        <ul className="tools-geo-candidates">
-                          {options.map((o, i) => (
-                            <li key={i}>
-                              <label>
-                                <input
-                                  type="radio"
-                                  className="tools-geo-cand-radio"
-                                  name={`register-${f.key}`}
-                                  aria-label={o.place}
-                                  checked={chosen === i}
-                                  onChange={() => pick(f.key, i)}
-                                />
-                                <span className="tools-geo-cand-num">{i + 1}</span>
-                                <span className="tools-geo-cand-name">{o.place}</span>
-                                {/* The house the split moves onto the event's
-                                    own ADDR line, shown where it will land. */}
-                                {o.addr && <span className="tools-geo-row-addr">ADDR: {o.addr}</span>}
-                                {o.entry && (
-                                  <>
-                                    <span className="gm-data gm-coord">
-                                      {o.entry.lat.toFixed(4)}, {o.entry.lon.toFixed(4)}
-                                    </span>
-                                    <span className={`tools-reshape-badge ${o.entry.register ? "official" : "reuse"}`}>
-                                      {directoryOf(o.entry)}
-                                    </span>
-                                  </>
-                                )}
-                              </label>
-                            </li>
-                          ))}
-                        </ul>
+                        <>
+                          {/* Which of six same-named places is the one is a
+                              question only a map answers, so the row draws its
+                              answers as the numbered pins the option lines
+                              carry — asked for by a click on any coordinate,
+                              or on the toggle, and never drawn before that
+                              (Leaflet is a lazy chunk). */}
+                          <div className="tools-geo-actions">
+                            <MapToggle
+                              open={mapOpen === f.key}
+                              onToggle={() => setMapOpen(mapOpen === f.key ? null : f.key)}
+                            />
+                            {/* A name that is one word of a longer one is a
+                                lead, not an answer, so the wider search is
+                                asked for rather than run for every place. */}
+                            {!wider.has(f.key) && (
+                              <button
+                                className="tools-issue-link"
+                                onClick={() => searchWider(f, options)}
+                                title={t("tools.register.widerHint")}
+                              >
+                                {t("tools.register.wider")}
+                              </button>
+                            )}
+                            {wider.get(f.key)?.length === 0 && (
+                              <span className="tools-geo-count">{t("tools.register.widerNone")}</span>
+                            )}
+                          </div>
+                          {mapOpen === f.key && (
+                            <Suspense fallback={<div className="tools-geo-minimap" />}>
+                              <MiniPlaceMap
+                                pins={[
+                                  ...options.flatMap((o, i): MiniMapPin[] =>
+                                    o.entry
+                                      ? [
+                                          {
+                                            coord: { lat: o.entry.lat, lon: o.entry.lon },
+                                            label: o.place,
+                                            lines: [directoryOf(o.entry), t("event.coord.pinPick")],
+                                            badge: i + 1,
+                                            kind: chosen === i ? "chosen" : "candidate",
+                                            onPick: () => pick(f.key, i),
+                                          },
+                                        ]
+                                      : [],
+                                  ),
+                                  // Where the file itself puts the place, so a
+                                  // coordinate reported as off is read against
+                                  // the answers rather than taken on trust.
+                                  ...(f.fileCoord
+                                    ? [
+                                        {
+                                          coord: f.fileCoord,
+                                          label: t("tools.geocode.fromFile"),
+                                          kind: "candidate" as const,
+                                          area: true,
+                                        },
+                                      ]
+                                    : []),
+                                ]}
+                                fitKey={f.key}
+                              />
+                            </Suspense>
+                          )}
+                          <ul className="tools-geo-candidates">
+                            {options.map((o, i) => (
+                              <li key={i}>
+                                <label>
+                                  <input
+                                    type="radio"
+                                    className="tools-geo-cand-radio"
+                                    name={`register-${f.key}`}
+                                    aria-label={o.place}
+                                    checked={chosen === i}
+                                    onChange={() => pick(f.key, i)}
+                                  />
+                                  <span className="tools-geo-cand-num">{i + 1}</span>
+                                  <span className="tools-geo-cand-name">{o.place}</span>
+                                  {/* The house the split moves onto the event's
+                                      own ADDR line, shown where it will land. */}
+                                  {o.addr && <span className="tools-geo-row-addr">ADDR: {o.addr}</span>}
+                                  {o.entry && (
+                                    <>
+                                      {/* The coordinate opens the map on this
+                                          answer's pin — the number beside the
+                                          line is the number on the pin. */}
+                                      <button
+                                        type="button"
+                                        className="tools-geo-coord-btn gm-data gm-coord"
+                                        title={t("tools.register.showOnMap")}
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          setMapOpen(mapOpen === f.key ? null : f.key);
+                                        }}
+                                      >
+                                        {o.entry.lat.toFixed(4)}, {o.entry.lon.toFixed(4)}
+                                      </button>
+                                      <span className={`tools-reshape-badge ${o.entry.register ? "official" : "reuse"}`}>
+                                        {directoryOf(o.entry)}
+                                      </span>
+                                    </>
+                                  )}
+                                </label>
+                              </li>
+                            ))}
+                          </ul>
+                        </>
                       )}
                       {!options.length && <p className="tools-clean">{t(`tools.register.hint.${f.verdict}`)}</p>}
                       {peopleOpen.has(f.key) && (
@@ -464,13 +581,17 @@ interface RegisterOption {
  * The verdicts a rename does not answer — a place the register does not hold, a
  * coordinate that is off — offer none.
  */
-function optionsOf(f: RegisterFinding, style: PlaceStyle): RegisterOption[] {
+function optionsOf(f: RegisterFinding, style: PlaceStyle, wider?: readonly GazEntry[]): RegisterOption[] {
+  // Places found by a wider search stand after the answers the name matched
+  // outright, in the order the search ranked them.
+  const widened = (wider ?? []).map((entry) => ({ entry, place: placeTextOf(entry, style) }));
   if (f.verdict === "ambiguous") {
-    return (f.alternatives ?? []).map((entry) => ({ entry, place: placeTextOf(entry, style) }));
+    return [...(f.alternatives ?? []).map((entry) => ({ entry, place: placeTextOf(entry, style) })), ...widened];
   }
   if ((f.verdict === "spelling" || f.verdict === "admin") && f.entry) {
-    return [{ entry: f.entry, place: f.official ?? placeTextOf(f.entry, style) }];
+    return [{ entry: f.entry, place: f.official ?? placeTextOf(f.entry, style) }, ...widened];
   }
+  if (f.verdict === "notFound") return widened;
   // The place/address split: the settlement left in PLAC, the house on its own
   // ADDR line, both already shaped by the file's own layout.
   if (f.verdict === "address" && f.official && f.officialAddr) {
@@ -479,12 +600,20 @@ function optionsOf(f: RegisterFinding, style: PlaceStyle): RegisterOption[] {
   return [];
 }
 
-/** The answer the row stands on: the researcher's pick, else the only answer
- *  there is. -1 when several places are on offer and none has been chosen. */
+/**
+ * The answer the row stands on: the researcher's pick, else the answer the
+ * check itself arrived at — the register's wording of the place, which is the
+ * whole finding on every verdict but one.
+ *
+ * `ambiguous` is that one: several places fit the name and nothing chooses
+ * between them, so the row waits. A wider search adds leads to any row without
+ * ever making one of them the answer, which is why this reads the verdict
+ * rather than counting the options.
+ */
 function chosenIndex(f: RegisterFinding, options: RegisterOption[], picked: ReadonlyMap<string, number>): number {
   const own = picked.get(f.key);
   if (own !== undefined && own < options.length) return own;
-  return options.length === 1 ? 0 : -1;
+  return f.verdict !== "ambiguous" && options.length > 0 ? 0 : -1;
 }
 
 function placeTextOf(entry: GazEntry, style: PlaceStyle): string {

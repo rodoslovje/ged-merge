@@ -817,6 +817,7 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
           <RegisterCheckSection
             report={registerReport}
             dataset={dataset}
+            index={index}
             style={placeStyle}
             kinship={kinship}
             onNavigate={onNavigate}
