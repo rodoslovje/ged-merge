@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { searchLocalAddress } from "../../geo/addressLookup";
@@ -21,17 +21,16 @@ import type { AddressRename, AddressRow } from "../../tools/addresses";
 import { countryOf } from "../../tools/geocode";
 import { REGISTER_DISMISSED } from "../../tools/registerCheck";
 import { useLocalRegisters } from "../useLocalRegisters";
-import { AppliedNote, ExpandAllToggle, GeoPeopleList, GeoRowHeader } from "./shared";
+import { AppliedNote, ExpandAllToggle, GeoPeopleList, GeoRowHeader, MapToggle, RowMap } from "./shared";
 
 // The compliance tab's second half: the file's houses held against a downloaded
 // address register.
 //
-// Asked for, never automatic. The places above are checked the moment the tab
-// opens because a gazetteer is already in memory; the houses need a register
-// that most files will not have, and holding a whole file's addresses against
-// one is a decision with a visible answer — thousands of rows, most of them
-// about numbering that changed a century ago. So the section is a button until
-// it is pressed, and it is not offered at all where no register is stored.
+// Run when the tab is opened, and not before. A register most files will not
+// have is what this needs, so the section is not offered at all where none is
+// stored; where one is, holding the whole file against it is IndexedDB reads and
+// nothing more, and making that a button only meant the answer went unseen.
+// The button remains for the progress it reports while a long file fills in.
 //
 // See addressCheck.ts for why a number the register does not have is counted
 // rather than listed.
@@ -109,6 +108,8 @@ export function AddressCheckSection({
    *  geocoding addresses list: a village of fifty findings is one line naming
    *  the place and counting them, and the list is read by places first. */
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
+  /** The one row showing its map — one at a time, as on the places list. */
+  const [mapOpen, setMapOpen] = useState<string | null>(null);
 
   const toggleGroup = (place: string) =>
     setOpenGroups((prev) => {
@@ -158,6 +159,23 @@ export function AddressCheckSection({
     setReport(checkAddressesAgainstRegister(rows, answers, decisions));
     setRunning(null);
   };
+
+  /** Which set of rows the check has already been run for, so opening the tab
+   *  twice does not run it twice. */
+  const ranFor = useRef<AddressRow[] | null>(null);
+  // Run when the tab is opened, and again after an edit re-scans the file. The
+  // button remains for the progress it reports, but it should not have been the
+  // only way in: a stored register answers a whole file in IndexedDB reads —
+  // that is the very argument by which the geocoding addresses list looks its
+  // own rows up unasked, and the places half of this page has always checked
+  // itself the moment the page is opened. Held until the tab is actually shown,
+  // so a file whose houses are never looked at pays nothing.
+  useEffect(() => {
+    if (hidden || !askable.length || ranFor.current === askable) return;
+    ranFor.current = askable;
+    void run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hidden, askable]);
 
   /** Hide a finding, or — on one already hidden — bring it back. The restore
    *  half was missing: the button read "Prikaži" and wrote the dismissal again,
@@ -489,6 +507,33 @@ export function AddressCheckSection({
                             <p className="tools-fix-hint" title={t("tools.registerAddr.moveHint")}>
                               {t("tools.registerAddr.move", { place: f.officialPlace })}
                             </p>
+                          )}
+                          {/* Where the register puts the house — the question
+                              behind every finding here, and the one a name
+                              alone cannot settle. Asked for by a click, like
+                              every other map on this page, and never drawn
+                              before that: Leaflet is a lazy chunk. */}
+                          {open.has(f.key) && f.coord && (
+                            <div className="tools-geo-actions">
+                              <MapToggle
+                                open={mapOpen === f.key}
+                                onToggle={() => setMapOpen(mapOpen === f.key ? null : f.key)}
+                              />
+                            </div>
+                          )}
+                          {mapOpen === f.key && f.coord && (
+                            <RowMap
+                              fitKey={f.key}
+                              fitMaxZoom={17}
+                              pins={[
+                                {
+                                  coord: f.coord,
+                                  label: f.official ?? f.written,
+                                  ...(f.settlement ? { sub: f.settlement } : {}),
+                                  kind: "candidate",
+                                },
+                              ]}
+                            />
                           )}
                           {/* The register's own answer, in the shape every other
                               geocoding list shows an answer in — one option to

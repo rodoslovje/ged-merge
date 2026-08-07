@@ -20,7 +20,8 @@ import { usePlaceLookup } from "../edit/PlaceLookupContext";
 import type { PlaceSuggestions } from "../edit/placeSuggestions";
 import { useNameOf, useSettings } from "../SettingsContext";
 import type { KinshipResolver } from "../../match/kinship";
-import { AppliedNote, ExpandAllToggle, GeoPeopleList, GeoRowHeader, MapToggle, RowMap } from "./shared";
+import { loadDecisions, putDecisions } from "../../persist/geoDb";
+import { AppliedNote, ExpandAllToggle, GeoPeopleList, GeoRowHeader, MapToggle, RowCaret, RowMap } from "./shared";
 import { requestSettings } from "../settingsBus";
 
 // The ADDR half of geocoding: house coordinates from the GURS address register
@@ -350,11 +351,49 @@ export function AddressCoordsSection({
   // the list is a worklist, and a placed row is finished work — it comes back
   // on request, for checking a position or sharpening a rough one.
   const [showPlaced, setShowPlaced] = useState(false);
+  /** Houses put away as unanswerable — old village numbering, a farm long gone,
+   *  a hamlet no register has ever held. Every other list on these two pages
+   *  lets a row be judged and set aside; this one did not, so a house nothing
+   *  could ever answer sat on the worklist for good and was counted in every
+   *  chip above it. Staged like the picks and written by the same button, the
+   *  way the places worklist remembers its own. */
+  const [noMatch, setNoMatch] = useState<Set<string>>(new Set());
+  const [showHidden, setShowHidden] = useState(false);
+  /** Bumped by a write, so the remembered decisions are re-read after it. */
+  const [applyGen, setApplyGen] = useState(0);
+  /** What the decision store already remembers, re-read when a write lands. A
+   *  row re-keyed by a rename simply is not in it, and starts unjudged. */
+  useEffect(() => {
+    let live = true;
+    void loadDecisions().then((stored) => {
+      if (!live) return;
+      setNoMatch((prev) => {
+        const next = new Set(prev);
+        for (const row of all) if (stored.get(row.key)?.status === "nomatch") next.add(row.key);
+        return next;
+      });
+    });
+    return () => {
+      live = false;
+    };
+  }, [all, applyGen]);
+  const toggleNoMatch = (key: string) =>
+    setNoMatch((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
   /** The rows the list works over. A row with a pick staged stays whatever the
-   *  toggle says — work in progress is never hidden. */
+   *  toggles say — work in progress is never hidden. */
   const visibleRows = useMemo(
-    () => (showPlaced ? rows : rows.filter((row) => !row.placed || picked.has(row.key))),
-    [rows, showPlaced, picked],
+    () =>
+      rows.filter(
+        (row) =>
+          picked.has(row.key) ||
+          ((showPlaced || !row.placed) && (showHidden || !noMatch.has(row.key))),
+      ),
+    [rows, showPlaced, showHidden, picked, noMatch],
   );
   /** Groups the filter matched by *address*, which are worth opening: the row
    *  looked for is inside, and there may be one of it under a hundred. */
@@ -597,6 +636,8 @@ export function AddressCoordsSection({
   }
   /** How many rows the placed toggle is holding back (or, on, has let in). */
   const placedTotal = rows.filter((r) => r.placed && !picked.has(r.key)).length;
+  /** The same for the houses set aside as unanswerable. */
+  const hiddenTotal = rows.filter((r) => noMatch.has(r.key) && !picked.has(r.key)).length;
 
   const togglePeople = (key: string) =>
     setPeopleOpen((prev) => {
@@ -940,6 +981,13 @@ export function AddressCoordsSection({
       for (const raw of byKey.get(key)?.rawKeys ?? []) assignments.set(raw, v.coord);
     }
     const changed = onApply(assignments);
+    // The rows set aside are remembered here, not in the file — the same store
+    // and the same status the places worklist writes, so a reload does not put
+    // a judged house back on the list. Staged until now, so nothing is written
+    // by a click that was only meant to tidy the view.
+    const now = Date.now();
+    const toStore = [...noMatch].filter((key) => byKey.has(key)).map((key) => ({ key, status: "nomatch" as const, ts: now }));
+    if (toStore.length) void putDecisions(toStore);
     // The written rows are done and leave the worklist; the answers held by
     // the rows still waiting were to questions the write did not change, so
     // they stand — writing one wave must not cost the next its lookups.
@@ -952,11 +1000,16 @@ export function AddressCoordsSection({
     setOsmSearches(dropWritten);
     setPicked(new Map());
     setApplied(changed);
+    setApplyGen((g) => g + 1);
   };
 
   const actions = (
     <>
-      <button className="nav-btn primary tools-run" onClick={apply} disabled={picked.size === 0}>
+      <button
+        className="nav-btn primary tools-run"
+        onClick={apply}
+        disabled={picked.size === 0 && noMatch.size === 0}
+      >
         {t("tools.geocode.addr.apply", { count: picked.size })}
       </button>
       <button
@@ -1050,6 +1103,12 @@ export function AddressCoordsSection({
               }}
             />
             {t("tools.geocode.addr.showPlaced")} <span className="tools-chip-count">{placedTotal}</span>
+          </label>
+        )}
+        {(hiddenTotal > 0 || showHidden) && (
+          <label className="tools-reshape-site" title={t("tools.geocode.addr.showHiddenHint")}>
+            <input type="checkbox" checked={showHidden} onChange={(e) => setShowHidden(e.target.checked)} />
+            {t("tools.register.showDismissed")} <span className="tools-chip-count">{hiddenTotal}</span>
           </label>
         )}
       </div>
@@ -1216,15 +1275,12 @@ export function AddressCoordsSection({
                               coordinate beside it are shortcuts to the very
                               same panel, but only this one says, open or shut,
                               which state the row is in. */}
-                          <button
-                            className={`tools-pair-toggle ${coordOpen === row.key ? "open" : ""}`}
-                            aria-expanded={coordOpen === row.key}
-                            aria-label={row.address}
+                          <RowCaret
+                            open={coordOpen === row.key}
+                            label={row.address}
                             title={t("tools.geocode.addr.openHint")}
-                            onClick={() => setCoordOpen(coordOpen === row.key ? null : row.key)}
-                          >
-                            ▶
-                          </button>
+                            onToggle={() => setCoordOpen(coordOpen === row.key ? null : row.key)}
+                          />
                           {/* One tick box, whichever panel is asking: the move's
                               destination or the one coordinate for the lot. */}
                           {(moveGroup === group.place || coordGroup === group.place) && (
@@ -1427,6 +1483,22 @@ export function AddressCoordsSection({
                               )}
                             </>
                           )}
+                          {/* Set the house aside, as every other list on these
+                              two pages allows. Not a pick and not an answer: a
+                              judgement that nothing will ever answer this one,
+                              so it stops being counted as work left. */}
+                          <button
+                            className="tools-issue-link"
+                            onClick={() => toggleNoMatch(row.key)}
+                            aria-pressed={noMatch.has(row.key)}
+                            title={
+                              noMatch.has(row.key)
+                                ? t("tools.geocode.noMatchUndo")
+                                : t("tools.geocode.addr.noMatchHint")
+                            }
+                          >
+                            {noMatch.has(row.key) ? t("tools.geocode.restore") : t("tools.geocode.hide")}
+                          </button>
                           {/* Who the events belong to — count as the toggle,
                               names on hover, last on the line, exactly like the
                               places rows. How many events there are is not

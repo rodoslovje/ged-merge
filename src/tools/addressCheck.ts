@@ -1,4 +1,5 @@
 import { addressStreetName, bracketedTail } from "../gedcom/place";
+import type { GeoCoord } from "../gedcom/types";
 import type { AddressHit } from "../geo/addressRegister";
 import { foldToken } from "../match/text";
 import type { GeocodeDecision } from "../persist/geoDb";
@@ -74,6 +75,10 @@ export interface AddressFinding {
   officialAddress?: string;
   /** The settlement the register files the house under (`addrElsewhere`). */
   settlement?: string;
+  /** Where the register puts this house. Carried so the row can draw it: a
+   *  finding that the register files a house under another settlement is only
+   *  really answered by seeing where the house stands. */
+  coord?: GeoCoord;
   /** The place value with that settlement swapped in, when the file's layout
    *  allows it to be composed (`addrElsewhere`). */
   officialPlace?: string;
@@ -155,6 +160,7 @@ export function checkAddressesAgainstRegister(
       add("addrElsewhere", {
         official: hit.label,
         settlement: hit.settlement,
+        coord: hit.coord,
         ...(officialPlace ? { officialPlace } : {}),
       });
       continue;
@@ -169,6 +175,7 @@ export function checkAddressesAgainstRegister(
       add("addrSpelling", {
         official: hit.label,
         officialAddress: `${hit.address}${bracketedTail(row.address)}`,
+        coord: hit.coord,
       });
       continue;
     }
