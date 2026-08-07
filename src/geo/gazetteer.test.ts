@@ -766,6 +766,26 @@ describe("searchGazetteer", () => {
     ]);
   });
 
+  it("finds a misspelling only when asked to look wider", () => {
+    // Nothing relates "Mrkopolje" to "Mrkopalj" by substring, so the default
+    // search cannot reach it and the row is left saying the register has
+    // nothing — which is what "Look wider" is for.
+    const index = buildGazetteerIndex([
+      entry("Mrkopalj", { country: "HR" }),
+      entry("Vrbovsko", { country: "HR" }),
+    ]);
+    expect(searchGazetteer(index, "Mrkopolje, Croatia")).toEqual([]);
+    expect(searchGazetteer(index, "Mrkopolje, Croatia", 12, true).map((e) => e.name)).toEqual(["Mrkopalj"]);
+  });
+
+  it("keeps a wider search inside the country the value names", () => {
+    const index = buildGazetteerIndex([
+      entry("Mrkopalj", { country: "HR" }),
+      entry("Mrkopalje", { country: "SI" }),
+    ]);
+    expect(searchGazetteer(index, "Mrkopolje, Croatia", 12, true).map((e) => e.name)).toEqual(["Mrkopalj"]);
+  });
+
   it("matches diacritics and alternate names, and honours the limit", () => {
     const index = buildGazetteerIndex([
       entry("Škofja Loka", { alt: ["Bischoflack"] }),

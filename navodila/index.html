@@ -539,7 +539,9 @@
               Vsak predlog je že zapisan tako, kot kraje zapisuje <em>vaša</em> datoteka: enaka postavitev, enak vejični
               ločilnik, enak zapis države in enako število ravni — datoteki, ki piše <em>Kranj,Kranj,Slovenija</em>, se
               ponudi <em>Zabukovje,Sevnica,Slovenija</em>, datoteki, ki piše le kraj in državo, pa
-              <em>Zabukovje,Slovenija</em>. Značka pove, iz katerega registra je predlog. Izbira vnese kraj, njegov
+              <em>Zabukovje,Slovenija</em>. Raven nad naseljem je tista, ki jo za to državo imenujejo vaši kraji —
+              občina ali županija, če pišete županije (glejte <a href="#geocode">§10</a>). Značka pove, iz katerega
+              registra je predlog. Izbira vnese kraj, njegov
               <strong>naslov</strong>, če ste vpisali hišno številko, ki jo register naslovov prepozna, in
               <strong>koordinato</strong>, ki jo ta register pripisuje — v enem koraku, ki ga tudi razveljavite naenkrat.
             </p>
@@ -1210,8 +1212,10 @@
               koli naloženi imenik, se primerja z njim — GURS za Slovenijo, DGU za Hrvaško, prav tako pa prenos
               OpenStreetMap za Avstrijo ali datoteka GeoNames za Združene države — na seznamu pa so samo odstopanja, pod
               vsak pod eno besedo za tisto, kar odstopa: <strong>Neznan</strong> (v državi, ki jo kraj navaja, ni naselja s tem imenom),
-              <strong>Dvoumen</strong> (ime ustreza več vnosom, nič pa jih ne loči), <strong>Občina</strong>
-              (imenik uvršča naselje v občino, ki je vaš kraj ne navaja), <strong>Zapis</strong>
+              <strong>Pokrajina</strong> (ime imenik pozna kot županijo ali pokrajino in ne kot naselje — dogodek, ki
+              je znan le po širšem območju in ga register naselij ne more ujeti),
+              <strong>Dvoumen</strong> (ime ustreza več vnosom, nič pa jih ne loči), <strong>Uvrstitev</strong>
+              (imenik uvršča naselje pod enoto, ki je vaš kraj ne navaja), <strong>Zapis</strong>
               (strešice, velika začetnica ali daljša uradna oblika), <strong>Dodatna raven</strong> (imenik kraj pozna
               od druge ravni naprej — prva imenuje pokopališče, okraj ali volilni okoliš, torej nekaj <em>v</em> kraju),
               <strong>Naslov</strong> (hišna številka v
@@ -1219,6 +1223,28 @@
               <strong>Lega</strong> (koordinata v datoteki je več kot deset kilometrov od tam, kamor kraj
               postavlja imenik — običajno je kraj geokodiran na enakoimensko vas drugod). Kadar isto državo opisujeta
               dva imenika, odgovorita oba, uradni register pa ima prednost: kjer kraj pozna GURS ali DGU, odloča on.
+            </p>
+            <p>
+              Najdba <strong>Uvrstitev</strong> se presoja na tisti ravni, ki jo piše vaša datoteka. Register opisuje
+              dve — občino, v katero uvršča vsako naselje (<em>občina</em>, <em>općina</em>), in za Hrvaško še
+              <em>županijo</em> nad njo — datoteka pa vseskozi piše eno ali drugo. Katero pišete vi, se prebere iz
+              vaših lastnih krajev, po državah: datoteka, ki piše <em>Bektež, Požega-Slavonia, Croatia</em>, se
+              primerja z županijami, tista z <em>Bektež, Kutjevo, Croatia</em> pa z občinami, in nobena ni na seznamu
+              zgolj zato, ker piše raven, ki jo piše vedno. Popravek je ponujen na isti ravni in z vašimi besedami —
+              <em>Lika-Senj</em> datoteki, ki županije piše po angleško, <em>Ličko-senjska županija</em> tisti, ki jih
+              piše v polni obliki. Kadar vaša imena ne zadoščajo (Hrvaška ima Karlovačko županijo in mesto Karlovac),
+              odloči vrstica <code>PLAC</code>.<code>FORM</code> iz vaše datoteke. Isto znanje prepozna
+              <strong>Pokrajino</strong>: vrednosti, ki se sama imenuje po županiji, ni treba iskati naselja, in kadar
+              taka vrednost nosi raven, ki nič ne pove — dvakrat zapisano županijo, <em>Međimurje, Međimurje,
+              Croatia</em>, ali raven, ki jo je izvoz pustil prazno, <em>Slavonia, , Croatia</em> — vrstica ponudi isti
+              kraj z eno vejico manj — ob vrednosti, ki ste jo zapisali, tako da se vidi, kaj bi se spremenilo, in z
+              gumbom <strong>Prevzemi uradno ime</strong>. Ne pridruži pa se gumbu <strong>Prevzemi uradna
+              imena</strong> nad seznamom: širše območje namesto vasi v njem je prav toliko navada kot napaka, enako
+              velja za kraj, ki ga register preprosto nima, zato sta oba vaša, vrstico za vrstico, dokler ju ne
+              izberete sami. Te oznake so izpisane pod povzetkom,
+              po ena na državo — <em>Mjesto, Županija, Država</em> — saj so izjava vaše datoteke o tem, kaj sredina
+              kraja pomeni, in jih drugje ni videti. Datoteka, ki krajev ne označuje, tam nima ničesar, kar je prav
+              tako njena navada.
             </p>
             <p>
               Odprta vrstica ponudi odgovore kot oštevilčene možnosti, tako kot vrstice krajev in naslovov ponudijo svoje
@@ -1233,9 +1259,12 @@
               oznake, kjer je številka na oznaki ista kot ob vrstici, ob njih pa s črtkanim obročem še lego, ki jo kraju
               daje datoteka: kateri od šestih enakoimenskih krajev je vaš, odgovori le zemljevid. <strong>Poišči
               širše</strong> doda kraje, katerih ime zapisano ime le <em>vsebuje</em> — <em>Bela</em> najde Spodnjo,
-              Srednjo in Zgornjo Belo — česar preverjanje samo nikoli ne ponudi, saj je ime, ki je ena beseda daljšega
-              imena, namig in ne odgovor; pridružijo se možnostim vrstice, oštevilčene za njimi, in jih je mogoče
-              prevzeti kot vsako drugo. Števec vrstice so ljudje, katerih
+              Srednjo in Zgornjo Belo — in take, ki mu je ime le <em>podobno</em>, kar je edini način, da se najde
+              napačen zapis: <em>Mrkopolje</em> najde registrski <em>Mrkopalj</em>, do katerega iskanje po zapisu ne
+              seže. Ne enega ne drugega preverjanje samo ne ponudi, saj je ime, ki je ena beseda daljšega imena ali od
+              njega odstopa za črko, namig in ne odgovor; pridružijo se možnostim vrstice, oštevilčene za njimi, in
+              jih je mogoče prevzeti kot vsako drugo, nobena vrstica pa na namigu ne pristane sama od sebe. Iskanje
+              ostane v državi, ki jo kraj imenuje. Števec vrstice so ljudje, katerih
               dogodki pišejo ta kraj; klik nanj jih pokaže, vsak je povezava v Urejanje. Za razliko od seznama krajev ta
               pogleda tudi kraje, ki koordinate že imajo: datoteki, geokodirani pred leti, zapisov ni preveril še nihče,
               in prav tam se register najbolj obrestuje. Kjer je imenik naložen, se stran odpre prav na tem zavihku.

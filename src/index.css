@@ -8327,6 +8327,9 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 /* A dismissed row is on the list only because it was asked for — it reads as
    settled, not as work. */
 .tools-register-list .tools-tree-node.dismissed { opacity: 0.6; }
+/* The file's own FORM labels, quoted from the file: set apart from the sentence
+   around them the way the examples list sets its samples apart. */
+.tools-register-form { font-family: ui-monospace, monospace; color: var(--text); }
 
 .tools-geo-gazetteer {
   border: 1px solid var(--border);

@@ -533,7 +533,9 @@
               Each offer is already written the way <em>your</em> file writes places: the same layout, the same comma
               separator, the same spelling of the country, and the same number of jurisdiction levels — a file that
               writes <em>Kranj,Kranj,Slovenija</em> is offered <em>Zabukovje,Sevnica,Slovenija</em>, a file that writes
-              only locality and country is offered <em>Zabukovje,Slovenija</em>. A badge names the answering register.
+              only locality and country is offered <em>Zabukovje,Slovenija</em>. The level above the settlement is the
+              one your places name for that country — the municipality, or the county where you write counties (see
+              <a href="#geocode">§10</a>). A badge names the answering register.
               Picking one fills in the place, its <strong>address</strong> when you typed a house number the address
               register recognised, and the <strong>coordinate</strong> that register puts it at — in one step you can
               undo as one.
@@ -1206,9 +1208,11 @@
               place in a country any loaded directory covers is held against it — GURS for Slovenia, DGU for Croatia,
               but equally an OpenStreetMap download for Austria or a GeoNames file for the United States — and only the
               disagreements are listed, each under the one word for what disagrees: <strong>Unknown</strong>
-              (no settlement of that name in the country the place names), <strong>Ambiguous</strong> (the name fits
-              more than one entry and nothing tells them apart), <strong>Municipality</strong> (the
-              directory files the settlement under an <em>občina</em> your place does not name),
+              (no settlement of that name in the country the place names), <strong>Region</strong> (the name is one
+              the directory knows as a county or region rather than a settlement — an event known only by the wider
+              area it happened in, which no register of settlements can ever match), <strong>Ambiguous</strong> (the name fits
+              more than one entry and nothing tells them apart), <strong>Jurisdiction</strong> (the
+              directory files the settlement under a parent your place does not name),
               <strong>Spelling</strong> (diacritics, capitalisation, or a longer official form), <strong>Extra
               level</strong> (the directory knows the place from its second level on — the first names a cemetery, a
               township, an election precinct, something standing <em>in</em> the place), <strong>Address</strong>
@@ -1217,6 +1221,29 @@
               than ten kilometres from where the directory puts the place — usually a place geocoded to a same-named
               village elsewhere). Where two directories describe one country, both answer, and an official register
               outranks the rest, so where GURS or DGU knows the place it is the one that decides.
+            </p>
+            <p>
+              The <strong>Jurisdiction</strong> finding is judged at whatever level your file writes. A register
+              describes two of them — the municipality it files every settlement under (<em>občina</em>,
+              <em>općina</em>) and, for Croatia, the county above it (<em>županija</em>) — and a file writes one or the
+              other throughout. Which one yours writes is read off your own places, per country, so a file saying
+              <em>Bektež, Požega-Slavonia, Croatia</em> is held against counties and one saying <em>Bektež, Kutjevo,
+              Croatia</em> against municipalities; neither is reported merely for naming the level it always names.
+              A correction is offered at the same level, and in your own wording of it — <em>Lika-Senj</em> for a file
+              that writes county names in English, <em>Ličko-senjska županija</em> for one that writes them in full.
+              Where your own names cannot settle it (Croatia has both a Karlovac county and a Karlovac city), your
+              file's own <code>PLAC</code>.<code>FORM</code> labels do. The same knowledge is what recognises a
+              <strong>Region</strong>: a value whose own name is a county needs no settlement found for it, and where
+              such a value carries a level that says nothing — the county written twice over, <em>Međimurje,
+              Međimurje, Croatia</em>, or a level left blank by an export, <em>Slavonia, , Croatia</em> — the row
+              offers the same place one comma shorter, shown beside the value you wrote so you can see what would
+              change, with <strong>Use official name</strong> to take it. What it will not do is go along with
+              <strong>Use official names</strong> above the list: a wider area standing in for the village in it is a
+              habit as much as a mistake, and so is a place the register simply does not hold, so both are yours to
+              take row by row unless you pick them by hand. Those labels are shown under the summary line,
+              one per country — <em>Mjesto, Županija, Država</em> — since they are your file's own statement of what
+              the middle of a place means, and nothing else displays them. A file that labels no places shows nothing
+              there, which is a house style too.
             </p>
             <p>
               Opening a row lists the answers as numbered options, the way the places and addresses rows list their
@@ -1231,9 +1258,12 @@
               the number beside the line, with the file's own position for the place as a dashed ring beside them: which
               of six same-named places is yours is a question only a map answers. <strong>Look wider</strong> adds the
               places whose name merely <em>contains</em> the one written — <em>Bela</em> finding Spodnja, Srednja and
-              Zgornja Bela — which the check itself never offers, since a name that is one word of a longer name is a
-              lead rather than an answer; they join the row's options, numbered after them, and can be taken like any
-              other. The row's count is the people
+              Zgornja Bela — and those whose name merely <em>resembles</em> it, which is the only way a misspelling is
+              ever found: <em>Mrkopolje</em> finds the register's <em>Mrkopalj</em>, which no search by spelling can
+              reach. Neither is offered by the check itself, since a name that is one word of a longer one, or one
+              letter off it, is a lead rather than an answer; they join the row's options, numbered after them, and
+              can be taken like any other, but a row never arrives already standing on one. The search is held to the
+              country the place names. The row's count is the people
               whose events write the place; click it for them, each a link into Edit. Unlike the places list, this one
               looks at the places that already carry coordinates too: a file geocoded years ago has never had its
               spellings checked, and that is exactly where a register earns its keep. It is the page's opening tab

@@ -1131,8 +1131,19 @@ function lookupPlaceUncached(index: GazetteerIndex, rawPlace: string): GazCandid
  * A country named after a comma restricts the results the same way lookupPlace
  * gates its candidates, so "Bela, Austria" is not answered from a Slovenian
  * import.
+ *
+ * `fuzzy` adds a last tier of names that merely *resemble* the text, which is
+ * the only way a misspelling is ever found: no substring test relates
+ * "Mrkopolje" to the register's "Mrkopalj". Off by default — those are leads to
+ * judge rather than answers, so only a reader who asked to look wider gets
+ * them, never the place field completing what is being typed.
  */
-export function searchGazetteer(index: GazetteerIndex, rawQuery: string, limit = 6): GazEntry[] {
+export function searchGazetteer(
+  index: GazetteerIndex,
+  rawQuery: string,
+  limit = 6,
+  fuzzy = false,
+): GazEntry[] {
   const components = decomposePlace(rawQuery);
   const locality = (components.locality ?? rawQuery.split(",")[0]).trim();
   const folded = foldToken(locality);
@@ -1147,8 +1158,9 @@ export function searchGazetteer(index: GazetteerIndex, rawQuery: string, limit =
   const scored: { entry: GazEntry; rank: number }[] = [];
   for (const e of index.entries) {
     if (wantCountry && e.country !== wantCountry) continue;
-    // 0 = the whole name, 1 = a prefix of it, 2 = contained anywhere.
-    let rank = 3;
+    // 0 = the whole name, 1 = a prefix of it, 2 = contained anywhere,
+    // 3 = merely resembles it (only when asked for).
+    let rank = 4;
     const saintQuery = saintKey(locality);
     for (const raw of [e.name, e.ascii, ...e.alt]) {
       if (!raw) continue;
@@ -1158,8 +1170,20 @@ export function searchGazetteer(index: GazetteerIndex, rawQuery: string, limit =
       else if (n.includes(folded)) rank = Math.min(rank, 2);
       // "Sveti Duh" finds the register's "Sv. Duh" here as well.
       else if (saintQuery && saintKey(raw) === saintQuery) rank = Math.min(rank, 0);
+      // A misspelling shares no substring to be found by — "Mrkopolje" for the
+      // register's "Mrkopalj" — so the last tier asks how alike the two names
+      // are instead. Gated on a length within a few letters, which keeps the
+      // comparison off the overwhelming majority of a country's entries.
+      else if (
+        fuzzy &&
+        rank > 3 &&
+        Math.abs(n.length - folded.length) <= 3 &&
+        jaroWinkler(folded, n) >= MIN_FUZZY
+      ) {
+        rank = 3;
+      }
     }
-    if (rank < 3) scored.push({ entry: e, rank });
+    if (rank < 4) scored.push({ entry: e, rank });
   }
   scored.sort(
     (a, b) =>

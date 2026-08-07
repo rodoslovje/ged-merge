@@ -4,6 +4,7 @@ import { placeFormFor } from "../normalize/profile";
 import type { PlaceTargetFormat } from "../normalize/types";
 import type { GeoCoord } from "../gedcom/types";
 import type { GazEntry } from "./gazetteer";
+import type { PlaceParentLevels } from "./placeLevels";
 import type { GovResult } from "./gov";
 import type { NominatimResult } from "./nominatim";
 import type { RnResult } from "./rn";
@@ -58,6 +59,13 @@ export interface PlaceStyle {
   depth: number;
   /** UI language, used to name a country the file has never written. */
   language: string;
+  /**
+   * Which register level this file writes above a settlement, per country — a
+   * municipality for most files, the county above it for the files that write
+   * that instead. Absent (or {@link MUNICIPALITY_LEVELS}) means the
+   * municipality, which is what every proposal named before the level was read.
+   */
+  parentLevels?: PlaceParentLevels;
 }
 
 /** Modal number of comma-separated parts across the file's own PLAC values.
@@ -133,10 +141,15 @@ function shape(
   return { plac: out.plac, ...(out.addr ? { addr: out.addr } : {}), ...(form ? { form } : {}) };
 }
 
-/** An offline gazetteer entry (GURS settlements, OpenStreetMap, GeoNames). */
+/** An offline gazetteer entry (GURS settlements, OpenStreetMap, GeoNames).
+ *
+ *  The parent it names is the one this file's own places name for that country:
+ *  its municipality, or the county above it where the file writes counties — a
+ *  proposal that named the other level would not look like its neighbours. */
 export function proposalFromGazEntry(entry: GazEntry, style: PlaceStyle): PlaceProposal | undefined {
+  const admin = style.parentLevels ? style.parentLevels.parentOf(entry) : entry.admin;
   const shaped = shape(
-    { locality: entry.name, admin: entry.admin, country: countryNameOf(entry.country, style.language) },
+    { locality: entry.name, admin, country: countryNameOf(entry.country, style.language) },
     undefined,
     style,
   );
