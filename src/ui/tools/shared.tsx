@@ -265,6 +265,7 @@ export function GeoRowHeader({
   place,
   address,
   before,
+  caret = true,
   children,
 }: {
   open: boolean;
@@ -274,15 +275,23 @@ export function GeoRowHeader({
   address?: string;
   /** Rendered before the caret (a checkbox, in the place list). */
   before?: React.ReactNode;
+  /** False on a row that has nothing to disclose. Its people are reached by
+   *  their own count, as everywhere else, and a caret standing open over an
+   *  empty body would only promise a detail the row does not have. */
+  caret?: boolean;
   children?: React.ReactNode;
 }) {
   return (
     <div className="tools-tree-row">
       {before}
-      <button className={`tools-pair-toggle ${open ? "open" : ""}`} aria-expanded={open} onClick={onToggle}>
-        ▶
-      </button>
-      <span className="tools-tree-label clickable" onClick={onToggle}>
+      {caret ? (
+        <button className={`tools-pair-toggle ${open ? "open" : ""}`} aria-expanded={open} onClick={onToggle}>
+          ▶
+        </button>
+      ) : (
+        <span className="tools-pair-toggle-spacer" aria-hidden="true" />
+      )}
+      <span className={caret ? "tools-tree-label clickable" : "tools-tree-label"} onClick={caret ? onToggle : undefined}>
         {place}
         {address && <span className="tools-geo-row-addr"> · {address}</span>}
       </span>

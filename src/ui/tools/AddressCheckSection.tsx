@@ -88,8 +88,22 @@ export function AddressCheckSection({
   const [running, setRunning] = useState<{ done: number; total: number } | null>(null);
   const [verdictFilter, setVerdictFilter] = useState<"all" | AddressVerdict>("all");
   const [showDismissed, setShowDismissed] = useState(false);
+  /** Rows whose detail is showing, and — separately — rows showing their people.
+   *  Two questions, two toggles: the caret asks what the register says about
+   *  this house, the person count asks whom it belongs to. Opening one used to
+   *  open both, so every glance at a row's detail unrolled thirty person links
+   *  nobody had asked for. The places list beside this one splits them the same
+   *  way. */
+  const [open, setOpen] = useState<Set<string>>(new Set());
   const [peopleOpen, setPeopleOpen] = useState<Set<string>>(new Set());
 
+  const toggleOpen = (key: string) =>
+    setOpen((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
   const togglePeople = (key: string) =>
     setPeopleOpen((prev) => {
       const next = new Set(prev);
@@ -272,7 +286,12 @@ export function AddressCheckSection({
                     </div>
                     <ul className="tools-tree">
                 {group.findings.map((f) => {
-                  const isOpen = peopleOpen.has(f.key);
+                  // The one thing a row has to disclose: where the register
+                  // files this house. Every other verdict says all it has to
+                  // say on the header line.
+                  const hasDetail = f.verdict === "addrElsewhere" && !!f.officialPlace;
+                  const showPeople = peopleOpen.has(f.key);
+                  const isOpen = (hasDetail && open.has(f.key)) || showPeople;
                   return (
                     <li key={f.key} className={`tools-tree-node${f.dismissed ? " dismissed" : ""}`}>
                       {/* The shape the places findings use: the value the file
@@ -282,7 +301,8 @@ export function AddressCheckSection({
                           eye runs down two clean columns. */}
                       <GeoRowHeader
                         open={isOpen}
-                        onToggle={() => togglePeople(f.key)}
+                        caret={hasDetail}
+                        onToggle={() => toggleOpen(f.key)}
                         // Not the header's `address` slot, and not
                         // .tools-geo-row-addr: that class draws the pin that
                         // marks a *position* everywhere in the app, and this
@@ -321,7 +341,7 @@ export function AddressCheckSection({
                           </button>
                           <button
                             className="tools-chip-count tools-count-toggle"
-                            aria-pressed={isOpen}
+                            aria-pressed={showPeople}
                             aria-label={t("tools.geocode.peopleToggle")}
                             onClick={() => togglePeople(f.key)}
                           >
@@ -335,18 +355,20 @@ export function AddressCheckSection({
                               rather than done: the move belongs on the Addresses
                               tab, which has the map to check the house on before
                               anything is written. */}
-                          {f.verdict === "addrElsewhere" && f.officialPlace && (
+                          {hasDetail && open.has(f.key) && (
                             <p className="tools-fix-hint" title={t("tools.registerAddr.moveHint")}>
                               {t("tools.registerAddr.move", { place: f.officialPlace })}
                             </p>
                           )}
-                          <GeoPeopleList
-                            dataset={dataset}
-                            ids={f.people}
-                            place={f.place}
-                            kinship={kinship}
-                            onNavigate={onNavigate}
-                          />
+                          {showPeople && (
+                            <GeoPeopleList
+                              dataset={dataset}
+                              ids={f.people}
+                              place={f.place}
+                              kinship={kinship}
+                              onNavigate={onNavigate}
+                            />
+                          )}
                         </div>
                       )}
                     </li>
