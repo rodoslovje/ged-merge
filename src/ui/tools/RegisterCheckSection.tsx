@@ -387,7 +387,8 @@ export function RegisterCheckSection({
 
       {report.findings.length > 0 && (
         <>
-          {view.countryChips.length > 1 && (
+          {/* Shown even for a single country — see AddressCoordsSection. */}
+          {view.countryChips.length > 0 && (
             <div className="tools-chips">
               <button
                 className={`tools-chip ${view.activeCountry === null ? "active" : ""}`}

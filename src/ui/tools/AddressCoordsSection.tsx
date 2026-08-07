@@ -993,9 +993,11 @@ export function AddressCoordsSection({
         </button>
         .
       </p>
-      {/* One country's file has nothing to narrow, so the row appears from two
-          up — the same rule the places list follows. */}
-      {countryChips.length > 1 && (
+      {/* Shown even where the file names a single country: which country these
+          addresses stand in is worth stating outright, and a filter row that
+          comes and goes with the data reads as a glitch rather than a choice.
+          All four geocoding lists follow the same rule. */}
+      {countryChips.length > 0 && (
         <div className="tools-chips">
           <button
             className={`tools-chip ${activeCountry === null ? "active" : ""}`}

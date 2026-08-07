@@ -17,9 +17,10 @@ import {
   type AddressVerdict,
 } from "../../tools/addressCheck";
 import type { AddressRow } from "../../tools/addresses";
+import { countryOf } from "../../tools/geocode";
 import { REGISTER_DISMISSED } from "../../tools/registerCheck";
 import { useLocalRegisters } from "../useLocalRegisters";
-import { AppliedNote, GeoPeopleList, GeoRowHeader } from "./shared";
+import { AppliedNote, ExpandAllToggle, GeoPeopleList, GeoRowHeader } from "./shared";
 
 // The compliance tab's second half: the file's houses held against a downloaded
 // address register.
@@ -87,6 +88,8 @@ export function AddressCheckSection({
   const [report, setReport] = useState<AddressCheckReport | null>(null);
   const [running, setRunning] = useState<{ done: number; total: number } | null>(null);
   const [verdictFilter, setVerdictFilter] = useState<"all" | AddressVerdict>("all");
+  /** The country on screen — `null` = all of them. */
+  const [countryFilter, setCountryFilter] = useState<string | null>(null);
   const [showDismissed, setShowDismissed] = useState(false);
   /** Rows whose detail is showing, and — separately — rows showing their people.
    *  Two questions, two toggles: the caret asks what the register says about
@@ -96,6 +99,18 @@ export function AddressCheckSection({
    *  way. */
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [peopleOpen, setPeopleOpen] = useState<Set<string>>(new Set());
+  /** Which places are unfolded, folded away to begin with exactly as on the
+   *  geocoding addresses list: a village of fifty findings is one line naming
+   *  the place and counting them, and the list is read by places first. */
+  const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
+
+  const toggleGroup = (place: string) =>
+    setOpenGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(place)) next.delete(place);
+      else next.add(place);
+      return next;
+    });
 
   const toggleOpen = (key: string) =>
     setOpen((prev) => {
@@ -173,15 +188,38 @@ export function AddressCheckSection({
         (showDismissed || !f.dismissed) &&
         (verdictFilter === ADDRESS_ASIDE ? f.verdict === ADDRESS_ASIDE : f.verdict !== ADDRESS_ASIDE),
     );
-    const counts = { addrElsewhere: 0, addrSpelling: 0, addrMissing: 0 };
-    for (const f of report.findings) if (showDismissed || !f.dismissed) counts[f.verdict]++;
     const matched = query
       ? pool.filter((f) => foldSearch(f.place).includes(query) || foldSearch(f.written).includes(query))
       : pool;
-    const rows =
-      verdictFilter === "all" || verdictFilter === ADDRESS_ASIDE
-        ? matched
-        : matched.filter((f) => f.verdict === verdictFilter);
+    const inVerdict = (f: AddressFinding) =>
+      verdictFilter === "all" || verdictFilter === ADDRESS_ASIDE || f.verdict === verdictFilter;
+
+    // One chip per country the findings stand in — the place value's last comma
+    // part, the key the places compliance list and both geocoding lists chip on,
+    // so all four say the same thing about the same file. Shown even where the
+    // file names a single country: which country was held against which register
+    // is worth stating outright, and a filter row that comes and goes with the
+    // data reads as a glitch rather than as a choice.
+    const countries: string[] = [];
+    for (const f of pool) {
+      const c = countryOf(f.place);
+      if (!countries.includes(c)) countries.push(c);
+    }
+    const activeCountry = countryFilter !== null && countries.includes(countryFilter) ? countryFilter : null;
+    const inCountry = (f: AddressFinding) => activeCountry === null || countryOf(f.place) === activeCountry;
+    const countryChips = countries.map((code) => ({
+      code,
+      unknown: !code,
+      count: matched.filter((f) => countryOf(f.place) === code && inVerdict(f)).length,
+    }));
+    countryChips.sort((a, b) => b.count - a.count || a.code.localeCompare(b.code));
+    const countryAll = matched.filter(inVerdict).length;
+
+    // Every chip respects each filter but its own, so a picked country narrows
+    // the verdict counts exactly as a picked verdict narrows the country counts.
+    const counts = { addrElsewhere: 0, addrSpelling: 0, addrMissing: 0 };
+    for (const f of report.findings) if ((showDismissed || !f.dismissed) && inCountry(f)) counts[f.verdict]++;
+    const rows = matched.filter((f) => inVerdict(f) && inCountry(f));
     // Grouped under the place the houses belong to, the way the Addresses tab
     // groups its own rows: eleven findings in Ravna Gora are one village's
     // eleven houses, and repeating the place on every line said so eleven
@@ -200,14 +238,19 @@ export function AddressCheckSection({
       groups,
       counts,
       all: counts.addrElsewhere + counts.addrSpelling,
+      countryChips,
+      countryAll,
+      activeCountry,
       dismissedTotal: report.findings.filter((f) => f.dismissed).length,
     };
-  }, [report, query, verdictFilter, showDismissed]);
+  }, [report, query, verdictFilter, countryFilter, showDismissed]);
 
   // Nothing stored for any country the file writes: the check cannot be made,
   // and a disabled button explaining why would only be a second copy of the
   // download it wants (Settings › Map). Say nothing at all.
   if (!askable.length) return null;
+
+  const allGroupsOpen = !!view && view.groups.length > 0 && view.groups.every((g) => openGroups.has(g.place));
 
   return (
     <section className="tools-cleanup-section" style={hidden ? { display: "none" } : undefined}>
@@ -243,6 +286,24 @@ export function AddressCheckSection({
             <>
               <div className="tools-chips">
                 <button
+                  className={`tools-chip ${view.activeCountry === null ? "active" : ""}`}
+                  onClick={() => setCountryFilter(null)}
+                >
+                  {t("tools.geocode.filter.all")} <span className="tools-chip-count">{view.countryAll}</span>
+                </button>
+                {view.countryChips.map((c) => (
+                  <button
+                    key={c.code || "?"}
+                    className={`tools-chip ${view.activeCountry === c.code ? "active" : ""}`}
+                    onClick={() => setCountryFilter(c.code)}
+                  >
+                    {c.unknown ? t("tools.geocode.countryUnknown") : c.code}{" "}
+                    <span className="tools-chip-count">{c.count}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="tools-chips">
+                <button
                   className={`tools-chip ${verdictFilter === "all" ? "active" : ""}`}
                   onClick={() => setVerdictFilter("all")}
                 >
@@ -258,6 +319,18 @@ export function AddressCheckSection({
                     {t(`tools.registerAddr.verdict.${v}`)} <span className="tools-chip-count">{view.counts[v]}</span>
                   </button>
                 ))}
+                {/* A view control, beside the other view controls — the same
+                    place the geocoding addresses list keeps its own. */}
+                <ExpandAllToggle
+                  allOpen={allGroupsOpen}
+                  onToggle={() => {
+                    if (allGroupsOpen) {
+                      setOpenGroups(new Set());
+                      setOpen(new Set());
+                      setPeopleOpen(new Set());
+                    } else setOpenGroups(new Set(view.groups.map((g) => g.place)));
+                  }}
+                />
                 {(view.dismissedTotal > 0 || showDismissed) && (
                   <label className="tools-reshape-site" title={t("tools.register.showDismissedHint")}>
                     <input
@@ -272,18 +345,25 @@ export function AddressCheckSection({
               </div>
               <AppliedNote count={applied} />
               {!view.rows.length && <p className="tools-clean">{t("tools.search.noMatch")}</p>}
-              <ul className="tools-tree tools-register-list">
-                {view.groups.map((group) => (
+              <ul className="tools-geo-addr-list tools-register-list">
+                {view.groups.map((group) => {
+                  const groupOpen = openGroups.has(group.place);
+                  return (
                   <li key={group.place} className="tools-geo-addr-group">
-                    {/* The place the houses under it belong to, named once. */}
-                    <div className="tools-tree-row">
-                      <span className="tools-tree-label lead">
-                        {group.place || t("tools.geocode.addr.noPlace")}
-                      </span>
+                    {/* The place the houses under it belong to, named once and
+                        folding them away — the geocoding addresses list's own
+                        group header, so a village of fifty findings is one line
+                        until it is asked for. */}
+                    <GeoRowHeader
+                      open={groupOpen}
+                      onToggle={() => toggleGroup(group.place)}
+                      place={group.place || t("tools.geocode.addr.noPlace")}
+                    >
                       <span className="tools-geo-count">
                         {t("tools.registerAddr.groupMeta", { count: group.findings.length })}
                       </span>
-                    </div>
+                    </GeoRowHeader>
+                    {groupOpen && (
                     <ul className="tools-tree">
                 {group.findings.map((f) => {
                   // What a row has to disclose: where the register files this
@@ -409,8 +489,10 @@ export function AddressCheckSection({
                   );
                 })}
                     </ul>
+                    )}
                   </li>
-                ))}
+                  );
+                })}
               </ul>
               {view.rows.length > MAX_ROWS && (
                 <p className="tools-clean">{t("tools.geocode.more", { count: view.rows.length - MAX_ROWS })}</p>

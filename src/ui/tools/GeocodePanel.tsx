@@ -622,8 +622,8 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
             {placesActions}
           </div>
         )}
-      {/* One country's file shows no country row — there is nothing to narrow. */}
-      {countryChips.length > 1 && (
+      {/* Shown even for a single country — see AddressCoordsSection. */}
+      {countryChips.length > 0 && (
         <div className="tools-chips">
           <button
             className={`tools-chip ${activeCountry === null ? "active" : ""}`}
