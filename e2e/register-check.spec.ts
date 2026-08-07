@@ -3,7 +3,7 @@ import { writeFileSync } from "fs";
 import os from "os";
 import path from "path";
 
-// The compliance tab end to end: a micro GURS register is served from route
+// The compliance page end to end: a micro GURS register is served from route
 // fixtures, imported through the real Settings › Map one-click flow, and the
 // file's places are held against it — one compliant, one misspelled, one the
 // register does not know. The misspelled row takes the official name; the
@@ -45,7 +45,7 @@ const OBCINE = {
   ],
 };
 
-test("the compliance tab: official name taken, an unknown place dismissed and recalled", async ({ page }) => {
+test("the compliance page: official name taken, an unknown place dismissed and recalled", async ({ page }) => {
   // The GURS download is behind the online opt-in; seed it instead of driving
   // the settings toggle, which is not what this spec is about.
   await page.addInitScript(() => {
@@ -65,7 +65,12 @@ test("the compliance tab: official name taken, an unknown place dismissed and re
   // Import the register through the real one-click flow.
   await page.locator('button[title*="etting"]').first().click();
   await page.getByRole("tab", { name: "Map" }).click();
-  const gursBtn = page.getByRole("button", { name: /GURS \(Slovenia\)/ });
+  // The register's name is a label above its two downloads (places, addresses),
+  // not words inside either button — so the row is found by the name and the
+  // button by what it fetches.
+  const gursBtn = page
+    .locator(".tools-geo-source", { hasText: "GURS (Slovenia)" })
+    .getByRole("button", { name: "Places" });
   const imported = page.locator(".tools-geo-countries li", { hasText: "SI-GURS" });
   await gursBtn.click();
   try {
@@ -80,14 +85,15 @@ test("the compliance tab: official name taken, an unknown place dismissed and re
 
   await page.getByRole("button", { name: "Tools", exact: true }).click();
   await page.getByText("Places", { exact: true }).click();
-  await page.getByRole("button", { name: /Geocoding/ }).click();
+  // Compliance is its own page now, opened beside Geocoding rather than being
+  // a tab inside it.
+  await page.getByRole("button", { name: /Compliance/ }).click();
 
-  // The page opens on the compliance report. One place matches; the misspelled
-  // and the unknown one are findings, each under its verdict. (Locators are
-  // scoped to the findings rows — the Edit view stays mounted behind a
-  // display toggle, and its inputs carry the same place texts.)
+  // One place matches; the misspelled and the unknown one are findings, each
+  // under its verdict. (Locators are scoped to the findings rows — the Edit
+  // view stays mounted behind a display toggle, and its inputs carry the same
+  // place texts.)
   await expect(page.getByText(/1 of 3 match/)).toBeVisible({ timeout: 30000 });
-  await expect(page.getByRole("tab", { name: /Compliance/ })).toContainText("2");
   // Scoped to the compliance section: the Places tab stays mounted behind a
   // display toggle and lists the very same place values. A RegExp, not a
   // string — hasText strings additionally match case-insensitively.
@@ -102,7 +108,6 @@ test("the compliance tab: official name taken, an unknown place dismissed and re
   // the two values merge into one distinct place, and the findings shrink.
   await spelling.getByRole("button", { name: "Use official name" }).click();
   await expect(page.getByText(/1 of 2 match/)).toBeVisible({ timeout: 15000 });
-  await expect(page.getByRole("tab", { name: /Compliance/ })).toContainText("1");
 
   // Dismissing the unknown place files it under "Show dismissed" (a decision
   // in this browser, never in the file) — and restoring brings it back.
