@@ -1196,15 +1196,19 @@ export function searchGazetteer(index: GazetteerIndex, rawQuery: string, limit =
   const scored: { entry: GazEntry; rank: number }[] = [];
   for (const e of index.entries) {
     if (wantCountry && e.country !== wantCountry) continue;
-    // 0 = the whole name, 1 = a prefix of it, 2 = a whole word of it,
-    // 3 = contained anywhere.
+    // 0 = the whole name, 1 = a whole word of it ("Srednja Bela", "Bela Peč"
+    // — the qualified forms a bare name usually stands for), 2 = a mere
+    // letter-prefix ("Belaci"), 3 = contained anywhere. Word beats prefix on
+    // purpose: one register can hold a dozen "Bela…" spellings, and ranked
+    // above the qualified villages they crowd out exactly the names the
+    // search exists to surface.
     let rank = 4;
     for (const raw of [e.name, e.ascii, ...e.alt]) {
       if (!raw) continue;
       const n = foldToken(raw);
       if (n === folded) rank = Math.min(rank, 0);
-      else if (n.startsWith(folded)) rank = Math.min(rank, 1);
-      else if (wordRe.test(n)) rank = Math.min(rank, 2);
+      else if (wordRe.test(n)) rank = Math.min(rank, 1);
+      else if (n.startsWith(folded)) rank = Math.min(rank, 2);
       else if (n.includes(folded)) rank = Math.min(rank, 3);
       // "Sveti Duh" finds the register's "Sv. Duh" here as well.
       else if (saintQuery && saintKey(raw) === saintQuery) rank = Math.min(rank, 0);

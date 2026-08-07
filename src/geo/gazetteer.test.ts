@@ -808,26 +808,27 @@ describe("searchGazetteer", () => {
     name, ascii: "", alt: [], lat: 46, lon: 14, fclass: "P", country: "SI", admin1: "", population: 100, ...over,
   });
 
-  it("offers prefix matches before merely contained ones", () => {
+  it("offers whole-word matches before letter-prefixes and substrings", () => {
     const index = buildGazetteerIndex([
       entry("Spodnje Zabukovje"),
       entry("Zabukovje pri Sevnici"),
       entry("Zabukovje"),
     ]);
-    // Exact first, then the prefix, then the name that only contains the text.
+    // Exact first; both qualified forms carry the query as a whole word and
+    // tie, ordered by name.
     expect(searchGazetteer(index, "Zabukovje").map((e) => e.name)).toEqual([
       "Zabukovje",
-      "Zabukovje pri Sevnici",
       "Spodnje Zabukovje",
+      "Zabukovje pri Sevnici",
     ]);
   });
 
-  it("ranks the query as a whole word above a mere substring", () => {
+  it("ranks the query as a whole word above a letter-prefix and a substring", () => {
     // Slovenian qualified villages put the qualifier first, so the register's
     // forms of a written "Bela" — Srednja/Zgornja Bela — are mid-name matches.
-    // They must outrank names that merely contain the letters, and must not be
-    // crowded out entirely (the old two-tier ranking listed every "Bela…"
-    // prefix above them and a tight caller cap cut them off).
+    // A register can hold a dozen "Bela…" spellings (Belaci, Belaj, Belafuža,
+    // …); ranked above the qualified villages they crowded out exactly the
+    // names the wider search exists to surface, and the caller's cap cut them.
     const index = buildGazetteerIndex([
       entry("Cimbela"),
       entry("Srednja Bela"),
@@ -837,9 +838,9 @@ describe("searchGazetteer", () => {
     ]);
     expect(searchGazetteer(index, "Bela").map((e) => e.name)).toEqual([
       "Bela",
-      "Belaci",
       "Srednja Bela",
       "Zgornja Bela",
+      "Belaci",
       "Cimbela",
     ]);
   });
