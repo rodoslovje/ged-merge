@@ -46,6 +46,14 @@ const BADGE: Record<AddressVerdict, string> = {
   addrMissing: "reuse",
 };
 
+/** What a row has to disclose behind its caret: where the register files this
+ *  house, or — for a spelling — the register's own full line behind the address
+ *  that would replace it. A number the register lacks says all it has to say on
+ *  the header line. */
+function hasDetail(f: AddressFinding): boolean {
+  return (f.verdict === "addrElsewhere" && !!f.officialPlace) || !!f.officialAddress;
+}
+
 /** Addresses resolved per pass, so a long file fills in rather than freezing. */
 const CHUNK = 200;
 
@@ -284,7 +292,17 @@ export function AddressCheckSection({
   // download it wants (Settings › Map). Say nothing at all.
   if (!askable.length) return null;
 
-  const allGroupsOpen = !!view && view.groups.length > 0 && view.groups.every((g) => openGroups.has(g.place));
+  /** The rows "expand all" opens under the places it opens. A grouped list has
+   *  two levels, and opening only the outer one stopped exactly where the answer
+   *  is: what the register itself says about the house, which lives behind the
+   *  row's own caret. The flat places list next door opens its rows, so this
+   *  opens both. */
+  const detailRows = view ? view.groups.flatMap((g) => g.findings.filter(hasDetail).map((f) => f.key)) : [];
+  const allOpen =
+    !!view &&
+    view.groups.length > 0 &&
+    view.groups.every((g) => openGroups.has(g.place)) &&
+    detailRows.every((key) => open.has(key));
   /** Every listed house whose spelling the register would rewrite — what the
    *  bulk button offers, counted over what is on screen so the number and the
    *  list agree. */
@@ -364,13 +382,17 @@ export function AddressCheckSection({
                 {/* A view control, beside the other view controls — the same
                     place the geocoding addresses list keeps its own. */}
                 <ExpandAllToggle
-                  allOpen={allGroupsOpen}
+                  allOpen={allOpen}
                   onToggle={() => {
-                    if (allGroupsOpen) {
+                    if (allOpen) {
                       setOpenGroups(new Set());
                       setOpen(new Set());
                       setPeopleOpen(new Set());
-                    } else setOpenGroups(new Set(view.groups.map((g) => g.place)));
+                      setMapOpen(null);
+                    } else {
+                      setOpenGroups(new Set(view.groups.map((g) => g.place)));
+                      setOpen(new Set(detailRows));
+                    }
                   }}
                 />
                 {(view.dismissedTotal > 0 || showDismissed) && (
@@ -416,13 +438,9 @@ export function AddressCheckSection({
                     // heading, so a village and its houses read as one flat run.
                     <ul className="tools-tree-children tools-geo-addr-sublist">
                 {group.findings.map((f) => {
-                  // What a row has to disclose: where the register files this
-                  // house, or — for a spelling — the register's own full line
-                  // behind the address that would replace it. A number the
-                  // register lacks says all it has to say on the header line.
-                  const hasDetail = (f.verdict === "addrElsewhere" && !!f.officialPlace) || !!f.officialAddress;
+                  const detail = hasDetail(f);
                   const showPeople = peopleOpen.has(f.key);
-                  const isOpen = (hasDetail && open.has(f.key)) || showPeople;
+                  const isOpen = (detail && open.has(f.key)) || showPeople;
                   return (
                     <li key={f.key} className={`tools-geo-addr-row${f.dismissed ? " dismissed" : ""}`}>
                       {/* The shape the places findings use: the value the file
@@ -432,7 +450,7 @@ export function AddressCheckSection({
                           eye runs down two clean columns. */}
                       <GeoRowHeader
                         open={isOpen}
-                        caret={hasDetail}
+                        caret={detail}
                         // The address lists' row line: it wraps, and it is the
                         // smaller type a house sits in, so both read alike.
                         className="tools-geo-addr-head"
