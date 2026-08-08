@@ -46,12 +46,12 @@ const BADGE: Record<AddressVerdict, string> = {
   addrMissing: "reuse",
 };
 
-/** What a row has to disclose behind its caret: where the register files this
- *  house, or — for a spelling — the register's own full line behind the address
- *  that would replace it. A number the register lacks says all it has to say on
- *  the header line. */
+/** What a row has to disclose behind its caret: the register's own full line for
+ *  the house — the answer every finding here is drawn from — and the map of
+ *  where it puts it. A number the register lacks has no line to show, and says
+ *  all it has to say on the header. */
 function hasDetail(f: AddressFinding): boolean {
-  return (f.verdict === "addrElsewhere" && !!f.officialPlace) || !!f.officialAddress;
+  return !!f.official;
 }
 
 /** Addresses resolved per pass, so a long file fills in rather than freezing. */
@@ -475,23 +475,26 @@ export function AddressCheckSection({
                             as the answer this is drawn from.
 
                             A settlement finding changes no address text at all —
-                            it moves the events — so what stands there is the
-                            place they would move to. Showing the register's
-                            postal line instead read as a rewrite of the address,
-                            one that appeared to drop the researcher's own note.
-                            A row with nothing to write at all shows the
-                            register's line itself: there the register's own
-                            words are the whole finding. */}
+                            it moves the events — so it stands there written out
+                            as it would be afterwards: the address unchanged, the
+                            new place beside it. The place alone read as a
+                            replacement of the address, and the register's postal
+                            line before that read as one that dropped the
+                            researcher's own note. A row with nothing to write at
+                            all shows the register's line itself: there the
+                            register's own words are the whole finding. */}
                         {(() => {
-                          const becomes =
-                            f.verdict === "addrElsewhere"
-                              ? (f.officialPlace ?? f.settlement ?? f.official)
-                              : (f.officialAddress ?? f.official);
+                          const moves = f.verdict === "addrElsewhere";
+                          const becomes = moves
+                            ? f.written
+                            : (f.officialAddress ?? f.official);
+                          const into = moves ? (f.officialPlace ?? f.settlement) : undefined;
                           return (
                             becomes && (
                               <>
                                 <span aria-hidden="true" className="tools-register-place">→</span>
                                 <span className="tools-geo-cand-name">{becomes}</span>
+                                {into && <span className="tools-register-place">{into}</span>}
                               </>
                             )
                           );
@@ -531,15 +534,6 @@ export function AddressCheckSection({
                       </GeoRowHeader>
                       {isOpen && (
                         <div className="tools-geo-conflict-body">
-                          {/* Where the register would put these events. Named
-                              rather than done: the move belongs on the Addresses
-                              tab, which has the map to check the house on before
-                              anything is written. */}
-                          {open.has(f.key) && f.verdict === "addrElsewhere" && f.officialPlace && (
-                            <p className="tools-fix-hint" title={t("tools.registerAddr.moveHint")}>
-                              {t("tools.registerAddr.move", { place: f.officialPlace })}
-                            </p>
-                          )}
                           {/* Where the register puts the house — the question
                               behind every finding here, and the one a name
                               alone cannot settle. Asked for by a click, like
@@ -568,31 +562,48 @@ export function AddressCheckSection({
                             />
                           )}
                           {/* The register's own answer, in the shape every other
-                              geocoding list shows an answer in — one option to
-                              take or leave. Taking it writes the address above,
+                              geocoding list shows an answer in — one numbered
+                              line, tied to the pin the map above draws for it.
+                              Every finding drawn from a register line shows it
+                              here, in the same shape: a settlement finding used
+                              to state its place in prose instead, so the one
+                              thing the two verdicts share looked like two
+                              different things.
+
+                              Where there is a spelling to take, the line is that
+                              option: taking it writes the address in the header,
                               which is this line minus the post code and plus
-                              whatever note the file's own value ends with. */}
-                          {open.has(f.key) && f.officialAddress && f.official && (
+                              whatever note the file's own value ends with. A
+                              settlement finding offers nothing to click — the
+                              move belongs on the Addresses tab, which has the
+                              map to check the house on first. */}
+                          {open.has(f.key) && f.official && (
                             <ul className="tools-geo-candidates">
                               <li>
-                                <label>
-                                  <input
-                                    type="radio"
-                                    className="tools-geo-cand-radio"
-                                    name={`registerAddr-${f.key}`}
-                                    aria-label={f.official}
-                                    disabled={f.dismissed}
-                                    checked={false}
-                                    onChange={() => takeOfficial([f])}
-                                  />
-                                  {/* The number IS the control everywhere on
-                                      these pages — the input itself is clipped
-                                      to a pixel, so an option without it drew
-                                      no control at all — and it ties the line
-                                      to the pin the map above draws for it. */}
-                                  <span className="tools-geo-cand-num">1</span>
-                                  <span className="tools-geo-cand-name">{f.official}</span>
-                                </label>
+                                {f.officialAddress ? (
+                                  <label>
+                                    <input
+                                      type="radio"
+                                      className="tools-geo-cand-radio"
+                                      name={`registerAddr-${f.key}`}
+                                      aria-label={f.official}
+                                      disabled={f.dismissed}
+                                      checked={false}
+                                      onChange={() => takeOfficial([f])}
+                                    />
+                                    {/* The number IS the control everywhere on
+                                        these pages — the input itself is clipped
+                                        to a pixel, so an option without it drew
+                                        no control at all. */}
+                                    <span className="tools-geo-cand-num">1</span>
+                                    <span className="tools-geo-cand-name">{f.official}</span>
+                                  </label>
+                                ) : (
+                                  <span className="tools-geo-cand-line" title={t("tools.registerAddr.moveHint")}>
+                                    <span className="tools-geo-cand-num">1</span>
+                                    <span className="tools-geo-cand-name">{f.official}</span>
+                                  </span>
+                                )}
                               </li>
                             </ul>
                           )}

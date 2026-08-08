@@ -8655,6 +8655,9 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 .tools-geo-candidates { list-style: none; margin: 0 0 8px; padding: 0; }
 .tools-geo-candidates li { padding: 2px 0; }
 .tools-geo-candidates label { position: relative; display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.9rem; }
+/* The same numbered line where there is nothing to pick — a register answer
+   shown as the source of a finding, not offered as a choice. */
+.tools-geo-candidates .tools-geo-cand-line { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; }
 .tools-geo-cand-name { font-weight: 500; }
 /* The answer's number, which is also the row's radio: it ties the line to its
    pin on the coordinate panel's map, so a separate round control beside it

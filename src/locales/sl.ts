@@ -551,7 +551,6 @@ export const sl = {
   "tools.registerAddr.takeHint": "Na vse dogodke pri tej hiši zapiše »{{address}}«, kakor jo piše register.",
   "tools.registerAddr.takeAll": "Prevzemi uradne naslove ({{count}})",
   "tools.registerAddr.takeAllHint": "Vse naštete hiše prepiše v registrski zapis, pripis iz datoteke pa ohrani — ena poteza razveljavitve",
-  "tools.registerAddr.move": "register: {{place}}",
   "tools.registerAddr.moveHint": "Te dogodke premaknite na zavihku Naslovi, kjer je hišo pred zapisom mogoče potrditi na zemljevidu.",
   "tools.register.heading": "Kraji v primerjavi z registrom",
   "tools.register.intro": "Vsak kraj v državi, katere imenik krajev ste naložili, se primerja z njim: kako je ime zapisano, kam je kraj uvrščen, kje leži in ali je vanj zašel še hišni naslov. Kadar isto državo pokrivata dva imenika, odgovorita oba, prednost pa ima uradni register. To niso napake, ampak vprašanja za vašo presojo: register opisuje današnjo državo, vaša datoteka pa nekdanjo, zato je ime, ki ga register ne pozna več, pogosto povsem pravilno. Takega skrijte in ne bo več na seznamu.",
