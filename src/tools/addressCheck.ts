@@ -1,6 +1,7 @@
 import { addressStreetName, bracketedTail } from "../gedcom/place";
 import type { GeoCoord } from "../gedcom/types";
-import type { AddressHit } from "../geo/addressRegister";
+import { sameStreet, type AddressHit } from "../geo/addressRegister";
+import { abbreviates } from "../geo/rn";
 import { foldToken } from "../match/text";
 import type { GeocodeDecision } from "../persist/geoDb";
 import type { AddressRow } from "./addresses";
@@ -33,7 +34,7 @@ import { replaceLocality } from "./addresses";
  *   also the one finding here that moves events rather than rewords them
  * - `addrSpelling` the register writes the street differently ("Kidričeva" for
  *   its "Kidričeva cesta", "Ul. Senjsko" for its "Senjsko")
- * - `addrMissing` the register has no such number in this settlement — off the
+ * - `addrMissing` the register has no such house as the file writes it — off the
  *   list by default; see the note above
  */
 export type AddressVerdict = "addrElsewhere" | "addrSpelling" | "addrMissing";
@@ -100,6 +101,36 @@ export interface AddressCheckReport {
 const RANK: Record<AddressVerdict, number> = { addrElsewhere: 0, addrSpelling: 1, addrMissing: 2 };
 
 /**
+ * Whether a register answer is about the house the file writes, rather than
+ * merely a house of that number.
+ *
+ * A lookup widens until it finds something — past the street, past the
+ * settlement, out to "any house in the village carrying this number" (see
+ * searchBucket and searchLocalAddress). That is right where the answer is a
+ * *candidate*: the Addresses tab offers it and the researcher decides. It is
+ * ruinous as a *verdict*, because a wide answer shares nothing with the written
+ * address but its digits — and the check would then report the file's "Stražišče
+ * 109" as a misspelling of Kranj's Jezerska cesta 109, or "Klošter 52" as really
+ * belonging to Cankarjeva cesta in Metlika. Both are simply houses numbered 52
+ * and 109 in a large municipality, and the register recognized nothing the
+ * researcher wrote.
+ *
+ * So a finding needs the register's own words to agree with the file's: the
+ * street it names is the street written ("Kidričeva cesta" for "Kidričeva"), or
+ * the settlement it files the house under is the name the number hangs off
+ * ("Dupeljne 11" written under Brdo pri Lukovici — village numbering, and the
+ * real `addrElsewhere`). An address that names nothing but a number can only be
+ * anchored by the settlement its place claims.
+ *
+ * Anything else is `addrMissing`: the register has no such house as written,
+ * which is the honest reading and stays off the default list.
+ */
+function anchored(hit: AddressHit, host: string | undefined, claimed: string | undefined): boolean {
+  if (host) return sameStreet(host, hit.street) || abbreviates(host, hit.settlement);
+  return !claimed || !hit.settlement || foldToken(claimed) === foldToken(hit.settlement);
+}
+
+/**
  * Hold each address against what the register answered for it.
  *
  * `answers` is what the caller resolved — one entry per row it *asked* about,
@@ -151,10 +182,20 @@ export function checkAddressesAgainstRegister(
     }
     const hit = hits[0];
 
+    // The name the file hangs the number off — a town street, or the village in
+    // village numbering. Also what decides whether the answer is about this
+    // house at all.
+    const street = addressStreetName(row.address);
     // The settlement the row claims — the place's own, as the query was built
-    // from it. A register that files the house elsewhere is the strongest
-    // finding here: the events belong to another village.
+    // from it.
     const claimed = row.queries[0]?.settlement;
+    if (!anchored(hit, street, claimed)) {
+      add("addrMissing", {});
+      continue;
+    }
+
+    // A register that files the house elsewhere is the strongest finding here:
+    // the events belong to another village.
     if (claimed && hit.settlement && foldToken(claimed) !== foldToken(hit.settlement)) {
       const officialPlace = replaceLocality(row.place, hit.settlement);
       add("addrElsewhere", {
@@ -170,7 +211,6 @@ export function checkAddressesAgainstRegister(
     // value carrying just a number ("38/a") is not misspelt — it is a different
     // shape, and rewriting it whole is the Addresses tab's business, not a
     // compliance finding.
-    const street = addressStreetName(row.address);
     if (street && hit.street && foldToken(street) !== foldToken(hit.street)) {
       add("addrSpelling", {
         official: hit.label,

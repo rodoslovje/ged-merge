@@ -483,7 +483,7 @@ export const en = {
   "tools.registerAddr.verdict.addrMissing": "No such house",
   "tools.registerAddr.hint.addrElsewhere": "The register files this house under a different settlement than the place names — the events may belong to the neighbouring village.",
   "tools.registerAddr.hint.addrSpelling": "The register writes the street differently.",
-  "tools.registerAddr.hint.addrMissing": "The register has no such house number in this settlement. Off the list by default: for a file of parish records this is the ordinary condition, not a fault.",
+  "tools.registerAddr.hint.addrMissing": "The register has no such house here — no street of that name, or no such number on it. Off the list by default: for a file of parish records this is the ordinary condition, not a fault.",
   "tools.registerAddr.takeHint": "Write “{{address}}” on every event at this house — the register's own spelling.",
   "tools.registerAddr.takeAll": "Take official addresses ({{count}})",
   "tools.registerAddr.takeAllHint": "Rewrite every listed house to the register's spelling, keeping whatever note the file's own value ends with — one undo step",

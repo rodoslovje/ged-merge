@@ -547,7 +547,7 @@ export const sl = {
   "tools.registerAddr.verdict.addrMissing": "Ni take hiše",
   "tools.registerAddr.hint.addrElsewhere": "Register to hišo vodi pod drugim naseljem, kot ga navaja kraj — dogodki morda spadajo v sosednjo vas.",
   "tools.registerAddr.hint.addrSpelling": "Register ulico zapiše drugače.",
-  "tools.registerAddr.hint.addrMissing": "Register v tem naselju te hišne številke nima. Privzeto ni na seznamu: pri župnijskih vpisih je to običajno in ne napaka.",
+  "tools.registerAddr.hint.addrMissing": "Register take hiše tu nima — ne ulice s tem imenom ne te hišne številke na njej. Privzeto ni na seznamu: pri župnijskih vpisih je to običajno in ne napaka.",
   "tools.registerAddr.takeHint": "Na vse dogodke pri tej hiši zapiše »{{address}}«, kakor jo piše register.",
   "tools.registerAddr.takeAll": "Prevzemi uradne naslove ({{count}})",
   "tools.registerAddr.takeAllHint": "Vse naštete hiše prepiše v registrski zapis, pripis iz datoteke pa ohrani — ena poteza razveljavitve",

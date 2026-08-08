@@ -168,8 +168,11 @@ const sameName = (a: string | undefined, b: string | undefined): boolean =>
  *
  * A whole-word prefix only, and at least two words in the longer name, so
  * "Kidričeva" cannot swallow a settlement it merely starts like.
+ *
+ * Exported because it is also how the compliance check asks whether a register
+ * answer names the settlement the file wrote — see `addressCheck.ts`.
  */
-function abbreviates(host: string | undefined, settlement: string | undefined): boolean {
+export function abbreviates(host: string | undefined, settlement: string | undefined): boolean {
   if (!host || !settlement) return false;
   const h = host.trim().toLowerCase();
   const s = settlement.trim().toLowerCase();

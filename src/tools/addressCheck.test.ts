@@ -107,6 +107,79 @@ describe("checkAddressesAgainstRegister", () => {
     expect(report.ok).toBe(1);
   });
 
+  it("does not read a house of the same number as a misspelling of the written one", () => {
+    // "Stražišče 109" in the file, and Kranj's register answering with the only
+    // 109 it could find anywhere in the town. Nothing but the digits matched:
+    // the register knows no Stražišče in Kranj, so this is not a spelling.
+    const r = row({
+      key: "kranj|strazisce 109",
+      place: "Kranj, Kranj, Slovenija",
+      address: "Stražišče 109",
+      queries: [{ settlement: "Kranj", street: "Stražišče", number: 109 }],
+    });
+    const report = checkAddressesAgainstRegister(
+      [r],
+      new Map([[r.key, [hit({ address: "Jezerska cesta 109", street: "Jezerska cesta", settlement: "Kranj" })]]]),
+      NO_DECISIONS,
+    );
+    expect(report.findings.map((f) => f.verdict)).toEqual(["addrMissing"]);
+    expect(report.findings[0].official).toBeUndefined();
+  });
+
+  it("does not move a house to a settlement that merely owns the number", () => {
+    // The register has no Klošter 52, so the lookup widened to the town above
+    // it and came back with a Metlika street. That is not the house.
+    const r = row({
+      key: "kloster|52",
+      place: "Klošter, Metlika, Slovenija",
+      address: "Klošter 52",
+      queries: [{ settlement: "Klošter", number: 52, altSettlements: ["Metlika"], parents: ["Metlika"] }],
+    });
+    const report = checkAddressesAgainstRegister(
+      [r],
+      new Map([
+        [r.key, [hit({ address: "Cankarjeva cesta 52", street: "Cankarjeva cesta", settlement: "Metlika" })]],
+      ]),
+      NO_DECISIONS,
+    );
+    expect(report.findings.map((f) => f.verdict)).toEqual(["addrMissing"]);
+    expect(report.findings[0].officialPlace).toBeUndefined();
+  });
+
+  it("still reports a village the register files under its neighbour", () => {
+    // The written name *is* the register's settlement — village numbering, and
+    // the events really do belong to Dupeljne.
+    const r = row({
+      key: "brdo|dupeljne 11",
+      place: "Brdo pri Lukovici, Lukovica, Slovenija",
+      address: "Dupeljne 11",
+      queries: [{ settlement: "Brdo pri Lukovici", street: "Dupeljne", number: 11 }],
+    });
+    const report = checkAddressesAgainstRegister(
+      [r],
+      new Map([[r.key, [hit({ address: "Dupeljne 11", settlement: "Dupeljne", label: "Dupeljne 11, 1225 Lukovica" })]]]),
+      NO_DECISIONS,
+    );
+    expect(report.findings[0]).toMatchObject({ verdict: "addrElsewhere", settlement: "Dupeljne" });
+  });
+
+  it("still reports a street the register files under the town", () => {
+    // The street matched exactly; only the settlement differs — the strong
+    // reading of "elsewhere", and the one worth acting on.
+    const r = row({
+      key: "strazisce|hafnarjeva pot 21",
+      place: "Stražišče, Kranj, Slovenija",
+      address: "Hafnarjeva pot 21",
+      queries: [{ settlement: "Stražišče", street: "Hafnarjeva pot", number: 21 }],
+    });
+    const report = checkAddressesAgainstRegister(
+      [r],
+      new Map([[r.key, [hit({ address: "Hafnarjeva pot 21", street: "Hafnarjeva pot", settlement: "Kranj" })]]]),
+      NO_DECISIONS,
+    );
+    expect(report.findings[0]).toMatchObject({ verdict: "addrElsewhere", settlement: "Kranj" });
+  });
+
   it("reports a number the register does not have", () => {
     const r = row({ key: "strazisce|114", place: "Stražišče, Kranj, Slovenija", address: "Stražišče 114" });
     const report = checkAddressesAgainstRegister([r], new Map([[r.key, []]]), NO_DECISIONS);
