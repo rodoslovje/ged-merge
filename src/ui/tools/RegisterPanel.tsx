@@ -20,6 +20,7 @@ import { useNameOf, useSettings } from "../SettingsContext";
 import { useLocalRegisters } from "../useLocalRegisters";
 import { ToolsLoading, TreeSearch, useDebounced } from "./shared";
 import { ToolSummary } from "./ToolSummary";
+import { useHomeCountry } from "../DatasetDerivations";
 
 // The compliance report, as its own page.
 //
@@ -72,6 +73,8 @@ export function RegisterPanel({
   const { settings: appSettings } = useSettings();
   useNameOf();
   const derivations = useDatasetDerivations();
+  // What a place naming no country is held to — see GeocodePanel.
+  const home = useHomeCountry();
 
   // Esc returns to the Places tree, as it does from the geocode tool.
   useEffect(() => {
@@ -149,11 +152,11 @@ export function RegisterPanel({
       return;
     }
     const id = window.setTimeout(
-      () => setReport(checkPlacesAgainstRegister(dataset, index, decisions, placeStyle.fmt)),
+      () => setReport(checkPlacesAgainstRegister(dataset, index, decisions, placeStyle.fmt, home)),
       0,
     );
     return () => window.clearTimeout(id);
-  }, [dataset, index, decisions, hasRegister, placeStyle, scanGen]);
+  }, [dataset, index, decisions, hasRegister, placeStyle, scanGen, home]);
 
   const [tab, setTab] = useState<"places" | "addresses">("places");
   /** How many address findings there are, once the check has been run — null

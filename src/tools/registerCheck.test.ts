@@ -135,6 +135,32 @@ describe("checkPlacesAgainstRegister", () => {
     expect(report.skipped).toBe(2);
   });
 
+  it("judges a place naming no country once the file's home country is known", () => {
+    // The same two values the cautious reading leaves unjudged: with a home
+    // country they are Slovenian places, and the register can say whether it
+    // knows them.
+    const ds = fileWith(place("Neznani Kraj ZZ"), place("Vrh"));
+    const cautious = checkPlacesAgainstRegister(ds, REGISTER, NO_DECISIONS);
+    // Only the one the register happens to match is judged at all; the name it
+    // does not know goes unmentioned, since it might be anywhere.
+    expect(cautious.checked).toBe(1);
+    expect(cautious.skipped).toBe(1);
+    const withHome = checkPlacesAgainstRegister(ds, REGISTER, NO_DECISIONS, undefined, "si");
+    expect(withHome.checked).toBe(2);
+    expect(withHome.skipped).toBe(0);
+    expect(withHome.findings.map((f) => f.key)).toEqual(["Neznani Kraj ZZ"]);
+    expect(withHome.findings[0].verdict).toBe("notFound");
+  });
+
+  it("leaves a place naming no country out where no register covers the home country", () => {
+    // Assuming a country we hold nothing for changes nothing: out of scope is
+    // out of scope, and a Slovenian register may not answer for Austria.
+    const ds = fileWith(place("Neznani Kraj ZZ"));
+    const report = checkPlacesAgainstRegister(ds, REGISTER, NO_DECISIONS, undefined, "at");
+    expect(report.checked).toBe(0);
+    expect(report.skipped).toBe(1);
+  });
+
   it("holds a country to its own registers however the file names it", () => {
     // "Črna gora" is Montenegro to everyone but a table of English names, and a
     // place there was being answered by the Slovenian and Croatian registers —

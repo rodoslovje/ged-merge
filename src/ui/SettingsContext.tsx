@@ -19,6 +19,7 @@ import {
   type NameOrder,
 } from "../gedcom/nameDisplay";
 import { sanitizeFormatOverrides, type FormatOverrides } from "../normalize/formatOverrides";
+import { HOME_COUNTRY_AUTO, HOME_COUNTRY_NONE } from "../geo/homeCountry";
 import { INDI_EVENT_TAGS } from "../gedcom/eventTags";
 import type { NativePyramid } from "./map/tilePlan";
 import { CUSTOM_BASEMAP, isKnownBasemap } from "./map/basemapPresets";
@@ -139,6 +140,12 @@ export interface AppSettings extends NameDisplayOptions {
   /** Adding a wife to a husband with a known surname records his surname as
    *  her married name (in the file's own convention). Opt-in. */
   marriedNameFromPartner: boolean;
+  /** Which country a place that names none is taken to be in:
+   *  {@link HOME_COUNTRY_AUTO} to follow the file (the country most of its
+   *  places name), {@link HOME_COUNTRY_NONE} to assume nothing, or an ISO
+   *  3166-1 alpha-2 code. Genealogists leave their own country out, so the
+   *  file's silent majority is usually its home country. */
+  homeCountry: string;
 }
 
 const DEFAULTS: AppSettings = {
@@ -156,6 +163,7 @@ const DEFAULTS: AppSettings = {
   persistWorkspace: false,
   quickEventTags: ["BIRT", "RESI", "OCCU", "DEAT", "BURI"],
   marriedNameFromPartner: false,
+  homeCountry: HOME_COUNTRY_AUTO,
 };
 
 /** Digits 1–9 trigger the quick-add buttons, so the list is capped at nine. */
@@ -172,6 +180,14 @@ function sanitizeQuickEventTags(v: unknown): string[] {
     if (seen.size === MAX_QUICK_EVENTS) break;
   }
   return [...seen];
+}
+
+/** A saved home country: the two policies, or an ISO 3166-1 alpha-2 code.
+ *  Anything else (a blob from another version, a hand-edited value) falls back
+ *  to following the file. */
+function sanitizeHomeCountry(v: unknown): string {
+  if (v === HOME_COUNTRY_AUTO || v === HOME_COUNTRY_NONE) return v;
+  return typeof v === "string" && /^[a-z]{2}$/i.test(v) ? v.toLowerCase() : DEFAULTS.homeCountry;
 }
 
 const STORAGE_KEY = "gedmerge.settings";
@@ -342,6 +358,7 @@ function load(): AppSettings {
       persistWorkspace: bool(parsed.persistWorkspace, DEFAULTS.persistWorkspace),
       quickEventTags: sanitizeQuickEventTags(parsed.quickEventTags),
       marriedNameFromPartner: bool(parsed.marriedNameFromPartner, DEFAULTS.marriedNameFromPartner),
+      homeCountry: sanitizeHomeCountry(parsed.homeCountry),
     };
   } catch {
     return DEFAULTS;

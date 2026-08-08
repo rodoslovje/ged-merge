@@ -8,6 +8,7 @@ import {
   collectFileCoords,
   confidentCandidate,
   countryOf,
+  planCountryFill,
   placeAddrKey,
   reconcileNoMatchAfterScan,
   reconcilePicksAfterScan,
@@ -23,15 +24,19 @@ import { loadDecisions, putDecisions, type GeocodeDecision } from "../../persist
 import { AppliedNote, ExpandAllToggle, ToolsLoading, TreeSearch, useDebounced } from "./shared";
 import { useVirtualList } from "../useVirtualList";
 import { createKinshipResolver } from "../../match/kinship";
-import { useDatasetDerivations } from "../DatasetDerivations";
+import { useDatasetDerivations, useHomeCountry } from "../DatasetDerivations";
 import { buildPlaceSuggestions, placeCombosOf } from "../edit/placeSuggestions";
 import { foldSearch } from "../globalSearch";
-import { PlaceLookupProvider, usePlaceLookupValue } from "../edit/PlaceLookupContext";
+import { PlaceLookupProvider, usePlaceLookupValue, usePlaceStyle } from "../edit/PlaceLookupContext";
 import { GazetteerSetup, useGazetteer } from "./GazetteerManager";
 import { AddressCoordsSection } from "./AddressCoordsSection";
 import { addressesByPlace, replaceLocality, scanAddresses, type AddressRename } from "../../tools/addresses";
 import { CoordConflicts } from "./CoordConflicts";
 import { CountryChips, type CountryChip } from "./CountryChips";
+import { countrySpelling, type HomeCountryDetection } from "../../geo/homeCountry";
+
+/** Stand-in while no file is loaded — nothing detected, nothing to write. */
+const EMPTY_HOME: HomeCountryDetection = { code: "", spelling: "", named: 0, namedTotal: 0, unnamed: 0 };
 import { GeocodePlaceRow, type RowLookups } from "./GeocodePlaceRow";
 import { BackButton } from "../BackButton";
 import { isEditableTarget, isModalOpen } from "../../keyboard/shortcuts";
@@ -100,13 +105,18 @@ interface Props {
 }
 
 export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onApplyAddressCoords, onRenamePlaceValue, onApplyOfficialNames, onRenameAddresses, onMovePlaceForAddresses, onBack, onNavigate, startId }: Props) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { settings: appSettings } = useSettings();
   const nameOf = useNameOf();
   // The whole-file derivations, shared with Edit — computed once per edit
   // instead of once per panel. Read inside scanGen-keyed memos below, so a
   // hidden panel still defers its catch-up to the moment it is shown.
   const derivations = useDatasetDerivations();
+  // What a place naming no country is taken to be in — the file's own home
+  // country unless the reader has said otherwise (Settings → GEDCOM) — and how
+  // the file itself writes that country, for the rows that would take it on.
+  const home = useHomeCountry();
+  const detection = derivations?.homeCountry() ?? EMPTY_HOME;
 
   // Esc returns to the Places tree, like leaving Organize sources. Only while
   // this panel is the one on screen: it stays mounted (staged picks must
@@ -158,10 +168,10 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
   useEffect(() => {
     if (!decisions) return;
     // scanGen re-runs the scan after an apply mutates the dataset in place.
-    const id = window.setTimeout(() => setScan(scanGeocode(dataset, index, decisions)), 0);
+    const id = window.setTimeout(() => setScan(scanGeocode(dataset, index, decisions, home)), 0);
     return () => window.clearTimeout(id);
-     
-  }, [dataset, index, decisions, scanGen]);
+
+  }, [dataset, index, decisions, scanGen, home]);
 
   // Existing place values for the rename input's autocomplete — the same
   // suggestion list (and canonical casing) the Edit-mode event fields use.
@@ -180,6 +190,9 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
   // so a place the file has never written can be completed (chain, address,
   // coordinate) here too instead of being typed out by hand.
   const placeLookup = usePlaceLookupValue(dataset, placeSug.placeSuggestions);
+  // How this file writes a place — its separator is what joins a value to the
+  // country written into it below.
+  const placeStyle = usePlaceStyle(dataset, placeSug.placeSuggestions);
 
   // The address rows the section below reviews — scanned here because the
   // Places/Addresses tab bar needs the count before the section renders.
@@ -318,7 +331,7 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
     let countryAllCount = 0;
     const byCountry = new Map<string, CountryChip>();
     for (const row of pool) {
-      const country = countryOf(row.key);
+      const country = countryOf(row.key, home);
       if (!byCountry.has(country)) {
         const chip = { code: country, count: 0 };
         byCountry.set(country, chip);
@@ -327,7 +340,7 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
     }
     for (const row of searched) {
       if (!inStatus(row)) continue;
-      byCountry.get(countryOf(row.key))!.count++;
+      byCountry.get(countryOf(row.key, home))!.count++;
       countryAllCount++;
     }
 
@@ -335,7 +348,7 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
     // pick falls back to "all" instead of filtering the list to nothing.
     const activeCountry =
       countryFilter !== null && countryChips.some((c) => c.code === countryFilter) ? countryFilter : null;
-    const inCountry = (row: GeocodeRow) => activeCountry === null || countryOf(row.key) === activeCountry;
+    const inCountry = (row: GeocodeRow) => activeCountry === null || countryOf(row.key, home) === activeCountry;
 
     const statusCounts = { confident: 0, review: 0, partial: 0, noProposal: 0, decided: 0, placed: 0 };
     let statusAllCount = 0;
@@ -352,7 +365,7 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
       (r) => !chosen.has(r.key),
     ).length;
     return { countryChips, countryAllCount, activeCountry, statusCounts, statusAllCount, rows, placedTotal };
-  }, [scan, query, statusFilter, countryFilter, chosen, noMatch, showPlaced]);
+  }, [scan, query, statusFilter, countryFilter, chosen, noMatch, showPlaced, home]);
   const rows = view?.rows ?? NO_ROWS;
 
   // Every filtered row is reachable — long lists render windowed (the same
@@ -520,6 +533,21 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
     setLastApplied(onApplyOfficialNames(officialRenames));
   };
 
+  // Writing the assumption into the file, which is the honest end of it: the
+  // places the directory recognizes stop leaving their country to be inferred
+  // and say it themselves, in this file's own wording and separator. Offered
+  // only while a home country is in force — there is nothing to write otherwise
+  // — and over the rows on screen, like every other bulk action here.
+  // Plain, not memoized: this sits past the view's early return, where a hook
+  // may not go, and the pass is a cached facet lookup per shown row.
+  const countryFills = home
+    ? planCountryFill(rows, countrySpelling(detection, home, i18n.language), placeStyle.fmt.separator)
+    : [];
+  const fillCountry = () => {
+    if (!countryFills.length) return;
+    setLastApplied(onApplyOfficialNames(countryFills));
+  };
+
   return (
     // The registers behind every place field on this page: the rename row and
     // the move panel below complete a place the file has never written, exactly
@@ -567,6 +595,17 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
             {officialRenames.length > 0 && (
               <button className="tools-issue-link" onClick={takeOfficialNames} title={t("tools.geocode.official.bulkTooltip")}>
                 {t("tools.geocode.official.bulk", { count: officialRenames.length })}
+              </button>
+            )}
+            {countryFills.length > 0 && (
+              <button
+                className="tools-issue-link"
+                onClick={fillCountry}
+                title={t("tools.geocode.fillCountry.tooltip", {
+                  country: countrySpelling(detection, home, i18n.language),
+                })}
+              >
+                {t("tools.geocode.fillCountry", { count: countryFills.length })}
               </button>
             )}
             {/* Clearing the selection drops the staged picks too, not just the
@@ -623,7 +662,13 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
           </div>
         )}
       {countryChips.length > 0 && (
-        <CountryChips chips={countryChips} all={countryAllCount} active={activeCountry} onPick={setCountryFilter} />
+        <CountryChips
+          chips={countryChips}
+          all={countryAllCount}
+          active={activeCountry}
+          onPick={setCountryFilter}
+          assumed={home}
+        />
       )}
       <div className="tools-chips">
         {STATUS_FILTERS.filter((f) => showPlaced || f !== "placed").map((f) => (

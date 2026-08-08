@@ -253,6 +253,8 @@ export function scanGeocode(
   dataset: Dataset,
   index: GazetteerIndex | undefined,
   decisions: ReadonlyMap<string, GeocodeDecision>,
+  /** The country a value naming none stands in — see {@link countryOf}. */
+  home = "",
 ): GeocodeScan {
   const groups = new Map<
     string,
@@ -327,7 +329,7 @@ export function scanGeocode(
     // grouped under its settlement — listing it here as well would ask the same
     // question twice, once per house.
     if (isRegisterAddress(key)) continue;
-    const candidates = index ? lookupPlace(index, key) : [];
+    const candidates = index ? lookupPlace(index, key, home) : [];
     // The most frequent coordinate other occurrences of this value carry.
     const fileCoord = [...g.coords.values()].sort((a, b) => b.n - a.n)[0]?.coord;
     const confident = !!fileCoord || confidentCandidate(candidates);
@@ -351,9 +353,12 @@ export function scanGeocode(
  *  on — an ISO code, or `""` for a value naming no country. See
  *  {@link placeCountryFacet}: a name counts only when it is a country's (or a
  *  state of one of the countries whose files stop at the state), so a parish
- *  patron or a mistyped date no longer poses as one. */
-export function countryOf(key: string): string {
-  return placeCountryFacet(key);
+ *  patron or a mistyped date no longer poses as one.
+ *
+ *  `home` is the country a value naming none is taken to stand in — the file's
+ *  own home country (see {@link detectHomeCountry}), `""` to assume nothing. */
+export function countryOf(key: string, home = ""): string {
+  return placeCountryFacet(key) || home;
 }
 
 /** Cheap count of distinct PLAC values still missing coordinates — the
@@ -398,6 +403,28 @@ export function collectFileCoords(dataset: Dataset): FileCoord[] {
     coord,
     name: [...names].slice(0, 3).join(" · ") + (names.size > 3 ? " …" : ""),
   }));
+}
+
+/**
+ * The renames that would write the home country into the places that name no
+ * country: "Golnik" → "Golnik,Slovenija", in the file's own separator and its
+ * own spelling of the country.
+ *
+ * Offered only for the rows a loaded directory recognizes — a confident match,
+ * or a coordinate the file already carries for the value. A place list holds
+ * more than places: parish patrons, hospitals, a date somebody typed into a
+ * place field. None of those becomes a Slovenian place by having the country
+ * appended to it, and a mass rename is exactly where that would go unnoticed.
+ */
+export function planCountryFill(rows: readonly GeocodeRow[], country: string, separator: string): OfficialRename[] {
+  const suffix = `${separator}${country}`;
+  const out: OfficialRename[] = [];
+  for (const row of rows) {
+    if (placeCountryFacet(row.key)) continue;
+    if (!row.fileCoord && !confidentCandidate(row.candidates)) continue;
+    out.push({ from: row.key, to: `${row.key}${suffix}` });
+  }
+  return out;
 }
 
 /**

@@ -25,6 +25,7 @@ export function CountryChips({
   active,
   onPick,
   titleOf,
+  assumed,
 }: {
   chips: CountryChip[];
   /** What the "All" chip shows — every row the other filters leave. */
@@ -33,11 +34,17 @@ export function CountryChips({
   onPick: (code: string | null) => void;
   /** Optional tooltip per country (the compliance list names its levels here). */
   titleOf?: (code: string) => string | undefined;
+  /** The home country the places naming none were counted under, if any — its
+   *  chip says so, since that part of its count is our reading and not the
+   *  file's word. */
+  assumed?: string;
 }) {
   const { t, i18n } = useTranslation();
   const label = (code: string) =>
     code ? countryFacetLabel(code, i18n.language) : t("tools.geocode.countryUnknown");
   const sorted = [...chips].sort((a, b) => b.count - a.count || label(a.code).localeCompare(label(b.code)));
+  const assumption = (code: string) =>
+    assumed && code === assumed ? t("tools.geocode.countryAssumed", { country: label(code) }) : undefined;
   return (
     <div className="tools-chips">
       <button className={`tools-chip ${active === null ? "active" : ""}`} onClick={() => onPick(null)}>
@@ -48,9 +55,13 @@ export function CountryChips({
           key={c.code || "?"}
           className={`tools-chip ${active === c.code ? "active" : ""}`}
           onClick={() => onPick(c.code)}
-          title={titleOf?.(c.code)}
+          // Both can be there at once — the country this file assumes is also a
+          // country whose levels it names — so they stack rather than compete.
+          title={[titleOf?.(c.code), assumption(c.code)].filter(Boolean).join("\n") || undefined}
         >
-          {label(c.code)} <span className="tools-chip-count">{c.count}</span>
+          {label(c.code)}
+          {assumption(c.code) && <span className="tools-chip-assumed"> ≈</span>}{" "}
+          <span className="tools-chip-count">{c.count}</span>
         </button>
       ))}
     </div>

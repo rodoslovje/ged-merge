@@ -478,6 +478,8 @@ export const sl = {
   "tools.geocode.placedTooltip":
     "Vse omembe tega kraja že nosijo to koordinato. Izbira druge ga geokodira znova — lege hiš, vezane na naslov, ostanejo nedotaknjene.",
   "tools.geocode.countryUnknown": "(država ni navedena)",
+  "tools.geocode.countryAssumed":
+    "Vključuje kraje brez navedene države: domača država te datoteke je {{country}}. Spremenite jo v Nastavitve → GEDCOM.",
   "tools.geocode.peopleToggle": "Pokaži osebe, ki jim na tem kraju še manjkajo koordinate",
   "tools.geocode.applied_one": "posodobljen {{count}} zapis",
   "tools.geocode.applied_two": "posodobljena {{count}} zapisa",
@@ -521,6 +523,9 @@ export const sl = {
   "tools.geocode.official.take": "Prevzemi",
   "tools.geocode.official.tooltip": "Preimenuje vse navedbe v uradno registrsko ime — »{{name}}« — in zapiše njegovo koordinato",
   "tools.geocode.official.bulk": "Prevzemi uradna imena ({{count}})",
+  "tools.geocode.fillCountry": "Dopiši državo ({{count}})",
+  "tools.geocode.fillCountry.tooltip":
+    "Krajem brez navedene države dopiše »{{country}}«, z ločilom te datoteke — le tistim, ki jih imenik pozna, tako da zavetnik župnije ali zašel datum ostaneta pri miru. En korak, ki ga je mogoče razveljaviti.",
   "tools.geocode.official.bulkTooltip": "Vse prikazane zanesljive vrstice preimenuje v registrsko ime in zapiše koordinato — ena poteza razveljavitve",
   "tools.geocode.tab.places": "Kraji",
   "tools.geocode.tab.addresses": "Naslovi",
@@ -1934,6 +1939,14 @@ export const sl = {
   "settings.format.group.dates": "Datumi",
   "settings.format.group.names": "Imena",
   "settings.format.group.places": "Kraji",
+  "settings.homeCountry.group": "Domača država",
+  "settings.homeCountry": "Kraji brez navedene države",
+  "settings.homeCountry.hint":
+    "Rodoslovci svoje države ne pišejo — slovenska datoteka nekajkrat zapiše »Kranj, Slovenija«, stokrat pa le »Golnik«. Če take kraje štejemo v domačo državo, se zberejo pod njo, iščejo se samo v imenikih te države in jih preverjanje skladnosti presodi; če ne predpostavimo ničesar, ostanejo pri vsem tem ob strani.",
+  "settings.homeCountry.auto.detected": "Iz datoteke — {{country}}",
+  "settings.homeCountry.auto.none": "Iz datoteke — ni jasnega odgovora",
+  "settings.homeCountry.none": "Ne predpostavi ničesar",
+  "settings.homeCountry.covers": "{{count}} krajev je brez nje",
   "settings.format.group.sources": "Viri",
   "settings.format.group.privacy": "Zasebnost",
   "settings.format.date": "Oblika",

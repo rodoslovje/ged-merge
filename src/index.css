@@ -7656,6 +7656,9 @@ kbd {
 }
 .tools-chip.active { border-color: var(--accent); color: var(--accent); }
 .tools-chip-count { font-weight: 700; }
+/* The mark on the country that also holds the places naming no country: part of
+   that chip's count is our reading of the file, not its word. */
+.tools-chip-assumed { opacity: 0.65; }
 /* The geocode row's occurrence count doubles as the people toggle: a button
    drawn as the plain count chip, accent while the list below is open. */
 button.tools-count-toggle { background: none; border: none; padding: 0; font: inherit; font-weight: 700; color: inherit; cursor: pointer; }

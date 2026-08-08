@@ -23,6 +23,7 @@ import { REGISTER_DISMISSED } from "../../tools/registerCheck";
 import { useLocalRegisters } from "../useLocalRegisters";
 import { AppliedNote, ExpandAllToggle, GeoPeopleList, GeoRowHeader, MapToggle, RowMap } from "./shared";
 import { CountryChips } from "./CountryChips";
+import { useHomeCountry } from "../DatasetDerivations";
 
 // The compliance tab's second half: the file's houses held against a downloaded
 // address register.
@@ -91,6 +92,8 @@ export function AddressCheckSection({
 }) {
   const { t } = useTranslation();
   useLocalRegisters();
+  // See GeocodePanel: the country a place naming none is taken to stand in.
+  const home = useHomeCountry();
   const [report, setReport] = useState<AddressCheckReport | null>(null);
   const [running, setRunning] = useState<{ done: number; total: number } | null>(null);
   const [verdictFilter, setVerdictFilter] = useState<"all" | AddressVerdict>("all");
@@ -235,14 +238,14 @@ export function AddressCheckSection({
     // the same thing about the same file.
     const countries: string[] = [];
     for (const f of pool) {
-      const c = countryOf(f.place);
+      const c = countryOf(f.place, home);
       if (!countries.includes(c)) countries.push(c);
     }
     const activeCountry = countryFilter !== null && countries.includes(countryFilter) ? countryFilter : null;
-    const inCountry = (f: AddressFinding) => activeCountry === null || countryOf(f.place) === activeCountry;
+    const inCountry = (f: AddressFinding) => activeCountry === null || countryOf(f.place, home) === activeCountry;
     const countryChips = countries.map((code) => ({
       code,
-      count: matched.filter((f) => countryOf(f.place) === code && inVerdict(f)).length,
+      count: matched.filter((f) => countryOf(f.place, home) === code && inVerdict(f)).length,
     }));
     const countryAll = matched.filter(inVerdict).length;
 
@@ -277,7 +280,7 @@ export function AddressCheckSection({
       activeCountry,
       dismissedTotal: report.findings.filter((f) => f.dismissed).length,
     };
-  }, [report, query, verdictFilter, countryFilter, showDismissed]);
+  }, [report, query, verdictFilter, countryFilter, showDismissed, home]);
 
   // Nothing stored for any country the file writes: the check cannot be made,
   // and a disabled button explaining why would only be a second copy of the
@@ -343,6 +346,7 @@ export function AddressCheckSection({
                 all={view.countryAll}
                 active={view.activeCountry}
                 onPick={setCountryFilter}
+                assumed={home}
               />
               <div className="tools-chips">
                 <button
