@@ -1308,8 +1308,10 @@ export function AddressCoordsSection({
                             </button>
                           )}
                           {/* The position this row holds, in the place rows' own
-                              shape: → where it came from · the pinned
+                              shape: = where it came from · the pinned
                               coordinate, accent once it is this house's own.
+                              "=" and not "→": an arrow means "becomes" in the
+                              compliance lists, and nothing here renames a house.
                               Clicking it puts the place's map up on that point,
                               exactly as a place row's does — placing the house
                               is the address's job, beside it. */}
@@ -1322,7 +1324,7 @@ export function AddressCoordsSection({
                             >
                               {chosen && (
                                 <>
-                                  →{" "}
+                                  ={" "}
                                   <span className="tools-geo-picked-from" title={chosen.label}>
                                     {chosen.label}
                                   </span>{" "}

@@ -378,13 +378,15 @@ export function GeocodePlaceRow({
           <button
             type="button"
             className={`tools-tree-meta tools-geo-coord-btn${override ? " staged" : ""}`}
-            // Where the coordinate comes from, said in words: the arrow and the
-            // register's shorter name read as an offer to rename the place and
-            // drop everything the value says past its settlement ("Šmartno pri
-            // Litiji, sv. Martin" → "Šmartno pri Litiji"). Nothing of the kind
-            // happens here — only a coordinate is written, and the value keeps
-            // every word of it. Renaming is the "Use official name" button, and
-            // it says so.
+            // Where the coordinate comes from, said in words. The line used to
+            // open with an arrow, which in the compliance lists means "becomes"
+            // — so beside the register's shorter name it read as an offer to
+            // rename the place and drop everything the value says past its
+            // settlement ("Šmartno pri Litiji, sv. Martin" → "Šmartno pri
+            // Litiji"). Nothing of the kind happens here: only a coordinate is
+            // written, and the value keeps every word of it. Hence "=" — this
+            // place *is* that register entry — and renaming stays the "Use
+            // official name" button, which says so.
             title={`${t("tools.geocode.coordHint", { label: c.label })}\n${
               override ? t("tools.geocode.stagedHint") : t("tools.geocode.showMap")
             }`}
@@ -395,7 +397,7 @@ export function GeocodePlaceRow({
               else onToggleMap(row.key);
             }}
           >
-            → {c.label} · <span className="gm-data gm-coord gm-coord--set">{c.coord.lat.toFixed(4)}, {c.coord.lon.toFixed(4)}</span>
+            = {c.label} · <span className="gm-data gm-coord gm-coord--set">{c.coord.lat.toFixed(4)}, {c.coord.lon.toFixed(4)}</span>
           </button>
         )}
         {marked ? (
