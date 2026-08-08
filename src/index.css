@@ -8806,6 +8806,11 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
   border-radius: var(--radius-sm);
 }
 .tools-geo-addr-group .tools-geo-addr-row { border-bottom: none; }
+/* What an opened house discloses ends its row. The last block's own trailing
+   margin, the body's bottom padding and the row's both landed under it, which
+   with every row expanded read as a blank line between houses. */
+.tools-geo-addr-row > .tools-geo-conflict-body { padding-bottom: 0; }
+.tools-geo-addr-row > .tools-geo-conflict-body > :last-child { margin-bottom: 0; }
 
 /* ── Phone: give the content the screen ────────────────────────────────────
    On a phone the fixed chrome (brand header, tool/kind pickers, filter rows,
