@@ -8,7 +8,7 @@ import { osmKindLabel, searchNominatim, type NominatimResult } from "../../geo/n
 import { searchGov, type GovResult } from "../../geo/gov";
 import { isOfflineQuery, rnQueriesFrom, searchAddresses, type RnResult } from "../../geo/rn";
 import { useLocalRegisters } from "../useLocalRegisters";
-import { chosenCoordFor, pickLabel, type ChosenCoord, type FileCoord, type GeoAssignment, type GeocodeRow } from "../../tools/geocode";
+import { adminOf, chosenCoordFor, pickLabel, type ChosenCoord, type FileCoord, type GeoAssignment, type GeocodeRow } from "../../tools/geocode";
 import { replaceLocality } from "../../tools/addresses";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
 import type { KinshipResolver } from "../../match/kinship";
@@ -378,7 +378,18 @@ export function GeocodePlaceRow({
           <button
             type="button"
             className={`tools-tree-meta tools-geo-coord-btn${override ? " staged" : ""}`}
-            title={override ? t("tools.geocode.stagedHint") : t("tools.geocode.showMap")}
+            // Where the coordinate comes from, said in words. The line used to
+            // open with an arrow, which in the compliance lists means "becomes"
+            // — so beside the register's shorter name it read as an offer to
+            // rename the place and drop everything the value says past its
+            // settlement ("Šmartno pri Litiji, sv. Martin" → "Šmartno pri
+            // Litiji"). Nothing of the kind happens here: only a coordinate is
+            // written, and the value keeps every word of it. Hence "=" — this
+            // place *is* that register entry — and renaming stays the "Use
+            // official name" button, which says so.
+            title={`${t("tools.geocode.coordHint", { label: c.label })}\n${
+              override ? t("tools.geocode.stagedHint") : t("tools.geocode.showMap")
+            }`}
             onClick={() => {
               // Opening the row draws the map, so a shut row needs nothing more.
               // On an open one this is the way to put the map up or away.
@@ -386,7 +397,7 @@ export function GeocodePlaceRow({
               else onToggleMap(row.key);
             }}
           >
-            → {c.label} · <span className="gm-data gm-coord gm-coord--set">{c.coord.lat.toFixed(4)}, {c.coord.lon.toFixed(4)}</span>
+            = {c.label} · <span className="gm-data gm-coord gm-coord--set">{c.coord.lat.toFixed(4)}, {c.coord.lon.toFixed(4)}</span>
           </button>
         )}
         {marked ? (
@@ -687,8 +698,10 @@ export function GeocodePlaceRow({
                   {/* The division the register files it under — the only thing
                       that tells two same-named settlements apart. In the file's
                       own spelling when the place string names the division. */}
-                  {(cand.adminDisplay ?? cand.entry.admin) && (
-                    <span className="tools-geo-count">({cand.adminDisplay ?? cand.entry.admin})</span>
+                  {adminOf(cand.entry.name, cand.adminDisplay ?? cand.entry.admin) && (
+                    <span className="tools-geo-count" title={t("tools.geocode.adminHint")}>
+                      ({adminOf(cand.entry.name, cand.adminDisplay ?? cand.entry.admin)})
+                    </span>
                   )}
                   <span className="gm-data gm-coord">
                     {cand.entry.population > 0 && `· ${t("tools.geocode.population", { count: cand.entry.population })} · `}

@@ -1,6 +1,6 @@
 import type { Dataset, GeoCoord } from "../gedcom/types";
 import { decomposePlace, isUnknownPlaceValue, placeAddressDetail } from "../gedcom/place";
-import { countryCode } from "../gedcom/countryCode";
+import { countryCodeOfName } from "../geo/placeCountry";
 import { foldToken } from "../match/text";
 import { lookupPlace, PARENT_QUALIFIED, qualifierKey, type GazEntry, type GazetteerIndex } from "../geo/gazetteer";
 import { inferPlaceParentLevels, sameUnitName, type PlaceParentLevels } from "../geo/placeLevels";
@@ -383,7 +383,7 @@ export function checkPlacesAgainstRegister(
       continue;
     }
     if (isRegisterAddress(key)) continue;
-    const wantCountry = components.country ? countryCode(components.country)?.toUpperCase() : undefined;
+    const wantCountry = components.country ? countryCodeOfName(components.country)?.toUpperCase() : undefined;
     // A country we can name but hold no register for: out of scope, and said so
     // in the summary rather than silently dropped.
     if (wantCountry && !covered.has(wantCountry)) {
@@ -395,7 +395,7 @@ export function checkPlacesAgainstRegister(
     // event known only by its country). A register of settlements has nothing
     // to say about it, and matching the country's name against settlement names
     // is how "Slovenia" ends up proposed as "Šlovrenc".
-    if (countryCode(written)) {
+    if (countryCodeOfName(written)) {
       skipped++;
       continue;
     }

@@ -6,6 +6,7 @@ import { clearPlaceGov, rebuildFamily, rebuildIndividual, setPlaceCoord } from "
 import { reconcilePlaceForm, sameWrittenCoord } from "../gedcom/edit/geo";
 import { cloneRaw, type RecordPatch } from "../ui/historyTypes";
 import { HIGH_CONFIDENCE, lookupPlace, type GazCandidate, type GazetteerIndex } from "../geo/gazetteer";
+import { placeCountryFacet } from "../geo/placeCountry";
 import type { GeocodeDecision } from "../persist/geoDb";
 import { placeCollator } from "./places";
 
@@ -161,9 +162,22 @@ export interface OfficialRename {
 /** A pick's display label: the entry's name with its administrative parent —
  *  "Vinji Vrh (Brežice)" — so a same-named settlement in the wrong
  *  municipality is visible everywhere the pick is shown, above all in the
- *  row header the eye actually reads before accepting. */
+ *  row header the eye actually reads before accepting.
+ *
+ *  A municipality named after its own seat says nothing twice: "Ig (Ig)" and
+ *  "Šmartno pri Litiji (Šmartno pri Litiji)" are the name and its echo, and the
+ *  bracket is there to tell places apart, not to repeat one. */
 export function pickLabel(name: string, admin?: string): string {
-  return admin ? `${name} (${admin})` : name;
+  const parent = adminOf(name, admin);
+  return parent ? `${name} (${parent})` : name;
+}
+
+/** The division a candidate is filed under, when it says something the name
+ *  itself does not — see {@link pickLabel}. Also the file's own spelling of the
+ *  division where the place string named it (`adminDisplay`). */
+export function adminOf(name: string, admin?: string): string | undefined {
+  const parent = admin?.trim();
+  return parent && parent.toLowerCase() !== name.trim().toLowerCase() ? parent : undefined;
 }
 
 /**
@@ -333,12 +347,13 @@ export function scanGeocode(
   return { rows, placed, coveredDistinct, totalOccurrences, coveredOccurrences };
 }
 
-/** The country segment of a raw PLAC value — its last comma part. A value with
- *  no comma names no jurisdiction chain, so it gets no country rather than
- *  becoming its own; likewise one that ends in a comma (country omitted). */
+/** Which country a raw PLAC value stands in, as the key the country chips group
+ *  on — an ISO code, or `""` for a value naming no country. See
+ *  {@link placeCountryFacet}: a name counts only when it is a country's (or a
+ *  state of one of the countries whose files stop at the state), so a parish
+ *  patron or a mistyped date no longer poses as one. */
 export function countryOf(key: string): string {
-  const idx = key.lastIndexOf(",");
-  return idx < 0 ? "" : key.slice(idx + 1).trim();
+  return placeCountryFacet(key);
 }
 
 /** Cheap count of distinct PLAC values still missing coordinates — the

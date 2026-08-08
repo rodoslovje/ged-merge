@@ -135,6 +135,17 @@ describe("checkPlacesAgainstRegister", () => {
     expect(report.skipped).toBe(2);
   });
 
+  it("holds a country to its own registers however the file names it", () => {
+    // "Črna gora" is Montenegro to everyone but a table of English names, and a
+    // place there was being answered by the Slovenian and Croatian registers —
+    // Podgorica proposed as a hamlet under Dobrepolje.
+    const ds = fileWith(place("Podgorica, Črna gora"), place("Cetinje, Crna Gora"));
+    const report = checkPlacesAgainstRegister(ds, REGISTER, NO_DECISIONS);
+    expect(report.findings).toEqual([]);
+    expect(report.checked).toBe(0);
+    expect(report.skipped).toBe(2);
+  });
+
   it("reports a municipality the register does not file the place under", () => {
     const ds = fileWith(place("Vrh, Litija, Slovenija"));
     const { findings } = checkPlacesAgainstRegister(ds, REGISTER, NO_DECISIONS);

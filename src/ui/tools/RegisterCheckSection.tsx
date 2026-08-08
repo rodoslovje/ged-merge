@@ -3,6 +3,8 @@ import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { deleteDecision, putDecisions } from "../../persist/geoDb";
 import { countryOf, pickLabel, type FileCoord, type OfficialRename } from "../../tools/geocode";
+import { countryCodeOfName } from "../../geo/placeCountry";
+import { CountryChips } from "./CountryChips";
 import {
   directoryOf,
   registerDecisionKey,
@@ -235,13 +237,13 @@ export function RegisterCheckSection({
     const pool = report.findings.filter((f) => showDismissed || !f.dismissed);
     const searched = query ? pool.filter((f) => foldSearch(f.key).includes(query)) : pool;
 
-    // One chip per country, read off the place value itself — its last comma
-    // part, exactly as the places list reads its own country buttons, so the
-    // two rows of chips say the same thing about the same file and a country is
-    // named the way the file names it. A value that names no country goes under
-    // "unspecified" rather than being filed under whichever country its answers
-    // happen to be in: nothing in the file says it is there, and the whole point
-    // of a row whose name fits four countries is that they are all still open.
+    // One chip per country, read off the place value itself, exactly as the
+    // geocoding lists read their own country buttons, so every row of chips says
+    // the same thing about the same file. A value that names no country goes
+    // under "unspecified" rather than being filed under whichever country its
+    // answers happen to be in: nothing in the file says it is there, and the
+    // whole point of a row whose name fits four countries is that they are all
+    // still open.
     const countries: string[] = [];
     for (const f of pool) {
       const c = countryOf(f.key);
@@ -253,11 +255,8 @@ export function RegisterCheckSection({
 
     const countryChips = countries.map((code) => ({
       code,
-      name: code,
-      unknown: !code,
       count: searched.filter((f) => countryOf(f.key) === code && inVerdict(f)).length,
     }));
-    countryChips.sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
     const countryAll = searched.filter(inVerdict).length;
 
     const counts = Object.fromEntries(REGISTER_VERDICTS.map((v) => [v, 0])) as Record<RegisterVerdict, number>;
@@ -280,9 +279,14 @@ export function RegisterCheckSection({
 
   /** The file's own FORM for a country's places, as the chip's tooltip. Empty
    *  for a country whose places carry none, which leaves the chip its plain
-   *  self rather than an explanation of an absence. */
+   *  self rather than an explanation of an absence.
+   *
+   *  The forms are tallied per country name as the file writes it, while a chip
+   *  is the country itself — so a file writing both "Slovenija" and "Slovenia"
+   *  has one chip and up to two tallies, and the first of them answers for the
+   *  country. */
   const formOf = (country: string): string | undefined => {
-    const form = report.forms.find((f) => f.country === country)?.form;
+    const form = report.forms.find((f) => (countryCodeOfName(f.country) ?? f.country) === country)?.form;
     return form ? `${t("tools.register.forms")} ${form}` : undefined;
   };
 
@@ -387,33 +391,19 @@ export function RegisterCheckSection({
 
       {report.findings.length > 0 && (
         <>
-          {/* Shown even for a single country — see AddressCoordsSection. */}
           {view.countryChips.length > 0 && (
-            <div className="tools-chips">
-              <button
-                className={`tools-chip ${view.activeCountry === null ? "active" : ""}`}
-                onClick={() => setCountryFilter(null)}
-              >
-                {t("tools.geocode.filter.all")} <span className="tools-chip-count">{view.countryAll}</span>
-              </button>
-              {view.countryChips.map((c) => (
-                <button
-                  key={c.code}
-                  className={`tools-chip ${view.activeCountry === c.code ? "active" : ""}`}
-                  onClick={() => setCountryFilter(c.code)}
-                  // What this file calls the levels of *this* country's places —
-                  // the answer to what every parent finding turns on, and the
-                  // one thing here the file states and nothing else shows. It
-                  // was a paragraph naming every country at once; a level naming
-                  // is about one country at a time, and the chip is already
-                  // that country.
-                  title={formOf(c.code)}
-                >
-                  {c.unknown ? t("tools.geocode.countryUnknown") : c.name}{" "}
-                  <span className="tools-chip-count">{c.count}</span>
-                </button>
-              ))}
-            </div>
+            // The tooltip says what this file calls the levels of *this*
+            // country's places — the answer to what every parent finding turns
+            // on, and the one thing here the file states and nothing else shows.
+            // It was a paragraph naming every country at once; a level naming is
+            // about one country at a time, and the chip is already that country.
+            <CountryChips
+              chips={view.countryChips}
+              all={view.countryAll}
+              active={view.activeCountry}
+              onPick={setCountryFilter}
+              titleOf={formOf}
+            />
           )}
           <div className="tools-chips">
             <button

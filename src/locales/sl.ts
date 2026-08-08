@@ -444,6 +444,8 @@ export const sl = {
   "tools.geocode.renameOpen": "Preimenuj ta kraj — vse navedbe točno tega imena v datoteki",
   "tools.geocode.stagedHint": "Ta koordinata je pripravljena — Zapiši koordinate jo bo zapisal v datoteko. S ponovnim klikom nanjo v vrstici jo opustite.",
   "tools.geocode.showMap": "Pokaži na zemljevidu",
+  "tools.geocode.coordHint": "Koordinata, ki jo bo dobil ta kraj: {{label}}. Zapiše se le koordinata — ime kraja ostane tako, kot ga piše vaša datoteka.",
+  "tools.geocode.adminHint": "Nadrejena enota, pod katero register vodi ta kraj (občina, županija, zvezna država) — po njej ločimo kraje z enakim imenom.",
   "edit.mapHide": "Skrij zemljevid",
   "edit.mapShow": "Pokaži zemljevid",
   "tools.geocode.mapPickHint": "Krogci: predlagani kraji (klik izbere) · sive pike: koordinate, ki jih datoteka že ima · klik kamorkoli nastavi koordinato ročno",

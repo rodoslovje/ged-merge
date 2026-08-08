@@ -22,6 +22,7 @@ import { useNameOf, useSettings } from "../SettingsContext";
 import type { KinshipResolver } from "../../match/kinship";
 import { loadDecisions, putDecisions } from "../../persist/geoDb";
 import { AppliedNote, ExpandAllToggle, GeoPeopleList, GeoRowHeader, MapToggle, RowCaret, RowMap } from "./shared";
+import { CountryChips } from "./CountryChips";
 import { requestSettings } from "../settingsBus";
 
 // The ADDR half of geocoding: house coordinates from the GURS address register
@@ -446,12 +447,10 @@ export function AddressCoordsSection({
       const c = countryOf(row.place);
       counts.set(c, (counts.get(c) ?? 0) + (inStatus(row) ? 1 : 0));
     }
-    return [...counts].map(([country, count]) => ({ country, count })).sort(
-      (a, b) => b.count - a.count || a.country.localeCompare(b.country),
-    );
+    return [...counts].map(([code, count]) => ({ code, count }));
   }, [visibleRows, statusFilter, searches, picked, osmSearches]);
   const activeCountry =
-    countryFilter !== null && countryChips.some((c) => c.country === countryFilter) ? countryFilter : null;
+    countryFilter !== null && countryChips.some((c) => c.code === countryFilter) ? countryFilter : null;
 
   const groups = useMemo(() => {
     const inCountry = (r: AddressRow) => activeCountry === null || countryOf(r.place) === activeCountry;
@@ -1045,29 +1044,13 @@ export function AddressCoordsSection({
         </button>
         .
       </p>
-      {/* Shown even where the file names a single country: which country these
-          addresses stand in is worth stating outright, and a filter row that
-          comes and goes with the data reads as a glitch rather than a choice.
-          All four geocoding lists follow the same rule. */}
       {countryChips.length > 0 && (
-        <div className="tools-chips">
-          <button
-            className={`tools-chip ${activeCountry === null ? "active" : ""}`}
-            onClick={() => setCountryFilter(null)}
-          >
-            {t("tools.geocode.filter.all")}{" "}
-            <span className="tools-chip-count">{countryChips.reduce((n, c) => n + c.count, 0)}</span>
-          </button>
-          {countryChips.map((c) => (
-            <button
-              key={c.country || "?"}
-              className={`tools-chip ${activeCountry === c.country ? "active" : ""}`}
-              onClick={() => setCountryFilter(c.country)}
-            >
-              {c.country || t("tools.geocode.countryUnknown")} <span className="tools-chip-count">{c.count}</span>
-            </button>
-          ))}
-        </div>
+        <CountryChips
+          chips={countryChips}
+          all={countryChips.reduce((n, c) => n + c.count, 0)}
+          active={activeCountry}
+          onPick={setCountryFilter}
+        />
       )}
       <div className="tools-chips">
         {ADDR_FILTERS.filter((f) => showPlaced || f !== "placed").map((f) => (
@@ -1325,8 +1308,10 @@ export function AddressCoordsSection({
                             </button>
                           )}
                           {/* The position this row holds, in the place rows' own
-                              shape: → where it came from · the pinned
+                              shape: = where it came from · the pinned
                               coordinate, accent once it is this house's own.
+                              "=" and not "→": an arrow means "becomes" in the
+                              compliance lists, and nothing here renames a house.
                               Clicking it puts the place's map up on that point,
                               exactly as a place row's does — placing the house
                               is the address's job, beside it. */}
@@ -1339,7 +1324,7 @@ export function AddressCoordsSection({
                             >
                               {chosen && (
                                 <>
-                                  →{" "}
+                                  ={" "}
                                   <span className="tools-geo-picked-from" title={chosen.label}>
                                     {chosen.label}
                                   </span>{" "}

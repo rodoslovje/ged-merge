@@ -31,6 +31,7 @@ import { GazetteerSetup, useGazetteer } from "./GazetteerManager";
 import { AddressCoordsSection } from "./AddressCoordsSection";
 import { addressesByPlace, replaceLocality, scanAddresses, type AddressRename } from "../../tools/addresses";
 import { CoordConflicts } from "./CoordConflicts";
+import { CountryChips, type CountryChip } from "./CountryChips";
 import { GeocodePlaceRow, type RowLookups } from "./GeocodePlaceRow";
 import { BackButton } from "../BackButton";
 import { isEditableTarget, isModalOpen } from "../../keyboard/shortcuts";
@@ -311,15 +312,15 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
     const pool = showPlaced ? [...scan.rows, ...scan.placed] : [...scan.rows, ...scan.placed.filter((r) => chosen.has(r.key))];
     const searched = query ? pool.filter((r) => foldSearch(r.key).includes(query)) : pool;
 
-    // One chip per country (a place value's last comma part) in the pending
-    // list; a country the other filters empty out stays visible at 0.
-    const countryChips: { country: string; count: number }[] = [];
+    // One chip per country the pending list's places stand in; a country the
+    // other filters empty out stays visible at 0.
+    const countryChips: CountryChip[] = [];
     let countryAllCount = 0;
-    const byCountry = new Map<string, (typeof countryChips)[number]>();
+    const byCountry = new Map<string, CountryChip>();
     for (const row of pool) {
       const country = countryOf(row.key);
       if (!byCountry.has(country)) {
-        const chip = { country, count: 0 };
+        const chip = { code: country, count: 0 };
         byCountry.set(country, chip);
         countryChips.push(chip);
       }
@@ -329,12 +330,11 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
       byCountry.get(countryOf(row.key))!.count++;
       countryAllCount++;
     }
-    countryChips.sort((a, b) => b.count - a.count || a.country.localeCompare(b.country));
 
     // A country whose last row was just resolved loses its chip — the stale
     // pick falls back to "all" instead of filtering the list to nothing.
     const activeCountry =
-      countryFilter !== null && countryChips.some((c) => c.country === countryFilter) ? countryFilter : null;
+      countryFilter !== null && countryChips.some((c) => c.code === countryFilter) ? countryFilter : null;
     const inCountry = (row: GeocodeRow) => activeCountry === null || countryOf(row.key) === activeCountry;
 
     const statusCounts = { confident: 0, review: 0, partial: 0, noProposal: 0, decided: 0, placed: 0 };
@@ -622,26 +622,8 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
             {placesActions}
           </div>
         )}
-      {/* Shown even for a single country — see AddressCoordsSection. */}
       {countryChips.length > 0 && (
-        <div className="tools-chips">
-          <button
-            className={`tools-chip ${activeCountry === null ? "active" : ""}`}
-            onClick={() => setCountryFilter(null)}
-          >
-            {t("tools.geocode.filter.all")} <span className="tools-chip-count">{countryAllCount}</span>
-          </button>
-          {countryChips.map((c) => (
-            <button
-              key={c.country || "?"}
-              className={`tools-chip ${activeCountry === c.country ? "active" : ""}`}
-              onClick={() => setCountryFilter(c.country)}
-            >
-              {c.country || t("tools.geocode.countryUnknown")}{" "}
-              <span className="tools-chip-count">{c.count}</span>
-            </button>
-          ))}
-        </div>
+        <CountryChips chips={countryChips} all={countryAllCount} active={activeCountry} onPick={setCountryFilter} />
       )}
       <div className="tools-chips">
         {STATUS_FILTERS.filter((f) => showPlaced || f !== "placed").map((f) => (

@@ -22,6 +22,7 @@ import { countryOf } from "../../tools/geocode";
 import { REGISTER_DISMISSED } from "../../tools/registerCheck";
 import { useLocalRegisters } from "../useLocalRegisters";
 import { AppliedNote, ExpandAllToggle, GeoPeopleList, GeoRowHeader, MapToggle, RowMap } from "./shared";
+import { CountryChips } from "./CountryChips";
 
 // The compliance tab's second half: the file's houses held against a downloaded
 // address register.
@@ -229,12 +230,9 @@ export function AddressCheckSection({
     const inVerdict = (f: AddressFinding) =>
       verdictFilter === "all" || verdictFilter === ADDRESS_ASIDE || f.verdict === verdictFilter;
 
-    // One chip per country the findings stand in — the place value's last comma
-    // part, the key the places compliance list and both geocoding lists chip on,
-    // so all four say the same thing about the same file. Shown even where the
-    // file names a single country: which country was held against which register
-    // is worth stating outright, and a filter row that comes and goes with the
-    // data reads as a glitch rather than as a choice.
+    // One chip per country the findings stand in — the same country key the
+    // places compliance list and both geocoding lists chip on, so all four say
+    // the same thing about the same file.
     const countries: string[] = [];
     for (const f of pool) {
       const c = countryOf(f.place);
@@ -244,10 +242,8 @@ export function AddressCheckSection({
     const inCountry = (f: AddressFinding) => activeCountry === null || countryOf(f.place) === activeCountry;
     const countryChips = countries.map((code) => ({
       code,
-      unknown: !code,
       count: matched.filter((f) => countryOf(f.place) === code && inVerdict(f)).length,
     }));
-    countryChips.sort((a, b) => b.count - a.count || a.code.localeCompare(b.code));
     const countryAll = matched.filter(inVerdict).length;
 
     // Every chip respects each filter but its own, so a picked country narrows
@@ -342,24 +338,12 @@ export function AddressCheckSection({
           )}
           {view && (view.all > 0 || view.counts.addrMissing > 0) && (
             <>
-              <div className="tools-chips">
-                <button
-                  className={`tools-chip ${view.activeCountry === null ? "active" : ""}`}
-                  onClick={() => setCountryFilter(null)}
-                >
-                  {t("tools.geocode.filter.all")} <span className="tools-chip-count">{view.countryAll}</span>
-                </button>
-                {view.countryChips.map((c) => (
-                  <button
-                    key={c.code || "?"}
-                    className={`tools-chip ${view.activeCountry === c.code ? "active" : ""}`}
-                    onClick={() => setCountryFilter(c.code)}
-                  >
-                    {c.unknown ? t("tools.geocode.countryUnknown") : c.code}{" "}
-                    <span className="tools-chip-count">{c.count}</span>
-                  </button>
-                ))}
-              </div>
+              <CountryChips
+                chips={view.countryChips}
+                all={view.countryAll}
+                active={view.activeCountry}
+                onPick={setCountryFilter}
+              />
               <div className="tools-chips">
                 <button
                   className={`tools-chip ${verdictFilter === "all" ? "active" : ""}`}
