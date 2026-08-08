@@ -126,6 +126,86 @@ describe("checkAddressesAgainstRegister", () => {
     expect(report.findings[0].official).toBeUndefined();
   });
 
+  it("does not read village numbering as a misspelt street", () => {
+    // "Naklo 67" is the village's own numbering. Naklo has streets, so the
+    // lookup widened to them and found the only 67 there is. The register knows
+    // no street "Naklo" — that is not a spelling, it is a house it lacks.
+    const r = row({
+      key: "naklo|67",
+      place: "Naklo, Naklo, Slovenija",
+      address: "Naklo 67",
+      queries: [{ settlement: "Naklo", number: 67, parents: ["Naklo"] }],
+    });
+    const report = checkAddressesAgainstRegister(
+      [r],
+      new Map([[r.key, [hit({ address: "Temniška ulica 67", street: "Temniška ulica", settlement: "Naklo" })]]]),
+      NO_DECISIONS,
+    );
+    expect(report.findings.map((f) => f.verdict)).toEqual(["addrMissing"]);
+    expect(report.findings[0].officialAddress).toBeUndefined();
+  });
+
+  it("keeps the researcher's note on the register line it shows", () => {
+    // Nothing rewrites the address here — the finding moves the events — but the
+    // line shown must not read as though the note were being dropped.
+    const r = row({
+      key: "cerklje|smartno 70",
+      place: "Cerklje na Gorenjskem, Cerklje na Gorenjskem, Slovenija",
+      address: "Šmartno 70 (dom starejših)",
+      queries: [{ settlement: "Cerklje na Gorenjskem", street: "Šmartno", number: 70 }],
+    });
+    const report = checkAddressesAgainstRegister(
+      [r],
+      new Map([
+        [
+          r.key,
+          [hit({ address: "Šmartno 70", settlement: "Šmartno", label: "Šmartno 70, 4207 Cerklje na Gorenjskem" })],
+        ],
+      ]),
+      NO_DECISIONS,
+    );
+    expect(report.findings[0]).toMatchObject({
+      verdict: "addrElsewhere",
+      official: "Šmartno 70 (dom starejših), 4207 Cerklje na Gorenjskem",
+      officialPlace: "Šmartno, Cerklje na Gorenjskem, Slovenija",
+    });
+  });
+
+  it("rewrites only the half of a two-name address the register knows", () => {
+    // One house recorded under the street's old and new name. The register
+    // renamed Labore away, so its lookup answered with whatever else is
+    // numbered 4 in Kranj; only the Škofjeloška half is really answered, and
+    // taking the spelling must keep the historical name beside it.
+    const r = row({
+      key: "kranj|labore 4 / skofjeloska 4",
+      place: "Kranj, Kranj, Slovenija",
+      address: "Labore 4 / Škofjeloška 4",
+      queries: [
+        { settlement: "Kranj", street: "Labore", number: 4 },
+        { settlement: "Kranj", street: "Škofjeloška", number: 4 },
+      ],
+    });
+    const report = checkAddressesAgainstRegister(
+      [r],
+      new Map([
+        [
+          r.key,
+          [
+            // What the widened "Labore 4" lookup came back with, and the house
+            // the second half really names.
+            hit({ address: "Bleiweisova cesta 4", street: "Bleiweisova cesta", settlement: "Kranj" }),
+            hit({ address: "Škofjeloška cesta 4", street: "Škofjeloška cesta", settlement: "Kranj" }),
+          ],
+        ],
+      ]),
+      NO_DECISIONS,
+    );
+    expect(report.findings[0]).toMatchObject({
+      verdict: "addrSpelling",
+      officialAddress: "Labore 4 / Škofjeloška cesta 4",
+    });
+  });
+
   it("does not move a house to a settlement that merely owns the number", () => {
     // The register has no Klošter 52, so the lookup widened to the town above
     // it and came back with a Metlika street. That is not the house.

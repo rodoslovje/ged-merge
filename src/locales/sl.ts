@@ -542,7 +542,7 @@ export const sl = {
   "tools.registerAddr.skipped_other": "{{count}} izpuščenih",
   "tools.registerAddr.skippedHint": "Naslovi, ki jih noben prenesen register ne pokriva: v drugi državi ali brez hišne številke.",
   "tools.registerAddr.clean": "Vsi naslovi se ujemajo z registrom.",
-  "tools.registerAddr.verdict.addrElsewhere": "Naselje",
+  "tools.registerAddr.verdict.addrElsewhere": "Drugo naselje",
   "tools.registerAddr.verdict.addrSpelling": "Zapis",
   "tools.registerAddr.verdict.addrMissing": "Ni take hiše",
   "tools.registerAddr.hint.addrElsewhere": "Register to hišo vodi pod drugim naseljem, kot ga navaja kraj — dogodki morda spadajo v sosednjo vas.",

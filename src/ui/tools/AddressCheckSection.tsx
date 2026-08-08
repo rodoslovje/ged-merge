@@ -451,15 +451,30 @@ export function AddressCheckSection({
                             file never wanted, and reading it here left the one
                             question that matters ("what will my record say?")
                             answered only by trying it. It is still shown, below,
-                            as the answer this is drawn from. A row with nothing
-                            to write shows the register's line itself: there the
-                            register's own words are the whole finding. */}
-                        {(f.officialAddress ?? f.official) && (
-                          <>
-                            <span aria-hidden="true" className="tools-register-place">→</span>
-                            <span className="tools-geo-cand-name">{f.officialAddress ?? f.official}</span>
-                          </>
-                        )}
+                            as the answer this is drawn from.
+
+                            A settlement finding changes no address text at all —
+                            it moves the events — so what stands there is the
+                            place they would move to. Showing the register's
+                            postal line instead read as a rewrite of the address,
+                            one that appeared to drop the researcher's own note.
+                            A row with nothing to write at all shows the
+                            register's line itself: there the register's own
+                            words are the whole finding. */}
+                        {(() => {
+                          const becomes =
+                            f.verdict === "addrElsewhere"
+                              ? (f.officialPlace ?? f.settlement ?? f.official)
+                              : (f.officialAddress ?? f.official);
+                          return (
+                            becomes && (
+                              <>
+                                <span aria-hidden="true" className="tools-register-place">→</span>
+                                <span className="tools-geo-cand-name">{becomes}</span>
+                              </>
+                            )
+                          );
+                        })()}
                         <span className="tools-register-end">
                           <span
                             className={`tools-reshape-badge ${BADGE[f.verdict]}`}

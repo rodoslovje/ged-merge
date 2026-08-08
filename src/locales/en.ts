@@ -478,7 +478,7 @@ export const en = {
   "tools.registerAddr.skipped_other": "{{count}} left out",
   "tools.registerAddr.skippedHint": "Addresses no downloaded register covers — another country, or no house number to look up.",
   "tools.registerAddr.clean": "Every address matches the register.",
-  "tools.registerAddr.verdict.addrElsewhere": "Settlement",
+  "tools.registerAddr.verdict.addrElsewhere": "Other settlement",
   "tools.registerAddr.verdict.addrSpelling": "Spelling",
   "tools.registerAddr.verdict.addrMissing": "No such house",
   "tools.registerAddr.hint.addrElsewhere": "The register files this house under a different settlement than the place names — the events may belong to the neighbouring village.",
