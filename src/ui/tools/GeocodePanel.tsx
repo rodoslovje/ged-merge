@@ -554,9 +554,13 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
     // as the Edit view's event fields do.
     <PlaceLookupProvider value={placeLookup}>
     <div className="tools-geocode">
+      {/* Which of the two place pages this is, beside the way back from it —
+          they share a shape, a chip row and a list, and only the title says
+          which question is being asked. The search sits with the chips below,
+          where the rest of the narrowing is. */}
       <div className="tools-filter-row">
         <BackButton label={t("tools.places.geocodeBack")} shortcutHint="Esc" showLabel onClick={onBack} />
-        <TreeSearch value={search} onChange={setSearch} />
+        <h2 className="tools-page-title">{t("tools.places.geocodeToggleShort")}</h2>
         <ToolSummary>
           {[
             scan.totalOccurrences > 0 &&
@@ -661,6 +665,9 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
             {placesActions}
           </div>
         )}
+      <div className="tools-filter-row tools-filter-row--narrow">
+        <TreeSearch value={search} onChange={setSearch} />
+      </div>
       {countryChips.length > 0 && (
         <CountryChips
           chips={countryChips}

@@ -7603,6 +7603,15 @@ kbd {
   margin: 0 0 14px;
 }
 .tools-filter-row .tools-search { flex: 1 1 200px; margin: 0; }
+/* The page's own name, beside the button that leaves it: the geocoding and
+   naming pages are one shape asked two questions, and this is what tells them
+   apart. Sized as a section heading, not a page banner — the tool page it sits
+   in is already inside the Tools shell. */
+.tools-page-title { margin: 0; font-size: 1.02rem; font-weight: 700; letter-spacing: 0.01em; }
+/* A filter row carrying nothing but the search box: it sits with the chips it
+   narrows, so it takes their spacing and does not stretch across the page. */
+.tools-filter-row--narrow { margin-bottom: 8px; }
+.tools-filter-row--narrow .tools-search { flex: 0 1 340px; }
 .tools-dup-score { display: inline-flex; align-items: center; }
 .tools-filter-row .tools-chips { margin: 0; margin-left: auto; }
 .tools-filter-row .tools-summary { margin: 0; margin-left: auto; }

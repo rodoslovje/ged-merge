@@ -463,14 +463,14 @@ export const en = {
   "tools.geocode.official.bulkTooltip": "Rename every confident row shown to its register name and write the coordinate — one undoable step",
   "tools.geocode.tab.places": "Places",
   "tools.geocode.tab.addresses": "Addresses",
-  "tools.geocode.tab.register": "Compliance",
+  "tools.geocode.tab.register": "Naming",
   // The compliance tab's address half. Asked for rather than run: the houses
   // need a downloaded register, and holding a whole file against one is a
   // decision with a visible answer.
   // The two compliance lists as two tabs. Named for what each holds, not
   // repeated as "compliance of…": the tab above them already says that.
   // The compliance page, opened from the Places tree beside geocoding.
-  "tools.places.registerToggle": "Compliance",
+  "tools.places.registerToggle": "Naming",
   "tools.places.registerChipHint": "Hold every place and address the file writes against the official register of its country, and see what the two disagree about.",
   "tools.register.tab.places": "Places",
   "tools.register.tab.addresses": "Addresses",
@@ -1726,7 +1726,7 @@ export const en = {
   "settings.format.group.places": "Places",
   "settings.homeCountry": "Places naming no country",
   "settings.homeCountry.hint":
-    "Genealogists leave their own country out — a Slovenian file writes “Kranj, Slovenija” a few times and plain “Golnik” hundreds of times. Taking those places to be in the home country groups them under it, searches the directories of that country alone, and lets the compliance check judge them; assuming nothing leaves them unplaced in every one of those.",
+    "Genealogists leave their own country out — a Slovenian file writes “Kranj, Slovenija” a few times and plain “Golnik” hundreds of times. Taking those places to be in the home country groups them under it, searches the directories of that country alone, and lets the naming check judge them; assuming nothing leaves them unplaced in every one of those.",
   "settings.homeCountry.auto.detected": "From the file — {{country}}",
   "settings.homeCountry.auto.none": "From the file — no clear answer",
   "settings.homeCountry.none": "Assume nothing",
