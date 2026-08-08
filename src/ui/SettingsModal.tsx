@@ -594,28 +594,26 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                   />
                 </label>
               ))}
+              {/* Not a format override — a reading of the file rather than a
+                  habit of it — but it belongs among the place rows, which is
+                  what it is about, and it reads as one of them. */}
+              {group === "places" && (
+                <label className="settings-row settings-format-row" title={t("settings.homeCountry.hint")}>
+                  <span className="settings-row-label">{t("settings.homeCountry")}</span>
+                  <span className="settings-format-example gm-data">
+                    {detection && detection.unnamed > 0
+                      ? t("settings.homeCountry.covers", { count: detection.unnamed })
+                      : ""}
+                  </span>
+                  <SelectMenu
+                    value={settings.homeCountry}
+                    onChange={(v) => set({ homeCountry: v })}
+                    options={homeCountryOptions}
+                  />
+                </label>
+              )}
             </section>
           ))}
-          {/* Not a format override: this is a reading of the file, not a habit
-              of it, and it changes what the geocoding and compliance lists do
-              with every place that names no country. It sits with the places
-              group all the same, which is what it is about. */}
-          <section className="settings-section settings-format-group">
-            <h3>{t("settings.homeCountry.group")}</h3>
-            <label className="settings-row settings-format-row" title={t("settings.homeCountry.hint")}>
-              <span className="settings-row-label">{t("settings.homeCountry")}</span>
-              <span className="settings-format-example gm-data">
-                {detection && detection.unnamed > 0
-                  ? t("settings.homeCountry.covers", { count: detection.unnamed })
-                  : ""}
-              </span>
-              <SelectMenu
-                value={settings.homeCountry}
-                onChange={(v) => set({ homeCountry: v })}
-                options={homeCountryOptions}
-              />
-            </label>
-          </section>
           </>
           )}
 

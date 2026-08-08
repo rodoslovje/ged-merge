@@ -1939,7 +1939,6 @@ export const sl = {
   "settings.format.group.dates": "Datumi",
   "settings.format.group.names": "Imena",
   "settings.format.group.places": "Kraji",
-  "settings.homeCountry.group": "Domača država",
   "settings.homeCountry": "Kraji brez navedene države",
   "settings.homeCountry.hint":
     "Rodoslovci svoje države ne pišejo — slovenska datoteka nekajkrat zapiše »Kranj, Slovenija«, stokrat pa le »Golnik«. Če take kraje štejemo v domačo državo, se zberejo pod njo, iščejo se samo v imenikih te države in jih preverjanje skladnosti presodi; če ne predpostavimo ničesar, ostanejo pri vsem tem ob strani.",

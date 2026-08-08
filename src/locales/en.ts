@@ -1722,7 +1722,6 @@ export const en = {
   "settings.format.group.dates": "Dates",
   "settings.format.group.names": "Names",
   "settings.format.group.places": "Places",
-  "settings.homeCountry.group": "Home country",
   "settings.homeCountry": "Places naming no country",
   "settings.homeCountry.hint":
     "Genealogists leave their own country out — a Slovenian file writes “Kranj, Slovenija” a few times and plain “Golnik” hundreds of times. Taking those places to be in the home country groups them under it, searches the directories of that country alone, and lets the compliance check judge them; assuming nothing leaves them unplaced in every one of those.",
