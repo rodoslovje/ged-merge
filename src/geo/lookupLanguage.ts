@@ -17,10 +17,12 @@ import { foldSearch } from "../ui/globalSearch";
 // `Intl.DisplayNames` knows.
 
 /** Compare names case-, accent- and punctuation-blind: the file may write
- *  "Bosnia-Herzegovina" where Intl says "Bosnia & Herzegovina". */
-function fold(value: string): string {
+ *  "Bosnia-Herzegovina" where Intl says "Bosnia & Herzegovina", or end its
+ *  country with a full stop ("Slovenija."). */
+export function foldCountryName(value: string): string {
   return foldSearch(value).replace(/[^a-z0-9]+/g, "");
 }
+const fold = foldCountryName;
 
 /** `${code}:${lang}` → that language's name for the country. Every lookup
  *  ladder asks this per candidate language, and `Intl.DisplayNames` is not a
@@ -30,7 +32,7 @@ const countryNameCache = new Map<string, string | undefined>();
 
 /** What `lang` calls the country with this ISO code, or undefined when the
  *  runtime cannot say (an unknown code, or no Intl data for the language). */
-function countryNameIn(code: string, lang: string): string | undefined {
+export function countryNameIn(code: string, lang: string): string | undefined {
   const key = `${code.toUpperCase()}:${lang}`;
   if (countryNameCache.has(key)) return countryNameCache.get(key);
   let name: string | undefined;
@@ -52,7 +54,7 @@ function countryNameIn(code: string, lang: string): string | undefined {
  * order, which only matters where two of them disagree — and where they agree
  * ("Kosovo", "Uganda") the answer is the same either way.
  */
-const CANDIDATE_LANGS = ["en", "sl", "de", "it", "hr", "hu", "sr", "fr", "es", "pl", "cs", "sk"];
+export const CANDIDATE_LANGS = ["en", "sl", "de", "it", "hr", "hu", "sr", "fr", "es", "pl", "cs", "sk"];
 
 /**
  * The language to ask an online place register in for `place`: the one the

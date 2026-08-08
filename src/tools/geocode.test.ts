@@ -610,10 +610,10 @@ describe("applyGeocode", () => {
 });
 
 describe("countryOf", () => {
-  it("takes the last comma segment", () => {
-    expect(countryOf("Ravna Gora,Primorje-Gorski Kotar,Croatia")).toBe("Croatia");
-    expect(countryOf("Kranj, Slovenija")).toBe("Slovenija");
-    expect(countryOf("Slovenia,,Slovenia")).toBe("Slovenia");
+  it("names the country the value stands in, however the file spells it", () => {
+    expect(countryOf("Ravna Gora,Primorje-Gorski Kotar,Croatia")).toBe("hr");
+    expect(countryOf("Kranj, Slovenija")).toBe("si");
+    expect(countryOf("Slovenia,,Slovenia")).toBe("si");
   });
 
   it("gives no country when the value names none", () => {
@@ -621,5 +621,10 @@ describe("countryOf", () => {
     // "country" of its own; a trailing comma means the country was omitted.
     expect(countryOf("Kranj")).toBe("");
     expect(countryOf("Novo mesto,")).toBe("");
+    // What a real file's last comma part usually is: a parish patron, a
+    // hospital, or a date somebody typed into a place field. None is a country.
+    expect(countryOf("Vojnik, sv. Jernej")).toBe("");
+    expect(countryOf("Ljubljana, bolnica")).toBe("");
+    expect(countryOf("10 avg 1908 ob 17. uri")).toBe("");
   });
 });

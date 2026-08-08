@@ -8,7 +8,7 @@ import { useDatasetDerivations } from "../DatasetDerivations";
 import { GeocodePanel } from "./GeocodePanel";
 import { RegisterPanel } from "./RegisterPanel";
 import { countGeocodePending, type GeoAssignment, type OfficialRename } from "../../tools/geocode";
-import { countryCode } from "../../gedcom/countryCode";
+import { countryCodeOfName, flagEmoji } from "../../geo/placeCountry";
 import { ToolsLoading, TreeSearch, UsageList, useDebounced } from "./shared";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
 import { ToolSummary } from "./ToolSummary";
@@ -415,8 +415,8 @@ function PlaceTreeRow({
       : node.name === UNSPECIFIED_PLACE
         ? t("tools.places.unspecifiedPlace")
         : node.name;
-  const code = depth === 0 && !isSynthetic ? countryCode(node.name) : undefined;
-  const flag = code ? [...code.toUpperCase()].map(c => String.fromCodePoint(0x1F1E6 + c.charCodeAt(0) - 65)).join("") : undefined;
+  const code = depth === 0 && !isSynthetic ? countryCodeOfName(node.name) : undefined;
+  const flag = code ? flagEmoji(code) : undefined;
   const labelNode = flag ? <>{flag} {name}</> : name;
 
   // Compute rename preview whenever the value differs from the current name.
