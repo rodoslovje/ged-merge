@@ -1,6 +1,5 @@
 import { countryCode } from "../gedcom/countryCode";
 import { decomposePlace } from "../gedcom/place";
-import { CANDIDATE_LANGS, countryNameIn, foldCountryName } from "./lookupLanguage";
 
 // Which country a place value stands in — the key the four geocoding and
 // compliance lists put their country chips on.
@@ -18,6 +17,51 @@ import { CANDIDATE_LANGS, countryNameIn, foldCountryName } from "./lookupLanguag
 // three countries whose files habitually stop at the state — a value ending in
 // "Ohio" or "Tasmania" says which country it is in as plainly as one ending in
 // "United States". Everything else names no country and is counted as such.
+
+/** Compare names case-, accent- and punctuation-blind: the file may write
+ *  "Bosnia-Herzegovina" where Intl says "Bosnia & Herzegovina", or end its
+ *  country with a full stop ("Slovenija."). The same fold as the app's search
+ *  (NFD splits a letter from its mark, which the class then drops), with
+ *  everything that is not a letter or digit removed on top. */
+export function foldCountryName(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "");
+}
+
+/** `${code}:${lang}` → that language's name for the country. Every lookup
+ *  ladder asks this per candidate language, and `Intl.DisplayNames` is not a
+ *  cheap constructor — a dozen fresh instances per row click adds up. The
+ *  world's country names do not change mid-session. */
+const countryNameCache = new Map<string, string | undefined>();
+
+/** What `lang` calls the country with this ISO code, or undefined when the
+ *  runtime cannot say (an unknown code, or no Intl data for the language). */
+export function countryNameIn(code: string, lang: string): string | undefined {
+  const key = `${code.toUpperCase()}:${lang}`;
+  if (countryNameCache.has(key)) return countryNameCache.get(key);
+  let name: string | undefined;
+  try {
+    const resolved = new Intl.DisplayNames([lang], { type: "region" }).of(code.toUpperCase());
+    // A code Intl does not know comes back as the code itself.
+    name = resolved && resolved.toUpperCase() !== code.toUpperCase() ? resolved : undefined;
+  } catch {
+    name = undefined;
+  }
+  countryNameCache.set(key, name);
+  return name;
+}
+
+/**
+ * Languages a country name in one of these files is plausibly written in: the
+ * two the app itself speaks, then the neighbours whose spellings turn up in
+ * Central-European genealogy ("Österreich", "Ungheria", "Mađarska"). Tried in
+ * order, which only matters where two of them disagree — and where they agree
+ * ("Kosovo", "Uganda") the answer is the same either way.
+ */
+export const CANDIDATE_LANGS = ["en", "sl", "de", "it", "hr", "hu", "sr", "fr", "es", "pl", "cs", "sk"];
 
 /**
  * Every ISO 3166-1 alpha-2 code, the set the reverse name index is built over.

@@ -1,5 +1,5 @@
 import { decomposePlace } from "../gedcom/place";
-import { countryCode } from "../gedcom/countryCode";
+import { countryCodeOfName } from "./placeCountry";
 import { foldToken } from "../match/text";
 import { placeFormFor } from "../normalize/profile";
 import type { PlaceTargetFormat } from "../normalize/types";
@@ -178,7 +178,7 @@ export function inferPlaceParentLevels(
   for (const value of places) {
     const components = decomposePlace(value);
     if (!components.country) continue;
-    const country = countryCode(components.country)?.toUpperCase();
+    const country = countryCodeOfName(components.country)?.toUpperCase();
     if (!country) continue;
     if (!sampleOf.has(country)) sampleOf.set(country, value);
     const towns = municipalities.get(country);

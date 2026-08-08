@@ -1,5 +1,5 @@
 import { foldToken, jaroWinkler } from "../match/text";
-import { countryCode } from "../gedcom/countryCode";
+import { countryCodeOfName } from "./placeCountry";
 import { decomposePlace } from "../gedcom/place";
 
 // Offline gazetteer built from user-imported GeoNames country extracts
@@ -1044,7 +1044,7 @@ function lookupPlaceUncached(index: GazetteerIndex, rawPlace: string): GazCandid
   const folded = foldToken(locality);
   if (!folded) return [];
   // countryCode returns lowercase ISO codes; GeoNames rows carry uppercase.
-  const wantCountry = components.country ? countryCode(components.country)?.toUpperCase() : undefined;
+  const wantCountry = components.country ? countryCodeOfName(components.country)?.toUpperCase() : undefined;
 
   const scores = new Map<number, number>();
   const consider = (i: number, base: number) => {
@@ -1227,7 +1227,7 @@ export function searchGazetteer(
   const locality = (components.locality ?? rawQuery.split(",")[0]).trim();
   const folded = foldToken(locality);
   if (folded.length < 2) return [];
-  const wantCountry = components.country ? countryCode(components.country)?.toUpperCase() : undefined;
+  const wantCountry = components.country ? countryCodeOfName(components.country)?.toUpperCase() : undefined;
 
   // Every entry is looked at, not just the bucket the query opens: a hamlet is
   // found by the second word of its name ("Spodnje Zabukovje" for "Zabukovje")

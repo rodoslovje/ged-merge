@@ -1,6 +1,6 @@
 import { createThrottledQueue, geoFetch } from "./net";
 import type { GeoCoord } from "../gedcom/types";
-import { countryCode } from "../gedcom/countryCode";
+import { countryCodeOfName } from "./placeCountry";
 import { addressStreetName, decomposePlace, looksLikeStreet } from "../gedcom/place";
 import { foldToken } from "../match/text";
 import { d96ToWgs84 } from "./d96";
@@ -224,7 +224,7 @@ export function rnQueriesFrom(place: string | undefined, address: string | undef
   // naming both — a place in one country, an ADDR in the other — is a
   // contradiction no register should be asked to resolve.
   const named = [p?.country, a?.country]
-    .map((c) => (c ? countryCode(c)?.toUpperCase() : undefined))
+    .map((c) => (c ? countryCodeOfName(c)?.toUpperCase() : undefined))
     .filter((c): c is string => !!c);
   if (named.some((c) => c !== "SI" && c !== "HR")) return [];
   if (new Set(named).size > 1) return [];

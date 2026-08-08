@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { GeoCoord } from "../../gedcom/types";
-import { countryCode } from "../../gedcom/countryCode";
+import { countryCodeOfName } from "../../geo/placeCountry";
 import { decomposePlace, parseCoordInput } from "../../gedcom/place";
 import { formatCoord, sameCoord } from "../../geo/points";
 import { isOfflineQuery, rnQueriesFrom, searchAddresses, splitAddressVariants, type RnResult } from "../../geo/rn";
@@ -177,7 +177,7 @@ export function EventCoordPicker({
    *  house-level register, or no country named at all. */
   const inRegisterCountry = useMemo(() => {
     const named = decomposePlace(address || place).country ?? decomposePlace(place).country;
-    const code = named ? countryCode(named)?.toUpperCase() : undefined;
+    const code = named ? countryCodeOfName(named)?.toUpperCase() : undefined;
     return !code || code === "SI" || code === "HR";
   }, [place, address]);
   const draftCoord = parseCoordInput(draft);
