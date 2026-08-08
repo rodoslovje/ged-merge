@@ -11,7 +11,7 @@ import { useDatasetDerivations } from "../DatasetDerivations";
 import { buildPlaceSuggestions } from "../edit/placeSuggestions";
 import { foldSearch } from "../globalSearch";
 import { usePlaceStyle } from "../edit/PlaceLookupContext";
-import { useGazetteer } from "./GazetteerManager";
+import { GazetteerMissing, useGazetteer } from "./GazetteerManager";
 import { RegisterCheckSection } from "./RegisterCheckSection";
 import { AddressCheckSection } from "./AddressCheckSection";
 import { BackButton } from "../BackButton";
@@ -19,7 +19,7 @@ import { isEditableTarget, isModalOpen } from "../../keyboard/shortcuts";
 import { useNameOf, useSettings } from "../SettingsContext";
 import { useLocalRegisters } from "../useLocalRegisters";
 import { ToolsLoading, TreeSearch, useDebounced } from "./shared";
-import { ToolSummary } from "./ToolSummary";
+import { useHomeCountry } from "../DatasetDerivations";
 
 // The compliance report, as its own page.
 //
@@ -72,6 +72,8 @@ export function RegisterPanel({
   const { settings: appSettings } = useSettings();
   useNameOf();
   const derivations = useDatasetDerivations();
+  // What a place naming no country is held to — see GeocodePanel.
+  const home = useHomeCountry();
 
   // Esc returns to the Places tree, as it does from the geocode tool.
   useEffect(() => {
@@ -149,11 +151,11 @@ export function RegisterPanel({
       return;
     }
     const id = window.setTimeout(
-      () => setReport(checkPlacesAgainstRegister(dataset, index, decisions, placeStyle.fmt)),
+      () => setReport(checkPlacesAgainstRegister(dataset, index, decisions, placeStyle.fmt, home)),
       0,
     );
     return () => window.clearTimeout(id);
-  }, [dataset, index, decisions, hasRegister, placeStyle, scanGen]);
+  }, [dataset, index, decisions, hasRegister, placeStyle, scanGen, home]);
 
   const [tab, setTab] = useState<"places" | "addresses">("places");
   /** How many address findings there are, once the check has been run — null
@@ -176,11 +178,18 @@ export function RegisterPanel({
 
   return (
     <div className="tools-geocode">
+      {/* The page's name beside the way back from it — see GeocodePanel, whose
+          shape this shares. What used to stand on the right repeated the
+          section heading a line below it, so the title took its place. */}
       <div className="tools-filter-row">
         <BackButton label={t("tools.places.geocodeBack")} shortcutHint="Esc" showLabel onClick={onBack} />
-        <TreeSearch value={search} onChange={setSearch} />
-        <ToolSummary>{t("tools.register.heading")}</ToolSummary>
+        <h2 className="tools-page-title">{t("tools.places.registerToggle")}</h2>
       </div>
+
+      {/* Without a directory this page has nothing to say at all — and said it
+          by rendering nothing, which reads as "your file is fine". The same
+          notice the geocode list shows, in this page's own words. */}
+      {!hasRegister && <GazetteerMissing note={t("tools.register.noGazetteer")} />}
 
       {/* Two tabs for two questions. The addresses one appears only where a
           stored register can answer something, which is the condition its
@@ -211,6 +220,12 @@ export function RegisterPanel({
           <div className="tools-dup-bulk" ref={setTabActionsEl} />
         </div>
       )}
+
+      {/* With the chips the sections draw right below it — narrowing in one
+          place, as on the geocoding page. */}
+      <div className="tools-filter-row tools-filter-row--narrow">
+        <TreeSearch value={search} onChange={setSearch} />
+      </div>
 
       {/* Both stay mounted: an address report costs a pass over the whole file,
           and switching tabs must not throw it away. */}

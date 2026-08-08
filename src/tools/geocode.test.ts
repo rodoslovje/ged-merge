@@ -15,6 +15,7 @@ import {
   isRegisterAddress,
   movePlaceForAddresses,
   pickLabel,
+  planCountryFill,
   placeAddrKey,
   reconcileNoMatchAfterScan,
   reconcilePicksAfterScan,
@@ -619,6 +620,62 @@ describe("pickLabel", () => {
     expect(pickLabel("Ig", "Ig")).toBe("Ig");
     expect(pickLabel("Šmartno pri Litiji", "Šmartno pri Litiji")).toBe("Šmartno pri Litiji");
     expect(pickLabel("Domžale", "domžale ")).toBe("Domžale");
+  });
+});
+
+describe("planCountryFill", () => {
+  const row = (key: string, over: Partial<GeocodeRow> = {}): GeocodeRow => ({
+    key,
+    count: 1,
+    missing: 1,
+    candidates: [],
+    confident: false,
+    missingIn: [],
+    ...over,
+  });
+  const entry = (name: string): GazEntry => ({
+    name,
+    ascii: "",
+    alt: [],
+    lat: 46,
+    lon: 14,
+    fclass: "P",
+    country: "SI",
+    admin1: "",
+    population: 0,
+  });
+  const sure = (name: string) => [{ entry: entry(name), score: 1 }];
+
+  it("writes the country into the places a directory recognizes", () => {
+    const fills = planCountryFill([row("Golnik", { candidates: sure("Golnik") })], "Slovenija", ",");
+    expect(fills).toEqual([{ from: "Golnik", to: "Golnik,Slovenija" }]);
+  });
+
+  it("uses the file's own separator", () => {
+    const fills = planCountryFill([row("Golnik", { candidates: sure("Golnik") })], "Slovenija", ", ");
+    expect(fills[0].to).toBe("Golnik, Slovenija");
+  });
+
+  it("takes a value the file has already placed, register or no register", () => {
+    const fills = planCountryFill([row("Vrh pri Hlevišah", { fileCoord: { lat: 46, lon: 14 } })], "Slovenija", ",");
+    expect(fills.map((f) => f.to)).toEqual(["Vrh pri Hlevišah,Slovenija"]);
+  });
+
+  it("leaves alone what is not a place and what already names its country", () => {
+    const fills = planCountryFill(
+      [
+        // No answer and no coordinate: a parish patron and a date typed into a
+        // place field look exactly like this, and neither becomes Slovenian by
+        // having "Slovenija" appended to it.
+        row("Vojnik, sv. Jernej"),
+        row("26.12.1958"),
+        // Already says where it is.
+        row("Kranj, Slovenija", { candidates: sure("Kranj") }),
+      ],
+      "Slovenija",
+      ",",
+    );
+    expect(fills).toEqual([]);
   });
 });
 

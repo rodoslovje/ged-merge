@@ -1025,26 +1025,34 @@ let lookupCacheIndex: GazetteerIndex | undefined;
  * When no country is named, or its name isn't one we recognize, every
  * country's entries stay eligible — we can't rule anything out.
  */
-export function lookupPlace(index: GazetteerIndex, rawPlace: string): GazCandidate[] {
+export function lookupPlace(index: GazetteerIndex, rawPlace: string, home = ""): GazCandidate[] {
   if (lookupCacheIndex !== index) {
     lookupCache.clear();
     lookupCacheIndex = index;
   }
-  const hit = lookupCache.get(rawPlace);
+  // The home country is part of the question, so it is part of the key — the
+  // same string answers differently once a file's silent country is known.
+  const key = home ? `${home} ${rawPlace}` : rawPlace;
+  const hit = lookupCache.get(key);
   if (hit) return hit;
-  const out = lookupPlaceUncached(index, rawPlace);
-  lookupCache.set(rawPlace, out);
+  const out = lookupPlaceUncached(index, rawPlace, home);
+  lookupCache.set(key, out);
   return out;
 }
 
-function lookupPlaceUncached(index: GazetteerIndex, rawPlace: string): GazCandidate[] {
+function lookupPlaceUncached(index: GazetteerIndex, rawPlace: string, home: string): GazCandidate[] {
   const components = decomposePlace(rawPlace);
   const locality = components.locality ?? rawPlace.split(",")[0].trim();
   if (!locality) return [];
   const folded = foldToken(locality);
   if (!folded) return [];
-  // countryCode returns lowercase ISO codes; GeoNames rows carry uppercase.
-  const wantCountry = components.country ? countryCodeOfName(components.country)?.toUpperCase() : undefined;
+  // countryCodeOfName returns lowercase ISO codes; GeoNames rows carry
+  // uppercase. A value naming no country is held to the file's home country
+  // where one is known — a Slovenian file's bare "Draga" is a Slovenian Draga,
+  // and answering it from the Croatian register was never right.
+  const wantCountry = components.country
+    ? countryCodeOfName(components.country)?.toUpperCase()
+    : home.toUpperCase() || undefined;
 
   const scores = new Map<number, number>();
   const consider = (i: number, base: number) => {

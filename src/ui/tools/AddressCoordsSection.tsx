@@ -23,6 +23,7 @@ import type { KinshipResolver } from "../../match/kinship";
 import { loadDecisions, putDecisions } from "../../persist/geoDb";
 import { AppliedNote, ExpandAllToggle, GeoPeopleList, GeoRowHeader, MapToggle, RowCaret, RowMap } from "./shared";
 import { CountryChips } from "./CountryChips";
+import { useHomeCountry } from "../DatasetDerivations";
 import { requestSettings } from "../settingsBus";
 
 // The ADDR half of geocoding: house coordinates from the GURS address register
@@ -299,6 +300,8 @@ export function AddressCoordsSection({
   onNavigate: (id: string) => void;
 }) {
   const { t, i18n } = useTranslation();
+  // See GeocodePanel: the country a place naming none is taken to stand in.
+  const home = useHomeCountry();
   const { settings } = useSettings();
   const nameOf = useNameOf();
   const byKey = useMemo(() => new Map(all.map((row) => [row.key, row])), [all]);
@@ -444,16 +447,16 @@ export function AddressCoordsSection({
       statusFilter === "all" || addrStatus(r, searches, picked, osmSearches) === statusFilter;
     const counts = new Map<string, number>();
     for (const row of visibleRows) {
-      const c = countryOf(row.place);
+      const c = countryOf(row.place, home);
       counts.set(c, (counts.get(c) ?? 0) + (inStatus(row) ? 1 : 0));
     }
     return [...counts].map(([code, count]) => ({ code, count }));
-  }, [visibleRows, statusFilter, searches, picked, osmSearches]);
+  }, [visibleRows, statusFilter, searches, picked, osmSearches, home]);
   const activeCountry =
     countryFilter !== null && countryChips.some((c) => c.code === countryFilter) ? countryFilter : null;
 
   const groups = useMemo(() => {
-    const inCountry = (r: AddressRow) => activeCountry === null || countryOf(r.place) === activeCountry;
+    const inCountry = (r: AddressRow) => activeCountry === null || countryOf(r.place, home) === activeCountry;
     const kept = visibleRows
       .filter(inCountry)
       .filter((r) => statusFilter === "all" || addrStatus(r, searches, picked, osmSearches) === statusFilter);
@@ -474,7 +477,7 @@ export function AddressCoordsSection({
     }
     // Most-used places first — that is where geocoding pays off soonest.
     return [...byPlace.values()].sort((a, b) => b.events - a.events || a.place.localeCompare(b.place));
-  }, [visibleRows, searches, osmSearches, picked, statusFilter, activeCountry]);
+  }, [visibleRows, searches, osmSearches, picked, statusFilter, activeCountry, home]);
 
   const [open, setOpen] = useState<Set<string>>(new Set());
   /** The one group whose map is drawn — never on open, always on request, and
@@ -629,7 +632,7 @@ export function AddressCoordsSection({
   const statusCounts = { unsearched: 0, found: 0, none: 0, manual: 0, placed: 0, picked: 0 };
   let statusAllCount = 0;
   for (const row of visibleRows) {
-    if (activeCountry !== null && countryOf(row.place) !== activeCountry) continue;
+    if (activeCountry !== null && countryOf(row.place, home) !== activeCountry) continue;
     statusCounts[addrStatus(row, searches, picked, osmSearches)]++;
     statusAllCount++;
   }
@@ -1050,6 +1053,7 @@ export function AddressCoordsSection({
           all={countryChips.reduce((n, c) => n + c.count, 0)}
           active={activeCountry}
           onPick={setCountryFilter}
+          assumed={home}
         />
       )}
       <div className="tools-chips">

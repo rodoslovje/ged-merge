@@ -478,6 +478,8 @@ export const sl = {
   "tools.geocode.placedTooltip":
     "Vse omembe tega kraja že nosijo to koordinato. Izbira druge ga geokodira znova — lege hiš, vezane na naslov, ostanejo nedotaknjene.",
   "tools.geocode.countryUnknown": "(država ni navedena)",
+  "tools.geocode.countryAssumed":
+    "Vključuje kraje brez navedene države: domača država te datoteke je {{country}}. Spremenite jo v Nastavitve → GEDCOM.",
   "tools.geocode.peopleToggle": "Pokaži osebe, ki jim na tem kraju še manjkajo koordinate",
   "tools.geocode.applied_one": "posodobljen {{count}} zapis",
   "tools.geocode.applied_two": "posodobljena {{count}} zapisa",
@@ -521,11 +523,14 @@ export const sl = {
   "tools.geocode.official.take": "Prevzemi",
   "tools.geocode.official.tooltip": "Preimenuje vse navedbe v uradno registrsko ime — »{{name}}« — in zapiše njegovo koordinato",
   "tools.geocode.official.bulk": "Prevzemi uradna imena ({{count}})",
+  "tools.geocode.fillCountry": "Dopiši državo ({{count}})",
+  "tools.geocode.fillCountry.tooltip":
+    "Krajem brez navedene države dopiše »{{country}}«, z ločilom te datoteke — le tistim, ki jih imenik pozna, tako da zavetnik župnije ali zašel datum ostaneta pri miru. En korak, ki ga je mogoče razveljaviti.",
   "tools.geocode.official.bulkTooltip": "Vse prikazane zanesljive vrstice preimenuje v registrsko ime in zapiše koordinato — ena poteza razveljavitve",
   "tools.geocode.tab.places": "Kraji",
   "tools.geocode.tab.addresses": "Naslovi",
-  "tools.geocode.tab.register": "Skladnost",
-  "tools.places.registerToggle": "Skladnost",
+  "tools.geocode.tab.register": "Poimenovanje",
+  "tools.places.registerToggle": "Poimenovanje",
   "tools.places.registerChipHint": "Vsak kraj in naslov iz datoteke primerjaj z uradnim registrom njegove države in poglej, kje se zapisa ne ujemata.",
   "tools.register.tab.places": "Kraji",
   "tools.register.tab.addresses": "Naslovi",
@@ -562,6 +567,8 @@ export const sl = {
   "tools.register.skippedHint": "Kraji v državah, za katere nimate imenika, in kraji, ki ne navedejo države, po kateri bi bilo imenik mogoče izbrati — teh ni s čim presoditi.",
   "tools.register.noRegister": "V Nastavitve › Zemljevid naložite imenik krajev — uradni register (slovenski GURS, hrvaški DGU), OpenStreetMap ali datoteko GeoNames — da bo kraje mogoče primerjati z njim.",
   "tools.register.clean": "Vsi kraji se ujemajo s svojim imenikom.",
+  "tools.register.noGazetteer":
+    "Imenik še ni uvožen — brez njega krajev in naslovov ni s čim primerjati, zato to preverjanje nima kaj poročati. Prazen seznam tu pomeni, da preverjanje ni teklo, ne da je datoteka v redu.",
   "tools.register.verdict.notFound": "Neznan",
   "tools.register.verdict.region": "Pokrajina",
   "tools.register.hint.region": "Imenik to ime pozna kot županijo ali pokrajino, ne kot naselje, zato se z registrom naselij ne bo nikoli ujelo — največkrat gre za dogodek, ki je znan le po širšem območju. Nič ni narobe; kadar vrednost to raven ponovi ali eno pusti prazno, je ponujena krajša oblika.",
@@ -1933,6 +1940,13 @@ export const sl = {
   "settings.format.group.dates": "Datumi",
   "settings.format.group.names": "Imena",
   "settings.format.group.places": "Kraji",
+  "settings.homeCountry": "Kraji brez navedene države",
+  "settings.homeCountry.hint":
+    "Rodoslovci svoje države ne pišejo — slovenska datoteka nekajkrat zapiše »Kranj, Slovenija«, stokrat pa le »Golnik«. Če take kraje štejemo v domačo državo, se zberejo pod njo, iščejo se samo v imenikih te države in jih preverjanje poimenovanja presodi; če ne predpostavimo ničesar, ostanejo pri vsem tem ob strani.",
+  "settings.homeCountry.auto.detected": "Iz datoteke — {{country}}",
+  "settings.homeCountry.auto.none": "Iz datoteke — ni jasnega odgovora",
+  "settings.homeCountry.none": "Ne predpostavi ničesar",
+  "settings.homeCountry.covers": "{{count}} krajev je brez nje",
   "settings.format.group.sources": "Viri",
   "settings.format.group.privacy": "Zasebnost",
   "settings.format.date": "Oblika",

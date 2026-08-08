@@ -414,6 +414,8 @@ export const en = {
   "tools.geocode.placedTooltip":
     "Every mention of this place already carries this coordinate. Picking a different one re-geocodes it — house positions bound to an address are left alone.",
   "tools.geocode.countryUnknown": "(country not stated)",
+  "tools.geocode.countryAssumed":
+    "Includes the places naming no country: this file is taken to be about {{country}}. Change that in Settings → GEDCOM.",
   "tools.geocode.peopleToggle": "Show the people still missing this place's coordinates",
   "tools.geocode.applied_one": "{{count}} record updated",
   "tools.geocode.applied_other": "{{count}} records updated",
@@ -455,17 +457,20 @@ export const en = {
   "tools.geocode.official.take": "Use official name",
   "tools.geocode.official.tooltip": "Rename all occurrences to the register's official name — “{{name}}” — and write its coordinate",
   "tools.geocode.official.bulk": "Use official names ({{count}})",
+  "tools.geocode.fillCountry": "Write the country in ({{count}})",
+  "tools.geocode.fillCountry.tooltip":
+    "Add “{{country}}” to the places that name no country, in this file's own separator — the places a directory recognises, so a parish patron or a stray date is left alone. One undoable step.",
   "tools.geocode.official.bulkTooltip": "Rename every confident row shown to its register name and write the coordinate — one undoable step",
   "tools.geocode.tab.places": "Places",
   "tools.geocode.tab.addresses": "Addresses",
-  "tools.geocode.tab.register": "Compliance",
+  "tools.geocode.tab.register": "Naming",
   // The compliance tab's address half. Asked for rather than run: the houses
   // need a downloaded register, and holding a whole file against one is a
   // decision with a visible answer.
   // The two compliance lists as two tabs. Named for what each holds, not
   // repeated as "compliance of…": the tab above them already says that.
   // The compliance page, opened from the Places tree beside geocoding.
-  "tools.places.registerToggle": "Compliance",
+  "tools.places.registerToggle": "Naming",
   "tools.places.registerChipHint": "Hold every place and address the file writes against the official register of its country, and see what the two disagree about.",
   "tools.register.tab.places": "Places",
   "tools.register.tab.addresses": "Addresses",
@@ -502,6 +507,8 @@ export const en = {
   "tools.register.skippedHint": "Places in countries you hold no directory for, and places naming no country a directory could be picked by — nothing here can judge them.",
   "tools.register.noRegister": "Load a place directory in Settings › Map — an official register (Slovenia's GURS, Croatia's DGU), OpenStreetMap or a GeoNames file — to check places against it.",
   "tools.register.clean": "Every place matches its directory.",
+  "tools.register.noGazetteer":
+    "No directory imported yet — without one there is nothing to hold your places and addresses to, so this check has nothing to report. An empty list here means the check has not run, not that your file is in order.",
   "tools.register.verdict.notFound": "Unknown",
   "tools.register.verdict.region": "Region",
   "tools.register.hint.region": "The directory knows this name as a county or region, not as a settlement, so no register of settlements will ever match it — most often an event known only by the wider area it happened in. Nothing here is wrong; where the value repeats that level or leaves one blank, the shorter form is offered.",
@@ -1716,6 +1723,13 @@ export const en = {
   "settings.format.group.dates": "Dates",
   "settings.format.group.names": "Names",
   "settings.format.group.places": "Places",
+  "settings.homeCountry": "Places naming no country",
+  "settings.homeCountry.hint":
+    "Genealogists leave their own country out — a Slovenian file writes “Kranj, Slovenija” a few times and plain “Golnik” hundreds of times. Taking those places to be in the home country groups them under it, searches the directories of that country alone, and lets the naming check judge them; assuming nothing leaves them unplaced in every one of those.",
+  "settings.homeCountry.auto.detected": "From the file — {{country}}",
+  "settings.homeCountry.auto.none": "From the file — no clear answer",
+  "settings.homeCountry.none": "Assume nothing",
+  "settings.homeCountry.covers": "{{count}} places name none",
   "settings.format.group.sources": "Sources",
   "settings.format.group.privacy": "Privacy",
   "settings.format.date": "Format",

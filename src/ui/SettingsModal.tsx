@@ -12,6 +12,10 @@ import type { MiniMapPin } from "./map/MiniPlaceMap";
 import { xrefLabel, type NameOrder } from "../gedcom/nameDisplay";
 import type { PersonName } from "../gedcom/types";
 import { SUPPORTED_LANGUAGES } from "../locales/i18n";
+import { COUNTRY_CODES } from "../gedcom/countryCode";
+import { countryFacetLabel } from "../geo/placeCountry";
+import { HOME_COUNTRY_AUTO, HOME_COUNTRY_NONE } from "../geo/homeCountry";
+import { useDatasetDerivations } from "./DatasetDerivations";
 import { PROXY_HOSTS } from "../normalize/urlMetadata";
 import { DATE_PATTERN_CHOICES, type DetectedFormats, type FormatOverrides } from "../normalize/formatOverrides";
 import { placeLayoutSample, sampleDateFor } from "../normalize/formatDefaults";
@@ -173,6 +177,7 @@ function GazetteerSection() {
 export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClearCache, detectedFormats, initialTab }: Props) {
   const { t, i18n } = useTranslation();
   const { settings, set } = useSettings();
+  const derivations = useDatasetDerivations();
   const nameOf = useNameOf();
   const ref = useModalKeyboard(isOpen, onClose);
   const [tab, setTab] = useState<SettingsTab>("general");
@@ -278,6 +283,30 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
     () => sampleMapView(settings.mapOverlays, framedOverlay),
     [settings.mapOverlays, framedOverlay],
   );
+
+  // What the loaded file says about which country it is about, and how many of
+  // its places would be read that way. Detection is lazy and cached per dataset
+  // version, so opening this tab pays for it once and every list shares it.
+  const detection = derivations?.homeCountry();
+  const homeCountryOptions = useMemo(() => {
+    const named = (code: string) => countryFacetLabel(code, i18n.language);
+    const detectedName = detection?.code ? named(detection.code) : undefined;
+    return [
+      {
+        value: HOME_COUNTRY_AUTO,
+        // The file's own answer is shown in the option, not merely applied by
+        // it: "follow the file" says nothing until you can see what the file
+        // said, and a wrong detection has to be visible to be overruled.
+        label: detectedName
+          ? t("settings.homeCountry.auto.detected", { country: detectedName })
+          : t("settings.homeCountry.auto.none"),
+      },
+      { value: HOME_COUNTRY_NONE, label: t("settings.homeCountry.none") },
+      ...COUNTRY_CODES.map((code) => ({ value: code.toLowerCase(), label: named(code.toLowerCase()) })).sort((a, b) =>
+        String(a.label).localeCompare(String(b.label), i18n.language),
+      ),
+    ];
+  }, [detection, i18n.language, t]);
 
   // A dropdown commits straight through: only the handful of components that
   // read formatOverrides re-render, and they do it in the same tick as the
@@ -565,6 +594,24 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                   />
                 </label>
               ))}
+              {/* Not a format override — a reading of the file rather than a
+                  habit of it — but it belongs among the place rows, which is
+                  what it is about, and it reads as one of them. */}
+              {group === "places" && (
+                <label className="settings-row settings-format-row" title={t("settings.homeCountry.hint")}>
+                  <span className="settings-row-label">{t("settings.homeCountry")}</span>
+                  <span className="settings-format-example gm-data">
+                    {detection && detection.unnamed > 0
+                      ? t("settings.homeCountry.covers", { count: detection.unnamed })
+                      : ""}
+                  </span>
+                  <SelectMenu
+                    value={settings.homeCountry}
+                    onChange={(v) => set({ homeCountry: v })}
+                    options={homeCountryOptions}
+                  />
+                </label>
+              )}
             </section>
           ))}
           </>

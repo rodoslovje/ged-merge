@@ -4,6 +4,9 @@ import type { Dataset } from "../gedcom/types";
 import { buildPlaceSuggestions, type PlaceSuggestions } from "./edit/placeSuggestions";
 import { scanAddresses, type AddressRow } from "../tools/addresses";
 import { createKinshipResolver, type KinshipResolver } from "../match/kinship";
+import { detectHomeCountry, resolveHomeCountry, HOME_COUNTRY_AUTO, type HomeCountryDetection } from "../geo/homeCountry";
+import { collectPlaceValues } from "../tools/geocode";
+import { useSettingsSlice } from "./SettingsContext";
 
 /**
  * Whole-file derivations of the main dataset, computed once per edit and
@@ -28,6 +31,10 @@ export interface DatasetDerivations {
   addressRows: () => AddressRow[];
   /** Kinship labels from the start person; undefined without one. */
   kinship: (startId: string | undefined) => KinshipResolver | undefined;
+  /** Which country the file's own places say it is about — the one assumed for
+   *  the places that name none. Read through {@link useHomeCountry}, which
+   *  applies the reader's setting on top. */
+  homeCountry: () => HomeCountryDetection;
 }
 
 const Ctx = createContext<DatasetDerivations | null>(null);
@@ -63,6 +70,7 @@ export function DatasetDerivationsProvider({
       version,
       placeSuggestions: lazy(() => buildPlaceSuggestions(dataset)),
       addressRows: lazy(() => scanAddresses(dataset)),
+      homeCountry: lazy(() => detectHomeCountry(collectPlaceValues(dataset))),
       kinship: (startId) => {
         if (!startId) return undefined;
         const hit = kinshipCache.current;
@@ -80,4 +88,23 @@ export function DatasetDerivationsProvider({
 /** The shared derivations; throws where no main dataset can be loaded. */
 export function useDatasetDerivations(): DatasetDerivations | null {
   return useContext(Ctx);
+}
+
+const HOME_KEYS = ["homeCountry"] as const;
+
+/**
+ * The country to assume for a place that names none — the reader's setting over
+ * what the file says about itself, `""` where nothing is to be assumed.
+ *
+ * Every list that groups, scopes or judges by country asks this, so the four
+ * chip rows, the gazetteer lookups and the compliance check all take the same
+ * view of one file.
+ */
+export function useHomeCountry(): string {
+  const { homeCountry } = useSettingsSlice(HOME_KEYS);
+  const derivations = useDatasetDerivations();
+  // Detection is lazy and cached per dataset version, so asking on every render
+  // costs a map lookup — but only where the setting actually follows the file.
+  const detected = homeCountry === HOME_COUNTRY_AUTO ? (derivations?.homeCountry().code ?? "") : "";
+  return resolveHomeCountry(homeCountry, detected);
 }

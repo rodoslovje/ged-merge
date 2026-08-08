@@ -5,6 +5,7 @@ import { deleteDecision, putDecisions } from "../../persist/geoDb";
 import { countryOf, pickLabel, type FileCoord, type OfficialRename } from "../../tools/geocode";
 import { countryCodeOfName } from "../../geo/placeCountry";
 import { CountryChips } from "./CountryChips";
+import { useHomeCountry } from "../DatasetDerivations";
 import {
   directoryOf,
   registerDecisionKey,
@@ -118,6 +119,8 @@ export function RegisterCheckSection({
   placeSug: { placeSuggestions: string[]; placeCanonical: Map<string, string> };
 }) {
   const { t } = useTranslation();
+  // See GeocodePanel: the country a place naming none is taken to stand in.
+  const home = useHomeCountry();
   const [verdictFilter, setVerdictFilter] = useState<"all" | RegisterVerdict>("all");
   /** ISO code of the country on screen, or null for all of them. */
   const [countryFilter, setCountryFilter] = useState<string | null>(null);
@@ -246,16 +249,16 @@ export function RegisterCheckSection({
     // still open.
     const countries: string[] = [];
     for (const f of pool) {
-      const c = countryOf(f.key);
+      const c = countryOf(f.key, home);
       if (!countries.includes(c)) countries.push(c);
     }
     const activeCountry = countryFilter !== null && countries.includes(countryFilter) ? countryFilter : null;
-    const inCountry = (f: RegisterFinding) => activeCountry === null || countryOf(f.key) === activeCountry;
+    const inCountry = (f: RegisterFinding) => activeCountry === null || countryOf(f.key, home) === activeCountry;
     const inVerdict = (f: RegisterFinding) => verdictFilter === "all" || f.verdict === verdictFilter;
 
     const countryChips = countries.map((code) => ({
       code,
-      count: searched.filter((f) => countryOf(f.key) === code && inVerdict(f)).length,
+      count: searched.filter((f) => countryOf(f.key, home) === code && inVerdict(f)).length,
     }));
     const countryAll = searched.filter(inVerdict).length;
 
@@ -273,7 +276,7 @@ export function RegisterCheckSection({
       activeCountry,
       dismissedTotal,
     };
-  }, [report, query, verdictFilter, countryFilter, showDismissed]);
+  }, [report, query, verdictFilter, countryFilter, showDismissed, home]);
 
   if (!report || !view) return null;
 
@@ -403,6 +406,7 @@ export function RegisterCheckSection({
               active={view.activeCountry}
               onPick={setCountryFilter}
               titleOf={formOf}
+              assumed={home}
             />
           )}
           <div className="tools-chips">

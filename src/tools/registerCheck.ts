@@ -280,6 +280,10 @@ export function checkPlacesAgainstRegister(
   index: GazetteerIndex | undefined,
   decisions: ReadonlyMap<string, GeocodeDecision>,
   fmt?: PlaceTargetFormat,
+  /** The file's home country: what a place naming none is taken to be in, so
+   *  the silent majority of a file is judged rather than left out. `""` keeps
+   *  the cautious reading — nothing is assumed and nothing is accused. */
+  home = "",
 ): RegisterCheckReport {
   if (!index) return EMPTY;
 
@@ -383,7 +387,14 @@ export function checkPlacesAgainstRegister(
       continue;
     }
     if (isRegisterAddress(key)) continue;
-    const wantCountry = components.country ? countryCodeOfName(components.country)?.toUpperCase() : undefined;
+    // A value naming no country is held to the file's home country where one is
+    // known: a Slovenian file writes "Golnik" and means Slovenia, and until the
+    // file's own silence could be read that way, hundreds of its places went
+    // unjudged. Only a home country a loaded directory actually covers counts —
+    // otherwise the value is out of scope, exactly as a named one would be.
+    const wantCountry = components.country
+      ? countryCodeOfName(components.country)?.toUpperCase()
+      : home.toUpperCase() || undefined;
     // A country we can name but hold no register for: out of scope, and said so
     // in the summary rather than silently dropped.
     if (wantCountry && !covered.has(wantCountry)) {
@@ -421,7 +432,7 @@ export function checkPlacesAgainstRegister(
     const fileCoord = [...g.coords.values()].sort((a, b) => b.n - a.n)[0]?.coord;
     const answersFor = (value: string) => {
       const name = (decomposePlace(value).locality ?? value.split(",")[0]).trim();
-      return lookupPlace(index, value).filter(
+      return lookupPlace(index, value, home).filter(
         (c) => covered.has(c.entry.country) && (sameName(name, c.entry) || c.score >= PARENT_QUALIFIED),
       );
     };

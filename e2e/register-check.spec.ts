@@ -85,9 +85,9 @@ test("the compliance page: official name taken, an unknown place dismissed and r
 
   await page.getByRole("button", { name: "Tools", exact: true }).click();
   await page.getByText("Places", { exact: true }).click();
-  // Compliance is its own page now, opened beside Geocoding rather than being
-  // a tab inside it.
-  await page.getByRole("button", { name: /Compliance/ }).click();
+  // The naming check is its own page, opened beside Geocoding rather than
+  // being a tab inside it.
+  await page.getByRole("button", { name: /Naming/ }).click();
 
   // One place matches; the misspelled and the unknown one are findings, each
   // under its verdict. (Locators are scoped to the findings rows — the Edit
