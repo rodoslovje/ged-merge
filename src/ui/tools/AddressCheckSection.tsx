@@ -602,6 +602,14 @@ export function AddressCheckSection({
                                   <span className="tools-geo-cand-line" title={t("tools.registerAddr.moveHint")}>
                                     <span className="tools-geo-cand-num">1</span>
                                     <span className="tools-geo-cand-name">{f.official}</span>
+                                    {/* The place this line yields, beside the
+                                        line itself — the header's proposal read
+                                        back to where it comes from, so the move
+                                        is visibly the register's own filing and
+                                        not something composed elsewhere. */}
+                                    {(f.officialPlace ?? f.settlement) && (
+                                      <span className="tools-register-place">{f.officialPlace ?? f.settlement}</span>
+                                    )}
                                   </span>
                                 )}
                               </li>
