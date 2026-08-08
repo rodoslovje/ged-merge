@@ -169,22 +169,25 @@ export function AddressCheckSection({
     setRunning(null);
   };
 
-  /** Which set of rows the check has already been run for, so opening the tab
-   *  twice does not run it twice. */
+  /** Which set of rows the check has already been run for, so a tab switch does
+   *  not run it twice. */
   const ranFor = useRef<AddressRow[] | null>(null);
-  // Run when the tab is opened, and again after an edit re-scans the file. The
-  // button remains for the progress it reports, but it should not have been the
-  // only way in: a stored register answers a whole file in IndexedDB reads —
-  // that is the very argument by which the geocoding addresses list looks its
-  // own rows up unasked, and the places half of this page has always checked
-  // itself the moment the page is opened. Held until the tab is actually shown,
-  // so a file whose houses are never looked at pays nothing.
+  // Run as soon as the page is open — whichever tab is on screen — and again
+  // after an edit re-scans the file. The button remains for the progress it
+  // reports, but it should not have been the only way in: a stored register
+  // answers a whole file in IndexedDB reads, which yield between houses, so
+  // this costs the page nothing it can feel.
+  //
+  // It waited for its own tab to be shown, and that made the count on the tab
+  // useless: the one thing it is there to say — whether the houses are worth a
+  // look — could only be learnt by going and looking. Now the tab carries its
+  // number by the time the reader's eye reaches it.
   useEffect(() => {
-    if (hidden || !askable.length || ranFor.current === askable) return;
+    if (!askable.length || ranFor.current === askable) return;
     ranFor.current = askable;
     void run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hidden, askable]);
+  }, [askable]);
 
   /** Hide a finding, or — on one already hidden — bring it back. The restore
    *  half was missing: the button read "Prikaži" and wrote the dismissal again,
