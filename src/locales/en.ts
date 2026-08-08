@@ -380,6 +380,8 @@ export const en = {
   "tools.geocode.renameOpen": "Rename this place — all occurrences of exactly this value in the file",
   "tools.geocode.stagedHint": "This coordinate is staged — Write coordinates will put it in the file. Pick it again in the row to drop it.",
   "tools.geocode.showMap": "Show on map",
+  "tools.geocode.coordHint": "The coordinate this place is about to get: {{label}}. Only the coordinate is written — the place keeps every word your file gives it.",
+  "tools.geocode.adminHint": "The unit the register files this place under (municipality, county, state) — what tells same-named places apart.",
   "edit.mapHide": "Hide map",
   "edit.mapShow": "Show map",
   "tools.geocode.mapPickHint": "Circles: proposed places (click to pick) · grey dots: coordinates this file already carries · click anywhere to set the coordinate by hand",

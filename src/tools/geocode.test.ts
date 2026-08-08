@@ -14,6 +14,7 @@ import {
   countryOf,
   isRegisterAddress,
   movePlaceForAddresses,
+  pickLabel,
   placeAddrKey,
   reconcileNoMatchAfterScan,
   reconcilePicksAfterScan,
@@ -606,6 +607,18 @@ describe("applyGeocode", () => {
     expect(events.find((e) => e.tag === "RESI")!.place?.coord).toEqual({ lat: 45.91234, lon: 15.31234 });
     // The occurrence with no coordinate is filled, as any geocode write is.
     expect(events.find((e) => e.tag === "DEAT")!.place?.coord).toEqual({ lat: 45.85, lon: 15.35 });
+  });
+});
+
+describe("pickLabel", () => {
+  it("names the division that tells same-named places apart", () => {
+    expect(pickLabel("Vinji Vrh", "Brežice")).toBe("Vinji Vrh (Brežice)");
+  });
+
+  it("does not echo a municipality named after its own seat", () => {
+    expect(pickLabel("Ig", "Ig")).toBe("Ig");
+    expect(pickLabel("Šmartno pri Litiji", "Šmartno pri Litiji")).toBe("Šmartno pri Litiji");
+    expect(pickLabel("Domžale", "domžale ")).toBe("Domžale");
   });
 });
 

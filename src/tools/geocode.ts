@@ -162,9 +162,22 @@ export interface OfficialRename {
 /** A pick's display label: the entry's name with its administrative parent —
  *  "Vinji Vrh (Brežice)" — so a same-named settlement in the wrong
  *  municipality is visible everywhere the pick is shown, above all in the
- *  row header the eye actually reads before accepting. */
+ *  row header the eye actually reads before accepting.
+ *
+ *  A municipality named after its own seat says nothing twice: "Ig (Ig)" and
+ *  "Šmartno pri Litiji (Šmartno pri Litiji)" are the name and its echo, and the
+ *  bracket is there to tell places apart, not to repeat one. */
 export function pickLabel(name: string, admin?: string): string {
-  return admin ? `${name} (${admin})` : name;
+  const parent = adminOf(name, admin);
+  return parent ? `${name} (${parent})` : name;
+}
+
+/** The division a candidate is filed under, when it says something the name
+ *  itself does not — see {@link pickLabel}. Also the file's own spelling of the
+ *  division where the place string named it (`adminDisplay`). */
+export function adminOf(name: string, admin?: string): string | undefined {
+  const parent = admin?.trim();
+  return parent && parent.toLowerCase() !== name.trim().toLowerCase() ? parent : undefined;
 }
 
 /**
