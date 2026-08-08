@@ -11,7 +11,7 @@ import { useDatasetDerivations } from "../DatasetDerivations";
 import { buildPlaceSuggestions } from "../edit/placeSuggestions";
 import { foldSearch } from "../globalSearch";
 import { usePlaceStyle } from "../edit/PlaceLookupContext";
-import { useGazetteer } from "./GazetteerManager";
+import { GazetteerMissing, useGazetteer } from "./GazetteerManager";
 import { RegisterCheckSection } from "./RegisterCheckSection";
 import { AddressCheckSection } from "./AddressCheckSection";
 import { BackButton } from "../BackButton";
@@ -184,6 +184,11 @@ export function RegisterPanel({
         <TreeSearch value={search} onChange={setSearch} />
         <ToolSummary>{t("tools.register.heading")}</ToolSummary>
       </div>
+
+      {/* Without a directory this page has nothing to say at all — and said it
+          by rendering nothing, which reads as "your file is fine". The same
+          notice the geocode list shows, in this page's own words. */}
+      {!hasRegister && <GazetteerMissing note={t("tools.register.noGazetteer")} />}
 
       {/* Two tabs for two questions. The addresses one appears only where a
           stored register can answer something, which is the condition its

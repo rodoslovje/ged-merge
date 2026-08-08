@@ -1090,24 +1090,37 @@ export function GazetteerManager({ gaz }: { gaz: Gazetteer }) {
  * cannot work without it. With something imported it is one line — which
  * directories are in and how big — and the managing happens in Settings.
  */
+/**
+ * What a page says when it has no place directory to work with: what it cannot
+ * do without one, and the one click to the place that manages them. The
+ * controls themselves are deliberately *not* repeated here — two copies of the
+ * same setup invite the reader to wonder which one is the real one.
+ *
+ * `note` is the page's own sentence, because the loss differs: the geocode list
+ * can still take a coordinate typed by hand, while the compliance check has
+ * nothing whatever to hold the file to.
+ */
+export function GazetteerMissing({ note }: { note: string }) {
+  const { t } = useTranslation();
+  return (
+    <div className="tools-geo-gazetteer">
+      <p className="tools-geo-empty">{note}</p>
+      <button className="tools-issue-link" onClick={() => requestSettings("map")}>
+        {t("tools.geocode.openSettings")}
+      </button>
+    </div>
+  );
+}
+
 export function GazetteerSetup({ gaz }: { gaz: Gazetteer }) {
   const { t, i18n } = useTranslation();
   if (gaz.countries === null) return null;
 
-  // Nothing loaded: say so and point at the one place that manages them. The
-  // controls themselves are deliberately *not* repeated here — two copies of
-  // the same setup invite the reader to wonder which one is the real one, and
-  // the link costs one click. An address register on its own counts as loaded:
-  // it answers houses, which is most of what this tool is asked for.
+  // Nothing loaded: say so and point at the one place that manages them. An
+  // address register on its own counts as loaded: it answers houses, which is
+  // most of what this tool is asked for.
   if (gaz.countries.length === 0 && !gaz.addressRegisters?.length) {
-    return (
-      <div className="tools-geo-gazetteer">
-        <p className="tools-geo-empty">{t("tools.geocode.noGazetteer")}</p>
-        <button className="tools-issue-link" onClick={() => requestSettings("map")}>
-          {t("tools.geocode.openSettings")}
-        </button>
-      </div>
-    );
+    return <GazetteerMissing note={t("tools.geocode.noGazetteer")} />;
   }
 
   return (

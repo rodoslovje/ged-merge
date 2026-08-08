@@ -508,6 +508,8 @@ export const en = {
   "tools.register.skippedHint": "Places in countries you hold no directory for, and places naming no country a directory could be picked by — nothing here can judge them.",
   "tools.register.noRegister": "Load a place directory in Settings › Map — an official register (Slovenia's GURS, Croatia's DGU), OpenStreetMap or a GeoNames file — to check places against it.",
   "tools.register.clean": "Every place matches its directory.",
+  "tools.register.noGazetteer":
+    "No directory imported yet — without one there is nothing to hold your places and addresses to, so this check has nothing to report. An empty list here means the check has not run, not that your file is in order.",
   "tools.register.verdict.notFound": "Unknown",
   "tools.register.verdict.region": "Region",
   "tools.register.hint.region": "The directory knows this name as a county or region, not as a settlement, so no register of settlements will ever match it — most often an event known only by the wider area it happened in. Nothing here is wrong; where the value repeats that level or leaves one blank, the shorter form is offered.",
