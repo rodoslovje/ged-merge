@@ -1,6 +1,7 @@
 import { addressStreetName, bracketedTail } from "../gedcom/place";
 import type { GeoCoord } from "../gedcom/types";
-import type { AddressHit } from "../geo/addressRegister";
+import { sameStreet, type AddressHit } from "../geo/addressRegister";
+import { abbreviates, splitAddressVariants } from "../geo/rn";
 import { foldToken } from "../match/text";
 import type { GeocodeDecision } from "../persist/geoDb";
 import type { AddressRow } from "./addresses";
@@ -33,7 +34,7 @@ import { replaceLocality } from "./addresses";
  *   also the one finding here that moves events rather than rewords them
  * - `addrSpelling` the register writes the street differently ("Kidričeva" for
  *   its "Kidričeva cesta", "Ul. Senjsko" for its "Senjsko")
- * - `addrMissing` the register has no such number in this settlement — off the
+ * - `addrMissing` the register has no such house as the file writes it — off the
  *   list by default; see the note above
  */
 export type AddressVerdict = "addrElsewhere" | "addrSpelling" | "addrMissing";
@@ -100,6 +101,56 @@ export interface AddressCheckReport {
 const RANK: Record<AddressVerdict, number> = { addrElsewhere: 0, addrSpelling: 1, addrMissing: 2 };
 
 /**
+ * The register's own line for a house, carrying the researcher's bracketed note.
+ *
+ * The note says what the house is — "(dom starejših)", "(pd Piščk)" — and no
+ * register knows it. It is already kept when a spelling is taken; it has to be
+ * kept when the line is merely *shown* too, or the arrow reads as though
+ * accepting the finding would throw the note away.
+ */
+function withNote(hit: AddressHit, written: string): string {
+  const tail = bracketedTail(written);
+  return tail ? hit.label.replace(hit.address, `${hit.address}${tail}`) : hit.label;
+}
+
+/**
+ * Whether the register's answer is about the street the file writes.
+ *
+ * A lookup widens until it finds something — past the street, past the
+ * settlement, out to "any house in this village carrying this number" (see
+ * searchBucket and searchLocalAddress). That is right where the answer is a
+ * *candidate*: the Addresses tab offers it and the researcher decides. It is
+ * ruinous as a *verdict*, because a wide answer shares nothing with the written
+ * address but its digits. A municipality the size of Kranj has a house of every
+ * number, so the check reported "Stražišče 109" as a misspelling of Jezerska
+ * cesta 109, "Naklo 67" of Temniška ulica 67, and "Klošter 52" as really
+ * belonging to Cankarjeva cesta in Metlika — in none of which had the register
+ * recognized a single word the researcher wrote.
+ *
+ * Only a register street that *is* the written one, spelt more fully or more
+ * briefly ("Kidričeva cesta" for "Kidričeva", "Senjsko" for "Ul. Senjsko"),
+ * makes a spelling finding. Everything else is `addrMissing`.
+ */
+function namesTheStreet(written: string | undefined, hit: AddressHit): boolean {
+  return !!written && !!hit.street && sameStreet(written, hit.street);
+}
+
+/**
+ * Whether a register answer that sits in *another* settlement is nevertheless
+ * about this house.
+ *
+ * The two honest readings, and the only two: the street matched and only the
+ * settlement differs (Hafnarjeva pot written under Stražišče, which the register
+ * files under Kranj), or the name the number hangs off is the register's own
+ * settlement (village numbering — "Dupeljne 11" written under Brdo pri
+ * Lukovici). A settlement reached by widening alone, sharing nothing with the
+ * written value, moves no events anywhere.
+ */
+function namesTheSettlement(written: string | undefined, hit: AddressHit): boolean {
+  return namesTheStreet(written, hit) || abbreviates(written, hit.settlement);
+}
+
+/**
  * Hold each address against what the register answered for it.
  *
  * `answers` is what the caller resolved — one entry per row it *asked* about,
@@ -143,43 +194,82 @@ export function checkAddressesAgainstRegister(
       add("addrMissing", {});
       continue;
     }
-    // Several houses answer this number and nothing here can choose between
-    // them — the Addresses tab offers the choice; this is not a disagreement.
-    if (hits.length > 1) {
-      ok++;
-      continue;
-    }
-    const hit = hits[0];
 
+    // A value naming both the old and the new name of one house — "Labore 4 /
+    // Škofjeloška 4", a street Kranj renamed — is two whole addresses, looked up
+    // as two ({@link splitAddressVariants}), and their answers arrive in one
+    // bag. Each half is judged on its own and only the half the register knows
+    // is rewritten, so taking the official spelling keeps the historical name
+    // the researcher deliberately recorded.
+    const variants = splitAddressVariants(row.address);
     // The settlement the row claims — the place's own, as the query was built
-    // from it. A register that files the house elsewhere is the strongest
-    // finding here: the events belong to another village.
+    // from it.
     const claimed = row.queries[0]?.settlement;
-    if (claimed && hit.settlement && foldToken(claimed) !== foldToken(hit.settlement)) {
+    let elsewhere: { hit: AddressHit; variant: string } | undefined;
+    const spelled: { hit: AddressHit; variant: string }[] = [];
+    /** A half the register answered with a house that is not it. */
+    let unknown = false;
+
+    for (const variant of variants) {
+      // The name the file hangs the number off — a town street, or the village
+      // itself in village numbering.
+      const written = addressStreetName(variant);
+      // Which answers this half can claim. With one address in the value they
+      // all are; with two, only the ones naming this half's street, since the
+      // other half's lookup put its own houses in the same bag.
+      const own = variants.length > 1 ? hits.filter((h) => namesTheStreet(written, h)) : hits;
+      // Several houses answer this number and nothing here can choose between
+      // them — the Addresses tab offers the choice; this is not a disagreement.
+      if (own.length !== 1) {
+        if (!own.length) unknown = true;
+        continue;
+      }
+      const hit = own[0];
+
+      // A register that files the house elsewhere is the strongest finding
+      // here: the events belong to another village.
+      if (claimed && hit.settlement && foldToken(claimed) !== foldToken(hit.settlement)) {
+        if (namesTheSettlement(written, hit)) elsewhere ??= { hit, variant };
+        else unknown = true;
+        continue;
+      }
+
+      // Only a file that names a street of its own can spell one differently. A
+      // value carrying just a number ("38/a") is not misspelt — it is a
+      // different shape, and rewriting it whole is the Addresses tab's
+      // business, not a compliance finding.
+      if (written && hit.street && foldToken(written) !== foldToken(hit.street)) {
+        if (namesTheStreet(written, hit)) spelled.push({ hit, variant });
+        else unknown = true;
+      }
+    }
+
+    if (elsewhere) {
+      const { hit, variant } = elsewhere;
       const officialPlace = replaceLocality(row.place, hit.settlement);
       add("addrElsewhere", {
-        official: hit.label,
+        official: withNote(hit, variant),
         settlement: hit.settlement,
         coord: hit.coord,
         ...(officialPlace ? { officialPlace } : {}),
       });
-      continue;
-    }
-
-    // Only a file that names a street of its own can spell one differently. A
-    // value carrying just a number ("38/a") is not misspelt — it is a different
-    // shape, and rewriting it whole is the Addresses tab's business, not a
-    // compliance finding.
-    const street = addressStreetName(row.address);
-    if (street && hit.street && foldToken(street) !== foldToken(hit.street)) {
+    } else if (spelled.length) {
+      // Each rewritten half spliced back into the value as the file writes it,
+      // so what the row offers is the whole ADDR line and never one half of it.
+      const officialAddress = spelled.reduce(
+        (value, { hit, variant }) => value.replace(variant, `${hit.address}${bracketedTail(variant)}`),
+        row.address,
+      );
       add("addrSpelling", {
-        official: hit.label,
-        officialAddress: `${hit.address}${bracketedTail(row.address)}`,
-        coord: hit.coord,
+        official: withNote(spelled[0].hit, spelled[0].variant),
+        officialAddress,
+        coord: spelled[0].hit.coord,
       });
-      continue;
+    } else if (unknown) {
+      add("addrMissing", {});
+    } else {
+      ok++;
     }
-    ok++;
   }
 
   findings.sort(

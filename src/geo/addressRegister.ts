@@ -317,8 +317,13 @@ export function streetKey(name: string): string {
 
 /** Whether two street names name the same street — either as written or by the
  *  words that identify them, and in either direction, since either side may be
- *  the abbreviated one ("Ilica" for the register's "Ilica ulica"). */
-function sameStreet(written: string, foldedWritten: string, registerName: string): boolean {
+ *  the abbreviated one ("Ilica" for the register's "Ilica ulica").
+ *
+ *  Exported because this is also what tells a register answer that is *about*
+ *  the written street from one that merely shares its house number — see
+ *  `addressCheck.ts`. `foldedWritten` is a parameter only so a scan over a whole
+ *  bucket folds the written name once. */
+export function sameStreet(written: string, registerName: string, foldedWritten = foldToken(written)): boolean {
   if (!registerName) return false;
   const folded = foldToken(registerName);
   if (folded.startsWith(foldedWritten) || foldedWritten.startsWith(folded)) return true;
@@ -382,7 +387,7 @@ export function searchBucket(bucket: AddressBucket, query: BucketQuery): Address
   let scoped: number[];
   if (query.street) {
     const wanted = foldToken(query.street);
-    scoped = rows.filter((i) => sameStreet(query.street!, wanted, streetOf(i)));
+    scoped = rows.filter((i) => sameStreet(query.street!, streetOf(i), wanted));
   } else {
     scoped = rows.filter((i) => {
       const s = foldToken(streetOf(i));

@@ -8655,6 +8655,9 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 .tools-geo-candidates { list-style: none; margin: 0 0 8px; padding: 0; }
 .tools-geo-candidates li { padding: 2px 0; }
 .tools-geo-candidates label { position: relative; display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.9rem; }
+/* The same numbered line where there is nothing to pick — a register answer
+   shown as the source of a finding, not offered as a choice. */
+.tools-geo-candidates .tools-geo-cand-line { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; }
 .tools-geo-cand-name { font-weight: 500; }
 /* The answer's number, which is also the row's radio: it ties the line to its
    pin on the coordinate panel's map, so a separate round control beside it
@@ -8806,6 +8809,11 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
   border-radius: var(--radius-sm);
 }
 .tools-geo-addr-group .tools-geo-addr-row { border-bottom: none; }
+/* What an opened house discloses ends its row. The last block's own trailing
+   margin, the body's bottom padding and the row's both landed under it, which
+   with every row expanded read as a blank line between houses. */
+.tools-geo-addr-row > .tools-geo-conflict-body { padding-bottom: 0; }
+.tools-geo-addr-row > .tools-geo-conflict-body > :last-child { margin-bottom: 0; }
 
 /* ── Phone: give the content the screen ────────────────────────────────────
    On a phone the fixed chrome (brand header, tool/kind pickers, filter rows,

@@ -46,6 +46,14 @@ const BADGE: Record<AddressVerdict, string> = {
   addrMissing: "reuse",
 };
 
+/** What a row has to disclose behind its caret: the register's own full line for
+ *  the house — the answer every finding here is drawn from — and the map of
+ *  where it puts it. A number the register lacks has no line to show, and says
+ *  all it has to say on the header. */
+function hasDetail(f: AddressFinding): boolean {
+  return !!f.official;
+}
+
 /** Addresses resolved per pass, so a long file fills in rather than freezing. */
 const CHUNK = 200;
 
@@ -161,22 +169,25 @@ export function AddressCheckSection({
     setRunning(null);
   };
 
-  /** Which set of rows the check has already been run for, so opening the tab
-   *  twice does not run it twice. */
+  /** Which set of rows the check has already been run for, so a tab switch does
+   *  not run it twice. */
   const ranFor = useRef<AddressRow[] | null>(null);
-  // Run when the tab is opened, and again after an edit re-scans the file. The
-  // button remains for the progress it reports, but it should not have been the
-  // only way in: a stored register answers a whole file in IndexedDB reads —
-  // that is the very argument by which the geocoding addresses list looks its
-  // own rows up unasked, and the places half of this page has always checked
-  // itself the moment the page is opened. Held until the tab is actually shown,
-  // so a file whose houses are never looked at pays nothing.
+  // Run as soon as the page is open — whichever tab is on screen — and again
+  // after an edit re-scans the file. The button remains for the progress it
+  // reports, but it should not have been the only way in: a stored register
+  // answers a whole file in IndexedDB reads, which yield between houses, so
+  // this costs the page nothing it can feel.
+  //
+  // It waited for its own tab to be shown, and that made the count on the tab
+  // useless: the one thing it is there to say — whether the houses are worth a
+  // look — could only be learnt by going and looking. Now the tab carries its
+  // number by the time the reader's eye reaches it.
   useEffect(() => {
-    if (hidden || !askable.length || ranFor.current === askable) return;
+    if (!askable.length || ranFor.current === askable) return;
     ranFor.current = askable;
     void run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hidden, askable]);
+  }, [askable]);
 
   /** Hide a finding, or — on one already hidden — bring it back. The restore
    *  half was missing: the button read "Prikaži" and wrote the dismissal again,
@@ -284,7 +295,17 @@ export function AddressCheckSection({
   // download it wants (Settings › Map). Say nothing at all.
   if (!askable.length) return null;
 
-  const allGroupsOpen = !!view && view.groups.length > 0 && view.groups.every((g) => openGroups.has(g.place));
+  /** The rows "expand all" opens under the places it opens. A grouped list has
+   *  two levels, and opening only the outer one stopped exactly where the answer
+   *  is: what the register itself says about the house, which lives behind the
+   *  row's own caret. The flat places list next door opens its rows, so this
+   *  opens both. */
+  const detailRows = view ? view.groups.flatMap((g) => g.findings.filter(hasDetail).map((f) => f.key)) : [];
+  const allOpen =
+    !!view &&
+    view.groups.length > 0 &&
+    view.groups.every((g) => openGroups.has(g.place)) &&
+    detailRows.every((key) => open.has(key));
   /** Every listed house whose spelling the register would rewrite — what the
    *  bulk button offers, counted over what is on screen so the number and the
    *  list agree. */
@@ -364,13 +385,17 @@ export function AddressCheckSection({
                 {/* A view control, beside the other view controls — the same
                     place the geocoding addresses list keeps its own. */}
                 <ExpandAllToggle
-                  allOpen={allGroupsOpen}
+                  allOpen={allOpen}
                   onToggle={() => {
-                    if (allGroupsOpen) {
+                    if (allOpen) {
                       setOpenGroups(new Set());
                       setOpen(new Set());
                       setPeopleOpen(new Set());
-                    } else setOpenGroups(new Set(view.groups.map((g) => g.place)));
+                      setMapOpen(null);
+                    } else {
+                      setOpenGroups(new Set(view.groups.map((g) => g.place)));
+                      setOpen(new Set(detailRows));
+                    }
                   }}
                 />
                 {(view.dismissedTotal > 0 || showDismissed) && (
@@ -416,13 +441,9 @@ export function AddressCheckSection({
                     // heading, so a village and its houses read as one flat run.
                     <ul className="tools-tree-children tools-geo-addr-sublist">
                 {group.findings.map((f) => {
-                  // What a row has to disclose: where the register files this
-                  // house, or — for a spelling — the register's own full line
-                  // behind the address that would replace it. A number the
-                  // register lacks says all it has to say on the header line.
-                  const hasDetail = (f.verdict === "addrElsewhere" && !!f.officialPlace) || !!f.officialAddress;
+                  const detail = hasDetail(f);
                   const showPeople = peopleOpen.has(f.key);
-                  const isOpen = (hasDetail && open.has(f.key)) || showPeople;
+                  const isOpen = (detail && open.has(f.key)) || showPeople;
                   return (
                     <li key={f.key} className={`tools-geo-addr-row${f.dismissed ? " dismissed" : ""}`}>
                       {/* The shape the places findings use: the value the file
@@ -432,7 +453,7 @@ export function AddressCheckSection({
                           eye runs down two clean columns. */}
                       <GeoRowHeader
                         open={isOpen}
-                        caret={hasDetail}
+                        caret={detail}
                         // The address lists' row line: it wraps, and it is the
                         // smaller type a house sits in, so both read alike.
                         className="tools-geo-addr-head"
@@ -451,15 +472,33 @@ export function AddressCheckSection({
                             file never wanted, and reading it here left the one
                             question that matters ("what will my record say?")
                             answered only by trying it. It is still shown, below,
-                            as the answer this is drawn from. A row with nothing
-                            to write shows the register's line itself: there the
+                            as the answer this is drawn from.
+
+                            A settlement finding changes no address text at all —
+                            it moves the events — so it stands there written out
+                            as it would be afterwards: the address unchanged, the
+                            new place beside it. The place alone read as a
+                            replacement of the address, and the register's postal
+                            line before that read as one that dropped the
+                            researcher's own note. A row with nothing to write at
+                            all shows the register's line itself: there the
                             register's own words are the whole finding. */}
-                        {(f.officialAddress ?? f.official) && (
-                          <>
-                            <span aria-hidden="true" className="tools-register-place">→</span>
-                            <span className="tools-geo-cand-name">{f.officialAddress ?? f.official}</span>
-                          </>
-                        )}
+                        {(() => {
+                          const moves = f.verdict === "addrElsewhere";
+                          const becomes = moves
+                            ? f.written
+                            : (f.officialAddress ?? f.official);
+                          const into = moves ? (f.officialPlace ?? f.settlement) : undefined;
+                          return (
+                            becomes && (
+                              <>
+                                <span aria-hidden="true" className="tools-register-place">→</span>
+                                <span className="tools-geo-cand-name">{becomes}</span>
+                                {into && <span className="tools-register-place">{into}</span>}
+                              </>
+                            )
+                          );
+                        })()}
                         <span className="tools-register-end">
                           <span
                             className={`tools-reshape-badge ${BADGE[f.verdict]}`}
@@ -495,15 +534,6 @@ export function AddressCheckSection({
                       </GeoRowHeader>
                       {isOpen && (
                         <div className="tools-geo-conflict-body">
-                          {/* Where the register would put these events. Named
-                              rather than done: the move belongs on the Addresses
-                              tab, which has the map to check the house on before
-                              anything is written. */}
-                          {open.has(f.key) && f.verdict === "addrElsewhere" && f.officialPlace && (
-                            <p className="tools-fix-hint" title={t("tools.registerAddr.moveHint")}>
-                              {t("tools.registerAddr.move", { place: f.officialPlace })}
-                            </p>
-                          )}
                           {/* Where the register puts the house — the question
                               behind every finding here, and the one a name
                               alone cannot settle. Asked for by a click, like
@@ -532,31 +562,56 @@ export function AddressCheckSection({
                             />
                           )}
                           {/* The register's own answer, in the shape every other
-                              geocoding list shows an answer in — one option to
-                              take or leave. Taking it writes the address above,
+                              geocoding list shows an answer in — one numbered
+                              line, tied to the pin the map above draws for it.
+                              Every finding drawn from a register line shows it
+                              here, in the same shape: a settlement finding used
+                              to state its place in prose instead, so the one
+                              thing the two verdicts share looked like two
+                              different things.
+
+                              Where there is a spelling to take, the line is that
+                              option: taking it writes the address in the header,
                               which is this line minus the post code and plus
-                              whatever note the file's own value ends with. */}
-                          {open.has(f.key) && f.officialAddress && f.official && (
+                              whatever note the file's own value ends with. A
+                              settlement finding offers nothing to click — the
+                              move belongs on the Addresses tab, which has the
+                              map to check the house on first. */}
+                          {open.has(f.key) && f.official && (
                             <ul className="tools-geo-candidates">
                               <li>
-                                <label>
-                                  <input
-                                    type="radio"
-                                    className="tools-geo-cand-radio"
-                                    name={`registerAddr-${f.key}`}
-                                    aria-label={f.official}
-                                    disabled={f.dismissed}
-                                    checked={false}
-                                    onChange={() => takeOfficial([f])}
-                                  />
-                                  {/* The number IS the control everywhere on
-                                      these pages — the input itself is clipped
-                                      to a pixel, so an option without it drew
-                                      no control at all — and it ties the line
-                                      to the pin the map above draws for it. */}
-                                  <span className="tools-geo-cand-num">1</span>
-                                  <span className="tools-geo-cand-name">{f.official}</span>
-                                </label>
+                                {f.officialAddress ? (
+                                  <label>
+                                    <input
+                                      type="radio"
+                                      className="tools-geo-cand-radio"
+                                      name={`registerAddr-${f.key}`}
+                                      aria-label={f.official}
+                                      disabled={f.dismissed}
+                                      checked={false}
+                                      onChange={() => takeOfficial([f])}
+                                    />
+                                    {/* The number IS the control everywhere on
+                                        these pages — the input itself is clipped
+                                        to a pixel, so an option without it drew
+                                        no control at all. */}
+                                    <span className="tools-geo-cand-num">1</span>
+                                    <span className="tools-geo-cand-name">{f.official}</span>
+                                  </label>
+                                ) : (
+                                  <span className="tools-geo-cand-line" title={t("tools.registerAddr.moveHint")}>
+                                    <span className="tools-geo-cand-num">1</span>
+                                    <span className="tools-geo-cand-name">{f.official}</span>
+                                    {/* The place this line yields, beside the
+                                        line itself — the header's proposal read
+                                        back to where it comes from, so the move
+                                        is visibly the register's own filing and
+                                        not something composed elsewhere. */}
+                                    {(f.officialPlace ?? f.settlement) && (
+                                      <span className="tools-register-place">{f.officialPlace ?? f.settlement}</span>
+                                    )}
+                                  </span>
+                                )}
                               </li>
                             </ul>
                           )}
