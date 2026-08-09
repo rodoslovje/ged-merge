@@ -15,7 +15,7 @@ import { SUPPORTED_LANGUAGES } from "../locales/i18n";
 import { COUNTRY_CODES } from "../gedcom/countryCode";
 import { countryFacetLabel } from "../geo/placeCountry";
 import { HOME_COUNTRY_AUTO, HOME_COUNTRY_NONE } from "../geo/homeCountry";
-import { useDatasetDerivations } from "./DatasetDerivations";
+import { useDatasetDerivations, useHomeCountryDetection } from "./DatasetDerivations";
 import { PROXY_HOSTS } from "../normalize/urlMetadata";
 import { DATE_PATTERN_CHOICES, type DetectedFormats, type FormatOverrides } from "../normalize/formatOverrides";
 import { placeLayoutSample, sampleDateFor } from "../normalize/formatDefaults";
@@ -287,26 +287,36 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
   // What the loaded file says about which country it is about, and how many of
   // its places would be read that way. Detection is lazy and cached per dataset
   // version, so opening this tab pays for it once and every list shares it.
+  // Asked for even where the reader has chosen a country by hand: this row is
+  // where "follow the file" is read, and an option that could not say what it
+  // would do cannot be chosen with open eyes.
+  const answer = useHomeCountryDetection({ evenWhenUnused: true });
   const detection = derivations?.homeCountry();
   const homeCountryOptions = useMemo(() => {
     const named = (code: string) => countryFacetLabel(code, i18n.language);
-    const detectedName = detection?.code ? named(detection.code) : undefined;
+    const detectedCode = detection?.code || answer.register.code;
+    const detectedName = detectedCode ? named(detectedCode) : undefined;
     return [
       {
         value: HOME_COUNTRY_AUTO,
         // The file's own answer is shown in the option, not merely applied by
         // it: "follow the file" says nothing until you can see what the file
-        // said, and a wrong detection has to be visible to be overruled.
-        label: detectedName
-          ? t("settings.homeCountry.auto.detected", { country: detectedName })
-          : t("settings.homeCountry.auto.none"),
+        // said, and a wrong detection has to be visible to be overruled. An
+        // answer read out of the directories rather than the file says so:
+        // it rests on what this browser happens to have imported, which is a
+        // weaker thing than the file's own word and is worth knowing.
+        label: !detectedName
+          ? t("settings.homeCountry.auto.none")
+          : detection?.code
+            ? t("settings.homeCountry.auto.detected", { country: detectedName })
+            : t("settings.homeCountry.auto.register", { country: detectedName }),
       },
       { value: HOME_COUNTRY_NONE, label: t("settings.homeCountry.none") },
       ...COUNTRY_CODES.map((code) => ({ value: code.toLowerCase(), label: named(code.toLowerCase()) })).sort((a, b) =>
         String(a.label).localeCompare(String(b.label), i18n.language),
       ),
     ];
-  }, [detection, i18n.language, t]);
+  }, [detection, answer.register.code, i18n.language, t]);
 
   // A dropdown commits straight through: only the handful of components that
   // read formatOverrides re-render, and they do it in the same tick as the

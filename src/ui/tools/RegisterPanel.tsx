@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { Dataset } from "../../gedcom/types";
+import type { Dataset, GeoCoord } from "../../gedcom/types";
 import { collectFileCoords, type OfficialRename } from "../../tools/geocode";
 import { loadDecisions, type GeocodeDecision } from "../../persist/geoDb";
 import { checkPlacesAgainstRegister, type RegisterCheckReport } from "../../tools/registerCheck";
@@ -10,9 +10,9 @@ import { createKinshipResolver } from "../../match/kinship";
 import { useDatasetDerivations } from "../DatasetDerivations";
 import { buildPlaceSuggestions } from "../edit/placeSuggestions";
 import { foldSearch } from "../globalSearch";
-import { usePlaceStyle } from "../edit/PlaceLookupContext";
+import { PlaceLookupProvider, usePlaceLookupValue, usePlaceStyle } from "../edit/PlaceLookupContext";
 import { GazetteerMissing, useGazetteer } from "./GazetteerManager";
-import { RegisterCheckSection } from "./RegisterCheckSection";
+import { FULL_CHAIN, RegisterCheckSection } from "./RegisterCheckSection";
 import { AddressCheckSection } from "./AddressCheckSection";
 import { BackButton } from "../BackButton";
 import { isEditableTarget, isModalOpen } from "../../keyboard/shortcuts";
@@ -46,6 +46,9 @@ interface Props {
   onApplyOfficialNames: (renames: OfficialRename[]) => number;
   /** Rename one house's address on every event that carries it. */
   onRenameAddresses: (renames: AddressRename[]) => number;
+  /** Write a coordinate keyed by place+address, so a house's own position
+   *  reaches that house and not the settlement around it. */
+  onApplyAddressCoords: (assignments: Map<string, GeoCoord>) => number;
   /** Rename every occurrence of exactly one raw place value — the row's ✎, for
    *  a correction of the researcher's own rather than the register's. */
   onRenamePlaceValue: (from: string, to: string, addr?: string) => number;
@@ -62,6 +65,7 @@ export function RegisterPanel({
   active,
   editVersion,
   onApplyOfficialNames,
+  onApplyAddressCoords,
   onRenameAddresses,
   onRenamePlaceValue,
   onBack,
@@ -114,6 +118,17 @@ export function RegisterPanel({
   // The layout this file writes its places in — what a register entry is shown
   // as, so the reader compares like with like.
   const placeStyle = usePlaceStyle(dataset, placeSug.placeSuggestions, index);
+  // The register lookup behind the rename box — the same one the Edit fields and
+  // the places list build, so a name this file has never written can be
+  // completed from the directories here too instead of typed out by hand. It is
+  // exactly the case this page is about: the row exists because the written name
+  // is not one the register holds.
+  // At the depth this page's own answers are written in: an offer cut to a file
+  // of bare settlements came back as "Železniki" for a typed "Železniki,
+  // Železniki, Slovenija" — a place the file already writes, so the offer was
+  // dropped as one the list above already had, and the search reported no such
+  // place while the register held it.
+  const placeLookup = usePlaceLookupValue(dataset, placeSug.placeSuggestions, FULL_CHAIN);
 
   const addrRows = useMemo(
     () => derivations?.addressRows() ?? scanAddresses(dataset),
@@ -177,6 +192,7 @@ export function RegisterPanel({
   if (!decisions) return <ToolsLoading label={t("tools.running")} />;
 
   return (
+    <PlaceLookupProvider value={placeLookup}>
     <div className="tools-geocode">
       {/* The page's name beside the way back from it — see GeocodePanel, whose
           shape this shares. What used to stand on the right repeated the
@@ -240,7 +256,8 @@ export function RegisterPanel({
           fileCoords={fileCoords}
           query={query}
           actionsHost={shown === "places" ? tabActionsEl : null}
-          onRename={(from, to) => void onRenamePlaceValue(from, to)}
+          onRename={(from, to, addr) => void onRenamePlaceValue(from, to, addr)}
+          onApplyAddressCoords={onApplyAddressCoords}
           placeSug={placeSug}
           onApplyOfficialNames={onApplyOfficialNames}
           onDecisionsChanged={() => void loadDecisions().then(setDecisions)}
@@ -260,5 +277,6 @@ export function RegisterPanel({
         onDecisionsChanged={() => void loadDecisions().then(setDecisions)}
       />
     </div>
+    </PlaceLookupProvider>
   );
 }

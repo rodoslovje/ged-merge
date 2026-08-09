@@ -698,13 +698,26 @@ export async function searchAddressBatch(
 
   const pool = new Map<string, RnResult[]>();
   for (const [key, g] of byPlace) {
-    // Croatia's register is in this browser: there is no request to batch, and
-    // the bucket the group's first house reads is the one every other house of
-    // it reads too, so asking house by house costs a single IndexedDB read.
-    if (g.country === "HR") {
+    // A register in this browser answers instead — the same rule the per-address
+    // ladder follows (see searchAddress), and for the same reason: there is no
+    // request to batch, and the bucket the group's first house reads is the one
+    // every other house of it reads too, so asking house by house costs a single
+    // IndexedDB read.
+    //
+    // Croatia goes there whether or not anything is stored, since there is no
+    // service to ask. Slovenia used to be sent to GURS from here even with its
+    // 575 000 houses sitting in the browser — so the list's automatic pass hit
+    // the network for every Slovenian group, was refused (nothing leaves the
+    // device without the online opt-in), and left the group absent from the
+    // pool. Which reads as "ask again": a file's Slovenian addresses all sat at
+    // "not asked yet" while the very register that could answer them was
+    // downloaded, and only a click on a row — which took the local path — ever
+    // got an answer.
+    const country = g.country ?? "SI";
+    if (country === "HR" || (await hasLocalRegister(country))) {
       const hits: RnResult[] = [];
       for (const q of g.queries) {
-        for (const hit of await searchLocalAddress(g.country ?? "SI", q)) {
+        for (const hit of await searchLocalAddress(country, q)) {
           if (hits.some((h) => h.coord.lat === hit.coord.lat && h.coord.lon === hit.coord.lon)) continue;
           hits.push(hit);
         }

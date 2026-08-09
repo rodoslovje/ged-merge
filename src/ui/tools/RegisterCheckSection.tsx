@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { deleteDecision, putDecisions } from "../../persist/geoDb";
-import { countryOf, pickLabel, type FileCoord, type OfficialRename } from "../../tools/geocode";
+import { countryOf, pickLabel, placeAddrKey, type FileCoord, type OfficialRename } from "../../tools/geocode";
+import { isOfflineQuery, rnQueriesFrom, searchAddresses } from "../../geo/rn";
 import { countryCodeOfName } from "../../geo/placeCountry";
 import { CountryChips } from "./CountryChips";
 import { useHomeCountry } from "../DatasetDerivations";
@@ -16,13 +17,15 @@ import {
   type RegisterVerdict,
 } from "../../tools/registerCheck";
 import { foldSearch } from "../globalSearch";
+import { decomposePlace } from "../../gedcom/place";
 import { proposalFromGazEntry, type PlaceStyle } from "../../geo/placeProposal";
 import { AppliedNote, ExpandAllToggle, GeoPeopleList, GeoRowHeader, MapToggle, RowMap } from "./shared";
 import { PlaceAutocomplete } from "../edit/PlaceAutocomplete";
+import { usePlaceLookup } from "../edit/PlaceLookupContext";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
-import type { Dataset } from "../../gedcom/types";
+import type { Dataset, GeoCoord } from "../../gedcom/types";
 import type { KinshipResolver } from "../../match/kinship";
-import { searchGazetteer, type GazEntry, type GazetteerIndex } from "../../geo/gazetteer";
+import { HIGH_CONFIDENCE, lookupPlace, searchGazetteer, type GazEntry, type GazetteerIndex } from "../../geo/gazetteer";
 
 // The Register tab: every place the file writes in a country an official
 // register covers, held against that register, with the disagreements listed.
@@ -60,6 +63,12 @@ const MAX_ROWS = 300;
  */
 const BULK_HELD_BACK: RegisterVerdict[] = ["region", "notFound", "address"];
 
+/** Pick value for a row whose answer the reader has cleared: not "no opinion",
+ *  which is what an absent entry means and what a row arrives with, but "none
+ *  of these". The row keeps its finding and its place in the list and writes
+ *  nothing until something is picked again. */
+const NONE_PICKED = -1;
+
 const BADGE: Record<RegisterVerdict, string> = {
   notFound: "remove",
   region: "new",
@@ -84,6 +93,7 @@ export function RegisterCheckSection({
   query,
   actionsHost,
   onApplyOfficialNames,
+  onApplyAddressCoords,
   onDecisionsChanged,
 }: {
   /** The check's result, or null while no official register is loaded. */
@@ -110,13 +120,17 @@ export function RegisterCheckSection({
   onApplyOfficialNames: (renames: OfficialRename[]) => number;
   /** Re-read the decision cache after a dismissal is written. */
   onDecisionsChanged: () => void;
-  /** Rename every occurrence of exactly this raw place value. The register's
-   *  own spelling is one click away, but a finding is often the prompt to write
-   *  a correction of your own — a historical name spelt as the parish wrote it,
-   *  a level the register has no opinion about. */
-  onRename: (from: string, to: string) => void;
+  /** Rename every occurrence of exactly this raw place value, optionally
+   *  leaving a house on the event's own ADDR line. The register's own spelling
+   *  is one click away, but a finding is often the prompt to write a correction
+   *  of your own — a historical name spelt as the parish wrote it, a level the
+   *  register has no opinion about. */
+  onRename: (from: string, to: string, addr?: string) => void;
   /** The file's own place values, for the rename box's completions. */
   placeSug: { placeSuggestions: string[]; placeCanonical: Map<string, string> };
+  /** Write a house's own position, keyed by place+address so it reaches that
+   *  house and not the settlement around it. */
+  onApplyAddressCoords: (assignments: Map<string, GeoCoord>) => number;
 }) {
   const { t } = useTranslation();
   // See GeocodePanel: the country a place naming none is taken to stand in.
@@ -146,13 +160,84 @@ export function RegisterCheckSection({
    *  rows claiming the same edit. */
   const [renaming, setRenaming] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
+  /** The house to take out of the value while renaming it, as the places list's
+   *  rename offers: the correction to a value with a house in it is usually
+   *  both — the settlement spelt the register's way, and the house on its own
+   *  ADDR line. Empty leaves the value whole. */
+  const [renameAddrDraft, setRenameAddrDraft] = useState("");
+  /** A register offer picked in the rename box: its text is in the drafts, and
+   *  its coordinate rides along on apply. Kept with the text it belongs to, so
+   *  editing the draft afterwards drops the coordinate rather than writing one
+   *  that describes a different place — the same rule the places list follows. */
+  const [renamePick, setRenamePick] = useState<{ place: string; addr?: string; coord: GeoCoord } | null>(null);
+  /** The registers behind the rename box, when this page is inside the provider
+   *  that builds them (it is; see RegisterPanel). */
+  const lookup = usePlaceLookup();
 
   /** Write the edited name over every occurrence of the row's raw value, and
-   *  close the box. A draft that says nothing new is simply a cancel. */
+   *  close the box. A draft that says nothing new is simply a cancel — unless
+   *  it names a house to move out, which is a change on its own. */
   const applyRename = (from: string) => {
     const to = renameDraft.trim();
-    if (to && to !== from) onRename(from, to);
+    const addr = renameAddrDraft.trim();
     setRenaming(null);
+    setRenameAddrDraft("");
+    if (to && (to !== from || addr)) void renameAndPlace(from, to, addr);
+  };
+
+  /**
+   * Rename, and put what was renamed where the registers say it is.
+   *
+   * A name typed here is not the register's answer, but it is very often a name
+   * the register knows — the row exists because the written one was not — and a
+   * corrected place that stays unplaced is half a correction. The house is asked
+   * for first, since a value naming one is about that house; where the register
+   * holds no such number the settlement answers instead, which is the position
+   * the place had all along.
+   *
+   * Only an unambiguous answer is taken. Nothing here is a pick the reader made,
+   * so a name fitting two places, or a house number fitting two streets, writes
+   * no coordinate at all rather than a coin toss — and the row's own answers,
+   * where it has them, remain the way to choose between places by hand.
+   */
+  const renameAndPlace = async (from: string, to: string, addr: string) => {
+    // A register offer picked in the box brings its own coordinate — the place
+    // is not looked up again, since the pick *is* the answer.
+    const picked = renamePick && renamePick.place === to && (renamePick.addr ?? "") === addr ? renamePick : null;
+    setRenamePick(null);
+    if (picked) {
+      if (addr) {
+        onRename(from, to, addr);
+        onApplyAddressCoords(new Map([[placeAddrKey(to, addr), picked.coord]]));
+      } else {
+        onApplyOfficialNames([{ from, to, assignment: { coord: picked.coord } }]);
+      }
+      return;
+    }
+    const queries = addr ? rnQueriesFrom(to, addr) : [];
+    // Only a register already in this browser: a rename must not turn into a
+    // request to someone else's service, which the online opt-in governs.
+    const houses = queries.length && isOfflineQuery(queries) ? await searchAddresses(queries).catch(() => []) : [];
+    if (houses.length === 1) {
+      onRename(from, to, addr || undefined);
+      onApplyAddressCoords(new Map([[placeAddrKey(to, addr), houses[0].coord]]));
+      return;
+    }
+    const entry = index && soleSettlement(index, to, home);
+    if (entry) {
+      // Renamed and placed as one undoable step, the way a taken answer is —
+      // and, like it, filling a missing coordinate without overwriting one.
+      onApplyOfficialNames([
+        {
+          from,
+          to,
+          ...(addr ? { addr } : {}),
+          assignment: { coord: { lat: entry.lat, lon: entry.lon } },
+        },
+      ]);
+      return;
+    }
+    onRename(from, to, addr || undefined);
   };
 
   /**
@@ -187,7 +272,7 @@ export function RegisterCheckSection({
     setWider((prev) => new Map(prev).set(f.key, found));
   };
 
-  const toggleOpen = (key: string) => {
+  const toggleOpen = (key: string, drawable = true) => {
     const willOpen = !open.has(key);
     setOpen((prev) => {
       const next = new Set(prev);
@@ -197,7 +282,12 @@ export function RegisterCheckSection({
     // Which of six same-named places is the one is a question for the map, so a
     // row opened by hand arrives with it — as an Edit coordinate panel does.
     // Expand all, and the people count, leave it to the toggle.
-    setMapOpen((prev) => (willOpen ? key : prev === key ? null : prev));
+    //
+    // Only a row with something of its own to draw. A place the register does
+    // not hold has no answers and often no coordinate either, and it opened on
+    // a map of nothing but the file's other places — with no way to shut it,
+    // since the toggle lives in the actions row that such a row does not have.
+    setMapOpen((prev) => (willOpen ? (drawable ? key : prev) : prev === key ? null : prev));
   };
   const togglePeople = (key: string) => {
     setPeopleOpen((prev) => {
@@ -212,12 +302,14 @@ export function RegisterCheckSection({
   // click itself — the same pattern as the places and addresses tabs. Without
   // it a mispick on an `ambiguous` row is irrevocable and silently joins the
   // bulk-rename count.
-  const unpick = (key: string) =>
-    setPicked((prev) => {
-      const next = new Map(prev);
-      next.delete(key);
-      return next;
-    });
+  //
+  // Taken back to NONE rather than to nothing: most rows *arrive* standing on
+  // their answer without anyone having picked it (see chosenIndex), so merely
+  // forgetting the pick put the row straight back on the option just cleared,
+  // and the click read as broken. NONE is the reader saying "not this one" —
+  // the row keeps its finding and its place in the list, and stays out of the
+  // renames until something is picked again.
+  const unpick = (key: string) => setPicked((prev) => new Map(prev).set(key, NONE_PICKED));
 
   // A rename, an undo or an edit elsewhere re-runs the check, and the rows it
   // settles leave the list. Their open state and picks go with them — the same
@@ -309,11 +401,12 @@ export function RegisterCheckSection({
       to: o.place,
       ...(o.addr ? { addr: o.addr } : {}),
       ...(o.entry ? { assignment: { coord: { lat: o.entry.lat, lon: o.entry.lon } } } : {}),
-      // The label line the new value deserves, when the option taken is the
-      // one the check proposed. A pick made from the register's other answers
-      // carries no computed form, and the write then drops a stale one rather
-      // than keeping a line naming levels the value no longer has.
-      ...(f.officialForm && o.place === f.official ? { form: f.officialForm } : {}),
+      // The label line the new value deserves: the option's own form, which is
+      // the one computed for exactly the place it writes — composed here for a
+      // whole place, taken from the check where the answer is the written value
+      // with a level swapped. An option that knows no form drops a stale one
+      // rather than keeping a line naming levels the value no longer has.
+      ...(o.form ? { form: o.form } : {}),
     };
   };
 
@@ -463,7 +556,13 @@ export function RegisterCheckSection({
                       value the file writes leads, what the register answers
                       follows it, and the badge, the actions and the person
                       count sit at the end. */}
-                  <GeoRowHeader open={isOpen} onToggle={() => toggleOpen(f.key)} place={f.key}>
+                  <GeoRowHeader
+                    open={isOpen}
+                    // Same test the map's own toggle is rendered on: pins to
+                    // draw, or the position the file records for the place.
+                    onToggle={() => toggleOpen(f.key, options.some((o) => o.entry) || !!f.fileCoord)}
+                    place={f.key}
+                  >
                     {/* ✎ (U+270E), the same edit mark the places tree, the
                         addresses list and Organize sources use. It writes the
                         raw value the row is about, so it is the one action here
@@ -483,6 +582,13 @@ export function RegisterCheckSection({
                         onClick={() => {
                           setRenaming(f.key);
                           setRenameDraft(f.key);
+                          // Empty, not the house the check would take out: the
+                          // place box opens on the *raw* value, which still has
+                          // that house in it, and filling both would write it
+                          // twice. What goes in the address box is the part
+                          // being taken out of what the place box ends up
+                          // saying.
+                          setRenameAddrDraft("");
                         }}
                         title={t("tools.geocode.renameOpen")}
                       >
@@ -491,6 +597,16 @@ export function RegisterCheckSection({
                     )}
                     {chosen >= 0 ? (
                       <>
+                        {/* What follows the arrow is what the record would say
+                            once the row is taken — the same "becomes" the
+                            addresses list and the places tree draw. Left off
+                            where the answer writes nothing different: a
+                            coordinate that is off names the place the file
+                            already writes, and an arrow there promised a rename
+                            that never comes. */}
+                        {(options[chosen].place !== f.key || options[chosen].addr) && (
+                          <span aria-hidden="true" className="tools-register-place">→</span>
+                        )}
                         {options[chosen].entry && (
                           <span
                             className={`tools-reshape-badge ${options[chosen].entry.register ? "official" : "reuse"}`}
@@ -580,7 +696,55 @@ export function RegisterCheckSection({
                         onChange={setRenameDraft}
                         onCommit={setRenameDraft}
                         onClear={() => setRenameDraft("")}
+                        // The file's own places cannot help here: the row is
+                        // open because what it writes is not a name the
+                        // register holds, and the correct name may appear
+                        // nowhere in the file. So the directories are offered
+                        // as well — one pick fills the whole chain, the house
+                        // and the coordinate, exactly as in an Edit place field.
+                        // Even for a place the file already writes: what is
+                        // wanted here rides with the text — the register's
+                        // coordinate and its municipality — so a familiar
+                        // spelling is no reason to withhold the answer.
+                        offerKnown
+                        onLookup={lookup ? (q) => lookup.search(q) : undefined}
+                        lookupNote={lookup && !lookup.online ? t("event.place.lookup.offlineOnly") : undefined}
+                        onPickProposal={(proposal) => {
+                          setRenameDraft(proposal.plac);
+                          setRenameAddrDraft(proposal.addr ?? "");
+                          setRenamePick({
+                            place: proposal.plac,
+                            ...(proposal.addr ? { addr: proposal.addr } : {}),
+                            coord: proposal.coord,
+                          });
+                        }}
                       />
+                      {/* The house to leave on the event's own ADDR line, the
+                          same chip the places list's rename carries. A value
+                          this check calls out is often wrong in both ways at
+                          once — the settlement spelt one way and a house number
+                          packed in behind it — and without this the correction
+                          took two passes through two different tabs. */}
+                      <span className="tools-geo-addr-chip" title={t("tools.geocode.renameAddrTooltip")}>
+                        {t("event.colAddr")}:
+                        <input
+                          type="text"
+                          className="tools-geo-addr-chip-input"
+                          value={renameAddrDraft}
+                          size={Math.max(8, renameAddrDraft.length + 1)}
+                          placeholder={t("tools.geocode.renameAddrPlaceholder")}
+                          onChange={(e) => setRenameAddrDraft(e.target.value)}
+                        />
+                        {renameAddrDraft && (
+                          <button
+                            className="tools-geo-addr-chip-clear"
+                            onClick={() => setRenameAddrDraft("")}
+                            aria-label={t("tools.places.rename.cancel")}
+                          >
+                            ×
+                          </button>
+                        )}
+                      </span>
                       <button className="tools-issue-link" onClick={() => applyRename(f.key)}>
                         {t("tools.places.rename.apply")}
                       </button>
@@ -663,7 +827,18 @@ export function RegisterCheckSection({
                           )}
                       {options.length > 0 && (
                           <ul className="tools-geo-candidates">
-                            {options.map((o, i) => (
+                            {options.map((o, i) => {
+                              // A verdict the sweep holds back starts with an
+                              // *empty* circle, however plainly the row shows
+                              // what it would write: what the circle marks
+                              // there is "I have read this and agree", which is
+                              // the whole reason those two wait. Filled by
+                              // default it asked to be confirmed by a click
+                              // that looked as though it had already been made
+                              // — and the row then sat out of "Use official
+                              // names" with no way to say so.
+                              const isChecked = held ? picked.get(f.key) === i : chosen === i;
+                              return (
                               <li key={i}>
                                 <label>
                                   <input
@@ -671,35 +846,34 @@ export function RegisterCheckSection({
                                     className="tools-geo-cand-radio"
                                     name={`register-${f.key}`}
                                     aria-label={o.place}
-                                    // A verdict the sweep holds back starts
-                                    // with an *empty* circle, however plainly
-                                    // the row shows what it would write: what
-                                    // the circle marks here is "I have read
-                                    // this and agree", which is the whole
-                                    // reason those two wait. Filled by default
-                                    // it asked to be confirmed by a click that
-                                    // looked as though it had already been
-                                    // made — and the row then sat out of "Use
-                                    // official names" with no way to say so.
-                                    checked={held ? picked.get(f.key) === i : chosen === i}
+                                    checked={isChecked}
                                     onChange={() => pick(f.key, i)}
-                                    // Only an explicit pick can be taken back
-                                    // by clicking it again. A row arrives with
-                                    // its answer already *shown* as chosen
-                                    // without being picked (see chosenIndex),
-                                    // and a checked radio fires no change
-                                    // event — so reading that click as "take it
-                                    // back" left the one verdict that waits to
-                                    // be picked by hand unable to be picked at
-                                    // all: it stayed out of "Use official
-                                    // names" however often it was clicked.
-                                    onClick={() => (picked.get(f.key) === i ? unpick(f.key) : pick(f.key, i))}
+                                    // A checked radio fires no change event, so
+                                    // the click itself is what takes a pick
+                                    // back — and what counts as checked is what
+                                    // the circle shows, not what was explicitly
+                                    // picked. Most rows arrive standing on
+                                    // their answer without anyone picking it
+                                    // (see chosenIndex): reading only an
+                                    // explicit pick here meant the first click
+                                    // on a filled circle silently *made* the
+                                    // pick it already showed, and it took two
+                                    // clicks to clear one. On a held-back
+                                    // verdict the circle starts empty, so this
+                                    // click still marks agreement rather than
+                                    // clearing it.
+                                    onClick={() => (isChecked ? unpick(f.key) : pick(f.key, i))}
                                   />
                                   <span className="tools-geo-cand-num">{i + 1}</span>
                                   <span className="tools-geo-cand-name">{o.place}</span>
                                   {/* The house the split moves onto the event's
-                                      own ADDR line, shown where it will land. */}
-                                  {o.addr && <span className="tools-register-place">ADDR: {o.addr}</span>}
+                                      own ADDR line. Written "place · house", the
+                                      way a register's offer reads in an Edit
+                                      place field and the way the row header
+                                      above writes it: the tag name said which
+                                      GEDCOM line it lands on, which is not what
+                                      is being chosen between. */}
+                                  {o.addr && <span className="tools-register-place">· {o.addr}</span>}
                                   {o.entry && (
                                     <>
                                       {/* The coordinate opens the map on this
@@ -723,7 +897,8 @@ export function RegisterCheckSection({
                                   )}
                                 </label>
                               </li>
-                            ))}
+                              );
+                            })}
                           </ul>
                       )}
                       {/* A row with no answer to offer says why, in the body's
@@ -762,6 +937,10 @@ interface RegisterOption {
   place: string;
   addr?: string;
   entry?: GazEntry;
+  /** `PLAC`.`FORM` for the composed place, naming what each of its parts is in
+   *  the file's own wording. Only a place composed here knows its own levels;
+   *  a value with one level swapped keeps the finding's form instead. */
+  form?: string;
   /** Turned up by the wider search rather than by the check itself — a lead to
    *  judge, never an answer, so it is never the option a row arrives on. */
   wide?: true;
@@ -770,14 +949,12 @@ interface RegisterOption {
 /**
  * The register's answers to a row, as places rather than as entries.
  *
- * A row the register disagrees with in one level (its spelling of the
- * settlement, the municipality it files it under) has one answer: the value the
- * file writes with that level swapped, which keeps every other level, the
- * file's separator and any annotation it carries. A name fitting several
- * register entries has one answer per entry, each composed from locality,
- * municipality and country in the file's own layout, depth and country spelling
- * — the same shaping a register offer gets in an Edit field — so the choice is
- * made between whole places, not between "name (municipality)" labels.
+ * Each is a whole place composed from locality, municipality and country in the
+ * file's own layout, separator and country spelling — the same shaping a
+ * register offer gets in an Edit field — so the choice is made between whole
+ * places rather than between "name (municipality)" labels, and so a row's
+ * answer reads like the next row's. Where composing would drop something the
+ * value says, the finding's own answer stands instead (see answerPlace).
  *
  * The verdicts a rename does not answer — a place the register does not hold, a
  * coordinate that is off — offer none.
@@ -785,15 +962,30 @@ interface RegisterOption {
 function optionsOf(f: RegisterFinding, style: PlaceStyle, wider?: readonly GazEntry[]): RegisterOption[] {
   // Places found by a wider search stand after the answers the name matched
   // outright, in the order the search ranked them.
-  const widened = (wider ?? []).map((entry) => ({ entry, place: placeTextOf(entry, style), wide: true as const }));
+  const widened = (wider ?? []).map((entry) => ({ entry, ...composedAnswer(entry, style), wide: true as const }));
   if (f.verdict === "ambiguous") {
-    return [...(f.alternatives ?? []).map((entry) => ({ entry, place: placeTextOf(entry, style) })), ...widened];
+    return [...(f.alternatives ?? []).map((entry) => ({ entry, ...composedAnswer(entry, style) })), ...widened];
   }
   if ((f.verdict === "spelling" || f.verdict === "admin") && f.entry) {
-    return [{ entry: f.entry, place: f.official ?? placeTextOf(f.entry, style) }, ...widened];
+    return [{ entry: f.entry, ...answerPlace(f, f.entry, style) }, ...widened];
   }
+  // A cemetery, a township or a precinct standing in front of the place: the
+  // place under it, qualified like every other answer here, and the level
+  // itself on the ADDR line where the file keeps addresses apart. Judged
+  // against what is left after that level goes, since the level going is the
+  // answer rather than something the composition loses.
   if (f.verdict === "site" && f.entry && f.official) {
-    return [{ entry: f.entry, place: f.official, ...(f.officialAddr ? { addr: f.officialAddr } : {}) }, ...widened];
+    const under = qualified(f.entry, f.official, { place: f.official }, style);
+    return [
+      {
+        entry: f.entry,
+        ...under,
+        ...(f.officialAddr
+          ? { addr: f.officialAddr }
+          : { place: withAside(under.place, f.written) }),
+      },
+      ...widened,
+    ];
   }
   // A name the directory knows as a county, and an unknown one carrying a level
   // that says nothing, both answer with the value one level shorter. There is
@@ -803,9 +995,11 @@ function optionsOf(f: RegisterFinding, style: PlaceStyle, wider?: readonly GazEn
   }
   if (f.verdict === "notFound" || f.verdict === "region") return widened;
   // The place/address split: the settlement left in PLAC, the house on its own
-  // ADDR line, both already shaped by the file's own layout.
+  // ADDR line, both already shaped by the file's own layout. The settlement is
+  // qualified against what the file writes *after* the split — the house has
+  // been taken out of it by then, so it is not something the composition loses.
   if (f.verdict === "address" && f.official && f.officialAddr) {
-    return [{ place: f.official, addr: f.officialAddr }];
+    return [{ ...qualified(f.entry, f.official, { place: f.official }, style), addr: f.officialAddr }];
   }
   return [];
 }
@@ -822,6 +1016,8 @@ function optionsOf(f: RegisterFinding, style: PlaceStyle, wider?: readonly GazEn
  */
 function chosenIndex(f: RegisterFinding, options: RegisterOption[], picked: ReadonlyMap<string, number>): number {
   const own = picked.get(f.key);
+  // NONE_PICKED included: a row whose answer the reader has cleared shows none,
+  // rather than falling back to the very option the click just cleared.
   if (own !== undefined && own < options.length) return own;
   // `site` joins `ambiguous` in waiting: a cemetery written into the place is a
   // habit as much as a mistake, and which level to move is the whole question.
@@ -835,6 +1031,113 @@ function chosenIndex(f: RegisterFinding, options: RegisterOption[], picked: Read
   return options.length > 0 && !options[0].wide ? 0 : -1;
 }
 
-function placeTextOf(entry: GazEntry, style: PlaceStyle): string {
-  return proposalFromGazEntry(entry, style)?.plac ?? pickLabel(entry.name, entry.admin);
+/**
+ * Depth a register's answer is composed at here: settlement, the parent level
+ * this file names for that country, and the country — the whole chain the
+ * directory knows (`shape` in placeProposal reads any depth above two as all
+ * three levels).
+ *
+ * Everywhere else a proposal is cut to the depth the file's own places carry,
+ * so a place taken from a register looks like its neighbours. A list of answers
+ * is read for the opposite reason — to tell one from another — and a file that
+ * writes bare settlements cut all six of Slovenia's Javorje back to "Javorje",
+ * leaving the row to ask which of six identical lines was the right one. Layout,
+ * separator and country spelling stay the file's own (or the ones Settings
+ * enforces), so what a pick writes is still written this file's way.
+ */
+export const FULL_CHAIN = 3;
+
+/** A directory entry as a whole place: the text, and the `FORM` naming its
+ *  parts — composed here, so the levels are known rather than counted. */
+function composedAnswer(entry: GazEntry, style: PlaceStyle): { place: string; form?: string } {
+  const proposal = proposalFromGazEntry(entry, { ...style, depth: FULL_CHAIN });
+  return {
+    place: proposal?.plac ?? pickLabel(entry.name, entry.admin),
+    ...(proposal?.form ? { form: proposal.form } : {}),
+  };
+}
+
+/**
+ * The place a register's own answer would write, for the two verdicts that
+ * dispute a level rather than move text: the whole chain the directory knows,
+ * or — where composing it would drop something — the finding's own answer, the
+ * written value with the disputed level swapped and every other word kept.
+ *
+ * Composing is the rule and the swap the exception, so that one row's answer
+ * reads like the next: a name fitting six places offers six whole places, and a
+ * spelling fix beside it that answered "Bukov Vrh" alone left the municipality
+ * and the country to be typed in by hand.
+ *
+ * Two things stop it. A value carrying a parish, a facility or a house says
+ * something no register composes — "Šmartno pri Litiji, sv. Martin" is not
+ * Šmartno pri Litiji — and a value already written to more levels than the
+ * register names would come back shorter. An answer may say more than the file
+ * does; it may never say less.
+ */
+function answerPlace(f: RegisterFinding, entry: GazEntry, style: PlaceStyle): { place: string; form?: string } {
+  // The written value with the level swapped, and the form the check computed
+  // for exactly that value — the two belong together.
+  const swapped = f.official
+    ? { place: f.official, ...(f.officialForm ? { form: f.officialForm } : {}) }
+    : composedAnswer(entry, style);
+  return qualified(entry, f.key, swapped, style);
+}
+
+/**
+ * The level a site row takes off the front, kept as a bracketed aside on the
+ * settlement it stands in: "Kranj (Šmartin), Kranj, Slovenija".
+ *
+ * For the file that has nowhere to move it. Where addresses live on their own
+ * ADDR line the level goes there; where they do not, the answer used to be the
+ * place alone, and taking it threw away a parish, a cemetery or a township the
+ * researcher wrote down on purpose. The brackets are the app's own place for
+ * something standing *in* a place rather than being one — it is what
+ * decomposePlace reads back as the value's facility, which is also why the
+ * value stops being reported: its settlement is now the first thing in it.
+ *
+ * The other way of keeping it — a fourth level in front, "Šmartin, Kranj,
+ * Kranj, Slovenija" — keeps the words but not the fix: the value still leads
+ * with a name no register of settlements holds, so the row comes back on every
+ * scan saying the same thing.
+ */
+function withAside(place: string, aside: string): string {
+  const parts = place.split(",");
+  parts[0] = `${parts[0].trimEnd()} (${aside.trim()})`;
+  return parts.join(",");
+}
+
+/** The one settlement a loaded directory holds under this name, or undefined
+ *  where none does or several do. Held to a letter-perfect match — the same bar
+ *  the check itself judges a name by — so a rename is never placed at a village
+ *  that merely resembles what was typed. */
+function soleSettlement(index: GazetteerIndex, place: string, home: string): GazEntry | undefined {
+  const hits = lookupPlace(index, place, home).filter((c) => c.score >= HIGH_CONFIDENCE);
+  const distinct = hits.filter(
+    (c, i) => !hits.some((o, j) => j < i && o.entry.lat === c.entry.lat && o.entry.lon === c.entry.lon),
+  );
+  return distinct.length === 1 ? distinct[0].entry : undefined;
+}
+
+/** Whether a value is nothing but jurisdiction levels — all a composed place
+ *  can reproduce. A parish, a facility, a house name or number says something
+ *  no register composes. */
+function plainJurisdiction(value: string): boolean {
+  const d = decomposePlace(value);
+  return !d.parish && !d.facility && !d.houseName && !d.street && !d.houseNumber;
+}
+
+const commaParts = (v: string) => v.split(",").filter((s) => s.trim()).length;
+
+/** The register's whole place in place of `written`, where that loses nothing:
+ *  the value must be jurisdiction levels alone, and the composition must not
+ *  come back shorter than what the file already writes. */
+function qualified(
+  entry: GazEntry | undefined,
+  written: string,
+  fallback: { place: string; form?: string },
+  style: PlaceStyle,
+): { place: string; form?: string } {
+  if (!entry || !plainJurisdiction(written)) return fallback;
+  const composed = composedAnswer(entry, style);
+  return commaParts(composed.place) >= commaParts(written) ? composed : fallback;
 }

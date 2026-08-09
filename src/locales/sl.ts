@@ -1944,6 +1944,7 @@ export const sl = {
   "settings.homeCountry.hint":
     "Rodoslovci svoje države ne pišejo — slovenska datoteka nekajkrat zapiše »Kranj, Slovenija«, stokrat pa le »Golnik«. Če take kraje štejemo v domačo državo, se zberejo pod njo, iščejo se samo v imenikih te države in jih preverjanje poimenovanja presodi; če ne predpostavimo ničesar, ostanejo pri vsem tem ob strani.",
   "settings.homeCountry.auto.detected": "Iz datoteke — {{country}}",
+  "settings.homeCountry.auto.register": "Iz imenikov — {{country}}",
   "settings.homeCountry.auto.none": "Iz datoteke — ni jasnega odgovora",
   "settings.homeCountry.none": "Ne predpostavi ničesar",
   "settings.homeCountry.covers": "{{count}} krajev je brez nje",
@@ -2035,7 +2036,7 @@ export const sl = {
   "settings.display.age.hint": "Prikaži starosti: za razponom let (ob smrti, za žive trenutno starost), poleg datuma vsakega dogodka ter starost staršev (♂ oče, ♀ mati) oz. zakoncev ob rojstvih in družinskih dogodkih.",
   "settings.links.title": "Spletna iskanja",
   "settings.links.fetch": "Poišči podatke na spletu",
-  "settings.links.fetch.hint": "Eno stikalo za vsa iskanja, ki zapustijo vašo napravo: naslov strani vira, ko ga dodate iz golega URL-ja, in geokodiranje — OpenStreetMap, Genealoški imenik krajev (GOV) ter slovenski register naslovov in geografski imenik GURS. Privzeto izklopljeno.",
+  "settings.links.fetch.hint": "Eno stikalo za vsa iskanja, ki zapustijo vašo napravo: naslov strani vira, ko ga dodate iz golega URL-ja, in geokodiranje — OpenStreetMap, Genealoški imenik krajev (GOV) ter slovenski register naslovov in geografski imenik GURS. Privzeto izklopljeno. Prenos celotnega imenika krajev ni poizvedba — o vaši datoteki ne pove ničesar — in stikala ne potrebuje.",
   "settings.links.fetch.relays": "Prek javnega posrednika poteka samo iskanje naslova strani, in sicer po tem vrstnem redu:",
   "settings.links.fetch.relaysNote": "Geokodirne storitve se kličejo neposredno. Pošlje se samo iskani naslov — nikoli vaše datoteke.",
   "settings.geo.title": "Imeniki krajev",

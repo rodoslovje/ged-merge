@@ -452,4 +452,25 @@ describe("checkPlacesAgainstRegister", () => {
       false,
     );
   });
+
+  it("names the settlement the house comes off, where the directory knows one of it", () => {
+    // The entry is what lets the row answer with a whole place — municipality
+    // and country — rather than the bare name the split left behind.
+    const fmt: PlaceTargetFormat = { layout: "structured-addr", separator: ", " };
+    const known = fileWith(place("Litija 12, Slovenija"));
+    const split = checkPlacesAgainstRegister(known, REGISTER, NO_DECISIONS, fmt).findings.find(
+      (f) => f.verdict === "address",
+    )!;
+    expect(split.officialAddr).toBe("Litija 12");
+    expect(split.entry?.admin).toBe("Litija");
+
+    // Two settlements of that name: nothing on an address row chooses between
+    // them, so the row names neither.
+    const ambiguous = fileWith(place("Soteska 4, Slovenija"));
+    const other = checkPlacesAgainstRegister(ambiguous, REGISTER, NO_DECISIONS, fmt).findings.find(
+      (f) => f.verdict === "address",
+    )!;
+    expect(other.officialAddr).toBe("Soteska 4");
+    expect(other.entry).toBeUndefined();
+  });
 });

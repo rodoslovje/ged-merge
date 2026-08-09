@@ -79,12 +79,21 @@ const MAX_RESULTS = 10;
  * import made in Tools starts answering here without a reload.
  */
 let cachedIndex: GazetteerIndex | undefined;
-async function gazetteerIndex(): Promise<GazetteerIndex | undefined> {
+export async function gazetteerIndex(): Promise<GazetteerIndex | undefined> {
   if (cachedIndex) return cachedIndex;
   const stored = await loadCountries();
   if (!stored.length) return undefined;
   cachedIndex = buildGazetteerIndex(storedEntries(stored), mergeDivisions(stored));
   return cachedIndex;
+}
+
+/** Bumped whenever the stored directories change. Anything that reads an answer
+ *  *out of* the index — rather than the index itself — keys its own cache on
+ *  this, since a rebuilt index is a different answer (see the home country the
+ *  directories vote for in DatasetDerivations). */
+let generation = 0;
+export function gazetteerGeneration(): number {
+  return generation;
 }
 
 /** Drop the cached index after the stored gazetteers change — a re-import of a
@@ -93,6 +102,7 @@ async function gazetteerIndex(): Promise<GazetteerIndex | undefined> {
  *  page is reloaded. Called by the Geocode tool whenever it writes the store. */
 export function invalidateGazetteerIndex(): void {
   cachedIndex = undefined;
+  generation++;
 }
 
 /**
@@ -125,10 +135,21 @@ export function usePlaceStyle(
 }
 
 /** Build the Edit view's lookup: this file's place style plus every register. */
-export function usePlaceLookupValue(dataset: Dataset, placeSuggestions: string[]): PlaceLookup {
+export function usePlaceLookupValue(
+  dataset: Dataset,
+  placeSuggestions: string[],
+  /** How many jurisdiction levels an offer should carry, where that is not the
+   *  file's own habit. An Edit field wants a place that looks like its
+   *  neighbours — a file of bare settlements is offered "Železniki" — but the
+   *  naming check is read to tell places apart and writes them out in full, and
+   *  an offer cut back to the settlement there is both unrecognisable as an
+   *  answer to what was typed and indistinguishable from the file's own value. */
+  depth?: number,
+): PlaceLookup {
   const settings = useSettingsSlice(SETTINGS_KEYS);
   const online = settings.allowLinkFetch;
-  const style = usePlaceStyle(dataset, placeSuggestions);
+  const fileStyle = usePlaceStyle(dataset, placeSuggestions);
+  const style = useMemo(() => (depth ? { ...fileStyle, depth } : fileStyle), [fileStyle, depth]);
 
   return useMemo(() => {
     /** Collector shared by both lookups: first offer for a place wins, so the

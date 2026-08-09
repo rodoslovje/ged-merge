@@ -269,7 +269,7 @@
             <ul>
               <li><strong>GEDCOM</strong> — override any file convention GED Merge would otherwise detect, grouped as <em>Dates</em>, <em>Names</em>, <em>Places</em>, <em>Sources</em> and <em>Privacy</em>: date format, unknown date parts, alternate names, the unknown-name marker, place format and the comma form between place levels, source and citation layout, page links, baptism citations, doubled links, the Matricula and Geneanet link languages, and the private-flag tag. Each row shows a sample of what the choice writes and defaults to <em>Auto (detected)</em> — following the file's own habit — but a chosen value is then enforced by the incoming-file normalizer, the <a href="#tools">Normalize</a> tool, <a href="#tools">Organize sources</a>, Add Source and inline editing. Date, place, name and link choices take effect from the next file load. Beneath them sits <em>Home country</em>, which is not a convention but a reading of your file: which country a place that names none is taken to be in (<a href="#geocode">§10</a>). It follows the file — the country three quarters of its country-naming places agree on, shown in the option itself — and can be set to any country instead, or to assume nothing. See <a href="#house-style">§4</a> and <a href="#sources">§13</a>.</li>
               <li><strong>Map</strong> — <em>Place directories</em> holds the gazetteers your place names are matched against: download Slovenia's GURS register, Croatia's DGU register of geographical names or any country from OpenStreetMap, import a GeoNames file, and see what is loaded with its size and date or remove it. Croatia's <em>DGU address register</em> is offered here too — every house number in the country, downloaded once and thereafter looked up in this browser (<a href="#geocode">§10</a>). They live in this browser, not in the file, so they outlive the file you have open and serve every file you load; <a href="#geocode">Geocode places</a> (<a href="#tools">§10</a>) offers the same downloads while you have none. <em>Load base-map tiles</em> opts in to a map background for every map in the app (tile requests reveal the viewed region; off = a built-in offline outline), and <em>Base map</em> picks which one: CARTO, OpenStreetMap, terrain, Esri satellite or topographic, or your own tile-URL template. Once tiles are allowed, a live sample above the picker draws the current choice. <em>Additional map layers</em> configures maps drawn over the base — pick a bundled free preset (including Slovenia's national GURS maps), or add your own tile-URL template or OGC&nbsp;WMS service (name, URL, valid years, attribution). See <a href="#map">§11</a>.</li>
-              <li><strong>Advanced › Online lookups</strong> — <em>Look up details online</em>: when you add a source from a bare URL, GED Merge fetches its page title through a public relay. The same switch powers the one-click OpenStreetMap, GURS and DGU gazetteer downloads, the per-row online searches (OpenStreetMap and the Genealogical Gazetteer, GOV) and the GURS address-register lookups used by <a href="#geocode">Geocode places</a>; those services are called directly, not through a relay. Croatian addresses are the exception that proves the rule: once the DGU address register is downloaded they are answered from this browser, so those lookups are offered whether the switch is on or off. <strong>Apart from the map tiles you opt into separately, these are the only features that send anything off your device, and they are off by default.</strong></li>
+              <li><strong>Advanced › Online lookups</strong> — <em>Look up details online</em>: when you add a source from a bare URL, GED Merge fetches its page title through a public relay. The same switch powers the per-row online searches (OpenStreetMap and the Genealogical Gazetteer, GOV) and the GURS address-register lookups used by <a href="#geocode">Geocode places</a>; those services are called directly, not through a relay. The one-click OpenStreetMap, GURS and DGU directory downloads are outside it — a download asks nothing about your file, so it is always offered. Croatian addresses are the exception that proves the rule: once the DGU address register is downloaded they are answered from this browser, so those lookups are offered whether the switch is on or off. <strong>Apart from the map tiles you opt into separately, these are the only features that send anything off your device, and they are off by default.</strong></li>
               <li><strong>Advanced › Locally stored data</strong> — <em>Remember my work in this browser</em>, <em>Clear locally stored data</em>, and <em>Silenced media-folder dialogs</em> (see <a href="#photos">§12</a>), which appears once you have dismissed one for good and restores it.</li>
             </ul>
 
@@ -1138,8 +1138,14 @@
               and the effect runs deeper than the buttons — a bare village name is searched in that country's
               directories instead of all of them at once (no more Slovenian <em>Draga</em> answered from Croatia), and
               the naming check can judge those places at last, where before it left them out rather than accuse a
-              place that might be anywhere. <em>Home country</em> in Settings → GEDCOM (<a href="#settings">§3</a>) shows
-              what was read, takes any country instead, or turns the assumption off. And
+              place that might be anywhere. A file that names no country <em>anywhere</em> — a parish file writing
+              <em>Kranj</em> and <em>Poljane</em> thousands of times and Slovenia never — is read a second way: its
+              silent places are looked up in the directories you have loaded, and the country whose directory holds
+              most of them takes the file. A name two of them share settles nothing, and a directory holding under
+              half of what was looked up speaks for none of it, so a Croatian file does not become Slovenian on the
+              handful of names the two countries share. <em>Home country</em> in Settings → GEDCOM
+              (<a href="#settings">§3</a>) shows what was read and which reading it is — <em>From the file</em> or
+              <em>From the directories</em> — takes any country instead, or turns the assumption off. And
               <strong>Write the country in</strong>, beside the places list's other bulk actions, ends the assumption
               properly: it appends the country — in your file's own spelling of it and its own comma form — to the
               places a directory recognises, leaving the patron saints and stray dates untouched, in one undoable step. A second row narrows by the kind of work left:
@@ -1326,11 +1332,29 @@
               Opening a row lists the answers as numbered options, the way the places and addresses rows list their
               candidates: each is a whole place written in your file's own layout — <em>Mavčiče, Kranj, Slovenia</em>
               against your <em>Mavčiče, Medvode, Slovenia</em> — with the directory that answered badged beside it, and
-              the address split showing the house on the <code>ADDR</code> line it would move to. A row with one answer
-              arrives on it; a name fitting several places waits for you to pick with the radio, since choosing between
+              the house an address split would move to its own <code>ADDR</code> line written after it,
+              <em>Kostanjevica · Sveti križ</em>. An answer always names the municipality and the country, even where
+              your file writes the settlement alone: six same-named villages are told apart by nothing else, and
+              picking one writes it out in full. The exceptions are values a composition would shorten — one carrying
+              a parish, a facility or a house, and one already written to more levels than the directory names — where
+              the answer stays your own value with the disputed level swapped. An <strong>Extra level</strong> row in a
+              file that keeps no <code>ADDR</code> lines keeps its level in brackets on the settlement it stands in,
+              <em>Kranj (Šmartin), Kranj, Slovenia</em>, rather than losing the parish it names. A row with one answer
+              arrives on it, shown on the row's own line after the <span class="gm-glyph">→</span> that means
+              <em>becomes</em> everywhere in these lists; clicking a filled circle clears the answer again, and the row
+              then writes nothing until you pick one; a name fitting several places waits for you to pick with the radio, since choosing between
               them is the whole question. <strong>Use official name</strong> then renames every occurrence to the picked
               option (moving the address out, where that is the answer), and <strong>Use official names</strong> above
-              the list does every row that has an answer at once, in one undoable step. <strong>Show on map</strong> —
+              the list does every row that has an answer at once, in one undoable step. <span class="gm-glyph">✎</span>
+              on the row writes a correction of your own instead — a historical name spelt as the parish wrote it, a
+              level the register has no opinion about — over every occurrence of the value, and its
+              <em>Address</em> box takes the house out of the value onto the event's own <code>ADDR</code> line at the
+              same time, as the places list's rename does. It completes from the file's own places <em>and</em> from the
+              directories — <strong>Look this place up in the registers</strong>, since the right name may appear nowhere
+              in your file — and what it writes is placed where the registers say it is: the house where one is named
+              and a stored register holds it, the settlement otherwise, and nothing at all where the answer is
+              ambiguous. It writes at once, undoably, rather than joining the answers waiting above it: those are the
+              register's wording, and this is yours. <strong>Show on map</strong> —
               or a click on any answer's coordinate — draws the answers as numbered pins, the number on the pin being
               the number beside the line, with the file's own position for the place as a dashed ring beside them: which
               of six same-named places is yours is a question only a map answers. <strong>Look wider</strong> adds the
@@ -1633,8 +1657,10 @@
                 details as well, so a house number can be read without leaving the person.</li>
               <li><strong>Fit</strong> — the third button under the map's zoom controls frames everything currently
                 plotted, on the Places map and on the small per-person, geocoding and Settings-sample maps alike; after
-                following an overlay across the country it brings the whole set back in one click. Hovering a marker names the place
-                it stands for (a single event also shows its street address).</li>
+                following an overlay across the country it brings the whole set back in one click. Hovering a marker names the
+                places it stands for, each with the house the event gives, and the panel a click opens names them the
+                same way — nine events on one village's coordinate are usually several houses that have not been placed
+                themselves.</li>
               <li><strong>Privacy</strong> — the base map is <em>opt-in</em>: until you allow tiles (one click on
                 the map, or Settings › Map), the map draws on a built-in offline world outline and nothing leaves
                 your device. The chart-settings <em>Hide living people</em> toggle removes their markers and paths
@@ -2116,8 +2142,9 @@
                 Settings names the relays it will try. A <strong>place name or house number</strong>, sent straight to
                 OpenStreetMap, Slovenia's address register (GURS) or the Genealogical Gazetteer (GOV) when you press
                 one of the search buttons — a Croatian house number is looked up in the downloaded register instead and leaves nothing in <a href="#geocode">Geocode places</a> or pick <em>Look this place up in
-                the registers</em> while editing. And the <strong>country you picked</strong>, when you download a gazetteer in
-                one click. Nothing is sent until you ask: the buttons are the trigger, not the typing.</li>
+                the registers</em> while editing. Nothing is sent until you ask: the buttons are the trigger, not the
+                typing. Downloading a whole directory is not one of these and needs no switch: it fetches a country's
+                published dataset — the same bytes for everyone who clicks — and says nothing about your file.</li>
               <li><strong>Base-map tiles</strong> (<a href="#workspace">Settings › Map</a>) — every map, from the
                 <a href="#map">Places map</a> down to the small one under a person's events, draws on square tiles
                 fetched from the provider you choose, which tells that provider roughly where you are looking. Leave it

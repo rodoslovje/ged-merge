@@ -444,6 +444,16 @@ function FieldValue({ c }: { c: FieldChange }) {
         {c.segments.map((s, i) => (
           <span key={i}>
             {i > 0 && " · "}
+            {/* What the piece said before it was rewritten, struck through and
+                followed by an arrow — the same before/after the dialog's other
+                rows read as, kept inside the piece so the " · " between pieces
+                still separates fields rather than versions. */}
+            {s.from && (
+              <>
+                <span className="preview-from">{s.from}</span>
+                {" → "}
+              </>
+            )}
             <span className={s.state === "changed" ? "preview-add" : s.state === "removed" ? "preview-from" : "preview-unchanged"}>
               {s.text}
             </span>

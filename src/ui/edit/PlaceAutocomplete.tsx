@@ -52,6 +52,7 @@ export function PlaceAutocomplete({
   onPickProposal,
   onLookup,
   lookupNote,
+  offerKnown,
 }: {
   value: string;
   suggestions: string[];
@@ -91,6 +92,12 @@ export function PlaceAutocomplete({
    *  Shown in the lookup row; on its own it makes the row appear with no
    *  button, which is how a field says the search is unavailable and why. */
   lookupNote?: string;
+  /** Offer the registers even for a place the file already writes, and keep an
+   *  offer that only repeats one. Both are hidden by default because the file's
+   *  own list already has the text — but where the lookup is wanted for what
+   *  rides *with* the text (the register's coordinate, its municipality), the
+   *  text being familiar is no reason to withhold the answer. */
+  offerKnown?: boolean;
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -110,7 +117,7 @@ export function PlaceAutocomplete({
     !!onPickProposal &&
     (!!onLookup || !!lookupNote) &&
     value.trim().length >= 2 &&
-    !known.has(placeCompareKey(value));
+    (offerKnown || !known.has(placeCompareKey(value)));
 
   const filtered = useMemo((): Item[] => {
     const q = value.trim().toLowerCase();
@@ -217,11 +224,11 @@ export function PlaceAutocomplete({
     const offers: Item[] =
       search.query === value.trim()
         ? search.results
-            .filter((p) => p.addr || !known.has(placeCompareKey(p.plac)))
+            .filter((p) => offerKnown || p.addr || !known.has(placeCompareKey(p.plac)))
             .map((p) => ({ place: p.plac, addr: p.addr, proposal: p }))
         : [];
     return [...fromFile, ...offers];
-  }, [value, suggestions, combos, matchCombosByPlace, onPickCombo, search, known]);
+  }, [value, suggestions, combos, matchCombosByPlace, onPickCombo, search, known, offerKnown]);
 
   const showDropdown = open && (filtered.length > 0 || canSearch);
 

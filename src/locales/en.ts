@@ -1727,6 +1727,7 @@ export const en = {
   "settings.homeCountry.hint":
     "Genealogists leave their own country out — a Slovenian file writes “Kranj, Slovenija” a few times and plain “Golnik” hundreds of times. Taking those places to be in the home country groups them under it, searches the directories of that country alone, and lets the naming check judge them; assuming nothing leaves them unplaced in every one of those.",
   "settings.homeCountry.auto.detected": "From the file — {{country}}",
+  "settings.homeCountry.auto.register": "From the directories — {{country}}",
   "settings.homeCountry.auto.none": "From the file — no clear answer",
   "settings.homeCountry.none": "Assume nothing",
   "settings.homeCountry.covers": "{{count}} places name none",
@@ -1818,7 +1819,7 @@ export const en = {
   "settings.display.age.hint": "Show ages: after the lifespan (at death, or the current age for the living), next to each event date, and the parents' (♂ father, ♀ mother) or spouses' ages on birth and family events.",
   "settings.links.title": "Online lookups",
   "settings.links.fetch": "Look up details online",
-  "settings.links.fetch.hint": "One switch for every lookup that leaves your device: a source's page title when you add it from a bare URL, and the geocoding searches — OpenStreetMap, the Genealogical Gazetteer (GOV), and Slovenia's GURS address register and gazetteer. Off by default.",
+  "settings.links.fetch.hint": "One switch for every lookup that leaves your device: a source's page title when you add it from a bare URL, and the geocoding searches — OpenStreetMap, the Genealogical Gazetteer (GOV), and Slovenia's GURS address register and gazetteer. Off by default. Downloading a whole place directory is not a lookup — it asks nothing about your file — and needs no switch.",
   "settings.links.fetch.relays": "Only the page-title lookup goes through a public relay, tried in this order:",
   "settings.links.fetch.relaysNote": "The geocoding services are called directly. Only the address being looked up is sent — never your file.",
   "settings.tab.map": "Map",

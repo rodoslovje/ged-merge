@@ -271,7 +271,7 @@
             <ul>
               <li><strong>GEDCOM</strong> — prepišite katero koli pravilo datoteke, ki bi ga GED Merge sicer zaznal sam; razvrščena so v skupine <em>Datumi</em>, <em>Imena</em>, <em>Kraji</em>, <em>Viri</em> in <em>Zasebnost</em>: obliko datumov, neznane dele datuma, dodatna imena, oznako za neznano ime, obliko krajev in ločilo med ravnmi kraja, postavitev virov in navedb, povezave strani, krstne navedbe, podvojene povezave, jezika povezav Matricula in Geneanet ter oznako zasebnosti. Vsaka vrstica pokaže vzorec tega, kar izbira zapiše, in privzeto stoji na <em>Samodejno (zaznano)</em> — sledi navadi datoteke — izbrana vrednost pa se nato uveljavi v poenotenju vhodne datoteke, orodju <a href="#tools">Poenoti</a>, <a href="#organize">Uredi vire</a>, Dodaj vir in urejanju. Izbire za datume, kraje, imena in povezave začnejo veljati ob naslednjem nalaganju datoteke. Pod njimi stoji <em>Domača država</em>, ki ni pravilo zapisa, ampak branje vaše datoteke: v kateri državi velja kraj, ki države ne navaja (<a href="#geocode">§10</a>). Sledi datoteki — državi, o kateri se strinjajo tri četrtine krajev, ki državo sploh navajajo, in ki je izpisana kar v možnosti sami — lahko pa izberete katero koli drugo ali pa da se ne predpostavi ničesar. Glejte <a href="#house-style">§4</a> in <a href="#sources">§13</a>.</li>
               <li><strong>Zemljevid</strong> — <em>Imeniki krajev</em> hrani geografske imenike, s katerimi se primerjajo imena vaših krajev: prenesite slovenski register GURS, hrvaški register zemljepisnih imen DGU ali katero koli državo z OpenStreetMap, uvozite datoteko GeoNames in si oglejte, kaj je naloženo, z velikostjo in datumom, ali to odstranite. Tu je ponujen tudi hrvaški <em>register naslovov DGU</em> — vsaka hišna številka v državi, prenesena enkrat in odtlej poiskana v tem brskalniku (<a href="#geocode">§10</a>). Shranjeni so v tem brskalniku in ne v datoteki, zato ostanejo tudi po zamenjavi datoteke in služijo vsem, ki jih odprete; <a href="#geocode">Geokodiranje krajev</a> (<a href="#tools">§10</a>) ponudi iste prenose, dokler nimate nobenega. <em>Nalagaj ploščice zemljevida</em> vklopi kartografsko podlago za vse zemljevide v aplikaciji (zahteve za ploščice razkrijejo ogledovano območje; izklopljeno = vgrajeni obris brez povezave), <em>Osnovni zemljevid</em> pa izbere, katero: CARTO, OpenStreetMap, reliefno, Esrijevo satelitsko ali topografsko ali vašo predlogo URL ploščic. Ko so ploščice dovoljene, živ vzorec nad izbirnikom izriše trenutno izbiro. <em>Dodatni sloji zemljevida</em> nastavi karte, izrisane čez osnovno karto — izberite vgrajeni brezplačni sloj (vključno s slovenskimi državnimi kartami GURS) ali dodajte svojo predlogo URL ploščic ali storitev OGC&nbsp;WMS (ime, URL, veljavna leta, navedba vira). Glejte <a href="#map">§11</a>.</li>
-              <li><strong>Napredno › Spletna iskanja</strong> — <em>Poišči podatke na spletu</em>: ko vir dodate iz golega naslova URL, GED Merge prek javnega posrednika pridobi naslov strani. Isto stikalo poganja tudi prenose imenika z OpenStreetMap, GURS in DGU z enim klikom, spletni iskanji po vrsticah (OpenStreetMap in Genealoški imenik krajev GOV) ter poizvedbe v registru naslovov GURS, ki jih uporablja <a href="#geocode">Geokodiranje krajev</a>; te storitve se kličejo neposredno, ne prek posrednika. Hrvaški naslovi so izjema, ki pravilo potrjuje: ko je register naslovov DGU prenesen, nanje odgovori ta brskalnik, zato so te poizvedbe na voljo ne glede na to, ali je stikalo vklopljeno. <strong>Poleg ploščic zemljevida, ki jih vklopite posebej, so to edine funkcije, ki karkoli pošljejo z vaše naprave, in so privzeto izklopljene.</strong></li>
+              <li><strong>Napredno › Spletna iskanja</strong> — <em>Poišči podatke na spletu</em>: ko vir dodate iz golega naslova URL, GED Merge prek javnega posrednika pridobi naslov strani. Isto stikalo poganja spletni iskanji po vrsticah (OpenStreetMap in Genealoški imenik krajev GOV) ter poizvedbe v registru naslovov GURS, ki jih uporablja <a href="#geocode">Geokodiranje krajev</a>; te storitve se kličejo neposredno, ne prek posrednika. Prenosi imenikov z OpenStreetMap, GURS in DGU z enim klikom so zunaj njega — prenos o vaši datoteki ne pove ničesar, zato je vedno na voljo. Hrvaški naslovi so izjema, ki pravilo potrjuje: ko je register naslovov DGU prenesen, nanje odgovori ta brskalnik, zato so te poizvedbe na voljo ne glede na to, ali je stikalo vklopljeno. <strong>Poleg ploščic zemljevida, ki jih vklopite posebej, so to edine funkcije, ki karkoli pošljejo z vaše naprave, in so privzeto izklopljene.</strong></li>
               <li><strong>Napredno › Lokalno hranjeni podatki</strong> — <em>Zapomni si moje delo v tem brskalniku</em>, <em>Počisti lokalno hranjene podatke</em> in <em>Utišana okna za mapo z mediji</em> (glejte <a href="#photos">§12</a>), ki se pokaže, ko katero dokončno zavrnete, in ga vrne.</li>
             </ul>
 
@@ -1138,9 +1138,15 @@
               <span class="gm-glyph">≈</span>, da del njegovega števca ni beseda datoteke, ampak to branje — učinek pa
               seže globlje od gumbov: golo ime vasi se išče v imenikih te države in ne v vseh naenkrat (slovenske
               <em>Drage</em> ne odgovori več hrvaški register), preverjanje poimenovanja pa jih končno lahko presodi, prej
-              jih je raje pustilo ob strani, kot da bi obtožilo kraj, ki bi lahko bil kjer koli. <em>Domača država</em> v
-              Nastavitve → GEDCOM (<a href="#settings">§3</a>) pokaže, kaj je prebrala, sprejme katero koli drugo državo
-              ali predpostavko izklopi. <strong>Dopiši državo</strong> ob drugih množičnih dejanjih seznama krajev pa
+              jih je raje pustilo ob strani, kot da bi obtožilo kraj, ki bi lahko bil kjer koli. Datoteko, ki države ne
+              navaja <em>nikjer</em> — župnijsko datoteko, ki tisočkrat zapiše <em>Kranj</em> in <em>Poljane</em>,
+              Slovenije pa nikoli — se prebere še na drug način: njeni tihi kraji se poiščejo v imenikih, ki ste jih
+              naložili, datoteko pa prevzame država, katere imenik jih hrani največ. Ime, ki ga imata dva imenika,
+              ne odloči ničesar, imenik, ki hrani manj kot polovico iskanih imen, pa ne govori za nobenega — tako
+              hrvaška datoteka ne postane slovenska zaradi peščice imen, ki si jih državi delita. <em>Domača
+              država</em> v Nastavitve → GEDCOM (<a href="#settings">§3</a>) pokaže, kaj je prebrala in katero branje
+              je to — <em>Iz datoteke</em> ali <em>Iz imenikov</em> — sprejme katero koli drugo državo ali predpostavko
+              izklopi. <strong>Dopiši državo</strong> ob drugih množičnih dejanjih seznama krajev pa
               predpostavko pošteno zaključi: krajem, ki jih imenik pozna, dopiše državo — v zapisu, kakršnega uporablja
               vaša datoteka, in z njenim ločilom — zavetnike župnij in zaidle datume pa pusti pri miru, vse v enem
               koraku, ki ga je mogoče razveljaviti. Druga vrsta ga zoži na vrsto preostalega dela:
@@ -1326,12 +1332,28 @@
             <p>
               Odprta vrstica ponudi odgovore kot oštevilčene možnosti, tako kot vrstice krajev in naslovov ponudijo svoje
               kandidate: vsaka je cel kraj, zapisan v postavitvi vaše datoteke — <em>Mavčiče, Kranj, Slovenia</em> ob
-              vašem <em>Mavčiče, Medvode, Slovenia</em> — z oznako imenika, ki je odgovoril, pri delitvi naslova pa se
-              vidi tudi hiša na vrstici <code>ADDR</code>, kamor se bo preselila. Vrstica z enim odgovorom je nanj že
-              postavljena, ime, ki ustreza več krajem, pa počaka na vašo izbiro z okroglim gumbom, saj je prav izbira med
-              njimi celotno vprašanje. <strong>Prevzemi uradno ime</strong> nato preimenuje vse navedbe v izbrano možnost
-              (in naslov preseli, kadar je to odgovor), <strong>Prevzemi uradna imena</strong> nad seznamom pa opravi vse
-              vrstice z odgovorom naenkrat, v enem koraku, ki ga je mogoče razveljaviti. <strong>Pokaži na
+              vašem <em>Mavčiče, Medvode, Slovenia</em> — z oznako imenika, ki je odgovoril, za njim pa še hiša, ki jo
+              delitev naslova preseli na svojo vrstico <code>ADDR</code>: <em>Kostanjevica · Sveti križ</em>. Odgovor
+              vedno imenuje občino in državo, tudi kadar vaša datoteka zapiše le kraj sam: šest enakoimenskih vasi loči
+              samo to, izbrani odgovor pa se zapiše v celoti. Izjema so zapisi, ki bi jih sestavljanje skrajšalo — tak,
+              ki nosi župnijo, ustanovo ali hišo, in tak, ki je zapisan na več ravni, kot jih imenik imenuje — pri njih
+              odgovor ostane vaš zapis z zamenjano sporno ravnjo. Vrstica <strong>Dodatna raven</strong> v datoteki, ki
+              vrstic <code>ADDR</code> ne piše, svojo raven ohrani v oklepaju ob kraju, v katerem stoji —
+              <em>Kranj (Šmartin), Kranj, Slovenija</em> — in ne izgubi župnije, ki jo imenuje. Vrstica z enim odgovorom
+              je nanj že postavljena in ga pokaže kar v svoji vrstici, za puščico <span class="gm-glyph">→</span>, ki v
+              teh seznamih pomeni <em>postane</em>; klik na poln krogec odgovor spet umakne in vrstica potem ne zapiše
+              ničesar, dokler znova ne izberete; ime, ki ustreza več krajem, pa počaka na vašo izbiro z okroglim gumbom,
+              saj je prav izbira med njimi celotno vprašanje. <strong>Prevzemi uradno ime</strong> nato preimenuje vse
+              navedbe v izbrano možnost (in naslov preseli, kadar je to odgovor), <strong>Prevzemi uradna imena</strong>
+              nad seznamom pa opravi vse vrstice z odgovorom naenkrat, v enem koraku, ki ga je mogoče razveljaviti.
+              <span class="gm-glyph">✎</span> ob vrstici namesto tega zapiše vaš popravek — zgodovinsko ime, kakor ga je
+              pisala župnija, raven, o kateri register nima mnenja — čez vse navedbe zapisa, njegovo polje
+              <em>Naslov</em> pa hkrati vzame hišo iz zapisa na dogodkovo vrstico <code>ADDR</code>, kakor to počne
+              preimenovanje na seznamu krajev. Dopolnjuje se iz krajev vaše datoteke <em>in</em> iz imenikov —
+              <strong>Poišči ta kraj v registrih</strong>, saj se pravo ime morda v vaši datoteki ne pojavi nikjer — kar
+              zapiše, pa tudi umesti tja, kamor kažejo registri: k hiši, kadar je ta imenovana in jo prenesen register
+              pozna, sicer k naselju, ob dvoumnem odgovoru pa nikamor. Zapiše takoj in razveljavljivo in se ne pridruži
+              odgovorom, ki čakajo nad njim: tam je beseda registra, tu vaša. <strong>Pokaži na
               zemljevidu</strong> — ali klik na koordinato katerega koli odgovora — odgovore nariše kot oštevilčene
               oznake, kjer je številka na oznaki ista kot ob vrstici, ob njih pa s črtkanim obročem še lego, ki jo kraju
               daje datoteka: kateri od šestih enakoimenskih krajev je vaš, odgovori le zemljevid. <strong>Poišči
@@ -1635,8 +1657,9 @@
                 izpiše podatke sloja, tako da hišno številko preberete, ne da bi zapustili osebo.</li>
               <li><strong>Prilagodi pogled</strong> — tretji gumb pod merilom zemljevida uokviri vse trenutno prikazano,
                 tako na Zemljevidu krajev kot na malih zemljevidih osebe, geokodiranja in vzorca v nastavitvah; ko se izgubite ob sledenju
-                sloju, z enim klikom vrne celotno sliko. Ob prehodu z miško oznaka izpiše kraj, ki ga predstavlja (pri
-                enem samem dogodku tudi ulični naslov).</li>
+                sloju, z enim klikom vrne celotno sliko. Ob prehodu z miško oznaka izpiše kraje, ki jih predstavlja, in ob
+                vsakem hišo, ki jo dogodek navaja; enako jih imenuje seznam, ki ga odpre klik — devet dogodkov na
+                koordinati ene vasi je največkrat več hiš, ki same še niso umeščene.</li>
               <li><strong>Zasebnost</strong> — kartografsko ozadje se naloži šele po <em>privolitvi</em>: dokler ploščic ne
                 dovolite (en klik na zemljevidu ali Nastavitve → Zemljevid), se zemljevid riše na vgrajenem obrisu sveta
                 in nič ne zapusti vaše naprave. Nastavitev diagramov <em>Skrij žive osebe</em> odstrani njihove oznake
@@ -2129,8 +2152,9 @@
                 posrednike, ki jih bo poskusil. <strong>Ime kraja ali hišna številka</strong> gre neposredno na
                 OpenStreetMap, v slovenski register naslovov (GURS) ali v Genealoški imenik krajev (GOV) — hrvaška hišna številka se poišče v prenesenem registru in ne zapusti naprave — ko pritisnete
                 enega od gumbov za iskanje v <a href="#geocode">Geokodiranju krajev</a> ali izberete <em>Poišči ta kraj
-                v registrih</em> med urejanjem. In <strong>izbrana država</strong>, ko z enim klikom prenesete imenik
-                krajev. Nič ne odide, dokler tega ne zahtevate: sproži ga gumb in ne tipkanje.</li>
+                v registrih</em> med urejanjem. Nič ne odide, dokler tega ne zahtevate: sproži ga gumb in ne tipkanje.
+                Prenos celotnega imenika med to ne sodi in stikala ne potrebuje: prenese objavljeno zbirko podatkov
+                države — iste bajte za vsakogar, ki klikne — o vaši datoteki pa ne pove ničesar.</li>
               <li><strong>Ploščice zemljevida</strong> (<a href="#workspace">Nastavitve › Zemljevid</a>) — vsak
                 zemljevid, od <a href="#map">Zemljevida krajev</a> do majhnega pod dogodki osebe, se riše na kvadratnih
                 ploščicah, ki jih prenese izbrani ponudnik, kar mu pove, kam približno gledate. Če ostane izklopljeno,
