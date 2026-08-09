@@ -873,11 +873,14 @@ function optionsOf(f: RegisterFinding, style: PlaceStyle, wider?: readonly GazEn
   // against what is left after that level goes, since the level going is the
   // answer rather than something the composition loses.
   if (f.verdict === "site" && f.entry && f.official) {
+    const under = qualified(f.entry, f.official, { place: f.official }, style);
     return [
       {
         entry: f.entry,
-        ...qualified(f.entry, f.official, { place: f.official }, style),
-        ...(f.officialAddr ? { addr: f.officialAddr } : {}),
+        ...under,
+        ...(f.officialAddr
+          ? { addr: f.officialAddr }
+          : { place: withAside(under.place, f.written) }),
       },
       ...widened,
     ];
@@ -976,6 +979,29 @@ function answerPlace(f: RegisterFinding, entry: GazEntry, style: PlaceStyle): { 
     ? { place: f.official, ...(f.officialForm ? { form: f.officialForm } : {}) }
     : composedAnswer(entry, style);
   return qualified(entry, f.key, swapped, style);
+}
+
+/**
+ * The level a site row takes off the front, kept as a bracketed aside on the
+ * settlement it stands in: "Kranj (Šmartin), Kranj, Slovenija".
+ *
+ * For the file that has nowhere to move it. Where addresses live on their own
+ * ADDR line the level goes there; where they do not, the answer used to be the
+ * place alone, and taking it threw away a parish, a cemetery or a township the
+ * researcher wrote down on purpose. The brackets are the app's own place for
+ * something standing *in* a place rather than being one — it is what
+ * decomposePlace reads back as the value's facility, which is also why the
+ * value stops being reported: its settlement is now the first thing in it.
+ *
+ * The other way of keeping it — a fourth level in front, "Šmartin, Kranj,
+ * Kranj, Slovenija" — keeps the words but not the fix: the value still leads
+ * with a name no register of settlements holds, so the row comes back on every
+ * scan saying the same thing.
+ */
+function withAside(place: string, aside: string): string {
+  const parts = place.split(",");
+  parts[0] = `${parts[0].trimEnd()} (${aside.trim()})`;
+  return parts.join(",");
 }
 
 /** Whether a value is nothing but jurisdiction levels — all a composed place
