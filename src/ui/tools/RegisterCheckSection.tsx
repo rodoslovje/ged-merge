@@ -16,6 +16,7 @@ import {
   type RegisterVerdict,
 } from "../../tools/registerCheck";
 import { foldSearch } from "../globalSearch";
+import { decomposePlace } from "../../gedcom/place";
 import { proposalFromGazEntry, type PlaceStyle } from "../../geo/placeProposal";
 import { AppliedNote, ExpandAllToggle, GeoPeopleList, GeoRowHeader, MapToggle, RowMap } from "./shared";
 import { PlaceAutocomplete } from "../edit/PlaceAutocomplete";
@@ -309,11 +310,12 @@ export function RegisterCheckSection({
       to: o.place,
       ...(o.addr ? { addr: o.addr } : {}),
       ...(o.entry ? { assignment: { coord: { lat: o.entry.lat, lon: o.entry.lon } } } : {}),
-      // The label line the new value deserves, when the option taken is the
-      // one the check proposed. A pick made from the register's other answers
-      // carries no computed form, and the write then drops a stale one rather
-      // than keeping a line naming levels the value no longer has.
-      ...(f.officialForm && o.place === f.official ? { form: f.officialForm } : {}),
+      // The label line the new value deserves: the option's own form, which is
+      // the one computed for exactly the place it writes — composed here for a
+      // whole place, taken from the check where the answer is the written value
+      // with a level swapped. An option that knows no form drops a stale one
+      // rather than keeping a line naming levels the value no longer has.
+      ...(o.form ? { form: o.form } : {}),
     };
   };
 
@@ -777,6 +779,10 @@ interface RegisterOption {
   place: string;
   addr?: string;
   entry?: GazEntry;
+  /** `PLAC`.`FORM` for the composed place, naming what each of its parts is in
+   *  the file's own wording. Only a place composed here knows its own levels;
+   *  a value with one level swapped keeps the finding's form instead. */
+  form?: string;
   /** Turned up by the wider search rather than by the check itself — a lead to
    *  judge, never an answer, so it is never the option a row arrives on. */
   wide?: true;
@@ -785,14 +791,12 @@ interface RegisterOption {
 /**
  * The register's answers to a row, as places rather than as entries.
  *
- * A row the register disagrees with in one level (its spelling of the
- * settlement, the municipality it files it under) has one answer: the value the
- * file writes with that level swapped, which keeps every other level, the
- * file's separator and any annotation it carries. A name fitting several
- * register entries has one answer per entry, each composed from locality,
- * municipality and country in the file's own layout, depth and country spelling
- * — the same shaping a register offer gets in an Edit field — so the choice is
- * made between whole places, not between "name (municipality)" labels.
+ * Each is a whole place composed from locality, municipality and country in the
+ * file's own layout, separator and country spelling — the same shaping a
+ * register offer gets in an Edit field — so the choice is made between whole
+ * places rather than between "name (municipality)" labels, and so a row's
+ * answer reads like the next row's. Where composing would drop something the
+ * value says, the finding's own answer stands instead (see answerPlace).
  *
  * The verdicts a rename does not answer — a place the register does not hold, a
  * coordinate that is off — offer none.
@@ -800,12 +804,12 @@ interface RegisterOption {
 function optionsOf(f: RegisterFinding, style: PlaceStyle, wider?: readonly GazEntry[]): RegisterOption[] {
   // Places found by a wider search stand after the answers the name matched
   // outright, in the order the search ranked them.
-  const widened = (wider ?? []).map((entry) => ({ entry, place: placeTextOf(entry, style), wide: true as const }));
+  const widened = (wider ?? []).map((entry) => ({ entry, ...composedAnswer(entry, style), wide: true as const }));
   if (f.verdict === "ambiguous") {
-    return [...(f.alternatives ?? []).map((entry) => ({ entry, place: placeTextOf(entry, style) })), ...widened];
+    return [...(f.alternatives ?? []).map((entry) => ({ entry, ...composedAnswer(entry, style) })), ...widened];
   }
   if ((f.verdict === "spelling" || f.verdict === "admin") && f.entry) {
-    return [{ entry: f.entry, place: f.official ?? placeTextOf(f.entry, style) }, ...widened];
+    return [{ entry: f.entry, ...answerPlace(f, f.entry, style) }, ...widened];
   }
   if (f.verdict === "site" && f.entry && f.official) {
     return [{ entry: f.entry, place: f.official, ...(f.officialAddr ? { addr: f.officialAddr } : {}) }, ...widened];
@@ -866,6 +870,42 @@ function chosenIndex(f: RegisterFinding, options: RegisterOption[], picked: Read
  */
 const FULL_CHAIN = 3;
 
-function placeTextOf(entry: GazEntry, style: PlaceStyle): string {
-  return proposalFromGazEntry(entry, { ...style, depth: FULL_CHAIN })?.plac ?? pickLabel(entry.name, entry.admin);
+/** A directory entry as a whole place: the text, and the `FORM` naming its
+ *  parts — composed here, so the levels are known rather than counted. */
+function composedAnswer(entry: GazEntry, style: PlaceStyle): { place: string; form?: string } {
+  const proposal = proposalFromGazEntry(entry, { ...style, depth: FULL_CHAIN });
+  return {
+    place: proposal?.plac ?? pickLabel(entry.name, entry.admin),
+    ...(proposal?.form ? { form: proposal.form } : {}),
+  };
+}
+
+/**
+ * The place a register's own answer would write, for the two verdicts that
+ * dispute a level rather than move text: the whole chain the directory knows,
+ * or — where composing it would drop something — the finding's own answer, the
+ * written value with the disputed level swapped and every other word kept.
+ *
+ * Composing is the rule and the swap the exception, so that one row's answer
+ * reads like the next: a name fitting six places offers six whole places, and a
+ * spelling fix beside it that answered "Bukov Vrh" alone left the municipality
+ * and the country to be typed in by hand.
+ *
+ * Two things stop it. A value carrying a parish, a facility or a house says
+ * something no register composes — "Šmartno pri Litiji, sv. Martin" is not
+ * Šmartno pri Litiji — and a value already written to more levels than the
+ * register names would come back shorter. An answer may say more than the file
+ * does; it may never say less.
+ */
+function answerPlace(f: RegisterFinding, entry: GazEntry, style: PlaceStyle): { place: string; form?: string } {
+  const composed = composedAnswer(entry, style);
+  // The written value with the level swapped, and the form the check computed
+  // for exactly that value — the two belong together.
+  const swapped = f.official
+    ? { place: f.official, ...(f.officialForm ? { form: f.officialForm } : {}) }
+    : composed;
+  const d = decomposePlace(f.key);
+  if (d.parish || d.facility || d.houseName || d.street || d.houseNumber) return swapped;
+  const parts = (v: string) => v.split(",").filter((s) => s.trim()).length;
+  return parts(composed.place) >= parts(f.key) ? composed : swapped;
 }
