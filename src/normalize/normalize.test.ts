@@ -1042,6 +1042,19 @@ describe("detectPlaceLayout", () => {
   it("returns unknown when there are no places", () => {
     expect(detectPlaceLayout([], 0)).toBe("unknown");
   });
+
+  it("is not talked out of a layout by the places the file says it does not know", () => {
+    // A parish file writing "____" on two events in five: the placeholders say
+    // nothing about how the known places are written, and counted in they put
+    // every share under its bar and left the file with no layout at all.
+    const real = ["Zgornje Bitnje 52", "Kuželj 22", "Krasinec 16", "Poljane", "Lučine"];
+    const placs = [...real, ...Array.from({ length: 20 }, () => "____")];
+    expect(detectPlaceLayout(placs, 0)).toBe("address-only");
+  });
+
+  it("still has nothing to say about a file whose places are all placeholders", () => {
+    expect(detectPlaceLayout(["____", "----", "…"], 0)).toBe("unknown");
+  });
 });
 
 // --- numeric date formats --------------------------------------------------

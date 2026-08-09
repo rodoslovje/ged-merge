@@ -3,6 +3,7 @@ import {
   decomposePlace,
   disambiguatesLocality,
   isCountryName,
+  isUnknownPlaceValue,
   parseCoordPair,
   parsePlace,
   stripHouseNumber,
@@ -368,14 +369,20 @@ const PAREN_ON_FIRST = /^[^,]*(?:\([^)]+\)|\[[^\]]+\])/;
  * many ADDR lines accompany them. See {@link PlaceLayout} for the categories.
  */
 export function detectPlaceLayout(values: string[], addrCount: number): PlaceLayout {
-  const n = values.length;
+  // A value standing in for an unknown place ("____") says nothing about how
+  // this file writes the places it does know, and there can be a great many of
+  // them: one parish file writes it on 41% of its events. Counted in, they
+  // drowned the evidence — that file's "Name 52" share read 28% instead of 47%,
+  // under every bar here, and the file came out with no layout at all.
+  const real = values.filter((v) => !isUnknownPlaceValue(v));
+  const n = real.length;
   if (n === 0) return "unknown";
 
   let parenCountry = 0;
   let parish = 0;
   let withNumber = 0;
   let multiPart = 0;
-  for (const v of values) {
+  for (const v of real) {
     if (PAREN_ON_FIRST.test(v)) parenCountry++;
     if (PARISH_MARK.test(v)) parish++;
     if (/\d/.test(v)) withNumber++;
