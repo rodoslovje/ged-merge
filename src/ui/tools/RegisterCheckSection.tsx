@@ -61,6 +61,12 @@ const MAX_ROWS = 300;
  */
 const BULK_HELD_BACK: RegisterVerdict[] = ["region", "notFound", "address"];
 
+/** Pick value for a row whose answer the reader has cleared: not "no opinion",
+ *  which is what an absent entry means and what a row arrives with, but "none
+ *  of these". The row keeps its finding and its place in the list and writes
+ *  nothing until something is picked again. */
+const NONE_PICKED = -1;
+
 const BADGE: Record<RegisterVerdict, string> = {
   notFound: "remove",
   region: "new",
@@ -111,11 +117,12 @@ export function RegisterCheckSection({
   onApplyOfficialNames: (renames: OfficialRename[]) => number;
   /** Re-read the decision cache after a dismissal is written. */
   onDecisionsChanged: () => void;
-  /** Rename every occurrence of exactly this raw place value. The register's
-   *  own spelling is one click away, but a finding is often the prompt to write
-   *  a correction of your own — a historical name spelt as the parish wrote it,
-   *  a level the register has no opinion about. */
-  onRename: (from: string, to: string) => void;
+  /** Rename every occurrence of exactly this raw place value, optionally
+   *  leaving a house on the event's own ADDR line. The register's own spelling
+   *  is one click away, but a finding is often the prompt to write a correction
+   *  of your own — a historical name spelt as the parish wrote it, a level the
+   *  register has no opinion about. */
+  onRename: (from: string, to: string, addr?: string) => void;
   /** The file's own place values, for the rename box's completions. */
   placeSug: { placeSuggestions: string[]; placeCanonical: Map<string, string> };
 }) {
@@ -147,13 +154,21 @@ export function RegisterCheckSection({
    *  rows claiming the same edit. */
   const [renaming, setRenaming] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
+  /** The house to take out of the value while renaming it, as the places list's
+   *  rename offers: the correction to a value with a house in it is usually
+   *  both — the settlement spelt the register's way, and the house on its own
+   *  ADDR line. Empty leaves the value whole. */
+  const [renameAddrDraft, setRenameAddrDraft] = useState("");
 
   /** Write the edited name over every occurrence of the row's raw value, and
-   *  close the box. A draft that says nothing new is simply a cancel. */
+   *  close the box. A draft that says nothing new is simply a cancel — unless
+   *  it names a house to move out, which is a change on its own. */
   const applyRename = (from: string) => {
     const to = renameDraft.trim();
-    if (to && to !== from) onRename(from, to);
+    const addr = renameAddrDraft.trim();
+    if (to && (to !== from || addr)) onRename(from, to, addr || undefined);
     setRenaming(null);
+    setRenameAddrDraft("");
   };
 
   /**
@@ -213,12 +228,14 @@ export function RegisterCheckSection({
   // click itself — the same pattern as the places and addresses tabs. Without
   // it a mispick on an `ambiguous` row is irrevocable and silently joins the
   // bulk-rename count.
-  const unpick = (key: string) =>
-    setPicked((prev) => {
-      const next = new Map(prev);
-      next.delete(key);
-      return next;
-    });
+  //
+  // Taken back to NONE rather than to nothing: most rows *arrive* standing on
+  // their answer without anyone having picked it (see chosenIndex), so merely
+  // forgetting the pick put the row straight back on the option just cleared,
+  // and the click read as broken. NONE is the reader saying "not this one" —
+  // the row keeps its finding and its place in the list, and stays out of the
+  // renames until something is picked again.
+  const unpick = (key: string) => setPicked((prev) => new Map(prev).set(key, NONE_PICKED));
 
   // A rename, an undo or an edit elsewhere re-runs the check, and the rows it
   // settles leave the list. Their open state and picks go with them — the same
@@ -485,6 +502,13 @@ export function RegisterCheckSection({
                         onClick={() => {
                           setRenaming(f.key);
                           setRenameDraft(f.key);
+                          // Empty, not the house the check would take out: the
+                          // place box opens on the *raw* value, which still has
+                          // that house in it, and filling both would write it
+                          // twice. What goes in the address box is the part
+                          // being taken out of what the place box ends up
+                          // saying.
+                          setRenameAddrDraft("");
                         }}
                         title={t("tools.geocode.renameOpen")}
                       >
@@ -593,6 +617,32 @@ export function RegisterCheckSection({
                         onCommit={setRenameDraft}
                         onClear={() => setRenameDraft("")}
                       />
+                      {/* The house to leave on the event's own ADDR line, the
+                          same chip the places list's rename carries. A value
+                          this check calls out is often wrong in both ways at
+                          once — the settlement spelt one way and a house number
+                          packed in behind it — and without this the correction
+                          took two passes through two different tabs. */}
+                      <span className="tools-geo-addr-chip" title={t("tools.geocode.renameAddrTooltip")}>
+                        {t("event.colAddr")}:
+                        <input
+                          type="text"
+                          className="tools-geo-addr-chip-input"
+                          value={renameAddrDraft}
+                          size={Math.max(8, renameAddrDraft.length + 1)}
+                          placeholder={t("tools.geocode.renameAddrPlaceholder")}
+                          onChange={(e) => setRenameAddrDraft(e.target.value)}
+                        />
+                        {renameAddrDraft && (
+                          <button
+                            className="tools-geo-addr-chip-clear"
+                            onClick={() => setRenameAddrDraft("")}
+                            aria-label={t("tools.places.rename.cancel")}
+                          >
+                            ×
+                          </button>
+                        )}
+                      </span>
                       <button className="tools-issue-link" onClick={() => applyRename(f.key)}>
                         {t("tools.places.rename.apply")}
                       </button>
@@ -675,7 +725,18 @@ export function RegisterCheckSection({
                           )}
                       {options.length > 0 && (
                           <ul className="tools-geo-candidates">
-                            {options.map((o, i) => (
+                            {options.map((o, i) => {
+                              // A verdict the sweep holds back starts with an
+                              // *empty* circle, however plainly the row shows
+                              // what it would write: what the circle marks
+                              // there is "I have read this and agree", which is
+                              // the whole reason those two wait. Filled by
+                              // default it asked to be confirmed by a click
+                              // that looked as though it had already been made
+                              // — and the row then sat out of "Use official
+                              // names" with no way to say so.
+                              const isChecked = held ? picked.get(f.key) === i : chosen === i;
+                              return (
                               <li key={i}>
                                 <label>
                                   <input
@@ -683,29 +744,23 @@ export function RegisterCheckSection({
                                     className="tools-geo-cand-radio"
                                     name={`register-${f.key}`}
                                     aria-label={o.place}
-                                    // A verdict the sweep holds back starts
-                                    // with an *empty* circle, however plainly
-                                    // the row shows what it would write: what
-                                    // the circle marks here is "I have read
-                                    // this and agree", which is the whole
-                                    // reason those two wait. Filled by default
-                                    // it asked to be confirmed by a click that
-                                    // looked as though it had already been
-                                    // made — and the row then sat out of "Use
-                                    // official names" with no way to say so.
-                                    checked={held ? picked.get(f.key) === i : chosen === i}
+                                    checked={isChecked}
                                     onChange={() => pick(f.key, i)}
-                                    // Only an explicit pick can be taken back
-                                    // by clicking it again. A row arrives with
-                                    // its answer already *shown* as chosen
-                                    // without being picked (see chosenIndex),
-                                    // and a checked radio fires no change
-                                    // event — so reading that click as "take it
-                                    // back" left the one verdict that waits to
-                                    // be picked by hand unable to be picked at
-                                    // all: it stayed out of "Use official
-                                    // names" however often it was clicked.
-                                    onClick={() => (picked.get(f.key) === i ? unpick(f.key) : pick(f.key, i))}
+                                    // A checked radio fires no change event, so
+                                    // the click itself is what takes a pick
+                                    // back — and what counts as checked is what
+                                    // the circle shows, not what was explicitly
+                                    // picked. Most rows arrive standing on
+                                    // their answer without anyone picking it
+                                    // (see chosenIndex): reading only an
+                                    // explicit pick here meant the first click
+                                    // on a filled circle silently *made* the
+                                    // pick it already showed, and it took two
+                                    // clicks to clear one. On a held-back
+                                    // verdict the circle starts empty, so this
+                                    // click still marks agreement rather than
+                                    // clearing it.
+                                    onClick={() => (isChecked ? unpick(f.key) : pick(f.key, i))}
                                   />
                                   <span className="tools-geo-cand-num">{i + 1}</span>
                                   <span className="tools-geo-cand-name">{o.place}</span>
@@ -740,7 +795,8 @@ export function RegisterCheckSection({
                                   )}
                                 </label>
                               </li>
-                            ))}
+                              );
+                            })}
                           </ul>
                       )}
                       {/* A row with no answer to offer says why, in the body's
@@ -811,8 +867,20 @@ function optionsOf(f: RegisterFinding, style: PlaceStyle, wider?: readonly GazEn
   if ((f.verdict === "spelling" || f.verdict === "admin") && f.entry) {
     return [{ entry: f.entry, ...answerPlace(f, f.entry, style) }, ...widened];
   }
+  // A cemetery, a township or a precinct standing in front of the place: the
+  // place under it, qualified like every other answer here, and the level
+  // itself on the ADDR line where the file keeps addresses apart. Judged
+  // against what is left after that level goes, since the level going is the
+  // answer rather than something the composition loses.
   if (f.verdict === "site" && f.entry && f.official) {
-    return [{ entry: f.entry, place: f.official, ...(f.officialAddr ? { addr: f.officialAddr } : {}) }, ...widened];
+    return [
+      {
+        entry: f.entry,
+        ...qualified(f.entry, f.official, { place: f.official }, style),
+        ...(f.officialAddr ? { addr: f.officialAddr } : {}),
+      },
+      ...widened,
+    ];
   }
   // A name the directory knows as a county, and an unknown one carrying a level
   // that says nothing, both answer with the value one level shorter. There is
@@ -843,6 +911,8 @@ function optionsOf(f: RegisterFinding, style: PlaceStyle, wider?: readonly GazEn
  */
 function chosenIndex(f: RegisterFinding, options: RegisterOption[], picked: ReadonlyMap<string, number>): number {
   const own = picked.get(f.key);
+  // NONE_PICKED included: a row whose answer the reader has cleared shows none,
+  // rather than falling back to the very option the click just cleared.
   if (own !== undefined && own < options.length) return own;
   // `site` joins `ambiguous` in waiting: a cemetery written into the place is a
   // habit as much as a mistake, and which level to move is the whole question.

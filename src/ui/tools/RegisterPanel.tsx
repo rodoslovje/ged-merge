@@ -240,7 +240,7 @@ export function RegisterPanel({
           fileCoords={fileCoords}
           query={query}
           actionsHost={shown === "places" ? tabActionsEl : null}
-          onRename={(from, to) => void onRenamePlaceValue(from, to)}
+          onRename={(from, to, addr) => void onRenamePlaceValue(from, to, addr)}
           placeSug={placeSug}
           onApplyOfficialNames={onApplyOfficialNames}
           onDecisionsChanged={() => void loadDecisions().then(setDecisions)}
