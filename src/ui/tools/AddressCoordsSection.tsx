@@ -598,11 +598,17 @@ export function AddressCoordsSection({
         claim(chunk);
         try {
           const pool = await searchAddressBatch(chunk.flatMap((row) => row.queries));
-          if (cancelled) {
-            release(chunk);
-            return;
-          }
+          // Applied whatever has changed meanwhile. The answer is keyed by row
+          // and every row in the chunk was claimed for this very fetch, so it
+          // cannot land on anything else — while throwing it away is what
+          // stranded those rows for good: the effect that replaced this one
+          // had already passed them over as claimed, and once released nothing
+          // asks again. Under StrictMode's mount → cleanup → mount that was
+          // the first chunk of every list, so a file's first few villages sat
+          // at "not asked yet" with a register in the browser that had in fact
+          // already answered every one of them.
           applyPool(chunk, pool);
+          if (cancelled) return;
         } catch {
           // A local lookup that throws is a broken store, not a row's fault:
           // leave those rows untouched — and unclaimed, so the next pass or
@@ -629,6 +635,13 @@ export function AddressCoordsSection({
   // every filter except its own — so with a country picked these count that
   // country's addresses alone, just as the country chips above respect the
   // status one.
+  /** Which halves of the intro above are true of the addresses on the list —
+   *  the ones a stored register answers by itself, and the ones that need the
+   *  register over the wire. Both, for a file spanning several countries. */
+  const asks = visibleRows.filter((row) => row.queries.length > 0);
+  const someOffline = asks.some((row) => isOfflineQuery(row.queries));
+  const someOnline = asks.some((row) => !isOfflineQuery(row.queries));
+
   const statusCounts = { unsearched: 0, found: 0, none: 0, manual: 0, placed: 0, picked: 0 };
   let statusAllCount = 0;
   for (const row of visibleRows) {
@@ -1040,12 +1053,21 @@ export function AddressCoordsSection({
           <div className="tools-dup-bulk">{actions}</div>
         </div>
       )}
+      {/* What the list does about *these* addresses, which depends on what is
+          downloaded: a register in the browser answers by itself, and saying
+          "only on your click, behind the opt-in" of houses already answered
+          reads as a refusal the list is not making. */}
       <p className="tools-intro">
-        {t("tools.geocode.addr.intro")} {t("tools.geocode.addr.introOnline")}{" "}
-        <button className="tools-issue-link" onClick={() => requestSettings("advanced")}>
-          {t("tools.geocode.settingsAdvanced")}
-        </button>
-        .
+        {t("tools.geocode.addr.intro")} {someOffline && `${t("tools.geocode.addr.introLocal")} `}
+        {someOnline && (
+          <>
+            {someOffline ? t("tools.geocode.addr.introRest") : t("tools.geocode.addr.introOnline")}{" "}
+            <button className="tools-issue-link" onClick={() => requestSettings("advanced")}>
+              {t("tools.geocode.settingsAdvanced")}
+            </button>
+            .
+          </>
+        )}
       </p>
       {countryChips.length > 0 && (
         <CountryChips

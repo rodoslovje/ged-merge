@@ -2,6 +2,7 @@ import { createThrottledQueue, geoFetch } from "./net";
 import type { GeoCoord } from "../gedcom/types";
 import { countryCodeOfName } from "./placeCountry";
 import { addressStreetName, decomposePlace, looksLikeStreet } from "../gedcom/place";
+import { tryAlternates } from "./addressRegister";
 import { foldToken } from "../match/text";
 import { d96ToWgs84 } from "./d96";
 import { hasLocalRegister, localRegisters, searchLocalAddress } from "./addressLookup";
@@ -333,31 +334,43 @@ function inParentMunicipality(hits: RnResult[], parents?: readonly string[]): Rn
 }
 
 /**
- * Municipality names probed this session: folded name → does the register file
- * any address under it. Slovenia's 212 občine are a closed set that cannot change
- * mid-session, so one row settles a name for good.
+ * Names probed this session: `<field> <folded name>` → does the register file
+ * any address under it. Slovenia's 212 občine and 6000 naselja are closed sets
+ * that cannot change mid-session, so one row settles a name for good.
  */
-const municipalityProbe = new Map<string, Promise<boolean>>();
+const nameProbe = new Map<string, Promise<boolean>>();
 
-/** Whether the register knows a municipality by exactly this name. One row is
+/** Whether the register knows a name in one of its own fields. One row is
  *  enough, and a failed request answers "don't know" — which keeps the caller
  *  lenient rather than letting a network hiccup delete good results. The
  *  failure itself is not cached: "don't know" makes the veto fail open, and a
  *  hiccup (or an aborted lookup) remembered for the whole session would keep
  *  offering wrong-občina namesakes long after the network recovered. */
-function isMunicipality(name: string, signal?: AbortSignal): Promise<boolean> {
-  const key = foldToken(name);
-  let probe = municipalityProbe.get(key);
+function isKnownName(field: string, name: string, signal?: AbortSignal): Promise<boolean> {
+  const key = `${field} ${foldToken(name)}`;
+  let probe = nameProbe.get(key);
   if (!probe) {
-    probe = rnFetch(`OBCINA_NAZIV=${cqlString(name)}`, signal, 1)
+    probe = rnFetch(`${field}=${cqlString(name)}`, signal, 1)
       .then((data) => !!data.features?.length)
       .catch(() => {
-        if (municipalityProbe.get(key) === probe) municipalityProbe.delete(key);
+        if (nameProbe.get(key) === probe) nameProbe.delete(key);
         return false;
       });
-    municipalityProbe.set(key, probe);
+    nameProbe.set(key, probe);
   }
   return probe;
+}
+
+/** Whether the register knows a municipality by exactly this name. */
+function isMunicipality(name: string, signal?: AbortSignal): Promise<boolean> {
+  return isKnownName("OBCINA_NAZIV", name, signal);
+}
+
+/** Whether the register knows a settlement by exactly this name — what decides
+ *  whether a street-less miss is the register's own answer or a spelling it has
+ *  never seen (see {@link tryAlternates}). */
+function isSettlement(name: string, signal?: AbortSignal): Promise<boolean> {
+  return isKnownName("NASELJE_NAZIV", name, signal);
 }
 
 /**
@@ -487,7 +500,10 @@ function rnFetch(filter: string, signal?: AbortSignal, limit = FETCH_LIMIT): Pro
  *      back as several candidates for the user to choose between, which is
  *      honest: the file does not say which street, so neither can we.
  * That ladder is then repeated for each of `altSettlements`, since the settlement
- * the file names may not be the one the register files the street under.
+ * the file names may not be the one the register files the street under — but
+ * only where widening can find anything ({@link tryAlternates}), and without
+ * rung 3, which on a settlement nobody named answers a village number with a
+ * town street.
  *
  * The last rung reads the "street" as a settlement instead ({@link hostAsSettlement}):
  * a number that hangs off neither the place named nor a street of it is very
@@ -514,9 +530,15 @@ export async function searchAddress(query: RnQuery, signal?: AbortSignal): Promi
   if (query.country === "HR" || (await hasLocalRegister("SI"))) {
     return searchLocalAddress(query.country ?? "SI", query);
   }
-  for (const settlement of [query.settlement, ...(query.altSettlements ?? [])]) {
-    const hits = await searchInSettlement({ ...query, settlement }, signal);
-    if (hits.length) return hits;
+  const own = await searchInSettlement(query, signal);
+  if (own.length) return own;
+  if (query.altSettlements?.length && (await tryAlternates(query, () => isSettlement(query.settlement, signal)))) {
+    for (const settlement of query.altSettlements) {
+      // Narrow reading only on a settlement the file never named — see
+      // searchInSettlement's `anyStreet`.
+      const hits = await searchInSettlement({ ...query, settlement }, signal, { anyStreet: false });
+      if (hits.length) return hits;
+    }
   }
   const asSettlement = hostAsSettlement(query);
   if (asSettlement) return searchInSettlement(asSettlement, signal);
@@ -537,8 +559,18 @@ export function hostAsSettlement(query: RnQuery): RnQuery | undefined {
 
 /** The widening ladder within one settlement. Each rung is held to the place's
  *  own municipality before it is counted, so a namesake elsewhere in the country
- *  can neither answer the row nor crowd the right house out of the six shown. */
-async function searchInSettlement(query: RnQuery, signal?: AbortSignal): Promise<RnResult[]> {
+ *  can neither answer the row nor crowd the right house out of the six shown.
+ *
+ *  `anyStreet: false` withholds the last rung, which reads a street-less number
+ *  across every street of the settlement. It is the caller's word that this
+ *  settlement is one the search widened to rather than one the file named, where
+ *  that rung answers "no house 52 in Krasinec" with a house 52 on some Metlika
+ *  street — see {@link tryAlternates}. */
+async function searchInSettlement(
+  query: RnQuery,
+  signal?: AbortSignal,
+  opts?: { anyStreet?: boolean },
+): Promise<RnResult[]> {
   const rung = async (filter: string): Promise<RnResult[]> =>
     (
       await requireParentMunicipality(
@@ -557,7 +589,7 @@ async function searchInSettlement(query: RnQuery, signal?: AbortSignal): Promise
     if (noSuffix.length) return noSuffix;
   }
 
-  if (!query.street) {
+  if (!query.street && opts?.anyStreet !== false) {
     return rung(buildRnFilter(query, { anyStreet: true }));
   }
   return [];
@@ -737,11 +769,17 @@ export async function searchAddressBatch(
       if (!hits.length && !g.street) hits = await own(g.settlement, undefined, numbers, true);
       // The settlement the file names may not be the one the register files the
       // street under — walk the same alternates the per-address ladder does
-      // (searchAddress), each with the same inner rungs, before guessing.
-      for (const alt of g.altSettlements ?? []) {
-        if (hits.length) break;
-        hits = await own(alt, g.street, numbers);
-        if (!hits.length && !g.street) hits = await own(alt, undefined, numbers, true);
+      // (searchAddress), on the same terms: only where widening can find
+      // anything, and never widened to other streets as well.
+      if (
+        !hits.length &&
+        g.altSettlements?.length &&
+        (await tryAlternates(g, () => isSettlement(g.settlement, signal)))
+      ) {
+        for (const alt of g.altSettlements) {
+          if (hits.length) break;
+          hits = await own(alt, g.street, numbers);
+        }
       }
       if (!hits.length) {
         const alt = hostAsSettlement({ settlement: g.settlement, street: g.street, number: numbers[0] });

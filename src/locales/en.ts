@@ -539,6 +539,8 @@ export const en = {
   "tools.register.undismissHint": "Put this place back on the list",
   "tools.register.showDismissed": "Show hidden",
   "tools.register.showDismissedHint": "Places you have hidden, having accepted them as written — historical names, mostly. Tick to list them again.",
+  "tools.geocode.addr.introLocal": "Addresses in a country whose address register you have downloaded arrive answered: the list looks them up itself, here in the browser.",
+  "tools.geocode.addr.introRest": "The rest ask the official register online — only on your click, behind the online-lookups opt-in in",
   "tools.geocode.addr.introOnline": "Unlike the places tab's offline matching, these lookups ask the official register online — only on your click, behind the online-lookups opt-in in",
   "tools.geocode.settingsAdvanced": "Settings › Advanced",
   "tools.geocode.addr.renameOpen": "Rename this address — every event at this house, in whichever form the file writes it",

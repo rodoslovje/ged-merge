@@ -359,6 +359,33 @@ function hitAt(bucket: AddressBucket, i: number): AddressHit {
 }
 
 /**
+ * Whether a lookup that found nothing under the settlement the file names should
+ * go on to the wider names the place sits in — its `altSettlements`.
+ *
+ * That rung exists for one thing: a village absorbed into a town, whose *streets*
+ * the register files under the town. Hafnarjeva pot is naselje Kranj even though
+ * the record says Stražišče, so a query naming a street keeps the rung.
+ *
+ * With no street the number is village numbering, and the rung turns harmful the
+ * moment the register knows the village: it holds every house of Krasinec, so
+ * "there is no 52" is the register's answer, not a reason to look in Metlika —
+ * the občina named above it, whose streets between them carry every number there
+ * is. Only a settlement the register has never heard of (misspelt, or a hamlet it
+ * files under a neighbour) leaves the widening something to find.
+ *
+ * Both ladders ask this — the stored register's and GURS's — so they widen alike;
+ * they differ only in how they learn whether the settlement is known, which is
+ * why that answer arrives as a function: online it costs a request, and a query
+ * naming a street must not pay for one it has already been decided by.
+ */
+export async function tryAlternates(
+  query: { street?: string },
+  settlementKnown: () => boolean | Promise<boolean>,
+): Promise<boolean> {
+  return !!query.street || !(await settlementKnown());
+}
+
+/**
  * The houses one bucket holds for a query, narrowest reading first.
  *
  * The same widening ladder the online GURS lookup walks, done locally:
@@ -376,8 +403,18 @@ function hitAt(bucket: AddressBucket, i: number): AddressHit {
  * The letter suffix narrows within whichever rung answered, and is dropped when
  * it narrows to nothing — a file recording "45a" where the register has a plain
  * 45 is the common case, not a miss.
+ *
+ * `anyStreet: false` stops the ladder before that third rung, and is what a
+ * caller passes for a settlement the *file* did not name — one the search
+ * widened to on its own. Guessing the street on top of the settlement is a guess
+ * too far: "no house 52 in Krasinec" must not become "house 52 of some street in
+ * Metlika", the municipal seat the place names only as its parent.
  */
-export function searchBucket(bucket: AddressBucket, query: BucketQuery): AddressHit[] {
+export function searchBucket(
+  bucket: AddressBucket,
+  query: BucketQuery,
+  opts?: { anyStreet?: boolean },
+): AddressHit[] {
   const rows: number[] = [];
   for (let i = 0; i < bucket.num.length; i++) if (bucket.num[i] === query.number) rows.push(i);
   if (!rows.length) return [];
@@ -394,7 +431,10 @@ export function searchBucket(bucket: AddressBucket, query: BucketQuery): Address
       return !s || s === settlement;
     });
   }
-  if (!scoped.length) scoped = rows;
+  if (!scoped.length) {
+    if (opts?.anyStreet === false) return [];
+    scoped = rows;
+  }
 
   const suffix = query.suffix?.toLowerCase();
   const exact = scoped.filter((i) => {

@@ -601,6 +601,8 @@ export const sl = {
   "tools.register.undismissHint": "Kraj vrni na seznam",
   "tools.register.showDismissed": "Prikaži skrite",
   "tools.register.showDismissedHint": "Kraji, ki ste jih skrili, ker ste jih sprejeli take, kot so zapisani — večinoma zgodovinska imena. Označite, da bodo spet na seznamu.",
+  "tools.geocode.addr.introLocal": "Naslovi v državah, katerih register naslovov je naložen, pridejo že poiskani: seznam jih poišče sam, tu v brskalniku.",
+  "tools.geocode.addr.introRest": "Preostali vprašajo uradni register prek spleta — samo ob vašem kliku, s privolitvijo v spletna iskanja v",
   "tools.geocode.addr.introOnline": "Za razliko od ujemanja krajev brez povezave te poizvedbe vprašajo uradni register prek spleta — samo ob vašem kliku, s privolitvijo v spletna iskanja v",
   "tools.geocode.settingsAdvanced": "Nastavitve › Napredno",
   "tools.geocode.addr.renameOpen": "Preimenuj ta naslov — vse dogodke pri tej hiši, v kateri koli obliki jo datoteka piše",
