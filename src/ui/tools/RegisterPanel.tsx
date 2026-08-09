@@ -46,6 +46,10 @@ interface Props {
   onApplyOfficialNames: (renames: OfficialRename[]) => number;
   /** Rename one house's address on every event that carries it. */
   onRenameAddresses: (renames: AddressRename[]) => number;
+  /** Move the events at given place+address pairs to another place — the
+   *  addresses half's answer to a house the register files under its
+   *  neighbouring settlement. */
+  onMovePlaceForAddresses: (keys: Set<string>, toPlace: string) => number;
   /** Write a coordinate keyed by place+address, so a house's own position
    *  reaches that house and not the settlement around it. */
   onApplyAddressCoords: (assignments: Map<string, GeoCoord>) => number;
@@ -67,6 +71,7 @@ export function RegisterPanel({
   onApplyOfficialNames,
   onApplyAddressCoords,
   onRenameAddresses,
+  onMovePlaceForAddresses,
   onRenamePlaceValue,
   onBack,
   onNavigate,
@@ -274,6 +279,7 @@ export function RegisterPanel({
         kinship={kinship}
         onNavigate={onNavigate}
         onRenameAddresses={onRenameAddresses}
+        onMovePlaceForAddresses={onMovePlaceForAddresses}
         onDecisionsChanged={() => void loadDecisions().then(setDecisions)}
       />
     </div>

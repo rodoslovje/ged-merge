@@ -73,6 +73,7 @@ export function AddressCheckSection({
   kinship,
   onNavigate,
   onRenameAddresses,
+  onMovePlaceForAddresses,
   onDecisionsChanged,
 }: {
   /** Every place+address pair in the file — the Addresses tab's own rows. */
@@ -84,6 +85,9 @@ export function AddressCheckSection({
   onNavigate: (id: string) => void;
   /** Rewrite one house's address on every event carrying it. */
   onRenameAddresses: (renames: AddressRename[]) => number;
+  /** Move the events at these place+address pairs into another place — what a
+   *  house the register files under its neighbour is answered with. */
+  onMovePlaceForAddresses: (keys: Set<string>, toPlace: string) => number;
   onDecisionsChanged: () => void;
   dataset: Dataset;
   /** Kept mounted but off screen while the other compliance tab is shown — a
@@ -220,6 +224,26 @@ export function AddressCheckSection({
     setApplied(onRenameAddresses(renames));
     const done = new Set(list.map((f) => f.key));
     setReport((prev) => (prev ? { ...prev, findings: prev.findings.filter((o) => !done.has(o.key)) } : prev));
+  };
+
+  /** File this house where the register files it: the events at it get the
+   *  settlement the register names, and their address lines are left alone —
+   *  the Addresses tab's own move, applied to the one house this row is about.
+   *
+   *  Offered here because the row already answers the question the move needs
+   *  answered: the register's own line for the house, and the map of where it
+   *  puts it. Sending the reader to the other tab to repeat a finding they are
+   *  looking at made the strongest verdict on this list the only one with
+   *  nothing to click.
+   *
+   *  No coordinate travels along. The one this row holds is the *house's*, and
+   *  a move writes its argument onto every event it touches (see
+   *  movePlaceForAddresses); what the destination is worth as a place the file
+   *  itself may already know, and the address lookup sharpens the house after. */
+  const takeMove = (f: AddressFinding) => {
+    if (!f.officialPlace) return;
+    setApplied(onMovePlaceForAddresses(new Set(f.rawKeys), f.officialPlace));
+    setReport((prev) => (prev ? { ...prev, findings: prev.findings.filter((o) => o.key !== f.key) } : prev));
   };
 
   // What the tab above shows. Not derived there: the report is this section's
@@ -519,6 +543,18 @@ export function AddressCheckSection({
                               {t("tools.geocode.official.take")}
                             </button>
                           )}
+                          {/* The move, where the row's proposal is a place: the
+                              settlement finding's own answer, in the slot the
+                              spelling finding keeps its take in. */}
+                          {f.officialPlace && !f.dismissed && (
+                            <button
+                              className="tools-issue-link"
+                              onClick={() => takeMove(f)}
+                              title={t("tools.registerAddr.moveTakeHint", { place: f.officialPlace })}
+                            >
+                              {t("tools.registerAddr.move")}
+                            </button>
+                          )}
                           <button
                             className="tools-issue-link"
                             onClick={() => void dismiss(f)}
@@ -577,14 +613,18 @@ export function AddressCheckSection({
                               Where there is a spelling to take, the line is that
                               option: taking it writes the address in the header,
                               which is this line minus the post code and plus
-                              whatever note the file's own value ends with. A
-                              settlement finding offers nothing to click — the
-                              move belongs on the Addresses tab, which has the
-                              map to check the house on first. */}
+                              whatever note the file's own value ends with. Where
+                              the finding is a settlement, taking it moves the
+                              house's events into the place beside the line —
+                              the same option, answering the other question. Only
+                              a finding with nothing to write is unclickable: a
+                              place value this app cannot compose the swap for
+                              (the packed layout) has to be moved on the
+                              Addresses tab, where the destination is typed. */}
                           {open.has(f.key) && f.official && (
                             <ul className="tools-geo-candidates">
                               <li>
-                                {f.officialAddress ? (
+                                {f.officialAddress || f.officialPlace ? (
                                   <label>
                                     <input
                                       type="radio"
@@ -593,7 +633,7 @@ export function AddressCheckSection({
                                       aria-label={f.official}
                                       disabled={f.dismissed}
                                       checked={false}
-                                      onChange={() => takeOfficial([f])}
+                                      onChange={() => (f.officialAddress ? takeOfficial([f]) : takeMove(f))}
                                     />
                                     {/* The number IS the control everywhere on
                                         these pages — the input itself is clipped
@@ -601,19 +641,18 @@ export function AddressCheckSection({
                                         no control at all. */}
                                     <span className="tools-geo-cand-num">1</span>
                                     <span className="tools-geo-cand-name">{f.official}</span>
-                                  </label>
-                                ) : (
-                                  <span className="tools-geo-cand-line" title={t("tools.registerAddr.moveHint")}>
-                                    <span className="tools-geo-cand-num">1</span>
-                                    <span className="tools-geo-cand-name">{f.official}</span>
                                     {/* The place this line yields, beside the
                                         line itself — the header's proposal read
                                         back to where it comes from, so the move
                                         is visibly the register's own filing and
                                         not something composed elsewhere. */}
-                                    {(f.officialPlace ?? f.settlement) && (
-                                      <span className="tools-register-place">{f.officialPlace ?? f.settlement}</span>
-                                    )}
+                                    {f.officialPlace && <span className="tools-register-place">{f.officialPlace}</span>}
+                                  </label>
+                                ) : (
+                                  <span className="tools-geo-cand-line" title={t("tools.registerAddr.moveHint")}>
+                                    <span className="tools-geo-cand-num">1</span>
+                                    <span className="tools-geo-cand-name">{f.official}</span>
+                                    {f.settlement && <span className="tools-register-place">{f.settlement}</span>}
                                   </span>
                                 )}
                               </li>

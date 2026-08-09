@@ -231,6 +231,7 @@ export function PlacesPanel({
         onApplyOfficialNames={onApplyOfficialNames}
         onApplyAddressCoords={onApplyAddressCoords}
         onRenameAddresses={onRenameAddresses}
+        onMovePlaceForAddresses={onMovePlaceForAddresses}
         onRenamePlaceValue={onRenamePlaceValue}
         onNavigate={onNavigate}
         startId={startId}
