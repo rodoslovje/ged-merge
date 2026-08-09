@@ -24,7 +24,6 @@ import {
 import { deleteAddressRegister, deleteCountry, loadCountries, type CountryMeta } from "../../persist/geoDb";
 import type { GeoWorkerRequest, GeoWorkerResponse } from "../../worker/geoMessages";
 import { invalidateGazetteerIndex } from "../edit/PlaceLookupContext";
-import { useSettings } from "../SettingsContext";
 import { requestSettings } from "../settingsBus";
 import { ToolsError, ToolsLoading } from "./shared";
 import { SelectMenu } from "../DropdownMenu";
@@ -921,13 +920,11 @@ function RegisterSource({
 }
 
 /** The ways in: the two national registers (GURS, DGU), any country from
- *  OpenStreetMap, or a GeoNames file. The downloads need the online-lookups
- *  opt-in; the file import never does — and it sits under the paragraph that
- *  tells you where to fetch the file, because that instruction is half the
- *  button. */
+ *  OpenStreetMap, or a GeoNames file. None of them is held to the online-lookups
+ *  opt-in (see below) — and the file import sits under the paragraph that tells
+ *  you where to fetch the file, because that instruction is half the button. */
 function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
   const { t, i18n } = useTranslation();
-  const { settings } = useSettings();
   // The picker replaces a two-letter code box: nobody should have to know that
   // Croatia is HR. Names come from the browser in the reader's own language, and
   // fall back to the code itself where it has none.
@@ -964,9 +961,16 @@ function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
           side: what the source gives you and what it asks in return is the whole
           basis for choosing between them, so it belongs beside the click rather
           than in a paragraph naming all three. */}
+      {/* Downloading a directory is not a lookup, and is not held to the
+          online-lookups switch. That switch is there because a lookup says what
+          you are researching: it sends the place off your machine and asks a
+          service about it. This asks nothing — it fetches a country's whole
+          published dataset, the same bytes for everyone who clicks, and reads
+          it here. Gating it meant a reader who wanted the app to keep its
+          questions to itself could not have the very directories that make the
+          questions unnecessary. */}
       <div className="tools-geo-sources">
-        {settings.allowLinkFetch && (
-          <>
+        <>
             {/* The credit names the agency, so the agency's name is the link —
                 to its own public viewer, where the datasets this row holds can
                 be seen in full or one settlement checked against its source.
@@ -1027,8 +1031,7 @@ function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
               </a>
               {t("tools.geocode.sourceOsmLicense")}
             </p>
-          </>
-        )}
+        </>
         {/* The fallback: for a country neither download serves, and for anyone
             who would rather the app fetched nothing at all. Named like the rows
             above even though the arrow points the other way — where the data
@@ -1063,10 +1066,7 @@ function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
           {t("tools.geocode.licenseCcBy")}
         </p>
       </div>
-      <p className="tools-geo-hint">
-        {t("tools.geocode.storedLocally")}
-        {!settings.allowLinkFetch && ` ${t("tools.geocode.downloadNeedsOptIn")}`}
-      </p>
+      <p className="tools-geo-hint">{t("tools.geocode.storedLocally")}</p>
     </>
   );
 }

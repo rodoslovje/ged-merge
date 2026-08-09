@@ -346,6 +346,22 @@ export function checkPlacesAgainstRegister(
   // in the same slot.
   const levels = inferPlaceParentLevels([...groups.keys()], index, fmt);
 
+  /**
+   * The directory's answers to one value: only a name it holds letter-for-letter
+   * (bar diacritics and case), or its own longer form of it corroborated by the
+   * place's own parents. A merely similar name is a guess — good enough to offer
+   * as a coordinate in the geocode list, where the researcher judges it against
+   * a map, but not to assert here that the register spells the place differently
+   * or files it elsewhere. Left in, "Slovenia" is reported as misspelling
+   * "Šlovrenc".
+   */
+  const answersFor = (value: string) => {
+    const name = (decomposePlace(value).locality ?? value.split(",")[0]).trim();
+    return lookupPlace(index, value, home).filter(
+      (c) => covered.has(c.entry.country) && (sameName(name, c.entry) || c.score >= PARENT_QUALIFIED),
+    );
+  };
+
   const findings: RegisterFinding[] = [];
   /** Country display name → its FORM lines, by how many places carry each. */
   const formTally = new Map<string, Map<string, number>>();
@@ -369,12 +385,21 @@ export function checkPlacesAgainstRegister(
       const split = fmt?.layout === "structured-addr" ? reformatPlace(key, undefined, fmt) : undefined;
       if (split?.addr && split.plac && split.plac !== key) {
         checked++;
+        // The settlement the house is being taken off, where the directory
+        // knows it and knows only one of it: the answer is then a whole place
+        // rather than the bare name the split left, the way every other answer
+        // in this list names its municipality and country. A name fitting
+        // several settlements names none of them here — nothing on an address
+        // row chooses between them.
+        const under = answersFor(split.plac);
+        const entry = under.length === 1 ? under[0].entry : undefined;
         findings.push({
           key,
           count: g.count,
           people: [...g.people],
           verdict: "address",
           written,
+          ...(entry ? { entry } : {}),
           official: split.plac,
           officialAddr: split.addr,
           dismissed: isDismissed(decisions, key, "address"),
@@ -422,20 +447,7 @@ export function checkPlacesAgainstRegister(
       formTally.set(country, byForm);
     }
 
-    // Only a name the register holds letter-for-letter (bar diacritics and case)
-    // — or its own longer form of it, corroborated by the place's own parents —
-    // can be said to be *this* place. A merely similar name is a guess: good
-    // enough to offer as a coordinate in the geocode list, where the researcher
-    // judges it against a map, but not to assert here that the register spells
-    // the place differently or files it elsewhere. Left in, "Slovenia" is
-    // reported as misspelling "Šlovrenc".
     const fileCoord = [...g.coords.values()].sort((a, b) => b.n - a.n)[0]?.coord;
-    const answersFor = (value: string) => {
-      const name = (decomposePlace(value).locality ?? value.split(",")[0]).trim();
-      return lookupPlace(index, value, home).filter(
-        (c) => covered.has(c.entry.country) && (sameName(name, c.entry) || c.score >= PARENT_QUALIFIED),
-      );
-    };
     const candidates = answersFor(key);
     if (!candidates.length) {
       // Nothing matched. Only a value that says which country it is in can be

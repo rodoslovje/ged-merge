@@ -822,9 +822,11 @@ function optionsOf(f: RegisterFinding, style: PlaceStyle, wider?: readonly GazEn
   }
   if (f.verdict === "notFound" || f.verdict === "region") return widened;
   // The place/address split: the settlement left in PLAC, the house on its own
-  // ADDR line, both already shaped by the file's own layout.
+  // ADDR line, both already shaped by the file's own layout. The settlement is
+  // qualified against what the file writes *after* the split — the house has
+  // been taken out of it by then, so it is not something the composition loses.
   if (f.verdict === "address" && f.official && f.officialAddr) {
-    return [{ place: f.official, addr: f.officialAddr }];
+    return [{ ...qualified(f.entry, f.official, { place: f.official }, style), addr: f.officialAddr }];
   }
   return [];
 }
@@ -898,14 +900,34 @@ function composedAnswer(entry: GazEntry, style: PlaceStyle): { place: string; fo
  * does; it may never say less.
  */
 function answerPlace(f: RegisterFinding, entry: GazEntry, style: PlaceStyle): { place: string; form?: string } {
-  const composed = composedAnswer(entry, style);
   // The written value with the level swapped, and the form the check computed
   // for exactly that value — the two belong together.
   const swapped = f.official
     ? { place: f.official, ...(f.officialForm ? { form: f.officialForm } : {}) }
-    : composed;
-  const d = decomposePlace(f.key);
-  if (d.parish || d.facility || d.houseName || d.street || d.houseNumber) return swapped;
-  const parts = (v: string) => v.split(",").filter((s) => s.trim()).length;
-  return parts(composed.place) >= parts(f.key) ? composed : swapped;
+    : composedAnswer(entry, style);
+  return qualified(entry, f.key, swapped, style);
+}
+
+/** Whether a value is nothing but jurisdiction levels — all a composed place
+ *  can reproduce. A parish, a facility, a house name or number says something
+ *  no register composes. */
+function plainJurisdiction(value: string): boolean {
+  const d = decomposePlace(value);
+  return !d.parish && !d.facility && !d.houseName && !d.street && !d.houseNumber;
+}
+
+const commaParts = (v: string) => v.split(",").filter((s) => s.trim()).length;
+
+/** The register's whole place in place of `written`, where that loses nothing:
+ *  the value must be jurisdiction levels alone, and the composition must not
+ *  come back shorter than what the file already writes. */
+function qualified(
+  entry: GazEntry | undefined,
+  written: string,
+  fallback: { place: string; form?: string },
+  style: PlaceStyle,
+): { place: string; form?: string } {
+  if (!entry || !plainJurisdiction(written)) return fallback;
+  const composed = composedAnswer(entry, style);
+  return commaParts(composed.place) >= commaParts(written) ? composed : fallback;
 }
