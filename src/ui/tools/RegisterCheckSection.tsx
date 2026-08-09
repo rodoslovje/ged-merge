@@ -491,6 +491,16 @@ export function RegisterCheckSection({
                     )}
                     {chosen >= 0 ? (
                       <>
+                        {/* What follows the arrow is what the record would say
+                            once the row is taken — the same "becomes" the
+                            addresses list and the places tree draw. Left off
+                            where the answer writes nothing different: a
+                            coordinate that is off names the place the file
+                            already writes, and an arrow there promised a rename
+                            that never comes. */}
+                        {(options[chosen].place !== f.key || options[chosen].addr) && (
+                          <span aria-hidden="true" className="tools-register-place">→</span>
+                        )}
                         {options[chosen].entry && (
                           <span
                             className={`tools-reshape-badge ${options[chosen].entry.register ? "official" : "reuse"}`}
@@ -698,8 +708,13 @@ export function RegisterCheckSection({
                                   <span className="tools-geo-cand-num">{i + 1}</span>
                                   <span className="tools-geo-cand-name">{o.place}</span>
                                   {/* The house the split moves onto the event's
-                                      own ADDR line, shown where it will land. */}
-                                  {o.addr && <span className="tools-register-place">ADDR: {o.addr}</span>}
+                                      own ADDR line. Written "place · house", the
+                                      way a register's offer reads in an Edit
+                                      place field and the way the row header
+                                      above writes it: the tag name said which
+                                      GEDCOM line it lands on, which is not what
+                                      is being chosen between. */}
+                                  {o.addr && <span className="tools-register-place">· {o.addr}</span>}
                                   {o.entry && (
                                     <>
                                       {/* The coordinate opens the map on this
@@ -835,6 +850,22 @@ function chosenIndex(f: RegisterFinding, options: RegisterOption[], picked: Read
   return options.length > 0 && !options[0].wide ? 0 : -1;
 }
 
+/**
+ * Depth a register's answer is composed at here: settlement, the parent level
+ * this file names for that country, and the country — the whole chain the
+ * directory knows (`shape` in placeProposal reads any depth above two as all
+ * three levels).
+ *
+ * Everywhere else a proposal is cut to the depth the file's own places carry,
+ * so a place taken from a register looks like its neighbours. A list of answers
+ * is read for the opposite reason — to tell one from another — and a file that
+ * writes bare settlements cut all six of Slovenia's Javorje back to "Javorje",
+ * leaving the row to ask which of six identical lines was the right one. Layout,
+ * separator and country spelling stay the file's own (or the ones Settings
+ * enforces), so what a pick writes is still written this file's way.
+ */
+const FULL_CHAIN = 3;
+
 function placeTextOf(entry: GazEntry, style: PlaceStyle): string {
-  return proposalFromGazEntry(entry, style)?.plac ?? pickLabel(entry.name, entry.admin);
+  return proposalFromGazEntry(entry, { ...style, depth: FULL_CHAIN })?.plac ?? pickLabel(entry.name, entry.admin);
 }
