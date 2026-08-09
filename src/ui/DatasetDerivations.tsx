@@ -1,11 +1,19 @@
-import { createContext, useContext, useMemo, useRef, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useSyncExternalStore, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import { buildPlaceSuggestions, type PlaceSuggestions } from "./edit/placeSuggestions";
 import { scanAddresses, type AddressRow } from "../tools/addresses";
 import { createKinshipResolver, type KinshipResolver } from "../match/kinship";
-import { detectHomeCountry, resolveHomeCountry, HOME_COUNTRY_AUTO, type HomeCountryDetection } from "../geo/homeCountry";
+import {
+  detectHomeCountry,
+  detectHomeCountryFromRegister,
+  resolveHomeCountry,
+  HOME_COUNTRY_AUTO,
+  type HomeCountryDetection,
+  type RegisterVote,
+} from "../geo/homeCountry";
 import { collectPlaceValues } from "../tools/geocode";
+import { gazetteerGeneration, gazetteerIndex } from "./edit/PlaceLookupContext";
 import { useSettingsSlice } from "./SettingsContext";
 
 /**
@@ -31,6 +39,9 @@ export interface DatasetDerivations {
   addressRows: () => AddressRow[];
   /** Kinship labels from the start person; undefined without one. */
   kinship: (startId: string | undefined) => KinshipResolver | undefined;
+  /** Every PLAC value the file writes, in file order and with repeats — the
+   *  raw material both readings of the home country are counted from. */
+  placeValues: () => string[];
   /** Which country the file's own places say it is about — the one assumed for
    *  the places that name none. Read through {@link useHomeCountry}, which
    *  applies the reader's setting on top. */
@@ -66,11 +77,13 @@ export function DatasetDerivationsProvider({
   const kinshipCache = useRef<{ version: number; startId: string; resolver: KinshipResolver } | null>(null);
   const value = useMemo<DatasetDerivations | null>(() => {
     if (!dataset) return null;
+    const placeValues = lazy(() => collectPlaceValues(dataset));
     return {
       version,
       placeSuggestions: lazy(() => buildPlaceSuggestions(dataset)),
       addressRows: lazy(() => scanAddresses(dataset)),
-      homeCountry: lazy(() => detectHomeCountry(collectPlaceValues(dataset))),
+      placeValues,
+      homeCountry: lazy(() => detectHomeCountry(placeValues())),
       kinship: (startId) => {
         if (!startId) return undefined;
         const hit = kinshipCache.current;
@@ -92,6 +105,95 @@ export function useDatasetDerivations(): DatasetDerivations | null {
 
 const HOME_KEYS = ["homeCountry"] as const;
 
+/** What the file is taken to be about, and on whose word. */
+export interface HomeCountryAnswer {
+  /** ISO code (lower case), `""` where nothing is to be assumed. */
+  code: string;
+  /** Whose reading it is: the file's own country names, or — for a file that
+   *  writes none — the directories that hold its places. `""` when neither
+   *  could say. */
+  source: "file" | "register" | "";
+  /** The file's own words, counted (what Settings reports about the file). */
+  detection: HomeCountryDetection;
+  /** The directories' vote, when one was needed and could be taken. */
+  register: RegisterVote;
+}
+
+const NO_VOTE: RegisterVote = { code: "", examined: 0, decided: 0, won: 0 };
+const NO_DETECTION: HomeCountryDetection = { code: "", spelling: "", named: 0, namedTotal: 0, unnamed: 0 };
+
+/**
+ * The directories' vote per (dataset, directories), shared by every list on the
+ * page. It costs a pass over every place the file writes and a read of
+ * IndexedDB, so it is taken once and handed to whoever asks — and taken again
+ * only when the file is edited or a directory is imported or removed.
+ */
+let voteCache: { key: string; vote: RegisterVote } | null = null;
+let voteInFlight = "";
+const voteListeners = new Set<() => void>();
+function subscribeVote(listener: () => void): () => void {
+  voteListeners.add(listener);
+  return () => voteListeners.delete(listener);
+}
+function voteSnapshot() {
+  return voteCache;
+}
+
+/**
+ * What the imported directories say about a file whose own places name no
+ * country — `""` until they have answered, and while they are being asked.
+ *
+ * Only asked for where it would be used: a file that names its own country, or
+ * a reader who has chosen one by hand, never touches the directories at all.
+ */
+function useRegisterHomeCountry(derivations: DatasetDerivations | null, wanted: boolean): RegisterVote {
+  const key = wanted && derivations ? `${derivations.version}:${gazetteerGeneration()}` : "";
+  const cached = useSyncExternalStore(subscribeVote, voteSnapshot, voteSnapshot);
+  useEffect(() => {
+    if (!key || !derivations || voteCache?.key === key || voteInFlight === key) return;
+    voteInFlight = key;
+    void (async () => {
+      const index = await gazetteerIndex();
+      const vote = index ? detectHomeCountryFromRegister(derivations.placeValues(), index) : NO_VOTE;
+      // A vote taken for a file that has since been edited, or against
+      // directories that have since changed, is not this key's answer — but the
+      // key it *was* taken for is now the current one only if nothing moved, so
+      // the guard is on the flight, not on the result.
+      if (voteInFlight !== key) return;
+      voteInFlight = "";
+      voteCache = { key, vote };
+      for (const listener of voteListeners) listener();
+    })();
+  }, [key, derivations]);
+  return cached?.key === key ? cached.vote : NO_VOTE;
+}
+
+/**
+ * The country to assume for a place that names none, and where the answer came
+ * from — the reader's setting over the file's own words, and those over the
+ * directories' vote for a file that writes no country at all.
+ */
+export function useHomeCountryDetection({ evenWhenUnused = false } = {}): HomeCountryAnswer {
+  const { homeCountry } = useSettingsSlice(HOME_KEYS);
+  const derivations = useDatasetDerivations();
+  // Detection is lazy and cached per dataset version, so asking on every render
+  // costs a map lookup — but only where the setting actually follows the file.
+  const auto = homeCountry === HOME_COUNTRY_AUTO;
+  const detection = derivations?.homeCountry() ?? NO_DETECTION;
+  // The file's own words come first and are cheap; the directories are only
+  // asked where the file itself said nothing — and, unless Settings is on
+  // screen to report what following the file would give, only where the reader
+  // is actually following it.
+  const register = useRegisterHomeCountry(derivations, (auto || evenWhenUnused) && !detection.code);
+  const detected = detection.code || register.code;
+  return {
+    code: auto ? detected : "",
+    source: detection.code ? "file" : register.code ? "register" : "",
+    detection,
+    register,
+  };
+}
+
 /**
  * The country to assume for a place that names none — the reader's setting over
  * what the file says about itself, `""` where nothing is to be assumed.
@@ -102,9 +204,6 @@ const HOME_KEYS = ["homeCountry"] as const;
  */
 export function useHomeCountry(): string {
   const { homeCountry } = useSettingsSlice(HOME_KEYS);
-  const derivations = useDatasetDerivations();
-  // Detection is lazy and cached per dataset version, so asking on every render
-  // costs a map lookup — but only where the setting actually follows the file.
-  const detected = homeCountry === HOME_COUNTRY_AUTO ? (derivations?.homeCountry().code ?? "") : "";
-  return resolveHomeCountry(homeCountry, detected);
+  const { code } = useHomeCountryDetection();
+  return resolveHomeCountry(homeCountry, code);
 }

@@ -1727,6 +1727,7 @@ export const en = {
   "settings.homeCountry.hint":
     "Genealogists leave their own country out — a Slovenian file writes “Kranj, Slovenija” a few times and plain “Golnik” hundreds of times. Taking those places to be in the home country groups them under it, searches the directories of that country alone, and lets the naming check judge them; assuming nothing leaves them unplaced in every one of those.",
   "settings.homeCountry.auto.detected": "From the file — {{country}}",
+  "settings.homeCountry.auto.register": "From the directories — {{country}}",
   "settings.homeCountry.auto.none": "From the file — no clear answer",
   "settings.homeCountry.none": "Assume nothing",
   "settings.homeCountry.covers": "{{count}} places name none",

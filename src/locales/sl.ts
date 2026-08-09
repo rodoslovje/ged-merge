@@ -1944,6 +1944,7 @@ export const sl = {
   "settings.homeCountry.hint":
     "Rodoslovci svoje države ne pišejo — slovenska datoteka nekajkrat zapiše »Kranj, Slovenija«, stokrat pa le »Golnik«. Če take kraje štejemo v domačo državo, se zberejo pod njo, iščejo se samo v imenikih te države in jih preverjanje poimenovanja presodi; če ne predpostavimo ničesar, ostanejo pri vsem tem ob strani.",
   "settings.homeCountry.auto.detected": "Iz datoteke — {{country}}",
+  "settings.homeCountry.auto.register": "Iz imenikov — {{country}}",
   "settings.homeCountry.auto.none": "Iz datoteke — ni jasnega odgovora",
   "settings.homeCountry.none": "Ne predpostavi ničesar",
   "settings.homeCountry.covers": "{{count}} krajev je brez nje",
