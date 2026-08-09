@@ -12,7 +12,7 @@ import { buildPlaceSuggestions } from "../edit/placeSuggestions";
 import { foldSearch } from "../globalSearch";
 import { PlaceLookupProvider, usePlaceLookupValue, usePlaceStyle } from "../edit/PlaceLookupContext";
 import { GazetteerMissing, useGazetteer } from "./GazetteerManager";
-import { RegisterCheckSection } from "./RegisterCheckSection";
+import { FULL_CHAIN, RegisterCheckSection } from "./RegisterCheckSection";
 import { AddressCheckSection } from "./AddressCheckSection";
 import { BackButton } from "../BackButton";
 import { isEditableTarget, isModalOpen } from "../../keyboard/shortcuts";
@@ -123,7 +123,12 @@ export function RegisterPanel({
   // completed from the directories here too instead of typed out by hand. It is
   // exactly the case this page is about: the row exists because the written name
   // is not one the register holds.
-  const placeLookup = usePlaceLookupValue(dataset, placeSug.placeSuggestions);
+  // At the depth this page's own answers are written in: an offer cut to a file
+  // of bare settlements came back as "Železniki" for a typed "Železniki,
+  // Železniki, Slovenija" — a place the file already writes, so the offer was
+  // dropped as one the list above already had, and the search reported no such
+  // place while the register held it.
+  const placeLookup = usePlaceLookupValue(dataset, placeSug.placeSuggestions, FULL_CHAIN);
 
   const addrRows = useMemo(
     () => derivations?.addressRows() ?? scanAddresses(dataset),

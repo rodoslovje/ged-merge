@@ -702,6 +702,11 @@ export function RegisterCheckSection({
                         // nowhere in the file. So the directories are offered
                         // as well — one pick fills the whole chain, the house
                         // and the coordinate, exactly as in an Edit place field.
+                        // Even for a place the file already writes: what is
+                        // wanted here rides with the text — the register's
+                        // coordinate and its municipality — so a familiar
+                        // spelling is no reason to withhold the answer.
+                        offerKnown
                         onLookup={lookup ? (q) => lookup.search(q) : undefined}
                         lookupNote={lookup && !lookup.online ? t("event.place.lookup.offlineOnly") : undefined}
                         onPickProposal={(proposal) => {
@@ -1040,7 +1045,7 @@ function chosenIndex(f: RegisterFinding, options: RegisterOption[], picked: Read
  * separator and country spelling stay the file's own (or the ones Settings
  * enforces), so what a pick writes is still written this file's way.
  */
-const FULL_CHAIN = 3;
+export const FULL_CHAIN = 3;
 
 /** A directory entry as a whole place: the text, and the `FORM` naming its
  *  parts — composed here, so the levels are known rather than counted. */

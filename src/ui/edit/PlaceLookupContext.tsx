@@ -135,10 +135,21 @@ export function usePlaceStyle(
 }
 
 /** Build the Edit view's lookup: this file's place style plus every register. */
-export function usePlaceLookupValue(dataset: Dataset, placeSuggestions: string[]): PlaceLookup {
+export function usePlaceLookupValue(
+  dataset: Dataset,
+  placeSuggestions: string[],
+  /** How many jurisdiction levels an offer should carry, where that is not the
+   *  file's own habit. An Edit field wants a place that looks like its
+   *  neighbours — a file of bare settlements is offered "Železniki" — but the
+   *  naming check is read to tell places apart and writes them out in full, and
+   *  an offer cut back to the settlement there is both unrecognisable as an
+   *  answer to what was typed and indistinguishable from the file's own value. */
+  depth?: number,
+): PlaceLookup {
   const settings = useSettingsSlice(SETTINGS_KEYS);
   const online = settings.allowLinkFetch;
-  const style = usePlaceStyle(dataset, placeSuggestions);
+  const fileStyle = usePlaceStyle(dataset, placeSuggestions);
+  const style = useMemo(() => (depth ? { ...fileStyle, depth } : fileStyle), [fileStyle, depth]);
 
   return useMemo(() => {
     /** Collector shared by both lookups: first offer for a place wins, so the
