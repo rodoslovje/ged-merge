@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { Dataset } from "../../gedcom/types";
+import type { Dataset, GeoCoord } from "../../gedcom/types";
 import { collectFileCoords, type OfficialRename } from "../../tools/geocode";
 import { loadDecisions, type GeocodeDecision } from "../../persist/geoDb";
 import { checkPlacesAgainstRegister, type RegisterCheckReport } from "../../tools/registerCheck";
@@ -46,6 +46,9 @@ interface Props {
   onApplyOfficialNames: (renames: OfficialRename[]) => number;
   /** Rename one house's address on every event that carries it. */
   onRenameAddresses: (renames: AddressRename[]) => number;
+  /** Write a coordinate keyed by place+address, so a house's own position
+   *  reaches that house and not the settlement around it. */
+  onApplyAddressCoords: (assignments: Map<string, GeoCoord>) => number;
   /** Rename every occurrence of exactly one raw place value — the row's ✎, for
    *  a correction of the researcher's own rather than the register's. */
   onRenamePlaceValue: (from: string, to: string, addr?: string) => number;
@@ -62,6 +65,7 @@ export function RegisterPanel({
   active,
   editVersion,
   onApplyOfficialNames,
+  onApplyAddressCoords,
   onRenameAddresses,
   onRenamePlaceValue,
   onBack,
@@ -241,6 +245,7 @@ export function RegisterPanel({
           query={query}
           actionsHost={shown === "places" ? tabActionsEl : null}
           onRename={(from, to, addr) => void onRenamePlaceValue(from, to, addr)}
+          onApplyAddressCoords={onApplyAddressCoords}
           placeSug={placeSug}
           onApplyOfficialNames={onApplyOfficialNames}
           onDecisionsChanged={() => void loadDecisions().then(setDecisions)}

@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { deleteDecision, putDecisions } from "../../persist/geoDb";
-import { countryOf, pickLabel, type FileCoord, type OfficialRename } from "../../tools/geocode";
+import { countryOf, pickLabel, placeAddrKey, type FileCoord, type OfficialRename } from "../../tools/geocode";
+import { isOfflineQuery, rnQueriesFrom, searchAddresses } from "../../geo/rn";
 import { countryCodeOfName } from "../../geo/placeCountry";
 import { CountryChips } from "./CountryChips";
 import { useHomeCountry } from "../DatasetDerivations";
@@ -21,9 +22,9 @@ import { proposalFromGazEntry, type PlaceStyle } from "../../geo/placeProposal";
 import { AppliedNote, ExpandAllToggle, GeoPeopleList, GeoRowHeader, MapToggle, RowMap } from "./shared";
 import { PlaceAutocomplete } from "../edit/PlaceAutocomplete";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
-import type { Dataset } from "../../gedcom/types";
+import type { Dataset, GeoCoord } from "../../gedcom/types";
 import type { KinshipResolver } from "../../match/kinship";
-import { searchGazetteer, type GazEntry, type GazetteerIndex } from "../../geo/gazetteer";
+import { HIGH_CONFIDENCE, lookupPlace, searchGazetteer, type GazEntry, type GazetteerIndex } from "../../geo/gazetteer";
 
 // The Register tab: every place the file writes in a country an official
 // register covers, held against that register, with the disagreements listed.
@@ -91,6 +92,7 @@ export function RegisterCheckSection({
   query,
   actionsHost,
   onApplyOfficialNames,
+  onApplyAddressCoords,
   onDecisionsChanged,
 }: {
   /** The check's result, or null while no official register is loaded. */
@@ -125,6 +127,9 @@ export function RegisterCheckSection({
   onRename: (from: string, to: string, addr?: string) => void;
   /** The file's own place values, for the rename box's completions. */
   placeSug: { placeSuggestions: string[]; placeCanonical: Map<string, string> };
+  /** Write a house's own position, keyed by place+address so it reaches that
+   *  house and not the settlement around it. */
+  onApplyAddressCoords: (assignments: Map<string, GeoCoord>) => number;
 }) {
   const { t } = useTranslation();
   // See GeocodePanel: the country a place naming none is taken to stand in.
@@ -166,9 +171,51 @@ export function RegisterCheckSection({
   const applyRename = (from: string) => {
     const to = renameDraft.trim();
     const addr = renameAddrDraft.trim();
-    if (to && (to !== from || addr)) onRename(from, to, addr || undefined);
     setRenaming(null);
     setRenameAddrDraft("");
+    if (to && (to !== from || addr)) void renameAndPlace(from, to, addr);
+  };
+
+  /**
+   * Rename, and put what was renamed where the registers say it is.
+   *
+   * A name typed here is not the register's answer, but it is very often a name
+   * the register knows — the row exists because the written one was not — and a
+   * corrected place that stays unplaced is half a correction. The house is asked
+   * for first, since a value naming one is about that house; where the register
+   * holds no such number the settlement answers instead, which is the position
+   * the place had all along.
+   *
+   * Only an unambiguous answer is taken. Nothing here is a pick the reader made,
+   * so a name fitting two places, or a house number fitting two streets, writes
+   * no coordinate at all rather than a coin toss — and the row's own answers,
+   * where it has them, remain the way to choose between places by hand.
+   */
+  const renameAndPlace = async (from: string, to: string, addr: string) => {
+    const queries = addr ? rnQueriesFrom(to, addr) : [];
+    // Only a register already in this browser: a rename must not turn into a
+    // request to someone else's service, which the online opt-in governs.
+    const houses = queries.length && isOfflineQuery(queries) ? await searchAddresses(queries).catch(() => []) : [];
+    if (houses.length === 1) {
+      onRename(from, to, addr || undefined);
+      onApplyAddressCoords(new Map([[placeAddrKey(to, addr), houses[0].coord]]));
+      return;
+    }
+    const entry = index && soleSettlement(index, to, home);
+    if (entry) {
+      // Renamed and placed as one undoable step, the way a taken answer is —
+      // and, like it, filling a missing coordinate without overwriting one.
+      onApplyOfficialNames([
+        {
+          from,
+          to,
+          ...(addr ? { addr } : {}),
+          assignment: { coord: { lat: entry.lat, lon: entry.lon } },
+        },
+      ]);
+      return;
+    }
+    onRename(from, to, addr || undefined);
   };
 
   /**
@@ -203,7 +250,7 @@ export function RegisterCheckSection({
     setWider((prev) => new Map(prev).set(f.key, found));
   };
 
-  const toggleOpen = (key: string) => {
+  const toggleOpen = (key: string, drawable = true) => {
     const willOpen = !open.has(key);
     setOpen((prev) => {
       const next = new Set(prev);
@@ -213,7 +260,12 @@ export function RegisterCheckSection({
     // Which of six same-named places is the one is a question for the map, so a
     // row opened by hand arrives with it — as an Edit coordinate panel does.
     // Expand all, and the people count, leave it to the toggle.
-    setMapOpen((prev) => (willOpen ? key : prev === key ? null : prev));
+    //
+    // Only a row with something of its own to draw. A place the register does
+    // not hold has no answers and often no coordinate either, and it opened on
+    // a map of nothing but the file's other places — with no way to shut it,
+    // since the toggle lives in the actions row that such a row does not have.
+    setMapOpen((prev) => (willOpen ? (drawable ? key : prev) : prev === key ? null : prev));
   };
   const togglePeople = (key: string) => {
     setPeopleOpen((prev) => {
@@ -482,7 +534,13 @@ export function RegisterCheckSection({
                       value the file writes leads, what the register answers
                       follows it, and the badge, the actions and the person
                       count sit at the end. */}
-                  <GeoRowHeader open={isOpen} onToggle={() => toggleOpen(f.key)} place={f.key}>
+                  <GeoRowHeader
+                    open={isOpen}
+                    // Same test the map's own toggle is rendered on: pins to
+                    // draw, or the position the file records for the place.
+                    onToggle={() => toggleOpen(f.key, options.some((o) => o.entry) || !!f.fileCoord)}
+                    place={f.key}
+                  >
                     {/* ✎ (U+270E), the same edit mark the places tree, the
                         addresses list and Organize sources use. It writes the
                         raw value the row is about, so it is the one action here
@@ -1002,6 +1060,18 @@ function withAside(place: string, aside: string): string {
   const parts = place.split(",");
   parts[0] = `${parts[0].trimEnd()} (${aside.trim()})`;
   return parts.join(",");
+}
+
+/** The one settlement a loaded directory holds under this name, or undefined
+ *  where none does or several do. Held to a letter-perfect match — the same bar
+ *  the check itself judges a name by — so a rename is never placed at a village
+ *  that merely resembles what was typed. */
+function soleSettlement(index: GazetteerIndex, place: string, home: string): GazEntry | undefined {
+  const hits = lookupPlace(index, place, home).filter((c) => c.score >= HIGH_CONFIDENCE);
+  const distinct = hits.filter(
+    (c, i) => !hits.some((o, j) => j < i && o.entry.lat === c.entry.lat && o.entry.lon === c.entry.lon),
+  );
+  return distinct.length === 1 ? distinct[0].entry : undefined;
 }
 
 /** Whether a value is nothing but jurisdiction levels — all a composed place
