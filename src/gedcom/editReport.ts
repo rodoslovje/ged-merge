@@ -194,9 +194,17 @@ function eventOverlapScore(a: EventFields, b: EventFields): number {
  *  normal incoming-data color), or "removed" (struck through) — instead of treating
  *  the whole event summary as one freshly added/removed value. */
 function diffEventOccurrence(id: string, before: EventFields, after: EventFields, fieldLabel: string): FieldChange {
-  const segments: { text: string; state: "same" | "changed" | "removed" }[] = [];
+  const segments: FieldChange["segments"] = [];
   for (const k of EVENT_FIELD_KEYS) {
-    if (after[k]) segments.push({ text: after[k], state: after[k] === before[k] ? "same" : "changed" });
+    if (after[k])
+      segments.push({
+        text: after[k],
+        state: after[k] === before[k] ? "same" : "changed",
+        // What is being given up, where the piece replaced something: a place
+        // rewritten to the register's wording read as a plain green line, with
+        // no way to see what it had been.
+        ...(before[k] && before[k] !== after[k] ? { from: before[k] } : {}),
+      });
     else if (before[k]) segments.push({ text: before[k], state: "removed" });
   }
   return { recordId: id, field: fieldLabel, from: eventSummary(before), to: eventSummary(after), action: "both", group: fieldLabel, segments };

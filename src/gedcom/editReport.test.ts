@@ -179,7 +179,12 @@ describe("enrichEditReport — event tags outside the canonical lists", () => {
 
     const marb = report.changes.filter((c) => c.group === "event.MARB");
     expect(marb).toHaveLength(1);
-    expect(marb[0].segments).toContainEqual({ text: "Krupa,Semič,Slovenia", state: "changed" });
+    // The value it replaced rides with it, for the preview to strike through.
+    expect(marb[0].segments).toContainEqual({
+      text: "Krupa,Semič,Slovenia",
+      state: "changed",
+      from: "Krupa 7,Semič,",
+    });
   });
 
   it("shows a date change on a vendor event tag with event substructure", () => {

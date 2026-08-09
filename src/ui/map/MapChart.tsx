@@ -83,20 +83,23 @@ const FIND_ZOOM = 12;
 /** At most this many place lines in a marker's tooltip. */
 const TOOLTIP_MAX_PLACES = 4;
 
-/** A marker's hover tooltip: the place(s) it stands for and, for a cluster,
- *  the event count. A single event also shows its street address — on a
- *  cluster the addresses would be a wall of text, so places alone. Built as
- *  DOM, not HTML: the labels are file data. */
+/** A marker's hover tooltip: the place(s) it stands for, each with the house it
+ *  names, and for a cluster the event count. Distinct place+house pairs, capped
+ *  like any other tooltip line — a marker standing for nine events at one
+ *  settlement is usually several houses that have not been placed themselves,
+ *  and naming only the settlement left the tooltip repeating one line the
+ *  cluster's own count already said. Built as DOM, not HTML: the labels are
+ *  file data. */
 function clusterTooltip(
   cluster: MapCluster,
   translate: (key: string, opts: { count: number }) => string,
 ): HTMLElement {
-  const single = cluster.points.length === 1;
   const labels: { place: string; address?: string }[] = [];
   for (const p of cluster.points) {
     if (!p.place) continue;
-    const address = single ? p.address : undefined;
-    if (!labels.some((l) => l.place === p.place && l.address === address)) labels.push({ place: p.place, address });
+    if (!labels.some((l) => l.place === p.place && l.address === p.address)) {
+      labels.push({ place: p.place, address: p.address });
+    }
   }
   const el = document.createElement("div");
   for (const label of labels.slice(0, TOOLTIP_MAX_PLACES)) {
@@ -1129,6 +1132,12 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
                   <span className="map-panel-fact">
                     <span className="map-kind-dot" style={{ background: `var(--map-${p.kind})` }} />
                     <span className="gm-data">{p.year ?? "····"}</span> {eventLabel(p)} · {p.place}
+                    {/* The house, where the event names one: the row is one
+                        event, and a list of nine at one settlement's coordinate
+                        is exactly where "which house?" is the question. Written
+                        "place · house" and styled as the place picker's
+                        suggestions, as everywhere else the two appear together. */}
+                    {p.address && <span className="place-suggestion-addr"> · {p.address}</span>}
                   </span>
                   <span className="map-panel-people">
                     {p.personIds.map((id) => {

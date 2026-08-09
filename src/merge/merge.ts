@@ -67,7 +67,16 @@ export interface FieldChange {
   /** Set when an existing event was modified (not newly added/removed) — the preview
    *  renders these pieces in place of `from`/`to`, coloring each by whether the edit
    *  actually touched it, instead of treating the whole line as one new value. */
-  segments?: { text: string; state: "same" | "changed" | "removed" }[];
+  segments?: {
+    text: string;
+    state: "same" | "changed" | "removed";
+    /** What that piece said before, for a piece the edit replaced. The preview
+     *  strikes it through ahead of the new text, the way every other changed
+     *  field in this dialog reads — a place rewritten by the naming check showed
+     *  only what it became, and the one thing a preview is for is seeing what
+     *  is being given up. Absent where there was nothing there before. */
+    from?: string;
+  }[];
   /** True when `to` is a verbatim, un-chosen copy of the incoming file's value (the
    *  user took "incoming" by default, didn't combine it with main or type it by
    *  hand) — the preview colors these like other incoming-sourced data rather than
