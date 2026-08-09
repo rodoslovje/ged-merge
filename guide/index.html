@@ -1335,11 +1335,22 @@
               the house an address split would move to its own <code>ADDR</code> line written after it,
               <em>Kostanjevica · Sveti križ</em>. An answer always names the municipality and the country, even where
               your file writes the settlement alone: six same-named villages are told apart by nothing else, and
-              picking one writes it out in full. A row with one answer arrives on it, shown on the row's own line
-              after the <span class="gm-glyph">→</span> that means <em>becomes</em> everywhere in these lists; a name fitting several places waits for you to pick with the radio, since choosing between
+              picking one writes it out in full. The exceptions are values a composition would shorten — one carrying
+              a parish, a facility or a house, and one already written to more levels than the directory names — where
+              the answer stays your own value with the disputed level swapped. An <strong>Extra level</strong> row in a
+              file that keeps no <code>ADDR</code> lines keeps its level in brackets on the settlement it stands in,
+              <em>Kranj (Šmartin), Kranj, Slovenia</em>, rather than losing the parish it names. A row with one answer
+              arrives on it, shown on the row's own line after the <span class="gm-glyph">→</span> that means
+              <em>becomes</em> everywhere in these lists; clicking a filled circle clears the answer again, and the row
+              then writes nothing until you pick one; a name fitting several places waits for you to pick with the radio, since choosing between
               them is the whole question. <strong>Use official name</strong> then renames every occurrence to the picked
               option (moving the address out, where that is the answer), and <strong>Use official names</strong> above
-              the list does every row that has an answer at once, in one undoable step. <strong>Show on map</strong> —
+              the list does every row that has an answer at once, in one undoable step. <span class="gm-glyph">✎</span>
+              on the row writes a correction of your own instead — a historical name spelt as the parish wrote it, a
+              level the register has no opinion about — over every occurrence of the value, and its
+              <em>Address</em> box takes the house out of the value onto the event's own <code>ADDR</code> line at the
+              same time, as the places list's rename does. It writes at once, undoably, rather than joining the answers
+              waiting above it: those are the register's wording, and this is yours. <strong>Show on map</strong> —
               or a click on any answer's coordinate — draws the answers as numbered pins, the number on the pin being
               the number beside the line, with the file's own position for the place as a dashed ring beside them: which
               of six same-named places is yours is a question only a map answers. <strong>Look wider</strong> adds the
