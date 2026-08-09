@@ -1138,8 +1138,14 @@
               and the effect runs deeper than the buttons — a bare village name is searched in that country's
               directories instead of all of them at once (no more Slovenian <em>Draga</em> answered from Croatia), and
               the naming check can judge those places at last, where before it left them out rather than accuse a
-              place that might be anywhere. <em>Home country</em> in Settings → GEDCOM (<a href="#settings">§3</a>) shows
-              what was read, takes any country instead, or turns the assumption off. And
+              place that might be anywhere. A file that names no country <em>anywhere</em> — a parish file writing
+              <em>Kranj</em> and <em>Poljane</em> thousands of times and Slovenia never — is read a second way: its
+              silent places are looked up in the directories you have loaded, and the country whose directory holds
+              most of them takes the file. A name two of them share settles nothing, and a directory holding under
+              half of what was looked up speaks for none of it, so a Croatian file does not become Slovenian on the
+              handful of names the two countries share. <em>Home country</em> in Settings → GEDCOM
+              (<a href="#settings">§3</a>) shows what was read and which reading it is — <em>From the file</em> or
+              <em>From the directories</em> — takes any country instead, or turns the assumption off. And
               <strong>Write the country in</strong>, beside the places list's other bulk actions, ends the assumption
               properly: it appends the country — in your file's own spelling of it and its own comma form — to the
               places a directory recognises, leaving the patron saints and stray dates untouched, in one undoable step. A second row narrows by the kind of work left:
@@ -1326,8 +1332,11 @@
               Opening a row lists the answers as numbered options, the way the places and addresses rows list their
               candidates: each is a whole place written in your file's own layout — <em>Mavčiče, Kranj, Slovenia</em>
               against your <em>Mavčiče, Medvode, Slovenia</em> — with the directory that answered badged beside it, and
-              the address split showing the house on the <code>ADDR</code> line it would move to. A row with one answer
-              arrives on it; a name fitting several places waits for you to pick with the radio, since choosing between
+              the house an address split would move to its own <code>ADDR</code> line written after it,
+              <em>Kostanjevica · Sveti križ</em>. An answer always names the municipality and the country, even where
+              your file writes the settlement alone: six same-named villages are told apart by nothing else, and
+              picking one writes it out in full. A row with one answer arrives on it, shown on the row's own line
+              after the <span class="gm-glyph">→</span> that means <em>becomes</em> everywhere in these lists; a name fitting several places waits for you to pick with the radio, since choosing between
               them is the whole question. <strong>Use official name</strong> then renames every occurrence to the picked
               option (moving the address out, where that is the answer), and <strong>Use official names</strong> above
               the list does every row that has an answer at once, in one undoable step. <strong>Show on map</strong> —
