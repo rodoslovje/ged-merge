@@ -525,7 +525,7 @@ export const sl = {
   "tools.geocode.official.bulk": "Prevzemi uradna imena ({{count}})",
   "tools.geocode.fillCountry": "Dopiši državo ({{count}})",
   "tools.geocode.fillCountry.tooltip":
-    "Krajem brez navedene države dopiše »{{country}}«, z ločilom te datoteke — le tistim, ki jih imenik pozna, tako da zavetnik župnije ali zašel datum ostaneta pri miru. En korak, ki ga je mogoče razveljaviti.",
+    "Krajem brez navedene države dopiše »{{country}}«, z ločilom te datoteke — le tistim, ki jih imenik pozna, tako da zavetnik župnije ali zašli datum ostaneta pri miru. En korak, ki ga je mogoče razveljaviti.",
   "tools.geocode.official.bulkTooltip": "Vse prikazane zanesljive vrstice preimenuje v registrsko ime in zapiše koordinato — ena poteza razveljavitve",
   "tools.geocode.tab.places": "Kraji",
   "tools.geocode.tab.addresses": "Naslovi",
@@ -939,7 +939,7 @@ export const sl = {
   "edit.addLinkTooltip": "Dodaj vir tej osebi",
   "edit.openLink": "Odpri povezavo v novem zavihku",
   "edit.removeLink": "Odstrani to povezavo",
-  "edit.harvestedLink": "Ta povezava je zapisana v opombi ali predstavnostnem zapisu — uredite ali odstranite jo tam",
+  "edit.harvestedLink": "Ta povezava je zapisana v opombi ali medijskem zapisu — tam jo uredite ali odstranite",
   "edit.copyEvent": "Kopiraj dogodek v…",
   "edit.removeEvent": "Odstrani ta dogodek",
   "edit.changeEventType": "Spremeni vrsto dogodka",
