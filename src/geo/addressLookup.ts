@@ -5,6 +5,7 @@ import {
   readStoredIndex,
   scopeToParents,
   searchBucket,
+  tryAlternates,
   type AddressBucket,
   type AddressHit,
   type AddressIndex,
@@ -185,23 +186,28 @@ async function searchNamed(
   loaded: LoadedIndex,
   name: string,
   query: LocalQuery,
+  opts?: { anyStreet?: boolean },
 ): Promise<AddressHit[]> {
   const ids = loaded.byName.get(foldToken(name));
   if (!ids?.length) return [];
   const hits: AddressHit[] = [];
   for (const id of ids) {
     const bucket = await bucketFor(country, id);
-    if (bucket) hits.push(...searchBucket(bucket, { number: query.number, suffix: query.suffix, street: query.street }));
+    if (bucket)
+      hits.push(
+        ...searchBucket(bucket, { number: query.number, suffix: query.suffix, street: query.street }, opts),
+      );
   }
   return scopeToParents(hits, query.parents, loaded);
 }
 
 /**
  * Look one house up in a stored register, walking the same ladder the online
- * one is walked with: the settlement the file names, then the wider names it
- * sits in, then the "street" read as a settlement of its own — a hamlet a file
- * files under its bigger neighbour. The rungs *within* a settlement (street,
- * then village numbering, then any street) are {@link searchBucket}'s.
+ * one is walked with: the settlement the file names, then — where that is worth
+ * anything ({@link tryAlternates}) — the wider names it sits in, then the
+ * "street" read as a settlement of its own, a hamlet a file files under its
+ * bigger neighbour. The rungs *within* a settlement (street, then village
+ * numbering, then any street) are {@link searchBucket}'s.
  *
  * Resolves to [] when no register is stored for that country at all, so a
  * browser that has not downloaded one simply gets no local answer — never an
@@ -210,9 +216,15 @@ async function searchNamed(
 export async function searchLocalAddress(country: RegisterCountry, query: LocalQuery): Promise<AddressHit[]> {
   const loaded = await loadIndex(country);
   if (!loaded) return [];
-  for (const name of [query.settlement, ...(query.altSettlements ?? [])]) {
-    const hits = await searchNamed(country, loaded, name, query);
-    if (hits.length) return hits.slice(0, MAX_RESULTS);
+  const own = await searchNamed(country, loaded, query.settlement, query);
+  if (own.length) return own.slice(0, MAX_RESULTS);
+  if (await tryAlternates(query, () => loaded.settlementNames.has(foldToken(query.settlement)))) {
+    for (const name of query.altSettlements ?? []) {
+      // A settlement the file never named gets the narrow reading only: no
+      // street is guessed on top of the settlement already guessed.
+      const hits = await searchNamed(country, loaded, name, query, { anyStreet: false });
+      if (hits.length) return hits.slice(0, MAX_RESULTS);
+    }
   }
   // The name the number hangs off, read as a village rather than a street.
   if (query.street) {

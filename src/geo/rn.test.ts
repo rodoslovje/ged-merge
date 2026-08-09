@@ -404,6 +404,123 @@ describe("searchAddressBatch", () => {
   });
 });
 
+describe("the settlements the ladder widens to", () => {
+  // A stub register holding the two places of "Krasinec, Metlika, Slovenija":
+  // the village, numbering its houses directly, and the town 8 km away that
+  // numbers its by street. Every filter this module builds is answered from it.
+  const ROWS = [
+    { obcina: "Metlika", naselje: "Krasinec", ulica: null, hs: 51, post: [8332, "Gradac"], E: 511000, N: 39000 },
+    { obcina: "Metlika", naselje: "Metlika", ulica: "Cankarjeva cesta", hs: 52, post: [8330, "Metlika"], E: 515000, N: 45000 },
+    { obcina: "Metlika", naselje: "Metlika", ulica: "Cesta bratstva in enotnosti", hs: 57, post: [8330, "Metlika"], E: 514000, N: 45500 },
+    { obcina: "Metlika", naselje: "Metlika", ulica: null, hs: 9, post: [8330, "Metlika"], E: 514500, N: 45200 },
+  ];
+
+  const asFeature = (r: (typeof ROWS)[number]) => ({
+    properties: {
+      OBCINA_NAZIV: r.obcina,
+      NASELJE_NAZIV: r.naselje,
+      ULICA_NAZIV: r.ulica,
+      HS_STEVILKA: r.hs,
+      POSTNI_OKOLIS_SIFRA: r.post[0],
+      POSTNI_OKOLIS_NAZIV: r.post[1],
+      E: r.E,
+      N: r.N,
+    },
+  });
+
+  /** The rows one CQL filter selects — enough of CQL 1 for what this module writes. */
+  function select(filter: string) {
+    const naselje = filter.match(/NASELJE_NAZIV='([^']*)'/)?.[1];
+    const obcina = filter.match(/OBCINA_NAZIV='([^']*)'/)?.[1];
+    // An OBCINA_NAZIV filter on its own is the municipality probe.
+    if (obcina && !naselje) return ROWS.filter((r) => r.obcina === obcina);
+    const one = filter.match(/HS_STEVILKA=(\d+)/)?.[1];
+    const many = filter.match(/HS_STEVILKA IN \(([^)]*)\)/)?.[1];
+    const numbers = one ? [Number(one)] : many ? many.split(",").map(Number) : undefined;
+    const street = filter.match(/ULICA_NAZIV LIKE '([^']*)%'/)?.[1];
+    return ROWS.filter(
+      (r) =>
+        r.naselje === naselje &&
+        (!numbers || numbers.includes(r.hs)) &&
+        (street ? r.ulica?.startsWith(street) : !filter.includes("ULICA_NAZIV IS NULL") || r.ulica === null),
+    );
+  }
+
+  const fetchMock = vi.fn(async (url: string | URL) => {
+    const features = select(decodeURIComponent(String(url))).map(asFeature);
+    return { ok: true, json: async () => ({ features }) } as unknown as Response;
+  });
+  beforeEach(() => {
+    fetchMock.mockClear();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  const krasinec = (number: number) => ({
+    settlement: "Krasinec",
+    number,
+    altSettlements: ["Metlika"],
+    parents: ["Metlika"],
+  });
+
+  it("answers a village house from its own village", async () => {
+    expect((await searchAddress(krasinec(51))).map((h) => h.address)).toEqual(["Krasinec 51"]);
+  });
+
+  it("does not answer a missing village house with a street of the občina seat", async () => {
+    // The register holds every house of Krasinec, so "there is no 52" is its
+    // answer — not a reason to widen to Metlika, which the place names only as
+    // its parent, and whose streets between them carry every number there is.
+    // The municipality guard cannot catch those: they *are* in občina Metlika.
+    expect(await searchAddress(krasinec(52))).toEqual([]);
+    expect(await searchAddress(krasinec(57))).toEqual([]);
+  });
+
+  it("still widens when the register has never heard of the settlement", async () => {
+    // A hamlet the register does not keep leaves the parent level as the only
+    // thing left to try — but only its houses numbered village-style, never a
+    // street, since the settlement is already a guess.
+    const hamlet = (number: number) => ({ ...krasinec(number), settlement: "Boldraž" });
+    expect((await searchAddress(hamlet(9))).map((h) => h.address)).toEqual(["Metlika 9"]);
+    expect(await searchAddress(hamlet(52))).toEqual([]);
+  });
+
+  it("widens for a named street without spending a request to decide it", async () => {
+    // The street rung is the documented misfiling — the record names the
+    // village, the register files the street under the town — so it is walked
+    // by right, and the settlement is never probed. That probe is the price of
+    // a street-less query alone.
+    const hits = await searchAddress({
+      settlement: "Radovica",
+      street: "Cankarjeva cesta",
+      number: 52,
+      altSettlements: ["Metlika"],
+      parents: ["Metlika"],
+    });
+    expect(hits.map((h) => h.address)).toEqual(["Cankarjeva cesta 52"]);
+    const probes = fetchMock.mock.calls.filter(([url]) => {
+      const filter = decodeURIComponent(String(url));
+      return filter.includes("NASELJE_NAZIV=") && !filter.includes("HS_STEVILKA");
+    });
+    expect(probes).toHaveLength(0);
+  });
+
+  it("holds the batch to the same rule", async () => {
+    // "Search all N" must widen exactly as the row's own lookup does, or the
+    // list and the row disagree about the same house. A group whose numbers the
+    // village has none of is where they used to part: the whole group widened
+    // to the seat's streets at once, so a place's every unmatched house came
+    // back placed in town.
+    const missing = [krasinec(52), krasinec(57)];
+    const pool = await searchAddressBatch(missing);
+    expect(batchAnswered(missing, pool)).toBe(true);
+    expect(resultsForQuery(missing, pool)).toEqual([]);
+    // The houses the village does number are untouched.
+    const found = [krasinec(51)];
+    expect(resultsForQuery(found, await searchAddressBatch(found)).map((h) => h.address)).toEqual(["Krasinec 51"]);
+  });
+});
+
 describe("rnFeaturesToResults", () => {
   const feature = (props: Record<string, unknown>) => ({ properties: props });
 
