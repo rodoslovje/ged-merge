@@ -21,6 +21,7 @@ import { decomposePlace } from "../../gedcom/place";
 import { proposalFromGazEntry, type PlaceStyle } from "../../geo/placeProposal";
 import { AppliedNote, ExpandAllToggle, GeoPeopleList, GeoRowHeader, MapToggle, RowMap } from "./shared";
 import { PlaceAutocomplete } from "../edit/PlaceAutocomplete";
+import { usePlaceLookup } from "../edit/PlaceLookupContext";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
 import type { KinshipResolver } from "../../match/kinship";
@@ -164,6 +165,14 @@ export function RegisterCheckSection({
    *  both — the settlement spelt the register's way, and the house on its own
    *  ADDR line. Empty leaves the value whole. */
   const [renameAddrDraft, setRenameAddrDraft] = useState("");
+  /** A register offer picked in the rename box: its text is in the drafts, and
+   *  its coordinate rides along on apply. Kept with the text it belongs to, so
+   *  editing the draft afterwards drops the coordinate rather than writing one
+   *  that describes a different place — the same rule the places list follows. */
+  const [renamePick, setRenamePick] = useState<{ place: string; addr?: string; coord: GeoCoord } | null>(null);
+  /** The registers behind the rename box, when this page is inside the provider
+   *  that builds them (it is; see RegisterPanel). */
+  const lookup = usePlaceLookup();
 
   /** Write the edited name over every occurrence of the row's raw value, and
    *  close the box. A draft that says nothing new is simply a cancel — unless
@@ -192,6 +201,19 @@ export function RegisterCheckSection({
    * where it has them, remain the way to choose between places by hand.
    */
   const renameAndPlace = async (from: string, to: string, addr: string) => {
+    // A register offer picked in the box brings its own coordinate — the place
+    // is not looked up again, since the pick *is* the answer.
+    const picked = renamePick && renamePick.place === to && (renamePick.addr ?? "") === addr ? renamePick : null;
+    setRenamePick(null);
+    if (picked) {
+      if (addr) {
+        onRename(from, to, addr);
+        onApplyAddressCoords(new Map([[placeAddrKey(to, addr), picked.coord]]));
+      } else {
+        onApplyOfficialNames([{ from, to, assignment: { coord: picked.coord } }]);
+      }
+      return;
+    }
     const queries = addr ? rnQueriesFrom(to, addr) : [];
     // Only a register already in this browser: a rename must not turn into a
     // request to someone else's service, which the online opt-in governs.
@@ -674,6 +696,23 @@ export function RegisterCheckSection({
                         onChange={setRenameDraft}
                         onCommit={setRenameDraft}
                         onClear={() => setRenameDraft("")}
+                        // The file's own places cannot help here: the row is
+                        // open because what it writes is not a name the
+                        // register holds, and the correct name may appear
+                        // nowhere in the file. So the directories are offered
+                        // as well — one pick fills the whole chain, the house
+                        // and the coordinate, exactly as in an Edit place field.
+                        onLookup={lookup ? (q) => lookup.search(q) : undefined}
+                        lookupNote={lookup && !lookup.online ? t("event.place.lookup.offlineOnly") : undefined}
+                        onPickProposal={(proposal) => {
+                          setRenameDraft(proposal.plac);
+                          setRenameAddrDraft(proposal.addr ?? "");
+                          setRenamePick({
+                            place: proposal.plac,
+                            ...(proposal.addr ? { addr: proposal.addr } : {}),
+                            coord: proposal.coord,
+                          });
+                        }}
                       />
                       {/* The house to leave on the event's own ADDR line, the
                           same chip the places list's rename carries. A value

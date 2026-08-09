@@ -10,7 +10,7 @@ import { createKinshipResolver } from "../../match/kinship";
 import { useDatasetDerivations } from "../DatasetDerivations";
 import { buildPlaceSuggestions } from "../edit/placeSuggestions";
 import { foldSearch } from "../globalSearch";
-import { usePlaceStyle } from "../edit/PlaceLookupContext";
+import { PlaceLookupProvider, usePlaceLookupValue, usePlaceStyle } from "../edit/PlaceLookupContext";
 import { GazetteerMissing, useGazetteer } from "./GazetteerManager";
 import { RegisterCheckSection } from "./RegisterCheckSection";
 import { AddressCheckSection } from "./AddressCheckSection";
@@ -118,6 +118,12 @@ export function RegisterPanel({
   // The layout this file writes its places in — what a register entry is shown
   // as, so the reader compares like with like.
   const placeStyle = usePlaceStyle(dataset, placeSug.placeSuggestions, index);
+  // The register lookup behind the rename box — the same one the Edit fields and
+  // the places list build, so a name this file has never written can be
+  // completed from the directories here too instead of typed out by hand. It is
+  // exactly the case this page is about: the row exists because the written name
+  // is not one the register holds.
+  const placeLookup = usePlaceLookupValue(dataset, placeSug.placeSuggestions);
 
   const addrRows = useMemo(
     () => derivations?.addressRows() ?? scanAddresses(dataset),
@@ -181,6 +187,7 @@ export function RegisterPanel({
   if (!decisions) return <ToolsLoading label={t("tools.running")} />;
 
   return (
+    <PlaceLookupProvider value={placeLookup}>
     <div className="tools-geocode">
       {/* The page's name beside the way back from it — see GeocodePanel, whose
           shape this shares. What used to stand on the right repeated the
@@ -265,5 +272,6 @@ export function RegisterPanel({
         onDecisionsChanged={() => void loadDecisions().then(setDecisions)}
       />
     </div>
+    </PlaceLookupProvider>
   );
 }
