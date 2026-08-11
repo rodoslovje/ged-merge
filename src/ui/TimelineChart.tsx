@@ -44,6 +44,9 @@ const COLOR_FAMILY = "color-mix(in srgb, var(--node-main) 45%, var(--panel))";
 
 // ── Geometry (native, pre-zoom pixels) ───────────────────────────────────────
 const PX_PER_YEAR = 14;
+// How much of the years before the root person the chart opens on (see `laid`) —
+// about a generation, so their parents are already on the bar when it opens.
+const OPEN_LEAD_YEARS = 30;
 /** Top ruler band holding the year labels. */
 const AXIS_H = 26;
 const ROW_H = 46;
@@ -221,9 +224,13 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
     const rootRow = rows.find((r) => r.role === "person");
     const placed = (rootRow && nodesByKey.get(rootRow.key)) ?? [...nodesByKey.values()][0];
     if (!placed) return undefined;
-    // Pin the initial scroll to the chart's left edge, not the root's bar —
-    // the parents' bars (and labels) usually start earlier than the root.
-    const root = { ...placed, x: 0 };
+    // Open on the person's own bar, one generation of years to its left — far
+    // enough back that the parents' bars are already running, near enough that
+    // the person is on screen. The left edge won't do: with ancestors on the
+    // chart the axis can start two centuries before them, and the chart then
+    // opens on an empty stretch of gridlines. A person with no dated event has
+    // no bar to aim at (x is 0), and keeps the left edge.
+    const root = { ...placed, x: Math.max(0, placed.x - OPEN_LEAD_YEARS * PX_PER_YEAR) };
     return { root, width: geom.contentW + 2 * PAD, height: geom.contentH + 2 * PAD };
   }, [geom, rows, nodesByKey]);
 
