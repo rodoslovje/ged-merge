@@ -61,7 +61,15 @@ export function ChartsHub({ mainDs, rootId, onRootChange, startId, changedPerson
   // registered by whichever chart the hub is showing). Esc is handled here only
   // on the start-person prompt page, where no chart is mounted to own it.
   const showingPrompt = settings.kind === "relationship" && !startId;
-  useChartShortcuts({ kinds: HUB_KINDS, onKind: setKind, onLeave: showingPrompt ? onBack : undefined });
+  // H re-roots on the start person, whichever kind is up — the chart-side twin
+  // of Edit's "go home". Registered here rather than per chart because the hub
+  // owns the root; standing on them already, the key does nothing.
+  useChartShortcuts({
+    kinds: HUB_KINDS,
+    onKind: setKind,
+    onLeave: showingPrompt ? onBack : undefined,
+    onHome: startId && startId !== rootId ? () => onRootChange(startId) : undefined,
+  });
 
   const kindSwitcher = (
     <ChartKindTabs

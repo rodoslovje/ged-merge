@@ -2011,6 +2011,7 @@ export const en = {
   "shortcuts.item.chartZoom": "Zoom in / out",
   "shortcuts.item.chartZoomReset": "Reset zoom to 100%",
   "shortcuts.item.chartFit": "Fit the whole chart on screen",
+  "shortcuts.item.chartHome": "Draw the chart for the start person",
   "shortcuts.item.relationship": "Open the relationship diagram",
   "shortcuts.item.confirm": "Confirm match",
   "shortcuts.item.reject": "Reject match",

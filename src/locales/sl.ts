@@ -2227,6 +2227,7 @@ export const sl = {
   "shortcuts.item.chartZoom": "Povečaj / pomanjšaj",
   "shortcuts.item.chartZoomReset": "Ponastavi povečavo na 100 %",
   "shortcuts.item.chartFit": "Prilagodi cel diagram zaslonu",
+  "shortcuts.item.chartHome": "Nariši diagram za izhodiščno osebo",
   "shortcuts.item.relationship": "Odpri diagram sorodstva",
   "shortcuts.item.confirm": "Potrdi ujemanje",
   "shortcuts.item.reject": "Zavrni ujemanje",
