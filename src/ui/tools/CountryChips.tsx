@@ -10,14 +10,26 @@ export interface CountryChip {
 }
 
 /**
+ * The chips a row actually shows: those with rows behind them, plus the chosen
+ * country whatever its count — see {@link CountryChips}. A fresh array, so the
+ * caller's list is never sorted in place.
+ */
+export function visibleCountryChips(chips: CountryChip[], active: string | null): CountryChip[] {
+  return chips.filter((c) => c.count > 0 || c.code === active);
+}
+
+/**
  * The country filter row the four geocoding and compliance lists share. Shown
  * even where the file names a single country: which country the rows stand in is
  * worth stating outright, and a filter row that comes and goes with the data
  * reads as a glitch rather than as a choice.
  *
  * Chips are sorted by what clicking each one shows, so the country with the most
- * work leads; the countries a filter has emptied stay visible at zero, because a
- * chip disappearing under one's own filter is how a list loses its way back.
+ * work leads. A country the other filters have emptied drops out of the row: a
+ * chip that shows nothing is a button that does nothing, and a file touching
+ * forty countries buried the two worth working under five rows of them. The
+ * chosen country is the exception and stays at zero — the filter one is standing
+ * in must never be the chip that vanishes — and "All" is always the way back.
  */
 export function CountryChips({
   chips,
@@ -42,7 +54,9 @@ export function CountryChips({
   const { t, i18n } = useTranslation();
   const label = (code: string) =>
     code ? countryFacetLabel(code, i18n.language) : t("tools.geocode.countryUnknown");
-  const sorted = [...chips].sort((a, b) => b.count - a.count || label(a.code).localeCompare(label(b.code)));
+  const sorted = visibleCountryChips(chips, active).sort(
+    (a, b) => b.count - a.count || label(a.code).localeCompare(label(b.code)),
+  );
   const assumption = (code: string) =>
     assumed && code === assumed ? t("tools.geocode.countryAssumed", { country: label(code) }) : undefined;
   return (
