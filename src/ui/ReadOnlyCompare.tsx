@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { defaultChoice, type FieldRow } from "../review/types";
+import { isMajorDifference } from "../review/fields";
 import { FieldValue, LinkIcons, RelativeGrid } from "./FieldValue";
 import { SourceRefs } from "./SourceRef";
 
@@ -80,7 +81,7 @@ export function ReadOnlyCompare({
           // rather than the plain-text branch, which would print the bare URL.
           const hasSources = !!(row.mainSources || row.incomingSources || row.mainLinkIcons || row.incomingLinkIcons);
           return (
-            <tr key={row.key} className={`field ${row.state}`}>
+            <tr key={row.key} className={`field ${row.state}${isMajorDifference(row) ? " major" : ""}`}>
               <td className="f-label">{row.displayLabel ?? row.label}</td>
               {row.relatives ? (
                 <td className="f-rel" colSpan={valueCols}>

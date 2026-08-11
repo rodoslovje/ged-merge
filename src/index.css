@@ -5459,6 +5459,8 @@ a.report-source:hover { color: var(--accent); text-decoration: underline; }
    conflicting (difference) fields. Applied to cells, not the <tr>, so the
    highlight stays put under border-collapse. */
 .tree-compare-table .field.conflict td { background: rgba(226, 179, 65, 0.08); }
+/* A major difference (conflicting name or birth year) reads red, like its node. */
+.tree-compare-table .field.conflict.major td { background: color-mix(in oklch, var(--state-major) 10%, transparent); }
 .tree-compare-table .field.incoming-only td { background: rgba(62, 207, 142, 0.07); }
 /* Group headers paint on the cell too (same reason as the field highlights). */
 .tree-compare-table .group-header-cell { background: var(--panel-2); }

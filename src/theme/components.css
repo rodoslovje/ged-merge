@@ -107,6 +107,10 @@
 /* ---------------- Compare field rows ---------------- */
 .field.conflict      { background: color-mix(in oklch, var(--state-minor) 9%, transparent);
                        box-shadow: inset 2px 0 0 var(--state-minor); }
+/* A disagreeing name or birth year is the compare tree's "major difference" —
+   the same red here, so a row and its node say the same thing. */
+.field.conflict.major { background: color-mix(in oklch, var(--state-major) 10%, transparent);
+                       box-shadow: inset 2px 0 0 var(--state-major); }
 .field.incoming-only { background: color-mix(in oklch, var(--state-match) 7%, transparent);
                        box-shadow: inset 2px 0 0 var(--state-match); }
 .f-val.chosen        { color: var(--text); font-weight: 600; }

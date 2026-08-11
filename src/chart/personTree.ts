@@ -7,7 +7,7 @@ import { placeLabel } from "./nodeDisplay";
 import type { Translate } from "../locales/i18n";
 import type { MatchResult } from "../match/types";
 import { displayName, primaryName } from "../match/relatives";
-import { RELATIVE_PAIR_THRESHOLD, individualFieldRows, relativePersonSimilarity } from "../review/fields";
+import { RELATIVE_PAIR_THRESHOLD, individualFieldRows, isMajorDifference, relativePersonSimilarity } from "../review/fields";
 import { inferPlaceExportFormat } from "../normalize/profile";
 import type { PlaceTargetFormat } from "../normalize/types";
 
@@ -581,8 +581,10 @@ function nodeStatus(
   if (!main && incoming) return "incoming-only";
 
   const rows = individualFieldRows(t, main, incoming, mainDs, compareDs, placeFmt);
-  const conflict = (k: string) => rows.find((r) => r.key === k)?.state === "conflict";
-  if (conflict("given") || conflict("surname") || birthYearConflict(main, incoming)) {
+  // Every row the compare panel paints red makes the node red too. The year
+  // check on top of that catches the cross-tag case no single row holds — one
+  // side dating the birth, the other only the baptism.
+  if (rows.some(isMajorDifference) || birthYearConflict(main, incoming)) {
     return "major";
   }
   // A row with `relatives` is a list of people, not a scalar field of the
