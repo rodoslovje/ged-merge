@@ -9,12 +9,12 @@
 // same side, so no collision search is needed — a left-to-right column cursor in
 // path order keeps every box in its own column.
 
-import type { Dataset, Sex } from "../gedcom/types";
+import type { Dataset, Individual, Sex } from "../gedcom/types";
 import { lifespanOf } from "../gedcom/lifespan";
 import { NODE_H, NODE_W, PAD, type ChartAlignment } from "./treeLayout";
 import { localityParts } from "../gedcom/place";
 import { displayName, primaryName } from "../match/relatives";
-import type { MarriageInfo } from "./personTree";
+import { coupleLiving, type MarriageInfo } from "./personTree";
 import type { RelationshipPath } from "../match/relationshipPath";
 
 export const ROW_GAP_TD = 72;
@@ -62,6 +62,9 @@ export function buildRelationshipChart(
   path: RelationshipPath,
   alignment: ChartAlignment = "tb",
   nodeH: number = NODE_H,
+  /** How a person's name reads — the app's Name-display settings. Defaults to
+   *  the plain primary name for callers with no settings to hand. */
+  nameOf: (indi: Individual) => string = (indi) => displayName(primaryName(indi)),
 ): RelationshipChart {
   const steps = path.steps;
   const n = steps.length;
@@ -211,7 +214,7 @@ export function buildRelationshipChart(
     return {
       key: id,
       id,
-      name: indi ? displayName(primaryName(indi)) : id,
+      name: indi ? nameOf(indi) : id,
       years: (indi && lifespanOf(indi)) || undefined,
       sex: indi?.sex ?? "U",
       x,
@@ -278,7 +281,7 @@ function coupleMarriage(ds: Dataset, a: string, b: string): MarriageInfo | undef
     if (!marr) return undefined;
     const year = marr.date?.year !== undefined ? String(marr.date.year) : undefined;
     const place = marr.place ? localityParts(marr.place)[0] : undefined;
-    return year || place ? { year, place } : undefined;
+    return year || place ? { year, place, ...(coupleLiving(fam, ds) ? { living: true } : null) } : undefined;
   }
   return undefined;
 }

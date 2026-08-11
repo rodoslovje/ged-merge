@@ -35,9 +35,7 @@ import { ChartExportMenu } from "./ChartExportMenu";
 import { FileTextIcon, PrinterIcon } from "./icons/FormatIcons";
 import { ChartSettings } from "./ChartSettings";
 import { useChartSettings } from "./ChartSettingsContext";
-import { useNodeStatus } from "./useNodeStatus";
 import { useStableHandler } from "./edit/useStableHandler";
-import type { CandidateDecision } from "../review/types";
 import { useNameOf, useSettingsSlice } from "./SettingsContext";
 import { ChartRootTitle } from "./ChartRootTitle";
 import { lifespanAge } from "../gedcom/age";
@@ -75,9 +73,6 @@ interface Props {
   /** The app-wide start person, for the header's kinship-to-start chip. */
   startId?: string;
   /** Main ids with unsaved edits — those entries show the "M" chip. */
-  changedPersonIds?: Set<string>;
-  /** Merge decisions, so decided matches show their C/R/D chip here too. */
-  decisions?: Map<string, CandidateDecision>;
   /** Translated label for where Back lands (App knows the hub's origin). */
   backLabel: string;
   onBack: () => void;
@@ -94,11 +89,10 @@ interface Props {
   onModeChange: (mode: TreeMode) => void;
 }
 
-export function ReportView({ mainDs, rootId: currentRootId, startId, changedPersonIds, decisions, backLabel, onBack, onNavigate, kindSwitcher, onRootChange, mode, onModeChange }: Props) {
+export function ReportView({ mainDs, rootId: currentRootId, startId, backLabel, onBack, onNavigate, kindSwitcher, onRootChange, mode, onModeChange }: Props) {
   const { t, i18n } = useTranslation();
   const nameOf = useNameOf(REPORT_NAME_DISPLAY);
   const appSettings = useSettingsSlice(SETTINGS_KEYS);
-  const nodeStatus = useNodeStatus(changedPersonIds, decisions);
   const { settings, set } = useChartSettings();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   // Identity-stable, so the memoized paragraph handlers don't rebuild every
@@ -437,27 +431,6 @@ export function ReportView({ mainDs, rootId: currentRootId, startId, changedPers
                           <div>
                             <span className={`report-name ${sexClass(e.sex)}`}>{reportName(e, exportOpts)}</span>
                             {!redacted(e) && e.years && <span className="report-years gm-data">{e.years}</span>}
-                            {/* Working-state chips (decision C/R/D + unsaved-edit M) —
-                                same letters and tokens as the tree charts' badges.
-                                Page only; the txt/PDF exports carry data, not state. */}
-                            {settings.showBadges && (() => {
-                              const dec = nodeStatus.decisionOf(e.id);
-                              const mod = nodeStatus.modifiedOf(e.id);
-                              return (
-                                <>
-                                  {dec && (
-                                    <span className={`status-chip ${dec.status}`} title={t(`status.${dec.status}`)}>
-                                      {dec.letter}
-                                    </span>
-                                  )}
-                                  {mod && (
-                                    <span className="status-chip modified" title={t("edit.tree.modified")}>
-                                      {nodeStatus.modifiedLetter}
-                                    </span>
-                                  )}
-                                </>
-                              );
-                            })()}
                             {e.dupOf !== undefined && (
                               <button
                                 className="report-dup report-jump"

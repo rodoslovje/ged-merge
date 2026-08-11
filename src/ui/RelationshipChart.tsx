@@ -16,10 +16,8 @@ import { individualFieldRows } from "../review/fields";
 import { useNameOf } from "./SettingsContext";
 import { sexClass } from "./sex";
 import { StartPersonSelector } from "./StartPersonSelector";
-import { nodeStatusBadges, TreeNodeBox } from "./TreeNodeBox";
+import { TreeNodeBox } from "./TreeNodeBox";
 import { TreeNodePanel } from "./TreeNodePanel";
-import { useNodeStatus } from "./useNodeStatus";
-import type { CandidateDecision } from "../review/types";
 import { ChartMinimap } from "./ChartMinimap";
 import { ZoomControls } from "./ZoomControls";
 import { chartSlug } from "./exportSvg";
@@ -32,14 +30,16 @@ import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 const COLOR_SPINE = "var(--node-main)";
 const COLOR_CONTEXT = "var(--faint)";
 
+/** Chart override for the name formatter when the chart's own Married-name
+ *  toggle is off; a module-level constant so useNameOf's formatter keeps a
+ *  stable identity across renders. */
+const NO_MARRIED_NAME = { marriedSurname: false } as const;
+
 interface Props {
   mainDs: Dataset;
   startId: string;
   targetId: string;
   /** Main ids with unsaved edits — those boxes show the "M" badge. */
-  changedPersonIds?: Set<string>;
-  /** Merge decisions, so decided matches show their C/R/D badge here too. */
-  decisions?: Map<string, CandidateDecision>;
   /** Translated label for where Back lands (from the hub / App). */
   backLabel: string;
   onBack: () => void;
@@ -64,10 +64,10 @@ interface PathOption {
  * parent couples beside each rail. A selector offers the shortest route plus
  * every distinct bloodline; clicking a person opens the shared detail panel.
  */
-export function RelationshipChart({ mainDs, startId, targetId, changedPersonIds, decisions, backLabel, onBack, onNavigate, kindSwitcher, onTargetChange }: Props) {
+export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack, onNavigate, kindSwitcher, onTargetChange }: Props) {
   const { t } = useTranslation();
-  const formatName = useNameOf();
-  const nodeStatus = useNodeStatus(changedPersonIds, decisions);
+  const { settings } = useChartSettings();
+  const formatName = useNameOf(settings.showMarriedName ? undefined : NO_MARRIED_NAME);
   const [optionIdx, setOptionIdx] = useState(0);
   // Either endpoint can be swapped on this page without touching the app's start
   // person; the local picks reset whenever the page is (re)opened for a new pair.
@@ -127,7 +127,6 @@ export function RelationshipChart({ mainDs, startId, targetId, changedPersonIds,
     return opts;
   }, [mainDs, startSel, targetSel, t, nameOf]);
 
-  const settings = useChartSettings().settings;
   const { alignment } = settings;
   const nodeH = nodeHeight(settings);
   // Marriage label fields, when either toggle is on (else no labels are drawn).
@@ -137,8 +136,8 @@ export function RelationshipChart({ mainDs, startId, targetId, changedPersonIds,
       : undefined;
   const current = options[Math.min(optionIdx, options.length - 1)]?.path;
   const chart = useMemo(
-    () => (current ? buildRelationshipChart(mainDs, current, alignment, nodeH) : undefined),
-    [mainDs, current, alignment, nodeH],
+    () => (current ? buildRelationshipChart(mainDs, current, alignment, nodeH, formatName) : undefined),
+    [mainDs, current, alignment, nodeH, formatName],
   );
 
   // The chart boxes keyed for `useTreeCanvas` (they satisfy ChartNode
@@ -157,7 +156,7 @@ export function RelationshipChart({ mainDs, startId, targetId, changedPersonIds,
   );
 
   const { canvasRef, viewport, panning, scrollTo, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
-    useTreeCanvas(laid, nodesByKey, alignment, false, nodeH);
+    useTreeCanvas(laid, nodesByKey, alignment, false, nodeH, `${startSel}→${targetSel}:${optionIdx}:${alignment}`);
 
   // Find-in-chart. This diagram only draws one route, so somebody off it is the
   // usual case — finding them makes them the new target, redrawing the route.
@@ -282,7 +281,7 @@ export function RelationshipChart({ mainDs, startId, targetId, changedPersonIds,
                 ))}
                 {marriageFields &&
                   chart.links.map((e) => {
-                    const text = e.mid && formatMarriage(e.marriage, marriageFields);
+                    const text = e.mid && formatMarriage(e.marriage, marriageFields, settings.privacyLiving);
                     return text && e.mid ? (
                       <text
                         key={`${e.id}-m`}
@@ -321,11 +320,6 @@ export function RelationshipChart({ mainDs, startId, targetId, changedPersonIds,
                         display={settings}
                         living={isPresumedLiving(indi, mainDs) || !!indi?.private}
                         nodeH={nodeH}
-                        badges={
-                          settings.showBadges
-                            ? nodeStatusBadges(nodeStatus.decisionOf(b.id), nodeStatus.modifiedOf(b.id), nodeStatus.modifiedLetter)
-                            : undefined
-                        }
                       />
                     </g>
                   );

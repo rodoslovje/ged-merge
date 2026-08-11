@@ -57,9 +57,9 @@ export interface TreeCanvas {
  * deselect when the tree itself changes). Both the Edit Tree and Compare Tree
  * use it identically.
  *
- * @param laid the current layout result (or undefined); when it changes the
- *   canvas scrolls so the root is pinned left and vertically centred, and any
- *   stale selection is cleared.
+ * @param laid the current layout result (or undefined); a stale selection is
+ *   cleared whenever it changes, and the canvas scrolls to the root whenever
+ *   `viewKey` says this is a different chart.
  * @param nodesByKey the laid-out nodes indexed by key, for selection lookup.
  */
 export function useTreeCanvas(
@@ -71,6 +71,12 @@ export function useTreeCanvas(
   radial = false,
   /** Box height for the current display settings (grows when the place line shows). */
   nodeH: number = NODE_H,
+  /** What makes this a *different* chart — the root person, the direction, the
+   *  chart type. The view scrolls home when this changes, and holds still when
+   *  it doesn't: every display toggle rebuilds `laid` too (a place line changes
+   *  the node height), and being thrown back to the root for ticking "Place" is
+   *  no way to compare two settings. Omit to scroll home on every relayout. */
+  viewKey?: string,
 ): TreeCanvas {
   const canvasRef = useRef<HTMLDivElement>(null);
   const [viewport, setViewport] = useState<Viewport>({ left: 0, top: 0, width: 0, height: 0 });
@@ -96,13 +102,17 @@ export function useTreeCanvas(
     setViewport({ left: el.scrollLeft, top: el.scrollTop, width: el.clientWidth, height: el.clientHeight });
   }, []);
 
-  // On (re)layout — initial load, mode switches, alignment flips — scroll so the
-  // starting person (the tree root) is in view. The root sits at the leading edge
-  // of the depth axis, so pin it there (left in LR, top in TB) and centre it on
-  // the breadth axis. Then re-measure for the minimap.
+  // On a new chart — initial load, a re-root, mode switches, alignment flips —
+  // scroll so the starting person (the tree root) is in view. The root sits at
+  // the leading edge of the depth axis, so pin it there (left in LR, top in TB)
+  // and centre it on the breadth axis. Then re-measure for the minimap.
+  const homedFor = useRef<string | null>(null);
   useEffect(() => {
     const el = canvasRef.current;
-    if (el && laid) {
+    // Same chart, re-laid out (a display toggle): keep the reader where they are.
+    const home = viewKey === undefined || homedFor.current !== viewKey;
+    if (el && laid && home) {
+      homedFor.current = viewKey ?? null;
       // Layout coordinates are in native (1×) space; the SVG is rendered scaled,
       // so on-screen scroll positions are layout px × zoom.
       const z = zoomRef.current;
@@ -119,7 +129,7 @@ export function useTreeCanvas(
       }
     }
     syncViewport();
-  }, [laid, syncViewport, alignment, radial, nodeH]);
+  }, [laid, syncViewport, alignment, radial, nodeH, viewKey]);
 
   // Apply a pending zoom-driven scroll once the resized SVG has been committed,
   // then re-measure so the minimap's viewport box tracks the new scale.

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Individual } from "../gedcom/types";
 import { parsePlace } from "../gedcom/place";
-import { ALL_DISPLAY, lifespanLine, nodeDisplay, placeLabel, type NodeDisplayOptions } from "./nodeDisplay";
+import { ALL_DISPLAY, formatMarriage, lifespanLine, nodeDisplay, placeLabel, type NodeDisplayOptions } from "./nodeDisplay";
 
 /** Minimal Individual carrying only the events `placeLabel` reads. */
 function person(events: { tag: string; place?: string }[]): Individual {
@@ -100,5 +100,25 @@ describe("lifespanLine", () => {
   it("returns nothing when neither is shown or no data backs them", () => {
     expect(of({ showLifespan: false, showAge: false }, { years: "1850–1920", age: 70, ageText: "age 70" })).toBeUndefined();
     expect(of({ showLifespan: true, showAge: true }, { years: "", age: undefined, ageText: "age" })).toBeUndefined();
+  });
+});
+
+describe("formatMarriage", () => {
+  const both = { date: true, place: true };
+  const couple = { year: "1962", place: "Ljubljana" };
+
+  it("joins the fields it is asked for", () => {
+    expect(formatMarriage(couple, both)).toBe("⚭ 1962 Ljubljana");
+    expect(formatMarriage(couple, { date: true, place: false })).toBe("⚭ 1962");
+    expect(formatMarriage(couple, { date: false, place: false })).toBeUndefined();
+  });
+
+  it("says nothing about a couple with a living partner while redacting", () => {
+    const living = { ...couple, living: true };
+    expect(formatMarriage(living, both, true)).toBeUndefined();
+    // The flag alone changes nothing — only the privacy switch acts on it.
+    expect(formatMarriage(living, both)).toBe("⚭ 1962 Ljubljana");
+    // …and a couple both long dead keeps its label under the switch.
+    expect(formatMarriage(couple, both, true)).toBe("⚭ 1962 Ljubljana");
   });
 });

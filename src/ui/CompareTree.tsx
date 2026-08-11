@@ -45,12 +45,17 @@ import { ChartPage } from "./ChartPage";
 import { ChartSettings } from "./ChartSettings";
 import { useChartSettings, type PedigreeType } from "./ChartSettingsContext";
 import { ChartKindTabs, PEDIGREE_KINDS } from "./ChartKindTabs";
-import { useSettingsSlice } from "./SettingsContext";
+import { useNameOf, useSettingsSlice } from "./SettingsContext";
 import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 
 /** The preferences this file reads — subscribed field by field, so an
  *  unrelated one changing leaves it alone (see useSettingsSlice). */
 const SETTINGS_KEYS = ["showKinship"] as const;
+
+/** Chart override for the name formatter when the chart's own Married-name
+ *  toggle is off; a module-level constant so useNameOf's formatter keeps a
+ *  stable identity across renders. */
+const NO_MARRIED_NAME = { marriedSurname: false } as const;
 
 interface Props {
   mainDs: Dataset;
@@ -138,6 +143,10 @@ export function CompareTree({
   onOpenInEdit,
 }: Props) {
   const { t } = useTranslation();
+  // Names read as the Name-display settings say (married surname, order, …) —
+  // the same formatter the lists, the timeline and the reports use.
+  const { settings: chartSettings } = useChartSettings();
+  const nameOf = useNameOf(chartSettings.showMarriedName ? undefined : NO_MARRIED_NAME);
 
   // A node whose main record has unsaved edits gets an "M" badge, matching the
   // Edit tree and relative cards.
@@ -227,10 +236,10 @@ export function CompareTree({
   // the radial chart — so switching direction or chart type never rebuilds a tree.
   const trees = useMemo(
     () => ({
-      ancestors: buildPersonTree(t, rootMain, rootIncoming, mainDs, compareDs, maps, "ancestors", isRejected),
-      descendants: buildPersonTree(t, rootMain, rootIncoming, mainDs, compareDs, maps, "descendants", isRejected),
+      ancestors: buildPersonTree(t, rootMain, rootIncoming, mainDs, compareDs, maps, "ancestors", isRejected, nameOf),
+      descendants: buildPersonTree(t, rootMain, rootIncoming, mainDs, compareDs, maps, "descendants", isRejected, nameOf),
     }),
-    [t, rootMain, rootIncoming, mainDs, compareDs, maps, isRejected],
+    [t, rootMain, rootIncoming, mainDs, compareDs, maps, isRejected, nameOf],
   );
   // How deep each direction reaches, and the trees as the generation limit
   // leaves them — the full trees stay behind for the counts and the "of N"
@@ -256,11 +265,13 @@ export function CompareTree({
       : undefined;
   // What the "+N" marker says: the direction decides who is missing, and the
   // tooltip names the limit that hid them.
+  // `atLimit` lets a chart that ran out of room of its own (the radial rings)
+  // name its own cap instead of the generation setting's.
   const hiddenTitle = useCallback(
-    (count: number) =>
+    (count: number, atLimit?: number) =>
       t(effectiveMode === "ancestors" ? "tree.node.hiddenAncestors" : "tree.node.hiddenDescendants", {
         count,
-        limit: limit ?? 0,
+        limit: atLimit ?? limit ?? 0,
       }),
     [t, effectiveMode, limit],
   );
@@ -297,7 +308,9 @@ export function CompareTree({
     if (!display.showMarriageDate && !display.showMarriagePlace) return undefined;
     const fields = { date: display.showMarriageDate, place: display.showMarriagePlace };
     return (node: TreeNode) =>
-      display.privacyLiving && node.living ? undefined : formatMarriage(node.marriage, fields);
+      display.privacyLiving && node.living
+        ? undefined
+        : formatMarriage(node.marriage, fields, display.privacyLiving);
   }, [display.showMarriageDate, display.showMarriagePlace, display.privacyLiving]);
   const flat = useMemo(
     () =>
@@ -408,7 +421,7 @@ export function CompareTree({
 
   // Viewport, grab-to-pan, zoom, root re-centring, and node selection.
   const { canvasRef, viewport, panning, scrollTo, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
-    useTreeCanvas(activeLaid, activeNodes, alignment, radial, nodeH);
+    useTreeCanvas(activeLaid, activeNodes, alignment, radial, nodeH, `${rootMainId ?? ""}:${rootCompareId ?? ""}:${effectiveMode}:${settings.type}:${alignment}`);
 
   // Find-in-chart. A node here can draw a matched pair, so both sides are
   // searchable — the incoming spelling of a name finds the node just as well.
@@ -540,8 +553,8 @@ export function CompareTree({
                 compareRecords={compareDs.records}
                 mainRefCtx={mainRefCtx}
                 compareRefCtx={compareRefCtx}
-                badgeOf={display.showBadges ? fanBadgeOf : undefined}
-                showRepeat={display.showBadges}
+                badgeOf={fanBadgeOf}
+                showRepeat
                 onRepeatJump={find.jumpTo}
                 hiddenTitle={hiddenTitle}
                 onHiddenJump={(n) => n.main && onReroot(n.main.id, n.incoming?.id)}
@@ -559,9 +572,9 @@ export function CompareTree({
               flashKey={find.hitKey}
               onSelect={selectNode}
               colorOf={colorOf}
-              badgeOf={display.showBadges ? badgeOf : undefined}
-              modifiedOf={display.showBadges ? isModified : undefined}
-              showRepeat={display.showBadges}
+              badgeOf={badgeOf}
+              modifiedOf={isModified}
+              showRepeat
               onRepeatJump={find.jumpTo}
               hiddenTitle={hiddenTitle}
               onHiddenJump={(n) => n.main && onReroot(n.main.id, n.incoming?.id)}

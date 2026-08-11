@@ -4,8 +4,8 @@ import type { ChartKind } from "../ui/ChartSettingsContext";
 import type { TreeMode } from "../chart/personTree";
 
 // Bare-key shortcuts for the full-page chart overlays: +/− zoom, 0 reset,
-// F fit-to-screen, A/D ancestors/descendants, and digits 1–n for the kind
-// switcher. Each chart page passes only the handlers it supports; the hidden
+// F fit-to-screen, A/D ancestors/descendants, H back to the start person, and
+// digits 1–n for the kind switcher. Each chart page passes only the handlers it supports; the hidden
 // Edit/Merge views gate their own key handlers while an overlay is open, so
 // these keys never collide with the decision shortcuts (C/R/D) underneath.
 
@@ -20,6 +20,9 @@ interface Handlers {
   /** A / D switch the direction; D is ignored when descendants are unavailable. */
   onMode?: (mode: TreeMode) => void;
   allowDescendants?: boolean;
+  /** H re-draws the chart for the start ("home") person. Omitted when there is
+   *  no start person, or the chart already stands on them. */
+  onHome?: () => void;
   /** Escape / Backspace leave the page (each chart registers its own — never
    *  the hub too, or one keypress would pop two history entries). Backspace
    *  mirrors "back to the previous person" in Edit: the overlays are history
@@ -57,6 +60,10 @@ export function useChartShortcuts(handlers: Handlers) {
       const lower = key.toLowerCase();
       if (lower === CHART_KEY.fit) {
         if (h.fitToScreen) { e.preventDefault(); h.fitToScreen(); }
+        return;
+      }
+      if (lower === CHART_KEY.home) {
+        if (h.onHome) { e.preventDefault(); h.onHome(); }
         return;
       }
       if (lower === CHART_KEY.ancestors) {

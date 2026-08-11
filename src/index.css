@@ -5316,6 +5316,10 @@ a.report-source:hover { color: var(--accent); text-decoration: underline; }
 }
 .tree-node-hidden-badge text {
   fill: var(--accent-ink);
+  /* A count is not a status letter: it reads as a quantity, not a shout. The
+     single-letter badges keep NodeBadge's 700 — a lone C or M needs the weight
+     to hold its circle — while "+24" has body enough at 500. */
+  font-weight: 500;
 }
 .tree-node-repeat:hover .tree-node-hidden-badge rect {
   fill: color-mix(in oklch, var(--accent) 82%, var(--text));
@@ -5459,6 +5463,8 @@ a.report-source:hover { color: var(--accent); text-decoration: underline; }
    conflicting (difference) fields. Applied to cells, not the <tr>, so the
    highlight stays put under border-collapse. */
 .tree-compare-table .field.conflict td { background: rgba(226, 179, 65, 0.08); }
+/* A major difference (conflicting name or birth year) reads red, like its node. */
+.tree-compare-table .field.conflict.major td { background: color-mix(in oklch, var(--state-major) 10%, transparent); }
 .tree-compare-table .field.incoming-only td { background: rgba(62, 207, 142, 0.07); }
 /* Group headers paint on the cell too (same reason as the field highlights). */
 .tree-compare-table .group-header-cell { background: var(--panel-2); }
@@ -6996,7 +7002,9 @@ kbd {
   flex: 0 0 auto;
 }
 
-/* Empty state: the file carries no coordinates at all. */
+/* Empty state: the file carries no coordinates at all. The message rides on the
+   same card as the map's own panels — bare text over tiles is unreadable at any
+   colour, since the background under each word is a different one. */
 .map-empty {
   position: absolute;
   inset: 0;
@@ -7005,10 +7013,29 @@ kbd {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
   text-align: center;
   pointer-events: none;
   padding: 0 24px;
+}
+.map-empty-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 46em;
+  padding: 14px 20px;
+  background: var(--panel);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 6px 24px rgb(0 0 0 / 0.3);
+}
+/* The card's own padding and gap do the spacing — the paragraphs' default
+   margins would double it and push the hint off centre. */
+.map-empty-card p {
+  margin: 0;
+}
+.map-empty-title {
+  color: var(--text);
+  font-weight: 600;
 }
 .map-empty-hint {
   color: var(--muted);

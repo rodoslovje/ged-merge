@@ -1112,8 +1112,12 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
         )}
         {!allPoints.length && (
           <div className="map-empty">
-            <p>{t("map.empty")}</p>
-            <p className="map-empty-hint">{t("map.emptyHint")}</p>
+            {/* The words sit on a card of their own: over map tiles, plain text
+                is unreadable whatever colour it takes. */}
+            <div className="map-empty-card">
+              <p className="map-empty-title">{t("map.empty")}</p>
+              <p className="map-empty-hint">{t("map.emptyHint")}</p>
+            </div>
           </div>
         )}
         {panel && (

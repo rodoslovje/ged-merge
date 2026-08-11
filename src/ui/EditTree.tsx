@@ -33,7 +33,7 @@ import { ChartSettings } from "./ChartSettings";
 import { ChartFindBox } from "./ChartFindBox";
 import { useChartFind } from "./useChartFind";
 import { useChartSettings } from "./ChartSettingsContext";
-import { useSettingsSlice } from "./SettingsContext";
+import { useNameOf, useSettingsSlice } from "./SettingsContext";
 import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 
 // Color for unmodified nodes (main pine green) and modified (amber/minor).
@@ -55,6 +55,11 @@ const EMPTY_MAPS = {
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
+
+/** Chart override for the name formatter when the chart's own Married-name
+ *  toggle is off; a module-level constant so useNameOf's formatter keeps a
+ *  stable identity across renders. */
+const NO_MARRIED_NAME = { marriedSurname: false } as const;
 
 interface Props {
   mainDs: Dataset;
@@ -87,6 +92,9 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
 
   const { settings } = useChartSettings();
   const appSettings = useSettingsSlice(SETTINGS_KEYS);
+  // Names read as the Name-display settings say (married surname, order, …) —
+  // the same formatter the lists, the timeline and the reports use.
+  const nameOf = useNameOf(settings.showMarriedName ? undefined : NO_MARRIED_NAME);
   const { alignment } = settings;
   // Grid is a layered chart (it reuses the tidy-tree SVG path); only fan/circle
   // are radial.
@@ -120,10 +128,10 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
   // radial chart — so switching direction or chart type never rebuilds a tree.
   const trees = useMemo(
     () => ({
-      ancestors: rootPerson ? buildPersonTree(t, rootPerson, undefined, mainDs, EMPTY_DS, EMPTY_MAPS, "ancestors") : undefined,
-      descendants: rootPerson ? buildPersonTree(t, rootPerson, undefined, mainDs, EMPTY_DS, EMPTY_MAPS, "descendants") : undefined,
+      ancestors: rootPerson ? buildPersonTree(t, rootPerson, undefined, mainDs, EMPTY_DS, EMPTY_MAPS, "ancestors", undefined, nameOf) : undefined,
+      descendants: rootPerson ? buildPersonTree(t, rootPerson, undefined, mainDs, EMPTY_DS, EMPTY_MAPS, "descendants", undefined, nameOf) : undefined,
     }),
-    [t, rootPerson, mainDs],
+    [t, rootPerson, mainDs, nameOf],
   );
   // How deep each direction goes, and the trees as the generation limit leaves
   // them. The full trees stay behind them for the head-counts and the "of N"
@@ -147,10 +155,12 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
   // What the "+N" marker says: the direction decides who is missing, and the
   // tooltip names the limit that hid them.
   const hiddenTitle = useCallback(
-    (count: number) =>
+    // `atLimit` lets a chart that ran out of room of its own (the radial rings)
+    // name its own cap instead of the generation setting's.
+    (count: number, atLimit?: number) =>
       t(effectiveMode === "ancestors" ? "tree.node.hiddenAncestors" : "tree.node.hiddenDescendants", {
         count,
-        limit: limit ?? 0,
+        limit: atLimit ?? limit ?? 0,
       }),
     [t, effectiveMode, limit],
   );
@@ -163,7 +173,9 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
     if (!display.showMarriageDate && !display.showMarriagePlace) return undefined;
     const fields = { date: display.showMarriageDate, place: display.showMarriagePlace };
     return (node: TreeNode) =>
-      display.privacyLiving && node.living ? undefined : formatMarriage(node.marriage, fields);
+      display.privacyLiving && node.living
+        ? undefined
+        : formatMarriage(node.marriage, fields, display.privacyLiving);
   }, [display.showMarriageDate, display.showMarriagePlace, display.privacyLiving]);
   const flat = useMemo(
     () =>
@@ -238,22 +250,12 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
     { hasPhoto, display, kinshipOf: fanKinshipOf },
   );
 
-  const fanBadgeOf = useCallback(
-    (n: TreeNode) => {
-      const dec = decisionOf(n);
-      if (dec) return { cls: `tree-node-decision ${dec.status}`, letter: dec.letter };
-      if (isModified(n)) return { fill: COLOR_MODIFIED, textFill: "var(--bg)", letter: t("edit.tree.modified").charAt(0) };
-      return undefined;
-    },
-    [decisionOf, isModified, t],
-  );
-
   const activeLaid = radial ? fanLaid : laid;
   const activeNodes = radial ? fanNodes : nodesByKey;
 
   // Viewport, grab-to-pan, zoom, root re-centring, and node selection.
   const { canvasRef, viewport, panning, scrollTo, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
-    useTreeCanvas(activeLaid, activeNodes, alignment, radial, nodeH);
+    useTreeCanvas(activeLaid, activeNodes, alignment, radial, nodeH, `${currentRootId}:${effectiveMode}:${settings.type}:${alignment}`);
 
   // Find-in-chart: every drawn position, in layout order (a shared ancestor is
   // drawn once per line of descent, so the same person yields several).
@@ -401,8 +403,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
                 onSelect={selectNode}
                 mainRecords={mainDs.records}
                 mainRefCtx={mainRefCtx}
-                badgeOf={display.showBadges ? fanBadgeOf : undefined}
-                showRepeat={display.showBadges}
+                showRepeat
                 onRepeatJump={find.jumpTo}
                 hiddenTitle={hiddenTitle}
                 onHiddenJump={(n) => n.main && changeRoot(n.main.id)}
@@ -420,9 +421,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
               flashKey={find.hitKey}
               onSelect={selectNode}
               colorOf={colorOf}
-              badgeOf={display.showBadges ? decisionOf : undefined}
-              modifiedOf={display.showBadges ? isModified : undefined}
-              showRepeat={display.showBadges}
+              showRepeat
               onRepeatJump={find.jumpTo}
               hiddenTitle={hiddenTitle}
               onHiddenJump={(n) => n.main && changeRoot(n.main.id)}

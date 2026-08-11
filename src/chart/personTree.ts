@@ -7,7 +7,7 @@ import { placeLabel } from "./nodeDisplay";
 import type { Translate } from "../locales/i18n";
 import type { MatchResult } from "../match/types";
 import { displayName, primaryName } from "../match/relatives";
-import { RELATIVE_PAIR_THRESHOLD, individualFieldRows, relativePersonSimilarity } from "../review/fields";
+import { RELATIVE_PAIR_THRESHOLD, individualFieldRows, isMajorDifference, relativePersonSimilarity } from "../review/fields";
 import { inferPlaceExportFormat } from "../normalize/profile";
 import type { PlaceTargetFormat } from "../normalize/types";
 
@@ -79,6 +79,11 @@ export interface TreeNode {
 export interface MarriageInfo {
   year?: string;
   place?: string;
+  /** Either spouse is presumed living or declared private. When a chart redacts
+   *  the living, the couple's date and place go with them: a wedding is as much
+   *  the living partner's data as their own birth, and printing "⚭ 1962
+   *  Ljubljana" between two blanked-out boxes gives away both. */
+  living?: boolean;
 }
 
 export interface MatchMaps {
@@ -119,6 +124,10 @@ export function buildPersonTree(
   maps: MatchMaps,
   mode: TreeMode,
   isRejected?: (mainId: string, compareId: string) => boolean,
+  /** How a person's name reads — the app's Name-display settings (married
+   *  surname, given-name order, …). Defaults to the plain primary name, which
+   *  is what the worker, with no settings to hand, has to use. */
+  nameOf: NameFormatter = primaryNameOf,
 ): TreeNode | undefined {
   // Occurrence count per person: pedigree collapse (and spouses who are also
   // blood relatives) repeat a person in several positions, and every occurrence
@@ -154,7 +163,7 @@ export function buildPersonTree(
     }
     const base = nodeKey(main, incoming);
     const key = claimKey(base);
-    const node = makeNode(t, key, main, incoming, mainDs, compareDs, placeFmt);
+    const node = makeNode(t, key, main, incoming, mainDs, compareDs, placeFmt, nameOf);
     const expandedAt = expanded.get(base);
     if (expandedAt !== undefined) {
       // Already expanded elsewhere: stop here and point at that position.
@@ -170,7 +179,7 @@ export function buildPersonTree(
       node.marriage =
         parentsMarriage(main, mainDs) ?? parentsMarriage(incoming, compareDs);
     } else {
-      const { partners, directChildren } = descend(t, main, incoming, mainDs, compareDs, maps, build, claimKey, expandedFams, placeFmt);
+      const { partners, directChildren } = descend(t, main, incoming, mainDs, compareDs, maps, build, claimKey, expandedFams, placeFmt, nameOf);
       node.partners = partners;
       node.children = directChildren;
     }
@@ -224,14 +233,23 @@ function unionsOf(indi: Individual | undefined, ds: Dataset): Union[] {
 
 /** The marriage display fields (year + most-specific locality) of a family's MARR
  *  event, or undefined when the family has neither recorded. */
-function marriageOf(fam: Family | undefined): MarriageInfo | undefined {
+function marriageOf(fam: Family | undefined, ds: Dataset): MarriageInfo | undefined {
   if (!fam) return undefined;
   const marr = fam.events.find((e) => e.tag === "MARR");
   if (!marr) return undefined;
   const year = marr.date?.year !== undefined ? String(marr.date.year) : undefined;
   const place = marr.place ? localityParts(marr.place)[0] : undefined;
   if (!year && !place) return undefined;
-  return { year, place };
+  return { year, place, ...(coupleLiving(fam, ds) ? { living: true } : null) };
+}
+
+/** Is either spouse presumed living (or declared private)? See
+ *  {@link MarriageInfo.living}. */
+export function coupleLiving(fam: Family, ds: Dataset): boolean {
+  return [fam.husband, fam.wife].some((id) => {
+    const p = id ? ds.individuals.get(id) : undefined;
+    return !!p && (isPresumedLiving(p, ds) || !!p.private);
+  });
 }
 
 /** The marriage of `indi`'s parents — the MARR of the family in which `indi` is a
@@ -247,7 +265,7 @@ function parentsMarriage(indi: Individual | undefined, ds: Dataset): MarriageInf
       (!father || f.husband === father.id || f.wife === father.id) &&
       (!mother || f.husband === mother.id || f.wife === mother.id),
   );
-  return marriageOf(match ?? fams[0]);
+  return marriageOf(match ?? fams[0], ds);
 }
 
 /**
@@ -272,6 +290,7 @@ function descend(
   claimKey: ClaimKey,
   expandedFams: Map<string, string | undefined>,
   placeFmt: PlaceTargetFormat,
+  nameOf: NameFormatter,
 ): { partners: TreeNode[]; directChildren: TreeNode[] } {
   const mainUnions = unionsOf(main, mainDs);
   const incomingUnions = unionsOf(incoming, compareDs);
@@ -286,6 +305,8 @@ function descend(
     famKeys: string[],
     childrenOf: () => TreeNode[],
     fam: Family | undefined,
+    /** The dataset `fam` belongs to — needed to read its spouses. */
+    famDs: Dataset,
   ) => {
     // Second (or later) time through this union: keep the couple and their
     // marriage, drop the line below. The children aren't built at all, so the
@@ -296,10 +317,10 @@ function descend(
       // Partner nodes claim a key too: a spouse who is also a blood relative
       // (or married twice into the tree) appears in several positions.
       const key = claimKey(nodeKey(mPartner, iPartner));
-      const node = makeNode(t, key, mPartner, iPartner, mainDs, compareDs, placeFmt);
+      const node = makeNode(t, key, mPartner, iPartner, mainDs, compareDs, placeFmt, nameOf);
       node.children = children;
       // The marriage belongs to this union — drawn on the person↔spouse line.
-      node.marriage = marriageOf(fam);
+      node.marriage = marriageOf(fam, famDs);
       if (seenAs !== undefined) {
         node.repeat = true;
         node.repeatOf = expandedFams.get(seenAs);
@@ -337,12 +358,12 @@ function descend(
     // Both sides' family xrefs identify the union — the two datasets number
     // their records independently, so the keys are side-prefixed.
     const keys = iu ? [`m:${mu.fam.id}`, `i:${iu.fam.id}`] : [`m:${mu.fam.id}`];
-    emit(mu.partner, iu?.partner, keys, () => pairChildren(mu.children, iu?.children ?? [], maps, build), mu.fam);
+    emit(mu.partner, iu?.partner, keys, () => pairChildren(mu.children, iu?.children ?? [], maps, build), mu.fam, mainDs);
   }
 
   incomingUnions.forEach((iu, idx) => {
     if (usedIncoming.has(idx)) return;
-    emit(undefined, iu.partner, [`i:${iu.fam.id}`], () => pairChildren([], iu.children, maps, build), iu.fam);
+    emit(undefined, iu.partner, [`i:${iu.fam.id}`], () => pairChildren([], iu.children, maps, build), iu.fam, compareDs);
   });
 
   return { partners, directChildren };
@@ -547,6 +568,7 @@ function makeNode(
   mainDs: Dataset,
   compareDs: Dataset,
   placeFmt: PlaceTargetFormat,
+  nameOf: NameFormatter,
 ): TreeNode {
   const status = nodeStatus(t, main, incoming, mainDs, compareDs, placeFmt);
   const primary = main ?? incoming!;
@@ -563,7 +585,7 @@ function makeNode(
     // Declared-private people redact exactly like the presumed-living.
     living: isPresumedLiving(main, mainDs) || isPresumedLiving(incoming, compareDs) || !!main?.private || !!incoming?.private,
     sex,
-    detail: describe(t, main, incoming, mainDs, compareDs, status, placeFmt),
+    detail: describe(t, main, incoming, mainDs, compareDs, status, placeFmt, nameOf),
     children: [],
     partners: [],
   };
@@ -581,8 +603,10 @@ function nodeStatus(
   if (!main && incoming) return "incoming-only";
 
   const rows = individualFieldRows(t, main, incoming, mainDs, compareDs, placeFmt);
-  const conflict = (k: string) => rows.find((r) => r.key === k)?.state === "conflict";
-  if (conflict("given") || conflict("surname") || birthYearConflict(main, incoming)) {
+  // Every row the compare panel paints red makes the node red too. The year
+  // check on top of that catches the cross-tag case no single row holds — one
+  // side dating the birth, the other only the baptism.
+  if (rows.some(isMajorDifference) || birthYearConflict(main, incoming)) {
     return "major";
   }
   // A row with `relatives` is a list of people, not a scalar field of the
@@ -600,6 +624,7 @@ function describe(
   compareDs: Dataset,
   status: NodeStatus,
   placeFmt: PlaceTargetFormat,
+  nameOf: NameFormatter,
 ): string {
   if (!main || !incoming) {
     const who = (main ?? incoming)!;
@@ -613,7 +638,10 @@ function describe(
   return diffs.map((r) => `${r.label}: ${r.main || "—"} / ${r.incoming || "—"}`).join("\n");
 }
 
-function nameOf(indi: Individual): string {
+/** How the charts render a person's name; see {@link buildPersonTree}. */
+export type NameFormatter = (indi: Individual) => string;
+
+function primaryNameOf(indi: Individual): string {
   return displayName(primaryName(indi));
 }
 

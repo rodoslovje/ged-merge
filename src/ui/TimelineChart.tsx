@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
-import { buildTimeline, type TimelineRow } from "../chart/timeline";
+import { buildTimeline, familyDepth, type TimelineRow } from "../chart/timeline";
 import { ageStandalone, formatMarriage, lifespanLine, livingLabelFor } from "../chart/nodeDisplay";
 import { lifespanAge } from "../gedcom/age";
 import { PAD, type ChartNode } from "../chart/treeLayout";
@@ -9,8 +9,6 @@ import { useTreeCanvas } from "./useTreeCanvas";
 import { ChartFindBox } from "./ChartFindBox";
 import { useChartFind } from "./useChartFind";
 import { createKinshipResolver, lineageClass } from "../match/kinship";
-import { useNodeStatus } from "./useNodeStatus";
-import type { CandidateDecision } from "../review/types";
 import { individualFieldRows } from "../review/fields";
 import { ChartPage } from "./ChartPage";
 import { ChartRootTitle } from "./ChartRootTitle";
@@ -46,6 +44,9 @@ const COLOR_FAMILY = "color-mix(in srgb, var(--node-main) 45%, var(--panel))";
 
 // ── Geometry (native, pre-zoom pixels) ───────────────────────────────────────
 const PX_PER_YEAR = 14;
+// How much of the years before the root person the chart opens on (see `laid`) —
+// about a generation, so their parents are already on the bar when it opens.
+const OPEN_LEAD_YEARS = 30;
 /** Top ruler band holding the year labels. */
 const AXIS_H = 26;
 const ROW_H = 46;
@@ -112,14 +113,16 @@ const TAPER_W = 12;
  *  140px apart, so density never needs to adapt to the span. */
 const TICK_STEP = 10;
 
+/** Chart override for the name formatter when the chart's own Married-name
+ *  toggle is off; a module-level constant so useNameOf's formatter keeps a
+ *  stable identity across renders. */
+const NO_MARRIED_NAME = { marriedSurname: false } as const;
+
 interface Props {
   mainDs: Dataset;
   rootId: string;
   startId?: string;
   /** Main ids with unsaved edits — those rows show the "M" chip. */
-  changedPersonIds?: Set<string>;
-  /** Merge decisions, so decided matches show their C/R/D chip here too. */
-  decisions?: Map<string, CandidateDecision>;
   /** Translated label for where Back lands (App knows the hub's origin). */
   backLabel: string;
   onBack: () => void;
@@ -132,11 +135,10 @@ interface Props {
   onRootChange: (id: string) => void;
 }
 
-export function TimelineChart({ mainDs, rootId: currentRootId, startId, changedPersonIds, decisions, backLabel, onBack, onNavigate, kindSwitcher, onRootChange }: Props) {
+export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabel, onBack, onNavigate, kindSwitcher, onRootChange }: Props) {
   const { t } = useTranslation();
-  const nameOf = useNameOf();
-  const nodeStatus = useNodeStatus(changedPersonIds, decisions);
   const { settings } = useChartSettings();
+  const nameOf = useNameOf(settings.showMarriedName ? undefined : NO_MARRIED_NAME);
   const appSettings = useSettingsSlice(SETTINGS_KEYS);
   // Identity-stable, so the memoized row handlers below don't rebuild every
   // render just because App passes a fresh callback.
@@ -146,10 +148,16 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, changedP
   // person themselves — every row's role already says the same thing.
   const showKinship = settings.showKinship && appSettings.showKinship && !!startId && startId !== currentRootId;
 
+  // How far the chart reaches: the shared Generations choice, which for the
+  // timeline counts both ways at once — ancestors above, descendants below.
+  const limit = settings.maxGenerations;
   const data = useMemo(
-    () => buildTimeline(t, mainDs, currentRootId, nameOf),
-    [t, mainDs, currentRootId, nameOf],
+    () => buildTimeline(t, mainDs, currentRootId, nameOf, undefined, limit),
+    [t, mainDs, currentRootId, nameOf, limit],
   );
+  // What the stepper's "of N" counts: the deeper of the two directions, always
+  // the full family, so raising the limit never has to rebuild anything first.
+  const depth = useMemo(() => familyDepth(mainDs, currentRootId), [mainDs, currentRootId]);
 
   // Photos need a loaded media folder.
   const { folderName } = useMediaFolder();
@@ -184,6 +192,13 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, changedP
     [mainDs, startId, t],
   );
 
+  // Kinship from the chart's own root, which is what a row's role means; the
+  // resolver above answers the other question (kinship to the start person).
+  const rootKinship = useMemo(
+    () => createKinshipResolver(mainDs, currentRootId, t),
+    [mainDs, currentRootId, t],
+  );
+
   // Redact people inferred to be living: label only (a bar would betray the
   // dates), name replaced by their kinship to the start person or "Living".
   const redacted = useCallback(
@@ -214,14 +229,18 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, changedP
     const rootRow = rows.find((r) => r.role === "person");
     const placed = (rootRow && nodesByKey.get(rootRow.key)) ?? [...nodesByKey.values()][0];
     if (!placed) return undefined;
-    // Pin the initial scroll to the chart's left edge, not the root's bar —
-    // the parents' bars (and labels) usually start earlier than the root.
-    const root = { ...placed, x: 0 };
+    // Open on the person's own bar, one generation of years to its left — far
+    // enough back that the parents' bars are already running, near enough that
+    // the person is on screen. The left edge won't do: with ancestors on the
+    // chart the axis can start two centuries before them, and the chart then
+    // opens on an empty stretch of gridlines. A person with no dated event has
+    // no bar to aim at (x is 0), and keeps the left edge.
+    const root = { ...placed, x: Math.max(0, placed.x - OPEN_LEAD_YEARS * PX_PER_YEAR) };
     return { root, width: geom.contentW + 2 * PAD, height: geom.contentH + 2 * PAD };
   }, [geom, rows, nodesByKey]);
 
   const { canvasRef, panning, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
-    useTreeCanvas(laid, nodesByKey, "lr", false, rowH);
+    useTreeCanvas(laid, nodesByKey, "lr", false, rowH, `${currentRootId}:${limit ?? "all"}`);
 
   // Find-in-chart. The timeline only draws the root's immediate family, so a
   // name that isn't here is common — the box then offers to re-root on them.
@@ -274,7 +293,15 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, changedP
    *  person carries no role chip — the highlight already marks them. The
    *  kinship-to-start renders as its own lineage-coloured tspan after this. */
   const rowMeta = (row: TimelineRow): string => {
-    const role = row.role !== "person" ? t(`timeline.role.${roleKey(row)}`) : undefined;
+    // "Great-grandmother" says what "Ancestor" cannot, and the kinship resolver
+    // already speaks both languages; the plain role stays as the fallback for a
+    // line it can't name (an adoptive step it doesn't follow, say).
+    const role =
+      row.role === "person"
+        ? undefined
+        : row.role === "ancestor" || row.role === "descendant"
+          ? rootKinship.label(row.id) || t(`timeline.role.${row.role}`)
+          : t(`timeline.role.${roleKey(row)}`);
     if (redacted(row)) return role ?? "";
     const age = lifespanAge(mainDs.individuals.get(row.id));
     const lifespan = lifespanLine(settings, {
@@ -310,7 +337,7 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, changedP
       }
       actions={
         <>
-          <ChartSettings lockedType="timeline" />
+          <ChartSettings lockedType="timeline" availableGenerations={depth} />
           <ChartExportMenu
             disabled={!laid}
             slug={chartSlug(rootRow?.name, pageKind)}
@@ -366,6 +393,11 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, changedP
                   if (!hidden) {
                     for (const m of row.marks) {
                       if (m.kind === "marriage") {
+                        // A wedding whose couple includes a living partner is
+                        // that person's data: with privacy on it leaves the
+                        // chart entirely, since the mark's place on the year
+                        // axis would give the date away with no label at all.
+                        if (settings.privacyLiving && m.marriage?.living) continue;
                         lane.push({
                           x: geom.xOf(m.year),
                           text: (marriageFields && m.marriage && formatMarriage(m.marriage, marriageFields)) || "⚭",
@@ -513,28 +545,6 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, changedP
                         {!hidden && row.from === undefined && (
                           <tspan className="timeline-row-meta" dx={8}>{t("timeline.undated")}</tspan>
                         )}
-                        {/* Working-state chips (decision C/R/D + unsaved-edit M) —
-                            text tspans here, matching the tree charts' badges. */}
-                        {settings.showBadges && !hidden && (() => {
-                          const dec = nodeStatus.decisionOf(row.id);
-                          const mod = nodeStatus.modifiedOf(row.id);
-                          return (
-                            <>
-                              {dec && (
-                                <tspan className={`timeline-row-badge ${dec.status}`} dx={8}>
-                                  {dec.letter}
-                                  <title>{t(`status.${dec.status}`)}</title>
-                                </tspan>
-                              )}
-                              {mod && (
-                                <tspan className="timeline-row-badge modified" dx={8}>
-                                  {nodeStatus.modifiedLetter}
-                                  <title>{t("edit.tree.modified")}</title>
-                                </tspan>
-                              )}
-                            </>
-                          );
-                        })()}
                       </text>
                     </g>
                   );

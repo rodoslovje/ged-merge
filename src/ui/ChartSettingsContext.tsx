@@ -26,7 +26,7 @@ const NON_PEDIGREE_KINDS = ["relationship", "timeline", "map", "report"] as cons
 
 /** The preferences this file reads — subscribed field by field, so an
  *  unrelated one changing leaves it alone (see useSettingsSlice). */
-const SETTINGS_KEYS = ["showAge"] as const;
+const SETTINGS_KEYS = ["showAge", "marriedSurname"] as const;
 
 export type { ChartAlignment };
 
@@ -49,9 +49,9 @@ export interface ChartSettings {
   showAge: boolean;
   /** Show a place line (first available of birth / residence / death). */
   showPlace: boolean;
-  /** Show the status badges on nodes — the merge-decision C/R/D letters, the
-   *  unsaved-edit "M" and the import "I" (Edit and Compare trees). */
-  showBadges: boolean;
+  /** Append a woman's married surname to her name, as the global Name-display
+   *  setting does elsewhere. Seeded from that setting and independent after. */
+  showMarriedName: boolean;
   /** Show the marriage year on the couple's connector / fan collar. */
   showMarriageDate: boolean;
   /** Show the marriage place on the couple's connector / fan collar. */
@@ -92,7 +92,7 @@ const DEFAULTS: ChartSettings = {
   showLifespan: true,
   showAge: false,
   showPlace: false,
-  showBadges: true,
+  showMarriedName: true,
   showMarriageDate: false,
   showMarriagePlace: false,
   maxGenerations: null,
@@ -142,15 +142,16 @@ export const ChartSettingsContext = createContext<ChartSettingsCtx>({
 });
 
 /**
- * Load the persisted chart settings. `defaultShowAge` seeds the Age toggle when
- * the stored blob doesn't pin it (a fresh user, or one from before the toggle
- * existed) — so charts follow the global "Show ages" preference by default, then
- * become independent the moment the user flips the per-chart toggle.
+ * Load the persisted chart settings. `defaults` seeds the two toggles that have
+ * a global counterpart — Age and Married name — when the stored blob doesn't pin
+ * them (a fresh user, or one from before the toggle existed). So a chart follows
+ * the global preference by default, and becomes independent of it the moment the
+ * user flips the chart's own toggle.
  */
-function load(defaultShowAge: boolean): ChartSettings {
+function load(defaults: { showAge: boolean; showMarriedName: boolean }): ChartSettings {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { ...DEFAULTS, showAge: defaultShowAge };
+    if (!raw) return { ...DEFAULTS, ...defaults };
     const parsed = JSON.parse(raw) as Partial<ChartSettings>;
     // Each field falls back to its default, so older saved blobs (which lack the
     // newer display/privacy flags) load cleanly.
@@ -167,9 +168,9 @@ function load(defaultShowAge: boolean): ChartSettings {
       showKinship: bool(parsed.showKinship, DEFAULTS.showKinship),
       showPhoto: bool(parsed.showPhoto, DEFAULTS.showPhoto),
       showLifespan: bool(parsed.showLifespan, DEFAULTS.showLifespan),
-      showAge: bool(parsed.showAge, defaultShowAge),
+      showAge: bool(parsed.showAge, defaults.showAge),
+      showMarriedName: bool(parsed.showMarriedName, defaults.showMarriedName),
       showPlace: bool(parsed.showPlace, DEFAULTS.showPlace),
-      showBadges: bool(parsed.showBadges, DEFAULTS.showBadges),
       showMarriageDate: bool(parsed.showMarriageDate, DEFAULTS.showMarriageDate),
       showMarriagePlace: bool(parsed.showMarriagePlace, DEFAULTS.showMarriagePlace),
       maxGenerations: clampGenerations(parsed.maxGenerations),
@@ -193,7 +194,7 @@ function load(defaultShowAge: boolean): ChartSettings {
       reportToc: bool(parsed.reportToc, DEFAULTS.reportToc),
     };
   } catch {
-    return { ...DEFAULTS, showAge: defaultShowAge };
+    return { ...DEFAULTS, ...defaults };
   }
 }
 
@@ -206,11 +207,13 @@ function save(settings: ChartSettings): void {
 }
 
 export function ChartSettingsProvider({ children }: { children: React.ReactNode }) {
-  // Seed the Age toggle from the global "Show ages" preference on first load, so
-  // charts honour it by default (SettingsProvider wraps this one, so the global
-  // value is already resolved synchronously here).
+  // Seed the Age and Married-name toggles from their global preferences on first
+  // load, so charts honour them by default (SettingsProvider wraps this one, so
+  // the global values are already resolved synchronously here).
   const appSettings = useSettingsSlice(SETTINGS_KEYS);
-  const [settings, setSettings] = useState<ChartSettings>(() => load(appSettings.showAge));
+  const [settings, setSettings] = useState<ChartSettings>(
+    () => load({ showAge: appSettings.showAge, showMarriedName: appSettings.marriedSurname }),
+  );
 
   const update = useCallback((patch: Partial<ChartSettings>) => {
     setSettings((prev) => {

@@ -684,7 +684,9 @@
             <h3>Comparing &amp; resolving conflicts</h3>
             <p>
               The compare panel highlights only fields that add <strong>new data</strong> or <strong>conflict</strong>.
-              For each conflicting field, choose which value to keep:
+              A disagreement over the given name, the surname or the birth year is a <strong>major difference</strong>
+              and is marked in red rather than amber — the same red the compare tree gives that person's node
+              (<a href="#legend">§15</a>). For each conflicting field, choose which value to keep:
             </p>
             <ul>
               <li><span class="gm-badge m">M</span> — keep the <strong>Main</strong> file's value</li>
@@ -1131,7 +1133,9 @@
               written down to an American, Australian or Canadian state only (<em>Hobart, Tasmania</em>) counts under the
               country that state belongs to. Everything else is gathered under <em>(country not stated)</em>: a value has
               to name a country to be filed under one, and the last thing after a comma is usually a patron saint or a
-              hospital rather than a country. The same buttons, on the same reading, sit above the addresses list and
+              hospital rather than a country. Only the countries with work on them are shown: a country the other
+              filters have emptied leaves the row until it has rows again — the one you are standing on stays, at zero,
+              so you can always step off it. The same buttons, on the same reading, sit above the addresses list and
               both halves of the naming check.
             </p>
             <p>
@@ -1429,7 +1433,11 @@
               <li><strong>Tree</strong>, <strong>Grid</strong>, <strong>Fan</strong> and <strong>Circle</strong> — the
                 four pedigree styles. <em>Tree</em> is the tidy layered family tree; <em>Grid</em> aligns generations into
                 columns (a pedigree grid for ancestors, an indented outline for descendants); <em>Fan</em> and
-                <em>Circle</em> are radial ancestor charts (ancestors only — there's no descendants view to fan out).</li>
+                <em>Circle</em> are radial ancestor charts (ancestors only — there's no descendants view to fan out).
+                They draw eight rings of ancestors, as far as the labels stay readable — the seventh drops the place, the
+                eighth keeps the name alone; anyone above that is counted on
+                the outermost ring's <span class="gm-badge rep">+7</span> marker, and clicking it re-draws the chart
+                from that person.</li>
               <li><strong>Timeline</strong> — the immediate family as lifespan bars along one shared year axis; see
                 below.</li>
               <li><strong>Relationship</strong> (<span class="gm-key">S</span>) — traces how the selected person is
@@ -1456,17 +1464,20 @@
                 choose.</li>
               <li><strong>Generations</strong> — how far the chart reaches from its root person. Step down from
                 <em>All</em> to draw only the nearest few generations; the reading is “<em>4 of 9</em>” — how many are
-                drawn of how many exist. It is one shared choice: the Tree, Grid, Fan, Circle, the Report and the Map
-                all follow it. Where a chart is cut short, the last person drawn carries a
+                drawn of how many exist. It is one shared choice: the Tree, Grid, Fan, Circle, the Timeline (which counts
+                it both ways at once, ancestors above and descendants below), the Report and the Map all follow it. Where a chart is cut short, the last person drawn carries a
                 <span class="gm-badge rep">+7</span> pill counting the relatives above or below them that aren't shown
                 — click it to re-root the chart on that person and carry on down (or up) the line. The page header and
                 every export then read <em>4 of 9 generations</em>, and a shortened Report closes with a line naming the
                 generations it left off.</li>
               <li><strong>Person</strong> — toggle what each node shows: <em>Lifespan</em>, <em>Age</em>,
-                <em>Place</em>, <em>Photo</em> (when a media folder is loaded), <em>Kinship</em> (the relationship label
-                to your start person; not drawn on Fan/Circle) and <strong>Badges</strong> (the working-state letters —
-                see <a href="#legend">§15</a> — on by default). This group isn't shown while the Report or the Map is
-                open; switch to another kind to change it, and the Report picks up whatever it's set to.</li>
+                <em>Place</em>, <em>Photo</em> (offered only while a media folder is loaded), <em>Kinship</em> (the
+                relationship label to your start person; not drawn on Fan/Circle) and <em>Married surname</em>. The last
+                one starts out matching <em>Show married surname</em> in Settings → Names (<a href="#workspace">§2</a>)
+                and goes its own way the moment you touch it — so a woman can read as <em>Ana Novak (Kovač)</em>
+                everywhere else and under her maiden name alone on a chart you are printing. This group isn't shown
+                while the Report or the Map is open; switch to another kind to change it, and the Report picks up
+                whatever it's set to.</li>
               <li><strong>Marriage</strong> — add the marriage <em>Date</em> and/or <em>Place</em> to each couple's
                 connector (the fan / circle collar, or beside the Timeline's <span aria-hidden="true">⚭</span> markers).
                 Both off by default.</li>
@@ -1476,7 +1487,8 @@
               <li><strong>Facts</strong> and <strong>Structure</strong> (Report only) — see <a href="#reports">below</a>.</li>
               <li><strong>Privacy</strong> — <em>Hide living people</em> redacts anyone inferred to be living, showing
                 only their relationship or “Living” (see <a href="#privacy">§18</a>), so the diagram is safe to
-                share.</li>
+                share. A marriage goes with them: a couple with one living partner shows no year or place, on any
+                diagram, because a wedding is as much that person's data as their own birth.</li>
             </ul>
             <p>
               The Map's own filters — event kinds, the year window and life paths — sit in a filter bar on the map page
@@ -1556,7 +1568,11 @@
               The <strong>Timeline</strong> kind draws the selected person's immediate family as horizontal lifespan bars
               on one shared year axis: parents (and a step-parent row, if one remarried) above, the person's own
               generation — siblings and half-siblings interleaved by birth order — beside them, then each union's spouse
-              and children (and step-children) below. Small glyphs mark dated events on each bar
+              and children (and step-children) below. A step-parent's row stands where that marriage begins (its wedding,
+              else its first child), so the children above it belong to the marriage above them. <em>Generations</em>
+              (<a href="#charts">§11</a>) reaches the chart further in both directions at once — grandparents and beyond
+              above, grandchildren and beyond below, each labelled with their exact kinship; past the immediate family
+              only the blood line continues, since a grandchild's other parent belongs to their own timeline. Small glyphs mark dated events on each bar
               (<span aria-hidden="true">*</span> born, <span aria-hidden="true">~</span> baptized,
               <span aria-hidden="true">†</span> died, <span aria-hidden="true">▭</span> buried,
               <span aria-hidden="true">⌂</span> residence, <span aria-hidden="true">⚒</span> occupation,
@@ -2016,9 +2032,10 @@
               </tbody>
             </table>
             <p><strong>Status badges</strong> — round chips on candidate rows (Merge), on the relatives listed in the
-              compare panel, and on every chart's nodes or entries. The <strong>Badges</strong> toggle in Chart settings (<a href="#charts">§11</a>) shows or hides these on charts; on the
-              Merge match list, confirmed and deferred badges always show — a rejected match is removed from the list
-              instead of being badged there (see <a href="#merge">§9</a>).</p>
+              compare panel, and on the Compare Tree's nodes, where a decision is what the view is for. The other
+              charts leave them off: they draw the family, not your working state. On the Merge match list, confirmed
+              and deferred badges always show — a rejected match is removed from the list instead of being badged
+              there (see <a href="#merge">§9</a>).</p>
             <table class="gm-table">
               <thead><tr><th>Badge</th><th>Meaning</th></tr></thead>
               <tbody>
@@ -2103,6 +2120,7 @@
                 <tr><td><span class="gm-key">+</span> / <span class="gm-key">−</span></td><td>Zoom in / out</td></tr>
                 <tr><td><span class="gm-key">0</span></td><td>Reset zoom to 100%</td></tr>
                 <tr><td><span class="gm-key">F</span></td><td>Fit the whole chart on screen</td></tr>
+                <tr><td><span class="gm-key">H</span></td><td>Draw the chart for the start person</td></tr>
               </tbody>
             </table>
           </section>

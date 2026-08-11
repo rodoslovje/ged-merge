@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { Translate } from "../locales/i18n";
 import type { Dataset } from "../gedcom/types";
 import type { IndividualCandidate } from "../match/types";
-import { individualFieldRows } from "../review/fields";
+import { individualFieldRows, isMajorDifference } from "../review/fields";
 import { mergePlaceFormat } from "../merge/merge";
 import { FieldValue, LinkIcons, RelativeGrid } from "./FieldValue";
 import { SourceRefs } from "./SourceRef";
@@ -269,7 +269,7 @@ export function ComparePanel({
             // line inside the grid so a name beneath the first reads as covered.
             // Children instead get a per-child take/skip toggle (`renderPair`).
             return (
-              <tr key={row.key} className={`field ${row.state}`}>
+              <tr key={row.key} className={`field ${row.state}${isMajorDifference(row) ? " major" : ""}`}>
                 {/* A relatives row compares the two lists as text, so a
                     relative's differing years colour it — but those years only
                     identify the person here; their own data merges from their

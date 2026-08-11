@@ -191,7 +191,9 @@ describe("relationshipChartLayout", () => {
     const chart = buildRelationshipChart(ds, bloodPath(ds, "@I1@", "@I8@")!);
     // The common-ancestor couple (I4/I5) records a MARR; their partner line gets it.
     const link = chart.links.find((l) => l.id === "p~@I4@~@I5@")!;
-    expect(link.marriage).toEqual({ year: "1800", place: "Kranj" });
+    // Undated people read as presumed living, so the couple is flagged: the
+    // chart drops the label when privacy is on.
+    expect(link.marriage).toEqual({ year: "1800", place: "Kranj", living: true });
     expect(link.mid).toBeDefined();
     // A couple with no MARR (I2/I3) leaves the link's marriage undefined.
     expect(chart.links.find((l) => l.id === "p~@I2@~@I3@")!.marriage).toBeUndefined();

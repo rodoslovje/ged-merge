@@ -7,7 +7,7 @@ import { canonicalPlaceToken, placeCompareKey } from "../match/place";
 import { comparableName, dateCompareKey, givenSimilarity, nameSimilarity } from "../match/similarity";
 import { findEvent, fullDatesLabel, lifespanLabel, displayName, nameTypeLabel } from "../match/relatives";
 import { birthDateOf, formatLifespan, isDeceased } from "../gedcom/lifespan";
-import { dateToSortKey } from "../gedcom/date";
+import { dateToSortKey, parseDate } from "../gedcom/date";
 import { ageBetween, coupleAgesDisplay, fullAgeBetween, lifespanAge, type AgeBadge } from "../gedcom/age";
 import type { Translate } from "../locales/i18n";
 import type { FieldRow, FieldState, RelativePair, RelativeCell } from "./types";
@@ -1112,6 +1112,26 @@ function sourcesState(
 function extraNameText(n: import("../gedcom/types").PersonName, t: Translate): string {
   const name = displayName(n);
   return n.type ? `${name} (${nameTypeLabel(n.type, t)})` : name;
+}
+
+/** Date rows that carry a person's birth year — birth, else baptism/christening
+ *  as a proxy, the same evidence `birthYear` reads. Matches both the plain
+ *  `BIRT.date` key and a repeated event's `BIRT.1.date`. */
+const BIRTH_DATE_ROW = /^(BIRT|BAPM|CHR)(\.\d+)?\.date$/;
+
+/**
+ * Does this row disagree about *who the person is*, rather than about a detail
+ * to reconcile? A conflicting given name or surname, or two birth dates naming
+ * different years — the same evidence the compare tree paints a node red for
+ * (see `nodeStatus` in chart/personTree), so a row and its node agree.
+ */
+export function isMajorDifference(row: FieldRow): boolean {
+  if (row.state !== "conflict") return false;
+  if (row.key === "given" || row.key === "surname") return true;
+  if (!BIRTH_DATE_ROW.test(row.key)) return false;
+  const mainYear = parseDate(row.main).year;
+  const incomingYear = parseDate(row.incoming).year;
+  return mainYear !== undefined && incomingYear !== undefined && mainYear !== incomingYear;
 }
 
 function stateOf(key: string, main: string, incoming: string): FieldState {

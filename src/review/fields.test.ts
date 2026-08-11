@@ -3,7 +3,7 @@ import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { inferMainProfile } from "../normalize/profile";
 import { normalizeDataset } from "../normalize/normalize";
-import { familyMergeKeyBases, fieldDiffCounts, individualFieldRows, pairedMainFamilies } from "./fields";
+import { familyMergeKeyBases, fieldDiffCounts, individualFieldRows, isMajorDifference, pairedMainFamilies } from "./fields";
 import type { FieldRow } from "./types";
 
 function dataset(text: string) {
@@ -576,6 +576,47 @@ describe("fieldDiffCounts", () => {
     const m = dataset(`0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE 1900\n0 TRLR\n`);
     const rows = individualFieldRows(tr, m.individuals.get("@I1@"), m.individuals.get("@I1@"));
     expect(fieldDiffCounts(rows)).toEqual({ newCount: 0, diffCount: 0, linkCount: 0 });
+  });
+});
+
+describe("isMajorDifference", () => {
+  const rowsOf = (mainGed: string, compareGed: string): FieldRow[] => {
+    const m = dataset(`0 HEAD\n0 @I1@ INDI\n${mainGed}0 TRLR\n`);
+    const c = dataset(`0 HEAD\n0 @P1@ INDI\n${compareGed}0 TRLR\n`);
+    return individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"));
+  };
+  const major = (rows: FieldRow[]): string[] => rows.filter(isMajorDifference).map((r) => r.key);
+
+  it("marks a conflicting given name, surname and birth year", () => {
+    const rows = rowsOf(
+      `1 NAME Ana /Novak/\n1 BIRT\n2 DATE 1900\n`,
+      `1 NAME Marija /Kovač/\n1 BIRT\n2 DATE 12 MAR 1901\n`,
+    );
+    expect(major(rows)).toEqual(["given", "surname", "BIRT.date"]);
+  });
+
+  it("leaves a birth date that only grows more exact as an ordinary difference", () => {
+    const rows = rowsOf(`1 NAME A /B/\n1 BIRT\n2 DATE 1900\n`, `1 NAME A /B/\n1 BIRT\n2 DATE 12 MAR 1900\n`);
+    expect(rows.find((r) => r.key === "BIRT.date")?.state).toBe("conflict");
+    expect(major(rows)).toEqual([]);
+  });
+
+  it("leaves other conflicting fields, and one-sided names, alone", () => {
+    const rows = rowsOf(
+      `1 NAME A /B/\n1 BIRT\n2 PLAC Kranj\n1 DEAT\n2 DATE 1950\n`,
+      `1 NAME A /B/ /*/\n1 BIRT\n2 PLAC Ljubljana\n1 DEAT\n2 DATE 1970\n`,
+    );
+    expect(major(rows)).toEqual([]);
+  });
+
+  // Baptism stands in for the birth year when a file records no birth — the
+  // same fallback the compare tree reads, so the two agree on such a record.
+  it("reads a paired baptism's year", () => {
+    const rows = rowsOf(
+      `1 NAME A /B/\n1 BAPM\n2 DATE 28 DEC 1900\n`,
+      `1 NAME A /B/\n1 BAPM\n2 DATE 3 JAN 1901\n`,
+    );
+    expect(major(rows)).toEqual(["BAPM.date"]);
   });
 });
 

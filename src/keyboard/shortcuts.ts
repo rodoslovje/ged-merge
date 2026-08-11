@@ -39,6 +39,8 @@ export const CHART_KEY = {
   fit: "f",
   ancestors: "a",
   descendants: "d",
+  /** Draw the chart for the start person — Edit's "go home", one letter for both. */
+  home: KEY.home,
 } as const;
 
 type ActiveStatus = Exclude<MatchDecisionStatus, "undecided">;
@@ -175,6 +177,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: [["+"], ["−"]], descKey: "shortcuts.item.chartZoom" },
       { keys: [[CHART_KEY.zoomReset]], descKey: "shortcuts.item.chartZoomReset" },
       { keys: [[CHART_KEY.fit.toUpperCase()]], descKey: "shortcuts.item.chartFit" },
+      { keys: [[CHART_KEY.home.toUpperCase()]], descKey: "shortcuts.item.chartHome" },
     ],
   },
 ];

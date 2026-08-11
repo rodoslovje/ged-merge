@@ -3,7 +3,7 @@ import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { displayName, primaryName } from "../match/relatives";
 import type { Individual } from "../gedcom/types";
-import { buildTimeline, type TimelineRow } from "./timeline";
+import { buildTimeline, familyDepth, type TimelineRow } from "./timeline";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -56,23 +56,92 @@ describe("buildTimeline", () => {
   const ds = dataset(FAMILY);
   const data = buildTimeline(tr, ds, "@I1@", nameOf, NOW)!;
 
-  it("orders rows: parents, step-parents, generation by birth, spouse, children", () => {
+  it("orders rows: parents, generation by birth, spouse, children", () => {
     expect(data.rows.map((r) => r.id)).toEqual([
       "@I2@", // father
       "@I3@", // mother
-      "@I9@", // step-mother (father's second wife)
       "@I4@", // older sister (1898)
       "@I1@", // root (1900)
       "@I5@", // younger brother (1903)
-      "@I10@", // half-brother (1936), interleaved by birth
+      "@I9@", // step-mother, at her wedding (1935) — after the first wife's children
+      "@I10@", // her son, the half-brother (1936)
       "@I6@", // wife
       "@I11@", // her daughter from an earlier union (1922) — step-daughter
       "@I7@", // son (1926)
       "@I8@", // undated daughter
     ]);
     expect(data.rows.map((r) => r.role)).toEqual([
-      "parent", "parent", "stepparent", "sibling", "person", "sibling", "halfsibling", "spouse", "stepchild", "child", "child",
+      "parent", "parent", "sibling", "person", "sibling", "stepparent", "halfsibling", "spouse", "stepchild", "child", "child",
     ]);
+  });
+
+  it("places an undated second union by its first child", () => {
+    // The father's second family loses its MARR: the step-mother then stands
+    // where her first child does, still below the first wife's children.
+    const ds2 = dataset(FAMILY.replace("0 @F3@ FAM\n1 HUSB @I2@\n1 WIFE @I9@\n1 CHIL @I10@\n1 MARR\n2 DATE 1935\n",
+      "0 @F3@ FAM\n1 HUSB @I2@\n1 WIFE @I9@\n1 CHIL @I10@\n"));
+    const ids = buildTimeline(tr, ds2, "@I1@", nameOf, NOW)!.rows.map((r) => r.id);
+    expect(ids.slice(0, 7)).toEqual(["@I2@", "@I3@", "@I4@", "@I1@", "@I5@", "@I9@", "@I10@"]);
+  });
+
+  it("stands a union dated by nothing on the partner's own birth", () => {
+    // No wedding, no children: nothing says when it began, so the step-mother
+    // takes her own birth (1905) rather than a guess at the union.
+    const ds3 = dataset(FAMILY.replace("0 @F3@ FAM\n1 HUSB @I2@\n1 WIFE @I9@\n1 CHIL @I10@\n1 MARR\n2 DATE 1935\n",
+      "0 @F3@ FAM\n1 HUSB @I2@\n1 WIFE @I9@\n"));
+    const ids = buildTimeline(tr, ds3, "@I1@", nameOf, NOW)!.rows.map((r) => r.id);
+    expect(ids.slice(0, 6)).toEqual(["@I2@", "@I3@", "@I4@", "@I1@", "@I5@", "@I9@"]);
+  });
+
+  it("reaches further when the generation limit says so", () => {
+    // A grandfather above the father, and a grandson below the son.
+    const deep = dataset(
+      FAMILY.replace("1 FAMS @F1@\n1 FAMS @F3@\n", "1 FAMS @F1@\n1 FAMS @F3@\n1 FAMC @F5@\n")
+        .replace("0 @F1@ FAM\n", "0 @I12@ INDI\n1 NAME Jakob /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1840\n1 FAMS @F5@\n" +
+          "0 @I13@ INDI\n1 NAME Tine /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1950\n1 FAMC @F6@\n" +
+          "0 @F5@ FAM\n1 HUSB @I12@\n1 CHIL @I2@\n" +
+          "0 @F6@ FAM\n1 HUSB @I7@\n1 CHIL @I13@\n0 @F1@ FAM\n")
+        .replace("0 @I7@ INDI\n1 NAME Peter /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1926\n1 FAMC @F2@\n",
+          "0 @I7@ INDI\n1 NAME Peter /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1926\n1 FAMC @F2@\n1 FAMS @F6@\n"),
+    );
+    const one = buildTimeline(tr, deep, "@I1@", nameOf, NOW)!.rows.map((r) => r.id);
+    expect(one).not.toContain("@I12@");
+    expect(one).not.toContain("@I13@");
+
+    const two = buildTimeline(tr, deep, "@I1@", nameOf, NOW, 2)!;
+    // The grandfather opens the chart (oldest generation first) and the grandson
+    // closes it; both under the open-ended roles the kinship label names.
+    expect(two.rows[0]).toMatchObject({ id: "@I12@", role: "ancestor" });
+    expect(two.rows[two.rows.length - 1]).toMatchObject({ id: "@I13@", role: "descendant" });
+    // "All" reaches at least as far.
+    expect(buildTimeline(tr, deep, "@I1@", nameOf, NOW, null)!.rows.map((r) => r.id)).toContain("@I12@");
+  });
+
+  it("keeps an ancestor couple together, at the elder's place in the years", () => {
+    // Two grandparent couples whose births interleave: he 1840 + she 1846,
+    // and he 1842 + she 1844. By birth alone the four would deal out
+    // 1840, 1842, 1844, 1846 — every couple split by somebody else's spouse.
+    const ds4 = dataset(wrap(
+      "0 @R@ INDI\n1 NAME Root /X/\n1 SEX M\n1 BIRT\n2 DATE 1900\n1 FAMC @FA@\n" +
+      "0 @F@ INDI\n1 NAME Father /X/\n1 SEX M\n1 BIRT\n2 DATE 1870\n1 FAMS @FA@\n1 FAMC @FB@\n" +
+      "0 @M@ INDI\n1 NAME Mother /Y/\n1 SEX F\n1 BIRT\n2 DATE 1872\n1 FAMS @FA@\n1 FAMC @FC@\n" +
+      "0 @GF1@ INDI\n1 NAME Grandpa /X/\n1 SEX M\n1 BIRT\n2 DATE 1840\n1 FAMS @FB@\n" +
+      "0 @GM1@ INDI\n1 NAME Grandma /X/\n1 SEX F\n1 BIRT\n2 DATE 1846\n1 FAMS @FB@\n" +
+      "0 @GF2@ INDI\n1 NAME Grandpa /Y/\n1 SEX M\n1 BIRT\n2 DATE 1842\n1 FAMS @FC@\n" +
+      "0 @GM2@ INDI\n1 NAME Grandma /Y/\n1 SEX F\n1 BIRT\n2 DATE 1844\n1 FAMS @FC@\n" +
+      "0 @FA@ FAM\n1 HUSB @F@\n1 WIFE @M@\n1 CHIL @R@\n" +
+      "0 @FB@ FAM\n1 HUSB @GF1@\n1 WIFE @GM1@\n1 CHIL @F@\n" +
+      "0 @FC@ FAM\n1 HUSB @GF2@\n1 WIFE @GM2@\n1 CHIL @M@\n",
+    ));
+    const ids = buildTimeline(tr, ds4, "@R@", nameOf, NOW, 2)!.rows.map((r) => r.id);
+    expect(ids.slice(0, 4)).toEqual(["@GF1@", "@GM1@", "@GF2@", "@GM2@"]);
+  });
+
+  it("counts the generations the family has to offer", () => {
+    // Parents above, children below: one each way.
+    expect(familyDepth(ds, "@I1@")).toBe(1);
+    expect(familyDepth(ds, "@I2@")).toBe(2); // father → his children → their children
+    expect(familyDepth(ds, "nobody")).toBe(0);
   });
 
   it("spans the axis over every bar and mark", () => {
