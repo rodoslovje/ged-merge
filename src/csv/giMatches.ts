@@ -1,5 +1,6 @@
 import { buildDataset } from "../gedcom/builder";
 import { parseDate } from "../gedcom/date";
+import { sexFromGivenName } from "../gedcom/nameSex";
 import type { Dataset, GedNode, ParseResult, Sex } from "../gedcom/types";
 import { foldToken } from "../match/text";
 
@@ -523,6 +524,7 @@ function parsePersonMatches(dataRows: string[][], layout: ColumnLayout): GiMatch
 
   // The CSV's own rows first: they carry the index's main-side key, and a
   // relative that resolves to the same main individual is dropped as a duplicate.
+  inferSexFromNames(people);
   settleGuessedRoles(people);
   const pairs: GiPair[] = rows.map(({ mainKey, compareId }) => ({ mainKey, compareId }));
   for (const [compareId, mainKey] of people.relativeKeys) pairs.push({ mainKey, compareId });
@@ -671,6 +673,24 @@ function coupleFam(
   if (!rolesKnown) people.guessedRoles.set(fallbackId, record);
   for (const id of [husbId, wifeId]) if (id) addPointer(people, id, "FAMS", fallbackId);
   return { id: fallbackId, node: record, fresh: true };
+}
+
+/**
+ * Give a sex to everyone the CSV never stated one for, from their given name.
+ * The index export has no sex column at all: only a father, a mother, a family
+ * row's own two columns and an old-format "Mož:"/"Žena:" partner say it
+ * outright, so without this most of an imported file — every child, and every
+ * person of a row whose partner carries no role marker — arrives sexless.
+ *
+ * Runs before {@link settleGuessedRoles}, so a couple whose spouse slots were
+ * only a guess can be put right by the names as well.
+ */
+function inferSexFromNames(people: People): void {
+  for (const [id, record] of people.indi) {
+    // "Marija /Hvasti/" → "Marija". addSex leaves a stated sex alone.
+    const given = (record.children.find((c) => c.tag === "NAME")?.value ?? "").split("/")[0];
+    addSex(people, id, sexFromGivenName(given));
+  }
 }
 
 /**
@@ -1001,6 +1021,7 @@ function parseFamilyMatches(dataRows: string[][], index: Record<FamilyField, num
     addPointer(people, compareId, "FAMC", fam.id);
   }
 
+  inferSexFromNames(people);
   settleGuessedRoles(people);
   for (const [compareId, mainKey] of people.relativeKeys) pairs.push({ mainKey, compareId });
   return finish(people.records, pairs);
