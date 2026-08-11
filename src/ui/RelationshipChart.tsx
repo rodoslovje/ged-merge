@@ -281,7 +281,7 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
                 ))}
                 {marriageFields &&
                   chart.links.map((e) => {
-                    const text = e.mid && formatMarriage(e.marriage, marriageFields);
+                    const text = e.mid && formatMarriage(e.marriage, marriageFields, settings.privacyLiving);
                     return text && e.mid ? (
                       <text
                         key={`${e.id}-m`}

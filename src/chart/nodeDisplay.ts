@@ -53,10 +53,14 @@ export interface MarriageFields {
  * recorded, so callers render nothing.
  */
 export function formatMarriage(
-  marriage: { year?: string; place?: string } | undefined,
+  marriage: { year?: string; place?: string; living?: boolean } | undefined,
   fields: MarriageFields,
+  /** Redacting the living (the charts' privacy switch): a couple with a living
+   *  partner then has no label at all — the wedding is that person's data. */
+  redactLiving = false,
 ): string | undefined {
   if (!marriage) return undefined;
+  if (redactLiving && marriage.living) return undefined;
   const parts = [fields.date ? marriage.year : undefined, fields.place ? marriage.place : undefined].filter(Boolean);
   if (!parts.length) return undefined;
   return `${MARRIAGE_SYMBOL} ${parts.join(" ")}`;

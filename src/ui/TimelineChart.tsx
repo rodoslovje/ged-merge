@@ -393,6 +393,11 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
                   if (!hidden) {
                     for (const m of row.marks) {
                       if (m.kind === "marriage") {
+                        // A wedding whose couple includes a living partner is
+                        // that person's data: with privacy on it leaves the
+                        // chart entirely, since the mark's place on the year
+                        // axis would give the date away with no label at all.
+                        if (settings.privacyLiving && m.marriage?.living) continue;
                         lane.push({
                           x: geom.xOf(m.year),
                           text: (marriageFields && m.marriage && formatMarriage(m.marriage, marriageFields)) || "⚭",

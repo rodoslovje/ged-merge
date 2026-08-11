@@ -14,7 +14,7 @@ import { lifespanOf } from "../gedcom/lifespan";
 import { NODE_H, NODE_W, PAD, type ChartAlignment } from "./treeLayout";
 import { localityParts } from "../gedcom/place";
 import { displayName, primaryName } from "../match/relatives";
-import type { MarriageInfo } from "./personTree";
+import { coupleLiving, type MarriageInfo } from "./personTree";
 import type { RelationshipPath } from "../match/relationshipPath";
 
 export const ROW_GAP_TD = 72;
@@ -281,7 +281,7 @@ function coupleMarriage(ds: Dataset, a: string, b: string): MarriageInfo | undef
     if (!marr) return undefined;
     const year = marr.date?.year !== undefined ? String(marr.date.year) : undefined;
     const place = marr.place ? localityParts(marr.place)[0] : undefined;
-    return year || place ? { year, place } : undefined;
+    return year || place ? { year, place, ...(coupleLiving(fam, ds) ? { living: true } : null) } : undefined;
   }
   return undefined;
 }

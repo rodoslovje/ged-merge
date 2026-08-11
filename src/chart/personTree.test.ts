@@ -331,13 +331,26 @@ describe("buildPersonTree (marriage)", () => {
 
   it("attaches the parents' marriage to the child node (ancestor mode)", () => {
     const root = buildPersonTree(tr, ds.individuals.get("@I1@"), undefined, ds, ds, emptyMaps, "ancestors")!;
-    expect(root.marriage).toEqual({ year: "1900", place: "Kranj" });
+    expect(root.marriage).toEqual({ year: "1900", place: "Kranj", living: true });
   });
 
   it("attaches the union's marriage to the partner node (descendant mode)", () => {
     const root = buildPersonTree(tr, ds.individuals.get("@I2@"), undefined, ds, ds, emptyMaps, "descendants")!;
     const spouse = root.partners.find((p) => p.name === "Marija Novak")!;
-    expect(spouse.marriage).toEqual({ year: "1900", place: "Kranj" });
+    expect(spouse.marriage).toEqual({ year: "1900", place: "Kranj", living: true });
+  });
+
+  it("flags a couple only while a partner may still be living", () => {
+    // Both spouses dead and long buried: the wedding is nobody's private data,
+    // so the label survives the privacy switch.
+    const past = dataset(wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMC @F1@\n" +
+        "0 @I2@ INDI\n1 NAME Anton /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1870\n1 DEAT\n2 DATE 1940\n1 FAMS @F1@\n" +
+        "0 @I3@ INDI\n1 NAME Marija /Novak/\n1 SEX F\n1 BIRT\n2 DATE 1872\n1 DEAT\n2 DATE 1945\n1 FAMS @F1@\n" +
+        "0 @F1@ FAM\n1 HUSB @I2@\n1 WIFE @I3@\n1 CHIL @I1@\n1 MARR\n2 DATE 12 JAN 1900\n2 PLAC Kranj, Slovenija\n",
+    ));
+    const root = buildPersonTree(tr, past.individuals.get("@I1@"), undefined, past, past, emptyMaps, "ancestors")!;
+    expect(root.marriage).toEqual({ year: "1900", place: "Kranj" });
   });
 
   it("leaves marriage undefined when the family records no MARR", () => {

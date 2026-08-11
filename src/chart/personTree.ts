@@ -79,6 +79,11 @@ export interface TreeNode {
 export interface MarriageInfo {
   year?: string;
   place?: string;
+  /** Either spouse is presumed living or declared private. When a chart redacts
+   *  the living, the couple's date and place go with them: a wedding is as much
+   *  the living partner's data as their own birth, and printing "⚭ 1962
+   *  Ljubljana" between two blanked-out boxes gives away both. */
+  living?: boolean;
 }
 
 export interface MatchMaps {
@@ -228,14 +233,23 @@ function unionsOf(indi: Individual | undefined, ds: Dataset): Union[] {
 
 /** The marriage display fields (year + most-specific locality) of a family's MARR
  *  event, or undefined when the family has neither recorded. */
-function marriageOf(fam: Family | undefined): MarriageInfo | undefined {
+function marriageOf(fam: Family | undefined, ds: Dataset): MarriageInfo | undefined {
   if (!fam) return undefined;
   const marr = fam.events.find((e) => e.tag === "MARR");
   if (!marr) return undefined;
   const year = marr.date?.year !== undefined ? String(marr.date.year) : undefined;
   const place = marr.place ? localityParts(marr.place)[0] : undefined;
   if (!year && !place) return undefined;
-  return { year, place };
+  return { year, place, ...(coupleLiving(fam, ds) ? { living: true } : null) };
+}
+
+/** Is either spouse presumed living (or declared private)? See
+ *  {@link MarriageInfo.living}. */
+export function coupleLiving(fam: Family, ds: Dataset): boolean {
+  return [fam.husband, fam.wife].some((id) => {
+    const p = id ? ds.individuals.get(id) : undefined;
+    return !!p && (isPresumedLiving(p, ds) || !!p.private);
+  });
 }
 
 /** The marriage of `indi`'s parents — the MARR of the family in which `indi` is a
@@ -251,7 +265,7 @@ function parentsMarriage(indi: Individual | undefined, ds: Dataset): MarriageInf
       (!father || f.husband === father.id || f.wife === father.id) &&
       (!mother || f.husband === mother.id || f.wife === mother.id),
   );
-  return marriageOf(match ?? fams[0]);
+  return marriageOf(match ?? fams[0], ds);
 }
 
 /**
@@ -291,6 +305,8 @@ function descend(
     famKeys: string[],
     childrenOf: () => TreeNode[],
     fam: Family | undefined,
+    /** The dataset `fam` belongs to — needed to read its spouses. */
+    famDs: Dataset,
   ) => {
     // Second (or later) time through this union: keep the couple and their
     // marriage, drop the line below. The children aren't built at all, so the
@@ -304,7 +320,7 @@ function descend(
       const node = makeNode(t, key, mPartner, iPartner, mainDs, compareDs, placeFmt, nameOf);
       node.children = children;
       // The marriage belongs to this union — drawn on the person↔spouse line.
-      node.marriage = marriageOf(fam);
+      node.marriage = marriageOf(fam, famDs);
       if (seenAs !== undefined) {
         node.repeat = true;
         node.repeatOf = expandedFams.get(seenAs);
@@ -342,12 +358,12 @@ function descend(
     // Both sides' family xrefs identify the union — the two datasets number
     // their records independently, so the keys are side-prefixed.
     const keys = iu ? [`m:${mu.fam.id}`, `i:${iu.fam.id}`] : [`m:${mu.fam.id}`];
-    emit(mu.partner, iu?.partner, keys, () => pairChildren(mu.children, iu?.children ?? [], maps, build), mu.fam);
+    emit(mu.partner, iu?.partner, keys, () => pairChildren(mu.children, iu?.children ?? [], maps, build), mu.fam, mainDs);
   }
 
   incomingUnions.forEach((iu, idx) => {
     if (usedIncoming.has(idx)) return;
-    emit(undefined, iu.partner, [`i:${iu.fam.id}`], () => pairChildren([], iu.children, maps, build), iu.fam);
+    emit(undefined, iu.partner, [`i:${iu.fam.id}`], () => pairChildren([], iu.children, maps, build), iu.fam, compareDs);
   });
 
   return { partners, directChildren };

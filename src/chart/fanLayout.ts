@@ -451,14 +451,18 @@ export function buildFanChart(
       let lines: { text: string; arc: string }[] = [];
       let fontPx = round(Math.min(baseFont * 0.82, collarW * 0.55));
 
-      if (node.marriage && !(display.privacyLiving && node.living)) {
+      // Redacting the living hides the couple's own label too — see
+      // MarriageInfo.living. The collar band still draws, blank, so the ring
+      // spacing doesn't shift between a private couple and a known one.
+      const redactMarriage = display.privacyLiving && (node.living || !!node.marriage?.living);
+      if (node.marriage && !redactMarriage) {
         const { year, place } = node.marriage;
         // Deep rings stack the year over the place on two concentric lines (the arc
         // is too short for one line) when both are selected and recorded.
         if (parentGen >= MARRIAGE_TWO_LINE_FROM && fields.date && fields.place && year && place) {
           const twoFont = round(Math.min(baseFont * 0.82, collarW * 0.4));
           const gap = twoFont * 1.08;
-          const dateText = formatMarriage(node.marriage, { date: true, place: false })!;
+          const dateText = formatMarriage(node.marriage, { date: true, place: false }, display.privacyLiving)!;
           if (!overflows(dateText, twoFont, rMid + gap / 2) && !overflows(place, twoFont, rMid - gap / 2)) {
             fontPx = twoFont;
             // Date outer, place inner — reversed in the circle's bottom half so the
@@ -470,9 +474,9 @@ export function buildFanChart(
         // Otherwise one line; if "year, place" won't fit, fall back to the date
         // alone (when shown), else leave the band as a bare placeholder.
         if (!lines.length) {
-          let text = formatMarriage(node.marriage, fields);
+          let text = formatMarriage(node.marriage, fields, display.privacyLiving);
           if (text && overflows(text, fontPx, rMid) && fields.date && fields.place) {
-            text = formatMarriage(node.marriage, { date: true, place: false });
+            text = formatMarriage(node.marriage, { date: true, place: false }, display.privacyLiving);
           }
           if (text && !overflows(text, fontPx, rMid)) lines = [lineAt(text, rMid)];
         }

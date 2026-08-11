@@ -173,7 +173,9 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
     if (!display.showMarriageDate && !display.showMarriagePlace) return undefined;
     const fields = { date: display.showMarriageDate, place: display.showMarriagePlace };
     return (node: TreeNode) =>
-      display.privacyLiving && node.living ? undefined : formatMarriage(node.marriage, fields);
+      display.privacyLiving && node.living
+        ? undefined
+        : formatMarriage(node.marriage, fields, display.privacyLiving);
   }, [display.showMarriageDate, display.showMarriagePlace, display.privacyLiving]);
   const flat = useMemo(
     () =>

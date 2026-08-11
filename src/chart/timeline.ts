@@ -17,6 +17,7 @@ import { familiesByMarriage } from "../gedcom/familySort";
 import { localityParts } from "../gedcom/place";
 import type { Translate } from "../locales/i18n";
 import { MARRIAGE_SYMBOL, placeLabel } from "./nodeDisplay";
+import { coupleLiving } from "./personTree";
 
 /** The person's relation to the timeline's root, in row-group order. A parent's
  *  other partner is a step-parent and that union's children are half-siblings;
@@ -44,8 +45,11 @@ export interface TimelineMark {
   /** Tooltip text: localized event label + original date text (+ locality). */
   label: string;
   /** Marriage display fields (year + locality), for the optional visible
-   *  `⚭ 1925 Kranj` label the Marriage chart-settings toggles enable. */
-  marriage?: { year?: string; place?: string };
+   *  `⚭ 1925 Kranj` label the Marriage chart-settings toggles enable. `living`
+   *  says a partner is presumed living or private: redacting the living drops
+   *  the whole mark, label and glyph, because on a year axis the glyph's
+   *  position *is* the date. */
+  marriage?: { year?: string; place?: string; living?: boolean };
   /** Compact under-bar label for an event mark ("Farmer 1930", "Ljubljana 1945"),
    *  shown when the timeline's event-labels toggle is on. */
   short?: string;
@@ -177,9 +181,9 @@ export function buildTimeline(
   // page the way the years run. Emitted before the parents for the same reason.
   const above = generationsOf(ds, parents, reach - 1, parentsStep(ds));
   for (const generation of above.reverse()) {
-    for (const a of generation) add(a, "ancestor", marriageMarks(t, familiesByMarriage(ds, a.spouseOf)));
+    for (const a of generation) add(a, "ancestor", marriageMarks(t, ds, familiesByMarriage(ds, a.spouseOf)));
   }
-  for (const p of parents) add(p, "parent", marriageMarks(t, familiesByMarriage(ds, p.spouseOf)));
+  for (const p of parents) add(p, "parent", marriageMarks(t, ds, familiesByMarriage(ds, p.spouseOf)));
 
   // A parent's other unions: the partner there is the root's step-parent and
   // that union's children are half-siblings. Both are sorted into the
@@ -205,7 +209,7 @@ export function buildTimeline(
           // falls back to their own birth and lands beside the parents, as
           // before.
           sortKey: unionStart(fam, kids) ?? birthSortKey(partner),
-          marriage: marriageMarks(t, [fam]),
+          marriage: marriageMarks(t, ds, [fam]),
         });
       }
     }
@@ -226,7 +230,7 @@ export function buildTimeline(
         .map((s) => ({ indi: s, role: "sibling" as TimelineRole, sortKey: birthSortKey(s) })),
     )
     .concat(halfSiblings.map((s) => ({ indi: s, role: "halfsibling" as TimelineRole, sortKey: birthSortKey(s) })))
-    .concat([{ indi: root, role: "person" as TimelineRole, sortKey: birthSortKey(root), marriage: marriageMarks(t, unions) }])
+    .concat([{ indi: root, role: "person" as TimelineRole, sortKey: birthSortKey(root), marriage: marriageMarks(t, ds, unions) }])
     // Stable, and the step-parents lead the array, so a wedding and a birth
     // sharing a key put the wedding first.
     .sort((a, b) => a.sortKey - b.sortKey);
@@ -240,7 +244,7 @@ export function buildTimeline(
   for (const fam of unions) {
     const spouseId = fam.husband === root.id ? fam.wife : fam.husband;
     const spouse = spouseId ? ds.individuals.get(spouseId) : undefined;
-    add(spouse, "spouse", marriageMarks(t, [fam]));
+    add(spouse, "spouse", marriageMarks(t, ds, [fam]));
     const kids = fam.children
       .map((id) => ds.individuals.get(id))
       .filter((c): c is Individual => c !== undefined)
@@ -265,7 +269,7 @@ export function buildTimeline(
     .map((id) => ds.individuals.get(id))
     .filter((c): c is Individual => c !== undefined);
   for (const generation of generationsOf(ds, ownChildren, reach - 1, childrenStep(ds))) {
-    for (const d of generation) add(d, "descendant", marriageMarks(t, familiesByMarriage(ds, d.spouseOf)));
+    for (const d of generation) add(d, "descendant", marriageMarks(t, ds, familiesByMarriage(ds, d.spouseOf)));
   }
 
   let min: number | undefined;
@@ -490,7 +494,7 @@ function unionStart(fam: Family, children: Individual[]): number | undefined {
 }
 
 /** ⚭ markers for each family's dated MARR event. */
-function marriageMarks(t: Translate, fams: Family[]): TimelineMark[] {
+function marriageMarks(t: Translate, ds: Dataset, fams: Family[]): TimelineMark[] {
   const out: TimelineMark[] = [];
   for (const fam of fams) {
     const marr = fam.events.find((e) => e.tag === "MARR");
@@ -500,7 +504,7 @@ function marriageMarks(t: Translate, fams: Family[]): TimelineMark[] {
       year: marr.date.year,
       kind: "marriage",
       label: `${MARRIAGE_SYMBOL} ${t("event.MARR")}: ${marr.date.raw}${place ? `, ${place}` : ""}`,
-      marriage: { year: String(marr.date.year), place },
+      marriage: { year: String(marr.date.year), place, ...(coupleLiving(fam, ds) ? { living: true } : null) },
     });
   }
   return out;
