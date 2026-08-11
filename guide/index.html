@@ -518,12 +518,12 @@
             <h3>A place your file has never used</h3>
             <p>
               The place field suggests places already in your file as you type. When none of them fits — a village
-              entered for the first time — the list ends with <strong>Look this place up in the registers</strong>,
+              entered for the first time — the list ends with <strong>Look this place up in the directories</strong>,
               and nothing is asked until you click it. It always searches the gazetteer you imported in
               <a href="#geocode">Geocode places</a>. They answer in the language the place itself is written in, not the
               interface's — a file that says <em>United States</em> is answered <em>United States</em>, one that says
-              <em>Slovenija</em> is answered <em>Slovenija</em> — so a name taken from a register matches the file it
-              joins. The three online registers — <strong>OpenStreetMap</strong>,
+              <em>Slovenija</em> is answered <em>Slovenija</em> — so a name taken from a directory matches the file it
+              joins. The three online directories — <strong>OpenStreetMap</strong>,
               Slovenia's address register (<strong>GURS</strong>) and the <strong>Genealogical Gazetteer (GOV)</strong>
               — are only asked when <em>Look up details online</em> is on in
               <a href="#workspace">Settings › Advanced</a>; with it off the row says so and answers from the imported
@@ -535,7 +535,7 @@
               writes <em>Kranj,Kranj,Slovenija</em> is offered <em>Zabukovje,Sevnica,Slovenija</em>, a file that writes
               only locality and country is offered <em>Zabukovje,Slovenija</em>. The level above the settlement is the
               one your places name for that country — the municipality, or the county where you write counties (see
-              <a href="#geocode">§10</a>). A badge names the answering register.
+              <a href="#geocode">§10</a>). A badge names the answering directory.
               Picking one fills in the place, its <strong>address</strong> when you typed a house number the address
               register recognised, and the <strong>coordinate</strong> that register puts it at — in one step you can
               undo as one.
@@ -1201,12 +1201,12 @@
               <strong>rename</strong> the raw place value (all occurrences at once — with an optional place + address
               split, and the correction is rescanned for matches immediately). That rename box is the same place field
               the <a href="#edit">Edit</a> view uses (<a href="#edit">§8</a>): it completes from the places your file already writes and, for
-              one it has never written, ends with <strong>Look this place up in the registers</strong>. Picking a
-              register offer fills in the whole place chain — and writes the coordinate that register puts it at — so a
+              one it has never written, ends with <strong>Look this place up in the directories</strong>. Picking a
+              directory's offer fills in the whole place chain — and writes the coordinate it puts the place at — so a
               misspelt or never-resolved value is corrected and placed in a single step. What the offline gazetteer can't resolve,
               two per-row online searches cover, both behind the same online opt-in and only on the button click, with
-              their results joining the row's candidates and the circles on its map. Every option is numbered, and the number is its radio: the same number rides on that option's pin, so a value four registers answered at four points is read by matching numbers instead of guessing which circle is which line. An OpenStreetMap hit also says what it is — a suburb, a residential street, a service road — since the service answers one name with all three, spelled alike. A search that has answered puts its
-              own button away — the answer is the option list, and asking the same register the same question again
+              their results joining the row's candidates and the circles on its map. Every option is numbered, and the number is its radio: the same number rides on that option's pin, so a value four directories answered at four points is read by matching numbers instead of guessing which circle is which line. An OpenStreetMap hit also says what it is — a suburb, a residential street, a service road — since the service answers one name with all three, spelled alike. A search that has answered puts its
+              own button away — the answer is the option list, and asking the same service the same question again
               returns it; renaming the place brings the searches back for the new value. Clicking the option a row is
               already on clears it: the row keeps no coordinate at all and is unticked, so a place you have decided
               against is not quietly written by <strong>Select confident</strong>. <strong>Search OpenStreetMap</strong> uses OpenStreetMap
@@ -1270,9 +1270,9 @@
               Renaming the place would move the genuine Gradac events too, so each place group offers
               <strong>Move to another place…</strong> instead: tick the addresses that belong elsewhere, type or pick the
               destination place, and only those events are moved. The destination box is the same place field as
-              everywhere else, so the hamlet your file has never spelled out can be looked up in the registers and
+              everywhere else, so the hamlet your file has never spelled out can be looked up in the directories and
               picked whole, chain and all. Their address lines stay as they are, and the moved events are placed at the
-              destination's own coordinate — the register offer's, or the one your file already records for that place.
+              destination's own coordinate — the directory offer's, or the one your file already records for that place.
               When neither knows one, they keep the coordinate they had, so a move never leaves an event without a
               position. Only the <code>_GOV</code> id is dropped, because it names the place they just left. One
               undoable step, like every other tool edit. The panel opens pre-filled with what the addresses themselves
@@ -1366,11 +1366,11 @@
               level the register has no opinion about — over every occurrence of the value, and its
               <em>Address</em> box takes the house out of the value onto the event's own <code>ADDR</code> line at the
               same time, as the places list's rename does. It completes from the file's own places <em>and</em> from the
-              directories — <strong>Look this place up in the registers</strong>, since the right name may appear nowhere
-              in your file — and what it writes is placed where the registers say it is: the house where one is named
+              directories — <strong>Look this place up in the directories</strong>, since the right name may appear nowhere
+              in your file — and what it writes is placed where the directories say it is: the house where one is named
               and a stored register holds it, the settlement otherwise, and nothing at all where the answer is
               ambiguous. It writes at once, undoably, rather than joining the answers waiting above it: those are the
-              register's wording, and this is yours. <strong>Show on map</strong> —
+              directory's wording, and this is yours. <strong>Show on map</strong> —
               or a click on any answer's coordinate — draws the answers as numbered pins, the number on the pin being
               the number beside the line, with the file's own position for the place as a dashed ring beside them: which
               of six same-named places is yours is a question only a map answers. <strong>Look wider</strong> adds the
@@ -2172,7 +2172,7 @@
                 Settings names the relays it will try. A <strong>place name or house number</strong>, sent straight to
                 OpenStreetMap, Slovenia's address register (GURS) or the Genealogical Gazetteer (GOV) when you press
                 one of the search buttons — a Croatian house number is looked up in the downloaded register instead and leaves nothing in <a href="#geocode">Geocode places</a> or pick <em>Look this place up in
-                the registers</em> while editing. Nothing is sent until you ask: the buttons are the trigger, not the
+                the directories</em> while editing. Nothing is sent until you ask: the buttons are the trigger, not the
                 typing. Downloading a whole directory is not one of these and needs no switch: it fetches a country's
                 published dataset — the same bytes for everyone who clicks — and says nothing about your file.</li>
               <li><strong>Base-map tiles</strong> (<a href="#workspace">Settings › Map</a>) — every map, from the
