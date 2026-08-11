@@ -117,6 +117,26 @@ describe("buildTimeline", () => {
     expect(buildTimeline(tr, deep, "@I1@", nameOf, NOW, null)!.rows.map((r) => r.id)).toContain("@I12@");
   });
 
+  it("keeps an ancestor couple together, at the elder's place in the years", () => {
+    // Two grandparent couples whose births interleave: he 1840 + she 1846,
+    // and he 1842 + she 1844. By birth alone the four would deal out
+    // 1840, 1842, 1844, 1846 — every couple split by somebody else's spouse.
+    const ds4 = dataset(wrap(
+      "0 @R@ INDI\n1 NAME Root /X/\n1 SEX M\n1 BIRT\n2 DATE 1900\n1 FAMC @FA@\n" +
+      "0 @F@ INDI\n1 NAME Father /X/\n1 SEX M\n1 BIRT\n2 DATE 1870\n1 FAMS @FA@\n1 FAMC @FB@\n" +
+      "0 @M@ INDI\n1 NAME Mother /Y/\n1 SEX F\n1 BIRT\n2 DATE 1872\n1 FAMS @FA@\n1 FAMC @FC@\n" +
+      "0 @GF1@ INDI\n1 NAME Grandpa /X/\n1 SEX M\n1 BIRT\n2 DATE 1840\n1 FAMS @FB@\n" +
+      "0 @GM1@ INDI\n1 NAME Grandma /X/\n1 SEX F\n1 BIRT\n2 DATE 1846\n1 FAMS @FB@\n" +
+      "0 @GF2@ INDI\n1 NAME Grandpa /Y/\n1 SEX M\n1 BIRT\n2 DATE 1842\n1 FAMS @FC@\n" +
+      "0 @GM2@ INDI\n1 NAME Grandma /Y/\n1 SEX F\n1 BIRT\n2 DATE 1844\n1 FAMS @FC@\n" +
+      "0 @FA@ FAM\n1 HUSB @F@\n1 WIFE @M@\n1 CHIL @R@\n" +
+      "0 @FB@ FAM\n1 HUSB @GF1@\n1 WIFE @GM1@\n1 CHIL @F@\n" +
+      "0 @FC@ FAM\n1 HUSB @GF2@\n1 WIFE @GM2@\n1 CHIL @M@\n",
+    ));
+    const ids = buildTimeline(tr, ds4, "@R@", nameOf, NOW, 2)!.rows.map((r) => r.id);
+    expect(ids.slice(0, 4)).toEqual(["@GF1@", "@GM1@", "@GF2@", "@GM2@"]);
+  });
+
   it("counts the generations the family has to offer", () => {
     // Parents above, children below: one each way.
     expect(familyDepth(ds, "@I1@")).toBe(1);

@@ -175,7 +175,7 @@ export function buildTimeline(
 
   // Grandparents and above, oldest generation first so the chart reads down the
   // page the way the years run. Emitted before the parents for the same reason.
-  const above = generationsOf(parents, reach - 1, parentsStep(ds));
+  const above = generationsOf(ds, parents, reach - 1, parentsStep(ds));
   for (const generation of above.reverse()) {
     for (const a of generation) add(a, "ancestor", marriageMarks(t, familiesByMarriage(ds, a.spouseOf)));
   }
@@ -264,7 +264,7 @@ export function buildTimeline(
     .flatMap((f) => f.children)
     .map((id) => ds.individuals.get(id))
     .filter((c): c is Individual => c !== undefined);
-  for (const generation of generationsOf(ownChildren, reach - 1, childrenStep(ds))) {
+  for (const generation of generationsOf(ds, ownChildren, reach - 1, childrenStep(ds))) {
     for (const d of generation) add(d, "descendant", marriageMarks(t, familiesByMarriage(ds, d.spouseOf)));
   }
 
@@ -397,8 +397,8 @@ export function familyDepth(ds: Dataset, rootId: string): number {
   const root = ds.individuals.get(rootId);
   if (!root) return 0;
   return Math.max(
-    generationsOf([root], Infinity, parentsStep(ds)).length,
-    generationsOf([root], Infinity, childrenStep(ds)).length,
+    generationsOf(ds, [root], Infinity, parentsStep(ds)).length,
+    generationsOf(ds, [root], Infinity, childrenStep(ds)).length,
   );
 }
 
@@ -410,6 +410,7 @@ export function familyDepth(ds: Dataset, rootId: string): number {
  * walk, since nothing lies beyond it.
  */
 function generationsOf(
+  ds: Dataset,
   from: Individual[],
   levels: number,
   step: (indi: Individual) => (Individual | undefined)[],
@@ -427,8 +428,38 @@ function generationsOf(
       }
     }
     if (next.length === 0) break;
-    out.push(next.sort((a, b) => birthSortKey(a) - birthSortKey(b)));
+    out.push(coupledOrder(ds, next.sort((a, b) => birthSortKey(a) - birthSortKey(b))));
     frontier = next;
+  }
+  return out;
+}
+
+/**
+ * A generation in birth order, but with each married couple kept together: a
+ * spouse who stands in the same generation follows their partner immediately,
+ * so the pair holds the elder partner's place in the years.
+ *
+ * A whole generation of ancestors is really a row of couples, and sorting them
+ * one by one by birth deals them out interleaved — husband, someone else's wife,
+ * another husband — which reads as though nobody was married to anybody. Birth
+ * still decides where a couple stands; being married only decides who they
+ * stand next to.
+ */
+function coupledOrder(ds: Dataset, people: Individual[]): Individual[] {
+  const here = new Map(people.map((p) => [p.id, p]));
+  const placed = new Set<string>();
+  const out: Individual[] = [];
+  for (const p of people) {
+    if (placed.has(p.id)) continue;
+    placed.add(p.id);
+    out.push(p);
+    for (const fam of familiesByMarriage(ds, p.spouseOf)) {
+      const otherId = fam.husband === p.id ? fam.wife : fam.husband;
+      const other = otherId ? here.get(otherId) : undefined;
+      if (!other || placed.has(other.id)) continue;
+      placed.add(other.id);
+      out.push(other);
+    }
   }
   return out;
 }
