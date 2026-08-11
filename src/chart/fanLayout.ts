@@ -16,7 +16,7 @@
 // `TreeNode` from `buildPersonTree(..., "ancestors")`.
 
 import { PAD } from "./treeLayout";
-import type { TreeNode } from "./personTree";
+import { countTreePeople, type TreeNode } from "./personTree";
 import { ALL_DISPLAY, formatMarriage, nodeDisplay, type NodeDisplay, type NodeDisplayOptions } from "./nodeDisplay";
 
 export type FanShape = "fan" | "circle";
@@ -38,6 +38,9 @@ const LAST_RING_EXTRA = 22;
 const FONT_BY_GEN = [13, 13, 12.5, 12, 11, 9.5, 8.5, 7.5, 6.8, 6.2, 5.8];
 
 const DEFAULT_MAX_GEN = 10;
+// Half the widest "+N" pill (NodeBadge sizes it ~9 + 5.5 per character), used to
+// keep the outer marker inside its wedge.
+const BADGE_HALF_W = 14;
 const DEFAULT_PHOTO_RINGS = 3;
 // A dedicated thin "collar" ring reserved between generations for the marriage
 // label (only when a marriage field is shown). The couple's collar sits at the
@@ -93,10 +96,15 @@ export interface FanSegment {
   /** Anchor for a small status badge dot (PAD-relative), near the inner edge. */
   badge: { x: number; y: number };
   /** Anchor for the marker saying why the rings stop here — a repeat's arrow or
-   *  the generation limit's "+N" (PAD-relative). At the outer edge, pointing the
-   *  way those ancestors would have gone, and clear of the status badge on the
-   *  inner one, since a wedge can carry both. Absent on the root disk. */
+   *  the generation limit's "+N" (PAD-relative). In the segment's outer corner,
+   *  past the end of the label rather than across it, pointing the way those
+   *  ancestors would have gone, and clear of the status badge on the inner edge,
+   *  since a wedge can carry both. Absent on the root disk. */
   outerBadge?: { x: number; y: number };
+  /** People this chart's own ring cap dropped above this segment — the outermost
+   *  ring's share of what {@link TreeNode.hidden} says for the generation limit.
+   *  Absent unless the rings ran out with ancestors still to draw. */
+  hidden?: number;
 }
 
 /** A marriage "collar": a curved label riding the ring boundary between a child's
@@ -120,6 +128,9 @@ export interface FanChart {
   cy: number;
   r0: number;
   rootKey: string;
+  /** How many rings the chart drew at most — the cap behind {@link FanSegment.hidden},
+   *  named in that marker's tooltip. */
+  maxGen: number;
   width: number;
   height: number;
 }
@@ -208,9 +219,18 @@ export function buildFanChart(
   // 1. Walk ancestors into positioned slots (positions are unique, so pedigree
   //    collapse repeats a person rather than being deduped).
   const placed: Placed[] = [];
+  // Where the rings themselves run out: the chart can only draw so many, and an
+  // ancestry deeper than that was being dropped in silence. Counted here the
+  // same way the generation limit counts its own cut (TreeNode.hidden), so the
+  // outermost ring carries the same "+N" marker either way.
+  const cutByRings = new Map<string, number>();
   (function walk(node: TreeNode, gen: number, slot: number) {
     placed.push({ node, gen, slot });
-    if (gen >= maxGen) return;
+    if (gen >= maxGen) {
+      const cut = countTreePeople(node);
+      if (cut > 0) cutByRings.set(`${gen}:${slot}`, cut);
+      return;
+    }
     const [father, mother] = splitParents(node.children);
     if (father) walk(father, gen + 1, slot * 2);
     if (mother) walk(mother, gen + 1, slot * 2 + 1);
@@ -314,7 +334,17 @@ export function buildFanChart(
     const flip = curved ? lowerHalf : Math.cos(mid) < 0;
     const photo = gen <= photoRings && hasPhoto(node) ? photoBox(cx, cy, rIn, w, delta, mid, lowerHalf) : undefined;
 
-    const base: Pick<FanSegment, "key" | "node" | "gen" | "slot" | "d" | "x" | "y" | "photo" | "badge" | "outerBadge" | "fontPx" | "light"> = {
+    // The "+N" / "→" marker rides the outer corner the label ends at — the
+    // labels are centred on the mid-angle, where the marker used to sit right
+    // across the name. `flip` says which angular side the last line is on: the
+    // rotated label frame's +y runs with increasing angle, and flipping it turns
+    // that around. The pill's half-width is held inside the wedge; a wedge too
+    // narrow to hold it keeps it centred, which is where it always was.
+    const rBadge = rOut - 12;
+    const off = Math.max(0, delta / 2 - BADGE_HALF_W / rBadge);
+    const badgeMid = mid + (flip ? -off : off);
+
+    const base: Pick<FanSegment, "key" | "node" | "gen" | "slot" | "d" | "x" | "y" | "photo" | "badge" | "outerBadge" | "hidden" | "fontPx" | "light"> = {
       key: `${gen}:${slot}`,
       node,
       gen,
@@ -326,7 +356,8 @@ export function buildFanChart(
       fontPx,
       light,
       badge: { x: round(cx + (rIn + 12) * Math.cos(mid)), y: round(cy + (rIn + 12) * Math.sin(mid)) },
-      outerBadge: { x: round(cx + (rOut - 12) * Math.cos(mid)), y: round(cy + (rOut - 12) * Math.sin(mid)) },
+      outerBadge: { x: round(cx + rBadge * Math.cos(badgeMid)), y: round(cy + rBadge * Math.sin(badgeMid)) },
+      hidden: cutByRings.get(`${gen}:${slot}`),
     };
 
     if (curved) {
@@ -453,6 +484,7 @@ export function buildFanChart(
     cy,
     r0: ROOT_R,
     rootKey: "0:0",
+    maxGen,
     width: 2 * rMax + PAD * 2,
     height: 2 * rMax + PAD * 2,
   };

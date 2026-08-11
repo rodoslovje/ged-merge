@@ -44,9 +44,10 @@ interface Props {
   showRepeat?: boolean;
   /** Take the view to the segment a repeat points at. */
   onRepeatJump?: (key: string) => void;
-  /** Tooltip for the generation limit's "+N above this person isn't drawn"
-   *  marker; omit to leave the count off. */
-  hiddenTitle?: (count: number) => string;
+  /** Tooltip for the "+N above this person isn't drawn" marker; omit to leave
+   *  the count off. `limit` is the cap that hid them — the chart's own ring
+   *  count when the rings, rather than the generation setting, ran out. */
+  hiddenTitle?: (count: number, limit?: number) => string;
   /** Continue the chart from a person the generation limit cut above. */
   onHiddenJump?: (node: TreeNode) => void;
 }
@@ -99,7 +100,8 @@ export function FanChartBody({
     for (const s of chart.segments) m.set(s.node.key, s.key);
     return m;
   }, [chart]);
-  const outerMarkerOf = (node: TreeNode): OuterMarker | undefined => {
+  const outerMarkerOf = (seg: FanSegment): OuterMarker | undefined => {
+    const { node } = seg;
     const to = showRepeat && node.repeat && node.repeatOf ? segmentByNodeKey.get(node.repeatOf) : undefined;
     if (to) {
       return {
@@ -109,11 +111,14 @@ export function FanChartBody({
         onClick: () => onRepeatJump?.(to),
       };
     }
-    if (hiddenTitle && node.hidden !== undefined) {
+    // Cut by the generation setting, or — on the last ring the chart can draw —
+    // by the rings themselves; the tooltip names whichever cap it was.
+    const cut = node.hidden ?? seg.hidden;
+    if (hiddenTitle && cut !== undefined) {
       return {
-        letter: `+${node.hidden}`,
+        letter: `+${cut}`,
         cls: "tree-node-repeat-badge tree-node-hidden-badge",
-        title: hiddenTitle(node.hidden),
+        title: hiddenTitle(cut, node.hidden !== undefined ? undefined : chart.maxGen),
         onClick: () => onHiddenJump?.(node),
       };
     }
@@ -148,7 +153,7 @@ export function FanChartBody({
             mainRefCtx={mainRefCtx}
             compareRefCtx={compareRefCtx}
             badge={badgeOf?.(seg.node)}
-            outer={outerMarkerOf(seg.node)}
+            outer={outerMarkerOf(seg)}
           />
         ))}
         {/* Marriage collars: a thin band in the reserved lane between each couple

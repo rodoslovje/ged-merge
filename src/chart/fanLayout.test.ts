@@ -50,6 +50,29 @@ describe("buildFanChart", () => {
     expect(Math.max(...chart.segments.map((s) => s.gen))).toBe(5);
   });
 
+  it("counts the ancestors its own ring cap dropped, on the last ring", () => {
+    const chart = buildFanChart(pedigree(5), "fan", { maxGen: 3 });
+    expect(chart.maxGen).toBe(3);
+    // Every last-ring wedge still has parents above it. (How many people that
+    // is, is countTreePeople's business — these bare test nodes carry no record
+    // to tell one from another, so they count as one.)
+    const last = chart.segments.filter((s) => s.gen === 3);
+    expect(last.every((s) => (s.hidden ?? 0) > 0)).toBe(true);
+    // Nothing above the rings ⇒ nothing to own up to.
+    expect(chart.segments.filter((s) => s.gen < 3).every((s) => s.hidden === undefined)).toBe(true);
+    expect(buildFanChart(pedigree(3), "fan").segments.every((s) => s.hidden === undefined)).toBe(true);
+  });
+
+  it("stands the outer marker in the wedge's corner, off the label's midline", () => {
+    const chart = buildFanChart(pedigree(2), "fan");
+    for (const s of chart.segments.filter((s) => s.gen > 0)) {
+      const angle = Math.atan2(s.outerBadge!.y - chart.cy, s.outerBadge!.x - chart.cx);
+      const mid = Math.atan2(s.y - chart.cy, s.x - chart.cx);
+      // A wide inner wedge has room to hold the pill clear of the centre line.
+      expect(Math.abs(angle - mid)).toBeGreaterThan(0.01);
+    }
+  });
+
   it("repeats a pedigree-collapsed ancestor in both slots", () => {
     // Both grandfathers are the same person object (shared ancestor) — each
     // occurrence gets its own positioned segment.

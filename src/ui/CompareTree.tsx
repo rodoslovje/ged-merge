@@ -256,11 +256,13 @@ export function CompareTree({
       : undefined;
   // What the "+N" marker says: the direction decides who is missing, and the
   // tooltip names the limit that hid them.
+  // `atLimit` lets a chart that ran out of room of its own (the radial rings)
+  // name its own cap instead of the generation setting's.
   const hiddenTitle = useCallback(
-    (count: number) =>
+    (count: number, atLimit?: number) =>
       t(effectiveMode === "ancestors" ? "tree.node.hiddenAncestors" : "tree.node.hiddenDescendants", {
         count,
-        limit: limit ?? 0,
+        limit: atLimit ?? limit ?? 0,
       }),
     [t, effectiveMode, limit],
   );
