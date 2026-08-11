@@ -525,12 +525,12 @@
             <h3>Kraj, ki ga v datoteki še ni</h3>
             <p>
               Polje kraja med tipkanjem predlaga kraje, ki so že v vaši datoteki. Kadar noben ne ustreza — vas, ki jo
-              vnašate prvič — se seznam konča z <strong>Poišči ta kraj v registrih</strong>, poizvedba pa steče šele,
+              vnašate prvič — se seznam konča z <strong>Poišči ta kraj v imenikih</strong>, poizvedba pa steče šele,
               ko nanj kliknete. Vedno pregleda imenik krajev, ki ste ga uvozili v
               <a href="#geocode">Geokodiranju krajev</a>. Odgovorijo v jeziku, v katerem je zapisan sam kraj, in ne v
               jeziku vmesnika — datoteki, ki piše <em>United States</em>, odgovorijo <em>United States</em>, tisti, ki
-              piše <em>Slovenija</em>, pa <em>Slovenija</em> — tako se ime iz registra ujema z datoteko, v katero se
-              vpiše. Trije spletni registri — <strong>OpenStreetMap</strong>,
+              piše <em>Slovenija</em>, pa <em>Slovenija</em> — tako se ime iz imenika ujema z datoteko, v katero se
+              vpiše. Trije spletni imeniki — <strong>OpenStreetMap</strong>,
               slovenski register naslovov (<strong>GURS</strong>) in <strong>Genealoški imenik krajev (GOV)</strong> —
               se vključijo samo, kadar je v <a href="#workspace">Nastavitve › Napredno</a> vklopljeno <em>Poišči
               podatke na spletu</em>; brez tega iskanje zajame le uvoženi imenik krajev in vrstica to pove.
@@ -541,13 +541,13 @@
               ponudi <em>Zabukovje,Sevnica,Slovenija</em>, datoteki, ki piše le kraj in državo, pa
               <em>Zabukovje,Slovenija</em>. Raven nad naseljem je tista, ki jo za to državo imenujejo vaši kraji —
               občina ali županija, če pišete županije (glejte <a href="#geocode">§10</a>). Značka pove, iz katerega
-              registra je predlog. Izbira vnese kraj, njegov
+              imenika je predlog. Izbira vnese kraj, njegov
               <strong>naslov</strong>, če ste vpisali hišno številko, ki jo register naslovov prepozna, in
               <strong>koordinato</strong>, ki jo ta register pripisuje — v enem koraku, ki ga tudi razveljavite naenkrat.
             </p>
             <p>
               Če vaša datoteka označuje, kaj so ravni kraja — standardna vrstica <span class="gm-data">FORM</span> pod
-              krajem, npr. <em>Place,Upravna Enota,Country</em> — dobi oznako tudi registrski predlog, in sicer z
+              krajem, npr. <em>Place,Upravna Enota,Country</em> — dobi oznako tudi predlog iz imenika, in sicer z
               besedami, ki jih vaša datoteka že uporablja za tisto državo in toliko ravni:
               <em>Place,Bundesland,Country</em> za nemški kraj, <em>Place,Regija,Country</em> za hrvaškega. Ob izbiri
               kraja, ki ga vaša datoteka že ima, se njegova oznaka prenese enako kot koordinata. Kraj, ki ga zgolj
@@ -1200,12 +1200,12 @@
               z izbirno razdelitvijo na kraj + naslov — popravek se takoj znova poišče med predlogi). Polje za
               preimenovanje je isto polje za kraj kot v <a href="#edit">Urejanju</a> (<a href="#edit">§8</a>): dopolnjuje se iz krajev, ki jih
               datoteka že piše, pri kraju, ki ga še ni zapisala, pa se seznam konča s <strong>Poišči ta kraj v
-              registrih</strong>. Z izbiro registrske ponudbe se izpolni celotna veriga kraja in zapiše koordinata, ki mu
-              jo pripisuje register — napačno zapisana ali nikoli razrešena vrednost je tako popravljena in umeščena v
+              imenikih</strong>. Z izbiro ponudbe iz imenika se izpolni celotna veriga kraja in zapiše koordinata, ki mu
+              jo ta pripisuje — napačno zapisana ali nikoli razrešena vrednost je tako popravljena in umeščena v
               enem koraku. Kar imenik brez
               povezave ne razreši, po vrsticah pokrijeta dve spletni iskanji — obe za isto spletno privolitvijo in samo ob
-              kliku na gumb, njuni zadetki pa se pridružijo kandidatom in oznakam na zemljevidu. Vsaka izbira je oštevilčena in številka je njen izbirni gumb: isto številko nosi njena oznaka na zemljevidu, zato vrstico, na katero so odgovorili štirje registri s štirimi točkami, berete po ujemajočih se številkah in ne z ugibanjem, katera oznaka je katera vrstica. Zadetek OpenStreetMap pove tudi, kaj je — predel, stanovanjska ulica, dovozna pot — saj storitev na eno ime odgovori z vsemi tremi, zapisanimi enako. Iskanje, ki je odgovorilo,
-              svoj gumb pospravi — odgovor je seznam možnosti, isto vprašanje istemu registru pa vrne isto; ob
+              kliku na gumb, njuni zadetki pa se pridružijo kandidatom in oznakam na zemljevidu. Vsaka izbira je oštevilčena in številka je njen izbirni gumb: isto številko nosi njena oznaka na zemljevidu, zato vrstico, na katero so odgovorili štirje imeniki s štirimi točkami, berete po ujemajočih se številkah in ne z ugibanjem, katera oznaka je katera vrstica. Zadetek OpenStreetMap pove tudi, kaj je — predel, stanovanjska ulica, dovozna pot — saj storitev na eno ime odgovori z vsemi tremi, zapisanimi enako. Iskanje, ki je odgovorilo,
+              svoj gumb pospravi — odgovor je seznam možnosti, isto vprašanje isti storitvi pa vrne isto; ob
               preimenovanju kraja se iskanja za novo vrednost spet ponudijo. S klikom na že izbrano možnost jo
               počistite: vrstica ostane brez koordinate in neoznačena, tako da kraja, ki ste ga zavrnili, gumb
               <strong>Izberi zanesljive</strong> ne zapiše po tihem. <strong>Išči na
@@ -1268,9 +1268,9 @@
               Preimenovanje celega kraja bi premaknilo tudi dogodke, ki tja res spadajo, zato vsaka skupina kraja ponuja
               <strong>Premakni v drug kraj…</strong>: označite naslove, ki spadajo drugam, vnesete ali izberete ciljni
               kraj, premaknejo pa se samo ti dogodki. Polje za ciljni kraj je isto polje za kraj kot povsod drugod, zato
-              lahko zaselek, ki ga vaša datoteka še ni nikoli izpisala, poiščete v registrih in ga prevzamete v celoti, z
+              lahko zaselek, ki ga vaša datoteka še ni nikoli izpisala, poiščete v imenikih in ga prevzamete v celoti, z
               vso verigo vred. Naslovne vrstice ostanejo nespremenjene, premaknjeni dogodki pa se umestijo na lastno
-              koordinato ciljnega kraja — na tisto iz registrske ponudbe ali na tisto, ki jo datoteka pri tem kraju že
+              koordinato ciljnega kraja — na tisto iz ponudbe imenika ali na tisto, ki jo datoteka pri tem kraju že
               vodi. Če je ne pozna ne ena ne druga, obdržijo koordinato, ki so jo imeli, tako da premik nikoli ne pusti
               dogodka brez položaja. Odstrani se le oznaka <code>_GOV</code>, ker imenuje kraj, ki so ga dogodki pravkar
               zapustili. En korak, ki ga je mogoče razveljaviti, tako kot vsak drug poseg orodij. Okno se odpre že
@@ -1360,10 +1360,10 @@
               pisala župnija, raven, o kateri register nima mnenja — čez vse navedbe zapisa, njegovo polje
               <em>Naslov</em> pa hkrati vzame hišo iz zapisa na dogodkovo vrstico <code>ADDR</code>, kakor to počne
               preimenovanje na seznamu krajev. Dopolnjuje se iz krajev vaše datoteke <em>in</em> iz imenikov —
-              <strong>Poišči ta kraj v registrih</strong>, saj se pravo ime morda v vaši datoteki ne pojavi nikjer — kar
-              zapiše, pa tudi umesti tja, kamor kažejo registri: k hiši, kadar je ta imenovana in jo prenesen register
+              <strong>Poišči ta kraj v imenikih</strong>, saj se pravo ime morda v vaši datoteki ne pojavi nikjer — kar
+              zapiše, pa tudi umesti tja, kamor kažejo imeniki: k hiši, kadar je ta imenovana in jo prenesen register
               pozna, sicer k naselju, ob dvoumnem odgovoru pa nikamor. Zapiše takoj in razveljavljivo in se ne pridruži
-              odgovorom, ki čakajo nad njim: tam je beseda registra, tu vaša. <strong>Pokaži na
+              odgovorom, ki čakajo nad njim: tam je beseda imenika, tu vaša. <strong>Pokaži na
               zemljevidu</strong> — ali klik na koordinato katerega koli odgovora — odgovore nariše kot oštevilčene
               oznake, kjer je številka na oznaki ista kot ob vrstici, ob njih pa s črtkanim obročem še lego, ki jo kraju
               daje datoteka: kateri od šestih enakoimenskih krajev je vaš, odgovori le zemljevid. <strong>Poišči
@@ -2175,7 +2175,7 @@
                 posrednike, ki jih bo poskusil. <strong>Ime kraja ali hišna številka</strong> gre neposredno na
                 OpenStreetMap, v slovenski register naslovov (GURS) ali v Genealoški imenik krajev (GOV) — hrvaška hišna številka se poišče v prenesenem registru in ne zapusti naprave — ko pritisnete
                 enega od gumbov za iskanje v <a href="#geocode">Geokodiranju krajev</a> ali izberete <em>Poišči ta kraj
-                v registrih</em> med urejanjem. Nič ne odide, dokler tega ne zahtevate: sproži ga gumb in ne tipkanje.
+                v imenikih</em> med urejanjem. Nič ne odide, dokler tega ne zahtevate: sproži ga gumb in ne tipkanje.
                 Prenos celotnega imenika med to ne sodi in stikala ne potrebuje: prenese objavljeno zbirko podatkov
                 države — iste bajte za vsakogar, ki klikne — o vaši datoteki pa ne pove ničesar.</li>
               <li><strong>Ploščice zemljevida</strong> (<a href="#workspace">Nastavitve › Zemljevid</a>) — vsak
