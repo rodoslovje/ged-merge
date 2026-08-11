@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { GearIcon } from "./icons/GearIcon";
+import { useMediaFolder } from "./MediaFolderContext";
 import { useChartSettings, type ChartAlignment, type ChartSettings as Settings, type PedigreeType, type TimelineEventScope } from "./ChartSettingsContext";
 
 // The Chart-settings control for the full-page diagram toolbars: a gear button
@@ -14,12 +15,13 @@ const ALIGNMENTS: ChartAlignment[] = ["lr", "tb"];
 
 /** The boolean display toggles, in popover order — the per-person fields (the
  *  "Person" group). */
-const DISPLAY_FIELDS: { key: "showLifespan" | "showAge" | "showPhoto" | "showKinship" | "showPlace"; label: string }[] = [
+const DISPLAY_FIELDS: { key: "showLifespan" | "showAge" | "showPhoto" | "showKinship" | "showPlace" | "showMarriedName"; label: string }[] = [
   { key: "showLifespan", label: "lifespan" },
   { key: "showAge", label: "age" },
   { key: "showPlace", label: "place" },
   { key: "showPhoto", label: "photo" },
   { key: "showKinship", label: "kinship" },
+  { key: "showMarriedName", label: "marriedName" },
 ];
 
 /** Per-couple marriage fields (the "Marriage" group — both default off). */
@@ -47,6 +49,10 @@ export function ChartSettings({
 } = {}) {
   const { t } = useTranslation();
   const { settings, setAlignment, set } = useChartSettings();
+  // Photos need a loaded media folder; without one the toggle governs nothing,
+  // so it isn't offered (the stored preference is kept, and comes back with the
+  // folder).
+  const { folderName } = useMediaFolder();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   // The effective type drives which extra rows show; with a locked type it wins
@@ -142,7 +148,7 @@ export function ChartSettings({
           <div className="chart-settings-group">
             <span className="chart-settings-heading">{t("tree.settings.person")}</span>
             <div className="chart-settings-segmented chart-settings-toggles">
-              {DISPLAY_FIELDS.map(({ key, label }) => {
+              {DISPLAY_FIELDS.filter(({ key }) => key !== "showPhoto" || folderName).map(({ key, label }) => {
                 // The radial fan / circle charts don't draw a kinship line.
                 const disabled = key === "showKinship" && (effectiveType === "fan" || effectiveType === "circle");
                 return (

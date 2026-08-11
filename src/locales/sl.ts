@@ -1357,6 +1357,7 @@ export const sl = {
   "tree.settings.display.lifespan": "Življenjska doba",
   "tree.settings.display.age": "Starost",
   "tree.settings.display.photo": "Fotografija",
+  "tree.settings.display.marriedName": "Poročni priimek",
   "tree.settings.display.kinship": "Sorodstvo",
   "tree.settings.display.place": "Kraj",
   "tree.settings.marriage": "Poroka",

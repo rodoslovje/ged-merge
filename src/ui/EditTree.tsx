@@ -56,6 +56,11 @@ const EMPTY_MAPS = {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
+/** Chart override for the name formatter when the chart's own Married-name
+ *  toggle is off; a module-level constant so useNameOf's formatter keeps a
+ *  stable identity across renders. */
+const NO_MARRIED_NAME = { marriedSurname: false } as const;
+
 interface Props {
   mainDs: Dataset;
   rootId: string;
@@ -89,7 +94,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
   const appSettings = useSettingsSlice(SETTINGS_KEYS);
   // Names read as the Name-display settings say (married surname, order, …) —
   // the same formatter the lists, the timeline and the reports use.
-  const nameOf = useNameOf();
+  const nameOf = useNameOf(settings.showMarriedName ? undefined : NO_MARRIED_NAME);
   const { alignment } = settings;
   // Grid is a layered chart (it reuses the tidy-tree SVG path); only fan/circle
   // are radial.

@@ -1233,6 +1233,7 @@ export const en = {
   "tree.settings.display.lifespan": "Lifespan",
   "tree.settings.display.age": "Age",
   "tree.settings.display.photo": "Photo",
+  "tree.settings.display.marriedName": "Married surname",
   "tree.settings.display.kinship": "Kinship",
   "tree.settings.display.place": "Place",
   "tree.settings.marriage": "Marriage",

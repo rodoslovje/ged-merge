@@ -52,6 +52,11 @@ import { useChartShortcuts } from "../keyboard/useChartShortcuts";
  *  unrelated one changing leaves it alone (see useSettingsSlice). */
 const SETTINGS_KEYS = ["showKinship"] as const;
 
+/** Chart override for the name formatter when the chart's own Married-name
+ *  toggle is off; a module-level constant so useNameOf's formatter keeps a
+ *  stable identity across renders. */
+const NO_MARRIED_NAME = { marriedSurname: false } as const;
+
 interface Props {
   mainDs: Dataset;
   compareDs: Dataset;
@@ -140,7 +145,8 @@ export function CompareTree({
   const { t } = useTranslation();
   // Names read as the Name-display settings say (married surname, order, …) —
   // the same formatter the lists, the timeline and the reports use.
-  const nameOf = useNameOf();
+  const { settings: chartSettings } = useChartSettings();
+  const nameOf = useNameOf(chartSettings.showMarriedName ? undefined : NO_MARRIED_NAME);
 
   // A node whose main record has unsaved edits gets an "M" badge, matching the
   // Edit tree and relative cards.

@@ -113,6 +113,11 @@ const TAPER_W = 12;
  *  140px apart, so density never needs to adapt to the span. */
 const TICK_STEP = 10;
 
+/** Chart override for the name formatter when the chart's own Married-name
+ *  toggle is off; a module-level constant so useNameOf's formatter keeps a
+ *  stable identity across renders. */
+const NO_MARRIED_NAME = { marriedSurname: false } as const;
+
 interface Props {
   mainDs: Dataset;
   rootId: string;
@@ -132,8 +137,8 @@ interface Props {
 
 export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabel, onBack, onNavigate, kindSwitcher, onRootChange }: Props) {
   const { t } = useTranslation();
-  const nameOf = useNameOf();
   const { settings } = useChartSettings();
+  const nameOf = useNameOf(settings.showMarriedName ? undefined : NO_MARRIED_NAME);
   const appSettings = useSettingsSlice(SETTINGS_KEYS);
   // Identity-stable, so the memoized row handlers below don't rebuild every
   // render just because App passes a fresh callback.
