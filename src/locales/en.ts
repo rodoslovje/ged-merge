@@ -1235,7 +1235,6 @@ export const en = {
   "tree.settings.display.photo": "Photo",
   "tree.settings.display.kinship": "Kinship",
   "tree.settings.display.place": "Place",
-  "tree.settings.display.badges": "Badges",
   "tree.settings.marriage": "Marriage",
   "tree.settings.marriage.date": "Date",
   "tree.settings.marriage.place": "Place",

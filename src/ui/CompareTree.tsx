@@ -542,8 +542,8 @@ export function CompareTree({
                 compareRecords={compareDs.records}
                 mainRefCtx={mainRefCtx}
                 compareRefCtx={compareRefCtx}
-                badgeOf={display.showBadges ? fanBadgeOf : undefined}
-                showRepeat={display.showBadges}
+                badgeOf={fanBadgeOf}
+                showRepeat
                 onRepeatJump={find.jumpTo}
                 hiddenTitle={hiddenTitle}
                 onHiddenJump={(n) => n.main && onReroot(n.main.id, n.incoming?.id)}
@@ -561,9 +561,9 @@ export function CompareTree({
               flashKey={find.hitKey}
               onSelect={selectNode}
               colorOf={colorOf}
-              badgeOf={display.showBadges ? badgeOf : undefined}
-              modifiedOf={display.showBadges ? isModified : undefined}
-              showRepeat={display.showBadges}
+              badgeOf={badgeOf}
+              modifiedOf={isModified}
+              showRepeat
               onRepeatJump={find.jumpTo}
               hiddenTitle={hiddenTitle}
               onHiddenJump={(n) => n.main && onReroot(n.main.id, n.incoming?.id)}

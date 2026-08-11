@@ -85,8 +85,6 @@ export function ChartsHub({ mainDs, rootId, onRootChange, startId, changedPerson
         mainDs={mainDs}
         rootId={rootId}
         startId={startId}
-        changedPersonIds={changedPersonIds}
-        decisions={decisions}
         backLabel={backLabel}
         onBack={onBack}
         onNavigate={onNavigate}
@@ -122,8 +120,6 @@ export function ChartsHub({ mainDs, rootId, onRootChange, startId, changedPerson
         mainDs={mainDs}
         rootId={rootId}
         startId={startId}
-        changedPersonIds={changedPersonIds}
-        decisions={decisions}
         backLabel={backLabel}
         onBack={onBack}
         onNavigate={onNavigate}
@@ -167,8 +163,6 @@ export function ChartsHub({ mainDs, rootId, onRootChange, startId, changedPerson
         mainDs={mainDs}
         startId={startId}
         targetId={rootId}
-        changedPersonIds={changedPersonIds}
-        decisions={decisions}
         backLabel={backLabel}
         onBack={onBack}
         onNavigate={onNavigate}

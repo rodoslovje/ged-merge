@@ -49,9 +49,6 @@ export interface ChartSettings {
   showAge: boolean;
   /** Show a place line (first available of birth / residence / death). */
   showPlace: boolean;
-  /** Show the status badges on nodes — the merge-decision C/R/D letters, the
-   *  unsaved-edit "M" and the import "I" (Edit and Compare trees). */
-  showBadges: boolean;
   /** Show the marriage year on the couple's connector / fan collar. */
   showMarriageDate: boolean;
   /** Show the marriage place on the couple's connector / fan collar. */
@@ -92,7 +89,6 @@ const DEFAULTS: ChartSettings = {
   showLifespan: true,
   showAge: false,
   showPlace: false,
-  showBadges: true,
   showMarriageDate: false,
   showMarriagePlace: false,
   maxGenerations: null,
@@ -169,7 +165,6 @@ function load(defaultShowAge: boolean): ChartSettings {
       showLifespan: bool(parsed.showLifespan, DEFAULTS.showLifespan),
       showAge: bool(parsed.showAge, defaultShowAge),
       showPlace: bool(parsed.showPlace, DEFAULTS.showPlace),
-      showBadges: bool(parsed.showBadges, DEFAULTS.showBadges),
       showMarriageDate: bool(parsed.showMarriageDate, DEFAULTS.showMarriageDate),
       showMarriagePlace: bool(parsed.showMarriagePlace, DEFAULTS.showMarriagePlace),
       maxGenerations: clampGenerations(parsed.maxGenerations),

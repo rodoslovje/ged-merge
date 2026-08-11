@@ -240,16 +240,6 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
     { hasPhoto, display, kinshipOf: fanKinshipOf },
   );
 
-  const fanBadgeOf = useCallback(
-    (n: TreeNode) => {
-      const dec = decisionOf(n);
-      if (dec) return { cls: `tree-node-decision ${dec.status}`, letter: dec.letter };
-      if (isModified(n)) return { fill: COLOR_MODIFIED, textFill: "var(--bg)", letter: t("edit.tree.modified").charAt(0) };
-      return undefined;
-    },
-    [decisionOf, isModified, t],
-  );
-
   const activeLaid = radial ? fanLaid : laid;
   const activeNodes = radial ? fanNodes : nodesByKey;
 
@@ -403,8 +393,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
                 onSelect={selectNode}
                 mainRecords={mainDs.records}
                 mainRefCtx={mainRefCtx}
-                badgeOf={display.showBadges ? fanBadgeOf : undefined}
-                showRepeat={display.showBadges}
+                showRepeat
                 onRepeatJump={find.jumpTo}
                 hiddenTitle={hiddenTitle}
                 onHiddenJump={(n) => n.main && changeRoot(n.main.id)}
@@ -422,9 +411,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
               flashKey={find.hitKey}
               onSelect={selectNode}
               colorOf={colorOf}
-              badgeOf={display.showBadges ? decisionOf : undefined}
-              modifiedOf={display.showBadges ? isModified : undefined}
-              showRepeat={display.showBadges}
+              showRepeat
               onRepeatJump={find.jumpTo}
               hiddenTitle={hiddenTitle}
               onHiddenJump={(n) => n.main && changeRoot(n.main.id)}

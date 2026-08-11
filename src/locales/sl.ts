@@ -1359,7 +1359,6 @@ export const sl = {
   "tree.settings.display.photo": "Fotografija",
   "tree.settings.display.kinship": "Sorodstvo",
   "tree.settings.display.place": "Kraj",
-  "tree.settings.display.badges": "Značke",
   "tree.settings.marriage": "Poroka",
   "tree.settings.marriage.date": "Datum",
   "tree.settings.marriage.place": "Kraj",

@@ -12,16 +12,14 @@ import { useChartSettings, type ChartAlignment, type ChartSettings as Settings, 
 
 const ALIGNMENTS: ChartAlignment[] = ["lr", "tb"];
 
-/** The boolean display toggles, in popover order. */
-/** Per-person fields (the "Person" group). Badges = the on-node status letters
- *  (merge decision C/R/D, unsaved-edit M, import I) drawn by the tree charts. */
-const DISPLAY_FIELDS: { key: "showLifespan" | "showAge" | "showPhoto" | "showKinship" | "showPlace" | "showBadges"; label: string }[] = [
+/** The boolean display toggles, in popover order — the per-person fields (the
+ *  "Person" group). */
+const DISPLAY_FIELDS: { key: "showLifespan" | "showAge" | "showPhoto" | "showKinship" | "showPlace"; label: string }[] = [
   { key: "showLifespan", label: "lifespan" },
   { key: "showAge", label: "age" },
   { key: "showPlace", label: "place" },
   { key: "showPhoto", label: "photo" },
   { key: "showKinship", label: "kinship" },
-  { key: "showBadges", label: "badges" },
 ];
 
 /** Per-couple marriage fields (the "Marriage" group — both default off). */
