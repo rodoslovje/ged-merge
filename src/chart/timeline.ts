@@ -161,34 +161,56 @@ export function buildTimeline(
   }
 
   // A parent's other unions: the partner there is the root's step-parent and
-  // that union's children are half-siblings (collected into the generation).
+  // that union's children are half-siblings. Both are sorted into the
+  // generation below rather than listed here, where a second wife standing
+  // above the first wife's children reads as their mother.
   const halfSiblings: Individual[] = [];
+  const stepParents: GenerationEntry[] = [];
   for (const parent of parents) {
     for (const fam of familiesByMarriage(ds, parent.spouseOf)) {
       if (root.childOf.includes(fam.id)) continue; // the root's own family
       const partnerId = fam.husband === parent.id ? fam.wife : fam.husband;
-      add(partnerId ? ds.individuals.get(partnerId) : undefined, "stepparent", marriageMarks(t, [fam]));
-      for (const cid of fam.children) {
-        const c = ds.individuals.get(cid);
-        if (c) halfSiblings.push(c);
+      const partner = partnerId ? ds.individuals.get(partnerId) : undefined;
+      const kids = fam.children
+        .map((cid) => ds.individuals.get(cid))
+        .filter((c): c is Individual => c !== undefined);
+      halfSiblings.push(...kids);
+      if (partner) {
+        stepParents.push({
+          indi: partner,
+          role: "stepparent",
+          // Where the union starts: its wedding, else its first child. A union
+          // dated by neither says nothing about when it began, so the partner
+          // falls back to their own birth and lands beside the parents, as
+          // before.
+          sortKey: unionStart(fam, kids) ?? birthSortKey(partner),
+          marriage: marriageMarks(t, [fam]),
+        });
       }
     }
   }
 
   // The root's generation: siblings, half-siblings and the root interleaved by
-  // birth order. The root's row additionally carries their marriage(s).
+  // birth order, with each step-parent at the point their union begins — so the
+  // children before that row belong to the marriage above it. The root's row
+  // additionally carries their marriage(s).
   const unions = familiesByMarriage(ds, root.spouseOf);
-  const generation = childFamilies
-    .flatMap((f) => f.children)
-    .filter((id, i, all) => all.indexOf(id) === i && id !== root.id)
-    .map((id) => ds.individuals.get(id))
-    .filter((s): s is Individual => s !== undefined)
-    .map((s) => ({ indi: s, role: "sibling" as TimelineRole }))
-    .concat(halfSiblings.map((s) => ({ indi: s, role: "halfsibling" as TimelineRole })))
-    .concat([{ indi: root, role: "person" as TimelineRole }])
-    .sort((a, b) => birthSortKey(a.indi) - birthSortKey(b.indi));
+  const generation: GenerationEntry[] = stepParents
+    .concat(
+      childFamilies
+        .flatMap((f) => f.children)
+        .filter((id, i, all) => all.indexOf(id) === i && id !== root.id)
+        .map((id) => ds.individuals.get(id))
+        .filter((s): s is Individual => s !== undefined)
+        .map((s) => ({ indi: s, role: "sibling" as TimelineRole, sortKey: birthSortKey(s) })),
+    )
+    .concat(halfSiblings.map((s) => ({ indi: s, role: "halfsibling" as TimelineRole, sortKey: birthSortKey(s) })))
+    .concat([{ indi: root, role: "person" as TimelineRole, sortKey: birthSortKey(root), marriage: marriageMarks(t, unions) }])
+    // Stable, and the step-parents lead the array, so a wedding and a birth
+    // sharing a key put the wedding first.
+    .sort((a, b) => a.sortKey - b.sortKey);
   for (const g of generation) {
-    add(g.indi, g.role, g.role === "person" ? marriageMarks(t, unions) : []);
+    add(g.indi, g.role, g.marriage ?? []);
   }
 
   // Each union: the spouse (with that union's marriage marker), then that
@@ -323,6 +345,31 @@ function eventMarks(t: Translate, indi: Individual): TimelineMark[] {
 export function eventPlace(e: GedEvent): string | undefined {
   if (e.address?.parts[0]) return e.address.parts[0];
   return e.place ? localityParts(e.place)[0] : undefined;
+}
+
+/** One row of the root's own generation, waiting to be sorted into it. */
+interface GenerationEntry {
+  indi: Individual;
+  role: TimelineRole;
+  /** Where the row belongs in the generation, on {@link birthSortKey}'s scale. */
+  sortKey: number;
+  /** Marriage markers the row carries (the root's unions, a step-parent's). */
+  marriage?: TimelineMark[];
+}
+
+/**
+ * When a union began, on {@link birthSortKey}'s scale: its wedding, else its
+ * first child's birth. Undefined for a union dated by neither.
+ *
+ * Deliberately not {@link dateToSortKey}, whose year-only convention sorts a
+ * bare year *after* every dated event in it — these keys are weighed against
+ * birth keys, where a bare year comes first.
+ */
+function unionStart(fam: Family, children: Individual[]): number | undefined {
+  const marr = fam.events.find((e) => e.tag === "MARR")?.date;
+  if (marr?.year !== undefined) return marr.year * 10000 + (marr.month ?? 0) * 100 + (marr.day ?? 0);
+  const first = Math.min(...children.map(birthSortKey));
+  return Number.isFinite(first) ? first : undefined;
 }
 
 /** ⚭ markers for each family's dated MARR event. */

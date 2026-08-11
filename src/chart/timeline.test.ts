@@ -56,23 +56,41 @@ describe("buildTimeline", () => {
   const ds = dataset(FAMILY);
   const data = buildTimeline(tr, ds, "@I1@", nameOf, NOW)!;
 
-  it("orders rows: parents, step-parents, generation by birth, spouse, children", () => {
+  it("orders rows: parents, generation by birth, spouse, children", () => {
     expect(data.rows.map((r) => r.id)).toEqual([
       "@I2@", // father
       "@I3@", // mother
-      "@I9@", // step-mother (father's second wife)
       "@I4@", // older sister (1898)
       "@I1@", // root (1900)
       "@I5@", // younger brother (1903)
-      "@I10@", // half-brother (1936), interleaved by birth
+      "@I9@", // step-mother, at her wedding (1935) — after the first wife's children
+      "@I10@", // her son, the half-brother (1936)
       "@I6@", // wife
       "@I11@", // her daughter from an earlier union (1922) — step-daughter
       "@I7@", // son (1926)
       "@I8@", // undated daughter
     ]);
     expect(data.rows.map((r) => r.role)).toEqual([
-      "parent", "parent", "stepparent", "sibling", "person", "sibling", "halfsibling", "spouse", "stepchild", "child", "child",
+      "parent", "parent", "sibling", "person", "sibling", "stepparent", "halfsibling", "spouse", "stepchild", "child", "child",
     ]);
+  });
+
+  it("places an undated second union by its first child", () => {
+    // The father's second family loses its MARR: the step-mother then stands
+    // where her first child does, still below the first wife's children.
+    const ds2 = dataset(FAMILY.replace("0 @F3@ FAM\n1 HUSB @I2@\n1 WIFE @I9@\n1 CHIL @I10@\n1 MARR\n2 DATE 1935\n",
+      "0 @F3@ FAM\n1 HUSB @I2@\n1 WIFE @I9@\n1 CHIL @I10@\n"));
+    const ids = buildTimeline(tr, ds2, "@I1@", nameOf, NOW)!.rows.map((r) => r.id);
+    expect(ids.slice(0, 7)).toEqual(["@I2@", "@I3@", "@I4@", "@I1@", "@I5@", "@I9@", "@I10@"]);
+  });
+
+  it("stands a union dated by nothing on the partner's own birth", () => {
+    // No wedding, no children: nothing says when it began, so the step-mother
+    // takes her own birth (1905) rather than a guess at the union.
+    const ds3 = dataset(FAMILY.replace("0 @F3@ FAM\n1 HUSB @I2@\n1 WIFE @I9@\n1 CHIL @I10@\n1 MARR\n2 DATE 1935\n",
+      "0 @F3@ FAM\n1 HUSB @I2@\n1 WIFE @I9@\n"));
+    const ids = buildTimeline(tr, ds3, "@I1@", nameOf, NOW)!.rows.map((r) => r.id);
+    expect(ids.slice(0, 6)).toEqual(["@I2@", "@I3@", "@I4@", "@I1@", "@I5@", "@I9@"]);
   });
 
   it("spans the axis over every bar and mark", () => {
