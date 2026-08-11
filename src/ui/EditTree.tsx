@@ -253,7 +253,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
 
   // Viewport, grab-to-pan, zoom, root re-centring, and node selection.
   const { canvasRef, viewport, panning, scrollTo, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
-    useTreeCanvas(activeLaid, activeNodes, alignment, radial, nodeH);
+    useTreeCanvas(activeLaid, activeNodes, alignment, radial, nodeH, `${currentRootId}:${effectiveMode}:${settings.type}:${alignment}`);
 
   // Find-in-chart: every drawn position, in layout order (a shared ancestor is
   // drawn once per line of descent, so the same person yields several).

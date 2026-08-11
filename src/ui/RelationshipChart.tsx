@@ -156,7 +156,7 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
   );
 
   const { canvasRef, viewport, panning, scrollTo, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
-    useTreeCanvas(laid, nodesByKey, alignment, false, nodeH);
+    useTreeCanvas(laid, nodesByKey, alignment, false, nodeH, `${startSel}→${targetSel}:${optionIdx}:${alignment}`);
 
   // Find-in-chart. This diagram only draws one route, so somebody off it is the
   // usual case — finding them makes them the new target, redrawing the route.

@@ -419,7 +419,7 @@ export function CompareTree({
 
   // Viewport, grab-to-pan, zoom, root re-centring, and node selection.
   const { canvasRef, viewport, panning, scrollTo, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
-    useTreeCanvas(activeLaid, activeNodes, alignment, radial, nodeH);
+    useTreeCanvas(activeLaid, activeNodes, alignment, radial, nodeH, `${rootMainId ?? ""}:${rootCompareId ?? ""}:${effectiveMode}:${settings.type}:${alignment}`);
 
   // Find-in-chart. A node here can draw a matched pair, so both sides are
   // searchable — the incoming spelling of a name finds the node just as well.

@@ -240,7 +240,7 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
   }, [geom, rows, nodesByKey]);
 
   const { canvasRef, panning, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
-    useTreeCanvas(laid, nodesByKey, "lr", false, rowH);
+    useTreeCanvas(laid, nodesByKey, "lr", false, rowH, `${currentRootId}:${limit ?? "all"}`);
 
   // Find-in-chart. The timeline only draws the root's immediate family, so a
   // name that isn't here is common — the box then offers to re-root on them.
