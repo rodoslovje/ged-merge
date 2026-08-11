@@ -287,6 +287,48 @@ describe("parseGiMatchesCsv", () => {
     );
   });
 
+  it("gives the sexless people of a person CSV the sex their given name states", () => {
+    // The index export has no sex column: without reading the names, everybody
+    // here would arrive sexless — the row's own person as much as her partner.
+    const marija = [
+      "Marija", "Hvasti", "19 NOV 1868", "", "", "", "", "", "",
+      "Franc Tiringer | 2 FEB 1867", "Jakob Hvasti | 1845", "Neža Stare | 1846", "Renko", "99",
+    ];
+    const text = [SL_HEADER_SOURCE, row(marija), row(marija)].join("\n");
+
+    const { dataset } = parseGiMatchesCsv(text);
+    const sexOf = (given: string): string | undefined =>
+      [...dataset.individuals.values()].find((i) => i.names[0]?.given === given)?.sex;
+    expect(sexOf("Marija")).toBe("F");
+    expect(sexOf("Franc")).toBe("M");
+    // A parent's own column already stated these two; the names agree.
+    expect(sexOf("Jakob")).toBe("M");
+    expect(sexOf("Neža")).toBe("F");
+
+    // ...and the marriage the CSV left as a guess — Marija's own row names
+    // Franc as a partner without saying which spouse he is — is put the right
+    // way round by the names alone.
+    const givenOf = (id: string | undefined): string | undefined =>
+      id ? dataset.individuals.get(id)!.names[0]?.given : undefined;
+    const marriage = [...dataset.families.values()].find(
+      (f) => givenOf(f.husband) === "Franc" || givenOf(f.wife) === "Franc",
+    )!;
+    expect(givenOf(marriage.husband)).toBe("Franc");
+    expect(givenOf(marriage.wife)).toBe("Marija");
+  });
+
+  it("leaves a name that does not state a sex alone", () => {
+    const person = [
+      "Vanja", "Novak", "3 JUN 1889", "", "", "", "", "", "",
+      "", "", "", "Renko", "99",
+    ];
+    const text = [SL_HEADER_SOURCE, row(person), row(person)].join("\n");
+
+    const { dataset } = parseGiMatchesCsv(text);
+    // "U" is what a record with no SEX line of its own reads as.
+    expect([...dataset.individuals.values()][0].sex).toBe("U");
+  });
+
   it("keeps same-named relatives apart when the CSV gives no birth year", () => {
     const first = [
       "Ana", "Novak", "3 JUN 1789", "", "", "", "", "", "",
