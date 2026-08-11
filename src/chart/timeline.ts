@@ -20,8 +20,12 @@ import { MARRIAGE_SYMBOL, placeLabel } from "./nodeDisplay";
 
 /** The person's relation to the timeline's root, in row-group order. A parent's
  *  other partner is a step-parent and that union's children are half-siblings;
- *  a spouse's children from their other unions are step-children. */
+ *  a spouse's children from their other unions are step-children. Past the
+ *  immediate family — grandparents and beyond, grandchildren and beyond — the
+ *  blood line alone continues, under the two open-ended roles: how far up or
+ *  down each one stands is the kinship label's job, not a role's. */
 export type TimelineRole =
+  | "ancestor"
   | "parent"
   | "stepparent"
   | "sibling"
@@ -29,7 +33,8 @@ export type TimelineRole =
   | "person"
   | "spouse"
   | "child"
-  | "stepchild";
+  | "stepchild"
+  | "descendant";
 
 /** A dated marker drawn on a row's bar. */
 export interface TimelineMark {
@@ -119,9 +124,16 @@ export interface TimelineData {
 export type NameOf = (indi: Individual) => string;
 
 /**
- * Build the timeline rows for a root person: parents, then the root among their
- * siblings in birth order, then each union's spouse followed by that union's
- * children. People appearing in two roles (pedigree collapse) keep the first.
+ * Build the timeline rows for a root person: the ancestors above, oldest
+ * generation first, then parents, then the root among their siblings in birth
+ * order, then each union's spouse followed by that union's children, and the
+ * descendants below. People appearing in two roles (pedigree collapse) keep the
+ * first.
+ *
+ * `maxGen` is how many generations either way the chart reaches — 1 (the
+ * default) is the immediate family, `null` the whole line in both directions.
+ * Beyond the first step the blood line alone continues: a great-grandparent's
+ * own siblings and a grandchild's other parent are somebody else's timeline.
  */
 export function buildTimeline(
   t: Translate,
@@ -129,9 +141,11 @@ export function buildTimeline(
   rootId: string,
   nameOf: NameOf,
   nowYear: number = new Date().getFullYear(),
+  maxGen: number | null = 1,
 ): TimelineData | undefined {
   const root = ds.individuals.get(rootId);
   if (!root) return undefined;
+  const reach = maxGen ?? Infinity;
 
   const rows: TimelineRow[] = [];
   const seen = new Set<string>();
@@ -154,11 +168,18 @@ export function buildTimeline(
       const p = fam[roleKey] ? ds.individuals.get(fam[roleKey]!) : undefined;
       if (p) {
         parents.push(p);
-        add(p, "parent", marriageMarks(t, familiesByMarriage(ds, p.spouseOf)));
         break;
       }
     }
   }
+
+  // Grandparents and above, oldest generation first so the chart reads down the
+  // page the way the years run. Emitted before the parents for the same reason.
+  const above = generationsOf(parents, reach - 1, parentsStep(ds));
+  for (const generation of above.reverse()) {
+    for (const a of generation) add(a, "ancestor", marriageMarks(t, familiesByMarriage(ds, a.spouseOf)));
+  }
+  for (const p of parents) add(p, "parent", marriageMarks(t, familiesByMarriage(ds, p.spouseOf)));
 
   // A parent's other unions: the partner there is the root's step-parent and
   // that union's children are half-siblings. Both are sorted into the
@@ -234,6 +255,17 @@ export function buildTimeline(
     for (const kid of [...kids, ...stepKids].sort((a, b) => birthSortKey(a.indi) - birthSortKey(b.indi))) {
       add(kid.indi, kid.role);
     }
+  }
+
+  // Grandchildren and below, youngest generation last — the mirror of the
+  // ancestors above, and the same blood-line-only rule: a grandchild's other
+  // parent belongs to their own timeline.
+  const ownChildren = unions
+    .flatMap((f) => f.children)
+    .map((id) => ds.individuals.get(id))
+    .filter((c): c is Individual => c !== undefined);
+  for (const generation of generationsOf(ownChildren, reach - 1, childrenStep(ds))) {
+    for (const d of generation) add(d, "descendant", marriageMarks(t, familiesByMarriage(ds, d.spouseOf)));
   }
 
   let min: number | undefined;
@@ -345,6 +377,60 @@ function eventMarks(t: Translate, indi: Individual): TimelineMark[] {
 export function eventPlace(e: GedEvent): string | undefined {
   if (e.address?.parts[0]) return e.address.parts[0];
   return e.place ? localityParts(e.place)[0] : undefined;
+}
+
+/** One person's parents / one person's children, as {@link generationsOf} steps. */
+const parentsStep = (ds: Dataset) => (indi: Individual) =>
+  indi.childOf.flatMap((id) => {
+    const fam = ds.families.get(id);
+    return [fam?.husband, fam?.wife].map((pid) => (pid ? ds.individuals.get(pid) : undefined));
+  });
+const childrenStep = (ds: Dataset) => (indi: Individual) =>
+  familiesByMarriage(ds, indi.spouseOf).flatMap((f) => f.children.map((id) => ds.individuals.get(id)));
+
+/**
+ * How many generations the timeline has to offer from this person: the deeper
+ * of their ancestor and descendant lines (0 for someone with neither). Feeds the
+ * generation stepper's "of N".
+ */
+export function familyDepth(ds: Dataset, rootId: string): number {
+  const root = ds.individuals.get(rootId);
+  if (!root) return 0;
+  return Math.max(
+    generationsOf([root], Infinity, parentsStep(ds)).length,
+    generationsOf([root], Infinity, childrenStep(ds)).length,
+  );
+}
+
+/**
+ * The next `levels` generations out from `from`, nearest first, each in birth
+ * order — `step` names one person's people in that direction (their parents, or
+ * their children). Nobody is listed twice across the generations, so a pedigree
+ * collapse stands at the first level it reaches; an empty generation ends the
+ * walk, since nothing lies beyond it.
+ */
+function generationsOf(
+  from: Individual[],
+  levels: number,
+  step: (indi: Individual) => (Individual | undefined)[],
+): Individual[][] {
+  const out: Individual[][] = [];
+  const seen = new Set(from.map((p) => p.id));
+  let frontier = from;
+  for (let level = 0; level < levels && frontier.length > 0; level++) {
+    const next: Individual[] = [];
+    for (const p of frontier) {
+      for (const n of step(p)) {
+        if (!n || seen.has(n.id)) continue;
+        seen.add(n.id);
+        next.push(n);
+      }
+    }
+    if (next.length === 0) break;
+    out.push(next.sort((a, b) => birthSortKey(a) - birthSortKey(b)));
+    frontier = next;
+  }
+  return out;
 }
 
 /** One row of the root's own generation, waiting to be sorted into it. */

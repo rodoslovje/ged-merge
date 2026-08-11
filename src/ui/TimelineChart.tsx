@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
-import { buildTimeline, type TimelineRow } from "../chart/timeline";
+import { buildTimeline, familyDepth, type TimelineRow } from "../chart/timeline";
 import { ageStandalone, formatMarriage, lifespanLine, livingLabelFor } from "../chart/nodeDisplay";
 import { lifespanAge } from "../gedcom/age";
 import { PAD, type ChartNode } from "../chart/treeLayout";
@@ -140,10 +140,16 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
   // person themselves — every row's role already says the same thing.
   const showKinship = settings.showKinship && appSettings.showKinship && !!startId && startId !== currentRootId;
 
+  // How far the chart reaches: the shared Generations choice, which for the
+  // timeline counts both ways at once — ancestors above, descendants below.
+  const limit = settings.maxGenerations;
   const data = useMemo(
-    () => buildTimeline(t, mainDs, currentRootId, nameOf),
-    [t, mainDs, currentRootId, nameOf],
+    () => buildTimeline(t, mainDs, currentRootId, nameOf, undefined, limit),
+    [t, mainDs, currentRootId, nameOf, limit],
   );
+  // What the stepper's "of N" counts: the deeper of the two directions, always
+  // the full family, so raising the limit never has to rebuild anything first.
+  const depth = useMemo(() => familyDepth(mainDs, currentRootId), [mainDs, currentRootId]);
 
   // Photos need a loaded media folder.
   const { folderName } = useMediaFolder();
@@ -176,6 +182,13 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
   const kinship = useMemo(
     () => (startId ? createKinshipResolver(mainDs, startId, t) : undefined),
     [mainDs, startId, t],
+  );
+
+  // Kinship from the chart's own root, which is what a row's role means; the
+  // resolver above answers the other question (kinship to the start person).
+  const rootKinship = useMemo(
+    () => createKinshipResolver(mainDs, currentRootId, t),
+    [mainDs, currentRootId, t],
   );
 
   // Redact people inferred to be living: label only (a bar would betray the
@@ -268,7 +281,15 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
    *  person carries no role chip — the highlight already marks them. The
    *  kinship-to-start renders as its own lineage-coloured tspan after this. */
   const rowMeta = (row: TimelineRow): string => {
-    const role = row.role !== "person" ? t(`timeline.role.${roleKey(row)}`) : undefined;
+    // "Great-grandmother" says what "Ancestor" cannot, and the kinship resolver
+    // already speaks both languages; the plain role stays as the fallback for a
+    // line it can't name (an adoptive step it doesn't follow, say).
+    const role =
+      row.role === "person"
+        ? undefined
+        : row.role === "ancestor" || row.role === "descendant"
+          ? rootKinship.label(row.id) || t(`timeline.role.${row.role}`)
+          : t(`timeline.role.${roleKey(row)}`);
     if (redacted(row)) return role ?? "";
     const age = lifespanAge(mainDs.individuals.get(row.id));
     const lifespan = lifespanLine(settings, {
@@ -304,7 +325,7 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
       }
       actions={
         <>
-          <ChartSettings lockedType="timeline" />
+          <ChartSettings lockedType="timeline" availableGenerations={depth} />
           <ChartExportMenu
             disabled={!laid}
             slug={chartSlug(rootRow?.name, pageKind)}

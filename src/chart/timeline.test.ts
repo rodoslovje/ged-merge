@@ -3,7 +3,7 @@ import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { displayName, primaryName } from "../match/relatives";
 import type { Individual } from "../gedcom/types";
-import { buildTimeline, type TimelineRow } from "./timeline";
+import { buildTimeline, familyDepth, type TimelineRow } from "./timeline";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -91,6 +91,37 @@ describe("buildTimeline", () => {
       "0 @F3@ FAM\n1 HUSB @I2@\n1 WIFE @I9@\n"));
     const ids = buildTimeline(tr, ds3, "@I1@", nameOf, NOW)!.rows.map((r) => r.id);
     expect(ids.slice(0, 6)).toEqual(["@I2@", "@I3@", "@I4@", "@I1@", "@I5@", "@I9@"]);
+  });
+
+  it("reaches further when the generation limit says so", () => {
+    // A grandfather above the father, and a grandson below the son.
+    const deep = dataset(
+      FAMILY.replace("1 FAMS @F1@\n1 FAMS @F3@\n", "1 FAMS @F1@\n1 FAMS @F3@\n1 FAMC @F5@\n")
+        .replace("0 @F1@ FAM\n", "0 @I12@ INDI\n1 NAME Jakob /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1840\n1 FAMS @F5@\n" +
+          "0 @I13@ INDI\n1 NAME Tine /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1950\n1 FAMC @F6@\n" +
+          "0 @F5@ FAM\n1 HUSB @I12@\n1 CHIL @I2@\n" +
+          "0 @F6@ FAM\n1 HUSB @I7@\n1 CHIL @I13@\n0 @F1@ FAM\n")
+        .replace("0 @I7@ INDI\n1 NAME Peter /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1926\n1 FAMC @F2@\n",
+          "0 @I7@ INDI\n1 NAME Peter /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1926\n1 FAMC @F2@\n1 FAMS @F6@\n"),
+    );
+    const one = buildTimeline(tr, deep, "@I1@", nameOf, NOW)!.rows.map((r) => r.id);
+    expect(one).not.toContain("@I12@");
+    expect(one).not.toContain("@I13@");
+
+    const two = buildTimeline(tr, deep, "@I1@", nameOf, NOW, 2)!;
+    // The grandfather opens the chart (oldest generation first) and the grandson
+    // closes it; both under the open-ended roles the kinship label names.
+    expect(two.rows[0]).toMatchObject({ id: "@I12@", role: "ancestor" });
+    expect(two.rows[two.rows.length - 1]).toMatchObject({ id: "@I13@", role: "descendant" });
+    // "All" reaches at least as far.
+    expect(buildTimeline(tr, deep, "@I1@", nameOf, NOW, null)!.rows.map((r) => r.id)).toContain("@I12@");
+  });
+
+  it("counts the generations the family has to offer", () => {
+    // Parents above, children below: one each way.
+    expect(familyDepth(ds, "@I1@")).toBe(1);
+    expect(familyDepth(ds, "@I2@")).toBe(2); // father → his children → their children
+    expect(familyDepth(ds, "nobody")).toBe(0);
   });
 
   it("spans the axis over every bar and mark", () => {
