@@ -119,6 +119,10 @@ export function buildPersonTree(
   maps: MatchMaps,
   mode: TreeMode,
   isRejected?: (mainId: string, compareId: string) => boolean,
+  /** How a person's name reads — the app's Name-display settings (married
+   *  surname, given-name order, …). Defaults to the plain primary name, which
+   *  is what the worker, with no settings to hand, has to use. */
+  nameOf: NameFormatter = primaryNameOf,
 ): TreeNode | undefined {
   // Occurrence count per person: pedigree collapse (and spouses who are also
   // blood relatives) repeat a person in several positions, and every occurrence
@@ -154,7 +158,7 @@ export function buildPersonTree(
     }
     const base = nodeKey(main, incoming);
     const key = claimKey(base);
-    const node = makeNode(t, key, main, incoming, mainDs, compareDs, placeFmt);
+    const node = makeNode(t, key, main, incoming, mainDs, compareDs, placeFmt, nameOf);
     const expandedAt = expanded.get(base);
     if (expandedAt !== undefined) {
       // Already expanded elsewhere: stop here and point at that position.
@@ -170,7 +174,7 @@ export function buildPersonTree(
       node.marriage =
         parentsMarriage(main, mainDs) ?? parentsMarriage(incoming, compareDs);
     } else {
-      const { partners, directChildren } = descend(t, main, incoming, mainDs, compareDs, maps, build, claimKey, expandedFams, placeFmt);
+      const { partners, directChildren } = descend(t, main, incoming, mainDs, compareDs, maps, build, claimKey, expandedFams, placeFmt, nameOf);
       node.partners = partners;
       node.children = directChildren;
     }
@@ -272,6 +276,7 @@ function descend(
   claimKey: ClaimKey,
   expandedFams: Map<string, string | undefined>,
   placeFmt: PlaceTargetFormat,
+  nameOf: NameFormatter,
 ): { partners: TreeNode[]; directChildren: TreeNode[] } {
   const mainUnions = unionsOf(main, mainDs);
   const incomingUnions = unionsOf(incoming, compareDs);
@@ -296,7 +301,7 @@ function descend(
       // Partner nodes claim a key too: a spouse who is also a blood relative
       // (or married twice into the tree) appears in several positions.
       const key = claimKey(nodeKey(mPartner, iPartner));
-      const node = makeNode(t, key, mPartner, iPartner, mainDs, compareDs, placeFmt);
+      const node = makeNode(t, key, mPartner, iPartner, mainDs, compareDs, placeFmt, nameOf);
       node.children = children;
       // The marriage belongs to this union — drawn on the person↔spouse line.
       node.marriage = marriageOf(fam);
@@ -547,6 +552,7 @@ function makeNode(
   mainDs: Dataset,
   compareDs: Dataset,
   placeFmt: PlaceTargetFormat,
+  nameOf: NameFormatter,
 ): TreeNode {
   const status = nodeStatus(t, main, incoming, mainDs, compareDs, placeFmt);
   const primary = main ?? incoming!;
@@ -563,7 +569,7 @@ function makeNode(
     // Declared-private people redact exactly like the presumed-living.
     living: isPresumedLiving(main, mainDs) || isPresumedLiving(incoming, compareDs) || !!main?.private || !!incoming?.private,
     sex,
-    detail: describe(t, main, incoming, mainDs, compareDs, status, placeFmt),
+    detail: describe(t, main, incoming, mainDs, compareDs, status, placeFmt, nameOf),
     children: [],
     partners: [],
   };
@@ -602,6 +608,7 @@ function describe(
   compareDs: Dataset,
   status: NodeStatus,
   placeFmt: PlaceTargetFormat,
+  nameOf: NameFormatter,
 ): string {
   if (!main || !incoming) {
     const who = (main ?? incoming)!;
@@ -615,7 +622,10 @@ function describe(
   return diffs.map((r) => `${r.label}: ${r.main || "—"} / ${r.incoming || "—"}`).join("\n");
 }
 
-function nameOf(indi: Individual): string {
+/** How the charts render a person's name; see {@link buildPersonTree}. */
+export type NameFormatter = (indi: Individual) => string;
+
+function primaryNameOf(indi: Individual): string {
   return displayName(primaryName(indi));
 }
 

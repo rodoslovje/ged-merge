@@ -33,7 +33,7 @@ import { ChartSettings } from "./ChartSettings";
 import { ChartFindBox } from "./ChartFindBox";
 import { useChartFind } from "./useChartFind";
 import { useChartSettings } from "./ChartSettingsContext";
-import { useSettingsSlice } from "./SettingsContext";
+import { useNameOf, useSettingsSlice } from "./SettingsContext";
 import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 
 // Color for unmodified nodes (main pine green) and modified (amber/minor).
@@ -87,6 +87,9 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
 
   const { settings } = useChartSettings();
   const appSettings = useSettingsSlice(SETTINGS_KEYS);
+  // Names read as the Name-display settings say (married surname, order, …) —
+  // the same formatter the lists, the timeline and the reports use.
+  const nameOf = useNameOf();
   const { alignment } = settings;
   // Grid is a layered chart (it reuses the tidy-tree SVG path); only fan/circle
   // are radial.
@@ -120,10 +123,10 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
   // radial chart — so switching direction or chart type never rebuilds a tree.
   const trees = useMemo(
     () => ({
-      ancestors: rootPerson ? buildPersonTree(t, rootPerson, undefined, mainDs, EMPTY_DS, EMPTY_MAPS, "ancestors") : undefined,
-      descendants: rootPerson ? buildPersonTree(t, rootPerson, undefined, mainDs, EMPTY_DS, EMPTY_MAPS, "descendants") : undefined,
+      ancestors: rootPerson ? buildPersonTree(t, rootPerson, undefined, mainDs, EMPTY_DS, EMPTY_MAPS, "ancestors", undefined, nameOf) : undefined,
+      descendants: rootPerson ? buildPersonTree(t, rootPerson, undefined, mainDs, EMPTY_DS, EMPTY_MAPS, "descendants", undefined, nameOf) : undefined,
     }),
-    [t, rootPerson, mainDs],
+    [t, rootPerson, mainDs, nameOf],
   );
   // How deep each direction goes, and the trees as the generation limit leaves
   // them. The full trees stay behind them for the head-counts and the "of N"

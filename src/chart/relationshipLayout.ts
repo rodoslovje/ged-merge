@@ -9,7 +9,7 @@
 // same side, so no collision search is needed — a left-to-right column cursor in
 // path order keeps every box in its own column.
 
-import type { Dataset, Sex } from "../gedcom/types";
+import type { Dataset, Individual, Sex } from "../gedcom/types";
 import { lifespanOf } from "../gedcom/lifespan";
 import { NODE_H, NODE_W, PAD, type ChartAlignment } from "./treeLayout";
 import { localityParts } from "../gedcom/place";
@@ -62,6 +62,9 @@ export function buildRelationshipChart(
   path: RelationshipPath,
   alignment: ChartAlignment = "tb",
   nodeH: number = NODE_H,
+  /** How a person's name reads — the app's Name-display settings. Defaults to
+   *  the plain primary name for callers with no settings to hand. */
+  nameOf: (indi: Individual) => string = (indi) => displayName(primaryName(indi)),
 ): RelationshipChart {
   const steps = path.steps;
   const n = steps.length;
@@ -211,7 +214,7 @@ export function buildRelationshipChart(
     return {
       key: id,
       id,
-      name: indi ? displayName(primaryName(indi)) : id,
+      name: indi ? nameOf(indi) : id,
       years: (indi && lifespanOf(indi)) || undefined,
       sex: indi?.sex ?? "U",
       x,

@@ -131,8 +131,8 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
       : undefined;
   const current = options[Math.min(optionIdx, options.length - 1)]?.path;
   const chart = useMemo(
-    () => (current ? buildRelationshipChart(mainDs, current, alignment, nodeH) : undefined),
-    [mainDs, current, alignment, nodeH],
+    () => (current ? buildRelationshipChart(mainDs, current, alignment, nodeH, formatName) : undefined),
+    [mainDs, current, alignment, nodeH, formatName],
   );
 
   // The chart boxes keyed for `useTreeCanvas` (they satisfy ChartNode

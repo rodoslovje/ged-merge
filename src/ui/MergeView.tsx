@@ -119,6 +119,8 @@ export function MergeView({
     const rootIncoming = compareDataset.individuals.get(current.compareId);
     const isRejected = (mainId: string, compareId: string) =>
       decisions.get(decisionKey("individual", mainId, compareId))?.status === "rejected";
+    // Head-counts only: nothing here reads a name, so this tree keeps the
+    // default formatter and the memo stays free of the name settings.
     const ancestors = buildPersonTree(t, rootMain, rootIncoming, mainDataset, compareDataset, maps, "ancestors", isRejected);
     const descendants = buildPersonTree(t, rootMain, rootIncoming, mainDataset, compareDataset, maps, "descendants", isRejected);
     return {

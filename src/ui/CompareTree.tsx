@@ -45,7 +45,7 @@ import { ChartPage } from "./ChartPage";
 import { ChartSettings } from "./ChartSettings";
 import { useChartSettings, type PedigreeType } from "./ChartSettingsContext";
 import { ChartKindTabs, PEDIGREE_KINDS } from "./ChartKindTabs";
-import { useSettingsSlice } from "./SettingsContext";
+import { useNameOf, useSettingsSlice } from "./SettingsContext";
 import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 
 /** The preferences this file reads — subscribed field by field, so an
@@ -138,6 +138,9 @@ export function CompareTree({
   onOpenInEdit,
 }: Props) {
   const { t } = useTranslation();
+  // Names read as the Name-display settings say (married surname, order, …) —
+  // the same formatter the lists, the timeline and the reports use.
+  const nameOf = useNameOf();
 
   // A node whose main record has unsaved edits gets an "M" badge, matching the
   // Edit tree and relative cards.
@@ -227,10 +230,10 @@ export function CompareTree({
   // the radial chart — so switching direction or chart type never rebuilds a tree.
   const trees = useMemo(
     () => ({
-      ancestors: buildPersonTree(t, rootMain, rootIncoming, mainDs, compareDs, maps, "ancestors", isRejected),
-      descendants: buildPersonTree(t, rootMain, rootIncoming, mainDs, compareDs, maps, "descendants", isRejected),
+      ancestors: buildPersonTree(t, rootMain, rootIncoming, mainDs, compareDs, maps, "ancestors", isRejected, nameOf),
+      descendants: buildPersonTree(t, rootMain, rootIncoming, mainDs, compareDs, maps, "descendants", isRejected, nameOf),
     }),
-    [t, rootMain, rootIncoming, mainDs, compareDs, maps, isRejected],
+    [t, rootMain, rootIncoming, mainDs, compareDs, maps, isRejected, nameOf],
   );
   // How deep each direction reaches, and the trees as the generation limit
   // leaves them — the full trees stay behind for the counts and the "of N"
