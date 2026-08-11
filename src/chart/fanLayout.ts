@@ -37,11 +37,13 @@ const LAST_RING_EXTRA = 22;
 // last entry is reused for any deeper rings.
 const FONT_BY_GEN = [13, 13, 12.5, 12, 11, 9.5, 8.5, 7.5, 6.8, 6.2, 5.8];
 
-// Six rings of ancestors is what the radial charts can actually be read at: the
-// seventh drops to 7.5px on a wedge a few pixels wide. Anything above the cap is
-// counted onto the last ring's "+N" marker (see cutByRings) rather than drawn
-// too small to make out — and one click there re-roots the chart and carries on.
-const DEFAULT_MAX_GEN = 6;
+// Eight rings of ancestors — as deep as the label rules above still have an
+// answer for: the seventh drops the place, the eighth keeps the name alone in a
+// lighter weight, and the ninth would be 6.2px with nothing left to drop.
+// Anything above the cap is counted onto the last ring's "+N" marker (see
+// cutByRings) rather than drawn too small to make out, and one click there
+// re-roots the chart and carries on up the line.
+const DEFAULT_MAX_GEN = 8;
 // Half the widest "+N" pill (NodeBadge sizes it ~9 + 5.5 per character), used to
 // keep the outer marker inside its wedge.
 const BADGE_HALF_W = 14;
