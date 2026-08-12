@@ -1902,6 +1902,91 @@ describe("mergeDecisions — one family for a couple, however it is reached", ()
     expect(out.match(/1 FAMC /g)).toHaveLength(1);
   });
 
+  // A graft resolves every incoming person through the match map, which holds
+  // every candidate the matcher produced — including weak ones the user never
+  // saw. Here "Marija Novak" is one of those: the main file already records her
+  // as Matija's daughter, so she cannot also be born into the family being
+  // grafted. Whichever way that is settled, she must never end up with two
+  // FAMC — two birth families on one person.
+  const TWO_PARENTS_MAIN = wrap(
+    "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n" +
+      "0 @I2@ INDI\n1 NAME Marija /Novak/\n1 SEX F\n1 BIRT\n2 DATE 1835\n1 FAMC @F1@\n" +
+      "0 @I3@ INDI\n1 NAME Matija /Novak/\n1 SEX M\n1 FAMS @F1@\n" +
+      "0 @F1@ FAM\n1 HUSB @I3@\n1 CHIL @I2@\n",
+  );
+  const TWO_PARENTS_COMPARE = wrap(
+    "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @G1@\n" +
+      "0 @P2@ INDI\n1 NAME Marija /Novak/\n1 SEX F\n1 BIRT\n2 DATE 1835\n1 FAMC @G1@\n" +
+      "0 @G1@ FAM\n1 HUSB @P1@\n1 CHIL @P2@\n",
+  );
+  const TWO_PARENTS_MATCHES = {
+    individuals: [
+      { mainId: "@I1@", compareId: "@P1@" },
+      { mainId: "@I2@", compareId: "@P2@" },
+    ],
+  } as never;
+  /** The reason strings carry their variables, so the preview's wording can be checked. */
+  const interp = (key: string, vars?: Record<string, unknown>) =>
+    `${key}|${Object.entries(vars ?? {}).map(([k, v]) => `${k}=${v}`).join(",")}`;
+  /** Marija's record as serialized. */
+  const recordOf = (out: string, xref: string) => {
+    const start = out.indexOf(`0 ${xref} INDI`);
+    return out.slice(start, out.indexOf("\n0 @", start + 1));
+  };
+
+  it("a suggested child the parents contradict is imported as their own person", () => {
+    const main = dataset(TWO_PARENTS_MAIN);
+    const compare = dataset(TWO_PARENTS_COMPARE);
+    const decisions = new Map<string, CandidateDecision>();
+    decisions.set(decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {} });
+    const { records, report } = mergeDecisions(main, compare, decisions, TWO_PARENTS_MATCHES, interp, [
+      { incomingId: "@P1@", direction: "descendants" },
+    ]);
+    const out = serializeGedcom(records);
+    // The main Marija is untouched: one FAMC, still her own family.
+    const marija = recordOf(out, "@I2@");
+    expect(marija.match(/1 FAMC /g)).toHaveLength(1);
+    expect(marija).toContain("1 FAMC @F1@");
+    // The incoming one came in as a person of her own, under Janez.
+    expect(report.newPersons).toBe(1);
+    expect(out.match(/1 FAMC /g)).toHaveLength(2);
+    // And the preview says the suggestion was overruled, so it can be checked.
+    expect(
+      report.deferred.some(
+        (d) =>
+          d.reason.startsWith("merge.reason.childApartFromParents|") &&
+          d.reason.includes("kept=Marija Novak") &&
+          d.reason.includes("parents=Matija Novak"),
+      ),
+    ).toBe(true);
+  });
+
+  it("a confirmed child whose parents disagree is left out and reported", () => {
+    const main = dataset(TWO_PARENTS_MAIN);
+    const compare = dataset(TWO_PARENTS_COMPARE);
+    const decisions = new Map<string, CandidateDecision>();
+    decisions.set(decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {} });
+    // You vouched for Marija being the same person — so she is not duplicated,
+    // and the parentage disagreement is handed back to you.
+    decisions.set(decisionKey("individual", "@I2@", "@P2@"), { status: "confirmed", fields: {} });
+    const { records, report } = mergeDecisions(main, compare, decisions, TWO_PARENTS_MATCHES, interp, [
+      { incomingId: "@P1@", direction: "descendants" },
+    ]);
+    const out = serializeGedcom(records);
+    const marija = recordOf(out, "@I2@");
+    expect(marija.match(/1 FAMC /g)).toHaveLength(1);
+    expect(marija).toContain("1 FAMC @F1@");
+    expect(report.newPersons).toBe(0);
+    expect(
+      report.deferred.some(
+        (d) =>
+          d.reason.startsWith("merge.reason.childHasParents|") &&
+          d.reason.includes("child=Marija Novak") &&
+          d.reason.includes("kept=Matija Novak"),
+      ),
+    ).toBe(true);
+  });
+
   it("a person with several incoming marriages gets a family per marriage", () => {
     // The lone-family fallback needs a single marriage on each side — three
     // incoming unions must not collapse into the first one created.

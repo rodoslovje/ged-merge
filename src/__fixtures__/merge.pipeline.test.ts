@@ -197,12 +197,17 @@ describe("full merge: EuropeRoyalFamilies into EnglishTudorRoyalFamily", () => {
     expect(fresh).toEqual([]);
   });
 
-  it("introduces no broken or duplicated family links", () => {
+  it("introduces no broken or duplicated family links, and no second birth family", () => {
     const baseline = validateDataset(main, 2026).counts;
     const merged = buildDataset(parseGedcom(new TextEncoder().encode(output).buffer as ArrayBuffer));
     const counts = validateDataset(merged, 2026).counts;
     expect(counts.brokenLink).toBe(baseline.brokenLink);
     expect(counts.duplicatePointer).toBe(baseline.duplicatePointer);
+    // A person is born into one family. A merge that hands somebody a second
+    // set of parents has mistaken two people for one — and the damage lands on
+    // a record the preview never even lists, because linking a child touches
+    // the family, not the child.
+    expect(counts.multipleParents).toBe(baseline.multipleParents);
   });
 
   it("only reports changes against records that exist in the output", () => {

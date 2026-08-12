@@ -1,11 +1,11 @@
 GED Merge change report
 =======================
 
-Records changed:  194
-Fields applied:   304
-New persons:      91
+Records changed:  195
+Fields applied:   305
+New persons:      92
 New families:     59
-Deferred:         6
+Deferred:         7
 
 Applied changes
 ---------------
@@ -655,7 +655,7 @@ Thomas Howard + Catherine Knyvett  @F241@
   merge.field.child: set "Thomas of_Berkshire Howard"
   merge.field.child: set "Henry Howard"
   merge.field.child: set "Catherine Howard"
-  merge.field.childLinked: set "Frances Howard"
+  merge.field.child: set "Frances Howard"
 
 Catherine Knyvett  @I407@
 -------------------------
@@ -677,12 +677,16 @@ Catherine Howard  @I411@
 ------------------------
   merge.field.newPerson: set "Catherine Howard"
 
+Frances Howard  @I412@
+----------------------
+  merge.field.newPerson: set "Frances Howard"
+
 Theophilus Howard + Elizabeth Dunbar  @F242@
 --------------------------------------------
   merge.field.newFamily: set ""
   merge.field.wife: set "Elizabeth Dunbar"
 
-Elizabeth Dunbar  @I412@
+Elizabeth Dunbar  @I413@
 ------------------------
   merge.field.newPerson: set "Elizabeth Dunbar"
 
@@ -691,7 +695,7 @@ Thomas of_Berkshire Howard + Elizabeth Cecil  @F243@
   merge.field.newFamily: set ""
   merge.field.wife: set "Elizabeth Cecil"
 
-Elizabeth Cecil  @I413@
+Elizabeth Cecil  @I414@
 -----------------------
   merge.field.newPerson: set "Elizabeth Cecil"
 
@@ -700,7 +704,7 @@ Henry Howard + Elizabeth Bassett  @F244@
   merge.field.newFamily: set ""
   merge.field.wife: set "Elizabeth Bassett"
 
-Elizabeth Bassett  @I414@
+Elizabeth Bassett  @I415@
 -------------------------
   merge.field.newPerson: set "Elizabeth Bassett"
 
@@ -709,7 +713,7 @@ William of_Berkshire Cecil + Catherine Howard  @F245@
   merge.field.newFamily: set ""
   merge.field.husband: set "William of_Berkshire Cecil"
 
-William of_Berkshire Cecil  @I415@
+William of_Berkshire Cecil  @I416@
 ----------------------------------
   merge.field.newPerson: set "William of_Berkshire Cecil"
 
@@ -718,7 +722,7 @@ Robert Devereux + Frances Howard  @F246@
   merge.field.newFamily: set ""
   merge.field.husband: set "Robert Devereux"
 
-Robert Devereux  @I416@
+Robert Devereux  @I417@
 -----------------------
   merge.field.newPerson: set "Robert Devereux"
 
@@ -727,7 +731,7 @@ Robert Carr + Frances Howard  @F247@
   merge.field.newFamily: set ""
   merge.field.husband: set "Robert Carr"
 
-Robert Carr  @I417@
+Robert Carr  @I418@
 -------------------
   merge.field.newPerson: set "Robert Carr"
 
@@ -736,7 +740,7 @@ William Howard + Elizabeth Dacre  @F248@
   merge.field.newFamily: set ""
   merge.field.wife: set "Elizabeth Dacre"
 
-Elizabeth Dacre  @I418@
+Elizabeth Dacre  @I419@
 -----------------------
   merge.field.newPerson: set "Elizabeth Dacre"
 
@@ -745,11 +749,11 @@ Thomas Howard + Gertrude Lyte  @F249@
   merge.field.newFamily: set ""
   merge.field.wife: set "Gertrude Lyte"
 
-Gertrude Lyte  @I419@
+Gertrude Lyte  @I420@
 ---------------------
   merge.field.newPerson: set "Gertrude Lyte"
 
-George Rochford Boleyn  @I420@
+George Rochford Boleyn  @I421@
 ------------------------------
   merge.field.newPerson: set "George Rochford Boleyn"
 
@@ -758,7 +762,7 @@ Thomas Boleyn + Elizabeth Howard  @F125@
   merge.field.child: set "George Rochford Boleyn"
   merge.field.child: set "Mary Boleyn"
 
-Mary Boleyn  @I421@
+Mary Boleyn  @I422@
 -------------------
   merge.field.newPerson: set "Mary Boleyn"
 
@@ -769,11 +773,11 @@ William Carey + Mary Boleyn  @F250@
   merge.field.child: set "Henry Carey"
   merge.field.child: set "Catherine Carey"
 
-Henry Carey  @I422@
+Henry Carey  @I423@
 -------------------
   merge.field.newPerson: set "Henry Carey"
 
-Catherine Carey  @I423@
+Catherine Carey  @I424@
 -----------------------
   merge.field.newPerson: set "Catherine Carey"
 
@@ -792,27 +796,27 @@ Francis Knollys + Catherine Carey  @F252@
   merge.field.child: set "Anne Knollys"
   merge.field.child: set "Catherine Knollys"
 
-Francis Knollys  @I424@
+Francis Knollys  @I425@
 -----------------------
   merge.field.newPerson: set "Francis Knollys"
 
-Henry Knollys  @I425@
+Henry Knollys  @I426@
 ---------------------
   merge.field.newPerson: set "Henry Knollys"
 
-William Knollys  @I426@
+William Knollys  @I427@
 -----------------------
   merge.field.newPerson: set "William Knollys"
 
-Lettice Knollys  @I427@
+Lettice Knollys  @I428@
 -----------------------
   merge.field.newPerson: set "Lettice Knollys"
 
-Anne Knollys  @I428@
+Anne Knollys  @I429@
 --------------------
   merge.field.newPerson: set "Anne Knollys"
 
-Catherine Knollys  @I429@
+Catherine Knollys  @I430@
 -------------------------
   merge.field.newPerson: set "Catherine Knollys"
 
@@ -821,7 +825,7 @@ Henry Knollys + Margaret Cave  @F253@
   merge.field.newFamily: set ""
   merge.field.wife: set "Margaret Cave"
 
-Margaret Cave  @I430@
+Margaret Cave  @I431@
 ---------------------
   merge.field.newPerson: set "Margaret Cave"
 
@@ -830,7 +834,7 @@ Walter Devereux + Lettice Knollys  @F254@
   merge.field.newFamily: set ""
   merge.field.husband: set "Walter Devereux"
 
-Walter Devereux  @I431@
+Walter Devereux  @I432@
 -----------------------
   merge.field.newPerson: set "Walter Devereux"
 
@@ -839,7 +843,7 @@ Robert of_Leicester Dudley + Lettice Knollys  @F255@
   merge.field.newFamily: set ""
   merge.field.husband: set "Robert of_Leicester Dudley"
 
-Robert of_Leicester Dudley  @I432@
+Robert of_Leicester Dudley  @I433@
 ----------------------------------
   merge.field.newPerson: set "Robert of_Leicester Dudley"
 
@@ -848,7 +852,7 @@ Christopher Blount + Lettice Knollys  @F256@
   merge.field.newFamily: set ""
   merge.field.husband: set "Christopher Blount"
 
-Christopher Blount  @I433@
+Christopher Blount  @I434@
 --------------------------
   merge.field.newPerson: set "Christopher Blount"
 
@@ -857,7 +861,7 @@ Thomas Leighton + Anne Knollys  @F257@
   merge.field.newFamily: set ""
   merge.field.husband: set "Thomas Leighton"
 
-Thomas Leighton  @I434@
+Thomas Leighton  @I435@
 -----------------------
   merge.field.newPerson: set "Thomas Leighton"
 
@@ -866,11 +870,11 @@ Gerald Fitzgerald + Catherine Knollys  @F258@
   merge.field.newFamily: set ""
   merge.field.husband: set "Gerald Fitzgerald"
 
-Gerald Fitzgerald  @I435@
+Gerald Fitzgerald  @I436@
 -------------------------
   merge.field.newPerson: set "Gerald Fitzgerald"
 
-Son Tudor  @I436@
+Son Tudor  @I437@
 -----------------
   merge.field.newPerson: set "Son Tudor"
 
@@ -878,7 +882,7 @@ Henry Tudor + Anne Boleyn  @F32@
 --------------------------------
   merge.field.child: set "Son Tudor"
 
-Joyce Culpeper  @I437@
+Joyce Culpeper  @I438@
 ----------------------
   merge.field.newPerson: set "Joyce Culpeper"
 
@@ -891,7 +895,7 @@ Edmund Howard + Dorothy Troyes  @F259@
   merge.field.newFamily: set ""
   merge.field.wife: set "Dorothy Troyes"
 
-Dorothy Troyes  @I438@
+Dorothy Troyes  @I439@
 ----------------------
   merge.field.newPerson: set "Dorothy Troyes"
 
@@ -911,3 +915,7 @@ Thomas Holland + Alice FitzAlan  @F194@
 ---------------------------------------
   merge.field.father: merge.reason.parentKept
   merge.field.mother: merge.reason.parentKeptAncestors
+
+Thomas Howard + Catherine Knyvett  @F241@
+-----------------------------------------
+  merge.field.child: merge.reason.childApartFromParents

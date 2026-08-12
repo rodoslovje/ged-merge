@@ -59,6 +59,10 @@ export interface MergeContext {
    *  the review table aligns children with* — which is not the matcher's rule,
    *  and decides what the user was shown before picking. */
   pairedAsRelatives: (mainId: string, incomingId: string) => boolean;
+  /** Whether the user confirmed this pair as the same person, rather than the
+   *  matcher merely proposing it. Only a confirmation outranks hard genealogical
+   *  evidence against the pairing. */
+  confirmedPair: (mainId: string, incomingId: string) => boolean;
   /** Display label for a main id, for the change report. */
   label: (id: string) => string;
   report: ChangeReport;
@@ -93,6 +97,9 @@ export function makeContext(
    *  point, so the incoming record is imported as a new person instead of being
    *  silently merged into the (wrongly) matched main record. */
   rejectedPairs: Set<string> = new Set(),
+  /** `${mainId}|${compareId}` pairs the user confirmed — the only identities the
+   *  merge trusts over the files' own evidence (see `confirmedPair`). */
+  confirmedPairs: Set<string> = new Set(),
 ): MergeContext {
   const incToMain = new Map<string, string>();
   for (const c of matches.individuals) {
@@ -188,6 +195,7 @@ export function makeContext(
       const c = compare.individuals.get(incomingId);
       return !!m && !!c && relativePersonSimilarity(m, c) >= RELATIVE_PAIR_THRESHOLD;
     },
+    confirmedPair: (mainId, incomingId) => confirmedPairs.has(`${mainId}|${incomingId}`),
     label: (id) =>
       addedLabels.get(id) ?? displayName(main.individuals.get(id)?.names[0]),
     beginGraftPhase: () => {
@@ -221,9 +229,14 @@ export function applyFamilyStructure(
      *  not, or re-importing a branch would duplicate people. */
     explicitPicks?: boolean;
   },
-): void {
+): { refusedChildren: Set<string> } {
+  /** Incoming children this family refused to take because the main person they
+   *  resolve to already has parents of their own. A graft must not walk on
+   *  through them: the identity that produced the refusal is the same one that
+   *  would hang their spouses and descendants off the wrong main person. */
+  const refusedChildren = new Set<string>();
   const famId = famNode.xref;
-  if (!famId) return;
+  if (!famId) return { refusedChildren };
   const slotValue = (tag: string) => firstChild(famNode, tag)?.value;
 
   if (opts.spouses) {
@@ -283,8 +296,51 @@ export function applyFamilyStructure(
       // review really did put on a line of its own.
       const takeOver =
         opts.explicitPicks && !!known && existing.has(known) && !ctx.pairedAsRelatives(known, incChild);
-      const targetId = takeOver ? ctx.importNew(incChild) : ctx.resolve(incChild);
+      let targetId = takeOver ? ctx.importNew(incChild) : ctx.resolve(incChild);
       if (!targetId || existing.has(targetId)) continue;
+      // A person is born into exactly one family, so a record that is already
+      // somebody else's child cannot also be born here: the pairing and the two
+      // files' parentage cannot both be right. Linking anyway would write a
+      // second FAMC — not a link, but two birth families on one person, which
+      // the health check flags and no merge may mint.
+      const otherFamId = childFamilyOf(targetId, ctx);
+      if (otherFamId && otherFamId !== famId) {
+        if (ctx.confirmedPair(targetId, incChild)) {
+          // You confirmed these two are the same person, so the disagreement is
+          // about the parents, not the identity — and that is yours to settle.
+          // The child is left out and the preview names the parents your file
+          // keeps, the way the ancestor walk reports a disagreeing parent.
+          const parents = coupleLabel(otherFamId, ctx);
+          ctx.report.deferred.push({
+            recordId: famId,
+            field: ctx.t("merge.field.child"),
+            reason: ctx.t(parents ? "merge.reason.childHasParents" : "merge.reason.childHasFamily", {
+              child: ctx.label(targetId),
+              kept: parents,
+            }),
+          });
+          refusedChildren.add(incChild);
+          continue;
+        }
+        // Nobody vouched for this pairing — it is the matcher's suggestion, and
+        // the parents contradict it. Take the contradiction at its word: these
+        // are two people. Drop the suggestion for good, because later steps of
+        // the same graft resolve this incoming id too and must reach the record
+        // made here rather than the main person it was mistaken for.
+        const parents = coupleLabel(otherFamId, ctx);
+        ctx.report.deferred.push({
+          recordId: famId,
+          field: ctx.t("merge.field.child"),
+          reason: ctx.t(parents ? "merge.reason.childApartFromParents" : "merge.reason.childApartFromFamily", {
+            kept: ctx.label(targetId),
+            parents,
+          }),
+        });
+        ctx.incToMain.delete(incChild);
+        const own = ctx.importNew(incChild);
+        if (!own || existing.has(own)) continue;
+        targetId = own;
+      }
       if (addPointer(famNode, "CHIL", targetId, FAM_CHILD_ORDER)) {
         existing.add(targetId);
         linkBack(ctx, targetId, "FAMC", famId);
@@ -303,6 +359,32 @@ export function applyFamilyStructure(
       }
     }
   }
+  return { refusedChildren };
+}
+
+/**
+ * The family the merged tree currently calls this person's birth family.
+ *
+ * Reads the *live* node first: a FAMC wired by an earlier decision in this same
+ * merge exists only there, and the pre-merge dataset would miss it.
+ */
+function childFamilyOf(mainId: string, ctx: MergeContext, main?: Dataset): string | undefined {
+  return (
+    ctx.indiNode(mainId)?.children.find((c) => c.tag === "FAMC")?.value ??
+    main?.individuals.get(mainId)?.childOf[0]
+  );
+}
+
+/** "Janez Novak & Ana Kovač" for a family — empty when it names no parent. */
+function coupleLabel(famId: string, ctx: MergeContext): string {
+  const famNode = ctx.famNode(famId);
+  if (!famNode) return "";
+  return (["HUSB", "WIFE"] as const)
+    .map((role) => firstChild(famNode, role)?.value)
+    .filter((id): id is string => !!id)
+    .map((id) => ctx.label(id))
+    .filter(Boolean)
+    .join(" & ");
 }
 
 /** True when the user's choice for a row means "take from incoming". */
@@ -341,8 +423,7 @@ export function applyIndividualRelations(
     // importing first used to leave the incoming parent in the file as a
     // disconnected record nobody chose to add. Deferred here with the same
     // wording, naming the incoming person from the compare file directly.
-    const existingFamId =
-      ctx.indiNode(mainId)?.children.find((c) => c.tag === "FAMC")?.value ?? main.individuals.get(mainId)?.childOf[0];
+    const existingFamId = childFamilyOf(mainId, ctx, main);
     const existingFamNode = existingFamId ? ctx.famNode(existingFamId) : undefined;
     const occupant = existingFamNode ? firstChild(existingFamNode, role)?.value : undefined;
     if (occupant && occupant !== ctx.resolved(incParentId)) {
@@ -609,9 +690,7 @@ function ensureChildFamily(
   // family created earlier in this merge (e.g. by the confirmed-match parent
   // stitch) is wired onto the cloned indi node but absent from `main`, so
   // reading `main` here would miss it and create a duplicate family.
-  const existing =
-    ctx.indiNode(mainId)?.children.find((c) => c.tag === "FAMC")?.value ??
-    main.individuals.get(mainId)?.childOf[0];
+  const existing = childFamilyOf(mainId, ctx, main);
   if (existing) {
     const node = ctx.famNode(existing);
     if (node) return { id: existing, node };
@@ -819,11 +898,15 @@ function importDescendants(
     // Bring the spouse and every child of this union; `applyFamilyStructure`
     // skips slots/children already present, so re-running on a family a confirmed
     // decision touched only fills the gaps rather than duplicating.
-    applyFamilyStructure(famNode, incFam, ctx, {
+    const { refusedChildren } = applyFamilyStructure(famNode, incFam, ctx, {
       spouses: true,
       takenChildren: new Set(incFam.children),
     });
     for (const childId of incFam.children) {
+      // A child the family refused resolved to a main person who already has
+      // parents — so that pairing is contradicted, and walking on would graft
+      // this incoming child's own marriages and descendants onto them.
+      if (refusedChildren.has(childId)) continue;
       importDescendants(childId, main, compare, ctx, visited);
     }
   }

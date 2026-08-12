@@ -232,12 +232,16 @@ export function mergeDecisions(
   // so a rejected pair is never reused to stitch relationships — the incoming
   // person is imported as a new record instead of folded into the wrong main.
   const rejectedPairs = new Set<string>();
+  // Matches the user confirmed: the only identities that outrank the files' own
+  // evidence against a pairing — everything else in the map is a suggestion.
+  const confirmedPairs = new Set<string>();
   for (const [key, decision] of decisions) {
-    if (decision.status !== "rejected") continue;
     const parsed = parseDecisionKey(key);
-    if (parsed?.kind === "individual") rejectedPairs.add(`${parsed.mainId}|${parsed.compareId}`);
+    if (parsed?.kind !== "individual") continue;
+    if (decision.status === "rejected") rejectedPairs.add(`${parsed.mainId}|${parsed.compareId}`);
+    else if (decision.status === "confirmed") confirmedPairs.add(`${parsed.mainId}|${parsed.compareId}`);
   }
-  const ctx = makeContext(main, compare, matches, records, indiNodes, famNodes, report, touched, t, sourXrefMap, rejectedPairs);
+  const ctx = makeContext(main, compare, matches, records, indiNodes, famNodes, report, touched, t, sourXrefMap, rejectedPairs, confirmedPairs);
 
   // A family with both spouses confirmed is stitched only once — on the first
   // spouse's turn (see processedFamIds). Its rows, though, were reviewed on
