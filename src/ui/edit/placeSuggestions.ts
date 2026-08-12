@@ -1,4 +1,5 @@
 import type { Dataset, GeoCoord } from "../../gedcom/types";
+import { placeCollator } from "../../gedcom/place";
 
 export interface PlaceSuggestions {
   placeSuggestions: string[];
@@ -38,10 +39,6 @@ export function placeAddrCoordKey(place: string, addr: string): string {
 export function placeKey(raw: string): string {
   return raw.trim().split(",").map((p) => p.trim().toLowerCase()).join("|");
 }
-
-/** House numbers compare as numbers ("Breg 2" before "Breg 11"), like the
- *  geocoding lists (src/tools/addresses.ts). */
-export const BY_HOUSE_NUMBER = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
 
 /** Collect all unique PLAC and ADDR values from a dataset and build canonical
  * maps (most-frequent casing wins) for normalize-on-blur. */
@@ -122,7 +119,9 @@ export function buildPlaceSuggestions(dataset: Dataset): PlaceSuggestions {
       canonical.set(key, best);
       suggestions.push(best);
     }
-    suggestions.sort();
+    // Numeric-aware, because these are places and addresses: a plain sort put
+    // "Metlika 107" above "Metlika 70" in every completion dropdown.
+    suggestions.sort((a, b) => placeCollator.compare(a, b));
     return { suggestions, canonical };
   }
 
@@ -133,7 +132,7 @@ export function buildPlaceSuggestions(dataset: Dataset): PlaceSuggestions {
   for (const [pk, m] of placeAddrForms) {
     // Numeric house-number order (Breg 2 before Breg 11), matching the
     // geocoding lists — this feeds the address autocomplete and combos.
-    placeToAddrs.set(pk, [...m.keys()].sort((a, b) => BY_HOUSE_NUMBER.compare(a, b)));
+    placeToAddrs.set(pk, [...m.keys()].sort((a, b) => placeCollator.compare(a, b)));
   }
 
   /** Most frequently used value per key. */

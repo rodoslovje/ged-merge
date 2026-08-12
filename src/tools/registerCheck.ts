@@ -1,5 +1,5 @@
 import type { Dataset, GeoCoord } from "../gedcom/types";
-import { decomposePlace, isUnknownPlaceValue, placeAddressDetail } from "../gedcom/place";
+import { decomposePlace, isUnknownPlaceValue, placeAddressDetail, placeCollator } from "../gedcom/place";
 import { countryCodeOfName } from "../geo/placeCountry";
 import { foldToken } from "../match/text";
 import { lookupPlace, PARENT_QUALIFIED, qualifierKey, type GazEntry, type GazetteerIndex } from "../geo/gazetteer";
@@ -10,7 +10,6 @@ import { placeFormFor } from "../normalize/profile";
 import type { PlaceTargetFormat } from "../normalize/types";
 import { coordOf, isRegisterAddress, walkPlaceAddr } from "./geocode";
 import { replaceLocality } from "./addresses";
-import { placeCollator } from "./places";
 import type { GeocodeDecision } from "../persist/geoDb";
 
 // Compliance check: hold every place the file writes in a country covered by an

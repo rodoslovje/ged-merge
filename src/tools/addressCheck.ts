@@ -1,4 +1,4 @@
-import { addressStreetName, bracketedTail } from "../gedcom/place";
+import { addressStreetName, bracketedTail, placeCollator } from "../gedcom/place";
 import type { GeoCoord } from "../gedcom/types";
 import { sameStreet, type AddressHit } from "../geo/addressRegister";
 import { abbreviates, splitAddressVariants } from "../geo/rn";
@@ -272,12 +272,15 @@ export function checkAddressesAgainstRegister(
     }
   }
 
+  // House numbers compare as numbers, and the place before the house: read as
+  // text, one village's findings came out 107, 131, 198, 70, 71.
   findings.sort(
     (a, b) =>
       Number(a.dismissed) - Number(b.dismissed) ||
       RANK[a.verdict] - RANK[b.verdict] ||
       b.count - a.count ||
-      a.key.localeCompare(b.key),
+      placeCollator.compare(a.place, b.place) ||
+      placeCollator.compare(a.written, b.written),
   );
   return { findings, checked, ok, skipped };
 }

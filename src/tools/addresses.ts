@@ -5,6 +5,7 @@ import {
   decomposePlace,
   looksLikeStreet,
   placeAddressDetail,
+  placeCollator,
   placeWithoutAddress,
 } from "../gedcom/place";
 import { rnQueriesFrom, type RnQuery } from "../geo/rn";
@@ -27,10 +28,6 @@ import { reconcilePlaceForm } from "../gedcom/edit/geo";
 // Šmartin"). {@link detectAddress} reads all three into the same place+address
 // pair, so a file that keeps no ADDR at all is reviewed by settlement exactly
 // like one that does.
-
-/** House numbers read as numbers, so 4 · 6 · 7 · 32 · 49 · 57 rather than the
- *  plain-text 32 · 4 · 49 · 57 · 6 · 7 — an address list is mostly digits. */
-const BY_HOUSE_NUMBER = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
 
 /**
  * The place and address one event names, wherever the file happens to keep
@@ -260,7 +257,7 @@ export function scanAddresses(dataset: Dataset): AddressRow[] {
       ...(g.placed ? { placed: true as const } : {}),
       people: [...g.people],
     }))
-    .sort((a, b) => b.count - a.count || BY_HOUSE_NUMBER.compare(a.key, b.key));
+    .sort((a, b) => b.count - a.count || placeCollator.compare(a.key, b.key));
 }
 
 /**
@@ -294,7 +291,7 @@ export function addressesByPlace(dataset: Dataset): Map<string, string[]> {
   for (const indi of dataset.individuals.values()) visit(indi.raw);
   for (const fam of dataset.families.values()) visit(fam.raw);
   return new Map(
-    [...byPlace].map(([place, addrs]) => [place, [...addrs].sort((a, b) => BY_HOUSE_NUMBER.compare(a, b))]),
+    [...byPlace].map(([place, addrs]) => [place, [...addrs].sort((a, b) => placeCollator.compare(a, b))]),
   );
 }
 

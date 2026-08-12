@@ -328,4 +328,23 @@ describe("checkAddressesAgainstRegister", () => {
     );
     expect(report.findings.map((f) => f.verdict)).toEqual(["addrElsewhere", "addrSpelling", "addrMissing"]);
   });
+
+  it("orders one village's houses by number, not by digit", () => {
+    // Metlika's old numbering, as the check reported it: 107, 131, 198, 70, 71.
+    // A house number is a number, and a list of a village's houses is read by it.
+    const numbers = [70, 131, 107, 198, 71];
+    const rows = numbers.map((n) => row({ key: `m|${n}`, place: "Metlika, Metlika, Slovenija", address: `Metlika ${n}` }));
+    const report = checkAddressesAgainstRegister(
+      rows,
+      new Map(rows.map((r) => [r.key, []])),
+      NO_DECISIONS,
+    );
+    expect(report.findings.map((f) => f.written)).toEqual([
+      "Metlika 70",
+      "Metlika 71",
+      "Metlika 107",
+      "Metlika 131",
+      "Metlika 198",
+    ]);
+  });
 });

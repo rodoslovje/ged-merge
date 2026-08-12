@@ -16,12 +16,23 @@ import { foldSearch } from "../globalSearch";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
 import { EventCoordPicker } from "../edit/EventCoordPicker";
 import { PlaceAutocomplete } from "../edit/PlaceAutocomplete";
+import { placeCollator } from "../../gedcom/place";
 import { usePlaceLookup } from "../edit/PlaceLookupContext";
 import type { PlaceSuggestions } from "../edit/placeSuggestions";
 import { useNameOf, useSettings } from "../SettingsContext";
 import type { KinshipResolver } from "../../match/kinship";
 import { loadDecisions, putDecisions } from "../../persist/geoDb";
-import { AppliedNote, ExpandAllToggle, GeoPeopleList, GeoRowHeader, MapToggle, RowCaret, RowMap } from "./shared";
+import {
+  AppliedNote,
+  ExpandAllToggle,
+  GeoPeopleList,
+  GeoRowHeader,
+  MapToggle,
+  RenameEditor,
+  RenameToggle,
+  RowCaret,
+  RowMap,
+} from "./shared";
 import { CountryChips } from "./CountryChips";
 import { useHomeCountry } from "../DatasetDerivations";
 import { requestSettings } from "../settingsBus";
@@ -159,7 +170,6 @@ function rowCandidates(
 }
 
 /** House numbers compared as numbers: 4 · 6 · 7 · 32, not 32 · 4 · 6 · 7. */
-const BY_NUMBER = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
 
 /** How many places a filter may open by itself. */
 const AUTO_OPEN_LIMIT = 20;
@@ -473,10 +483,10 @@ export function AddressCoordsSection({
       if (g.movable) g.suggestion = groupSuggestion(g.place, g.rows);
       // Inside a place, the addresses are that village's numbering — read in
       // order, not ranked by how often the file happens to name each house.
-      g.rows.sort((a, b) => BY_NUMBER.compare(a.address, b.address));
+      g.rows.sort((a, b) => placeCollator.compare(a.address, b.address));
     }
     // Most-used places first — that is where geocoding pays off soonest.
-    return [...byPlace.values()].sort((a, b) => b.events - a.events || a.place.localeCompare(b.place));
+    return [...byPlace.values()].sort((a, b) => b.events - a.events || placeCollator.compare(a.place, b.place));
   }, [visibleRows, searches, osmSearches, picked, statusFilter, activeCountry, home]);
 
   const [open, setOpen] = useState<Set<string>>(new Set());
@@ -1313,26 +1323,15 @@ export function AddressCoordsSection({
                           >
                             {row.address}
                           </button>
-                          {renameKey === row.key ? (
-                            <button
-                              className="tools-place-edit-btn tools-place-edit-cancel"
-                              onClick={() => setRenameKey(null)}
-                              title={t("tools.places.rename.cancel")}
-                            >
-                              ✕
-                            </button>
-                          ) : (
-                            <button
-                              className="tools-place-edit-btn"
-                              onClick={() => {
-                                setRenameKey(row.key);
-                                setRenameDraft(row.address);
-                              }}
-                              title={t("tools.geocode.addr.renameOpen")}
-                            >
-                              ✎
-                            </button>
-                          )}
+                          <RenameToggle
+                            open={renameKey === row.key}
+                            onOpen={() => {
+                              setRenameKey(row.key);
+                              setRenameDraft(row.address);
+                            }}
+                            onClose={() => setRenameKey(null)}
+                            title={t("tools.geocode.addr.renameOpen")}
+                          />
                           {/* The position this row holds, in the place rows' own
                               shape: = where it came from · the pinned
                               coordinate, accent once it is this house's own.
@@ -1528,44 +1527,20 @@ export function AddressCoordsSection({
                           )}
                         </div>
                         {renameKey === row.key && (
-                          <div
-                            className="tools-place-rename"
-                            onKeyDown={(e) => {
-                              // Enter on a highlighted suggestion, and Escape with the
-                              // dropdown open, belong to the autocomplete
-                              // (defaultPrevented); the next press is the editor's.
-                              if (e.key === "Enter" && !e.defaultPrevented) applyRename(row);
-                              if (e.key === "Escape" && !e.defaultPrevented) setRenameKey(null);
-                            }}
-                          >
-                            {/* Completed from the other houses of this same place: a
-                                rename here is usually a straggler being joined to a
-                                spelling the place already has, and typing it out again
-                                by hand is how the two miss each other by a character. */}
-                            <PlaceAutocomplete
-                              value={renameDraft}
-                              suggestions={(addrsByPlace.get(group.place) ?? []).filter((a) => a !== row.address)}
-                              canonical={places.addrCanonical}
-                              isDirty={false}
-                              className="tools-place-rename-input"
-                              wrapClassName="tools-place-rename-auto"
-                              placeholder={t("tools.geocode.renameAddrPlaceholder")}
-                              autoFocus
-                              // A rename may be exactly a casing fix ("Pod Gozdom" →
-                              // "pod gozdom") — the canonical map must not undo it.
-                              preserveCase
-                              onChange={setRenameDraft}
-                              onCommit={setRenameDraft}
-                              onClear={() => setRenameDraft("")}
-                            />
-                            <button
-                              className="nav-btn primary tools-place-rename-apply"
-                              onClick={() => applyRename(row)}
-                              disabled={!renameDraft.trim() || renameDraft.trim() === row.address}
-                            >
-                              {t("tools.places.rename.apply")}
-                            </button>
-                          </div>
+                          // Completed from the other houses of this same place: a
+                          // rename here is usually a straggler being joined to a
+                          // spelling the place already has, and typing it out again
+                          // by hand is how the two miss each other by a character.
+                          <RenameEditor
+                            value={renameDraft}
+                            suggestions={(addrsByPlace.get(group.place) ?? []).filter((a) => a !== row.address)}
+                            canonical={places.addrCanonical}
+                            placeholder={t("tools.geocode.renameAddrPlaceholder")}
+                            applyDisabled={!renameDraft.trim() || renameDraft.trim() === row.address}
+                            onChange={setRenameDraft}
+                            onApply={() => applyRename(row)}
+                            onCancel={() => setRenameKey(null)}
+                          />
                         )}
                         {/* The lookup's answers directly under the row they
                             answer — the people list, however long, comes after,

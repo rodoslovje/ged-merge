@@ -18,10 +18,21 @@ import {
   type AddressVerdict,
 } from "../../tools/addressCheck";
 import type { AddressRename, AddressRow } from "../../tools/addresses";
+import { placeCollator } from "../../gedcom/place";
 import { countryOf } from "../../tools/geocode";
 import { REGISTER_DISMISSED } from "../../tools/registerCheck";
 import { useLocalRegisters } from "../useLocalRegisters";
-import { AppliedNote, ExpandAllToggle, GeoPeopleList, GeoRowHeader, MapToggle, RowMap } from "./shared";
+import { placeKey, type PlaceSuggestions } from "../edit/placeSuggestions";
+import {
+  AppliedNote,
+  ExpandAllToggle,
+  GeoPeopleList,
+  GeoRowHeader,
+  MapToggle,
+  RenameEditor,
+  RenameToggle,
+  RowMap,
+} from "./shared";
 import { CountryChips } from "./CountryChips";
 import { useHomeCountry } from "../DatasetDerivations";
 
@@ -75,6 +86,7 @@ export function AddressCheckSection({
   onRenameAddresses,
   onMovePlaceForAddresses,
   onDecisionsChanged,
+  placeSug,
 }: {
   /** Every place+address pair in the file — the Addresses tab's own rows. */
   rows: AddressRow[];
@@ -89,6 +101,10 @@ export function AddressCheckSection({
    *  house the register files under its neighbour is answered with. */
   onMovePlaceForAddresses: (keys: Set<string>, toPlace: string) => number;
   onDecisionsChanged: () => void;
+  /** The file's own places and the houses at each — what the row's ✎ completes
+   *  from, the same source the geocoding addresses list draws its suggestions
+   *  from. */
+  placeSug: PlaceSuggestions;
   dataset: Dataset;
   /** Kept mounted but off screen while the other compliance tab is shown — a
    *  report costs a pass over the file, and switching tabs must not throw it
@@ -126,6 +142,10 @@ export function AddressCheckSection({
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
   /** The one row showing its map — one at a time, as on the places list. */
   const [mapOpen, setMapOpen] = useState<string | null>(null);
+  /** The one row whose ✎ is open, and its draft — the same one-at-a-time editor
+   *  the other three lists keep. */
+  const [renameKey, setRenameKey] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
 
   const toggleGroup = (place: string) =>
     setOpenGroups((prev) => {
@@ -226,6 +246,28 @@ export function AddressCheckSection({
     setReport((prev) => (prev ? { ...prev, findings: prev.findings.filter((o) => !done.has(o.key)) } : prev));
   };
 
+  /**
+   * Write the address this row is about, as the researcher spells it.
+   *
+   * The one action here that does not go through the register — and the reason
+   * it belongs on this list is that a finding is so often the moment the real
+   * answer occurs to you. "Metlika 76" is a house the modern register has no
+   * number for, and no proposal will ever be offered for it; what it needs is a
+   * hand, and until now that meant leaving the check, finding the same house on
+   * the geocoding tab and doing it there. The places tab beside this one has had
+   * its ✎ from the start.
+   *
+   * Its own rename, not a spelling taken: the row leaves the report afterwards,
+   * because what the check judged is no longer what the file says.
+   */
+  const applyRename = (f: AddressFinding) => {
+    const to = renameDraft.trim();
+    setRenameKey(null);
+    if (!to || to === f.written) return;
+    setApplied(onRenameAddresses([{ rawKeys: f.rawKeys, from: f.written, to }]));
+    setReport((prev) => (prev ? { ...prev, findings: prev.findings.filter((o) => o.key !== f.key) } : prev));
+  };
+
   /** File this house where the register files it: the events at it get the
    *  settlement the register names, and their address lines are left alone —
    *  the Addresses tab's own move, applied to the one house this row is about.
@@ -304,7 +346,7 @@ export function AddressCheckSection({
     }
     const groups = [...byPlace]
       .map(([place, findings]) => ({ place, findings }))
-      .sort((a, b) => b.findings.length - a.findings.length || a.place.localeCompare(b.place));
+      .sort((a, b) => b.findings.length - a.findings.length || placeCollator.compare(a.place, b.place));
     return {
       rows,
       groups,
@@ -493,6 +535,19 @@ export function AddressCheckSection({
                         // and the pin said otherwise twice per line.
                         place={f.written}
                       >
+                        {/* The ✎ every list on these two pages puts beside a
+                            value it lets you rewrite, in the slot the places
+                            findings keep theirs: right after the value, before
+                            whatever the register proposes about it. */}
+                        <RenameToggle
+                          open={renameKey === f.key}
+                          onOpen={() => {
+                            setRenameKey(f.key);
+                            setRenameDraft(f.written);
+                          }}
+                          onClose={() => setRenameKey(null)}
+                          title={t("tools.geocode.addr.renameOpen")}
+                        />
                         {/* After the arrow stands what the file would say once
                             the row is taken — the exact replacement, note and
                             all, not the register's line it is derived from.
@@ -572,6 +627,24 @@ export function AddressCheckSection({
                           </button>
                         </span>
                       </GeoRowHeader>
+                      {renameKey === f.key && (
+                        // Completed from the other houses of the same place, as
+                        // on the geocoding addresses list: a hand-written fix
+                        // here is usually a straggler being joined to a spelling
+                        // the place already has.
+                        <RenameEditor
+                          value={renameDraft}
+                          suggestions={(placeSug.placeToAddrs.get(placeKey(f.place)) ?? []).filter(
+                            (a) => a !== f.written,
+                          )}
+                          canonical={placeSug.addrCanonical}
+                          placeholder={t("tools.geocode.renameAddrPlaceholder")}
+                          applyDisabled={!renameDraft.trim() || renameDraft.trim() === f.written}
+                          onChange={setRenameDraft}
+                          onApply={() => applyRename(f)}
+                          onCancel={() => setRenameKey(null)}
+                        />
+                      )}
                       {isOpen && (
                         <div className="tools-geo-conflict-body">
                           {/* Where the register puts the house — the question

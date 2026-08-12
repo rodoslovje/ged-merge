@@ -1,4 +1,5 @@
 import type { Dataset, GedNode } from "../gedcom/types";
+import { placeCollator } from "../gedcom/place";
 import { cloneRaw } from "../ui/historyTypes";
 import { rebuildIndividual, rebuildFamily } from "../gedcom/edit";
 import { reconcilePlaceForm } from "../gedcom/edit/geo";
@@ -174,5 +175,5 @@ export function collectPlaceSegments(dataset: Dataset): string[] {
   for (const indi of dataset.individuals.values()) collect(indi.raw);
   for (const fam of dataset.families.values()) collect(fam.raw);
 
-  return [...segs].sort();
+  return [...segs].sort((a, b) => placeCollator.compare(a, b));
 }

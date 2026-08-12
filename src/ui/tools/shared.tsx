@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type ComponentProps } from "react";
 import { useTranslation } from "react-i18next";
 import { renderKeyToken } from "../../keyboard/shortcuts";
 import { useFindShortcutOn } from "../../keyboard/useFindShortcut";
@@ -8,6 +8,7 @@ import type { SourceUse } from "../../tools/sources";
 import { lineageClass, type KinshipResolver } from "../../match/kinship";
 import { PersonLink } from "../PersonLink";
 import { MapIcon } from "../icons/MapIcon";
+import { PlaceAutocomplete } from "../edit/PlaceAutocomplete";
 
 const MiniPlaceMap = lazy(() => import("../map/MiniPlaceMap"));
 
@@ -355,6 +356,112 @@ export function MapToggle({ open, onToggle }: { open: boolean; onToggle: () => v
       <MapIcon size={15} />
       {label}
     </button>
+  );
+}
+
+/**
+ * The ✎ (U+270E) that opens a row's rename editor, and the ✕ that closes it —
+ * the same mark the places tree, both geocoding lists, the compliance lists and
+ * Organize sources put beside a value they let you rewrite.
+ *
+ * One component because "you can edit this here" is a promise the whole of these
+ * two pages makes, and a list that draws the mark half a pixel differently — or
+ * forgets it — reads as a list where the value is not yours to fix.
+ */
+export function RenameToggle({
+  open,
+  onOpen,
+  onClose,
+  title,
+}: {
+  open: boolean;
+  onOpen: () => void;
+  onClose: () => void;
+  /** What opening it would let you rewrite — this row's value. */
+  title: string;
+}) {
+  const { t } = useTranslation();
+  return open ? (
+    <button
+      className="tools-place-edit-btn tools-place-edit-cancel"
+      onClick={onClose}
+      title={t("tools.places.rename.cancel")}
+    >
+      ✕
+    </button>
+  ) : (
+    <button className="tools-place-edit-btn" onClick={onOpen} title={title}>
+      ✎
+    </button>
+  );
+}
+
+/**
+ * The editor that row unfolds: a place-completing text field and the button
+ * that writes it, with Enter to apply and Escape to abandon.
+ *
+ * `children` is for whatever else a particular list writes alongside — the
+ * compliance places row's "and leave this house on the ADDR line" chip. The
+ * keyboard contract is the part worth having in one place: the autocomplete
+ * takes Enter while a suggestion is highlighted and Escape while its dropdown
+ * is open (both marked handled), and only the presses it leaves alone belong to
+ * the editor.
+ */
+export function RenameEditor({
+  value,
+  suggestions,
+  canonical,
+  placeholder,
+  applyDisabled,
+  onChange,
+  onApply,
+  onCancel,
+  children,
+  ...lookup
+}: {
+  value: string;
+  suggestions: string[];
+  /** Folded value → the spelling the file settled on, so a typed variant snaps
+   *  to the one already in use. */
+  canonical: Map<string, string>;
+  placeholder?: string;
+  applyDisabled?: boolean;
+  onChange: (value: string) => void;
+  onApply: () => void;
+  onCancel: () => void;
+  children?: React.ReactNode;
+} & Pick<ComponentProps<typeof PlaceAutocomplete>, "offerKnown" | "onLookup" | "lookupNote" | "onPickProposal">) {
+  const { t } = useTranslation();
+  return (
+    <div
+      className="tools-place-rename"
+      onKeyDown={(e) => {
+        if (e.key === "Enter" && !e.defaultPrevented) onApply();
+        if (e.key === "Escape" && !e.defaultPrevented) onCancel();
+      }}
+    >
+      <PlaceAutocomplete
+        value={value}
+        suggestions={suggestions}
+        canonical={canonical}
+        isDirty={false}
+        className="tools-place-rename-input"
+        wrapClassName="tools-place-rename-auto"
+        {...(placeholder ? { placeholder } : {})}
+        autoFocus
+        // A rename may be exactly a casing fix ("Pod Gozdom" → "pod gozdom") —
+        // the canonical map must not snap it back on blur.
+        preserveCase
+        onChange={onChange}
+        onCommit={onChange}
+        onClear={() => onChange("")}
+        {...lookup}
+      />
+      {children}
+      <button className="nav-btn primary tools-place-rename-apply" onClick={onApply} disabled={applyDisabled}>
+        {t("tools.places.rename.apply")}
+      </button>
+    </div>
   );
 }
 

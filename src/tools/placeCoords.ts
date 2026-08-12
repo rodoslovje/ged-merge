@@ -1,4 +1,5 @@
 import type { Dataset, GedNode, GeoCoord } from "../gedcom/types";
+import { placeCollator } from "../gedcom/place";
 import type { RecordPatch } from "../ui/historyTypes";
 import { applyGeocodeByAddress, coordOf, placeAddrKey, walkPlaceAddr, type GeoAssignment } from "./geocode";
 
@@ -143,11 +144,11 @@ export function scanPlaceCoords(dataset: Dataset): PlaceCoordReport {
       fills.push({ value: g.value, address: g.address, coord: clusters[0][0].coord, covered: g.covered, missing: g.missing });
     }
   }
-  fills.sort((a, b) => b.missing - a.missing || a.value.localeCompare(b.value));
+  fills.sort((a, b) => b.missing - a.missing || placeCollator.compare(a.value, b.value));
   conflicts.sort((a, b) => {
     const an = a.coords.reduce((s, c) => s + c.n, 0);
     const bn = b.coords.reduce((s, c) => s + c.n, 0);
-    return bn - an || a.value.localeCompare(b.value);
+    return bn - an || placeCollator.compare(a.value, b.value);
   });
   return { fills, conflicts };
 }

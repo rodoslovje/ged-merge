@@ -281,6 +281,7 @@ export function RegisterPanel({
         onRenameAddresses={onRenameAddresses}
         onMovePlaceForAddresses={onMovePlaceForAddresses}
         onDecisionsChanged={() => void loadDecisions().then(setDecisions)}
+        placeSug={placeSug}
       />
     </div>
     </PlaceLookupProvider>
