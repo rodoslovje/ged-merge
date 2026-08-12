@@ -736,6 +736,7 @@ export function buildEditReport(
   return {
     changes,
     deferred: [],
+    graftJoins: [],
     recordsChanged: new Set(changes.map((c) => c.recordId)).size,
     newPersons,
     newFamilies,
@@ -752,6 +753,7 @@ export function combineReports(a: ChangeReport, b: ChangeReport): ChangeReport {
   return {
     changes,
     deferred: [...a.deferred, ...b.deferred],
+    graftJoins: [...a.graftJoins, ...b.graftJoins],
     recordsChanged: recordIds.size,
     newPersons: a.newPersons + b.newPersons,
     newFamilies: a.newFamilies + b.newFamilies,

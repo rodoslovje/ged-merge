@@ -15,6 +15,7 @@ function baseReport(id: string): ChangeReport {
   return {
     changes: [],
     deferred: [],
+    graftJoins: [],
     recordsChanged: 1,
     newPersons: 0,
     newFamilies: 0,

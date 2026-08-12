@@ -8,9 +8,11 @@ import { childrenByTag, firstChild } from "../gedcom/node";
 import { EDITABLE_FAM_EVENT_TAGS } from "../gedcom/eventTags";
 import type { Dataset, GedNode } from "../gedcom/types";
 import { displayName } from "../match/relatives";
+import { lifespanOf } from "../gedcom/lifespan";
 import type { MatchResult } from "../match/types";
 import { defaultChoice, type FieldChoice, type FieldRow, type ImportDirection } from "../review/types";
 import { pairedMainFamilies, relativePersonSimilarity, RELATIVE_PAIR_THRESHOLD } from "../review/fields";
+import { birthYearsApart, noGivenNameInCommon } from "../match/similarity";
 import { newSourceCitations } from "../gedcom/source";
 import type { ChangeReport } from "./merge";
 import type { Translate } from "../locales/i18n";
@@ -46,7 +48,8 @@ export interface MergeContext {
   /** Create a fresh empty FAM record (inserted before TRLR, indexed). */
   createFamily: () => { id: string; node: GedNode };
   /** Resolve an incoming individual to a main id, adding it as a new record
-   *  when it has no match. Returns undefined if it can't be resolved. */
+   *  when it has no match — or when the match is one a graft may not join on
+   *  (see `graftJoinHolds`). Returns undefined if it can't be resolved. */
   resolve: (incomingId: string) => string | undefined;
   /** The main id an incoming individual already resolves to — a match, or a
    *  new record an earlier decision created — without creating anything. */
@@ -145,6 +148,69 @@ export function makeContext(
   const addedLabels = new Map<string, string>();
   const addedFromIncoming = new Map<string, string>(); // incomingId → new main id
 
+  /**
+   * Does a suggested pairing hold up well enough to graft a branch onto?
+   *
+   * A branch import fuses records nobody reviewed: the user pointed at one
+   * anchor and the walk resolves every person below it through `incToMain`,
+   * which holds every candidate the matcher produced — weak ones included. So
+   * before a join point is reused, ask the two hard same-person questions the
+   * duplicate finder asks, in their cross-file form: a weighted average lets an
+   * agreeing surname, place and sex drown out a given name or a birth year that
+   * settles the question on its own, and a wrong join hangs the incoming
+   * person's spouse and children off a main record that was never them.
+   *
+   * Parents are deliberately *not* asked about here: a graft that meets a
+   * disagreeing parent has its own answer for it — the ancestor walk stops and
+   * reports whose parent was kept, and a contradicted child is imported as a
+   * person of their own — and both are better than refusing the identity.
+   *
+   * A confirmed pair is exempt — a confirmation outranks the files' evidence.
+   */
+  const graftJoinHolds = (mainId: string, incomingId: string): boolean => {
+    if (confirmedPairs.has(`${mainId}|${incomingId}`)) return true;
+    const m = main.individuals.get(mainId);
+    const c = compare.individuals.get(incomingId);
+    if (!m || !c) return true; // nothing to judge on — leave the match alone
+    return !noGivenNameInCommon(m, c) && !birthYearsApart(m, c);
+  };
+
+  /** The main record an incoming person is matched to, once the graft phase has
+   *  had its say. A pairing that fails the vetoes is dropped *for good*, because
+   *  the rest of the walk resolves this incoming id too and must reach the
+   *  record made for them rather than the person they were mistaken for. */
+  const matchedJoin = (incomingId: string): string | undefined => {
+    const matched = incToMain.get(incomingId);
+    if (matched === undefined) return undefined;
+    if (!graftPhase || graftJoinHolds(matched, incomingId)) return matched;
+    incToMain.delete(incomingId);
+    return undefined;
+  };
+
+  /** Incoming ids already named in `report.graftJoins` — the walk resolves the
+   *  same person once per family they belong to. */
+  const notedJoins = new Set<string>();
+
+  /**
+   * Name an identity the graft is acting on that the user never confirmed.
+   * Recorded where the walk *uses* the join (`resolve`, which is called to link
+   * something) rather than where it merely peeks at it, so the preview lists
+   * the people the branch really was hung on.
+   */
+  const noteGraftJoin = (mainId: string, incomingId: string): void => {
+    if (confirmedPairs.has(`${mainId}|${incomingId}`) || notedJoins.has(incomingId)) return;
+    notedJoins.add(incomingId);
+    const m = main.individuals.get(mainId);
+    const c = compare.individuals.get(incomingId);
+    if (!m || !c) return;
+    const person = (indi: import("../gedcom/types").Individual) => ({
+      name: displayName(indi.names[0]),
+      years: lifespanOf(indi),
+      sex: indi.sex,
+    });
+    report.graftJoins.push({ mainId, main: person(m), incoming: person(c) });
+  };
+
   const addNewIndividual = (incomingId: string): string | undefined => {
     const cached = addedFromIncoming.get(incomingId);
     if (cached) return cached;
@@ -187,8 +253,13 @@ export function makeContext(
     indiNode: (id) => indiNodes.get(id),
     famNode: (id) => famNodes.get(id),
     createFamily,
-    resolve: (incomingId) => incToMain.get(incomingId) ?? addNewIndividual(incomingId),
-    resolved: (incomingId) => incToMain.get(incomingId) ?? addedFromIncoming.get(incomingId),
+    resolve: (incomingId) => {
+      const matched = matchedJoin(incomingId);
+      if (matched === undefined) return addNewIndividual(incomingId);
+      if (graftPhase) noteGraftJoin(matched, incomingId);
+      return matched;
+    },
+    resolved: (incomingId) => matchedJoin(incomingId) ?? addedFromIncoming.get(incomingId),
     importNew: addNewIndividual,
     pairedAsRelatives: (mainId, incomingId) => {
       const m = main.individuals.get(mainId);

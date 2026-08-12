@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { localityParts, parsePlace } from "../gedcom/place";
 import { parseDate } from "../gedcom/date";
-import { comparableName, dateSimilarity, dateCompareKey, givenNameSetSimilarity, placeSimilarity } from "./similarity";
+import type { Individual } from "../gedcom/types";
+import { comparableName, dateSimilarity, dateCompareKey, givenNameSetSimilarity, noGivenNameInCommon, placeSimilarity } from "./similarity";
 import { compareKey, isPlaceholderName } from "./text";
 import { placeCompareKey } from "./place";
 
@@ -263,5 +264,38 @@ describe("placeCompareKey", () => {
 
   it("preserves differences in distinct places", () => {
     expect(placeCompareKey("Maribor, Slovenija")).not.toBe(placeCompareKey("Kranj, Slovenija"));
+  });
+});
+
+// ── noGivenNameInCommon ──────────────────────────────────────────────────────
+
+describe("noGivenNameInCommon", () => {
+  const person = (given: string, surname: string): Individual =>
+    ({ id: "@X@", names: [{ given, surname, full: `${given} ${surname}` }] }) as Individual;
+
+  it("is the evidence that two records are two people", () => {
+    // Similar enough in the surname to clear the matcher's gate, but the given
+    // names share nothing — so a graft may not fuse them.
+    expect(noGivenNameInCommon(person("Marjan", "Gorza"), person("Milan", "Grca"))).toBe(true);
+  });
+
+  it("holds a spelling variant to be one name", () => {
+    expect(noGivenNameInCommon(person("Joze", "Grca"), person("Jozef", "Grca"))).toBe(false);
+  });
+
+  it("looks past the extras each file writes around a shared name", () => {
+    // A patronymic particle on one side, an English alias on the other: the
+    // averaging rule reads those as disagreement, but they share "Maredudd".
+    expect(
+      noGivenNameInCommon(person("Maredudd ap", "Tudor"), person("Maredudd (Meredith)", "Tudor")),
+    ).toBe(false);
+  });
+
+  it("does not let a shared particle stand in for a shared name", () => {
+    expect(noGivenNameInCommon(person("Owain ap", "Tudor"), person("Maredudd ap", "Tudor"))).toBe(true);
+  });
+
+  it("says nothing when a side has no given name", () => {
+    expect(noGivenNameInCommon(person("", "Gorza"), person("Milan", "Grca"))).toBe(false);
   });
 });

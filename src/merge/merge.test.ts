@@ -1981,6 +1981,101 @@ describe("mergeDecisions — one family for a couple, however it is reached", ()
     ).toBe(true);
   });
 
+  // A graft walks far past the person the user was looking at, joining onto
+  // whatever main record the matcher paired each person below with. Those
+  // pairings include the weak ones nobody ever saw: "Milan Grča" born 1972
+  // clears the name and era gates against "Marjan Gorza" born 1944 by a hair
+  // (surname 0.805 against the 0.80 gate, 28 years against the 30-year one).
+  // Joining on that pairing files Milan's wife and children as Marjan's — with
+  // Marjan's own wife as their mother.
+  const WEAK_PAIR_MAIN = wrap(
+    "0 @I1@ INDI\n1 NAME Marjan /Gorza/\n1 SEX M\n1 BIRT\n2 DATE 2 APR 1944\n1 FAMS @F1@\n" +
+      "0 @I2@ INDI\n1 NAME Anica /Celar/\n1 SEX F\n1 FAMS @F1@\n" +
+      "0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@\n",
+  );
+  const WEAK_PAIR_COMPARE = wrap(
+    "0 @P1@ INDI\n1 NAME Jozef /Grca/\n1 SEX M\n1 FAMS @G1@\n" +
+      "0 @P2@ INDI\n1 NAME Milan /Grca/\n1 SEX M\n1 BIRT\n2 DATE 28 JUL 1972\n1 FAMC @G1@\n1 FAMS @G2@\n" +
+      "0 @P3@ INDI\n1 NAME Urska /Krnicar/\n1 SEX F\n1 FAMS @G2@\n" +
+      "0 @P4@ INDI\n1 NAME Luka /Grca/\n1 SEX M\n1 FAMC @G2@\n" +
+      "0 @G1@ FAM\n1 HUSB @P1@\n1 CHIL @P2@\n" +
+      "0 @G2@ FAM\n1 HUSB @P2@\n1 WIFE @P3@\n1 CHIL @P4@\n",
+  );
+  const WEAK_PAIR_MATCHES = { individuals: [{ mainId: "@I1@", compareId: "@P2@" }] } as never;
+  const NO_PICKS = new Map<string, CandidateDecision>();
+  /** One record as serialized, from its header line to the next record. */
+  const block = (out: string, header: string) => {
+    const start = out.indexOf(header);
+    return out.slice(start, out.indexOf("\n0 ", start + 1) + 1);
+  };
+
+  it("a graft does not join onto a suggested pair with a different given name and birth year", () => {
+    const { records, report } = mergeDecisions(
+      dataset(WEAK_PAIR_MAIN), dataset(WEAK_PAIR_COMPARE), NO_PICKS, WEAK_PAIR_MATCHES, tr,
+      [{ incomingId: "@P1@", direction: "descendants" }],
+    );
+    const out = serializeGedcom(records);
+    // Marjan's family stays the childless couple it was: no child of Milan's
+    // was written into it, and nobody made Anica their mother.
+    expect(block(out, "0 @F1@ FAM")).toBe("0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@\n");
+    // Milan came in as the person he is, with his own wife and child under him.
+    expect(report.newPersons).toBe(4);
+    expect(out).toContain("Milan /Grca/");
+    // Asking for a branch is asking for the people in it — nothing to report,
+    // and no identity to own up to: none was used.
+    expect(report.deferred).toEqual([]);
+    expect(report.graftJoins).toEqual([]);
+  });
+
+  it("a graft joins onto a confirmed pair however far apart the two records read", () => {
+    // You vouched for these two being one person, and a confirmation outranks
+    // the files' own evidence: the branch hangs off your Marjan after all.
+    const decisions = new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I1@", "@P2@"), { status: "confirmed", fields: {} }],
+    ]);
+    const { records, report } = mergeDecisions(
+      dataset(WEAK_PAIR_MAIN), dataset(WEAK_PAIR_COMPARE), decisions, WEAK_PAIR_MATCHES, tr,
+      [{ incomingId: "@P1@", direction: "descendants" }],
+    );
+    const out = serializeGedcom(records);
+    expect(out).not.toContain("Milan /Grca/"); // joined, not duplicated
+    // The branch hangs off your Marjan: a second family of his carries Milan's
+    // wife and their child, while the family he already had is left alone.
+    expect(out).toMatch(/0 @F\d+@ FAM\n1 HUSB @I1@\n1 WIFE @I\d+@\n1 CHIL @I\d+@\n/);
+    expect(block(out, "0 @F1@ FAM")).toBe("0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@\n");
+    // You made this call yourself, so there is nothing to own up to.
+    expect(report.graftJoins).toEqual([]);
+  });
+
+  it("a graft still joins across a spelling variant and a year or two of drift", () => {
+    // The vetoes must not fire on what they exist to allow: Jože/Jožef is one
+    // name spelt twice, and 1938/1940 is the drift between two sources.
+    const main = dataset(
+      wrap("0 @I1@ INDI\n1 NAME Joze /Grca/\n1 SEX M\n1 BIRT\n2 DATE 1938\n"),
+    );
+    const compare = dataset(
+      wrap(
+        "0 @P1@ INDI\n1 NAME Jozef /Grca/\n1 SEX M\n1 BIRT\n2 DATE 1940\n1 FAMS @G1@\n" +
+          "0 @P2@ INDI\n1 NAME Marija /Seme/\n1 SEX F\n1 FAMS @G1@\n" +
+          "0 @G1@ FAM\n1 HUSB @P1@\n1 WIFE @P2@\n",
+      ),
+    );
+    const matches = { individuals: [{ mainId: "@I1@", compareId: "@P1@" }] } as never;
+    const { records, report } = mergeDecisions(main, compare, NO_PICKS, matches, tr, [
+      { incomingId: "@P1@", direction: "descendants" },
+    ]);
+    expect(report.newPersons).toBe(1); // the wife only
+    expect(serializeGedcom(records)).not.toContain("Jozef /Grca/");
+    // The join was the app's call, not the user's, so the preview names it.
+    expect(report.graftJoins).toEqual([
+      {
+        mainId: "@I1@",
+        main: { name: "Joze Grca", years: "1938", sex: "M" },
+        incoming: { name: "Jozef Grca", years: "1940", sex: "M" },
+      },
+    ]);
+  });
+
   it("a person with several incoming marriages gets a family per marriage", () => {
     // The lone-family fallback needs a single marriage on each side — three
     // incoming unions must not collapse into the first one created.

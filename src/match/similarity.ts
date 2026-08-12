@@ -1,5 +1,6 @@
 import type { Dataset, GedDate, GedPlace, Individual, PersonName } from "../gedcom/types";
 import { parseDate } from "../gedcom/date";
+import { birthYear } from "../gedcom/lifespan";
 import { localityParts } from "../gedcom/place";
 import { canonicalPlaceToken } from "./place";
 import { cachedFatherName, cachedMotherName } from "./profileCache";
@@ -83,6 +84,52 @@ export function differentGiven(a: Individual, b: Individual): boolean {
   return givenSimilarity(ga, gb) < SAME_PERSON_GIVEN;
 }
 
+/** A given-name token this short is a particle ("ap", "de", "of"), not a name:
+ *  two records sharing one share nothing that identifies a person. */
+const GIVEN_PARTICLE_MAX = 2;
+
+/**
+ * True when neither record's given name has a counterpart in the other's — the
+ * *cross-file* form of {@link differentGiven}.
+ *
+ * Two files spell one person's given name with different extras: "Maredudd ap"
+ * against "Maredudd (Meredith)", a second given name one file carries and the
+ * other doesn't. Averaging every token (what {@link givenSimilarity} does, and
+ * what suits records written to one file's own conventions) reads those extras
+ * as disagreement and calls a shared name a conflict. Across files the question
+ * is narrower: is there a name here these two people have in common? One is
+ * enough to keep the pair alive; none is the evidence that they are two people.
+ */
+export function noGivenNameInCommon(a: Individual, b: Individual): boolean {
+  const ga = comparableName(primaryName(a))?.given;
+  const gb = comparableName(primaryName(b))?.given;
+  if (!ga || !gb) return false;
+  const names = (given: string) =>
+    foldToken(given).split(" ").filter((tok) => tok.length > GIVEN_PARTICLE_MAX);
+  const na = names(ga);
+  const nb = names(gb);
+  // Nothing but particles on a side: no token to hold up, so fall back to
+  // comparing the given names whole.
+  if (na.length === 0 || nb.length === 0) return differentGiven(a, b);
+  return !na.some((x) => nb.some((y) => jaroWinkler(x, y) >= SAME_PERSON_GIVEN));
+}
+
+/** Max birth-year gap two records can show and still be one person. Small
+ *  enough to reject a namesake parent/child (decades apart) but to allow a
+ *  transcription slip, or a year read off a baptism a season later. */
+export const SAME_PERSON_YEAR_GAP = 3;
+
+/** True when both records date the birth and the years are too far apart to be
+ *  one person — the hard veto beside {@link differentGiven}, for the same
+ *  reason: a weighted average lets an agreeing surname and place drown out a
+ *  birth year that settles the question on its own. */
+export function birthYearsApart(a: Individual, b: Individual): boolean {
+  const ya = birthYear(a);
+  const yb = birthYear(b);
+  if (ya === undefined || yb === undefined) return false;
+  return Math.abs(ya - yb) > SAME_PERSON_YEAR_GAP;
+}
+
 /** Verdict for the two records' father given names, each side resolved through
  *  its own dataset (pass the same dataset twice for a within-file compare). */
 export function fatherGivenVerdict(
@@ -152,8 +199,17 @@ function maidenSurname(mother: PersonName | undefined, child: Individual): strin
  * gap between the bands neither vetoes nor rescues.
  */
 export function parentsVerdict(a: Individual, b: Individual, ds: Dataset): "agree" | "conflict" | "unknown" {
-  const father = fatherGivenVerdict(a, ds, b, ds);
-  const mother = motherVerdict(a, ds, b, ds);
+  return parentsVerdictAcross(a, ds, b, ds);
+}
+
+/** {@link parentsVerdict} for two records that live in different files, each
+ *  side's parents resolved through its own dataset. */
+export function parentsVerdictAcross(
+  a: Individual, dsA: Dataset,
+  b: Individual, dsB: Dataset,
+): "agree" | "conflict" | "unknown" {
+  const father = fatherGivenVerdict(a, dsA, b, dsB);
+  const mother = motherVerdict(a, dsA, b, dsB);
   if (father === "agree" || mother === "agree") return "agree";
   if (father === "conflict" || mother === "conflict") return "conflict";
   return "unknown";

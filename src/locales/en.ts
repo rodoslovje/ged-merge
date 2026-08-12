@@ -1092,6 +1092,8 @@ export const en = {
   "preview.stat.newFields_one": "{{count}} new field added",
   "preview.stat.newFields_other": "{{count}} new fields added",
   "preview.stat.deferred": "Kept as-is",
+  "preview.grafted": "Linked to a person you already have",
+  "preview.graftedHint": "The branch you brought in reached these people and took them to be someone your file already has, on the app's suggestion — you did not confirm these. Their relatives were attached to your record instead of arriving as a second copy. If one of them is not the same person, cancel and reject that match first.",
   "preview.notMerged": "Kept as in your file",
   "preview.notMergedHint": "Here the incoming file says something different. Your file keeps what it has — nothing was changed or lost.",
   "preview.integrity": "Consistency warnings",

@@ -5,8 +5,7 @@ import {
   scoreIndividualPair,
   sexConflicts,
 } from "./scoreIndividual";
-import { birthYear } from "../gedcom/lifespan";
-import { differentGiven, parentsVerdict } from "./similarity";
+import { birthYearsApart, differentGiven, parentsVerdict } from "./similarity";
 import { clearTextCaches, soundex } from "./text";
 import {
   categorize,
@@ -172,17 +171,6 @@ function matchByUid(
  * (harmless — the duplicate just shows in the tree as before), never wrong merges.
  */
 const DUP_PAIR_SCORE = 85;
-/** Max birth-year gap tolerated between duplicate copies. Small enough to reject
- *  a namesake parent/child (decades apart) but to allow a transcription slip. */
-const DUP_MAX_YEAR_DIFF = 3;
-
-/** Birth years known on both sides and too far apart to be one person. */
-function birthYearsTooFar(a: Individual, b: Individual): boolean {
-  const ya = birthYear(a);
-  const yb = birthYear(b);
-  if (ya === undefined || yb === undefined) return false;
-  return Math.abs(ya - yb) > DUP_MAX_YEAR_DIFF;
-}
 
 /**
  * Find incoming records that are the same person split across duplicates. The
@@ -228,7 +216,7 @@ function findIncomingDuplicateClusters(
       // scorer's own gates apply too — consolidation is a merge of two records
       // and has no business accepting a pair the matcher would have refused to
       // score, e.g. one whose lifespan ends before the other's wedding.
-      if (differentGiven(keep, cand) || birthYearsTooFar(keep, cand) || parentsVerdict(keep, cand, compareDs) === "conflict") continue;
+      if (differentGiven(keep, cand) || birthYearsApart(keep, cand) || parentsVerdict(keep, cand, compareDs) === "conflict") continue;
       if (sexConflicts(keep, cand) || !plausibleIndividualMatch(keep, cand, config.gates, compareDs, compareDs)) continue;
       // The strong gate: the two incoming records must be a direct duplicate of
       // each other, not merely two look-alikes of the same main.

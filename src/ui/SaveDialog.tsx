@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useModalKeyboard } from "../keyboard/useModalKeyboard";
-import type { ChangeReport, FieldChange } from "../merge/merge";
+import type { ChangeReport, FieldChange, GraftJoinPerson } from "../merge/merge";
 import type { Dataset, Individual } from "../gedcom/types";
 import { lifespanOf } from "../gedcom/lifespan";
 import { eventDisplayLabel } from "../gedcom/eventTags";
@@ -177,6 +177,26 @@ export function SaveDialog({
               <ul className="preview-deferred">
                 {integrityWarnings.map((w, i) => (
                   <li key={i}>{w}</li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {/* Identities the branch import acted on that nobody confirmed. The
+              graft links records onto them, so a wrong one hangs a whole
+              household off the wrong person — said out loud here, while the
+              download can still be called off. */}
+          {report.graftJoins.length > 0 && (
+            <section className="preview-section">
+              <h3>{t("preview.grafted")}</h3>
+              <p className="preview-note">{t("preview.graftedHint")}</p>
+              <ul className="preview-deferred preview-joins">
+                {report.graftJoins.map((j, i) => (
+                  <li key={i}>
+                    <PersonLabel person={j.incoming} />
+                    <span className="preview-join-arrow" aria-hidden="true">→</span>
+                    <PersonLabel person={j.main} />
+                  </li>
                 ))}
               </ul>
             </section>
@@ -511,6 +531,17 @@ function groupFieldRows(
   };
   groups.sort((a, b) => rank(a) - rank(b));
   return groups;
+}
+
+/** A person the way the preview's cards write one: name in their sex's colour,
+ *  lifespan trailing in the data face. */
+function PersonLabel({ person }: { person: GraftJoinPerson }) {
+  return (
+    <span className={`preview-rec ${sexClass(person.sex)}`}>
+      {person.name}
+      {person.years && <span className="person-years gm-data"> {person.years}</span>}
+    </span>
+  );
 }
 
 function Stat({

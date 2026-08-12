@@ -494,6 +494,7 @@ function emptyReport(): ChangeReport {
   return {
     changes: [],
     deferred: [],
+    graftJoins: [],
     recordsChanged: 0,
     newPersons: 0,
     newFamilies: 0,

@@ -119,9 +119,38 @@ export interface CustomTagNode {
   node: GedNode;
 }
 
+/**
+ * One person a branch import treated as somebody the main file already has,
+ * on the matcher's suggestion rather than the user's confirmation. Attaching
+ * a branch is the one place the merge acts on an identity nobody reviewed
+ * (it links records — it never copies fields there), so each such identity is
+ * named in the save preview while the download can still be called off.
+ */
+export interface GraftJoin {
+  /** The main record the incoming person was joined onto. */
+  mainId: string;
+  /** The main person, as the preview shows anyone: name, lifespan, sex colour. */
+  main: GraftJoinPerson;
+  /** The incoming person the graft took to be them. */
+  incoming: GraftJoinPerson;
+}
+
+/** One side of a {@link GraftJoin}, carrying what a person label is made of —
+ *  neither record is reachable from the save preview (the incoming one isn't in
+ *  the main dataset, and the main one may be untouched), so the pieces travel
+ *  with the entry rather than being looked up there. */
+export interface GraftJoinPerson {
+  name: string;
+  /** "1944–2017", "1972", or "" when no year is known ({@link lifespanOf}). */
+  years: string;
+  sex: import("../gedcom/types").Sex;
+}
+
 export interface ChangeReport {
   changes: FieldChange[];
   deferred: DeferredChange[];
+  /** Identities a branch import used without a confirmation (see {@link GraftJoin}). */
+  graftJoins: GraftJoin[];
   /** Distinct main records touched. */
   recordsChanged: number;
   /** New individual records added from the incoming file. */
@@ -213,6 +242,7 @@ export function mergeDecisions(
   const report: ChangeReport = {
     changes: [],
     deferred: [],
+    graftJoins: [],
     recordsChanged: 0,
     newPersons: 0,
     newFamilies: 0,
@@ -441,6 +471,16 @@ export function formatReport(report: ChangeReport, title = "GED Merge change rep
       for (const d of group) lines.push(`  ${d.field}: ${d.reason}`);
       lines.push("");
     }
+  }
+
+  if (report.graftJoins.length) {
+    lines.push("Linked to a person you already have (not confirmed by you)");
+    lines.push("----------------------------------------------------------");
+    const named = (p: GraftJoinPerson) => (p.years ? `${p.name} ${p.years}` : p.name);
+    for (const j of report.graftJoins) {
+      lines.push(`  ${named(j.incoming)}  ->  ${named(j.main)}  ${j.mainId}`);
+    }
+    lines.push("");
   }
 
   return lines.join("\n");
