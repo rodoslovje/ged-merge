@@ -67,6 +67,16 @@ const OSM_IDLE: OsmState = { state: "idle", results: [] };
  *  judge, what the register does not know, what it cannot be asked about at
  *  all, and what is staged for writing. */
 type AddrStatus = "unsearched" | "found" | "none" | "manual" | "placed" | "picked";
+/**
+ * What the row of chips narrows to — the lookup states, and "written twice",
+ * which is not a lookup state at all but belongs in the same row because it
+ * answers the same question ("show me which of these?") and because a row of
+ * chips is read as one selector. Standing outside it, its own green beside the
+ * green on "All" said two contradictory things about one list.
+ */
+type ListFilter = "all" | AddrStatus | "sameHouse";
+/** The lookup states, in chip order — "sameHouse" is drawn after them, from
+ *  its own count. */
 const ADDR_FILTERS: ("all" | AddrStatus)[] = ["all", "unsearched", "found", "none", "manual", "placed", "picked"];
 
 /** A row's lookup state right now. An error or in-flight search still counts
@@ -421,10 +431,9 @@ export function AddressCoordsSection({
   }, [visibleRows, query]);
   // Which lookup state is on screen; "all" leaves the list whole. Like the
   // places chips, a chip's count is exactly what clicking it shows.
-  const [statusFilter, setStatusFilter] = useState<"all" | AddrStatus>("all");
-  /** Narrowed to the houses written twice — off unless asked for, like every
-   *  other narrowing on this page. */
-  const [onlySameHouse, setOnlySameHouse] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<ListFilter>("all");
+  /** Whether the list is narrowed to the houses written twice. */
+  const onlySameHouse = statusFilter === "sameHouse";
   /** The country on screen — a place value's last comma part, the same key the
    *  places and compliance lists chip on. `null` = all of them. */
   const [countryFilter, setCountryFilter] = useState<string | null>(null);
@@ -476,7 +485,9 @@ export function AddressCoordsSection({
 
   const countryChips = useMemo(() => {
     const inStatus = (r: AddressRow) =>
-      statusFilter === "all" || addrStatus(r, searches, picked, osmSearches) === statusFilter;
+      statusFilter === "all" ||
+      statusFilter === "sameHouse" ||
+      addrStatus(r, searches, picked, osmSearches) === statusFilter;
     const counts = new Map<string, number>();
     for (const row of visibleRows) {
       const c = countryOf(row.place, home);
@@ -498,7 +509,8 @@ export function AddressCoordsSection({
     for (const row of rows) {
       if (!sameHouse.has(row.key)) continue;
       if (activeCountry !== null && countryOf(row.place, home) !== activeCountry) continue;
-      if (statusFilter !== "all" && addrStatus(row, searches, picked, osmSearches) !== statusFilter) continue;
+      if (statusFilter !== "all" && statusFilter !== "sameHouse" && addrStatus(row, searches, picked, osmSearches) !== statusFilter)
+        continue;
       n++;
     }
     return n;
@@ -515,7 +527,12 @@ export function AddressCoordsSection({
     const pool = onlySameHouse ? rows.filter((r) => sameHouseKeys.has(r.key)) : visibleRows;
     const kept = pool
       .filter(inCountry)
-      .filter((r) => statusFilter === "all" || addrStatus(r, searches, picked, osmSearches) === statusFilter);
+      .filter(
+        (r) =>
+          statusFilter === "all" ||
+          statusFilter === "sameHouse" ||
+          addrStatus(r, searches, picked, osmSearches) === statusFilter,
+      );
     const byPlace = new Map<string, PlaceGroup>();
     for (const row of kept) {
       const g = byPlace.get(row.place);
@@ -1145,14 +1162,12 @@ export function AddressCoordsSection({
             <span className="tools-chip-count">{f === "all" ? statusAllCount : statusCounts[f]}</span>
           </button>
         ))}
-        {/* The houses written twice — a narrowing of its own, not a lookup
-            state, so it stands apart from the chips above rather than becoming
-            one of them: a row is both "found" and written twice. Shown only
-            when the file has any. */}
+        {/* The houses written twice, last in the row and offered only when the
+            file has any. */}
         {sameHouse.size > 0 && (
           <button
             className={`tools-chip ${onlySameHouse ? "active" : ""}`}
-            onClick={() => setOnlySameHouse((v) => !v)}
+            onClick={() => setStatusFilter(onlySameHouse ? "all" : "sameHouse")}
             title={t("tools.geocode.addr.sameHouseHint")}
           >
             {t("tools.geocode.addr.sameHouse")} <span className="tools-chip-count">{sameHouseCount}</span>
