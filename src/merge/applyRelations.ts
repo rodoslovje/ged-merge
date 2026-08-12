@@ -8,6 +8,7 @@ import { childrenByTag, firstChild } from "../gedcom/node";
 import { EDITABLE_FAM_EVENT_TAGS } from "../gedcom/eventTags";
 import type { Dataset, GedNode } from "../gedcom/types";
 import { displayName } from "../match/relatives";
+import { lifespanOf } from "../gedcom/lifespan";
 import type { MatchResult } from "../match/types";
 import { defaultChoice, type FieldChoice, type FieldRow, type ImportDirection } from "../review/types";
 import { pairedMainFamilies, relativePersonSimilarity, RELATIVE_PAIR_THRESHOLD } from "../review/fields";
@@ -186,6 +187,29 @@ export function makeContext(
     return undefined;
   };
 
+  /** Incoming ids already named in `report.graftJoins` — the walk resolves the
+   *  same person once per family they belong to. */
+  const notedJoins = new Set<string>();
+
+  /**
+   * Name an identity the graft is acting on that the user never confirmed.
+   * Recorded where the walk *uses* the join (`resolve`, which is called to link
+   * something) rather than where it merely peeks at it, so the preview lists
+   * the people the branch really was hung on.
+   */
+  const noteGraftJoin = (mainId: string, incomingId: string): void => {
+    if (confirmedPairs.has(`${mainId}|${incomingId}`) || notedJoins.has(incomingId)) return;
+    notedJoins.add(incomingId);
+    const m = main.individuals.get(mainId);
+    const c = compare.individuals.get(incomingId);
+    if (!m || !c) return;
+    const withYears = (indi: import("../gedcom/types").Individual) => {
+      const years = lifespanOf(indi);
+      return years ? `${displayName(indi.names[0])} ${years}` : displayName(indi.names[0]);
+    };
+    report.graftJoins.push({ mainId, mainLabel: withYears(m), incomingLabel: withYears(c) });
+  };
+
   const addNewIndividual = (incomingId: string): string | undefined => {
     const cached = addedFromIncoming.get(incomingId);
     if (cached) return cached;
@@ -228,7 +252,12 @@ export function makeContext(
     indiNode: (id) => indiNodes.get(id),
     famNode: (id) => famNodes.get(id),
     createFamily,
-    resolve: (incomingId) => matchedJoin(incomingId) ?? addNewIndividual(incomingId),
+    resolve: (incomingId) => {
+      const matched = matchedJoin(incomingId);
+      if (matched === undefined) return addNewIndividual(incomingId);
+      if (graftPhase) noteGraftJoin(matched, incomingId);
+      return matched;
+    },
     resolved: (incomingId) => matchedJoin(incomingId) ?? addedFromIncoming.get(incomingId),
     importNew: addNewIndividual,
     pairedAsRelatives: (mainId, incomingId) => {

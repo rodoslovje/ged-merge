@@ -2021,8 +2021,10 @@ describe("mergeDecisions — one family for a couple, however it is reached", ()
     // Milan came in as the person he is, with his own wife and child under him.
     expect(report.newPersons).toBe(4);
     expect(out).toContain("Milan /Grca/");
-    // Asking for a branch is asking for the people in it — nothing to report.
+    // Asking for a branch is asking for the people in it — nothing to report,
+    // and no identity to own up to: none was used.
     expect(report.deferred).toEqual([]);
+    expect(report.graftJoins).toEqual([]);
   });
 
   it("a graft joins onto a confirmed pair however far apart the two records read", () => {
@@ -2031,7 +2033,7 @@ describe("mergeDecisions — one family for a couple, however it is reached", ()
     const decisions = new Map<string, CandidateDecision>([
       [decisionKey("individual", "@I1@", "@P2@"), { status: "confirmed", fields: {} }],
     ]);
-    const { records } = mergeDecisions(
+    const { records, report } = mergeDecisions(
       dataset(WEAK_PAIR_MAIN), dataset(WEAK_PAIR_COMPARE), decisions, WEAK_PAIR_MATCHES, tr,
       [{ incomingId: "@P1@", direction: "descendants" }],
     );
@@ -2041,6 +2043,8 @@ describe("mergeDecisions — one family for a couple, however it is reached", ()
     // wife and their child, while the family he already had is left alone.
     expect(out).toMatch(/0 @F\d+@ FAM\n1 HUSB @I1@\n1 WIFE @I\d+@\n1 CHIL @I\d+@\n/);
     expect(block(out, "0 @F1@ FAM")).toBe("0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@\n");
+    // You made this call yourself, so there is nothing to own up to.
+    expect(report.graftJoins).toEqual([]);
   });
 
   it("a graft still joins across a spelling variant and a year or two of drift", () => {
@@ -2062,6 +2066,10 @@ describe("mergeDecisions — one family for a couple, however it is reached", ()
     ]);
     expect(report.newPersons).toBe(1); // the wife only
     expect(serializeGedcom(records)).not.toContain("Jozef /Grca/");
+    // The join was the app's call, not the user's, so the preview names it.
+    expect(report.graftJoins).toEqual([
+      { mainId: "@I1@", mainLabel: "Joze Grca 1938", incomingLabel: "Jozef Grca 1940" },
+    ]);
   });
 
   it("a person with several incoming marriages gets a family per marriage", () => {

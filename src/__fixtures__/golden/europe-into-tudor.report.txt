@@ -915,3 +915,18 @@ Thomas Holland + Alice FitzAlan  @F194@
 ---------------------------------------
   merge.field.father: merge.reason.parentKept
   merge.field.mother: merge.reason.parentKeptAncestors
+
+Linked to a person you already have (not confirmed by you)
+----------------------------------------------------------
+  Owen Tudor –1461  ->  Owen Tudor 1400–1461  @I315@
+  Maredudd (Meredith) Tudor  ->  Maredudd ap Tudor 1370–1406  @I317@
+  Catherine of_Valois 1401–1437  ->  Catherine of Valois 1401–1437  @I316@
+  Thomas Howard  ->  Thomas Howard 1473–1554  @I24@
+  Elizabeth Howard –1512  ->  Elizabeth Howard  @I37@
+  Edmund Howard –1513  ->  Edmund Howard –1538  @I195@
+  Mary Howard  ->  Mary Howard –1557  @I23@
+  Frances Howard  ->  Frances Howard –1639  @I203@
+  Henry Fitzroy –1533  ->  Henry Fitzroy 1519–1536  @I22@
+  William Carey –1528  ->  William Carey –1528  @I261@
+  Anne Morgan  ->  Anne Morgan  @I268@
+  Catherine Howard 1520–1542  ->  Catherine Howard –1542  @I19@

@@ -1206,6 +1206,8 @@ export const sl = {
   "preview.stat.newFields_few": "{{count}} nova polja",
   "preview.stat.newFields_other": "{{count}} novih polj",
   "preview.stat.deferred": "Ohranjeno",
+  "preview.grafted": "Povezano z osebo, ki jo že imate",
+  "preview.graftedHint": "Veja, ki ste jo prinesli, je prišla do teh oseb in jih po predlogu programa imela za nekoga, ki ga vaša datoteka že ima – tega niste potrdili vi. Njihovi sorodniki so se pripeli na vaš zapis, namesto da bi prišli kot drugi izvod. Če katera od njih ni ista oseba, prekličite in to ujemanje najprej zavrnite.",
   "preview.notMerged": "Ohranjeni vaši podatki",
   "preview.notMergedHint": "Na teh mestih se vhodni podatki razlikujejo od vaših. Obveljali so vaši – nič ni bilo prepisano ali izgubljeno.",
   "preview.integrity": "Opozorila o skladnosti",

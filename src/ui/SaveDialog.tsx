@@ -182,6 +182,26 @@ export function SaveDialog({
             </section>
           )}
 
+          {/* Identities the branch import acted on that nobody confirmed. The
+              graft links records onto them, so a wrong one hangs a whole
+              household off the wrong person — said out loud here, while the
+              download can still be called off. */}
+          {report.graftJoins.length > 0 && (
+            <section className="preview-section">
+              <h3>{t("preview.grafted")}</h3>
+              <p className="preview-note">{t("preview.graftedHint")}</p>
+              <ul className="preview-deferred">
+                {report.graftJoins.map((j, i) => (
+                  <li key={i}>
+                    <span className="preview-rec">{j.incomingLabel}</span>
+                    {" → "}
+                    <span className="preview-rec">{j.mainLabel}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
           {report.deferred.length > 0 && (
             <section className="preview-section">
               <h3>{t("preview.notMerged")}</h3>
