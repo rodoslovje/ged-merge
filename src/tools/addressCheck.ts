@@ -272,13 +272,19 @@ export function checkAddressesAgainstRegister(
     }
   }
 
-  // House numbers compare as numbers, and the place before the house: read as
-  // text, one village's findings came out 107, 131, 198, 70, 71.
+  // Worst verdict first — this order also decides which findings survive the
+  // list's cap — and within it by place and then by house.
+  //
+  // By house, not by how many events stand at it. Houses are read by their
+  // numbers: a village's findings in event-count order are a jumble, and the
+  // count is a small figure at the end of the line, not the thing being looked
+  // up. The geocoding addresses list has always ordered a place's houses this
+  // way. And numerically, since a house number is a number: compared as text
+  // one village came out 107, 131, 198, 70, 71.
   findings.sort(
     (a, b) =>
       Number(a.dismissed) - Number(b.dismissed) ||
       RANK[a.verdict] - RANK[b.verdict] ||
-      b.count - a.count ||
       placeCollator.compare(a.place, b.place) ||
       placeCollator.compare(a.written, b.written),
   );

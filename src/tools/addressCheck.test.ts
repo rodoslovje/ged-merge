@@ -329,11 +329,15 @@ describe("checkAddressesAgainstRegister", () => {
     expect(report.findings.map((f) => f.verdict)).toEqual(["addrElsewhere", "addrSpelling", "addrMissing"]);
   });
 
-  it("orders one village's houses by number, not by digit", () => {
-    // Metlika's old numbering, as the check reported it: 107, 131, 198, 70, 71.
-    // A house number is a number, and a list of a village's houses is read by it.
-    const numbers = [70, 131, 107, 198, 71];
-    const rows = numbers.map((n) => row({ key: `m|${n}`, place: "Metlika, Metlika, Slovenija", address: `Metlika ${n}` }));
+  it("orders one village's houses by number, not by digit and not by count", () => {
+    // Metlika's old numbering, as the check reported it: 76, 75, 138, 107, 131,
+    // 198, 70, 71 — the busiest houses first and the rest as text. A house
+    // number is a number, and a village's houses are read by it; how many
+    // events stand at each is the small figure at the end of the line.
+    const houses: [number, number][] = [[76, 9], [75, 7], [138, 3], [107, 1], [131, 1], [198, 1], [70, 1], [71, 1]];
+    const rows = houses.map(([n, count]) =>
+      row({ key: `m|${n}`, place: "Metlika, Metlika, Slovenija", address: `Metlika ${n}`, count }),
+    );
     const report = checkAddressesAgainstRegister(
       rows,
       new Map(rows.map((r) => [r.key, []])),
@@ -342,8 +346,11 @@ describe("checkAddressesAgainstRegister", () => {
     expect(report.findings.map((f) => f.written)).toEqual([
       "Metlika 70",
       "Metlika 71",
+      "Metlika 75",
+      "Metlika 76",
       "Metlika 107",
       "Metlika 131",
+      "Metlika 138",
       "Metlika 198",
     ]);
   });

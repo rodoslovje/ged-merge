@@ -344,8 +344,16 @@ export function AddressCheckSection({
       if (list) list.push(f);
       else byPlace.set(f.place, [f]);
     }
+    // A place's houses in house-number order, whatever verdict each carries —
+    // the badge says which, and inside one village the number is what the eye
+    // runs down. Worst-first is the order the *list* is worked through, and the
+    // findings arrive in it; it is the wrong order within a village. The
+    // geocoding addresses list orders a group the same way.
     const groups = [...byPlace]
-      .map(([place, findings]) => ({ place, findings }))
+      .map(([place, findings]) => ({
+        place,
+        findings: [...findings].sort((a, b) => placeCollator.compare(a.written, b.written)),
+      }))
       .sort((a, b) => b.findings.length - a.findings.length || placeCollator.compare(a.place, b.place));
     return {
       rows,
