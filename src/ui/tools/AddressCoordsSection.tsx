@@ -17,6 +17,7 @@ import type { MiniMapPin } from "../map/MiniPlaceMap";
 import { EventCoordPicker } from "../edit/EventCoordPicker";
 import { PlaceAutocomplete } from "../edit/PlaceAutocomplete";
 import { placeCollator } from "../../gedcom/place";
+import { findSameHouse } from "../../tools/sameHouse";
 import { usePlaceLookup } from "../edit/PlaceLookupContext";
 import type { PlaceSuggestions } from "../edit/placeSuggestions";
 import { useNameOf, useSettings } from "../SettingsContext";
@@ -421,6 +422,9 @@ export function AddressCoordsSection({
   // Which lookup state is on screen; "all" leaves the list whole. Like the
   // places chips, a chip's count is exactly what clicking it shows.
   const [statusFilter, setStatusFilter] = useState<"all" | AddrStatus>("all");
+  /** Narrowed to the houses written twice — off unless asked for, like every
+   *  other narrowing on this page. */
+  const [onlySameHouse, setOnlySameHouse] = useState(false);
   /** The country on screen — a place value's last comma part, the same key the
    *  places and compliance lists chip on. `null` = all of them. */
   const [countryFilter, setCountryFilter] = useState<string | null>(null);
@@ -452,6 +456,24 @@ export function AddressCoordsSection({
   // One chip per country the addresses stand in, counting the addresses each
   // click would show — a chip's count respects every filter except its own,
   // exactly as in the two lists beside this one.
+  /**
+   * The houses the file writes twice — one row the fuller spelling of another,
+   * within the same place. Computed over every row, filters included, so the
+   * fuller row is known even when the filters would have hidden it.
+   */
+  const sameHouse = useMemo(() => findSameHouse(all), [all]);
+  /** Both halves of every such pair: the row that would move and the row it
+   *  would move into, since a suggestion is unreadable without what it points
+   *  at. */
+  const sameHouseKeys = useMemo(() => {
+    const keys = new Set<string>();
+    for (const [key, dup] of sameHouse) {
+      keys.add(key);
+      keys.add(dup.into);
+    }
+    return keys;
+  }, [sameHouse]);
+
   const countryChips = useMemo(() => {
     const inStatus = (r: AddressRow) =>
       statusFilter === "all" || addrStatus(r, searches, picked, osmSearches) === statusFilter;
@@ -469,6 +491,7 @@ export function AddressCoordsSection({
     const inCountry = (r: AddressRow) => activeCountry === null || countryOf(r.place, home) === activeCountry;
     const kept = visibleRows
       .filter(inCountry)
+      .filter((r) => !onlySameHouse || sameHouseKeys.has(r.key))
       .filter((r) => statusFilter === "all" || addrStatus(r, searches, picked, osmSearches) === statusFilter);
     const byPlace = new Map<string, PlaceGroup>();
     for (const row of kept) {
@@ -487,7 +510,7 @@ export function AddressCoordsSection({
     }
     // Most-used places first — that is where geocoding pays off soonest.
     return [...byPlace.values()].sort((a, b) => b.events - a.events || placeCollator.compare(a.place, b.place));
-  }, [visibleRows, searches, osmSearches, picked, statusFilter, activeCountry, home]);
+  }, [visibleRows, searches, osmSearches, picked, statusFilter, activeCountry, home, onlySameHouse, sameHouseKeys]);
 
   const [open, setOpen] = useState<Set<string>>(new Set());
   /** The one group whose map is drawn — never on open, always on request, and
@@ -882,8 +905,8 @@ export function AddressCoordsSection({
   /** Rename the row's address on every event that carries it, then close the
    *  editor — the rescan (edit version) merges it into an existing row when
    *  the new spelling already has one, which is how duplicates are joined. */
-  const applyRename = (row: AddressRow) => {
-    const to = renameDraft.trim();
+  const applyRename = (row: AddressRow, target?: string) => {
+    const to = (target ?? renameDraft).trim();
     if (!to || to === row.address) return;
     onRenameAddresses([{ rawKeys: row.rawKeys, from: row.address, to }]);
     setRenameKey(null);
@@ -1099,6 +1122,19 @@ export function AddressCoordsSection({
             <span className="tools-chip-count">{f === "all" ? statusAllCount : statusCounts[f]}</span>
           </button>
         ))}
+        {/* The houses written twice — a narrowing of its own, not a lookup
+            state, so it stands apart from the chips above rather than becoming
+            one of them: a row is both "found" and written twice. Shown only
+            when the file has any. */}
+        {sameHouse.size > 0 && (
+          <button
+            className={`tools-chip ${onlySameHouse ? "active" : ""}`}
+            onClick={() => setOnlySameHouse((v) => !v)}
+            title={t("tools.geocode.addr.sameHouseHint")}
+          >
+            {t("tools.geocode.addr.sameHouse")} <span className="tools-chip-count">{sameHouse.size}</span>
+          </button>
+        )}
         {/* A view control, beside the other view controls. */}
         <ExpandAllToggle
           allOpen={allOpen}
@@ -1332,6 +1368,31 @@ export function AddressCoordsSection({
                             onClose={() => setRenameKey(null)}
                             title={t("tools.geocode.addr.renameOpen")}
                           />
+                          {/* The same house, written more fully on another row
+                              of this same place — the file's own disagreement
+                              with itself, which no register has an opinion
+                              about. The arrow is the "becomes" of the
+                              compliance lists, because taking it is a rename:
+                              the events at this spelling get the other one, and
+                              the two rows become the one house they always
+                              were. Only the leaner row carries it; to go the
+                              other way, the pencil is right beside it. */}
+                          {sameHouse.get(row.key) && (
+                            <>
+                              <span aria-hidden="true" className="tools-register-place">→</span>
+                              <span className="tools-geo-cand-name">{sameHouse.get(row.key)!.address}</span>
+                              <button
+                                className="tools-issue-link"
+                                onClick={() => applyRename(row, sameHouse.get(row.key)!.address)}
+                                title={t("tools.geocode.addr.joinHint", {
+                                  address: sameHouse.get(row.key)!.address,
+                                  count: row.count,
+                                })}
+                              >
+                                {t("tools.geocode.addr.join")}
+                              </button>
+                            </>
+                          )}
                           {/* The position this row holds, in the place rows' own
                               shape: = where it came from · the pinned
                               coordinate, accent once it is this house's own.
