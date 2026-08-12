@@ -207,7 +207,13 @@ async function searchNamed(
  * anything ({@link tryAlternates}) — the wider names it sits in, then the
  * "street" read as a settlement of its own, a hamlet a file files under its
  * bigger neighbour. The rungs *within* a settlement (street, then village
- * numbering, then any street) are {@link searchBucket}'s.
+ * numbering, then — for a value naming no street — any street) are
+ * {@link searchBucket}'s.
+ *
+ * Which is what makes the last rung here reachable at all: a named street the
+ * settlement does not have answers nothing rather than some same-numbered house
+ * on another street, so "Jama 35" written under Mavčiče falls through to naselje
+ * Jama, where the house actually is.
  *
  * Resolves to [] when no register is stored for that country at all, so a
  * browser that has not downloaded one simply gets no local answer — never an

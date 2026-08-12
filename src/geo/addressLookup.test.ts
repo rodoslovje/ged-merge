@@ -122,6 +122,28 @@ describe("searchLocalAddress and the settlements it widens to", () => {
     expect(hits.map((h) => h.label)).toEqual(["Hafnarjeva pot 21, Kranj, 4000 Kranj"]);
   });
 
+  it("reads a hamlet's number as the hamlet, not as a same-numbered house next door", async () => {
+    // The file writes "Jama 35" under Mavčiče, its bigger neighbour, and Mavčiče
+    // numbers its own houses to well past 35. Answering with that Mavčiče 35 —
+    // a real house, the wrong one — placed the event in the wrong village and,
+    // worse, let the compliance check call the row compliant: the register
+    // agreed with the settlement the file named. The house is in naselje Jama,
+    // and only the settlement-of-its-own reading finds it.
+    load([
+      row({ settlement: "Mavčiče", number: 35, municipality: "Kranj", post: "4211 Mavčiče", lat: 46.18184, lon: 14.39486 }),
+      row({ settlement: "Jama", number: 35, municipality: "Kranj", post: "4211 Mavčiče", lat: 46.19867, lon: 14.39267 }),
+    ]);
+    const hits = await searchLocalAddress("SI", {
+      settlement: "Mavčiče",
+      street: "Jama",
+      number: 35,
+      altSettlements: ["Kranj"],
+      parents: ["Kranj"],
+    });
+    expect(hits.map((h) => h.label)).toEqual(["Jama 35, 4211 Mavčiče"]);
+    expect(hits[0].settlement).toBe("Jama");
+  });
+
   it("offers every street of the settlement the file itself names", async () => {
     // "Bled 4" written village-style in a settlement that does have streets:
     // the file does not say which street, so all of them are offered and the

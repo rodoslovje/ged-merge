@@ -116,16 +116,16 @@ function withNote(hit: AddressHit, written: string): string {
 /**
  * Whether the register's answer is about the street the file writes.
  *
- * A lookup widens until it finds something — past the street, past the
- * settlement, out to "any house in this village carrying this number" (see
- * searchBucket and searchLocalAddress). That is right where the answer is a
- * *candidate*: the Addresses tab offers it and the researcher decides. It is
- * ruinous as a *verdict*, because a wide answer shares nothing with the written
- * address but its digits. A municipality the size of Kranj has a house of every
- * number, so the check reported "Stražišče 109" as a misspelling of Jezerska
- * cesta 109, "Naklo 67" of Temniška ulica 67, and "Klošter 52" as really
- * belonging to Cankarjeva cesta in Metlika — in none of which had the register
- * recognized a single word the researcher wrote.
+ * A lookup widens until it finds something — past the settlement, and for a
+ * value naming no street out to "any house in this village carrying this
+ * number" (see searchBucket and searchLocalAddress). That is right where the
+ * answer is a *candidate*: the Addresses tab offers it and the researcher
+ * decides. It is ruinous as a *verdict*, because a wide answer shares nothing
+ * with the written address but its digits. A municipality the size of Kranj has
+ * a house of every number, so the check reported "Stražišče 109" as a
+ * misspelling of Jezerska cesta 109, "Naklo 67" of Temniška ulica 67, and
+ * "Klošter 52" as really belonging to Cankarjeva cesta in Metlika — in none of
+ * which had the register recognized a single word the researcher wrote.
  *
  * Only a register street that *is* the written one, spelt more fully or more
  * briefly ("Kidričeva cesta" for "Kidričeva", "Senjsko" for "Ul. Senjsko"),
