@@ -1126,6 +1126,8 @@ export const en = {
   "merge.reason.editedAfterConfirm": "you edited this field after confirming the match — your edit is kept",
   "merge.reason.parentKept": "your file keeps {{kept}} here, so {{incoming}} was not brought in",
   "merge.reason.parentKeptAncestors": "your file keeps {{kept}} here, so {{incoming}} and the ancestors above them were not brought in",
+  "merge.reason.childHasParents": "your file already records {{child}} as a child of {{kept}}, so they were not linked to this family",
+  "merge.reason.childHasFamily": "your file already records {{child}} as a child in another family, so they were not linked to this one",
   "merge.reason.linkNotImplemented": "link merge not yet implemented",
   "merge.reason.assoNotImported": "references to other people (ASSO/ALIA) are not carried over with a new person",
   "status.confirmed": "Confirmed",

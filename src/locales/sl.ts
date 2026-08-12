@@ -1242,6 +1242,8 @@ export const sl = {
   "merge.reason.editedAfterConfirm": "to polje ste uredili po potrditvi ujemanja — vaš popravek ostane",
   "merge.reason.parentKept": "v vaši datoteki je tu že {{kept}}, zato zapis {{incoming}} ni bil uvožen",
   "merge.reason.parentKeptAncestors": "v vaši datoteki je tu že {{kept}}, zato zapis {{incoming}} in predniki nad njim niso bili uvoženi",
+  "merge.reason.childHasParents": "v vaši datoteki ima {{child}} že starše ({{kept}}), zato povezava s to družino ni bila dodana",
+  "merge.reason.childHasFamily": "v vaši datoteki je {{child}} že otrok v drugi družini, zato povezava s to družino ni bila dodana",
   "merge.reason.linkNotImplemented": "združevanje povezav še ni podprto",
   "merge.reason.assoNotImported": "sklici na druge osebe (ASSO/ALIA) se pri novi osebi ne prenesejo",
   "status.confirmed": "Potrjeno",

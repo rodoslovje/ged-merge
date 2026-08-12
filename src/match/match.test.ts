@@ -526,10 +526,10 @@ describe("parent-conflict penalty and role-wise parent comparison", () => {
   const doc = (body: string) => dataset(`0 HEAD\n1 GEDC\n2 VERS 5.5.1\n${body}0 TRLR\n`);
   // Same person key on both sides (birth years one apart so keyPerfect can't
   // pin the score at 100); only the linked parents' names vary.
-  const side = (p: "M" | "C", year: number, dadName: string, momName: string) =>
+  const side = (p: "M" | "C", year: number, dadName: string, momName: string, momSurname = "Kovač") =>
     `0 @${p}@ INDI\n1 NAME Marija /Bajuk/\n1 SEX F\n1 BIRT\n2 DATE ${year}\n1 FAMC @${p}F@\n` +
     `0 @${p}D@ INDI\n1 NAME ${dadName} /Bajuk/\n1 SEX M\n` +
-    `0 @${p}W@ INDI\n1 NAME ${momName} /Kovač/\n1 SEX F\n` +
+    `0 @${p}W@ INDI\n1 NAME ${momName} /${momSurname}/\n1 SEX F\n` +
     `0 @${p}F@ FAM\n1 HUSB @${p}D@\n1 WIFE @${p}W@\n1 CHIL @${p}@\n`;
   const main = doc(side("M", 1850, "Miko", "Neža"));
   const scoreAgainst = (dadName: string, momName: string) => {
@@ -563,6 +563,47 @@ describe("parent-conflict penalty and role-wise parent comparison", () => {
     const parents = conflict.components.find((c) => c.key === "parents");
     expect(parents).toBeDefined();
     expect(parents!.score).toBeLessThan(0.5);
+  });
+
+  // Two mothers called Marija and Marjeta score 0.85 on the given name alone —
+  // "agreement", which used to disarm the penalty however plainly the rest
+  // disagreed. Their maiden surnames are the thing that actually tells them
+  // apart, and in dense parish registers this is the common case, not the rare
+  // one: it is what scored a whole sibling set into a family that was not
+  // theirs, and what left ~1500 cousin pairs in the duplicate lists.
+  const withMothers = (
+    mainMom: [string, string],
+    compareMom: [string, string],
+    dad: [string, string] = ["Miko", "Franc"],
+  ) =>
+    matchDatasets(
+      doc(side("M", 1850, dad[0], mainMom[0], mainMom[1])),
+      doc(side("C", 1851, dad[1], compareMom[0], compareMom[1])),
+    ).individuals.find((c) => c.mainId === "@M@" && c.compareId === "@C@")!;
+
+  it("penalizes when the fathers differ and the mothers share only a common given name", () => {
+    const hollow = withMothers(["Marija", "Rajgelj"], ["Marjeta", "Fajfar"]);
+    const real = withMothers(["Marija", "Rajgelj"], ["Marjeta", "Rajgelj"]);
+    expect(hollow.score).toBeLessThan(real.score);
+    expect(hollow.category).not.toBe("strong");
+  });
+
+  it("keeps trusting the mother's given name when her surname is the married one", () => {
+    // A file that files mothers under their married name writes the child's own
+    // surname there — no evidence at all, and it must not read as a conflict
+    // against the other file's maiden name. Both pairs below lose the same way
+    // on the parents *component* (her full name differs either way); only the
+    // penalty separates them, so the married-name pair must stay well clear of
+    // the penalized one.
+    const married = withMothers(["Neža", "Bajuk"], ["Neža", "Kovač"]);
+    const maiden = withMothers(["Neža", "Rajgelj"], ["Neža", "Kovač"]);
+    expect(maiden.score).toBeLessThan(married.score * 0.9);
+  });
+
+  it("leaves a pair alone when only the mothers' surnames differ", () => {
+    // One conflicting role is still not a penalty: the fathers agree here.
+    const oneRole = withMothers(["Neža", "Rajgelj"], ["Neža", "Fajfar"], ["Miko", "Miko"]);
+    expect(oneRole.score).toBeGreaterThan(85);
   });
 });
 

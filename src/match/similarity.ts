@@ -95,15 +95,51 @@ export function fatherGivenVerdict(
   );
 }
 
-/** Verdict for the two records' mother given names — see {@link fatherGivenVerdict}. */
-export function motherGivenVerdict(
+/**
+ * Minimum surname similarity for two mothers' maiden names to be spellings of
+ * one name rather than two different women. Well below the 0.8 the record-level
+ * name gate asks for: this one only has to catch the flat disagreements
+ * (Rajgelj against Fajfar), and a cross-language pair it calls wrongly costs a
+ * demotion the relationship passes can undo.
+ */
+export const PARENT_SURNAME_CONFLICT = 0.7;
+
+/**
+ * Verdict for the two records' mother — by given name, and by her surname where
+ * that surname is her own.
+ *
+ * Mothers' given names are dominated by a handful of ubiquitous ones, so a
+ * Marija reading as agreement with a Marjeta is worth nothing, while Rajgelj
+ * against Fajfar settles the question outright. A clear surname conflict is
+ * therefore a conflict whatever the given names said — otherwise that hollow
+ * agreement disarms the both-parents penalty and a child is scored into a
+ * family that was never hers.
+ *
+ * The surname counts only when it is hers rather than her husband's: a file
+ * that files mothers under their married name writes the child's own surname
+ * there, which discriminates nothing and would read as a conflict against the
+ * other file's maiden name.
+ */
+export function motherVerdict(
   a: Individual, dsA: Dataset,
   b: Individual, dsB: Dataset,
 ): "agree" | "conflict" | "unknown" {
-  return parentGivenVerdict(
-    comparableName(cachedMotherName(a, dsA))?.given,
-    comparableName(cachedMotherName(b, dsB))?.given,
-  );
+  const ma = comparableName(cachedMotherName(a, dsA));
+  const mb = comparableName(cachedMotherName(b, dsB));
+  const sa = maidenSurname(ma, a);
+  const sb = maidenSurname(mb, b);
+  if (sa && sb && jaroWinkler(foldToken(sa), foldToken(sb)) < PARENT_SURNAME_CONFLICT) return "conflict";
+  return parentGivenVerdict(ma?.given, mb?.given);
+}
+
+/** A mother's surname when it is her own — undefined when the file recorded her
+ *  under her married name (the child's surname), which says nothing about her. */
+function maidenSurname(mother: PersonName | undefined, child: Individual): string | undefined {
+  const surname = mother?.surname;
+  if (!surname) return undefined;
+  const own = comparableName(primaryName(child))?.surname;
+  if (own && jaroWinkler(foldToken(surname), foldToken(own)) >= 0.9) return undefined;
+  return surname;
 }
 
 /**
@@ -117,7 +153,7 @@ export function motherGivenVerdict(
  */
 export function parentsVerdict(a: Individual, b: Individual, ds: Dataset): "agree" | "conflict" | "unknown" {
   const father = fatherGivenVerdict(a, ds, b, ds);
-  const mother = motherGivenVerdict(a, ds, b, ds);
+  const mother = motherVerdict(a, ds, b, ds);
   if (father === "agree" || mother === "agree") return "agree";
   if (father === "conflict" || mother === "conflict") return "conflict";
   return "unknown";

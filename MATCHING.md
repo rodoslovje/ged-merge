@@ -162,13 +162,14 @@ After combining, three multiplicative corrections:
   80+ on surname and dates alone. 0.7 sits just under the nickname band
   (William/Bill 0.73 passes; Janez/Ivan 0.63 is knowingly demoted and left
   to relationship recovery).
-- **Both-parents conflict penalty** (×0.8 when *both* the fathers' and the
-  mothers' given names are in the conflict band, < 0.65): different father
-  *and* different mother means a different family, however well the person's
-  own key agrees (the IDEAS.md "dense name clusters" case). A single
-  conflicting role is deliberately not penalized — one parent under a
-  cross-language variant (Jurij/Georg 0.47) is routine in bilingual records.
-  The two penalties stack (×0.64) for pairs wrong on both counts.
+- **Both-parents conflict penalty** (×0.8 when *both* parental roles are in the
+  conflict band): different father *and* different mother means a different
+  family, however well the person's own key agrees (the IDEAS.md "dense name
+  clusters" case). A single conflicting role is deliberately not penalized —
+  one parent under a cross-language variant (Jurij/Georg 0.47) is routine in
+  bilingual records. The two penalties stack (×0.64) for pairs wrong on both
+  counts. The father's role is judged on his given name; the mother's on her
+  given name **and her maiden surname** (see the band section below).
 - **No-evidence ceiling** (cap at 0.6): a pair needs at least one hard
   discriminator — a comparable full name (real given *and* surname both
   sides), an exact month-or-better birth **or death** agreement, or
@@ -283,7 +284,7 @@ Same blocking, gates and scoring — with three differences:
 - Output pairs are oriented so the record with more linked relatives leads as
   the merge survivor.
 
-## Parent given-name bands (shared)
+## Parent bands (shared)
 
 One source of truth in `src/match/similarity.ts` (`parentGivenVerdict`):
 **agree ≥ 0.75**, **conflict < 0.65**, in between **unknown** — used by the
@@ -292,6 +293,25 @@ gap exists because the data genuinely has one: distinct parents measure ≤ 0.6
 (Anton/Jakob is exactly 0.600), recording variants of one parent 0.69+
 (Miko/Mihael, Janez/Johann). Forcing a call inside the gap produced wrong
 merges either way.
+
+**The mother is judged on her surname too** (`motherVerdict`): a clear maiden-
+surname conflict (< `PARENT_SURNAME_CONFLICT`, 0.7) is a conflict whatever the
+given names said. Mothers' given names are dominated by a handful of ubiquitous
+ones, so Marija reading as agreement with Marjeta (0.85) is worth nothing while
+Rajgelj against Fajfar settles it — and that hollow agreement was disarming the
+both-parents penalty wholesale. It scored a whole incoming sibling set into a
+main family that was not theirs (children of Aleš Porenta × Marjeta Fajfar onto
+children of Matija Porenta × Marija Rajgelj, at 49–68), and it left ~1500
+same-named-cousin pairs sitting in the within-file duplicate lists. The surname
+counts only when it is *hers*: a file that records mothers under their married
+name writes the child's own surname there, which discriminates nothing and would
+otherwise read as a conflict against the other file's maiden name.
+
+Measured over `test-data/` when this landed: Renko ↔ Renko-Rakar unchanged
+(8933 strong, 43 probable, 2 weak — no losses), Renko ↔ Trobec 102 → 99
+candidates, and 201 376 → 199 865 within-file duplicate pairs. A hand-check of
+all 70 pairs dropped from Ivanc.ged found distinct people in every one
+(different father *and* different mother, births weeks apart) and no pair gained.
 
 ## Calibration reference (measured `givenSimilarity` on real pairs)
 
@@ -320,7 +340,7 @@ penalizes-and-recovers (via relationships) instead of gating harder.
 |---|---|
 | Weights, gates, `missingKeyScore`, bonuses, category thresholds | `DEFAULT_CONFIG` in `src/match/types.ts` |
 | Given-conflict penalty (0.7 / ×0.8), parent-conflict penalty (×0.8), no-evidence ceiling (0.6), marriage-age range | module constants in `src/match/scoreIndividual.ts` |
-| Parent bands (0.75 / 0.65) | `src/match/similarity.ts` |
+| Parent bands (0.75 / 0.65, mother surname 0.7) | `src/match/similarity.ts` |
 | Consolidation vetoes (0.85 given, ±3 years, ≥85 pair score) | `src/match/engine.ts` |
 | Within-file vetoes (0.85 given, cutoff 0.70) | `src/tools/duplicates.ts` |
 | Placeholder token set | `src/match/text.ts` |
