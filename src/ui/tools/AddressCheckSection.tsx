@@ -22,6 +22,7 @@ import { placeCollator } from "../../gedcom/place";
 import { countryOf } from "../../tools/geocode";
 import { REGISTER_DISMISSED } from "../../tools/registerCheck";
 import { useLocalRegisters } from "../useLocalRegisters";
+import { useVirtualList } from "../useVirtualList";
 import { placeKey, type PlaceSuggestions } from "../edit/placeSuggestions";
 import {
   AppliedNote,
@@ -69,9 +70,9 @@ function hasDetail(f: AddressFinding): boolean {
 /** Addresses resolved per pass, so a long file fills in rather than freezing. */
 const CHUNK = 200;
 
-/** Rows drawn at once; the rest wait behind the page search, as every list on
- *  this page does. */
-const MAX_ROWS = 300;
+/** A collapsed place line, for the windowing model to start from — it adopts
+ *  the real height from the rendered rows on the first pass. */
+const GROUP_HEIGHT = 28;
 
 export function AddressCheckSection({
   hidden,
@@ -342,11 +343,15 @@ export function AddressCheckSection({
     // groups its own rows: eleven findings in Ravna Gora are one village's
     // eleven houses, and repeating the place on every line said so eleven
     // times while hiding that they were one place at all.
-    // The cap is applied here, where it is also announced below. It was
-    // declared and reported but never applied: the note said 200 findings were
-    // waiting behind the search while every one of them was on screen.
+    //
+    // Every finding, with no cap. The list used to stop at 300 and tell the
+    // reader to narrow it with the search — which is no answer when what you
+    // want is to look down the whole file, and a check that reports 431 houses
+    // and shows 300 of them is not a report. The places are windowed instead
+    // (see the list below), so a thousand of them cost the browser what a
+    // screenful costs.
     const byPlace = new Map<string, AddressFinding[]>();
-    for (const f of rows.slice(0, MAX_ROWS)) {
+    for (const f of rows) {
       const list = byPlace.get(f.place);
       if (list) list.push(f);
       else byPlace.set(f.place, [f]);
@@ -373,6 +378,22 @@ export function AddressCheckSection({
       dismissedTotal: report.findings.filter((f) => f.dismissed).length,
     };
   }, [report, query, verdictFilter, countryFilter, showDismissed, home]);
+
+  /**
+   * Only the places near the viewport are mounted — the windowing the geocoding
+   * lists, the duplicates and the health check all use.
+   *
+   * At the place level, not the house level, because that is what this list's
+   * rows are: a village is one line until it is opened, so the mounted rows are
+   * uniform and a file of a thousand places scrolls like a screenful. An opened
+   * village brings its houses with it as one tall row, which is exactly the
+   * deviation the model keeps exact measurements for.
+   */
+  const virtual = useVirtualList({
+    count: view?.groups.length ?? 0,
+    estimate: GROUP_HEIGHT,
+    itemsKey: view?.groups,
+  });
 
   // Nothing stored for any country the file writes: the check cannot be made,
   // and a disabled button explaining why would only be a second copy of the
@@ -512,7 +533,8 @@ export function AddressCheckSection({
                 <p className="tools-clean">{t("tools.search.noMatch")}</p>
               )}
               <ul className="tools-geo-addr-list tools-register-list">
-                {view.groups.map((group) => {
+                <li className="v-spacer" style={{ height: virtual.padTop }} ref={virtual.topRef} aria-hidden />
+                {view.groups.slice(virtual.start, virtual.end).map((group) => {
                   const groupOpen = openGroups.has(group.place);
                   return (
                   <li key={group.place} className="tools-geo-addr-group">
@@ -780,10 +802,8 @@ export function AddressCheckSection({
                   </li>
                   );
                 })}
+                <li className="v-spacer" style={{ height: virtual.padBottom }} ref={virtual.bottomRef} aria-hidden />
               </ul>
-              {view.rows.length > MAX_ROWS && (
-                <p className="tools-fix-hint">{t("tools.geocode.more", { count: view.rows.length - MAX_ROWS })}</p>
-              )}
             </>
           )}
         </>

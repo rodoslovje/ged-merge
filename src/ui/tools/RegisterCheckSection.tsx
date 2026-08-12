@@ -19,6 +19,7 @@ import {
 import { foldSearch } from "../globalSearch";
 import { decomposePlace } from "../../gedcom/place";
 import { proposalFromGazEntry, type PlaceStyle } from "../../geo/placeProposal";
+import { useVirtualList } from "../useVirtualList";
 import {
   AppliedNote,
   ExpandAllToggle,
@@ -45,9 +46,9 @@ import { HIGH_CONFIDENCE, lookupPlace, searchGazetteer, type GazEntry, type Gaze
 // "Use official name" already performs in the Places tab, applied here to
 // places that are long since geocoded and would never appear there.
 
-/** How many rows are painted before the list defers to the filters — the same
- *  cap the coordinate conflicts above use. */
-const MAX_ROWS = 300;
+/** A closed finding row, for the windowing model to start from — it adopts the
+ *  real height from the rendered rows on the first pass. */
+const ROW_HEIGHT = 30;
 
 /** Badge colour per verdict: the register knowing nothing of a place is the
  *  loud one, a different spelling the mildest. */
@@ -378,6 +379,16 @@ export function RegisterCheckSection({
     };
   }, [report, query, verdictFilter, countryFilter, showDismissed, home]);
 
+  /** Only the rows near the viewport are mounted, the same windowing the
+   *  geocoding lists and the health check use. This list used to paint 300 and
+   *  send the reader back to the search for the rest — which is no answer when
+   *  the whole point is to look down everything the register disagreed with. */
+  const virtual = useVirtualList({
+    count: view?.rows.length ?? 0,
+    estimate: ROW_HEIGHT,
+    itemsKey: view?.rows,
+  });
+
   if (!report || !view) return null;
 
   /** The file's own FORM for a country's places, as the chip's tooltip. Empty
@@ -550,7 +561,8 @@ export function RegisterCheckSection({
 
           {!view.rows.length && <p className="tools-clean">{t("tools.search.noMatch")}</p>}
           <ul className="tools-tree tools-register-list">
-            {view.rows.slice(0, MAX_ROWS).map((f) => {
+            <li className="v-spacer" style={{ height: virtual.padTop }} ref={virtual.topRef} aria-hidden />
+            {view.rows.slice(virtual.start, virtual.end).map((f) => {
               const options = optionsOf(f, style, wider.get(f.key));
               const chosen = chosenIndex(f, options, picked);
               const rename = renameFor(f, options, chosen);
@@ -895,10 +907,8 @@ export function RegisterCheckSection({
                 </li>
               );
             })}
+            <li className="v-spacer" style={{ height: virtual.padBottom }} ref={virtual.bottomRef} aria-hidden />
           </ul>
-          {view.rows.length > MAX_ROWS && (
-            <p className="tools-fix-hint">{t("tools.geocode.more", { count: view.rows.length - MAX_ROWS })}</p>
-          )}
         </>
       )}
     </section>
