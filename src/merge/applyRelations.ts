@@ -203,11 +203,12 @@ export function makeContext(
     const m = main.individuals.get(mainId);
     const c = compare.individuals.get(incomingId);
     if (!m || !c) return;
-    const withYears = (indi: import("../gedcom/types").Individual) => {
-      const years = lifespanOf(indi);
-      return years ? `${displayName(indi.names[0])} ${years}` : displayName(indi.names[0]);
-    };
-    report.graftJoins.push({ mainId, mainLabel: withYears(m), incomingLabel: withYears(c) });
+    const person = (indi: import("../gedcom/types").Individual) => ({
+      name: displayName(indi.names[0]),
+      years: lifespanOf(indi),
+      sex: indi.sex,
+    });
+    report.graftJoins.push({ mainId, main: person(m), incoming: person(c) });
   };
 
   const addNewIndividual = (incomingId: string): string | undefined => {

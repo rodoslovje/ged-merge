@@ -6337,6 +6337,12 @@ kbd {
 .preview-deferred { margin: 0; padding-left: 18px; }
 .preview-deferred li { margin: 4px 0; color: var(--muted); font-size: 0.9rem; }
 
+/* A join row is two people either side of an arrow: each name keeps the sex
+   colour and trailing lifespan the preview cards give a person, so the pair
+   can be read as two people rather than two strings. */
+.preview-joins li { line-height: 1.5; }
+.preview-join-arrow { color: var(--muted); margin: 0 7px; }
+
 .preview-custom-tags { margin: 0; padding-left: 0; list-style: none; }
 .preview-custom-tags li { margin: 4px 0; }
 .preview-custom-tags label { display: flex; align-items: center; gap: 6px; font-size: 0.9rem; cursor: pointer; }

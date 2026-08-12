@@ -2068,7 +2068,11 @@ describe("mergeDecisions — one family for a couple, however it is reached", ()
     expect(serializeGedcom(records)).not.toContain("Jozef /Grca/");
     // The join was the app's call, not the user's, so the preview names it.
     expect(report.graftJoins).toEqual([
-      { mainId: "@I1@", mainLabel: "Joze Grca 1938", incomingLabel: "Jozef Grca 1940" },
+      {
+        mainId: "@I1@",
+        main: { name: "Joze Grca", years: "1938", sex: "M" },
+        incoming: { name: "Jozef Grca", years: "1940", sex: "M" },
+      },
     ]);
   });
 

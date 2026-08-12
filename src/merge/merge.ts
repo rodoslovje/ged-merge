@@ -129,10 +129,21 @@ export interface CustomTagNode {
 export interface GraftJoin {
   /** The main record the incoming person was joined onto. */
   mainId: string;
-  /** "Marjan Gorza 1944–2017" — the main person, as the preview shows them. */
-  mainLabel: string;
-  /** "Milan Grča 1972" — the incoming person the graft took to be them. */
-  incomingLabel: string;
+  /** The main person, as the preview shows anyone: name, lifespan, sex colour. */
+  main: GraftJoinPerson;
+  /** The incoming person the graft took to be them. */
+  incoming: GraftJoinPerson;
+}
+
+/** One side of a {@link GraftJoin}, carrying what a person label is made of —
+ *  neither record is reachable from the save preview (the incoming one isn't in
+ *  the main dataset, and the main one may be untouched), so the pieces travel
+ *  with the entry rather than being looked up there. */
+export interface GraftJoinPerson {
+  name: string;
+  /** "1944–2017", "1972", or "" when no year is known ({@link lifespanOf}). */
+  years: string;
+  sex: import("../gedcom/types").Sex;
 }
 
 export interface ChangeReport {
@@ -465,8 +476,9 @@ export function formatReport(report: ChangeReport, title = "GED Merge change rep
   if (report.graftJoins.length) {
     lines.push("Linked to a person you already have (not confirmed by you)");
     lines.push("----------------------------------------------------------");
+    const named = (p: GraftJoinPerson) => (p.years ? `${p.name} ${p.years}` : p.name);
     for (const j of report.graftJoins) {
-      lines.push(`  ${j.incomingLabel}  ->  ${j.mainLabel}  ${j.mainId}`);
+      lines.push(`  ${named(j.incoming)}  ->  ${named(j.main)}  ${j.mainId}`);
     }
     lines.push("");
   }

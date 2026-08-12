@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useModalKeyboard } from "../keyboard/useModalKeyboard";
-import type { ChangeReport, FieldChange } from "../merge/merge";
+import type { ChangeReport, FieldChange, GraftJoinPerson } from "../merge/merge";
 import type { Dataset, Individual } from "../gedcom/types";
 import { lifespanOf } from "../gedcom/lifespan";
 import { eventDisplayLabel } from "../gedcom/eventTags";
@@ -190,12 +190,12 @@ export function SaveDialog({
             <section className="preview-section">
               <h3>{t("preview.grafted")}</h3>
               <p className="preview-note">{t("preview.graftedHint")}</p>
-              <ul className="preview-deferred">
+              <ul className="preview-deferred preview-joins">
                 {report.graftJoins.map((j, i) => (
                   <li key={i}>
-                    <span className="preview-rec">{j.incomingLabel}</span>
-                    {" → "}
-                    <span className="preview-rec">{j.mainLabel}</span>
+                    <PersonLabel person={j.incoming} />
+                    <span className="preview-join-arrow" aria-hidden="true">→</span>
+                    <PersonLabel person={j.main} />
                   </li>
                 ))}
               </ul>
@@ -531,6 +531,17 @@ function groupFieldRows(
   };
   groups.sort((a, b) => rank(a) - rank(b));
   return groups;
+}
+
+/** A person the way the preview's cards write one: name in their sex's colour,
+ *  lifespan trailing in the data face. */
+function PersonLabel({ person }: { person: GraftJoinPerson }) {
+  return (
+    <span className={`preview-rec ${sexClass(person.sex)}`}>
+      {person.name}
+      {person.years && <span className="person-years gm-data"> {person.years}</span>}
+    </span>
+  );
 }
 
 function Stat({
