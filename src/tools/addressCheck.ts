@@ -209,6 +209,8 @@ export function checkAddressesAgainstRegister(
     const spelled: { hit: AddressHit; variant: string }[] = [];
     /** A half the register answered with a house that is not it. */
     let unknown = false;
+    /** A half the register did know. */
+    let answered = false;
 
     for (const variant of variants) {
       // The name the file hangs the number off — a town street, or the village
@@ -229,8 +231,10 @@ export function checkAddressesAgainstRegister(
       // A register that files the house elsewhere is the strongest finding
       // here: the events belong to another village.
       if (claimed && hit.settlement && foldToken(claimed) !== foldToken(hit.settlement)) {
-        if (namesTheSettlement(written, hit)) elsewhere ??= { hit, variant };
-        else unknown = true;
+        if (namesTheSettlement(written, hit)) {
+          elsewhere ??= { hit, variant };
+          answered = true;
+        } else unknown = true;
         continue;
       }
 
@@ -239,9 +243,15 @@ export function checkAddressesAgainstRegister(
       // different shape, and rewriting it whole is the Addresses tab's
       // business, not a compliance finding.
       if (written && hit.street && foldToken(written) !== foldToken(hit.street)) {
-        if (namesTheStreet(written, hit)) spelled.push({ hit, variant });
-        else unknown = true;
+        if (namesTheStreet(written, hit)) {
+          spelled.push({ hit, variant });
+          answered = true;
+        } else unknown = true;
+        continue;
       }
+
+      // The register's own house for this half, spelt as the file spells it.
+      answered = true;
     }
 
     if (elsewhere) {
@@ -265,7 +275,13 @@ export function checkAddressesAgainstRegister(
         officialAddress,
         coord: spelled[0].hit.coord,
       });
-    } else if (unknown) {
+    } else if (unknown && !answered) {
+      // Only when *no* half was answered. A value naming a house under both its
+      // old and its new street — "Moša Pijade 3 / Zoisova ulica 3", renamed by
+      // Kranj — can never have both halves in the register: the old name is
+      // gone, which is precisely why the researcher wrote them both down. Judged
+      // half by half, that value reported "no such house" for a house the
+      // register has, under the very name written beside it.
       add("addrMissing", {});
     } else {
       ok++;

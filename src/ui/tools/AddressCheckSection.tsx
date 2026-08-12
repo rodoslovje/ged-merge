@@ -290,7 +290,14 @@ export function AddressCheckSection({
 
   // What the tab above shows. Not derived there: the report is this section's
   // own state, since running the check is this section's own action.
-  const findingCount = report ? report.findings.filter((f) => !f.dismissed).length : null;
+  // The aside verdict is left out of it, exactly as it is left off the list:
+  // the number on the tab is a promise of what is waiting there, and a file of
+  // parish records has hundreds of house numbers the modern register no longer
+  // has — all of them counted, none of them listed. "Addresses 431" over an
+  // empty list is not a count, it is a bug report.
+  const findingCount = report
+    ? report.findings.filter((f) => !f.dismissed && f.verdict !== ADDRESS_ASIDE).length
+    : null;
   useEffect(() => {
     onCount(findingCount);
   }, [findingCount, onCount]);
@@ -431,8 +438,17 @@ export function AddressCheckSection({
               </>
             )}
           </p>
-          {view && view.all === 0 && view.counts.addrMissing === 0 && (
-            <p className="tools-clean tools-clean--ok">{t("tools.registerAddr.clean")}</p>
+          {/* Nothing disagrees. Said even when houses the register no longer has
+              are waiting behind their chip, because those are not
+              disagreements: with 431 of them and no findings, the list showed
+              its chips over an empty space and left the reader to work out
+              whether that was an answer or a failure. Their own line says how
+              many and how to see them. */}
+          {view && view.all === 0 && (
+            <p className="tools-clean tools-clean--ok">
+              {t("tools.registerAddr.clean")}
+              {view.counts.addrMissing > 0 && ` ${t("tools.registerAddr.cleanAside", { count: view.counts.addrMissing })}`}
+            </p>
           )}
           {view && (view.all > 0 || view.counts.addrMissing > 0) && (
             <>
@@ -488,7 +504,13 @@ export function AddressCheckSection({
                   </label>
                 )}
               </div>
-              {!view.rows.length && <p className="tools-clean">{t("tools.search.noMatch")}</p>}
+              {/* "No matches" is the search's answer, and only the search's: an
+                  empty list under a full set of chips is otherwise read as one.
+                  Where there is nothing to disagree about, the line above has
+                  already said so. */}
+              {!view.rows.length && (view.all > 0 || !!query) && (
+                <p className="tools-clean">{t("tools.search.noMatch")}</p>
+              )}
               <ul className="tools-geo-addr-list tools-register-list">
                 {view.groups.map((group) => {
                   const groupOpen = openGroups.has(group.place);
