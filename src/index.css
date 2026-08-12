@@ -7881,6 +7881,9 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 .tools-place-coord-warn { color: var(--danger); margin-left: 6px; }
 .tools-place-map { max-width: 560px; margin-left: 26px; }
 .tools-place-map-note { margin: 0 0 6px; color: var(--muted); font-size: 0.82rem; }
+/* The subtree half of a place row's count: what clicking opens is the figure
+   that leads, and the total under it follows, muted. */
+.tools-place-count-total { color: var(--muted); font-weight: 400; }
 .tools-place-edit-btn {
   opacity: 0;
   /* Fully collapsed until the row is hovered: no width, no padding, and a

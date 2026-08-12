@@ -494,10 +494,25 @@ function PlaceTreeRow({
           <button
             className="tools-chip-count tools-count-toggle"
             aria-pressed={peopleOpen}
-            title={t("tools.places.peopleToggle", { count: node.uses.length })}
+            title={t(hasKids ? "tools.places.peopleToggleSplit" : "tools.places.peopleToggle", {
+              count: node.uses.length,
+              total: node.count,
+            })}
             onClick={() => setPeopleOpen((v) => !v)}
           >
-            {node.count}
+            {/* Two numbers wherever they mean different things: what clicking
+                opens — the records written at exactly this place — and what the
+                place holds with everything under it. One number said 168 and
+                then listed 24, and the reader was left to work out which of the
+                two it had meant. A leaf has no such gap and keeps one number. */}
+            {hasKids ? (
+              <>
+                {node.uses.length}
+                <span className="tools-place-count-total"> / {node.count}</span>
+              </>
+            ) : (
+              node.count
+            )}
           </button>
         ) : (
           <span className="tools-chip-count">{node.count}</span>
