@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   AddressCollector,
   readStoredIndex,
+  sameStreet,
   scopeToParents,
   searchBucket,
   streetKey,
@@ -217,6 +218,17 @@ describe("searchBucket", () => {
         "Brežna ulica 33",
       ]);
     }
+  });
+
+  it("does not take a street that merely begins like the one written", () => {
+    // "Mlaka", the old name of a village Kranj absorbed, is not Kranj's
+    // "Mlakarjeva ulica" written short — the street is named after somebody
+    // else and lies in another settlement. Matched as a bare prefix it was,
+    // and the compliance check duly proposed moving the events to naselje
+    // Kranj. An abbreviation drops whole words; it does not stop mid-word.
+    expect(sameStreet("Mlaka", "Mlakarjeva ulica")).toBe(false);
+    expect(sameStreet("Brežna", "Brežna ulica")).toBe(true);
+    expect(searchBucket(ANDRASEVEC, { number: 33, street: "Bre" })).toEqual([]);
   });
 
   it("keeps a street named after nothing but a type word comparable", () => {

@@ -315,6 +315,20 @@ export function streetKey(name: string): string {
     .join(" ");
 }
 
+/**
+ * One name written more briefly than the other: the same words, or all of them
+ * and then some — "Brežna" for "Brežna ulica".
+ *
+ * Whole words, which is the whole point. A bare prefix makes any name that
+ * merely *starts* like another the same street: the old village name "Mlaka",
+ * looked up as a street, matched Kranj's "Mlakarjeva ulica" — a street named
+ * after a different thing entirely, in a different settlement — and the
+ * compliance check went on to propose moving the events there.
+ */
+function briefer(a: string, b: string): boolean {
+  return a === b || a.startsWith(`${b} `) || b.startsWith(`${a} `);
+}
+
 /** Whether two street names name the same street — either as written or by the
  *  words that identify them, and in either direction, since either side may be
  *  the abbreviated one ("Ilica" for the register's "Ilica ulica").
@@ -324,12 +338,11 @@ export function streetKey(name: string): string {
  *  `addressCheck.ts`. `foldedWritten` is a parameter only so a scan over a whole
  *  bucket folds the written name once. */
 export function sameStreet(written: string, registerName: string, foldedWritten = foldToken(written)): boolean {
-  if (!registerName) return false;
-  const folded = foldToken(registerName);
-  if (folded.startsWith(foldedWritten) || foldedWritten.startsWith(folded)) return true;
+  if (!registerName || !foldedWritten) return false;
+  if (briefer(foldToken(registerName), foldedWritten)) return true;
   const a = streetKey(written);
   const b = streetKey(registerName);
-  return !!a && !!b && (b.startsWith(a) || a.startsWith(b));
+  return !!a && !!b && briefer(b, a);
 }
 
 /** Read one row out of a bucket. */

@@ -2,7 +2,7 @@ import { createThrottledQueue, geoFetch } from "./net";
 import type { GeoCoord } from "../gedcom/types";
 import { countryCodeOfName } from "./placeCountry";
 import { addressStreetName, decomposePlace, looksLikeStreet } from "../gedcom/place";
-import { tryAlternates } from "./addressRegister";
+import { sameStreet, tryAlternates } from "./addressRegister";
 import { foldToken } from "../match/text";
 import { d96ToWgs84 } from "./d96";
 import { hasLocalRegister, localRegisters, searchLocalAddress } from "./addressLookup";
@@ -80,6 +80,13 @@ export interface RnResult {
   /** Full pick line: address, settlement when it differs, and the post office. */
   label: string;
   settlement: string;
+  /** The street alone, as the register spells it — absent for a house the
+   *  village numbers directly. Kept apart from {@link address} because the
+   *  prefix the register is asked with answers more than it was asked
+   *  ({@link buildRnFilter}), and this is what the answer is held to. The
+   *  downloaded register's {@link import("./addressRegister").AddressHit} carries
+   *  the same field, so both answer alike. */
+  street?: string;
   /** The municipality (občina) the register files that settlement under —
    *  what tells "Klošter in Metlika" apart from a same-named place elsewhere. */
   municipality?: string;
@@ -465,6 +472,7 @@ export function rnFeaturesToResults(data: RnFeatureCollection, max = MAX_RESULTS
       address,
       label: parts.join(", "),
       settlement,
+      ...(street ? { street } : {}),
       ...(municipality ? { municipality } : {}),
       number: Number(str(props.HS_STEVILKA)),
       ...(str(props.HS_DODATEK) ? { suffix: str(props.HS_DODATEK).toLowerCase() } : {}),
@@ -571,14 +579,17 @@ async function searchInSettlement(
   signal?: AbortSignal,
   opts?: { anyStreet?: boolean },
 ): Promise<RnResult[]> {
-  const rung = async (filter: string): Promise<RnResult[]> =>
-    (
-      await requireParentMunicipality(
-        rnFeaturesToResults(await rnFetch(filter, signal), Infinity),
-        query.parents,
-        signal,
-      )
-    ).slice(0, MAX_RESULTS);
+  const rung = async (filter: string): Promise<RnResult[]> => {
+    const found = rnFeaturesToResults(await rnFetch(filter, signal), Infinity);
+    // The register is asked for the street as a *prefix*, because files
+    // abbreviate one ({@link buildRnFilter}) — so it also answers with every
+    // street that merely begins alike. "Mlaka" fetched Kranj's Mlakarjeva
+    // ulica, which is not that street abbreviated but another name altogether.
+    // Only an answer about the street asked for survives, the same test the
+    // downloaded register applies inside its bucket.
+    const own = query.street ? found.filter((r) => sameStreet(query.street!, r.street ?? "")) : found;
+    return (await requireParentMunicipality(own, query.parents, signal)).slice(0, MAX_RESULTS);
+  };
 
   const exact = await rung(buildRnFilter(query));
   if (exact.length) return exact;

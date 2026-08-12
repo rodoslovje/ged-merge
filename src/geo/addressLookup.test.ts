@@ -144,6 +144,31 @@ describe("searchLocalAddress and the settlements it widens to", () => {
     expect(hits[0].settlement).toBe("Jama");
   });
 
+  it("does not answer an old village number with a street that begins like it", async () => {
+    // "Mlaka 1" under Mlaka pri Kranju: the village was absorbed into Kranj and
+    // renumbered by street, so the register has no house of that name at all.
+    // Read as a street, "Mlaka" matched Kranj's Mlakarjeva ulica on its first
+    // five letters — a street named after somebody else, in another settlement
+    // — and the answer moved the event into Kranj. The honest answer is none:
+    // the row is a house number the register no longer has.
+    load([
+      row({ settlement: "Mlaka pri Kranju", street: "Dolenčeva pot", number: 1, municipality: "Kranj", post: "4000 Kranj" }),
+      row({ settlement: "Kranj", street: "Mlakarjeva ulica", number: 1, municipality: "Kranj", post: "4000 Kranj" }),
+      // There is a village called plain Mlaka, and it numbers its houses
+      // directly — but in občina Radovljica, which the place value contradicts.
+      row({ settlement: "Mlaka", number: 1, municipality: "Radovljica", post: "4240 Radovljica" }),
+    ]);
+    expect(
+      await searchLocalAddress("SI", {
+        settlement: "Mlaka pri Kranju",
+        street: "Mlaka",
+        number: 1,
+        altSettlements: ["Kranj"],
+        parents: ["Kranj"],
+      }),
+    ).toEqual([]);
+  });
+
   it("offers every street of the settlement the file itself names", async () => {
     // "Bled 4" written village-style in a settlement that does have streets:
     // the file does not say which street, so all of them are offered and the
