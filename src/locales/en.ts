@@ -548,7 +548,7 @@ export const en = {
   "tools.geocode.settingsAdvanced": "Settings › Advanced",
   "tools.geocode.addr.renameOpen": "Rename this address — every event at this house, in whichever form the file writes it",
   "tools.geocode.addr.sameHouse": "Written twice",
-  "tools.geocode.addr.sameHouseHint": "Houses this file writes two ways in the same place — one spelling of the other with a note of yours behind it, one of the two street names the house is recorded under, or the same street spelt more briefly. Each says what it would become; joining them is a rename.",
+  "tools.geocode.addr.sameHouseHint": "Houses this file writes two ways in the same place — one spelling of the other with a note of yours behind it, one of the two street names the house is recorded under, or the same street spelt more briefly. Each says what it would become; joining them is a rename. Both halves of every pair are listed, whether or not they already carry a position.",
   "tools.geocode.addr.join": "Join",
   "tools.geocode.addr.joinHint_one": "Write “{{address}}” on this house's {{count}} event, so the two spellings become one house",
   "tools.geocode.addr.joinHint_other": "Write “{{address}}” on this house's {{count}} events, so the two spellings become one house",

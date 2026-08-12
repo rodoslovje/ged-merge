@@ -487,11 +487,34 @@ export function AddressCoordsSection({
   const activeCountry =
     countryFilter !== null && countryChips.some((c) => c.code === countryFilter) ? countryFilter : null;
 
+  /**
+   * Houses written twice that this click would actually list — the country and
+   * status filters respected, its own toggle and the row-hiding ones not, since
+   * those are exactly what it overrides. Counted over every row for the same
+   * reason the pool is: the pairs live among the placed ones.
+   */
+  const sameHouseCount = useMemo(() => {
+    let n = 0;
+    for (const row of rows) {
+      if (!sameHouse.has(row.key)) continue;
+      if (activeCountry !== null && countryOf(row.place, home) !== activeCountry) continue;
+      if (statusFilter !== "all" && addrStatus(row, searches, picked, osmSearches) !== statusFilter) continue;
+      n++;
+    }
+    return n;
+  }, [rows, sameHouse, activeCountry, statusFilter, searches, picked, osmSearches, home]);
+
   const groups = useMemo(() => {
     const inCountry = (r: AddressRow) => activeCountry === null || countryOf(r.place, home) === activeCountry;
-    const kept = visibleRows
+    // Both halves of every pair, whatever the toggles say. A house written
+    // twice is very often already placed — that is what the second spelling
+    // was made for — so the placed toggle, which hides finished work, hid the
+    // very rows this chip counts: it said 15 and listed none. A suggestion is
+    // also unreadable without the row it points at, and that row may be hidden
+    // for reasons of its own.
+    const pool = onlySameHouse ? rows.filter((r) => sameHouseKeys.has(r.key)) : visibleRows;
+    const kept = pool
       .filter(inCountry)
-      .filter((r) => !onlySameHouse || sameHouseKeys.has(r.key))
       .filter((r) => statusFilter === "all" || addrStatus(r, searches, picked, osmSearches) === statusFilter);
     const byPlace = new Map<string, PlaceGroup>();
     for (const row of kept) {
@@ -510,7 +533,7 @@ export function AddressCoordsSection({
     }
     // Most-used places first — that is where geocoding pays off soonest.
     return [...byPlace.values()].sort((a, b) => b.events - a.events || placeCollator.compare(a.place, b.place));
-  }, [visibleRows, searches, osmSearches, picked, statusFilter, activeCountry, home, onlySameHouse, sameHouseKeys]);
+  }, [rows, visibleRows, searches, osmSearches, picked, statusFilter, activeCountry, home, onlySameHouse, sameHouseKeys]);
 
   const [open, setOpen] = useState<Set<string>>(new Set());
   /** The one group whose map is drawn — never on open, always on request, and
@@ -1132,7 +1155,7 @@ export function AddressCoordsSection({
             onClick={() => setOnlySameHouse((v) => !v)}
             title={t("tools.geocode.addr.sameHouseHint")}
           >
-            {t("tools.geocode.addr.sameHouse")} <span className="tools-chip-count">{sameHouse.size}</span>
+            {t("tools.geocode.addr.sameHouse")} <span className="tools-chip-count">{sameHouseCount}</span>
           </button>
         )}
         {/* A view control, beside the other view controls. */}

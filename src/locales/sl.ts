@@ -610,7 +610,7 @@ export const sl = {
   "tools.geocode.settingsAdvanced": "Nastavitve › Napredno",
   "tools.geocode.addr.renameOpen": "Preimenuj ta naslov — vse dogodke pri tej hiši, v kateri koli obliki jo datoteka piše",
   "tools.geocode.addr.sameHouse": "Zapisano dvakrat",
-  "tools.geocode.addr.sameHouseHint": "Hiše, ki jih datoteka v istem kraju piše na dva načina — isti zapis, le da ima eden za sabo še vaš pripis, eno od dveh imen ulice, pod katerima je hiša zapisana, ali isto ulico, zapisano krajše. Vsaka pove, kaj bi postala; združitev je preimenovanje.",
+  "tools.geocode.addr.sameHouseHint": "Hiše, ki jih datoteka v istem kraju piše na dva načina — isti zapis, le da ima eden za sabo še vaš pripis, eno od dveh imen ulice, pod katerima je hiša zapisana, ali isto ulico, zapisano krajše. Vsaka pove, kaj bi postala; združitev je preimenovanje. Izpisani sta obe polovici vsakega para, tudi če že nosita lego.",
   "tools.geocode.addr.join": "Združi",
   "tools.geocode.addr.joinHint_one": "Zapiši »{{address}}« na {{count}} dogodek pri tej hiši, da se zapisa združita v eno hišo",
   "tools.geocode.addr.joinHint_two": "Zapiši »{{address}}« na {{count}} dogodka pri tej hiši, da se zapisa združita v eno hišo",
