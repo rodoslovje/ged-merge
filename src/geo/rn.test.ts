@@ -413,6 +413,11 @@ describe("the settlements the ladder widens to", () => {
     { obcina: "Metlika", naselje: "Metlika", ulica: "Cankarjeva cesta", hs: 52, post: [8330, "Metlika"], E: 515000, N: 45000 },
     { obcina: "Metlika", naselje: "Metlika", ulica: "Cesta bratstva in enotnosti", hs: 57, post: [8330, "Metlika"], E: 514000, N: 45500 },
     { obcina: "Metlika", naselje: "Metlika", ulica: null, hs: 9, post: [8330, "Metlika"], E: 514500, N: 45200 },
+    // And the Kranj pair the street prefix used to conflate: a village absorbed
+    // into the town and renumbered by street, beside a town street that merely
+    // begins with the village's old name.
+    { obcina: "Kranj", naselje: "Mlaka pri Kranju", ulica: "Dolenčeva pot", hs: 1, post: [4000, "Kranj"], E: 458000, N: 122000 },
+    { obcina: "Kranj", naselje: "Kranj", ulica: "Mlakarjeva ulica", hs: 1, post: [4000, "Kranj"], E: 460000, N: 121000 },
   ];
 
   const asFeature = (r: (typeof ROWS)[number]) => ({
@@ -483,6 +488,22 @@ describe("the settlements the ladder widens to", () => {
     const hamlet = (number: number) => ({ ...krasinec(number), settlement: "Boldraž" });
     expect((await searchAddress(hamlet(9))).map((h) => h.address)).toEqual(["Metlika 9"]);
     expect(await searchAddress(hamlet(52))).toEqual([]);
+  });
+
+  it("holds the register's prefix answer to the street actually written", async () => {
+    // The filter asks for the street as a prefix, because files abbreviate one,
+    // so "Mlaka%" fetches Mlakarjeva ulica as well — a street named after
+    // somebody else, in the town next door. Answering with it put the event in
+    // naselje Kranj. Nothing here is that street, and nothing is the answer.
+    expect(
+      await searchAddress({
+        settlement: "Mlaka pri Kranju",
+        street: "Mlaka",
+        number: 1,
+        altSettlements: ["Kranj"],
+        parents: ["Kranj"],
+      }),
+    ).toEqual([]);
   });
 
   it("widens for a named street without spending a request to decide it", async () => {

@@ -1,7 +1,8 @@
 import React, { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ClearableInput } from "./ClearableInput";
-import { applyCanonical, BY_HOUSE_NUMBER } from "./placeSuggestions";
+import { applyCanonical } from "./placeSuggestions";
+import { placeCollator } from "../../gedcom/place";
 import { proposalKey, type PlaceProposal } from "../../geo/placeProposal";
 import { placeCompareKey } from "../../match/place";
 
@@ -164,7 +165,7 @@ export function PlaceAutocomplete({
       barePlaces.sort(
         (a, b) =>
           Number(b.place.toLowerCase().startsWith(q)) - Number(a.place.toLowerCase().startsWith(q)) ||
-          a.place.localeCompare(b.place),
+          placeCollator.compare(a.place, b.place),
       );
     }
     // Round-robin across places: the pair list is grouped per place, so one
@@ -198,14 +199,14 @@ export function PlaceAutocomplete({
       }
       return [...groups.values()]
         .map((items) => ({
-          items: [...items].sort((a, b) => BY_HOUSE_NUMBER.compare(a.addr, b.addr)),
+          items: [...items].sort((a, b) => placeCollator.compare(a.addr, b.addr)),
           lead:
             items[0].place.toLowerCase().startsWith(q) ||
             items.some((cb) => cb.addr.toLowerCase().startsWith(q))
               ? 0
               : 1,
         }))
-        .sort((a, b) => a.lead - b.lead || a.items[0].place.localeCompare(b.items[0].place))
+        .sort((a, b) => a.lead - b.lead || placeCollator.compare(a.items[0].place, b.items[0].place))
         .flatMap((g) => g.items.map((cb) => ({ place: cb.place, addr: cb.addr })));
     };
     // The address field puts its own place's addresses (the plain list) first,

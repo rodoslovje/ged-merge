@@ -19,8 +19,17 @@ import {
 import { foldSearch } from "../globalSearch";
 import { decomposePlace } from "../../gedcom/place";
 import { proposalFromGazEntry, type PlaceStyle } from "../../geo/placeProposal";
-import { AppliedNote, ExpandAllToggle, GeoPeopleList, GeoRowHeader, MapToggle, RowMap } from "./shared";
-import { PlaceAutocomplete } from "../edit/PlaceAutocomplete";
+import { useVirtualList } from "../useVirtualList";
+import {
+  AppliedNote,
+  ExpandAllToggle,
+  GeoPeopleList,
+  GeoRowHeader,
+  MapToggle,
+  RenameEditor,
+  RenameToggle,
+  RowMap,
+} from "./shared";
 import { usePlaceLookup } from "../edit/PlaceLookupContext";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
@@ -37,9 +46,9 @@ import { HIGH_CONFIDENCE, lookupPlace, searchGazetteer, type GazEntry, type Gaze
 // "Use official name" already performs in the Places tab, applied here to
 // places that are long since geocoded and would never appear there.
 
-/** How many rows are painted before the list defers to the filters — the same
- *  cap the coordinate conflicts above use. */
-const MAX_ROWS = 300;
+/** A closed finding row, for the windowing model to start from — it adopts the
+ *  real height from the rendered rows on the first pass. */
+const ROW_HEIGHT = 30;
 
 /** Badge colour per verdict: the register knowing nothing of a place is the
  *  loud one, a different spelling the mildest. */
@@ -370,6 +379,16 @@ export function RegisterCheckSection({
     };
   }, [report, query, verdictFilter, countryFilter, showDismissed, home]);
 
+  /** Only the rows near the viewport are mounted, the same windowing the
+   *  geocoding lists and the health check use. This list used to paint 300 and
+   *  send the reader back to the search for the rest — which is no answer when
+   *  the whole point is to look down everything the register disagreed with. */
+  const virtual = useVirtualList({
+    count: view?.rows.length ?? 0,
+    estimate: ROW_HEIGHT,
+    itemsKey: view?.rows,
+  });
+
   if (!report || !view) return null;
 
   /** The file's own FORM for a country's places, as the chip's tooltip. Empty
@@ -542,7 +561,8 @@ export function RegisterCheckSection({
 
           {!view.rows.length && <p className="tools-clean">{t("tools.search.noMatch")}</p>}
           <ul className="tools-tree tools-register-list">
-            {view.rows.slice(0, MAX_ROWS).map((f) => {
+            <li className="v-spacer" style={{ height: virtual.padTop }} ref={virtual.topRef} aria-hidden />
+            {view.rows.slice(virtual.start, virtual.end).map((f) => {
               const options = optionsOf(f, style, wider.get(f.key));
               const chosen = chosenIndex(f, options, picked);
               const rename = renameFor(f, options, chosen);
@@ -568,33 +588,21 @@ export function RegisterCheckSection({
                         raw value the row is about, so it is the one action here
                         that does not go through the register at all — a finding
                         is often the prompt to spell something your own way. */}
-                    {renaming === f.key ? (
-                      <button
-                        className="tools-place-edit-btn tools-place-edit-cancel"
-                        onClick={() => setRenaming(null)}
-                        title={t("tools.places.rename.cancel")}
-                      >
-                        ✕
-                      </button>
-                    ) : (
-                      <button
-                        className="tools-place-edit-btn"
-                        onClick={() => {
-                          setRenaming(f.key);
-                          setRenameDraft(f.key);
-                          // Empty, not the house the check would take out: the
-                          // place box opens on the *raw* value, which still has
-                          // that house in it, and filling both would write it
-                          // twice. What goes in the address box is the part
-                          // being taken out of what the place box ends up
-                          // saying.
-                          setRenameAddrDraft("");
-                        }}
-                        title={t("tools.geocode.renameOpen")}
-                      >
-                        ✎
-                      </button>
-                    )}
+                    <RenameToggle
+                      open={renaming === f.key}
+                      onOpen={() => {
+                        setRenaming(f.key);
+                        setRenameDraft(f.key);
+                        // Empty, not the house the check would take out: the
+                        // place box opens on the *raw* value, which still has
+                        // that house in it, and filling both would write it
+                        // twice. What goes in the address box is the part being
+                        // taken out of what the place box ends up saying.
+                        setRenameAddrDraft("");
+                      }}
+                      onClose={() => setRenaming(null)}
+                      title={t("tools.geocode.renameOpen")}
+                    />
                     {chosen >= 0 ? (
                       <>
                         {/* What follows the arrow is what the record would say
@@ -671,54 +679,36 @@ export function RegisterCheckSection({
                     </span>
                   </GeoRowHeader>
                   {renaming === f.key && (
-                    <div
-                      className="tools-place-rename"
-                      onKeyDown={(e) => {
-                        // Enter with a highlighted suggestion, and Escape with
-                        // an open dropdown, belong to the autocomplete; the next
-                        // press reaches the editor.
-                        if (e.key === "Enter" && !e.defaultPrevented) applyRename(f.key);
-                        if (e.key === "Escape" && !e.defaultPrevented) setRenaming(null);
+                    <RenameEditor
+                      value={renameDraft}
+                      suggestions={placeSug.placeSuggestions}
+                      canonical={placeSug.placeCanonical}
+                      placeholder={t("tools.places.rename.placeholder")}
+                      onChange={setRenameDraft}
+                      onApply={() => applyRename(f.key)}
+                      onCancel={() => setRenaming(null)}
+                      // The file's own places cannot help here: the row is open
+                      // because what it writes is not a name the register holds,
+                      // and the correct name may appear nowhere in the file. So
+                      // the directories are offered as well — one pick fills the
+                      // whole chain, the house and the coordinate, exactly as in
+                      // an Edit place field. Even for a place the file already
+                      // writes: what is wanted here rides with the text — the
+                      // register's coordinate and its municipality — so a
+                      // familiar spelling is no reason to withhold the answer.
+                      offerKnown
+                      onLookup={lookup ? (q) => lookup.search(q) : undefined}
+                      lookupNote={lookup && !lookup.online ? t("event.place.lookup.offlineOnly") : undefined}
+                      onPickProposal={(proposal) => {
+                        setRenameDraft(proposal.plac);
+                        setRenameAddrDraft(proposal.addr ?? "");
+                        setRenamePick({
+                          place: proposal.plac,
+                          ...(proposal.addr ? { addr: proposal.addr } : {}),
+                          coord: proposal.coord,
+                        });
                       }}
                     >
-                      <PlaceAutocomplete
-                        value={renameDraft}
-                        suggestions={placeSug.placeSuggestions}
-                        canonical={placeSug.placeCanonical}
-                        isDirty={false}
-                        className="tools-place-rename-input"
-                        wrapClassName="tools-place-rename-auto"
-                        placeholder={t("tools.places.rename.placeholder")}
-                        autoFocus
-                        // A rename may be exactly a casing fix — the canonical
-                        // map must not snap it back on blur.
-                        preserveCase
-                        onChange={setRenameDraft}
-                        onCommit={setRenameDraft}
-                        onClear={() => setRenameDraft("")}
-                        // The file's own places cannot help here: the row is
-                        // open because what it writes is not a name the
-                        // register holds, and the correct name may appear
-                        // nowhere in the file. So the directories are offered
-                        // as well — one pick fills the whole chain, the house
-                        // and the coordinate, exactly as in an Edit place field.
-                        // Even for a place the file already writes: what is
-                        // wanted here rides with the text — the register's
-                        // coordinate and its municipality — so a familiar
-                        // spelling is no reason to withhold the answer.
-                        offerKnown
-                        onLookup={lookup ? (q) => lookup.search(q) : undefined}
-                        lookupNote={lookup && !lookup.online ? t("event.place.lookup.offlineOnly") : undefined}
-                        onPickProposal={(proposal) => {
-                          setRenameDraft(proposal.plac);
-                          setRenameAddrDraft(proposal.addr ?? "");
-                          setRenamePick({
-                            place: proposal.plac,
-                            ...(proposal.addr ? { addr: proposal.addr } : {}),
-                            coord: proposal.coord,
-                          });
-                        }}
-                      />
                       {/* The house to leave on the event's own ADDR line, the
                           same chip the places list's rename carries. A value
                           this check calls out is often wrong in both ways at
@@ -745,10 +735,7 @@ export function RegisterCheckSection({
                           </button>
                         )}
                       </span>
-                      <button className="tools-issue-link" onClick={() => applyRename(f.key)}>
-                        {t("tools.places.rename.apply")}
-                      </button>
-                    </div>
+                    </RenameEditor>
                   )}
                   {isOpen && (
                     <div className="tools-geo-conflict-body">
@@ -920,10 +907,8 @@ export function RegisterCheckSection({
                 </li>
               );
             })}
+            <li className="v-spacer" style={{ height: virtual.padBottom }} ref={virtual.bottomRef} aria-hidden />
           </ul>
-          {view.rows.length > MAX_ROWS && (
-            <p className="tools-fix-hint">{t("tools.geocode.more", { count: view.rows.length - MAX_ROWS })}</p>
-          )}
         </>
       )}
     </section>

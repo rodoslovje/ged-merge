@@ -1,5 +1,5 @@
 import type { Dataset, GedNode, GeoCoord } from "../gedcom/types";
-import { decomposePlace, placeAddressDetail, placeNodeCoord } from "../gedcom/place";
+import { decomposePlace, placeAddressDetail, placeCollator, placeNodeCoord } from "../gedcom/place";
 import { distinctSpots } from "./placeCoords";
 import { label } from "../match/relatives";
 import { familySpouses, type PersonRef } from "./sources";
@@ -196,8 +196,6 @@ function finalize(node: MutableNode): PlaceNode {
   };
 }
 
-/** Numeric-aware so embedded house numbers sort 2 < 10, not "10" < "2". */
-export const placeCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
 const collator = placeCollator;
 
 /** Sort rank for the synthetic buckets: real names first, then "unspecified

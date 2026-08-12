@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import { writeFileSync } from "fs";
 import os from "os";
 import path from "path";
@@ -11,6 +11,10 @@ import path from "path";
 // dismissed". This was the one recently merged feature with no e2e at all.
 
 const FILE = path.join(os.tmpdir(), "register-check.ged");
+/** A file of 400 places the register does not know — past the 150 rows below
+ *  which the list renders in full, so the windowing is the thing under test. */
+const MANY = path.join(os.tmpdir(), "register-check-many.ged");
+const MANY_COUNT = 400;
 
 writeFileSync(
   FILE,
@@ -22,6 +26,23 @@ writeFileSync(
     "1 BIRT", "2 DATE 1901", "2 PLAC kranj, Kranj, Slovenija",
     "0 @I3@ INDI", "1 NAME Cene /Kos/",
     "1 BIRT", "2 DATE 1902", "2 PLAC Neznanovo, Slovenija",
+    "0 TRLR", "",
+  ].join("\n"),
+  "utf-8",
+);
+
+writeFileSync(
+  MANY,
+  [
+    "0 HEAD", "1 GEDC", "2 VERS 5.5.1", "1 CHAR UTF-8",
+    ...Array.from({ length: MANY_COUNT }, (_, i) => [
+      `0 @I${i + 1}@ INDI`,
+      `1 NAME Oseba${i + 1} /Kos/`,
+      "1 BIRT",
+      // Letters, never a trailing number: "Vas 001" reads as a house number,
+      // which is a different finding entirely (the address split).
+      `2 PLAC Vas ${String.fromCharCode(65 + Math.floor(i / 26))}${String.fromCharCode(97 + (i % 26))}, Slovenija`,
+    ]).flat(),
     "0 TRLR", "",
   ].join("\n"),
   "utf-8",
@@ -45,7 +66,8 @@ const OBCINE = {
   ],
 };
 
-test("the compliance page: official name taken, an unknown place dismissed and recalled", async ({ page }) => {
+/** Load a file with the micro register imported, and open the naming check. */
+async function openNamingCheck(page: Page, file: string) {
   // The GURS download is behind the online opt-in; seed it instead of driving
   // the settings toggle, which is not what this spec is about.
   await page.addInitScript(() => {
@@ -59,7 +81,7 @@ test("the compliance page: official name taken, an unknown place dismissed and r
   });
 
   await page.goto("/");
-  await page.locator("input.file-input").first().setInputFiles(FILE);
+  await page.locator("input.file-input").first().setInputFiles(file);
   await page.locator(".edit-person").first().waitFor({ timeout: 15000 });
 
   // Import the register through the real one-click flow.
@@ -88,6 +110,10 @@ test("the compliance page: official name taken, an unknown place dismissed and r
   // The naming check is its own page, opened beside Geocoding rather than
   // being a tab inside it.
   await page.getByRole("button", { name: /Naming/ }).click();
+}
+
+test("the compliance page: official name taken, an unknown place dismissed and recalled", async ({ page }) => {
+  await openNamingCheck(page, FILE);
 
   // One place matches; the misspelled and the unknown one are findings, each
   // under its verdict. (Locators are scoped to the findings rows — the Edit
@@ -118,4 +144,42 @@ test("the compliance page: official name taken, an unknown place dismissed and r
   await row(/Neznanovo, Slovenija/).first().getByRole("button", { name: "Restore" }).click();
   await page.getByText("Show hidden").click();
   await expect(row(/Neznanovo, Slovenija/).first()).toBeVisible();
+});
+
+test("every finding is reachable: the long list is windowed, not cut off", async ({ page }) => {
+  // 400 places the register does not know. The list used to paint 300 of them
+  // and tell the reader to narrow the rest away with the search box; now it
+  // mounts only what is near the viewport and scrolls to the end.
+  await openNamingCheck(page, MANY);
+
+  const compliance = page.locator("section.tools-cleanup-section", { hasText: /match · SI-GURS/ });
+  await expect(compliance.getByText(/0 of 400 match/)).toBeVisible({ timeout: 60000 });
+  const rows = compliance.locator("li.tools-tree-node");
+
+  // Nothing is held back behind the search any more.
+  await expect(compliance.getByText(/more rows/)).toHaveCount(0);
+
+  // Windowed: far fewer rows are in the DOM than the list holds.
+  await expect.poll(() => rows.count(), { timeout: 15000 }).toBeLessThan(MANY_COUNT / 2);
+
+  // And the last of the 400 is reached by scrolling — the whole point of the
+  // cap being gone. The scroller is whichever ancestor actually scrolls, the
+  // same one the windowing hook attaches to.
+  // The 400th name: 399 = 15 * 26 + 9, so "P" and "j".
+  const last = compliance.locator("li.tools-tree-node", { hasText: /Vas Pj/ });
+  await expect(last).toHaveCount(0);
+  for (let i = 0; i < 40 && (await last.count()) === 0; i++) {
+    await page.evaluate(() => {
+      const spacer = document.querySelector(".tools-register-list .v-spacer");
+      for (let el = spacer?.parentElement ?? null; el; el = el.parentElement) {
+        if (/auto|scroll|overlay/.test(getComputedStyle(el).overflowY)) {
+          el.scrollTop += el.clientHeight;
+          return;
+        }
+      }
+      window.scrollBy(0, window.innerHeight);
+    });
+    await page.waitForTimeout(100);
+  }
+  await expect(last.first()).toBeVisible();
 });

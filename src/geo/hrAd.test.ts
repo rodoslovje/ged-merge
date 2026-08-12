@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   AddressCollector,
   readStoredIndex,
+  sameStreet,
   scopeToParents,
   searchBucket,
   streetKey,
@@ -219,12 +220,33 @@ describe("searchBucket", () => {
     }
   });
 
+  it("does not take a street that merely begins like the one written", () => {
+    // "Mlaka", the old name of a village Kranj absorbed, is not Kranj's
+    // "Mlakarjeva ulica" written short — the street is named after somebody
+    // else and lies in another settlement. Matched as a bare prefix it was,
+    // and the compliance check duly proposed moving the events to naselje
+    // Kranj. An abbreviation drops whole words; it does not stop mid-word.
+    expect(sameStreet("Mlaka", "Mlakarjeva ulica")).toBe(false);
+    expect(sameStreet("Brežna", "Brežna ulica")).toBe(true);
+    expect(searchBucket(ANDRASEVEC, { number: 33, street: "Bre" })).toEqual([]);
+  });
+
   it("keeps a street named after nothing but a type word comparable", () => {
     // "Trg" and "Obala" are real street names; reduced to their identifying
     // words they are empty, so those are compared as written instead.
     expect(streetKey("Trg")).toBe("");
     expect(streetKey("Ul. Senjsko")).toBe("senjsko");
     expect(streetKey("Ivana Gorana Kovačića")).toBe("ivana gorana kovacica");
+  });
+
+  it("answers nothing for a street this settlement does not have", () => {
+    // Andraševec numbers a 33 on two streets, and neither is Jamnička. A value
+    // naming a street is not asking which house 33 is meant — it is saying the
+    // house is somewhere this bucket does not describe, and offering another
+    // street's 33 would both answer the row wrongly and hide the misfiling from
+    // the compliance check. The ladder above reads the name as a settlement of
+    // its own instead.
+    expect(searchBucket(ANDRASEVEC, { number: 33, street: "Jamnička" })).toEqual([]);
   });
 
   it("offers every street's house when the file names no street", () => {

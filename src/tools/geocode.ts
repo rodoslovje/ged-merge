@@ -1,6 +1,6 @@
 import type { Dataset, GedNode, GeoCoord } from "../gedcom/types";
 import { firstChild } from "../gedcom/node";
-import { decomposePlace, parseCoordPair, placeAddressDetail } from "../gedcom/place";
+import { decomposePlace, parseCoordPair, placeAddressDetail, placeCollator } from "../gedcom/place";
 import { rnQueriesFrom } from "../geo/rn";
 import { clearPlaceGov, rebuildFamily, rebuildIndividual, setPlaceCoord } from "../gedcom/edit";
 import { reconcilePlaceForm, sameWrittenCoord } from "../gedcom/edit/geo";
@@ -8,7 +8,6 @@ import { cloneRaw, type RecordPatch } from "../ui/historyTypes";
 import { HIGH_CONFIDENCE, lookupPlace, type GazCandidate, type GazetteerIndex } from "../geo/gazetteer";
 import { placeCountryFacet } from "../geo/placeCountry";
 import type { GeocodeDecision } from "../persist/geoDb";
-import { placeCollator } from "./places";
 
 // The Geocode-places tool (MAPVIEW.md phase 2): scan the file's distinct
 // PLAC strings, propose gazetteer candidates for the ones without

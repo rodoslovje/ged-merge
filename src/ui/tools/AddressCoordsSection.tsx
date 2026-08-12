@@ -16,12 +16,24 @@ import { foldSearch } from "../globalSearch";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
 import { EventCoordPicker } from "../edit/EventCoordPicker";
 import { PlaceAutocomplete } from "../edit/PlaceAutocomplete";
+import { placeCollator } from "../../gedcom/place";
+import { findSameHouse } from "../../tools/sameHouse";
 import { usePlaceLookup } from "../edit/PlaceLookupContext";
 import type { PlaceSuggestions } from "../edit/placeSuggestions";
 import { useNameOf, useSettings } from "../SettingsContext";
 import type { KinshipResolver } from "../../match/kinship";
 import { loadDecisions, putDecisions } from "../../persist/geoDb";
-import { AppliedNote, ExpandAllToggle, GeoPeopleList, GeoRowHeader, MapToggle, RowCaret, RowMap } from "./shared";
+import {
+  AppliedNote,
+  ExpandAllToggle,
+  GeoPeopleList,
+  GeoRowHeader,
+  MapToggle,
+  RenameEditor,
+  RenameToggle,
+  RowCaret,
+  RowMap,
+} from "./shared";
 import { CountryChips } from "./CountryChips";
 import { useHomeCountry } from "../DatasetDerivations";
 import { requestSettings } from "../settingsBus";
@@ -55,6 +67,16 @@ const OSM_IDLE: OsmState = { state: "idle", results: [] };
  *  judge, what the register does not know, what it cannot be asked about at
  *  all, and what is staged for writing. */
 type AddrStatus = "unsearched" | "found" | "none" | "manual" | "placed" | "picked";
+/**
+ * What the row of chips narrows to — the lookup states, and "written twice",
+ * which is not a lookup state at all but belongs in the same row because it
+ * answers the same question ("show me which of these?") and because a row of
+ * chips is read as one selector. Standing outside it, its own green beside the
+ * green on "All" said two contradictory things about one list.
+ */
+type ListFilter = "all" | AddrStatus | "sameHouse";
+/** The lookup states, in chip order — "sameHouse" is drawn after them, from
+ *  its own count. */
 const ADDR_FILTERS: ("all" | AddrStatus)[] = ["all", "unsearched", "found", "none", "manual", "placed", "picked"];
 
 /** A row's lookup state right now. An error or in-flight search still counts
@@ -159,7 +181,6 @@ function rowCandidates(
 }
 
 /** House numbers compared as numbers: 4 · 6 · 7 · 32, not 32 · 4 · 6 · 7. */
-const BY_NUMBER = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
 
 /** How many places a filter may open by itself. */
 const AUTO_OPEN_LIMIT = 20;
@@ -410,7 +431,9 @@ export function AddressCoordsSection({
   }, [visibleRows, query]);
   // Which lookup state is on screen; "all" leaves the list whole. Like the
   // places chips, a chip's count is exactly what clicking it shows.
-  const [statusFilter, setStatusFilter] = useState<"all" | AddrStatus>("all");
+  const [statusFilter, setStatusFilter] = useState<ListFilter>("all");
+  /** Whether the list is narrowed to the houses written twice. */
+  const onlySameHouse = statusFilter === "sameHouse";
   /** The country on screen — a place value's last comma part, the same key the
    *  places and compliance lists chip on. `null` = all of them. */
   const [countryFilter, setCountryFilter] = useState<string | null>(null);
@@ -442,9 +465,29 @@ export function AddressCoordsSection({
   // One chip per country the addresses stand in, counting the addresses each
   // click would show — a chip's count respects every filter except its own,
   // exactly as in the two lists beside this one.
+  /**
+   * The houses the file writes twice — one row the fuller spelling of another,
+   * within the same place. Computed over every row, filters included, so the
+   * fuller row is known even when the filters would have hidden it.
+   */
+  const sameHouse = useMemo(() => findSameHouse(all), [all]);
+  /** Both halves of every such pair: the row that would move and the row it
+   *  would move into, since a suggestion is unreadable without what it points
+   *  at. */
+  const sameHouseKeys = useMemo(() => {
+    const keys = new Set<string>();
+    for (const [key, dup] of sameHouse) {
+      keys.add(key);
+      keys.add(dup.into);
+    }
+    return keys;
+  }, [sameHouse]);
+
   const countryChips = useMemo(() => {
     const inStatus = (r: AddressRow) =>
-      statusFilter === "all" || addrStatus(r, searches, picked, osmSearches) === statusFilter;
+      statusFilter === "all" ||
+      statusFilter === "sameHouse" ||
+      addrStatus(r, searches, picked, osmSearches) === statusFilter;
     const counts = new Map<string, number>();
     for (const row of visibleRows) {
       const c = countryOf(row.place, home);
@@ -455,11 +498,41 @@ export function AddressCoordsSection({
   const activeCountry =
     countryFilter !== null && countryChips.some((c) => c.code === countryFilter) ? countryFilter : null;
 
+  /**
+   * Houses written twice that this click would actually list — the country and
+   * status filters respected, its own toggle and the row-hiding ones not, since
+   * those are exactly what it overrides. Counted over every row for the same
+   * reason the pool is: the pairs live among the placed ones.
+   */
+  const sameHouseCount = useMemo(() => {
+    let n = 0;
+    for (const row of rows) {
+      if (!sameHouse.has(row.key)) continue;
+      if (activeCountry !== null && countryOf(row.place, home) !== activeCountry) continue;
+      if (statusFilter !== "all" && statusFilter !== "sameHouse" && addrStatus(row, searches, picked, osmSearches) !== statusFilter)
+        continue;
+      n++;
+    }
+    return n;
+  }, [rows, sameHouse, activeCountry, statusFilter, searches, picked, osmSearches, home]);
+
   const groups = useMemo(() => {
     const inCountry = (r: AddressRow) => activeCountry === null || countryOf(r.place, home) === activeCountry;
-    const kept = visibleRows
+    // Both halves of every pair, whatever the toggles say. A house written
+    // twice is very often already placed — that is what the second spelling
+    // was made for — so the placed toggle, which hides finished work, hid the
+    // very rows this chip counts: it said 15 and listed none. A suggestion is
+    // also unreadable without the row it points at, and that row may be hidden
+    // for reasons of its own.
+    const pool = onlySameHouse ? rows.filter((r) => sameHouseKeys.has(r.key)) : visibleRows;
+    const kept = pool
       .filter(inCountry)
-      .filter((r) => statusFilter === "all" || addrStatus(r, searches, picked, osmSearches) === statusFilter);
+      .filter(
+        (r) =>
+          statusFilter === "all" ||
+          statusFilter === "sameHouse" ||
+          addrStatus(r, searches, picked, osmSearches) === statusFilter,
+      );
     const byPlace = new Map<string, PlaceGroup>();
     for (const row of kept) {
       const g = byPlace.get(row.place);
@@ -473,11 +546,11 @@ export function AddressCoordsSection({
       if (g.movable) g.suggestion = groupSuggestion(g.place, g.rows);
       // Inside a place, the addresses are that village's numbering — read in
       // order, not ranked by how often the file happens to name each house.
-      g.rows.sort((a, b) => BY_NUMBER.compare(a.address, b.address));
+      g.rows.sort((a, b) => placeCollator.compare(a.address, b.address));
     }
     // Most-used places first — that is where geocoding pays off soonest.
-    return [...byPlace.values()].sort((a, b) => b.events - a.events || a.place.localeCompare(b.place));
-  }, [visibleRows, searches, osmSearches, picked, statusFilter, activeCountry, home]);
+    return [...byPlace.values()].sort((a, b) => b.events - a.events || placeCollator.compare(a.place, b.place));
+  }, [rows, visibleRows, searches, osmSearches, picked, statusFilter, activeCountry, home, onlySameHouse, sameHouseKeys]);
 
   const [open, setOpen] = useState<Set<string>>(new Set());
   /** The one group whose map is drawn — never on open, always on request, and
@@ -872,8 +945,8 @@ export function AddressCoordsSection({
   /** Rename the row's address on every event that carries it, then close the
    *  editor — the rescan (edit version) merges it into an existing row when
    *  the new spelling already has one, which is how duplicates are joined. */
-  const applyRename = (row: AddressRow) => {
-    const to = renameDraft.trim();
+  const applyRename = (row: AddressRow, target?: string) => {
+    const to = (target ?? renameDraft).trim();
     if (!to || to === row.address) return;
     onRenameAddresses([{ rawKeys: row.rawKeys, from: row.address, to }]);
     setRenameKey(null);
@@ -1089,6 +1162,17 @@ export function AddressCoordsSection({
             <span className="tools-chip-count">{f === "all" ? statusAllCount : statusCounts[f]}</span>
           </button>
         ))}
+        {/* The houses written twice, last in the row and offered only when the
+            file has any. */}
+        {sameHouse.size > 0 && (
+          <button
+            className={`tools-chip ${onlySameHouse ? "active" : ""}`}
+            onClick={() => setStatusFilter(onlySameHouse ? "all" : "sameHouse")}
+            title={t("tools.geocode.addr.sameHouseHint")}
+          >
+            {t("tools.geocode.addr.sameHouse")} <span className="tools-chip-count">{sameHouseCount}</span>
+          </button>
+        )}
         {/* A view control, beside the other view controls. */}
         <ExpandAllToggle
           allOpen={allOpen}
@@ -1313,25 +1397,39 @@ export function AddressCoordsSection({
                           >
                             {row.address}
                           </button>
-                          {renameKey === row.key ? (
-                            <button
-                              className="tools-place-edit-btn tools-place-edit-cancel"
-                              onClick={() => setRenameKey(null)}
-                              title={t("tools.places.rename.cancel")}
-                            >
-                              ✕
-                            </button>
-                          ) : (
-                            <button
-                              className="tools-place-edit-btn"
-                              onClick={() => {
-                                setRenameKey(row.key);
-                                setRenameDraft(row.address);
-                              }}
-                              title={t("tools.geocode.addr.renameOpen")}
-                            >
-                              ✎
-                            </button>
+                          <RenameToggle
+                            open={renameKey === row.key}
+                            onOpen={() => {
+                              setRenameKey(row.key);
+                              setRenameDraft(row.address);
+                            }}
+                            onClose={() => setRenameKey(null)}
+                            title={t("tools.geocode.addr.renameOpen")}
+                          />
+                          {/* The same house, written more fully on another row
+                              of this same place — the file's own disagreement
+                              with itself, which no register has an opinion
+                              about. The arrow is the "becomes" of the
+                              compliance lists, because taking it is a rename:
+                              the events at this spelling get the other one, and
+                              the two rows become the one house they always
+                              were. Only the leaner row carries it; to go the
+                              other way, the pencil is right beside it. */}
+                          {sameHouse.get(row.key) && (
+                            <>
+                              <span aria-hidden="true" className="tools-register-place">→</span>
+                              <span className="tools-geo-cand-name">{sameHouse.get(row.key)!.address}</span>
+                              <button
+                                className="tools-issue-link"
+                                onClick={() => applyRename(row, sameHouse.get(row.key)!.address)}
+                                title={t("tools.geocode.addr.joinHint", {
+                                  address: sameHouse.get(row.key)!.address,
+                                  count: row.count,
+                                })}
+                              >
+                                {t("tools.geocode.addr.join")}
+                              </button>
+                            </>
                           )}
                           {/* The position this row holds, in the place rows' own
                               shape: = where it came from · the pinned
@@ -1528,44 +1626,20 @@ export function AddressCoordsSection({
                           )}
                         </div>
                         {renameKey === row.key && (
-                          <div
-                            className="tools-place-rename"
-                            onKeyDown={(e) => {
-                              // Enter on a highlighted suggestion, and Escape with the
-                              // dropdown open, belong to the autocomplete
-                              // (defaultPrevented); the next press is the editor's.
-                              if (e.key === "Enter" && !e.defaultPrevented) applyRename(row);
-                              if (e.key === "Escape" && !e.defaultPrevented) setRenameKey(null);
-                            }}
-                          >
-                            {/* Completed from the other houses of this same place: a
-                                rename here is usually a straggler being joined to a
-                                spelling the place already has, and typing it out again
-                                by hand is how the two miss each other by a character. */}
-                            <PlaceAutocomplete
-                              value={renameDraft}
-                              suggestions={(addrsByPlace.get(group.place) ?? []).filter((a) => a !== row.address)}
-                              canonical={places.addrCanonical}
-                              isDirty={false}
-                              className="tools-place-rename-input"
-                              wrapClassName="tools-place-rename-auto"
-                              placeholder={t("tools.geocode.renameAddrPlaceholder")}
-                              autoFocus
-                              // A rename may be exactly a casing fix ("Pod Gozdom" →
-                              // "pod gozdom") — the canonical map must not undo it.
-                              preserveCase
-                              onChange={setRenameDraft}
-                              onCommit={setRenameDraft}
-                              onClear={() => setRenameDraft("")}
-                            />
-                            <button
-                              className="nav-btn primary tools-place-rename-apply"
-                              onClick={() => applyRename(row)}
-                              disabled={!renameDraft.trim() || renameDraft.trim() === row.address}
-                            >
-                              {t("tools.places.rename.apply")}
-                            </button>
-                          </div>
+                          // Completed from the other houses of this same place: a
+                          // rename here is usually a straggler being joined to a
+                          // spelling the place already has, and typing it out again
+                          // by hand is how the two miss each other by a character.
+                          <RenameEditor
+                            value={renameDraft}
+                            suggestions={(addrsByPlace.get(group.place) ?? []).filter((a) => a !== row.address)}
+                            canonical={places.addrCanonical}
+                            placeholder={t("tools.geocode.renameAddrPlaceholder")}
+                            applyDisabled={!renameDraft.trim() || renameDraft.trim() === row.address}
+                            onChange={setRenameDraft}
+                            onApply={() => applyRename(row)}
+                            onCancel={() => setRenameKey(null)}
+                          />
                         )}
                         {/* The lookup's answers directly under the row they
                             answer — the people list, however long, comes after,

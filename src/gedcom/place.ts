@@ -256,6 +256,21 @@ function numbersAUnit(segment: string): boolean {
   return NUMBERED_UNIT.test(segment);
 }
 
+/**
+ * How one place or address value sorts against another, everywhere in the app.
+ *
+ * Numeric-aware, which for these values is the whole point: a house number is a
+ * number, and compared as text "Metlika 107" comes before "Metlika 70" and
+ * "Breg 11" before "Breg 2". Every list that shows houses — the places tree,
+ * both geocoding lists, both compliance lists, the Edit place and address
+ * completions — reads as a jumble under the plain comparison, and each list that
+ * grew its own comparer got this right or wrong on its own. There is one now.
+ *
+ * Diacritic- and case-blind ("base"), so "Crnomelj" files with "Črnomelj"
+ * rather than after every Ž.
+ */
+export const placeCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
+
 /** Strip a trailing house number from a street/locality segment, leaving the name alone. */
 export function stripHouseNumber(segment: string): string {
   if (numbersAUnit(segment)) return segment.trim();

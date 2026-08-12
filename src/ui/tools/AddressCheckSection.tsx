@@ -18,10 +18,22 @@ import {
   type AddressVerdict,
 } from "../../tools/addressCheck";
 import type { AddressRename, AddressRow } from "../../tools/addresses";
+import { placeCollator } from "../../gedcom/place";
 import { countryOf } from "../../tools/geocode";
 import { REGISTER_DISMISSED } from "../../tools/registerCheck";
 import { useLocalRegisters } from "../useLocalRegisters";
-import { AppliedNote, ExpandAllToggle, GeoPeopleList, GeoRowHeader, MapToggle, RowMap } from "./shared";
+import { useVirtualList } from "../useVirtualList";
+import { placeKey, type PlaceSuggestions } from "../edit/placeSuggestions";
+import {
+  AppliedNote,
+  ExpandAllToggle,
+  GeoPeopleList,
+  GeoRowHeader,
+  MapToggle,
+  RenameEditor,
+  RenameToggle,
+  RowMap,
+} from "./shared";
 import { CountryChips } from "./CountryChips";
 import { useHomeCountry } from "../DatasetDerivations";
 
@@ -58,9 +70,9 @@ function hasDetail(f: AddressFinding): boolean {
 /** Addresses resolved per pass, so a long file fills in rather than freezing. */
 const CHUNK = 200;
 
-/** Rows drawn at once; the rest wait behind the page search, as every list on
- *  this page does. */
-const MAX_ROWS = 300;
+/** A collapsed place line, for the windowing model to start from — it adopts
+ *  the real height from the rendered rows on the first pass. */
+const GROUP_HEIGHT = 28;
 
 export function AddressCheckSection({
   hidden,
@@ -75,6 +87,7 @@ export function AddressCheckSection({
   onRenameAddresses,
   onMovePlaceForAddresses,
   onDecisionsChanged,
+  placeSug,
 }: {
   /** Every place+address pair in the file — the Addresses tab's own rows. */
   rows: AddressRow[];
@@ -89,6 +102,10 @@ export function AddressCheckSection({
    *  house the register files under its neighbour is answered with. */
   onMovePlaceForAddresses: (keys: Set<string>, toPlace: string) => number;
   onDecisionsChanged: () => void;
+  /** The file's own places and the houses at each — what the row's ✎ completes
+   *  from, the same source the geocoding addresses list draws its suggestions
+   *  from. */
+  placeSug: PlaceSuggestions;
   dataset: Dataset;
   /** Kept mounted but off screen while the other compliance tab is shown — a
    *  report costs a pass over the file, and switching tabs must not throw it
@@ -126,6 +143,10 @@ export function AddressCheckSection({
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
   /** The one row showing its map — one at a time, as on the places list. */
   const [mapOpen, setMapOpen] = useState<string | null>(null);
+  /** The one row whose ✎ is open, and its draft — the same one-at-a-time editor
+   *  the other three lists keep. */
+  const [renameKey, setRenameKey] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
 
   const toggleGroup = (place: string) =>
     setOpenGroups((prev) => {
@@ -226,6 +247,28 @@ export function AddressCheckSection({
     setReport((prev) => (prev ? { ...prev, findings: prev.findings.filter((o) => !done.has(o.key)) } : prev));
   };
 
+  /**
+   * Write the address this row is about, as the researcher spells it.
+   *
+   * The one action here that does not go through the register — and the reason
+   * it belongs on this list is that a finding is so often the moment the real
+   * answer occurs to you. "Metlika 76" is a house the modern register has no
+   * number for, and no proposal will ever be offered for it; what it needs is a
+   * hand, and until now that meant leaving the check, finding the same house on
+   * the geocoding tab and doing it there. The places tab beside this one has had
+   * its ✎ from the start.
+   *
+   * Its own rename, not a spelling taken: the row leaves the report afterwards,
+   * because what the check judged is no longer what the file says.
+   */
+  const applyRename = (f: AddressFinding) => {
+    const to = renameDraft.trim();
+    setRenameKey(null);
+    if (!to || to === f.written) return;
+    setApplied(onRenameAddresses([{ rawKeys: f.rawKeys, from: f.written, to }]));
+    setReport((prev) => (prev ? { ...prev, findings: prev.findings.filter((o) => o.key !== f.key) } : prev));
+  };
+
   /** File this house where the register files it: the events at it get the
    *  settlement the register names, and their address lines are left alone —
    *  the Addresses tab's own move, applied to the one house this row is about.
@@ -248,7 +291,14 @@ export function AddressCheckSection({
 
   // What the tab above shows. Not derived there: the report is this section's
   // own state, since running the check is this section's own action.
-  const findingCount = report ? report.findings.filter((f) => !f.dismissed).length : null;
+  // The aside verdict is left out of it, exactly as it is left off the list:
+  // the number on the tab is a promise of what is waiting there, and a file of
+  // parish records has hundreds of house numbers the modern register no longer
+  // has — all of them counted, none of them listed. "Addresses 431" over an
+  // empty list is not a count, it is a bug report.
+  const findingCount = report
+    ? report.findings.filter((f) => !f.dismissed && f.verdict !== ADDRESS_ASIDE).length
+    : null;
   useEffect(() => {
     onCount(findingCount);
   }, [findingCount, onCount]);
@@ -293,18 +343,30 @@ export function AddressCheckSection({
     // groups its own rows: eleven findings in Ravna Gora are one village's
     // eleven houses, and repeating the place on every line said so eleven
     // times while hiding that they were one place at all.
-    // The cap is applied here, where it is also announced below. It was
-    // declared and reported but never applied: the note said 200 findings were
-    // waiting behind the search while every one of them was on screen.
+    //
+    // Every finding, with no cap. The list used to stop at 300 and tell the
+    // reader to narrow it with the search — which is no answer when what you
+    // want is to look down the whole file, and a check that reports 431 houses
+    // and shows 300 of them is not a report. The places are windowed instead
+    // (see the list below), so a thousand of them cost the browser what a
+    // screenful costs.
     const byPlace = new Map<string, AddressFinding[]>();
-    for (const f of rows.slice(0, MAX_ROWS)) {
+    for (const f of rows) {
       const list = byPlace.get(f.place);
       if (list) list.push(f);
       else byPlace.set(f.place, [f]);
     }
+    // A place's houses in house-number order, whatever verdict each carries —
+    // the badge says which, and inside one village the number is what the eye
+    // runs down. Worst-first is the order the *list* is worked through, and the
+    // findings arrive in it; it is the wrong order within a village. The
+    // geocoding addresses list orders a group the same way.
     const groups = [...byPlace]
-      .map(([place, findings]) => ({ place, findings }))
-      .sort((a, b) => b.findings.length - a.findings.length || a.place.localeCompare(b.place));
+      .map(([place, findings]) => ({
+        place,
+        findings: [...findings].sort((a, b) => placeCollator.compare(a.written, b.written)),
+      }))
+      .sort((a, b) => b.findings.length - a.findings.length || placeCollator.compare(a.place, b.place));
     return {
       rows,
       groups,
@@ -316,6 +378,22 @@ export function AddressCheckSection({
       dismissedTotal: report.findings.filter((f) => f.dismissed).length,
     };
   }, [report, query, verdictFilter, countryFilter, showDismissed, home]);
+
+  /**
+   * Only the places near the viewport are mounted — the windowing the geocoding
+   * lists, the duplicates and the health check all use.
+   *
+   * At the place level, not the house level, because that is what this list's
+   * rows are: a village is one line until it is opened, so the mounted rows are
+   * uniform and a file of a thousand places scrolls like a screenful. An opened
+   * village brings its houses with it as one tall row, which is exactly the
+   * deviation the model keeps exact measurements for.
+   */
+  const virtual = useVirtualList({
+    count: view?.groups.length ?? 0,
+    estimate: GROUP_HEIGHT,
+    itemsKey: view?.groups,
+  });
 
   // Nothing stored for any country the file writes: the check cannot be made,
   // and a disabled button explaining why would only be a second copy of the
@@ -381,8 +459,17 @@ export function AddressCheckSection({
               </>
             )}
           </p>
-          {view && view.all === 0 && view.counts.addrMissing === 0 && (
-            <p className="tools-clean tools-clean--ok">{t("tools.registerAddr.clean")}</p>
+          {/* Nothing disagrees. Said even when houses the register no longer has
+              are waiting behind their chip, because those are not
+              disagreements: with 431 of them and no findings, the list showed
+              its chips over an empty space and left the reader to work out
+              whether that was an answer or a failure. Their own line says how
+              many and how to see them. */}
+          {view && view.all === 0 && (
+            <p className="tools-clean tools-clean--ok">
+              {t("tools.registerAddr.clean")}
+              {view.counts.addrMissing > 0 && ` ${t("tools.registerAddr.cleanAside", { count: view.counts.addrMissing })}`}
+            </p>
           )}
           {view && (view.all > 0 || view.counts.addrMissing > 0) && (
             <>
@@ -438,9 +525,16 @@ export function AddressCheckSection({
                   </label>
                 )}
               </div>
-              {!view.rows.length && <p className="tools-clean">{t("tools.search.noMatch")}</p>}
+              {/* "No matches" is the search's answer, and only the search's: an
+                  empty list under a full set of chips is otherwise read as one.
+                  Where there is nothing to disagree about, the line above has
+                  already said so. */}
+              {!view.rows.length && (view.all > 0 || !!query) && (
+                <p className="tools-clean">{t("tools.search.noMatch")}</p>
+              )}
               <ul className="tools-geo-addr-list tools-register-list">
-                {view.groups.map((group) => {
+                <li className="v-spacer" style={{ height: virtual.padTop }} ref={virtual.topRef} aria-hidden />
+                {view.groups.slice(virtual.start, virtual.end).map((group) => {
                   const groupOpen = openGroups.has(group.place);
                   return (
                   <li key={group.place} className="tools-geo-addr-group">
@@ -493,6 +587,19 @@ export function AddressCheckSection({
                         // and the pin said otherwise twice per line.
                         place={f.written}
                       >
+                        {/* The ✎ every list on these two pages puts beside a
+                            value it lets you rewrite, in the slot the places
+                            findings keep theirs: right after the value, before
+                            whatever the register proposes about it. */}
+                        <RenameToggle
+                          open={renameKey === f.key}
+                          onOpen={() => {
+                            setRenameKey(f.key);
+                            setRenameDraft(f.written);
+                          }}
+                          onClose={() => setRenameKey(null)}
+                          title={t("tools.geocode.addr.renameOpen")}
+                        />
                         {/* After the arrow stands what the file would say once
                             the row is taken — the exact replacement, note and
                             all, not the register's line it is derived from.
@@ -572,6 +679,24 @@ export function AddressCheckSection({
                           </button>
                         </span>
                       </GeoRowHeader>
+                      {renameKey === f.key && (
+                        // Completed from the other houses of the same place, as
+                        // on the geocoding addresses list: a hand-written fix
+                        // here is usually a straggler being joined to a spelling
+                        // the place already has.
+                        <RenameEditor
+                          value={renameDraft}
+                          suggestions={(placeSug.placeToAddrs.get(placeKey(f.place)) ?? []).filter(
+                            (a) => a !== f.written,
+                          )}
+                          canonical={placeSug.addrCanonical}
+                          placeholder={t("tools.geocode.renameAddrPlaceholder")}
+                          applyDisabled={!renameDraft.trim() || renameDraft.trim() === f.written}
+                          onChange={setRenameDraft}
+                          onApply={() => applyRename(f)}
+                          onCancel={() => setRenameKey(null)}
+                        />
+                      )}
                       {isOpen && (
                         <div className="tools-geo-conflict-body">
                           {/* Where the register puts the house — the question
@@ -677,10 +802,8 @@ export function AddressCheckSection({
                   </li>
                   );
                 })}
+                <li className="v-spacer" style={{ height: virtual.padBottom }} ref={virtual.bottomRef} aria-hidden />
               </ul>
-              {view.rows.length > MAX_ROWS && (
-                <p className="tools-fix-hint">{t("tools.geocode.more", { count: view.rows.length - MAX_ROWS })}</p>
-              )}
             </>
           )}
         </>
