@@ -1950,15 +1950,9 @@ describe("mergeDecisions — one family for a couple, however it is reached", ()
     // The incoming one came in as a person of her own, under Janez.
     expect(report.newPersons).toBe(1);
     expect(out.match(/1 FAMC /g)).toHaveLength(2);
-    // And the preview says the suggestion was overruled, so it can be checked.
-    expect(
-      report.deferred.some(
-        (d) =>
-          d.reason.startsWith("merge.reason.childApartFromParents|") &&
-          d.reason.includes("kept=Marija Novak") &&
-          d.reason.includes("parents=Matija Novak"),
-      ),
-    ).toBe(true);
+    // Asking for a branch is asking for the people in it: she is reported as
+    // the new person she is, with nothing filed under "kept as in your file".
+    expect(report.deferred).toEqual([]);
   });
 
   it("a confirmed child whose parents disagree is left out and reported", () => {

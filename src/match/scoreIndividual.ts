@@ -16,7 +16,7 @@ import {
   fatherGivenVerdict,
   givenNameSetSimilarity,
   givenSimilarity,
-  motherGivenVerdict,
+  motherVerdict,
   nameSetSimilarity,
   nameSimilarity,
   placeSimilarity,
@@ -252,9 +252,8 @@ function anchoringDate(
   );
 }
 
-/** True when both records name a father and a mother (given names on both
- *  sides) and *each* role's given names are too dissimilar to be the same
- *  person — different-family evidence strong enough for a score penalty. */
+/** True when both records name a father and a mother and *each* role conflicts
+ *  — different-family evidence strong enough for a score penalty. */
 function bothParentsConflict(
   main: Individual,
   compare: Individual,
@@ -263,10 +262,12 @@ function bothParentsConflict(
 ): boolean {
   // Both roles must sit in the shared conflict band (see parentGivenVerdict) —
   // the same boundary the duplicate vetoes use. A missing given name on either
-  // side of a role yields "unknown", never a conflict.
+  // side of a role yields "unknown", never a conflict. The mother is judged on
+  // her maiden surname as well (see motherVerdict), because agreement on a
+  // given name as common as Marija is no agreement at all.
   return (
     fatherGivenVerdict(main, mainDs, compare, compareDs) === "conflict" &&
-    motherGivenVerdict(main, mainDs, compare, compareDs) === "conflict"
+    motherVerdict(main, mainDs, compare, compareDs) === "conflict"
   );
 }
 

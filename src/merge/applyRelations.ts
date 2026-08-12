@@ -326,16 +326,9 @@ export function applyFamilyStructure(
         // the parents contradict it. Take the contradiction at its word: these
         // are two people. Drop the suggestion for good, because later steps of
         // the same graft resolve this incoming id too and must reach the record
-        // made here rather than the main person it was mistaken for.
-        const parents = coupleLabel(otherFamId, ctx);
-        ctx.report.deferred.push({
-          recordId: famId,
-          field: ctx.t("merge.field.child"),
-          reason: ctx.t(parents ? "merge.reason.childApartFromParents" : "merge.reason.childApartFromFamily", {
-            kept: ctx.label(targetId),
-            parents,
-          }),
-        });
+        // made here rather than the main person it was mistaken for. No note is
+        // filed: asking for a branch is asking for the people in it, and the
+        // person appears in the preview as the new record they are.
         ctx.incToMain.delete(incChild);
         const own = ctx.importNew(incChild);
         if (!own || existing.has(own)) continue;

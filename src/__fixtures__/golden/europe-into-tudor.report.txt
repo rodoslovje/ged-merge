@@ -5,7 +5,7 @@ Records changed:  195
 Fields applied:   305
 New persons:      92
 New families:     59
-Deferred:         7
+Deferred:         6
 
 Applied changes
 ---------------
@@ -915,7 +915,3 @@ Thomas Holland + Alice FitzAlan  @F194@
 ---------------------------------------
   merge.field.father: merge.reason.parentKept
   merge.field.mother: merge.reason.parentKeptAncestors
-
-Thomas Howard + Catherine Knyvett  @F241@
------------------------------------------
-  merge.field.child: merge.reason.childApartFromParents

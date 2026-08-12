@@ -1128,8 +1128,6 @@ export const en = {
   "merge.reason.parentKeptAncestors": "your file keeps {{kept}} here, so {{incoming}} and the ancestors above them were not brought in",
   "merge.reason.childHasParents": "your file already records {{child}} as a child of {{kept}}, so they were not linked to this family",
   "merge.reason.childHasFamily": "your file already records {{child}} as a child in another family, so they were not linked to this one",
-  "merge.reason.childApartFromParents": "your file already records {{kept}} as a child of {{parents}}, so the incoming child was brought in as a separate person — check whether the two are the same",
-  "merge.reason.childApartFromFamily": "your file already records {{kept}} as a child in another family, so the incoming child was brought in as a separate person — check whether the two are the same",
   "merge.reason.linkNotImplemented": "link merge not yet implemented",
   "merge.reason.assoNotImported": "references to other people (ASSO/ALIA) are not carried over with a new person",
   "status.confirmed": "Confirmed",
