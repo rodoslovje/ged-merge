@@ -11,7 +11,7 @@ import { useDatasetDerivations } from "../DatasetDerivations";
 import { buildPlaceSuggestions } from "../edit/placeSuggestions";
 import { foldSearch } from "../globalSearch";
 import { PlaceLookupProvider, usePlaceLookupValue, usePlaceStyle } from "../edit/PlaceLookupContext";
-import { GazetteerMissing, useGazetteer } from "./GazetteerManager";
+import { GazetteerMissing, GazetteerSetup, useGazetteer } from "./GazetteerManager";
 import { FULL_CHAIN, RegisterCheckSection } from "./RegisterCheckSection";
 import { AddressCheckSection } from "./AddressCheckSection";
 import { BackButton } from "../BackButton";
@@ -211,6 +211,14 @@ export function RegisterPanel({
           by rendering nothing, which reads as "your file is fine". The same
           notice the geocode list shows, in this page's own words. */}
       {!hasRegister && <GazetteerMissing note={t("tools.register.noGazetteer")} />}
+
+      {/* Which directories answered, exactly as the geocoding page names them.
+          Every finding here is a directory's opinion, and which directories
+          those were decides what the page could possibly have found — a check
+          reporting nothing means one thing with four registers loaded and quite
+          another with none. It was legible on the page that only *places* the
+          directories, and not on the page that judges by them. */}
+      {hasRegister && <GazetteerSetup gaz={gaz} />}
 
       {/* Two tabs for two questions. The addresses one appears only where a
           stored register can answer something, which is the condition its

@@ -504,15 +504,11 @@ function PlaceTreeRow({
                 opens — the records written at exactly this place — and what the
                 place holds with everything under it. One number said 168 and
                 then listed 24, and the reader was left to work out which of the
-                two it had meant. A leaf has no such gap and keeps one number. */}
-            {hasKids ? (
-              <>
-                {node.uses.length}
-                <span className="tools-place-count-total"> / {node.count}</span>
-              </>
-            ) : (
-              node.count
-            )}
+                two it had meant. Both in the same weight: they are two counts of
+                the same kind of thing, and dimming one made it read as an aside
+                rather than as the total it is. A leaf has no such gap and keeps
+                one number. */}
+            {hasKids ? `${node.uses.length} / ${node.count}` : node.count}
           </button>
         ) : (
           <span className="tools-chip-count">{node.count}</span>
