@@ -132,4 +132,16 @@ describe("cloneNode", () => {
     expect(firstChild(c, "BIRT")?.auditStamp).toBe("changed");
     expect(c.children.at(-1)?.verbatim).toBe("1GARBLED line");
   });
+
+  it("carries the source's CONC positions, so undo keeps the file's wrapping", () => {
+    const i = indi();
+    const name = firstChild(i, "NAME")!;
+    name.conc = { at: [4], of: name.value! };
+    const c = cloneNode(i);
+    const cloned = firstChild(c, "NAME")!;
+    expect(cloned.conc).toEqual({ at: [4], of: name.value });
+    // A copy, not the same array — editing one record must not re-wrap another.
+    cloned.conc!.at.push(9);
+    expect(name.conc!.at).toEqual([4]);
+  });
 });

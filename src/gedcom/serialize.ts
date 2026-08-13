@@ -9,18 +9,22 @@ export interface SerializeOptions {
   /** Emit a trailing newline after the last line. Defaults to true. */
   finalNewline?: boolean;
   /**
-   * Wrap physical lines longer than this many characters by splitting the
-   * value across `CONC` continuation lines. GEDCOM 5.5.1 caps a line at 255
-   * characters *including* the terminator, so downloads pass
-   * {@link LINE_LIMIT_551}; leave unset for GEDCOM 7 (no CONC, no limit) and
-   * for internal round-trips, which must stay byte-faithful.
+   * Wrap physical lines longer than this many **bytes** by splitting the value
+   * across `CONC` continuation lines. GEDCOM 5.5.1 caps a line at 255
+   * including the terminator, so downloads pass {@link LINE_LIMIT_551}; leave
+   * unset for GEDCOM 7 (no CONC, no limit) and for internal round-trips, which
+   * must stay byte-faithful.
+   *
+   * Bytes, not characters: a line of Slovenian or Greek text carries two bytes
+   * per accented letter, and counting characters let a "253-character" line
+   * reach 280 bytes — past what strict 5.5.1 readers accept.
    */
   maxLineLength?: number;
 }
 
 /**
- * GEDCOM 5.5.1's physical line limit, as content characters: the spec allows
- * 255 including the terminator, and CRLF is the widest terminator we emit.
+ * GEDCOM 5.5.1's physical line limit, as content bytes: the spec allows 255
+ * including the terminator, and CRLF is the widest terminator we emit.
  */
 export const LINE_LIMIT_551 = 253;
 
@@ -36,14 +40,15 @@ export const LINE_LIMIT_551 = 253;
  * Depth is taken from the tree position rather than `node.level`, so nodes the
  * merge inserts don't need their `level` field set.
  *
- * Caveat: GEDCOM `CONC` (continue without a line break) is folded into the value
- * at parse time and cannot be told apart from a value that was simply long, so
- * the original wrap positions are not reproduced. By default a folded value
- * re-emits as a single line (byte-faithful for unwrapped sources, and what the
- * internal parse↔serialize round-trips rely on); with `maxLineLength` set the
- * value is re-wrapped at that width instead, so downloads never exceed the
- * 5.5.1 line limit that strict importers enforce. `CONT` (line break)
- * round-trips exactly. Tag case is normalized to upper-case.
+ * GEDCOM `CONC` (continue without a line break) is folded into the value at
+ * parse time, but the parser notes where each break fell (`GedNode.conc`), so
+ * an untouched value re-emits on exactly the lines it arrived on. Edit it and
+ * those positions no longer describe it: the value is then wrapped afresh at
+ * `maxLineLength`. Either way a diff of the saved file shows the records you
+ * changed and nothing else. Without `maxLineLength` a folded value re-emits as
+ * a single line (what the internal parse↔serialize round-trips rely on).
+ * `CONT` (line break) round-trips exactly. Tag case is normalized to
+ * upper-case.
  */
 export function serializeGedcom(records: GedNode[], opts: SerializeOptions = {}): string {
   const eol = opts.eol ?? "\n";
@@ -186,9 +191,16 @@ function emitNode(node: GedNode, depth: number, lines: string[], maxLen?: number
     // text begins on a CONT line (e.g. "0 @N@ NOTE" then "1 CONT ..."), so the
     // head line gets no trailing space.
     const segments = node.value.split("\n");
-    pushSegment(lines, head, escapeLeadingAt(segments[0]), depth, maxLen);
-    for (let i = 1; i < segments.length; i++) {
-      pushSegment(lines, `${depth + 1} CONT`, escapeLeadingAt(segments[i]), depth, maxLen);
+    // The file's own CONC positions, while they still describe this value.
+    const breaks = node.conc?.of === node.value ? node.conc.at : undefined;
+    let pos = 0;
+    for (let i = 0; i < segments.length; i++) {
+      const prefix = i === 0 ? head : `${depth + 1} CONT`;
+      const escaped = escapeLeadingAt(segments[i]);
+      // Escaping a leading "@" shifts every offset inside this segment by one.
+      const shift = escaped.length - segments[i].length;
+      pushSegment(lines, prefix, escaped, depth, maxLen, segmentBreaks(breaks, pos, segments[i].length, shift));
+      pos += segments[i].length + 1; // + the "\n" the CONT line stands for
     }
   }
 
@@ -220,31 +232,95 @@ function pushSegment(
   text: string,
   depth: number,
   maxLen: number | undefined,
+  /** The source's own CONC offsets inside `text`, when they still apply. */
+  breaks?: number[],
 ): void {
+  const concPrefix = `${depth + 1} CONC`;
+  if (maxLen !== undefined && breaks && breaks.length > 0) {
+    const chunks = chunkAt(text, breaks);
+    // A record that moved to another depth (or a source line that was already
+    // over the limit) must not be reproduced into an invalid line — check
+    // before trusting the source's positions, and re-wrap if they don't fit.
+    if (chunks && chunks.every((c, i) => fitsLine(i === 0 ? prefix : concPrefix, c, maxLen))) {
+      lines.push(chunks[0].length === 0 ? prefix : `${prefix} ${chunks[0]}`);
+      for (let i = 1; i < chunks.length; i++) lines.push(`${concPrefix} ${chunks[i]}`);
+      return;
+    }
+  }
   if (text.length === 0) {
     lines.push(prefix);
     return;
   }
-  // "+ 1" for the space between prefix and value on each physical line.
-  if (maxLen === undefined || prefix.length + 1 + text.length <= maxLen) {
+  if (maxLen === undefined || fitsLine(prefix, text, maxLen)) {
     lines.push(`${prefix} ${text}`);
     return;
   }
-  const concPrefix = `${depth + 1} CONC`;
   const chunks = splitForConc(
     text,
-    maxLen - prefix.length - 1,
-    maxLen - concPrefix.length - 1,
+    maxLen - utf8Len(prefix) - 1,
+    maxLen - utf8Len(concPrefix) - 1,
   );
   lines.push(`${prefix} ${chunks[0]}`);
   for (let i = 1; i < chunks.length; i++) lines.push(`${concPrefix} ${chunks[i]}`);
 }
 
+/** The `at` offsets that fall inside one CONT segment, rebased onto it (and
+ *  shifted by an at-sign escape the segment picked up). Undefined when the
+ *  segment carries no break, so the caller takes the ordinary path. */
+function segmentBreaks(
+  all: number[] | undefined,
+  start: number,
+  length: number,
+  shift: number,
+): number[] | undefined {
+  if (!all) return undefined;
+  const out: number[] = [];
+  for (const at of all) {
+    if (at < start || at >= start + length) continue;
+    out.push(at === start ? 0 : at - start + shift);
+  }
+  return out.length > 0 ? out : undefined;
+}
+
+/** Cut `text` at the given offsets. Undefined if they don't describe it (out of
+ *  range or out of order) — a stale note is never worth a mangled value. */
+function chunkAt(text: string, breaks: number[]): string[] | undefined {
+  const chunks: string[] = [];
+  let start = 0;
+  for (const at of breaks) {
+    if (at < start || at > text.length) return undefined;
+    chunks.push(text.slice(start, at));
+    start = at;
+  }
+  chunks.push(text.slice(start));
+  return chunks;
+}
+
+/** Whether `prefix` + a space + `text` stays inside the byte limit. */
+function fitsLine(prefix: string, text: string, maxLen: number): boolean {
+  return utf8Len(prefix) + 1 + utf8Len(text) <= maxLen;
+}
+
+/** UTF-8 byte length of a string — what a GEDCOM line limit actually counts. */
+function utf8Len(s: string): number {
+  let n = 0;
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    if (c < 0x80) n += 1;
+    else if (c < 0x800) n += 2;
+    else if (c >= 0xd800 && c <= 0xdbff) {
+      n += 4; // surrogate pair — counted once, on its lead
+      i++;
+    } else n += 3;
+  }
+  return n;
+}
+
 /**
  * Split a value into CONC-sized chunks: the first at most `firstAvail`
- * characters, the rest at most `restAvail`. Cut points prefer the middle of a
+ * **bytes**, the rest at most `restAvail`. Cut points prefer the middle of a
  * word — readers are permitted to trim spaces around CONC pieces, so neither
- * side of a cut may touch a space — and never land inside a surrogate pair.
+ * side of a cut may touch a space — and never land inside a character.
  */
 function splitForConc(text: string, firstAvail: number, restAvail: number): string[] {
   // Floor keeps pathological inputs (a prefix near the limit) progressing.
@@ -253,8 +329,8 @@ function splitForConc(text: string, firstAvail: number, restAvail: number): stri
   const chunks: string[] = [];
   let start = 0;
   let avail = first;
-  while (text.length - start > avail) {
-    let cut = start + avail;
+  while (utf8Len(text.slice(start)) > avail) {
+    let cut = cutAtBytes(text, start, avail);
     // Back the cut up to a space-free boundary when one exists in this chunk.
     let c = cut;
     while (c - start > 1 && (text[c] === " " || text[c - 1] === " ")) c--;
@@ -269,4 +345,20 @@ function splitForConc(text: string, firstAvail: number, restAvail: number): stri
   }
   chunks.push(text.slice(start));
   return chunks;
+}
+
+/** The offset just past the last whole character of `text` from `start` that
+ *  still fits in `avail` bytes. */
+function cutAtBytes(text: string, start: number, avail: number): number {
+  let bytes = 0;
+  let i = start;
+  while (i < text.length) {
+    const c = text.charCodeAt(i);
+    const isPair = c >= 0xd800 && c <= 0xdbff && i + 1 < text.length;
+    const size = c < 0x80 ? 1 : c < 0x800 ? 2 : isPair ? 4 : 3;
+    if (bytes + size > avail) break;
+    bytes += size;
+    i += isPair ? 2 : 1;
+  }
+  return Math.max(i, start + 1);
 }

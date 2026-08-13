@@ -98,6 +98,9 @@ export function cloneNode(n: GedNode): GedNode {
   // clone of the (possibly edit-marked) main, and undo/redo snapshots must
   // restore the exact marker state their side of the patch had.
   if (n.auditStamp !== undefined) c.auditStamp = n.auditStamp;
+  // The source's own CONC positions travel with the value they describe, so a
+  // record restored by undo still saves on the lines it arrived on.
+  if (n.conc !== undefined) c.conc = { at: [...n.conc.at], of: n.conc.of };
   return c;
 }
 
