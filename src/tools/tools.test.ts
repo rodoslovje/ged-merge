@@ -10,6 +10,7 @@ import { collectLocalMediaFiles } from "./mediaFiles";
 import { buildPlaceTree, UNSPECIFIED, UNSPECIFIED_PLACE } from "./places";
 import { fixBrokenLinks } from "./fixLinks";
 import { countInferableSex, fixSexFromRole } from "./fixSex";
+import { countSwappedRoles, fixSwappedRoles } from "./fixRoleSwap";
 import { fixDuplicatePointers } from "./fixDuplicatePointers";
 import { countDanglingRefs, fixDanglingRefs } from "./fixDanglingRefs";
 import { bulkNormalize } from "./bulkNormalize";
@@ -1115,6 +1116,28 @@ describe("fixDates", () => {
 
     expect(countFixableDates(ds)).toBe(0);
   });
+
+  it("repairs only the date a single row names", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Boris /Trampuž/
+1 BIRT
+2 DATE 26 JUN 1912
+1 DEAT
+2 DATE 26. 6. 1980
+1 RESI
+2 DATE 3. 4. 1950
+0 TRLR`);
+    expect(countFixableDates(ds)).toBe(2);
+    // A row carries the record and the offending value as the check displays it.
+    expect(fixDates(ds, { id: "@I1@", sample: "26. 6. 1980" })).toHaveLength(1);
+    const events = ds.individuals.get("@I1@")!.events;
+    expect(events.find((e) => e.tag === "DEAT")?.date?.raw).toBe("26 JUN 1980");
+    // The other bad date waits for its own row.
+    expect(events.find((e) => e.tag === "RESI")?.date?.raw).toBe("3. 4. 1950");
+    expect(countFixableDates(ds)).toBe(1);
+  });
 });
 
 describe("fixBrokenLinks", () => {
@@ -1233,6 +1256,24 @@ describe("fixSexFromRole", () => {
     expect(fixSexFromRole(ds)).toHaveLength(0);
   });
 
+  it("sets the sex of only the person a single row names", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Bo /Horvat/
+0 @I2@ INDI
+1 NAME Eva /Horvat/
+0 @F1@ FAM
+1 HUSB @I1@
+1 WIFE @I2@
+0 TRLR`);
+    expect(fixSexFromRole(ds, "@I2@")).toHaveLength(1);
+    expect(ds.individuals.get("@I2@")!.sex).toBe("F");
+    // Her husband keeps his unrecorded sex until his own row is clicked.
+    expect(ds.individuals.get("@I1@")!.sex).toBe("U");
+    expect(countInferableSex(ds)).toBe(1);
+  });
+
   it("leaves a person with conflicting roles (HUSB here, WIFE there) untouched", () => {
     const ds = dataset(`0 HEAD
 1 CHAR UTF-8
@@ -1254,6 +1295,99 @@ describe("fixSexFromRole", () => {
     expect(countInferableSex(ds)).toBe(0);
     expect(fixSexFromRole(ds)).toHaveLength(0);
     expect(ds.individuals.get("@I1@")!.sex).toBe("U");
+  });
+});
+
+describe("fixSwappedRoles", () => {
+  it("puts two spouses holding each other's slots back in their own", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Tanja /Nemec/
+1 SEX F
+1 FAMS @F1@
+0 @I2@ INDI
+1 NAME Andrej /Ogris/
+1 SEX M
+1 FAMS @F1@
+0 @I3@ INDI
+1 NAME Otrok /Ogris/
+1 FAMC @F1@
+0 @F1@ FAM
+1 HUSB @I1@
+1 WIFE @I2@
+1 CHIL @I3@
+0 TRLR`);
+    expect(countSwappedRoles(ds)).toBe(1);
+    expect(validateDataset(ds, 2026).counts.roleSexConflict).toBe(2);
+
+    const patches = fixSwappedRoles(ds);
+    expect(patches).toHaveLength(1);
+    expect(patches[0].type).toBe("family");
+    const fam = ds.families.get("@F1@")!;
+    expect(fam.husband).toBe("@I2@");
+    expect(fam.wife).toBe("@I1@");
+    // The children ride along untouched, and the finding is gone.
+    expect(fam.children).toEqual(["@I3@"]);
+    expect(validateDataset(ds, 2026).counts.roleSexConflict).toBe(0);
+    // Re-running is a no-op once both spouses sit in their own slot.
+    expect(fixSwappedRoles(ds)).toHaveLength(0);
+  });
+
+  it("swaps only the family a single row names", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Ana /Novak/
+1 SEX F
+0 @I2@ INDI
+1 NAME Bo /Novak/
+1 SEX M
+0 @I3@ INDI
+1 NAME Cita /Kos/
+1 SEX F
+0 @I4@ INDI
+1 NAME Dan /Kos/
+1 SEX M
+0 @F1@ FAM
+1 HUSB @I1@
+1 WIFE @I2@
+0 @F2@ FAM
+1 HUSB @I3@
+1 WIFE @I4@
+0 TRLR`);
+    expect(countSwappedRoles(ds)).toBe(2);
+    // The row's own button names the person it sits on; only their family moves.
+    expect(fixSwappedRoles(ds, "@I2@")).toHaveLength(1);
+    expect(ds.families.get("@F1@")!.husband).toBe("@I2@");
+    expect(ds.families.get("@F2@")!.husband).toBe("@I3@");
+    expect(countSwappedRoles(ds)).toBe(1);
+  });
+
+  it("leaves a one-sided conflict alone — the sex may be the mistake there", () => {
+    // @F1@: a female husband whose partner's sex is unrecorded. @F2@: a female
+    // husband with no partner at all. Both are reported, neither is a swap:
+    // nothing says whether the role or the SEX is the error.
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Ana /Novak/
+1 SEX F
+0 @I2@ INDI
+1 NAME Eva /Novak/
+0 @I3@ INDI
+1 NAME Ida /Kos/
+1 SEX F
+0 @F1@ FAM
+1 HUSB @I1@
+1 WIFE @I2@
+0 @F2@ FAM
+1 HUSB @I3@
+0 TRLR`);
+    expect(validateDataset(ds, 2026).counts.roleSexConflict).toBe(2);
+    expect(countSwappedRoles(ds)).toBe(0);
+    expect(fixSwappedRoles(ds)).toHaveLength(0);
+    expect(ds.families.get("@F1@")!.husband).toBe("@I1@");
   });
 });
 
@@ -1293,6 +1427,29 @@ describe("fixDuplicatePointers", () => {
     expect(ds.individuals.get("@I1@")!.spouseOf).toEqual(["@F1@"]);
     expect(ds.individuals.get("@I3@")!.childOf).toEqual(["@F1@"]);
     expect(ds.families.get("@F1@")!.children).toEqual(["@I3@"]);
+  });
+
+  it("de-duplicates only the record a single row names", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Bo /Horvat/
+1 SEX M
+1 FAMS @F1@
+1 FAMS @F1@
+0 @I2@ INDI
+1 NAME Eva /Horvat/
+1 SEX F
+1 FAMS @F1@
+1 FAMS @F1@
+0 @F1@ FAM
+1 HUSB @I1@
+1 WIFE @I2@
+0 TRLR`);
+    expect(fixDuplicatePointers(ds, "@I1@")).toHaveLength(1);
+    expect(ds.individuals.get("@I1@")!.spouseOf).toEqual(["@F1@"]);
+    // The other record keeps its duplicate until its own row is clicked.
+    expect(validateDataset(ds, 2026).counts.duplicatePointer).toBe(1);
   });
 
   it("returns no patches when there is nothing to fix", () => {
@@ -1356,6 +1513,17 @@ describe("fixDanglingRefs", () => {
     expect(validateDataset(ds, 2026).counts.brokenLink).toBe(1);
     // HEAD carries no xref, so its dangling SUBM can't take an undo patch.
     expect(validateStructure(ds).counts.danglingXref).toBe(1);
+  });
+
+  it("drops only the one missing xref a single row names", () => {
+    const ds = dataset(FILE);
+    // The row names its record and the missing xref it points at — the record's
+    // other dangling pointers stay until their own rows are clicked.
+    expect(fixDanglingRefs(ds, { id: "@I1@", xref: "@O9@" })).toHaveLength(1);
+    expect(countDanglingRefs(ds)).toBe(2);
+    const indi = ds.individuals.get("@I1@")!;
+    expect(indi.raw.children.some((c) => c.tag === "OBJE")).toBe(false);
+    expect(indi.raw.children.some((c) => c.tag === "ADOP")).toBe(true);
   });
 
   it("returns no patches when every pointer resolves", () => {

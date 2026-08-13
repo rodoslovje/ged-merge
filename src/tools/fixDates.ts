@@ -183,12 +183,30 @@ export function countFixableDates(dataset: Dataset): number {
   return count;
 }
 
-export function fixDates(dataset: Dataset): RecordPatch[] {
+/** One finding's own date: the record it sits on, plus the offending value as the
+ *  row shows it — which the structural check truncates for display, so a long
+ *  value is matched by its surviving head. */
+export interface BadDateRef {
+  id: string;
+  sample?: string;
+}
+
+/** Whether `value` is the date a row showing `sample` is about. */
+function isSample(value: string, sample: string): boolean {
+  const v = value.trim();
+  return sample.endsWith("…") ? v.startsWith(sample.slice(0, -1)) : v === sample;
+}
+
+/** @param only — repair just the date one finding names (its row's own button),
+ *  instead of every repairable date in the file. */
+export function fixDates(dataset: Dataset, only?: BadDateRef): RecordPatch[] {
   const ctx = dateFixContext(dataset);
   const patches: RecordPatch[] = [];
   for (const rec of dataset.records) {
-    const fixes: { node: GedNode; next: string }[] = [];
-    collectFixes(rec, ctx, fixes);
+    if (only && rec.xref !== only.id) continue;
+    const all: { node: GedNode; next: string }[] = [];
+    collectFixes(rec, ctx, all);
+    const fixes = only?.sample ? all.filter((f) => isSample(f.node.value ?? "", only.sample!)) : all;
     if (fixes.length === 0) continue;
 
     // Top-level non-INDI/FAM records (e.g. OBJE/SOUR) carry dates too; patch them

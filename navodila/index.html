@@ -847,21 +847,29 @@
               vse druge kazalce, katerih ciljni zapis manjka — navedbe virov, opomb in medijev, povezave med osebami ter
               družinske povezave znotraj dogodka — <strong>Odstrani podvojene kazalce</strong> odpravi podvojene povezave,
               popravek spola nastavi spol nedoločenim zakoncem (mož → moški, žena → ženska),
+              <strong>Zamenjaj vlogi zakoncev</strong> vrne oba partnerja v njuni vlogi v družini, ki ima moškega
+              zapisanega kot ženo in žensko kot moža (samo pri taki obojestranski zamenjavi — če vlogi nasprotuje samo
+              eden od zakoncev, je morda napačen zapisani spol, zato ugotovitev ostane vam),
               <strong>Dopolni koordinate iz datoteke</strong> pa uredi zgoraj naštete kraje z deljenimi koordinatami. (Za
               kraje, ki koordinate nimajo nikjer, uporabite <a href="#geocode">Geokodiranje krajev</a>, ki jih poišče.)
             </p>
             <p>
-              Pokvarjeno povezavo lahko popravite tudi posamično: vsaka ugotovitev o <strong>pokvarjeni povezavi</strong>
-              ima svoj gumb <strong>Odstrani povezavo</strong>, ki odstrani samo tisti mrtvi kazalec. Uporabite ga, kadar
-              želite preostale ugotovitve še pregledati — povezave na družino, ki je ni več, v
-              <span class="gm-pill">Urejanju</span> ni mogoče videti ali odstraniti, saj manjkajoča družina tam ne izriše
-              ničesar. Kot paketne popravke tudi tega lahko razveljavite.
+              Vsak od teh popravkov je na voljo tudi po eni ugotovitvi naenkrat, kar na vrstici, ki jo je sprožila:
+              prizadete vrstice imajo svoj gumb — <strong>Odstrani povezavo</strong>, <strong>Odstrani podvojeno</strong>,
+              <strong>Odstrani sklic</strong> ali, kadar se vrednost nastavi in ne odstrani, kar izid sam
+              (<strong>→ Ženska</strong>, <strong>→ Mož</strong>, <strong>→ 26 JUN 1912</strong>). Uporabite jih, kadar se
+              z nekaterimi ugotovitvami strinjate, z drugimi pa ne: vsak deluje samo na tistem zapisu in ga je, tako kot
+              paketne popravke, mogoče razveljaviti. Gumbi hkrati kažejo, česa se bo lotil paketni popravek zgoraj — kadar
+              je v skupini več ugotovitev, kot jih popravek lahko uredi (trije zakonci brez spola med osmimi zapisi brez
+              spola), ima gumb samo tista vrstica, ki jo bo spremenil. Pokvarjeno povezavo je posebej vredno urediti tukaj:
+              v <span class="gm-pill">Urejanju</span> je ni mogoče videti ali odstraniti, saj manjkajoča družina tam ne
+              izriše ničesar.
             </p>
             <p>
               Pregled se izvede enkrat na datoteko, zato ugotovitve, ki ste jih vmes popravili v
               <span class="gm-pill">Urejanju</span>, ostanejo na seznamu, dokler pregleda ne zaženete znova.
-              <strong>Zaženi znova</strong> na vrhu pladnja znova pregleda celotno datoteko; če se je datoteka po zadnjem
-              pregledu spremenila, je gumb poudarjen in to tudi pove.
+              Če se je datoteka po zadnjem pregledu spremenila, se na vrhu pladnja pokaže gumb <strong>Zaženi znova</strong>
+              in to tudi pove; dokler je seznam ažuren, ni česa zaganjati znova, zato gumba ni.
             </p>
             <h3 id="duplicates">Dvojniki</h3>
             <p>

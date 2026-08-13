@@ -69,14 +69,27 @@ export function countDanglingRefs(dataset: Dataset): number {
   return xrefs.size;
 }
 
-export function fixDanglingRefs(dataset: Dataset): RecordPatch[] {
+/** One finding's own pointers: the record it sits on, and (when the row names
+ *  one) the single missing xref it points at. */
+export interface DanglingRef {
+  id: string;
+  xref?: string;
+}
+
+/** @param only — drop just the pointers one finding names (its row's own
+ *  button), instead of every dangling pointer in the file. */
+export function fixDanglingRefs(dataset: Dataset, only?: DanglingRef): RecordPatch[] {
   const defined = definedXrefs(dataset.records);
   const patches: RecordPatch[] = [];
 
   for (const rec of dataset.records) {
     if (!rec.xref) continue;
+    if (only && rec.xref !== only.id) continue;
     const doomed = new Set<GedNode>();
-    eachDangling(rec, 1, rec.tag, defined, (child) => doomed.add(child));
+    eachDangling(rec, 1, rec.tag, defined, (child) => {
+      if (only?.xref && child.value?.trim() !== only.xref) return;
+      doomed.add(child);
+    });
     if (doomed.size === 0) continue;
 
     const before = cloneRaw(rec);

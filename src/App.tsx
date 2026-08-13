@@ -44,6 +44,7 @@ import { applyGeocode, movePlaceForAddresses, renamePlaceValue } from "./tools/g
 import { applyAddressCoords, renameAddress } from "./tools/addresses";
 import { fixBrokenLinks } from "./tools/fixLinks";
 import { fixSexFromRole } from "./tools/fixSex";
+import { fixSwappedRoles } from "./tools/fixRoleSwap";
 import { fixDates } from "./tools/fixDates";
 import { fixDuplicatePointers } from "./tools/fixDuplicatePointers";
 import { fixDanglingRefs } from "./tools/fixDanglingRefs";
@@ -2140,10 +2141,11 @@ function AppContent() {
               onMovePlaceForAddresses={(keys, toPlace, coord) => applyToolPatches(movePlaceForAddresses(mainDataset, keys, toPlace, coord))}
               startId={startId}
               onFixBrokenLinks={(only) => applyToolPatches(fixBrokenLinks(mainDataset, only))}
-              onFixSexFromRole={() => applyToolPatches(fixSexFromRole(mainDataset))}
-              onFixDates={() => applyToolPatches(fixDates(mainDataset))}
-              onFixDuplicatePointers={() => applyToolPatches(fixDuplicatePointers(mainDataset))}
-              onFixDanglingRefs={() => applyToolPatches(fixDanglingRefs(mainDataset))}
+              onFixSexFromRole={(only) => applyToolPatches(fixSexFromRole(mainDataset, only))}
+              onFixSwappedRoles={(only) => applyToolPatches(fixSwappedRoles(mainDataset, only))}
+              onFixDates={(only) => applyToolPatches(fixDates(mainDataset, only))}
+              onFixDuplicatePointers={(only) => applyToolPatches(fixDuplicatePointers(mainDataset, only))}
+              onFixDanglingRefs={(only) => applyToolPatches(fixDanglingRefs(mainDataset, only))}
               onFillPlaceCoords={() => applyToolPatches(fillPlaceCoordsFromFile(mainDataset))}
               onApplyBatchPatches={applyToolPatches}
               onMergeDuplicate={(survivorId, removedId, decision, alsoMerge) => {

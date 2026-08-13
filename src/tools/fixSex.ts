@@ -18,10 +18,11 @@ import { cloneRaw, type RecordPatch } from "../ui/historyTypes";
 
 /**
  * Map each `SEX U` individual to the sex implied by their family role, dropping
- * anyone whose roles disagree. Shared by the count (for the button label) and
- * the fix itself so the two can never diverge.
+ * anyone whose roles disagree. Shared by the count (for the button label), the
+ * fix itself, and the panel's per-row marks — so what the button promises, what
+ * the list points at, and what the fix does can never diverge.
  */
-function collectInferences(dataset: Dataset): Map<string, Sex> {
+export function inferableSexes(dataset: Dataset): Map<string, Sex> {
   const inferred = new Map<string, Sex>();
   const conflicted = new Set<string>();
 
@@ -47,12 +48,15 @@ function collectInferences(dataset: Dataset): Map<string, Sex> {
 
 /** How many `SEX U` individuals have a sex unambiguously implied by family role. */
 export function countInferableSex(dataset: Dataset): number {
-  return collectInferences(dataset).size;
+  return inferableSexes(dataset).size;
 }
 
-export function fixSexFromRole(dataset: Dataset): RecordPatch[] {
+/** @param only — repair just this individual (their row's own button), instead
+ *  of every record the inference covers. */
+export function fixSexFromRole(dataset: Dataset, only?: string): RecordPatch[] {
   const patches: RecordPatch[] = [];
-  for (const [id, sex] of collectInferences(dataset)) {
+  for (const [id, sex] of inferableSexes(dataset)) {
+    if (only && id !== only) continue;
     const indi = dataset.individuals.get(id);
     if (!indi) continue;
     const before = cloneRaw(indi.raw);
