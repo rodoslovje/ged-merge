@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { markEventTouched } from "./edit";
-import { nowGedcomTime, stampChanCrea, todayGedcom } from "./chanCrea";
+import { nowGedcomTime, nowUpdStamp, stampChanCrea, todayGedcom } from "./chanCrea";
 import type { ChanCreaUsage, GedNode } from "./types";
 
 const TODAY = "24 JUN 2026";
@@ -18,7 +18,7 @@ function date(value: string, ...children: GedNode[]): GedNode {
   return { level: 2, tag: "DATE", value, children };
 }
 
-const ALL: ChanCreaUsage = { recordChan: true, recordCrea: true, eventChan: true, eventCrea: true };
+const ALL: ChanCreaUsage = { recordChan: true, recordCrea: true, eventChan: true, eventCrea: true, recordUpd: false, sharedChan: false, sharedCrea: false, sharedUpd: false };
 
 function childTag(node: GedNode | undefined, tag: string): GedNode | undefined {
   return node?.children.find((c) => c.tag === tag);
@@ -78,5 +78,133 @@ describe("stampChanCrea — event targeting", () => {
     const d = new Date(2026, 5, 24, 9, 5, 42);
     expect(todayGedcom(d)).toBe("24 JUN 2026");
     expect(nowGedcomTime(d)).toBe("09:05:42");
+  });
+});
+
+/** MyHeritage's `_UPD` change stamp, the vendor equivalent of CHAN. */
+describe("stampChanCrea — the _UPD change stamp", () => {
+  const UPD = "24 JUN 2026 09:05:42 GMT +0200";
+  const NONE: ChanCreaUsage = { recordChan: false, recordCrea: false, eventChan: false, eventCrea: false, recordUpd: false, sharedChan: false, sharedCrea: false, sharedUpd: false };
+  const TAG_FORM: ChanCreaUsage = { ...NONE, recordUpd: "tag" };
+
+  /** MyHeritage's older spelling: the timestamp on an EVEN typed `_UPD`. */
+  function updEvent(value: string): GedNode {
+    return { level: 1, tag: "EVEN", value, children: [{ level: 2, tag: "TYPE", value: "_UPD", children: [] }] };
+  }
+
+  it("refreshes an existing _UPD tag on a changed record", () => {
+    const upd: GedNode = { level: 1, tag: "_UPD", value: "10 AUG 2026 01:57:49 GMT -0500", children: [] };
+    const record = indi("@I1@", ev("BIRT", date("1 JAN 1900")), upd);
+
+    stampChanCrea([record], new Set(["@I1@"]), new Set(), TAG_FORM, TODAY, NOW, UPD);
+
+    expect(upd.value).toBe(UPD);
+    // Exactly one stamp — the refresh must not leave a second beside it.
+    expect(record.children.filter((c) => c.tag === "_UPD")).toHaveLength(1);
+  });
+
+  it("refreshes the event spelling in place rather than converting it", () => {
+    const stamp = updEvent("31 JAN 2020 13:12:03 GMT -0500");
+    const record = indi("@I1@", stamp);
+
+    stampChanCrea([record], new Set(["@I1@"]), new Set(), { ...NONE, recordUpd: "event" }, TODAY, NOW, UPD);
+
+    expect(stamp.value).toBe(UPD);
+    expect(childTag(stamp, "TYPE")?.value).toBe("_UPD");
+    expect(record.children.filter((c) => c.tag === "_UPD")).toHaveLength(0);
+  });
+
+  it("keeps a record's own spelling even when the file's is the other one", () => {
+    const stamp = updEvent("31 JAN 2020 13:12:03 GMT -0500");
+    const record = indi("@I1@", stamp);
+
+    // File-level form is "tag" (the majority), this record's is the event.
+    stampChanCrea([record], new Set(["@I1@"]), new Set(), TAG_FORM, TODAY, NOW, UPD);
+
+    expect(stamp.value).toBe(UPD);
+    expect(record.children.filter((c) => c.tag === "_UPD")).toHaveLength(0);
+  });
+
+  it("adds the file's form to a changed record that carries no stamp yet", () => {
+    const record = indi("@I1@", ev("BIRT", date("1 JAN 1900")));
+
+    stampChanCrea([record], new Set(["@I1@"]), new Set(), TAG_FORM, TODAY, NOW, UPD);
+
+    expect(record.children.find((c) => c.tag === "_UPD")?.value).toBe(UPD);
+  });
+
+  it("leaves untouched records and non-_UPD files alone", () => {
+    const untouched = indi("@I2@", { level: 1, tag: "_UPD", value: "10 AUG 2026 01:57:49 GMT -0500", children: [] });
+    stampChanCrea([untouched], new Set(["@I1@"]), new Set(), TAG_FORM, TODAY, NOW, UPD);
+    expect(untouched.children[0].value).toBe("10 AUG 2026 01:57:49 GMT -0500");
+
+    const noConvention = indi("@I1@", ev("BIRT", date("1 JAN 1900")));
+    stampChanCrea([noConvention], new Set(["@I1@"]), new Set(), NONE, TODAY, NOW, UPD);
+    expect(noConvention.children.some((c) => c.tag === "_UPD")).toBe(false);
+  });
+
+  it("does not also stamp the _UPD event as an event", () => {
+    const stamp = updEvent("31 JAN 2020 13:12:03 GMT -0500");
+    const record = indi("@I9@", stamp);
+
+    // A wholly new record stamps every event it has — except this one.
+    stampChanCrea([record], new Set(["@I9@"]), new Set(["@I9@"]), { ...ALL, recordUpd: "event" }, TODAY, NOW, UPD);
+
+    expect(childTag(stamp, "CHAN")).toBeUndefined();
+    expect(childTag(stamp, "CREA")).toBeUndefined();
+    expect(stamp.value).toBe(UPD);
+  });
+
+  it("writes the local zone offset in MyHeritage's shape", () => {
+    const stamped = nowUpdStamp(new Date(2026, 5, 24, 9, 5, 42));
+    expect(stamped).toMatch(/^24 JUN 2026 09:05:42 GMT [+-]\d{4}$/);
+  });
+});
+
+/** Sources, repositories, shared notes and media — edited by their own tools,
+ *  and stamped only where the file stamps that kind of record. */
+describe("stampChanCrea — shared records", () => {
+  const UPD = "24 JUN 2026 09:05:42 GMT +0200";
+  const NONE: ChanCreaUsage = { recordChan: false, recordCrea: false, eventChan: false, eventCrea: false, recordUpd: false, sharedChan: false, sharedCrea: false, sharedUpd: false };
+
+  function sour(xref: string, ...children: GedNode[]): GedNode {
+    return { level: 0, xref, tag: "SOUR", children };
+  }
+
+  it("stamps a changed source when the file stamps its sources", () => {
+    const upd: GedNode = { level: 1, tag: "_UPD", value: "10 AUG 2026 01:57:49 GMT -0500", children: [] };
+    const record = sour("@S1@", { level: 1, tag: "TITL", value: "Parish register", children: [] }, upd);
+
+    stampChanCrea([record], new Set(["@S1@"]), new Set(), { ...NONE, sharedUpd: "tag" }, TODAY, NOW, UPD);
+
+    expect(upd.value).toBe(UPD);
+  });
+
+  it("adds CHAN and, for a new one, CREA to a changed source", () => {
+    const changed = sour("@S1@");
+    const added = sour("@S2@");
+
+    stampChanCrea([changed, added], new Set(["@S1@", "@S2@"]), new Set(["@S2@"]), { ...NONE, sharedChan: true, sharedCrea: true }, TODAY, NOW, UPD);
+
+    expect(childTag(childTag(changed, "CHAN"), "DATE")?.value).toBe(TODAY);
+    expect(childTag(changed, "CREA")).toBeUndefined();
+    expect(childTag(childTag(added, "CREA"), "DATE")?.value).toBe(TODAY);
+  });
+
+  it("does not invent a convention the file keeps only for its people", () => {
+    const record = sour("@S1@", { level: 1, tag: "TITL", value: "Parish register", children: [] });
+
+    // The file stamps INDI/FAM every way there is, and its sources not at all.
+    stampChanCrea([record], new Set(["@S1@"]), new Set(), { ...ALL, recordUpd: "tag" }, TODAY, NOW, UPD);
+
+    expect(record.children.map((c) => c.tag)).toEqual(["TITL"]);
+  });
+
+  it("leaves a repository alone unless the save says it changed", () => {
+    const repo: GedNode = { level: 0, xref: "@R1@", tag: "REPO", children: [] };
+
+    stampChanCrea([repo], new Set(["@S9@"]), new Set(), { ...NONE, sharedChan: true }, TODAY, NOW, UPD);
+
+    expect(repo.children).toHaveLength(0);
   });
 });

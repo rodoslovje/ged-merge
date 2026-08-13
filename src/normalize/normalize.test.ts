@@ -170,6 +170,28 @@ describe("normalizeDataset", () => {
     expect(report.vendorTagExamples.some((e) => e.after.startsWith("CHAN"))).toBe(true);
   });
 
+  it("converts MyHeritage's event spelling of the stamp too, and never lifts it as an event", () => {
+    const profile = inferMainProfile(dataset(MAIN));
+    // The older MyHeritage form: the timestamp is the EVEN's own value.
+    const compare = `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Janez /Novak/
+1 EVEN 31 JAN 2020 13:12:03 GMT -0500
+2 TYPE _UPD
+0 TRLR
+`;
+    // Before normalization it is already invisible: a change stamp is not a
+    // life event, so it never reaches the events array the UI renders.
+    expect(dataset(compare).individuals.get("@I1@")!.events).toHaveLength(0);
+
+    const { dataset: out } = normalizeDataset(dataset(compare), profile);
+    const i1 = out.individuals.get("@I1@")!.raw;
+    expect(i1.children.some((c) => c.tag === "EVEN")).toBe(false);
+    const chan = i1.children.find((c) => c.tag === "CHAN")!;
+    expect(chan.children[0]).toMatchObject({ tag: "DATE", value: "31 january 2020" });
+  });
+
   it("strips software-internal tags only when the opt-in pass is selected", () => {
     const profile = inferMainProfile(dataset(MAIN));
     const compare = `0 HEAD

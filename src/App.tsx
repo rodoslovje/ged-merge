@@ -26,7 +26,7 @@ import { removeRecordFromReport } from "./gedcom/editReport";
 import { defaultStartId } from "./match/relatives";
 import type { DatasetRole, WorkerRequest, WorkerResponse } from "./worker/messages";
 import { decisionKey, importKey, parseDecisionKey, parseImportKey, toggleDecisionStatus, withFreshDecision, type CandidateDecision, type ImportDirection, type MatchDecisionStatus } from "./review/types";
-import { nowGedcomTime, stampChanCrea, todayGedcom } from "./gedcom/chanCrea";
+import { nowGedcomTime, nowUpdStamp, stampChanCrea, todayGedcom } from "./gedcom/chanCrea";
 import { baseStem, downloadText } from "./ui/download";
 import { AutoMediaOffer, GedcomLoader } from "./ui/GedcomLoader";
 import { StartPersonSelector } from "./ui/StartPersonSelector";
@@ -1379,7 +1379,10 @@ function AppContent() {
     if (!preview || !mainDataset) return;
 
     const usage = mainDataset.chanCreaUsage;
-    if (usage.recordChan || usage.recordCrea || usage.eventChan || usage.eventCrea) {
+    // Every convention the file might keep, not just CHAN/CREA on people: a
+    // MyHeritage file stamps `_UPD` and no CHAN at all, and a file may stamp
+    // only its sources. `stampChanCrea` writes nothing where a flag is off.
+    if (Object.values(usage).some(Boolean)) {
       const changedIds = new Set([
         ...preview.editRecordIds,
         ...Object.keys(preview.report.recordKinds),
@@ -1395,6 +1398,7 @@ function AppContent() {
         usage,
         todayGedcom(stampNow),
         nowGedcomTime(stampNow),
+        nowUpdStamp(stampNow),
       );
     }
 

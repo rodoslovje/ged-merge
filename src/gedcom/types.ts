@@ -344,6 +344,25 @@ export interface ChanCreaUsage {
   eventChan: boolean;
   /** Any event node under an INDI/FAM has a direct CREA child. */
   eventCrea: boolean;
+  /**
+   * Which MyHeritage `_UPD` change stamp the file writes on its INDI/FAM
+   * records, if any: the `1 _UPD <timestamp>` tag, or the older event
+   * spelling (`1 EVEN <timestamp>` + `2 TYPE _UPD`). `false` when the file
+   * uses neither. A file that stamps its records this way has them refreshed
+   * on save exactly as a CHAN file does, so its own convention stays true
+   * rather than going stale on the records this app touched.
+   */
+  recordUpd: false | "tag" | "event";
+  /**
+   * The same three, detected over the *shared* records instead — sources,
+   * repositories, shared notes and media objects, which the Sources and media
+   * tools edit. Held apart from the INDI/FAM flags above because a file may
+   * stamp its people and not its sources (or the reverse), and stamping a kind
+   * of record the file never stamps would invent a convention it doesn't have.
+   */
+  sharedChan: boolean;
+  sharedCrea: boolean;
+  sharedUpd: false | "tag" | "event";
 }
 
 /** Fully-built, version-agnostic dataset ready for matching and display. */

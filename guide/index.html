@@ -381,6 +381,16 @@
               (<a href="#sources">§13</a>, <a href="#photos">§12</a>) and browse them across your main file in
               <span class="gm-pill">Tools</span>.
             </p>
+            <p>
+              Some of what a program writes is <strong>bookkeeping rather than genealogy</strong> — MyHeritage stamps
+              every record with the moment it last touched it. GED Merge keeps such a stamp out of the person's events,
+              where it would sit among real facts with a timestamp for a name, and instead treats it as the file's own
+              change record: each record you actually change — a person, a family, or a source you edited in
+              <span class="gm-pill">Tools</span> — is re-stamped as you save, in whichever form that file already
+              used, so the dates it carries stay true instead of going stale on the records you edited. Records you
+              did not touch keep their stamp exactly as it was, and a file that stamps its people but not its sources
+              goes on stamping only its people.
+            </p>
           </section>
 
           <section id="score">
@@ -512,7 +522,10 @@
                 the event row — instead of a generic label, and is available from the <strong>+ Add Event</strong> menu
                 on both a person and a family. Beyond this menu, GED Merge reads and preserves many other programs'
                 vendor-specific events and facts, and surfaces those as editable, mergeable rows too (see
-                <a href="#saving">§14</a>).
+                <a href="#saving">§14</a>). Where a program wrote its own code as the Title — MyHeritage records an
+                unmarried couple as <code>MYHERITAGE:REL_PARTNERS</code> — the row is named for what the code means,
+                “Partners (MyHeritage)”, and the tooltip gives the code itself; the Title field still holds the
+                original value, so nothing is rewritten unless you edit it.
               </p>
             </div>
             <h3>A place your file has never used</h3>

@@ -1,10 +1,11 @@
 import { memo } from "react";
+import { useTranslation } from "react-i18next";
 import type { Dataset, Family, GedNode, SourceCitation, GeoCoord } from "../../gedcom/types";
 import { isSameSexCouple } from "../../gedcom/couple";
 import type { Translate } from "../../locales/i18n";
 import type { MatchDecisionStatus } from "../../review/types";
 import { firstChild } from "../../gedcom/node";
-import { eventDisplayLabel } from "../../gedcom/eventTags";
+import { customEventLabel, eventDisplayLabel } from "../../gedcom/eventTags";
 import { collectMediaRefs } from "../../gedcom/media";
 import { coupleAgesDisplay } from "../../gedcom/age";
 import { birthSortKey } from "../../gedcom/lifespan";
@@ -157,6 +158,9 @@ export const ParentFamilyGroup = memo(function ParentFamilyGroup({
   startPersonName,
 }: ParentFamilyGroupProps) {
   const settings = useSettingsSlice(SETTINGS_KEYS);
+  // Only for the language — `t` arrives as a prop. Subscribing here also keeps
+  // the memo honest when the language changes.
+  const { i18n } = useTranslation();
   const formatName = useNameOf();
   const personName = (id: string | undefined): string => {
     if (!id) return "";
@@ -190,9 +194,8 @@ export const ParentFamilyGroup = memo(function ParentFamilyGroup({
     datedCoupleEvents.find((ev) => ev.tag !== "EVEN" || !!ev.type);
   const coupleEventLabel = !coupleEvent
     ? ""
-    : coupleEvent.tag === "EVEN" && coupleEvent.type
-      ? coupleEvent.type
-      : eventDisplayLabel(coupleEvent.tag, t);
+    : (coupleEvent.tag === "EVEN" && customEventLabel(coupleEvent.type, t, i18n.language))
+      || eventDisplayLabel(coupleEvent.tag, t);
   const couplePlace = coupleEvent?.place ? coupleEvent.place.parts[0] || coupleEvent.place.raw : undefined;
   const coupleAges = settings.showAge && coupleEvent?.date && fam
     ? coupleAgesDisplay(

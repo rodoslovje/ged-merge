@@ -21,7 +21,8 @@ import type {
   Sex,
 } from "./types";
 
-import { ALL_EVENT_TAGS, FAM_EVENT_TAGS, INDI_EVENT_TAGS } from "./eventTags";
+import { ALL_EVENT_TAGS, FAM_EVENT_TAGS, INDI_EVENT_TAGS, isChangeStampEvent } from "./eventTags";
+import { UPD_STAMP_TYPE } from "./vendorTags";
 import { EDITABLE_LINK_TAGS } from "./edit/shared";
 
 /** An empty, fully-typed `Dataset` — for callers that need a valid compare side
@@ -38,7 +39,7 @@ export function emptyDataset(): Dataset {
     warnings: [],
     eol: "\r\n",
     finalNewline: true,
-    chanCreaUsage: { recordChan: false, recordCrea: false, eventChan: false, eventCrea: false },
+    chanCreaUsage: { recordChan: false, recordCrea: false, eventChan: false, eventCrea: false, recordUpd: false, sharedChan: false, sharedCrea: false, sharedUpd: false },
   };
 }
 
@@ -107,21 +108,37 @@ export function buildDataset(parsed: ParseResult): Dataset {
 
 function detectChanCreaUsage(records: GedNode[]): ChanCreaUsage {
   let recordChan = false, recordCrea = false, eventChan = false, eventCrea = false;
-  outer: for (const rec of records) {
-    if (rec.tag !== "INDI" && rec.tag !== "FAM") continue;
+  let sharedChan = false, sharedCrea = false;
+  // The `_UPD` tag is MyHeritage's current spelling and the event its older
+  // one; a file carrying both (they coexist in the wild) is stamped in the
+  // tag form, and a record keeping the event form is refreshed where it is.
+  let recordUpd: ChanCreaUsage["recordUpd"] = false;
+  let sharedUpd: ChanCreaUsage["sharedUpd"] = false;
+  for (const rec of records) {
+    // People and families on one side; the shared records the Sources and
+    // media tools edit on the other. HEAD and TRLR carry no xref and are
+    // nobody's record, so they set no convention.
+    const isPersonal = rec.tag === "INDI" || rec.tag === "FAM";
+    if (!isPersonal && !rec.xref) continue;
     for (const child of rec.children) {
-      if (child.tag === "CHAN") recordChan = true;
-      else if (child.tag === "CREA") recordCrea = true;
-      if (ALL_EVENT_TAGS.has(child.tag)) {
+      if (child.tag === "CHAN") {
+        if (isPersonal) recordChan = true; else sharedChan = true;
+      } else if (child.tag === "CREA") {
+        if (isPersonal) recordCrea = true; else sharedCrea = true;
+      } else if (child.tag === UPD_STAMP_TYPE) {
+        if (isPersonal) recordUpd = "tag"; else sharedUpd = "tag";
+      } else if (isChangeStampEvent(child)) {
+        if (isPersonal) recordUpd ||= "event"; else sharedUpd ||= "event";
+      }
+      if (isPersonal && ALL_EVENT_TAGS.has(child.tag)) {
         for (const sub of child.children) {
           if (sub.tag === "CHAN") eventChan = true;
           else if (sub.tag === "CREA") eventCrea = true;
         }
       }
-      if (recordChan && recordCrea && eventChan && eventCrea) break outer;
     }
   }
-  return { recordChan, recordCrea, eventChan, eventCrea };
+  return { recordChan, recordCrea, eventChan, eventCrea, recordUpd, sharedChan, sharedCrea, sharedUpd };
 }
 
 export function buildIndividual(record: GedNode, media: MediaLinks, sourceCtx: SourceContext, noteIndex: NoteIndex = new Map()): Individual {
@@ -172,8 +189,9 @@ export function buildIndividual(record: GedNode, media: MediaLinks, sourceCtx: S
       default:
         // Event-borne links travel with the event; everything else is a
         // record-level link.
-        if (INDI_EVENT_TAGS.has(child.tag)) events.push(buildEvent(child, media, sourceCtx, noteIndex));
-        else collectLinks(child, media, links);
+        if (INDI_EVENT_TAGS.has(child.tag) && !isChangeStampEvent(child)) {
+          events.push(buildEvent(child, media, sourceCtx, noteIndex));
+        } else if (!INDI_EVENT_TAGS.has(child.tag)) collectLinks(child, media, links);
     }
   }
 
@@ -223,8 +241,9 @@ export function buildFamily(record: GedNode, media: MediaLinks, sourceCtx: Sourc
         break;
       }
       default:
-        if (FAM_EVENT_TAGS.has(child.tag)) events.push(buildEvent(child, media, sourceCtx, noteIndex));
-        else collectLinks(child, media, links);
+        if (FAM_EVENT_TAGS.has(child.tag) && !isChangeStampEvent(child)) {
+          events.push(buildEvent(child, media, sourceCtx, noteIndex));
+        } else if (!FAM_EVENT_TAGS.has(child.tag)) collectLinks(child, media, links);
     }
   }
 

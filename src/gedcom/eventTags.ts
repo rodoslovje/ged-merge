@@ -8,7 +8,9 @@
  */
 
 import type { Translate } from "../locales/i18n";
-import { VENDOR_TAGS, VENDOR_TAG_ALIASES } from "./vendorTags";
+import { firstChild } from "./node";
+import type { GedNode } from "./types";
+import { UPD_STAMP_TYPE, VENDOR_TAGS, VENDOR_TAG_ALIASES, isInternalEventType, vendorEventTypeInfo } from "./vendorTags";
 
 /** Individual event tags in canonical life-cycle order (birth → … → death).
  *  Includes the GEDCOM attribute tags (TITL, DSCR, RELI, …) — the app models
@@ -40,6 +42,71 @@ export const FAM_EVENT_TAG_ORDER = ["MARR", "ENGA", "SEPA", "MARB", "MARL", "DIV
 export function eventDisplayLabel(tag: string, t: Translate, fallback?: string): string {
   const name = t(`event.${tag}`, { defaultValue: fallback ?? tag });
   return tag.startsWith("_") && name !== tag ? `${name} (${tag})` : name;
+}
+
+/**
+ * True for an `EVEN`/`FACT` node that records software bookkeeping instead of
+ * a fact about the person — MyHeritage writes its last-touched stamp as
+ * `1 EVEN 31 JAN 2020 13:12:03 GMT -0500` + `2 TYPE _UPD`, the event spelling
+ * of its `_UPD` tag. These are not lifted into the typed `events`, so they
+ * never reach the event list, the charts or the reports; the raw line tree
+ * keeps them, and `stampChanCrea` refreshes them like a CHAN.
+ */
+export function isChangeStampEvent(node: GedNode): boolean {
+  if (node.tag !== "EVEN" && node.tag !== "FACT") return false;
+  return isInternalEventType(firstChild(node, "TYPE")?.value);
+}
+
+/** The `_UPD` change stamp on a record, in whichever of MyHeritage's two
+ *  spellings the record uses: the `_UPD` tag, or the `EVEN` above. */
+export function changeStampNode(record: GedNode): GedNode | undefined {
+  return record.children.find((c) => c.tag === UPD_STAMP_TYPE || isChangeStampEvent(c));
+}
+
+/**
+ * Display name for a custom event (`EVEN`/`FACT`), which is named by its
+ * `TYPE` rather than by its tag. A type the user wrote ("Twin", "Comment") is
+ * its own label. Two kinds are not readable as they stand, and both get the
+ * name that fits with the raw value kept in parentheses — the same shape
+ * `eventDisplayLabel` uses for vendor tags, so the row never hides what the
+ * file actually says:
+ *
+ * - a program's namespaced type → the registry's name and the producing
+ *   software, "Partners (MyHeritage)" for `MYHERITAGE:REL_PARTNERS`;
+ * - a standard event tag used as the type — MyHeritage writes a person's
+ *   marriage as `1 EVEN` + `2 TYPE MARR` — → that event's own name,
+ *   "Marriage (MARR)".
+ *
+ * Returns "" for an untyped event, leaving the caller's generic "Event" label.
+ */
+export function customEventLabel(type: string | undefined, t: Translate, lang: string): string {
+  const raw = type?.trim() ?? "";
+  if (!raw) return "";
+  const info = vendorEventTypeInfo(raw);
+  if (info) {
+    const label = lang.startsWith("sl") ? info.label.sl : info.label.en;
+    return `${label} (${info.software})`;
+  }
+  // EVEN/FACT themselves say nothing a generic label doesn't already say.
+  const tag = raw.toUpperCase();
+  if (ALL_EVENT_TAGS.has(tag) && tag !== "EVEN" && tag !== "FACT") {
+    const name = t(`event.${tag}`, { defaultValue: "" });
+    if (name) return `${name} (${tag})`;
+  }
+  return raw;
+}
+
+/**
+ * Tooltip for a custom event whose `TYPE` the registry knows — naming the raw
+ * value, since the row no longer shows it. Undefined for a user-written type,
+ * whose label already says everything the value does.
+ */
+export function customEventTooltip(type: string | undefined, t: Translate, lang: string): string | undefined {
+  const raw = type?.trim() ?? "";
+  const info = vendorEventTypeInfo(raw);
+  if (!info) return undefined;
+  const meaning = lang.startsWith("sl") ? info.meaning.sl : info.meaning.en;
+  return t("event.vendorTypeTooltip", { type: raw, software: info.software, meaning });
 }
 
 /**

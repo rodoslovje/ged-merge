@@ -1702,6 +1702,7 @@ export const en = {
   "event.customTooltip": "Custom event ({{tag}}) — named by its Title field",
   "event.vendorTooltip": "Non-standard tag {{tag}}",
   "event.vendorTooltip.known": "Non-standard tag {{tag}} ({{software}}): {{meaning}}",
+  "event.vendorTypeTooltip": "Custom event of type {{type}} ({{software}}): {{meaning}}",
   "event.addLabel": "Add Event",
   "event.date": "{{event}} date",
   "event.place": "{{event}} place",

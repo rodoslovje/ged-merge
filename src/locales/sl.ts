@@ -1924,6 +1924,7 @@ export const sl = {
   "event.customTooltip": "Dogodek po meri ({{tag}}) — poimenovan po polju Naziv",
   "event.vendorTooltip": "Nestandardna oznaka {{tag}}",
   "event.vendorTooltip.known": "Nestandardna oznaka {{tag}} ({{software}}): {{meaning}}",
+  "event.vendorTypeTooltip": "Dogodek po meri vrste {{type}} ({{software}}): {{meaning}}",
   "event.addLabel": "Dodaj dogodek",
   "event.date": "Datum ({{event}})",
   "event.place": "Kraj ({{event}})",

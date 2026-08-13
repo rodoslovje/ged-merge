@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { renderKeyToken } from "../../keyboard/shortcuts";
 import { useFindShortcutOn } from "../../keyboard/useFindShortcut";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
+import { customEventLabel } from "../../gedcom/eventTags";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
 import type { SourceUse } from "../../tools/sources";
 import { lineageClass, type KinshipResolver } from "../../match/kinship";
@@ -158,7 +159,7 @@ export function GeoPeopleList({
   onNavigate: (id: string) => void;
   limit?: number;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   return (
     <>
       <ul className="tools-usage tools-geo-people">
@@ -175,7 +176,8 @@ export function GeoPeopleList({
             : [];
           const placeEventsTitle = placeEvents
             .map((ev) => {
-              const label = ev.tag === "EVEN" && ev.type ? ev.type : t(`event.${ev.tag}`, { defaultValue: ev.tag });
+              const custom = ev.tag === "EVEN" ? customEventLabel(ev.type, t, i18n.language) : "";
+              const label = custom || t(`event.${ev.tag}`, { defaultValue: ev.tag });
               return ev.date?.raw ? `${label}: ${ev.date.raw}` : label;
             })
             .join("\n");
