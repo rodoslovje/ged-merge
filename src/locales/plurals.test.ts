@@ -67,6 +67,17 @@ describe("Slovenian plural forms", () => {
     expect(t("tools.validate.coordConflict.hint", 5, "sl")).toContain("kombinacij kraja in naslova nosi");
   });
 
+  it("agrees the ticked relatives of a duplicate merge", () => {
+    // The confirmation names the relatives merged along with the pair; with one
+    // ticked the plural sentence ("Sorodniki … bodo združeni") reads as broken.
+    expect(t("tools.duplicates.mergeConfirmAlso", 1, "sl")).toContain("Sorodnik, ki ste ga označili");
+    expect(t("tools.duplicates.mergeConfirmAlso", 2, "sl")).toContain("Sorodnika, ki ste ju označili");
+    expect(t("tools.duplicates.mergeConfirmAlso", 3, "sl")).toContain("Sorodniki, ki ste jih označili");
+    expect(t("tools.duplicates.mergeConfirmAlsoAfter", 1, "sl")).toContain("Otrok, ki ste ga označili");
+    expect(t("tools.duplicates.mergeConfirmAlsoAfter", 2, "sl")).toContain("Otroka, ki ste ju označili");
+    expect(t("tools.duplicates.mergeConfirmAlsoAfter", 5, "sl")).toContain("Otroci, ki ste jih označili");
+  });
+
   it("still reads correctly in English", () => {
     expect(t("tools.duplicates.cluster.records", 1, "en")).toBe("1 record");
     expect(t("tools.duplicates.cluster.records", 2, "en")).toBe("2 records");
