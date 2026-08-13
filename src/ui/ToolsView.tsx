@@ -7,6 +7,7 @@ import type { AddressRename } from "../tools/addresses";
 import { useToolsScans } from "./useToolsScans";
 import { ValidatePanel } from "./tools/ValidatePanel";
 import { DuplicatesPanel, type RelatedMerge } from "./tools/DuplicatesPanel";
+import type { ClusterRelativeGroup } from "../tools/mergeCluster";
 import { NormalizePanel } from "./tools/NormalizePanel";
 import { PrivacyPanel } from "./tools/PrivacyPanel";
 import { SourcesPanel } from "./tools/SourcesPanel";
@@ -107,6 +108,14 @@ interface Props {
     /** Relatives the user ticked to merge first — see `mergeDuplicateChain`. */
     alsoMerge: RelatedMerge[],
   ) => boolean;
+  /** Collapse a whole cluster — one person entered N times — into a single
+   *  record, along with any relative groups the user ticked, as one undo entry.
+   *  Returns the ids it removed (empty when nothing applied). */
+  onMergeCluster: (
+    survivorId: string,
+    memberIds: string[],
+    groups: ClusterRelativeGroup[],
+  ) => string[];
   /** Rejected within-file duplicate pairs (keyed by `duplicatePairKey`), persisted
    *  so a re-run of the duplicate scan doesn't resurface them. */
   rejectedDuplicates: Set<string>;
@@ -118,7 +127,7 @@ interface Props {
   onUnrejectDuplicate: (aId: string, bId: string) => void;
 }
 
-export function ToolsView({ dataset, editVersionRef, editVersion, fileName, onNavigate, onAddSource, onEditSource, onRemoveSource, onEditRepo, onEditMediaInfo, active, onApplyPlaceRename, onApplyGeocode, onApplyAddressCoords, onRenamePlaceValue, onApplyOfficialNames, onRenameAddresses, onMovePlaceForAddresses, startId, onFixBrokenLinks, onFixSexFromRole, onFixSwappedRoles, onFixDates, onFixDuplicatePointers, onFixDanglingRefs, onFillPlaceCoords, onApplyBatchPatches, onMergeDuplicate, rejectedDuplicates, onRejectDuplicate, onRejectDuplicatesBulk, onUnrejectDuplicate }: Props) {
+export function ToolsView({ dataset, editVersionRef, editVersion, fileName, onNavigate, onAddSource, onEditSource, onRemoveSource, onEditRepo, onEditMediaInfo, active, onApplyPlaceRename, onApplyGeocode, onApplyAddressCoords, onRenamePlaceValue, onApplyOfficialNames, onRenameAddresses, onMovePlaceForAddresses, startId, onFixBrokenLinks, onFixSexFromRole, onFixSwappedRoles, onFixDates, onFixDuplicatePointers, onFixDanglingRefs, onFillPlaceCoords, onApplyBatchPatches, onMergeDuplicate, onMergeCluster, rejectedDuplicates, onRejectDuplicate, onRejectDuplicatesBulk, onUnrejectDuplicate }: Props) {
   const { t } = useTranslation();
   // Places leads the tabs and is where most work starts, so it is what Tools
   // opens on; the choice then stands for the rest of the session.
@@ -182,7 +191,7 @@ export function ToolsView({ dataset, editVersionRef, editVersion, fileName, onNa
           <ValidatePanel dataset={dataset} scans={scans} onNavigate={onNavigate} active={active} onFixBrokenLinks={onFixBrokenLinks} onFixSexFromRole={onFixSexFromRole} onFixSwappedRoles={onFixSwappedRoles} onFixDates={onFixDates} onFixDuplicatePointers={onFixDuplicatePointers} onFixDanglingRefs={onFixDanglingRefs} onFillPlaceCoords={onFillPlaceCoords} />
         )}
         {tool === "duplicates" && (
-          <DuplicatesPanel dataset={dataset} scans={scans} onNavigate={onNavigate} active={active} onMergeDuplicate={onMergeDuplicate} rejectedDuplicates={rejectedDuplicates} onRejectDuplicate={onRejectDuplicate} onRejectDuplicatesBulk={onRejectDuplicatesBulk} onUnrejectDuplicate={onUnrejectDuplicate} />
+          <DuplicatesPanel dataset={dataset} scans={scans} onNavigate={onNavigate} active={active} onMergeDuplicate={onMergeDuplicate} onMergeCluster={onMergeCluster} rejectedDuplicates={rejectedDuplicates} onRejectDuplicate={onRejectDuplicate} onRejectDuplicatesBulk={onRejectDuplicatesBulk} onUnrejectDuplicate={onUnrejectDuplicate} />
         )}
         {tool === "normalize" && (
           <NormalizePanel dataset={dataset} scans={scans} fileName={fileName} active={active} editVersionRef={editVersionRef} onNavigate={onNavigate} onApplyPatches={onApplyBatchPatches} startId={startId} />

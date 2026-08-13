@@ -6180,6 +6180,46 @@ kbd {
 /* Not a count but the reason there isn't one — reads as guidance, not status. */
 .sheet-dialog-count.is-hint { color: var(--muted); font-weight: 500; }
 
+/* "Merge all": the confirm-dialog shell plus the three things a whole-cluster
+   merge has to settle — which record survives, which duplicated relatives come
+   along, and whether anything in the group is only indirectly linked. */
+.cluster-dialog { width: 560px; max-height: 90dvh; }
+.cluster-dialog-hint {
+  margin: 0 0 6px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.cluster-dialog-list {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+}
+.cluster-dialog-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 4px;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.cluster-dialog-row:hover { background: var(--panel-2); }
+.cluster-dialog-row input { cursor: pointer; }
+.cluster-dialog-name { display: flex; align-items: center; gap: 6px; }
+.cluster-dialog-meta { color: var(--muted); font-size: 0.8rem; }
+/* Not an error — a caveat about what the scan does and does not assert. */
+.cluster-dialog-warning {
+  margin: 0 0 16px;
+  padding: 8px 10px;
+  border-left: 3px solid var(--status-diff);
+  background: var(--panel-2);
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  color: var(--text);
+  line-height: 1.45;
+}
+.cluster-dialog-related { margin-bottom: 4px; }
+
 /* Add/Edit Source dialog: a short, wide card that sizes to its content —
    header and footer pinned, body scrolling only when needed. */
 .add-source-dialog { width: 740px; max-width: 90vw; height: auto; max-height: 94dvh; }

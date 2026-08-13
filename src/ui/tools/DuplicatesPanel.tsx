@@ -19,6 +19,7 @@ import {
   relatedMergeOrder,
   relatedSeparateRecords,
 } from "../../tools/mergeDuplicate";
+import { RELATED_CHILD_MIN_SCORE, type ClusterRelativeGroup } from "../../tools/mergeCluster";
 import { defaultChoice, type CandidateDecision, type FieldChoice, type FieldRow } from "../../review/types";
 import { rowCanKeepBoth } from "../../merge/applyFields";
 import { type PersonNav } from "../ReadOnlyCompare";
@@ -28,6 +29,7 @@ import { FieldValue, LinkIcons, RelativeGrid } from "../FieldValue";
 import { SourceRefs } from "../SourceRef";
 import { SelectMenu } from "../DropdownMenu";
 import { ConfirmDialog } from "../ConfirmDialog";
+import { ClusterMergeDialog } from "./ClusterMergeDialog";
 import { PersonLink } from "../PersonLink";
 import { type ToolsScans } from "../useToolsScans";
 import { useVirtualList } from "../useVirtualList";
@@ -55,12 +57,6 @@ export interface RelatedMerge {
   when: "before" | "after";
 }
 
-/** Score floor for the child pairs offered alongside a merge. Unlike parents and
- *  partners (structural: one father, one spouse per family), children are paired
- *  by name similarity across two sibling sets, so a weak pair is more likely to
- *  be two different people who share a name than one person twice. */
-const RELATED_CHILD_MIN_SCORE = DEFAULT_CONFIG.probableThreshold * 100;
-
 /** A flattened list row: either a cluster header or a duplicate pair. */
 type Row =
   | { kind: "cluster"; cluster: DuplicateCluster; key: string }
@@ -72,6 +68,7 @@ export function DuplicatesPanel({
   onNavigate,
   active,
   onMergeDuplicate,
+  onMergeCluster,
   rejectedDuplicates,
   onRejectDuplicate,
   onRejectDuplicatesBulk,
@@ -87,6 +84,13 @@ export function DuplicatesPanel({
     decision: CandidateDecision,
     alsoMerge: RelatedMerge[],
   ) => boolean;
+  /** Collapse a whole cluster (plus the ticked relative groups) in one undoable
+   *  step; returns the records it removed, empty when nothing was applied. */
+  onMergeCluster: (
+    survivorId: string,
+    memberIds: string[],
+    groups: ClusterRelativeGroup[],
+  ) => string[];
   rejectedDuplicates: Set<string>;
   onRejectDuplicate: (aId: string, bId: string) => void;
   onRejectDuplicatesBulk: (pairs: Array<{ aId: string; bId: string }>) => void;
@@ -106,6 +110,8 @@ export function DuplicatesPanel({
   const [expandedClusters, setExpandedClusters] = useState<Set<string>>(new Set());
   // Toggles the list between active candidates and previously-rejected pairs.
   const [showRejected, setShowRejected] = useState(false);
+  // The cluster whose "merge all" question is open, if any.
+  const [mergingCluster, setMergingCluster] = useState<DuplicateCluster | null>(null);
   // Keyboard-highlighted row (index into the flattened display list).
   const [selected, setSelected] = useState(0);
   const selectedRef = useRef(0);
@@ -135,6 +141,12 @@ export function DuplicatesPanel({
     pendingOpenKey.current = null;
     fieldsCache.current.clear();
   }, [dataset]);
+
+  // The panel only hides with CSS display, so a question left open would keep
+  // its overlay mounted and dead-key whatever view the user moved to.
+  useEffect(() => {
+    if (!active) setMergingCluster(null);
+  }, [active]);
 
   // Start the (potentially minutes-long) scan the first time the tab is shown.
   // It runs in the tools worker and its state lives in the ToolsView-level
@@ -228,6 +240,22 @@ export function DuplicatesPanel({
   ) {
     if (!onMergeDuplicate(survivorId, removedId, decision, alsoMerge)) return;
     const gone = new Set([removedId, ...alsoMerge.map((r) => r.removedId)]);
+    scans.updateDuplicates((pairs) => pairs.filter((p) => !gone.has(p.aId) && !gone.has(p.bId)));
+    advancePast((p) => gone.has(p.aId) || gone.has(p.bId));
+  }
+
+  // Collapse a whole cluster into one record. Same bookkeeping as a pairwise
+  // merge — every pair naming a removed record leaves the list — only now a
+  // whole blob (and any ticked relative groups) goes at once.
+  function handleMergeCluster(
+    cluster: DuplicateCluster,
+    survivorId: string,
+    groups: ClusterRelativeGroup[],
+  ) {
+    const removed = onMergeCluster(survivorId, cluster.memberIds, groups);
+    setMergingCluster(null);
+    if (removed.length === 0) return;
+    const gone = new Set(removed);
     scans.updateDuplicates((pairs) => pairs.filter((p) => !gone.has(p.aId) && !gone.has(p.bId)));
     advancePast((p) => gone.has(p.aId) || gone.has(p.bId));
   }
@@ -517,6 +545,13 @@ export function DuplicatesPanel({
                           {t("tools.duplicates.cluster.pairs", { count: c.pairs.length })}
                         </span>
                         <button
+                          className="tools-issue-link tools-dup-cluster-merge"
+                          title={t("tools.duplicates.cluster.mergeAllTip")}
+                          onClick={() => setMergingCluster(c)}
+                        >
+                          {t("tools.duplicates.cluster.mergeAll")}
+                        </button>
+                        <button
                           className="tools-issue-link tools-dup-cluster-dismiss"
                           title={t("tools.duplicates.cluster.rejectAllTitle")}
                           onClick={() => dismissCluster(c)}
@@ -586,6 +621,14 @@ export function DuplicatesPanel({
             </ul>
           )}
         </>
+      )}
+      {mergingCluster && (
+        <ClusterMergeDialog
+          dataset={dataset}
+          cluster={mergingCluster}
+          onCancel={() => setMergingCluster(null)}
+          onConfirm={(survivorId, groups) => handleMergeCluster(mergingCluster, survivorId, groups)}
+        />
       )}
     </>
   );

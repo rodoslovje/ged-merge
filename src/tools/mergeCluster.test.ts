@@ -12,7 +12,6 @@ import { mergeDuplicateChain } from "./mergeDuplicate";
 import {
   clusterMergeSteps,
   clusterRelativeGroups,
-  clusterRemovedIds,
   mergeCluster,
   pickClusterSurvivor,
   RELATED_CHILD_MIN_SCORE,
@@ -128,7 +127,7 @@ describe("mergeCluster", () => {
       ]),
     );
 
-    const patches = mergeCluster(ds, "@I1@", ["@I1@", "@I2@", "@I3@", "@I4@"], [], tr);
+    const { patches, removedIds } = mergeCluster(ds, "@I1@", ["@I1@", "@I2@", "@I3@", "@I4@"], [], tr);
 
     // Each record appears once, and its `before` is the state from before the
     // first step that touched it — so a single undo puts the file back.
@@ -142,11 +141,12 @@ describe("mergeCluster", () => {
       "@I3@",
       "@I4@",
     ]);
+    expect([...removedIds].sort()).toEqual(["@I2@", "@I3@", "@I4@"]);
   });
 
   it("does nothing when the cluster is a single record", () => {
     const ds = dataset(fourCopies);
-    expect(mergeCluster(ds, "@I1@", ["@I1@"], [], tr)).toEqual([]);
+    expect(mergeCluster(ds, "@I1@", ["@I1@"], [], tr).patches).toEqual([]);
     expect(ds.individuals.size).toBe(5);
   });
 
@@ -205,7 +205,7 @@ describe("clusterRelativeGroups", () => {
     const firstWifeStep = steps.findIndex((s) => s.survivorId === "@W1@");
     const lastHusbandStep = steps.map((s) => s.survivorId).lastIndexOf("@H1@");
     expect(lastHusbandStep).toBeLessThan(firstWifeStep);
-    expect(clusterRemovedIds(steps).sort()).toEqual(["@H2@", "@H3@", "@W2@", "@W3@"]);
+    expect([...new Set(steps.map((s) => s.removedId))].sort()).toEqual(["@H2@", "@H3@", "@W2@", "@W3@"]);
   });
 
   it("does not follow a relative's own relatives — the cascade stops at one hop", () => {

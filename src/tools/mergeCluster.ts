@@ -244,8 +244,12 @@ function absorbOrder(dataset: Dataset, survivorId: string, memberIds: string[]):
 
 /**
  * Collapse the cluster (and the ticked relative groups) into one record each,
- * as a single undoable action. Returns the composed patches, or an empty array
- * if there was nothing to do.
+ * as a single undoable action.
+ *
+ * `removedIds` is read off the plan rather than the result, because by the time
+ * the caller looks those records are gone: the panel needs them to drop their
+ * pairs from the list, and the app to follow anything still pointing at one to
+ * the record it was merged into.
  */
 export function mergeCluster(
   dataset: Dataset,
@@ -253,14 +257,23 @@ export function mergeCluster(
   memberIds: string[],
   groups: ClusterRelativeGroup[],
   t: Translate,
-): RecordPatch[] {
+): ClusterMergeResult {
   const steps = clusterMergeSteps(dataset, survivorId, memberIds, groups);
-  if (steps.length === 0) return [];
-  return mergeDuplicateChain(dataset, steps, t);
+  if (steps.length === 0) return { patches: [], removedIds: [], survivorOf: new Map() };
+  return {
+    patches: mergeDuplicateChain(dataset, steps, t),
+    removedIds: [...new Set(steps.map((s) => s.removedId))],
+    // Where each absorbed record went: a group's records fold into their own
+    // survivor, not the cluster's, so this is not one id for all of them.
+    survivorOf: new Map(steps.map((s) => [s.removedId, s.survivorId])),
+  };
 }
 
-/** Every record a cluster merge removes — the panel drops their pairs from the
- *  list, and the app follows anything pointing at them to the survivor. */
-export function clusterRemovedIds(steps: DuplicateMergeStep[]): string[] {
-  return [...new Set(steps.map((s) => s.removedId))];
+export interface ClusterMergeResult {
+  /** The composed patches — one entry per touched record, one undo. */
+  patches: RecordPatch[];
+  /** Every record the merge deleted. */
+  removedIds: string[];
+  /** Removed record id → the record it was merged into. */
+  survivorOf: Map<string, string>;
 }

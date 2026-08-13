@@ -51,6 +51,7 @@ import { fixDanglingRefs } from "./tools/fixDanglingRefs";
 import { fillPlaceCoordsFromFile } from "./tools/placeCoords";
 import { createStandaloneSource } from "./ui/edit/standaloneSource";
 import { mergeDuplicateChain } from "./tools/mergeDuplicate";
+import { mergeCluster } from "./tools/mergeCluster";
 import { duplicatePairKey, parseDuplicatePairKey } from "./tools/duplicates";
 import { SaveDialog } from "./ui/SaveDialog";
 import { useConfirmDialog } from "./ui/useConfirmDialog";
@@ -2169,6 +2170,29 @@ function AppContent() {
                   if (startId === step.removedId) changeStart(step.survivorId);
                 }
                 return true;
+              }}
+              onMergeCluster={(survivorId, memberIds, groups) => {
+                // One person entered N times: the planner turns the cluster
+                // (and the ticked relative groups) into a chain of the very
+                // merges the pairwise button runs — see `mergeCluster`.
+                const { patches, removedIds, survivorOf } = mergeCluster(
+                  mainDataset,
+                  survivorId,
+                  memberIds,
+                  groups,
+                  t,
+                );
+                if (applyToolPatches(patches) === 0) return [];
+                // Anything still pointing at an absorbed record would render
+                // the "no person" empty state; follow it to the record it was
+                // merged into (a group's records fold into their own survivor).
+                for (const removed of removedIds) {
+                  const keep = survivorOf.get(removed);
+                  if (!keep) continue;
+                  if (editPersonId === removed) setNavigateToId(keep);
+                  if (startId === removed) changeStart(keep);
+                }
+                return removedIds;
               }}
               rejectedDuplicates={rejectedDuplicates}
               onRejectDuplicate={(aId, bId) => {
