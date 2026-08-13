@@ -110,6 +110,14 @@ function insertCreaIfAbsent(record: GedNode, today: string, now: string, order: 
  * last-touched time from before this session. `updStamp` carries the value
  * (from `nowUpdStamp()`); the two conventions are independent, and a file
  * using both gets both.
+ *
+ * Shared records — sources, repositories, shared notes, media objects — are
+ * stamped the same way when the save reports one changed (the Sources and
+ * media tools edit these), but from their own `shared*` usage flags: whether a
+ * file stamps its people says nothing about whether it stamps its sources, and
+ * writing a stamp onto a kind of record the file never stamps would invent a
+ * convention rather than keep one. They have no events of their own, so only
+ * the record line is touched.
  */
 export function stampChanCrea(
   records: GedNode[],
@@ -120,15 +128,30 @@ export function stampChanCrea(
   now: string,
   updStamp: string = nowUpdStamp(),
 ): void {
-  if (!usage.recordChan && !usage.recordCrea && !usage.eventChan && !usage.eventCrea && !usage.recordUpd) return;
+  if (
+    !usage.recordChan && !usage.recordCrea && !usage.eventChan && !usage.eventCrea && !usage.recordUpd
+    && !usage.sharedChan && !usage.sharedCrea && !usage.sharedUpd
+  ) return;
 
   for (const record of records) {
     const xref = record.xref;
     if (!xref || !changedIds.has(xref)) continue;
-    if (record.tag !== "INDI" && record.tag !== "FAM") continue;
+    const isPersonal = record.tag === "INDI" || record.tag === "FAM";
+    const isNew = newIds.has(xref);
+
+    // A shared record — a source, a repository, a shared note or a media
+    // object, edited through the Sources and media tools — is stamped by its
+    // own side of the usage: a file that stamps its people but not its sources
+    // must not start stamping sources because this app touched one.
+    if (!isPersonal) {
+      // These carry no events of their own to stamp, only the record line.
+      if (usage.sharedChan) upsertChan(record, today, now, []);
+      if (usage.sharedCrea && isNew) insertCreaIfAbsent(record, today, now, []);
+      if (usage.sharedUpd) upsertUpd(record, updStamp, usage.sharedUpd, []);
+      continue;
+    }
 
     const order = record.tag === "INDI" ? INDI_CHILD_ORDER : FAM_CHILD_ORDER;
-    const isNew = newIds.has(xref);
 
     if (usage.recordChan) upsertChan(record, today, now, order);
     if (usage.recordCrea && isNew) insertCreaIfAbsent(record, today, now, order);

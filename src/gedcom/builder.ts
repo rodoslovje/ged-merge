@@ -39,7 +39,7 @@ export function emptyDataset(): Dataset {
     warnings: [],
     eol: "\r\n",
     finalNewline: true,
-    chanCreaUsage: { recordChan: false, recordCrea: false, eventChan: false, eventCrea: false, recordUpd: false },
+    chanCreaUsage: { recordChan: false, recordCrea: false, eventChan: false, eventCrea: false, recordUpd: false, sharedChan: false, sharedCrea: false, sharedUpd: false },
   };
 }
 
@@ -108,27 +108,37 @@ export function buildDataset(parsed: ParseResult): Dataset {
 
 function detectChanCreaUsage(records: GedNode[]): ChanCreaUsage {
   let recordChan = false, recordCrea = false, eventChan = false, eventCrea = false;
+  let sharedChan = false, sharedCrea = false;
   // The `_UPD` tag is MyHeritage's current spelling and the event its older
   // one; a file carrying both (they coexist in the wild) is stamped in the
   // tag form, and a record keeping the event form is refreshed where it is.
   let recordUpd: ChanCreaUsage["recordUpd"] = false;
-  outer: for (const rec of records) {
-    if (rec.tag !== "INDI" && rec.tag !== "FAM") continue;
+  let sharedUpd: ChanCreaUsage["sharedUpd"] = false;
+  for (const rec of records) {
+    // People and families on one side; the shared records the Sources and
+    // media tools edit on the other. HEAD and TRLR carry no xref and are
+    // nobody's record, so they set no convention.
+    const isPersonal = rec.tag === "INDI" || rec.tag === "FAM";
+    if (!isPersonal && !rec.xref) continue;
     for (const child of rec.children) {
-      if (child.tag === "CHAN") recordChan = true;
-      else if (child.tag === "CREA") recordCrea = true;
-      else if (child.tag === UPD_STAMP_TYPE) recordUpd = "tag";
-      else if (recordUpd === false && isChangeStampEvent(child)) recordUpd = "event";
-      if (ALL_EVENT_TAGS.has(child.tag)) {
+      if (child.tag === "CHAN") {
+        if (isPersonal) recordChan = true; else sharedChan = true;
+      } else if (child.tag === "CREA") {
+        if (isPersonal) recordCrea = true; else sharedCrea = true;
+      } else if (child.tag === UPD_STAMP_TYPE) {
+        if (isPersonal) recordUpd = "tag"; else sharedUpd = "tag";
+      } else if (isChangeStampEvent(child)) {
+        if (isPersonal) recordUpd ||= "event"; else sharedUpd ||= "event";
+      }
+      if (isPersonal && ALL_EVENT_TAGS.has(child.tag)) {
         for (const sub of child.children) {
           if (sub.tag === "CHAN") eventChan = true;
           else if (sub.tag === "CREA") eventCrea = true;
         }
       }
-      if (recordChan && recordCrea && eventChan && eventCrea && recordUpd === "tag") break outer;
     }
   }
-  return { recordChan, recordCrea, eventChan, eventCrea, recordUpd };
+  return { recordChan, recordCrea, eventChan, eventCrea, recordUpd, sharedChan, sharedCrea, sharedUpd };
 }
 
 export function buildIndividual(record: GedNode, media: MediaLinks, sourceCtx: SourceContext, noteIndex: NoteIndex = new Map()): Individual {

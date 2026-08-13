@@ -1378,9 +1378,10 @@ function AppContent() {
     if (!preview || !mainDataset) return;
 
     const usage = mainDataset.chanCreaUsage;
-    // `recordUpd` counts as a change-stamp convention of its own: a MyHeritage
-    // file stamps `_UPD` and no CHAN at all, and would otherwise be skipped.
-    if (usage.recordChan || usage.recordCrea || usage.eventChan || usage.eventCrea || usage.recordUpd) {
+    // Every convention the file might keep, not just CHAN/CREA on people: a
+    // MyHeritage file stamps `_UPD` and no CHAN at all, and a file may stamp
+    // only its sources. `stampChanCrea` writes nothing where a flag is off.
+    if (Object.values(usage).some(Boolean)) {
       const changedIds = new Set([
         ...preview.editRecordIds,
         ...Object.keys(preview.report.recordKinds),
