@@ -10,6 +10,7 @@ import { collectLocalMediaFiles } from "./mediaFiles";
 import { buildPlaceTree, UNSPECIFIED, UNSPECIFIED_PLACE } from "./places";
 import { fixBrokenLinks } from "./fixLinks";
 import { countInferableSex, fixSexFromRole } from "./fixSex";
+import { countSwappedRoles, fixSwappedRoles } from "./fixRoleSwap";
 import { fixDuplicatePointers } from "./fixDuplicatePointers";
 import { countDanglingRefs, fixDanglingRefs } from "./fixDanglingRefs";
 import { bulkNormalize } from "./bulkNormalize";
@@ -1254,6 +1255,69 @@ describe("fixSexFromRole", () => {
     expect(countInferableSex(ds)).toBe(0);
     expect(fixSexFromRole(ds)).toHaveLength(0);
     expect(ds.individuals.get("@I1@")!.sex).toBe("U");
+  });
+});
+
+describe("fixSwappedRoles", () => {
+  it("puts two spouses holding each other's slots back in their own", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Tanja /Nemec/
+1 SEX F
+1 FAMS @F1@
+0 @I2@ INDI
+1 NAME Andrej /Ogris/
+1 SEX M
+1 FAMS @F1@
+0 @I3@ INDI
+1 NAME Otrok /Ogris/
+1 FAMC @F1@
+0 @F1@ FAM
+1 HUSB @I1@
+1 WIFE @I2@
+1 CHIL @I3@
+0 TRLR`);
+    expect(countSwappedRoles(ds)).toBe(1);
+    expect(validateDataset(ds, 2026).counts.roleSexConflict).toBe(2);
+
+    const patches = fixSwappedRoles(ds);
+    expect(patches).toHaveLength(1);
+    expect(patches[0].type).toBe("family");
+    const fam = ds.families.get("@F1@")!;
+    expect(fam.husband).toBe("@I2@");
+    expect(fam.wife).toBe("@I1@");
+    // The children ride along untouched, and the finding is gone.
+    expect(fam.children).toEqual(["@I3@"]);
+    expect(validateDataset(ds, 2026).counts.roleSexConflict).toBe(0);
+    // Re-running is a no-op once both spouses sit in their own slot.
+    expect(fixSwappedRoles(ds)).toHaveLength(0);
+  });
+
+  it("leaves a one-sided conflict alone — the sex may be the mistake there", () => {
+    // @F1@: a female husband whose partner's sex is unrecorded. @F2@: a female
+    // husband with no partner at all. Both are reported, neither is a swap:
+    // nothing says whether the role or the SEX is the error.
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Ana /Novak/
+1 SEX F
+0 @I2@ INDI
+1 NAME Eva /Novak/
+0 @I3@ INDI
+1 NAME Ida /Kos/
+1 SEX F
+0 @F1@ FAM
+1 HUSB @I1@
+1 WIFE @I2@
+0 @F2@ FAM
+1 HUSB @I3@
+0 TRLR`);
+    expect(validateDataset(ds, 2026).counts.roleSexConflict).toBe(2);
+    expect(countSwappedRoles(ds)).toBe(0);
+    expect(fixSwappedRoles(ds)).toHaveLength(0);
+    expect(ds.families.get("@F1@")!.husband).toBe("@I1@");
   });
 });
 

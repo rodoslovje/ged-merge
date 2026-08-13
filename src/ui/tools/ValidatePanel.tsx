@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { Dataset } from "../../gedcom/types";
 import { type ValidationReport, type ValidationIssue, type IssueCategory } from "../../tools/validate";
 import { countInferableSex } from "../../tools/fixSex";
+import { countSwappedRoles } from "../../tools/fixRoleSwap";
 import type { BrokenLinkRef } from "../../tools/fixLinks";
 import { countFixableDates } from "../../tools/fixDates";
 import { countDanglingRefs } from "../../tools/fixDanglingRefs";
@@ -19,8 +20,8 @@ import { useVirtualList } from "../useVirtualList";
 import { ToolsError, ToolsLoading, TreeSearch, UsageList, useDebounced } from "./shared";
 
 /** One-button repair flows; the suffix is the i18n key segment (`fix<Suffix>`). */
-type FixKind = "links" | "sex" | "dates" | "dups" | "dangling";
-const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", dates: "Dates", dups: "DupPointers", dangling: "Dangling" };
+type FixKind = "links" | "sex" | "roles" | "dates" | "dups" | "dangling";
+const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", dates: "Dates", dups: "DupPointers", dangling: "Dangling" };
 
 /** The Health-Check filter each fix previews before it runs, so confirming the
  *  fix happens with the affected findings on screen. */
@@ -28,6 +29,7 @@ const FIX_CATEGORY: Record<FixKind, IssueCategory | StructCategory> = {
   links: "brokenLink",
   dups: "duplicatePointer",
   sex: "missingSex",
+  roles: "roleSexConflict",
   dates: "badDate",
   dangling: "danglingXref",
 };
@@ -85,6 +87,7 @@ export function ValidatePanel({
   active,
   onFixBrokenLinks,
   onFixSexFromRole,
+  onFixSwappedRoles,
   onFixDates,
   onFixDuplicatePointers,
   onFixDanglingRefs,
@@ -96,6 +99,7 @@ export function ValidatePanel({
   active: boolean;
   onFixBrokenLinks: (only?: BrokenLinkRef) => number;
   onFixSexFromRole: () => number;
+  onFixSwappedRoles: () => number;
   onFixDates: () => number;
   onFixDuplicatePointers: () => number;
   onFixDanglingRefs: () => number;
@@ -194,6 +198,7 @@ export function ValidatePanel({
     const changed =
       kind === "links" ? onFixBrokenLinks()
       : kind === "sex" ? onFixSexFromRole()
+      : kind === "roles" ? onFixSwappedRoles()
       : kind === "dates" ? onFixDates()
       : kind === "dangling" ? onFixDanglingRefs()
       : onFixDuplicatePointers();
@@ -267,6 +272,13 @@ export function ValidatePanel({
     [report, dataset],
   );
 
+  // How many families hold their two spouses in each other's slots (a subset of
+  // the roleSexConflict findings — the ones a swap settles on its own).
+  const swappedRoles = useMemo(
+    () => (report && report.counts.roleSexConflict > 0 ? countSwappedRoles(dataset) : 0),
+    [report, dataset],
+  );
+
   // How many unparseable dates can be safely repaired (a subset of the badDate
   // structural findings). Recomputed when the structure report changes.
   const fixableDates = useMemo(
@@ -295,6 +307,7 @@ export function ValidatePanel({
   if (report.counts.brokenLink > 0) fixActions.push({ kind: "links", count: report.counts.brokenLink });
   if (report.counts.duplicatePointer > 0) fixActions.push({ kind: "dups", count: report.counts.duplicatePointer });
   if (fixableDangling > 0) fixActions.push({ kind: "dangling", count: fixableDangling });
+  if (swappedRoles > 0) fixActions.push({ kind: "roles", count: swappedRoles });
   if (inferableSex > 0) fixActions.push({ kind: "sex", count: inferableSex });
   if (fixableDates > 0) fixActions.push({ kind: "dates", count: fixableDates });
   const showMediaCheck = !!folderName && mediaFiles.length > 0 && mediaMissing === null;

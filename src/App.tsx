@@ -44,6 +44,7 @@ import { applyGeocode, movePlaceForAddresses, renamePlaceValue } from "./tools/g
 import { applyAddressCoords, renameAddress } from "./tools/addresses";
 import { fixBrokenLinks } from "./tools/fixLinks";
 import { fixSexFromRole } from "./tools/fixSex";
+import { fixSwappedRoles } from "./tools/fixRoleSwap";
 import { fixDates } from "./tools/fixDates";
 import { fixDuplicatePointers } from "./tools/fixDuplicatePointers";
 import { fixDanglingRefs } from "./tools/fixDanglingRefs";
@@ -2137,6 +2138,7 @@ function AppContent() {
               startId={startId}
               onFixBrokenLinks={(only) => applyToolPatches(fixBrokenLinks(mainDataset, only))}
               onFixSexFromRole={() => applyToolPatches(fixSexFromRole(mainDataset))}
+              onFixSwappedRoles={() => applyToolPatches(fixSwappedRoles(mainDataset))}
               onFixDates={() => applyToolPatches(fixDates(mainDataset))}
               onFixDuplicatePointers={() => applyToolPatches(fixDuplicatePointers(mainDataset))}
               onFixDanglingRefs={() => applyToolPatches(fixDanglingRefs(mainDataset))}
