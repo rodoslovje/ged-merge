@@ -43,7 +43,6 @@ export const sl = {
   "tools.tool.normalize.desc": "Paketni ukrepi nad izbranimi osebami; enoten slog zapisov",
   "tools.tool.privacy": "Zasebnost",
   "tools.tool.privacy.desc": "Prikrij žive osebe za deljivo datoteko",
-  "tools.validate.rerunHint": "Znova pregleda celotno datoteko — uporabite po urejanju zapisov.",
   "tools.validate.stale": "Datoteka se je po tem pregledu spremenila. Zaženite ga znova za trenutne ugotovitve.",
   "tools.validate.clean": "Ni najdenih težav. 🎉",
   "tools.validate.all": "Vse",

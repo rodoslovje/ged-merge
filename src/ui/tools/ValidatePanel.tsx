@@ -399,28 +399,37 @@ export function ValidatePanel({
   // The check runs once per file, not on every visit: fixing a record in Edit
   // and coming back would otherwise still show the old findings. Say so, and
   // let the user re-run on demand.
+  //
+  // Only then, though. Freshness is keyed on the dataset and the edit version,
+  // so a list that isn't stale is the file as it stands and re-running it cannot
+  // say anything new — offering the button anyway reads as a warning about a
+  // list that is in fact current. It stays up while a re-run is in flight, which
+  // is where its progress hint belongs.
   const stale = scans.isStale("validate");
   const rerunning = scan.status === "running";
+  const showRerun = stale || rerunning;
   const pendingCount = pendingFix
     ? (fixActions.find((a) => a.kind === pendingFix)?.count ?? 0)
     : 0;
 
   return (
     <>
-      <ul className="tools-fix-list">
-        <li className="tools-fix-item">
-          <button
-            className={`nav-btn tools-run${stale ? " primary" : ""}`}
-            onClick={() => scans.refresh("validate")}
-            disabled={rerunning}
-          >
-            {t("tools.scan.rerun")}
-          </button>
-          <span className="tools-fix-hint">
-            {rerunning ? t("tools.running") : t(stale ? "tools.validate.stale" : "tools.validate.rerunHint")}
-          </span>
-        </li>
-      </ul>
+      {showRerun && (
+        <ul className="tools-fix-list">
+          <li className="tools-fix-item">
+            <button
+              className={`nav-btn tools-run${stale ? " primary" : ""}`}
+              onClick={() => scans.refresh("validate")}
+              disabled={rerunning}
+            >
+              {t("tools.scan.rerun")}
+            </button>
+            <span className="tools-fix-hint">
+              {rerunning ? t("tools.running") : t("tools.validate.stale")}
+            </span>
+          </li>
+        </ul>
+      )}
       {fixDone !== null && (
         <p className="tools-clean tools-clean--ok">
           {t(

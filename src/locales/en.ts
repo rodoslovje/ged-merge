@@ -43,7 +43,6 @@ export const en = {
   "tools.tool.normalize.desc": "Batch actions on filtered people; one consistent style",
   "tools.tool.privacy": "Privacy",
   "tools.tool.privacy.desc": "Redact living people for a shareable file",
-  "tools.validate.rerunHint": "Checks the whole file again — use it after editing records.",
   "tools.validate.stale": "The file changed since this check. Run it again to see the current findings.",
   "tools.validate.clean": "No issues found. 🎉",
   "tools.validate.all": "All",
