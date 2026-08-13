@@ -896,6 +896,21 @@
               shows both records' GEDCOM ids next to the names, so two people with the same name and dates are still
               easy to tell apart.
             </p>
+            <p>
+              <strong>Merge all</strong>, next to it, collapses the whole group into one record instead of asking you
+              through every pair — eight copies of one person are eight records to keep, not twenty-eight decisions to
+              take. It asks first. <strong>Which record is kept</strong> is pre-picked (the one with the most linked
+              relatives, so the fewest family links have to be moved) and you can choose another. <strong>Relatives
+              entered as many times as the person</strong> — her six husband records — are listed as one tick each,
+              with the score of the least convincing pair among them; ticking one collapses that relative too, before
+              the group (parents and partners) or after it (children), exactly as in a single pair's merge. Nothing is
+              ticked for you. And a record that reached the group only through a chain of other pairs — never compared
+              with the one you are keeping — is named by its id in a warning, because nothing in the scan says it is
+              the same person. The field choices are the usual defaults: a value only one side has is taken, the more
+              precise date wins, a disagreement keeps the surviving record. The whole thing undoes in one step, and
+              the relatives of relatives are left alone — run the scan again afterwards, since records that were too
+              far apart to pair often match once the copies are one.
+            </p>
             <h3 id="normalize">Normalize &amp; batch</h3>
             <p>
               <strong>Batch actions</strong> select people with stackable filters — name (anywhere, or scoped to the
