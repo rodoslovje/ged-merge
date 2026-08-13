@@ -266,6 +266,7 @@ export const VENDOR_TAGS: Record<string, VendorTagInfo> = {
  */
 export interface VendorEventTypeInfo {
   software: string;
+  category: VendorTagCategory;
   /** Short readable row label, in place of the raw type string. */
   label: { en: string; sl: string };
   meaning: { en: string; sl: string };
@@ -273,26 +274,43 @@ export interface VendorEventTypeInfo {
   mstat?: string;
 }
 
+/**
+ * The custom-event `TYPE` under which MyHeritage stamps a record's
+ * last-touched time — the event spelling of the `_UPD` tag, and like it a
+ * change stamp rather than a life event.
+ */
+export const UPD_STAMP_TYPE = "_UPD";
+
 /** Keyed by the upper-cased, trimmed `TYPE` value. */
 export const VENDOR_EVENT_TYPES: Record<string, VendorEventTypeInfo> = {
   "MYHERITAGE:REL_PARTNERS": {
     software: MH,
+    category: "familyStatus",
     label: { en: "Partners", sl: "Partnerja" },
     meaning: { en: "the couple is recorded as partners, not as married", sl: "par je zabeležen kot partnerja in ne kot poročena" },
     mstat: "Partners",
   },
   "MYHERITAGE:REL_UNKNOWN": {
     software: MH,
+    category: "familyStatus",
     label: { en: "Relationship unstated", sl: "Razmerje ni navedeno" },
     meaning: { en: "the kind of relationship was left unset", sl: "vrsta razmerja ni bila izbrana" },
     mstat: "Unknown",
   },
-  _UPD: {
+  [UPD_STAMP_TYPE]: {
     software: MH,
+    category: "internal",
     label: { en: "Last updated", sl: "Zadnja sprememba" },
     meaning: { en: "when the program last touched this record — bookkeeping, not a life event", sl: "kdaj je program nazadnje spremenil ta zapis — evidenca in ne življenjski dogodek" },
   },
 };
+
+/** True for a custom event that is software bookkeeping rather than a fact
+ *  about the person — never lifted into the typed `events`, so it stays out of
+ *  the event list, the charts and the reports while round-tripping untouched. */
+export function isInternalEventType(type: string | undefined): boolean {
+  return vendorEventTypeInfo(type)?.category === "internal";
+}
 
 /** Classify a custom event's `TYPE` value; undefined for an ordinary name. */
 export function vendorEventTypeInfo(type: string | undefined): VendorEventTypeInfo | undefined {
