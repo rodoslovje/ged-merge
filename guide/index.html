@@ -831,21 +831,29 @@
               and families, <strong>Remove dangling references</strong> clears every other pointer whose target record is
               missing — source, note and media citations, associations, and family links nested inside an event —
               <strong>Remove duplicate pointers</strong> de-duplicates repeated links, a sex fix sets the sex on
-              unspecified spouses (husband → male, wife → female), and <strong>Fill coordinates from the file</strong>
+              unspecified spouses (husband → male, wife → female), <strong>Put the switched spouses back</strong> returns
+              both partners to their own role in a family that holds the man as the wife and the woman as the husband
+              (only that mutual swap — where a single spouse contradicts their role, the recorded sex may be the mistake
+              instead, so the finding is left for you), and <strong>Fill coordinates from the file</strong>
               settles the split-place coordinates above. (For places that have <em>no</em> coordinate anywhere, use <a href="#geocode">Geocode
               places</a>, which looks them up.)
             </p>
             <p>
-              A broken link can also be repaired one at a time: every <strong>broken link</strong> finding carries its own
-              <strong>Remove link</strong> button, which drops just that one dead pointer. Use it when the rest of the list
-              needs a closer look — a link to a family that no longer exists cannot be seen or removed in
-              <span class="gm-pill">Edit</span>, because the missing family draws nothing there. Like the batch fixes, it
-              is undoable.
+              Every one of those repairs is also offered one finding at a time, on the row that raised it: the affected
+              rows carry their own button — <strong>Remove link</strong>, <strong>Remove duplicate</strong>,
+              <strong>Remove reference</strong>, or, for a value being set rather than dropped, the result itself
+              (<strong>→ Female</strong>, <strong>→ Husband</strong>, <strong>→ 26 JUN 1912</strong>). Use them when you
+              agree with some findings and not others: each acts on that record alone, and is undoable like the batch
+              fixes. The buttons double as a map of what the batch fix above would touch — where a category holds more
+              findings than the fix can settle (three no-sex spouses among eight records with no sex), only the rows it
+              would change carry a button. A broken link is worth settling here in particular: it cannot be seen or
+              removed in <span class="gm-pill">Edit</span>, because the missing family draws nothing there.
             </p>
             <p>
               The check runs once per file, so findings you have since repaired in <span class="gm-pill">Edit</span> stay
-              on the list until it runs again. <strong>Run again</strong>, at the top of the panel, re-checks the whole
-              file; when the file has changed since the last check, the button is highlighted and says so.
+              on the list until it runs again. When the file has changed since the last check, <strong>Run again</strong>
+              appears at the top of the panel and says so; while the list is current there is nothing to re-run, so the
+              button stays away.
             </p>
             <h3 id="duplicates">Find duplicates</h3>
             <p>

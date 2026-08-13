@@ -28,10 +28,13 @@ function dedupeRefs(node: GedNode, tag: string): boolean {
   return node.children.length !== before;
 }
 
-export function fixDuplicatePointers(dataset: Dataset): RecordPatch[] {
+/** @param only — de-duplicate just this record (its row's own button), instead
+ *  of every record with repeated pointers. */
+export function fixDuplicatePointers(dataset: Dataset, only?: string): RecordPatch[] {
   const patches: RecordPatch[] = [];
 
   for (const indi of dataset.individuals.values()) {
+    if (only && indi.id !== only) continue;
     const before = cloneRaw(indi.raw);
     let changed = dedupeRefs(indi.raw, "FAMC");
     changed = dedupeRefs(indi.raw, "FAMS") || changed;
@@ -42,6 +45,7 @@ export function fixDuplicatePointers(dataset: Dataset): RecordPatch[] {
   }
 
   for (const fam of dataset.families.values()) {
+    if (only && fam.id !== only) continue;
     const before = cloneRaw(fam.raw);
     if (dedupeRefs(fam.raw, "CHIL")) {
       rebuildFamily(dataset, fam);
