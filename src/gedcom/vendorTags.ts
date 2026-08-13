@@ -177,12 +177,16 @@ export const VENDOR_TAGS: Record<string, VendorTagInfo> = {
   _BIBL: { software: RM, category: "citation", meaning: { en: "bibliography form", sl: "bibliografska oblika" } },
   _SUBQ: { software: RM, category: "citation", meaning: { en: "short-form citation", sl: "kratka navedba" } },
   _EVDEF: { software: RM, category: "citation", meaning: { en: "event sentence definition", sl: "definicija stavka dogodka" } },
-  _MEDI: { software: MH, category: "citation", meaning: { en: "source media reference", sl: "sklic na predstavnost vira" } },
+  // MyHeritage's own id for the source behind a citation — a collection number
+  // ("10002") or a family-tree id ("1277274332-1"), never a media reference.
+  _MEDI: { software: MH, category: "citation", meaning: { en: "MyHeritage collection / family-tree ID of the source", sl: "MyHeritagev ID zbirke ali družinskega drevesa, iz katerega je vir" } },
   _FIELD: { software: FH, category: "citation", meaning: { en: "source template field", sl: "polje predloge vira" } },
   _SRCT: { software: FH, category: "citation", meaning: { en: "source template reference", sl: "sklic na predlogo vira" } },
   _FOOT: { software: FH, category: "citation", meaning: { en: "footnote form", sl: "oblika opombe" } },
   _ABBR: { software: FH, category: "citation", meaning: { en: "abbreviated source name", sl: "okrajšano ime vira" } },
-  _TYPE: { software: MULTI, category: "citation", meaning: { en: "vendor type qualifier", sl: "vrsta po meri" } },
+  // On a MyHeritage SOUR this says where the source came from — "Smart
+  // Matching", "Discovery", "Collection"; other programs use it more loosely.
+  _TYPE: { software: MULTI, category: "citation", meaning: { en: "kind of source (MyHeritage: Smart Matching / Discovery / Collection)", sl: "vrsta vira (MyHeritage: Smart Matching / Discovery / zbirka)" } },
 
   // ── Software-internal bookkeeping ─────────────────────────────────────────
   _UPD: { software: MH, category: "internal", meaning: { en: "last-updated timestamp", sl: "časovni žig zadnje spremembe" } },
@@ -243,6 +247,58 @@ export const VENDOR_TAGS: Record<string, VendorTagInfo> = {
   DEED: { software: MFT, category: "event", meaning: { en: "deed / property record", sl: "listina / lastninski zapis" } },
   ILL: { software: MFT, category: "event", meaning: { en: "illness", sl: "bolezen" } },
 };
+
+/**
+ * Vendor custom-event `TYPE` **values** — the namespaced strings some programs
+ * write under a generic `EVEN` instead of inventing a tag of their own. Unlike
+ * everything above these classify a value, not a tag, so the app cannot label
+ * them from the tag registry: a MyHeritage file shows a bare
+ * `MYHERITAGE:REL_PARTNERS` where the row wants a name.
+ *
+ * MyHeritage writes one of these on every FAM whose relationship is anything
+ * other than a marriage, and stamps its own last-updated time as an event
+ * (`1 EVEN 31 JAN 2020 13:12:03 GMT -0500` + `2 TYPE _UPD`) on records it has
+ * touched — the event form of the `_UPD` tag above.
+ *
+ * `label` names the row; `meaning` explains it in the tooltip. `mstat` is the
+ * canonical `_MSTAT` value `normalizeFamilyStatus` consolidates the type into,
+ * for the entries that assert a partnership status.
+ */
+export interface VendorEventTypeInfo {
+  software: string;
+  /** Short readable row label, in place of the raw type string. */
+  label: { en: string; sl: string };
+  meaning: { en: string; sl: string };
+  /** Canonical `_MSTAT` value, for the partnership-status types. */
+  mstat?: string;
+}
+
+/** Keyed by the upper-cased, trimmed `TYPE` value. */
+export const VENDOR_EVENT_TYPES: Record<string, VendorEventTypeInfo> = {
+  "MYHERITAGE:REL_PARTNERS": {
+    software: MH,
+    label: { en: "Partners", sl: "Partnerja" },
+    meaning: { en: "the couple is recorded as partners, not as married", sl: "par je zabeležen kot partnerja in ne kot poročena" },
+    mstat: "Partners",
+  },
+  "MYHERITAGE:REL_UNKNOWN": {
+    software: MH,
+    label: { en: "Relationship unstated", sl: "Razmerje ni navedeno" },
+    meaning: { en: "the kind of relationship was left unset", sl: "vrsta razmerja ni bila izbrana" },
+    mstat: "Unknown",
+  },
+  _UPD: {
+    software: MH,
+    label: { en: "Last updated", sl: "Zadnja sprememba" },
+    meaning: { en: "when the program last touched this record — bookkeeping, not a life event", sl: "kdaj je program nazadnje spremenil ta zapis — evidenca in ne življenjski dogodek" },
+  },
+};
+
+/** Classify a custom event's `TYPE` value; undefined for an ordinary name. */
+export function vendorEventTypeInfo(type: string | undefined): VendorEventTypeInfo | undefined {
+  const key = type?.trim().toUpperCase();
+  return key ? VENDOR_EVENT_TYPES[key] : undefined;
+}
 
 /** MacFamilyTree source/place template machinery — one shared classification. */
 const MFT_TEMPLATE_TAGS = new Set([

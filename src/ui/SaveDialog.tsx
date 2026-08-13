@@ -4,7 +4,7 @@ import { useModalKeyboard } from "../keyboard/useModalKeyboard";
 import type { ChangeReport, FieldChange, GraftJoinPerson } from "../merge/merge";
 import type { Dataset, Individual } from "../gedcom/types";
 import { lifespanOf } from "../gedcom/lifespan";
-import { eventDisplayLabel } from "../gedcom/eventTags";
+import { customEventLabel, eventDisplayLabel } from "../gedcom/eventTags";
 import { sexClass } from "./sex";
 import { EVENT_ORDER } from "../review/fields";
 import { vendorTagInfo } from "../gedcom/vendorTags";
@@ -254,7 +254,7 @@ export function SaveDialog({
                 // and years in the head say enough; people stitched in by a
                 // confirmed match keep their facts, where the detail is the
                 // point.
-                const facts = newIndi && !g.isImported ? personFacts(newIndi, t) : [];
+                const facts = newIndi && !g.isImported ? personFacts(newIndi, t, i18n.language) : [];
                 const lifespan = indi ? lifespanOf(indi) : undefined;
                 const labelClass = `preview-rec${indi ? ` ${sexClass(indi.sex)}` : ""}`;
                 const headContent = spouses?.length ? (
@@ -406,7 +406,7 @@ export function SaveDialog({
  * field, so it produces no change rows — without this its card would show
  * nothing but a name, hiding the very data the user chose to bring in.
  */
-function personFacts(indi: Individual, t: Translate): { label: string; text: string }[] {
+function personFacts(indi: Individual, t: Translate, lang: string): { label: string; text: string }[] {
   const order = (tag: string) => {
     const i = EVENT_ORDER.indexOf(tag);
     return i === -1 ? EVENT_ORDER.length : i;
@@ -418,7 +418,7 @@ function personFacts(indi: Individual, t: Translate): { label: string; text: str
       if (!parts.length) return undefined;
       // A custom EVEN/FACT reads under its own TYPE ("Civil Partnership"), the
       // way the review and the editor label it.
-      const custom = (e.tag === "EVEN" || e.tag === "FACT") && e.type?.trim();
+      const custom = (e.tag === "EVEN" || e.tag === "FACT") && customEventLabel(e.type, t, lang);
       return { label: custom || eventDisplayLabel(e.tag, t), text: parts.join(" · ") };
     })
     .filter((f): f is { label: string; text: string } => !!f);

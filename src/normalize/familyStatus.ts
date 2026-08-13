@@ -1,5 +1,6 @@
 import type { GedNode } from "../gedcom/types";
 import { firstChild } from "../gedcom/node";
+import { vendorEventTypeInfo } from "../gedcom/vendorTags";
 
 /**
  * Family-status and child-pedigree normalization (custom-tag plan, Phase 3).
@@ -33,11 +34,6 @@ export interface FamilyStatusChange {
   after: string;
 }
 
-const MYHERITAGE_STATUS: Record<string, string> = {
-  "MYHERITAGE:REL_PARTNERS": "Partners",
-  "MYHERITAGE:REL_UNKNOWN": "Unknown",
-};
-
 const hasMstat = (fam: GedNode): boolean => fam.children.some((c) => c.tag === "_MSTAT");
 
 /** Consolidate vendor partnership-status encodings on FAM records into `_MSTAT`. */
@@ -50,7 +46,7 @@ export function normalizeFamilyStatus(records: GedNode[]): FamilyStatusChange[] 
     for (const child of fam.children) {
       if (child.tag !== "EVEN" || hasMstat(fam)) continue;
       const typeNode = firstChild(child, "TYPE");
-      const status = MYHERITAGE_STATUS[typeNode?.value?.trim().toUpperCase() ?? ""];
+      const status = vendorEventTypeInfo(typeNode?.value)?.mstat;
       if (!status) continue;
       changes.push({ before: `EVEN — ${typeNode!.value!.trim()}`, after: `_MSTAT ${status}` });
       child.tag = "_MSTAT";

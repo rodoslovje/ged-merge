@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { GedEvent, GeoCoord, SourceCitation } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
-import { eventDisplayLabel, vendorEventTooltip } from "../../gedcom/eventTags";
+import { customEventLabel, customEventTooltip, eventDisplayLabel, vendorEventTooltip } from "../../gedcom/eventTags";
 import type { RecordPatch } from "../historyTypes";
 import type { EventFieldUpdate } from "../../gedcom/edit";
 import { SourceRefs } from "../SourceRef";
@@ -309,8 +309,12 @@ export function EventFieldsRow({
   const agencyClearUpdate: Partial<EventFieldUpdate> = isEven ? { value: "" } : { agency: "" };
 
   // EVEN's TYPE doubles as its display label; while it has one, the label
-  // column shows it in place of the generic "Event"/"Fact".
-  const customName = isEven ? (typeField.value.trim() || ev?.type?.trim() || "") : "";
+  // column shows it in place of the generic "Event"/"Fact". A type a program
+  // wrote in its own namespace reads as its registry name instead — the raw
+  // value stays in the Title field, which is the data the user edits.
+  const customName = isEven
+    ? customEventLabel(typeField.value.trim() || ev?.type?.trim(), t, i18n.language)
+    : "";
 
   // Only value events (OCCU/EDUC/RETI) expose a Title slot (their line value).
   // Plain events have none — their TYPE lives in the extras-line Type field
@@ -677,7 +681,8 @@ export function EventFieldsRow({
             className={fieldCls("edit-event-label", false, tagDirty || tagForced)}
             title={
               isEven
-                ? t("event.customTooltip", { tag: tag ?? "EVEN" })
+                ? customEventTooltip(typeField.value.trim() || ev?.type?.trim(), t, i18n.language)
+                  ?? t("event.customTooltip", { tag: tag ?? "EVEN" })
                 : tag
                   ? vendorEventTooltip(tag, t, i18n.language)
                   : undefined
