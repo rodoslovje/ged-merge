@@ -60,6 +60,19 @@ export interface GedNode {
    * back as exactly this text at its original position in the stream.
    */
   verbatim?: string;
+  /**
+   * Where the source file broke this value across `CONC` continuation lines:
+   * `at` holds the offsets into {@link value} at which each continuation line
+   * started, and `of` is the value those offsets were measured against.
+   *
+   * Folding `CONC` loses the original wrap positions, so re-wrapping on save
+   * rewrote every long TEXT/NOTE in the file and buried the real edits in a
+   * diff of thousands of untouched lines. The serializer reproduces these
+   * breaks exactly — but only while `of === value`, so the moment anything
+   * rewrites the value the stale positions are ignored and it wraps afresh.
+   * (`of` costs nothing: it is the same string, not a copy.)
+   */
+  conc?: { at: number[]; of: string };
 }
 
 /** Result of parsing raw bytes into a tree, plus detected metadata. */

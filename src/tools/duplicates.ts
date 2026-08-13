@@ -127,6 +127,24 @@ export function clusterDuplicates(pairs: DuplicatePair[]): DuplicateCluster[] {
   return clusters;
 }
 
+/**
+ * Cluster members that were never scored against `id` itself — they joined the
+ * cluster only through a chain of other pairs (union-find links A–B and B–C
+ * even when A–C was never flagged, or would have been vetoed outright).
+ *
+ * A cluster is therefore *not* a claim that every member is the same person,
+ * and merging one wholesale has to say so: these are the records whose identity
+ * with the survivor nothing in the scan actually asserts.
+ */
+export function membersWithoutDirectPair(cluster: DuplicateCluster, id: string): string[] {
+  const direct = new Set<string>();
+  for (const p of cluster.pairs) {
+    if (p.aId === id) direct.add(p.bId);
+    else if (p.bId === id) direct.add(p.aId);
+  }
+  return cluster.memberIds.filter((m) => m !== id && !direct.has(m));
+}
+
 /** How many individuals the scan processes between `onProgress` calls. */
 const PROGRESS_EVERY = 256;
 
@@ -225,8 +243,9 @@ export function makeDuplicatePair(
 
 /** Number of distinct linked relatives (parents, partners, children) a person
  *  has — used to pick which of a duplicate pair leads as the survivor, so the
- *  merge re-points as few relationships as possible. */
-function relationshipCount(indi: Individual, ds: Dataset): number {
+ *  merge re-points as few relationships as possible. A whole cluster picks its
+ *  survivor the same way (see `pickClusterSurvivor`). */
+export function relationshipCount(indi: Individual, ds: Dataset): number {
   const rel = new Set<string>();
   for (const famId of indi.childOf) {
     const fam = ds.families.get(famId);

@@ -179,6 +179,81 @@ describe("serializeGedcom", () => {
       for (const line of out.split("\n")) expect(line.length).toBeLessThanOrEqual(LINE_LIMIT_551);
     });
 
+    it("counts the limit in bytes, not characters", () => {
+      // Slovenian accented letters are two bytes each: a line of 253
+      // characters here is 280 bytes, past what 5.5.1 allows.
+      const out = noteFile("čšž ".repeat(200));
+      const enc = new TextEncoder();
+      for (const line of out.split("\n")) {
+        expect(enc.encode(line).length).toBeLessThanOrEqual(LINE_LIMIT_551);
+      }
+    });
+
+    it("re-emits an untouched value on the lines it arrived on", () => {
+      // Wrapped narrowly, and mid-word — nothing our own wrapper would choose.
+      const file = [
+        "0 HEAD",
+        "1 GEDC",
+        "2 VERS 5.5.1",
+        "0 @N1@ NOTE Prvi kos besed",
+        "1 CONC ila, ki se nadalj",
+        "1 CONC uje v tretji vrstici.",
+        "0 TRLR",
+        "",
+      ].join("\n");
+      const parsed = parse(file);
+      expect(serializeGedcom(parsed.records, { maxLineLength: LINE_LIMIT_551 })).toBe(file);
+    });
+
+    it("keeps the source's breaks through CONT segments", () => {
+      const file = [
+        "0 HEAD",
+        "0 @N1@ NOTE Prva vrsti",
+        "1 CONC ca besedila",
+        "1 CONT Druga vrsti",
+        "1 CONC ca besedila",
+        "0 TRLR",
+        "",
+      ].join("\n");
+      const parsed = parse(file);
+      expect(serializeGedcom(parsed.records, { maxLineLength: LINE_LIMIT_551 })).toBe(file);
+    });
+
+    it("wraps afresh once the value is edited", () => {
+      const file = [
+        "0 HEAD",
+        "0 @N1@ NOTE Prvi kos besed",
+        "1 CONC ila, ki se nadaljuje.",
+        "0 TRLR",
+        "",
+      ].join("\n");
+      const parsed = parse(file);
+      const note = parsed.records.find((r) => r.tag === "NOTE")!;
+      note.value = `${note.value} ${"x".repeat(400)}`;
+
+      const out = serializeGedcom(parsed.records, { maxLineLength: LINE_LIMIT_551 });
+      // The stale positions are ignored: the value is re-flowed at the limit.
+      expect(out).not.toContain("1 CONC ila, ki se nadaljuje.");
+      const enc = new TextEncoder();
+      for (const line of out.split("\n")) {
+        expect(enc.encode(line).length).toBeLessThanOrEqual(LINE_LIMIT_551);
+      }
+      expect(parse(out).records.find((r) => r.tag === "NOTE")?.value).toBe(note.value);
+    });
+
+    it("re-wraps a source whose own lines are over the limit", () => {
+      // An exporter that wrapped wider than 5.5.1 allows (or not at all) must
+      // not have its positions reproduced — faithfulness never outranks a
+      // valid line.
+      const chunk = "a".repeat(300);
+      const file = ["0 HEAD", `0 @N1@ NOTE ${chunk}`, `1 CONC ${chunk}`, "0 TRLR", ""].join("\n");
+      const parsed = parse(file);
+
+      const out = serializeGedcom(parsed.records, { maxLineLength: LINE_LIMIT_551 });
+      for (const line of out.split("\n")) expect(line.length).toBeLessThanOrEqual(LINE_LIMIT_551);
+      expect(parse(out).records.find((r) => r.tag === "NOTE")?.value).toBe(chunk + chunk);
+    });
+
     it("never splits a surrogate pair", () => {
       const value = "👪".repeat(200); // each U+1F46A is two UTF-16 code units
       const out = noteFile(value);

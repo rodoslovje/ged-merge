@@ -80,7 +80,22 @@ export function parseGedcom(buffer: ArrayBuffer): ParseResult {
         continue;
       }
       const sep = tag === "CONT" ? "\n" : "";
-      parent.value = (parent.value ?? "") + sep + (value ?? "");
+      const before = parent.value ?? "";
+      parent.value = before + sep + (value ?? "");
+      // Remember where a CONC broke the value, so saving an untouched record
+      // reproduces the file's own wrapping instead of re-flowing it (see
+      // `GedNode.conc`). CONT needs no note: it is the "\n" in the value, and
+      // the serializer splits on that anyway. `of` is re-pointed at the value
+      // as it grows, so it ends up being the finished string.
+      if (tag === "CONC") {
+        const at = parent.conc?.at ?? [];
+        at.push(before.length);
+        parent.conc = { at, of: parent.value };
+      } else if (parent.conc) {
+        // A CONT after a CONC grows the value the offsets were measured
+        // against; re-point `of` or they would read as stale.
+        parent.conc = { at: parent.conc.at, of: parent.value };
+      }
       textBlob = parent;
       continue;
     }

@@ -31,8 +31,6 @@ const SETTINGS_KEYS = ["showAge", "showXref"] as const;
  * for non-individual (family) or unresolved records.
  */
 export function PersonLink({ dataset, id, fallback, onNavigate, forceXref = false }: Props) {
-  const nameOf = useNameOf();
-  const settings = useSettingsSlice(SETTINGS_KEYS);
   const indi = dataset.individuals.get(id);
   if (!indi) {
     return (
@@ -41,6 +39,27 @@ export function PersonLink({ dataset, id, fallback, onNavigate, forceXref = fals
       </button>
     );
   }
+  return (
+    <button
+      className="tools-issue-link person-ref"
+      onClick={() => onNavigate(id)}
+      title={datesTooltipOf(indi)}
+    >
+      <PersonRefLabel dataset={dataset} id={id} fallback={fallback} forceXref={forceXref} />
+    </button>
+  );
+}
+
+/**
+ * The same name + id + lifespan, without the click. For places where a person
+ * is named but navigating away would be wrong — inside a modal that is asking
+ * about those very records (see `ClusterMergeDialog`).
+ */
+export function PersonRefLabel({ dataset, id, fallback, forceXref = false }: Omit<Props, "onNavigate">) {
+  const nameOf = useNameOf();
+  const settings = useSettingsSlice(SETTINGS_KEYS);
+  const indi = dataset.individuals.get(id);
+  if (!indi) return <>{fallback}</>;
   // The global "Show ages" preference folds the age into the lifespan,
   // matching person headers and chart titles ("1810–1881 (71)").
   const lifespan = lifespanLine(
@@ -48,14 +67,10 @@ export function PersonLink({ dataset, id, fallback, onNavigate, forceXref = fals
     { years: lifespanOf(indi), age: lifespanAge(indi) },
   );
   return (
-    <button
-      className="tools-issue-link person-ref"
-      onClick={() => onNavigate(id)}
-      title={datesTooltipOf(indi)}
-    >
+    <>
       <span className={`person-name ${sexClass(indi.sex)}`}>{nameOf(indi)}</span>
       {(settings.showXref || forceXref) && <span className="person-xref gm-data">{xrefLabel(indi.id)}</span>}
       {lifespan && <span className="person-years gm-data">{lifespan}</span>}
-    </button>
+    </>
   );
 }

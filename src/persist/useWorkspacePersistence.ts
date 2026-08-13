@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type Dispatch, type MutableRefObject } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
-import { serializeGedcom } from "../gedcom/serialize";
+import { downloadOptions, serializeGedcom } from "../gedcom/serialize";
 import type { WorkspaceAction, WorkspaceState } from "../state/workspace";
 import type { DatasetRole, WorkerRequest } from "../worker/messages";
 import type { useDirtyTracking } from "../edit-state/useDirtyTracking";
@@ -307,7 +307,11 @@ export function useWorkspacePersistence(opts: WorkspacePersistenceOptions) {
       const file = needBlob
         ? {
             fileName: mainFileName,
-            blob: new Blob([serializeGedcom(mainDataset.records, { eol: mainDataset.eol, finalNewline: mainDataset.finalNewline })]),
+            // Written with the download's own wrapping, so the stored copy
+            // keeps the file's CONC lines: the break positions are re-read when
+            // the workspace is restored, and a save after a reload still lands
+            // on the lines the file arrived on (see `GedNode.conc`).
+            blob: new Blob([serializeGedcom(mainDataset.records, downloadOptions(mainDataset))]),
             savedAt: Date.now(),
             originalHash: mainOriginalHashRef.current ?? undefined,
             handle: mainHandle ?? undefined,
@@ -357,7 +361,7 @@ export function useWorkspacePersistence(opts: WorkspacePersistenceOptions) {
     if (ds && lastMainFile) {
       void saveFile("main", {
         fileName: lastMainFile.fileName,
-        blob: new Blob([serializeGedcom(ds.records, { eol: ds.eol, finalNewline: ds.finalNewline })]),
+        blob: new Blob([serializeGedcom(ds.records, downloadOptions(ds))]),
         savedAt: Date.now(),
         originalHash: mainOriginalHashRef.current ?? undefined,
         handle: mainHandle ?? undefined,
