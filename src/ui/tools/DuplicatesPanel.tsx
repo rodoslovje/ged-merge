@@ -247,6 +247,12 @@ export function DuplicatesPanel({
   // Collapse a whole cluster into one record. Same bookkeeping as a pairwise
   // merge — every pair naming a removed record leaves the list — only now a
   // whole blob (and any ticked relative groups) goes at once.
+  //
+  // Unlike a single pair, this settles the blob outright: there is no "next
+  // pair" to carry on with, so nothing opens and the highlight stays on the
+  // row index the cluster header held. Whatever moves up into its place is
+  // what you are looking at — advancing here scrolled the list away from the
+  // work instead.
   function handleMergeCluster(
     cluster: DuplicateCluster,
     survivorId: string,
@@ -257,7 +263,7 @@ export function DuplicatesPanel({
     if (removed.length === 0) return;
     const gone = new Set(removed);
     scans.updateDuplicates((pairs) => pairs.filter((p) => !gone.has(p.aId) && !gone.has(p.bId)));
-    advancePast((p) => gone.has(p.aId) || gone.has(p.bId));
+    setExpanded(null);
   }
 
   // Dismiss a pair as not-a-duplicate: persisted via the parent so it won't
