@@ -56,11 +56,31 @@ export function countSwappedRoles(dataset: Dataset): number {
   return count;
 }
 
-export function fixSwappedRoles(dataset: Dataset): RecordPatch[] {
+/**
+ * Each person the swap would move, mapped to the role they'd land in — so the
+ * health check can mark the findings this button answers, and say what becomes
+ * of each. Keyed by individual, since that's what a `roleSexConflict` finding
+ * is reported on; a person swapped in two families lands in the same role in
+ * both (their own sex decides it), so one entry per person tells the truth.
+ */
+export function swappedRoleTargets(dataset: Dataset): Map<string, "husband" | "wife"> {
+  const targets = new Map<string, "husband" | "wife">();
+  for (const fam of dataset.families.values()) {
+    if (!swappedSlots(dataset, fam)) continue;
+    if (fam.husband) targets.set(fam.husband, "wife");
+    if (fam.wife) targets.set(fam.wife, "husband");
+  }
+  return targets;
+}
+
+/** @param only — swap just the families this individual is a swapped spouse in
+ *  (their row's own button), instead of every swapped family in the file. */
+export function fixSwappedRoles(dataset: Dataset, only?: string): RecordPatch[] {
   const patches: RecordPatch[] = [];
   for (const fam of dataset.families.values()) {
     const slots = swappedSlots(dataset, fam);
     if (!slots) continue;
+    if (only && fam.husband !== only && fam.wife !== only) continue;
     const before = cloneRaw(fam.raw);
     const husbValue = slots.husb.value;
     slots.husb.value = slots.wife.value;

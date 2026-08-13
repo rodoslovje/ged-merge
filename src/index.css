@@ -7785,6 +7785,11 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
   cursor: pointer; white-space: nowrap;
 }
 .tools-issue-fix:hover { border-color: var(--danger); background: var(--danger-soft); }
+/* A row fix that sets or corrects a value rather than removing one — "→ Female",
+   "→ 12 JUN 1912". Its label doubles as the mark saying which rows of a category
+   the batch button above would touch. */
+.tools-issue-fix.sets { color: var(--status-diff); }
+.tools-issue-fix.sets:hover { border-color: var(--status-diff); background: none; }
 /* Its aftermath, while the re-run health check is still in flight. */
 .tools-issue-fixed {
   flex: none; margin-left: auto;

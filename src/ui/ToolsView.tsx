@@ -16,6 +16,8 @@ import type { MediaEditFields } from "./MediaViewer";
 import { PlacesPanel } from "./tools/PlacesPanel";
 import type { GeoAssignment, OfficialRename } from "../tools/geocode";
 import type { BrokenLinkRef } from "../tools/fixLinks";
+import type { BadDateRef } from "../tools/fixDates";
+import type { DanglingRef } from "../tools/fixDanglingRefs";
 import type { RecordPatch } from "./historyTypes";
 import { PickerMenu } from "./PickerMenu";
 import { usePhone } from "./usePhone";
@@ -73,22 +75,24 @@ interface Props {
    *  number of records changed, so the panel can re-validate and report. */
   onFixBrokenLinks: (only?: BrokenLinkRef) => number;
   /** Infer SEX from family role for unspecified spouses and push to the undo
-   *  stack. Returns the number of records changed, so the panel can re-validate. */
-  onFixSexFromRole: () => number;
+   *  stack. Returns the number of records changed, so the panel can re-validate.
+   *  Every fix below takes the same `only` shape as the links one: the whole
+   *  file, or the single record one finding's own row names. */
+  onFixSexFromRole: (only?: string) => number;
   /** Put the two spouses of a family back in their own slots where they hold each
    *  other's, and push to the undo stack. Returns the number of records changed,
    *  so the panel can re-validate. */
-  onFixSwappedRoles: () => number;
+  onFixSwappedRoles: (only?: string) => number;
   /** Repair safely-fixable unparseable dates (stray whitespace) and push to the
    *  undo stack. Returns the number of records changed, so the panel can re-validate. */
-  onFixDates: () => number;
+  onFixDates: (only?: BadDateRef) => number;
   /** Remove redundant duplicate CHIL/FAMS/FAMC pointer lines and push to the undo
    *  stack. Returns the number of records changed, so the panel can re-validate. */
-  onFixDuplicatePointers: () => number;
+  onFixDuplicatePointers: (only?: string) => number;
   /** Remove pointer lines whose target record is missing (citations, notes,
    *  media, nested family links) and push to the undo stack. Returns the number
    *  of records changed, so the panel can re-validate. */
-  onFixDanglingRefs: () => number;
+  onFixDanglingRefs: (only?: DanglingRef) => number;
   onFillPlaceCoords: () => number;
   /** Apply a batch action's patches (Normalize & batch → Batch actions) as one
    *  undo entry; returns the patch count. */
