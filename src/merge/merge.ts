@@ -625,9 +625,16 @@ function changeLine(c: FieldChange, t: Translate): string {
     return `${label}: ${t("changeReport.verb.added")} ${items.map((i) => `"${i}"`).join(", ")}`;
   }
   if (c.segments) {
+    // The pieces the edit left alone stay bare, as context; only the ones it
+    // touched are quoted. Reprinting the whole value twice — which is what the
+    // report used to do here — hides the one piece the reader is looking for.
     const pieces = c.segments
       .filter((s) => s.text || s.from)
-      .map((s) => (s.from && s.from !== s.text ? `"${s.from}" → "${s.text}"` : `"${s.text}"`));
+      .map((s) => {
+        if (s.state === "removed") return `− "${s.text}"`;
+        if (s.state !== "changed") return s.text;
+        return s.from && s.from !== s.text ? `"${s.from}" → "${s.text}"` : `+ "${s.text}"`;
+      });
     return `${label}: ${t("changeReport.verb.changed")} ${pieces.join(" · ")}`;
   }
   if (!c.to && c.from) return `${label}: ${t("changeReport.verb.removed")} "${c.from}"`;
