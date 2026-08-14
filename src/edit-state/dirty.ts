@@ -27,7 +27,9 @@ export interface PatchApplyOps {
  * to create/delete — pure, so the calling hook can apply the ops to React state.
  *
  * Cases per individual/family patch (in order):
- *  A  appliedState === null    → record disappears → clear dirty + clear snapshot
+ *  A  appliedState === null    → record disappears → a record the file had stays
+ *                               dirty (with its snapshot) because its deletion is
+ *                               the change; a session-created one clears both
  *  B  redo + before === null   → redo of creation  → add dirty (new record)
  *  C  current == snapshot      → fully reverted    → clear dirty + clear snapshot
  *  D  redo of modification     → add dirty; restore missing snapshot from before
@@ -50,6 +52,10 @@ export function computePatchApplyOps(
   /** Whether another shared-record snapshot (excluding `excludeId`) is owned by
    * this owner — i.e. the owner may still carry a different shared-record edit. */
   hasOtherOwnedRecordSnapshot: (owner: { kind: RecordKind; id: string }, excludeId: string) => boolean = () => false,
+  /** Whether the record was in the file when it loaded, as opposed to created
+   *  during the session. Decides case A — see below. Defaults to "no" so a
+   *  caller that can't tell keeps the pre-existing behaviour. */
+  wasLoaded: (kind: SnapshotKind, id: string) => boolean = () => false,
 ): PatchApplyOps {
   const dirty: DirtyOp[] = [];
   const snapshots: SnapshotOp[] = [];
@@ -60,12 +66,21 @@ export function computePatchApplyOps(
 
     if (patch.type === "record") {
       const owner = patch.owner;
-      // Shared record removed (undo of creation / redo of deletion): drop its
-      // snapshot. Owner dirtiness is carried by the owner's own patch in the
-      // same batch (the pointer add/remove), so nothing to decide here.
+      // Shared record removed (undo of creation / redo of deletion). One the
+      // file arrived with keeps its flag and snapshot — losing a source is a
+      // change the save report must carry (case A below spells out why).
+      // Owner dirtiness is carried by the owner's own patch in the same batch
+      // (the pointer add/remove), so nothing to decide about it here.
       if (appliedState === null) {
-        snapshots.push({ action: "delete", kind: "record", id });
-        dirty.push({ action: "remove", kind: "record", id });
+        if (!owner && wasLoaded("record", id)) {
+          dirty.push({ action: "add", kind: "record", id });
+          if (getSnapshot("record", id) === undefined && before !== null) {
+            snapshots.push({ action: "set", kind: "record", id, value: cloneRaw(before) });
+          }
+        } else {
+          snapshots.push({ action: "delete", kind: "record", id });
+          dirty.push({ action: "remove", kind: "record", id });
+        }
         continue;
       }
 
@@ -112,10 +127,23 @@ export function computePatchApplyOps(
 
     const kind = patch.type;
 
-    // A: undo of creation or redo of deletion — record now gone.
+    // A: record now gone — undo of a creation, or redo of a deletion. Which of
+    // the two decides everything: a record the file never had leaves nothing
+    // behind when it goes, but a loaded one going missing IS the change, and
+    // clearing its flag here would delete it from the file with nothing in the
+    // save report to say so. Its snapshot stays too — the report has no other
+    // way left to name a record that no longer exists. (Same rule as
+    // `reconcile`, which decides this for direct edits.)
     if (appliedState === null) {
-      snapshots.push({ action: "delete", kind, id });
-      dirty.push({ action: "remove", kind, id });
+      if (wasLoaded(kind, id)) {
+        dirty.push({ action: "add", kind, id });
+        if (getSnapshot(kind, id) === undefined && before !== null) {
+          snapshots.push({ action: "set", kind, id, value: cloneRaw(before) });
+        }
+      } else {
+        snapshots.push({ action: "delete", kind, id });
+        dirty.push({ action: "remove", kind, id });
+      }
       continue;
     }
 

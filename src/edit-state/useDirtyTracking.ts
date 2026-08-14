@@ -3,6 +3,8 @@ import type { GedNode, Dataset } from "../gedcom/types";
 import type { RecordPatch } from "../ui/historyTypes";
 import { cloneRaw } from "../ui/historyTypes";
 import { nodesEqual } from "../gedcom/node";
+import { captureBaseline, type SaveBaseline } from "../gedcom/fingerprint";
+import { displayName } from "../match/relatives";
 import {
   computePatchApplyOps,
   computePushCaptureOps,
@@ -33,6 +35,12 @@ export function useDirtyTracking() {
   // "newly added" when reverting via Remove from save.
   const loadedPersonIds = useRef<Set<string>>(new Set());
   const loadedFamilyIds = useRef<Set<string>>(new Set());
+
+  // One fingerprint per record as the file arrived (or as it was last saved),
+  // so the save can audit its own report against what it is about to write —
+  // see `gedcom/fingerprint.ts`. Held alongside the dirty state because it is
+  // reset by exactly the same events.
+  const baseline = useRef<SaveBaseline>(new Map());
 
   // Raw-node snapshots taken at first-dirty time, used to detect when a record
   // has returned to its pre-edit state and to revert Remove from save.
@@ -89,6 +97,21 @@ export function useDirtyTracking() {
         });
       }
     }
+  }
+
+  /** Re-fingerprint the whole file as the baseline every later save is audited
+   *  against. One pass over the records, at the three moments the baseline
+   *  really moves: a file loads, a save lands, a cached session is restored. */
+  function takeBaseline(dataset: Dataset) {
+    const nameOf = (id: string | undefined) => {
+      const indi = id ? dataset.individuals.get(id) : undefined;
+      return indi ? displayName(indi.names[0]) : undefined;
+    };
+    baseline.current = captureBaseline(dataset, nameOf, (id) => {
+      const fam = dataset.families.get(id);
+      if (!fam) return undefined;
+      return [nameOf(fam.husband), nameOf(fam.wife)].filter(Boolean).join(" + ") || undefined;
+    });
   }
 
   // ── public API ────────────────────────────────────────────────────────────
@@ -152,6 +175,9 @@ export function useDirtyTracking() {
         }
         return false;
       },
+      // A shared record has no loaded-id set of its own; the baseline knows
+      // every record the file arrived with, which is the same question.
+      (kind, id) => (kind === "record" ? baseline.current.has(id) : loadedIdsFor(kind).current.has(id)),
     );
     applyOps(dirty, snapshots);
   }
@@ -208,6 +234,7 @@ export function useDirtyTracking() {
   function prepareForLoad() {
     loadedPersonIds.current = new Set();
     loadedFamilyIds.current = new Set();
+    baseline.current = new Map();
     personSnapshots.current = new Map();
     familySnapshots.current = new Map();
     recordSnapshots.current = new Map();
@@ -220,6 +247,7 @@ export function useDirtyTracking() {
   function resetOnLoad(dataset: Dataset) {
     loadedPersonIds.current = new Set(dataset.individuals.keys());
     loadedFamilyIds.current = new Set(dataset.families.keys());
+    takeBaseline(dataset);
     personSnapshots.current = new Map();
     familySnapshots.current = new Map();
     recordSnapshots.current = new Map();
@@ -231,17 +259,25 @@ export function useDirtyTracking() {
   /** Restore tracking state cached from a previous session (IndexedDB hydrate).
    *  Used instead of {@link resetOnLoad} when the re-parsed main is the edited
    *  serialization, so the pre-edit snapshots and changed-id sets line up with it. */
-  function hydrate(state: {
-    loadedPersonIds: string[];
-    loadedFamilyIds: string[];
-    changedPersonIds: string[];
-    changedFamilyIds: string[];
-    /** Standalone shared-record edits; absent in pre-existing caches. */
-    changedRecordIds?: string[];
-    personSnapshots: [string, GedNode][];
-    familySnapshots: [string, GedNode][];
-    recordSnapshots?: [string, SharedRecordSnapshot][];
-  }) {
+  function hydrate(
+    state: {
+      loadedPersonIds: string[];
+      loadedFamilyIds: string[];
+      changedPersonIds: string[];
+      changedFamilyIds: string[];
+      /** Standalone shared-record edits; absent in pre-existing caches. */
+      changedRecordIds?: string[];
+      personSnapshots: [string, GedNode][];
+      familySnapshots: [string, GedNode][];
+      recordSnapshots?: [string, SharedRecordSnapshot][];
+    },
+    /** The re-parsed main — already carrying the cached edits. Fingerprinting it
+     *  makes the audit baseline "the workspace as restored": the edits made
+     *  before the reload are described by the hydrated snapshots above, so the
+     *  audit only has to catch what happens from here on. */
+    dataset: Dataset,
+  ) {
+    takeBaseline(dataset);
     loadedPersonIds.current = new Set(state.loadedPersonIds);
     loadedFamilyIds.current = new Set(state.loadedFamilyIds);
     personSnapshots.current = new Map(state.personSnapshots);
@@ -271,6 +307,7 @@ export function useDirtyTracking() {
   function resetOnSave(dataset: Dataset) {
     loadedPersonIds.current = new Set(dataset.individuals.keys());
     loadedFamilyIds.current = new Set(dataset.families.keys());
+    takeBaseline(dataset);
     personSnapshots.current = new Map();
     familySnapshots.current = new Map();
     recordSnapshots.current = new Map();
@@ -287,6 +324,7 @@ export function useDirtyTracking() {
     // refs (exposed for handleRemoveFromSave which needs to read/check them)
     loadedPersonIds,
     loadedFamilyIds,
+    baseline,
     personSnapshots,
     familySnapshots,
     recordSnapshots,

@@ -6,6 +6,8 @@ import type { Dataset, GedNode } from "../gedcom/types";
 import { decisionKey, type CandidateDecision } from "../review/types";
 import { buildSavePreview, type SavePreviewInput } from "./buildSavePreview";
 import { cloneNode } from "../gedcom/node";
+import { captureBaseline } from "../gedcom/fingerprint";
+import { isItemizedChange, reportTotals } from "../merge/merge";
 
 /** The pre-edit baseline of a record that has since been edited. A snapshot
  *  identical to the record means nothing was actually changed, and the report
@@ -36,6 +38,9 @@ function input(main: Dataset, over: Partial<SavePreviewInput> = {}): SavePreview
   return {
     main,
     mainFileName: "rodovnik.ged",
+    // The file as it stands is what a save is audited against; a test that
+    // wants the audit to bite passes a baseline of its own.
+    baseline: captureBaseline(main, () => undefined, () => undefined),
     compare: undefined,
     decisions: new Map(),
     matches: null,
@@ -85,8 +90,34 @@ describe("edit-only save", () => {
   it("produces a preview flagged as not-a-merge", () => {
     const out = buildSavePreview(editInput(dataset(MAIN)))!;
     expect(out.isMerge).toBe(false);
-    expect(out.mainRecordCount).toBeUndefined();
     expect(out.editRecordIds).toEqual(new Set(["@I1@"]));
+  });
+
+  // The preview is checked against the file it started from, so a record that
+  // slipped past change tracking still reaches the reader. Both halves matter:
+  // the deleted person is named, and the summary counts them.
+  it("reports a record that vanished without change tracking noticing", () => {
+    const ds = dataset(MAIN);
+    const baseline = captureBaseline(ds, () => "Ana Kos", () => undefined);
+    ds.records = ds.records.filter((r) => r.xref !== "@I2@");
+    ds.individuals.delete("@I2@");
+
+    const out = buildSavePreview(editInput(ds, { baseline }))!;
+
+    expect(out.report.recordLabels["@I2@"]).toBe("Ana Kos");
+    expect(out.report.changes.some((c) => c.recordId === "@I2@" && c.removedRecord)).toBe(true);
+    expect(reportTotals(out.report).removedRecords).toBe(1);
+    expect(out.records.some((r) => r.xref === "@I2@")).toBe(false);
+  });
+
+  // Every number at the head of the downloaded report counts lines the report
+  // itself goes on to print — the two used to disagree by one per record.
+  it("counts as many fields as the report has itemized lines", () => {
+    const ds = dataset(MAIN);
+    const out = buildSavePreview(editInput(ds))!;
+    const totals = reportTotals(out.report);
+    expect(totals.fields).toBe(out.report.changes.filter(isItemizedChange).length);
+    expect(totals.recordsChanged).toBe(new Set(out.report.changes.map((c) => c.recordId)).size);
   });
 
   // The reason this builder is pure: the preview is constructed before the user
@@ -202,11 +233,10 @@ describe("merge save", () => {
       ...over,
     });
 
-  it("is flagged as a merge and reports the main record count", () => {
+  it("is flagged as a merge", () => {
     const main = dataset(MAIN);
     const out = buildSavePreview({ ...mergeInput(), main })!;
     expect(out.isMerge).toBe(true);
-    expect(out.mainRecordCount).toBe(main.individuals.size + main.families.size);
   });
 
   it("does not mutate the live main", () => {

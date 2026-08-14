@@ -10,6 +10,8 @@ import { mergeDecisions, type ChangeReport, type ImportBranchRequest } from "../
 import type { FormatOverrides } from "../normalize/formatOverrides";
 import { parseDecisionKey, type CandidateDecision } from "../review/types";
 import { findDanglingXrefs } from "../tools/structure";
+import type { SaveBaseline } from "../gedcom/fingerprint";
+import { auditAgainstBaseline } from "./auditReport";
 import type { SharedRecordSnapshot } from "../edit-state/useDirtyTracking";
 import { baseStem, savedName } from "../ui/download";
 
@@ -45,6 +47,10 @@ export interface SavePreviewInput {
   changedRecordIds: Set<string>;
   loadedPersonIds: Set<string>;
   loadedFamilyIds: Set<string>;
+  /** Fingerprints of the file as it arrived (or as it was last saved), so the
+   *  preview can be held against what is really about to be written — see
+   *  {@link auditAgainstBaseline}. */
+  baseline: SaveBaseline;
   personSnapshots: Map<string, GedNode>;
   familySnapshots: Map<string, GedNode>;
   recordSnapshots: Map<string, SharedRecordSnapshot>;
@@ -70,8 +76,6 @@ export interface SavePreview {
   /** The two download filenames, already date-stamped. */
   files: string[];
   downloadLabel: string;
-  /** For the merge "total records" line; absent on an edit-only save. */
-  mainRecordCount?: number;
   base: string;
   /** Record ids from edit mode — the preview offers navigate/remove for these. */
   editRecordIds: Set<string>;
@@ -97,7 +101,7 @@ export function buildSavePreview(input: SavePreviewInput): SavePreview | null {
   const {
     main, mainFileName, homeId, compare, decisions, matches, importRequests,
     confirmedCount, importCount, changedPersonIds, changedFamilyIds, changedRecordIds,
-    loadedPersonIds, loadedFamilyIds, personSnapshots, familySnapshots, recordSnapshots,
+    loadedPersonIds, loadedFamilyIds, baseline, personSnapshots, familySnapshots, recordSnapshots,
     isSortEligible, now, formatOverrides, t,
   } = input;
 
@@ -121,14 +125,12 @@ export function buildSavePreview(input: SavePreviewInput): SavePreview | null {
 
   let records: GedNode[];
   let report: ChangeReport;
-  let mainRecordCount: number | undefined;
   if (isMerge) {
     const { records: mergedRecords, report: mergeReport } = mergeDecisions(
       main, compare!, decisions, matches ?? { individuals: [] }, t, importRequests, formatOverrides,
     );
     records = mergedRecords;
     report = editReport ? combineReports(editReport, mergeReport) : mergeReport;
-    mainRecordCount = main.individuals.size + main.families.size;
     // Merge targets are already sorted inside mergeDecisions; edited records
     // that had no confirmed decision are not, so sort them here. (The edit-only
     // branch does this inside buildEditSaveRecords.)
@@ -140,13 +142,17 @@ export function buildSavePreview(input: SavePreviewInput): SavePreview | null {
     report = editReport!;
   }
 
+  // Last word on what this save does: whatever the tracking believes, the
+  // report has to account for every record that leaves changed, arrives new or
+  // fails to leave at all.
+  auditAgainstBaseline(records, baseline, report);
+
   return {
     records,
     report,
     title: t("save.preview.title"),
     files: [savedName(base, "ged", now), savedName(base, "report.txt", now)],
     downloadLabel: t("save.preview.download"),
-    mainRecordCount,
     base,
     editRecordIds,
     isMerge,

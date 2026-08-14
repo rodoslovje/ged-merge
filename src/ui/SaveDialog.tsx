@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useModalKeyboard } from "../keyboard/useModalKeyboard";
-import type { ChangeReport, FieldChange, GraftJoinPerson } from "../merge/merge";
+import { isItemizedChange, reportTotals, type ChangeReport, type FieldChange, type GraftJoinPerson } from "../merge/merge";
 import type { Dataset, Individual } from "../gedcom/types";
 import { lifespanOf } from "../gedcom/lifespan";
 import { customEventLabel, eventDisplayLabel } from "../gedcom/eventTags";
@@ -18,19 +18,15 @@ function isIconChange(c: FieldChange): boolean {
   return !c.from && !c.to && !c.segments && !!(c.sources?.length || c.links?.length);
 }
 
-/** Whether a change contributes anything to the preview (text, segments, or icons). */
-function hasContent(c: FieldChange): boolean {
-  return !!(c.from || c.to || c.segments || c.sources?.length || c.links?.length);
-}
 
 interface Props {
   report: ChangeReport;
   title: string;
   files: string[];
   downloadLabel: string;
-  /** When present, shows the before/after total record count line (merge mode). */
-  mainRecordCount?: number;
-  onConfirm: () => void;
+  /** Confirm the download. Takes the vendor tags this dialog just stripped from
+   *  the tree, so the change report can say the file lost them. */
+  onConfirm: (excludedTags: string[]) => void;
   onClose: () => void;
   /** IDs of records that came from edit mode (show navigate/remove buttons). */
   editRecordIds?: Set<string>;
@@ -52,6 +48,10 @@ interface RecordGroup {
   /** A new record brought in by a whole-branch graft (import ancestors/descendants). */
   isImported: boolean;
   isRemoved: boolean;
+  /** Found by the save-time audit rather than by change tracking: the record
+   *  reaches the file different from how it arrived, with no field detail to
+   *  show for it. */
+  isUndescribed: boolean;
   changes: FieldChange[];
 }
 
@@ -60,7 +60,6 @@ export function SaveDialog({
   title,
   files,
   downloadLabel,
-  mainRecordCount,
   onConfirm,
   onClose,
   editRecordIds,
@@ -87,23 +86,9 @@ export function SaveDialog({
     return map;
   }, [t]);
 
-  const fieldCount = useMemo(
-    () => report.changes.filter((c) => !c.newRecord && hasContent(c)).length,
-    [report.changes],
-  );
-  // Fields added where the main had nothing before, as opposed to one
-  // existing value replacing another.
-  const newFields = useMemo(
-    () => report.changes.filter((c) => !c.newRecord && !c.from && hasContent(c)).length,
-    [report.changes],
-  );
-
-  // Session-created shared records (a standalone SOUR/OBJE) count as new too —
-  // they aren't in newPersons/newFamilies but do grow the file's record count.
-  const newRecords =
-    report.newPersons +
-    report.newFamilies +
-    report.changes.filter((c) => c.newRecord && report.recordKinds[c.recordId] === "record").length;
+  // Counted by `reportTotals`, the same arithmetic the downloaded report's
+  // summary uses — the two used to count different things and disagree.
+  const totals = useMemo(() => reportTotals(report), [report]);
 
   // Non-standard tags (e.g. _ITALIC) the merge would copy in from the
   // incoming file, grouped by tag name — unchecking one strips every instance
@@ -127,13 +112,15 @@ export function SaveDialog({
   }
 
   function handleConfirm() {
+    const stripped: string[] = [];
     for (const [tag, nodes] of customTagEntries) {
       if (!excludedTags.has(tag)) continue;
+      stripped.push(tag);
       for (const { parent, node } of nodes) {
         parent.children = parent.children.filter((c) => c !== node);
       }
     }
-    onConfirm();
+    onConfirm(stripped);
   }
 
   return (
@@ -147,21 +134,32 @@ export function SaveDialog({
         <div className="modal-body preview-body">
           <div className="preview-summary">
             <Stat
-              value={report.recordsChanged}
+              value={totals.recordsChanged}
               label={t("preview.stat.records")}
-              delta={mainRecordCount != null ? newRecords : undefined}
-              deltaTitle={t("preview.stat.newRecords", { count: newRecords })}
+              delta={totals.newRecords || undefined}
+              deltaTitle={t("preview.stat.newRecords", { count: totals.newRecords })}
             />
-            {fieldCount > 0 && (
+            {totals.fields > 0 && (
               <Stat
-                value={fieldCount}
+                value={totals.fields}
                 label={t("preview.stat.fields")}
-                delta={newFields}
-                deltaTitle={t("preview.stat.newFields", { count: newFields })}
+                delta={totals.newFields}
+                deltaTitle={t("preview.stat.newFields", { count: totals.newFields })}
               />
             )}
-            {report.deferred.length > 0 && (
-              <Stat value={report.deferred.length} label={t("preview.stat.deferred")} />
+            {/* Records the file has and the download won't. Nothing else in the
+                dialog adds up to this number, and it is the one change no
+                reader wants to find out about afterwards. */}
+            {totals.removedRecords > 0 && (
+              <Stat
+                value={totals.removedRecords}
+                label={t("preview.stat.removed")}
+                warn
+                deltaTitle={t("preview.stat.removedHint", { count: totals.removedRecords })}
+              />
+            )}
+            {totals.deferred > 0 && (
+              <Stat value={totals.deferred} label={t("preview.stat.deferred")} />
             )}
           </div>
 
@@ -237,8 +235,7 @@ export function SaveDialog({
                 // same rows are a real before/after, so they stay.
                 const fieldRows = g.changes.filter(
                   (c) =>
-                    !c.newRecord &&
-                    hasContent(c) &&
+                    isItemizedChange(c) &&
                     !(c.identity && g.isNew && kind === "individual") &&
                     !(c.spouseSlot && g.isNew && spouses?.length),
                 );
@@ -343,6 +340,15 @@ export function SaveDialog({
                           ),
                         )}
                       </ul>
+                    )}
+                    {/* A card with nothing under it says nothing. Both cases
+                        that produce one are worth a sentence: a record the
+                        download leaves out, and one the save can tell has
+                        changed but cannot itemize. */}
+                    {fieldRows.length === 0 && facts.length === 0 && (g.isRemoved || g.isUndescribed) && (
+                      <p className="preview-note">
+                        {g.isRemoved ? t("preview.removedHint") : t("preview.undescribedHint")}
+                      </p>
                     )}
                   </div>
                 );
@@ -578,15 +584,21 @@ function groupByRecord(report: ChangeReport): RecordGroup[] {
   for (const c of report.changes) {
     let g = map.get(c.recordId);
     if (!g) {
-      g = { id: c.recordId, label: report.recordLabels[c.recordId] ?? c.recordId, isNew: false, isImported: false, isRemoved: false, changes: [] };
+      g = { id: c.recordId, label: report.recordLabels[c.recordId] ?? c.recordId, isNew: false, isImported: false, isRemoved: false, isUndescribed: false, changes: [] };
       map.set(c.recordId, g);
     }
     if (c.newRecord) g.isNew = true;
     if (c.viaGraft) g.isImported = true;
     if (c.removedRecord) g.isRemoved = true;
+    if (c.undescribed) g.isUndescribed = true;
     g.changes.push(c);
   }
   const groups = [...map.values()];
-  groups.sort((a, b) => Number(b.isNew) - Number(a.isNew));
+  // What the reader most needs to look at, first: records the file gains, then
+  // the ones it loses, then ordinary edits, and last the ones the save can only
+  // say *that* it changed.
+  const rank = (g: RecordGroup) =>
+    g.isNew ? 0 : g.isRemoved ? 1 : g.isUndescribed && !g.changes.some(isItemizedChange) ? 3 : 2;
+  groups.sort((a, b) => rank(a) - rank(b));
   return groups;
 }
