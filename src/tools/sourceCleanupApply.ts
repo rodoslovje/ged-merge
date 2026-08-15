@@ -1,7 +1,9 @@
 import type { Dataset, GedNode } from "../gedcom/types";
 import { rebuildFamily, rebuildIndividual } from "../gedcom/edit";
 import { bumpSourceCacheVersion } from "../gedcom/edit/cache";
+import { firstChild } from "../gedcom/node";
 import { clearObjeNodeCache } from "../gedcom/source";
+import { canonicalFamilySearchUrl } from "../normalize/links";
 import { cloneRaw, type RecordPatch } from "../ui/historyTypes";
 import { reshapeSources, type ReshapeEnrichment, type ReshapeGroup, type ReshapeOptions } from "./sourceReshape";
 import { dedupeSources, type DupGroup } from "./sourceDuplicates";
@@ -32,6 +34,23 @@ export function applySourceCleanup(
     : dataset.records;
   const next = dupGroups.length ? dedupeSources(reshaped, dupGroups).records : reshaped;
   if (next === dataset.records) return [];
+
+  // A media group merged away duplicates that differed only by viewer state —
+  // with "Shorten links" on, the kept record's stored link is trimmed too, so
+  // one apply leaves one record with one canonical link. The reshape's own
+  // tidy pass only reaches media its conversion touches; the survivor of a
+  // pure duplicate merge is this pass's to finish.
+  if (reshape.options.tidyLinks) {
+    for (const g of dupGroups) {
+      if (g.kind !== "media") continue;
+      const survivor = g.members.find((m) => m.survivor);
+      const node = survivor && next.find((r) => r.tag === "OBJE" && r.xref === survivor.xref);
+      const file = node && firstChild(node, "FILE");
+      const stored = file?.value?.trim();
+      const tidied = stored && canonicalFamilySearchUrl(stored);
+      if (file && tidied && tidied !== stored) file.value = tidied;
+    }
+  }
 
   const patches = diffRecordForests(dataset.records, next);
   if (patches.length === 0) return [];

@@ -78,6 +78,33 @@ describe("applySourceCleanup", () => {
     expect(gone.index).toBe(index);
   });
 
+  it("shortens the kept record's link when a media merge resolves viewer-state twins", () => {
+    // Two OBJE records for one FamilySearch page, differing only in the
+    // viewer state their URLs carry — the very duplicates "Shorten links"
+    // is expected to leave fully resolved: one record, one canonical link.
+    const ds = dataset([
+      "0 HEAD",
+      "1 CHAR UTF-8",
+      "0 @I1@ INDI",
+      "1 OBJE @O1@",
+      "1 OBJE @O2@",
+      "0 @O1@ OBJE",
+      "1 FILE https://www.familysearch.org/ark:/61903/3:1:3QS7-L99C-53BC?view=index&lang=en",
+      "1 TITL #005 - Marriages, Ravna Gora",
+      "0 @O2@ OBJE",
+      "1 FILE https://www.familysearch.org/ark:/61903/3:1:3QS7-L99C-53BC?wc=9R29&lang=en&i=184&cc=2040054",
+      "0 TRLR",
+    ].join("\n"));
+    const dups = findSourceDuplicates(ds);
+    expect(dups.groups).toHaveLength(1);
+    applySourceCleanup(ds, { groups: [], enrichment: new Map(), options: { tidyLinks: true } }, dups.groups);
+
+    const text = serializeGedcom(ds.records);
+    expect(ds.records.filter((r) => r.tag === "OBJE")).toHaveLength(1);
+    expect(text).toContain("1 FILE https://www.familysearch.org/ark:/61903/3:1:3QS7-L99C-53BC\n");
+    expect(text).not.toContain("view=index");
+  });
+
   it("touches nothing when nothing is selected", () => {
     const ds = dataset(FILE);
     const before = serializeGedcom(ds.records);
