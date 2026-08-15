@@ -223,6 +223,9 @@ export interface ReshapeOptions {
   sourceLayout?: SourceLayout | "auto";
   /** Baptism-citation target override; "auto" = the file's BIRT/BAPM habit. */
   baptism?: "BIRT" | "BAPM" | "auto";
+  /** Original group id → the book it was folded into ({@link mergeFsBooks}),
+   *  so the apply groups its own scan exactly as the panel showed it. */
+  mergeGroups?: ReadonlyMap<string, string>;
   /** Person+event doubled links: "fold" collapses to one, "keep" keeps both;
    *  "auto" = the file's own habit. */
   doubledLinks?: "fold" | "keep" | "auto";
@@ -1208,6 +1211,24 @@ interface GroupState {
   titleRank: number;
 }
 
+/** Re-do {@link mergeFsBooks}' fold on a freshly scanned group map: the pages
+ *  of one book become one group, standing where the first of them stood — the
+ *  order the panel listed them in, and so the order their records are made in. */
+function foldMergedGroups(
+  groups: Map<string, GroupState>,
+  mergeGroups: ReadonlyMap<string, string> | undefined,
+): Map<string, GroupState> {
+  if (!mergeGroups?.size) return groups;
+  const folded = new Map<string, GroupState>();
+  for (const [key, state] of groups) {
+    const target = mergeGroups.get(key) ?? key;
+    const into = folded.get(target);
+    if (into) into.hits.push(...state.hits);
+    else folded.set(target, target === key ? state : { ...state, group: { ...state.group, id: target } });
+  }
+  return folded;
+}
+
 function buildGroups(records: GedNode[], hits: ScanHit[], foldDuplicates: boolean): Map<string, GroupState> {
   // Existing-source lookup built in ONE pass over the SOUR records (same
   // exact-URL-first / same-book-second precedence as findExistingSource) —
@@ -1971,10 +1992,11 @@ export function reshapeSources(
   for (const r of clone) if (r.xref) byXref.set(r.xref, r);
 
   const { fold, pageMedia, baptismTag, createRepos } = resolveFormatOptions(clone, opts);
+  // A link folded into a book is selected under the book's id, not its own.
   const hits = scanOccurrences(clone, sites, fold ? pageMedia : undefined).filter((h) =>
-    selectedById.has(h.recognized.groupKey),
+    selectedById.has(opts.mergeGroups?.get(h.recognized.groupKey) ?? h.recognized.groupKey),
   );
-  const groups = buildGroups(clone, hits, fold);
+  const groups = foldMergedGroups(buildGroups(clone, hits, fold), opts.mergeGroups);
   // Media index built ONCE for the whole apply (a per-group rebuild is a full
   // forest scan each time); OBJEs this run creates are tracked alongside.
   const cloneObjeIndex = buildObjeIndex(clone);
@@ -2055,6 +2077,15 @@ export function reshapeSources(
     }
     const sourceXref = sourceNode.xref!;
 
+    // Which page of the source each link is. A page number the URL itself
+    // carries wins; then the one the report put on that member — for a book
+    // folded out of many single-image links, that is where each image's own
+    // number lives; then the group's own, for a source cited at one page.
+    const pageByUrl = new Map<string, string>();
+    for (const m of selection.members) if (m.page) pageByUrl.set(linkKey(m.url), m.page);
+    const pageOf = (hit: ScanHit): string | undefined =>
+      hit.recognized.page ?? pageByUrl.get(linkKey(hit.url)) ?? extra?.page;
+
     // --- Rewrite URL-titled SOUR records in place (every one in the group, so
     // the duplicates tool can consolidate them afterwards).
     for (const hit of state.hits) {
@@ -2084,7 +2115,7 @@ export function reshapeSources(
       const urlKey = linkKey(hit.url);
       if (seenUrls.has(urlKey) || linkedKeys.has(urlKey)) continue;
       seenUrls.add(urlKey);
-      const page = hit.recognized.page;
+      const page = pageOf(hit);
       const objeTitle = page ? `#${page} - ${fields.title}` : fields.title;
       if (hit.objeXref && byXref.has(hit.objeXref)) {
         // Re-link the already-existing top-level OBJE under the source,
@@ -2149,7 +2180,7 @@ export function reshapeSources(
         continue;
       }
 
-      const page = hit.recognized.page ?? extra?.page;
+      const page = pageOf(hit);
       const move = relocate && !hit.twinEvent ? relocationTarget(hit, bookType, baptismTag, ctx, sourceXref) : undefined;
       if (isSettledPointer(hit, move, sourceXref, pageMedia, page)) continue;
       let container = hit.container;
@@ -2904,4 +2935,88 @@ export async function fetchReshapeMeta(
   const queue = [...targets];
   await Promise.all([worker(queue), worker(queue)]);
   return enrichment;
+}
+
+/**
+ * Fold the FamilySearch groups that turned out to be pages of one book into a
+ * single group — one source with a page citation per image, the shape a
+ * paginated register wants, instead of one source per image.
+ *
+ * It can only run *after* enrichment: a FamilySearch image link says nothing
+ * about the book it belongs to (`ark:/61903/3:1:…?view=index` and no more), so
+ * which pages are one book is knowledge that arrives with the lookup. Each
+ * image keeps its own page number, moved onto the member it belongs to.
+ *
+ * Groups already bound to a source in the file, and groups marked for removal,
+ * are left alone. Returns the same report and enrichment untouched when there
+ * is nothing to fold, and `keyOf` — the original group ids that went into each
+ * book — for {@link reshapeSources} to fold its own scan the same way.
+ */
+export function mergeFsBooks(
+  report: ReshapeReport,
+  enrichment: ReshapeEnrichment,
+): { report: ReshapeReport; enrichment: ReshapeEnrichment; keyOf: Map<string, string> } {
+  const byBook = new Map<string, { meta: ReshapeMeta; groups: ReshapeGroup[] }>();
+  for (const g of report.groups) {
+    if (g.site !== "familysearch" || g.existingSourceXref || g.removeLinks) continue;
+    const meta = enrichment.get(g.id);
+    if (!meta?.book) continue;
+    const key = `f:book:${looseKey(`${meta.collection ?? ""} ${meta.place ?? ""} ${meta.book}`)}`;
+    const slot = byBook.get(key);
+    if (slot) slot.groups.push(g);
+    else byBook.set(key, { meta, groups: [g] });
+  }
+
+  const keyOf = new Map<string, string>();
+  const books = new Map<string, ReshapeGroup>();
+  const bookMeta = new Map<string, ReshapeMeta>();
+  for (const [key, { meta, groups }] of byBook) {
+    if (groups.length < 2) continue; // one page is already its own group
+    const members: ReshapeOccurrence[] = [];
+    for (const g of groups) {
+      keyOf.set(g.id, key);
+      const page = enrichment.get(g.id)?.page;
+      for (const m of g.members) members.push(page && !m.page ? { ...m, page } : m);
+    }
+    books.set(key, {
+      id: key,
+      site: "familysearch",
+      bookType: meta.bookType ?? "unknown",
+      proposed: {
+        title: meta.title ?? groups[0].proposed.title,
+        author: meta.author,
+        agency: meta.agency,
+        place: meta.place,
+        // The per-image ark identified a single image; a book has no such id.
+        filingNumber: undefined,
+        dateRange: meta.dateRange,
+      },
+      bookUrl: groups[0].bookUrl,
+      pages: [...new Set(members.map((m) => m.page).filter((p): p is string => !!p))].sort(
+        (a, b) => Number(a) - Number(b) || a.localeCompare(b),
+      ),
+      members,
+    });
+    // The book's own metadata: the page belongs to each image, not to the book.
+    bookMeta.set(key, { ...meta, page: undefined });
+  }
+  if (!keyOf.size) return { report, enrichment, keyOf };
+
+  // Each book takes the place of the first of its pages; the rest disappear.
+  const groups: ReshapeGroup[] = [];
+  const emitted = new Set<string>();
+  for (const g of report.groups) {
+    const key = keyOf.get(g.id);
+    if (!key) {
+      groups.push(g);
+      continue;
+    }
+    if (emitted.has(key)) continue;
+    emitted.add(key);
+    groups.push(books.get(key)!);
+  }
+  const merged: ReshapeEnrichment = new Map(enrichment);
+  // A hand-edited book keeps its edits — only an unseen one takes the fold's.
+  for (const [key, meta] of bookMeta) if (!merged.has(key)) merged.set(key, meta);
+  return { report: { ...report, groups }, enrichment: merged, keyOf };
 }

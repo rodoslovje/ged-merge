@@ -6,6 +6,7 @@ import {
   SITE_ICON,
   fetchReshapeMeta,
   isFetchableSite,
+  mergeFsBooks,
   makePlaceResolver,
   reshapeOptionsFromOverrides,
   reshapeSources,
@@ -165,7 +166,12 @@ export function SourceCleanupView({
       return next;
     });
 
-  const visibleGroups = useMemo(() => reshapeReport.groups.filter((g) => sites.has(g.site)), [reshapeReport, sites]);
+  // Once the lookups are in, the FamilySearch pages that belong to one book
+  // become one row — one source with a page citation each, instead of one
+  // source per image. Everything below works on the folded report; the fetch
+  // itself still goes image by image, since that is where a page number is.
+  const folded = useMemo(() => mergeFsBooks(reshapeReport, enrichment), [reshapeReport, enrichment]);
+  const visibleGroups = useMemo(() => folded.report.groups.filter((g) => sites.has(g.site)), [folded, sites]);
   const selectedGroups = useMemo(
     () =>
       visibleGroups
@@ -186,9 +192,17 @@ export function SourceCleanupView({
   // groups on fetchable sites, and only those not already fetched.
   // URL-titled sources are "existing" but get rewritten — they want enrichment
   // as much as brand-new ones do.
-  const fetchableGroups = selectedGroups.filter(
+  // …and it works on the *unfolded* groups: one lookup per image, each
+  // answering with that image's own page number. A book already folded is
+  // fetched, and one whose row is unticked is left out with it.
+  const fetchableGroups = reshapeReport.groups.filter(
     (g) =>
-      (!g.existingSourceXref || g.urlTitled) && !g.removeLinks && !enrichment.has(g.id) && isFetchableSite(g.site, g.bookUrl),
+      sites.has(g.site) &&
+      !excluded.has(folded.keyOf.get(g.id) ?? g.id) &&
+      (!g.existingSourceXref || g.urlTitled) &&
+      !removeMarked.has(g.id) &&
+      !enrichment.has(g.id) &&
+      isFetchableSite(g.site, g.bookUrl),
   );
 
   const selectedDupGroups = dupReport.groups
@@ -199,9 +213,10 @@ export function SourceCleanupView({
   function download() {
     // Reshape first (its existing-source targets are original xrefs), then
     // dedupe — which also re-points the citations the reshape just wrote.
-    const { records: reshaped } = reshapeSources(dataset.records, selectedGroups, enrichment, {
+    const { records: reshaped } = reshapeSources(dataset.records, selectedGroups, folded.enrichment, {
       ...reshapeOptionsFromOverrides(settings.formatOverrides),
       relocate,
+      mergeGroups: folded.keyOf,
     });
     const { records } = dedupeSources(reshaped, selectedDupGroups);
     ensureUtf8Charset(records, dataset); // downloads are UTF-8 bytes
@@ -237,7 +252,7 @@ export function SourceCleanupView({
   // Fetched title → the existing source's own title (correct diacritics, no
   // fetch needed) → the offline URL-derived guess.
   const groupTitle = (g: ReshapeGroup) =>
-    enrichment.get(g.id)?.title ?? (g.existingSourceXref ? g.existingSourceTitle : undefined) ?? g.proposed.title;
+    folded.enrichment.get(g.id)?.title ?? (g.existingSourceXref ? g.existingSourceTitle : undefined) ?? g.proposed.title;
 
   // Full field-per-row tooltip for the new/existing badge — same "TAG: value"
   // style as the Sources tree's record tooltips.
@@ -271,7 +286,7 @@ export function SourceCleanupView({
       const fields = node ? localizeTooltip(sourceTooltip(node)) : g.existingSourceTitle ?? "";
       return [g.existingSourceXref, fields].filter(Boolean).join("\n");
     }
-    const meta = enrichment.get(g.id);
+    const meta = folded.enrichment.get(g.id);
     // The same field values the apply writes: fetched over offline-proposed,
     // the place matched against the file's own place format.
     const place = resolvePlace(meta?.place ?? g.proposed.place);
@@ -487,7 +502,7 @@ export function SourceCleanupView({
         <GroupEditDialog
           key={editGroup.id}
           group={editGroup}
-          meta={enrichment.get(editGroup.id)}
+          meta={folded.enrichment.get(editGroup.id)}
           resolvePlace={resolvePlace}
           onSave={(meta) => setEnrichment((prev) => new Map(prev).set(editGroup.id, meta))}
           onClose={() => setEditGroup(null)}

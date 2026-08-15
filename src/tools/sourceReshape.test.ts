@@ -3,7 +3,7 @@ import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { serializeGedcom } from "../gedcom/serialize";
 import { createSourceRecord } from "../gedcom/edit";
-import type { ReshapeSite } from "./sourceReshape";
+import type { ReshapeEnrichment, ReshapeSite } from "./sourceReshape";
 import {
   applySiteSourceExtras,
   detectPageMediaStyle,
@@ -13,6 +13,7 @@ import {
   createSiteRepo,
   findReshapableLinks,
   isFetchableSite,
+  mergeFsBooks,
   narrowFsRegister,
   proposedSiteRepo,
   splitFsRegisters,
@@ -2468,6 +2469,81 @@ describe("FamilySearch image links", () => {
     expect(created?.children.find((c) => c.tag === "WWW")?.value).toBe(
       "https://www.familysearch.org/search/collection/2040054",
     );
+  });
+
+  it("folds the pages of one book into a single source, each citing its own page", () => {
+    // Three people, three single-image links: two pages of one book, one of
+    // another. Nothing in the links says so — the lookups do.
+    const ds = dataset([
+      "0 HEAD",
+      "1 CHAR UTF-8",
+      "0 @I1@ INDI",
+      "1 WWW https://www.familysearch.org/ark:/61903/3:1:AAA?view=index&lang=en",
+      "0 @I2@ INDI",
+      "1 WWW https://www.familysearch.org/ark:/61903/3:1:BBB?view=index&lang=en",
+      "0 @I3@ INDI",
+      "1 WWW https://www.familysearch.org/ark:/61903/3:1:CCC?view=index&lang=en",
+      "0 TRLR",
+    ].join("\n"));
+    const report = findReshapableLinks(ds);
+    expect(report.groups).toHaveLength(3); // one per image, before any lookup
+    const book = { collection: "Croatia, Church Books, 1516-1994", place: "Ravna Gora", book: "Marriages (Vjenčani) 1805-1812" };
+    const enrichment: ReshapeEnrichment = new Map([
+      [report.groups[0].id, { ...book, title: "Ravna Gora - Marriages (Vjenčani) 1805-1812", dateRange: "1805-1812", bookType: "marriage" as const, page: "12" }],
+      [report.groups[1].id, { ...book, title: "Ravna Gora - Marriages (Vjenčani) 1805-1812", dateRange: "1805-1812", bookType: "marriage" as const, page: "47" }],
+      [report.groups[2].id, { collection: book.collection, place: "Dubovac (Karlovac)", book: "Births (Rođeni) 1891-1896", title: "Dubovac (Karlovac) - Births (Rođeni) 1891-1896", page: "3" }],
+    ]);
+
+    const folded = mergeFsBooks(report, enrichment);
+    // Two pages of one book become one row; the lone page keeps its own.
+    expect(folded.report.groups).toHaveLength(2);
+    const merged = folded.report.groups[0];
+    expect(merged.members.map((m) => m.page)).toEqual(["12", "47"]);
+    expect(merged.pages).toEqual(["12", "47"]);
+    expect(merged.bookType).toBe("marriage");
+    // A book has no single image's ark for a filing number.
+    expect(merged.proposed.filingNumber).toBeUndefined();
+
+    const { records, counts } = reshapeSources(ds.records, folded.report.groups, folded.enrichment, {
+      mergeGroups: folded.keyOf,
+    });
+    const text = serializeGedcom(records);
+    expect(counts.sourcesCreated).toBe(2); // one per book, not one per image
+    // Both people cite the same source, each at its own page.
+    expect(text).toMatch(/0 @I1@ INDI\n1 SOUR @S1@\n2 PAGE 12/);
+    expect(text).toMatch(/0 @I2@ INDI\n1 SOUR @S1@\n2 PAGE 47/);
+    expect(text).toMatch(/0 @I3@ INDI\n1 SOUR @S2@\n2 PAGE 3/);
+    expect(text).toContain("1 TITL Ravna Gora - Marriages (Vjenčani) 1805-1812");
+    expect(text).toContain("1 DATE 1805-1812");
+    // One page image per image link, titled by its own page.
+    expect(text).toContain("1 TITL #12 - Ravna Gora - Marriages (Vjenčani) 1805-1812");
+    expect(text).toContain("1 TITL #47 - Ravna Gora - Marriages (Vjenčani) 1805-1812");
+  });
+
+  it("leaves a book alone when it is one page, or already has its source", () => {
+    const ds = dataset([
+      "0 HEAD",
+      "1 CHAR UTF-8",
+      "0 @I1@ INDI",
+      "1 WWW https://www.familysearch.org/ark:/61903/3:1:AAA?view=index&lang=en",
+      "0 @I2@ INDI",
+      "1 WWW https://www.familysearch.org/ark:/61903/3:1:BBB?view=index&lang=en",
+      "0 TRLR",
+    ].join("\n"));
+    const report = findReshapableLinks(ds);
+    // Same book, but one of the two links is already cited by a source in the
+    // file: only the free one is left, and one page is no book to fold.
+    const withExisting = {
+      ...report,
+      groups: [{ ...report.groups[0], existingSourceXref: "@S9@" }, report.groups[1]],
+    };
+    const meta = { collection: "C", place: "P", book: "Marriages 1805-1812", page: "1" };
+    const enrichment: ReshapeEnrichment = new Map(withExisting.groups.map((g) => [g.id, meta]));
+    const folded = mergeFsBooks(withExisting, enrichment);
+    expect(folded.report.groups).toEqual(withExisting.groups);
+    expect(folded.keyOf.size).toBe(0);
+    // No lookups at all: nothing to fold by, and the report comes back as-is.
+    expect(mergeFsBooks(report, new Map()).report).toBe(report);
   });
 
   it("tries a blocked link once more, but takes a 401 for the answer it is", async () => {
