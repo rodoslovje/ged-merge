@@ -88,6 +88,20 @@ function descriptiveTooltip(node: GedNode): string {
   const lines: string[] = [];
   for (const c of node.children) {
     if (TOOLTIP_SKIP_TAGS.has(c.tag)) continue;
+    // Standard coverage lives one level down — surface each EVEN block (and
+    // DATA's own AGNC) so a spec-shaped source tooltips like a flat one.
+    if (c.tag === "DATA") {
+      for (const d of c.children) {
+        const v = d.value?.trim();
+        if (d.tag === "EVEN") {
+          const detail = [v, childText(d, "DATE"), childText(d, "PLAC")].filter(Boolean).join(" · ");
+          if (detail) lines.push(`EVEN: ${detail}`);
+        } else if (v && !isPointer(v)) {
+          lines.push(`${d.tag}: ${v}`);
+        }
+      }
+      continue;
+    }
     const v = c.value?.trim();
     if (!v || isPointer(v)) continue;
     lines.push(`${c.tag}: ${v}`);
@@ -399,6 +413,34 @@ export function prefersSourceRepos(records: GedNode[], exclude?: GedNode): boole
     else without += links;
   }
   return withRepo > without;
+}
+
+/**
+ * How a file's sources state what they cover: the spec's `DATA > EVEN`
+ * structure (period + jurisdiction per recorded event type — PAF lineage,
+ * webtrees, GEDCOM 7) or flat vendor fields (level-1 `PLAC`/`DATE`,
+ * MacFamilyTree-style). Counted per source record; ties and silence read as
+ * "vendor" — the shape everything wrote before this choice existed.
+ */
+export function detectSourceCoverage(records: GedNode[]): "vendor" | "standard" {
+  let standard = 0;
+  let vendor = 0;
+  for (const rec of records) {
+    if (rec.tag !== "SOUR" || !rec.xref) continue;
+    if (childrenByTag(firstChild(rec, "DATA") ?? rec, "EVEN").length > 0 && firstChild(rec, "DATA")) standard++;
+    else if (hasChild(rec, ["PLAC", "DATE"])) vendor++;
+  }
+  return standard > vendor ? "standard" : "vendor";
+}
+
+/** Whether any source record states coverage at all — without one the
+ *  coverage-shape question is moot (Settings shows no detected value). */
+export function hasSourceCoverage(records: GedNode[]): boolean {
+  for (const rec of records) {
+    if (rec.tag !== "SOUR" || !rec.xref) continue;
+    if (firstChild(rec, "DATA") || hasChild(rec, ["PLAC", "DATE"])) return true;
+  }
+  return false;
 }
 
 /** `linkKey`, but with any `pg=` page-number query param stripped first, so two

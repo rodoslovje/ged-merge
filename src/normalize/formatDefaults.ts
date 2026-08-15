@@ -1,6 +1,6 @@
 import type { Dataset } from "../gedcom/types";
 import { walkNodes } from "./walk";
-import { inferSourceFormat } from "../gedcom/source";
+import { detectSourceCoverage, hasSourceCoverage, inferSourceFormat } from "../gedcom/source";
 import { LINK_TAGS } from "../gedcom/builder";
 import { looksLikeUrl } from "../gedcom/uri";
 import { detectPrivacyStyleIfAny } from "../gedcom/private";
@@ -50,6 +50,7 @@ export function detectFormatDefaults(dataset: Dataset): DetectedFormats {
     citations: detectCitationPlacement(dataset.records),
     pageMedia: hasSourcePageMedia(dataset.records) ? detectPageMediaStyle(dataset.records) : undefined,
     baptism: baptismTargetTag(dataset.records),
+    sourceCoverage: hasSourceCoverage(dataset.records) ? detectSourceCoverage(dataset.records) : undefined,
     doubledLinks: prefersDoubledLinks(dataset.records) ? "keep" : "fold",
     matriculaLang: linkLangs.matricula,
     geneanetLang: linkLangs.geneanet,

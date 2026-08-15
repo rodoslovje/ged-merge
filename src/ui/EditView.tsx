@@ -1003,6 +1003,8 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     }
     return createStandaloneSource(dataset.records, fields, {
       sourceLayout: settings.formatOverrides.sourceLayout ?? "auto",
+      sourceCoverage: settings.formatOverrides.sourceCoverage ?? "auto",
+      baptism: settings.formatOverrides.baptism ?? "auto",
     });
   }
 

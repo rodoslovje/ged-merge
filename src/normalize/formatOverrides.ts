@@ -35,6 +35,10 @@ export interface FormatOverrides {
   pageMedia?: "event" | "source";
   /** Which event carries baptism-book citations. */
   baptism?: "BIRT" | "BAPM";
+  /** How a source states what it covers: the vendor fields (level-1
+   *  PLAC/DATE, MacFamilyTree-style) or the spec's `DATA > EVEN` structure
+   *  (one entry per register, with its period and jurisdiction). */
+  sourceCoverage?: "vendor" | "standard";
   /** Person+event duplicated links: fold into one, or keep both. */
   doubledLinks?: "fold" | "keep";
   /** Preferred Matricula Online URL language ("sl", "de", "en", …). */
@@ -211,6 +215,7 @@ export function sanitizeFormatOverrides(raw: unknown): FormatOverrides {
   out.citations = oneOf(r.citations, ["event", "record"] as const);
   out.pageMedia = oneOf(r.pageMedia, ["event", "source"] as const);
   out.baptism = oneOf(r.baptism, ["BIRT", "BAPM"] as const);
+  out.sourceCoverage = oneOf(r.sourceCoverage, ["vendor", "standard"] as const);
   out.doubledLinks = oneOf(r.doubledLinks, ["fold", "keep"] as const);
   out.matriculaLang = str(r.matriculaLang);
   out.geneanetLang = str(r.geneanetLang);

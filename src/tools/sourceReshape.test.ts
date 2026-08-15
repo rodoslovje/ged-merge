@@ -547,6 +547,107 @@ describe("reshapeSources — apply", () => {
     expect(text).toMatch(/1 BURI\n2 PLAC Žabnica,Kranj,Slovenia\n2 SOUR @S1@/); // burial place filled
   });
 
+  it("writes the spec's DATA coverage in a standard-coverage file", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NOTE ${BOOK}/?pg=10
+0 TRLR`);
+    const report = findReshapableLinks(ds);
+    const enrichment = new Map([
+      [report.groups[0].id, { bookType: "death" as const, place: "Šentjur", dateRange: "1896-1911", agency: "NŠAM" }],
+    ]);
+    const { records } = reshapeSources(ds.records, report.groups, enrichment, { sourceCoverage: "standard" });
+    const text = serializeGedcom(records);
+    // One DATA > EVEN block: type, period value, jurisdiction; AGNC in its
+    // spec spot under DATA — and no flat vendor copies beside it.
+    expect(text).toMatch(/1 DATA\n2 EVEN DEAT\n3 DATE FROM 1896 TO 1911\n3 PLAC Šentjur\n2 AGNC NŠAM/);
+    expect(text).not.toMatch(/\n1 PLAC /);
+    expect(text).not.toMatch(/\n1 AGNC /);
+    // No repository in this file, so no CALN to carry the number — the flat
+    // FILN survives rather than losing the id.
+    expect(text).toContain("1 FILN 03869");
+  });
+
+  it("moves the filing number wholly into CALN when a repository carries it", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NOTE ${BOOK}/?pg=10
+0 @S9@ SOUR
+1 TITL Krstna knjiga
+1 REPO @R9@
+0 @R9@ REPO
+1 NAME Nekje
+0 TRLR`);
+    const report = findReshapableLinks(ds);
+    const enrichment = new Map([[report.groups[0].id, { bookType: "death" as const, dateRange: "1896-1911" }]]);
+    const { records } = reshapeSources(ds.records, report.groups, enrichment, { sourceCoverage: "standard" });
+    const text = serializeGedcom(records);
+    expect(text).toMatch(/1 REPO @R\d+@\n2 CALN 03869/);
+    expect(text).not.toContain("1 FILN");
+  });
+
+  it("states one EVEN per register of a multi-register FamilySearch book", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NOTE https://www.familysearch.org/ark:/61903/3:1:TEST-COVER-1
+0 TRLR`);
+    const report = findReshapableLinks(ds);
+    const enrichment = new Map([
+      [
+        report.groups[0].id,
+        {
+          bookType: "unknown" as const,
+          place: "Ravna Gora",
+          dateRange: "1805-1843",
+          book: "Marriages (Vjenčani) 1805-1812 Births (Rođeni) 1815-1843",
+        },
+      ],
+    ]);
+    const { records } = reshapeSources(ds.records, report.groups, enrichment, { sourceCoverage: "standard" });
+    const text = serializeGedcom(records);
+    expect(text).toMatch(/2 EVEN MARR\n3 DATE FROM 1805 TO 1812\n3 PLAC Ravna Gora/);
+    expect(text).toMatch(/2 EVEN BIRT\n3 DATE FROM 1815 TO 1843\n3 PLAC Ravna Gora/);
+  });
+
+  it("keeps the flat fields when the register type is unknown, even in standard mode", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NOTE ${BOOK}/?pg=10
+0 TRLR`);
+    const report = findReshapableLinks(ds);
+    const enrichment = new Map([[report.groups[0].id, { place: "Šentjur", dateRange: "1896-1911" }]]);
+    const { records } = reshapeSources(ds.records, report.groups, enrichment, { sourceCoverage: "standard" });
+    const text = serializeGedcom(records);
+    // A coverage claim needs an event type — without one nothing is invented,
+    // and the values still land (as the flat fields).
+    expect(text).not.toContain("1 DATA");
+    expect(text).toContain("1 PLAC Šentjur");
+    expect(text).toContain("1 DATE 1896-1911");
+  });
+
+  it("follows the file's own coverage habit on auto", () => {
+    // The file's one covering source already speaks the standard shape, so a
+    // new source does too — no override needed.
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NOTE ${BOOK}/?pg=10
+0 @S9@ SOUR
+1 TITL Mrliška knjiga Kranj
+1 DATA
+2 EVEN DEAT
+3 DATE FROM 1800 TO 1850
+0 TRLR`);
+    const report = findReshapableLinks(ds);
+    const enrichment = new Map([[report.groups[0].id, { bookType: "death" as const, dateRange: "1896-1911" }]]);
+    const { records } = reshapeSources(ds.records, report.groups, enrichment);
+    expect(serializeGedcom(records)).toMatch(/1 DATA\n2 EVEN DEAT\n3 DATE FROM 1896 TO 1911/);
+  });
+
   it("matches a diacritic-less slug place to the file's real place", () => {
     const { text } = applyAll(`0 HEAD
 1 CHAR UTF-8
@@ -1425,12 +1526,14 @@ describe("reshapeSources — citation placement", () => {
       sourceLayout: "auto",
       baptism: "auto",
       doubledLinks: "auto",
+      sourceCoverage: "auto",
     });
     expect(reshapeOptionsFromOverrides({ pageMedia: "event", baptism: "BAPM", date: "DD.MM.YYYY" })).toEqual({
       pageMedia: "event",
       sourceLayout: "auto",
       baptism: "BAPM",
       doubledLinks: "auto",
+      sourceCoverage: "auto",
     });
   });
 

@@ -154,12 +154,28 @@ export function setSourceRecordFields(records: GedNode[], sourceNode: GedNode, f
     if (at !== -1) sourceNode.children.splice(at, 0, node);
     else insertGrouped(sourceNode, node, SOUR_FIELD_TRAILING);
   };
+  // A standard-coverage record keeps place and agency inside `DATA` (AGNC on
+  // DATA itself, PLAC on its EVEN blocks) — an edit lands where the value
+  // lives instead of minting a second, flat copy beside it.
+  const data = firstChild(sourceNode, "DATA");
+  const setCoverageAware = (tag: "AGNC" | "PLAC", value: string | undefined) => {
+    if (!data || firstChild(sourceNode, tag)) return setChild(tag, value);
+    const holders = tag === "AGNC" ? [data] : childrenByTag(data, "EVEN");
+    if (holders.length === 0) return setChild(tag, value);
+    const trimmed = value?.trim();
+    for (const holder of holders) {
+      const node = firstChild(holder, tag);
+      if (node && trimmed) node.value = trimmed;
+      else if (node) holder.children = holder.children.filter((c) => c !== node);
+      else if (trimmed) holder.children.push({ level: holder.level + 1, tag, value: trimmed, children: [] });
+    }
+  };
   setChild("TITL", fields.title);
   setChild("AUTH", fields.author);
   setChild("PERI", fields.periodical);
   setChild("PUBL", fields.publisher);
-  setChild("AGNC", fields.agency);
-  setChild("PLAC", fields.place);
+  setCoverageAware("AGNC", fields.agency);
+  setCoverageAware("PLAC", fields.place);
   setChild("FILN", fields.filingNumber);
   // A NOTE that points at a shared record is edited inside that record (the
   // dialog was prefilled with its resolved text); clearing it releases the
@@ -346,6 +362,15 @@ export function repoRecordEditFields(records: GedNode[], repoNode: GedNode): Edi
  */
 export function sourceRecordEditFields(records: GedNode[], sourceNode: GedNode): EditSourceFields {
   const text = (tag: string) => firstChild(sourceNode, tag)?.value?.trim() || undefined;
+  // Standard-coverage records state place/agency inside DATA — prefill from
+  // there when the flat field is absent, matching where a save writes back.
+  const data = firstChild(sourceNode, "DATA");
+  const coveredPlace = data
+    ? childrenByTag(data, "EVEN")
+        .map((e) => firstChild(e, "PLAC")?.value?.trim())
+        .find(Boolean)
+    : undefined;
+  const coveredAgency = data ? firstChild(data, "AGNC")?.value?.trim() || undefined : undefined;
   const objeChildren = childrenByTag(sourceNode, "OBJE").filter((c) => c.value);
   const objeXref = objeChildren.length === 1 ? objeChildren[0].value!.trim() : undefined;
   const objeNode = objeXref ? records.find((r) => r.tag === "OBJE" && r.xref === objeXref) : undefined;
@@ -355,8 +380,8 @@ export function sourceRecordEditFields(records: GedNode[], sourceNode: GedNode):
     author: text("AUTH"),
     periodical: text("PERI"),
     publisher: text("PUBL"),
-    agency: text("AGNC"),
-    place: text("PLAC"),
+    agency: text("AGNC") ?? coveredAgency,
+    place: text("PLAC") ?? coveredPlace,
     filingNumber: text("FILN"),
     note: noteVal && isPointer(noteVal) ? getMediaAndSourceCtx(records).noteIndex.get(noteVal)?.text.trim() : noteVal,
     url: objeNode ? objeInfoOf(objeNode).url : undefined,

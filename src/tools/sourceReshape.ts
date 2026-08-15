@@ -3,6 +3,7 @@ import { childText, childrenByTag, cloneNode, firstChild } from "../gedcom/node"
 import {
   bookKeyOf,
   buildObjeIndex,
+  detectSourceCoverage,
   prefersSourceRepos,
   isPointer,
   looksLikeUrl,
@@ -234,6 +235,9 @@ export interface ReshapeOptions {
   /** Person+event doubled links: "fold" collapses to one, "keep" keeps both;
    *  "auto" = the file's own habit. */
   doubledLinks?: "fold" | "keep" | "auto";
+  /** How a new source states what it covers: flat vendor PLAC/DATE fields, or
+   *  the spec's `DATA > EVEN` structure; "auto" = the file's own habit. */
+  sourceCoverage?: "vendor" | "standard" | "auto";
 }
 
 export interface ReshapeCounts {
@@ -1499,6 +1503,7 @@ export function reshapeOptionsFromOverrides(o: FormatOverrides | undefined): Res
     sourceLayout: o?.sourceLayout ?? "auto",
     baptism: o?.baptism ?? "auto",
     doubledLinks: o?.doubledLinks ?? "auto",
+    sourceCoverage: o?.sourceCoverage ?? "auto",
   };
 }
 
@@ -1509,6 +1514,7 @@ function resolveFormatOptions(records: GedNode[], opts: ReshapeOptions) {
     fold: auto(opts.doubledLinks, () => (prefersDoubledLinks(records) ? "keep" : "fold")) === "fold",
     pageMedia: auto(opts.pageMedia, () => detectPageMediaStyle(records)),
     baptismTag: auto(opts.baptism, () => baptismTargetTag(records)),
+    coverage: auto(opts.sourceCoverage, () => detectSourceCoverage(records)),
     // Repository creation is its own habit, independent of the page-link
     // shape (files with page-link sources usually ALSO repo-link each one):
     // an explicit layout override decides directly; "auto" follows the
@@ -1820,6 +1826,90 @@ function houseDateFormatter(records: GedNode[]): (value: string | undefined) => 
   };
 }
 
+/** One `EVEN` block of a source's standard coverage: the event type recorded,
+ *  its period and the jurisdiction. */
+interface CoverageEvent {
+  type: string;
+  date?: string;
+  place?: string;
+}
+
+/** The event tag a register type records, for a coverage `EVEN` payload. */
+function coverageTagOf(bookType: BookType, baptismTag: "BIRT" | "BAPM"): string | undefined {
+  if (bookType === "baptism") return baptismTag;
+  if (bookType === "marriage") return "MARR";
+  if (bookType === "death") return "DEAT";
+  if (bookType === "burial") return "BURI";
+  return undefined;
+}
+
+/**
+ * The `EVEN` blocks a source's standard coverage states: one per register of a
+ * multi-register FamilySearch book ("Marriages … 1805-1812 Births … 1815-1843"
+ * → `EVEN MARR` + `EVEN BIRT`, each with its own years), else a single block
+ * for the book's own type. Empty when no type is known — a coverage claim
+ * needs one, so the caller keeps the flat fields instead.
+ */
+function coverageEvents(
+  bookType: BookType,
+  baptismTag: "BIRT" | "BAPM",
+  place: string | undefined,
+  dateRange: string | undefined,
+  book: string | undefined,
+): CoverageEvent[] {
+  const parts = splitFsRegisters(book);
+  if (parts.length > 1) {
+    const events = parts.flatMap((part) => {
+      const tag = coverageTagOf(classifyBookType([part]), baptismTag);
+      return tag ? [{ type: tag, date: yearSpan(part), place }] : [];
+    });
+    // Only when every register is understood — a partial split would claim
+    // less than the book holds.
+    if (events.length === parts.length) return events;
+  }
+  const tag = coverageTagOf(bookType, baptismTag);
+  return tag ? [{ type: tag, date: dateRange, place }] : [];
+}
+
+/** A year range as the spec's period value ("1896-1911" → "FROM 1896 TO
+ *  1911"); anything else is written as it came. */
+function coveragePeriod(date: string | undefined): string | undefined {
+  const m = date && /^(\d{4})\s*[-–]\s*(\d{4})$/.exec(date.trim());
+  return m ? `FROM ${m[1]} TO ${m[2]}` : date;
+}
+
+/**
+ * Write the standard coverage onto a source record: `1 DATA` holding one
+ * `2 EVEN` per register (period + jurisdiction), with `AGNC` under `DATA` —
+ * its spec spot, so a flat one moves along. Fill-only: a record already
+ * stating an `EVEN` coverage keeps it. False when there is nothing to state
+ * (no register type known), so the caller writes the flat fields instead.
+ */
+function applyStandardCoverage(rec: GedNode, events: CoverageEvent[], agency: string | undefined): boolean {
+  if (events.length === 0) return false;
+  let data = firstChild(rec, "DATA");
+  if (!data) {
+    data = { level: rec.level + 1, tag: "DATA", children: [] };
+    insertGrouped(rec, data, SOUR_FIELD_TRAILING);
+  }
+  if (childrenByTag(data, "EVEN").length === 0) {
+    for (const ev of events) {
+      const even: GedNode = { level: data.level + 1, tag: "EVEN", value: ev.type, children: [] };
+      const period = coveragePeriod(ev.date);
+      if (period) even.children.push({ level: even.level + 1, tag: "DATE", value: period, children: [] });
+      if (ev.place) even.children.push({ level: even.level + 1, tag: "PLAC", value: ev.place, children: [] });
+      data.children.push(even);
+    }
+  }
+  const flatAgnc = firstChild(rec, "AGNC");
+  if (!childText(data, "AGNC")) {
+    const value = flatAgnc?.value?.trim() || agency;
+    if (value) data.children.push({ level: data.level + 1, tag: "AGNC", value, children: [] });
+  }
+  if (flatAgnc) spliceChild(rec, flatAgnc);
+  return true;
+}
+
 /** Repository identity per site: how to spot an existing `REPO` (by its WWW
  *  host) and what to create when the file's convention hangs sources off
  *  repositories. Matricula derives name/WWW per archive instead. */
@@ -1992,10 +2082,32 @@ export function applySiteSourceExtras(
   site: ReshapeSite | undefined,
   url: string,
   meta: { place?: string; dateRange?: string; collection?: string; collectionId?: string },
-  opts: { sourceLayout?: SourceLayout | "auto"; repo?: "auto" | "none" } = {},
+  opts: {
+    sourceLayout?: SourceLayout | "auto";
+    repo?: "auto" | "none";
+    sourceCoverage?: "vendor" | "standard" | "auto";
+    baptism?: "BIRT" | "BAPM" | "auto";
+  } = {},
 ): GedNode | undefined {
-  fillField(sourceNode, "PLAC", buildPlaceResolver(records).resolve(meta.place));
-  fillField(sourceNode, "DATE", houseDateFormatter(records)(meta.dateRange));
+  const place = buildPlaceResolver(records).resolve(meta.place);
+  const dateRange = houseDateFormatter(records)(meta.dateRange);
+  const coverage =
+    opts.sourceCoverage && opts.sourceCoverage !== "auto" ? opts.sourceCoverage : detectSourceCoverage(records);
+  // The register type the coverage would claim: the site's inherent kind, or
+  // whatever the title says ("… - Deaths (Umrli) 1896-1911 - …").
+  const bookType = (site ? SITE_BOOK_TYPE[site] : undefined) ?? classifyBookType([childText(sourceNode, "TITL")]);
+  const baptismTag = opts.baptism && opts.baptism !== "auto" ? opts.baptism : baptismTargetTag(records);
+  const standard =
+    coverage === "standard" &&
+    applyStandardCoverage(
+      sourceNode,
+      coverageEvents(bookType, baptismTag, place, dateRange, undefined),
+      undefined,
+    );
+  if (!standard) {
+    fillField(sourceNode, "PLAC", place);
+    fillField(sourceNode, "DATE", dateRange);
+  }
   // "none": the caller handles the repository choice itself (the Add Source
   // dialog's explicit dropdown) — only the PLAC/DATE fills apply here.
   if (opts.repo === "none" || !site || firstChild(sourceNode, "REPO")) return undefined;
@@ -2051,7 +2163,7 @@ export function reshapeSources(
   const byXref = new Map<string, GedNode>();
   for (const r of clone) if (r.xref) byXref.set(r.xref, r);
 
-  const { fold, pageMedia, baptismTag, createRepos } = resolveFormatOptions(clone, opts);
+  const { fold, pageMedia, baptismTag, createRepos, coverage } = resolveFormatOptions(clone, opts);
   // A link folded into a book is selected under the book's id, not its own.
   const hits = scanOccurrences(clone, sites, fold ? pageMedia : undefined).filter((h) =>
     selectedById.has(opts.mergeGroups?.get(h.recognized.groupKey) ?? h.recognized.groupKey),
@@ -2123,9 +2235,20 @@ export function reshapeSources(
       sourceNode = createSourceRecord(clone, fields);
       byXref.set(sourceNode.xref!, sourceNode);
       counts.sourcesCreated++;
-      // `NewSourceFields` has no place/date — the paginated house shape does.
-      fillField(sourceNode, "PLAC", fields.place);
-      fillField(sourceNode, "DATE", fields.dateRange);
+      // What the source covers: the spec's `DATA > EVEN` blocks in a
+      // standard-coverage file, else the flat vendor fields
+      // (`NewSourceFields` has neither — the paginated house shape does).
+      const standard =
+        coverage === "standard" &&
+        applyStandardCoverage(
+          sourceNode,
+          coverageEvents(bookType, baptismTag, fields.place, fields.dateRange, extra?.book),
+          fields.agency,
+        );
+      if (!standard) {
+        fillField(sourceNode, "PLAC", fields.place);
+        fillField(sourceNode, "DATE", fields.dateRange);
+      }
       const repo = ensureSiteRepo(clone, g.site, state.hits[0].url, fields.agency, createRepos, {
         title: extra?.collection,
         id: extra?.collectionId,
@@ -2138,6 +2261,10 @@ export function reshapeSources(
         // strict reader looks for it is the repository link's CALN.
         if (fields.filingNumber) {
           link.children.push({ level: 2, tag: "CALN", value: fields.filingNumber, children: [] });
+          // In the standard shape FILN is not a source field at all — the
+          // call number now carries the id.
+          const filn = standard && firstChild(sourceNode, "FILN");
+          if (filn) spliceChild(sourceNode, filn);
         }
         sourceNode.children.push(link);
       }
@@ -2174,10 +2301,19 @@ export function reshapeSources(
       if (hit.shape !== "sourTitle") continue;
       hit.node.value = fields.title;
       fillField(hit.rec, "AUTH", fields.author);
-      fillField(hit.rec, "AGNC", fields.agency);
-      fillField(hit.rec, "PLAC", fields.place);
+      const std =
+        coverage === "standard" &&
+        applyStandardCoverage(
+          hit.rec,
+          coverageEvents(bookType, baptismTag, fields.place, fields.dateRange, extra?.book),
+          fields.agency,
+        );
+      if (!std) {
+        fillField(hit.rec, "AGNC", fields.agency);
+        fillField(hit.rec, "PLAC", fields.place);
+        fillField(hit.rec, "DATE", fields.dateRange);
+      }
       fillField(hit.rec, "FILN", fields.filingNumber);
-      fillField(hit.rec, "DATE", fields.dateRange);
       counts.citationsRewritten++;
     }
 
