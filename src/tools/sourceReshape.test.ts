@@ -2281,8 +2281,11 @@ describe("FamilySearch image links", () => {
 
   const IMAGE_URL =
     "https://www.familysearch.org/ark:/61903/3:1:3QSQ-G99F-FHWS?wc=9R2F-W38%3A391644801&cc=2040054&lang=en&i=555";
+  // A link straight to a book, naming neither the collection nor the image.
+  const BOOK_ONLY_URL = "https://www.familysearch.org/ark:/61903/3:1:3QSQ-G99C-57VF?view=index&lang=en";
   const RECORD_URL = "https://familysearch.org/ark:/61903/1:1:XNJ8-FPJ";
   const FILM_URL = "https://www.familysearch.org/search/catalog/406380";
+  const FILM_ARK_URL = "https://www.familysearch.org/ark:/61903/3:1:3Q9M-CS2T-N985-8?cat=406380&i=137";
 
   it("reads collection, book, place, archive and image number from the ark's own citation", () => {
     expect(parseFamilySearchArkJson(ARK_JSON)).toEqual({
@@ -2310,6 +2313,38 @@ describe("FamilySearch image links", () => {
     expect(meta?.title).toBe("Pakrac - Poročna knjiga 1858-1890 - Croatia, Church Books, 1516-1994");
     expect(meta?.dateRange).toBe("1858-1890");
     expect(meta?.bookType).toBe("marriage");
+  });
+
+  it("reads a link that names neither collection nor image — both come back from the ark", () => {
+    // The real answer for BOOK_ONLY_URL, trimmed: no cc and no i= in the link,
+    // yet the citation numbers the image and the descriptor names the collection.
+    const json = JSON.stringify({
+      links: { self: { offset: 98, results: 247 } },
+      sourceDescriptions: [
+        {
+          resourceType: "http://gedcomx.org/DigitalArtifact",
+          descriptor: {
+            resource: "https://www.familysearch.org/platform/records/collections/2040054?arkName=3:1:3QSQ-G99C-57VF",
+          },
+          citations: [
+            {
+              value:
+                '"Croatia, Church Books, 1516-1994," database with images, <i>FamilySearch</i> ' +
+                "(https://familysearch.org/ark:/61903/3:1:3QSQ-G99C-57VF?cc=2040054 : 6 April 2015), " +
+                "Roman Catholic (Rimokatolička crkva) > Ravna Gora > " +
+                "Marriages (Vjenčani) 1805-1812 Births (Rođeni) 1815-1843 Marriages (Vjenčani) 1815-1848 > " +
+                "image 98 of 247; Arhiva Hrvatske u Zagrebu (Croatia State Archives), Zagreb.\n",
+            },
+          ],
+        },
+      ],
+    });
+    const meta = parseFamilySearchArkJson(json);
+    expect(meta?.page).toBe("98");
+    expect(meta?.place).toBe("Ravna Gora");
+    expect(meta?.dateRange).toBe("1805-1848");
+    expect(meta?.collection).toBe("Croatia, Church Books, 1516-1994");
+    expect(meta?.collectionId).toBe("2040054");
   });
 
   it("reads nothing from an image with no citation (a catalog film), and nothing from junk", () => {
@@ -2358,7 +2393,9 @@ describe("FamilySearch image links", () => {
     // tells them apart, and it arrives with the lookup.
     expect(proposedSiteRepo(ds.records, "familysearch", IMAGE_URL, undefined)?.xref).toBe("@R1@");
     expect(
-      proposedSiteRepo(ds.records, "familysearch", IMAGE_URL, undefined, "Croatia, Church Books, 1516-1994")?.xref,
+      proposedSiteRepo(ds.records, "familysearch", IMAGE_URL, undefined, {
+        title: "Croatia, Church Books, 1516-1994",
+      })?.xref,
     ).toBe("@R2@");
     // The collection id in a repository's WWW settles it without the lookup.
     const withWww = dataset([
@@ -2374,6 +2411,11 @@ describe("FamilySearch image links", () => {
       "0 TRLR",
     ].join("\n"));
     expect(proposedSiteRepo(withWww.records, "familysearch", IMAGE_URL, undefined)?.xref).toBe("@R2@");
+    // …and for a link that carries no cc at all, the id the lookup read.
+    expect(proposedSiteRepo(withWww.records, "familysearch", BOOK_ONLY_URL, undefined)?.xref).toBe("@R1@");
+    expect(
+      proposedSiteRepo(withWww.records, "familysearch", BOOK_ONLY_URL, undefined, { id: "2040054" })?.xref,
+    ).toBe("@R2@");
     // Matricula's archive still wins over a bare familysearch.org repository.
     expect(proposedSiteRepo(ds.records, "matricula", BOOK, "Nadškofijski arhiv Ljubljana")?.xref).toBe("@R3@");
   });
@@ -2382,10 +2424,14 @@ describe("FamilySearch image links", () => {
     const empty = dataset(["0 HEAD", "1 GEDC", "2 VERS 5.5.1", "0 TRLR"].join("\n"));
     expect(proposedSiteRepo(empty.records, "familysearch", IMAGE_URL, undefined)?.createName).toBe("FamilySearch.org");
     expect(
-      proposedSiteRepo(empty.records, "familysearch", IMAGE_URL, undefined, "Croatia, Church Books, 1516-1994")
-        ?.createName,
+      proposedSiteRepo(empty.records, "familysearch", IMAGE_URL, undefined, {
+        title: "Croatia, Church Books, 1516-1994",
+      })?.createName,
     ).toBe("FamilySearch.org - Croatia, Church Books, 1516-1994");
-    const created = createSiteRepo(empty.records, "familysearch", IMAGE_URL, undefined, "Croatia, Church Books, 1516-1994");
+    const created = createSiteRepo(empty.records, "familysearch", BOOK_ONLY_URL, undefined, {
+      title: "Croatia, Church Books, 1516-1994",
+      id: "2040054",
+    });
     // Its WWW is the collection's own page, so the next link finds it by URL.
     expect(created?.children.find((c) => c.tag === "WWW")?.value).toBe(
       "https://www.familysearch.org/search/collection/2040054",
@@ -2401,11 +2447,15 @@ describe("FamilySearch image links", () => {
     };
     expect(await fetchBookMeta("familysearch", RECORD_URL, relay, ask)).toBeUndefined();
     expect(await fetchBookMeta("familysearch", FILM_URL, relay, ask)).toBeUndefined();
+    expect(await fetchBookMeta("familysearch", FILM_ARK_URL, relay, ask)).toBeUndefined();
     expect(asked).toEqual([]);
-    // …and the panel's fetch button doesn't count them either.
+    // …and the panel's fetch button doesn't count them either. A link that
+    // names no collection is still asked: FamilySearch resolves it itself.
     expect(isFetchableSite("familysearch", IMAGE_URL)).toBe(true);
+    expect(isFetchableSite("familysearch", BOOK_ONLY_URL)).toBe(true);
     expect(isFetchableSite("familysearch", RECORD_URL)).toBe(false);
     expect(isFetchableSite("familysearch", FILM_URL)).toBe(false);
+    expect(isFetchableSite("familysearch", FILM_ARK_URL)).toBe(false);
     expect(isFetchableSite("familysearch")).toBe(false);
   });
 });

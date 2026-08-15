@@ -88,20 +88,23 @@ export type ReshapeSite = (typeof ALL_SITES)[number];
 
 /** Sites the enrichment fetch can usefully contact — Newspapers.com sits behind
  *  a bot wall (verified: every relay gets the challenge page) and generic links
- *  have no parser. FamilySearch answers for one link shape only: an image in a
- *  published collection (`cc=`), whose ark serves the record's own citation as
- *  JSON. A catalog film (`cat=`) and every indexed record page need a login, so
- *  they keep their offline fields. Shared by the fetcher and the panel's
- *  button/progress so they can't disagree. */
+ *  have no parser. FamilySearch answers for one link shape only: an image page,
+ *  whose ark serves the record's own citation as JSON. Indexed record pages need
+ *  a login and catalog films carry no citation at all, so both keep their
+ *  offline fields. Shared by the fetcher and the panel's button/progress so
+ *  they can't disagree. */
 export function isFetchableSite(site: ReshapeSite, bookUrl?: string): boolean {
   if (site === "familysearch") return bookUrl !== undefined && isFamilySearchImageArk(bookUrl);
   return site !== "newspapers" && site !== "other";
 }
 
-/** A FamilySearch image ark carrying the collection it belongs to — the one
- *  shape {@link parseFamilySearchArkJson} has something to read. */
+/** A FamilySearch image ark {@link parseFamilySearchArkJson} has something to
+ *  read. The collection needs no `cc=` in the link — FamilySearch resolves it
+ *  from the ark itself — but a catalog film (`cat=`) answers with the bare
+ *  image and no citation, however the URL is written. */
 function isFamilySearchImageArk(url: string): boolean {
-  return parseFamilySearchUrl(url)?.kind === "image" && /[?&]cc=\d+/i.test(url);
+  const fs = parseFamilySearchUrl(url);
+  return fs?.kind === "image" && !fs.cat;
 }
 
 export type ReshapeShape = "link" | "webtag" | "obje" | "note" | "inline" | "pageUrl" | "sourTitle";
@@ -191,9 +194,10 @@ export interface ReshapeMeta {
    *  override the offline id. An empty string clears the proposed one. */
   filingNumber?: string;
   /** The published collection an image belongs to ("Croatia, Church Books,
-   *  1516-1994"). Not a source field: it names and finds the repository, for
-   *  files that keep one per FamilySearch collection. */
+   *  1516-1994") and its FamilySearch id. Not source fields: they name and find
+   *  the repository, for files that keep one per FamilySearch collection. */
   collection?: string;
+  collectionId?: string;
 }
 
 /** Per-group fetched metadata (keys = group ids). */
@@ -1807,20 +1811,27 @@ export function proposedSiteRepo(
   agency: string | undefined,
   /** The FamilySearch collection this link belongs to, once known — it picks
    *  the file's repository for that collection out of several. */
-  collection?: string,
+  collection?: FsCollection,
 ): { xref?: string; createName?: string } | undefined {
   const repoDef = SITE_REPO[site];
   if (!repoDef) return undefined;
   const mat = site === "matricula" ? parseMatriculaUrl(url) : undefined;
   const existing = findSiteRepo(records, repoDef.hostRe, repoDef.name, [
     mat?.archiveSlug,
-    fsCollectionId(site, url),
-    collection,
+    collection?.id ?? fsCollectionId(site, url),
+    collection?.title,
   ]);
   if (existing) return { xref: existing };
   // Matricula repositories are the holding archive; the other sites
   // are their own repository.
-  return { createName: siteRepoName(site, repoDef.name, agency, collection) };
+  return { createName: siteRepoName(site, repoDef.name, agency, collection?.title) };
+}
+
+/** A FamilySearch collection as the repository logic needs it: what it is
+ *  called, and its id — either may be missing. */
+export interface FsCollection {
+  title?: string;
+  id?: string;
 }
 
 /** The `cc=` id of a FamilySearch collection link — the id a repository for
@@ -1850,13 +1861,13 @@ export function createSiteRepo(
   site: ReshapeSite,
   url: string,
   agency: string | undefined,
-  collection?: string,
+  collection?: FsCollection,
 ): GedNode | undefined {
   const repoDef = SITE_REPO[site];
   if (!repoDef) return undefined;
   const mat = site === "matricula" ? parseMatriculaUrl(url) : undefined;
-  const name = siteRepoName(site, repoDef.name, agency, collection);
-  const fsCc = fsCollectionId(site, url);
+  const name = siteRepoName(site, repoDef.name, agency, collection?.title);
+  const fsCc = collection?.id ?? fsCollectionId(site, url);
   const www = mat
     ? `https://data.matricula-online.eu/${mat.lang}/${mat.country}/${mat.archiveSlug}/`
     : // The collection's own page, so the next link into it finds this record.
@@ -1876,7 +1887,7 @@ function ensureSiteRepo(
   url: string,
   agency: string | undefined,
   repositoryLayout: boolean,
-  collection?: string,
+  collection?: FsCollection,
 ): { xref: string; created?: GedNode } | undefined {
   const proposal = proposedSiteRepo(records, site, url, agency, collection);
   if (!proposal) return undefined;
@@ -1901,7 +1912,7 @@ export function applySiteSourceExtras(
   sourceNode: GedNode,
   site: ReshapeSite | undefined,
   url: string,
-  meta: { place?: string; dateRange?: string; collection?: string },
+  meta: { place?: string; dateRange?: string; collection?: string; collectionId?: string },
   opts: { sourceLayout?: SourceLayout | "auto"; repo?: "auto" | "none" } = {},
 ): GedNode | undefined {
   fillField(sourceNode, "PLAC", buildPlaceResolver(records).resolve(meta.place));
@@ -1915,7 +1926,10 @@ export function applySiteSourceExtras(
       : // The source being enriched is already in `records` — it must not
         // vote against the habit it is about to follow.
         prefersSourceRepos(records, sourceNode);
-  const repo = ensureSiteRepo(records, site, url, childText(sourceNode, "AGNC"), createRepos, meta.collection);
+  const repo = ensureSiteRepo(records, site, url, childText(sourceNode, "AGNC"), createRepos, {
+    title: meta.collection,
+    id: meta.collectionId,
+  });
   if (!repo) return undefined;
   sourceNode.children.push({ level: sourceNode.level + 1, tag: "REPO", value: repo.xref, children: [] });
   return repo.created;
@@ -2026,7 +2040,10 @@ export function reshapeSources(
       // `NewSourceFields` has no place/date — the paginated house shape does.
       fillField(sourceNode, "PLAC", fields.place);
       fillField(sourceNode, "DATE", fields.dateRange);
-      const repo = ensureSiteRepo(clone, g.site, state.hits[0].url, fields.agency, createRepos, extra?.collection);
+      const repo = ensureSiteRepo(clone, g.site, state.hits[0].url, fields.agency, createRepos, {
+        title: extra?.collection,
+        id: extra?.collectionId,
+      });
       if (repo) {
         if (repo.created) byXref.set(repo.created.xref!, repo.created);
         sourceNode.children.push({ level: 1, tag: "REPO", value: repo.xref, children: [] });
@@ -2415,7 +2432,12 @@ export function parseFamilySearchArkJson(json: string): ReshapeMeta | undefined 
   const citation = parsed.sourceDescriptions
     ?.find((sd) => sd.resourceType?.endsWith("/DigitalArtifact"))
     ?.citations?.find((c) => c.value?.trim())?.value;
-  return citation ? parseFamilySearchCitation(citation) : undefined;
+  const meta = citation ? parseFamilySearchCitation(citation) : undefined;
+  if (!meta) return undefined;
+  // The collection's id, which a link need not carry itself — a repository
+  // kept for that collection is found by it.
+  const id = /\/records\/collections\/(\d+)/.exec(json)?.[1];
+  return id ? { ...meta, collectionId: id } : meta;
 }
 
 function parseFamilySearchCitation(raw: string): ReshapeMeta | undefined {

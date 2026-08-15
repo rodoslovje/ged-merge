@@ -37,8 +37,10 @@ export type AddSourceResult = NewSourceFields & {
   /** Call number (`CALN`) written on the source's repository link. */
   repoCaln?: string;
   /** The FamilySearch collection behind the link, when the lookup found it —
-   *  names the repository the "＋ …" choice would create. */
+   *  names the repository the "＋ …" choice would create, and gives it the
+   *  collection's own page as WWW. */
   collection?: string;
+  collectionId?: string;
 };
 
 interface Props {
@@ -150,10 +152,13 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
   // `repoDefault` — it must not re-seed the fields the lookup just filled.
   const repoFetched = useMemo(
     () =>
-      recognized && normalizedUrl && fetched?.collection
-        ? proposedSiteRepo(dataset.records, recognized.site, normalizedUrl, recognized.proposed.agency, fetched.collection)
+      recognized && normalizedUrl && (fetched?.collection || fetched?.collectionId)
+        ? proposedSiteRepo(dataset.records, recognized.site, normalizedUrl, recognized.proposed.agency, {
+            title: fetched.collection,
+            id: fetched.collectionId,
+          })
         : undefined,
-    [recognized, normalizedUrl, dataset, fetched?.collection],
+    [recognized, normalizedUrl, dataset, fetched?.collection, fetched?.collectionId],
   );
   const repoProposal = repoFetched ?? repoDefault;
   // Whether the file's convention hangs sources off repositories — decides if
@@ -336,6 +341,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
       // date right in the citation prose, with no fetchable page behind it.
       dateRange: fetched?.dateRange ?? recognized?.proposed.dateRange,
       collection: fetched?.collection,
+      collectionId: fetched?.collectionId,
       repoXref: repoSel === "@create@" || repoSel === "@new@" ? undefined : repoSel,
       repoCreateSite: repoSel === "@create@" || undefined,
       repoCreateName: repoSel === "@new@" ? repoName.trim() || undefined : undefined,
