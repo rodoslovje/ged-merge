@@ -136,6 +136,22 @@ describe("reformatPlace → main-learned hierarchy fills in missing detail", () 
     expect(r.plac).toBe("Kranj,Kranj,Slovenia");
   });
 
+  it("fills across a country-name language variant — the tail is accounted for", () => {
+    const r = reformatPlace("Kranj,Slovenija", undefined, RENKO_H);
+    expect(r.plac).toBe("Kranj,Kranj,Slovenia");
+  });
+
+  it("never deletes a tail token the learned chain doesn't contain", () => {
+    // "Primskovo" is a part of Kranj, not an ancestor — the learned chain
+    // (Kranj, Slovenia) doesn't account for it, so the fill would silently
+    // drop real information. The value stays as written.
+    const r = reformatPlace("Kranj,Primskovo", undefined, RENKO_H);
+    expect(r.plac).toBe("Kranj,Primskovo");
+    // A real region in the tail is information too, even when the learned
+    // chain skips that level.
+    expect(reformatPlace("Kranj,Gorenjska,Slovenija", undefined, RENKO_H).plac).toBe("Kranj,Gorenjska,Slovenija");
+  });
+
   it("resolves a more specific locality from the street and backfills its municipality", () => {
     const r = reformatPlace("Kranj,Slovenia", "Hafnarjeva pot 21/a", RENKO_H);
     expect(r.plac).toBe("Stražišče,Kranj,Slovenia");

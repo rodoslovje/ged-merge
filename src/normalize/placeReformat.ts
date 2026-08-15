@@ -89,7 +89,17 @@ export function reformatPlace(
     // new locality does the old tail stand, for want of anything better.
     const parents = locality && fmt.hierarchy.parentOf.get(locality.toLowerCase());
     if (parents && (relocated || parents.length > jurisdiction.length - 1)) {
-      jurisdiction = [jurisdiction[0] ?? locality, ...parents];
+      const next = [jurisdiction[0] ?? locality, ...parents];
+      // The fill must only *add* levels, never delete information: a tail
+      // token the learned chain doesn't contain ("Kranj, Primskovo" — a town
+      // part, not an ancestor) means this value says more than the chain
+      // does, so it stays as written. A relocation is the exception — there
+      // the old ancestors belong to the old locality, and dropping them is
+      // the point.
+      const chain = new Set(next.map((t) => canonicalPlaceToken(t)));
+      if (relocated || jurisdiction.slice(1).every((t) => chain.has(canonicalPlaceToken(t)))) {
+        jurisdiction = next;
+      }
     }
   }
 
