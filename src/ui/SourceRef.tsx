@@ -2,7 +2,7 @@ import type { SourceCitation } from "../gedcom/types";
 import { sourceCitationKey } from "../gedcom/source";
 import { siteIconForUrl } from "../tools/sourceReshape";
 import type { Translate } from "../locales/i18n";
-import { linkHref } from "./FieldValue";
+import { linkHref, linkTooltip } from "./FieldValue";
 
 /**
  * Source citation references. When only `mainSources` is given, renders that
@@ -83,7 +83,7 @@ function SourceRefItem({ t, citation, isNew, onEdit }: { t: Translate; citation:
   ]
     .filter(Boolean)
     .join(" ");
-  const title = tooltip || t("source.untitled");
+  const title = linkTooltip(citation.url, t, tooltip || t("source.untitled"));
   // Edit mode: clicking opens the edit dialog (which has its own explicit
   // Open/Save/Remove actions) rather than navigating straight to the link —
   // a hover-revealed ↗ *beside* the icon (not on its corner, where the old ×
@@ -100,7 +100,7 @@ function SourceRefItem({ t, citation, isNew, onEdit }: { t: Translate; citation:
             href={linkHref(citation.url)}
             target="_blank"
             rel="noopener noreferrer"
-            title={t("edit.openLink")}
+            title={linkTooltip(citation.url, t, t("edit.openLink"))}
           >
             ↗
           </a>

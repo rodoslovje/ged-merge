@@ -3,7 +3,7 @@ import type { SourceCitation } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
 import type { RecordPatch } from "../historyTypes";
 import { SourceRefs } from "../SourceRef";
-import { linkHref } from "../FieldValue";
+import { linkHref, linkTooltip } from "../FieldValue";
 import { siteIconForUrl } from "../../tools/sourceReshape";
 import { linkKey } from "../../normalize/links";
 import type { SourceDialogTarget } from "./types";
@@ -107,7 +107,7 @@ export function LinksEditor({
           key={i}
           type="button"
           className="link-icon edit-link-icon"
-          title={link}
+          title={linkTooltip(link, t)}
           onClick={() => openEditLink(i)}
         >
           {siteIconForUrl(link) ?? "🔗"}
@@ -120,7 +120,7 @@ export function LinksEditor({
           target="_blank"
           rel="noopener noreferrer"
           className="link-icon"
-          title={`${url}\n${t("edit.harvestedLink")}`}
+          title={linkTooltip(url, t, `${url}\n${t("edit.harvestedLink")}`)}
         >
           {siteIconForUrl(url) ?? "🔗"}
         </a>
@@ -132,7 +132,7 @@ export function LinksEditor({
           target="_blank"
           rel="noopener noreferrer"
           className="link-icon link-new"
-          title={url}
+          title={linkTooltip(url, t)}
         >
           {siteIconForUrl(url) ?? "🔗"}
         </a>

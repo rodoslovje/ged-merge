@@ -995,6 +995,7 @@ export const sl = {
   "edit.addDetailTooltip": "Dodaj vir, naslov, opombo ali drugo podrobnost temu dogodku",
   "edit.addLinkTooltip": "Dodaj vir tej osebi",
   "edit.openLink": "Odpri povezavo v novem zavihku",
+  "links.needsAccount": "FamilySearch to stran pokaže samo prijavljenim — račun je brezplačen.",
   "edit.removeLink": "Odstrani to povezavo",
   "edit.harvestedLink": "Ta povezava je zapisana v opombi ali medijskem zapisu — tam jo uredite ali odstranite",
   "edit.copyEvent": "Kopiraj dogodek v…",

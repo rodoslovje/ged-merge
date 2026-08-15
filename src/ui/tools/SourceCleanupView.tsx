@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { linkTooltip } from "../FieldValue";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../../gedcom/types";
 import {
@@ -725,11 +726,11 @@ function ReshapeGroupRow({
         <span
           className={`tools-tree-label clickable${removeMarked ? " tools-reshape-removed" : ""}`}
           onClick={onToggleOpen}
-          title={group.bookUrl}
+          title={linkTooltip(group.bookUrl, t)}
         >
           {SITE_ICON[group.site]} {title}
         </span>
-        <a className="tools-tree-meta" href={group.bookUrl} target="_blank" rel="noreferrer" title={group.bookUrl}>
+        <a className="tools-tree-meta" href={group.bookUrl} target="_blank" rel="noreferrer" title={linkTooltip(group.bookUrl, t)}>
           ↗
         </a>
         {group.bookType !== "unknown" && (
@@ -860,7 +861,7 @@ function MemberRow({
         />
       )}
       {linkKey(m.url) !== groupUrlKey && (
-        <a className="tools-tree-meta" href={m.url} target="_blank" rel="noreferrer" title={m.url}>
+        <a className="tools-tree-meta" href={m.url} target="_blank" rel="noreferrer" title={linkTooltip(m.url, t)}>
           ↗
         </a>
       )}

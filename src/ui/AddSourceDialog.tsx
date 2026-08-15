@@ -11,7 +11,7 @@ import { prefersSourceRepos } from "../gedcom/source";
 import { childText } from "../gedcom/node";
 import { useSettings } from "./SettingsContext";
 import { SelectMenu } from "./DropdownMenu";
-import { linkHref } from "./FieldValue";
+import { linkHref, linkTooltip } from "./FieldValue";
 import type { Translate } from "../locales/i18n";
 
 /** Fields confirmed by the dialog, ready for `EditView`'s commit handler to
@@ -536,7 +536,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
           <div className="add-source-url-row">
             {field("url", "addSource.field.url")}
             {editing && fields.url.trim() && (
-              <a className="edit-link-open" href={linkHref(fields.url.trim())} target="_blank" rel="noopener noreferrer" title={t("edit.openLink")}>
+              <a className="edit-link-open" href={linkHref(fields.url.trim())} target="_blank" rel="noopener noreferrer" title={linkTooltip(fields.url.trim(), t, t("edit.openLink"))}>
                 ↗
               </a>
             )}
