@@ -18,6 +18,7 @@ import {
   proposedSiteRepo,
   splitFsRegisters,
   parseFamilySearchArkJson,
+  parsePastedFsCitation,
   parseFamilySearchUrl,
   parseGeneanetCemeteryPage,
   parseMatriculaBookPage,
@@ -2378,6 +2379,55 @@ describe("FamilySearch image links", () => {
     expect(splitFsRegisters(undefined)).toEqual([]);
     // Trailing words no register accounts for: don't guess at the split.
     expect(splitFsRegisters("Births 1892-1899 Marriages 1858-1890 and other records")).toEqual([]);
+  });
+
+  it("reads a citation copied from a record page — the one thing a sign-in wall leaves", () => {
+    const cited = parsePastedFsCitation(
+      '"New York, Passenger Arrival Lists (Ellis Island), 1892-1925", FamilySearch ' +
+        "(https://www.familysearch.org/ark:/61903/1:1:JFVN-KMV : Fri Jul 10 14:29:38 UTC 2026), " +
+        "Entry for Anna Rakar and Martin Sadec, 9 July 1901.",
+    );
+    expect(cited).toEqual({
+      title: "New York, Passenger Arrival Lists (Ellis Island), 1892-1925",
+      collection: "New York, Passenger Arrival Lists (Ellis Island), 1892-1925",
+      // Which record this is belongs on the citation, not in the source.
+      page: "Entry for Anna Rakar and Martin Sadec, 9 July 1901",
+      dateRange: "1892-1925",
+      place: undefined,
+      agency: undefined,
+      filingNumber: undefined,
+      bookType: undefined,
+    });
+
+    // The older shape, with the archive and film the newer one drops.
+    const older = parsePastedFsCitation(
+      '"Croatia, Church Books, 1516-1994," database with images, FamilySearch ' +
+        "(https://familysearch.org/ark:/61903/1:1:JFVN-KMV : 11 March 2018), " +
+        "Ana Renko in entry for Josip Renko, 1885; citing Baptism, Ravna Gora, Primorje-Gorski Kotar, Croatia, " +
+        "Državni arhiv u Rijeci (State Archives), Rijeka; FHL microfilm 005,498,154.",
+    );
+    expect(older?.place).toBe("Ravna Gora, Primorje-Gorski Kotar, Croatia");
+    expect(older?.agency).toBe("Državni arhiv u Rijeci (State Archives), Rijeka");
+    expect(older?.filingNumber).toBe("005498154");
+    expect(older?.page).toBe("Ana Renko in entry for Josip Renko, 1885");
+    expect(older?.bookType).toBe("baptism");
+
+    // Add Source and the whole-file scan both read it through the recognizer.
+    const seen = recognizeSourceUrl(
+      "https://www.familysearch.org/ark:/61903/1:1:JFVN-KMV?lang=en",
+      '"New York, Passenger Arrival Lists (Ellis Island), 1892-1925", FamilySearch ' +
+        "(https://www.familysearch.org/ark:/61903/1:1:JFVN-KMV : Fri Jul 10 14:29:38 UTC 2026), " +
+        "Entry for Anna Rakar and Martin Sadec, 9 July 1901.",
+    );
+    expect(seen?.page).toBe("Entry for Anna Rakar and Martin Sadec, 9 July 1901");
+    expect(seen?.proposed.title).toBe("New York, Passenger Arrival Lists (Ellis Island), 1892-1925");
+    expect(seen?.proposed.dateRange).toBe("1892-1925");
+
+    // A bare link still falls back to the ARK id, and other sites are not touched.
+    expect(recognizeSourceUrl("https://www.familysearch.org/ark:/61903/1:1:JFVN-KMV?lang=en")?.page).toBe(
+      "1:1:JFVN-KMV",
+    );
+    expect(parsePastedFsCitation("Krstna knjiga | 03869, Matricula Online")).toBeUndefined();
   });
 
   it("reads nothing from an image with no citation (a catalog film), and nothing from junk", () => {

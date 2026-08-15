@@ -743,14 +743,27 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
         typeHint: collection,
       };
     }
+    // A citation copied from the record page says far more than the link can:
+    // which entry this is, the register type, the archive, the film. Its
+    // *record* details (the entry) stay on the citation, its *source* details
+    // on the source.
+    const cited = parsePastedFsCitation(contextText ?? "");
     return {
       site: "familysearch",
       groupKey: collection ? `f:coll:${collection.toLowerCase()}` : `f:${linkKey(url)}`,
       bookUrl: cleanUrl(url),
-      page: fs.ark,
+      // "Entry for Anna Rakar and Martin Sadec, 9 July 1901" beats the bare
+      // ARK id as the page — same record, in words.
+      page: cited?.page ?? fs.ark,
       // A collection-grouped source spans many records, so no single record's
       // ARK can be its filing number — the id stays on each citation's PAGE.
-      proposed: { title: collection ?? `FamilySearch ${fs.ark}`, filingNumber: collection ? undefined : fs.ark },
+      proposed: {
+        title: collection ?? `FamilySearch ${fs.ark}`,
+        agency: cited?.agency,
+        place: cited?.place,
+        dateRange: cited?.dateRange,
+        filingNumber: cited?.filingNumber ?? (collection ? undefined : fs.ark),
+      },
       typeHint: collection,
     };
   }
@@ -2473,6 +2486,72 @@ export function parseFamilySearchArkJson(json: string): ReshapeMeta | undefined 
   // kept for that collection is found by it.
   const id = /\/records\/collections\/(\d+)/.exec(json)?.[1];
   return id ? { ...meta, collectionId: id } : meta;
+}
+
+/** Words that name the institution holding the originals, as a FamilySearch
+ *  citation's "citing …" chain runs through place, place, place, archive. */
+const ARCHIVE_WORD_RE = /arhiv|archiv|archive|library|knji[žz]nic|mati[čc]n|museum|muzej|registry|record office/i;
+
+/** The film/microfilm number a citation ends with ("FHL microfilm 005,498,154",
+ *  "film 005498154", "DGS 4826234"). */
+const FILM_NUMBER_RE = /(?:FHL\s+)?(?:microfilm|film|DGS)\s*#?\s*([\d][\d,\s]*\d|\d)/i;
+
+/**
+ * Read a citation copied from FamilySearch's own "Copy citation" button. Its
+ * indexed **record** pages are sign-in-only — no lookup of any kind reaches
+ * them — so a pasted citation is the one way their details reach the file:
+ *
+ *     "Croatia, Church Books, 1516-1994," database with images, FamilySearch
+ *     (https://familysearch.org/ark:/61903/1:1:JFVN-KMV : 11 March 2018),
+ *     Ana Renko in entry for Josip Renko, 1885; citing Baptism, Ravna Gora,
+ *     Primorje-Gorski Kotar, Croatia, Državni arhiv u Rijeci (State Archives),
+ *     Rijeka; FHL microfilm 005,498,154.
+ *
+ * The collection names the source, the "citing" chain gives the register type,
+ * the place and the holding archive, and the tail gives the film number. The
+ * person and entry the citation names are *this* record, not the source, and
+ * stay out of the source's fields. An image citation pasted here is understood
+ * too — same head, different tail.
+ */
+export function parsePastedFsCitation(text: string): ReshapeMeta | undefined {
+  const plain = decodeHtmlEntities(text.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
+  if (!/familysearch/i.test(plain)) return undefined;
+  if (/ > /.test(plain) && /image \d+/i.test(plain)) return parseFamilySearchCitation(plain);
+
+  const collection = quotedCollection(plain);
+  const rest = /\(https?:[^)]*\)\s*,?\s*(.*)$/i.exec(plain)?.[1] ?? plain;
+  const parts = rest.split(";").map((s) => s.trim()).filter(Boolean);
+  const citing = parts.find((p) => /^citing\b/i.test(p))?.replace(/^citing\s+/i, "");
+  const film = FILM_NUMBER_RE.exec(rest)?.[1].replace(/[,\s]/g, "");
+  // "Entry for Anna Rakar and Martin Sadec, 9 July 1901" — which record within
+  // the collection this is. That is what a citation's PAGE says; the source
+  // itself is the collection, so it never goes into the source's own fields.
+  const entry = parts[0] && !/^citing\b/i.test(parts[0]) ? parts[0].replace(/\.\s*$/, "") : undefined;
+
+  let place: string | undefined;
+  let agency: string | undefined;
+  let type: BookType = "unknown";
+  if (citing) {
+    const tokens = citing.replace(/\.\s*$/, "").split(",").map((s) => s.trim()).filter(Boolean);
+    if (tokens.length && classifyBookType([tokens[0]]) !== "unknown") type = classifyBookType([tokens.shift()]);
+    const archiveAt = tokens.findIndex((tok) => ARCHIVE_WORD_RE.test(tok));
+    const placeTokens = archiveAt === -1 ? tokens : tokens.slice(0, archiveAt);
+    place = placeTokens.join(", ") || undefined;
+    if (archiveAt !== -1) agency = tokens.slice(archiveAt).join(", ") || undefined;
+  }
+  if (!collection && !place && !agency && !film) return undefined;
+  return {
+    title: collection ?? "FamilySearch",
+    collection,
+    place,
+    agency,
+    filingNumber: film,
+    page: entry,
+    // The years the collection's own name gives ("…, 1892-1925") — all a
+    // record page says about the source's span.
+    dateRange: yearSpan(collection),
+    bookType: type === "unknown" ? undefined : type,
+  };
 }
 
 function parseFamilySearchCitation(raw: string): ReshapeMeta | undefined {

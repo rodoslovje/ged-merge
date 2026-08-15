@@ -8,6 +8,7 @@ import {
   isFetchableSite,
   mergeFsBooks,
   makePlaceResolver,
+  parsePastedFsCitation,
   reshapeOptionsFromOverrides,
   type ReshapeEnrichment,
   type ReshapeGroup,
@@ -22,6 +23,7 @@ import type { RecordPatch } from "../historyTypes";
 import { familySpouses } from "../../tools/sources";
 import { PersonLink } from "../PersonLink";
 import { sourceTooltip } from "../../gedcom/source";
+import { parseSourceInput } from "../../gedcom/citationParse";
 import { fetchPageHtml } from "../../normalize/urlMetadata";
 import { linkKey } from "../../normalize/links";
 import { isEditableTarget, isModalOpen } from "../../keyboard/shortcuts";
@@ -559,6 +561,25 @@ function GroupEditDialog({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
 
+  // A citation pasted from the site itself (FamilySearch's "Copy citation",
+  // whose record pages no lookup can reach) fills the fields in one go. Only
+  // what it actually names is written — the rest of the form stands.
+  const [pasted, setPasted] = useState("");
+  function fillFromCitation(text: string) {
+    setPasted(text);
+    const cited = parsePastedFsCitation(text);
+    const generic = cited ? undefined : parseSourceInput(text);
+    const take = (was: string, ...found: (string | undefined)[]) => found.find((v) => v?.trim())?.trim() ?? was;
+    setFields((f) => ({
+      title: take(f.title, cited?.title, generic?.title),
+      author: take(f.author, cited?.author, generic?.author),
+      agency: take(f.agency, cited?.agency, generic?.publisher),
+      place: take(f.place, resolvePlace(cited?.place ?? generic?.place)),
+      filingNumber: take(f.filingNumber, cited?.filingNumber),
+      dateRange: take(f.dateRange, cited?.dateRange),
+    }));
+  }
+
   const field = (key: keyof typeof fields, labelKey: string, autoFocus = false) => (
     <label className="add-source-field">
       <span>{t(labelKey)}</span>
@@ -605,6 +626,16 @@ function GroupEditDialog({
           </button>
         </div>
         <div className="modal-body">
+          <label className="add-source-field">
+            <span>{t("tools.sources.pasteCitation")}</span>
+            <textarea
+              className="edit-input add-source-textarea"
+              rows={2}
+              placeholder={t("addSource.placeholder")}
+              value={pasted}
+              onChange={(e) => fillFromCitation(e.target.value)}
+            />
+          </label>
           {field("title", "addSource.field.title", true)}
           <div className="add-source-details-grid">
             {field("author", "addSource.field.author")}
