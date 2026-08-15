@@ -321,7 +321,14 @@ export function SourceCleanupView({
   const applyAction = (
     <>
       <button className="nav-btn primary tools-run" onClick={apply} disabled={nothingSelected}>
-        {t("tools.sources.cleanupApply", { count: selectedGroups.length + selectedDupGroups.length })}
+        {/* Named after what it will actually do to the ticked rows: convert
+            links into sources, merge duplicates away, or — with both lists in
+            play — the two at once, which only "apply" covers. */}
+        {selectedDupGroups.length === 0
+          ? t("tools.sources.applyConvert", { count: selectedGroups.length })
+          : selectedGroups.length === 0
+            ? t("tools.sources.applyMerge", { count: selectedDupGroups.length })
+            : t("tools.sources.cleanupApply", { count: selectedGroups.length + selectedDupGroups.length })}
       </button>
       {applied > 0 && <span className="tools-fix-hint">{t("tools.sources.cleanupApplied", { count: applied })}</span>}
     </>

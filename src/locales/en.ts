@@ -713,6 +713,8 @@ export const en = {
   "tools.sources.expandAll": "Expand all",
   "tools.sources.collapseAll": "Collapse all",
   "tools.sources.pasteCitation": "Paste a citation to fill these in",
+  "tools.sources.applyConvert": "Convert to sources ({{count}})",
+  "tools.sources.applyMerge": "Merge duplicates ({{count}})",
   "tools.sources.cleanupApply": "Apply to the file ({{count}})",
   "tools.sources.cleanupApplied_one": "{{count}} record updated — undo with Ctrl+Z, save to keep.",
   "tools.sources.cleanupApplied_other": "{{count}} records updated — undo with Ctrl+Z, save to keep.",

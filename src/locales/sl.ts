@@ -803,6 +803,8 @@ export const sl = {
   "tools.sources.expandAll": "Razširi vse",
   "tools.sources.collapseAll": "Strni vse",
   "tools.sources.pasteCitation": "Prilepite navedbo in polja se izpolnijo",
+  "tools.sources.applyConvert": "Pretvori v vire ({{count}})",
+  "tools.sources.applyMerge": "Združi dvojnike ({{count}})",
   "tools.sources.cleanupApply": "Uveljavi v datoteki ({{count}})",
   "tools.sources.cleanupApplied_one": "Posodobljen {{count}} zapis — razveljavite s Ctrl+Z, shranite, da ostane.",
   "tools.sources.cleanupApplied_two": "Posodobljena {{count}} zapisa — razveljavite s Ctrl+Z, shranite, da ostane.",
