@@ -123,14 +123,13 @@ describe("auditAgainstBaseline", () => {
 
     expect(report.recordLabels["@S9@"]).toBe("📖 Matična knjiga poročenih");
     expect(report.recordLabels["@O9@"]).toContain("Poroka 1873");
-    const sourRows = report.changes.filter((c) => c.recordId === "@S9@" && c.field);
-    // The repository reads as the archive it is, not as the pointer it is written as.
-    expect(sourRows.map((c) => [c.field, c.to])).toEqual([
-      ["TITL", "Matična knjiga poročenih"],
-      ["REPO", "🏛 Nadškofijski arhiv Ljubljana"],
-    ]);
-    expect(report.changes.find((c) => c.recordId === "@O9@" && c.field === "FILE")?.to)
-      .toBe("https://familysearch.org/ark:/61903/1:1:XXXX");
+    // One line, no GEDCOM tags: the title is the heading above it, and the
+    // repository reads as the archive it is rather than as a pointer.
+    const sourRow = report.changes.find((c) => c.recordId === "@S9@" && c.segments)!;
+    expect(sourRow.noLabel).toBe(true);
+    expect(sourRow.segments!.map((s) => s.text)).toEqual(["🏛 Nadškofijski arhiv Ljubljana"]);
+    const objeRow = report.changes.find((c) => c.recordId === "@O9@" && c.segments)!;
+    expect(objeRow.segments!.map((s) => s.text)).toEqual(["https://familysearch.org/ark:/61903/1:1:XXXX"]);
     expect(report.recordLabels["@R1@"]).toBe("🏛 Nadškofijski arhiv Ljubljana");
     // Each is spelled out, so none of them counts as a record with no detail.
     expect(reportTotals(report).undescribedRecords).toBe(0);

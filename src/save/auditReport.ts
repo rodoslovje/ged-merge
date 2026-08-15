@@ -1,4 +1,4 @@
-import { diffSharedRecordNodes, emptyLike, makeXrefLabeler, sharedRecordLabel } from "../gedcom/editReport";
+import { makeXrefLabeler, newSharedRecordRow, sharedRecordLabel, sharedRecordTitle } from "../gedcom/editReport";
 import { recordFingerprint, type SaveBaseline } from "../gedcom/fingerprint";
 import type { GedNode } from "../gedcom/types";
 import type { ChangeReport, FieldChange } from "../merge/merge";
@@ -54,7 +54,9 @@ export function auditAgainstBaseline(
       from: "",
       to: "",
       action: "incoming",
-      ...(described.has(recordId) || detail.length ? {} : { undescribed: true }),
+      // "No detail" is only ever news about a *changed* record: that a record is
+      // new, or gone, is itself what there is to say about it.
+      ...(described.has(recordId) || detail.length || flag ? {} : { undescribed: true }),
       ...(flag === "newRecord" ? { newRecord: true } : {}),
       ...(flag === "removedRecord" ? { removedRecord: true } : {}),
     });
@@ -67,8 +69,11 @@ export function auditAgainstBaseline(
    *  is described by the paths that create them, and dumping every line of one
    *  here would bury the record it belongs to. */
   const labelFor = makeXrefLabeler(records);
-  const contentsOf = (record: GedNode, kind: string) =>
-    kind === "record" ? diffSharedRecordNodes(record.xref!, emptyLike(record), record, labelFor) : [];
+  const contentsOf = (record: GedNode, kind: string) => {
+    if (kind !== "record") return [];
+    const row = newSharedRecordRow(record.xref!, record, sharedRecordTitle(record.xref!, record), labelFor);
+    return row ? [row] : [];
+  };
 
   const nameOf = (record: GedNode, kind: string) =>
     kind === "record" ? sharedRecordLabel(record.xref!, record) : undefined;

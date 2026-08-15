@@ -541,16 +541,24 @@ export function formatReport(report: ChangeReport, ctx: ReportContext): string {
     return label ? `${label}  ${id}` : id;
   };
 
-  const itemized = report.changes.filter(isItemizedChange);
-  if (itemized.length) {
+  const byRecord = new Map<string, FieldChange[]>();
+  for (const c of report.changes.filter(isItemizedChange)) {
+    const group = byRecord.get(c.recordId) ?? [];
+    group.push(c);
+    byRecord.set(c.recordId, group);
+  }
+  const idsWith = (flag: "newRecord" | "removedRecord") =>
+    new Set(report.changes.filter((c) => c[flag]).map((c) => c.recordId));
+  const added = idsWith("newRecord");
+  const removed = idsWith("removedRecord");
+
+  // Changes to records the file already had. What a record the file *gains*
+  // holds is not a change to it — that goes under "Records added" below, in
+  // one place, so a new source is read once rather than met twice.
+  const changed = [...byRecord].filter(([id]) => !added.has(id) && !removed.has(id));
+  if (changed.length) {
     lines.push(...underline(t("changeReport.applied"), "-"));
-    const byRecord = new Map<string, FieldChange[]>();
-    for (const c of itemized) {
-      const group = byRecord.get(c.recordId) ?? [];
-      group.push(c);
-      byRecord.set(c.recordId, group);
-    }
-    for (const [id, group] of byRecord) {
+    for (const [id, group] of changed) {
       lines.push(...underline(recordHeader(id), "-"));
       for (const c of group) lines.push(`  ${changeLine(c, t)}`);
       lines.push("");
@@ -558,15 +566,22 @@ export function formatReport(report: ChangeReport, ctx: ReportContext): string {
   }
 
   // Records the file gains and loses, each named once, rather than left to be
-  // inferred from the relationship lines of everybody around them.
-  for (const [key, flag] of [
-    ["changeReport.added", "newRecord"],
-    ["changeReport.removed", "removedRecord"],
+  // inferred from the relationship lines of everybody around them. A new
+  // record's contents sit under its name; a removed one has none left to show.
+  for (const [key, ids] of [
+    ["changeReport.added", added],
+    ["changeReport.removed", removed],
   ] as const) {
-    const ids = [...new Set(report.changes.filter((c) => c[flag]).map((c) => c.recordId))];
-    if (!ids.length) continue;
+    if (!ids.size) continue;
     lines.push(...underline(t(key), "-"));
-    for (const id of ids) lines.push(`  ${recordHeader(id)}`);
+    for (const id of ids) {
+      lines.push(`  ${recordHeader(id)}`);
+      // The heading of this section already says "added", so a line under it
+      // that is nothing but an addition drops the verb.
+      for (const c of byRecord.get(id) ?? []) {
+        lines.push(`    ${plainAddition(c) ?? changeLine(c, t)}`);
+      }
+    }
     lines.push("");
   }
 
@@ -618,12 +633,29 @@ export function formatReport(report: ChangeReport, ctx: ReportContext): string {
  * the part that stands out rather than being buried in a repeat of the whole
  * line.
  */
+/**
+ * A row where nothing replaced anything — the whole of a record the file is
+ * gaining — as its values alone, joined the way an event reads. Quoting each
+ * piece and marking it "+" would be marking the obvious. Undefined for every
+ * other kind of change.
+ */
+function plainAddition(c: FieldChange): string | undefined {
+  if (!c.segments?.length) return undefined;
+  if (!c.segments.every((s) => !s.from && s.state !== "removed")) return undefined;
+  return c.segments.map((s) => s.text).join(" · ");
+}
+
 function changeLine(c: FieldChange, t: Translate): string {
-  const label = c.field || t("changeReport.field.record");
+  // A self-describing value carries no field name — the same rule the preview
+  // follows (`noLabel`), for the same reason: a line reading "Record: …" in
+  // front of a source's own title is a word wasted on every row.
+  const label = c.noLabel ? "" : `${c.field || t("changeReport.field.record")}: `;
   if (c.sources?.length || c.links?.length) {
     const items = [...(c.sources ?? []).map(citationText), ...(c.links ?? [])];
-    return `${label}: ${t("changeReport.verb.added")} ${items.map((i) => `"${i}"`).join(", ")}`;
+    return `${label}${t("changeReport.verb.added")} ${items.map((i) => `"${i}"`).join(", ")}`;
   }
+  const plain = plainAddition(c);
+  if (plain !== undefined) return `${label}${t("changeReport.verb.added")} ${plain}`;
   if (c.segments) {
     // The pieces the edit left alone stay bare, as context; only the ones it
     // touched are quoted. Reprinting the whole value twice — which is what the
@@ -635,11 +667,11 @@ function changeLine(c: FieldChange, t: Translate): string {
         if (s.state !== "changed") return s.text;
         return s.from && s.from !== s.text ? `"${s.from}" → "${s.text}"` : `+ "${s.text}"`;
       });
-    return `${label}: ${t("changeReport.verb.changed")} ${pieces.join(" · ")}`;
+    return `${label}${t("changeReport.verb.changed")} ${pieces.join(" · ")}`;
   }
-  if (!c.to && c.from) return `${label}: ${t("changeReport.verb.removed")} "${c.from}"`;
-  if (c.from) return `${label}: ${t("changeReport.verb.changed")} "${c.from}" → "${c.to}"`;
-  return `${label}: ${t("changeReport.verb.added")} "${c.to}"`;
+  if (!c.to && c.from) return `${label}${t("changeReport.verb.removed")} "${c.from}"`;
+  if (c.from) return `${label}${t("changeReport.verb.changed")} "${c.from}" → "${c.to}"`;
+  return `${label}${t("changeReport.verb.added")} "${c.to}"`;
 }
 
 // Re-export so callers can build the decision key consistently.

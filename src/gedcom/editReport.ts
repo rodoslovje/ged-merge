@@ -586,13 +586,19 @@ export function enrichEditReport(
 export function sharedRecordLabel(id: string, node: GedNode | undefined): string {
   if (!node) return xrefLabel(id);
   const icon = node.tag === "SOUR" ? "📖" : node.tag === "OBJE" ? (objeInfoOf(node).url ? "🔗" : "🖼") : node.tag === "REPO" ? "🏛" : undefined;
+  const label = sharedRecordTitle(id, node);
+  return icon ? `${icon} ${label}` : label;
+}
+
+/** The label above without its kind icon — what the record calls itself, for
+ *  comparing against the values it holds. */
+export function sharedRecordTitle(id: string, node: GedNode): string {
   const title =
     node.tag === "SOUR" ? sourceTitle(node)
     : node.tag === "OBJE" ? objeInfoOf(node).title
     : node.tag === "REPO" ? firstChild(node, "NAME")?.value
     : undefined;
-  const label = title?.trim() || `${node.tag} ${xrefLabel(id)}`;
-  return icon ? `${icon} ${label}` : label;
+  return title?.trim() || `${node.tag} ${xrefLabel(id)}`;
 }
 
 /** The same record with nothing in it — what a brand-new record is diffed
@@ -634,11 +640,55 @@ export function makeXrefLabeler(records: GedNode[]): (xref: string) => string | 
   return label;
 }
 
+/** Every value a record holds, in document order, pointers named. */
+function recordValues(node: GedNode, labelFor?: (xref: string) => string | undefined): string[] {
+  const out: string[] = [];
+  const walk = (n: GedNode) => {
+    for (const child of n.children) {
+      const value = child.value?.trim();
+      if (value) out.push(labelFor && POINTER.test(value) ? labelFor(value) ?? value : value);
+      walk(child);
+    }
+  };
+  walk(node);
+  return out;
+}
+
+/**
+ * A record the file is gaining, as one line: what it holds, joined the way an
+ * event reads in this dialog ("date · place · source"). Nothing in it is a
+ * before-and-after — it is all new — so naming the GEDCOM tag in front of each
+ * value only puts the file's grammar between the reader and their data. The
+ * title is left out: it is the card's own heading.
+ *
+ * Returns nothing for a record that holds nothing but its title.
+ */
+export function newSharedRecordRow(
+  id: string,
+  node: GedNode,
+  heading: string,
+  labelFor?: (xref: string) => string | undefined,
+): FieldChange | undefined {
+  const values = recordValues(node, labelFor).filter((v) => v !== heading);
+  if (!values.length) return undefined;
+  return {
+    recordId: id,
+    field: "",
+    from: "",
+    to: "",
+    action: "incoming",
+    noLabel: true,
+    segments: values.map((text) => ({ text, state: "changed" as const })),
+  };
+}
+
 /**
  * Value-level diff of a shared record (SOUR/OBJE/NOTE), which has no typed
  * projection to compare the way individuals and families do. Both trees are
  * flattened to `TAG.SUBTAG` → values in document order and compared position by
  * position, so a repaired `DATE` reads "DATA.DATE: Apr 12, 1979 → 12 APR 1979".
+ * (A record that is wholly new reads better as one line — see
+ * {@link newSharedRecordRow}.)
  *
  * @param labelFor names the target of a pointer value (see {@link makeXrefLabeler}).
  */
@@ -788,7 +838,12 @@ export function buildEditReport(
     // A record created this session has no snapshot to diff against, and
     // without this its card would carry a title and nothing else — the whole
     // point of adding a source is the title and the link it brought with it.
-    if (current) changes.push(...diffSharedRecordNodes(id, snapshot ?? emptyLike(current), current, labelFor));
+    if (current && isNew) {
+      const row = newSharedRecordRow(id, current, sharedRecordTitle(id, current), labelFor);
+      if (row) changes.push(row);
+    } else if (current && snapshot) {
+      changes.push(...diffSharedRecordNodes(id, snapshot, current, labelFor));
+    }
   }
 
   return {
