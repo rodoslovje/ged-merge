@@ -15,7 +15,7 @@ import { normalizeDateString } from "../normalize/date";
 import { dateFixContext, proposeDateFix, type DateFixContext } from "./fixDates";
 import type { SourceLayout } from "../normalize/types";
 import type { FormatOverrides } from "../normalize/formatOverrides";
-import { decodeHtmlEntities, pageTitleOf } from "../normalize/urlMetadata";
+import { decodeHtmlEntities, fetchDirect, pageTitleOf } from "../normalize/urlMetadata";
 import { parseSourceInput } from "../gedcom/citationParse";
 import { addObjeToSource, createSourceRecord } from "../gedcom/edit/sources";
 import {
@@ -54,11 +54,12 @@ import { familySpouses } from "./sources";
  * Not converted (deliberately): pointer NOTEs (shared records — rewriting them
  * has non-local effects), URLs appearing only in a `SOUR` record's own NOTE,
  * non-book Matricula URLs (archive indexes), and unrecognized hosts unless the
- * "other" site category is enabled. FamilySearch gets no enrichment — record
- * and image pages sit behind a login the relay cannot pass; offline signals
- * (quoted collection titles, `cat`/`i` params) carry it. Deferred follow-ups:
- * probing FS catalog pages for server-rendered titles, FS API OAuth, and a
- * placement audit for pre-existing pointer citations.
+ * "other" site category is enabled. FamilySearch is enriched for collection
+ * image links only (`parseFamilySearchArkJson`): everything else there — record
+ * pages, catalog films — sits behind a login, and offline signals (quoted
+ * collection titles, `cat`/`i` params) carry it. Deferred follow-ups: FS API
+ * OAuth for record pages, and a placement audit for pre-existing pointer
+ * citations.
  */
 
 /** Every site category, in display/sort order — the single list every other
@@ -85,12 +86,22 @@ export const ALL_SITES = [
 
 export type ReshapeSite = (typeof ALL_SITES)[number];
 
-/** Sites the enrichment fetch can usefully contact — FamilySearch sits behind
- *  a login, Newspapers.com behind a bot wall (verified: every relay gets the
- *  challenge page), and generic links have no parser. Shared by the fetcher
- *  and the panel's button/progress so they can't disagree. */
-export function isFetchableSite(site: ReshapeSite): boolean {
-  return site !== "familysearch" && site !== "newspapers" && site !== "other";
+/** Sites the enrichment fetch can usefully contact — Newspapers.com sits behind
+ *  a bot wall (verified: every relay gets the challenge page) and generic links
+ *  have no parser. FamilySearch answers for one link shape only: an image in a
+ *  published collection (`cc=`), whose ark serves the record's own citation as
+ *  JSON. A catalog film (`cat=`) and every indexed record page need a login, so
+ *  they keep their offline fields. Shared by the fetcher and the panel's
+ *  button/progress so they can't disagree. */
+export function isFetchableSite(site: ReshapeSite, bookUrl?: string): boolean {
+  if (site === "familysearch") return bookUrl !== undefined && isFamilySearchImageArk(bookUrl);
+  return site !== "newspapers" && site !== "other";
+}
+
+/** A FamilySearch image ark carrying the collection it belongs to — the one
+ *  shape {@link parseFamilySearchArkJson} has something to read. */
+function isFamilySearchImageArk(url: string): boolean {
+  return parseFamilySearchUrl(url)?.kind === "image" && /[?&]cc=\d+/i.test(url);
 }
 
 export type ReshapeShape = "link" | "webtag" | "obje" | "note" | "inline" | "pageUrl" | "sourTitle";
@@ -832,8 +843,10 @@ export function siteIconForUrl(url: string | undefined): string | undefined {
 // Register-type classification (drives event placement)
 
 const TYPE_KEYWORDS: Record<Exclude<BookType, "unknown" | "burial">, RegExp> = {
-  baptism: /krst|tauf|baptiz|baptism|rojstn|\bkk\b/i,
-  marriage: /poro[čc]|trauung|matrimon|copulat|marriage|\bpk\b/i,
+  // Baptism covers birth registers too — the same book under a civil name, and
+  // Croatian/Slovenian collection titles say "Rođeni"/"Rojeni" for it.
+  baptism: /krst|tauf|baptiz|baptism|rojstn|rojen|rođen|rodjen|birth|\bkk\b/i,
+  marriage: /poro[čc]|vjen[čc]an|trauung|matrimon|copulat|marriage|\bpk\b/i,
   // The tail (obituar|osmrtnic|pogreb|navc?ek|funeral) recognizes obituary and
   // funeral-announcement pages by their URLs/titles — funeral homes,
   // komunala pogreb notices, navcek.si.
@@ -2299,6 +2312,84 @@ function yearRange(from: string | undefined, to: string | undefined): string | u
   return a ?? b ?? undefined;
 }
 
+/** The span of years a text names — a FamilySearch book step often holds two
+ *  registers at once ("Births (Rođeni) 1892-1899 Marriages (Vjenčani)
+ *  1858-1890"), and the source covers all of it. */
+function yearSpan(text: string | undefined): string | undefined {
+  const years = [...(text ?? "").matchAll(/\b(1[5-9]\d{2}|20\d{2})\b/g)].map((m) => Number(m[1]));
+  if (!years.length) return undefined;
+  const from = Math.min(...years);
+  const to = Math.max(...years);
+  return from === to ? String(from) : `${from}-${to}`;
+}
+
+/** Media type that makes a FamilySearch ark answer with GedcomX JSON instead
+ *  of the app shell — the whole reason an FS link can be read without a login. */
+export const FS_GEDCOMX_ACCEPT = "application/x-gedcomx-v1+json";
+
+interface FsArkJson {
+  sourceDescriptions?: { resourceType?: string; citations?: { value?: string }[] }[];
+}
+
+/**
+ * Read the GedcomX JSON a FamilySearch image ark serves. The citation
+ * FamilySearch composes for the image is the richest thing in it:
+ *
+ *     "Croatia, Church Books, 1516-1994," database with images, FamilySearch
+ *     (https://familysearch.org/ark:/61903/3:1:3QSQ-G99F-FHWS… : 16 July 2014),
+ *     Roman Catholic (Rimokatolička crkva) > Pakrac >
+ *     Births (Rođeni) 1892-1899 Marriages (Vjenčani) 1858-1890 > image 556 of 689;
+ *     Arhiva Hrvatske u Zagrebu (Croatia State Archives), Zagreb.
+ *
+ * — the collection, the browse path, the image number and the holding archive.
+ * The path's last step is the book (its years date the source) and the one
+ * before it the place; deeper category steps ("Roman Catholic …") stay in the
+ * title. The image number is FamilySearch's own, one ahead of the URL's
+ * zero-based `i=`. An image outside a published collection carries no citation
+ * at all — nothing to read, and the offline fields stand.
+ */
+export function parseFamilySearchArkJson(json: string): ReshapeMeta | undefined {
+  let parsed: FsArkJson;
+  try {
+    parsed = JSON.parse(json) as FsArkJson;
+  } catch {
+    return undefined;
+  }
+  const citation = parsed.sourceDescriptions
+    ?.find((sd) => sd.resourceType?.endsWith("/DigitalArtifact"))
+    ?.citations?.find((c) => c.value?.trim())?.value;
+  return citation ? parseFamilySearchCitation(citation) : undefined;
+}
+
+function parseFamilySearchCitation(raw: string): ReshapeMeta | undefined {
+  const text = decodeHtmlEntities(raw.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
+  const collection = quotedCollection(text);
+  // Everything past the "(url : accessed date)": the browse path, then the
+  // holding archive after the last semicolon.
+  const rest = /\(https?:[^)]*\)\s*,?\s*(.*)$/i.exec(text)?.[1] ?? "";
+  const semi = rest.lastIndexOf(";");
+  const agency = semi >= 0 ? rest.slice(semi + 1).replace(/\.\s*$/, "").trim() : "";
+  const steps = (semi >= 0 ? rest.slice(0, semi) : rest).split(">").map((s) => s.trim()).filter(Boolean);
+  const image = /^image (\d+)\b/i.exec(steps[steps.length - 1] ?? "");
+  if (image) steps.pop();
+  const book = steps[steps.length - 1];
+  const place = steps.length > 1 ? steps[steps.length - 2] : undefined;
+  if (!collection && !book) return undefined;
+  const type = classifyBookType([book]);
+  return {
+    // Most specific first, the collection naming the whole: "Pakrac - Births
+    // (Rođeni) 1892-1899 … - Croatia, Church Books, 1516-1994".
+    title: siteTitle(place, book, collection ?? "FamilySearch"),
+    place,
+    agency: agency || undefined,
+    page: image?.[1],
+    dateRange: yearSpan(book),
+    // A book holding births *and* marriages classifies as neither — "unknown"
+    // must not clobber an offline guess from the citation text.
+    bookType: type === "unknown" ? undefined : type,
+  };
+}
+
 /** Rewrite a Matricula book URL to its `/en/` variant (stable table labels). */
 function matriculaEnUrl(bookUrl: string): string {
   return bookUrl.replace(/^(https?:\/\/data\.matricula-online\.eu)\/[a-z]{2}\//i, "$1/en/");
@@ -2307,6 +2398,22 @@ function matriculaEnUrl(bookUrl: string): string {
 /** Session-wide fetched-metadata cache, keyed by page-independent book key —
  *  re-opening the panel or re-running enrichment never refetches a book. */
 const bookMetaCache = new Map<string, ReshapeMeta>();
+
+/** FamilySearch's edge answers a burst of requests with a block page (403 from
+ *  its security service) — which would also hit the user's own FamilySearch
+ *  tab, on the same address. Ark lookups therefore run one at a time with a
+ *  gap: a file full of links takes longer, and nothing gets locked out. */
+const FS_GAP_MS = 600;
+let fsChain: Promise<unknown> = Promise.resolve();
+
+function pacedFsFetch<T>(run: () => Promise<T>): Promise<T> {
+  const result = fsChain.then(run, run);
+  fsChain = result.then(
+    () => new Promise((r) => setTimeout(r, FS_GAP_MS)),
+    () => new Promise((r) => setTimeout(r, FS_GAP_MS)),
+  );
+  return result;
+}
 
 /** Parse one fetched book/record page into source metadata — the per-site
  *  rules shared by the cleanup tool's enrichment and the Add Source dialog. */
@@ -2570,6 +2677,10 @@ function parseBookMeta(site: ReshapeSite, bookUrl: string, html: string): Reshap
         };
       }
     }
+  } else if (site === "familysearch") {
+    // JSON, not a page — and the app shell a relay would return says nothing
+    // ("FamilySearch.org"), so there is no title fallback here.
+    meta = parseFamilySearchArkJson(html);
   } else {
     const title = pageTitleOf(html);
     if (title) meta = { title: title.replace(/\s*[-|]\s*Geneanet\s*$/i, "") };
@@ -2587,7 +2698,12 @@ export async function fetchBookMeta(
   site: ReshapeSite,
   bookUrl: string,
   fetchHtml: (url: string) => Promise<string | undefined>,
+  /** The no-relay fetch FamilySearch arks use; injectable for tests. */
+  fetchArk: (url: string, accept: string) => Promise<string | undefined> = fetchDirect,
 ): Promise<ReshapeMeta | undefined> {
+  // A FamilySearch record page or catalog film would only answer 401/403 —
+  // don't ask at all.
+  if (site === "familysearch" && !isFamilySearchImageArk(bookUrl)) return undefined;
   const cacheKey = `${site}:${bookKeyOf(bookUrl)}`;
   const cached = bookMetaCache.get(cacheKey);
   if (cached) return cached;
@@ -2602,7 +2718,12 @@ export async function fetchBookMeta(
             // heading dates a newspaper issue; hl=en pins the date language.
             `${bookUrl}&printsec=frontcover&hl=en`
           : bookUrl;
-  const html = await fetchHtml(url).catch(() => undefined);
+  // FamilySearch is asked directly: its ark answers cross-origin requests
+  // itself, so no relay sees the URL and the answer is the site's own.
+  const html =
+    site === "familysearch"
+      ? await pacedFsFetch(() => fetchArk(url, FS_GEDCOMX_ACCEPT)).catch(() => undefined)
+      : await fetchHtml(url).catch(() => undefined);
   const meta = html ? parseBookMeta(site, bookUrl, html) : undefined;
   // A dateless Google Books result usually means a relay was served the About
   // page instead of the reader — don't pin that for the session; a later run
@@ -2614,9 +2735,9 @@ export async function fetchBookMeta(
 /**
  * Fetch metadata for the given (new-source) groups — **one fetch per book**,
  * via the injected `fetchHtml` (the allorigins relay wrapper; injectable for
- * tests). Matricula only: Geneanet blocks non-browser clients (kept
- * best-effort via the page title if the relay gets through) and FamilySearch
- * sits behind a login. Failures are swallowed — offline fallbacks stay.
+ * tests) — except FamilySearch arks, which are read directly from the site.
+ * Geneanet blocks non-browser clients (kept best-effort via the page title if
+ * the relay gets through). Failures are swallowed — offline fallbacks stay.
  */
 export async function fetchReshapeMeta(
   groups: ReshapeGroup[],
@@ -2626,7 +2747,7 @@ export async function fetchReshapeMeta(
   onMeta?: (groupId: string, meta: ReshapeMeta) => void,
 ): Promise<ReshapeEnrichment> {
   const enrichment: ReshapeEnrichment = new Map();
-  const targets = groups.filter((g) => isFetchableSite(g.site));
+  const targets = groups.filter((g) => isFetchableSite(g.site, g.bookUrl));
   let done = 0;
   onProgress?.(0, targets.length);
 

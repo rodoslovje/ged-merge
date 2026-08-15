@@ -2136,7 +2136,7 @@ export const sl = {
   "settings.links.fetch": "Poišči podatke na spletu",
   "settings.links.fetch.hint": "Eno stikalo za vsa iskanja, ki zapustijo vašo napravo: naslov strani vira, ko ga dodate iz golega URL-ja, in geokodiranje — OpenStreetMap, Genealoški imenik krajev (GOV) ter slovenski register naslovov in geografski imenik GURS. Privzeto izklopljeno. Prenos celotnega imenika krajev ni poizvedba — o vaši datoteki ne pove ničesar — in stikala ne potrebuje.",
   "settings.links.fetch.relays": "Prek javnega posrednika poteka samo iskanje naslova strani, in sicer po tem vrstnem redu:",
-  "settings.links.fetch.relaysNote": "Geokodirne storitve se kličejo neposredno. Pošlje se samo iskani naslov — nikoli vaše datoteke.",
+  "settings.links.fetch.relaysNote": "Geokodirne storitve se kličejo neposredno, prav tako FamilySearch — njegove povezave odgovorijo same zase, zato jih noben posrednik ne vidi. Pošlje se samo iskani naslov ali povezava — nikoli vaše datoteke.",
   "settings.geo.title": "Imeniki krajev",
   "settings.geo.hint": "Geografski imeniki, s katerimi se primerjajo imena krajev — naselja s koordinatami, shranjena v tem brskalniku in v rabi pri vseh poljih krajev, zemljevidih in geokodiranju. Nastavite jih enkrat; ostanejo tudi po zamenjavi datoteke.",
   "settings.geo.empty": "Imenik še ni uvožen. Brez njega imen krajev ni s čim primerjati, zato vam aplikacija ne more predlagati nobene koordinate — vsako lahko še vedno vnesete ročno.",

@@ -188,7 +188,7 @@ export function SourceCleanupView({
   // as much as brand-new ones do.
   const fetchableGroups = selectedGroups.filter(
     (g) =>
-      (!g.existingSourceXref || g.urlTitled) && !g.removeLinks && !enrichment.has(g.id) && isFetchableSite(g.site),
+      (!g.existingSourceXref || g.urlTitled) && !g.removeLinks && !enrichment.has(g.id) && isFetchableSite(g.site, g.bookUrl),
   );
 
   const selectedDupGroups = dupReport.groups

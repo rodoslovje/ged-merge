@@ -1899,7 +1899,7 @@ export const en = {
   "settings.links.fetch": "Look up details online",
   "settings.links.fetch.hint": "One switch for every lookup that leaves your device: a source's page title when you add it from a bare URL, and the geocoding searches — OpenStreetMap, the Genealogical Gazetteer (GOV), and Slovenia's GURS address register and gazetteer. Off by default. Downloading a whole place directory is not a lookup — it asks nothing about your file — and needs no switch.",
   "settings.links.fetch.relays": "Only the page-title lookup goes through a public relay, tried in this order:",
-  "settings.links.fetch.relaysNote": "The geocoding services are called directly. Only the address being looked up is sent — never your file.",
+  "settings.links.fetch.relaysNote": "The geocoding services are called directly, and so is FamilySearch — its links answer for themselves, so no relay sees them. Only the address or link being looked up is sent — never your file.",
   "settings.tab.map": "Map",
   "settings.geo.title": "Place directories",
   "settings.geo.hint": "The gazetteers place names are matched against — settlements with their coordinates, kept in this browser and used by every place field, map and geocoding run. Set up once; they outlive the file you have open.",

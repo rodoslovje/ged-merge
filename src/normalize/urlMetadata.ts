@@ -23,6 +23,26 @@ const PROXY_URLS: { proxied: (url: string) => string; timeoutMs: number }[] = [
  *  transparent where a permitted lookup actually sends the URL. */
 export const PROXY_HOSTS: string[] = PROXY_URLS.map((p) => new URL(p.proxied("https://example.org/")).host);
 
+/** Fetch a URL **directly**, with no relay in between, asking for `accept`.
+ *  For the few hosts that answer cross-origin requests themselves — currently
+ *  FamilySearch, whose ark URLs serve GedcomX JSON under content negotiation —
+ *  this is both better (the real answer, not a relay's copy) and more private:
+ *  the URL goes to the site it belongs to and nowhere else. Undefined on any
+ *  failure, exactly like the relayed path. */
+export async function fetchDirect(url: string, accept: string, timeoutMs = 10000): Promise<string | undefined> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { headers: { Accept: accept }, signal: controller.signal });
+    if (!res.ok) return undefined;
+    return (await res.text()) || undefined;
+  } catch {
+    return undefined;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 const NAMED_ENTITIES: Record<string, string> = {
   amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ",
 };

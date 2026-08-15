@@ -11,6 +11,8 @@ import {
   fetchBookMeta,
   fetchReshapeMeta,
   findReshapableLinks,
+  isFetchableSite,
+  parseFamilySearchArkJson,
   parseFamilySearchUrl,
   parseGeneanetCemeteryPage,
   parseMatriculaBookPage,
@@ -2247,5 +2249,108 @@ describe("private entries never become sources", () => {
       "0 TRLR",
     ].join("\n"));
     expect(report.totalOccurrences).toBe(2);
+  });
+});
+
+describe("FamilySearch image links", () => {
+  // What familysearch.org/ark:/… answers to Accept:
+  // application/x-gedcomx-v1+json — trimmed to what the parser reads.
+  const ARK_JSON = JSON.stringify({
+    description: "sd_c_2040054",
+    links: { self: { href: "https://familysearch.org/ark:/61903/3:1:3QSQ-G99F-FHWS", offset: 556, results: 689 } },
+    sourceDescriptions: [
+      {
+        id: "sd_c_2040054",
+        resourceType: "http://gedcomx.org/DigitalArtifact",
+        citations: [
+          {
+            value:
+              '"Croatia, Church Books, 1516-1994," database with images, <i>FamilySearch</i> ' +
+              "(https://familysearch.org/ark:/61903/3:1:3QSQ-G99F-FHWS?cc=2040054 : 16 July 2014), " +
+              "Roman Catholic (Rimokatolička crkva) > Pakrac > " +
+              "Births (Rođeni) 1892-1899 Marriages (Vjenčani) 1858-1890 > image 556 of 689; " +
+              "Arhiva Hrvatske u Zagrebu (Croatia State Archives), Zagreb.\n",
+          },
+        ],
+      },
+      { id: "src_2", resourceType: "http://gedcomx.org/Collection", titles: [{ value: "Croatia, Church Books, 1516-1994" }] },
+    ],
+  });
+
+  const IMAGE_URL =
+    "https://www.familysearch.org/ark:/61903/3:1:3QSQ-G99F-FHWS?wc=9R2F-W38%3A391644801&cc=2040054&lang=en&i=555";
+  const RECORD_URL = "https://familysearch.org/ark:/61903/1:1:XNJ8-FPJ";
+  const FILM_URL = "https://www.familysearch.org/search/catalog/406380";
+
+  it("reads collection, book, place, archive and image number from the ark's own citation", () => {
+    expect(parseFamilySearchArkJson(ARK_JSON)).toEqual({
+      title:
+        "Pakrac - Births (Rođeni) 1892-1899 Marriages (Vjenčani) 1858-1890 - Croatia, Church Books, 1516-1994",
+      place: "Pakrac",
+      agency: "Arhiva Hrvatske u Zagrebu (Croatia State Archives), Zagreb",
+      // FamilySearch's own image number, one ahead of the URL's i=555.
+      page: "556",
+      // A book holding births and marriages covers both spans…
+      dateRange: "1858-1899",
+      // …and classifies as neither.
+      bookType: undefined,
+    });
+  });
+
+  it("takes the place from a two-step path and classifies a single-register book", () => {
+    const json = ARK_JSON.replace(
+      "Roman Catholic (Rimokatolička crkva) > Pakrac > Births (Rođeni) 1892-1899 Marriages (Vjenčani) 1858-1890",
+      "Pakrac > Poročna knjiga 1858-1890",
+    );
+    const meta = parseFamilySearchArkJson(json);
+    expect(meta?.place).toBe("Pakrac");
+    expect(meta?.title).toBe("Pakrac - Poročna knjiga 1858-1890 - Croatia, Church Books, 1516-1994");
+    expect(meta?.dateRange).toBe("1858-1890");
+    expect(meta?.bookType).toBe("marriage");
+  });
+
+  it("reads nothing from an image with no citation (a catalog film), and nothing from junk", () => {
+    const bare = JSON.stringify({
+      sourceDescriptions: [{ id: "sd_da_1", resourceType: "http://gedcomx.org/DigitalArtifact" }],
+    });
+    expect(parseFamilySearchArkJson(bare)).toBeUndefined();
+    expect(parseFamilySearchArkJson("<html>not json</html>")).toBeUndefined();
+  });
+
+  it("fetches a collection image directly, asking for GedcomX — never through a relay", async () => {
+    const relayed: string[] = [];
+    const asked: { url: string; accept: string }[] = [];
+    const meta = await fetchBookMeta(
+      "familysearch",
+      IMAGE_URL,
+      async (url) => {
+        relayed.push(url);
+        return "<html><title>FamilySearch.org</title></html>";
+      },
+      async (url, accept) => {
+        asked.push({ url, accept });
+        return ARK_JSON;
+      },
+    );
+    expect(relayed).toEqual([]);
+    expect(asked).toEqual([{ url: IMAGE_URL, accept: "application/x-gedcomx-v1+json" }]);
+    expect(meta?.place).toBe("Pakrac");
+  });
+
+  it("asks nothing for a record page or a catalog film — those need a login", async () => {
+    const asked: string[] = [];
+    const relay = async () => "<html><title>FamilySearch.org</title></html>";
+    const ask = async (url: string) => {
+      asked.push(url);
+      return ARK_JSON;
+    };
+    expect(await fetchBookMeta("familysearch", RECORD_URL, relay, ask)).toBeUndefined();
+    expect(await fetchBookMeta("familysearch", FILM_URL, relay, ask)).toBeUndefined();
+    expect(asked).toEqual([]);
+    // …and the panel's fetch button doesn't count them either.
+    expect(isFetchableSite("familysearch", IMAGE_URL)).toBe(true);
+    expect(isFetchableSite("familysearch", RECORD_URL)).toBe(false);
+    expect(isFetchableSite("familysearch", FILM_URL)).toBe(false);
+    expect(isFetchableSite("familysearch")).toBe(false);
   });
 });
