@@ -252,7 +252,8 @@ describe("findReshapableLinks — scan", () => {
     const fs = report.groups.filter((g) => g.site === "familysearch");
     expect(fs).toHaveLength(2);
     const film = fs.find((g) => g.proposed.filingNumber === "406380")!;
-    expect(film.pages).toEqual(["113", "137"]);
+    // FamilySearch's `i=` counts from zero: i=113 is its image 114.
+    expect(film.pages).toEqual(["114", "138"]);
     const coll = fs.find((g) => g.proposed.title.startsWith("Croatia"))!;
     expect(coll.members[0].shape).toBe("note");
     // A collection spans many records — no single ARK can be its filing number.

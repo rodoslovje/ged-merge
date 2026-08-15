@@ -416,6 +416,15 @@ export function parseFamilySearchUrl(url: string): FamilySearchUrlParts | undefi
   return { kind: "tree" };
 }
 
+/** The image number FamilySearch itself would print for a link's `i=`, which
+ *  counts from zero: `i=23` is the page its viewer and its citation both call
+ *  image 24 (verified against both). Only the offline reading needs this — a
+ *  lookup answers with the number already worded. */
+function imageNumber(i: string | undefined): string | undefined {
+  const n = i && /^\d+$/.test(i) ? Number(i) : undefined;
+  return n === undefined ? i : String(n + 1);
+}
+
 /** First quoted phrase in citation text — FamilySearch-style collection titles,
  *  e.g. `"Croatia, Church Books, 1516-1994," database with images, …`. */
 function quotedCollection(text: string | undefined): string | undefined {
@@ -733,7 +742,7 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
         site: "familysearch",
         groupKey: fs.cat ? `f:cat:${fs.cat}` : `f:${linkKey(url)}`,
         bookUrl: fs.cat ? `https://www.familysearch.org/search/catalog/${fs.cat}` : cleanUrl(url),
-        page: fs.image,
+        page: imageNumber(fs.image),
         proposed: {
           title: collection ?? (fs.cat ? `FamilySearch film ${fs.cat}` : `FamilySearch ${fs.ark}`),
           // The film/catalog number identifies the source; a lone image link
