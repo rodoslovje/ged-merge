@@ -331,6 +331,29 @@ export function SourceCleanupView({
         </ToolSummary>
       </div>
 
+      {/* The run's own action bar, above the lists it acts on — where the
+          geocoding and naming tools put theirs. The count answers "how many
+          groups will this act on"; the two sections' own figures are spelled
+          out in the hint beside it. */}
+      <div className="tools-dup-actions">
+        <button className="nav-btn primary tools-run" onClick={apply} disabled={nothingSelected}>
+          {t("tools.sources.cleanupApply", { count: selectedGroups.length + selectedDupGroups.length })}
+        </button>
+        {!nothingSelected && (
+          <span className="tools-fix-hint">
+            {[
+              selectedGroups.length > 0 &&
+                t("tools.sources.reshapeApplyCount", { groups: selectedGroups.length, citations: citationCount }),
+              selectedDupGroups.length > 0 &&
+                t("tools.sources.dupApplyCount", { groups: selectedDupGroups.length, records: removeCount }),
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </span>
+        )}
+        {applied > 0 && <span className="tools-fix-hint">{t("tools.sources.cleanupApplied", { count: applied })}</span>}
+      </div>
+
       {hasReshape && (
         <section className="tools-cleanup-section">
           <div className="tools-dup-kind-head">
@@ -485,25 +508,6 @@ export function SourceCleanupView({
           ))}
         </section>
       )}
-
-      <div className="tools-dup-actions">
-        <button className="nav-btn primary tools-run" onClick={apply} disabled={nothingSelected}>
-          {t("tools.sources.cleanupApply")}
-        </button>
-        {applied > 0 && <span className="tools-fix-hint">{t("tools.sources.cleanupApplied", { count: applied })}</span>}
-        {!nothingSelected && (
-          <span className="tools-fix-hint">
-            {[
-              selectedGroups.length > 0 &&
-                t("tools.sources.reshapeDownloadCount", { groups: selectedGroups.length, citations: citationCount }),
-              selectedDupGroups.length > 0 &&
-                t("tools.sources.dupDownloadCount", { groups: selectedDupGroups.length, records: removeCount }),
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-          </span>
-        )}
-      </div>
 
       {editGroup && (
         <GroupEditDialog
