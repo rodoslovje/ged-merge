@@ -1236,8 +1236,19 @@ function foldMergedGroups(
   for (const [key, state] of groups) {
     const target = mergeGroups.get(key) ?? key;
     const into = folded.get(target);
-    if (into) into.hits.push(...state.hits);
-    else folded.set(target, target === key ? state : { ...state, group: { ...state.group, id: target } });
+    if (!into) {
+      folded.set(target, target === key ? state : { ...state, group: { ...state.group, id: target } });
+      continue;
+    }
+    into.hits.push(...state.hits);
+    // The book's source is whichever of its pages the file already cites —
+    // the panel resolved it the same way, so the apply must not decide to
+    // create a new record just because the first page happened to be new.
+    if (!into.group.existingSourceXref && state.group.existingSourceXref) {
+      into.group.existingSourceXref = state.group.existingSourceXref;
+      into.group.existingSourceTitle = state.group.existingSourceTitle;
+      into.group.urlTitled = state.group.urlTitled;
+    }
   }
   return folded;
 }
@@ -3037,7 +3048,7 @@ export function mergeFsBooks(
 ): { report: ReshapeReport; enrichment: ReshapeEnrichment; keyOf: Map<string, string> } {
   const byBook = new Map<string, { meta: ReshapeMeta; groups: ReshapeGroup[] }>();
   for (const g of report.groups) {
-    if (g.site !== "familysearch" || g.existingSourceXref || g.removeLinks) continue;
+    if (g.site !== "familysearch" || g.removeLinks) continue;
     const meta = enrichment.get(g.id);
     if (!meta?.book) continue;
     const key = `f:book:${looseKey(`${meta.collection ?? ""} ${meta.place ?? ""} ${meta.book}`)}`;
@@ -3057,10 +3068,17 @@ export function mergeFsBooks(
       const page = enrichment.get(g.id)?.page;
       for (const m of g.members) members.push(page && !m.page ? { ...m, page } : m);
     }
+    // A page of this book that the file already cites names the source the
+    // whole book belongs to: the new pages join *that* record instead of
+    // minting a second source for one book.
+    const bound = groups.find((g) => g.existingSourceXref);
     books.set(key, {
       id: key,
       site: "familysearch",
       bookType: meta.bookType ?? "unknown",
+      existingSourceXref: bound?.existingSourceXref,
+      existingSourceTitle: bound?.existingSourceTitle,
+      urlTitled: bound?.urlTitled,
       proposed: {
         title: meta.title ?? groups[0].proposed.title,
         author: meta.author,

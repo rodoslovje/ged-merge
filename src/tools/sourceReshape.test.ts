@@ -2570,7 +2570,9 @@ describe("FamilySearch image links", () => {
     expect(text).toContain("1 TITL #47 - Ravna Gora - Marriages (Vjenčani) 1805-1812");
   });
 
-  it("leaves a book alone when it is one page, or already has its source", () => {
+  it("adds a book's new pages to the source the file already keeps for it", () => {
+    // Two pages of one book; the file already cites the first from a source of
+    // its own. The second must join that record, not start a second one.
     const ds = dataset([
       "0 HEAD",
       "1 CHAR UTF-8",
@@ -2578,21 +2580,31 @@ describe("FamilySearch image links", () => {
       "1 WWW https://www.familysearch.org/ark:/61903/3:1:AAA?view=index&lang=en",
       "0 @I2@ INDI",
       "1 WWW https://www.familysearch.org/ark:/61903/3:1:BBB?view=index&lang=en",
+      "0 @S9@ SOUR",
+      "1 TITL Marriages, Ravna Gora",
+      "1 OBJE @O9@",
+      "0 @O9@ OBJE",
+      "1 FILE https://www.familysearch.org/ark:/61903/3:1:AAA?view=index&lang=en",
       "0 TRLR",
     ].join("\n"));
     const report = findReshapableLinks(ds);
-    // Same book, but one of the two links is already cited by a source in the
-    // file: only the free one is left, and one page is no book to fold.
-    const withExisting = {
-      ...report,
-      groups: [{ ...report.groups[0], existingSourceXref: "@S9@" }, report.groups[1]],
-    };
-    const meta = { collection: "C", place: "P", book: "Marriages 1805-1812", page: "1" };
-    const enrichment: ReshapeEnrichment = new Map(withExisting.groups.map((g) => [g.id, meta]));
-    const folded = mergeFsBooks(withExisting, enrichment);
-    expect(folded.report.groups).toEqual(withExisting.groups);
-    expect(folded.keyOf.size).toBe(0);
-    // No lookups at all: nothing to fold by, and the report comes back as-is.
+    expect(report.groups.map((g) => g.existingSourceXref)).toEqual(["@S9@", undefined]);
+    const meta = { collection: "C", place: "Ravna Gora", book: "Marriages 1805-1812", page: "1" };
+    const enrichment: ReshapeEnrichment = new Map(report.groups.map((g) => [g.id, meta]));
+    const folded = mergeFsBooks(report, enrichment);
+    expect(folded.report.groups).toHaveLength(1);
+    expect(folded.report.groups[0].existingSourceXref).toBe("@S9@");
+    expect(folded.report.groups[0].existingSourceTitle).toBe("Marriages, Ravna Gora");
+    expect(folded.report.groups[0].members).toHaveLength(2);
+    // …and the apply agrees: no second source, whichever page it meets first.
+    const { counts } = reshapeSources(ds.records, folded.report.groups, folded.enrichment, {
+      mergeGroups: folded.keyOf,
+    });
+    expect(counts.sourcesCreated).toBe(0);
+    expect(counts.sourcesReused).toBe(1);
+
+    // One page alone is no book to fold, and with no lookups there is nothing
+    // to fold by — the report comes back as it was.
     expect(mergeFsBooks(report, new Map()).report).toBe(report);
   });
 

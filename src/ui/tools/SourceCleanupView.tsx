@@ -203,11 +203,15 @@ export function SourceCleanupView({
   // …and it works on the *unfolded* groups: one lookup per image, each
   // answering with that image's own page number. A book already folded is
   // fetched, and one whose row is unticked is left out with it.
+  // A page that already has a source is looked up too, where the lookup is
+  // what tells one book from another: it says which record the page belongs
+  // to, and carries that page's own number. Elsewhere a source already in the
+  // file needs nothing fetched — its fields are the file's, not a proposal.
   const fetchableGroups = reshapeReport.groups.filter(
     (g) =>
       sites.has(g.site) &&
       !excluded.has(folded.keyOf.get(g.id) ?? g.id) &&
-      (!g.existingSourceXref || g.urlTitled) &&
+      (!g.existingSourceXref || g.urlTitled || g.site === "familysearch") &&
       !removeMarked.has(g.id) &&
       !enrichment.has(g.id) &&
       isFetchableSite(g.site, g.bookUrl),
