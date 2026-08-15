@@ -9,7 +9,6 @@ import {
   mergeFsBooks,
   makePlaceResolver,
   reshapeOptionsFromOverrides,
-  reshapeSources,
   type ReshapeEnrichment,
   type ReshapeGroup,
   type ReshapeMeta,
@@ -17,14 +16,14 @@ import {
   type ReshapeReport,
   type ReshapeSite,
 } from "../../tools/sourceReshape";
-import { dedupeSources, type DuplicateReport, type DupGroup, type DupKind } from "../../tools/sourceDuplicates";
+import { type DuplicateReport, type DupGroup, type DupKind } from "../../tools/sourceDuplicates";
+import { applySourceCleanup } from "../../tools/sourceCleanupApply";
+import type { RecordPatch } from "../historyTypes";
 import { familySpouses } from "../../tools/sources";
 import { PersonLink } from "../PersonLink";
-import { downloadOptions, ensureUtf8Charset, serializeGedcom, stampHeadSource } from "../../gedcom/serialize";
 import { sourceTooltip } from "../../gedcom/source";
 import { fetchPageHtml } from "../../normalize/urlMetadata";
 import { linkKey } from "../../normalize/links";
-import { downloadText, savedName } from "../download";
 import { isEditableTarget, isModalOpen } from "../../keyboard/shortcuts";
 import { BackButton } from "../BackButton";
 import { SelectMenu } from "../DropdownMenu";
@@ -66,29 +65,31 @@ function QuaySelect({ value, onChange }: { value: string; onChange: (value: stri
 }
 
 /**
- * Whole-file source cleanup, one download: the *reshape* section turns bare
- * Matricula / Geneanet / Find a Grave / FamilySearch links into proper source
- * records with pointer citations; the *duplicates* section collapses records
- * describing the same media/source/repository. Applying runs reshape first,
- * then dedupe (so re-pointing also covers the just-written citations), and
- * serializes a single `.gedmerge.ged` — the live dataset is never touched.
+ * Whole-file source cleanup, applied to the open file: the *reshape* section
+ * turns bare Matricula / Geneanet / Find a Grave / FamilySearch links into
+ * proper source records with pointer citations; the *duplicates* section
+ * collapses records describing the same media/source/repository. Applying runs
+ * reshape first, then dedupe (so re-pointing also covers the just-written
+ * citations), and lands as one undoable step the next save takes along — like
+ * every other Tools repair, no separate download.
  */
 export function SourceCleanupView({
   reshapeReport: reshapeReportProp,
   dupReport: dupReportProp,
   dataset,
-  fileName,
   onNavigate,
   onBack,
+  onApplyPatches,
   active,
 }: {
   /** Null when that scan failed — the other tool keeps working. */
   reshapeReport: ReshapeReport | null;
   dupReport: DuplicateReport | null;
   dataset: Dataset;
-  fileName: string;
   onNavigate: (id: string) => void;
   onBack: () => void;
+  /** Apply the run as one undoable step; returns how many records changed. */
+  onApplyPatches: (patches: RecordPatch[]) => number;
   /** Whether this view is the one on screen — the Esc-to-leave shortcut must
    *  not fire from a hidden, still-mounted panel (it would drop its state). */
   active: boolean;
@@ -130,6 +131,9 @@ export function SourceCleanupView({
   const [fetching, setFetching] = useState<{ done: number; total: number } | null>(null);
   /** Books the last fetch run could not retrieve (relay down / blocked). */
   const [fetchFailed, setFetchFailed] = useState(0);
+  /** Records the last apply changed — the run's own receipt, cleared as soon
+   *  as the re-scan brings a fresh report in. */
+  const [applied, setApplied] = useState(0);
   // Duplicates: excluded groups + survivor overrides keyed by group id.
   const [dupExcluded, setDupExcluded] = useState<Set<string>>(new Set());
   const [survivors, setSurvivors] = useState<Map<string, string>>(new Map());
@@ -171,6 +175,8 @@ export function SourceCleanupView({
   // source per image. Everything below works on the folded report; the fetch
   // itself still goes image by image, since that is where a page number is.
   const folded = useMemo(() => mergeFsBooks(reshapeReport, enrichment), [reshapeReport, enrichment]);
+  // A fresh scan means the previous run's receipt is history.
+  useEffect(() => setApplied(0), [reshapeReport, dupReport]);
   const visibleGroups = useMemo(() => folded.report.groups.filter((g) => sites.has(g.site)), [folded, sites]);
   const selectedGroups = useMemo(
     () =>
@@ -210,19 +216,19 @@ export function SourceCleanupView({
     .map((g) => withSurvivor(g, survivors.get(g.id) ?? defaultSurvivor(g)));
   const removeCount = selectedDupGroups.reduce((n, g) => n + g.removable, 0);
 
-  function download() {
+  function apply() {
     // Reshape first (its existing-source targets are original xrefs), then
     // dedupe — which also re-points the citations the reshape just wrote.
-    const { records: reshaped } = reshapeSources(dataset.records, selectedGroups, folded.enrichment, {
-      ...reshapeOptionsFromOverrides(settings.formatOverrides),
-      relocate,
-      mergeGroups: folded.keyOf,
-    });
-    const { records } = dedupeSources(reshaped, selectedDupGroups);
-    ensureUtf8Charset(records, dataset); // downloads are UTF-8 bytes
-    stampHeadSource(records, dataset);
-    const text = serializeGedcom(records, downloadOptions(dataset));
-    downloadText(savedName(fileName, "ged"), text);
+    const patches = applySourceCleanup(
+      dataset,
+      {
+        groups: selectedGroups,
+        enrichment: folded.enrichment,
+        options: { ...reshapeOptionsFromOverrides(settings.formatOverrides), relocate, mergeGroups: folded.keyOf },
+      },
+      selectedDupGroups,
+    );
+    setApplied(onApplyPatches(patches));
   }
 
   async function fetchDetails() {
@@ -481,9 +487,10 @@ export function SourceCleanupView({
       )}
 
       <div className="tools-dup-actions">
-        <button className="nav-btn primary tools-run" onClick={download} disabled={nothingSelected}>
-          {t("tools.sources.cleanupDownload")}
+        <button className="nav-btn primary tools-run" onClick={apply} disabled={nothingSelected}>
+          {t("tools.sources.cleanupApply")}
         </button>
+        {applied > 0 && <span className="tools-fix-hint">{t("tools.sources.cleanupApplied", { count: applied })}</span>}
         {!nothingSelected && (
           <span className="tools-fix-hint">
             {[

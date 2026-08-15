@@ -803,7 +803,11 @@ export const sl = {
   "tools.sources.cleanupToggle": "Uredi vire",
   "tools.sources.expandAll": "Razširi vse",
   "tools.sources.collapseAll": "Strni vse",
-  "tools.sources.cleanupDownload": "Prenesi urejeni GEDCOM",
+  "tools.sources.cleanupApply": "Uveljavi v datoteki",
+  "tools.sources.cleanupApplied_one": "Posodobljen {{count}} zapis — razveljavite s Ctrl+Z, shranite, da ostane.",
+  "tools.sources.cleanupApplied_two": "Posodobljena {{count}} zapisa — razveljavite s Ctrl+Z, shranite, da ostane.",
+  "tools.sources.cleanupApplied_few": "Posodobljeni {{count}} zapisi — razveljavite s Ctrl+Z, shranite, da ostane.",
+  "tools.sources.cleanupApplied_other": "Posodobljenih {{count}} zapisov — razveljavite s Ctrl+Z, shranite, da ostane.",
   "tools.sources.reshapeHeading": "Arhivske povezave → viri",
   "tools.sources.reshapeIntro":
     "Arhivske povezave (Matricula Online, Geneanet pokopališča, FamilySearch), najdene kot gole povezave, opombe ali besedilne navedbe, združene po matični knjigi ali grobu. Izberite skupine za pretvorbo in prenesite GEDCOM, v katerem vsaka postane pravi vir s citati po straneh.",

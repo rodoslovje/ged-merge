@@ -713,7 +713,9 @@ export const en = {
   "tools.sources.cleanupToggle": "Organize sources",
   "tools.sources.expandAll": "Expand all",
   "tools.sources.collapseAll": "Collapse all",
-  "tools.sources.cleanupDownload": "Download organized GEDCOM",
+  "tools.sources.cleanupApply": "Apply to the file",
+  "tools.sources.cleanupApplied_one": "{{count}} record updated — undo with Ctrl+Z, save to keep.",
+  "tools.sources.cleanupApplied_other": "{{count}} records updated — undo with Ctrl+Z, save to keep.",
   "tools.sources.reshapeHeading": "Archive links → sources",
   "tools.sources.reshapeIntro":
     "Archive links (Matricula Online, Geneanet Cemeteries, FamilySearch) found as bare links, notes or inline citations, grouped by register book or grave. Pick the groups to convert, then download a GEDCOM where each becomes a proper source record cited with page numbers.",
