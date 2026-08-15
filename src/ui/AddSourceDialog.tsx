@@ -6,7 +6,7 @@ import { parseSourceInput } from "../gedcom/citationParse";
 import { inferMainProfile } from "../normalize/profile";
 import { rewriteLinkLang } from "../normalize/links";
 import { fetchPageHtml, fetchPageTitle } from "../normalize/urlMetadata";
-import { fetchBookMeta, makePlaceResolver, proposedSiteRepo, recognizeSourceUrl, SITE_ICON, type ReshapeMeta, type ReshapeSite } from "../tools/sourceReshape";
+import { fetchBookMeta, makePlaceResolver, narrowFsRegister, proposedSiteRepo, recognizeSourceUrl, SITE_ICON, splitFsRegisters, type ReshapeMeta, type ReshapeSite } from "../tools/sourceReshape";
 import { prefersSourceRepos } from "../gedcom/source";
 import { childText } from "../gedcom/node";
 import { useSettings } from "./SettingsContext";
@@ -102,6 +102,9 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
   const [repoCaln, setRepoCaln] = useState("");
   const [fetching, setFetching] = useState(false);
   const [fetched, setFetched] = useState<ReshapeMeta | undefined>();
+  // One register of a book that holds several ("Births … 1892-1899 Marriages …
+  // 1858-1890"), once the reader says which one this page is.
+  const [register, setRegister] = useState<string | undefined>();
   // Whether the Repository dropdown holds a hand-picked choice — a later
   // lookup improves only what the dialog itself put there.
   const repoTouched = useRef(false);
@@ -161,6 +164,13 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
     [recognized, normalizedUrl, dataset, fetched?.collection, fetched?.collectionId],
   );
   const repoProposal = repoFetched ?? repoDefault;
+  // The registers this book holds, and the metadata as the chosen one leaves
+  // it — what the Add actually writes.
+  const registers = useMemo(() => splitFsRegisters(fetched?.book), [fetched?.book]);
+  const chosen = useMemo(
+    () => (fetched && register ? narrowFsRegister(fetched, register) : fetched),
+    [fetched, register],
+  );
   // Whether the file's convention hangs sources off repositories — decides if
   // the create-proposal is preselected or merely offered.
   const layoutPrefersRepos = useMemo(() => {
@@ -200,6 +210,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
     setRepoSel(match ? "" : repoDefault?.xref ?? (repoDefault?.createName && layoutPrefersRepos ? "@create@" : ""));
     setRepoName("");
     setRepoCaln("");
+    setRegister(undefined);
     repoTouched.current = false;
   }, [editing, text, parsed, normalizedUrl, match, recognized, resolvePlace, repoDefault, layoutPrefersRepos]);
 
@@ -309,7 +320,16 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
     setRepoCaln("");
     setFetching(false);
     setFetched(undefined);
+    setRegister(undefined);
     repoTouched.current = false;
+  }
+
+  /** Pick one register of a multi-register book (or all of it again): the
+   *  title follows, and with it the event the citation lands on. */
+  function pickRegister(part: string | undefined) {
+    setRegister(part);
+    const narrowed = fetched && part ? narrowFsRegister(fetched, part) : fetched;
+    if (narrowed?.title) setFields((f) => ({ ...f, title: narrowed.title! }));
   }
 
   function handleClose() {
@@ -339,7 +359,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
       site: recognized?.site,
       // Fetched over offline-recognized — Newspapers.com carries the issue
       // date right in the citation prose, with no fetchable page behind it.
-      dateRange: fetched?.dateRange ?? recognized?.proposed.dateRange,
+      dateRange: chosen?.dateRange ?? recognized?.proposed.dateRange,
       collection: fetched?.collection,
       collectionId: fetched?.collectionId,
       repoXref: repoSel === "@create@" || repoSel === "@new@" ? undefined : repoSel,
@@ -423,6 +443,28 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
               <span className="add-source-chip-site">
                 {SITE_ICON[recognized.site]} {t(`tools.sources.reshapeSite.${recognized.site}`)}
               </span>
+            </div>
+          )}
+          {!match && !editing && registers.length > 1 && (
+            <div className="add-source-registers">
+              <span className="add-source-registers-label">{t("addSource.register")}</span>
+              <button
+                type="button"
+                className={`add-source-register${register === undefined ? " is-on" : ""}`}
+                onClick={() => pickRegister(undefined)}
+              >
+                {t("addSource.register.whole")}
+              </button>
+              {registers.map((part) => (
+                <button
+                  key={part}
+                  type="button"
+                  className={`add-source-register${register === part ? " is-on" : ""}`}
+                  onClick={() => pickRegister(part)}
+                >
+                  {part}
+                </button>
+              ))}
             </div>
           )}
           {!match && !editing && recognized && !settings.allowLinkFetch && (

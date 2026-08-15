@@ -1550,6 +1550,8 @@ export const en = {
   "addSource.matchStandalone": "Matches a source already in the file — nothing to add.",
   "addSource.matchStandaloneTitled": "Matches the existing source “{{title}}” — nothing to add.",
   "addSource.recognized": "Link recognized",
+  "addSource.register": "This page is from:",
+  "addSource.register.whole": "Whole book",
   "addSource.recognizedFetchOff": "Turn on “{{setting}}” in Settings to fill in the real link details.",
   "addSource.field.link": "Link or URL",
   "addSource.field.title": "Title",

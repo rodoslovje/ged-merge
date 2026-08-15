@@ -6289,6 +6289,31 @@ kbd {
   border-radius: var(--radius-pill);
   white-space: nowrap;
 }
+/* Which register of a book holding several this page belongs to — the reader
+   is looking at the image, the file cannot know. */
+.add-source-registers {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 12px;
+}
+.add-source-registers-label { font-size: 0.8rem; color: var(--muted); }
+.add-source-register {
+  padding: 3px 10px;
+  font-size: 0.8rem;
+  color: var(--muted);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+}
+.add-source-register:hover { color: var(--text); border-color: var(--accent); }
+.add-source-register.is-on {
+  color: var(--accent);
+  background: color-mix(in oklch, var(--accent) 12%, var(--panel));
+  border-color: color-mix(in oklch, var(--accent) 40%, var(--border));
+}
 .add-source-field { display: flex; flex-direction: column; gap: 4px; margin: 0 0 12px; font-size: 0.85rem; color: var(--muted); }
 .add-source-field input {
   width: 100%;

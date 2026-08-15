@@ -1785,6 +1785,8 @@ export const sl = {
   "addSource.matchStandalone": "Ujema se z virom, ki je že v datoteki — ni česa dodati.",
   "addSource.matchStandaloneTitled": "Ujema se z obstoječim virom „{{title}}“ — ni česa dodati.",
   "addSource.recognized": "Prepoznana povezava",
+  "addSource.register": "Ta stran je iz:",
+  "addSource.register.whole": "cele knjige",
   "addSource.recognizedFetchOff": "Za samodejno izpolnitev pravih podatkov povezave vklopite „{{setting}}“ v nastavitvah.",
   "addSource.field.link": "Povezava ali URL",
   "addSource.field.title": "Naslov",

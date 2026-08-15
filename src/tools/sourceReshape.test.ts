@@ -13,7 +13,9 @@ import {
   createSiteRepo,
   findReshapableLinks,
   isFetchableSite,
+  narrowFsRegister,
   proposedSiteRepo,
+  splitFsRegisters,
   parseFamilySearchArkJson,
   parseFamilySearchUrl,
   parseGeneanetCemeteryPage,
@@ -2292,6 +2294,7 @@ describe("FamilySearch image links", () => {
       title:
         "Pakrac - Births (Rođeni) 1892-1899 Marriages (Vjenčani) 1858-1890 - Croatia, Church Books, 1516-1994",
       collection: "Croatia, Church Books, 1516-1994",
+      book: "Births (Rođeni) 1892-1899 Marriages (Vjenčani) 1858-1890",
       place: "Pakrac",
       agency: "Arhiva Hrvatske u Zagrebu (Croatia State Archives), Zagreb",
       // FamilySearch's own image number, one ahead of the URL's i=555.
@@ -2345,6 +2348,32 @@ describe("FamilySearch image links", () => {
     expect(meta?.dateRange).toBe("1805-1848");
     expect(meta?.collection).toBe("Croatia, Church Books, 1516-1994");
     expect(meta?.collectionId).toBe("2040054");
+  });
+
+  it("splits a book holding two registers, and narrows to the one chosen", () => {
+    const meta = parseFamilySearchArkJson(ARK_JSON)!;
+    const parts = splitFsRegisters(meta.book);
+    expect(parts).toEqual(["Births (Rođeni) 1892-1899", "Marriages (Vjenčani) 1858-1890"]);
+    const marriages = narrowFsRegister(meta, parts[1]);
+    expect(marriages.title).toBe("Pakrac - Marriages (Vjenčani) 1858-1890 - Croatia, Church Books, 1516-1994");
+    expect(marriages.dateRange).toBe("1858-1890");
+    // The register type is what puts the citation on the marriage.
+    expect(marriages.bookType).toBe("marriage");
+    expect(smartCitationTarget([], "familysearch", marriages.title, { citations: "event" })).toEqual({
+      eventTag: "MARR",
+      onFam: true,
+    });
+    // Everything the register doesn't touch is left alone.
+    expect(marriages.place).toBe("Pakrac");
+    expect(marriages.page).toBe("556");
+  });
+
+  it("offers no choice where there is none to make", () => {
+    expect(splitFsRegisters("Poročna knjiga 1858-1890")).toEqual([]);
+    expect(splitFsRegisters("Ravna Gora")).toEqual([]);
+    expect(splitFsRegisters(undefined)).toEqual([]);
+    // Trailing words no register accounts for: don't guess at the split.
+    expect(splitFsRegisters("Births 1892-1899 Marriages 1858-1890 and other records")).toEqual([]);
   });
 
   it("reads nothing from an image with no citation (a catalog film), and nothing from junk", () => {

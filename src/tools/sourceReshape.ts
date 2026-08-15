@@ -198,6 +198,10 @@ export interface ReshapeMeta {
    *  the repository, for files that keep one per FamilySearch collection. */
   collection?: string;
   collectionId?: string;
+  /** The register label the title was built from ("Births (Rođeni) 1892-1899
+   *  Marriages (Vjenčani) 1858-1890"). Kept so a book naming several registers
+   *  can be narrowed to the one being cited — see {@link splitFsRegisters}. */
+  book?: string;
 }
 
 /** Per-group fetched metadata (keys = group ids). */
@@ -2460,12 +2464,45 @@ function parseFamilySearchCitation(raw: string): ReshapeMeta | undefined {
     // (Rođeni) 1892-1899 … - Croatia, Church Books, 1516-1994".
     title: siteTitle(place, book, collection ?? "FamilySearch"),
     collection,
+    book,
     place,
     agency: agency || undefined,
     page: image?.[1],
     dateRange: yearSpan(book),
     // A book holding births *and* marriages classifies as neither — "unknown"
     // must not clobber an offline guess from the citation text.
+    bookType: type === "unknown" ? undefined : type,
+  };
+}
+
+/**
+ * The registers a FamilySearch book label names, when it names more than one:
+ * "Births (Rođeni) 1892-1899 Marriages (Vjenčani) 1858-1890" is one browse
+ * step covering two registers, and a page of it belongs to exactly one — which
+ * only the person looking at the image knows (FamilySearch's own item-level
+ * view of that film sits behind a sign-in). Each part runs up to and including
+ * its year range; a label the parts don't fully account for names nothing to
+ * choose between, and comes back empty.
+ */
+export function splitFsRegisters(book: string | undefined): string[] {
+  if (!book) return [];
+  const parts = book.match(/\S.*?\d{4}(?:\s*[-–]\s*\d{4})?(?=\s|$)/g) ?? [];
+  if (parts.length < 2) return [];
+  // Every word of the label must belong to a part — otherwise the split is a
+  // guess about text it doesn't understand.
+  return parts.join(" ").replace(/\s+/g, " ") === book.replace(/\s+/g, " ").trim() ? parts : [];
+}
+
+/** The same fetched metadata narrowed to one of {@link splitFsRegisters}'
+ *  registers: its own title, year span and register type — the last of which
+ *  puts the citation on the matching event. */
+export function narrowFsRegister(meta: ReshapeMeta, register: string): ReshapeMeta {
+  const type = classifyBookType([register]);
+  return {
+    ...meta,
+    book: register,
+    title: siteTitle(meta.place, register, meta.collection ?? "FamilySearch"),
+    dateRange: yearSpan(register),
     bookType: type === "unknown" ? undefined : type,
   };
 }
