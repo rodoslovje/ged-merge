@@ -5,6 +5,7 @@ import type { Dataset } from "../../gedcom/types";
 import {
   ALL_SITES,
   SITE_ICON,
+  baptismTargetTag,
   fetchReshapeMeta,
   isFetchableSite,
   mergeFsBooks,
@@ -21,7 +22,8 @@ import {
 import { type DuplicateReport, type DupGroup, type DupKind } from "../../tools/sourceDuplicates";
 import { applySourceCleanup } from "../../tools/sourceCleanupApply";
 import type { RecordPatch } from "../historyTypes";
-import { familySpouses } from "../../tools/sources";
+import { familySpouses, recordCitedBy } from "../../tools/sources";
+import { UsageList } from "./shared";
 import { PersonLink } from "../PersonLink";
 import { sourceTooltip } from "../../gedcom/source";
 import { parseSourceInput } from "../../gedcom/citationParse";
@@ -180,7 +182,16 @@ export function SourceCleanupView({
   // become one row — one source with a page citation each, instead of one
   // source per image. Everything below works on the folded report; the fetch
   // itself still goes image by image, since that is where a page number is.
-  const folded = useMemo(() => mergeFsBooks(reshapeReport, enrichment), [reshapeReport, enrichment]);
+  // The fold refreshes each member's shown move with the enriched book type;
+  // baptism moves follow the same override-or-file habit the apply resolves.
+  const baptismTag = useMemo(
+    () => settings.formatOverrides?.baptism ?? baptismTargetTag(dataset.records),
+    [settings.formatOverrides, dataset],
+  );
+  const folded = useMemo(
+    () => mergeFsBooks(reshapeReport, enrichment, baptismTag),
+    [reshapeReport, enrichment, baptismTag],
+  );
   // A fresh scan means the previous run's receipt is history.
   useEffect(() => setApplied(0), [reshapeReport, dupReport]);
   const visibleGroups = useMemo(() => folded.report.groups.filter((g) => sites.has(g.site)), [folded, sites]);
@@ -516,12 +527,14 @@ export function SourceCleanupView({
                     <DupGroupRow
                       key={g.id}
                       group={g}
+                      dataset={dataset}
                       checked={!dupExcluded.has(g.id)}
                       survivorXref={survivors.get(g.id) ?? defaultSurvivor(g)}
                       open={expanded.has(g.id)}
                       onToggleCheck={() => toggleDupGroup(g.id)}
                       onToggleOpen={() => toggleExpand(g.id)}
                       onChooseSurvivor={(xref) => setSurvivors((m) => new Map(m).set(g.id, xref))}
+                      onNavigate={onNavigate}
                     />
                   ))}
               </ul>
@@ -902,22 +915,30 @@ function MemberRow({
  *  record to keep (the rest fold into it). */
 function DupGroupRow({
   group,
+  dataset,
   checked,
   survivorXref,
   open,
   onToggleCheck,
   onToggleOpen,
   onChooseSurvivor,
+  onNavigate,
 }: {
   group: DupGroup;
+  dataset: Dataset;
   checked: boolean;
   survivorXref: string;
   open: boolean;
   onToggleCheck: () => void;
   onToggleOpen: () => void;
   onChooseSurvivor: (xref: string) => void;
+  onNavigate: (id: string) => void;
 }) {
   const { t } = useTranslation();
+  // Members whose citing persons are unfolded — the count is the toggle, as
+  // the counts in the geocoding lists are. A repository's citers are `SOUR`
+  // records, not persons, so its count stays plain text.
+  const [usesOpen, setUsesOpen] = useState<Set<string>>(() => new Set());
   return (
     <li className="tools-tree-node">
       <div className="tools-tree-row">
@@ -952,8 +973,28 @@ function DupGroupRow({
                   </label>
                   <span className="tools-dup-title">{m.title}</span>
                   {m.detail && m.detail !== m.title && <span className="tools-tree-meta">{m.detail}</span>}
-                  {m.usage > 0 && (
-                    <span className="tools-tree-meta">· {t("tools.sources.dupUsage", { count: m.usage })}</span>
+                  {m.usage > 0 &&
+                    (group.kind === "repo" ? (
+                      <span className="tools-tree-meta">· {t("tools.sources.dupUsage", { count: m.usage })}</span>
+                    ) : (
+                      <button
+                        className="tools-issue-link"
+                        aria-pressed={usesOpen.has(m.xref)}
+                        title={t("tools.sources.dupUsageToggle")}
+                        onClick={() =>
+                          setUsesOpen((s) => {
+                            const next = new Set(s);
+                            if (next.has(m.xref)) next.delete(m.xref);
+                            else next.add(m.xref);
+                            return next;
+                          })
+                        }
+                      >
+                        · {t("tools.sources.dupUsage", { count: m.usage })}
+                      </button>
+                    ))}
+                  {usesOpen.has(m.xref) && (
+                    <DupMemberUses dataset={dataset} xref={m.xref} onNavigate={onNavigate} />
                   )}
                 </li>
               );
@@ -963,4 +1004,19 @@ function DupGroupRow({
       )}
     </li>
   );
+}
+
+/** The persons citing one duplicate member, resolved only when its count is
+ *  opened — a whole-file pointer walk has no place in the row render. */
+function DupMemberUses({
+  dataset,
+  xref,
+  onNavigate,
+}: {
+  dataset: Dataset;
+  xref: string;
+  onNavigate: (id: string) => void;
+}) {
+  const uses = useMemo(() => recordCitedBy(dataset, xref), [dataset, xref]);
+  return <UsageList dataset={dataset} uses={uses} onNavigate={onNavigate} />;
 }

@@ -795,6 +795,7 @@ export const sl = {
   "tools.sources.dupKind.repo": "Hrambe",
   "tools.sources.dupKeep": "obdrži",
   "tools.sources.dupUsage": "navedeno v {{count}}",
+  "tools.sources.dupUsageToggle": "Pokaži osebe, katerih zapisi to navajajo",
   "tools.sources.dupSelectAll": "Izberi vse",
   "tools.sources.dupSelectNone": "Počisti izbor",
   "tools.sources.dupKeepThis": "Obdrži ta zapis",

@@ -917,6 +917,21 @@ const ACCEPTABLE_TAGS: Record<Exclude<BookType, "unknown">, ReadonlySet<string>>
   burial: new Set(["BURI", "DEAT"]),
 };
 
+/** The event a non-marriage book's citation belongs on, or undefined when the
+ *  occurrence already sits acceptably (or the book can't say). One doctrine for
+ *  the apply's relocation and the report's post-enrichment refresh — the row
+ *  must show the same move the apply will make. */
+function bookEventTarget(
+  recordTag: string,
+  eventTag: string | undefined,
+  bookType: BookType,
+  baptismTag: "BIRT" | "BAPM",
+): string | undefined {
+  if (bookType === "unknown" || bookType === "marriage" || recordTag !== "INDI") return undefined;
+  if (eventTag && ACCEPTABLE_TAGS[bookType].has(eventTag)) return undefined;
+  return bookType === "baptism" ? baptismTag : bookType === "death" ? "DEAT" : "BURI";
+}
+
 /** The file's own habit for baptism-book citations: whichever of BIRT/BAPM
  *  already carries more `SOUR` children (default BIRT). */
 export function baptismTargetTag(records: GedNode[]): "BIRT" | "BAPM" {
@@ -1445,9 +1460,8 @@ function relocationTarget(
     return famXref ? { eventTag: "MARR", famXref } : undefined;
   }
 
-  if (hit.rec.tag !== "INDI") return undefined;
-  const target = bookType === "baptism" ? baptismTag : bookType === "death" ? "DEAT" : "BURI";
-  return hit.eventTag === target ? undefined : { eventTag: target };
+  const target = bookEventTarget(hit.rec.tag, hit.eventTag, bookType, baptismTag);
+  return target ? { eventTag: target } : undefined;
 }
 
 /** An owned page-image pointer already sitting beside its final citation
@@ -3089,7 +3103,18 @@ export async function fetchReshapeMeta(
 export function mergeFsBooks(
   report: ReshapeReport,
   enrichment: ReshapeEnrichment,
+  baptismTag: "BIRT" | "BAPM" = "BIRT",
 ): { report: ReshapeReport; enrichment: ReshapeEnrichment; keyOf: Map<string, string> } {
+  // A member scanned before the lookup knew the book's type shows no move,
+  // yet the apply relocates it with the enriched type — fill the display in
+  // so the row promises the move the apply will make. Moves the scan *did*
+  // compute (incl. marriage, which needs the family) are kept as they are.
+  const refreshMove = (m: ReshapeOccurrence, bookType: BookType): ReshapeOccurrence => {
+    if (m.targetEvent || m.foldedInto || m.shape === "sourTitle") return m;
+    const target = bookEventTarget(m.recordTag, m.eventTag, bookType, baptismTag);
+    return target ? { ...m, targetEvent: target } : m;
+  };
+
   const byBook = new Map<string, { meta: ReshapeMeta; groups: ReshapeGroup[] }>();
   for (const g of report.groups) {
     if (g.site !== "familysearch" || g.removeLinks) continue;
@@ -3106,11 +3131,12 @@ export function mergeFsBooks(
   const bookMeta = new Map<string, ReshapeMeta>();
   for (const [key, { meta, groups }] of byBook) {
     if (groups.length < 2) continue; // one page is already its own group
+    const bookType = meta.bookType ?? "unknown";
     const members: ReshapeOccurrence[] = [];
     for (const g of groups) {
       keyOf.set(g.id, key);
       const page = enrichment.get(g.id)?.page;
-      for (const m of g.members) members.push(page && !m.page ? { ...m, page } : m);
+      for (const m of g.members) members.push(refreshMove(page && !m.page ? { ...m, page } : m, bookType));
     }
     // A page of this book that the file already cites names the source the
     // whole book belongs to: the new pages join *that* record instead of
@@ -3119,7 +3145,7 @@ export function mergeFsBooks(
     books.set(key, {
       id: key,
       site: "familysearch",
-      bookType: meta.bookType ?? "unknown",
+      bookType,
       existingSourceXref: bound?.existingSourceXref,
       existingSourceTitle: bound?.existingSourceTitle,
       urlTitled: bound?.urlTitled,
@@ -3141,21 +3167,29 @@ export function mergeFsBooks(
     // The book's own metadata: the page belongs to each image, not to the book.
     bookMeta.set(key, { ...meta, page: undefined });
   }
-  if (!keyOf.size) return { report, enrichment, keyOf };
-
   // Each book takes the place of the first of its pages; the rest disappear.
+  // A group left unfolded still takes its lookup's book type — the scan may
+  // not have known it (a bare image link says nothing), and the apply will
+  // relocate by the enriched type, so the row must say so too.
+  let changed = keyOf.size > 0;
   const groups: ReshapeGroup[] = [];
   const emitted = new Set<string>();
   for (const g of report.groups) {
     const key = keyOf.get(g.id);
     if (!key) {
-      groups.push(g);
+      const bookType = (!g.removeLinks && enrichment.get(g.id)?.bookType) || g.bookType;
+      const members = g.members.map((m) => refreshMove(m, bookType));
+      if (bookType !== g.bookType || members.some((m, i) => m !== g.members[i])) {
+        groups.push({ ...g, bookType, members });
+        changed = true;
+      } else groups.push(g);
       continue;
     }
     if (emitted.has(key)) continue;
     emitted.add(key);
     groups.push(books.get(key)!);
   }
+  if (!changed) return { report, enrichment, keyOf };
   const merged: ReshapeEnrichment = new Map(enrichment);
   // A hand-edited book keeps its edits — only an unseen one takes the fold's.
   for (const [key, meta] of bookMeta) if (!merged.has(key)) merged.set(key, meta);

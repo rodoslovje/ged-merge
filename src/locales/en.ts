@@ -705,6 +705,7 @@ export const en = {
   "tools.sources.dupKind.repo": "Repositories",
   "tools.sources.dupKeep": "keep",
   "tools.sources.dupUsage": "cited by {{count}}",
+  "tools.sources.dupUsageToggle": "Show the people whose records cite this",
   "tools.sources.dupSelectAll": "Select all",
   "tools.sources.dupSelectNone": "Select none",
   "tools.sources.dupKeepThis": "Keep this record",

@@ -185,6 +185,26 @@ export function mediaUsedBy(dataset: Dataset, mediaXref: string): SourceUse[] {
   return uses;
 }
 
+/**
+ * The `INDI`/`FAM` records whose subtree points at `xref` under any tag — a
+ * `SOUR` citation, an `OBJE` link, wherever it sits. The duplicates list's
+ * "cited by N" opens this, the way a count opens its people elsewhere.
+ */
+export function recordCitedBy(dataset: Dataset, xref: string): SourceUse[] {
+  const pointsAt = (node: GedNode): boolean =>
+    node.children.some((c) => c.value?.trim() === xref || pointsAt(c));
+  const uses: SourceUse[] = [];
+  for (const rec of dataset.records) {
+    if ((rec.tag !== "INDI" && rec.tag !== "FAM") || !rec.xref || !pointsAt(rec)) continue;
+    const persons =
+      rec.tag === "INDI"
+        ? [{ id: rec.xref, label: dataset.individuals.get(rec.xref) ? label(dataset.individuals.get(rec.xref)!) : rec.xref }]
+        : familySpouses(dataset, rec.xref);
+    if (persons.length > 0) uses.push({ persons });
+  }
+  return uses;
+}
+
 /** The crop region on this record's `OBJE` link to `mediaXref`, if any — the
  *  subregion of the shared media that depicts the record (e.g. its person in a
  *  group photo). Walks descendants since a link can sit under an event. */
