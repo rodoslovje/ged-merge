@@ -1952,9 +1952,18 @@ export function normalizeSourceCoverage(
 ): { changed: number; examples: NormChange[] } {
   let changed = 0;
   const examples: NormChange[] = [];
+  // Same discipline as the other Normalize passes: up to 12 examples, each a
+  // *different* transformation — digit runs collapse in the signature, so a
+  // hundred same-book pages give one row, while another register type, place
+  // or a moved filing number each earn their own.
+  const seen = new Set<string>();
   const note = (before: string, after: string) => {
     changed++;
-    if (examples.length < 6) examples.push({ before, after });
+    if (examples.length >= 12) return;
+    const signature = `${before.replace(/\d+/g, "#")}→${after.replace(/\d+/g, "#")}`;
+    if (seen.has(signature)) return;
+    seen.add(signature);
+    examples.push({ before, after });
   };
 
   for (const rec of records) {
@@ -1974,22 +1983,29 @@ export function normalizeSourceCoverage(
         baptismTag,
       );
       if (events.length === 0) continue; // no register type to state
-      const before = [plac?.value && `PLAC ${plac.value}`, date?.value && `DATE ${date.value}`]
-        .filter(Boolean)
-        .join(" · ");
       applyStandardCoverage(rec, events, undefined);
       if (plac) spliceChild(rec, plac);
       if (date) spliceChild(rec, date);
       // The filing number's standard spot is the repository link's call number.
       const repoLink = firstChild(rec, "REPO");
       const filn = firstChild(rec, "FILN");
-      if (repoLink?.value && filn?.value?.trim() && !firstChild(repoLink, "CALN")) {
-        repoLink.children.push({ level: repoLink.level + 1, tag: "CALN", value: filn.value.trim(), children: [] });
-        spliceChild(rec, filn);
+      const foldedFiln = repoLink?.value && filn?.value?.trim() && !firstChild(repoLink, "CALN") ? filn.value.trim() : undefined;
+      if (foldedFiln) {
+        repoLink!.children.push({ level: repoLink!.level + 1, tag: "CALN", value: foldedFiln, children: [] });
+        spliceChild(rec, filn!);
       }
       note(
-        before,
-        events.map((ev) => `EVEN ${ev.type} ${coveragePeriod(ev.date) ?? ""}`.trim()).join(" · "),
+        [plac?.value && `PLAC ${plac.value}`, date?.value && `DATE ${date.value}`, foldedFiln && `FILN ${foldedFiln}`]
+          .filter(Boolean)
+          .join(" · "),
+        [
+          ...events.map((ev) =>
+            [`EVEN ${ev.type}`, coveragePeriod(ev.date), ev.place && `PLAC ${ev.place}`].filter(Boolean).join(" "),
+          ),
+          foldedFiln && `CALN ${foldedFiln}`,
+        ]
+          .filter(Boolean)
+          .join(" · "),
       );
       continue;
     }
@@ -2006,7 +2022,9 @@ export function normalizeSourceCoverage(
     const flatDate = childText(rec, "DATE");
     if (flatPlac && places[0] && flatPlac !== places[0]) continue; // disagreement is not ours to settle
     if (flatDate && years && flatDate !== years) continue;
-    const before = evens.map((e) => `EVEN ${e.value ?? ""} ${childText(e, "DATE") ?? ""}`.trim()).join(" · ");
+    const before = evens
+      .map((e) => [`EVEN ${e.value ?? ""}`.trim(), childText(e, "DATE"), childText(e, "PLAC")].filter(Boolean).join(" "))
+      .join(" · ");
     if (places[0] && !flatPlac) {
       insertGrouped(rec, { level: rec.level + 1, tag: "PLAC", value: places[0], children: [] }, SOUR_FIELD_TRAILING);
     }
