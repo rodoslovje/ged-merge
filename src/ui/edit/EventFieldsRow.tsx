@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { linkTooltip } from "../FieldValue";
 import { useTranslation } from "react-i18next";
 import type { GedEvent, GeoCoord, SourceCitation } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
@@ -835,7 +836,7 @@ export function EventFieldsRow({
               key={i}
               type="button"
               className="link-icon edit-link-icon"
-              title={link}
+              title={linkTooltip(link, t)}
               onClick={() => openEditLink(i)}
             >
               {siteIconForUrl(link) ?? "🔗"}
@@ -848,7 +849,7 @@ export function EventFieldsRow({
               href={link}
               target="_blank"
               rel="noreferrer"
-              title={`${link}\n${t("edit.harvestedLink")}`}
+              title={linkTooltip(link, t, `${link}\n${t("edit.harvestedLink")}`)}
             >
               {siteIconForUrl(link) ?? "🔗"}
             </a>

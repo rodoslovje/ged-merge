@@ -269,7 +269,7 @@
             </ul>
             <p>Preostali trije zavihki:</p>
             <ul>
-              <li><strong>GEDCOM</strong> — prepišite katero koli pravilo datoteke, ki bi ga GED Merge sicer zaznal sam; razvrščena so v skupine <em>Datumi</em>, <em>Imena</em>, <em>Kraji</em>, <em>Viri</em> in <em>Zasebnost</em>: obliko datumov, neznane dele datuma, dodatna imena, oznako za neznano ime, obliko krajev in ločilo med ravnmi kraja, postavitev virov in navedb, povezave strani, krstne navedbe, podvojene povezave, jezika povezav Matricula in Geneanet ter oznako zasebnosti. Vsaka vrstica pokaže vzorec tega, kar izbira zapiše, in privzeto stoji na <em>Samodejno (zaznano)</em> — sledi navadi datoteke — izbrana vrednost pa se nato uveljavi v poenotenju vhodne datoteke, orodju <a href="#tools">Poenoti</a>, <a href="#organize">Uredi vire</a>, Dodaj vir in urejanju. Izbire za datume, kraje, imena in povezave začnejo veljati ob naslednjem nalaganju datoteke. Pod njimi stoji <em>Domača država</em>, ki ni pravilo zapisa, ampak branje vaše datoteke: pove, v katero državo šteje kraj, ki države ne navaja (<a href="#geocode">§10</a>). Sledi datoteki — državi, o kateri se strinjajo tri četrtine krajev, ki državo sploh navajajo, in ki je izpisana kar v možnosti sami — lahko pa izberete katero koli drugo ali pa predpostavko izklopite. Glejte <a href="#house-style">§4</a> in <a href="#sources">§13</a>.</li>
+              <li><strong>GEDCOM</strong> — prepišite katero koli pravilo datoteke, ki bi ga GED Merge sicer zaznal sam; razvrščena so v skupine <em>Datumi</em>, <em>Imena</em>, <em>Kraji</em>, <em>Viri</em> in <em>Zasebnost</em>: obliko datumov, neznane dele datuma, dodatna imena, oznako za neznano ime, obliko krajev in ločilo med ravnmi kraja, postavitev virov in navedb, povezave strani, krstne navedbe, obseg vira (polja vašega programa ali standardna struktura <em>DATA</em>), podvojene povezave, jezika povezav Matricula in Geneanet ter oznako zasebnosti. Vsaka vrstica pokaže vzorec tega, kar izbira zapiše, in privzeto stoji na <em>Samodejno (zaznano)</em> — sledi navadi datoteke — izbrana vrednost pa se nato uveljavi v poenotenju vhodne datoteke, orodju <a href="#tools">Poenoti</a>, <a href="#organize">Uredi vire</a>, Dodaj vir in urejanju. Izbire za datume, kraje, imena in povezave začnejo veljati ob naslednjem nalaganju datoteke. Pod njimi stoji <em>Domača država</em>, ki ni pravilo zapisa, ampak branje vaše datoteke: pove, v katero državo šteje kraj, ki države ne navaja (<a href="#geocode">§10</a>). Sledi datoteki — državi, o kateri se strinjajo tri četrtine krajev, ki državo sploh navajajo, in ki je izpisana kar v možnosti sami — lahko pa izberete katero koli drugo ali pa predpostavko izklopite. Glejte <a href="#house-style">§4</a> in <a href="#sources">§13</a>.</li>
               <li><strong>Zemljevid</strong> — <em>Imeniki krajev</em> hrani geografske imenike, s katerimi se primerjajo imena vaših krajev: prenesite slovenski register GURS, hrvaški register zemljepisnih imen DGU ali katero koli državo z OpenStreetMap, uvozite datoteko GeoNames in si oglejte, kaj je naloženo, z velikostjo in datumom, ali to odstranite. Tu je ponujen tudi hrvaški <em>register naslovov DGU</em> — vsaka hišna številka v državi, prenesena enkrat in odtlej poiskana v tem brskalniku (<a href="#geocode">§10</a>). Shranjeni so v tem brskalniku in ne v datoteki, zato ostanejo tudi po zamenjavi datoteke in služijo vsem datotekam, ki jih odprete; <a href="#geocode">Geokodiranje krajev</a> (<a href="#tools">§10</a>) ponudi iste prenose, dokler nimate nobenega. <em>Nalagaj ploščice zemljevida</em> vklopi kartografsko podlago za vse zemljevide v aplikaciji (zahteve za ploščice razkrijejo ogledovano območje; izklopljeno = vgrajeni obris brez povezave), <em>Osnovni zemljevid</em> pa izbere, katero: CARTO, OpenStreetMap, reliefno, Esrijevo satelitsko ali topografsko ali vašo predlogo URL ploščic. Ko so ploščice dovoljene, živ vzorec nad izbirnikom izriše trenutno izbiro. <em>Dodatni sloji zemljevida</em> nastavi karte, izrisane čez osnovno karto — izberite vgrajeni brezplačni sloj (vključno s slovenskimi državnimi kartami GURS) ali dodajte svojo predlogo URL ploščic ali storitev OGC&nbsp;WMS (ime, URL, veljavna leta, navedba vira). Glejte <a href="#map">§11</a>.</li>
               <li><strong>Napredno › Spletna iskanja</strong> — <em>Poišči podatke na spletu</em>: ko vir dodate iz golega naslova URL, GED Merge prek javnega posrednika pridobi naslov strani. Isto stikalo poganja spletni iskanji po vrsticah (OpenStreetMap in Genealoški imenik krajev GOV) ter poizvedbe v registru naslovov GURS, ki jih uporablja <a href="#geocode">Geokodiranje krajev</a>; te storitve se kličejo neposredno, ne prek posrednika. Prenosi imenikov z OpenStreetMap, GURS in DGU z enim klikom so zunaj njega — prenos o vaši datoteki ne pove ničesar, zato je vedno na voljo. Hrvaški naslovi so izjema, ki pravilo potrjuje: ko je register naslovov DGU prenesen, nanje odgovori ta brskalnik, zato so te poizvedbe na voljo ne glede na to, ali je stikalo vklopljeno. <strong>Poleg ploščic zemljevida, ki jih vklopite posebej, so to edine funkcije, ki karkoli pošljejo z vaše naprave, in so privzeto izklopljene.</strong></li>
               <li><strong>Napredno › Lokalno hranjeni podatki</strong> — <em>Zapomni si moje delo v tem brskalniku</em>, <em>Počisti lokalno hranjene podatke</em> in <em>Utišana okna za mapo z mediji</em> (glejte <a href="#photos">§12</a>), ki se pokaže, ko katero dokončno zavrnete, in ga vrne.</li>
@@ -963,8 +963,10 @@
             <p>
               <strong>Poenoti datoteko</strong> zazna prevladujočo obliko datumov, postavitev krajev in slog povezav v
               datoteki, nato pa ponovno izpiše zapise, ki odstopajo — npr. <em>1 Jan 1900</em> → <em>01.01.1900</em>,
-              prilagodi kraje in prepiše povezave Matricula ali Geneanet v enotno obliko. Predogled navede primere
-              vsake spremembe, preden prenesete poenoteno kopijo.
+              prilagodi kraje, prepiše povezave Matricula ali Geneanet v enotno obliko in prevede obseg vsakega vira v
+              obliko, ki jo uporablja datoteka (ali v izbrano v <a href="#workspace">Nastavitve › GEDCOM</a> — polja
+              programa ali standardna struktura <em>DATA</em>). Predogled navede primere vsake spremembe, preden
+              prenesete poenoteno kopijo.
             </p>
             <h3 id="tool-privacy">Zasebnost</h3>
             <p>
@@ -1034,19 +1036,31 @@
               uporabi vire in hrambe, ki jih datoteka že ima. Prepozna vse več strani: že iz samega naslova URL
               izpelje berljiv naslov, arhivsko številko in kraj, <strong>Pridobi podrobnosti vira</strong> pa lahko vsak
               obogati z resničnimi podatki registra/groba/zapisa prek javnih posrednikov (ob privolitvi v spletna
-              iskanja). Datum, ki ga stran sporoči, se zapiše v obliki datumov vaše datoteke, ne glede na to, kako
+              iskanja) — slike iz zbirk FamilySearcha vpraša neposredno pri FamilySearchu, vsako posebej. Ko odgovorijo, strani
+              FamilySearcha, ki pripadajo isti matični knjigi, zbere v en sam vir, vsaka povezava pa postane navedba
+              strani na njem: datoteka s stotinami povezav do posameznih slik tako dobi en vir na knjigo. Iz same
+              povezave se knjige ne da razbrati, zato je to mogoče šele po iskanju — brez njega vsaka stran ostane
+              svoj vir. Povezava do FamilySearcha, ki jo zapiše aplikacija, nosi samo ark, saj dodatki iz
+              pregledovalnika (<em>view</em>, <em>groupId</em>, <em>cc/wc/i</em>), ki jih prinese kopirani URL, povedo,
+              kako je bralec prišel do strani, ne pa, katera stran je — in iz ene strani naredijo več različnih. Možnost
+              <strong>Skrajšaj povezave</strong> to razširi še na povezave, shranjene pri medijih, ki se jih zagon
+              dotakne; privzeto je izklopljena, saj so ti zapisi sicer čisto v redu. Datum, ki ga stran sporoči, se zapiše v obliki datumov vaše datoteke, ne glede na to, kako
               ga je zapisala stran. Navedbe pristanejo na ustreznem dogodku (ustvarjenem, če manjka), kakovost <strong>QUAY</strong>
               lahko nastavite globalno s prepisi po vrstici, grobovi pa izpolnijo kraj pokopa in naslov pokopališča.
             </p>
             <p>
-              Vsaka predlagana skupina je pred prenosom pregledljiva: vir uredite ročno z <span class="gm-glyph">✎</span>
+              Vsaka predlagana skupina je pred uveljavitvijo pregledljiva: vir uredite ročno z <span class="gm-glyph">✎</span>
               v vrstici (naslov, avtor, arhiv, kraj, arhivsko številko, razpon let — ročno urejene vire nato Pridobi
               podrobnosti vira preskoči), ali skupino označite <strong>Odstrani sklice</strong>
               (<span class="gm-glyph danger">🗑</span>), da mrtev ali zastarel URL odstranite z vseh mest, kjer se pojavi,
               brez ustvarjanja vira (<span class="gm-glyph">↩</span> odznači). Orodje upošteva vaše prepise oblike v
-              <a href="#workspace">Nastavitve › GEDCOM</a> in znova pregleda, ko katerega spremenite, prenos pa deli z
-              <strong>iskalnikom dvojnikov</strong> virov — eno shranjevanje uveljavi oboje. Zasebne osebe, opombe in
-              mediji se nikoli ne spremenijo v navedbo (<a href="#privacy">§18</a>).
+              <a href="#workspace">Nastavitve › GEDCOM</a> in znova pregleda, ko katerega spremenite, gumb za zagon pa
+              si deli z <strong>iskalnikom dvojnikov</strong> virov — en klik opravi oboje, gumb sam pa pove, kaj bo
+              storil: <strong>Pretvori v vire</strong>, <strong>Združi dvojnike</strong> ali <strong>Uveljavi v
+              datoteki</strong>, kadar označene vrstice terjajo oboje. Uveljavitev zapiše v odprto datoteko kot en sam razveljavljiv korak, tako kot vsak drug
+              popravek v Orodjih: <span class="gm-key">Ctrl</span><span class="gm-key">Z</span> ga vzame nazaj,
+              naslednje <a href="#saving">shranjevanje</a> pa ga skupaj z vsemi drugimi spremembami zapiše v vaš GEDCOM.
+              Zasebne osebe, opombe in mediji se nikoli ne spremenijo v navedbo (<a href="#privacy">§18</a>).
             </p>
             <h3 id="places">Kraji</h3>
             <p>
@@ -1894,7 +1908,16 @@
               Dodaj vir <strong>prepozna arhivske povezave</strong> tako kot <a href="#tools">Uredi vire</a>: prilepite
               URL s podprte strani (Matricula, Geneanet, Find a Grave, FamilySearch, časopisni in knjižnični arhivi in
               druge) in vnaprej izpolni naslov, avtorja, kraj, arhiv, arhivsko številko in stran, spletno iskanje pa
-              pridobi resnične podatke knjige/groba/zapisa. Ustvarjeni vir prevzame obliko krajev, razpon let in
+              pridobi resnične podatke knjige/groba/zapisa. Povezavo do strani knjige na
+              <strong>FamilySearchu</strong> prebere kar pri FamilySearchu, brez prijave: zbirko, župnijo, matično
+              knjigo z letnicami, arhiv, ki jo hrani, in številko slike prevzame iz navedbe, ki jo FamilySearch sestavi
+              za tisto sliko — tudi pri povezavi, ki ne navaja ne zbirke ne številke slike, saj oboje razreši
+              FamilySearch sam. Kadar ena knjiga obsega več matičnih knjig (<em>Births 1892-1899 Marriages
+              1858-1890</em>), pod prepoznano povezavo izbirate med njimi in poveste, iz katere je stran pred vami:
+              izbira zoži naslov in letnice ter navedbo pošlje na ustrezen dogodek. Zapisana stran je številka slike iz
+              te navedbe; drobnejše štetje znotraj enote filma vidi le prijavljeni bralec, zato ga po želji vpišite čez.
+              Strani s popisanimi zapisi zahtevajo prijavo, filmi iz kataloga pa take navedbe nimajo; obojih se to ne
+              dotakne in ostanejo pri tem, kar povesta povezava in vaše prilepljeno besedilo. Ustvarjeni vir prevzame obliko krajev, razpon let in
               hrambo vaše datoteke. Kakšno postavitev zapiše — kam pridejo navedbe, slike strani in krstni viri —
               sledi vašim prepisom v <a href="#workspace">Nastavitve › GEDCOM</a> (<a href="#workspace">§2</a>).
             </p>

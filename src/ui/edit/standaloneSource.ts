@@ -26,7 +26,11 @@ export function pageObjeTitle(
 export function createStandaloneSource(
   records: GedNode[],
   fields: AddSourceResult,
-  opts: { sourceLayout: SourceLayout | "auto" },
+  opts: {
+    sourceLayout: SourceLayout | "auto";
+    sourceCoverage?: "vendor" | "standard" | "auto";
+    baptism?: "BIRT" | "BAPM" | "auto";
+  },
 ): { sourceXref: string; page?: string; pageObjeXref?: string; extraPatches: RecordPatch[] } {
   const extraPatches: RecordPatch[] = [];
   const sourceNode = createSourceRecord(records, fields as NewSourceFields);
@@ -41,6 +45,8 @@ export function createStandaloneSource(
     const repo = applySiteSourceExtras(records, sourceNode, fields.site, fields.url ?? "", fields, {
       sourceLayout: opts.sourceLayout,
       repo: explicitRepo ? "none" : "auto",
+      sourceCoverage: opts.sourceCoverage,
+      baptism: opts.baptism,
     });
     if (repo) extraPatches.push({ type: "record", id: repo.xref!, before: null, after: cloneRaw(repo) });
   }
@@ -53,7 +59,10 @@ export function createStandaloneSource(
       extraPatches.push({ type: "record", id: repo.xref!, before: null, after: cloneRaw(repo) });
     }
     if (!repoXref && fields.repoCreateSite && fields.site) {
-      const repo = createSiteRepo(records, fields.site, fields.url ?? "", fields.agency);
+      const repo = createSiteRepo(records, fields.site, fields.url ?? "", fields.agency, {
+        title: fields.collection,
+        id: fields.collectionId,
+      });
       if (repo) {
         repoXref = repo.xref!;
         extraPatches.push({ type: "record", id: repo.xref!, before: null, after: cloneRaw(repo) });

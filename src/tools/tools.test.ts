@@ -14,6 +14,7 @@ import { countSwappedRoles, fixSwappedRoles } from "./fixRoleSwap";
 import { fixDuplicatePointers } from "./fixDuplicatePointers";
 import { countDanglingRefs, fixDanglingRefs } from "./fixDanglingRefs";
 import { bulkNormalize } from "./bulkNormalize";
+import { serializeGedcom } from "../gedcom/serialize";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -2207,6 +2208,71 @@ describe("collectLocalMediaFiles", () => {
     expect(files).toHaveLength(1);
     expect(files[0].file).toBe("orphan.jpg");
     expect(files[0].usedBy).toEqual([]);
+  });
+});
+
+describe("bulkNormalize source coverage", () => {
+  const flatSource = [
+    "0 @S1@ SOUR",
+    "1 TITL Mrliška knjiga - Deaths (Umrli) 1896-1911 - Ravna Gora",
+    "1 AGNC Arhiv",
+    "1 PLAC Ravna Gora",
+    "1 DATE 1896-1911",
+  ].join("\n");
+  const standardSource = [
+    "0 @S2@ SOUR",
+    "1 TITL Krstna knjiga Kranj",
+    "1 DATA",
+    "2 EVEN BIRT",
+    "3 DATE FROM 1800 TO 1850",
+    "3 PLAC Kranj",
+  ].join("\n");
+  const gedcom = (body: string) => `0 HEAD\n1 CHAR UTF-8\n${body}\n0 TRLR`;
+
+  it("restates a flat outlier in a standard-majority file (and back with an override)", () => {
+    // Two standard sources against one flat: the flat one is the outlier.
+    const { dataset: out, report } = bulkNormalize(
+      dataset(gedcom(`${flatSource}\n${standardSource}\n${standardSource.replace(/@S2@/, "@S3@")}`)),
+    );
+    const text = serializeGedcom(out.records);
+    expect(report.coverageReshaped).toBe(1);
+    expect(text).toMatch(/1 DATA\n2 EVEN DEAT\n3 DATE FROM 1896 TO 1911\n3 PLAC Ravna Gora\n2 AGNC Arhiv/);
+    expect(text).not.toMatch(/@S1@ SOUR\n1 TITL [^\n]*\n1 AGNC/);
+
+    // The reverse: an override to vendor flattens the standard records.
+    const back = bulkNormalize(dataset(gedcom(standardSource)), undefined, { sourceCoverage: "vendor" });
+    const flat = serializeGedcom(back.dataset.records);
+    expect(back.report.coverageReshaped).toBe(1);
+    expect(flat).toContain("1 PLAC Kranj");
+    expect(flat).toContain("1 DATE 1800-1850");
+    expect(flat).not.toContain("1 DATA");
+  });
+
+  it("keeps a source whose register type it cannot read", () => {
+    const untyped = ["0 @S1@ SOUR", "1 TITL Kronika kraja", "1 PLAC Kranj", "1 DATE 1900"].join("\n");
+    const { dataset: out, report } = bulkNormalize(dataset(gedcom(untyped)), undefined, {
+      sourceCoverage: "standard",
+    });
+    expect(report.coverageReshaped).toBe(0);
+    expect(serializeGedcom(out.records)).toContain("1 PLAC Kranj");
+  });
+
+  it("folds FILN into an existing repository link's CALN on the way to standard", () => {
+    const withRepo = [
+      "0 @S1@ SOUR",
+      "1 TITL Poročna knjiga Kranj",
+      "1 PLAC Kranj",
+      "1 DATE 1850-1900",
+      "1 FILN 04406",
+      "1 REPO @R1@",
+      "0 @R1@ REPO",
+      "1 NAME NŠAL",
+    ].join("\n");
+    const { dataset: out } = bulkNormalize(dataset(gedcom(withRepo)), undefined, { sourceCoverage: "standard" });
+    const text = serializeGedcom(out.records);
+    expect(text).toMatch(/1 REPO @R1@\n2 CALN 04406/);
+    expect(text).not.toContain("1 FILN");
+    expect(text).toMatch(/2 EVEN MARR\n3 DATE FROM 1850 TO 1900/);
   });
 });
 

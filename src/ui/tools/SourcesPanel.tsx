@@ -10,6 +10,7 @@ import { sourceTitle } from "../../gedcom/source";
 import type { MediaEditFields } from "../MediaViewer";
 import { mediaMetaRows } from "../MediaViewer";
 import { type ToolsScans } from "../useToolsScans";
+import type { RecordPatch } from "../historyTypes";
 import { AddSourceDialog, type AddSourceResult } from "../AddSourceDialog";
 import { repoRecordEditFields, sourceRecordEditFields, type EditRepoFields, type EditSourceFields } from "../../gedcom/edit";
 import { ToolsLoading, TreeSearch, UsageList, someMatch, useDebounced } from "./shared";
@@ -401,18 +402,17 @@ function initialSourceOpen(tree: SourceTree): Set<string> {
 export function SourcesPanel({
   dataset,
   scans,
-  fileName,
   onNavigate,
   onAddSource,
   onEditSource,
   onRemoveSource,
   onEditRepo,
   onEditMediaInfo,
+  onApplyPatches,
   active,
 }: {
   dataset: Dataset;
   scans: ToolsScans;
-  fileName: string;
   onNavigate: (id: string) => void;
   /** Create a standalone `SOUR` record (cited by nothing yet) from the Add
    * Source dialog's confirmed fields — an undoable whole-file edit. */
@@ -426,6 +426,9 @@ export function SourcesPanel({
   /** Write the viewer-edited fields of a shared `OBJE` record — an undoable
    * whole-file edit. */
   onEditMediaInfo: (objeXref: string, fields: MediaEditFields) => void;
+  /** Apply the source-cleanup run as one undoable step (Organize sources /
+   *  duplicate sources); returns how many records changed. */
+  onApplyPatches: (patches: RecordPatch[]) => number;
   active: boolean;
 }) {
   const { t } = useTranslation();
@@ -584,9 +587,9 @@ export function SourcesPanel({
         reshapeReport={reshapeReport}
         dupReport={dupReport}
         dataset={dataset}
-        fileName={fileName}
         onNavigate={onNavigate}
         onBack={() => setView("tree")}
+        onApplyPatches={onApplyPatches}
         active={active}
       />
     );

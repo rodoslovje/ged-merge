@@ -1,8 +1,10 @@
 import { Fragment } from "react";
+import { useTranslation } from "react-i18next";
 import type { RelativeCell, RelativePair } from "../review/types";
 import { linkKey } from "../normalize/links";
 import { siteIconForUrl } from "../tools/sourceReshape";
 import { sexClass } from "./sex";
+import type { Translate } from "../locales/i18n";
 
 /** A person a value line can link to: its id plus a click handler. */
 export interface PersonLinks {
@@ -54,6 +56,7 @@ export function FieldValue({
 
 /** A row of 🔗 icons, one per attached URL; one not present in `otherUrls` is highlighted as new. */
 export function LinkIcons({ urls, otherUrls }: { urls: string[]; otherUrls?: string[] }) {
+  const { t } = useTranslation();
   const otherKeys = otherUrls && new Set(otherUrls.map(linkKey));
   return (
     <span className="links">
@@ -64,7 +67,7 @@ export function LinkIcons({ urls, otherUrls }: { urls: string[]; otherUrls?: str
           target="_blank"
           rel="noopener noreferrer"
           className={otherKeys && !otherKeys.has(linkKey(url)) ? "link-icon link-new" : "link-icon"}
-          title={url}
+          title={linkTooltip(url, t)}
         >
           {siteIconForUrl(url) ?? "🔗"}
         </a>
@@ -216,4 +219,18 @@ function renderLine(line: React.ReactNode, id: string | undefined, person?: Pers
 /** Ensure scheme-less links (e.g. "www.example.com") get an absolute href. */
 export function linkHref(url: string): string {
   return /^https?:\/\//i.test(url) ? url : `https://${url}`;
+}
+
+/** Sites that show a signed-out visitor nothing but a sign-in form.
+ *  FamilySearch is one: its record pages, its images and its tree profiles all
+ *  want an account — free to make, but not optional, and worth knowing before
+ *  following a link or handing one to someone else. */
+export function needsFreeAccount(url: string | undefined): boolean {
+  return !!url && /(?:^|\/\/|\.)familysearch\.org\b/i.test(url);
+}
+
+/** A link's tooltip: what it would say anyway, plus that note where the site
+ *  behind it is sign-in only. `label` defaults to the URL itself. */
+export function linkTooltip(url: string | undefined, t: Translate, label?: string): string {
+  return [label ?? url, needsFreeAccount(url) && t("links.needsAccount")].filter(Boolean).join("\n");
 }

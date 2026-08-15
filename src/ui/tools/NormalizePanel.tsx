@@ -75,12 +75,12 @@ function NormalizeFileSection({ dataset, scans, fileName, active }: { dataset: D
   // Which passes the user wants applied on download; the preview report above
   // always reflects all three so the counts show what each would change.
   // stripInternal starts unchecked: it is the one deliberately lossy pass.
-  const [selected, setSelected] = useState<NormalizeOptions>({ dates: true, places: true, links: true, names: true, vendorTags: true, stripInternal: false });
+  const [selected, setSelected] = useState<NormalizeOptions>({ dates: true, places: true, links: true, names: true, vendorTags: true, sourceCoverage: true, stripInternal: false });
   // True while the worker serializes the selected passes for download.
   const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
-    setSelected({ dates: true, places: true, links: true, names: true, vendorTags: true, stripInternal: false });
+    setSelected({ dates: true, places: true, links: true, names: true, vendorTags: true, sourceCoverage: true, stripInternal: false });
     setDownloading(false);
   }, [dataset]);
 
@@ -115,7 +115,7 @@ function NormalizeFileSection({ dataset, scans, fileName, active }: { dataset: D
     <>
       {state.status === "done" && (() => {
         const report = state.result;
-        const changed = report.datesChanged + report.placesReshaped + report.linksConverted + report.nameVariantsReshaped + report.unknownNamesReshaped + report.vendorTagsRenamed + report.internalStripped;
+        const changed = report.datesChanged + report.placesReshaped + report.linksConverted + report.nameVariantsReshaped + report.unknownNamesReshaped + report.vendorTagsRenamed + (report.coverageReshaped ?? 0) + report.internalStripped;
         if (changed === 0) return <p className="tools-clean tools-clean--ok">{t("tools.normalize.none")}</p>;
         const counts = {
           dates: report.datesChanged,
@@ -124,6 +124,7 @@ function NormalizeFileSection({ dataset, scans, fileName, active }: { dataset: D
           // The "names" pass also cleans unknown-name placeholders (NN, ____).
           names: report.nameVariantsReshaped + report.unknownNamesReshaped,
           vendorTags: report.vendorTagsRenamed,
+          sourceCoverage: report.coverageReshaped ?? 0,
           stripInternal: report.internalStripped,
         };
         const toggle = (key: keyof NormalizeOptions) =>
@@ -136,6 +137,7 @@ function NormalizeFileSection({ dataset, scans, fileName, active }: { dataset: D
           (selected.links ? counts.links : 0) +
           (selected.names ? counts.names : 0) +
           (selected.vendorTags ? counts.vendorTags : 0) +
+          (selected.sourceCoverage ? counts.sourceCoverage : 0) +
           (selected.stripInternal ? counts.stripInternal : 0);
         return (
           <>
@@ -151,6 +153,8 @@ function NormalizeFileSection({ dataset, scans, fileName, active }: { dataset: D
                 checked={selected.names} count={counts.names} onChange={() => toggle("names")} />
               <NormCheck label={t("tools.normalize.vendorTags", { count: counts.vendorTags })}
                 checked={selected.vendorTags} count={counts.vendorTags} onChange={() => toggle("vendorTags")} />
+              <NormCheck label={t("tools.normalize.sourceCoverage", { count: counts.sourceCoverage })}
+                checked={!!selected.sourceCoverage} count={counts.sourceCoverage} onChange={() => toggle("sourceCoverage")} />
               <NormCheck label={t("tools.normalize.stripInternal", { count: counts.stripInternal })}
                 checked={!!selected.stripInternal} count={counts.stripInternal} onChange={() => toggle("stripInternal")} />
             </ul>
@@ -159,6 +163,7 @@ function NormalizeFileSection({ dataset, scans, fileName, active }: { dataset: D
             {selected.links && <NormExamples title={t("tools.normalize.exLinks")} examples={report.linkExamples} />}
             {selected.names && <NormExamples title={t("tools.normalize.exNames")} examples={[...report.nameVariantExamples, ...report.unknownNameExamples]} />}
             {selected.vendorTags && <NormExamples title={t("tools.normalize.exVendorTags")} examples={report.vendorTagExamples} />}
+            {selected.sourceCoverage && <NormExamples title={t("tools.normalize.exSourceCoverage")} examples={report.coverageExamples ?? []} />}
             {selected.stripInternal && <NormExamples title={t("tools.normalize.exStripInternal")} examples={report.internalExamples} />}
             <button className="nav-btn tools-run" onClick={download} disabled={selectedChanges === 0 || downloading}>
               {t("tools.normalize.download")}

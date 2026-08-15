@@ -5,6 +5,8 @@ import { nativeAliasTags } from "../gedcom/vendorTags";
 import { inferMainProfile, collectLayoutValues } from "../normalize/profile";
 import { applyFormatOverrides, type FormatOverrides } from "../normalize/formatOverrides";
 import { normalizeDataset } from "../normalize/normalize";
+import { detectSourceCoverage } from "../gedcom/source";
+import { baptismTargetTag, normalizeSourceCoverage } from "./sourceReshape";
 
 /**
  * Enforce the main file's own "house style" across the whole file.
@@ -40,10 +42,22 @@ export function bulkNormalize(
   // identified from the HEAD>SOUR system id.
   const head = ds.records.find((r) => r.tag === "HEAD");
   const preserveVendorTags = nativeAliasTags(head && childValue(head, "SOUR"));
-  return normalizeDataset(ds, profile, dateValues, {
+  const result = normalizeDataset(ds, profile, dateValues, {
     ...(options ?? { dates: true, places: true, links: true, names: true, vendorTags: true, stripInternal: true }),
     preserveVendorTags,
     // Never on one's own file — see `NormalizeOptions.tidyPlaceWhitespace`.
     tidyPlaceWhitespace: false,
   });
+  // Source coverage: restate each source's what-it-covers in the house shape —
+  // the Settings choice, or the file's own majority. An outlier brought in by
+  // a merge (a DATA > EVEN source in a flat file, or the reverse) comes in
+  // line like a stray date format does.
+  if (options?.sourceCoverage !== false) {
+    const target = overrides?.sourceCoverage ?? detectSourceCoverage(ds.records);
+    const baptismTag = overrides?.baptism ?? baptismTargetTag(ds.records);
+    const coverage = normalizeSourceCoverage(result.dataset.records, target, baptismTag);
+    result.report.coverageReshaped = coverage.changed;
+    result.report.coverageExamples = coverage.examples;
+  }
+  return result;
 }

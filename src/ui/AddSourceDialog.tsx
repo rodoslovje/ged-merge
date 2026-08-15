@@ -4,14 +4,15 @@ import type { EditSourceFields, NewSourceFields } from "../gedcom/edit";
 import { findExistingSource } from "../gedcom/source";
 import { parseSourceInput } from "../gedcom/citationParse";
 import { inferMainProfile } from "../normalize/profile";
-import { rewriteLinkLang } from "../normalize/links";
+import { canonicalFamilySearchUrl, rewriteLinkLang } from "../normalize/links";
 import { fetchPageHtml, fetchPageTitle } from "../normalize/urlMetadata";
-import { fetchBookMeta, makePlaceResolver, proposedSiteRepo, recognizeSourceUrl, SITE_ICON, type ReshapeMeta, type ReshapeSite } from "../tools/sourceReshape";
+import { fetchBookMeta, makePlaceResolver, narrowFsRegister, proposedSiteRepo, recognizeSourceUrl, SITE_ICON, splitFsRegisters, type ReshapeMeta, type ReshapeSite } from "../tools/sourceReshape";
 import { prefersSourceRepos } from "../gedcom/source";
 import { childText } from "../gedcom/node";
 import { useSettings } from "./SettingsContext";
+import { useDebounced } from "./tools/shared";
 import { SelectMenu } from "./DropdownMenu";
-import { linkHref } from "./FieldValue";
+import { linkHref, linkTooltip } from "./FieldValue";
 import type { Translate } from "../locales/i18n";
 
 /** Fields confirmed by the dialog, ready for `EditView`'s commit handler to
@@ -36,6 +37,11 @@ export type AddSourceResult = NewSourceFields & {
   repoCreateName?: string;
   /** Call number (`CALN`) written on the source's repository link. */
   repoCaln?: string;
+  /** The FamilySearch collection behind the link, when the lookup found it —
+   *  names the repository the "＋ …" choice would create, and gives it the
+   *  collection's own page as WWW. */
+  collection?: string;
+  collectionId?: string;
 };
 
 interface Props {
@@ -97,6 +103,12 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
   const [repoCaln, setRepoCaln] = useState("");
   const [fetching, setFetching] = useState(false);
   const [fetched, setFetched] = useState<ReshapeMeta | undefined>();
+  // One register of a book that holds several ("Births … 1892-1899 Marriages …
+  // 1858-1890"), once the reader says which one this page is.
+  const [register, setRegister] = useState<string | undefined>();
+  // Whether the Repository dropdown holds a hand-picked choice — a later
+  // lookup improves only what the dialog itself put there.
+  const repoTouched = useRef(false);
   const { settings } = useSettings();
   const restoreFocusRef = useRef<HTMLElement | null>(null);
   const wasOpenRef = useRef(false);
@@ -107,7 +119,9 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
   const resolvePlace = useMemo(() => makePlaceResolver(dataset.records), [dataset]);
   const parsed = useMemo(() => parseSourceInput(text), [text]);
   const normalizedUrl = useMemo(
-    () => (parsed.url ? rewriteLinkLang(parsed.url, mainLinkLangs) : undefined),
+    // A FamilySearch link keeps only its ark: the viewer state a pasted URL
+    // carries would make one page look like two sources.
+    () => (parsed.url ? canonicalFamilySearchUrl(rewriteLinkLang(parsed.url, mainLinkLangs)) : undefined),
     [parsed.url, mainLinkLangs],
   );
   // The same site recognition the Organize sources tool runs — a Matricula /
@@ -117,9 +131,13 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
     () => (normalizedUrl ? recognizeSourceUrl(normalizedUrl, text) : undefined),
     [normalizedUrl, text],
   );
+  // The existing-source scan walks the whole forest — debounced, so a URL
+  // being typed character by character doesn't rescan a 20k-record file on
+  // every keystroke (a paste is one change and settles immediately after).
+  const settledUrl = useDebounced(normalizedUrl, 250);
   const match = useMemo(
-    () => (normalizedUrl ? findExistingSource(dataset.records, normalizedUrl) : undefined),
-    [dataset, normalizedUrl],
+    () => (settledUrl ? findExistingSource(dataset.records, settledUrl) : undefined),
+    [dataset, settledUrl],
   );
   const repos = useMemo(
     () =>
@@ -136,6 +154,29 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
   const repoDefault = useMemo(
     () => (recognized && normalizedUrl ? proposedSiteRepo(dataset.records, recognized.site, normalizedUrl, recognized.proposed.agency) : undefined),
     [recognized, normalizedUrl, dataset],
+  );
+  // The same proposal once the lookup has named the link's collection: a file
+  // that keeps one repository per FamilySearch collection ("FamilySearch.org -
+  // Croatia Church Books 1516-1994") can only be matched by that name, and a
+  // repository created for the link takes it too. Deliberately separate from
+  // `repoDefault` — it must not re-seed the fields the lookup just filled.
+  const repoFetched = useMemo(
+    () =>
+      recognized && normalizedUrl && (fetched?.collection || fetched?.collectionId)
+        ? proposedSiteRepo(dataset.records, recognized.site, normalizedUrl, recognized.proposed.agency, {
+            title: fetched.collection,
+            id: fetched.collectionId,
+          })
+        : undefined,
+    [recognized, normalizedUrl, dataset, fetched?.collection, fetched?.collectionId],
+  );
+  const repoProposal = repoFetched ?? repoDefault;
+  // The registers this book holds, and the metadata as the chosen one leaves
+  // it — what the Add actually writes.
+  const registers = useMemo(() => splitFsRegisters(fetched?.book), [fetched?.book]);
+  const chosen = useMemo(
+    () => (fetched && register ? narrowFsRegister(fetched, register) : fetched),
+    [fetched, register],
   );
   // Whether the file's convention hangs sources off repositories — decides if
   // the create-proposal is preselected or merely offered.
@@ -176,7 +217,16 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
     setRepoSel(match ? "" : repoDefault?.xref ?? (repoDefault?.createName && layoutPrefersRepos ? "@create@" : ""));
     setRepoName("");
     setRepoCaln("");
+    setRegister(undefined);
+    repoTouched.current = false;
   }, [editing, text, parsed, normalizedUrl, match, recognized, resolvePlace, repoDefault, layoutPrefersRepos]);
+
+  // A collection the lookup named can point at the file's own repository for
+  // it, which the URL alone could not find.
+  useEffect(() => {
+    if (!repoFetched?.xref || repoTouched.current) return;
+    setRepoSel(repoFetched.xref);
+  }, [repoFetched]);
 
   // Editing an existing citation: seed directly from its current fields.
   useEffect(() => {
@@ -277,6 +327,16 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
     setRepoCaln("");
     setFetching(false);
     setFetched(undefined);
+    setRegister(undefined);
+    repoTouched.current = false;
+  }
+
+  /** Pick one register of a multi-register book (or all of it again): the
+   *  title follows, and with it the event the citation lands on. */
+  function pickRegister(part: string | undefined) {
+    setRegister(part);
+    const narrowed = fetched && part ? narrowFsRegister(fetched, part) : fetched;
+    if (narrowed?.title) setFields((f) => ({ ...f, title: narrowed.title! }));
   }
 
   function handleClose() {
@@ -286,6 +346,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
 
   function trimmedFields(fields: FormState) {
     const trim = (s: string) => s.trim() || undefined;
+    const url = trim(fields.url);
     return {
       title: trim(fields.title),
       author: trim(fields.author),
@@ -295,7 +356,10 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
       place: trim(fields.place),
       filingNumber: trim(fields.filingNumber),
       page: trim(fields.page),
-      url: trim(fields.url),
+      // The same normalization the paste path applies — a viewer-state URL
+      // pasted straight into the field must not store what the paste box
+      // would have trimmed.
+      url: url && canonicalFamilySearchUrl(rewriteLinkLang(url, mainLinkLangs)),
       note: trim(fields.note),
     };
   }
@@ -306,7 +370,9 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
       site: recognized?.site,
       // Fetched over offline-recognized — Newspapers.com carries the issue
       // date right in the citation prose, with no fetchable page behind it.
-      dateRange: fetched?.dateRange ?? recognized?.proposed.dateRange,
+      dateRange: chosen?.dateRange ?? recognized?.proposed.dateRange,
+      collection: fetched?.collection,
+      collectionId: fetched?.collectionId,
       repoXref: repoSel === "@create@" || repoSel === "@new@" ? undefined : repoSel,
       repoCreateSite: repoSel === "@create@" || undefined,
       repoCreateName: repoSel === "@new@" ? repoName.trim() || undefined : undefined,
@@ -390,6 +456,28 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
               </span>
             </div>
           )}
+          {!match && !editing && registers.length > 1 && (
+            <div className="add-source-registers">
+              <span className="add-source-registers-label">{t("addSource.register")}</span>
+              <button
+                type="button"
+                className={`add-source-register${register === undefined ? " is-on" : ""}`}
+                onClick={() => pickRegister(undefined)}
+              >
+                {t("addSource.register.whole")}
+              </button>
+              {registers.map((part) => (
+                <button
+                  key={part}
+                  type="button"
+                  className={`add-source-register${register === part ? " is-on" : ""}`}
+                  onClick={() => pickRegister(part)}
+                >
+                  {part}
+                </button>
+              ))}
+            </div>
+          )}
           {!match && !editing && recognized && !settings.allowLinkFetch && (
             <div className="add-source-hint">{t("addSource.recognizedFetchOff", { setting: t("settings.links.fetch") })}</div>
           )}
@@ -419,7 +507,10 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
                 <SelectMenu
                   className="edit-input"
                   value={repoSel}
-                  onChange={setRepoSel}
+                  onChange={(v) => {
+                    repoTouched.current = true;
+                    setRepoSel(v);
+                  }}
                   // The special choices sit outside the sorted repository
                   // group: no-repo first, the create actions last.
                   groups={[
@@ -430,8 +521,8 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
                     },
                     {
                       items: [
-                        ...(!editing && !repoDefault?.xref && repoDefault?.createName
-                          ? [{ value: "@create@", label: t("addSource.repo.create", { name: repoDefault.createName }) }]
+                        ...(!editing && !repoProposal?.xref && repoProposal?.createName
+                          ? [{ value: "@create@", label: t("addSource.repo.create", { name: repoProposal.createName }) }]
                           : []),
                         { value: "@new@", label: t("addSource.repo.new") },
                       ],
@@ -456,7 +547,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
           <div className="add-source-url-row">
             {field("url", "addSource.field.url")}
             {editing && fields.url.trim() && (
-              <a className="edit-link-open" href={linkHref(fields.url.trim())} target="_blank" rel="noopener noreferrer" title={t("edit.openLink")}>
+              <a className="edit-link-open" href={linkHref(fields.url.trim())} target="_blank" rel="noopener noreferrer" title={linkTooltip(fields.url.trim(), t, t("edit.openLink"))}>
                 ↗
               </a>
             )}

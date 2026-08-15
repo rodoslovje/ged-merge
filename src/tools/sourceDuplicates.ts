@@ -141,11 +141,32 @@ export function findSourceDuplicates(ds: Dataset): DuplicateReport {
   const refs = countPointerRefs(ds.records);
   const groups: DupGroup[] = [];
 
+  // Local files identified by bare basename: two cameras both produce an
+  // IMG_0001.jpg, so a basename whose records carry *conflicting* titles is
+  // split per title (untitled copies then group only among themselves) —
+  // where every title agrees, an untitled copy still joins the group.
+  const titlesByBase = new Map<string, Set<string>>();
+  for (const rec of ds.records) {
+    if (rec.tag !== "OBJE" || !rec.xref) continue;
+    const file = firstChild(rec, "FILE")?.value?.trim();
+    if (!file || looksLikeUrl(file)) continue;
+    const title = objeInfoOf(rec).title?.trim().toLowerCase();
+    if (!title) continue;
+    const key = mediaKey(file);
+    const set = titlesByBase.get(key);
+    if (set) set.add(title);
+    else titlesByBase.set(key, new Set([title]));
+  }
+
   groupRecords(
     ds.records, "OBJE", "media",
     (rec) => {
       const file = firstChild(rec, "FILE")?.value?.trim();
-      return file ? mediaKey(file) : undefined;
+      if (!file) return undefined;
+      const key = mediaKey(file);
+      if (looksLikeUrl(file) || (titlesByBase.get(key)?.size ?? 0) <= 1) return key;
+      const title = objeInfoOf(rec).title?.trim().toLowerCase();
+      return `${key}#t:${title ?? "?"}`;
     },
     (rec) => {
       const info = objeInfoOf(rec);

@@ -3,21 +3,22 @@ import { childText, childrenByTag, cloneNode, firstChild } from "../gedcom/node"
 import {
   bookKeyOf,
   buildObjeIndex,
+  detectSourceCoverage,
   prefersSourceRepos,
   isPointer,
   looksLikeUrl,
   pageParamOf,
   sourceTitle,
 } from "../gedcom/source";
-import { linkKey } from "../normalize/links";
+import { canonicalFamilySearchUrl, linkKey } from "../normalize/links";
 import { detectPlaceLayout } from "../normalize/profile";
 import { normalizeDateString } from "../normalize/date";
 import { dateFixContext, proposeDateFix, type DateFixContext } from "./fixDates";
-import type { SourceLayout } from "../normalize/types";
+import type { NormChange, SourceLayout } from "../normalize/types";
 import type { FormatOverrides } from "../normalize/formatOverrides";
-import { decodeHtmlEntities, pageTitleOf } from "../normalize/urlMetadata";
+import { decodeHtmlEntities, fetchDirect, pageTitleOf, type DirectResponse } from "../normalize/urlMetadata";
 import { parseSourceInput } from "../gedcom/citationParse";
-import { addObjeToSource, createSourceRecord } from "../gedcom/edit/sources";
+import { addObjeToSource, createSourceRecord, SOUR_FIELD_TRAILING, SOUR_TRAILING_TAGS } from "../gedcom/edit/sources";
 import {
   EVENT_CHILD_ORDER,
   FAM_CHILD_ORDER,
@@ -28,9 +29,9 @@ import {
   nextXref,
 } from "../gedcom/edit/shared";
 
-/** Trailing block of a `SOUR` record that new links/fields must stay ahead of. */
-const SOUR_TRAILING = ["REPO", "CHAN", "CREA"] as const;
-const SOUR_FIELD_TRAILING = ["OBJE", "REPO", "CHAN", "CREA"] as const;
+/** Trailing block of a `SOUR` record that new links must stay ahead of —
+ *  shared with the edit dialog's field writer (see gedcom/edit/sources). */
+const SOUR_TRAILING = SOUR_TRAILING_TAGS;
 import { FAM_EVENT_TAGS, INDI_EVENT_TAGS } from "../gedcom/eventTags";
 import { isPrivateNode } from "../gedcom/private";
 import { label } from "../match/relatives";
@@ -54,11 +55,12 @@ import { familySpouses } from "./sources";
  * Not converted (deliberately): pointer NOTEs (shared records — rewriting them
  * has non-local effects), URLs appearing only in a `SOUR` record's own NOTE,
  * non-book Matricula URLs (archive indexes), and unrecognized hosts unless the
- * "other" site category is enabled. FamilySearch gets no enrichment — record
- * and image pages sit behind a login the relay cannot pass; offline signals
- * (quoted collection titles, `cat`/`i` params) carry it. Deferred follow-ups:
- * probing FS catalog pages for server-rendered titles, FS API OAuth, and a
- * placement audit for pre-existing pointer citations.
+ * "other" site category is enabled. FamilySearch is enriched for collection
+ * image links only (`parseFamilySearchArkJson`): everything else there — record
+ * pages, catalog films — sits behind a login, and offline signals (quoted
+ * collection titles, `cat`/`i` params) carry it. Deferred follow-ups: FS API
+ * OAuth for record pages, and a placement audit for pre-existing pointer
+ * citations.
  */
 
 /** Every site category, in display/sort order — the single list every other
@@ -85,12 +87,25 @@ export const ALL_SITES = [
 
 export type ReshapeSite = (typeof ALL_SITES)[number];
 
-/** Sites the enrichment fetch can usefully contact — FamilySearch sits behind
- *  a login, Newspapers.com behind a bot wall (verified: every relay gets the
- *  challenge page), and generic links have no parser. Shared by the fetcher
- *  and the panel's button/progress so they can't disagree. */
-export function isFetchableSite(site: ReshapeSite): boolean {
-  return site !== "familysearch" && site !== "newspapers" && site !== "other";
+/** Sites the enrichment fetch can usefully contact — Newspapers.com sits behind
+ *  a bot wall (verified: every relay gets the challenge page) and generic links
+ *  have no parser. FamilySearch answers for one link shape only: an image page,
+ *  whose ark serves the record's own citation as JSON. Indexed record pages need
+ *  a login and catalog films carry no citation at all, so both keep their
+ *  offline fields. Shared by the fetcher and the panel's button/progress so
+ *  they can't disagree. */
+export function isFetchableSite(site: ReshapeSite, bookUrl?: string): boolean {
+  if (site === "familysearch") return bookUrl !== undefined && isFamilySearchImageArk(bookUrl);
+  return site !== "newspapers" && site !== "other";
+}
+
+/** A FamilySearch image ark {@link parseFamilySearchArkJson} has something to
+ *  read. The collection needs no `cc=` in the link — FamilySearch resolves it
+ *  from the ark itself — but a catalog film (`cat=`) answers with the bare
+ *  image and no citation, however the URL is written. */
+function isFamilySearchImageArk(url: string): boolean {
+  const fs = parseFamilySearchUrl(url);
+  return fs?.kind === "image" && !fs.cat;
 }
 
 export type ReshapeShape = "link" | "webtag" | "obje" | "note" | "inline" | "pageUrl" | "sourTitle";
@@ -176,9 +191,19 @@ export interface ReshapeMeta {
   page?: string;
   dateRange?: string;
   bookType?: BookType;
-  /** Set by the panel's manual field editor only — page parsers never
-   *  override the offline id. An empty string clears the proposed one. */
+  /** Set by the panel's manual field editor, or — for a FamilySearch image —
+   *  the film (DGS) number its ark resolves to; page parsers never override
+   *  the offline id otherwise. An empty string clears the proposed one. */
   filingNumber?: string;
+  /** The published collection an image belongs to ("Croatia, Church Books,
+   *  1516-1994") and its FamilySearch id. Not source fields: they name and find
+   *  the repository, for files that keep one per FamilySearch collection. */
+  collection?: string;
+  collectionId?: string;
+  /** The register label the title was built from ("Births (Rođeni) 1892-1899
+   *  Marriages (Vjenčani) 1858-1890"). Kept so a book naming several registers
+   *  can be narrowed to the one being cited — see {@link splitFsRegisters}. */
+  book?: string;
 }
 
 /** Per-group fetched metadata (keys = group ids). */
@@ -200,9 +225,19 @@ export interface ReshapeOptions {
   sourceLayout?: SourceLayout | "auto";
   /** Baptism-citation target override; "auto" = the file's BIRT/BAPM habit. */
   baptism?: "BIRT" | "BAPM" | "auto";
+  /** Original group id → the book it was folded into ({@link mergeFsBooks}),
+   *  so the apply groups its own scan exactly as the panel showed it. */
+  mergeGroups?: ReadonlyMap<string, string>;
+  /** Also shorten the links already stored on the media the run touches, down
+   *  to the page they name (FamilySearch's viewer state). Off by default: the
+   *  records are otherwise fine, so trimming them is the reader's call. */
+  tidyLinks?: boolean;
   /** Person+event doubled links: "fold" collapses to one, "keep" keeps both;
    *  "auto" = the file's own habit. */
   doubledLinks?: "fold" | "keep" | "auto";
+  /** How a new source states what it covers: flat vendor PLAC/DATE fields, or
+   *  the spec's `DATA > EVEN` structure; "auto" = the file's own habit. */
+  sourceCoverage?: "vendor" | "standard" | "auto";
 }
 
 export interface ReshapeCounts {
@@ -214,6 +249,8 @@ export interface ReshapeCounts {
   linksRemoved: number;
   notesRewritten: number;
   eventsCreated: number;
+  /** Stored links shortened to the page they name (`tidyLinks`). */
+  linksTidied: number;
 }
 
 const DEFAULT_SITES: ReadonlySet<ReshapeSite> = new Set(ALL_SITES.filter((s) => s !== "other"));
@@ -388,6 +425,15 @@ export function parseFamilySearchUrl(url: string): FamilySearchUrlParts | undefi
     return { kind: "record", ark: id };
   }
   return { kind: "tree" };
+}
+
+/** The image number FamilySearch itself would print for a link's `i=`, which
+ *  counts from zero: `i=23` is the page its viewer and its citation both call
+ *  image 24 (verified against both). Only the offline reading needs this — a
+ *  lookup answers with the number already worded. */
+function imageNumber(i: string | undefined): string | undefined {
+  const n = i && /^\d+$/.test(i) ? Number(i) : undefined;
+  return n === undefined ? i : String(n + 1);
 }
 
 /** First quoted phrase in citation text — FamilySearch-style collection titles,
@@ -707,7 +753,7 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
         site: "familysearch",
         groupKey: fs.cat ? `f:cat:${fs.cat}` : `f:${linkKey(url)}`,
         bookUrl: fs.cat ? `https://www.familysearch.org/search/catalog/${fs.cat}` : cleanUrl(url),
-        page: fs.image,
+        page: imageNumber(fs.image),
         proposed: {
           title: collection ?? (fs.cat ? `FamilySearch film ${fs.cat}` : `FamilySearch ${fs.ark}`),
           // The film/catalog number identifies the source; a lone image link
@@ -717,14 +763,27 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
         typeHint: collection,
       };
     }
+    // A citation copied from the record page says far more than the link can:
+    // which entry this is, the register type, the archive, the film. Its
+    // *record* details (the entry) stay on the citation, its *source* details
+    // on the source.
+    const cited = parsePastedFsCitation(contextText ?? "");
     return {
       site: "familysearch",
       groupKey: collection ? `f:coll:${collection.toLowerCase()}` : `f:${linkKey(url)}`,
       bookUrl: cleanUrl(url),
-      page: fs.ark,
+      // "Entry for Anna Rakar and Martin Sadec, 9 July 1901" beats the bare
+      // ARK id as the page — same record, in words.
+      page: cited?.page ?? fs.ark,
       // A collection-grouped source spans many records, so no single record's
       // ARK can be its filing number — the id stays on each citation's PAGE.
-      proposed: { title: collection ?? `FamilySearch ${fs.ark}`, filingNumber: collection ? undefined : fs.ark },
+      proposed: {
+        title: collection ?? `FamilySearch ${fs.ark}`,
+        agency: cited?.agency,
+        place: cited?.place,
+        dateRange: cited?.dateRange,
+        filingNumber: cited?.filingNumber ?? (collection ? undefined : fs.ark),
+      },
       typeHint: collection,
     };
   }
@@ -832,8 +891,10 @@ export function siteIconForUrl(url: string | undefined): string | undefined {
 // Register-type classification (drives event placement)
 
 const TYPE_KEYWORDS: Record<Exclude<BookType, "unknown" | "burial">, RegExp> = {
-  baptism: /krst|tauf|baptiz|baptism|rojstn|\bkk\b/i,
-  marriage: /poro[čc]|trauung|matrimon|copulat|marriage|\bpk\b/i,
+  // Baptism covers birth registers too — the same book under a civil name, and
+  // Croatian/Slovenian collection titles say "Rođeni"/"Rojeni" for it.
+  baptism: /krst|tauf|baptiz|baptism|rojstn|rojen|rođen|rodjen|birth|\bkk\b/i,
+  marriage: /poro[čc]|vjen[čc]an|trauung|matrimon|copulat|marriage|\bpk\b/i,
   // The tail (obituar|osmrtnic|pogreb|navc?ek|funeral) recognizes obituary and
   // funeral-announcement pages by their URLs/titles — funeral homes,
   // komunala pogreb notices, navcek.si.
@@ -860,6 +921,21 @@ const ACCEPTABLE_TAGS: Record<Exclude<BookType, "unknown">, ReadonlySet<string>>
   death: new Set(["DEAT", "BURI"]),
   burial: new Set(["BURI", "DEAT"]),
 };
+
+/** The event a non-marriage book's citation belongs on, or undefined when the
+ *  occurrence already sits acceptably (or the book can't say). One doctrine for
+ *  the apply's relocation and the report's post-enrichment refresh — the row
+ *  must show the same move the apply will make. */
+function bookEventTarget(
+  recordTag: string,
+  eventTag: string | undefined,
+  bookType: BookType,
+  baptismTag: "BIRT" | "BAPM",
+): string | undefined {
+  if (bookType === "unknown" || bookType === "marriage" || recordTag !== "INDI") return undefined;
+  if (eventTag && ACCEPTABLE_TAGS[bookType].has(eventTag)) return undefined;
+  return bookType === "baptism" ? baptismTag : bookType === "death" ? "DEAT" : "BURI";
+}
 
 /** The file's own habit for baptism-book citations: whichever of BIRT/BAPM
  *  already carries more `SOUR` children (default BIRT). */
@@ -1183,6 +1259,35 @@ interface GroupState {
   titleRank: number;
 }
 
+/** Re-do {@link mergeFsBooks}' fold on a freshly scanned group map: the pages
+ *  of one book become one group, standing where the first of them stood — the
+ *  order the panel listed them in, and so the order their records are made in. */
+function foldMergedGroups(
+  groups: Map<string, GroupState>,
+  mergeGroups: ReadonlyMap<string, string> | undefined,
+): Map<string, GroupState> {
+  if (!mergeGroups?.size) return groups;
+  const folded = new Map<string, GroupState>();
+  for (const [key, state] of groups) {
+    const target = mergeGroups.get(key) ?? key;
+    const into = folded.get(target);
+    if (!into) {
+      folded.set(target, target === key ? state : { ...state, group: { ...state.group, id: target } });
+      continue;
+    }
+    into.hits.push(...state.hits);
+    // The book's source is whichever of its pages the file already cites —
+    // the panel resolved it the same way, so the apply must not decide to
+    // create a new record just because the first page happened to be new.
+    if (!into.group.existingSourceXref && state.group.existingSourceXref) {
+      into.group.existingSourceXref = state.group.existingSourceXref;
+      into.group.existingSourceTitle = state.group.existingSourceTitle;
+      into.group.urlTitled = state.group.urlTitled;
+    }
+  }
+  return folded;
+}
+
 function buildGroups(records: GedNode[], hits: ScanHit[], foldDuplicates: boolean): Map<string, GroupState> {
   // Existing-source lookup built in ONE pass over the SOUR records (same
   // exact-URL-first / same-book-second precedence as findExistingSource) —
@@ -1360,9 +1465,8 @@ function relocationTarget(
     return famXref ? { eventTag: "MARR", famXref } : undefined;
   }
 
-  if (hit.rec.tag !== "INDI") return undefined;
-  const target = bookType === "baptism" ? baptismTag : bookType === "death" ? "DEAT" : "BURI";
-  return hit.eventTag === target ? undefined : { eventTag: target };
+  const target = bookEventTarget(hit.rec.tag, hit.eventTag, bookType, baptismTag);
+  return target ? { eventTag: target } : undefined;
 }
 
 /** An owned page-image pointer already sitting beside its final citation
@@ -1399,6 +1503,7 @@ export function reshapeOptionsFromOverrides(o: FormatOverrides | undefined): Res
     sourceLayout: o?.sourceLayout ?? "auto",
     baptism: o?.baptism ?? "auto",
     doubledLinks: o?.doubledLinks ?? "auto",
+    sourceCoverage: o?.sourceCoverage ?? "auto",
   };
 }
 
@@ -1409,6 +1514,7 @@ function resolveFormatOptions(records: GedNode[], opts: ReshapeOptions) {
     fold: auto(opts.doubledLinks, () => (prefersDoubledLinks(records) ? "keep" : "fold")) === "fold",
     pageMedia: auto(opts.pageMedia, () => detectPageMediaStyle(records)),
     baptismTag: auto(opts.baptism, () => baptismTargetTag(records)),
+    coverage: auto(opts.sourceCoverage, () => detectSourceCoverage(records)),
     // Repository creation is its own habit, independent of the page-link
     // shape (files with page-link sources usually ALSO repo-link each one):
     // an explicit layout override decides directly; "auto" follows the
@@ -1720,6 +1826,229 @@ function houseDateFormatter(records: GedNode[]): (value: string | undefined) => 
   };
 }
 
+/** One `EVEN` block of a source's standard coverage: the event type recorded,
+ *  its period and the jurisdiction. */
+interface CoverageEvent {
+  type: string;
+  date?: string;
+  place?: string;
+}
+
+/** The event tag a register type records, for a coverage `EVEN` payload. */
+function coverageTagOf(bookType: BookType, baptismTag: "BIRT" | "BAPM"): string | undefined {
+  if (bookType === "baptism") return baptismTag;
+  if (bookType === "marriage") return "MARR";
+  if (bookType === "death") return "DEAT";
+  if (bookType === "burial") return "BURI";
+  return undefined;
+}
+
+/**
+ * The `EVEN` blocks a source's standard coverage states: one per register of a
+ * multi-register FamilySearch book ("Marriages … 1805-1812 Births … 1815-1843"
+ * → `EVEN MARR` + `EVEN BIRT`, each with its own years), else a single block
+ * for the book's own type. Empty when no type is known — a coverage claim
+ * needs one, so the caller keeps the flat fields instead.
+ */
+function coverageEvents(
+  bookType: BookType,
+  baptismTag: "BIRT" | "BAPM",
+  place: string | undefined,
+  dateRange: string | undefined,
+  book: string | undefined,
+): CoverageEvent[] {
+  const parts = splitFsRegisters(book);
+  if (parts.length > 1) {
+    const events = parts.flatMap((part) => {
+      const tag = coverageTagOf(classifyBookType([part]), baptismTag);
+      return tag ? [{ type: tag, date: yearSpan(part), place }] : [];
+    });
+    // Only when every register is understood — a partial split would claim
+    // less than the book holds.
+    if (events.length === parts.length) return events;
+  }
+  const tag = coverageTagOf(bookType, baptismTag);
+  return tag ? [{ type: tag, date: dateRange, place }] : [];
+}
+
+/** A year range as the spec's period value ("1896-1911" → "FROM 1896 TO
+ *  1911"); anything else is written as it came. */
+function coveragePeriod(date: string | undefined): string | undefined {
+  const m = date && /^(\d{4})\s*[-–]\s*(\d{4})$/.exec(date.trim());
+  return m ? `FROM ${m[1]} TO ${m[2]}` : date;
+}
+
+/**
+ * Write the standard coverage onto a source record: `1 DATA` holding one
+ * `2 EVEN` per register (period + jurisdiction), with `AGNC` under `DATA` —
+ * its spec spot, so a flat one moves along. Fill-only: a record already
+ * stating an `EVEN` coverage keeps it. False when there is nothing to state
+ * (no register type known), so the caller writes the flat fields instead.
+ */
+function applyStandardCoverage(rec: GedNode, events: CoverageEvent[], agency: string | undefined): boolean {
+  if (events.length === 0) return false;
+  let data = firstChild(rec, "DATA");
+  if (!data) {
+    data = { level: rec.level + 1, tag: "DATA", children: [] };
+    insertGrouped(rec, data, SOUR_FIELD_TRAILING);
+  }
+  if (childrenByTag(data, "EVEN").length === 0) {
+    for (const ev of events) {
+      const even: GedNode = { level: data.level + 1, tag: "EVEN", value: ev.type, children: [] };
+      const period = coveragePeriod(ev.date);
+      if (period) even.children.push({ level: even.level + 1, tag: "DATE", value: period, children: [] });
+      if (ev.place) even.children.push({ level: even.level + 1, tag: "PLAC", value: ev.place, children: [] });
+      data.children.push(even);
+    }
+  }
+  const flatAgnc = firstChild(rec, "AGNC");
+  if (!childText(data, "AGNC")) {
+    const value = flatAgnc?.value?.trim() || agency;
+    if (value) data.children.push({ level: data.level + 1, tag: "AGNC", value, children: [] });
+  }
+  if (flatAgnc) spliceChild(rec, flatAgnc);
+  return true;
+}
+
+/** The registers a source's own *title* names, when it names several — the
+ *  `place - book - collection` titles this tool writes keep the multi-register
+ *  book label as one segment, and each register in it becomes its own
+ *  coverage entry. */
+function coverageEventsFromTitle(
+  title: string | undefined,
+  abbr: string | undefined,
+  place: string | undefined,
+  dateRange: string | undefined,
+  baptismTag: "BIRT" | "BAPM",
+): CoverageEvent[] {
+  for (const seg of (title ?? "").split(" - ")) {
+    const parts = splitFsRegisters(seg.trim());
+    if (parts.length > 1) {
+      const events = parts.flatMap((part) => {
+        const tag = coverageTagOf(classifyBookType([part]), baptismTag);
+        return tag ? [{ type: tag, date: yearSpan(part), place }] : [];
+      });
+      if (events.length === parts.length) return events;
+    }
+  }
+  const tag = coverageTagOf(classifyBookType([title, abbr]), baptismTag);
+  return tag ? [{ type: tag, date: dateRange, place }] : [];
+}
+
+/**
+ * The Normalize pass for source coverage: restate every existing `SOUR`
+ * record in the target shape — flat vendor `PLAC`/`DATE` into the spec's
+ * `DATA > EVEN` blocks (register type read from the title, `AGNC` moved to
+ * its spot under `DATA`, `FILN` folded into an existing repository link's
+ * `CALN`), or the reverse. Conservative on purpose: a record whose register
+ * type can't be read, whose coverage names several places (inexpressible as
+ * one flat `PLAC`), or whose flat fields disagree with its coverage keeps
+ * its shape — nothing is invented and nothing is lost.
+ */
+export function normalizeSourceCoverage(
+  records: GedNode[],
+  target: "vendor" | "standard",
+  baptismTag: "BIRT" | "BAPM",
+): { changed: number; examples: NormChange[] } {
+  let changed = 0;
+  const examples: NormChange[] = [];
+  // Same discipline as the other Normalize passes: up to 12 examples, each a
+  // *different* transformation — digit runs collapse in the signature, so a
+  // hundred same-book pages give one row, while another register type, place
+  // or a moved filing number each earn their own.
+  const seen = new Set<string>();
+  const note = (before: string, after: string) => {
+    changed++;
+    if (examples.length >= 12) return;
+    const signature = `${before.replace(/\d+/g, "#")}→${after.replace(/\d+/g, "#")}`;
+    if (seen.has(signature)) return;
+    seen.add(signature);
+    examples.push({ before, after });
+  };
+
+  for (const rec of records) {
+    if (rec.tag !== "SOUR" || !rec.xref) continue;
+    const data = firstChild(rec, "DATA");
+
+    if (target === "standard") {
+      if (data && childrenByTag(data, "EVEN").length > 0) continue; // already standard
+      const plac = firstChild(rec, "PLAC");
+      const date = firstChild(rec, "DATE");
+      if (!plac?.value?.trim() && !date?.value?.trim()) continue;
+      const events = coverageEventsFromTitle(
+        sourceTitle(rec),
+        childText(rec, "ABBR"),
+        plac?.value?.trim(),
+        date?.value?.trim(),
+        baptismTag,
+      );
+      if (events.length === 0) continue; // no register type to state
+      applyStandardCoverage(rec, events, undefined);
+      if (plac) spliceChild(rec, plac);
+      if (date) spliceChild(rec, date);
+      // The filing number's standard spot is the repository link's call number.
+      const repoLink = firstChild(rec, "REPO");
+      const filn = firstChild(rec, "FILN");
+      const foldedFiln = repoLink?.value && filn?.value?.trim() && !firstChild(repoLink, "CALN") ? filn.value.trim() : undefined;
+      if (foldedFiln) {
+        repoLink!.children.push({ level: repoLink!.level + 1, tag: "CALN", value: foldedFiln, children: [] });
+        spliceChild(rec, filn!);
+      }
+      note(
+        [plac?.value && `PLAC ${plac.value}`, date?.value && `DATE ${date.value}`, foldedFiln && `FILN ${foldedFiln}`]
+          .filter(Boolean)
+          .join(" · "),
+        [
+          ...events.map((ev) =>
+            [`EVEN ${ev.type}`, coveragePeriod(ev.date), ev.place && `PLAC ${ev.place}`].filter(Boolean).join(" "),
+          ),
+          foldedFiln && `CALN ${foldedFiln}`,
+        ]
+          .filter(Boolean)
+          .join(" · "),
+      );
+      continue;
+    }
+
+    // target === "vendor": flatten the coverage back into the program fields.
+    if (!data) continue;
+    const evens = childrenByTag(data, "EVEN");
+    const dataAgnc = firstChild(data, "AGNC");
+    if (evens.length === 0 && !dataAgnc) continue;
+    const places = [...new Set(evens.map((e) => childText(e, "PLAC")).filter(Boolean))] as string[];
+    if (places.length > 1) continue; // one flat PLAC cannot carry two jurisdictions
+    const years = yearSpan(evens.map((e) => childText(e, "DATE")).filter(Boolean).join(" "));
+    const flatPlac = childText(rec, "PLAC");
+    const flatDate = childText(rec, "DATE");
+    if (flatPlac && places[0] && flatPlac !== places[0]) continue; // disagreement is not ours to settle
+    if (flatDate && years && flatDate !== years) continue;
+    const before = evens
+      .map((e) => [`EVEN ${e.value ?? ""}`.trim(), childText(e, "DATE"), childText(e, "PLAC")].filter(Boolean).join(" "))
+      .join(" · ");
+    if (places[0] && !flatPlac) {
+      insertGrouped(rec, { level: rec.level + 1, tag: "PLAC", value: places[0], children: [] }, SOUR_FIELD_TRAILING);
+    }
+    if (years && !flatDate) {
+      insertGrouped(rec, { level: rec.level + 1, tag: "DATE", value: years, children: [] }, SOUR_FIELD_TRAILING);
+    }
+    if (dataAgnc?.value?.trim() && !childText(rec, "AGNC")) {
+      insertGrouped(
+        rec,
+        { level: rec.level + 1, tag: "AGNC", value: dataAgnc.value.trim(), children: [] },
+        SOUR_FIELD_TRAILING,
+      );
+    }
+    for (const e of evens) spliceChild(data, e);
+    if (dataAgnc) spliceChild(data, dataAgnc);
+    if (data.children.length === 0 && !data.value?.trim()) spliceChild(rec, data);
+    note(
+      before || "DATA AGNC",
+      [places[0] && `PLAC ${places[0]}`, years && `DATE ${years}`].filter(Boolean).join(" · ") || "AGNC",
+    );
+  }
+  return { changed, examples };
+}
+
 /** Repository identity per site: how to spot an existing `REPO` (by its WWW
  *  host) and what to create when the file's convention hangs sources off
  *  repositories. Matricula derives name/WWW per archive instead. */
@@ -1738,17 +2067,37 @@ const SITE_REPO: Partial<Record<ReshapeSite, { hostRe: RegExp; name: string; www
   wikipedia: { hostRe: /wikipedia\.org/i, name: "Wikipedia", www: "https://www.wikipedia.org/" },
   biografija: { hostRe: /slovenska-biografija\.si/i, name: "Slovenska biografija", www: "https://www.slovenska-biografija.si/" },
   obrazi: { hostRe: /obrazislovenskihpokrajin\.si/i, name: "Obrazi slovenskih pokrajin", www: "https://www.obrazislovenskihpokrajin.si/" },
+  familysearch: { hostRe: /familysearch\.org/i, name: "FamilySearch.org", www: "https://www.familysearch.org/" },
 };
 
-/** Existing REPO for a site (preferring one whose WWW contains `preferSlug`,
- *  e.g. the Matricula archive), or undefined. */
-function findSiteRepo(records: GedNode[], hostRe: RegExp, preferSlug: string | undefined): string | undefined {
+/** Letters and digits only, lowercased — so "FamilySearch.org - Croatia Church
+ *  Books 1516-1994" and "Croatia, Church Books, 1516-1994" compare equal where
+ *  it matters, whatever punctuation each side chose. */
+function looseKey(text: string): string {
+  return text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+}
+
+/** Existing REPO for a site: one whose WWW is on the site's host, or one named
+ *  after the site — a file keeping a repository per collection may name it
+ *  "FamilySearch.org - Croatia Church Books 1516-1994" and give it no WWW at
+ *  all. Among several, the one naming any of `prefer` (the Matricula archive,
+ *  the FamilySearch collection id or title) wins; else the first match. */
+function findSiteRepo(
+  records: GedNode[],
+  hostRe: RegExp,
+  siteName: string,
+  prefer: (string | undefined)[] = [],
+): string | undefined {
+  const wanted = prefer.map((p) => (p ? looseKey(p) : "")).filter(Boolean);
+  const site = looseKey(siteName);
   let anyMatch: string | undefined;
   for (const rec of records) {
     if (rec.tag !== "REPO" || !rec.xref) continue;
     const www = childText(rec, "WWW") ?? "";
-    if (!hostRe.test(www)) continue;
-    if (preferSlug && www.toLowerCase().includes(`/${preferSlug.toLowerCase()}`)) return rec.xref;
+    const name = childText(rec, "NAME") ?? "";
+    if (!hostRe.test(www) && !looseKey(name).startsWith(site)) continue;
+    const haystack = looseKey(`${name} ${www}`);
+    if (wanted.some((w) => haystack.includes(w))) return rec.xref;
     anyMatch ??= rec.xref;
   }
   return anyMatch;
@@ -1768,15 +2117,49 @@ export function proposedSiteRepo(
   site: ReshapeSite,
   url: string,
   agency: string | undefined,
+  /** The FamilySearch collection this link belongs to, once known — it picks
+   *  the file's repository for that collection out of several. */
+  collection?: FsCollection,
 ): { xref?: string; createName?: string } | undefined {
   const repoDef = SITE_REPO[site];
   if (!repoDef) return undefined;
   const mat = site === "matricula" ? parseMatriculaUrl(url) : undefined;
-  const existing = findSiteRepo(records, repoDef.hostRe, mat?.archiveSlug);
+  const existing = findSiteRepo(records, repoDef.hostRe, repoDef.name, [
+    mat?.archiveSlug,
+    collection?.id ?? fsCollectionId(site, url),
+    collection?.title,
+  ]);
   if (existing) return { xref: existing };
   // Matricula repositories are the holding archive; the other sites
   // are their own repository.
-  return { createName: (site === "matricula" && agency) || repoDef.name };
+  return { createName: siteRepoName(site, repoDef.name, agency, collection?.title) };
+}
+
+/** A FamilySearch collection as the repository logic needs it: what it is
+ *  called, and its id — either may be missing. */
+export interface FsCollection {
+  title?: string;
+  id?: string;
+}
+
+/** The `cc=` id of a FamilySearch collection link — the id a repository for
+ *  that collection carries in its WWW. */
+function fsCollectionId(site: ReshapeSite, url: string): string | undefined {
+  return site === "familysearch" ? /[?&]cc=(\d+)/i.exec(url)?.[1] : undefined;
+}
+
+/** What a new repository for the site is called: the holding archive for
+ *  Matricula, the collection for a FamilySearch link that names one, else the
+ *  site itself. */
+function siteRepoName(
+  site: ReshapeSite,
+  siteName: string,
+  agency: string | undefined,
+  collection: string | undefined,
+): string {
+  if (site === "matricula" && agency) return agency;
+  if (site === "familysearch" && collection) return `${siteName} - ${collection}`;
+  return siteName;
 }
 
 /** Create the site's `REPO` record (name + WWW) — the Add Source dialog's
@@ -1786,14 +2169,19 @@ export function createSiteRepo(
   site: ReshapeSite,
   url: string,
   agency: string | undefined,
+  collection?: FsCollection,
 ): GedNode | undefined {
   const repoDef = SITE_REPO[site];
   if (!repoDef) return undefined;
   const mat = site === "matricula" ? parseMatriculaUrl(url) : undefined;
-  const name = (site === "matricula" && agency) || repoDef.name;
+  const name = siteRepoName(site, repoDef.name, agency, collection?.title);
+  const fsCc = collection?.id ?? fsCollectionId(site, url);
   const www = mat
     ? `https://data.matricula-online.eu/${mat.lang}/${mat.country}/${mat.archiveSlug}/`
-    : repoDef.www;
+    : // The collection's own page, so the next link into it finds this record.
+      fsCc
+      ? `https://www.familysearch.org/search/collection/${fsCc}`
+      : repoDef.www;
   const repo: GedNode = { level: 0, xref: nextXref(records, "R"), tag: "REPO", children: [] };
   repo.children.push({ level: 1, tag: "NAME", value: name, children: [] });
   repo.children.push({ level: 1, tag: "WWW", value: www, children: [] });
@@ -1807,12 +2195,13 @@ function ensureSiteRepo(
   url: string,
   agency: string | undefined,
   repositoryLayout: boolean,
+  collection?: FsCollection,
 ): { xref: string; created?: GedNode } | undefined {
-  const proposal = proposedSiteRepo(records, site, url, agency);
+  const proposal = proposedSiteRepo(records, site, url, agency, collection);
   if (!proposal) return undefined;
   if (proposal.xref) return { xref: proposal.xref };
   if (!repositoryLayout) return undefined;
-  const repo = createSiteRepo(records, site, url, agency);
+  const repo = createSiteRepo(records, site, url, agency, collection);
   return repo ? { xref: repo.xref!, created: repo } : undefined;
 }
 
@@ -1831,11 +2220,33 @@ export function applySiteSourceExtras(
   sourceNode: GedNode,
   site: ReshapeSite | undefined,
   url: string,
-  meta: { place?: string; dateRange?: string },
-  opts: { sourceLayout?: SourceLayout | "auto"; repo?: "auto" | "none" } = {},
+  meta: { place?: string; dateRange?: string; collection?: string; collectionId?: string },
+  opts: {
+    sourceLayout?: SourceLayout | "auto";
+    repo?: "auto" | "none";
+    sourceCoverage?: "vendor" | "standard" | "auto";
+    baptism?: "BIRT" | "BAPM" | "auto";
+  } = {},
 ): GedNode | undefined {
-  fillField(sourceNode, "PLAC", buildPlaceResolver(records).resolve(meta.place));
-  fillField(sourceNode, "DATE", houseDateFormatter(records)(meta.dateRange));
+  const place = buildPlaceResolver(records).resolve(meta.place);
+  const dateRange = houseDateFormatter(records)(meta.dateRange);
+  const coverage =
+    opts.sourceCoverage && opts.sourceCoverage !== "auto" ? opts.sourceCoverage : detectSourceCoverage(records);
+  // The register type the coverage would claim: the site's inherent kind, or
+  // whatever the title says ("… - Deaths (Umrli) 1896-1911 - …").
+  const bookType = (site ? SITE_BOOK_TYPE[site] : undefined) ?? classifyBookType([childText(sourceNode, "TITL")]);
+  const baptismTag = opts.baptism && opts.baptism !== "auto" ? opts.baptism : baptismTargetTag(records);
+  const standard =
+    coverage === "standard" &&
+    applyStandardCoverage(
+      sourceNode,
+      coverageEvents(bookType, baptismTag, place, dateRange, undefined),
+      undefined,
+    );
+  if (!standard) {
+    fillField(sourceNode, "PLAC", place);
+    fillField(sourceNode, "DATE", dateRange);
+  }
   // "none": the caller handles the repository choice itself (the Add Source
   // dialog's explicit dropdown) — only the PLAC/DATE fills apply here.
   if (opts.repo === "none" || !site || firstChild(sourceNode, "REPO")) return undefined;
@@ -1845,9 +2256,17 @@ export function applySiteSourceExtras(
       : // The source being enriched is already in `records` — it must not
         // vote against the habit it is about to follow.
         prefersSourceRepos(records, sourceNode);
-  const repo = ensureSiteRepo(records, site, url, childText(sourceNode, "AGNC"), createRepos);
+  const repo = ensureSiteRepo(records, site, url, childText(sourceNode, "AGNC"), createRepos, {
+    title: meta.collection,
+    id: meta.collectionId,
+  });
   if (!repo) return undefined;
-  sourceNode.children.push({ level: sourceNode.level + 1, tag: "REPO", value: repo.xref, children: [] });
+  const link: GedNode = { level: sourceNode.level + 1, tag: "REPO", value: repo.xref, children: [] };
+  // Same mirror as the batch tool: the filing number is the call number
+  // within the repository being linked.
+  const filn = childText(sourceNode, "FILN");
+  if (filn) link.children.push({ level: link.level + 1, tag: "CALN", value: filn, children: [] });
+  sourceNode.children.push(link);
   return repo.created;
 }
 
@@ -1871,6 +2290,7 @@ export function reshapeSources(
     linksRemoved: 0,
     notesRewritten: 0,
     eventsCreated: 0,
+    linksTidied: 0,
   };
   if (selected.length === 0) return { records, counts };
 
@@ -1882,11 +2302,12 @@ export function reshapeSources(
   const byXref = new Map<string, GedNode>();
   for (const r of clone) if (r.xref) byXref.set(r.xref, r);
 
-  const { fold, pageMedia, baptismTag, createRepos } = resolveFormatOptions(clone, opts);
+  const { fold, pageMedia, baptismTag, createRepos, coverage } = resolveFormatOptions(clone, opts);
+  // A link folded into a book is selected under the book's id, not its own.
   const hits = scanOccurrences(clone, sites, fold ? pageMedia : undefined).filter((h) =>
-    selectedById.has(h.recognized.groupKey),
+    selectedById.has(opts.mergeGroups?.get(h.recognized.groupKey) ?? h.recognized.groupKey),
   );
-  const groups = buildGroups(clone, hits, fold);
+  const groups = foldMergedGroups(buildGroups(clone, hits, fold), opts.mergeGroups);
   // Media index built ONCE for the whole apply (a per-group rebuild is a full
   // forest scan each time); OBJEs this run creates are tracked alongside.
   const cloneObjeIndex = buildObjeIndex(clone);
@@ -1953,16 +2374,65 @@ export function reshapeSources(
       sourceNode = createSourceRecord(clone, fields);
       byXref.set(sourceNode.xref!, sourceNode);
       counts.sourcesCreated++;
-      // `NewSourceFields` has no place/date — the paginated house shape does.
-      fillField(sourceNode, "PLAC", fields.place);
-      fillField(sourceNode, "DATE", fields.dateRange);
-      const repo = ensureSiteRepo(clone, g.site, state.hits[0].url, fields.agency, createRepos);
+      // What the source covers: the spec's `DATA > EVEN` blocks in a
+      // standard-coverage file, else the flat vendor fields
+      // (`NewSourceFields` has neither — the paginated house shape does).
+      const standard =
+        coverage === "standard" &&
+        applyStandardCoverage(
+          sourceNode,
+          coverageEvents(bookType, baptismTag, fields.place, fields.dateRange, extra?.book),
+          fields.agency,
+        );
+      if (!standard) {
+        fillField(sourceNode, "PLAC", fields.place);
+        fillField(sourceNode, "DATE", fields.dateRange);
+      }
+      const repo = ensureSiteRepo(clone, g.site, state.hits[0].url, fields.agency, createRepos, {
+        title: extra?.collection,
+        id: extra?.collectionId,
+      });
       if (repo) {
         if (repo.created) byXref.set(repo.created.xref!, repo.created);
-        sourceNode.children.push({ level: 1, tag: "REPO", value: repo.xref, children: [] });
+        const link: GedNode = { level: 1, tag: "REPO", value: repo.xref, children: [] };
+        // The filing number doubles as the call number within that repository
+        // (the Matricula book id, the FamilySearch film) — the standard spot a
+        // strict reader looks for it is the repository link's CALN.
+        if (fields.filingNumber) {
+          link.children.push({ level: 2, tag: "CALN", value: fields.filingNumber, children: [] });
+          // In the standard shape FILN is not a source field at all — the
+          // call number now carries the id.
+          const filn = standard && firstChild(sourceNode, "FILN");
+          if (filn) spliceChild(sourceNode, filn);
+        }
+        sourceNode.children.push(link);
       }
     }
     const sourceXref = sourceNode.xref!;
+
+    // Asked for it, shorten what the media already holds: the same link, minus
+    // the viewer state that made one page look like several.
+    if (opts.tidyLinks) {
+      for (const hit of state.hits) {
+        const obje = hit.objeXref ? byXref.get(hit.objeXref) : undefined;
+        const file = obje && firstChild(obje, "FILE");
+        const stored = file?.value?.trim();
+        const tidied = stored && canonicalFamilySearchUrl(stored);
+        if (file && tidied && tidied !== stored) {
+          file.value = tidied;
+          counts.linksTidied++;
+        }
+      }
+    }
+
+    // Which page of the source each link is. A page number the URL itself
+    // carries wins; then the one the report put on that member — for a book
+    // folded out of many single-image links, that is where each image's own
+    // number lives; then the group's own, for a source cited at one page.
+    const pageByUrl = new Map<string, string>();
+    for (const m of selection.members) if (m.page) pageByUrl.set(linkKey(m.url), m.page);
+    const pageOf = (hit: ScanHit): string | undefined =>
+      hit.recognized.page ?? pageByUrl.get(linkKey(hit.url)) ?? extra?.page;
 
     // --- Rewrite URL-titled SOUR records in place (every one in the group, so
     // the duplicates tool can consolidate them afterwards).
@@ -1970,10 +2440,19 @@ export function reshapeSources(
       if (hit.shape !== "sourTitle") continue;
       hit.node.value = fields.title;
       fillField(hit.rec, "AUTH", fields.author);
-      fillField(hit.rec, "AGNC", fields.agency);
-      fillField(hit.rec, "PLAC", fields.place);
+      const std =
+        coverage === "standard" &&
+        applyStandardCoverage(
+          hit.rec,
+          coverageEvents(bookType, baptismTag, fields.place, fields.dateRange, extra?.book),
+          fields.agency,
+        );
+      if (!std) {
+        fillField(hit.rec, "AGNC", fields.agency);
+        fillField(hit.rec, "PLAC", fields.place);
+        fillField(hit.rec, "DATE", fields.dateRange);
+      }
       fillField(hit.rec, "FILN", fields.filingNumber);
-      fillField(hit.rec, "DATE", fields.dateRange);
       counts.citationsRewritten++;
     }
 
@@ -1993,14 +2472,16 @@ export function reshapeSources(
       const urlKey = linkKey(hit.url);
       if (seenUrls.has(urlKey) || linkedKeys.has(urlKey)) continue;
       seenUrls.add(urlKey);
-      const page = hit.recognized.page;
+      const page = pageOf(hit);
       const objeTitle = page ? `#${page} - ${fields.title}` : fields.title;
       if (hit.objeXref && byXref.has(hit.objeXref)) {
         // Re-link the already-existing top-level OBJE under the source,
         // grouped with its other page media (not after CHAN/CREA).
         insertGrouped(sourceNode, { level: 1, tag: "OBJE", value: hit.objeXref, children: [] }, SOUR_TRAILING);
       } else {
-        const obje = addObjeToSource(clone, sourceXref, hit.url, objeTitle);
+        // Written stripped of viewer state, so a page linked twice by two
+        // readers lands as one media record (see `canonicalFamilySearchUrl`).
+        const obje = addObjeToSource(clone, sourceXref, canonicalFamilySearchUrl(hit.url), objeTitle);
         if (obje.xref) createdObjeUrls.set(obje.xref, hit.url);
         counts.mediaCreated++;
       }
@@ -2058,7 +2539,7 @@ export function reshapeSources(
         continue;
       }
 
-      const page = hit.recognized.page ?? extra?.page;
+      const page = pageOf(hit);
       const move = relocate && !hit.twinEvent ? relocationTarget(hit, bookType, baptismTag, ctx, sourceXref) : undefined;
       if (isSettledPointer(hit, move, sourceXref, pageMedia, page)) continue;
       let container = hit.container;
@@ -2299,6 +2780,200 @@ function yearRange(from: string | undefined, to: string | undefined): string | u
   return a ?? b ?? undefined;
 }
 
+/** The span of years a text names — a FamilySearch book step often holds two
+ *  registers at once ("Births (Rođeni) 1892-1899 Marriages (Vjenčani)
+ *  1858-1890"), and the source covers all of it. */
+function yearSpan(text: string | undefined): string | undefined {
+  const years = [...(text ?? "").matchAll(/\b(1[5-9]\d{2}|20\d{2})\b/g)].map((m) => Number(m[1]));
+  if (!years.length) return undefined;
+  const from = Math.min(...years);
+  const to = Math.max(...years);
+  return from === to ? String(from) : `${from}-${to}`;
+}
+
+/** Media type that makes a FamilySearch ark answer with GedcomX JSON instead
+ *  of the app shell — the whole reason an FS link can be read without a login. */
+export const FS_GEDCOMX_ACCEPT = "application/x-gedcomx-v1+json";
+
+interface FsArkJson {
+  sourceDescriptions?: { resourceType?: string; citations?: { value?: string }[] }[];
+}
+
+/**
+ * Read the GedcomX JSON a FamilySearch image ark serves. The citation
+ * FamilySearch composes for the image is the richest thing in it:
+ *
+ *     "Croatia, Church Books, 1516-1994," database with images, FamilySearch
+ *     (https://familysearch.org/ark:/61903/3:1:3QSQ-G99F-FHWS… : 16 July 2014),
+ *     Roman Catholic (Rimokatolička crkva) > Pakrac >
+ *     Births (Rođeni) 1892-1899 Marriages (Vjenčani) 1858-1890 > image 556 of 689;
+ *     Arhiva Hrvatske u Zagrebu (Croatia State Archives), Zagreb.
+ *
+ * — the collection, the browse path, the image number and the holding archive.
+ * The path's last step is the book (its years date the source) and the one
+ * before it the place; deeper category steps ("Roman Catholic …") stay in the
+ * title. The image number is FamilySearch's own, one ahead of the URL's
+ * zero-based `i=`. An image outside a published collection carries no citation
+ * at all — nothing to read, and the offline fields stand.
+ */
+export function parseFamilySearchArkJson(json: string): ReshapeMeta | undefined {
+  let parsed: FsArkJson;
+  try {
+    parsed = JSON.parse(json) as FsArkJson;
+  } catch {
+    return undefined;
+  }
+  const citation = parsed.sourceDescriptions
+    ?.find((sd) => sd.resourceType?.endsWith("/DigitalArtifact"))
+    ?.citations?.find((c) => c.value?.trim())?.value;
+  const meta = citation ? parseFamilySearchCitation(citation) : undefined;
+  if (!meta) return undefined;
+  // The collection's id, which a link need not carry itself — a repository
+  // kept for that collection is found by it.
+  const id = /\/records\/collections\/(\d+)/.exec(json)?.[1];
+  return id ? { ...meta, collectionId: id } : meta;
+}
+
+/** Words that name the institution holding the originals, as a FamilySearch
+ *  citation's "citing …" chain runs through place, place, place, archive. */
+const ARCHIVE_WORD_RE = /arhiv|archiv|archive|library|knji[žz]nic|mati[čc]n|museum|muzej|registry|record office/i;
+
+/** The film/microfilm number a citation ends with ("FHL microfilm 005,498,154",
+ *  "film 005498154", "DGS 4826234"). */
+const FILM_NUMBER_RE = /(?:FHL\s+)?(?:microfilm|film|DGS)\s*#?\s*([\d][\d,\s]*\d|\d)/i;
+
+/**
+ * Read a citation copied from FamilySearch's own "Copy citation" button. Its
+ * indexed **record** pages are sign-in-only — no lookup of any kind reaches
+ * them — so a pasted citation is the one way their details reach the file:
+ *
+ *     "Croatia, Church Books, 1516-1994," database with images, FamilySearch
+ *     (https://familysearch.org/ark:/61903/1:1:JFVN-KMV : 11 March 2018),
+ *     Ana Renko in entry for Josip Renko, 1885; citing Baptism, Ravna Gora,
+ *     Primorje-Gorski Kotar, Croatia, Državni arhiv u Rijeci (State Archives),
+ *     Rijeka; FHL microfilm 005,498,154.
+ *
+ * The collection names the source, the "citing" chain gives the register type,
+ * the place and the holding archive, and the tail gives the film number. The
+ * person and entry the citation names are *this* record, not the source, and
+ * stay out of the source's fields. An image citation pasted here is understood
+ * too — same head, different tail.
+ */
+export function parsePastedFsCitation(text: string): ReshapeMeta | undefined {
+  const plain = decodeHtmlEntities(text.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
+  if (!/familysearch/i.test(plain)) return undefined;
+  if (/ > /.test(plain) && /image \d+/i.test(plain)) return parseFamilySearchCitation(plain);
+
+  const collection = quotedCollection(plain);
+  const rest = /\(https?:[^)]*\)\s*,?\s*(.*)$/i.exec(plain)?.[1] ?? plain;
+  const parts = rest.split(";").map((s) => s.trim()).filter(Boolean);
+  const citing = parts.find((p) => /^citing\b/i.test(p))?.replace(/^citing\s+/i, "");
+  const film = FILM_NUMBER_RE.exec(rest)?.[1].replace(/[,\s]/g, "");
+  // "Entry for Anna Rakar and Martin Sadec, 9 July 1901" — which record within
+  // the collection this is. That is what a citation's PAGE says; the source
+  // itself is the collection, so it never goes into the source's own fields.
+  const entry = parts[0] && !/^citing\b/i.test(parts[0]) ? parts[0].replace(/\.\s*$/, "") : undefined;
+
+  let place: string | undefined;
+  let agency: string | undefined;
+  let type: BookType = "unknown";
+  if (citing) {
+    const tokens = citing.replace(/\.\s*$/, "").split(",").map((s) => s.trim()).filter(Boolean);
+    if (tokens.length && classifyBookType([tokens[0]]) !== "unknown") type = classifyBookType([tokens.shift()]);
+    const archiveAt = tokens.findIndex((tok) => ARCHIVE_WORD_RE.test(tok));
+    const placeTokens = archiveAt === -1 ? tokens : tokens.slice(0, archiveAt);
+    place = placeTokens.join(", ") || undefined;
+    if (archiveAt !== -1) agency = tokens.slice(archiveAt).join(", ") || undefined;
+  }
+  if (!collection && !place && !agency && !film) return undefined;
+  return {
+    title: collection ?? "FamilySearch",
+    collection,
+    place,
+    agency,
+    filingNumber: film,
+    page: entry,
+    // The years the collection's own name gives ("…, 1892-1925") — all a
+    // record page says about the source's span.
+    dateRange: yearSpan(collection),
+    bookType: type === "unknown" ? undefined : type,
+  };
+}
+
+function parseFamilySearchCitation(raw: string): ReshapeMeta | undefined {
+  const text = decodeHtmlEntities(raw.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
+  const collection = quotedCollection(text);
+  // Everything past the "(url : accessed date)": the browse path, then the
+  // holding archive after the last semicolon.
+  const rest = /\(https?:[^)]*\)\s*,?\s*(.*)$/i.exec(text)?.[1] ?? "";
+  const semi = rest.lastIndexOf(";");
+  const holder = semi >= 0 ? rest.slice(semi + 1).replace(/\.\s*$/, "").replace(/^\s*citing\s+/i, "").trim() : "";
+  // A published microfilm names its publisher the bibliographic way — "NARA
+  // microfilm publication T715 and M237 (Washington D.C.: National Archives
+  // and Records Administration, n.d.)" — where an archive's own holding names
+  // only itself ("Arhiva Hrvatske u Zagrebu (Croatia State Archives), Zagreb").
+  const published = /^(.*?)\s*\(([^:()]{2,60}):\s*([^()]+?)(?:,\s*(?:n\.d\.|\d{4}))?\)$/.exec(holder);
+  const agency = published ? published[1].trim() : holder;
+  const publisher = published?.[3].trim();
+  const publishedPlace = published?.[2].trim();
+  const steps = (semi >= 0 ? rest.slice(0, semi) : rest).split(">").map((s) => s.trim()).filter(Boolean);
+  const image = /^image (\d+)\b/i.exec(steps[steps.length - 1] ?? "");
+  if (image) steps.pop();
+  const book = steps[steps.length - 1];
+  const place = steps.length > 1 ? steps[steps.length - 2] : undefined;
+  if (!collection && !book) return undefined;
+  const type = classifyBookType([book]);
+  return {
+    // Most specific first, the collection naming the whole: "Pakrac - Births
+    // (Rođeni) 1892-1899 … - Croatia, Church Books, 1516-1994".
+    title: siteTitle(place, book, collection ?? "FamilySearch"),
+    collection,
+    book,
+    // The browse path's own place first; the publication's city only where the
+    // path named none.
+    place: place ?? publishedPlace,
+    agency: agency || undefined,
+    publisher,
+    page: image?.[1],
+    dateRange: yearSpan(book),
+    // A book holding births *and* marriages classifies as neither — "unknown"
+    // must not clobber an offline guess from the citation text.
+    bookType: type === "unknown" ? undefined : type,
+  };
+}
+
+/**
+ * The registers a FamilySearch book label names, when it names more than one:
+ * "Births (Rođeni) 1892-1899 Marriages (Vjenčani) 1858-1890" is one browse
+ * step covering two registers, and a page of it belongs to exactly one — which
+ * only the person looking at the image knows (FamilySearch's own item-level
+ * view of that film sits behind a sign-in). Each part runs up to and including
+ * its year range; a label the parts don't fully account for names nothing to
+ * choose between, and comes back empty.
+ */
+export function splitFsRegisters(book: string | undefined): string[] {
+  if (!book) return [];
+  const parts = book.match(/\S.*?\d{4}(?:\s*[-–]\s*\d{4})?(?=\s|$)/g) ?? [];
+  if (parts.length < 2) return [];
+  // Every word of the label must belong to a part — otherwise the split is a
+  // guess about text it doesn't understand.
+  return parts.join(" ").replace(/\s+/g, " ") === book.replace(/\s+/g, " ").trim() ? parts : [];
+}
+
+/** The same fetched metadata narrowed to one of {@link splitFsRegisters}'
+ *  registers: its own title, year span and register type — the last of which
+ *  puts the citation on the matching event. */
+export function narrowFsRegister(meta: ReshapeMeta, register: string): ReshapeMeta {
+  const type = classifyBookType([register]);
+  return {
+    ...meta,
+    book: register,
+    title: siteTitle(meta.place, register, meta.collection ?? "FamilySearch"),
+    dateRange: yearSpan(register),
+    bookType: type === "unknown" ? undefined : type,
+  };
+}
+
 /** Rewrite a Matricula book URL to its `/en/` variant (stable table labels). */
 function matriculaEnUrl(bookUrl: string): string {
   return bookUrl.replace(/^(https?:\/\/data\.matricula-online\.eu)\/[a-z]{2}\//i, "$1/en/");
@@ -2307,6 +2982,44 @@ function matriculaEnUrl(bookUrl: string): string {
 /** Session-wide fetched-metadata cache, keyed by page-independent book key —
  *  re-opening the panel or re-running enrichment never refetches a book. */
 const bookMetaCache = new Map<string, ReshapeMeta>();
+
+/** FamilySearch's edge answers a burst of requests with a block page (403 from
+ *  its security service) — which would also hit the user's own FamilySearch
+ *  tab, on the same address. Ark lookups therefore run one at a time with a
+ *  gap: a file full of links takes longer, and nothing gets locked out. */
+const FS_GAP_MS = 600;
+/** Should the edge block anyway (or the connection drop), wait this long and
+ *  try that one link again — a whole file's worth of lookups must not be lost
+ *  to a single refusal partway through. */
+const FS_RETRY_MS = 5000;
+let fsChain: Promise<unknown> = Promise.resolve();
+
+function pacedFsFetch<T>(run: () => Promise<T>): Promise<T> {
+  const result = fsChain.then(run, run);
+  fsChain = result.then(
+    () => new Promise((r) => setTimeout(r, FS_GAP_MS)),
+    () => new Promise((r) => setTimeout(r, FS_GAP_MS)),
+  );
+  return result;
+}
+
+/** A refused request worth trying again: the edge's block/rate-limit answers,
+ *  and a connection that produced no answer at all. A 401 (a record page
+ *  wanting a sign-in) is a real answer — retrying it changes nothing. */
+function fsWorthRetrying(status: number): boolean {
+  return status === 0 || status === 403 || status === 429 || status >= 500;
+}
+
+async function fetchFsArk(
+  fetchArk: (url: string, accept: string) => Promise<DirectResponse>,
+  url: string,
+): Promise<string | undefined> {
+  const first = await fetchArk(url, FS_GEDCOMX_ACCEPT).catch(() => ({ status: 0 }) as DirectResponse);
+  if (first.text || !fsWorthRetrying(first.status)) return first.text;
+  await new Promise((r) => setTimeout(r, FS_RETRY_MS));
+  const second = await fetchArk(url, FS_GEDCOMX_ACCEPT).catch(() => ({ status: 0 }) as DirectResponse);
+  return second.text;
+}
 
 /** Parse one fetched book/record page into source metadata — the per-site
  *  rules shared by the cleanup tool's enrichment and the Add Source dialog. */
@@ -2570,6 +3283,10 @@ function parseBookMeta(site: ReshapeSite, bookUrl: string, html: string): Reshap
         };
       }
     }
+  } else if (site === "familysearch") {
+    // JSON, not a page — and the app shell a relay would return says nothing
+    // ("FamilySearch.org"), so there is no title fallback here.
+    meta = parseFamilySearchArkJson(html);
   } else {
     const title = pageTitleOf(html);
     if (title) meta = { title: title.replace(/\s*[-|]\s*Geneanet\s*$/i, "") };
@@ -2587,7 +3304,12 @@ export async function fetchBookMeta(
   site: ReshapeSite,
   bookUrl: string,
   fetchHtml: (url: string) => Promise<string | undefined>,
+  /** The no-relay fetch FamilySearch arks use; injectable for tests. */
+  fetchArk: (url: string, accept: string) => Promise<DirectResponse> = fetchDirect,
 ): Promise<ReshapeMeta | undefined> {
+  // A FamilySearch record page or catalog film would only answer 401/403 —
+  // don't ask at all.
+  if (site === "familysearch" && !isFamilySearchImageArk(bookUrl)) return undefined;
   const cacheKey = `${site}:${bookKeyOf(bookUrl)}`;
   const cached = bookMetaCache.get(cacheKey);
   if (cached) return cached;
@@ -2602,8 +3324,32 @@ export async function fetchBookMeta(
             // heading dates a newspaper issue; hl=en pins the date language.
             `${bookUrl}&printsec=frontcover&hl=en`
           : bookUrl;
-  const html = await fetchHtml(url).catch(() => undefined);
-  const meta = html ? parseBookMeta(site, bookUrl, html) : undefined;
+  // FamilySearch is asked directly: its ark answers cross-origin requests
+  // itself, so no relay sees the URL and the answer is the site's own. The
+  // image's film (DGS) number rides in the same paced slot — one more tiny
+  // anonymous request against the ark, answering `dgs:005482250.…_00127`;
+  // that number is the film the source's FILN and the repository's CALN cite.
+  let meta: ReshapeMeta | undefined;
+  if (site === "familysearch") {
+    const ark = parseFamilySearchUrl(bookUrl)?.ark;
+    const { json, film } = await pacedFsFetch(async () => {
+      const json = await fetchFsArk(fetchArk, url);
+      let film: string | undefined;
+      if (json && ark) {
+        const name = await fetchArk(
+          `https://www.familysearch.org/das/v2/${ark}/name?namespace=dgs`,
+          "text/plain",
+        ).catch(() => ({ status: 0 }) as DirectResponse);
+        film = /^dgs:(\d+)\./.exec(name.text?.trim() ?? "")?.[1];
+      }
+      return { json, film };
+    });
+    meta = json ? parseBookMeta(site, bookUrl, json) : undefined;
+    if (meta && film) meta = { ...meta, filingNumber: meta.filingNumber ?? film };
+  } else {
+    const html = await fetchHtml(url).catch(() => undefined);
+    meta = html ? parseBookMeta(site, bookUrl, html) : undefined;
+  }
   // A dateless Google Books result usually means a relay was served the About
   // page instead of the reader — don't pin that for the session; a later run
   // through a different relay may land the dated reader heading.
@@ -2614,9 +3360,9 @@ export async function fetchBookMeta(
 /**
  * Fetch metadata for the given (new-source) groups — **one fetch per book**,
  * via the injected `fetchHtml` (the allorigins relay wrapper; injectable for
- * tests). Matricula only: Geneanet blocks non-browser clients (kept
- * best-effort via the page title if the relay gets through) and FamilySearch
- * sits behind a login. Failures are swallowed — offline fallbacks stay.
+ * tests) — except FamilySearch arks, which are read directly from the site.
+ * Geneanet blocks non-browser clients (kept best-effort via the page title if
+ * the relay gets through). Failures are swallowed — offline fallbacks stay.
  */
 export async function fetchReshapeMeta(
   groups: ReshapeGroup[],
@@ -2626,7 +3372,7 @@ export async function fetchReshapeMeta(
   onMeta?: (groupId: string, meta: ReshapeMeta) => void,
 ): Promise<ReshapeEnrichment> {
   const enrichment: ReshapeEnrichment = new Map();
-  const targets = groups.filter((g) => isFetchableSite(g.site));
+  const targets = groups.filter((g) => isFetchableSite(g.site, g.bookUrl));
   let done = 0;
   onProgress?.(0, targets.length);
 
@@ -2644,4 +3390,116 @@ export async function fetchReshapeMeta(
   const queue = [...targets];
   await Promise.all([worker(queue), worker(queue)]);
   return enrichment;
+}
+
+/**
+ * Fold the FamilySearch groups that turned out to be pages of one book into a
+ * single group — one source with a page citation per image, the shape a
+ * paginated register wants, instead of one source per image.
+ *
+ * It can only run *after* enrichment: a FamilySearch image link says nothing
+ * about the book it belongs to (`ark:/61903/3:1:…?view=index` and no more), so
+ * which pages are one book is knowledge that arrives with the lookup. Each
+ * image keeps its own page number, moved onto the member it belongs to.
+ *
+ * Groups already bound to a source in the file, and groups marked for removal,
+ * are left alone. Returns the same report and enrichment untouched when there
+ * is nothing to fold, and `keyOf` — the original group ids that went into each
+ * book — for {@link reshapeSources} to fold its own scan the same way.
+ */
+export function mergeFsBooks(
+  report: ReshapeReport,
+  enrichment: ReshapeEnrichment,
+  baptismTag: "BIRT" | "BAPM" = "BIRT",
+): { report: ReshapeReport; enrichment: ReshapeEnrichment; keyOf: Map<string, string> } {
+  // A member scanned before the lookup knew the book's type shows no move,
+  // yet the apply relocates it with the enriched type — fill the display in
+  // so the row promises the move the apply will make. Moves the scan *did*
+  // compute (incl. marriage, which needs the family) are kept as they are.
+  const refreshMove = (m: ReshapeOccurrence, bookType: BookType): ReshapeOccurrence => {
+    if (m.targetEvent || m.foldedInto || m.shape === "sourTitle") return m;
+    const target = bookEventTarget(m.recordTag, m.eventTag, bookType, baptismTag);
+    return target ? { ...m, targetEvent: target } : m;
+  };
+
+  const byBook = new Map<string, { meta: ReshapeMeta; groups: ReshapeGroup[] }>();
+  for (const g of report.groups) {
+    if (g.site !== "familysearch" || g.removeLinks) continue;
+    const meta = enrichment.get(g.id);
+    if (!meta?.book) continue;
+    const key = `f:book:${looseKey(`${meta.collection ?? ""} ${meta.place ?? ""} ${meta.book}`)}`;
+    const slot = byBook.get(key);
+    if (slot) slot.groups.push(g);
+    else byBook.set(key, { meta, groups: [g] });
+  }
+
+  const keyOf = new Map<string, string>();
+  const books = new Map<string, ReshapeGroup>();
+  const bookMeta = new Map<string, ReshapeMeta>();
+  for (const [key, { meta, groups }] of byBook) {
+    if (groups.length < 2) continue; // one page is already its own group
+    const bookType = meta.bookType ?? "unknown";
+    const members: ReshapeOccurrence[] = [];
+    for (const g of groups) {
+      keyOf.set(g.id, key);
+      const page = enrichment.get(g.id)?.page;
+      for (const m of g.members) members.push(refreshMove(page && !m.page ? { ...m, page } : m, bookType));
+    }
+    // A page of this book that the file already cites names the source the
+    // whole book belongs to: the new pages join *that* record instead of
+    // minting a second source for one book.
+    const bound = groups.find((g) => g.existingSourceXref);
+    books.set(key, {
+      id: key,
+      site: "familysearch",
+      bookType,
+      existingSourceXref: bound?.existingSourceXref,
+      existingSourceTitle: bound?.existingSourceTitle,
+      urlTitled: bound?.urlTitled,
+      proposed: {
+        title: meta.title ?? groups[0].proposed.title,
+        author: meta.author,
+        agency: meta.agency,
+        place: meta.place,
+        // Not the ark (that named a single image) — the film (DGS) number,
+        // when the lookup resolved it, is an id the whole book shares.
+        filingNumber: meta.filingNumber,
+        dateRange: meta.dateRange,
+      },
+      bookUrl: groups[0].bookUrl,
+      pages: [...new Set(members.map((m) => m.page).filter((p): p is string => !!p))].sort(
+        (a, b) => Number(a) - Number(b) || a.localeCompare(b),
+      ),
+      members,
+    });
+    // The book's own metadata: the page belongs to each image, not to the book.
+    bookMeta.set(key, { ...meta, page: undefined });
+  }
+  // Each book takes the place of the first of its pages; the rest disappear.
+  // A group left unfolded still takes its lookup's book type — the scan may
+  // not have known it (a bare image link says nothing), and the apply will
+  // relocate by the enriched type, so the row must say so too.
+  let changed = keyOf.size > 0;
+  const groups: ReshapeGroup[] = [];
+  const emitted = new Set<string>();
+  for (const g of report.groups) {
+    const key = keyOf.get(g.id);
+    if (!key) {
+      const bookType = (!g.removeLinks && enrichment.get(g.id)?.bookType) || g.bookType;
+      const members = g.members.map((m) => refreshMove(m, bookType));
+      if (bookType !== g.bookType || members.some((m, i) => m !== g.members[i])) {
+        groups.push({ ...g, bookType, members });
+        changed = true;
+      } else groups.push(g);
+      continue;
+    }
+    if (emitted.has(key)) continue;
+    emitted.add(key);
+    groups.push(books.get(key)!);
+  }
+  if (!changed) return { report, enrichment, keyOf };
+  const merged: ReshapeEnrichment = new Map(enrichment);
+  // A hand-edited book keeps its edits — only an unseen one takes the fold's.
+  for (const [key, meta] of bookMeta) if (!merged.has(key)) merged.set(key, meta);
+  return { report: { ...report, groups }, enrichment: merged, keyOf };
 }

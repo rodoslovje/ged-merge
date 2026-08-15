@@ -1,14 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
+import { linkTooltip } from "../FieldValue";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../../gedcom/types";
 import {
   ALL_SITES,
   SITE_ICON,
+  baptismTargetTag,
   fetchReshapeMeta,
   isFetchableSite,
+  mergeFsBooks,
   makePlaceResolver,
+  parsePastedFsCitation,
   reshapeOptionsFromOverrides,
-  reshapeSources,
   type ReshapeEnrichment,
   type ReshapeGroup,
   type ReshapeMeta,
@@ -16,14 +19,16 @@ import {
   type ReshapeReport,
   type ReshapeSite,
 } from "../../tools/sourceReshape";
-import { dedupeSources, type DuplicateReport, type DupGroup, type DupKind } from "../../tools/sourceDuplicates";
-import { familySpouses } from "../../tools/sources";
+import { type DuplicateReport, type DupGroup, type DupKind } from "../../tools/sourceDuplicates";
+import { applySourceCleanup } from "../../tools/sourceCleanupApply";
+import type { RecordPatch } from "../historyTypes";
+import { familySpouses, recordCitedBy } from "../../tools/sources";
+import { UsageList } from "./shared";
 import { PersonLink } from "../PersonLink";
-import { downloadOptions, ensureUtf8Charset, serializeGedcom, stampHeadSource } from "../../gedcom/serialize";
 import { sourceTooltip } from "../../gedcom/source";
+import { parseSourceInput } from "../../gedcom/citationParse";
 import { fetchPageHtml } from "../../normalize/urlMetadata";
 import { linkKey } from "../../normalize/links";
-import { downloadText, savedName } from "../download";
 import { isEditableTarget, isModalOpen } from "../../keyboard/shortcuts";
 import { BackButton } from "../BackButton";
 import { SelectMenu } from "../DropdownMenu";
@@ -65,29 +70,31 @@ function QuaySelect({ value, onChange }: { value: string; onChange: (value: stri
 }
 
 /**
- * Whole-file source cleanup, one download: the *reshape* section turns bare
- * Matricula / Geneanet / Find a Grave / FamilySearch links into proper source
- * records with pointer citations; the *duplicates* section collapses records
- * describing the same media/source/repository. Applying runs reshape first,
- * then dedupe (so re-pointing also covers the just-written citations), and
- * serializes a single `.gedmerge.ged` — the live dataset is never touched.
+ * Whole-file source cleanup, applied to the open file: the *reshape* section
+ * turns bare Matricula / Geneanet / Find a Grave / FamilySearch links into
+ * proper source records with pointer citations; the *duplicates* section
+ * collapses records describing the same media/source/repository. Applying runs
+ * reshape first, then dedupe (so re-pointing also covers the just-written
+ * citations), and lands as one undoable step the next save takes along — like
+ * every other Tools repair, no separate download.
  */
 export function SourceCleanupView({
   reshapeReport: reshapeReportProp,
   dupReport: dupReportProp,
   dataset,
-  fileName,
   onNavigate,
   onBack,
+  onApplyPatches,
   active,
 }: {
   /** Null when that scan failed — the other tool keeps working. */
   reshapeReport: ReshapeReport | null;
   dupReport: DuplicateReport | null;
   dataset: Dataset;
-  fileName: string;
   onNavigate: (id: string) => void;
   onBack: () => void;
+  /** Apply the run as one undoable step; returns how many records changed. */
+  onApplyPatches: (patches: RecordPatch[]) => number;
   /** Whether this view is the one on screen — the Esc-to-leave shortcut must
    *  not fire from a hidden, still-mounted panel (it would drop its state). */
   active: boolean;
@@ -117,6 +124,9 @@ export function SourceCleanupView({
   const [excluded, setExcluded] = useState<Set<string>>(new Set());
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [relocate, setRelocate] = useState(true);
+  /** Also shorten the links already stored on the media the run touches. Off
+   *  by default: those records are otherwise fine. */
+  const [tidyLinks, setTidyLinks] = useState(false);
   const [quay, setQuay] = useState("");
   /** Per-reference QUAY overrides, keyed `${groupId}:${memberIndex}`. */
   const [quayOverrides, setQuayOverrides] = useState<Map<string, string>>(new Map());
@@ -129,6 +139,9 @@ export function SourceCleanupView({
   const [fetching, setFetching] = useState<{ done: number; total: number } | null>(null);
   /** Books the last fetch run could not retrieve (relay down / blocked). */
   const [fetchFailed, setFetchFailed] = useState(0);
+  /** Records the last apply changed — the run's own receipt, cleared as soon
+   *  as the re-scan brings a fresh report in. */
+  const [applied, setApplied] = useState(0);
   // Duplicates: excluded groups + survivor overrides keyed by group id.
   const [dupExcluded, setDupExcluded] = useState<Set<string>>(new Set());
   const [survivors, setSurvivors] = useState<Map<string, string>>(new Map());
@@ -165,7 +178,23 @@ export function SourceCleanupView({
       return next;
     });
 
-  const visibleGroups = useMemo(() => reshapeReport.groups.filter((g) => sites.has(g.site)), [reshapeReport, sites]);
+  // Once the lookups are in, the FamilySearch pages that belong to one book
+  // become one row — one source with a page citation each, instead of one
+  // source per image. Everything below works on the folded report; the fetch
+  // itself still goes image by image, since that is where a page number is.
+  // The fold refreshes each member's shown move with the enriched book type;
+  // baptism moves follow the same override-or-file habit the apply resolves.
+  const baptismTag = useMemo(
+    () => settings.formatOverrides?.baptism ?? baptismTargetTag(dataset.records),
+    [settings.formatOverrides, dataset],
+  );
+  const folded = useMemo(
+    () => mergeFsBooks(reshapeReport, enrichment, baptismTag),
+    [reshapeReport, enrichment, baptismTag],
+  );
+  // A fresh scan means the previous run's receipt is history.
+  useEffect(() => setApplied(0), [reshapeReport, dupReport]);
+  const visibleGroups = useMemo(() => folded.report.groups.filter((g) => sites.has(g.site)), [folded, sites]);
   const selectedGroups = useMemo(
     () =>
       visibleGroups
@@ -181,33 +210,49 @@ export function SourceCleanupView({
         })),
     [visibleGroups, excluded, quayOverrides, quay, removeMarked],
   );
-  const citationCount = selectedGroups.reduce((n, g) => n + g.members.length, 0);
   // Books the fetch button will actually check: only *selected* new-source
   // groups on fetchable sites, and only those not already fetched.
   // URL-titled sources are "existing" but get rewritten — they want enrichment
   // as much as brand-new ones do.
-  const fetchableGroups = selectedGroups.filter(
+  // …and it works on the *unfolded* groups: one lookup per image, each
+  // answering with that image's own page number. A book already folded is
+  // fetched, and one whose row is unticked is left out with it.
+  // A page that already has a source is looked up too, where the lookup is
+  // what tells one book from another: it says which record the page belongs
+  // to, and carries that page's own number. Elsewhere a source already in the
+  // file needs nothing fetched — its fields are the file's, not a proposal.
+  const fetchableGroups = reshapeReport.groups.filter(
     (g) =>
-      (!g.existingSourceXref || g.urlTitled) && !g.removeLinks && !enrichment.has(g.id) && isFetchableSite(g.site),
+      sites.has(g.site) &&
+      !excluded.has(folded.keyOf.get(g.id) ?? g.id) &&
+      (!g.existingSourceXref || g.urlTitled || g.site === "familysearch") &&
+      !removeMarked.has(g.id) &&
+      !enrichment.has(g.id) &&
+      isFetchableSite(g.site, g.bookUrl),
   );
 
   const selectedDupGroups = dupReport.groups
     .filter((g) => !dupExcluded.has(g.id))
     .map((g) => withSurvivor(g, survivors.get(g.id) ?? defaultSurvivor(g)));
-  const removeCount = selectedDupGroups.reduce((n, g) => n + g.removable, 0);
 
-  function download() {
+  function apply() {
     // Reshape first (its existing-source targets are original xrefs), then
     // dedupe — which also re-points the citations the reshape just wrote.
-    const { records: reshaped } = reshapeSources(dataset.records, selectedGroups, enrichment, {
-      ...reshapeOptionsFromOverrides(settings.formatOverrides),
-      relocate,
-    });
-    const { records } = dedupeSources(reshaped, selectedDupGroups);
-    ensureUtf8Charset(records, dataset); // downloads are UTF-8 bytes
-    stampHeadSource(records, dataset);
-    const text = serializeGedcom(records, downloadOptions(dataset));
-    downloadText(savedName(fileName, "ged"), text);
+    const patches = applySourceCleanup(
+      dataset,
+      {
+        groups: selectedGroups,
+        enrichment: folded.enrichment,
+        options: {
+          ...reshapeOptionsFromOverrides(settings.formatOverrides),
+          relocate,
+          tidyLinks,
+          mergeGroups: folded.keyOf,
+        },
+      },
+      selectedDupGroups,
+    );
+    setApplied(onApplyPatches(patches));
   }
 
   async function fetchDetails() {
@@ -237,7 +282,7 @@ export function SourceCleanupView({
   // Fetched title → the existing source's own title (correct diacritics, no
   // fetch needed) → the offline URL-derived guess.
   const groupTitle = (g: ReshapeGroup) =>
-    enrichment.get(g.id)?.title ?? (g.existingSourceXref ? g.existingSourceTitle : undefined) ?? g.proposed.title;
+    folded.enrichment.get(g.id)?.title ?? (g.existingSourceXref ? g.existingSourceTitle : undefined) ?? g.proposed.title;
 
   // Full field-per-row tooltip for the new/existing badge — same "TAG: value"
   // style as the Sources tree's record tooltips.
@@ -271,7 +316,7 @@ export function SourceCleanupView({
       const fields = node ? localizeTooltip(sourceTooltip(node)) : g.existingSourceTitle ?? "";
       return [g.existingSourceXref, fields].filter(Boolean).join("\n");
     }
-    const meta = enrichment.get(g.id);
+    const meta = folded.enrichment.get(g.id);
     // The same field values the apply writes: fetched over offline-proposed,
     // the place matched against the file's own place format.
     const place = resolvePlace(meta?.place ?? g.proposed.place);
@@ -292,10 +337,34 @@ export function SourceCleanupView({
   const hasDups = dupReport.groups.length > 0;
   const nothingSelected = selectedGroups.length === 0 && selectedDupGroups.length === 0;
 
+  // The page's one primary action, on the head of the first list it acts on —
+  // where Geocoding and Naming keep theirs. It covers both sections, so it is
+  // rendered once: on the links list when there is one, else on the duplicates.
+  // Its count says how many groups will change; the summary above already
+  // spells out what the file holds, so nothing repeats it here.
+  const applyAction = (
+    <>
+      <button className="nav-btn primary tools-run" onClick={apply} disabled={nothingSelected}>
+        {/* Named after what it will actually do to the ticked rows: convert
+            links into sources, merge duplicates away, or — with both lists in
+            play — the two at once, which only "apply" covers. */}
+        {selectedDupGroups.length === 0
+          ? t("tools.sources.applyConvert", { count: selectedGroups.length })
+          : selectedGroups.length === 0
+            ? t("tools.sources.applyMerge", { count: selectedDupGroups.length })
+            : t("tools.sources.cleanupApply", { count: selectedGroups.length + selectedDupGroups.length })}
+      </button>
+      {applied > 0 && <span className="tools-fix-hint">{t("tools.sources.cleanupApplied", { count: applied })}</span>}
+    </>
+  );
+
   return (
     <>
+      {/* Which page this is, beside the way back from it, with the file's own
+          totals on the right — the shape every Tools sub-page shares. */}
       <div className="tools-filter-row">
         <BackButton label={t("tools.sources.dupBack")} shortcutHint="Esc" showLabel onClick={onBack} />
+        <h2 className="tools-page-title">{t("tools.sources.cleanupToggle")}</h2>
         <ToolSummary>
           {[
             hasReshape &&
@@ -312,10 +381,12 @@ export function SourceCleanupView({
 
       {hasReshape && (
         <section className="tools-cleanup-section">
+          {/* No heading of its own: the page is called Organize sources, the
+              summary counts its groups, and the paragraph below says what the
+              list holds — a fourth telling would only repeat them. */}
           <div className="tools-dup-kind-head">
-            {t("tools.sources.reshapeHeading")}
-            <span className="tools-chip-count">{visibleGroups.length}</span>
             <div className="tools-dup-bulk">
+              {applyAction}
               <button className="tools-issue-link" onClick={() => setExcluded(new Set())}>
                 {t("tools.sources.dupSelectAll")}
               </button>
@@ -358,6 +429,10 @@ export function SourceCleanupView({
             <label className="tools-reshape-site" title={t("tools.sources.reshapePlaceHint")}>
               <input type="checkbox" checked={relocate} onChange={() => setRelocate((v) => !v)} />
               {t("tools.sources.reshapePlace")}
+            </label>
+            <label className="tools-reshape-site" title={t("tools.sources.tidyLinksHint")}>
+              <input type="checkbox" checked={tidyLinks} onChange={() => setTidyLinks((v) => !v)} />
+              {t("tools.sources.tidyLinks")}
             </label>
             <QuaySelect value={quay} onChange={setQuay} />
             {settings.allowLinkFetch && (fetchableGroups.length > 0 || fetching !== null) && (
@@ -411,6 +486,7 @@ export function SourceCleanupView({
             {t("tools.sources.dupHeading")}
             <span className="tools-chip-count">{dupReport.groups.length}</span>
             <div className="tools-dup-bulk">
+              {!hasReshape && applyAction}
               <button className="tools-issue-link" onClick={() => setDupExcluded(new Set())}>
                 {t("tools.sources.dupSelectAll")}
               </button>
@@ -451,12 +527,14 @@ export function SourceCleanupView({
                     <DupGroupRow
                       key={g.id}
                       group={g}
+                      dataset={dataset}
                       checked={!dupExcluded.has(g.id)}
                       survivorXref={survivors.get(g.id) ?? defaultSurvivor(g)}
                       open={expanded.has(g.id)}
                       onToggleCheck={() => toggleDupGroup(g.id)}
                       onToggleOpen={() => toggleExpand(g.id)}
                       onChooseSurvivor={(xref) => setSurvivors((m) => new Map(m).set(g.id, xref))}
+                      onNavigate={onNavigate}
                     />
                   ))}
               </ul>
@@ -465,29 +543,11 @@ export function SourceCleanupView({
         </section>
       )}
 
-      <div className="tools-dup-actions">
-        <button className="nav-btn primary tools-run" onClick={download} disabled={nothingSelected}>
-          {t("tools.sources.cleanupDownload")}
-        </button>
-        {!nothingSelected && (
-          <span className="tools-fix-hint">
-            {[
-              selectedGroups.length > 0 &&
-                t("tools.sources.reshapeDownloadCount", { groups: selectedGroups.length, citations: citationCount }),
-              selectedDupGroups.length > 0 &&
-                t("tools.sources.dupDownloadCount", { groups: selectedDupGroups.length, records: removeCount }),
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-          </span>
-        )}
-      </div>
-
       {editGroup && (
         <GroupEditDialog
           key={editGroup.id}
           group={editGroup}
-          meta={enrichment.get(editGroup.id)}
+          meta={folded.enrichment.get(editGroup.id)}
           resolvePlace={resolvePlace}
           onSave={(meta) => setEnrichment((prev) => new Map(prev).set(editGroup.id, meta))}
           onClose={() => setEditGroup(null)}
@@ -523,7 +583,16 @@ function GroupEditDialog({
     place: resolvePlace(meta?.place ?? group.proposed.place) ?? "",
     filingNumber: meta?.filingNumber ?? group.proposed.filingNumber ?? "",
     dateRange: meta?.dateRange ?? group.proposed.dateRange ?? "",
+    // Which entry of the source this is — "Entry for Anna Rakar and Martin
+    // Sadec, 9 July 1901". It belongs to the citation, so it is offered only
+    // where the group is a single link and there is one citation to carry it.
+    page: meta?.page ?? group.members[0]?.page ?? group.pages[0] ?? "",
   }));
+  // The page is the citation's, not the source's — editable here only where
+  // every reference in the group points at one link, and so shares it. A group
+  // spanning several links (a book's pages) carries a page per member instead,
+  // shown on the member's own row.
+  const onePage = new Set(group.members.map((m) => linkKey(m.url))).size <= 1;
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -532,6 +601,39 @@ function GroupEditDialog({
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
+
+  // A citation pasted from the site itself (FamilySearch's "Copy citation",
+  // whose record pages no lookup can reach) fills the fields in one go. Only
+  // what it actually names is written — the rest of the form stands.
+  const [pasted, setPasted] = useState("");
+  /** What a pasted citation says beyond the six editable fields: the register
+   *  type (which decides the event a citation lands on) and, for a group that
+   *  is one link, which entry of the source it is. */
+  const [citedExtras, setCitedExtras] = useState<ReshapeMeta | undefined>();
+  function fillFromCitation(text: string) {
+    setPasted(text);
+    const cited = parsePastedFsCitation(text);
+    const generic = cited ? undefined : parseSourceInput(text);
+    setCitedExtras(
+      cited && {
+        bookType: cited.bookType,
+        collection: cited.collection,
+        // A page belongs to a link; a group spanning several would stamp every
+        // citation with one record's entry.
+        page: onePage ? cited.page : undefined,
+      },
+    );
+    const take = (was: string, ...found: (string | undefined)[]) => found.find((v) => v?.trim())?.trim() ?? was;
+    setFields((f) => ({
+      title: take(f.title, cited?.title, generic?.title),
+      author: take(f.author, cited?.author, generic?.author),
+      agency: take(f.agency, cited?.agency, generic?.publisher),
+      place: take(f.place, resolvePlace(cited?.place ?? generic?.place)),
+      filingNumber: take(f.filingNumber, cited?.filingNumber),
+      dateRange: take(f.dateRange, cited?.dateRange),
+      page: onePage ? take(f.page, cited?.page) : f.page,
+    }));
+  }
 
   const field = (key: keyof typeof fields, labelKey: string, autoFocus = false) => (
     <label className="add-source-field">
@@ -548,6 +650,7 @@ function GroupEditDialog({
   function save() {
     onSave({
       ...meta,
+      ...citedExtras,
       // A blanked title falls back to the proposal — sources need one; the
       // other fields keep the emptied value, which the apply then omits.
       title: fields.title.trim() || group.proposed.title,
@@ -556,6 +659,7 @@ function GroupEditDialog({
       place: fields.place.trim(),
       filingNumber: fields.filingNumber.trim(),
       dateRange: fields.dateRange.trim(),
+      ...(onePage ? { page: fields.page.trim() } : {}),
     });
     onClose();
   }
@@ -579,13 +683,27 @@ function GroupEditDialog({
           </button>
         </div>
         <div className="modal-body">
-          {field("title", "addSource.field.title", true)}
+          <label className="add-source-field">
+            <span>{t("tools.sources.pasteCitation")}</span>
+            {/* Focused on open: the dialog's fastest path is pasting a copied
+                citation straight in, no click first. */}
+            <textarea
+              className="edit-input add-source-textarea"
+              rows={2}
+              autoFocus
+              placeholder={t("addSource.placeholder")}
+              value={pasted}
+              onChange={(e) => fillFromCitation(e.target.value)}
+            />
+          </label>
+          {field("title", "addSource.field.title")}
           <div className="add-source-details-grid">
             {field("author", "addSource.field.author")}
             {field("agency", "addSource.field.agency")}
             {field("place", "addSource.field.place")}
             {field("filingNumber", "addSource.field.filingNumber")}
             {field("dateRange", "addSource.field.dateRange")}
+            {onePage && field("page", "addSource.field.page")}
           </div>
         </div>
         <div className="add-source-actions">
@@ -652,11 +770,11 @@ function ReshapeGroupRow({
         <span
           className={`tools-tree-label clickable${removeMarked ? " tools-reshape-removed" : ""}`}
           onClick={onToggleOpen}
-          title={group.bookUrl}
+          title={linkTooltip(group.bookUrl, t)}
         >
           {SITE_ICON[group.site]} {title}
         </span>
-        <a className="tools-tree-meta" href={group.bookUrl} target="_blank" rel="noreferrer" title={group.bookUrl}>
+        <a className="tools-tree-meta" href={group.bookUrl} target="_blank" rel="noreferrer" title={linkTooltip(group.bookUrl, t)}>
           ↗
         </a>
         {group.bookType !== "unknown" && (
@@ -664,6 +782,13 @@ function ReshapeGroupRow({
         )}
         {group.pages.length > 0 && (
           <span className="tools-tree-meta">{t("tools.sources.reshapePages", { count: group.pages.length })}</span>
+        )}
+        {/* A record page no lookup can reach — the paste box in ✎ is the way
+            its details arrive, and this row is exactly where to say so. */}
+        {group.site === "familysearch" && !removeMarked && !isFetchableSite(group.site, group.bookUrl) && (
+          <span className="tools-tree-meta" title={t("tools.sources.fsSigninHint")}>
+            🔒 {t("tools.sources.fsSignin")}
+          </span>
         )}
         {removeMarked ? (
           <span className="tools-reshape-badge remove" title={t("tools.sources.reshapeRemoveHint")}>
@@ -691,7 +816,17 @@ function ReshapeGroupRow({
         >
           {removeMarked ? "↩" : "🗑"}
         </button>
-        <span className="tools-chip-count">{group.members.length}</span>
+        {/* The count is the expand toggle, as in the geocoding and naming
+            lists: the persons it counts are the member rows below. */}
+        <button
+          className="tools-chip-count tools-count-toggle"
+          aria-pressed={open}
+          aria-expanded={open}
+          title={t("tools.sources.reshapeCountToggle")}
+          onClick={onToggleOpen}
+        >
+          {group.members.length}
+        </button>
       </div>
       {open && (
         <div className="tools-tree-children">
@@ -787,7 +922,7 @@ function MemberRow({
         />
       )}
       {linkKey(m.url) !== groupUrlKey && (
-        <a className="tools-tree-meta" href={m.url} target="_blank" rel="noreferrer" title={m.url}>
+        <a className="tools-tree-meta" href={m.url} target="_blank" rel="noreferrer" title={linkTooltip(m.url, t)}>
           ↗
         </a>
       )}
@@ -800,22 +935,31 @@ function MemberRow({
  *  record to keep (the rest fold into it). */
 function DupGroupRow({
   group,
+  dataset,
   checked,
   survivorXref,
   open,
   onToggleCheck,
   onToggleOpen,
   onChooseSurvivor,
+  onNavigate,
 }: {
   group: DupGroup;
+  dataset: Dataset;
   checked: boolean;
   survivorXref: string;
   open: boolean;
   onToggleCheck: () => void;
   onToggleOpen: () => void;
   onChooseSurvivor: (xref: string) => void;
+  onNavigate: (id: string) => void;
 }) {
   const { t } = useTranslation();
+  // The header count is the people toggle, as the counts in the geocoding and
+  // naming lists are: clicking it opens the persons whose records cite this
+  // group (and the row with them). A repository's citers are `SOUR` records,
+  // not persons, so its count stays plain.
+  const [peopleOpen, setPeopleOpen] = useState(false);
   return (
     <li className="tools-tree-node">
       <div className="tools-tree-row">
@@ -830,7 +974,22 @@ function DupGroupRow({
         <span className="tools-tree-label clickable" onClick={onToggleOpen} title={group.label}>
           {group.label}
         </span>
-        <span className="tools-chip-count">{group.members.length}</span>
+        {group.kind === "repo" ? (
+          <span className="tools-chip-count">{group.members.length}</span>
+        ) : (
+          <button
+            className="tools-chip-count tools-count-toggle"
+            aria-pressed={peopleOpen}
+            title={t("tools.sources.dupUsageToggle")}
+            onClick={() => {
+              const next = !peopleOpen;
+              setPeopleOpen(next);
+              if (next && !open) onToggleOpen();
+            }}
+          >
+            {group.members.length}
+          </button>
+        )}
       </div>
       {open && (
         <div className="tools-tree-children">
@@ -850,15 +1009,34 @@ function DupGroupRow({
                   </label>
                   <span className="tools-dup-title">{m.title}</span>
                   {m.detail && m.detail !== m.title && <span className="tools-tree-meta">{m.detail}</span>}
-                  {m.usage > 0 && (
-                    <span className="tools-tree-meta">· {t("tools.sources.dupUsage", { count: m.usage })}</span>
-                  )}
                 </li>
               );
             })}
           </ul>
+          {peopleOpen && (
+            <DupGroupUses dataset={dataset} xrefs={group.members.map((m) => m.xref)} onNavigate={onNavigate} />
+          )}
         </div>
       )}
     </li>
+  );
+}
+
+/** The persons citing a duplicate group's records, resolved only when its
+ *  count is opened — a whole-file pointer walk has no place in the row render. */
+function DupGroupUses({
+  dataset,
+  xrefs,
+  onNavigate,
+}: {
+  dataset: Dataset;
+  xrefs: string[];
+  onNavigate: (id: string) => void;
+}) {
+  const uses = useMemo(() => recordCitedBy(dataset, xrefs), [dataset, xrefs]);
+  return (
+    <div className="tools-dup-uses">
+      <UsageList dataset={dataset} uses={uses} onNavigate={onNavigate} />
+    </div>
   );
 }

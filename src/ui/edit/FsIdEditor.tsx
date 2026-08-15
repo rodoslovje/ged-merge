@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { linkTooltip } from "../FieldValue";
 import type { Individual } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
 import { setFsIds, type FsIdTag } from "../../gedcom/edit";
@@ -102,7 +103,7 @@ export function FsIdEditor({
                 href={familySearchPersonUrl(id)}
                 target="_blank"
                 rel="noopener noreferrer"
-                title={t("edit.fsIdOpen")}
+                title={linkTooltip(familySearchPersonUrl(id), t, t("edit.fsIdOpen"))}
               >
                 🌳
               </a>

@@ -267,7 +267,7 @@
             </ul>
             <p>The other three tabs:</p>
             <ul>
-              <li><strong>GEDCOM</strong> — override any file convention GED Merge would otherwise detect, grouped as <em>Dates</em>, <em>Names</em>, <em>Places</em>, <em>Sources</em> and <em>Privacy</em>: date format, unknown date parts, alternate names, the unknown-name marker, place format and the comma form between place levels, source and citation layout, page links, baptism citations, doubled links, the Matricula and Geneanet link languages, and the private-flag tag. Each row shows a sample of what the choice writes and defaults to <em>Auto (detected)</em> — following the file's own habit — but a chosen value is then enforced by the incoming-file normalizer, the <a href="#tools">Normalize</a> tool, <a href="#tools">Organize sources</a>, Add Source and inline editing. Date, place, name and link choices take effect from the next file load. Beneath them sits <em>Home country</em>, which is not a convention but a reading of your file: which country a place that names none is taken to be in (<a href="#geocode">§10</a>). It follows the file — the country three quarters of its country-naming places agree on, shown in the option itself — and can be set to any country instead, or to assume nothing. See <a href="#house-style">§4</a> and <a href="#sources">§13</a>.</li>
+              <li><strong>GEDCOM</strong> — override any file convention GED Merge would otherwise detect, grouped as <em>Dates</em>, <em>Names</em>, <em>Places</em>, <em>Sources</em> and <em>Privacy</em>: date format, unknown date parts, alternate names, the unknown-name marker, place format and the comma form between place levels, source and citation layout, page links, baptism citations, source coverage (the program's own place-and-years fields, or the standard's <em>DATA</em> structure), doubled links, the Matricula and Geneanet link languages, and the private-flag tag. Each row shows a sample of what the choice writes and defaults to <em>Auto (detected)</em> — following the file's own habit — but a chosen value is then enforced by the incoming-file normalizer, the <a href="#tools">Normalize</a> tool, <a href="#tools">Organize sources</a>, Add Source and inline editing. Date, place, name and link choices take effect from the next file load. Beneath them sits <em>Home country</em>, which is not a convention but a reading of your file: which country a place that names none is taken to be in (<a href="#geocode">§10</a>). It follows the file — the country three quarters of its country-naming places agree on, shown in the option itself — and can be set to any country instead, or to assume nothing. See <a href="#house-style">§4</a> and <a href="#sources">§13</a>.</li>
               <li><strong>Map</strong> — <em>Place directories</em> holds the gazetteers your place names are matched against: download Slovenia's GURS register, Croatia's DGU register of geographical names or any country from OpenStreetMap, import a GeoNames file, and see what is loaded with its size and date or remove it. Croatia's <em>DGU address register</em> is offered here too — every house number in the country, downloaded once and thereafter looked up in this browser (<a href="#geocode">§10</a>). They live in this browser, not in the file, so they outlive the file you have open and serve every file you load; <a href="#geocode">Geocode places</a> (<a href="#tools">§10</a>) offers the same downloads while you have none. <em>Load base-map tiles</em> opts in to a map background for every map in the app (tile requests reveal the viewed region; off = a built-in offline outline), and <em>Base map</em> picks which one: CARTO, OpenStreetMap, terrain, Esri satellite or topographic, or your own tile-URL template. Once tiles are allowed, a live sample above the picker draws the current choice. <em>Additional map layers</em> configures maps drawn over the base — pick a bundled free preset (including Slovenia's national GURS maps), or add your own tile-URL template or OGC&nbsp;WMS service (name, URL, valid years, attribution). See <a href="#map">§11</a>.</li>
               <li><strong>Advanced › Online lookups</strong> — <em>Look up details online</em>: when you add a source from a bare URL, GED Merge fetches its page title through a public relay. The same switch powers the per-row online searches (OpenStreetMap and the Genealogical Gazetteer, GOV) and the GURS address-register lookups used by <a href="#geocode">Geocode places</a>; those services are called directly, not through a relay. The one-click OpenStreetMap, GURS and DGU directory downloads are outside it — a download asks nothing about your file, so it is always offered. Croatian addresses are the exception that proves the rule: once the DGU address register is downloaded they are answered from this browser, so those lookups are offered whether the switch is on or off. <strong>Apart from the map tiles you opt into separately, these are the only features that send anything off your device, and they are off by default.</strong></li>
               <li><strong>Advanced › Locally stored data</strong> — <em>Remember my work in this browser</em>, <em>Clear locally stored data</em>, and <em>Silenced media-folder dialogs</em> (see <a href="#photos">§12</a>), which appears once you have dismissed one for good and restores it.</li>
@@ -963,8 +963,10 @@
             <p>
               <strong>Normalize file</strong> detects the file's own dominant date format, place layout and link
               style, then re-renders records that deviate — e.g. <em>1 Jan 1900</em> → <em>01.01.1900</em>, reshaping
-              places, and rewriting Matricula or Geneanet links to a consistent form. A preview lists examples of each
-              change before you download the normalized copy.
+              places, rewriting Matricula or Geneanet links to a consistent form, and restating each source's coverage
+              in the file's own shape (or the one chosen in <a href="#workspace">Settings › GEDCOM</a> — program fields
+              or the standard's <em>DATA</em> structure). A preview lists examples of each change before you download
+              the normalized copy.
             </p>
             <h3 id="tool-privacy">Privacy</h3>
             <p>
@@ -1031,19 +1033,31 @@
               citations</strong>, grouped by book, grave or record and reusing the sources and repositories your file
               already has. It reads a growing list of sites: from the URL alone it derives a readable title, filing number
               and place, and <strong>Fetch source details</strong> can enrich each with the real register/grave/record
-              metadata through public relays (the online-lookups opt-in). Any date a site reports is written in your
+              metadata through public relays (the online-lookups opt-in) — FamilySearch collection images are asked of
+              FamilySearch directly, one at a time. Once they answer, the FamilySearch pages that turn out to belong to
+              one register are gathered into a single source, each link becoming a page citation on it: a file citing
+              hundreds of single images ends up with one source per book. Nothing in such a link says which book it is,
+              so this can only follow the lookup — without it every page stays its own source. A FamilySearch link the
+              app writes carries the ark alone, since the viewer state a copied URL trails
+              (<em>view</em>, <em>groupId</em>, <em>cc/wc/i</em>) says how the reader got there rather than what the page
+              is — and makes one page look like several. <strong>Shorten links</strong> extends that to the links already
+              stored on the media the run touches; it is off by default, since those records are otherwise fine. Any date a site reports is written in your
               file's own date format, whatever shape the page used. Citations land on the matching event (created if
               missing), a <strong>QUAY</strong> quality can be set globally with per-row overrides, and graves fill the
               burial place and cemetery address.
             </p>
             <p>
-              Every proposed group is reviewable before you download: edit a source by hand with <span class="gm-glyph">✎</span>
+              Every proposed group is reviewable before you apply: edit a source by hand with <span class="gm-glyph">✎</span>
               on its row (title, author, archive, place, filing number, year range — hand-edited sources are then skipped
               by Fetch source details), or mark a group <strong>Remove references</strong> (<span class="gm-glyph danger">🗑</span>)
               to strip a dead or obsolete URL from everywhere it appears without creating a source (<span class="gm-glyph">↩</span>
               unmarks it). The tool honors your <a href="#workspace">Settings › GEDCOM</a> format overrides and re-scans
-              when you change one, and it shares the download with the source <strong>duplicate finder</strong> — one save
-              applies both. Private people, notes and media are never turned into a citation (<a href="#privacy">§18</a>).
+              when you change one, and it shares its run button with the source <strong>duplicate finder</strong> — one
+              click does both, and the button says which: <strong>Convert to sources</strong>, <strong>Merge
+              duplicates</strong>, or <strong>Apply to the file</strong> when the ticked rows call for both. Applying writes into the open file as a single
+              undoable step, like every other Tools repair: <span class="gm-key">Ctrl</span><span class="gm-key">Z</span>
+              takes it back, and the next <a href="#saving">Save</a> carries it into your GEDCOM along with everything
+              else you changed. Private people, notes and media are never turned into a citation (<a href="#privacy">§18</a>).
             </p>
             <h3 id="places">Places</h3>
             <p>
@@ -1896,8 +1910,18 @@
               Add Source <strong>recognizes archive links</strong> the same way <a href="#tools">Organize sources</a>
               does: paste a URL from a supported site (Matricula, Geneanet, Find a Grave, FamilySearch, newspaper and
               library archives, and more) and it prefills the title, author, place, archive, filing number and page, with
-              the online lookup fetching the real book/grave/record details. The created source picks up your file's place
-              format, year range and repository. Which layout it writes — where citations, page images and baptism sources
+              the online lookup fetching the real book/grave/record details. A <strong>FamilySearch</strong> link to a
+              page of a book is read from FamilySearch itself, no sign-in involved: the collection, the parish, the
+              register with its years, the holding archive and the image number all come from the citation FamilySearch
+              composes for that image — a link naming neither the collection nor the image number included, since
+              FamilySearch resolves both from the link itself. Where one book holds more than one register
+              (<em>Births 1892-1899 Marriages 1858-1890</em>), a row of choices under the recognized link says which one
+              the page in front of you is: picking narrows the title and the years, and sends the citation to the
+              matching event. The page written is the image number from that citation; FamilySearch's finer numbering
+              within a film item is only visible to a signed-in reader, so type it over if you prefer it. Its indexed
+              record pages sit behind a sign-in and its catalog films carry no such citation; both keep what the link
+              and your pasted text already say. The created source picks up
+              your file's place format, year range and repository. Which layout it writes — where citations, page images and baptism sources
               sit — follows your <a href="#workspace">Settings › GEDCOM</a> overrides (<a href="#workspace">§2</a>).
             </p>
             <p>

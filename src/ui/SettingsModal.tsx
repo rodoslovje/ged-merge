@@ -93,6 +93,7 @@ const FORMAT_GROUPS: { group: string; dims: FormatDimension[] }[] = [
       { key: "citations", choices: ["event", "record"] },
       { key: "pageMedia", choices: ["event", "source"] },
       { key: "baptism", choices: ["BIRT", "BAPM"] },
+      { key: "sourceCoverage", choices: ["vendor", "standard"] },
       { key: "doubledLinks", choices: ["fold", "keep"] },
       { key: "matriculaLang", choices: ["sl", "de", "en", "cs", "it"], verbatim: true },
       { key: "geneanetLang", choices: ["en", "de", "es", "fi", "fr", "it", "nl", "no", "pt", "sv"], verbatim: true },
@@ -121,6 +122,7 @@ const FORMAT_SAMPLES: Partial<Record<keyof FormatOverrides, Record<string, strin
   citations: { event: "1 BIRT › 2 SOUR", record: "1 SOUR" },
   pageMedia: { event: "2 SOUR + 2 OBJE", source: "0 SOUR › 1 OBJE" },
   baptism: { BIRT: "1 BIRT › 2 SOUR", BAPM: "1 BAPM › 2 SOUR" },
+  sourceCoverage: { vendor: "1 PLAC, 1 DATE", standard: "1 DATA › 2 EVEN DEAT" },
   doubledLinks: { fold: "1 BIRT › 2 WWW", keep: "1 WWW + 2 WWW" },
   privacy: { PRIV: "1 PRIV", _PRIV: "1 _PRIV Y", RESN: "1 RESN privacy" },
 };
@@ -134,6 +136,7 @@ const FORMAT_SAMPLES: Partial<Record<keyof FormatOverrides, Record<string, strin
  */
 function isGedcomStandard(key: keyof FormatOverrides, choice: string): boolean {
   if (key === "date") return choice === "D MMM YYYY" || choice === "DD MMM YYYY";
+  if (key === "sourceCoverage") return choice === "standard";
   return key === "placeSeparator" && choice === "comma-space";
 }
 

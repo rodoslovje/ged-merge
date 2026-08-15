@@ -1,16 +1,25 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { serializeGedcom } from "../gedcom/serialize";
+import { canonicalFamilySearchUrl, linkKey } from "../normalize/links";
 import { createSourceRecord } from "../gedcom/edit";
-import type { ReshapeSite } from "./sourceReshape";
+import type { ReshapeEnrichment, ReshapeSite } from "./sourceReshape";
 import {
   applySiteSourceExtras,
   detectPageMediaStyle,
   classifyBookType,
   fetchBookMeta,
   fetchReshapeMeta,
+  createSiteRepo,
   findReshapableLinks,
+  isFetchableSite,
+  mergeFsBooks,
+  narrowFsRegister,
+  proposedSiteRepo,
+  splitFsRegisters,
+  parseFamilySearchArkJson,
+  parsePastedFsCitation,
   parseFamilySearchUrl,
   parseGeneanetCemeteryPage,
   parseMatriculaBookPage,
@@ -244,7 +253,8 @@ describe("findReshapableLinks — scan", () => {
     const fs = report.groups.filter((g) => g.site === "familysearch");
     expect(fs).toHaveLength(2);
     const film = fs.find((g) => g.proposed.filingNumber === "406380")!;
-    expect(film.pages).toEqual(["113", "137"]);
+    // FamilySearch's `i=` counts from zero: i=113 is its image 114.
+    expect(film.pages).toEqual(["114", "138"]);
     const coll = fs.find((g) => g.proposed.title.startsWith("Croatia"))!;
     expect(coll.members[0].shape).toBe("note");
     // A collection spans many records — no single ARK can be its filing number.
@@ -537,6 +547,107 @@ describe("reshapeSources — apply", () => {
     expect(text).toMatch(/1 BURI\n2 PLAC Žabnica,Kranj,Slovenia\n2 SOUR @S1@/); // burial place filled
   });
 
+  it("writes the spec's DATA coverage in a standard-coverage file", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NOTE ${BOOK}/?pg=10
+0 TRLR`);
+    const report = findReshapableLinks(ds);
+    const enrichment = new Map([
+      [report.groups[0].id, { bookType: "death" as const, place: "Šentjur", dateRange: "1896-1911", agency: "NŠAM" }],
+    ]);
+    const { records } = reshapeSources(ds.records, report.groups, enrichment, { sourceCoverage: "standard" });
+    const text = serializeGedcom(records);
+    // One DATA > EVEN block: type, period value, jurisdiction; AGNC in its
+    // spec spot under DATA — and no flat vendor copies beside it.
+    expect(text).toMatch(/1 DATA\n2 EVEN DEAT\n3 DATE FROM 1896 TO 1911\n3 PLAC Šentjur\n2 AGNC NŠAM/);
+    expect(text).not.toMatch(/\n1 PLAC /);
+    expect(text).not.toMatch(/\n1 AGNC /);
+    // No repository in this file, so no CALN to carry the number — the flat
+    // FILN survives rather than losing the id.
+    expect(text).toContain("1 FILN 03869");
+  });
+
+  it("moves the filing number wholly into CALN when a repository carries it", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NOTE ${BOOK}/?pg=10
+0 @S9@ SOUR
+1 TITL Krstna knjiga
+1 REPO @R9@
+0 @R9@ REPO
+1 NAME Nekje
+0 TRLR`);
+    const report = findReshapableLinks(ds);
+    const enrichment = new Map([[report.groups[0].id, { bookType: "death" as const, dateRange: "1896-1911" }]]);
+    const { records } = reshapeSources(ds.records, report.groups, enrichment, { sourceCoverage: "standard" });
+    const text = serializeGedcom(records);
+    expect(text).toMatch(/1 REPO @R\d+@\n2 CALN 03869/);
+    expect(text).not.toContain("1 FILN");
+  });
+
+  it("states one EVEN per register of a multi-register FamilySearch book", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NOTE https://www.familysearch.org/ark:/61903/3:1:TEST-COVER-1
+0 TRLR`);
+    const report = findReshapableLinks(ds);
+    const enrichment = new Map([
+      [
+        report.groups[0].id,
+        {
+          bookType: "unknown" as const,
+          place: "Ravna Gora",
+          dateRange: "1805-1843",
+          book: "Marriages (Vjenčani) 1805-1812 Births (Rođeni) 1815-1843",
+        },
+      ],
+    ]);
+    const { records } = reshapeSources(ds.records, report.groups, enrichment, { sourceCoverage: "standard" });
+    const text = serializeGedcom(records);
+    expect(text).toMatch(/2 EVEN MARR\n3 DATE FROM 1805 TO 1812\n3 PLAC Ravna Gora/);
+    expect(text).toMatch(/2 EVEN BIRT\n3 DATE FROM 1815 TO 1843\n3 PLAC Ravna Gora/);
+  });
+
+  it("keeps the flat fields when the register type is unknown, even in standard mode", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NOTE ${BOOK}/?pg=10
+0 TRLR`);
+    const report = findReshapableLinks(ds);
+    const enrichment = new Map([[report.groups[0].id, { place: "Šentjur", dateRange: "1896-1911" }]]);
+    const { records } = reshapeSources(ds.records, report.groups, enrichment, { sourceCoverage: "standard" });
+    const text = serializeGedcom(records);
+    // A coverage claim needs an event type — without one nothing is invented,
+    // and the values still land (as the flat fields).
+    expect(text).not.toContain("1 DATA");
+    expect(text).toContain("1 PLAC Šentjur");
+    expect(text).toContain("1 DATE 1896-1911");
+  });
+
+  it("follows the file's own coverage habit on auto", () => {
+    // The file's one covering source already speaks the standard shape, so a
+    // new source does too — no override needed.
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NOTE ${BOOK}/?pg=10
+0 @S9@ SOUR
+1 TITL Mrliška knjiga Kranj
+1 DATA
+2 EVEN DEAT
+3 DATE FROM 1800 TO 1850
+0 TRLR`);
+    const report = findReshapableLinks(ds);
+    const enrichment = new Map([[report.groups[0].id, { bookType: "death" as const, dateRange: "1896-1911" }]]);
+    const { records } = reshapeSources(ds.records, report.groups, enrichment);
+    expect(serializeGedcom(records)).toMatch(/1 DATA\n2 EVEN DEAT\n3 DATE FROM 1896 TO 1911/);
+  });
+
   it("matches a diacritic-less slug place to the file's real place", () => {
     const { text } = applyAll(`0 HEAD
 1 CHAR UTF-8
@@ -652,6 +763,20 @@ describe("reshapeSources — apply", () => {
     expect(text).toContain("1 NAME Geneanet Cemeteries");
     expect(text).toContain("1 WWW https://en.geneanet.org/cemetery/");
     expect(text).toMatch(/0 @S\d+@ SOUR\n1 TITL 123 - Geneanet Cemeteries\n(1 .*\n)*1 REPO @R\d+@/);
+    // The filing number (the cemetery view id) doubles as the repository
+    // link's call number — the standard spot for it.
+    expect(text).toMatch(/1 REPO @R\d+@\n2 CALN 123/);
+  });
+
+  it("writes the FORM a new page image's FILE calls for", () => {
+    const { text } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 NOTE https://data.matricula-online.eu/sl/slovenia/maribor/sentjur-pri-celju/03869/?pg=10
+0 TRLR`);
+    // A web page link: FORM htm, nested under the FILE it describes.
+    expect(text).toMatch(/1 FILE https:\/\/data\.matricula-online\.eu\/[^\n]*\n2 FORM htm/);
   });
 
   it("re-points pageUrl citations to the book SOUR with a numeric PAGE", () => {
@@ -1401,12 +1526,14 @@ describe("reshapeSources — citation placement", () => {
       sourceLayout: "auto",
       baptism: "auto",
       doubledLinks: "auto",
+      sourceCoverage: "auto",
     });
     expect(reshapeOptionsFromOverrides({ pageMedia: "event", baptism: "BAPM", date: "DD.MM.YYYY" })).toEqual({
       pageMedia: "event",
       sourceLayout: "auto",
       baptism: "BAPM",
       doubledLinks: "auto",
+      sourceCoverage: "auto",
     });
   });
 
@@ -2247,5 +2374,521 @@ describe("private entries never become sources", () => {
       "0 TRLR",
     ].join("\n"));
     expect(report.totalOccurrences).toBe(2);
+  });
+});
+
+describe("FamilySearch image links", () => {
+  // What familysearch.org/ark:/… answers to Accept:
+  // application/x-gedcomx-v1+json — trimmed to what the parser reads.
+  const ARK_JSON = JSON.stringify({
+    description: "sd_c_2040054",
+    links: { self: { href: "https://familysearch.org/ark:/61903/3:1:3QSQ-G99F-FHWS", offset: 556, results: 689 } },
+    sourceDescriptions: [
+      {
+        id: "sd_c_2040054",
+        resourceType: "http://gedcomx.org/DigitalArtifact",
+        citations: [
+          {
+            value:
+              '"Croatia, Church Books, 1516-1994," database with images, <i>FamilySearch</i> ' +
+              "(https://familysearch.org/ark:/61903/3:1:3QSQ-G99F-FHWS?cc=2040054 : 16 July 2014), " +
+              "Roman Catholic (Rimokatolička crkva) > Pakrac > " +
+              "Births (Rođeni) 1892-1899 Marriages (Vjenčani) 1858-1890 > image 556 of 689; " +
+              "Arhiva Hrvatske u Zagrebu (Croatia State Archives), Zagreb.\n",
+          },
+        ],
+      },
+      { id: "src_2", resourceType: "http://gedcomx.org/Collection", titles: [{ value: "Croatia, Church Books, 1516-1994" }] },
+    ],
+  });
+
+  const IMAGE_URL =
+    "https://www.familysearch.org/ark:/61903/3:1:3QSQ-G99F-FHWS?wc=9R2F-W38%3A391644801&cc=2040054&lang=en&i=555";
+  // A link straight to a book, naming neither the collection nor the image.
+  const BOOK_ONLY_URL = "https://www.familysearch.org/ark:/61903/3:1:3QSQ-G99C-57VF?view=index&lang=en";
+  const RECORD_URL = "https://familysearch.org/ark:/61903/1:1:XNJ8-FPJ";
+  const FILM_URL = "https://www.familysearch.org/search/catalog/406380";
+  const FILM_ARK_URL = "https://www.familysearch.org/ark:/61903/3:1:3Q9M-CS2T-N985-8?cat=406380&i=137";
+  // Distinct arks, so the session-wide book cache can't answer for them.
+  const BLOCKED_URL = "https://www.familysearch.org/ark:/61903/3:1:3QS7-899C-5CGR?view=index";
+  const BLOCKED_URL_2 = "https://www.familysearch.org/ark:/61903/3:1:3QS7-L996-198J?view=index";
+
+  it("reads collection, book, place, archive and image number from the ark's own citation", () => {
+    expect(parseFamilySearchArkJson(ARK_JSON)).toEqual({
+      title:
+        "Pakrac - Births (Rođeni) 1892-1899 Marriages (Vjenčani) 1858-1890 - Croatia, Church Books, 1516-1994",
+      collection: "Croatia, Church Books, 1516-1994",
+      book: "Births (Rođeni) 1892-1899 Marriages (Vjenčani) 1858-1890",
+      place: "Pakrac",
+      agency: "Arhiva Hrvatske u Zagrebu (Croatia State Archives), Zagreb",
+      // FamilySearch's own image number, one ahead of the URL's i=555.
+      page: "556",
+      // A book holding births and marriages covers both spans…
+      dateRange: "1858-1899",
+      // …and classifies as neither.
+      bookType: undefined,
+    });
+  });
+
+  it("takes the place from a two-step path and classifies a single-register book", () => {
+    const json = ARK_JSON.replace(
+      "Roman Catholic (Rimokatolička crkva) > Pakrac > Births (Rođeni) 1892-1899 Marriages (Vjenčani) 1858-1890",
+      "Pakrac > Poročna knjiga 1858-1890",
+    );
+    const meta = parseFamilySearchArkJson(json);
+    expect(meta?.place).toBe("Pakrac");
+    expect(meta?.title).toBe("Pakrac - Poročna knjiga 1858-1890 - Croatia, Church Books, 1516-1994");
+    expect(meta?.dateRange).toBe("1858-1890");
+    expect(meta?.bookType).toBe("marriage");
+  });
+
+  it("reads a link that names neither collection nor image — both come back from the ark", () => {
+    // The real answer for BOOK_ONLY_URL, trimmed: no cc and no i= in the link,
+    // yet the citation numbers the image and the descriptor names the collection.
+    const json = JSON.stringify({
+      links: { self: { offset: 98, results: 247 } },
+      sourceDescriptions: [
+        {
+          resourceType: "http://gedcomx.org/DigitalArtifact",
+          descriptor: {
+            resource: "https://www.familysearch.org/platform/records/collections/2040054?arkName=3:1:3QSQ-G99C-57VF",
+          },
+          citations: [
+            {
+              value:
+                '"Croatia, Church Books, 1516-1994," database with images, <i>FamilySearch</i> ' +
+                "(https://familysearch.org/ark:/61903/3:1:3QSQ-G99C-57VF?cc=2040054 : 6 April 2015), " +
+                "Roman Catholic (Rimokatolička crkva) > Ravna Gora > " +
+                "Marriages (Vjenčani) 1805-1812 Births (Rođeni) 1815-1843 Marriages (Vjenčani) 1815-1848 > " +
+                "image 98 of 247; Arhiva Hrvatske u Zagrebu (Croatia State Archives), Zagreb.\n",
+            },
+          ],
+        },
+      ],
+    });
+    const meta = parseFamilySearchArkJson(json);
+    expect(meta?.page).toBe("98");
+    expect(meta?.place).toBe("Ravna Gora");
+    expect(meta?.dateRange).toBe("1805-1848");
+    expect(meta?.collection).toBe("Croatia, Church Books, 1516-1994");
+    expect(meta?.collectionId).toBe("2040054");
+  });
+
+  it("splits a book holding two registers, and narrows to the one chosen", () => {
+    const meta = parseFamilySearchArkJson(ARK_JSON)!;
+    const parts = splitFsRegisters(meta.book);
+    expect(parts).toEqual(["Births (Rođeni) 1892-1899", "Marriages (Vjenčani) 1858-1890"]);
+    const marriages = narrowFsRegister(meta, parts[1]);
+    expect(marriages.title).toBe("Pakrac - Marriages (Vjenčani) 1858-1890 - Croatia, Church Books, 1516-1994");
+    expect(marriages.dateRange).toBe("1858-1890");
+    // The register type is what puts the citation on the marriage.
+    expect(marriages.bookType).toBe("marriage");
+    expect(smartCitationTarget([], "familysearch", marriages.title, { citations: "event" })).toEqual({
+      eventTag: "MARR",
+      onFam: true,
+    });
+    // Everything the register doesn't touch is left alone.
+    expect(marriages.place).toBe("Pakrac");
+    expect(marriages.page).toBe("556");
+  });
+
+  it("offers no choice where there is none to make", () => {
+    expect(splitFsRegisters("Poročna knjiga 1858-1890")).toEqual([]);
+    expect(splitFsRegisters("Ravna Gora")).toEqual([]);
+    expect(splitFsRegisters(undefined)).toEqual([]);
+    // Trailing words no register accounts for: don't guess at the split.
+    expect(splitFsRegisters("Births 1892-1899 Marriages 1858-1890 and other records")).toEqual([]);
+  });
+
+  it("reads a citation copied from a record page — the one thing a sign-in wall leaves", () => {
+    const cited = parsePastedFsCitation(
+      '"New York, Passenger Arrival Lists (Ellis Island), 1892-1925", FamilySearch ' +
+        "(https://www.familysearch.org/ark:/61903/1:1:JFVN-KMV : Fri Jul 10 14:29:38 UTC 2026), " +
+        "Entry for Anna Rakar and Martin Sadec, 9 July 1901.",
+    );
+    expect(cited).toEqual({
+      title: "New York, Passenger Arrival Lists (Ellis Island), 1892-1925",
+      collection: "New York, Passenger Arrival Lists (Ellis Island), 1892-1925",
+      // Which record this is belongs on the citation, not in the source.
+      page: "Entry for Anna Rakar and Martin Sadec, 9 July 1901",
+      dateRange: "1892-1925",
+      place: undefined,
+      agency: undefined,
+      filingNumber: undefined,
+      bookType: undefined,
+    });
+
+    // The older shape, with the archive and film the newer one drops.
+    const older = parsePastedFsCitation(
+      '"Croatia, Church Books, 1516-1994," database with images, FamilySearch ' +
+        "(https://familysearch.org/ark:/61903/1:1:JFVN-KMV : 11 March 2018), " +
+        "Ana Renko in entry for Josip Renko, 1885; citing Baptism, Ravna Gora, Primorje-Gorski Kotar, Croatia, " +
+        "Državni arhiv u Rijeci (State Archives), Rijeka; FHL microfilm 005,498,154.",
+    );
+    expect(older?.place).toBe("Ravna Gora, Primorje-Gorski Kotar, Croatia");
+    expect(older?.agency).toBe("Državni arhiv u Rijeci (State Archives), Rijeka");
+    expect(older?.filingNumber).toBe("005498154");
+    expect(older?.page).toBe("Ana Renko in entry for Josip Renko, 1885");
+    expect(older?.bookType).toBe("baptism");
+
+    // Add Source and the whole-file scan both read it through the recognizer.
+    const seen = recognizeSourceUrl(
+      "https://www.familysearch.org/ark:/61903/1:1:JFVN-KMV?lang=en",
+      '"New York, Passenger Arrival Lists (Ellis Island), 1892-1925", FamilySearch ' +
+        "(https://www.familysearch.org/ark:/61903/1:1:JFVN-KMV : Fri Jul 10 14:29:38 UTC 2026), " +
+        "Entry for Anna Rakar and Martin Sadec, 9 July 1901.",
+    );
+    expect(seen?.page).toBe("Entry for Anna Rakar and Martin Sadec, 9 July 1901");
+    expect(seen?.proposed.title).toBe("New York, Passenger Arrival Lists (Ellis Island), 1892-1925");
+    expect(seen?.proposed.dateRange).toBe("1892-1925");
+
+    // A bare link still falls back to the ARK id, and other sites are not touched.
+    expect(recognizeSourceUrl("https://www.familysearch.org/ark:/61903/1:1:JFVN-KMV?lang=en")?.page).toBe(
+      "1:1:JFVN-KMV",
+    );
+    expect(parsePastedFsCitation("Krstna knjiga | 03869, Matricula Online")).toBeUndefined();
+  });
+
+  it("reads nothing from an image with no citation (a catalog film), and nothing from junk", () => {
+    const bare = JSON.stringify({
+      sourceDescriptions: [{ id: "sd_da_1", resourceType: "http://gedcomx.org/DigitalArtifact" }],
+    });
+    expect(parseFamilySearchArkJson(bare)).toBeUndefined();
+    expect(parseFamilySearchArkJson("<html>not json</html>")).toBeUndefined();
+  });
+
+  it("fetches a collection image directly, asking for GedcomX — never through a relay", async () => {
+    const relayed: string[] = [];
+    const asked: { url: string; accept: string }[] = [];
+    const meta = await fetchBookMeta(
+      "familysearch",
+      IMAGE_URL,
+      async (url) => {
+        relayed.push(url);
+        return "<html><title>FamilySearch.org</title></html>";
+      },
+      async (url, accept) => {
+        asked.push({ url, accept });
+        return { status: 200, text: ARK_JSON };
+      },
+    );
+    expect(relayed).toEqual([]);
+    // Two direct asks per image: the ark's GedcomX, then its film (DGS) name.
+    expect(asked[0]).toEqual({ url: IMAGE_URL, accept: "application/x-gedcomx-v1+json" });
+    expect(asked[1]?.url).toMatch(/\/das\/v2\/3:1:[^/]+\/name\?namespace=dgs$/);
+    expect(asked).toHaveLength(2);
+    expect(meta?.place).toBe("Pakrac");
+  });
+
+  it("takes the source's filing number from the image's film (DGS) name", async () => {
+    const meta = await fetchBookMeta(
+      "familysearch",
+      "https://www.familysearch.org/ark:/61903/3:1:TEST-DGS1?view=index",
+      async () => undefined,
+      async (url) =>
+        url.includes("namespace=dgs")
+          ? { status: 200, text: "dgs:005482250.005482250_00127" }
+          : { status: 200, text: ARK_JSON },
+    );
+    expect(meta?.filingNumber).toBe("005482250");
+    // …and a book folded out of such pages keeps the film as its id.
+    expect(meta?.place).toBe("Pakrac");
+  });
+
+  it("attaches to the file's own repository for that collection", () => {
+    const ds = dataset([
+      "0 HEAD",
+      "1 GEDC",
+      "2 VERS 5.5.1",
+      "0 @R1@ REPO",
+      "1 NAME FamilySearch.org - Slovenia Church Books 1521-1997",
+      "0 @R2@ REPO",
+      "1 NAME FamilySearch.org - Croatia Church Books 1516-1994",
+      "0 @R3@ REPO",
+      "1 NAME Matricula Online - Nadškofijski arhiv Ljubljana",
+      "1 WWW https://data.matricula-online.eu/sl/slovenia/ljubljana/",
+      "0 TRLR",
+    ].join("\n"));
+    // Neither FamilySearch repository has a WWW: only the collection's name
+    // tells them apart, and it arrives with the lookup.
+    expect(proposedSiteRepo(ds.records, "familysearch", IMAGE_URL, undefined)?.xref).toBe("@R1@");
+    expect(
+      proposedSiteRepo(ds.records, "familysearch", IMAGE_URL, undefined, {
+        title: "Croatia, Church Books, 1516-1994",
+      })?.xref,
+    ).toBe("@R2@");
+    // The collection id in a repository's WWW settles it without the lookup.
+    const withWww = dataset([
+      "0 HEAD",
+      "1 GEDC",
+      "2 VERS 5.5.1",
+      "0 @R1@ REPO",
+      "1 NAME FamilySearch",
+      "1 WWW https://www.familysearch.org/",
+      "0 @R2@ REPO",
+      "1 NAME Hrvatske crkvene knjige",
+      "1 WWW https://www.familysearch.org/search/collection/2040054",
+      "0 TRLR",
+    ].join("\n"));
+    expect(proposedSiteRepo(withWww.records, "familysearch", IMAGE_URL, undefined)?.xref).toBe("@R2@");
+    // …and for a link that carries no cc at all, the id the lookup read.
+    expect(proposedSiteRepo(withWww.records, "familysearch", BOOK_ONLY_URL, undefined)?.xref).toBe("@R1@");
+    expect(
+      proposedSiteRepo(withWww.records, "familysearch", BOOK_ONLY_URL, undefined, { id: "2040054" })?.xref,
+    ).toBe("@R2@");
+    // Matricula's archive still wins over a bare familysearch.org repository.
+    expect(proposedSiteRepo(ds.records, "matricula", BOOK, "Nadškofijski arhiv Ljubljana")?.xref).toBe("@R3@");
+  });
+
+  it("names a repository it has to create after the collection", () => {
+    const empty = dataset(["0 HEAD", "1 GEDC", "2 VERS 5.5.1", "0 TRLR"].join("\n"));
+    expect(proposedSiteRepo(empty.records, "familysearch", IMAGE_URL, undefined)?.createName).toBe("FamilySearch.org");
+    expect(
+      proposedSiteRepo(empty.records, "familysearch", IMAGE_URL, undefined, {
+        title: "Croatia, Church Books, 1516-1994",
+      })?.createName,
+    ).toBe("FamilySearch.org - Croatia, Church Books, 1516-1994");
+    const created = createSiteRepo(empty.records, "familysearch", BOOK_ONLY_URL, undefined, {
+      title: "Croatia, Church Books, 1516-1994",
+      id: "2040054",
+    });
+    // Its WWW is the collection's own page, so the next link finds it by URL.
+    expect(created?.children.find((c) => c.tag === "WWW")?.value).toBe(
+      "https://www.familysearch.org/search/collection/2040054",
+    );
+  });
+
+  it("folds the pages of one book into a single source, each citing its own page", () => {
+    // Three people, three single-image links: two pages of one book, one of
+    // another. Nothing in the links says so — the lookups do.
+    const ds = dataset([
+      "0 HEAD",
+      "1 CHAR UTF-8",
+      "0 @I1@ INDI",
+      "1 WWW https://www.familysearch.org/ark:/61903/3:1:AAA?view=index&lang=en",
+      "0 @I2@ INDI",
+      "1 WWW https://www.familysearch.org/ark:/61903/3:1:BBB?view=index&lang=en",
+      "0 @I3@ INDI",
+      "1 WWW https://www.familysearch.org/ark:/61903/3:1:CCC?view=index&lang=en",
+      "0 TRLR",
+    ].join("\n"));
+    const report = findReshapableLinks(ds);
+    expect(report.groups).toHaveLength(3); // one per image, before any lookup
+    const book = { collection: "Croatia, Church Books, 1516-1994", place: "Ravna Gora", book: "Marriages (Vjenčani) 1805-1812" };
+    const enrichment: ReshapeEnrichment = new Map([
+      [report.groups[0].id, { ...book, title: "Ravna Gora - Marriages (Vjenčani) 1805-1812", dateRange: "1805-1812", bookType: "marriage" as const, page: "12" }],
+      [report.groups[1].id, { ...book, title: "Ravna Gora - Marriages (Vjenčani) 1805-1812", dateRange: "1805-1812", bookType: "marriage" as const, page: "47" }],
+      [report.groups[2].id, { collection: book.collection, place: "Dubovac (Karlovac)", book: "Births (Rođeni) 1891-1896", title: "Dubovac (Karlovac) - Births (Rođeni) 1891-1896", page: "3" }],
+    ]);
+
+    const folded = mergeFsBooks(report, enrichment);
+    // Two pages of one book become one row; the lone page keeps its own.
+    expect(folded.report.groups).toHaveLength(2);
+    const merged = folded.report.groups[0];
+    expect(merged.members.map((m) => m.page)).toEqual(["12", "47"]);
+    expect(merged.pages).toEqual(["12", "47"]);
+    expect(merged.bookType).toBe("marriage");
+    // A book has no single image's ark for a filing number.
+    expect(merged.proposed.filingNumber).toBeUndefined();
+
+    const { records, counts } = reshapeSources(ds.records, folded.report.groups, folded.enrichment, {
+      mergeGroups: folded.keyOf,
+    });
+    const text = serializeGedcom(records);
+    expect(counts.sourcesCreated).toBe(2); // one per book, not one per image
+    // Both people cite the same source, each at its own page.
+    expect(text).toMatch(/0 @I1@ INDI\n1 SOUR @S1@\n2 PAGE 12/);
+    expect(text).toMatch(/0 @I2@ INDI\n1 SOUR @S1@\n2 PAGE 47/);
+    expect(text).toMatch(/0 @I3@ INDI\n1 SOUR @S2@\n2 PAGE 3/);
+    expect(text).toContain("1 TITL Ravna Gora - Marriages (Vjenčani) 1805-1812");
+    expect(text).toContain("1 DATE 1805-1812");
+    // One page image per image link, titled by its own page.
+    expect(text).toContain("1 TITL #12 - Ravna Gora - Marriages (Vjenčani) 1805-1812");
+    expect(text).toContain("1 TITL #47 - Ravna Gora - Marriages (Vjenčani) 1805-1812");
+  });
+
+  it("reads a published microfilm's own citation, publisher and all", () => {
+    // A collection whose images are a filmed publication rather than an
+    // archive's own book: one browse step, and a "citing …" tail in the
+    // bibliographic shape.
+    const json = JSON.stringify({
+      sourceDescriptions: [
+        {
+          resourceType: "http://gedcomx.org/DigitalArtifact",
+          citations: [
+            {
+              value:
+                '"New York, Passenger Arrival Lists (Ellis Island), 1892-1925," database with images, ' +
+                "<i>FamilySearch</i> (https://familysearch.org/ark:/61903/3:1:3Q9M-C9T4-LSL3-L?cc=1368704 : 26 January 2018), " +
+                "Roll 210, vol 343-344, 5 Jul 1901-7 Jul 1901 > image 682 of 724; citing NARA microfilm publication " +
+                "T715 and M237 (Washington D.C.: National Archives and Records Administration, n.d.).",
+            },
+          ],
+        },
+      ],
+    });
+    const meta = parseFamilySearchArkJson(json);
+    expect(meta?.title).toBe(
+      "Roll 210, vol 343-344, 5 Jul 1901-7 Jul 1901 - New York, Passenger Arrival Lists (Ellis Island), 1892-1925",
+    );
+    expect(meta?.page).toBe("682");
+    expect(meta?.dateRange).toBe("1901");
+    // "citing" is not part of the archive's name, and a publication's
+    // publisher and city are their own fields.
+    expect(meta?.agency).toBe("NARA microfilm publication T715 and M237");
+    expect(meta?.publisher).toBe("National Archives and Records Administration");
+    expect(meta?.place).toBe("Washington D.C.");
+  });
+
+  it("treats every form of one image link as the same page", () => {
+    const ark = "https://www.familysearch.org/ark:/61903/3:1:3QSQ-G99C-5C1Q";
+    const forms = [
+      `${ark}?view=explore&lang=en&groupId=M99F-832`,
+      `${ark}?lang=en`,
+      `${ark}?wc=9R29-92W%3A391644801&cc=2040054&lang=en&i=143`,
+      ark,
+    ];
+    expect(new Set(forms.map(linkKey)).size).toBe(1);
+    // What gets written keeps the ark and nothing else…
+    expect(canonicalFamilySearchUrl(forms[0])).toBe(ark);
+    // …except the film a catalog image belongs to, which names it.
+    expect(canonicalFamilySearchUrl(`${ark}?cat=406380&i=137`)).toBe(`${ark}?cat=406380`);
+    // Two different images stay two, and other sites are untouched.
+    expect(linkKey(`${ark}?lang=en`)).not.toBe(linkKey("https://www.familysearch.org/ark:/61903/3:1:AAA"));
+    expect(canonicalFamilySearchUrl(`${BOOK}/?pg=10`)).toBe(`${BOOK}/?pg=10`);
+
+    // So a link the file already cites is recognized however it was written.
+    const ds = dataset([
+      "0 HEAD",
+      "1 CHAR UTF-8",
+      "0 @I1@ INDI",
+      `1 WWW ${forms[0]}`,
+      "0 @S9@ SOUR",
+      "1 TITL Ravna Gora",
+      "1 OBJE @O9@",
+      "0 @O9@ OBJE",
+      `1 FILE ${forms[1]}`,
+      "0 TRLR",
+    ].join("\n"));
+    expect(findReshapableLinks(ds).groups[0].existingSourceXref).toBe("@S9@");
+  });
+
+  it("shortens the links already stored, but only when asked", () => {
+    const long =
+      "https://www.familysearch.org/ark:/61903/3:1:3QSQ-G99C-5C1Q?view=explore&lang=en&groupId=M99F-832";
+    const file = [
+      "0 HEAD",
+      "1 CHAR UTF-8",
+      "0 @I1@ INDI",
+      "1 OBJE @O9@",
+      "0 @O9@ OBJE",
+      `1 FILE ${long}`,
+      "0 TRLR",
+    ].join("\n");
+
+    const kept = dataset(file);
+    const asIs = reshapeSources(kept.records, findReshapableLinks(kept).groups, undefined, {});
+    expect(serializeGedcom(asIs.records)).toContain(long); // the file's own text stands
+    expect(asIs.counts.linksTidied).toBe(0);
+
+    const ds = dataset(file);
+    const tidied = reshapeSources(ds.records, findReshapableLinks(ds).groups, undefined, { tidyLinks: true });
+    const text = serializeGedcom(tidied.records);
+    expect(text).toContain("1 FILE https://www.familysearch.org/ark:/61903/3:1:3QSQ-G99C-5C1Q\n");
+    expect(text).not.toContain("groupId");
+    expect(tidied.counts.linksTidied).toBe(1);
+  });
+
+  it("adds a book's new pages to the source the file already keeps for it", () => {
+    // Two pages of one book; the file already cites the first from a source of
+    // its own. The second must join that record, not start a second one.
+    const ds = dataset([
+      "0 HEAD",
+      "1 CHAR UTF-8",
+      "0 @I1@ INDI",
+      "1 WWW https://www.familysearch.org/ark:/61903/3:1:AAA?view=index&lang=en",
+      "0 @I2@ INDI",
+      "1 WWW https://www.familysearch.org/ark:/61903/3:1:BBB?view=index&lang=en",
+      "0 @S9@ SOUR",
+      "1 TITL Marriages, Ravna Gora",
+      "1 OBJE @O9@",
+      "0 @O9@ OBJE",
+      "1 FILE https://www.familysearch.org/ark:/61903/3:1:AAA?view=index&lang=en",
+      "0 TRLR",
+    ].join("\n"));
+    const report = findReshapableLinks(ds);
+    expect(report.groups.map((g) => g.existingSourceXref)).toEqual(["@S9@", undefined]);
+    const meta = { collection: "C", place: "Ravna Gora", book: "Marriages 1805-1812", page: "1" };
+    const enrichment: ReshapeEnrichment = new Map(report.groups.map((g) => [g.id, meta]));
+    const folded = mergeFsBooks(report, enrichment);
+    expect(folded.report.groups).toHaveLength(1);
+    expect(folded.report.groups[0].existingSourceXref).toBe("@S9@");
+    expect(folded.report.groups[0].existingSourceTitle).toBe("Marriages, Ravna Gora");
+    expect(folded.report.groups[0].members).toHaveLength(2);
+    // …and the apply agrees: no second source, whichever page it meets first.
+    const { counts } = reshapeSources(ds.records, folded.report.groups, folded.enrichment, {
+      mergeGroups: folded.keyOf,
+    });
+    expect(counts.sourcesCreated).toBe(0);
+    expect(counts.sourcesReused).toBe(1);
+
+    // One page alone is no book to fold, and with no lookups there is nothing
+    // to fold by — the report comes back as it was.
+    expect(mergeFsBooks(report, new Map()).report).toBe(report);
+  });
+
+  it("tries a blocked link once more, but takes a 401 for the answer it is", async () => {
+    // A fresh module instance: its lookup pacing starts idle, so the only
+    // timer in play is the retry's own.
+    vi.resetModules();
+    const fresh = await import("./sourceReshape");
+    vi.useFakeTimers();
+    try {
+      const asked: number[] = [];
+      // The edge's block page on the first ask, the real answer on the second.
+      const flaky = async () => {
+        asked.push(asked.length);
+        return asked.length === 1 ? { status: 403 } : { status: 200, text: ARK_JSON };
+      };
+      const pending = fresh.fetchBookMeta("familysearch", BLOCKED_URL, async () => undefined, flaky);
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect((await pending)?.place).toBe("Pakrac");
+      // Block, retry that lands the JSON, then the film-name ask.
+      expect(asked).toHaveLength(3);
+
+      // A sign-in refusal is final: asking again would get the same 401.
+      let signInAsks = 0;
+      const signIn = async () => {
+        signInAsks++;
+        return { status: 401 };
+      };
+      const denied = fresh.fetchBookMeta("familysearch", BLOCKED_URL_2, async () => undefined, signIn);
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(await denied).toBeUndefined();
+      expect(signInAsks).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("asks nothing for a record page or a catalog film — those need a login", async () => {
+    const asked: string[] = [];
+    const relay = async () => "<html><title>FamilySearch.org</title></html>";
+    const ask = async (url: string) => {
+      asked.push(url);
+      return { status: 200, text: ARK_JSON };
+    };
+    expect(await fetchBookMeta("familysearch", RECORD_URL, relay, ask)).toBeUndefined();
+    expect(await fetchBookMeta("familysearch", FILM_URL, relay, ask)).toBeUndefined();
+    expect(await fetchBookMeta("familysearch", FILM_ARK_URL, relay, ask)).toBeUndefined();
+    expect(asked).toEqual([]);
+    // …and the panel's fetch button doesn't count them either. A link that
+    // names no collection is still asked: FamilySearch resolves it itself.
+    expect(isFetchableSite("familysearch", IMAGE_URL)).toBe(true);
+    expect(isFetchableSite("familysearch", BOOK_ONLY_URL)).toBe(true);
+    expect(isFetchableSite("familysearch", RECORD_URL)).toBe(false);
+    expect(isFetchableSite("familysearch", FILM_URL)).toBe(false);
+    expect(isFetchableSite("familysearch", FILM_ARK_URL)).toBe(false);
+    expect(isFetchableSite("familysearch")).toBe(false);
   });
 });
