@@ -999,9 +999,6 @@ function DupGroupRow({
                   </label>
                   <span className="tools-dup-title">{m.title}</span>
                   {m.detail && m.detail !== m.title && <span className="tools-tree-meta">{m.detail}</span>}
-                  {m.usage > 0 && (
-                    <span className="tools-tree-meta">· {t("tools.sources.dupUsage", { count: m.usage })}</span>
-                  )}
                 </li>
               );
             })}
@@ -1027,5 +1024,9 @@ function DupGroupUses({
   onNavigate: (id: string) => void;
 }) {
   const uses = useMemo(() => recordCitedBy(dataset, xrefs), [dataset, xrefs]);
-  return <UsageList dataset={dataset} uses={uses} onNavigate={onNavigate} />;
+  return (
+    <div className="tools-dup-uses">
+      <UsageList dataset={dataset} uses={uses} onNavigate={onNavigate} />
+    </div>
+  );
 }

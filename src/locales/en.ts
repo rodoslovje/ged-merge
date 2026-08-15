@@ -704,7 +704,6 @@ export const en = {
   "tools.sources.dupKind.source": "Sources",
   "tools.sources.dupKind.repo": "Repositories",
   "tools.sources.dupKeep": "keep",
-  "tools.sources.dupUsage": "cited by {{count}}",
   "tools.sources.dupUsageToggle": "Show the people whose records cite this",
   "tools.sources.reshapeCountToggle": "Show the references being converted",
   "tools.sources.dupSelectAll": "Select all",

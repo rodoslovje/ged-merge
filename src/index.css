@@ -8182,6 +8182,8 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 .tools-dup-members { list-style: none; margin: 2px 0 4px; padding-left: 26px; display: flex; flex-direction: column; gap: 2px; }
 .tools-dup-member { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 0.9rem; }
 .tools-dup-member.survivor .tools-dup-title { font-weight: 600; }
+/* The group's citing-persons list, sized like the member rows above it. */
+.tools-dup-uses { font-size: 0.9rem; }
 .tools-dup-title { color: var(--text); }
 .tools-dup-keep-pick { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
 .tools-dup-keep-pick input { cursor: pointer; }

@@ -794,7 +794,6 @@ export const sl = {
   "tools.sources.dupKind.source": "Viri",
   "tools.sources.dupKind.repo": "Hrambe",
   "tools.sources.dupKeep": "obdrži",
-  "tools.sources.dupUsage": "navedeno v {{count}}",
   "tools.sources.dupUsageToggle": "Pokaži osebe, katerih zapisi to navajajo",
   "tools.sources.reshapeCountToggle": "Pokaži sklice, ki bodo pretvorjeni",
   "tools.sources.dupSelectAll": "Izberi vse",
