@@ -27,20 +27,26 @@ export const PROXY_HOSTS: string[] = PROXY_URLS.map((p) => new URL(p.proxied("ht
  *  For the few hosts that answer cross-origin requests themselves — currently
  *  FamilySearch, whose ark URLs serve GedcomX JSON under content negotiation —
  *  this is both better (the real answer, not a relay's copy) and more private:
- *  the URL goes to the site it belongs to and nowhere else. Undefined on any
- *  failure, exactly like the relayed path. */
-export async function fetchDirect(url: string, accept: string, timeoutMs = 10000): Promise<string | undefined> {
+ *  the URL goes to the site it belongs to and nowhere else. The status comes
+ *  back with the body: a site's rate-limit answer is worth retrying, a 401 is
+ *  not. Status 0 = no answer at all (offline, timeout, CORS). */
+export async function fetchDirect(url: string, accept: string, timeoutMs = 10000): Promise<DirectResponse> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(url, { headers: { Accept: accept }, signal: controller.signal });
-    if (!res.ok) return undefined;
-    return (await res.text()) || undefined;
+    if (!res.ok) return { status: res.status };
+    return { status: res.status, text: (await res.text()) || undefined };
   } catch {
-    return undefined;
+    return { status: 0 };
   } finally {
     clearTimeout(timer);
   }
+}
+
+export interface DirectResponse {
+  status: number;
+  text?: string;
 }
 
 const NAMED_ENTITIES: Record<string, string> = {

@@ -15,7 +15,7 @@ import { normalizeDateString } from "../normalize/date";
 import { dateFixContext, proposeDateFix, type DateFixContext } from "./fixDates";
 import type { SourceLayout } from "../normalize/types";
 import type { FormatOverrides } from "../normalize/formatOverrides";
-import { decodeHtmlEntities, fetchDirect, pageTitleOf } from "../normalize/urlMetadata";
+import { decodeHtmlEntities, fetchDirect, pageTitleOf, type DirectResponse } from "../normalize/urlMetadata";
 import { parseSourceInput } from "../gedcom/citationParse";
 import { addObjeToSource, createSourceRecord } from "../gedcom/edit/sources";
 import {
@@ -2521,6 +2521,10 @@ const bookMetaCache = new Map<string, ReshapeMeta>();
  *  tab, on the same address. Ark lookups therefore run one at a time with a
  *  gap: a file full of links takes longer, and nothing gets locked out. */
 const FS_GAP_MS = 600;
+/** Should the edge block anyway (or the connection drop), wait this long and
+ *  try that one link again — a whole file's worth of lookups must not be lost
+ *  to a single refusal partway through. */
+const FS_RETRY_MS = 5000;
 let fsChain: Promise<unknown> = Promise.resolve();
 
 function pacedFsFetch<T>(run: () => Promise<T>): Promise<T> {
@@ -2530,6 +2534,24 @@ function pacedFsFetch<T>(run: () => Promise<T>): Promise<T> {
     () => new Promise((r) => setTimeout(r, FS_GAP_MS)),
   );
   return result;
+}
+
+/** A refused request worth trying again: the edge's block/rate-limit answers,
+ *  and a connection that produced no answer at all. A 401 (a record page
+ *  wanting a sign-in) is a real answer — retrying it changes nothing. */
+function fsWorthRetrying(status: number): boolean {
+  return status === 0 || status === 403 || status === 429 || status >= 500;
+}
+
+async function fetchFsArk(
+  fetchArk: (url: string, accept: string) => Promise<DirectResponse>,
+  url: string,
+): Promise<string | undefined> {
+  const first = await fetchArk(url, FS_GEDCOMX_ACCEPT).catch(() => ({ status: 0 }) as DirectResponse);
+  if (first.text || !fsWorthRetrying(first.status)) return first.text;
+  await new Promise((r) => setTimeout(r, FS_RETRY_MS));
+  const second = await fetchArk(url, FS_GEDCOMX_ACCEPT).catch(() => ({ status: 0 }) as DirectResponse);
+  return second.text;
 }
 
 /** Parse one fetched book/record page into source metadata — the per-site
@@ -2816,7 +2838,7 @@ export async function fetchBookMeta(
   bookUrl: string,
   fetchHtml: (url: string) => Promise<string | undefined>,
   /** The no-relay fetch FamilySearch arks use; injectable for tests. */
-  fetchArk: (url: string, accept: string) => Promise<string | undefined> = fetchDirect,
+  fetchArk: (url: string, accept: string) => Promise<DirectResponse> = fetchDirect,
 ): Promise<ReshapeMeta | undefined> {
   // A FamilySearch record page or catalog film would only answer 401/403 —
   // don't ask at all.
@@ -2839,7 +2861,7 @@ export async function fetchBookMeta(
   // itself, so no relay sees the URL and the answer is the site's own.
   const html =
     site === "familysearch"
-      ? await pacedFsFetch(() => fetchArk(url, FS_GEDCOMX_ACCEPT)).catch(() => undefined)
+      ? await pacedFsFetch(() => fetchFsArk(fetchArk, url))
       : await fetchHtml(url).catch(() => undefined);
   const meta = html ? parseBookMeta(site, bookUrl, html) : undefined;
   // A dateless Google Books result usually means a relay was served the About

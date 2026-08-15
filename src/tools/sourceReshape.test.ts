@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { serializeGedcom } from "../gedcom/serialize";
@@ -2288,6 +2288,9 @@ describe("FamilySearch image links", () => {
   const RECORD_URL = "https://familysearch.org/ark:/61903/1:1:XNJ8-FPJ";
   const FILM_URL = "https://www.familysearch.org/search/catalog/406380";
   const FILM_ARK_URL = "https://www.familysearch.org/ark:/61903/3:1:3Q9M-CS2T-N985-8?cat=406380&i=137";
+  // Distinct arks, so the session-wide book cache can't answer for them.
+  const BLOCKED_URL = "https://www.familysearch.org/ark:/61903/3:1:3QS7-899C-5CGR?view=index";
+  const BLOCKED_URL_2 = "https://www.familysearch.org/ark:/61903/3:1:3QS7-L996-198J?view=index";
 
   it("reads collection, book, place, archive and image number from the ark's own citation", () => {
     expect(parseFamilySearchArkJson(ARK_JSON)).toEqual({
@@ -2396,7 +2399,7 @@ describe("FamilySearch image links", () => {
       },
       async (url, accept) => {
         asked.push({ url, accept });
-        return ARK_JSON;
+        return { status: 200, text: ARK_JSON };
       },
     );
     expect(relayed).toEqual([]);
@@ -2467,12 +2470,45 @@ describe("FamilySearch image links", () => {
     );
   });
 
+  it("tries a blocked link once more, but takes a 401 for the answer it is", async () => {
+    // A fresh module instance: its lookup pacing starts idle, so the only
+    // timer in play is the retry's own.
+    vi.resetModules();
+    const fresh = await import("./sourceReshape");
+    vi.useFakeTimers();
+    try {
+      const asked: number[] = [];
+      // The edge's block page on the first ask, the real answer on the second.
+      const flaky = async () => {
+        asked.push(asked.length);
+        return asked.length === 1 ? { status: 403 } : { status: 200, text: ARK_JSON };
+      };
+      const pending = fresh.fetchBookMeta("familysearch", BLOCKED_URL, async () => undefined, flaky);
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect((await pending)?.place).toBe("Pakrac");
+      expect(asked).toHaveLength(2);
+
+      // A sign-in refusal is final: asking again would get the same 401.
+      let signInAsks = 0;
+      const signIn = async () => {
+        signInAsks++;
+        return { status: 401 };
+      };
+      const denied = fresh.fetchBookMeta("familysearch", BLOCKED_URL_2, async () => undefined, signIn);
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(await denied).toBeUndefined();
+      expect(signInAsks).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("asks nothing for a record page or a catalog film — those need a login", async () => {
     const asked: string[] = [];
     const relay = async () => "<html><title>FamilySearch.org</title></html>";
     const ask = async (url: string) => {
       asked.push(url);
-      return ARK_JSON;
+      return { status: 200, text: ARK_JSON };
     };
     expect(await fetchBookMeta("familysearch", RECORD_URL, relay, ask)).toBeUndefined();
     expect(await fetchBookMeta("familysearch", FILM_URL, relay, ask)).toBeUndefined();
