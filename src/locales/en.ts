@@ -1132,6 +1132,7 @@ export const en = {
   "preview.stat.removedHint_one": "{{count}} record your file has will not be in the saved file",
   "preview.stat.removedHint_other": "{{count}} records your file has will not be in the saved file",
   "preview.removedHint": "This record will not be in the saved file.",
+  "preview.private": "Private — kept out of publishing.",
   "preview.undescribedHint": "This record is saved differently than it was loaded. The change was made outside the edits listed here, so there is no field-by-field detail for it.",
   "preview.grafted": "Linked to a person you already have",
   "preview.graftedHint": "The branch you brought in reached these people and took them to be someone your file already has, on the app's suggestion — you did not confirm these. Their relatives were attached to your record instead of arriving as a second copy. If one of them is not the same person, cancel and reject that match first.",

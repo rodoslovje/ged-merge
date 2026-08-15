@@ -98,6 +98,12 @@ export interface FieldChange {
    *  self-describing, e.g. a photo's full file path). The text report still
    *  uses `field` to group/label the line. */
   noLabel?: boolean;
+  /** The note or event this row describes is flagged private (`PRIV`/`_PRIV`/
+   *  `RESN privacy`). The preview marks it with the same 🔒 the editor puts on
+   *  it, so a value that will not be published is recognizable in the last
+   *  screen before the file is written — a private note otherwise read exactly
+   *  like a public one there. On an event's row it marks the whole group. */
+  private?: boolean;
 }
 
 /** A confirmed change the engine did not yet apply (relationship/links). */

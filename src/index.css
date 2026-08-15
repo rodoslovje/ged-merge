@@ -6449,6 +6449,9 @@ kbd {
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--state-incoming) 55%, transparent);
 }
 .preview-badge.is-edit { background: var(--panel-2); color: var(--muted); }
+/* Private marker: the editor's 🔒 repeated as a read-only mark. Sized down to
+   sit inside a field line without pushing it taller. */
+.preview-private { font-size: 0.75rem; line-height: 1; white-space: nowrap; }
 .preview-badge.is-removed { background: var(--danger-soft); color: var(--danger); }
 .edit-tree-badge {
   font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;

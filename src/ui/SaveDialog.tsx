@@ -4,6 +4,7 @@ import { useModalKeyboard } from "../keyboard/useModalKeyboard";
 import { isItemizedChange, reportTotals, type ChangeReport, type FieldChange, type GraftJoinPerson } from "../merge/merge";
 import type { Dataset, Individual } from "../gedcom/types";
 import { lifespanOf } from "../gedcom/lifespan";
+import { isPrivateNode } from "../gedcom/private";
 import { customEventLabel, eventDisplayLabel } from "../gedcom/eventTags";
 import { sexClass } from "./sex";
 import { EVENT_ORDER } from "../review/fields";
@@ -16,6 +17,17 @@ import type { Translate } from "../locales/i18n";
 /** A change with no text value — it carries only source/link icons to render inline. */
 function isIconChange(c: FieldChange): boolean {
   return !c.from && !c.to && !c.segments && !!(c.sources?.length || c.links?.length);
+}
+
+/** The 🔒 the editor puts on anything flagged private, repeated here so the last
+ *  screen before the file is written says which of these values stay unpublished.
+ *  A marker, not a toggle — nothing is editable in this dialog. */
+function PrivateMark({ t }: { t: Translate }) {
+  return (
+    <span className="preview-private" title={t("preview.private")} aria-label={t("edit.privateLabel")}>
+      🔒
+    </span>
+  );
 }
 
 
@@ -254,6 +266,14 @@ export function SaveDialog({
                 const facts = newIndi && !g.isImported ? personFacts(newIndi, t, i18n.language) : [];
                 const lifespan = indi ? lifespanOf(indi) : undefined;
                 const labelClass = `preview-rec${indi ? ` ${sexClass(indi.sex)}` : ""}`;
+                // Whether the record itself is flagged private, as it will stand
+                // in the saved file. A removed record has nothing left to read it
+                // from, and says so by simply not carrying the mark.
+                const sharedNode = kind === "record" ? dataset?.records.find((r) => r.xref === g.id) : undefined;
+                const recordPrivate =
+                  kind === "individual" ? indi?.private
+                  : kind === "family" ? dataset?.families.get(g.id)?.private
+                  : !!sharedNode && isPrivateNode(sharedNode);
                 const headContent = spouses?.length ? (
                   spouses.map((s, i) => {
                     const sIndi = s.id
@@ -290,6 +310,7 @@ export function SaveDialog({
                         </span>
                       )}
                       <span className="preview-card-head-right">
+                        {recordPrivate && <PrivateMark t={t} />}
                         {/* "New" and "Incoming" both mark a record the file
                             didn't have; only the route differs, so each says
                             which one it took. */}
@@ -326,6 +347,10 @@ export function SaveDialog({
                           grp.group ? (
                             <li key={gi} className="preview-field-group">
                               <span className="preview-field-group-label">{grp.group}</span>
+                              {/* Every row of a group comes from the one event,
+                                  so the flag belongs on the event's name rather
+                                  than repeated down its date/place lines. */}
+                              {grp.rows.some((c) => c.private) && <> <PrivateMark t={t} /></>}
                               <ul className="preview-fields preview-fields-nested">
                                 {renderGroupRows(grp.rows, grp.group, t)}
                               </ul>
@@ -335,6 +360,7 @@ export function SaveDialog({
                               <li key={`${gi}-${i}`}>
                                 {!c.noLabel && <><span className="preview-field">{c.field}</span>: </>}
                                 {isIconChange(c) ? <ChangeIcons changes={[c]} t={t} /> : <FieldValue c={c} />}
+                                {c.private && <> <PrivateMark t={t} /></>}
                               </li>
                             ))
                           ),

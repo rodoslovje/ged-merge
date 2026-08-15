@@ -221,6 +221,72 @@ describe("enrichEditReport — event tags outside the canonical lists", () => {
   });
 });
 
+describe("enrichEditReport — private markers", () => {
+  // The save preview is the last screen before the file is written, and a note
+  // kept out of publishing read there exactly like one meant for it.
+  it("flags an added inline note that is marked private", () => {
+    const before = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n"));
+    const after = dataset(
+      wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 NOTE https://web.facebook.com/janez\n2 RESN privacy\n"),
+    );
+    const snapshots = new Map([["@I1@", before.individuals.get("@I1@")!.raw]]);
+    const report = enrichEditReport(baseReport("@I1@"), after, snapshots, new Map(), tr);
+
+    const notes = report.changes.filter((c) => c.field === "field.notes");
+    expect(notes).toHaveLength(1);
+    expect(notes[0].private).toBe(true);
+  });
+
+  it("leaves an ordinary note unflagged", () => {
+    const before = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n"));
+    const after = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 NOTE Baptism witness\n"));
+    const snapshots = new Map([["@I1@", before.individuals.get("@I1@")!.raw]]);
+    const report = enrichEditReport(baseReport("@I1@"), after, snapshots, new Map(), tr);
+
+    expect(report.changes.find((c) => c.field === "field.notes")?.private).toBeUndefined();
+  });
+
+  it("follows a pointer note to the shared record holding its flag", () => {
+    // The editor writes a pointer note's flag on the `0 @N1@ NOTE` record, so
+    // reading only the pointer would call every shared private note public.
+    const before = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n"));
+    const after = dataset(
+      wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 NOTE @N1@\n0 @N1@ NOTE a private remark\n1 RESN privacy\n"),
+    );
+    const snapshots = new Map([["@I1@", before.individuals.get("@I1@")!.raw]]);
+    const report = enrichEditReport(baseReport("@I1@"), after, snapshots, new Map(), tr);
+
+    expect(report.changes.find((c) => c.field === "field.notes")?.private).toBe(true);
+  });
+
+  it("flags an event marked private, and reads the flag as the save will write it", () => {
+    const before = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 DATE 1901\n"));
+    const after = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 DATE 1901\n2 PLAC Kranj\n2 RESN privacy\n"));
+    const snapshots = new Map([["@I1@", before.individuals.get("@I1@")!.raw]]);
+    const report = enrichEditReport(baseReport("@I1@"), after, snapshots, new Map(), tr);
+
+    const birt = report.changes.filter((c) => c.group === "event.BIRT");
+    expect(birt).toHaveLength(1);
+    expect(birt[0].private).toBe(true);
+  });
+
+  it("shows an event whose only change is being marked private", () => {
+    // The flag stays out of the summary, so the pair reads as identical text —
+    // without comparing it on its own the save preview had nothing to show for
+    // a record it still reported as changed.
+    const before = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 DATE 1901\n"));
+    const after = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 DATE 1901\n2 RESN privacy\n"));
+    const snapshots = new Map([["@I1@", before.individuals.get("@I1@")!.raw]]);
+    const report = enrichEditReport(baseReport("@I1@"), after, snapshots, new Map(), tr);
+
+    const birt = report.changes.filter((c) => c.group === "event.BIRT");
+    expect(birt).toHaveLength(1);
+    expect(birt[0].private).toBe(true);
+    // The date itself did not change, and still reads as untouched.
+    expect(birt[0].segments).toEqual([{ text: "1901", state: "same" }]);
+  });
+});
+
 // ---------------------------------------------------------------------------
 // buildEditReport — the record-level skeleton the save preview groups by, built
 // before enrichEditReport fills in per-field detail.

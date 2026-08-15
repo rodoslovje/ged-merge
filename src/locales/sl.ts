@@ -1264,6 +1264,7 @@ export const sl = {
   "preview.stat.removedHint_few": "{{count}} zapisi iz vaše datoteke ne bodo shranjeni",
   "preview.stat.removedHint_other": "{{count}} zapisov iz vaše datoteke ne bo shranjenih",
   "preview.removedHint": "Tega zapisa v shranjeni datoteki ne bo.",
+  "preview.private": "Zasebno — izločeno iz objave.",
   "preview.undescribedHint": "Ta zapis se shrani drugačen, kot je bil naložen. Sprememba je nastala zunaj tu naštetih urejanj, zato zanjo ni opisa po posameznih poljih.",
   "preview.grafted": "Povezano z osebo, ki jo že imate",
   "preview.graftedHint": "Veja, ki ste jo prinesli, je prišla do teh oseb in jih po predlogu programa imela za nekoga, ki ga vaša datoteka že ima – tega niste potrdili vi. Njihovi sorodniki so se pripeli na vaš zapis, namesto da bi prišli kot drugi izvod. Če katera od njih ni ista oseba, prekličite in to ujemanje najprej zavrnite.",
