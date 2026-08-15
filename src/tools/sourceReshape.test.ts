@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { serializeGedcom } from "../gedcom/serialize";
+import { canonicalFamilySearchUrl, linkKey } from "../normalize/links";
 import { createSourceRecord } from "../gedcom/edit";
 import type { ReshapeEnrichment, ReshapeSite } from "./sourceReshape";
 import {
@@ -2569,6 +2570,39 @@ describe("FamilySearch image links", () => {
     // One page image per image link, titled by its own page.
     expect(text).toContain("1 TITL #12 - Ravna Gora - Marriages (Vjenčani) 1805-1812");
     expect(text).toContain("1 TITL #47 - Ravna Gora - Marriages (Vjenčani) 1805-1812");
+  });
+
+  it("treats every form of one image link as the same page", () => {
+    const ark = "https://www.familysearch.org/ark:/61903/3:1:3QSQ-G99C-5C1Q";
+    const forms = [
+      `${ark}?view=explore&lang=en&groupId=M99F-832`,
+      `${ark}?lang=en`,
+      `${ark}?wc=9R29-92W%3A391644801&cc=2040054&lang=en&i=143`,
+      ark,
+    ];
+    expect(new Set(forms.map(linkKey)).size).toBe(1);
+    // What gets written keeps the ark and nothing else…
+    expect(canonicalFamilySearchUrl(forms[0])).toBe(ark);
+    // …except the film a catalog image belongs to, which names it.
+    expect(canonicalFamilySearchUrl(`${ark}?cat=406380&i=137`)).toBe(`${ark}?cat=406380`);
+    // Two different images stay two, and other sites are untouched.
+    expect(linkKey(`${ark}?lang=en`)).not.toBe(linkKey("https://www.familysearch.org/ark:/61903/3:1:AAA"));
+    expect(canonicalFamilySearchUrl(`${BOOK}/?pg=10`)).toBe(`${BOOK}/?pg=10`);
+
+    // So a link the file already cites is recognized however it was written.
+    const ds = dataset([
+      "0 HEAD",
+      "1 CHAR UTF-8",
+      "0 @I1@ INDI",
+      `1 WWW ${forms[0]}`,
+      "0 @S9@ SOUR",
+      "1 TITL Ravna Gora",
+      "1 OBJE @O9@",
+      "0 @O9@ OBJE",
+      `1 FILE ${forms[1]}`,
+      "0 TRLR",
+    ].join("\n"));
+    expect(findReshapableLinks(ds).groups[0].existingSourceXref).toBe("@S9@");
   });
 
   it("adds a book's new pages to the source the file already keeps for it", () => {

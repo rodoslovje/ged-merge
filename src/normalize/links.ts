@@ -64,14 +64,33 @@ function matchGeneanetCemetery(url: string): { locale: GeneanetCemeteryLocale; t
   return undefined;
 }
 
+const FS_ARK_URL_RE = /^(https?:\/\/)(?:www\.)?familysearch\.org\/(?:[a-z]{2}\/)?ark:\/61903\/([^?#\s]+)/i;
+
 /**
- * Normalize a URL for set comparison: case-fold, drop a trailing slash, and
- * ignore the language code in Matricula Online URLs (e.g. /sl/ vs /de/) and
- * Geneanet cemetery URLs (e.g. /cemetery/ vs /friedhof/) since they link to
- * the same record in different UI languages.
+ * A FamilySearch ark stripped to what identifies the page: the ark itself.
+ * Its viewer hangs a trail of state on the URL — `?view=explore&lang=en&
+ * groupId=…`, or the older `?cc=…&wc=…&i=…` — which changes with how the
+ * reader got there, not with what they are looking at. Two links to one image
+ * therefore look different, and the same page ends up cited twice. The film
+ * number (`cat=`) is the exception: it names which catalog film the image
+ * belongs to, so it stays.
+ */
+export function canonicalFamilySearchUrl(url: string): string {
+  const m = FS_ARK_URL_RE.exec(url.trim());
+  if (!m) return url;
+  const cat = /[?&]cat=(\d+)/i.exec(url)?.[1];
+  return `${m[1]}www.familysearch.org/ark:/61903/${m[2]}${cat ? `?cat=${cat}` : ""}`;
+}
+
+/**
+ * Normalize a URL for set comparison: case-fold, drop a trailing slash, ignore
+ * the language code in Matricula Online URLs (e.g. /sl/ vs /de/) and Geneanet
+ * cemetery URLs (e.g. /cemetery/ vs /friedhof/) since they link to the same
+ * record in different UI languages, and reduce a FamilySearch ark to the page
+ * it names.
  */
 export function linkKey(url: string): string {
-  const key = url.trim().toLowerCase().replace(/\/+$/, "");
+  const key = canonicalFamilySearchUrl(url.trim().toLowerCase()).replace(/\/+$/, "");
   const matriculaKey = key.replace(MATRICULA_LANG_RE, "$1/xx/");
   const geneanet = matchGeneanetCemetery(matriculaKey);
   return geneanet ? `https://xx.geneanet.org/cemetery${geneanet.tail}` : matriculaKey;

@@ -9,7 +9,7 @@ import {
   pageParamOf,
   sourceTitle,
 } from "../gedcom/source";
-import { linkKey } from "../normalize/links";
+import { canonicalFamilySearchUrl, linkKey } from "../normalize/links";
 import { detectPlaceLayout } from "../normalize/profile";
 import { normalizeDateString } from "../normalize/date";
 import { dateFixContext, proposeDateFix, type DateFixContext } from "./fixDates";
@@ -2155,7 +2155,9 @@ export function reshapeSources(
         // grouped with its other page media (not after CHAN/CREA).
         insertGrouped(sourceNode, { level: 1, tag: "OBJE", value: hit.objeXref, children: [] }, SOUR_TRAILING);
       } else {
-        const obje = addObjeToSource(clone, sourceXref, hit.url, objeTitle);
+        // Written stripped of viewer state, so a page linked twice by two
+        // readers lands as one media record (see `canonicalFamilySearchUrl`).
+        const obje = addObjeToSource(clone, sourceXref, canonicalFamilySearchUrl(hit.url), objeTitle);
         if (obje.xref) createdObjeUrls.set(obje.xref, hit.url);
         counts.mediaCreated++;
       }

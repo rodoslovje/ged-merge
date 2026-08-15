@@ -4,7 +4,7 @@ import type { EditSourceFields, NewSourceFields } from "../gedcom/edit";
 import { findExistingSource } from "../gedcom/source";
 import { parseSourceInput } from "../gedcom/citationParse";
 import { inferMainProfile } from "../normalize/profile";
-import { rewriteLinkLang } from "../normalize/links";
+import { canonicalFamilySearchUrl, rewriteLinkLang } from "../normalize/links";
 import { fetchPageHtml, fetchPageTitle } from "../normalize/urlMetadata";
 import { fetchBookMeta, makePlaceResolver, narrowFsRegister, proposedSiteRepo, recognizeSourceUrl, SITE_ICON, splitFsRegisters, type ReshapeMeta, type ReshapeSite } from "../tools/sourceReshape";
 import { prefersSourceRepos } from "../gedcom/source";
@@ -118,7 +118,9 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
   const resolvePlace = useMemo(() => makePlaceResolver(dataset.records), [dataset]);
   const parsed = useMemo(() => parseSourceInput(text), [text]);
   const normalizedUrl = useMemo(
-    () => (parsed.url ? rewriteLinkLang(parsed.url, mainLinkLangs) : undefined),
+    // A FamilySearch link keeps only its ark: the viewer state a pasted URL
+    // carries would make one page look like two sources.
+    () => (parsed.url ? canonicalFamilySearchUrl(rewriteLinkLang(parsed.url, mainLinkLangs)) : undefined),
     [parsed.url, mainLinkLangs],
   );
   // The same site recognition the Organize sources tool runs — a Matricula /
