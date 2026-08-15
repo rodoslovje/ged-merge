@@ -107,6 +107,33 @@ describe("auditAgainstBaseline", () => {
     expect(reportTotals(report).undescribedRecords).toBe(0);
   });
 
+  // Adding one source URL creates a SOUR and an OBJE. Naming them by xref and
+  // leaving it at that tells the reader nothing about what their file gained.
+  it("names a new shared record and lists what it holds", () => {
+    const ds = dataset(FILE);
+    const baseline = baselineOf(ds);
+    const report = emptyReport();
+    const added = dataset(wrap(
+      "0 @S9@ SOUR\n1 TITL Matična knjiga poročenih\n1 REPO @R1@\n" +
+      "0 @O9@ OBJE\n1 FILE https://familysearch.org/ark:/61903/1:1:XXXX\n2 TITL Poroka 1873\n",
+    )).records.filter((r) => r.xref);
+
+    auditAgainstBaseline([...outgoing(ds), ...added], baseline, report);
+
+    expect(report.recordLabels["@S9@"]).toBe("📖 Matična knjiga poročenih");
+    expect(report.recordLabels["@O9@"]).toContain("Poroka 1873");
+    const sourRows = report.changes.filter((c) => c.recordId === "@S9@" && c.field);
+    expect(sourRows.map((c) => [c.field, c.to])).toEqual([
+      ["TITL", "Matična knjiga poročenih"],
+      ["REPO", "@R1@"],
+    ]);
+    expect(report.changes.find((c) => c.recordId === "@O9@" && c.field === "FILE")?.to)
+      .toBe("https://familysearch.org/ark:/61903/1:1:XXXX");
+    // It is spelled out, so it is not one of the records with no detail.
+    expect(reportTotals(report).undescribedRecords).toBe(0);
+    expect(reportTotals(report).newRecords).toBe(2);
+  });
+
   it("reports a record that arrives from nowhere", () => {
     const ds = dataset(FILE);
     const baseline = baselineOf(ds);

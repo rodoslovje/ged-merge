@@ -1,6 +1,7 @@
+import { diffSharedRecordNodes, emptyLike, sharedRecordLabel } from "../gedcom/editReport";
 import { recordFingerprint, type SaveBaseline } from "../gedcom/fingerprint";
 import type { GedNode } from "../gedcom/types";
-import type { ChangeReport } from "../merge/merge";
+import type { ChangeReport, FieldChange } from "../merge/merge";
 
 /**
  * Hold the change report against the file the save is actually about to write.
@@ -35,13 +36,15 @@ export function auditAgainstBaseline(
   for (const d of report.deferred) described.add(d.recordId);
 
   /** Record-level entry for something the report doesn't yet account for.
-   *  `undescribed` marks the ones with no field lines anywhere — a record whose
-   *  removal is new news but whose fields were reported stays described. */
+   *  `undescribed` marks only the ones nothing itemizes — a record whose
+   *  contents are spelled out below, or whose fields were already reported,
+   *  is described; it just wasn't known to be new, gone, or changed. */
   const mark = (
     recordId: string,
     kind: "individual" | "family" | "record",
     flag: "newRecord" | "removedRecord" | undefined,
     label?: string,
+    detail: FieldChange[] = [],
   ) => {
     report.recordKinds[recordId] ??= kind;
     if (label && !report.recordLabels[recordId]) report.recordLabels[recordId] = label;
@@ -51,11 +54,23 @@ export function auditAgainstBaseline(
       from: "",
       to: "",
       action: "incoming",
-      ...(described.has(recordId) ? {} : { undescribed: true }),
+      ...(described.has(recordId) || detail.length ? {} : { undescribed: true }),
       ...(flag === "newRecord" ? { newRecord: true } : {}),
       ...(flag === "removedRecord" ? { removedRecord: true } : {}),
     });
+    report.changes.push(...detail);
   };
+
+  /** What a record holds, as one line per value — the whole of a new record,
+   *  since there is no earlier version of it to diff against. Only shared
+   *  records (SOUR/OBJE/NOTE/REPO) are spelled out this way: a person or family
+   *  is described by the paths that create them, and dumping every line of one
+   *  here would bury the record it belongs to. */
+  const contentsOf = (record: GedNode, kind: string) =>
+    kind === "record" ? diffSharedRecordNodes(record.xref!, emptyLike(record), record) : [];
+
+  const nameOf = (record: GedNode, kind: string) =>
+    kind === "record" ? sharedRecordLabel(record.xref!, record) : undefined;
 
   const written = new Set<string>();
   for (const record of records) {
@@ -65,15 +80,19 @@ export function auditAgainstBaseline(
     const kind = record.tag === "INDI" ? "individual" : record.tag === "FAM" ? "family" : "record";
     if (!was) {
       // A record the file never had. The merge already reports the ones it
-      // brings in, so anything left here arrived some other way.
+      // brings in, so anything left here arrived some other way — and it is
+      // still in front of us, so the report can say what it holds rather than
+      // only that it exists. A source added with a link is worth nothing to
+      // the reader as a bare xref.
       if (described.has(record.xref)) continue;
-      mark(record.xref, kind, "newRecord");
+      mark(record.xref, kind, "newRecord", nameOf(record, kind), contentsOf(record, kind));
       if (kind === "individual") report.newPersons++;
       else if (kind === "family") report.newFamilies++;
       continue;
     }
     if (described.has(record.xref)) continue;
-    if (recordFingerprint(record) !== was.hash) mark(record.xref, kind, undefined);
+    if (recordFingerprint(record) === was.hash) continue;
+    mark(record.xref, kind, undefined, nameOf(record, kind));
   }
 
   // Records the file arrived with that the save will not write. A deleted

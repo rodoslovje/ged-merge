@@ -341,10 +341,11 @@ export function SaveDialog({
                         )}
                       </ul>
                     )}
-                    {/* A card with nothing under it says nothing. Both cases
-                        that produce one are worth a sentence: a record the
+                    {/* A card with nothing under it says nothing, so the two
+                        cases that produce one get a sentence: a record the
                         download leaves out, and one the save can tell has
-                        changed but cannot itemize. */}
+                        changed but cannot itemize. Where the card does list
+                        something, the listing is the explanation. */}
                     {fieldRows.length === 0 && facts.length === 0 && (g.isRemoved || g.isUndescribed) && (
                       <p className="preview-note">
                         {g.isRemoved ? t("preview.removedHint") : t("preview.undescribedHint")}

@@ -583,7 +583,7 @@ export function enrichEditReport(
  * source it backs), so each carries its kind icon — 📖 source, 🔗/🖼 media,
  * 🏛 repository, the same glyphs the Sources tool uses — to keep the rows apart.
  */
-function sharedRecordLabel(id: string, node: GedNode | undefined): string {
+export function sharedRecordLabel(id: string, node: GedNode | undefined): string {
   if (!node) return xrefLabel(id);
   const icon = node.tag === "SOUR" ? "📖" : node.tag === "OBJE" ? (objeInfoOf(node).url ? "🔗" : "🖼") : node.tag === "REPO" ? "🏛" : undefined;
   const title =
@@ -601,7 +601,13 @@ function sharedRecordLabel(id: string, node: GedNode | undefined): string {
  * flattened to `TAG.SUBTAG` → values in document order and compared position by
  * position, so a repaired `DATE` reads "DATA.DATE: Apr 12, 1979 → 12 APR 1979".
  */
-function diffSharedRecordNodes(id: string, before: GedNode, after: GedNode): FieldChange[] {
+/** The same record with nothing in it — what a brand-new record is diffed
+ *  against, so every line it brought reads as added. */
+export function emptyLike(node: GedNode): GedNode {
+  return { level: node.level, tag: node.tag, children: [] };
+}
+
+export function diffSharedRecordNodes(id: string, before: GedNode, after: GedNode): FieldChange[] {
   const flatten = (node: GedNode, prefix: string, out: Map<string, string[]>) => {
     for (const child of node.children) {
       const path = prefix ? `${prefix}.${child.tag}` : child.tag;
@@ -730,7 +736,10 @@ export function buildEditReport(
     // so it shows as New rather than Changed.
     const isNew = !!current && !snapshot;
     changes.push({ recordId: id, field: "", from: "", to: "", action: "incoming", newRecord: isNew, removedRecord: !current });
-    if (current && snapshot) changes.push(...diffSharedRecordNodes(id, snapshot, current));
+    // A record created this session has no snapshot to diff against, and
+    // without this its card would carry a title and nothing else — the whole
+    // point of adding a source is the title and the link it brought with it.
+    if (current) changes.push(...diffSharedRecordNodes(id, snapshot ?? emptyLike(current), current));
   }
 
   return {
