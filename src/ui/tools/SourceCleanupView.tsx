@@ -567,10 +567,23 @@ function GroupEditDialog({
   // whose record pages no lookup can reach) fills the fields in one go. Only
   // what it actually names is written — the rest of the form stands.
   const [pasted, setPasted] = useState("");
+  /** What a pasted citation says beyond the six editable fields: the register
+   *  type (which decides the event a citation lands on) and, for a group that
+   *  is one link, which entry of the source it is. */
+  const [citedExtras, setCitedExtras] = useState<ReshapeMeta | undefined>();
   function fillFromCitation(text: string) {
     setPasted(text);
     const cited = parsePastedFsCitation(text);
     const generic = cited ? undefined : parseSourceInput(text);
+    setCitedExtras(
+      cited && {
+        bookType: cited.bookType,
+        collection: cited.collection,
+        // A page belongs to one link; a group of many would stamp every
+        // citation with the same entry.
+        page: group.members.length === 1 ? cited.page : undefined,
+      },
+    );
     const take = (was: string, ...found: (string | undefined)[]) => found.find((v) => v?.trim())?.trim() ?? was;
     setFields((f) => ({
       title: take(f.title, cited?.title, generic?.title),
@@ -597,6 +610,7 @@ function GroupEditDialog({
   function save() {
     onSave({
       ...meta,
+      ...citedExtras,
       // A blanked title falls back to the proposal — sources need one; the
       // other fields keep the emptied value, which the apply then omits.
       title: fields.title.trim() || group.proposed.title,
