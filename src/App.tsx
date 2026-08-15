@@ -54,6 +54,7 @@ import { mergeDuplicateChain } from "./tools/mergeDuplicate";
 import { mergeCluster } from "./tools/mergeCluster";
 import { duplicatePairKey, parseDuplicatePairKey } from "./tools/duplicates";
 import { SaveDialog } from "./ui/SaveDialog";
+import { charsetNotices } from "./ui/charsetNotice";
 import { useConfirmDialog } from "./ui/useConfirmDialog";
 import { ChartsHub } from "./ui/ChartsHub";
 import { Landing } from "./ui/Landing";
@@ -651,7 +652,7 @@ function AppContent() {
       // brick startup — fall back to a clean baseline (the cached main text
       // already contains the edits; only their change-tracking is lost).
       try {
-        dirty.hydrate(es);
+        dirty.hydrate(es, main.file.dataset);
         undoRedo.hydrate(es.undo, es.redo);
         // No cached compare coming → merge entries in the hydrated history
         // reference an incoming file that won't exist. Drop them, or undoing
@@ -1336,6 +1337,7 @@ function AppContent() {
       changedRecordIds,
       loadedPersonIds: dirty.loadedPersonIds.current,
       loadedFamilyIds: dirty.loadedFamilyIds.current,
+      baseline: dirty.baseline.current,
       personSnapshots: dirty.personSnapshots.current,
       familySnapshots: dirty.familySnapshots.current,
       recordSnapshots: dirty.recordSnapshots.current,
@@ -1376,8 +1378,21 @@ function AppContent() {
     }
   }
 
-  function handleConfirmSave() {
+  /** @param excludedTags vendor tags the reader unticked in the preview — the
+   *  dialog has already stripped them from the tree, and the report says so. */
+  function handleConfirmSave(excludedTags: string[]) {
     if (!preview || !mainDataset) return;
+
+    // What this save does to the file as a whole rather than to one record —
+    // the report says each of them out loud, since none of them shows up as a
+    // change to any single person.
+    const fileNotes = charsetNotices(mainDataset, t);
+    if (excludedTags.length) {
+      fileNotes.push(t("changeReport.note.tagsRemoved", {
+        tags: excludedTags.join(", "),
+        count: excludedTags.reduce((n, tag) => n + (preview.report.customTags[tag]?.length ?? 0), 0),
+      }));
+    }
 
     const usage = mainDataset.chanCreaUsage;
     // Every convention the file might keep, not just CHAN/CREA on people: a
@@ -1401,6 +1416,7 @@ function AppContent() {
         nowGedcomTime(stampNow),
         nowUpdStamp(stampNow),
       );
+      fileNotes.push(t("changeReport.note.stamped", { count: changedIds.size }));
     }
 
     // The download is always UTF-8 bytes; a header still declaring the source
@@ -1411,7 +1427,14 @@ function AppContent() {
     const text = serializeGedcom(preview.records, downloadOptions(mainDataset));
     // Reuse the exact names shown in the preview dialog (already date-stamped).
     downloadText(preview.files[0], text);
-    downloadText(preview.files[1], formatReport(preview.report, "GED Save change report"));
+    downloadText(preview.files[1], formatReport(preview.report, {
+      t,
+      mainFileName: lastMainFile?.fileName,
+      savedFileName: preview.files[0],
+      compareFileName: preview.isMerge && compare.status === "loaded" ? compare.file.fileName : undefined,
+      savedAt: new Date(),
+      fileNotes,
+    }));
 
     // A save can name the file better than it was created with — a tree started
     // from nothing arrives as `new-tree` and leaves under its family's surname
@@ -1537,7 +1560,20 @@ function AppContent() {
     }
 
     if (patches.length > 0) {
+      // Snapshot the batch before pushing it, exactly as `handlePushEdit` does:
+      // taking a record out of the save unlinks (or prunes) everyone around it,
+      // and those records really are changed. Without this they'd reach the
+      // file with no snapshot and no dirty flag — changed, and unreported.
+      dirty.captureSnapshotsForPush(patches);
       undoRedo.push({ mode: "edit", patches, navigateTo: id });
+      // Every record the cascade touched is dirty. The one being taken out of
+      // the save is not: it was just put back the way the file had it, and
+      // `dirty.removeDirty` above said so.
+      for (const p of patches) {
+        if (p.id === id) continue;
+        if (p.type === "record") { if (!p.owner) dirty.markRecordDirty(p.id); }
+        else dirty.markDirty(p.type, p.id, mainDataset);
+      }
       bumpEdit();
     }
 
@@ -2229,7 +2265,6 @@ function AppContent() {
           title={preview.title}
           files={preview.files}
           downloadLabel={preview.downloadLabel}
-          mainRecordCount={preview.mainRecordCount}
           editRecordIds={preview.editRecordIds}
           integrityWarnings={preview.integrityWarnings}
           dataset={mainDataset}

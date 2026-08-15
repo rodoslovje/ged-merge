@@ -1958,9 +1958,27 @@
               cancel, reject that match, and save again.
             </p>
             <p>
+              The counts at the top of the preview are counts of what the list below them shows: records changed, fields
+              applied, and — when a save removes records, as merging a group of duplicates does —
+              <strong>Records removed</strong>. Every removed record is named in the list with a
+              <span class="gm-badge r">Removed</span> badge, so a save that drops a thousand duplicate people says so
+              before you download rather than after.
+            </p>
+            <p>
+              A record may also be listed as <strong>changed without detail</strong>. Before showing the preview, the app
+              compares every record it is about to write against the file you loaded; anything that differs is listed
+              even if it came from something other than the edits above, in which case there is no field-by-field
+              account of it. The point is that nothing reaches your file unmentioned — a record with no detail is still
+              a record to look at.
+            </p>
+            <p>
               <strong>Download GEDCOM</strong> writes two files: the new <em>.ged</em> and a plain-text
-              <em>change report</em> documenting exactly what was applied. The downloaded file becomes your new working
-              baseline inside the app, so what you see next matches what you just saved.
+              <em>change report</em>, in your language, documenting exactly what was applied. The report opens with the
+              file it started from, the name it was saved as and the date, then the same counts as the preview, then
+              anything applied to the file as a whole — the encoding rewrite, custom tags you left out, change-date
+              stamping — and finally the changes themselves, field by field, with the records added and removed each
+              named once. The downloaded file becomes your new working baseline inside the app, so what you see next
+              matches what you just saved.
             </p>
             <p>
               The download is always written as <strong>UTF-8</strong>, and its header is set to say so. A file that

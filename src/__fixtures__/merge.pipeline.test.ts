@@ -182,7 +182,7 @@ describe("full merge: EuropeRoyalFamilies into EnglishTudorRoyalFamily", () => {
   });
 
   it("matches the golden change report", async () => {
-    await expect(formatReport(report)).toMatchFileSnapshot("./golden/europe-into-tudor.report.txt");
+    await expect(formatReport(report, { t: tr })).toMatchFileSnapshot("./golden/europe-into-tudor.report.txt");
   });
 
   it("produces output that parses cleanly and reaches a serialize fixed-point", () => {

@@ -583,16 +583,103 @@ export function enrichEditReport(
  * source it backs), so each carries its kind icon — 📖 source, 🔗/🖼 media,
  * 🏛 repository, the same glyphs the Sources tool uses — to keep the rows apart.
  */
-function sharedRecordLabel(id: string, node: GedNode | undefined): string {
+export function sharedRecordLabel(id: string, node: GedNode | undefined): string {
   if (!node) return xrefLabel(id);
   const icon = node.tag === "SOUR" ? "📖" : node.tag === "OBJE" ? (objeInfoOf(node).url ? "🔗" : "🖼") : node.tag === "REPO" ? "🏛" : undefined;
+  const label = sharedRecordTitle(id, node);
+  return icon ? `${icon} ${label}` : label;
+}
+
+/** The label above without its kind icon — what the record calls itself, for
+ *  comparing against the values it holds. */
+export function sharedRecordTitle(id: string, node: GedNode): string {
   const title =
     node.tag === "SOUR" ? sourceTitle(node)
     : node.tag === "OBJE" ? objeInfoOf(node).title
     : node.tag === "REPO" ? firstChild(node, "NAME")?.value
     : undefined;
-  const label = title?.trim() || `${node.tag} ${xrefLabel(id)}`;
-  return icon ? `${icon} ${label}` : label;
+  return title?.trim() || `${node.tag} ${xrefLabel(id)}`;
+}
+
+/** The same record with nothing in it — what a brand-new record is diffed
+ *  against, so every line it brought reads as added. */
+export function emptyLike(node: GedNode): GedNode {
+  return { level: node.level, tag: node.tag, children: [] };
+}
+
+/** A line whose whole value is a pointer at another record. */
+const POINTER = /^@[^@\s]+@$/;
+
+/**
+ * Name the record a pointer points at, the way the app names it everywhere
+ * else. `1 REPO @R1@` is an archive with a name, and printing the xref instead
+ * hands the reader a lookup to do by hand in a file they can't search.
+ *
+ * The xref index is built on first use, so a save that turns out to have no
+ * pointers to resolve pays nothing for it.
+ */
+export function makeXrefLabeler(records: GedNode[]): (xref: string) => string | undefined {
+  let index: Map<string, GedNode> | undefined;
+  const label = (xref: string): string | undefined => {
+    if (!index) {
+      index = new Map();
+      for (const r of records) if (r.xref) index.set(r.xref, r);
+    }
+    const node = index.get(xref);
+    if (!node) return undefined; // a dangling pointer stays raw — the xref is the finding
+    if (node.tag === "INDI") return displayNameFromRaw(node) || undefined;
+    if (node.tag === "FAM") {
+      const spouses = ["HUSB", "WIFE"]
+        .map((tag) => firstChild(node, tag)?.value?.trim())
+        .filter((x): x is string => !!x)
+        .map((x) => label(x) ?? x);
+      return spouses.join(" + ") || undefined;
+    }
+    return sharedRecordLabel(xref, node);
+  };
+  return label;
+}
+
+/** Every value a record holds, in document order, pointers named. */
+function recordValues(node: GedNode, labelFor?: (xref: string) => string | undefined): string[] {
+  const out: string[] = [];
+  const walk = (n: GedNode) => {
+    for (const child of n.children) {
+      const value = child.value?.trim();
+      if (value) out.push(labelFor && POINTER.test(value) ? labelFor(value) ?? value : value);
+      walk(child);
+    }
+  };
+  walk(node);
+  return out;
+}
+
+/**
+ * A record the file is gaining, as one line: what it holds, joined the way an
+ * event reads in this dialog ("date · place · source"). Nothing in it is a
+ * before-and-after — it is all new — so naming the GEDCOM tag in front of each
+ * value only puts the file's grammar between the reader and their data. The
+ * title is left out: it is the card's own heading.
+ *
+ * Returns nothing for a record that holds nothing but its title.
+ */
+export function newSharedRecordRow(
+  id: string,
+  node: GedNode,
+  heading: string,
+  labelFor?: (xref: string) => string | undefined,
+): FieldChange | undefined {
+  const values = recordValues(node, labelFor).filter((v) => v !== heading);
+  if (!values.length) return undefined;
+  return {
+    recordId: id,
+    field: "",
+    from: "",
+    to: "",
+    action: "incoming",
+    noLabel: true,
+    segments: values.map((text) => ({ text, state: "changed" as const })),
+  };
 }
 
 /**
@@ -600,8 +687,19 @@ function sharedRecordLabel(id: string, node: GedNode | undefined): string {
  * projection to compare the way individuals and families do. Both trees are
  * flattened to `TAG.SUBTAG` → values in document order and compared position by
  * position, so a repaired `DATE` reads "DATA.DATE: Apr 12, 1979 → 12 APR 1979".
+ * (A record that is wholly new reads better as one line — see
+ * {@link newSharedRecordRow}.)
+ *
+ * @param labelFor names the target of a pointer value (see {@link makeXrefLabeler}).
  */
-function diffSharedRecordNodes(id: string, before: GedNode, after: GedNode): FieldChange[] {
+export function diffSharedRecordNodes(
+  id: string,
+  before: GedNode,
+  after: GedNode,
+  labelFor?: (xref: string) => string | undefined,
+): FieldChange[] {
+  const show = (value: string) =>
+    labelFor && POINTER.test(value) ? labelFor(value) ?? value : value;
   const flatten = (node: GedNode, prefix: string, out: Map<string, string[]>) => {
     for (const child of node.children) {
       const path = prefix ? `${prefix}.${child.tag}` : child.tag;
@@ -625,7 +723,13 @@ function diffSharedRecordNodes(id: string, before: GedNode, after: GedNode): Fie
     const to = afterVals.get(path) ?? [];
     for (let i = 0; i < Math.max(from.length, to.length); i++) {
       if (from[i] === to[i]) continue;
-      changes.push({ recordId: id, field: path, from: from[i] ?? "", to: to[i] ?? "", action: "incoming" });
+      changes.push({
+        recordId: id,
+        field: path,
+        from: from[i] ? show(from[i]) : "",
+        to: to[i] ? show(to[i]) : "",
+        action: "incoming",
+      });
     }
   }
   return changes;
@@ -720,6 +824,7 @@ export function buildEditReport(
     if (isNew) newFamilies++;
   }
 
+  const labelFor = makeXrefLabeler(dataset.records);
   for (const id of changedRecordIds ?? []) {
     const current = dataset.records.find((r) => r.xref === id);
     const snapshot = recordSnapshots?.get(id)?.value;
@@ -730,7 +835,15 @@ export function buildEditReport(
     // so it shows as New rather than Changed.
     const isNew = !!current && !snapshot;
     changes.push({ recordId: id, field: "", from: "", to: "", action: "incoming", newRecord: isNew, removedRecord: !current });
-    if (current && snapshot) changes.push(...diffSharedRecordNodes(id, snapshot, current));
+    // A record created this session has no snapshot to diff against, and
+    // without this its card would carry a title and nothing else — the whole
+    // point of adding a source is the title and the link it brought with it.
+    if (current && isNew) {
+      const row = newSharedRecordRow(id, current, sharedRecordTitle(id, current), labelFor);
+      if (row) changes.push(row);
+    } else if (current && snapshot) {
+      changes.push(...diffSharedRecordNodes(id, snapshot, current, labelFor));
+    }
   }
 
   return {

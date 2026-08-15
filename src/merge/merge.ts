@@ -51,6 +51,11 @@ export interface FieldChange {
   viaGraft?: boolean;
   /** Marks the placeholder change for a deleted person/family record. */
   removedRecord?: boolean;
+  /** Set by the save-time audit (`save/auditReport.ts`) on a record that reaches
+   *  the file changed, added or deleted with nothing in the report to say so.
+   *  There is no before-copy left to diff, so the entry carries no field detail —
+   *  it says only that the record moved, which beats saying nothing. */
+  undescribed?: boolean;
   /** Event name (e.g. "Birth", "Marriage") this field belongs to, so the
    *  preview can show it once as a header above its date/place/note/source. */
   group?: string;
@@ -178,6 +183,64 @@ export interface MergeResult {
   /** A clone of the main record forest with confirmed edits applied. */
   records: GedNode[];
   report: ChangeReport;
+}
+
+/**
+ * Whether a change is one of the itemized field lines — the rows the save
+ * preview shows under a record and the text report lists under its header.
+ * Record-level markers (a record added, deleted, or moved with no detail to
+ * give) are not fields, and a row carrying neither text nor icons is nothing at
+ * all.
+ */
+export function isItemizedChange(c: FieldChange): boolean {
+  if (c.newRecord || c.removedRecord || c.undescribed) return false;
+  return !!(c.from || c.to || c.segments || c.sources?.length || c.links?.length);
+}
+
+/** The numbers in the save preview's summary strip and at the head of the
+ *  downloaded report — counted once, here, so the two can't disagree. Each is
+ *  a count of what the surfaces actually go on to show. */
+export interface ReportTotals {
+  /** Records with anything to say about them. */
+  recordsChanged: number;
+  /** Itemized field lines ({@link isItemizedChange}). */
+  fields: number;
+  /** Of those, the ones filling a field the record had nothing in. */
+  newFields: number;
+  /** Records the file didn't have: new persons, families and shared records. */
+  newRecords: number;
+  /** Records the file had that this save will not write. */
+  removedRecords: number;
+  /** Changed records the report can't itemize — see `FieldChange.undescribed`. */
+  undescribedRecords: number;
+  /** Values kept as they stand in the main file. */
+  deferred: number;
+}
+
+export function reportTotals(report: ChangeReport): ReportTotals {
+  const added = new Set<string>();
+  const removed = new Set<string>();
+  const undescribed = new Set<string>();
+  let fields = 0;
+  let newFields = 0;
+  for (const c of report.changes) {
+    if (c.newRecord) added.add(c.recordId);
+    if (c.removedRecord) removed.add(c.recordId);
+    if (c.undescribed) undescribed.add(c.recordId);
+    if (!isItemizedChange(c)) continue;
+    fields++;
+    if (!c.from) newFields++;
+  }
+  for (const id of [...added, ...removed]) undescribed.delete(id);
+  return {
+    recordsChanged: report.recordsChanged,
+    fields,
+    newFields,
+    newRecords: added.size,
+    removedRecords: removed.size,
+    undescribedRecords: undescribed.size,
+    deferred: report.deferred.length,
+  };
 }
 
 /**
@@ -406,76 +469,153 @@ function citationText(c: SourceCitation): string {
   return parts.join(", ") || c.url || c.sourceId;
 }
 
-export function formatReport(report: ChangeReport, title = "GED Merge change report"): string {
+/** What the downloaded report says about itself besides the changes: which file
+ *  it belongs to, what it was saved as, and what the save did to the file as a
+ *  whole (see {@link formatReport}). */
+export interface ReportContext {
+  t: Translate;
+  /** The main file this save started from. */
+  mainFileName?: string;
+  /** The `.ged` written alongside this report. */
+  savedFileName?: string;
+  /** The incoming file, on a merge. */
+  compareFileName?: string;
+  /** Stamped into the header so the report says when it was made without the
+   *  reader having to trust the filename. */
+  savedAt?: Date;
+  /** Things this save did to every record rather than to one — the encoding
+   *  rewrite, the vendor tags the reader unticked, the audit stamps. Already
+   *  translated by the caller, which is where each is decided. */
+  fileNotes?: string[];
+}
+
+function underline(text: string, char: "=" | "-"): string[] {
+  // Underline by character count, not by width — a proportional-font reader
+  // won't line it up anyway, and this keeps accented names from over-running.
+  return [text, char.repeat([...text].length)];
+}
+
+export function formatReport(report: ChangeReport, ctx: ReportContext): string {
+  const { t } = ctx;
   const lines: string[] = [];
-  lines.push(title);
-  lines.push("=".repeat(title.length));
+  const totals = reportTotals(report);
+
+  lines.push(...underline(t("changeReport.title"), "="));
   lines.push("");
-  lines.push(`Records changed:  ${report.recordsChanged}`);
-  lines.push(`Fields applied:   ${report.changes.length}`);
-  lines.push(`New persons:      ${report.newPersons}`);
-  lines.push(`New families:     ${report.newFamilies}`);
-  lines.push(`Deferred:         ${report.deferred.length}`);
+
+  const head: [string, string | undefined][] = [
+    [t("changeReport.head.file"), ctx.mainFileName],
+    [t("changeReport.head.savedAs"), ctx.savedFileName],
+    [t("changeReport.head.incoming"), ctx.compareFileName],
+    [t("changeReport.head.date"), ctx.savedAt?.toISOString().slice(0, 16).replace("T", " ")],
+  ];
+  const headRows = head.filter((r): r is [string, string] => !!r[1]);
+  if (headRows.length) {
+    for (const [label, value] of headRows) lines.push(`${`${label}:`.padEnd(22)}${value}`);
+    lines.push("");
+  }
+
+  // Every number the summary shows is a count of something spelled out below,
+  // so a reader can check the report against itself.
+  const stats: [string, number][] = [
+    [t("changeReport.stat.records"), totals.recordsChanged],
+    [t("changeReport.stat.fields"), totals.fields],
+    [t("changeReport.stat.newFields"), totals.newFields],
+    [t("changeReport.stat.added"), totals.newRecords],
+    [t("changeReport.stat.removed"), totals.removedRecords],
+    [t("changeReport.stat.undescribed"), totals.undescribedRecords],
+    [t("changeReport.stat.deferred"), totals.deferred],
+  ];
+  const width = Math.max(...stats.map(([label]) => [...label].length)) + 2;
+  for (const [label, value] of stats) lines.push(`${`${label}:`.padEnd(width)}${String(value).padStart(6)}`);
   lines.push("");
+
+  if (ctx.fileNotes?.length) {
+    lines.push(...underline(t("changeReport.wholeFile"), "-"));
+    for (const note of ctx.fileNotes) lines.push(`  ${note}`);
+    lines.push("");
+  }
 
   const recordHeader = (id: string) => {
     const label = report.recordLabels[id];
     return label ? `${label}  ${id}` : id;
   };
 
-  const meaningful = report.changes.filter((c) => c.field);
-  if (meaningful.length) {
-    lines.push("Applied changes");
-    lines.push("---------------");
-    const byRecord = new Map<string, typeof meaningful>();
-    for (const c of meaningful) {
-      const group = byRecord.get(c.recordId) ?? [];
-      group.push(c);
-      byRecord.set(c.recordId, group);
-    }
-    for (const [id, group] of byRecord) {
-      const header = recordHeader(id);
-      lines.push(header);
-      lines.push("-".repeat(header.length));
-      for (const c of group) {
-        if (c.sources?.length || c.links?.length) {
-          const items = [
-            ...(c.sources ?? []).map(citationText),
-            ...(c.links ?? []),
-          ];
-          lines.push(`  ${c.field}: added ${items.map((i) => `"${i}"`).join(", ")}`);
-        } else if (!c.to && c.from) {
-          lines.push(`  ${c.field}: removed "${c.from}"`);
-        } else {
-          const verb = c.action === "both" ? "added" : "set";
-          lines.push(`  ${c.field}: ${verb} "${c.to}"${c.from ? ` (was "${c.from}")` : ""}`);
-        }
-      }
+  const byRecord = new Map<string, FieldChange[]>();
+  for (const c of report.changes.filter(isItemizedChange)) {
+    const group = byRecord.get(c.recordId) ?? [];
+    group.push(c);
+    byRecord.set(c.recordId, group);
+  }
+  const idsWith = (flag: "newRecord" | "removedRecord") =>
+    new Set(report.changes.filter((c) => c[flag]).map((c) => c.recordId));
+  const added = idsWith("newRecord");
+  const removed = idsWith("removedRecord");
+
+  // Changes to records the file already had. What a record the file *gains*
+  // holds is not a change to it — that goes under "Records added" below, in
+  // one place, so a new source is read once rather than met twice.
+  const changed = [...byRecord].filter(([id]) => !added.has(id) && !removed.has(id));
+  if (changed.length) {
+    lines.push(...underline(t("changeReport.applied"), "-"));
+    for (const [id, group] of changed) {
+      lines.push(...underline(recordHeader(id), "-"));
+      for (const c of group) lines.push(`  ${changeLine(c, t)}`);
       lines.push("");
     }
   }
 
+  // Records the file gains and loses, each named once, rather than left to be
+  // inferred from the relationship lines of everybody around them. A new
+  // record's contents sit under its name; a removed one has none left to show.
+  for (const [key, ids] of [
+    ["changeReport.added", added],
+    ["changeReport.removed", removed],
+  ] as const) {
+    if (!ids.size) continue;
+    lines.push(...underline(t(key), "-"));
+    for (const id of ids) {
+      lines.push(`  ${recordHeader(id)}`);
+      // The heading of this section already says "added", so a line under it
+      // that is nothing but an addition drops the verb.
+      for (const c of byRecord.get(id) ?? []) {
+        lines.push(`    ${plainAddition(c) ?? changeLine(c, t)}`);
+      }
+    }
+    lines.push("");
+  }
+
+  const undescribed = [
+    ...new Set(
+      report.changes
+        .filter((c) => c.undescribed && !c.newRecord && !c.removedRecord)
+        .map((c) => c.recordId),
+    ),
+  ];
+  if (undescribed.length) {
+    lines.push(...underline(t("changeReport.undescribed"), "-"));
+    lines.push(`  ${t("changeReport.undescribedHint")}`);
+    for (const id of undescribed) lines.push(`  ${recordHeader(id)}`);
+    lines.push("");
+  }
+
   if (report.deferred.length) {
-    lines.push("Kept as in your file (the incoming file said otherwise)");
-    lines.push("-------------------------------------------------------");
-    const byRecord = new Map<string, typeof report.deferred>();
+    lines.push(...underline(t("changeReport.kept"), "-"));
+    const byRecord = new Map<string, DeferredChange[]>();
     for (const d of report.deferred) {
       const group = byRecord.get(d.recordId) ?? [];
       group.push(d);
       byRecord.set(d.recordId, group);
     }
     for (const [id, group] of byRecord) {
-      const header = recordHeader(id);
-      lines.push(header);
-      lines.push("-".repeat(header.length));
+      lines.push(...underline(recordHeader(id), "-"));
       for (const d of group) lines.push(`  ${d.field}: ${d.reason}`);
       lines.push("");
     }
   }
 
   if (report.graftJoins.length) {
-    lines.push("Linked to a person you already have (not confirmed by you)");
-    lines.push("----------------------------------------------------------");
+    lines.push(...underline(t("changeReport.grafted"), "-"));
     const named = (p: GraftJoinPerson) => (p.years ? `${p.name} ${p.years}` : p.name);
     for (const j of report.graftJoins) {
       lines.push(`  ${named(j.incoming)}  ->  ${named(j.main)}  ${j.mainId}`);
@@ -484,6 +624,54 @@ export function formatReport(report: ChangeReport, title = "GED Merge change rep
   }
 
   return lines.join("\n");
+}
+
+/**
+ * One field line. The verb is read off the change itself — a value that
+ * replaced another one is *changed*, not "added" — and a rewritten value is
+ * shown piece by piece the way the preview shows it, so what was given up is
+ * the part that stands out rather than being buried in a repeat of the whole
+ * line.
+ */
+/**
+ * A row where nothing replaced anything — the whole of a record the file is
+ * gaining — as its values alone, joined the way an event reads. Quoting each
+ * piece and marking it "+" would be marking the obvious. Undefined for every
+ * other kind of change.
+ */
+function plainAddition(c: FieldChange): string | undefined {
+  if (!c.segments?.length) return undefined;
+  if (!c.segments.every((s) => !s.from && s.state !== "removed")) return undefined;
+  return c.segments.map((s) => s.text).join(" · ");
+}
+
+function changeLine(c: FieldChange, t: Translate): string {
+  // A self-describing value carries no field name — the same rule the preview
+  // follows (`noLabel`), for the same reason: a line reading "Record: …" in
+  // front of a source's own title is a word wasted on every row.
+  const label = c.noLabel ? "" : `${c.field || t("changeReport.field.record")}: `;
+  if (c.sources?.length || c.links?.length) {
+    const items = [...(c.sources ?? []).map(citationText), ...(c.links ?? [])];
+    return `${label}${t("changeReport.verb.added")} ${items.map((i) => `"${i}"`).join(", ")}`;
+  }
+  const plain = plainAddition(c);
+  if (plain !== undefined) return `${label}${t("changeReport.verb.added")} ${plain}`;
+  if (c.segments) {
+    // The pieces the edit left alone stay bare, as context; only the ones it
+    // touched are quoted. Reprinting the whole value twice — which is what the
+    // report used to do here — hides the one piece the reader is looking for.
+    const pieces = c.segments
+      .filter((s) => s.text || s.from)
+      .map((s) => {
+        if (s.state === "removed") return `− "${s.text}"`;
+        if (s.state !== "changed") return s.text;
+        return s.from && s.from !== s.text ? `"${s.from}" → "${s.text}"` : `+ "${s.text}"`;
+      });
+    return `${label}${t("changeReport.verb.changed")} ${pieces.join(" · ")}`;
+  }
+  if (!c.to && c.from) return `${label}${t("changeReport.verb.removed")} "${c.from}"`;
+  if (c.from) return `${label}${t("changeReport.verb.changed")} "${c.from}" → "${c.to}"`;
+  return `${label}${t("changeReport.verb.added")} "${c.to}"`;
 }
 
 // Re-export so callers can build the decision key consistently.

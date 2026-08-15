@@ -1,906 +1,458 @@
-GED Merge change report
-=======================
+changeReport.title
+==================
 
-Records changed:  195
-Fields applied:   305
-New persons:      92
-New families:     59
-Deferred:         6
+changeReport.stat.records:        195
+changeReport.stat.fields:         154
+changeReport.stat.newFields:      153
+changeReport.stat.added:          151
+changeReport.stat.removed:          0
+changeReport.stat.undescribed:      0
+changeReport.stat.deferred:         6
 
-Applied changes
----------------
+changeReport.applied
+--------------------
 Arthur Tudor  @I28@
 -------------------
-  event.TITL: set "Prince of Wales"
+  event.TITL: changeReport.verb.added "Prince of Wales"
 
 Jane Grey  @I159@
 -----------------
-  event.TITL: set "Queen of England"
-  event.colPlace: set "Tower of London,Chapel Royal,London,England"
+  event.TITL: changeReport.verb.added "Queen of England"
+  event.colPlace: changeReport.verb.added "Tower of London,Chapel Royal,London,England"
 
 Margaret Douglas  @I221@
 ------------------------
-  event.TITL: set "Lady"
+  event.TITL: changeReport.verb.added "Lady"
 
 Edmund Tudor  @I3@
 ------------------
-  event.TITL: set "Earl of Richmond"
+  event.TITL: changeReport.verb.added "Earl of Richmond"
 
 Elizabeth Tudor  @I265@
 -----------------------
-  event.TITL: set "Queen of England"
-  event.colPlace: set "Richmond Palace,London,England"
+  event.TITL: changeReport.verb.added "Queen of England"
+  event.colPlace: changeReport.verb.added "Richmond Palace,London,England"
 
 Henry Tudor  @I14@
 ------------------
-  event.TITL: set "King of England"
-  event.colPlace: set "Whitehall,London,England"
+  event.TITL: changeReport.verb.added "King of England"
+  event.colPlace: changeReport.verb.added "Whitehall,London,England"
 
 Henry Tudor + Jane Seymour  @F33@
 ---------------------------------
-  event.colPlace: set "York Place,,England"
+  event.colPlace: changeReport.verb.added "York Place,,England"
 
 Henry Tudor + Anne of Cleves  @F34@
 -----------------------------------
-  event.colPlace: set "Greenwich,,England"
+  event.colPlace: changeReport.verb.added "Greenwich,,England"
 
 Henry Tudor + Catherine Howard  @F35@
 -------------------------------------
-  event.colPlace: set "Hampton Court,Palace,England"
+  event.colPlace: changeReport.verb.added "Hampton Court,Palace,England"
 
 Henry Tudor + Catherine Parr  @F36@
 -----------------------------------
-  event.colPlace: set "Hampton Court,Palace"
+  event.colPlace: changeReport.verb.added "Hampton Court,Palace"
 
 James Stuart  @I257@
 --------------------
-  event.TITL: set "King of England"
-  event.colPlace: set "Theobalds Park,Hertfordshire,Herts,England"
-  event.colPlace: set "Westminster,Abbey,London,England"
+  event.TITL: changeReport.verb.added "King of England"
+  event.colPlace: changeReport.verb.added "Theobalds Park,Hertfordshire,Herts,England"
+  event.colPlace: changeReport.verb.added "Westminster,Abbey,London,England"
 
 Mary Tudor  @I266@
 ------------------
-  event.TITL: set "Queen of England"
-  event.colPlace: set "St. James Palace,,England"
-  event.colPlace: set "Westminster,Abbey,London,England"
+  event.TITL: changeReport.verb.added "Queen of England"
+  event.colPlace: changeReport.verb.added "St. James Palace,,England"
+  event.colPlace: changeReport.verb.added "Westminster,Abbey,London,England"
 
 Edward Tudor  @I34@
 -------------------
-  event.TITL: set "King of England"
-  event.colPlace: set "Greenwich,Palace,England"
-  event.colPlace: set "Westminster,Abbey,London,England"
+  event.TITL: changeReport.verb.added "King of England"
+  event.colPlace: changeReport.verb.added "Greenwich,Palace,England"
+  event.colPlace: changeReport.verb.added "Westminster,Abbey,London,England"
 
 Henry Beaufort  @I276@
 ----------------------
-  event.TITL: set "Earl Sommerset"
+  event.TITL: changeReport.verb.added "Earl Sommerset"
 
 Henry Tudor  @I1@
 -----------------
-  event.TITL: set "King of England"
-
-Elizabeth Tudor  @I55@
-----------------------
-  merge.field.newPerson: set "Elizabeth Tudor"
+  event.TITL: changeReport.verb.added "King of England"
 
 Henry Tudor + Elizabeth York  @F1@
 ----------------------------------
-  merge.field.child: set "Elizabeth Tudor"
-  merge.field.child: set "Katherine Tudor"
-  event.colPlace: set "Westminster,,England"
-
-Katherine Tudor  @I155@
------------------------
-  merge.field.newPerson: set "Katherine Tudor"
+  merge.field.child: changeReport.verb.added "Elizabeth Tudor"
+  merge.field.child: changeReport.verb.added "Katherine Tudor"
+  event.colPlace: changeReport.verb.added "Westminster,,England"
 
 John Beaufort  @I6@
 -------------------
-  event.TITL: set "Duke Sommerset"
+  event.TITL: changeReport.verb.added "Duke Sommerset"
 
 Elizabeth York  @I2@
 --------------------
-  event.colPlace: set "Tower of London,London,England"
+  event.colPlace: changeReport.verb.added "Tower of London,London,England"
 
 Henry Grey  @I151@
 ------------------
-  event.TITL: set "Duke of Suffolk"
+  event.TITL: changeReport.verb.added "Duke of Suffolk"
 
 Mary Stewart  @I254@
 --------------------
-  event.colDate: set "7 Dec 1542" (was "Dec 1542")
-  event.TITL: set "Queen of Scots"
+  event.colDate: changeReport.verb.changed "Dec 1542" → "7 Dec 1542"
+  event.TITL: changeReport.verb.added "Queen of Scots"
 
 Francis of Valois + Mary Stewart  @F114@
 ----------------------------------------
-  event.colPlace: set "Paris,France"
+  event.colPlace: changeReport.verb.added "Paris,France"
 
 Henry Stuart + Mary Stewart  @F94@
 ----------------------------------
-  event.colPlace: set "Edinburgh,Scotland"
+  event.colPlace: changeReport.verb.added "Edinburgh,Scotland"
 
 Anne Boleyn  @I16@
 ------------------
-  event.BIRT: set "ABT 1501 · Blickling Hall,Norfolk,England"
+  event.BIRT: changeReport.verb.added "ABT 1501 · Blickling Hall,Norfolk,England"
 
 Matthew Stuart  @I222@
 ----------------------
-  event.colDate: set "1516"
-  event.TITL: set "Earl Lennox 4th"
-  event.colDate: set "1571"
-
-John Stewart + ...  @F201@
---------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "John Stewart"
-  merge.field.mother: set "..."
-
-...  @I234@
------------
-  merge.field.newPerson: set "..."
+  event.colDate: changeReport.verb.added "1516"
+  event.TITL: changeReport.verb.added "Earl Lennox 4th"
+  event.colDate: changeReport.verb.added "1571"
 
 Henry Stuart  @I223@
 --------------------
-  event.colDate: set "1545"
-  event.TITL: set "Lord Darnley"
+  event.colDate: changeReport.verb.added "1545"
+  event.TITL: changeReport.verb.added "Lord Darnley"
 
 Charles Stuart  @I224@
 ----------------------
-  event.TITL: set "Earl Lennox 6th"
-  event.colDate: set "1576"
+  event.TITL: changeReport.verb.added "Earl Lennox 6th"
+  event.colDate: changeReport.verb.added "1576"
 
 Thomas Howard  @I38@
 --------------------
-  event.TITL: set "Duke of Norfolk"
+  event.TITL: changeReport.verb.added "Duke of Norfolk"
 
 Mary Tudor  @I39@
 -----------------
-  event.colPlace: set "Richmond Palace,,England"
+  event.colPlace: changeReport.verb.added "Richmond Palace,,England"
 
 Louis of Valois + Mary Tudor  @F126@
 ------------------------------------
-  event.MARR: set "9 Oct 1514 · Abbeville"
+  event.MARR: changeReport.verb.added "9 Oct 1514 · Abbeville"
 
 Margaret Beaufort  @I4@
 -----------------------
-  event.TITL: set "Countess"
+  event.TITL: changeReport.verb.added "Countess"
 
 Charles Brandon  @I40@
 ----------------------
-  event.TITL: set "Duke of Suffolk"
+  event.TITL: changeReport.verb.added "Duke of Suffolk"
 
 Jane Seymour  @I18@
 -------------------
-  event.BIRT: set "ABT 1505 · Wolf Hall,Savernake,Wilts"
-  event.colPlace: set "Hampton Court,Palace,England"
-  event.BURI: set "12 Nov 1537 · St. George Chap.,Windsor,England"
+  event.BIRT: changeReport.verb.added "ABT 1505 · Wolf Hall,Savernake,Wilts"
+  event.colPlace: changeReport.verb.added "Hampton Court,Palace,England"
+  event.BURI: changeReport.verb.added "12 Nov 1537 · St. George Chap.,Windsor,England"
 
 Catherine Grey  @I191@
 ----------------------
-  event.TITL: set "Lady"
+  event.TITL: changeReport.verb.added "Lady"
 
 Elizabeth Cavendish  @I225@
 ---------------------------
-  event.colDate: set "1581"
+  event.colDate: changeReport.verb.added "1581"
 
 John Beaufort  @I272@
 ---------------------
-  event.TITL: set "Earl Sommerset"
-
-Thomas + Margaret de Holland,  @F202@
--------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.husband: set "Thomas"
-  event.colDate: set "1412"
-
-Thomas  @I351@
---------------
-  merge.field.newPerson: set "Thomas"
+  event.TITL: changeReport.verb.added "Earl Sommerset"
 
 Thomas Boleyn  @I36@
 --------------------
-  event.TITL: set "Earl"
-  event.colDate: set "1536"
+  event.TITL: changeReport.verb.added "Earl"
+  event.colDate: changeReport.verb.added "1536"
 
 Archibald Douglas  @I57@
 ------------------------
-  event.TITL: set "Earl of Angus VI"
+  event.TITL: changeReport.verb.added "Earl of Angus VI"
 
 Catherine Parr  @I20@
 ---------------------
-  event.BIRT: set "ABT 1512 · Kendal Castle"
+  event.BIRT: changeReport.verb.added "ABT 1512 · Kendal Castle"
 
 Edward Burgh + Catherine Parr  @F76@
 ------------------------------------
-  event.colDate: set "ABT 1529"
+  event.colDate: changeReport.verb.added "ABT 1529"
 
 John Neville + Catherine Parr  @F77@
 ------------------------------------
-  event.colDate: set "1533"
-
-Tudor Fychan of_Pemmynydd + Margaret  @F203@
---------------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Tudor Fychan of_Pemmynydd"
-  merge.field.mother: set "Margaret"
-
-Tudor Fychan of_Pemmynydd  @I352@
----------------------------------
-  merge.field.newPerson: set "Tudor Fychan of_Pemmynydd"
-
-Goronwy_Ap Tudor  @F204@
-------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Goronwy_Ap Tudor"
-
-Goronwy_Ap Tudor  @I353@
-------------------------
-  merge.field.newPerson: set "Goronwy_Ap Tudor"
-
-Tudor Hen  @F205@
------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Tudor Hen"
-
-Tudor Hen  @I354@
------------------
-  merge.field.newPerson: set "Tudor Hen"
-
-Goronwy  @F206@
----------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Goronwy"
-
-Goronwy  @I355@
----------------
-  merge.field.newPerson: set "Goronwy"
-
-Ednyfed Fychan + Gwenllian  @F207@
-----------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Ednyfed Fychan"
-  merge.field.mother: set "Gwenllian"
-
-Ednyfed Fychan  @I356@
-----------------------
-  merge.field.newPerson: set "Ednyfed Fychan"
-
-Gwenllian  @I357@
------------------
-  merge.field.newPerson: set "Gwenllian"
-
-Rhys_Ap Gruffydd  @F208@
-------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Rhys_Ap Gruffydd"
-
-Rhys_Ap Gruffydd  @I358@
-------------------------
-  merge.field.newPerson: set "Rhys_Ap Gruffydd"
-
-Gruffydd  @F209@
-----------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Gruffydd"
-
-Gruffydd  @I359@
-----------------
-  merge.field.newPerson: set "Gruffydd"
-
-Rhys_Ap Twedwr  @F210@
-----------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Rhys_Ap Twedwr"
-
-Rhys_Ap Twedwr  @I360@
-----------------------
-  merge.field.newPerson: set "Rhys_Ap Twedwr"
-
-Tewdwr Mawr the_Great  @F211@
------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Tewdwr Mawr the_Great"
-
-Tewdwr Mawr the_Great  @I361@
------------------------------
-  merge.field.newPerson: set "Tewdwr Mawr the_Great"
-
-Cadell  @F212@
---------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Cadell"
-
-Cadell  @I362@
---------------
-  merge.field.newPerson: set "Cadell"
-
-Einion  @F213@
---------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Einion"
-
-Einion  @I363@
---------------
-  merge.field.newPerson: set "Einion"
-
-Owain  @F214@
--------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Owain"
-
-Owain  @I364@
--------------
-  merge.field.newPerson: set "Owain"
-
-Hywel Dda (the_Good)  @F215@
-----------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Hywel Dda (the_Good)"
-
-Hywel Dda (the_Good)  @I365@
-----------------------------
-  merge.field.newPerson: set "Hywel Dda (the_Good)"
-
-Cadell  @F216@
---------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Cadell"
-
-Cadell  @I366@
---------------
-  merge.field.newPerson: set "Cadell"
-
-Rhodri Mawr (the_Great)  @F217@
--------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Rhodri Mawr (the_Great)"
-
-Rhodri Mawr (the_Great)  @I367@
--------------------------------
-  merge.field.newPerson: set "Rhodri Mawr (the_Great)"
-
-Margaret  @I368@
-----------------
-  merge.field.newPerson: set "Margaret"
-
-Thomas  @F218@
---------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Thomas"
-
-Thomas  @I369@
---------------
-  merge.field.newPerson: set "Thomas"
-
-Llywelyn  @F219@
-----------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Llywelyn"
-
-Llywelyn  @I370@
-----------------
-  merge.field.newPerson: set "Llywelyn"
-
-Owain  @F220@
--------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Owain"
-
-Owain  @I371@
--------------
-  merge.field.newPerson: set "Owain"
-
-Maredudd Ap_Owain + Eleanor  @F221@
------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Maredudd Ap_Owain"
-  merge.field.mother: set "Eleanor"
-
-Maredudd Ap_Owain  @I372@
--------------------------
-  merge.field.newPerson: set "Maredudd Ap_Owain"
-
-Eleanor  @I373@
----------------
-  merge.field.newPerson: set "Eleanor"
-
-Maelgwn Fychan + Angharad  @F222@
----------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Maelgwn Fychan"
-  merge.field.mother: set "Angharad"
-
-Maelgwn Fychan  @I374@
-----------------------
-  merge.field.newPerson: set "Maelgwn Fychan"
-
-Angharad  @I375@
-----------------
-  merge.field.newPerson: set "Angharad"
-
-Llywelyn Fawr the_Great + ...  @F223@
--------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Llywelyn Fawr the_Great"
-  merge.field.mother: set "..."
-
-Llywelyn Fawr the_Great  @I376@
--------------------------------
-  merge.field.newPerson: set "Llywelyn Fawr the_Great"
-
-Iorwerth Drwyndwn  @F224@
--------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Iorwerth Drwyndwn"
-
-Iorwerth Drwyndwn  @I377@
--------------------------
-  merge.field.newPerson: set "Iorwerth Drwyndwn"
-
-Owain Gwynedd + ...  @F225@
----------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Owain Gwynedd"
-  merge.field.mother: set "..."
-
-Owain Gwynedd  @I378@
----------------------
-  merge.field.newPerson: set "Owain Gwynedd"
-
-Gruffydd Ap_Cynan  @F226@
--------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Gruffydd Ap_Cynan"
-
-Gruffydd Ap_Cynan  @I379@
--------------------------
-  merge.field.newPerson: set "Gruffydd Ap_Cynan"
-
-Cynan  @F227@
--------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Cynan"
-
-Cynan  @I380@
--------------
-  merge.field.newPerson: set "Cynan"
-
-Iago  @F228@
-------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Iago"
-
-Iago  @I381@
-------------
-  merge.field.newPerson: set "Iago"
-
-Idwal  @F229@
--------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Idwal"
-
-Idwal  @I382@
--------------
-  merge.field.newPerson: set "Idwal"
-
-Meurig  @F230@
---------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Meurig"
-
-Meurig  @I383@
---------------
-  merge.field.newPerson: set "Meurig"
-
-Idwal Foel (the_Bald) + ...  @F231@
------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Idwal Foel (the_Bald)"
-  merge.field.mother: set "..."
-
-Idwal Foel (the_Bald)  @I384@
------------------------------
-  merge.field.newPerson: set "Idwal Foel (the_Bald)"
-
-Anarawd  @F232@
----------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Anarawd"
-
-Anarawd  @I385@
----------------
-  merge.field.newPerson: set "Anarawd"
-
-Rhodri Mawr (the_Great)  @F233@
--------------------------------
-  merge.field.newFamily: set ""
-  merge.field.father: set "Rhodri Mawr (the_Great)"
-
-...  @I386@
------------
-  merge.field.newPerson: set "..."
-
-...  @I387@
------------
-  merge.field.newPerson: set "..."
-
-...  @I388@
------------
-  merge.field.newPerson: set "..."
-
-Thomas Howard + Anne of_York  @F234@
-------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.wife: set "Anne of_York"
-
-Anne of_York  @I389@
---------------------
-  merge.field.newPerson: set "Anne of_York"
-
-Henry Howard  @I390@
---------------------
-  merge.field.newPerson: set "Henry Howard"
+  event.colDate: changeReport.verb.added "1533"
 
 Thomas Howard + Elizabeth Stafford  @F106@
 ------------------------------------------
-  merge.field.child: set "Henry Howard"
-  merge.field.child: set "Thomas Howard"
-
-Thomas Howard  @I391@
----------------------
-  merge.field.newPerson: set "Thomas Howard"
-
-Henry Howard + Frances de_Vere  @F235@
---------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.wife: set "Frances de_Vere"
-  merge.field.child: set "Thomas Howard"
-  merge.field.child: set "Henry of_Northhampton Howard"
-  merge.field.child: set "Catherine Howard"
-  merge.field.child: set "Jane Howard"
-  merge.field.child: set "Margaret Howard"
-
-Frances de_Vere  @I392@
------------------------
-  merge.field.newPerson: set "Frances de_Vere"
-
-Thomas Howard  @I393@
----------------------
-  merge.field.newPerson: set "Thomas Howard"
-
-Henry of_Northhampton Howard  @I394@
-------------------------------------
-  merge.field.newPerson: set "Henry of_Northhampton Howard"
-
-Catherine Howard  @I395@
-------------------------
-  merge.field.newPerson: set "Catherine Howard"
-
-Jane Howard  @I396@
--------------------
-  merge.field.newPerson: set "Jane Howard"
-
-Margaret Howard  @I397@
------------------------
-  merge.field.newPerson: set "Margaret Howard"
-
-Thomas Howard + Mary Fitzalan  @F236@
--------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.wife: set "Mary Fitzalan"
-  merge.field.child: set "Philip Howard"
-
-Mary Fitzalan  @I398@
----------------------
-  merge.field.newPerson: set "Mary Fitzalan"
-
-Philip Howard  @I399@
----------------------
-  merge.field.newPerson: set "Philip Howard"
-
-Philip Howard + Anne Dacre  @F237@
-----------------------------------
-  merge.field.newFamily: set ""
-  merge.field.wife: set "Anne Dacre"
-  merge.field.child: set "Thomas Howard"
-
-Anne Dacre  @I400@
-------------------
-  merge.field.newPerson: set "Anne Dacre"
-
-Thomas Howard  @I401@
----------------------
-  merge.field.newPerson: set "Thomas Howard"
-
-Thomas Howard + Aletheia Talbot  @F238@
----------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.wife: set "Aletheia Talbot"
-
-Aletheia Talbot  @I402@
------------------------
-  merge.field.newPerson: set "Aletheia Talbot"
-
-Thomas Howard + Margaret Audley  @F239@
----------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.wife: set "Margaret Audley"
-  merge.field.child: set "Thomas Howard"
-  merge.field.child: set "William Howard"
-
-Margaret Audley  @I403@
------------------------
-  merge.field.newPerson: set "Margaret Audley"
-
-Thomas Howard  @I404@
----------------------
-  merge.field.newPerson: set "Thomas Howard"
-
-William Howard  @I405@
-----------------------
-  merge.field.newPerson: set "William Howard"
-
-Thomas Howard + Mary Dacre  @F240@
-----------------------------------
-  merge.field.newFamily: set ""
-  merge.field.wife: set "Mary Dacre"
-
-Mary Dacre  @I406@
-------------------
-  merge.field.newPerson: set "Mary Dacre"
-
-Thomas Howard + Catherine Knyvett  @F241@
------------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.wife: set "Catherine Knyvett"
-  merge.field.child: set "Theophilus Howard"
-  merge.field.child: set "Thomas of_Berkshire Howard"
-  merge.field.child: set "Henry Howard"
-  merge.field.child: set "Catherine Howard"
-  merge.field.child: set "Frances Howard"
-
-Catherine Knyvett  @I407@
--------------------------
-  merge.field.newPerson: set "Catherine Knyvett"
-
-Theophilus Howard  @I408@
--------------------------
-  merge.field.newPerson: set "Theophilus Howard"
-
-Thomas of_Berkshire Howard  @I409@
-----------------------------------
-  merge.field.newPerson: set "Thomas of_Berkshire Howard"
-
-Henry Howard  @I410@
---------------------
-  merge.field.newPerson: set "Henry Howard"
-
-Catherine Howard  @I411@
-------------------------
-  merge.field.newPerson: set "Catherine Howard"
-
-Frances Howard  @I412@
-----------------------
-  merge.field.newPerson: set "Frances Howard"
-
-Theophilus Howard + Elizabeth Dunbar  @F242@
---------------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.wife: set "Elizabeth Dunbar"
-
-Elizabeth Dunbar  @I413@
-------------------------
-  merge.field.newPerson: set "Elizabeth Dunbar"
-
-Thomas of_Berkshire Howard + Elizabeth Cecil  @F243@
-----------------------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.wife: set "Elizabeth Cecil"
-
-Elizabeth Cecil  @I414@
------------------------
-  merge.field.newPerson: set "Elizabeth Cecil"
-
-Henry Howard + Elizabeth Bassett  @F244@
-----------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.wife: set "Elizabeth Bassett"
-
-Elizabeth Bassett  @I415@
--------------------------
-  merge.field.newPerson: set "Elizabeth Bassett"
-
-William of_Berkshire Cecil + Catherine Howard  @F245@
------------------------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.husband: set "William of_Berkshire Cecil"
-
-William of_Berkshire Cecil  @I416@
-----------------------------------
-  merge.field.newPerson: set "William of_Berkshire Cecil"
-
-Robert Devereux + Frances Howard  @F246@
-----------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.husband: set "Robert Devereux"
-
-Robert Devereux  @I417@
------------------------
-  merge.field.newPerson: set "Robert Devereux"
-
-Robert Carr + Frances Howard  @F247@
-------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.husband: set "Robert Carr"
-
-Robert Carr  @I418@
--------------------
-  merge.field.newPerson: set "Robert Carr"
-
-William Howard + Elizabeth Dacre  @F248@
-----------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.wife: set "Elizabeth Dacre"
-
-Elizabeth Dacre  @I419@
------------------------
-  merge.field.newPerson: set "Elizabeth Dacre"
-
-Thomas Howard + Gertrude Lyte  @F249@
--------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.wife: set "Gertrude Lyte"
-
-Gertrude Lyte  @I420@
----------------------
-  merge.field.newPerson: set "Gertrude Lyte"
-
-George Rochford Boleyn  @I421@
-------------------------------
-  merge.field.newPerson: set "George Rochford Boleyn"
+  merge.field.child: changeReport.verb.added "Henry Howard"
+  merge.field.child: changeReport.verb.added "Thomas Howard"
 
 Thomas Boleyn + Elizabeth Howard  @F125@
 ----------------------------------------
-  merge.field.child: set "George Rochford Boleyn"
-  merge.field.child: set "Mary Boleyn"
-
-Mary Boleyn  @I422@
--------------------
-  merge.field.newPerson: set "Mary Boleyn"
-
-William Carey + Mary Boleyn  @F250@
------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.husband: set "William Carey"
-  merge.field.child: set "Henry Carey"
-  merge.field.child: set "Catherine Carey"
-
-Henry Carey  @I423@
--------------------
-  merge.field.newPerson: set "Henry Carey"
-
-Catherine Carey  @I424@
------------------------
-  merge.field.newPerson: set "Catherine Carey"
-
-Henry Carey + Anne Morgan  @F251@
----------------------------------
-  merge.field.newFamily: set ""
-  merge.field.wife: set "Anne Morgan"
-
-Francis Knollys + Catherine Carey  @F252@
------------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.husband: set "Francis Knollys"
-  merge.field.child: set "Henry Knollys"
-  merge.field.child: set "William Knollys"
-  merge.field.child: set "Lettice Knollys"
-  merge.field.child: set "Anne Knollys"
-  merge.field.child: set "Catherine Knollys"
-
-Francis Knollys  @I425@
------------------------
-  merge.field.newPerson: set "Francis Knollys"
-
-Henry Knollys  @I426@
----------------------
-  merge.field.newPerson: set "Henry Knollys"
-
-William Knollys  @I427@
------------------------
-  merge.field.newPerson: set "William Knollys"
-
-Lettice Knollys  @I428@
------------------------
-  merge.field.newPerson: set "Lettice Knollys"
-
-Anne Knollys  @I429@
---------------------
-  merge.field.newPerson: set "Anne Knollys"
-
-Catherine Knollys  @I430@
--------------------------
-  merge.field.newPerson: set "Catherine Knollys"
-
-Henry Knollys + Margaret Cave  @F253@
--------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.wife: set "Margaret Cave"
-
-Margaret Cave  @I431@
----------------------
-  merge.field.newPerson: set "Margaret Cave"
-
-Walter Devereux + Lettice Knollys  @F254@
------------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.husband: set "Walter Devereux"
-
-Walter Devereux  @I432@
------------------------
-  merge.field.newPerson: set "Walter Devereux"
-
-Robert of_Leicester Dudley + Lettice Knollys  @F255@
-----------------------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.husband: set "Robert of_Leicester Dudley"
-
-Robert of_Leicester Dudley  @I433@
-----------------------------------
-  merge.field.newPerson: set "Robert of_Leicester Dudley"
-
-Christopher Blount + Lettice Knollys  @F256@
---------------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.husband: set "Christopher Blount"
-
-Christopher Blount  @I434@
---------------------------
-  merge.field.newPerson: set "Christopher Blount"
-
-Thomas Leighton + Anne Knollys  @F257@
---------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.husband: set "Thomas Leighton"
-
-Thomas Leighton  @I435@
------------------------
-  merge.field.newPerson: set "Thomas Leighton"
-
-Gerald Fitzgerald + Catherine Knollys  @F258@
----------------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.husband: set "Gerald Fitzgerald"
-
-Gerald Fitzgerald  @I436@
--------------------------
-  merge.field.newPerson: set "Gerald Fitzgerald"
-
-Son Tudor  @I437@
------------------
-  merge.field.newPerson: set "Son Tudor"
+  merge.field.child: changeReport.verb.added "George Rochford Boleyn"
+  merge.field.child: changeReport.verb.added "Mary Boleyn"
 
 Henry Tudor + Anne Boleyn  @F32@
 --------------------------------
-  merge.field.child: set "Son Tudor"
-
-Joyce Culpeper  @I438@
-----------------------
-  merge.field.newPerson: set "Joyce Culpeper"
+  merge.field.child: changeReport.verb.added "Son Tudor"
 
 Edmund Howard + Joyce Culpeper  @F74@
 -------------------------------------
-  merge.field.wife: set "Joyce Culpeper"
+  merge.field.wife: changeReport.verb.added "Joyce Culpeper"
 
-Edmund Howard + Dorothy Troyes  @F259@
---------------------------------------
-  merge.field.newFamily: set ""
-  merge.field.wife: set "Dorothy Troyes"
+changeReport.added
+------------------
+  Elizabeth Tudor  @I55@
+  Katherine Tudor  @I155@
+  John Stewart + ...  @F201@
+    merge.field.father: changeReport.verb.added "John Stewart"
+    merge.field.mother: changeReport.verb.added "..."
+  ...  @I234@
+  Thomas + Margaret de Holland,  @F202@
+    merge.field.husband: changeReport.verb.added "Thomas"
+    event.colDate: changeReport.verb.added "1412"
+  Thomas  @I351@
+  Tudor Fychan of_Pemmynydd + Margaret  @F203@
+    merge.field.father: changeReport.verb.added "Tudor Fychan of_Pemmynydd"
+    merge.field.mother: changeReport.verb.added "Margaret"
+  Tudor Fychan of_Pemmynydd  @I352@
+  Goronwy_Ap Tudor  @F204@
+    merge.field.father: changeReport.verb.added "Goronwy_Ap Tudor"
+  Goronwy_Ap Tudor  @I353@
+  Tudor Hen  @F205@
+    merge.field.father: changeReport.verb.added "Tudor Hen"
+  Tudor Hen  @I354@
+  Goronwy  @F206@
+    merge.field.father: changeReport.verb.added "Goronwy"
+  Goronwy  @I355@
+  Ednyfed Fychan + Gwenllian  @F207@
+    merge.field.father: changeReport.verb.added "Ednyfed Fychan"
+    merge.field.mother: changeReport.verb.added "Gwenllian"
+  Ednyfed Fychan  @I356@
+  Gwenllian  @I357@
+  Rhys_Ap Gruffydd  @F208@
+    merge.field.father: changeReport.verb.added "Rhys_Ap Gruffydd"
+  Rhys_Ap Gruffydd  @I358@
+  Gruffydd  @F209@
+    merge.field.father: changeReport.verb.added "Gruffydd"
+  Gruffydd  @I359@
+  Rhys_Ap Twedwr  @F210@
+    merge.field.father: changeReport.verb.added "Rhys_Ap Twedwr"
+  Rhys_Ap Twedwr  @I360@
+  Tewdwr Mawr the_Great  @F211@
+    merge.field.father: changeReport.verb.added "Tewdwr Mawr the_Great"
+  Tewdwr Mawr the_Great  @I361@
+  Cadell  @F212@
+    merge.field.father: changeReport.verb.added "Cadell"
+  Cadell  @I362@
+  Einion  @F213@
+    merge.field.father: changeReport.verb.added "Einion"
+  Einion  @I363@
+  Owain  @F214@
+    merge.field.father: changeReport.verb.added "Owain"
+  Owain  @I364@
+  Hywel Dda (the_Good)  @F215@
+    merge.field.father: changeReport.verb.added "Hywel Dda (the_Good)"
+  Hywel Dda (the_Good)  @I365@
+  Cadell  @F216@
+    merge.field.father: changeReport.verb.added "Cadell"
+  Cadell  @I366@
+  Rhodri Mawr (the_Great)  @F217@
+    merge.field.father: changeReport.verb.added "Rhodri Mawr (the_Great)"
+  Rhodri Mawr (the_Great)  @I367@
+  Margaret  @I368@
+  Thomas  @F218@
+    merge.field.father: changeReport.verb.added "Thomas"
+  Thomas  @I369@
+  Llywelyn  @F219@
+    merge.field.father: changeReport.verb.added "Llywelyn"
+  Llywelyn  @I370@
+  Owain  @F220@
+    merge.field.father: changeReport.verb.added "Owain"
+  Owain  @I371@
+  Maredudd Ap_Owain + Eleanor  @F221@
+    merge.field.father: changeReport.verb.added "Maredudd Ap_Owain"
+    merge.field.mother: changeReport.verb.added "Eleanor"
+  Maredudd Ap_Owain  @I372@
+  Eleanor  @I373@
+  Maelgwn Fychan + Angharad  @F222@
+    merge.field.father: changeReport.verb.added "Maelgwn Fychan"
+    merge.field.mother: changeReport.verb.added "Angharad"
+  Maelgwn Fychan  @I374@
+  Angharad  @I375@
+  Llywelyn Fawr the_Great + ...  @F223@
+    merge.field.father: changeReport.verb.added "Llywelyn Fawr the_Great"
+    merge.field.mother: changeReport.verb.added "..."
+  Llywelyn Fawr the_Great  @I376@
+  Iorwerth Drwyndwn  @F224@
+    merge.field.father: changeReport.verb.added "Iorwerth Drwyndwn"
+  Iorwerth Drwyndwn  @I377@
+  Owain Gwynedd + ...  @F225@
+    merge.field.father: changeReport.verb.added "Owain Gwynedd"
+    merge.field.mother: changeReport.verb.added "..."
+  Owain Gwynedd  @I378@
+  Gruffydd Ap_Cynan  @F226@
+    merge.field.father: changeReport.verb.added "Gruffydd Ap_Cynan"
+  Gruffydd Ap_Cynan  @I379@
+  Cynan  @F227@
+    merge.field.father: changeReport.verb.added "Cynan"
+  Cynan  @I380@
+  Iago  @F228@
+    merge.field.father: changeReport.verb.added "Iago"
+  Iago  @I381@
+  Idwal  @F229@
+    merge.field.father: changeReport.verb.added "Idwal"
+  Idwal  @I382@
+  Meurig  @F230@
+    merge.field.father: changeReport.verb.added "Meurig"
+  Meurig  @I383@
+  Idwal Foel (the_Bald) + ...  @F231@
+    merge.field.father: changeReport.verb.added "Idwal Foel (the_Bald)"
+    merge.field.mother: changeReport.verb.added "..."
+  Idwal Foel (the_Bald)  @I384@
+  Anarawd  @F232@
+    merge.field.father: changeReport.verb.added "Anarawd"
+  Anarawd  @I385@
+  Rhodri Mawr (the_Great)  @F233@
+    merge.field.father: changeReport.verb.added "Rhodri Mawr (the_Great)"
+  ...  @I386@
+  ...  @I387@
+  ...  @I388@
+  Thomas Howard + Anne of_York  @F234@
+    merge.field.wife: changeReport.verb.added "Anne of_York"
+  Anne of_York  @I389@
+  Henry Howard  @I390@
+  Thomas Howard  @I391@
+  Henry Howard + Frances de_Vere  @F235@
+    merge.field.wife: changeReport.verb.added "Frances de_Vere"
+    merge.field.child: changeReport.verb.added "Thomas Howard"
+    merge.field.child: changeReport.verb.added "Henry of_Northhampton Howard"
+    merge.field.child: changeReport.verb.added "Catherine Howard"
+    merge.field.child: changeReport.verb.added "Jane Howard"
+    merge.field.child: changeReport.verb.added "Margaret Howard"
+  Frances de_Vere  @I392@
+  Thomas Howard  @I393@
+  Henry of_Northhampton Howard  @I394@
+  Catherine Howard  @I395@
+  Jane Howard  @I396@
+  Margaret Howard  @I397@
+  Thomas Howard + Mary Fitzalan  @F236@
+    merge.field.wife: changeReport.verb.added "Mary Fitzalan"
+    merge.field.child: changeReport.verb.added "Philip Howard"
+  Mary Fitzalan  @I398@
+  Philip Howard  @I399@
+  Philip Howard + Anne Dacre  @F237@
+    merge.field.wife: changeReport.verb.added "Anne Dacre"
+    merge.field.child: changeReport.verb.added "Thomas Howard"
+  Anne Dacre  @I400@
+  Thomas Howard  @I401@
+  Thomas Howard + Aletheia Talbot  @F238@
+    merge.field.wife: changeReport.verb.added "Aletheia Talbot"
+  Aletheia Talbot  @I402@
+  Thomas Howard + Margaret Audley  @F239@
+    merge.field.wife: changeReport.verb.added "Margaret Audley"
+    merge.field.child: changeReport.verb.added "Thomas Howard"
+    merge.field.child: changeReport.verb.added "William Howard"
+  Margaret Audley  @I403@
+  Thomas Howard  @I404@
+  William Howard  @I405@
+  Thomas Howard + Mary Dacre  @F240@
+    merge.field.wife: changeReport.verb.added "Mary Dacre"
+  Mary Dacre  @I406@
+  Thomas Howard + Catherine Knyvett  @F241@
+    merge.field.wife: changeReport.verb.added "Catherine Knyvett"
+    merge.field.child: changeReport.verb.added "Theophilus Howard"
+    merge.field.child: changeReport.verb.added "Thomas of_Berkshire Howard"
+    merge.field.child: changeReport.verb.added "Henry Howard"
+    merge.field.child: changeReport.verb.added "Catherine Howard"
+    merge.field.child: changeReport.verb.added "Frances Howard"
+  Catherine Knyvett  @I407@
+  Theophilus Howard  @I408@
+  Thomas of_Berkshire Howard  @I409@
+  Henry Howard  @I410@
+  Catherine Howard  @I411@
+  Frances Howard  @I412@
+  Theophilus Howard + Elizabeth Dunbar  @F242@
+    merge.field.wife: changeReport.verb.added "Elizabeth Dunbar"
+  Elizabeth Dunbar  @I413@
+  Thomas of_Berkshire Howard + Elizabeth Cecil  @F243@
+    merge.field.wife: changeReport.verb.added "Elizabeth Cecil"
+  Elizabeth Cecil  @I414@
+  Henry Howard + Elizabeth Bassett  @F244@
+    merge.field.wife: changeReport.verb.added "Elizabeth Bassett"
+  Elizabeth Bassett  @I415@
+  William of_Berkshire Cecil + Catherine Howard  @F245@
+    merge.field.husband: changeReport.verb.added "William of_Berkshire Cecil"
+  William of_Berkshire Cecil  @I416@
+  Robert Devereux + Frances Howard  @F246@
+    merge.field.husband: changeReport.verb.added "Robert Devereux"
+  Robert Devereux  @I417@
+  Robert Carr + Frances Howard  @F247@
+    merge.field.husband: changeReport.verb.added "Robert Carr"
+  Robert Carr  @I418@
+  William Howard + Elizabeth Dacre  @F248@
+    merge.field.wife: changeReport.verb.added "Elizabeth Dacre"
+  Elizabeth Dacre  @I419@
+  Thomas Howard + Gertrude Lyte  @F249@
+    merge.field.wife: changeReport.verb.added "Gertrude Lyte"
+  Gertrude Lyte  @I420@
+  George Rochford Boleyn  @I421@
+  Mary Boleyn  @I422@
+  William Carey + Mary Boleyn  @F250@
+    merge.field.husband: changeReport.verb.added "William Carey"
+    merge.field.child: changeReport.verb.added "Henry Carey"
+    merge.field.child: changeReport.verb.added "Catherine Carey"
+  Henry Carey  @I423@
+  Catherine Carey  @I424@
+  Henry Carey + Anne Morgan  @F251@
+    merge.field.wife: changeReport.verb.added "Anne Morgan"
+  Francis Knollys + Catherine Carey  @F252@
+    merge.field.husband: changeReport.verb.added "Francis Knollys"
+    merge.field.child: changeReport.verb.added "Henry Knollys"
+    merge.field.child: changeReport.verb.added "William Knollys"
+    merge.field.child: changeReport.verb.added "Lettice Knollys"
+    merge.field.child: changeReport.verb.added "Anne Knollys"
+    merge.field.child: changeReport.verb.added "Catherine Knollys"
+  Francis Knollys  @I425@
+  Henry Knollys  @I426@
+  William Knollys  @I427@
+  Lettice Knollys  @I428@
+  Anne Knollys  @I429@
+  Catherine Knollys  @I430@
+  Henry Knollys + Margaret Cave  @F253@
+    merge.field.wife: changeReport.verb.added "Margaret Cave"
+  Margaret Cave  @I431@
+  Walter Devereux + Lettice Knollys  @F254@
+    merge.field.husband: changeReport.verb.added "Walter Devereux"
+  Walter Devereux  @I432@
+  Robert of_Leicester Dudley + Lettice Knollys  @F255@
+    merge.field.husband: changeReport.verb.added "Robert of_Leicester Dudley"
+  Robert of_Leicester Dudley  @I433@
+  Christopher Blount + Lettice Knollys  @F256@
+    merge.field.husband: changeReport.verb.added "Christopher Blount"
+  Christopher Blount  @I434@
+  Thomas Leighton + Anne Knollys  @F257@
+    merge.field.husband: changeReport.verb.added "Thomas Leighton"
+  Thomas Leighton  @I435@
+  Gerald Fitzgerald + Catherine Knollys  @F258@
+    merge.field.husband: changeReport.verb.added "Gerald Fitzgerald"
+  Gerald Fitzgerald  @I436@
+  Son Tudor  @I437@
+  Joyce Culpeper  @I438@
+  Edmund Howard + Dorothy Troyes  @F259@
+    merge.field.wife: changeReport.verb.added "Dorothy Troyes"
+  Dorothy Troyes  @I439@
 
-Dorothy Troyes  @I439@
-----------------------
-  merge.field.newPerson: set "Dorothy Troyes"
-
-Kept as in your file (the incoming file said otherwise)
--------------------------------------------------------
+changeReport.kept
+-----------------
 Charles VI de Valois + Isabeau von Bayern-Ingolstadt  @F187@
 ------------------------------------------------------------
   merge.field.father: merge.reason.parentKeptAncestors
@@ -916,8 +468,8 @@ Thomas Holland + Alice FitzAlan  @F194@
   merge.field.father: merge.reason.parentKept
   merge.field.mother: merge.reason.parentKeptAncestors
 
-Linked to a person you already have (not confirmed by you)
-----------------------------------------------------------
+changeReport.grafted
+--------------------
   Owen Tudor –1461  ->  Owen Tudor 1400–1461  @I315@
   Maredudd (Meredith) Tudor  ->  Maredudd ap Tudor 1370–1406  @I317@
   Catherine of_Valois 1401–1437  ->  Catherine of Valois 1401–1437  @I316@

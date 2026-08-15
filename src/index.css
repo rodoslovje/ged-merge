@@ -6433,7 +6433,9 @@ kbd {
 }
 
 .preview-fields { margin: 0; padding-left: 18px; }
-.preview-fields li { margin: 3px 0; font-size: 0.9rem; color: var(--muted); }
+/* A media record's value is a URL with no spaces in it and no reason to be
+ * short — it wraps inside the card rather than running out of it. */
+.preview-fields li { margin: 3px 0; font-size: 0.9rem; color: var(--muted); overflow-wrap: anywhere; }
 .preview-field { color: var(--text); }
 .preview-field-group-label { color: var(--text); font-weight: 600; }
 .preview-fields-nested { padding-left: 18px; margin-top: 2px; }

@@ -34,6 +34,11 @@ function noRecord(_kind: unknown, _id: string): undefined {
   return undefined;
 }
 
+/** Every id in these tests except `@I9@` was in the file when it loaded. */
+function wasLoaded(_kind: unknown, id: string): boolean {
+  return id !== "@I9@";
+}
+
 // ── nodesEqual ─────────────────────────────────────────────────────────────
 
 describe("nodesEqual", () => {
@@ -86,12 +91,39 @@ describe("computePatchApplyOps", () => {
     expect(ops.snapshots).toEqual([{ action: "delete", kind: "individual", id: "@I1@" }]);
   });
 
-  it("A: redo of deletion clears dirty + snapshot", () => {
-    // Redo: apply patch.after (null). Record disappears.
+  it("A: redo of deleting a session-created record clears dirty + snapshot", () => {
+    // Redo: apply patch.after (null). Record disappears — and the file never
+    // had it, so its going leaves nothing to save and nothing to report.
     const patch = indiPatch("@I1@", original, null);
     const ops = computePatchApplyOps([patch], "redo", noSnapshot, noRecord);
     expect(ops.dirty).toEqual([{ action: "remove", kind: "individual", id: "@I1@" }]);
     expect(ops.snapshots).toEqual([{ action: "delete", kind: "individual", id: "@I1@" }]);
+  });
+
+  // The bug this guards: an undo→redo cycle over a deletion used to clear the
+  // flag for a record the file *did* have, after which the save deleted it with
+  // nothing in the change report to say so.
+  it("A: redo of deleting a loaded record keeps it dirty, with its snapshot", () => {
+    const patch = indiPatch("@I1@", original, null);
+    const ops = computePatchApplyOps([patch], "redo", noSnapshot, noRecord, undefined, wasLoaded);
+    expect(ops.dirty).toEqual([{ action: "add", kind: "individual", id: "@I1@" }]);
+    expect(ops.snapshots).toEqual([
+      { action: "set", kind: "individual", id: "@I1@", value: original },
+    ]);
+  });
+
+  it("A: undo of creating a record the file never had still clears it", () => {
+    const patch = indiPatch("@I9@", null, edited);
+    const ops = computePatchApplyOps([patch], "undo", noSnapshot, noRecord, undefined, wasLoaded);
+    expect(ops.dirty).toEqual([{ action: "remove", kind: "individual", id: "@I9@" }]);
+  });
+
+  it("A: a loaded shared record (a source) going away stays dirty too", () => {
+    const orig = node("SOUR", "Krstna knjiga");
+    const patch: RecordPatch = { type: "record", id: "@S1@", before: orig, after: null };
+    const ops = computePatchApplyOps([patch], "redo", noSnapshot, noRecord, undefined, wasLoaded);
+    expect(ops.dirty).toEqual([{ action: "add", kind: "record", id: "@S1@" }]);
+    expect(ops.snapshots).toEqual([{ action: "set", kind: "record", id: "@S1@", value: orig }]);
   });
 
   // Case B ─────────────────────────────────────────────────────────────────
