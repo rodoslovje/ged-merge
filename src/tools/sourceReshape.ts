@@ -14,7 +14,7 @@ import { canonicalFamilySearchUrl, linkKey } from "../normalize/links";
 import { detectPlaceLayout } from "../normalize/profile";
 import { normalizeDateString } from "../normalize/date";
 import { dateFixContext, proposeDateFix, type DateFixContext } from "./fixDates";
-import type { SourceLayout } from "../normalize/types";
+import type { NormChange, SourceLayout } from "../normalize/types";
 import type { FormatOverrides } from "../normalize/formatOverrides";
 import { decodeHtmlEntities, fetchDirect, pageTitleOf, type DirectResponse } from "../normalize/urlMetadata";
 import { parseSourceInput } from "../gedcom/citationParse";
@@ -1908,6 +1908,127 @@ function applyStandardCoverage(rec: GedNode, events: CoverageEvent[], agency: st
   }
   if (flatAgnc) spliceChild(rec, flatAgnc);
   return true;
+}
+
+/** The registers a source's own *title* names, when it names several — the
+ *  `place - book - collection` titles this tool writes keep the multi-register
+ *  book label as one segment, and each register in it becomes its own
+ *  coverage entry. */
+function coverageEventsFromTitle(
+  title: string | undefined,
+  abbr: string | undefined,
+  place: string | undefined,
+  dateRange: string | undefined,
+  baptismTag: "BIRT" | "BAPM",
+): CoverageEvent[] {
+  for (const seg of (title ?? "").split(" - ")) {
+    const parts = splitFsRegisters(seg.trim());
+    if (parts.length > 1) {
+      const events = parts.flatMap((part) => {
+        const tag = coverageTagOf(classifyBookType([part]), baptismTag);
+        return tag ? [{ type: tag, date: yearSpan(part), place }] : [];
+      });
+      if (events.length === parts.length) return events;
+    }
+  }
+  const tag = coverageTagOf(classifyBookType([title, abbr]), baptismTag);
+  return tag ? [{ type: tag, date: dateRange, place }] : [];
+}
+
+/**
+ * The Normalize pass for source coverage: restate every existing `SOUR`
+ * record in the target shape — flat vendor `PLAC`/`DATE` into the spec's
+ * `DATA > EVEN` blocks (register type read from the title, `AGNC` moved to
+ * its spot under `DATA`, `FILN` folded into an existing repository link's
+ * `CALN`), or the reverse. Conservative on purpose: a record whose register
+ * type can't be read, whose coverage names several places (inexpressible as
+ * one flat `PLAC`), or whose flat fields disagree with its coverage keeps
+ * its shape — nothing is invented and nothing is lost.
+ */
+export function normalizeSourceCoverage(
+  records: GedNode[],
+  target: "vendor" | "standard",
+  baptismTag: "BIRT" | "BAPM",
+): { changed: number; examples: NormChange[] } {
+  let changed = 0;
+  const examples: NormChange[] = [];
+  const note = (before: string, after: string) => {
+    changed++;
+    if (examples.length < 6) examples.push({ before, after });
+  };
+
+  for (const rec of records) {
+    if (rec.tag !== "SOUR" || !rec.xref) continue;
+    const data = firstChild(rec, "DATA");
+
+    if (target === "standard") {
+      if (data && childrenByTag(data, "EVEN").length > 0) continue; // already standard
+      const plac = firstChild(rec, "PLAC");
+      const date = firstChild(rec, "DATE");
+      if (!plac?.value?.trim() && !date?.value?.trim()) continue;
+      const events = coverageEventsFromTitle(
+        sourceTitle(rec),
+        childText(rec, "ABBR"),
+        plac?.value?.trim(),
+        date?.value?.trim(),
+        baptismTag,
+      );
+      if (events.length === 0) continue; // no register type to state
+      const before = [plac?.value && `PLAC ${plac.value}`, date?.value && `DATE ${date.value}`]
+        .filter(Boolean)
+        .join(" · ");
+      applyStandardCoverage(rec, events, undefined);
+      if (plac) spliceChild(rec, plac);
+      if (date) spliceChild(rec, date);
+      // The filing number's standard spot is the repository link's call number.
+      const repoLink = firstChild(rec, "REPO");
+      const filn = firstChild(rec, "FILN");
+      if (repoLink?.value && filn?.value?.trim() && !firstChild(repoLink, "CALN")) {
+        repoLink.children.push({ level: repoLink.level + 1, tag: "CALN", value: filn.value.trim(), children: [] });
+        spliceChild(rec, filn);
+      }
+      note(
+        before,
+        events.map((ev) => `EVEN ${ev.type} ${coveragePeriod(ev.date) ?? ""}`.trim()).join(" · "),
+      );
+      continue;
+    }
+
+    // target === "vendor": flatten the coverage back into the program fields.
+    if (!data) continue;
+    const evens = childrenByTag(data, "EVEN");
+    const dataAgnc = firstChild(data, "AGNC");
+    if (evens.length === 0 && !dataAgnc) continue;
+    const places = [...new Set(evens.map((e) => childText(e, "PLAC")).filter(Boolean))] as string[];
+    if (places.length > 1) continue; // one flat PLAC cannot carry two jurisdictions
+    const years = yearSpan(evens.map((e) => childText(e, "DATE")).filter(Boolean).join(" "));
+    const flatPlac = childText(rec, "PLAC");
+    const flatDate = childText(rec, "DATE");
+    if (flatPlac && places[0] && flatPlac !== places[0]) continue; // disagreement is not ours to settle
+    if (flatDate && years && flatDate !== years) continue;
+    const before = evens.map((e) => `EVEN ${e.value ?? ""} ${childText(e, "DATE") ?? ""}`.trim()).join(" · ");
+    if (places[0] && !flatPlac) {
+      insertGrouped(rec, { level: rec.level + 1, tag: "PLAC", value: places[0], children: [] }, SOUR_FIELD_TRAILING);
+    }
+    if (years && !flatDate) {
+      insertGrouped(rec, { level: rec.level + 1, tag: "DATE", value: years, children: [] }, SOUR_FIELD_TRAILING);
+    }
+    if (dataAgnc?.value?.trim() && !childText(rec, "AGNC")) {
+      insertGrouped(
+        rec,
+        { level: rec.level + 1, tag: "AGNC", value: dataAgnc.value.trim(), children: [] },
+        SOUR_FIELD_TRAILING,
+      );
+    }
+    for (const e of evens) spliceChild(data, e);
+    if (dataAgnc) spliceChild(data, dataAgnc);
+    if (data.children.length === 0 && !data.value?.trim()) spliceChild(rec, data);
+    note(
+      before || "DATA AGNC",
+      [places[0] && `PLAC ${places[0]}`, years && `DATE ${years}`].filter(Boolean).join(" · ") || "AGNC",
+    );
+  }
+  return { changed, examples };
 }
 
 /** Repository identity per site: how to spot an existing `REPO` (by its WWW

@@ -250,6 +250,9 @@ export interface NormalizeOptions {
   names: boolean;
   /** Rewrite vendor-tag synonyms to their canonical form (`_MILI` → `_MILT`). */
   vendorTags: boolean;
+  /** Restate each source's coverage in the house shape — flat vendor
+   *  `PLAC`/`DATE` vs the spec's `DATA > EVEN` (bulk-normalize only). */
+  sourceCoverage?: boolean;
   /**
    * Collapse runs of spaces and trim the ends of every `PLAC`/`ADDR` value.
    * On by default: an incoming compare file is being reshaped to the house
@@ -307,6 +310,10 @@ export interface NormalizationReport {
   internalStripped: number;
   /** A handful of illustrative stripped-tag examples for display. */
   internalExamples: NormChange[];
+  /** Sources restated in the house coverage shape (bulk-normalize only). */
+  coverageReshaped?: number;
+  /** A handful of illustrative coverage changes for display. */
+  coverageExamples?: NormChange[];
   /** Incoming records merged away as same-person duplicates (detected because
    *  they matched the same main). Set by the worker after matching, so it's
    *  absent until then. */
