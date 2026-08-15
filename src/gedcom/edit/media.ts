@@ -5,14 +5,43 @@ import type { Dataset, GedNode } from "../types";
 import { FAM_CHILD_ORDER, INDI_CHILD_ORDER, insertOrdered, insertRecord, nextXref } from "./shared";
 import { bumpSourceCacheVersion } from "./cache";
 
+/** The `FORM` value for a `FILE` — the extension's own token where the name
+ *  carries one, `htm` for a web page. Undefined for an extensionless local
+ *  file, whose format nothing states. */
+function fileFormOf(file: string): string | undefined {
+  const ext = /\.(jpe?g|png|gif|tiff?|bmp|pdf|wav|mp[34]|webp)(?:[?#]|$)/i.exec(file)?.[1].toLowerCase();
+  if (ext) return ext === "jpeg" ? "jpg" : ext === "tif" ? "tiff" : ext;
+  return /^https?:\/\//i.test(file) ? "htm" : undefined;
+}
+
+/** Whether the file's own media records state their `FILE`'s `FORM` — the
+ *  spec asks for one, so only a file whose habit is clearly FORM-less (the
+ *  majority of its FILEs bare) keeps new media bare too. */
+function prefersFileForm(records: GedNode[]): boolean {
+  let withForm = 0;
+  let without = 0;
+  for (const rec of records) {
+    if (rec.tag !== "OBJE" || !rec.xref) continue;
+    for (const file of childrenByTag(rec, "FILE")) {
+      if (firstChild(file, "FORM")) withForm++;
+      else without++;
+    }
+  }
+  return withForm >= without;
+}
+
 /** Create a new top-level `OBJE` record whose `FILE` is `url`/`file` (with an
- * optional `TITL`), and add it to `records`. */
+ * optional `TITL`), and add it to `records`. The `FILE` carries the `FORM`
+ * the spec asks for, unless the file's own habit is to omit it. */
 export function createMediaRecord(records: GedNode[], url: string, title?: string): GedNode {
+  const fileNode: GedNode = { level: 1, tag: "FILE", value: url, children: [] };
+  const form = prefersFileForm(records) ? fileFormOf(url) : undefined;
+  if (form) fileNode.children.push({ level: 2, tag: "FORM", value: form, children: [] });
   const raw: GedNode = {
     level: 0,
     xref: nextXref(records, "O"),
     tag: "OBJE",
-    children: [{ level: 1, tag: "FILE", value: url, children: [] }],
+    children: [fileNode],
   };
   const trimmedTitle = title?.trim();
   if (trimmedTitle) raw.children.push({ level: 1, tag: "TITL", value: trimmedTitle, children: [] });

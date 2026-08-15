@@ -780,6 +780,13 @@ function ReshapeGroupRow({
         {group.pages.length > 0 && (
           <span className="tools-tree-meta">{t("tools.sources.reshapePages", { count: group.pages.length })}</span>
         )}
+        {/* A record page no lookup can reach — the paste box in ✎ is the way
+            its details arrive, and this row is exactly where to say so. */}
+        {group.site === "familysearch" && !removeMarked && !isFetchableSite(group.site, group.bookUrl) && (
+          <span className="tools-tree-meta" title={t("tools.sources.fsSigninHint")}>
+            🔒 {t("tools.sources.fsSignin")}
+          </span>
+        )}
         {removeMarked ? (
           <span className="tools-reshape-badge remove" title={t("tools.sources.reshapeRemoveHint")}>
             {t("tools.sources.reshapeRemoveBadge")}

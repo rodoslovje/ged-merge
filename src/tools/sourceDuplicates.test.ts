@@ -39,6 +39,53 @@ describe("findSourceDuplicates — media", () => {
     expect(groups).toHaveLength(1);
   });
 
+  it("splits a shared basename whose records carry conflicting titles", () => {
+    // Two cameras both produce an IMG_0001.jpg — same basename, different
+    // photos. Conflicting titles split them; the untitled copy then groups
+    // with neither.
+    const groups = ofKind(`0 HEAD
+1 CHAR UTF-8
+0 @O1@ OBJE
+1 FILE a/IMG_0001.jpg
+1 TITL Poroka 1901
+0 @O2@ OBJE
+1 FILE b/IMG_0001.jpg
+1 TITL Vas Ravna Gora
+0 @O3@ OBJE
+1 FILE c/IMG_0001.jpg
+0 TRLR`, "media");
+    expect(groups).toHaveLength(0);
+  });
+
+  it("still joins an untitled copy where every title agrees", () => {
+    const groups = ofKind(`0 HEAD
+1 CHAR UTF-8
+0 @O1@ OBJE
+1 FILE a/IMG_0001.jpg
+1 TITL Poroka 1901
+0 @O2@ OBJE
+1 FILE b/IMG_0001.jpg
+0 TRLR`, "media");
+    expect(groups).toHaveLength(1);
+    expect(groups[0].members).toHaveLength(2);
+  });
+
+  it("keeps case-sensitive video/volume ids apart, however the URL is cased", () => {
+    // dQw4… and DQW4… are different YouTube videos; a case-folding key would
+    // merge them. The same id twice (mod slash) still groups.
+    const groups = ofKind(`0 HEAD
+1 CHAR UTF-8
+0 @O1@ OBJE
+1 FILE https://www.youtube.com/watch?v=dQw4w9WgXcQ
+0 @O2@ OBJE
+1 FILE https://www.youtube.com/watch?v=DQW4W9WGXCQ
+0 @O3@ OBJE
+1 FILE https://www.youtube.com/watch?v=dQw4w9WgXcQ/
+0 TRLR`, "media");
+    expect(groups).toHaveLength(1);
+    expect(groups[0].members.map((m) => m.xref).sort()).toEqual(["@O1@", "@O3@"]);
+  });
+
   it("keeps distinct files apart", () => {
     expect(ofKind(`0 HEAD
 1 CHAR UTF-8

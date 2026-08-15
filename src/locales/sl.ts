@@ -806,6 +806,8 @@ export const sl = {
   "tools.sources.tidyLinks": "Skrajšaj povezave",
   "tools.sources.tidyLinksHint": "Povezavo do FamilySearcha, shranjeno pri medijih, ki se jih ta zagon dotakne, skrajša na stran, ki jo poimenuje — dodatki iz pregledovalnika (view, groupId, cc/wc/i) povedo, kako je bralec prišel do nje, ne pa, katera stran je, in iz ene strani naredijo več različnih.",
   "tools.sources.pasteCitation": "Prilepite navedbo in polja se izpolnijo",
+  "tools.sources.fsSignin": "stran s prijavo",
+  "tools.sources.fsSigninHint": "Strani zapisov na FamilySearch se odprejo šele po prijavi, zato jih poizvedba ne more prebrati — kopirajte navedbo s strani in jo prilepite v urejevalnik ✎, da se podatki izpolnijo.",
   "tools.sources.applyConvert": "Pretvori v vire ({{count}})",
   "tools.sources.applyMerge": "Združi dvojnike ({{count}})",
   "tools.sources.cleanupApply": "Uveljavi v datoteki ({{count}})",

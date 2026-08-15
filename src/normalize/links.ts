@@ -82,18 +82,27 @@ export function canonicalFamilySearchUrl(url: string): string {
   return `${m[1]}www.familysearch.org/ark:/61903/${m[2]}${cat ? `?cat=${cat}` : ""}`;
 }
 
+/** An id that is case-sensitive on its own site — a YouTube video, a Google
+ *  Books volume. Case-folding these would make two different resources
+ *  compare equal, so the key carries the id as written. */
+const CASE_SENSITIVE_ID_RE =
+  /(?:youtube\.com\/watch\?(?:[^#]*&)?v=|youtu\.be\/|books\.google\.[a-z.]+\/books\?(?:[^#]*&)?id=|google\.[a-z.]+\/books\/edition\/[^/?#]+\/)([A-Za-z0-9_-]+)/;
+
 /**
  * Normalize a URL for set comparison: case-fold, drop a trailing slash, ignore
  * the language code in Matricula Online URLs (e.g. /sl/ vs /de/) and Geneanet
  * cemetery URLs (e.g. /cemetery/ vs /friedhof/) since they link to the same
  * record in different UI languages, and reduce a FamilySearch ark to the page
- * it names.
+ * it names. A case-sensitive resource id (YouTube, Google Books) survives the
+ * fold, so ids differing only by case stay distinct.
  */
 export function linkKey(url: string): string {
+  const caseId = CASE_SENSITIVE_ID_RE.exec(url.trim())?.[1];
   const key = canonicalFamilySearchUrl(url.trim().toLowerCase()).replace(/\/+$/, "");
   const matriculaKey = key.replace(MATRICULA_LANG_RE, "$1/xx/");
   const geneanet = matchGeneanetCemetery(matriculaKey);
-  return geneanet ? `https://xx.geneanet.org/cemetery${geneanet.tail}` : matriculaKey;
+  const base = geneanet ? `https://xx.geneanet.org/cemetery${geneanet.tail}` : matriculaKey;
+  return caseId ? `${base}#id=${caseId}` : base;
 }
 
 /** The language code a Matricula Online URL uses, if it is one. */

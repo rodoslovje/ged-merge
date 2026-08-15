@@ -716,6 +716,8 @@ export const en = {
   "tools.sources.tidyLinks": "Shorten links",
   "tools.sources.tidyLinksHint": "Trim a FamilySearch link stored on the media this run touches down to the page it names — its viewer state (view, groupId, cc/wc/i) says how the reader got there, not what the page is, and makes one page look like several.",
   "tools.sources.pasteCitation": "Paste a citation to fill these in",
+  "tools.sources.fsSignin": "sign-in page",
+  "tools.sources.fsSigninHint": "FamilySearch record pages open only after a sign-in, so no lookup can read them — copy the page's own citation and paste it into the ✎ editor to fill the details.",
   "tools.sources.applyConvert": "Convert to sources ({{count}})",
   "tools.sources.applyMerge": "Merge duplicates ({{count}})",
   "tools.sources.cleanupApply": "Apply to the file ({{count}})",

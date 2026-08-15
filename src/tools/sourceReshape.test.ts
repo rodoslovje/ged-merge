@@ -662,6 +662,20 @@ describe("reshapeSources — apply", () => {
     expect(text).toContain("1 NAME Geneanet Cemeteries");
     expect(text).toContain("1 WWW https://en.geneanet.org/cemetery/");
     expect(text).toMatch(/0 @S\d+@ SOUR\n1 TITL 123 - Geneanet Cemeteries\n(1 .*\n)*1 REPO @R\d+@/);
+    // The filing number (the cemetery view id) doubles as the repository
+    // link's call number — the standard spot for it.
+    expect(text).toMatch(/1 REPO @R\d+@\n2 CALN 123/);
+  });
+
+  it("writes the FORM a new page image's FILE calls for", () => {
+    const { text } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 NOTE https://data.matricula-online.eu/sl/slovenia/maribor/sentjur-pri-celju/03869/?pg=10
+0 TRLR`);
+    // A web page link: FORM htm, nested under the FILE it describes.
+    expect(text).toMatch(/1 FILE https:\/\/data\.matricula-online\.eu\/[^\n]*\n2 FORM htm/);
   });
 
   it("re-points pageUrl citations to the book SOUR with a numeric PAGE", () => {
@@ -2456,7 +2470,25 @@ describe("FamilySearch image links", () => {
       },
     );
     expect(relayed).toEqual([]);
-    expect(asked).toEqual([{ url: IMAGE_URL, accept: "application/x-gedcomx-v1+json" }]);
+    // Two direct asks per image: the ark's GedcomX, then its film (DGS) name.
+    expect(asked[0]).toEqual({ url: IMAGE_URL, accept: "application/x-gedcomx-v1+json" });
+    expect(asked[1]?.url).toMatch(/\/das\/v2\/3:1:[^/]+\/name\?namespace=dgs$/);
+    expect(asked).toHaveLength(2);
+    expect(meta?.place).toBe("Pakrac");
+  });
+
+  it("takes the source's filing number from the image's film (DGS) name", async () => {
+    const meta = await fetchBookMeta(
+      "familysearch",
+      "https://www.familysearch.org/ark:/61903/3:1:TEST-DGS1?view=index",
+      async () => undefined,
+      async (url) =>
+        url.includes("namespace=dgs")
+          ? { status: 200, text: "dgs:005482250.005482250_00127" }
+          : { status: 200, text: ARK_JSON },
+    );
+    expect(meta?.filingNumber).toBe("005482250");
+    // …and a book folded out of such pages keeps the film as its id.
     expect(meta?.place).toBe("Pakrac");
   });
 
@@ -2718,7 +2750,8 @@ describe("FamilySearch image links", () => {
       const pending = fresh.fetchBookMeta("familysearch", BLOCKED_URL, async () => undefined, flaky);
       await vi.advanceTimersByTimeAsync(10_000);
       expect((await pending)?.place).toBe("Pakrac");
-      expect(asked).toHaveLength(2);
+      // Block, retry that lands the JSON, then the film-name ask.
+      expect(asked).toHaveLength(3);
 
       // A sign-in refusal is final: asking again would get the same 401.
       let signInAsks = 0;

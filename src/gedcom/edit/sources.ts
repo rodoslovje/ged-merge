@@ -4,7 +4,10 @@ import type { Dataset, GedNode } from "../types";
 import { insertGrouped, insertOrdered, insertRecord, nextXref } from "./shared";
 
 /** Trailing block of a `SOUR` record a new `OBJE` link must stay ahead of. */
-const SOUR_TRAILING_TAGS = ["REPO", "CHAN", "CREA"] as const;
+export const SOUR_TRAILING_TAGS = ["REPO", "CHAN", "CREA"] as const;
+/** Trailing block a new descriptive field must stay ahead of — the media
+ *  links, the repository link and the bookkeeping timestamps. */
+export const SOUR_FIELD_TRAILING = ["OBJE", "REPO", "CHAN", "CREA"] as const;
 import { bumpSourceCacheVersion, getMediaAndSourceCtx } from "./cache";
 import { createMediaRecord, referencedObjeXrefs } from "./media";
 import { removeNoteRecordIfOrphaned, setSharedNoteText, type SharedNoteCtx } from "./notes";
@@ -138,10 +141,18 @@ export function updateSourceCitation(records: GedNode[], node: GedNode, index: n
  * `fields.objeXref` (or the record's sole `OBJE`), or creates a new `OBJE`.
  */
 export function setSourceRecordFields(records: GedNode[], sourceNode: GedNode, fields: EditSourceFields, notes?: SharedNoteCtx): void {
+  // An edited field keeps the position its line already holds — re-appending
+  // would drift TITL below the media links and the CHAN trailer, reordering
+  // the record on every save. A field the record gains is inserted ahead of
+  // the trailing block, the same discipline the reshape's fillField keeps.
   const setChild = (tag: string, value: string | undefined) => {
+    const at = sourceNode.children.findIndex((c) => c.tag === tag);
     sourceNode.children = sourceNode.children.filter((c) => c.tag !== tag);
     const trimmed = value?.trim();
-    if (trimmed) sourceNode.children.push({ level: sourceNode.level + 1, tag, value: trimmed, children: [] });
+    if (!trimmed) return;
+    const node: GedNode = { level: sourceNode.level + 1, tag, value: trimmed, children: [] };
+    if (at !== -1) sourceNode.children.splice(at, 0, node);
+    else insertGrouped(sourceNode, node, SOUR_FIELD_TRAILING);
   };
   setChild("TITL", fields.title);
   setChild("AUTH", fields.author);

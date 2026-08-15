@@ -10,6 +10,7 @@ import { fetchBookMeta, makePlaceResolver, narrowFsRegister, proposedSiteRepo, r
 import { prefersSourceRepos } from "../gedcom/source";
 import { childText } from "../gedcom/node";
 import { useSettings } from "./SettingsContext";
+import { useDebounced } from "./tools/shared";
 import { SelectMenu } from "./DropdownMenu";
 import { linkHref, linkTooltip } from "./FieldValue";
 import type { Translate } from "../locales/i18n";
@@ -130,9 +131,13 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
     () => (normalizedUrl ? recognizeSourceUrl(normalizedUrl, text) : undefined),
     [normalizedUrl, text],
   );
+  // The existing-source scan walks the whole forest — debounced, so a URL
+  // being typed character by character doesn't rescan a 20k-record file on
+  // every keystroke (a paste is one change and settles immediately after).
+  const settledUrl = useDebounced(normalizedUrl, 250);
   const match = useMemo(
-    () => (normalizedUrl ? findExistingSource(dataset.records, normalizedUrl) : undefined),
-    [dataset, normalizedUrl],
+    () => (settledUrl ? findExistingSource(dataset.records, settledUrl) : undefined),
+    [dataset, settledUrl],
   );
   const repos = useMemo(
     () =>
@@ -341,6 +346,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
 
   function trimmedFields(fields: FormState) {
     const trim = (s: string) => s.trim() || undefined;
+    const url = trim(fields.url);
     return {
       title: trim(fields.title),
       author: trim(fields.author),
@@ -350,7 +356,10 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
       place: trim(fields.place),
       filingNumber: trim(fields.filingNumber),
       page: trim(fields.page),
-      url: trim(fields.url),
+      // The same normalization the paste path applies — a viewer-state URL
+      // pasted straight into the field must not store what the paste box
+      // would have trimmed.
+      url: url && canonicalFamilySearchUrl(rewriteLinkLang(url, mainLinkLangs)),
       note: trim(fields.note),
     };
   }

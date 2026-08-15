@@ -1576,6 +1576,21 @@ describe("setSourceRecordFields / sourceRecordEditFields", () => {
     expect(obje.children.find((c) => c.tag === "FILE")?.value).toBe("https://example.com/book/?pg=2");
   });
 
+  it("keeps the record's field order: an edit stays in place, a new field stays ahead of the trailer", () => {
+    const ds = buildFromText(BASE);
+    const source = createSourceRecord(ds.records, { title: "Krstna knjiga", url: "https://example.com/book/?pg=1" });
+    source.children.push({ level: 1, tag: "CHAN", children: [{ level: 2, tag: "DATE", value: "1 JAN 2026", children: [] }] });
+
+    const fields = sourceRecordEditFields(ds.records, source);
+    setSourceRecordFields(ds.records, source, { ...fields, title: "Poročna knjiga", agency: "Župnija" });
+    const tags = source.children.map((c) => c.tag);
+    // TITL keeps its lead position; the new AGNC lands ahead of OBJE/CHAN,
+    // never after the bookkeeping trailer.
+    expect(tags[0]).toBe("TITL");
+    expect(tags.indexOf("AGNC")).toBeLessThan(tags.indexOf("OBJE"));
+    expect(tags[tags.length - 1]).toBe("CHAN");
+  });
+
   it("clearing the URL prunes the source's now-orphaned OBJE", () => {
     const ds = buildFromText(BASE);
     const source = createSourceRecord(ds.records, { title: "X", url: "https://example.com/a" });

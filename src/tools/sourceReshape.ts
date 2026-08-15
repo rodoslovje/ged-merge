@@ -17,7 +17,7 @@ import type { SourceLayout } from "../normalize/types";
 import type { FormatOverrides } from "../normalize/formatOverrides";
 import { decodeHtmlEntities, fetchDirect, pageTitleOf, type DirectResponse } from "../normalize/urlMetadata";
 import { parseSourceInput } from "../gedcom/citationParse";
-import { addObjeToSource, createSourceRecord } from "../gedcom/edit/sources";
+import { addObjeToSource, createSourceRecord, SOUR_FIELD_TRAILING, SOUR_TRAILING_TAGS } from "../gedcom/edit/sources";
 import {
   EVENT_CHILD_ORDER,
   FAM_CHILD_ORDER,
@@ -28,9 +28,9 @@ import {
   nextXref,
 } from "../gedcom/edit/shared";
 
-/** Trailing block of a `SOUR` record that new links/fields must stay ahead of. */
-const SOUR_TRAILING = ["REPO", "CHAN", "CREA"] as const;
-const SOUR_FIELD_TRAILING = ["OBJE", "REPO", "CHAN", "CREA"] as const;
+/** Trailing block of a `SOUR` record that new links must stay ahead of —
+ *  shared with the edit dialog's field writer (see gedcom/edit/sources). */
+const SOUR_TRAILING = SOUR_TRAILING_TAGS;
 import { FAM_EVENT_TAGS, INDI_EVENT_TAGS } from "../gedcom/eventTags";
 import { isPrivateNode } from "../gedcom/private";
 import { label } from "../match/relatives";
@@ -190,8 +190,9 @@ export interface ReshapeMeta {
   page?: string;
   dateRange?: string;
   bookType?: BookType;
-  /** Set by the panel's manual field editor only — page parsers never
-   *  override the offline id. An empty string clears the proposed one. */
+  /** Set by the panel's manual field editor, or — for a FamilySearch image —
+   *  the film (DGS) number its ark resolves to; page parsers never override
+   *  the offline id otherwise. An empty string clears the proposed one. */
   filingNumber?: string;
   /** The published collection an image belongs to ("Croatia, Church Books,
    *  1516-1994") and its FamilySearch id. Not source fields: they name and find
@@ -2009,7 +2010,12 @@ export function applySiteSourceExtras(
     id: meta.collectionId,
   });
   if (!repo) return undefined;
-  sourceNode.children.push({ level: sourceNode.level + 1, tag: "REPO", value: repo.xref, children: [] });
+  const link: GedNode = { level: sourceNode.level + 1, tag: "REPO", value: repo.xref, children: [] };
+  // Same mirror as the batch tool: the filing number is the call number
+  // within the repository being linked.
+  const filn = childText(sourceNode, "FILN");
+  if (filn) link.children.push({ level: link.level + 1, tag: "CALN", value: filn, children: [] });
+  sourceNode.children.push(link);
   return repo.created;
 }
 
@@ -2126,7 +2132,14 @@ export function reshapeSources(
       });
       if (repo) {
         if (repo.created) byXref.set(repo.created.xref!, repo.created);
-        sourceNode.children.push({ level: 1, tag: "REPO", value: repo.xref, children: [] });
+        const link: GedNode = { level: 1, tag: "REPO", value: repo.xref, children: [] };
+        // The filing number doubles as the call number within that repository
+        // (the Matricula book id, the FamilySearch film) — the standard spot a
+        // strict reader looks for it is the repository link's CALN.
+        if (fields.filingNumber) {
+          link.children.push({ level: 2, tag: "CALN", value: fields.filingNumber, children: [] });
+        }
+        sourceNode.children.push(link);
       }
     }
     const sourceXref = sourceNode.xref!;
@@ -3037,12 +3050,31 @@ export async function fetchBookMeta(
             `${bookUrl}&printsec=frontcover&hl=en`
           : bookUrl;
   // FamilySearch is asked directly: its ark answers cross-origin requests
-  // itself, so no relay sees the URL and the answer is the site's own.
-  const html =
-    site === "familysearch"
-      ? await pacedFsFetch(() => fetchFsArk(fetchArk, url))
-      : await fetchHtml(url).catch(() => undefined);
-  const meta = html ? parseBookMeta(site, bookUrl, html) : undefined;
+  // itself, so no relay sees the URL and the answer is the site's own. The
+  // image's film (DGS) number rides in the same paced slot — one more tiny
+  // anonymous request against the ark, answering `dgs:005482250.…_00127`;
+  // that number is the film the source's FILN and the repository's CALN cite.
+  let meta: ReshapeMeta | undefined;
+  if (site === "familysearch") {
+    const ark = parseFamilySearchUrl(bookUrl)?.ark;
+    const { json, film } = await pacedFsFetch(async () => {
+      const json = await fetchFsArk(fetchArk, url);
+      let film: string | undefined;
+      if (json && ark) {
+        const name = await fetchArk(
+          `https://www.familysearch.org/das/v2/${ark}/name?namespace=dgs`,
+          "text/plain",
+        ).catch(() => ({ status: 0 }) as DirectResponse);
+        film = /^dgs:(\d+)\./.exec(name.text?.trim() ?? "")?.[1];
+      }
+      return { json, film };
+    });
+    meta = json ? parseBookMeta(site, bookUrl, json) : undefined;
+    if (meta && film) meta = { ...meta, filingNumber: meta.filingNumber ?? film };
+  } else {
+    const html = await fetchHtml(url).catch(() => undefined);
+    meta = html ? parseBookMeta(site, bookUrl, html) : undefined;
+  }
   // A dateless Google Books result usually means a relay was served the About
   // page instead of the reader — don't pin that for the session; a later run
   // through a different relay may land the dated reader heading.
@@ -3154,8 +3186,9 @@ export function mergeFsBooks(
         author: meta.author,
         agency: meta.agency,
         place: meta.place,
-        // The per-image ark identified a single image; a book has no such id.
-        filingNumber: undefined,
+        // Not the ark (that named a single image) — the film (DGS) number,
+        // when the lookup resolved it, is an id the whole book shares.
+        filingNumber: meta.filingNumber,
         dateRange: meta.dateRange,
       },
       bookUrl: groups[0].bookUrl,
