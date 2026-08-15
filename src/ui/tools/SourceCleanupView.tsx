@@ -122,6 +122,9 @@ export function SourceCleanupView({
   const [excluded, setExcluded] = useState<Set<string>>(new Set());
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [relocate, setRelocate] = useState(true);
+  /** Also shorten the links already stored on the media the run touches. Off
+   *  by default: those records are otherwise fine. */
+  const [tidyLinks, setTidyLinks] = useState(false);
   const [quay, setQuay] = useState("");
   /** Per-reference QUAY overrides, keyed `${groupId}:${memberIndex}`. */
   const [quayOverrides, setQuayOverrides] = useState<Map<string, string>>(new Map());
@@ -229,7 +232,12 @@ export function SourceCleanupView({
       {
         groups: selectedGroups,
         enrichment: folded.enrichment,
-        options: { ...reshapeOptionsFromOverrides(settings.formatOverrides), relocate, mergeGroups: folded.keyOf },
+        options: {
+          ...reshapeOptionsFromOverrides(settings.formatOverrides),
+          relocate,
+          tidyLinks,
+          mergeGroups: folded.keyOf,
+        },
       },
       selectedDupGroups,
     );
@@ -410,6 +418,10 @@ export function SourceCleanupView({
             <label className="tools-reshape-site" title={t("tools.sources.reshapePlaceHint")}>
               <input type="checkbox" checked={relocate} onChange={() => setRelocate((v) => !v)} />
               {t("tools.sources.reshapePlace")}
+            </label>
+            <label className="tools-reshape-site" title={t("tools.sources.tidyLinksHint")}>
+              <input type="checkbox" checked={tidyLinks} onChange={() => setTidyLinks((v) => !v)} />
+              {t("tools.sources.tidyLinks")}
             </label>
             <QuaySelect value={quay} onChange={setQuay} />
             {settings.allowLinkFetch && (fetchableGroups.length > 0 || fetching !== null) && (

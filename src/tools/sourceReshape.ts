@@ -226,6 +226,10 @@ export interface ReshapeOptions {
   /** Original group id → the book it was folded into ({@link mergeFsBooks}),
    *  so the apply groups its own scan exactly as the panel showed it. */
   mergeGroups?: ReadonlyMap<string, string>;
+  /** Also shorten the links already stored on the media the run touches, down
+   *  to the page they name (FamilySearch's viewer state). Off by default: the
+   *  records are otherwise fine, so trimming them is the reader's call. */
+  tidyLinks?: boolean;
   /** Person+event doubled links: "fold" collapses to one, "keep" keeps both;
    *  "auto" = the file's own habit. */
   doubledLinks?: "fold" | "keep" | "auto";
@@ -240,6 +244,8 @@ export interface ReshapeCounts {
   linksRemoved: number;
   notesRewritten: number;
   eventsCreated: number;
+  /** Stored links shortened to the page they name (`tidyLinks`). */
+  linksTidied: number;
 }
 
 const DEFAULT_SITES: ReadonlySet<ReshapeSite> = new Set(ALL_SITES.filter((s) => s !== "other"));
@@ -2013,6 +2019,7 @@ export function reshapeSources(
     linksRemoved: 0,
     notesRewritten: 0,
     eventsCreated: 0,
+    linksTidied: 0,
   };
   if (selected.length === 0) return { records, counts };
 
@@ -2109,6 +2116,21 @@ export function reshapeSources(
       }
     }
     const sourceXref = sourceNode.xref!;
+
+    // Asked for it, shorten what the media already holds: the same link, minus
+    // the viewer state that made one page look like several.
+    if (opts.tidyLinks) {
+      for (const hit of state.hits) {
+        const obje = hit.objeXref ? byXref.get(hit.objeXref) : undefined;
+        const file = obje && firstChild(obje, "FILE");
+        const stored = file?.value?.trim();
+        const tidied = stored && canonicalFamilySearchUrl(stored);
+        if (file && tidied && tidied !== stored) {
+          file.value = tidied;
+          counts.linksTidied++;
+        }
+      }
+    }
 
     // Which page of the source each link is. A page number the URL itself
     // carries wins; then the one the report put on that member — for a book

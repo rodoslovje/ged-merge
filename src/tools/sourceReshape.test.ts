@@ -2638,6 +2638,32 @@ describe("FamilySearch image links", () => {
     expect(findReshapableLinks(ds).groups[0].existingSourceXref).toBe("@S9@");
   });
 
+  it("shortens the links already stored, but only when asked", () => {
+    const long =
+      "https://www.familysearch.org/ark:/61903/3:1:3QSQ-G99C-5C1Q?view=explore&lang=en&groupId=M99F-832";
+    const file = [
+      "0 HEAD",
+      "1 CHAR UTF-8",
+      "0 @I1@ INDI",
+      "1 OBJE @O9@",
+      "0 @O9@ OBJE",
+      `1 FILE ${long}`,
+      "0 TRLR",
+    ].join("\n");
+
+    const kept = dataset(file);
+    const asIs = reshapeSources(kept.records, findReshapableLinks(kept).groups, undefined, {});
+    expect(serializeGedcom(asIs.records)).toContain(long); // the file's own text stands
+    expect(asIs.counts.linksTidied).toBe(0);
+
+    const ds = dataset(file);
+    const tidied = reshapeSources(ds.records, findReshapableLinks(ds).groups, undefined, { tidyLinks: true });
+    const text = serializeGedcom(tidied.records);
+    expect(text).toContain("1 FILE https://www.familysearch.org/ark:/61903/3:1:3QSQ-G99C-5C1Q\n");
+    expect(text).not.toContain("groupId");
+    expect(tidied.counts.linksTidied).toBe(1);
+  });
+
   it("adds a book's new pages to the source the file already keeps for it", () => {
     // Two pages of one book; the file already cites the first from a source of
     // its own. The second must join that record, not start a second one.

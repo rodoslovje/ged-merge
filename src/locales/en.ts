@@ -712,6 +712,8 @@ export const en = {
   "tools.sources.cleanupToggle": "Organize sources",
   "tools.sources.expandAll": "Expand all",
   "tools.sources.collapseAll": "Collapse all",
+  "tools.sources.tidyLinks": "Shorten links",
+  "tools.sources.tidyLinksHint": "Trim a FamilySearch link stored on the media this run touches down to the page it names — its viewer state (view, groupId, cc/wc/i) says how the reader got there, not what the page is, and makes one page look like several.",
   "tools.sources.pasteCitation": "Paste a citation to fill these in",
   "tools.sources.applyConvert": "Convert to sources ({{count}})",
   "tools.sources.applyMerge": "Merge duplicates ({{count}})",

@@ -802,6 +802,8 @@ export const sl = {
   "tools.sources.cleanupToggle": "Uredi vire",
   "tools.sources.expandAll": "Razširi vse",
   "tools.sources.collapseAll": "Strni vse",
+  "tools.sources.tidyLinks": "Skrajšaj povezave",
+  "tools.sources.tidyLinksHint": "Povezavo do FamilySearcha, shranjeno pri medijih, ki se jih ta zagon dotakne, skrajša na stran, ki jo poimenuje — dodatki iz pregledovalnika (view, groupId, cc/wc/i) povedo, kako je bralec prišel do nje, ne pa, katera stran je, in iz ene strani naredijo več različnih.",
   "tools.sources.pasteCitation": "Prilepite navedbo in polja se izpolnijo",
   "tools.sources.applyConvert": "Pretvori v vire ({{count}})",
   "tools.sources.applyMerge": "Združi dvojnike ({{count}})",

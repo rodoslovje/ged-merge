@@ -1035,7 +1035,11 @@
               FamilySearch directly, one at a time. Once they answer, the FamilySearch pages that turn out to belong to
               one register are gathered into a single source, each link becoming a page citation on it: a file citing
               hundreds of single images ends up with one source per book. Nothing in such a link says which book it is,
-              so this can only follow the lookup — without it every page stays its own source. Any date a site reports is written in your
+              so this can only follow the lookup — without it every page stays its own source. A FamilySearch link the
+              app writes carries the ark alone, since the viewer state a copied URL trails
+              (<em>view</em>, <em>groupId</em>, <em>cc/wc/i</em>) says how the reader got there rather than what the page
+              is — and makes one page look like several. <strong>Shorten links</strong> extends that to the links already
+              stored on the media the run touches; it is off by default, since those records are otherwise fine. Any date a site reports is written in your
               file's own date format, whatever shape the page used. Citations land on the matching event (created if
               missing), a <strong>QUAY</strong> quality can be set globally with per-row overrides, and graves fill the
               burial place and cemetery address.
