@@ -808,7 +808,6 @@ export const sl = {
   "tools.sources.cleanupApplied_two": "Posodobljena {{count}} zapisa — razveljavite s Ctrl+Z, shranite, da ostane.",
   "tools.sources.cleanupApplied_few": "Posodobljeni {{count}} zapisi — razveljavite s Ctrl+Z, shranite, da ostane.",
   "tools.sources.cleanupApplied_other": "Posodobljenih {{count}} zapisov — razveljavite s Ctrl+Z, shranite, da ostane.",
-  "tools.sources.reshapeHeading": "Arhivske povezave → viri",
   "tools.sources.reshapeIntro":
     "Arhivske povezave (Matricula Online, Geneanet pokopališča, FamilySearch), najdene kot gole povezave, opombe ali besedilne navedbe, združene po matični knjigi ali grobu. Izberite skupine za pretvorbo in jih uveljavite: vsaka postane v vaši datoteki pravi vir z navedbami po straneh, in to v enem razveljavljivem koraku.",
   "tools.sources.reshapeFound": "povezave: {{links}} · skupine virov: {{groups}}",

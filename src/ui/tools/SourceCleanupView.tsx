@@ -350,9 +350,10 @@ export function SourceCleanupView({
 
       {hasReshape && (
         <section className="tools-cleanup-section">
+          {/* No heading of its own: the page is called Organize sources, the
+              summary counts its groups, and the paragraph below says what the
+              list holds — a fourth telling would only repeat them. */}
           <div className="tools-dup-kind-head">
-            {t("tools.sources.reshapeHeading")}
-            <span className="tools-chip-count">{visibleGroups.length}</span>
             <div className="tools-dup-bulk">
               {applyAction}
               <button className="tools-issue-link" onClick={() => setExcluded(new Set())}>

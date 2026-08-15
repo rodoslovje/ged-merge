@@ -716,7 +716,6 @@ export const en = {
   "tools.sources.cleanupApply": "Apply to the file ({{count}})",
   "tools.sources.cleanupApplied_one": "{{count}} record updated — undo with Ctrl+Z, save to keep.",
   "tools.sources.cleanupApplied_other": "{{count}} records updated — undo with Ctrl+Z, save to keep.",
-  "tools.sources.reshapeHeading": "Archive links → sources",
   "tools.sources.reshapeIntro":
     "Archive links (Matricula Online, Geneanet Cemeteries, FamilySearch) found as bare links, notes or inline citations, grouped by register book or grave. Pick the groups to convert and apply: each becomes a proper source record in your file, cited with page numbers, in one undoable step.",
   "tools.sources.reshapeFound": "links: {{links}} · source groups: {{groups}}",

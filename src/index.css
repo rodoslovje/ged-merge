@@ -8192,6 +8192,8 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 /* Source cleanup (reshape + duplicates) */
 .tools-cleanup-section { margin: 0 0 26px; }
 .tools-cleanup-section .tools-dup-kind-head .tools-dup-bulk { margin-left: 14px; }
+/* …but a head with no heading before it starts at the margin. */
+.tools-cleanup-section .tools-dup-kind-head .tools-dup-bulk:first-child { margin-left: 0; }
 /* The write button rides in the heading's action row, so it must not keep
    the standalone bottom margin it has when it heads a section of its own. */
 .tools-dup-bulk .tools-run { margin: 0; }
