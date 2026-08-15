@@ -1,4 +1,4 @@
-import { diffSharedRecordNodes, emptyLike, sharedRecordLabel } from "../gedcom/editReport";
+import { diffSharedRecordNodes, emptyLike, makeXrefLabeler, sharedRecordLabel } from "../gedcom/editReport";
 import { recordFingerprint, type SaveBaseline } from "../gedcom/fingerprint";
 import type { GedNode } from "../gedcom/types";
 import type { ChangeReport, FieldChange } from "../merge/merge";
@@ -66,8 +66,9 @@ export function auditAgainstBaseline(
    *  records (SOUR/OBJE/NOTE/REPO) are spelled out this way: a person or family
    *  is described by the paths that create them, and dumping every line of one
    *  here would bury the record it belongs to. */
+  const labelFor = makeXrefLabeler(records);
   const contentsOf = (record: GedNode, kind: string) =>
-    kind === "record" ? diffSharedRecordNodes(record.xref!, emptyLike(record), record) : [];
+    kind === "record" ? diffSharedRecordNodes(record.xref!, emptyLike(record), record, labelFor) : [];
 
   const nameOf = (record: GedNode, kind: string) =>
     kind === "record" ? sharedRecordLabel(record.xref!, record) : undefined;

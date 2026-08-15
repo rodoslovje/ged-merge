@@ -595,19 +595,61 @@ export function sharedRecordLabel(id: string, node: GedNode | undefined): string
   return icon ? `${icon} ${label}` : label;
 }
 
-/**
- * Value-level diff of a shared record (SOUR/OBJE/NOTE), which has no typed
- * projection to compare the way individuals and families do. Both trees are
- * flattened to `TAG.SUBTAG` → values in document order and compared position by
- * position, so a repaired `DATE` reads "DATA.DATE: Apr 12, 1979 → 12 APR 1979".
- */
 /** The same record with nothing in it — what a brand-new record is diffed
  *  against, so every line it brought reads as added. */
 export function emptyLike(node: GedNode): GedNode {
   return { level: node.level, tag: node.tag, children: [] };
 }
 
-export function diffSharedRecordNodes(id: string, before: GedNode, after: GedNode): FieldChange[] {
+/** A line whose whole value is a pointer at another record. */
+const POINTER = /^@[^@\s]+@$/;
+
+/**
+ * Name the record a pointer points at, the way the app names it everywhere
+ * else. `1 REPO @R1@` is an archive with a name, and printing the xref instead
+ * hands the reader a lookup to do by hand in a file they can't search.
+ *
+ * The xref index is built on first use, so a save that turns out to have no
+ * pointers to resolve pays nothing for it.
+ */
+export function makeXrefLabeler(records: GedNode[]): (xref: string) => string | undefined {
+  let index: Map<string, GedNode> | undefined;
+  const label = (xref: string): string | undefined => {
+    if (!index) {
+      index = new Map();
+      for (const r of records) if (r.xref) index.set(r.xref, r);
+    }
+    const node = index.get(xref);
+    if (!node) return undefined; // a dangling pointer stays raw — the xref is the finding
+    if (node.tag === "INDI") return displayNameFromRaw(node) || undefined;
+    if (node.tag === "FAM") {
+      const spouses = ["HUSB", "WIFE"]
+        .map((tag) => firstChild(node, tag)?.value?.trim())
+        .filter((x): x is string => !!x)
+        .map((x) => label(x) ?? x);
+      return spouses.join(" + ") || undefined;
+    }
+    return sharedRecordLabel(xref, node);
+  };
+  return label;
+}
+
+/**
+ * Value-level diff of a shared record (SOUR/OBJE/NOTE), which has no typed
+ * projection to compare the way individuals and families do. Both trees are
+ * flattened to `TAG.SUBTAG` → values in document order and compared position by
+ * position, so a repaired `DATE` reads "DATA.DATE: Apr 12, 1979 → 12 APR 1979".
+ *
+ * @param labelFor names the target of a pointer value (see {@link makeXrefLabeler}).
+ */
+export function diffSharedRecordNodes(
+  id: string,
+  before: GedNode,
+  after: GedNode,
+  labelFor?: (xref: string) => string | undefined,
+): FieldChange[] {
+  const show = (value: string) =>
+    labelFor && POINTER.test(value) ? labelFor(value) ?? value : value;
   const flatten = (node: GedNode, prefix: string, out: Map<string, string[]>) => {
     for (const child of node.children) {
       const path = prefix ? `${prefix}.${child.tag}` : child.tag;
@@ -631,7 +673,13 @@ export function diffSharedRecordNodes(id: string, before: GedNode, after: GedNod
     const to = afterVals.get(path) ?? [];
     for (let i = 0; i < Math.max(from.length, to.length); i++) {
       if (from[i] === to[i]) continue;
-      changes.push({ recordId: id, field: path, from: from[i] ?? "", to: to[i] ?? "", action: "incoming" });
+      changes.push({
+        recordId: id,
+        field: path,
+        from: from[i] ? show(from[i]) : "",
+        to: to[i] ? show(to[i]) : "",
+        action: "incoming",
+      });
     }
   }
   return changes;
@@ -726,6 +774,7 @@ export function buildEditReport(
     if (isNew) newFamilies++;
   }
 
+  const labelFor = makeXrefLabeler(dataset.records);
   for (const id of changedRecordIds ?? []) {
     const current = dataset.records.find((r) => r.xref === id);
     const snapshot = recordSnapshots?.get(id)?.value;
@@ -739,7 +788,7 @@ export function buildEditReport(
     // A record created this session has no snapshot to diff against, and
     // without this its card would carry a title and nothing else — the whole
     // point of adding a source is the title and the link it brought with it.
-    if (current) changes.push(...diffSharedRecordNodes(id, snapshot ?? emptyLike(current), current));
+    if (current) changes.push(...diffSharedRecordNodes(id, snapshot ?? emptyLike(current), current, labelFor));
   }
 
   return {

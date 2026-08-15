@@ -115,7 +115,8 @@ describe("auditAgainstBaseline", () => {
     const report = emptyReport();
     const added = dataset(wrap(
       "0 @S9@ SOUR\n1 TITL Matična knjiga poročenih\n1 REPO @R1@\n" +
-      "0 @O9@ OBJE\n1 FILE https://familysearch.org/ark:/61903/1:1:XXXX\n2 TITL Poroka 1873\n",
+      "0 @O9@ OBJE\n1 FILE https://familysearch.org/ark:/61903/1:1:XXXX\n2 TITL Poroka 1873\n" +
+      "0 @R1@ REPO\n1 NAME Nadškofijski arhiv Ljubljana\n",
     )).records.filter((r) => r.xref);
 
     auditAgainstBaseline([...outgoing(ds), ...added], baseline, report);
@@ -123,15 +124,17 @@ describe("auditAgainstBaseline", () => {
     expect(report.recordLabels["@S9@"]).toBe("📖 Matična knjiga poročenih");
     expect(report.recordLabels["@O9@"]).toContain("Poroka 1873");
     const sourRows = report.changes.filter((c) => c.recordId === "@S9@" && c.field);
+    // The repository reads as the archive it is, not as the pointer it is written as.
     expect(sourRows.map((c) => [c.field, c.to])).toEqual([
       ["TITL", "Matična knjiga poročenih"],
-      ["REPO", "@R1@"],
+      ["REPO", "🏛 Nadškofijski arhiv Ljubljana"],
     ]);
     expect(report.changes.find((c) => c.recordId === "@O9@" && c.field === "FILE")?.to)
       .toBe("https://familysearch.org/ark:/61903/1:1:XXXX");
-    // It is spelled out, so it is not one of the records with no detail.
+    expect(report.recordLabels["@R1@"]).toBe("🏛 Nadškofijski arhiv Ljubljana");
+    // Each is spelled out, so none of them counts as a record with no detail.
     expect(reportTotals(report).undescribedRecords).toBe(0);
-    expect(reportTotals(report).newRecords).toBe(2);
+    expect(reportTotals(report).newRecords).toBe(3);
   });
 
   it("reports a record that arrives from nowhere", () => {
