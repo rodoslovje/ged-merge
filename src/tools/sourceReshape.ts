@@ -2583,7 +2583,15 @@ function parseFamilySearchCitation(raw: string): ReshapeMeta | undefined {
   // holding archive after the last semicolon.
   const rest = /\(https?:[^)]*\)\s*,?\s*(.*)$/i.exec(text)?.[1] ?? "";
   const semi = rest.lastIndexOf(";");
-  const agency = semi >= 0 ? rest.slice(semi + 1).replace(/\.\s*$/, "").trim() : "";
+  const holder = semi >= 0 ? rest.slice(semi + 1).replace(/\.\s*$/, "").replace(/^\s*citing\s+/i, "").trim() : "";
+  // A published microfilm names its publisher the bibliographic way — "NARA
+  // microfilm publication T715 and M237 (Washington D.C.: National Archives
+  // and Records Administration, n.d.)" — where an archive's own holding names
+  // only itself ("Arhiva Hrvatske u Zagrebu (Croatia State Archives), Zagreb").
+  const published = /^(.*?)\s*\(([^:()]{2,60}):\s*([^()]+?)(?:,\s*(?:n\.d\.|\d{4}))?\)$/.exec(holder);
+  const agency = published ? published[1].trim() : holder;
+  const publisher = published?.[3].trim();
+  const publishedPlace = published?.[2].trim();
   const steps = (semi >= 0 ? rest.slice(0, semi) : rest).split(">").map((s) => s.trim()).filter(Boolean);
   const image = /^image (\d+)\b/i.exec(steps[steps.length - 1] ?? "");
   if (image) steps.pop();
@@ -2597,8 +2605,11 @@ function parseFamilySearchCitation(raw: string): ReshapeMeta | undefined {
     title: siteTitle(place, book, collection ?? "FamilySearch"),
     collection,
     book,
-    place,
+    // The browse path's own place first; the publication's city only where the
+    // path named none.
+    place: place ?? publishedPlace,
     agency: agency || undefined,
+    publisher,
     page: image?.[1],
     dateRange: yearSpan(book),
     // A book holding births *and* marriages classifies as neither — "unknown"

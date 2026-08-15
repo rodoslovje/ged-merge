@@ -2572,6 +2572,39 @@ describe("FamilySearch image links", () => {
     expect(text).toContain("1 TITL #47 - Ravna Gora - Marriages (Vjenčani) 1805-1812");
   });
 
+  it("reads a published microfilm's own citation, publisher and all", () => {
+    // A collection whose images are a filmed publication rather than an
+    // archive's own book: one browse step, and a "citing …" tail in the
+    // bibliographic shape.
+    const json = JSON.stringify({
+      sourceDescriptions: [
+        {
+          resourceType: "http://gedcomx.org/DigitalArtifact",
+          citations: [
+            {
+              value:
+                '"New York, Passenger Arrival Lists (Ellis Island), 1892-1925," database with images, ' +
+                "<i>FamilySearch</i> (https://familysearch.org/ark:/61903/3:1:3Q9M-C9T4-LSL3-L?cc=1368704 : 26 January 2018), " +
+                "Roll 210, vol 343-344, 5 Jul 1901-7 Jul 1901 > image 682 of 724; citing NARA microfilm publication " +
+                "T715 and M237 (Washington D.C.: National Archives and Records Administration, n.d.).",
+            },
+          ],
+        },
+      ],
+    });
+    const meta = parseFamilySearchArkJson(json);
+    expect(meta?.title).toBe(
+      "Roll 210, vol 343-344, 5 Jul 1901-7 Jul 1901 - New York, Passenger Arrival Lists (Ellis Island), 1892-1925",
+    );
+    expect(meta?.page).toBe("682");
+    expect(meta?.dateRange).toBe("1901");
+    // "citing" is not part of the archive's name, and a publication's
+    // publisher and city are their own fields.
+    expect(meta?.agency).toBe("NARA microfilm publication T715 and M237");
+    expect(meta?.publisher).toBe("National Archives and Records Administration");
+    expect(meta?.place).toBe("Washington D.C.");
+  });
+
   it("treats every form of one image link as the same page", () => {
     const ark = "https://www.familysearch.org/ark:/61903/3:1:3QSQ-G99C-5C1Q";
     const forms = [
