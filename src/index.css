@@ -8189,9 +8189,6 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
   font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
   color: var(--state-match); border: 1px solid var(--state-match); border-radius: 4px; padding: 0 4px;
 }
-.tools-dup-actions { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
-.tools-dup-actions .tools-run { margin: 0; }
-
 /* Source cleanup (reshape + duplicates) */
 .tools-cleanup-section { margin: 0 0 26px; }
 .tools-cleanup-section .tools-dup-kind-head .tools-dup-bulk { margin-left: 14px; }

@@ -195,7 +195,6 @@ export function SourceCleanupView({
         })),
     [visibleGroups, excluded, quayOverrides, quay, removeMarked],
   );
-  const citationCount = selectedGroups.reduce((n, g) => n + g.members.length, 0);
   // Books the fetch button will actually check: only *selected* new-source
   // groups on fetchable sites, and only those not already fetched.
   // URL-titled sources are "existing" but get rewritten — they want enrichment
@@ -216,7 +215,6 @@ export function SourceCleanupView({
   const selectedDupGroups = dupReport.groups
     .filter((g) => !dupExcluded.has(g.id))
     .map((g) => withSurvivor(g, survivors.get(g.id) ?? defaultSurvivor(g)));
-  const removeCount = selectedDupGroups.reduce((n, g) => n + g.removable, 0);
 
   function apply() {
     // Reshape first (its existing-source targets are original xrefs), then
@@ -315,10 +313,27 @@ export function SourceCleanupView({
   const hasDups = dupReport.groups.length > 0;
   const nothingSelected = selectedGroups.length === 0 && selectedDupGroups.length === 0;
 
+  // The page's one primary action, on the head of the first list it acts on —
+  // where Geocoding and Naming keep theirs. It covers both sections, so it is
+  // rendered once: on the links list when there is one, else on the duplicates.
+  // Its count says how many groups will change; the summary above already
+  // spells out what the file holds, so nothing repeats it here.
+  const applyAction = (
+    <>
+      <button className="nav-btn primary tools-run" onClick={apply} disabled={nothingSelected}>
+        {t("tools.sources.cleanupApply", { count: selectedGroups.length + selectedDupGroups.length })}
+      </button>
+      {applied > 0 && <span className="tools-fix-hint">{t("tools.sources.cleanupApplied", { count: applied })}</span>}
+    </>
+  );
+
   return (
     <>
+      {/* Which page this is, beside the way back from it, with the file's own
+          totals on the right — the shape every Tools sub-page shares. */}
       <div className="tools-filter-row">
         <BackButton label={t("tools.sources.dupBack")} shortcutHint="Esc" showLabel onClick={onBack} />
+        <h2 className="tools-page-title">{t("tools.sources.cleanupToggle")}</h2>
         <ToolSummary>
           {[
             hasReshape &&
@@ -333,35 +348,13 @@ export function SourceCleanupView({
         </ToolSummary>
       </div>
 
-      {/* The run's own action bar, above the lists it acts on — where the
-          geocoding and naming tools put theirs. The count answers "how many
-          groups will this act on"; the two sections' own figures are spelled
-          out in the hint beside it. */}
-      <div className="tools-dup-actions">
-        <button className="nav-btn primary tools-run" onClick={apply} disabled={nothingSelected}>
-          {t("tools.sources.cleanupApply", { count: selectedGroups.length + selectedDupGroups.length })}
-        </button>
-        {!nothingSelected && (
-          <span className="tools-fix-hint">
-            {[
-              selectedGroups.length > 0 &&
-                t("tools.sources.reshapeApplyCount", { groups: selectedGroups.length, citations: citationCount }),
-              selectedDupGroups.length > 0 &&
-                t("tools.sources.dupApplyCount", { groups: selectedDupGroups.length, records: removeCount }),
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-          </span>
-        )}
-        {applied > 0 && <span className="tools-fix-hint">{t("tools.sources.cleanupApplied", { count: applied })}</span>}
-      </div>
-
       {hasReshape && (
         <section className="tools-cleanup-section">
           <div className="tools-dup-kind-head">
             {t("tools.sources.reshapeHeading")}
             <span className="tools-chip-count">{visibleGroups.length}</span>
             <div className="tools-dup-bulk">
+              {applyAction}
               <button className="tools-issue-link" onClick={() => setExcluded(new Set())}>
                 {t("tools.sources.dupSelectAll")}
               </button>
@@ -457,6 +450,7 @@ export function SourceCleanupView({
             {t("tools.sources.dupHeading")}
             <span className="tools-chip-count">{dupReport.groups.length}</span>
             <div className="tools-dup-bulk">
+              {!hasReshape && applyAction}
               <button className="tools-issue-link" onClick={() => setDupExcluded(new Set())}>
                 {t("tools.sources.dupSelectAll")}
               </button>
