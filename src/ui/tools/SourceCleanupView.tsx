@@ -558,7 +558,12 @@ function GroupEditDialog({
     place: resolvePlace(meta?.place ?? group.proposed.place) ?? "",
     filingNumber: meta?.filingNumber ?? group.proposed.filingNumber ?? "",
     dateRange: meta?.dateRange ?? group.proposed.dateRange ?? "",
+    // Which entry of the source this is — "Entry for Anna Rakar and Martin
+    // Sadec, 9 July 1901". It belongs to the citation, so it is offered only
+    // where the group is a single link and there is one citation to carry it.
+    page: meta?.page ?? group.members[0]?.page ?? "",
   }));
+  const onePage = group.members.length === 1;
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -597,6 +602,7 @@ function GroupEditDialog({
       place: take(f.place, resolvePlace(cited?.place ?? generic?.place)),
       filingNumber: take(f.filingNumber, cited?.filingNumber),
       dateRange: take(f.dateRange, cited?.dateRange),
+      page: onePage ? take(f.page, cited?.page) : f.page,
     }));
   }
 
@@ -624,6 +630,7 @@ function GroupEditDialog({
       place: fields.place.trim(),
       filingNumber: fields.filingNumber.trim(),
       dateRange: fields.dateRange.trim(),
+      ...(onePage ? { page: fields.page.trim() } : {}),
     });
     onClose();
   }
@@ -664,6 +671,7 @@ function GroupEditDialog({
             {field("place", "addSource.field.place")}
             {field("filingNumber", "addSource.field.filingNumber")}
             {field("dateRange", "addSource.field.dateRange")}
+            {onePage && field("page", "addSource.field.page")}
           </div>
         </div>
         <div className="add-source-actions">
