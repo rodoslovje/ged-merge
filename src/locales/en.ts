@@ -706,6 +706,7 @@ export const en = {
   "tools.sources.dupKeep": "keep",
   "tools.sources.dupUsage": "cited by {{count}}",
   "tools.sources.dupUsageToggle": "Show the people whose records cite this",
+  "tools.sources.reshapeCountToggle": "Show the references being converted",
   "tools.sources.dupSelectAll": "Select all",
   "tools.sources.dupSelectNone": "Select none",
   "tools.sources.dupKeepThis": "Keep this record",

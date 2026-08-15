@@ -796,6 +796,7 @@ export const sl = {
   "tools.sources.dupKeep": "obdrži",
   "tools.sources.dupUsage": "navedeno v {{count}}",
   "tools.sources.dupUsageToggle": "Pokaži osebe, katerih zapisi to navajajo",
+  "tools.sources.reshapeCountToggle": "Pokaži sklice, ki bodo pretvorjeni",
   "tools.sources.dupSelectAll": "Izberi vse",
   "tools.sources.dupSelectNone": "Počisti izbor",
   "tools.sources.dupKeepThis": "Obdrži ta zapis",

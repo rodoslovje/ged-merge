@@ -806,7 +806,17 @@ function ReshapeGroupRow({
         >
           {removeMarked ? "↩" : "🗑"}
         </button>
-        <span className="tools-chip-count">{group.members.length}</span>
+        {/* The count is the expand toggle, as in the geocoding and naming
+            lists: the persons it counts are the member rows below. */}
+        <button
+          className="tools-chip-count tools-count-toggle"
+          aria-pressed={open}
+          aria-expanded={open}
+          title={t("tools.sources.reshapeCountToggle")}
+          onClick={onToggleOpen}
+        >
+          {group.members.length}
+        </button>
       </div>
       {open && (
         <div className="tools-tree-children">
@@ -935,10 +945,11 @@ function DupGroupRow({
   onNavigate: (id: string) => void;
 }) {
   const { t } = useTranslation();
-  // Members whose citing persons are unfolded — the count is the toggle, as
-  // the counts in the geocoding lists are. A repository's citers are `SOUR`
-  // records, not persons, so its count stays plain text.
-  const [usesOpen, setUsesOpen] = useState<Set<string>>(() => new Set());
+  // The header count is the people toggle, as the counts in the geocoding and
+  // naming lists are: clicking it opens the persons whose records cite this
+  // group (and the row with them). A repository's citers are `SOUR` records,
+  // not persons, so its count stays plain.
+  const [peopleOpen, setPeopleOpen] = useState(false);
   return (
     <li className="tools-tree-node">
       <div className="tools-tree-row">
@@ -953,7 +964,22 @@ function DupGroupRow({
         <span className="tools-tree-label clickable" onClick={onToggleOpen} title={group.label}>
           {group.label}
         </span>
-        <span className="tools-chip-count">{group.members.length}</span>
+        {group.kind === "repo" ? (
+          <span className="tools-chip-count">{group.members.length}</span>
+        ) : (
+          <button
+            className="tools-chip-count tools-count-toggle"
+            aria-pressed={peopleOpen}
+            title={t("tools.sources.dupUsageToggle")}
+            onClick={() => {
+              const next = !peopleOpen;
+              setPeopleOpen(next);
+              if (next && !open) onToggleOpen();
+            }}
+          >
+            {group.members.length}
+          </button>
+        )}
       </div>
       {open && (
         <div className="tools-tree-children">
@@ -973,50 +999,33 @@ function DupGroupRow({
                   </label>
                   <span className="tools-dup-title">{m.title}</span>
                   {m.detail && m.detail !== m.title && <span className="tools-tree-meta">{m.detail}</span>}
-                  {m.usage > 0 &&
-                    (group.kind === "repo" ? (
-                      <span className="tools-tree-meta">· {t("tools.sources.dupUsage", { count: m.usage })}</span>
-                    ) : (
-                      <button
-                        className="tools-issue-link"
-                        aria-pressed={usesOpen.has(m.xref)}
-                        title={t("tools.sources.dupUsageToggle")}
-                        onClick={() =>
-                          setUsesOpen((s) => {
-                            const next = new Set(s);
-                            if (next.has(m.xref)) next.delete(m.xref);
-                            else next.add(m.xref);
-                            return next;
-                          })
-                        }
-                      >
-                        · {t("tools.sources.dupUsage", { count: m.usage })}
-                      </button>
-                    ))}
-                  {usesOpen.has(m.xref) && (
-                    <DupMemberUses dataset={dataset} xref={m.xref} onNavigate={onNavigate} />
+                  {m.usage > 0 && (
+                    <span className="tools-tree-meta">· {t("tools.sources.dupUsage", { count: m.usage })}</span>
                   )}
                 </li>
               );
             })}
           </ul>
+          {peopleOpen && (
+            <DupGroupUses dataset={dataset} xrefs={group.members.map((m) => m.xref)} onNavigate={onNavigate} />
+          )}
         </div>
       )}
     </li>
   );
 }
 
-/** The persons citing one duplicate member, resolved only when its count is
- *  opened — a whole-file pointer walk has no place in the row render. */
-function DupMemberUses({
+/** The persons citing a duplicate group's records, resolved only when its
+ *  count is opened — a whole-file pointer walk has no place in the row render. */
+function DupGroupUses({
   dataset,
-  xref,
+  xrefs,
   onNavigate,
 }: {
   dataset: Dataset;
-  xref: string;
+  xrefs: string[];
   onNavigate: (id: string) => void;
 }) {
-  const uses = useMemo(() => recordCitedBy(dataset, xref), [dataset, xref]);
+  const uses = useMemo(() => recordCitedBy(dataset, xrefs), [dataset, xrefs]);
   return <UsageList dataset={dataset} uses={uses} onNavigate={onNavigate} />;
 }

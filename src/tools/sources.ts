@@ -186,13 +186,16 @@ export function mediaUsedBy(dataset: Dataset, mediaXref: string): SourceUse[] {
 }
 
 /**
- * The `INDI`/`FAM` records whose subtree points at `xref` under any tag — a
- * `SOUR` citation, an `OBJE` link, wherever it sits. The duplicates list's
- * "cited by N" opens this, the way a count opens its people elsewhere.
+ * The `INDI`/`FAM` records whose subtree points at any of `xrefs` under any
+ * tag — a `SOUR` citation, an `OBJE` link, wherever it sits. The duplicates
+ * list's count opens this for the whole group, the way a count opens its
+ * people in the geocoding and naming lists. Each citing record appears once,
+ * however many of the group's copies it points at.
  */
-export function recordCitedBy(dataset: Dataset, xref: string): SourceUse[] {
+export function recordCitedBy(dataset: Dataset, xrefs: readonly string[]): SourceUse[] {
+  const targets = new Set(xrefs);
   const pointsAt = (node: GedNode): boolean =>
-    node.children.some((c) => c.value?.trim() === xref || pointsAt(c));
+    node.children.some((c) => targets.has(c.value?.trim() ?? "") || pointsAt(c));
   const uses: SourceUse[] = [];
   for (const rec of dataset.records) {
     if ((rec.tag !== "INDI" && rec.tag !== "FAM") || !rec.xref || !pointsAt(rec)) continue;
