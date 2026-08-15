@@ -685,15 +685,18 @@ function GroupEditDialog({
         <div className="modal-body">
           <label className="add-source-field">
             <span>{t("tools.sources.pasteCitation")}</span>
+            {/* Focused on open: the dialog's fastest path is pasting a copied
+                citation straight in, no click first. */}
             <textarea
               className="edit-input add-source-textarea"
               rows={2}
+              autoFocus
               placeholder={t("addSource.placeholder")}
               value={pasted}
               onChange={(e) => fillFromCitation(e.target.value)}
             />
           </label>
-          {field("title", "addSource.field.title", true)}
+          {field("title", "addSource.field.title")}
           <div className="add-source-details-grid">
             {field("author", "addSource.field.author")}
             {field("agency", "addSource.field.agency")}
