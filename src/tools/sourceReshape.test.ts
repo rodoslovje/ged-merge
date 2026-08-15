@@ -10,8 +10,10 @@ import {
   classifyBookType,
   fetchBookMeta,
   fetchReshapeMeta,
+  createSiteRepo,
   findReshapableLinks,
   isFetchableSite,
+  proposedSiteRepo,
   parseFamilySearchArkJson,
   parseFamilySearchUrl,
   parseGeneanetCemeteryPage,
@@ -2286,6 +2288,7 @@ describe("FamilySearch image links", () => {
     expect(parseFamilySearchArkJson(ARK_JSON)).toEqual({
       title:
         "Pakrac - Births (Rođeni) 1892-1899 Marriages (Vjenčani) 1858-1890 - Croatia, Church Books, 1516-1994",
+      collection: "Croatia, Church Books, 1516-1994",
       place: "Pakrac",
       agency: "Arhiva Hrvatske u Zagrebu (Croatia State Archives), Zagreb",
       // FamilySearch's own image number, one ahead of the URL's i=555.
@@ -2335,6 +2338,58 @@ describe("FamilySearch image links", () => {
     expect(relayed).toEqual([]);
     expect(asked).toEqual([{ url: IMAGE_URL, accept: "application/x-gedcomx-v1+json" }]);
     expect(meta?.place).toBe("Pakrac");
+  });
+
+  it("attaches to the file's own repository for that collection", () => {
+    const ds = dataset([
+      "0 HEAD",
+      "1 GEDC",
+      "2 VERS 5.5.1",
+      "0 @R1@ REPO",
+      "1 NAME FamilySearch.org - Slovenia Church Books 1521-1997",
+      "0 @R2@ REPO",
+      "1 NAME FamilySearch.org - Croatia Church Books 1516-1994",
+      "0 @R3@ REPO",
+      "1 NAME Matricula Online - Nadškofijski arhiv Ljubljana",
+      "1 WWW https://data.matricula-online.eu/sl/slovenia/ljubljana/",
+      "0 TRLR",
+    ].join("\n"));
+    // Neither FamilySearch repository has a WWW: only the collection's name
+    // tells them apart, and it arrives with the lookup.
+    expect(proposedSiteRepo(ds.records, "familysearch", IMAGE_URL, undefined)?.xref).toBe("@R1@");
+    expect(
+      proposedSiteRepo(ds.records, "familysearch", IMAGE_URL, undefined, "Croatia, Church Books, 1516-1994")?.xref,
+    ).toBe("@R2@");
+    // The collection id in a repository's WWW settles it without the lookup.
+    const withWww = dataset([
+      "0 HEAD",
+      "1 GEDC",
+      "2 VERS 5.5.1",
+      "0 @R1@ REPO",
+      "1 NAME FamilySearch",
+      "1 WWW https://www.familysearch.org/",
+      "0 @R2@ REPO",
+      "1 NAME Hrvatske crkvene knjige",
+      "1 WWW https://www.familysearch.org/search/collection/2040054",
+      "0 TRLR",
+    ].join("\n"));
+    expect(proposedSiteRepo(withWww.records, "familysearch", IMAGE_URL, undefined)?.xref).toBe("@R2@");
+    // Matricula's archive still wins over a bare familysearch.org repository.
+    expect(proposedSiteRepo(ds.records, "matricula", BOOK, "Nadškofijski arhiv Ljubljana")?.xref).toBe("@R3@");
+  });
+
+  it("names a repository it has to create after the collection", () => {
+    const empty = dataset(["0 HEAD", "1 GEDC", "2 VERS 5.5.1", "0 TRLR"].join("\n"));
+    expect(proposedSiteRepo(empty.records, "familysearch", IMAGE_URL, undefined)?.createName).toBe("FamilySearch.org");
+    expect(
+      proposedSiteRepo(empty.records, "familysearch", IMAGE_URL, undefined, "Croatia, Church Books, 1516-1994")
+        ?.createName,
+    ).toBe("FamilySearch.org - Croatia, Church Books, 1516-1994");
+    const created = createSiteRepo(empty.records, "familysearch", IMAGE_URL, undefined, "Croatia, Church Books, 1516-1994");
+    // Its WWW is the collection's own page, so the next link finds it by URL.
+    expect(created?.children.find((c) => c.tag === "WWW")?.value).toBe(
+      "https://www.familysearch.org/search/collection/2040054",
+    );
   });
 
   it("asks nothing for a record page or a catalog film — those need a login", async () => {

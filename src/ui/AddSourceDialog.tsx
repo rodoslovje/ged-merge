@@ -36,6 +36,9 @@ export type AddSourceResult = NewSourceFields & {
   repoCreateName?: string;
   /** Call number (`CALN`) written on the source's repository link. */
   repoCaln?: string;
+  /** The FamilySearch collection behind the link, when the lookup found it —
+   *  names the repository the "＋ …" choice would create. */
+  collection?: string;
 };
 
 interface Props {
@@ -97,6 +100,9 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
   const [repoCaln, setRepoCaln] = useState("");
   const [fetching, setFetching] = useState(false);
   const [fetched, setFetched] = useState<ReshapeMeta | undefined>();
+  // Whether the Repository dropdown holds a hand-picked choice — a later
+  // lookup improves only what the dialog itself put there.
+  const repoTouched = useRef(false);
   const { settings } = useSettings();
   const restoreFocusRef = useRef<HTMLElement | null>(null);
   const wasOpenRef = useRef(false);
@@ -137,6 +143,19 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
     () => (recognized && normalizedUrl ? proposedSiteRepo(dataset.records, recognized.site, normalizedUrl, recognized.proposed.agency) : undefined),
     [recognized, normalizedUrl, dataset],
   );
+  // The same proposal once the lookup has named the link's collection: a file
+  // that keeps one repository per FamilySearch collection ("FamilySearch.org -
+  // Croatia Church Books 1516-1994") can only be matched by that name, and a
+  // repository created for the link takes it too. Deliberately separate from
+  // `repoDefault` — it must not re-seed the fields the lookup just filled.
+  const repoFetched = useMemo(
+    () =>
+      recognized && normalizedUrl && fetched?.collection
+        ? proposedSiteRepo(dataset.records, recognized.site, normalizedUrl, recognized.proposed.agency, fetched.collection)
+        : undefined,
+    [recognized, normalizedUrl, dataset, fetched?.collection],
+  );
+  const repoProposal = repoFetched ?? repoDefault;
   // Whether the file's convention hangs sources off repositories — decides if
   // the create-proposal is preselected or merely offered.
   const layoutPrefersRepos = useMemo(() => {
@@ -176,7 +195,15 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
     setRepoSel(match ? "" : repoDefault?.xref ?? (repoDefault?.createName && layoutPrefersRepos ? "@create@" : ""));
     setRepoName("");
     setRepoCaln("");
+    repoTouched.current = false;
   }, [editing, text, parsed, normalizedUrl, match, recognized, resolvePlace, repoDefault, layoutPrefersRepos]);
+
+  // A collection the lookup named can point at the file's own repository for
+  // it, which the URL alone could not find.
+  useEffect(() => {
+    if (!repoFetched?.xref || repoTouched.current) return;
+    setRepoSel(repoFetched.xref);
+  }, [repoFetched]);
 
   // Editing an existing citation: seed directly from its current fields.
   useEffect(() => {
@@ -277,6 +304,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
     setRepoCaln("");
     setFetching(false);
     setFetched(undefined);
+    repoTouched.current = false;
   }
 
   function handleClose() {
@@ -307,6 +335,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
       // Fetched over offline-recognized — Newspapers.com carries the issue
       // date right in the citation prose, with no fetchable page behind it.
       dateRange: fetched?.dateRange ?? recognized?.proposed.dateRange,
+      collection: fetched?.collection,
       repoXref: repoSel === "@create@" || repoSel === "@new@" ? undefined : repoSel,
       repoCreateSite: repoSel === "@create@" || undefined,
       repoCreateName: repoSel === "@new@" ? repoName.trim() || undefined : undefined,
@@ -419,7 +448,10 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
                 <SelectMenu
                   className="edit-input"
                   value={repoSel}
-                  onChange={setRepoSel}
+                  onChange={(v) => {
+                    repoTouched.current = true;
+                    setRepoSel(v);
+                  }}
                   // The special choices sit outside the sorted repository
                   // group: no-repo first, the create actions last.
                   groups={[
@@ -430,8 +462,8 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
                     },
                     {
                       items: [
-                        ...(!editing && !repoDefault?.xref && repoDefault?.createName
-                          ? [{ value: "@create@", label: t("addSource.repo.create", { name: repoDefault.createName }) }]
+                        ...(!editing && !repoProposal?.xref && repoProposal?.createName
+                          ? [{ value: "@create@", label: t("addSource.repo.create", { name: repoProposal.createName }) }]
                           : []),
                         { value: "@new@", label: t("addSource.repo.new") },
                       ],

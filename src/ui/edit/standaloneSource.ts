@@ -53,7 +53,7 @@ export function createStandaloneSource(
       extraPatches.push({ type: "record", id: repo.xref!, before: null, after: cloneRaw(repo) });
     }
     if (!repoXref && fields.repoCreateSite && fields.site) {
-      const repo = createSiteRepo(records, fields.site, fields.url ?? "", fields.agency);
+      const repo = createSiteRepo(records, fields.site, fields.url ?? "", fields.agency, fields.collection);
       if (repo) {
         repoXref = repo.xref!;
         extraPatches.push({ type: "record", id: repo.xref!, before: null, after: cloneRaw(repo) });

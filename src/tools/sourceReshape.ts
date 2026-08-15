@@ -190,6 +190,10 @@ export interface ReshapeMeta {
   /** Set by the panel's manual field editor only — page parsers never
    *  override the offline id. An empty string clears the proposed one. */
   filingNumber?: string;
+  /** The published collection an image belongs to ("Croatia, Church Books,
+   *  1516-1994"). Not a source field: it names and finds the repository, for
+   *  files that keep one per FamilySearch collection. */
+  collection?: string;
 }
 
 /** Per-group fetched metadata (keys = group ids). */
@@ -1751,17 +1755,37 @@ const SITE_REPO: Partial<Record<ReshapeSite, { hostRe: RegExp; name: string; www
   wikipedia: { hostRe: /wikipedia\.org/i, name: "Wikipedia", www: "https://www.wikipedia.org/" },
   biografija: { hostRe: /slovenska-biografija\.si/i, name: "Slovenska biografija", www: "https://www.slovenska-biografija.si/" },
   obrazi: { hostRe: /obrazislovenskihpokrajin\.si/i, name: "Obrazi slovenskih pokrajin", www: "https://www.obrazislovenskihpokrajin.si/" },
+  familysearch: { hostRe: /familysearch\.org/i, name: "FamilySearch.org", www: "https://www.familysearch.org/" },
 };
 
-/** Existing REPO for a site (preferring one whose WWW contains `preferSlug`,
- *  e.g. the Matricula archive), or undefined. */
-function findSiteRepo(records: GedNode[], hostRe: RegExp, preferSlug: string | undefined): string | undefined {
+/** Letters and digits only, lowercased — so "FamilySearch.org - Croatia Church
+ *  Books 1516-1994" and "Croatia, Church Books, 1516-1994" compare equal where
+ *  it matters, whatever punctuation each side chose. */
+function looseKey(text: string): string {
+  return text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+}
+
+/** Existing REPO for a site: one whose WWW is on the site's host, or one named
+ *  after the site — a file keeping a repository per collection may name it
+ *  "FamilySearch.org - Croatia Church Books 1516-1994" and give it no WWW at
+ *  all. Among several, the one naming any of `prefer` (the Matricula archive,
+ *  the FamilySearch collection id or title) wins; else the first match. */
+function findSiteRepo(
+  records: GedNode[],
+  hostRe: RegExp,
+  siteName: string,
+  prefer: (string | undefined)[] = [],
+): string | undefined {
+  const wanted = prefer.map((p) => (p ? looseKey(p) : "")).filter(Boolean);
+  const site = looseKey(siteName);
   let anyMatch: string | undefined;
   for (const rec of records) {
     if (rec.tag !== "REPO" || !rec.xref) continue;
     const www = childText(rec, "WWW") ?? "";
-    if (!hostRe.test(www)) continue;
-    if (preferSlug && www.toLowerCase().includes(`/${preferSlug.toLowerCase()}`)) return rec.xref;
+    const name = childText(rec, "NAME") ?? "";
+    if (!hostRe.test(www) && !looseKey(name).startsWith(site)) continue;
+    const haystack = looseKey(`${name} ${www}`);
+    if (wanted.some((w) => haystack.includes(w))) return rec.xref;
     anyMatch ??= rec.xref;
   }
   return anyMatch;
@@ -1781,15 +1805,42 @@ export function proposedSiteRepo(
   site: ReshapeSite,
   url: string,
   agency: string | undefined,
+  /** The FamilySearch collection this link belongs to, once known — it picks
+   *  the file's repository for that collection out of several. */
+  collection?: string,
 ): { xref?: string; createName?: string } | undefined {
   const repoDef = SITE_REPO[site];
   if (!repoDef) return undefined;
   const mat = site === "matricula" ? parseMatriculaUrl(url) : undefined;
-  const existing = findSiteRepo(records, repoDef.hostRe, mat?.archiveSlug);
+  const existing = findSiteRepo(records, repoDef.hostRe, repoDef.name, [
+    mat?.archiveSlug,
+    fsCollectionId(site, url),
+    collection,
+  ]);
   if (existing) return { xref: existing };
   // Matricula repositories are the holding archive; the other sites
   // are their own repository.
-  return { createName: (site === "matricula" && agency) || repoDef.name };
+  return { createName: siteRepoName(site, repoDef.name, agency, collection) };
+}
+
+/** The `cc=` id of a FamilySearch collection link — the id a repository for
+ *  that collection carries in its WWW. */
+function fsCollectionId(site: ReshapeSite, url: string): string | undefined {
+  return site === "familysearch" ? /[?&]cc=(\d+)/i.exec(url)?.[1] : undefined;
+}
+
+/** What a new repository for the site is called: the holding archive for
+ *  Matricula, the collection for a FamilySearch link that names one, else the
+ *  site itself. */
+function siteRepoName(
+  site: ReshapeSite,
+  siteName: string,
+  agency: string | undefined,
+  collection: string | undefined,
+): string {
+  if (site === "matricula" && agency) return agency;
+  if (site === "familysearch" && collection) return `${siteName} - ${collection}`;
+  return siteName;
 }
 
 /** Create the site's `REPO` record (name + WWW) — the Add Source dialog's
@@ -1799,14 +1850,19 @@ export function createSiteRepo(
   site: ReshapeSite,
   url: string,
   agency: string | undefined,
+  collection?: string,
 ): GedNode | undefined {
   const repoDef = SITE_REPO[site];
   if (!repoDef) return undefined;
   const mat = site === "matricula" ? parseMatriculaUrl(url) : undefined;
-  const name = (site === "matricula" && agency) || repoDef.name;
+  const name = siteRepoName(site, repoDef.name, agency, collection);
+  const fsCc = fsCollectionId(site, url);
   const www = mat
     ? `https://data.matricula-online.eu/${mat.lang}/${mat.country}/${mat.archiveSlug}/`
-    : repoDef.www;
+    : // The collection's own page, so the next link into it finds this record.
+      fsCc
+      ? `https://www.familysearch.org/search/collection/${fsCc}`
+      : repoDef.www;
   const repo: GedNode = { level: 0, xref: nextXref(records, "R"), tag: "REPO", children: [] };
   repo.children.push({ level: 1, tag: "NAME", value: name, children: [] });
   repo.children.push({ level: 1, tag: "WWW", value: www, children: [] });
@@ -1820,12 +1876,13 @@ function ensureSiteRepo(
   url: string,
   agency: string | undefined,
   repositoryLayout: boolean,
+  collection?: string,
 ): { xref: string; created?: GedNode } | undefined {
-  const proposal = proposedSiteRepo(records, site, url, agency);
+  const proposal = proposedSiteRepo(records, site, url, agency, collection);
   if (!proposal) return undefined;
   if (proposal.xref) return { xref: proposal.xref };
   if (!repositoryLayout) return undefined;
-  const repo = createSiteRepo(records, site, url, agency);
+  const repo = createSiteRepo(records, site, url, agency, collection);
   return repo ? { xref: repo.xref!, created: repo } : undefined;
 }
 
@@ -1844,7 +1901,7 @@ export function applySiteSourceExtras(
   sourceNode: GedNode,
   site: ReshapeSite | undefined,
   url: string,
-  meta: { place?: string; dateRange?: string },
+  meta: { place?: string; dateRange?: string; collection?: string },
   opts: { sourceLayout?: SourceLayout | "auto"; repo?: "auto" | "none" } = {},
 ): GedNode | undefined {
   fillField(sourceNode, "PLAC", buildPlaceResolver(records).resolve(meta.place));
@@ -1858,7 +1915,7 @@ export function applySiteSourceExtras(
       : // The source being enriched is already in `records` — it must not
         // vote against the habit it is about to follow.
         prefersSourceRepos(records, sourceNode);
-  const repo = ensureSiteRepo(records, site, url, childText(sourceNode, "AGNC"), createRepos);
+  const repo = ensureSiteRepo(records, site, url, childText(sourceNode, "AGNC"), createRepos, meta.collection);
   if (!repo) return undefined;
   sourceNode.children.push({ level: sourceNode.level + 1, tag: "REPO", value: repo.xref, children: [] });
   return repo.created;
@@ -1969,7 +2026,7 @@ export function reshapeSources(
       // `NewSourceFields` has no place/date — the paginated house shape does.
       fillField(sourceNode, "PLAC", fields.place);
       fillField(sourceNode, "DATE", fields.dateRange);
-      const repo = ensureSiteRepo(clone, g.site, state.hits[0].url, fields.agency, createRepos);
+      const repo = ensureSiteRepo(clone, g.site, state.hits[0].url, fields.agency, createRepos, extra?.collection);
       if (repo) {
         if (repo.created) byXref.set(repo.created.xref!, repo.created);
         sourceNode.children.push({ level: 1, tag: "REPO", value: repo.xref, children: [] });
@@ -2380,6 +2437,7 @@ function parseFamilySearchCitation(raw: string): ReshapeMeta | undefined {
     // Most specific first, the collection naming the whole: "Pakrac - Births
     // (Rođeni) 1892-1899 … - Croatia, Church Books, 1516-1994".
     title: siteTitle(place, book, collection ?? "FamilySearch"),
+    collection,
     place,
     agency: agency || undefined,
     page: image?.[1],
