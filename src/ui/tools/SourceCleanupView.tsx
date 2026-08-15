@@ -573,9 +573,13 @@ function GroupEditDialog({
     // Which entry of the source this is — "Entry for Anna Rakar and Martin
     // Sadec, 9 July 1901". It belongs to the citation, so it is offered only
     // where the group is a single link and there is one citation to carry it.
-    page: meta?.page ?? group.members[0]?.page ?? "",
+    page: meta?.page ?? group.members[0]?.page ?? group.pages[0] ?? "",
   }));
-  const onePage = group.members.length === 1;
+  // The page is the citation's, not the source's — editable here only where
+  // every reference in the group points at one link, and so shares it. A group
+  // spanning several links (a book's pages) carries a page per member instead,
+  // shown on the member's own row.
+  const onePage = new Set(group.members.map((m) => linkKey(m.url))).size <= 1;
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -601,9 +605,9 @@ function GroupEditDialog({
       cited && {
         bookType: cited.bookType,
         collection: cited.collection,
-        // A page belongs to one link; a group of many would stamp every
-        // citation with the same entry.
-        page: group.members.length === 1 ? cited.page : undefined,
+        // A page belongs to a link; a group spanning several would stamp every
+        // citation with one record's entry.
+        page: onePage ? cited.page : undefined,
       },
     );
     const take = (was: string, ...found: (string | undefined)[]) => found.find((v) => v?.trim())?.trim() ?? was;
