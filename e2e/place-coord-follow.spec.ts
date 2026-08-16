@@ -1,12 +1,12 @@
 import { test, expect } from "@playwright/test";
 import { readFileSync, writeFileSync } from "fs";
-import os from "os";
 import path from "path";
+import { tmpdir } from "./tmpdir";
 
 // An event's coordinate belongs to the place it was recorded for. Moving the
 // event to another place must take the file's position for that place — or, when
 // the file has none, leave the event unplaced rather than at the old village.
-const FIXTURE = path.join(os.tmpdir(), "place-coord-follow.ged");
+const FIXTURE = path.join(tmpdir(), "place-coord-follow.ged");
 
 writeFileSync(FIXTURE, [
   "0 HEAD", "1 GEDC", "2 VERS 5.5.1", "1 CHAR UTF-8",

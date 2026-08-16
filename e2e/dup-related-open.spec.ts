@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { writeFileSync } from "fs";
-import os from "os";
 import path from "path";
+import { tmpdir } from "./tmpdir";
 
 // The "these relatives are a separate record on each side" hint inside an open
 // duplicate comparison links to that relative's own pair. Regression guard: the
@@ -9,7 +9,7 @@ import path from "path";
 // reset the score floor unconditionally, which flooded the list and left the
 // opened comparison far below the fold — the click looked like a no-op.
 
-const FILE = path.join(os.tmpdir(), "dup-related-open.ged");
+const FILE = path.join(tmpdir(), "dup-related-open.ged");
 
 const lines: string[] = ["0 HEAD", "1 GEDC", "2 VERS 5.5.1", "1 CHAR UTF-8"];
 

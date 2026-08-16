@@ -1004,7 +1004,7 @@ export const en = {
   "load.verify": "Verify",
   "load.verify.tooltip": "Check whether this file has changed on disk since it was loaded",
   "load.verify.denied": "Permission to read the file was denied.",
-  "load.verify.unreadable": "The file could not be read — it may have been moved or deleted.",
+  "load.unreadable": "The file could not be read — it may have been moved or deleted.",
   "load.verify.unchanged": "No changes — the file on disk matches what's loaded.",
   "load.externalChange": "{{fileName}} has changed on disk since it was loaded. Reload it?",
   "load.externalChange.reload": "Reload",

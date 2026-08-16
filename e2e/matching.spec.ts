@@ -1,17 +1,17 @@
 import { test, expect } from "@playwright/test";
 import { writeFileSync } from "fs";
-import os from "os";
 import path from "path";
+import { tmpdir } from "./tmpdir";
 
 // End-to-end validation of the matching pipeline through the real app
 // (worker + UI): placeholder records must not produce candidates, a
 // day-exact genuine match must, and the Tools duplicate finder must veto
 // same-named cousins while still flagging a true duplicate.
 
-const MAIN = path.join(os.tmpdir(), "match-main.ged");
-const COMPARE = path.join(os.tmpdir(), "match-compare.ged");
-const COUSINS = path.join(os.tmpdir(), "match-cousins.ged");
-const TRUEDUP = path.join(os.tmpdir(), "match-truedup.ged");
+const MAIN = path.join(tmpdir(), "match-main.ged");
+const COMPARE = path.join(tmpdir(), "match-compare.ged");
+const COUSINS = path.join(tmpdir(), "match-cousins.ged");
+const TRUEDUP = path.join(tmpdir(), "match-truedup.ged");
 
 const HEAD = ["0 HEAD", "1 GEDC", "2 VERS 5.5.1", "1 CHAR UTF-8"];
 

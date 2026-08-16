@@ -1,14 +1,14 @@
 import { test, expect } from "@playwright/test";
 import { writeFileSync } from "fs";
-import os from "os";
 import path from "path";
+import { tmpdir } from "./tmpdir";
 
 // Editing should be doable from the keyboard alone. Fields commit on blur, so
 // without a key that leaves the field, focus stayed in the input you had just
 // typed into and every bare app key went into it as text: after entering a
 // place, "M" typed an m instead of switching to Merge mode.
 
-const FILE = path.join(os.tmpdir(), "edit-enter-commit.ged");
+const FILE = path.join(tmpdir(), "edit-enter-commit.ged");
 
 writeFileSync(
   FILE,

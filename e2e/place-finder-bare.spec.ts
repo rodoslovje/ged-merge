@@ -1,14 +1,14 @@
 import { test, expect } from "@playwright/test";
 import { writeFileSync } from "fs";
-import os from "os";
 import path from "path";
+import { tmpdir } from "./tmpdir";
 
 // The address field reaches other settlements through the list of place+address
 // pairs the file already writes, so typing a place name there is how an event is
 // moved. Every offer used to carry a house, leaving no way to say "this place,
 // no particular address" — and no way to take the place's own coordinate.
 
-const FILE = path.join(os.tmpdir(), "place-finder-bare.ged");
+const FILE = path.join(tmpdir(), "place-finder-bare.ged");
 
 writeFileSync(
   FILE,

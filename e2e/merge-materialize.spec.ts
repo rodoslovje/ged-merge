@@ -1,10 +1,10 @@
 import { test, expect, type Page, type Locator } from "@playwright/test";
 import { writeFileSync } from "fs";
-import os from "os";
 import path from "path";
+import { tmpdir } from "./tmpdir";
 
-const MAIN = path.join(os.tmpdir(), "mm-main.ged");
-const COMPARE = path.join(os.tmpdir(), "mm-compare.ged");
+const MAIN = path.join(tmpdir(), "mm-main.ged");
+const COMPARE = path.join(tmpdir(), "mm-compare.ged");
 
 writeFileSync(MAIN, [
   "0 HEAD", "1 GEDC", "2 VERS 5.5.1", "1 CHAR UTF-8",

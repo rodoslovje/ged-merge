@@ -496,9 +496,25 @@ function AppContent() {
     const fileName = file.name.normalize("NFC");
     const isCsv = role === "compare" && /\.csv$/i.test(fileName);
     dispatch({ type: "slotLoading", role, fileName });
-    // Fixed at this fresh load — carried unchanged through every later cache
-    // write for this file (see the originalHash doc comment on StoredFile).
-    const originalHash = await hashFile(file);
+    // Read the bytes first, before a single thing is torn down. A file can
+    // refuse to be read — moved or renamed between the picker and here, a
+    // cloud folder's placeholder that never materializes, permission lost —
+    // and that has to surface as an error the reader can see. Unguarded it
+    // rejected into nothing: the slot stayed "loading" and the spinner ran
+    // forever, exactly what `handleWorkerFailure` exists to prevent further
+    // down the same pipeline. Failing here also leaves the file already open
+    // untouched, since none of the state below has been reset yet.
+    // The hash is fixed at this fresh load — carried unchanged through every
+    // later cache write for this file (see StoredFile's originalHash).
+    let originalHash: string;
+    let buffer: ArrayBuffer;
+    try {
+      originalHash = await hashFile(file);
+      buffer = await file.arrayBuffer();
+    } catch {
+      dispatch({ type: "slotError", role, fileName, message: t("load.unreadable") });
+      return;
+    }
     // Cache the compare's raw bytes so a reload restores it (only when opted in).
     // The main is NOT written here — the debounced effect owns the main key
     // (it serializes the live, possibly-edited dataset), so a stale original
@@ -534,7 +550,6 @@ function AppContent() {
       // Drop merge entries whose field comparisons reference the old incoming file.
       undoRedo.dropMergeEntries();
     }
-    const buffer = await file.arrayBuffer();
     const newMsg: WorkerRequest = isCsv
       ? { type: "parseCsv", fileName, buffer }
       : { type: "parse", role, fileName, buffer, formatOverrides: settings.formatOverrides };

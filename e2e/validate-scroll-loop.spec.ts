@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { writeFileSync, existsSync } from "fs";
 import os from "os";
 import path from "path";
+import { tmpdir } from "./tmpdir";
 
 /**
  * The reported case: Tools → Health check → "Living over 99" (175 findings) →
@@ -26,7 +27,7 @@ import path from "path";
 // The user's real file, when present; otherwise the synthetic stand-in below.
 const REAL = path.join(os.homedir(), "rodoslovje/ged-merge/test-data/Osrajnik.ged");
 
-const BIG = path.join(os.tmpdir(), "validate-living-too-old.ged");
+const BIG = path.join(tmpdir(), "validate-living-too-old.ged");
 {
   // Enough people with a birth and no death to clear the 150-row
   // virtualization threshold, with names varied enough that the rows are not

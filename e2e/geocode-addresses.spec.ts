@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { writeFileSync } from "fs";
-import os from "os";
 import path from "path";
+import { tmpdir } from "./tmpdir";
 
 // The geocode page for a file that keeps its addresses in the place value —
 // the shape a Slovenian file most often has. Three things this guards:
@@ -12,7 +12,7 @@ import path from "path";
 //    single row;
 //  - the page's filter narrows both lists at once, ignoring diacritics.
 
-const FILE = path.join(os.tmpdir(), "geocode-addresses.ged");
+const FILE = path.join(tmpdir(), "geocode-addresses.ged");
 
 writeFileSync(
   FILE,
@@ -79,7 +79,7 @@ test("houses in the place value are grouped under their settlement, and the filt
 });
 
 test("a fully placed place hides from the worklist and returns behind the toggle", async ({ page }) => {
-  const file = path.join(os.tmpdir(), "geocode-placed-places.ged");
+  const file = path.join(tmpdir(), "geocode-placed-places.ged");
   writeFileSync(
     file,
     [
@@ -125,7 +125,7 @@ test("a fully placed place hides from the worklist and returns behind the toggle
 });
 
 test("staged picks survive a trip to Edit, including a stray Escape there", async ({ page }) => {
-  const file = path.join(os.tmpdir(), "geocode-staged-state.ged");
+  const file = path.join(tmpdir(), "geocode-staged-state.ged");
   writeFileSync(
     file,
     [
@@ -167,7 +167,7 @@ test("staged picks survive a trip to Edit, including a stray Escape there", asyn
 });
 
 test("an address with no house number is reviewed too, with nothing to look up", async ({ page }) => {
-  const file = path.join(os.tmpdir(), "geocode-no-number.ged");
+  const file = path.join(tmpdir(), "geocode-no-number.ged");
   writeFileSync(
     file,
     [
@@ -206,7 +206,7 @@ test("an address with no house number is reviewed too, with nothing to look up",
 });
 
 test("a house already placed says so, and its coordinate opens the panel", async ({ page }) => {
-  const file = path.join(os.tmpdir(), "geocode-placed.ged");
+  const file = path.join(tmpdir(), "geocode-placed.ged");
   writeFileSync(
     file,
     [
@@ -262,7 +262,7 @@ test("a house already placed says so, and its coordinate opens the panel", async
 });
 
 test("a position staged for a house survives renaming that house's address", async ({ page }) => {
-  const file = path.join(os.tmpdir(), "geocode-rename-pick.ged");
+  const file = path.join(tmpdir(), "geocode-rename-pick.ged");
   writeFileSync(
     file,
     [
@@ -318,7 +318,7 @@ test("a position staged for a house survives renaming that house's address", asy
 });
 
 test("OpenStreetMap answers the addresses the register cannot take", async ({ page }) => {
-  const file = path.join(os.tmpdir(), "geocode-osm-fallback.ged");
+  const file = path.join(tmpdir(), "geocode-osm-fallback.ged");
   writeFileSync(
     file,
     [
@@ -386,7 +386,7 @@ test("OpenStreetMap answers the addresses the register cannot take", async ({ pa
 });
 
 test("hits that share a name are told apart by what they are, and numbered onto one map", async ({ page }) => {
-  const file = path.join(os.tmpdir(), "geocode-osm-samename.ged");
+  const file = path.join(tmpdir(), "geocode-osm-samename.ged");
   writeFileSync(
     file,
     [
@@ -448,7 +448,7 @@ test("hits that share a name are told apart by what they are, and numbered onto 
 });
 
 test("the lookup answers in the language the file writes, not the interface's", async ({ page }) => {
-  const file = path.join(os.tmpdir(), "geocode-osm-language.ged");
+  const file = path.join(tmpdir(), "geocode-osm-language.ged");
   writeFileSync(
     file,
     [

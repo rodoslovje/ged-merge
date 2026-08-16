@@ -240,14 +240,17 @@ export function useWorkspacePersistence(opts: WorkspacePersistenceOptions) {
         return;
       }
     }
+    // Both steps can fail the same way: the handle still exists, the bytes
+    // behind it no longer do.
     let file: File;
+    let hash: string;
     try {
       file = await handle.getFile();
+      hash = await hashFile(file);
     } catch {
-      opts.setSaveToast(t("load.verify.unreadable"));
+      opts.setSaveToast(t("load.unreadable"));
       return;
     }
-    const hash = await hashFile(file);
     if (hash === originalHash) {
       opts.setSaveToast(t("load.verify.unchanged"));
       return;

@@ -1,8 +1,8 @@
 import { test, expect } from "@playwright/test";
 import { writeFileSync } from "fs";
-import os from "os";
 import path from "path";
 import { fileURLToPath } from "url";
+import { tmpdir } from "./tmpdir";
 
 // The find box on the two surfaces that aren't charts: the Report (jump to a
 // numbered entry) and the Map (fly to a point, found by person *or* place).
@@ -16,7 +16,7 @@ const REPORT_KEY = "8";
 
 // A tiny geocoded file: the corpus fixtures carry no MAP coordinates, so the
 // map would draw nothing to find.
-const MAPPED = path.join(os.tmpdir(), "find-map.ged");
+const MAPPED = path.join(tmpdir(), "find-map.ged");
 const KRANJ = ["3 MAP", "4 LATI N46.239", "4 LONG E14.355"];
 const DELNICE = ["3 MAP", "4 LATI N45.401", "4 LONG E14.801"];
 writeFileSync(MAPPED, [

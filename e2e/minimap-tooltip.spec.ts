@@ -1,12 +1,12 @@
 import { test, expect } from "@playwright/test";
 import { writeFileSync } from "fs";
-import os from "os";
 import path from "path";
+import { tmpdir } from "./tmpdir";
 
 // A mini-map pin says what it is about — the place, its address — and prints
 // its coordinate the way the app prints coordinates everywhere else.
 
-const FILE = path.join(os.tmpdir(), "minimap-tooltip.ged");
+const FILE = path.join(tmpdir(), "minimap-tooltip.ged");
 
 writeFileSync(
   FILE,

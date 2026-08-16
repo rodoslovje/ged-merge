@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { writeFileSync } from "fs";
-import os from "os";
 import path from "path";
+import { tmpdir } from "./tmpdir";
 
 // A place typed on one record must be offered on the next one straight away.
 // The dataset is mutated in place while editing, so the suggestion list used to
@@ -9,7 +9,7 @@ import path from "path";
 // his wife's place field until the file was saved and reloaded — exactly when
 // the offer is wanted most, since the two events usually name the same place.
 
-const FILE = path.join(os.tmpdir(), "place-suggestion-live.ged");
+const FILE = path.join(tmpdir(), "place-suggestion-live.ged");
 
 writeFileSync(
   FILE,

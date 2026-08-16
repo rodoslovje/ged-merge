@@ -1,12 +1,12 @@
 import { test, expect } from "@playwright/test";
 import { writeFileSync } from "fs";
-import os from "os";
 import path from "path";
+import { tmpdir } from "./tmpdir";
 
 // Save after merging a genealogical-index matches CSV: both files must actually
 // download, not just be announced by the toast.
-const MAIN = path.join(os.tmpdir(), "save-csv-main.ged");
-const CSV = path.join(os.tmpdir(), "save-csv-matches.csv");
+const MAIN = path.join(tmpdir(), "save-csv-main.ged");
+const CSV = path.join(tmpdir(), "save-csv-matches.csv");
 
 writeFileSync(MAIN, [
   "0 HEAD", "1 GEDC", "2 VERS 5.5.1", "1 CHAR UTF-8",

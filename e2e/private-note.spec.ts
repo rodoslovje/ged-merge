@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { readFileSync, writeFileSync } from "fs";
-import os from "os";
 import path from "path";
+import { tmpdir } from "./tmpdir";
 
 /** A daughter and her father, so the test can walk to a relative's card and
  *  come back — which rebuilds the editor from the record. */
@@ -27,7 +27,7 @@ function writeFixture(): string {
     "0 TRLR",
     "",
   ].join("\n");
-  const filePath = path.join(os.tmpdir(), `private-note-${Date.now()}.ged`);
+  const filePath = path.join(tmpdir(), `private-note-${Date.now()}.ged`);
   writeFileSync(filePath, ged, "utf-8");
   return filePath;
 }

@@ -1,8 +1,8 @@
 import { test, expect, type Page } from "@playwright/test";
 import { writeFileSync } from "fs";
-import os from "os";
 import path from "path";
 import { enablePersist, waitForCache } from "./persist-util";
+import { tmpdir } from "./tmpdir";
 
 // IndexedDB workspace persistence: a reload should restore the loaded files,
 // the pending merge session, and unsaved edits (with undo history) — instead of
@@ -13,13 +13,13 @@ import { enablePersist, waitForCache } from "./persist-util";
 // sharing fixed temp paths lets one worker's write truncate a file another is
 // reading (a NotReadableError, and flaky loads). pid is unique per worker.
 const uid = `${process.pid}`;
-const MAIN = path.join(os.tmpdir(), `persist-main-${uid}.ged`);
-const COMPARE = path.join(os.tmpdir(), `persist-compare-${uid}.ged`);
+const MAIN = path.join(tmpdir(), `persist-main-${uid}.ged`);
+const COMPARE = path.join(tmpdir(), `persist-compare-${uid}.ged`);
 // A small single-person main for the edit/clear tests — a real sample file is
 // megabytes, and re-serializing it on the persist debounce + re-parsing it on
 // reload makes restore timing-sensitive; a tiny file keeps the tests fast and
 // deterministic. (The merge test uses MAIN/COMPARE above.)
-const EDIT_MAIN = path.join(os.tmpdir(), `persist-edit-main-${uid}.ged`);
+const EDIT_MAIN = path.join(tmpdir(), `persist-edit-main-${uid}.ged`);
 writeFileSync(EDIT_MAIN, [
   "0 HEAD", "1 GEDC", "2 VERS 5.5.1", "1 CHAR UTF-8",
   "0 @I1@ INDI", "1 NAME Janez /Novak/", "1 SEX M", "1 BIRT", "2 DATE 1 JAN 1900",
