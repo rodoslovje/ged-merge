@@ -64,7 +64,16 @@ export function NotesEditor({
     setNotes(next);
     // An inline note trims like before; a pointer note's text stays verbatim
     // (trimming an untouched one would needlessly rewrite the shared record).
-    onCommit(next.filter((n) => n.xref || n.text.trim()).map((n) => (n.xref ? n : { text: n.text.trim() })));
+    // The rest of the ref is carried through: rebuilding an inline note as
+    // `{ text }` dropped its private flag on every commit, so the 🔒 lived only
+    // in this component's own state and was gone the next time the record was
+    // read back. A pointer note kept its flag (it travels in the shared record),
+    // which is why only inline notes lost it.
+    onCommit(
+      next
+        .filter((n) => n.xref || n.text.trim())
+        .map((n) => (n.xref ? n : { ...n, text: n.text.trim() })),
+    );
   }
 
   // Size each note to its widest line (not its total length — a multi-line note
