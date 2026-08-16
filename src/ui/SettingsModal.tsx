@@ -131,8 +131,10 @@ const FORMAT_SAMPLES: Partial<Record<keyof FormatOverrides, Record<string, strin
   baptism: { BIRT: "1 BIRT › 2 SOUR", BAPM: "1 BAPM › 2 SOUR" },
   sourceCoverage: { vendor: "1 PLAC, 1 DATE", standard: "1 DATA › 2 EVEN DEAT" },
   doubledLinks: { fold: "1 BIRT › 2 WWW", keep: "1 WWW + 2 WWW" },
-  notes: { shared: "1 NOTE @N1@ › 0 @N1@ NOTE", inline: "1 NOTE some text" },
-  eventNotes: { shared: "2 NOTE @N1@ › 0 @N1@ NOTE", inline: "2 NOTE some text" },
+  // Language-neutral like every other sample here: an ellipsis stands for the
+  // note's text, which is the reader's own words in the reader's own language.
+  notes: { shared: "1 NOTE @N1@ › 0 @N1@ NOTE …", inline: "1 NOTE …" },
+  eventNotes: { shared: "2 NOTE @N1@ › 0 @N1@ NOTE …", inline: "2 NOTE …" },
   privacy: { PRIV: "1 PRIV", _PRIV: "1 _PRIV Y", RESN: "1 RESN privacy" },
 };
 

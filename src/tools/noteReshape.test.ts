@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parseGedcom } from "../gedcom/parser";
 import { serializeGedcom } from "../gedcom/serialize";
-import { detectNoteShapes, reshapeNotes, sharedNotesUsedTwice } from "./noteReshape";
+import { detectNoteShapes, detectNoteShapesIfAny, reshapeNotes, sharedNotesUsedTwice } from "./noteReshape";
 
 const parse = (lines: string[]) => parseGedcom(new TextEncoder().encode(lines.join("\n")).buffer).records;
 const out = (lines: string[], ...args: Parameters<typeof reshapeNotes> extends [unknown, ...infer R] ? R : never) => {
@@ -164,6 +164,23 @@ describe("detectNoteShapes", () => {
   it("calls a file with no notes at all inline", () => {
     expect(detectNoteShapes(parse(["0 HEAD", "0 @I1@ INDI", "0 TRLR", ""])))
       .toEqual({ record: "inline", event: "inline" });
+  });
+
+  it("says nothing about a level the file writes no notes at", () => {
+    // Settings prints this beside its Auto choice. A file with no event notes
+    // has shown no habit, and "inline" there would be an assertion about
+    // nothing — the row stays blank instead.
+    expect(detectNoteShapesIfAny(parse([
+      "0 HEAD",
+      "0 @I1@ INDI",
+      "1 NOTE @N1@",
+      "0 @N1@ NOTE one",
+      "0 TRLR",
+      "",
+    ]))).toEqual({ record: "shared", event: undefined });
+
+    expect(detectNoteShapesIfAny(parse(["0 HEAD", "0 @I1@ INDI", "0 TRLR", ""])))
+      .toEqual({ record: undefined, event: undefined });
   });
 });
 

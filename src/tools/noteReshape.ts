@@ -198,10 +198,33 @@ export function sharedNotesUsedTwice(records: GedNode[]): number {
   return shared;
 }
 
+/**
+ * Which shape a file's notes are in, per level — or undefined for a level the
+ * file writes no notes at, where "the majority" would be a claim about nothing.
+ * Settings shows this beside its Auto choice, and must stay silent rather than
+ * assert a habit the file never displayed.
+ */
+export function detectNoteShapesIfAny(records: GedNode[]): { record?: NoteShape; event?: NoteShape } {
+  const counts = noteShapeCounts(records);
+  const shapeOf = (c: { shared: number; inline: number }): NoteShape | undefined =>
+    c.shared + c.inline === 0 ? undefined : c.shared > c.inline ? "shared" : "inline";
+  return { record: shapeOf(counts.record), event: shapeOf(counts.event) };
+}
+
 /** Which shape a file's notes are in, counted separately per level — the
  *  "Auto" setting follows the majority at each level, so a file whose records
- *  are shared and whose events are inline keeps both habits. */
+ *  are shared and whose events are inline keeps both habits. A level with no
+ *  notes at all answers "inline", the simpler shape a new note then takes. */
 export function detectNoteShapes(records: GedNode[]): { record: NoteShape; event: NoteShape } {
+  const counts = noteShapeCounts(records);
+  return {
+    record: counts.record.shared > counts.record.inline ? "shared" : "inline",
+    event: counts.event.shared > counts.event.inline ? "shared" : "inline",
+  };
+}
+
+/** How many notes of each shape the file holds, per level. */
+function noteShapeCounts(records: GedNode[]) {
   const counts = { record: { shared: 0, inline: 0 }, event: { shared: 0, inline: 0 } };
   const walk = (node: GedNode, depth: number) => {
     for (const child of node.children) {
@@ -218,10 +241,7 @@ export function detectNoteShapes(records: GedNode[]): { record: NoteShape; event
     if (!carriesNotes(rec)) continue;
     walk(rec, 1);
   }
-  return {
-    record: counts.record.shared > counts.record.inline ? "shared" : "inline",
-    event: counts.event.shared > counts.event.inline ? "shared" : "inline",
-  };
+  return counts;
 }
 
 /** A note's text, shortened for a report row. */
