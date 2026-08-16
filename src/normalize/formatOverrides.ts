@@ -47,6 +47,12 @@ export interface FormatOverrides {
   geneanetLang?: string;
   /** Privacy-marker dialect (MacFamilyTree PRIV / MyHeritage _PRIV / standard RESN). */
   privacy?: "PRIV" | "_PRIV" | "RESN";
+  /** How a record's own notes are written: as shared `0 @N…@ NOTE` records the
+   *  record points at, or inline on the record itself. */
+  notes?: "shared" | "inline";
+  /** The same for notes deeper in the record — on events, names, citations. A
+   *  file can hold opposite habits at the two levels, so they are chosen apart. */
+  eventNotes?: "shared" | "inline";
 }
 
 /** What "Auto (detected)" resolves to per dimension, as override-value
@@ -220,6 +226,8 @@ export function sanitizeFormatOverrides(raw: unknown): FormatOverrides {
   out.matriculaLang = str(r.matriculaLang);
   out.geneanetLang = str(r.geneanetLang);
   out.privacy = oneOf(r.privacy, ["PRIV", "_PRIV", "RESN"] as const);
+  out.notes = oneOf(r.notes, ["shared", "inline"] as const);
+  out.eventNotes = oneOf(r.eventNotes, ["shared", "inline"] as const);
   for (const k of Object.keys(out) as (keyof FormatOverrides)[]) if (out[k] === undefined) delete out[k];
   return out;
 }

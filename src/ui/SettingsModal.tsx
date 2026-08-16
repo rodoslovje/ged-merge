@@ -100,6 +100,13 @@ const FORMAT_GROUPS: { group: string; dims: FormatDimension[] }[] = [
     ],
   },
   {
+    group: "notes",
+    dims: [
+      { key: "notes", choices: ["shared", "inline"] },
+      { key: "eventNotes", choices: ["shared", "inline"] },
+    ],
+  },
+  {
     group: "privacy",
     dims: [{ key: "privacy", choices: ["PRIV", "_PRIV", "RESN"], verbatim: true }],
   },
@@ -124,6 +131,8 @@ const FORMAT_SAMPLES: Partial<Record<keyof FormatOverrides, Record<string, strin
   baptism: { BIRT: "1 BIRT › 2 SOUR", BAPM: "1 BAPM › 2 SOUR" },
   sourceCoverage: { vendor: "1 PLAC, 1 DATE", standard: "1 DATA › 2 EVEN DEAT" },
   doubledLinks: { fold: "1 BIRT › 2 WWW", keep: "1 WWW + 2 WWW" },
+  notes: { shared: "1 NOTE @N1@ › 0 @N1@ NOTE", inline: "1 NOTE some text" },
+  eventNotes: { shared: "2 NOTE @N1@ › 0 @N1@ NOTE", inline: "2 NOTE some text" },
   privacy: { PRIV: "1 PRIV", _PRIV: "1 _PRIV Y", RESN: "1 RESN privacy" },
 };
 
