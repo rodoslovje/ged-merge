@@ -84,9 +84,13 @@ export function SelectMenu({
  *
  * The menu is portalled to `<body>` with `position: fixed` so no ancestor's
  * overflow can clip it (the events grid clips absolutely-positioned popups),
- * and drops up when the space below the trigger is too tight. It closes on
- * outside pointer-down, Escape (swallowed, so stay-mounted panels' own Esc
- * handlers never see it), scroll outside the list, resize, or selection.
+ * and drops up when the space below the trigger is too tight. Being fixed, it
+ * cannot ride along with its trigger, so it re-places itself against it on
+ * every scroll and resize — and closes only once the trigger itself is out of
+ * sight, which an IntersectionObserver reports whether it left the window or
+ * was clipped away by a scrolling ancestor. It also closes on outside
+ * pointer-down, Escape (swallowed, so stay-mounted panels' own Esc handlers
+ * never see it), and selection.
  *
  * Focus stays on the trigger the whole time it is open — as a native `<select>`
  * keeps focus on itself while its popup shows — and the keyboard is driven from
@@ -153,29 +157,38 @@ export function DropdownMenu({
 
   const flat = useMemo(() => groups.flatMap((g) => g.items), [groups]);
 
-  const openMenu = useCallback(() => {
+  // Place the list against the trigger as it stands right now. Called when the
+  // menu opens, once more after it has rendered (its width is only knowable
+  // then, and the clamp against the right edge needs it), and on every scroll
+  // or resize while it is open.
+  const place = useCallback(() => {
     const rect = btnRef.current?.getBoundingClientRect();
-    if (!rect || flat.length === 0) return;
-    // Safari leaves a clicked button unfocused: take focus before the list
-    // shows, so the keys land here and the host sees focus stay inside.
-    // preventScroll: the trigger was just pressed, so it is already in view —
-    // and scrolling it "into view" anyway would both invalidate the rect
-    // measured above and fire a scroll that the dismiss effect below reads as
-    // the anchor moving, closing the menu the same click just opened.
-    btnRef.current?.focus({ preventScroll: true });
+    if (!rect) return;
     const below = window.innerHeight - rect.bottom - EDGE;
     const above = rect.top - EDGE;
     // Drop down unless the space below is cramped and above beats it.
     const up = below < 240 && above > below;
+    const width = menuRef.current?.offsetWidth ?? 0;
     setMenuPos({
-      left: rect.left,
+      left: Math.max(EDGE, Math.min(rect.left, window.innerWidth - EDGE - width)),
       maxHeight: Math.min(MAX_MENU_H, up ? above : below),
       ...(up ? { bottom: window.innerHeight - rect.top + 2 } : { top: rect.bottom + 2 }),
     });
+  }, []);
+
+  const openMenu = useCallback(() => {
+    if (!btnRef.current || flat.length === 0) return;
+    // Safari leaves a clicked button unfocused: take focus before the list
+    // shows, so the keys land here and the host sees focus stay inside.
+    // preventScroll: the trigger was just pressed, so it is already in view,
+    // and scrolling it "into view" anyway would move it out from under the
+    // list the moment that list appears.
+    btnRef.current.focus({ preventScroll: true });
+    place();
     const cur = current !== undefined ? flat.findIndex((i) => i.value === current) : -1;
     setActiveIndex(cur >= 0 ? cur : 0);
     setOpenState(true);
-  }, [flat, current, setOpenState, setActiveIndex]);
+  }, [flat, current, place, setOpenState, setActiveIndex]);
 
   function close(refocus: boolean) {
     setOpenState(false);
@@ -198,51 +211,65 @@ export function DropdownMenu({
     openMenu();
   }, [openNonce, openMenu]);
 
-  // Keep the menu on-screen horizontally (its width is only known once
-  // rendered). Focus is not moved here — see the component comment.
+  // Re-place once the list exists: its width decides the clamp against the
+  // right edge. Focus is not moved here — see the component comment.
   useLayoutEffect(() => {
-    if (!open) return;
-    const el = menuRef.current;
-    if (!el) return;
-    const overflow = el.getBoundingClientRect().right - (window.innerWidth - EDGE);
-    if (overflow > 0) setMenuPos((s) => ({ ...s, left: Math.max(EDGE, Number(s?.left ?? 0) - overflow) }));
-  }, [open]);
+    if (open) place();
+  }, [open, place]);
 
-  // While open: any pointer-down outside dismisses; scrolling anywhere but
-  // inside the list (which scrolls itself) and resizing dismiss too — the
-  // anchor may have moved, and native popups behave the same way.
+  // While open: any pointer-down outside dismisses, and the list follows its
+  // trigger through every scroll and resize.
   useEffect(() => {
     if (!open) return;
-    // Where the anchor sat when the menu was placed. A scroll dismisses only if
-    // the anchor has actually moved since — a scroll *event* is delivered a
-    // frame after the position changed, so the scroll that brought the trigger
-    // into view for the very click that opened this menu arrives once it is
-    // already showing, and would otherwise shut it on the way up.
-    const placedAt = btnRef.current?.getBoundingClientRect();
-    const anchorMoved = () => {
-      const now = btnRef.current?.getBoundingClientRect();
-      if (!placedAt || !now) return true;
-      return Math.abs(now.top - placedAt.top) > 1 || Math.abs(now.left - placedAt.left) > 1;
-    };
     const onPointerDown = (e: PointerEvent) => {
       const t = e.target as Node;
       if (menuRef.current?.contains(t) || btnRef.current?.contains(t)) return;
       setOpenState(false);
     };
-    const onScroll = (e: Event) => {
-      if (menuRef.current?.contains(e.target as Node)) return;
-      if (!anchorMoved()) return;
-      setOpenState(false);
+    // Coalesced to one placement per frame: a scroll gesture fires far more
+    // events than there are frames to paint them in.
+    let frame = 0;
+    const replace = () => {
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        place();
+      });
     };
-    const onResize = () => setOpenState(false);
+    const onScroll = (e: Event) => {
+      // The list scrolls itself; only movement around it is ours to answer.
+      if (menuRef.current?.contains(e.target as Node)) return;
+      replace();
+    };
     document.addEventListener("pointerdown", onPointerDown, true);
     document.addEventListener("scroll", onScroll, true);
-    window.addEventListener("resize", onResize);
+    window.addEventListener("resize", replace);
     return () => {
+      if (frame) cancelAnimationFrame(frame);
       document.removeEventListener("pointerdown", onPointerDown, true);
       document.removeEventListener("scroll", onScroll, true);
-      window.removeEventListener("resize", onResize);
+      window.removeEventListener("resize", replace);
     };
+  }, [open, place, setOpenState]);
+
+  // A list anchored to something the reader can no longer see is pointing at
+  // nothing, so it goes. The observer answers this for every way the trigger
+  // can leave — the window scrolling, a panel scrolling, an ancestor clipping
+  // it — where measuring a rect against the viewport would miss the last two.
+  // It is also why a settling layout no longer closes a menu it never moved:
+  // drifting a few pixels is not leaving.
+  useEffect(() => {
+    if (!open) return;
+    const btn = btnRef.current;
+    if (!btn || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (!entries[entries.length - 1].isIntersecting) setOpenState(false);
+      },
+      { threshold: 0 },
+    );
+    io.observe(btn);
+    return () => io.disconnect();
   }, [open, setOpenState]);
 
   // Keep the keyboard-active row visible as the selection moves — by scrolling

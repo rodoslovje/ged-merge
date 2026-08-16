@@ -87,27 +87,62 @@ test("Escape closes a menu without closing its host editor", async ({ page }) =>
   await expect(page.locator(".edit-name-chip-editing")).toBeVisible();
 });
 
-// A menu is placed against its trigger and cannot follow it, so a scroll that
-// carries the trigger away dismisses it. What must NOT dismiss it is a scroll
-// that left the trigger where it is — including the scroll-into-view that
-// delivers its event a frame after the click it belongs to, which used to shut
-// the menu the moment it opened (~6 runs in 10 of the quick-events spec).
-test("a scroll dismisses a menu only when it moves the anchor", async ({ page }) => {
+// The menu is fixed-position, so it cannot ride along with its trigger: it
+// re-places itself instead, and only a trigger that has left the view takes it
+// down. Nothing about a page still settling under its own layout — the scroll
+// a browser makes to anchor content, a scroll-into-view landing a frame after
+// the click it belongs to — may shut a menu it never moved out of sight.
+test("a menu follows its anchor, and goes when the anchor leaves", async ({ page }) => {
   await openEdit(page);
   await page.locator('button[title*="etting"]').first().click();
   await page.locator(".settings-quick-events").waitFor();
 
   const trigger = page.locator(".settings-quick-add");
   await openMenu(trigger, () => trigger.click());
+  const menu = page.locator(".dd-menu");
 
-  // A scroll event over the dialog that left it exactly where it was — what a
-  // scroll-into-view from the opening click delivers, one frame late.
+  // A scroll event over the dialog that left it exactly where it was.
   await page.locator(".modal-body").evaluate((el) => el.dispatchEvent(new Event("scroll", { bubbles: true })));
-  await expect(page.locator(".dd-menu")).toBeVisible();
+  await expect(menu).toBeVisible();
 
-  // Scrolling the dialog body moves the anchor, and the menu goes.
-  await page.locator(".modal-body").evaluate((el) => { el.scrollTop = Math.max(0, el.scrollTop - 120); });
+  // A scroll that does move the anchor: the menu stays, and travels with it.
+  const trigBefore = (await trigger.boundingBox())!;
+  const menuBefore = (await menu.boundingBox())!;
+  await page.locator(".modal-body").evaluate((el) => { el.scrollTop = Math.max(0, el.scrollTop - 40); });
+  await expect(menu).toBeVisible();
+  const trigAfter = (await trigger.boundingBox())!;
+  const menuAfter = (await menu.boundingBox())!;
+  const trigMoved = trigAfter.y - trigBefore.y;
+  expect(Math.abs(trigMoved), "the scroll must actually move the trigger").toBeGreaterThan(5);
+  expect(Math.abs(menuAfter.y - menuBefore.y - trigMoved), "the menu must travel with it").toBeLessThan(2);
+
+  // Out of the dialog's view entirely — the picker sits low in the settings, so
+  // scrolling the dialog back to its top clips the trigger away — and the menu
+  // goes with it.
+  await page.locator(".modal-body").evaluate((el) => { el.scrollTop = 0; });
+  await expect(menu).toHaveCount(0);
+});
+
+// The Edit view settles for a while after it appears — fonts, images and the
+// browser's own scroll anchoring nudge a panel by a few pixels at a time. Every
+// one of those nudges used to read as "the anchor moved", closing a menu that
+// had only just opened; under a slow CPU it closed every time. Throttling makes
+// that settling overlap the interaction on purpose.
+test("a menu survives a panel still settling under it", async ({ page, context }) => {
+  await openEdit(page);
+  const cdp = await context.newCDPSession(page);
+  await cdp.send("Emulation.setCPUThrottlingRate", { rate: 8 });
+
+  const trigger = page.locator(".sex-select").first();
+  await openMenu(trigger, () => trigger.click());
+  await page.keyboard.press("Escape");
   await expect(page.locator(".dd-menu")).toHaveCount(0);
+
+  await page.keyboard.press("ArrowDown");
+  await expect(page.locator(".dd-menu")).toBeVisible({ timeout: 3000 });
+  // Still there once the settling has run its course.
+  await expect(page.locator(".dd-menu")).toBeVisible({ timeout: 3000 });
+  await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 });
 });
 
 // The date slot must hold a full "23 AUG 1868" plus the ~18px the input keeps
