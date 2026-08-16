@@ -2257,6 +2257,19 @@ describe("bulkNormalize source coverage", () => {
     expect(serializeGedcom(out.records)).toContain("1 PLAC Kranj");
   });
 
+  it("restates a cemetery index as burial coverage", () => {
+    const grave = [
+      "0 @S1@ SOUR",
+      "1 TITL Pokopališče Predoslje - Geneanet Cemeteries",
+      "1 PLAC Predoslje, Kranj, Slovenia",
+    ].join("\n");
+    const { dataset: out, report } = bulkNormalize(dataset(gedcom(grave)), undefined, {
+      sourceCoverage: "standard",
+    });
+    expect(report.coverageReshaped).toBe(1);
+    expect(serializeGedcom(out.records)).toMatch(/1 DATA\n2 EVEN BURI\n3 PLAC Predoslje, Kranj, Slovenia/);
+  });
+
   it("folds FILN into an existing repository link's CALN on the way to standard", () => {
     const withRepo = [
       "0 @S1@ SOUR",

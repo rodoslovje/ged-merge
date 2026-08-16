@@ -98,10 +98,27 @@ describe("classifyBookType", () => {
     expect(classifyBookType(["PK"])).toBe("marriage");
   });
 
+  it("recognizes cemetery and grave collections", () => {
+    expect(classifyBookType(["Pokopališče Kranj - Geneanet Cemeteries"])).toBe("burial");
+    expect(classifyBookType(["U.S., Find a Grave® Index, 1600s-Current"])).toBe("burial");
+    expect(classifyBookType(["Global, Geneanet Cemetery Index, 1500-current"])).toBe("burial");
+    expect(classifyBookType(["BillionGraves"])).toBe("burial");
+    expect(classifyBookType(["Groblje Zagreb"])).toBe("burial");
+    expect(classifyBookType(["Friedhof Graz"])).toBe("burial");
+  });
+
+  it("reads a death register that also names the graveyard as a death register", () => {
+    // Not rival readings: the two events accept each other's citations, and a
+    // grave site is pinned by its URL long before the title is consulted.
+    expect(classifyBookType(["U.S., Cemetery and Funeral Home Collection, 1847-Current"])).toBe("death");
+    expect(classifyBookType(["Mrliška knjiga in pokopališče Kranj"])).toBe("death");
+  });
+
   it("returns unknown for no signal or conflicting signals", () => {
     expect(classifyBookType([undefined, ""])).toBe("unknown");
     expect(classifyBookType(["Matična knjiga"])).toBe("unknown");
     expect(classifyBookType(["Krstna in mrliška knjiga"])).toBe("unknown");
+    expect(classifyBookType(["1950 United States Federal Census"])).toBe("unknown");
   });
 });
 
@@ -1698,6 +1715,18 @@ describe("reshapeSources — citation placement", () => {
 2 SOUR MK ${BOOK}/?pg=40
 0 TRLR`);
     expect(text).toMatch(/1 BURI\n2 SOUR @S1@\n3 PAGE 40/);
+    expect(text).not.toContain("1 DEAT");
+  });
+
+  it("moves a grave citation to BURI on the strength of its own words", () => {
+    // No grave site to recognize here — the cemetery is named in the citation
+    // itself, and that is enough to place it.
+    const { text } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 SOUR Pokopališče Kranj ${BOOK}/?pg=7
+0 TRLR`);
+    expect(text).toMatch(/1 BURI\n(?:2 (?!SOUR)[^\n]*\n)*2 SOUR @S1@\n3 PAGE 7/);
     expect(text).not.toContain("1 DEAT");
   });
 

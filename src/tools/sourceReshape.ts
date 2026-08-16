@@ -890,7 +890,7 @@ export function siteIconForUrl(url: string | undefined): string | undefined {
 // ---------------------------------------------------------------------------
 // Register-type classification (drives event placement)
 
-const TYPE_KEYWORDS: Record<Exclude<BookType, "unknown" | "burial">, RegExp> = {
+const TYPE_KEYWORDS: Record<Exclude<BookType, "unknown">, RegExp> = {
   // Baptism covers birth registers too — the same book under a civil name, and
   // Croatian/Slovenian collection titles say "Rođeni"/"Rojeni" for it.
   baptism: /krst|tauf|baptiz|baptism|rojstn|rojen|rođen|rodjen|birth|\bkk\b/i,
@@ -899,6 +899,11 @@ const TYPE_KEYWORDS: Record<Exclude<BookType, "unknown" | "burial">, RegExp> = {
   // funeral-announcement pages by their URLs/titles — funeral homes,
   // komunala pogreb notices, navcek.si.
   death: /mrli|sterbe|defunct|mortu|umrl|death|\bmk\b|obituar|osmrtnic|pogreb|nav[čc]ek|funeral/i,
+  // Graves: cemetery indexes ("Pokopališče Kranj - Geneanet Cemeteries",
+  // "Find a Grave® Index", BillionGraves) and burial registers. `SITE_BOOK_TYPE`
+  // already pins the known grave sites by their URL; a title is all the
+  // coverage pass and a pasted citation ever get, so it must say the same.
+  burial: /pokopal|groblj|grobi[šs][čc]|cemeter|graveyard|\bgraves?\b|billiongraves|friedhof|begr[äa]bnis|sepult|burial|buried/i,
 };
 
 /** Classify a register's type from whatever text is available (source titles,
@@ -909,7 +914,14 @@ export function classifyBookType(texts: (string | undefined)[]): BookType {
   const hits = (Object.keys(TYPE_KEYWORDS) as (keyof typeof TYPE_KEYWORDS)[]).filter((t) =>
     TYPE_KEYWORDS[t].test(joined),
   );
-  return hits.length === 1 ? hits[0] : "unknown";
+  if (hits.length === 1) return hits[0];
+  // Death and burial are not rival readings the way baptism and marriage are:
+  // a death register that also names the graveyard ("Cemetery and Funeral Home
+  // Collection") is still a death register, and the two events accept each
+  // other's citations anyway (ACCEPTABLE_TAGS). A grave site is pinned by
+  // SITE_BOOK_TYPE before this ever runs, so it is unaffected.
+  if (hits.length === 2 && hits.includes("death") && hits.includes("burial")) return "death";
+  return "unknown";
 }
 
 /** Event tags an occurrence may already sit on without being moved. Death and
