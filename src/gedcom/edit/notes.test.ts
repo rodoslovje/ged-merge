@@ -227,6 +227,33 @@ describe("private notes", () => {
     expect(ctx.changes.some((c) => c.xref === "@N3@" && c.before === null)).toBe(true);
   });
 
+  it("leaves an inline note the record already had inline, whatever the file's habit", () => {
+    // Ticking a note's 🔒 commits every note on the record. Following the house
+    // style there lifted notes the reader never touched into shared records and
+    // left pointers in their place — a wholesale conversion nobody asked for.
+    // That job belongs to Normalize file, where it is chosen and previewed.
+    const ds = buildFromText([
+      "0 HEAD",
+      "0 @I1@ INDI",
+      "1 NOTE @N1@",
+      "1 NOTE @N2@",
+      "1 NOTE https://web.facebook.com/ales.znidar.9",
+      "0 @N1@ NOTE a remark",
+      "0 @N2@ NOTE another remark",
+      "0 TRLR",
+    ]);
+    const indi = ds.individuals.get("@I1@")!;
+    const ctx = noteCtx(ds.records);
+    // Exactly the commit the 🔒 makes: same notes, one flag flipped.
+    setNotes(ctx, indi, indi.noteRefs!.map((r) => (r.xref ? r : { ...r, private: true })));
+
+    const out = serializeGedcom(ds.records);
+    // Still inline, now carrying the flag in the file's dialect (no marker
+    // anywhere in this fixture, so the standard RESN).
+    expect(out).toMatch(/1 NOTE https:\/\/web\.facebook\.com\/ales\.znidar\.9\n2 RESN privacy/);
+    expect(out).not.toContain("0 @N3@ NOTE");
+  });
+
   it("keeps writing inline where the file writes inline", () => {
     const ds = buildFromText([
       "0 HEAD",

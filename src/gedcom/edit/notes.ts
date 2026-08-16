@@ -198,6 +198,15 @@ export function applyNoteRefs(ctx: SharedNoteCtx, ownerRaw: GedNode, refs: NoteR
   // pointers reinserted so far, so the second note of a mixed record would see
   // an all-shared file and follow it.
   const style = noteStyleOf(ctx);
+  // The texts this record already held inline. A note among them is not a new
+  // note, whatever the file's habit is — ticking its 🔒 must not quietly lift it
+  // into a shared record and leave a pointer in its place. Wholesale conversion
+  // is the Normalize tool's job, where it is asked for and previewed.
+  const wasInline = new Set(
+    ownerRaw.children
+      .filter((c) => c.tag === "NOTE" && c.value && !isPointer(c.value.trim()))
+      .map((c) => c.value!.trim()),
+  );
 
   for (const ref of refs) {
     if (ref.xref) {
@@ -217,7 +226,7 @@ export function applyNoteRefs(ctx: SharedNoteCtx, ownerRaw: GedNode, refs: NoteR
     // already get; writing inline regardless left a file of shared notes with a
     // handful of this app's inline ones sitting among them.
     let xref = ref.xref;
-    if (!xref && ref.text.trim() && style === "shared") {
+    if (!xref && ref.text.trim() && style === "shared" && !wasInline.has(ref.text.trim())) {
       xref = createNoteRecord(ctx, ref.text.trim());
       if (ref.private) setSharedNotePrivate(ctx, xref, true);
     }

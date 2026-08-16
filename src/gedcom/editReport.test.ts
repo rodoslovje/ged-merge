@@ -291,6 +291,21 @@ describe("enrichEditReport — private markers", () => {
     expect(notes[0].private).toBeUndefined();
   });
 
+  it("shows a pointer note by its text, not by its xref", () => {
+    // The reader is being asked to approve a note; "@N1@" tells them nothing
+    // about what it says.
+    const before = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n"));
+    const after = dataset(
+      wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 NOTE @N1@\n0 @N1@ NOTE https://web.facebook.com/ales.znidar.9\n"),
+    );
+    const snapshots = new Map([["@I1@", before.individuals.get("@I1@")!.raw]]);
+    const report = enrichEditReport(baseReport("@I1@"), after, snapshots, new Map(), tr);
+
+    const notes = report.changes.filter((c) => c.field === "field.notes");
+    expect(notes).toHaveLength(1);
+    expect(notes[0].to).toBe("https://web.facebook.com/ales.znidar.9");
+  });
+
   it("flags an event marked private, and reads the flag as the save will write it", () => {
     const before = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 DATE 1901\n"));
     const after = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 DATE 1901\n2 PLAC Kranj\n2 RESN privacy\n"));
@@ -334,6 +349,32 @@ describe("buildEditReport", () => {
   const ds = () => dataset(MAIN);
   const loadedPeople = new Set(["@I1@", "@I2@"]);
   const loadedFams = new Set(["@F1@"]);
+
+  it("describes a shared record edited through a person, and names it by its text", () => {
+    // Ticking a shared note's 🔒 from someone's card changes the *record*, but
+    // dirty tracking hangs that on the owner, so the id never reaches
+    // `changedRecordIds`. The owner's own diff has nothing to say about it —
+    // their pointer is untouched — which left the save audit to catch the
+    // record and report it as changed with no detail at all.
+    const withNote = dataset(
+      wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 NOTE @N1@\n0 @N1@ NOTE a private remark\n1 PRIV\n"),
+    );
+    const snapshot = dataset(
+      wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 NOTE @N1@\n0 @N1@ NOTE a private remark\n"),
+    ).records.find((r) => r.xref === "@N1@")!;
+
+    const report = buildEditReport(
+      new Set(), new Set(), withNote, loadedPeople, loadedFams,
+      new Map(), new Map(),
+      new Set(), // the record is NOT in changedRecordIds — that is the point
+      new Map([["@N1@", { value: snapshot, owner: { kind: "individual" as const, id: "@I1@" } }]]),
+    );
+
+    expect(report.recordKinds["@N1@"]).toBe("record");
+    expect(report.recordLabels["@N1@"]).toBe("a private remark");
+    // Described — so the audit leaves it alone instead of warning about it.
+    expect(report.changes.some((c) => c.recordId === "@N1@")).toBe(true);
+  });
 
   it("emits one placeholder change per changed record, labelled and kinded", () => {
     const report = buildEditReport(new Set(["@I1@"]), new Set(), ds(), loadedPeople, loadedFams);

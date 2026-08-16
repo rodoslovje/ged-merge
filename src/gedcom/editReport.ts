@@ -185,6 +185,19 @@ function makeNotePrivacyResolver(records: GedNode[]): (node: GedNode) => boolean
   };
 }
 
+/**
+ * What a note row should say: a pointer note reads as the text of the record it
+ * names, not as `@N1@`. The reader is being asked to approve a note; its xref
+ * is bookkeeping and tells them nothing about what the note says.
+ */
+function makeNoteTextResolver(records: GedNode[]): (value: string) => string {
+  const texts = new Map<string, string>();
+  for (const r of records) {
+    if (r.tag === "NOTE" && r.xref) texts.set(r.xref, (r.value ?? "").replace(/\s+/g, " ").trim());
+  }
+  return (value) => (isPointer(value) ? texts.get(value) || value : value);
+}
+
 function eventFields(node: GedNode, resolveSource: SourceResolver): EventFields {
   const get = (tag: string) => node.children.find((c) => c.tag === tag)?.value?.trim() ?? "";
   // node.value carries the event's own title (e.g. "1 OCCU Engineer") for
@@ -331,6 +344,9 @@ function diffStringSet(
    *  the node itself; the NOTE call passes a resolver that also follows a
    *  pointer note to the shared record holding its flag. */
   isPrivate: (node: GedNode) => boolean = isPrivateNode,
+  /** How a stored value reads in the report — see {@link makeNoteTextResolver}.
+   *  Identity for every caller but the NOTE one. */
+  display: (value: string) => string = (v) => v,
 ): FieldChange[] {
   const diffs: FieldChange[] = [];
   // Kept as node/value pairs rather than bare strings: a NOTE may be flagged
@@ -338,13 +354,18 @@ function diffStringSet(
   const valuesOf = (node: GedNode) =>
     node.children
       .filter((c) => tagFilter(c.tag))
-      .map((c) => ({ value: c.value?.trim() ?? "", private: isPrivate(c) || undefined }))
+      .map((c) => {
+        const value = c.value?.trim() ?? "";
+        // Matching stays on the stored value (a pointer is only "the same note"
+        // as the same pointer); only what the row *shows* is resolved.
+        return { value, text: display(value), private: isPrivate(c) || undefined };
+      })
       .filter((v) => v.value);
   const beforeVals = valuesOf(before);
   const afterVals = valuesOf(after);
   const has = (list: { value: string }[], v: string) => list.some((x) => x.value === v);
   for (const v of beforeVals) {
-    if (!has(afterVals, v.value)) diffs.push({ recordId: id, field: fieldLabel, from: v.value, to: "", action: "incoming", private: v.private });
+    if (!has(afterVals, v.value)) diffs.push({ recordId: id, field: fieldLabel, from: v.text, to: "", action: "incoming", private: v.private });
   }
   const added = afterVals.filter((v) => !has(beforeVals, v.value));
   if (asLinks) {
@@ -353,7 +374,7 @@ function diffStringSet(
     if (added.length) diffs.push({ recordId: id, field: fieldLabel, from: "", to: "", action: "both", links: added.map((v) => v.value) });
   } else {
     for (const v of added) {
-      diffs.push({ recordId: id, field: fieldLabel, from: "", to: v.value, action: "both", private: v.private });
+      diffs.push({ recordId: id, field: fieldLabel, from: "", to: v.text, action: "both", private: v.private });
     }
     // A note whose text stayed put but whose privacy flag moved. Nothing a
     // value diff can see changed, so this row would not exist — and marking an
@@ -366,10 +387,10 @@ function diffStringSet(
       diffs.push({
         recordId: id,
         field: fieldLabel,
-        from: v.value,
-        to: v.value,
+        from: v.text,
+        to: v.text,
         action: "both",
-        segments: [{ text: v.value, state: "same" }],
+        segments: [{ text: v.text, state: "same" }],
         private: v.private,
         privacyChanged: true,
       });
@@ -430,7 +451,7 @@ function diffMedia(id: string, before: GedNode, after: GedNode, fieldLabel: stri
   return diffs;
 }
 
-function diffIndividualNodes(id: string, before: GedNode, after: GedNode, t: Translate, resolveMedia: MediaResolver, resolveSource: SourceResolver, notePrivate: (node: GedNode) => boolean): FieldChange[] {
+function diffIndividualNodes(id: string, before: GedNode, after: GedNode, t: Translate, resolveMedia: MediaResolver, resolveSource: SourceResolver, notePrivate: (node: GedNode) => boolean, noteText: (value: string) => string): FieldChange[] {
   const diffs: FieldChange[] = [];
   const check = (field: string, from: string, to: string, identity?: boolean) => {
     if (from !== to) diffs.push({ recordId: id, field, from, to, action: "incoming", identity });
@@ -446,7 +467,7 @@ function diffIndividualNodes(id: string, before: GedNode, after: GedNode, t: Tra
 
   const evTags = eventTagsOf(before, after, INDIVIDUAL_EVENT_TAGS);
   diffs.push(...diffEventSet(id, before, after, evTags, (tag) => t(`event.${tag}`, { defaultValue: tag }), resolveSource));
-  diffs.push(...diffStringSet(id, before, after, (tag) => tag === "NOTE", t("field.notes"), false, notePrivate));
+  diffs.push(...diffStringSet(id, before, after, (tag) => tag === "NOTE", t("field.notes"), false, notePrivate, noteText));
   diffs.push(...diffStringSet(id, before, after, (tag) => tag === "_FID" || tag === "_FSFTID", t("field.fsid")));
   diffs.push(...diffStringSet(id, before, after, (tag) => RECORD_LINK_TAGS.has(tag), t("field.sources"), true));
   diffs.push(...diffSourceCitations(id, before, after, t("field.sources"), resolveSource));
@@ -496,6 +517,7 @@ function diffFamilyNodes(
   resolveMedia: MediaResolver,
   resolveSource: SourceResolver,
   notePrivate: (node: GedNode) => boolean,
+  noteText: (value: string) => string,
 ): FieldChange[] {
   const diffs: FieldChange[] = [];
 
@@ -503,7 +525,7 @@ function diffFamilyNodes(
 
   const evTags = eventTagsOf(before, after, FAMILY_EVENT_TAGS);
   diffs.push(...diffEventSet(id, before, after, evTags, (tag) => t(`event.${tag}`, { defaultValue: tag }), resolveSource));
-  diffs.push(...diffStringSet(id, before, after, (tag) => tag === "NOTE", t("field.notes"), false, notePrivate));
+  diffs.push(...diffStringSet(id, before, after, (tag) => tag === "NOTE", t("field.notes"), false, notePrivate, noteText));
   diffs.push(...diffStringSet(id, before, after, (tag) => RECORD_LINK_TAGS.has(tag), t("field.sources"), true));
   diffs.push(...diffSourceCitations(id, before, after, t("field.sources"), resolveSource));
   diffs.push(...diffMedia(id, before, after, t("field.media"), resolveMedia));
@@ -574,6 +596,7 @@ export function enrichEditReport(
   const resolveMedia = makeMediaResolver(dataset.records);
   const resolveSource = makeSourceResolver(dataset.records);
   const notePrivate = makeNotePrivacyResolver(dataset.records);
+  const noteText = makeNoteTextResolver(dataset.records);
 
   const resolveIndiName = (xref: string): string => {
     const indi = dataset.individuals.get(xref);
@@ -587,7 +610,7 @@ export function enrichEditReport(
       const snapshot = personSnapshots.get(id);
       const current = dataset.individuals.get(id);
       if (snapshot && current) {
-        extra.push(...diffIndividualNodes(id, snapshot, current.raw, t, resolveMedia, resolveSource, notePrivate));
+        extra.push(...diffIndividualNodes(id, snapshot, current.raw, t, resolveMedia, resolveSource, notePrivate, noteText));
         // Family-membership changes on the individual. A detach from a family
         // that still exists is shown on that family's row, so only removed
         // families (pruned, or folded away by a duplicate merge) surface as a
@@ -635,7 +658,7 @@ export function enrichEditReport(
     } else {
       const snapshot = familySnapshots.get(id);
       const current = dataset.families.get(id);
-      if (snapshot && current) extra.push(...diffFamilyNodes(id, snapshot, current.raw, t, resolveIndiName, resolveMedia, resolveSource, notePrivate));
+      if (snapshot && current) extra.push(...diffFamilyNodes(id, snapshot, current.raw, t, resolveIndiName, resolveMedia, resolveSource, notePrivate, noteText));
     }
   }
 
@@ -665,8 +688,19 @@ export function sharedRecordTitle(id: string, node: GedNode): string {
     node.tag === "SOUR" ? sourceTitle(node)
     : node.tag === "OBJE" ? objeInfoOf(node).title
     : node.tag === "REPO" ? firstChild(node, "NAME")?.value
+    // A note's text *is* its name — a card headed "NOTE N1" told the reader
+    // nothing about the note the save was about to write.
+    : node.tag === "NOTE" ? noteHeading(node.value)
     : undefined;
   return title?.trim() || `${node.tag} ${xrefLabel(id)}`;
+}
+
+/** A shared note's first line, shortened — enough to recognize it by, without
+ *  spilling a paragraph into a card heading. */
+function noteHeading(value: string | undefined): string | undefined {
+  const text = (value ?? "").replace(/\s+/g, " ").trim();
+  if (!text) return undefined;
+  return text.length > 70 ? `${text.slice(0, 67)}…` : text;
 }
 
 /** The same record with nothing in it — what a brand-new record is diffed
@@ -835,7 +869,7 @@ export function buildEditReport(
   /** Top-level shared records (SOUR/OBJE/NOTE) edited on their own, with their
    *  pre-edit snapshots — no person or family carries these changes. */
   changedRecordIds?: Set<string>,
-  recordSnapshots?: Map<string, { value: GedNode }>,
+  recordSnapshots?: Map<string, { value: GedNode; owner?: { kind: "individual" | "family"; id: string } }>,
 ): ChangeReport {
   const changes: FieldChange[] = [];
   const recordLabels: Record<string, string> = {};
@@ -893,7 +927,23 @@ export function buildEditReport(
   }
 
   const labelFor = makeXrefLabeler(dataset.records);
-  for (const id of changedRecordIds ?? []) {
+  // Shared records edited *through* a person — a note's 🔒 ticked from someone's
+  // card, a shared media item captioned from their tray. Dirty tracking hangs
+  // those on the owner (the record's own raw is what changed, but the reader
+  // reached it through the person), so they never reach `changedRecordIds`.
+  // Where the owner's diff then has nothing to say about them — a note's flag
+  // moves inside the record, leaving the person's pointer untouched — the save
+  // audit was left to catch the record and could only report it as changed with
+  // no detail. Diff them here instead, so they arrive described.
+  const ownedRecordIds = new Set<string>();
+  for (const [id, snap] of recordSnapshots ?? []) {
+    if (changedRecordIds?.has(id) || !snap.owner) continue;
+    const current = dataset.records.find((r) => r.xref === id);
+    if (current && nodesEqual(current, snap.value)) continue; // edited then undone
+    ownedRecordIds.add(id);
+  }
+
+  for (const id of [...(changedRecordIds ?? []), ...ownedRecordIds]) {
     const current = dataset.records.find((r) => r.xref === id);
     const snapshot = recordSnapshots?.get(id)?.value;
     recordLabels[id] = sharedRecordLabel(id, current ?? snapshot);
