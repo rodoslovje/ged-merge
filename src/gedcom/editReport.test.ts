@@ -259,6 +259,38 @@ describe("enrichEditReport — private markers", () => {
     expect(report.changes.find((c) => c.field === "field.notes")?.private).toBe(true);
   });
 
+  it("shows a note whose text stayed put but whose flag was turned on", () => {
+    // Nothing a value diff can see changed, so this row did not exist at all —
+    // the person's card carried the EDITED badge and not one line under it.
+    const before = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 NOTE https://web.facebook.com/masaakukic\n"));
+    const after = dataset(
+      wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 NOTE https://web.facebook.com/masaakukic\n2 RESN privacy\n"),
+    );
+    const snapshots = new Map([["@I1@", before.individuals.get("@I1@")!.raw]]);
+    const report = enrichEditReport(baseReport("@I1@"), after, snapshots, new Map(), tr);
+
+    const notes = report.changes.filter((c) => c.field === "field.notes");
+    expect(notes).toHaveLength(1);
+    expect(notes[0].private).toBe(true);
+    expect(notes[0].privacyChanged).toBe(true);
+    // The value is context, not something newly added.
+    expect(notes[0].segments).toEqual([{ text: "https://web.facebook.com/masaakukic", state: "same" }]);
+  });
+
+  it("shows a note that stopped being private", () => {
+    // The direction that gives data away: silence here would read as "nothing
+    // about privacy happened".
+    const before = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 NOTE a remark\n2 RESN privacy\n"));
+    const after = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 NOTE a remark\n"));
+    const snapshots = new Map([["@I1@", before.individuals.get("@I1@")!.raw]]);
+    const report = enrichEditReport(baseReport("@I1@"), after, snapshots, new Map(), tr);
+
+    const notes = report.changes.filter((c) => c.field === "field.notes");
+    expect(notes).toHaveLength(1);
+    expect(notes[0].privacyChanged).toBe(true);
+    expect(notes[0].private).toBeUndefined();
+  });
+
   it("flags an event marked private, and reads the flag as the save will write it", () => {
     const before = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 DATE 1901\n"));
     const after = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 DATE 1901\n2 PLAC Kranj\n2 RESN privacy\n"));

@@ -105,6 +105,12 @@ export interface FieldChange {
    *  screen before the file is written — a private note otherwise read exactly
    *  like a public one there. On an event's row it marks the whole group. */
   private?: boolean;
+  /** This row exists (also) because the privacy flag was turned on or off, not
+   *  because the text moved. Marking an existing note private changes nothing a
+   *  value diff can see, so without this the change had no row at all — and a
+   *  row that did appear would have read "added" a value that was already
+   *  there. `private` says which way it went. */
+  privacyChanged?: boolean;
 }
 
 /** A confirmed change the engine did not yet apply (relationship/links). */
@@ -667,8 +673,19 @@ function changeLine(c: FieldChange, t: Translate): string {
     const items = [...(c.sources ?? []).map(citationText), ...(c.links ?? [])];
     return `${label}${t("changeReport.verb.added")} ${items.map((i) => `"${i}"`).join(", ")}`;
   }
+  // A flag turned on or off says so in words. Where the text moved as well, the
+  // note rides along after it; where it did not, this is the whole change —
+  // "added" would claim a value that was already in the file.
+  const privacyVerb = c.privacyChanged
+    ? t(c.private ? "changeReport.verb.madePrivate" : "changeReport.verb.madePublic")
+    : undefined;
+  if (privacyVerb && !hasTextChange(c)) {
+    const text = c.segments?.map((s) => s.text).join(" · ") ?? (c.to || c.from);
+    return `${label}${privacyVerb}${text ? ` "${text}"` : ""}`;
+  }
+  const suffix = privacyVerb ? ` (${privacyVerb})` : "";
   const plain = plainAddition(c);
-  if (plain !== undefined) return `${label}${t("changeReport.verb.added")} ${plain}`;
+  if (plain !== undefined) return `${label}${t("changeReport.verb.added")} ${plain}${suffix}`;
   if (c.segments) {
     // The pieces the edit left alone stay bare, as context; only the ones it
     // touched are quoted. Reprinting the whole value twice — which is what the
@@ -680,11 +697,18 @@ function changeLine(c: FieldChange, t: Translate): string {
         if (s.state !== "changed") return s.text;
         return s.from && s.from !== s.text ? `"${s.from}" → "${s.text}"` : `+ "${s.text}"`;
       });
-    return `${label}${t("changeReport.verb.changed")} ${pieces.join(" · ")}`;
+    return `${label}${t("changeReport.verb.changed")} ${pieces.join(" · ")}${suffix}`;
   }
-  if (!c.to && c.from) return `${label}${t("changeReport.verb.removed")} "${c.from}"`;
-  if (c.from) return `${label}${t("changeReport.verb.changed")} "${c.from}" → "${c.to}"`;
-  return `${label}${t("changeReport.verb.added")} "${c.to}"`;
+  if (!c.to && c.from) return `${label}${t("changeReport.verb.removed")} "${c.from}"${suffix}`;
+  if (c.from) return `${label}${t("changeReport.verb.changed")} "${c.from}" → "${c.to}"${suffix}`;
+  return `${label}${t("changeReport.verb.added")} "${c.to}"${suffix}`;
+}
+
+/** Whether the row carries a change to the value itself, as opposed to only a
+ *  flag beside it. A segmented row is text-changed when any piece moved. */
+function hasTextChange(c: FieldChange): boolean {
+  if (c.segments) return c.segments.some((s) => s.state !== "same" || s.from);
+  return c.from !== c.to;
 }
 
 // Re-export so callers can build the decision key consistently.

@@ -21,11 +21,19 @@ function isIconChange(c: FieldChange): boolean {
 
 /** The 🔒 the editor puts on anything flagged private, repeated here so the last
  *  screen before the file is written says which of these values stay unpublished.
- *  A marker, not a toggle — nothing is editable in this dialog. */
-function PrivateMark({ t }: { t: Translate }) {
+ *  A marker, not a toggle — nothing is editable in this dialog.
+ *
+ *  `off` is the opposite news: a value that *was* private and will now be
+ *  published. That direction needs a mark of its own — silence would read as
+ *  "nothing about privacy here", which is the one thing it must not say. */
+function PrivateMark({ t, off }: { t: Translate; off?: boolean }) {
   return (
-    <span className="preview-private" title={t("preview.private")} aria-label={t("edit.privateLabel")}>
-      🔒
+    <span
+      className={`preview-private${off ? " is-off" : ""}`}
+      title={t(off ? "preview.privateRemoved" : "preview.private")}
+      aria-label={t(off ? "preview.privateRemoved" : "edit.privateLabel")}
+    >
+      {off ? "🔓" : "🔒"}
     </span>
   );
 }
@@ -350,7 +358,9 @@ export function SaveDialog({
                               {/* Every row of a group comes from the one event,
                                   so the flag belongs on the event's name rather
                                   than repeated down its date/place lines. */}
-                              {grp.rows.some((c) => c.private) && <> <PrivateMark t={t} /></>}
+                              {grp.rows.some((c) => c.private) ? <> <PrivateMark t={t} /></>
+                                : grp.rows.some((c) => c.privacyChanged) ? <> <PrivateMark t={t} off /></>
+                                : null}
                               <ul className="preview-fields preview-fields-nested">
                                 {renderGroupRows(grp.rows, grp.group, t)}
                               </ul>
@@ -360,7 +370,9 @@ export function SaveDialog({
                               <li key={`${gi}-${i}`}>
                                 {!c.noLabel && <><span className="preview-field">{c.field}</span>: </>}
                                 {isIconChange(c) ? <ChangeIcons changes={[c]} t={t} /> : <FieldValue c={c} />}
-                                {c.private && <> <PrivateMark t={t} /></>}
+                                {c.private ? <> <PrivateMark t={t} /></>
+                                  : c.privacyChanged ? <> <PrivateMark t={t} off /></>
+                                  : null}
                               </li>
                             ))
                           ),

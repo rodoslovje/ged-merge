@@ -225,7 +225,17 @@ function diffEventOccurrence(id: string, before: EventFields, after: EventFields
   }
   // The flag as the event will stand in the saved file — an edit that marked it
   // private is exactly what the preview must show.
-  return { recordId: id, field: fieldLabel, from: eventSummary(before), to: eventSummary(after), action: "both", group: fieldLabel, segments, private: after.private };
+  return {
+    recordId: id,
+    field: fieldLabel,
+    from: eventSummary(before),
+    to: eventSummary(after),
+    action: "both",
+    group: fieldLabel,
+    segments,
+    private: after.private,
+    ...(!!before.private !== !!after.private ? { privacyChanged: true } : {}),
+  };
 }
 
 function diffEventSet(
@@ -344,6 +354,25 @@ function diffStringSet(
   } else {
     for (const v of added) {
       diffs.push({ recordId: id, field: fieldLabel, from: "", to: v.value, action: "both", private: v.private });
+    }
+    // A note whose text stayed put but whose privacy flag moved. Nothing a
+    // value diff can see changed, so this row would not exist — and marking an
+    // existing note private is exactly the kind of change the last screen
+    // before a download has to show. The value is carried as an unchanged
+    // segment, so it reads as context rather than as something newly added.
+    for (const v of afterVals) {
+      const was = beforeVals.find((b) => b.value === v.value);
+      if (!was || !!was.private === !!v.private) continue;
+      diffs.push({
+        recordId: id,
+        field: fieldLabel,
+        from: v.value,
+        to: v.value,
+        action: "both",
+        segments: [{ text: v.value, state: "same" }],
+        private: v.private,
+        privacyChanged: true,
+      });
     }
   }
   return diffs;

@@ -6,7 +6,7 @@ import { decisionKey, type CandidateDecision } from "../review/types";
 import type { GedNode } from "../gedcom/types";
 import { inferMainProfile } from "../normalize/profile";
 import { normalizeDataset } from "../normalize/normalize";
-import { materializeEventSources, mergeDecisions } from "./merge";
+import { formatReport, materializeEventSources, mergeDecisions, type ChangeReport, type FieldChange } from "./merge";
 import { rowCanKeepBoth } from "./applyFields";
 
 function dataset(text: string) {
@@ -2259,6 +2259,44 @@ describe("mergeDecisions — a second union with a different partner", () => {
     // Neja is not touched, and Nejc now belongs to both marriages.
     expect(out).toContain("0 @I2@ INDI\n1 NAME Neja /Bizjak/\n1 SEX F\n1 FAMS @F1@\n");
     expect(out).toMatch(/0 @I1@ INDI[\s\S]*?1 FAMS @F1@\n1 FAMS @F\d+@/);
+  });
+});
+
+describe("formatReport — a privacy flag turned on or off", () => {
+  const row = (over: Partial<FieldChange>): ChangeReport => ({
+    changes: [{ recordId: "@I1@", field: "Notes", from: "", to: "", action: "both", ...over }],
+    deferred: [], graftJoins: [], recordsChanged: 1, newPersons: 0, newFamilies: 0,
+    recordLabels: { "@I1@": "Janez Novak" }, recordKinds: { "@I1@": "individual" },
+    familySpouses: {}, customTags: {},
+  });
+
+  it("says the note was marked private instead of claiming it was added", () => {
+    const text = formatReport(row({
+      from: "a remark", to: "a remark",
+      segments: [{ text: "a remark", state: "same" }],
+      private: true, privacyChanged: true,
+    }), { t: tr });
+    expect(text).toContain('changeReport.verb.madePrivate "a remark"');
+    expect(text).not.toContain("changeReport.verb.added");
+  });
+
+  it("says a note stopped being private", () => {
+    const text = formatReport(row({
+      from: "a remark", to: "a remark",
+      segments: [{ text: "a remark", state: "same" }],
+      privacyChanged: true,
+    }), { t: tr });
+    expect(text).toContain('changeReport.verb.madePublic "a remark"');
+  });
+
+  it("keeps the flag beside a change that also moved the text", () => {
+    const text = formatReport(row({
+      from: "1901", to: "1902",
+      segments: [{ text: "1902", state: "changed", from: "1901" }],
+      private: true, privacyChanged: true,
+    }), { t: tr });
+    expect(text).toContain("changeReport.verb.changed");
+    expect(text).toContain("(changeReport.verb.madePrivate)");
   });
 });
 

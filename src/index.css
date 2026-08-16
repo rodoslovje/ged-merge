@@ -6456,6 +6456,9 @@ kbd {
    whole "this will not be published" message on a card otherwise full of text,
    so it is read at a glance rather than tucked into the line's own size. */
 .preview-private { font-size: 1rem; line-height: 1; white-space: nowrap; }
+/* The opened lock is the less common news and the more alarming: a value that
+   was held back and now goes out. Kept the same size, not dimmed. */
+.preview-private.is-off { filter: grayscale(1); }
 .preview-badge.is-removed { background: var(--danger-soft); color: var(--danger); }
 .edit-tree-badge {
   font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
