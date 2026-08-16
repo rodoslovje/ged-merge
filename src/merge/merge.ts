@@ -21,6 +21,7 @@ import {
   applyIndividualFamilies,
   applyIndividualRelations,
   makeContext,
+  reportFamilyLinks,
   type ImportBranchRequest,
 } from "./applyRelations";
 
@@ -401,6 +402,12 @@ export function mergeDecisions(
   // here on are reported as imported (preview flags them "Incoming").
   ctx.beginGraftPhase();
   applyImportBranches(importBranches, main, compare, ctx);
+
+  // Every family pointer written onto a person, now that the families it names
+  // are whole. Deliberately after the decision loop: `touched` gates the
+  // canonical event re-sort above, and a link is no reason to reorder a record
+  // the decision otherwise left alone.
+  reportFamilyLinks(ctx);
 
   // Derive record kinds from node maps built during merge. Deferred rows count
   // as well as changes: a family the merge left untouched *because* the two

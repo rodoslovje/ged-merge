@@ -1,4 +1,4 @@
-import { makeXrefLabeler, newSharedRecordRow, sharedRecordLabel, sharedRecordTitle } from "../gedcom/editReport";
+import { displayNameFromRaw, makeXrefLabeler, newSharedRecordRow, sharedRecordLabel, sharedRecordTitle } from "../gedcom/editReport";
 import { recordFingerprint, type SaveBaseline } from "../gedcom/fingerprint";
 import type { GedNode } from "../gedcom/types";
 import type { ChangeReport, FieldChange } from "../merge/merge";
@@ -75,8 +75,24 @@ export function auditAgainstBaseline(
     return row ? [row] : [];
   };
 
-  const nameOf = (record: GedNode, kind: string) =>
-    kind === "record" ? sharedRecordLabel(record.xref!, record) : undefined;
+  const indiByXref = new Map(
+    records.filter((r) => r.tag === "INDI" && r.xref).map((r) => [r.xref!, r]),
+  );
+  const personName = (record: GedNode | undefined) => (record ? displayNameFromRaw(record) : "");
+
+  /** What to call a record the tracking never mentioned. A person or family
+   *  found only here has no label anywhere in the report, and the preview then
+   *  headed their card with a bare `@43579567@` — while the record naming them
+   *  was in hand the whole time. */
+  const nameOf = (record: GedNode, kind: string) => {
+    if (kind === "record") return sharedRecordLabel(record.xref!, record);
+    if (kind === "individual") return personName(record) || undefined;
+    const spouses = (["HUSB", "WIFE"] as const)
+      .map((role) => record.children.find((c) => c.tag === role)?.value)
+      .map((id) => (id ? personName(indiByXref.get(id)) : ""))
+      .filter(Boolean);
+    return spouses.join(" + ") || undefined;
+  };
 
   const written = new Set<string>();
   for (const record of records) {

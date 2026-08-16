@@ -57,7 +57,8 @@ function getNameParts(node: GedNode): { given: string; surname: string; nickname
   return { given: parsed.given ?? "", surname: parsed.surname ?? "", nickname: parsed.nickname ?? "" };
 }
 
-function displayNameFromRaw(node: GedNode): string {
+/** A record's display name read straight off its raw `NAME` line. */
+export function displayNameFromRaw(node: GedNode): string {
   const nameNode = firstChild(node, "NAME");
   if (!nameNode) return "";
   const subTags = new Map(nameNode.children.map((c) => [c.tag, c.value?.trim() ?? ""]));
