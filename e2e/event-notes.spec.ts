@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { readFileSync, writeFileSync } from "fs";
-import os from "os";
 import path from "path";
+import { tmpdir } from "./tmpdir";
 
 /** A birth carrying two notes — the second is the one the editor used to hide. */
 function writeFixture(): string {
@@ -20,7 +20,7 @@ function writeFixture(): string {
     "0 TRLR",
     "",
   ].join("\n");
-  const filePath = path.join(os.tmpdir(), `event-notes-${Date.now()}.ged`);
+  const filePath = path.join(tmpdir(), `event-notes-${Date.now()}.ged`);
   writeFileSync(filePath, ged, "utf-8");
   return filePath;
 }

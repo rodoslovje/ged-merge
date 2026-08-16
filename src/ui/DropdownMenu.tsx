@@ -358,13 +358,21 @@ export function DropdownMenu({
         }}
         onClick={() => (openRef.current ? close(false) : openMenu())}
         onKeyDown={(e) => {
-          // While open the trigger still holds focus, so it drives the list.
+          // While open the trigger still holds focus, so it drives the list —
+          // and the list owns the keyboard the way a native select's popup
+          // does: what it does not use it still swallows, so the view behind
+          // never acts on a key aimed at the list. It is not hypothetical —
+          // the Edit view answers ArrowDown by scrolling its person panel, so
+          // the very press that opened this list slid the trigger out from
+          // under it, 96 smoothly-animated pixels after the fact.
           if (openRef.current) {
+            e.stopPropagation();
             onMenuKeyDown(e);
             return;
           }
           if (e.key === "ArrowDown" || e.key === "ArrowUp") {
             e.preventDefault();
+            e.stopPropagation();
             openMenu();
           }
         }}

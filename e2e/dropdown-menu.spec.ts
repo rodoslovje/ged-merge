@@ -123,11 +123,31 @@ test("a menu follows its anchor, and goes when the anchor leaves", async ({ page
   await expect(menu).toHaveCount(0);
 });
 
-// The Edit view settles for a while after it appears — fonts, images and the
-// browser's own scroll anchoring nudge a panel by a few pixels at a time. Every
-// one of those nudges used to read as "the anchor moved", closing a menu that
-// had only just opened; under a slow CPU it closed every time. Throttling makes
-// that settling overlap the interaction on purpose.
+// An open list owns the keyboard, as a native select's popup does. The Edit
+// view answers ArrowDown by scrolling its person panel 96 smoothly-animated
+// pixels — and that is the very key that opens this menu, so the panel used to
+// slide out from under the list a moment after it appeared.
+test("a key the menu answers does not also drive the view behind it", async ({ page }) => {
+  await openEdit(page);
+  const scroller = page.locator(".edit-view .section-body").first();
+  await expect(scroller).toBeVisible();
+  const trigger = page.locator(".sex-select").first();
+
+  await openMenu(trigger, () => trigger.click());
+  await page.keyboard.press("Escape");
+  const before = await scroller.evaluate((el) => el.scrollTop);
+
+  await openMenu(trigger, () => page.keyboard.press("ArrowDown"));
+  await page.waitForTimeout(500); // long enough for a smooth scroll to have run
+  expect(await scroller.evaluate((el) => el.scrollTop), "the panel behind must not have moved").toBe(before);
+  await expect(page.locator(".dd-menu")).toBeVisible();
+});
+
+// The Edit view settles for a while after it appears — fonts and images land,
+// and a scroll started elsewhere is still animating. Every pixel of that used
+// to read as "the anchor moved", closing a menu that had only just opened;
+// under a slow CPU it closed every time. Throttling makes the settling overlap
+// the interaction on purpose.
 test("a menu survives a panel still settling under it", async ({ page, context }) => {
   await openEdit(page);
   const cdp = await context.newCDPSession(page);

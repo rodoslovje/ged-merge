@@ -487,6 +487,9 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
         return;
       }
       if (isEditableTarget(e.target) || isModalOpen()) return;
+      // Already answered where it was pressed — a menu's arrows, a control's
+      // own keys. The view behind must not act on it a second time.
+      if (e.defaultPrevented) return;
       if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
       const { selectedId: id, onShowCharts: showCharts, chartKind: kind, startId: hId, matchOrder: order, navigate: nav, goBack: back, matchDecKey: decKey, toggleMatchStatus: toggle } = shortcutRef.current;
       const key = e.key.toLowerCase();

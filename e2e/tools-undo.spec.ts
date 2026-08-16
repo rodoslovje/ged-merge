@@ -4,10 +4,10 @@
 // hidden EditView still applies the patches.)
 import { test, expect } from "@playwright/test";
 import { writeFileSync } from "fs";
-import os from "os";
 import path from "path";
+import { tmpdir } from "./tmpdir";
 
-const FILE = path.join(os.tmpdir(), "tools-undo.ged");
+const FILE = path.join(tmpdir(), "tools-undo.ged");
 
 writeFileSync(
   FILE,

@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { readFileSync, writeFileSync } from "fs";
-import os from "os";
 import path from "path";
+import { tmpdir } from "./tmpdir";
 
 // "Merge all" on a duplicate cluster: one person entered three times, each copy
 // married to her own copy of the same husband. The whole group has to collapse
@@ -25,7 +25,7 @@ function writeClusterFixture(): string {
     lines.push(`0 @FT${n}@ FAM`, `1 HUSB @H${n}@`, `1 WIFE @W${n}@`);
   }
   lines.push("0 TRLR", "");
-  const file = path.join(os.tmpdir(), `dup-cluster-${Date.now()}.ged`);
+  const file = path.join(tmpdir(), `dup-cluster-${Date.now()}.ged`);
   writeFileSync(file, lines.join("\n"), "utf-8");
   return file;
 }

@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { readFileSync, writeFileSync } from "fs";
-import os from "os";
 import path from "path";
+import { tmpdir } from "./tmpdir";
 
 /** A child with no parents, beside a couple who already have a family of their
  *  own — the shape that produced a second family for that couple when the
@@ -16,7 +16,7 @@ function writeCoupleFixture(): string {
     "0 @FX@ FAM", "1 HUSB @P1@", "1 WIFE @P2@", "1 CHIL @S1@", "1 MARR", "2 DATE 23 NOV 1887",
     "0 TRLR", "",
   ].join("\n");
-  const file = path.join(os.tmpdir(), `couple-${Date.now()}.ged`);
+  const file = path.join(tmpdir(), `couple-${Date.now()}.ged`);
   writeFileSync(file, ged, "utf-8");
   return file;
 }

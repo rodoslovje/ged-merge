@@ -1,8 +1,8 @@
 import { test, expect } from "@playwright/test";
 import { writeFileSync } from "fs";
-import os from "os";
 import path from "path";
 import { enablePersist, waitForCache } from "./persist-util";
+import { tmpdir } from "./tmpdir";
 
 // Replacing the loaded main file with a *different* GEDCOM must not leak any of
 // the previous file's data into the UI or into the persistence cache.
@@ -15,10 +15,10 @@ import { enablePersist, waitForCache } from "./persist-util";
 // file's values) while nodeId-keyed event rows remounted with the new data.
 
 const uid = `${process.pid}`;
-const FILE_A = path.join(os.tmpdir(), `reload-a-${uid}.ged`);
-const FILE_B = path.join(os.tmpdir(), `reload-b-${uid}.ged`);
-const FILE_C = path.join(os.tmpdir(), `reload-c-${uid}.ged`);
-const FILE_BIG = path.join(os.tmpdir(), `reload-big-${uid}.ged`);
+const FILE_A = path.join(tmpdir(), `reload-a-${uid}.ged`);
+const FILE_B = path.join(tmpdir(), `reload-b-${uid}.ged`);
+const FILE_C = path.join(tmpdir(), `reload-c-${uid}.ged`);
+const FILE_BIG = path.join(tmpdir(), `reload-big-${uid}.ged`);
 
 // The "old" main: root @I1@ Janko Plesina.
 writeFileSync(FILE_A, [

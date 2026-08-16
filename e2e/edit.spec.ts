@@ -1,8 +1,8 @@
 import { test, expect, type Locator } from "@playwright/test";
 import { readFileSync, writeFileSync } from "fs";
-import os from "os";
 import path from "path";
 import { fileURLToPath } from "url";
+import { tmpdir } from "./tmpdir";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SAMPLE = path.resolve(__dirname, "../src/__fixtures__/corpus/reunion-5.5.1-utf8.ged");
@@ -23,7 +23,7 @@ function writeLegacyLinkFixture(url: string): string {
     "0 TRLR",
     "",
   ].join("\n");
-  const filePath = path.join(os.tmpdir(), `legacy-link-${Date.now()}.ged`);
+  const filePath = path.join(tmpdir(), `legacy-link-${Date.now()}.ged`);
   writeFileSync(filePath, ged, "utf-8");
   return filePath;
 }

@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { writeFileSync } from "fs";
-import os from "os";
 import path from "path";
+import { tmpdir } from "./tmpdir";
 
 // A place written twice, placed once: the second mention has no coordinate, so
 // the row proposes the one the file itself already carries.
@@ -12,7 +12,7 @@ import path from "path";
 // line, and no way to tick it into a write that would do nothing. Clicking the
 // option again takes it back, and the write lands.
 
-const FILE = path.join(os.tmpdir(), "geocode-write.ged");
+const FILE = path.join(tmpdir(), "geocode-write.ged");
 
 writeFileSync(
   FILE,

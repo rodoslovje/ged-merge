@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { writeFileSync } from "fs";
-import os from "os";
 import path from "path";
+import { tmpdir } from "./tmpdir";
 
 // The compliance page end to end: a micro GURS register is served from route
 // fixtures, imported through the real Settings › Map one-click flow, and the
@@ -10,10 +10,10 @@ import path from "path";
 // unknown one is dismissed (a geoDb decision) and comes back via "Show
 // dismissed". This was the one recently merged feature with no e2e at all.
 
-const FILE = path.join(os.tmpdir(), "register-check.ged");
+const FILE = path.join(tmpdir(), "register-check.ged");
 /** A file of 400 places the register does not know — past the 150 rows below
  *  which the list renders in full, so the windowing is the thing under test. */
-const MANY = path.join(os.tmpdir(), "register-check-many.ged");
+const MANY = path.join(tmpdir(), "register-check-many.ged");
 const MANY_COUNT = 400;
 
 writeFileSync(

@@ -1,13 +1,13 @@
 import { test, expect } from "@playwright/test";
 import { writeFileSync } from "fs";
-import os from "os";
 import path from "path";
+import { tmpdir } from "./tmpdir";
 
 // The pin: it marks a position, wherever one is printed. An address does not
 // carry one of its own in the geocoding list — the position beside it does, and
 // two pins in a row read as one smudged glyph.
 
-const FILE = path.join(os.tmpdir(), "addr-pin.ged");
+const FILE = path.join(tmpdir(), "addr-pin.ged");
 
 writeFileSync(
   FILE,

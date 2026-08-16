@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { writeFileSync } from "fs";
-import os from "os";
 import path from "path";
+import { tmpdir } from "./tmpdir";
 
 /**
  * `useVirtualList` must never crash-loop, however wrong its measurements are.
@@ -51,13 +51,13 @@ function people(n: number, prefix: string): string[] {
 }
 
 // Merge: two files holding the same 300 people, so every one is a candidate.
-const MAIN = path.join(os.tmpdir(), "vloop-main.ged");
-const COMPARE = path.join(os.tmpdir(), "vloop-compare.ged");
+const MAIN = path.join(tmpdir(), "vloop-main.ged");
+const COMPARE = path.join(tmpdir(), "vloop-compare.ged");
 writeFileSync(MAIN, [...HEAD, ...people(300, "I"), "0 TRLR", ""].join("\n"), "utf-8");
 writeFileSync(COMPARE, [...HEAD, ...people(300, "P"), "0 TRLR", ""].join("\n"), "utf-8");
 
 // Duplicates: 220 self-contained same-person pairs → 220 pair rows.
-const DUPS = path.join(os.tmpdir(), "vloop-dups.ged");
+const DUPS = path.join(tmpdir(), "vloop-dups.ged");
 {
   const lines = [...HEAD];
   for (let f = 0; f < 220; f++) {

@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { writeFileSync } from "fs";
-import os from "os";
 import path from "path";
+import { tmpdir } from "./tmpdir";
 
 /** A married woman (maiden Stare, married Kalan) plus her husband, so the
  *  picker's rows have a sex, a lifespan and a married surname to show. */
@@ -15,7 +15,7 @@ function writeFixture(): string {
     "0 @F1@ FAM", "1 HUSB @I1@", "1 WIFE @I2@",
     "0 TRLR", "",
   ].join("\n");
-  const file = path.join(os.tmpdir(), `picker-${Date.now()}.ged`);
+  const file = path.join(tmpdir(), `picker-${Date.now()}.ged`);
   writeFileSync(file, ged, "utf-8");
   return file;
 }

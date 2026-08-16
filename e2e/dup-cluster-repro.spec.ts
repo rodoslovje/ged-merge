@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { writeFileSync, existsSync } from "fs";
 import os from "os";
 import path from "path";
+import { tmpdir } from "./tmpdir";
 
 // The real file that triggered the loop for the user (index-scale, ~175k lines).
 // Used when present; otherwise fall back to the synthetic file below.
@@ -11,7 +12,7 @@ const REAL = path.join(os.homedir(), "rodoslovje/srd-data/index/input/Pratnekar.
 // cluster-heavy duplicate lists: many same-person triples produce enough
 // cluster-header rows to cross the virtualization threshold.
 
-const BIG = path.join(os.tmpdir(), "dup-cluster-big.ged");
+const BIG = path.join(tmpdir(), "dup-cluster-big.ged");
 
 const HEAD = ["0 HEAD", "1 GEDC", "2 VERS 5.5.1", "1 CHAR UTF-8"];
 const lines: string[] = [...HEAD];
