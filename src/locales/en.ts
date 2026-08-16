@@ -296,6 +296,7 @@ export const en = {
   "tools.batch.crit.familyEvent": "Union",
   "tools.batch.crit.kinship": "Kinship",
   "tools.batch.crit.place": "Place contains",
+  "tools.batch.crit.note": "Note contains",
   "tools.batch.crit.media": "Media",
   "tools.batch.crit.sources": "Sources",
   "tools.batch.crit.line": "Family line",

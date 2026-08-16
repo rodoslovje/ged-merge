@@ -357,6 +357,7 @@ export const sl = {
   "tools.batch.crit.familyEvent": "Zveza",
   "tools.batch.crit.kinship": "Sorodstvo",
   "tools.batch.crit.place": "Kraj vsebuje",
+  "tools.batch.crit.note": "Opomba vsebuje",
   "tools.batch.crit.media": "Mediji",
   "tools.batch.crit.sources": "Viri",
   "tools.batch.crit.line": "Rodovna linija",

@@ -258,6 +258,7 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
       relation: { kind: "relation", rel: "spouse", mode: "has" },
       kinship: { kind: "kinship", rel: "blood" },
       place: { kind: "place", text: "" },
+      note: { kind: "note", text: "" },
       media: { kind: "media", mode: "none" },
       sources: { kind: "sources", mode: "none" },
       line: { kind: "line", side: "maternal" },
@@ -546,7 +547,7 @@ function CriterionRow({
           }))}
         />
       )}
-      {(c.kind === "name" || c.kind === "place") && (
+      {(c.kind === "name" || c.kind === "place" || c.kind === "note") && (
         <input
           className="batch-input"
           value={c.text}

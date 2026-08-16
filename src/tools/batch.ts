@@ -75,6 +75,10 @@ export type BatchCriterion =
    *  `kinship` this needs no start person. */
   | { kind: "relation"; rel: "spouse" | "children" | "parents"; mode: "has" | "lacks" }
   | { kind: "place"; text: string }
+  /** Text anywhere in the person's notes — record-level or on an event.
+   *  Matched against the verbatim note text, so a note that is nothing but a
+   *  URL ("https://web.facebook.com/…") is findable by any part of it. */
+  | { kind: "note"; text: string }
   /** `none`/`any` look at the person's whole media tray; `has`/`lacks` test one
    *  specific image, identified by shared-record xref and/or `FILE` value. */
   | { kind: "media"; mode: "none" | "any" | "has" | "lacks"; xref?: string; file?: string }
@@ -88,7 +92,7 @@ export const ANY_EVENT = "*";
 
 /** Every criterion kind, for the panel's "add filter" picker. */
 export const BATCH_CRITERION_KINDS: BatchCriterion["kind"][] = [
-  "name", "nameField", "sex", "birthYear", "age", "living", "event", "familyEvent", "place", "media", "sources",
+  "name", "nameField", "sex", "birthYear", "age", "living", "event", "familyEvent", "place", "note", "media", "sources",
   "relation", "kinship", "line",
 ];
 
@@ -318,6 +322,9 @@ export function matchesBatch(row: BatchRow, criteria: BatchCriterion[], ctx: Bat
       }
       case "place":
         if (!row.placeText.includes(foldSearch(c.text))) return false;
+        break;
+      case "note":
+        if (!row.noteText.includes(foldSearch(c.text))) return false;
         break;
       case "media":
         if (c.mode === "none" && row.mediaCount > 0) return false;

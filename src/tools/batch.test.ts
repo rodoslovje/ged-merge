@@ -104,11 +104,14 @@ describe("batch criteria", () => {
 0 @I3@ INDI
 1 NAME Cilka /Zupan/
 1 SEX F
+1 NOTE https://web.facebook.com/cilka.zupan
+2 PRIV
 0 @I4@ INDI
 1 NAME Davorin /Praprotnik/
 1 SEX M
 1 BIRT
 2 DATE 2 FEB 2000
+2 NOTE Baptised in Šenčur
 1 _MILT army
 0 @O1@ OBJE
 1 FILE died-young.png
@@ -154,6 +157,18 @@ describe("batch criteria", () => {
     expect(match([{ kind: "sex", value: "F" }])).toEqual(["@I1@", "@I3@"]);
     expect(match([{ kind: "birthYear", from: 1890, to: 1910 }])).toEqual(["@I1@"]);
     expect(match([{ kind: "place", text: "skofja" }])).toEqual(["@I2@"]);
+  });
+
+  it("finds people by what their notes say, wherever the note hangs", () => {
+    // The case this exists for: a note that is nothing but a URL. The display
+    // copy of such a note has the URL stripped out and is empty, so the filter
+    // reads the verbatim text — and a private note is still findable in one's
+    // own file, which is the only place this search runs.
+    expect(match([{ kind: "note", text: "facebook.com" }])).toEqual(["@I3@"]);
+    expect(match([{ kind: "note", text: "cilka.zupan" }])).toEqual(["@I3@"]);
+    // An event's note counts too, and the match is accent-blind like the rest.
+    expect(match([{ kind: "note", text: "sencur" }])).toEqual(["@I4@"]);
+    expect(match([{ kind: "note", text: "nobody wrote this" }])).toEqual([]);
   });
 
   it("filters by media presence and one specific image", () => {
