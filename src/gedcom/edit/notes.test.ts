@@ -199,6 +199,51 @@ describe("private notes", () => {
     expect(out).toMatch(/1 NOTE inline note[^\n]*\n2 PRIV/);
   });
 
+  it("writes a new note the way the file writes notes", () => {
+    // A file whose notes are shared records got this app's inline ones mixed in
+    // among them — the same kind of outlier a stray date format would be.
+    const ds = buildFromText([
+      "0 HEAD",
+      "0 @I1@ INDI",
+      "1 NOTE @N1@",
+      "1 NOTE @N2@",
+      "0 @N1@ NOTE a remark",
+      "0 @N2@ NOTE another remark",
+      // Makes the file's privacy dialect detectable, so the new record is
+      // checked against both conventions at once: shared shape, bare PRIV.
+      "1 PRIV",
+      "0 TRLR",
+    ]);
+    const indi = ds.individuals.get("@I1@")!;
+    const ctx = noteCtx(ds.records);
+    setNotes(ctx, indi, [...indi.noteRefs!, { text: "https://web.facebook.com/someone", private: true }]);
+
+    const out = serializeGedcom(ds.records);
+    // A record of its own, pointed at — with the flag at the record's level.
+    expect(out).toMatch(/0 @N3@ NOTE https:\/\/web\.facebook\.com\/someone\n1 PRIV/);
+    expect(out).toContain("1 NOTE @N3@");
+    expect(out).not.toContain("1 NOTE https://web.facebook.com/someone");
+    // Created records travel as undo patches like every other shared change.
+    expect(ctx.changes.some((c) => c.xref === "@N3@" && c.before === null)).toBe(true);
+  });
+
+  it("keeps writing inline where the file writes inline", () => {
+    const ds = buildFromText([
+      "0 HEAD",
+      "0 @I1@ INDI",
+      "1 NOTE a remark",
+      "1 NOTE another remark",
+      "0 TRLR",
+    ]);
+    const indi = ds.individuals.get("@I1@")!;
+    const ctx = noteCtx(ds.records);
+    setNotes(ctx, indi, [...indi.noteRefs!, { text: "a third remark" }]);
+
+    const out = serializeGedcom(ds.records);
+    expect(out).toContain("1 NOTE a third remark");
+    expect(out).not.toContain("0 @N1@ NOTE");
+  });
+
   it("person and family records project their private flag", () => {
     const ds = buildFromText([
       "0 HEAD",

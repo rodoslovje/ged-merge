@@ -3,7 +3,7 @@ import { isPointer } from "../uri";
 import { detectPrivacyStyle, isPrivateNode, setPrivateFlag, type PrivacyTagStyle } from "../private";
 import type { Dataset, GedNode, NoteRef } from "../types";
 import { bumpSourceCacheVersion, rebuildFamily, rebuildIndividual } from "./cache";
-import { insertOrdered } from "./shared";
+import { insertOrdered, insertRecord, nextXref } from "./shared";
 
 /**
  * Shared-note aware note editing.
@@ -25,13 +25,17 @@ import { insertOrdered } from "./shared";
 /** One shared NOTE record this edit touched, for the caller's undo patches. */
 export interface SharedNoteChange {
   xref: string;
-  /** Deep copy of the record before the change. */
-  before: GedNode;
+  /** Deep copy of the record before the change; null = the record was created
+   *  by this edit (undo removes it). */
+  before: GedNode | null;
   /** Deep copy after the change; null = the record was removed (last ref gone). */
   after: GedNode | null;
   /** For removals: the record's index in `records` before the splice. */
   index?: number;
 }
+
+/** How a file writes a record's notes — see {@link detectNoteStyle}. */
+export type NoteStyle = "shared" | "inline";
 
 /** Collects shared-record mutations across one edit operation. */
 export interface SharedNoteCtx {
@@ -39,6 +43,8 @@ export interface SharedNoteCtx {
   changes: SharedNoteChange[];
   /** Lazily detected privacy-marker dialect (see {@link detectPrivacyStyle}). */
   privacyStyle?: PrivacyTagStyle;
+  /** Lazily detected note shape (see {@link detectNoteStyle}). */
+  noteStyle?: NoteStyle;
 }
 
 /** `privacyStyle` presets the marker dialect (e.g. the Settings override);
@@ -50,6 +56,52 @@ export function noteCtx(records: GedNode[], privacyStyle?: PrivacyTagStyle): Sha
 /** The file's privacy dialect, detected once per ctx (i.e. per commit). */
 function privacyStyleOf(ctx: SharedNoteCtx): PrivacyTagStyle {
   return (ctx.privacyStyle ??= detectPrivacyStyle(ctx.records));
+}
+
+/**
+ * Whether this file keeps a record's notes in shared `0 @N…@ NOTE` records
+ * (MacFamilyTree's habit — the record points at one with `1 NOTE @N1@`) or
+ * inline on the record itself.
+ *
+ * A new note used to be written inline whatever the file did, which left a
+ * file of 328 shared notes with a handful of inline ones this app had added —
+ * the same kind of outlier a stray `MM/DD/YYYY` date would be. Detected from
+ * the record-level notes the file already has, which is exactly the level
+ * {@link applyNoteRefs} writes at; majority wins, and a file with no notes at
+ * all gets the simpler inline shape.
+ */
+export function detectNoteStyle(records: GedNode[]): NoteStyle {
+  let shared = 0;
+  let inline = 0;
+  for (const rec of records) {
+    if (!rec.xref) continue;
+    for (const child of rec.children) {
+      if (child.tag !== "NOTE") continue;
+      const v = child.value?.trim();
+      if (v && isPointer(v)) shared++;
+      else inline++;
+    }
+  }
+  return shared > inline ? "shared" : "inline";
+}
+
+/** The file's note shape, detected once per ctx (i.e. per commit). */
+function noteStyleOf(ctx: SharedNoteCtx): NoteStyle {
+  return (ctx.noteStyle ??= detectNoteStyle(ctx.records));
+}
+
+/**
+ * Create a shared `0 @N…@ NOTE` record holding `text`, and return its xref for
+ * the pointer that will refer to it. Recorded in `ctx` like every other shared
+ * change, so undo removes the record along with the pointer.
+ */
+function createNoteRecord(ctx: SharedNoteCtx, text: string): string {
+  const xref = nextXref(ctx.records, "N");
+  const rec: GedNode = { level: 0, xref, tag: "NOTE", value: text, children: [] };
+  insertRecord(ctx.records, rec);
+  bumpSourceCacheVersion(ctx.records);
+  ctx.changes.push({ xref, before: null, after: cloneNode(rec) });
+  return xref;
 }
 
 function findNoteRecord(records: GedNode[], xref: string): GedNode | undefined {
@@ -141,6 +193,12 @@ export function applyNoteRefs(ctx: SharedNoteCtx, ownerRaw: GedNode, refs: NoteR
     .filter((c) => c.tag === "NOTE" && c.value && isPointer(c.value.trim()))
     .map((c) => c.value!.trim());
 
+  // Read the file's note shape before this owner's notes are torn down and
+  // rebuilt below: asking mid-rebuild would sample a tree holding only the
+  // pointers reinserted so far, so the second note of a mixed record would see
+  // an all-shared file and follow it.
+  const style = noteStyleOf(ctx);
+
   for (const ref of refs) {
     if (ref.xref) {
       setSharedNoteText(ctx, ref.xref, ref.text);
@@ -151,19 +209,31 @@ export function applyNoteRefs(ctx: SharedNoteCtx, ownerRaw: GedNode, refs: NoteR
   }
 
   removeChildren(ownerRaw, "NOTE");
+  const written: (string | undefined)[] = [];
   for (const ref of refs) {
-    const value = ref.xref ?? ref.text.trim();
+    // A note the file has no record for yet is written the way this file writes
+    // notes — as a shared record it points at, or inline. Following the file's
+    // own habit is the courtesy the date, place and privacy-marker conventions
+    // already get; writing inline regardless left a file of shared notes with a
+    // handful of this app's inline ones sitting among them.
+    let xref = ref.xref;
+    if (!xref && ref.text.trim() && style === "shared") {
+      xref = createNoteRecord(ctx, ref.text.trim());
+      if (ref.private) setSharedNotePrivate(ctx, xref, true);
+    }
+    written.push(xref);
+    const value = xref ?? ref.text.trim();
     // An inline note with no text left is a removal; a pointer stays even when
     // its record text is empty (the record may carry sub-structure).
     if (!value) continue;
     const node: GedNode = { level: ownerRaw.level + 1, tag: "NOTE", value, children: [] };
     // An inline note carries its own private marker; a pointer's lives in the
     // shared record (set above).
-    if (!ref.xref && ref.private) setPrivateFlag(node, true, privacyStyleOf(ctx), ctx.records);
+    if (!xref && ref.private) setPrivateFlag(node, true, privacyStyleOf(ctx), ctx.records);
     insertOrdered(ownerRaw, node, order);
   }
 
-  const kept = new Set(refs.map((r) => r.xref).filter(Boolean));
+  const kept = new Set(written.filter(Boolean));
   const dropped = new Set(prevXrefs.filter((x) => !kept.has(x)));
   if (dropped.size) {
     const counts = countNoteRefsMulti(ctx.records, dropped);
