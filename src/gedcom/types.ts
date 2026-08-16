@@ -272,6 +272,10 @@ export interface GedEvent {
    *  that record's xref — note edits are applied to the record, keeping the
    *  pointer (and the record's sharing) intact. */
   noteXref?: string;
+  /** Every note on the event as an editable reference (verbatim text + shared
+   *  identity + private flag), the way a record carries {@link Individual.noteRefs}.
+   *  `note` above is the first of these, projected for display. */
+  noteRefs?: NoteRef[];
   /** URLs (WWW/URL/_LINK/OBJE.FILE or embedded in text) attached to this event. */
   links?: string[];
   /** The subset of `links` borne by the event's own direct link tags

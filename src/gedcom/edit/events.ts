@@ -1,13 +1,13 @@
 import { INDI_EVENT_TAGS } from "../eventTags";
 import { childrenByTag, cloneNode, firstChild, hasChild, nodeFingerprint, removeChildren } from "../node";
 import { isPointer } from "../uri";
-import type { Family, GedNode, GeoCoord, Individual } from "../types";
+import type { Family, GedNode, GeoCoord, Individual, NoteRef } from "../types";
 import { reconcilePlaceForm, setPlaceCoord } from "./geo";
 import {
   EDITABLE_LINK_TAGS, EVENT_CHILD_ORDER, EVENT_LINK_TAG, FAM_CHILD_ORDER, INDI_CHILD_ORDER,
   insertOrdered, markEventTouched, setOrRemoveValue,
 } from "./shared";
-import { removeNoteRecordIfOrphaned, setSharedNoteText, type SharedNoteCtx } from "./notes";
+import { applyNoteRefs, removeNoteRecordIfOrphaned, setSharedNoteText, type SharedNoteCtx } from "./notes";
 import { attachSourceCitation } from "./sources";
 
 export interface EventFieldUpdate {
@@ -26,6 +26,11 @@ export interface EventFieldUpdate {
   placeForm?: string;
   /** New ADDR value, or `""` to remove the address. Omit to leave unchanged. */
   address?: string;
+  /** Every note on the event, replacing the ones it has — pointer notes keep
+   *  their pointer (their text edit goes into the shared record) and each
+   *  carries its own private flag, exactly as a record's notes do. Takes
+   *  precedence over `note`; needs a `SharedNoteCtx` to work with. */
+  noteRefs?: NoteRef[];
   /** Coordinates for this event's place (standard `PLAC`.`MAP`), or `null` to
    *  remove them. Omit to leave unchanged. Per event, because the same place
    *  value may be coordinated on one event and not another — and, once an
@@ -68,10 +73,17 @@ function setLinks(event: GedNode, links: string[]): void {
   }
 }
 
-/** Apply the note field of an event update. When the event's existing NOTE is
- *  a pointer to a shared record (and a `SharedNoteCtx` is given), the edit is
- *  applied inside that record — the pointer survives, and removing the note
- *  releases the reference (deleting the record only once nothing else uses it). */
+/**
+ * Apply the single-note field of an event update — the one an editor with one
+ * note box sends. It addresses the event's *first* note and leaves any others
+ * where they are: `setOrRemoveValue` keeps one node per tag, so routing a note
+ * through it deleted every sibling note as collateral of editing the first.
+ *
+ * When that first note is a pointer to a shared record (and a `SharedNoteCtx`
+ * is given), the edit is applied inside the record — the pointer survives, and
+ * removing the note releases the reference (deleting the record only once
+ * nothing else uses it).
+ */
 function applyEventNote(eventNode: GedNode, note: string, notes?: SharedNoteCtx): void {
   const noteNode = firstChild(eventNode, "NOTE");
   const ptr = noteNode?.value?.trim();
@@ -85,7 +97,17 @@ function applyEventNote(eventNode: GedNode, note: string, notes?: SharedNoteCtx)
     }
     return;
   }
-  setOrRemoveValue(eventNode, "NOTE", note, EVENT_CHILD_ORDER);
+  const trimmed = note.trim();
+  if (!noteNode) {
+    if (trimmed) insertOrdered(eventNode, { level: eventNode.level + 1, tag: "NOTE", value: trimmed, children: [] }, EVENT_CHILD_ORDER);
+    return;
+  }
+  if (trimmed) {
+    noteNode.value = trimmed;
+    return;
+  }
+  const i = eventNode.children.indexOf(noteNode);
+  if (i !== -1) eventNode.children.splice(i, 1);
 }
 
 /** Apply date/place/address/links to an existing event node; remove the node if it becomes empty. */
@@ -108,7 +130,14 @@ export function applyEventNodeUpdate(record: GedNode, eventNode: GedNode, update
       else setPlaceCoord(plac, update.coord, update.govId);
     }
   }
-  if (update.note !== undefined) applyEventNote(eventNode, update.note, notes);
+  // The whole note list wins over the single-note field when both are sent:
+  // an editor that shows every note speaks in `noteRefs`, and it already knows
+  // what the first one says.
+  if (update.noteRefs !== undefined && notes) {
+    applyNoteRefs(notes, eventNode, update.noteRefs, EVENT_CHILD_ORDER);
+  } else if (update.note !== undefined) {
+    applyEventNote(eventNode, update.note, notes);
+  }
   if (update.agency !== undefined) setOrRemoveValue(eventNode, "AGNC", update.agency, EVENT_CHILD_ORDER);
   if (update.type !== undefined) setOrRemoveValue(eventNode, "TYPE", update.type, EVENT_CHILD_ORDER);
   if (update.cause !== undefined) setOrRemoveValue(eventNode, "CAUS", update.cause, EVENT_CHILD_ORDER);
