@@ -258,6 +258,9 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
       relation: { kind: "relation", rel: "spouse", mode: "has" },
       kinship: { kind: "kinship", rel: "blood" },
       place: { kind: "place", text: "" },
+      note: { kind: "note", text: "" },
+      private: { kind: "private", value: true },
+      privateNote: { kind: "privateNote", mode: "has" },
       media: { kind: "media", mode: "none" },
       sources: { kind: "sources", mode: "none" },
       line: { kind: "line", side: "maternal" },
@@ -546,7 +549,7 @@ function CriterionRow({
           }))}
         />
       )}
-      {(c.kind === "name" || c.kind === "place") && (
+      {(c.kind === "name" || c.kind === "place" || c.kind === "note") && (
         <input
           className="batch-input"
           value={c.text}
@@ -668,6 +671,28 @@ function CriterionRow({
           options={[
             { value: "yes", label: t("tools.batch.living.yes") },
             { value: "no", label: t("tools.batch.living.no") },
+          ]}
+        />
+      )}
+      {c.kind === "private" && (
+        <SelectMenu
+          className="batch-select"
+          value={c.value ? "yes" : "no"}
+          onChange={(v) => onChange({ ...c, value: v === "yes" })}
+          options={[
+            { value: "yes", label: t("tools.batch.private.yes") },
+            { value: "no", label: t("tools.batch.private.no") },
+          ]}
+        />
+      )}
+      {c.kind === "privateNote" && (
+        <SelectMenu
+          className="batch-select"
+          value={c.mode}
+          onChange={(v) => onChange({ ...c, mode: v as "has" | "lacks" })}
+          options={[
+            { value: "has", label: t("tools.batch.privateNote.has") },
+            { value: "lacks", label: t("tools.batch.privateNote.lacks") },
           ]}
         />
       )}

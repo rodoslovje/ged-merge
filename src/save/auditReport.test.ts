@@ -65,6 +65,31 @@ describe("auditAgainstBaseline", () => {
     expect(reportTotals(report).removedRecords).toBe(1);
   });
 
+  it("names a person it discovers itself instead of heading the card with an xref", () => {
+    // A record only the audit knows about has no label anywhere in the report;
+    // the preview then wrote "@43579567@" above a card whose record — with its
+    // NAME on it — was in hand the whole time.
+    const ds = dataset(FILE);
+    const baseline = baselineOf(ds);
+    const report = emptyReport();
+    ds.records.find((r) => r.xref === "@I1@")!.children.push({ level: 1, tag: "SEX", value: "M", children: [] });
+
+    auditAgainstBaseline(outgoing(ds), baseline, report);
+
+    expect(report.recordLabels["@I1@"]).toBe("Janez Novak");
+  });
+
+  it("names a family it discovers itself by both spouses", () => {
+    const ds = dataset(FILE);
+    const baseline = baselineOf(ds);
+    const report = emptyReport();
+    ds.records.find((r) => r.xref === "@F1@")!.children.push({ level: 1, tag: "MARR", children: [] });
+
+    auditAgainstBaseline(outgoing(ds), baseline, report);
+
+    expect(report.recordLabels["@F1@"]).toBe("Janez Novak + Ana Kos");
+  });
+
   it("reports a record that leaves changed with nothing said about it", () => {
     const ds = dataset(FILE);
     const baseline = baselineOf(ds);

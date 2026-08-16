@@ -151,7 +151,11 @@ describe("setEventField", () => {
     expect(setEventField(indi, "BIRT", {})).toBeUndefined();
   });
 
-  it("clears the note even when a leftover duplicate NOTE remains (e.g. from a 'both' merge choice), instead of letting it resurface", () => {
+  it("clears the note it was given and leaves the event's other notes standing", () => {
+    // This used to remove every NOTE on the event, so that clearing the one the
+    // editor showed could not be followed by a second one appearing in its
+    // place. The editor now shows them all, each clearable on its own, so
+    // taking the others with it is plain data loss.
     const ds = buildFromText([
       "0 HEAD",
       "1 GEDC",
@@ -171,8 +175,9 @@ describe("setEventField", () => {
     setEventField(indi, "BIRT", { note: "" });
 
     const updated = rebuildIndividual(ds, indi);
-    expect(updated.events[0].note).toBeUndefined();
-    expect(serializeGedcom(ds.records)).not.toContain("NOTE");
+    expect(updated.events[0].note).toBe("Second note");
+    expect(updated.events[0].noteRefs?.map((r) => r.text)).toEqual(["Second note"]);
+    expect(serializeGedcom(ds.records)).not.toContain("First note");
   });
 
   it("creates a new event with date and place, ordered before FAMC", () => {

@@ -50,6 +50,15 @@ describe("placeCountryFacet", () => {
     expect(placeCountryFacet("Tbilisi, Georgia")).toBe("ge");
   });
 
+  it("does not let an American county named after a country take it", () => {
+    // Lebanon County, Pennsylvania — five of these sat under a Lebanon chip,
+    // with "United States" written at the end of every one of them.
+    expect(placeCountryFacet("Cornwall, Lebanon, Pennsylvania, United States")).toBe("us");
+    expect(
+      placeCountryFacet("Holy Savior Cemetery, Cornwall, Lebanon, Pennsylvania, United States"),
+    ).toBe("us");
+  });
+
   it("counts no country where the value names none", () => {
     expect(placeCountryFacet("Šmartno pri Litiji, sv. Martin")).toBe("");
     expect(placeCountryFacet("Kranjska Gora, Marijino vnebozetje")).toBe("");

@@ -11,6 +11,7 @@ import {
   hasSourcePageMedia,
   prefersDoubledLinks,
 } from "../tools/sourceReshape";
+import { detectNoteShapesIfAny } from "../tools/noteReshape";
 import { detectLinkLangs } from "./links";
 import {
   collectLayoutValues,
@@ -39,6 +40,7 @@ export function detectFormatDefaults(dataset: Dataset): DetectedFormats {
   const placeLayout = detectPlaceLayout(placeValues, addrCount);
   const nameLayout = inferNameLayout(dataset);
   const sourceLayout = inferSourceFormat(dataset.records).layout;
+  const noteShapes = detectNoteShapesIfAny(dataset.records);
   const out: DetectedFormats = {
     date: dateLayoutFromValues(dateValues),
     datePlaceholder: dateValues.length ? (detectDatePlaceholder(dateValues) ?? "none") : undefined,
@@ -55,6 +57,8 @@ export function detectFormatDefaults(dataset: Dataset): DetectedFormats {
     matriculaLang: linkLangs.matricula,
     geneanetLang: linkLangs.geneanet,
     privacy: detectPrivacyStyleIfAny(dataset.records),
+    notes: noteShapes.record,
+    eventNotes: noteShapes.event,
   };
   for (const k of Object.keys(out) as (keyof FormatOverrides)[]) if (out[k] === undefined) delete out[k];
   return out;

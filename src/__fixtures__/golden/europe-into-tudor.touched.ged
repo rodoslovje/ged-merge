@@ -553,6 +553,60 @@
 1 FAMS @F36@
 1 FAMS @F78@
 1 FAMC @F87@
+0 @I24@ INDI
+1 NAME Thomas /Howard/
+2 GIVN Thomas
+2 SURN Howard
+2 NSFX Duke of Norfolk
+2 SOUR @S2@
+3 PAGE Volume 9, page 614
+3 QUAY 0
+1 SEX M
+1 BIRT
+2 DATE 1473
+2 SOUR @S2@
+3 PAGE Volume 9, page 615
+3 QUAY 0
+1 DEAT
+2 DATE 25 Aug 1554
+2 PLAC Kenninghall, Norfolk
+2 SOUR @S2@
+3 PAGE Volume 9, page 619
+3 QUAY 0
+1 BURI
+2 DATE 2 Oct 1554
+2 PLAC Framlingham
+2 SOUR @S2@
+3 PAGE Volume 9, page 619
+3 QUAY 0
+1 FAMS @F234@
+1 _PPEXCLUDE
+1 EVEN
+2 TYPE Lord Howard
+2 DATE From 1483 to 1514
+2 SOUR @S2@
+3 PAGE Volume 9, page 615
+3 QUAY 0
+1 EVEN
+2 TYPE Earl of Surrey
+2 DATE From 1 Feb 1514
+2 NOTE Created for his life
+2 SOUR @S2@
+3 PAGE Volume 9, page 616
+3 QUAY 0
+1 EVEN
+2 TYPE Earl Marshal of England
+2 DATE From 28 May 1533
+2 SOUR @S2@
+3 PAGE Volume 9, page 617
+3 QUAY 0
+1 _UID 6000C4FC09D7D711BA22444553540000F423
+1 CHAN
+2 DATE 15 JAN 2026
+3 TIME 12:00:00
+1 FAMS @F18@
+1 FAMS @F106@
+1 FAMC @F10@
 0 @I28@ INDI
 1 NAME Arthur /Tudor/
 2 GIVN Arthur
@@ -853,6 +907,22 @@
 1 FAMS @F141@
 1 FAMS @F142@
 1 FAMC @F143@
+0 @I80@ INDI
+1 NAME John /Stewart/
+2 GIVN John
+2 SURN Stewart
+2 NSFX 2nd Earl of Atholl
+2 SOUR @S2@
+3 PAGE Volume 8, page 683
+3 QUAY 0
+1 SEX M
+1 FAMS @F201@
+1 _PPEXCLUDE
+1 _UID 99E9F64C29D7D711BA22AAFF03D37436B107
+1 CHAN
+2 DATE 15 JAN 2026
+3 TIME 12:00:00
+1 FAMS @F163@
 0 @I151@ INDI
 1 NAME Henry /Grey/
 2 GIVN Henry
@@ -962,6 +1032,24 @@
 1 FAMS @F69@
 1 FAMS @F70@
 1 FAMC @F39@
+0 @I195@ INDI
+1 NAME Edmund /Howard/
+2 GIVN Edmund
+2 SURN Howard
+1 SEX M
+1 DEAT
+2 DATE 1538
+2 SOUR @S2@
+3 PAGE Volume 9, Howard pedigree near page 620
+3 QUAY 0
+1 FAMS @F259@
+1 _PPEXCLUDE
+1 _UID 9CEDCE57CFD7D711BA22ACE9C2156A3624E6
+1 CHAN
+2 DATE 15 JAN 2026
+3 TIME 12:00:00
+1 FAMS @F74@
+1 FAMC @F10@
 0 @I221@ INDI
 1 NAME Margaret /Douglas/
 2 GIVN Margaret
@@ -1138,6 +1226,23 @@
 3 TIME 12:00:00
 1 FAMS @F116@
 1 FAMC @F94@
+0 @I261@ INDI
+1 NAME William /Carey/
+2 GIVN William
+2 SURN Carey
+1 SEX M
+1 DEAT
+2 DATE 22 Jun 1528
+2 SOUR @S4@
+3 PAGE 346
+3 QUAY 0
+1 FAMS @F250@
+1 _PPEXCLUDE
+1 _UID 449304CACCDAD711BA22B8E68CB2433563D1
+1 CHAN
+2 DATE 15 JAN 2026
+3 TIME 12:00:00
+1 FAMS @F117@
 0 @I265@ INDI
 1 NAME Elizabeth /Tudor/
 2 GIVN Elizabeth
@@ -1217,6 +1322,18 @@
 3 TIME 12:00:00
 1 FAMS @F121@
 1 FAMC @F31@
+0 @I268@ INDI
+1 NAME Anne /Morgan/
+2 GIVN Anne
+2 SURN Morgan
+1 SEX F
+1 FAMS @F251@
+1 _PPEXCLUDE
+1 _UID 589304CACCDAD711BA22B8E68CB243357711
+1 CHAN
+2 DATE 15 JAN 2026
+3 TIME 12:00:00
+1 FAMS @F119@
 0 @I272@ INDI
 1 NAME John /Beaufort/
 2 GIVN John
@@ -1316,6 +1433,54 @@
 3 TIME 12:00:00
 1 FAMS @F176@
 1 FAMC @F177@
+0 @I273@ INDI
+1 NAME Margaret /de Holland,/
+2 GIVN Margaret
+2 SURN de Holland,
+2 NSFX Countess of Somerset and Clarence
+1 SEX F
+1 BIRT
+2 DATE 30 Dec 1385
+2 PLAC Upholland Castle, Lancashire, England
+1 CHR
+2 DATE Aft 1385
+2 PLAC Canterbury, Kent, England
+1 DEAT
+2 DATE 30 Dec 1439
+2 PLAC Bermondsey, Surrey, England
+1 BURI
+2 DATE 8 Jan 1440
+2 PLAC Canterbury, Kent, England
+1 FAMS @F202@
+1 _PPEXCLUDE
+1 EVEN
+2 TYPE LifeSketch
+2 DATE <unknown>
+2 NOTE Margaret de Holland, Countess of Somerset (1385-31 December 1439) was the daughter of Thomas Holland, 2nd Earl of Kent, who was the son of Joan "the Fair Maid of Kent" (granddaughter of Edward I of England, wife of Edward the Black Prince and mother of Ri
+1 EVEN
+2 TYPE Royal House
+2 DATE <unknown>
+2 NOTE Holland
+1 EVEN
+2 TYPE TitleOfNobility
+2 DATE <unknown>
+2 NOTE Duchess of Clarence
+1 EVEN
+2 TYPE TitleOfNobility
+2 DATE <unknown>
+2 NOTE Countess of Somerset
+1 EVEN
+2 TYPE TitleOfNobility
+2 DATE <unknown>
+2 NOTE Marchioness of Dorset and Holand
+1 EVEN LD79-5VT
+2 TYPE FamilySearch ID
+2 NOTE https://www.familysearch.org/tree/person/details/LD79-5VT
+1 CHAN
+2 DATE 15 JAN 2026
+3 TIME 12:00:00
+1 FAMS @F176@
+1 FAMC @F194@
 0 @I276@ INDI
 1 NAME Henry /Beaufort/
 2 GIVN Henry
@@ -1360,6 +1525,23 @@
 2 DATE 15 JAN 2026
 3 TIME 12:00:00
 1 FAMC @F176@
+0 @I317@ INDI
+1 NAME Maredudd ap /Tudor/
+2 GIVN Maredudd ap
+2 SURN Tudor
+1 SEX M
+1 BIRT
+2 DATE 1370
+2 PLAC Wales
+1 DEAT
+2 DATE 4 Feb 1406
+2 PLAC Hertfordshire, England
+1 FAMC @F203@
+1 _PPEXCLUDE
+1 CHAN
+2 DATE 15 JAN 2026
+3 TIME 12:00:00
+1 FAMS @F186@
 0 @I55@ INDI
 1 NAME Elizabeth  /Tudor/
 1 SEX F

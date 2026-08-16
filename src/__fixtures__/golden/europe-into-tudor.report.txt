@@ -1,9 +1,9 @@
 changeReport.title
 ==================
 
-changeReport.stat.records:        195
-changeReport.stat.fields:         154
-changeReport.stat.newFields:      153
+changeReport.stat.records:        202
+changeReport.stat.fields:         162
+changeReport.stat.newFields:      161
 changeReport.stat.added:          151
 changeReport.stat.removed:          0
 changeReport.stat.undescribed:      0
@@ -120,6 +120,7 @@ Matthew Stuart  @I222@
   event.colDate: changeReport.verb.added "1516"
   event.TITL: changeReport.verb.added "Earl Lennox 4th"
   event.colDate: changeReport.verb.added "1571"
+  field.childOf: changeReport.verb.added "John Stewart + ..."
 
 Henry Stuart  @I223@
 --------------------
@@ -207,6 +208,34 @@ Henry Tudor + Anne Boleyn  @F32@
 Edmund Howard + Joyce Culpeper  @F74@
 -------------------------------------
   merge.field.wife: changeReport.verb.added "Joyce Culpeper"
+
+John Stewart  @I80@
+-------------------
+  field.spouseOf: changeReport.verb.added "John Stewart + ..."
+
+Margaret de Holland,  @I273@
+----------------------------
+  field.spouseOf: changeReport.verb.added "Thomas + Margaret de Holland,"
+
+Maredudd ap Tudor  @I317@
+-------------------------
+  field.childOf: changeReport.verb.added "Tudor Fychan of_Pemmynydd + Margaret"
+
+Thomas Howard  @I24@
+--------------------
+  field.spouseOf: changeReport.verb.added "Thomas Howard + Anne of_York"
+
+William Carey  @I261@
+---------------------
+  field.spouseOf: changeReport.verb.added "William Carey + Mary Boleyn"
+
+Anne Morgan  @I268@
+-------------------
+  field.spouseOf: changeReport.verb.added "Henry Carey + Anne Morgan"
+
+Edmund Howard  @I195@
+---------------------
+  field.spouseOf: changeReport.verb.added "Edmund Howard + Dorothy Troyes"
 
 changeReport.added
 ------------------

@@ -70,6 +70,9 @@ export interface MergeContext {
   label: (id: string) => string;
   report: ChangeReport;
   touched: Set<string>;
+  /** Family pointers written back onto individuals, reported once the merge is
+   *  done — see {@link reportFamilyLinks}. */
+  familyLinks: { indiId: string; tag: "FAMS" | "FAMC"; famId: string }[];
   /** Incoming family ids already stitched in by applyIndividualFamilies, so a
    *  family shared by two confirmed spouses isn't merged in twice. */
   processedFamIds: Set<string>;
@@ -274,6 +277,7 @@ export function makeContext(
     },
     report,
     touched,
+    familyLinks: [],
     processedFamIds: new Set<string>(),
     t,
     sourXrefMap,
@@ -761,8 +765,7 @@ function ensureChildFamily(
   }
   const fam = ctx.createFamily();
   addPointer(fam.node, "CHIL", mainId, FAM_CHILD_ORDER);
-  const indi = ctx.indiNode(mainId);
-  if (indi) addPointer(indi, "FAMC", fam.id, INDI_CHILD_ORDER);
+  linkBack(ctx, mainId, "FAMC", fam.id);
   return fam;
 }
 
@@ -809,10 +812,66 @@ function incomingParentId(
   return role === "HUSB" ? fam?.husband : fam?.wife;
 }
 
-/** Add a FAMC/FAMS pointer back on the individual record (if not already there). */
-function linkBack(ctx: MergeContext, indiId: string, tag: string, famId: string): void {
+/**
+ * Add a FAMC/FAMS pointer back on the individual record (if not already there),
+ * and remember it for the report.
+ *
+ * The callers report the link on the *family* ("Child: + Ivan Maček"); this is
+ * its other half, and the person's own record changes for it. Left unreported,
+ * the record went out with a line nothing in the preview accounted for, and the
+ * save-time audit — which fingerprints every record — could only say "saved
+ * differently than it was loaded" about it.
+ *
+ * The row is not pushed here: at this point the family may be half-stitched
+ * (`setSpouseSlot` links back before the second spouse exists), so it would be
+ * labelled by whoever happened to be in it already. {@link reportFamilyLinks}
+ * emits them once the merge is finished and every family is whole.
+ */
+function linkBack(ctx: MergeContext, indiId: string, tag: "FAMS" | "FAMC", famId: string): void {
   const node = ctx.indiNode(indiId);
-  if (node) addPointer(node, tag, famId, INDI_CHILD_ORDER);
+  if (node && addPointer(node, tag, famId, INDI_CHILD_ORDER)) {
+    ctx.familyLinks.push({ indiId, tag, famId });
+  }
+}
+
+/**
+ * Report every family pointer {@link linkBack} wrote onto an individual, once
+ * the families are complete. Runs after the graft phase, so a record the merge
+ * itself added is skipped: its card already spells the person out, and "child
+ * of" on a person the file did not have before is not news about a change.
+ */
+export function reportFamilyLinks(ctx: MergeContext): void {
+  const newIds = new Set(ctx.report.changes.filter((c) => c.newRecord).map((c) => c.recordId));
+  for (const { indiId, tag, famId } of ctx.familyLinks) {
+    if (newIds.has(indiId)) continue;
+    // A person nothing else in the report mentions has no label yet, and the
+    // preview would head their card with a bare xref.
+    if (!ctx.report.recordLabels[indiId]) {
+      const name = ctx.label(indiId);
+      if (name) ctx.report.recordLabels[indiId] = name;
+    }
+    ctx.report.changes.push({
+      recordId: indiId,
+      field: ctx.t(tag === "FAMC" ? "field.childOf" : "field.spouseOf"),
+      from: "",
+      to: familyLabel(ctx, famId),
+      action: "incoming",
+      unedited: true,
+    });
+    ctx.touched.add(indiId);
+  }
+}
+
+/** A family as the preview's own cards write one: both spouses, husband first. */
+function familyLabel(ctx: MergeContext, famId: string): string {
+  const node = ctx.famNode(famId);
+  if (!node) return famId;
+  const names = (["HUSB", "WIFE"] as const)
+    .map((role) => firstChild(node, role)?.value)
+    .filter((id): id is string => !!id)
+    .map((id) => ctx.label(id))
+    .filter(Boolean);
+  return names.join(" + ") || famId;
 }
 
 /**

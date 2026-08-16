@@ -27,6 +27,11 @@ export interface SearchRow {
   deathKey: number;
   /** Lower-cased text of every event place/address, for the place facet. */
   placeText: string;
+  /** Lower-cased text of every note the person carries, record-level and on
+   *  their events, for the note filter. Read from the verbatim note text rather
+   *  than the display copy: the display one has its URLs stripped out, which
+   *  would hide exactly the notes that are nothing *but* a URL. */
+  noteText: string;
   hasLinks: boolean;
   hasNotes: boolean;
   hasSources: boolean;
@@ -74,6 +79,19 @@ function anyNotes(indi: Individual): boolean {
 function anySources(indi: Individual): boolean {
   return (indi.sources?.length ?? 0) > 0 || indi.events.some((e) => (e.sources?.length ?? 0) > 0);
 }
+function noteText(indi: Individual): string {
+  const parts: string[] = [];
+  // `noteRefs` carries every record-level note verbatim, including the ones the
+  // display copy hides because only a URL was left after stripping — which is
+  // the case this filter exists for.
+  for (const ref of indi.noteRefs ?? []) parts.push(ref.text);
+  for (const e of indi.events) {
+    const note = e.noteWithLinks ?? e.note;
+    if (note) parts.push(note);
+  }
+  return foldSearch(parts.join(" "));
+}
+
 function placeText(indi: Individual): string {
   const parts: string[] = [];
   for (const e of indi.events) {
@@ -108,6 +126,7 @@ export function buildSearchRows(
       birthKey: birthSortKey(indi),
       deathKey: deathYear(indi) ?? Infinity,
       placeText: placeText(indi),
+      noteText: noteText(indi),
       hasLinks: anyLinks(indi),
       hasNotes: anyNotes(indi),
       hasSources: anySources(indi),

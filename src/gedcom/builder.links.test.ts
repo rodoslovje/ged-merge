@@ -57,6 +57,42 @@ describe("editableLinks vs harvested links", () => {
   });
 });
 
+describe("EXID type URIs", () => {
+  it("does not harvest the vocabulary URI that names the identifier's kind", () => {
+    // A 7.0 file (or one this app upgraded from 5.5.1) writes a RIN as an EXID
+    // whose TYPE is the registered term for it. That URI is the same on every
+    // record carrying a RIN and points at no research — shown as a link it hung
+    // a 🔗 on the person and offered itself as a source to merge.
+    const text = `0 HEAD
+1 GEDC
+2 VERS 7.0
+0 @I1@ INDI
+1 NAME Test /Person/
+1 EXID 1234
+2 TYPE https://gedcom.io/terms/v7/RIN
+1 WWW https://example.org/profile
+0 TRLR
+`;
+    const indi = buildFromText(text).individuals.get("@I1@")!;
+    expect(indi.links).toEqual(["https://example.org/profile"]);
+  });
+
+  it("still harvests a real link standing elsewhere under the same record", () => {
+    const text = `0 HEAD
+1 GEDC
+2 VERS 7.0
+0 @I1@ INDI
+1 NAME Test /Person/
+1 EXID 1234
+2 TYPE https://gedcom.io/terms/v7/RIN
+1 NOTE Scan at https://example.org/scan
+0 TRLR
+`;
+    const indi = buildFromText(text).individuals.get("@I1@")!;
+    expect(indi.links).toEqual(["https://example.org/scan"]);
+  });
+});
+
 describe("collectLinks CONC/CONT handling", () => {
   it("reassembles a WWW value wrapped with CONC", () => {
     const text = `0 HEAD

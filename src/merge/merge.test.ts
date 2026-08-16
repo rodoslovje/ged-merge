@@ -6,7 +6,7 @@ import { decisionKey, type CandidateDecision } from "../review/types";
 import type { GedNode } from "../gedcom/types";
 import { inferMainProfile } from "../normalize/profile";
 import { normalizeDataset } from "../normalize/normalize";
-import { materializeEventSources, mergeDecisions } from "./merge";
+import { formatReport, materializeEventSources, mergeDecisions, type ChangeReport, type FieldChange } from "./merge";
 import { rowCanKeepBoth } from "./applyFields";
 
 function dataset(text: string) {
@@ -2259,6 +2259,88 @@ describe("mergeDecisions — a second union with a different partner", () => {
     // Neja is not touched, and Nejc now belongs to both marriages.
     expect(out).toContain("0 @I2@ INDI\n1 NAME Neja /Bizjak/\n1 SEX F\n1 FAMS @F1@\n");
     expect(out).toMatch(/0 @I1@ INDI[\s\S]*?1 FAMS @F1@\n1 FAMS @F\d+@/);
+  });
+});
+
+describe("formatReport — a privacy flag turned on or off", () => {
+  const row = (over: Partial<FieldChange>): ChangeReport => ({
+    changes: [{ recordId: "@I1@", field: "Notes", from: "", to: "", action: "both", ...over }],
+    deferred: [], graftJoins: [], recordsChanged: 1, newPersons: 0, newFamilies: 0,
+    recordLabels: { "@I1@": "Janez Novak" }, recordKinds: { "@I1@": "individual" },
+    familySpouses: {}, customTags: {},
+  });
+
+  it("says the note was marked private instead of claiming it was added", () => {
+    const text = formatReport(row({
+      from: "a remark", to: "a remark",
+      segments: [{ text: "a remark", state: "same" }],
+      private: true, privacyChanged: true,
+    }), { t: tr });
+    expect(text).toContain('changeReport.verb.madePrivate "a remark"');
+    expect(text).not.toContain("changeReport.verb.added");
+  });
+
+  it("says a note stopped being private", () => {
+    const text = formatReport(row({
+      from: "a remark", to: "a remark",
+      segments: [{ text: "a remark", state: "same" }],
+      privacyChanged: true,
+    }), { t: tr });
+    expect(text).toContain('changeReport.verb.madePublic "a remark"');
+  });
+
+  it("keeps the flag beside a change that also moved the text", () => {
+    const text = formatReport(row({
+      from: "1901", to: "1902",
+      segments: [{ text: "1902", state: "changed", from: "1901" }],
+      private: true, privacyChanged: true,
+    }), { t: tr });
+    expect(text).toContain("changeReport.verb.changed");
+    expect(text).toContain("(changeReport.verb.madePrivate)");
+  });
+});
+
+describe("mergeDecisions — a family pointer written onto a person is reported", () => {
+  // The family card said "Wife: Ana Kos"; Ana's own record silently gained a
+  // FAMS line. The save-time audit fingerprints every record, so she reached
+  // the preview as "saved differently than it was loaded" with no detail.
+  const MAIN_PAIR = wrap(
+    "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n" +
+    "0 @I2@ INDI\n1 NAME Ana /Kos/\n1 SEX F\n1 BIRT\n2 DATE 1855\n",
+  );
+  const COMPARE_PAIR = wrap(
+    "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n1 FAMS @PF1@\n" +
+    "0 @P2@ INDI\n1 NAME Ana /Kos/\n1 SEX F\n1 BIRT\n2 DATE 1855\n1 FAMS @PF1@\n" +
+    "0 @PF1@ FAM\n1 HUSB @P1@\n1 WIFE @P2@\n1 MARR\n2 DATE 1875\n",
+  );
+
+  it("reports the link on the person, not only on the family", () => {
+    const main = dataset(MAIN_PAIR);
+    const compare = dataset(COMPARE_PAIR);
+    const { records, report } = mergeDecisions(
+      main, compare, confirmedAtKey("@I1@", "@P1@"), NO_MATCHES, tr,
+    );
+
+    // The pointer really is written — that is why it has to be reported.
+    expect(serializeGedcom(records)).toMatch(/0 @I1@ INDI[\s\S]*?1 FAMS @F\d+@/);
+
+    const row = report.changes.find((c) => c.recordId === "@I1@" && c.field === "field.spouseOf");
+    expect(row).toBeDefined();
+    expect(row!.to).toContain("Janez Novak");
+    // Named, so the preview heads the card with a person rather than an xref.
+    expect(report.recordLabels["@I1@"]).toBe("Janez Novak");
+  });
+
+  it("labels the link with the whole family, stitched or not", () => {
+    // `setSpouseSlot` links back before the second spouse is in the family, so
+    // a label taken at link time would name only whoever was there first.
+    const main = dataset(MAIN_PAIR);
+    const compare = dataset(COMPARE_PAIR);
+    const { report } = mergeDecisions(
+      main, compare, confirmedAtKey("@I1@", "@P1@"), NO_MATCHES, tr,
+    );
+    const row = report.changes.find((c) => c.recordId === "@I1@" && c.field === "field.spouseOf");
+    expect(row!.to).toMatch(/ \+ /); // both spouses, husband first
   });
 });
 

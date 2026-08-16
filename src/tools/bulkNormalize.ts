@@ -1,5 +1,5 @@
 import type { Dataset } from "../gedcom/types";
-import type { NormalizationReport, NormalizeOptions } from "../normalize/types";
+import type { NormChange, NormalizationReport, NormalizeOptions } from "../normalize/types";
 import { childValue } from "../gedcom/node";
 import { nativeAliasTags } from "../gedcom/vendorTags";
 import { inferMainProfile, collectLayoutValues } from "../normalize/profile";
@@ -7,6 +7,7 @@ import { applyFormatOverrides, type FormatOverrides } from "../normalize/formatO
 import { normalizeDataset } from "../normalize/normalize";
 import { detectSourceCoverage } from "../gedcom/source";
 import { baptismTargetTag, normalizeSourceCoverage } from "./sourceReshape";
+import { detectNoteShapes, reshapeNotes } from "./noteReshape";
 
 /**
  * Enforce the main file's own "house style" across the whole file.
@@ -48,6 +49,28 @@ export function bulkNormalize(
     // Never on one's own file — see `NormalizeOptions.tidyPlaceWhitespace`.
     tidyPlaceWhitespace: false,
   });
+  // Note shape: restate every note as the file writes notes — a shared record
+  // the referrer points at, or inline. The two levels are asked separately:
+  // a file's records and its events can hold opposite habits, and "Auto"
+  // follows each of them rather than forcing one on both.
+  if (options?.noteShape !== false) {
+    const detected = detectNoteShapes(ds.records);
+    const recordTarget = overrides?.notes ?? detected.record;
+    const eventTarget = overrides?.eventNotes ?? detected.event;
+    const passes = [
+      { target: recordTarget, scope: { record: true, event: false } },
+      { target: eventTarget, scope: { record: false, event: true } },
+    ];
+    let changed = 0;
+    const examples: NormChange[] = [];
+    for (const { target, scope } of passes) {
+      const r = reshapeNotes(result.dataset.records, target, scope);
+      changed += r.changed;
+      for (const ex of r.examples) if (examples.length < 12) examples.push(ex);
+    }
+    result.report.notesReshaped = changed;
+    result.report.noteShapeExamples = examples;
+  }
   // Source coverage: restate each source's what-it-covers in the house shape —
   // the Settings choice, or the file's own majority. An outlier brought in by
   // a merge (a DATA > EVEN source in a flat file, or the reverse) comes in

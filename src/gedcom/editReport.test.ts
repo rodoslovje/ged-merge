@@ -221,6 +221,119 @@ describe("enrichEditReport — event tags outside the canonical lists", () => {
   });
 });
 
+describe("enrichEditReport — private markers", () => {
+  // The save preview is the last screen before the file is written, and a note
+  // kept out of publishing read there exactly like one meant for it.
+  it("flags an added inline note that is marked private", () => {
+    const before = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n"));
+    const after = dataset(
+      wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 NOTE https://web.facebook.com/janez\n2 RESN privacy\n"),
+    );
+    const snapshots = new Map([["@I1@", before.individuals.get("@I1@")!.raw]]);
+    const report = enrichEditReport(baseReport("@I1@"), after, snapshots, new Map(), tr);
+
+    const notes = report.changes.filter((c) => c.field === "field.notes");
+    expect(notes).toHaveLength(1);
+    expect(notes[0].private).toBe(true);
+  });
+
+  it("leaves an ordinary note unflagged", () => {
+    const before = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n"));
+    const after = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 NOTE Baptism witness\n"));
+    const snapshots = new Map([["@I1@", before.individuals.get("@I1@")!.raw]]);
+    const report = enrichEditReport(baseReport("@I1@"), after, snapshots, new Map(), tr);
+
+    expect(report.changes.find((c) => c.field === "field.notes")?.private).toBeUndefined();
+  });
+
+  it("follows a pointer note to the shared record holding its flag", () => {
+    // The editor writes a pointer note's flag on the `0 @N1@ NOTE` record, so
+    // reading only the pointer would call every shared private note public.
+    const before = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n"));
+    const after = dataset(
+      wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 NOTE @N1@\n0 @N1@ NOTE a private remark\n1 RESN privacy\n"),
+    );
+    const snapshots = new Map([["@I1@", before.individuals.get("@I1@")!.raw]]);
+    const report = enrichEditReport(baseReport("@I1@"), after, snapshots, new Map(), tr);
+
+    expect(report.changes.find((c) => c.field === "field.notes")?.private).toBe(true);
+  });
+
+  it("shows a note whose text stayed put but whose flag was turned on", () => {
+    // Nothing a value diff can see changed, so this row did not exist at all —
+    // the person's card carried the EDITED badge and not one line under it.
+    const before = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 NOTE https://web.facebook.com/masaakukic\n"));
+    const after = dataset(
+      wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 NOTE https://web.facebook.com/masaakukic\n2 RESN privacy\n"),
+    );
+    const snapshots = new Map([["@I1@", before.individuals.get("@I1@")!.raw]]);
+    const report = enrichEditReport(baseReport("@I1@"), after, snapshots, new Map(), tr);
+
+    const notes = report.changes.filter((c) => c.field === "field.notes");
+    expect(notes).toHaveLength(1);
+    expect(notes[0].private).toBe(true);
+    expect(notes[0].privacyChanged).toBe(true);
+    // The value is context, not something newly added.
+    expect(notes[0].segments).toEqual([{ text: "https://web.facebook.com/masaakukic", state: "same" }]);
+  });
+
+  it("shows a note that stopped being private", () => {
+    // The direction that gives data away: silence here would read as "nothing
+    // about privacy happened".
+    const before = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 NOTE a remark\n2 RESN privacy\n"));
+    const after = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 NOTE a remark\n"));
+    const snapshots = new Map([["@I1@", before.individuals.get("@I1@")!.raw]]);
+    const report = enrichEditReport(baseReport("@I1@"), after, snapshots, new Map(), tr);
+
+    const notes = report.changes.filter((c) => c.field === "field.notes");
+    expect(notes).toHaveLength(1);
+    expect(notes[0].privacyChanged).toBe(true);
+    expect(notes[0].private).toBeUndefined();
+  });
+
+  it("shows a pointer note by its text, not by its xref", () => {
+    // The reader is being asked to approve a note; "@N1@" tells them nothing
+    // about what it says.
+    const before = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n"));
+    const after = dataset(
+      wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 NOTE @N1@\n0 @N1@ NOTE https://web.facebook.com/ales.znidar.9\n"),
+    );
+    const snapshots = new Map([["@I1@", before.individuals.get("@I1@")!.raw]]);
+    const report = enrichEditReport(baseReport("@I1@"), after, snapshots, new Map(), tr);
+
+    const notes = report.changes.filter((c) => c.field === "field.notes");
+    expect(notes).toHaveLength(1);
+    expect(notes[0].to).toBe("https://web.facebook.com/ales.znidar.9");
+  });
+
+  it("flags an event marked private, and reads the flag as the save will write it", () => {
+    const before = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 DATE 1901\n"));
+    const after = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 DATE 1901\n2 PLAC Kranj\n2 RESN privacy\n"));
+    const snapshots = new Map([["@I1@", before.individuals.get("@I1@")!.raw]]);
+    const report = enrichEditReport(baseReport("@I1@"), after, snapshots, new Map(), tr);
+
+    const birt = report.changes.filter((c) => c.group === "event.BIRT");
+    expect(birt).toHaveLength(1);
+    expect(birt[0].private).toBe(true);
+  });
+
+  it("shows an event whose only change is being marked private", () => {
+    // The flag stays out of the summary, so the pair reads as identical text —
+    // without comparing it on its own the save preview had nothing to show for
+    // a record it still reported as changed.
+    const before = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 DATE 1901\n"));
+    const after = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 DATE 1901\n2 RESN privacy\n"));
+    const snapshots = new Map([["@I1@", before.individuals.get("@I1@")!.raw]]);
+    const report = enrichEditReport(baseReport("@I1@"), after, snapshots, new Map(), tr);
+
+    const birt = report.changes.filter((c) => c.group === "event.BIRT");
+    expect(birt).toHaveLength(1);
+    expect(birt[0].private).toBe(true);
+    // The date itself did not change, and still reads as untouched.
+    expect(birt[0].segments).toEqual([{ text: "1901", state: "same" }]);
+  });
+});
+
 // ---------------------------------------------------------------------------
 // buildEditReport — the record-level skeleton the save preview groups by, built
 // before enrichEditReport fills in per-field detail.
@@ -236,6 +349,32 @@ describe("buildEditReport", () => {
   const ds = () => dataset(MAIN);
   const loadedPeople = new Set(["@I1@", "@I2@"]);
   const loadedFams = new Set(["@F1@"]);
+
+  it("describes a shared record edited through a person, and names it by its text", () => {
+    // Ticking a shared note's 🔒 from someone's card changes the *record*, but
+    // dirty tracking hangs that on the owner, so the id never reaches
+    // `changedRecordIds`. The owner's own diff has nothing to say about it —
+    // their pointer is untouched — which left the save audit to catch the
+    // record and report it as changed with no detail at all.
+    const withNote = dataset(
+      wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 NOTE @N1@\n0 @N1@ NOTE a private remark\n1 PRIV\n"),
+    );
+    const snapshot = dataset(
+      wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 NOTE @N1@\n0 @N1@ NOTE a private remark\n"),
+    ).records.find((r) => r.xref === "@N1@")!;
+
+    const report = buildEditReport(
+      new Set(), new Set(), withNote, loadedPeople, loadedFams,
+      new Map(), new Map(),
+      new Set(), // the record is NOT in changedRecordIds — that is the point
+      new Map([["@N1@", { value: snapshot, owner: { kind: "individual" as const, id: "@I1@" } }]]),
+    );
+
+    expect(report.recordKinds["@N1@"]).toBe("record");
+    expect(report.recordLabels["@N1@"]).toBe("a private remark");
+    // Described — so the audit leaves it alone instead of warning about it.
+    expect(report.changes.some((c) => c.recordId === "@N1@")).toBe(true);
+  });
 
   it("emits one placeholder change per changed record, labelled and kinded", () => {
     const report = buildEditReport(new Set(["@I1@"]), new Set(), ds(), loadedPeople, loadedFams);

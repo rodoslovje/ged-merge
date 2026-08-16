@@ -1,7 +1,7 @@
 import { parseDate } from "./date";
 import { parseName } from "./name";
 import { parsePlace, placeNodeCoord } from "./place";
-import { firstChild } from "./node";
+import { childrenByTag, firstChild } from "./node";
 import { buildSourceContext, resolveSourceCitation, type SourceContext } from "./source";
 import { isPointer, looksLikeUrl } from "./uri";
 import { isPrivateNode } from "./private";
@@ -297,6 +297,14 @@ function buildEvent(node: GedNode, media: MediaLinks, sourceCtx: SourceContext, 
     const noteFull = text && tidyNoteText(text);
     if (noteFull && noteFull !== noteStripped) event.noteWithLinks = noteFull;
   }
+  // Every note the event carries, as editable references — `note` above is the
+  // first one only, which is all the display projections ever wanted. GEDCOM
+  // puts no limit on them, and one the editor cannot see is one it can lose.
+  const eventNoteRefs: NoteRef[] = [];
+  for (const child of childrenByTag(node, "NOTE")) {
+    collectNote(child, noteIndex, media, [], links, [], eventNoteRefs);
+  }
+  if (eventNoteRefs.length) event.noteRefs = eventNoteRefs;
   if (links.length) event.links = dedupe(links);
   const editable = collectEditableLinks(node);
   if (editable.length) event.editableLinks = dedupe(editable);
@@ -490,7 +498,16 @@ function collectLinks(node: GedNode, media: MediaLinks, out: string[] = []): str
       if (found) for (const m of found) out.push(stripTrailingPunct(m));
     }
   }
-  for (const child of node.children) collectLinks(child, media, out);
+  for (const child of node.children) {
+    // `EXID > TYPE` is a vocabulary URI, not a link: it is 7.0's way of saying
+    // *what kind* of identifier the EXID is — "https://gedcom.io/terms/v7/RIN"
+    // for what 5.5.1 wrote as a RIN, which this app's own upgrade writes (see
+    // EXID_TYPE_URI in normalize/migrate). The same string stands on every
+    // record carrying that kind of id and points at no research anyone did, so
+    // harvesting it hung a 🔗 on the person and offered it as a source to merge.
+    if (node.tag === "EXID" && child.tag === "TYPE") continue;
+    collectLinks(child, media, out);
+  }
   return out;
 }
 

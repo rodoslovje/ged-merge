@@ -9,6 +9,7 @@ import type { EventFieldUpdate } from "../../gedcom/edit";
 import { SourceRefs } from "../SourceRef";
 import { siteIconForUrl } from "../../tools/sourceReshape";
 import { ClearableInput, ClearableTextarea } from "./ClearableInput";
+import { NotesEditor } from "./NotesEditor";
 import { PlaceAutocomplete } from "./PlaceAutocomplete";
 import { usePlaceLookup } from "./PlaceLookupContext";
 import type { PlaceProposal } from "../../geo/placeProposal";
@@ -281,6 +282,10 @@ export function EventFieldsRow({
     [placeCombos, placeField.value],
   );
   const noteField = useField(ev?.note ?? "", noteMergeVal);
+  // NotesEditor seeds its own state from these once; remount it when the event's
+  // notes change underneath (a commit rebuilds the record, undo/redo replaces
+  // it) so it shows what the record now holds rather than what it was handed.
+  const noteEditorKey = (ev?.noteRefs ?? []).map((r) => `${r.xref ?? ""}:${r.text}:${r.private ? 1 : 0}`).join("|");
   const agencyField = useField(ev?.agency ?? "", agencyMergeVal);
   const typeField = useField(ev?.type ?? "", typeMergeVal);
   const causeField = useField(ev?.cause ?? "", causeMergeVal);
@@ -300,6 +305,8 @@ export function EventFieldsRow({
   // Secondary fields the user chose to add via the "+ Detail" menu on a sparse
   // event (they start empty). `focusKey` moves focus to the one just added.
   const [revealed, setRevealed] = useState<Set<string>>(new Set());
+  // Bumped by "+ Detail › Note" to open one more empty chip in the note list.
+  const [noteAddTrigger, setNoteAddTrigger] = useState(0);
   const [focusKey, setFocusKey] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   // EVEN remaps the Agency slot to its line value; every other event keeps the
@@ -427,7 +434,10 @@ export function EventFieldsRow({
       return;
     }
     setRevealed((prev) => new Set(prev).add(key));
-    setFocusKey(key);
+    // "Add note" on an event that already has one means *another* note, so the
+    // list opens a fresh chip rather than putting the cursor in the first.
+    if (key === "note") setNoteAddTrigger((n) => n + 1);
+    else setFocusKey(key);
   }
 
   // Move focus into a field the moment it's added from the "+ Detail" menu, so
@@ -523,7 +533,11 @@ export function EventFieldsRow({
     // so an override carrying one is a change by definition. Without this, picking
     // a coordinate while every text field stays as it was reads as "unchanged" and
     // is silently dropped.
-    const nonTextChange = override.coord !== undefined || override.links !== undefined || override.addSource !== undefined;
+    const nonTextChange = override.coord !== undefined || override.links !== undefined || override.addSource !== undefined
+      // The note list is its own control with its own state, so like a picked
+      // coordinate it has no `initial` here to be compared against: the list
+      // only ever commits because something in it moved.
+      || override.noteRefs !== undefined;
     const unchanged =
       !nonTextChange &&
       (merged.date ?? "") === dateField.initial &&
@@ -857,17 +871,36 @@ export function EventFieldsRow({
         </span>
         <span data-detail="note" className={"edit-event-extra edit-event-extra--note" + optCls(show.note)}>
           <span className="edit-event-extra-label">{t("event.colNote")}</span>
-          <ClearableTextarea
-            wrapClassName="edit-event-extra-field"
-            wrapStyle={noteW(noteField.value)}
-            className={fieldCls("edit-input edit-event-note", noteField.isMerge, noteField.isDirty || noteForced)}
-            value={noteField.value}
-            title={t("event.note", { event: label })}
-            rows={1}
-            onChange={noteField.onChange}
-            onBlur={() => commitAll({})}
-            onClear={() => { noteField.clear(); commitAll({ note: "" }); }}
-          />
+          {/* An event may carry any number of notes, and one the editor cannot
+              see is one it can lose. They read as chips, each with its own 🔒,
+              exactly like a person's own notes.
+
+              The single field stays for the one case the list cannot serve: a
+              merge proposing a note. That value is a suggestion attached to
+              this field — accepted by committing, discarded by clearing — and
+              the list has no such state. Once the merge is resolved the row is
+              rebuilt from the record and the list takes over again. */}
+          {noteField.isMerge ? (
+            <ClearableTextarea
+              wrapClassName="edit-event-extra-field"
+              wrapStyle={noteW(noteField.value)}
+              className={fieldCls("edit-input edit-event-note", noteField.isMerge, noteField.isDirty || noteForced)}
+              value={noteField.value}
+              title={t("event.note", { event: label })}
+              rows={1}
+              onChange={noteField.onChange}
+              onBlur={() => commitAll({})}
+              onClear={() => { noteField.clear(); commitAll({ note: "" }); }}
+            />
+          ) : (
+            <NotesEditor
+              key={noteEditorKey}
+              notes={ev?.noteRefs ?? []}
+              addTrigger={noteAddTrigger}
+              t={t}
+              onCommit={(refs) => commitAll({ noteRefs: refs })}
+            />
+          )}
         </span>
         {/* Add a source / place / note / other detail without keeping every empty
          * field on screen — the menu offers only the ones not already shown. */}

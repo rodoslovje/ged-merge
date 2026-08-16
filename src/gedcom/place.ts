@@ -458,8 +458,12 @@ export function decomposePlace(raw: string): PlaceComponents {
   // it would not be known yet when the number is judged. A bracketed country
   // (step 2) has already answered.
   let named = out.country;
+  let countryIndex = -1;
   for (let i = segments.length - 1; i >= 0 && !named; i--) {
-    if (isCountryName(segments[i])) named = segments[i];
+    if (isCountryName(segments[i])) {
+      named = segments[i];
+      countryIndex = i;
+    }
   }
   const housesAreNumbered = numbersItsHouses(named);
   segments.forEach((seg, i) => {
@@ -520,7 +524,12 @@ export function decomposePlace(raw: string): PlaceComponents {
       out.street ??= seg;
     } else {
       // A further jurisdiction level (municipality, region, country).
-      if (!out.country && isCountryName(seg)) out.country = seg;
+      // The country is the *last* segment naming one, not the first: American
+      // counties and towns carry country names ("Cornwall, Lebanon,
+      // Pennsylvania, United States" is Lebanon County, PA), and taking the
+      // first filed those places under Lebanon — chips, register lookups and
+      // the naming check all follow this answer.
+      if (!out.country && i === countryIndex) out.country = seg;
       out.jurisdiction.push(seg);
     }
   });

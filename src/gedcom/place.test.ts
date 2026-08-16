@@ -312,6 +312,28 @@ describe("a place value that is nothing but a country", () => {
   });
 });
 
+describe("a middle level that carries a country's name", () => {
+  it("leaves the country to the last segment naming one", () => {
+    // American counties and towns are named after half the world. Taking the
+    // first country-looking segment filed Lebanon County, Pennsylvania under
+    // Lebanon — and with it the country chips, the register lookups and the
+    // naming check, which all read this answer.
+    for (const value of [
+      "Cornwall, Lebanon, Pennsylvania, United States",
+      "Holy Savior Cemetery, Cornwall, Lebanon, Pennsylvania, United States",
+      "Indiantown Gap National Cemetery, Annville, Lebanon, Pennsylvania, United States",
+    ]) {
+      expect(decomposePlace(value).country, value).toBe("United States");
+    }
+  });
+
+  it("keeps naming the only country the value has", () => {
+    // Nothing behind it to defer to: the middle segment is the country.
+    const d = decomposePlace("Sankt Anton, Austria");
+    expect(d.country).toBe("Austria");
+  });
+});
+
 describe("isCountryName", () => {
   it("knows a country by its English or local name, whatever the case", () => {
     expect(isCountryName("Italy")).toBe(true);

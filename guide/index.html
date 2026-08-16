@@ -619,7 +619,14 @@
               <strong>photos</strong>. <strong>+ Add Note</strong> and <strong>+ Add Source</strong> reveal their inputs
               (the Add Source dialog is covered in <a href="#sources">§13</a>); once a link is present the
               <span class="gm-glyph">↗</span> glyph opens it in a new tab. Adding and captioning photos is covered in
-              <a href="#photos">§12</a>.
+              <a href="#photos">§12</a>. A new note is written the way your file already writes notes — as a shared
+              <code>NOTE</code> record your people point at, or inline on the record — so it does not stand out among
+              the notes you already have.
+            </p>
+            <p>
+              A person, a family and <em>each of their events</em> can carry any number of notes: every one is a chip of
+              its own with its own <span class="gm-glyph">🔒</span>, and <strong>+ Add › Note</strong> on an event
+              adds another beside the ones it has. Editing or clearing one leaves the rest alone.
             </p>
             <p>
               A person synced with FamilySearch can carry their <strong>FamilySearch ID</strong>
@@ -933,7 +940,10 @@
               person has or does not have (birth, death, occupation, … — or any non-standard event), an event the
               person's unions carry or lack (marriage, divorce, a partnership status … — or any event at all, so
               <em>Union does not have any event</em> next to <em>Relatives has a partner</em> finds the couples the
-              file says nothing about), place, media
+              file says nothing about), place, note text (matched against the note as written, so a note that is
+              nothing but a link is found by any part of it — <em>Note contains facebook.com</em>), whether the
+              person's record is flagged private, whether any note they carry is (two different questions — see
+              <a href="#privacy">§18</a>), media
               (none, any, or one specific image), sources, relatives in the file (a partner, children or parents —
               present or missing), kinship to the start person (direct ancestor, descendant,
               blood relative or neither), and maternal or paternal line relative
@@ -967,6 +977,15 @@
               in the file's own shape (or the one chosen in <a href="#workspace">Settings › GEDCOM</a> — program fields
               or the standard's <em>DATA</em> structure). A preview lists examples of each change before you download
               the normalized copy.
+            </p>
+            <p>
+              One pass is left unticked until you ask for it: <strong>note shape</strong> rewrites every note as your
+              file writes notes — as its own <code>NOTE</code> record the person points at, or as text on the record —
+              with record notes and event notes chosen apart in <a href="#workspace">Settings › GEDCOM</a>, since a
+              file often writes the two levels differently. Turning shared records into inline text is the one
+              direction that gives something up: the record's own change dates go with it, and a note two people share
+              becomes a copy on each of them. Notes on sources and media are converted along with the rest; a note
+              record's privacy flag moves with its text either way.
             </p>
             <h3 id="tool-privacy">Privacy</h3>
             <p>
@@ -2301,7 +2320,9 @@
               a compare file's flags are converted to that dialect on load, like dates and places). Private entries are
               honored throughout: a private note's URL never surfaces as a link chip, and <a href="#sources">Organize
               sources</a> and Add Source never turn a private person's, note's or media item's URL into a citation. In the
-              merge comparison a <em>Private</em> row shows the flag, and it is carried into the merged record.
+              merge comparison a <em>Private</em> row shows the flag, and it is carried into the merged record. The save
+              preview repeats the <span class="gm-glyph">🔒</span> on every private record, event and note it lists, so
+              you can see what stays unpublished in the last screen before the file is written.
             </p>
             <h3>Sharing without living people</h3>
             <p>

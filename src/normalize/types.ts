@@ -253,6 +253,9 @@ export interface NormalizeOptions {
   /** Restate each source's coverage in the house shape — flat vendor
    *  `PLAC`/`DATE` vs the spec's `DATA > EVEN` (bulk-normalize only). */
   sourceCoverage?: boolean;
+  /** Restate every note in the house shape — a shared `NOTE` record the
+   *  referrer points at, or inline text (bulk-normalize only). */
+  noteShape?: boolean;
   /**
    * Collapse runs of spaces and trim the ends of every `PLAC`/`ADDR` value.
    * On by default: an incoming compare file is being reshaped to the house
@@ -314,6 +317,10 @@ export interface NormalizationReport {
   coverageReshaped?: number;
   /** A handful of illustrative coverage changes for display. */
   coverageExamples?: NormChange[];
+  /** Notes moved between shared records and inline text (bulk-normalize only). */
+  notesReshaped?: number;
+  /** A handful of illustrative note-shape changes for display. */
+  noteShapeExamples?: NormChange[];
   /** Incoming records merged away as same-person duplicates (detected because
    *  they matched the same main). Set by the worker after matching, so it's
    *  absent until then. */
