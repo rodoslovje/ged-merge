@@ -109,6 +109,7 @@ describe("batch criteria", () => {
 0 @I4@ INDI
 1 NAME Davorin /Praprotnik/
 1 SEX M
+1 PRIV
 1 BIRT
 2 DATE 2 FEB 2000
 2 NOTE Baptised in Šenčur
@@ -169,6 +170,15 @@ describe("batch criteria", () => {
     // An event's note counts too, and the match is accent-blind like the rest.
     expect(match([{ kind: "note", text: "sencur" }])).toEqual(["@I4@"]);
     expect(match([{ kind: "note", text: "nobody wrote this" }])).toEqual([]);
+  });
+
+  it("tells a private person from a person carrying a private note", () => {
+    // Two different questions: Cilka's *note* is private, her record is not.
+    expect(match([{ kind: "privateNote", mode: "has" }])).toEqual(["@I3@"]);
+    expect(match([{ kind: "privateNote", mode: "lacks" }])).toEqual(["@I1@", "@I2@", "@I4@"]);
+    // …and Davorin is the other way round: a private record, no private note.
+    expect(match([{ kind: "private", value: true }])).toEqual(["@I4@"]);
+    expect(match([{ kind: "private", value: false }])).toEqual(["@I1@", "@I2@", "@I3@"]);
   });
 
   it("filters by media presence and one specific image", () => {

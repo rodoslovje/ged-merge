@@ -12,6 +12,7 @@ import { collectMediaRefs, detectMediaMode } from "../gedcom/media";
 import { clearObjeNodeCache, isPointer } from "../gedcom/source";
 import { bumpSourceCacheVersion } from "../gedcom/edit/cache";
 import { firstChild } from "../gedcom/node";
+import { isPrivateNode } from "../gedcom/private";
 import {
   attachInlineMedia,
   attachMediaPointer,
@@ -79,6 +80,12 @@ export type BatchCriterion =
    *  Matched against the verbatim note text, so a note that is nothing but a
    *  URL ("https://web.facebook.com/…") is findable by any part of it. */
   | { kind: "note"; text: string }
+  /** The person's own record flagged private, or not. */
+  | { kind: "private"; value: boolean }
+  /** Whether any note the person carries is flagged private — which is a
+   *  different question from the person being private, and the one that finds
+   *  the records whose links stay out of publishing. */
+  | { kind: "privateNote"; mode: "has" | "lacks" }
   /** `none`/`any` look at the person's whole media tray; `has`/`lacks` test one
    *  specific image, identified by shared-record xref and/or `FILE` value. */
   | { kind: "media"; mode: "none" | "any" | "has" | "lacks"; xref?: string; file?: string }
@@ -92,8 +99,8 @@ export const ANY_EVENT = "*";
 
 /** Every criterion kind, for the panel's "add filter" picker. */
 export const BATCH_CRITERION_KINDS: BatchCriterion["kind"][] = [
-  "name", "nameField", "sex", "birthYear", "age", "living", "event", "familyEvent", "place", "note", "media", "sources",
-  "relation", "kinship", "line",
+  "name", "nameField", "sex", "birthYear", "age", "living", "event", "familyEvent", "place", "note", "private",
+  "privateNote", "media", "sources", "relation", "kinship", "line",
 ];
 
 /**
@@ -123,6 +130,11 @@ export interface BatchRow extends SearchRow {
   hasSpouse: boolean;
   hasChildren: boolean;
   hasParents: boolean;
+  /** The person's own record is flagged private (`PRIV` / `_PRIV` / `RESN`). */
+  private: boolean;
+  /** At least one note the person carries is flagged private — their own or one
+   *  on an event, inline or in the shared record a pointer note names. */
+  hasPrivateNote: boolean;
   /** Shared media record xrefs this person's tray references (record + events). */
   mediaXrefs: string[];
   /** Lower-cased `FILE` values of the tray's media (inline and resolved shared). */
@@ -154,6 +166,23 @@ export function buildBatchRows(
   nameOf: (indi: Individual) => string,
   now: Date = new Date(),
 ): BatchRow[] {
+  // Which shared NOTE records are private, so a pointer note can be judged
+  // without re-scanning the records for every person that names one.
+  const privateNoteXrefs = new Set(
+    dataset.records.filter((r) => r.tag === "NOTE" && r.xref && isPrivateNode(r)).map((r) => r.xref!),
+  );
+  const hasPrivateNote = (raw: GedNode): boolean => {
+    for (const child of raw.children) {
+      if (child.tag === "NOTE") {
+        const v = child.value?.trim();
+        if (v && isPointer(v) ? privateNoteXrefs.has(v) : isPrivateNode(child)) return true;
+      }
+      // Events carry notes of their own, and a note under one is as private as
+      // a note on the record.
+      if (hasPrivateNote(child)) return true;
+    }
+    return false;
+  };
   return buildSearchRows(dataset.individuals, nameOf).map((row) => {
     const indi = dataset.individuals.get(row.id)!;
     const refs = collectMediaRefs(indi.raw, dataset.records);
@@ -179,6 +208,8 @@ export function buildBatchRows(
         const f = dataset.families.get(id);
         return !!(f?.husband || f?.wife);
       }),
+      private: !!indi.private,
+      hasPrivateNote: hasPrivateNote(indi.raw),
       mediaXrefs: refs.filter((r) => r.xref).map((r) => r.xref!),
       mediaFiles: refs.map((r) => r.file.toLowerCase()),
       mediaCount: refs.length,
@@ -325,6 +356,12 @@ export function matchesBatch(row: BatchRow, criteria: BatchCriterion[], ctx: Bat
         break;
       case "note":
         if (!row.noteText.includes(foldSearch(c.text))) return false;
+        break;
+      case "private":
+        if (row.private !== c.value) return false;
+        break;
+      case "privateNote":
+        if (c.mode === "has" ? !row.hasPrivateNote : row.hasPrivateNote) return false;
         break;
       case "media":
         if (c.mode === "none" && row.mediaCount > 0) return false;
