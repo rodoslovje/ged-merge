@@ -106,6 +106,27 @@ describe("createStandaloneSource repository choice", () => {
     expect(extraPatches.some((p) => p.id === repo.xref && p.before === null)).toBe(true);
   });
 
+  it("an edited proposal name still creates the *site's* repository, WWW and all", () => {
+    const ds = buildFromText(WITH_REPO);
+    const { sourceXref } = createStandaloneSource(
+      ds.records,
+      {
+        title: "Chicago, Cook, Illinois, United States records",
+        url: "https://www.familysearch.org/ark:/61903/3:1:3QHJ-5QHW-FSYM-6",
+        site: "familysearch",
+        repoCreateSite: true,
+        repoCreateName: "FamilySearch - Chicago (Cook) records",
+        collection: "Chicago, Cook, Illinois, United States records",
+      },
+      { sourceLayout: "auto" },
+    );
+    const source = ds.records.find((r) => r.xref === sourceXref)!;
+    const repo = ds.records.find((r) => r.tag === "REPO" && childText(r, "NAME") === "FamilySearch - Chicago (Cook) records")!;
+    expect(firstChild(source, "REPO")?.value).toBe(repo.xref);
+    // The dialog's name, the site's WWW — not a bare hand-named record.
+    expect(childText(repo, "WWW")).toBe("https://www.familysearch.org/");
+  });
+
   it("creates a hand-named repository and links the new source to it", () => {
     const ds = buildFromText(WITH_REPO);
     const { sourceXref, extraPatches } = createStandaloneSource(

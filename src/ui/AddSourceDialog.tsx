@@ -229,8 +229,11 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
       url: normalizedUrl ?? "",
       note: match || recognized?.cited ? "" : parsed.note ?? "",
     });
-    setRepoSel(match ? "" : repoDefault?.xref ?? (repoDefault?.createName && layoutPrefersRepos ? "@create@" : ""));
-    setRepoName("");
+    const preselectCreate = !match && !repoDefault?.xref && Boolean(repoDefault?.createName) && layoutPrefersRepos;
+    setRepoSel(match ? "" : repoDefault?.xref ?? (preselectCreate ? "@create@" : ""));
+    // The proposed record's name sits in the editable name field, so the
+    // user can adjust it before anything is created.
+    setRepoName(preselectCreate ? repoDefault!.createName! : "");
     setRepoCaln("");
     setRegister(undefined);
     repoTouched.current = false;
@@ -392,7 +395,9 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
       collectionId: fetched?.collectionId,
       repoXref: repoSel === "@create@" || repoSel === "@new@" ? undefined : repoSel,
       repoCreateSite: repoSel === "@create@" || undefined,
-      repoCreateName: repoSel === "@new@" ? repoName.trim() || undefined : undefined,
+      // For the site proposal this is the (possibly edited) name of the record
+      // to create — the site/collection WWW still goes under it.
+      repoCreateName: repoSel === "@new@" || repoSel === "@create@" ? repoName.trim() || undefined : undefined,
       repoCaln: repoCaln.trim() || undefined,
     });
     reset();
@@ -527,6 +532,10 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
                   onChange={(v) => {
                     repoTouched.current = true;
                     setRepoSel(v);
+                    // Picking the site proposal seeds its name for editing; a
+                    // hand-named repository starts from a blank field.
+                    if (v === "@create@") setRepoName(repoProposal?.createName ?? "");
+                    else if (v === "@new@") setRepoName("");
                   }}
                   // The special choices sit outside the sorted repository
                   // group: no-repo first, the create actions last.
@@ -547,10 +556,22 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
                   ]}
                 />
               </label>
-              {repoSel === "@new@" && (
+              {(repoSel === "@new@" || repoSel === "@create@") && (
                 <label className="add-source-field">
                   <span>{t("addSource.field.repoName")}</span>
-                  <input className="edit-input" value={repoName} onChange={(e) => setRepoName(e.target.value)} autoFocus />
+                  {/* autoFocus only for the hand-named choice: the proposal can
+                      be preselected by the paste itself, mid-typing. */}
+                  <input
+                    className="edit-input"
+                    value={repoName}
+                    onChange={(e) => {
+                      // An edited name is a hand-picked choice — the lookup
+                      // must not replace it with the repository it finds.
+                      repoTouched.current = true;
+                      setRepoName(e.target.value);
+                    }}
+                    autoFocus={repoSel === "@new@"}
+                  />
                 </label>
               )}
               {repoSel !== "" && (

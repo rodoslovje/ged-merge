@@ -2205,18 +2205,21 @@ function siteRepoName(
 }
 
 /** Create the site's `REPO` record (name + WWW) — the Add Source dialog's
- *  explicit "＋ new repository" choice, unconditional on the file's layout. */
+ *  explicit "＋ new repository" choice, unconditional on the file's layout.
+ *  `nameOverride` is the dialog's edited name for the proposal — the record
+ *  keeps the site/collection WWW either way. */
 export function createSiteRepo(
   records: GedNode[],
   site: ReshapeSite,
   url: string,
   agency: string | undefined,
   collection?: FsCollection,
+  nameOverride?: string,
 ): GedNode | undefined {
   const repoDef = SITE_REPO[site];
   if (!repoDef) return undefined;
   const mat = site === "matricula" ? parseMatriculaUrl(url) : undefined;
-  const name = siteRepoName(site, repoDef.name, agency, collection?.title);
+  const name = nameOverride?.trim() || siteRepoName(site, repoDef.name, agency, collection?.title);
   const fsCc = collection?.id ?? fsCollectionId(site, url);
   const www = mat
     ? `https://data.matricula-online.eu/${mat.lang}/${mat.country}/${mat.archiveSlug}/`
