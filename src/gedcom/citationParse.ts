@@ -44,14 +44,18 @@ export function parseSourceInput(text: string): ParsedCitation {
   if (!rest) return url ? { url } : {};
 
   const quote = QUOTE_RE.exec(rest);
-  const title = quote ? (quote[1] ?? quote[2] ?? quote[3] ?? quote[4])?.trim() : undefined;
+  // American-style citations tuck the comma inside the closing quote
+  // ("Chicago, Cook, Illinois, United States records,") — not part of the title.
+  const title = quote ? (quote[1] ?? quote[2] ?? quote[3] ?? quote[4])?.trim().replace(/,$/, "") : undefined;
   const paren = PAREN_RE.exec(rest);
   // A Chicago-style "(Ljubljana: Inštitut za novejšo zgodovino, 2026)"
   // splits into the publication place and the publisher; the year is just
   // the citation's edition/retrieval year and stays out of both.
   let publisher: string | undefined;
   let place: string | undefined;
-  if (paren) {
+  // A paren the URL was pulled out of — "( : Aug 17, 2026)" — is the
+  // citation's own access note, not a "(Place: Publisher, Year)".
+  if (paren && paren[1].trim() && !/^[:,]/.test(paren[1].trim())) {
     const inner = paren[1].trim();
     const split = /^([^:]{2,40}):\s*(.+?)(?:,\s*\d{4})?$/.exec(inner);
     if (split) {

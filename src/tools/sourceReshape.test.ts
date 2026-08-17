@@ -2578,6 +2578,39 @@ describe("FamilySearch image links", () => {
     expect(parsePastedFsCitation("Krstna knjiga | 03869, Matricula Online")).toBeUndefined();
   });
 
+  it("reads an image citation with no browse path — holder and Image Group Number", () => {
+    // The current "Copy citation" wording on an image page: no " > " path, no
+    // "citing" chain — the holder after the semicolon, the film number on its
+    // own line as "Image Group Number".
+    const citation =
+      '"Chicago, Cook, Illinois, United States records," images, FamilySearch ' +
+      "(https://www.familysearch.org/ark:/61903/3:1:3QHJ-5QHW-FSYM-6?view=explore : Aug 17, 2026), " +
+      "image 23 of 35; National Archives and Records Administration.\n" +
+      "Image Group Number: 108918058";
+    const cited = parsePastedFsCitation(citation);
+    expect(cited?.title).toBe("Chicago, Cook, Illinois, United States records");
+    expect(cited?.collection).toBe("Chicago, Cook, Illinois, United States records");
+    // Which image this is belongs on the citation, not in the source.
+    expect(cited?.page).toBe("23");
+    expect(cited?.agency).toBe("National Archives and Records Administration");
+    expect(cited?.filingNumber).toBe("108918058");
+    expect(cited?.place).toBeUndefined();
+
+    // Through the recognizer (the Add Source dialog's path): the citation's
+    // details land in the proposal, and the generic parse's leftovers are
+    // flagged as already claimed.
+    const seen = recognizeSourceUrl("https://www.familysearch.org/ark:/61903/3:1:3QHJ-5QHW-FSYM-6", citation);
+    expect(seen?.site).toBe("familysearch");
+    expect(seen?.proposed.title).toBe("Chicago, Cook, Illinois, United States records");
+    expect(seen?.proposed.agency).toBe("National Archives and Records Administration");
+    expect(seen?.proposed.filingNumber).toBe("108918058");
+    expect(seen?.page).toBe("23");
+    expect(seen?.collection).toBe("Chicago, Cook, Illinois, United States records");
+    expect(seen?.cited).toBe(true);
+    // A bare image link claims nothing beyond the URL.
+    expect(recognizeSourceUrl("https://www.familysearch.org/ark:/61903/3:1:3QHJ-5QHW-FSYM-6")?.cited).toBe(false);
+  });
+
   it("reads nothing from an image with no citation (a catalog film), and nothing from junk", () => {
     const bare = JSON.stringify({
       sourceDescriptions: [{ id: "sd_da_1", resourceType: "http://gedcomx.org/DigitalArtifact" }],
@@ -2667,6 +2700,19 @@ describe("FamilySearch image links", () => {
     ).toBe("@R2@");
     // Matricula's archive still wins over a bare familysearch.org repository.
     expect(proposedSiteRepo(ds.records, "matricula", BOOK, "Nadškofijski arhiv Ljubljana")?.xref).toBe("@R3@");
+    // A named collection no repository holds must not fall back to another
+    // collection's repository — a new one is proposed instead…
+    expect(
+      proposedSiteRepo(ds.records, "familysearch", BOOK_ONLY_URL, undefined, {
+        title: "Chicago, Cook, Illinois, United States records",
+      }),
+    ).toEqual({ createName: "FamilySearch.org - Chicago, Cook, Illinois, United States records" });
+    // …though a *generic* site repository still serves every collection.
+    expect(
+      proposedSiteRepo(withWww.records, "familysearch", BOOK_ONLY_URL, undefined, {
+        title: "Chicago, Cook, Illinois, United States records",
+      })?.xref,
+    ).toBe("@R1@");
   });
 
   it("names a repository it has to create after the collection", () => {

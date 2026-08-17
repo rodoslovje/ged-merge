@@ -36,6 +36,19 @@ describe("parseSourceInput", () => {
     expect(parseSourceInput(url)).toEqual({ url });
   });
 
+  it("does not mistake the access-date paren the URL left behind for a publisher", () => {
+    // Pulling the URL out of "(https://… : Aug 17, 2026)" leaves "( : Aug 17,
+    // 2026)" — the citation's own access note, not a "(Place: Publisher)".
+    const result = parseSourceInput(
+      '"Chicago, Cook, Illinois, United States records," images, FamilySearch ' +
+        "(https://www.familysearch.org/ark:/61903/3:1:3QHJ-5QHW-FSYM-6?view=explore : Aug 17, 2026), " +
+        "image 23 of 35; National Archives and Records Administration.",
+    );
+    expect(result.title).toBe("Chicago, Cook, Illinois, United States records");
+    expect(result.publisher).toBeUndefined();
+    expect(result.place).toBeUndefined();
+  });
+
   it("falls back to a note when there's no quoted title or parens", () => {
     const result = parseSourceInput("some free-text reference, no structure here");
     expect(result.title).toBeUndefined();
