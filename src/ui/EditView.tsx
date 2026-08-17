@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { type RecordPatch, type PendingEditApply, cloneRaw, dropNoopPatches, noteChangePatches, snapshotRecords, patchesFromSnapshots } from "./historyTypes";
 import { useTranslation } from "react-i18next";
 import type { Dataset, Family, GedNode, GeoCoord, Individual } from "../gedcom/types";
@@ -1570,18 +1570,28 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   // status chip; a "confirmed" decision wins over any other stale decision
   // recorded against the same main id.
   const derivations = useDatasetDerivations();
+  // Deferred inputs for the suggestion bundle below: rebuilding it is a walk
+  // over every event in the file, and keying it on the live tick made every
+  // commit (each field blur, each quick-added event) pay that walk in the
+  // same urgent render as the user's click. The deferred values let that
+  // render reuse the previous bundle and paint immediately; React then
+  // re-renders at low priority with the fresh values and the rebuild happens
+  // there, off the interaction's critical path.
+  const deferredDerivations = useDeferredValue(derivations);
+  const deferredTick = useDeferredValue(tick);
+  const deferredUndoVersion = useDeferredValue(undoVersion);
   const { placeSuggestions, placeToAddrs, placeCanonical, addrCanonical, placeCoords, pairCoords, placeForms } = useMemo(
     // The shared per-edit derivation when the app provides it (computed once
     // for Edit and the geocode panel together); the direct build only for a
     // host without the provider.
-    () => derivations?.placeSuggestions() ?? buildPlaceSuggestions(dataset),
-    // tick/undoVersion, like `pairUses` below: the dataset is mutated in place,
+    () => deferredDerivations?.placeSuggestions() ?? buildPlaceSuggestions(dataset),
+    // tick/undoVersion (deferred): the dataset is mutated in place,
     // so a place, address or coordinate entered a moment ago on another record
     // would otherwise stay invisible to every other field until the file is
     // saved or reloaded — the one case where the suggestions are most wanted is
     // right after the value was first typed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [dataset, derivations, tick, undoVersion],
+    [dataset, deferredDerivations, deferredTick, deferredUndoVersion],
   );
   // The registers behind the place fields: what completes a place this file has
   // never written, in the layout this file writes places in.
@@ -1590,7 +1600,14 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
 
   // How many events carry each place+address pair — what the coordinate picker
   // needs to offer "copy this pick to the file's other events at this address".
-  const pairUses = useMemo(() => {
+  // Walked on demand, cached per edit generation: the walk visits every PLAC
+  // in the file, and its only reader is an *open* coordinate picker — eagerly
+  // recomputing it on every commit taxed each field blur for a picker that
+  // was closed. `useStableHandler` keeps the getter reading the live tick.
+  const pairUsesCacheRef = useRef<{ tick: number; undoVersion: number; counts: Map<string, number> } | null>(null);
+  const getPairUses = useStableHandler(() => {
+    const hit = pairUsesCacheRef.current;
+    if (hit && hit.tick === tick && hit.undoVersion === undoVersion) return hit.counts;
     const counts = new Map<string, number>();
     const visit = (raw: GedNode) =>
       walkPlaceAddr(raw, (plac, addr) => {
@@ -1599,10 +1616,9 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
       });
     for (const indi of dataset.individuals.values()) visit(indi.raw);
     for (const fam of dataset.families.values()) visit(fam.raw);
+    pairUsesCacheRef.current = { tick, undoVersion, counts };
     return counts;
-    // tick/undoVersion: a place or address edit changes these counts.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dataset, tick, undoVersion]);
+  });
 
   const coordShare = useMemo<CoordShare>(
     () => ({
@@ -1612,7 +1628,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
       // to copy" is what used to hide the offer whenever a pinned address was
       // re-pinned. A pick equal to what they hold simply produces no patch.
       countOthers: (place, address) =>
-        Math.max(0, (pairUses.get(placeAddrKey(place.trim(), address.trim())) ?? 0) - 1),
+        Math.max(0, (getPairUses().get(placeAddrKey(place.trim(), address.trim())) ?? 0) - 1),
       applyToAll: (place, address, coord) => {
         const key = placeAddrKey(place.trim(), address.trim());
         const patches = applyGeocodeByAddress(dataset, new Map([[key, { coord }]]), true);
@@ -1622,7 +1638,9 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
         setTick((v) => v + 1);
       },
     }),
-    [dataset, pairUses, onPushEdit, onDirty],
+    // getPairUses is identity-stable and reads the live tick itself, so the
+    // share object never needs rebuilding for a count that is pulled lazily.
+    [dataset, getPairUses, onPushEdit, onDirty],
   );
 
   // Glyph-tagged parents' ages at this person's birth, for the BIRT row
