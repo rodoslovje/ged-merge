@@ -53,6 +53,46 @@ import type { FamilyCommit, MediaOwner, OpenEditSource, SourceDialogTarget } fro
 type RelativeKind = "father" | "mother" | "partner" | "child";
 export type PickingSlot = { kind: RelativeKind; fam: Family | undefined } | null;
 
+/**
+ * The slot for a union that does not exist yet: a lone "+ Add Partner" card
+ * after the last spouse family, opening the same picker an empty family
+ * shows. Rendered only when every existing family already names a partner —
+ * a partnerless family's own card is the place to fill that one, so this
+ * block always means "start another family".
+ */
+export function NewUnionSection({
+  personId,
+  dataset,
+  t,
+  pickingSlot,
+  setPickingSlot,
+  connectRelative,
+  addRelative,
+}: Pick<SharedSectionProps, "personId" | "dataset" | "t" | "pickingSlot" | "setPickingSlot" | "connectRelative" | "addRelative">) {
+  const pickerOpen = pickingSlot?.kind === "partner" && pickingSlot.fam === undefined;
+  return (
+    <div className="edit-family edit-family-new">
+      <div className="edit-family-header">
+        <div className="person-card-role">{t("field.partners")}</div>
+        <div className="edit-family-card-row">
+          {pickerOpen ? (
+            <RelativePickerCard
+              individuals={dataset.individuals}
+              excludeId={personId}
+              onPickExisting={(id) => connectRelative("partner", id, undefined)}
+              onAddNew={(typed) => { setPickingSlot(null); addRelative("partner", undefined, typed); }}
+              onCancel={() => setPickingSlot(null)}
+              t={t}
+            />
+          ) : (
+            <PersonCard placeholder={t("edit.addPartner")} onAdd={() => setPickingSlot({ kind: "partner", fam: undefined })} />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** The preferences this file reads — subscribed field by field, so an
  *  unrelated one changing leaves it alone (see useSettingsSlice). */
 const SETTINGS_KEYS = ["showAge", "showKinship", "formatOverrides"] as const;
