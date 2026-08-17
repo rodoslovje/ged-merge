@@ -242,6 +242,37 @@ describe("GOV and OpenStreetMap as places", () => {
     expect(p.addr).toBeUndefined();
   });
 
+  // The Nominatim hit the multi-level chain exists for: county *and* state.
+  const HIGHLAND = {
+    coord: { lat: 34.1283, lon: -117.2086 },
+    name: "Highland",
+    label: "Highland, San Bernardino County, California, United States",
+    admin: "San Bernardino County",
+    kind: "city",
+    parts: {
+      locality: "Highland",
+      admin: "San Bernardino County",
+      admins: ["San Bernardino County", "California"],
+      country: "United States",
+    },
+  };
+  const US = new Map([["united states", "United States"]]);
+
+  it("writes county and state for a file whose places carry four levels", () => {
+    const p = proposalFromNominatim(HIGHLAND, style({ depth: 4 }, { separator: ", ", countryPreferred: US }))!;
+    expect(p.plac).toBe("Highland, San Bernardino County, California, United States");
+  });
+
+  it("keeps the nearest parent, as ever, for a three-level file", () => {
+    const p = proposalFromNominatim(HIGHLAND, style({ depth: 3 }, { separator: ", ", countryPreferred: US }))!;
+    expect(p.plac).toBe("Highland, San Bernardino County, United States");
+  });
+
+  it("writes the levels it has when the file's places go deeper still", () => {
+    const p = proposalFromNominatim(HIGHLAND, style({ depth: 5 }, { separator: ", ", countryPreferred: US }))!;
+    expect(p.plac).toBe("Highland, San Bernardino County, California, United States");
+  });
+
   it("reads a Nominatim line as feature, parent and country — postcodes dropped", () => {
     const p = proposalFromNominatim(
       {
