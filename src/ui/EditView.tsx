@@ -85,7 +85,7 @@ import { applyGeocodeByAddress, placeAddrKey, walkPlaceAddr } from "../tools/geo
 import { INDIVIDUAL_EVENT_GROUPS } from "./edit/editConstants";
 import { KEY, KEY_STATUS, isEditableTarget, isModalOpen } from "../keyboard/shortcuts";
 import type { Commit, FamilyCommit, MediaOwner, SourceDialogTarget, RemoveSourceOwner, CommitRemoveSource, OpenEditSource } from "./edit/types";
-import { FamilySection, ParentFamilyGroup } from "./edit/FamilySections";
+import { FamilySection, NewUnionSection, ParentFamilyGroup } from "./edit/FamilySections";
 import { NameEditor } from "./edit/NameEditor";
 import { SexToggle } from "./edit/SexToggle";
 import { PrivateToggle } from "./edit/PrivateToggle";
@@ -675,7 +675,9 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
    * created when the person has none. A partner or a child goes in a spouse
    * family: the one the keyboard is in, else the only one there is. With
    * several families and the keyboard in none of them there is no answer to
-   * "which family", so nothing happens.
+   * "which family", so nothing happens — except for a partner when every
+   * family already names one: then the picker opens in the new-union block
+   * after the last family, starting another family.
    */
   function openRelativeSlot(kind: "father" | "mother" | "partner" | "child") {
     if (kind === "father" || kind === "mother") {
@@ -691,8 +693,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     const partnerless = (f: Family) => !(f.husband === personId ? f.wife : f.husband);
     if (kind === "partner") {
       const fam = cursorFam && partnerless(cursorFam) ? cursorFam : spouseFamilies.find(partnerless);
-      if (!fam && spouseFamilies.length) return; // every family names a partner
-      setPickingSlot({ kind, fam });
+      setPickingSlot({ kind, fam }); // no partnerless family → a new union
       return;
     }
     const fam = cursorFam ?? (spouseFamilies.length <= 1 ? spouseFamilies[0] : undefined);
@@ -2092,6 +2093,18 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
               mediaGen={mediaGenRef.current}
             />
           ))}
+          {spouseFamilies.length > 0 &&
+            spouseFamilies.every((f) => (f.husband === person.id ? f.wife : f.husband)) && (
+              <NewUnionSection
+                personId={person.id}
+                dataset={dataset}
+                t={t}
+                pickingSlot={pickingSlot}
+                setPickingSlot={setPickingSlot}
+                connectRelative={connectRelative}
+                addRelative={addRelative}
+              />
+            )}
         </div>
       </div>
       <AddSourceDialog

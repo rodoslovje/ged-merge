@@ -52,5 +52,21 @@ test("edit mode: adding father/mother/partner/child creates new people and links
   await expect(page.locator(".edit-parents")).toContainText("New Father");
   await expect(page.locator(".edit-parents")).toContainText("New Mother");
 
+  // New Mother's only family now names a partner, so her page offers one more
+  // "+ Add partner" card after it — a brand-new union, i.e. a second family.
+  await page.locator(".edit-parents .person-card-wrap", { hasText: "Mother" }).locator("button.person-card").click();
+  // Her partner card names New Father — proof the navigation landed.
+  await expect(page.locator(".edit-families")).toContainText("New Father");
+  await page.locator(".edit-family-new .person-card-add", { hasText: "Add partner" }).click();
+  await page.locator(".relative-picker-new").click();
+  await page.locator(".edit-name-input").first().waitFor();
+  await page.locator(".edit-name-input").first().fill("Second Husband");
+
+  await page.locator(".tree-open-btn", { hasText: "Back" }).click(); // -> New Mother
+  await expect(page.locator(".edit-families")).toContainText("New Father");
+  await expect(page.locator(".edit-families")).toContainText("Second Husband");
+  // Two real families plus the offer of a third.
+  await expect(page.locator(".edit-families .edit-family")).toHaveCount(3);
+
   await expect(page.locator(".app-head-actions .export-btn")).toBeEnabled();
 });
