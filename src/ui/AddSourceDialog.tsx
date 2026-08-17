@@ -145,7 +145,12 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
         .filter((r) => r.tag === "REPO" && r.xref)
         .map((r) => ({ xref: r.xref!, name: childText(r, "NAME")?.trim() || r.xref! }))
         .sort((a, b) => a.name.localeCompare(b.name)),
-    [dataset],
+    // The dataset object is mutated in place by session edits, so re-scan on
+    // every open: a repository created by an earlier Add this session must be
+    // offered by name — the proposal can pick its xref, and a value missing
+    // from the list renders as the raw "@R…@".
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dataset, isOpen],
   );
   // What the automatic site-repo linking would pick for this URL: the site's
   // existing repository, or the name of the one it would create. Depends only

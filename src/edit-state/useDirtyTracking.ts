@@ -8,6 +8,7 @@ import { displayName } from "../match/relatives";
 import {
   computePatchApplyOps,
   computePushCaptureOps,
+  computePushDirtyOps,
   shouldCaptureFallbackSnapshot,
   type DirtyOp,
   type RecordKind,
@@ -133,22 +134,25 @@ export function useDirtyTracking() {
     setChangedFor(kind)((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
   }
 
-  /** Mark a standalone shared record (SOUR/OBJE/NOTE) dirty. Its pre-edit
-   *  snapshot comes from the patch push (`captureSnapshotsForPush`), which every
-   *  such edit goes through, so there's no fallback capture to do here. */
-  function markRecordDirty(id: string) {
-    setChangedRecordIds((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
-  }
-
   /** Capture first-dirty snapshots when an edit patch is pushed to the undo
    *  stack. Uses `patch.before` (the true pre-edit state), which is correct
-   *  even if `onDirty` was never called or fires after the mutation. */
+   *  even if `onDirty` was never called or fires after the mutation. Also
+   *  flags standalone shared records (a SOUR/OBJE/REPO an Add Source created,
+   *  say) as their own dirty subject — the flag, not the audit, is what keeps
+   *  them in the save report across a cached-session restore. */
   function captureSnapshotsForPush(patches: RecordPatch[]) {
     const ops = computePushCaptureOps(patches, hasSnapshot);
     for (const op of ops) {
       if (op.kind === "record") recordSnapshots.current.set(op.id, { value: op.value, owner: op.owner });
       else snapshotsFor(op.kind).current.set(op.id, op.value);
     }
+    // After the captures: a session-created record's deletion drops the
+    // snapshot the loop above just took from the deletion patch's `before`.
+    const { dirty, snapshots } = computePushDirtyOps(
+      patches,
+      (kind, id) => (kind === "record" ? baseline.current.has(id) : loadedIdsFor(kind).current.has(id)),
+    );
+    applyOps(dirty, snapshots);
   }
 
   /** Update dirty/snapshot state after EditView applies undo/redo patches.
@@ -330,7 +334,6 @@ export function useDirtyTracking() {
     recordSnapshots,
     // actions
     markDirty,
-    markRecordDirty,
     captureSnapshotsForPush,
     onPatchApplied,
     reconcile,
