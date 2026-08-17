@@ -101,6 +101,11 @@ function placeText(indi: Individual): string {
   return foldSearch(parts.join(" "));
 }
 
+/** One collator for every name sort over the whole file. Bare
+ *  `a.localeCompare(b)` re-derives the locale machinery per comparison, which
+ *  on a sort over tens of thousands of rows is most of the sort's cost. */
+export const nameCollator = new Intl.Collator();
+
 /**
  * Build the search index for a dataset. `nameOf` is the caller's name-display
  * formatter (from `useNameOf`) so results read the same as everywhere else; the
@@ -134,10 +139,10 @@ export function buildSearchRows(
   }
   rows.sort(
     (a, b) =>
-      a.name.localeCompare(b.name) ||
+      nameCollator.compare(a.name, b.name) ||
       a.birthKey - b.birthKey ||
       a.deathKey - b.deathKey ||
-      a.id.localeCompare(b.id),
+      nameCollator.compare(a.id, b.id),
   );
   return rows;
 }
