@@ -210,6 +210,40 @@ export function computePushCaptureOps(
 }
 
 /**
+ * Dirty-flag changes a pushed edit batch implies for *standalone* shared
+ * records — `type: "record"` patches with no owner. An owner-attributed patch
+ * is carried by the owner's flag, and the owner is marked by its own path; but
+ * a record with no owner is its own dirty subject, and leaving the flag unset
+ * meant the save audit had to rediscover it — which works within a session,
+ * and then loses the record entirely across a cached-session restore (the
+ * audit re-baselines on the restored file; `changedRecordIds` is what
+ * survives). Mirrors {@link computePatchApplyOps}'s cases:
+ *
+ *  - creation (`before === null`) → add dirty; snapshot-less, so it reads New
+ *  - deletion (`after === null`) of a loaded record → add dirty (the removal
+ *    is the change); of a session-created one → clear dirty and drop the
+ *    snapshot the capture pass just took (it never reached the file)
+ *  - modification → add dirty; its push-captured snapshot yields the diff
+ */
+export function computePushDirtyOps(
+  patches: RecordPatch[],
+  wasLoaded: (kind: SnapshotKind, id: string) => boolean,
+): PatchApplyOps {
+  const dirty: DirtyOp[] = [];
+  const snapshots: SnapshotOp[] = [];
+  for (const patch of patches) {
+    if (patch.type !== "record" || patch.owner) continue;
+    if (patch.after === null && !wasLoaded("record", patch.id)) {
+      dirty.push({ action: "remove", kind: "record", id: patch.id });
+      snapshots.push({ action: "delete", kind: "record", id: patch.id });
+    } else {
+      dirty.push({ action: "add", kind: "record", id: patch.id });
+    }
+  }
+  return { dirty, snapshots };
+}
+
+/**
  * Whether `markDirty` should capture a first-dirty fallback snapshot for this
  * record: only when none exists yet AND the record pre-exists the session
  * baseline. A session-created record must stay snapshot-less — with a snapshot

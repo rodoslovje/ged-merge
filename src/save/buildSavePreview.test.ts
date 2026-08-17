@@ -176,6 +176,29 @@ describe("edit-only save", () => {
     // The repaired value reaches the file that would be written.
     expect(serializeGedcom(out.records)).toContain("12 APR 1979");
   });
+
+  // A restored session: the source and repository an Add Source created before
+  // the reload are in the re-baselined file, so the audit has nothing to catch
+  // — only their (hydrated) dirty flags still say they are new and unsaved.
+  it("keeps a created source and repository in the preview after a restore", () => {
+    const ds = dataset(wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SOUR @S9@\n" +
+      "0 @S9@ SOUR\n1 TITL Chicago records\n1 REPO @R9@\n" +
+      "0 @R9@ REPO\n1 NAME FamilySearch.org - Chicago records\n1 WWW https://www.familysearch.org/\n",
+    ));
+    const out = buildSavePreview(
+      input(ds, {
+        // Snapshot-less and in the baseline — exactly how hydrate leaves them.
+        changedRecordIds: new Set(["@S9@", "@R9@"]),
+        loadedPersonIds: new Set(["@I1@"]),
+      }),
+    )!;
+    expect(out.report.recordLabels["@R9@"]).toBe("🏛 FamilySearch.org - Chicago records");
+    expect(out.report.changes.some((c) => c.recordId === "@R9@" && c.newRecord)).toBe(true);
+    // Each card spells out what the new record holds, not just its title.
+    expect(out.report.changes.some((c) => c.recordId === "@R9@" && c.segments?.some((s) => s.text.includes("familysearch")))).toBe(true);
+    expect(out.report.changes.some((c) => c.recordId === "@S9@" && c.newRecord)).toBe(true);
+  });
 });
 
 describe("download names", () => {

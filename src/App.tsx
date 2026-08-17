@@ -1113,12 +1113,12 @@ function AppContent() {
     // there is no single person to show, and the Tools page they came from
     // re-scans itself off the edit version.
     handlePushEdit(patches, undefined, undefined, true);
+    // Shared-record patches are flagged by the push itself (see
+    // captureSnapshotsForPush): a record with no owner card behind it — e.g.
+    // the date repair rewriting a SOUR's DATE — is its own dirty subject; with
+    // an owner, the owner's patch in the same batch carries the flag.
     for (const p of patches) {
-      // A shared record edited on its own (no owner card behind it — e.g. the
-      // date repair rewriting a SOUR's DATE) is its own dirty subject; with an
-      // owner, the owner's patch in the same batch carries the flag.
-      if (p.type === "record") { if (!p.owner) dirty.markRecordDirty(p.id); }
-      else dirty.markDirty(p.type, p.id, mainDataset);
+      if (p.type !== "record") dirty.markDirty(p.type, p.id, mainDataset);
     }
     return patches.length;
   }
@@ -1589,11 +1589,12 @@ function AppContent() {
       undoRedo.push({ mode: "edit", patches, navigateTo: id });
       // Every record the cascade touched is dirty. The one being taken out of
       // the save is not: it was just put back the way the file had it, and
-      // `dirty.removeDirty` above said so.
+      // `dirty.removeDirty` above said so. (Shared-record patches were flagged
+      // by `captureSnapshotsForPush` above; `id` is a person or family, so the
+      // skip only ever concerns the typed patches here.)
       for (const p of patches) {
-        if (p.id === id) continue;
-        if (p.type === "record") { if (!p.owner) dirty.markRecordDirty(p.id); }
-        else dirty.markDirty(p.type, p.id, mainDataset);
+        if (p.id === id || p.type === "record") continue;
+        dirty.markDirty(p.type, p.id, mainDataset);
       }
       bumpEdit();
     }

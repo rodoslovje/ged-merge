@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computePatchApplyOps, computePushCaptureOps, shouldCaptureFallbackSnapshot } from "./dirty";
+import { computePatchApplyOps, computePushCaptureOps, computePushDirtyOps, shouldCaptureFallbackSnapshot } from "./dirty";
 import { nodesEqual } from "../gedcom/node";
 import type { GedNode } from "../gedcom/types";
 import type { RecordPatch } from "../ui/historyTypes";
@@ -415,6 +415,67 @@ describe("computePushCaptureOps", () => {
     const [captured] = computePushCaptureOps([patch], () => false);
     captured.value.value = "mutated";
     expect(original.value).toBe("original");
+  });
+});
+
+// ── computePushDirtyOps ─────────────────────────────────────────────────────
+
+describe("computePushDirtyOps", () => {
+  /** `@S9@`/`@R9@` were created this session; every other id was loaded. */
+  const loaded = (_kind: unknown, id: string) => id !== "@S9@" && id !== "@R9@";
+
+  it("marks a created shared record dirty (an Add Source's SOUR/REPO)", () => {
+    const patches: RecordPatch[] = [
+      { type: "record", id: "@S9@", before: null, after: node("SOUR") },
+      { type: "record", id: "@R9@", before: null, after: node("REPO") },
+    ];
+    const { dirty, snapshots } = computePushDirtyOps(patches, loaded);
+    expect(dirty).toEqual([
+      { action: "add", kind: "record", id: "@S9@" },
+      { action: "add", kind: "record", id: "@R9@" },
+    ]);
+    expect(snapshots).toHaveLength(0);
+  });
+
+  it("marks a modified or deleted loaded record dirty", () => {
+    const patches: RecordPatch[] = [
+      { type: "record", id: "@S1@", before: node("SOUR"), after: node("SOUR", "v2") },
+      { type: "record", id: "@S2@", before: node("SOUR"), after: null },
+    ];
+    const { dirty, snapshots } = computePushDirtyOps(patches, loaded);
+    expect(dirty).toEqual([
+      { action: "add", kind: "record", id: "@S1@" },
+      { action: "add", kind: "record", id: "@S2@" },
+    ]);
+    expect(snapshots).toHaveLength(0);
+  });
+
+  // Created and then pruned within the session: it never reached the file, so
+  // nothing may report it — and the snapshot the capture pass took from the
+  // deletion patch's `before` would otherwise make it read as "removed".
+  it("clears a session-created record on its deletion", () => {
+    const patch: RecordPatch = { type: "record", id: "@S9@", before: node("SOUR"), after: null };
+    const { dirty, snapshots } = computePushDirtyOps([patch], loaded);
+    expect(dirty).toEqual([{ action: "remove", kind: "record", id: "@S9@" }]);
+    expect(snapshots).toEqual([{ action: "delete", kind: "record", id: "@S9@" }]);
+  });
+
+  it("leaves owner-attributed record patches to the owner's flag", () => {
+    const owner = { kind: "individual" as const, id: "@I1@" };
+    const patch: RecordPatch = { type: "record", id: "@N1@", before: node("NOTE"), after: node("NOTE", "v2"), owner };
+    const { dirty, snapshots } = computePushDirtyOps([patch], loaded);
+    expect(dirty).toHaveLength(0);
+    expect(snapshots).toHaveLength(0);
+  });
+
+  it("ignores individual and family patches", () => {
+    const patches: RecordPatch[] = [
+      indiPatch("@I1@", null, node("INDI")),
+      famPatch("@F1@", node("FAM"), null),
+    ];
+    const { dirty, snapshots } = computePushDirtyOps(patches, loaded);
+    expect(dirty).toHaveLength(0);
+    expect(snapshots).toHaveLength(0);
   });
 });
 
