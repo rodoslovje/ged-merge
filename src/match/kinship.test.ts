@@ -22,12 +22,14 @@ const labels: Record<string, string> = {
 };
 const t: Translate = (key) => labels[key] ?? key;
 
-// Single-parent ancestor chain off I1, all sharing the apex I5 (I1's
-// great-great-great-grandfather is not modelled; I5 is the 2×-great-grandparent).
-//   I1 ← I2 ← I3 ← I4 ← I5 (apex)
+// Single-parent ancestor chain off I1: I5 is the great-great-grandparent
+// (named outright), I20 above him the first ×N generation.
+//   I1 ← I2 ← I3 ← I4 ← I5 ← I20
 // Siblings hung off the chain give each great-uncle degree:
 //   I8  = sibling of grandparent I3  → great-uncle      (hg 3, tg 1)
-//   I6/I7 = siblings of g-grandparent I4 → great-great-uncle/aunt (hg 4, tg 1)
+//   I6/I7 = siblings of g-grandparent I4 → great-uncle ×2 (hg 4, tg 1)
+// A descent under I6 gives the long-leg cousins (all via the I5 apex):
+//   I9 (hg 4, tg 2), I10 (hg 4, tg 3), I11 (hg 4, tg 4 → 3rd cousin)
 const TREE = `0 HEAD
 1 GEDC
 2 VERS 5.5.1
@@ -54,11 +56,13 @@ const TREE = `0 HEAD
 0 @I5@ INDI
 1 NAME Apex /Test/
 1 SEX M
+1 FAMC @F8@
 1 FAMS @F4@
 0 @I6@ INDI
 1 NAME GreatGreatUncle /Test/
 1 SEX M
 1 FAMC @F4@
+1 FAMS @F5@
 0 @I7@ INDI
 1 NAME GreatGreatAunt /Test/
 1 SEX F
@@ -67,6 +71,24 @@ const TREE = `0 HEAD
 1 NAME GreatUncle /Test/
 1 SEX M
 1 FAMC @F3@
+0 @I9@ INDI
+1 NAME FirstCousinTwiceRemoved /Test/
+1 SEX M
+1 FAMC @F5@
+1 FAMS @F6@
+0 @I10@ INDI
+1 NAME SecondCousinOnceRemoved /Test/
+1 SEX M
+1 FAMC @F6@
+1 FAMS @F7@
+0 @I11@ INDI
+1 NAME ThirdCousin /Test/
+1 SEX M
+1 FAMC @F7@
+0 @I20@ INDI
+1 NAME ApexFather /Test/
+1 SEX M
+1 FAMS @F8@
 0 @F1@ FAM
 1 HUSB @I2@
 1 CHIL @I1@
@@ -82,6 +104,18 @@ const TREE = `0 HEAD
 1 CHIL @I4@
 1 CHIL @I6@
 1 CHIL @I7@
+0 @F5@ FAM
+1 HUSB @I6@
+1 CHIL @I9@
+0 @F6@ FAM
+1 HUSB @I9@
+1 CHIL @I10@
+0 @F7@ FAM
+1 HUSB @I10@
+1 CHIL @I11@
+0 @F8@ FAM
+1 HUSB @I20@
+1 CHIL @I5@
 0 TRLR
 `;
 
@@ -99,6 +133,33 @@ describe("kinshipLabel great-uncle / grand-nephew degrees", () => {
 
   it("labels the symmetric descendant as grand-nephew ×2", () => {
     expect(kinshipLabel(ds, "@I6@", "@I1@", t)).toBe("Grand-nephew ×2");
+  });
+});
+
+describe("kinshipLabel direct line", () => {
+  const ds = dataset(TREE);
+
+  it("names the 4th generation outright as great-great", () => {
+    expect(kinshipLabel(ds, "@I1@", "@I5@", t)).toBe("kinship.greatGrandfather2");
+    expect(kinshipLabel(ds, "@I5@", "@I1@", t)).toBe("kinship.greatGrandson2");
+  });
+
+  it("falls back to ×N from the 5th generation on", () => {
+    expect(kinshipLabel(ds, "@I1@", "@I20@", t)).toBe("kinship.greatGrandfather ×3");
+    expect(kinshipLabel(ds, "@I20@", "@I1@", t)).toBe("kinship.greatGrandson ×3");
+  });
+});
+
+describe("kinshipLabel deep cousins", () => {
+  const ds = dataset(TREE);
+
+  it("labels a long-leg cousin by the shorter leg plus the removal", () => {
+    expect(kinshipLabel(ds, "@I1@", "@I9@", t)).toBe("kinship.cousin1_M +2");
+    expect(kinshipLabel(ds, "@I1@", "@I10@", t)).toBe("kinship.cousin2_M +1");
+  });
+
+  it("gives a 3rd cousin its own key instead of a bare ordinal", () => {
+    expect(kinshipLabel(ds, "@I1@", "@I11@", t)).toBe("kinship.cousin3_M");
   });
 });
 

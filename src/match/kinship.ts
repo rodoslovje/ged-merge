@@ -232,6 +232,7 @@ function relLabel(hg: number, tg: number, sex: string, t: Translate): string | u
     if (hg === 1) return f ? t("kinship.mother") : t("kinship.father");
     if (hg === 2) return f ? t("kinship.grandmother") : t("kinship.grandfather");
     if (hg === 3) return f ? t("kinship.greatGrandmother") : t("kinship.greatGrandfather");
+    if (hg === 4) return f ? t("kinship.greatGrandmother2") : t("kinship.greatGrandfather2");
     return (f ? t("kinship.greatGrandmother") : t("kinship.greatGrandfather")) + ` ×${hg - 2}`;
   }
 
@@ -240,6 +241,7 @@ function relLabel(hg: number, tg: number, sex: string, t: Translate): string | u
     if (tg === 1) return f ? t("kinship.daughter") : t("kinship.son");
     if (tg === 2) return f ? t("kinship.granddaughter") : t("kinship.grandson");
     if (tg === 3) return f ? t("kinship.greatGranddaughter") : t("kinship.greatGrandson");
+    if (tg === 4) return f ? t("kinship.greatGranddaughter2") : t("kinship.greatGrandson2");
     return (f ? t("kinship.greatGranddaughter") : t("kinship.greatGrandson")) + ` ×${tg - 2}`;
   }
 
@@ -270,7 +272,8 @@ function relLabel(hg: number, tg: number, sex: string, t: Translate): string | u
     const base =
       degree === 1 ? t(`kinship.cousin1_${sx}`) :
       degree === 2 ? t(`kinship.cousin2_${sx}`) :
-      `${degree}. ${t(`kinship.cousin_${sx}`)}`;
+      degree === 3 ? t(`kinship.cousin3_${sx}`) :
+      t(`kinship.cousinN_${sx}`, { n: degree });
     return removed === 0 ? base : `${base} +${removed}`;
   }
 
