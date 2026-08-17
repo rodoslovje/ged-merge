@@ -4,7 +4,7 @@ import type { Individual } from "../gedcom/types";
 import { nameSearchText } from "../match/relatives";
 import { lifespanTooltipOf, lifespanWithAge } from "../gedcom/age";
 import { xrefLabel } from "../gedcom/nameDisplay";
-import { foldSearch, matchesTerms, queryTerms } from "./globalSearch";
+import { foldSearch, matchesTerms, nameCollator, queryTerms } from "./globalSearch";
 import { useNameOf, useSettingsSlice } from "./SettingsContext";
 import { sexClass } from "./sex";
 import { SearchIcon } from "./icons/SearchIcon";
@@ -84,28 +84,34 @@ export function StartPersonSelector({
   // The option text honours the user's name-display settings (order, uppercase,
   // married surname); `search` covers *all* of a person's names (married, aka,
   // maiden, nickname…) plus their years, so they're found however they're shown.
+  // Only built while the picker is focused: this list is a map + sort over
+  // every individual, and building it eagerly meant every Edit-mode commit
+  // (which bumps `version`) re-sorted the whole file for a dropdown nobody
+  // was looking at.
   const options = useMemo(
     () =>
-      [...individuals.values()]
-        .map((i) => {
-          const span = lifespanWithAge(i, settings.showAge);
-          const name = nameOf(i);
-          const search = foldSearch(`${nameSearchText(i)} ${span} ${i.id}`);
-          return {
-            id: i.id,
-            name,
-            span,
-            sex: i.sex,
-            xref: xrefLabel(i.id),
-            text: span ? `${name} ${span}` : name,
-            title: lifespanTooltipOf(i, settings.showAge, t),
-            search,
-          };
-        })
-        .sort((a, b) => a.text.localeCompare(b.text)),
+      open
+        ? [...individuals.values()]
+            .map((i) => {
+              const span = lifespanWithAge(i, settings.showAge);
+              const name = nameOf(i);
+              const search = foldSearch(`${nameSearchText(i)} ${span} ${i.id}`);
+              return {
+                id: i.id,
+                name,
+                span,
+                sex: i.sex,
+                xref: xrefLabel(i.id),
+                text: span ? `${name} ${span}` : name,
+                title: lifespanTooltipOf(i, settings.showAge, t),
+                search,
+              };
+            })
+            .sort((a, b) => nameCollator.compare(a.text, b.text))
+        : [],
     // `version` is a cache-buster, not a value this reads — see the prop.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [individuals, version, nameOf, settings.showAge, t],
+    [individuals, version, nameOf, settings.showAge, t, open],
   );
 
   const filtered = useMemo(() => {
@@ -117,7 +123,17 @@ export function StartPersonSelector({
     return base.slice(0, MAX_RESULTS);
   }, [options, query]);
 
-  const current = options.find((o) => o.id === startId);
+  // The selected person's placeholder text — computed directly rather than via
+  // `options`, which no longer exists while the picker is closed.
+  const current = useMemo(() => {
+    const indi = startId ? individuals.get(startId) : undefined;
+    if (!indi) return undefined;
+    const span = lifespanWithAge(indi, settings.showAge);
+    const name = nameOf(indi);
+    return { text: span ? `${name} ${span}` : name };
+    // `version`: same cache-buster as `options` — the name can be edited.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [individuals, version, startId, nameOf, settings.showAge]);
 
   // Reset the highlight to the top whenever the result set changes.
   useEffect(() => {
