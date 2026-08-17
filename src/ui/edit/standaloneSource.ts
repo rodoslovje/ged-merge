@@ -53,20 +53,26 @@ export function createStandaloneSource(
   if (explicitRepo) {
     let repoXref = fields.repoXref?.trim() || undefined;
     const createName = fields.repoCreateName?.trim();
-    if (!repoXref && createName) {
-      const repo = createRepoRecord(records, createName);
-      repoXref = repo.xref!;
-      extraPatches.push({ type: "record", id: repo.xref!, before: null, after: cloneRaw(repo) });
-    }
+    // The site proposal first: with both set, the name is the dialog's edit of
+    // the proposed record, which keeps its site/collection WWW under it.
     if (!repoXref && fields.repoCreateSite && fields.site) {
-      const repo = createSiteRepo(records, fields.site, fields.url ?? "", fields.agency, {
-        title: fields.collection,
-        id: fields.collectionId,
-      });
+      const repo = createSiteRepo(
+        records,
+        fields.site,
+        fields.url ?? "",
+        fields.agency,
+        { title: fields.collection, id: fields.collectionId },
+        createName,
+      );
       if (repo) {
         repoXref = repo.xref!;
         extraPatches.push({ type: "record", id: repo.xref!, before: null, after: cloneRaw(repo) });
       }
+    }
+    if (!repoXref && createName) {
+      const repo = createRepoRecord(records, createName);
+      repoXref = repo.xref!;
+      extraPatches.push({ type: "record", id: repo.xref!, before: null, after: cloneRaw(repo) });
     }
     if (repoXref) {
       const repoLink: GedNode = { level: 1, tag: "REPO", value: repoXref, children: [] };

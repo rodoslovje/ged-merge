@@ -152,7 +152,18 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
   // on the pasted URL (not the live form fields), so seeding the dropdown from
   // it can't clobber the user's later edits.
   const repoDefault = useMemo(
-    () => (recognized && normalizedUrl ? proposedSiteRepo(dataset.records, recognized.site, normalizedUrl, recognized.proposed.agency) : undefined),
+    () =>
+      recognized && normalizedUrl
+        ? proposedSiteRepo(
+            dataset.records,
+            recognized.site,
+            normalizedUrl,
+            recognized.proposed.agency,
+            // The collection a pasted citation names offline finds (or names)
+            // the per-collection repository the bare URL could not.
+            recognized.collection ? { title: recognized.collection } : undefined,
+          )
+        : undefined,
     [recognized, normalizedUrl, dataset],
   );
   // The same proposal once the lookup has named the link's collection: a file
@@ -203,19 +214,26 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
       // the cleanup tool would write.
       title: match ? "" : recognized?.proposed.title ?? parsed.title ?? "",
       author: match ? "" : parsed.author ?? recognized?.proposed.author ?? "",
-      periodical: match ? "" : parsed.periodical ?? "",
+      // A recognized FamilySearch citation's details are already claimed by
+      // the proposal's own fields — the generic parse's leftovers ("images,
+      // FamilySearch" as periodical, the access date as publisher, the entry
+      // repeated as note) say nothing the source wants.
+      periodical: match || recognized?.cited ? "" : parsed.periodical ?? "",
       // When the site proposal claims the parenthesized institute as the
       // agency (SIstory), it doesn't repeat as the publisher.
-      publisher: match || parsed.publisher === recognized?.proposed.agency ? "" : parsed.publisher ?? "",
+      publisher: match || recognized?.cited || parsed.publisher === recognized?.proposed.agency ? "" : parsed.publisher ?? "",
       agency: match ? "" : recognized?.proposed.agency ?? "",
       place: match ? "" : resolvePlace(recognized?.proposed.place ?? parsed.place) ?? "",
       filingNumber: match ? "" : recognized?.proposed.filingNumber ?? "",
       page: match?.page ?? recognized?.page ?? extractPage(normalizedUrl ?? "") ?? "",
       url: normalizedUrl ?? "",
-      note: match ? "" : parsed.note ?? "",
+      note: match || recognized?.cited ? "" : parsed.note ?? "",
     });
-    setRepoSel(match ? "" : repoDefault?.xref ?? (repoDefault?.createName && layoutPrefersRepos ? "@create@" : ""));
-    setRepoName("");
+    const preselectCreate = !match && !repoDefault?.xref && Boolean(repoDefault?.createName) && layoutPrefersRepos;
+    setRepoSel(match ? "" : repoDefault?.xref ?? (preselectCreate ? "@create@" : ""));
+    // The proposed record's name sits in the editable name field, so the
+    // user can adjust it before anything is created.
+    setRepoName(preselectCreate ? repoDefault!.createName! : "");
     setRepoCaln("");
     setRegister(undefined);
     repoTouched.current = false;
@@ -371,11 +389,15 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
       // Fetched over offline-recognized — Newspapers.com carries the issue
       // date right in the citation prose, with no fetchable page behind it.
       dateRange: chosen?.dateRange ?? recognized?.proposed.dateRange,
-      collection: fetched?.collection,
+      // The lookup's collection first; the citation's own quoted one when no
+      // lookup ran — either names the repository the "＋ …" choice creates.
+      collection: fetched?.collection ?? recognized?.collection,
       collectionId: fetched?.collectionId,
       repoXref: repoSel === "@create@" || repoSel === "@new@" ? undefined : repoSel,
       repoCreateSite: repoSel === "@create@" || undefined,
-      repoCreateName: repoSel === "@new@" ? repoName.trim() || undefined : undefined,
+      // For the site proposal this is the (possibly edited) name of the record
+      // to create — the site/collection WWW still goes under it.
+      repoCreateName: repoSel === "@new@" || repoSel === "@create@" ? repoName.trim() || undefined : undefined,
       repoCaln: repoCaln.trim() || undefined,
     });
     reset();
@@ -510,6 +532,10 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
                   onChange={(v) => {
                     repoTouched.current = true;
                     setRepoSel(v);
+                    // Picking the site proposal seeds its name for editing; a
+                    // hand-named repository starts from a blank field.
+                    if (v === "@create@") setRepoName(repoProposal?.createName ?? "");
+                    else if (v === "@new@") setRepoName("");
                   }}
                   // The special choices sit outside the sorted repository
                   // group: no-repo first, the create actions last.
@@ -530,16 +556,30 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
                   ]}
                 />
               </label>
-              {repoSel === "@new@" && (
-                <label className="add-source-field">
-                  <span>{t("addSource.field.repoName")}</span>
-                  <input className="edit-input" value={repoName} onChange={(e) => setRepoName(e.target.value)} autoFocus />
-                </label>
-              )}
               {repoSel !== "" && (
                 <label className="add-source-field">
                   <span>{t("addSource.field.caln")}</span>
                   <input className="edit-input" value={repoCaln} onChange={(e) => setRepoCaln(e.target.value)} />
+                </label>
+              )}
+              {/* After the call number, so the long name gets its own
+                  full-width row under the dropdown | call-number pair. */}
+              {(repoSel === "@new@" || repoSel === "@create@") && (
+                <label className="add-source-field add-source-field-wide">
+                  <span>{t("addSource.field.repoName")}</span>
+                  {/* autoFocus only for the hand-named choice: the proposal can
+                      be preselected by the paste itself, mid-typing. */}
+                  <input
+                    className="edit-input"
+                    value={repoName}
+                    onChange={(e) => {
+                      // An edited name is a hand-picked choice — the lookup
+                      // must not replace it with the repository it finds.
+                      repoTouched.current = true;
+                      setRepoName(e.target.value);
+                    }}
+                    autoFocus={repoSel === "@new@"}
+                  />
                 </label>
               )}
             </div>

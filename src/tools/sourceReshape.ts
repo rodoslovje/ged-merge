@@ -274,6 +274,14 @@ interface Recognized {
   /** Specificity of `proposed.title` — a later member with a better title
    *  (e.g. a Geneanet URL naming the person) upgrades the group's. */
   titleRank?: number;
+  /** The quoted collection the pasted FamilySearch citation names — what a
+   *  repository kept per collection is matched (or named) by, before any
+   *  online lookup runs. */
+  collection?: string;
+  /** The pasted text parsed as a FamilySearch citation: its details are
+   *  already claimed by `proposed`/`page`, so the generic citation parse's
+   *  leftovers (periodical, access date, note) say nothing new. */
+  cited?: boolean;
 }
 
 /** The `{name} - {id} - {site}` title layout every grave/obituary/victim site
@@ -748,26 +756,31 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
   if (fs && fs.kind !== "tree") {
     if (!sites.has("familysearch")) return undefined;
     const collection = quotedCollection(contextText);
+    // A citation copied from the page says far more than the link can: which
+    // entry or image this is, the register type, the archive, the film. Its
+    // *record* details (the entry) stay on the citation, its *source* details
+    // on the source.
+    const cited = parsePastedFsCitation(contextText ?? "");
     if (fs.kind === "image") {
       return {
         site: "familysearch",
         groupKey: fs.cat ? `f:cat:${fs.cat}` : `f:${linkKey(url)}`,
         bookUrl: fs.cat ? `https://www.familysearch.org/search/catalog/${fs.cat}` : cleanUrl(url),
-        page: imageNumber(fs.image),
+        page: imageNumber(fs.image) ?? cited?.page,
         proposed: {
           title: collection ?? (fs.cat ? `FamilySearch film ${fs.cat}` : `FamilySearch ${fs.ark}`),
-          // The film/catalog number identifies the source; a lone image link
-          // has only its ARK id.
-          filingNumber: fs.cat ?? fs.ark,
+          agency: cited?.agency,
+          place: cited?.place,
+          dateRange: cited?.dateRange,
+          // The film (Image Group / DGS) or catalog number identifies the
+          // source; a lone image link has only its ARK id.
+          filingNumber: cited?.filingNumber ?? fs.cat ?? fs.ark,
         },
         typeHint: collection,
+        collection,
+        cited: cited !== undefined,
       };
     }
-    // A citation copied from the record page says far more than the link can:
-    // which entry this is, the register type, the archive, the film. Its
-    // *record* details (the entry) stay on the citation, its *source* details
-    // on the source.
-    const cited = parsePastedFsCitation(contextText ?? "");
     return {
       site: "familysearch",
       groupKey: collection ? `f:coll:${collection.toLowerCase()}` : `f:${linkKey(url)}`,
@@ -785,6 +798,8 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
         filingNumber: cited?.filingNumber ?? (collection ? undefined : fs.ark),
       },
       typeHint: collection,
+      collection,
+      cited: cited !== undefined,
     };
   }
 
@@ -838,7 +853,7 @@ function slugTitleFromUrl(url: string): string | undefined {
 /** The parts of a recognized site URL the Add Source dialog needs: the
  *  canonical book/record URL to fetch, the cited page, and the
  *  offline-proposed source fields. */
-export type RecognizedSourceUrl = Pick<Recognized, "site" | "bookUrl" | "page" | "proposed">;
+export type RecognizedSourceUrl = Pick<Recognized, "site" | "bookUrl" | "page" | "proposed" | "collection" | "cited">;
 
 /**
  * Recognize a single pasted URL against the same site rules the Organize
@@ -2099,10 +2114,16 @@ function findSiteRepo(
   hostRe: RegExp,
   siteName: string,
   prefer: (string | undefined)[] = [],
+  /** With a specific collection wanted, fall back only to a *generic* site
+   *  repository — one kept for a different collection ("FamilySearch.org -
+   *  Croatia Church Books 1516-1994") would be the wrong home for a link
+   *  naming another, and the caller proposes creating the right one. */
+  strictFallback = false,
 ): string | undefined {
   const wanted = prefer.map((p) => (p ? looseKey(p) : "")).filter(Boolean);
   const site = looseKey(siteName);
   let anyMatch: string | undefined;
+  let genericMatch: string | undefined;
   for (const rec of records) {
     if (rec.tag !== "REPO" || !rec.xref) continue;
     const www = childText(rec, "WWW") ?? "";
@@ -2111,8 +2132,11 @@ function findSiteRepo(
     const haystack = looseKey(`${name} ${www}`);
     if (wanted.some((w) => haystack.includes(w))) return rec.xref;
     anyMatch ??= rec.xref;
+    // Generic = named exactly after the site (no collection suffix), or a
+    // nameless record matched by a bare-host WWW.
+    if (name ? site.startsWith(looseKey(name)) : /^https?:\/\/[^/]+\/?$/i.test(www.trim())) genericMatch ??= rec.xref;
   }
-  return anyMatch;
+  return strictFallback && wanted.length ? genericMatch : anyMatch;
 }
 
 /** The site's REPO for a new source: an existing one matched by WWW host
@@ -2136,11 +2160,17 @@ export function proposedSiteRepo(
   const repoDef = SITE_REPO[site];
   if (!repoDef) return undefined;
   const mat = site === "matricula" ? parseMatriculaUrl(url) : undefined;
-  const existing = findSiteRepo(records, repoDef.hostRe, repoDef.name, [
-    mat?.archiveSlug,
-    collection?.id ?? fsCollectionId(site, url),
-    collection?.title,
-  ]);
+  const existing = findSiteRepo(
+    records,
+    repoDef.hostRe,
+    repoDef.name,
+    [mat?.archiveSlug, collection?.id ?? fsCollectionId(site, url), collection?.title],
+    // FamilySearch files keep a repository per collection — once the citation
+    // or lookup names this link's, a repository holding a *different*
+    // collection must not swallow it. A bare URL (collection still unknown)
+    // keeps the lenient fallback; the lookup corrects it.
+    site === "familysearch" && Boolean(collection?.title ?? collection?.id),
+  );
   if (existing) return { xref: existing };
   // Matricula repositories are the holding archive; the other sites
   // are their own repository.
@@ -2175,18 +2205,21 @@ function siteRepoName(
 }
 
 /** Create the site's `REPO` record (name + WWW) — the Add Source dialog's
- *  explicit "＋ new repository" choice, unconditional on the file's layout. */
+ *  explicit "＋ new repository" choice, unconditional on the file's layout.
+ *  `nameOverride` is the dialog's edited name for the proposal — the record
+ *  keeps the site/collection WWW either way. */
 export function createSiteRepo(
   records: GedNode[],
   site: ReshapeSite,
   url: string,
   agency: string | undefined,
   collection?: FsCollection,
+  nameOverride?: string,
 ): GedNode | undefined {
   const repoDef = SITE_REPO[site];
   if (!repoDef) return undefined;
   const mat = site === "matricula" ? parseMatriculaUrl(url) : undefined;
-  const name = siteRepoName(site, repoDef.name, agency, collection?.title);
+  const name = nameOverride?.trim() || siteRepoName(site, repoDef.name, agency, collection?.title);
   const fsCc = collection?.id ?? fsCollectionId(site, url);
   const www = mat
     ? `https://data.matricula-online.eu/${mat.lang}/${mat.country}/${mat.archiveSlug}/`
@@ -2851,8 +2884,9 @@ export function parseFamilySearchArkJson(json: string): ReshapeMeta | undefined 
 const ARCHIVE_WORD_RE = /arhiv|archiv|archive|library|knji[žz]nic|mati[čc]n|museum|muzej|registry|record office/i;
 
 /** The film/microfilm number a citation ends with ("FHL microfilm 005,498,154",
- *  "film 005498154", "DGS 4826234"). */
-const FILM_NUMBER_RE = /(?:FHL\s+)?(?:microfilm|film|DGS)\s*#?\s*([\d][\d,\s]*\d|\d)/i;
+ *  "film 005498154", "DGS 4826234", "Image Group Number: 108918058" — the last
+ *  is the DGS number under its current on-site name). */
+const FILM_NUMBER_RE = /(?:FHL\s+)?(?:microfilm|film|DGS|image group number)\s*[#:]?\s*([\d][\d,\s]*\d|\d)/i;
 
 /**
  * Read a citation copied from FamilySearch's own "Copy citation" button. Its
@@ -2881,10 +2915,14 @@ export function parsePastedFsCitation(text: string): ReshapeMeta | undefined {
   const parts = rest.split(";").map((s) => s.trim()).filter(Boolean);
   const citing = parts.find((p) => /^citing\b/i.test(p))?.replace(/^citing\s+/i, "");
   const film = FILM_NUMBER_RE.exec(rest)?.[1].replace(/[,\s]/g, "");
+  // An image citation's tail is "image 23 of 35; National Archives and
+  // Records Administration. Image Group Number: 108918058" — the image number
+  // is the cited page, what follows the semicolon the holding institution.
+  const image = /^image (\d+) of \d+\.?$/i.exec(parts[0] ?? "");
   // "Entry for Anna Rakar and Martin Sadec, 9 July 1901" — which record within
   // the collection this is. That is what a citation's PAGE says; the source
   // itself is the collection, so it never goes into the source's own fields.
-  const entry = parts[0] && !/^citing\b/i.test(parts[0]) ? parts[0].replace(/\.\s*$/, "") : undefined;
+  const entry = !image && parts[0] && !/^citing\b/i.test(parts[0]) ? parts[0].replace(/\.\s*$/, "") : undefined;
 
   let place: string | undefined;
   let agency: string | undefined;
@@ -2896,6 +2934,9 @@ export function parsePastedFsCitation(text: string): ReshapeMeta | undefined {
     const placeTokens = archiveAt === -1 ? tokens : tokens.slice(0, archiveAt);
     place = placeTokens.join(", ") || undefined;
     if (archiveAt !== -1) agency = tokens.slice(archiveAt).join(", ") || undefined;
+  } else if (image && parts[1]) {
+    // The holder, minus the film sentence the same part may carry.
+    agency = parts[1].replace(FILM_NUMBER_RE, "").replace(/[\s.,:]+$/, "").trim() || undefined;
   }
   if (!collection && !place && !agency && !film) return undefined;
   return {
@@ -2904,7 +2945,7 @@ export function parsePastedFsCitation(text: string): ReshapeMeta | undefined {
     place,
     agency,
     filingNumber: film,
-    page: entry,
+    page: image?.[1] ?? entry,
     // The years the collection's own name gives ("…, 1892-1925") — all a
     // record page says about the source's span.
     dateRange: yearSpan(collection),
