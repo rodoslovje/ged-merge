@@ -70,6 +70,46 @@ describe("parseNominatimResponse", () => {
     });
   });
 
+  it("keeps every administrative parent, smallest first, when a row names several", () => {
+    // A US row names its county *and* its state; a file writing
+    // "place, county, state, country" needs both, so neither may be lost.
+    const rows = [
+      {
+        lat: "34.1283",
+        lon: "-117.2086",
+        name: "Highland",
+        display_name: "Highland, San Bernardino County, California, United States",
+        type: "city",
+        address: {
+          city: "Highland",
+          county: "San Bernardino County",
+          state: "California",
+          country: "United States",
+        },
+      },
+    ];
+    const [r] = parseNominatimResponse(rows);
+    expect(r.parts?.admins).toEqual(["San Bernardino County", "California"]);
+    // The nearest parent stays the single-slot answer the rows show beside the name.
+    expect(r.parts?.admin).toBe("San Bernardino County");
+  });
+
+  it("collapses a parent spelt like the level above it, and lists one level as none", () => {
+    const rows = [
+      {
+        lat: "46.0511",
+        lon: "14.5051",
+        name: "Ljubljana",
+        display_name: "Ljubljana, Slovenija",
+        type: "city",
+        address: { city: "Ljubljana", municipality: "Ljubljana", county: "Ljubljana", country: "Slovenija" },
+      },
+    ];
+    const [r] = parseNominatimResponse(rows);
+    expect(r.parts?.admin).toBe("Ljubljana");
+    expect(r.parts?.admins).toBeUndefined();
+  });
+
   it("leaves the parts off entirely when the row has no address block", () => {
     const rows = [{ lat: "46", lon: "14", name: "Kranj", display_name: "Kranj, Slovenija" }];
     expect(parseNominatimResponse(rows)[0].parts).toBeUndefined();

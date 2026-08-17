@@ -109,12 +109,14 @@ function preferredCountry(name: string | undefined, fmt: PlaceTargetFormat): str
 
 /**
  * Compose the register's levels into a raw place string and reshape it into the
- * file's layout. The chain is locality → administrative parent → country, cut
- * to the file's own depth: the parent (občina/Kreis) is what a two-level file
- * drops, since it is the disambiguator rather than the address.
+ * file's layout. The chain is locality → administrative parents (smallest
+ * first) → country, cut to the file's own depth: the parent (občina/Kreis) is
+ * what a two-level file drops, since it is the disambiguator rather than the
+ * address, and a deeper file keeps as many parents as its own places carry —
+ * "place, county, state, country" where the register named both levels.
  */
 function shape(
-  parts: { locality: string; admin?: string; country?: string },
+  parts: { locality: string; admins?: readonly (string | undefined)[]; country?: string },
   addrRaw: string | undefined,
   style: PlaceStyle,
 ): { plac: string; addr?: string } | undefined {
@@ -123,13 +125,16 @@ function shape(
   // A municipality named after its own seat is *not* collapsed: a three-level
   // file writes exactly "Kranj,Kranj,Slovenija" for the town of Kranj, and a
   // proposal that dropped the repetition would not match its neighbours.
-  const admin = parts.admin?.trim() || undefined;
+  const admins = (parts.admins ?? []).map((a) => a?.trim()).filter((a): a is string => !!a);
   const country = preferredCountry(parts.country?.trim() || undefined, style.fmt);
 
   let chain: string[];
   if (style.depth <= 1) chain = [locality];
-  else if (style.depth === 2) chain = [locality, country ?? admin].filter(Boolean) as string[];
-  else chain = [locality, admin, country].filter(Boolean) as string[];
+  else if (style.depth === 2) chain = [locality, country ?? admins[0]].filter(Boolean) as string[];
+  // The file writes depth − 2 levels between the locality and the country;
+  // when the register names more, the smallest stay — the ones the single
+  // parent slot always carried.
+  else chain = [locality, ...admins.slice(0, style.depth - (country ? 2 : 1)), country].filter(Boolean) as string[];
 
   const raw = chain.join(style.fmt.separator);
   const out = reformatPlace(raw, addrRaw, style.fmt);
@@ -156,7 +161,7 @@ function shape(
 export function proposalFromGazEntry(entry: GazEntry, style: PlaceStyle): PlaceProposal | undefined {
   const admin = style.parentLevels ? style.parentLevels.parentOf(entry) : entry.admin;
   const shaped = shape(
-    { locality: entry.name, admin, country: countryNameOf(entry.country, style.language) },
+    { locality: entry.name, admins: [admin], country: countryNameOf(entry.country, style.language) },
     undefined,
     style,
   );
@@ -177,7 +182,7 @@ export function proposalFromRn(result: RnResult, style: PlaceStyle): PlacePropos
   const shaped = shape(
     {
       locality: result.settlement,
-      admin: result.municipality,
+      admins: [result.municipality],
       country: countryNameOf("SI", style.language),
     },
     result.address,
@@ -190,7 +195,7 @@ export function proposalFromRn(result: RnResult, style: PlaceStyle): PlacePropos
 /** A GOV object. GOV names no country, so the chain stops at the parent — for
  *  a historical place that is usually the level a file names anyway. */
 export function proposalFromGov(result: GovResult, style: PlaceStyle): PlaceProposal | undefined {
-  const shaped = shape({ locality: result.name, admin: result.admin }, undefined, style);
+  const shaped = shape({ locality: result.name, admins: [result.admin] }, undefined, style);
   if (!shaped) return undefined;
   return { ...shaped, coord: result.coord, source: "GOV", detail: result.label, govId: result.govId };
 }
@@ -221,22 +226,22 @@ export function proposalFromNominatim(result: NominatimResult, style: PlaceStyle
     const locality = parts.locality ?? result.admin;
     if (!locality) return undefined;
     const addr = `${parts.road ?? locality} ${parts.house}`;
-    const shaped = shape({ locality, admin: adminOf(parts.admin, country), country }, addr, style);
+    const shaped = shape({ locality, admins: adminsOf(parts.admins ?? [parts.admin], country), country }, addr, style);
     return shaped && { ...shaped, coord: result.coord, source: "OSM", detail: result.label };
   }
 
   const locality = parts?.locality ?? result.name;
-  const admin = adminOf(parts?.admin ?? result.admin, country);
-  const shaped = shape({ locality, admin, country }, undefined, style);
+  const admins = adminsOf(parts?.admins ?? [parts?.admin ?? result.admin], country);
+  const shaped = shape({ locality, admins, country }, undefined, style);
   if (!shaped) return undefined;
   return { ...shaped, coord: result.coord, source: "OSM", detail: result.label };
 }
 
-/** The administrative parent, unless it merely repeats the country — Nominatim
- *  returns a state for city-states and small countries, and "Monaco,Monaco" is
- *  a level, not a jurisdiction. */
-function adminOf(admin: string | undefined, country: string | undefined): string | undefined {
-  return admin && admin !== country ? admin : undefined;
+/** The administrative parents, dropping one that merely repeats the country —
+ *  Nominatim returns a state for city-states and small countries, and
+ *  "Monaco,Monaco" is a level, not a jurisdiction. */
+function adminsOf(admins: readonly (string | undefined)[], country: string | undefined): string[] {
+  return admins.filter((a): a is string => !!a && a !== country);
 }
 
 /** Stable identity of a proposal, for de-duplicating across registers — the

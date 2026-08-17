@@ -45,8 +45,16 @@ export interface NominatimResult {
     road?: string;
     /** The settlement itself (village/town/city/suburb). */
     locality?: string;
-    /** The administrative parent — municipality, else county/state. */
+    /** The nearest administrative parent — municipality, else county/state. */
     admin?: string;
+    /**
+     * Every administrative parent the row names, smallest first (municipality,
+     * county, state) — {@link admin} is the first of these. Present only when
+     * there is more than one, i.e. when {@link admin} alone would lose a level:
+     * a US row names both its county and its state, and a file that writes
+     * "place, county, state, country" needs them both.
+     */
+    admins?: string[];
     /** Country name, in the language the search asked for. */
     country?: string;
   };
@@ -78,6 +86,19 @@ function pick(address: Record<string, string | undefined>, keys: string[]): stri
   return undefined;
 }
 
+/** Every one of these keys the row's address carries, in order, with fold-equal
+ *  repeats collapsed (a municipality spelt like its county is one level). */
+function pickAll(address: Record<string, string | undefined>, keys: string[]): string[] {
+  const out: string[] = [];
+  for (const key of keys) {
+    const value = address[key]?.trim();
+    if (!value) continue;
+    const folded = foldSearch(value);
+    if (!out.some((v) => foldSearch(v) === folded)) out.push(value);
+  }
+  return out;
+}
+
 /** Pure mapping of a jsonv2 response body to results (exported for tests). */
 export function parseNominatimResponse(data: unknown): NominatimResult[] {
   if (!Array.isArray(data)) return [];
@@ -93,14 +114,16 @@ export function parseNominatimResponse(data: unknown): NominatimResult[] {
     if (row.type) result.kind = row.type;
     if (row.category) result.category = row.category;
     if (row.address) {
+      const admins = pickAll(row.address, ["municipality", "county", "state"]);
       const parts = {
         ...opt("house", pick(row.address, ["house_number"])),
         ...opt("road", pick(row.address, ["road", "pedestrian", "footway"])),
         // Outward from the smallest: a hamlet is the place a house belongs to,
         // and the town it is administered from comes next, not instead.
         ...opt("locality", pick(row.address, ["hamlet", "village", "suburb", "town", "city", "municipality"])),
-        ...opt("admin", pick(row.address, ["municipality", "county", "state"])),
+        ...opt("admin", admins[0]),
         ...opt("country", pick(row.address, ["country"])),
+        ...(admins.length > 1 ? { admins } : {}),
       };
       if (Object.keys(parts).length) result.parts = parts;
     }
