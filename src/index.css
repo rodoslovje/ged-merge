@@ -6332,6 +6332,8 @@ kbd {
   margin: 0 0 12px;
 }
 .add-source-details-grid .add-source-field { margin: 0; }
+/* Repository-name row: the proposed name is long, give it the full width. */
+.add-source-details-grid .add-source-field-wide { grid-column: 1 / -1; }
 .add-source-url-row { display: flex; align-items: flex-end; gap: 6px; }
 .add-source-url-row .add-source-field { flex: 1; margin-bottom: 0; }
 /* Pinned footer: filled-accent primary on the right, ghost cancel beside. */

@@ -556,8 +556,16 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
                   ]}
                 />
               </label>
-              {(repoSel === "@new@" || repoSel === "@create@") && (
+              {repoSel !== "" && (
                 <label className="add-source-field">
+                  <span>{t("addSource.field.caln")}</span>
+                  <input className="edit-input" value={repoCaln} onChange={(e) => setRepoCaln(e.target.value)} />
+                </label>
+              )}
+              {/* After the call number, so the long name gets its own
+                  full-width row under the dropdown | call-number pair. */}
+              {(repoSel === "@new@" || repoSel === "@create@") && (
+                <label className="add-source-field add-source-field-wide">
                   <span>{t("addSource.field.repoName")}</span>
                   {/* autoFocus only for the hand-named choice: the proposal can
                       be preselected by the paste itself, mid-typing. */}
@@ -572,12 +580,6 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
                     }}
                     autoFocus={repoSel === "@new@"}
                   />
-                </label>
-              )}
-              {repoSel !== "" && (
-                <label className="add-source-field">
-                  <span>{t("addSource.field.caln")}</span>
-                  <input className="edit-input" value={repoCaln} onChange={(e) => setRepoCaln(e.target.value)} />
                 </label>
               )}
             </div>
