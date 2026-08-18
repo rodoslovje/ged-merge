@@ -555,9 +555,13 @@
               Each offer is already written the way <em>your</em> file writes places: the same layout, the same comma
               separator, the same spelling of the country, and the same number of jurisdiction levels — a file that
               writes <em>Kranj,Kranj,Slovenija</em> is offered <em>Zabukovje,Sevnica,Slovenija</em>, a file that writes
-              only locality and country is offered <em>Zabukovje,Slovenija</em>. The level above the settlement is the
-              one your places name for that country — the municipality, or the county where you write counties (see
-              <a href="#geocode">§10</a>). A badge names the answering directory.
+              only locality and country is offered <em>Zabukovje,Slovenija</em>. The levels are counted for the
+              offer's own country: a file of three-level Slovenian places that writes its American ones as
+              <em>Chicago, Cook, Illinois, United States</em> is offered four American levels all the same. The level
+              above the settlement is the one your places name for that country — the municipality, or the county
+              where you write counties (see <a href="#geocode">§10</a>) — and it is worded your way too: where your
+              counties are bare, <em>Kane County</em> is offered as <em>Kane</em>. A badge names the answering
+              directory.
               Picking one fills in the place, its <strong>address</strong> when you typed a house number the address
               register recognised, and the <strong>coordinate</strong> that register puts it at — in one step you can
               undo as one.
@@ -574,7 +578,8 @@
             <p>
               The <strong>address</strong> field has the same row, and looks the house up <em>inside</em> the event's
               place: type <em>21</em> or <em>Hafnarjeva pot 21</em> and OpenStreetMap or the address register — Slovenia's
-              GURS, Croatia's DGU — finds the building. Because an address is looked up rather than guessed, an offer carries
+              GURS, Croatia's DGU — finds the building. The house number stands where that country puts it —
+              <em>12100 Eggleston Avenue</em>, but <em>Hafnarjeva pot 21</em>. Because an address is looked up rather than guessed, an offer carries
               the settlement the register really files it under — so where a street belongs to the town that absorbed
               your village, picking it corrects the place as well. Each offer reads <em>place · address</em>, so you see
               both before you take it. This one needs online lookups, unless the address is Croatian and its register is downloaded; an imported place gazetteer stops at settlements and
