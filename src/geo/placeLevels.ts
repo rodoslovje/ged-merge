@@ -180,6 +180,21 @@ export function inferPlaceParentLevels(
     set.add(foldToken(e.admin));
     municipalities.set(e.country, set);
   }
+  // A GeoNames country's entries name their *state* in the admin slot — the
+  // import joins ADM1 names, since GeoNames has no municipality names — so
+  // every "municipality" there is really a division. Held against them, each
+  // written state name counted as ambiguous (division and town at once),
+  // leaving the level and the file's own division spellings unlearnable —
+  // while a lone census-style "Fla.", colliding with nothing, became the only
+  // rank evidence and dressed every unwritten state in its index-2 alternate
+  // ("Estado de Nebraska", "Agaja"). When a country's municipality names are
+  // wholly its division names, they are divisions: drop the set. The size
+  // floor keeps a hand-built index of one county-named town (Karlovac) from
+  // losing its genuinely ambiguous reading.
+  for (const [country, towns] of [...municipalities]) {
+    if (towns.size < 5) continue;
+    if ([...towns].every((t) => divisionOfName.get(t)?.startsWith(`${country}:`))) municipalities.delete(country);
+  }
 
   const tally = new Map<string, { division: number; admin: number }>();
   /** The file's own spelling of a division it names, by division key. */

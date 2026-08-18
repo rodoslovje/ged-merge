@@ -129,6 +129,46 @@ describe("inferPlaceParentLevels", () => {
     expect(levels.divisionNameOf(us("Lakeville", "Lake", "FL"))).toBe("Florida");
   });
 
+  it("reads GeoNames states-as-admins as divisions, so the file's own spellings teach", () => {
+    // GeoNames entries carry the *state* in the admin slot (the import joins
+    // ADM1 names). Held against those as municipalities, every written state
+    // name counted as ambiguous, and one census-style "Fla." became the only
+    // rank evidence — dressing every unwritten state in its index-2 alternate.
+    const us = (name: string, admin: string, admin1: string): GazEntry => ({
+      name, ascii: "", alt: [], lat: 40, lon: -95, fclass: "P", country: "US", admin1, admin, population: 0,
+    });
+    const index = buildGazetteerIndex(
+      [
+        us("Omaha", "Nebraska", "NE"),
+        us("Chicago", "Illinois", "IL"),
+        us("Toledo", "Ohio", "OH"),
+        us("Miami", "Florida", "FL"),
+        us("Denver", "Colorado", "CO"),
+      ],
+      new Map([
+        ["US:NE", ["Nebraska", "Cornhusker State", "Estado de Nebraska"]],
+        ["US:IL", ["Illinois", "'Ilinoe", "Elenuojos"]],
+        ["US:OH", ["Ohio", "'Ohaio", "Agaja"]],
+        ["US:FL", ["Florida", "Estado de la Florida", "Fla."]],
+        ["US:CO", ["Colorado", "Kolorado", "Estado de Colorado"]],
+      ]),
+    );
+    const levels = inferPlaceParentLevels(
+      [
+        "Omaha, , Douglas, Nebraska, United States",
+        "Chicago, Cook, Illinois, United States",
+        "Miami, , Dade, Fla., United States",
+      ],
+      index,
+    );
+    expect(levels.levelOf("US")).toBe("division");
+    // The file's own spelling is learned for a written state…
+    expect(levels.divisionNameOf(us("Omaha", "Nebraska", "NE"))).toBe("Nebraska");
+    // …and an unwritten one keeps the register's primary name: the full names
+    // outvote the lone "Fla.", so no index-2 exonym.
+    expect(levels.divisionNameOf(us("Toledo", "Ohio", "OH"))).toBe("Ohio");
+  });
+
   it("leaves the municipality where nothing says otherwise", () => {
     const levels = inferPlaceParentLevels([], INDEX);
     expect(levels.levelOf("HR")).toBe("admin");
