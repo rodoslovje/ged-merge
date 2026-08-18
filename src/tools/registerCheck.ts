@@ -658,21 +658,34 @@ export function checkPlacesAgainstRegister(
       .map((p) => p.trim())
       .filter(Boolean);
     const divisionsHere = levels.divisionNamesIn(best.country);
-    const namedDivision = parents.find((p) => divisionsHere.some((d) => sameAdmin(d, p)));
+    const ownDivisions = levels.divisionNamesOf(best);
+    // A parent naming the entry's own municipality is the county slot, however
+    // division-like its name reads, and is never held against the level above.
+    // Judged name-by-name it went wrong: in "Charleroi, Washington,
+    // Pennsylvania" the Washington is the county, but Washington is also a
+    // state, and the first parent matching *any* state name used to be read as
+    // this entry's state. Every county sharing a state's name became a finding,
+    // and where the swap resolved it doubled the real state into the county's
+    // slot.
+    const entryAdmin = best.admin;
+    const unaccounted = parents.filter((p) => !entryAdmin || !sameAdmin(entryAdmin, p));
+    const namedDivision = unaccounted.find((p) => divisionsHere.some((d) => sameAdmin(d, p)));
     let disagrees: { writtenAdmin: string; to: string | undefined } | undefined;
     if (namedDivision) {
       // An entry the register could file under no division cannot contradict
       // one — the county join is by name, and a few names it cannot resolve.
-      const own = levels.divisionNamesOf(best);
-      if (own.length && !own.some((d) => sameAdmin(d, namedDivision))) {
+      // And a chain where *some* parent names the entry's own division agrees
+      // with the register: a stray division-like name beside it cannot pin the
+      // whole value as filed elsewhere.
+      if (ownDivisions.length && !unaccounted.some((p) => ownDivisions.some((d) => sameAdmin(d, p)))) {
         disagrees = { writtenAdmin: namedDivision, to: levels.divisionNameOf(best) };
       }
     } else {
       const namedAdmin = parents.find((p) =>
         (adminNames.get(best.country) ?? []).some((a) => sameAdmin(a, p)),
       );
-      if (namedAdmin && best.admin && !sameAdmin(best.admin, namedAdmin)) {
-        disagrees = { writtenAdmin: namedAdmin, to: best.admin };
+      if (namedAdmin && entryAdmin && !sameAdmin(entryAdmin, namedAdmin)) {
+        disagrees = { writtenAdmin: namedAdmin, to: entryAdmin };
       }
     }
     if (disagrees) {
@@ -693,7 +706,13 @@ export function checkPlacesAgainstRegister(
       continue;
     }
 
-    if (!writtenAsRegistered(written, best)) {
+    // The gate holds the raw leading segment too, brackets and all: a register
+    // name may carry a bracketed qualifier ("Dawson (historical)") which
+    // decomposePlace files as an aside, so the locality alone would fail this
+    // test forever — a fresh finding right after "Use official name" wrote the
+    // register's own spelling in, proposing the value it already is.
+    const rawLead = key.split(",")[0].trim();
+    if (!writtenAsRegistered(written, best) && !writtenAsRegistered(rawLead, best)) {
       // The correction sheds the blank level an export left behind when the
       // file's own habit writes none — the swap alone kept "Sugar Creek, ,
       // Clinton, …" at five raw parts in a file whose American places carry

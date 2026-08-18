@@ -581,4 +581,61 @@ describe("checkPlacesAgainstRegister", () => {
       expect(findings.some((f) => f.verdict === "deep")).toBe(false);
     });
   });
+
+  describe("US counties and qualified names", () => {
+    function us(name: string, admin: string, admin1: string, lat: number, lon: number): GazEntry {
+      return { name, ascii: "", alt: [], lat, lon, fclass: "P", country: "US", admin1, admin, population: 0 };
+    }
+
+    const US_REGISTER = buildGazetteerIndex(
+      [
+        us("Charleroi", "Washington", "PA", 40.1376, -79.898),
+        us("Joliet", "Will", "IL", 41.525, -88.0817),
+        { ...us("Dawson (historical)", "Colfax", "NM", 36.6642, -104.7747), ascii: "Dawson" },
+      ],
+      new Map([
+        ["US:PA", ["Pennsylvania"]],
+        ["US:IL", ["Illinois"]],
+        ["US:WA", ["Washington"]],
+        ["US:WI", ["Wisconsin"]],
+        ["US:NM", ["New Mexico"]],
+      ]),
+    );
+
+    it("does not read a county sharing a state's name as that state", () => {
+      // Charleroi's county *is* Washington — held name-by-name the parent used
+      // to be taken for Washington the state and reported as contradicting
+      // Pennsylvania, on every county in the file sharing a state's name.
+      const ds = fileWith(place("Charleroi, Washington, Pennsylvania, United States"));
+      const { findings, ok } = checkPlacesAgainstRegister(ds, US_REGISTER, NO_DECISIONS);
+      expect(findings).toEqual([]);
+      expect(ok).toBe(1);
+    });
+
+    it("still reports a wrong state beside an agreeing county", () => {
+      const ds = fileWith(place("Joliet, Will, Wisconsin, United States"));
+      const { findings } = checkPlacesAgainstRegister(ds, US_REGISTER, NO_DECISIONS);
+      expect(findings).toHaveLength(1);
+      expect(findings[0].verdict).toBe("admin");
+      expect(findings[0].writtenAdmin).toBe("Wisconsin");
+    });
+
+    it("proposes a register name that carries a bracketed qualifier", () => {
+      const ds = fileWith(place("Dawson, New Mexico, United States"));
+      const { findings } = checkPlacesAgainstRegister(ds, US_REGISTER, NO_DECISIONS);
+      expect(findings).toHaveLength(1);
+      expect(findings[0].verdict).toBe("spelling");
+      expect(findings[0].official).toBe("Dawson (historical), New Mexico, United States");
+    });
+
+    it("accepts a register name whose bracketed qualifier the file writes verbatim", () => {
+      // The register's own answer, applied: "(historical)" is an aside to the
+      // place decomposition, so the locality alone re-failed the spelling gate
+      // forever — a fresh finding proposing the value it already is.
+      const ds = fileWith(place("Dawson (historical), New Mexico, United States"));
+      const { findings, ok } = checkPlacesAgainstRegister(ds, US_REGISTER, NO_DECISIONS);
+      expect(findings).toEqual([]);
+      expect(ok).toBe(1);
+    });
+  });
 });
