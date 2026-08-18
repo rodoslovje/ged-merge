@@ -48,6 +48,20 @@ function withoutUnitWords(folded: string): string {
   return folded.split(" ").filter((w) => !UNIT_WORDS.has(w)).join(" ");
 }
 
+/** Whether any word of the name names its kind of unit — "Kane County",
+ *  "Občina Sevnica", "Zagrebačka županija". */
+export function namesUnitKind(name: string): boolean {
+  return name.split(/\s+/).some((w) => UNIT_WORDS.has(foldToken(w)));
+}
+
+/** The name with the words naming its kind of unit set aside, spelling kept —
+ *  "Kane County" → "Kane", "Občina Sevnica" → "Sevnica". The name itself when
+ *  nothing else would remain (the municipality really named "Grad"). */
+export function stripUnitWords(name: string): string {
+  const kept = name.split(/\s+/).filter((w) => !UNIT_WORDS.has(foldToken(w)));
+  return kept.length ? kept.join(" ") : name;
+}
+
 /**
  * Two names for one administrative body: equal once folded and once the words
  * naming the kind of unit are set aside, so a file's "Zagrebačka županija" is

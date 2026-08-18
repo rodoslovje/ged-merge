@@ -5,7 +5,7 @@ import { placeFormFor } from "../normalize/profile";
 import type { PlaceTargetFormat } from "../normalize/types";
 import type { GeoCoord } from "../gedcom/types";
 import type { GazEntry } from "./gazetteer";
-import type { PlaceParentLevels } from "./placeLevels";
+import { namesUnitKind, stripUnitWords, type PlaceParentLevels } from "./placeLevels";
 import type { GovResult } from "./gov";
 import type { NominatimResult } from "./nominatim";
 import type { RnResult } from "./rn";
@@ -59,14 +59,14 @@ export interface PlaceStyle {
    */
   depth: number;
   /**
-   * The same count per country ({@link canonicalPlaceToken} of the country →
-   * modal comma-part count of the file's places in it). A file writes its
-   * American places deeper than its Slovenian ones — "Chicago, Cook, Illinois,
-   * United States" beside "Kranj, Kranj, Slovenija" — so a proposal matches
-   * the habit for *its* country; {@link depth} answers for a country the file
-   * has never written, and for a chain naming no country at all.
+   * The file's habit per country ({@link canonicalPlaceToken} of the country →
+   * {@link CountryDepth}). A file writes its American places deeper than its
+   * Slovenian ones — "Chicago, Cook, Illinois, United States" beside
+   * "Kranj, Kranj, Slovenija" — so a proposal matches the habit for *its*
+   * country; {@link depth} answers for a country the file has never written,
+   * and for a chain naming no country at all.
    */
-  depthByCountry?: ReadonlyMap<string, number>;
+  byCountry?: ReadonlyMap<string, CountryDepth>;
   /** UI language, used to name a country the file has never written. */
   language: string;
   /**
@@ -78,11 +78,25 @@ export interface PlaceStyle {
   parentLevels?: PlaceParentLevels;
 }
 
-/** The file's place depths: the overall modal comma-part count, and the same
- *  mode per country — see {@link PlaceStyle.depthByCountry}. */
+/** How one country's places are written in this file. */
+export interface CountryDepth {
+  /** Modal comma-part count of the file's places in this country. */
+  depth: number;
+  /**
+   * Whether the file writes this country's parent levels bare of the words
+   * naming their kind — "Cook" rather than "Kane County", "Sevnica" rather
+   * than "Občina Sevnica". Only ever true on evidence: the file has shown a
+   * parent level for this country and none carried such a word; a register's
+   * parent is then stripped to match ({@link stripUnitWords}).
+   */
+  bare: boolean;
+}
+
+/** The file's place depths: the overall modal comma-part count, and the
+ *  per-country habit — see {@link PlaceStyle.byCountry}. */
 export interface PlaceDepths {
   depth: number;
-  byCountry: Map<string, number>;
+  byCountry: Map<string, CountryDepth>;
 }
 
 /** The modal count, ties to the smaller — trimming a level is recoverable from
@@ -104,20 +118,30 @@ function modalOf(counts: ReadonlyMap<number, number>): number {
  *  (locality + country) for a file with no places yet. */
 export function placeDepthsOf(places: readonly string[]): PlaceDepths {
   const global = new Map<number, number>();
-  const perCountry = new Map<string, Map<number, number>>();
+  const perCountry = new Map<string, { counts: Map<number, number>; parents: boolean; unitWords: boolean }>();
   for (const p of places) {
     const n = p.split(",").filter((s) => s.trim()).length;
     if (n === 0) continue;
     global.set(n, (global.get(n) ?? 0) + 1);
-    const country = decomposePlace(p).country;
+    const components = decomposePlace(p);
+    const country = components.country;
     if (!country) continue;
     const key = canonicalPlaceToken(country);
-    const counts = perCountry.get(key) ?? new Map<number, number>();
-    counts.set(n, (counts.get(n) ?? 0) + 1);
-    perCountry.set(key, counts);
+    const entry = perCountry.get(key) ?? { counts: new Map<number, number>(), parents: false, unitWords: false };
+    entry.counts.set(n, (entry.counts.get(n) ?? 0) + 1);
+    // The levels between the locality and the country show whether this file
+    // writes them bare ("Cook") or with their kind spelt out ("Kane County").
+    for (const parent of components.jurisdiction.slice(1)) {
+      if (parent.toLowerCase() === country.toLowerCase()) continue;
+      entry.parents = true;
+      if (namesUnitKind(parent)) entry.unitWords = true;
+    }
+    perCountry.set(key, entry);
   }
-  const byCountry = new Map<string, number>();
-  for (const [key, counts] of perCountry) byCountry.set(key, modalOf(counts));
+  const byCountry = new Map<string, CountryDepth>();
+  for (const [key, entry] of perCountry) {
+    byCountry.set(key, { depth: modalOf(entry.counts), bare: entry.parents && !entry.unitWords });
+  }
   return { depth: modalOf(global) || 2, byCountry };
 }
 
@@ -164,11 +188,17 @@ function shape(
   // A municipality named after its own seat is *not* collapsed: a three-level
   // file writes exactly "Kranj,Kranj,Slovenija" for the town of Kranj, and a
   // proposal that dropped the repetition would not match its neighbours.
-  const admins = (parts.admins ?? []).map((a) => a?.trim()).filter((a): a is string => !!a);
   const country = preferredCountry(parts.country?.trim() || undefined, style.fmt);
-  // The depth the file writes *this* country at, before its overall habit — a
+  // The habit the file writes *this* country with, before its overall one — a
   // file of three-level Slovenian places still writes its American ones in four.
-  const depth = (country ? style.depthByCountry?.get(canonicalPlaceToken(country)) : undefined) ?? style.depth;
+  const habit = country ? style.byCountry?.get(canonicalPlaceToken(country)) : undefined;
+  const depth = habit?.depth ?? style.depth;
+  const admins = (parts.admins ?? [])
+    .map((a) => a?.trim())
+    .filter((a): a is string => !!a)
+    // A file whose parent levels are bare gets the register's stripped to
+    // match: "Kane County" is written "Kane" beside the file's own "Cook".
+    .map((a) => (habit?.bare ? stripUnitWords(a) : a));
 
   let chain: string[];
   if (depth <= 1) chain = [locality];

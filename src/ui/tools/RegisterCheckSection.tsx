@@ -1035,7 +1035,7 @@ export const FULL_CHAIN = 3;
 /** A directory entry as a whole place: the text, and the `FORM` naming its
  *  parts — composed here, so the levels are known rather than counted. */
 function composedAnswer(entry: GazEntry, style: PlaceStyle): { place: string; form?: string } {
-  const proposal = proposalFromGazEntry(entry, { ...style, depth: FULL_CHAIN, depthByCountry: undefined });
+  const proposal = proposalFromGazEntry(entry, { ...style, depth: FULL_CHAIN, byCountry: undefined });
   return {
     place: proposal?.plac ?? pickLabel(entry.name, entry.admin),
     ...(proposal?.form ? { form: proposal.form } : {}),

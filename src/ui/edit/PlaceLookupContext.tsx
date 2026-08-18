@@ -127,7 +127,7 @@ export function usePlaceStyle(
     return {
       fmt,
       depth: depths.depth,
-      depthByCountry: depths.byCountry,
+      byCountry: depths.byCountry,
       language,
       // Only a loaded directory can tell a county from a municipality; without
       // one the parent stays the municipality, as it always was.
@@ -154,7 +154,7 @@ export function usePlaceLookupValue(
   // An explicit depth pins every proposal to it, so the per-country habit must
   // not out-vote the pin.
   const style = useMemo(
-    () => (depth ? { ...fileStyle, depth, depthByCountry: undefined } : fileStyle),
+    () => (depth ? { ...fileStyle, depth, byCountry: undefined } : fileStyle),
     [fileStyle, depth],
   );
 

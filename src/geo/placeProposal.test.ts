@@ -67,20 +67,33 @@ describe("placeDepthsOf", () => {
       "Highland, San Bernardino, California, United States",
     ]);
     expect(depths.depth).toBe(3);
-    expect(depths.byCountry.get("slovenia")).toBe(3);
-    expect(depths.byCountry.get("unitedstates")).toBe(4);
+    expect(depths.byCountry.get("slovenia")?.depth).toBe(3);
+    expect(depths.byCountry.get("unitedstates")?.depth).toBe(4);
+    // "Cook", "Illinois", "Kranj" — every parent bare of unit words.
+    expect(depths.byCountry.get("unitedstates")?.bare).toBe(true);
+    expect(depths.byCountry.get("slovenia")?.bare).toBe(true);
   });
 
   it("keys a country by its canonical token, whatever the file's spelling", () => {
     const depths = placeDepthsOf(["Cleveland, Ohio, ZDA", "Chicago, Cook, Illinois, USA"]);
     // Two spellings, one country: the mode is taken over both, ties to fewer.
-    expect(depths.byCountry.get("unitedstates")).toBe(3);
+    expect(depths.byCountry.get("unitedstates")?.depth).toBe(3);
+  });
+
+  it("reads a file that spells the unit out as not bare", () => {
+    const depths = placeDepthsOf(["Anaheim, Orange County, California, United States"]);
+    expect(depths.byCountry.get("unitedstates")?.bare).toBe(false);
+  });
+
+  it("claims no bareness without a parent level to learn from", () => {
+    const depths = placeDepthsOf(["Ljubljana,Slovenija"]);
+    expect(depths.byCountry.get("slovenia")?.bare).toBe(false);
   });
 
   it("leaves a place naming no country to the file-wide mode alone", () => {
     const depths = placeDepthsOf(["Zabukovje", "Zabukovje", "Kranj,Kranj,Slovenija"]);
     expect(depths.depth).toBe(1);
-    expect(depths.byCountry.get("slovenia")).toBe(3);
+    expect(depths.byCountry.get("slovenia")?.depth).toBe(3);
     expect(depths.byCountry.size).toBe(1);
   });
 });
@@ -299,26 +312,28 @@ describe("GOV and OpenStreetMap as places", () => {
     expect(p.plac).toBe("Highland, California, United States");
   });
 
+  const NORTH_AURORA = {
+    coord: { lat: 41.806, lon: -88.3273 },
+    name: "North Aurora",
+    label: "North Aurora, Aurora Township, Kane County, Illinois, 60542, United States",
+    admin: "Aurora Township",
+    kind: "village",
+    parts: {
+      locality: "North Aurora",
+      admin: "Aurora Township",
+      admins: ["Aurora Township", "Kane County", "Illinois"],
+      country: "United States",
+    },
+  };
+
   it("writes each country at the file's own depth for that country", () => {
     // The file is mostly three-level Slovenian places, but writes its American
     // ones in four — a proposal follows the habit of the country it is in.
-    const depthByCountry = new Map([["unitedstates", 4]]);
+    const byCountry = new Map([["unitedstates", { depth: 4, bare: false }]]);
     const p = proposalFromNominatim(
-      {
-        coord: { lat: 41.806, lon: -88.3273 },
-        name: "North Aurora",
-        label: "North Aurora, Aurora Township, Kane County, Illinois, 60542, United States",
-        admin: "Aurora Township",
-        kind: "village",
-        parts: {
-          locality: "North Aurora",
-          admin: "Aurora Township",
-          admins: ["Aurora Township", "Kane County", "Illinois"],
-          country: "United States",
-        },
-      },
+      NORTH_AURORA,
       style(
-        { depth: 3, depthByCountry },
+        { depth: 3, byCountry },
         {
           separator: ", ",
           countryPreferred: US,
@@ -332,6 +347,17 @@ describe("GOV and OpenStreetMap as places", () => {
     // level American files omit, is the one the trim drops.
     expect(p.plac).toBe("North Aurora, Kane County, Illinois, United States");
     expect(p.form).toBe("Place,County,State,Country");
+  });
+
+  it("strips the unit word where the file writes its parents bare", () => {
+    // The file says "Chicago, Cook, Illinois, United States" — its counties
+    // carry no "County", so the register's "Kane County" is written "Kane".
+    const byCountry = new Map([["unitedstates", { depth: 4, bare: true }]]);
+    const p = proposalFromNominatim(
+      NORTH_AURORA,
+      style({ depth: 3, byCountry }, { separator: ", ", countryPreferred: US }),
+    )!;
+    expect(p.plac).toBe("North Aurora, Kane, Illinois, United States");
   });
 
   it("writes the levels it has when the file's places go deeper still", () => {
