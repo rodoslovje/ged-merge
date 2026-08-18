@@ -3495,6 +3495,22 @@ button:focus-visible {
   width: 240px;
   min-width: 200px;
 }
+/* And one height: when any relative card on the page carries a kinship row,
+   every card without one reserves an equally tall blank row, so parents,
+   partner and children boxes line up instead of varying two/three rows. */
+.edit-view:has(.person-card-meta .person-kinship)
+  .person-card-meta:not(:has(.person-kinship))::after {
+  content: "\00a0";
+  flex-basis: 100%;
+  font-size: 0.78rem;
+}
+/* Likewise the year line: a card for a dateless person reserves that row too
+   (the ghost shares the first meta row with any status chips). */
+.edit-view:has(.person-card-meta .person-years)
+  .person-card-meta:not(:has(.person-years))::before {
+  content: "\00a0";
+  font-size: 0.9em;
+}
 .person-card-role {
   color: var(--muted);
   font-size: 0.7rem;
