@@ -85,20 +85,21 @@ export function PersonCard({ individual, roleLabel, placeholder, onSelect, onAdd
           <div className={`person-label ${sexClass(individual.sex)}`}>
             <span className="person-name">{nameOf(individual)}</span>
             {settings.showXref && <span className="person-xref gm-data">{xrefLabel(individual.id)}</span>}
-            {(lifespan || kinship || decisionStatus || modified) && (
-              <div className="person-card-meta">
-                {lifespan && <span className="person-years gm-data">{lifespan}</span>}
-                {decisionStatus && (
-                  <span className={`status-chip ${decisionStatus}`} title={decisionTooltip}>
-                    {decisionLetter}
-                  </span>
-                )}
-                {modified && (
-                  <span className="status-chip modified" title={modifiedTooltip}>{modifiedLetter}</span>
-                )}
-                {kinship && <span className={`person-kinship ${kinshipLineage ?? ""}`} title={kinshipTooltip}>{kinship}</span>}
-              </div>
-            )}
+            {/* Always present, even with nothing to show: the CSS equal-height
+                ghosts hang off this block, so a dateless person's card can
+                still reserve the year/kinship rows its neighbours have. */}
+            <div className="person-card-meta">
+              {lifespan && <span className="person-years gm-data">{lifespan}</span>}
+              {decisionStatus && (
+                <span className={`status-chip ${decisionStatus}`} title={decisionTooltip}>
+                  {decisionLetter}
+                </span>
+              )}
+              {modified && (
+                <span className="status-chip modified" title={modifiedTooltip}>{modifiedLetter}</span>
+              )}
+              {kinship && <span className={`person-kinship ${kinshipLineage ?? ""}`} title={kinshipTooltip}>{kinship}</span>}
+            </div>
           </div>
         </button>
         {onRemove && (
