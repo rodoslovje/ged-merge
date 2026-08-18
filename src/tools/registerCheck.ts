@@ -227,6 +227,14 @@ function replaceSegment(place: string, from: string, to: string): string | undef
  *  counts for no depth. */
 const nonEmptyParts = (v: string) => v.split(",").filter((s) => s.trim()).length;
 
+/** The value with its blank comma segments removed — "Dawson, , Rio Arriba, …"
+ *  losing the level an export left empty. The kept segments' spacing stays. */
+const blankLevelsDropped = (v: string) =>
+  v
+    .split(",")
+    .filter((s) => s.trim())
+    .join(",");
+
 /** The place value without its most specific level, and that level on its own:
  *  "Saint Mary Nativity Cemetery, Crest Hill, Will, Illinois, United States"
  *  splits into the cemetery and the place it stands in. Empty segments left
@@ -360,21 +368,30 @@ export function checkPlacesAgainstRegister(
   // value against this — one part more than the habit is a level to move, at
   // the depth its neighbours already write.
   const depthTally = new Map<string, Map<number, number>>();
+  // The same habit counted over *raw* parts, blanks included — what tells a
+  // file that writes the blank slot as a house style ("Place, Municipality,
+  // County, State, Country" with the slot empty on every value) apart from one
+  // where a few values still carry an export's leftover comma.
+  const rawDepthTally = new Map<string, Map<number, number>>();
   for (const [key, g] of groups) {
     if (!key || isUnknownPlaceValue(key)) continue;
     const c = decomposePlace(key).country;
     const code = (c ? countryCodeOfName(c)?.toUpperCase() : home.toUpperCase()) || undefined;
     if (!code) continue;
-    const depth = nonEmptyParts(key);
-    const byDepth = depthTally.get(code) ?? new Map<number, number>();
-    byDepth.set(depth, (byDepth.get(depth) ?? 0) + g.count);
-    depthTally.set(code, byDepth);
+    for (const [tally, depth] of [
+      [depthTally, nonEmptyParts(key)],
+      [rawDepthTally, key.split(",").length],
+    ] as const) {
+      const byDepth = tally.get(code) ?? new Map<number, number>();
+      byDepth.set(depth, (byDepth.get(depth) ?? 0) + g.count);
+      tally.set(code, byDepth);
+    }
   }
-  // Ties go to the deeper habit, so the verdict under-fires rather than over.
-  const modalDepth = (country: string): number => {
+  // Ties go to the deeper habit, so the verdicts under-fire rather than over.
+  const modalIn = (tally: Map<string, Map<number, number>>, country: string): number => {
     let depth = 0;
     let best = 0;
-    for (const [d, n] of depthTally.get(country) ?? []) {
+    for (const [d, n] of tally.get(country) ?? []) {
       if (n > best || (n === best && d > depth)) {
         depth = d;
         best = n;
@@ -382,6 +399,12 @@ export function checkPlacesAgainstRegister(
     }
     return depth;
   };
+  const modalDepth = (country: string) => modalIn(depthTally, country);
+  /** Whether this value carries more raw parts than the country's habit — a
+   *  blank level that is leftover rather than house style, so a correction to
+   *  the value sheds it rather than reproducing it. */
+  const shedBlanks = (key: string, country: string | undefined): boolean =>
+    !!country && key.split(",").length > modalIn(rawDepthTally, country);
 
   /**
    * The directory's answers to one value: only a name it holds letter-for-letter
@@ -649,7 +672,8 @@ export function checkPlacesAgainstRegister(
       }
     }
     if (disagrees) {
-      const official = disagrees.to ? replaceSegment(key, disagrees.writtenAdmin, disagrees.to) : undefined;
+      const swapped = disagrees.to ? replaceSegment(key, disagrees.writtenAdmin, disagrees.to) : undefined;
+      const official = swapped && shedBlanks(key, wantCountry) ? blankLevelsDropped(swapped) : swapped;
       findings.push({
         key,
         count: g.count,
@@ -666,7 +690,12 @@ export function checkPlacesAgainstRegister(
     }
 
     if (!writtenAsRegistered(written, best)) {
-      const official = replaceLocality(key, best.name);
+      // The correction sheds the blank level an export left behind when the
+      // file's own habit writes none — the swap alone kept "Sugar Creek, ,
+      // Clinton, …" at five raw parts in a file whose American places carry
+      // four. A file whose habit *is* the blank slot keeps it.
+      const swapped = replaceLocality(key, best.name);
+      const official = swapped && shedBlanks(key, wantCountry) ? blankLevelsDropped(swapped) : swapped;
       findings.push({
         key,
         count: g.count,

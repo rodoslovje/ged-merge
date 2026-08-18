@@ -1029,13 +1029,32 @@ function chosenIndex(f: RegisterFinding, options: RegisterOption[], picked: Read
  * leaving the row to ask which of six identical lines was the right one. Layout,
  * separator and country spelling stay the file's own (or the ones Settings
  * enforces), so what a pick writes is still written this file's way.
+ *
+ * A *floor*, not a pin: a country the file writes deeper keeps its own depth —
+ * a four-level American value must meet an answer of its own depth, or the
+ * composition comes back shorter and the letter-swap, blank levels and all,
+ * stands instead (see {@link answerPlace}).
  */
 export const FULL_CHAIN = 3;
+
+/** The style a list answer is composed in — {@link FULL_CHAIN} as the floor,
+ *  the file's own per-country habit where that is deeper. */
+function answerStyle(style: PlaceStyle): PlaceStyle {
+  return {
+    ...style,
+    depth: Math.max(style.depth, FULL_CHAIN),
+    byCountry: style.byCountry
+      ? new Map(
+          [...style.byCountry].map(([k, v]) => [k, v.depth >= FULL_CHAIN ? v : { ...v, depth: FULL_CHAIN }]),
+        )
+      : undefined,
+  };
+}
 
 /** A directory entry as a whole place: the text, and the `FORM` naming its
  *  parts — composed here, so the levels are known rather than counted. */
 function composedAnswer(entry: GazEntry, style: PlaceStyle): { place: string; form?: string } {
-  const proposal = proposalFromGazEntry(entry, { ...style, depth: FULL_CHAIN, byCountry: undefined });
+  const proposal = proposalFromGazEntry(entry, answerStyle(style));
   return {
     place: proposal?.plac ?? pickLabel(entry.name, entry.admin),
     ...(proposal?.form ? { form: proposal.form } : {}),

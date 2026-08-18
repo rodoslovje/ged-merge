@@ -522,6 +522,40 @@ describe("checkPlacesAgainstRegister", () => {
       expect(findings).toEqual([]);
     });
 
+    it("a spelling correction sheds the blank level a habit-4 file does not write", () => {
+      // The letter-swap alone would keep the export's leftover comma: "Sugar
+      // creek, , Clinton, …" corrected to five raw parts in a file whose
+      // American places carry four.
+      const register = buildGazetteerIndex(
+        [
+          us("Chicago", "Cook", "IL", 41.85003, -87.65005),
+          us("Sugar Creek", "Clinton", "IA", 41.9647, -90.5457),
+        ],
+        new Map([
+          ["US:IL", ["Illinois"]],
+          ["US:IA", ["Iowa"]],
+        ]),
+      );
+      const ds = fileWith(
+        place("Chicago, Cook, Illinois, United States"),
+        place("Chicago, Cook, Illinois, United States"),
+        place("Sugar creek, , Clinton, Iowa, United States"),
+      );
+      const { findings } = checkPlacesAgainstRegister(ds, register, NO_DECISIONS);
+      expect(findings).toHaveLength(1);
+      expect(findings[0].verdict).toBe("spelling");
+      expect(findings[0].official).toBe("Sugar Creek, Clinton, Iowa, United States");
+
+      // A file whose habit *is* the blank slot keeps it through the correction.
+      const blanks = fileWith(
+        place("Chicago, , Cook, Illinois, United States"),
+        place("Chicago, , Cook, Illinois, United States"),
+        place("Sugar creek, , Clinton, Iowa, United States"),
+      );
+      const kept = checkPlacesAgainstRegister(blanks, register, NO_DECISIONS).findings;
+      expect(kept[0].official).toBe("Sugar Creek, , Clinton, Iowa, United States");
+    });
+
     it("does not flag when a written parent is one the register cannot account for", () => {
       // "Lakeshore" is neither Chicago's county, its state nor the country —
       // with an unaccounted level in the chain, nothing says which level is

@@ -254,6 +254,26 @@ describe("GOV and OpenStreetMap as places", () => {
     expect(p.source).toBe("GOV");
   });
 
+  it("adds the division above the parent for a four-level habit", () => {
+    const entry: GazEntry = {
+      name: "Bektež", ascii: "", alt: [], lat: 45.4, lon: 17.9, fclass: "P",
+      country: "HR", admin1: "11", admin: "Kutjevo", population: 0,
+    };
+    const index = buildGazetteerIndex([entry], new Map([["HR:11", ["Požeško-slavonska županija"]]]));
+    const levels = inferPlaceParentLevels([], index);
+    const hrStyle = (depth: number) =>
+      style(
+        { language: "en", parentLevels: levels, byCountry: new Map([["croatia", { depth, bare: false }]]) },
+        { separator: ", ", countryPreferred: new Map([["croatia", "Croatia"]]) },
+      );
+    const four = proposalFromGazEntry(entry, hrStyle(4))!;
+    expect(four.plac).toBe("Bektež, Kutjevo, Požeško-slavonska županija, Croatia");
+    // A three-level habit keeps the one level parentOf chose — handing the
+    // chain both would trim away the very level that file writes.
+    const three = proposalFromGazEntry(entry, hrStyle(3))!;
+    expect(three.plac).toBe("Bektež, Kutjevo, Croatia");
+  });
+
   it("builds place and address from a Nominatim house, whose own name is the number", () => {
     const p = proposalFromNominatim(
       {

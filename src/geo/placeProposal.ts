@@ -259,11 +259,20 @@ function shape(
  *  proposal that named the other level would not look like its neighbours. */
 export function proposalFromGazEntry(entry: GazEntry, style: PlaceStyle): PlaceProposal | undefined {
   const admin = style.parentLevels ? style.parentLevels.parentOf(entry) : entry.admin;
-  const shaped = shape(
-    { locality: entry.name, admins: [admin], country: countryNameOf(entry.country, style.language) },
-    undefined,
-    style,
-  );
+  const country = countryNameOf(entry.country, style.language);
+  // The division above the parent — a US state — joins as a second parent
+  // where the file's own habit for the country keeps a level for it: a file
+  // writing "place, county, state, country" composes all four, while a
+  // three-level Croatian file keeps the one level parentOf chose — handing
+  // the chain both would trim away the very level that file writes.
+  const habit = country ? style.byCountry?.get(canonicalPlaceToken(preferredCountry(country, style.fmt) ?? country)) : undefined;
+  const division =
+    (habit?.depth ?? style.depth) >= 4 ? style.parentLevels?.divisionNameOf(entry) : undefined;
+  const admins =
+    division && canonicalPlaceToken(division) !== (admin ? canonicalPlaceToken(admin) : "")
+      ? [admin, division]
+      : [admin];
+  const shaped = shape({ locality: entry.name, admins, country }, undefined, style);
   if (!shaped) return undefined;
   return {
     ...shaped,
