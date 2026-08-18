@@ -14,7 +14,7 @@ import { inferPlaceParentLevels, type PlaceParentLevels } from "../../geo/placeL
 import { searchNominatim } from "../../geo/nominatim";
 import { rnQueriesFrom, searchAddresses } from "../../geo/rn";
 import {
-  placeDepthOf,
+  placeDepthsOf,
   proposalFromGazEntry,
   proposalFromGov,
   proposalFromNominatim,
@@ -123,9 +123,11 @@ export function usePlaceStyle(
   const language = i18n.language;
   return useMemo(() => {
     const fmt = applyPlaceOverrides(inferPlaceExportFormat(dataset), overrides);
+    const depths = placeDepthsOf(placeSuggestions);
     return {
       fmt,
-      depth: placeDepthOf(placeSuggestions),
+      depth: depths.depth,
+      depthByCountry: depths.byCountry,
       language,
       // Only a loaded directory can tell a county from a municipality; without
       // one the parent stays the municipality, as it always was.
@@ -149,7 +151,12 @@ export function usePlaceLookupValue(
   const settings = useSettingsSlice(SETTINGS_KEYS);
   const online = settings.allowLinkFetch;
   const fileStyle = usePlaceStyle(dataset, placeSuggestions);
-  const style = useMemo(() => (depth ? { ...fileStyle, depth } : fileStyle), [fileStyle, depth]);
+  // An explicit depth pins every proposal to it, so the per-country habit must
+  // not out-vote the pin.
+  const style = useMemo(
+    () => (depth ? { ...fileStyle, depth, depthByCountry: undefined } : fileStyle),
+    [fileStyle, depth],
+  );
 
   return useMemo(() => {
     /** Collector shared by both lookups: first offer for a place wins, so the

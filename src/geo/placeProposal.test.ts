@@ -6,6 +6,7 @@ import type { RnResult } from "./rn";
 import {
   countryNameOf,
   placeDepthOf,
+  placeDepthsOf,
   proposalFromGazEntry,
   proposalFromGov,
   proposalFromNominatim,
@@ -53,6 +54,34 @@ describe("placeDepthOf", () => {
     expect(placeDepthOf(["Kranj,Slovenija", "Bled,Slovenija", "Ljubljana,Ljubljana,Slovenija"])).toBe(2);
     // A file with no places yet: locality + country is the safe assumption.
     expect(placeDepthOf([])).toBe(2);
+  });
+});
+
+describe("placeDepthsOf", () => {
+  it("counts each country's own habit apart from the file-wide mode", () => {
+    const depths = placeDepthsOf([
+      "Kranj,Kranj,Slovenija",
+      "Bled,Bled,Slovenija",
+      "Ljubljana,Slovenija",
+      "Chicago, Cook, Illinois, United States",
+      "Highland, San Bernardino, California, United States",
+    ]);
+    expect(depths.depth).toBe(3);
+    expect(depths.byCountry.get("slovenia")).toBe(3);
+    expect(depths.byCountry.get("unitedstates")).toBe(4);
+  });
+
+  it("keys a country by its canonical token, whatever the file's spelling", () => {
+    const depths = placeDepthsOf(["Cleveland, Ohio, ZDA", "Chicago, Cook, Illinois, USA"]);
+    // Two spellings, one country: the mode is taken over both, ties to fewer.
+    expect(depths.byCountry.get("unitedstates")).toBe(3);
+  });
+
+  it("leaves a place naming no country to the file-wide mode alone", () => {
+    const depths = placeDepthsOf(["Zabukovje", "Zabukovje", "Kranj,Kranj,Slovenija"]);
+    expect(depths.depth).toBe(1);
+    expect(depths.byCountry.get("slovenia")).toBe(3);
+    expect(depths.byCountry.size).toBe(1);
   });
 });
 
@@ -263,9 +292,46 @@ describe("GOV and OpenStreetMap as places", () => {
     expect(p.plac).toBe("Highland, San Bernardino County, California, United States");
   });
 
-  it("keeps the nearest parent, as ever, for a three-level file", () => {
+  it("keeps the level nearest the country for a three-level file", () => {
+    // A depth-3 American file writes "place, state, country" — the state is
+    // what such files keep, not the county or the township.
     const p = proposalFromNominatim(HIGHLAND, style({ depth: 3 }, { separator: ", ", countryPreferred: US }))!;
-    expect(p.plac).toBe("Highland, San Bernardino County, United States");
+    expect(p.plac).toBe("Highland, California, United States");
+  });
+
+  it("writes each country at the file's own depth for that country", () => {
+    // The file is mostly three-level Slovenian places, but writes its American
+    // ones in four — a proposal follows the habit of the country it is in.
+    const depthByCountry = new Map([["unitedstates", 4]]);
+    const p = proposalFromNominatim(
+      {
+        coord: { lat: 41.806, lon: -88.3273 },
+        name: "North Aurora",
+        label: "North Aurora, Aurora Township, Kane County, Illinois, 60542, United States",
+        admin: "Aurora Township",
+        kind: "village",
+        parts: {
+          locality: "North Aurora",
+          admin: "Aurora Township",
+          admins: ["Aurora Township", "Kane County", "Illinois"],
+          country: "United States",
+        },
+      },
+      style(
+        { depth: 3, depthByCountry },
+        {
+          separator: ", ",
+          countryPreferred: US,
+          // The file's own FORM wording for four-level American places: the
+          // label is keyed by country and written depth, so it follows along.
+          forms: new Map([["unitedstates|4", "Place,County,State,Country"]]),
+        },
+      ),
+    )!;
+    // Four levels despite the file-wide mode of three — and the township, the
+    // level American files omit, is the one the trim drops.
+    expect(p.plac).toBe("North Aurora, Kane County, Illinois, United States");
+    expect(p.form).toBe("Place,County,State,Country");
   });
 
   it("writes the levels it has when the file's places go deeper still", () => {

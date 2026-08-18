@@ -1,3 +1,4 @@
+import { decomposePlace } from "../gedcom/place";
 import { canonicalPlaceToken, placeCompareKey } from "../match/place";
 import { reformatPlace } from "../normalize/placeReformat";
 import { placeFormFor } from "../normalize/profile";
@@ -57,6 +58,15 @@ export interface PlaceStyle {
    * so the chain is trimmed to what this file writes.
    */
   depth: number;
+  /**
+   * The same count per country ({@link canonicalPlaceToken} of the country →
+   * modal comma-part count of the file's places in it). A file writes its
+   * American places deeper than its Slovenian ones — "Chicago, Cook, Illinois,
+   * United States" beside "Kranj, Kranj, Slovenija" — so a proposal matches
+   * the habit for *its* country; {@link depth} answers for a country the file
+   * has never written, and for a chain naming no country at all.
+   */
+  depthByCountry?: ReadonlyMap<string, number>;
   /** UI language, used to name a country the file has never written. */
   language: string;
   /**
@@ -68,14 +78,16 @@ export interface PlaceStyle {
   parentLevels?: PlaceParentLevels;
 }
 
-/** Modal number of comma-separated parts across the file's own PLAC values.
- *  Falls back to 2 (locality + country) for a file with no places yet. */
-export function placeDepthOf(places: readonly string[]): number {
-  const counts = new Map<number, number>();
-  for (const p of places) {
-    const n = p.split(",").filter((s) => s.trim()).length;
-    if (n > 0) counts.set(n, (counts.get(n) ?? 0) + 1);
-  }
+/** The file's place depths: the overall modal comma-part count, and the same
+ *  mode per country — see {@link PlaceStyle.depthByCountry}. */
+export interface PlaceDepths {
+  depth: number;
+  byCountry: Map<string, number>;
+}
+
+/** The modal count, ties to the smaller — trimming a level is recoverable from
+ *  the register, an invented one is not. */
+function modalOf(counts: ReadonlyMap<number, number>): number {
   let best = 0;
   let bestCount = 0;
   for (const [n, count] of counts) {
@@ -84,7 +96,34 @@ export function placeDepthOf(places: readonly string[]): number {
       bestCount = count;
     }
   }
-  return best || 2;
+  return best;
+}
+
+/** Modal number of comma-separated parts across the file's own PLAC values,
+ *  overall and per country the values themselves name. Falls back to 2
+ *  (locality + country) for a file with no places yet. */
+export function placeDepthsOf(places: readonly string[]): PlaceDepths {
+  const global = new Map<number, number>();
+  const perCountry = new Map<string, Map<number, number>>();
+  for (const p of places) {
+    const n = p.split(",").filter((s) => s.trim()).length;
+    if (n === 0) continue;
+    global.set(n, (global.get(n) ?? 0) + 1);
+    const country = decomposePlace(p).country;
+    if (!country) continue;
+    const key = canonicalPlaceToken(country);
+    const counts = perCountry.get(key) ?? new Map<number, number>();
+    counts.set(n, (counts.get(n) ?? 0) + 1);
+    perCountry.set(key, counts);
+  }
+  const byCountry = new Map<string, number>();
+  for (const [key, counts] of perCountry) byCountry.set(key, modalOf(counts));
+  return { depth: modalOf(global) || 2, byCountry };
+}
+
+/** {@link placeDepthsOf}, reduced to the file-wide mode. */
+export function placeDepthOf(places: readonly string[]): number {
+  return placeDepthsOf(places).depth;
 }
 
 /** The country's name in the UI language ("SI" → "Slovenija"), or undefined
@@ -127,14 +166,18 @@ function shape(
   // proposal that dropped the repetition would not match its neighbours.
   const admins = (parts.admins ?? []).map((a) => a?.trim()).filter((a): a is string => !!a);
   const country = preferredCountry(parts.country?.trim() || undefined, style.fmt);
+  // The depth the file writes *this* country at, before its overall habit — a
+  // file of three-level Slovenian places still writes its American ones in four.
+  const depth = (country ? style.depthByCountry?.get(canonicalPlaceToken(country)) : undefined) ?? style.depth;
 
   let chain: string[];
-  if (style.depth <= 1) chain = [locality];
-  else if (style.depth === 2) chain = [locality, country ?? admins[0]].filter(Boolean) as string[];
-  // The file writes depth − 2 levels between the locality and the country;
-  // when the register names more, the smallest stay — the ones the single
-  // parent slot always carried.
-  else chain = [locality, ...admins.slice(0, style.depth - (country ? 2 : 1)), country].filter(Boolean) as string[];
+  if (depth <= 1) chain = [locality];
+  else if (depth === 2) chain = [locality, country ?? admins[0]].filter(Boolean) as string[];
+  // The file writes depth − 2 levels between the locality and the country; when
+  // the register names more, the ones nearest the country stay — a deep file
+  // writes the formal hierarchy (county, state) and omits the township, so the
+  // trim drops from the settlement end.
+  else chain = [locality, ...admins.slice(-(depth - (country ? 2 : 1))), country].filter(Boolean) as string[];
 
   const raw = chain.join(style.fmt.separator);
   const out = reformatPlace(raw, addrRaw, style.fmt);
