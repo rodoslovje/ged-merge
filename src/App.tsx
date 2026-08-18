@@ -40,7 +40,7 @@ import { ToolsView } from "./ui/ToolsView";
 import { ErrorBoundary } from "./ui/ErrorBoundary";
 import { ErrorFallback } from "./ui/ErrorFallback";
 import { applyPlaceRename } from "./tools/placeEdit";
-import { applyGeocode, movePlaceForAddresses, renamePlaceValue } from "./tools/geocode";
+import { applyGeocode, movePlaceForAddresses, renamePlaceValue, renamePlaceValues } from "./tools/geocode";
 import { applyAddressCoords, renameAddress } from "./tools/addresses";
 import { fixBrokenLinks } from "./tools/fixLinks";
 import { fixSexFromRole } from "./tools/fixSex";
@@ -2171,23 +2171,26 @@ function AppContent() {
               onApplyGeocode={(assignments) => applyToolPatches(applyGeocode(mainDataset, assignments))}
               onApplyAddressCoords={(assignments) => applyToolPatches(applyAddressCoords(mainDataset, assignments))}
               onRenamePlaceValue={(from, to, addr) => applyToolPatches(renamePlaceValue(mainDataset, from, to, addr))}
-              onApplyOfficialNames={(renames) =>
-                // One batch → one undo step: each row's rename, then the
-                // coordinate onto the renamed value. The two passes patch the
-                // same records, so the batch is coalesced to one patch per
-                // record — otherwise undo applies both befores and the later
+              onApplyOfficialNames={(renames) => {
+                // One batch → one undo step — and one pass over the records
+                // per concern: every row's rename in a single walk, then every
+                // coordinate in a single applyGeocode (row-by-row walks froze
+                // the tab when "Use official names" took hundreds of rows).
+                // Coalesced because the two passes patch the same records —
+                // otherwise undo applies both befores and the later
                 // (already-renamed) one wins, undoing only the coordinate.
-                applyToolPatches(
-                  coalescePatches(
-                    renames.flatMap((r) => [
-                      ...renamePlaceValue(mainDataset, r.from, r.to, r.addr, r.form),
-                      // A rewording with no register match behind it (the
-                      // place/address split) brings no coordinate to write.
-                      ...(r.assignment ? applyGeocode(mainDataset, new Map([[r.to, r.assignment]])) : []),
-                    ]),
-                  ),
-                )
-              }
+                // A rewording with no register match behind it (the
+                // place/address split) brings no coordinate to write.
+                const coords = new Map(
+                  renames.filter((r) => r.assignment).map((r) => [r.to, r.assignment!] as const),
+                );
+                return applyToolPatches(
+                  coalescePatches([
+                    ...renamePlaceValues(mainDataset, renames),
+                    ...(coords.size ? applyGeocode(mainDataset, coords) : []),
+                  ]),
+                );
+              }}
               onRenameAddresses={(renames) =>
                 // One batch → one undo step, the way the official-name renames
                 // above are applied: a list of houses taken from the register in

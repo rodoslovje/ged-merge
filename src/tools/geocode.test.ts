@@ -20,6 +20,7 @@ import {
   reconcileNoMatchAfterScan,
   reconcilePicksAfterScan,
   renamePlaceValue,
+  renamePlaceValues,
   scanGeocode,
   type GeocodeRow,
 } from "./geocode";
@@ -345,6 +346,33 @@ describe("renamePlaceValue", () => {
     const ds = buildFromText(SAMPLE);
     expect(renamePlaceValue(ds, "Kranj, Slovenija", "  ")).toEqual([]);
     expect(renamePlaceValue(ds, "Kranj, Slovenija", "Kranj, Slovenija")).toEqual([]);
+  });
+
+  it("applies many renames in one pass, one patch per touched record", () => {
+    // The bulk "Use official names" path: hundreds of rows must not mean
+    // hundreds of walks over the whole dataset.
+    const ds = buildFromText(`0 HEAD
+0 @I1@ INDI
+1 NAME Test /Ena/
+1 BIRT
+2 PLAC Kranj, Slovenija
+1 DEAT
+2 PLAC Lubljana, Slovenija
+0 @I2@ INDI
+1 NAME Test /Dva/
+1 BIRT
+2 PLAC Lubljana, Slovenija
+0 TRLR
+`);
+    const patches = renamePlaceValues(ds, [
+      { from: "Kranj, Slovenija", to: "Kranj, Gorenjska, Slovenija" },
+      { from: "Lubljana, Slovenija", to: "Ljubljana, Slovenija" },
+    ]);
+    expect(patches.map((p) => p.id).sort()).toEqual(["@I1@", "@I2@"]);
+    const text = serializeDataset(ds);
+    expect(text).toContain("2 PLAC Kranj, Gorenjska, Slovenija");
+    expect(text).toContain("2 PLAC Ljubljana, Slovenija");
+    expect(text).not.toContain("Lubljana");
   });
 
   it("splits into PLAC + ADDR when an address is given", () => {

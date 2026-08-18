@@ -442,39 +442,58 @@ export function renamePlaceValue(
   addr?: string,
   form?: string,
 ): RecordPatch[] {
-  const target = to.trim();
-  const addrTarget = addr?.trim() ?? "";
-  if (!target || (target === from && !addrTarget)) return [];
+  return renamePlaceValues(dataset, [
+    { from, to, ...(addr !== undefined ? { addr } : {}), ...(form !== undefined ? { form } : {}) },
+  ]);
+}
+
+/**
+ * Every rename of {@link renamePlaceValue}, in one pass over the records:
+ * "Use official names" over hundreds of rows used to walk the whole dataset
+ * once per row, which froze the tab on a large file. The assignments riding
+ * on the renames are the caller's business (one batched {@link applyGeocode}
+ * call), so only the rename fields are read here.
+ */
+export function renamePlaceValues(dataset: Dataset, renames: readonly OfficialRename[]): RecordPatch[] {
+  const byFrom = new Map<string, { target: string; addrTarget: string; form?: string }>();
+  for (const r of renames) {
+    const target = r.to.trim();
+    const addrTarget = r.addr?.trim() ?? "";
+    if (!target || (target === r.from && !addrTarget)) continue;
+    byFrom.set(r.from, { target, addrTarget, ...(r.form ? { form: r.form } : {}) });
+  }
+  if (!byFrom.size) return [];
   return patchRecords(dataset, (raw) => {
     let changed = false;
     walkPlacNodes(raw, (plac, parent) => {
-      if (plac.value!.trim() !== from) return;
+      const r = byFrom.get(plac.value!.trim());
+      if (!r) return;
       // Count only what is actually written: with an unchanged place part and
       // an ADDR already carrying a value, a node used to count as "changed"
       // anyway — inflating the report and pushing an empty patch. A value that
       // differs only by surrounding whitespace is also left alone (never
       // rewrite the user's own spacing unasked).
       let wrote = false;
-      if (plac.value!.trim() !== target) {
+      if (plac.value!.trim() !== r.target) {
         const prev = plac.value!;
-        plac.value = target;
+        plac.value = r.target;
         // The FORM names each comma part of the value it sits on. A rename that
         // changes how many parts there are leaves it describing something else,
         // so it is rewritten from the register's own levels where the caller
         // knows them, carried minus the deleted parts' labels where the rename
         // only deleted parts, and dropped where it no longer lines up.
-        reconcilePlaceForm(plac, form, prev);
+        reconcilePlaceForm(plac, r.form, prev);
         wrote = true;
       }
-      if (addrTarget) {
+      if (r.addrTarget) {
         // The ADDR sibling lives on the PLAC's parent event.
         const existing = parent.children.find((c) => c.tag === "ADDR");
         if (!existing) {
           const at = parent.children.indexOf(plac) + 1;
-          parent.children.splice(at, 0, { level: plac.level, tag: "ADDR", value: addrTarget, children: [] });
+          parent.children.splice(at, 0, { level: plac.level, tag: "ADDR", value: r.addrTarget, children: [] });
           wrote = true;
         } else if (!existing.value?.trim()) {
-          existing.value = addrTarget;
+          existing.value = r.addrTarget;
           wrote = true;
         }
       }

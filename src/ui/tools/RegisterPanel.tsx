@@ -165,15 +165,22 @@ export function RegisterPanel({
   // Deferred behind a paint: a lookup per distinct place is a whole-file pass,
   // and run inside a render-time memo it blocked the frame that showed the page.
   const [report, setReport] = useState<RegisterCheckReport | null>(null);
+  // Whether a scan is pending or under way. A re-scan — after a bulk "Use
+  // official names", say — leaves the previous report on screen for seconds,
+  // and without a sign the page reads as already done while it is still
+  // counting.
+  const [scanning, setScanning] = useState(false);
   useEffect(() => {
     if (!hasRegister || !decisions) {
       setReport(null);
+      setScanning(false);
       return;
     }
-    const id = window.setTimeout(
-      () => setReport(checkPlacesAgainstRegister(dataset, index, decisions, placeStyle.fmt, home)),
-      0,
-    );
+    setScanning(true);
+    const id = window.setTimeout(() => {
+      setReport(checkPlacesAgainstRegister(dataset, index, decisions, placeStyle.fmt, home));
+      setScanning(false);
+    }, 0);
     return () => window.clearTimeout(id);
   }, [dataset, index, decisions, hasRegister, placeStyle, scanGen, home]);
 
@@ -266,8 +273,9 @@ export function RegisterPanel({
       <div style={shown === "places" ? undefined : { display: "none" }}>
         {/* The scan holds every place against every directory — seconds with a
             country-sized one loaded — and an empty list meanwhile reads as
-            "nothing found". Say the work is running instead. */}
-        {hasRegister && !report && <ToolsLoading label={t("tools.running")} />}
+            "nothing found", while a stale one after a bulk apply reads as the
+            apply having done nothing. Say the work is running instead. */}
+        {hasRegister && (!report || scanning) && <ToolsLoading label={t("tools.running")} />}
         <RegisterCheckSection
           report={report}
           dataset={dataset}
