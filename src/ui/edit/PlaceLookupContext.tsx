@@ -200,7 +200,7 @@ export function usePlaceLookupValue(
         // a file that says "United States" must get "United States" back, or
         // the proposal composed from the answer names the country twice over
         // in two languages (see placeLookupLanguage).
-        const answerLang = placeLookupLanguage(text, style.language);
+        const answerLang = placeLookupLanguage(text, style.language, style.fmt.countryPreferred);
         const [rn, gov, osm] = await Promise.allSettled([
           rnQueries.length ? searchAddresses(rnQueries) : Promise.resolve([]),
           searchGov(text, answerLang),
@@ -237,7 +237,7 @@ export function usePlaceLookupValue(
         // the language the event's place is written in.
         searchNominatim(
           [text, place].map((s) => s.trim()).filter(Boolean).join(", "),
-          placeLookupLanguage(place, style.language),
+          placeLookupLanguage(place, style.language, style.fmt.countryPreferred),
         ),
       ]);
       if (rn.status === "fulfilled") for (const r of rn.value) add(proposalFromRn(r, style));

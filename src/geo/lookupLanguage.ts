@@ -1,4 +1,5 @@
 import { decomposePlace } from "../gedcom/place";
+import { canonicalPlaceToken } from "../match/place";
 import { CANDIDATE_LANGS, countryCodeOfName, countryNameIn, foldCountryName } from "./placeCountry";
 
 // Which language a place lookup should answer in.
@@ -24,10 +25,21 @@ import { CANDIDATE_LANGS, countryCodeOfName, countryNameIn, foldCountryName } fr
  *
  * Falls back to `uiLang`, the best guess when the place names no country or
  * names one in no language checked here.
+ *
+ * `countryPreferred` is the file's own spelling per country (canonical token →
+ * most-written name). An abbreviation is nobody's display name — a typed
+ * "Stone Lake, Wisconsin, USA" matches no language and fell back to the
+ * reader's — so it is resolved to the file's spelling of the same country
+ * ("United States") first, and *that* says which language the file is in.
  */
-export function placeLookupLanguage(place: string, uiLang: string): string {
-  const country = decomposePlace(place).country?.trim();
-  if (!country) return uiLang;
+export function placeLookupLanguage(
+  place: string,
+  uiLang: string,
+  countryPreferred?: ReadonlyMap<string, string>,
+): string {
+  const named = decomposePlace(place).country?.trim();
+  if (!named) return uiLang;
+  const country = countryPreferred?.get(canonicalPlaceToken(named)) ?? named;
   const code = countryCodeOfName(country);
   if (!code) return uiLang;
   const written = foldCountryName(country);

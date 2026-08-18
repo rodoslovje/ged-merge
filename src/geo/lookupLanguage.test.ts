@@ -31,4 +31,15 @@ describe("placeLookupLanguage", () => {
     expect(placeLookupLanguage("Wien, Österreich", "sl")).toBe("de");
     expect(placeLookupLanguage("Zagreb, Hrvatska", "en")).toBe("hr");
   });
+
+  it("resolves an abbreviation through the file's own spelling of the country", () => {
+    // "USA" is nobody's display name, so alone it says nothing about the
+    // file's language — but the file that writes "United States" elsewhere
+    // does: the same country's full spelling answers for its abbreviation.
+    const preferred = new Map([["unitedstates", "United States"]]);
+    expect(placeLookupLanguage("Stone Lake, Wisconsin, USA", "sl", preferred)).toBe("en");
+    expect(placeLookupLanguage("Stone Lake, Wisconsin, ZDA", "sl", preferred)).toBe("en");
+    // Without that evidence the reader's language stays the best guess.
+    expect(placeLookupLanguage("Stone Lake, Wisconsin, USA", "sl")).toBe("sl");
+  });
 });

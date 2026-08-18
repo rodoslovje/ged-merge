@@ -298,7 +298,8 @@ describe("GOV and OpenStreetMap as places", () => {
       country: "United States",
     },
   };
-  const US = new Map([["united states", "United States"]]);
+  // Keyed like the file's real countryPreferred: by canonical token.
+  const US = new Map([["unitedstates", "United States"]]);
 
   it("writes county and state for a file whose places carry four levels", () => {
     const p = proposalFromNominatim(HIGHLAND, style({ depth: 4 }, { separator: ", ", countryPreferred: US }))!;
@@ -347,6 +348,30 @@ describe("GOV and OpenStreetMap as places", () => {
     // level American files omit, is the one the trim drops.
     expect(p.plac).toBe("North Aurora, Kane County, Illinois, United States");
     expect(p.form).toBe("Place,County,State,Country");
+  });
+
+  it("writes a country answered in another language in the file's own spelling", () => {
+    // A register asked in the wrong language (or a display line in the
+    // reader's) says "Združene države Amerike"; the alias table maps it to the
+    // file's "United States", and the country's depth habit applies with it.
+    const byCountry = new Map([["unitedstates", { depth: 4, bare: true }]]);
+    const p = proposalFromNominatim(
+      {
+        coord: { lat: 45.845, lon: -91.545 },
+        name: "Town of Stone Lake",
+        label: "Town of Stone Lake, Washburn County, Wisconsin, Združene države Amerike",
+        admin: "Washburn County",
+        kind: "village",
+        parts: {
+          locality: "Town of Stone Lake",
+          admin: "Washburn County",
+          admins: ["Washburn County", "Wisconsin"],
+          country: "Združene države Amerike",
+        },
+      },
+      style({ depth: 3, byCountry }, { separator: ", ", countryPreferred: US }),
+    )!;
+    expect(p.plac).toBe("Town of Stone Lake, Washburn, Wisconsin, United States");
   });
 
   it("strips the unit word where the file writes its parents bare", () => {

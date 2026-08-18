@@ -25,7 +25,7 @@ const COUNTRY_GROUPS: string[][] = [
   ["serbia", "srbija"],
   ["france", "francija"],
   ["switzerland", "schweiz", "svica"],
-  ["unitedstates", "usa", "unitedstatesofamerica", "zda", "amerika"],
+  ["unitedstates", "usa", "unitedstatesofamerica", "zda", "amerika", "zdruzenedrzaveamerike", "zdruzenedrzave"],
   ["yugoslavia", "jugoslavija"],
   ["austriahungary", "avstroogrska", "austrohungarianempire"],
 ];

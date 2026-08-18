@@ -159,6 +159,7 @@ const COUNTRIES = new Set([
   "italija", "italia", "nemčija", "nemcija", "deutschland",
   "madžarska", "madzarska", "srbija", "bosna", "bosnia",
   "bosna in hercegovina", "bosnia-herzegovina", "usa", "zda",
+  "združene države amerike", "zdruzene drzave amerike", "združene države", "zdruzene drzave",
   "jugoslavija", "yugoslavia",
   // Sovereign countries, English names.
   "afghanistan", "albania", "algeria", "andorra", "angola",
