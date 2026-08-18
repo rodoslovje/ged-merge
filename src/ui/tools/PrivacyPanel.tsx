@@ -129,7 +129,7 @@ export function PrivacyPanel({
             value={options.alsoRecentlyDeceasedYears}
             onChange={(e) => set({ alsoRecentlyDeceasedYears: Math.max(0, Number(e.target.value) || 0) })}
           />
-          {t("tools.privacy.thresholdYears")}
+          {t("tools.privacy.recentDeathYears")}
           {options.alsoRecentlyDeceasedYears === 0 && <span className="muted"> {t("tools.privacy.recentDeathOff")}</span>}
         </label>
         <RadioRow
