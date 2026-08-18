@@ -41,6 +41,10 @@ import type { GeocodeDecision } from "../persist/geoDb";
  * - `site` the directory knows the place from its second level on: the first
  *   names a cemetery, a township, an election precinct — something inside the
  *   place rather than the place itself
+ * - `deep` the directory knows the first level too, but the value stands one
+ *   level deeper than the file writes this country and the register accounts
+ *   for everything from its second level on — a neighbourhood or hamlet
+ *   written above the settlement it belongs to
  * - `address` the value carries a house address, in a file that keeps addresses
  *   on their own `ADDR` line — the one finding about the file's own convention
  *   rather than the register's, and the reason it belongs here is that a place
@@ -54,6 +58,7 @@ export type RegisterVerdict =
   | "admin"
   | "spelling"
   | "site"
+  | "deep"
   | "address"
   | "far";
 
@@ -64,6 +69,7 @@ export const REGISTER_VERDICTS: RegisterVerdict[] = [
   "admin",
   "spelling",
   "site",
+  "deep",
   "address",
   "far",
 ];
@@ -217,6 +223,10 @@ function replaceSegment(place: string, from: string, to: string): string | undef
   return segments.join(",");
 }
 
+/** Comma parts that say something — a blank level left behind by an export
+ *  counts for no depth. */
+const nonEmptyParts = (v: string) => v.split(",").filter((s) => s.trim()).length;
+
 /** The place value without its most specific level, and that level on its own:
  *  "Saint Mary Nativity Cemetery, Crest Hill, Will, Illinois, United States"
  *  splits into the cemetery and the place it stands in. Empty segments left
@@ -345,6 +355,34 @@ export function checkPlacesAgainstRegister(
   // in the same slot.
   const levels = inferPlaceParentLevels([...groups.keys()], index, fmt);
 
+  // The file's own depth habit per country: how many non-empty comma parts its
+  // places mostly carry, counted by occurrences. The `deep` verdict holds a
+  // value against this — one part more than the habit is a level to move, at
+  // the depth its neighbours already write.
+  const depthTally = new Map<string, Map<number, number>>();
+  for (const [key, g] of groups) {
+    if (!key || isUnknownPlaceValue(key)) continue;
+    const c = decomposePlace(key).country;
+    const code = (c ? countryCodeOfName(c)?.toUpperCase() : home.toUpperCase()) || undefined;
+    if (!code) continue;
+    const depth = nonEmptyParts(key);
+    const byDepth = depthTally.get(code) ?? new Map<number, number>();
+    byDepth.set(depth, (byDepth.get(depth) ?? 0) + g.count);
+    depthTally.set(code, byDepth);
+  }
+  // Ties go to the deeper habit, so the verdict under-fires rather than over.
+  const modalDepth = (country: string): number => {
+    let depth = 0;
+    let best = 0;
+    for (const [d, n] of depthTally.get(country) ?? []) {
+      if (n > best || (n === best && d > depth)) {
+        depth = d;
+        best = n;
+      }
+    }
+    return depth;
+  };
+
   /**
    * The directory's answers to one value: only a name it holds letter-for-letter
    * (bar diacritics and case), or its own longer form of it corroborated by the
@@ -360,6 +398,27 @@ export function checkPlacesAgainstRegister(
       (c) => covered.has(c.entry.country) && (sameName(name, c.entry) || c.score >= PARENT_QUALIFIED),
     );
   };
+
+  /**
+   * Whether the register accounts for every parent a value writes: each
+   * non-empty level above the settlement is the entry's municipality, one of
+   * its division's names, or the country. What lets the `deep` verdict trust
+   * that the level *above* such a chain is the one too many — were any parent
+   * a region the register does not track, nothing could say which level is
+   * extra.
+   */
+  const parentsAccounted = (value: string, entry: GazEntry): boolean =>
+    value
+      .split(",")
+      .slice(1)
+      .map((p) => p.trim())
+      .filter(Boolean)
+      .every(
+        (p) =>
+          countryCodeOfName(p)?.toUpperCase() === entry.country ||
+          (!!entry.admin && sameAdmin(entry.admin, p)) ||
+          levels.divisionNamesOf(entry).some((d) => sameAdmin(d, p)),
+      );
 
   const findings: RegisterFinding[] = [];
   /** Country display name → its FORM lines, by how many places carry each. */
@@ -499,6 +558,36 @@ export function checkPlacesAgainstRegister(
       continue;
     }
     checked++;
+
+    // Both levels are places the directory holds: "West Pullman, Chicago,
+    // Cook, Illinois, United States" leads with a neighbourhood the register
+    // lists as a settlement of its own, so no spelling check ever flags the
+    // value — yet it stands one level deeper than the file writes this
+    // country. When the rest after the lead is itself a register-held place
+    // whose written parents the register fully accounts for, the lead is a
+    // level to move, not a deeper truth. Answered like a site row — the place
+    // under it, the lead to the ADDR line — and like one it waits for a
+    // per-row pick: a name above a settlement may as easily be a village
+    // beside it.
+    if (wantCountry && nonEmptyParts(key) > modalDepth(wantCountry)) {
+      const split = splitLeadingLevel(key);
+      const under = split ? answersFor(split.rest) : [];
+      if (split && under.length && parentsAccounted(split.rest, under[0].entry)) {
+        findings.push({
+          key,
+          count: g.count,
+          people: [...g.people],
+          verdict: "deep",
+          written: split.lead,
+          entry: under[0].entry,
+          official: split.rest,
+          ...(fmt?.layout === "structured-addr" ? { officialAddr: split.lead } : {}),
+          ...(fileCoord ? { fileCoord } : {}),
+          dismissed: isDismissed(decisions, key, "deep"),
+        });
+        continue;
+      }
+    }
 
     // Same name, several register entries. A coordinate in the file settles it
     // — the nearest entry is the place meant — and only without one does the

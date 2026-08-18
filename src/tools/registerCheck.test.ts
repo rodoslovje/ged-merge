@@ -473,4 +473,66 @@ describe("checkPlacesAgainstRegister", () => {
     expect(other.officialAddr).toBe("Soteska 4");
     expect(other.entry).toBeUndefined();
   });
+
+  describe("deep verdict", () => {
+    /** A GeoNames US settlement: county as `admin`, state code as `admin1` —
+     *  and no `register`, the shape a GeoNames file imports as. */
+    function us(name: string, admin: string, admin1: string, lat: number, lon: number): GazEntry {
+      return { name, ascii: "", alt: [], lat, lon, fclass: "P", country: "US", admin1, admin, population: 0 };
+    }
+
+    const US_REGISTER = buildGazetteerIndex(
+      [
+        us("Chicago", "Cook", "IL", 41.85003, -87.65005),
+        us("West Pullman", "Cook", "IL", 41.67505, -87.63782),
+        us("Joliet", "Will", "IL", 41.525, -88.0817),
+      ],
+      new Map([["US:IL", ["Illinois"]]]),
+    );
+
+    it("flags a register-held neighbourhood written above its settlement", () => {
+      // "West Pullman" is a settlement the directory holds, so no spelling
+      // check flags the value — but it stands one level deeper than the file
+      // writes the country, and the register accounts for everything from
+      // Chicago on. With the structured-addr layout the lead goes to ADDR.
+      const ds = fileWith(
+        place("Chicago, Cook, Illinois, United States"),
+        place("Chicago, Cook, Illinois, United States"),
+        place("Joliet, Will, Illinois, United States"),
+        place("West Pullman, Chicago, Cook, Illinois, United States"),
+      );
+      const fmt: PlaceTargetFormat = { layout: "structured-addr", separator: ", " };
+      const { findings } = checkPlacesAgainstRegister(ds, US_REGISTER, NO_DECISIONS, fmt);
+      expect(findings).toHaveLength(1);
+      expect(findings[0].verdict).toBe("deep");
+      expect(findings[0].written).toBe("West Pullman");
+      expect(findings[0].official).toBe("Chicago, Cook, Illinois, United States");
+      expect(findings[0].officialAddr).toBe("West Pullman");
+      expect(findings[0].entry?.name).toBe("Chicago");
+    });
+
+    it("leaves a register-held place at the file's own depth alone", () => {
+      // At the file's own depth West Pullman is simply a settlement in Cook
+      // county, which is exactly what the register says it is.
+      const ds = fileWith(
+        place("Chicago, Cook, Illinois, United States"),
+        place("West Pullman, Cook, Illinois, United States"),
+      );
+      const { findings } = checkPlacesAgainstRegister(ds, US_REGISTER, NO_DECISIONS);
+      expect(findings).toEqual([]);
+    });
+
+    it("does not flag when a written parent is one the register cannot account for", () => {
+      // "Lakeshore" is neither Chicago's county, its state nor the country —
+      // with an unaccounted level in the chain, nothing says which level is
+      // the one too many, so the value is not called deep.
+      const ds = fileWith(
+        place("Chicago, Cook, Illinois, United States"),
+        place("Chicago, Cook, Illinois, United States"),
+        place("West Pullman, Chicago, Lakeshore, Illinois, United States"),
+      );
+      const { findings } = checkPlacesAgainstRegister(ds, US_REGISTER, NO_DECISIONS);
+      expect(findings.some((f) => f.verdict === "deep")).toBe(false);
+    });
+  });
 });

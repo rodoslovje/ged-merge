@@ -85,6 +85,7 @@ const BADGE: Record<RegisterVerdict, string> = {
   admin: "remove",
   spelling: "official",
   site: "new",
+  deep: "new",
   address: "new",
   far: "reuse",
 };
@@ -954,8 +955,10 @@ function optionsOf(f: RegisterFinding, style: PlaceStyle, wider?: readonly GazEn
   // place under it, qualified like every other answer here, and the level
   // itself on the ADDR line where the file keeps addresses apart. Judged
   // against what is left after that level goes, since the level going is the
-  // answer rather than something the composition loses.
-  if (f.verdict === "site" && f.entry && f.official) {
+  // answer rather than something the composition loses. A `deep` row — a
+  // neighbourhood the register holds, written above its settlement — takes
+  // the same answer for the same reason.
+  if ((f.verdict === "site" || f.verdict === "deep") && f.entry && f.official) {
     const under = qualified(f.entry, f.official, { place: f.official }, style);
     return [
       {
@@ -1000,15 +1003,16 @@ function chosenIndex(f: RegisterFinding, options: RegisterOption[], picked: Read
   // NONE_PICKED included: a row whose answer the reader has cleared shows none,
   // rather than falling back to the very option the click just cleared.
   if (own !== undefined && own < options.length) return own;
-  // `site` joins `ambiguous` in waiting: a cemetery written into the place is a
-  // habit as much as a mistake, and which level to move is the whole question.
-  // Everything else arrives on its answer, so the row shows what it would
-  // write. Whether a bulk rename may *sweep* that answer is a separate question
-  // — see BULK_HELD_BACK.
+  // `site` and `deep` join `ambiguous` in waiting: a cemetery written into the
+  // place is a habit as much as a mistake, which level to move is the whole
+  // question, and a name standing above a settlement may as easily be a
+  // village beside it. Everything else arrives on its answer, so the row shows
+  // what it would write. Whether a bulk rename may *sweep* that answer is a
+  // separate question — see BULK_HELD_BACK.
   //
   // A wider lead is never that answer: it is a name that merely resembles or
   // contains the written one, and a row must not arrive already claiming one.
-  if (f.verdict === "ambiguous" || f.verdict === "site") return -1;
+  if (f.verdict === "ambiguous" || f.verdict === "site" || f.verdict === "deep") return -1;
   return options.length > 0 && !options[0].wide ? 0 : -1;
 }
 
