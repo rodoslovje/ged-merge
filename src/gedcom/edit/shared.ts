@@ -54,6 +54,16 @@ export function markEventTouched(node: GedNode, kind: "new" | "changed"): void {
   node.auditStamp = kind;
 }
 
+/** Clear every event-level audit mark on the record. Maintenance passes reuse
+ *  edit helpers that call {@link markEventTouched}, but a mechanical change
+ *  must not refresh event CHANs at save time — so the batch's marks are swept
+ *  off the records it touched (see `applyToolPatches`). */
+export function clearEventAuditStamps(record: GedNode): void {
+  for (const c of record.children) {
+    if (c.auditStamp !== undefined) c.auditStamp = undefined;
+  }
+}
+
 /** Remove the *first* direct child with `tag` (single-valued fields). Distinct
  *  from node's `removeChildren`, which removes every match. */
 export function removeChild(node: GedNode, tag: string): void {

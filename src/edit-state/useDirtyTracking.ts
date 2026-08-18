@@ -6,6 +6,7 @@ import { nodesEqual } from "../gedcom/node";
 import { captureBaseline, type SaveBaseline } from "../gedcom/fingerprint";
 import { displayName } from "../match/relatives";
 import {
+  bumpSubstantiveCounts,
   computePatchApplyOps,
   computePushCaptureOps,
   computePushDirtyOps,
@@ -49,6 +50,13 @@ export function useDirtyTracking() {
   const familySnapshots = useRef<Map<string, GedNode>>(new Map());
   // Same, for shared top-level records (SOUR/OBJE) edited through an owner card.
   const recordSnapshots = useRef<Map<string, SharedRecordSnapshot>>(new Map());
+
+  // Per record: how many *substantive* edit steps (hand edits, merges — any
+  // patch not flagged `mechanical`) are currently applied to it. A dirty record
+  // with no entry here was changed only by maintenance passes and keeps its
+  // CHAN/`_UPD` stamps at save time. Maintained symmetrically by push/undo/redo
+  // (see {@link bumpSubstantiveCounts}), reset with the rest of the tracking.
+  const substantiveCounts = useRef<Map<string, number>>(new Map());
 
   // ── kind-keyed helpers (collapse individual/family duplication) ───────────
 
@@ -141,6 +149,7 @@ export function useDirtyTracking() {
    *  say) as their own dirty subject — the flag, not the audit, is what keeps
    *  them in the save report across a cached-session restore. */
   function captureSnapshotsForPush(patches: RecordPatch[]) {
+    bumpSubstantiveCounts(substantiveCounts.current, patches, 1);
     const ops = computePushCaptureOps(patches, hasSnapshot);
     for (const op of ops) {
       if (op.kind === "record") recordSnapshots.current.set(op.id, { value: op.value, owner: op.owner });
@@ -162,6 +171,7 @@ export function useDirtyTracking() {
     direction: "undo" | "redo",
     dataset: Dataset,
   ) {
+    bumpSubstantiveCounts(substantiveCounts.current, patches, direction === "undo" ? -1 : 1);
     const { dirty, snapshots } = computePatchApplyOps(
       patches,
       direction,
@@ -222,6 +232,13 @@ export function useDirtyTracking() {
     return true;
   }
 
+  /** Whether the record carries at least one substantive (non-mechanical)
+   *  change — i.e. whether a save should refresh its CHAN/`_UPD` stamps. A
+   *  record dirtied only by maintenance passes answers false. */
+  function isSubstantive(id: string): boolean {
+    return substantiveCounts.current.has(id);
+  }
+
   /** Remove a record from the dirty set while keeping its snapshot (e.g. after
    *  Remove from save reverts it, but undo still needs to know the original). */
   function removeDirty(kind: RecordKind, id: string) {
@@ -242,6 +259,7 @@ export function useDirtyTracking() {
     personSnapshots.current = new Map();
     familySnapshots.current = new Map();
     recordSnapshots.current = new Map();
+    substantiveCounts.current = new Map();
     setChangedPersonIds(new Set());
     setChangedFamilyIds(new Set());
     setChangedRecordIds(new Set());
@@ -255,6 +273,7 @@ export function useDirtyTracking() {
     personSnapshots.current = new Map();
     familySnapshots.current = new Map();
     recordSnapshots.current = new Map();
+    substantiveCounts.current = new Map();
     setChangedPersonIds(new Set());
     setChangedFamilyIds(new Set());
     setChangedRecordIds(new Set());
@@ -274,6 +293,8 @@ export function useDirtyTracking() {
       personSnapshots: [string, GedNode][];
       familySnapshots: [string, GedNode][];
       recordSnapshots?: [string, SharedRecordSnapshot][];
+      /** Substantive-step counts; absent in pre-existing caches. */
+      substantiveIds?: [string, number][];
     },
     /** The re-parsed main — already carrying the cached edits. Fingerprinting it
      *  makes the audit baseline "the workspace as restored": the edits made
@@ -287,6 +308,15 @@ export function useDirtyTracking() {
     personSnapshots.current = new Map(state.personSnapshots);
     familySnapshots.current = new Map(state.familySnapshots);
     recordSnapshots.current = new Map(state.recordSnapshots ?? []);
+    // A cache from before the mechanical/substantive split carries no counts;
+    // treating every changed record as substantive keeps that session's saves
+    // stamping exactly as they would have when the cache was written.
+    substantiveCounts.current = state.substantiveIds
+      ? new Map(state.substantiveIds)
+      : new Map(
+          [...state.changedPersonIds, ...state.changedFamilyIds, ...(state.changedRecordIds ?? [])]
+            .map((id) => [id, 1]),
+        );
     setChangedPersonIds(new Set(state.changedPersonIds));
     setChangedFamilyIds(new Set(state.changedFamilyIds));
     setChangedRecordIds(new Set(state.changedRecordIds ?? []));
@@ -303,6 +333,7 @@ export function useDirtyTracking() {
       personSnapshots: [...personSnapshots.current] as [string, GedNode][],
       familySnapshots: [...familySnapshots.current] as [string, GedNode][],
       recordSnapshots: [...recordSnapshots.current] as [string, SharedRecordSnapshot][],
+      substantiveIds: [...substantiveCounts.current] as [string, number][],
     };
   }
 
@@ -315,6 +346,7 @@ export function useDirtyTracking() {
     personSnapshots.current = new Map();
     familySnapshots.current = new Map();
     recordSnapshots.current = new Map();
+    substantiveCounts.current = new Map();
     setChangedPersonIds(new Set());
     setChangedFamilyIds(new Set());
     setChangedRecordIds(new Set());
@@ -336,6 +368,7 @@ export function useDirtyTracking() {
     markDirty,
     captureSnapshotsForPush,
     onPatchApplied,
+    isSubstantive,
     reconcile,
     removeDirty,
     prepareForLoad,

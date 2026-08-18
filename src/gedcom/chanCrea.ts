@@ -30,6 +30,23 @@ export function nowUpdStamp(date: Date = new Date()): string {
   return `${todayGedcom(date)} ${nowGedcomTime(date)} GMT ${offset}`;
 }
 
+/**
+ * The record's last-changed stamp as the file records it, for display: the
+ * CHAN date (with its TIME when one is kept), or the MyHeritage `_UPD` value
+ * when the record stamps itself that way instead. Undefined when the record
+ * carries neither — the UI then shows nothing rather than guessing.
+ */
+export function lastChangedText(record: GedNode): string | undefined {
+  const chan = firstChild(record, "CHAN");
+  const date = chan ? firstChild(chan, "DATE") : undefined;
+  const dateValue = date?.value?.trim();
+  if (date && dateValue) {
+    const time = firstChild(date, "TIME")?.value?.trim();
+    return time ? `${dateValue} ${time}` : dateValue;
+  }
+  return changeStampNode(record)?.value?.trim() || undefined;
+}
+
 function makeNode(level: number, tag: string, value?: string): GedNode {
   const n: GedNode = { level, tag, children: [] };
   if (value !== undefined) n.value = value;

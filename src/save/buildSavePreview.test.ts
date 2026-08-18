@@ -56,6 +56,7 @@ function input(main: Dataset, over: Partial<SavePreviewInput> = {}): SavePreview
     familySnapshots: new Map(),
     recordSnapshots: new Map(),
     isSortEligible: () => false,
+    isSubstantive: () => true,
     now: NOW,
     t: tr,
     ...over,
@@ -283,6 +284,44 @@ describe("merge save", () => {
       personSnapshots: new Map([["@I2@", editedFrom(dataset(MAIN), "@I2@")]]),
     })!;
     expect(Object.keys(out.report.recordKinds)).toContain("@I2@");
+  });
+});
+
+// ── which records the save stamps ──────────────────────────────────────────
+// A record changed only by a maintenance pass keeps the change date the file
+// gave it; hand edits and everything the merge touched get a fresh stamp.
+
+describe("stampRecordIds", () => {
+  it("keeps substantively edited records and drops mechanical-only ones", () => {
+    const ds = dataset(MAIN);
+    const out = buildSavePreview(
+      input(ds, {
+        changedPersonIds: new Set(["@I1@", "@I2@"]),
+        personSnapshots: new Map([
+          ["@I1@", editedFrom(ds, "@I1@")],
+          ["@I2@", editedFrom(ds, "@I2@")],
+        ]),
+        isSubstantive: (id) => id === "@I1@",
+      }),
+    )!;
+    expect(out.stampRecordIds.has("@I1@")).toBe(true);
+    expect(out.stampRecordIds.has("@I2@")).toBe(false);
+    // The record still saves and still shows in the preview — only its stamp stays.
+    expect(out.editRecordIds.has("@I2@")).toBe(true);
+    expect(Object.keys(out.report.recordKinds)).toContain("@I2@");
+  });
+
+  it("always stamps what the merge touched, whatever the edit tracking says", () => {
+    const out = buildSavePreview(
+      input(dataset(MAIN), {
+        compare: dataset(COMPARE),
+        decisions: confirmedDecisions(),
+        confirmedCount: 1,
+        matches: { individuals: [] },
+        isSubstantive: () => false,
+      }),
+    )!;
+    expect(out.stampRecordIds.has("@I1@")).toBe(true);
   });
 });
 

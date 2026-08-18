@@ -83,6 +83,10 @@ export interface StoredEditState {
   familySnapshots: [string, GedNode][];
   /** Shared-record (SOUR/OBJE) snapshots; absent in pre-existing caches. */
   recordSnapshots?: [string, SharedRecordSnapshot][];
+  /** Per-record counts of applied substantive (non-mechanical) edit steps —
+   *  which dirty records get a CHAN/`_UPD` refresh on save; absent in
+   *  pre-existing caches (then every changed record counts as substantive). */
+  substantiveIds?: [string, number][];
   sortEligiblePersonIds: string[];
   /** The unified undo/redo history (edit + merge + import entries). */
   undo: UndoEntry[];

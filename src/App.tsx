@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { type RecordPatch, type PendingEditApply, cloneRaw, coalescePatches, dropNoopPatches, snapshotRecords, patchesFromSnapshots } from "./ui/historyTypes";
+import { type RecordPatch, type PendingEditApply, cloneRaw, coalescePatches, dropNoopPatches, markMechanical, snapshotRecords, patchesFromSnapshots } from "./ui/historyTypes";
 import { useUndoRedo } from "./edit-state/useUndoRedo";
 import { useTheme } from "./ui/useTheme";
 import { useMode } from "./ui/useMode";
@@ -14,7 +14,7 @@ import { useTranslation } from "react-i18next";
 import type { Dataset, GedNode } from "./gedcom/types";
 import { cloneNode } from "./gedcom/node";
 import { buildDataset } from "./gedcom/builder";
-import { rebuildIndividual, rebuildFamily, removeIndividual, removeFamily, noteCtx, rebuildNoteReferrers, pruneUnreferencedSource, setSourceRecordFields, setRepoRecordFields, setMediaInfo, bumpSourceCacheVersion, type SharedNoteCtx } from "./gedcom/edit";
+import { clearEventAuditStamps, rebuildIndividual, rebuildFamily, removeIndividual, removeFamily, noteCtx, rebuildNoteReferrers, pruneUnreferencedSource, setSourceRecordFields, setRepoRecordFields, setMediaInfo, bumpSourceCacheVersion, type SharedNoteCtx } from "./gedcom/edit";
 import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "./gedcom/private";
 import { downloadOptions, ensureUtf8Charset, serializeGedcom, stampHeadSource } from "./gedcom/serialize";
 import { formatReport, INDI_HANDLED, mergePlaceFormat, type ImportBranchRequest } from "./merge/merge";
@@ -1105,10 +1105,37 @@ function AppContent() {
 
   /** Shared tail of every Tools-tab fix action: record the patch batch as one
    *  undo entry and mark each touched record dirty. Returns the patch count so
-   *  callers can report how many records the fix touched. */
-  function applyToolPatches(rawPatches: RecordPatch[]): number {
+   *  callers can report how many records the fix touched.
+   *
+   *  `mechanical` marks the batch as a whole-file maintenance pass (Normalize,
+   *  Naming, Geocoding, Health-check fixes, source organizing): its records
+   *  keep their CHAN/`_UPD` change stamps at save time, because restating a
+   *  value or writing a gazetteer coordinate is not new research. Deliberate
+   *  per-record acts — a source edited by hand, a duplicate merged — stay
+   *  substantive and stamp as every Edit-mode change does. */
+  function applyToolPatches(rawPatches: RecordPatch[], mechanical = false): number {
     const patches = dropNoopPatches(rawPatches);
     if (!mainDataset || patches.length === 0) return 0;
+    if (mechanical) {
+      markMechanical(patches);
+      // Sweep the event-level audit marks the pass left behind (its mutations
+      // reuse edit helpers that set them): left in place, they would refresh
+      // event CHANs on a later, unrelated save of the same record. The live
+      // record and the patch's `after` clone both carry them; `before` keeps
+      // its marks — undo must restore exactly the pre-batch state. This also
+      // sweeps marks from earlier unsaved hand edits of the same record — the
+      // record-level stamp survives (its substantive count stands), only the
+      // per-event refresh is lost, and only on files that stamp per event.
+      for (const p of patches) {
+        if (p.after) clearEventAuditStamps(p.after);
+        const live = p.type === "individual"
+          ? mainDataset.individuals.get(p.id)?.raw
+          : p.type === "family"
+            ? mainDataset.families.get(p.id)?.raw
+            : mainDataset.records.find((r) => r.xref === p.id);
+        if (live) clearEventAuditStamps(live);
+      }
+    }
     // stay: undoing a whole-file tool batch keeps the user where they are —
     // there is no single person to show, and the Tools page they came from
     // re-scans itself off the edit version.
@@ -1363,6 +1390,7 @@ function AppContent() {
       familySnapshots: dirty.familySnapshots.current,
       recordSnapshots: dirty.recordSnapshots.current,
       isSortEligible,
+      isSubstantive: dirty.isSubstantive,
       now: new Date(),
       formatOverrides: settings.formatOverrides,
       t,
@@ -1420,24 +1448,32 @@ function AppContent() {
     // MyHeritage file stamps `_UPD` and no CHAN at all, and a file may stamp
     // only its sources. `stampChanCrea` writes nothing where a flag is off.
     if (Object.values(usage).some(Boolean)) {
-      const changedIds = new Set([
-        ...preview.editRecordIds,
-        ...Object.keys(preview.report.recordKinds),
-      ]);
+      // Only substantively changed records get a fresh stamp; a record touched
+      // solely by maintenance passes keeps the change date the file gave it —
+      // see `SavePreview.stampRecordIds`.
+      const stampIds = preview.stampRecordIds;
       const newIds = new Set(
         preview.report.changes.filter((c) => c.newRecord).map((c) => c.recordId),
       );
       const stampNow = new Date();
-      stampChanCrea(
-        preview.records,
-        changedIds,
-        newIds,
-        usage,
-        todayGedcom(stampNow),
-        nowGedcomTime(stampNow),
-        nowUpdStamp(stampNow),
-      );
-      fileNotes.push(t("changeReport.note.stamped", { count: changedIds.size }));
+      if (stampIds.size > 0) {
+        stampChanCrea(
+          preview.records,
+          stampIds,
+          newIds,
+          usage,
+          todayGedcom(stampNow),
+          nowGedcomTime(stampNow),
+          nowUpdStamp(stampNow),
+        );
+        fileNotes.push(t("changeReport.note.stamped", { count: stampIds.size }));
+      }
+      const unstampedCount = [
+        ...new Set([...preview.editRecordIds, ...Object.keys(preview.report.recordKinds)]),
+      ].filter((id) => !stampIds.has(id)).length;
+      if (unstampedCount > 0) {
+        fileNotes.push(t("changeReport.note.unstamped", { count: unstampedCount }));
+      }
     }
 
     // The download is always UTF-8 bytes; a header still declaring the source
@@ -1617,10 +1653,14 @@ function AppContent() {
       if (newReport.changes.length === 0) return null;
       const newEditRecordIds = new Set(prev.editRecordIds);
       newEditRecordIds.delete(id);
+      // The record was just put back the way the file had it — a stamp now
+      // would write the very change the user asked to leave out.
+      const newStampRecordIds = new Set(prev.stampRecordIds);
+      newStampRecordIds.delete(id);
       // A merge preview is the output of `mergeDecisions` and can't be rebuilt
       // here, so it keeps its records — unchanged from before this clone existed.
       const records = prev.isMerge ? prev.records : revertedRecords;
-      return { ...prev, records, report: newReport, editRecordIds: newEditRecordIds };
+      return { ...prev, records, report: newReport, editRecordIds: newEditRecordIds, stampRecordIds: newStampRecordIds };
     });
   }
 
@@ -2167,10 +2207,10 @@ function AppContent() {
                   bumpSourceCacheVersion(records);
                 })
               }
-              onApplyPlaceRename={(from, to, scope) => { applyToolPatches(applyPlaceRename(mainDataset, from, to, scope)); }}
-              onApplyGeocode={(assignments) => applyToolPatches(applyGeocode(mainDataset, assignments))}
-              onApplyAddressCoords={(assignments) => applyToolPatches(applyAddressCoords(mainDataset, assignments))}
-              onRenamePlaceValue={(from, to, addr) => applyToolPatches(renamePlaceValue(mainDataset, from, to, addr))}
+              onApplyPlaceRename={(from, to, scope) => { applyToolPatches(applyPlaceRename(mainDataset, from, to, scope), true); }}
+              onApplyGeocode={(assignments) => applyToolPatches(applyGeocode(mainDataset, assignments), true)}
+              onApplyAddressCoords={(assignments) => applyToolPatches(applyAddressCoords(mainDataset, assignments), true)}
+              onRenamePlaceValue={(from, to, addr) => applyToolPatches(renamePlaceValue(mainDataset, from, to, addr), true)}
               onApplyOfficialNames={(renames) => {
                 // One batch → one undo step — and one pass over the records
                 // per concern: every row's rename in a single walk, then every
@@ -2189,6 +2229,7 @@ function AppContent() {
                     ...renamePlaceValues(mainDataset, renames),
                     ...(coords.size ? applyGeocode(mainDataset, coords) : []),
                   ]),
+                  true,
                 );
               }}
               onRenameAddresses={(renames) =>
@@ -2198,18 +2239,19 @@ function AppContent() {
                 // because two houses of one village share records.
                 applyToolPatches(
                   coalescePatches(renames.flatMap((r) => renameAddress(mainDataset, r.rawKeys, r.from, r.to))),
+                  true,
                 )
               }
-              onMovePlaceForAddresses={(keys, toPlace, coord) => applyToolPatches(movePlaceForAddresses(mainDataset, keys, toPlace, coord))}
+              onMovePlaceForAddresses={(keys, toPlace, coord) => applyToolPatches(movePlaceForAddresses(mainDataset, keys, toPlace, coord), true)}
               startId={startId}
-              onFixBrokenLinks={(only) => applyToolPatches(fixBrokenLinks(mainDataset, only))}
-              onFixSexFromRole={(only) => applyToolPatches(fixSexFromRole(mainDataset, only))}
-              onFixSwappedRoles={(only) => applyToolPatches(fixSwappedRoles(mainDataset, only))}
-              onFixDates={(only) => applyToolPatches(fixDates(mainDataset, only))}
-              onFixDuplicatePointers={(only) => applyToolPatches(fixDuplicatePointers(mainDataset, only))}
-              onFixDanglingRefs={(only) => applyToolPatches(fixDanglingRefs(mainDataset, only))}
-              onFillPlaceCoords={() => applyToolPatches(fillPlaceCoordsFromFile(mainDataset))}
-              onApplyBatchPatches={applyToolPatches}
+              onFixBrokenLinks={(only) => applyToolPatches(fixBrokenLinks(mainDataset, only), true)}
+              onFixSexFromRole={(only) => applyToolPatches(fixSexFromRole(mainDataset, only), true)}
+              onFixSwappedRoles={(only) => applyToolPatches(fixSwappedRoles(mainDataset, only), true)}
+              onFixDates={(only) => applyToolPatches(fixDates(mainDataset, only), true)}
+              onFixDuplicatePointers={(only) => applyToolPatches(fixDuplicatePointers(mainDataset, only), true)}
+              onFixDanglingRefs={(only) => applyToolPatches(fixDanglingRefs(mainDataset, only), true)}
+              onFillPlaceCoords={() => applyToolPatches(fillPlaceCoordsFromFile(mainDataset), true)}
+              onApplyBatchPatches={(patches) => applyToolPatches(patches, true)}
               onMergeDuplicate={(survivorId, removedId, decision, alsoMerge) => {
                 // Ticked parents/partners merge first: their families fold
                 // together on their own, so this pair then finds one set of

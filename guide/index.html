@@ -596,6 +596,11 @@
               built-in offline outline — as the <a href="#map">Places map</a> applies.
             </p>
             <p>
+              At the bottom of the card, <strong>Last changed</strong> shows the change date the record carries in the
+              file (its CHAN or <em>_UPD</em> stamp, when it has one). It reflects the file, not the session: your
+              unsaved edits don't move it, and it advances when a save stamps the record (<a href="#saving">§14</a>).
+            </p>
+            <p>
               A coordinate belongs to the place it was recorded for, so changing an event's place moves its dot with it:
               the position your file already uses for the new place is taken, and if the file has none, the old one is
               cleared rather than left pointing at the place the event just moved away from. Refining the
@@ -2046,6 +2051,14 @@
               stamping — and finally the changes themselves, field by field, with the records added and removed each
               named once. The downloaded file becomes your new working baseline inside the app, so what you see next
               matches what you just saved.
+            </p>
+            <p>
+              <strong>Change-date stamping</strong> follows the file's own convention — CHAN, MyHeritage's
+              <em>_UPD</em>, or none — and refreshes only records you changed yourself, in Edit or by a merge. A record
+              rewritten only by whole-file tools (Normalize, Naming, Geocoding, the Health check fixes, source
+              organizing) keeps the change date it had: restating a value or adding a coordinate is not new research,
+              and a bulk pass must not overwrite the record of when each person was really last worked on. The report
+              counts both — the records stamped and the records left with their existing dates.
             </p>
             <p>
               The download is always written as <strong>UTF-8</strong>, and its header is set to say so. A file that

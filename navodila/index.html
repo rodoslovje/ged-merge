@@ -599,6 +599,12 @@
               kartografska podlaga — ali vgrajeni obris brez povezave — kot pri <a href="#map">Zemljevidu krajev</a>.
             </p>
             <p>
+              Na dnu kartice vrstica <strong>Zadnja sprememba</strong> pokaže datum spremembe, ki ga zapis nosi v
+              datoteki (njegovo oznako CHAN ali <em>_UPD</em>, kadar jo ima). Vrstica odseva datoteko, ne seje:
+              neshranjena urejanja je ne premaknejo, posodobi pa se, ko shranjevanje zapisu vpiše nov datum
+              (<a href="#saving">§14</a>).
+            </p>
+            <p>
               Koordinata pripada kraju, za katerega je bila zapisana, zato se ob spremembi kraja dogodka krogec premakne z
               njim: prevzame se položaj, ki ga vaša datoteka že uporablja za novi kraj, če ga nima, pa se stari izbriše,
               namesto da bi kazal na kraj, ki ga je dogodek pravkar zapustil. Popravek <strong>naslova</strong> pri istem
@@ -2109,6 +2115,14 @@
               pretvorba kodiranja, izpuščene oznake po meri, vpis datuma spremembe — na koncu pa spremembe same, polje
               za poljem, z dodanimi in odstranjenimi zapisi, vsak poimenovan enkrat. Prenesena datoteka postane vaše
               novo izhodišče znotraj aplikacije, tako da se prikaz ujema s tem, kar ste pravkar shranili.
+            </p>
+            <p>
+              <strong>Vpis datuma spremembe</strong> sledi navadi datoteke — CHAN, MyHeritage <em>_UPD</em> ali nič —
+              in osveži samo zapise, ki ste jih spremenili sami, v Urejanju ali z združitvijo. Zapis, ki so ga prepisala
+              le orodja prek cele datoteke (Poenoti, Poimenovanje, Geokodiranje krajev, popravki Pregleda, urejanje
+              virov), ohrani dosedanji datum spremembe: preoblikovana vrednost ali dodana koordinata ni nova raziskava,
+              množično opravilo pa ne sme prepisati podatka, kdaj je bil vsak zapis zares nazadnje obdelan. Poročilo
+              šteje oboje — zapise z novim datumom in zapise, ki so obdržali dosedanji datum.
             </p>
             <p>
               Prenos je vedno zapisan v kodiranju <strong>UTF-8</strong> in tako piše tudi v njegovi glavi. Datoteka, ki

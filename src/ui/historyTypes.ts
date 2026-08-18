@@ -23,6 +23,23 @@ export interface RecordPatch {
    * raw is untouched by such an edit, so undo/redo uses this to re-evaluate the
    * owner's dirty state instead of leaving it stuck. */
   owner?: { kind: "individual" | "family"; id: string };
+  /** True when the change came from a whole-file maintenance pass (Normalize,
+   * Naming, Geocoding, Health-check fixes, source organizing) rather than a
+   * deliberate per-record act. A record whose only changes are mechanical keeps
+   * its CHAN/`_UPD` change stamps at save time — a restatement or a gazetteer
+   * coordinate is not new research, and stamping thousands of records on one
+   * pass would erase the file's change history (see `useDirtyTracking`). */
+  mechanical?: boolean;
+}
+
+/** Flag a maintenance batch's patches as mechanical (see the field above) —
+ *  except creations: a record that did not exist before the pass gets its
+ *  CHAN/CREA stamps whatever created it. Mutates and returns the array. */
+export function markMechanical(patches: RecordPatch[]): RecordPatch[] {
+  for (const p of patches) {
+    if (p.before !== null) p.mechanical = true;
+  }
+  return patches;
 }
 
 export function cloneRaw(raw: GedNode): GedNode {
@@ -103,6 +120,8 @@ export function coalescePatches(patches: RecordPatch[]): RecordPatch[] {
     if (prev) {
       prev.after = p.after;
       if (p.after === null && p.index !== undefined) prev.index = p.index;
+      // The merged patch is mechanical only if every constituent was.
+      if (!p.mechanical) delete prev.mechanical;
     } else {
       const copy = { ...p };
       byKey.set(key, copy);

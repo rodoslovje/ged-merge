@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { coalescePatches, dropNoopPatches, snapshotRecords, patchesFromSnapshots, type RecordPatch } from "./historyTypes";
+import { coalescePatches, dropNoopPatches, markMechanical, snapshotRecords, patchesFromSnapshots, type RecordPatch } from "./historyTypes";
 import { insertRecordAt } from "../gedcom/edit";
 import type { Dataset, GedNode, Individual } from "../gedcom/types";
 
@@ -93,6 +93,33 @@ describe("coalescePatches", () => {
     expect((merged[0].before as GedNode).value).toBe("a");
     expect(merged[0].after).toBeNull();
     expect(merged[0].index).toBe(3);
+  });
+
+  it("keeps mechanical only when every merged patch is mechanical", () => {
+    const merged = coalescePatches([
+      { type: "individual", id: "@I1@", before: node("a"), after: node("b"), mechanical: true },
+      { type: "individual", id: "@I1@", before: node("b"), after: node("c"), mechanical: true },
+      { type: "individual", id: "@I2@", before: node("x"), after: node("y"), mechanical: true },
+      { type: "individual", id: "@I2@", before: node("y"), after: node("z") },
+    ]);
+    expect(merged.find((p) => p.id === "@I1@")?.mechanical).toBe(true);
+    expect(merged.find((p) => p.id === "@I2@")?.mechanical).toBeUndefined();
+  });
+});
+
+// ── markMechanical ─────────────────────────────────────────────────────────
+
+describe("markMechanical", () => {
+  it("flags modifications and deletions but never creations", () => {
+    const patches: RecordPatch[] = [
+      { type: "individual", id: "@I1@", before: node("a"), after: node("b") },
+      { type: "individual", id: "@I2@", before: node("gone"), after: null },
+      { type: "record", id: "@S1@", before: null, after: node("born") },
+    ];
+    markMechanical(patches);
+    expect(patches[0].mechanical).toBe(true);
+    expect(patches[1].mechanical).toBe(true);
+    expect(patches[2].mechanical).toBeUndefined();
   });
 });
 

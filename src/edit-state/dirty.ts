@@ -244,6 +244,29 @@ export function computePushDirtyOps(
 }
 
 /**
+ * Adjust the per-record count of applied *substantive* edit steps — the counts
+ * that decide which dirty records get a fresh CHAN/`_UPD` stamp at save time.
+ * A patch flagged `mechanical` (a whole-file maintenance pass) never counts; a
+ * record whose count is absent when the save is built keeps its stamps.
+ * Called with +1 when an edit batch is pushed or redone and −1 when it is
+ * undone, so the count always equals the number of substantive steps currently
+ * applied to the record. Counts are only ever reset wholesale (load, save,
+ * hydrate) — a decrement below zero clears the entry.
+ */
+export function bumpSubstantiveCounts(
+  counts: Map<string, number>,
+  patches: RecordPatch[],
+  delta: 1 | -1,
+): void {
+  for (const p of patches) {
+    if (p.mechanical) continue;
+    const next = (counts.get(p.id) ?? 0) + delta;
+    if (next > 0) counts.set(p.id, next);
+    else counts.delete(p.id);
+  }
+}
+
+/**
  * Whether `markDirty` should capture a first-dirty fallback snapshot for this
  * record: only when none exists yet AND the record pre-exists the session
  * baseline. A session-created record must stay snapshot-less — with a snapshot

@@ -8708,6 +8708,12 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 .minimap-tooltip .minimap-tip-addr { color: var(--muted); }
 /* The person's places map below the Edit-view event list. */
 .edit-person-map { margin: 12px 0 4px; }
+/* The record's own CHAN/_UPD stamp, shown as a quiet footer of the person card. */
+.edit-person-changed {
+  margin-top: 8px;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
 /* Header row above the map: hide/show toggle left, colour legend right. */
 .edit-person-map-head {
   display: flex;

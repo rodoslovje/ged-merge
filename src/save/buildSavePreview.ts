@@ -57,6 +57,11 @@ export interface SavePreviewInput {
   /** True for an individual whose events this save may reorder — see
    *  {@link buildEditSaveRecords}. */
   isSortEligible: (xref: string) => boolean;
+  /** True for a record with at least one substantive (non-mechanical) change —
+   *  see `useDirtyTracking`. Decides which changed records get their
+   *  CHAN/`_UPD` stamps refreshed; a record changed only by maintenance
+   *  passes (Normalize, Naming, Geocoding, fixes) keeps its stamps. */
+  isSubstantive: (xref: string) => boolean;
   /** Timestamp shared by the .ged and its report so they sort together in the
    *  browser's Downloads list. Injected rather than read from the clock so the
    *  output is reproducible. */
@@ -79,6 +84,11 @@ export interface SavePreview {
   base: string;
   /** Record ids from edit mode — the preview offers navigate/remove for these. */
   editRecordIds: Set<string>;
+  /** Records whose CHAN/`_UPD` stamps the save refreshes: substantively edited
+   *  records, everything the merge touched, and any change the audit found
+   *  that the tracking missed. Mechanical-only records are absent — their
+   *  stamps stay as the file had them. */
+  stampRecordIds: Set<string>;
   /** Whether this save includes confirmed merge matches (vs. edits only). */
   isMerge: boolean;
   /** Dangling-pointer and stale-decision findings, shown as a warning strip. */
@@ -102,7 +112,7 @@ export function buildSavePreview(input: SavePreviewInput): SavePreview | null {
     main, mainFileName, homeId, compare, decisions, matches, importRequests,
     confirmedCount, importCount, changedPersonIds, changedFamilyIds, changedRecordIds,
     loadedPersonIds, loadedFamilyIds, baseline, personSnapshots, familySnapshots, recordSnapshots,
-    isSortEligible, now, formatOverrides, t,
+    isSortEligible, isSubstantive, now, formatOverrides, t,
   } = input;
 
   const changedCount = changedPersonIds.size + changedFamilyIds.size + changedRecordIds.size;
@@ -125,11 +135,16 @@ export function buildSavePreview(input: SavePreviewInput): SavePreview | null {
 
   let records: GedNode[];
   let report: ChangeReport;
+  // Records the merge itself modified or created — always stamped, whatever
+  // the edit-side tracking says about them. Captured before the reports are
+  // combined, since afterwards merge and edit changes are indistinguishable.
+  let mergeTouchedIds: string[] = [];
   if (isMerge) {
     const { records: mergedRecords, report: mergeReport } = mergeDecisions(
       main, compare!, decisions, matches ?? { individuals: [] }, t, importRequests, formatOverrides,
     );
     records = mergedRecords;
+    mergeTouchedIds = Object.keys(mergeReport.recordKinds);
     report = editReport ? combineReports(editReport, mergeReport) : mergeReport;
     // Merge targets are already sorted inside mergeDecisions; edited records
     // that had no confirmed decision are not, so sort them here. (The edit-only
@@ -147,6 +162,16 @@ export function buildSavePreview(input: SavePreviewInput): SavePreview | null {
   // fails to leave at all.
   auditAgainstBaseline(records, baseline, report);
 
+  // Which records get a fresh CHAN/`_UPD` stamp: dirty records with a
+  // substantive change behind them, everything the merge touched, and any
+  // record the audit just added to the report (a change of unknown origin is
+  // stamped rather than left claiming an old date). Dirty records *not*
+  // qualifying — changed only by maintenance passes — keep their stamps.
+  const dirtyIds = new Set([...changedPersonIds, ...changedFamilyIds, ...changedRecordIds]);
+  const stampRecordIds = new Set(mergeTouchedIds);
+  for (const id of dirtyIds) if (isSubstantive(id)) stampRecordIds.add(id);
+  for (const id of Object.keys(report.recordKinds)) if (!dirtyIds.has(id)) stampRecordIds.add(id);
+
   return {
     records,
     report,
@@ -155,6 +180,7 @@ export function buildSavePreview(input: SavePreviewInput): SavePreview | null {
     downloadLabel: t("save.preview.download"),
     base,
     editRecordIds,
+    stampRecordIds,
     isMerge,
     integrityWarnings: integrityWarnings(records, decisions, main, t),
   };

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computePatchApplyOps, computePushCaptureOps, computePushDirtyOps, shouldCaptureFallbackSnapshot } from "./dirty";
+import { bumpSubstantiveCounts, computePatchApplyOps, computePushCaptureOps, computePushDirtyOps, shouldCaptureFallbackSnapshot } from "./dirty";
 import { nodesEqual } from "../gedcom/node";
 import type { GedNode } from "../gedcom/types";
 import type { RecordPatch } from "../ui/historyTypes";
@@ -497,5 +497,45 @@ describe("shouldCaptureFallbackSnapshot", () => {
   it("never overwrites an existing snapshot", () => {
     expect(shouldCaptureFallbackSnapshot(true, true)).toBe(false);
     expect(shouldCaptureFallbackSnapshot(true, false)).toBe(false);
+  });
+});
+
+// ── bumpSubstantiveCounts ──────────────────────────────────────────────────
+// The counts decide which dirty records get a CHAN/_UPD refresh at save time:
+// hand edits and merges count, whole-file maintenance passes never do.
+
+describe("bumpSubstantiveCounts", () => {
+  it("counts substantive patches and skips mechanical ones", () => {
+    const counts = new Map<string, number>();
+    bumpSubstantiveCounts(counts, [
+      indiPatch("@I1@", node("a"), node("b")),
+      { ...indiPatch("@I2@", node("x"), node("y")), mechanical: true },
+    ], 1);
+    expect(counts.get("@I1@")).toBe(1);
+    expect(counts.has("@I2@")).toBe(false);
+  });
+
+  it("undo decrements what push counted, clearing the entry at zero", () => {
+    const counts = new Map<string, number>();
+    const first = [indiPatch("@I1@", node("a"), node("b"))];
+    const second = [indiPatch("@I1@", node("b"), node("c"))];
+    bumpSubstantiveCounts(counts, first, 1);
+    bumpSubstantiveCounts(counts, second, 1);
+    expect(counts.get("@I1@")).toBe(2);
+    bumpSubstantiveCounts(counts, second, -1);
+    expect(counts.get("@I1@")).toBe(1); // one hand edit still applied → stamp
+    bumpSubstantiveCounts(counts, first, -1);
+    expect(counts.has("@I1@")).toBe(false); // fully undone → keep the file's stamp
+  });
+
+  it("a record edited by hand and by a pass stays substantive until the hand edit is undone", () => {
+    const counts = new Map<string, number>();
+    const hand = [indiPatch("@I1@", node("a"), node("b"))];
+    const pass = [{ ...indiPatch("@I1@", node("b"), node("c")), mechanical: true }];
+    bumpSubstantiveCounts(counts, hand, 1);
+    bumpSubstantiveCounts(counts, pass, 1);
+    expect(counts.get("@I1@")).toBe(1);
+    bumpSubstantiveCounts(counts, hand, -1);
+    expect(counts.has("@I1@")).toBe(false);
   });
 });

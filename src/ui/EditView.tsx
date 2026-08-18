@@ -2,6 +2,7 @@ import { lazy, Suspense, useDeferredValue, useEffect, useMemo, useRef, useState 
 import { type RecordPatch, type PendingEditApply, cloneRaw, dropNoopPatches, noteChangePatches, snapshotRecords, patchesFromSnapshots } from "./historyTypes";
 import { useTranslation } from "react-i18next";
 import type { Dataset, Family, GedNode, GeoCoord, Individual } from "../gedcom/types";
+import { lastChangedText } from "../gedcom/chanCrea";
 import { birthDateOf } from "../gedcom/lifespan";
 import { familiesByMarriage } from "../gedcom/familySort";
 import { coupleAgesDisplay, lifespanWithAge } from "../gedcom/age";
@@ -2058,6 +2059,16 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
               )}
             </div>
           )}
+          {(() => {
+            // The stamp the file itself records (CHAN or `_UPD`) — session
+            // edits don't move it; it advances when a save writes new stamps.
+            const lastChanged = lastChangedText(person.raw);
+            return lastChanged ? (
+              <div className="edit-person-changed" title={t("edit.lastChangedTip")}>
+                {t("edit.lastChanged", { date: lastChanged })}
+              </div>
+            ) : null;
+          })()}
         </div>
 
         <div className="edit-families">
