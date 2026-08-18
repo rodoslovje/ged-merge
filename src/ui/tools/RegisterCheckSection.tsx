@@ -825,15 +825,27 @@ const RegisterRow = memo(function RegisterRow({
           <span className={`tools-reshape-badge ${BADGE[f.verdict]}`} title={t(`tools.register.hint.${f.verdict}`)}>
             {t(`tools.register.verdict.${f.verdict}`)}
           </span>
-          {rename && (
-            <button
-              className="tools-issue-link"
-              onClick={() => onApplyOne(rename)}
-              title={t("tools.register.takeHint", { place: rename.to })}
-            >
-              {t("tools.geocode.official.take")}
-            </button>
-          )}
+          {rename &&
+            // A pick spelt exactly as the file writes it has only its position
+            // to offer, and the button says so — "Use official name" there
+            // promised a rename that never comes.
+            (rename.to === f.key && !rename.addr ? (
+              <button
+                className="tools-issue-link"
+                onClick={() => onApplyOne(rename)}
+                title={t("tools.register.takeCoordHint")}
+              >
+                {t("tools.register.takeCoord")}
+              </button>
+            ) : (
+              <button
+                className="tools-issue-link"
+                onClick={() => onApplyOne(rename)}
+                title={t("tools.register.takeHint", { place: rename.to })}
+              >
+                {t("tools.geocode.official.take")}
+              </button>
+            ))}
           <button
             className="tools-issue-link"
             onClick={() => void onDismiss(f)}
@@ -1024,15 +1036,24 @@ interface RegisterOption {
 
 /** The rename the row's picked answer amounts to: rename every occurrence to
  *  that place, and take the register's coordinate where the file has none.
- *  Nothing to rename on a dismissed row, on one with no answer picked, or
- *  where the answer is the value the file already writes. */
+ *  Nothing to write on a dismissed row or on one with no answer picked.
+ *
+ *  An answer spelt exactly as the file already writes still has one thing to
+ *  offer when the file carries no position: the coordinate. On an `ambiguous`
+ *  row that *is* the action — which of the same-named places is meant is the
+ *  whole finding, the picked entry's position records the choice, and the next
+ *  scan reads it and settles the tie. Only with nothing at all to write — no
+ *  entry behind the answer, or the place already positioned — is there no
+ *  button. */
 function renameFor(
   f: RegisterFinding,
   options: RegisterOption[],
   chosen: number,
 ): OfficialRename | undefined {
   const o = chosen >= 0 ? options[chosen] : undefined;
-  if (!o || f.dismissed || (o.place === f.key && !o.addr)) return undefined;
+  if (!o || f.dismissed) return undefined;
+  const writesText = o.place !== f.key || !!o.addr;
+  if (!writesText && (!o.entry || f.fileCoord)) return undefined;
   return {
     from: f.key,
     to: o.place,

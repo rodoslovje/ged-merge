@@ -658,6 +658,8 @@ export const sl = {
   "tools.register.widerNone": "v imenikih ni ničesar več",
   "tools.register.registerBadgeHint": "Imenik, iz katerega je odgovor — kadar uradni register kraj pozna, obvelja njegov odgovor",
   "tools.register.takeHint": "Preimenuje vse navedbe v registrski zapis — »{{place}}« — v enem koraku, ki ga je mogoče razveljaviti",
+  "tools.register.takeCoord": "Zapiši koordinato",
+  "tools.register.takeCoordHint": "Ime se z registrom že ujema — zapiše se koordinata izbranega kraja, s čimer je izbira med istoimenskimi kraji zabeležena; korak je mogoče razveljaviti",
   "tools.register.takeAll": "Prevzemi uradna imena ({{count}})",
   "tools.register.takeAllHint": "Vse prikazane kraje z drugačnim zapisom preimenuje v registrsko ime, preostanek kraja pa pusti, kot ga piše datoteka — ena poteza razveljavitve",
   "tools.register.dismissHint": "Sprejmi kraj tak, kot je zapisan, in ga skrij s seznama — oznaka se shrani le v tem brskalniku, v datoteko se ne zapiše",

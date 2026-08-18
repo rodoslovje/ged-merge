@@ -580,6 +580,8 @@ export const en = {
   "tools.register.widerNone": "nothing further in the directories",
   "tools.register.registerBadgeHint": "The directory this answer came from — an official register decides where it knows the place",
   "tools.register.takeHint": "Rename every occurrence to the register's own wording — “{{place}}” — in one undoable step",
+  "tools.register.takeCoord": "Write coordinate",
+  "tools.register.takeCoordHint": "The name already matches the register — writes the picked place's coordinate, recording which of the same-named places is meant, in one undoable step",
   "tools.register.takeAll": "Use official names ({{count}})",
   "tools.register.takeAllHint": "Rename every differently spelled place shown to the register's name, keeping the rest of each place as the file writes it — one undoable step",
   "tools.register.dismissHint": "Accept this place as written and hide it from the list — remembered in this browser, never written to the file",
