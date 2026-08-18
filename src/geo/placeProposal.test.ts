@@ -301,6 +301,62 @@ describe("GOV and OpenStreetMap as places", () => {
     expect(p.addr).toBeUndefined();
   });
 
+  // A house in a city neighbourhood: Nominatim names the suburb as the
+  // locality and the city above it separately.
+  const WALLACE = {
+    coord: { lat: 41.6839, lon: -87.6339 },
+    name: "11853",
+    label: "11853, South Wallace Street, West Pullman, Chicago, Cook County, Illinois, United States",
+    kind: "house",
+    parts: {
+      house: "11853",
+      road: "South Wallace Street",
+      locality: "West Pullman",
+      town: "Chicago",
+      admin: "Cook County",
+      admins: ["Cook County", "Illinois"],
+      country: "United States",
+    },
+  };
+
+  it("a suburb's house yields the place to its city where the habit has no room for both", () => {
+    const p = proposalFromNominatim(
+      WALLACE,
+      style(
+        { byCountry: new Map([["unitedstates", { depth: 4, bare: true }]]) },
+        { separator: ", ", countryPreferred: new Map([["unitedstates", "United States"]]) },
+      ),
+    )!;
+    expect(p.plac).toBe("Chicago, Cook, Illinois, United States");
+    expect(p.addr).toBe("11853 South Wallace Street");
+  });
+
+  it("keeps the suburb above its city where the file's habit has the room", () => {
+    const p = proposalFromNominatim(
+      WALLACE,
+      style(
+        { byCountry: new Map([["unitedstates", { depth: 5, bare: false }]]) },
+        { separator: ", ", countryPreferred: new Map([["unitedstates", "United States"]]) },
+      ),
+    )!;
+    expect(p.plac).toBe("West Pullman, Chicago, Cook County, Illinois, United States");
+  });
+
+  it("a town the admins already name adds no level", () => {
+    const p = proposalFromNominatim(
+      {
+        coord: { lat: 46.2456, lon: 14.3312 },
+        name: "21",
+        label: "21, Hafnarjeva pot, Stražišče, Kranj, 4000 Kranj, Slovenija",
+        kind: "house",
+        parts: { house: "21", road: "Hafnarjeva pot", locality: "Stražišče", town: "Kranj", admin: "Kranj", country: "Slovenija" },
+      },
+      style(),
+    )!;
+    expect(p.plac).toBe("Stražišče,Kranj,Slovenija");
+    expect(p.addr).toBe("Hafnarjeva pot 21");
+  });
+
   // The Nominatim hit the multi-level chain exists for: county *and* state.
   const HIGHLAND = {
     coord: { lat: 34.1283, lon: -117.2086 },

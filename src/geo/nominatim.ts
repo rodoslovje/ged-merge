@@ -45,6 +45,10 @@ export interface NominatimResult {
     road?: string;
     /** The settlement itself (village/town/city/suburb). */
     locality?: string;
+    /** The town or city standing above {@link locality}, when the locality is
+     *  only a part of it — a suburb's city, an absorbed village's town. Equal
+     *  to the locality (and then meaningless) where the hit *is* the town. */
+    town?: string;
     /** The nearest administrative parent — municipality, else county/state. */
     admin?: string;
     /**
@@ -121,6 +125,7 @@ export function parseNominatimResponse(data: unknown): NominatimResult[] {
         // Outward from the smallest: a hamlet is the place a house belongs to,
         // and the town it is administered from comes next, not instead.
         ...opt("locality", pick(row.address, ["hamlet", "village", "suburb", "town", "city", "municipality"])),
+        ...opt("town", pick(row.address, ["town", "city"])),
         ...opt("admin", admins[0]),
         ...opt("country", pick(row.address, ["country"])),
         ...(admins.length > 1 ? { admins } : {}),

@@ -185,11 +185,11 @@ function preferredCountry(name: string | undefined, fmt: PlaceTargetFormat): str
  * "place, county, state, country" where the register named both levels.
  */
 function shape(
-  parts: { locality: string; admins?: readonly (string | undefined)[]; country?: string },
+  parts: { locality: string; town?: string; admins?: readonly (string | undefined)[]; country?: string },
   addrRaw: string | undefined,
   style: PlaceStyle,
 ): { plac: string; addr?: string } | undefined {
-  const locality = parts.locality.trim();
+  let locality = parts.locality.trim();
   if (!locality) return undefined;
   // A municipality named after its own seat is *not* collapsed: a three-level
   // file writes exactly "Kranj,Kranj,Slovenija" for the town of Kranj, and a
@@ -199,12 +199,32 @@ function shape(
   // file of three-level Slovenian places still writes its American ones in four.
   const habit = country ? style.byCountry?.get(canonicalPlaceToken(country)) : undefined;
   const depth = habit?.depth ?? style.depth;
-  const admins = (parts.admins ?? [])
+  let admins = (parts.admins ?? [])
     .map((a) => a?.trim())
     .filter((a): a is string => !!a)
     // A file whose parent levels are bare gets the register's stripped to
     // match: "Kane County" is written "Kane" beside the file's own "Cook".
     .map((a) => (habit?.bare ? stripUnitWords(a) : a));
+
+  // The town above the locality, when the register named both ("West Pullman"
+  // in Chicago). It joins the chain as the smallest parent where the file's
+  // habit has room for two settlement levels; where it does not, the locality
+  // yields to its town rather than costing a jurisdiction — the file that
+  // writes four-level American places wants "Chicago, Cook, Illinois, United
+  // States" from a West Pullman house, whose neighbourhood the address line
+  // already pins down. A town the admins already name (Kranj both city and
+  // občina) adds no level and is left out.
+  const townToken = parts.town?.trim() ? canonicalPlaceToken(parts.town) : undefined;
+  const town =
+    townToken &&
+    townToken !== canonicalPlaceToken(locality) &&
+    !admins.some((a) => canonicalPlaceToken(a) === townToken)
+      ? parts.town!.trim()
+      : undefined;
+  if (town) {
+    if (2 + admins.length + (country ? 1 : 0) > depth) locality = town;
+    else admins = [town, ...admins];
+  }
 
   let chain: string[];
   if (depth <= 1) chain = [locality];
@@ -307,7 +327,11 @@ export function proposalFromNominatim(result: NominatimResult, style: PlaceStyle
     if (!locality) return undefined;
     const road = parts.road ?? locality;
     const addr = numbersItsHouses(country) ? `${road} ${parts.house}` : `${parts.house} ${road}`;
-    const shaped = shape({ locality, admins: adminsOf(parts.admins ?? [parts.admin], country), country }, addr, style);
+    const shaped = shape(
+      { locality, town: parts.town, admins: adminsOf(parts.admins ?? [parts.admin], country), country },
+      addr,
+      style,
+    );
     return shaped && { ...shaped, coord: result.coord, source: "OSM", detail: result.label };
   }
 
