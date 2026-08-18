@@ -110,6 +110,25 @@ describe("inferPlaceParentLevels", () => {
     expect(inferPlaceParentLevels(places, index, fmt).levelOf("HR")).toBe("division");
   });
 
+  it("keeps a name rank learned in one country out of another's lists", () => {
+    // The lists are ordered per register, so the rank means nothing across
+    // countries: index 2 of a Croatian county's list is its English name,
+    // index 2 of an American state's is the "Fla." abbreviation.
+    const us = (name: string, admin: string, admin1: string): GazEntry => ({
+      name, ascii: "", alt: [], lat: 28.1, lon: -81.6, fclass: "P", country: "US", admin1, admin, population: 0,
+    });
+    const index = buildGazetteerIndex(
+      [hr("Bektež", "Kutjevo", "11"), hr("Stipernica", "Pregrada", "02"), us("Lakeville", "Lake", "FL")],
+      new Map([...DIVISIONS, ["US:FL", ["Florida", "Fla.", "La Florida"]]]),
+    );
+    const levels = inferPlaceParentLevels(["Bektež, Požega-Slavonia, Croatia"], index);
+    // The file writes Croatian counties in English, so an unwritten Croatian
+    // county follows suit — but an American state it never wrote keeps the
+    // register's own primary name rather than the same rank in a foreign list.
+    expect(levels.divisionNameOf(hr("Stipernica", "Pregrada", "02"))).toBe("Krapina-Zagorje");
+    expect(levels.divisionNameOf(us("Lakeville", "Lake", "FL"))).toBe("Florida");
+  });
+
   it("leaves the municipality where nothing says otherwise", () => {
     const levels = inferPlaceParentLevels([], INDEX);
     expect(levels.levelOf("HR")).toBe("admin");

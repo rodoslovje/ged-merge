@@ -185,8 +185,12 @@ export function inferPlaceParentLevels(
   /** The file's own spelling of a division it names, by division key. */
   const writtenName = new Map<string, string>();
   /** Which of a division's names the file reaches for, as an index into the
-   *  name list — how it would write one it has never written before. */
-  const nameRank = new Map<number, number>();
+   *  name list — how it would write one it has never written before. Kept per
+   *  country: the lists are ordered per register, so a rank learned in one
+   *  country's lists means nothing in another's — index 2 of a Croatian
+   *  county's list is its English name, index 2 of an American state's is
+   *  "Fla." or a Navajo exonym. */
+  const nameRank = new Map<string, Map<number, number>>();
   const sampleOf = new Map<string, string>();
 
   for (const value of places) {
@@ -209,7 +213,11 @@ export function inferPlaceParentLevels(
       if (!isDivision || !key) continue;
       if (!writtenName.has(key)) writtenName.set(key, part.trim());
       const at = (namesOfDivision.get(key) ?? []).findIndex((n) => foldToken(n) === folded);
-      if (at >= 0) nameRank.set(at, (nameRank.get(at) ?? 0) + 1);
+      if (at >= 0) {
+        const ranks = nameRank.get(country) ?? new Map<number, number>();
+        ranks.set(at, (ranks.get(at) ?? 0) + 1);
+        nameRank.set(country, ranks);
+      }
     }
   }
 
@@ -229,15 +237,21 @@ export function inferPlaceParentLevels(
     }
   }
 
-  // The rank the file reaches for most often — how it spells a division it has
-  // never written. A list too short for that rank ends at its last name.
-  let preferredRank = 0;
-  let best = 0;
-  for (const [at, n] of nameRank) {
-    if (n > best || (n === best && at < preferredRank)) {
-      preferredRank = at;
-      best = n;
+  // The rank the file reaches for most often in each country — how it spells a
+  // division it has never written there. A list too short for that rank ends at
+  // its last name; a country whose divisions the file never writes stays at the
+  // register's own primary name.
+  const preferredRank = new Map<string, number>();
+  for (const [country, ranks] of nameRank) {
+    let rank = 0;
+    let best = 0;
+    for (const [at, n] of ranks) {
+      if (n > best || (n === best && at < rank)) {
+        rank = at;
+        best = n;
+      }
     }
+    preferredRank.set(country, rank);
   }
 
   const divisionNamesOf = (entry: GazEntry): readonly string[] => {
@@ -249,7 +263,7 @@ export function inferPlaceParentLevels(
     const written = key && writtenName.get(key);
     if (written) return written;
     const names = divisionNamesOf(entry);
-    return names[Math.min(preferredRank, names.length - 1)];
+    return names[Math.min(preferredRank.get(entry.country) ?? 0, names.length - 1)];
   };
 
   // Exact spelling first — the register's own name lists cover the official
