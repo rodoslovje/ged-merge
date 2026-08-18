@@ -692,11 +692,7 @@ export function RegisterCheckSection({
                       // and the correct name may appear nowhere in the file. So
                       // the directories are offered as well — one pick fills the
                       // whole chain, the house and the coordinate, exactly as in
-                      // an Edit place field. Even for a place the file already
-                      // writes: what is wanted here rides with the text — the
-                      // register's coordinate and its municipality — so a
-                      // familiar spelling is no reason to withhold the answer.
-                      offerKnown
+                      // an Edit place field.
                       onLookup={lookup ? (q) => lookup.search(q) : undefined}
                       lookupNote={lookup && !lookup.online ? t("event.place.lookup.offlineOnly") : undefined}
                       onPickProposal={(proposal) => {

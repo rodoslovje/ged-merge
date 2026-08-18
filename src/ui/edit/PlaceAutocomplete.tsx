@@ -28,9 +28,9 @@ const IDLE: SearchState = { state: "idle", query: "", results: [] };
  * When the user selects a suggestion or blurs, the canonical form is applied.
  * With `combos`, known place+address pairs are offered too — matched by their
  * address text — and picking one reports the pair through `onPickCombo`.
- * With `onPickProposal`, a place the file has never used can be looked up in
- * the gazetteer and the online registers, which supply its full jurisdiction
- * chain, its house address and its coordinate. */
+ * With `onPickProposal`, the typed place can be looked up in the gazetteer and
+ * the online registers, which supply its full jurisdiction chain, its house
+ * address and its coordinate. */
 export function PlaceAutocomplete({
   value,
   suggestions,
@@ -53,7 +53,6 @@ export function PlaceAutocomplete({
   onPickProposal,
   onLookup,
   lookupNote,
-  offerKnown,
 }: {
   value: string;
   suggestions: string[];
@@ -93,12 +92,6 @@ export function PlaceAutocomplete({
    *  Shown in the lookup row; on its own it makes the row appear with no
    *  button, which is how a field says the search is unavailable and why. */
   lookupNote?: string;
-  /** Offer the registers even for a place the file already writes, and keep an
-   *  offer that only repeats one. Both are hidden by default because the file's
-   *  own list already has the text — but where the lookup is wanted for what
-   *  rides *with* the text (the register's coordinate, its municipality), the
-   *  text being familiar is no reason to withhold the answer. */
-  offerKnown?: boolean;
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -106,19 +99,10 @@ export function PlaceAutocomplete({
   const [search, setSearch] = useState<SearchState>(IDLE);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  /** Places the file already writes, so a register offer that only repeats one
-   *  is left out — it is in the list above already, canonically spelled. An
-   *  offer that adds an address still earns its row: it carries the house. */
-  const known = useMemo(() => new Set(suggestions.map(placeCompareKey)), [suggestions]);
-
-  /** The lookup is offered for a value the file cannot answer itself: once the
-   *  text names one the file already writes, the row would only be in the way
-   *  of the ordinary editing it interrupts. */
-  const canSearch =
-    !!onPickProposal &&
-    (!!onLookup || !!lookupNote) &&
-    value.trim().length >= 2 &&
-    (offerKnown || !known.has(placeCompareKey(value)));
+  /** The lookup stands at the foot of every dropdown, familiar text or not:
+   *  even a place the file already writes may want what rides *with* the text
+   *  — the register's coordinate, its municipality, its official spelling. */
+  const canSearch = !!onPickProposal && (!!onLookup || !!lookupNote) && value.trim().length >= 2;
 
   const filtered = useMemo((): Item[] => {
     const q = value.trim().toLowerCase();
@@ -220,16 +204,17 @@ export function PlaceAutocomplete({
     const fromFile = [...barePlaces, ...plainPart, ...shownOrder(picked.slice(0, room))];
     // Register offers sit below the file's own places: what the file already
     // uses is the better answer whenever it fits, and only the rest needs a
-    // register. They are shown for the query they were fetched for, so an
-    // edited query doesn't leave the previous place's answers standing.
+    // register. An offer repeating a familiar text still earns its row — the
+    // search was an explicit ask, and the offer carries the register's
+    // coordinate and chain. They are shown for the query they were fetched
+    // for, so an edited query doesn't leave the previous place's answers
+    // standing.
     const offers: Item[] =
       search.query === value.trim()
-        ? search.results
-            .filter((p) => offerKnown || p.addr || !known.has(placeCompareKey(p.plac)))
-            .map((p) => ({ place: p.plac, addr: p.addr, proposal: p }))
+        ? search.results.map((p) => ({ place: p.plac, addr: p.addr, proposal: p }))
         : [];
     return [...fromFile, ...offers];
-  }, [value, suggestions, combos, matchCombosByPlace, onPickCombo, search, known, offerKnown]);
+  }, [value, suggestions, combos, matchCombosByPlace, onPickCombo, search]);
 
   const showDropdown = open && (filtered.length > 0 || canSearch);
 
@@ -333,9 +318,9 @@ export function PlaceAutocomplete({
               )}
             </li>
           ))}
-          {/* The register lookup: for a place the file itself cannot complete,
-              and on demand only — the online registers are opt-in and rate
-              limited, so they are never queried per keystroke. */}
+          {/* The register lookup: on demand only — the online registers are
+              opt-in and rate limited, so they are never queried per
+              keystroke. */}
           {canSearch && (
             <li className="place-suggestion-foot">
               {onLookup && (

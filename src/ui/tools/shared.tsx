@@ -432,7 +432,7 @@ export function RenameEditor({
   onApply: () => void;
   onCancel: () => void;
   children?: React.ReactNode;
-} & Pick<ComponentProps<typeof PlaceAutocomplete>, "offerKnown" | "onLookup" | "lookupNote" | "onPickProposal">) {
+} & Pick<ComponentProps<typeof PlaceAutocomplete>, "onLookup" | "lookupNote" | "onPickProposal">) {
   const { t } = useTranslation();
   return (
     <div
