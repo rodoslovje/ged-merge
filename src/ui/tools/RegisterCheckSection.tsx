@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { deleteDecision, putDecisions } from "../../persist/geoDb";
@@ -275,20 +275,23 @@ export function RegisterCheckSection({
    * file. The same search, on the same terms, that the place fields in Edit
    * offer.
    */
-  const searchWider = (f: RegisterFinding, known: RegisterOption[]) => {
-    if (!index) return;
-    const seen = new Set(known.map((o) => (o.entry ? `${o.entry.name}:${o.entry.lat}:${o.entry.lon}` : o.place)));
-    // 18, not a screenful less: a short name collects many exact and prefix
-    // hits across directories ("Bela" has a dozen), and the qualified villages
-    // the search exists to surface — "Srednja Bela", "Zgornja Bela" — rank
-    // below all of them, so a tight cap cut off exactly the useful rows.
-    const found = searchGazetteer(index, f.key, 18, true).filter(
-      (e) => !seen.has(`${e.name}:${e.lat}:${e.lon}`),
-    );
-    setWider((prev) => new Map(prev).set(f.key, found));
-  };
+  const searchWider = useCallback(
+    (f: RegisterFinding, known: RegisterOption[]) => {
+      if (!index) return;
+      const seen = new Set(known.map((o) => (o.entry ? `${o.entry.name}:${o.entry.lat}:${o.entry.lon}` : o.place)));
+      // 18, not a screenful less: a short name collects many exact and prefix
+      // hits across directories ("Bela" has a dozen), and the qualified villages
+      // the search exists to surface — "Srednja Bela", "Zgornja Bela" — rank
+      // below all of them, so a tight cap cut off exactly the useful rows.
+      const found = searchGazetteer(index, f.key, 18, true).filter(
+        (e) => !seen.has(`${e.name}:${e.lat}:${e.lon}`),
+      );
+      setWider((prev) => new Map(prev).set(f.key, found));
+    },
+    [index],
+  );
 
-  const toggleOpen = (key: string, drawable = true) => {
+  const toggleOpen = useCallback((key: string, drawable = true) => {
     const willOpen = !open.has(key);
     setOpen((prev) => {
       const next = new Set(prev);
@@ -304,16 +307,20 @@ export function RegisterCheckSection({
     // a map of nothing but the file's other places — with no way to shut it,
     // since the toggle lives in the actions row that such a row does not have.
     setMapOpen((prev) => (willOpen ? (drawable ? key : prev) : prev === key ? null : prev));
-  };
-  const togglePeople = (key: string) => {
+  }, [open]);
+  const togglePeople = useCallback((key: string) => {
     setPeopleOpen((prev) => {
       const next = new Set(prev);
       if (!next.delete(key)) next.add(key);
       return next;
     });
     setOpen((prev) => new Set(prev).add(key));
-  };
-  const pick = (key: string, index: number) => setPicked((prev) => new Map(prev).set(key, index));
+  }, []);
+  const toggleMap = useCallback((key: string) => setMapOpen((prev) => (prev === key ? null : key)), []);
+  const pick = useCallback(
+    (key: string, index: number) => setPicked((prev) => new Map(prev).set(key, index)),
+    [],
+  );
   // A checked radio fires no change event, so taking a pick back needs the
   // click itself — the same pattern as the places and addresses tabs. Without
   // it a mispick on an `ambiguous` row is irrevocable and silently joins the
@@ -325,7 +332,7 @@ export function RegisterCheckSection({
   // and the click read as broken. NONE is the reader saying "not this one" —
   // the row keeps its finding and its place in the list, and stays out of the
   // renames until something is picked again.
-  const unpick = (key: string) => setPicked((prev) => new Map(prev).set(key, NONE_PICKED));
+  const unpick = useCallback((key: string) => setPicked((prev) => new Map(prev).set(key, NONE_PICKED)), []);
 
   // A rename, an undo or an edit elsewhere re-runs the check, and the rows it
   // settles leave the list. Their open state and picks go with them — the same
@@ -399,6 +406,64 @@ export function RegisterCheckSection({
     itemsKey: view?.rows,
   });
 
+  /** Every shown row's answers, computed once per data change. Composing them
+   *  is a few hundred place strings — nothing for one pass, but it used to run
+   *  inside render for every row on screen *and* for the whole list (the bulk
+   *  count below), on every window shift of the scroll. */
+  const rowOptions = useMemo(() => {
+    const map = new Map<string, RegisterOption[]>();
+    for (const f of view?.rows ?? []) map.set(f.key, optionsOf(f, style, wider.get(f.key)));
+    return map;
+  }, [view, style, wider]);
+
+  /** What "Use official names" would write: every shown row that has an answer
+   *  to take. A row whose several places nobody has chosen between is not one
+   *  of them — that is the researcher's call, one row at a time — and neither
+   *  is a row whose verdict is held back from the sweep until picked by hand. */
+  const bulk = useMemo(
+    () =>
+      (view?.rows ?? []).flatMap((f) => {
+        if (appliedKeys.has(f.key)) return [];
+        if (BULK_HELD_BACK.includes(f.verdict) && !picked.has(f.key)) return [];
+        const options = rowOptions.get(f.key) ?? [];
+        return renameFor(f, options, chosenIndex(f, options, picked.get(f.key))) ?? [];
+      }),
+    [view, rowOptions, picked, appliedKeys],
+  );
+
+  const dismiss = useCallback(
+    async (f: RegisterFinding) => {
+      const key = registerDecisionKey(f.key);
+      try {
+        if (f.dismissed) await deleteDecision(key);
+        else await putDecisions([{ key, status: REGISTER_DISMISSED, ts: Date.now() }]);
+      } catch {
+        // An IndexedDB failure was an unhandled rejection and the toggle
+        // silently stayed put. There is nothing better to do than leave the row
+        // as it is — the refresh below re-reads whatever state actually holds.
+      }
+      onDecisionsChanged();
+    },
+    [onDecisionsChanged],
+  );
+
+  /** One row's "Use official name", and the note the bulk button shares. */
+  const applyOne = useCallback(
+    (rename: OfficialRename) => setApplied(onApplyOfficialNames([rename])),
+    [onApplyOfficialNames],
+  );
+
+  const openRename = useCallback((key: string) => {
+    setRenaming(key);
+    setRenameDraft(key);
+    // Empty, not the house the check would take out: the place box opens on
+    // the *raw* value, which still has that house in it, and filling both
+    // would write it twice. What goes in the address box is the part being
+    // taken out of what the place box ends up saying.
+    setRenameAddrDraft("");
+  }, []);
+  const closeRename = useCallback(() => setRenaming(null), []);
+
   if (!report || !view) return null;
 
   /** The file's own FORM for a country's places, as the chip's tooltip. Empty
@@ -414,55 +479,7 @@ export function RegisterCheckSection({
     return form ? `${t("tools.register.forms")} ${form}` : undefined;
   };
 
-  /** The rename the row's picked answer amounts to: rename every occurrence to
-   *  that place, and take the register's coordinate where the file has none.
-   *  Nothing to rename on a dismissed row, on one with no answer picked, or
-   *  where the answer is the value the file already writes. */
-  const renameFor = (
-    f: RegisterFinding,
-    options: RegisterOption[],
-    chosen: number,
-  ): OfficialRename | undefined => {
-    const o = chosen >= 0 ? options[chosen] : undefined;
-    if (!o || f.dismissed || (o.place === f.key && !o.addr)) return undefined;
-    return {
-      from: f.key,
-      to: o.place,
-      ...(o.addr ? { addr: o.addr } : {}),
-      ...(o.entry ? { assignment: { coord: { lat: o.entry.lat, lon: o.entry.lon } } } : {}),
-      // The label line the new value deserves: the option's own form, which is
-      // the one computed for exactly the place it writes — composed here for a
-      // whole place, taken from the check where the answer is the written value
-      // with a level swapped. An option that knows no form drops a stale one
-      // rather than keeping a line naming levels the value no longer has.
-      ...(o.form ? { form: o.form } : {}),
-    };
-  };
-
-  /** What "Use official names" would write: every shown row that has an answer
-   *  to take. A row whose several places nobody has chosen between is not one
-   *  of them — that is the researcher's call, one row at a time — and neither
-   *  is a row whose verdict is held back from the sweep until picked by hand. */
-  const bulk = view.rows.flatMap((f) => {
-    if (appliedKeys.has(f.key)) return [];
-    if (BULK_HELD_BACK.includes(f.verdict) && !picked.has(f.key)) return [];
-    const options = optionsOf(f, style, wider.get(f.key));
-    return renameFor(f, options, chosenIndex(f, options, picked)) ?? [];
-  });
   const allOpen = view.rows.length > 0 && view.rows.every((f) => open.has(f.key));
-
-  const dismiss = async (f: RegisterFinding) => {
-    const key = registerDecisionKey(f.key);
-    try {
-      if (f.dismissed) await deleteDecision(key);
-      else await putDecisions([{ key, status: REGISTER_DISMISSED, ts: Date.now() }]);
-    } catch {
-      // An IndexedDB failure was an unhandled rejection and the toggle
-      // silently stayed put. There is nothing better to do than leave the row
-      // as it is — the refresh below re-reads whatever state actually holds.
-    }
-    onDecisionsChanged();
-  };
 
   const actions = (
     <>
@@ -489,6 +506,65 @@ export function RegisterCheckSection({
         registers: report.registers.join(", "),
       })
     : t("tools.register.noRegister");
+
+  /** The rename box for the one row being edited — built here, where the
+   *  drafts live, and handed to that row alone, so typing in it re-renders
+   *  one row rather than every mounted one. */
+  const renameEditor = (key: string): ReactNode => (
+    <RenameEditor
+      value={renameDraft}
+      suggestions={placeSug.placeSuggestions}
+      canonical={placeSug.placeCanonical}
+      placeholder={t("tools.places.rename.placeholder")}
+      onChange={setRenameDraft}
+      onApply={() => applyRename(key)}
+      onCancel={() => setRenaming(null)}
+      // The file's own places cannot help here: the row is open
+      // because what it writes is not a name the register holds,
+      // and the correct name may appear nowhere in the file. So
+      // the directories are offered as well — one pick fills the
+      // whole chain, the house and the coordinate, exactly as in
+      // an Edit place field.
+      onLookup={lookup ? (q) => lookup.search(q) : undefined}
+      lookupNote={lookup && !lookup.online ? t("event.place.lookup.offlineOnly") : undefined}
+      onPickProposal={(proposal) => {
+        setRenameDraft(proposal.plac);
+        setRenameAddrDraft(proposal.addr ?? "");
+        setRenamePick({
+          place: proposal.plac,
+          ...(proposal.addr ? { addr: proposal.addr } : {}),
+          coord: proposal.coord,
+        });
+      }}
+    >
+      {/* The house to leave on the event's own ADDR line, the
+          same chip the places list's rename carries. A value
+          this check calls out is often wrong in both ways at
+          once — the settlement spelt one way and a house number
+          packed in behind it — and without this the correction
+          took two passes through two different tabs. */}
+      <span className="tools-geo-addr-chip" title={t("tools.geocode.renameAddrTooltip")}>
+        {t("event.colAddr")}:
+        <input
+          type="text"
+          className="tools-geo-addr-chip-input"
+          value={renameAddrDraft}
+          size={Math.max(8, renameAddrDraft.length + 1)}
+          placeholder={t("tools.geocode.renameAddrPlaceholder")}
+          onChange={(e) => setRenameAddrDraft(e.target.value)}
+        />
+        {renameAddrDraft && (
+          <button
+            className="tools-geo-addr-chip-clear"
+            onClick={() => setRenameAddrDraft("")}
+            aria-label={t("tools.places.rename.cancel")}
+          >
+            ×
+          </button>
+        )}
+      </span>
+    </RenameEditor>
+  );
 
   return (
     <section className="tools-cleanup-section">
@@ -576,347 +652,33 @@ export function RegisterCheckSection({
           {!view.rows.length && <p className="tools-clean">{t("tools.search.noMatch")}</p>}
           <ul className="tools-tree tools-register-list">
             <li className="v-spacer" style={{ height: virtual.padTop }} ref={virtual.topRef} aria-hidden />
-            {view.rows.slice(virtual.start, virtual.end).map((f) => {
-              const options = optionsOf(f, style, wider.get(f.key));
-              const chosen = chosenIndex(f, options, picked);
-              const rename = renameFor(f, options, chosen);
-              const isOpen = open.has(f.key) || peopleOpen.has(f.key);
-              /** Whether the bulk rename waits for this row to be picked by
-               *  hand — which is what its radio then marks. */
-              const held = BULK_HELD_BACK.includes(f.verdict);
-              return (
-                <li key={f.key} className={`tools-tree-node${f.dismissed ? " dismissed" : ""}`}>
-                  {/* The same row shape as the places and addresses lists: the
-                      value the file writes leads, what the register answers
-                      follows it, and the badge, the actions and the person
-                      count sit at the end. */}
-                  <GeoRowHeader
-                    open={isOpen}
-                    // Same test the map's own toggle is rendered on: pins to
-                    // draw, or the position the file records for the place.
-                    onToggle={() => toggleOpen(f.key, options.some((o) => o.entry) || !!f.fileCoord)}
-                    place={f.key}
-                  >
-                    {/* ✎ (U+270E), the same edit mark the places tree, the
-                        addresses list and Organize sources use. It writes the
-                        raw value the row is about, so it is the one action here
-                        that does not go through the register at all — a finding
-                        is often the prompt to spell something your own way. */}
-                    <RenameToggle
-                      open={renaming === f.key}
-                      onOpen={() => {
-                        setRenaming(f.key);
-                        setRenameDraft(f.key);
-                        // Empty, not the house the check would take out: the
-                        // place box opens on the *raw* value, which still has
-                        // that house in it, and filling both would write it
-                        // twice. What goes in the address box is the part being
-                        // taken out of what the place box ends up saying.
-                        setRenameAddrDraft("");
-                      }}
-                      onClose={() => setRenaming(null)}
-                      title={t("tools.geocode.renameOpen")}
-                    />
-                    {chosen >= 0 ? (
-                      <>
-                        {/* What follows the arrow is what the record would say
-                            once the row is taken — the same "becomes" the
-                            addresses list and the places tree draw. Left off
-                            where the answer writes nothing different: a
-                            coordinate that is off names the place the file
-                            already writes, and an arrow there promised a rename
-                            that never comes. */}
-                        {(options[chosen].place !== f.key || options[chosen].addr) && (
-                          <span aria-hidden="true" className="tools-register-place">→</span>
-                        )}
-                        {options[chosen].entry && (
-                          <span
-                            className={`tools-reshape-badge ${options[chosen].entry.register ? "official" : "reuse"}`}
-                            title={t("tools.register.registerBadgeHint")}
-                          >
-                            {directoryOf(options[chosen].entry)}
-                          </span>
-                        )}
-                        <span className="tools-geo-cand-name">{options[chosen].place}</span>
-                        {options[chosen].addr && (
-                          // Not .tools-geo-row-addr: that class draws the pin
-                          // that marks a value as a house address, and what
-                          // this row proposes to split off is only *shaped*
-                          // like one — a value ending in a number. "Justice
-                          // Precinct 4" and "Detroit Ward 19" are census
-                          // districts, and a pin on them asserts a house.
-                          <span className="tools-register-place">· {options[chosen].addr}</span>
-                        )}
-                      </>
-                    ) : (
-                      // Several places of this name, none of them picked yet:
-                      // the header says how many there are rather than naming
-                      // one of them, which would read as the answer.
-                      options.length > 1 && (
-                        <span className="tools-geo-count">{t("tools.register.options", { count: options.length })}</span>
-                      )
-                    )}
-                    {f.verdict === "far" && (
-                      <span className="tools-geo-count">{t("tools.register.detail.far", { km: Math.round(f.distanceKm ?? 0) })}</span>
-                    )}
-                    {/* The verdict, what can be done about it and who it
-                        concerns, pinned to the right of the row so the eye can
-                        run down the places and the badges in two clean columns. */}
-                    <span className="tools-register-end">
-                      <span className={`tools-reshape-badge ${BADGE[f.verdict]}`} title={t(`tools.register.hint.${f.verdict}`)}>
-                        {t(`tools.register.verdict.${f.verdict}`)}
-                      </span>
-                      {rename && (
-                        <button
-                          className="tools-issue-link"
-                          onClick={() => setApplied(onApplyOfficialNames([rename]))}
-                          title={t("tools.register.takeHint", { place: rename.to })}
-                        >
-                          {t("tools.geocode.official.take")}
-                        </button>
-                      )}
-                      <button
-                        className="tools-issue-link"
-                        onClick={() => void dismiss(f)}
-                        title={f.dismissed ? t("tools.register.undismissHint") : t("tools.register.dismissHint")}
-                      >
-                        {f.dismissed ? t("tools.geocode.restore") : t("tools.geocode.hide")}
-                      </button>
-                      <button
-                        className="tools-chip-count tools-count-toggle"
-                        aria-pressed={peopleOpen.has(f.key)}
-                        aria-label={t("tools.geocode.peopleToggle")}
-                        onClick={() => togglePeople(f.key)}
-                      >
-                        {f.people.length}
-                      </button>
-                    </span>
-                  </GeoRowHeader>
-                  {renaming === f.key && (
-                    <RenameEditor
-                      value={renameDraft}
-                      suggestions={placeSug.placeSuggestions}
-                      canonical={placeSug.placeCanonical}
-                      placeholder={t("tools.places.rename.placeholder")}
-                      onChange={setRenameDraft}
-                      onApply={() => applyRename(f.key)}
-                      onCancel={() => setRenaming(null)}
-                      // The file's own places cannot help here: the row is open
-                      // because what it writes is not a name the register holds,
-                      // and the correct name may appear nowhere in the file. So
-                      // the directories are offered as well — one pick fills the
-                      // whole chain, the house and the coordinate, exactly as in
-                      // an Edit place field.
-                      onLookup={lookup ? (q) => lookup.search(q) : undefined}
-                      lookupNote={lookup && !lookup.online ? t("event.place.lookup.offlineOnly") : undefined}
-                      onPickProposal={(proposal) => {
-                        setRenameDraft(proposal.plac);
-                        setRenameAddrDraft(proposal.addr ?? "");
-                        setRenamePick({
-                          place: proposal.plac,
-                          ...(proposal.addr ? { addr: proposal.addr } : {}),
-                          coord: proposal.coord,
-                        });
-                      }}
-                    >
-                      {/* The house to leave on the event's own ADDR line, the
-                          same chip the places list's rename carries. A value
-                          this check calls out is often wrong in both ways at
-                          once — the settlement spelt one way and a house number
-                          packed in behind it — and without this the correction
-                          took two passes through two different tabs. */}
-                      <span className="tools-geo-addr-chip" title={t("tools.geocode.renameAddrTooltip")}>
-                        {t("event.colAddr")}:
-                        <input
-                          type="text"
-                          className="tools-geo-addr-chip-input"
-                          value={renameAddrDraft}
-                          size={Math.max(8, renameAddrDraft.length + 1)}
-                          placeholder={t("tools.geocode.renameAddrPlaceholder")}
-                          onChange={(e) => setRenameAddrDraft(e.target.value)}
-                        />
-                        {renameAddrDraft && (
-                          <button
-                            className="tools-geo-addr-chip-clear"
-                            onClick={() => setRenameAddrDraft("")}
-                            aria-label={t("tools.places.rename.cancel")}
-                          >
-                            ×
-                          </button>
-                        )}
-                      </span>
-                    </RenameEditor>
-                  )}
-                  {isOpen && (
-                    <div className="tools-geo-conflict-body">
-                      {/* The register's answers, one numbered option per line —
-                          the same list, and the same numbered radios, the
-                          places and addresses rows offer their candidates in.
-                          Picking one is what the rename then writes. */}
-                      {/* Which of six same-named places is the one is a
-                          question only a map answers, so the row draws its
-                          answers as the numbered pins the option lines carry,
-                          and the position the file records for the place beside
-                          them — asked for by a click on any coordinate, or on
-                          the toggle, and never drawn before that (Leaflet is a
-                          lazy chunk). A row with neither has nothing to draw. */}
-                      {(options.some((o) => o.entry) || f.fileCoord) && (
-                          <div className="tools-geo-actions">
-                            <MapToggle
-                              open={mapOpen === f.key}
-                              onToggle={() => setMapOpen(mapOpen === f.key ? null : f.key)}
-                            />
-                            {/* A name that is one word of a longer one is a
-                                lead, not an answer, so the wider search is
-                                asked for rather than run for every place. */}
-                            {!wider.has(f.key) && (
-                              <button
-                                className="tools-issue-link"
-                                onClick={() => searchWider(f, options)}
-                                title={t("tools.register.widerHint")}
-                              >
-                                {t("tools.register.wider")}
-                              </button>
-                            )}
-                            {wider.get(f.key)?.length === 0 && (
-                              <span className="tools-geo-count">{t("tools.register.widerNone")}</span>
-                            )}
-                          </div>
-                      )}
-                      {mapOpen === f.key && (
-                            <RowMap
-                              // The wider search adds pins that can sit far
-                              // outside the fitted view — re-frame when its
-                              // results land (same idea as the places row).
-                              fitKey={`${f.key}:${wider.get(f.key)?.length ?? 0}`}
-                              context={fileCoords}
-                              pins={[
-                                  ...options.flatMap((o, i): MiniMapPin[] =>
-                                    o.entry
-                                      ? [
-                                          {
-                                            coord: { lat: o.entry.lat, lon: o.entry.lon },
-                                            label: o.place,
-                                            lines: [directoryOf(o.entry), t("event.coord.pinPick")],
-                                            badge: i + 1,
-                                            kind: chosen === i ? "chosen" : "candidate",
-                                            onPick: () => pick(f.key, i),
-                                          },
-                                        ]
-                                      : [],
-                                  ),
-                                  // Where the file itself puts the place, so a
-                                  // coordinate reported as off is read against
-                                  // the answers rather than taken on trust.
-                                  ...(f.fileCoord
-                                    ? [
-                                        {
-                                          coord: f.fileCoord,
-                                          label: t("tools.register.currentPin"),
-                                          lines: [f.key],
-                                          kind: "candidate" as const,
-                                          area: true,
-                                        },
-                                      ]
-                                    : []),
-                                ]}
-                            />
-                          )}
-                      {options.length > 0 && (
-                          <ul className="tools-geo-candidates">
-                            {options.map((o, i) => {
-                              // A verdict the sweep holds back starts with an
-                              // *empty* circle, however plainly the row shows
-                              // what it would write: what the circle marks
-                              // there is "I have read this and agree", which is
-                              // the whole reason those two wait. Filled by
-                              // default it asked to be confirmed by a click
-                              // that looked as though it had already been made
-                              // — and the row then sat out of "Use official
-                              // names" with no way to say so.
-                              const isChecked = held ? picked.get(f.key) === i : chosen === i;
-                              return (
-                              <li key={i}>
-                                <label>
-                                  <input
-                                    type="radio"
-                                    className="tools-geo-cand-radio"
-                                    name={`register-${f.key}`}
-                                    aria-label={o.place}
-                                    checked={isChecked}
-                                    onChange={() => pick(f.key, i)}
-                                    // A checked radio fires no change event, so
-                                    // the click itself is what takes a pick
-                                    // back — and what counts as checked is what
-                                    // the circle shows, not what was explicitly
-                                    // picked. Most rows arrive standing on
-                                    // their answer without anyone picking it
-                                    // (see chosenIndex): reading only an
-                                    // explicit pick here meant the first click
-                                    // on a filled circle silently *made* the
-                                    // pick it already showed, and it took two
-                                    // clicks to clear one. On a held-back
-                                    // verdict the circle starts empty, so this
-                                    // click still marks agreement rather than
-                                    // clearing it.
-                                    onClick={() => (isChecked ? unpick(f.key) : pick(f.key, i))}
-                                  />
-                                  <span className="tools-geo-cand-num">{i + 1}</span>
-                                  <span className="tools-geo-cand-name">{o.place}</span>
-                                  {/* The house the split moves onto the event's
-                                      own ADDR line. Written "place · house", the
-                                      way a register's offer reads in an Edit
-                                      place field and the way the row header
-                                      above writes it: the tag name said which
-                                      GEDCOM line it lands on, which is not what
-                                      is being chosen between. */}
-                                  {o.addr && <span className="tools-register-place">· {o.addr}</span>}
-                                  {o.entry && (
-                                    <>
-                                      {/* The coordinate opens the map on this
-                                          answer's pin — the number beside the
-                                          line is the number on the pin. */}
-                                      <button
-                                        type="button"
-                                        className="tools-geo-coord-btn gm-data gm-coord"
-                                        title={t("tools.register.showOnMap")}
-                                        onClick={(e) => {
-                                          e.preventDefault();
-                                          setMapOpen(mapOpen === f.key ? null : f.key);
-                                        }}
-                                      >
-                                        {o.entry.lat.toFixed(4)}, {o.entry.lon.toFixed(4)}
-                                      </button>
-                                      <span className={`tools-reshape-badge ${o.entry.register ? "official" : "reuse"}`}>
-                                        {directoryOf(o.entry)}
-                                      </span>
-                                    </>
-                                  )}
-                                </label>
-                              </li>
-                              );
-                            })}
-                          </ul>
-                      )}
-                      {/* A row with no answer to offer says why, in the body's
-                          own quiet voice — `tools-clean` is the page's "nothing
-                          to report" line and brings a paragraph's padding with
-                          it. */}
-                      {!options.length && <p className="tools-fix-hint">{t(`tools.register.hint.${f.verdict}`)}</p>}
-                      {peopleOpen.has(f.key) && (
-                        <GeoPeopleList
-                          dataset={dataset}
-                          ids={f.people}
-                          place={f.key}
-                          kinship={kinship}
-                          onNavigate={onNavigate}
-                        />
-                      )}
-                    </div>
-                  )}
-                </li>
-              );
-            })}
+            {view.rows.slice(virtual.start, virtual.end).map((f) => (
+              <RegisterRow
+                key={f.key}
+                f={f}
+                options={rowOptions.get(f.key) ?? NO_OPTIONS}
+                pickedIndex={picked.get(f.key)}
+                isOpen={open.has(f.key) || peopleOpen.has(f.key)}
+                peopleShown={peopleOpen.has(f.key)}
+                mapShown={mapOpen === f.key}
+                widerCount={wider.get(f.key)?.length}
+                editor={renaming === f.key ? renameEditor(f.key) : undefined}
+                dataset={dataset}
+                kinship={kinship}
+                onNavigate={onNavigate}
+                fileCoords={fileCoords}
+                onToggleOpen={toggleOpen}
+                onTogglePeople={togglePeople}
+                onToggleMap={toggleMap}
+                onPick={pick}
+                onUnpick={unpick}
+                onDismiss={dismiss}
+                onApplyOne={applyOne}
+                onSearchWider={searchWider}
+                onOpenRename={openRename}
+                onCloseRename={closeRename}
+              />
+            ))}
             <li className="v-spacer" style={{ height: virtual.padBottom }} ref={virtual.bottomRef} aria-hidden />
           </ul>
         </>
@@ -924,6 +686,325 @@ export function RegisterCheckSection({
     </section>
   );
 }
+
+/** Stable "no answers" for rows outside the memoized options map, so their
+ *  `options` prop keeps one identity across renders. */
+const NO_OPTIONS: RegisterOption[] = [];
+
+/**
+ * One finding row. Memoized: the windowed list re-renders the whole section on
+ * every scroll window shift, and with hundreds of expanded rows that re-built
+ * every mounted row's subtree each time — this lets every row whose props are
+ * unchanged (all but the ones entering the window) skip its render outright.
+ * The handlers are the section's useCallback-stable ones, and `options` comes
+ * from a memoized map, so the comparison actually holds between shifts.
+ */
+const RegisterRow = memo(function RegisterRow({
+  f,
+  options,
+  pickedIndex,
+  isOpen,
+  peopleShown,
+  mapShown,
+  widerCount,
+  editor,
+  dataset,
+  kinship,
+  onNavigate,
+  fileCoords,
+  onToggleOpen,
+  onTogglePeople,
+  onToggleMap,
+  onPick,
+  onUnpick,
+  onDismiss,
+  onApplyOne,
+  onSearchWider,
+  onOpenRename,
+  onCloseRename,
+}: {
+  f: RegisterFinding;
+  options: RegisterOption[];
+  /** The reader's explicit pick for this row (NONE_PICKED = cleared). */
+  pickedIndex: number | undefined;
+  isOpen: boolean;
+  peopleShown: boolean;
+  mapShown: boolean;
+  /** How many places the wider search found; undefined until the row asks. */
+  widerCount: number | undefined;
+  /** The rename box, mounted only on the row being edited. */
+  editor?: ReactNode;
+  dataset: Dataset;
+  kinship?: KinshipResolver;
+  onNavigate: (id: string) => void;
+  fileCoords: FileCoord[];
+  onToggleOpen: (key: string, drawable?: boolean) => void;
+  onTogglePeople: (key: string) => void;
+  onToggleMap: (key: string) => void;
+  onPick: (key: string, index: number) => void;
+  onUnpick: (key: string) => void;
+  onDismiss: (f: RegisterFinding) => Promise<void>;
+  onApplyOne: (rename: OfficialRename) => void;
+  onSearchWider: (f: RegisterFinding, known: RegisterOption[]) => void;
+  onOpenRename: (key: string) => void;
+  onCloseRename: () => void;
+}) {
+  const { t } = useTranslation();
+  const chosen = chosenIndex(f, options, pickedIndex);
+  const rename = renameFor(f, options, chosen);
+  /** Whether the bulk rename waits for this row to be picked by hand — which
+   *  is what its radio then marks. */
+  const held = BULK_HELD_BACK.includes(f.verdict);
+  return (
+    <li className={`tools-tree-node${f.dismissed ? " dismissed" : ""}`}>
+      {/* The same row shape as the places and addresses lists: the value the
+          file writes leads, what the register answers follows it, and the
+          badge, the actions and the person count sit at the end. */}
+      <GeoRowHeader
+        open={isOpen}
+        // Same test the map's own toggle is rendered on: pins to draw, or the
+        // position the file records for the place.
+        onToggle={() => onToggleOpen(f.key, options.some((o) => o.entry) || !!f.fileCoord)}
+        place={f.key}
+      >
+        {/* ✎ (U+270E), the same edit mark the places tree, the addresses list
+            and Organize sources use. It writes the raw value the row is about,
+            so it is the one action here that does not go through the register
+            at all — a finding is often the prompt to spell something your own
+            way. */}
+        <RenameToggle
+          open={editor !== undefined}
+          onOpen={() => onOpenRename(f.key)}
+          onClose={onCloseRename}
+          title={t("tools.geocode.renameOpen")}
+        />
+        {chosen >= 0 ? (
+          <>
+            {/* What follows the arrow is what the record would say once the
+                row is taken — the same "becomes" the addresses list and the
+                places tree draw. Left off where the answer writes nothing
+                different: a coordinate that is off names the place the file
+                already writes, and an arrow there promised a rename that
+                never comes. */}
+            {(options[chosen].place !== f.key || options[chosen].addr) && (
+              <span aria-hidden="true" className="tools-register-place">→</span>
+            )}
+            {options[chosen].entry && (
+              <span
+                className={`tools-reshape-badge ${options[chosen].entry.register ? "official" : "reuse"}`}
+                title={t("tools.register.registerBadgeHint")}
+              >
+                {directoryOf(options[chosen].entry)}
+              </span>
+            )}
+            <span className="tools-geo-cand-name">{options[chosen].place}</span>
+            {options[chosen].addr && (
+              // Not .tools-geo-row-addr: that class draws the pin that marks a
+              // value as a house address, and what this row proposes to split
+              // off is only *shaped* like one — a value ending in a number.
+              // "Justice Precinct 4" and "Detroit Ward 19" are census
+              // districts, and a pin on them asserts a house.
+              <span className="tools-register-place">· {options[chosen].addr}</span>
+            )}
+          </>
+        ) : (
+          // Several places of this name, none of them picked yet: the header
+          // says how many there are rather than naming one of them, which
+          // would read as the answer.
+          options.length > 1 && (
+            <span className="tools-geo-count">{t("tools.register.options", { count: options.length })}</span>
+          )
+        )}
+        {f.verdict === "far" && (
+          <span className="tools-geo-count">{t("tools.register.detail.far", { km: Math.round(f.distanceKm ?? 0) })}</span>
+        )}
+        {/* The verdict, what can be done about it and who it concerns, pinned
+            to the right of the row so the eye can run down the places and the
+            badges in two clean columns. */}
+        <span className="tools-register-end">
+          <span className={`tools-reshape-badge ${BADGE[f.verdict]}`} title={t(`tools.register.hint.${f.verdict}`)}>
+            {t(`tools.register.verdict.${f.verdict}`)}
+          </span>
+          {rename && (
+            <button
+              className="tools-issue-link"
+              onClick={() => onApplyOne(rename)}
+              title={t("tools.register.takeHint", { place: rename.to })}
+            >
+              {t("tools.geocode.official.take")}
+            </button>
+          )}
+          <button
+            className="tools-issue-link"
+            onClick={() => void onDismiss(f)}
+            title={f.dismissed ? t("tools.register.undismissHint") : t("tools.register.dismissHint")}
+          >
+            {f.dismissed ? t("tools.geocode.restore") : t("tools.geocode.hide")}
+          </button>
+          <button
+            className="tools-chip-count tools-count-toggle"
+            aria-pressed={peopleShown}
+            aria-label={t("tools.geocode.peopleToggle")}
+            onClick={() => onTogglePeople(f.key)}
+          >
+            {f.people.length}
+          </button>
+        </span>
+      </GeoRowHeader>
+      {editor}
+      {isOpen && (
+        <div className="tools-geo-conflict-body">
+          {/* The register's answers, one numbered option per line — the same
+              list, and the same numbered radios, the places and addresses rows
+              offer their candidates in. Picking one is what the rename then
+              writes. */}
+          {/* Which of six same-named places is the one is a question only a
+              map answers, so the row draws its answers as the numbered pins
+              the option lines carry, and the position the file records for the
+              place beside them — asked for by a click on any coordinate, or on
+              the toggle, and never drawn before that (Leaflet is a lazy
+              chunk). A row with neither has nothing to draw. */}
+          {(options.some((o) => o.entry) || f.fileCoord) && (
+            <div className="tools-geo-actions">
+              <MapToggle open={mapShown} onToggle={() => onToggleMap(f.key)} />
+              {/* A name that is one word of a longer one is a lead, not an
+                  answer, so the wider search is asked for rather than run for
+                  every place. */}
+              {widerCount === undefined && (
+                <button
+                  className="tools-issue-link"
+                  onClick={() => onSearchWider(f, options)}
+                  title={t("tools.register.widerHint")}
+                >
+                  {t("tools.register.wider")}
+                </button>
+              )}
+              {widerCount === 0 && (
+                <span className="tools-geo-count">{t("tools.register.widerNone")}</span>
+              )}
+            </div>
+          )}
+          {mapShown && (
+            <RowMap
+              // The wider search adds pins that can sit far outside the fitted
+              // view — re-frame when its results land (same idea as the places
+              // row).
+              fitKey={`${f.key}:${widerCount ?? 0}`}
+              context={fileCoords}
+              pins={[
+                ...options.flatMap((o, i): MiniMapPin[] =>
+                  o.entry
+                    ? [
+                        {
+                          coord: { lat: o.entry.lat, lon: o.entry.lon },
+                          label: o.place,
+                          lines: [directoryOf(o.entry), t("event.coord.pinPick")],
+                          badge: i + 1,
+                          kind: chosen === i ? "chosen" : "candidate",
+                          onPick: () => onPick(f.key, i),
+                        },
+                      ]
+                    : [],
+                ),
+                // Where the file itself puts the place, so a coordinate
+                // reported as off is read against the answers rather than
+                // taken on trust.
+                ...(f.fileCoord
+                  ? [
+                      {
+                        coord: f.fileCoord,
+                        label: t("tools.register.currentPin"),
+                        lines: [f.key],
+                        kind: "candidate" as const,
+                        area: true,
+                      },
+                    ]
+                  : []),
+              ]}
+            />
+          )}
+          {options.length > 0 && (
+            <ul className="tools-geo-candidates">
+              {options.map((o, i) => {
+                // A verdict the sweep holds back starts with an *empty*
+                // circle, however plainly the row shows what it would write:
+                // what the circle marks there is "I have read this and agree",
+                // which is the whole reason those two wait. Filled by default
+                // it asked to be confirmed by a click that looked as though it
+                // had already been made — and the row then sat out of "Use
+                // official names" with no way to say so.
+                const isChecked = held ? pickedIndex === i : chosen === i;
+                return (
+                  <li key={i}>
+                    <label>
+                      <input
+                        type="radio"
+                        className="tools-geo-cand-radio"
+                        name={`register-${f.key}`}
+                        aria-label={o.place}
+                        checked={isChecked}
+                        onChange={() => onPick(f.key, i)}
+                        // A checked radio fires no change event, so the click
+                        // itself is what takes a pick back — and what counts
+                        // as checked is what the circle shows, not what was
+                        // explicitly picked. Most rows arrive standing on
+                        // their answer without anyone picking it (see
+                        // chosenIndex): reading only an explicit pick here
+                        // meant the first click on a filled circle silently
+                        // *made* the pick it already showed, and it took two
+                        // clicks to clear one. On a held-back verdict the
+                        // circle starts empty, so this click still marks
+                        // agreement rather than clearing it.
+                        onClick={() => (isChecked ? onUnpick(f.key) : onPick(f.key, i))}
+                      />
+                      <span className="tools-geo-cand-num">{i + 1}</span>
+                      <span className="tools-geo-cand-name">{o.place}</span>
+                      {/* The house the split moves onto the event's own ADDR
+                          line. Written "place · house", the way a register's
+                          offer reads in an Edit place field and the way the
+                          row header above writes it: the tag name said which
+                          GEDCOM line it lands on, which is not what is being
+                          chosen between. */}
+                      {o.addr && <span className="tools-register-place">· {o.addr}</span>}
+                      {o.entry && (
+                        <>
+                          {/* The coordinate opens the map on this answer's pin
+                              — the number beside the line is the number on the
+                              pin. */}
+                          <button
+                            type="button"
+                            className="tools-geo-coord-btn gm-data gm-coord"
+                            title={t("tools.register.showOnMap")}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              onToggleMap(f.key);
+                            }}
+                          >
+                            {o.entry.lat.toFixed(4)}, {o.entry.lon.toFixed(4)}
+                          </button>
+                          <span className={`tools-reshape-badge ${o.entry.register ? "official" : "reuse"}`}>
+                            {directoryOf(o.entry)}
+                          </span>
+                        </>
+                      )}
+                    </label>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {/* A row with no answer to offer says why, in the body's own quiet
+              voice — `tools-clean` is the page's "nothing to report" line and
+              brings a paragraph's padding with it. */}
+          {!options.length && <p className="tools-fix-hint">{t(`tools.register.hint.${f.verdict}`)}</p>}
+          {peopleShown && (
+            <GeoPeopleList dataset={dataset} ids={f.people} place={f.key} kinship={kinship} onNavigate={onNavigate} />
+          )}
+        </div>
+      )}
+    </li>
+  );
+});
 
 /** One answer a row offers: the place it would be written as, the address to
  *  move out of it (the place/address split), and the register entry behind it
@@ -939,6 +1020,31 @@ interface RegisterOption {
   /** Turned up by the wider search rather than by the check itself — a lead to
    *  judge, never an answer, so it is never the option a row arrives on. */
   wide?: true;
+}
+
+/** The rename the row's picked answer amounts to: rename every occurrence to
+ *  that place, and take the register's coordinate where the file has none.
+ *  Nothing to rename on a dismissed row, on one with no answer picked, or
+ *  where the answer is the value the file already writes. */
+function renameFor(
+  f: RegisterFinding,
+  options: RegisterOption[],
+  chosen: number,
+): OfficialRename | undefined {
+  const o = chosen >= 0 ? options[chosen] : undefined;
+  if (!o || f.dismissed || (o.place === f.key && !o.addr)) return undefined;
+  return {
+    from: f.key,
+    to: o.place,
+    ...(o.addr ? { addr: o.addr } : {}),
+    ...(o.entry ? { assignment: { coord: { lat: o.entry.lat, lon: o.entry.lon } } } : {}),
+    // The label line the new value deserves: the option's own form, which is
+    // the one computed for exactly the place it writes — composed here for a
+    // whole place, taken from the check where the answer is the written value
+    // with a level swapped. An option that knows no form drops a stale one
+    // rather than keeping a line naming levels the value no longer has.
+    ...(o.form ? { form: o.form } : {}),
+  };
 }
 
 /**
@@ -1017,8 +1123,7 @@ function optionsOf(f: RegisterFinding, style: PlaceStyle, wider?: readonly GazEn
  * ever making one of them the answer, which is why this reads the verdict
  * rather than counting the options.
  */
-function chosenIndex(f: RegisterFinding, options: RegisterOption[], picked: ReadonlyMap<string, number>): number {
-  const own = picked.get(f.key);
+function chosenIndex(f: RegisterFinding, options: RegisterOption[], own: number | undefined): number {
   // NONE_PICKED included: a row whose answer the reader has cleared shows none,
   // rather than falling back to the very option the click just cleared.
   if (own !== undefined && own < options.length) return own;
