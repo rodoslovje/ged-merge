@@ -232,6 +232,26 @@ export function useAppHistory(opts: AppHistoryOptions) {
     editEntryStartedRef.current = true;
   }
 
+  /**
+   * Leave whichever overlay is open straight into Edit on this person.
+   *
+   * Not a history.back(): Back is asynchronous, and its popstate lands on the
+   * entry underneath the overlay's — which names the person Edit showed
+   * *before* the overlay opened, so restoring it re-opened that person over
+   * the one just clicked. The overlay's entry becomes the person's own
+   * instead: no traversal, no popstate, no race — and the Back button still
+   * returns to the entry underneath, the chart the hub was re-rooted over or
+   * the person Edit stood on, exactly as it did.
+   */
+  function navigateFromOverlay(id: string) {
+    window.history.replaceState({ gedMode: "edit", gedEditPerson: id }, "");
+    markEditEntry(id);
+    setTreeView(null);
+    setChartsRootId(null);
+    opts.setNavigateToId(id);
+    opts.setMode("edit");
+  }
+
   /** Record the current compare selection in the current history entry so the
    *  browser Back button returns here after a person-link or tree push. */
   function rememberSelection() {
@@ -315,5 +335,6 @@ export function useAppHistory(opts: AppHistoryOptions) {
     discardAndReload,
     recordEditPerson,
     markEditEntry,
+    navigateFromOverlay,
   };
 }

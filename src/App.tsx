@@ -759,7 +759,7 @@ function AppContent() {
     treeView, chartsRootId, setChartsRootId, chartsBackKey,
     overlayOpen, overlayOpenRef, hasUnsavedChangesRef,
     openTree, rerootTree, showInMatches, changeTreeMode, openCharts,
-    discardAndReload, recordEditPerson, markEditEntry,
+    discardAndReload, recordEditPerson, markEditEntry, navigateFromOverlay,
   } = useAppHistory({
     confirmDialog, current, mode, setMode, setSelectedId, setNavigateToId, setChartKind,
     setHistoryPersonId,
@@ -1778,11 +1778,7 @@ function AppContent() {
         onToggleImport={toggleImportBranch}
         startId={startId}
         onOpenCharts={openCharts}
-        onOpenInEdit={(id) => {
-          window.history.back(); // close the tree overlay
-          setNavigateToId(id);
-          setMode("edit");
-        }}
+        onOpenInEdit={navigateFromOverlay}
       />
     );
   } else if (chartsRootId && mainDataset) {
@@ -1799,11 +1795,7 @@ function AppContent() {
         decisions={decisions}
         backLabel={t(chartsBackKey)}
         onBack={() => window.history.back()}
-        onNavigate={(id) => {
-          window.history.back(); // close the chart overlay
-          setNavigateToId(id);
-          setMode("edit");
-        }}
+        onNavigate={navigateFromOverlay}
         onPickStart={changeStart}
       />
     );
