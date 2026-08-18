@@ -238,13 +238,13 @@ export function useAppHistory(opts: AppHistoryOptions) {
    * Not a history.back(): Back is asynchronous, and its popstate lands on the
    * entry underneath the overlay's — which names the person Edit showed
    * *before* the overlay opened, so restoring it re-opened that person over
-   * the one just clicked. The overlay's entry becomes the person's own
-   * instead: no traversal, no popstate, no race — and the Back button still
-   * returns to the entry underneath, the chart the hub was re-rooted over or
-   * the person Edit stood on, exactly as it did.
+   * the one just clicked. The person is pushed as an entry of their own on
+   * top of the overlay's instead: no traversal, no popstate, no race — and
+   * the Back button returns into the chart the person was opened from, the
+   * way Back undoes every other navigation here.
    */
   function navigateFromOverlay(id: string) {
-    window.history.replaceState({ gedMode: "edit", gedEditPerson: id }, "");
+    window.history.pushState({ gedMode: "edit", gedEditPerson: id }, "");
     markEditEntry(id);
     setTreeView(null);
     setChartsRootId(null);

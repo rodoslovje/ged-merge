@@ -39,8 +39,11 @@ test("Open in Edit from a chart opens the clicked person", async ({ page }) => {
     })
     .toBe(clicked);
 
-  // The chart's history entry became the person's own, so Back returns to the
-  // person Edit stood on before the chart — not to the chart overlay.
+  // The person sits on top of the chart's own history entry, so Back returns
+  // into the chart — and one more Back leaves it for the person Edit stood on.
   await page.goBack();
+  await expect(page.locator("svg.tree-svg")).toBeVisible();
+  await page.goBack();
+  await expect(page.locator("svg.tree-svg")).toHaveCount(0);
   await expect(shownName).toHaveValue(before);
 });
