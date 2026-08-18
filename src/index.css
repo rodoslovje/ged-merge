@@ -3733,6 +3733,17 @@ button:focus-visible {
   border: 1px solid var(--accent);
   border-radius: var(--radius-sm);
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  /* A clipped list must say so: overlay scrollbars hide until the first
+     scroll, and a long menu cut mid-list reads as the whole list. */
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-2) transparent;
+}
+.dd-menu::-webkit-scrollbar {
+  width: 8px;
+}
+.dd-menu::-webkit-scrollbar-thumb {
+  background: var(--border-2);
+  border-radius: var(--radius-pill);
 }
 .dd-group + .dd-group {
   margin-top: 2px;
