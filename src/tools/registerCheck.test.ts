@@ -612,6 +612,23 @@ describe("checkPlacesAgainstRegister", () => {
       expect(ok).toBe(1);
     });
 
+    it("does not read a county as a state when the entry knows no county at all", () => {
+      // The GeoNames shape: `admin` carries the *state* (attachAdmin1Names —
+      // counties are never joined), so nothing marks "Washington" as the
+      // county slot except the state beside it agreeing with the entry's own.
+      const register = buildGazetteerIndex(
+        [us("Canonsburg", "Pennsylvania", "PA", 40.2626, -80.1873)],
+        new Map([
+          ["US:PA", ["Pennsylvania"]],
+          ["US:WA", ["Washington"]],
+        ]),
+      );
+      const ds = fileWith(place("Canonsburg, Washington, Pennsylvania, United States"));
+      const { findings, ok } = checkPlacesAgainstRegister(ds, register, NO_DECISIONS);
+      expect(findings).toEqual([]);
+      expect(ok).toBe(1);
+    });
+
     it("still reports a wrong state beside an agreeing county", () => {
       const ds = fileWith(place("Joliet, Will, Wisconsin, United States"));
       const { findings } = checkPlacesAgainstRegister(ds, US_REGISTER, NO_DECISIONS);

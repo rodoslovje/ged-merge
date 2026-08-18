@@ -676,8 +676,11 @@ export function checkPlacesAgainstRegister(
       // one — the county join is by name, and a few names it cannot resolve.
       // And a chain where *some* parent names the entry's own division agrees
       // with the register: a stray division-like name beside it cannot pin the
-      // whole value as filed elsewhere.
-      if (ownDivisions.length && !unaccounted.some((p) => ownDivisions.some((d) => sameAdmin(d, p)))) {
+      // whole value as filed elsewhere. All the written parents answer here,
+      // not the unaccounted alone — a GeoNames entry carries its *state* as
+      // `admin` (counties are never joined), and excluding that parent left
+      // the county judged against the state list again.
+      if (ownDivisions.length && !parents.some((p) => ownDivisions.some((d) => sameAdmin(d, p)))) {
         disagrees = { writtenAdmin: namedDivision, to: levels.divisionNameOf(best) };
       }
     } else {
