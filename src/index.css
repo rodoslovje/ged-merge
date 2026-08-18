@@ -3151,7 +3151,12 @@ button:focus-visible {
   width: 0;
   opacity: 0;
   overflow: hidden;
-  padding: 0;
+  /* Collapsed keeps the expanded state's vertical padding, and the label never
+     wraps: expanding on hover must not change the row's height, or a pointer
+     resting on a row boundary makes hover and layout feed back into a page-
+     jiggling loop. */
+  padding: 2px 0;
+  white-space: nowrap;
   border: 1px dashed transparent;
   font: inherit;
   font-size: 0.85rem;
