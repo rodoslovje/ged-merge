@@ -9,6 +9,7 @@ import {
   type GazetteerIndex,
 } from "../../geo/gazetteer";
 import { searchGov } from "../../geo/gov";
+import { decomposePlace } from "../../gedcom/place";
 import { placeLookupLanguage } from "../../geo/lookupLanguage";
 import { inferPlaceParentLevels, type PlaceParentLevels } from "../../geo/placeLevels";
 import { searchNominatim } from "../../geo/nominatim";
@@ -231,13 +232,18 @@ export function usePlaceLookupValue(
       // village itself. It also tries the wider jurisdictions the place names,
       // since a street is often filed under the town that absorbed the village.
       const rnQueries = rnQueriesFrom(place || undefined, text);
+      // The event's place says which language the file writes this address in;
+      // where it names no country — an empty place, a bare settlement — the
+      // typed address's own country ("Stone Lake, USA") answers instead, or
+      // half the reply comes back localized to the reader's language.
+      const langSource = decomposePlace(place).country ? place : text;
       const [rn, osm] = await Promise.allSettled([
         rnQueries.length ? searchAddresses(rnQueries) : Promise.resolve([]),
         // Address first, then the place — the order Nominatim reads best, in
         // the language the event's place is written in.
         searchNominatim(
           [text, place].map((s) => s.trim()).filter(Boolean).join(", "),
-          placeLookupLanguage(place, style.language, style.fmt.countryPreferred),
+          placeLookupLanguage(langSource, style.language, style.fmt.countryPreferred),
         ),
       ]);
       if (rn.status === "fulfilled") for (const r of rn.value) add(proposalFromRn(r, style));

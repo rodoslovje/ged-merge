@@ -85,6 +85,23 @@ describe("placeDepthsOf", () => {
     expect(depths.byCountry.get("unitedstates")?.bare).toBe(false);
   });
 
+  it("lets the file's majority style outvote an import's stray spelling", () => {
+    const depths = placeDepthsOf([
+      "Chicago, Cook, Illinois, United States",
+      "Highland, San Bernardino, California, United States",
+      "Anaheim, Orange County, California, United States",
+    ]);
+    // Two bare values against one spelt out: the file's habit is bare.
+    expect(depths.byCountry.get("unitedstates")?.bare).toBe(true);
+    // The other way round the register's wording stays.
+    const spelt = placeDepthsOf([
+      "Anaheim, Orange County, California, United States",
+      "Stone Lake, Washburn County, Wisconsin, United States",
+      "Chicago, Cook, Illinois, United States",
+    ]);
+    expect(spelt.byCountry.get("unitedstates")?.bare).toBe(false);
+  });
+
   it("claims no bareness without a parent level to learn from", () => {
     const depths = placeDepthsOf(["Ljubljana,Slovenija"]);
     expect(depths.byCountry.get("slovenia")?.bare).toBe(false);

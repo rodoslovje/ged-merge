@@ -85,9 +85,10 @@ export interface CountryDepth {
   /**
    * Whether the file writes this country's parent levels bare of the words
    * naming their kind — "Cook" rather than "Kane County", "Sevnica" rather
-   * than "Občina Sevnica". Only ever true on evidence: the file has shown a
-   * parent level for this country and none carried such a word; a register's
-   * parent is then stripped to match ({@link stripUnitWords}).
+   * than "Občina Sevnica". Only ever true on evidence, and by majority: most
+   * of the file's parent levels for this country carry no such word (an
+   * import's stray "Orange County" does not outvote a file of bare counties);
+   * a register's parent is then stripped to match ({@link stripUnitWords}).
    */
   bare: boolean;
 }
@@ -118,7 +119,7 @@ function modalOf(counts: ReadonlyMap<number, number>): number {
  *  (locality + country) for a file with no places yet. */
 export function placeDepthsOf(places: readonly string[]): PlaceDepths {
   const global = new Map<number, number>();
-  const perCountry = new Map<string, { counts: Map<number, number>; parents: boolean; unitWords: boolean }>();
+  const perCountry = new Map<string, { counts: Map<number, number>; withParents: number; unitWorded: number }>();
   for (const p of places) {
     const n = p.split(",").filter((s) => s.trim()).length;
     if (n === 0) continue;
@@ -127,20 +128,25 @@ export function placeDepthsOf(places: readonly string[]): PlaceDepths {
     const country = components.country;
     if (!country) continue;
     const key = canonicalPlaceToken(country);
-    const entry = perCountry.get(key) ?? { counts: new Map<number, number>(), parents: false, unitWords: false };
+    const entry = perCountry.get(key) ?? { counts: new Map<number, number>(), withParents: 0, unitWorded: 0 };
     entry.counts.set(n, (entry.counts.get(n) ?? 0) + 1);
     // The levels between the locality and the country show whether this file
     // writes them bare ("Cook") or with their kind spelt out ("Kane County").
-    for (const parent of components.jurisdiction.slice(1)) {
-      if (parent.toLowerCase() === country.toLowerCase()) continue;
-      entry.parents = true;
-      if (namesUnitKind(parent)) entry.unitWords = true;
+    // Counted per value, not per level: a state is bare in every style, so
+    // level-counting would let the states outvote the counties.
+    const parents = components.jurisdiction.slice(1).filter((j) => j.toLowerCase() !== country.toLowerCase());
+    if (parents.length) {
+      entry.withParents++;
+      if (parents.some(namesUnitKind)) entry.unitWorded++;
     }
     perCountry.set(key, entry);
   }
   const byCountry = new Map<string, CountryDepth>();
   for (const [key, entry] of perCountry) {
-    byCountry.set(key, { depth: modalOf(entry.counts), bare: entry.parents && !entry.unitWords });
+    // Bare on a strict majority: most values with a parent level carry no unit
+    // word. A half-and-half file keeps the register's own wording.
+    const bare = entry.withParents > 0 && entry.unitWorded * 2 < entry.withParents;
+    byCountry.set(key, { depth: modalOf(entry.counts), bare });
   }
   return { depth: modalOf(global) || 2, byCountry };
 }
