@@ -232,8 +232,13 @@ export function RegisterPanel({
               className={shown === "places" ? "active" : ""}
               onClick={() => setTab("places")}
             >
-              {t("tools.register.tab.places")}{" "}
-              <span className="tools-chip-count">{report?.findings.filter((f) => !f.dismissed).length ?? 0}</span>
+              {t("tools.register.tab.places")}
+              {/* No count until the check has run — a 0 while it computes
+                  promises a clean file the page has not yet checked (the
+                  addresses tab holds its count back the same way). */}
+              {report && (
+                <span className="tools-chip-count"> {report.findings.filter((f) => !f.dismissed).length}</span>
+              )}
             </button>
             <button
               role="tab"
@@ -259,6 +264,10 @@ export function RegisterPanel({
       {/* Both stay mounted: an address report costs a pass over the whole file,
           and switching tabs must not throw it away. */}
       <div style={shown === "places" ? undefined : { display: "none" }}>
+        {/* The scan holds every place against every directory — seconds with a
+            country-sized one loaded — and an empty list meanwhile reads as
+            "nothing found". Say the work is running instead. */}
+        {hasRegister && !report && <ToolsLoading label={t("tools.running")} />}
         <RegisterCheckSection
           report={report}
           dataset={dataset}
