@@ -287,6 +287,7 @@ function Segment({
             cls={`fan-badge ${outer.cls}`}
             letter={outer.letter}
             title={outer.title}
+            compact
           />
         </g>
       )}

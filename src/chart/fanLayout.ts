@@ -44,9 +44,9 @@ const FONT_BY_GEN = [13, 13, 12.5, 12, 11, 9.5, 8.5, 7.5, 6.8, 6.2, 5.8];
 // cutByRings) rather than drawn too small to make out, and one click there
 // re-roots the chart and carries on up the line.
 const DEFAULT_MAX_GEN = 8;
-// Half the widest "+N" pill (NodeBadge sizes it ~9 + 5.5 per character), used to
-// keep the outer marker inside its wedge.
-const BADGE_HALF_W = 14;
+// Half the widest "+N" pill (the compact NodeBadge sizes it ~7 + 4.2 per
+// character), used to keep the outer marker inside its wedge.
+const BADGE_HALF_W = 10;
 const DEFAULT_PHOTO_RINGS = 3;
 // A dedicated thin "collar" ring reserved between generations for the marriage
 // label (only when a marriage field is shown). The couple's collar sits at the
@@ -346,7 +346,7 @@ export function buildFanChart(
     // rotated label frame's +y runs with increasing angle, and flipping it turns
     // that around. The pill's half-width is held inside the wedge; a wedge too
     // narrow to hold it keeps it centred, which is where it always was.
-    const rBadge = rOut - 12;
+    const rBadge = rOut - 8;
     const off = Math.max(0, delta / 2 - BADGE_HALF_W / rBadge);
     const badgeMid = mid + (flip ? -off : off);
 
