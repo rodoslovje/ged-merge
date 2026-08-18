@@ -45,6 +45,8 @@ import type { GeocodeDecision } from "../persist/geoDb";
  *   level deeper than the file writes this country and the register accounts
  *   for everything from its second level on — a neighbourhood or hamlet
  *   written above the settlement it belongs to
+ * - `blank` the register agrees with the value, but it carries an empty comma
+ *   level — an export's leftover slot; the answer is the same place without it
  * - `address` the value carries a house address, in a file that keeps addresses
  *   on their own `ADDR` line — the one finding about the file's own convention
  *   rather than the register's, and the reason it belongs here is that a place
@@ -59,6 +61,7 @@ export type RegisterVerdict =
   | "spelling"
   | "site"
   | "deep"
+  | "blank"
   | "address"
   | "far";
 
@@ -70,6 +73,7 @@ export const REGISTER_VERDICTS: RegisterVerdict[] = [
   "spelling",
   "site",
   "deep",
+  "blank",
   "address",
   "far",
 ];
@@ -726,6 +730,26 @@ export function checkPlacesAgainstRegister(
         });
         continue;
       }
+    }
+
+    // The register agrees with everything the value says — but the value also
+    // says nothing, in an empty comma level an export left behind. The answer
+    // is the same place without it, offered even where blanks are the file's
+    // majority habit: this list is exactly the one-button way out of that
+    // habit, and a file keeping its blanks on purpose dismisses the rows.
+    if (key.split(",").length > nonEmptyParts(key)) {
+      findings.push({
+        key,
+        count: g.count,
+        people: [...g.people],
+        verdict: "blank",
+        written,
+        entry: best,
+        official: blankLevelsDropped(key),
+        ...(fileCoord ? { fileCoord } : {}),
+        dismissed: isDismissed(decisions, key, "blank"),
+      });
+      continue;
     }
     ok++;
   }

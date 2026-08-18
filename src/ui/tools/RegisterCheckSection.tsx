@@ -86,6 +86,7 @@ const BADGE: Record<RegisterVerdict, string> = {
   spelling: "official",
   site: "new",
   deep: "new",
+  blank: "official",
   address: "new",
   far: "reuse",
 };
@@ -976,6 +977,12 @@ function optionsOf(f: RegisterFinding, style: PlaceStyle, wider?: readonly GazEn
   // no register entry behind it: the correction is to the writing, not a place.
   if ((f.verdict === "region" || f.verdict === "notFound") && f.official) {
     return [{ place: f.official }, ...widened];
+  }
+  // A blank level in a value the register otherwise agrees with: the same
+  // place without the empty slot, with the entry behind it so a missing
+  // coordinate is filled along the way.
+  if (f.verdict === "blank" && f.official) {
+    return [{ place: f.official, ...(f.entry ? { entry: f.entry } : {}) }, ...widened];
   }
   if (f.verdict === "notFound" || f.verdict === "region") return widened;
   // The place/address split: the settlement left in PLAC, the house on its own

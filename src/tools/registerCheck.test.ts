@@ -522,6 +522,18 @@ describe("checkPlacesAgainstRegister", () => {
       expect(findings).toEqual([]);
     });
 
+    it("offers to drop the blank level of a value the register otherwise agrees with", () => {
+      // The value is fine by every other test — matched, filed right, spelt
+      // right — so it used to count as ok and its leftover comma was never
+      // offered for dropping anywhere.
+      const ds = fileWith(place("Chicago, , Cook, Illinois, United States"));
+      const { findings } = checkPlacesAgainstRegister(ds, US_REGISTER, NO_DECISIONS);
+      expect(findings).toHaveLength(1);
+      expect(findings[0].verdict).toBe("blank");
+      expect(findings[0].official).toBe("Chicago, Cook, Illinois, United States");
+      expect(findings[0].entry?.name).toBe("Chicago");
+    });
+
     it("a spelling correction sheds the blank level a habit-4 file does not write", () => {
       // The letter-swap alone would keep the export's leftover comma: "Sugar
       // creek, , Clinton, …" corrected to five raw parts in a file whose
