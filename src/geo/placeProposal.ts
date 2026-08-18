@@ -1,4 +1,4 @@
-import { decomposePlace } from "../gedcom/place";
+import { decomposePlace, numbersItsHouses } from "../gedcom/place";
 import { canonicalPlaceToken, placeCompareKey } from "../match/place";
 import { reformatPlace } from "../normalize/placeReformat";
 import { placeFormFor } from "../normalize/profile";
@@ -300,11 +300,13 @@ export function proposalFromNominatim(result: NominatimResult, style: PlaceStyle
   const country = parts?.country ?? labelCountry;
 
   // A house: "road number", or "settlement number" where a village numbers its
-  // houses directly — the two forms GEDCOM addresses take here.
+  // houses directly — and the other way round, "number road", in the countries
+  // that write the number first ("12100 Eggleston Avenue").
   if (parts?.house) {
     const locality = parts.locality ?? result.admin;
     if (!locality) return undefined;
-    const addr = `${parts.road ?? locality} ${parts.house}`;
+    const road = parts.road ?? locality;
+    const addr = numbersItsHouses(country) ? `${road} ${parts.house}` : `${parts.house} ${road}`;
     const shaped = shape({ locality, admins: adminsOf(parts.admins ?? [parts.admin], country), country }, addr, style);
     return shaped && { ...shaped, coord: result.coord, source: "OSM", detail: result.label };
   }

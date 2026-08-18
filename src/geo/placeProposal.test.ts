@@ -391,6 +391,32 @@ describe("GOV and OpenStreetMap as places", () => {
     expect(p.plac).toBe("Town of Stone Lake, Washburn, Wisconsin, United States");
   });
 
+  it("writes an American house with the number first, as its file does", () => {
+    // Composed the other way round it read "South Eggleston Avenue 12100" —
+    // a Slovenian address wearing American words.
+    const byCountry = new Map([["unitedstates", { depth: 5, bare: true }]]);
+    const p = proposalFromNominatim(
+      {
+        coord: { lat: 41.6764, lon: -87.6355 },
+        name: "12100",
+        label: "12100, South Eggleston Avenue, West Pullman, Chicago, Cook County, Illinois, United States",
+        admin: "South Eggleston Avenue",
+        kind: "house",
+        parts: {
+          house: "12100",
+          road: "South Eggleston Avenue",
+          locality: "West Pullman",
+          admin: "Chicago",
+          admins: ["Chicago", "Cook County", "Illinois"],
+          country: "United States",
+        },
+      },
+      style({ depth: 3, byCountry }, { separator: ", ", countryPreferred: US }),
+    )!;
+    expect(p.addr).toBe("12100 South Eggleston Avenue");
+    expect(p.plac).toBe("West Pullman, Chicago, Cook, Illinois, United States");
+  });
+
   it("strips the unit word where the file writes its parents bare", () => {
     // The file says "Chicago, Cook, Illinois, United States" — its counties
     // carry no "County", so the register's "Kane County" is written "Kane".

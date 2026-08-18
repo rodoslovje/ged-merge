@@ -378,6 +378,7 @@ export function isCountryName(s: string | undefined): boolean {
  */
 const NO_VILLAGE_NUMBERING = new Set([
   "united states", "united states of america", "usa", "u.s.a.", "us", "zda",
+  "združene države amerike", "zdruzene drzave amerike", "združene države", "zdruzene drzave",
   "canada", "kanada",
   "australia", "avstralija",
   "new zealand", "nova zelandija",
@@ -389,8 +390,12 @@ const NO_VILLAGE_NUMBERING = new Set([
 
 /** Whether a bare number inside this country's place values is a house number —
  *  see {@link NO_VILLAGE_NUMBERING}. A value naming no country is treated as one
- *  that does: these files leave Slovenia implicit, as the address lookups do. */
-function numbersItsHouses(country: string | undefined): boolean {
+ *  that does: these files leave Slovenia implicit, as the address lookups do.
+ *
+ *  Exported for the address a proposal composes: the same countries write the
+ *  number before the street ("12100 Eggleston Avenue"), where a village that
+ *  numbers its houses writes it after ("Hafnarjeva pot 21"). */
+export function numbersItsHouses(country: string | undefined): boolean {
   return !country || !NO_VILLAGE_NUMBERING.has(country.trim().toLowerCase());
 }
 
