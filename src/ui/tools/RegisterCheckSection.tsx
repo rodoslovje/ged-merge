@@ -151,6 +151,11 @@ export function RegisterCheckSection({
   const [countryFilter, setCountryFilter] = useState<string | null>(null);
   const [showDismissed, setShowDismissed] = useState(false);
   const [applied, setApplied] = useState<number | null>(null);
+  /** The rows a just-clicked "Use official names" wrote, until the re-scan
+   *  sweeps them off the list: the rename is already in the file, so counting
+   *  them again would offer a button that does nothing but confuse — it sat
+   *  next to "N records updated" still naming the very rows just taken. */
+  const [appliedKeys, setAppliedKeys] = useState<Set<string>>(new Set());
   /** Rows opened for the register's answers, and — a second step, asked for by
    *  clicking the row's count — those showing the people too. The places list
    *  splits the two the same way. */
@@ -333,6 +338,9 @@ export function RegisterCheckSection({
     setPicked((prev) => new Map([...prev].filter(([k]) => keys.has(k))));
     setMapOpen((prev) => (prev && keys.has(prev) ? prev : null));
     setWider((prev) => new Map([...prev].filter(([k]) => keys.has(k))));
+    // Cleared outright, not filtered: the re-scan is the state of record, and a
+    // row still on the list after one genuinely wants its button back.
+    setAppliedKeys(new Set());
   }, [report]);
 
   // Two chip rows, faceted the way the places list's are: a chip's count
@@ -436,6 +444,7 @@ export function RegisterCheckSection({
    *  of them — that is the researcher's call, one row at a time — and neither
    *  is a row whose verdict is held back from the sweep until picked by hand. */
   const bulk = view.rows.flatMap((f) => {
+    if (appliedKeys.has(f.key)) return [];
     if (BULK_HELD_BACK.includes(f.verdict) && !picked.has(f.key)) return [];
     const options = optionsOf(f, style, wider.get(f.key));
     return renameFor(f, options, chosenIndex(f, options, picked)) ?? [];
@@ -460,7 +469,10 @@ export function RegisterCheckSection({
       {bulk.length > 0 && (
         <button
           className="nav-btn primary tools-run"
-          onClick={() => setApplied(onApplyOfficialNames(bulk))}
+          onClick={() => {
+            setApplied(onApplyOfficialNames(bulk));
+            setAppliedKeys((prev) => new Set([...prev, ...bulk.map((r) => r.from)]));
+          }}
           title={t("tools.register.takeAllHint")}
         >
           {t("tools.register.takeAll", { count: bulk.length })}
