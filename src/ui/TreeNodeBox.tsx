@@ -34,7 +34,8 @@ export interface NodePhotoSource {
  *  shared by the layered node boxes and the fan segments. Colour comes from
  *  `cls` (a themed `.tree-node-decision <status>` class) or explicit fills.
  *  A multi-character label (the generation limit's "+12") stretches the circle
- *  into a pill so the count fits — everything else stays a dot. */
+ *  into a pill so the count fits — everything else stays a dot. `compact` draws
+ *  the marker at about two thirds size, for the fan's crowded outer rings. */
 export function NodeBadge({
   x,
   y,
@@ -43,6 +44,7 @@ export function NodeBadge({
   fill,
   textFill,
   title,
+  compact = false,
 }: {
   x: number;
   y: number;
@@ -52,18 +54,21 @@ export function NodeBadge({
   textFill?: string;
   /** Hover explanation for the badge; overrides the node's own tooltip. */
   title?: string;
+  compact?: boolean;
 }) {
-  // ~5.5px per character at 9px/700, plus the circle's own padding.
-  const w = letter.length > 1 ? 9 + letter.length * 5.5 : 0;
+  const r = compact ? 5 : 7;
+  const fontSize = compact ? 7 : 9;
+  // ~0.6px per character per font pixel at 700, plus the circle's own padding.
+  const w = letter.length > 1 ? r + 2 + letter.length * fontSize * 0.6 : 0;
   return (
     <g className={cls ?? "tree-node-decision"} transform={`translate(${x},${y})`}>
       {title && <title>{title}</title>}
       {w ? (
-        <rect x={-w / 2} y={-7} width={w} height={14} rx={7} ry={7} fill={fill} />
+        <rect x={-w / 2} y={-r} width={w} height={r * 2} rx={r} ry={r} fill={fill} />
       ) : (
-        <circle r={7} fill={fill} />
+        <circle r={r} fill={fill} />
       )}
-      <text textAnchor="middle" dominantBaseline="central" x={0} y={0.5} fontSize={9} fontWeight={700} fill={textFill}>
+      <text textAnchor="middle" dominantBaseline="central" x={0} y={0.5} fontSize={fontSize} fontWeight={700} fill={textFill}>
         {letter}
       </text>
     </g>
