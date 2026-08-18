@@ -52,20 +52,51 @@ export function setPlaceForm(placNode: GedNode, form: string): void {
  * Keep a place's FORM describing the place it sits on, after that place changed.
  * A known schema — attested on this very place elsewhere in the file, or
  * composed with it from a register — is written. With none, a FORM inherited
- * from the *previous* place is dropped once its label count no longer matches
- * the parts it claims to name, since it demonstrably describes something else;
- * one that still lines up is left alone rather than guessed at.
+ * from the *previous* place is kept minus the deleted parts' labels when the
+ * change (given via `prevValue`) only deleted parts, and dropped once its label
+ * count no longer matches the parts it claims to name, since it demonstrably
+ * describes something else; one that still lines up is left alone rather than
+ * guessed at.
  */
-export function reconcilePlaceForm(placNode: GedNode, form: string | undefined): void {
+export function reconcilePlaceForm(placNode: GedNode, form: string | undefined, prevValue?: string): void {
   if (form) {
     setPlaceForm(placNode, form);
     return;
   }
   const existing = placNode.children.find((c) => c.tag === "FORM");
   if (!existing?.value || !placNode.value) return;
-  if (existing.value.split(",").length !== placNode.value.split(",").length) {
-    placNode.children = placNode.children.filter((c) => c !== existing);
+  if (existing.value.split(",").length === placNode.value.split(",").length) return;
+  const carried = prevValue ? formMinusDeletedParts(prevValue, existing.value, placNode.value) : undefined;
+  if (carried) existing.value = carried;
+  else placNode.children = placNode.children.filter((c) => c !== existing);
+}
+
+/**
+ * The FORM a value keeps through a rename that only *deletes* comma parts:
+ * "Chicago, , Cook, Illinois, United States" losing its blank level keeps
+ * "Place, Municipality, County, State, Country" minus the Municipality slot,
+ * rather than losing its labels with the comma.
+ *
+ * Only an unambiguous deletion qualifies. Each surviving part must name exactly
+ * one part of the old value, in order — a rewording, a reordering, or a part
+ * the old value wrote twice ("United States, , , , United States" collapsing to
+ * its country, which its labels file under Place *and* Country) answers
+ * undefined, and the caller drops the stale FORM as before.
+ */
+function formMinusDeletedParts(prevValue: string, form: string, value: string): string | undefined {
+  const before = prevValue.split(",").map((s) => s.trim());
+  const after = value.split(",").map((s) => s.trim());
+  const labels = form.split(",");
+  if (labels.length !== before.length || after.length >= before.length) return undefined;
+  const kept: string[] = [];
+  let last = -1;
+  for (const part of after) {
+    const at = before.indexOf(part);
+    if (at <= last || before.indexOf(part, at + 1) !== -1) return undefined;
+    kept.push(labels[at]);
+    last = at;
   }
+  return kept.join(",").trim();
 }
 
 /**

@@ -456,12 +456,14 @@ export function renamePlaceValue(
       // rewrite the user's own spacing unasked).
       let wrote = false;
       if (plac.value!.trim() !== target) {
+        const prev = plac.value!;
         plac.value = target;
         // The FORM names each comma part of the value it sits on. A rename that
         // changes how many parts there are leaves it describing something else,
         // so it is rewritten from the register's own levels where the caller
-        // knows them and dropped where it no longer lines up.
-        reconcilePlaceForm(plac, form);
+        // knows them, carried minus the deleted parts' labels where the rename
+        // only deleted parts, and dropped where it no longer lines up.
+        reconcilePlaceForm(plac, form, prev);
         wrote = true;
       }
       if (addrTarget) {
@@ -520,10 +522,11 @@ export function movePlaceForAddresses(
     walkPlaceAddr(raw, (plac, addr) => {
       if (!keys.has(placeAddrKey(plac.value!.trim(), addr))) return;
       if (plac.value!.trim() === target) return;
+      const prev = plac.value!;
       plac.value = target;
       // The moved value has its own levels; a FORM describing the old place's
       // is no longer true of it (see reconcilePlaceForm).
-      reconcilePlaceForm(plac, undefined);
+      reconcilePlaceForm(plac, undefined, prev);
       clearPlaceGov(plac);
       if (targetCoord) setPlaceCoord(plac, targetCoord.coord, targetCoord.govId);
       changed = true;

@@ -76,10 +76,11 @@ function renameInNode(node: GedNode, from: string, to: string): boolean {
     if ((child.tag === "PLAC" || child.tag === "ADDR") && child.value) {
       const next = renameInValue(child.value, from, to);
       if (next !== null) {
+        const prev = child.value;
         child.value = next;
         // A FORM names each comma part of the value it sits on; a rename that
         // changes how many parts there are leaves it describing something else.
-        if (child.tag === "PLAC") reconcilePlaceForm(child, undefined);
+        if (child.tag === "PLAC") reconcilePlaceForm(child, undefined, prev);
         changed = true;
       }
     }

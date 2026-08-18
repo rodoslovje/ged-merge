@@ -337,11 +337,12 @@ export function renameAddress(
         }
       }
       if (plac.value!.includes(from)) {
+        const prev = plac.value!;
         plac.value = plac.value!.replace(from, to);
         // An address written inside the place value is one of its comma parts,
         // so rewriting it can change how many there are — and a FORM naming the
         // old count would then describe something else.
-        reconcilePlaceForm(plac, undefined);
+        reconcilePlaceForm(plac, undefined, prev);
         changed = true;
       }
     });

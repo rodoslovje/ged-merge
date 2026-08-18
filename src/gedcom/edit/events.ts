@@ -114,11 +114,13 @@ function applyEventNote(eventNode: GedNode, note: string, notes?: SharedNoteCtx)
 export function applyEventNodeUpdate(record: GedNode, eventNode: GedNode, update: EventFieldUpdate, notes?: SharedNoteCtx): void {
   if (update.value !== undefined) eventNode.value = update.value.trim() || undefined;
   if (update.date !== undefined) setOrRemoveValue(eventNode, "DATE", update.date, EVENT_CHILD_ORDER);
+  const prevPlace =
+    update.place !== undefined ? eventNode.children.find((c) => c.tag === "PLAC")?.value : undefined;
   if (update.place !== undefined) setOrRemoveValue(eventNode, "PLAC", update.place, EVENT_CHILD_ORDER);
   if (update.place !== undefined || update.placeForm) {
     // Same rule as the coordinate below: the place has to exist to describe.
     const plac = eventNode.children.find((c) => c.tag === "PLAC" && c.value?.trim());
-    if (plac) reconcilePlaceForm(plac, update.placeForm);
+    if (plac) reconcilePlaceForm(plac, update.placeForm, prevPlace);
   }
   if (update.address !== undefined) setOrRemoveValue(eventNode, "ADDR", update.address, EVENT_CHILD_ORDER);
   if (update.coord !== undefined) {

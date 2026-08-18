@@ -291,6 +291,41 @@ describe("renamePlaceValue", () => {
     expect(text).toContain("3 FORM Place, Country");
   });
 
+  it("carries the FORM minus a deleted part's label", () => {
+    // A rename that only deletes parts keeps the surviving parts' labels:
+    // dropping the blank Municipality level must not cost the four labels that
+    // still hold. Each surviving part names exactly one old part here, unlike
+    // the doubled "United States" above.
+    const ds = buildFromText(`0 HEAD
+0 @I9@ INDI
+1 NAME Test /Case/
+1 BIRT
+2 PLAC Chicago, , Cook, Illinois, United States
+3 FORM Place, Municipality, County, State, Country
+0 TRLR
+`);
+    renamePlaceValue(ds, "Chicago, , Cook, Illinois, United States", "Chicago, Cook, Illinois, United States");
+    const text = serializeDataset(ds);
+    expect(text).toContain("2 PLAC Chicago, Cook, Illinois, United States\n");
+    expect(text).toContain("3 FORM Place, County, State, Country");
+  });
+
+  it("drops the FORM when the rename rewords a part rather than deleting one", () => {
+    // "Cook" becoming "Cook County" is not a deletion, so no old label can be
+    // trusted to describe the new parts — the stale FORM goes, as before.
+    const ds = buildFromText(`0 HEAD
+0 @I9@ INDI
+1 NAME Test /Case/
+1 BIRT
+2 PLAC Chicago, , Cook, Illinois, United States
+3 FORM Place, Municipality, County, State, Country
+0 TRLR
+`);
+    renamePlaceValue(ds, "Chicago, , Cook, Illinois, United States", "Chicago, Cook County, Illinois, United States");
+    const text = serializeDataset(ds);
+    expect(text).not.toContain("3 FORM");
+  });
+
   it("writes the register's own levels when the caller knows them", () => {
     const ds = buildFromText(`0 HEAD
 0 @I9@ INDI
