@@ -1035,7 +1035,7 @@ function GroupEditDialog({
               — becomes the image it was indexed from, which answers with the
               collection, the archive and the film. */}
           {onePage && (
-            <label className="add-source-field add-source-url-row">
+            <label className="add-source-field add-source-url-row" title={t("tools.sources.swapLinkHint")}>
               <span>{t("addSource.field.link")}</span>
               <span className="add-source-url-wrap">
                 <input className="edit-input" value={url} onChange={(e) => relink(e.target.value)} />
@@ -1067,9 +1067,6 @@ function GroupEditDialog({
                 )}
               </span>
             </label>
-          )}
-          {onePage && url.trim() !== "" && linkKey(url.trim()) !== linkKey(link) && (
-            <div className="add-source-hint">{t("tools.sources.swapLinkHint")}</div>
           )}
           {failed && <div className="add-source-hint">{t("tools.sources.lookupFailed")}</div>}
           {field("title", "addSource.field.title")}

@@ -11,6 +11,7 @@ import {
   looksLikeUrl,
   pageParamOf,
   sourceTitle,
+  type ObjeIndex,
 } from "../gedcom/source";
 import {
   familySearchImageNumber as imageNumber,
@@ -1528,7 +1529,14 @@ function relocationTarget(
 function isSettledPointer(
   hit: ScanHit,
   move: { eventTag: string } | undefined,
-  sourceXref: string | undefined,
+  /** The source this run would cite, plus every other source in the file whose
+   *  own page media is this very page. One image under two source records is a
+   *  file's own doing (two books overlapping, a duplicate left behind), and
+   *  which of them the scan picks is a matter of record order — so a citation
+   *  of *either* is this pointer's citation. Reading only the picked one left
+   *  the row offered for ever, and each apply hung a second citation of the
+   *  other source on the same event. */
+  sourceXrefs: readonly (string | undefined)[],
   pageMedia: PageMediaStyle,
   page: string | undefined,
   /** The quality this run would write, if the reader chose one — a citation
@@ -1536,15 +1544,36 @@ function isSettledPointer(
   quay: string | undefined,
 ): boolean {
   if (hit.shape !== "obje" || !hit.objeXref || move || hit.foldedInto || hit.twinEvent) return false;
-  if (pageMedia !== "event" || !sourceXref) return false;
+  const cites = new Set(sourceXrefs.filter((x): x is string => !!x));
+  if (pageMedia !== "event" || cites.size === 0) return false;
   // With no page known this run, any citation of the source settles the
   // pointer: a PAGE that only enrichment knows (the grave plot) isn't
   // derivable from the URL, so an offline rerun must still converge instead
   // of re-attaching a page-less citation beside the enriched one.
   const cite = childrenByTag(hit.container, "SOUR").find(
-    (c) => c.value?.trim() === sourceXref && (page === undefined || (childText(c, "PAGE") ?? "") === page),
+    (c) => cites.has(c.value?.trim() ?? "") && (page === undefined || (childText(c, "PAGE") ?? "") === page),
   );
   return !!cite && (!quay || !!firstChild(cite, "QUAY"));
+}
+
+/** Which sources hold each page as their own media (`SOUR > OBJE > FILE`), by
+ *  the page's link key — several where the file keeps the same image under
+ *  more than one source. Built in one pass; see {@link isSettledPointer}. */
+function sourcesHoldingPages(records: GedNode[], objeIndex: ObjeIndex): Map<string, string[]> {
+  const map = new Map<string, string[]>();
+  for (const rec of records) {
+    if (rec.tag !== "SOUR" || !rec.xref) continue;
+    for (const child of rec.children) {
+      if (child.tag !== "OBJE" || !child.value) continue;
+      const url = objeIndex.get(child.value.trim())?.url;
+      if (!url) continue;
+      const key = linkKey(url);
+      const held = map.get(key);
+      if (held) held.push(rec.xref);
+      else map.set(key, [rec.xref]);
+    }
+  }
+  return map;
 }
 
 
@@ -1595,6 +1624,7 @@ export function findReshapableLinks(
   for (const r of dataset.records) if (r.xref) byXref.set(r.xref, r);
   const objeIndex = buildObjeIndex(dataset.records);
   const ctx: RelocationContext = { byXref, urlOfObje: (xref) => objeIndex.get(xref)?.url };
+  const pageHolders = sourcesHoldingPages(dataset.records, objeIndex);
 
   const recordLabel = (rec: GedNode): string => {
     if (rec.tag === "INDI") {
@@ -1618,7 +1648,8 @@ export function findReshapableLinks(
         relocate && !hit.foldedInto && !hit.twinEvent
           ? relocationTarget(hit, g.bookType, baptismTag, ctx, g.existingSourceXref)
           : undefined;
-      if (isSettledPointer(hit, move, g.existingSourceXref, pageMedia, hit.recognized.page, opts.quay)) return [];
+      const holders = [g.existingSourceXref, ...(pageHolders.get(linkKey(hit.url)) ?? [])];
+      if (isSettledPointer(hit, move, holders, pageMedia, hit.recognized.page, opts.quay)) return [];
       return [
         {
           recordXref: hit.rec.xref ?? "?",
@@ -2522,6 +2553,10 @@ export function reshapeSources(
   // Media index built ONCE for the whole apply (a per-group rebuild is a full
   // forest scan each time); OBJEs this run creates are tracked alongside.
   const cloneObjeIndex = buildObjeIndex(clone);
+  // Which sources hold each page as their own media — read before this run
+  // links any, so a page already cited through another source is left as it is
+  // rather than cited twice (see `isSettledPointer`).
+  const pageHolders = sourcesHoldingPages(clone, cloneObjeIndex);
   const createdObjeUrls = new Map<string, string>();
   const urlOfObje = (xref: string): string | undefined =>
     cloneObjeIndex.get(xref)?.url ?? createdObjeUrls.get(xref);
@@ -2795,7 +2830,8 @@ export function reshapeSources(
 
       const page = pageOf(hit);
       const move = relocate && !hit.twinEvent ? relocationTarget(hit, bookType, baptismTag, ctx, sourceXref) : undefined;
-      if (isSettledPointer(hit, move, sourceXref, pageMedia, page, quayFor)) continue;
+      if (isSettledPointer(hit, move, [sourceXref, ...(pageHolders.get(linkKey(hit.url)) ?? [])], pageMedia, page, quayFor))
+        continue;
       let container = hit.container;
       if (move) {
         const host = move.famXref ? byXref.get(move.famXref) : hit.rec;

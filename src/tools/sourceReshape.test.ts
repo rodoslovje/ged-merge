@@ -379,6 +379,40 @@ describe("reshapeSources — apply", () => {
     expect(text).toMatch(/1 OBJE @O1@\n1 OBJE @O\d+@\n1 REPO @R1@\n1 CHAN/);
   });
 
+  it("reads a page already cited through the other source that holds it as done", () => {
+    // One image, two source records holding it — an overlap the file made
+    // itself (two books, or a duplicate the merge tool has yet to collapse).
+    // The event cites one of them; which one the scan picks is record order,
+    // so the row must not come back offering the other's citation beside it.
+    const file = `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 SOUR @S2@
+3 PAGE 94
+2 OBJE @O1@
+0 @S1@ SOUR
+1 TITL Krstna knjiga - 03869 (older)
+1 OBJE @O1@
+0 @S2@ SOUR
+1 TITL Krstna knjiga - 03869
+1 OBJE @O1@
+0 @O1@ OBJE
+1 FILE ${BOOK}/?pg=94
+0 TRLR`;
+    const ds = dataset(file);
+    const opts = { pageMedia: "event" as const, relocate: false };
+    // Nothing is listed — the scan picks @S1@ for the group, the file cites @S2@.
+    const report = findReshapableLinks(ds, undefined, opts);
+    expect(report.groups).toHaveLength(0);
+    // …and a run asked for it anyway (an older report, a hand-ticked row)
+    // leaves the citation alone rather than hanging a second one beside it.
+    const forced = findReshapableLinks(ds, undefined, { ...opts, pageMedia: "source" });
+    expect(forced.groups[0].existingSourceXref).toBe("@S1@");
+    const text = serializeGedcom(reshapeSources(ds.records, forced.groups, undefined, opts).records);
+    expect(text.match(/2 SOUR @S\d@/g)).toEqual(["2 SOUR @S2@"]);
+  });
+
   it("preserves note prose around a removed URL, drops URL-only notes", () => {
     const { text, counts } = applyAll(`0 HEAD
 1 CHAR UTF-8
