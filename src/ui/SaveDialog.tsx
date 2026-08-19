@@ -379,15 +379,24 @@ export function SaveDialog({
                         )}
                       </ul>
                     )}
-                    {/* A card with nothing under it says nothing, so the two
-                        cases that produce one get a sentence: a record the
-                        download leaves out, and one the save can tell has
-                        changed but cannot itemize. Where the card does list
-                        something, the listing is the explanation. */}
-                    {fieldRows.length === 0 && facts.length === 0 && (g.isRemoved || g.isUndescribed) && (
-                      <p className="preview-note">
-                        {g.isRemoved ? t("preview.removedHint") : t("preview.undescribedHint")}
-                      </p>
+                    {/* A record the file loses says so on its badge, and the
+                        sentence repeating it was noise on every card. What the
+                        badge cannot say is where the record went: a repository
+                        gathered into another is not a loss, and the rows the
+                        same run wrote elsewhere name its successor. A record
+                        the save can tell has changed but cannot itemize still
+                        gets its sentence — there the card would say nothing. */}
+                    {fieldRows.length === 0 && facts.length === 0 && (
+                      <>
+                        {g.isRemoved && mergedInto(report, g) && (
+                          <p className="preview-note">
+                            {t("preview.mergedInto", { target: mergedInto(report, g) })}
+                          </p>
+                        )}
+                        {!g.isRemoved && g.isUndescribed && (
+                          <p className="preview-note">{t("preview.undescribedHint")}</p>
+                        )}
+                      </>
                     )}
                   </div>
                 );
@@ -616,6 +625,22 @@ function Stat({
       <span className="preview-stat-label">{label}</span>
     </div>
   );
+}
+
+/**
+ * The record that took over from one the save removes, when the same run says
+ * so elsewhere: a row reading "old → new" on some third record names both, and
+ * the removed record's own card is where that matters. This is how a repository
+ * gathered into its country's — or a duplicate folded into its survivor — reads
+ * as a move rather than a loss.
+ */
+function mergedInto(report: ChangeReport, group: RecordGroup): string | undefined {
+  const label = report.recordLabels[group.id];
+  if (!label) return undefined;
+  for (const c of report.changes) {
+    if (c.recordId !== group.id && c.from === label && c.to && c.to !== label) return c.to;
+  }
+  return undefined;
 }
 
 function groupByRecord(report: ChangeReport): RecordGroup[] {

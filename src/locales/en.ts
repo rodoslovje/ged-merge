@@ -1165,7 +1165,7 @@ export const en = {
   "preview.stat.removed": "Records removed",
   "preview.stat.removedHint_one": "{{count}} record your file has will not be in the saved file",
   "preview.stat.removedHint_other": "{{count}} records your file has will not be in the saved file",
-  "preview.removedHint": "This record will not be in the saved file.",
+  "preview.mergedInto": "Gathered into {{target}}.",
   "preview.private": "Private — kept out of publishing.",
   "preview.privateRemoved": "No longer private — this will be published.",
   "preview.undescribedHint": "This record is saved differently than it was loaded. The change was made outside the edits listed here, so there is no field-by-field detail for it.",

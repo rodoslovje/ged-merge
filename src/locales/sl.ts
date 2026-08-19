@@ -1305,7 +1305,7 @@ export const sl = {
   "preview.stat.removedHint_two": "{{count}} zapisa iz vaše datoteke ne bosta shranjena",
   "preview.stat.removedHint_few": "{{count}} zapisi iz vaše datoteke ne bodo shranjeni",
   "preview.stat.removedHint_other": "{{count}} zapisov iz vaše datoteke ne bo shranjenih",
-  "preview.removedHint": "Tega zapisa v shranjeni datoteki ne bo.",
+  "preview.mergedInto": "Nadomešča ga {{target}}.",
   "preview.private": "Zasebno — izločeno iz objave.",
   "preview.privateRemoved": "Ni več zasebno — to bo objavljeno.",
   "preview.undescribedHint": "Ta zapis bo v shranjeni datoteki drugačen, kot je bil ob nalaganju. Sprememba ne izvira iz tu naštetih urejanj, zato zanjo ni opisa po posameznih poljih.",

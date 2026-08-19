@@ -720,14 +720,21 @@ const POINTER = /^@[^@\s]+@$/;
  * The xref index is built on first use, so a save that turns out to have no
  * pointers to resolve pays nothing for it.
  */
-export function makeXrefLabeler(records: GedNode[]): (xref: string) => string | undefined {
+export function makeXrefLabeler(
+  records: GedNode[],
+  /** What a record the file no longer holds looked like before it went — so
+   *  the *old* half of a change still reads as a name. A repository merged
+   *  away this session is exactly the record a reader needs named: printing
+   *  `@40768836@` hands them a lookup in a file that no longer contains it. */
+  gone?: (xref: string) => GedNode | undefined,
+): (xref: string) => string | undefined {
   let index: Map<string, GedNode> | undefined;
   const label = (xref: string): string | undefined => {
     if (!index) {
       index = new Map();
       for (const r of records) if (r.xref) index.set(r.xref, r);
     }
-    const node = index.get(xref);
+    const node = index.get(xref) ?? gone?.(xref);
     if (!node) return undefined; // a dangling pointer stays raw — the xref is the finding
     if (node.tag === "INDI") return displayNameFromRaw(node) || undefined;
     if (node.tag === "FAM") {
@@ -926,7 +933,7 @@ export function buildEditReport(
     if (isNew) newFamilies++;
   }
 
-  const labelFor = makeXrefLabeler(dataset.records);
+  const labelFor = makeXrefLabeler(dataset.records, (xref) => recordSnapshots?.get(xref)?.value);
   // Shared records edited *through* a person — a note's 🔒 ticked from someone's
   // card, a shared media item captioned from their tray. Dirty tracking hangs
   // those on the owner (the record's own raw is what changed, but the reader
