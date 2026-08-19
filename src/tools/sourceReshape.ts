@@ -2428,22 +2428,30 @@ export function applySiteSourceExtras(
 }
 
 /**
- * What a group's source is called once the lookup has spoken. The lookup names
- * the thing itself — a cemetery, a register — while the id that tells one of
- * them from the next is the group's own, read from the link. A Geneanet
+ * What a source from a recognized site is called: the lookup names the thing
+ * itself — a cemetery, a register — while the id that tells one of them from
+ * the next comes from the link. A Geneanet
  * cemetery is the case that needs both: every grave in one cemetery answers
  * with the same name, so a title without the view id leaves a file full of
  * sources called "Pokopališče Kranj - Geneanet Cemeteries" that nothing can
  * tell apart — the duplicate finder included, which reads two of them as one
  * record under different ids.
  */
-function enrichedTitle(g: ReshapeGroup, extra: ReshapeMeta | undefined): string {
-  const title = extra?.title ?? g.proposed.title;
-  const id = g.proposed.filingNumber;
-  if (!extra?.title || g.site !== "geneanet" || !id || title.includes(id)) return title;
+export function siteSourceTitle(
+  site: ReshapeSite | undefined,
+  title: string | undefined,
+  id: string | undefined,
+): string | undefined {
+  if (!title || site !== "geneanet" || !id || title.includes(id)) return title;
   const label = "Geneanet Cemeteries";
   const name = title.endsWith(` - ${label}`) ? title.slice(0, -label.length - 3) : title;
   return siteTitle(name, id, label);
+}
+
+/** The same, for a scanned group: the lookup's name over the offline one, and
+ *  the id the link carried either way. */
+function enrichedTitle(g: ReshapeGroup, extra: ReshapeMeta | undefined): string {
+  return siteSourceTitle(g.site, extra?.title ?? g.proposed.title, g.proposed.filingNumber) ?? g.proposed.title;
 }
 
 /**

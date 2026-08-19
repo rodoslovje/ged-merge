@@ -29,6 +29,7 @@ import {
   reshapeOptionsFromOverrides,
   smartCitationTarget,
   reshapeSources,
+  siteSourceTitle,
 } from "./sourceReshape";
 
 function dataset(text: string) {
@@ -576,6 +577,25 @@ describe("reshapeSources — apply", () => {
     const text = serializeGedcom(records);
     expect(text).toContain("1 PLAC Žabnica,Kranj,Slovenia"); // SOUR place in the file's format
     expect(text).toMatch(/1 BURI\n2 PLAC Žabnica,Kranj,Slovenia\n2 SOUR @S1@/); // burial place filled
+  });
+
+  it("titles a site's source with both the name and the id (shared with the editor)", () => {
+    // The Edit Source dialog's "Fetch again" runs the same rule, so a record
+    // filled from its link ends up named like one the tool wrote.
+    expect(siteSourceTitle("geneanet", "Pokopališče Kranj - Geneanet Cemeteries", "9833001")).toBe(
+      "Pokopališče Kranj - 9833001 - Geneanet Cemeteries",
+    );
+    expect(siteSourceTitle("geneanet", "Pokopališče Kranj", "9833001")).toBe(
+      "Pokopališče Kranj - 9833001 - Geneanet Cemeteries",
+    );
+    // An id already in the title, a title with no id to add, and another
+    // site's title are all left exactly as they are.
+    expect(siteSourceTitle("geneanet", "9833001 - Geneanet Cemeteries", "9833001")).toBe("9833001 - Geneanet Cemeteries");
+    expect(siteSourceTitle("geneanet", "Pokopališče Kranj - Geneanet Cemeteries", undefined)).toBe(
+      "Pokopališče Kranj - Geneanet Cemeteries",
+    );
+    expect(siteSourceTitle("matricula", "Krstna knjiga - 03869", "03869")).toBe("Krstna knjiga - 03869");
+    expect(siteSourceTitle(undefined, undefined, "9833001")).toBeUndefined();
   });
 
   it("keeps the view id in a looked-up cemetery's title, so two graves differ", () => {

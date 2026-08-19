@@ -6,7 +6,7 @@ import { parseSourceInput } from "../gedcom/citationParse";
 import { inferMainProfile } from "../normalize/profile";
 import { familySearchPageUrl, rewriteLinkLang } from "../normalize/links";
 import { fetchPageHtml, fetchPageTitle } from "../normalize/urlMetadata";
-import { fetchBookMeta, makePlaceResolver, narrowFsRegister, proposedSiteRepo, recognizeSourceUrl, SITE_ICON, splitFsRegisters, type ReshapeMeta, type ReshapeSite } from "../tools/sourceReshape";
+import { fetchBookMeta, makePlaceResolver, narrowFsRegister, proposedSiteRepo, recognizeSourceUrl, siteSourceTitle, SITE_ICON, splitFsRegisters, type ReshapeMeta, type ReshapeSite } from "../tools/sourceReshape";
 import { prefersSourceRepos } from "../gedcom/source";
 import { childText } from "../gedcom/node";
 import { useSettings } from "./SettingsContext";
@@ -313,19 +313,27 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
     if (!meta) return;
     setFetched(meta);
     const keep = (current: string, value: string | undefined) => value?.trim() || current;
-    setFields((f) => ({
-      ...f,
-      title: keep(f.title, meta.title),
-      author: keep(f.author, meta.author),
-      periodical: keep(f.periodical, meta.periodical),
-      publisher: keep(f.publisher, meta.publisher),
-      agency: keep(f.agency, meta.agency),
-      place: keep(f.place, resolvePlace(meta.place)),
+    setFields((f) => {
       // The id the link itself carries — a Geneanet view, a Matricula book —
       // is as good offline as it is after the lookup.
-      filingNumber: keep(f.filingNumber, meta.filingNumber ?? site?.proposed.filingNumber),
-      page: keep(f.page, meta.page ?? site?.page),
-    }));
+      const filingNumber = keep(f.filingNumber, meta.filingNumber ?? site?.proposed.filingNumber);
+      return {
+        ...f,
+        // Named the way the tool names one: what the page calls the thing,
+        // with the id that tells this cemetery's graves apart.
+        title: siteSourceTitle(site?.site, keep(f.title, meta.title), filingNumber) ?? f.title,
+        author: keep(f.author, meta.author),
+        periodical: keep(f.periodical, meta.periodical),
+        publisher: keep(f.publisher, meta.publisher),
+        agency: keep(f.agency, meta.agency),
+        place: keep(f.place, resolvePlace(meta.place)),
+        filingNumber,
+        page: keep(f.page, meta.page ?? site?.page),
+      };
+    });
+    // The call number is that same id inside the repository — the mirror the
+    // source tools write whenever they make a repository link.
+    setRepoCaln((caln) => caln.trim() || meta.filingNumber || site?.proposed.filingNumber || fields.filingNumber);
   }
 
   // Best-effort metadata fetch for a bare URL with nothing else to go on.
@@ -695,7 +703,8 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
                   title={settings.allowLinkFetch ? t("editSource.refetchHint") : t("tools.geocode.downloadNeedsOptIn")}
                   onClick={() => void refetch()}
                 >
-                  {fetching ? "…" : t("editSource.refetch")}
+                  {fetching && <span className="spinner" aria-hidden="true" />}
+                  {t("editSource.refetch")}
                 </button>
               )}
             </span>
