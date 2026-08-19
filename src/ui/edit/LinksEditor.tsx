@@ -112,27 +112,37 @@ export function LinksEditor({
       {((sources?.length ?? 0) > 0 || (incomingSources?.length ?? 0) > 0) && (
         <SourceRefs t={t} mainSources={sources} incomingSources={incomingSources} onEdit={onEditSource} />
       )}
+      {/* Like the citation icons: the chip opens a dialog, so a hover-revealed
+          ↗ beside it opens the URL directly. */}
       {links.map((link, i) => (
-        <button
-          key={i}
-          type="button"
-          className="link-icon edit-link-icon"
-          title={linkTooltip(link, t)}
-          onClick={() => openEditLink(i)}
-        >
-          {siteIconForUrl(link) ?? "🔗"}
-        </button>
+        <span key={i} className="source-ref-wrap">
+          <button
+            type="button"
+            className="link-icon edit-link-icon"
+            title={linkTooltip(link, t)}
+            onClick={() => openEditLink(i)}
+          >
+            {siteIconForUrl(link) ?? "🔗"}
+          </button>
+          <a className="source-ref-open" href={linkHref(link)} target="_blank" rel="noopener noreferrer" title={linkTooltip(link, t, t("edit.openLink"))}>
+            ↗
+          </a>
+        </span>
       ))}
       {(mediaLinks ?? []).map((url) => (
-        <button
-          key={`media-${url}`}
-          type="button"
-          className="link-icon edit-link-icon"
-          title={linkTooltip(url, t, `${url}\n${t("edit.mediaLinkChip")}`)}
-          onClick={() => onOpenMediaLink?.(url)}
-        >
-          🔗
-        </button>
+        <span key={`media-${url}`} className="source-ref-wrap">
+          <button
+            type="button"
+            className="link-icon edit-link-icon"
+            title={linkTooltip(url, t, `${url}\n${t("edit.mediaLinkChip")}`)}
+            onClick={() => onOpenMediaLink?.(url)}
+          >
+            🔗
+          </button>
+          <a className="source-ref-open" href={linkHref(url)} target="_blank" rel="noopener noreferrer" title={linkTooltip(url, t, t("edit.openLink"))}>
+            ↗
+          </a>
+        </span>
       ))}
       {(harvestedLinks ?? []).map((url) => (
         <a

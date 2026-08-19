@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { linkTooltip } from "../FieldValue";
+import { linkHref, linkTooltip } from "../FieldValue";
 import { useTranslation } from "react-i18next";
 import type { GedEvent, GeoCoord, SourceCitation } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
@@ -851,30 +851,40 @@ export function EventFieldsRow({
           {ev?.sources?.length || sourcesMergeVal?.length ? (
             <SourceRefs t={t} mainSources={ev?.sources} incomingSources={sourcesMergeVal} onEdit={onEditSource} />
           ) : null}
+          {/* Like the citation icons: the chip opens a dialog, so a
+              hover-revealed ↗ beside it opens the URL directly. */}
           {links.map((link, i) => (
-            <button
-              key={i}
-              type="button"
-              className="link-icon edit-link-icon"
-              title={linkTooltip(link, t)}
-              onClick={() => openEditLink(i)}
-            >
-              {siteIconForUrl(link) ?? "🔗"}
-            </button>
+            <span key={i} className="source-ref-wrap">
+              <button
+                type="button"
+                className="link-icon edit-link-icon"
+                title={linkTooltip(link, t)}
+                onClick={() => openEditLink(i)}
+              >
+                {siteIconForUrl(link) ?? "🔗"}
+              </button>
+              <a className="source-ref-open" href={linkHref(link)} target="_blank" rel="noopener noreferrer" title={linkTooltip(link, t, t("edit.openLink"))}>
+                ↗
+              </a>
+            </span>
           ))}
           {/* Always the generic 🔗, never the site glyph — beside a ⛪ source
               citation a second ⛪ read as another citation, when this is only
               a media link. */}
           {mediaLinks.map((link) => (
-            <button
-              key={`media-${link}`}
-              type="button"
-              className="link-icon edit-link-icon"
-              title={linkTooltip(link, t, `${link}\n${t("edit.mediaLinkChip")}`)}
-              onClick={() => onOpenMediaLink?.(link)}
-            >
-              🔗
-            </button>
+            <span key={`media-${link}`} className="source-ref-wrap">
+              <button
+                type="button"
+                className="link-icon edit-link-icon"
+                title={linkTooltip(link, t, `${link}\n${t("edit.mediaLinkChip")}`)}
+                onClick={() => onOpenMediaLink?.(link)}
+              >
+                🔗
+              </button>
+              <a className="source-ref-open" href={linkHref(link)} target="_blank" rel="noopener noreferrer" title={linkTooltip(link, t, t("edit.openLink"))}>
+                ↗
+              </a>
+            </span>
           ))}
           {harvestedLinks.map((link) => (
             <a
