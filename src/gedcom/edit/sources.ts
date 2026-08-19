@@ -1,4 +1,5 @@
 import { isPointer, objeInfoOf, resolveSourceCitation } from "../source";
+import { linkKey } from "../../normalize/links";
 import { childrenByTag, firstChild } from "../node";
 import type { Dataset, GedNode } from "../types";
 import { insertGrouped, insertOrdered, insertRecord, nextXref } from "./shared";
@@ -406,29 +407,57 @@ export function sourceRecordEditFields(records: GedNode[], sourceNode: GedNode):
  * node, and that pointer left behind would both keep the `OBJE` record alive
  * through the prune and linger as a read-only link chip with no way to remove
  * it. Only the removed citation's own page image is unlinked (resolved the
- * same way the edit dialog resolves it), and only if no remaining citation on
- * the node still resolves to it — media the user attached independently of
- * any citation is untouched.
+ * same way the edit dialog resolves it — by xref, or by the page's URL, which
+ * also sweeps a duplicate `OBJE` for the same page left by an earlier
+ * remove-without-unlink), and only if no remaining citation on the node still
+ * resolves to it — media the user attached independently of any citation is
+ * untouched. An `OBJE` record only those swept pointers referenced is deleted
+ * along with them.
  */
 export function removeSourceCitationAtIndex(dataset: Dataset, record: GedNode, index: number): void {
   const node = sourceCitationNodes(record)[index];
   if (!node) return;
-  const ctx = getMediaAndSourceCtx(dataset.records).sourceCtx;
-  const pageObjeXref = resolveSourceCitation(node, ctx)?.objeXref;
+  const { media, sourceCtx } = getMediaAndSourceCtx(dataset.records);
+  const resolved = resolveSourceCitation(node, sourceCtx);
+  const pageObjeXref = resolved?.objeXref;
+  // `exact` means the url came from a page OBJE (not the repository fallback).
+  const pageUrlKey = resolved?.exact && resolved.url ? linkKey(resolved.url) : undefined;
   const i = record.children.indexOf(node);
   if (i !== -1) record.children.splice(i, 1);
-  if (pageObjeXref) {
-    const stillClaimed = sourceCitationNodes(record).some(
-      (c) => resolveSourceCitation(c, ctx)?.objeXref === pageObjeXref,
-    );
-    if (!stillClaimed) {
-      record.children = record.children.filter(
-        (c) => !(c.tag === "OBJE" && c.value?.trim() === pageObjeXref),
-      );
-    }
-  }
+
+  const claimed = new Set(
+    sourceCitationNodes(record)
+      .map((c) => resolveSourceCitation(c, sourceCtx)?.objeXref)
+      .filter(Boolean),
+  );
+  const isPageLink = (c: GedNode) => {
+    if (c.tag !== "OBJE" || !c.value?.trim()) return false;
+    const xref = c.value.trim();
+    if (claimed.has(xref)) return false;
+    if (xref === pageObjeXref) return true;
+    if (!pageUrlKey) return false;
+    return (media.get(xref) ?? []).some((u) => linkKey(u) === pageUrlKey);
+  };
+  const sweptXrefs = new Set(record.children.filter(isPageLink).map((c) => c.value!.trim()));
+  if (sweptXrefs.size) record.children = record.children.filter((c) => !isPageLink(c));
+
   const sourceXref = node.value?.trim();
   if (sourceXref) pruneUnreferencedSource(dataset, sourceXref);
+
+  // Delete swept OBJE records nothing else references (a page OBJE that is a
+  // child of the pruned source is already gone via the prune's own cascade;
+  // this catches the duplicate-orphan one that hangs off no source).
+  const stillReferenced = referencedObjeXrefs(dataset.records, sweptXrefs);
+  let pruned = false;
+  for (const objeXref of sweptXrefs) {
+    if (stillReferenced.has(objeXref)) continue;
+    const oi = dataset.records.findIndex((r) => r.tag === "OBJE" && r.xref === objeXref);
+    if (oi !== -1) {
+      dataset.records.splice(oi, 1);
+      pruned = true;
+    }
+  }
+  if (pruned) bumpSourceCacheVersion(dataset.records);
 }
 
 /**

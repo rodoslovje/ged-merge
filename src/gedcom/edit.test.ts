@@ -1664,6 +1664,24 @@ describe("removeSourceCitationAtIndex", () => {
     expect(ds.records.some((r) => r.xref === photo.xref)).toBe(true);
   });
 
+  it("sweeps a same-page orphan link (and its OBJE record) along with the citation", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+    // Left behind by an earlier remove-without-unlink: a page OBJE + pointer, no SOUR.
+    const orphan = createMediaRecord(ds.records, "https://example.com/book/?pg=9");
+    indi.raw.children.push({ level: 1, tag: "OBJE", value: orphan.xref, children: [] });
+    // The same source re-added creates a fresh OBJE for the same page URL.
+    const source = createSourceRecord(ds.records, { title: "Krstna knjiga" });
+    const fresh = addObjeToSource(ds.records, source.xref!, "https://example.com/book/?pg=9");
+    attachSourceCitation(indi.raw, source.xref!, "9", INDI_CHILD_ORDER);
+    indi.raw.children.push({ level: 1, tag: "OBJE", value: fresh.xref, children: [] });
+
+    removeSourceCitationAtIndex(ds, indi.raw, 0);
+    expect(indi.raw.children.some((c) => c.tag === "OBJE")).toBe(false);
+    expect(ds.records.some((r) => r.tag === "SOUR")).toBe(false);
+    expect(ds.records.some((r) => r.tag === "OBJE")).toBe(false);
+  });
+
   it("keeps the page link while another citation on the node still resolves to it", () => {
     const ds = buildFromText(BASE);
     const indi = ds.individuals.get("@I1@")!;

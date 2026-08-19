@@ -1080,41 +1080,51 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   }
 
 /**
+   * Snapshot every top-level `SOUR`/`OBJE` record (cloned) ahead of a mutation
+   * that may edit or prune them, for {@link diffSourceRecordPatches}.
+   */
+  function snapshotSourceRecords(): Map<string, GedNode> {
+    const isSourceOrObje = (r: GedNode) => r.tag === "SOUR" || r.tag === "OBJE";
+    return new Map(dataset.records.filter((r) => isSourceOrObje(r) && r.xref).map((r) => [r.xref!, cloneRaw(r)]));
+  }
+
+  /** Diff the current top-level `SOUR`/`OBJE` records against a
+   * {@link snapshotSourceRecords} snapshot into undo-safe `"record"` patches —
+   * simpler than tracking exactly which ones a mutation touched or pruned. */
+  function diffSourceRecordPatches(before: Map<string, GedNode>): RecordPatch[] {
+    const isSourceOrObje = (r: GedNode) => r.tag === "SOUR" || r.tag === "OBJE";
+    const after = new Map(dataset.records.filter((r) => isSourceOrObje(r) && r.xref).map((r) => [r.xref!, r]));
+    const patches: RecordPatch[] = [];
+    for (const xref of new Set([...before.keys(), ...after.keys()])) {
+      const b = before.get(xref) ?? null;
+      const a = after.get(xref);
+      const aClone = a ? cloneRaw(a) : null;
+      if (JSON.stringify(b) !== JSON.stringify(aClone)) patches.push({ type: "record", id: xref, before: b, after: aClone });
+    }
+    return patches;
+  }
+
+  /**
    * Remove the `index`th `SOUR` citation from `node` (the individual/family's
    * own record, or one of its event sub-nodes) and commit it. Snapshots the
-   * cited `SOUR`/`OBJE` first so that — if `removeSourceCitationAtIndex`
-   * prunes them as now-unreferenced — undo gets a `"record"` patch to restore
-   * them too. Without this, undo would put the citation pointer back but
-   * leave it dangling (no title/url to resolve), showing a bare 🔗 instead of
-   * the original 📖. Bypasses the generic `commit`/`commitFamily` helpers
-   * since their `extraPatches` argument must be known before the mutation
-   * runs, but here it's only known *after* (whether pruning actually happened).
+   * top-level `SOUR`/`OBJE` records first so that — if
+   * `removeSourceCitationAtIndex` prunes any as now-unreferenced (the cited
+   * source, its page images, or a same-page orphan `OBJE` swept with the
+   * citation's link) — undo gets a `"record"` patch to restore them too.
+   * Without this, undo would put the citation pointer back but leave it
+   * dangling (no title/url to resolve), showing a bare 🔗 instead of the
+   * original 📖. Bypasses the generic `commit`/`commitFamily` helpers since
+   * their `extraPatches` argument must be known before the mutation runs, but
+   * here it's only known *after* (whether pruning actually happened).
    */
   const commitRemoveSource: CommitRemoveSource = (node, index, owner) => {
-    const sourceXref = childrenByTag(node, "SOUR")[index]?.value?.trim();
-    const sourceNode = sourceXref ? dataset.records.find((r) => r.tag === "SOUR" && r.xref === sourceXref) : undefined;
-    const sourceBefore = sourceNode ? cloneRaw(sourceNode) : undefined;
-    const objeBefores = (sourceNode?.children.filter((c) => c.tag === "OBJE" && c.value) ?? [])
-      .map((c) => c.value!.trim())
-      .map((xref) => [xref, dataset.records.find((r) => r.tag === "OBJE" && r.xref === xref)] as const)
-      .filter((entry): entry is readonly [string, GedNode] => !!entry[1])
-      .map(([xref, n]) => [xref, cloneRaw(n)] as const);
-
+    const before = snapshotSourceRecords();
     const ownerRaw = owner.kind === "individual" ? owner.indi.raw : owner.fam.raw;
     const ownerBefore = cloneRaw(ownerRaw);
     removeSourceCitationAtIndex(dataset, node, index);
     const ownerAfter = cloneRaw(ownerRaw);
 
-    const extraPatches: RecordPatch[] = [];
-    if (sourceXref && sourceBefore && !dataset.records.some((r) => r.xref === sourceXref)) {
-      extraPatches.push({ type: "record", id: sourceXref, before: sourceBefore, after: null });
-      for (const [objeXref, before] of objeBefores) {
-        if (!dataset.records.some((r) => r.xref === objeXref)) {
-          extraPatches.push({ type: "record", id: objeXref, before, after: null });
-        }
-      }
-    }
-
+    const extraPatches = diffSourceRecordPatches(before);
     if (extraPatches.length) mediaGenRef.current += 1; // shared SOUR/OBJE records were pruned
     if (owner.kind === "individual") {
       rebuildIndividual(dataset, owner.indi);
@@ -1185,23 +1195,14 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
    * then diffs every top-level `SOUR`/`OBJE` record for undo-safe patches —
    * simpler than tracking exactly which ones a shared-record edit touched. */
   function commitEditSource(node: GedNode, index: number, owner: RemoveSourceOwner, fields: EditSourceFields) {
-    const isSourceOrObje = (r: GedNode) => r.tag === "SOUR" || r.tag === "OBJE";
-    const before = new Map(dataset.records.filter((r) => isSourceOrObje(r) && r.xref).map((r) => [r.xref!, cloneRaw(r)]));
-
+    const before = snapshotSourceRecords();
     const ownerRaw = owner.kind === "individual" ? owner.indi.raw : owner.fam.raw;
     const ownerBefore = cloneRaw(ownerRaw);
     const notes = noteCtx(dataset.records, privacyStyle);
     updateSourceCitation(dataset.records, node, index, fields, notes);
     const ownerAfter = cloneRaw(ownerRaw);
 
-    const after = new Map(dataset.records.filter((r) => isSourceOrObje(r) && r.xref).map((r) => [r.xref!, r]));
-    const extraPatches: RecordPatch[] = [];
-    for (const xref of new Set([...before.keys(), ...after.keys()])) {
-      const b = before.get(xref) ?? null;
-      const a = after.get(xref);
-      const aClone = a ? cloneRaw(a) : null;
-      if (JSON.stringify(b) !== JSON.stringify(aClone)) extraPatches.push({ type: "record", id: xref, before: b, after: aClone });
-    }
+    const extraPatches = diffSourceRecordPatches(before);
     if (extraPatches.length) mediaGenRef.current += 1; // shared SOUR/OBJE records changed
     extraPatches.push(...noteChangePatches(notes.changes, { kind: owner.kind, id: owner.kind === "individual" ? owner.indi.id : owner.fam.id }));
     afterNoteChanges(notes.changes, owner.kind === "individual" ? owner.indi.id : owner.fam.id);
