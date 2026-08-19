@@ -357,11 +357,15 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
     const callNumbers = writesCallNumbers(dataset.records);
     setFields((f) => {
       const filingNumber = callNumbers ? f.filingNumber : keep(f.filingNumber, id);
+      // The title takes the id itself, not the field it happened to land in:
+      // in a call-number file the filing number stays empty, and the graves of
+      // one cemetery would go back to sharing a name.
+      const named = id || f.filingNumber || repoCaln;
       return {
         ...f,
         // Named the way the tool names one: what the page calls the thing,
         // with the id that tells this cemetery's graves apart.
-        title: siteSourceTitle(site?.site, keep(f.title, meta.title), filingNumber) ?? f.title,
+        title: siteSourceTitle(site?.site, keep(f.title, meta.title), named) ?? f.title,
         author: keep(f.author, meta.author),
         periodical: keep(f.periodical, meta.periodical),
         publisher: keep(f.publisher, meta.publisher),
