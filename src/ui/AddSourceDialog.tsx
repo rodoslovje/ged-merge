@@ -589,14 +589,24 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
               )}
             </div>
           )}
-          <div className="add-source-url-row">
-            {field("url", "addSource.field.url")}
-            {editing && fields.url.trim() && (
-              <a className="edit-link-open" href={linkHref(fields.url.trim())} target="_blank" rel="noopener noreferrer" title={linkTooltip(fields.url.trim(), t, t("edit.openLink"))}>
-                ↗
-              </a>
-            )}
-          </div>
+          {/* The ↗ sits in an inner wrap beside the input alone (not beside the
+              whole labelled field, where flex-end parked it at the row's foot,
+              below the input's centerline). */}
+          <label className="add-source-field add-source-url-row">
+            <span>{t("addSource.field.url")}</span>
+            <span className="add-source-url-wrap">
+              <input
+                className="edit-input"
+                value={fields.url}
+                onChange={(e) => setFields((f) => ({ ...f, url: e.target.value }))}
+              />
+              {editing && fields.url.trim() && (
+                <a className="edit-link-open" href={linkHref(fields.url.trim())} target="_blank" rel="noopener noreferrer" title={linkTooltip(fields.url.trim(), t, t("edit.openLink"))}>
+                  ↗
+                </a>
+              )}
+            </span>
+          </label>
         </div>
         <div className="add-source-actions">
           {editing?.onRemove && (
