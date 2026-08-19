@@ -54,6 +54,7 @@ import {
   rebuildFamily,
   rebuildIndividual,
   addAdditionalName,
+  ensurePrimaryName,
   rebuildNoteReferrers,
   removeIndividual,
   removeMediaLinkByUrl,
@@ -1325,13 +1326,16 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
 
     // A newly added wife takes the husband's surname as her married name
     // (Settings › Editing, opt-in), written in the file's own convention:
-    // inline _MARNM or a separate TYPE married NAME record. Only with a
-    // primary NAME to hang it on — a married-name-only record would
-    // masquerade as the person's name.
+    // inline _MARNM or a separate TYPE married NAME record. It needs a primary
+    // NAME to hang on — a married-name-only record would masquerade as the
+    // person's name — and she may well have none yet: the picker's "+ Add new
+    // person" makes the record before her name is typed into the card. So an
+    // empty primary name is opened for her, which the card then fills in.
     if (kind === "partner" && settings.marriedNameFromPartner && added.sex === "F" && person.sex === "M") {
       const husbandSurname = primaryName(person)?.surname?.trim();
-      const nameCount = childrenByTag(added.raw, "NAME").length;
-      if (husbandSurname && nameCount > 0) {
+      if (husbandSurname) {
+        ensurePrimaryName(added);
+        const nameCount = childrenByTag(added.raw, "NAME").length;
         if (marriedNameTag) {
           setMarriedName(added, husbandSurname);
         } else {
