@@ -111,6 +111,25 @@ describe("scanRepoRegroup", () => {
     expect(hr.moves.map((m) => m.sourceXref)).toEqual(["@S1@"]);
   });
 
+  it("reads the country off the repository when neither place nor title names one", () => {
+    // The shape a converted Matricula-style book leaves: a register title and
+    // a bare settlement, with the country named only by the repository the
+    // source hangs off.
+    const report = scanRepoRegroup(
+      dataset([
+        "0 HEAD",
+        "0 @R1@ REPO", "1 NAME FamilySearch.org - Croatia Church Books 1516-1994",
+        "0 @S1@ SOUR", "1 TITL Births (Rođeni) 1857-1884, Ravna Gora", "1 PLAC Ravna Gora", "1 REPO @R1@",
+        "0 @S2@ SOUR", "1 TITL Marriages (Vjenčani) 1858-1901, Dubovac (Karlovac)", "1 REPO @R1@",
+        "0 TRLR",
+      ]).records,
+    );
+    expect(report.groups.map((g) => g.repoName)).toEqual(["FamilySearch.org - Croatia"]);
+    expect(report.groups[0].moves.map((m) => m.sourceXref)).toEqual(["@S1@", "@S2@"]);
+    // Every source leaves, so the record they leave is the one that goes.
+    expect(report.groups[0].emptied.map((e) => e.xref)).toEqual(["@R1@"]);
+  });
+
   it("says nothing about a source whose country nothing names", () => {
     const report = scanRepoRegroup(
       dataset([
