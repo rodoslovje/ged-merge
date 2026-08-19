@@ -1073,7 +1073,18 @@
               standard-coverage file uses). A call number already in the file settles it; failing that the coverage
               shape does (<a href="#workspace">Settings › GEDCOM</a>). Both fields stay editable by hand — this only
               decides which one the tools fill for you, so one id never sits in two places for a later edit to leave
-              half-stale.
+              half-stale. To move a whole file over, choose <em>Source coverage › standard structure</em> and run
+              <a href="#tools">Normalize file</a>: it restates each source's coverage as <code>DATA › EVEN</code> and
+              carries every filing number onto its repository link as a call number, sources already in the standard
+              shape included.
+            </p>
+            <p>
+              Fields the GEDCOM standard does not define on a source carry a muted <strong>*</strong> beside their
+              label, with the tag they write in the tooltip: <em>Periodical / series</em> (<code>PERI</code>) and
+              <em>Filing number</em> (<code>FILN</code>) always, and <em>Place</em> and <em>Agency</em> while your file
+              writes them flat — in a standard-coverage file those two live inside <code>DATA › EVEN</code> and are the
+              spec's own. Your file keeps whatever is in them either way; the mark only says which lines another
+              program may not read back.
             </p>
             <p>
               Every source row also carries <span class="gm-glyph">✎</span>: edit the record's title, author, place,

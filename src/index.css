@@ -6384,6 +6384,9 @@ kbd {
 /* A relay can take a few seconds; the spinner says the click landed. Sized to
    the button's own text so the label does not jump when it appears. */
 .add-source-refetch .spinner { width: 12px; height: 12px; border-width: 2px; }
+/* A field the GEDCOM standard does not define on a source: marked, not
+   warned about — the file keeps it either way, and the tooltip says why. */
+.add-source-nonstd { color: var(--muted); margin-left: 3px; cursor: help; }
 /* Pinned footer: filled-accent primary on the right, ghost cancel beside. */
 .add-source-actions {
   display: flex;

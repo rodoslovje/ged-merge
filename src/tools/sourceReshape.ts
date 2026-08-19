@@ -1991,6 +1991,22 @@ function coverageEventsFromTitle(
  * one flat `PLAC`), or whose flat fields disagree with its coverage keeps
  * its shape — nothing is invented and nothing is lost.
  */
+/**
+ * Move a source's `FILN` onto its repository link as the standard `CALN`, and
+ * say which id moved. Nothing happens without a repository to hang it on (the
+ * call number is part of the repository citation, so there is nowhere else for
+ * it to go), nor where the link already states one.
+ */
+function foldFilingNumber(rec: GedNode): string | undefined {
+  const repoLink = firstChild(rec, "REPO");
+  const filn = firstChild(rec, "FILN");
+  const value = filn?.value?.trim();
+  if (!repoLink?.value || !value || firstChild(repoLink, "CALN")) return undefined;
+  repoLink.children.push({ level: repoLink.level + 1, tag: "CALN", value, children: [] });
+  spliceChild(rec, filn!);
+  return value;
+}
+
 export function normalizeSourceCoverage(
   records: GedNode[],
   target: "vendor" | "standard",
@@ -2017,7 +2033,15 @@ export function normalizeSourceCoverage(
     const data = firstChild(rec, "DATA");
 
     if (target === "standard") {
-      if (data && childrenByTag(data, "EVEN").length > 0) continue; // already standard
+      // The filing number's standard spot is the repository link's call
+      // number, whatever shape the source's coverage is already in — so this
+      // runs before the "already standard" bail-out below. A source converted
+      // by an earlier run (or written standard from the start) kept its FILN
+      // for ever otherwise: the only pass that moves it never looked at it.
+      const alreadyStandard = !!data && childrenByTag(data, "EVEN").length > 0;
+      const early = alreadyStandard ? foldFilingNumber(rec) : undefined;
+      if (early) note(`FILN ${early}`, `CALN ${early}`);
+      if (alreadyStandard) continue;
       const plac = firstChild(rec, "PLAC");
       const date = firstChild(rec, "DATE");
       if (!plac?.value?.trim() && !date?.value?.trim()) continue;
@@ -2032,14 +2056,7 @@ export function normalizeSourceCoverage(
       applyStandardCoverage(rec, events, undefined);
       if (plac) spliceChild(rec, plac);
       if (date) spliceChild(rec, date);
-      // The filing number's standard spot is the repository link's call number.
-      const repoLink = firstChild(rec, "REPO");
-      const filn = firstChild(rec, "FILN");
-      const foldedFiln = repoLink?.value && filn?.value?.trim() && !firstChild(repoLink, "CALN") ? filn.value.trim() : undefined;
-      if (foldedFiln) {
-        repoLink!.children.push({ level: repoLink!.level + 1, tag: "CALN", value: foldedFiln, children: [] });
-        spliceChild(rec, filn!);
-      }
+      const foldedFiln = foldFilingNumber(rec);
       note(
         [plac?.value && `PLAC ${plac.value}`, date?.value && `DATE ${date.value}`, foldedFiln && `FILN ${foldedFiln}`]
           .filter(Boolean)

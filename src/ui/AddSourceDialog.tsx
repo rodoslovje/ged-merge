@@ -7,7 +7,7 @@ import { inferMainProfile } from "../normalize/profile";
 import { familySearchPageUrl, rewriteLinkLang } from "../normalize/links";
 import { fetchPageHtml, fetchPageTitle } from "../normalize/urlMetadata";
 import { fetchBookMeta, makePlaceResolver, narrowFsRegister, proposedSiteRepo, recognizeSourceUrl, siteSourceTitle, SITE_ICON, splitFsRegisters, type ReshapeMeta, type ReshapeSite } from "../tools/sourceReshape";
-import { prefersSourceRepos, writesCallNumbers } from "../gedcom/source";
+import { detectSourceCoverage, prefersSourceRepos, writesCallNumbers } from "../gedcom/source";
 import { childText } from "../gedcom/node";
 import { useSettings } from "./SettingsContext";
 import { useDebounced } from "./tools/shared";
@@ -84,6 +84,35 @@ const EMPTY_FORM: FormState = {
 
 function extractPage(url: string): string | undefined {
   return /[?&]pg=(\d+)/i.exec(url)?.[1];
+}
+
+/**
+ * The GEDCOM line a field writes when the standard has no such line on a
+ * source — so the dialog can say which of its fields your other programs may
+ * not read back.
+ *
+ * `PERI` and `FILN` are extensions wherever they appear. A source's `PLAC` and
+ * `AGNC` are only extensions where the file writes them flat: the standard
+ * states both inside `DATA > EVEN`, which is exactly what a standard-coverage
+ * file does, and there the same two fields are the spec's own.
+ */
+function nonStandardTag(key: keyof FormState, coverage: "vendor" | "standard"): string | undefined {
+  if (key === "periodical") return "PERI";
+  if (key === "filingNumber") return "FILN";
+  if (coverage === "standard") return undefined;
+  if (key === "place") return "PLAC";
+  if (key === "agency") return "AGNC";
+  return undefined;
+}
+
+/** The muted mark beside such a field's label; the tooltip says what it is. */
+function NonStandard({ tag, t }: { tag: string | undefined; t: Translate }) {
+  if (!tag) return null;
+  return (
+    <span className="add-source-nonstd" title={t("addSource.nonStandard", { tag })} aria-label={t("addSource.nonStandard", { tag })}>
+      *
+    </span>
+  );
 }
 
 function titleOf(dataset: Dataset, sourceXref: string): string | undefined {
@@ -219,6 +248,13 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
     const override = settings.formatOverrides.sourceLayout ?? "auto";
     return override !== "auto" ? override === "repository" : prefersSourceRepos(dataset.records);
   }, [settings.formatOverrides.sourceLayout, dataset]);
+  // Which shape this file states a source's coverage in — it decides whether
+  // the Place and Agency fields are the standard's own or the flat vendor
+  // ones, and so whether they are marked.
+  const coverage = useMemo(() => {
+    const override = settings.formatOverrides.sourceCoverage ?? "auto";
+    return override !== "auto" ? override : detectSourceCoverage(dataset.records);
+  }, [settings.formatOverrides.sourceCoverage, dataset]);
   const matchTitle = useMemo(() => (match ? titleOf(dataset, match.sourceXref) : undefined), [dataset, match]);
   const urlOnly =
     parsed.url !== undefined &&
@@ -518,7 +554,10 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
   }
   const field = (key: keyof FormState, labelKey: string) => (
     <label className="add-source-field">
-      <span>{t(labelKey)}</span>
+      <span>
+        {t(labelKey)}
+        <NonStandard tag={nonStandardTag(key, coverage)} t={t} />
+      </span>
       <input
         className="edit-input"
         value={fields[key]}

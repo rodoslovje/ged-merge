@@ -1107,11 +1107,22 @@
               FamilySearcha — se zapiše <strong>enkrat</strong>, in sicer v polje, ki ga za to uporablja vaša datoteka:
               v <strong>arhivsko številko</strong> vira (<code>FILN</code>, kar pišeta in bereta MacFamilyTree in njemu
               sorodni programi) ali v <strong>signaturo</strong> na povezavi do hrambe (<code>CALN</code>, mesto, ki ga
-              predvideva standard in ga uporablja datoteka s standardnim opisom pokritosti). Če je signatura v
-              datoteki že kje zapisana, odloči to; sicer odloči oblika opisa pokritosti
+              predvideva standard in ga uporablja datoteka s standardno strukturo). Če je signatura v
+              datoteki že kje zapisana, odloči to; sicer odloči izbrani obseg vira
               (<a href="#workspace">Nastavitve › GEDCOM</a>). Obe polji ostaneta na voljo za ročno urejanje — to
               določa le, katero od njiju izpolnijo orodja, da ena oznaka ne stoji na dveh mestih, kjer bi jo poznejše
-              urejanje pustilo napol zastarelo.
+              urejanje pustilo napol zastarelo. Celo datoteko prestavite tako, da izberete <em>Obseg vira ›
+              standardna struktura</em> in poženete <a href="#tools">Poenoti datoteko</a>: pokritost vsakega vira prepiše v
+              obliko <code>DATA › EVEN</code>, vsako arhivsko številko pa prenese na povezavo do hrambe kot signaturo,
+              tudi pri virih, ki so že v standardni obliki.
+            </p>
+            <p>
+              Polja, ki jih standard GEDCOM pri viru ne predvideva, nosijo ob oznaki zbledelo <strong>*</strong>, v
+              namigu pa piše, kot kateri zapis se shranijo: <em>Periodika / zbirka</em> (<code>PERI</code>) in
+              <em>Arhivska številka</em> (<code>FILN</code>) vedno, <em>Kraj</em> in <em>Ustanova</em> pa toliko časa,
+              dokler ju datoteka piše ploščato — v datoteki s standardno strukturo oba stojita znotraj
+              <code>DATA › EVEN</code> in ju standard predvideva. Vaša datoteka vsebino teh polj ohrani tako ali tako;
+              oznaka pove le, katerih vrstic drug program morda ne bo prebral.
             </p>
             <p>
               Vsaka vrstica vira nosi tudi <span class="gm-glyph">✎</span>: v istem oknu uredite naslov, avtorja, kraj,
