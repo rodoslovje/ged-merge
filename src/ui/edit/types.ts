@@ -54,3 +54,8 @@ export type CommitRemoveSource = (node: GedNode, index: number, owner: RemoveSou
  * see `openEditSource`. Threaded down to event rows the same way
  * `CommitRemoveSource` used to be, now that removal lives inside that dialog. */
 export type OpenEditSource = (node: GedNode, index: number, owner: RemoveSourceOwner) => void;
+/** Opens the stripped-down media-link dialog (open/remove — an `OBJE` link is
+ * not a `SOUR`, so no bibliographic fields) for a link resolved from
+ * `container`'s own `OBJE` children — see `openMediaLink`. Threaded down to
+ * event rows and link editors like `OpenEditSource`. */
+export type OpenMediaLink = (container: GedNode, owner: RemoveSourceOwner, url: string) => void;

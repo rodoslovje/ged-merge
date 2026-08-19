@@ -50,7 +50,7 @@ export type { SharedNoteChange, SharedNoteCtx } from "./notes";
 
 export {
   createMediaRecord, findSharedMediaByFile, attachInlineMedia, attachMediaPointer,
-  removeMediaAt, reorderMedia, setMediaInfo, setCropRegion, pruneUnreferencedMedia,
+  removeMediaAt, removeMediaLinkByUrl, setMediaLinkUrl, reorderMedia, setMediaInfo, setCropRegion, pruneUnreferencedMedia,
 } from "./media";
 export type { MediaInfoFields } from "./media";
 

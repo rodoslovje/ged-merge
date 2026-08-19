@@ -140,6 +140,45 @@ discard them.
   unconnected-person-style warnings; SaveDialog option to strip candidates on
   export; add `_CAND` to the vendor-tag registry.
 
+### Face tagging in photos (analysed 2026-08-10)
+
+Detect faces in a photo and offer each one as a rectangle you can name, so
+identifying people in group photographs stops being a manual drag per person.
+Most of the machinery already exists: `CropRegion` on the `OBJE` *link* is
+GEDCOM 7 `CROP` in **source-image pixels** — exactly what every detector
+outputs, so detections map onto it with no coordinate conversion; the lightbox
+already has a drag-to-draw crop editor, dashed boxes with name labels, and
+`cropFit.ts` renders a person from their region in thumbnails and chart nodes.
+
+- **Missing half A — tag *another* person.** Today the crop editor only edits
+  the region of the record the photo was opened from; naming a box for someone
+  else needs a person picker plus `attachMediaPointer` + write crop. Useful on
+  its own, shippable without any detector, and it de-risks everything the
+  detector plugs into — do it first.
+- **Missing half B — the detector.** Browser-only, so client-side. The Shape
+  Detection API `FaceDetector` costs zero bytes but is Chrome/Android-only
+  (no Firefox, no Safari) — opportunistic path at best. Realistic choices are
+  MediaPipe BlazeFace short-range (~2–3 MB WASM + ~230 KB model, all current
+  browsers, best accuracy) or pico.js (~200 lines + ~230 KB cascade, no
+  dependency at all, frontal-only and noisier). The app has four runtime
+  dependencies today, and `vite-plugin-pwa` precaches assets, so a model must
+  *not* be bundled: follow the gazetteer pattern — on-demand download into
+  IndexedDB, decoding in its own `face.worker.ts` alongside the existing
+  workers. Images already come from the local media folder, so nothing leaves
+  the device.
+- **Design wrinkles.** An inline `OBJE` can only be cropped by its owning
+  record, so multi-person tagging really needs `shared` mode — an inline-style
+  file has to convert the photo to a shared record before a second person can
+  be tagged. Old scans (faded, three-quarter-profile studio portraits) are the
+  genealogist's normal case and the detector's worst case, so manual drawing
+  stays first-class rather than a fallback. Detector boxes are face-tight while
+  the thumbnails want head-and-shoulders, so a padding factor is needed.
+- **Not this idea:** recognising *who* a face is (embeddings matched against
+  already-tagged faces) is a much bigger project with a much heavier model —
+  only worth weighing once detection has shipped.
+- Related: the corpus already carries vendor face regions to read — Family
+  Historian `_ASID`/`_AREA`, MyHeritage `_CUTOUT` (see the custom-tag plan).
+
 ### Sources
 - **Show source images in the Add/edit source dialog** — some sources carry a
   photo/image (OBJE); display it (at least a thumbnail) when adding/editing a

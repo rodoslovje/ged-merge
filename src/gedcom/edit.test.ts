@@ -21,6 +21,8 @@ import {
   pruneUnreferencedMedia,
   pruneUnreferencedSource,
   removeMediaAt,
+  removeMediaLinkByUrl,
+  setMediaLinkUrl,
   reorderMedia,
   setCropRegion,
   setMediaInfo,
@@ -1630,6 +1632,141 @@ describe("removeSourceCitationAtIndex", () => {
 
     removeSourceCitationAtIndex(ds, indi1.raw, 0);
     expect(ds.records.some((r) => r.xref === source.xref)).toBe(true);
+  });
+
+  it("takes the citation's page-image link on the node with it", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+    const source = createSourceRecord(ds.records, { title: "Poročna knjiga" });
+    const obje = addObjeToSource(ds.records, source.xref!, "https://example.com/book/?pg=4");
+    attachSourceCitation(indi.raw, source.xref!, "4", INDI_CHILD_ORDER);
+    // The "on events" page-media style links the cited page beside the citation.
+    indi.raw.children.push({ level: 1, tag: "OBJE", value: obje.xref, children: [] });
+
+    removeSourceCitationAtIndex(ds, indi.raw, 0);
+    expect(indi.raw.children.some((c) => c.tag === "OBJE")).toBe(false);
+    expect(ds.records.some((r) => r.xref === source.xref)).toBe(false);
+    expect(ds.records.some((r) => r.tag === "OBJE")).toBe(false);
+    expect(rebuildIndividual(ds, indi).links ?? []).toHaveLength(0);
+  });
+
+  it("leaves media unrelated to the removed citation on the node", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+    const source = createSourceRecord(ds.records, { title: "Krstna knjiga" });
+    const page = addObjeToSource(ds.records, source.xref!, "https://example.com/book/?pg=2");
+    const photo = createMediaRecord(ds.records, "https://example.com/photo.jpg");
+    attachSourceCitation(indi.raw, source.xref!, "2", INDI_CHILD_ORDER);
+    indi.raw.children.push({ level: 1, tag: "OBJE", value: page.xref, children: [] });
+    indi.raw.children.push({ level: 1, tag: "OBJE", value: photo.xref, children: [] });
+
+    removeSourceCitationAtIndex(ds, indi.raw, 0);
+    const remaining = indi.raw.children.filter((c) => c.tag === "OBJE").map((c) => c.value);
+    expect(remaining).toEqual([photo.xref]);
+    expect(ds.records.some((r) => r.xref === photo.xref)).toBe(true);
+  });
+
+  it("sweeps a same-page orphan link (and its OBJE record) along with the citation", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+    // Left behind by an earlier remove-without-unlink: a page OBJE + pointer, no SOUR.
+    const orphan = createMediaRecord(ds.records, "https://example.com/book/?pg=9");
+    indi.raw.children.push({ level: 1, tag: "OBJE", value: orphan.xref, children: [] });
+    // The same source re-added creates a fresh OBJE for the same page URL.
+    const source = createSourceRecord(ds.records, { title: "Krstna knjiga" });
+    const fresh = addObjeToSource(ds.records, source.xref!, "https://example.com/book/?pg=9");
+    attachSourceCitation(indi.raw, source.xref!, "9", INDI_CHILD_ORDER);
+    indi.raw.children.push({ level: 1, tag: "OBJE", value: fresh.xref, children: [] });
+
+    removeSourceCitationAtIndex(ds, indi.raw, 0);
+    expect(indi.raw.children.some((c) => c.tag === "OBJE")).toBe(false);
+    expect(ds.records.some((r) => r.tag === "SOUR")).toBe(false);
+    expect(ds.records.some((r) => r.tag === "OBJE")).toBe(false);
+  });
+
+  it("keeps the page link while another citation on the node still resolves to it", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+    const source = createSourceRecord(ds.records, { title: "X", url: "https://example.com/a" });
+    const objeXref = source.children.find((c) => c.tag === "OBJE")!.value!;
+    attachSourceCitation(indi.raw, source.xref!, undefined, INDI_CHILD_ORDER);
+    attachSourceCitation(indi.raw, source.xref!, undefined, INDI_CHILD_ORDER);
+    indi.raw.children.push({ level: 1, tag: "OBJE", value: objeXref, children: [] });
+
+    removeSourceCitationAtIndex(ds, indi.raw, 0);
+    expect(indi.raw.children.some((c) => c.tag === "OBJE" && c.value === objeXref)).toBe(true);
+    expect(ds.records.some((r) => r.xref === source.xref)).toBe(true);
+
+    removeSourceCitationAtIndex(ds, indi.raw, 0);
+    expect(indi.raw.children.some((c) => c.tag === "OBJE")).toBe(false);
+    expect(ds.records.some((r) => r.xref === source.xref)).toBe(false);
+    expect(ds.records.some((r) => r.tag === "OBJE")).toBe(false);
+  });
+});
+
+describe("removeMediaLinkByUrl", () => {
+  it("removes the pointer, prunes the orphaned OBJE record, and clears mediaLinks", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+    const obje = createMediaRecord(ds.records, "https://example.com/book/?pg=3");
+    indi.raw.children.push({ level: 1, tag: "OBJE", value: obje.xref, children: [] });
+    expect(rebuildIndividual(ds, indi).mediaLinks).toEqual(["https://example.com/book/?pg=3"]);
+
+    removeMediaLinkByUrl(ds, indi.raw, "https://example.com/book/?pg=3");
+    expect(indi.raw.children.some((c) => c.tag === "OBJE")).toBe(false);
+    expect(ds.records.some((r) => r.tag === "OBJE")).toBe(false);
+    const rebuilt = rebuildIndividual(ds, indi);
+    expect(rebuilt.mediaLinks).toBeUndefined();
+    expect(rebuilt.links ?? []).toHaveLength(0);
+  });
+
+  it("keeps the shared OBJE record while another record still points at it", () => {
+    const ds = buildFromText(FAM_BASE);
+    const indi1 = ds.individuals.get("@I1@")!;
+    const indi3 = ds.individuals.get("@I3@")!;
+    const obje = createMediaRecord(ds.records, "https://example.com/shared-page");
+    indi1.raw.children.push({ level: 1, tag: "OBJE", value: obje.xref, children: [] });
+    indi3.raw.children.push({ level: 1, tag: "OBJE", value: obje.xref, children: [] });
+
+    removeMediaLinkByUrl(ds, indi1.raw, "https://example.com/shared-page");
+    expect(indi1.raw.children.some((c) => c.tag === "OBJE")).toBe(false);
+    expect(indi3.raw.children.some((c) => c.tag === "OBJE")).toBe(true);
+    expect(ds.records.some((r) => r.xref === obje.xref)).toBe(true);
+  });
+
+  it("setMediaLinkUrl rewrites the shared record's FILE, visible to every referrer", () => {
+    const ds = buildFromText(FAM_BASE);
+    const indi1 = ds.individuals.get("@I1@")!;
+    const indi3 = ds.individuals.get("@I3@")!;
+    const obje = createMediaRecord(ds.records, "https://example.com/old");
+    indi1.raw.children.push({ level: 1, tag: "OBJE", value: obje.xref, children: [] });
+    indi3.raw.children.push({ level: 1, tag: "OBJE", value: obje.xref, children: [] });
+
+    setMediaLinkUrl(ds, indi1.raw, "https://example.com/old", "https://example.com/new");
+    expect(rebuildIndividual(ds, indi1).mediaLinks).toEqual(["https://example.com/new"]);
+    expect(rebuildIndividual(ds, indi3).mediaLinks).toEqual(["https://example.com/new"]);
+  });
+
+  it("setMediaLinkUrl rewrites an inline OBJE's own FILE", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+    attachInlineMedia(indi.raw, "https://example.com/inline-old");
+
+    setMediaLinkUrl(ds, indi.raw, "https://example.com/inline-old", "https://example.com/inline-new");
+    expect(rebuildIndividual(ds, indi).mediaLinks).toEqual(["https://example.com/inline-new"]);
+  });
+
+  it("removes an inline OBJE by its url and leaves other links alone", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+    attachInlineMedia(indi.raw, "https://example.com/inline-page");
+    const other = createMediaRecord(ds.records, "https://example.com/other");
+    indi.raw.children.push({ level: 1, tag: "OBJE", value: other.xref, children: [] });
+
+    removeMediaLinkByUrl(ds, indi.raw, "https://example.com/inline-page");
+    const remaining = indi.raw.children.filter((c) => c.tag === "OBJE");
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0].value).toBe(other.xref);
   });
 });
 

@@ -56,7 +56,9 @@ import {
   addAdditionalName,
   rebuildNoteReferrers,
   removeIndividual,
+  removeMediaLinkByUrl,
   removeSourceCitationAtIndex,
+  setMediaLinkUrl,
   setAdditionalName,
   setIndividualLinks,
   setMarriedName,
@@ -86,7 +88,7 @@ import { PlaceLookupProvider, usePlaceLookupValue } from "./edit/PlaceLookupCont
 import { applyGeocodeByAddress, placeAddrKey, walkPlaceAddr } from "../tools/geocode";
 import { INDIVIDUAL_EVENT_GROUPS, nextSex } from "./edit/editConstants";
 import { KEY, KEY_STATUS, isEditableTarget, isModalOpen } from "../keyboard/shortcuts";
-import type { Commit, FamilyCommit, MediaOwner, SourceDialogTarget, RemoveSourceOwner, CommitRemoveSource, OpenEditSource } from "./edit/types";
+import type { Commit, FamilyCommit, MediaOwner, SourceDialogTarget, RemoveSourceOwner, CommitRemoveSource, OpenEditSource, OpenMediaLink } from "./edit/types";
 import { FamilySection, NewUnionSection, ParentFamilyGroup } from "./edit/FamilySections";
 import { NameEditor } from "./edit/NameEditor";
 import { SexToggle } from "./edit/SexToggle";
@@ -105,6 +107,7 @@ import { kindsColorVar } from "./map/markerStyle";
 /** The person's places map, in the shared Leaflet lazy chunk. */
 const MiniPlaceMap = lazy(() => import("./map/MiniPlaceMap"));
 import { harvestedLinksOf, LinksEditor } from "./edit/LinksEditor";
+import { MediaLinkDialog } from "./MediaLinkDialog";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { PersonMedia } from "./PersonMedia";
 import { useMediaViewer, type MediaEditFields, type MediaRefContext } from "./MediaViewer";
@@ -1090,42 +1093,53 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   }
 
 /**
-   * Remove the `index`th `SOUR` citation from `node` (the individual/family's
-   * own record, or one of its event sub-nodes) and commit it. Snapshots the
-   * cited `SOUR`/`OBJE` first so that — if `removeSourceCitationAtIndex`
-   * prunes them as now-unreferenced — undo gets a `"record"` patch to restore
-   * them too. Without this, undo would put the citation pointer back but
-   * leave it dangling (no title/url to resolve), showing a bare 🔗 instead of
-   * the original 📖. Bypasses the generic `commit`/`commitFamily` helpers
-   * since their `extraPatches` argument must be known before the mutation
-   * runs, but here it's only known *after* (whether pruning actually happened).
+   * Snapshot every top-level `SOUR`/`OBJE` record (cloned) ahead of a mutation
+   * that may edit or prune them, for {@link diffSourceRecordPatches}.
    */
-  const commitRemoveSource: CommitRemoveSource = (node, index, owner) => {
-    const sourceXref = childrenByTag(node, "SOUR")[index]?.value?.trim();
-    const sourceNode = sourceXref ? dataset.records.find((r) => r.tag === "SOUR" && r.xref === sourceXref) : undefined;
-    const sourceBefore = sourceNode ? cloneRaw(sourceNode) : undefined;
-    const objeBefores = (sourceNode?.children.filter((c) => c.tag === "OBJE" && c.value) ?? [])
-      .map((c) => c.value!.trim())
-      .map((xref) => [xref, dataset.records.find((r) => r.tag === "OBJE" && r.xref === xref)] as const)
-      .filter((entry): entry is readonly [string, GedNode] => !!entry[1])
-      .map(([xref, n]) => [xref, cloneRaw(n)] as const);
+  function snapshotSourceRecords(): Map<string, GedNode> {
+    const isSourceOrObje = (r: GedNode) => r.tag === "SOUR" || r.tag === "OBJE";
+    return new Map(dataset.records.filter((r) => isSourceOrObje(r) && r.xref).map((r) => [r.xref!, cloneRaw(r)]));
+  }
 
+  /** Diff the current top-level `SOUR`/`OBJE` records against a
+   * {@link snapshotSourceRecords} snapshot into undo-safe `"record"` patches —
+   * simpler than tracking exactly which ones a mutation touched or pruned. */
+  function diffSourceRecordPatches(before: Map<string, GedNode>): RecordPatch[] {
+    const isSourceOrObje = (r: GedNode) => r.tag === "SOUR" || r.tag === "OBJE";
+    const after = new Map(dataset.records.filter((r) => isSourceOrObje(r) && r.xref).map((r) => [r.xref!, r]));
+    const patches: RecordPatch[] = [];
+    for (const xref of new Set([...before.keys(), ...after.keys()])) {
+      const b = before.get(xref) ?? null;
+      const a = after.get(xref);
+      const aClone = a ? cloneRaw(a) : null;
+      if (JSON.stringify(b) !== JSON.stringify(aClone)) patches.push({ type: "record", id: xref, before: b, after: aClone });
+    }
+    return patches;
+  }
+
+  /**
+   * Run `mutate` against the owner's record inside the `SOUR`/`OBJE`
+   * snapshot/diff bracket, then rebuild, push undo patches and mark dirty —
+   * the shared commit tail of every mutation that may edit or prune shared
+   * `SOUR`/`OBJE` records as a side effect (edit/remove source, remove media
+   * link). Snapshotting first means undo gets a `"record"` patch to restore
+   * whatever was pruned; without it, undo would put the owner's pointer back
+   * but leave it dangling. Bypasses the generic `commit`/`commitFamily`
+   * helpers since their `extraPatches` argument must be known before the
+   * mutation runs, but here it's only known *after* (whether pruning actually
+   * happened). `mutate` may return additional patches of its own bookkeeping
+   * (e.g. shared-note changes); they are appended after the record diff.
+   */
+  function commitWithSourceDiff(owner: RemoveSourceOwner, mutate: () => RecordPatch[] | void) {
+    const before = snapshotSourceRecords();
     const ownerRaw = owner.kind === "individual" ? owner.indi.raw : owner.fam.raw;
     const ownerBefore = cloneRaw(ownerRaw);
-    removeSourceCitationAtIndex(dataset, node, index);
+    const morePatches = mutate() ?? [];
     const ownerAfter = cloneRaw(ownerRaw);
 
-    const extraPatches: RecordPatch[] = [];
-    if (sourceXref && sourceBefore && !dataset.records.some((r) => r.xref === sourceXref)) {
-      extraPatches.push({ type: "record", id: sourceXref, before: sourceBefore, after: null });
-      for (const [objeXref, before] of objeBefores) {
-        if (!dataset.records.some((r) => r.xref === objeXref)) {
-          extraPatches.push({ type: "record", id: objeXref, before, after: null });
-        }
-      }
-    }
-
-    if (extraPatches.length) mediaGenRef.current += 1; // shared SOUR/OBJE records were pruned
+    const extraPatches = diffSourceRecordPatches(before);
+    if (extraPatches.length) mediaGenRef.current += 1; // shared SOUR/OBJE records changed or were pruned
+    extraPatches.push(...morePatches);
     if (owner.kind === "individual") {
       rebuildIndividual(dataset, owner.indi);
       onPushEdit([{ type: "individual", id: owner.indi.id, before: ownerBefore, after: ownerAfter }, ...extraPatches], selectedId);
@@ -1137,6 +1151,27 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     }
     setTick((v) => v + 1);
   }
+
+  /**
+   * Remove the `index`th `SOUR` citation from `node` (the individual/family's
+   * own record, or one of its event sub-nodes) and commit it — the citation's
+   * page-image link and any pruned `SOUR`/`OBJE` records ride the
+   * {@link commitWithSourceDiff} bracket.
+   */
+  const commitRemoveSource: CommitRemoveSource = (node, index, owner) =>
+    commitWithSourceDiff(owner, () => removeSourceCitationAtIndex(dataset, node, index));
+
+  /** Remove the media link `url` from `container`'s own `OBJE` children (the
+   * 🔗 chip's Remove) — record pruning and undo via {@link commitWithSourceDiff}. */
+  const commitRemoveMediaLink: OpenMediaLink = (container, owner, url) =>
+    commitWithSourceDiff(owner, () => removeMediaLinkByUrl(dataset, container, url));
+
+  /** The media-link 🔗 chip's dialog target — see {@link MediaLinkDialog}. */
+  const [mediaLinkTarget, setMediaLinkTarget] = useState<{ container: GedNode; owner: RemoveSourceOwner; url: string } | null>(null);
+
+  const openMediaLink: OpenMediaLink = useStableHandler((container, owner, url) => {
+    setMediaLinkTarget({ container, owner, url });
+  });
 
   /**
    * Open the Edit Source dialog for the `index`th `SOUR` citation on `node`,
@@ -1195,37 +1230,14 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
    * then diffs every top-level `SOUR`/`OBJE` record for undo-safe patches —
    * simpler than tracking exactly which ones a shared-record edit touched. */
   function commitEditSource(node: GedNode, index: number, owner: RemoveSourceOwner, fields: EditSourceFields) {
-    const isSourceOrObje = (r: GedNode) => r.tag === "SOUR" || r.tag === "OBJE";
-    const before = new Map(dataset.records.filter((r) => isSourceOrObje(r) && r.xref).map((r) => [r.xref!, cloneRaw(r)]));
-
-    const ownerRaw = owner.kind === "individual" ? owner.indi.raw : owner.fam.raw;
-    const ownerBefore = cloneRaw(ownerRaw);
-    const notes = noteCtx(dataset.records, privacyStyle);
-    updateSourceCitation(dataset.records, node, index, fields, notes);
-    const ownerAfter = cloneRaw(ownerRaw);
-
-    const after = new Map(dataset.records.filter((r) => isSourceOrObje(r) && r.xref).map((r) => [r.xref!, r]));
-    const extraPatches: RecordPatch[] = [];
-    for (const xref of new Set([...before.keys(), ...after.keys()])) {
-      const b = before.get(xref) ?? null;
-      const a = after.get(xref);
-      const aClone = a ? cloneRaw(a) : null;
-      if (JSON.stringify(b) !== JSON.stringify(aClone)) extraPatches.push({ type: "record", id: xref, before: b, after: aClone });
-    }
-    if (extraPatches.length) mediaGenRef.current += 1; // shared SOUR/OBJE records changed
-    extraPatches.push(...noteChangePatches(notes.changes, { kind: owner.kind, id: owner.kind === "individual" ? owner.indi.id : owner.fam.id }));
-    afterNoteChanges(notes.changes, owner.kind === "individual" ? owner.indi.id : owner.fam.id);
-
-    if (owner.kind === "individual") {
-      rebuildIndividual(dataset, owner.indi);
-      onPushEdit([{ type: "individual", id: owner.indi.id, before: ownerBefore, after: ownerAfter }, ...extraPatches], selectedId);
-      onDirty("individual", owner.indi.id);
-    } else {
-      rebuildFamily(dataset, owner.fam);
-      onPushEdit([{ type: "family", id: owner.fam.id, before: ownerBefore, after: ownerAfter }, ...extraPatches], selectedId);
-      onDirty("family", owner.fam.id);
-    }
-    setTick((v) => v + 1);
+    commitWithSourceDiff(owner, () => {
+      const ownerId = owner.kind === "individual" ? owner.indi.id : owner.fam.id;
+      const notes = noteCtx(dataset.records, privacyStyle);
+      updateSourceCitation(dataset.records, node, index, fields, notes);
+      const notePatches = noteChangePatches(notes.changes, { kind: owner.kind, id: ownerId });
+      afterNoteChanges(notes.changes, ownerId);
+      return notePatches;
+    });
   }
 
   /** Builds the `editing` prop for the singleton `AddSourceDialog` from
@@ -1936,7 +1948,8 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
               <LinksEditor
                 key={`rlinks-${person.id}-${undoVersion}`}
                 links={person.editableLinks ?? []}
-                harvestedLinks={harvestedLinksOf(person.links, person.editableLinks)}
+                harvestedLinks={harvestedLinksOf(person.links, [...(person.editableLinks ?? []), ...(person.mediaLinks ?? [])])}
+                mediaLinks={person.mediaLinks ?? []}
                 sources={person.sources ?? []}
                 incomingLinks={mergeIncomingLinks.get("links")}
                 incomingSources={mergeIncomingSources.get("links")}
@@ -1949,6 +1962,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
                 onAttachSource={(sourceXref, page, extraPatches, links) =>
                   commit((indi) => { attachSourceCitation(indi.raw, sourceXref, page, INDI_CHILD_ORDER); setIndividualLinks(indi, links); }, extraPatches)
                 }
+                onOpenMediaLink={(url) => openMediaLink(person.raw, { kind: "individual", indi: person }, url)}
               />
             </div>
           )}
@@ -1979,6 +1993,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
             t={t}
             commit={commit}
             openEditSource={openEditSource}
+            openMediaLink={openMediaLink}
             onOpenSourceDialog={setSourceDialogTarget}
             placeSuggestions={placeSuggestions}
             placeToAddrs={placeToAddrs}
@@ -2106,6 +2121,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
               noteGen={noteGenRef.current}
               commitFamily={commitFamily}
               openEditSource={openEditSource}
+              openMediaLink={openMediaLink}
               onOpenSourceDialog={setSourceDialogTarget}
               onAddFamNote={onAddFamNote}
               handleAddMedia={handleAddMedia}
@@ -2171,6 +2187,21 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
           t={t}
           onCancel={() => setCopyEventRequest(null)}
           onConfirm={(ids) => { applyCopyEvent(copyEventRequest, ids); setCopyEventRequest(null); }}
+        />
+      )}
+      {mediaLinkTarget && (
+        <MediaLinkDialog
+          url={mediaLinkTarget.url}
+          t={t}
+          onClose={() => setMediaLinkTarget(null)}
+          onSave={(newUrl) => {
+            commitWithSourceDiff(mediaLinkTarget.owner, () => setMediaLinkUrl(dataset, mediaLinkTarget.container, mediaLinkTarget.url, newUrl));
+            setMediaLinkTarget(null);
+          }}
+          onRemove={() => {
+            commitRemoveMediaLink(mediaLinkTarget.container, mediaLinkTarget.owner, mediaLinkTarget.url);
+            setMediaLinkTarget(null);
+          }}
         />
       )}
       {pendingConfirm && (
