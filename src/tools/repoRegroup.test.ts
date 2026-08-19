@@ -52,8 +52,8 @@ describe("scanRepoRegroup", () => {
     // repository; elsewhere the country is.
     expect(report.groups.map((g) => g.repoName)).toEqual([
       "FamilySearch.org - Croatia",
-      "FamilySearch.org - Illinois, United States",
-      "FamilySearch.org - Indiana, United States",
+      "FamilySearch.org - United States, Illinois",
+      "FamilySearch.org - United States, Indiana",
     ]);
     const illinois = report.groups.find((g) => g.id === "us:illinois")!;
     // The place names the state outright, the Indiana collection's title does.
@@ -166,9 +166,9 @@ describe("regroupRepositories", () => {
     expect(repoOf(before, "@S1@")?.value).toBe("@R1@");
 
     const named = (name: string) => records.find((r) => r.tag === "REPO" && childText(r, "NAME") === name)!;
-    const illinois = named("FamilySearch.org - Illinois, United States");
+    const illinois = named("FamilySearch.org - United States, Illinois");
     expect(repoOf(records, "@S1@")?.value).toBe(illinois.xref);
-    expect(repoOf(records, "@S2@")?.value).toBe(named("FamilySearch.org - Indiana, United States").xref);
+    expect(repoOf(records, "@S2@")?.value).toBe(named("FamilySearch.org - United States, Indiana").xref);
     expect(childText(repoOf(records, "@S1@")!, "CALN")).toBe("108918058");
     expect(childText(illinois, "WWW")).toBe("https://www.familysearch.org/");
     // Matricula's archive and its source stay exactly where they were.

@@ -2703,7 +2703,7 @@ describe("FamilySearch image links", () => {
       proposedSiteRepo(ds.records, "familysearch", BOOK_ONLY_URL, undefined, {
         title: "Illinois, Cook County Deaths, 1871-1998",
       }),
-    ).toEqual({ createName: "FamilySearch.org - Illinois, United States" });
+    ).toEqual({ createName: "FamilySearch.org - United States, Illinois" });
     // …though a *generic* site repository still serves every country.
     const withWww = dataset([
       "0 HEAD",
@@ -2744,7 +2744,7 @@ describe("FamilySearch image links", () => {
       "1 GEDC",
       "2 VERS 5.5.1",
       "0 @R1@ REPO",
-      "1 NAME FamilySearch.org - Illinois, United States",
+      "1 NAME FamilySearch.org - United States, Illinois",
       "0 @R2@ REPO",
       "1 NAME FamilySearch.org - Illinois, Cook County Deaths, 1871-1998",
       "0 TRLR",
@@ -2760,7 +2760,7 @@ describe("FamilySearch image links", () => {
       proposedSiteRepo(states.records, "familysearch", BOOK_ONLY_URL, undefined, {
         title: "Indiana, Marriages, 1811-2019",
       }),
-    ).toEqual({ createName: "FamilySearch.org - Indiana, United States" });
+    ).toEqual({ createName: "FamilySearch.org - United States, Indiana" });
   });
 
   it("names a repository it has to create after the country of its records", () => {
@@ -2779,7 +2779,7 @@ describe("FamilySearch image links", () => {
         title: "Chicago, Cook, Illinois, United States records",
         place: "Chicago, Cook, Illinois",
       })?.createName,
-    ).toBe("FamilySearch.org - Illinois, United States");
+    ).toBe("FamilySearch.org - United States, Illinois");
     // …while a collection covering the whole country keeps the country.
     expect(
       proposedSiteRepo(empty.records, "familysearch", IMAGE_URL, undefined, {

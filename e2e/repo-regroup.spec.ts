@@ -52,7 +52,7 @@ test("repositories are gathered per place, and the section's own selection works
   // One row per place: the two Illinois collections, and Croatia.
   const rows = section.locator(".tools-tree-node");
   await expect(rows).toHaveCount(2);
-  await expect(section).toContainText("FamilySearch.org - Illinois, United States");
+  await expect(section).toContainText("FamilySearch.org - United States, Illinois");
   await expect(section).toContainText("FamilySearch.org - Croatia");
 
   const checks = section.locator("input.tools-dup-check");
@@ -73,7 +73,7 @@ test("repositories are gathered per place, and the section's own selection works
   await page.locator(".tools-cleanup-section", { hasText: "Repositories by place" }).waitFor({ state: "detached" });
   await page.locator(".tools-page-title", { hasText: "Organize sources" }).locator("..").getByRole("button").first().click();
   const tree = page.locator(".tools-tree").first();
-  await expect(tree).toContainText("FamilySearch.org - Illinois, United States");
+  await expect(tree).toContainText("FamilySearch.org - United States, Illinois");
   await expect(tree).toContainText("FamilySearch.org - Croatia");
   await expect(tree).not.toContainText("Cook County Deaths, 1871-1998 ");
 });

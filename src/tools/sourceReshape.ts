@@ -2118,15 +2118,26 @@ export function repoNameTail(name: string): string {
 export function repoCountryFacet(name: string | undefined): string {
   const tail = repoNameTail(name ?? "");
   if (!tail) return "";
-  // "Illinois" or "Illinois, United States" is a state's own record; a
-  // collection title that merely opens with one ("Illinois, Cook County
-  // Deaths, 1871-1998") is not, and everything after the state has to say so.
-  const state = stateOf(tail);
+  // A state's own record is its country and the state, and nothing else —
+  // "United States, Illinois", or either order for a name typed by hand. A
+  // collection title that merely names a state ("Illinois, Cook County Deaths,
+  // 1871-1998") has more in it than that, and answers for nobody.
   const parts = tail.split(",").map((s) => s.trim()).filter(Boolean);
-  if (state && foldCountryName(parts[0] ?? "") === foldCountryName(state.name)) {
-    const rest = parts.slice(1);
-    const stateRecord = rest.length === 0 || (rest.length === 1 && countryCodeOfName(rest[0]) === state.country);
-    if (stateRecord) return `${state.country}:${looseKey(state.name)}`;
+  const exactState = (text: string) => {
+    const state = stateOf(text);
+    return state && foldCountryName(state.name) === foldCountryName(text) ? state : undefined;
+  };
+  if (parts.length === 1) {
+    const state = exactState(parts[0]);
+    if (state) return `${state.country}:${looseKey(state.name)}`;
+  }
+  if (parts.length === 2) {
+    for (const [countryPart, statePart] of [[parts[0], parts[1]], [parts[1], parts[0]]]) {
+      const state = exactState(statePart);
+      if (state && countryCodeOfName(countryPart) === state.country) {
+        return `${state.country}:${looseKey(state.name)}`;
+      }
+    }
   }
   return countryCodeOfName(tail) ? placeCountryFacet(tail) : "";
 }
@@ -2241,7 +2252,9 @@ export function fsRepoCountry(collection: FsCollection | undefined): { facet: st
   // keeps the country itself.
   const state = (place ? stateOf(place) : undefined) ?? stateOf(title);
   if (!state || state.country !== facet) return { facet, name: country };
-  return { facet: `${facet}:${looseKey(state.name)}`, name: `${state.name}, ${country}` };
+  // Country first, so a state's record reads as a narrowing of the country's
+  // and the two sort together — "United States", "United States, Illinois".
+  return { facet: `${facet}:${looseKey(state.name)}`, name: `${country}, ${state.name}` };
 }
 
 /** What a new repository for the site is called: the holding archive for
