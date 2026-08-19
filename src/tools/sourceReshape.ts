@@ -5,7 +5,7 @@ import {
   buildObjeIndex,
   detectSourceCoverage,
   looseKey,
-  prefersSourceRepos,
+  repoLinkWanted,
   writesCallNumbers,
   isPointer,
   looksLikeUrl,
@@ -1571,13 +1571,9 @@ function resolveFormatOptions(records: GedNode[], opts: ReshapeOptions) {
     baptismTag: auto(opts.baptism, () => baptismTargetTag(records)),
     coverage: auto(opts.sourceCoverage, () => detectSourceCoverage(records)),
     // Repository creation is its own habit, independent of the page-link
-    // shape (files with page-link sources usually ALSO repo-link each one):
-    // an explicit layout override decides directly; "auto" follows the
-    // file's own REPO majority.
-    createRepos:
-      opts.sourceLayout && opts.sourceLayout !== "auto"
-        ? opts.sourceLayout === "repository"
-        : prefersSourceRepos(records),
+    // shape (files with page-link sources usually ALSO repo-link each one) —
+    // see `repoLinkWanted`.
+    createRepos: repoLinkWanted(records, opts.sourceLayout),
   };
 }
 
@@ -2433,12 +2429,9 @@ export function applySiteSourceExtras(
   // "none": the caller handles the repository choice itself (the Add Source
   // dialog's explicit dropdown) — only the PLAC/DATE fills apply here.
   if (opts.repo === "none" || !site || firstChild(sourceNode, "REPO")) return undefined;
-  const createRepos =
-    opts.sourceLayout && opts.sourceLayout !== "auto"
-      ? opts.sourceLayout === "repository"
-      : // The source being enriched is already in `records` — it must not
-        // vote against the habit it is about to follow.
-        prefersSourceRepos(records, sourceNode);
+  // The source being enriched is already in `records` — it must not vote
+  // against the habit it is about to follow.
+  const createRepos = repoLinkWanted(records, opts.sourceLayout, sourceNode);
   const repo = ensureSiteRepo(records, site, url, childText(sourceNode, "AGNC"), createRepos, {
     title: meta.collection,
     id: meta.collectionId,

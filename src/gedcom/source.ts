@@ -416,6 +416,26 @@ export function prefersSourceRepos(records: GedNode[], exclude?: GedNode): boole
 }
 
 /**
+ * Whether a new source gets a repository link, given the reader's *Records*
+ * choice. That choice names the dominant **record shape**, not whether
+ * repositories are used — a file whose sources carry page images almost
+ * always hangs them off a `REPO` as well, and the two readings are counted
+ * separately (see {@link inferSourceFormat} and {@link prefersSourceRepos}).
+ *
+ * So "source, repository" asks for one outright, even where the file keeps
+ * none yet; every other choice — pinned or auto — leaves the question to the
+ * file's own REPO majority. Picking "source, page links" must never cost a
+ * file the repositories it already keeps.
+ */
+export function repoLinkWanted(
+  records: GedNode[],
+  layout: SourceLayout | "auto" | undefined,
+  exclude?: GedNode,
+): boolean {
+  return layout === "repository" || prefersSourceRepos(records, exclude);
+}
+
+/**
  * How a file's sources state what they cover: the spec's `DATA > EVEN`
  * structure (period + jurisdiction per recorded event type — PAF lineage,
  * webtrees, GEDCOM 7) or flat vendor fields (level-1 `PLAC`/`DATE`,

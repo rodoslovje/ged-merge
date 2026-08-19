@@ -310,6 +310,38 @@ export function SourceCleanupView({
   // A link traded in the ✎ editor is the one looked up — that trade is what
   // turns a page no lookup reaches into one it does.
   const linkOf = useCallback((g: ReshapeGroup) => urlSwaps.get(g.id) ?? g.bookUrl, [urlSwaps]);
+  // A FamilySearch page nothing but its own link names — a record page or a
+  // catalog film, which no lookup reaches — would convert into a source called
+  // after the ark and nothing more. Such a row arrives unticked: paste its
+  // citation, or trade the link for the image behind it (✎), and it joins the
+  // run. Everything else is ticked as before.
+  const heldBack = useCallback(
+    (g: ReshapeGroup) =>
+      g.site === "familysearch" &&
+      !g.existingSourceXref &&
+      !isFetchableSite(g.site, linkOf(g)) &&
+      !folded.enrichment.has(g.id) &&
+      // Nothing beyond the link named it: the title is the one the bare link
+      // alone proposes, so no citation text around it said more.
+      recognizeSourceUrl(g.bookUrl)?.proposed.title === g.proposed.title,
+    [linkOf, folded],
+  );
+  // Seeded into the unticked set as each fresh scan lands, so the tick is an
+  // ordinary tick from there on — the editor unticks nothing back.
+  const heldBackIds = useMemo(
+    () => new Set(reshapeReport.groups.filter(heldBack).map((g) => g.id)),
+    // The list is the scan's, read once per scan: re-running it as the reader
+    // fills groups in would re-untick rows they have since ticked.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [reshapeReport],
+  );
+  useEffect(() => {
+    if (heldBackIds.size) setExcluded((prev) => new Set([...prev, ...heldBackIds]));
+  }, [heldBackIds]);
+  /** How many rows on screen are waiting like that — the count falls as they
+   *  are filled in, and the reader can tick any of them anyway. */
+  const heldBackCount = visibleGroups.filter((g) => excluded.has(g.id) && heldBack(g)).length;
+
   /** Rows holding a traded link — a folded book among them, where the trade
    *  was made on one of the pages it now gathers. */
   const swappedRows = useMemo(() => {
@@ -581,6 +613,11 @@ export function SourceCleanupView({
             {fetchFailed > 0 && !fetching && (
               <span className="tools-fix-hint">{t("tools.sources.reshapeFetchFailed", { count: fetchFailed })}</span>
             )}
+            {heldBackCount > 0 && (
+              <span className="tools-fix-hint" title={t("tools.sources.fsSigninHint")}>
+                {t("tools.sources.heldBack", { count: heldBackCount })}
+              </span>
+            )}
           </div>
 
           <ul className="tools-tree">
@@ -723,6 +760,14 @@ export function SourceCleanupView({
           resolvePlace={resolvePlace}
           onSave={(meta, link) => {
             setEnrichment((prev) => new Map(prev).set(editGroup.id, meta));
+            // Filled in by hand, so it is no longer a page nothing names: the
+            // row it was held back from joins the run.
+            setExcluded((prev) => {
+              if (!prev.has(editGroup.id)) return prev;
+              const next = new Set(prev);
+              next.delete(editGroup.id);
+              return next;
+            });
             setUrlSwaps((prev) => {
               const next = new Map(prev);
               // Back to the group's own link is no trade at all.

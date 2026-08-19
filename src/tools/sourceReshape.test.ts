@@ -1729,6 +1729,26 @@ describe("reshapeSources — citation placement", () => {
     );
     expect(repo).toContain("0 @R1@ REPO");
 
+    // …and choosing another shape never costs a file the repositories it
+    // keeps: page links are a record shape, not a statement about repositories.
+    const withRepos = `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NOTE ${BOOK2}/?pg=94
+0 @S1@ SOUR
+1 TITL Krstna knjiga - 03869
+1 REPO @R9@
+1 OBJE @O1@
+0 @O1@ OBJE
+1 FILE ${BOOK}/?pg=94
+0 @R9@ REPO
+1 NAME Nadškofijski arhiv Ljubljana
+0 TRLR`;
+    for (const layout of ["auto", "paginated"] as const) {
+      const { text } = applyAll(withRepos, { sourceLayout: layout });
+      expect(text.match(/\d REPO @R\d+@/g)?.length).toBe(2);
+    }
+
     // Citation-placement override on the Add Source helper.
     const ds = dataset(`0 HEAD
 1 CHAR UTF-8

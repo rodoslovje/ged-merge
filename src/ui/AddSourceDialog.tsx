@@ -7,7 +7,7 @@ import { inferMainProfile } from "../normalize/profile";
 import { familySearchPageUrl, rewriteLinkLang } from "../normalize/links";
 import { fetchPageHtml, fetchPageTitle } from "../normalize/urlMetadata";
 import { fetchBookMeta, makePlaceResolver, narrowFsRegister, proposedSiteRepo, recognizeSourceUrl, siteSourceTitle, SITE_ICON, splitFsRegisters, type ReshapeMeta, type ReshapeSite } from "../tools/sourceReshape";
-import { detectSourceCoverage, prefersSourceRepos, writesCallNumbers } from "../gedcom/source";
+import { detectSourceCoverage, repoLinkWanted, writesCallNumbers } from "../gedcom/source";
 import { childText } from "../gedcom/node";
 import { useSettings } from "./SettingsContext";
 import { useDebounced } from "./tools/shared";
@@ -244,10 +244,10 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
   );
   // Whether the file's convention hangs sources off repositories — decides if
   // the create-proposal is preselected or merely offered.
-  const layoutPrefersRepos = useMemo(() => {
-    const override = settings.formatOverrides.sourceLayout ?? "auto";
-    return override !== "auto" ? override === "repository" : prefersSourceRepos(dataset.records);
-  }, [settings.formatOverrides.sourceLayout, dataset]);
+  const layoutPrefersRepos = useMemo(
+    () => repoLinkWanted(dataset.records, settings.formatOverrides.sourceLayout),
+    [settings.formatOverrides.sourceLayout, dataset],
+  );
   // Which shape this file states a source's coverage in — it decides whether
   // the Place and Agency fields are the standard's own or the flat vendor
   // ones, and so whether they are marked.

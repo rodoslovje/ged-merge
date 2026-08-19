@@ -346,7 +346,7 @@
             <ul>
               <li><strong>Oblika datumov</strong> — npr. <em>01.01.1900</em> ali <em>1 JAN 1900</em>, vključno s tem, kako so označeni neznani deli.</li>
               <li><strong>Postavitev krajev</strong> — ali so kraji ena strnjena vrstica, strukturirana hierarhija z vejicami, ločen ulični naslov ipd., in katero ločilo stoji med ravnmi: <em>Kranj, Slovenija</em> ali <em>Kranj,Slovenija</em>. Obe obliki sta veljavni po standardu GEDCOM; zgledi v standardu pišejo vejico s presledkom.</li>
-              <li><strong>Oblika virov</strong> — bibliografske navedbe, povezave na repozitorij, viri s slikami strani (slog Matricula) ali besedilo v vrstici.</li>
+              <li><strong>Oblika virov</strong> — bibliografske navedbe, povezave na hrambo, viri s slikami strani (slog Matricula) ali besedilo v vrstici. Program bere, katera od teh oblik <em>prevladuje</em>: datoteka, katere viri nosijo slike strani, se bere kot oblika s slikami strani tudi tedaj, ko vsak njen vir visi še na hrambi, saj se hrambe štejejo kot navada zase. Hrambe veljajo pri vsaki izbiri — izbrana oblika datoteki nikoli ne vzame hramb, ki jih ima, izbira <em>vir, hramba</em> pa hrambo doda tudi tam, kjer je datoteka nima.</li>
               <li><strong>Oblika imen</strong> — ali dodatna imena živijo kot vgrajene podoznake ali kot ločeni zapisi imen z vrsto.</li>
             </ul>
             <p>
@@ -1165,7 +1165,11 @@
               nosi — in polja se izpolnijo, brž ko poizvedba odgovori; ob povezavi stoji gumb <strong>Poišči znova</strong>
               za nov poskus, polje, ki ste ga vpisali sami, pa se ne prepiše nikoli. V vrstici se nato pokaže oznaka
               <em>⇄ nova povezava</em>, ob uveljavitvi pa se medij tega vira preusmeri na novo povezavo, tudi v
-              medijskih zapisih, ki jih vaša datoteka že ima. Ali pa skupino označite <strong>Odstrani sklice</strong>
+              medijskih zapisih, ki jih vaša datoteka že ima. Stran s FamilySearcha, ki je ne imenuje nič razen njene
+              povezave — stran zapisa, film iz kataloga —, prav zato pride <strong>neoznačena</strong>: pretvorba bi
+              zapisala vir, imenovan po oznaki ark in nič drugega, zato počaka, da ji ime da njena navedba ali povezava
+              do slike (če vam oznaka ark zadošča, jo označite kljub temu). Ali pa skupino označite
+              <strong>Odstrani sklice</strong>
               (<span class="gm-glyph danger">🗑</span>), da mrtev ali zastarel URL odstranite z vseh mest, kjer se pojavi,
               brez ustvarjanja vira (<span class="gm-glyph">↩</span> odznači). Orodje upošteva vaše prepise oblike v
               <a href="#workspace">Nastavitve › GEDCOM</a> in znova pregleda, ko katerega spremenite, gumb za zagon pa
