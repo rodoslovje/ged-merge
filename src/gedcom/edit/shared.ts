@@ -82,6 +82,18 @@ export function insertOrdered(parent: GedNode, child: GedNode, order: string[]):
     parent.children.push(child);
     return;
   }
+  // A tag the record already carries joins its own group, right after the last
+  // of them. The canonical order ranks tags against each other and says nothing
+  // about two children sharing one — and in a record that opens with a vendor
+  // tag the order does not know (`1 _UID` before `1 NAME`), the rank scan below
+  // would otherwise splice the new child at index 0, ahead of its own kind: a
+  // second NAME landing there becomes the *primary* name, and the editors that
+  // address an additional name by position then write over the real one.
+  const lastSame = parent.children.map((c) => c.tag).lastIndexOf(child.tag);
+  if (lastSame !== -1) {
+    parent.children.splice(lastSame + 1, 0, child);
+    return;
+  }
   const rank = (tag: string) => {
     const i = order.indexOf(tag);
     return i === -1 ? Infinity : i;
