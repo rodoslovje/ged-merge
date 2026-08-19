@@ -41,6 +41,32 @@ describe("enrichEditReport — source citations", () => {
     expect(sources[0].action).toBe("both");
   });
 
+  it("names the page image attached beside an event's citation", () => {
+    // A file that keeps page links on events gets the register page hung on the
+    // event with every citation the source tools write. The preview showed the
+    // citation and nothing else, leaving the reader to wonder whether the page
+    // came with it.
+    const before = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 DATE 1804\n"));
+    const after = dataset(
+      wrap(
+        "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 DATE 1804\n2 SOUR @S1@\n3 PAGE 38\n2 OBJE @O1@\n" +
+          "0 @S1@ SOUR\n1 TITL Births (Rođeni) 1759-1812, Ravna Gora\n" +
+          "0 @O1@ OBJE\n1 FILE https://www.familysearch.org/ark:/61903/3:1:XYZ?i=37\n" +
+          "1 TITL Births (Rođeni) 1759-1812, Ravna Gora\n",
+      ),
+    );
+    const snapshots = new Map([["@I1@", before.individuals.get("@I1@")!.raw]]);
+    const report = enrichEditReport(baseReport("@I1@"), after, snapshots, new Map(), tr);
+
+    const birt = report.changes.filter((c) => c.group === "event.BIRT");
+    expect(birt).toHaveLength(1);
+    expect(birt[0].segments).toEqual([
+      { text: "1804", state: "same" },
+      { text: "Births (Rođeni) 1759-1812, Ravna Gora (38)", state: "changed" },
+      { text: "🔗 Births (Rođeni) 1759-1812, Ravna Gora", state: "changed" },
+    ]);
+  });
+
   it("shows a citation added to an event as that event's change", () => {
     const before = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 DEAT\n2 DATE 1944\n"));
     const after = dataset(
