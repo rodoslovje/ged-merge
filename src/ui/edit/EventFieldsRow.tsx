@@ -41,6 +41,7 @@ export function EventFieldsRow({
   onAddSource,
   onEditSource,
   onOpenSourceDialog,
+  onOpenMediaLink,
   autoFocusLead,
   focusLeadNonce,
   placeSuggestions,
@@ -80,6 +81,9 @@ export function EventFieldsRow({
   onAddSource: () => void;
   onEditSource?: (index: number) => void;
   onOpenSourceDialog: (target: SourceDialogTarget) => void;
+  /** Opens the media-link dialog for one of `ev.mediaLinks` — bound to this
+   * event's node by the parent, like `onEditSource`. */
+  onOpenMediaLink?: (url: string) => void;
   /** Focus the row's lead input on mount — the date for ordinary events, the
    * value for value-events (whose date field starts hidden) — so a freshly
    * added event can be typed into immediately. */
@@ -295,13 +299,15 @@ export function EventFieldsRow({
   // field to compare against).
   const initialTagRef = useRef(tag);
   const tagDirty = tag !== undefined && tag !== initialTagRef.current;
-  // Only the event's own WWW/URL-tag links are editable. The rest of
-  // `ev.links` is harvested — URLs living in note text or shared media
-  // records: rewriting those as WWW lines would duplicate them, and
+  // Only the event's own WWW/URL-tag links are editable. Links from the
+  // event's own OBJE children (`ev.mediaLinks`) are removable via the
+  // media-link dialog. The rest of `ev.links` is harvested — URLs living in
+  // note text: rewriting those as WWW lines would duplicate them, and
   // "removing" one would be a no-op (the chip reappears on the next
   // rebuild), so they render as read-only chips below.
   const [links, setLinks] = useState<string[]>(ev?.editableLinks ?? []);
-  const harvestedLinks = harvestedLinksOf(ev?.links, ev?.editableLinks);
+  const mediaLinks = ev?.mediaLinks ?? [];
+  const harvestedLinks = harvestedLinksOf(ev?.links, [...(ev?.editableLinks ?? []), ...mediaLinks]);
   // Secondary fields the user chose to add via the "+ Detail" menu on a sparse
   // event (they start empty). `focusKey` moves focus to the one just added.
   const [revealed, setRevealed] = useState<Set<string>>(new Set());
@@ -371,7 +377,7 @@ export function EventFieldsRow({
   const causeShown = Boolean(causeField.value.trim()) || causeField.isMerge;
   const noteShown = Boolean(noteField.value.trim()) || noteField.isMerge;
   const sourcesShown =
-    Boolean(ev?.sources?.length) || Boolean(sourcesMergeVal?.length) || links.length > 0 || harvestedLinks.length > 0;
+    Boolean(ev?.sources?.length) || Boolean(sourcesMergeVal?.length) || links.length > 0 || mediaLinks.length > 0 || harvestedLinks.length > 0;
   // A field renders when it has content OR the user added it from the "+ Detail"
   // menu. Empty, un-added fields stay hidden — no more revealing every empty
   // field on hover, which read as a crowded row of blank labelled inputs.
@@ -854,6 +860,20 @@ export function EventFieldsRow({
               onClick={() => openEditLink(i)}
             >
               {siteIconForUrl(link) ?? "🔗"}
+            </button>
+          ))}
+          {/* Always the generic 🔗, never the site glyph — beside a ⛪ source
+              citation a second ⛪ read as another citation, when this is only
+              a media link. */}
+          {mediaLinks.map((link) => (
+            <button
+              key={`media-${link}`}
+              type="button"
+              className="link-icon edit-link-icon"
+              title={linkTooltip(link, t, `${link}\n${t("edit.mediaLinkChip")}`)}
+              onClick={() => onOpenMediaLink?.(link)}
+            >
+              🔗
             </button>
           ))}
           {harvestedLinks.map((link) => (

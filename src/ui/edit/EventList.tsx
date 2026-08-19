@@ -12,7 +12,7 @@ import { EventFieldsRow } from "./EventFieldsRow";
 import { memo } from "react";
 import { nodeId } from "./nodeId";
 import { EXTRA_EVENT_ORDER, INDIVIDUAL_EVENT_GROUPS, ASSIGNABLE_EVENT_TAGS } from "./editConstants";
-import type { Commit, OpenEditSource, SourceDialogTarget } from "./types";
+import type { Commit, OpenEditSource, OpenMediaLink, SourceDialogTarget } from "./types";
 
 /** The preferences this file reads — subscribed field by field, so an
  *  unrelated one changing leaves it alone (see useSettingsSlice). */
@@ -33,6 +33,7 @@ export const EventList = memo(function EventList({
   t,
   commit,
   openEditSource,
+  openMediaLink,
   onOpenSourceDialog,
   placeSuggestions,
   placeToAddrs,
@@ -66,6 +67,7 @@ export const EventList = memo(function EventList({
   t: Translate;
   commit: Commit;
   openEditSource: OpenEditSource;
+  openMediaLink: OpenMediaLink;
   onOpenSourceDialog: (target: SourceDialogTarget) => void;
   placeSuggestions: string[];
   placeToAddrs: Map<string, string[]>;
@@ -236,6 +238,7 @@ export const EventList = memo(function EventList({
         onCopy={birtOriginalIdx >= 0 && onCopyEvent ? () => onCopyEvent(rawEventNodes[birtOriginalIdx], t("event.BIRT")) : undefined}
         onAddSource={() => onOpenSourceDialog({ kind: "event", commitField: (update, extraPatches) => commit((indi) => setEventField(indi, "BIRT", update), extraPatches) })}
         onEditSource={birtOriginalIdx >= 0 ? (idx) => openEditSource(rawEventNodes[birtOriginalIdx], idx, { kind: "individual", indi: person }) : undefined}
+        onOpenMediaLink={birtOriginalIdx >= 0 ? (url) => openMediaLink(rawEventNodes[birtOriginalIdx], { kind: "individual", indi: person }, url) : undefined}
         onOpenSourceDialog={onOpenSourceDialog}
         focusLeadNonce={birtFocusNonce}
         autoFocusLead={focusBirthOnMount}
@@ -278,6 +281,7 @@ export const EventList = memo(function EventList({
             }}
             onAddSource={() => onOpenSourceDialog({ kind: "event", commitField: (update, extraPatches) => commit((indi) => setEventFieldAtIndex(indi, row.i, update), extraPatches) })}
             onEditSource={(idx) => openEditSource(rawEventNodes[row.i], idx, { kind: "individual", indi: person })}
+            onOpenMediaLink={(url) => openMediaLink(rawEventNodes[row.i], { kind: "individual", indi: person }, url)}
             onOpenSourceDialog={onOpenSourceDialog}
             autoFocusLead={row.stableKey === pendingFocusNodeId}
             focusLeadNonce={rowFocus && rowFocus.nodeId === row.stableKey ? rowFocus.nonce : undefined}

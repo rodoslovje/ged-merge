@@ -8,7 +8,7 @@ import { isSameSexCouple } from "../../gedcom/couple";
 import { useSettingsSlice } from "../SettingsContext";
 import { EventFieldsRow } from "./EventFieldsRow";
 import { familyTagChoices } from "./editConstants";
-import type { FamilyCommit, OpenEditSource, SourceDialogTarget } from "./types";
+import type { FamilyCommit, OpenEditSource, OpenMediaLink, SourceDialogTarget } from "./types";
 
 /** The preferences this file reads — subscribed field by field, so an
  *  unrelated one changing leaves it alone (see useSettingsSlice). */
@@ -16,12 +16,13 @@ const SETTINGS_KEYS = ["showAge"] as const;
 
 /** Any family event row (MARR, DIV, ENGA, SEPA, …) by tag. */
 export function FamilyEventRow({
-  fam, tag, t, commit, openEditSource, onOpenSourceDialog, onRemove, onCopy, onRetag, autoFocusLead,
+  fam, tag, t, commit, openEditSource, openMediaLink, onOpenSourceDialog, onRemove, onCopy, onRetag, autoFocusLead,
   placeSuggestions, placeToAddrs, placeCanonical, addrCanonical, placeCoords, placeForms, pairCoords,
   mergeHighlight, mergeIncomingSources, famMergeKeyBase, resolvedSessionFields, individuals,
 }: {
   fam: Family; tag: string; t: Translate; commit: FamilyCommit;
   openEditSource: OpenEditSource;
+  openMediaLink: OpenMediaLink;
   onOpenSourceDialog: (target: SourceDialogTarget) => void;
   onRemove?: () => void;
   /** Open the "Copy event to…" picker for this event — see `EventFieldsRow`. */
@@ -90,6 +91,7 @@ export function FamilyEventRow({
       tagGroups={tagChoices.length > 1 ? [{ tags: tagChoices }] : undefined}
       onAddSource={() => onOpenSourceDialog({ kind: "event", commitField: (update, extraPatches) => commit(fam, (f) => setFamilyEventField(f, tag, update), extraPatches) })}
       onEditSource={eventNode ? (idx) => openEditSource(eventNode, idx, { kind: "family", fam }) : undefined}
+      onOpenMediaLink={eventNode ? (url) => openMediaLink(eventNode, { kind: "family", fam }, url) : undefined}
       onOpenSourceDialog={onOpenSourceDialog}
       autoFocusLead={autoFocusLead}
       placeSuggestions={placeSuggestions}

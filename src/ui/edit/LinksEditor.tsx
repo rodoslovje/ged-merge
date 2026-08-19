@@ -9,12 +9,13 @@ import { linkKey } from "../../normalize/links";
 import type { SourceDialogTarget } from "./types";
 
 /** The harvested (read-only) remainder of a record's or event's links:
- * everything the projection gathered that no editable link tag carries — URLs
- * living in note text or shared media records. Rewriting those as WWW lines
- * would duplicate them, and "removing" one would be a no-op (the chip
- * reappears on the next rebuild), so the editors must never offer that. */
-export function harvestedLinksOf(all: string[] | undefined, editable: string[] | undefined): string[] {
-  return (all ?? []).filter((l) => !(editable ?? []).some((e) => e.toLowerCase() === l.toLowerCase()));
+ * everything the projection gathered that neither an editable link tag nor an
+ * own `OBJE` child carries (callers pass both as `excluded`) — URLs living in
+ * note text. Rewriting those as WWW lines would duplicate them, and
+ * "removing" one would be a no-op (the chip reappears on the next rebuild,
+ * since the URL is still in the note), so the editors must never offer that. */
+export function harvestedLinksOf(all: string[] | undefined, excluded: string[] | undefined): string[] {
+  return (all ?? []).filter((l) => !(excluded ?? []).some((e) => e.toLowerCase() === l.toLowerCase()));
 }
 
 /**
@@ -57,6 +58,7 @@ export function linkEditing(
 export function LinksEditor({
   links: initialLinks,
   harvestedLinks,
+  mediaLinks,
   sources,
   incomingLinks,
   incomingSources,
@@ -67,10 +69,15 @@ export function LinksEditor({
   onEditSource,
   onOpenSourceDialog,
   onAttachSource,
+  onOpenMediaLink,
 }: {
   links: string[];
-  /** Read-only links from note text / shared media (see {@link harvestedLinksOf}). */
+  /** Read-only links from note text (see {@link harvestedLinksOf}). */
   harvestedLinks?: string[];
+  /** Links from the record's own `OBJE` children — removable via the
+   * stripped-down media-link dialog, drawn with the generic 🔗 (never a site
+   * glyph) so they read as links, not source citations. */
+  mediaLinks?: string[];
   /** Real `SOUR` citations added via "Add Source" — shown as icons alongside the legacy links. */
   sources?: SourceCitation[];
   /** Links a confirmed merge will add that aren't in `links` yet — previewed
@@ -88,6 +95,9 @@ export function LinksEditor({
   /** Attaches an already-resolved `SOUR` citation and replaces the link list
    * in one commit — used when a legacy link is promoted to a real citation. */
   onAttachSource: (sourceXref: string, page: string | undefined, extraPatches: RecordPatch[], links: string[]) => void;
+  /** Opens the media-link dialog for a `mediaLinks` chip, bound to this
+   * record by the parent (which knows the container node and owner). */
+  onOpenMediaLink?: (url: string) => void;
 }) {
   const [links, setLinks] = useState(initialLinks);
   const existingKeys = new Set(links.map(linkKey));
@@ -111,6 +121,17 @@ export function LinksEditor({
           onClick={() => openEditLink(i)}
         >
           {siteIconForUrl(link) ?? "🔗"}
+        </button>
+      ))}
+      {(mediaLinks ?? []).map((url) => (
+        <button
+          key={`media-${url}`}
+          type="button"
+          className="link-icon edit-link-icon"
+          title={linkTooltip(url, t, `${url}\n${t("edit.mediaLinkChip")}`)}
+          onClick={() => onOpenMediaLink?.(url)}
+        >
+          🔗
         </button>
       ))}
       {(harvestedLinks ?? []).map((url) => (

@@ -283,6 +283,12 @@ export interface GedEvent {
    *  note text or shared media records: rewriting those as WWW lines would
    *  duplicate them, and "removing" them would be a no-op. */
   editableLinks?: string[];
+  /** The subset of `links` resolved from the event's own direct `OBJE`
+   *  children (media links). Unlike note-borne links these are removable —
+   *  deleting the `OBJE` pointer/subtree really removes them — but they are
+   *  not rewritable as WWW lines, so they are neither editable nor merely
+   *  harvested. */
+  mediaLinks?: string[];
   /** Source citations (`SOUR`) attached to this event. */
   sources?: SourceCitation[];
 }
@@ -300,6 +306,8 @@ export interface Individual {
   links?: string[];
   /** The subset of `links` a link edit may rewrite — see GedEvent.editableLinks. */
   editableLinks?: string[];
+  /** The subset of `links` from the record's own direct `OBJE` children — see GedEvent.mediaLinks. */
+  mediaLinks?: string[];
   /** Free-text NOTE records attached directly to the individual. */
   notes?: string[];
   /** The same notes with their URLs kept in place — present only when `notes`
@@ -335,6 +343,8 @@ export interface Family {
   links?: string[];
   /** The subset of `links` a link edit may rewrite — see GedEvent.editableLinks. */
   editableLinks?: string[];
+  /** The subset of `links` from the record's own direct `OBJE` children — see GedEvent.mediaLinks. */
+  mediaLinks?: string[];
   /** Free-text NOTE records attached directly to the family. */
   notes?: string[];
   /** The same notes with their URLs kept in place (see {@link Individual.notesWithLinks}). */

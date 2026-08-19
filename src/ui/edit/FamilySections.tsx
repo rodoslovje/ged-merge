@@ -34,7 +34,7 @@ import { NotesEditor } from "./NotesEditor";
 import { harvestedLinksOf, LinksEditor } from "./LinksEditor";
 import { nodeId } from "./nodeId";
 import { FAMILY_EVENT_TAGS, familyEventHasMergeData } from "./editConstants";
-import type { FamilyCommit, MediaOwner, OpenEditSource, SourceDialogTarget } from "./types";
+import type { FamilyCommit, MediaOwner, OpenEditSource, OpenMediaLink, SourceDialogTarget } from "./types";
 
 /**
  * The two relative bands of the Edit view — a parents group (top) and a
@@ -348,6 +348,7 @@ interface FamilySectionProps extends SharedSectionProps {
   fam: Family | undefined;
   commitFamily: FamilyCommit;
   openEditSource: OpenEditSource;
+  openMediaLink: OpenMediaLink;
   onOpenSourceDialog: (target: SourceDialogTarget | null) => void;
   onAddFamNote: (famId: string) => void;
   handleAddMedia: (owner: MediaOwner) => void;
@@ -400,6 +401,7 @@ export const FamilySection = memo(function FamilySection({
   noteGen,
   commitFamily,
   openEditSource,
+  openMediaLink,
   onOpenSourceDialog,
   onAddFamNote,
   handleAddMedia,
@@ -559,6 +561,7 @@ export const FamilySection = memo(function FamilySection({
             t={t}
             commit={commitFamily}
             openEditSource={openEditSource}
+            openMediaLink={openMediaLink}
             onOpenSourceDialog={onOpenSourceDialog}
             autoFocusLead={pendingFocusFamEventKey === `${fam.id}-${tag}`}
             onRemove={hasRealEvent ? () => commitFamily(fam, (f) => removeFamilyEvent(f, tag)) : () => dismissExtraEvent(`${famMergeKeyBase ?? `fam.${fam.id}`}.${tag}`)}
@@ -618,7 +621,8 @@ export const FamilySection = memo(function FamilySection({
           <LinksEditor
             key={`flinks-${fam.id}-${undoVersion}`}
             links={fam.editableLinks ?? []}
-            harvestedLinks={harvestedLinksOf(fam.links, fam.editableLinks)}
+            harvestedLinks={harvestedLinksOf(fam.links, [...(fam.editableLinks ?? []), ...(fam.mediaLinks ?? [])])}
+            mediaLinks={fam.mediaLinks ?? []}
             sources={fam.sources ?? []}
             sectionLabel={t("field.sources")}
             t={t}
@@ -629,6 +633,7 @@ export const FamilySection = memo(function FamilySection({
             onAttachSource={(sourceXref, page, extraPatches, links) =>
               commitFamily(fam, (f) => { attachSourceCitation(f.raw, sourceXref, page, FAM_CHILD_ORDER); setFamilyLinks(f, links); }, extraPatches)
             }
+            onOpenMediaLink={(url) => openMediaLink(fam.raw, { kind: "family", fam }, url)}
           />
         </div>
       )}

@@ -201,6 +201,8 @@ export function buildIndividual(record: GedNode, media: MediaLinks, sourceCtx: S
   if (links.length) indi.links = dedupe(links);
   const editableIndiLinks = collectEditableLinks(record);
   if (editableIndiLinks.length) indi.editableLinks = dedupe(editableIndiLinks);
+  const indiMediaLinks = collectMediaLinks(record, media);
+  if (indiMediaLinks.length) indi.mediaLinks = dedupe(indiMediaLinks);
   if (notes.length) indi.notes = notes;
   if (notesFull.length && notesFull.join("\x1f") !== notes.join("\x1f")) indi.notesWithLinks = notesFull;
   if (noteRefs.length) indi.noteRefs = noteRefs;
@@ -253,6 +255,8 @@ export function buildFamily(record: GedNode, media: MediaLinks, sourceCtx: Sourc
   if (links.length) fam.links = dedupe(links);
   const editableFamLinks = collectEditableLinks(record);
   if (editableFamLinks.length) fam.editableLinks = dedupe(editableFamLinks);
+  const famMediaLinks = collectMediaLinks(record, media);
+  if (famMediaLinks.length) fam.mediaLinks = dedupe(famMediaLinks);
   if (notes.length) fam.notes = notes;
   if (notesFull.length && notesFull.join("\x1f") !== notes.join("\x1f")) fam.notesWithLinks = notesFull;
   if (noteRefs.length) fam.noteRefs = noteRefs;
@@ -308,6 +312,8 @@ function buildEvent(node: GedNode, media: MediaLinks, sourceCtx: SourceContext, 
   if (links.length) event.links = dedupe(links);
   const editable = collectEditableLinks(node);
   if (editable.length) event.editableLinks = dedupe(editable);
+  const mediaLinks = collectMediaLinks(node, media);
+  if (mediaLinks.length) event.mediaLinks = dedupe(mediaLinks);
   const sources = node.children
     .filter((c) => c.tag === "SOUR")
     .map((c) => resolveSourceCitation(c, sourceCtx))
@@ -477,6 +483,23 @@ function collectEditableLinks(node: GedNode): string[] {
     if (v && EDITABLE_LINK_TAGS.includes(child.tag as (typeof EDITABLE_LINK_TAGS)[number])) {
       out.push(v.replace(/\n/g, ""));
     }
+  }
+  return out;
+}
+
+/**
+ * URLs resolved from `node`'s own direct `OBJE` children — a pointer child
+ * through the shared media index, an inline child from its subtree. These are
+ * the removable middle ground between editable WWW lines and note-harvested
+ * URLs: deleting the `OBJE` link really removes them (see GedEvent.mediaLinks).
+ */
+function collectMediaLinks(node: GedNode, media: MediaLinks): string[] {
+  const out: string[] = [];
+  for (const child of node.children) {
+    if (child.tag !== "OBJE") continue;
+    const v = child.value?.trim();
+    if (v && isPointer(v)) out.push(...(media.get(v) ?? []));
+    else collectLinks(child, media, out);
   }
   return out;
 }

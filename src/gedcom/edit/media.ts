@@ -1,9 +1,10 @@
-import { clearObjeNodeCache, isPointer, type CropRegion } from "../source";
+import { clearObjeNodeCache, isPointer, objeInfoOf, type CropRegion } from "../source";
 import { childrenByTag, firstChild, removeChildren } from "../node";
 import { mediaContainerOf, type MediaAddress } from "../media";
 import type { Dataset, GedNode } from "../types";
 import { FAM_CHILD_ORDER, INDI_CHILD_ORDER, insertOrdered, insertRecord, nextXref } from "./shared";
-import { bumpSourceCacheVersion } from "./cache";
+import { bumpSourceCacheVersion, getMediaAndSourceCtx } from "./cache";
+import { linkKey } from "../../normalize/links";
 
 /** The `FORM` value for a `FILE` — the extension's own token where the name
  *  carries one, `htm` for a web page. Undefined for an extensionless local
@@ -119,6 +120,30 @@ export function removeMediaAt(dataset: Dataset, raw: GedNode, addr: MediaAddress
   if (i !== -1) container.children.splice(i, 1);
   const ptr = node.value?.trim();
   if (ptr && isPointer(ptr)) pruneUnreferencedMedia(dataset, ptr);
+}
+
+/**
+ * Remove `container`'s own direct `OBJE` children (pointer or inline) whose
+ * media resolves to `url` — the removal behind a media-link chip (see
+ * GedEvent.mediaLinks). Every matching child goes (duplicates left by older
+ * versions included), and a pointed-to shared record nothing else references
+ * is pruned along with its last pointer.
+ */
+export function removeMediaLinkByUrl(dataset: Dataset, container: GedNode, url: string): void {
+  const key = linkKey(url);
+  const { media } = getMediaAndSourceCtx(dataset.records);
+  const matches = (c: GedNode) => {
+    if (c.tag !== "OBJE") return false;
+    const v = c.value?.trim();
+    if (v && isPointer(v)) return (media.get(v) ?? []).some((u) => linkKey(u) === key);
+    const inlineUrl = objeInfoOf(c).url;
+    return !!inlineUrl && linkKey(inlineUrl) === key;
+  };
+  const removedPtrs = container.children
+    .filter((c) => !!c.value && isPointer(c.value.trim()) && matches(c))
+    .map((c) => c.value!.trim());
+  container.children = container.children.filter((c) => !matches(c));
+  for (const ptr of new Set(removedPtrs)) pruneUnreferencedMedia(dataset, ptr);
 }
 
 /**
