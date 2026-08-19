@@ -2738,6 +2738,35 @@ describe("FamilySearch image links", () => {
     expect(proposedSiteRepo(ds.records, "matricula", BOOK, "Nadškofijski arhiv Ljubljana")?.xref).toBe("@R3@");
   });
 
+  it("files a bare browse link where the collection's other pages already hang", () => {
+    // Two links out of Croatia, Church Books (cc=2040054). Nothing in either
+    // says so — no film, no citation, no lookup — but the file has answered
+    // this before, and its answer is the collection id on a page it holds.
+    const ds = dataset([
+      "0 HEAD",
+      "1 GEDC",
+      "2 VERS 5.5.1",
+      "0 @R1@ REPO", "1 NAME FamilySearch.org - Croatia", "1 WWW https://www.familysearch.org/",
+      "0 @R2@ REPO", "1 NAME FamilySearch.org - United States, Illinois",
+      "0 @S1@ SOUR", "1 TITL Births (Rođeni) 1857-1884, Ravna Gora", "1 REPO @R1@", "1 OBJE @O1@",
+      "0 @O1@ OBJE", "1 FILE https://www.familysearch.org/ark:/61903/3:1:939V-5NSX-83?i=12&cc=2040054",
+      "0 TRLR",
+    ].join("\n"));
+    const link = familySearchPageUrl(
+      "https://www.familysearch.org/ark:/61903/3:1:939V-5NS6-DN?lang=en&i=33&cc=2040054",
+    );
+    // The stored form keeps what identifies the page and its collection.
+    expect(link).toBe("https://www.familysearch.org/ark:/61903/3:1:939V-5NS6-DN?i=33&cc=2040054");
+    expect(proposedSiteRepo(ds.records, "familysearch", link, undefined, {})?.xref).toBe("@R1@");
+
+    // A collection the file has never cited is not guessed at: the site's own
+    // record is proposed rather than one of the places it happens to keep.
+    const unknown = familySearchPageUrl("https://www.familysearch.org/ark:/61903/3:1:ABCD-1?i=4&cc=9999999");
+    expect(proposedSiteRepo(ds.records, "familysearch", unknown, undefined, {})).toEqual({
+      createName: "FamilySearch.org",
+    });
+  });
+
   it("reuses the state's own repository, and never a collection that opens with a state", () => {
     const states = dataset([
       "0 HEAD",

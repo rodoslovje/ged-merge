@@ -184,6 +184,10 @@ export interface FamilySearchUrlParts {
   ark?: string;
   /** `cat=` — the film/catalog the image belongs to: the *book* of the page. */
   cat?: string;
+  /** `cc=` — the published collection the image belongs to ("Croatia, Church
+   *  Books, 1516-1994"): many books, one collection, and the id a repository
+   *  for it is found by. */
+  cc?: string;
   /** `i=` — which image of that film, counting from zero. */
   image?: string;
 }
@@ -201,6 +205,7 @@ export function parseFamilySearchUrl(url: string): FamilySearchUrlParts | undefi
         kind: "image",
         ark: id,
         cat: /[?&]cat=(\d+)/i.exec(trimmed)?.[1],
+        cc: /[?&]cc=(\d+)/i.exec(trimmed)?.[1],
         image: /[?&]i=(\d+)/i.exec(trimmed)?.[1],
       };
     }
@@ -220,15 +225,22 @@ export function familySearchImageNumber(i: string | undefined): string | undefin
 
 /**
  * The form of a FamilySearch link the file stores: the ark, the image the
- * reader was looking at (`i=`) and the film it belongs to (`cat=`) — and none
- * of the viewer trail around them. That is what {@link canonicalFamilySearchUrl}
- * keeps plus the page selector, which a browse link needs to reopen the very
- * page it was copied from. Any other URL is returned unchanged.
+ * reader was looking at (`i=`), and what that image belongs to — its film
+ * (`cat=`) and its published collection (`cc=`). None of the viewer trail
+ * around them survives. That is what {@link canonicalFamilySearchUrl} keeps
+ * plus the page selector a browse link needs to reopen where it was copied,
+ * and the two ids that say which book and which collection the page is from —
+ * a link that keeps them can be filed without asking FamilySearch anything.
+ * Any other URL is returned unchanged.
  */
 export function familySearchPageUrl(url: string): string {
   const fs = parseFamilySearchUrl(url);
   if (!fs || fs.kind === "tree" || !fs.ark) return url;
-  const query = [fs.image ? `i=${fs.image}` : undefined, fs.cat ? `cat=${fs.cat}` : undefined]
+  const query = [
+    fs.image ? `i=${fs.image}` : undefined,
+    fs.cat ? `cat=${fs.cat}` : undefined,
+    fs.cc ? `cc=${fs.cc}` : undefined,
+  ]
     .filter(Boolean)
     .join("&");
   const base = `https://www.familysearch.org/ark:/61903/${fs.ark}`;

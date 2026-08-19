@@ -2177,7 +2177,10 @@ function findSiteRepo(
     // suffix), or a nameless record matched by a bare-host WWW.
     if (name ? site.startsWith(looseKey(name)) : /^https?:\/\/[^/]+\/?$/i.test(www.trim())) genericMatch ??= rec.xref;
   }
-  return strictFallback && (wanted.length || countryFacet) ? genericMatch : anyMatch;
+  // Strict: only the wanted record, or the site's own general one. A file that
+  // keeps a repository per place has several, and handing a link to whichever
+  // came first files it under a country it has nothing to do with.
+  return strictFallback ? genericMatch : anyMatch;
 }
 
 /** The site's REPO for a new source: an existing one matched by WWW host
@@ -2189,17 +2192,45 @@ function findSiteRepo(
  * the Matricula archive's), or the name of the record it would create.
  * Lets the Add Source dialog show/preselect the repository before saving.
  */
+/**
+ * The repository the file already keeps for a FamilySearch collection: the one
+ * its other pages hang off, found by the collection id (`cc=`) their links
+ * carry. A bare browse link says nothing about the country its records are
+ * from — but the file has answered that question before, and its own answer
+ * beats asking FamilySearch again.
+ */
+function repoOfCitedCollection(records: GedNode[], cc: string | undefined): string | undefined {
+  if (!cc) return undefined;
+  const objeIndex = buildObjeIndex(records);
+  for (const rec of records) {
+    if (rec.tag !== "SOUR" || !rec.xref) continue;
+    const repo = firstChild(rec, "REPO")?.value?.trim();
+    if (!repo) continue;
+    for (const child of childrenByTag(rec, "OBJE")) {
+      const objeUrl = child.value ? objeIndex.get(child.value.trim())?.url : undefined;
+      if (objeUrl && parseFamilySearchUrl(objeUrl)?.cc === cc) return repo;
+    }
+  }
+  return undefined;
+}
+
 export function proposedSiteRepo(
   records: GedNode[],
   site: ReshapeSite,
   url: string,
   agency: string | undefined,
-  /** What the FamilySearch link covers, once known — the country read off it
-   *  picks the file's repository for that country out of several. */
+  /** What the FamilySearch link covers, once known — the place read off it
+   *  picks the file's repository for that place out of several. */
   collection?: FsCollection,
 ): { xref?: string; createName?: string } | undefined {
   const repoDef = SITE_REPO[site];
   if (!repoDef) return undefined;
+  // A page of a collection the file already cites goes where its siblings are,
+  // whatever the link alone can be made to say.
+  if (site === "familysearch") {
+    const sibling = repoOfCitedCollection(records, parseFamilySearchUrl(url)?.cc);
+    if (sibling) return { xref: sibling };
+  }
   const mat = site === "matricula" ? parseMatriculaUrl(url) : undefined;
   const country = site === "familysearch" ? fsRepoCountry(collection) : undefined;
   const existing = findSiteRepo(
@@ -2207,11 +2238,12 @@ export function proposedSiteRepo(
     repoDef.hostRe,
     repoDef.name,
     [mat?.archiveSlug],
-    // FamilySearch repositories are kept per country — once the citation or
-    // lookup says which one this link covers, a repository for a different
-    // country (or for one single collection) must not swallow it. A bare URL
-    // (country still unknown) keeps the lenient fallback; the lookup corrects it.
-    Boolean(country?.facet),
+    // FamilySearch repositories are kept per place — a repository for another
+    // country (or for one single collection) must not swallow this link, and
+    // nor must any of them when the place is still unknown: the site's own
+    // general record is the only honest home until the lookup, the citation or
+    // a sibling page says where the records are from.
+    site === "familysearch" || Boolean(country?.facet),
     country?.facet,
   );
   if (existing) return { xref: existing };
