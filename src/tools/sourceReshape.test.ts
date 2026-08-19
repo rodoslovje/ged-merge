@@ -3086,6 +3086,15 @@ describe("FamilySearch image links", () => {
         title: "Illinois, Cook County Deaths, 1871-1998",
       }),
     ).toEqual({ createName: "FamilySearch.org - United States, Illinois" });
+    // The state is the level nearest the country, not the first segment that
+    // happens to share a state's name: Washington in Beaufort County is a town
+    // of North Carolina, and its records hang off North Carolina's repository.
+    expect(
+      proposedSiteRepo(ds.records, "familysearch", BOOK_ONLY_URL, undefined, {
+        title: "New York, New York Passenger and Crew Lists, 1909, 1925-1957",
+        place: "Washington, Beaufort, North Carolina, United States",
+      }),
+    ).toEqual({ createName: "FamilySearch.org - United States, North Carolina" });
     // …though a *generic* site repository still serves every country.
     const withWww = dataset([
       "0 HEAD",
