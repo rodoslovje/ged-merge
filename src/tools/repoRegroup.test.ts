@@ -45,19 +45,35 @@ const PER_COLLECTION = [
 ];
 
 describe("scanRepoRegroup", () => {
-  it("gathers each country's FamilySearch sources under one repository", () => {
+  it("gathers each place's FamilySearch sources under one repository", () => {
     const report = scanRepoRegroup(dataset(PER_COLLECTION).records);
     expect(report.total).toBe(3);
+    // American records are published state by state, so the state is the
+    // repository; elsewhere the country is.
     expect(report.groups.map((g) => g.repoName)).toEqual([
       "FamilySearch.org - Croatia",
-      "FamilySearch.org - United States",
+      "FamilySearch.org - Illinois, United States",
+      "FamilySearch.org - Indiana, United States",
     ]);
-    const us = report.groups.find((g) => g.id === "us")!;
-    // The place names one country outright, the bare collection title the
-    // other — both are American.
-    expect(us.moves.map((m) => m.sourceXref)).toEqual(["@S1@", "@S2@"]);
-    expect(us.targetXref).toBeUndefined();
-    expect(us.emptied.map((e) => e.xref)).toEqual(["@R1@", "@R2@"]);
+    const illinois = report.groups.find((g) => g.id === "us:illinois")!;
+    // The place names the state outright, the Indiana collection's title does.
+    expect(illinois.moves.map((m) => m.sourceXref)).toEqual(["@S1@"]);
+    expect(illinois.targetXref).toBeUndefined();
+    expect(illinois.emptied.map((e) => e.xref)).toEqual(["@R1@"]);
+    expect(report.groups.find((g) => g.id === "us:indiana")!.moves.map((m) => m.sourceXref)).toEqual(["@S2@"]);
+  });
+
+  it("keeps a national collection under the country itself", () => {
+    const report = scanRepoRegroup(
+      dataset([
+        "0 HEAD",
+        "0 @R1@ REPO", "1 NAME FamilySearch.org - United States, Census, 1930",
+        "0 @S1@ SOUR", "1 TITL United States, Census, 1930", "1 REPO @R1@",
+        "0 TRLR",
+      ]).records,
+    );
+    expect(report.groups.map((g) => g.repoName)).toEqual(["FamilySearch.org - United States"]);
+    expect(report.groups[0].id).toBe("us");
   });
 
   it("leaves other sites' repositories alone", () => {
@@ -145,15 +161,16 @@ describe("regroupRepositories", () => {
   it("re-points the sources, keeps their call numbers and drops the emptied records", () => {
     const before = dataset(PER_COLLECTION).records;
     const { records, counts } = regroupRepositories(before, scanRepoRegroup(before).groups);
-    expect(counts).toEqual({ sourcesMoved: 3, reposCreated: 2, reposRemoved: 3 });
+    expect(counts).toEqual({ sourcesMoved: 3, reposCreated: 3, reposRemoved: 3 });
     // The input forest is untouched — the caller diffs the two.
     expect(repoOf(before, "@S1@")?.value).toBe("@R1@");
 
-    const us = records.find((r) => r.tag === "REPO" && childText(r, "NAME") === "FamilySearch.org - United States")!;
-    expect(repoOf(records, "@S1@")?.value).toBe(us.xref);
-    expect(repoOf(records, "@S2@")?.value).toBe(us.xref);
+    const named = (name: string) => records.find((r) => r.tag === "REPO" && childText(r, "NAME") === name)!;
+    const illinois = named("FamilySearch.org - Illinois, United States");
+    expect(repoOf(records, "@S1@")?.value).toBe(illinois.xref);
+    expect(repoOf(records, "@S2@")?.value).toBe(named("FamilySearch.org - Indiana, United States").xref);
     expect(childText(repoOf(records, "@S1@")!, "CALN")).toBe("108918058");
-    expect(childText(us, "WWW")).toBe("https://www.familysearch.org/");
+    expect(childText(illinois, "WWW")).toBe("https://www.familysearch.org/");
     // Matricula's archive and its source stay exactly where they were.
     expect(repoOf(records, "@S4@")?.value).toBe("@R4@");
     expect(records.some((r) => r.xref === "@R4@")).toBe(true);

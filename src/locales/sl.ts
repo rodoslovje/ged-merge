@@ -839,10 +839,10 @@ export const sl = {
   "tools.sources.fsSigninHint": "Strani zapisov na FamilySearch se odprejo šele po prijavi, zato jih poizvedba ne more prebrati — kopirajte navedbo s strani in jo prilepite v urejevalnik ✎, da se podatki izpolnijo.",
   "tools.sources.applyConvert": "Pretvori v vire ({{count}})",
   "tools.sources.applyMerge": "Združi dvojnike ({{count}})",
-  "tools.sources.applyRegroup": "Uredi hrambe po državah ({{count}})",
-  "tools.sources.regroupHeading": "Hrambe po državah",
+  "tools.sources.applyRegroup": "Uredi hrambe po krajih ({{count}})",
+  "tools.sources.regroupHeading": "Hrambe po krajih",
   "tools.sources.regroupIntro":
-    "FamilySearch objavlja po zbirkah, hramba pa je kraj, kjer se izvirniki hranijo — zato viri sodijo pod državo, iz katere so zapisi, ime zbirke pa ostane naslov samega vira. Izberite države in uveljavite: vsak vir se poveže s hrambo svoje države, hramba, ki po selitvi ostane prazna, pa se odstrani, in to v enem razveljavljivem koraku.",
+    "FamilySearch objavlja po zbirkah, hramba pa je kraj, kjer se izvirniki hranijo — zato viri sodijo pod kraj, od koder so zapisi, ime zbirke pa ostane naslov samega vira. Ta kraj je država, pri državah, ki objavljajo po zveznih državah, kot to velja za ameriške, pa zvezna država. Izberite kraje in uveljavite: vsak vir se poveže s hrambo svojega kraja, hramba, ki po selitvi ostane prazna, pa se odstrani, in to v enem razveljavljivem koraku.",
   "tools.sources.regroupFound_one": "Za ureditev: {{count}} vir",
   "tools.sources.regroupFound_two": "Za ureditev: {{count}} vira",
   "tools.sources.regroupFound_few": "Za ureditev: {{count}} viri",
@@ -861,7 +861,7 @@ export const sl = {
   "tools.sources.reshapeIntro":
     "Arhivske povezave (Matricula Online, Geneanet pokopališča, FamilySearch), ki so v datoteki zapisane kot gole povezave, opombe ali besedilne navedbe, so tu zbrane po matični knjigi ali grobu. Izberite skupine za pretvorbo in jih uveljavite: vsaka postane v vaši datoteki pravi vir z navedbami po straneh, in to v enem razveljavljivem koraku.",
   "tools.sources.reshapeFound": "povezave: {{links}} · skupine virov: {{groups}}",
-  "tools.sources.cleanupChipHint": "{{links}} arhivskih povezav v {{groups}} skupinah virov · {{dups}} skupin dvojnikov · virov za ureditev po državah: {{repos}}",
+  "tools.sources.cleanupChipHint": "{{links}} arhivskih povezav v {{groups}} skupinah virov · {{dups}} skupin dvojnikov · virov za ureditev po krajih: {{repos}}",
   "tools.sources.reshapeSite.matricula": "Matricula Online",
   "tools.sources.reshapeSite.geneanet": "Geneanet pokopališča",
   "tools.sources.reshapeSite.geneanettree": "Geneanet drevesa",

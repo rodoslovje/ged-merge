@@ -1,8 +1,8 @@
 import type { GedNode } from "../gedcom/types";
 import { childText, childrenByTag, cloneNode, firstChild } from "../gedcom/node";
-import { countryFacetName, countryNameOf, placeCountryFacet, titleCountryFacet } from "../geo/placeCountry";
+
 import { buildObjeIndex, prefersSourceRepos, looseKey } from "../gedcom/source";
-import { createSiteRepo, repoCountryFacet, repoNameTail } from "./sourceReshape";
+import { createSiteRepo, fsRepoCountry, repoCountryFacet, repoNameTail } from "./sourceReshape";
 
 // Gather the FamilySearch sources of one country under that country's
 // repository.
@@ -66,17 +66,17 @@ function isFsSource(rec: GedNode, fsRepos: Set<string>, objeUrl: (xref: string) 
   });
 }
 
-/** The country a source belongs to: what its place says, else what its title
- *  opens with, else what its present repository is named for — that last read
- *  past the site's own name, since "FamilySearch.org - Croatia Church Books
- *  1516-1994" states its country only in the part that follows it. */
-function sourceCountry(rec: GedNode, repoName: string | undefined): { facet: string; written?: string } {
+/**
+ * Where a source belongs — the same reading the Add Source dialog makes for a
+ * new one, so both agree on which record holds what: the place it covers and
+ * the title it carries, and failing those the name of the repository it hangs
+ * off today, read past the site's own name ("FamilySearch.org - Croatia Church
+ * Books 1516-1994" states its country only in what follows it).
+ */
+function sourceCountry(rec: GedNode, repoName: string | undefined): { facet: string; name: string } | undefined {
   const place = childText(rec, "PLAC")?.trim();
-  const fromPlace = place ? placeCountryFacet(place) : "";
-  if (fromPlace) return { facet: fromPlace, written: countryNameOf(place!) };
-  const fromTitle = titleCountryFacet(childText(rec, "TITL") ?? "");
-  if (fromTitle) return { facet: fromTitle };
-  return { facet: titleCountryFacet(repoNameTail(repoName ?? "")) };
+  const title = childText(rec, "TITL") ?? "";
+  return fsRepoCountry({ place, title }) ?? fsRepoCountry({ title: repoNameTail(repoName ?? "") });
 }
 
 /**
@@ -118,17 +118,16 @@ export function scanRepoRegroup(records: GedNode[]): RepoRegroupReport {
     if (!fromXref && !adoptRepoless) continue;
     const fromNode = fromXref ? repoNodes.get(fromXref) : undefined;
     const fromName = fromNode ? childText(fromNode, "NAME") : undefined;
-    const { facet, written } = sourceCountry(rec, fromName);
-    if (!facet) continue;
+    const where = sourceCountry(rec, fromName);
+    if (!where) continue;
+    const facet = where.facet;
     const target = countryRepo.get(facet);
     if (target && fromXref === target.xref) continue;
     let group = groups.get(facet);
     if (!group) {
-      // The file's own record names the country as the file spells it; a
-      // country only the sources name keeps their wording, or the world's.
-      const name =
-        (target ? childText(target, "NAME") : undefined) ??
-        `FamilySearch.org - ${written ?? countryFacetName(facet, "en")}`;
+      // The file's own record names the place as the file spells it; a place
+      // only the sources name keeps their wording, or the world's.
+      const name = (target ? childText(target, "NAME") : undefined) ?? `FamilySearch.org - ${where.name}`;
       group = { id: facet, repoName: name, targetXref: target?.xref, moves: [], emptied: [] };
       groups.set(facet, group);
     }

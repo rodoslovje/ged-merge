@@ -247,6 +247,33 @@ export function titleCountryFacet(title: string): string {
 }
 
 /**
+ * The first-level division a value names, for the countries whose files write
+ * one — "Chicago, Cook, Illinois, United States" and the collection title
+ * "Illinois, Cook County Deaths, 1871-1998" both stand in Illinois. Returned
+ * as the value writes it, alongside the country it belongs to.
+ *
+ * Nothing is returned for a value that names no such division: a national
+ * record set ("United States, Census, 1930") belongs to the country itself,
+ * and so does every place in a country that is not divided this way here.
+ */
+export function stateOf(value: string): { name: string; country: string } | undefined {
+  const states = reverseStateIndex();
+  for (const segment of value.split(",").map((s) => s.trim()).filter(Boolean)) {
+    const country = states.get(foldCountryName(segment));
+    if (country) return { name: segment, country };
+  }
+  // A title states its jurisdiction in words rather than in comma levels
+  // ("Illinois Cook County Deaths"), so its opening words are read as a name.
+  const words = (value.split(",")[0] ?? "").trim().split(/\s+/).filter(Boolean);
+  for (let n = Math.min(3, words.length); n >= 1; n--) {
+    const name = words.slice(0, n).join(" ");
+    const country = states.get(foldCountryName(name));
+    if (country) return { name, country };
+  }
+  return undefined;
+}
+
+/**
  * The country a value names **in its own words** — the segment that is itself
  * a country name. A value that reaches its country only through a state
  * ("Chicago, Cook, Illinois") names none, and the caller falls back to what

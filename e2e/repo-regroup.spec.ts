@@ -35,7 +35,7 @@ writeFileSync(
   ].join("\n"),
 );
 
-test("repositories are gathered per country, and the section's own selection works", async ({ page }) => {
+test("repositories are gathered per place, and the section's own selection works", async ({ page }) => {
   await page.goto("/");
   await page.locator("input.file-input").first().setInputFiles(FILE);
   await page.locator(".edit-person").first().waitFor({ timeout: 15000 });
@@ -47,12 +47,12 @@ test("repositories are gathered per country, and the section's own selection wor
   await expect(openCleanup).toBeEnabled({ timeout: 15000 });
   await openCleanup.click();
 
-  const section = page.locator(".tools-cleanup-section", { hasText: "Repositories by country" });
+  const section = page.locator(".tools-cleanup-section", { hasText: "Repositories by place" });
   await section.waitFor();
-  // One row per country: the two American collections, and Croatia.
+  // One row per place: the two Illinois collections, and Croatia.
   const rows = section.locator(".tools-tree-node");
   await expect(rows).toHaveCount(2);
-  await expect(section).toContainText("FamilySearch.org - United States");
+  await expect(section).toContainText("FamilySearch.org - Illinois, United States");
   await expect(section).toContainText("FamilySearch.org - Croatia");
 
   const checks = section.locator("input.tools-dup-check");
@@ -70,10 +70,10 @@ test("repositories are gathered per country, and the section's own selection wor
   // shows one repository per country instead of one per collection.
   await page.getByRole("button", { name: /Gather under repositories|Apply to the file/ }).first().click();
   await page.locator(".tools-cleanup-status").waitFor();
-  await page.locator(".tools-cleanup-section", { hasText: "Repositories by country" }).waitFor({ state: "detached" });
+  await page.locator(".tools-cleanup-section", { hasText: "Repositories by place" }).waitFor({ state: "detached" });
   await page.locator(".tools-page-title", { hasText: "Organize sources" }).locator("..").getByRole("button").first().click();
   const tree = page.locator(".tools-tree").first();
-  await expect(tree).toContainText("FamilySearch.org - United States");
+  await expect(tree).toContainText("FamilySearch.org - Illinois, United States");
   await expect(tree).toContainText("FamilySearch.org - Croatia");
   await expect(tree).not.toContainText("Cook County Deaths, 1871-1998 ");
 });

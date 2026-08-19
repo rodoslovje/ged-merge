@@ -22,7 +22,9 @@ import {
   countryCodeOfName,
   countryFacetName,
   countryNameOf,
+  foldCountryName,
   placeCountryFacet,
+  stateOf,
   titleCountryFacet,
 } from "../geo/placeCountry";
 import { detectPlaceLayout } from "../normalize/profile";
@@ -2115,7 +2117,18 @@ export function repoNameTail(name: string): string {
  */
 export function repoCountryFacet(name: string | undefined): string {
   const tail = repoNameTail(name ?? "");
-  return tail && countryCodeOfName(tail) ? placeCountryFacet(tail) : "";
+  if (!tail) return "";
+  // "Illinois" or "Illinois, United States" is a state's own record; a
+  // collection title that merely opens with one ("Illinois, Cook County
+  // Deaths, 1871-1998") is not, and everything after the state has to say so.
+  const state = stateOf(tail);
+  const parts = tail.split(",").map((s) => s.trim()).filter(Boolean);
+  if (state && foldCountryName(parts[0] ?? "") === foldCountryName(state.name)) {
+    const rest = parts.slice(1);
+    const stateRecord = rest.length === 0 || (rest.length === 1 && countryCodeOfName(rest[0]) === state.country);
+    if (stateRecord) return `${state.country}:${looseKey(state.name)}`;
+  }
+  return countryCodeOfName(tail) ? placeCountryFacet(tail) : "";
 }
 
 /** Existing REPO for a site: one whose WWW is on the site's host, or one named
@@ -2214,12 +2227,21 @@ export interface FsCollection {
  * it says so outright, and in English otherwise — the site and its collection
  * titles are English, so a country read out of one is too.
  */
-function fsRepoCountry(collection: FsCollection | undefined): { facet: string; name: string } | undefined {
+export function fsRepoCountry(collection: FsCollection | undefined): { facet: string; name: string } | undefined {
   const place = collection?.place?.trim();
-  const facet = (place && placeCountryFacet(place)) || titleCountryFacet(collection?.title ?? "");
+  const title = collection?.title ?? "";
+  const facet = (place && placeCountryFacet(place)) || titleCountryFacet(title);
   if (!facet) return undefined;
   const written = place && placeCountryFacet(place) === facet ? countryNameOf(place) : undefined;
-  return { facet, name: written ?? countryFacetName(facet, "en") };
+  const country = written ?? countryFacetName(facet, "en");
+  // Where a country's records are published state by state — American ones
+  // are, and this file's own places say which state — the state is the
+  // repository, since a single "United States" record would hold everything.
+  // A national collection ("United States, Census, 1930") names no state and
+  // keeps the country itself.
+  const state = (place ? stateOf(place) : undefined) ?? stateOf(title);
+  if (!state || state.country !== facet) return { facet, name: country };
+  return { facet: `${facet}:${looseKey(state.name)}`, name: `${state.name}, ${country}` };
 }
 
 /** What a new repository for the site is called: the holding archive for

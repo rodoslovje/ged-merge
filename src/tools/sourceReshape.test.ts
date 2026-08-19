@@ -2703,7 +2703,7 @@ describe("FamilySearch image links", () => {
       proposedSiteRepo(ds.records, "familysearch", BOOK_ONLY_URL, undefined, {
         title: "Illinois, Cook County Deaths, 1871-1998",
       }),
-    ).toEqual({ createName: "FamilySearch.org - United States" });
+    ).toEqual({ createName: "FamilySearch.org - Illinois, United States" });
     // …though a *generic* site repository still serves every country.
     const withWww = dataset([
       "0 HEAD",
@@ -2738,6 +2738,31 @@ describe("FamilySearch image links", () => {
     expect(proposedSiteRepo(ds.records, "matricula", BOOK, "Nadškofijski arhiv Ljubljana")?.xref).toBe("@R3@");
   });
 
+  it("reuses the state's own repository, and never a collection that opens with a state", () => {
+    const states = dataset([
+      "0 HEAD",
+      "1 GEDC",
+      "2 VERS 5.5.1",
+      "0 @R1@ REPO",
+      "1 NAME FamilySearch.org - Illinois, United States",
+      "0 @R2@ REPO",
+      "1 NAME FamilySearch.org - Illinois, Cook County Deaths, 1871-1998",
+      "0 TRLR",
+    ].join("\n"));
+    expect(
+      proposedSiteRepo(states.records, "familysearch", BOOK_ONLY_URL, undefined, {
+        title: "Illinois, Cook County Marriages, 1871-1969",
+      })?.xref,
+    ).toBe("@R1@");
+    // Another state has no record of its own here, and the collection kept
+    // under @R2@ is not one — so Indiana's is proposed.
+    expect(
+      proposedSiteRepo(states.records, "familysearch", BOOK_ONLY_URL, undefined, {
+        title: "Indiana, Marriages, 1811-2019",
+      }),
+    ).toEqual({ createName: "FamilySearch.org - Indiana, United States" });
+  });
+
   it("names a repository it has to create after the country of its records", () => {
     const empty = dataset(["0 HEAD", "1 GEDC", "2 VERS 5.5.1", "0 TRLR"].join("\n"));
     // A link naming no country at all keeps the site's own bare record.
@@ -2747,11 +2772,18 @@ describe("FamilySearch image links", () => {
         title: "Croatia, Church Books, 1516-1994",
       })?.createName,
     ).toBe("FamilySearch.org - Croatia");
-    // A place reaching its country only through a state still names it…
+    // American records are published state by state, so a place naming the
+    // state is filed under it rather than under the country as a whole…
     expect(
       proposedSiteRepo(empty.records, "familysearch", IMAGE_URL, undefined, {
         title: "Chicago, Cook, Illinois, United States records",
         place: "Chicago, Cook, Illinois",
+      })?.createName,
+    ).toBe("FamilySearch.org - Illinois, United States");
+    // …while a collection covering the whole country keeps the country.
+    expect(
+      proposedSiteRepo(empty.records, "familysearch", IMAGE_URL, undefined, {
+        title: "United States, Census, 1930",
       })?.createName,
     ).toBe("FamilySearch.org - United States");
     // …and where the file writes the country itself, that wording is kept.

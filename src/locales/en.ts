@@ -744,9 +744,9 @@ export const en = {
   "tools.sources.applyConvert": "Convert to sources ({{count}})",
   "tools.sources.applyMerge": "Merge duplicates ({{count}})",
   "tools.sources.applyRegroup": "Gather under repositories ({{count}})",
-  "tools.sources.regroupHeading": "Repositories by country",
+  "tools.sources.regroupHeading": "Repositories by place",
   "tools.sources.regroupIntro":
-    "FamilySearch publishes in collections, but a repository is where the records are kept — so its sources belong under the country they come from, with the collection staying the source's own title. Pick the countries to gather and apply: each source is re-pointed onto that country's repository, and a repository the move leaves empty is removed, in one undoable step.",
+    "FamilySearch publishes in collections, but a repository is where the records are kept — so its sources belong under the place they come from, with the collection staying the source's own title. That place is the country, or the state where a country is published state by state as American records are. Pick the places to gather and apply: each source is re-pointed onto that place's repository, and a repository the move leaves empty is removed, in one undoable step.",
   "tools.sources.regroupFound_one": "{{count}} source to gather",
   "tools.sources.regroupFound_other": "{{count}} sources to gather",
   "tools.sources.regroupExisting": "your file's repository",
@@ -759,7 +759,7 @@ export const en = {
   "tools.sources.reshapeIntro":
     "Archive links (Matricula Online, Geneanet Cemeteries, FamilySearch) found as bare links, notes or inline citations, grouped by register book or grave. Pick the groups to convert and apply: each becomes a proper source record in your file, cited with page numbers, in one undoable step.",
   "tools.sources.reshapeFound": "links: {{links}} · source groups: {{groups}}",
-  "tools.sources.cleanupChipHint": "{{links}} archive links in {{groups}} source groups · {{dups}} duplicate groups · {{repos}} sources to gather under their country",
+  "tools.sources.cleanupChipHint": "{{links}} archive links in {{groups}} source groups · {{dups}} duplicate groups · {{repos}} sources to gather under their place",
   "tools.sources.reshapeSite.matricula": "Matricula Online",
   "tools.sources.reshapeSite.geneanet": "Geneanet Cemeteries",
   "tools.sources.reshapeSite.geneanettree": "Geneanet Trees",
