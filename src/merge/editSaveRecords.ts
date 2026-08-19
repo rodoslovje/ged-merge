@@ -19,9 +19,12 @@ import { sortEventsByDate } from "./applyFields";
  *
  * @param records       the live main record forest — never mutated
  * @param sortEligible  true for an individual xref that went through a
- *   *structural* edit (a date or tag change via the edit UI). Bulk operations
- *   like a place rename mutate values in place and must not silently reorder
- *   events that were already in a non-canonical position, so they answer false.
+ *   *structural* edit in the edit UI — one that added, removed, retagged or
+ *   re-dated an event (`App.isSortEligible` decides it by comparing the
+ *   person's `eventOrderSignature` against their pre-edit snapshot). Bulk
+ *   operations like a place rename, and hand edits that only change values,
+ *   must not silently reorder events that were already in a non-canonical
+ *   position, so they answer false.
  */
 export function buildEditSaveRecords(
   records: readonly GedNode[],

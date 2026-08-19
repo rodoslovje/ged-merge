@@ -18,7 +18,7 @@ import { clearEventAuditStamps, rebuildIndividual, rebuildFamily, removeIndividu
 import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "./gedcom/private";
 import { downloadOptions, ensureUtf8Charset, serializeGedcom, stampHeadSource } from "./gedcom/serialize";
 import { formatReport, INDI_HANDLED, mergePlaceFormat, type ImportBranchRequest } from "./merge/merge";
-import { snapshotMainValues } from "./merge/applyFields";
+import { eventOrderSignature, snapshotMainValues } from "./merge/applyFields";
 import { individualFieldRows } from "./review/fields";
 import { buildEditSaveRecords } from "./merge/editSaveRecords";
 import { buildSavePreview, type SavePreview } from "./save/buildSavePreview";
@@ -1362,9 +1362,27 @@ function AppContent() {
     await confirmDialog(t("app.reloadConfirm"), t("confirm.reload"), discardAndReload);
   }
 
-  /** An individual whose events the save may reorder — see `buildEditSaveRecords`. */
+  /**
+   * An individual whose events the save may reorder — see
+   * `buildEditSaveRecords`. Both halves are required, and each rules out a
+   * different way of reordering events nobody asked to touch:
+   *
+   * - the ref says the person was edited by hand rather than swept by a
+   *   whole-file maintenance pass (a date repair puts dates right; it does not
+   *   get to restack the record around them);
+   * - the signature says that hand edit was *structural* — it added, removed,
+   *   retagged or re-dated an event. Completing a burial place used to qualify
+   *   too, and moved the person's untouched death event up the record.
+   *
+   * A person created this session has no snapshot and no original order to
+   * preserve, so canonical order is the only order they have ever had.
+   */
   function isSortEligible(xref: string) {
-    return changedPersonIds.has(xref) && sortEligiblePersonIdsRef.current.has(xref);
+    if (!changedPersonIds.has(xref) || !sortEligiblePersonIdsRef.current.has(xref)) return false;
+    const raw = mainDataset?.individuals.get(xref)?.raw;
+    if (!raw) return false;
+    const snapshot = dirty.personSnapshots.current.get(xref);
+    return !snapshot || eventOrderSignature(snapshot) !== eventOrderSignature(raw);
   }
 
   /** Gather the live workspace state `buildSavePreview` reads. Kept as its own

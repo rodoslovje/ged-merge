@@ -829,54 +829,89 @@ export function insertAt(parent: GedNode, index: number, child: GedNode): void {
   parent.children.splice(index, 0, child);
 }
 
+/** Where the event block ends in `INDI_CHILD_ORDER` — the first of the
+ *  trailing pointer/attachment tags. */
+const INDI_EVENT_RANK_END = INDI_CHILD_ORDER.indexOf("FAMC");
+
+/** How `INDI_CHILD_ORDER` ranks a top-level tag; an unlisted tag ranks last. */
+function indiTagRank(tag: string): number {
+  const i = INDI_CHILD_ORDER.indexOf(tag);
+  return i === -1 ? Infinity : i;
+}
+
 /**
- * Sort the record's chronological event children (BIRT, BAPM, RESI, …) by
- * date, matching the order the UI displays them; tag type is a tiebreaker for
- * same-date events. Every other child — NAME/SEX, FAMC/FAMS, NOTE/SOUR/OBJE,
- * ASSO, and any other non-event structure — is left at its exact original
- * index, so a decision touching one event never displaces unrelated nodes
- * elsewhere in the record. A tag the GEDCOM spec defines (ASSO, CHAN, CREA,
- * REFN, …) is never treated as an event even if it happens to carry its own
- * DATE child (a validity period for ASSO, a record-audit timestamp for
- * CHAN/CREA, …) — only a vendor-extension tag (the spec requires those to
- * start with "_", e.g. a custom `_MILT` military-service fact) gets the
- * "has a DATE child" fallback, since that's the one case where an unlisted
- * tag can still be a genuine genealogical event.
+ * Whether a record child is one of the chronological events (BIRT, BAPM,
+ * RESI, …). A tag the GEDCOM spec defines (ASSO, CHAN, CREA, REFN, …) is never
+ * treated as an event even if it happens to carry its own DATE child (a
+ * validity period for ASSO, a record-audit timestamp for CHAN/CREA, …) — only
+ * a vendor-extension tag (the spec requires those to start with "_", e.g. a
+ * custom `_MILT` military-service fact) gets the "has a DATE child" fallback,
+ * since that's the one case where an unlisted tag can still be a genuine
+ * genealogical event.
+ */
+function isEventChild(node: GedNode): boolean {
+  const rank = indiTagRank(node.tag);
+  if (rank >= 2 && rank < INDI_EVENT_RANK_END) return true;
+  return rank === Infinity && node.tag.startsWith("_") && hasChild(node, "DATE");
+}
+
+/**
+ * The position-deciding sort key of each event, in the order given. Zone-aware,
+ * the same ordering the Merge comparison and Edit views use (`orderedEventTags`
+ * / `EventList`), so the saved file lists events in the exact order the user
+ * saw — undated life-zone events land mid-lifespan rather than ahead of all
+ * dated ones. The keys are computed for the group as a whole, since an undated
+ * event's zone is read off the dated events around it.
+ */
+function eventSortKeys(events: readonly GedNode[]): number[] {
+  const eventDate = (node: GedNode) => parseDate(firstChild(node, "DATE")?.value ?? "");
+  const anchors = lifespanAnchors(events.map((node) => ({ tag: node.tag, date: eventDate(node) })));
+  return events.map((node) => zoneSortKey(eventDate(node), node.tag, anchors));
+}
+
+/**
+ * Sort the record's chronological event children by date, matching the order
+ * the UI displays them; tag type is a tiebreaker for same-date events. Every
+ * other child — NAME/SEX, FAMC/FAMS, NOTE/SOUR/OBJE, ASSO, and any other
+ * non-event structure — is left at its exact original index, so a decision
+ * touching one event never displaces unrelated nodes elsewhere in the record.
  */
 export function sortEventsByDate(record: GedNode): void {
-  const suffixStart = INDI_CHILD_ORDER.indexOf("FAMC");
-  const tagRank = (tag: string) => {
-    const i = INDI_CHILD_ORDER.indexOf(tag);
-    return i === -1 ? Infinity : i;
-  };
-  const isEvent = (node: GedNode) => {
-    const r = tagRank(node.tag);
-    if (r >= 2 && r < suffixStart) return true;
-    return r === Infinity && node.tag.startsWith("_") && hasChild(node, "DATE");
-  };
-
   const eventIndices: number[] = [];
   const events: GedNode[] = [];
   record.children.forEach((child, i) => {
-    if (isEvent(child)) {
+    if (isEventChild(child)) {
       eventIndices.push(i);
       events.push(child);
     }
   });
   if (events.length < 2) return;
 
-  const eventDate = (node: GedNode) => parseDate(firstChild(node, "DATE")?.value ?? "");
-  // Same zone-aware ordering as the Merge comparison and Edit views
-  // (`orderedEventTags` / `EventList`), so the saved file lists events in the
-  // exact order the user saw — undated life-zone events land mid-lifespan
-  // rather than ahead of all dated ones.
-  const anchors = lifespanAnchors(events.map((node) => ({ tag: node.tag, date: eventDate(node) })));
-  const dateKey = (node: GedNode): number => zoneSortKey(eventDate(node), node.tag, anchors);
-
-  events.sort((a, b) => dateKey(a) - dateKey(b) || tagRank(a.tag) - tagRank(b.tag));
+  const keys = eventSortKeys(events);
+  const dateKey = new Map(events.map((node, i) => [node, keys[i]] as const));
+  events.sort(
+    (a, b) => (dateKey.get(a) ?? 0) - (dateKey.get(b) ?? 0) || indiTagRank(a.tag) - indiTagRank(b.tag),
+  );
   eventIndices.forEach((idx, i) => {
     record.children[idx] = events[i];
   });
+}
+
+/**
+ * What a record's events look like to {@link sortEventsByDate}: every event's
+ * tag paired with the key that decides its position, in file order. Two
+ * records with equal signatures sort identically, so comparing a person's
+ * signature against their pre-edit snapshot answers whether the edit was
+ * *structural* — one that added, removed, retagged or re-dated an event, and
+ * so has a say in what order the events belong in — as opposed to a value fix
+ * (a place completed, a note written, a source attached), which has no
+ * business reordering anything. Rewriting a date in a different notation for
+ * the same day is not structural either: the key, not the text, is compared.
+ */
+export function eventOrderSignature(record: GedNode): string {
+  const events = record.children.filter(isEventChild);
+  const keys = eventSortKeys(events);
+  return events.map((node, i) => `${node.tag}@${keys[i]}`).join("|");
 }
 
 export function newNode(tag: string, value?: string, xref?: string): GedNode {
