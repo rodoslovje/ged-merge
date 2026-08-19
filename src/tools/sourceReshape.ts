@@ -254,6 +254,10 @@ export interface ReshapeOptions {
   /** How a new source states what it covers: flat vendor PLAC/DATE fields, or
    *  the spec's `DATA > EVEN` structure; "auto" = the file's own habit. */
   sourceCoverage?: "vendor" | "standard" | "auto";
+  /** The citation quality the run would write, when the reader chose one.
+   *  The scan reads it to tell a pointer that is finished from one still owed
+   *  a `QUAY`; the apply takes each group's own choice over it. */
+  quay?: string;
 }
 
 export interface ReshapeCounts {
@@ -1502,15 +1506,24 @@ function relocationTarget(
 }
 
 /** An owned page-image pointer already sitting beside its final citation
- *  (same source+page, QUAY set) with no relocation left to make — the shape a
- *  previous apply leaves when the marriage family stays unresolved. The
- *  report hides it and the apply skips it, so reruns converge to zero. */
+ *  (same source and page) with no relocation left to make — the shape a
+ *  previous apply leaves, and the shape a reader who cited the source by hand
+ *  leaves too. The report hides it and the apply skips it, so reruns converge
+ *  to zero.
+ *
+ *  The citation alone settles it. It used to have to carry a `QUAY` as well —
+ *  a mark only a run with a citation quality chosen ever writes — so with the
+ *  quality left unset the row was offered for ever: every apply found the
+ *  citation already there, wrote nothing, and the re-scan listed it again. */
 function isSettledPointer(
   hit: ScanHit,
   move: { eventTag: string } | undefined,
   sourceXref: string | undefined,
   pageMedia: PageMediaStyle,
   page: string | undefined,
+  /** The quality this run would write, if the reader chose one — a citation
+   *  still owed a `QUAY` has work left in it. */
+  quay: string | undefined,
 ): boolean {
   if (hit.shape !== "obje" || !hit.objeXref || move || hit.foldedInto || hit.twinEvent) return false;
   if (pageMedia !== "event" || !sourceXref) return false;
@@ -1521,7 +1534,7 @@ function isSettledPointer(
   const cite = childrenByTag(hit.container, "SOUR").find(
     (c) => c.value?.trim() === sourceXref && (page === undefined || (childText(c, "PAGE") ?? "") === page),
   );
-  return !!cite && !!firstChild(cite, "QUAY");
+  return !!cite && (!quay || !!firstChild(cite, "QUAY"));
 }
 
 
@@ -1599,7 +1612,7 @@ export function findReshapableLinks(
         relocate && !hit.foldedInto && !hit.twinEvent
           ? relocationTarget(hit, g.bookType, baptismTag, ctx, g.existingSourceXref)
           : undefined;
-      if (isSettledPointer(hit, move, g.existingSourceXref, pageMedia, hit.recognized.page)) return [];
+      if (isSettledPointer(hit, move, g.existingSourceXref, pageMedia, hit.recognized.page, opts.quay)) return [];
       return [
         {
           recordXref: hit.rec.xref ?? "?",
@@ -2687,7 +2700,7 @@ export function reshapeSources(
 
       const page = pageOf(hit);
       const move = relocate && !hit.twinEvent ? relocationTarget(hit, bookType, baptismTag, ctx, sourceXref) : undefined;
-      if (isSettledPointer(hit, move, sourceXref, pageMedia, page)) continue;
+      if (isSettledPointer(hit, move, sourceXref, pageMedia, page, quayFor)) continue;
       let container = hit.container;
       if (move) {
         const host = move.famXref ? byXref.get(move.famXref) : hit.rec;

@@ -1320,6 +1320,37 @@ describe("reshapeSources — citation placement", () => {
     expect(again.groups).toHaveLength(0);
   });
 
+  it("a converted pointer settles without a citation quality, so the row clears", () => {
+    // What a run leaves when the reader never picked a citation quality: the
+    // citation is there, the page image beside it, and no QUAY on either.
+    // The row used to be offered for ever — each apply found the citation
+    // already written, wrote nothing at all, and the re-scan listed it again,
+    // so a run holding only such rows reported "nothing happened".
+    const converted = `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Pavel /Križaj/
+1 OBJE @M1@
+1 SOUR @S1@
+2 PAGE 51
+1 FAMS @F1@
+1 FAMS @F2@
+0 @F1@ FAM
+1 HUSB @I1@
+0 @F2@ FAM
+1 HUSB @I1@
+0 @S1@ SOUR
+1 TITL Poročna knjiga / Trauungsbuch - 00899
+1 OBJE @M1@
+0 @M1@ OBJE
+1 FILE ${BOOK}/?pg=51
+0 TRLR`;
+    expect(scan(converted).groups).toHaveLength(0);
+    // And applying it anyway is a no-op rather than a rewrite.
+    const { text } = applyAll(converted);
+    expect(text).toBe(serializeGedcom(dataset(converted).records));
+  });
+
   it("an unresolvable multi-family marriage link settles at record level and stops being reported", () => {
     // No evidence ties the page to either family. With the citation already
     // beside the pointer (QUAY set), there is nothing left to organize.
