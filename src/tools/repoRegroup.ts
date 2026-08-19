@@ -2,7 +2,7 @@ import type { GedNode } from "../gedcom/types";
 import { childText, childrenByTag, cloneNode, firstChild } from "../gedcom/node";
 import { countryFacetName, countryNameOf, placeCountryFacet, titleCountryFacet } from "../geo/placeCountry";
 import { buildObjeIndex, prefersSourceRepos, looseKey } from "../gedcom/source";
-import { createSiteRepo, repoCountryFacet } from "./sourceReshape";
+import { createSiteRepo, repoCountryFacet, repoNameTail } from "./sourceReshape";
 
 // Gather the FamilySearch sources of one country under that country's
 // repository.
@@ -67,14 +67,16 @@ function isFsSource(rec: GedNode, fsRepos: Set<string>, objeUrl: (xref: string) 
 }
 
 /** The country a source belongs to: what its place says, else what its title
- *  opens with, else what the name of its present repository gives. */
+ *  opens with, else what its present repository is named for — that last read
+ *  past the site's own name, since "FamilySearch.org - Croatia Church Books
+ *  1516-1994" states its country only in the part that follows it. */
 function sourceCountry(rec: GedNode, repoName: string | undefined): { facet: string; written?: string } {
   const place = childText(rec, "PLAC")?.trim();
   const fromPlace = place ? placeCountryFacet(place) : "";
   if (fromPlace) return { facet: fromPlace, written: countryNameOf(place!) };
   const fromTitle = titleCountryFacet(childText(rec, "TITL") ?? "");
   if (fromTitle) return { facet: fromTitle };
-  return { facet: titleCountryFacet(repoName ?? "") };
+  return { facet: titleCountryFacet(repoNameTail(repoName ?? "")) };
 }
 
 /**

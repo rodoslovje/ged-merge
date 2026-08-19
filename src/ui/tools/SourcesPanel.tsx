@@ -15,6 +15,7 @@ import { AddSourceDialog, type AddSourceResult } from "../AddSourceDialog";
 import { repoRecordEditFields, sourceRecordEditFields, type EditRepoFields, type EditSourceFields } from "../../gedcom/edit";
 import { ToolsLoading, TreeSearch, UsageList, someMatch, useDebounced } from "./shared";
 import { SourceCleanupView } from "./SourceCleanupView";
+import { scanRepoRegroup } from "../../tools/repoRegroup";
 import { ToolSummary } from "./ToolSummary";
 
 /** Lightbox side panel for a media object: the person/family records that
@@ -479,6 +480,17 @@ export function SourcesPanel({
 
   const dupCount = dupReport?.groups.length ?? 0;
   const reshapeCount = reshapeReport?.groups.length ?? 0;
+  // The repository regroup reads only the SOUR/REPO records, so it is computed
+  // here rather than in the worker — but it belongs beside the other two: it
+  // is applied with them, and a file whose only untidiness is its repositories
+  // must still be able to open the page. Re-read after an apply, which mutates
+  // the dataset in place (hence the nonce, not the object identity).
+  const [regroupNonce, setRegroupNonce] = useState(0);
+  const regroupReport = useMemo(
+    () => scanRepoRegroup(dataset.records),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dataset, regroupNonce],
+  );
 
   const toggle = (key: string) =>
     setOpen((s) => {
@@ -593,9 +605,15 @@ export function SourcesPanel({
         onNavigate={onNavigate}
         onBack={() => setView("tree")}
         onApplyPatches={onApplyPatches}
+        regroupReport={regroupReport}
         onRescan={() => {
           scans.refresh("sourceReshape");
           scans.refresh("sourceDuplicates");
+          setRegroupNonce((n) => n + 1);
+          // The containment tree behind this page describes the same records
+          // the apply just rewrote — dropping it has it rebuilt on the way
+          // back, instead of showing the repositories the run removed.
+          setTree(null);
         }}
         scanning={scans.sourceReshape.status === "running" || scans.sourceDuplicates.status === "running"}
         active={active}
@@ -647,11 +665,12 @@ export function SourcesPanel({
           <ScanChip
             label={t("tools.sources.cleanupToggle")}
             status={combinedScanStatus(scans.sourceDuplicates.status, scans.sourceReshape.status)}
-            count={dupCount + reshapeCount}
+            count={dupCount + reshapeCount + regroupReport.groups.length}
             hint={t("tools.sources.cleanupChipHint", {
               links: reshapeReport?.totalOccurrences ?? 0,
               groups: reshapeCount,
               dups: dupCount,
+              repos: regroupReport.total,
             })}
             onOpen={() => setView("cleanup")}
           />

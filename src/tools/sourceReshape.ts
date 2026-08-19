@@ -2102,7 +2102,7 @@ const SITE_REPO: Partial<Record<ReshapeSite, { hostRe: RegExp; name: string; www
 
 /** The part of a repository's name after the site it belongs to —
  *  "FamilySearch.org - Croatia" holds "Croatia". */
-function repoNameTail(name: string): string {
+export function repoNameTail(name: string): string {
   return /^.*?\s[-–—]\s(.+)$/.exec(name.trim())?.[1].trim() ?? "";
 }
 

@@ -21,7 +21,7 @@ import {
 } from "../../tools/sourceReshape";
 import { type DuplicateReport, type DupGroup, type DupKind } from "../../tools/sourceDuplicates";
 import { applySourceCleanup } from "../../tools/sourceCleanupApply";
-import { scanRepoRegroup, type RepoRegroupGroup } from "../../tools/repoRegroup";
+import { type RepoRegroupGroup, type RepoRegroupReport } from "../../tools/repoRegroup";
 import type { Translate } from "../../locales/i18n";
 import type { RecordPatch } from "../historyTypes";
 import { familySpouses, recordCitedBy } from "../../tools/sources";
@@ -84,6 +84,7 @@ export function SourceCleanupView({
   reshapeReport: reshapeReportProp,
   dupReport: dupReportProp,
   dataset,
+  regroupReport,
   onNavigate,
   onBack,
   onApplyPatches,
@@ -94,6 +95,9 @@ export function SourceCleanupView({
   /** Null when that scan failed — the other tool keeps working. */
   reshapeReport: ReshapeReport | null;
   dupReport: DuplicateReport | null;
+  /** Which FamilySearch sources sit away from their country's repository —
+   *  read by the panel, so its chip can count this page's work too. */
+  regroupReport: RepoRegroupReport;
   dataset: Dataset;
   onNavigate: (id: string) => void;
   onBack: () => void;
@@ -249,14 +253,6 @@ export function SourceCleanupView({
     .filter((g) => !dupExcluded.has(g.id))
     .map((g) => withSurvivor(g, survivors.get(g.id) ?? defaultSurvivor(g)));
 
-  // Which FamilySearch sources sit away from their country's repository. The
-  // scan reads only the SOUR/REPO records, so it runs here rather than in the
-  // worker — and re-reads the file after each apply, which mutates it in place.
-  const regroupReport = useMemo(
-    () => scanRepoRegroup(dataset.records),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [dataset, applied, reshapeReport, dupReport],
-  );
   const selectedRegroupGroups = regroupReport.groups.filter((g) => !regroupExcluded.has(g.id));
 
   function apply() {
@@ -1133,7 +1129,6 @@ function RegroupRow({
   onNavigate: (id: string) => void;
   t: Translate;
 }) {
-  const emptied = new Set(group.emptied.map((e) => e.xref));
   return (
     <li className="tools-tree-node">
       <div className="tools-tree-row">
@@ -1160,10 +1155,9 @@ function RegroupRow({
                 <span className="tools-dup-title clickable" onClick={() => onNavigate(move.sourceXref)}>
                   {move.title}
                 </span>
-                <span className="tools-tree-meta">
-                  {move.fromName ?? t("tools.sources.noRepo")}
-                  {move.fromXref && emptied.has(move.fromXref) && ` · ${t("tools.sources.regroupRemoved")}`}
-                </span>
+                {/* Where it hangs today — which of them the move empties is
+                    the header's count, not a mark on every row. */}
+                <span className="tools-tree-meta">{move.fromName ?? t("tools.sources.noRepo")}</span>
               </li>
             ))}
           </ul>

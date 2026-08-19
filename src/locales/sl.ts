@@ -853,7 +853,6 @@ export const sl = {
   "tools.sources.regroupEmptied_two": "odstranjeni {{count}} hrambi",
   "tools.sources.regroupEmptied_few": "odstranjene {{count}} hrambe",
   "tools.sources.regroupEmptied_other": "odstranjenih {{count}} hramb",
-  "tools.sources.regroupRemoved": "ostane prazna",
   "tools.sources.cleanupApply": "Uveljavi v datoteki ({{count}})",
   "tools.sources.cleanupApplied_one": "Posodobljen {{count}} zapis — razveljavite s Ctrl+Z, shranite, da ostane.",
   "tools.sources.cleanupApplied_two": "Posodobljena {{count}} zapisa — razveljavite s Ctrl+Z, shranite, da ostane.",
@@ -862,7 +861,7 @@ export const sl = {
   "tools.sources.reshapeIntro":
     "Arhivske povezave (Matricula Online, Geneanet pokopališča, FamilySearch), ki so v datoteki zapisane kot gole povezave, opombe ali besedilne navedbe, so tu zbrane po matični knjigi ali grobu. Izberite skupine za pretvorbo in jih uveljavite: vsaka postane v vaši datoteki pravi vir z navedbami po straneh, in to v enem razveljavljivem koraku.",
   "tools.sources.reshapeFound": "povezave: {{links}} · skupine virov: {{groups}}",
-  "tools.sources.cleanupChipHint": "{{links}} arhivskih povezav v {{groups}} skupinah virov · {{dups}} skupin dvojnikov",
+  "tools.sources.cleanupChipHint": "{{links}} arhivskih povezav v {{groups}} skupinah virov · {{dups}} skupin dvojnikov · virov za ureditev po državah: {{repos}}",
   "tools.sources.reshapeSite.matricula": "Matricula Online",
   "tools.sources.reshapeSite.geneanet": "Geneanet pokopališča",
   "tools.sources.reshapeSite.geneanettree": "Geneanet drevesa",
