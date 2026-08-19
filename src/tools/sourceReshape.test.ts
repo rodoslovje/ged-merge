@@ -576,6 +576,48 @@ describe("reshapeSources — apply", () => {
     expect(text).toMatch(/1 BURI\n2 PLAC Žabnica,Kranj,Slovenia\n2 SOUR @S1@/); // burial place filled
   });
 
+  it("keeps the view id in a looked-up cemetery's title, so two graves differ", () => {
+    // Every grave in one cemetery answers with the same name. Without the id
+    // the file fills with sources called "Pokopališče Kranj - Geneanet
+    // Cemeteries" that nothing tells apart — and the duplicate finder, which
+    // compares a record's own content, reads two graves as one record.
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NOTE https://en.geneanet.org/cemetery/view/9833001
+0 @I2@ INDI
+1 NOTE https://en.geneanet.org/cemetery/view/9833663
+0 TRLR`);
+    const report = findReshapableLinks(ds);
+    const enrichment = new Map(
+      report.groups.map((g) => [g.id, { title: "Pokopališče Kranj - Geneanet Cemeteries", place: "Kranj, Slovenia" }]),
+    );
+    const text = serializeGedcom(reshapeSources(ds.records, report.groups, enrichment).records);
+    expect(text).toContain("1 TITL Pokopališče Kranj - 9833001 - Geneanet Cemeteries");
+    expect(text).toContain("1 TITL Pokopališče Kranj - 9833663 - Geneanet Cemeteries");
+    // …and the id is a field of its own, not only part of the name.
+    expect(text).toContain("1 FILN 9833001");
+  });
+
+  it("fills the filing number a reused source was made without", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NOTE https://en.geneanet.org/cemetery/view/9833001
+0 @S1@ SOUR
+1 TITL Pokopališče Kranj - Geneanet Cemeteries
+1 OBJE @M1@
+0 @M1@ OBJE
+1 FILE https://en.geneanet.org/cemetery/view/9833001
+0 TRLR`);
+    const report = findReshapableLinks(ds);
+    expect(report.groups[0].existingSourceXref).toBe("@S1@");
+    const text = serializeGedcom(reshapeSources(ds.records, report.groups).records);
+    expect(text).toContain("1 FILN 9833001");
+    // The reader's own title is theirs — only the empty field is filled.
+    expect(text).toContain("1 TITL Pokopališče Kranj - Geneanet Cemeteries");
+  });
+
   it("writes the spec's DATA coverage in a standard-coverage file", () => {
     const ds = dataset(`0 HEAD
 1 CHAR UTF-8

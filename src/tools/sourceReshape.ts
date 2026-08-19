@@ -2428,6 +2428,25 @@ export function applySiteSourceExtras(
 }
 
 /**
+ * What a group's source is called once the lookup has spoken. The lookup names
+ * the thing itself — a cemetery, a register — while the id that tells one of
+ * them from the next is the group's own, read from the link. A Geneanet
+ * cemetery is the case that needs both: every grave in one cemetery answers
+ * with the same name, so a title without the view id leaves a file full of
+ * sources called "Pokopališče Kranj - Geneanet Cemeteries" that nothing can
+ * tell apart — the duplicate finder included, which reads two of them as one
+ * record under different ids.
+ */
+function enrichedTitle(g: ReshapeGroup, extra: ReshapeMeta | undefined): string {
+  const title = extra?.title ?? g.proposed.title;
+  const id = g.proposed.filingNumber;
+  if (!extra?.title || g.site !== "geneanet" || !id || title.includes(id)) return title;
+  const label = "Geneanet Cemeteries";
+  const name = title.endsWith(` - ${label}`) ? title.slice(0, -label.length - 3) : title;
+  return siteTitle(name, id, label);
+}
+
+/**
  * Apply the reshape for the selected groups on a fresh clone of `records` —
  * the input is never mutated. `enrichment` (from {@link fetchReshapeMeta})
  * overrides the offline-proposed source fields per group id.
@@ -2512,7 +2531,7 @@ export function reshapeSources(
     const extra = enrichment?.get(key);
     const bookType = extra?.bookType ?? g.bookType;
     const fields = {
-      title: extra?.title ?? g.proposed.title,
+      title: enrichedTitle(g, extra),
       author: extra?.author ?? g.proposed.author,
       periodical: extra?.periodical,
       publisher: extra?.publisher,
@@ -2526,8 +2545,14 @@ export function reshapeSources(
 
     // --- Resolve the target SOUR record: reuse, adopt a URL-titled one, or create.
     let sourceNode = g.existingSourceXref ? byXref.get(g.existingSourceXref) : undefined;
-    if (sourceNode) counts.sourcesReused++;
-    else {
+    if (sourceNode) {
+      counts.sourcesReused++;
+      // A record made before the id was known keeps its own title, but the
+      // empty filing number is the tool's to fill: it is the id the link
+      // carries, and without it nothing on the record says which grave (or
+      // which book) this is.
+      fillField(sourceNode, "FILN", fields.filingNumber);
+    } else {
       sourceNode = createSourceRecord(clone, fields);
       byXref.set(sourceNode.xref!, sourceNode);
       counts.sourcesCreated++;
