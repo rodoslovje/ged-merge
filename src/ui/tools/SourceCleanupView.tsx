@@ -21,6 +21,8 @@ import {
 } from "../../tools/sourceReshape";
 import { type DuplicateReport, type DupGroup, type DupKind } from "../../tools/sourceDuplicates";
 import { applySourceCleanup } from "../../tools/sourceCleanupApply";
+import { scanRepoRegroup, type RepoRegroupGroup } from "../../tools/repoRegroup";
+import type { Translate } from "../../locales/i18n";
 import type { RecordPatch } from "../historyTypes";
 import { familySpouses, recordCitedBy } from "../../tools/sources";
 import { UsageList } from "./shared";
@@ -145,6 +147,8 @@ export function SourceCleanupView({
   // Duplicates: excluded groups + survivor overrides keyed by group id.
   const [dupExcluded, setDupExcluded] = useState<Set<string>>(new Set());
   const [survivors, setSurvivors] = useState<Map<string, string>>(new Map());
+  // Repositories: the countries whose regroup is unticked.
+  const [regroupExcluded, setRegroupExcluded] = useState<Set<string>>(new Set());
 
   // Esc leaves the sub-page, matching the chart overlays — but only while it
   // is the view on screen (see the `active` prop).
@@ -169,6 +173,7 @@ export function SourceCleanupView({
   const toggleGroup = toggleIn(setExcluded);
   const toggleExpand = toggleIn(setExpanded);
   const toggleDupGroup = toggleIn(setDupExcluded);
+  const toggleRegroupGroup = toggleIn(setRegroupExcluded);
 
   const toggleSite = (site: ReshapeSite) =>
     setSites((s) => {
@@ -235,6 +240,16 @@ export function SourceCleanupView({
     .filter((g) => !dupExcluded.has(g.id))
     .map((g) => withSurvivor(g, survivors.get(g.id) ?? defaultSurvivor(g)));
 
+  // Which FamilySearch sources sit away from their country's repository. The
+  // scan reads only the SOUR/REPO records, so it runs here rather than in the
+  // worker — and re-reads the file after each apply, which mutates it in place.
+  const regroupReport = useMemo(
+    () => scanRepoRegroup(dataset.records),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dataset, applied, reshapeReport, dupReport],
+  );
+  const selectedRegroupGroups = regroupReport.groups.filter((g) => !regroupExcluded.has(g.id));
+
   function apply() {
     // Reshape first (its existing-source targets are original xrefs), then
     // dedupe — which also re-points the citations the reshape just wrote.
@@ -251,6 +266,7 @@ export function SourceCleanupView({
         },
       },
       selectedDupGroups,
+      selectedRegroupGroups,
     );
     setApplied(onApplyPatches(patches));
   }
@@ -335,24 +351,30 @@ export function SourceCleanupView({
 
   const hasReshape = reshapeReport.groups.length > 0;
   const hasDups = dupReport.groups.length > 0;
-  const nothingSelected = selectedGroups.length === 0 && selectedDupGroups.length === 0;
+  const hasRegroup = regroupReport.groups.length > 0;
+  const nothingSelected =
+    selectedGroups.length === 0 && selectedDupGroups.length === 0 && selectedRegroupGroups.length === 0;
 
   // The page's one primary action, on the head of the first list it acts on —
-  // where Geocoding and Naming keep theirs. It covers both sections, so it is
-  // rendered once: on the links list when there is one, else on the duplicates.
-  // Its count says how many groups will change; the summary above already
-  // spells out what the file holds, so nothing repeats it here.
+  // where Geocoding and Naming keep theirs. It covers every section, so it is
+  // rendered once: on the links list when there is one, else on the duplicates,
+  // else on the repositories. Its count says how many groups will change; the
+  // summary above already spells out what the file holds, so nothing repeats it.
+  const otherSelected = selectedDupGroups.length + selectedRegroupGroups.length;
   const applyAction = (
     <>
       <button className="nav-btn primary tools-run" onClick={apply} disabled={nothingSelected}>
         {/* Named after what it will actually do to the ticked rows: convert
-            links into sources, merge duplicates away, or — with both lists in
-            play — the two at once, which only "apply" covers. */}
-        {selectedDupGroups.length === 0
+            links into sources, merge duplicates away, gather sources under
+            their repository — or, with more than one list in play, the lot at
+            once, which only "apply" covers. */}
+        {otherSelected === 0
           ? t("tools.sources.applyConvert", { count: selectedGroups.length })
-          : selectedGroups.length === 0
+          : selectedGroups.length === 0 && selectedRegroupGroups.length === 0
             ? t("tools.sources.applyMerge", { count: selectedDupGroups.length })
-            : t("tools.sources.cleanupApply", { count: selectedGroups.length + selectedDupGroups.length })}
+            : selectedGroups.length === 0 && selectedDupGroups.length === 0
+              ? t("tools.sources.applyRegroup", { count: selectedRegroupGroups.length })
+              : t("tools.sources.cleanupApply", { count: selectedGroups.length + otherSelected })}
       </button>
       {applied > 0 && <span className="tools-fix-hint">{t("tools.sources.cleanupApplied", { count: applied })}</span>}
     </>
@@ -373,6 +395,7 @@ export function SourceCleanupView({
                 groups: visibleGroups.length,
               }),
             hasDups && t("tools.sources.dupFound", { count: dupReport.groups.length }),
+            hasRegroup && t("tools.sources.regroupFound", { count: regroupReport.total }),
           ]
             .filter(Boolean)
             .join(" · ")}
@@ -540,6 +563,42 @@ export function SourceCleanupView({
               </ul>
             </div>
           ))}
+        </section>
+      )}
+
+      {hasRegroup && (
+        <section className="tools-cleanup-section">
+          <div className="tools-dup-kind-head">
+            {t("tools.sources.regroupHeading")}
+            <span className="tools-chip-count">{regroupReport.groups.length}</span>
+            <div className="tools-dup-bulk">
+              {!hasReshape && !hasDups && applyAction}
+              <button className="tools-issue-link" onClick={() => setRegroupExcluded(new Set())}>
+                {t("tools.sources.dupSelectAll")}
+              </button>
+              <button
+                className="tools-issue-link"
+                onClick={() => setRegroupExcluded(new Set(regroupReport.groups.map((g) => g.id)))}
+              >
+                {t("tools.sources.dupSelectNone")}
+              </button>
+            </div>
+          </div>
+          <p className="tools-intro">{t("tools.sources.regroupIntro")}</p>
+          <ul className="tools-tree">
+            {regroupReport.groups.map((group) => (
+              <RegroupRow
+                key={group.id}
+                group={group}
+                checked={!regroupExcluded.has(group.id)}
+                open={expanded.has(`repo:${group.id}`)}
+                onToggleCheck={() => toggleRegroupGroup(group.id)}
+                onToggleOpen={() => toggleExpand(`repo:${group.id}`)}
+                onNavigate={onNavigate}
+                t={t}
+              />
+            ))}
+          </ul>
         </section>
       )}
 
@@ -1016,6 +1075,66 @@ function DupGroupRow({
           {peopleOpen && (
             <DupGroupUses dataset={dataset} xrefs={group.members.map((m) => m.xref)} onNavigate={onNavigate} />
           )}
+        </div>
+      )}
+    </li>
+  );
+}
+
+/** One country's regroup: a checkbox to include it, the repository its sources
+ *  join, and an expandable list of the sources moving — each with the record it
+ *  hangs off today, and a mark on the repositories the move empties. */
+function RegroupRow({
+  group,
+  checked,
+  open,
+  onToggleCheck,
+  onToggleOpen,
+  onNavigate,
+  t,
+}: {
+  group: RepoRegroupGroup;
+  checked: boolean;
+  open: boolean;
+  onToggleCheck: () => void;
+  onToggleOpen: () => void;
+  onNavigate: (id: string) => void;
+  t: Translate;
+}) {
+  const emptied = new Set(group.emptied.map((e) => e.xref));
+  return (
+    <li className="tools-tree-node">
+      <div className="tools-tree-row">
+        <input type="checkbox" className="tools-dup-check" checked={checked} onChange={onToggleCheck} />
+        <button className={`tools-pair-toggle ${open ? "open" : ""}`} onClick={onToggleOpen} aria-expanded={open}>
+          ▶
+        </button>
+        <span className="tools-tree-label clickable" onClick={onToggleOpen} title={group.repoName}>
+          {group.repoName}
+        </span>
+        <span className="tools-chip-count">{group.moves.length}</span>
+        <span className="tools-tree-meta">
+          {group.targetXref
+            ? t("tools.sources.regroupExisting")
+            : t("tools.sources.regroupNew")}
+          {group.emptied.length > 0 && ` · ${t("tools.sources.regroupEmptied", { count: group.emptied.length })}`}
+        </span>
+      </div>
+      {open && (
+        <div className="tools-tree-children">
+          <ul className="tools-dup-members">
+            {group.moves.map((move) => (
+              <li key={move.sourceXref} className="tools-dup-member">
+                <span className="tools-dup-title clickable" onClick={() => onNavigate(move.sourceXref)}>
+                  {move.title}
+                </span>
+                <span className="tools-tree-meta">
+                  {move.fromName ?? t("tools.sources.noRepo")}
+                  {move.fromXref && emptied.has(move.fromXref) && ` · ${t("tools.sources.regroupRemoved")}`}
+                </span>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
     </li>

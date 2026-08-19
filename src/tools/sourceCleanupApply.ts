@@ -7,6 +7,7 @@ import { familySearchPageUrl } from "../normalize/links";
 import { cloneRaw, type RecordPatch } from "../ui/historyTypes";
 import { reshapeSources, type ReshapeEnrichment, type ReshapeGroup, type ReshapeOptions } from "./sourceReshape";
 import { dedupeSources, type DupGroup } from "./sourceDuplicates";
+import { regroupRepositories, type RepoRegroupGroup } from "./repoRegroup";
 
 /**
  * Apply the Sources tools — Organize sources' reshape and the duplicate-source
@@ -28,11 +29,15 @@ export function applySourceCleanup(
   dataset: Dataset,
   reshape: { groups: ReshapeGroup[]; enrichment: ReshapeEnrichment; options: ReshapeOptions },
   dupGroups: DupGroup[],
+  regroupGroups: RepoRegroupGroup[] = [],
 ): RecordPatch[] {
   const reshaped = reshape.groups.length
     ? reshapeSources(dataset.records, reshape.groups, reshape.enrichment, reshape.options).records
     : dataset.records;
-  const next = dupGroups.length ? dedupeSources(reshaped, dupGroups).records : reshaped;
+  const deduped = dupGroups.length ? dedupeSources(reshaped, dupGroups).records : reshaped;
+  // The regroup runs last, so the sources the reshape just created are
+  // gathered under their country's repository along with the older ones.
+  const next = regroupGroups.length ? regroupRepositories(deduped, regroupGroups).records : deduped;
   if (next === dataset.records) return [];
 
   // A media group merged away duplicates that differed only by viewer state —
