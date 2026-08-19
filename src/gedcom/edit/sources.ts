@@ -1,4 +1,4 @@
-import { isPointer, objeInfoOf } from "../source";
+import { isPointer, objeInfoOf, resolveSourceCitation } from "../source";
 import { childrenByTag, firstChild } from "../node";
 import type { Dataset, GedNode } from "../types";
 import { insertGrouped, insertOrdered, insertRecord, nextXref } from "./shared";
@@ -400,12 +400,33 @@ export function sourceRecordEditFields(records: GedNode[], sourceNode: GedNode):
  * Remove the `index`th `SOUR` citation from `record` (an event node, or a
  * top-level INDI/FAM record), then delete the cited `SOUR`/`OBJE` records if
  * nothing else in the dataset still references them.
+ *
+ * The citation's page image goes with it: in the "on events" page-media style
+ * an added citation also links its page's `OBJE` beside itself on the same
+ * node, and that pointer left behind would both keep the `OBJE` record alive
+ * through the prune and linger as a read-only link chip with no way to remove
+ * it. Only the removed citation's own page image is unlinked (resolved the
+ * same way the edit dialog resolves it), and only if no remaining citation on
+ * the node still resolves to it — media the user attached independently of
+ * any citation is untouched.
  */
 export function removeSourceCitationAtIndex(dataset: Dataset, record: GedNode, index: number): void {
   const node = sourceCitationNodes(record)[index];
   if (!node) return;
+  const ctx = getMediaAndSourceCtx(dataset.records).sourceCtx;
+  const pageObjeXref = resolveSourceCitation(node, ctx)?.objeXref;
   const i = record.children.indexOf(node);
   if (i !== -1) record.children.splice(i, 1);
+  if (pageObjeXref) {
+    const stillClaimed = sourceCitationNodes(record).some(
+      (c) => resolveSourceCitation(c, ctx)?.objeXref === pageObjeXref,
+    );
+    if (!stillClaimed) {
+      record.children = record.children.filter(
+        (c) => !(c.tag === "OBJE" && c.value?.trim() === pageObjeXref),
+      );
+    }
+  }
   const sourceXref = node.value?.trim();
   if (sourceXref) pruneUnreferencedSource(dataset, sourceXref);
 }

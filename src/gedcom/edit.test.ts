@@ -1631,6 +1631,57 @@ describe("removeSourceCitationAtIndex", () => {
     removeSourceCitationAtIndex(ds, indi1.raw, 0);
     expect(ds.records.some((r) => r.xref === source.xref)).toBe(true);
   });
+
+  it("takes the citation's page-image link on the node with it", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+    const source = createSourceRecord(ds.records, { title: "Poročna knjiga" });
+    const obje = addObjeToSource(ds.records, source.xref!, "https://example.com/book/?pg=4");
+    attachSourceCitation(indi.raw, source.xref!, "4", INDI_CHILD_ORDER);
+    // The "on events" page-media style links the cited page beside the citation.
+    indi.raw.children.push({ level: 1, tag: "OBJE", value: obje.xref, children: [] });
+
+    removeSourceCitationAtIndex(ds, indi.raw, 0);
+    expect(indi.raw.children.some((c) => c.tag === "OBJE")).toBe(false);
+    expect(ds.records.some((r) => r.xref === source.xref)).toBe(false);
+    expect(ds.records.some((r) => r.tag === "OBJE")).toBe(false);
+    expect(rebuildIndividual(ds, indi).links ?? []).toHaveLength(0);
+  });
+
+  it("leaves media unrelated to the removed citation on the node", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+    const source = createSourceRecord(ds.records, { title: "Krstna knjiga" });
+    const page = addObjeToSource(ds.records, source.xref!, "https://example.com/book/?pg=2");
+    const photo = createMediaRecord(ds.records, "https://example.com/photo.jpg");
+    attachSourceCitation(indi.raw, source.xref!, "2", INDI_CHILD_ORDER);
+    indi.raw.children.push({ level: 1, tag: "OBJE", value: page.xref, children: [] });
+    indi.raw.children.push({ level: 1, tag: "OBJE", value: photo.xref, children: [] });
+
+    removeSourceCitationAtIndex(ds, indi.raw, 0);
+    const remaining = indi.raw.children.filter((c) => c.tag === "OBJE").map((c) => c.value);
+    expect(remaining).toEqual([photo.xref]);
+    expect(ds.records.some((r) => r.xref === photo.xref)).toBe(true);
+  });
+
+  it("keeps the page link while another citation on the node still resolves to it", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+    const source = createSourceRecord(ds.records, { title: "X", url: "https://example.com/a" });
+    const objeXref = source.children.find((c) => c.tag === "OBJE")!.value!;
+    attachSourceCitation(indi.raw, source.xref!, undefined, INDI_CHILD_ORDER);
+    attachSourceCitation(indi.raw, source.xref!, undefined, INDI_CHILD_ORDER);
+    indi.raw.children.push({ level: 1, tag: "OBJE", value: objeXref, children: [] });
+
+    removeSourceCitationAtIndex(ds, indi.raw, 0);
+    expect(indi.raw.children.some((c) => c.tag === "OBJE" && c.value === objeXref)).toBe(true);
+    expect(ds.records.some((r) => r.xref === source.xref)).toBe(true);
+
+    removeSourceCitationAtIndex(ds, indi.raw, 0);
+    expect(indi.raw.children.some((c) => c.tag === "OBJE")).toBe(false);
+    expect(ds.records.some((r) => r.xref === source.xref)).toBe(false);
+    expect(ds.records.some((r) => r.tag === "OBJE")).toBe(false);
+  });
 });
 
 describe("updateSourceCitation", () => {
