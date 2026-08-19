@@ -2669,29 +2669,42 @@ describe("FamilySearch image links", () => {
     expect(meta?.place).toBe("Pakrac");
   });
 
-  it("attaches to the file's own repository for that collection", () => {
+  it("attaches to the file's own repository for that country", () => {
     const ds = dataset([
       "0 HEAD",
       "1 GEDC",
       "2 VERS 5.5.1",
       "0 @R1@ REPO",
-      "1 NAME FamilySearch.org - Slovenia Church Books 1521-1997",
+      "1 NAME FamilySearch.org - Slovenia",
       "0 @R2@ REPO",
-      "1 NAME FamilySearch.org - Croatia Church Books 1516-1994",
+      "1 NAME FamilySearch.org - Croatia",
       "0 @R3@ REPO",
       "1 NAME Matricula Online - Nadškofijski arhiv Ljubljana",
       "1 WWW https://data.matricula-online.eu/sl/slovenia/ljubljana/",
       "0 TRLR",
     ].join("\n"));
-    // Neither FamilySearch repository has a WWW: only the collection's name
-    // tells them apart, and it arrives with the lookup.
-    expect(proposedSiteRepo(ds.records, "familysearch", IMAGE_URL, undefined)?.xref).toBe("@R1@");
+    // Neither FamilySearch repository has a WWW: only the country in its name
+    // tells them apart, and the collection title states it.
     expect(
       proposedSiteRepo(ds.records, "familysearch", IMAGE_URL, undefined, {
         title: "Croatia, Church Books, 1516-1994",
       })?.xref,
     ).toBe("@R2@");
-    // The collection id in a repository's WWW settles it without the lookup.
+    // The place the records cover says it outright, whatever the title reads.
+    expect(
+      proposedSiteRepo(ds.records, "familysearch", IMAGE_URL, undefined, {
+        title: "Zbirka",
+        place: "Ravna Gora, Primorje-Gorski Kotar, Croatia",
+      })?.xref,
+    ).toBe("@R2@");
+    // A country no repository holds must not fall back to another country's —
+    // a new one is proposed instead…
+    expect(
+      proposedSiteRepo(ds.records, "familysearch", BOOK_ONLY_URL, undefined, {
+        title: "Illinois, Cook County Deaths, 1871-1998",
+      }),
+    ).toEqual({ createName: "FamilySearch.org - United States" });
+    // …though a *generic* site repository still serves every country.
     const withWww = dataset([
       "0 HEAD",
       "1 GEDC",
@@ -2699,50 +2712,61 @@ describe("FamilySearch image links", () => {
       "0 @R1@ REPO",
       "1 NAME FamilySearch",
       "1 WWW https://www.familysearch.org/",
-      "0 @R2@ REPO",
-      "1 NAME Hrvatske crkvene knjige",
-      "1 WWW https://www.familysearch.org/search/collection/2040054",
       "0 TRLR",
     ].join("\n"));
-    expect(proposedSiteRepo(withWww.records, "familysearch", IMAGE_URL, undefined)?.xref).toBe("@R2@");
-    // …and for a link that carries no cc at all, the id the lookup read.
-    expect(proposedSiteRepo(withWww.records, "familysearch", BOOK_ONLY_URL, undefined)?.xref).toBe("@R1@");
-    expect(
-      proposedSiteRepo(withWww.records, "familysearch", BOOK_ONLY_URL, undefined, { id: "2040054" })?.xref,
-    ).toBe("@R2@");
-    // Matricula's archive still wins over a bare familysearch.org repository.
-    expect(proposedSiteRepo(ds.records, "matricula", BOOK, "Nadškofijski arhiv Ljubljana")?.xref).toBe("@R3@");
-    // A named collection no repository holds must not fall back to another
-    // collection's repository — a new one is proposed instead…
-    expect(
-      proposedSiteRepo(ds.records, "familysearch", BOOK_ONLY_URL, undefined, {
-        title: "Chicago, Cook, Illinois, United States records",
-      }),
-    ).toEqual({ createName: "FamilySearch.org - Chicago, Cook, Illinois, United States records" });
-    // …though a *generic* site repository still serves every collection.
     expect(
       proposedSiteRepo(withWww.records, "familysearch", BOOK_ONLY_URL, undefined, {
-        title: "Chicago, Cook, Illinois, United States records",
+        title: "Illinois, Cook County Deaths, 1871-1998",
       })?.xref,
     ).toBe("@R1@");
+    // A repository kept for one collection names a country inside a title,
+    // which is not the country's own record: the country's is proposed.
+    const perCollection = dataset([
+      "0 HEAD",
+      "1 GEDC",
+      "2 VERS 5.5.1",
+      "0 @R1@ REPO",
+      "1 NAME FamilySearch.org - Croatia Church Books 1516-1994",
+      "0 TRLR",
+    ].join("\n"));
+    expect(
+      proposedSiteRepo(perCollection.records, "familysearch", IMAGE_URL, undefined, {
+        title: "Croatia, Church Books, 1516-1994",
+      }),
+    ).toEqual({ createName: "FamilySearch.org - Croatia" });
+    // Matricula's archive still wins over a bare familysearch.org repository.
+    expect(proposedSiteRepo(ds.records, "matricula", BOOK, "Nadškofijski arhiv Ljubljana")?.xref).toBe("@R3@");
   });
 
-  it("names a repository it has to create after the collection", () => {
+  it("names a repository it has to create after the country of its records", () => {
     const empty = dataset(["0 HEAD", "1 GEDC", "2 VERS 5.5.1", "0 TRLR"].join("\n"));
+    // A link naming no country at all keeps the site's own bare record.
     expect(proposedSiteRepo(empty.records, "familysearch", IMAGE_URL, undefined)?.createName).toBe("FamilySearch.org");
     expect(
       proposedSiteRepo(empty.records, "familysearch", IMAGE_URL, undefined, {
         title: "Croatia, Church Books, 1516-1994",
       })?.createName,
-    ).toBe("FamilySearch.org - Croatia, Church Books, 1516-1994");
+    ).toBe("FamilySearch.org - Croatia");
+    // A place reaching its country only through a state still names it…
+    expect(
+      proposedSiteRepo(empty.records, "familysearch", IMAGE_URL, undefined, {
+        title: "Chicago, Cook, Illinois, United States records",
+        place: "Chicago, Cook, Illinois",
+      })?.createName,
+    ).toBe("FamilySearch.org - United States");
+    // …and where the file writes the country itself, that wording is kept.
+    expect(
+      proposedSiteRepo(empty.records, "familysearch", IMAGE_URL, undefined, {
+        place: "Ravna Gora, Primorje-Gorski Kotar, Hrvaška",
+      })?.createName,
+    ).toBe("FamilySearch.org - Hrvaška");
     const created = createSiteRepo(empty.records, "familysearch", BOOK_ONLY_URL, undefined, {
       title: "Croatia, Church Books, 1516-1994",
       id: "2040054",
     });
-    // Its WWW is the collection's own page, so the next link finds it by URL.
-    expect(created?.children.find((c) => c.tag === "WWW")?.value).toBe(
-      "https://www.familysearch.org/search/collection/2040054",
-    );
+    expect(created?.children.find((c) => c.tag === "NAME")?.value).toBe("FamilySearch.org - Croatia");
+    // A country's repository spans collections, so it carries the site itself.
+    expect(created?.children.find((c) => c.tag === "WWW")?.value).toBe("https://www.familysearch.org/");
   });
 
   it("folds the pages of one book into a single source, each citing its own page", () => {

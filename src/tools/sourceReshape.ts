@@ -18,6 +18,13 @@ import {
   parseFamilySearchUrl,
   type FamilySearchUrlParts,
 } from "../normalize/links";
+import {
+  countryCodeOfName,
+  countryFacetName,
+  countryNameOf,
+  placeCountryFacet,
+  titleCountryFacet,
+} from "../geo/placeCountry";
 import { detectPlaceLayout } from "../normalize/profile";
 import { normalizeDateString } from "../normalize/date";
 import { dateFixContext, proposeDateFix, type DateFixContext } from "./fixDates";
@@ -2071,21 +2078,41 @@ const SITE_REPO: Partial<Record<ReshapeSite, { hostRe: RegExp; name: string; www
   familysearch: { hostRe: /familysearch\.org/i, name: "FamilySearch.org", www: "https://www.familysearch.org/" },
 };
 
+/** The part of a repository's name after the site it belongs to —
+ *  "FamilySearch.org - Croatia" holds "Croatia". */
+function repoNameTail(name: string): string {
+  return /^.*?\s[-–—]\s(.+)$/.exec(name.trim())?.[1].trim() ?? "";
+}
+
+/**
+ * The country a repository record stands for: the one its name gives after
+ * the site, and only when that tail *is* a country's name. A repository kept
+ * for a single collection ("FamilySearch.org - Illinois, Cook County Deaths,
+ * 1871-1998") names a country inside a collection title, which is a different
+ * thing and must not answer for the country's own record.
+ */
+export function repoCountryFacet(name: string | undefined): string {
+  const tail = repoNameTail(name ?? "");
+  return tail && countryCodeOfName(tail) ? placeCountryFacet(tail) : "";
+}
+
 /** Existing REPO for a site: one whose WWW is on the site's host, or one named
  *  after the site — a file keeping a repository per collection may name it
  *  "FamilySearch.org - Croatia Church Books 1516-1994" and give it no WWW at
- *  all. Among several, the one naming any of `prefer` (the Matricula archive,
- *  the FamilySearch collection id or title) wins; else the first match. */
+ *  all. The country's own repository wins when one is wanted, then a record
+ *  naming any of `prefer` (the Matricula archive); else the first match. */
 function findSiteRepo(
   records: GedNode[],
   hostRe: RegExp,
   siteName: string,
   prefer: (string | undefined)[] = [],
-  /** With a specific collection wanted, fall back only to a *generic* site
-   *  repository — one kept for a different collection ("FamilySearch.org -
-   *  Croatia Church Books 1516-1994") would be the wrong home for a link
-   *  naming another, and the caller proposes creating the right one. */
+  /** With a specific country wanted, fall back only to a *generic* site
+   *  repository — one kept for another country, or for a single collection
+   *  ("FamilySearch.org - Croatia Church Books 1516-1994"), would be the wrong
+   *  home, and the caller proposes creating the right one. */
   strictFallback = false,
+  /** The country the source belongs to, for sites grouped by country. */
+  countryFacet = "",
 ): string | undefined {
   const wanted = prefer.map((p) => (p ? looseKey(p) : "")).filter(Boolean);
   const site = looseKey(siteName);
@@ -2096,14 +2123,15 @@ function findSiteRepo(
     const www = childText(rec, "WWW") ?? "";
     const name = childText(rec, "NAME") ?? "";
     if (!hostRe.test(www) && !looseKey(name).startsWith(site)) continue;
+    if (countryFacet && repoCountryFacet(name) === countryFacet) return rec.xref;
     const haystack = looseKey(`${name} ${www}`);
     if (wanted.some((w) => haystack.includes(w))) return rec.xref;
     anyMatch ??= rec.xref;
-    // Generic = named exactly after the site (no collection suffix), or a
-    // nameless record matched by a bare-host WWW.
+    // Generic = named exactly after the site (no country or collection
+    // suffix), or a nameless record matched by a bare-host WWW.
     if (name ? site.startsWith(looseKey(name)) : /^https?:\/\/[^/]+\/?$/i.test(www.trim())) genericMatch ??= rec.xref;
   }
-  return strictFallback && wanted.length ? genericMatch : anyMatch;
+  return strictFallback && (wanted.length || countryFacet) ? genericMatch : anyMatch;
 }
 
 /** The site's REPO for a new source: an existing one matched by WWW host
@@ -2120,54 +2148,69 @@ export function proposedSiteRepo(
   site: ReshapeSite,
   url: string,
   agency: string | undefined,
-  /** The FamilySearch collection this link belongs to, once known — it picks
-   *  the file's repository for that collection out of several. */
+  /** What the FamilySearch link covers, once known — the country read off it
+   *  picks the file's repository for that country out of several. */
   collection?: FsCollection,
 ): { xref?: string; createName?: string } | undefined {
   const repoDef = SITE_REPO[site];
   if (!repoDef) return undefined;
   const mat = site === "matricula" ? parseMatriculaUrl(url) : undefined;
+  const country = site === "familysearch" ? fsRepoCountry(collection) : undefined;
   const existing = findSiteRepo(
     records,
     repoDef.hostRe,
     repoDef.name,
-    [mat?.archiveSlug, collection?.id ?? fsCollectionId(site, url), collection?.title],
-    // FamilySearch files keep a repository per collection — once the citation
-    // or lookup names this link's, a repository holding a *different*
-    // collection must not swallow it. A bare URL (collection still unknown)
-    // keeps the lenient fallback; the lookup corrects it.
-    site === "familysearch" && Boolean(collection?.title ?? collection?.id),
+    [mat?.archiveSlug],
+    // FamilySearch repositories are kept per country — once the citation or
+    // lookup says which one this link covers, a repository for a different
+    // country (or for one single collection) must not swallow it. A bare URL
+    // (country still unknown) keeps the lenient fallback; the lookup corrects it.
+    Boolean(country?.facet),
+    country?.facet,
   );
   if (existing) return { xref: existing };
-  // Matricula repositories are the holding archive; the other sites
-  // are their own repository.
-  return { createName: siteRepoName(site, repoDef.name, agency, collection?.title) };
+  // Matricula repositories are the holding archive; FamilySearch keeps one per
+  // country of records; the other sites are their own repository.
+  return { createName: siteRepoName(site, repoDef.name, agency, country?.name) };
 }
 
-/** A FamilySearch collection as the repository logic needs it: what it is
- *  called, and its id — either may be missing. */
+/** What a FamilySearch link covers, as the repository logic needs it: the
+ *  collection it belongs to (title and id) and the place its records are
+ *  from. Any of them may be missing. */
 export interface FsCollection {
   title?: string;
   id?: string;
+  /** The place the records cover ("Chicago, Cook, Illinois, United States") —
+   *  the surest statement of the country whose repository holds the source. */
+  place?: string;
 }
 
-/** The `cc=` id of a FamilySearch collection link — the id a repository for
- *  that collection carries in its WWW. */
-function fsCollectionId(site: ReshapeSite, url: string): string | undefined {
-  return site === "familysearch" ? /[?&]cc=(\d+)/i.exec(url)?.[1] : undefined;
+/**
+ * The country a FamilySearch source belongs to: the one its place names,
+ * else the one its collection title opens with ("Illinois, Cook County
+ * Deaths, 1871-1998" is American). Named as the place itself writes it where
+ * it says so outright, and in English otherwise — the site and its collection
+ * titles are English, so a country read out of one is too.
+ */
+function fsRepoCountry(collection: FsCollection | undefined): { facet: string; name: string } | undefined {
+  const place = collection?.place?.trim();
+  const facet = (place && placeCountryFacet(place)) || titleCountryFacet(collection?.title ?? "");
+  if (!facet) return undefined;
+  const written = place && placeCountryFacet(place) === facet ? countryNameOf(place) : undefined;
+  return { facet, name: written ?? countryFacetName(facet, "en") };
 }
 
 /** What a new repository for the site is called: the holding archive for
- *  Matricula, the collection for a FamilySearch link that names one, else the
- *  site itself. */
+ *  Matricula, the country of the records for FamilySearch, else the site
+ *  itself. */
 function siteRepoName(
   site: ReshapeSite,
   siteName: string,
   agency: string | undefined,
-  collection: string | undefined,
+  country: string | undefined,
 ): string {
   if (site === "matricula" && agency) return agency;
-  if (site === "familysearch" && collection) return `${siteName} - ${collection}`;
+  if (site === "familysearch" && country) return `${siteName} - ${country}`;
   return siteName;
 }
 
@@ -2186,14 +2229,13 @@ export function createSiteRepo(
   const repoDef = SITE_REPO[site];
   if (!repoDef) return undefined;
   const mat = site === "matricula" ? parseMatriculaUrl(url) : undefined;
-  const name = nameOverride?.trim() || siteRepoName(site, repoDef.name, agency, collection?.title);
-  const fsCc = collection?.id ?? fsCollectionId(site, url);
+  const country = site === "familysearch" ? fsRepoCountry(collection) : undefined;
+  const name = nameOverride?.trim() || siteRepoName(site, repoDef.name, agency, country?.name);
+  // A country's repository spans many collections, so it carries the site's
+  // own address rather than any one collection's page.
   const www = mat
     ? `https://data.matricula-online.eu/${mat.lang}/${mat.country}/${mat.archiveSlug}/`
-    : // The collection's own page, so the next link into it finds this record.
-      fsCc
-      ? `https://www.familysearch.org/search/collection/${fsCc}`
-      : repoDef.www;
+    : repoDef.www;
   const repo: GedNode = { level: 0, xref: nextXref(records, "R"), tag: "REPO", children: [] };
   repo.children.push({ level: 1, tag: "NAME", value: name, children: [] });
   repo.children.push({ level: 1, tag: "WWW", value: www, children: [] });
@@ -2271,6 +2313,7 @@ export function applySiteSourceExtras(
   const repo = ensureSiteRepo(records, site, url, childText(sourceNode, "AGNC"), createRepos, {
     title: meta.collection,
     id: meta.collectionId,
+    place: meta.place,
   });
   if (!repo) return undefined;
   const link: GedNode = { level: sourceNode.level + 1, tag: "REPO", value: repo.xref, children: [] };
@@ -2401,8 +2444,9 @@ export function reshapeSources(
         fillField(sourceNode, "DATE", fields.dateRange);
       }
       const repo = ensureSiteRepo(clone, g.site, state.hits[0].url, fields.agency, createRepos, {
-        title: extra?.collection,
+        title: extra?.collection ?? fields.title,
         id: extra?.collectionId,
+        place: fields.place,
       });
       if (repo) {
         if (repo.created) byXref.set(repo.created.xref!, repo.created);

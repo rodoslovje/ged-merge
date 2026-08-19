@@ -180,27 +180,30 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
             recognized.site,
             normalizedUrl,
             recognized.proposed.agency,
-            // The collection a pasted citation names offline finds (or names)
-            // the per-collection repository the bare URL could not.
-            recognized.collection ? { title: recognized.collection } : undefined,
+            // The place and collection a pasted citation names say which
+            // country's repository holds the source; a bare URL says neither.
+            {
+              title: recognized.collection ?? recognized.proposed.title,
+              place: recognized.proposed.place,
+            },
           )
         : undefined,
     [recognized, normalizedUrl, dataset],
   );
-  // The same proposal once the lookup has named the link's collection: a file
-  // that keeps one repository per FamilySearch collection ("FamilySearch.org -
-  // Croatia Church Books 1516-1994") can only be matched by that name, and a
-  // repository created for the link takes it too. Deliberately separate from
-  // `repoDefault` — it must not re-seed the fields the lookup just filled.
+  // The same proposal once the lookup has answered: it names the collection
+  // and the place the records cover, which is what picks the country's
+  // repository. Deliberately separate from `repoDefault` — it must not re-seed
+  // the fields the lookup just filled.
   const repoFetched = useMemo(
     () =>
-      recognized && normalizedUrl && (fetched?.collection || fetched?.collectionId)
+      recognized && normalizedUrl && (fetched?.collection || fetched?.collectionId || fetched?.place)
         ? proposedSiteRepo(dataset.records, recognized.site, normalizedUrl, recognized.proposed.agency, {
             title: fetched.collection,
             id: fetched.collectionId,
+            place: fetched.place ?? recognized.proposed.place,
           })
         : undefined,
-    [recognized, normalizedUrl, dataset, fetched?.collection, fetched?.collectionId],
+    [recognized, normalizedUrl, dataset, fetched?.collection, fetched?.collectionId, fetched?.place],
   );
   const repoProposal = repoFetched ?? repoDefault;
   // The registers this book holds, and the metadata as the chosen one leaves

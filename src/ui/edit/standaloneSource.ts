@@ -61,7 +61,7 @@ export function createStandaloneSource(
         fields.site,
         fields.url ?? "",
         fields.agency,
-        { title: fields.collection, id: fields.collectionId },
+        { title: fields.collection ?? fields.title, id: fields.collectionId, place: fields.place },
         createName,
       );
       if (repo) {
