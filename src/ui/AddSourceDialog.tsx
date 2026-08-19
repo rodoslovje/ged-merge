@@ -291,6 +291,43 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
     setRepoCaln(f.repoCaln ?? "");
   }, [editing]);
 
+  /**
+   * Read the page behind the URL again and fill these fields from it — the
+   * button the editor offers. A record written offline (or before the site
+   * could answer) holds what the link alone said: an id for a title and
+   * little else. The answer lands in the form, not in the file, so it is
+   * checked before Save writes any of it; a field the lookup cannot speak to
+   * keeps what it has.
+   */
+  async function refetch() {
+    const url = fields.url.trim();
+    if (!url || fetching || !settings.allowLinkFetch) return;
+    const normalized = familySearchPageUrl(rewriteLinkLang(url, mainLinkLangs));
+    const site = recognizeSourceUrl(normalized, undefined);
+    setFetching(true);
+    const request: Promise<ReshapeMeta | undefined> = site
+      ? fetchBookMeta(site.site, site.bookUrl, fetchPageHtml)
+      : fetchPageTitle(normalized).then((title) => (title ? { title } : undefined));
+    const meta = await request.catch(() => undefined);
+    setFetching(false);
+    if (!meta) return;
+    setFetched(meta);
+    const keep = (current: string, value: string | undefined) => value?.trim() || current;
+    setFields((f) => ({
+      ...f,
+      title: keep(f.title, meta.title),
+      author: keep(f.author, meta.author),
+      periodical: keep(f.periodical, meta.periodical),
+      publisher: keep(f.publisher, meta.publisher),
+      agency: keep(f.agency, meta.agency),
+      place: keep(f.place, resolvePlace(meta.place)),
+      // The id the link itself carries — a Geneanet view, a Matricula book —
+      // is as good offline as it is after the lookup.
+      filingNumber: keep(f.filingNumber, meta.filingNumber ?? site?.proposed.filingNumber),
+      page: keep(f.page, meta.page ?? site?.page),
+    }));
+  }
+
   // Best-effort metadata fetch for a bare URL with nothing else to go on.
   // Gated behind the opt-in setting — this is the one path that sends a URL off
   // the user's machine (to the public CORS relay), so it's off by default.
@@ -644,6 +681,22 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
                 <a className="edit-link-open" href={linkHref(fields.url.trim())} target="_blank" rel="noopener noreferrer" title={linkTooltip(fields.url.trim(), t, t("edit.openLink"))}>
                   ↗
                 </a>
+              )}
+              {/* Read the page again and fill these fields from it — for a
+                  record made before the lookup could answer, or made offline
+                  from the link alone. Only ever offered while the reader has
+                  online lookups on; the fields are the reader's to check
+                  before Save writes any of it. */}
+              {editing && fields.url.trim() && (
+                <button
+                  type="button"
+                  className="tree-open-btn add-source-refetch"
+                  disabled={fetching || !settings.allowLinkFetch}
+                  title={settings.allowLinkFetch ? t("editSource.refetchHint") : t("tools.geocode.downloadNeedsOptIn")}
+                  onClick={() => void refetch()}
+                >
+                  {fetching ? "…" : t("editSource.refetch")}
+                </button>
               )}
             </span>
           </label>

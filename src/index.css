@@ -6378,6 +6378,9 @@ kbd {
 .media-link-dialog { width: 520px; }
 .add-source-url-wrap { display: flex; align-items: center; gap: 6px; }
 .add-source-url-wrap input.edit-input { flex: 1; width: auto; }
+/* Reads the page again into the fields — sized to sit beside the link's ↗
+   without crowding the input it belongs to. */
+.add-source-refetch { flex: none; white-space: nowrap; padding: 4px 10px; font-size: 0.85rem; }
 /* Pinned footer: filled-accent primary on the right, ghost cancel beside. */
 .add-source-actions {
   display: flex;

@@ -2552,6 +2552,11 @@ export function reshapeSources(
       // carries, and without it nothing on the record says which grave (or
       // which book) this is.
       fillField(sourceNode, "FILN", fields.filingNumber);
+      // The call number mirrors it inside the repository — written when the
+      // repository link is made, and so missing on every source whose link
+      // was made before the id was known. Filled here for the same reason.
+      const repoLink = firstChild(sourceNode, "REPO");
+      if (repoLink) fillField(repoLink, "CALN", fields.filingNumber);
     } else {
       sourceNode = createSourceRecord(clone, fields);
       byXref.set(sourceNode.xref!, sourceNode);

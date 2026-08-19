@@ -1878,6 +1878,8 @@ export const sl = {
   "editRepo.phone": "Telefon",
   "editRepo.email": "E-pošta",
   "editSource.title": "Uredi vir",
+  "editSource.refetch": "Poišči znova",
+  "editSource.refetchHint": "Stran za to povezavo se prebere znova, ta polja pa se izpolnijo s tem, kar pove. Dokler ne shranite, se v datoteko ne zapiše nič, polje, o katerem stran ne pove ničesar, pa obdrži svojo vsebino.",
   "editSource.save": "Shrani",
   "editSource.remove": "Odstrani",
   "event.BIRT": "Rojstvo",

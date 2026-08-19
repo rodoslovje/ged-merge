@@ -1629,6 +1629,8 @@ export const en = {
   "editRepo.phone": "Phone",
   "editRepo.email": "E-mail",
   "editSource.title": "Edit Source",
+  "editSource.refetch": "Fetch again",
+  "editSource.refetchHint": "Read the page behind this link again and fill these fields from what it says. Nothing is written until you save, and a field the page says nothing about keeps what it holds.",
   "editSource.save": "Save",
   "editSource.remove": "Remove",
   "event.BIRT": "Birth",
