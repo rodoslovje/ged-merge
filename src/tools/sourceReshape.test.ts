@@ -413,6 +413,39 @@ describe("reshapeSources — apply", () => {
     expect(text.match(/2 SOUR @S\d@/g)).toEqual(["2 SOUR @S2@"]);
   });
 
+  it("names page media the site titled after itself, and leaves a real title alone", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 OBJE @O1@
+1 DEAT
+2 OBJE @O2@
+1 BURI
+2 OBJE @O3@
+0 @O1@ OBJE
+1 FILE ${BOOK}/?pg=94
+1 TITL Matricula Online
+0 @O2@ OBJE
+1 FILE ${BOOK}/?pg=95
+1 TITL Krstna knjiga; ${BOOK}/?pg=95
+0 @O3@ OBJE
+1 FILE ${BOOK}/?pg=96
+1 TITL Grandmother's baptism, second column
+0 TRLR`);
+    const report = findReshapableLinks(ds);
+    const enrichment = new Map(report.groups.map((g) => [g.id, { title: "Krstna knjiga - 03869 | Šentjur pri Celju" }]));
+    const { records, counts } = reshapeSources(ds.records, report.groups, enrichment);
+    const text = serializeGedcom(records);
+    // The site's own name on every image alike, and a title carrying the raw
+    // address, become the page's own — each with its page number.
+    expect(text).toContain("1 TITL #94 - Krstna knjiga - 03869 | Šentjur pri Celju");
+    expect(text).toContain("1 TITL #95 - Krstna knjiga - 03869 | Šentjur pri Celju");
+    // What someone wrote themselves is theirs.
+    expect(text).toContain("1 TITL Grandmother's baptism, second column");
+    expect(counts.mediaRetitled).toBe(2);
+  });
+
   it("preserves note prose around a removed URL, drops URL-only notes", () => {
     const { text, counts } = applyAll(`0 HEAD
 1 CHAR UTF-8

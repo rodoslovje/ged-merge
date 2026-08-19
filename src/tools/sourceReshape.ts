@@ -50,6 +50,8 @@ import {
 /** Trailing block of a `SOUR` record that new links must stay ahead of —
  *  shared with the edit dialog's field writer (see gedcom/edit/sources). */
 const SOUR_TRAILING = SOUR_TRAILING_TAGS;
+/** What sits at the tail of a media record — a title goes in front of it. */
+const MEDIA_TRAILING = ["NOTE", "CHAN", "CREA", "_UPD"] as const;
 import { FAM_EVENT_TAGS, INDI_EVENT_TAGS } from "../gedcom/eventTags";
 import { isPrivateNode } from "../gedcom/private";
 import { label } from "../match/relatives";
@@ -282,6 +284,8 @@ export interface ReshapeCounts {
   linksTidied: number;
   /** Media records re-pointed at a group's replacement link (`swapUrl`). */
   linksSwapped: number;
+  /** Page media renamed from a placeholder title to the page's own. */
+  mediaRetitled: number;
 }
 
 const DEFAULT_SITES: ReadonlySet<ReshapeSite> = new Set(ALL_SITES.filter((s) => s !== "other"));
@@ -462,6 +466,20 @@ export function pageObjeTitle(
   if (!site || !title) return undefined;
   if (site === "familysearch") return title;
   return page ? `#${page} - ${title}` : title;
+}
+
+/**
+ * A media title that names where the page came from rather than what it is:
+ * empty, the site's own name (what its save button writes on every image
+ * alike), or one carrying the raw address. Only those are renamed when the
+ * page's book gets a name — a title someone wrote is theirs.
+ */
+function placeholderMediaTitle(title: string | undefined, site: ReshapeSite, url: string): boolean {
+  const text = (title ?? "").trim();
+  if (!text) return true;
+  if (text === SITE_REPO[site]?.name) return true;
+  if (/https?:\/\//i.test(text)) return true;
+  return linkKey(text) === linkKey(url);
 }
 
 /** First quoted phrase in citation text — FamilySearch-style collection titles,
@@ -2530,6 +2548,7 @@ export function reshapeSources(
     eventsCreated: 0,
     linksTidied: 0,
     linksSwapped: 0,
+    mediaRetitled: 0,
   };
   if (selected.length === 0) return { records, counts };
 
@@ -2720,6 +2739,24 @@ export function reshapeSources(
       if (swap) return pageByUrl.get(linkKey(hit.url)) ?? recognizeSourceUrl(swap)?.page ?? extra?.page;
       return hit.recognized.page ?? pageByUrl.get(linkKey(hit.url)) ?? extra?.page;
     };
+
+    // --- Name the media the file already holds for these pages. A page image
+    // saved from the site carries whatever the site's own button wrote — every
+    // one of them "FamilySearch.org", or the raw address — which says where it
+    // came from and nothing about what it is. Once the lookup has named the
+    // book, its pages can be named after it, exactly as a media record this run
+    // creates is. A title that already says something is left alone.
+    for (const hit of state.hits) {
+      const obje = hit.objeXref ? byXref.get(hit.objeXref) : undefined;
+      if (!obje) continue;
+      const titl = firstChild(obje, "TITL");
+      if (!placeholderMediaTitle(titl?.value, g.site, hit.url)) continue;
+      const named = pageObjeTitle(g.site, fields.title, pageOf(hit));
+      if (!named || named === titl?.value?.trim()) continue;
+      if (titl) titl.value = named;
+      else insertGrouped(obje, { level: obje.level + 1, tag: "TITL", value: named, children: [] }, MEDIA_TRAILING);
+      counts.mediaRetitled++;
+    }
 
     // --- Rewrite URL-titled SOUR records in place (every one in the group, so
     // the duplicates tool can consolidate them afterwards).
