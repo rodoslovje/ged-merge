@@ -200,11 +200,13 @@ export function SourceCleanupView({
   /** Records the last apply changed — the run's own receipt, cleared as soon
    *  as the re-scan brings a fresh report in. */
   const [applied, setApplied] = useState(0);
-  // Duplicates: excluded groups + survivor overrides keyed by group id.
-  const [dupExcluded, setDupExcluded] = useState<Set<string>>(new Set());
+  // Duplicates and repositories are ticked into a run rather than out of one:
+  // both merge records away, and a page that arrives with every group armed
+  // makes one stray click a file-wide change. Empty to start; Select all is
+  // one click for the reader who wants the lot.
+  const [dupSelected, setDupSelected] = useState<Set<string>>(new Set());
   const [survivors, setSurvivors] = useState<Map<string, string>>(new Map());
-  // Repositories: the countries whose regroup is unticked.
-  const [regroupExcluded, setRegroupExcluded] = useState<Set<string>>(new Set());
+  const [regroupSelected, setRegroupSelected] = useState<Set<string>>(new Set());
 
   // Esc leaves the sub-page, matching the chart overlays — but only while it
   // is the view on screen (see the `active` prop).
@@ -228,8 +230,8 @@ export function SourceCleanupView({
     });
   const toggleGroup = toggleIn(setExcluded);
   const toggleExpand = toggleIn(setExpanded);
-  const toggleDupGroup = toggleIn(setDupExcluded);
-  const toggleRegroupGroup = toggleIn(setRegroupExcluded);
+  const toggleDupGroup = toggleIn(setDupSelected);
+  const toggleRegroupGroup = toggleIn(setRegroupSelected);
 
   const toggleSite = (site: ReshapeSite) =>
     setSites((s) => {
@@ -294,10 +296,10 @@ export function SourceCleanupView({
   );
 
   const selectedDupGroups = dupReport.groups
-    .filter((g) => !dupExcluded.has(g.id))
+    .filter((g) => dupSelected.has(g.id))
     .map((g) => withSurvivor(g, survivors.get(g.id) ?? defaultSurvivor(g)));
 
-  const selectedRegroupGroups = regroupReport.groups.filter((g) => !regroupExcluded.has(g.id));
+  const selectedRegroupGroups = regroupReport.groups.filter((g) => regroupSelected.has(g.id));
 
   function apply() {
     setApplied(0);
@@ -582,13 +584,13 @@ export function SourceCleanupView({
             <span className="tools-chip-count">{dupReport.groups.length}</span>
             <div className="tools-dup-bulk">
               {!hasReshape && applyAction}
-              <button className="tools-issue-link" onClick={() => setDupExcluded(new Set())}>
-                {t("tools.sources.dupSelectAll")}
-              </button>
               <button
                 className="tools-issue-link"
-                onClick={() => setDupExcluded(new Set(dupReport.groups.map((g) => g.id)))}
+                onClick={() => setDupSelected(new Set(dupReport.groups.map((g) => g.id)))}
               >
+                {t("tools.sources.dupSelectAll")}
+              </button>
+              <button className="tools-issue-link" onClick={() => setDupSelected(new Set())}>
                 {t("tools.sources.dupSelectNone")}
               </button>
               <button
@@ -623,7 +625,7 @@ export function SourceCleanupView({
                       key={g.id}
                       group={g}
                       dataset={dataset}
-                      checked={!dupExcluded.has(g.id)}
+                      checked={dupSelected.has(g.id)}
                       survivorXref={survivors.get(g.id) ?? defaultSurvivor(g)}
                       open={expanded.has(g.id)}
                       onToggleCheck={() => toggleDupGroup(g.id)}
@@ -646,13 +648,13 @@ export function SourceCleanupView({
             <span className="tools-chip-count">{regroupReport.groups.length}</span>
             <div className="tools-dup-bulk">
               {!hasReshape && !hasDups && applyAction}
-              <button className="tools-issue-link" onClick={() => setRegroupExcluded(new Set())}>
-                {t("tools.sources.dupSelectAll")}
-              </button>
               <button
                 className="tools-issue-link"
-                onClick={() => setRegroupExcluded(new Set(regroupReport.groups.map((g) => g.id)))}
+                onClick={() => setRegroupSelected(new Set(regroupReport.groups.map((g) => g.id)))}
               >
+                {t("tools.sources.dupSelectAll")}
+              </button>
+              <button className="tools-issue-link" onClick={() => setRegroupSelected(new Set())}>
                 {t("tools.sources.dupSelectNone")}
               </button>
             </div>
@@ -663,7 +665,7 @@ export function SourceCleanupView({
               <RegroupRow
                 key={group.id}
                 group={group}
-                checked={!regroupExcluded.has(group.id)}
+                checked={regroupSelected.has(group.id)}
                 open={expanded.has(`repo:${group.id}`)}
                 onToggleCheck={() => toggleRegroupGroup(group.id)}
                 onToggleOpen={() => toggleExpand(`repo:${group.id}`)}

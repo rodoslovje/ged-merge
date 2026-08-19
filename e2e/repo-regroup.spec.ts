@@ -55,16 +55,18 @@ test("repositories are gathered per place, and the section's own selection works
   await expect(section).toContainText("FamilySearch.org - United States, Illinois");
   await expect(section).toContainText("FamilySearch.org - Croatia");
 
+  // Nothing is armed on arrival: the run is ticked together, not out of.
   const checks = section.locator("input.tools-dup-check");
-  await expect(checks.first()).toBeChecked();
+  await expect(checks.first()).not.toBeChecked();
 
-  // The section's own Select none / Select all reach only its rows.
+  // The section's own Select all / Select none reach only its rows.
+  await section.getByRole("button", { name: "Select all" }).click();
+  await expect(checks.first()).toBeChecked();
+  await expect(checks.nth(1)).toBeChecked();
   await section.getByRole("button", { name: "Select none" }).click();
   await expect(checks.first()).not.toBeChecked();
   await expect(checks.nth(1)).not.toBeChecked();
   await section.getByRole("button", { name: "Select all" }).click();
-  await expect(checks.first()).toBeChecked();
-  await expect(checks.nth(1)).toBeChecked();
 
   // A row names a record, so it opens that record's own editor — every field
   // it holds, its link included — without leaving the page.
