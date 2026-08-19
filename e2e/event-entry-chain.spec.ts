@@ -34,10 +34,45 @@ test("Enter walks a date event from its date to its place", async ({ page }) => 
   await expect.poll(() => focusedField(page)).toBe("edit-event-place");
 
   await page.keyboard.type("Ljubljana, Slovenija");
-  // The place is the last of them, so Enter means what it does anywhere else:
-  // commit, and hand the keyboard back to the app.
+  // The place is the last of them, so Enter steps onto the row's "+ Add" chip —
+  // the next thing an event is filled in from, and still not a typing surface.
   await page.keyboard.press("Enter");
-  await expect.poll(() => focusedField(page)).toBe("BODY");
+  await expect.poll(() => focusedField(page)).toBe("edit-event-addfield");
+});
+
+// The chip Enter lands on opens the menu that adds the rest of the fields, so
+// an address is reached without the mouse.
+test("the + Add chip Enter lands on opens the detail menu", async ({ page }) => {
+  await openEdit(page);
+  await page.getByRole("button", { name: /^\+ Residence$/ }).click();
+  await page.keyboard.type("1 JAN 1900");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("Ljubljana, Slovenija");
+  await page.keyboard.press("Enter");
+  await expect.poll(() => focusedField(page)).toBe("edit-event-addfield");
+
+  await page.keyboard.press("Enter");
+  await page.getByRole("option", { name: "Address" }).click();
+  await expect.poll(() => focusedField(page)).toBe("edit-event-addr");
+});
+
+// A death with no date to type: the keyboard has to get out of the field it was
+// put in, or Backspace types into it instead of going back a person.
+test("Escape leaves the field, freeing Backspace to go back a person", async ({ page }) => {
+  await openEdit(page);
+  const shown = () => page.locator(".edit-person .edit-name-input").first().inputValue();
+  const first = await shown();
+  // Walk to another person, so there is a history entry to go back to.
+  await page.locator(".edit-families .person-card").first().click();
+  await expect.poll(shown).not.toBe(first);
+
+  await page.getByRole("button", { name: /^\+ Death$/ }).click();
+  await expect.poll(() => focusedField(page)).toBe("edit-event-date");
+  await page.keyboard.press("Escape");
+  await expect.poll(() => focusedField(page)).toBe("DIV");
+
+  await page.keyboard.press("Backspace");
+  await expect.poll(shown).toBe(first);
 });
 
 test("an event that leads with a value starts there, then date, then place", async ({ page }) => {
