@@ -22,6 +22,7 @@ import {
   pruneUnreferencedSource,
   removeMediaAt,
   removeMediaLinkByUrl,
+  setMediaLinkUrl,
   reorderMedia,
   setCropRegion,
   setMediaInfo,
@@ -1731,6 +1732,28 @@ describe("removeMediaLinkByUrl", () => {
     expect(indi1.raw.children.some((c) => c.tag === "OBJE")).toBe(false);
     expect(indi3.raw.children.some((c) => c.tag === "OBJE")).toBe(true);
     expect(ds.records.some((r) => r.xref === obje.xref)).toBe(true);
+  });
+
+  it("setMediaLinkUrl rewrites the shared record's FILE, visible to every referrer", () => {
+    const ds = buildFromText(FAM_BASE);
+    const indi1 = ds.individuals.get("@I1@")!;
+    const indi3 = ds.individuals.get("@I3@")!;
+    const obje = createMediaRecord(ds.records, "https://example.com/old");
+    indi1.raw.children.push({ level: 1, tag: "OBJE", value: obje.xref, children: [] });
+    indi3.raw.children.push({ level: 1, tag: "OBJE", value: obje.xref, children: [] });
+
+    setMediaLinkUrl(ds, indi1.raw, "https://example.com/old", "https://example.com/new");
+    expect(rebuildIndividual(ds, indi1).mediaLinks).toEqual(["https://example.com/new"]);
+    expect(rebuildIndividual(ds, indi3).mediaLinks).toEqual(["https://example.com/new"]);
+  });
+
+  it("setMediaLinkUrl rewrites an inline OBJE's own FILE", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+    attachInlineMedia(indi.raw, "https://example.com/inline-old");
+
+    setMediaLinkUrl(ds, indi.raw, "https://example.com/inline-old", "https://example.com/inline-new");
+    expect(rebuildIndividual(ds, indi).mediaLinks).toEqual(["https://example.com/inline-new"]);
   });
 
   it("removes an inline OBJE by its url and leaves other links alone", () => {

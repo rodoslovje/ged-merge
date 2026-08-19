@@ -6367,6 +6367,8 @@ kbd {
 /* Repository-name row: the proposed name is long, give it the full width. */
 .add-source-details-grid .add-source-field-wide { grid-column: 1 / -1; }
 .add-source-url-row { margin-bottom: 0; }
+/* The media-link dialog holds a single field — Edit Source's width gapes. */
+.media-link-dialog { width: 520px; }
 .add-source-url-wrap { display: flex; align-items: center; gap: 6px; }
 .add-source-url-wrap input.edit-input { flex: 1; width: auto; }
 /* Pinned footer: filled-accent primary on the right, ghost cancel beside. */

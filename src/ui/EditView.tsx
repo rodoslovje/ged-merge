@@ -58,6 +58,7 @@ import {
   removeIndividual,
   removeMediaLinkByUrl,
   removeSourceCitationAtIndex,
+  setMediaLinkUrl,
   setAdditionalName,
   setIndividualLinks,
   setMarriedName,
@@ -105,7 +106,7 @@ import { kindsColorVar } from "./map/markerStyle";
 /** The person's places map, in the shared Leaflet lazy chunk. */
 const MiniPlaceMap = lazy(() => import("./map/MiniPlaceMap"));
 import { harvestedLinksOf, LinksEditor } from "./edit/LinksEditor";
-import { linkHref } from "./FieldValue";
+import { MediaLinkDialog } from "./MediaLinkDialog";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { PersonMedia } from "./PersonMedia";
 import { useMediaViewer, type MediaEditFields, type MediaRefContext } from "./MediaViewer";
@@ -255,7 +256,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   // Tracks which individual-event row should auto-focus its date field on mount.
   const [pendingFocusEventNodeId, setPendingFocusEventNodeId] = useState<number | null>(null);
   useEffect(() => { if (pendingFocusEventNodeId !== null) setPendingFocusEventNodeId(null); }, [pendingFocusEventNodeId]);
-  const [pendingConfirm, setPendingConfirm] = useState<{ message: string; confirmLabel: string; action: () => void; danger?: boolean; altLabel?: string; altAction?: () => void } | null>(null);
+  const [pendingConfirm, setPendingConfirm] = useState<{ message: string; confirmLabel: string; action: () => void; danger?: boolean } | null>(null);
   // The event whose "Copy event to…" picker is open (null = closed).
   const [copyEventRequest, setCopyEventRequest] = useState<CopyEventRequest | null>(null);
 
@@ -1155,18 +1156,11 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   const commitRemoveMediaLink: OpenMediaLink = (container, owner, url) =>
     commitWithSourceDiff(owner, () => removeMediaLinkByUrl(dataset, container, url));
 
-  /** Open the stripped-down dialog for a media-link 🔗 chip: the URL with
-   * Open / Remove — an `OBJE` link is not a `SOUR`, so no bibliographic
-   * fields, no page, no repository. */
+  /** The media-link 🔗 chip's dialog target — see {@link MediaLinkDialog}. */
+  const [mediaLinkTarget, setMediaLinkTarget] = useState<{ container: GedNode; owner: RemoveSourceOwner; url: string } | null>(null);
+
   const openMediaLink: OpenMediaLink = useStableHandler((container, owner, url) => {
-    setPendingConfirm({
-      message: `${t("mediaLink.confirmRemove")}\n\n${url}`,
-      confirmLabel: t("mediaLink.remove"),
-      danger: true,
-      action: () => commitRemoveMediaLink(container, owner, url),
-      altLabel: t("edit.openLink"),
-      altAction: () => window.open(linkHref(url), "_blank", "noopener"),
-    });
+    setMediaLinkTarget({ container, owner, url });
   });
 
   /**
@@ -2185,6 +2179,21 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
           onConfirm={(ids) => { applyCopyEvent(copyEventRequest, ids); setCopyEventRequest(null); }}
         />
       )}
+      {mediaLinkTarget && (
+        <MediaLinkDialog
+          url={mediaLinkTarget.url}
+          t={t}
+          onClose={() => setMediaLinkTarget(null)}
+          onSave={(newUrl) => {
+            commitWithSourceDiff(mediaLinkTarget.owner, () => setMediaLinkUrl(dataset, mediaLinkTarget.container, mediaLinkTarget.url, newUrl));
+            setMediaLinkTarget(null);
+          }}
+          onRemove={() => {
+            commitRemoveMediaLink(mediaLinkTarget.container, mediaLinkTarget.owner, mediaLinkTarget.url);
+            setMediaLinkTarget(null);
+          }}
+        />
+      )}
       {pendingConfirm && (
         <ConfirmDialog
           message={pendingConfirm.message}
@@ -2192,9 +2201,6 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
           danger={pendingConfirm.danger ?? true}
           onConfirm={() => { pendingConfirm.action(); setPendingConfirm(null); }}
           onCancel={() => setPendingConfirm(null)}
-          altLabel={pendingConfirm.altLabel}
-          // A side action (open the link), not an answer — the dialog stays up.
-          onAlt={pendingConfirm.altAction}
         />
       )}
     </div>

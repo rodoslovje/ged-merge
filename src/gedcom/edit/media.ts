@@ -147,6 +147,33 @@ export function removeMediaLinkByUrl(dataset: Dataset, container: GedNode, url: 
 }
 
 /**
+ * Rewrite the URL behind `container`'s media link `oldUrl` (see
+ * GedEvent.mediaLinks) to `newUrl` — on the pointed-to shared record's
+ * matching `FILE` line (a shared-record edit, visible from every referrer,
+ * the same semantics as editing a source's fields), or on an inline `OBJE`
+ * child's own `FILE`. Only the first matching link is rewritten — one chip
+ * stands for one link.
+ */
+export function setMediaLinkUrl(dataset: Dataset, container: GedNode, oldUrl: string, newUrl: string): void {
+  const key = linkKey(oldUrl);
+  for (const c of container.children) {
+    if (c.tag !== "OBJE") continue;
+    const v = c.value?.trim();
+    const target = v && isPointer(v) ? dataset.records.find((r) => r.tag === "OBJE" && r.xref === v) : c;
+    if (!target) continue;
+    // A CONT-wrapped FILE value carries a line break that is a wrap artifact,
+    // not content (see collectLinks) — strip it for the comparison.
+    const file = childrenByTag(target, "FILE").find(
+      (f) => f.value && linkKey(f.value.trim().replace(/\n/g, "")) === key,
+    );
+    if (!file) continue;
+    file.value = newUrl;
+    bumpSourceCacheVersion(dataset.records); // an OBJE's FILE changed in place
+    return;
+  }
+}
+
+/**
  * Move a record's `OBJE` child from position `from` to `to` (0-based among
  * its `OBJE` children), leaving every non-`OBJE` child in place — so a tray
  * reorder doesn't disturb the rest of the record's field order.
