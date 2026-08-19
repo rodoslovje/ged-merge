@@ -841,6 +841,7 @@ export const sl = {
   "tools.sources.heldBack_two": "{{count}} strani čakata neoznačeni — imenuje ju le njuna povezava.",
   "tools.sources.heldBack_few": "{{count}} strani čakajo neoznačene — imenuje jih le njihova povezava.",
   "tools.sources.heldBack_other": "{{count}} strani čaka neoznačenih — imenuje jih le njihova povezava.",
+  "tools.sources.editRecordHint": "Uredite zapis vira, ki se mu ta skupina pridruži — vsa njegova polja, tudi povezavo.",
   "tools.sources.swapLinkBadge": "nova povezava",
   "tools.sources.swapLinkHint": "Povezava, iz katere se izpiše ta vir. Na njeno mesto postavite drugo — sliko, na kateri stran zapisa na FamilySearch temelji in jo poizvedba lahko prebere — in podatki se preberejo z nje. Ko ukaz uveljavite, se medij tega vira preusmeri na novo povezavo, tudi pri zapisih, ki ta medij navajajo.",
   "tools.sources.lookupFailed": "Stran za to povezavo ni povedala ničesar, kar bi izpolnilo ta polja — posredniški strežnik je morda nedosegljiv ali pa se povezava odpre šele po prijavi.",

@@ -2657,15 +2657,14 @@ export function reshapeSources(
     if (sourceNode) {
       counts.sourcesReused++;
       // A record made before the id was known keeps its own title, but the
-      // empty filing number is the tool's to fill: it is the id the link
-      // carries, and without it nothing on the record says which grave (or
-      // which book) this is.
-      fillField(sourceNode, "FILN", fields.filingNumber);
-      // The call number mirrors it inside the repository — but only in a file
-      // that states ids there; where FILN is the file's field, the line above
-      // has already said it.
+      // empty id is the tool's to fill: it is what the link carries, and
+      // without it nothing on the record says which grave (or which book)
+      // this is. It goes in the one place this file states ids — the
+      // repository link's call number, or the source's own filing number,
+      // never both (see `writesCallNumbers`).
       const repoLink = callNumbers ? firstChild(sourceNode, "REPO") : undefined;
       if (repoLink) fillField(repoLink, "CALN", fields.filingNumber);
+      else fillField(sourceNode, "FILN", fields.filingNumber);
     } else {
       sourceNode = createSourceRecord(clone, fields);
       byXref.set(sourceNode.xref!, sourceNode);
@@ -2706,9 +2705,11 @@ export function reshapeSources(
         // strict reader looks for it is the repository link's CALN.
         if (fields.filingNumber && callNumbers) {
           link.children.push({ level: 2, tag: "CALN", value: fields.filingNumber, children: [] });
-          // In the standard shape FILN is not a source field at all — the
-          // call number now carries the id.
-          const filn = standard && firstChild(sourceNode, "FILN");
+          // The call number now carries the id, so the source's own field must
+          // not repeat it: a file holding the same id twice says it twice, and
+          // a reader who edits one leaves the other stale. (A source that ends
+          // up with no repository keeps its FILN — the id must live somewhere.)
+          const filn = firstChild(sourceNode, "FILN");
           if (filn) spliceChild(sourceNode, filn);
         }
         sourceNode.children.push(link);

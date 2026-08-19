@@ -635,7 +635,18 @@ export function SourceCleanupView({
                 open={expanded.has(g.id)}
                 // Only groups whose source fields the apply writes are
                 // hand-editable — a reused real-titled source is left alone.
-                onEdit={!g.existingSourceXref || g.urlTitled ? () => setEditGroup(g) : undefined}
+                // A source this run writes is edited as a proposal — the fields
+                // it would create. One the file already keeps has no proposal
+                // to edit: its ✎ opens the record itself, in the editor the
+                // Sources tree uses. Either way the row carries one.
+                onEdit={
+                  !g.existingSourceXref || g.urlTitled
+                    ? () => setEditGroup(g)
+                    : onEditRecord
+                      ? () => onEditRecord(g.existingSourceXref!, "source")
+                      : undefined
+                }
+                editsRecord={Boolean(g.existingSourceXref && !g.urlTitled)}
                 removeMarked={removeMarked.has(g.id)}
                 onToggleRemove={() => toggleIn(setRemoveMarked)(g.id)}
                 relocate={relocate}
@@ -860,24 +871,16 @@ function GroupEditDialog({
         .sort((a, b) => a.name.localeCompare(b.name)),
     [dataset],
   );
-  const repoProposal = useMemo(
-    () =>
-      proposedSiteRepo(dataset.records, group.site, link, meta?.agency ?? group.proposed.agency, {
-        title: meta?.collection ?? meta?.title ?? group.proposed.title,
-        id: meta?.collectionId,
-        place: meta?.place ?? group.proposed.place,
-      }),
-    [dataset, group, link, meta],
-  );
   const wantsRepo = useMemo(
     () => repoLinkWanted(dataset.records, settings.formatOverrides?.sourceLayout),
     [dataset, settings.formatOverrides?.sourceLayout],
   );
   /** "" = none, an xref, or "@create@" for the proposal. Starts on what the
    *  apply would do by itself, so leaving it alone changes nothing. */
-  const [repoSel, setRepoSel] = useState(
-    () => meta?.repoXref ?? repoProposal?.xref ?? (wantsRepo && repoProposal?.createName ? "@create@" : ""),
-  );
+  const [repoSel, setRepoSel] = useState(meta?.repoXref ?? "");
+  /** Whether the reader picked a repository themselves — a later lookup then
+   *  improves nothing here, only what the dialog itself put there. */
+  const repoTouched = useRef(meta?.repoXref !== undefined);
   const [fetching, setFetching] = useState(false);
   /** Whether the last lookup came back empty-handed — the relay was blocked or
    *  the page said nothing this editor understands. */
@@ -892,6 +895,25 @@ function GroupEditDialog({
    *  type (which decides the event a citation lands on), the collection that
    *  names the repository, the book a film's pages share. */
   const [extras, setExtras] = useState<ReshapeMeta | undefined>();
+
+  // Which repository the source will hang off — read from what the dialog
+  // *now* holds, not from what it opened with: the place a lookup fills in is
+  // exactly what tells a FamilySearch source which country's (or state's)
+  // repository it belongs to, so the row has to follow the fetch.
+  const repoProposal = useMemo(
+    () =>
+      proposedSiteRepo(dataset.records, group.site, url.trim() || link, fields.agency || undefined, {
+        title: extras?.collection || fields.title || group.proposed.title,
+        id: extras?.collectionId,
+        place: fields.place || undefined,
+      }),
+    [dataset, group, url, link, fields.agency, fields.title, fields.place, extras?.collection, extras?.collectionId],
+  );
+  // …and the choice follows it, until the reader makes one of their own.
+  useEffect(() => {
+    if (repoTouched.current) return;
+    setRepoSel(repoProposal?.xref ?? (wantsRepo && repoProposal?.createName ? "@create@" : ""));
+  }, [repoProposal, wantsRepo]);
 
   /** Fill what the reader has not typed; blank answers leave the field alone. */
   const fill = useCallback((found: Partial<Record<keyof typeof fields, string | undefined>>) => {
@@ -1124,7 +1146,10 @@ function GroupEditDialog({
                 <SelectMenu
                   className="edit-input"
                   value={repoSel}
-                  onChange={setRepoSel}
+                  onChange={(v) => {
+                    repoTouched.current = true;
+                    setRepoSel(v);
+                  }}
                   groups={[
                     { items: [{ value: "", label: t("tools.sources.noRepo") }] },
                     {
@@ -1169,6 +1194,7 @@ function ReshapeGroupRow({
   checked,
   open,
   onEdit,
+  editsRecord,
   removeMarked,
   onToggleRemove,
   relocate,
@@ -1191,8 +1217,11 @@ function ReshapeGroupRow({
   badgeTooltip: string;
   checked: boolean;
   open: boolean;
-  /** Opens the manual field editor; absent for reused real-titled sources. */
+  /** Opens the field editor for a proposed source, or — see `editsRecord` —
+   *  the record editor for one the file already keeps. */
   onEdit?: () => void;
+  /** Whether that ✎ opens the existing record rather than the proposal. */
+  editsRecord?: boolean;
   /** The group is marked "remove references" — apply strips its links. */
   removeMarked: boolean;
   onToggleRemove: () => void;
@@ -1258,7 +1287,11 @@ function ReshapeGroupRow({
           </span>
         )}
         {onEdit && !removeMarked && (
-          <button className="tools-issue-link" onClick={onEdit} title={t("editSource.title")}>
+          <button
+            className="tools-issue-link"
+            onClick={onEdit}
+            title={editsRecord ? t("tools.sources.editRecordHint") : t("editSource.title")}
+          >
             ✎
           </button>
         )}

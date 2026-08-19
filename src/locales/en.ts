@@ -743,6 +743,7 @@ export const en = {
   "tools.sources.fsSigninHint": "FamilySearch record pages open only after a sign-in, so no lookup can read them — copy the page's own citation and paste it into the ✎ editor, or put the image's link there in place of this one, to fill the details.",
   "tools.sources.heldBack_one": "{{count}} page waits unticked — nothing but its own link names it yet.",
   "tools.sources.heldBack_other": "{{count}} pages wait unticked — nothing but their own links names them yet.",
+  "tools.sources.editRecordHint": "Edit the source record this group joins — every field it holds, its link included.",
   "tools.sources.swapLinkBadge": "new link",
   "tools.sources.swapLinkHint": "The link this source is written from. Put another in its place — the image behind a FamilySearch record page, which a lookup can read — and its details are read from there; applying then points this source's media at it, in the records that hold it too.",
   "tools.sources.lookupFailed": "The page behind this link said nothing that fills these fields — the relay may be down, or the link may need a sign-in.",

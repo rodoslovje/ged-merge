@@ -514,6 +514,28 @@ describe("reshapeSources — apply", () => {
     ).toBe("https://www.familysearch.org/ark:/61903/1:1:XNJ8-FPJ");
   });
 
+  it("states the archive's id in one place — the call number where the file uses those", () => {
+    // A file that states ids on the repository link, in the flat vendor
+    // coverage shape: the id belongs on the CALN, and the source's own FILN
+    // must not repeat it. Both would say the same thing twice, and an edit to
+    // one would leave the other stale.
+    const { text } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 WWW ${BOOK}/?pg=94
+0 @S9@ SOUR
+1 TITL Neka druga knjiga
+1 PLAC Vodice
+1 REPO @R1@
+2 CALN 04406
+0 @R1@ REPO
+1 NAME Nadškofijski arhiv Ljubljana
+0 TRLR`);
+    expect(text).toContain("2 CALN 03869");
+    expect(text).not.toContain("1 FILN 03869");
+  });
+
   it("preserves note prose around a removed URL, drops URL-only notes", () => {
     const { text, counts } = applyAll(`0 HEAD
 1 CHAR UTF-8
