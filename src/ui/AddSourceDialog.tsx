@@ -349,10 +349,14 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
     if (!meta) return;
     setFetched(meta);
     const keep = (current: string, value: string | undefined) => value?.trim() || current;
+    // The archive's id — a Geneanet view, a Matricula book — is as good
+    // offline as it is after the lookup, and goes in the one field this file
+    // states ids in: the repository link's call number, or the source's own
+    // filing number. Never both (see `writesCallNumbers`).
+    const id = meta.filingNumber ?? site?.proposed.filingNumber;
+    const callNumbers = writesCallNumbers(dataset.records);
     setFields((f) => {
-      // The id the link itself carries — a Geneanet view, a Matricula book —
-      // is as good offline as it is after the lookup.
-      const filingNumber = keep(f.filingNumber, meta.filingNumber ?? site?.proposed.filingNumber);
+      const filingNumber = callNumbers ? f.filingNumber : keep(f.filingNumber, id);
       return {
         ...f,
         // Named the way the tool names one: what the page calls the thing,
@@ -367,12 +371,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
         page: keep(f.page, meta.page ?? site?.page),
       };
     });
-    // The call number is that same id inside the repository — filled only in
-    // a file that states ids there; where the filing number is the file's
-    // field, saying it twice is one line for a later edit to leave stale.
-    if (writesCallNumbers(dataset.records)) {
-      setRepoCaln((caln) => caln.trim() || meta.filingNumber || site?.proposed.filingNumber || fields.filingNumber);
-    }
+    if (callNumbers) setRepoCaln((caln) => caln.trim() || id || fields.filingNumber);
   }
 
   // Best-effort metadata fetch for a bare URL with nothing else to go on.
@@ -552,8 +551,8 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
       handleAdd();
     }
   }
-  const field = (key: keyof FormState, labelKey: string) => (
-    <label className="add-source-field">
+  const field = (key: keyof FormState, labelKey: string, wide?: boolean) => (
+    <label className={wide ? "add-source-field add-source-field-wide" : "add-source-field"}>
       <span>
         {t(labelKey)}
         <NonStandard tag={nonStandardTag(key, coverage)} t={t} />
@@ -639,17 +638,22 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
           {!match && (
             <>
               {field("title", "addSource.field.title")}
+              {/* Ordered by how often an archive source fills them: the
+                  institution holding the records rides beside the author,
+                  then what it publishes and where it is, and last — on the
+                  row above the repository it belongs to — the periodical and
+                  the archive's own number. */}
               <div className="add-source-details-grid">
                 {field("author", "addSource.field.author")}
-                {field("periodical", "addSource.field.periodical")}
-                {field("publisher", "addSource.field.publisher")}
                 {field("agency", "addSource.field.agency")}
+                {field("publisher", "addSource.field.publisher")}
                 {field("place", "addSource.field.place")}
-                {field("filingNumber", "addSource.field.filingNumber")}
                 {/* Page is citation-local — editing the record itself (Tools →
                     Sources) has no citation to carry it. */}
                 {!(standalone && editing) && field("page", "addSource.field.page")}
-                {field("note", "addSource.field.note")}
+                {field("note", "addSource.field.note", true)}
+                {field("periodical", "addSource.field.periodical")}
+                {field("filingNumber", "addSource.field.filingNumber")}
               </div>
             </>
           )}
