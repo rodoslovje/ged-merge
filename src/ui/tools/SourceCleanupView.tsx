@@ -12,6 +12,7 @@ import {
   mergeFsBooks,
   makePlaceResolver,
   parsePastedFsCitation,
+  proposedSiteRepo,
   recognizeSourceUrl,
   reshapeOptionsFromOverrides,
   type RecognizedSourceUrl,
@@ -30,7 +31,8 @@ import type { RecordPatch } from "../historyTypes";
 import { familySpouses, recordCitedBy } from "../../tools/sources";
 import { UsageList, useDebounced } from "./shared";
 import { PersonLink } from "../PersonLink";
-import { sourceTooltip } from "../../gedcom/source";
+import { repoLinkWanted, sourceTooltip } from "../../gedcom/source";
+import { childText } from "../../gedcom/node";
 import { parseSourceInput } from "../../gedcom/citationParse";
 import { fetchPageHtml } from "../../normalize/urlMetadata";
 import { familySearchPageUrl, linkKey } from "../../normalize/links";
@@ -756,6 +758,7 @@ export function SourceCleanupView({
           key={editGroup.id}
           group={editGroup}
           meta={folded.enrichment.get(editGroup.id)}
+          dataset={dataset}
           link={linkOf(editGroup)}
           resolvePlace={resolvePlace}
           onSave={(meta, link) => {
@@ -790,6 +793,7 @@ export function SourceCleanupView({
 function GroupEditDialog({
   group,
   meta,
+  dataset,
   link,
   resolvePlace,
   onSave,
@@ -798,6 +802,8 @@ function GroupEditDialog({
   group: ReshapeGroup;
   /** The group's fetched/edited metadata so far — the editor's baseline. */
   meta: ReshapeMeta | undefined;
+  /** The open file — its repositories are the choices the editor offers. */
+  dataset: Dataset;
   /** The link this source is being written from: the group's own, or the one
    *  an earlier visit to this editor put in its place. */
   link: string;
@@ -840,6 +846,38 @@ function GroupEditDialog({
   const [url, setUrl] = useState(link);
   /** Fields the reader typed in — a paste or a lookup never overwrites one. */
   const touched = useRef(new Set<keyof typeof fields>());
+
+  // Which repository the source will hang off. The apply decides this on its
+  // own — the file's own REPO habit, and the site's repository for the place
+  // the records come from — but the decision was made off-screen, so the
+  // editor now shows it and takes another answer: one of the file's, the
+  // proposal outright, or none.
+  const repos = useMemo(
+    () =>
+      dataset.records
+        .filter((r) => r.tag === "REPO" && r.xref)
+        .map((r) => ({ xref: r.xref!, name: childText(r, "NAME")?.trim() || r.xref! }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [dataset],
+  );
+  const repoProposal = useMemo(
+    () =>
+      proposedSiteRepo(dataset.records, group.site, link, meta?.agency ?? group.proposed.agency, {
+        title: meta?.collection ?? meta?.title ?? group.proposed.title,
+        id: meta?.collectionId,
+        place: meta?.place ?? group.proposed.place,
+      }),
+    [dataset, group, link, meta],
+  );
+  const wantsRepo = useMemo(
+    () => repoLinkWanted(dataset.records, settings.formatOverrides?.sourceLayout),
+    [dataset, settings.formatOverrides?.sourceLayout],
+  );
+  /** "" = none, an xref, or "@create@" for the proposal. Starts on what the
+   *  apply would do by itself, so leaving it alone changes nothing. */
+  const [repoSel, setRepoSel] = useState(
+    () => meta?.repoXref ?? repoProposal?.xref ?? (wantsRepo && repoProposal?.createName ? "@create@" : ""),
+  );
   const [fetching, setFetching] = useState(false);
   /** Whether the last lookup came back empty-handed — the relay was blocked or
    *  the page said nothing this editor understands. */
@@ -992,6 +1030,7 @@ function GroupEditDialog({
         filingNumber: fields.filingNumber.trim(),
         dateRange: fields.dateRange.trim(),
         ...(onePage ? { page: fields.page.trim() } : { page: undefined }),
+        repoXref: repoSel,
       },
       onePage ? url.trim() || link : link,
     );
@@ -1077,6 +1116,34 @@ function GroupEditDialog({
             {field("filingNumber", "addSource.field.filingNumber")}
             {field("dateRange", "addSource.field.dateRange")}
             {onePage && field("page", "addSource.field.page")}
+            {/* Only a source this run creates has a repository to choose — one
+                the file already keeps hangs where it hangs. */}
+            {!group.existingSourceXref && (
+              <label className="add-source-field">
+                <span>{t("addSource.field.repo")}</span>
+                <SelectMenu
+                  className="edit-input"
+                  value={repoSel}
+                  onChange={setRepoSel}
+                  groups={[
+                    { items: [{ value: "", label: t("tools.sources.noRepo") }] },
+                    {
+                      label: t("tools.sources.dupKind.repo"),
+                      items: repos.map((r) => ({ value: r.xref, label: r.name })),
+                    },
+                    ...(repoProposal?.createName
+                      ? [
+                          {
+                            items: [
+                              { value: "@create@", label: t("addSource.repo.create", { name: repoProposal.createName }) },
+                            ],
+                          },
+                        ]
+                      : []),
+                  ]}
+                />
+              </label>
+            )}
           </div>
         </div>
         <div className="add-source-actions">

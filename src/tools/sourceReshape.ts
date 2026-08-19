@@ -227,6 +227,11 @@ export interface ReshapeMeta {
    *  the repository, for files that keep one per FamilySearch collection. */
   collection?: string;
   collectionId?: string;
+  /** The repository the reader picked in the panel's field editor for a source
+   *  this run creates: an existing `REPO`'s xref, `"@create@"` for the one the
+   *  site proposes (created even where the file's own habit would not), or `""`
+   *  for none at all. Left undefined, the file's habit decides as before. */
+  repoXref?: string;
   /** The register label the title was built from ("Births (Rođeni) 1892-1899
    *  Marriages (Vjenčani) 1858-1890"). Kept so a book naming several registers
    *  can be narrowed to the one being cited — see {@link splitFsRegisters}. */
@@ -2678,11 +2683,20 @@ export function reshapeSources(
         fillField(sourceNode, "PLAC", fields.place);
         fillField(sourceNode, "DATE", fields.dateRange);
       }
-      const repo = ensureSiteRepo(clone, g.site, urlFor(state.hits[0]), fields.agency, createRepos, {
-        title: extra?.collection ?? fields.title,
-        id: extra?.collectionId,
-        place: fields.place,
-      });
+      // The reader's own choice in the field editor, where they made one: a
+      // repository of the file, the site's proposal outright, or none. Silence
+      // leaves it to the file's habit, as before.
+      const picked = extra?.repoXref;
+      const repo =
+        picked === ""
+          ? undefined
+          : picked && picked !== "@create@"
+            ? { xref: picked }
+            : ensureSiteRepo(clone, g.site, urlFor(state.hits[0]), fields.agency, createRepos || picked === "@create@", {
+                title: extra?.collection ?? fields.title,
+                id: extra?.collectionId,
+                place: fields.place,
+              });
       if (repo) {
         if (repo.created) byXref.set(repo.created.xref!, repo.created);
         const link: GedNode = { level: 1, tag: "REPO", value: repo.xref, children: [] };

@@ -446,6 +446,35 @@ describe("reshapeSources — apply", () => {
     expect(counts.mediaRetitled).toBe(2);
   });
 
+  it("hangs a new source off the repository the field editor picked", () => {
+    const file = `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 WWW ${BOOK}/?pg=94
+0 @R7@ REPO
+1 NAME Zgodovinski arhiv Ljubljana
+0 TRLR`;
+    const pick = (repoXref: string | undefined) => {
+      const ds = dataset(file);
+      const report = findReshapableLinks(ds);
+      const enrichment = new Map(report.groups.map((g) => [g.id, { title: "Krstna knjiga", repoXref }]));
+      return serializeGedcom(reshapeSources(ds.records, report.groups, enrichment).records);
+    };
+    // One of the file's own — even one the site logic would never propose.
+    expect(pick("@R7@")).toMatch(/0 @S\d+@ SOUR[\s\S]*1 REPO @R7@/);
+    // None at all, in a file whose habit would have written one.
+    expect(pick("")).not.toMatch(/0 @S\d+@ SOUR[\s\S]*1 REPO @/);
+    // The site's proposal outright, created even though this file keeps no
+    // repository for it and its habit alone would not have asked for one.
+    const created = pick("@create@");
+    // Matricula's repository is the holding archive, not the site.
+    expect(created).toContain("1 NAME Maribor");
+    expect(created).toMatch(/0 @S\d+@ SOUR[\s\S]*1 REPO @R8@/);
+    // Silence leaves the habit in charge: no repository in a file with none.
+    expect(pick(undefined)).not.toMatch(/0 @S\d+@ SOUR[\s\S]*1 REPO @/);
+  });
+
   it("preserves note prose around a removed URL, drops URL-only notes", () => {
     const { text, counts } = applyAll(`0 HEAD
 1 CHAR UTF-8
