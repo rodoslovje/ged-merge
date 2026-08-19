@@ -58,10 +58,13 @@ export function idField(
   records: GedNode[],
   coverage: "vendor" | "standard",
   hasRepo = true,
-): { labelKey: string; nonStandard: string | undefined } {
+): { labelKey: string; nonStandard: string | undefined; caln: boolean } {
   const caln = hasRepo && writesCallNumbers(records, coverage);
   return {
     labelKey: caln ? "addSource.field.caln" : "addSource.field.filingNumber",
+    // A call number is written on the source's repository link, so a dialog
+    // puts the field beside the repository rather than among the source's own.
     nonStandard: caln ? undefined : nonStandardTag("filingNumber", coverage),
+    caln,
   };
 }

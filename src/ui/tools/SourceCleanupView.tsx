@@ -1124,12 +1124,19 @@ function GroupEditDialog({
             {field("author", "addSource.field.author")}
             {field("agency", "addSource.field.agency")}
             {field("place", "addSource.field.place")}
-            {field("filingNumber", idLabel.labelKey, false, idLabel.nonStandard)}
+            {/* The id sits with the source only while the source carries it.
+                Where the file states ids as the repository link's call number,
+                the field belongs beside the repository it is written on — see
+                the row below. */}
+            {!idLabel.caln && field("filingNumber", idLabel.labelKey, false, idLabel.nonStandard)}
             {field("dateRange", "addSource.field.dateRange")}
             {onePage && field("page", "addSource.field.page")}
-            {/* Only a source this run creates has a repository to choose — one
-                the file already keeps hangs where it hangs. */}
-            {!group.existingSourceXref && (
+          </div>
+          {/* Only a source this run creates has a repository to choose — one
+              the file already keeps hangs where it hangs. The call number is
+              written on that link (`REPO > CALN`), so it stands beside it. */}
+          {!group.existingSourceXref && (
+            <div className="add-source-details-grid">
               <label className="add-source-field">
                 <span>{t("addSource.field.repo")}</span>
                 <SelectMenu
@@ -1157,8 +1164,9 @@ function GroupEditDialog({
                   ]}
                 />
               </label>
-            )}
-          </div>
+              {idLabel.caln && field("filingNumber", idLabel.labelKey)}
+            </div>
+          )}
     </SourceDialogShell>
   );
 }
