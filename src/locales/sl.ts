@@ -2369,7 +2369,7 @@ export const sl = {
   "shortcuts.item.addParent": "Dodaj očeta · mater",
   "shortcuts.item.addPartnerChild": "Dodaj partnerja · otroka — v družino, v kateri je kazalec, ali v edino",
   "shortcuts.item.sexCycle": "Spremeni spol osebe — ♂, nato ♀, nato ?",
-  "shortcuts.item.commitField": "Shrani polje v urejanju in pojdi naprej — na naslednje polje, nato na meni + Dodaj pri dogodku",
+  "shortcuts.item.commitField": "Shrani polje v urejanju in pojdi naprej — na naslednje polje, nato na gumb + Dodaj pri dogodku",
   "shortcuts.item.leaveField": "Zapusti polje v urejanju — vpisano se ohrani",
   "shortcuts.item.save": "Shrani / prenesi GEDCOM",
   "shortcuts.item.undo": "Razveljavi",

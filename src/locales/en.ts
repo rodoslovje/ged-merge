@@ -2123,7 +2123,7 @@ export const en = {
   "shortcuts.item.addParent": "Add a father · a mother",
   "shortcuts.item.addPartnerChild": "Add a partner · a child — to the family the cursor is in, or the only one",
   "shortcuts.item.sexCycle": "Change the person's sex — ♂, then ♀, then ?",
-  "shortcuts.item.commitField": "Save the field you're typing in and move on — to the next field, then to the event's + Add menu",
+  "shortcuts.item.commitField": "Save the field you're typing in and move on — to the next field, then to the event's + Add button",
   "shortcuts.item.leaveField": "Leave the field you're typing in, keeping what you typed",
   "shortcuts.item.save": "Save / download GEDCOM",
   "shortcuts.item.undo": "Undo",

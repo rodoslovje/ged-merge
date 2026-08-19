@@ -476,6 +476,8 @@
               <span class="gm-glyph">×</span> glyph clears a field. <strong>+ Add Name</strong> attaches alternative
               name variants (married name, name at birth, aka, formal and more), each with its own given name, surname
               and type; the <span class="gm-glyph">×</span> glyph removes a variant.
+              <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">X</span> sets the sex
+              without opening its picker — ♂, then ♀, then ? — which is how a child you have just added gets theirs.
             </p>
             <h3>Events</h3>
             <p>
@@ -510,6 +512,14 @@
                 <strong>place</strong>. <strong>+ Add</strong> at the end of the row adds the rest one at a time —
                 address, agency, source, type, cause, note — and puts the cursor straight in the new field, so the row
                 never becomes a wall of empty inputs. Use <span class="gm-glyph">×</span> to clear a single field.
+                A whole row can be filled in without the mouse: <span class="gm-key">Enter</span> steps from the date to
+                the place and then onto the <strong>+ Add</strong> button, where <span class="gm-key">Enter</span> opens
+                the menu and the arrow keys pick the field to add
+                (<span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">D</span> opens it from
+                anywhere in the row). <span class="gm-key">Esc</span> leaves the field you are typing in and keeps what
+                you typed, so <span class="gm-key">⌫</span> is free to take you back to the person you came from —
+                as does <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">⌫</span>
+                straight from the field.
               </p>
               <p>
                 A <strong>Residence</strong> row also offers a <strong>value</strong> field, because a residence may
@@ -1951,6 +1961,9 @@
               when your citation <strong>matches an existing source</strong> in the file, adding the new page to it
               rather than creating a duplicate. You can fill in structured fields — title, author, periodical/series,
               publisher, agency, filing number, page, URL and note — as needed for your house style.
+              <span class="gm-key">Ctrl</span><span class="gm-key">Enter</span> (<span class="gm-key">⌘</span><span class="gm-key">Enter</span>
+              on a Mac) confirms the dialog from any field, including the paste box; from the one-line fields
+              <span class="gm-key">Enter</span> alone does it.
             </p>
             <p>
               Add Source <strong>recognizes archive links</strong> the same way <a href="#tools">Organize sources</a>
@@ -2257,21 +2270,24 @@
                 <tr><td><span class="gm-key">Ctrl</span><span class="gm-key">Z</span></td><td>Undo</td></tr>
                 <tr><td><span class="gm-key">Ctrl</span><span class="gm-key">Shift</span><span class="gm-key">Z</span> / <span class="gm-key">Ctrl</span><span class="gm-key">Y</span></td><td>Redo</td></tr>
                 <tr><td><span class="gm-key">Ctrl</span><span class="gm-key">F</span></td><td>Find in the current view — chart, Map, match list or a Tools list</td></tr>
+                <tr><td><span class="gm-key">Ctrl</span><span class="gm-key">Enter</span></td><td>Confirm a dialog — its <strong>Add</strong> or <strong>Save</strong> button</td></tr>
                 <tr><td><span class="gm-key">/</span></td><td>Search everyone in the file</td></tr>
                 <tr><td><span class="gm-key">?</span></td><td>Show the shortcut list</td></tr>
-                <tr><td><span class="gm-key">Esc</span></td><td>Close a dialog / leave a chart page</td></tr>
+                <tr><td><span class="gm-key">Esc</span></td><td>Leave the field you're typing in, keeping what you typed (Edit) / close a dialog / leave a chart page</td></tr>
                 <tr><td><span class="gm-key">E</span> · <span class="gm-key">M</span> · <span class="gm-key">T</span></td><td>Switch to Edit · Merge · Tools</td></tr>
                 <tr><td><span class="gm-key">←</span> / <span class="gm-key">→</span></td><td>Previous / next person or item</td></tr>
                 <tr><td><span class="gm-key">↑</span> / <span class="gm-key">↓</span></td><td>Scroll the open panel</td></tr>
-                <tr><td><span class="gm-key">Enter</span></td><td>Save the field you're editing and leave it (Edit) — or open the highlighted item / unfold a duplicate group (Tools)</td></tr>
+                <tr><td><span class="gm-key">Enter</span></td><td>Save the field you're editing and step to the next one — the event's <strong>+ Add</strong> button after the last (Edit) — or open the highlighted item / unfold a duplicate group (Tools)</td></tr>
                 <tr><td><span class="gm-key">V</span></td><td>Open the person's chart (tree, grid, fan, circle)</td></tr>
                 <tr><td><span class="gm-key">S</span></td><td>Open the relationship diagram</td></tr>
                 <tr><td><span class="gm-key">H</span></td><td>Go to the start person (Edit)</td></tr>
-                <tr><td><span class="gm-key">⌫</span></td><td>Back — previous person (Edit) or leave a chart page</td></tr>
+                <tr><td><span class="gm-key">⌫</span> / <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">⌫</span></td><td>Back — previous person (Edit) or leave a chart page; the chord goes back from inside a field too</td></tr>
                 <tr><td><span class="gm-key">N</span></td><td>Add a new person (linked to nobody)</td></tr>
                 <tr><td><span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">E</span></td><td>Open the <strong>+ Add Event</strong> menu (Edit)</td></tr>
                 <tr><td><span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">1</span> … <span class="gm-key">9</span></td><td>Add a quick event to the open person (Edit) — the buttons under the event list, in their order</td></tr>
                 <tr><td><span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">N</span> · <span class="gm-key">S</span></td><td>Add a note · a source — to the event the cursor is in, otherwise to the person (Edit)</td></tr>
+                <tr><td><span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">D</span></td><td>Open the event's <strong>+ Add</strong> menu — address, cause, type (Edit)</td></tr>
+                <tr><td><span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">X</span></td><td>Set the open person's sex — ♂, then ♀, then ? (Edit)</td></tr>
                 <tr><td><span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">A</span> · <span class="gm-key">I</span> · <span class="gm-key">L</span></td><td>Add an alternative name · add media (image) · mark private (the lock) (Edit)</td></tr>
                 <tr><td><span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">F</span> · <span class="gm-key">M</span></td><td>Add a father · a mother — the empty slot each names (Edit)</td></tr>
                 <tr><td><span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">P</span> · <span class="gm-key">C</span></td><td>Add a partner · a child — to the family the cursor is in, or the only one there is (Edit)</td></tr>
