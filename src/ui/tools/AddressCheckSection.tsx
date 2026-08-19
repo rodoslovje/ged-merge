@@ -139,8 +139,12 @@ export function AddressCheckSection({
   const [peopleOpen, setPeopleOpen] = useState<Set<string>>(new Set());
   /** Which places are unfolded, folded away to begin with exactly as on the
    *  geocoding addresses list: a village of fifty findings is one line naming
-   *  the place and counting them, and the list is read by places first. */
+   *  the place and counting whose it is, and the list is read by places first. */
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
+  /** Which places are listing their people — the row-level count's own toggle,
+   *  asked of the whole village. Kept apart from `openGroups` so the people can
+   *  be read without fifty houses unfolding under them. */
+  const [groupPeopleOpen, setGroupPeopleOpen] = useState<Set<string>>(new Set());
   /** The one row showing its map — one at a time, as on the places list. */
   const [mapOpen, setMapOpen] = useState<string | null>(null);
   /** The one row whose ✎ is open, and its draft — the same one-at-a-time editor
@@ -168,6 +172,13 @@ export function AddressCheckSection({
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
       else next.add(key);
+      return next;
+    });
+  const toggleGroupPeople = (place: string) =>
+    setGroupPeopleOpen((prev) => {
+      const next = new Set(prev);
+      if (next.has(place)) next.delete(place);
+      else next.add(place);
       return next;
     });
   const [applied, setApplied] = useState<number | null>(null);
@@ -365,6 +376,13 @@ export function AddressCheckSection({
       .map(([place, findings]) => ({
         place,
         findings: [...findings].sort((a, b) => placeCollator.compare(a.written, b.written)),
+        // Everyone the village's houses belong to, counted once however many of
+        // them a person writes — the places list's own count, asked of a group
+        // rather than a row. How many houses and how many events they carry
+        // stood here instead, which is a measure of the finding list and not of
+        // the family: what the reader is looking for down a long list is where
+        // their people are.
+        people: [...new Set(findings.flatMap((f) => f.people))],
       }))
       .sort((a, b) => b.findings.length - a.findings.length || placeCollator.compare(a.place, b.place));
     return {
@@ -506,6 +524,7 @@ export function AddressCheckSection({
                       setOpenGroups(new Set());
                       setOpen(new Set());
                       setPeopleOpen(new Set());
+                      setGroupPeopleOpen(new Set());
                       setMapOpen(null);
                     } else {
                       setOpenGroups(new Set(view.groups.map((g) => g.place)));
@@ -536,6 +555,7 @@ export function AddressCheckSection({
                 <li className="v-spacer" style={{ height: virtual.padTop }} ref={virtual.topRef} aria-hidden />
                 {view.groups.slice(virtual.start, virtual.end).map((group) => {
                   const groupOpen = openGroups.has(group.place);
+                  const groupPeople = groupPeopleOpen.has(group.place);
                   return (
                   <li key={group.place} className="tools-geo-addr-group">
                     {/* The place the houses under it belong to, named once and
@@ -547,15 +567,28 @@ export function AddressCheckSection({
                       onToggle={() => toggleGroup(group.place)}
                       place={group.place || t("tools.geocode.addr.noPlace")}
                     >
-                      {/* The geocoding list's own group line, string and all:
-                          how many houses, and how many events hang on them. */}
-                      <span className="tools-geo-count">
-                        {t("tools.geocode.addr.groupMeta", {
-                          count: group.findings.length,
-                          events: group.findings.reduce((n, f) => n + f.count, 0),
-                        })}
-                      </span>
+                      {/* Whose village this is, in the count chip every finding
+                          row on both these tabs pins right — click it and the
+                          people are listed, exactly as on a row. */}
+                      <button
+                        className="tools-chip-count tools-count-toggle"
+                        aria-pressed={groupPeople}
+                        aria-label={t("tools.registerAddr.groupPeople", { count: group.people.length })}
+                        title={t("tools.registerAddr.groupPeople", { count: group.people.length })}
+                        onClick={() => toggleGroupPeople(group.place)}
+                      >
+                        {group.people.length}
+                      </button>
                     </GeoRowHeader>
+                    {groupPeople && (
+                      <GeoPeopleList
+                        dataset={dataset}
+                        ids={group.people}
+                        place={group.place}
+                        kinship={kinship}
+                        onNavigate={onNavigate}
+                      />
+                    )}
                     {groupOpen && (
                     // The geocoding addresses list's own nesting: the houses sit
                     // indented under the place, behind the rule that says they
