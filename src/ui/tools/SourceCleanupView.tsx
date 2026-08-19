@@ -33,6 +33,8 @@ import { UsageList, useDebounced } from "./shared";
 import { PersonLink } from "../PersonLink";
 import { detectSourceCoverage, repoLinkWanted, sourceTooltip } from "../../gedcom/source";
 import { NonStandard, idField } from "../source/standardFields";
+import { SourceDialogShell } from "../source/SourceDialogShell";
+import { SourceLinkRow } from "../source/SourceLinkRow";
 import { childText } from "../../gedcom/node";
 import { parseSourceInput } from "../../gedcom/citationParse";
 import { fetchPageHtml } from "../../normalize/urlMetadata";
@@ -843,13 +845,6 @@ function GroupEditDialog({
   // shown on the member's own row.
   const onePage = new Set(group.members.map((m) => linkKey(m.url))).size <= 1;
 
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
 
   /** The link the source is written from — the group's own until the reader
    *  puts another in its place. Offered only where the group is one link (as
@@ -1071,24 +1066,22 @@ function GroupEditDialog({
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div
-        className="modal add-source-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-label={t("editSource.title")}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="modal-header">
-          <h2>
-            <span className="add-source-badge" aria-hidden="true">{SITE_ICON[group.site]}</span>
-            {t("editSource.title")}
-          </h2>
-          <button className="modal-close" onClick={onClose} title={t("help.close")} aria-label={t("help.close")}>
-            ×
+    <SourceDialogShell
+      icon={SITE_ICON[group.site]}
+      title={t("editSource.title")}
+      t={t}
+      onClose={onClose}
+      actions={
+        <>
+          <button className="nav-btn" onClick={onClose}>
+            {t("addSource.cancel")}
           </button>
-        </div>
-        <div className="modal-body">
+          <button className="nav-btn primary" onClick={save}>
+            {t("editSource.save")}
+          </button>
+        </>
+      }
+    >
           <label className="add-source-field">
             <span>{t("tools.sources.pasteCitation")}</span>
             {/* Focused on open: the dialog's fastest path is pasting a copied
@@ -1107,38 +1100,23 @@ function GroupEditDialog({
               — becomes the image it was indexed from, which answers with the
               collection, the archive and the film. */}
           {onePage && (
-            <label className="add-source-field add-source-url-row" title={t("tools.sources.swapLinkHint")}>
-              <span>{t("addSource.field.link")}</span>
-              <span className="add-source-url-wrap">
-                <input className="edit-input" value={url} onChange={(e) => relink(e.target.value)} />
-                {url.trim() && (
-                  <a
-                    className="edit-link-open"
-                    href={linkHref(url.trim())}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    title={linkTooltip(url.trim(), t, t("edit.openLink"))}
-                  >
-                    ↗
-                  </a>
-                )}
-                {lookupTarget(url) && (
-                  <button
-                    type="button"
-                    className="tree-open-btn add-source-refetch"
-                    disabled={fetching || !settings.allowLinkFetch}
-                    title={settings.allowLinkFetch ? t("editSource.refetchHint") : t("tools.geocode.downloadNeedsOptIn")}
-                    onClick={() => {
+            <SourceLinkRow
+              label={t("addSource.field.link")}
+              title={t("tools.sources.swapLinkHint")}
+              value={url}
+              onChange={relink}
+              onLookUp={
+                lookupTarget(url)
+                  ? () => {
                       const target = lookupTarget(url);
                       if (target) void lookUp(target);
-                    }}
-                  >
-                    {fetching && <span className="spinner" aria-hidden="true" />}
-                    {t("editSource.refetch")}
-                  </button>
-                )}
-              </span>
-            </label>
+                    }
+                  : undefined
+              }
+              fetching={fetching}
+              lookupAllowed={settings.allowLinkFetch}
+              t={t}
+            />
           )}
           {failed && <div className="add-source-hint">{t("tools.sources.lookupFailed")}</div>}
           {field("title", "addSource.field.title")}
@@ -1181,17 +1159,7 @@ function GroupEditDialog({
               </label>
             )}
           </div>
-        </div>
-        <div className="add-source-actions">
-          <button className="nav-btn" onClick={onClose}>
-            {t("addSource.cancel")}
-          </button>
-          <button className="nav-btn primary" onClick={save}>
-            {t("editSource.save")}
-          </button>
-        </div>
-      </div>
-    </div>
+    </SourceDialogShell>
   );
 }
 

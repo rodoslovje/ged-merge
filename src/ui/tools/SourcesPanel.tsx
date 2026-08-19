@@ -11,6 +11,7 @@ import type { MediaEditFields } from "../MediaViewer";
 import { mediaMetaRows } from "../MediaViewer";
 import { type ToolsScans } from "../useToolsScans";
 import type { RecordPatch } from "../historyTypes";
+import { SourceDialogShell } from "../source/SourceDialogShell";
 import { AddSourceDialog, type AddSourceResult } from "../AddSourceDialog";
 import { repoRecordEditFields, sourceRecordEditFields, type EditRepoFields, type EditSourceFields } from "../../gedcom/edit";
 import { ToolsLoading, TreeSearch, UsageList, someMatch, useDebounced } from "./shared";
@@ -270,25 +271,19 @@ function RepoEditDialog({
   const set = (key: keyof EditRepoFields) => (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setFields((f) => ({ ...f, [key]: e.target.value }));
 
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
-
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal add-source-dialog" role="dialog" aria-modal="true" aria-label={t("editRepo.title")} onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2>
-            <span className="add-source-badge" aria-hidden="true">🏛</span>
-            {t("editRepo.title")}
-          </h2>
-          <button className="modal-close" onClick={onClose} title={t("help.close")} aria-label={t("help.close")}>×</button>
-        </div>
-        <div className="modal-body">
+    <SourceDialogShell
+      icon="🏛"
+      title={t("editRepo.title")}
+      t={t}
+      onClose={onClose}
+      actions={
+        <>
+          <button className="tree-open-btn" onClick={onClose}>{t("addSource.cancel")}</button>
+          <button className="add-source-submit" onClick={() => onSave(fields)}>{t("editSource.save")}</button>
+        </>
+      }
+    >
           <label className="add-source-field">
             <span>{t("editRepo.name")}</span>
             <input className="edit-input" autoFocus value={fields.name ?? ""} onChange={set("name")} />
@@ -315,15 +310,7 @@ function RepoEditDialog({
             <span>{t("addSource.field.note")}</span>
             <input className="edit-input" value={fields.note ?? ""} onChange={set("note")} />
           </label>
-        </div>
-        <div className="add-source-actions">
-          <button className="tree-open-btn" onClick={onClose}>{t("addSource.cancel")}</button>
-          <button className="add-source-submit" onClick={() => onSave(fields)}>
-            {t("editSource.save")}
-          </button>
-        </div>
-      </div>
-    </div>
+    </SourceDialogShell>
   );
 }
 

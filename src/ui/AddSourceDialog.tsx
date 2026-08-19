@@ -12,8 +12,9 @@ import { childText } from "../gedcom/node";
 import { useSettings } from "./SettingsContext";
 import { useDebounced } from "./tools/shared";
 import { SelectMenu } from "./DropdownMenu";
-import { linkHref, linkTooltip } from "./FieldValue";
 import { NonStandard, nonStandardTag } from "./source/standardFields";
+import { SourceDialogShell } from "./source/SourceDialogShell";
+import { SourceLinkRow } from "./source/SourceLinkRow";
 import type { Translate } from "../locales/i18n";
 
 /** Fields confirmed by the dialog, ready for `EditView`'s commit handler to
@@ -111,8 +112,6 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
   // lookup improves only what the dialog itself put there.
   const repoTouched = useRef(false);
   const { settings } = useSettings();
-  const restoreFocusRef = useRef<HTMLElement | null>(null);
-  const wasOpenRef = useRef(false);
 
   const mainLinkLangs = useMemo(() => inferMainProfile(dataset).linkLangs, [dataset]);
   // Places shown in the dialog already match the file's own place format —
@@ -393,31 +392,6 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
     return () => { cancelled = true; };
   }, [editing, normalizedUrl, urlOnly, match, settings.allowLinkFetch, recognized, resolvePlace]);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") handleClose();
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen]); // handleClose intentionally omitted — stable by design, only wraps onClose prop
-
-  // Remember what was focused before the dialog opened (this render runs before
-  // the dialog's own autoFocus), so focus can return there when it closes — a
-  // keyboard user lands back on the trigger and can Tab onward.
-  if (isOpen && !wasOpenRef.current) {
-    restoreFocusRef.current = document.activeElement as HTMLElement | null;
-  }
-  useEffect(() => {
-    const wasOpen = wasOpenRef.current;
-    wasOpenRef.current = isOpen;
-    if (isOpen || !wasOpen) return;
-    const el = restoreFocusRef.current;
-    restoreFocusRef.current = null;
-    if (el && document.contains(el)) el.focus();
-  }, [isOpen]);
-
   if (!isOpen) return null;
 
   function reset() {
@@ -542,16 +516,26 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
   );
 
   return (
-    <div className="modal-overlay" onClick={handleClose}>
-      <div className="modal add-source-dialog" role="dialog" aria-modal="true" aria-label={t(editing ? "editSource.title" : "addSource.title")} onClick={(e) => e.stopPropagation()} onKeyDown={onDialogKeyDown}>
-        <div className="modal-header">
-          <h2>
-            <span className="add-source-badge" aria-hidden="true">📖</span>
-            {t(editing ? "editSource.title" : "addSource.title")}
-          </h2>
-          <button className="modal-close" onClick={handleClose} title={t("help.close")} aria-label={t("help.close")}>×</button>
-        </div>
-        <div className="modal-body">
+    <SourceDialogShell
+      icon="📖"
+      title={t(editing ? "editSource.title" : "addSource.title")}
+      t={t}
+      onClose={handleClose}
+      onKeyDown={onDialogKeyDown}
+      actions={
+        <>
+          {editing?.onRemove && (
+            <button className="tree-open-btn add-source-remove" onClick={handleRemove}>{t("editSource.remove")}</button>
+          )}
+          <button className="tree-open-btn" onClick={handleClose}>{t("addSource.cancel")}</button>
+          {editing ? (
+            <button className="add-source-submit" onClick={handleSave}>{t("editSource.save")}</button>
+          ) : (
+            <button className="add-source-submit" disabled={!canAdd} onClick={handleAdd}>{t("addSource.add")}</button>
+          )}
+        </>
+      }
+    >
           {!editing && (
             <label className="add-source-field">
               <span>{t("addSource.field.link")}</span>
@@ -696,54 +680,19 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
               )}
             </div>
           )}
-          {/* The ↗ sits in an inner wrap beside the input alone (not beside the
-              whole labelled field, where flex-end parked it at the row's foot,
-              below the input's centerline). */}
-          <label className="add-source-field add-source-url-row">
-            <span>{t("addSource.field.url")}</span>
-            <span className="add-source-url-wrap">
-              <input
-                className="edit-input"
-                value={fields.url}
-                onChange={(e) => setFields((f) => ({ ...f, url: e.target.value }))}
-              />
-              {editing && fields.url.trim() && (
-                <a className="edit-link-open" href={linkHref(fields.url.trim())} target="_blank" rel="noopener noreferrer" title={linkTooltip(fields.url.trim(), t, t("edit.openLink"))}>
-                  ↗
-                </a>
-              )}
-              {/* Read the page again and fill these fields from it — for a
-                  record made before the lookup could answer, or made offline
-                  from the link alone. Only ever offered while the reader has
-                  online lookups on; the fields are the reader's to check
-                  before Save writes any of it. */}
-              {editing && fields.url.trim() && (
-                <button
-                  type="button"
-                  className="tree-open-btn add-source-refetch"
-                  disabled={fetching || !settings.allowLinkFetch}
-                  title={settings.allowLinkFetch ? t("editSource.refetchHint") : t("tools.geocode.downloadNeedsOptIn")}
-                  onClick={() => void refetch()}
-                >
-                  {fetching && <span className="spinner" aria-hidden="true" />}
-                  {t("editSource.refetch")}
-                </button>
-              )}
-            </span>
-          </label>
-        </div>
-        <div className="add-source-actions">
-          {editing?.onRemove && (
-            <button className="tree-open-btn add-source-remove" onClick={handleRemove}>{t("editSource.remove")}</button>
-          )}
-          <button className="tree-open-btn" onClick={handleClose}>{t("addSource.cancel")}</button>
-          {editing ? (
-            <button className="add-source-submit" onClick={handleSave}>{t("editSource.save")}</button>
-          ) : (
-            <button className="add-source-submit" disabled={!canAdd} onClick={handleAdd}>{t("addSource.add")}</button>
-          )}
-        </div>
-      </div>
-    </div>
+          {/* Read the page again and fill these fields from it — for a record
+              made before the lookup could answer, or made offline from the
+              link alone. Offered while editing a record that has a link; the
+              fields are the reader's to check before Save writes any of it. */}
+          <SourceLinkRow
+            label={t("addSource.field.url")}
+            value={fields.url}
+            onChange={(v) => setFields((f) => ({ ...f, url: v }))}
+            onLookUp={editing && fields.url.trim() ? () => void refetch() : undefined}
+            fetching={fetching}
+            lookupAllowed={settings.allowLinkFetch}
+            t={t}
+          />
+    </SourceDialogShell>
   );
 }
