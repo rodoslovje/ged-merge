@@ -411,6 +411,109 @@ describe("findExistingSource", () => {
   });
 });
 
+describe("findExistingSource — FamilySearch", () => {
+  // Image 22 of film 108918058, as the file holds it: its own ark, the film
+  // in `cat=`, the image in `i=` (which counts from zero).
+  const film = `0 HEAD
+0 @S1@ SOUR
+1 TITL Chicago, Cook, Illinois, United States records
+1 FILN 108918058
+1 OBJE @O1@
+0 @O1@ OBJE
+1 FILE https://www.familysearch.org/ark:/61903/3:1:3QS7-89W1-K3TZ?i=21&cat=108918058
+2 TITL #22 - Chicago, Cook, Illinois, United States records
+0 TRLR
+`;
+
+  it("joins another image of the same film to its source, as a new page", () => {
+    const ds = buildFromText(film);
+    // A different image: different ark, same film — no part of the two URLs
+    // is alike, which is what used to mint a second source.
+    const match = findExistingSource(
+      ds.records,
+      "https://www.familysearch.org/ark:/61903/3:1:3QS7-89W1-K3TQ?i=22&cat=108918058",
+    );
+    expect(match).toEqual({ sourceXref: "@S1@", objeXref: undefined, page: "23" });
+  });
+
+  it("reuses the page's own media record when the same image is pasted again", () => {
+    const ds = buildFromText(film);
+    const match = findExistingSource(
+      ds.records,
+      "https://www.familysearch.org/ark:/61903/3:1:3QS7-89W1-K3TZ?view=explore&lang=en&i=21&cat=108918058",
+    );
+    expect(match).toEqual({ sourceXref: "@S1@", objeXref: "@O1@", page: "22" });
+  });
+
+  it("keeps two images apart when the film's ark is what the links share", () => {
+    const shared = `0 HEAD
+0 @S1@ SOUR
+1 TITL Zbirka
+1 OBJE @O1@
+0 @O1@ OBJE
+1 FILE https://www.familysearch.org/ark:/61903/3:1:3QS7-89W1-K3TZ?i=5&cat=4826234
+0 TRLR
+`;
+    const ds = buildFromText(shared);
+    // Same ark, next image: the link key folds `i=` away, so only the image
+    // numbers tell the two pages apart.
+    const match = findExistingSource(
+      ds.records,
+      "https://www.familysearch.org/ark:/61903/3:1:3QS7-89W1-K3TZ?i=6&cat=4826234",
+    );
+    expect(match).toEqual({ sourceXref: "@S1@", objeXref: undefined, page: "7" });
+  });
+
+  it("matches a film the link does not carry but the citation named", () => {
+    const ds = buildFromText(`0 HEAD
+0 @S1@ SOUR
+1 TITL Krstna knjiga
+1 FILN 5482250
+0 TRLR
+`);
+    const match = findExistingSource(
+      ds.records,
+      "https://www.familysearch.org/ark:/61903/3:1:3QS7-89W1-K3TZ?i=8",
+      { film: "005,482,250", image: "9" },
+    );
+    expect(match).toEqual({ sourceXref: "@S1@", objeXref: undefined, page: "9" });
+  });
+
+  it("matches an indexed record to its collection's source", () => {
+    const ds = buildFromText(`0 HEAD
+0 @S1@ SOUR
+1 TITL Croatia, Church Books, 1516-1994
+0 TRLR
+`);
+    const match = findExistingSource(ds.records, "https://familysearch.org/ark:/61903/1:1:JFVN-KMV", {
+      collection: "Croatia Church Books 1516-1994",
+    });
+    expect(match).toEqual({ sourceXref: "@S1@", objeXref: undefined, page: undefined });
+  });
+
+  it("does not take an ark-shaped filing number for a film", () => {
+    const ds = buildFromText(`0 HEAD
+0 @S1@ SOUR
+1 TITL FamilySearch 3:1:3Q9M-CS2T
+1 FILN 3:1:3Q9M-CS2T
+0 TRLR
+`);
+    const match = findExistingSource(ds.records, "https://www.familysearch.org/ark:/61903/3:1:3Q9M-CS2T?i=1", {
+      film: "3:1:3Q9M-CS2T",
+    });
+    expect(match).toBeUndefined();
+  });
+
+  it("keeps a different film's source out of it", () => {
+    const ds = buildFromText(film);
+    const match = findExistingSource(
+      ds.records,
+      "https://www.familysearch.org/ark:/61903/3:1:3QS7-11AA-BBBB?i=3&cat=406380",
+    );
+    expect(match).toBeUndefined();
+  });
+});
+
 describe("objeInfoOf", () => {
   const text = `0 HEAD
 1 GEDC

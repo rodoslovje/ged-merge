@@ -170,3 +170,67 @@ export function detectLinkLangs(links: string[]): LinkLangs {
     geneanet: detectLinkLang(links, geneanetLangCode),
   };
 }
+
+// ── FamilySearch links ──────────────────────────────────────────────────────
+// A FamilySearch link carries two things a source must keep apart: which book
+// (the film its images belong to) and which page (the image within that film).
+// The ark in the path names the single image, so two pages of one film share
+// no part of their URLs — which is why a source's identity is never read off
+// the URL alone; see `FsSourceHint` in `gedcom/source`.
+
+/** What a FamilySearch URL points at, in its own terms. */
+export interface FamilySearchUrlParts {
+  kind: "image" | "record" | "tree";
+  ark?: string;
+  /** `cat=` — the film/catalog the image belongs to: the *book* of the page. */
+  cat?: string;
+  /** `i=` — which image of that film, counting from zero. */
+  image?: string;
+}
+
+const FS_ARK_RE = /^https?:\/\/(?:www\.)?familysearch\.org\/ark:\/61903\/(\d:\d):([^/?#]+)/i;
+
+export function parseFamilySearchUrl(url: string): FamilySearchUrlParts | undefined {
+  const trimmed = url.trim();
+  if (!/^https?:\/\/(?:www\.)?familysearch\.org\//i.test(trimmed)) return undefined;
+  const ark = FS_ARK_RE.exec(trimmed);
+  if (ark) {
+    const id = `${ark[1]}:${ark[2]}`;
+    if (ark[1] === "3:1") {
+      return {
+        kind: "image",
+        ark: id,
+        cat: /[?&]cat=(\d+)/i.exec(trimmed)?.[1],
+        image: /[?&]i=(\d+)/i.exec(trimmed)?.[1],
+      };
+    }
+    return { kind: "record", ark: id };
+  }
+  return { kind: "tree" };
+}
+
+/** The image number FamilySearch itself would print for a link's `i=`, which
+ *  counts from zero: `i=23` is the page its viewer and its citation both call
+ *  image 24 (verified against both). Only the offline reading needs this — a
+ *  lookup answers with the number already worded. */
+export function familySearchImageNumber(i: string | undefined): string | undefined {
+  const n = i && /^\d+$/.test(i) ? Number(i) : undefined;
+  return n === undefined ? i : String(n + 1);
+}
+
+/**
+ * The form of a FamilySearch link the file stores: the ark, the image the
+ * reader was looking at (`i=`) and the film it belongs to (`cat=`) — and none
+ * of the viewer trail around them. That is what {@link canonicalFamilySearchUrl}
+ * keeps plus the page selector, which a browse link needs to reopen the very
+ * page it was copied from. Any other URL is returned unchanged.
+ */
+export function familySearchPageUrl(url: string): string {
+  const fs = parseFamilySearchUrl(url);
+  if (!fs || fs.kind === "tree" || !fs.ark) return url;
+  const query = [fs.image ? `i=${fs.image}` : undefined, fs.cat ? `cat=${fs.cat}` : undefined]
+    .filter(Boolean)
+    .join("&");
+  const base = `https://www.familysearch.org/ark:/61903/${fs.ark}`;
+  return query ? `${base}?${query}` : base;
+}

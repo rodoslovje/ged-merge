@@ -4,13 +4,20 @@ import {
   bookKeyOf,
   buildObjeIndex,
   detectSourceCoverage,
+  looseKey,
   prefersSourceRepos,
   isPointer,
   looksLikeUrl,
   pageParamOf,
   sourceTitle,
 } from "../gedcom/source";
-import { canonicalFamilySearchUrl, linkKey } from "../normalize/links";
+import {
+  familySearchImageNumber as imageNumber,
+  familySearchPageUrl,
+  linkKey,
+  parseFamilySearchUrl,
+  type FamilySearchUrlParts,
+} from "../normalize/links";
 import { detectPlaceLayout } from "../normalize/profile";
 import { normalizeDateString } from "../normalize/date";
 import { dateFixContext, proposeDateFix, type DateFixContext } from "./fixDates";
@@ -407,42 +414,9 @@ const SISTORY_WW_RE = /^https?:\/\/(?:\w+\.)?sistory\.si\/(ww[12])\/([0-9a-f-]+)
  *  — the same record as /ww1/{n}, with the person's name encoded in the id. */
 const SISTORY_ZV1_RE = /^https?:\/\/zv1\.sistory\.si\/zrtev\?id=([^&#\s]+)/i;
 
-export interface FamilySearchUrlParts {
-  kind: "image" | "record" | "tree";
-  ark?: string;
-  cat?: string;
-  image?: string;
-}
-
-const FS_ARK_RE = /^https?:\/\/(?:www\.)?familysearch\.org\/ark:\/61903\/(\d:\d):([^/?#]+)/i;
-
-export function parseFamilySearchUrl(url: string): FamilySearchUrlParts | undefined {
-  const trimmed = url.trim();
-  if (!/^https?:\/\/(?:www\.)?familysearch\.org\//i.test(trimmed)) return undefined;
-  const ark = FS_ARK_RE.exec(trimmed);
-  if (ark) {
-    const id = `${ark[1]}:${ark[2]}`;
-    if (ark[1] === "3:1") {
-      return {
-        kind: "image",
-        ark: id,
-        cat: /[?&]cat=(\d+)/i.exec(trimmed)?.[1],
-        image: /[?&]i=(\d+)/i.exec(trimmed)?.[1],
-      };
-    }
-    return { kind: "record", ark: id };
-  }
-  return { kind: "tree" };
-}
-
-/** The image number FamilySearch itself would print for a link's `i=`, which
- *  counts from zero: `i=23` is the page its viewer and its citation both call
- *  image 24 (verified against both). Only the offline reading needs this — a
- *  lookup answers with the number already worded. */
-function imageNumber(i: string | undefined): string | undefined {
-  const n = i && /^\d+$/.test(i) ? Number(i) : undefined;
-  return n === undefined ? i : String(n + 1);
-}
+// The FamilySearch URL reading lives in `normalize/links` (the reuse scan in
+// `gedcom/source` needs it too); kept exported here for its existing callers.
+export { parseFamilySearchUrl, type FamilySearchUrlParts };
 
 /** First quoted phrase in citation text — FamilySearch-style collection titles,
  *  e.g. `"Croatia, Church Books, 1516-1994," database with images, …`. */
@@ -2097,13 +2071,6 @@ const SITE_REPO: Partial<Record<ReshapeSite, { hostRe: RegExp; name: string; www
   familysearch: { hostRe: /familysearch\.org/i, name: "FamilySearch.org", www: "https://www.familysearch.org/" },
 };
 
-/** Letters and digits only, lowercased — so "FamilySearch.org - Croatia Church
- *  Books 1516-1994" and "Croatia, Church Books, 1516-1994" compare equal where
- *  it matters, whatever punctuation each side chose. */
-function looseKey(text: string): string {
-  return text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
-}
-
 /** Existing REPO for a site: one whose WWW is on the site's host, or one named
  *  after the site — a file keeping a repository per collection may name it
  *  "FamilySearch.org - Croatia Church Books 1516-1994" and give it no WWW at
@@ -2462,7 +2429,7 @@ export function reshapeSources(
         const obje = hit.objeXref ? byXref.get(hit.objeXref) : undefined;
         const file = obje && firstChild(obje, "FILE");
         const stored = file?.value?.trim();
-        const tidied = stored && canonicalFamilySearchUrl(stored);
+        const tidied = stored && familySearchPageUrl(stored);
         if (file && tidied && tidied !== stored) {
           file.value = tidied;
           counts.linksTidied++;
@@ -2524,9 +2491,10 @@ export function reshapeSources(
         // grouped with its other page media (not after CHAN/CREA).
         insertGrouped(sourceNode, { level: 1, tag: "OBJE", value: hit.objeXref, children: [] }, SOUR_TRAILING);
       } else {
-        // Written stripped of viewer state, so a page linked twice by two
-        // readers lands as one media record (see `canonicalFamilySearchUrl`).
-        const obje = addObjeToSource(clone, sourceXref, canonicalFamilySearchUrl(hit.url), objeTitle);
+        // Written stripped of viewer state but keeping what selects the page,
+        // so a page linked twice by two readers lands as one media record and
+        // still reopens where it was copied (see `familySearchPageUrl`).
+        const obje = addObjeToSource(clone, sourceXref, familySearchPageUrl(hit.url), objeTitle);
         if (obje.xref) createdObjeUrls.set(obje.xref, hit.url);
         counts.mediaCreated++;
       }

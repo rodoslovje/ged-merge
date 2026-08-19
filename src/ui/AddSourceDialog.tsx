@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import type { Dataset } from "../gedcom/types";
 import type { EditSourceFields, NewSourceFields } from "../gedcom/edit";
-import { findExistingSource } from "../gedcom/source";
+import { findExistingSource, type FsSourceHint } from "../gedcom/source";
 import { parseSourceInput } from "../gedcom/citationParse";
 import { inferMainProfile } from "../normalize/profile";
-import { canonicalFamilySearchUrl, rewriteLinkLang } from "../normalize/links";
+import { familySearchPageUrl, rewriteLinkLang } from "../normalize/links";
 import { fetchPageHtml, fetchPageTitle } from "../normalize/urlMetadata";
 import { fetchBookMeta, makePlaceResolver, narrowFsRegister, proposedSiteRepo, recognizeSourceUrl, SITE_ICON, splitFsRegisters, type ReshapeMeta, type ReshapeSite } from "../tools/sourceReshape";
 import { prefersSourceRepos } from "../gedcom/source";
@@ -119,9 +119,10 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
   const resolvePlace = useMemo(() => makePlaceResolver(dataset.records), [dataset]);
   const parsed = useMemo(() => parseSourceInput(text), [text]);
   const normalizedUrl = useMemo(
-    // A FamilySearch link keeps only its ark: the viewer state a pasted URL
-    // carries would make one page look like two sources.
-    () => (parsed.url ? canonicalFamilySearchUrl(rewriteLinkLang(parsed.url, mainLinkLangs)) : undefined),
+    // A FamilySearch link keeps its ark, the image it was copied at and the
+    // film that image belongs to: the rest is viewer state, which would make
+    // one page look like two sources.
+    () => (parsed.url ? familySearchPageUrl(rewriteLinkLang(parsed.url, mainLinkLangs)) : undefined),
     [parsed.url, mainLinkLangs],
   );
   // The same site recognition the Organize sources tool runs — a Matricula /
@@ -131,13 +132,28 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
     () => (normalizedUrl ? recognizeSourceUrl(normalizedUrl, text) : undefined),
     [normalizedUrl, text],
   );
+  // What this FamilySearch link belongs to, beyond what its URL says: two
+  // images of one film share no part of their addresses, so the film and the
+  // collection — from the pasted citation, or from the lookup once it answers
+  // — are what decide which source the page joins.
+  const fsHint = useMemo<FsSourceHint | undefined>(
+    () =>
+      recognized?.site === "familysearch"
+        ? {
+            film: fetched?.filingNumber ?? recognized.proposed.filingNumber,
+            collection: fetched?.collection ?? recognized.collection,
+            image: fetched?.page ?? recognized.page,
+          }
+        : undefined,
+    [recognized, fetched?.filingNumber, fetched?.collection, fetched?.page],
+  );
   // The existing-source scan walks the whole forest — debounced, so a URL
   // being typed character by character doesn't rescan a 20k-record file on
   // every keystroke (a paste is one change and settles immediately after).
   const settledUrl = useDebounced(normalizedUrl, 250);
   const match = useMemo(
-    () => (settledUrl ? findExistingSource(dataset.records, settledUrl) : undefined),
-    [dataset, settledUrl],
+    () => (settledUrl ? findExistingSource(dataset.records, settledUrl, fsHint) : undefined),
+    [dataset, settledUrl, fsHint],
   );
   const repos = useMemo(
     () =>
@@ -382,7 +398,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
       // The same normalization the paste path applies — a viewer-state URL
       // pasted straight into the field must not store what the paste box
       // would have trimmed.
-      url: url && canonicalFamilySearchUrl(rewriteLinkLang(url, mainLinkLangs)),
+      url: url && familySearchPageUrl(rewriteLinkLang(url, mainLinkLangs)),
       note: trim(fields.note),
     };
   }

@@ -3,7 +3,7 @@ import { rebuildFamily, rebuildIndividual } from "../gedcom/edit";
 import { bumpSourceCacheVersion } from "../gedcom/edit/cache";
 import { firstChild } from "../gedcom/node";
 import { clearObjeNodeCache } from "../gedcom/source";
-import { canonicalFamilySearchUrl } from "../normalize/links";
+import { familySearchPageUrl } from "../normalize/links";
 import { cloneRaw, type RecordPatch } from "../ui/historyTypes";
 import { reshapeSources, type ReshapeEnrichment, type ReshapeGroup, type ReshapeOptions } from "./sourceReshape";
 import { dedupeSources, type DupGroup } from "./sourceDuplicates";
@@ -47,7 +47,7 @@ export function applySourceCleanup(
       const node = survivor && next.find((r) => r.tag === "OBJE" && r.xref === survivor.xref);
       const file = node && firstChild(node, "FILE");
       const stored = file?.value?.trim();
-      const tidied = stored && canonicalFamilySearchUrl(stored);
+      const tidied = stored && familySearchPageUrl(stored);
       if (file && tidied && tidied !== stored) file.value = tidied;
     }
   }

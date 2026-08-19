@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { serializeGedcom } from "../gedcom/serialize";
-import { canonicalFamilySearchUrl, linkKey } from "../normalize/links";
+import { canonicalFamilySearchUrl, familySearchPageUrl, linkKey } from "../normalize/links";
 import { createSourceRecord } from "../gedcom/edit";
 import type { ReshapeEnrichment, ReshapeSite } from "./sourceReshape";
 import {
@@ -83,6 +83,18 @@ describe("URL parsers", () => {
     });
     expect(parseFamilySearchUrl("https://www.familysearch.org/en/tree/person/details/GPZG-CXL")?.kind).toBe("tree");
     expect(parseFamilySearchUrl("https://example.org/x")).toBeUndefined();
+  });
+
+  it("stores a FamilySearch link as ark + image + film, without the viewer trail", () => {
+    expect(
+      familySearchPageUrl("https://www.familysearch.org/ark:/61903/3:1:3Q9M-CS2T-N985-8?view=explore&cat=406380&i=137&lang=en"),
+    ).toBe("https://www.familysearch.org/ark:/61903/3:1:3Q9M-CS2T-N985-8?i=137&cat=406380");
+    expect(familySearchPageUrl("https://familysearch.org/ark:/61903/1:1:XNJ8-FPJ?lang=sl")).toBe(
+      "https://www.familysearch.org/ark:/61903/1:1:XNJ8-FPJ",
+    );
+    expect(familySearchPageUrl("https://data.matricula-online.eu/sl/x/?pg=5")).toBe(
+      "https://data.matricula-online.eu/sl/x/?pg=5",
+    );
   });
 });
 

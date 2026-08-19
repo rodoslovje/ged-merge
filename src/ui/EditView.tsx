@@ -1003,7 +1003,14 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     fields: AddSourceResult,
   ): { sourceXref: string; page?: string; pageObjeXref?: string; extraPatches: RecordPatch[] } {
     if (fields.url) {
-      const match = findExistingSource(dataset.records, fields.url);
+      // The film, collection and page about to be written are what decide
+      // which source this citation joins — a FamilySearch link says none of
+      // the three, and each image of a film carries its own ark.
+      const match = findExistingSource(dataset.records, fields.url, {
+        film: fields.filingNumber,
+        collection: fields.collection,
+        image: fields.page,
+      });
       if (match) {
         const extraPatches: RecordPatch[] = [];
         let pageObjeXref = match.objeXref;
