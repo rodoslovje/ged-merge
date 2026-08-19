@@ -31,7 +31,8 @@ import type { RecordPatch } from "../historyTypes";
 import { familySpouses, recordCitedBy } from "../../tools/sources";
 import { UsageList, useDebounced } from "./shared";
 import { PersonLink } from "../PersonLink";
-import { repoLinkWanted, sourceTooltip } from "../../gedcom/source";
+import { detectSourceCoverage, repoLinkWanted, sourceTooltip } from "../../gedcom/source";
+import { NonStandard, idField } from "../source/standardFields";
 import { childText } from "../../gedcom/node";
 import { parseSourceInput } from "../../gedcom/citationParse";
 import { fetchPageHtml } from "../../normalize/urlMetadata";
@@ -875,12 +876,19 @@ function GroupEditDialog({
     () => repoLinkWanted(dataset.records, settings.formatOverrides?.sourceLayout),
     [dataset, settings.formatOverrides?.sourceLayout],
   );
+  const coverage = useMemo(() => {
+    const override = settings.formatOverrides?.sourceCoverage ?? "auto";
+    return override !== "auto" ? override : detectSourceCoverage(dataset.records);
+  }, [settings.formatOverrides?.sourceCoverage, dataset]);
   /** "" = none, an xref, or "@create@" for the proposal. Starts on what the
    *  apply would do by itself, so leaving it alone changes nothing. */
   const [repoSel, setRepoSel] = useState(meta?.repoXref ?? "");
   /** Whether the reader picked a repository themselves — a later lookup then
    *  improves nothing here, only what the dialog itself put there. */
   const repoTouched = useRef(meta?.repoXref !== undefined);
+  // What this file calls the archive's id, and whether that name is an
+  // extension: the same rule the Add Source dialog states, from one place.
+  const idLabel = idField(dataset.records, coverage, repoSel !== "");
   const [fetching, setFetching] = useState(false);
   /** Whether the last lookup came back empty-handed — the relay was blocked or
    *  the page said nothing this editor understands. */
@@ -1023,9 +1031,12 @@ function GroupEditDialog({
     if (target && linkKey(target.bookUrl) !== linkKey(link)) void lookUp(target);
   }, [settledUrl, link, settings.allowLinkFetch, lookUp]);
 
-  const field = (key: keyof typeof fields, labelKey: string, autoFocus = false) => (
+  const field = (key: keyof typeof fields, labelKey: string, autoFocus = false, nonStandard?: string) => (
     <label className="add-source-field">
-      <span>{t(labelKey)}</span>
+      <span>
+        {t(labelKey)}
+        <NonStandard tag={nonStandard} t={t} />
+      </span>
       <input
         className="edit-input"
         autoFocus={autoFocus}
@@ -1135,7 +1146,7 @@ function GroupEditDialog({
             {field("author", "addSource.field.author")}
             {field("agency", "addSource.field.agency")}
             {field("place", "addSource.field.place")}
-            {field("filingNumber", "addSource.field.filingNumber")}
+            {field("filingNumber", idLabel.labelKey, false, idLabel.nonStandard)}
             {field("dateRange", "addSource.field.dateRange")}
             {onePage && field("page", "addSource.field.page")}
             {/* Only a source this run creates has a repository to choose — one

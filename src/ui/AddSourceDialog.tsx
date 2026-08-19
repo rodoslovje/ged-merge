@@ -13,6 +13,7 @@ import { useSettings } from "./SettingsContext";
 import { useDebounced } from "./tools/shared";
 import { SelectMenu } from "./DropdownMenu";
 import { linkHref, linkTooltip } from "./FieldValue";
+import { NonStandard, nonStandardTag } from "./source/standardFields";
 import type { Translate } from "../locales/i18n";
 
 /** Fields confirmed by the dialog, ready for `EditView`'s commit handler to
@@ -84,35 +85,6 @@ const EMPTY_FORM: FormState = {
 
 function extractPage(url: string): string | undefined {
   return /[?&]pg=(\d+)/i.exec(url)?.[1];
-}
-
-/**
- * The GEDCOM line a field writes when the standard has no such line on a
- * source — so the dialog can say which of its fields your other programs may
- * not read back.
- *
- * `PERI` and `FILN` are extensions wherever they appear. A source's `PLAC` and
- * `AGNC` are only extensions where the file writes them flat: the standard
- * states both inside `DATA > EVEN`, which is exactly what a standard-coverage
- * file does, and there the same two fields are the spec's own.
- */
-function nonStandardTag(key: keyof FormState, coverage: "vendor" | "standard"): string | undefined {
-  if (key === "periodical") return "PERI";
-  if (key === "filingNumber") return "FILN";
-  if (coverage === "standard") return undefined;
-  if (key === "place") return "PLAC";
-  if (key === "agency") return "AGNC";
-  return undefined;
-}
-
-/** The muted mark beside such a field's label; the tooltip says what it is. */
-function NonStandard({ tag, t }: { tag: string | undefined; t: Translate }) {
-  if (!tag) return null;
-  return (
-    <span className="add-source-nonstd" title={t("addSource.nonStandard", { tag })} aria-label={t("addSource.nonStandard", { tag })}>
-      *
-    </span>
-  );
 }
 
 function titleOf(dataset: Dataset, sourceXref: string): string | undefined {
