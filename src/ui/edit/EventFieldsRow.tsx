@@ -18,6 +18,7 @@ import { useField } from "./useField";
 import { SECONDARY_VALUE_EVENT_TAGS, VALUE_EVENT_TAGS } from "./editConstants";
 import { placeAddrCoordKey, placeCombosOf, placeKey } from "./placeSuggestions";
 import { DropdownMenu } from "../DropdownMenu";
+import { altShiftLabel } from "../../keyboard/shortcuts";
 import type { SourceDialogTarget } from "./types";
 import { harvestedLinksOf, linkEditing } from "./LinksEditor";
 
@@ -307,6 +308,8 @@ export function EventFieldsRow({
   const [revealed, setRevealed] = useState<Set<string>>(new Set());
   // Bumped by "+ Detail › Note" to open one more empty chip in the note list.
   const [noteAddTrigger, setNoteAddTrigger] = useState(0);
+  // Bumped by ⌥⇧D to open the "+ Detail" menu from wherever the keyboard is.
+  const [addDetailNonce, setAddDetailNonce] = useState(0);
   const [focusKey, setFocusKey] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   // EVEN remaps the Agency slot to its line value; every other event keeps the
@@ -404,16 +407,29 @@ export function EventFieldsRow({
    * event that leads with a value (Occupation, Title) starts there, every other
    * starts at its date, and the place follows either. Enter walks this chain,
    * revealing the next field on the way — the usual date and place are typed
-   * straight through, with no trip to the "+ Add" menu, and Enter on the last
-   * of them commits and hands the keyboard back as it does anywhere else.
+   * straight through, with no trip to the "+ Add" menu, and Enter past the last
+   * of them lands on the "+ Detail" chip — from where the menu opens with Enter
+   * again, so an address or a cause is added without touching the mouse.
    */
   const entryChain = primaryLine ? ["date", "place"] : ["value", "date", "place"];
 
-  /** Move to the field after `key` in the entry chain. Returns false at the end
-   *  of it, leaving Enter to mean what it usually does. */
+  /** Focus this row's "+ Detail" chip — the step after the chain's last field,
+   *  and after any detail added from the menu. False when the row has no
+   *  detail left to offer, leaving Enter to mean what it usually does. */
+  function focusAddDetail(): boolean {
+    const chip = rootRef.current?.querySelector<HTMLElement>("button.edit-event-addfield");
+    if (!chip) return false;
+    chip.focus();
+    return true;
+  }
+
+  /** Move to the field after `key` in the entry chain, or to the "+ Detail"
+   *  chip once the chain is done (which is also where a field outside the
+   *  chain — an added address, a cause — leads). */
   function advanceEntry(key: string): boolean {
-    const next = entryChain[entryChain.indexOf(key) + 1];
-    if (!next) return false;
+    const at = entryChain.indexOf(key);
+    const next = at === -1 ? undefined : entryChain[at + 1];
+    if (!next) return focusAddDetail();
     setRevealed((prev) => (prev.has(next) ? prev : new Set(prev).add(next)));
     setFocusKey(next);
     return true;
@@ -635,20 +651,39 @@ export function EventFieldsRow({
   }
 
   /**
-   * ⌥⇧N and ⌥⇧S belong to the event the keyboard is in: a note or a source
-   * added while typing a burial is the burial's, not the person's. Handled here
-   * so the row's own closures do the work, and marked handled — EditView's
-   * window listener runs afterwards and stands down for the person.
+   * The row's own keys.
+   *
+   * ⌥⇧N, ⌥⇧S and ⌥⇧D belong to the event the keyboard is in: a note, a source
+   * or a detail added while typing a burial is the burial's, not the person's.
+   * Handled here so the row's own closures do the work, and marked handled —
+   * EditView's window listener runs afterwards and stands down for the person.
+   *
+   * Enter continues the entry walk from the fields that have no handler of
+   * their own (the place, and every detail added from the menu): each one leads
+   * to the "+ Detail" chip, so the row is filled in without reaching for the
+   * mouse. Only this row's text fields — the coordinate picker inside it reads
+   * Enter as "take this coordinate".
    */
   function onRowKeyDown(e: React.KeyboardEvent) {
-    if (!e.altKey || !e.shiftKey || e.metaKey || e.ctrlKey || e.defaultPrevented) return;
-    if (e.code === "KeyN") {
-      e.preventDefault();
-      addDetail("note");
-    } else if (e.code === "KeyS") {
-      e.preventDefault();
-      onAddSource();
+    if (e.defaultPrevented || e.metaKey || e.ctrlKey) return;
+    if (e.altKey && e.shiftKey) {
+      if (e.code === "KeyN") {
+        e.preventDefault();
+        addDetail("note");
+      } else if (e.code === "KeyS") {
+        e.preventDefault();
+        onAddSource();
+      } else if (e.code === "KeyD") {
+        e.preventDefault();
+        setAddDetailNonce((n) => n + 1);
+      }
+      return;
     }
+    if (e.key !== "Enter" || e.altKey || e.shiftKey) return;
+    const el = e.target as HTMLElement;
+    if (el.tagName !== "INPUT" || !el.classList.contains("edit-input")) return;
+    const key = el.closest("[data-detail]")?.getAttribute("data-detail");
+    if (key && advanceEntry(key)) e.preventDefault();
   }
 
   return (
@@ -907,10 +942,11 @@ export function EventFieldsRow({
         {addable.length > 0 && (
           <DropdownMenu
             className="edit-event-addfield"
-            title={t("edit.addDetailTooltip")}
+            title={t("edit.addDetailTooltip", { key: altShiftLabel("D") })}
             groups={[{ items: addable.map((f) => ({ value: f.key, label: f.label })) }]}
             onSelect={addDetail}
             trigger={<>+ {t("edit.addDetail")}</>}
+            openNonce={addDetailNonce}
           />
         )}
       </div>

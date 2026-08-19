@@ -3142,6 +3142,13 @@ button:focus-visible {
  * the "+ Detail" menu, not revealed en masse (which read as a crowded row of
  * blank labelled inputs). */
 .edit-event .ev-collapsed { display: none; }
+/* Leaving a field (Enter, Escape) parks focus on the row or section around it
+ * rather than on `<body>`, so the tab position survives — see `leaveField`.
+ * These holders are never tab stops of their own, so they draw no ring. */
+.edit-event:focus,
+.edit-record-section:focus,
+.edit-person-header:focus,
+.edit-family:focus { outline: none; }
 /* The "+ Add" menu is a DropdownMenu trigger styled as a dashed chip. At rest
  * it's collapsed to nothing but stays in the DOM and focusable (so it keeps
  * its place in the tab order and focus can return to it after a dialog

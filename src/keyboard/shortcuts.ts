@@ -107,6 +107,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: [["mod", "Z"]], descKey: "shortcuts.item.undo" },
       { keys: [["mod", "shift", "Z"], ["mod", "Y"]], descKey: "shortcuts.item.redo" },
       { keys: [["mod", "F"]], descKey: "shortcuts.item.find" },
+      { keys: [["mod", "Enter"]], descKey: "shortcuts.item.confirmDialog" },
       { keys: [["/"]], descKey: "shortcuts.item.globalSearch" },
       { keys: [["?"]], descKey: "shortcuts.item.help" },
       { keys: [["Esc"]], descKey: "shortcuts.item.escape" },
@@ -133,7 +134,9 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: [[KEY.tree.toUpperCase()]], descKey: "shortcuts.item.tree" },
       { keys: [[KEY.relationship.toUpperCase()]], descKey: "shortcuts.item.relationship" },
       { keys: [[KEY.home.toUpperCase()]], descKey: "shortcuts.item.home" },
-      { keys: [["⌫"]], descKey: "shortcuts.item.back" },
+      // The chord is the same step taken from inside a field, where the bare
+      // key belongs to the text being typed.
+      { keys: [["⌫"], ["alt", "shift", "⌫"]], descKey: "shortcuts.item.back" },
     ],
   },
   {
@@ -150,10 +153,13 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: [["alt", "shift", "E"]], descKey: "shortcuts.item.addEventMenu" },
       { keys: [["alt", "shift", "1"], ["alt", "shift", "9"]], sep: "range", descKey: "shortcuts.item.quickEvent" },
       { keys: [["alt", "shift", "N"], ["alt", "shift", "S"]], descKey: "shortcuts.item.addNoteSource" },
+      { keys: [["alt", "shift", "D"]], descKey: "shortcuts.item.addDetailMenu" },
       { keys: [["alt", "shift", "A"], ["alt", "shift", "I"], ["alt", "shift", "L"]], descKey: "shortcuts.item.addNameMediaPrivate" },
       { keys: [["alt", "shift", "F"], ["alt", "shift", "M"]], descKey: "shortcuts.item.addParent" },
       { keys: [["alt", "shift", "P"], ["alt", "shift", "C"]], descKey: "shortcuts.item.addPartnerChild" },
+      { keys: [["alt", "shift", "X"]], descKey: "shortcuts.item.sexCycle" },
       { keys: [["Enter"]], descKey: "shortcuts.item.commitField" },
+      { keys: [["Esc"]], descKey: "shortcuts.item.leaveField" },
     ],
   },
   {

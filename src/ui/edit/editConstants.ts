@@ -77,3 +77,11 @@ export const SEX_OPTIONS: Sex[] = ["M", "F", "U"];
 
 /** M/F/U toggle for the individual's `SEX` line. */
 export const SEX_GLYPHS: Record<string, string> = { M: "♂", F: "♀", U: "?" };
+
+/** The next sex in the picker's own order, wrapping round — what ⌥⇧X sets, so
+ *  three presses come back to where they started. A sex the file spells some
+ *  other way starts the cycle from the top. */
+export function nextSex(current: Sex | undefined): Sex {
+  const at = SEX_OPTIONS.indexOf(current as Sex);
+  return SEX_OPTIONS[(at + 1) % SEX_OPTIONS.length];
+}

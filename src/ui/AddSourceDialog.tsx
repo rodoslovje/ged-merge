@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import type { Dataset } from "../gedcom/types";
 import type { EditSourceFields, NewSourceFields } from "../gedcom/edit";
 import { findExistingSource } from "../gedcom/source";
@@ -428,6 +428,27 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
   }
 
   const canAdd = Boolean(fields.url.trim() || fields.title.trim()) && !(standalone && match);
+
+  /**
+   * Confirm the dialog from the keyboard — what the Add / Save button does,
+   * without tabbing the length of the form to reach it. ⌘/Ctrl+Enter works in
+   * every field, including the paste box where a plain Enter is a line break;
+   * a plain Enter confirms from the one-line fields, the way a form submits.
+   * A menu's own Enter (the Repository dropdown) is left alone.
+   */
+  function onDialogKeyDown(e: ReactKeyboardEvent) {
+    if (e.key !== "Enter" || e.defaultPrevented || e.altKey || e.shiftKey) return;
+    const chord = e.metaKey || e.ctrlKey;
+    const el = e.target as HTMLElement;
+    if (!chord && (el.tagName !== "INPUT" || (el as HTMLInputElement).type !== "text")) return;
+    if (editing) {
+      e.preventDefault();
+      handleSave();
+    } else if (canAdd) {
+      e.preventDefault();
+      handleAdd();
+    }
+  }
   const field = (key: keyof FormState, labelKey: string) => (
     <label className="add-source-field">
       <span>{t(labelKey)}</span>
@@ -441,7 +462,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
 
   return (
     <div className="modal-overlay" onClick={handleClose}>
-      <div className="modal add-source-dialog" role="dialog" aria-modal="true" aria-label={t(editing ? "editSource.title" : "addSource.title")} onClick={(e) => e.stopPropagation()}>
+      <div className="modal add-source-dialog" role="dialog" aria-modal="true" aria-label={t(editing ? "editSource.title" : "addSource.title")} onClick={(e) => e.stopPropagation()} onKeyDown={onDialogKeyDown}>
         <div className="modal-header">
           <h2>
             <span className="add-source-badge" aria-hidden="true">📖</span>

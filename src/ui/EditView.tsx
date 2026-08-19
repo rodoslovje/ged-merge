@@ -62,6 +62,7 @@ import {
   setMarriedName,
   setName,
   setNotes,
+  setSex,
   updateSourceCitation,
   type EditSourceFields,
   type SharedNoteChange,
@@ -75,7 +76,7 @@ import { useMediaFolder } from "./MediaFolderContext";
 import { AddSourceDialog, type AddSourceResult } from "./AddSourceDialog";
 import { AddMediaDialog } from "./AddMediaDialog";
 import { nodeId } from "./edit/nodeId";
-import { commitFieldOnEnter } from "./edit/commitOnEnter";
+import { editFieldKeys } from "./edit/fieldKeys";
 import { useStableHandler } from "./edit/useStableHandler";
 import { useMergeOverlay } from "./edit/useMergeOverlay";
 import { buildPlaceSuggestions } from "./edit/placeSuggestions";
@@ -83,7 +84,7 @@ import { useDatasetDerivations } from "./DatasetDerivations";
 import { CoordShareProvider, type CoordShare } from "./edit/CoordShareContext";
 import { PlaceLookupProvider, usePlaceLookupValue } from "./edit/PlaceLookupContext";
 import { applyGeocodeByAddress, placeAddrKey, walkPlaceAddr } from "../tools/geocode";
-import { INDIVIDUAL_EVENT_GROUPS } from "./edit/editConstants";
+import { INDIVIDUAL_EVENT_GROUPS, nextSex } from "./edit/editConstants";
 import { KEY, KEY_STATUS, isEditableTarget, isModalOpen } from "../keyboard/shortcuts";
 import type { Commit, FamilyCommit, MediaOwner, SourceDialogTarget, RemoveSourceOwner, CommitRemoveSource, OpenEditSource } from "./edit/types";
 import { FamilySection, NewUnionSection, ParentFamilyGroup } from "./edit/FamilySections";
@@ -714,6 +715,15 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     KeyI: () => handleAddMedia({ kind: "individual" }),
     KeyL: () =>
       commit((indi) => setPrivateFlag(indi.raw, !indi.private, privacyStyle, dataset.records)),
+    // X cycles ♂ → ♀ → ?, so the sex of a child just added is set without the
+    // picker: three values put the one wanted at most two presses away, and no
+    // letter has to stand for a sex name (M and F are Mother and Father here).
+    KeyX: () => commit((indi) => setSex(indi, nextSex(indi.sex))),
+    // Back through the person history where bare ⌫ cannot go: inside a field,
+    // where Backspace deletes what you typed. An event added from a shortcut
+    // and left empty (a death with no date) is left this way, without the trip
+    // out of the field first.
+    Backspace: goBack,
     KeyF: () => openRelativeSlot("father"),
     KeyM: () => openRelativeSlot("mother"),
     KeyP: () => openRelativeSlot("partner"),
@@ -1775,7 +1785,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   return (
     <CoordShareProvider value={coordShare}>
     <PlaceLookupProvider value={placeLookup}>
-    <div className="section open edit-view" onKeyDown={commitFieldOnEnter}>
+    <div className="section open edit-view" onKeyDown={editFieldKeys}>
       <div className="section-body" ref={editBodyRef}>
         <div className="edit-parents">
           {/* One row per parent family, stacked and divided like the spouse

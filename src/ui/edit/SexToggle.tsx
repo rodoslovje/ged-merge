@@ -5,12 +5,14 @@ import { sexClass } from "../sex";
 import type { Commit } from "./types";
 import { SEX_OPTIONS, SEX_GLYPHS } from "./editConstants";
 import { DropdownMenu } from "../DropdownMenu";
+import { altShiftLabel } from "../../keyboard/shortcuts";
 
 /** Sex picker. Lives at the start of the "+ Add …" actions row. */
 export function SexToggle({ person, t, commit }: { person: Individual; t: Translate; commit: Commit }) {
   return (
     <DropdownMenu
       className={`sex-select ${sexClass(person.sex)}`}
+      title={t("edit.sexTooltip", { key: altShiftLabel("X") })}
       current={person.sex}
       groups={[
         {
