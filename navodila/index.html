@@ -1103,6 +1103,28 @@
               0, dodajanje pa je mogoče razveljaviti kot vsako urejanje.
             </p>
             <p>
+              Arhivska oznaka enote — številka matične knjige na Matriculi, oznaka groba na Geneanetu, film s
+              FamilySearcha — se zapiše <strong>enkrat</strong>, in sicer v polje, ki ga za to uporablja vaša datoteka:
+              v <strong>arhivsko številko</strong> vira (<code>FILN</code>, kar pišeta in bereta MacFamilyTree in njemu
+              sorodni programi) ali v <strong>signaturo</strong> na povezavi do hrambe (<code>CALN</code>, mesto, ki ga
+              predvideva standard in ga uporablja datoteka s standardno strukturo). Če je signatura v
+              datoteki že kje zapisana, odloči to; sicer odloči izbrani obseg vira
+              (<a href="#workspace">Nastavitve › GEDCOM</a>). Obe polji ostaneta na voljo za ročno urejanje — to
+              določa le, katero od njiju izpolnijo orodja, da ena oznaka ne stoji na dveh mestih, kjer bi jo poznejše
+              urejanje pustilo napol zastarelo. Celo datoteko prestavite tako, da izberete <em>Obseg vira ›
+              standardna struktura</em> in poženete <a href="#tools">Poenoti datoteko</a>: pokritost vsakega vira prepiše v
+              obliko <code>DATA › EVEN</code>, vsako arhivsko številko pa prenese na povezavo do hrambe kot signaturo,
+              tudi pri virih, ki so že v standardni obliki.
+            </p>
+            <p>
+              Polja, ki jih standard GEDCOM pri viru ne predvideva, nosijo ob oznaki zbledelo <strong>*</strong>, v
+              namigu pa piše, kot kateri zapis se shranijo: <em>Periodika / zbirka</em> (<code>PERI</code>) in
+              <em>Arhivska številka</em> (<code>FILN</code>) vedno, <em>Kraj</em> in <em>Ustanova</em> pa toliko časa,
+              dokler ju datoteka piše ploščato — v datoteki s standardno strukturo oba stojita znotraj
+              <code>DATA › EVEN</code> in ju standard predvideva. Vaša datoteka vsebino teh polj ohrani tako ali tako;
+              oznaka pove le, katerih vrstic drug program morda ne bo prebral.
+            </p>
+            <p>
               Vsaka vrstica vira nosi tudi <span class="gm-glyph">✎</span>: v istem oknu uredite naslov, avtorja, kraj,
               arhivsko številko, hrambo, povezavo ali opombo zapisa — spustni seznam Hramba prestavi vir v drugo (ali
               novo ustvarjeno) hrambo, sprememba povezave pa preusmeri sliko strani vira —
@@ -1122,10 +1144,11 @@
               obogati z resničnimi podatki registra/groba/zapisa prek javnih posrednikov (ob privolitvi v spletna
               iskanja) — slike iz zbirk FamilySearcha vpraša neposredno pri FamilySearchu, vsako posebej. Ko odgovorijo, strani
               FamilySearcha, ki pripadajo isti matični knjigi, zbere v en sam vir, vsaka povezava pa postane navedba
-              strani na njem: datoteka s stotinami povezav do posameznih slik tako dobi en vir na knjigo. Iz same
-              povezave se knjige ne da razbrati, zato je to mogoče šele po iskanju — brez njega vsaka stran ostane
-              svoj vir. Povezava do FamilySearcha, ki jo zapiše aplikacija, nosi samo ark, saj dodatki iz
-              pregledovalnika (<em>view</em>, <em>groupId</em>, <em>cc/wc/i</em>), ki jih prinese kopirani URL, povedo,
+              strani na njem: datoteka s stotinami povezav do posameznih slik tako dobi en vir na knjigo. Povezava, ki
+              navaja svoj film (<em>cat</em>), knjigo pove sama; kjer je ne navaja, jo razkrije šele iskanje — brez
+              njega taka stran ostane svoj vir. Povezava do FamilySearcha, ki jo zapiše aplikacija, nosi ark, sliko, pri
+              kateri je bila kopirana, in film, ki mu ta slika pripada; preostali dodatki iz pregledovalnika
+              (<em>view</em>, <em>groupId</em>, <em>cc/wc</em>), ki jih prinese kopirani URL, povedo,
               kako je bralec prišel do strani, ne pa, katera stran je — in iz ene strani naredijo več različnih. Možnost
               <strong>Skrajšaj povezave</strong> to razširi še na povezave, shranjene pri medijih, ki se jih zagon
               dotakne; privzeto je izklopljena, saj so ti zapisi sicer čisto v redu. Datum, ki ga stran sporoči, se zapiše v obliki datumov vaše datoteke, ne glede na to, kako
@@ -1139,12 +1162,33 @@
               (<span class="gm-glyph danger">🗑</span>), da mrtev ali zastarel URL odstranite z vseh mest, kjer se pojavi,
               brez ustvarjanja vira (<span class="gm-glyph">↩</span> odznači). Orodje upošteva vaše prepise oblike v
               <a href="#workspace">Nastavitve › GEDCOM</a> in znova pregleda, ko katerega spremenite, gumb za zagon pa
-              si deli z <strong>iskalnikom dvojnikov</strong> virov — en klik opravi oboje, gumb sam pa pove, kaj bo
-              storil: <strong>Pretvori v vire</strong>, <strong>Združi dvojnike</strong> ali <strong>Uveljavi v
-              datoteki</strong>, kadar označene vrstice terjajo oboje. Uveljavitev zapiše v odprto datoteko kot en sam razveljavljiv korak, tako kot vsak drug
+              si deli z <strong>iskalnikom dvojnikov</strong> virov in z ureditvijo hramb pod njim — en klik opravi
+              vse troje, gumb sam pa pove, kaj bo storil: <strong>Pretvori v vire</strong>, <strong>Združi
+              dvojnike</strong>, <strong>Uredi hrambe po krajih</strong> ali <strong>Uveljavi v
+              datoteki</strong>, kadar označene vrstice terjajo več kot eno od tega. Uveljavitev zapiše v odprto datoteko kot en sam razveljavljiv korak, tako kot vsak drug
               popravek v Orodjih: <span class="gm-key">Ctrl</span><span class="gm-key">Z</span> ga vzame nazaj,
               naslednje <a href="#saving">shranjevanje</a> pa ga skupaj z vsemi drugimi spremembami zapiše v vaš GEDCOM.
               Zasebne osebe, opombe in mediji se nikoli ne spremenijo v navedbo (<a href="#privacy">§18</a>).
+              Vsaka vrstica na strani poimenuje nek zapis in nosi <span class="gm-glyph">✎</span>, ki ga odpre v istem
+              urejevalniku kot drevo virov — z vsemi polji, tudi s povezavo —, vrstica, katere podatek je povezava, pa
+              nosi še puščico ↗, ki stran odpre.
+            </p>
+            <p>
+              Tretji razdelek, <strong>Hrambe po krajih</strong>, pospravi, kje visijo viri s FamilySearcha.
+              FamilySearch objavlja po zbirkah, zato datoteka, ki je naredila hrambo za vsako zbirko, dobi zapis za
+              vsak niz matičnih knjig; hramba naj bi bila kraj, kjer se izvirniki hranijo, ime zbirke pa je že naslov
+              samega vira. Vsaka vrstica je en kraj: pove hrambo, ki se ji njeni viri pridružijo, in ali ta zapis v
+              vaši datoteki že obstaja ali bo ustvarjen, odprta pa našteje vsak vir, ki se seli, skupaj s hrambo, na
+              kateri visi danes. Kraj je država, razen kadar država objavlja zapise po zveznih državah, kot to velja za
+              ameriške: tam je hramba zvezna država (<em>FamilySearch.org - United States, Illinois</em> — najprej
+              država, da se zapis zvezne države bere kot njena ožja različica), zbirka za vso državo
+              (<em>United States, Census, 1930</em>) pa ostane pri državi sami. Vir je na seznamu le, kadar
+              kaj pove, kateri kraj pokriva: njegov lastni kraj, upravna enota na začetku njegovega naslova ali
+              kraj iz imena njegove sedanje hrambe. Uveljavitev vsak vir poveže z novo hrambo (arhivska številka
+              ostane), ustvari manjkajoči zapis, če ga datoteka nima, in odstrani hrambe, na katere se ne sklicuje nič več.
+              Naslov hrambe je naslov same strani: seznam zbirk, ki ga ponuja FamilySearch, se filtrira v brskalniku in
+              ne prek povezave, zato naslova za posamezno državo ni mogoče zapisati namesto vas; vpišite ga sami z
+              <span class="gm-glyph">✎</span> pri hrambi v drevesu virov, orodje pa se ga potem ne dotika.
             </p>
             <h3 id="places">Kraji</h3>
             <p>
@@ -2050,10 +2094,27 @@
               dotakne in ostanejo pri tem, kar povesta povezava in vaše prilepljeno besedilo. Navedbo, prekopirano z
               gumbom <em>Copy citation</em> pri FamilySearchu, razume tudi brez iskanja: zbirka postane naslov vira,
               navedena slika ali vnos njegova stran, številka filma (<em>Image Group Number</em>) arhivska številka,
-              ustanova, ki izvirnike hrani, pa ustanova. Ustvarjeni vir prevzame obliko krajev, razpon let in
-              hrambo vaše datoteke — uporabi hrambo, ki jo vodite za tisto zbirko, nikoli hrambe druge zbirke; kjer
-              take ni, okno predlaga novo, njeno ime pa lahko pred ustvarjanjem še popravite. Kakšno postavitev zapiše — kam pridejo navedbe, slike strani in krstni viri —
+              ustanova, ki izvirnike hrani, pa ustanova. Naslednja stran filma, ki ga že navajate, se pridruži
+              <strong>temu</strong> viru kot nova stran in ne začne drugega — vsaka slika ima svoj ark, zato o tem
+              odločata film in zbirka, ki jima stran pripada, ne pa naslov, s katerega je bila prekopirana. Ustvarjeni
+              vir prevzame obliko krajev, razpon let in hrambo vaše datoteke — uporabi hrambo, ki jo vodite za
+              <strong>kraj, od koder so zapisi</strong>, nikoli hrambe drugega kraja; kjer take ni, okno predlaga novo
+              (<em>FamilySearch.org - Croatia</em> ali <em>FamilySearch.org - United States, Illinois</em>, kadar
+              država objavlja po zveznih državah), njeno ime pa lahko pred ustvarjanjem še popravite. Povezava za
+              prebiranje iz zbirke, ki jo vaša datoteka že navaja, tega ne potrebuje: oznaka zbirke v naslovu
+              (<em>cc</em>) najde stran, ki je že v datoteki, in povezava se pridruži njeni hrambi, tudi če iskanje ni
+              teklo. Zbirka, ki je vaša datoteka še ni navajala in ji ne navedba ne iskanje ne povesta države, dobi
+              splošni zapis <em>FamilySearch.org</em>, ne pa ugibanja med kraji, ki jih vodite. Hrambe, ki jih
+              datoteka vodi po zbirkah, uredi orodje <a href="#organize">Uredi vire</a> (<a href="#tools">§10</a>). Kakšno postavitev zapiše — kam pridejo navedbe, slike strani in krstni viri —
               sledi vašim prepisom v <a href="#workspace">Nastavitve › GEDCOM</a> (<a href="#workspace">§2</a>).
+            </p>
+            <p>
+              Zapis, ki je nastal, preden je stran lahko odgovorila — z oznako namesto naslova, brez kraja in brez
+              arhivske številke — dopolnite kar iz njegove povezave z gumbom <strong>Poišči znova</strong> ob naslovu
+              URL v urejevalniku: stran se prebere še enkrat, kar pove, pa pristane v poljih, kjer to pred
+              shranjevanjem pregledate. Polje, o katerem stran ne pove ničesar, obdrži svojo vsebino, v datoteko pa se
+              do gumba Shrani ne zapiše nič. Gumb se pokaže le ob vklopljeni možnosti
+              <strong>Nastavitve › Napredno › Spletna iskanja</strong> (<a href="#workspace">§2</a>).
             </p>
             <p>
               Obstoječe navedbe lahko znova odprete in uredite na enak način; ko navedbo odstranite, izgine tudi

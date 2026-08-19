@@ -110,6 +110,19 @@ export function foldAdditionalNameToMarnm(indi: Individual, index: number): void
   if (surname) setMarriedName(indi, surname);
 }
 
+/**
+ * Open an empty primary `1 NAME` for a person who has none, and say whether
+ * one had to be made. A record whose own name is still to be typed — the
+ * picker creates the person before the card is filled in — has nowhere to hang
+ * a name variant: an additional NAME record standing alone would be read as
+ * the person's own name, and an inline `_MARNM` has no line to sit under.
+ */
+export function ensurePrimaryName(indi: Individual): boolean {
+  if (childrenByTag(indi.raw, "NAME").length > 0) return false;
+  getOrCreateChild(indi.raw, "NAME", INDI_CHILD_ORDER);
+  return true;
+}
+
 /** Append a new additional `1 NAME` record with the given `2 TYPE`. */
 export function addAdditionalName(indi: Individual, type: string): void {
   const node: GedNode = { level: indi.raw.level + 1, tag: "NAME", value: "", children: [] };

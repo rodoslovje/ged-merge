@@ -1,6 +1,6 @@
 import type { GedNode, SourceCitation } from "./types";
 import type { SourceFormatProfile, SourceLayout } from "../normalize/types";
-import { linkKey } from "../normalize/links";
+import { familySearchImageNumber, linkKey, parseFamilySearchUrl } from "../normalize/links";
 import { childText, childValue, childrenByTag, firstChild, hasChild } from "./node";
 import { isPointer, looksLikeUrl } from "./uri";
 
@@ -433,6 +433,26 @@ export function detectSourceCoverage(records: GedNode[]): "vendor" | "standard" 
   return standard > vendor ? "standard" : "vendor";
 }
 
+/**
+ * Whether this file states an archive's own identifier as the repository
+ * link's call number (`CALN`) — the standard's spot for it — or as the
+ * source's `FILN`, which is what MacFamilyTree and its kin write and read.
+ *
+ * One id belongs in one place: a file carrying it in both says the same thing
+ * twice, and a reader editing one of them leaves the other stale. So the file
+ * decides. A `CALN` already in it settles the question outright; failing
+ * that, a standard-coverage file gets the standard field (its `FILN`s are
+ * folded into `CALN` by the same conversion), and a vendor-shaped one keeps
+ * the field its own program understands.
+ */
+export function writesCallNumbers(records: GedNode[], coverage?: "vendor" | "standard"): boolean {
+  for (const rec of records) {
+    if (rec.tag !== "SOUR" || !rec.xref) continue;
+    for (const link of childrenByTag(rec, "REPO")) if (childText(link, "CALN")) return true;
+  }
+  return (coverage ?? detectSourceCoverage(records)) === "standard";
+}
+
 /** Whether any source record states coverage at all — without one the
  *  coverage-shape question is moot (Settings shows no detected value). */
 export function hasSourceCoverage(records: GedNode[]): boolean {
@@ -457,12 +477,99 @@ export function pageParamOf(url: string): string | undefined {
   return /[?&]pg=(\d+)/i.exec(url)?.[1];
 }
 
+/** Letters and digits only, lowercased — so "FamilySearch.org - Croatia Church
+ *  Books 1516-1994" and "Croatia, Church Books, 1516-1994" compare equal where
+ *  it matters, whatever punctuation each side chose. */
+export function looseKey(text: string | undefined): string {
+  return (text ?? "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+}
+
+/** A film/catalog number as it compares: digits only, without the leading
+ *  zeros and grouping commas one citation writes and the next leaves out
+ *  ("FHL microfilm 005,498,154" and "DGS 5498154" are one film). A value
+ *  holding anything but digits is some other kind of id — an ark, a shelf
+ *  mark — and names no film, so it never answers for one. */
+function filmKey(value: string | undefined): string | undefined {
+  const trimmed = (value ?? "").trim();
+  if (!trimmed || !/^[\d,\s]+$/.test(trimmed)) return undefined;
+  const digits = trimmed.replace(/\D/g, "").replace(/^0+/, "");
+  return digits || undefined;
+}
+
+/**
+ * What a FamilySearch link is known to belong to beyond what its own URL says:
+ * the film and the collection a pasted citation (or a lookup) named, and which
+ * image of the film this is. Two pages of one film share no part of their
+ * URLs — each image has its own ark — so this, not the link, is what decides
+ * which source a FamilySearch citation joins.
+ */
+export interface FsSourceHint {
+  /** Film / Image Group (DGS) number — the book the pages belong to. */
+  film?: string;
+  /** Published collection title, for records that belong to no single film. */
+  collection?: string;
+  /** Which image of the film, as FamilySearch numbers it (from 1). */
+  image?: string;
+}
+
+/** The film, collection and image a link plus its hint together name, for a
+ *  FamilySearch link; undefined for every other site. The URL's own `cat=`
+ *  and `i=` win over the hint: they describe *this* link, while a pasted
+ *  citation may have been copied alongside a different page. */
+function fsWanted(url: string, hint: FsSourceHint | undefined): FsSourceHint | undefined {
+  const fs = parseFamilySearchUrl(url);
+  if (!fs || fs.kind === "tree") return undefined;
+  return {
+    film: filmKey(fs.cat) ?? filmKey(hint?.film),
+    collection: hint?.collection,
+    image: familySearchImageNumber(fs.image) ?? hint?.image,
+  };
+}
+
+/** The film numbers a `SOUR` record states: its filing number, and the film
+ *  named by any page link it already holds. */
+function sourceFilms(rec: GedNode, objeIndex: ObjeIndex): Set<string> {
+  const films = new Set<string>();
+  const filn = filmKey(childText(rec, "FILN"));
+  if (filn) films.add(filn);
+  for (const child of childrenByTag(rec, "OBJE")) {
+    const url = child.value ? objeIndex.get(child.value.trim())?.url : undefined;
+    const cat = url ? filmKey(parseFamilySearchUrl(url)?.cat) : undefined;
+    if (cat) films.add(cat);
+  }
+  return films;
+}
+
+/** Which image of its film a page `OBJE` holds: what its link selects, else
+ *  the number the page-media title carries ("#22 - Chicago …"). */
+function objeImageNumber(info: ObjeInfo | undefined): string | undefined {
+  const fromUrl = info?.url ? familySearchImageNumber(parseFamilySearchUrl(info.url)?.image) : undefined;
+  return fromUrl ?? /^#(\d+)\b/.exec(info?.title?.trim() ?? "")?.[1];
+}
+
+/** The page `OBJE` of `rec` that already holds this image, if any — so the
+ *  same page pasted twice reuses its image record instead of adding a second. */
+function fsPageObje(rec: GedNode, objeIndex: ObjeIndex, image: string | undefined): string | undefined {
+  if (!image) return undefined;
+  for (const child of childrenByTag(rec, "OBJE")) {
+    const xref = child.value?.trim();
+    if (xref && objeImageNumber(objeIndex.get(xref)) === image) return xref;
+  }
+  return undefined;
+}
+
 /**
  * Find a `SOUR` record already in the dataset that a new citation for `url`
  * should reuse, rather than minting a duplicate — paginated archive registers
- * (Matricula, parish books) are cited page-by-page but share one `SOUR`.
+ * (Matricula, parish books, FamilySearch films) are cited page-by-page but
+ * share one `SOUR`.
  * - An existing `OBJE` whose URL matches exactly (mod language/case/slash) ⇒
  *   reuse that very `OBJE` too (no new records needed at all).
+ * - A FamilySearch link whose film (or, failing that, collection) a source
+ *   already states ⇒ reuse that `SOUR`; its page `OBJE` too when the file
+ *   already holds this image. Matched on the resolved film/collection rather
+ *   than on the link, since every image of a film has its own ark and no two
+ *   of their URLs look alike.
  * - One whose URL matches only with the page stripped (same book, different
  *   page) ⇒ reuse the `SOUR`, but the caller must add a new `OBJE` for this page.
  * - No match ⇒ undefined; caller creates a brand-new `SOUR`+`OBJE`.
@@ -470,13 +577,17 @@ export function pageParamOf(url: string): string | undefined {
 export function findExistingSource(
   records: GedNode[],
   url: string,
+  hint?: FsSourceHint,
 ): { sourceXref: string; objeXref?: string; page?: string } | undefined {
   const objeIndex = buildObjeIndex(records);
   const incomingKey = linkKey(url);
   const incomingBookKey = bookKeyOf(url);
-  const page = pageParamOf(url);
+  const fs = fsWanted(url, hint);
+  const page = pageParamOf(url) ?? fs?.image;
 
   let bookMatch: string | undefined;
+  let filmMatch: GedNode | undefined;
+  let collectionMatch: GedNode | undefined;
   for (const rec of records) {
     if (rec.tag !== "SOUR" || !rec.xref) continue;
     for (const child of rec.children) {
@@ -484,9 +595,22 @@ export function findExistingSource(
       const objeXref = child.value.trim();
       const objeUrl = objeIndex.get(objeXref)?.url;
       if (!objeUrl) continue;
+      // The ark names the image itself, and the link key already folds away
+      // the `i=` the viewer counts it by — so one key is one page, however the
+      // two links were navigated to.
       if (linkKey(objeUrl) === incomingKey) return { sourceXref: rec.xref, objeXref, page };
       if (!bookMatch && bookKeyOf(objeUrl) === incomingBookKey) bookMatch = rec.xref;
     }
+    if (fs?.film && !filmMatch && sourceFilms(rec, objeIndex).has(fs.film)) filmMatch = rec;
+    if (fs?.collection && !collectionMatch && looseKey(childText(rec, "TITL")) === looseKey(fs.collection)) {
+      collectionMatch = rec;
+    }
+  }
+  // A film is the book itself; a collection spans many films, so it only
+  // answers for a link that names no film of its own.
+  const fsMatch = filmMatch ?? (fs?.film ? undefined : collectionMatch);
+  if (fsMatch) {
+    return { sourceXref: fsMatch.xref!, objeXref: fsPageObje(fsMatch, objeIndex, fs?.image), page };
   }
   return bookMatch ? { sourceXref: bookMatch, page } : undefined;
 }

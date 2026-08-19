@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type React
 import { useTranslation } from "react-i18next";
 import { useSettings } from "../SettingsContext";
 import type { Dataset } from "../../gedcom/types";
-import { buildSourceTree, type SourceTree, type RepoGroup, type SourceEntry, type MediaEntry } from "../../tools/sources";
+import { buildSourceTree, recordCitedBy, type SourceTree, type RepoGroup, type SourceEntry, type MediaEntry } from "../../tools/sources";
 import { MediaThumb, type MediaGalleryItem } from "../PersonMedia";
 import { useMediaFolder } from "../MediaFolderContext";
 import { isPrivateNode } from "../../gedcom/private";
@@ -15,6 +15,7 @@ import { AddSourceDialog, type AddSourceResult } from "../AddSourceDialog";
 import { repoRecordEditFields, sourceRecordEditFields, type EditRepoFields, type EditSourceFields } from "../../gedcom/edit";
 import { ToolsLoading, TreeSearch, UsageList, someMatch, useDebounced } from "./shared";
 import { SourceCleanupView } from "./SourceCleanupView";
+import { scanRepoRegroup } from "../../tools/repoRegroup";
 import { ToolSummary } from "./ToolSummary";
 
 /** Lightbox side panel for a media object: the person/family records that
@@ -435,8 +436,11 @@ export function SourcesPanel({
   const [tree, setTree] = useState<SourceTree | null>(null);
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [addOpen, setAddOpen] = useState(false);
-  const [editSrc, setEditSrc] = useState<SourceEntry | null>(null);
-  const [editRepo, setEditRepo] = useState<RepoGroup | null>(null);
+  // Held as xrefs, not tree entries: the record editors open from the
+  // containment tree and from the Organize sources page alike, and that page
+  // knows a record by its xref and nothing else.
+  const [editSrc, setEditSrc] = useState<string | null>(null);
+  const [editRepo, setEditRepo] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   // Switches the panel body between the containment tree and the cleanup tool.
   const [view, setView] = useState<"tree" | "cleanup">("tree");
@@ -479,6 +483,17 @@ export function SourcesPanel({
 
   const dupCount = dupReport?.groups.length ?? 0;
   const reshapeCount = reshapeReport?.groups.length ?? 0;
+  // The repository regroup reads only the SOUR/REPO records, so it is computed
+  // here rather than in the worker — but it belongs beside the other two: it
+  // is applied with them, and a file whose only untidiness is its repositories
+  // must still be able to open the page. Re-read after an apply, which mutates
+  // the dataset in place (hence the nonce, not the object identity).
+  const [regroupNonce, setRegroupNonce] = useState(0);
+  const regroupReport = useMemo(
+    () => scanRepoRegroup(dataset.records),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dataset, regroupNonce],
+  );
 
   const toggle = (key: string) =>
     setOpen((s) => {
@@ -529,21 +544,23 @@ export function SourcesPanel({
   // on every panel render (a fresh `editing` object would clobber typing).
   const editing = useMemo(() => {
     if (!editSrc) return undefined;
-    const node = dataset.records.find((r) => r.tag === "SOUR" && r.xref === editSrc.xref);
+    const node = dataset.records.find((r) => r.tag === "SOUR" && r.xref === editSrc);
     if (!node) return undefined;
     return {
       fields: sourceRecordEditFields(dataset.records, node),
       onSave: (fields: EditSourceFields) => {
-        onEditSource(editSrc.xref, fields);
+        onEditSource(editSrc, fields);
         closeDialog();
         refreshTree();
       },
       // Remove only for a source nothing cites — deleting a cited record
-      // would leave its citations dangling.
-      ...(editSrc.usedBy.length === 0
+      // would leave its citations dangling. Counted from the file rather than
+      // from the tree: the editor opens from the Organize sources page too,
+      // where the tree may not be built.
+      ...(recordCitedBy(dataset, [editSrc]).length === 0
         ? {
             onRemove: () => {
-              onRemoveSource(editSrc.xref);
+              onRemoveSource(editSrc);
               closeDialog();
               refreshTree();
             },
@@ -554,8 +571,8 @@ export function SourcesPanel({
 
   // Prefill for the repository editor, read from the live record.
   const repoEditInitial = useMemo(() => {
-    if (!editRepo?.xref) return undefined;
-    const node = dataset.records.find((r) => r.tag === "REPO" && r.xref === editRepo.xref);
+    if (!editRepo) return undefined;
+    const node = dataset.records.find((r) => r.tag === "REPO" && r.xref === editRepo);
     return node ? repoRecordEditFields(dataset.records, node) : undefined;
   }, [editRepo, dataset]);
 
@@ -581,8 +598,44 @@ export function SourcesPanel({
   // Filtering expands ancestors down to (not past) the matches; the user expands further.
   const isOpen = (key: string) => open.has(key);
 
-  if (view === "cleanup" && (dupReport || reshapeReport))
+  // The record editors, rendered by whichever body is on screen: the tree opens
+  // them from its rows, the Organize sources page from its own.
+  const recordDialogs = (
+    <>
+      <AddSourceDialog
+        isOpen={addOpen || editing !== undefined}
+        onClose={closeDialog}
+        onAdd={(fields) => {
+          onAddSource(fields);
+          closeDialog();
+          refreshTree(); // rebuilt (now including the new record) by the active-panel effect
+        }}
+        dataset={dataset}
+        t={t}
+        editing={editing}
+        standalone
+      />
+      {editRepo && repoEditInitial && (
+        <RepoEditDialog
+          key={editRepo}
+          initial={repoEditInitial}
+          onClose={closeDialog}
+          onSave={(fields) => {
+            onEditRepo(editRepo, fields);
+            closeDialog();
+            refreshTree();
+          }}
+        />
+      )}
+    </>
+  );
+
+  // Stays on the page while the scans it lists re-run: an apply re-scans, and
+  // dropping back to the tree mid-scan would take the reader away from the
+  // receipt of what they just did.
+  if (view === "cleanup")
     return (
+      <>
       <SourceCleanupView
         reshapeReport={reshapeReport}
         dupReport={dupReport}
@@ -590,8 +643,22 @@ export function SourcesPanel({
         onNavigate={onNavigate}
         onBack={() => setView("tree")}
         onApplyPatches={onApplyPatches}
+        regroupReport={regroupReport}
+        onRescan={() => {
+          scans.refresh("sourceReshape");
+          scans.refresh("sourceDuplicates");
+          setRegroupNonce((n) => n + 1);
+          // The containment tree behind this page describes the same records
+          // the apply just rewrote — dropping it has it rebuilt on the way
+          // back, instead of showing the repositories the run removed.
+          setTree(null);
+        }}
+        scanning={scans.sourceReshape.status === "running" || scans.sourceDuplicates.status === "running"}
+        onEditRecord={(xref, kind) => (kind === "repo" ? setEditRepo(xref) : setEditSrc(xref))}
         active={active}
       />
+      {recordDialogs}
+    </>
     );
 
   if (!tree || !filtered) return <ToolsLoading label={t("tools.running")} />;
@@ -639,11 +706,12 @@ export function SourcesPanel({
           <ScanChip
             label={t("tools.sources.cleanupToggle")}
             status={combinedScanStatus(scans.sourceDuplicates.status, scans.sourceReshape.status)}
-            count={dupCount + reshapeCount}
+            count={dupCount + reshapeCount + regroupReport.groups.length}
             hint={t("tools.sources.cleanupChipHint", {
               links: reshapeReport?.totalOccurrences ?? 0,
               groups: reshapeCount,
               dups: dupCount,
+              repos: regroupReport.total,
             })}
             onOpen={() => setView("cleanup")}
           />
@@ -680,7 +748,7 @@ export function SourcesPanel({
                       className="tools-place-edit-btn"
                       onClick={(e) => {
                         e.stopPropagation();
-                        setEditRepo(repo);
+                        setEditRepo(repo.xref!);
                       }}
                       title={t("editRepo.title")}
                     >
@@ -707,7 +775,7 @@ export function SourcesPanel({
                             className="tools-place-edit-btn"
                             onClick={(e) => {
                               e.stopPropagation();
-                              setEditSrc(src);
+                              setEditSrc(src.xref);
                             }}
                             title={t("editSource.title")}
                           >
@@ -750,31 +818,7 @@ export function SourcesPanel({
           {unattachedGroup("unattached", "tools.sources.unattached", "🖼", filtered.tree.unattachedMedia)}
         </ul>
       )}
-      <AddSourceDialog
-        isOpen={addOpen || editing !== undefined}
-        onClose={closeDialog}
-        onAdd={(fields) => {
-          onAddSource(fields);
-          closeDialog();
-          refreshTree(); // rebuilt (now including the new record) by the active-panel effect
-        }}
-        dataset={dataset}
-        t={t}
-        editing={editing}
-        standalone
-      />
-      {editRepo?.xref && repoEditInitial && (
-        <RepoEditDialog
-          key={editRepo.xref}
-          initial={repoEditInitial}
-          onClose={closeDialog}
-          onSave={(fields) => {
-            onEditRepo(editRepo.xref!, fields);
-            closeDialog();
-            refreshTree();
-          }}
-        />
-      )}
+      {recordDialogs}
     </>
   );
 }

@@ -1066,6 +1066,27 @@
               and the add is undoable like any edit.
             </p>
             <p>
+              An archive's own identifier — a Matricula book number, a Geneanet view id, a FamilySearch film — is
+              written <strong>once</strong>, in the field your file uses for it: the source's <strong>filing
+              number</strong> (<code>FILN</code>, what MacFamilyTree and its kin write and read), or the repository
+              link's <strong>call number</strong> (<code>CALN</code>, the standard's own place, which a
+              standard-coverage file uses). A call number already in the file settles it; failing that the coverage
+              shape does (<a href="#workspace">Settings › GEDCOM</a>). Both fields stay editable by hand — this only
+              decides which one the tools fill for you, so one id never sits in two places for a later edit to leave
+              half-stale. To move a whole file over, choose <em>Source coverage › standard structure</em> and run
+              <a href="#tools">Normalize file</a>: it restates each source's coverage as <code>DATA › EVEN</code> and
+              carries every filing number onto its repository link as a call number, sources already in the standard
+              shape included.
+            </p>
+            <p>
+              Fields the GEDCOM standard does not define on a source carry a muted <strong>*</strong> beside their
+              label, with the tag they write in the tooltip: <em>Periodical / series</em> (<code>PERI</code>) and
+              <em>Filing number</em> (<code>FILN</code>) always, and <em>Place</em> and <em>Agency</em> while your file
+              writes them flat — in a standard-coverage file those two live inside <code>DATA › EVEN</code> and are the
+              spec's own. Your file keeps whatever is in them either way; the mark only says which lines another
+              program may not read back.
+            </p>
+            <p>
               Every source row also carries <span class="gm-glyph">✎</span>: edit the record's title, author, place,
               filing number, repository, link or note in the same dialog — the Repository dropdown moves the source to
               another repository (or a newly created one), and a link edit retargets the source's page
@@ -1085,11 +1106,12 @@
               metadata through public relays (the online-lookups opt-in) — FamilySearch collection images are asked of
               FamilySearch directly, one at a time. Once they answer, the FamilySearch pages that turn out to belong to
               one register are gathered into a single source, each link becoming a page citation on it: a file citing
-              hundreds of single images ends up with one source per book. Nothing in such a link says which book it is,
-              so this can only follow the lookup — without it every page stays its own source. A FamilySearch link the
-              app writes carries the ark alone, since the viewer state a copied URL trails
-              (<em>view</em>, <em>groupId</em>, <em>cc/wc/i</em>) says how the reader got there rather than what the page
-              is — and makes one page look like several. <strong>Shorten links</strong> extends that to the links already
+              hundreds of single images ends up with one source per book. A link naming its film (<em>cat</em>) says
+              which book it is on its own; where it does not, only the lookup can tell, and without it every such page
+              stays its own source. A FamilySearch link the app writes carries the ark, the image it was copied at and
+              the film that image belongs to — the rest of the viewer state a copied URL trails
+              (<em>view</em>, <em>groupId</em>, <em>cc/wc</em>) says how the reader got there rather than what the page
+              is, and makes one page look like several. <strong>Shorten links</strong> extends that to the links already
               stored on the media the run touches; it is off by default, since those records are otherwise fine. Any date a site reports is written in your
               file's own date format, whatever shape the page used. Citations land on the matching event (created if
               missing), a <strong>QUAY</strong> quality can be set globally with per-row overrides, and graves fill the
@@ -1101,12 +1123,33 @@
               by Fetch source details), or mark a group <strong>Remove references</strong> (<span class="gm-glyph danger">🗑</span>)
               to strip a dead or obsolete URL from everywhere it appears without creating a source (<span class="gm-glyph">↩</span>
               unmarks it). The tool honors your <a href="#workspace">Settings › GEDCOM</a> format overrides and re-scans
-              when you change one, and it shares its run button with the source <strong>duplicate finder</strong> — one
-              click does both, and the button says which: <strong>Convert to sources</strong>, <strong>Merge
-              duplicates</strong>, or <strong>Apply to the file</strong> when the ticked rows call for both. Applying writes into the open file as a single
+              when you change one, and it shares its run button with the source <strong>duplicate finder</strong> and
+              the repository regroup below — one click does the lot, and the button says which: <strong>Convert to
+              sources</strong>, <strong>Merge duplicates</strong>, <strong>Gather under repositories</strong>, or
+              <strong>Apply to the file</strong> when the ticked rows call for more than one. Applying writes into the open file as a single
               undoable step, like every other Tools repair: <span class="gm-key">Ctrl</span><span class="gm-key">Z</span>
               takes it back, and the next <a href="#saving">Save</a> carries it into your GEDCOM along with everything
               else you changed. Private people, notes and media are never turned into a citation (<a href="#privacy">§18</a>).
+              Every row on the page names a record, and carries the <span class="gm-glyph">✎</span> that opens it in the
+              same editor the Sources tree uses — all its fields, its link included — while a row whose detail is a link
+              carries the ↗ that opens the page.
+            </p>
+            <p>
+              A third section, <strong>Repositories by place</strong>, tidies where FamilySearch sources hang.
+              FamilySearch publishes in collections, so a file that made a repository per collection ends up with a
+              record per register set; a repository is meant to be where the records are kept, and the collection is
+              already the source's own title. Each row is one place — the repository its sources would join, whether
+              that record exists in your file or would be created, and, opened, every source moving with the repository
+              it hangs off today. The place is the country, except where a country's records are published state by
+              state as American ones are: there the state is the repository (<em>FamilySearch.org - United States,
+              Illinois</em>, the country first so a state's record reads as a narrowing of it), while a collection
+              covering the whole country (<em>United States, Census, 1930</em>) keeps the country itself. A source is
+              listed only when something says which place it covers: its own place, the jurisdiction its title opens
+              with, or the one named by its present repository. Applying re-points each source (keeping its call
+              number), creates the record where the file has none, and removes the repositories nothing cites any more.
+              A repository's own address is the site's — the collection list FamilySearch offers is filtered in the
+              browser rather than by the link, so no per-country address can be written for you; set one by hand with
+              <span class="gm-glyph">✎</span> on the repository in the Sources tree and the tool leaves it alone.
             </p>
             <h3 id="places">Places</h3>
             <p>
@@ -1962,8 +2005,8 @@
               <strong>+ Add Source</strong> — on a person, a family, or an individual event — opens the Add Source
               dialog. Paste a full citation or just a URL: GED Merge fetches the page title where it can, and detects
               when your citation <strong>matches an existing source</strong> in the file, adding the new page to it
-              rather than creating a duplicate. You can fill in structured fields — title, author, periodical/series,
-              publisher, agency, filing number, page, URL and note — as needed for your house style.
+              rather than creating a duplicate. You can fill in structured fields — title, author, agency, periodical/series,
+              publisher, place, filing number, page, URL and note — as needed for your house style.
               <span class="gm-key">Ctrl</span><span class="gm-key">Enter</span> (<span class="gm-key">⌘</span><span class="gm-key">Enter</span>
               on a Mac) confirms the dialog from any field, including the paste box; from the one-line fields
               <span class="gm-key">Enter</span> alone does it.
@@ -1985,11 +2028,26 @@
               and your pasted text already say. A citation copied with FamilySearch's own <em>Copy citation</em> button
               is understood on its own, no lookup needed: the collection becomes the source's title, the cited image or
               entry its page, the film number (<em>Image Group Number</em>) its filing number, and the holding
-              institution its agency. The created source picks up
-              your file's place format, year range and repository — reusing the repository you keep for that
-              collection, never another collection's; where none matches, the dialog proposes creating one, with a name
-              you can edit first. Which layout it writes — where citations, page images and baptism sources
+              institution its agency. Another page of a film you have already cited joins <strong>that</strong> source
+              as a new page rather than starting a second one — every image carries its own ark, so what decides this is
+              the film and collection the page belongs to, not the address it was copied from. The created source picks up
+              your file's place format, year range and repository — reusing the repository you keep for the
+              <strong>place its records come from</strong>, never another's; where none matches, the dialog proposes
+              creating one (<em>FamilySearch.org - Croatia</em>, or <em>FamilySearch.org - United States, Illinois</em>
+              where a country is published state by state), with a name you can edit first. A browse link out of a
+              collection your file already cites needs none of that: the collection id it carries (<em>cc</em>) finds
+              the page already in your file and the link joins its repository, whether or not the lookup ran. A
+              collection your file has never cited, and no citation or lookup to name its country, gets the site's own
+              <em>FamilySearch.org</em> record rather than a guess at one of the places you keep. Repositories a file already keeps
+              per collection are gathered by <a href="#organize">Organize sources</a> (<a href="#tools">§10</a>). Which layout it writes — where citations, page images and baptism sources
               sit — follows your <a href="#workspace">Settings › GEDCOM</a> overrides (<a href="#workspace">§2</a>).
+            </p>
+            <p>
+              A record written before the site could answer — an id for a title, no place, no filing number — is filled
+              in from its own link by <strong>Fetch again</strong>, beside the URL in the editor: the page is read once
+              more and what it says lands in the fields, where you check it before saving. A field the page says
+              nothing about keeps what it holds, and nothing is written until you press Save. The button appears only
+              with <strong>Settings › Advanced › Online lookups</strong> on (<a href="#workspace">§2</a>).
             </p>
             <p>
               Existing citations can be reopened and edited the same way — removing one also removes the page-image

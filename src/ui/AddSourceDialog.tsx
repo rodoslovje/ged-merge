@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import type { Dataset } from "../gedcom/types";
 import type { EditSourceFields, NewSourceFields } from "../gedcom/edit";
-import { findExistingSource } from "../gedcom/source";
+import { findExistingSource, type FsSourceHint } from "../gedcom/source";
 import { parseSourceInput } from "../gedcom/citationParse";
 import { inferMainProfile } from "../normalize/profile";
-import { canonicalFamilySearchUrl, rewriteLinkLang } from "../normalize/links";
+import { familySearchPageUrl, rewriteLinkLang } from "../normalize/links";
 import { fetchPageHtml, fetchPageTitle } from "../normalize/urlMetadata";
-import { fetchBookMeta, makePlaceResolver, narrowFsRegister, proposedSiteRepo, recognizeSourceUrl, SITE_ICON, splitFsRegisters, type ReshapeMeta, type ReshapeSite } from "../tools/sourceReshape";
-import { prefersSourceRepos } from "../gedcom/source";
+import { fetchBookMeta, makePlaceResolver, narrowFsRegister, proposedSiteRepo, recognizeSourceUrl, siteSourceTitle, SITE_ICON, splitFsRegisters, type ReshapeMeta, type ReshapeSite } from "../tools/sourceReshape";
+import { detectSourceCoverage, prefersSourceRepos, writesCallNumbers } from "../gedcom/source";
 import { childText } from "../gedcom/node";
 import { useSettings } from "./SettingsContext";
 import { useDebounced } from "./tools/shared";
@@ -86,6 +86,35 @@ function extractPage(url: string): string | undefined {
   return /[?&]pg=(\d+)/i.exec(url)?.[1];
 }
 
+/**
+ * The GEDCOM line a field writes when the standard has no such line on a
+ * source — so the dialog can say which of its fields your other programs may
+ * not read back.
+ *
+ * `PERI` and `FILN` are extensions wherever they appear. A source's `PLAC` and
+ * `AGNC` are only extensions where the file writes them flat: the standard
+ * states both inside `DATA > EVEN`, which is exactly what a standard-coverage
+ * file does, and there the same two fields are the spec's own.
+ */
+function nonStandardTag(key: keyof FormState, coverage: "vendor" | "standard"): string | undefined {
+  if (key === "periodical") return "PERI";
+  if (key === "filingNumber") return "FILN";
+  if (coverage === "standard") return undefined;
+  if (key === "place") return "PLAC";
+  if (key === "agency") return "AGNC";
+  return undefined;
+}
+
+/** The muted mark beside such a field's label; the tooltip says what it is. */
+function NonStandard({ tag, t }: { tag: string | undefined; t: Translate }) {
+  if (!tag) return null;
+  return (
+    <span className="add-source-nonstd" title={t("addSource.nonStandard", { tag })} aria-label={t("addSource.nonStandard", { tag })}>
+      *
+    </span>
+  );
+}
+
 function titleOf(dataset: Dataset, sourceXref: string): string | undefined {
   const rec = dataset.records.find((r) => r.tag === "SOUR" && r.xref === sourceXref);
   return rec?.children.find((c) => c.tag === "TITL")?.value?.trim();
@@ -119,9 +148,10 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
   const resolvePlace = useMemo(() => makePlaceResolver(dataset.records), [dataset]);
   const parsed = useMemo(() => parseSourceInput(text), [text]);
   const normalizedUrl = useMemo(
-    // A FamilySearch link keeps only its ark: the viewer state a pasted URL
-    // carries would make one page look like two sources.
-    () => (parsed.url ? canonicalFamilySearchUrl(rewriteLinkLang(parsed.url, mainLinkLangs)) : undefined),
+    // A FamilySearch link keeps its ark, the image it was copied at and the
+    // film that image belongs to: the rest is viewer state, which would make
+    // one page look like two sources.
+    () => (parsed.url ? familySearchPageUrl(rewriteLinkLang(parsed.url, mainLinkLangs)) : undefined),
     [parsed.url, mainLinkLangs],
   );
   // The same site recognition the Organize sources tool runs — a Matricula /
@@ -131,13 +161,28 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
     () => (normalizedUrl ? recognizeSourceUrl(normalizedUrl, text) : undefined),
     [normalizedUrl, text],
   );
+  // What this FamilySearch link belongs to, beyond what its URL says: two
+  // images of one film share no part of their addresses, so the film and the
+  // collection — from the pasted citation, or from the lookup once it answers
+  // — are what decide which source the page joins.
+  const fsHint = useMemo<FsSourceHint | undefined>(
+    () =>
+      recognized?.site === "familysearch"
+        ? {
+            film: fetched?.filingNumber ?? recognized.proposed.filingNumber,
+            collection: fetched?.collection ?? recognized.collection,
+            image: fetched?.page ?? recognized.page,
+          }
+        : undefined,
+    [recognized, fetched?.filingNumber, fetched?.collection, fetched?.page],
+  );
   // The existing-source scan walks the whole forest — debounced, so a URL
   // being typed character by character doesn't rescan a 20k-record file on
   // every keystroke (a paste is one change and settles immediately after).
   const settledUrl = useDebounced(normalizedUrl, 250);
   const match = useMemo(
-    () => (settledUrl ? findExistingSource(dataset.records, settledUrl) : undefined),
-    [dataset, settledUrl],
+    () => (settledUrl ? findExistingSource(dataset.records, settledUrl, fsHint) : undefined),
+    [dataset, settledUrl, fsHint],
   );
   const repos = useMemo(
     () =>
@@ -164,27 +209,30 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
             recognized.site,
             normalizedUrl,
             recognized.proposed.agency,
-            // The collection a pasted citation names offline finds (or names)
-            // the per-collection repository the bare URL could not.
-            recognized.collection ? { title: recognized.collection } : undefined,
+            // The place and collection a pasted citation names say which
+            // country's repository holds the source; a bare URL says neither.
+            {
+              title: recognized.collection ?? recognized.proposed.title,
+              place: recognized.proposed.place,
+            },
           )
         : undefined,
     [recognized, normalizedUrl, dataset],
   );
-  // The same proposal once the lookup has named the link's collection: a file
-  // that keeps one repository per FamilySearch collection ("FamilySearch.org -
-  // Croatia Church Books 1516-1994") can only be matched by that name, and a
-  // repository created for the link takes it too. Deliberately separate from
-  // `repoDefault` — it must not re-seed the fields the lookup just filled.
+  // The same proposal once the lookup has answered: it names the collection
+  // and the place the records cover, which is what picks the country's
+  // repository. Deliberately separate from `repoDefault` — it must not re-seed
+  // the fields the lookup just filled.
   const repoFetched = useMemo(
     () =>
-      recognized && normalizedUrl && (fetched?.collection || fetched?.collectionId)
+      recognized && normalizedUrl && (fetched?.collection || fetched?.collectionId || fetched?.place)
         ? proposedSiteRepo(dataset.records, recognized.site, normalizedUrl, recognized.proposed.agency, {
             title: fetched.collection,
             id: fetched.collectionId,
+            place: fetched.place ?? recognized.proposed.place,
           })
         : undefined,
-    [recognized, normalizedUrl, dataset, fetched?.collection, fetched?.collectionId],
+    [recognized, normalizedUrl, dataset, fetched?.collection, fetched?.collectionId, fetched?.place],
   );
   const repoProposal = repoFetched ?? repoDefault;
   // The registers this book holds, and the metadata as the chosen one leaves
@@ -200,6 +248,13 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
     const override = settings.formatOverrides.sourceLayout ?? "auto";
     return override !== "auto" ? override === "repository" : prefersSourceRepos(dataset.records);
   }, [settings.formatOverrides.sourceLayout, dataset]);
+  // Which shape this file states a source's coverage in — it decides whether
+  // the Place and Agency fields are the standard's own or the flat vendor
+  // ones, and so whether they are marked.
+  const coverage = useMemo(() => {
+    const override = settings.formatOverrides.sourceCoverage ?? "auto";
+    return override !== "auto" ? override : detectSourceCoverage(dataset.records);
+  }, [settings.formatOverrides.sourceCoverage, dataset]);
   const matchTitle = useMemo(() => (match ? titleOf(dataset, match.sourceXref) : undefined), [dataset, match]);
   const urlOnly =
     parsed.url !== undefined &&
@@ -271,6 +326,57 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
     setRepoName("");
     setRepoCaln(f.repoCaln ?? "");
   }, [editing]);
+
+  /**
+   * Read the page behind the URL again and fill these fields from it — the
+   * button the editor offers. A record written offline (or before the site
+   * could answer) holds what the link alone said: an id for a title and
+   * little else. The answer lands in the form, not in the file, so it is
+   * checked before Save writes any of it; a field the lookup cannot speak to
+   * keeps what it has.
+   */
+  async function refetch() {
+    const url = fields.url.trim();
+    if (!url || fetching || !settings.allowLinkFetch) return;
+    const normalized = familySearchPageUrl(rewriteLinkLang(url, mainLinkLangs));
+    const site = recognizeSourceUrl(normalized, undefined);
+    setFetching(true);
+    const request: Promise<ReshapeMeta | undefined> = site
+      ? fetchBookMeta(site.site, site.bookUrl, fetchPageHtml)
+      : fetchPageTitle(normalized).then((title) => (title ? { title } : undefined));
+    const meta = await request.catch(() => undefined);
+    setFetching(false);
+    if (!meta) return;
+    setFetched(meta);
+    const keep = (current: string, value: string | undefined) => value?.trim() || current;
+    // The archive's id — a Geneanet view, a Matricula book — is as good
+    // offline as it is after the lookup, and goes in the one field this file
+    // states ids in: the repository link's call number, or the source's own
+    // filing number. Never both (see `writesCallNumbers`).
+    const id = meta.filingNumber ?? site?.proposed.filingNumber;
+    const callNumbers = writesCallNumbers(dataset.records);
+    setFields((f) => {
+      const filingNumber = callNumbers ? f.filingNumber : keep(f.filingNumber, id);
+      // The title takes the id itself, not the field it happened to land in:
+      // in a call-number file the filing number stays empty, and the graves of
+      // one cemetery would go back to sharing a name.
+      const named = id || f.filingNumber || repoCaln;
+      return {
+        ...f,
+        // Named the way the tool names one: what the page calls the thing,
+        // with the id that tells this cemetery's graves apart.
+        title: siteSourceTitle(site?.site, keep(f.title, meta.title), named) ?? f.title,
+        author: keep(f.author, meta.author),
+        periodical: keep(f.periodical, meta.periodical),
+        publisher: keep(f.publisher, meta.publisher),
+        agency: keep(f.agency, meta.agency),
+        place: keep(f.place, resolvePlace(meta.place)),
+        filingNumber,
+        page: keep(f.page, meta.page ?? site?.page),
+      };
+    });
+    if (callNumbers) setRepoCaln((caln) => caln.trim() || id || fields.filingNumber);
+  }
 
   // Best-effort metadata fetch for a bare URL with nothing else to go on.
   // Gated behind the opt-in setting — this is the one path that sends a URL off
@@ -382,7 +488,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
       // The same normalization the paste path applies — a viewer-state URL
       // pasted straight into the field must not store what the paste box
       // would have trimmed.
-      url: url && canonicalFamilySearchUrl(rewriteLinkLang(url, mainLinkLangs)),
+      url: url && familySearchPageUrl(rewriteLinkLang(url, mainLinkLangs)),
       note: trim(fields.note),
     };
   }
@@ -449,9 +555,12 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
       handleAdd();
     }
   }
-  const field = (key: keyof FormState, labelKey: string) => (
-    <label className="add-source-field">
-      <span>{t(labelKey)}</span>
+  const field = (key: keyof FormState, labelKey: string, wide?: boolean) => (
+    <label className={wide ? "add-source-field add-source-field-wide" : "add-source-field"}>
+      <span>
+        {t(labelKey)}
+        <NonStandard tag={nonStandardTag(key, coverage)} t={t} />
+      </span>
       <input
         className="edit-input"
         value={fields[key]}
@@ -533,17 +642,22 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
           {!match && (
             <>
               {field("title", "addSource.field.title")}
+              {/* Ordered by how often an archive source fills them: the
+                  institution holding the records rides beside the author,
+                  then what it publishes and where it is, and last — on the
+                  row above the repository it belongs to — the periodical and
+                  the archive's own number. */}
               <div className="add-source-details-grid">
                 {field("author", "addSource.field.author")}
-                {field("periodical", "addSource.field.periodical")}
-                {field("publisher", "addSource.field.publisher")}
                 {field("agency", "addSource.field.agency")}
+                {field("publisher", "addSource.field.publisher")}
                 {field("place", "addSource.field.place")}
-                {field("filingNumber", "addSource.field.filingNumber")}
                 {/* Page is citation-local — editing the record itself (Tools →
                     Sources) has no citation to carry it. */}
                 {!(standalone && editing) && field("page", "addSource.field.page")}
-                {field("note", "addSource.field.note")}
+                {field("note", "addSource.field.note", true)}
+                {field("periodical", "addSource.field.periodical")}
+                {field("filingNumber", "addSource.field.filingNumber")}
               </div>
             </>
           )}
@@ -625,6 +739,23 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
                 <a className="edit-link-open" href={linkHref(fields.url.trim())} target="_blank" rel="noopener noreferrer" title={linkTooltip(fields.url.trim(), t, t("edit.openLink"))}>
                   ↗
                 </a>
+              )}
+              {/* Read the page again and fill these fields from it — for a
+                  record made before the lookup could answer, or made offline
+                  from the link alone. Only ever offered while the reader has
+                  online lookups on; the fields are the reader's to check
+                  before Save writes any of it. */}
+              {editing && fields.url.trim() && (
+                <button
+                  type="button"
+                  className="tree-open-btn add-source-refetch"
+                  disabled={fetching || !settings.allowLinkFetch}
+                  title={settings.allowLinkFetch ? t("editSource.refetchHint") : t("tools.geocode.downloadNeedsOptIn")}
+                  onClick={() => void refetch()}
+                >
+                  {fetching && <span className="spinner" aria-hidden="true" />}
+                  {t("editSource.refetch")}
+                </button>
               )}
             </span>
           </label>

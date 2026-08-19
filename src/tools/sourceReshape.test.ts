@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { serializeGedcom } from "../gedcom/serialize";
-import { canonicalFamilySearchUrl, linkKey } from "../normalize/links";
+import { canonicalFamilySearchUrl, familySearchPageUrl, linkKey } from "../normalize/links";
 import { createSourceRecord } from "../gedcom/edit";
 import type { ReshapeEnrichment, ReshapeSite } from "./sourceReshape";
 import {
@@ -29,6 +29,7 @@ import {
   reshapeOptionsFromOverrides,
   smartCitationTarget,
   reshapeSources,
+  siteSourceTitle,
 } from "./sourceReshape";
 
 function dataset(text: string) {
@@ -83,6 +84,18 @@ describe("URL parsers", () => {
     });
     expect(parseFamilySearchUrl("https://www.familysearch.org/en/tree/person/details/GPZG-CXL")?.kind).toBe("tree");
     expect(parseFamilySearchUrl("https://example.org/x")).toBeUndefined();
+  });
+
+  it("stores a FamilySearch link as ark + image + film, without the viewer trail", () => {
+    expect(
+      familySearchPageUrl("https://www.familysearch.org/ark:/61903/3:1:3Q9M-CS2T-N985-8?view=explore&cat=406380&i=137&lang=en"),
+    ).toBe("https://www.familysearch.org/ark:/61903/3:1:3Q9M-CS2T-N985-8?i=137&cat=406380");
+    expect(familySearchPageUrl("https://familysearch.org/ark:/61903/1:1:XNJ8-FPJ?lang=sl")).toBe(
+      "https://www.familysearch.org/ark:/61903/1:1:XNJ8-FPJ",
+    );
+    expect(familySearchPageUrl("https://data.matricula-online.eu/sl/x/?pg=5")).toBe(
+      "https://data.matricula-online.eu/sl/x/?pg=5",
+    );
   });
 });
 
@@ -564,6 +577,97 @@ describe("reshapeSources — apply", () => {
     expect(text).toMatch(/1 BURI\n2 PLAC Žabnica,Kranj,Slovenia\n2 SOUR @S1@/); // burial place filled
   });
 
+  it("titles a site's source with both the name and the id (shared with the editor)", () => {
+    // The Edit Source dialog's "Fetch again" runs the same rule, so a record
+    // filled from its link ends up named like one the tool wrote.
+    expect(siteSourceTitle("geneanet", "Pokopališče Kranj - Geneanet Cemeteries", "9833001")).toBe(
+      "Pokopališče Kranj - 9833001 - Geneanet Cemeteries",
+    );
+    expect(siteSourceTitle("geneanet", "Pokopališče Kranj", "9833001")).toBe(
+      "Pokopališče Kranj - 9833001 - Geneanet Cemeteries",
+    );
+    // An id already in the title, a title with no id to add, and another
+    // site's title are all left exactly as they are.
+    expect(siteSourceTitle("geneanet", "9833001 - Geneanet Cemeteries", "9833001")).toBe("9833001 - Geneanet Cemeteries");
+    expect(siteSourceTitle("geneanet", "Pokopališče Kranj - Geneanet Cemeteries", undefined)).toBe(
+      "Pokopališče Kranj - Geneanet Cemeteries",
+    );
+    expect(siteSourceTitle("matricula", "Krstna knjiga - 03869", "03869")).toBe("Krstna knjiga - 03869");
+    expect(siteSourceTitle(undefined, undefined, "9833001")).toBeUndefined();
+  });
+
+  it("keeps the view id in a looked-up cemetery's title, so two graves differ", () => {
+    // Every grave in one cemetery answers with the same name. Without the id
+    // the file fills with sources called "Pokopališče Kranj - Geneanet
+    // Cemeteries" that nothing tells apart — and the duplicate finder, which
+    // compares a record's own content, reads two graves as one record.
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NOTE https://en.geneanet.org/cemetery/view/9833001
+0 @I2@ INDI
+1 NOTE https://en.geneanet.org/cemetery/view/9833663
+0 TRLR`);
+    const report = findReshapableLinks(ds);
+    const enrichment = new Map(
+      report.groups.map((g) => [g.id, { title: "Pokopališče Kranj - Geneanet Cemeteries", place: "Kranj, Slovenia" }]),
+    );
+    const text = serializeGedcom(reshapeSources(ds.records, report.groups, enrichment).records);
+    expect(text).toContain("1 TITL Pokopališče Kranj - 9833001 - Geneanet Cemeteries");
+    expect(text).toContain("1 TITL Pokopališče Kranj - 9833663 - Geneanet Cemeteries");
+    // …and the id is a field of its own, not only part of the name.
+    expect(text).toContain("1 FILN 9833001");
+  });
+
+  it("fills the id a reused source was made without, in the field the file uses", () => {
+    // The id is stated once: as the filing number in a file written this way
+    // (MacFamilyTree and its kin), as the repository link's call number in a
+    // file that states them there. A record made before the id was known has
+    // neither, and the tool fills whichever the file calls for.
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NOTE https://en.geneanet.org/cemetery/view/9833001
+0 @S1@ SOUR
+1 TITL Pokopališče Kranj - Geneanet Cemeteries
+1 REPO @R1@
+1 OBJE @M1@
+0 @R1@ REPO
+1 NAME Geneanet - Cemeteries and Memorials
+0 @M1@ OBJE
+1 FILE https://en.geneanet.org/cemetery/view/9833001
+0 TRLR`);
+    const report = findReshapableLinks(ds);
+    expect(report.groups[0].existingSourceXref).toBe("@S1@");
+    const text = serializeGedcom(reshapeSources(ds.records, report.groups).records);
+    expect(text).toContain("1 FILN 9833001");
+    expect(text).not.toContain("2 CALN");
+    // The reader's own title is theirs — only the empty fields are filled.
+    expect(text).toContain("1 TITL Pokopališče Kranj - Geneanet Cemeteries");
+  });
+
+  it("fills the call number instead, in a file that states ids there", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NOTE https://en.geneanet.org/cemetery/view/9833001
+0 @S1@ SOUR
+1 TITL Pokopališče Kranj - Geneanet Cemeteries
+1 REPO @R1@
+1 OBJE @M1@
+0 @S2@ SOUR
+1 TITL Neka druga knjiga
+1 REPO @R1@
+2 CALN 1234
+0 @R1@ REPO
+1 NAME Geneanet - Cemeteries and Memorials
+0 @M1@ OBJE
+1 FILE https://en.geneanet.org/cemetery/view/9833001
+0 TRLR`);
+    const text = serializeGedcom(reshapeSources(ds.records, findReshapableLinks(ds).groups).records);
+    expect(text).toMatch(/1 REPO @R1@\n2 CALN 9833001/);
+  });
+
   it("writes the spec's DATA coverage in a standard-coverage file", () => {
     const ds = dataset(`0 HEAD
 1 CHAR UTF-8
@@ -780,9 +884,10 @@ describe("reshapeSources — apply", () => {
     expect(text).toContain("1 NAME Geneanet Cemeteries");
     expect(text).toContain("1 WWW https://en.geneanet.org/cemetery/");
     expect(text).toMatch(/0 @S\d+@ SOUR\n1 TITL 123 - Geneanet Cemeteries\n(1 .*\n)*1 REPO @R\d+@/);
-    // The filing number (the cemetery view id) doubles as the repository
-    // link's call number — the standard spot for it.
-    expect(text).toMatch(/1 REPO @R\d+@\n2 CALN 123/);
+    // The cemetery view id is stated once, in the field this file uses for
+    // it: no call number stands anywhere here, so it is the filing number.
+    expect(text).toContain("1 FILN 123");
+    expect(text).not.toMatch(/2 CALN 123/);
   });
 
   it("writes the FORM a new page image's FILE calls for", () => {
@@ -1306,6 +1411,37 @@ describe("reshapeSources — citation placement", () => {
     expect(text.match(/SOUR @S1@\n3 PAGE 51\n3 QUAY 3/g)).toHaveLength(1); // only on @F1@'s MARR
     const again = findReshapableLinks(dataset(text));
     expect(again.groups).toHaveLength(0);
+  });
+
+  it("a converted pointer settles without a citation quality, so the row clears", () => {
+    // What a run leaves when the reader never picked a citation quality: the
+    // citation is there, the page image beside it, and no QUAY on either.
+    // The row used to be offered for ever — each apply found the citation
+    // already written, wrote nothing at all, and the re-scan listed it again,
+    // so a run holding only such rows reported "nothing happened".
+    const converted = `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Pavel /Križaj/
+1 OBJE @M1@
+1 SOUR @S1@
+2 PAGE 51
+1 FAMS @F1@
+1 FAMS @F2@
+0 @F1@ FAM
+1 HUSB @I1@
+0 @F2@ FAM
+1 HUSB @I1@
+0 @S1@ SOUR
+1 TITL Poročna knjiga / Trauungsbuch - 00899
+1 OBJE @M1@
+0 @M1@ OBJE
+1 FILE ${BOOK}/?pg=51
+0 TRLR`;
+    expect(scan(converted).groups).toHaveLength(0);
+    // And applying it anyway is a no-op rather than a rewrite.
+    const { text } = applyAll(converted);
+    expect(text).toBe(serializeGedcom(dataset(converted).records));
   });
 
   it("an unresolvable multi-family marriage link settles at record level and stops being reported", () => {
@@ -2657,29 +2793,42 @@ describe("FamilySearch image links", () => {
     expect(meta?.place).toBe("Pakrac");
   });
 
-  it("attaches to the file's own repository for that collection", () => {
+  it("attaches to the file's own repository for that country", () => {
     const ds = dataset([
       "0 HEAD",
       "1 GEDC",
       "2 VERS 5.5.1",
       "0 @R1@ REPO",
-      "1 NAME FamilySearch.org - Slovenia Church Books 1521-1997",
+      "1 NAME FamilySearch.org - Slovenia",
       "0 @R2@ REPO",
-      "1 NAME FamilySearch.org - Croatia Church Books 1516-1994",
+      "1 NAME FamilySearch.org - Croatia",
       "0 @R3@ REPO",
       "1 NAME Matricula Online - Nadškofijski arhiv Ljubljana",
       "1 WWW https://data.matricula-online.eu/sl/slovenia/ljubljana/",
       "0 TRLR",
     ].join("\n"));
-    // Neither FamilySearch repository has a WWW: only the collection's name
-    // tells them apart, and it arrives with the lookup.
-    expect(proposedSiteRepo(ds.records, "familysearch", IMAGE_URL, undefined)?.xref).toBe("@R1@");
+    // Neither FamilySearch repository has a WWW: only the country in its name
+    // tells them apart, and the collection title states it.
     expect(
       proposedSiteRepo(ds.records, "familysearch", IMAGE_URL, undefined, {
         title: "Croatia, Church Books, 1516-1994",
       })?.xref,
     ).toBe("@R2@");
-    // The collection id in a repository's WWW settles it without the lookup.
+    // The place the records cover says it outright, whatever the title reads.
+    expect(
+      proposedSiteRepo(ds.records, "familysearch", IMAGE_URL, undefined, {
+        title: "Zbirka",
+        place: "Ravna Gora, Primorje-Gorski Kotar, Croatia",
+      })?.xref,
+    ).toBe("@R2@");
+    // A country no repository holds must not fall back to another country's —
+    // a new one is proposed instead…
+    expect(
+      proposedSiteRepo(ds.records, "familysearch", BOOK_ONLY_URL, undefined, {
+        title: "Illinois, Cook County Deaths, 1871-1998",
+      }),
+    ).toEqual({ createName: "FamilySearch.org - United States, Illinois" });
+    // …though a *generic* site repository still serves every country.
     const withWww = dataset([
       "0 HEAD",
       "1 GEDC",
@@ -2687,50 +2836,122 @@ describe("FamilySearch image links", () => {
       "0 @R1@ REPO",
       "1 NAME FamilySearch",
       "1 WWW https://www.familysearch.org/",
-      "0 @R2@ REPO",
-      "1 NAME Hrvatske crkvene knjige",
-      "1 WWW https://www.familysearch.org/search/collection/2040054",
       "0 TRLR",
     ].join("\n"));
-    expect(proposedSiteRepo(withWww.records, "familysearch", IMAGE_URL, undefined)?.xref).toBe("@R2@");
-    // …and for a link that carries no cc at all, the id the lookup read.
-    expect(proposedSiteRepo(withWww.records, "familysearch", BOOK_ONLY_URL, undefined)?.xref).toBe("@R1@");
-    expect(
-      proposedSiteRepo(withWww.records, "familysearch", BOOK_ONLY_URL, undefined, { id: "2040054" })?.xref,
-    ).toBe("@R2@");
-    // Matricula's archive still wins over a bare familysearch.org repository.
-    expect(proposedSiteRepo(ds.records, "matricula", BOOK, "Nadškofijski arhiv Ljubljana")?.xref).toBe("@R3@");
-    // A named collection no repository holds must not fall back to another
-    // collection's repository — a new one is proposed instead…
-    expect(
-      proposedSiteRepo(ds.records, "familysearch", BOOK_ONLY_URL, undefined, {
-        title: "Chicago, Cook, Illinois, United States records",
-      }),
-    ).toEqual({ createName: "FamilySearch.org - Chicago, Cook, Illinois, United States records" });
-    // …though a *generic* site repository still serves every collection.
     expect(
       proposedSiteRepo(withWww.records, "familysearch", BOOK_ONLY_URL, undefined, {
-        title: "Chicago, Cook, Illinois, United States records",
+        title: "Illinois, Cook County Deaths, 1871-1998",
       })?.xref,
     ).toBe("@R1@");
+    // A repository kept for one collection names a country inside a title,
+    // which is not the country's own record: the country's is proposed.
+    const perCollection = dataset([
+      "0 HEAD",
+      "1 GEDC",
+      "2 VERS 5.5.1",
+      "0 @R1@ REPO",
+      "1 NAME FamilySearch.org - Croatia Church Books 1516-1994",
+      "0 TRLR",
+    ].join("\n"));
+    expect(
+      proposedSiteRepo(perCollection.records, "familysearch", IMAGE_URL, undefined, {
+        title: "Croatia, Church Books, 1516-1994",
+      }),
+    ).toEqual({ createName: "FamilySearch.org - Croatia" });
+    // Matricula's archive still wins over a bare familysearch.org repository.
+    expect(proposedSiteRepo(ds.records, "matricula", BOOK, "Nadškofijski arhiv Ljubljana")?.xref).toBe("@R3@");
   });
 
-  it("names a repository it has to create after the collection", () => {
+  it("files a bare browse link where the collection's other pages already hang", () => {
+    // Two links out of Croatia, Church Books (cc=2040054). Nothing in either
+    // says so — no film, no citation, no lookup — but the file has answered
+    // this before, and its answer is the collection id on a page it holds.
+    const ds = dataset([
+      "0 HEAD",
+      "1 GEDC",
+      "2 VERS 5.5.1",
+      "0 @R1@ REPO", "1 NAME FamilySearch.org - Croatia", "1 WWW https://www.familysearch.org/",
+      "0 @R2@ REPO", "1 NAME FamilySearch.org - United States, Illinois",
+      "0 @S1@ SOUR", "1 TITL Births (Rođeni) 1857-1884, Ravna Gora", "1 REPO @R1@", "1 OBJE @O1@",
+      "0 @O1@ OBJE", "1 FILE https://www.familysearch.org/ark:/61903/3:1:939V-5NSX-83?i=12&cc=2040054",
+      "0 TRLR",
+    ].join("\n"));
+    const link = familySearchPageUrl(
+      "https://www.familysearch.org/ark:/61903/3:1:939V-5NS6-DN?lang=en&i=33&cc=2040054",
+    );
+    // The stored form keeps what identifies the page and its collection.
+    expect(link).toBe("https://www.familysearch.org/ark:/61903/3:1:939V-5NS6-DN?i=33&cc=2040054");
+    expect(proposedSiteRepo(ds.records, "familysearch", link, undefined, {})?.xref).toBe("@R1@");
+
+    // A collection the file has never cited is not guessed at: the site's own
+    // record is proposed rather than one of the places it happens to keep.
+    const unknown = familySearchPageUrl("https://www.familysearch.org/ark:/61903/3:1:ABCD-1?i=4&cc=9999999");
+    expect(proposedSiteRepo(ds.records, "familysearch", unknown, undefined, {})).toEqual({
+      createName: "FamilySearch.org",
+    });
+  });
+
+  it("reuses the state's own repository, and never a collection that opens with a state", () => {
+    const states = dataset([
+      "0 HEAD",
+      "1 GEDC",
+      "2 VERS 5.5.1",
+      "0 @R1@ REPO",
+      "1 NAME FamilySearch.org - United States, Illinois",
+      "0 @R2@ REPO",
+      "1 NAME FamilySearch.org - Illinois, Cook County Deaths, 1871-1998",
+      "0 TRLR",
+    ].join("\n"));
+    expect(
+      proposedSiteRepo(states.records, "familysearch", BOOK_ONLY_URL, undefined, {
+        title: "Illinois, Cook County Marriages, 1871-1969",
+      })?.xref,
+    ).toBe("@R1@");
+    // Another state has no record of its own here, and the collection kept
+    // under @R2@ is not one — so Indiana's is proposed.
+    expect(
+      proposedSiteRepo(states.records, "familysearch", BOOK_ONLY_URL, undefined, {
+        title: "Indiana, Marriages, 1811-2019",
+      }),
+    ).toEqual({ createName: "FamilySearch.org - United States, Indiana" });
+  });
+
+  it("names a repository it has to create after the country of its records", () => {
     const empty = dataset(["0 HEAD", "1 GEDC", "2 VERS 5.5.1", "0 TRLR"].join("\n"));
+    // A link naming no country at all keeps the site's own bare record.
     expect(proposedSiteRepo(empty.records, "familysearch", IMAGE_URL, undefined)?.createName).toBe("FamilySearch.org");
     expect(
       proposedSiteRepo(empty.records, "familysearch", IMAGE_URL, undefined, {
         title: "Croatia, Church Books, 1516-1994",
       })?.createName,
-    ).toBe("FamilySearch.org - Croatia, Church Books, 1516-1994");
+    ).toBe("FamilySearch.org - Croatia");
+    // American records are published state by state, so a place naming the
+    // state is filed under it rather than under the country as a whole…
+    expect(
+      proposedSiteRepo(empty.records, "familysearch", IMAGE_URL, undefined, {
+        title: "Chicago, Cook, Illinois, United States records",
+        place: "Chicago, Cook, Illinois",
+      })?.createName,
+    ).toBe("FamilySearch.org - United States, Illinois");
+    // …while a collection covering the whole country keeps the country.
+    expect(
+      proposedSiteRepo(empty.records, "familysearch", IMAGE_URL, undefined, {
+        title: "United States, Census, 1930",
+      })?.createName,
+    ).toBe("FamilySearch.org - United States");
+    // …and where the file writes the country itself, that wording is kept.
+    expect(
+      proposedSiteRepo(empty.records, "familysearch", IMAGE_URL, undefined, {
+        place: "Ravna Gora, Primorje-Gorski Kotar, Hrvaška",
+      })?.createName,
+    ).toBe("FamilySearch.org - Hrvaška");
     const created = createSiteRepo(empty.records, "familysearch", BOOK_ONLY_URL, undefined, {
       title: "Croatia, Church Books, 1516-1994",
       id: "2040054",
     });
-    // Its WWW is the collection's own page, so the next link finds it by URL.
-    expect(created?.children.find((c) => c.tag === "WWW")?.value).toBe(
-      "https://www.familysearch.org/search/collection/2040054",
-    );
+    expect(created?.children.find((c) => c.tag === "NAME")?.value).toBe("FamilySearch.org - Croatia");
+    // A country's repository spans collections, so it carries the site itself.
+    expect(created?.children.find((c) => c.tag === "WWW")?.value).toBe("https://www.familysearch.org/");
   });
 
   it("folds the pages of one book into a single source, each citing its own page", () => {
@@ -2777,9 +2998,12 @@ describe("FamilySearch image links", () => {
     expect(text).toMatch(/0 @I3@ INDI\n1 SOUR @S2@\n2 PAGE 3/);
     expect(text).toContain("1 TITL Ravna Gora - Marriages (Vjenčani) 1805-1812");
     expect(text).toContain("1 DATE 1805-1812");
-    // One page image per image link, titled by its own page.
-    expect(text).toContain("1 TITL #12 - Ravna Gora - Marriages (Vjenčani) 1805-1812");
-    expect(text).toContain("1 TITL #47 - Ravna Gora - Marriages (Vjenčani) 1805-1812");
+    // One page image per image link, each carrying the book's name alone: a
+    // FamilySearch book is numbered twice over (the film's images, the book's
+    // own pages) and nothing says which a number belongs to, so the media
+    // title claims none. The citation still says which image it came from.
+    expect(text).not.toContain("1 TITL #12 -");
+    expect(text.match(/1 TITL Ravna Gora - Marriages \(Vjenčani\) 1805-1812/g)).toHaveLength(3);
   });
 
   it("reads a published microfilm's own citation, publisher and all", () => {

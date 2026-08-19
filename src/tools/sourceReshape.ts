@@ -4,13 +4,30 @@ import {
   bookKeyOf,
   buildObjeIndex,
   detectSourceCoverage,
+  looseKey,
   prefersSourceRepos,
+  writesCallNumbers,
   isPointer,
   looksLikeUrl,
   pageParamOf,
   sourceTitle,
 } from "../gedcom/source";
-import { canonicalFamilySearchUrl, linkKey } from "../normalize/links";
+import {
+  familySearchImageNumber as imageNumber,
+  familySearchPageUrl,
+  linkKey,
+  parseFamilySearchUrl,
+  type FamilySearchUrlParts,
+} from "../normalize/links";
+import {
+  countryCodeOfName,
+  countryFacetName,
+  countryNameOf,
+  foldCountryName,
+  placeCountryFacet,
+  stateOf,
+  titleCountryFacet,
+} from "../geo/placeCountry";
 import { detectPlaceLayout } from "../normalize/profile";
 import { normalizeDateString } from "../normalize/date";
 import { dateFixContext, proposeDateFix, type DateFixContext } from "./fixDates";
@@ -238,6 +255,10 @@ export interface ReshapeOptions {
   /** How a new source states what it covers: flat vendor PLAC/DATE fields, or
    *  the spec's `DATA > EVEN` structure; "auto" = the file's own habit. */
   sourceCoverage?: "vendor" | "standard" | "auto";
+  /** The citation quality the run would write, when the reader chose one.
+   *  The scan reads it to tell a pointer that is finished from one still owed
+   *  a `QUAY`; the apply takes each group's own choice over it. */
+  quay?: string;
 }
 
 export interface ReshapeCounts {
@@ -407,41 +428,30 @@ const SISTORY_WW_RE = /^https?:\/\/(?:\w+\.)?sistory\.si\/(ww[12])\/([0-9a-f-]+)
  *  — the same record as /ww1/{n}, with the person's name encoded in the id. */
 const SISTORY_ZV1_RE = /^https?:\/\/zv1\.sistory\.si\/zrtev\?id=([^&#\s]+)/i;
 
-export interface FamilySearchUrlParts {
-  kind: "image" | "record" | "tree";
-  ark?: string;
-  cat?: string;
-  image?: string;
-}
+// The FamilySearch URL reading lives in `normalize/links` (the reuse scan in
+// `gedcom/source` needs it too); kept exported here for its existing callers.
+export { parseFamilySearchUrl, type FamilySearchUrlParts };
 
-const FS_ARK_RE = /^https?:\/\/(?:www\.)?familysearch\.org\/ark:\/61903\/(\d:\d):([^/?#]+)/i;
-
-export function parseFamilySearchUrl(url: string): FamilySearchUrlParts | undefined {
-  const trimmed = url.trim();
-  if (!/^https?:\/\/(?:www\.)?familysearch\.org\//i.test(trimmed)) return undefined;
-  const ark = FS_ARK_RE.exec(trimmed);
-  if (ark) {
-    const id = `${ark[1]}:${ark[2]}`;
-    if (ark[1] === "3:1") {
-      return {
-        kind: "image",
-        ark: id,
-        cat: /[?&]cat=(\d+)/i.exec(trimmed)?.[1],
-        image: /[?&]i=(\d+)/i.exec(trimmed)?.[1],
-      };
-    }
-    return { kind: "record", ark: id };
-  }
-  return { kind: "tree" };
-}
-
-/** The image number FamilySearch itself would print for a link's `i=`, which
- *  counts from zero: `i=23` is the page its viewer and its citation both call
- *  image 24 (verified against both). Only the offline reading needs this — a
- *  lookup answers with the number already worded. */
-function imageNumber(i: string | undefined): string | undefined {
-  const n = i && /^\d+$/.test(i) ? Number(i) : undefined;
-  return n === undefined ? i : String(n + 1);
+/**
+ * What a page image of a register is called: the book's title with the cited
+ * page in front of it (`#56 - Krstna knjiga …`), for the sites whose links
+ * name a page of the book itself.
+ *
+ * A FamilySearch book is counted twice over — the film runs its own image
+ * numbers, the book its printed pages — and neither a link nor a citation
+ * says which of the two a number belongs to. A number in the title would
+ * therefore be a claim the reader cannot check against what the page shows
+ * when they open it, so those titles carry the register's name alone.
+ * Undefined when there is no title to build on (a link nothing recognized).
+ */
+export function pageObjeTitle(
+  site: ReshapeSite | undefined,
+  title: string | undefined,
+  page: string | undefined,
+): string | undefined {
+  if (!site || !title) return undefined;
+  if (site === "familysearch") return title;
+  return page ? `#${page} - ${title}` : title;
 }
 
 /** First quoted phrase in citation text — FamilySearch-style collection titles,
@@ -1497,15 +1507,24 @@ function relocationTarget(
 }
 
 /** An owned page-image pointer already sitting beside its final citation
- *  (same source+page, QUAY set) with no relocation left to make — the shape a
- *  previous apply leaves when the marriage family stays unresolved. The
- *  report hides it and the apply skips it, so reruns converge to zero. */
+ *  (same source and page) with no relocation left to make — the shape a
+ *  previous apply leaves, and the shape a reader who cited the source by hand
+ *  leaves too. The report hides it and the apply skips it, so reruns converge
+ *  to zero.
+ *
+ *  The citation alone settles it. It used to have to carry a `QUAY` as well —
+ *  a mark only a run with a citation quality chosen ever writes — so with the
+ *  quality left unset the row was offered for ever: every apply found the
+ *  citation already there, wrote nothing, and the re-scan listed it again. */
 function isSettledPointer(
   hit: ScanHit,
   move: { eventTag: string } | undefined,
   sourceXref: string | undefined,
   pageMedia: PageMediaStyle,
   page: string | undefined,
+  /** The quality this run would write, if the reader chose one — a citation
+   *  still owed a `QUAY` has work left in it. */
+  quay: string | undefined,
 ): boolean {
   if (hit.shape !== "obje" || !hit.objeXref || move || hit.foldedInto || hit.twinEvent) return false;
   if (pageMedia !== "event" || !sourceXref) return false;
@@ -1516,7 +1535,7 @@ function isSettledPointer(
   const cite = childrenByTag(hit.container, "SOUR").find(
     (c) => c.value?.trim() === sourceXref && (page === undefined || (childText(c, "PAGE") ?? "") === page),
   );
-  return !!cite && !!firstChild(cite, "QUAY");
+  return !!cite && (!quay || !!firstChild(cite, "QUAY"));
 }
 
 
@@ -1594,7 +1613,7 @@ export function findReshapableLinks(
         relocate && !hit.foldedInto && !hit.twinEvent
           ? relocationTarget(hit, g.bookType, baptismTag, ctx, g.existingSourceXref)
           : undefined;
-      if (isSettledPointer(hit, move, g.existingSourceXref, pageMedia, hit.recognized.page)) return [];
+      if (isSettledPointer(hit, move, g.existingSourceXref, pageMedia, hit.recognized.page, opts.quay)) return [];
       return [
         {
           recordXref: hit.rec.xref ?? "?",
@@ -1972,6 +1991,22 @@ function coverageEventsFromTitle(
  * one flat `PLAC`), or whose flat fields disagree with its coverage keeps
  * its shape — nothing is invented and nothing is lost.
  */
+/**
+ * Move a source's `FILN` onto its repository link as the standard `CALN`, and
+ * say which id moved. Nothing happens without a repository to hang it on (the
+ * call number is part of the repository citation, so there is nowhere else for
+ * it to go), nor where the link already states one.
+ */
+function foldFilingNumber(rec: GedNode): string | undefined {
+  const repoLink = firstChild(rec, "REPO");
+  const filn = firstChild(rec, "FILN");
+  const value = filn?.value?.trim();
+  if (!repoLink?.value || !value || firstChild(repoLink, "CALN")) return undefined;
+  repoLink.children.push({ level: repoLink.level + 1, tag: "CALN", value, children: [] });
+  spliceChild(rec, filn!);
+  return value;
+}
+
 export function normalizeSourceCoverage(
   records: GedNode[],
   target: "vendor" | "standard",
@@ -1998,7 +2033,15 @@ export function normalizeSourceCoverage(
     const data = firstChild(rec, "DATA");
 
     if (target === "standard") {
-      if (data && childrenByTag(data, "EVEN").length > 0) continue; // already standard
+      // The filing number's standard spot is the repository link's call
+      // number, whatever shape the source's coverage is already in — so this
+      // runs before the "already standard" bail-out below. A source converted
+      // by an earlier run (or written standard from the start) kept its FILN
+      // for ever otherwise: the only pass that moves it never looked at it.
+      const alreadyStandard = !!data && childrenByTag(data, "EVEN").length > 0;
+      const early = alreadyStandard ? foldFilingNumber(rec) : undefined;
+      if (early) note(`FILN ${early}`, `CALN ${early}`);
+      if (alreadyStandard) continue;
       const plac = firstChild(rec, "PLAC");
       const date = firstChild(rec, "DATE");
       if (!plac?.value?.trim() && !date?.value?.trim()) continue;
@@ -2013,14 +2056,7 @@ export function normalizeSourceCoverage(
       applyStandardCoverage(rec, events, undefined);
       if (plac) spliceChild(rec, plac);
       if (date) spliceChild(rec, date);
-      // The filing number's standard spot is the repository link's call number.
-      const repoLink = firstChild(rec, "REPO");
-      const filn = firstChild(rec, "FILN");
-      const foldedFiln = repoLink?.value && filn?.value?.trim() && !firstChild(repoLink, "CALN") ? filn.value.trim() : undefined;
-      if (foldedFiln) {
-        repoLink!.children.push({ level: repoLink!.level + 1, tag: "CALN", value: foldedFiln, children: [] });
-        spliceChild(rec, filn!);
-      }
+      const foldedFiln = foldFilingNumber(rec);
       note(
         [plac?.value && `PLAC ${plac.value}`, date?.value && `DATE ${date.value}`, foldedFiln && `FILN ${foldedFiln}`]
           .filter(Boolean)
@@ -2097,28 +2133,63 @@ const SITE_REPO: Partial<Record<ReshapeSite, { hostRe: RegExp; name: string; www
   familysearch: { hostRe: /familysearch\.org/i, name: "FamilySearch.org", www: "https://www.familysearch.org/" },
 };
 
-/** Letters and digits only, lowercased — so "FamilySearch.org - Croatia Church
- *  Books 1516-1994" and "Croatia, Church Books, 1516-1994" compare equal where
- *  it matters, whatever punctuation each side chose. */
-function looseKey(text: string): string {
-  return text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+/** The part of a repository's name after the site it belongs to —
+ *  "FamilySearch.org - Croatia" holds "Croatia". */
+export function repoNameTail(name: string): string {
+  return /^.*?\s[-–—]\s(.+)$/.exec(name.trim())?.[1].trim() ?? "";
+}
+
+/**
+ * The country a repository record stands for: the one its name gives after
+ * the site, and only when that tail *is* a country's name. A repository kept
+ * for a single collection ("FamilySearch.org - Illinois, Cook County Deaths,
+ * 1871-1998") names a country inside a collection title, which is a different
+ * thing and must not answer for the country's own record.
+ */
+export function repoCountryFacet(name: string | undefined): string {
+  const tail = repoNameTail(name ?? "");
+  if (!tail) return "";
+  // A state's own record is its country and the state, and nothing else —
+  // "United States, Illinois", or either order for a name typed by hand. A
+  // collection title that merely names a state ("Illinois, Cook County Deaths,
+  // 1871-1998") has more in it than that, and answers for nobody.
+  const parts = tail.split(",").map((s) => s.trim()).filter(Boolean);
+  const exactState = (text: string) => {
+    const state = stateOf(text);
+    return state && foldCountryName(state.name) === foldCountryName(text) ? state : undefined;
+  };
+  if (parts.length === 1) {
+    const state = exactState(parts[0]);
+    if (state) return `${state.country}:${looseKey(state.name)}`;
+  }
+  if (parts.length === 2) {
+    for (const [countryPart, statePart] of [[parts[0], parts[1]], [parts[1], parts[0]]]) {
+      const state = exactState(statePart);
+      if (state && countryCodeOfName(countryPart) === state.country) {
+        return `${state.country}:${looseKey(state.name)}`;
+      }
+    }
+  }
+  return countryCodeOfName(tail) ? placeCountryFacet(tail) : "";
 }
 
 /** Existing REPO for a site: one whose WWW is on the site's host, or one named
  *  after the site — a file keeping a repository per collection may name it
  *  "FamilySearch.org - Croatia Church Books 1516-1994" and give it no WWW at
- *  all. Among several, the one naming any of `prefer` (the Matricula archive,
- *  the FamilySearch collection id or title) wins; else the first match. */
+ *  all. The country's own repository wins when one is wanted, then a record
+ *  naming any of `prefer` (the Matricula archive); else the first match. */
 function findSiteRepo(
   records: GedNode[],
   hostRe: RegExp,
   siteName: string,
   prefer: (string | undefined)[] = [],
-  /** With a specific collection wanted, fall back only to a *generic* site
-   *  repository — one kept for a different collection ("FamilySearch.org -
-   *  Croatia Church Books 1516-1994") would be the wrong home for a link
-   *  naming another, and the caller proposes creating the right one. */
+  /** With a specific country wanted, fall back only to a *generic* site
+   *  repository — one kept for another country, or for a single collection
+   *  ("FamilySearch.org - Croatia Church Books 1516-1994"), would be the wrong
+   *  home, and the caller proposes creating the right one. */
   strictFallback = false,
+  /** The country the source belongs to, for sites grouped by country. */
+  countryFacet = "",
 ): string | undefined {
   const wanted = prefer.map((p) => (p ? looseKey(p) : "")).filter(Boolean);
   const site = looseKey(siteName);
@@ -2129,14 +2200,18 @@ function findSiteRepo(
     const www = childText(rec, "WWW") ?? "";
     const name = childText(rec, "NAME") ?? "";
     if (!hostRe.test(www) && !looseKey(name).startsWith(site)) continue;
+    if (countryFacet && repoCountryFacet(name) === countryFacet) return rec.xref;
     const haystack = looseKey(`${name} ${www}`);
     if (wanted.some((w) => haystack.includes(w))) return rec.xref;
     anyMatch ??= rec.xref;
-    // Generic = named exactly after the site (no collection suffix), or a
-    // nameless record matched by a bare-host WWW.
+    // Generic = named exactly after the site (no country or collection
+    // suffix), or a nameless record matched by a bare-host WWW.
     if (name ? site.startsWith(looseKey(name)) : /^https?:\/\/[^/]+\/?$/i.test(www.trim())) genericMatch ??= rec.xref;
   }
-  return strictFallback && wanted.length ? genericMatch : anyMatch;
+  // Strict: only the wanted record, or the site's own general one. A file that
+  // keeps a repository per place has several, and handing a link to whichever
+  // came first files it under a country it has nothing to do with.
+  return strictFallback ? genericMatch : anyMatch;
 }
 
 /** The site's REPO for a new source: an existing one matched by WWW host
@@ -2148,59 +2223,114 @@ function findSiteRepo(
  * the Matricula archive's), or the name of the record it would create.
  * Lets the Add Source dialog show/preselect the repository before saving.
  */
+/**
+ * The repository the file already keeps for a FamilySearch collection: the one
+ * its other pages hang off, found by the collection id (`cc=`) their links
+ * carry. A bare browse link says nothing about the country its records are
+ * from — but the file has answered that question before, and its own answer
+ * beats asking FamilySearch again.
+ */
+function repoOfCitedCollection(records: GedNode[], cc: string | undefined): string | undefined {
+  if (!cc) return undefined;
+  const objeIndex = buildObjeIndex(records);
+  for (const rec of records) {
+    if (rec.tag !== "SOUR" || !rec.xref) continue;
+    const repo = firstChild(rec, "REPO")?.value?.trim();
+    if (!repo) continue;
+    for (const child of childrenByTag(rec, "OBJE")) {
+      const objeUrl = child.value ? objeIndex.get(child.value.trim())?.url : undefined;
+      if (objeUrl && parseFamilySearchUrl(objeUrl)?.cc === cc) return repo;
+    }
+  }
+  return undefined;
+}
+
 export function proposedSiteRepo(
   records: GedNode[],
   site: ReshapeSite,
   url: string,
   agency: string | undefined,
-  /** The FamilySearch collection this link belongs to, once known — it picks
-   *  the file's repository for that collection out of several. */
+  /** What the FamilySearch link covers, once known — the place read off it
+   *  picks the file's repository for that place out of several. */
   collection?: FsCollection,
 ): { xref?: string; createName?: string } | undefined {
   const repoDef = SITE_REPO[site];
   if (!repoDef) return undefined;
+  // A page of a collection the file already cites goes where its siblings are,
+  // whatever the link alone can be made to say.
+  if (site === "familysearch") {
+    const sibling = repoOfCitedCollection(records, parseFamilySearchUrl(url)?.cc);
+    if (sibling) return { xref: sibling };
+  }
   const mat = site === "matricula" ? parseMatriculaUrl(url) : undefined;
+  const country = site === "familysearch" ? fsRepoCountry(collection) : undefined;
   const existing = findSiteRepo(
     records,
     repoDef.hostRe,
     repoDef.name,
-    [mat?.archiveSlug, collection?.id ?? fsCollectionId(site, url), collection?.title],
-    // FamilySearch files keep a repository per collection — once the citation
-    // or lookup names this link's, a repository holding a *different*
-    // collection must not swallow it. A bare URL (collection still unknown)
-    // keeps the lenient fallback; the lookup corrects it.
-    site === "familysearch" && Boolean(collection?.title ?? collection?.id),
+    [mat?.archiveSlug],
+    // FamilySearch repositories are kept per place — a repository for another
+    // country (or for one single collection) must not swallow this link, and
+    // nor must any of them when the place is still unknown: the site's own
+    // general record is the only honest home until the lookup, the citation or
+    // a sibling page says where the records are from.
+    site === "familysearch" || Boolean(country?.facet),
+    country?.facet,
   );
   if (existing) return { xref: existing };
-  // Matricula repositories are the holding archive; the other sites
-  // are their own repository.
-  return { createName: siteRepoName(site, repoDef.name, agency, collection?.title) };
+  // Matricula repositories are the holding archive; FamilySearch keeps one per
+  // country of records; the other sites are their own repository.
+  return { createName: siteRepoName(site, repoDef.name, agency, country?.name) };
 }
 
-/** A FamilySearch collection as the repository logic needs it: what it is
- *  called, and its id — either may be missing. */
+/** What a FamilySearch link covers, as the repository logic needs it: the
+ *  collection it belongs to (title and id) and the place its records are
+ *  from. Any of them may be missing. */
 export interface FsCollection {
   title?: string;
   id?: string;
+  /** The place the records cover ("Chicago, Cook, Illinois, United States") —
+   *  the surest statement of the country whose repository holds the source. */
+  place?: string;
 }
 
-/** The `cc=` id of a FamilySearch collection link — the id a repository for
- *  that collection carries in its WWW. */
-function fsCollectionId(site: ReshapeSite, url: string): string | undefined {
-  return site === "familysearch" ? /[?&]cc=(\d+)/i.exec(url)?.[1] : undefined;
+/**
+ * The country a FamilySearch source belongs to: the one its place names,
+ * else the one its collection title opens with ("Illinois, Cook County
+ * Deaths, 1871-1998" is American). Named as the place itself writes it where
+ * it says so outright, and in English otherwise — the site and its collection
+ * titles are English, so a country read out of one is too.
+ */
+export function fsRepoCountry(collection: FsCollection | undefined): { facet: string; name: string } | undefined {
+  const place = collection?.place?.trim();
+  const title = collection?.title ?? "";
+  const facet = (place && placeCountryFacet(place)) || titleCountryFacet(title);
+  if (!facet) return undefined;
+  const written = place && placeCountryFacet(place) === facet ? countryNameOf(place) : undefined;
+  const country = written ?? countryFacetName(facet, "en");
+  // Where a country's records are published state by state — American ones
+  // are, and this file's own places say which state — the state is the
+  // repository, since a single "United States" record would hold everything.
+  // A national collection ("United States, Census, 1930") names no state and
+  // keeps the country itself.
+  const state = (place ? stateOf(place) : undefined) ?? stateOf(title);
+  if (!state || state.country !== facet) return { facet, name: country };
+  // Country first, so a state's record reads as a narrowing of the country's
+  // and the two sort together — "United States", "United States, Illinois".
+  return { facet: `${facet}:${looseKey(state.name)}`, name: `${country}, ${state.name}` };
 }
 
 /** What a new repository for the site is called: the holding archive for
- *  Matricula, the collection for a FamilySearch link that names one, else the
- *  site itself. */
+ *  Matricula, the country of the records for FamilySearch, else the site
+ *  itself. */
 function siteRepoName(
   site: ReshapeSite,
   siteName: string,
   agency: string | undefined,
-  collection: string | undefined,
+  country: string | undefined,
 ): string {
   if (site === "matricula" && agency) return agency;
-  if (site === "familysearch" && collection) return `${siteName} - ${collection}`;
+  if (site === "familysearch" && country) return `${siteName} - ${country}`;
   return siteName;
 }
 
@@ -2219,14 +2349,13 @@ export function createSiteRepo(
   const repoDef = SITE_REPO[site];
   if (!repoDef) return undefined;
   const mat = site === "matricula" ? parseMatriculaUrl(url) : undefined;
-  const name = nameOverride?.trim() || siteRepoName(site, repoDef.name, agency, collection?.title);
-  const fsCc = collection?.id ?? fsCollectionId(site, url);
+  const country = site === "familysearch" ? fsRepoCountry(collection) : undefined;
+  const name = nameOverride?.trim() || siteRepoName(site, repoDef.name, agency, country?.name);
+  // A country's repository spans many collections, so it carries the site's
+  // own address rather than any one collection's page.
   const www = mat
     ? `https://data.matricula-online.eu/${mat.lang}/${mat.country}/${mat.archiveSlug}/`
-    : // The collection's own page, so the next link into it finds this record.
-      fsCc
-      ? `https://www.familysearch.org/search/collection/${fsCc}`
-      : repoDef.www;
+    : repoDef.www;
   const repo: GedNode = { level: 0, xref: nextXref(records, "R"), tag: "REPO", children: [] };
   repo.children.push({ level: 1, tag: "NAME", value: name, children: [] });
   repo.children.push({ level: 1, tag: "WWW", value: www, children: [] });
@@ -2304,15 +2433,46 @@ export function applySiteSourceExtras(
   const repo = ensureSiteRepo(records, site, url, childText(sourceNode, "AGNC"), createRepos, {
     title: meta.collection,
     id: meta.collectionId,
+    place: meta.place,
   });
   if (!repo) return undefined;
   const link: GedNode = { level: sourceNode.level + 1, tag: "REPO", value: repo.xref, children: [] };
-  // Same mirror as the batch tool: the filing number is the call number
-  // within the repository being linked.
+  // The same id, in the one place this file states it: the repository link's
+  // call number where the file writes those, else the source's own FILN,
+  // which is already there. Writing both would say it twice.
   const filn = childText(sourceNode, "FILN");
-  if (filn) link.children.push({ level: link.level + 1, tag: "CALN", value: filn, children: [] });
+  if (filn && writesCallNumbers(records, coverage)) {
+    link.children.push({ level: link.level + 1, tag: "CALN", value: filn, children: [] });
+  }
   sourceNode.children.push(link);
   return repo.created;
+}
+
+/**
+ * What a source from a recognized site is called: the lookup names the thing
+ * itself — a cemetery, a register — while the id that tells one of them from
+ * the next comes from the link. A Geneanet
+ * cemetery is the case that needs both: every grave in one cemetery answers
+ * with the same name, so a title without the view id leaves a file full of
+ * sources called "Pokopališče Kranj - Geneanet Cemeteries" that nothing can
+ * tell apart — the duplicate finder included, which reads two of them as one
+ * record under different ids.
+ */
+export function siteSourceTitle(
+  site: ReshapeSite | undefined,
+  title: string | undefined,
+  id: string | undefined,
+): string | undefined {
+  if (!title || site !== "geneanet" || !id || title.includes(id)) return title;
+  const label = "Geneanet Cemeteries";
+  const name = title.endsWith(` - ${label}`) ? title.slice(0, -label.length - 3) : title;
+  return siteTitle(name, id, label);
+}
+
+/** The same, for a scanned group: the lookup's name over the offline one, and
+ *  the id the link carried either way. */
+function enrichedTitle(g: ReshapeGroup, extra: ReshapeMeta | undefined): string {
+  return siteSourceTitle(g.site, extra?.title ?? g.proposed.title, g.proposed.filingNumber) ?? g.proposed.title;
 }
 
 /**
@@ -2348,6 +2508,9 @@ export function reshapeSources(
   for (const r of clone) if (r.xref) byXref.set(r.xref, r);
 
   const { fold, pageMedia, baptismTag, createRepos, coverage } = resolveFormatOptions(clone, opts);
+  // Where this file states an archive's id: the repository link's call number,
+  // or the source's own filing number. One or the other, never both.
+  const callNumbers = writesCallNumbers(clone, coverage);
   // A link folded into a book is selected under the book's id, not its own.
   const hits = scanOccurrences(clone, sites, fold ? pageMedia : undefined).filter((h) =>
     selectedById.has(opts.mergeGroups?.get(h.recognized.groupKey) ?? h.recognized.groupKey),
@@ -2400,7 +2563,7 @@ export function reshapeSources(
     const extra = enrichment?.get(key);
     const bookType = extra?.bookType ?? g.bookType;
     const fields = {
-      title: extra?.title ?? g.proposed.title,
+      title: enrichedTitle(g, extra),
       author: extra?.author ?? g.proposed.author,
       periodical: extra?.periodical,
       publisher: extra?.publisher,
@@ -2414,8 +2577,19 @@ export function reshapeSources(
 
     // --- Resolve the target SOUR record: reuse, adopt a URL-titled one, or create.
     let sourceNode = g.existingSourceXref ? byXref.get(g.existingSourceXref) : undefined;
-    if (sourceNode) counts.sourcesReused++;
-    else {
+    if (sourceNode) {
+      counts.sourcesReused++;
+      // A record made before the id was known keeps its own title, but the
+      // empty filing number is the tool's to fill: it is the id the link
+      // carries, and without it nothing on the record says which grave (or
+      // which book) this is.
+      fillField(sourceNode, "FILN", fields.filingNumber);
+      // The call number mirrors it inside the repository — but only in a file
+      // that states ids there; where FILN is the file's field, the line above
+      // has already said it.
+      const repoLink = callNumbers ? firstChild(sourceNode, "REPO") : undefined;
+      if (repoLink) fillField(repoLink, "CALN", fields.filingNumber);
+    } else {
       sourceNode = createSourceRecord(clone, fields);
       byXref.set(sourceNode.xref!, sourceNode);
       counts.sourcesCreated++;
@@ -2434,8 +2608,9 @@ export function reshapeSources(
         fillField(sourceNode, "DATE", fields.dateRange);
       }
       const repo = ensureSiteRepo(clone, g.site, state.hits[0].url, fields.agency, createRepos, {
-        title: extra?.collection,
+        title: extra?.collection ?? fields.title,
         id: extra?.collectionId,
+        place: fields.place,
       });
       if (repo) {
         if (repo.created) byXref.set(repo.created.xref!, repo.created);
@@ -2443,7 +2618,7 @@ export function reshapeSources(
         // The filing number doubles as the call number within that repository
         // (the Matricula book id, the FamilySearch film) — the standard spot a
         // strict reader looks for it is the repository link's CALN.
-        if (fields.filingNumber) {
+        if (fields.filingNumber && callNumbers) {
           link.children.push({ level: 2, tag: "CALN", value: fields.filingNumber, children: [] });
           // In the standard shape FILN is not a source field at all — the
           // call number now carries the id.
@@ -2462,7 +2637,7 @@ export function reshapeSources(
         const obje = hit.objeXref ? byXref.get(hit.objeXref) : undefined;
         const file = obje && firstChild(obje, "FILE");
         const stored = file?.value?.trim();
-        const tidied = stored && canonicalFamilySearchUrl(stored);
+        const tidied = stored && familySearchPageUrl(stored);
         if (file && tidied && tidied !== stored) {
           file.value = tidied;
           counts.linksTidied++;
@@ -2518,15 +2693,16 @@ export function reshapeSources(
       if (seenUrls.has(urlKey) || linkedKeys.has(urlKey)) continue;
       seenUrls.add(urlKey);
       const page = pageOf(hit);
-      const objeTitle = page ? `#${page} - ${fields.title}` : fields.title;
+      const objeTitle = pageObjeTitle(g.site, fields.title, page) ?? fields.title;
       if (hit.objeXref && byXref.has(hit.objeXref)) {
         // Re-link the already-existing top-level OBJE under the source,
         // grouped with its other page media (not after CHAN/CREA).
         insertGrouped(sourceNode, { level: 1, tag: "OBJE", value: hit.objeXref, children: [] }, SOUR_TRAILING);
       } else {
-        // Written stripped of viewer state, so a page linked twice by two
-        // readers lands as one media record (see `canonicalFamilySearchUrl`).
-        const obje = addObjeToSource(clone, sourceXref, canonicalFamilySearchUrl(hit.url), objeTitle);
+        // Written stripped of viewer state but keeping what selects the page,
+        // so a page linked twice by two readers lands as one media record and
+        // still reopens where it was copied (see `familySearchPageUrl`).
+        const obje = addObjeToSource(clone, sourceXref, familySearchPageUrl(hit.url), objeTitle);
         if (obje.xref) createdObjeUrls.set(obje.xref, hit.url);
         counts.mediaCreated++;
       }
@@ -2586,7 +2762,7 @@ export function reshapeSources(
 
       const page = pageOf(hit);
       const move = relocate && !hit.twinEvent ? relocationTarget(hit, bookType, baptismTag, ctx, sourceXref) : undefined;
-      if (isSettledPointer(hit, move, sourceXref, pageMedia, page)) continue;
+      if (isSettledPointer(hit, move, sourceXref, pageMedia, page, quayFor)) continue;
       let container = hit.container;
       if (move) {
         const host = move.famXref ? byXref.get(move.famXref) : hit.rec;

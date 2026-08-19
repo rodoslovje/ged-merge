@@ -55,7 +55,15 @@ const REQUEST_TYPE = {
  *  independent of the reader's format choices. */
 const SALT_KEYS: Partial<Record<ScanKind, readonly (keyof FormatOverrides)[]>> = {
   sourceReshape: ["pageMedia", "sourceLayout", "baptism", "doubledLinks"],
-  normalize: ["date", "datePlaceholder", "place", "placeSeparator", "names", "unknownName", "matriculaLang", "geneanetLang"],
+  // `sourceCoverage` and `baptism` drive the normalize run's coverage pass —
+  // the one that restates a source's PLAC/DATE as the standard's DATA > EVEN
+  // and moves its filing number into the repository's call number. Without
+  // them here, switching the coverage choice left the preview showing the old
+  // count (nothing to do), so the pass was never offered at all.
+  normalize: [
+    "date", "datePlaceholder", "place", "placeSeparator", "names", "unknownName",
+    "matriculaLang", "geneanetLang", "sourceCoverage", "baptism",
+  ],
 };
 
 export interface ToolsScans extends ScanStates {

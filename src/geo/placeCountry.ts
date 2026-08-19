@@ -216,5 +216,75 @@ export function flagEmoji(code: string): string {
  */
 export function countryFacetLabel(facet: string, lang: string): string {
   if (!/^[a-z]{2}$/.test(facet)) return facet;
-  return `${flagEmoji(facet)} ${countryNameIn(facet, lang) ?? facet.toUpperCase()}`;
+  return `${flagEmoji(facet)} ${countryFacetName(facet, lang)}`;
+}
+
+/** The country a facet stands for, named in `lang` — the chip's wording
+ *  without its flag, and the name a record written for that country carries.
+ *  A facet that is no ISO code names a country the world no longer has, and
+ *  keeps the file's own wording. */
+export function countryFacetName(facet: string, lang: string): string {
+  if (!/^[a-z]{2}$/.test(facet)) return facet;
+  return countryNameIn(facet, lang) ?? facet.toUpperCase();
+}
+
+/**
+ * The country a *title* stands in — a place value, or a collection name that
+ * opens with the jurisdiction it covers ("Illinois, Cook County Deaths,
+ * 1871-1998", "Croatia Church Books 1516-1994"). A title names its country in
+ * words rather than in comma levels, so where {@link placeCountryFacet} finds
+ * nothing the opening words are read as a name of their own.
+ */
+export function titleCountryFacet(title: string): string {
+  const direct = placeCountryFacet(title);
+  if (direct) return direct;
+  const words = (title.split(",")[0] ?? "").trim().split(/\s+/).filter(Boolean);
+  for (let n = Math.min(3, words.length); n >= 1; n--) {
+    const facet = placeCountryFacet(words.slice(0, n).join(" "));
+    if (facet) return facet;
+  }
+  return "";
+}
+
+/**
+ * The first-level division a value names, for the countries whose files write
+ * one — "Chicago, Cook, Illinois, United States" and the collection title
+ * "Illinois, Cook County Deaths, 1871-1998" both stand in Illinois. Returned
+ * as the value writes it, alongside the country it belongs to.
+ *
+ * Nothing is returned for a value that names no such division: a national
+ * record set ("United States, Census, 1930") belongs to the country itself,
+ * and so does every place in a country that is not divided this way here.
+ */
+export function stateOf(value: string): { name: string; country: string } | undefined {
+  const states = reverseStateIndex();
+  for (const segment of value.split(",").map((s) => s.trim()).filter(Boolean)) {
+    const country = states.get(foldCountryName(segment));
+    if (country) return { name: segment, country };
+  }
+  // A title states its jurisdiction in words rather than in comma levels
+  // ("Illinois Cook County Deaths"), so its opening words are read as a name.
+  const words = (value.split(",")[0] ?? "").trim().split(/\s+/).filter(Boolean);
+  for (let n = Math.min(3, words.length); n >= 1; n--) {
+    const name = words.slice(0, n).join(" ");
+    const country = states.get(foldCountryName(name));
+    if (country) return { name, country };
+  }
+  return undefined;
+}
+
+/**
+ * The country a value names **in its own words** — the segment that is itself
+ * a country name. A value that reaches its country only through a state
+ * ("Chicago, Cook, Illinois") names none, and the caller falls back to what
+ * the world calls that country.
+ */
+export function countryNameOf(value: string): string | undefined {
+  const named = decomposePlace(value).country?.trim();
+  if (named) return named;
+  const segments = value.split(",").map((s) => s.trim()).filter(Boolean);
+  for (let i = segments.length - 1; i >= 0; i--) {
+    if (countryCodeOfName(segments[i])) return segments[i];
+  }
+  return undefined;
 }

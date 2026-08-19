@@ -6378,6 +6378,15 @@ kbd {
 .media-link-dialog { width: 520px; }
 .add-source-url-wrap { display: flex; align-items: center; gap: 6px; }
 .add-source-url-wrap input.edit-input { flex: 1; width: auto; }
+/* Reads the page again into the fields — sized to sit beside the link's ↗
+   without crowding the input it belongs to. */
+.add-source-refetch { flex: none; white-space: nowrap; padding: 4px 10px; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px; }
+/* A relay can take a few seconds; the spinner says the click landed. Sized to
+   the button's own text so the label does not jump when it appears. */
+.add-source-refetch .spinner { width: 12px; height: 12px; border-width: 2px; }
+/* A field the GEDCOM standard does not define on a source: marked, not
+   warned about — the file keeps it either way, and the tooltip says why. */
+.add-source-nonstd { color: var(--muted); margin-left: 3px; cursor: help; }
 /* Pinned footer: filled-accent primary on the right, ghost cancel beside. */
 .add-source-actions {
   display: flex;
@@ -7726,6 +7735,9 @@ kbd {
 .tools-tab-label { font-weight: 600; color: var(--text); }
 .tools-tab-desc { font-size: 0.8rem; color: var(--muted); }
 .tools-intro, .tools-summary { color: var(--muted); margin: 0 0 14px; font-size: 0.9rem; }
+/* What the last run did, and whether the re-scan behind it is still going —
+   sits above the lists, which empty out while it runs. */
+.tools-cleanup-status { margin: 0 0 12px; display: flex; align-items: center; gap: 6px; }
 .tools-search { position: relative; display: inline-block; width: 100%; max-width: 340px; margin: 0 0 12px; }
 /* Clear (✕) button shown inside the filter input once it has text. */
 .tools-search-clear {
@@ -8039,7 +8051,10 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 .tools-geo-addr-head:hover .tools-place-edit-btn,
 .tools-geo-addr-head:focus-within .tools-place-edit-btn,
 .tools-tree-row:hover .tools-place-edit-btn,
-.tools-tree-row:focus-within .tools-place-edit-btn { opacity: 1; width: auto; padding: 1px 5px; margin-left: 0; }
+.tools-tree-row:focus-within .tools-place-edit-btn,
+/* The duplicate and regroup rows name records too, and open the same editors. */
+.tools-dup-member:hover .tools-place-edit-btn,
+.tools-dup-member:focus-within .tools-place-edit-btn { opacity: 1; width: auto; padding: 1px 5px; margin-left: 0; }
 .tools-place-edit-btn:hover { color: var(--accent); background: var(--panel-2); }
 /* Wins over the base rule by source order — no !important needed. */
 .tools-place-edit-cancel { opacity: 1; width: auto; padding: 1px 5px; margin-left: 0; }

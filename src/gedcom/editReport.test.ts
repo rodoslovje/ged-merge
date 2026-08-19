@@ -504,6 +504,36 @@ describe("buildEditReport", () => {
     expect(report.recordKinds["@R1@"]).toBe("record");
   });
 
+  it("names the repository a source has left, though the file no longer holds it", () => {
+    // The regroup moves a source onto the country's repository and removes the
+    // one it emptied. Both halves of that row must read as names: the record
+    // it left is gone from the file, and its xref means nothing to a reader.
+    const after = dataset(
+      MAIN.replace(
+        "0 @F1@",
+        "0 @R2@ REPO\n1 NAME FamilySearch.org - Croatia\n0 @S1@ SOUR\n1 TITL Births (Rođeni) 1857-1884, Ravna Gora\n1 REPO @R2@\n0 @F1@",
+      ),
+    );
+    const sourceBefore = dataset(
+      wrap("0 @S1@ SOUR\n1 TITL Births (Rođeni) 1857-1884, Ravna Gora\n1 REPO @R1@\n"),
+    ).records.find((r) => r.xref === "@S1@")!;
+    const repoBefore = dataset(
+      wrap("0 @R1@ REPO\n1 NAME FamilySearch.org - Croatia Church Books 1516-1994\n"),
+    ).records.find((r) => r.xref === "@R1@")!;
+
+    const report = buildEditReport(
+      new Set(), new Set(), after, loadedPeople, loadedFams, undefined, undefined,
+      new Set(["@S1@", "@R1@"]),
+      new Map([
+        ["@S1@", { value: sourceBefore }],
+        ["@R1@", { value: repoBefore }],
+      ]),
+    );
+    const row = report.changes.find((c) => c.field === "REPO");
+    expect(row?.from).toBe("🏛 FamilySearch.org - Croatia Church Books 1516-1994");
+    expect(row?.to).toBe("🏛 FamilySearch.org - Croatia");
+  });
+
   it("returns an empty report when nothing changed", () => {
     const report = buildEditReport(new Set(), new Set(), ds(), loadedPeople, loadedFams);
     expect(report).toMatchObject({ changes: [], recordsChanged: 0, newPersons: 0, newFamilies: 0 });

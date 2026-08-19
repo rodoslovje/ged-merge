@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { linkTooltip } from "../FieldValue";
+import { linkHref, linkTooltip } from "../FieldValue";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../../gedcom/types";
 import {
@@ -21,6 +21,8 @@ import {
 } from "../../tools/sourceReshape";
 import { type DuplicateReport, type DupGroup, type DupKind } from "../../tools/sourceDuplicates";
 import { applySourceCleanup } from "../../tools/sourceCleanupApply";
+import { type RepoRegroupGroup, type RepoRegroupReport } from "../../tools/repoRegroup";
+import type { Translate } from "../../locales/i18n";
 import type { RecordPatch } from "../historyTypes";
 import { familySpouses, recordCitedBy } from "../../tools/sources";
 import { UsageList } from "./shared";
@@ -40,6 +42,46 @@ const QUAY_CHOICES = ["", "3", "2", "1", "0"];
 
 const DUP_KINDS: DupKind[] = ["media", "source", "repo"];
 const DUP_KIND_ICON: Record<DupKind, string> = { media: "🖼", source: "📚", repo: "🏛" };
+
+/** The ↗ that opens a row's page, shown when the row's detail is a link —
+ *  the same affordance the Sources tree and the person cards carry. */
+function RowLink({ url, t }: { url: string | undefined; t: Translate }) {
+  const href = url ? linkHref(url) : undefined;
+  if (!href) return null;
+  return (
+    <a className="tools-tree-link" href={href} target="_blank" rel="noreferrer" title={linkTooltip(url!, t)}>
+      ↗
+    </a>
+  );
+}
+
+/** The ✎ that opens a record in the editor the Sources tree uses. Hidden until
+ *  its row is hovered, like every other row action in Tools. */
+function RowEdit({
+  xref,
+  kind,
+  onEditRecord,
+  t,
+}: {
+  xref: string;
+  kind: "source" | "repo";
+  onEditRecord: ((xref: string, kind: "source" | "repo") => void) | undefined;
+  t: Translate;
+}) {
+  if (!onEditRecord) return null;
+  return (
+    <button
+      className="tools-place-edit-btn"
+      title={t(kind === "repo" ? "editRepo.title" : "editSource.title")}
+      onClick={(e) => {
+        e.stopPropagation();
+        onEditRecord(xref, kind);
+      }}
+    >
+      ✎
+    </button>
+  );
+}
 
 /** The default-kept member of a group (the one the finder flagged as survivor). */
 function defaultSurvivor(g: DupGroup): string {
@@ -82,19 +124,35 @@ export function SourceCleanupView({
   reshapeReport: reshapeReportProp,
   dupReport: dupReportProp,
   dataset,
+  regroupReport,
   onNavigate,
   onBack,
   onApplyPatches,
+  onRescan,
+  scanning,
+  onEditRecord,
   active,
 }: {
   /** Null when that scan failed — the other tool keeps working. */
   reshapeReport: ReshapeReport | null;
   dupReport: DuplicateReport | null;
+  /** Which FamilySearch sources sit away from their country's repository —
+   *  read by the panel, so its chip can count this page's work too. */
+  regroupReport: RepoRegroupReport;
   dataset: Dataset;
   onNavigate: (id: string) => void;
   onBack: () => void;
   /** Apply the run as one undoable step; returns how many records changed. */
   onApplyPatches: (patches: RecordPatch[]) => number;
+  /** Re-run the whole-file scans this page lists — what the apply just
+   *  rewrote is what they describe, so their rows are stale the moment it
+   *  lands. */
+  onRescan?: () => void;
+  /** Whether one of those scans is running right now. */
+  scanning?: boolean;
+  /** Open a record in the editor the Sources tree uses — every field it holds,
+   *  its link included, from the row that named it. */
+  onEditRecord?: (xref: string, kind: "source" | "repo") => void;
   /** Whether this view is the one on screen — the Esc-to-leave shortcut must
    *  not fire from a hidden, still-mounted panel (it would drop its state). */
   active: boolean;
@@ -142,9 +200,13 @@ export function SourceCleanupView({
   /** Records the last apply changed — the run's own receipt, cleared as soon
    *  as the re-scan brings a fresh report in. */
   const [applied, setApplied] = useState(0);
-  // Duplicates: excluded groups + survivor overrides keyed by group id.
-  const [dupExcluded, setDupExcluded] = useState<Set<string>>(new Set());
+  // Duplicates and repositories are ticked into a run rather than out of one:
+  // both merge records away, and a page that arrives with every group armed
+  // makes one stray click a file-wide change. Empty to start; Select all is
+  // one click for the reader who wants the lot.
+  const [dupSelected, setDupSelected] = useState<Set<string>>(new Set());
   const [survivors, setSurvivors] = useState<Map<string, string>>(new Map());
+  const [regroupSelected, setRegroupSelected] = useState<Set<string>>(new Set());
 
   // Esc leaves the sub-page, matching the chart overlays — but only while it
   // is the view on screen (see the `active` prop).
@@ -168,7 +230,8 @@ export function SourceCleanupView({
     });
   const toggleGroup = toggleIn(setExcluded);
   const toggleExpand = toggleIn(setExpanded);
-  const toggleDupGroup = toggleIn(setDupExcluded);
+  const toggleDupGroup = toggleIn(setDupSelected);
+  const toggleRegroupGroup = toggleIn(setRegroupSelected);
 
   const toggleSite = (site: ReshapeSite) =>
     setSites((s) => {
@@ -192,8 +255,9 @@ export function SourceCleanupView({
     () => mergeFsBooks(reshapeReport, enrichment, baptismTag),
     [reshapeReport, enrichment, baptismTag],
   );
-  // A fresh scan means the previous run's receipt is history.
-  useEffect(() => setApplied(0), [reshapeReport, dupReport]);
+  // The receipt outlives the re-scan the apply itself starts — that scan is
+  // how the rows it rewrote leave the page, and the receipt is the only thing
+  // left saying what happened. It is cleared when the next run begins.
   const visibleGroups = useMemo(() => folded.report.groups.filter((g) => sites.has(g.site)), [folded, sites]);
   const selectedGroups = useMemo(
     () =>
@@ -232,10 +296,13 @@ export function SourceCleanupView({
   );
 
   const selectedDupGroups = dupReport.groups
-    .filter((g) => !dupExcluded.has(g.id))
+    .filter((g) => dupSelected.has(g.id))
     .map((g) => withSurvivor(g, survivors.get(g.id) ?? defaultSurvivor(g)));
 
+  const selectedRegroupGroups = regroupReport.groups.filter((g) => regroupSelected.has(g.id));
+
   function apply() {
+    setApplied(0);
     // Reshape first (its existing-source targets are original xrefs), then
     // dedupe — which also re-points the citations the reshape just wrote.
     const patches = applySourceCleanup(
@@ -251,8 +318,13 @@ export function SourceCleanupView({
         },
       },
       selectedDupGroups,
+      selectedRegroupGroups,
     );
     setApplied(onApplyPatches(patches));
+    // The lists describe exactly what the apply just rewrote, so they are
+    // stale the moment it lands — the groups it converted are gone, and what
+    // it left behind is what the next run should see.
+    onRescan?.();
   }
 
   async function fetchDetails() {
@@ -335,27 +407,49 @@ export function SourceCleanupView({
 
   const hasReshape = reshapeReport.groups.length > 0;
   const hasDups = dupReport.groups.length > 0;
-  const nothingSelected = selectedGroups.length === 0 && selectedDupGroups.length === 0;
+  const hasRegroup = regroupReport.groups.length > 0;
+  const nothingSelected =
+    selectedGroups.length === 0 && selectedDupGroups.length === 0 && selectedRegroupGroups.length === 0;
 
   // The page's one primary action, on the head of the first list it acts on —
-  // where Geocoding and Naming keep theirs. It covers both sections, so it is
-  // rendered once: on the links list when there is one, else on the duplicates.
-  // Its count says how many groups will change; the summary above already
-  // spells out what the file holds, so nothing repeats it here.
+  // where Geocoding and Naming keep theirs. It covers every section, so it is
+  // rendered once: on the links list when there is one, else on the duplicates,
+  // else on the repositories. Its count says how many groups will change; the
+  // summary above already spells out what the file holds, so nothing repeats it.
+  const otherSelected = selectedDupGroups.length + selectedRegroupGroups.length;
   const applyAction = (
     <>
       <button className="nav-btn primary tools-run" onClick={apply} disabled={nothingSelected}>
         {/* Named after what it will actually do to the ticked rows: convert
-            links into sources, merge duplicates away, or — with both lists in
-            play — the two at once, which only "apply" covers. */}
-        {selectedDupGroups.length === 0
+            links into sources, merge duplicates away, gather sources under
+            their repository — or, with more than one list in play, the lot at
+            once, which only "apply" covers. */}
+        {otherSelected === 0
           ? t("tools.sources.applyConvert", { count: selectedGroups.length })
-          : selectedGroups.length === 0
+          : selectedGroups.length === 0 && selectedRegroupGroups.length === 0
             ? t("tools.sources.applyMerge", { count: selectedDupGroups.length })
-            : t("tools.sources.cleanupApply", { count: selectedGroups.length + selectedDupGroups.length })}
+            : selectedGroups.length === 0 && selectedDupGroups.length === 0
+              ? t("tools.sources.applyRegroup", { count: selectedRegroupGroups.length })
+              : t("tools.sources.cleanupApply", { count: selectedGroups.length + otherSelected })}
       </button>
-      {applied > 0 && <span className="tools-fix-hint">{t("tools.sources.cleanupApplied", { count: applied })}</span>}
     </>
+  );
+
+  // What the run did and what is happening now, kept out of the lists: an
+  // apply that clears the page takes every section with it, and the receipt
+  // must not go down with them.
+  const runStatus = (applied > 0 || scanning) && (
+    <p className="tools-fix-hint tools-cleanup-status">
+      {applied > 0 && t("tools.sources.cleanupApplied", { count: applied })}
+      {/* The lists empty out while the file is read again — said plainly, so a
+          page that has gone quiet does not read as a page that lost its work. */}
+      {scanning && (
+        <>
+          {applied > 0 && " "}
+          <span className="spinner" aria-hidden="true" /> {t("tools.running")}
+        </>
+      )}
+    </p>
   );
 
   return (
@@ -373,11 +467,14 @@ export function SourceCleanupView({
                 groups: visibleGroups.length,
               }),
             hasDups && t("tools.sources.dupFound", { count: dupReport.groups.length }),
+            hasRegroup && t("tools.sources.regroupFound", { count: regroupReport.total }),
           ]
             .filter(Boolean)
             .join(" · ")}
         </ToolSummary>
       </div>
+
+      {runStatus}
 
       {hasReshape && (
         <section className="tools-cleanup-section">
@@ -487,13 +584,13 @@ export function SourceCleanupView({
             <span className="tools-chip-count">{dupReport.groups.length}</span>
             <div className="tools-dup-bulk">
               {!hasReshape && applyAction}
-              <button className="tools-issue-link" onClick={() => setDupExcluded(new Set())}>
-                {t("tools.sources.dupSelectAll")}
-              </button>
               <button
                 className="tools-issue-link"
-                onClick={() => setDupExcluded(new Set(dupReport.groups.map((g) => g.id)))}
+                onClick={() => setDupSelected(new Set(dupReport.groups.map((g) => g.id)))}
               >
+                {t("tools.sources.dupSelectAll")}
+              </button>
+              <button className="tools-issue-link" onClick={() => setDupSelected(new Set())}>
                 {t("tools.sources.dupSelectNone")}
               </button>
               <button
@@ -528,18 +625,56 @@ export function SourceCleanupView({
                       key={g.id}
                       group={g}
                       dataset={dataset}
-                      checked={!dupExcluded.has(g.id)}
+                      checked={dupSelected.has(g.id)}
                       survivorXref={survivors.get(g.id) ?? defaultSurvivor(g)}
                       open={expanded.has(g.id)}
                       onToggleCheck={() => toggleDupGroup(g.id)}
                       onToggleOpen={() => toggleExpand(g.id)}
                       onChooseSurvivor={(xref) => setSurvivors((m) => new Map(m).set(g.id, xref))}
                       onNavigate={onNavigate}
+                      onEditRecord={onEditRecord}
                     />
                   ))}
               </ul>
             </div>
           ))}
+        </section>
+      )}
+
+      {hasRegroup && (
+        <section className="tools-cleanup-section">
+          <div className="tools-dup-kind-head">
+            {t("tools.sources.regroupHeading")}
+            <span className="tools-chip-count">{regroupReport.groups.length}</span>
+            <div className="tools-dup-bulk">
+              {!hasReshape && !hasDups && applyAction}
+              <button
+                className="tools-issue-link"
+                onClick={() => setRegroupSelected(new Set(regroupReport.groups.map((g) => g.id)))}
+              >
+                {t("tools.sources.dupSelectAll")}
+              </button>
+              <button className="tools-issue-link" onClick={() => setRegroupSelected(new Set())}>
+                {t("tools.sources.dupSelectNone")}
+              </button>
+            </div>
+          </div>
+          <p className="tools-intro">{t("tools.sources.regroupIntro")}</p>
+          <ul className="tools-tree">
+            {regroupReport.groups.map((group) => (
+              <RegroupRow
+                key={group.id}
+                group={group}
+                checked={regroupSelected.has(group.id)}
+                open={expanded.has(`repo:${group.id}`)}
+                onToggleCheck={() => toggleRegroupGroup(group.id)}
+                onToggleOpen={() => toggleExpand(`repo:${group.id}`)}
+                onNavigate={onNavigate}
+                onEditRecord={onEditRecord}
+                t={t}
+              />
+            ))}
+          </ul>
         </section>
       )}
 
@@ -943,6 +1078,7 @@ function DupGroupRow({
   onToggleOpen,
   onChooseSurvivor,
   onNavigate,
+  onEditRecord,
 }: {
   group: DupGroup;
   dataset: Dataset;
@@ -953,6 +1089,7 @@ function DupGroupRow({
   onToggleOpen: () => void;
   onChooseSurvivor: (xref: string) => void;
   onNavigate: (id: string) => void;
+  onEditRecord?: (xref: string, kind: "source" | "repo") => void;
 }) {
   const { t } = useTranslation();
   // The header count is the people toggle, as the counts in the geocoding and
@@ -1009,6 +1146,10 @@ function DupGroupRow({
                   </label>
                   <span className="tools-dup-title">{m.title}</span>
                   {m.detail && m.detail !== m.title && <span className="tools-tree-meta">{m.detail}</span>}
+                  <RowLink url={m.detail ?? group.label} t={t} />
+                  {group.kind !== "media" && (
+                    <RowEdit xref={m.xref} kind={group.kind === "repo" ? "repo" : "source"} onEditRecord={onEditRecord} t={t} />
+                  )}
                 </li>
               );
             })}
@@ -1016,6 +1157,68 @@ function DupGroupRow({
           {peopleOpen && (
             <DupGroupUses dataset={dataset} xrefs={group.members.map((m) => m.xref)} onNavigate={onNavigate} />
           )}
+        </div>
+      )}
+    </li>
+  );
+}
+
+/** One country's regroup: a checkbox to include it, the repository its sources
+ *  join, and an expandable list of the sources moving — each with the record it
+ *  hangs off today, and a mark on the repositories the move empties. */
+function RegroupRow({
+  group,
+  checked,
+  open,
+  onToggleCheck,
+  onToggleOpen,
+  onNavigate,
+  onEditRecord,
+  t,
+}: {
+  group: RepoRegroupGroup;
+  checked: boolean;
+  open: boolean;
+  onToggleCheck: () => void;
+  onToggleOpen: () => void;
+  onNavigate: (id: string) => void;
+  onEditRecord?: (xref: string, kind: "source" | "repo") => void;
+  t: Translate;
+}) {
+  return (
+    <li className="tools-tree-node">
+      <div className="tools-tree-row">
+        <input type="checkbox" className="tools-dup-check" checked={checked} onChange={onToggleCheck} />
+        <button className={`tools-pair-toggle ${open ? "open" : ""}`} onClick={onToggleOpen} aria-expanded={open}>
+          ▶
+        </button>
+        <span className="tools-tree-label clickable" onClick={onToggleOpen} title={group.repoName}>
+          {group.repoName}
+        </span>
+        <span className="tools-chip-count">{group.moves.length}</span>
+        {group.targetXref && <RowEdit xref={group.targetXref} kind="repo" onEditRecord={onEditRecord} t={t} />}
+        <span className="tools-tree-meta">
+          {group.targetXref
+            ? t("tools.sources.regroupExisting")
+            : t("tools.sources.regroupNew")}
+          {group.emptied.length > 0 && ` · ${t("tools.sources.regroupEmptied", { count: group.emptied.length })}`}
+        </span>
+      </div>
+      {open && (
+        <div className="tools-tree-children">
+          <ul className="tools-dup-members">
+            {group.moves.map((move) => (
+              <li key={move.sourceXref} className="tools-dup-member">
+                <span className="tools-dup-title clickable" onClick={() => onNavigate(move.sourceXref)}>
+                  {move.title}
+                </span>
+                {/* Where it hangs today — which of them the move empties is
+                    the header's count, not a mark on every row. */}
+                <span className="tools-tree-meta">{move.fromName ?? t("tools.sources.noRepo")}</span>
+                <RowEdit xref={move.sourceXref} kind="source" onEditRecord={onEditRecord} t={t} />
+              </li>
+            ))}
+          </ul>
         </div>
       )}
     </li>
