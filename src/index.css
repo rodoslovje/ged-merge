@@ -8042,7 +8042,10 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 .tools-geo-addr-head:hover .tools-place-edit-btn,
 .tools-geo-addr-head:focus-within .tools-place-edit-btn,
 .tools-tree-row:hover .tools-place-edit-btn,
-.tools-tree-row:focus-within .tools-place-edit-btn { opacity: 1; width: auto; padding: 1px 5px; margin-left: 0; }
+.tools-tree-row:focus-within .tools-place-edit-btn,
+/* The duplicate and regroup rows name records too, and open the same editors. */
+.tools-dup-member:hover .tools-place-edit-btn,
+.tools-dup-member:focus-within .tools-place-edit-btn { opacity: 1; width: auto; padding: 1px 5px; margin-left: 0; }
 .tools-place-edit-btn:hover { color: var(--accent); background: var(--panel-2); }
 /* Wins over the base rule by source order — no !important needed. */
 .tools-place-edit-cancel { opacity: 1; width: auto; padding: 1px 5px; margin-left: 0; }

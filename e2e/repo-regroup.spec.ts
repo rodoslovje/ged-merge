@@ -66,6 +66,18 @@ test("repositories are gathered per place, and the section's own selection works
   await expect(checks.first()).toBeChecked();
   await expect(checks.nth(1)).toBeChecked();
 
+  // A row names a record, so it opens that record's own editor — every field
+  // it holds, its link included — without leaving the page.
+  await section.locator(".tools-tree-label").first().click(); // open the group
+  const move = section.locator(".tools-dup-member").first();
+  await move.hover();
+  await move.locator(".tools-place-edit-btn").click();
+  const dialog = page.locator(".add-source-dialog");
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator("input").first()).toHaveValue(/Croatia, Church Books/);
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+
   // Applying moves the sources and drops the emptied records: the tree then
   // shows one repository per country instead of one per collection.
   await page.getByRole("button", { name: /Gather under repositories|Apply to the file/ }).first().click();

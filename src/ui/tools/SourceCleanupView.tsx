@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { linkTooltip } from "../FieldValue";
+import { linkHref, linkTooltip } from "../FieldValue";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../../gedcom/types";
 import {
@@ -42,6 +42,46 @@ const QUAY_CHOICES = ["", "3", "2", "1", "0"];
 
 const DUP_KINDS: DupKind[] = ["media", "source", "repo"];
 const DUP_KIND_ICON: Record<DupKind, string> = { media: "🖼", source: "📚", repo: "🏛" };
+
+/** The ↗ that opens a row's page, shown when the row's detail is a link —
+ *  the same affordance the Sources tree and the person cards carry. */
+function RowLink({ url, t }: { url: string | undefined; t: Translate }) {
+  const href = url ? linkHref(url) : undefined;
+  if (!href) return null;
+  return (
+    <a className="tools-tree-link" href={href} target="_blank" rel="noreferrer" title={linkTooltip(url!, t)}>
+      ↗
+    </a>
+  );
+}
+
+/** The ✎ that opens a record in the editor the Sources tree uses. Hidden until
+ *  its row is hovered, like every other row action in Tools. */
+function RowEdit({
+  xref,
+  kind,
+  onEditRecord,
+  t,
+}: {
+  xref: string;
+  kind: "source" | "repo";
+  onEditRecord: ((xref: string, kind: "source" | "repo") => void) | undefined;
+  t: Translate;
+}) {
+  if (!onEditRecord) return null;
+  return (
+    <button
+      className="tools-place-edit-btn"
+      title={t(kind === "repo" ? "editRepo.title" : "editSource.title")}
+      onClick={(e) => {
+        e.stopPropagation();
+        onEditRecord(xref, kind);
+      }}
+    >
+      ✎
+    </button>
+  );
+}
 
 /** The default-kept member of a group (the one the finder flagged as survivor). */
 function defaultSurvivor(g: DupGroup): string {
@@ -90,6 +130,7 @@ export function SourceCleanupView({
   onApplyPatches,
   onRescan,
   scanning,
+  onEditRecord,
   active,
 }: {
   /** Null when that scan failed — the other tool keeps working. */
@@ -109,6 +150,9 @@ export function SourceCleanupView({
   onRescan?: () => void;
   /** Whether one of those scans is running right now. */
   scanning?: boolean;
+  /** Open a record in the editor the Sources tree uses — every field it holds,
+   *  its link included, from the row that named it. */
+  onEditRecord?: (xref: string, kind: "source" | "repo") => void;
   /** Whether this view is the one on screen — the Esc-to-leave shortcut must
    *  not fire from a hidden, still-mounted panel (it would drop its state). */
   active: boolean;
@@ -586,6 +630,7 @@ export function SourceCleanupView({
                       onToggleOpen={() => toggleExpand(g.id)}
                       onChooseSurvivor={(xref) => setSurvivors((m) => new Map(m).set(g.id, xref))}
                       onNavigate={onNavigate}
+                      onEditRecord={onEditRecord}
                     />
                   ))}
               </ul>
@@ -623,6 +668,7 @@ export function SourceCleanupView({
                 onToggleCheck={() => toggleRegroupGroup(group.id)}
                 onToggleOpen={() => toggleExpand(`repo:${group.id}`)}
                 onNavigate={onNavigate}
+                onEditRecord={onEditRecord}
                 t={t}
               />
             ))}
@@ -1030,6 +1076,7 @@ function DupGroupRow({
   onToggleOpen,
   onChooseSurvivor,
   onNavigate,
+  onEditRecord,
 }: {
   group: DupGroup;
   dataset: Dataset;
@@ -1040,6 +1087,7 @@ function DupGroupRow({
   onToggleOpen: () => void;
   onChooseSurvivor: (xref: string) => void;
   onNavigate: (id: string) => void;
+  onEditRecord?: (xref: string, kind: "source" | "repo") => void;
 }) {
   const { t } = useTranslation();
   // The header count is the people toggle, as the counts in the geocoding and
@@ -1096,6 +1144,10 @@ function DupGroupRow({
                   </label>
                   <span className="tools-dup-title">{m.title}</span>
                   {m.detail && m.detail !== m.title && <span className="tools-tree-meta">{m.detail}</span>}
+                  <RowLink url={m.detail ?? group.label} t={t} />
+                  {group.kind !== "media" && (
+                    <RowEdit xref={m.xref} kind={group.kind === "repo" ? "repo" : "source"} onEditRecord={onEditRecord} t={t} />
+                  )}
                 </li>
               );
             })}
@@ -1119,6 +1171,7 @@ function RegroupRow({
   onToggleCheck,
   onToggleOpen,
   onNavigate,
+  onEditRecord,
   t,
 }: {
   group: RepoRegroupGroup;
@@ -1127,6 +1180,7 @@ function RegroupRow({
   onToggleCheck: () => void;
   onToggleOpen: () => void;
   onNavigate: (id: string) => void;
+  onEditRecord?: (xref: string, kind: "source" | "repo") => void;
   t: Translate;
 }) {
   return (
@@ -1140,6 +1194,7 @@ function RegroupRow({
           {group.repoName}
         </span>
         <span className="tools-chip-count">{group.moves.length}</span>
+        {group.targetXref && <RowEdit xref={group.targetXref} kind="repo" onEditRecord={onEditRecord} t={t} />}
         <span className="tools-tree-meta">
           {group.targetXref
             ? t("tools.sources.regroupExisting")
@@ -1158,6 +1213,7 @@ function RegroupRow({
                 {/* Where it hangs today — which of them the move empties is
                     the header's count, not a mark on every row. */}
                 <span className="tools-tree-meta">{move.fromName ?? t("tools.sources.noRepo")}</span>
+                <RowEdit xref={move.sourceXref} kind="source" onEditRecord={onEditRecord} t={t} />
               </li>
             ))}
           </ul>
