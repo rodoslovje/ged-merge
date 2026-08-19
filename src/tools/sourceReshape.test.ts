@@ -2793,6 +2793,87 @@ describe("FamilySearch image links", () => {
     expect(meta?.place).toBe("Pakrac");
   });
 
+  it("writes the image link the reader put in a record page's place, in the media the file holds", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Anna /Rakar/
+1 IMMI
+2 OBJE @O1@
+0 @O1@ OBJE
+1 FILE ${RECORD_URL}
+0 TRLR`);
+    const report = findReshapableLinks(ds);
+    const group = report.groups[0];
+    expect(group.bookUrl).toBe(RECORD_URL);
+    // What the editor saves once the traded image is looked up: the page's
+    // fields, and the link on every member the trade covers.
+    const enrichment = new Map([
+      [group.id, { title: "Croatia, Church Books, 1516-1994", filingNumber: "005482250" }],
+    ]);
+    const traded = {
+      ...group,
+      members: group.members.map((m) => ({ ...m, swapUrl: IMAGE_URL, page: undefined })),
+    };
+    const { records, counts } = reshapeSources(ds.records, [traded], enrichment);
+    const text = serializeGedcom(records);
+    // The media record the file already had now names the image…
+    expect(text).toContain("1 FILE https://www.familysearch.org/ark:/61903/3:1:3QSQ-G99F-FHWS?i=555&cc=2040054");
+    expect(text).not.toContain(RECORD_URL);
+    expect(counts.linksSwapped).toBe(1);
+    expect(counts.mediaCreated).toBe(0);
+    // …and the citation's page is the image's own number (FamilySearch counts
+    // one ahead of the link's i=555), not the record ark that left with it.
+    expect(text).toContain("3 PAGE 556");
+    expect(text).toContain("1 TITL Croatia, Church Books, 1516-1994");
+    expect(text).not.toContain("1:1:XNJ8-FPJ");
+  });
+
+  it("keeps each traded link when the pages it belongs to are folded into one book", () => {
+    const second = "https://familysearch.org/ark:/61903/1:1:XNJ8-FPK";
+    const secondImage = "https://www.familysearch.org/ark:/61903/3:1:3QSQ-G99F-FHWT?i=556&cc=2040054";
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 IMMI
+2 WWW ${RECORD_URL}
+0 @I2@ INDI
+1 IMMI
+2 WWW ${second}
+0 TRLR`);
+    const report = findReshapableLinks(ds);
+    expect(report.groups).toHaveLength(2);
+    // Both traded pages come back naming one book — which is what folds them.
+    const book = { collection: "Croatia, Church Books, 1516-1994", book: "Births (Rodeni) 1892-1899", place: "Pakrac" };
+    const enrichment = new Map(
+      report.groups.map((g) => [g.id, { ...book, title: "Pakrac - Births (Rodeni) 1892-1899" }]),
+    );
+    const swapFor = new Map([
+      [linkKey(RECORD_URL), IMAGE_URL],
+      [linkKey(second), secondImage],
+    ]);
+    const folded = mergeFsBooks(report, enrichment);
+    expect(folded.report.groups).toHaveLength(1);
+    const selected = folded.report.groups.map((g) => ({
+      ...g,
+      members: g.members.map((m) => ({ ...m, swapUrl: swapFor.get(linkKey(m.url)), page: undefined })),
+    }));
+    const { records, counts } = reshapeSources(ds.records, selected, folded.enrichment, {
+      mergeGroups: folded.keyOf,
+    });
+    const text = serializeGedcom(records);
+    // One source for the book, one page image per traded link — neither page
+    // lost to the other.
+    expect(counts.sourcesCreated).toBe(1);
+    expect(counts.linksSwapped).toBe(0); // no media records existed to re-point
+    expect(text).toContain("1 FILE https://www.familysearch.org/ark:/61903/3:1:3QSQ-G99F-FHWS?i=555&cc=2040054");
+    expect(text).toContain("1 FILE https://www.familysearch.org/ark:/61903/3:1:3QSQ-G99F-FHWT?i=556&cc=2040054");
+    expect(text).not.toContain(RECORD_URL);
+    expect(text).not.toContain(second);
+    expect(text).toContain("3 PAGE 556");
+    expect(text).toContain("3 PAGE 557");
+  });
+
   it("attaches to the file's own repository for that country", () => {
     const ds = dataset([
       "0 HEAD",

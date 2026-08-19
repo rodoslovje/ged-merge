@@ -156,6 +156,13 @@ export interface ReshapeOccurrence {
   foldedInto?: string;
   /** Per-citation QUAY override (set by the panel); falls back to the group's. */
   quay?: string;
+  /** Panel-set: the link the reader put in this one's place in the ✎ editor —
+   *  a FamilySearch record page (sign-in only, so no lookup reaches it) traded
+   *  for the image it was indexed from. The apply writes this occurrence's page
+   *  media with that URL and re-points the media record the file already holds;
+   *  the citation itself is unaffected. It rides on the occurrence, not the
+   *  group, so it survives the pages of one film being folded into one book. */
+  swapUrl?: string;
 }
 
 /** All occurrences of one archive book / cemetery grave / FS film or collection. */
@@ -272,6 +279,8 @@ export interface ReshapeCounts {
   eventsCreated: number;
   /** Stored links shortened to the page they name (`tidyLinks`). */
   linksTidied: number;
+  /** Media records re-pointed at a group's replacement link (`swapUrl`). */
+  linksSwapped: number;
 }
 
 const DEFAULT_SITES: ReadonlySet<ReshapeSite> = new Set(ALL_SITES.filter((s) => s !== "other"));
@@ -2496,6 +2505,7 @@ export function reshapeSources(
     notesRewritten: 0,
     eventsCreated: 0,
     linksTidied: 0,
+    linksSwapped: 0,
   };
   if (selected.length === 0) return { records, counts };
 
@@ -2560,6 +2570,20 @@ export function reshapeSources(
       continue;
     }
 
+    // Links the reader traded for another in the ✎ editor — a FamilySearch
+    // record page for the image behind it. Keyed by the link they replace, so
+    // a trade still finds its occurrences after the pages of one film have
+    // been folded into a single book.
+    const swapByUrl = new Map<string, string>();
+    for (const m of selection.members) {
+      if (m.swapUrl && linkKey(m.swapUrl) !== linkKey(m.url)) {
+        swapByUrl.set(linkKey(m.url), familySearchPageUrl(m.swapUrl));
+      }
+    }
+    const swapOf = (hit: ScanHit): string | undefined => swapByUrl.get(linkKey(hit.url));
+    /** The URL a hit's page media is written with — its own, or the trade. */
+    const urlFor = (hit: ScanHit): string => swapOf(hit) ?? hit.url;
+
     const extra = enrichment?.get(key);
     const bookType = extra?.bookType ?? g.bookType;
     const fields = {
@@ -2607,7 +2631,7 @@ export function reshapeSources(
         fillField(sourceNode, "PLAC", fields.place);
         fillField(sourceNode, "DATE", fields.dateRange);
       }
-      const repo = ensureSiteRepo(clone, g.site, state.hits[0].url, fields.agency, createRepos, {
+      const repo = ensureSiteRepo(clone, g.site, urlFor(state.hits[0]), fields.agency, createRepos, {
         title: extra?.collection ?? fields.title,
         id: extra?.collectionId,
         place: fields.place,
@@ -2630,17 +2654,25 @@ export function reshapeSources(
     }
     const sourceXref = sourceNode.xref!;
 
-    // Asked for it, shorten what the media already holds: the same link, minus
-    // the viewer state that made one page look like several.
-    if (opts.tidyLinks) {
+    // Re-point what the media already holds: at the traded link where the
+    // reader chose one, else — asked for it — at the same link minus the
+    // viewer state that made one page look like several.
+    if (opts.tidyLinks || swapByUrl.size) {
       for (const hit of state.hits) {
-        const obje = hit.objeXref ? byXref.get(hit.objeXref) : undefined;
+        const xref = hit.objeXref;
+        const obje = xref ? byXref.get(xref) : undefined;
         const file = obje && firstChild(obje, "FILE");
         const stored = file?.value?.trim();
-        const tidied = stored && familySearchPageUrl(stored);
-        if (file && tidied && tidied !== stored) {
-          file.value = tidied;
-          counts.linksTidied++;
+        const swap = swapOf(hit);
+        const next = swap ?? (opts.tidyLinks && stored ? familySearchPageUrl(stored) : undefined);
+        if (xref && file && next && next !== stored) {
+          file.value = next;
+          // The index the OBJE-per-page pass reads was taken before this
+          // rewrite — leave it saying what the record now holds.
+          cloneObjeIndex.delete(xref);
+          createdObjeUrls.set(xref, next);
+          if (swap) counts.linksSwapped++;
+          else counts.linksTidied++;
         }
       }
     }
@@ -2651,8 +2683,15 @@ export function reshapeSources(
     // number lives; then the group's own, for a source cited at one page.
     const pageByUrl = new Map<string, string>();
     for (const m of selection.members) if (m.page) pageByUrl.set(linkKey(m.url), m.page);
-    const pageOf = (hit: ScanHit): string | undefined =>
-      hit.recognized.page ?? pageByUrl.get(linkKey(hit.url)) ?? extra?.page;
+    // A traded link is a different page of the source, so the number read off
+    // the link it replaced says nothing: the member carries the page the editor
+    // settled on (that is what the reader saw), and the new link's own number
+    // backs it up.
+    const pageOf = (hit: ScanHit): string | undefined => {
+      const swap = swapOf(hit);
+      if (swap) return pageByUrl.get(linkKey(hit.url)) ?? recognizeSourceUrl(swap)?.page ?? extra?.page;
+      return hit.recognized.page ?? pageByUrl.get(linkKey(hit.url)) ?? extra?.page;
+    };
 
     // --- Rewrite URL-titled SOUR records in place (every one in the group, so
     // the duplicates tool can consolidate them afterwards).
@@ -2689,7 +2728,8 @@ export function reshapeSources(
     // duplicate media record while orphaning the existing one.
     const ensureOrder = [...state.hits].sort((a, b) => Number(!!b.objeXref) - Number(!!a.objeXref));
     for (const hit of ensureOrder) {
-      const urlKey = linkKey(hit.url);
+      const hitUrl = urlFor(hit);
+      const urlKey = linkKey(hitUrl);
       if (seenUrls.has(urlKey) || linkedKeys.has(urlKey)) continue;
       seenUrls.add(urlKey);
       const page = pageOf(hit);
@@ -2702,8 +2742,8 @@ export function reshapeSources(
         // Written stripped of viewer state but keeping what selects the page,
         // so a page linked twice by two readers lands as one media record and
         // still reopens where it was copied (see `familySearchPageUrl`).
-        const obje = addObjeToSource(clone, sourceXref, familySearchPageUrl(hit.url), objeTitle);
-        if (obje.xref) createdObjeUrls.set(obje.xref, hit.url);
+        const obje = addObjeToSource(clone, sourceXref, familySearchPageUrl(hitUrl), objeTitle);
+        if (obje.xref) createdObjeUrls.set(obje.xref, hitUrl);
         counts.mediaCreated++;
       }
       linkedKeys.add(urlKey);
@@ -2845,7 +2885,7 @@ export function reshapeSources(
         } else if (duplicate) {
           spliceChild(container, citation);
         }
-        ensurePageMedia(container, order, hit.url);
+        ensurePageMedia(container, order, urlFor(hit));
         counts.citationsRewritten++;
         continue;
       }
@@ -2893,7 +2933,7 @@ export function reshapeSources(
       }
       // After the original node is gone, so an in-place pointer re-checks
       // cleanly: the citation's container gets the cited page's image.
-      ensurePageMedia(container, order, hit.url);
+      ensurePageMedia(container, order, urlFor(hit));
     }
   }
 

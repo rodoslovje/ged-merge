@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { linkHref, linkTooltip } from "../FieldValue";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../../gedcom/types";
@@ -6,12 +6,15 @@ import {
   ALL_SITES,
   SITE_ICON,
   baptismTargetTag,
+  fetchBookMeta,
   fetchReshapeMeta,
   isFetchableSite,
   mergeFsBooks,
   makePlaceResolver,
   parsePastedFsCitation,
+  recognizeSourceUrl,
   reshapeOptionsFromOverrides,
+  type RecognizedSourceUrl,
   type ReshapeEnrichment,
   type ReshapeGroup,
   type ReshapeMeta,
@@ -25,12 +28,12 @@ import { type RepoRegroupGroup, type RepoRegroupReport } from "../../tools/repoR
 import type { Translate } from "../../locales/i18n";
 import type { RecordPatch } from "../historyTypes";
 import { familySpouses, recordCitedBy } from "../../tools/sources";
-import { UsageList } from "./shared";
+import { UsageList, useDebounced } from "./shared";
 import { PersonLink } from "../PersonLink";
 import { sourceTooltip } from "../../gedcom/source";
 import { parseSourceInput } from "../../gedcom/citationParse";
 import { fetchPageHtml } from "../../normalize/urlMetadata";
-import { linkKey } from "../../normalize/links";
+import { familySearchPageUrl, linkKey } from "../../normalize/links";
 import { isEditableTarget, isModalOpen } from "../../keyboard/shortcuts";
 import { BackButton } from "../BackButton";
 import { SelectMenu } from "../DropdownMenu";
@@ -191,6 +194,10 @@ export function SourceCleanupView({
   const [enrichment, setEnrichment] = useState<ReshapeEnrichment>(new Map());
   /** Group whose source fields are open in the manual editor. */
   const [editGroup, setEditGroup] = useState<ReshapeGroup | null>(null);
+  /** Links the reader put in a group's place (group id → link): a FamilySearch
+   *  record page traded for the image behind it. The lookup, the row and the
+   *  apply all read the traded link where there is one. */
+  const [urlSwaps, setUrlSwaps] = useState<Map<string, string>>(new Map());
   /** Groups marked "remove references" — the apply strips their links (dead
    *  URLs) instead of converting them into sources. */
   const [removeMarked, setRemoveMarked] = useState<Set<string>>(new Set());
@@ -259,6 +266,19 @@ export function SourceCleanupView({
   // how the rows it rewrote leave the page, and the receipt is the only thing
   // left saying what happened. It is cleared when the next run begins.
   const visibleGroups = useMemo(() => folded.report.groups.filter((g) => sites.has(g.site)), [folded, sites]);
+  // A traded link, keyed by the link it replaces: the trade rides on each
+  // occurrence rather than the group, so it still finds its references after
+  // the pages of one film are folded into a single book. The page comes with
+  // it — the one the editor settled on, in place of the number read off the
+  // link that left.
+  const swapByLink = useMemo(() => {
+    const map = new Map<string, { url: string; page: string | undefined }>();
+    for (const g of reshapeReport.groups) {
+      const url = urlSwaps.get(g.id);
+      if (url) map.set(linkKey(g.bookUrl), { url, page: enrichment.get(g.id)?.page });
+    }
+    return map;
+  }, [reshapeReport, urlSwaps, enrichment]);
   const selectedGroups = useMemo(
     () =>
       visibleGroups
@@ -269,10 +289,12 @@ export function SourceCleanupView({
           removeLinks: removeMarked.has(g.id) || undefined,
           members: g.members.map((m, i) => {
             const override = quayOverrides.get(`${g.id}:${i}`);
-            return override ? { ...m, quay: override } : m;
+            const swap = swapByLink.get(linkKey(m.url));
+            const withQuay = override ? { ...m, quay: override } : m;
+            return swap ? { ...withQuay, swapUrl: swap.url, page: swap.page } : withQuay;
           }),
         })),
-    [visibleGroups, excluded, quayOverrides, quay, removeMarked],
+    [visibleGroups, excluded, quayOverrides, quay, removeMarked, swapByLink],
   );
   // Books the fetch button will actually check: only *selected* new-source
   // groups on fetchable sites, and only those not already fetched.
@@ -285,15 +307,27 @@ export function SourceCleanupView({
   // what tells one book from another: it says which record the page belongs
   // to, and carries that page's own number. Elsewhere a source already in the
   // file needs nothing fetched — its fields are the file's, not a proposal.
-  const fetchableGroups = reshapeReport.groups.filter(
-    (g) =>
-      sites.has(g.site) &&
-      !excluded.has(folded.keyOf.get(g.id) ?? g.id) &&
-      (!g.existingSourceXref || g.urlTitled || g.site === "familysearch") &&
-      !removeMarked.has(g.id) &&
-      !enrichment.has(g.id) &&
-      isFetchableSite(g.site, g.bookUrl),
-  );
+  // A link traded in the ✎ editor is the one looked up — that trade is what
+  // turns a page no lookup reaches into one it does.
+  const linkOf = useCallback((g: ReshapeGroup) => urlSwaps.get(g.id) ?? g.bookUrl, [urlSwaps]);
+  /** Rows holding a traded link — a folded book among them, where the trade
+   *  was made on one of the pages it now gathers. */
+  const swappedRows = useMemo(() => {
+    const ids = new Set<string>();
+    for (const id of urlSwaps.keys()) ids.add(folded.keyOf.get(id) ?? id);
+    return ids;
+  }, [urlSwaps, folded]);
+  const fetchableGroups = reshapeReport.groups
+    .filter(
+      (g) =>
+        sites.has(g.site) &&
+        !excluded.has(folded.keyOf.get(g.id) ?? g.id) &&
+        (!g.existingSourceXref || g.urlTitled || g.site === "familysearch") &&
+        !removeMarked.has(g.id) &&
+        !enrichment.has(g.id) &&
+        isFetchableSite(g.site, linkOf(g)),
+    )
+    .map((g) => (urlSwaps.has(g.id) ? { ...g, bookUrl: urlSwaps.get(g.id)! } : g));
 
   const selectedDupGroups = dupReport.groups
     .filter((g) => dupSelected.has(g.id))
@@ -555,6 +589,8 @@ export function SourceCleanupView({
                 key={g.id}
                 group={g}
                 title={groupTitle(g)}
+                link={linkOf(g)}
+                swapped={swappedRows.has(g.id)}
                 badgeTooltip={badgeTooltip(g)}
                 checked={!excluded.has(g.id)}
                 open={expanded.has(g.id)}
@@ -683,8 +719,18 @@ export function SourceCleanupView({
           key={editGroup.id}
           group={editGroup}
           meta={folded.enrichment.get(editGroup.id)}
+          link={linkOf(editGroup)}
           resolvePlace={resolvePlace}
-          onSave={(meta) => setEnrichment((prev) => new Map(prev).set(editGroup.id, meta))}
+          onSave={(meta, link) => {
+            setEnrichment((prev) => new Map(prev).set(editGroup.id, meta));
+            setUrlSwaps((prev) => {
+              const next = new Map(prev);
+              // Back to the group's own link is no trade at all.
+              if (linkKey(link) === linkKey(editGroup.bookUrl)) next.delete(editGroup.id);
+              else next.set(editGroup.id, link);
+              return next;
+            });
+          }}
           onClose={() => setEditGroup(null)}
         />
       )}
@@ -699,6 +745,7 @@ export function SourceCleanupView({
 function GroupEditDialog({
   group,
   meta,
+  link,
   resolvePlace,
   onSave,
   onClose,
@@ -706,11 +753,15 @@ function GroupEditDialog({
   group: ReshapeGroup;
   /** The group's fetched/edited metadata so far — the editor's baseline. */
   meta: ReshapeMeta | undefined;
+  /** The link this source is being written from: the group's own, or the one
+   *  an earlier visit to this editor put in its place. */
+  link: string;
   resolvePlace: (place: string | undefined) => string | undefined;
-  onSave: (meta: ReshapeMeta) => void;
+  onSave: (meta: ReshapeMeta, link: string) => void;
   onClose: () => void;
 }) {
   const { t } = useTranslation();
+  const { settings } = useSettings();
   const [fields, setFields] = useState(() => ({
     title: meta?.title ?? group.proposed.title,
     author: meta?.author ?? group.proposed.author ?? "",
@@ -737,38 +788,135 @@ function GroupEditDialog({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
 
+  /** The link the source is written from — the group's own until the reader
+   *  puts another in its place. Offered only where the group is one link (as
+   *  the page is): a book folded out of many images has no single link to
+   *  trade. */
+  const [url, setUrl] = useState(link);
+  /** Fields the reader typed in — a paste or a lookup never overwrites one. */
+  const touched = useRef(new Set<keyof typeof fields>());
+  const [fetching, setFetching] = useState(false);
+  /** Whether the last lookup came back empty-handed — the relay was blocked or
+   *  the page said nothing this editor understands. */
+  const [failed, setFailed] = useState(false);
+
   // A citation pasted from the site itself (FamilySearch's "Copy citation",
-  // whose record pages no lookup can reach) fills the fields in one go. Only
-  // what it actually names is written — the rest of the form stands.
+  // whose record pages no lookup can reach) fills the fields in one go, and so
+  // does the page behind a pasted link. Only what they actually name is
+  // written — a field the reader typed always stands.
   const [pasted, setPasted] = useState("");
-  /** What a pasted citation says beyond the six editable fields: the register
-   *  type (which decides the event a citation lands on) and, for a group that
-   *  is one link, which entry of the source it is. */
-  const [citedExtras, setCitedExtras] = useState<ReshapeMeta | undefined>();
+  /** What a paste or a lookup says beyond the six editable fields: the register
+   *  type (which decides the event a citation lands on), the collection that
+   *  names the repository, the book a film's pages share. */
+  const [extras, setExtras] = useState<ReshapeMeta | undefined>();
+
+  /** Fill what the reader has not typed; blank answers leave the field alone. */
+  const fill = useCallback((found: Partial<Record<keyof typeof fields, string | undefined>>) => {
+    setFields((f) => {
+      const next = { ...f };
+      for (const [key, value] of Object.entries(found)) {
+        const k = key as keyof typeof fields;
+        if (!touched.current.has(k) && value?.trim()) next[k] = value.trim();
+      }
+      return next;
+    });
+  }, []);
+
+  /** The site lookup a link is worth running, or nothing — an unrecognized
+   *  link, and a FamilySearch record page (sign-in only) among them. */
+  const lookupTarget = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return undefined;
+    const rec = recognizeSourceUrl(familySearchPageUrl(trimmed));
+    return rec && isFetchableSite(rec.site, rec.bookUrl) ? rec : undefined;
+  };
+
+  /** The link whose answer the fields are waiting for — a slow reply for a
+   *  link since edited away must not land in them. */
+  const awaiting = useRef("");
+
+  /** Read the page behind a link and fill these fields from what it says. */
+  const lookUp = useCallback(
+    async (target: RecognizedSourceUrl): Promise<void> => {
+      awaiting.current = linkKey(target.bookUrl);
+      setFetching(true);
+      const found = await fetchBookMeta(target.site, target.bookUrl, fetchPageHtml).catch(() => undefined);
+      if (awaiting.current !== linkKey(target.bookUrl)) return;
+      setFetching(false);
+      setFailed(!found);
+      if (!found) return;
+      setExtras((prev) => ({ ...prev, ...found }));
+      fill({
+        title: found.title,
+        author: found.author,
+        agency: found.agency,
+        place: resolvePlace(found.place),
+        filingNumber: found.filingNumber,
+        dateRange: found.dateRange,
+        page: onePage ? found.page ?? target.page : undefined,
+      });
+    },
+    [fill, resolvePlace, onePage],
+  );
+
+  /** Put another link in the source's place. The ids the old link supplied —
+   *  its title, its filing number, which page of the source this is — are read
+   *  off the new one instead, so nothing of the page being left behind stays
+   *  in the fields; the lookup then improves what it can. */
+  function relink(next: string) {
+    setUrl(next);
+    setFailed(false);
+    const rec = next.trim() ? recognizeSourceUrl(familySearchPageUrl(next.trim())) : undefined;
+    if (!rec || linkKey(rec.bookUrl) === linkKey(url)) return;
+    setFields((f) => ({
+      ...f,
+      title: touched.current.has("title") ? f.title : rec.proposed.title,
+      filingNumber: touched.current.has("filingNumber") ? f.filingNumber : rec.proposed.filingNumber ?? "",
+      page: !onePage || touched.current.has("page") ? f.page : rec.page ?? "",
+    }));
+  }
+
   function fillFromCitation(text: string) {
     setPasted(text);
     const cited = parsePastedFsCitation(text);
-    const generic = cited ? undefined : parseSourceInput(text);
-    setCitedExtras(
-      cited && {
+    const generic = parseSourceInput(text);
+    // A pasted citation carries the page it was copied from: FamilySearch's
+    // image citations name the image, and that link is one a lookup can read
+    // where the record page it replaces was not.
+    if (generic.url) relink(generic.url);
+    if (cited) {
+      setExtras((prev) => ({
+        ...prev,
         bookType: cited.bookType,
         collection: cited.collection,
+        book: cited.book,
         // A page belongs to a link; a group spanning several would stamp every
         // citation with one record's entry.
         page: onePage ? cited.page : undefined,
-      },
-    );
-    const take = (was: string, ...found: (string | undefined)[]) => found.find((v) => v?.trim())?.trim() ?? was;
-    setFields((f) => ({
-      title: take(f.title, cited?.title, generic?.title),
-      author: take(f.author, cited?.author, generic?.author),
-      agency: take(f.agency, cited?.agency, generic?.publisher),
-      place: take(f.place, resolvePlace(cited?.place ?? generic?.place)),
-      filingNumber: take(f.filingNumber, cited?.filingNumber),
-      dateRange: take(f.dateRange, cited?.dateRange),
-      page: onePage ? take(f.page, cited?.page) : f.page,
-    }));
+      }));
+    }
+    fill({
+      title: cited?.title ?? generic.title,
+      author: cited?.author ?? generic.author,
+      agency: cited?.agency ?? generic.publisher,
+      place: resolvePlace(cited?.place ?? generic.place),
+      filingNumber: cited?.filingNumber,
+      dateRange: cited?.dateRange,
+      page: onePage ? cited?.page : undefined,
+    });
   }
+
+  // A link the reader put in place of the group's own is read the moment it
+  // settles — that is the whole point of trading a sign-in-only record page
+  // for the image behind it. The group's own link is left to the button: it
+  // was already looked up (or is one no lookup reaches), and opening the
+  // editor is not a request to go online.
+  const settledUrl = useDebounced(url.trim(), 400);
+  useEffect(() => {
+    if (!settings.allowLinkFetch) return;
+    const target = lookupTarget(settledUrl);
+    if (target && linkKey(target.bookUrl) !== linkKey(link)) void lookUp(target);
+  }, [settledUrl, link, settings.allowLinkFetch, lookUp]);
 
   const field = (key: keyof typeof fields, labelKey: string, autoFocus = false) => (
     <label className="add-source-field">
@@ -777,25 +925,31 @@ function GroupEditDialog({
         className="edit-input"
         autoFocus={autoFocus}
         value={fields[key]}
-        onChange={(e) => setFields((f) => ({ ...f, [key]: e.target.value }))}
+        onChange={(e) => {
+          touched.current.add(key);
+          setFields((f) => ({ ...f, [key]: e.target.value }));
+        }}
       />
     </label>
   );
 
   function save() {
-    onSave({
-      ...meta,
-      ...citedExtras,
-      // A blanked title falls back to the proposal — sources need one; the
-      // other fields keep the emptied value, which the apply then omits.
-      title: fields.title.trim() || group.proposed.title,
-      author: fields.author.trim(),
-      agency: fields.agency.trim(),
-      place: fields.place.trim(),
-      filingNumber: fields.filingNumber.trim(),
-      dateRange: fields.dateRange.trim(),
-      ...(onePage ? { page: fields.page.trim() } : {}),
-    });
+    onSave(
+      {
+        ...meta,
+        ...extras,
+        // A blanked title falls back to the proposal — sources need one; the
+        // other fields keep the emptied value, which the apply then omits.
+        title: fields.title.trim() || group.proposed.title,
+        author: fields.author.trim(),
+        agency: fields.agency.trim(),
+        place: fields.place.trim(),
+        filingNumber: fields.filingNumber.trim(),
+        dateRange: fields.dateRange.trim(),
+        ...(onePage ? { page: fields.page.trim() } : { page: undefined }),
+      },
+      onePage ? url.trim() || link : link,
+    );
     onClose();
   }
 
@@ -831,6 +985,48 @@ function GroupEditDialog({
               onChange={(e) => fillFromCitation(e.target.value)}
             />
           </label>
+          {/* The link the source is written from. Trading it is how a
+              FamilySearch record page — sign-in only, so no lookup reaches it
+              — becomes the image it was indexed from, which answers with the
+              collection, the archive and the film. */}
+          {onePage && (
+            <label className="add-source-field add-source-url-row">
+              <span>{t("addSource.field.link")}</span>
+              <span className="add-source-url-wrap">
+                <input className="edit-input" value={url} onChange={(e) => relink(e.target.value)} />
+                {url.trim() && (
+                  <a
+                    className="edit-link-open"
+                    href={linkHref(url.trim())}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={linkTooltip(url.trim(), t, t("edit.openLink"))}
+                  >
+                    ↗
+                  </a>
+                )}
+                {lookupTarget(url) && (
+                  <button
+                    type="button"
+                    className="tree-open-btn add-source-refetch"
+                    disabled={fetching || !settings.allowLinkFetch}
+                    title={settings.allowLinkFetch ? t("editSource.refetchHint") : t("tools.geocode.downloadNeedsOptIn")}
+                    onClick={() => {
+                      const target = lookupTarget(url);
+                      if (target) void lookUp(target);
+                    }}
+                  >
+                    {fetching && <span className="spinner" aria-hidden="true" />}
+                    {t("editSource.refetch")}
+                  </button>
+                )}
+              </span>
+            </label>
+          )}
+          {onePage && url.trim() !== "" && linkKey(url.trim()) !== linkKey(link) && (
+            <div className="add-source-hint">{t("tools.sources.swapLinkHint")}</div>
+          )}
+          {failed && <div className="add-source-hint">{t("tools.sources.lookupFailed")}</div>}
           {field("title", "addSource.field.title")}
           <div className="add-source-details-grid">
             {field("author", "addSource.field.author")}
@@ -858,6 +1054,8 @@ function GroupEditDialog({
 function ReshapeGroupRow({
   group,
   title,
+  link,
+  swapped,
   badgeTooltip,
   checked,
   open,
@@ -875,6 +1073,11 @@ function ReshapeGroupRow({
 }: {
   group: ReshapeGroup;
   title: string;
+  /** The link the source is written from — the group's own, or the one the ✎
+   *  editor put in its place. */
+  link: string;
+  /** Whether a link of this row was traded for another in that editor. */
+  swapped: boolean;
   /** Field-per-row summary of the source the group creates or reuses. */
   badgeTooltip: string;
   checked: boolean;
@@ -905,13 +1108,20 @@ function ReshapeGroupRow({
         <span
           className={`tools-tree-label clickable${removeMarked ? " tools-reshape-removed" : ""}`}
           onClick={onToggleOpen}
-          title={linkTooltip(group.bookUrl, t)}
+          title={linkTooltip(link, t)}
         >
           {SITE_ICON[group.site]} {title}
         </span>
-        <a className="tools-tree-meta" href={group.bookUrl} target="_blank" rel="noreferrer" title={linkTooltip(group.bookUrl, t)}>
+        <a className="tools-tree-meta" href={link} target="_blank" rel="noreferrer" title={linkTooltip(link, t)}>
           ↗
         </a>
+        {/* The reader traded this group's link for another in the ✎ editor —
+            the media the apply writes carries the new one. */}
+        {swapped && !removeMarked && (
+          <span className="tools-tree-meta" title={t("tools.sources.swapLinkHint")}>
+            ⇄ {t("tools.sources.swapLinkBadge")}
+          </span>
+        )}
         {group.bookType !== "unknown" && (
           <span className="tools-tree-meta">{t(`tools.sources.reshapeType.${group.bookType}`)}</span>
         )}
@@ -920,7 +1130,7 @@ function ReshapeGroupRow({
         )}
         {/* A record page no lookup can reach — the paste box in ✎ is the way
             its details arrive, and this row is exactly where to say so. */}
-        {group.site === "familysearch" && !removeMarked && !isFetchableSite(group.site, group.bookUrl) && (
+        {group.site === "familysearch" && !removeMarked && !isFetchableSite(group.site, link) && (
           <span className="tools-tree-meta" title={t("tools.sources.fsSigninHint")}>
             🔒 {t("tools.sources.fsSignin")}
           </span>
