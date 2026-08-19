@@ -1,20 +1,14 @@
 import type { GedNode } from "../../gedcom/types";
 import { firstChild } from "../../gedcom/node";
 import { createRepoRecord, createSourceRecord, type NewSourceFields } from "../../gedcom/edit";
-import { applySiteSourceExtras, createSiteRepo, type ReshapeSite } from "../../tools/sourceReshape";
+import { applySiteSourceExtras, createSiteRepo, pageObjeTitle } from "../../tools/sourceReshape";
 import type { SourceLayout } from "../../normalize/types";
 import { cloneRaw, type RecordPatch } from "../historyTypes";
 import type { AddSourceResult } from "../AddSourceDialog";
 
-/** Page media titled the way the cleanup tool titles them (`#page - title`) —
- * only for recognized-site sources, whose OBJE is a page image of a register. */
-export function pageObjeTitle(
-  site: ReshapeSite | undefined,
-  title: string | undefined,
-  page: string | undefined,
-): string | undefined {
-  return site && title ? (page ? `#${page} - ${title}` : title) : undefined;
-}
+// The page-media title lives with the other site conventions; kept exported
+// here for the callers that already read it from this module.
+export { pageObjeTitle };
 
 /**
  * Create a brand-new top-level `SOUR` record (plus its `OBJE` page image and

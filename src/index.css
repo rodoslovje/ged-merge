@@ -7726,6 +7726,9 @@ kbd {
 .tools-tab-label { font-weight: 600; color: var(--text); }
 .tools-tab-desc { font-size: 0.8rem; color: var(--muted); }
 .tools-intro, .tools-summary { color: var(--muted); margin: 0 0 14px; font-size: 0.9rem; }
+/* What the last run did, and whether the re-scan behind it is still going —
+   sits above the lists, which empty out while it runs. */
+.tools-cleanup-status { margin: 0 0 12px; display: flex; align-items: center; gap: 6px; }
 .tools-search { position: relative; display: inline-block; width: 100%; max-width: 340px; margin: 0 0 12px; }
 /* Clear (✕) button shown inside the filter input once it has text. */
 .tools-search-clear {

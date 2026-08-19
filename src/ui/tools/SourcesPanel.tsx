@@ -581,7 +581,10 @@ export function SourcesPanel({
   // Filtering expands ancestors down to (not past) the matches; the user expands further.
   const isOpen = (key: string) => open.has(key);
 
-  if (view === "cleanup" && (dupReport || reshapeReport))
+  // Stays on the page while the scans it lists re-run: an apply re-scans, and
+  // dropping back to the tree mid-scan would take the reader away from the
+  // receipt of what they just did.
+  if (view === "cleanup")
     return (
       <SourceCleanupView
         reshapeReport={reshapeReport}
@@ -590,6 +593,11 @@ export function SourcesPanel({
         onNavigate={onNavigate}
         onBack={() => setView("tree")}
         onApplyPatches={onApplyPatches}
+        onRescan={() => {
+          scans.refresh("sourceReshape");
+          scans.refresh("sourceDuplicates");
+        }}
+        scanning={scans.sourceReshape.status === "running" || scans.sourceDuplicates.status === "running"}
         active={active}
       />
     );

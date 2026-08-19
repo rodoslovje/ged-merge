@@ -425,6 +425,28 @@ const SISTORY_ZV1_RE = /^https?:\/\/zv1\.sistory\.si\/zrtev\?id=([^&#\s]+)/i;
 // `gedcom/source` needs it too); kept exported here for its existing callers.
 export { parseFamilySearchUrl, type FamilySearchUrlParts };
 
+/**
+ * What a page image of a register is called: the book's title with the cited
+ * page in front of it (`#56 - Krstna knjiga …`), for the sites whose links
+ * name a page of the book itself.
+ *
+ * A FamilySearch book is counted twice over — the film runs its own image
+ * numbers, the book its printed pages — and neither a link nor a citation
+ * says which of the two a number belongs to. A number in the title would
+ * therefore be a claim the reader cannot check against what the page shows
+ * when they open it, so those titles carry the register's name alone.
+ * Undefined when there is no title to build on (a link nothing recognized).
+ */
+export function pageObjeTitle(
+  site: ReshapeSite | undefined,
+  title: string | undefined,
+  page: string | undefined,
+): string | undefined {
+  if (!site || !title) return undefined;
+  if (site === "familysearch") return title;
+  return page ? `#${page} - ${title}` : title;
+}
+
 /** First quoted phrase in citation text — FamilySearch-style collection titles,
  *  e.g. `"Croatia, Church Books, 1516-1994," database with images, …`. */
 function quotedCollection(text: string | undefined): string | undefined {
@@ -2529,7 +2551,7 @@ export function reshapeSources(
       if (seenUrls.has(urlKey) || linkedKeys.has(urlKey)) continue;
       seenUrls.add(urlKey);
       const page = pageOf(hit);
-      const objeTitle = page ? `#${page} - ${fields.title}` : fields.title;
+      const objeTitle = pageObjeTitle(g.site, fields.title, page) ?? fields.title;
       if (hit.objeXref && byXref.has(hit.objeXref)) {
         // Re-link the already-existing top-level OBJE under the source,
         // grouped with its other page media (not after CHAN/CREA).

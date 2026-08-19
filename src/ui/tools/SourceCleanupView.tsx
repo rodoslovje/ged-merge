@@ -87,6 +87,8 @@ export function SourceCleanupView({
   onNavigate,
   onBack,
   onApplyPatches,
+  onRescan,
+  scanning,
   active,
 }: {
   /** Null when that scan failed — the other tool keeps working. */
@@ -97,6 +99,12 @@ export function SourceCleanupView({
   onBack: () => void;
   /** Apply the run as one undoable step; returns how many records changed. */
   onApplyPatches: (patches: RecordPatch[]) => number;
+  /** Re-run the whole-file scans this page lists — what the apply just
+   *  rewrote is what they describe, so their rows are stale the moment it
+   *  lands. */
+  onRescan?: () => void;
+  /** Whether one of those scans is running right now. */
+  scanning?: boolean;
   /** Whether this view is the one on screen — the Esc-to-leave shortcut must
    *  not fire from a hidden, still-mounted panel (it would drop its state). */
   active: boolean;
@@ -197,8 +205,9 @@ export function SourceCleanupView({
     () => mergeFsBooks(reshapeReport, enrichment, baptismTag),
     [reshapeReport, enrichment, baptismTag],
   );
-  // A fresh scan means the previous run's receipt is history.
-  useEffect(() => setApplied(0), [reshapeReport, dupReport]);
+  // The receipt outlives the re-scan the apply itself starts — that scan is
+  // how the rows it rewrote leave the page, and the receipt is the only thing
+  // left saying what happened. It is cleared when the next run begins.
   const visibleGroups = useMemo(() => folded.report.groups.filter((g) => sites.has(g.site)), [folded, sites]);
   const selectedGroups = useMemo(
     () =>
@@ -251,6 +260,7 @@ export function SourceCleanupView({
   const selectedRegroupGroups = regroupReport.groups.filter((g) => !regroupExcluded.has(g.id));
 
   function apply() {
+    setApplied(0);
     // Reshape first (its existing-source targets are original xrefs), then
     // dedupe — which also re-points the citations the reshape just wrote.
     const patches = applySourceCleanup(
@@ -269,6 +279,10 @@ export function SourceCleanupView({
       selectedRegroupGroups,
     );
     setApplied(onApplyPatches(patches));
+    // The lists describe exactly what the apply just rewrote, so they are
+    // stale the moment it lands — the groups it converted are gone, and what
+    // it left behind is what the next run should see.
+    onRescan?.();
   }
 
   async function fetchDetails() {
@@ -376,8 +390,24 @@ export function SourceCleanupView({
               ? t("tools.sources.applyRegroup", { count: selectedRegroupGroups.length })
               : t("tools.sources.cleanupApply", { count: selectedGroups.length + otherSelected })}
       </button>
-      {applied > 0 && <span className="tools-fix-hint">{t("tools.sources.cleanupApplied", { count: applied })}</span>}
     </>
+  );
+
+  // What the run did and what is happening now, kept out of the lists: an
+  // apply that clears the page takes every section with it, and the receipt
+  // must not go down with them.
+  const runStatus = (applied > 0 || scanning) && (
+    <p className="tools-fix-hint tools-cleanup-status">
+      {applied > 0 && t("tools.sources.cleanupApplied", { count: applied })}
+      {/* The lists empty out while the file is read again — said plainly, so a
+          page that has gone quiet does not read as a page that lost its work. */}
+      {scanning && (
+        <>
+          {applied > 0 && " "}
+          <span className="spinner" aria-hidden="true" /> {t("tools.running")}
+        </>
+      )}
+    </p>
   );
 
   return (
@@ -401,6 +431,8 @@ export function SourceCleanupView({
             .join(" · ")}
         </ToolSummary>
       </div>
+
+      {runStatus}
 
       {hasReshape && (
         <section className="tools-cleanup-section">
