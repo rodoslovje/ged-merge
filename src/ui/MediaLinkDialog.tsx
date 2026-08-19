@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Translate } from "../locales/i18n";
 import { linkHref, linkTooltip } from "./FieldValue";
 import { useModalKeyboard } from "../keyboard/useModalKeyboard";
@@ -26,6 +26,16 @@ export function MediaLinkDialog({
 }) {
   const [value, setValue] = useState(url);
   const ref = useModalKeyboard(true, onClose);
+  const inputRef = useRef<HTMLInputElement>(null);
+  // Focus with the caret at the start: plain autofocus parks it at the end,
+  // scrolling a long URL so only its tail is visible.
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.focus();
+    el.setSelectionRange(0, 0);
+    el.scrollLeft = 0;
+  }, []);
   const trimmed = value.trim();
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -49,7 +59,7 @@ export function MediaLinkDialog({
           <label className="add-source-field add-source-url-row">
             <span>{t("addSource.field.url")}</span>
             <span className="add-source-url-wrap">
-              <input className="edit-input" value={value} onChange={(e) => setValue(e.target.value)} autoFocus />
+              <input ref={inputRef} className="edit-input" value={value} onChange={(e) => setValue(e.target.value)} />
               {trimmed && (
                 <a
                   className="edit-link-open"
