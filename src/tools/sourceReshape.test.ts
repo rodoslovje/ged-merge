@@ -376,9 +376,7 @@ describe("reshapeSources — apply", () => {
 0 @R1@ REPO
 1 NAME Arhiv
 0 TRLR`);
-    // …and the repository link keeps its call number in step with the filing
-    // number, as a newly created source's does.
-    expect(text).toMatch(/1 OBJE @O1@\n1 OBJE @O\d+@\n1 REPO @R1@\n2 CALN 03869\n1 CHAN/);
+    expect(text).toMatch(/1 OBJE @O1@\n1 OBJE @O\d+@\n1 REPO @R1@\n1 CHAN/);
   });
 
   it("preserves note prose around a removed URL, drops URL-only notes", () => {
@@ -621,10 +619,11 @@ describe("reshapeSources — apply", () => {
     expect(text).toContain("1 FILN 9833001");
   });
 
-  it("fills the filing and call number a reused source was made without", () => {
-    // The call number is written when the repository link is made, from the
-    // filing number the source held at that moment — so a record whose link
-    // predates its id has neither, for ever. Both are the tool's to fill.
+  it("fills the id a reused source was made without, in the field the file uses", () => {
+    // The id is stated once: as the filing number in a file written this way
+    // (MacFamilyTree and its kin), as the repository link's call number in a
+    // file that states them there. A record made before the id was known has
+    // neither, and the tool fills whichever the file calls for.
     const ds = dataset(`0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
@@ -642,9 +641,31 @@ describe("reshapeSources — apply", () => {
     expect(report.groups[0].existingSourceXref).toBe("@S1@");
     const text = serializeGedcom(reshapeSources(ds.records, report.groups).records);
     expect(text).toContain("1 FILN 9833001");
-    expect(text).toMatch(/1 REPO @R1@\n2 CALN 9833001/);
+    expect(text).not.toContain("2 CALN");
     // The reader's own title is theirs — only the empty fields are filled.
     expect(text).toContain("1 TITL Pokopališče Kranj - Geneanet Cemeteries");
+  });
+
+  it("fills the call number instead, in a file that states ids there", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NOTE https://en.geneanet.org/cemetery/view/9833001
+0 @S1@ SOUR
+1 TITL Pokopališče Kranj - Geneanet Cemeteries
+1 REPO @R1@
+1 OBJE @M1@
+0 @S2@ SOUR
+1 TITL Neka druga knjiga
+1 REPO @R1@
+2 CALN 1234
+0 @R1@ REPO
+1 NAME Geneanet - Cemeteries and Memorials
+0 @M1@ OBJE
+1 FILE https://en.geneanet.org/cemetery/view/9833001
+0 TRLR`);
+    const text = serializeGedcom(reshapeSources(ds.records, findReshapableLinks(ds).groups).records);
+    expect(text).toMatch(/1 REPO @R1@\n2 CALN 9833001/);
   });
 
   it("writes the spec's DATA coverage in a standard-coverage file", () => {
@@ -863,9 +884,10 @@ describe("reshapeSources — apply", () => {
     expect(text).toContain("1 NAME Geneanet Cemeteries");
     expect(text).toContain("1 WWW https://en.geneanet.org/cemetery/");
     expect(text).toMatch(/0 @S\d+@ SOUR\n1 TITL 123 - Geneanet Cemeteries\n(1 .*\n)*1 REPO @R\d+@/);
-    // The filing number (the cemetery view id) doubles as the repository
-    // link's call number — the standard spot for it.
-    expect(text).toMatch(/1 REPO @R\d+@\n2 CALN 123/);
+    // The cemetery view id is stated once, in the field this file uses for
+    // it: no call number stands anywhere here, so it is the filing number.
+    expect(text).toContain("1 FILN 123");
+    expect(text).not.toMatch(/2 CALN 123/);
   });
 
   it("writes the FORM a new page image's FILE calls for", () => {

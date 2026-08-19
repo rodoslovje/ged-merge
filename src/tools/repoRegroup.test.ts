@@ -206,7 +206,7 @@ describe("regroupRepositories", () => {
     expect(records.some((r) => r.xref === "@R3@")).toBe(false);
   });
 
-  it("gives a source that had no repository one, with its filing number as the call number", () => {
+  it("gives a source that had no repository one, stating its id where the file does", () => {
     const before = dataset([
       "0 HEAD",
       "0 @R1@ REPO",
@@ -233,7 +233,23 @@ describe("regroupRepositories", () => {
     expect(counts).toEqual({ sourcesMoved: 1, reposCreated: 0, reposRemoved: 0 });
     const link = repoOf(records, "@S2@")!;
     expect(link.value).toBe("@R1@");
-    expect(childText(link, "CALN")).toBe("4826234");
+    // This file states ids as filing numbers and carries no call number
+    // anywhere, so the link takes none: the id is already on the source.
+    expect(childText(link, "CALN")).toBeUndefined();
     expect(childrenByTag(records.find((r) => r.xref === "@S2@")!, "REPO")).toHaveLength(1);
+  });
+
+  it("writes the call number where the file states ids there", () => {
+    const before = dataset([
+      "0 HEAD",
+      "0 @R1@ REPO", "1 NAME FamilySearch.org - Croatia", "1 WWW https://www.familysearch.org/",
+      "0 @S1@ SOUR", "1 TITL Croatia, Church Books, 1516-1994", "1 REPO @R1@", "2 CALN 5498154",
+      "0 @S3@ SOUR", "1 TITL Croatia, Baptisms", "1 REPO @R1@", "2 CALN 5498155",
+      "0 @S2@ SOUR", "1 TITL Croatia, Civil Registration", "1 PLAC Rijeka, Croatia", "1 FILN 4826234", "1 OBJE @O1@",
+      "0 @O1@ OBJE", "1 FILE https://www.familysearch.org/ark:/61903/3:1:ABCD?i=4",
+      "0 TRLR",
+    ]).records;
+    const { records } = regroupRepositories(before, scanRepoRegroup(before).groups);
+    expect(childText(repoOf(records, "@S2@")!, "CALN")).toBe("4826234");
   });
 });

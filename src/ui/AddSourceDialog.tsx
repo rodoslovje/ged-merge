@@ -7,7 +7,7 @@ import { inferMainProfile } from "../normalize/profile";
 import { familySearchPageUrl, rewriteLinkLang } from "../normalize/links";
 import { fetchPageHtml, fetchPageTitle } from "../normalize/urlMetadata";
 import { fetchBookMeta, makePlaceResolver, narrowFsRegister, proposedSiteRepo, recognizeSourceUrl, siteSourceTitle, SITE_ICON, splitFsRegisters, type ReshapeMeta, type ReshapeSite } from "../tools/sourceReshape";
-import { prefersSourceRepos } from "../gedcom/source";
+import { prefersSourceRepos, writesCallNumbers } from "../gedcom/source";
 import { childText } from "../gedcom/node";
 import { useSettings } from "./SettingsContext";
 import { useDebounced } from "./tools/shared";
@@ -331,9 +331,12 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
         page: keep(f.page, meta.page ?? site?.page),
       };
     });
-    // The call number is that same id inside the repository — the mirror the
-    // source tools write whenever they make a repository link.
-    setRepoCaln((caln) => caln.trim() || meta.filingNumber || site?.proposed.filingNumber || fields.filingNumber);
+    // The call number is that same id inside the repository — filled only in
+    // a file that states ids there; where the filing number is the file's
+    // field, saying it twice is one line for a later edit to leave stale.
+    if (writesCallNumbers(dataset.records)) {
+      setRepoCaln((caln) => caln.trim() || meta.filingNumber || site?.proposed.filingNumber || fields.filingNumber);
+    }
   }
 
   // Best-effort metadata fetch for a bare URL with nothing else to go on.

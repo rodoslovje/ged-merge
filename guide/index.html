@@ -1066,6 +1066,16 @@
               and the add is undoable like any edit.
             </p>
             <p>
+              An archive's own identifier — a Matricula book number, a Geneanet view id, a FamilySearch film — is
+              written <strong>once</strong>, in the field your file uses for it: the source's <strong>filing
+              number</strong> (<code>FILN</code>, what MacFamilyTree and its kin write and read), or the repository
+              link's <strong>call number</strong> (<code>CALN</code>, the standard's own place, which a
+              standard-coverage file uses). A call number already in the file settles it; failing that the coverage
+              shape does (<a href="#workspace">Settings › GEDCOM</a>). Both fields stay editable by hand — this only
+              decides which one the tools fill for you, so one id never sits in two places for a later edit to leave
+              half-stale.
+            </p>
+            <p>
               Every source row also carries <span class="gm-glyph">✎</span>: edit the record's title, author, place,
               filing number, repository, link or note in the same dialog — the Repository dropdown moves the source to
               another repository (or a newly created one), and a link edit retargets the source's page

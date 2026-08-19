@@ -433,6 +433,26 @@ export function detectSourceCoverage(records: GedNode[]): "vendor" | "standard" 
   return standard > vendor ? "standard" : "vendor";
 }
 
+/**
+ * Whether this file states an archive's own identifier as the repository
+ * link's call number (`CALN`) — the standard's spot for it — or as the
+ * source's `FILN`, which is what MacFamilyTree and its kin write and read.
+ *
+ * One id belongs in one place: a file carrying it in both says the same thing
+ * twice, and a reader editing one of them leaves the other stale. So the file
+ * decides. A `CALN` already in it settles the question outright; failing
+ * that, a standard-coverage file gets the standard field (its `FILN`s are
+ * folded into `CALN` by the same conversion), and a vendor-shaped one keeps
+ * the field its own program understands.
+ */
+export function writesCallNumbers(records: GedNode[], coverage?: "vendor" | "standard"): boolean {
+  for (const rec of records) {
+    if (rec.tag !== "SOUR" || !rec.xref) continue;
+    for (const link of childrenByTag(rec, "REPO")) if (childText(link, "CALN")) return true;
+  }
+  return (coverage ?? detectSourceCoverage(records)) === "standard";
+}
+
 /** Whether any source record states coverage at all — without one the
  *  coverage-shape question is moot (Settings shows no detected value). */
 export function hasSourceCoverage(records: GedNode[]): boolean {

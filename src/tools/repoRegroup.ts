@@ -1,7 +1,7 @@
 import type { GedNode } from "../gedcom/types";
 import { childText, childrenByTag, cloneNode, firstChild } from "../gedcom/node";
 
-import { buildObjeIndex, prefersSourceRepos, looseKey } from "../gedcom/source";
+import { buildObjeIndex, prefersSourceRepos, looseKey, writesCallNumbers } from "../gedcom/source";
 import { createSiteRepo, fsRepoCountry, repoCountryFacet, repoNameTail } from "./sourceReshape";
 
 // Gather the FamilySearch sources of one country under that country's
@@ -167,6 +167,7 @@ export function regroupRepositories(
 ): { records: GedNode[]; counts: { sourcesMoved: number; reposCreated: number; reposRemoved: number } } {
   const counts = { sourcesMoved: 0, reposCreated: 0, reposRemoved: 0 };
   if (groups.length === 0) return { records, counts };
+  const callNumbers = writesCallNumbers(records);
   const clone = records.map(cloneNode);
   const byXref = new Map<string, GedNode>();
   for (const r of clone) if (r.xref) byXref.set(r.xref, r);
@@ -190,9 +191,10 @@ export function regroupRepositories(
         link.value = target.xref;
       } else {
         const added: GedNode = { level: source.level + 1, tag: "REPO", value: target.xref, children: [] };
-        // The filing number doubles as the call number within the repository,
-        // the same mirror the source tools write elsewhere.
-        const filn = childText(source, "FILN");
+        // The archive's id goes in the one place this file states it: the
+        // call number where the file writes those, else the FILN the source
+        // already carries (see `writesCallNumbers`).
+        const filn = callNumbers ? childText(source, "FILN") : undefined;
         if (filn) added.children.push({ level: added.level + 1, tag: "CALN", value: filn, children: [] });
         source.children.push(added);
       }

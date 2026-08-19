@@ -6,6 +6,7 @@ import {
   detectSourceCoverage,
   looseKey,
   prefersSourceRepos,
+  writesCallNumbers,
   isPointer,
   looksLikeUrl,
   pageParamOf,
@@ -2419,10 +2420,13 @@ export function applySiteSourceExtras(
   });
   if (!repo) return undefined;
   const link: GedNode = { level: sourceNode.level + 1, tag: "REPO", value: repo.xref, children: [] };
-  // Same mirror as the batch tool: the filing number is the call number
-  // within the repository being linked.
+  // The same id, in the one place this file states it: the repository link's
+  // call number where the file writes those, else the source's own FILN,
+  // which is already there. Writing both would say it twice.
   const filn = childText(sourceNode, "FILN");
-  if (filn) link.children.push({ level: link.level + 1, tag: "CALN", value: filn, children: [] });
+  if (filn && writesCallNumbers(records, coverage)) {
+    link.children.push({ level: link.level + 1, tag: "CALN", value: filn, children: [] });
+  }
   sourceNode.children.push(link);
   return repo.created;
 }
@@ -2487,6 +2491,9 @@ export function reshapeSources(
   for (const r of clone) if (r.xref) byXref.set(r.xref, r);
 
   const { fold, pageMedia, baptismTag, createRepos, coverage } = resolveFormatOptions(clone, opts);
+  // Where this file states an archive's id: the repository link's call number,
+  // or the source's own filing number. One or the other, never both.
+  const callNumbers = writesCallNumbers(clone, coverage);
   // A link folded into a book is selected under the book's id, not its own.
   const hits = scanOccurrences(clone, sites, fold ? pageMedia : undefined).filter((h) =>
     selectedById.has(opts.mergeGroups?.get(h.recognized.groupKey) ?? h.recognized.groupKey),
@@ -2560,10 +2567,10 @@ export function reshapeSources(
       // carries, and without it nothing on the record says which grave (or
       // which book) this is.
       fillField(sourceNode, "FILN", fields.filingNumber);
-      // The call number mirrors it inside the repository — written when the
-      // repository link is made, and so missing on every source whose link
-      // was made before the id was known. Filled here for the same reason.
-      const repoLink = firstChild(sourceNode, "REPO");
+      // The call number mirrors it inside the repository — but only in a file
+      // that states ids there; where FILN is the file's field, the line above
+      // has already said it.
+      const repoLink = callNumbers ? firstChild(sourceNode, "REPO") : undefined;
       if (repoLink) fillField(repoLink, "CALN", fields.filingNumber);
     } else {
       sourceNode = createSourceRecord(clone, fields);
@@ -2594,7 +2601,7 @@ export function reshapeSources(
         // The filing number doubles as the call number within that repository
         // (the Matricula book id, the FamilySearch film) — the standard spot a
         // strict reader looks for it is the repository link's CALN.
-        if (fields.filingNumber) {
+        if (fields.filingNumber && callNumbers) {
           link.children.push({ level: 2, tag: "CALN", value: fields.filingNumber, children: [] });
           // In the standard shape FILN is not a source field at all — the
           // call number now carries the id.
