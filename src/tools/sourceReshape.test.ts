@@ -475,6 +475,45 @@ describe("reshapeSources — apply", () => {
     expect(pick(undefined)).not.toMatch(/0 @S\d+@ SOUR[\s\S]*1 REPO @/);
   });
 
+  it("completes a stored FamilySearch link with the image and collection the run learned", () => {
+    // Copied off a page that names neither: only the ark and the collection's
+    // id in the address bar — no i=. The lookup says which image it is, so the
+    // stored link can carry it, and the page number stays readable offline.
+    const bare = "https://www.familysearch.org/ark:/61903/3:1:33SQ-G5FG-7Y?cc=1923888&lang=en&groupId=1923888";
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 WWW ${bare}
+0 TRLR`);
+    const report = findReshapableLinks(ds);
+    const enrichment = new Map(
+      report.groups.map((g) => [g.id, { title: "New York Passenger and Crew Lists", page: "255", collectionId: "1923888" }]),
+    );
+    const text = serializeGedcom(reshapeSources(ds.records, report.groups, enrichment).records);
+    // i= is the page number less one — FamilySearch counts images from one and
+    // its viewer from zero — and the viewer trail is gone.
+    expect(text).toContain("1 FILE https://www.familysearch.org/ark:/61903/3:1:33SQ-G5FG-7Y?i=254&cc=1923888");
+    expect(text).toContain("3 PAGE 255");
+
+    // A page in words names no image, so nothing is invented…
+    const worded = new Map(report.groups.map((g) => [g.id, { title: "X", page: "Entry for Anna Rakar" }]));
+    const wordedText = serializeGedcom(reshapeSources(ds.records, report.groups, worded).records);
+    expect(wordedText).toContain("1 FILE https://www.familysearch.org/ark:/61903/3:1:33SQ-G5FG-7Y?cc=1923888");
+
+    // …and a link that names its own image keeps it, whatever the page says.
+    expect(
+      familySearchPageUrl("https://www.familysearch.org/ark:/61903/3:1:33SQ-G5FG-7Y?i=7&lang=en", {
+        image: "254",
+        cc: "1923888",
+      }),
+    ).toBe("https://www.familysearch.org/ark:/61903/3:1:33SQ-G5FG-7Y?i=7&cc=1923888");
+    // A record page has no image to number: an entry is not a page of a film.
+    expect(
+      familySearchPageUrl("https://familysearch.org/ark:/61903/1:1:XNJ8-FPJ", { image: "254", cc: "1923888" }),
+    ).toBe("https://www.familysearch.org/ark:/61903/1:1:XNJ8-FPJ");
+  });
+
   it("preserves note prose around a removed URL, drops URL-only notes", () => {
     const { text, counts } = applyAll(`0 HEAD
 1 CHAR UTF-8

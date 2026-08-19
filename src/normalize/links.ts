@@ -223,6 +223,15 @@ export function familySearchImageNumber(i: string | undefined): string | undefin
   return n === undefined ? i : String(n + 1);
 }
 
+/** The `i=` that names the image a page number names — the reverse of
+ *  {@link familySearchImageNumber}, for completing a link copied without one.
+ *  Only a plain positive whole number answers: a printed folio, a grave plot
+ *  or an entry in words says nothing about which image of the film it is. */
+export function familySearchImageIndex(page: string | undefined): string | undefined {
+  const n = page && /^\d+$/.test(page.trim()) ? Number(page.trim()) : undefined;
+  return n && n > 0 ? String(n - 1) : undefined;
+}
+
 /**
  * The form of a FamilySearch link the file stores: the ark, the image the
  * reader was looking at (`i=`), and what that image belongs to — its film
@@ -232,14 +241,23 @@ export function familySearchImageNumber(i: string | undefined): string | undefin
  * and the two ids that say which book and which collection the page is from —
  * a link that keeps them can be filed without asking FamilySearch anything.
  * Any other URL is returned unchanged.
+ *
+ * `fill` completes what a copied link left out, from what the run has since
+ * learned: the image its page number names, the collection its lookup
+ * resolved. Only gaps are filled — what the link itself says always stands,
+ * since that is what the reader copied from the page they were on.
  */
-export function familySearchPageUrl(url: string): string {
+export function familySearchPageUrl(url: string, fill?: { image?: string; cc?: string }): string {
   const fs = parseFamilySearchUrl(url);
   if (!fs || fs.kind === "tree" || !fs.ark) return url;
+  // A record page (`1:1`) is one indexed entry, not an image of a film: it has
+  // no image to number and no page to select.
+  const image = fs.image ?? (fs.kind === "image" ? fill?.image : undefined);
+  const cc = fs.cc ?? (fs.kind === "image" ? fill?.cc : undefined);
   const query = [
-    fs.image ? `i=${fs.image}` : undefined,
+    image ? `i=${image}` : undefined,
     fs.cat ? `cat=${fs.cat}` : undefined,
-    fs.cc ? `cc=${fs.cc}` : undefined,
+    cc ? `cc=${cc}` : undefined,
   ]
     .filter(Boolean)
     .join("&");

@@ -833,7 +833,7 @@ export const sl = {
   "tools.sources.expandAll": "Razširi vse",
   "tools.sources.collapseAll": "Strni vse",
   "tools.sources.tidyLinks": "Skrajšaj povezave",
-  "tools.sources.tidyLinksHint": "Povezave do FamilySearcha pri medijih iz tega zagona skrajša na samo stran, ki jo povezava imenuje. Dodatki iz pregledovalnika (view, groupId, cc/wc/i) povedo le, kako je bralec do strani prišel, in isto stran razmnožijo v več navidez različnih.",
+  "tools.sources.tidyLinksHint": "Povezave do FamilySearcha pri medijih iz tega zagona prepiše v obliko, ki jo datoteka hrani: sled pregledovalnika (view, groupId, wc, lang) pove le, kako je bralec do strani prišel, in odpade, oznaki slike (i) in zbirke (cc), ki ju prekopirana povezava nima, pa se dopolnita iz tega, kar je zagon izvedel — tako ostane številka strani berljiva, ne da bi bilo treba spletišče vprašati znova.",
   "tools.sources.pasteCitation": "Prilepite navedbo in polja se izpolnijo",
   "tools.sources.fsSignin": "stran s prijavo",
   "tools.sources.fsSigninHint": "Strani zapisov na FamilySearch se odprejo šele po prijavi, zato jih poizvedba ne more prebrati — kopirajte navedbo s strani in jo prilepite v urejevalnik ✎ ali pa na mesto te povezave postavite povezavo do slike, da se podatki izpolnijo.",

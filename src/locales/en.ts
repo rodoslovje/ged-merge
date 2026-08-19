@@ -737,7 +737,7 @@ export const en = {
   "tools.sources.expandAll": "Expand all",
   "tools.sources.collapseAll": "Collapse all",
   "tools.sources.tidyLinks": "Shorten links",
-  "tools.sources.tidyLinksHint": "Trim a FamilySearch link stored on the media this run touches down to the page it names — its viewer state (view, groupId, cc/wc/i) says how the reader got there, not what the page is, and makes one page look like several.",
+  "tools.sources.tidyLinksHint": "Rewrite a FamilySearch link stored on the media this run touches into the form the file keeps: the viewer trail (view, groupId, wc, lang) says how the reader got there rather than what the page is, and goes, while the image (i) and collection (cc) a copied link left out are filled in from what the run learned — so the page number stays readable without asking the site again.",
   "tools.sources.pasteCitation": "Paste a citation to fill these in",
   "tools.sources.fsSignin": "sign-in page",
   "tools.sources.fsSigninHint": "FamilySearch record pages open only after a sign-in, so no lookup can read them — copy the page's own citation and paste it into the ✎ editor, or put the image's link there in place of this one, to fill the details.",

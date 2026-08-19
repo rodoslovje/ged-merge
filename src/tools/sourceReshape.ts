@@ -14,6 +14,7 @@ import {
   type ObjeIndex,
 } from "../gedcom/source";
 import {
+  familySearchImageIndex,
   familySearchImageNumber as imageNumber,
   familySearchPageUrl,
   linkKey,
@@ -2715,28 +2716,6 @@ export function reshapeSources(
     }
     const sourceXref = sourceNode.xref!;
 
-    // Re-point what the media already holds: at the traded link where the
-    // reader chose one, else — asked for it — at the same link minus the
-    // viewer state that made one page look like several.
-    if (opts.tidyLinks || swapByUrl.size) {
-      for (const hit of state.hits) {
-        const xref = hit.objeXref;
-        const obje = xref ? byXref.get(xref) : undefined;
-        const file = obje && firstChild(obje, "FILE");
-        const stored = file?.value?.trim();
-        const swap = swapOf(hit);
-        const next = swap ?? (opts.tidyLinks && stored ? familySearchPageUrl(stored) : undefined);
-        if (xref && file && next && next !== stored) {
-          file.value = next;
-          // The index the OBJE-per-page pass reads was taken before this
-          // rewrite — leave it saying what the record now holds.
-          cloneObjeIndex.delete(xref);
-          createdObjeUrls.set(xref, next);
-          if (swap) counts.linksSwapped++;
-          else counts.linksTidied++;
-        }
-      }
-    }
 
     // Which page of the source each link is. A page number the URL itself
     // carries wins; then the one the report put on that member — for a book
@@ -2753,6 +2732,37 @@ export function reshapeSources(
       if (swap) return pageByUrl.get(linkKey(hit.url)) ?? recognizeSourceUrl(swap)?.page ?? extra?.page;
       return hit.recognized.page ?? pageByUrl.get(linkKey(hit.url)) ?? extra?.page;
     };
+
+    /** The link this run stores for a page: canonical, and completed with what
+     *  the run has learned that the copied link left out — the image its page
+     *  number names, the collection its lookup resolved. What the link itself
+     *  carries always stands. */
+    const storedLink = (url: string, hit: ScanHit): string =>
+      familySearchPageUrl(url, { image: familySearchImageIndex(pageOf(hit)), cc: extra?.collectionId });
+
+    // Re-point what the media already holds: at the traded link where the
+    // reader chose one, else — asked for it — at the same link in the form the
+    // file stores, minus the viewer state that made one page look like several
+    // and plus the page and collection the link was copied without.
+    if (opts.tidyLinks || swapByUrl.size) {
+      for (const hit of state.hits) {
+        const xref = hit.objeXref;
+        const obje = xref ? byXref.get(xref) : undefined;
+        const file = obje && firstChild(obje, "FILE");
+        const stored = file?.value?.trim();
+        const swap = swapOf(hit);
+        const next = swap ? storedLink(swap, hit) : opts.tidyLinks && stored ? storedLink(stored, hit) : undefined;
+        if (xref && file && next && next !== stored) {
+          file.value = next;
+          // The index the OBJE-per-page pass reads was taken before this
+          // rewrite — leave it saying what the record now holds.
+          cloneObjeIndex.delete(xref);
+          createdObjeUrls.set(xref, next);
+          if (swap) counts.linksSwapped++;
+          else counts.linksTidied++;
+        }
+      }
+    }
 
     // --- Name the media the file already holds for these pages. A page image
     // saved from the site carries whatever the site's own button wrote — every
@@ -2821,7 +2831,7 @@ export function reshapeSources(
         // Written stripped of viewer state but keeping what selects the page,
         // so a page linked twice by two readers lands as one media record and
         // still reopens where it was copied (see `familySearchPageUrl`).
-        const obje = addObjeToSource(clone, sourceXref, familySearchPageUrl(hitUrl), objeTitle);
+        const obje = addObjeToSource(clone, sourceXref, storedLink(hitUrl, hit), objeTitle);
         if (obje.xref) createdObjeUrls.set(obje.xref, hitUrl);
         counts.mediaCreated++;
       }
