@@ -13,6 +13,7 @@ import { NotesEditor } from "./NotesEditor";
 import { PlaceAutocomplete } from "./PlaceAutocomplete";
 import { usePlaceLookup } from "./PlaceLookupContext";
 import type { PlaceProposal } from "../../geo/placeProposal";
+import { placeCollator } from "../../gedcom/place";
 import { EventCoordPicker } from "./EventCoordPicker";
 import { useField } from "./useField";
 import { SECONDARY_VALUE_EVENT_TAGS, VALUE_EVENT_TAGS } from "./editConstants";
@@ -277,6 +278,38 @@ export function EventFieldsRow({
       coord: proposal.coord,
       ...(proposal.govId ? { govId: proposal.govId } : {}),
       ...(proposal.form ? { placeForm: proposal.form } : {}),
+    });
+  };
+  /**
+   * The same offer picked from the **address** field, where the register is
+   * being asked *where* a house stands, not what to call it. The address a row
+   * already holds is the user's own wording — "Olševek 1 / 2 (pd Pilar)" names
+   * two houses and the farm on them, which no register line will ever say — so
+   * it survives being placed, and so does a place that is already written.
+   * Text is filled only where the field is empty, or replaced where the two
+   * differ by nothing but spelling (the register's diacritics are worth
+   * having). The coordinate always comes along: it is what the offer was
+   * picked for. A place kept as the file writes it keeps its own id and FORM
+   * too — those describe the chain that stayed, not the one that was offered.
+   */
+  const pickAddrProposal = (proposal: PlaceProposal) => {
+    // What to write, or undefined to keep what the field already says.
+    const adopt = (own: string, offered: string | undefined) =>
+      !own.trim() || (offered && placeCollator.compare(own.trim(), offered) === 0) ? offered : undefined;
+    const place = adopt(placeField.value, proposal.plac);
+    const addr = adopt(addrField.value, proposal.addr);
+    if (place) placeField.set(place);
+    if (addr) addrField.set(addr);
+    commitAll({
+      coord: proposal.coord,
+      ...(place
+        ? {
+            place,
+            ...(proposal.govId ? { govId: proposal.govId } : {}),
+            ...(proposal.form ? { placeForm: proposal.form } : {}),
+          }
+        : {}),
+      ...(addr ? { address: addr } : {}),
     });
   };
   // The address field's combos: pairs at other places (this place's own
@@ -859,7 +892,7 @@ export function EventFieldsRow({
           // offering a search that could not answer.
           onLookup: lookup?.online ? (query) => lookup.searchAddress(placeField.value, query) : undefined,
           lookupNote: lookup && !lookup.online ? t("tools.geocode.downloadNeedsOptIn") : undefined,
-          onPickProposal: pickProposal,
+          onPickProposal: pickAddrProposal,
         })}
         {/* The tag's own line value, for events that lead with the date instead
             of it (RESI) — otherwise it is the primary field rendered above. */}

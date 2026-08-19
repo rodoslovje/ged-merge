@@ -573,14 +573,12 @@ export function findExistingSource(
     for (const child of rec.children) {
       if (child.tag !== "OBJE" || !child.value) continue;
       const objeXref = child.value.trim();
-      const info = objeIndex.get(objeXref);
-      const objeUrl = info?.url;
+      const objeUrl = objeIndex.get(objeXref)?.url;
       if (!objeUrl) continue;
-      // Two images of one film can share an ark and differ only in `i=`, which
-      // the link key folds away — so an exact key is the same page only when
-      // the images it names agree.
-      const sameImage = !fs?.image || !objeImageNumber(info) || objeImageNumber(info) === fs.image;
-      if (linkKey(objeUrl) === incomingKey && sameImage) return { sourceXref: rec.xref, objeXref, page };
+      // The ark names the image itself, and the link key already folds away
+      // the `i=` the viewer counts it by — so one key is one page, however the
+      // two links were navigated to.
+      if (linkKey(objeUrl) === incomingKey) return { sourceXref: rec.xref, objeXref, page };
       if (!bookMatch && bookKeyOf(objeUrl) === incomingBookKey) bookMatch = rec.xref;
     }
     if (fs?.film && !filmMatch && sourceFilms(rec, objeIndex).has(fs.film)) filmMatch = rec;

@@ -445,7 +445,7 @@ describe("findExistingSource — FamilySearch", () => {
     expect(match).toEqual({ sourceXref: "@S1@", objeXref: "@O1@", page: "22" });
   });
 
-  it("keeps two images apart when the film's ark is what the links share", () => {
+  it("takes one ark for one page, whatever the viewer counted it as", () => {
     const shared = `0 HEAD
 0 @S1@ SOUR
 1 TITL Zbirka
@@ -455,13 +455,13 @@ describe("findExistingSource — FamilySearch", () => {
 0 TRLR
 `;
     const ds = buildFromText(shared);
-    // Same ark, next image: the link key folds `i=` away, so only the image
-    // numbers tell the two pages apart.
+    // The same image reached by another path, so its `i=` reads differently:
+    // the ark says it is the page the file already holds.
     const match = findExistingSource(
       ds.records,
       "https://www.familysearch.org/ark:/61903/3:1:3QS7-89W1-K3TZ?i=6&cat=4826234",
     );
-    expect(match).toEqual({ sourceXref: "@S1@", objeXref: undefined, page: "7" });
+    expect(match).toEqual({ sourceXref: "@S1@", objeXref: "@O1@", page: "7" });
   });
 
   it("matches a film the link does not carry but the citation named", () => {
