@@ -1560,6 +1560,7 @@ export const en = {
   "compare.parentConflict": "The two files name different parents. A merge never replaces a linked parent — your file's stays, the disagreement is listed in the save report, and Edit is the place to change the link.",
   "compare.relativesHint": "The years shown identify the person — they are not merged here. Each relative's own dates and names arrive when you confirm that person's own match.",
   "compare.decisionTooltip": "{{action}} this match ({{key}})",
+  "compare.confirmFirst": "Choices apply only to a confirmed match — confirm it first",
   "choice.main.label": "M",
   "choice.main.title": "Keep main value",
   "choice.incoming.label": "I",

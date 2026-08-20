@@ -1813,6 +1813,7 @@ export const sl = {
   "compare.parentConflict": "Datoteki navajata različna starša. Združevanje povezanega starša nikoli ne zamenja — ostane tisti iz vaše datoteke, neskladje je navedeno v poročilu ob shranjevanju, povezavo pa lahko spremenite v Urejanju.",
   "compare.relativesHint": "Letnice so tu za prepoznavo osebe in se v tej vrstici ne prevzamejo. Datumi in imena posameznega sorodnika se prevzamejo šele, ko potrdite ujemanje zanj.",
   "compare.decisionTooltip": "{{action}} to ujemanje ({{key}})",
+  "compare.confirmFirst": "Izbire veljajo le za potrjeno ujemanje — najprej ga potrdite",
   "choice.main.label": "G",
   "choice.main.title": "Ohrani glavno",
   "choice.incoming.label": "V",

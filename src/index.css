@@ -4274,6 +4274,11 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .choice.active { border-color: var(--accent); color: var(--text); }
 /* An added incoming child reads in the incoming colour, like the incoming choice. */
 .choice.take.active { border-color: var(--state-incoming); color: var(--state-incoming); }
+/* Choices are locked until the match is confirmed (save ignores them before
+   that); the buttons stay visible so the row still shows what confirming
+   would take. The hint tooltip lives on .choice-lock — disabled buttons
+   don't hover reliably everywhere. */
+.choice:disabled { opacity: 0.45; cursor: default; }
 
 .group-header-row {
   background: var(--panel-2);
