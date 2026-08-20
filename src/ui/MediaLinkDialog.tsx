@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Translate } from "../locales/i18n";
-import { linkHref, linkTooltip } from "./FieldValue";
-import { useModalKeyboard } from "../keyboard/useModalKeyboard";
+import { SourceDialogShell } from "./source/SourceDialogShell";
+import { SourceLinkRow } from "./source/SourceLinkRow";
 
 /**
  * The media-link chip's dialog: a stripped-down sibling of Edit Source for a
@@ -25,7 +25,6 @@ export function MediaLinkDialog({
   onRemove: () => void;
 }) {
   const [value, setValue] = useState(url);
-  const ref = useModalKeyboard(true, onClose);
   const inputRef = useRef<HTMLInputElement>(null);
   // Focus with the caret at the start: plain autofocus parks it at the end,
   // scrolling a long URL so only its tail is visible.
@@ -38,43 +37,14 @@ export function MediaLinkDialog({
   }, []);
   const trimmed = value.trim();
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div
-        className="modal add-source-dialog media-link-dialog"
-        ref={ref}
-        tabIndex={-1}
-        role="dialog"
-        aria-modal="true"
-        aria-label={t("mediaLink.title")}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="modal-header">
-          <h2>
-            <span className="add-source-badge" aria-hidden="true">🔗</span>
-            {t("mediaLink.title")}
-          </h2>
-          <button className="modal-close" onClick={onClose} title={t("help.close")} aria-label={t("help.close")}>×</button>
-        </div>
-        <div className="modal-body">
-          <label className="add-source-field add-source-url-row">
-            <span>{t("addSource.field.url")}</span>
-            <span className="add-source-url-wrap">
-              <input ref={inputRef} className="edit-input" value={value} onChange={(e) => setValue(e.target.value)} />
-              {trimmed && (
-                <a
-                  className="edit-link-open"
-                  href={linkHref(trimmed)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  title={linkTooltip(trimmed, t, t("edit.openLink"))}
-                >
-                  ↗
-                </a>
-              )}
-            </span>
-          </label>
-        </div>
-        <div className="add-source-actions">
+    <SourceDialogShell
+      icon="🔗"
+      title={t("mediaLink.title")}
+      t={t}
+      onClose={onClose}
+      className="media-link-dialog"
+      actions={
+        <>
           <button className="tree-open-btn add-source-remove" onClick={onRemove}>{t("editSource.remove")}</button>
           <button className="tree-open-btn" onClick={onClose}>{t("addSource.cancel")}</button>
           <button
@@ -84,8 +54,16 @@ export function MediaLinkDialog({
           >
             {t("editSource.save")}
           </button>
-        </div>
-      </div>
-    </div>
+        </>
+      }
+    >
+      <SourceLinkRow
+        label={t("addSource.field.url")}
+        value={value}
+        onChange={setValue}
+        t={t}
+        inputRef={inputRef}
+      />
+    </SourceDialogShell>
   );
 }

@@ -139,7 +139,7 @@ function diffSourceCitations(id: string, before: GedNode, after: GedNode, fieldL
 /** An event's sub-fields kept apart (rather than joined into one display string)
  *  so a modified — not newly added/removed — event can be diffed field by field. */
 type EventFieldKey =
-  | "type" | "value" | "date" | "place" | "coord" | "addr" | "note" | "cause" | "sources";
+  | "type" | "value" | "date" | "place" | "coord" | "addr" | "note" | "cause" | "sources" | "media";
 
 interface EventFields extends Record<EventFieldKey, string> {
   /** Flagged private — carried alongside the text fields rather than among
@@ -148,7 +148,7 @@ interface EventFields extends Record<EventFieldKey, string> {
   private?: boolean;
 }
 
-const EVENT_FIELD_KEYS: EventFieldKey[] = ["type", "value", "date", "place", "coord", "addr", "note", "cause", "sources"];
+const EVENT_FIELD_KEYS: EventFieldKey[] = ["type", "value", "date", "place", "coord", "addr", "note", "cause", "sources", "media"];
 
 /** The location-ish sub-fields, kept in one place so the "same event, moved"
  *  pairing pass below stays in sync when another location field is added. */
@@ -198,14 +198,19 @@ function makeNoteTextResolver(records: GedNode[]): (value: string) => string {
   return (value) => (isPointer(value) ? texts.get(value) || value : value);
 }
 
-function eventFields(node: GedNode, resolveSource: SourceResolver): EventFields {
+function eventFields(node: GedNode, resolveSource: SourceResolver, nameMedia: MediaNamer): EventFields {
   const get = (tag: string) => node.children.find((c) => c.tag === tag)?.value?.trim() ?? "";
   // node.value carries the event's own title (e.g. "1 OCCU Engineer") for
   // tags like OCCU/EDUC/RETI — include it or a title-only edit won't change
   // the summary and the diff silently drops the change. Citations are part of
   // the summary for the same reason — adding a source to an event must show.
   const sources = childrenByTag(node, "SOUR").map(resolveSource).filter(Boolean).join(", ");
-  return { type: get("TYPE"), value: node.value?.trim() ?? "", date: get("DATE"), place: get("PLAC"), coord: placeCoord(node), addr: get("ADDR"), note: get("NOTE"), cause: get("CAUS"), sources, private: isPrivateNode(node) || undefined };
+  // …and so is the page image beside them: a file whose habit is to keep page
+  // links on events gets one attached with every citation the source tools
+  // write, and a preview that showed the citation alone left the reader asking
+  // whether the page came with it.
+  const media = childrenByTag(node, "OBJE").map(nameMedia).filter(Boolean).join(", ");
+  return { type: get("TYPE"), value: node.value?.trim() ?? "", date: get("DATE"), place: get("PLAC"), coord: placeCoord(node), addr: get("ADDR"), note: get("NOTE"), cause: get("CAUS"), sources, media, private: isPrivateNode(node) || undefined };
 }
 
 function eventSummary(f: EventFields): string {
@@ -258,11 +263,12 @@ function diffEventSet(
   tags: Set<string>,
   label: (tag: string) => string,
   resolveSource: SourceResolver,
+  nameMedia: MediaNamer,
 ): FieldChange[] {
   const diffs: FieldChange[] = [];
   for (const tag of tags) {
-    const beforeFields = before.children.filter((c) => c.tag === tag).map((c) => eventFields(c, resolveSource));
-    const afterFields  = after.children.filter((c) => c.tag === tag).map((c) => eventFields(c, resolveSource));
+    const beforeFields = before.children.filter((c) => c.tag === tag).map((c) => eventFields(c, resolveSource, nameMedia));
+    const afterFields  = after.children.filter((c) => c.tag === tag).map((c) => eventFields(c, resolveSource, nameMedia));
     const fieldLabel = label(tag);
     const usedB = new Set<number>();
     const usedA = new Set<number>();
@@ -419,6 +425,26 @@ interface MediaDesc {
  */
 type MediaResolver = (node: GedNode) => MediaDesc | undefined;
 
+/**
+ * What one `OBJE` child is called on an event's line — the media's own title
+ * where it has one (the source tools name a page after its book), else the
+ * file name or the address it points at. Unlike {@link MediaResolver} this
+ * speaks for web links too: a register page attached beside its citation is a
+ * link, and it is the thing the reader is checking for.
+ */
+type MediaNamer = (node: GedNode) => string;
+
+function makeMediaNamer(records: GedNode[]): MediaNamer {
+  const objeIndex = buildObjeIndex(records);
+  return (node) => {
+    const ptr = node.value?.trim();
+    const info = ptr && isPointer(ptr) ? objeIndex.get(ptr) : objeInfoOf(node);
+    if (!info) return ptr ?? "";
+    const name = info.title?.trim() || info.file?.split(/[\\/]/).pop() || info.url || ptr || "";
+    return name ? `${info.url ? "🔗" : "🖼"} ${name}` : "";
+  };
+}
+
 function makeMediaResolver(records: GedNode[]): MediaResolver {
   const objeIndex = buildObjeIndex(records);
   return (node) => {
@@ -451,7 +477,7 @@ function diffMedia(id: string, before: GedNode, after: GedNode, fieldLabel: stri
   return diffs;
 }
 
-function diffIndividualNodes(id: string, before: GedNode, after: GedNode, t: Translate, resolveMedia: MediaResolver, resolveSource: SourceResolver, notePrivate: (node: GedNode) => boolean, noteText: (value: string) => string): FieldChange[] {
+function diffIndividualNodes(id: string, before: GedNode, after: GedNode, t: Translate, resolveMedia: MediaResolver, resolveSource: SourceResolver, notePrivate: (node: GedNode) => boolean, noteText: (value: string) => string, nameMedia: MediaNamer): FieldChange[] {
   const diffs: FieldChange[] = [];
   const check = (field: string, from: string, to: string, identity?: boolean) => {
     if (from !== to) diffs.push({ recordId: id, field, from, to, action: "incoming", identity });
@@ -466,7 +492,7 @@ function diffIndividualNodes(id: string, before: GedNode, after: GedNode, t: Tra
   diffs.push(...diffAdditionalNames(id, before, after, t));
 
   const evTags = eventTagsOf(before, after, INDIVIDUAL_EVENT_TAGS);
-  diffs.push(...diffEventSet(id, before, after, evTags, (tag) => t(`event.${tag}`, { defaultValue: tag }), resolveSource));
+  diffs.push(...diffEventSet(id, before, after, evTags, (tag) => t(`event.${tag}`, { defaultValue: tag }), resolveSource, nameMedia));
   diffs.push(...diffStringSet(id, before, after, (tag) => tag === "NOTE", t("field.notes"), false, notePrivate, noteText));
   diffs.push(...diffStringSet(id, before, after, (tag) => tag === "_FID" || tag === "_FSFTID", t("field.fsid")));
   diffs.push(...diffStringSet(id, before, after, (tag) => RECORD_LINK_TAGS.has(tag), t("field.sources"), true));
@@ -518,13 +544,14 @@ function diffFamilyNodes(
   resolveSource: SourceResolver,
   notePrivate: (node: GedNode) => boolean,
   noteText: (value: string) => string,
+  nameMedia: MediaNamer,
 ): FieldChange[] {
   const diffs: FieldChange[] = [];
 
   diffs.push(...diffFamilyMembership(id, before, after, t, resolveName));
 
   const evTags = eventTagsOf(before, after, FAMILY_EVENT_TAGS);
-  diffs.push(...diffEventSet(id, before, after, evTags, (tag) => t(`event.${tag}`, { defaultValue: tag }), resolveSource));
+  diffs.push(...diffEventSet(id, before, after, evTags, (tag) => t(`event.${tag}`, { defaultValue: tag }), resolveSource, nameMedia));
   diffs.push(...diffStringSet(id, before, after, (tag) => tag === "NOTE", t("field.notes"), false, notePrivate, noteText));
   diffs.push(...diffStringSet(id, before, after, (tag) => RECORD_LINK_TAGS.has(tag), t("field.sources"), true));
   diffs.push(...diffSourceCitations(id, before, after, t("field.sources"), resolveSource));
@@ -594,6 +621,7 @@ export function enrichEditReport(
 ): ChangeReport {
   const extra: FieldChange[] = [];
   const resolveMedia = makeMediaResolver(dataset.records);
+  const nameMedia = makeMediaNamer(dataset.records);
   const resolveSource = makeSourceResolver(dataset.records);
   const notePrivate = makeNotePrivacyResolver(dataset.records);
   const noteText = makeNoteTextResolver(dataset.records);
@@ -610,7 +638,7 @@ export function enrichEditReport(
       const snapshot = personSnapshots.get(id);
       const current = dataset.individuals.get(id);
       if (snapshot && current) {
-        extra.push(...diffIndividualNodes(id, snapshot, current.raw, t, resolveMedia, resolveSource, notePrivate, noteText));
+        extra.push(...diffIndividualNodes(id, snapshot, current.raw, t, resolveMedia, resolveSource, notePrivate, noteText, nameMedia));
         // Family-membership changes on the individual. A detach from a family
         // that still exists is shown on that family's row, so only removed
         // families (pruned, or folded away by a duplicate merge) surface as a
@@ -658,7 +686,7 @@ export function enrichEditReport(
     } else {
       const snapshot = familySnapshots.get(id);
       const current = dataset.families.get(id);
-      if (snapshot && current) extra.push(...diffFamilyNodes(id, snapshot, current.raw, t, resolveIndiName, resolveMedia, resolveSource, notePrivate, noteText));
+      if (snapshot && current) extra.push(...diffFamilyNodes(id, snapshot, current.raw, t, resolveIndiName, resolveMedia, resolveSource, notePrivate, noteText, nameMedia));
     }
   }
 

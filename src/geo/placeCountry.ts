@@ -258,9 +258,15 @@ export function titleCountryFacet(title: string): string {
  */
 export function stateOf(value: string): { name: string; country: string } | undefined {
   const states = reverseStateIndex();
-  for (const segment of value.split(",").map((s) => s.trim()).filter(Boolean)) {
-    const country = states.get(foldCountryName(segment));
-    if (country) return { name: segment, country };
+  // Read from the broad end inwards, as {@link placeCountryFacet} does: a
+  // place runs narrow to broad, so its state is the level nearest the country.
+  // Read the other way round, a town that shares a state's name answers for
+  // the state it merely sits in — "Washington, Beaufort, North Carolina" is a
+  // town in North Carolina, not Washington state.
+  const segments = value.split(",").map((s) => s.trim()).filter(Boolean);
+  for (let i = segments.length - 1; i >= 0; i--) {
+    const country = states.get(foldCountryName(segments[i]));
+    if (country) return { name: segments[i], country };
   }
   // A title states its jurisdiction in words rather than in comma levels
   // ("Illinois Cook County Deaths"), so its opening words are read as a name.

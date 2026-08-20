@@ -346,7 +346,7 @@
             <ul>
               <li><strong>Oblika datumov</strong> — npr. <em>01.01.1900</em> ali <em>1 JAN 1900</em>, vključno s tem, kako so označeni neznani deli.</li>
               <li><strong>Postavitev krajev</strong> — ali so kraji ena strnjena vrstica, strukturirana hierarhija z vejicami, ločen ulični naslov ipd., in katero ločilo stoji med ravnmi: <em>Kranj, Slovenija</em> ali <em>Kranj,Slovenija</em>. Obe obliki sta veljavni po standardu GEDCOM; zgledi v standardu pišejo vejico s presledkom.</li>
-              <li><strong>Oblika virov</strong> — bibliografske navedbe, povezave na repozitorij, viri s slikami strani (slog Matricula) ali besedilo v vrstici.</li>
+              <li><strong>Oblika virov</strong> — bibliografske navedbe, povezave na hrambo, viri s slikami strani (slog Matricula) ali besedilo v vrstici. Program bere, katera od teh oblik <em>prevladuje</em>: datoteka, katere viri nosijo slike strani, se bere kot oblika s slikami strani tudi tedaj, ko vsak njen vir visi še na hrambi, saj se hrambe štejejo kot navada zase. Hrambe veljajo pri vsaki izbiri — izbrana oblika datoteki nikoli ne vzame hramb, ki jih ima, izbira <em>vir, hramba</em> pa hrambo doda tudi tam, kjer je datoteka nima.</li>
               <li><strong>Oblika imen</strong> — ali dodatna imena živijo kot vgrajene podoznake ali kot ločeni zapisi imen z vrsto.</li>
             </ul>
             <p>
@@ -1151,14 +1151,31 @@
               (<em>view</em>, <em>groupId</em>, <em>cc/wc</em>), ki jih prinese kopirani URL, povedo,
               kako je bralec prišel do strani, ne pa, katera stran je — in iz ene strani naredijo več različnih. Možnost
               <strong>Skrajšaj povezave</strong> to razširi še na povezave, shranjene pri medijih, ki se jih zagon
-              dotakne; privzeto je izklopljena, saj so ti zapisi sicer čisto v redu. Datum, ki ga stran sporoči, se zapiše v obliki datumov vaše datoteke, ne glede na to, kako
+              dotakne, in dopolni, česar prekopirana povezava nima — oznako slike (<em>i</em>), ki jo imenuje njena številka strani,
+              in oznako zbirke (<em>cc</em>), ki jo je našla poizvedba, tako da stran ostane berljiva, ne da bi bilo treba
+              spletišče vprašati znova; privzeto je izklopljena, saj so ti zapisi sicer čisto v redu. Slika strani, ki ji je naslov dala stran sama
+              — vsem po vrsti <em>FamilySearch.org</em> ali kar sam naslov URL —, se preimenuje po knjigi in svoji strani,
+              tako kot se imenuje medijski zapis, ki ga zagon ustvari; naslov, ki ste ga napisali sami, ostane nedotaknjen. Datum, ki ga stran sporoči, se zapiše v obliki datumov vaše datoteke, ne glede na to, kako
               ga je zapisala stran. Navedbe pristanejo na ustreznem dogodku (ustvarjenem, če manjka), kakovost <strong>QUAY</strong>
               lahko nastavite globalno s preglasitvami po vrstici, grobovi pa izpolnijo kraj pokopa in naslov pokopališča.
             </p>
             <p>
               Vsaka predlagana skupina je pred uveljavitvijo pregledljiva: vir uredite ročno z <span class="gm-glyph">✎</span>
-              v vrstici (naslov, avtor, arhiv, kraj, arhivsko številko, razpon let — ročno urejene vire nato Pridobi
-              podatke o virih preskoči), ali skupino označite <strong>Odstrani sklice</strong>
+              v vrstici (naslov, avtor, arhiv, kraj, arhivsko številko, razpon let in <strong>hrambo</strong>, na katero se novi
+              vir obesi — ročno urejene vire nato Pridobi podatke o virih preskoči). Vrstica s hrambo se odpre pri tisti,
+              ki bi jo orodje izbralo samo, sprejme pa katero koli hrambo iz vaše datoteke, predlog spletišča ali pa
+              nobene. Ta urejevalnik pokaže tudi <strong>povezavo</strong>, iz katere se vir izpiše,
+              in sprejme drugo na njeno mesto: stran zapisa na FamilySearch se odpre šele po prijavi, zato je poizvedba
+              ne doseže, slika strani z vpisom pa odgovori z zbirko, arhivom, filmom in številko slike. Prilepite
+              povezavo do slike — ali navedbo, ki jo stran ponudi z gumbom <em>Copy citation</em> in ki tako povezavo
+              nosi — in polja se izpolnijo, brž ko poizvedba odgovori; ob povezavi stoji gumb <strong>Poišči znova</strong>
+              za nov poskus, polje, ki ste ga vpisali sami, pa se ne prepiše nikoli. V vrstici se nato pokaže oznaka
+              <em>⇄ nova povezava</em>, ob uveljavitvi pa se medij tega vira preusmeri na novo povezavo, tudi v
+              medijskih zapisih, ki jih vaša datoteka že ima. Stran s FamilySearcha, ki je ne imenuje nič razen njene
+              povezave — stran zapisa, film iz kataloga —, prav zato pride <strong>neoznačena</strong>: pretvorba bi
+              zapisala vir, imenovan po oznaki ark in nič drugega, zato počaka, da ji ime da njena navedba ali povezava
+              do slike (če vam oznaka ark zadošča, jo označite kljub temu). Ali pa skupino označite
+              <strong>Odstrani sklice</strong>
               (<span class="gm-glyph danger">🗑</span>), da mrtev ali zastarel URL odstranite z vseh mest, kjer se pojavi,
               brez ustvarjanja vira (<span class="gm-glyph">↩</span> odznači). Orodje upošteva vaše prepise oblike v
               <a href="#workspace">Nastavitve › GEDCOM</a> in znova pregleda, ko katerega spremenite, gumb za zagon pa

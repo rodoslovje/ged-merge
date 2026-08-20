@@ -342,7 +342,7 @@
             <ul>
               <li><strong>Date format</strong> — e.g. <em>01.01.1900</em> vs <em>1 JAN 1900</em>, including how unknown parts are marked.</li>
               <li><strong>Place layout</strong> — whether places are one packed line, a structured comma hierarchy, a separate street address, and so on, plus the comma form between the levels: <em>Kranj, Slovenija</em> or <em>Kranj,Slovenija</em>. Both are valid GEDCOM; the spec's own examples use the comma and a space.</li>
-              <li><strong>Source layout</strong> — bibliographic citations, repository links, page-image sources (Matricula-style), or inline text.</li>
+              <li><strong>Source layout</strong> — bibliographic citations, repository links, page-image sources (Matricula-style), or inline text. It reads which of those shapes <em>dominates</em>: a file whose sources carry page images reads as page-image even where every one of them also hangs off a repository, since those are counted as their own habit. Repositories are honored either way — choosing a shape never costs your file the repositories it keeps, and <em>source, repository</em> asks for one even where it keeps none.</li>
               <li><strong>Name layout</strong> — whether alternate names live as inline sub-tags or as separate typed name records.</li>
             </ul>
             <p>
@@ -1112,15 +1112,32 @@
               the film that image belongs to — the rest of the viewer state a copied URL trails
               (<em>view</em>, <em>groupId</em>, <em>cc/wc</em>) says how the reader got there rather than what the page
               is, and makes one page look like several. <strong>Shorten links</strong> extends that to the links already
-              stored on the media the run touches; it is off by default, since those records are otherwise fine. Any date a site reports is written in your
+              stored on the media the run touches, and fills in what a copied link left out — the image (<em>i</em>) its
+              page number names and the collection (<em>cc</em>) the lookup resolved, so the page stays readable without
+              asking the site again; it is off by default, since those records are otherwise fine. A page
+              image the site titled after itself — every one of them <em>FamilySearch.org</em>, or the raw address — is
+              renamed after the book and its page, the same name a media record the run creates gets; a title you wrote
+              yourself is left alone. Any date a site reports is written in your
               file's own date format, whatever shape the page used. Citations land on the matching event (created if
               missing), a <strong>QUAY</strong> quality can be set globally with per-row overrides, and graves fill the
               burial place and cemetery address.
             </p>
             <p>
               Every proposed group is reviewable before you apply: edit a source by hand with <span class="gm-glyph">✎</span>
-              on its row (title, author, archive, place, filing number, year range — hand-edited sources are then skipped
-              by Fetch source details), or mark a group <strong>Remove references</strong> (<span class="gm-glyph danger">🗑</span>)
+              on its row (title, author, archive, place, filing number, year range, and the <strong>repository</strong> the new
+              source will hang off — hand-edited sources are then skipped by Fetch source details). The repository row
+              opens on what the tool would pick by itself, and takes any of your file's repositories, the site's
+              proposal outright, or none at all. That editor also shows the <strong>link</strong> the source is written from, and
+              takes another in its place: a FamilySearch record page opens only after a sign-in, so no lookup reaches it,
+              while the image it was indexed from answers with the collection, the archive, the film and the image
+              number. Paste that image link — or the page's own <em>Copy citation</em> text, which carries one — and the
+              fields fill themselves as soon as the lookup answers, with <strong>Fetch again</strong> beside the link for
+              a retry; a field you typed yourself is never overwritten. The row then reads <em>⇄ new link</em>, and
+              applying points this source's page media at the image, in the media records your file already holds for it.
+              A FamilySearch page nothing but its own link names — a record page, a catalog film — arrives
+              <strong>unticked</strong> for exactly that reason: converting it as it stands would write a source named
+              after the ark and nothing else, so it waits until its citation or the image's link gives it a name (tick it
+              anyway if the ark is what you want). Or mark a group <strong>Remove references</strong> (<span class="gm-glyph danger">🗑</span>)
               to strip a dead or obsolete URL from everywhere it appears without creating a source (<span class="gm-glyph">↩</span>
               unmarks it). The tool honors your <a href="#workspace">Settings › GEDCOM</a> format overrides and re-scans
               when you change one, and it shares its run button with the source <strong>duplicate finder</strong> and

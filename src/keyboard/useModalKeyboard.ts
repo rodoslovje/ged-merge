@@ -34,11 +34,23 @@ export function useModalKeyboard<T extends HTMLElement = HTMLDivElement>(
         : [];
 
     // Move focus inside: first focusable control, else the container itself.
-    (focusable()[0] ?? node)?.focus();
+    // A dialog that autofocuses a field of its own has already placed the
+    // caret by now — React's `autoFocus` runs on mount, ahead of this effect —
+    // and taking it back to the close button would undo the dialog's own
+    // answer to "where does typing go?".
+    if (!node?.contains(document.activeElement)) (focusable()[0] ?? node)?.focus();
 
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") {
         e.preventDefault();
+        // The key is the dialog's, and nothing behind it may act on the same
+        // press: closing this modal must not also close the page underneath.
+        // A window-level handler cannot tell — by the time it runs, React has
+        // already flushed the close and the modal it would have checked for is
+        // gone. (This is exactly what the panels' `isModalOpen()` guard was
+        // for, and why a modal whose Escape merely bubbled took its page with
+        // it.)
+        e.stopPropagation();
         onCloseRef.current();
         return;
       }

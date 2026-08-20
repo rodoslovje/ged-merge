@@ -379,6 +379,163 @@ describe("reshapeSources — apply", () => {
     expect(text).toMatch(/1 OBJE @O1@\n1 OBJE @O\d+@\n1 REPO @R1@\n1 CHAN/);
   });
 
+  it("reads a page already cited through the other source that holds it as done", () => {
+    // One image, two source records holding it — an overlap the file made
+    // itself (two books, or a duplicate the merge tool has yet to collapse).
+    // The event cites one of them; which one the scan picks is record order,
+    // so the row must not come back offering the other's citation beside it.
+    const file = `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 SOUR @S2@
+3 PAGE 94
+2 OBJE @O1@
+0 @S1@ SOUR
+1 TITL Krstna knjiga - 03869 (older)
+1 OBJE @O1@
+0 @S2@ SOUR
+1 TITL Krstna knjiga - 03869
+1 OBJE @O1@
+0 @O1@ OBJE
+1 FILE ${BOOK}/?pg=94
+0 TRLR`;
+    const ds = dataset(file);
+    const opts = { pageMedia: "event" as const, relocate: false };
+    // Nothing is listed — the scan picks @S1@ for the group, the file cites @S2@.
+    const report = findReshapableLinks(ds, undefined, opts);
+    expect(report.groups).toHaveLength(0);
+    // …and a run asked for it anyway (an older report, a hand-ticked row)
+    // leaves the citation alone rather than hanging a second one beside it.
+    const forced = findReshapableLinks(ds, undefined, { ...opts, pageMedia: "source" });
+    expect(forced.groups[0].existingSourceXref).toBe("@S1@");
+    const text = serializeGedcom(reshapeSources(ds.records, forced.groups, undefined, opts).records);
+    expect(text.match(/2 SOUR @S\d@/g)).toEqual(["2 SOUR @S2@"]);
+  });
+
+  it("names page media the site titled after itself, and leaves a real title alone", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 OBJE @O1@
+1 DEAT
+2 OBJE @O2@
+1 BURI
+2 OBJE @O3@
+0 @O1@ OBJE
+1 FILE ${BOOK}/?pg=94
+1 TITL Matricula Online
+0 @O2@ OBJE
+1 FILE ${BOOK}/?pg=95
+1 TITL Krstna knjiga; ${BOOK}/?pg=95
+0 @O3@ OBJE
+1 FILE ${BOOK}/?pg=96
+1 TITL Grandmother's baptism, second column
+0 TRLR`);
+    const report = findReshapableLinks(ds);
+    const enrichment = new Map(report.groups.map((g) => [g.id, { title: "Krstna knjiga - 03869 | Šentjur pri Celju" }]));
+    const { records, counts } = reshapeSources(ds.records, report.groups, enrichment);
+    const text = serializeGedcom(records);
+    // The site's own name on every image alike, and a title carrying the raw
+    // address, become the page's own — each with its page number.
+    expect(text).toContain("1 TITL #94 - Krstna knjiga - 03869 | Šentjur pri Celju");
+    expect(text).toContain("1 TITL #95 - Krstna knjiga - 03869 | Šentjur pri Celju");
+    // What someone wrote themselves is theirs.
+    expect(text).toContain("1 TITL Grandmother's baptism, second column");
+    expect(counts.mediaRetitled).toBe(2);
+  });
+
+  it("hangs a new source off the repository the field editor picked", () => {
+    const file = `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 WWW ${BOOK}/?pg=94
+0 @R7@ REPO
+1 NAME Zgodovinski arhiv Ljubljana
+0 TRLR`;
+    const pick = (repoXref: string | undefined) => {
+      const ds = dataset(file);
+      const report = findReshapableLinks(ds);
+      const enrichment = new Map(report.groups.map((g) => [g.id, { title: "Krstna knjiga", repoXref }]));
+      return serializeGedcom(reshapeSources(ds.records, report.groups, enrichment).records);
+    };
+    // One of the file's own — even one the site logic would never propose.
+    expect(pick("@R7@")).toMatch(/0 @S\d+@ SOUR[\s\S]*1 REPO @R7@/);
+    // None at all, in a file whose habit would have written one.
+    expect(pick("")).not.toMatch(/0 @S\d+@ SOUR[\s\S]*1 REPO @/);
+    // The site's proposal outright, created even though this file keeps no
+    // repository for it and its habit alone would not have asked for one.
+    const created = pick("@create@");
+    // Matricula's repository is the holding archive, not the site.
+    expect(created).toContain("1 NAME Maribor");
+    expect(created).toMatch(/0 @S\d+@ SOUR[\s\S]*1 REPO @R8@/);
+    // Silence leaves the habit in charge: no repository in a file with none.
+    expect(pick(undefined)).not.toMatch(/0 @S\d+@ SOUR[\s\S]*1 REPO @/);
+  });
+
+  it("completes a stored FamilySearch link with the image and collection the run learned", () => {
+    // Copied off a page that names neither: only the ark and the collection's
+    // id in the address bar — no i=. The lookup says which image it is, so the
+    // stored link can carry it, and the page number stays readable offline.
+    const bare = "https://www.familysearch.org/ark:/61903/3:1:33SQ-G5FG-7Y?cc=1923888&lang=en&groupId=1923888";
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 WWW ${bare}
+0 TRLR`);
+    const report = findReshapableLinks(ds);
+    const enrichment = new Map(
+      report.groups.map((g) => [g.id, { title: "New York Passenger and Crew Lists", page: "255", collectionId: "1923888" }]),
+    );
+    const text = serializeGedcom(reshapeSources(ds.records, report.groups, enrichment).records);
+    // i= is the page number less one — FamilySearch counts images from one and
+    // its viewer from zero — and the viewer trail is gone.
+    expect(text).toContain("1 FILE https://www.familysearch.org/ark:/61903/3:1:33SQ-G5FG-7Y?i=254&cc=1923888");
+    expect(text).toContain("3 PAGE 255");
+
+    // A page in words names no image, so nothing is invented…
+    const worded = new Map(report.groups.map((g) => [g.id, { title: "X", page: "Entry for Anna Rakar" }]));
+    const wordedText = serializeGedcom(reshapeSources(ds.records, report.groups, worded).records);
+    expect(wordedText).toContain("1 FILE https://www.familysearch.org/ark:/61903/3:1:33SQ-G5FG-7Y?cc=1923888");
+
+    // …and a link that names its own image keeps it, whatever the page says.
+    expect(
+      familySearchPageUrl("https://www.familysearch.org/ark:/61903/3:1:33SQ-G5FG-7Y?i=7&lang=en", {
+        image: "254",
+        cc: "1923888",
+      }),
+    ).toBe("https://www.familysearch.org/ark:/61903/3:1:33SQ-G5FG-7Y?i=7&cc=1923888");
+    // A record page has no image to number: an entry is not a page of a film.
+    expect(
+      familySearchPageUrl("https://familysearch.org/ark:/61903/1:1:XNJ8-FPJ", { image: "254", cc: "1923888" }),
+    ).toBe("https://www.familysearch.org/ark:/61903/1:1:XNJ8-FPJ");
+  });
+
+  it("states the archive's id in one place — the call number where the file uses those", () => {
+    // A file that states ids on the repository link, in the flat vendor
+    // coverage shape: the id belongs on the CALN, and the source's own FILN
+    // must not repeat it. Both would say the same thing twice, and an edit to
+    // one would leave the other stale.
+    const { text } = applyAll(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 WWW ${BOOK}/?pg=94
+0 @S9@ SOUR
+1 TITL Neka druga knjiga
+1 PLAC Vodice
+1 REPO @R1@
+2 CALN 04406
+0 @R1@ REPO
+1 NAME Nadškofijski arhiv Ljubljana
+0 TRLR`);
+    expect(text).toContain("2 CALN 03869");
+    expect(text).not.toContain("1 FILN 03869");
+  });
+
   it("preserves note prose around a removed URL, drops URL-only notes", () => {
     const { text, counts } = applyAll(`0 HEAD
 1 CHAR UTF-8
@@ -1729,6 +1886,26 @@ describe("reshapeSources — citation placement", () => {
     );
     expect(repo).toContain("0 @R1@ REPO");
 
+    // …and choosing another shape never costs a file the repositories it
+    // keeps: page links are a record shape, not a statement about repositories.
+    const withRepos = `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NOTE ${BOOK2}/?pg=94
+0 @S1@ SOUR
+1 TITL Krstna knjiga - 03869
+1 REPO @R9@
+1 OBJE @O1@
+0 @O1@ OBJE
+1 FILE ${BOOK}/?pg=94
+0 @R9@ REPO
+1 NAME Nadškofijski arhiv Ljubljana
+0 TRLR`;
+    for (const layout of ["auto", "paginated"] as const) {
+      const { text } = applyAll(withRepos, { sourceLayout: layout });
+      expect(text.match(/\d REPO @R\d+@/g)?.length).toBe(2);
+    }
+
     // Citation-placement override on the Add Source helper.
     const ds = dataset(`0 HEAD
 1 CHAR UTF-8
@@ -2793,6 +2970,87 @@ describe("FamilySearch image links", () => {
     expect(meta?.place).toBe("Pakrac");
   });
 
+  it("writes the image link the reader put in a record page's place, in the media the file holds", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Anna /Rakar/
+1 IMMI
+2 OBJE @O1@
+0 @O1@ OBJE
+1 FILE ${RECORD_URL}
+0 TRLR`);
+    const report = findReshapableLinks(ds);
+    const group = report.groups[0];
+    expect(group.bookUrl).toBe(RECORD_URL);
+    // What the editor saves once the traded image is looked up: the page's
+    // fields, and the link on every member the trade covers.
+    const enrichment = new Map([
+      [group.id, { title: "Croatia, Church Books, 1516-1994", filingNumber: "005482250" }],
+    ]);
+    const traded = {
+      ...group,
+      members: group.members.map((m) => ({ ...m, swapUrl: IMAGE_URL, page: undefined })),
+    };
+    const { records, counts } = reshapeSources(ds.records, [traded], enrichment);
+    const text = serializeGedcom(records);
+    // The media record the file already had now names the image…
+    expect(text).toContain("1 FILE https://www.familysearch.org/ark:/61903/3:1:3QSQ-G99F-FHWS?i=555&cc=2040054");
+    expect(text).not.toContain(RECORD_URL);
+    expect(counts.linksSwapped).toBe(1);
+    expect(counts.mediaCreated).toBe(0);
+    // …and the citation's page is the image's own number (FamilySearch counts
+    // one ahead of the link's i=555), not the record ark that left with it.
+    expect(text).toContain("3 PAGE 556");
+    expect(text).toContain("1 TITL Croatia, Church Books, 1516-1994");
+    expect(text).not.toContain("1:1:XNJ8-FPJ");
+  });
+
+  it("keeps each traded link when the pages it belongs to are folded into one book", () => {
+    const second = "https://familysearch.org/ark:/61903/1:1:XNJ8-FPK";
+    const secondImage = "https://www.familysearch.org/ark:/61903/3:1:3QSQ-G99F-FHWT?i=556&cc=2040054";
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 IMMI
+2 WWW ${RECORD_URL}
+0 @I2@ INDI
+1 IMMI
+2 WWW ${second}
+0 TRLR`);
+    const report = findReshapableLinks(ds);
+    expect(report.groups).toHaveLength(2);
+    // Both traded pages come back naming one book — which is what folds them.
+    const book = { collection: "Croatia, Church Books, 1516-1994", book: "Births (Rodeni) 1892-1899", place: "Pakrac" };
+    const enrichment = new Map(
+      report.groups.map((g) => [g.id, { ...book, title: "Pakrac - Births (Rodeni) 1892-1899" }]),
+    );
+    const swapFor = new Map([
+      [linkKey(RECORD_URL), IMAGE_URL],
+      [linkKey(second), secondImage],
+    ]);
+    const folded = mergeFsBooks(report, enrichment);
+    expect(folded.report.groups).toHaveLength(1);
+    const selected = folded.report.groups.map((g) => ({
+      ...g,
+      members: g.members.map((m) => ({ ...m, swapUrl: swapFor.get(linkKey(m.url)), page: undefined })),
+    }));
+    const { records, counts } = reshapeSources(ds.records, selected, folded.enrichment, {
+      mergeGroups: folded.keyOf,
+    });
+    const text = serializeGedcom(records);
+    // One source for the book, one page image per traded link — neither page
+    // lost to the other.
+    expect(counts.sourcesCreated).toBe(1);
+    expect(counts.linksSwapped).toBe(0); // no media records existed to re-point
+    expect(text).toContain("1 FILE https://www.familysearch.org/ark:/61903/3:1:3QSQ-G99F-FHWS?i=555&cc=2040054");
+    expect(text).toContain("1 FILE https://www.familysearch.org/ark:/61903/3:1:3QSQ-G99F-FHWT?i=556&cc=2040054");
+    expect(text).not.toContain(RECORD_URL);
+    expect(text).not.toContain(second);
+    expect(text).toContain("3 PAGE 556");
+    expect(text).toContain("3 PAGE 557");
+  });
+
   it("attaches to the file's own repository for that country", () => {
     const ds = dataset([
       "0 HEAD",
@@ -2828,6 +3086,15 @@ describe("FamilySearch image links", () => {
         title: "Illinois, Cook County Deaths, 1871-1998",
       }),
     ).toEqual({ createName: "FamilySearch.org - United States, Illinois" });
+    // The state is the level nearest the country, not the first segment that
+    // happens to share a state's name: Washington in Beaufort County is a town
+    // of North Carolina, and its records hang off North Carolina's repository.
+    expect(
+      proposedSiteRepo(ds.records, "familysearch", BOOK_ONLY_URL, undefined, {
+        title: "New York, New York Passenger and Crew Lists, 1909, 1925-1957",
+        place: "Washington, Beaufort, North Carolina, United States",
+      }),
+    ).toEqual({ createName: "FamilySearch.org - United States, North Carolina" });
     // …though a *generic* site repository still serves every country.
     const withWww = dataset([
       "0 HEAD",

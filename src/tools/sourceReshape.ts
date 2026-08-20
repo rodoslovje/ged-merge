@@ -5,14 +5,16 @@ import {
   buildObjeIndex,
   detectSourceCoverage,
   looseKey,
-  prefersSourceRepos,
+  repoLinkWanted,
   writesCallNumbers,
   isPointer,
   looksLikeUrl,
   pageParamOf,
   sourceTitle,
+  type ObjeIndex,
 } from "../gedcom/source";
 import {
+  familySearchImageIndex,
   familySearchImageNumber as imageNumber,
   familySearchPageUrl,
   linkKey,
@@ -49,6 +51,8 @@ import {
 /** Trailing block of a `SOUR` record that new links must stay ahead of —
  *  shared with the edit dialog's field writer (see gedcom/edit/sources). */
 const SOUR_TRAILING = SOUR_TRAILING_TAGS;
+/** What sits at the tail of a media record — a title goes in front of it. */
+const MEDIA_TRAILING = ["NOTE", "CHAN", "CREA", "_UPD"] as const;
 import { FAM_EVENT_TAGS, INDI_EVENT_TAGS } from "../gedcom/eventTags";
 import { isPrivateNode } from "../gedcom/private";
 import { label } from "../match/relatives";
@@ -156,6 +160,13 @@ export interface ReshapeOccurrence {
   foldedInto?: string;
   /** Per-citation QUAY override (set by the panel); falls back to the group's. */
   quay?: string;
+  /** Panel-set: the link the reader put in this one's place in the ✎ editor —
+   *  a FamilySearch record page (sign-in only, so no lookup reaches it) traded
+   *  for the image it was indexed from. The apply writes this occurrence's page
+   *  media with that URL and re-points the media record the file already holds;
+   *  the citation itself is unaffected. It rides on the occurrence, not the
+   *  group, so it survives the pages of one film being folded into one book. */
+  swapUrl?: string;
 }
 
 /** All occurrences of one archive book / cemetery grave / FS film or collection. */
@@ -217,6 +228,11 @@ export interface ReshapeMeta {
    *  the repository, for files that keep one per FamilySearch collection. */
   collection?: string;
   collectionId?: string;
+  /** The repository the reader picked in the panel's field editor for a source
+   *  this run creates: an existing `REPO`'s xref, `"@create@"` for the one the
+   *  site proposes (created even where the file's own habit would not), or `""`
+   *  for none at all. Left undefined, the file's habit decides as before. */
+  repoXref?: string;
   /** The register label the title was built from ("Births (Rođeni) 1892-1899
    *  Marriages (Vjenčani) 1858-1890"). Kept so a book naming several registers
    *  can be narrowed to the one being cited — see {@link splitFsRegisters}. */
@@ -272,6 +288,10 @@ export interface ReshapeCounts {
   eventsCreated: number;
   /** Stored links shortened to the page they name (`tidyLinks`). */
   linksTidied: number;
+  /** Media records re-pointed at a group's replacement link (`swapUrl`). */
+  linksSwapped: number;
+  /** Page media renamed from a placeholder title to the page's own. */
+  mediaRetitled: number;
 }
 
 const DEFAULT_SITES: ReadonlySet<ReshapeSite> = new Set(ALL_SITES.filter((s) => s !== "other"));
@@ -452,6 +472,20 @@ export function pageObjeTitle(
   if (!site || !title) return undefined;
   if (site === "familysearch") return title;
   return page ? `#${page} - ${title}` : title;
+}
+
+/**
+ * A media title that names where the page came from rather than what it is:
+ * empty, the site's own name (what its save button writes on every image
+ * alike), or one carrying the raw address. Only those are renamed when the
+ * page's book gets a name — a title someone wrote is theirs.
+ */
+function placeholderMediaTitle(title: string | undefined, site: ReshapeSite, url: string): boolean {
+  const text = (title ?? "").trim();
+  if (!text) return true;
+  if (text === SITE_REPO[site]?.name) return true;
+  if (/https?:\/\//i.test(text)) return true;
+  return linkKey(text) === linkKey(url);
 }
 
 /** First quoted phrase in citation text — FamilySearch-style collection titles,
@@ -1519,7 +1553,14 @@ function relocationTarget(
 function isSettledPointer(
   hit: ScanHit,
   move: { eventTag: string } | undefined,
-  sourceXref: string | undefined,
+  /** The source this run would cite, plus every other source in the file whose
+   *  own page media is this very page. One image under two source records is a
+   *  file's own doing (two books overlapping, a duplicate left behind), and
+   *  which of them the scan picks is a matter of record order — so a citation
+   *  of *either* is this pointer's citation. Reading only the picked one left
+   *  the row offered for ever, and each apply hung a second citation of the
+   *  other source on the same event. */
+  sourceXrefs: readonly (string | undefined)[],
   pageMedia: PageMediaStyle,
   page: string | undefined,
   /** The quality this run would write, if the reader chose one — a citation
@@ -1527,15 +1568,36 @@ function isSettledPointer(
   quay: string | undefined,
 ): boolean {
   if (hit.shape !== "obje" || !hit.objeXref || move || hit.foldedInto || hit.twinEvent) return false;
-  if (pageMedia !== "event" || !sourceXref) return false;
+  const cites = new Set(sourceXrefs.filter((x): x is string => !!x));
+  if (pageMedia !== "event" || cites.size === 0) return false;
   // With no page known this run, any citation of the source settles the
   // pointer: a PAGE that only enrichment knows (the grave plot) isn't
   // derivable from the URL, so an offline rerun must still converge instead
   // of re-attaching a page-less citation beside the enriched one.
   const cite = childrenByTag(hit.container, "SOUR").find(
-    (c) => c.value?.trim() === sourceXref && (page === undefined || (childText(c, "PAGE") ?? "") === page),
+    (c) => cites.has(c.value?.trim() ?? "") && (page === undefined || (childText(c, "PAGE") ?? "") === page),
   );
   return !!cite && (!quay || !!firstChild(cite, "QUAY"));
+}
+
+/** Which sources hold each page as their own media (`SOUR > OBJE > FILE`), by
+ *  the page's link key — several where the file keeps the same image under
+ *  more than one source. Built in one pass; see {@link isSettledPointer}. */
+function sourcesHoldingPages(records: GedNode[], objeIndex: ObjeIndex): Map<string, string[]> {
+  const map = new Map<string, string[]>();
+  for (const rec of records) {
+    if (rec.tag !== "SOUR" || !rec.xref) continue;
+    for (const child of rec.children) {
+      if (child.tag !== "OBJE" || !child.value) continue;
+      const url = objeIndex.get(child.value.trim())?.url;
+      if (!url) continue;
+      const key = linkKey(url);
+      const held = map.get(key);
+      if (held) held.push(rec.xref);
+      else map.set(key, [rec.xref]);
+    }
+  }
+  return map;
 }
 
 
@@ -1562,13 +1624,9 @@ function resolveFormatOptions(records: GedNode[], opts: ReshapeOptions) {
     baptismTag: auto(opts.baptism, () => baptismTargetTag(records)),
     coverage: auto(opts.sourceCoverage, () => detectSourceCoverage(records)),
     // Repository creation is its own habit, independent of the page-link
-    // shape (files with page-link sources usually ALSO repo-link each one):
-    // an explicit layout override decides directly; "auto" follows the
-    // file's own REPO majority.
-    createRepos:
-      opts.sourceLayout && opts.sourceLayout !== "auto"
-        ? opts.sourceLayout === "repository"
-        : prefersSourceRepos(records),
+    // shape (files with page-link sources usually ALSO repo-link each one) —
+    // see `repoLinkWanted`.
+    createRepos: repoLinkWanted(records, opts.sourceLayout),
   };
 }
 
@@ -1590,6 +1648,7 @@ export function findReshapableLinks(
   for (const r of dataset.records) if (r.xref) byXref.set(r.xref, r);
   const objeIndex = buildObjeIndex(dataset.records);
   const ctx: RelocationContext = { byXref, urlOfObje: (xref) => objeIndex.get(xref)?.url };
+  const pageHolders = sourcesHoldingPages(dataset.records, objeIndex);
 
   const recordLabel = (rec: GedNode): string => {
     if (rec.tag === "INDI") {
@@ -1613,7 +1672,8 @@ export function findReshapableLinks(
         relocate && !hit.foldedInto && !hit.twinEvent
           ? relocationTarget(hit, g.bookType, baptismTag, ctx, g.existingSourceXref)
           : undefined;
-      if (isSettledPointer(hit, move, g.existingSourceXref, pageMedia, hit.recognized.page, opts.quay)) return [];
+      const holders = [g.existingSourceXref, ...(pageHolders.get(linkKey(hit.url)) ?? [])];
+      if (isSettledPointer(hit, move, holders, pageMedia, hit.recognized.page, opts.quay)) return [];
       return [
         {
           recordXref: hit.rec.xref ?? "?",
@@ -2424,12 +2484,9 @@ export function applySiteSourceExtras(
   // "none": the caller handles the repository choice itself (the Add Source
   // dialog's explicit dropdown) — only the PLAC/DATE fills apply here.
   if (opts.repo === "none" || !site || firstChild(sourceNode, "REPO")) return undefined;
-  const createRepos =
-    opts.sourceLayout && opts.sourceLayout !== "auto"
-      ? opts.sourceLayout === "repository"
-      : // The source being enriched is already in `records` — it must not
-        // vote against the habit it is about to follow.
-        prefersSourceRepos(records, sourceNode);
+  // The source being enriched is already in `records` — it must not vote
+  // against the habit it is about to follow.
+  const createRepos = repoLinkWanted(records, opts.sourceLayout, sourceNode);
   const repo = ensureSiteRepo(records, site, url, childText(sourceNode, "AGNC"), createRepos, {
     title: meta.collection,
     id: meta.collectionId,
@@ -2496,6 +2553,8 @@ export function reshapeSources(
     notesRewritten: 0,
     eventsCreated: 0,
     linksTidied: 0,
+    linksSwapped: 0,
+    mediaRetitled: 0,
   };
   if (selected.length === 0) return { records, counts };
 
@@ -2519,6 +2578,10 @@ export function reshapeSources(
   // Media index built ONCE for the whole apply (a per-group rebuild is a full
   // forest scan each time); OBJEs this run creates are tracked alongside.
   const cloneObjeIndex = buildObjeIndex(clone);
+  // Which sources hold each page as their own media — read before this run
+  // links any, so a page already cited through another source is left as it is
+  // rather than cited twice (see `isSettledPointer`).
+  const pageHolders = sourcesHoldingPages(clone, cloneObjeIndex);
   const createdObjeUrls = new Map<string, string>();
   const urlOfObje = (xref: string): string | undefined =>
     cloneObjeIndex.get(xref)?.url ?? createdObjeUrls.get(xref);
@@ -2560,6 +2623,20 @@ export function reshapeSources(
       continue;
     }
 
+    // Links the reader traded for another in the ✎ editor — a FamilySearch
+    // record page for the image behind it. Keyed by the link they replace, so
+    // a trade still finds its occurrences after the pages of one film have
+    // been folded into a single book.
+    const swapByUrl = new Map<string, string>();
+    for (const m of selection.members) {
+      if (m.swapUrl && linkKey(m.swapUrl) !== linkKey(m.url)) {
+        swapByUrl.set(linkKey(m.url), familySearchPageUrl(m.swapUrl));
+      }
+    }
+    const swapOf = (hit: ScanHit): string | undefined => swapByUrl.get(linkKey(hit.url));
+    /** The URL a hit's page media is written with — its own, or the trade. */
+    const urlFor = (hit: ScanHit): string => swapOf(hit) ?? hit.url;
+
     const extra = enrichment?.get(key);
     const bookType = extra?.bookType ?? g.bookType;
     const fields = {
@@ -2580,15 +2657,14 @@ export function reshapeSources(
     if (sourceNode) {
       counts.sourcesReused++;
       // A record made before the id was known keeps its own title, but the
-      // empty filing number is the tool's to fill: it is the id the link
-      // carries, and without it nothing on the record says which grave (or
-      // which book) this is.
-      fillField(sourceNode, "FILN", fields.filingNumber);
-      // The call number mirrors it inside the repository — but only in a file
-      // that states ids there; where FILN is the file's field, the line above
-      // has already said it.
+      // empty id is the tool's to fill: it is what the link carries, and
+      // without it nothing on the record says which grave (or which book)
+      // this is. It goes in the one place this file states ids — the
+      // repository link's call number, or the source's own filing number,
+      // never both (see `writesCallNumbers`).
       const repoLink = callNumbers ? firstChild(sourceNode, "REPO") : undefined;
       if (repoLink) fillField(repoLink, "CALN", fields.filingNumber);
+      else fillField(sourceNode, "FILN", fields.filingNumber);
     } else {
       sourceNode = createSourceRecord(clone, fields);
       byXref.set(sourceNode.xref!, sourceNode);
@@ -2607,11 +2683,20 @@ export function reshapeSources(
         fillField(sourceNode, "PLAC", fields.place);
         fillField(sourceNode, "DATE", fields.dateRange);
       }
-      const repo = ensureSiteRepo(clone, g.site, state.hits[0].url, fields.agency, createRepos, {
-        title: extra?.collection ?? fields.title,
-        id: extra?.collectionId,
-        place: fields.place,
-      });
+      // The reader's own choice in the field editor, where they made one: a
+      // repository of the file, the site's proposal outright, or none. Silence
+      // leaves it to the file's habit, as before.
+      const picked = extra?.repoXref;
+      const repo =
+        picked === ""
+          ? undefined
+          : picked && picked !== "@create@"
+            ? { xref: picked }
+            : ensureSiteRepo(clone, g.site, urlFor(state.hits[0]), fields.agency, createRepos || picked === "@create@", {
+                title: extra?.collection ?? fields.title,
+                id: extra?.collectionId,
+                place: fields.place,
+              });
       if (repo) {
         if (repo.created) byXref.set(repo.created.xref!, repo.created);
         const link: GedNode = { level: 1, tag: "REPO", value: repo.xref, children: [] };
@@ -2620,9 +2705,11 @@ export function reshapeSources(
         // strict reader looks for it is the repository link's CALN.
         if (fields.filingNumber && callNumbers) {
           link.children.push({ level: 2, tag: "CALN", value: fields.filingNumber, children: [] });
-          // In the standard shape FILN is not a source field at all — the
-          // call number now carries the id.
-          const filn = standard && firstChild(sourceNode, "FILN");
+          // The call number now carries the id, so the source's own field must
+          // not repeat it: a file holding the same id twice says it twice, and
+          // a reader who edits one leaves the other stale. (A source that ends
+          // up with no repository keeps its FILN — the id must live somewhere.)
+          const filn = firstChild(sourceNode, "FILN");
           if (filn) spliceChild(sourceNode, filn);
         }
         sourceNode.children.push(link);
@@ -2630,20 +2717,6 @@ export function reshapeSources(
     }
     const sourceXref = sourceNode.xref!;
 
-    // Asked for it, shorten what the media already holds: the same link, minus
-    // the viewer state that made one page look like several.
-    if (opts.tidyLinks) {
-      for (const hit of state.hits) {
-        const obje = hit.objeXref ? byXref.get(hit.objeXref) : undefined;
-        const file = obje && firstChild(obje, "FILE");
-        const stored = file?.value?.trim();
-        const tidied = stored && familySearchPageUrl(stored);
-        if (file && tidied && tidied !== stored) {
-          file.value = tidied;
-          counts.linksTidied++;
-        }
-      }
-    }
 
     // Which page of the source each link is. A page number the URL itself
     // carries wins; then the one the report put on that member — for a book
@@ -2651,8 +2724,64 @@ export function reshapeSources(
     // number lives; then the group's own, for a source cited at one page.
     const pageByUrl = new Map<string, string>();
     for (const m of selection.members) if (m.page) pageByUrl.set(linkKey(m.url), m.page);
-    const pageOf = (hit: ScanHit): string | undefined =>
-      hit.recognized.page ?? pageByUrl.get(linkKey(hit.url)) ?? extra?.page;
+    // A traded link is a different page of the source, so the number read off
+    // the link it replaced says nothing: the member carries the page the editor
+    // settled on (that is what the reader saw), and the new link's own number
+    // backs it up.
+    const pageOf = (hit: ScanHit): string | undefined => {
+      const swap = swapOf(hit);
+      if (swap) return pageByUrl.get(linkKey(hit.url)) ?? recognizeSourceUrl(swap)?.page ?? extra?.page;
+      return hit.recognized.page ?? pageByUrl.get(linkKey(hit.url)) ?? extra?.page;
+    };
+
+    /** The link this run stores for a page: canonical, and completed with what
+     *  the run has learned that the copied link left out — the image its page
+     *  number names, the collection its lookup resolved. What the link itself
+     *  carries always stands. */
+    const storedLink = (url: string, hit: ScanHit): string =>
+      familySearchPageUrl(url, { image: familySearchImageIndex(pageOf(hit)), cc: extra?.collectionId });
+
+    // Re-point what the media already holds: at the traded link where the
+    // reader chose one, else — asked for it — at the same link in the form the
+    // file stores, minus the viewer state that made one page look like several
+    // and plus the page and collection the link was copied without.
+    if (opts.tidyLinks || swapByUrl.size) {
+      for (const hit of state.hits) {
+        const xref = hit.objeXref;
+        const obje = xref ? byXref.get(xref) : undefined;
+        const file = obje && firstChild(obje, "FILE");
+        const stored = file?.value?.trim();
+        const swap = swapOf(hit);
+        const next = swap ? storedLink(swap, hit) : opts.tidyLinks && stored ? storedLink(stored, hit) : undefined;
+        if (xref && file && next && next !== stored) {
+          file.value = next;
+          // The index the OBJE-per-page pass reads was taken before this
+          // rewrite — leave it saying what the record now holds.
+          cloneObjeIndex.delete(xref);
+          createdObjeUrls.set(xref, next);
+          if (swap) counts.linksSwapped++;
+          else counts.linksTidied++;
+        }
+      }
+    }
+
+    // --- Name the media the file already holds for these pages. A page image
+    // saved from the site carries whatever the site's own button wrote — every
+    // one of them "FamilySearch.org", or the raw address — which says where it
+    // came from and nothing about what it is. Once the lookup has named the
+    // book, its pages can be named after it, exactly as a media record this run
+    // creates is. A title that already says something is left alone.
+    for (const hit of state.hits) {
+      const obje = hit.objeXref ? byXref.get(hit.objeXref) : undefined;
+      if (!obje) continue;
+      const titl = firstChild(obje, "TITL");
+      if (!placeholderMediaTitle(titl?.value, g.site, hit.url)) continue;
+      const named = pageObjeTitle(g.site, fields.title, pageOf(hit));
+      if (!named || named === titl?.value?.trim()) continue;
+      if (titl) titl.value = named;
+      else insertGrouped(obje, { level: obje.level + 1, tag: "TITL", value: named, children: [] }, MEDIA_TRAILING);
+      counts.mediaRetitled++;
+    }
 
     // --- Rewrite URL-titled SOUR records in place (every one in the group, so
     // the duplicates tool can consolidate them afterwards).
@@ -2689,7 +2818,8 @@ export function reshapeSources(
     // duplicate media record while orphaning the existing one.
     const ensureOrder = [...state.hits].sort((a, b) => Number(!!b.objeXref) - Number(!!a.objeXref));
     for (const hit of ensureOrder) {
-      const urlKey = linkKey(hit.url);
+      const hitUrl = urlFor(hit);
+      const urlKey = linkKey(hitUrl);
       if (seenUrls.has(urlKey) || linkedKeys.has(urlKey)) continue;
       seenUrls.add(urlKey);
       const page = pageOf(hit);
@@ -2702,8 +2832,8 @@ export function reshapeSources(
         // Written stripped of viewer state but keeping what selects the page,
         // so a page linked twice by two readers lands as one media record and
         // still reopens where it was copied (see `familySearchPageUrl`).
-        const obje = addObjeToSource(clone, sourceXref, familySearchPageUrl(hit.url), objeTitle);
-        if (obje.xref) createdObjeUrls.set(obje.xref, hit.url);
+        const obje = addObjeToSource(clone, sourceXref, storedLink(hitUrl, hit), objeTitle);
+        if (obje.xref) createdObjeUrls.set(obje.xref, hitUrl);
         counts.mediaCreated++;
       }
       linkedKeys.add(urlKey);
@@ -2762,7 +2892,8 @@ export function reshapeSources(
 
       const page = pageOf(hit);
       const move = relocate && !hit.twinEvent ? relocationTarget(hit, bookType, baptismTag, ctx, sourceXref) : undefined;
-      if (isSettledPointer(hit, move, sourceXref, pageMedia, page, quayFor)) continue;
+      if (isSettledPointer(hit, move, [sourceXref, ...(pageHolders.get(linkKey(hit.url)) ?? [])], pageMedia, page, quayFor))
+        continue;
       let container = hit.container;
       if (move) {
         const host = move.famXref ? byXref.get(move.famXref) : hit.rec;
@@ -2845,7 +2976,7 @@ export function reshapeSources(
         } else if (duplicate) {
           spliceChild(container, citation);
         }
-        ensurePageMedia(container, order, hit.url);
+        ensurePageMedia(container, order, urlFor(hit));
         counts.citationsRewritten++;
         continue;
       }
@@ -2893,7 +3024,7 @@ export function reshapeSources(
       }
       // After the original node is gone, so an in-place pointer re-checks
       // cleanly: the citation's container gets the cited page's image.
-      ensurePageMedia(container, order, hit.url);
+      ensurePageMedia(container, order, urlFor(hit));
     }
   }
 

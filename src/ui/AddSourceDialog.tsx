@@ -5,14 +5,17 @@ import { findExistingSource, type FsSourceHint } from "../gedcom/source";
 import { parseSourceInput } from "../gedcom/citationParse";
 import { inferMainProfile } from "../normalize/profile";
 import { familySearchPageUrl, rewriteLinkLang } from "../normalize/links";
-import { fetchPageHtml, fetchPageTitle } from "../normalize/urlMetadata";
-import { fetchBookMeta, makePlaceResolver, narrowFsRegister, proposedSiteRepo, recognizeSourceUrl, siteSourceTitle, SITE_ICON, splitFsRegisters, type ReshapeMeta, type ReshapeSite } from "../tools/sourceReshape";
-import { detectSourceCoverage, prefersSourceRepos, writesCallNumbers } from "../gedcom/source";
+import { makePlaceResolver, narrowFsRegister, proposedSiteRepo, recognizeSourceUrl, siteSourceTitle, SITE_ICON, splitFsRegisters, type ReshapeMeta, type ReshapeSite } from "../tools/sourceReshape";
+import { detectSourceCoverage, repoLinkWanted, writesCallNumbers } from "../gedcom/source";
 import { childText } from "../gedcom/node";
 import { useSettings } from "./SettingsContext";
 import { useDebounced } from "./tools/shared";
 import { SelectMenu } from "./DropdownMenu";
-import { linkHref, linkTooltip } from "./FieldValue";
+import { idField } from "./source/standardFields";
+import { SourceFieldsForm } from "./source/SourceFieldsForm";
+import { useSourceLookup } from "./source/useSourceLookup";
+import { SourceDialogShell } from "./source/SourceDialogShell";
+import { SourceLinkRow } from "./source/SourceLinkRow";
 import type { Translate } from "../locales/i18n";
 
 /** Fields confirmed by the dialog, ready for `EditView`'s commit handler to
@@ -86,35 +89,6 @@ function extractPage(url: string): string | undefined {
   return /[?&]pg=(\d+)/i.exec(url)?.[1];
 }
 
-/**
- * The GEDCOM line a field writes when the standard has no such line on a
- * source — so the dialog can say which of its fields your other programs may
- * not read back.
- *
- * `PERI` and `FILN` are extensions wherever they appear. A source's `PLAC` and
- * `AGNC` are only extensions where the file writes them flat: the standard
- * states both inside `DATA > EVEN`, which is exactly what a standard-coverage
- * file does, and there the same two fields are the spec's own.
- */
-function nonStandardTag(key: keyof FormState, coverage: "vendor" | "standard"): string | undefined {
-  if (key === "periodical") return "PERI";
-  if (key === "filingNumber") return "FILN";
-  if (coverage === "standard") return undefined;
-  if (key === "place") return "PLAC";
-  if (key === "agency") return "AGNC";
-  return undefined;
-}
-
-/** The muted mark beside such a field's label; the tooltip says what it is. */
-function NonStandard({ tag, t }: { tag: string | undefined; t: Translate }) {
-  if (!tag) return null;
-  return (
-    <span className="add-source-nonstd" title={t("addSource.nonStandard", { tag })} aria-label={t("addSource.nonStandard", { tag })}>
-      *
-    </span>
-  );
-}
-
 function titleOf(dataset: Dataset, sourceXref: string): string | undefined {
   const rec = dataset.records.find((r) => r.tag === "SOUR" && r.xref === sourceXref);
   return rec?.children.find((c) => c.tag === "TITL")?.value?.trim();
@@ -130,7 +104,6 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
   const [repoName, setRepoName] = useState("");
   // Call number (CALN) on the source's repository link.
   const [repoCaln, setRepoCaln] = useState("");
-  const [fetching, setFetching] = useState(false);
   const [fetched, setFetched] = useState<ReshapeMeta | undefined>();
   // One register of a book that holds several ("Births … 1892-1899 Marriages …
   // 1858-1890"), once the reader says which one this page is.
@@ -139,8 +112,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
   // lookup improves only what the dialog itself put there.
   const repoTouched = useRef(false);
   const { settings } = useSettings();
-  const restoreFocusRef = useRef<HTMLElement | null>(null);
-  const wasOpenRef = useRef(false);
+  const { targetOf, lookUp, fetching } = useSourceLookup(settings.allowLinkFetch);
 
   const mainLinkLangs = useMemo(() => inferMainProfile(dataset).linkLangs, [dataset]);
   // Places shown in the dialog already match the file's own place format —
@@ -244,10 +216,10 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
   );
   // Whether the file's convention hangs sources off repositories — decides if
   // the create-proposal is preselected or merely offered.
-  const layoutPrefersRepos = useMemo(() => {
-    const override = settings.formatOverrides.sourceLayout ?? "auto";
-    return override !== "auto" ? override === "repository" : prefersSourceRepos(dataset.records);
-  }, [settings.formatOverrides.sourceLayout, dataset]);
+  const layoutPrefersRepos = useMemo(
+    () => repoLinkWanted(dataset.records, settings.formatOverrides.sourceLayout),
+    [settings.formatOverrides.sourceLayout, dataset],
+  );
   // Which shape this file states a source's coverage in — it decides whether
   // the Place and Agency fields are the standard's own or the flat vendor
   // ones, and so whether they are marked.
@@ -255,6 +227,12 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
     const override = settings.formatOverrides.sourceCoverage ?? "auto";
     return override !== "auto" ? override : detectSourceCoverage(dataset.records);
   }, [settings.formatOverrides.sourceCoverage, dataset]);
+  /** Whether this file states the archive's id beside the repository — then
+   *  the source's own filing-number field is not the one that gets written. */
+  const idOnRepo = useMemo(
+    () => idField(dataset.records, coverage, repoSel !== "").caln,
+    [dataset, coverage, repoSel],
+  );
   const matchTitle = useMemo(() => (match ? titleOf(dataset, match.sourceXref) : undefined), [dataset, match]);
   const urlOnly =
     parsed.url !== undefined &&
@@ -337,15 +315,10 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
    */
   async function refetch() {
     const url = fields.url.trim();
-    if (!url || fetching || !settings.allowLinkFetch) return;
-    const normalized = familySearchPageUrl(rewriteLinkLang(url, mainLinkLangs));
-    const site = recognizeSourceUrl(normalized, undefined);
-    setFetching(true);
-    const request: Promise<ReshapeMeta | undefined> = site
-      ? fetchBookMeta(site.site, site.bookUrl, fetchPageHtml)
-      : fetchPageTitle(normalized).then((title) => (title ? { title } : undefined));
-    const meta = await request.catch(() => undefined);
-    setFetching(false);
+    if (!url || fetching) return;
+    const asked = rewriteLinkLang(url, mainLinkLangs);
+    const site = targetOf(asked);
+    const meta = await lookUp(asked, { anyPage: true });
     if (!meta) return;
     setFetched(meta);
     const keep = (current: string, value: string | undefined) => value?.trim() || current;
@@ -384,20 +357,11 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
   // A recognized site URL goes through the cleanup tool's per-site parsers
   // (curated title, agency, place, date range) instead of the raw page title.
   useEffect(() => {
-    if (editing || !settings.allowLinkFetch || !urlOnly || match || !normalizedUrl) {
-      setFetching(false);
-      return;
-    }
+    if (editing || !settings.allowLinkFetch || !urlOnly || match || !normalizedUrl) return;
     let cancelled = false;
-    setFetching(true);
     const proposal = recognized?.proposed;
-    const request: Promise<ReshapeMeta | undefined> = recognized
-      ? fetchBookMeta(recognized.site, recognized.bookUrl, fetchPageHtml)
-      : fetchPageTitle(normalizedUrl).then((title) => (title ? { title } : undefined));
-    request.then((meta) => {
-      if (cancelled) return;
-      setFetching(false);
-      if (!meta) return;
+    void lookUp(normalizedUrl, { anyPage: true }).then((meta) => {
+      if (cancelled || !meta) return;
       setFetched(meta);
       // Fetched metadata upgrades a field only while it still holds the
       // offline proposal (or is empty) — the user's own edits always win.
@@ -419,32 +383,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
       );
     });
     return () => { cancelled = true; };
-  }, [editing, normalizedUrl, urlOnly, match, settings.allowLinkFetch, recognized, resolvePlace]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") handleClose();
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen]); // handleClose intentionally omitted — stable by design, only wraps onClose prop
-
-  // Remember what was focused before the dialog opened (this render runs before
-  // the dialog's own autoFocus), so focus can return there when it closes — a
-  // keyboard user lands back on the trigger and can Tab onward.
-  if (isOpen && !wasOpenRef.current) {
-    restoreFocusRef.current = document.activeElement as HTMLElement | null;
-  }
-  useEffect(() => {
-    const wasOpen = wasOpenRef.current;
-    wasOpenRef.current = isOpen;
-    if (isOpen || !wasOpen) return;
-    const el = restoreFocusRef.current;
-    restoreFocusRef.current = null;
-    if (el && document.contains(el)) el.focus();
-  }, [isOpen]);
+  }, [editing, normalizedUrl, urlOnly, match, settings.allowLinkFetch, recognized, resolvePlace, lookUp]);
 
   if (!isOpen) return null;
 
@@ -454,7 +393,6 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
     setRepoSel("");
     setRepoName("");
     setRepoCaln("");
-    setFetching(false);
     setFetched(undefined);
     setRegister(undefined);
     repoTouched.current = false;
@@ -555,31 +493,27 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
       handleAdd();
     }
   }
-  const field = (key: keyof FormState, labelKey: string, wide?: boolean) => (
-    <label className={wide ? "add-source-field add-source-field-wide" : "add-source-field"}>
-      <span>
-        {t(labelKey)}
-        <NonStandard tag={nonStandardTag(key, coverage)} t={t} />
-      </span>
-      <input
-        className="edit-input"
-        value={fields[key]}
-        onChange={(e) => setFields((f) => ({ ...f, [key]: e.target.value }))}
-      />
-    </label>
-  );
-
   return (
-    <div className="modal-overlay" onClick={handleClose}>
-      <div className="modal add-source-dialog" role="dialog" aria-modal="true" aria-label={t(editing ? "editSource.title" : "addSource.title")} onClick={(e) => e.stopPropagation()} onKeyDown={onDialogKeyDown}>
-        <div className="modal-header">
-          <h2>
-            <span className="add-source-badge" aria-hidden="true">📖</span>
-            {t(editing ? "editSource.title" : "addSource.title")}
-          </h2>
-          <button className="modal-close" onClick={handleClose} title={t("help.close")} aria-label={t("help.close")}>×</button>
-        </div>
-        <div className="modal-body">
+    <SourceDialogShell
+      icon="📖"
+      title={t(editing ? "editSource.title" : "addSource.title")}
+      t={t}
+      onClose={handleClose}
+      onKeyDown={onDialogKeyDown}
+      actions={
+        <>
+          {editing?.onRemove && (
+            <button className="tree-open-btn add-source-remove" onClick={handleRemove}>{t("editSource.remove")}</button>
+          )}
+          <button className="tree-open-btn" onClick={handleClose}>{t("addSource.cancel")}</button>
+          {editing ? (
+            <button className="add-source-submit" onClick={handleSave}>{t("editSource.save")}</button>
+          ) : (
+            <button className="add-source-submit" disabled={!canAdd} onClick={handleAdd}>{t("addSource.add")}</button>
+          )}
+        </>
+      }
+    >
           {!editing && (
             <label className="add-source-field">
               <span>{t("addSource.field.link")}</span>
@@ -640,28 +574,34 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
           )}
           {fetching && !recognized && <div className="add-source-hint">{t("addSource.fetching")}</div>}
           {!match && (
-            <>
-              {field("title", "addSource.field.title")}
-              {/* Ordered by how often an archive source fills them: the
-                  institution holding the records rides beside the author,
-                  then what it publishes and where it is, and last — on the
-                  row above the repository it belongs to — the periodical and
-                  the archive's own number. */}
-              <div className="add-source-details-grid">
-                {field("author", "addSource.field.author")}
-                {field("agency", "addSource.field.agency")}
-                {field("publisher", "addSource.field.publisher")}
-                {field("place", "addSource.field.place")}
-                {/* Page is citation-local — editing the record itself (Tools →
-                    Sources) has no citation to carry it. */}
-                {!(standalone && editing) && field("page", "addSource.field.page")}
-                {field("note", "addSource.field.note", true)}
-                {field("periodical", "addSource.field.periodical")}
-                {field("filingNumber", "addSource.field.filingNumber")}
-              </div>
-            </>
+            <SourceFieldsForm
+              values={{ ...fields, dateRange: "" }}
+              onChange={(key, value) => setFields((f) => ({ ...f, [key]: value }))}
+              show={{
+                // Page is citation-local — editing the record itself (Tools →
+                // Sources) has no citation to carry it. A source's own year
+                // range is not among this dialog's fields; the site lookup
+                // writes it, and the Organize sources editor offers it.
+                page: !(standalone && editing),
+                dateRange: false,
+              }}
+              coverage={coverage}
+              idOnRepo={idOnRepo}
+              t={t}
+            />
           )}
-          {match && !standalone && field("page", "addSource.field.page")}
+          {/* A link that matches a source the file already has adds only its
+              page — the source's own fields are the file's, not a proposal's. */}
+          {match && !standalone && (
+            <label className="add-source-field">
+              <span>{t("addSource.field.page")}</span>
+              <input
+                className="edit-input"
+                value={fields.page}
+                onChange={(e) => setFields((f) => ({ ...f, page: e.target.value }))}
+              />
+            </label>
+          )}
           {!match && (
             <div className="add-source-details-grid">
               <label className="add-source-field">
@@ -696,7 +636,11 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
                   ]}
                 />
               </label>
-              {repoSel !== "" && (
+              {/* The call number is written on this link (`REPO > CALN`), so
+                  it stands beside it — and only where the file states its ids
+                  there: the same value would otherwise be asked for twice,
+                  once as the source's own filing number. */}
+              {repoSel !== "" && idOnRepo && (
                 <label className="add-source-field">
                   <span>{t("addSource.field.caln")}</span>
                   <input className="edit-input" value={repoCaln} onChange={(e) => setRepoCaln(e.target.value)} />
@@ -724,54 +668,19 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
               )}
             </div>
           )}
-          {/* The ↗ sits in an inner wrap beside the input alone (not beside the
-              whole labelled field, where flex-end parked it at the row's foot,
-              below the input's centerline). */}
-          <label className="add-source-field add-source-url-row">
-            <span>{t("addSource.field.url")}</span>
-            <span className="add-source-url-wrap">
-              <input
-                className="edit-input"
-                value={fields.url}
-                onChange={(e) => setFields((f) => ({ ...f, url: e.target.value }))}
-              />
-              {editing && fields.url.trim() && (
-                <a className="edit-link-open" href={linkHref(fields.url.trim())} target="_blank" rel="noopener noreferrer" title={linkTooltip(fields.url.trim(), t, t("edit.openLink"))}>
-                  ↗
-                </a>
-              )}
-              {/* Read the page again and fill these fields from it — for a
-                  record made before the lookup could answer, or made offline
-                  from the link alone. Only ever offered while the reader has
-                  online lookups on; the fields are the reader's to check
-                  before Save writes any of it. */}
-              {editing && fields.url.trim() && (
-                <button
-                  type="button"
-                  className="tree-open-btn add-source-refetch"
-                  disabled={fetching || !settings.allowLinkFetch}
-                  title={settings.allowLinkFetch ? t("editSource.refetchHint") : t("tools.geocode.downloadNeedsOptIn")}
-                  onClick={() => void refetch()}
-                >
-                  {fetching && <span className="spinner" aria-hidden="true" />}
-                  {t("editSource.refetch")}
-                </button>
-              )}
-            </span>
-          </label>
-        </div>
-        <div className="add-source-actions">
-          {editing?.onRemove && (
-            <button className="tree-open-btn add-source-remove" onClick={handleRemove}>{t("editSource.remove")}</button>
-          )}
-          <button className="tree-open-btn" onClick={handleClose}>{t("addSource.cancel")}</button>
-          {editing ? (
-            <button className="add-source-submit" onClick={handleSave}>{t("editSource.save")}</button>
-          ) : (
-            <button className="add-source-submit" disabled={!canAdd} onClick={handleAdd}>{t("addSource.add")}</button>
-          )}
-        </div>
-      </div>
-    </div>
+          {/* Read the page again and fill these fields from it — for a record
+              made before the lookup could answer, or made offline from the
+              link alone. Offered while editing a record that has a link; the
+              fields are the reader's to check before Save writes any of it. */}
+          <SourceLinkRow
+            label={t("addSource.field.url")}
+            value={fields.url}
+            onChange={(v) => setFields((f) => ({ ...f, url: v }))}
+            onLookUp={editing && fields.url.trim() ? () => void refetch() : undefined}
+            fetching={fetching}
+            lookupAllowed={settings.allowLinkFetch}
+            t={t}
+          />
+    </SourceDialogShell>
   );
 }
