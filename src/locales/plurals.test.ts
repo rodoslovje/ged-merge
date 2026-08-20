@@ -86,6 +86,33 @@ describe("Slovenian plural forms", () => {
   });
 });
 
+describe("Slovenian gendered health-check findings", () => {
+  const g = (key: string, context?: "M" | "F") =>
+    inst.sl.t(key, { context, age: 104, max: 99, fam: "@F1@", count: 1 }) as string;
+
+  it("agrees the finding with the record's sex", () => {
+    expect(g("tools.validate.issue.ageAtDeath", "M")).toBe("Umrl pri starosti 104 (nad 99)");
+    expect(g("tools.validate.issue.ageAtDeath", "F")).toBe("Umrla pri starosti 104 (nad 99)");
+    expect(g("tools.validate.issue.ageAtMarriage", "F")).toContain("Poročena");
+    expect(g("tools.validate.issue.livingTooOld", "F")).toContain("bi imela");
+    expect(g("tools.validate.issue.orphan", "F")).toBe("Ni povezana z nobeno družino");
+    expect(g("tools.validate.issue.famsMissing", "M")).toBe("Naveden kot zakonec v neobstoječi družini @F1@");
+    expect(g("tools.validate.issue.pedigreeLoop", "F")).toContain("Je svoja lastna prednica");
+  });
+
+  it("keeps the neutral form when the sex is unrecorded", () => {
+    expect(g("tools.validate.issue.ageAtDeath")).toContain("Umrl(a)");
+    expect(g("tools.validate.issue.orphan")).toContain("povezan(a)");
+  });
+
+  it("leaves a finding with no gendered form alone, context or not", () => {
+    // i18next falls back to the base key — including through a plural, so the
+    // count still picks the right form.
+    expect(g("tools.validate.issue.missingSex", "F")).toBe("Spol ni zabeležen");
+    expect(inst.sl.t("tools.validate.issue.island", { context: "F", count: 2 })).toContain("Ena od 2 oseb");
+  });
+});
+
 describe("locale files", () => {
   /** Every plural key must carry the full set its language needs. */
   it("defines all four Slovenian forms wherever any is defined", () => {

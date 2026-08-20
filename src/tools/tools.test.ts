@@ -111,6 +111,11 @@ describe("validateDataset", () => {
     const tooOld = report.issues.filter((i) => i.category === "livingTooOld");
     expect(tooOld.map((i) => i.id)).toContain("@I1@");
     expect(tooOld.find((i) => i.id === "@I1@")?.messageVars).toEqual({ age: 226, max: 99 });
+    // Each person-level finding carries the sex its wording agrees with; a
+    // finding about a family record has nobody to agree with.
+    expect(report.issues.find((i) => i.category === "ageAtDeath")?.sexContext).toBe("M");
+    expect(report.issues.find((i) => i.category === "ageAtMarriage")?.sexContext).toBe("M");
+    expect(report.issues.every((i) => i.scope !== "family" || i.sexContext === undefined)).toBe(true);
     // I5 is just as old but carries an undated DEAT Y — deceased, not flagged.
     expect(tooOld.map((i) => i.id)).not.toContain("@I5@");
     // The father-age finding is reported on the child record.
@@ -253,6 +258,7 @@ describe("validateDataset", () => {
 1 FAMC @F1@
 0 @I6@ INDI
 1 NAME Neža /Žnidar/
+1 SEX F
 1 BIRT
 2 DATE 04.05.1866
 1 FAMC @F2@
@@ -271,6 +277,8 @@ describe("validateDataset", () => {
     expect(issue?.id).toBe("@I1@"); // reported on the mother
     expect(issue?.messageVars?.child).toContain("Neža Žnidar");
     expect(issue?.messageVars?.spanA).toBe("1862–1872");
+    // The sentence's inflected word is about the child it names, not the mother.
+    expect(issue?.sexContext).toBe("F");
     expect(report.counts.parallelFamilies).toBe(1);
   });
 

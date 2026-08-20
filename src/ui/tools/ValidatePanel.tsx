@@ -122,11 +122,17 @@ export function ValidatePanel({
 }) {
   const { t } = useTranslation();
   /** Message vars with a GEDCOM event tag turned into its display name —
-   *  validate.ts is pure and can't localize, so tags travel raw. */
-  const issueVars = (issue: ValidationIssue) =>
-    typeof issue.messageVars?.tag === "string"
-      ? { ...issue.messageVars, tag: eventDisplayLabel(issue.messageVars.tag, t) }
-      : issue.messageVars;
+   *  validate.ts is pure and can't localize, so tags travel raw — plus the sex
+   *  the wording agrees with as the i18next context, so Slovenian says "Umrla"
+   *  where the record is a woman. A message with no `_M`/`_F` form of its own
+   *  is unaffected: i18next falls back to the base key. */
+  const issueVars = (issue: ValidationIssue) => ({
+    ...issue.messageVars,
+    ...(typeof issue.messageVars?.tag === "string"
+      ? { tag: eventDisplayLabel(issue.messageVars.tag, t) }
+      : {}),
+    context: issue.sexContext,
+  });
   // Both validation passes come from the worker scan cache. While a re-run is
   // in flight (a fix triggers one), the previous lists stay up via `lastRef`
   // so the panel doesn't flash back to a spinner.
