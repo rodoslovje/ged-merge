@@ -1814,6 +1814,15 @@ describe("reshapeSources — citation placement", () => {
     expect(indexPhp.proposed.title).toBe("Primož Trubar - Wikipedia");
   });
 
+  it("keeps a paren-disambiguated article's closing paren in the stored URL", () => {
+    // cleanUrl used to strip the trailing ")" of ..._(city) — the written
+    // link then 404ed where a working one stood in the note.
+    const rec = recognizeSourceUrl("https://en.wikipedia.org/wiki/Ljubljana_(city)")!;
+    expect(rec.site).toBe("wikipedia");
+    expect(rec.bookUrl).toBe("https://en.wikipedia.org/wiki/Ljubljana_(city)");
+    expect(rec.proposed.title).toBe("Ljubljana (city) - Wikipedia");
+  });
+
   it("recognizes Slovenska biografija entries by their sbi id", () => {
     const rec = recognizeSourceUrl("https://www.slovenska-biografija.si/oseba/sbi729148/")!;
     expect(rec.site).toBe("biografija");

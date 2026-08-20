@@ -91,6 +91,25 @@ describe("EXID type URIs", () => {
     const indi = buildFromText(text).individuals.get("@I1@")!;
     expect(indi.links).toEqual(["https://example.org/scan"]);
   });
+
+  it("strips Slovenian »…« quotes and prose parens, but keeps a URL's own paren", () => {
+    const text = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 NAME Test /Person/
+1 NOTE Vir: »https://data.matricula-online.eu/sl/x/?pg=56«
+1 BIRT
+2 NOTE Kraj (https://en.wikipedia.org/wiki/Ljubljana_(city)) in okolica
+0 TRLR
+`;
+    const indi = buildFromText(text).individuals.get("@I1@")!;
+    // The closing « is prose, not part of the link — a chip carrying it 404s
+    // and never matches the clean twin's linkKey.
+    expect(indi.links).toEqual(["https://data.matricula-online.eu/sl/x/?pg=56"]);
+    // The article's own balancing paren stays; only the prose one goes.
+    expect(indi.events[0].links).toEqual(["https://en.wikipedia.org/wiki/Ljubljana_(city)"]);
+  });
 });
 
 describe("collectLinks CONC/CONT handling", () => {

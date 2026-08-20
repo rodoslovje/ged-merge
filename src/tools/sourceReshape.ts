@@ -1,5 +1,6 @@
 import type { Dataset, GedNode } from "../gedcom/types";
 import { childText, childrenByTag, cloneNode, firstChild } from "../gedcom/node";
+import { stripTrailingPunct, URL_RE } from "../gedcom/builder";
 import {
   bookKeyOf,
   buildObjeIndex,
@@ -296,8 +297,6 @@ export interface ReshapeCounts {
 
 const DEFAULT_SITES: ReadonlySet<ReshapeSite> = new Set(ALL_SITES.filter((s) => s !== "other"));
 
-const URL_RE = /https?:\/\/[^\s<>"]+/gi;
-
 const LINK_TAGS = new Set(["WWW", "URL", "_URL", "_LINK"]);
 
 // ---------------------------------------------------------------------------
@@ -331,10 +330,9 @@ function siteTitle(name: string | undefined, id: string | undefined, siteLabel: 
   return [name, id, siteLabel].filter(Boolean).join(" - ");
 }
 
-/** Strip punctuation a URL picked up from surrounding prose. */
-function cleanUrl(url: string): string {
-  return url.replace(/[.,;:!?)\]}'"»«]+$/, "");
-}
+/** Strip punctuation a URL picked up from surrounding prose — the builder's
+ *  shared rule, so the scan and the note-link harvester see the same URL. */
+const cleanUrl = stripTrailingPunct;
 
 /** Percent-decode up to twice (corpus has double-encoded Koper signatures),
  *  falling back to the input when malformed. `+` becomes a space. */
