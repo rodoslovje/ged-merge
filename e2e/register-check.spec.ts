@@ -168,7 +168,11 @@ test("every finding is reachable: the long list is windowed, not cut off", async
   // The 400th name: 399 = 15 * 26 + 9, so "P" and "j".
   const last = compliance.locator("li.tools-tree-node", { hasText: /Vas Pj/ });
   await expect(last).toHaveCount(0);
-  for (let i = 0; i < 40 && (await last.count()) === 0; i++) {
+  // Scroll a page at a time until the last row is rendered. Bounded by time,
+  // not by a count of iterations: under load the list needs the same number of
+  // scrolls but longer to render each window, and a fixed 40 tries ran out
+  // while the list was still catching up.
+  await expect(async () => {
     await page.evaluate(() => {
       const spacer = document.querySelector(".tools-register-list .v-spacer");
       for (let el = spacer?.parentElement ?? null; el; el = el.parentElement) {
@@ -179,7 +183,9 @@ test("every finding is reachable: the long list is windowed, not cut off", async
       }
       window.scrollBy(0, window.innerHeight);
     });
-    await page.waitForTimeout(100);
-  }
-  await expect(last.first()).toBeVisible();
+    // Short: this only has to cover one window's re-render, and when it isn't
+    // enough the next scroll simply follows. The cap on the whole climb is the
+    // toPass budget below.
+    await expect(last.first()).toBeVisible({ timeout: 200 });
+  }).toPass({ timeout: 30_000 });
 });

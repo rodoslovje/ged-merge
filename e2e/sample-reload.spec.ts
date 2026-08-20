@@ -45,7 +45,10 @@ async function seedBadStart(page: Page, mainText: string, badStartId: string) {
 test("restore with a stale start id still shows the individuals", async ({ page }) => {
   await seedBadStart(page, MAIN_TEXT, "@I999@");
   await page.goto("/");
-  await page.waitForTimeout(3000);
+  // The restore is what this test is about, so wait for the thing it produces —
+  // the header naming the cached file — rather than for a fixed span of time
+  // the restore may well outlast on a loaded machine.
+  await expect(page.locator(".header-file-btn.main")).toContainText("Seeded.ged");
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await expect(page.getByText("no individuals to edit")).toHaveCount(0);
   await expect(page.locator(".edit-person").first()).toBeVisible();

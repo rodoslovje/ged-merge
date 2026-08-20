@@ -159,9 +159,12 @@ test("a menu survives a panel still settling under it", async ({ page, context }
   await expect(page.locator(".dd-menu")).toHaveCount(0);
 
   await page.keyboard.press("ArrowDown");
-  await expect(page.locator(".dd-menu")).toBeVisible({ timeout: 3000 });
+  // The browser is throttled 8× on purpose here, so every wait in this test is
+  // spending an eighth of its real budget — and whatever the machine is doing
+  // besides comes off the same eighth. Hence the room.
+  await expect(page.locator(".dd-menu")).toBeVisible({ timeout: 20_000 });
   // Still there once the settling has run its course.
-  await expect(page.locator(".dd-menu")).toBeVisible({ timeout: 3000 });
+  await expect(page.locator(".dd-menu")).toBeVisible({ timeout: 20_000 });
   await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 });
 });
 

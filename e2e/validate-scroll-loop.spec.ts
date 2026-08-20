@@ -89,6 +89,6 @@ for (const zoom of [0.9, 0.8]) {
     // Under a deliberately wrong row height the window cannot also be expected
     // to land precisely; that half of the contract is asserted on an
     // unmanipulated list in `virtual-scroll-loop.spec.ts`.
-    expect(await page.locator(".tools-issue").count()).toBeGreaterThan(0);
+    await expect(page.locator(".tools-issue")).not.toHaveCount(0);
   });
 }
