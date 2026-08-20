@@ -458,19 +458,24 @@ export { parseFamilySearchUrl, type FamilySearchUrlParts };
  * name a page of the book itself.
  *
  * A FamilySearch book is counted twice over — the film runs its own image
- * numbers, the book its printed pages — and neither a link nor a citation
- * says which of the two a number belongs to. A number in the title would
- * therefore be a claim the reader cannot check against what the page shows
- * when they open it, so those titles carry the register's name alone.
- * Undefined when there is no title to build on (a link nothing recognized).
+ * numbers, the book its printed pages — so its titles carry a number only
+ * when it is known to be the film's own: read off the link's `i=` or the
+ * lookup's "image N of M", the counting the viewer shows when the reader
+ * opens the link. The hand-editable page field is never that number — a
+ * typed value could be the book's printed page, a claim the reader cannot
+ * check. Undefined when there is no title to build on (a link nothing
+ * recognized).
  */
 export function pageObjeTitle(
   site: ReshapeSite | undefined,
   title: string | undefined,
   page: string | undefined,
+  /** FamilySearch only: the film's own image number, when the link or the
+   *  lookup said it — never a hand-edited field. */
+  fsImage?: string,
 ): string | undefined {
   if (!site || !title) return undefined;
-  if (site === "familysearch") return title;
+  if (site === "familysearch") return fsImage && /^\d+$/.test(fsImage) ? `#${fsImage} - ${title}` : title;
   return page ? `#${page} - ${title}` : title;
 }
 
@@ -2776,7 +2781,9 @@ export function reshapeSources(
       if (!obje) continue;
       const titl = firstChild(obje, "TITL");
       if (!placeholderMediaTitle(titl?.value, g.site, hit.url)) continue;
-      const named = pageObjeTitle(g.site, fields.title, pageOf(hit));
+      // In this tool a FamilySearch page number is always the link's or the
+      // lookup's — the film's own counting — so it may go into the title.
+      const named = pageObjeTitle(g.site, fields.title, pageOf(hit), pageOf(hit));
       if (!named || named === titl?.value?.trim()) continue;
       if (titl) titl.value = named;
       else insertGrouped(obje, { level: obje.level + 1, tag: "TITL", value: named, children: [] }, MEDIA_TRAILING);
@@ -2823,7 +2830,7 @@ export function reshapeSources(
       if (seenUrls.has(urlKey) || linkedKeys.has(urlKey)) continue;
       seenUrls.add(urlKey);
       const page = pageOf(hit);
-      const objeTitle = pageObjeTitle(g.site, fields.title, page) ?? fields.title;
+      const objeTitle = pageObjeTitle(g.site, fields.title, page, page) ?? fields.title;
       if (hit.objeXref && byXref.has(hit.objeXref)) {
         // Re-link the already-existing top-level OBJE under the source,
         // grouped with its other page media (not after CHAN/CREA).

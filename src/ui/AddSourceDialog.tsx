@@ -45,6 +45,10 @@ export type AddSourceResult = NewSourceFields & {
    *  collection's own page as WWW. */
   collection?: string;
   collectionId?: string;
+  /** The film's own image number, when the link's `i=` or the lookup said it —
+   *  the number the page-image title may carry. Never the hand-editable Page
+   *  field: a typed value could be the book's printed page instead. */
+  fsImage?: string;
 };
 
 interface Props {
@@ -432,8 +436,18 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
   }
 
   function handleAdd() {
+    // The film's own image number for the page-image title: what the link's
+    // `i=` or the lookup said, never the Page field the user may have retyped
+    // (a typed number could be the book's printed page, which the film does
+    // not count). `recognized.page` can also be a pasted citation's worded
+    // entry — only a plain number is the film's.
+    const fsImage =
+      recognized?.site === "familysearch"
+        ? [recognized.page, chosen?.page].find((p) => !!p && /^\d+$/.test(p))
+        : undefined;
     onAdd({
       ...trimmedFields(fields),
+      fsImage,
       site: recognized?.site,
       // Fetched over offline-recognized — Newspapers.com carries the issue
       // date right in the citation prose, with no fetchable page behind it.

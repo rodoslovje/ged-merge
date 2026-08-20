@@ -160,6 +160,20 @@ describe("pageObjeTitle", () => {
     expect(pageObjeTitle("matricula", "Krstna knjiga", undefined)).toBe("Krstna knjiga");
     expect(pageObjeTitle(undefined, "Krstna knjiga", "11")).toBeUndefined();
   });
+
+  it("a FamilySearch page carries only the film's own image number, never the page field", () => {
+    // The hand-editable page field could hold the book's printed page — the
+    // film does not count those, so it stays out of the title.
+    expect(pageObjeTitle("familysearch", "Births 1759-1812, Ravna Gora", "56")).toBe("Births 1759-1812, Ravna Gora");
+    // The number the link's `i=` or the lookup gave is the film's own.
+    expect(pageObjeTitle("familysearch", "Births 1759-1812, Ravna Gora", undefined, "16")).toBe(
+      "#16 - Births 1759-1812, Ravna Gora",
+    );
+    // A pasted citation's worded entry is not a number the film counts.
+    expect(pageObjeTitle("familysearch", "Births 1759-1812, Ravna Gora", undefined, "Entry for Ana Renko")).toBe(
+      "Births 1759-1812, Ravna Gora",
+    );
+  });
 });
 
 describe("repoXref on setSourceRecordFields / setRepoRecordFields", () => {
