@@ -232,14 +232,29 @@ function bloodLineageFrom(
     // start is the apex ⇒ target descends from start: no ancestral line to climb.
     if (h.gen === 0) continue;
     const parentId = walkTo(startAnc, id, startId)[1]; // start's parent toward this LCA
-    const sex = ds.individuals.get(parentId)?.sex;
-    if (sex === "M") paternal = true;
-    else if (sex === "F") maternal = true;
+    const side = parentSideOf(ds, startId, parentId);
+    if (side === "paternal") paternal = true;
+    else if (side === "maternal") maternal = true;
   }
 
   if (paternal && maternal) return "both";
   if (paternal) return "paternal";
   if (maternal) return "maternal";
+  return undefined;
+}
+
+/** Which parental side a parent of `childId` stands on: by sex when known, and
+ *  otherwise by the parent's role in the child's family (HUSB = father's side)
+ *  — so an unsexed parent still carries a lineage instead of dropping it. */
+function parentSideOf(ds: Dataset, childId: string, parentId: string): "paternal" | "maternal" | undefined {
+  const sex = ds.individuals.get(parentId)?.sex;
+  if (sex === "M") return "paternal";
+  if (sex === "F") return "maternal";
+  for (const famId of ds.individuals.get(childId)?.childOf ?? []) {
+    const fam = ds.families.get(famId);
+    if (fam?.husband === parentId) return "paternal";
+    if (fam?.wife === parentId) return "maternal";
+  }
   return undefined;
 }
 
