@@ -3003,8 +3003,8 @@ describe("FamilySearch image links", () => {
     // one ahead of the link's i=555), not the record ark that left with it.
     expect(text).toContain("3 PAGE 556");
     // The film's own image number (from the traded link's i=555, one behind)
-    // goes into the page's title.
-    expect(text).toContain("1 TITL #556 - Croatia, Church Books, 1516-1994");
+    // is the page's whole title; the book's name stays on the source.
+    expect(text).toContain("1 TITL #556\n");
     expect(text).not.toContain("1:1:XNJ8-FPJ");
   });
 
@@ -3268,11 +3268,12 @@ describe("FamilySearch image links", () => {
     expect(text).toContain("1 TITL Ravna Gora - Marriages (Vjenčani) 1805-1812");
     expect(text).toContain("1 DATE 1805-1812");
     // One page image per image link, each titled with the film's own image
-    // number in front of the book's name — the lookup said the number, so it
-    // is the counting the viewer shows when the link opens.
-    expect(text).toContain("1 TITL #12 - Ravna Gora - Marriages (Vjenčani) 1805-1812");
-    expect(text).toContain("1 TITL #47 - Ravna Gora - Marriages (Vjenčani) 1805-1812");
-    expect(text).toContain("1 TITL #3 - Dubovac (Karlovac) - Births (Rođeni) 1891-1896");
+    // number alone — the lookup said the number, so it is the counting the
+    // viewer shows when the link opens; the book's name stays on the source.
+    expect(text).toContain("1 TITL #12\n");
+    expect(text).toContain("1 TITL #47\n");
+    expect(text).toContain("1 TITL #3\n");
+    expect(text.match(/1 TITL Ravna Gora - Marriages \(Vjenčani\) 1805-1812/g)).toHaveLength(1);
   });
 
   it("reads a published microfilm's own citation, publisher and all", () => {

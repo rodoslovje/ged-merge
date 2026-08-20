@@ -457,14 +457,13 @@ export { parseFamilySearchUrl, type FamilySearchUrlParts };
  * page in front of it (`#56 - Krstna knjiga …`), for the sites whose links
  * name a page of the book itself.
  *
- * A FamilySearch book is counted twice over — the film runs its own image
- * numbers, the book its printed pages — so its titles carry a number only
- * when it is known to be the film's own: read off the link's `i=` or the
- * lookup's "image N of M", the counting the viewer shows when the reader
- * opens the link. The hand-editable page field is never that number — a
- * typed value could be the book's printed page, a claim the reader cannot
- * check. Undefined when there is no title to build on (a link nothing
- * recognized).
+ * A FamilySearch page says only its number — `#16`, the film's own image
+ * count, read off the link's `i=` or the lookup's "image N of M" — and the
+ * book's name stays on the source alone, not repeated into every page. The
+ * hand-editable page field is never that number: a typed value could be the
+ * book's printed page, which the film does not count, so a page without the
+ * film's number keeps the register's name as before. Undefined when there is
+ * no title to build on (a link nothing recognized).
  */
 export function pageObjeTitle(
   site: ReshapeSite | undefined,
@@ -475,7 +474,7 @@ export function pageObjeTitle(
   fsImage?: string,
 ): string | undefined {
   if (!site || !title) return undefined;
-  if (site === "familysearch") return fsImage && /^\d+$/.test(fsImage) ? `#${fsImage} - ${title}` : title;
+  if (site === "familysearch") return fsImage && /^\d+$/.test(fsImage) ? `#${fsImage}` : title;
   return page ? `#${page} - ${title}` : title;
 }
 
