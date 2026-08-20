@@ -1,6 +1,9 @@
 import type { Dataset, GedNode, SourceCitation } from "../gedcom/types";
 import type { MatchResult } from "../match/types";
 import { insertGrouped } from "../gedcom/edit";
+import { setPlaceCoord } from "../gedcom/edit/geo";
+import { coordOf, placeAddrKey, walkPlaceAddr, walkPlacNodes } from "../tools/geocode";
+import { agreedPairCoords } from "../tools/placeCoords";
 import { displayName } from "../match/relatives";
 import { inferPlaceExportFormat } from "../normalize/profile";
 import type { PlaceTargetFormat } from "../normalize/types";
@@ -310,6 +313,13 @@ export function mergeDecisions(
   overrides?: FormatOverrides,
 ): MergeResult {
   const records = main.records.map(cloneNode);
+  // Every PLAC the main file already holds, by node identity. Each write below
+  // replaces the node rather than editing it (see `setChild`), and every record
+  // grafted from the incoming file is a fresh clone — so a PLAC missing from
+  // this set at the end is one this merge put there, and only those are the
+  // coordinate fill's business (see `fillWrittenPlaceCoords`).
+  const inheritedPlacs = new Set<GedNode>();
+  for (const r of records.filter(isPersonOrFamily)) walkPlacNodes(r, (plac) => inheritedPlacs.add(plac));
   const sourXrefMap = buildSourXrefMap(compare.records, records);
   const indiNodes = new Map<string, GedNode>();
   const famNodes = new Map<string, GedNode>();
@@ -454,8 +464,63 @@ export function mergeDecisions(
   foldMatchedSourcePages(records, compare, sourXrefMap);
   importSourRecords(records, compare, sourXrefMap, report.customTags);
 
+  fillWrittenPlaceCoords(records, inheritedPlacs);
+
   report.recordsChanged = touched.size;
   return { records, report };
+}
+
+/**
+ * Give every place this merge wrote the coordinate the merged file already holds
+ * for that exact place+address pair.
+ *
+ * A place arrives from the incoming file with whatever coordinate *that* file
+ * had beside it, which is usually none — so a merge that brings twenty events in
+ * villages the main file has been geocoding for years still leaves twenty
+ * coordinate-less events behind, and the reader meets them again as a
+ * "fill from this file" list in the health check. There is nothing to decide
+ * there: the answer is already in the file, so the merge writes it now.
+ *
+ * Three limits keep this from being a whole-file geocoder:
+ *
+ *  - **Only places this merge wrote** (`inherited` holds the rest). A gap the
+ *    main file already had is the health check's business, not this save's.
+ *  - **Only the exact place+address pair**, the unit a coordinate belongs to —
+ *    a settlement's pin must never land on a house event, nor one house's on
+ *    another.
+ *  - **Only where the file agrees with itself** ({@link agreedPairCoords} drops
+ *    pairs holding two different positions). A PLAC that came with its own MAP
+ *    keeps it; the incoming file's coordinate is never second-guessed.
+ *
+ * No `_GOV` id rides along, matching the health check's own fill: the registry
+ * id identifies the place record, and copying it onto a house-level event would
+ * claim more than the coordinate does.
+ */
+function fillWrittenPlaceCoords(records: readonly GedNode[], inherited: ReadonlySet<GedNode>): void {
+  const events = records.filter(isPersonOrFamily);
+  const gaps: { plac: GedNode; key: string }[] = [];
+  for (const rec of events) {
+    walkPlaceAddr(rec, (plac, addr) => {
+      if (inherited.has(plac) || coordOf(plac)) return;
+      gaps.push({ plac, key: placeAddrKey(plac.value!.trim(), addr) });
+    });
+  }
+  if (!gaps.length) return;
+  // Read after the merge, so a place the incoming file coordinated for one of
+  // its own events completes that person's other events too.
+  const known = agreedPairCoords(events);
+  for (const gap of gaps) {
+    const coord = known.get(gap.key);
+    if (coord) setPlaceCoord(gap.plac, coord);
+  }
+}
+
+/** Where a place is an event's, not a source's description of one: only these
+ *  records carry coordinates, and only they are read by the health check that
+ *  reports the gaps this fill closes. A `SOUR` record's `DATA.EVEN.PLAC` names
+ *  the jurisdiction a register covers and wants no pin. */
+function isPersonOrFamily(record: GedNode): boolean {
+  return record.tag === "INDI" || record.tag === "FAM";
 }
 
 /** Unique-id tags carried across on merge (vendor `_UID` + GEDCOM 7 `UID`). */

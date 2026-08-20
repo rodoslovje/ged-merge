@@ -2599,6 +2599,112 @@ describe("mergeDecisions — a family pointer written onto a person is reported"
   });
 });
 
+describe("coordinates for the places a merge writes", () => {
+  // The main file has been geocoded: Kranj (the settlement) and one house in
+  // Polica both carry a pin, and Bled carries none.
+  const geocodedMain = wrap(
+    "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n" +
+      "0 @I2@ INDI\n1 NAME Ana /Kos/\n1 SEX F\n1 BIRT\n2 DATE 1855\n2 PLAC Kranj\n3 MAP\n4 LATI N46.2396\n4 LONG E14.3563\n" +
+      "0 @I3@ INDI\n1 NAME Jera /Kos/\n1 SEX F\n1 BIRT\n2 DATE 1860\n2 PLAC Polica\n2 ADDR Polica 19\n" +
+      "3 MAP\n4 LATI N46.2635\n4 LONG E14.3340\n" +
+      "0 @I4@ INDI\n1 NAME Lojze /Kos/\n1 SEX M\n1 BIRT\n2 DATE 1862\n2 PLAC Bled\n",
+  );
+
+  it("gives an incoming place the coordinate the file already holds for it", () => {
+    const main = dataset(geocodedMain);
+    const compare = dataset(wrap("0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 PLAC Kranj\n"));
+    const { records } = mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr);
+    expect(serializeGedcom(records)).toContain(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 PLAC Kranj\n3 MAP\n4 LATI N46.2396\n4 LONG E14.3563",
+    );
+  });
+
+  it("keeps the coordinate the incoming file brought rather than the main's", () => {
+    const main = dataset(geocodedMain);
+    const compare = dataset(
+      wrap(
+        "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 PLAC Kranj\n3 MAP\n4 LATI N46.2400\n4 LONG E14.3600\n",
+      ),
+    );
+    const { records } = mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr);
+    expect(serializeGedcom(records)).toContain("2 PLAC Kranj\n3 MAP\n4 LATI N46.2400\n4 LONG E14.3600");
+  });
+
+  it("matches the place *and* the address, so a settlement's pin never lands on a house", () => {
+    const main = dataset(geocodedMain);
+    // Same place value, a different house: the settlement pin from @I2@ (which
+    // has no address at all) describes another spot and must not be copied.
+    const compare = dataset(
+      wrap("0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 PLAC Kranj\n2 ADDR Kranj 7\n"),
+    );
+    const { records } = mergeDecisions(main, compare, confirmed({ "BIRT.addr": "incoming" }), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    expect(out).toContain("2 DATE 1850\n2 PLAC Kranj\n2 ADDR Kranj 7\n0 @I2@");
+  });
+
+  it("takes the house's own pin when the incoming event names that exact house", () => {
+    const main = dataset(geocodedMain);
+    const compare = dataset(
+      wrap("0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 PLAC Polica\n2 ADDR Polica 19\n"),
+    );
+    const { records } = mergeDecisions(main, compare, confirmed({ "BIRT.addr": "incoming" }), NO_MATCHES, tr);
+    expect(serializeGedcom(records)).toContain(
+      "2 PLAC Polica\n2 ADDR Polica 19\n3 MAP\n4 LATI N46.2635\n4 LONG E14.3340",
+    );
+  });
+
+  it("leaves a place the file disagrees with itself about alone", () => {
+    const conflicted = dataset(
+      wrap(
+        "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n" +
+          "0 @I2@ INDI\n1 NAME Ana /Kos/\n1 SEX F\n1 BIRT\n2 DATE 1855\n2 PLAC Kranj\n3 MAP\n4 LATI N46.2396\n4 LONG E14.3563\n" +
+          "0 @I5@ INDI\n1 NAME Ivan /Kos/\n1 SEX M\n1 BIRT\n2 DATE 1857\n2 PLAC Kranj\n3 MAP\n4 LATI N45.1000\n4 LONG E15.1000\n",
+      ),
+    );
+    const compare = dataset(wrap("0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 PLAC Kranj\n"));
+    const { records } = mergeDecisions(conflicted, compare, confirmed(), NO_MATCHES, tr);
+    expect(serializeGedcom(records)).toContain(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 PLAC Kranj\n0 @I2@",
+    );
+  });
+
+  it("does not fill the main's own pre-existing gaps", () => {
+    const main = dataset(geocodedMain);
+    // Bled is coordinated by the incoming person the merge imports; @I4@'s own
+    // Bled event, which this merge never touched, stays as the file wrote it.
+    const compare = dataset(
+      wrap(
+        "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 PLAC Bled\n3 MAP\n4 LATI N46.3683\n4 LONG E14.1146\n",
+      ),
+    );
+    const { records } = mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr);
+    expect(serializeGedcom(records)).toContain("0 @I4@ INDI\n1 NAME Lojze /Kos/\n1 SEX M\n1 BIRT\n2 DATE 1862\n2 PLAC Bled\n0 TRLR");
+  });
+
+  it("gives an imported person the coordinates too", () => {
+    const main = dataset(
+      wrap(
+        "0 @I1@ INDI\n1 NAME Matija /Slobodnik/\n1 SEX M\n1 FAMS @F1@\n" +
+          "0 @I2@ INDI\n1 NAME Ana /Cernetic/\n1 SEX F\n1 FAMS @F1@\n1 BIRT\n2 DATE 1800\n2 PLAC Kranj\n3 MAP\n4 LATI N46.2396\n4 LONG E14.3563\n" +
+          "0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@\n",
+      ),
+    );
+    const compare = dataset(
+      wrap(
+        "0 @P1@ INDI\n1 NAME Matija /Slobodnik/\n1 SEX M\n1 FAMS @G1@\n" +
+          "0 @P4@ INDI\n1 NAME Jera /Slobodnik/\n1 SEX F\n1 BIRT\n2 DATE 1826\n2 PLAC Kranj\n1 FAMC @G1@\n" +
+          "0 @G1@ FAM\n1 HUSB @P1@\n1 CHIL @P4@\n",
+      ),
+    );
+    const decisions = new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {}, takenChildren: ["@P4@"] }],
+    ]);
+    const { records, report } = mergeDecisions(main, compare, decisions, { individuals: [] } as never, tr);
+    expect(report.newPersons).toBe(1);
+    expect(serializeGedcom(records)).toContain("2 PLAC Kranj\n3 MAP\n4 LATI N46.2396\n4 LONG E14.3563\n1 FAMC @F1@");
+  });
+});
+
 /** A confirmed decision keyed to an explicit pair, with default fields. */
 function confirmedAtKey(mainId: string, compareId: string): Map<string, CandidateDecision> {
   const m = new Map<string, CandidateDecision>();
