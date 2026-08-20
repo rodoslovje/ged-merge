@@ -81,6 +81,14 @@ export interface ValidationIssue {
   /** i18n key for the issue description, with optional interpolation values. */
   messageKey: string;
   messageVars?: Record<string, string | number>;
+  /**
+   * The sex the message's own wording agrees with, where a language inflects it
+   * ("Umrl" vs "Umrla"). It is the flagged record's sex on nearly every finding;
+   * on one worded about somebody else — the child named by `parallelFamilies` —
+   * it is that person's. Left out when the sex is unknown, and the message keeps
+   * its neutral form.
+   */
+  sexContext?: "M" | "F";
 }
 
 export interface ValidationReport {
@@ -116,6 +124,11 @@ const EMPTY_COUNTS: Record<IssueCategory, number> = {
   spouseAgeGap: 0,
   futureDate: 0,
 };
+
+/** The sex an issue message agrees with, or undefined for SEX U / unrecorded. */
+function sexOf(indi: Individual | undefined): "M" | "F" | undefined {
+  return indi?.sex === "M" || indi?.sex === "F" ? indi.sex : undefined;
+}
 
 /** A short display label for an individual: primary name + life years. */
 function subjectOf(indi: Individual): string {
@@ -478,6 +491,7 @@ export function validateDataset(ds: Dataset, currentYear: number = new Date().ge
         subject: (subject ??= subjectOf(indi)),
         messageKey,
         messageVars,
+        sexContext: sexOf(indi),
       });
 
     // Name / sex completeness
@@ -625,7 +639,7 @@ export function validateDataset(ds: Dataset, currentYear: number = new Date().ge
     if (!sameSexCouple && husband && husband.sex === "F") {
       push({
         scope: "individual", id: husband.id, category: "roleSexConflict", severity: "error",
-        subject: subjectOf(husband),
+        subject: subjectOf(husband), sexContext: sexOf(husband),
         messageKey: wife ? "tools.validate.issue.husbandFemale" : "tools.validate.issue.husbandFemaleNoSpouse",
         messageVars: wife ? { spouse: subjectOf(wife) } : { fam: fam.id },
       });
@@ -633,7 +647,7 @@ export function validateDataset(ds: Dataset, currentYear: number = new Date().ge
     if (!sameSexCouple && wife && wife.sex === "M") {
       push({
         scope: "individual", id: wife.id, category: "roleSexConflict", severity: "error",
-        subject: subjectOf(wife),
+        subject: subjectOf(wife), sexContext: sexOf(wife),
         messageKey: husband ? "tools.validate.issue.wifeMale" : "tools.validate.issue.wifeMaleNoSpouse",
         messageVars: husband ? { spouse: subjectOf(husband) } : { fam: fam.id },
       });
@@ -648,7 +662,7 @@ export function validateDataset(ds: Dataset, currentYear: number = new Date().ge
         if (age < AGE_LIMITS.marriage.min || age > AGE_LIMITS.marriage.max) {
           push({
             scope: "individual", id: sp.id, category: "ageAtMarriage", severity: "warning",
-            subject: subjectOf(sp), messageKey: "tools.validate.issue.ageAtMarriage",
+            subject: subjectOf(sp), sexContext: sexOf(sp), messageKey: "tools.validate.issue.ageAtMarriage",
             messageVars: { age, min: AGE_LIMITS.marriage.min, max: AGE_LIMITS.marriage.max },
           });
         }
@@ -660,7 +674,7 @@ export function validateDataset(ds: Dataset, currentYear: number = new Date().ge
       const older = (hb <= wb ? husband : wife)!;
       push({
         scope: "individual", id: older.id, category: "spouseAgeGap", severity: "warning",
-        subject: subjectOf(older), messageKey: "tools.validate.issue.spouseAgeGap",
+        subject: subjectOf(older), sexContext: sexOf(older), messageKey: "tools.validate.issue.spouseAgeGap",
         messageVars: { gap: Math.abs(hb - wb), max: AGE_LIMITS.spouseGap.max },
       });
     }
@@ -673,14 +687,14 @@ export function validateDataset(ds: Dataset, currentYear: number = new Date().ge
       if (hb !== undefined && (cb - hb < AGE_LIMITS.fatherAtBirth.min || cb - hb > AGE_LIMITS.fatherAtBirth.max)) {
         push({
           scope: "individual", id: child.id, category: "parentAge", severity: "warning",
-          subject: subjectOf(child), messageKey: "tools.validate.issue.fatherAge",
+          subject: subjectOf(child), sexContext: sexOf(child), messageKey: "tools.validate.issue.fatherAge",
           messageVars: { age: cb - hb, min: AGE_LIMITS.fatherAtBirth.min, max: AGE_LIMITS.fatherAtBirth.max },
         });
       }
       if (wb !== undefined && (cb - wb < AGE_LIMITS.motherAtBirth.min || cb - wb > AGE_LIMITS.motherAtBirth.max)) {
         push({
           scope: "individual", id: child.id, category: "parentAge", severity: "warning",
-          subject: subjectOf(child), messageKey: "tools.validate.issue.motherAge",
+          subject: subjectOf(child), sexContext: sexOf(child), messageKey: "tools.validate.issue.motherAge",
           messageVars: { age: cb - wb, min: AGE_LIMITS.motherAtBirth.min, max: AGE_LIMITS.motherAtBirth.max },
         });
       }
@@ -701,14 +715,14 @@ export function validateDataset(ds: Dataset, currentYear: number = new Date().ge
       if (hd !== undefined && cb > hd + 1) {
         push({
           scope: "individual", id: child.id, category: "bornAfterParentDeath", severity: "warning",
-          subject: subjectOf(child), messageKey: "tools.validate.issue.bornAfterFatherDeath",
+          subject: subjectOf(child), sexContext: sexOf(child), messageKey: "tools.validate.issue.bornAfterFatherDeath",
           messageVars: { birth: cb, death: hd },
         });
       }
       if (wd !== undefined && cb > wd) {
         push({
           scope: "individual", id: child.id, category: "bornAfterParentDeath", severity: "warning",
-          subject: subjectOf(child), messageKey: "tools.validate.issue.bornAfterMotherDeath",
+          subject: subjectOf(child), sexContext: sexOf(child), messageKey: "tools.validate.issue.bornAfterMotherDeath",
           messageVars: { birth: cb, death: wd },
         });
       }
@@ -719,7 +733,9 @@ export function validateDataset(ds: Dataset, currentYear: number = new Date().ge
   for (const p of findParallelFamilies(ds)) {
     push({
       scope: "individual", id: p.mother.id, category: "parallelFamilies", severity: "warning",
-      subject: subjectOf(p.mother), messageKey: "tools.validate.issue.parallelFamilies",
+      // The sentence's only inflected word is about the child it names, not the mother.
+      subject: subjectOf(p.mother), sexContext: sexOf(p.child.indi),
+      messageKey: "tools.validate.issue.parallelFamilies",
       messageVars: {
         partnerA: subjectOf(p.partnerA),
         partnerB: subjectOf(p.partnerB),
@@ -735,7 +751,7 @@ export function validateDataset(ds: Dataset, currentYear: number = new Date().ge
     const person = youngestOf(group);
     push({
       scope: "individual", id: person.id, category: "island", severity: "warning",
-      subject: subjectOf(person), messageKey: "tools.validate.issue.island",
+      subject: subjectOf(person), sexContext: sexOf(person), messageKey: "tools.validate.issue.island",
       messageVars: { count: group.length },
     });
   }
