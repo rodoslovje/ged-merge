@@ -66,6 +66,22 @@ judgement only.
 A record whose entire name is placeholders gets no blocking key at all — it
 cannot be matched by name, though relationship linking can still connect it.
 
+**Given names are compared through an equivalence table**
+(`src/match/givenVariants.ts`). Every given-name token comparison —
+`givenSimilarity`, and through it `nameSimilarity`, the parent bands, the
+same-person vetoes and the review table's relative alignment — goes through
+`givenTokenSimilarity`, which scores two forms of one name as an exact match
+whatever their spelling. Rationale: the register is written in Latin (or
+German) and the tree in Slovenian, and spelling distance cannot see through
+that — `Neža`/`Agnes` share no characters in Jaro-Winkler's matching window
+and score **0.000**, `Jurij`/`Georg` 0.47, `Jera`/`Gertrud` 0.60. Without the
+table the given name, the only part that tells siblings apart, contributed
+nothing to a Latin-against-Slovenian comparison, leaving the shared surname
+and the birth year to carry the identity alone. Names that merely share a
+root but name two different children (`Matej`/`Matija`, `Neža`/`Ana`) are
+deliberately in separate rows; diminutives appear only where registers use
+them (`Meta` for Marjeta, `Polona` for Apolonija).
+
 ### ½. UID identity pre-match (`matchByUid`, `src/match/engine.ts`)
 
 Most programs stamp every person with a persistent unique id (vendor `_UID`,
@@ -332,7 +348,80 @@ all 70 pairs dropped from Ivanc.ged found distinct people in every one
 
 The two columns overlap between ~0.55 and ~0.75 — no string threshold can
 separate nickname variants from distinct people. That is why the pipeline
-penalizes-and-recovers (via relationships) instead of gating harder.
+penalizes-and-recovers (via relationships) instead of gating harder. The
+left-hand pairs that a table row now covers (Janez/Johann, Janez/Ivan,
+Jurij/Georg, Jera/Gertrud, Anton/Antonius, …) score 1.0 and no longer sit in
+the overlap; the figures above are the raw spelling distances behind them.
+
+## Relative alignment (review table)
+
+The children/partners lists in a compared pair are aligned by
+`relativeSimilarity` (`src/review/fields.ts`), a separate, simpler score: the
+name adjusted by the birth year, paired greedily above
+`RELATIVE_PAIR_THRESHOLD` (0.85). The caller says in which role it is asking:
+
+- **partners** are compared on the whole name (surname 0.6 / given 0.4) — a
+  partner's surname is evidence;
+- **children** on the **given name alone**. Children of one couple carry their
+  parents' surname whatever their given names, so at weight 0.6 it floored
+  every sibling pair at ~0.6 and lifted `Anton`/`Alojz` — given names 0.64
+  apart, two brothers — to 0.856, over the bar and onto one line, hiding a
+  real child. `givenNameSetSimilarity` drops the surname in the matcher for
+  exactly this reason. The bar is then a given-name bar, and deliberately the
+  same 0.85 as `SAME_PERSON_GIVEN`; it is the equivalence table, not a lower
+  bar, that carries `Rudi`/`Rudolf` and `Neža`/`Agnes` over it.
+
+Two further rules keep the year in its place — it corroborates a name, it
+never replaces one:
+
+- the same-year bonus (+0.15, or +0.05 within `EXACT_YEAR_TOLERANCE`) may not
+  lift a pair over the bar: for children the name must already be there on its
+  own, for partners it must at least not conflict (`PARENT_GIVEN_CONFLICT`).
+  Siblings share the year they were born as readily as the surname, so without
+  this a shared 1803 lifted `Katarina`/`Agnes` — two different children — over
+  the bar, and consumed the incoming child that `Neža` needed. Above the bar
+  the bonus ranks the candidates, and is deliberately left uncapped: clamping
+  it at 1 scored a child born the same year exactly as one born two years off,
+  leaving which sibling paired to the order they happened to be listed in;
+- exact birth years may sit up to `EXACT_YEAR_TOLERANCE` (2) apart before the
+  −0.25 penalty applies (10 for an ABT/EST year on either side), so one child
+  whose birth year was read two years apart on the two sides still pairs.
+
+Children with no given name on either side (`NN`) fall back to `datesIdentify`:
+both births known, both exact, same year, no contradicting day or death year.
+
+### Telling a reused name apart
+
+An infant dies and the next child is given her name — sometimes three or four
+deep. Best-first pairing is what keeps them straight, since the ranking is
+strictly ordered by how much of the birth agrees:
+
+| evidence | score |
+|---|---|
+| same day within the same year | name **+0.20** |
+| same year, day unknown on a side | name **+0.15** |
+| within `EXACT_YEAR_TOLERANCE` | name **+0.05** |
+| same year, different day in the same month | name (year's credit withdrawn) |
+| same year, different month | name **−0.25** |
+| beyond tolerance | name **−0.25** |
+
+(+0.05 more when both sides record the same death year.) So every exactly
+dated pair is taken before any near miss is looked at, and two sisters both
+born in 1828 — one on 2 January, one on 19 October — each find their own
+record instead of trading places. A different birth month is otherwise read
+as two children, *unless* the two records also die on the same day (19 Sep vs
+19 Aug 1881, both dead 1 Oct 1938: one man, one slipped month).
+
+These day/death rules are asked of **children only**; partner scoring is left
+as it was, pinned by the golden merge suite.
+
+**The ambiguity guard.** Where two candidates are exactly as good and the
+alternatives genuinely differ — two Marijas of 1794 and 1796 against one
+incoming Maria of 1795 — neither pairs: both keep their own line and the
+incoming child is offered as an addition, rather than the alignment asserting
+an identity the records don't carry. A tie between relatives the file says the
+same things about (same name, same dates — two records of one child) asserts
+nothing either way and is settled, as before, by listing order.
 
 ## Where the knobs live
 
@@ -344,6 +433,8 @@ penalizes-and-recovers (via relationships) instead of gating harder.
 | Consolidation vetoes (0.85 given, ±3 years, ≥85 pair score) | `src/match/engine.ts` |
 | Within-file vetoes (0.85 given, cutoff 0.70) | `src/tools/duplicates.ts` |
 | Placeholder token set | `src/match/text.ts` |
+| Cross-language given-name equivalents | `VARIANT_GROUPS` in `src/match/givenVariants.ts` |
+| Relative alignment (0.85 bar, ±2 years, year-bonus gate, per-role name) | `src/review/fields.ts` |
 
 ## Verifying changes
 

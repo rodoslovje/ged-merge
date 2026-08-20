@@ -6,6 +6,7 @@ import { canonicalPlaceToken } from "./place";
 import { cachedFatherName, cachedMotherName } from "./profileCache";
 import { primaryName } from "./relatives";
 import { compareKey, foldToken, isPlaceholderName, jaroWinkler } from "./text";
+import { givenTokenSimilarity } from "./givenVariants";
 
 /**
  * Field-level similarity functions. Each returns a score in 0..1, or
@@ -111,7 +112,7 @@ export function noGivenNameInCommon(a: Individual, b: Individual): boolean {
   // Nothing but particles on a side: no token to hold up, so fall back to
   // comparing the given names whole.
   if (na.length === 0 || nb.length === 0) return differentGiven(a, b);
-  return !na.some((x) => nb.some((y) => jaroWinkler(x, y) >= SAME_PERSON_GIVEN));
+  return !na.some((x) => nb.some((y) => givenTokenSimilarity(x, y) >= SAME_PERSON_GIVEN));
 }
 
 /** Max birth-year gap two records can show and still be one person. Small
@@ -248,15 +249,18 @@ export function nameSimilarity(a: PersonName, b: PersonName): number | undefined
   return parts.reduce((s, [w, v]) => s + w * v, 0) / wsum;
 }
 
-/** Compare given names token-wise so middle names / ordering matter less. */
+/** Compare given names token-wise so middle names / ordering matter less.
+ *  Tokens are compared with {@link givenTokenSimilarity}, so a name written in
+ *  Latin on one side and Slovenian on the other ("Bartholomeus"/"Jernej")
+ *  counts as the same name rather than as two. */
 export function givenSimilarity(a: string, b: string): number {
   const at = foldToken(a).split(" ").filter(Boolean);
   const bt = foldToken(b).split(" ").filter(Boolean);
-  if (at.length === 0 || bt.length === 0) return jaroWinkler(foldToken(a), foldToken(b));
+  if (at.length === 0 || bt.length === 0) return givenTokenSimilarity(a, b);
   // Best-match average from the shorter set into the longer set.
   const [small, large] = at.length <= bt.length ? [at, bt] : [bt, at];
   const total = small.reduce(
-    (s, x) => s + Math.max(...large.map((y) => jaroWinkler(x, y))),
+    (s, x) => s + Math.max(...large.map((y) => givenTokenSimilarity(x, y))),
     0,
   );
   return total / small.length;

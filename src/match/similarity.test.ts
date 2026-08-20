@@ -2,8 +2,9 @@ import { describe, expect, it } from "vitest";
 import { localityParts, parsePlace } from "../gedcom/place";
 import { parseDate } from "../gedcom/date";
 import type { Individual } from "../gedcom/types";
-import { comparableName, dateSimilarity, dateCompareKey, givenNameSetSimilarity, noGivenNameInCommon, placeSimilarity } from "./similarity";
+import { SAME_PERSON_GIVEN, comparableName, dateSimilarity, dateCompareKey, givenNameSetSimilarity, givenSimilarity, noGivenNameInCommon, placeSimilarity } from "./similarity";
 import { compareKey, isPlaceholderName } from "./text";
+import { givenVariantKey } from "./givenVariants";
 import { placeCompareKey } from "./place";
 
 describe("parseDate qualifier variants", () => {
@@ -47,6 +48,64 @@ describe("comparableName / placeholder names", () => {
     expect(comparableName({ full: "Living", given: "Living" })).toBeUndefined();
     const real = { full: "Janez Novak", given: "Janez", surname: "Novak" };
     expect(comparableName(real)).toBe(real); // untouched names pass through by identity
+  });
+});
+
+describe("cross-language given names", () => {
+  // Parish registers are Latin, the tree is Slovenian: spelling alone reads
+  // these as different names (Neža/Agnes has no matching characters at all).
+  it("counts the Latin and Slovenian forms of one name as the same name", () => {
+    for (const [a, b] of [
+      ["Neža", "Agnes"],
+      ["Jernej", "Bartholomeus"],
+      ["Jurij", "Georgius"],
+      ["Janez", "Joannes"],
+      ["Katarina", "Catharina"],
+      ["Jera", "Gertrud"],
+      ["Marjeta", "Margaretha"],
+      ["Miklavž", "Nicolaus"],
+      ["Špela", "Elisabetha"],
+      // Short forms of a name belong to it: with the surname dropped between
+      // children, a missing one shows one child as two.
+      ["Mihael", "Miha"],
+      ["Mihael", "Miko"],
+      ["Terezija", "Rezka"],
+      ["Terezija", "Reza"],
+      ["Rudolf", "Rudi"],
+      ["Anton", "Tone"],
+      ["Alojz", "Lojze"],
+      ["Ignacij", "Nace"],
+      ["Frančišek", "Franci"],
+    ] as const) {
+      expect(givenSimilarity(a, b), `${a}/${b}`).toBe(1);
+    }
+  });
+
+  it("leaves names that merely share a root apart", () => {
+    // Calibrated distinct pairs (MATCHING.md) — the table must not join them.
+    for (const [a, b] of [
+      ["Neža", "Ana"],
+      ["Anton", "Jakob"],
+      ["Marija", "Terezija"],
+      ["Jožef", "Jakob"],
+    ] as const) {
+      expect(givenSimilarity(a, b), `${a}/${b}`).toBeLessThan(SAME_PERSON_GIVEN);
+    }
+    // Matej and Matija are spelled alike enough to score high on their own, but
+    // they name two different children and get separate rows in the table.
+    expect(givenVariantKey("matej")).not.toBe(givenVariantKey("matija"));
+  });
+
+  it("still compares token-wise, so a second given name doesn't hide the match", () => {
+    expect(givenSimilarity("Joannes Baptista", "Janez")).toBe(1);
+    expect(givenSimilarity("Neža", "Agnes Maria")).toBe(1);
+  });
+
+  it("lets the cross-file veto see through the language change", () => {
+    const indi = (given: string): Individual =>
+      ({ id: "@X@", names: [{ given, surname: "Sajovic", full: `${given} Sajovic` }] }) as unknown as Individual;
+    expect(noGivenNameInCommon(indi("Neža"), indi("Agnes"))).toBe(false);
+    expect(noGivenNameInCommon(indi("Neža"), indi("Ana"))).toBe(true);
   });
 });
 

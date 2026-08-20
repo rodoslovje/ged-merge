@@ -4,7 +4,7 @@ import { sourceCitationKey } from "../gedcom/source";
 import { decomposePlace } from "../gedcom/place";
 import { compareKey, foldToken } from "../match/text";
 import { canonicalPlaceToken, placeCompareKey } from "../match/place";
-import { comparableName, dateCompareKey, givenSimilarity, nameSimilarity } from "../match/similarity";
+import { PARENT_GIVEN_CONFLICT, comparableName, dateCompareKey, givenSimilarity, nameSimilarity } from "../match/similarity";
 import { findEvent, fullDatesLabel, lifespanLabel, displayName, nameTypeLabel } from "../match/relatives";
 import { birthDateOf, formatLifespan, isDeceased } from "../gedcom/lifespan";
 import { dateToSortKey, parseDate } from "../gedcom/date";
@@ -415,7 +415,8 @@ function buildFamilyRows(
 
     if (mChildRels.length > 0 || cChildRels.length > 0) {
       rows.push({ key: `${famKey}.children.header`, label: t("field.children"), main: "", incoming: "", state: "agree", isGroupHeader: true, isEventHeader: true });
-      pushRelativesRow(rows, `${famKey}.children`, formatFieldLabel(t, "children"), mChildRels, cChildRels, "", true);
+      pushRelativesRow(rows, `${famKey}.children`, formatFieldLabel(t, "children"), mChildRels, cChildRels,
+        { displayLabel: "", perChildChoice: true, kind: "child" });
     }
   });
 }
@@ -431,6 +432,7 @@ function relativeYears(indi: Individual, showAge: boolean): string {
 
 function partnerToRelative(partner: Individual, showAge = false): Relative {
   const birth = findEvent(partner, "BIRT")?.date;
+  const death = findEvent(partner, "DEAT")?.date;
   return {
     id: partner.id,
     name: partner.names[0],
@@ -439,7 +441,8 @@ function partnerToRelative(partner: Individual, showAge = false): Relative {
     birthYear: birth?.year,
     birthApprox: birth?.qualifier !== "exact",
     birthDay: birth?.month != null && birth.day != null ? birth.month * 100 + birth.day : undefined,
-    deathYear: findEvent(partner, "DEAT")?.date?.year,
+    deathYear: death?.year,
+    deathDay: death?.month != null && death.day != null ? death.month * 100 + death.day : undefined,
     displayName: displayName(partner.names[0]),
     years: relativeYears(partner, showAge),
     sex: partner.sex,
@@ -484,7 +487,7 @@ function pairFamilies(
         const cKids = cf.children.map(id => compareDs.individuals.get(id)).filter(Boolean) as Individual[];
         let matches = 0;
         mKids.forEach(mk => {
-          if (cKids.some(ck => relativeSimilarity(partnerToRelative(mk), partnerToRelative(ck)) >= RELATIVE_PAIR_THRESHOLD)) {
+          if (cKids.some(ck => relativeSimilarity(partnerToRelative(mk), partnerToRelative(ck), "child") >= RELATIVE_PAIR_THRESHOLD)) {
             matches++;
           }
         });
@@ -618,6 +621,9 @@ interface Relative {
   birthDay?: number;
   /** Death year, when known. */
   deathYear?: number;
+  /** Day within the death year (month × 100 + day), when recorded that
+   *  precisely — two records agreeing to the day on a death are one person. */
+  deathDay?: number;
   /** Display name. */
   displayName?: string;
   years?: string;
@@ -768,11 +774,11 @@ function pushRelativesRow(
   label: string,
   main: Relative[],
   incoming: Relative[],
-  displayLabel?: string,
-  perChildChoice?: boolean,
+  opts: { displayLabel?: string; perChildChoice?: boolean; kind?: RelativeKind } = {},
 ): void {
   if (main.length === 0 && incoming.length === 0) return;
-  const pairs = alignRelatives(main, incoming);
+  const { displayLabel, perChildChoice, kind = "partner" } = opts;
+  const pairs = alignRelatives(main, incoming, kind);
   // Joined text is still kept so comparison/state and the merge's default choice
   // (main-if-present) work; rendering uses the structured `relatives` pairs.
   const m = main.length ? pairs.map((p) => p.main?.text ?? "").join("\n") : "";
@@ -807,23 +813,51 @@ function relativeCell(r: Relative): RelativeCell {
 }
 
 /**
+ * In which role a pair of relatives is being compared. Children of one couple
+ * carry their parents' surname whatever their given names, so between them the
+ * surname is not evidence; a partner's surname is.
+ */
+type RelativeKind = "child" | "partner";
+
+/**
  * Minimum name similarity for two relatives to be paired onto the same line.
  * Set high because relatives typically share a surname (which alone scores ~0.6),
  * so distinguishing the same person from a same-surname sibling rests on the
  * given name: this threshold demands a strong given-name agreement too, pairing
  * spelling variants (Ana/Anna) while keeping distinct siblings (Berta/Doris) apart.
+ * Between children, where the surname is dropped altogether, it *is* the
+ * given-name bar — and deliberately the same 0.85 the matcher calls two records
+ * one person at (`SAME_PERSON_GIVEN`).
  */
 export const RELATIVE_PAIR_THRESHOLD = 0.85;
+
+/**
+ * How far two *exact* birth years may sit apart before the gap is read as
+ * "different children" rather than as a discrepancy over one child. A year
+ * taken off a baptism a season later, or a transcription slip, moves a birth
+ * by a year or two — Katarina 1803 against her own record as Catharina 1805 —
+ * so the pairing tolerates that much while a wider gap still pulls same-named
+ * siblings apart. Kept just under `SAME_PERSON_YEAR_GAP` (±3), the record-level
+ * bar the matcher itself applies to one person's two records.
+ */
+const EXACT_YEAR_TOLERANCE = 2;
 
 /**
  * How alike two individuals look *as relatives* — the same name + birth-year
  * signal that aligns partners and children in the review table, exposed so
  * other views pair people the same way (the compare tree falls back to it for
  * spouses the matcher never paired). At or above
- * {@link RELATIVE_PAIR_THRESHOLD} means "the same person".
+ * {@link RELATIVE_PAIR_THRESHOLD} means "the same person"; the caller says in
+ * which role it is asking, because two children of one couple are compared on
+ * their given names alone (their surname is their parents'). Ranking score,
+ * not a 0..1 similarity — the birth-year bonus can carry it past 1.
  */
-export function relativePersonSimilarity(a: Individual, b: Individual): number {
-  return relativeSimilarity(partnerToRelative(a), partnerToRelative(b));
+export function relativePersonSimilarity(
+  a: Individual,
+  b: Individual,
+  kind: RelativeKind = "partner",
+): number {
+  return relativeSimilarity(partnerToRelative(a), partnerToRelative(b), kind);
 }
 
 /**
@@ -856,12 +890,20 @@ function samePartner(a: Relative, b: Relative): boolean {
  * first), then emit aligned pairs: matched relatives share a pair in main
  * order, main-only relatives get a pair with no incoming side, and any
  * unmatched incoming relatives are appended with no main side.
+ *
+ * Best-first is what keeps a reused name straight — a child who died young and
+ * whose name went to the next one, three or four Marijas deep. Every exact
+ * birth-year agreement scores above every near miss (+0.15 against +0.05), so
+ * all the exactly-dated pairs are taken before a single year-apart one is
+ * considered, and a Marija only reaches a sibling's year once her own record
+ * has no counterpart left. What best-first cannot settle is a genuine tie —
+ * see the ambiguity guard below.
  */
-function alignRelatives(main: Relative[], incoming: Relative[]): RelativePair[] {
+function alignRelatives(main: Relative[], incoming: Relative[], kind: RelativeKind): RelativePair[] {
   const cand: { mi: number; ii: number; sim: number }[] = [];
   main.forEach((m, mi) =>
     incoming.forEach((c, ii) => {
-      const sim = relativeSimilarity(m, c);
+      const sim = relativeSimilarity(m, c, kind);
       if (sim >= RELATIVE_PAIR_THRESHOLD) cand.push({ mi, ii, sim });
     }),
   );
@@ -870,8 +912,36 @@ function alignRelatives(main: Relative[], incoming: Relative[]): RelativePair[] 
   const matchOf = new Map<number, number>(); // main index -> incoming index
   const usedIncoming = new Set<number>();
   const usedMain = new Set<number>();
+
+  /** Two relatives the records say exactly the same things about: whichever of
+   *  them a candidate takes, the same thing is asserted, so the choice between
+   *  them settles nothing and costs nothing. Two records of one child, or two
+   *  children a file cannot tell apart in the first place. */
+  const interchangeable = (x: Relative, y: Relative): boolean =>
+    x.birthYear === y.birthYear && x.birthDay === y.birthDay && x.deathYear === y.deathYear
+    && x.birthApprox === y.birthApprox
+    && foldToken(x.displayName ?? "") === foldToken(y.displayName ?? "");
+
+  /**
+   * Is another still-takeable candidate exactly as good as this one, and for a
+   * *different* relative? Two Marijas born 1794 and 1796 against one incoming
+   * Maria of 1795 sit a year from her either way, and nothing in the records
+   * says which is hers — reusing a dead child's name makes that a real case,
+   * not a contrived one. Taking the first would write an identity the evidence
+   * doesn't carry, so neither pairs: both Marijas keep their own line and the
+   * incoming child is offered as an addition, for you to judge. A tie between
+   * relatives that are {@link interchangeable} asserts nothing either way and
+   * is settled, as before, by the order they are listed in.
+   */
+  const ambiguous = (p: { mi: number; ii: number; sim: number }): boolean =>
+    cand.some((q) =>
+      q !== p && Math.abs(q.sim - p.sim) < 1e-9
+      && ((q.mi === p.mi && !usedIncoming.has(q.ii) && !interchangeable(incoming[p.ii], incoming[q.ii]))
+        || (q.ii === p.ii && !usedMain.has(q.mi) && !interchangeable(main[p.mi], main[q.mi]))));
+
   for (const p of cand) {
     if (usedMain.has(p.mi) || usedIncoming.has(p.ii)) continue;
+    if (ambiguous(p)) continue;
     usedMain.add(p.mi);
     usedIncoming.add(p.ii);
     matchOf.set(p.mi, p.ii);
@@ -911,9 +981,10 @@ function datesIdentify(a: Relative, b: Relative): boolean {
  * + surname) is the base signal; birth year then nudges the score so the pairing
  * lines people up by name *and* birth: a shared birth year rescues a borderline
  * name match (spelling variants of the same child), while diverging birth years
- * pull same-named siblings apart so they don't collapse onto one line.
+ * pull same-named siblings apart so they don't collapse onto one line. The
+ * year only ever corroborates a name that already agrees — see the guard below.
  */
-function relativeSimilarity(a: Relative, b: Relative): number {
+function relativeSimilarity(a: Relative, b: Relative, kind: RelativeKind = "partner"): number {
   // Placeholders ("NN", "?", "Living") name nobody, so they count as missing
   // here exactly as they do in the matcher — two of them are not a match.
   const an = comparableName(a.name);
@@ -928,7 +999,17 @@ function relativeSimilarity(a: Relative, b: Relative): number {
   // the `anchored` rule in scoreIndividual.
   if (!an?.given || !bn?.given) return datesIdentify(a, b) ? RELATIVE_PAIR_THRESHOLD : 0;
 
-  const nameSim = nameSimilarity(an, bn) ?? 0;
+  // Children of one couple share the family surname by construction, so it
+  // identifies nobody among them: weighted 0.6 in `nameSimilarity` it floors
+  // every sibling pair at ~0.6, which lifted "Anton"/"Alojz" (given names
+  // 0.64 apart — two brothers) to 0.856, over the bar. Only the given name
+  // discriminates, so between children only the given name is compared, and
+  // the bar becomes a given-name bar. The matcher drops the surname for the
+  // same reason — see `givenNameSetSimilarity`. Partners keep the whole name:
+  // there the surname is real evidence, not a shared inheritance.
+  const nameSim = kind === "child"
+    ? givenSimilarity(an.given, bn.given)
+    : nameSimilarity(an, bn) ?? 0;
 
   if (a.birthYear == null || b.birthYear == null) return nameSim;
   const gap = Math.abs(a.birthYear - b.birthYear);
@@ -936,9 +1017,44 @@ function relativeSimilarity(a: Relative, b: Relative): number {
   // it shouldn't count as heavily against the pairing as a gap between two
   // exact dates would — mirrors the wider tolerance dateSimilarity gives
   // approximate dates.
-  const tolerance = a.birthApprox || b.birthApprox ? 10 : 1;
-  const birthAdjust = gap === 0 ? 0.15 : gap <= tolerance ? 0.05 : -0.25;
-  return Math.max(0, Math.min(1, nameSim + birthAdjust));
+  const tolerance = a.birthApprox || b.birthApprox ? 10 : EXACT_YEAR_TOLERANCE;
+  if (gap > tolerance) return Math.max(0, nameSim - 0.25);
+  // Within tolerance the year *corroborates* the name and ranks the candidates
+  // — it never stands in for a name. Siblings share the year they were born as
+  // readily as the surname, so without this guard a shared 1803 lifted
+  // "Katarina"/"Agnes" over the bar and consumed the incoming child her real
+  // counterpart Neža needed. For children the name must already carry the
+  // pairing on its own; for partners it need only not conflict outright.
+  const eligible = kind === "child"
+    ? nameSim >= RELATIVE_PAIR_THRESHOLD
+    : givenSimilarity(an.given, bn.given) >= PARENT_GIVEN_CONFLICT;
+  if (!eligible) return nameSim;
+
+  // Inside a shared year, the day is what tells a reused name apart: a child
+  // who died in infancy and the next one given her name were both born in
+  // 1828 — one on 2 January, one on 19 October. Same day corroborates further;
+  // a different day in the same month reads as a transcription difference (a
+  // baptism entered for a birth) and merely withdraws the year's credit, while
+  // a different month is two children and takes the name's score down with it.
+  // Asked of children only: which of two same-named siblings a record belongs
+  // to is their question, and partners are pinned by the golden merge suite.
+  if (kind === "child" && gap === 0 && a.birthDay != null && b.birthDay != null && a.birthDay !== b.birthDay) {
+    const sameMonth = Math.floor(a.birthDay / 100) === Math.floor(b.birthDay / 100);
+    // Unless the two records die on the same day: 19 Sep 1881 against 19 Aug
+    // 1881, both dead on 1 October 1938, is one man and a slip of the month.
+    // The death *year* alone would not do — the sisters above share theirs.
+    const oneDeath = a.deathDay != null && a.deathDay === b.deathDay && a.deathYear === b.deathYear;
+    return Math.max(0, sameMonth || oneDeath ? nameSim : nameSim - 0.25);
+  }
+  const dayAgrees = kind === "child" && gap === 0 && a.birthDay != null && a.birthDay === b.birthDay;
+  // A death year both sides record separates two records of one child from two
+  // children who share a name *and* a birth date.
+  const deathAgrees = kind === "child" && a.deathYear != null && a.deathYear === b.deathYear;
+  // Deliberately left above 1 when it lands there: the value ranks candidates
+  // for the greedy pairing, and clamping made a child born the same year score
+  // exactly as much as one born two years off, leaving which sibling paired to
+  // the order they happened to be listed in.
+  return nameSim + (dayAgrees ? 0.2 : gap === 0 ? 0.15 : 0.05) + (deathAgrees ? 0.05 : 0);
 }
 
 /**

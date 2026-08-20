@@ -1543,6 +1543,222 @@ describe("aligned relative lists (children/partners)", () => {
     expect(i[line1850]).toBe(""); // the 1850 sibling stays unmatched
   });
 
+  // Children of one couple all carry their parents' surname, so it cannot tell
+  // them apart — only the given name can.
+  it("keeps differently named siblings apart despite a shared surname and year", () => {
+    const famD = (kids: string[]) =>
+      `0 HEAD\n0 @H@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F@\n` +
+      kids
+        .map((k, i) => `0 @K${i}@ INDI\n1 NAME ${k} /Novak/\n1 BIRT\n2 DATE 1810\n1 FAMC @F@\n`)
+        .join("") +
+      `0 @F@ FAM\n1 HUSB @H@\n` +
+      kids.map((_, i) => `1 CHIL @K${i}@\n`).join("") +
+      `0 TRLR\n`;
+
+    const md = dataset(famD(["Anton"]));
+    const cd = dataset(famD(["Alojz"]));
+    const children = byKey(
+      individualFieldRows(tr, md.individuals.get("@H@"), cd.individuals.get("@H@"), md, cd),
+      "fam.@F@.children",
+    )!;
+    const antonLine = children.main.split("\n").findIndex((l) => l.includes("Anton"));
+    expect(children.incoming.split("\n")[antonLine]).toBe("");
+  });
+
+  // Two candidates both within tolerance: the closer birth year takes the child.
+  it("gives an incoming child to the sibling born the same year, not the nearer one", () => {
+    const famE = (kids: number[]) =>
+      `0 HEAD\n0 @H@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F@\n` +
+      kids
+        .map((y, i) => `0 @K${i}@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 DATE ${y}\n1 FAMC @F@\n`)
+        .join("") +
+      `0 @F@ FAM\n1 HUSB @H@\n` +
+      kids.map((_, i) => `1 CHIL @K${i}@\n`).join("") +
+      `0 TRLR\n`;
+
+    const md = dataset(famE([1850, 1852]));
+    const cd = dataset(famE([1852]));
+    const children = byKey(
+      individualFieldRows(tr, md.individuals.get("@H@"), cd.individuals.get("@H@"), md, cd),
+      "fam.@F@.children",
+    )!;
+    const m = children.main.split("\n");
+    const i = children.incoming.split("\n");
+    expect(i[m.findIndex((l) => l.includes("1852"))]).toContain("1852");
+    expect(i[m.findIndex((l) => l.includes("1850"))]).toBe("");
+  });
+
+  // A name reused after a child died young — four Marijas in one family. Each
+  // must find her own record, and where the records cannot say which sibling an
+  // incoming child is, none may be guessed.
+  describe("a given name reused among siblings", () => {
+    const famR = (name: string, years: number[]) =>
+      `0 HEAD\n0 @H@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F@\n` +
+      years
+        .map((y, i) => `0 @K${i}@ INDI\n1 NAME ${name} /Novak/\n1 BIRT\n2 DATE ${y}\n1 FAMC @F@\n`)
+        .join("") +
+      `0 @F@ FAM\n1 HUSB @H@\n` +
+      years.map((_, i) => `1 CHIL @K${i}@\n`).join("") +
+      `0 TRLR\n`;
+
+    const childrenOf = (mainYears: number[], incomingYears: number[], incomingName = "Maria") => {
+      const md = dataset(famR("Marija", mainYears));
+      const cd = dataset(famR(incomingName, incomingYears));
+      const row = byKey(
+        individualFieldRows(tr, md.individuals.get("@H@"), cd.individuals.get("@H@"), md, cd),
+        "fam.@F@.children",
+      )!;
+      const m = row.main.split("\n");
+      const i = row.incoming.split("\n");
+      return (year: number) => i[m.findIndex((l) => l.includes(String(year)))];
+    };
+
+    it("pairs every sibling with her own birth year, two years apart or less", () => {
+      // 1795 and 1797 are within tolerance of each other: exact agreement must
+      // be taken first, or they cross over.
+      const at = childrenOf([1793, 1795, 1797, 1799], [1793, 1795, 1797, 1799]);
+      for (const y of [1793, 1795, 1797, 1799]) expect(at(y), String(y)).toContain(String(y));
+    });
+
+    it("takes the exact year even when a sibling's year sits within tolerance", () => {
+      const at = childrenOf([1793, 1795, 1797], [1795]);
+      expect(at(1795)).toContain("1795");
+      expect(at(1793)).toBe("");
+      expect(at(1797)).toBe("");
+    });
+
+    // Two records of one child — same name, same year — are interchangeable:
+    // whichever way they pair, the same thing is said, so order settles it.
+    it("still pairs siblings the records cannot tell apart", () => {
+      const at = childrenOf([1828, 1828], [1828, 1828]);
+      expect(at(1828)).toContain("1828");
+      const md = dataset(famR("Marija", [1828, 1828]));
+      const cd = dataset(famR("Maria", [1828, 1828]));
+      const row = byKey(
+        individualFieldRows(tr, md.individuals.get("@H@"), cd.individuals.get("@H@"), md, cd),
+        "fam.@F@.children",
+      )!;
+      expect(row.incoming.split("\n").filter((l) => l.trim()).length).toBe(2);
+      expect(row.main.split("\n").length).toBe(2); // no extra unpaired lines
+    });
+
+    // The classic reuse: an infant dies and the next child takes her name, both
+    // born in the same year. Only the day inside the year tells them apart.
+    it("tells two same-year sisters apart by the day they were born", () => {
+      const famDay = (dates: string[]) =>
+        `0 HEAD\n0 @H@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F@\n` +
+        dates
+          .map((d, i) => `0 @K${i}@ INDI\n1 NAME Marija /Novak/\n1 BIRT\n2 DATE ${d}\n1 FAMC @F@\n`)
+          .join("") +
+        `0 @F@ FAM\n1 HUSB @H@\n` +
+        dates.map((_, i) => `1 CHIL @K${i}@\n`).join("") +
+        `0 TRLR\n`;
+
+      const md = dataset(famDay(["2 JAN 1828", "19 OCT 1828"]));
+      const cd = dataset(famDay(["2 JAN 1828", "19 OCT 1828"]));
+      const row = byKey(
+        individualFieldRows(tr, md.individuals.get("@H@"), cd.individuals.get("@H@"), md, cd),
+        "fam.@F@.children",
+      )!;
+      // Both pair, and each with her own record — the tooltip carries the day.
+      expect(row.relatives?.length).toBe(2);
+      for (const p of row.relatives ?? []) {
+        expect(p.main).toBeDefined();
+        expect(p.incoming).toBeDefined();
+        expect(p.incoming!.title).toBe(p.main!.title);
+      }
+    });
+
+    // One side records only the second Marija: she must not take the first
+    // one's line just because the year agrees.
+    it("does not pair two same-year sisters born in different months", () => {
+      const one = `0 HEAD\n0 @H@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F@\n`
+        + `0 @K0@ INDI\n1 NAME Marija /Novak/\n1 BIRT\n2 DATE 2 JAN 1828\n1 FAMC @F@\n`
+        + `0 @F@ FAM\n1 HUSB @H@\n1 CHIL @K0@\n0 TRLR\n`;
+      const other = one.replace("2 JAN 1828", "19 OCT 1828");
+      const md = dataset(one);
+      const cd = dataset(other);
+      const row = byKey(
+        individualFieldRows(tr, md.individuals.get("@H@"), cd.individuals.get("@H@"), md, cd),
+        "fam.@F@.children",
+      )!;
+      expect(row.relatives?.length).toBe(2); // two lines, not one
+      expect(row.relatives?.[0].incoming).toBeUndefined();
+    });
+
+    // …unless the two records die on the same day: then the month is a typo.
+    it("pairs a child whose birth month differs but whose death date agrees", () => {
+      const child = (birth: string) =>
+        `0 HEAD\n0 @H@ INDI\n1 NAME Janez /Benedik/\n1 SEX M\n1 FAMS @F@\n`
+        + `0 @K0@ INDI\n1 NAME Jernej /Benedik/\n1 BIRT\n2 DATE ${birth}\n1 DEAT\n2 DATE 1 OCT 1938\n1 FAMC @F@\n`
+        + `0 @F@ FAM\n1 HUSB @H@\n1 CHIL @K0@\n0 TRLR\n`;
+      const md = dataset(child("19 SEP 1881"));
+      const cd = dataset(child("19 AUG 1881"));
+      const row = byKey(
+        individualFieldRows(tr, md.individuals.get("@H@"), cd.individuals.get("@H@"), md, cd),
+        "fam.@F@.children",
+      )!;
+      expect(row.relatives?.length).toBe(1);
+      expect(row.relatives?.[0].incoming).toBeDefined();
+    });
+
+    it("pairs nobody when two siblings are equally close to one incoming child", () => {
+      // Maria 1795 sits a year from Marija 1794 and a year from Marija 1796 —
+      // the records do not say which, so neither is claimed.
+      const at = childrenOf([1794, 1796], [1795]);
+      expect(at(1794)).toBe("");
+      expect(at(1796)).toBe("");
+    });
+  });
+
+  // A Slovenian tree against the Latin parish register it was read from: the
+  // main children carry the Slovenian names, the incoming ones the Latin forms.
+  describe("children named in Latin on one side", () => {
+    const famC = (kids: { name: string; year: string }[]) =>
+      `0 HEAD\n0 @H@ INDI\n1 NAME Janez /Sajovic/\n1 SEX M\n1 FAMS @F@\n` +
+      kids
+        .map((k, i) => `0 @K${i}@ INDI\n1 NAME ${k.name}\n1 BIRT\n2 DATE ${k.year}\n1 FAMC @F@\n`)
+        .join("") +
+      `0 @F@ FAM\n1 HUSB @H@\n` +
+      kids.map((_, i) => `1 CHIL @K${i}@\n`).join("") +
+      `0 TRLR\n`;
+
+    const md = dataset(famC([
+      { name: "Neža /Sajovic/", year: "1803" },
+      { name: "Katarina /Sajovic/", year: "1803" },
+      { name: "Jurij /Sajovic/", year: "1808" },
+    ]));
+    const cd = dataset(famC([
+      { name: "Agnes /Sajoviz/", year: "1803" },
+      { name: "Catharina /Sajouz/", year: "1805" },
+      { name: "Georgius /Sajoviz/", year: "1808" },
+    ]));
+    const children = byKey(
+      individualFieldRows(tr, md.individuals.get("@H@"), cd.individuals.get("@H@"), md, cd),
+      "fam.@F@.children",
+    )!;
+    const lineOf = (name: string) => children.main.split("\n").findIndex((l) => l.includes(name));
+    const incoming = children.incoming.split("\n");
+
+    it("pairs a child with her name's Latin form", () => {
+      expect(incoming[lineOf("Neža")]).toContain("Agnes");
+      expect(incoming[lineOf("Jurij")]).toContain("Georgius");
+    });
+
+    // Katarina and Catharina are one child recorded a birth year apart on
+    // either side of the tolerance; before, the 2-year gap outweighed the name.
+    it("pairs one child across a birth year read two years apart", () => {
+      expect(incoming[lineOf("Katarina")]).toContain("Catharina");
+    });
+
+    // Agnes shares Katarina's 1803 but not her name: the year alone must not
+    // pair them, or it consumes the incoming child Neža needs.
+    it("does not let a shared birth year pair two differently named children", () => {
+      expect(incoming[lineOf("Katarina")]).not.toContain("Agnes");
+      expect(children.incoming.split("\n").filter((l) => l.includes("Agnes")).length).toBe(1);
+    });
+  });
+
   // Children listed in non-chronological order in the file are shown sorted by birth.
   it("lists children sorted by birth date", () => {
     const text =
