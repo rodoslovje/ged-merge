@@ -6,7 +6,6 @@ import {
   ALL_SITES,
   SITE_ICON,
   baptismTargetTag,
-  fetchBookMeta,
   fetchReshapeMeta,
   isFetchableSite,
   mergeFsBooks,
@@ -36,6 +35,7 @@ import { idField } from "../source/standardFields";
 import { SourceDialogShell } from "../source/SourceDialogShell";
 import { SourceLinkRow } from "../source/SourceLinkRow";
 import { SourceFieldsForm, type SourceFormValues } from "../source/SourceFieldsForm";
+import { useSourceLookup } from "../source/useSourceLookup";
 import { childText } from "../../gedcom/node";
 import { parseSourceInput } from "../../gedcom/citationParse";
 import { fetchPageHtml } from "../../normalize/urlMetadata";
@@ -890,10 +890,7 @@ function GroupEditDialog({
   // What this file calls the archive's id, and whether that name is an
   // extension: the same rule the Add Source dialog states, from one place.
   const idLabel = idField(dataset.records, coverage, repoSel !== "");
-  const [fetching, setFetching] = useState(false);
-  /** Whether the last lookup came back empty-handed — the relay was blocked or
-   *  the page said nothing this editor understands. */
-  const [failed, setFailed] = useState(false);
+  const { targetOf, lookUp: readPage, fetching, failed } = useSourceLookup(settings.allowLinkFetch);
 
   // A citation pasted from the site itself (FamilySearch's "Copy citation",
   // whose record pages no lookup can reach) fills the fields in one go, and so
@@ -938,39 +935,27 @@ function GroupEditDialog({
 
   /** The site lookup a link is worth running, or nothing — an unrecognized
    *  link, and a FamilySearch record page (sign-in only) among them. */
-  const lookupTarget = (value: string) => {
-    const trimmed = value.trim();
-    if (!trimmed) return undefined;
-    const rec = recognizeSourceUrl(familySearchPageUrl(trimmed));
-    return rec && isFetchableSite(rec.site, rec.bookUrl) ? rec : undefined;
-  };
-
-  /** The link whose answer the fields are waiting for — a slow reply for a
-   *  link since edited away must not land in them. */
-  const awaiting = useRef("");
+  const lookupTarget = (value: string) => targetOf(value, { readable: true });
 
   /** Read the page behind a link and fill these fields from what it says. */
   const lookUp = useCallback(
     async (target: RecognizedSourceUrl): Promise<void> => {
-      awaiting.current = linkKey(target.bookUrl);
-      setFetching(true);
-      const found = await fetchBookMeta(target.site, target.bookUrl, fetchPageHtml).catch(() => undefined);
-      if (awaiting.current !== linkKey(target.bookUrl)) return;
-      setFetching(false);
-      setFailed(!found);
+      const found = await readPage(target.bookUrl);
       if (!found) return;
       setExtras((prev) => ({ ...prev, ...found }));
       fill({
         title: found.title,
         author: found.author,
         agency: found.agency,
+        publisher: found.publisher,
+        periodical: found.periodical,
         place: resolvePlace(found.place),
         filingNumber: found.filingNumber,
         dateRange: found.dateRange,
         page: onePage ? found.page ?? target.page : undefined,
       });
     },
-    [fill, resolvePlace, onePage],
+    [readPage, fill, resolvePlace, onePage],
   );
 
   /** Put another link in the source's place. The ids the old link supplied —
@@ -979,7 +964,6 @@ function GroupEditDialog({
    *  in the fields; the lookup then improves what it can. */
   function relink(next: string) {
     setUrl(next);
-    setFailed(false);
     const rec = next.trim() ? recognizeSourceUrl(familySearchPageUrl(next.trim())) : undefined;
     if (!rec || linkKey(rec.bookUrl) === linkKey(url)) return;
     setFields((f) => ({
@@ -1028,9 +1012,9 @@ function GroupEditDialog({
   const settledUrl = useDebounced(url.trim(), 400);
   useEffect(() => {
     if (!settings.allowLinkFetch) return;
-    const target = lookupTarget(settledUrl);
+    const target = targetOf(settledUrl, { readable: true });
     if (target && linkKey(target.bookUrl) !== linkKey(link)) void lookUp(target);
-  }, [settledUrl, link, settings.allowLinkFetch, lookUp]);
+  }, [settledUrl, link, settings.allowLinkFetch, lookUp, targetOf]);
 
   function save() {
     onSave(

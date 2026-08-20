@@ -5,8 +5,7 @@ import { findExistingSource, type FsSourceHint } from "../gedcom/source";
 import { parseSourceInput } from "../gedcom/citationParse";
 import { inferMainProfile } from "../normalize/profile";
 import { familySearchPageUrl, rewriteLinkLang } from "../normalize/links";
-import { fetchPageHtml, fetchPageTitle } from "../normalize/urlMetadata";
-import { fetchBookMeta, makePlaceResolver, narrowFsRegister, proposedSiteRepo, recognizeSourceUrl, siteSourceTitle, SITE_ICON, splitFsRegisters, type ReshapeMeta, type ReshapeSite } from "../tools/sourceReshape";
+import { makePlaceResolver, narrowFsRegister, proposedSiteRepo, recognizeSourceUrl, siteSourceTitle, SITE_ICON, splitFsRegisters, type ReshapeMeta, type ReshapeSite } from "../tools/sourceReshape";
 import { detectSourceCoverage, repoLinkWanted, writesCallNumbers } from "../gedcom/source";
 import { childText } from "../gedcom/node";
 import { useSettings } from "./SettingsContext";
@@ -14,6 +13,7 @@ import { useDebounced } from "./tools/shared";
 import { SelectMenu } from "./DropdownMenu";
 import { idField } from "./source/standardFields";
 import { SourceFieldsForm } from "./source/SourceFieldsForm";
+import { useSourceLookup } from "./source/useSourceLookup";
 import { SourceDialogShell } from "./source/SourceDialogShell";
 import { SourceLinkRow } from "./source/SourceLinkRow";
 import type { Translate } from "../locales/i18n";
@@ -104,7 +104,6 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
   const [repoName, setRepoName] = useState("");
   // Call number (CALN) on the source's repository link.
   const [repoCaln, setRepoCaln] = useState("");
-  const [fetching, setFetching] = useState(false);
   const [fetched, setFetched] = useState<ReshapeMeta | undefined>();
   // One register of a book that holds several ("Births … 1892-1899 Marriages …
   // 1858-1890"), once the reader says which one this page is.
@@ -113,6 +112,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
   // lookup improves only what the dialog itself put there.
   const repoTouched = useRef(false);
   const { settings } = useSettings();
+  const { targetOf, lookUp, fetching } = useSourceLookup(settings.allowLinkFetch);
 
   const mainLinkLangs = useMemo(() => inferMainProfile(dataset).linkLangs, [dataset]);
   // Places shown in the dialog already match the file's own place format —
@@ -315,15 +315,10 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
    */
   async function refetch() {
     const url = fields.url.trim();
-    if (!url || fetching || !settings.allowLinkFetch) return;
-    const normalized = familySearchPageUrl(rewriteLinkLang(url, mainLinkLangs));
-    const site = recognizeSourceUrl(normalized, undefined);
-    setFetching(true);
-    const request: Promise<ReshapeMeta | undefined> = site
-      ? fetchBookMeta(site.site, site.bookUrl, fetchPageHtml)
-      : fetchPageTitle(normalized).then((title) => (title ? { title } : undefined));
-    const meta = await request.catch(() => undefined);
-    setFetching(false);
+    if (!url || fetching) return;
+    const asked = rewriteLinkLang(url, mainLinkLangs);
+    const site = targetOf(asked);
+    const meta = await lookUp(asked, { anyPage: true });
     if (!meta) return;
     setFetched(meta);
     const keep = (current: string, value: string | undefined) => value?.trim() || current;
@@ -362,20 +357,11 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
   // A recognized site URL goes through the cleanup tool's per-site parsers
   // (curated title, agency, place, date range) instead of the raw page title.
   useEffect(() => {
-    if (editing || !settings.allowLinkFetch || !urlOnly || match || !normalizedUrl) {
-      setFetching(false);
-      return;
-    }
+    if (editing || !settings.allowLinkFetch || !urlOnly || match || !normalizedUrl) return;
     let cancelled = false;
-    setFetching(true);
     const proposal = recognized?.proposed;
-    const request: Promise<ReshapeMeta | undefined> = recognized
-      ? fetchBookMeta(recognized.site, recognized.bookUrl, fetchPageHtml)
-      : fetchPageTitle(normalizedUrl).then((title) => (title ? { title } : undefined));
-    request.then((meta) => {
-      if (cancelled) return;
-      setFetching(false);
-      if (!meta) return;
+    void lookUp(normalizedUrl, { anyPage: true }).then((meta) => {
+      if (cancelled || !meta) return;
       setFetched(meta);
       // Fetched metadata upgrades a field only while it still holds the
       // offline proposal (or is empty) — the user's own edits always win.
@@ -397,7 +383,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
       );
     });
     return () => { cancelled = true; };
-  }, [editing, normalizedUrl, urlOnly, match, settings.allowLinkFetch, recognized, resolvePlace]);
+  }, [editing, normalizedUrl, urlOnly, match, settings.allowLinkFetch, recognized, resolvePlace, lookUp]);
 
   if (!isOpen) return null;
 
@@ -407,7 +393,6 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
     setRepoSel("");
     setRepoName("");
     setRepoCaln("");
-    setFetching(false);
     setFetched(undefined);
     setRegister(undefined);
     repoTouched.current = false;
