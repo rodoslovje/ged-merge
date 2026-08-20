@@ -12,7 +12,8 @@ import { childText } from "../gedcom/node";
 import { useSettings } from "./SettingsContext";
 import { useDebounced } from "./tools/shared";
 import { SelectMenu } from "./DropdownMenu";
-import { NonStandard, nonStandardTag } from "./source/standardFields";
+import { idField } from "./source/standardFields";
+import { SourceFieldsForm } from "./source/SourceFieldsForm";
 import { SourceDialogShell } from "./source/SourceDialogShell";
 import { SourceLinkRow } from "./source/SourceLinkRow";
 import type { Translate } from "../locales/i18n";
@@ -226,6 +227,12 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
     const override = settings.formatOverrides.sourceCoverage ?? "auto";
     return override !== "auto" ? override : detectSourceCoverage(dataset.records);
   }, [settings.formatOverrides.sourceCoverage, dataset]);
+  /** Whether this file states the archive's id beside the repository — then
+   *  the source's own filing-number field is not the one that gets written. */
+  const idOnRepo = useMemo(
+    () => idField(dataset.records, coverage, repoSel !== "").caln,
+    [dataset, coverage, repoSel],
+  );
   const matchTitle = useMemo(() => (match ? titleOf(dataset, match.sourceXref) : undefined), [dataset, match]);
   const urlOnly =
     parsed.url !== undefined &&
@@ -501,20 +508,6 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
       handleAdd();
     }
   }
-  const field = (key: keyof FormState, labelKey: string, wide?: boolean) => (
-    <label className={wide ? "add-source-field add-source-field-wide" : "add-source-field"}>
-      <span>
-        {t(labelKey)}
-        <NonStandard tag={nonStandardTag(key, coverage)} t={t} />
-      </span>
-      <input
-        className="edit-input"
-        value={fields[key]}
-        onChange={(e) => setFields((f) => ({ ...f, [key]: e.target.value }))}
-      />
-    </label>
-  );
-
   return (
     <SourceDialogShell
       icon="📖"
@@ -596,28 +589,34 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
           )}
           {fetching && !recognized && <div className="add-source-hint">{t("addSource.fetching")}</div>}
           {!match && (
-            <>
-              {field("title", "addSource.field.title")}
-              {/* Ordered by how often an archive source fills them: the
-                  institution holding the records rides beside the author,
-                  then what it publishes and where it is, and last — on the
-                  row above the repository it belongs to — the periodical and
-                  the archive's own number. */}
-              <div className="add-source-details-grid">
-                {field("author", "addSource.field.author")}
-                {field("agency", "addSource.field.agency")}
-                {field("publisher", "addSource.field.publisher")}
-                {field("place", "addSource.field.place")}
-                {/* Page is citation-local — editing the record itself (Tools →
-                    Sources) has no citation to carry it. */}
-                {!(standalone && editing) && field("page", "addSource.field.page")}
-                {field("note", "addSource.field.note", true)}
-                {field("periodical", "addSource.field.periodical")}
-                {field("filingNumber", "addSource.field.filingNumber")}
-              </div>
-            </>
+            <SourceFieldsForm
+              values={{ ...fields, dateRange: "" }}
+              onChange={(key, value) => setFields((f) => ({ ...f, [key]: value }))}
+              show={{
+                // Page is citation-local — editing the record itself (Tools →
+                // Sources) has no citation to carry it. A source's own year
+                // range is not among this dialog's fields; the site lookup
+                // writes it, and the Organize sources editor offers it.
+                page: !(standalone && editing),
+                dateRange: false,
+              }}
+              coverage={coverage}
+              idOnRepo={idOnRepo}
+              t={t}
+            />
           )}
-          {match && !standalone && field("page", "addSource.field.page")}
+          {/* A link that matches a source the file already has adds only its
+              page — the source's own fields are the file's, not a proposal's. */}
+          {match && !standalone && (
+            <label className="add-source-field">
+              <span>{t("addSource.field.page")}</span>
+              <input
+                className="edit-input"
+                value={fields.page}
+                onChange={(e) => setFields((f) => ({ ...f, page: e.target.value }))}
+              />
+            </label>
+          )}
           {!match && (
             <div className="add-source-details-grid">
               <label className="add-source-field">
@@ -652,7 +651,11 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
                   ]}
                 />
               </label>
-              {repoSel !== "" && (
+              {/* The call number is written on this link (`REPO > CALN`), so
+                  it stands beside it — and only where the file states its ids
+                  there: the same value would otherwise be asked for twice,
+                  once as the source's own filing number. */}
+              {repoSel !== "" && idOnRepo && (
                 <label className="add-source-field">
                   <span>{t("addSource.field.caln")}</span>
                   <input className="edit-input" value={repoCaln} onChange={(e) => setRepoCaln(e.target.value)} />

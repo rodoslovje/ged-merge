@@ -32,9 +32,10 @@ import { familySpouses, recordCitedBy } from "../../tools/sources";
 import { UsageList, useDebounced } from "./shared";
 import { PersonLink } from "../PersonLink";
 import { detectSourceCoverage, repoLinkWanted, sourceTooltip } from "../../gedcom/source";
-import { NonStandard, idField } from "../source/standardFields";
+import { idField } from "../source/standardFields";
 import { SourceDialogShell } from "../source/SourceDialogShell";
 import { SourceLinkRow } from "../source/SourceLinkRow";
+import { SourceFieldsForm, type SourceFormValues } from "../source/SourceFieldsForm";
 import { childText } from "../../gedcom/node";
 import { parseSourceInput } from "../../gedcom/citationParse";
 import { fetchPageHtml } from "../../normalize/urlMetadata";
@@ -827,10 +828,15 @@ function GroupEditDialog({
 }) {
   const { t } = useTranslation();
   const { settings } = useSettings();
-  const [fields, setFields] = useState(() => ({
+  const [fields, setFields] = useState<SourceFormValues>(() => ({
     title: meta?.title ?? group.proposed.title,
     author: meta?.author ?? group.proposed.author ?? "",
     agency: meta?.agency ?? group.proposed.agency ?? "",
+    // Written by the apply from the lookup's answer, so the reader gets to
+    // correct them like the rest.
+    publisher: meta?.publisher ?? "",
+    periodical: meta?.periodical ?? "",
+    note: "",
     place: resolvePlace(meta?.place ?? group.proposed.place) ?? "",
     filingNumber: meta?.filingNumber ?? group.proposed.filingNumber ?? "",
     dateRange: meta?.dateRange ?? group.proposed.dateRange ?? "",
@@ -1026,24 +1032,6 @@ function GroupEditDialog({
     if (target && linkKey(target.bookUrl) !== linkKey(link)) void lookUp(target);
   }, [settledUrl, link, settings.allowLinkFetch, lookUp]);
 
-  const field = (key: keyof typeof fields, labelKey: string, autoFocus = false, nonStandard?: string) => (
-    <label className="add-source-field">
-      <span>
-        {t(labelKey)}
-        <NonStandard tag={nonStandard} t={t} />
-      </span>
-      <input
-        className="edit-input"
-        autoFocus={autoFocus}
-        value={fields[key]}
-        onChange={(e) => {
-          touched.current.add(key);
-          setFields((f) => ({ ...f, [key]: e.target.value }));
-        }}
-      />
-    </label>
-  );
-
   function save() {
     onSave(
       {
@@ -1054,6 +1042,8 @@ function GroupEditDialog({
         title: fields.title.trim() || group.proposed.title,
         author: fields.author.trim(),
         agency: fields.agency.trim(),
+        publisher: fields.publisher.trim() || undefined,
+        periodical: fields.periodical.trim() || undefined,
         place: fields.place.trim(),
         filingNumber: fields.filingNumber.trim(),
         dateRange: fields.dateRange.trim(),
@@ -1119,54 +1109,74 @@ function GroupEditDialog({
             />
           )}
           {failed && <div className="add-source-hint">{t("tools.sources.lookupFailed")}</div>}
-          {field("title", "addSource.field.title")}
-          <div className="add-source-details-grid">
-            {field("author", "addSource.field.author")}
-            {field("agency", "addSource.field.agency")}
-            {field("place", "addSource.field.place")}
-            {/* The id sits with the source only while the source carries it.
-                Where the file states ids as the repository link's call number,
-                the field belongs beside the repository it is written on — see
-                the row below. */}
-            {!idLabel.caln && field("filingNumber", idLabel.labelKey, false, idLabel.nonStandard)}
-            {field("dateRange", "addSource.field.dateRange")}
-            {onePage && field("page", "addSource.field.page")}
-          </div>
-          {/* Only a source this run creates has a repository to choose — one
-              the file already keeps hangs where it hangs. The call number is
-              written on that link (`REPO > CALN`), so it stands beside it. */}
-          {!group.existingSourceXref && (
-            <div className="add-source-details-grid">
-              <label className="add-source-field">
-                <span>{t("addSource.field.repo")}</span>
-                <SelectMenu
-                  className="edit-input"
-                  value={repoSel}
-                  onChange={(v) => {
-                    repoTouched.current = true;
-                    setRepoSel(v);
-                  }}
-                  groups={[
-                    { items: [{ value: "", label: t("tools.sources.noRepo") }] },
-                    {
-                      label: t("tools.sources.dupKind.repo"),
-                      items: repos.map((r) => ({ value: r.xref, label: r.name })),
-                    },
-                    ...(repoProposal?.createName
-                      ? [
-                          {
-                            items: [
-                              { value: "@create@", label: t("addSource.repo.create", { name: repoProposal.createName }) },
-                            ],
-                          },
-                        ]
-                      : []),
-                  ]}
-                />
-              </label>
-              {idLabel.caln && field("filingNumber", idLabel.labelKey)}
-            </div>
-          )}
+          <SourceFieldsForm
+            values={fields}
+            onChange={(key, value) => {
+              touched.current.add(key);
+              setFields((f) => ({ ...f, [key]: value }));
+            }}
+            // The proposal has no note of its own, and its link has a row of
+            // its own above (it can be traded, which a plain URL field cannot
+            // say). The page is a citation's, so it is offered only where the
+            // group is one link and one citation carries it.
+            show={{ note: false, page: onePage }}
+            coverage={coverage}
+            idOnRepo={idLabel.caln}
+            t={t}
+            repositoryRow={
+              /* Only a source this run creates has a repository to choose —
+                 one the file already keeps hangs where it hangs. The call
+                 number is written on that link (`REPO > CALN`), so it stands
+                 beside it. */
+              !group.existingSourceXref ? (
+                <div className="add-source-details-grid">
+                  <label className="add-source-field">
+                    <span>{t("addSource.field.repo")}</span>
+                    <SelectMenu
+                      className="edit-input"
+                      value={repoSel}
+                      onChange={(v) => {
+                        repoTouched.current = true;
+                        setRepoSel(v);
+                      }}
+                      groups={[
+                        { items: [{ value: "", label: t("tools.sources.noRepo") }] },
+                        {
+                          label: t("tools.sources.dupKind.repo"),
+                          items: repos.map((r) => ({ value: r.xref, label: r.name })),
+                        },
+                        ...(repoProposal?.createName
+                          ? [
+                              {
+                                items: [
+                                  {
+                                    value: "@create@",
+                                    label: t("addSource.repo.create", { name: repoProposal.createName }),
+                                  },
+                                ],
+                              },
+                            ]
+                          : []),
+                      ]}
+                    />
+                  </label>
+                  {idLabel.caln && (
+                    <label className="add-source-field">
+                      <span>{t("addSource.field.caln")}</span>
+                      <input
+                        className="edit-input"
+                        value={fields.filingNumber}
+                        onChange={(e) => {
+                          touched.current.add("filingNumber");
+                          setFields((f) => ({ ...f, filingNumber: e.target.value }));
+                        }}
+                      />
+                    </label>
+                  )}
+                </div>
+              ) : null
+            }
+          />
     </SourceDialogShell>
   );
 }
