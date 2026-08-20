@@ -678,6 +678,38 @@ describe("cropOf", () => {
   });
 });
 
+describe("resolveSourceCitation with a CONC-wrapped FILE", () => {
+  it("matches the cited page against a page-OBJE URL the parser reassembled from CONC", () => {
+    // A long Matricula URL wrapped by the exporter mid-value: the parser folds
+    // the CONC back into one FILE value, and page matching must see it whole.
+    const ds = buildFromText(`0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 NAME Test /Person/
+1 BIRT
+2 SOUR @S1@
+3 PAGE 56
+0 @S1@ SOUR
+1 TITL Krstna knjiga
+1 OBJE @O1@
+1 OBJE @O2@
+0 @O1@ OBJE
+1 FILE https://data.matricula-online.eu/sl/slovenia/lj
+2 CONC ubljana/kranj/04120/?pg=56
+0 @O2@ OBJE
+1 FILE https://data.matricula-online.eu/sl/slovenia/ljubljana/kranj/04120/?pg=57
+0 TRLR
+`);
+    const indi = ds.individuals.get("@I1@")!;
+    expect(indi.events[0].sources![0]).toMatchObject({
+      url: "https://data.matricula-online.eu/sl/slovenia/ljubljana/kranj/04120/?pg=56",
+      exact: true,
+      objeXref: "@O1@",
+    });
+  });
+});
+
 describe("sourceContentKey", () => {
   function recordOf(text: string, xref: string): GedNode {
     const ds = buildFromText(text);

@@ -432,3 +432,98 @@ describe("serializeGedcom", () => {
     expect(text).toBe("0 @I9@ INDI\n1 NAME Ana /Kos/\n1 BIRT\n2 DATE 1900\n");
   });
 });
+
+describe("archive-source shapes round-trip", () => {
+  // The corpus fixtures carry none of the structures the app itself *writes*
+  // (REPO > CALN > MEDI, second CALN, DATA > EVEN coverage, NOTE > PRIV,
+  // multi-FILE OBJE, CROP) — these two synthetic files guard exactly those,
+  // so serializer/parser damage to the app's own output can't slip through.
+  const ARCHIVE_551 = [
+    "0 HEAD",
+    "1 GEDC",
+    "2 VERS 5.5.1",
+    "1 CHAR UTF-8",
+    "0 @I1@ INDI",
+    "1 NAME Janez /Novak/",
+    "1 BIRT",
+    "2 DATE 12 MAR 1841",
+    "2 SOUR @S1@",
+    "3 PAGE 12",
+    "3 QUAY 2",
+    "2 OBJE @O1@",
+    "0 @S1@ SOUR",
+    "1 TITL Krstna knjiga 1830-1850",
+    "1 AUTH Župnija Kranj",
+    "1 DATA",
+    "2 AGNC Nadškofijski arhiv Ljubljana",
+    "2 EVEN BIRT, CHR",
+    "3 DATE FROM 1830 TO 1850",
+    "3 PLAC Kranj, Slovenija",
+    "1 FILN 04120",
+    "1 NOTE Vir prepisan iz izvirnika",
+    "2 PRIV Y",
+    "1 OBJE @O1@",
+    "1 REPO @R1@",
+    "2 CALN 007548250",
+    "3 MEDI microfilm",
+    "2 CALN 04120-b",
+    "0 @O1@ OBJE",
+    "1 FILE krst-1841.jpg",
+    "2 FORM jpg",
+    "3 TYPE photo",
+    "2 TITL Krstni list",
+    "1 FILE https://data.matricula-online.eu/sl/x/04120/?pg=12",
+    "2 FORM htm",
+    "1 _POSITION 10 20 300 200",
+    "0 @R1@ REPO",
+    "1 NAME Nadškofijski arhiv Ljubljana",
+    "1 ADDR Krekov trg 1",
+    "2 CONT 1000 Ljubljana",
+    "1 WWW https://nadskofija-ljubljana.si/arhiv/",
+    "0 TRLR",
+    "",
+  ].join("\n");
+
+  const ARCHIVE_70 = [
+    "0 HEAD",
+    "1 GEDC",
+    "2 VERS 7.0",
+    "0 @I1@ INDI",
+    "1 NAME Janez /Novak/",
+    "1 OBJE @O1@",
+    "2 CROP",
+    "3 TOP 10",
+    "3 LEFT 20",
+    "3 WIDTH 300",
+    "3 HEIGHT 200",
+    "0 @O1@ OBJE",
+    "1 FILE poroka.jpg",
+    "2 FORM image/jpeg",
+    "3 MEDI PHOTO",
+    "2 TITL Poročna slika",
+    "1 FILE https://example.com/scan.jpg",
+    "2 FORM image/jpeg",
+    "0 TRLR",
+    "",
+  ].join("\n");
+
+  it("5.5.1: CALN/MEDI, second CALN, coverage EVEN, NOTE>PRIV and a two-FILE OBJE survive byte-identically", () => {
+    expect(roundTrip(ARCHIVE_551)).toBe(ARCHIVE_551);
+  });
+
+  it("7.0: CROP region and per-FILE FORM/MEDI/TITL survive byte-identically", () => {
+    expect(roundTrip(ARCHIVE_70)).toBe(ARCHIVE_70);
+  });
+
+  it("parses the shapes into the structures the app reads, not just lines", () => {
+    const parsed = parseGedcom(new TextEncoder().encode(ARCHIVE_551).buffer);
+    expect(parsed.warnings.filter((w) => w.kind === "syntax")).toEqual([]);
+    const source = parsed.records.find((r) => r.xref === "@S1@")!;
+    const repoLink = source.children.find((c) => c.tag === "REPO")!;
+    const calns = repoLink.children.filter((c) => c.tag === "CALN");
+    expect(calns.map((c) => c.value)).toEqual(["007548250", "04120-b"]);
+    expect(calns[0].children[0]).toMatchObject({ tag: "MEDI", value: "microfilm" });
+    const obje = parsed.records.find((r) => r.xref === "@O1@")!;
+    expect(obje.children.filter((c) => c.tag === "FILE")).toHaveLength(2);
+  });
+});
