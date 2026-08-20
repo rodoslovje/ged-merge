@@ -93,7 +93,7 @@ test("edit mode: name, sex and event fields are editable and exportable", async 
   await saveBtn.click();
 
   const confirmBtn = page.locator(".preview-actions .export-btn");
-  // Save downloads both the .ged and a .report.txt; only the .ged matters here.
+  // The change report is opt-in and left off here; only the .ged matters.
   const downloadPromise = page.waitForEvent("download", (d) => d.suggestedFilename().endsWith(".ged"));
   await confirmBtn.click();
   const download = await downloadPromise;
@@ -160,7 +160,7 @@ test("edit mode: family marriage fields are editable and exportable", async ({ p
   await saveBtn.click();
 
   const confirmBtn = page.locator(".preview-actions .export-btn");
-  // Save downloads both the .ged and a .report.txt; only the .ged matters here.
+  // The change report is opt-in and left off here; only the .ged matters.
   const downloadPromise = page.waitForEvent("download", (d) => d.suggestedFilename().endsWith(".ged"));
   await confirmBtn.click();
   const download = await downloadPromise;

@@ -134,6 +134,10 @@ export interface AppSettings extends NameDisplayOptions {
    *  workspace. Opt-in: off by default, and only when on may the browser be
    *  asked for persistent storage. */
   persistWorkspace: boolean;
+  /** Download the change report next to the saved GEDCOM. Opt-in: the save
+   *  preview already shows the same changes, and some browsers take only one
+   *  file from a burst of two downloads. */
+  saveReport: boolean;
   /** Quick-add event buttons on the Edit person card, in order — digits 1–9
    *  add them from the keyboard. Empty = no quick row. */
   quickEventTags: string[];
@@ -161,6 +165,7 @@ const DEFAULTS: AppSettings = {
   mapOverlays: [],
   formatOverrides: {},
   persistWorkspace: false,
+  saveReport: false,
   quickEventTags: ["BIRT", "RESI", "OCCU", "DEAT", "BURI"],
   marriedNameFromPartner: false,
   homeCountry: HOME_COUNTRY_AUTO,
@@ -356,6 +361,7 @@ function load(): AppSettings {
         ...sanitizeFormatOverrides(parsed.formatOverrides),
       },
       persistWorkspace: bool(parsed.persistWorkspace, DEFAULTS.persistWorkspace),
+      saveReport: bool(parsed.saveReport, DEFAULTS.saveReport),
       quickEventTags: sanitizeQuickEventTags(parsed.quickEventTags),
       marriedNameFromPartner: bool(parsed.marriedNameFromPartner, DEFAULTS.marriedNameFromPartner),
       homeCountry: sanitizeHomeCountry(parsed.homeCountry),

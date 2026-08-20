@@ -6592,6 +6592,10 @@ kbd {
 }
 .preview-files ul { margin: 6px 0; padding-left: 18px; }
 .preview-files code { color: var(--text); }
+.preview-report-toggle {
+  display: flex; align-items: center; gap: 6px;
+  margin: 6px 0; font-size: 0.9rem; cursor: pointer;
+}
 
 .preview-actions {
   display: flex; justify-content: flex-end; gap: 10px;

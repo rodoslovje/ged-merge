@@ -2157,13 +2157,18 @@
               a record to look at.
             </p>
             <p>
-              <strong>Download GEDCOM</strong> writes two files: the new <em>.ged</em> and a plain-text
-              <em>change report</em>, in your language, documenting exactly what was applied. The report opens with the
-              file it started from, the name it was saved as and the date, then the same counts as the preview, then
+              <strong>Download GEDCOM</strong> writes the new <em>.ged</em>. The downloaded file becomes your new working
+              baseline inside the app, so what you see next matches what you just saved.
+            </p>
+            <p>
+              <strong>Also download the change report</strong>, the tick box under the file list, adds a second download:
+              a plain-text <em>change report</em>, in your language, documenting exactly what was applied. It opens with
+              the file it started from, the name it was saved as and the date, then the same counts as the preview, then
               anything applied to the file as a whole — the encoding rewrite, custom tags you left out, change-date
               stamping — and finally the changes themselves, field by field, with the records added and removed each
-              named once. The downloaded file becomes your new working baseline inside the app, so what you see next
-              matches what you just saved.
+              named once. It is off unless you tick it: the preview you are looking at already shows the same changes,
+              and some browsers accept only one of two downloads fired together. The choice is remembered for your next
+              save.
             </p>
             <p>
               <strong>Change-date stamping</strong> follows the file's own convention — CHAN, MyHeritage's
@@ -2228,8 +2233,8 @@
                 your latest <em>.ged</em> from the <em>Family tree</em> folder onto the drop zone (<a href="#loading">§3</a>).</li>
               <li><strong>Change.</strong> Edit records, merge an incoming file, or run a tool as usual.</li>
               <li><strong>Save.</strong> Press <span class="gm-key">Ctrl</span><span class="gm-key">S</span> →
-                <strong>Save GEDCOM</strong>, check the preview, then <strong>Download GEDCOM</strong>. Two files land in
-                <strong>Downloads</strong>: the dated <em>.ged</em> and its change report.</li>
+                <strong>Save GEDCOM</strong>, check the preview, then <strong>Download GEDCOM</strong>. The dated
+                <em>.ged</em> lands in <strong>Downloads</strong>, together with the change report if you ticked it.</li>
               <li><strong>Store.</strong> Move the dated <em>.ged</em> from Downloads into your <em>Family tree</em> folder.
                 (Keep or discard the report — it's just a human-readable log, not needed to reopen the file.)</li>
               <li><strong>Done.</strong> Your sync service backs it up and keeps its own history. The date in the filename
