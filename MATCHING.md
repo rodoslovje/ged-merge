@@ -390,6 +390,39 @@ never replaces one:
 Children with no given name on either side (`NN`) fall back to `datesIdentify`:
 both births known, both exact, same year, no contradicting day or death year.
 
+### Telling a reused name apart
+
+An infant dies and the next child is given her name — sometimes three or four
+deep. Best-first pairing is what keeps them straight, since the ranking is
+strictly ordered by how much of the birth agrees:
+
+| evidence | score |
+|---|---|
+| same day within the same year | name **+0.20** |
+| same year, day unknown on a side | name **+0.15** |
+| within `EXACT_YEAR_TOLERANCE` | name **+0.05** |
+| same year, different day in the same month | name (year's credit withdrawn) |
+| same year, different month | name **−0.25** |
+| beyond tolerance | name **−0.25** |
+
+(+0.05 more when both sides record the same death year.) So every exactly
+dated pair is taken before any near miss is looked at, and two sisters both
+born in 1828 — one on 2 January, one on 19 October — each find their own
+record instead of trading places. A different birth month is otherwise read
+as two children, *unless* the two records also die on the same day (19 Sep vs
+19 Aug 1881, both dead 1 Oct 1938: one man, one slipped month).
+
+These day/death rules are asked of **children only**; partner scoring is left
+as it was, pinned by the golden merge suite.
+
+**The ambiguity guard.** Where two candidates are exactly as good and the
+alternatives genuinely differ — two Marijas of 1794 and 1796 against one
+incoming Maria of 1795 — neither pairs: both keep their own line and the
+incoming child is offered as an addition, rather than the alignment asserting
+an identity the records don't carry. A tie between relatives the file says the
+same things about (same name, same dates — two records of one child) asserts
+nothing either way and is settled, as before, by listing order.
+
 ## Where the knobs live
 
 | What | Where |

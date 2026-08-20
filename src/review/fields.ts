@@ -432,6 +432,7 @@ function relativeYears(indi: Individual, showAge: boolean): string {
 
 function partnerToRelative(partner: Individual, showAge = false): Relative {
   const birth = findEvent(partner, "BIRT")?.date;
+  const death = findEvent(partner, "DEAT")?.date;
   return {
     id: partner.id,
     name: partner.names[0],
@@ -440,7 +441,8 @@ function partnerToRelative(partner: Individual, showAge = false): Relative {
     birthYear: birth?.year,
     birthApprox: birth?.qualifier !== "exact",
     birthDay: birth?.month != null && birth.day != null ? birth.month * 100 + birth.day : undefined,
-    deathYear: findEvent(partner, "DEAT")?.date?.year,
+    deathYear: death?.year,
+    deathDay: death?.month != null && death.day != null ? death.month * 100 + death.day : undefined,
     displayName: displayName(partner.names[0]),
     years: relativeYears(partner, showAge),
     sex: partner.sex,
@@ -619,6 +621,9 @@ interface Relative {
   birthDay?: number;
   /** Death year, when known. */
   deathYear?: number;
+  /** Day within the death year (month × 100 + day), when recorded that
+   *  precisely — two records agreeing to the day on a death are one person. */
+  deathDay?: number;
   /** Display name. */
   displayName?: string;
   years?: string;
@@ -885,6 +890,14 @@ function samePartner(a: Relative, b: Relative): boolean {
  * first), then emit aligned pairs: matched relatives share a pair in main
  * order, main-only relatives get a pair with no incoming side, and any
  * unmatched incoming relatives are appended with no main side.
+ *
+ * Best-first is what keeps a reused name straight — a child who died young and
+ * whose name went to the next one, three or four Marijas deep. Every exact
+ * birth-year agreement scores above every near miss (+0.15 against +0.05), so
+ * all the exactly-dated pairs are taken before a single year-apart one is
+ * considered, and a Marija only reaches a sibling's year once her own record
+ * has no counterpart left. What best-first cannot settle is a genuine tie —
+ * see the ambiguity guard below.
  */
 function alignRelatives(main: Relative[], incoming: Relative[], kind: RelativeKind): RelativePair[] {
   const cand: { mi: number; ii: number; sim: number }[] = [];
@@ -899,8 +912,36 @@ function alignRelatives(main: Relative[], incoming: Relative[], kind: RelativeKi
   const matchOf = new Map<number, number>(); // main index -> incoming index
   const usedIncoming = new Set<number>();
   const usedMain = new Set<number>();
+
+  /** Two relatives the records say exactly the same things about: whichever of
+   *  them a candidate takes, the same thing is asserted, so the choice between
+   *  them settles nothing and costs nothing. Two records of one child, or two
+   *  children a file cannot tell apart in the first place. */
+  const interchangeable = (x: Relative, y: Relative): boolean =>
+    x.birthYear === y.birthYear && x.birthDay === y.birthDay && x.deathYear === y.deathYear
+    && x.birthApprox === y.birthApprox
+    && foldToken(x.displayName ?? "") === foldToken(y.displayName ?? "");
+
+  /**
+   * Is another still-takeable candidate exactly as good as this one, and for a
+   * *different* relative? Two Marijas born 1794 and 1796 against one incoming
+   * Maria of 1795 sit a year from her either way, and nothing in the records
+   * says which is hers — reusing a dead child's name makes that a real case,
+   * not a contrived one. Taking the first would write an identity the evidence
+   * doesn't carry, so neither pairs: both Marijas keep their own line and the
+   * incoming child is offered as an addition, for you to judge. A tie between
+   * relatives that are {@link interchangeable} asserts nothing either way and
+   * is settled, as before, by the order they are listed in.
+   */
+  const ambiguous = (p: { mi: number; ii: number; sim: number }): boolean =>
+    cand.some((q) =>
+      q !== p && Math.abs(q.sim - p.sim) < 1e-9
+      && ((q.mi === p.mi && !usedIncoming.has(q.ii) && !interchangeable(incoming[p.ii], incoming[q.ii]))
+        || (q.ii === p.ii && !usedMain.has(q.mi) && !interchangeable(main[p.mi], main[q.mi]))));
+
   for (const p of cand) {
     if (usedMain.has(p.mi) || usedIncoming.has(p.ii)) continue;
+    if (ambiguous(p)) continue;
     usedMain.add(p.mi);
     usedIncoming.add(p.ii);
     matchOf.set(p.mi, p.ii);
@@ -987,11 +1028,33 @@ function relativeSimilarity(a: Relative, b: Relative, kind: RelativeKind = "part
   const eligible = kind === "child"
     ? nameSim >= RELATIVE_PAIR_THRESHOLD
     : givenSimilarity(an.given, bn.given) >= PARENT_GIVEN_CONFLICT;
+  if (!eligible) return nameSim;
+
+  // Inside a shared year, the day is what tells a reused name apart: a child
+  // who died in infancy and the next one given her name were both born in
+  // 1828 — one on 2 January, one on 19 October. Same day corroborates further;
+  // a different day in the same month reads as a transcription difference (a
+  // baptism entered for a birth) and merely withdraws the year's credit, while
+  // a different month is two children and takes the name's score down with it.
+  // Asked of children only: which of two same-named siblings a record belongs
+  // to is their question, and partners are pinned by the golden merge suite.
+  if (kind === "child" && gap === 0 && a.birthDay != null && b.birthDay != null && a.birthDay !== b.birthDay) {
+    const sameMonth = Math.floor(a.birthDay / 100) === Math.floor(b.birthDay / 100);
+    // Unless the two records die on the same day: 19 Sep 1881 against 19 Aug
+    // 1881, both dead on 1 October 1938, is one man and a slip of the month.
+    // The death *year* alone would not do — the sisters above share theirs.
+    const oneDeath = a.deathDay != null && a.deathDay === b.deathDay && a.deathYear === b.deathYear;
+    return Math.max(0, sameMonth || oneDeath ? nameSim : nameSim - 0.25);
+  }
+  const dayAgrees = kind === "child" && gap === 0 && a.birthDay != null && a.birthDay === b.birthDay;
+  // A death year both sides record separates two records of one child from two
+  // children who share a name *and* a birth date.
+  const deathAgrees = kind === "child" && a.deathYear != null && a.deathYear === b.deathYear;
   // Deliberately left above 1 when it lands there: the value ranks candidates
   // for the greedy pairing, and clamping made a child born the same year score
   // exactly as much as one born two years off, leaving which sibling paired to
   // the order they happened to be listed in.
-  return eligible ? nameSim + (gap === 0 ? 0.15 : 0.05) : nameSim;
+  return nameSim + (dayAgrees ? 0.2 : gap === 0 ? 0.15 : 0.05) + (deathAgrees ? 0.05 : 0);
 }
 
 /**
