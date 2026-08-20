@@ -1,4 +1,4 @@
-import { isPointer, objeInfoOf, resolveSourceCitation } from "../source";
+import { isPointer, looksLikeUrl, resolveSourceCitation } from "../source";
 import { linkKey } from "../../normalize/links";
 import { childrenByTag, firstChild } from "../node";
 import type { Dataset, GedNode } from "../types";
@@ -76,8 +76,13 @@ export function attachSourceCitation(record: GedNode, sourceXref: string, page: 
   insertOrdered(record, citation, order);
 }
 
-function sourceCitationNodes(record: GedNode): GedNode[] {
-  return childrenByTag(record, "SOUR");
+/** The citation nodes the UI counts: valueless `SOUR` children (an exporter
+ *  writing only `3 TEXT …` under an empty citation) are invisible to the
+ *  domain model — `resolveSourceCitation` drops them — so an index arriving
+ *  from a rendered chip must skip them too, or Remove/Edit on the `n`th chip
+ *  lands on the wrong node. Exported for the Edit view's own prefill. */
+export function sourceCitationNodes(record: GedNode): GedNode[] {
+  return childrenByTag(record, "SOUR").filter((c) => c.value?.trim());
 }
 
 /** Fields editable on an existing citation — `NewSourceFields` plus the
@@ -142,33 +147,45 @@ export function updateSourceCitation(records: GedNode[], node: GedNode, index: n
  * `fields.objeXref` (or the record's sole `OBJE`), or creates a new `OBJE`.
  */
 export function setSourceRecordFields(records: GedNode[], sourceNode: GedNode, fields: EditSourceFields, notes?: SharedNoteCtx): void {
-  // An edited field keeps the position its line already holds — re-appending
-  // would drift TITL below the media links and the CHAN trailer, reordering
-  // the record on every save. A field the record gains is inserted ahead of
-  // the trailing block, the same discipline the reshape's fillField keeps.
+  // The dialog displays one line per field — the first node of the tag — so a
+  // save may only touch that node: a second NOTE the dialog never showed
+  // survives, an unchanged value stays byte-identical (keeping its CONC wrap
+  // positions), and a real edit rewrites the value in place so the node keeps
+  // its children (a NOTE's PRIV flag, vendor sub-tags) and the position its
+  // line already holds. A field the record gains is inserted ahead of the
+  // trailing block, the same discipline the reshape's fillField keeps.
   const setChild = (tag: string, value: string | undefined) => {
-    const at = sourceNode.children.findIndex((c) => c.tag === tag);
-    sourceNode.children = sourceNode.children.filter((c) => c.tag !== tag);
+    const existing = firstChild(sourceNode, tag);
     const trimmed = value?.trim();
-    if (!trimmed) return;
-    const node: GedNode = { level: sourceNode.level + 1, tag, value: trimmed, children: [] };
-    if (at !== -1) sourceNode.children.splice(at, 0, node);
-    else insertGrouped(sourceNode, node, SOUR_FIELD_TRAILING);
+    if (!trimmed) {
+      if (existing) sourceNode.children = sourceNode.children.filter((c) => c !== existing);
+      return;
+    }
+    if (existing) {
+      if (existing.value?.trim() !== trimmed) existing.value = trimmed;
+      return;
+    }
+    insertGrouped(sourceNode, { level: sourceNode.level + 1, tag, value: trimmed, children: [] }, SOUR_FIELD_TRAILING);
   };
   // A standard-coverage record keeps place and agency inside `DATA` (AGNC on
   // DATA itself, PLAC on its EVEN blocks) — an edit lands where the value
-  // lives instead of minting a second, flat copy beside it.
+  // lives instead of minting a second, flat copy beside it. The dialog shows
+  // the first holder's value (the same rule the prefill reads by), so a save
+  // touches only that holder — a sibling EVEN with its own PLAC keeps it.
   const data = firstChild(sourceNode, "DATA");
   const setCoverageAware = (tag: "AGNC" | "PLAC", value: string | undefined) => {
     if (!data || firstChild(sourceNode, tag)) return setChild(tag, value);
     const holders = tag === "AGNC" ? [data] : childrenByTag(data, "EVEN");
     if (holders.length === 0) return setChild(tag, value);
+    const holder = holders.find((h) => firstChild(h, tag)) ?? holders[0];
+    const node = firstChild(holder, tag);
     const trimmed = value?.trim();
-    for (const holder of holders) {
-      const node = firstChild(holder, tag);
-      if (node && trimmed) node.value = trimmed;
-      else if (node) holder.children = holder.children.filter((c) => c !== node);
-      else if (trimmed) holder.children.push({ level: holder.level + 1, tag, value: trimmed, children: [] });
+    if (node && trimmed) {
+      if (node.value?.trim() !== trimmed) node.value = trimmed;
+    } else if (node) {
+      holder.children = holder.children.filter((c) => c !== node);
+    } else if (trimmed) {
+      holder.children.push({ level: holder.level + 1, tag, value: trimmed, children: [] });
     }
   };
   setChild("TITL", fields.title);
@@ -205,12 +222,21 @@ export function setSourceRecordFields(records: GedNode[], sourceNode: GedNode, f
     } else {
       insertGrouped(sourceNode, { level: sourceNode.level + 1, tag: "REPO", value: repoXref, children: [] }, ["CHAN", "CREA"]);
     }
-    // The call number rides on the repository link itself (REPO > CALN).
+    // The call number rides on the repository link itself (REPO > CALN). The
+    // dialog shows the first CALN, so only that node is edited — in place, so
+    // its own children (a `MEDI microfilm` medium) survive, and a second CALN
+    // the dialog never showed is left alone.
     const repoLink = sourceNode.children.find((c) => c.tag === "REPO");
     if (repoLink && fields.repoCaln !== undefined) {
       const caln = fields.repoCaln.trim();
-      repoLink.children = repoLink.children.filter((c) => c.tag !== "CALN");
-      if (caln) repoLink.children.push({ level: repoLink.level + 1, tag: "CALN", value: caln, children: [] });
+      const calnNode = firstChild(repoLink, "CALN");
+      if (calnNode && caln) {
+        if (calnNode.value?.trim() !== caln) calnNode.value = caln;
+      } else if (calnNode) {
+        repoLink.children = repoLink.children.filter((c) => c !== calnNode);
+      } else if (caln) {
+        repoLink.children.push({ level: repoLink.level + 1, tag: "CALN", value: caln, children: [] });
+      }
     }
     // Retargeting the source's REPO link changes which repository its
     // citations fall back to for a URL — resolved from the cached repo index,
@@ -224,14 +250,35 @@ export function setSourceRecordFields(records: GedNode[], sourceNode: GedNode, f
     : undefined;
   const objeXref = fields.objeXref ?? soleObjeXref;
 
-  if (objeXref) {
-    const objeNode = records.find((r) => r.tag === "OBJE" && r.xref === objeXref);
-    if (objeNode && url) {
-      const fileChild = firstChild(objeNode, "FILE");
-      if (fileChild) fileChild.value = url;
-      else objeNode.children.unshift({ level: objeNode.level + 1, tag: "FILE", value: url, children: [] });
+  const objeNode = objeXref ? records.find((r) => r.tag === "OBJE" && r.xref === objeXref) : undefined;
+  if (objeNode) {
+    // The URL field edits the page's *link* — the OBJE's URL-bearing FILE. A
+    // local scan (bare-filename FILE) is not what the dialog displayed, so
+    // this field never overwrites, unlinks or prunes it.
+    const files = objeNode.children.filter((c) => c.tag === "FILE" && c.value?.trim());
+    const urlFile = files.find((c) => looksLikeUrl(c.value!.trim()));
+    if (url && urlFile) {
+      if (urlFile.value!.trim() !== url) {
+        urlFile.value = url;
+        bumpSourceCacheVersion(records);
+      }
+    } else if (url && files.length === 0) {
+      objeNode.children.unshift({ level: objeNode.level + 1, tag: "FILE", value: url, children: [] });
       bumpSourceCacheVersion(records);
-    } else if (objeNode && !url) {
+    } else if (url) {
+      // The linked OBJE holds only local files — the typed URL becomes its own
+      // page OBJE beside it rather than clobbering a scan's filename.
+      const obje = createMediaRecord(records, url);
+      insertGrouped(
+        sourceNode,
+        { level: sourceNode.level + 1, tag: "OBJE", value: obje.xref, children: [] },
+        SOUR_TRAILING_TAGS,
+      );
+    } else if (urlFile && files.length > 1) {
+      // Cleared, but the OBJE also carries local files: drop just the URL line.
+      objeNode.children = objeNode.children.filter((c) => c !== urlFile);
+      bumpSourceCacheVersion(records);
+    } else if (urlFile) {
       // Cleared: unlink this page's OBJE from the source, prune it if it's now orphaned.
       sourceNode.children = sourceNode.children.filter((c) => !(c.tag === "OBJE" && c.value?.trim() === objeXref));
       const stillReferenced = records.some((r) => r.tag === "SOUR" && r.children.some((c) => c.tag === "OBJE" && c.value?.trim() === objeXref));
@@ -241,7 +288,7 @@ export function setSourceRecordFields(records: GedNode[], sourceNode: GedNode, f
       }
       bumpSourceCacheVersion(records);
     }
-  } else if (url) {
+  } else if (!objeXref && url) {
     const obje = createMediaRecord(records, url);
     insertGrouped(
       sourceNode,
@@ -375,6 +422,11 @@ export function sourceRecordEditFields(records: GedNode[], sourceNode: GedNode):
   const objeChildren = childrenByTag(sourceNode, "OBJE").filter((c) => c.value);
   const objeXref = objeChildren.length === 1 ? objeChildren[0].value!.trim() : undefined;
   const objeNode = objeXref ? records.find((r) => r.tag === "OBJE" && r.xref === objeXref) : undefined;
+  // The URL field shows the OBJE's URL-bearing FILE — the same line a save
+  // edits — never a local scan's filename (whatever FILE happens to be first).
+  const objeUrl = objeNode?.children
+    .find((c) => c.tag === "FILE" && c.value && looksLikeUrl(c.value.trim()))
+    ?.value?.trim();
   const noteVal = text("NOTE");
   return {
     title: text("TITL"),
@@ -385,7 +437,7 @@ export function sourceRecordEditFields(records: GedNode[], sourceNode: GedNode):
     place: text("PLAC") ?? coveredPlace,
     filingNumber: text("FILN"),
     note: noteVal && isPointer(noteVal) ? getMediaAndSourceCtx(records).noteIndex.get(noteVal)?.text.trim() : noteVal,
-    url: objeNode ? objeInfoOf(objeNode).url : undefined,
+    url: objeUrl,
     objeXref,
     // "" (not undefined) when there is no REPO link: the dialog's dropdown
     // shows the explicit no-repository choice and a save writes it back as-is.

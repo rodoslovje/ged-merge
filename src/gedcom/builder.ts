@@ -534,9 +534,28 @@ function collectLinks(node: GedNode, media: MediaLinks, out: string[] = []): str
   return out;
 }
 
-/** Drop trailing punctuation a URL regex may swallow from surrounding prose. */
+/**
+ * Drop trailing punctuation a URL regex may swallow from surrounding prose —
+ * the one spelling of this rule, shared by the note-link harvester,
+ * `citationParse` and the reshape scan, so every path sees the same URL in
+ * the same note. Slovenian »…« quotes are prose too. A trailing `)` is only
+ * prose when the URL doesn't open it: `…/wiki/Ljubljana_(city)` keeps its
+ * paren, `(see https://example.com/a)` loses it.
+ */
 export function stripTrailingPunct(url: string): string {
-  return url.replace(/[.,;:)\]}>"']+$/, "");
+  let out = url;
+  for (;;) {
+    if (/[.,;:!?»«"'\]}>]$/.test(out)) {
+      out = out.slice(0, -1);
+      continue;
+    }
+    if (out.endsWith(")") && (out.match(/\(/g)?.length ?? 0) < (out.match(/\)/g)?.length ?? 0)) {
+      out = out.slice(0, -1);
+      continue;
+    }
+    break;
+  }
+  return out;
 }
 
 /** De-duplicate links case-insensitively while preserving first-seen order. */

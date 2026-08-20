@@ -1,9 +1,10 @@
 import { buildFamily, buildIndividual, buildMediaLinks, buildNoteIndex, type MediaLinks, type NoteIndex } from "../builder";
-import { buildSourceContext, type SourceContext } from "../source";
+import { buildSourceContext, buildSourceLookup, type SourceContext, type SourceLookup } from "../source";
 import type { Dataset, Family, GedNode, Individual } from "../types";
 
 const sourceCacheVersions = new WeakMap<GedNode[], number>();
 const sourceCaches = new WeakMap<GedNode[], { version: number; media: MediaLinks; sourceCtx: SourceContext; noteIndex: NoteIndex }>();
+const sourceLookupCaches = new WeakMap<GedNode[], { version: number; lookup: SourceLookup }>();
 
 /**
  * Bump `records`' media/source cache version, forcing the next
@@ -33,6 +34,22 @@ export function getMediaAndSourceCtx(records: GedNode[]): { media: MediaLinks; s
   const fresh = { version, media: buildMediaLinks(records), sourceCtx: buildSourceContext(records), noteIndex: buildNoteIndex(records) };
   sourceCaches.set(records, fresh);
   return fresh;
+}
+
+/**
+ * The `findExistingSource` lookup for `records`, rebuilt lazily on the same
+ * `bumpSourceCacheVersion` signal as the other indexes — so a hot loop (the
+ * merge resolving one incoming link after another) pays one scan per actual
+ * change to the source/media records instead of one scan per link. Kept out
+ * of `getMediaAndSourceCtx` so ordinary commits never pay for it.
+ */
+export function getSourceLookup(records: GedNode[]): SourceLookup {
+  const version = sourceCacheVersions.get(records) ?? 0;
+  const cached = sourceLookupCaches.get(records);
+  if (cached && cached.version === version) return cached.lookup;
+  const fresh = { version, lookup: buildSourceLookup(records) };
+  sourceLookupCaches.set(records, fresh);
+  return fresh.lookup;
 }
 
 /**

@@ -15,6 +15,20 @@ export function basename(filePath: string): string {
   return segments[segments.length - 1] || filePath;
 }
 
+/** Whether a stored `FILE` value and a folder-relative path name the same
+ *  file: after normalizing separators and case, one's path segments must be a
+ *  suffix of the other's (`scan1.jpg` matches `krsti/scan1.jpg`; a stored
+ *  `poroke/scan1.jpg` does NOT match the folder's `krsti/scan1.jpg`). Sharing
+ *  a basename alone is a display-resolution leniency, never record identity —
+ *  reusing a record by basename once attached the wrong photo to a person. */
+export function sameMediaFile(stored: string, folderPath: string): boolean {
+  const segments = (p: string) => pathSegments(p.toLowerCase()).filter((s) => s !== ".");
+  const a = segments(stored);
+  const b = segments(folderPath);
+  const [short, long] = a.length <= b.length ? [a, b] : [b, a];
+  return short.length > 0 && short.every((seg, i) => seg === long[long.length - short.length + i]);
+}
+
 /** What the app can display from a media folder: images render in `<img>`
  *  (SVG included), PDFs in the viewer's embedded frame. */
 export type MediaKind = "image" | "pdf";

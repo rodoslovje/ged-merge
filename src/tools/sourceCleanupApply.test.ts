@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { serializeGedcom } from "../gedcom/serialize";
+import { createSourceRecord } from "../gedcom/edit";
 import { applySourceCleanup } from "./sourceCleanupApply";
 import { findReshapableLinks } from "./sourceReshape";
 import { findSourceDuplicates } from "./sourceDuplicates";
@@ -110,5 +111,23 @@ describe("applySourceCleanup", () => {
     const before = serializeGedcom(ds.records);
     expect(applySourceCleanup(ds, { groups: [], enrichment: new Map(), options: {} }, [])).toEqual([]);
     expect(serializeGedcom(ds.records)).toBe(before);
+  });
+
+  it("keeps hand-created xrefs fresh after transplanting run-created records", () => {
+    // The bug scenario: a hand-added source warms the live array's max-xref
+    // cache, the cleanup then creates its records against a *cloned* forest
+    // and transplants them in — without telling the live cache. The next
+    // hand-added source must not be handed a transplanted record's xref.
+    const ds = dataset(FILE);
+    createSourceRecord(ds.records, { title: "Ročno dodan vir" }); // warms the cache: @S1@
+
+    const report = findReshapableLinks(ds);
+    expect(report.groups.length).toBeGreaterThan(0);
+    applySourceCleanup(ds, { groups: report.groups, enrichment: new Map(), options: {} }, []);
+
+    const afterCleanup = createSourceRecord(ds.records, { title: "Še en vir" });
+    const sourXrefs = ds.records.filter((r) => r.tag === "SOUR").map((r) => r.xref);
+    expect(new Set(sourXrefs).size).toBe(sourXrefs.length); // no collision
+    expect(sourXrefs).toContain(afterCleanup.xref);
   });
 });

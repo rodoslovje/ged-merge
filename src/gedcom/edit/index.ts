@@ -15,7 +15,7 @@
 
 export {
   EVENT_CHILD_ORDER, FAM_CHILD_ORDER, INDI_CHILD_ORDER, NAME_CHILD_ORDER,
-  EDITABLE_LINK_TAGS, EVENT_LINK_TAG, clearEventAuditStamps, insertGrouped, insertOrdered, insertRecord, insertRecordAt, markEventTouched, nextXref,
+  EDITABLE_LINK_TAGS, EVENT_LINK_TAG, clearEventAuditStamps, insertGrouped, insertOrdered, insertRecord, insertRecordAt, markEventTouched, nextXref, noteInsertedXref,
 } from "./shared";
 
 export {
@@ -58,9 +58,10 @@ export {
   createSourceRecord, createRepoRecord, addObjeToSource, attachSourceCitation,
   updateSourceCitation, removeSourceCitationAtIndex, pruneUnreferencedSource,
   setSourceRecordFields, sourceRecordEditFields, setRepoRecordFields, repoRecordEditFields,
+  SOUR_TRAILING_TAGS, SOUR_FIELD_TRAILING, sourceCitationNodes,
 } from "./sources";
 export type { EditSourceFields, EditRepoFields, NewSourceFields } from "./sources";
 
-export { bumpSourceCacheVersion, getMediaAndSourceCtx, rebuildIndividual, rebuildFamily } from "./cache";
+export { bumpSourceCacheVersion, getMediaAndSourceCtx, getSourceLookup, rebuildIndividual, rebuildFamily } from "./cache";
 
 export { clearPlaceGov, formatCoordValue, setPlaceCoord } from "./geo";

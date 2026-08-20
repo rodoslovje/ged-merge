@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parseGedcom } from "./parser";
 import { buildDataset } from "./builder";
+import { childrenByTag, firstChild } from "./node";
 import { serializeGedcom } from "./serialize";
 import type { Dataset, GedNode } from "./types";
 import {
@@ -1608,7 +1609,176 @@ describe("setSourceRecordFields / sourceRecordEditFields", () => {
   });
 });
 
+/** A fully-dressed archive source: standard coverage (DATA > AGNC, two EVEN
+ *  blocks with their own PLAC), two NOTEs (the first carrying a PRIV flag),
+ *  a page OBJE, and a REPO link with two CALNs (the first carrying MEDI) —
+ *  every structure the Edit Source dialog does NOT display and a save must
+ *  therefore leave untouched. */
+const ARCHIVE_SOURCE = [
+  "0 HEAD",
+  "1 GEDC",
+  "2 VERS 5.5.1",
+  "0 @I1@ INDI",
+  "1 NAME Janez /Novak/",
+  "1 BIRT",
+  "2 SOUR @S1@",
+  "3 PAGE 12",
+  "0 @S1@ SOUR",
+  "1 TITL Krstna knjiga 1830-1850",
+  "1 DATA",
+  "2 AGNC Župnija Kranj",
+  "2 EVEN BIRT, CHR",
+  "3 DATE FROM 1830 TO 1850",
+  "3 PLAC Kranj, Slovenija",
+  "2 EVEN DEAT",
+  "3 PLAC Ljubljana, Slovenija",
+  "1 NOTE Prva opomba",
+  "2 PRIV Y",
+  "1 NOTE Druga opomba",
+  "1 OBJE @O1@",
+  "1 REPO @R1@",
+  "2 CALN 04120",
+  "3 MEDI microfilm",
+  "2 CALN 999-b",
+  "0 @O1@ OBJE",
+  "1 FILE https://data.matricula-online.eu/sl/x/?pg=12",
+  "0 @R1@ REPO",
+  "1 NAME Nadškofijski arhiv",
+  "0 TRLR",
+  "",
+].join("\n");
+
+describe("setSourceRecordFields round-trip fidelity", () => {
+  function archiveSource() {
+    const ds = buildFromText(ARCHIVE_SOURCE);
+    const source = ds.records.find((r) => r.xref === "@S1@")!;
+    return { ds, source, fields: sourceRecordEditFields(ds.records, source) };
+  }
+
+  it("prefills from where the values live: coverage AGNC/PLAC, first NOTE, first CALN, the page URL", () => {
+    const { fields } = archiveSource();
+    expect(fields.agency).toBe("Župnija Kranj");
+    expect(fields.place).toBe("Kranj, Slovenija");
+    expect(fields.note).toBe("Prva opomba");
+    expect(fields.repoCaln).toBe("04120");
+    expect(fields.url).toBe("https://data.matricula-online.eu/sl/x/?pg=12");
+  });
+
+  it("saving the prefill untouched is a byte-identical no-op on every record", () => {
+    const { ds, source, fields } = archiveSource();
+    const before = JSON.stringify(ds.records);
+    setSourceRecordFields(ds.records, source, fields);
+    expect(JSON.stringify(ds.records)).toBe(before);
+  });
+
+  it("a title edit leaves every undisplayed structure in place", () => {
+    const { ds, source, fields } = archiveSource();
+    setSourceRecordFields(ds.records, source, { ...fields, title: "Poročna knjiga" });
+    expect(firstChild(source, "TITL")?.value).toBe("Poročna knjiga");
+    const notes = source.children.filter((c) => c.tag === "NOTE");
+    expect(notes.map((n) => n.value)).toEqual(["Prva opomba", "Druga opomba"]);
+    expect(firstChild(notes[0], "PRIV")?.value).toBe("Y");
+    const calns = childrenByTag(firstChild(source, "REPO")!, "CALN");
+    expect(calns.map((c) => c.value)).toEqual(["04120", "999-b"]);
+    expect(firstChild(calns[0], "MEDI")?.value).toBe("microfilm");
+    expect(ds.records.some((r) => r.xref === "@R1@")).toBe(true);
+  });
+
+  it("a call-number edit rewrites the first CALN in place, keeping MEDI and the second CALN", () => {
+    const { ds, source, fields } = archiveSource();
+    setSourceRecordFields(ds.records, source, { ...fields, repoCaln: "05000" });
+    const calns = childrenByTag(firstChild(source, "REPO")!, "CALN");
+    expect(calns.map((c) => c.value)).toEqual(["05000", "999-b"]);
+    expect(firstChild(calns[0], "MEDI")?.value).toBe("microfilm");
+  });
+
+  it("clearing the note removes only the NOTE the dialog displayed", () => {
+    const { ds, source, fields } = archiveSource();
+    setSourceRecordFields(ds.records, source, { ...fields, note: undefined });
+    const notes = source.children.filter((c) => c.tag === "NOTE");
+    expect(notes.map((n) => n.value)).toEqual(["Druga opomba"]);
+  });
+
+  it("a place edit touches only the EVEN block whose value the dialog showed", () => {
+    const { ds, source, fields } = archiveSource();
+    setSourceRecordFields(ds.records, source, { ...fields, place: "Škofja Loka, Slovenija" });
+    const evens = childrenByTag(firstChild(source, "DATA")!, "EVEN");
+    expect(firstChild(evens[0], "PLAC")?.value).toBe("Škofja Loka, Slovenija");
+    expect(firstChild(evens[0], "DATE")?.value).toBe("FROM 1830 TO 1850");
+    expect(firstChild(evens[1], "PLAC")?.value).toBe("Ljubljana, Slovenija");
+  });
+
+  it("the URL field never clobbers a local scan: a typed URL becomes its own page OBJE", () => {
+    const ds = buildFromText(BASE);
+    const source = createSourceRecord(ds.records, { title: "X" });
+    const scan: GedNode = { level: 0, xref: "@O9@", tag: "OBJE", children: [{ level: 1, tag: "FILE", value: "krst-1841.jpg", children: [] }] };
+    ds.records.splice(ds.records.length - 1, 0, scan);
+    source.children.push({ level: 1, tag: "OBJE", value: "@O9@", children: [] });
+
+    const fields = sourceRecordEditFields(ds.records, source);
+    expect(fields.url).toBeUndefined(); // a local filename is not a link
+
+    // Prefill saved back untouched: the local OBJE stays linked, nothing pruned.
+    setSourceRecordFields(ds.records, source, fields);
+    expect(source.children.some((c) => c.tag === "OBJE" && c.value === "@O9@")).toBe(true);
+    expect(ds.records.some((r) => r.xref === "@O9@")).toBe(true);
+
+    // Typing a URL adds a page OBJE beside the scan instead of overwriting it.
+    setSourceRecordFields(ds.records, source, { ...fields, url: "https://example.com/book/?pg=3" });
+    expect(firstChild(ds.records.find((r) => r.xref === "@O9@")!, "FILE")?.value).toBe("krst-1841.jpg");
+    const objeLinks = source.children.filter((c) => c.tag === "OBJE");
+    expect(objeLinks).toHaveLength(2);
+  });
+
+  it("clearing the URL of a mixed local+link OBJE drops only the URL line", () => {
+    const ds = buildFromText(BASE);
+    const source = createSourceRecord(ds.records, { title: "X" });
+    const mixed: GedNode = {
+      level: 0, xref: "@O9@", tag: "OBJE",
+      children: [
+        { level: 1, tag: "FILE", value: "krst-1841.jpg", children: [] },
+        { level: 1, tag: "FILE", value: "https://example.com/book/?pg=3", children: [] },
+      ],
+    };
+    ds.records.splice(ds.records.length - 1, 0, mixed);
+    source.children.push({ level: 1, tag: "OBJE", value: "@O9@", children: [] });
+
+    const fields = sourceRecordEditFields(ds.records, source);
+    expect(fields.url).toBe("https://example.com/book/?pg=3"); // the URL-bearing FILE, not the first
+
+    setSourceRecordFields(ds.records, source, { ...fields, url: undefined });
+    const obje = ds.records.find((r) => r.xref === "@O9@")!;
+    expect(obje.children.filter((c) => c.tag === "FILE").map((c) => c.value)).toEqual(["krst-1841.jpg"]);
+    expect(source.children.some((c) => c.tag === "OBJE" && c.value === "@O9@")).toBe(true);
+  });
+});
+
 describe("removeSourceCitationAtIndex", () => {
+  it("indexes over the citations the UI shows: a valueless SOUR child does not shift them", () => {
+    // An exporter left `1 SOUR` with only a TEXT child — invisible to the
+    // domain model, so chip index 0 is the pointer citation after it.
+    const ds = buildFromText([
+      "0 HEAD",
+      "1 GEDC",
+      "2 VERS 5.5.1",
+      "0 @I1@ INDI",
+      "1 NAME Janez /Novak/",
+      "1 SOUR",
+      "2 TEXT prepisano",
+      "1 SOUR @S1@",
+      "0 @S1@ SOUR",
+      "1 TITL Krstna knjiga",
+      "0 TRLR",
+      "",
+    ].join("\n"));
+    const indi = ds.individuals.get("@I1@")!;
+    expect(indi.sources).toHaveLength(1); // the UI shows one chip
+    removeSourceCitationAtIndex(ds, indi.raw, 0);
+    // The chip's citation went; the valueless node (not ours to touch) stays.
+    expect(indi.raw.children.filter((c) => c.tag === "SOUR").map((c) => c.value)).toEqual([undefined]);
+    expect(ds.records.some((r) => r.xref === "@S1@")).toBe(false);
+  });
+
   it("removes the citation and prunes the now-unreferenced SOUR/OBJE", () => {
     const ds = buildFromText(BASE);
     const indi = ds.individuals.get("@I1@")!;
@@ -2428,5 +2598,45 @@ describe("a place's FORM", () => {
   it("is lifted onto the typed model, so a pick can reuse it", () => {
     const ds = buildFromText(withForm);
     expect(ds.individuals.get("@I1@")!.events[0].place?.form).toBe("Place,Upravna Enota,Country");
+  });
+});
+
+describe("createMediaRecord FORM dialect", () => {
+  const formOf = (rec: GedNode) => firstChild(firstChild(rec, "FILE")!, "FORM")?.value;
+
+  it("writes the extension token in a 5.5.1 file, tif never tiff", () => {
+    const ds = buildFromText(BASE);
+    expect(formOf(createMediaRecord(ds.records, "scan.tiff"))).toBe("tif");
+    expect(formOf(createMediaRecord(ds.records, "https://example.com/page"))).toBe("htm");
+  });
+
+  it("speaks IANA media types where the file's own FORMs do", () => {
+    const ds = buildFromText([
+      "0 HEAD",
+      "1 GEDC",
+      "2 VERS 7.0",
+      "0 @I1@ INDI",
+      "1 NAME Janez /Novak/",
+      "0 @O1@ OBJE",
+      "1 FILE poroka.jpg",
+      "2 FORM image/jpeg",
+      "0 TRLR",
+      "",
+    ].join("\n"));
+    expect(formOf(createMediaRecord(ds.records, "krst.webp"))).toBe("image/webp");
+    expect(formOf(createMediaRecord(ds.records, "https://example.com/page"))).toBe("text/html");
+  });
+
+  it("falls back to the header version when the file has no FORM habit yet", () => {
+    const ds = buildFromText([
+      "0 HEAD",
+      "1 GEDC",
+      "2 VERS 7.0",
+      "0 @I1@ INDI",
+      "1 NAME Janez /Novak/",
+      "0 TRLR",
+      "",
+    ].join("\n"));
+    expect(formOf(createMediaRecord(ds.records, "krst.jpg"))).toBe("image/jpeg");
   });
 });

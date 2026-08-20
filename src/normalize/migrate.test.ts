@@ -167,6 +167,22 @@ describe("migrateVersion 5.5.1 → 7.0", () => {
     const headRec = records.find((r) => r.tag === "HEAD")!;
     expect(childValue(firstChild(headRec, "GEDC")!, "VERS")).toBe("5.5.1");
   });
+
+  it("keeps every FILE of a multi-FILE OBJE, spreading a record-level FORM over all of them", () => {
+    // FILE is {1:M} in both specs; a local scan + its online copy under one
+    // OBJE is the shape the app itself reads first-FILE-wise, so migration
+    // must not drop or mis-nest the second FILE.
+    const { records } = migrated(
+      "5.5.1",
+      "0 @M1@ OBJE\n1 FORM jpg\n1 TITL Poroka\n1 FILE a.jpg\n1 FILE b.jpg\n",
+      "7.0",
+    );
+    const files = record(records, "@M1@").children.filter((c) => c.tag === "FILE");
+    expect(files.map((f) => f.value)).toEqual(["a.jpg", "b.jpg"]);
+    // The stray record-level FORM serves every FILE; the TITL goes to the first.
+    expect(files.map((f) => childValue(f, "FORM"))).toEqual(["image/jpeg", "image/jpeg"]);
+    expect(files.map((f) => childValue(f, "TITL"))).toEqual(["Poroka", undefined]);
+  });
 });
 
 describe("migrateVersion 7.0 → 5.5.1", () => {
@@ -252,6 +268,18 @@ describe("migrateVersion 7.0 → 5.5.1", () => {
     const form = firstChild(firstChild(record(records, "@M1@"), "FILE")!, "FORM")!;
     expect(form.value).toBe("jpg");
     expect(childValue(form, "TYPE")).toBe("PHOTO");
+  });
+
+  it("downgrades every FILE of a multi-FILE OBJE, none dropped", () => {
+    const { records } = migrated(
+      "7.0",
+      "0 @M1@ OBJE\n1 FILE a.jpg\n2 FORM image/jpeg\n2 TITL Poroka\n1 FILE b.png\n2 FORM image/png\n",
+      "5.5.1",
+    );
+    const files = record(records, "@M1@").children.filter((c) => c.tag === "FILE");
+    expect(files.map((f) => f.value)).toEqual(["a.jpg", "b.png"]);
+    expect(files.map((f) => childValue(f, "FORM"))).toEqual(["jpg", "png"]);
+    expect(childValue(files[0], "TITL")).toBe("Poroka");
   });
 });
 

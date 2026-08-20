@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Dataset, GedNode } from "../gedcom/types";
 import { objeInfoOf } from "../gedcom/source";
 import { useMediaFolder } from "./MediaFolderContext";
-import { basename, MEDIA_ACCEPT, mediaKindOf } from "./mediaPath";
+import { basename, MEDIA_ACCEPT, mediaKindOf, sameMediaFile } from "./mediaPath";
 import type { Translate } from "../locales/i18n";
 
 /** A photo chosen in the picker: its folder-relative path plus, when the file
@@ -35,21 +35,23 @@ interface FolderImage {
   searchText: string;
 }
 
-/** Index local `OBJE` files (top-level and inline) by basename, so a folder
- *  image can be classified as already-referenced and, when a shared record
- *  backs it, linked to that record's xref. Also keeps the OBJE's title +
+/** Index local `OBJE` files (top-level and inline) by basename, keeping every
+ *  reference (with its stored path) rather than one winner per name — two
+ *  different photos named `scan1.jpg` in different subfolders must each find
+ *  their own record, never each other's. Also keeps the OBJE's title +
  *  description so the picker filter can search them. */
-function referencedByBasename(records: GedNode[]): Map<string, { xref?: string; meta: string }> {
-  const map = new Map<string, { xref?: string; meta: string }>();
+function referencedByBasename(records: GedNode[]): Map<string, Array<{ xref?: string; meta: string; file: string }>> {
+  const map = new Map<string, Array<{ xref?: string; meta: string; file: string }>>();
   const visit = (node: GedNode) => {
     if (node.tag === "OBJE") {
       const info = objeInfoOf(node);
       if (info.file && !info.url) {
         const key = basename(info.file).toLowerCase();
         const meta = [info.title, info.description].filter(Boolean).join(" ");
-        const prev = map.get(key);
-        // Prefer a top-level (xref'd) record so shared-mode reuse can target it.
-        if (!prev || (!prev.xref && node.xref)) map.set(key, { xref: node.xref, meta });
+        const list = map.get(key) ?? map.set(key, []).get(key)!;
+        // Top-level (xref'd) records first, so shared-mode reuse targets them.
+        if (node.xref) list.unshift({ xref: node.xref, meta, file: info.file });
+        else list.push({ meta, file: info.file });
       }
     }
     for (const child of node.children) visit(child);
@@ -57,6 +59,7 @@ function referencedByBasename(records: GedNode[]): Map<string, { xref?: string; 
   records.forEach(visit);
   return map;
 }
+
 
 /** Group images by their containing subfolder: the folder's own files (path
  *  with no `/`) come first under the empty key, then each subfolder
@@ -109,7 +112,9 @@ export function AddMediaDialog({ isOpen, onClose, onAdd, dataset, t }: Props) {
       for (let i = 0; i < paths.length; i++) {
         const url = urls[i];
         if (!url) continue;
-        const ref = referenced.get(basename(paths[i]).toLowerCase());
+        // Of the records sharing this basename, only one whose stored path
+        // names this very file counts — never a same-named file elsewhere.
+        const ref = (referenced.get(basename(paths[i]).toLowerCase()) ?? []).find((r) => sameMediaFile(r.file, paths[i]));
         const meta = ref?.meta || undefined;
         const searchText = [paths[i], meta].filter(Boolean).join(" ").toLowerCase();
         items.push({ path: paths[i], url, existing: ref !== undefined, existingXref: ref?.xref, meta, searchText });

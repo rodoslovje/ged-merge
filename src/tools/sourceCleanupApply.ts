@@ -1,5 +1,5 @@
 import type { Dataset, GedNode } from "../gedcom/types";
-import { rebuildFamily, rebuildIndividual } from "../gedcom/edit";
+import { noteInsertedXref, rebuildFamily, rebuildIndividual } from "../gedcom/edit";
 import { bumpSourceCacheVersion } from "../gedcom/edit/cache";
 import { firstChild } from "../gedcom/node";
 import { clearObjeNodeCache } from "../gedcom/source";
@@ -124,7 +124,13 @@ function transplant(dataset: Dataset, next: GedNode[]): void {
   let unkeyed = 0;
   const merged = next.map((rec) => {
     const live = rec.xref ? liveByXref.get(rec.xref) : liveUnkeyed[unkeyed++];
-    if (!live || live.tag !== rec.tag) return rec; // a record the run created
+    if (!live || live.tag !== rec.tag) {
+      // A record the run created — allocated by nextXref against the *cloned*
+      // forest, so the live array's own max-xref cache never saw it. Note it,
+      // or the next hand-created source would be handed the same xref.
+      noteInsertedXref(dataset.records, rec.xref);
+      return rec;
+    }
     live.value = rec.value;
     live.children = rec.children;
     return live;

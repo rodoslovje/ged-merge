@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import type { Dataset } from "../gedcom/types";
-import type { EditSourceFields, NewSourceFields } from "../gedcom/edit";
+import { getSourceLookup, type EditSourceFields, type NewSourceFields } from "../gedcom/edit";
 import { findExistingSource, type FsSourceHint } from "../gedcom/source";
 import { parseSourceInput } from "../gedcom/citationParse";
 import { inferMainProfile } from "../normalize/profile";
@@ -152,12 +152,13 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
         : undefined,
     [recognized, fetched?.filingNumber, fetched?.collection, fetched?.page],
   );
-  // The existing-source scan walks the whole forest — debounced, so a URL
-  // being typed character by character doesn't rescan a 20k-record file on
-  // every keystroke (a paste is one change and settles immediately after).
+  // The existing-source match runs off the version-cached lookup (rebuilt
+  // only when a SOUR/OBJE actually changes) — debounced besides, so a URL
+  // being typed character by character doesn't re-match on every keystroke
+  // (a paste is one change and settles immediately after).
   const settledUrl = useDebounced(normalizedUrl, 250);
   const match = useMemo(
-    () => (settledUrl ? findExistingSource(dataset.records, settledUrl, fsHint) : undefined),
+    () => (settledUrl ? findExistingSource(dataset.records, settledUrl, fsHint, getSourceLookup(dataset.records)) : undefined),
     [dataset, settledUrl, fsHint],
   );
   const repos = useMemo(

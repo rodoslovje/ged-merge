@@ -3,19 +3,21 @@ import {
   addObjeToSource,
   attachSourceCitation,
   bumpSourceCacheVersion,
+  createMediaRecord,
   EDITABLE_LINK_TAGS,
   EVENT_CHILD_ORDER,
   EVENT_LINK_TAG,
+  getSourceLookup,
   INDI_CHILD_ORDER,
   insertGrouped,
   insertOrdered,
   insertRecord,
   markEventTouched,
   NAME_CHILD_ORDER,
-  nextXref,
+  SOUR_TRAILING_TAGS,
   writeNameValue,
 } from "../gedcom/edit";
-import { findExistingSource, newSourceCitations, sourceContentKey } from "../gedcom/source";
+import { buildObjeIndex, findExistingSource, matchesPage, newSourceCitations, sourceContentKey } from "../gedcom/source";
 import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "../gedcom/private";
 import type { Dataset, GedNode, PersonName } from "../gedcom/types";
 import { childrenByTag, childText, cloneNode, firstChild, hasChild, removeChildren } from "../gedcom/node";
@@ -371,7 +373,10 @@ export function applyLinks(
     const key = linkKey(url);
     if (existing.has(key)) continue;
     existing.add(key);
-    const sourceMatch = findExistingSource(records, url);
+    // The cached lookup makes this O(1) per link instead of a full-forest
+    // scan; addObjeToSource/createMediaRecord bump the cache version, so a
+    // page OBJE minted for one link is visible to the next link's lookup.
+    const sourceMatch = findExistingSource(records, url, undefined, getSourceLookup(records));
     if (sourceMatch) {
       if (!sourceMatch.objeXref) addObjeToSource(records, sourceMatch.sourceXref, url);
       attachSourceCitation(target, sourceMatch.sourceXref, sourceMatch.page, INDI_CHILD_ORDER);
@@ -384,9 +389,10 @@ export function applyLinks(
 }
 
 /**
- * Build a new link node for `url`, shaped per `format`. For "OBJE", also
- * appends a new top-level `OBJE` record holding the URL in `FILE` and returns
- * a pointer to it.
+ * Build a new link node for `url`, shaped per `format`. For "OBJE", the
+ * shared `createMediaRecord` mints the top-level record — same FORM habit,
+ * record grouping, xref bookkeeping and cache bump as an editor-added one —
+ * and this returns a pointer to it.
  */
 function buildLinkNode(format: LinkFormat, url: string, records: GedNode[], reservedXrefs?: ReadonlySet<string>): GedNode {
   if (format === "WEBTAG") {
@@ -395,14 +401,8 @@ function buildLinkNode(format: LinkFormat, url: string, records: GedNode[], rese
     return webtag;
   }
   if (format === "OBJE") {
-    const xref = nextXref(records, "O", reservedXrefs);
-    const obje = newNode("OBJE", undefined, xref);
-    obje.children.push(newNode("FILE", url));
-    // Insert before TRLR (which must stay last) rather than appending.
-    const trlrIndex = records.findIndex((r) => r.tag === "TRLR");
-    if (trlrIndex === -1) records.push(obje);
-    else records.splice(trlrIndex, 0, obje);
-    return newNode("OBJE", xref);
+    const obje = createMediaRecord(records, url, undefined, reservedXrefs);
+    return newNode("OBJE", obje.xref);
   }
   return newNode("WWW", url);
 }
@@ -782,7 +782,7 @@ export function applyEventSources(
       existing.add(key);
       // A link into a paginated archive book the main already cites as a
       // SOUR is attached as a citation instead of becoming a disconnected link.
-      const sourceMatch = findExistingSource(records, url);
+      const sourceMatch = findExistingSource(records, url, undefined, getSourceLookup(records));
       if (sourceMatch) {
         if (!sourceMatch.objeXref) addObjeToSource(records, sourceMatch.sourceXref, url);
         attachSourceCitation(event, sourceMatch.sourceXref, sourceMatch.page, EVENT_CHILD_ORDER);
@@ -1133,7 +1133,70 @@ export function importSourRecords(
       changed = true;
     }
   }
+  // The inserted SOUR/OBJE/REPO records stale any cached source lookup/index
+  // a later pass over this same array would otherwise reuse.
+  if (importedNodes.length) bumpSourceCacheVersion(records);
   return importedNodes;
+}
+
+/**
+ * A compare source that content-matched an existing main record is never
+ * imported — but the compare file may keep page images for the very pages the
+ * merged citations now cite. For every cited page the main record cannot
+ * already show, this links the compare file's page `OBJE` (xref remapped)
+ * onto the main record; the follow-up `importSourRecords` then imports the
+ * `OBJE` records those new links reference. Without this, citations arrive
+ * with `PAGE n` while their page images are silently dropped.
+ */
+export function foldMatchedSourcePages(records: GedNode[], compare: Dataset, sourMap: SourXrefMap): void {
+  // Source xref → the pages its citations in the merged output name.
+  const citedPages = new Map<string, Set<string>>();
+  const collect = (node: GedNode): void => {
+    if (node.tag === "SOUR" && !node.xref && node.value && /^@[^@]+@$/.test(node.value.trim())) {
+      const page = childText(node, "PAGE");
+      if (page) {
+        const key = node.value.trim();
+        let pages = citedPages.get(key);
+        if (!pages) citedPages.set(key, (pages = new Set()));
+        pages.add(page);
+      }
+    }
+    for (const child of node.children) collect(child);
+  };
+  for (const rec of records) collect(rec);
+  if (!citedPages.size) return;
+
+  const mainObje = buildObjeIndex(records);
+  const compareObje = buildObjeIndex(compare.records);
+  let changed = false;
+  for (const [cXref, outXref] of sourMap) {
+    const pages = citedPages.get(outXref);
+    if (!pages?.size) continue;
+    // Only a *pre-existing* main record needs the fold: a fresh-xref import
+    // brings the whole compare record across, page links included.
+    const mainRec = records.find((r) => r.tag === "SOUR" && r.xref === outXref);
+    if (!mainRec) continue;
+    const compareRec = compare.records.find((r) => r.tag === "SOUR" && r.xref === cXref);
+    if (!compareRec) continue;
+    const covered = mainRec.children
+      .filter((c) => c.tag === "OBJE" && c.value)
+      .map((c) => mainObje.get(c.value!.trim()))
+      .filter((c): c is NonNullable<typeof c> => Boolean(c));
+    const donors = childrenByTag(compareRec, "OBJE")
+      .map((c) => ({ xref: c.value?.trim(), info: c.value ? compareObje.get(c.value.trim()) : undefined }))
+      .filter((d): d is { xref: string; info: NonNullable<typeof d.info> } => Boolean(d.xref && d.info?.url));
+    for (const page of pages) {
+      if (covered.some((c) => matchesPage(c, page))) continue;
+      const donor = donors.find((d) => matchesPage(d.info, page));
+      if (!donor) continue;
+      const outObje = sourMap.get(donor.xref) ?? donor.xref;
+      if (mainRec.children.some((c) => c.tag === "OBJE" && c.value?.trim() === outObje)) continue;
+      insertGrouped(mainRec, { level: mainRec.level + 1, tag: "OBJE", value: outObje, children: [] }, SOUR_TRAILING_TAGS);
+      covered.push(donor.info);
+      changed = true;
+    }
+  }
+  if (changed) bumpSourceCacheVersion(records);
 }
 
 /**

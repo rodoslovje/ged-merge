@@ -1516,6 +1516,41 @@ describe("fixDanglingRefs", () => {
     expect(validateStructure(ds).counts.danglingXref).toBe(1);
   });
 
+  it("salvages a dangling REPO link's call number into FILN before dropping it", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Bo /Horvat/
+1 SOUR @S1@
+0 @S1@ SOUR
+1 TITL Krstna knjiga
+1 REPO @R9@
+2 CALN 007548250
+3 MEDI microfilm
+0 TRLR`);
+    const patches = fixDanglingRefs(ds);
+    expect(patches.map((p) => p.id)).toEqual(["@S1@"]);
+    const source = ds.records.find((r) => r.xref === "@S1@")!;
+    // The dangling link is gone, but the archive id it carried is not.
+    expect(source.children.some((c) => c.tag === "REPO")).toBe(false);
+    expect(source.children.find((c) => c.tag === "FILN")?.value).toBe("007548250");
+    expect(countDanglingRefs(ds)).toBe(0);
+  });
+
+  it("does not duplicate a FILN the source already states", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @S1@ SOUR
+1 TITL Krstna knjiga
+1 FILN 007548250
+1 REPO @R9@
+2 CALN 007548250
+0 TRLR`);
+    fixDanglingRefs(ds);
+    const source = ds.records.find((r) => r.xref === "@S1@")!;
+    expect(source.children.filter((c) => c.tag === "FILN")).toHaveLength(1);
+  });
+
   it("drops only the one missing xref a single row names", () => {
     const ds = dataset(FILE);
     // The row names its record and the missing xref it points at — the record's

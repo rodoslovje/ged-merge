@@ -6,8 +6,11 @@
  * load.
  */
 
-/** Matches the language-code path segment of a Matricula Online URL, e.g. ".../sl/slovenia/...". */
-const MATRICULA_LANG_RE = /^(https?:\/\/data\.matricula-online\.eu)\/([a-z]{2})\//;
+/** Matches the language-code path segment of a Matricula Online URL, e.g.
+ *  ".../sl/slovenia/...". Case-insensitive: detection lowercases its input,
+ *  but the rewrite runs on the URL as stored — an uppercase host must not
+ *  turn `withMatriculaLang` into a silent no-op. */
+const MATRICULA_LANG_RE = /^(https?:\/\/data\.matricula-online\.eu)\/([a-z]{2})\//i;
 
 /**
  * One of Geneanet's UI languages for the cemetery section: its hostname and
@@ -89,16 +92,20 @@ const CASE_SENSITIVE_ID_RE =
   /(?:youtube\.com\/watch\?(?:[^#]*&)?v=|youtu\.be\/|books\.google\.[a-z.]+\/books\?(?:[^#]*&)?id=|google\.[a-z.]+\/books\/edition\/[^/?#]+\/)([A-Za-z0-9_-]+)/;
 
 /**
- * Normalize a URL for set comparison: case-fold, drop a trailing slash, ignore
- * the language code in Matricula Online URLs (e.g. /sl/ vs /de/) and Geneanet
- * cemetery URLs (e.g. /cemetery/ vs /friedhof/) since they link to the same
- * record in different UI languages, and reduce a FamilySearch ark to the page
- * it names. A case-sensitive resource id (YouTube, Google Books) survives the
- * fold, so ids differing only by case stay distinct.
+ * Normalize a URL for set comparison: case-fold, fold `http://` to `https://`
+ * (an old export's plain-http copy of a page is the same page), drop a
+ * trailing slash, ignore the language code in Matricula Online URLs (e.g.
+ * /sl/ vs /de/) and Geneanet cemetery URLs (e.g. /cemetery/ vs /friedhof/)
+ * since they link to the same record in different UI languages, and reduce a
+ * FamilySearch ark to the page it names. A case-sensitive resource id
+ * (YouTube, Google Books) survives the fold, so ids differing only by case
+ * stay distinct.
  */
 export function linkKey(url: string): string {
   const caseId = CASE_SENSITIVE_ID_RE.exec(url.trim())?.[1];
-  const key = canonicalFamilySearchUrl(url.trim().toLowerCase()).replace(/\/+$/, "");
+  const key = canonicalFamilySearchUrl(url.trim().toLowerCase())
+    .replace(/^http:\/\//, "https://")
+    .replace(/\/+$/, "");
   const matriculaKey = key.replace(MATRICULA_LANG_RE, "$1/xx/");
   const geneanet = matchGeneanetCemetery(matriculaKey);
   const base = geneanet ? `https://xx.geneanet.org/cemetery${geneanet.tail}` : matriculaKey;
@@ -192,7 +199,11 @@ export interface FamilySearchUrlParts {
   image?: string;
 }
 
-const FS_ARK_RE = /^https?:\/\/(?:www\.)?familysearch\.org\/ark:\/61903\/(\d:\d):([^/?#]+)/i;
+// The optional `[a-z]{2}/` matches the UI-language path segment FamilySearch
+// sometimes writes ahead of the ark (`/de/ark:/…`) — the same allowance
+// `FS_ARK_URL_RE` above makes, so the parser and the key never disagree about
+// whether a link is a FamilySearch page.
+const FS_ARK_RE = /^https?:\/\/(?:www\.)?familysearch\.org\/(?:[a-z]{2}\/)?ark:\/61903\/(\d:\d):([^/?#]+)/i;
 
 export function parseFamilySearchUrl(url: string): FamilySearchUrlParts | undefined {
   const trimmed = url.trim();

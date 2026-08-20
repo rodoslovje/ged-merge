@@ -289,7 +289,7 @@ function pageNumOf(s: string): number | undefined {
 }
 
 /** Whether an OBJE candidate's URL (`?pg=42`) or title (`#042 - …`) names the given page. */
-function matchesPage(candidate: { url?: string; title?: string }, page: string): boolean {
+export function matchesPage(candidate: { url?: string; title?: string }, page: string): boolean {
   const target = pageNumOf(page);
   if (target === undefined) return false;
   const urlMatch = candidate.url ? /[?&]pg=(\d+)/i.exec(candidate.url) : null;
@@ -598,16 +598,51 @@ export function findExistingSource(
   records: GedNode[],
   url: string,
   hint?: FsSourceHint,
+  /** A prebuilt {@link buildSourceLookup} for hot loops (the merge resolves
+   *  one incoming link after another) — without it, each call scans every
+   *  record. Pass a *current* one: any SOUR/OBJE creation stales it. */
+  lookup?: SourceLookup,
 ): { sourceXref: string; objeXref?: string; page?: string } | undefined {
-  const objeIndex = buildObjeIndex(records);
-  const incomingKey = linkKey(url);
-  const incomingBookKey = bookKeyOf(url);
+  const lk = lookup ?? buildSourceLookup(records);
   const fs = fsWanted(url, hint);
   const page = pageParamOf(url) ?? fs?.image;
 
-  let bookMatch: string | undefined;
-  let filmMatch: GedNode | undefined;
-  let collectionMatch: GedNode | undefined;
+  // The ark names the image itself, and the link key already folds away the
+  // `i=` the viewer counts it by — so one key is one page, however the two
+  // links were navigated to.
+  const exact = lk.byLinkKey.get(linkKey(url));
+  if (exact) return { sourceXref: exact.sourceXref, objeXref: exact.objeXref, page };
+  // A film is the book itself; a collection spans many films, so it only
+  // answers for a link that names no film of its own.
+  const filmMatch = fs?.film ? lk.byFilm.get(fs.film) : undefined;
+  const collectionMatch = fs?.collection ? lk.byLooseTitle.get(looseKey(fs.collection)) : undefined;
+  const fsMatch = filmMatch ?? (fs?.film ? undefined : collectionMatch);
+  if (fsMatch) {
+    return { sourceXref: fsMatch.xref!, objeXref: fsPageObje(fsMatch, lk.objeIndex, fs?.image), page };
+  }
+  const bookMatch = lk.byBookKey.get(bookKeyOf(url));
+  return bookMatch ? { sourceXref: bookMatch, page } : undefined;
+}
+
+/** Everything {@link findExistingSource} matches against, indexed in one pass
+ *  over the records — page URLs, book keys, FamilySearch films and collection
+ *  titles, first record in file order winning each slot (the same answer the
+ *  old per-call scan gave). Build once per (records, source-cache version):
+ *  `getSourceLookup` in `edit/cache` does exactly that. */
+export interface SourceLookup {
+  byLinkKey: Map<string, { sourceXref: string; objeXref: string }>;
+  byBookKey: Map<string, string>;
+  byFilm: Map<string, GedNode>;
+  byLooseTitle: Map<string, GedNode>;
+  objeIndex: ObjeIndex;
+}
+
+export function buildSourceLookup(records: GedNode[]): SourceLookup {
+  const objeIndex = buildObjeIndex(records);
+  const byLinkKey = new Map<string, { sourceXref: string; objeXref: string }>();
+  const byBookKey = new Map<string, string>();
+  const byFilm = new Map<string, GedNode>();
+  const byLooseTitle = new Map<string, GedNode>();
   for (const rec of records) {
     if (rec.tag !== "SOUR" || !rec.xref) continue;
     for (const child of rec.children) {
@@ -615,46 +650,58 @@ export function findExistingSource(
       const objeXref = child.value.trim();
       const objeUrl = objeIndex.get(objeXref)?.url;
       if (!objeUrl) continue;
-      // The ark names the image itself, and the link key already folds away
-      // the `i=` the viewer counts it by — so one key is one page, however the
-      // two links were navigated to.
-      if (linkKey(objeUrl) === incomingKey) return { sourceXref: rec.xref, objeXref, page };
-      if (!bookMatch && bookKeyOf(objeUrl) === incomingBookKey) bookMatch = rec.xref;
+      const key = linkKey(objeUrl);
+      if (!byLinkKey.has(key)) byLinkKey.set(key, { sourceXref: rec.xref, objeXref });
+      const bookKey = bookKeyOf(objeUrl);
+      if (!byBookKey.has(bookKey)) byBookKey.set(bookKey, rec.xref);
     }
-    if (fs?.film && !filmMatch && sourceFilms(rec, objeIndex).has(fs.film)) filmMatch = rec;
-    if (fs?.collection && !collectionMatch && looseKey(childText(rec, "TITL")) === looseKey(fs.collection)) {
-      collectionMatch = rec;
+    for (const film of sourceFilms(rec, objeIndex)) {
+      if (!byFilm.has(film)) byFilm.set(film, rec);
     }
+    const titleKey = looseKey(childText(rec, "TITL"));
+    if (!byLooseTitle.has(titleKey)) byLooseTitle.set(titleKey, rec);
   }
-  // A film is the book itself; a collection spans many films, so it only
-  // answers for a link that names no film of its own.
-  const fsMatch = filmMatch ?? (fs?.film ? undefined : collectionMatch);
-  if (fsMatch) {
-    return { sourceXref: fsMatch.xref!, objeXref: fsPageObje(fsMatch, objeIndex, fs?.image), page };
-  }
-  return bookMatch ? { sourceXref: bookMatch, page } : undefined;
+  return { byLinkKey, byBookKey, byFilm, byLooseTitle, objeIndex };
 }
 
 /** Tags that point to another top-level record rather than describing this
- * one's own content — excluded from `sourceContentKey` since the pointed-to
- * record is its own (separately comparable) thing. */
+ * one's own content — their pointer values are file-local `@..@` numbering,
+ * never identity. The `REPO` link is half-relational: the pointer is skipped
+ * but its own children are content (see `sourceContentKey`). */
 const SOURCE_RELATIONAL_TAGS = new Set(["OBJE", "REPO"]);
+
+/** Bookkeeping that records when a program last touched the record, not what
+ * the record describes: two exports of the same parish register routinely
+ * differ only in their `CHAN` stamps — and the app itself re-stamps a shared
+ * record it saves — so these must never enter the identity. `RIN` is an
+ * exporter's internal automated id, same nature. */
+const SOURCE_BOOKKEEPING_TAGS = new Set(["CHAN", "CREA", "RIN"]);
 
 /**
  * A content-identity key for a top-level `SOUR` or `REPO` record: every
- * descendant tag/value pair except relational pointers (`OBJE`, `REPO`) and
- * custom `_`-prefixed tags (cosmetic exporter markup, e.g. `_ITALIC`). Two
- * records with the same key describe the same real-world source even under
- * different xrefs — two GEDCOM exports of overlapping family lines routinely
- * cite the same parish register under unrelated `@S..@` numbering. Empty
- * string means the record has no identity-bearing content to key on (the
- * caller should treat that as "no match", not match every other empty one).
+ * descendant tag/value pair except relational pointers (`OBJE`, `REPO`),
+ * bookkeeping stamps (`CHAN`, `CREA`, `RIN`) and custom `_`-prefixed tags
+ * (cosmetic exporter markup, e.g. `_ITALIC`). A `REPO` link's own children
+ * DO count: the `CALN` call number is what tells two films of the same
+ * FamilySearch collection apart once they share a repository — without it,
+ * a duplicates pass would collapse different registers into one. Two records
+ * with the same key describe the same real-world source even under different
+ * xrefs — two GEDCOM exports of overlapping family lines routinely cite the
+ * same parish register under unrelated `@S..@` numbering. Empty string means
+ * the record has no identity-bearing content to key on (the caller should
+ * treat that as "no match", not match every other empty one).
  */
 export function sourceContentKey(node: GedNode): string {
   const parts: string[] = [];
   const walk = (n: GedNode): void => {
     for (const child of n.children) {
-      if (SOURCE_RELATIONAL_TAGS.has(child.tag) || child.tag.startsWith("_")) continue;
+      if (child.tag.startsWith("_") || SOURCE_BOOKKEEPING_TAGS.has(child.tag)) continue;
+      if (SOURCE_RELATIONAL_TAGS.has(child.tag)) {
+        // The xref the link carries is file-local, but a repo link's own
+        // subtree (CALN, its MEDI) identifies which film/book this is.
+        if (child.tag === "REPO") walk(child);
+        continue;
+      }
       parts.push(`${child.tag}=${(child.value ?? "").trim()}`);
       walk(child);
     }

@@ -1,5 +1,6 @@
 import type { Dataset, GedNode } from "../gedcom/types";
 import { childText, childrenByTag, cloneNode, firstChild } from "../gedcom/node";
+import { stripTrailingPunct, URL_RE } from "../gedcom/builder";
 import {
   bookKeyOf,
   buildObjeIndex,
@@ -19,6 +20,7 @@ import {
   familySearchPageUrl,
   linkKey,
   parseFamilySearchUrl,
+  withMatriculaLang,
   type FamilySearchUrlParts,
 } from "../normalize/links";
 import {
@@ -296,8 +298,6 @@ export interface ReshapeCounts {
 
 const DEFAULT_SITES: ReadonlySet<ReshapeSite> = new Set(ALL_SITES.filter((s) => s !== "other"));
 
-const URL_RE = /https?:\/\/[^\s<>"]+/gi;
-
 const LINK_TAGS = new Set(["WWW", "URL", "_URL", "_LINK"]);
 
 // ---------------------------------------------------------------------------
@@ -331,10 +331,9 @@ function siteTitle(name: string | undefined, id: string | undefined, siteLabel: 
   return [name, id, siteLabel].filter(Boolean).join(" - ");
 }
 
-/** Strip punctuation a URL picked up from surrounding prose. */
-function cleanUrl(url: string): string {
-  return url.replace(/[.,;:!?)\]}'"»«]+$/, "");
-}
+/** Strip punctuation a URL picked up from surrounding prose — the builder's
+ *  shared rule, so the scan and the note-link harvester see the same URL. */
+const cleanUrl = stripTrailingPunct;
 
 /** Percent-decode up to twice (corpus has double-encoded Koper signatures),
  *  falling back to the input when malformed. `+` becomes a space. */
@@ -420,7 +419,7 @@ const LEGACY_OBIT_RE = /^https?:\/\/(?:www\.)?legacy\.com\/[^?#]*obituar/i;
 
 /** A Newspapers.com page image or clipping: newspapers.com/image/{id}/… (an
  *  `article=` uuid marks a clipping region on it) or newspapers.com/clip/{id}. */
-const NEWSPAPERS_RE = /^https?:\/\/(?:www\.)?newspapers\.com\/(?:image|clip)\/(\d+)/i;
+const NEWSPAPERS_RE = /^https?:\/\/(?:www\.)?newspapers\.com\/(image|clip)\/(\d+)/i;
 
 /** A Wikipedia article in any language, desktop or mobile: {lang}.wikipedia.org
  *  /wiki/{slug} or the /w/index.php?title={slug} form. */
@@ -656,7 +655,12 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
   const np = NEWSPAPERS_RE.exec(url.trim());
   if (np) {
     if (!sites.has("newspapers")) return undefined;
-    const imageId = np[1];
+    // A clip id and a page-image id are different id spaces on the site — a
+    // clip URL must never be rewritten into /image/{id}/ (a different or
+    // nonexistent page), and a clip and an unrelated image sharing a number
+    // must not merge into one source.
+    const npKind = np[1].toLowerCase();
+    const imageId = np[2];
     // Ancestry cites these as "The Windsor Star; Publication Date: 23 Jun
     // 1998; Publication Place: Windsor, Ontario, Canada; URL: https://…" —
     // the newspaper, issue date and place are already in the citation prose,
@@ -675,8 +679,8 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
     const place = /Publication Place:\s*([^;\n]+)/i.exec(ctx)?.[1].trim();
     return {
       site: "newspapers",
-      groupKey: `np:${imageId}`,
-      bookUrl: `https://www.newspapers.com/image/${imageId}/`,
+      groupKey: npKind === "clip" ? `np:clip:${imageId}` : `np:${imageId}`,
+      bookUrl: `https://www.newspapers.com/${npKind}/${imageId}/`,
       proposed: {
         title: siteTitle(paper ? [paper, date].filter(Boolean).join(", ") : imageId, undefined, "Newspapers.com"),
         place,
@@ -2157,6 +2161,12 @@ export function normalizeSourceCoverage(
     const flatDate = childText(rec, "DATE");
     if (flatPlac && places[0] && flatPlac !== places[0]) continue; // disagreement is not ours to settle
     if (flatDate && years && flatDate !== years) continue;
+    const flatAgnc = childText(rec, "AGNC");
+    if (flatAgnc && dataAgnc?.value?.trim() && flatAgnc !== dataAgnc.value.trim()) continue; // same rule for the agency
+    // An EVEN carrying anything beyond the DATE/PLAC this pass restates (a
+    // NOTE, a vendor tag) cannot be flattened without losing it — leave the
+    // whole record in its standard shape.
+    if (evens.some((e) => e.children.some((c) => c.tag !== "DATE" && c.tag !== "PLAC"))) continue;
     const before = evens
       .map((e) => [`EVEN ${e.value ?? ""}`.trim(), childText(e, "DATE"), childText(e, "PLAC")].filter(Boolean).join(" "))
       .join(" · ");
@@ -3350,7 +3360,7 @@ export function narrowFsRegister(meta: ReshapeMeta, register: string): ReshapeMe
 
 /** Rewrite a Matricula book URL to its `/en/` variant (stable table labels). */
 function matriculaEnUrl(bookUrl: string): string {
-  return bookUrl.replace(/^(https?:\/\/data\.matricula-online\.eu)\/[a-z]{2}\//i, "$1/en/");
+  return withMatriculaLang(bookUrl, "en");
 }
 
 /** Session-wide fetched-metadata cache, keyed by page-independent book key —

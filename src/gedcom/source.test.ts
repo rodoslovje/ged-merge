@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parseGedcom } from "./parser";
 import { buildDataset } from "./builder";
-import { buildObjeIndex, cropOf, findExistingSource, inferSourceFormat, objeInfoOf, objeNodesFor } from "./source";
+import { buildObjeIndex, buildSourceLookup, cropOf, findExistingSource, inferSourceFormat, objeInfoOf, objeNodesFor, sourceContentKey, type FsSourceHint } from "./source";
 import type { GedNode } from "./types";
 
 function buildFromText(text: string) {
@@ -675,5 +675,139 @@ describe("cropOf", () => {
 0 TRLR
 `);
     expect(cropOf(noSize)).toBeUndefined();
+  });
+});
+
+describe("resolveSourceCitation with a CONC-wrapped FILE", () => {
+  it("matches the cited page against a page-OBJE URL the parser reassembled from CONC", () => {
+    // A long Matricula URL wrapped by the exporter mid-value: the parser folds
+    // the CONC back into one FILE value, and page matching must see it whole.
+    const ds = buildFromText(`0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 NAME Test /Person/
+1 BIRT
+2 SOUR @S1@
+3 PAGE 56
+0 @S1@ SOUR
+1 TITL Krstna knjiga
+1 OBJE @O1@
+1 OBJE @O2@
+0 @O1@ OBJE
+1 FILE https://data.matricula-online.eu/sl/slovenia/lj
+2 CONC ubljana/kranj/04120/?pg=56
+0 @O2@ OBJE
+1 FILE https://data.matricula-online.eu/sl/slovenia/ljubljana/kranj/04120/?pg=57
+0 TRLR
+`);
+    const indi = ds.individuals.get("@I1@")!;
+    expect(indi.events[0].sources![0]).toMatchObject({
+      url: "https://data.matricula-online.eu/sl/slovenia/ljubljana/kranj/04120/?pg=56",
+      exact: true,
+      objeXref: "@O1@",
+    });
+  });
+});
+
+describe("buildSourceLookup parity with the per-call scan", () => {
+  it("answers exact / book / film / collection / none identically with and without a prebuilt lookup", () => {
+    const ds = buildFromText(`0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @S1@ SOUR
+1 TITL Krstna knjiga
+1 OBJE @O1@
+0 @S2@ SOUR
+1 TITL Slovenia Church Books, 1547-1945
+1 FILN 007548250
+0 @O1@ OBJE
+1 FILE https://data.matricula-online.eu/sl/x/04120/?pg=42
+0 TRLR
+`);
+    const lookup = buildSourceLookup(ds.records);
+    const cases: Array<[string, FsSourceHint | undefined]> = [
+      ["https://data.matricula-online.eu/de/x/04120/?pg=42", undefined], // exact (language variant)
+      ["https://data.matricula-online.eu/sl/x/04120/?pg=57", undefined], // same book, new page
+      ["https://www.familysearch.org/ark:/61903/3:1:ABC?cat=7548250&i=4", undefined], // film
+      ["https://www.familysearch.org/ark:/61903/3:1:DEF?i=2", { collection: "Slovenia Church Books, 1547-1945" }],
+      ["https://example.com/elsewhere", undefined], // no match
+    ];
+    for (const [url, hint] of cases) {
+      expect(findExistingSource(ds.records, url, hint, lookup)).toEqual(findExistingSource(ds.records, url, hint));
+    }
+  });
+});
+
+describe("sourceContentKey", () => {
+  function recordOf(text: string, xref: string): GedNode {
+    const ds = buildFromText(text);
+    return ds.records.find((r) => r.xref === xref)!;
+  }
+
+  it("ignores CHAN/CREA/RIN bookkeeping but not descriptive fields", () => {
+    const a = recordOf(`0 HEAD
+0 @S1@ SOUR
+1 TITL Krstna knjiga
+1 RIN 42
+1 CHAN
+2 DATE 1 JAN 2020
+0 TRLR
+`, "@S1@");
+    const b = recordOf(`0 HEAD
+0 @S1@ SOUR
+1 TITL Krstna knjiga
+1 RIN 99
+1 CREA
+2 DATE 15 AUG 2026
+3 TIME 10:15:00
+0 TRLR
+`, "@S1@");
+    const c = recordOf(`0 HEAD
+0 @S1@ SOUR
+1 TITL Krstna knjiga
+1 AUTH Župnija
+0 TRLR
+`, "@S1@");
+    expect(sourceContentKey(a)).toBe(sourceContentKey(b));
+    expect(sourceContentKey(a)).not.toBe(sourceContentKey(c));
+  });
+
+  it("skips REPO/OBJE pointer values but keys on the repo link's CALN subtree", () => {
+    const film1 = recordOf(`0 HEAD
+0 @S1@ SOUR
+1 TITL Slovenia Church Books
+1 OBJE @O1@
+1 REPO @R1@
+2 CALN 007548250
+0 TRLR
+`, "@S1@");
+    const film1OtherXrefs = recordOf(`0 HEAD
+0 @S7@ SOUR
+1 TITL Slovenia Church Books
+1 OBJE @O9@
+1 REPO @R5@
+2 CALN 007548250
+0 TRLR
+`, "@S7@");
+    const film2 = recordOf(`0 HEAD
+0 @S1@ SOUR
+1 TITL Slovenia Church Books
+1 REPO @R1@
+2 CALN 004520
+0 TRLR
+`, "@S1@");
+    expect(sourceContentKey(film1)).toBe(sourceContentKey(film1OtherXrefs));
+    expect(sourceContentKey(film1)).not.toBe(sourceContentKey(film2));
+  });
+
+  it("keys a record whose only content is bookkeeping as empty (no identity)", () => {
+    const rec = recordOf(`0 HEAD
+0 @S1@ SOUR
+1 CHAN
+2 DATE 1 JAN 2020
+0 TRLR
+`, "@S1@");
+    expect(sourceContentKey(rec)).toBe("");
   });
 });

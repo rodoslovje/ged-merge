@@ -1,5 +1,6 @@
 import type { GedcomVersion, GedNode } from "../gedcom/types";
 import { cloneNode, firstChild } from "../gedcom/node";
+import { EXT_TO_MIME, MIME_TO_EXT } from "../gedcom/mediaForm";
 import { walkNodes } from "./walk";
 
 /**
@@ -143,33 +144,6 @@ const ROLE_TO_RELA: Record<string, string> = {
   WIFE: "wife",
   WITN: "witness",
 };
-
-/** File extension ⇄ IANA media type, for OBJE `FORM` payloads. */
-const EXT_TO_MIME: Record<string, string> = {
-  jpg: "image/jpeg",
-  jpeg: "image/jpeg",
-  png: "image/png",
-  gif: "image/gif",
-  bmp: "image/bmp",
-  tif: "image/tiff",
-  tiff: "image/tiff",
-  pdf: "application/pdf",
-  wav: "audio/wav",
-  mp3: "audio/mpeg",
-  mp4: "video/mp4",
-  avi: "video/x-msvideo",
-  mov: "video/quicktime",
-  htm: "text/html",
-  html: "text/html",
-  txt: "text/plain",
-  text: "text/plain",
-};
-
-const MIME_TO_EXT: Record<string, string> = Object.fromEntries(
-  Object.entries(EXT_TO_MIME)
-    .reverse() // first spelling of each extension wins (jpg over jpeg)
-    .map(([ext, mime]) => [mime, ext]),
-);
 
 /** Identifier tags folded into EXID in 7.0, with their registered type URIs. */
 const EXID_TYPE_URI: Record<string, string> = {

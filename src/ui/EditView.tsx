@@ -44,6 +44,7 @@ import {
   detachSpouseRole,
   FAM_CHILD_ORDER,
   getMediaAndSourceCtx,
+  getSourceLookup,
   EVENT_CHILD_ORDER,
   INDI_CHILD_ORDER,
   insertOrdered,
@@ -59,6 +60,8 @@ import {
   removeIndividual,
   removeMediaLinkByUrl,
   removeSourceCitationAtIndex,
+  sourceCitationNodes,
+  sourceRecordEditFields,
   setMediaLinkUrl,
   setAdditionalName,
   setIndividualLinks,
@@ -1011,7 +1014,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
         film: fields.filingNumber,
         collection: fields.collection,
         image: fields.page,
-      });
+      }, getSourceLookup(dataset.records));
       if (match) {
         const extraPatches: RecordPatch[] = [];
         let pageObjeXref = match.objeXref;
@@ -1101,20 +1104,23 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   }
 
 /**
-   * Snapshot every top-level `SOUR`/`OBJE` record (cloned) ahead of a mutation
-   * that may edit or prune them, for {@link diffSourceRecordPatches}.
+   * Snapshot every top-level `SOUR`/`OBJE`/`REPO` record (cloned) ahead of a
+   * mutation that may edit, create or prune them, for
+   * {@link diffSourceRecordPatches}. `REPO` is in the set because a source
+   * save can create one (the dialog's "New repository"); left out of the
+   * diff, undo would remove the source's link but strand the created record.
    */
   function snapshotSourceRecords(): Map<string, GedNode> {
-    const isSourceOrObje = (r: GedNode) => r.tag === "SOUR" || r.tag === "OBJE";
-    return new Map(dataset.records.filter((r) => isSourceOrObje(r) && r.xref).map((r) => [r.xref!, cloneRaw(r)]));
+    const isSharedSourceRecord = (r: GedNode) => r.tag === "SOUR" || r.tag === "OBJE" || r.tag === "REPO";
+    return new Map(dataset.records.filter((r) => isSharedSourceRecord(r) && r.xref).map((r) => [r.xref!, cloneRaw(r)]));
   }
 
-  /** Diff the current top-level `SOUR`/`OBJE` records against a
+  /** Diff the current top-level `SOUR`/`OBJE`/`REPO` records against a
    * {@link snapshotSourceRecords} snapshot into undo-safe `"record"` patches —
    * simpler than tracking exactly which ones a mutation touched or pruned. */
   function diffSourceRecordPatches(before: Map<string, GedNode>): RecordPatch[] {
-    const isSourceOrObje = (r: GedNode) => r.tag === "SOUR" || r.tag === "OBJE";
-    const after = new Map(dataset.records.filter((r) => isSourceOrObje(r) && r.xref).map((r) => [r.xref!, r]));
+    const isSharedSourceRecord = (r: GedNode) => r.tag === "SOUR" || r.tag === "OBJE" || r.tag === "REPO";
+    const after = new Map(dataset.records.filter((r) => isSharedSourceRecord(r) && r.xref).map((r) => [r.xref!, r]));
     const patches: RecordPatch[] = [];
     for (const xref of new Set([...before.keys(), ...after.keys()])) {
       const b = before.get(xref) ?? null;
@@ -1190,7 +1196,9 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
    * retargets only this citation's page image, not a sibling page's.
    */
   const openEditSource: OpenEditSource = useStableHandler((node: GedNode, index: number, owner: RemoveSourceOwner) => {
-    const citation = childrenByTag(node, "SOUR")[index];
+    // Indexed over the same filtered list the rendered chips come from —
+    // a valueless `SOUR` child must not shift which citation "index" names.
+    const citation = sourceCitationNodes(node)[index];
     if (!citation) return;
     const page = childText(citation, "PAGE");
     const value = citation.value?.trim();
@@ -1207,29 +1215,17 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
       index,
       owner,
       fields: {
-        title: childText(sourceNode, "TITL"),
-        author: childText(sourceNode, "AUTH"),
-        periodical: childText(sourceNode, "PERI"),
-        publisher: childText(sourceNode, "PUBL"),
-        agency: childText(sourceNode, "AGNC"),
-        place: childText(sourceNode, "PLAC"),
-        filingNumber: childText(sourceNode, "FILN"),
-        // A pointer note prefills with the shared record's resolved text (not
-        // the raw "@N1@"); saving routes the edit back into that record.
-        note: (() => {
-          const v = childText(sourceNode, "NOTE");
-          return v && isPointer(v) ? getMediaAndSourceCtx(dataset.records).noteIndex.get(v)?.text.trim() : v;
-        })(),
-        url: resolved?.url,
-        objeXref: resolved?.objeXref,
+        // The record's own fields via the shared prefill — the same
+        // coverage-aware reads (DATA > AGNC, EVEN > PLAC) its save writes back
+        // to, so opening and saving untouched is a no-op.
+        ...sourceRecordEditFields(dataset.records, sourceNode),
         page,
-        // "" (not undefined) when there is no REPO link, so the dialog's
-        // dropdown shows the explicit no-repository choice.
-        repoXref: childText(sourceNode, "REPO") ?? "",
-        repoCaln: (() => {
-          const repoLink = firstChild(sourceNode, "REPO");
-          return repoLink ? childText(repoLink, "CALN") ?? "" : "";
-        })(),
+        // This citation's own resolved page image (its PAGE matched a page
+        // OBJE, or the source has exactly one) beats the record-level rule, so
+        // a url edit retargets only this page. A repository-fallback url
+        // (`exact` false) is the repo's website, not a page — it must not
+        // prefill the URL field, or a save would mint a bogus page OBJE for it.
+        ...(resolved?.exact ? { url: resolved.url, objeXref: resolved.objeXref } : {}),
       },
     });
   });
@@ -1253,7 +1249,14 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
    * citation) or "edit-link" (a legacy plain link, prefilled with just its
    * URL). A legacy link only gets promoted to a real citation if the user
    * actually filled in a bibliographic field; a bare URL edit/save just
-   * renames it in place and leaves it a plain link. */
+   * renames it in place and leaves it a plain link.
+   *
+   * Memoized on the open target, the same invariant SourcesPanel documents:
+   * the dialog reseeds its fields from a fresh `editing` object, so building
+   * one per EditView render (a worker message, any App state tick) would
+   * clobber whatever the user has typed but not yet saved. */
+  const editingSourceDialog = useMemo(() => editingSourceDialogProps(), [sourceDialogTarget]); // eslint-disable-line react-hooks/exhaustive-deps
+
   function editingSourceDialogProps() {
     if (!sourceDialogTarget) return undefined;
     if (sourceDialogTarget.kind === "edit") {
@@ -2179,7 +2182,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
         onAdd={handleAddSource}
         dataset={dataset}
         t={t}
-        editing={editingSourceDialogProps()}
+        editing={editingSourceDialog}
       />
       <AddMediaDialog
         isOpen={mediaPickerOpen}

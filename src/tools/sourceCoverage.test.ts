@@ -90,3 +90,61 @@ describe("normalizeSourceCoverage → standard", () => {
     expect(normalizeSourceCoverage(recs, "standard", "BIRT").changed).toBe(0);
   });
 });
+
+describe("normalizeSourceCoverage → vendor", () => {
+  it("flattens DATA > EVEN coverage into the program fields", () => {
+    const recs = records([
+      "0 HEAD", "1 CHAR UTF-8",
+      "0 @S1@ SOUR",
+      "1 TITL Krstna knjiga",
+      "1 DATA",
+      "2 AGNC Nadškofijski arhiv",
+      "2 EVEN BIRT",
+      "3 DATE FROM 1790 TO 1803",
+      "3 PLAC Stara Loka",
+      "0 TRLR",
+    ]);
+    const { changed } = normalizeSourceCoverage(recs, "vendor", "BIRT");
+    const text = serializeGedcom(recs);
+    expect(changed).toBe(1);
+    expect(text).toContain("1 PLAC Stara Loka");
+    expect(text).toContain("1 AGNC Nadškofijski arhiv");
+    expect(text).not.toContain("1 DATA");
+  });
+
+  it("leaves a record whose flat AGNC disagrees with its DATA > AGNC untouched", () => {
+    const lines = [
+      "0 HEAD", "1 CHAR UTF-8",
+      "0 @S1@ SOUR",
+      "1 TITL Krstna knjiga",
+      "1 AGNC Župnijski urad",
+      "1 DATA",
+      "2 AGNC Nadškofijski arhiv",
+      "2 EVEN BIRT",
+      "3 PLAC Stara Loka",
+      "0 TRLR",
+    ];
+    const recs = records(lines);
+    const before = serializeGedcom(recs);
+    // The disagreement is not this pass's to settle — deleting the DATA > AGNC
+    // would silently erase one of the two claims.
+    expect(normalizeSourceCoverage(recs, "vendor", "BIRT").changed).toBe(0);
+    expect(serializeGedcom(recs)).toBe(before);
+  });
+
+  it("leaves a record whose EVEN carries more than DATE/PLAC untouched", () => {
+    const recs = records([
+      "0 HEAD", "1 CHAR UTF-8",
+      "0 @S1@ SOUR",
+      "1 TITL Krstna knjiga",
+      "1 DATA",
+      "2 EVEN BIRT",
+      "3 DATE FROM 1790 TO 1803",
+      "3 NOTE prepisano iz izvirnika",
+      "0 TRLR",
+    ]);
+    const before = serializeGedcom(recs);
+    expect(normalizeSourceCoverage(recs, "vendor", "BIRT").changed).toBe(0);
+    expect(serializeGedcom(recs)).toBe(before);
+  });
+});

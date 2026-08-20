@@ -1043,6 +1043,41 @@ describe("mergeDecisions — links", () => {
     expect(report.changes.some((c) => c.links?.some((l) => l.includes("pg=58")))).toBe(true);
   });
 
+  it("two people bringing the same new page in one merge share the OBJE the first one minted", () => {
+    // The cached source lookup must see the page OBJE created moments earlier
+    // in the same merge — a stale lookup would mint a duplicate OBJE for the
+    // second person's copy of the same link.
+    const main = dataset(
+      wrap(
+        "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n" +
+          "0 @I2@ INDI\n1 NAME Ana /Kos/\n1 SEX F\n" +
+          "0 @S1@ SOUR\n1 TITL Krstna knjiga - Šenčur\n1 OBJE @O1@\n" +
+          "0 @O1@ OBJE\n1 FILE https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03173/?pg=56\n",
+      ),
+    );
+    // Twins on one register page: both compare records link the same new
+    // page (in different UI languages), each merged onto its own main person.
+    const compare = dataset(
+      wrap(
+        "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n" +
+          "1 WWW https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03173/?pg=58\n" +
+          "0 @P2@ INDI\n1 NAME Ana /Kos/\n1 SEX F\n" +
+          "1 WWW https://data.matricula-online.eu/de/slovenia/ljubljana/sencur/03173/?pg=58\n",
+      ),
+    );
+    const decisions = new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: { links: "both" } }],
+      [decisionKey("individual", "@I2@", "@P2@"), { status: "confirmed", fields: { links: "both" } }],
+    ]);
+    const { records } = mergeDecisions(main, compare, decisions, NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    // Both people gained a citation of the one book…
+    expect(out.match(/1 SOUR @S1@\n2 PAGE 58/g)).toHaveLength(2);
+    // …and exactly one OBJE record holds the new page.
+    expect(out.match(/0 @S\d+@ SOUR/g)).toHaveLength(1);
+    expect(out.match(/1 FILE [^\n]*pg=58/g)).toHaveLength(1);
+  });
+
 });
 
 describe("mergeDecisions — SOUR/REPO import", () => {
@@ -1130,6 +1165,104 @@ describe("mergeDecisions — SOUR/REPO import", () => {
     // No new SOUR record was minted — the import reused main's existing @S9@.
     expect(out.match(/0 @[^@]+@ SOUR/g)).toHaveLength(1);
     expect(out).toContain("1 SOUR @S9@");
+  });
+
+  it("reuses the main SOUR when the two copies differ only in their CHAN stamps", () => {
+    // The app itself re-stamps a shared record's CHAN on save, so after one
+    // merge+save the main's copy always disagrees with the compare's in
+    // bookkeeping — a second merge of the same file must still reuse it,
+    // not import the source again.
+    const mainWithSameSource = wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F1@\n" +
+        "0 @F1@ FAM\n1 HUSB @I1@\n" +
+        "0 @S9@ SOUR\n1 TITL Matična knjiga rojstev Kranj\n1 AUTH Župnija Kranj\n1 CHAN\n2 DATE 15 AUG 2026\n3 TIME 10:15:00\n",
+    );
+    const compareStamped = wrap(
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n1 FAMS @PF@\n" +
+        "0 @P4@ INDI\n1 NAME Tone /Novak/\n1 SEX M\n1 SOUR @CS1@\n1 FAMC @PF@\n" +
+        "0 @PF@ FAM\n1 HUSB @P1@\n1 CHIL @P4@\n" +
+        "0 @CS1@ SOUR\n1 TITL Matična knjiga rojstev Kranj\n1 AUTH Župnija Kranj\n1 CHAN\n2 DATE 1 JAN 2020\n",
+    );
+    const main = dataset(mainWithSameSource);
+    const compare = dataset(compareStamped);
+    const matches = {
+      individuals: [{ mainId: "@I1@", compareId: "@P1@" }],
+    } as never;
+    const decisions = new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {}, takenChildren: ["@P4@"] }],
+    ]);
+    const { records } = mergeDecisions(main, compare, decisions, matches, tr);
+    const out = serializeGedcom(records);
+    expect(out.match(/0 @[^@]+@ SOUR/g)).toHaveLength(1);
+    expect(out).toContain("1 SOUR @S9@");
+  });
+
+  it("imports a same-titled source as its own record when the call numbers differ", () => {
+    // Same collection title on the same repository, different film: the
+    // REPO > CALN is the identity that keeps the two registers apart.
+    const mainWithFilm = wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F1@\n" +
+        "0 @F1@ FAM\n1 HUSB @I1@\n" +
+        "0 @S9@ SOUR\n1 TITL Slovenia Church Books - FamilySearch\n1 REPO @R1@\n2 CALN 007548250\n" +
+        "0 @R1@ REPO\n1 NAME FamilySearch.org - Slovenia\n",
+    );
+    const compareOtherFilm = wrap(
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n1 FAMS @PF@\n" +
+        "0 @P4@ INDI\n1 NAME Tone /Novak/\n1 SEX M\n1 SOUR @CS1@\n1 FAMC @PF@\n" +
+        "0 @PF@ FAM\n1 HUSB @P1@\n1 CHIL @P4@\n" +
+        "0 @CS1@ SOUR\n1 TITL Slovenia Church Books - FamilySearch\n1 REPO @CR1@\n2 CALN 004520\n" +
+        "0 @CR1@ REPO\n1 NAME FamilySearch.org - Slovenia\n",
+    );
+    const main = dataset(mainWithFilm);
+    const compare = dataset(compareOtherFilm);
+    const matches = {
+      individuals: [{ mainId: "@I1@", compareId: "@P1@" }],
+    } as never;
+    const decisions = new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {}, takenChildren: ["@P4@"] }],
+    ]);
+    const { records } = mergeDecisions(main, compare, decisions, matches, tr);
+    const out = serializeGedcom(records);
+    // Both films exist as their own SOUR records…
+    expect(out.match(/0 @[^@]+@ SOUR/g)).toHaveLength(2);
+    expect(out).toContain("2 CALN 007548250");
+    expect(out).toContain("2 CALN 004520");
+    // …while the repository itself (same name) is reused, not duplicated.
+    expect(out.match(/0 @[^@]+@ REPO/g)).toHaveLength(1);
+  });
+
+  it("a content-matched compare source brings the page images its citations name", () => {
+    // Main already describes this register (so the compare record is reused,
+    // not imported) — but only the compare file holds the page image the new
+    // child's citation names. The page OBJE must come across with it.
+    const mainWithSameSource = wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F1@\n" +
+        "0 @F1@ FAM\n1 HUSB @I1@\n" +
+        "0 @S9@ SOUR\n1 TITL Matična knjiga rojstev Kranj\n1 AUTH Župnija Kranj\n",
+    );
+    const compareWithPageObje = wrap(
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n1 FAMS @PF@\n" +
+        "0 @P4@ INDI\n1 NAME Tone /Novak/\n1 SEX M\n1 SOUR @CS1@\n2 PAGE 42\n1 FAMC @PF@\n" +
+        "0 @PF@ FAM\n1 HUSB @P1@\n1 CHIL @P4@\n" +
+        "0 @CS1@ SOUR\n1 TITL Matična knjiga rojstev Kranj\n1 AUTH Župnija Kranj\n1 OBJE @CO1@\n" +
+        "0 @CO1@ OBJE\n1 FILE https://data.matricula-online.eu/sl/x/04120/?pg=42\n",
+    );
+    const main = dataset(mainWithSameSource);
+    const compare = dataset(compareWithPageObje);
+    const matches = {
+      individuals: [{ mainId: "@I1@", compareId: "@P1@" }],
+    } as never;
+    const decisions = new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {}, takenChildren: ["@P4@"] }],
+    ]);
+    const { records } = mergeDecisions(main, compare, decisions, matches, tr);
+    const out = serializeGedcom(records);
+    // The source was reused, not duplicated…
+    expect(out.match(/0 @[^@]+@ SOUR/g)).toHaveLength(1);
+    expect(out).toContain("1 SOUR @S9@\n2 PAGE 42");
+    // …and the cited page's image rode along onto the reused record.
+    expect(out).toContain("0 @S9@ SOUR\n1 TITL Matična knjiga rojstev Kranj\n1 AUTH Župnija Kranj\n1 OBJE @CO1@");
+    expect(out).toContain("0 @CO1@ OBJE\n1 FILE https://data.matricula-online.eu/sl/x/04120/?pg=42");
   });
 
   it("transitively imports a REPO referenced by an imported SOUR", () => {
