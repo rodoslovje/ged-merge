@@ -80,7 +80,7 @@ export const OVERLAY_PRESETS: OverlayPreset[] = [
     // German place spellings), not as a survey: base zoom 11 is the scan's own
     // resolution, so deeper zooms only enlarge it.
     key: "settings.map.overlays.preset.schraembl",
-    url: "https://tiles.gedmerge.com/schraembl-1797/{z}/{x}/{y}.png",
+    url: "https://tiles.gedmerge.com/schraembl-1797/{z}/{x}/{y}.webp",
     yearFrom: 1797,
     yearTo: 1806,
     attribution: "David Rumsey Map Collection, Stanford Libraries · CC BY-NC-SA 3.0",
