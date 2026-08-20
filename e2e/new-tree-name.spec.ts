@@ -27,6 +27,8 @@ test("a new tree names itself after its first person", async ({ page }) => {
   await page.keyboard.press("ControlOrMeta+s");
   const files = page.locator(".preview-files code");
   await expect(files.first()).toHaveText(/^Novak\.\d{4}-\d{2}-\d{2}\.gedmerge\.ged$/);
+  // The change report is opt-in; ticking it names it after the same person.
+  await page.locator(".preview-report-toggle input").check();
   await expect(files.nth(1)).toHaveText(/^Novak\..*\.report\.txt$/);
 
   // Confirming carries the name onto the open file — undated, so a second save
