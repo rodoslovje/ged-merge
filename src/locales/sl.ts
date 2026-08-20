@@ -1341,7 +1341,7 @@ export const sl = {
   "preview.customTags": "Oznake po meri iz vhodne datoteke",
   "preview.customTagsHint": "Te nestandardne oznake se prenesejo iz vhodne datoteke. Odstranite kljukico pri tistih, ki jih ne želite vključiti.",
   "preview.files": "Prenesene bodo te datoteke:",
-  "preview.saveReport": "Prenesi tudi poročilo o spremembah v besedilni datoteki",
+  "preview.saveReport": "Prenesi tudi poročilo o spremembah v tekstovni datoteki",
   "preview.untouched": "Vaše izvirne datoteke ostanejo nespremenjene.",
   "preview.cancel": "Prekliči",
   // Preneseno poročilo o spremembah (`.gedmerge.report.txt`) — zapis o tem, kaj
@@ -1625,7 +1625,7 @@ export const sl = {
   "map.export.pngRight": "Slika PNG, desna polovica",
   "map.export.pngRight.tooltip": "Prenesi trenutni pogled, kot ga izriše desna polovica",
   "report.button": "Poročilo",
-  "report.exportTxt.tooltip": "Prenesi to poročilo kot besedilno datoteko",
+  "report.exportTxt.tooltip": "Prenesi to poročilo kot tekstovno datoteko",
   "report.exportRtf.tooltip": "Prenesi to poročilo kot dokument RTF (za Word ali LibreOffice)",
   "report.gen.root": "Izhodiščna oseba",
   "report.gen.n": "{{n}}. rod",
