@@ -515,7 +515,7 @@ export const sl = {
   "tools.geocode.storing": "Shranjevanje naslovov v ta brskalnik…",
   "tools.geocode.waiting": "Čakanje, da storitev pripravi izvleček…",
   "tools.geocode.downloading": "Prenašanje…",
-  "tools.geocode.importFailed": "Datoteke ni bilo mogoče prebrati — prepričajte se, da gre za izvleček države GeoNames (.txt ali .zip).",
+  "tools.geocode.workerLoadFailed": "Uvoza ni bilo mogoče zagnati — aplikacija se je medtem verjetno posodobila. Ponovno naložite aplikacijo in poskusite znova.",
   "tools.geocode.importBtn": "Naloži…",
   "tools.geocode.sourceGeoNames": "Izvleček države, ki ga prenesete sami s strani",
   "tools.geocode.sourceGeoNames2": " — .zip ali razpakirana datoteka .txt. ",

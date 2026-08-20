@@ -503,8 +503,11 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
       };
       // A worker that fails to load or throws outside the message handler would
       // otherwise leave the import spinner running forever — surface it instead.
-      worker.onerror = () => fail(t("tools.geocode.importFailed"));
-      worker.onmessageerror = () => fail(t("tools.geocode.importFailed"));
+      // The usual cause is a stale app shell requesting a worker chunk a deploy
+      // has since replaced (the host answers missing assets with index.html),
+      // so point at reloading the app rather than blaming the chosen file.
+      worker.onerror = () => fail(t("tools.geocode.workerLoadFailed"));
+      worker.onmessageerror = () => fail(t("tools.geocode.workerLoadFailed"));
       const req: GeoWorkerRequest = { type: "importGazetteer", requestId: 1, buffer, fileName, ...extra };
       // Every buffer in the request is transferred, whatever the format called
       // it — the payload plus whichever side tables came with it.
