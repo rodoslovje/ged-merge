@@ -45,6 +45,15 @@ export interface FactLine {
   /** Whether the named partner is presumed living — the narrative needs the
    *  tense ("njegova žena je" vs "je bila"). Undefined when unknown. */
   spouseLiving?: boolean;
+  /** Partner's lifespan for the ⚭ line ("1832–1901"); the renderer drops it
+   *  for a living partner under the privacy option. */
+  spouseYears?: string;
+  /** Partner's sex — picks the origin clause's word (son / daughter / child). */
+  spouseSex?: Sex;
+  /** Partner's parents, for the ⚭ line's NGSQ origin clause ("daughter of X
+   *  and Y"). A living parent's name stays out under the privacy option. */
+  spouseFather?: { name: string; living: boolean };
+  spouseMother?: { name: string; living: boolean };
   /** Marriage lines carry the union's family xref, so the narrative can pair
    *  each marriage sentence with that union's children. */
   fam?: string;
@@ -308,7 +317,9 @@ export function factFor(indi: Individual, tags: string[], opts: ReportFactOption
   return undefined;
 }
 
-/** The union's ⚭ line, when its MARR event carries a date or a place. */
+/** The union's ⚭ line: always when the partner is known — the line is the only
+ *  place the report introduces them — and otherwise only when the MARR event
+ *  carries a date or a place (a bare ⚭ would say nothing). */
 export function marriageFact(
   fam: Family,
   spouse: string | undefined,
@@ -317,23 +328,20 @@ export function marriageFact(
   ds?: Dataset,
 ): FactLine | undefined {
   const marr = fam.events.find((e) => e.tag === "MARR");
-  if (!marr || !dated(marr)) return undefined;
-  const fact = withNote(
-    {
-      tag: "MARR",
-      glyph: MARRIAGE_SYMBOL,
-      date: marr.date?.raw,
-      parsed: marr.date,
-      place: factPlace(marr),
-      ...factWhere(marr),
-      spouse,
-      spouseLiving,
-      fam: fam.id,
-    },
-    marr,
-    opts,
-  );
-  if (opts.age && ds) fact.ages = coupleAges(fam, ds, marr.date);
+  if (!(marr && dated(marr)) && !spouse) return undefined;
+  const base: FactLine = {
+    tag: "MARR",
+    glyph: MARRIAGE_SYMBOL,
+    date: marr?.date?.raw,
+    parsed: marr?.date,
+    place: marr ? factPlace(marr) : undefined,
+    ...(marr ? factWhere(marr) : null),
+    spouse,
+    spouseLiving,
+    fam: fam.id,
+  };
+  const fact = marr ? withNote(base, marr, opts) : base;
+  if (opts.age && ds && marr) fact.ages = coupleAges(fam, ds, marr.date);
   return fact;
 }
 
@@ -442,7 +450,29 @@ export function marriageFacts(
     .map((fam) => {
       const partnerId = fam.husband === indi.id ? fam.wife : fam.husband;
       const partner = partnerId ? ds.individuals.get(partnerId) : undefined;
-      return marriageFact(fam, partner && nameOf(partner), opts, partner && (isPresumedLiving(partner, ds, nowYear) || !!partner.private), ds);
+      const fact = marriageFact(fam, partner && nameOf(partner), opts, partner && (isPresumedLiving(partner, ds, nowYear) || !!partner.private), ds);
+      if (fact && partner) enrichSpouse(fact, partner, ds, nameOf, nowYear);
+      return fact;
     })
     .filter((f): f is FactLine => f !== undefined);
+}
+
+/** NGSQ-style partner detail on a ⚭ line: the partner's lifespan and parents
+ *  ("Marija Oblak (1832–1901), daughter of Janez Oblak and Neža Zupan"). */
+function enrichSpouse(fact: FactLine, partner: Individual, ds: Dataset, nameOf: NameOf, nowYear: number): void {
+  const years = formatLifespan(birthYear(partner), deathYear(partner), isDeceased(partner));
+  if (years) fact.spouseYears = years;
+  fact.spouseSex = partner.sex;
+  // First family with a recorded parent = the partner's birth family.
+  for (const famId of partner.childOf) {
+    const fam = ds.families.get(famId);
+    if (!fam) continue;
+    const father = fam.husband ? ds.individuals.get(fam.husband) : undefined;
+    const mother = fam.wife ? ds.individuals.get(fam.wife) : undefined;
+    if (!father && !mother) continue;
+    const ref = (p: Individual) => ({ name: nameOf(p), living: isPresumedLiving(p, ds, nowYear) || !!p.private });
+    if (father) fact.spouseFather = ref(father);
+    if (mother) fact.spouseMother = ref(mother);
+    return;
+  }
 }

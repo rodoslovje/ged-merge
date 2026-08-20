@@ -1657,6 +1657,18 @@ export const sl = {
   "register.gen.3": "Pravnuki",
   "register.childrenOf": "Otroci — {{name}}:",
   "register.childrenOfBoth": "Otroci — {{name}} in {{spouse}}:",
+  // Partnerjev izvor na vrstici ⚭. Imena ostanejo v imenovalniku, zato klavzula
+  // ne sklanja imen, ampak starša označi z vlogo (kot »Otroci — …« zgoraj);
+  // pripone _M/_F so v slovenščini enake, ker vlogi povesta vse.
+  "register.spouseOriginBoth": "oče {{father}} in mati {{mother}}",
+  "register.spouseOriginBoth_M": "oče {{father}} in mati {{mother}}",
+  "register.spouseOriginBoth_F": "oče {{father}} in mati {{mother}}",
+  "register.spouseOriginFather": "oče {{father}}",
+  "register.spouseOriginFather_M": "oče {{father}}",
+  "register.spouseOriginFather_F": "oče {{father}}",
+  "register.spouseOriginMother": "mati {{mother}}",
+  "register.spouseOriginMother_M": "mati {{mother}}",
+  "register.spouseOriginMother_F": "mati {{mother}}",
   "report.style.list": "Seznam",
   "report.style.list.tooltip": "Strnjene oštevilčene vrstice dejstev",
   "report.style.narrative": "Pripoved",

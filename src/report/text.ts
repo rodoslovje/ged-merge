@@ -135,7 +135,7 @@ function entryLines(t: Translate, entry: ReportEntry, opts: ReportTextOptions): 
   // Fact lines first (event notes/sources nested under their line), then the
   // person's own notes, then their record-level sources.
   for (const f of entry.facts) {
-    lines.push(indent + factText(t, f));
+    lines.push(indent + factText(t, f, opts));
     if (f.note) lines.push(...noteLines(f.note, indent + "  "));
     for (const src of f.sources ?? []) lines.push(indent + "  " + sourceText(t, src));
   }
@@ -156,12 +156,36 @@ function sourceText(t: Translate, src: SourceLine): string {
 }
 
 /** One fact line, date always first: `⚭ 4 FEB 1866, Škofja Loka — Marija
- *  Oblak`, `⚒ 1958, orodjar`. The AGNC joins the comma run like the place;
- *  the CAUS gets its localized frame: `† 1912, Ljubljana (vzrok: pljučnica)`. */
-export function factText(t: Translate, f: FactLine): string {
+ *  Oblak (1845–1913), daughter of Janez Oblak and Neža Zupan`, `⚒ 1958,
+ *  orodjar`. The AGNC joins the comma run like the place; the CAUS gets its
+ *  localized frame: `† 1912, Ljubljana (vzrok: pljučnica)`. */
+export function factText(t: Translate, f: FactLine, opts: ReportTextOptions = {}): string {
   const age = factAgeSuffix(f);
   const datePart = f.date && age ? `${f.date} ${age}` : f.date;
   const when = [datePart, f.value, f.place, f.agency].filter(Boolean).join(", ");
   const cause = f.cause ? ` ${t("narrative.cause", { cause: f.cause })}` : "";
-  return `${f.glyph} ${when}${cause}${f.spouse ? ` — ${f.spouse}` : ""}`;
+  const lead = when ? `${f.glyph} ${when}` : f.glyph; // an undated ⚭ line leads with the partner alone
+  return `${lead}${cause}${spouseText(t, f, opts)}`;
+}
+
+/** The ⚭ line's partner tail: name, lifespan, and the NGSQ origin clause
+ *  ("daughter of Janez Oblak and Neža Zupan"). Under the privacy option a
+ *  living partner keeps the name but loses the years — like the group
+ *  headings — and a living parent's name stays out of the origin clause. */
+function spouseText(t: Translate, f: FactLine, opts: ReportTextOptions): string {
+  if (!f.spouse) return "";
+  const priv = !!opts.privacyLiving;
+  const years = f.spouseYears && !(priv && f.spouseLiving) ? ` (${f.spouseYears})` : "";
+  const father = f.spouseFather && !(priv && f.spouseFather.living) ? f.spouseFather.name : undefined;
+  const mother = f.spouseMother && !(priv && f.spouseMother.living) ? f.spouseMother.name : undefined;
+  const sfx = f.spouseSex === "M" ? "_M" : f.spouseSex === "F" ? "_F" : "";
+  const origin =
+    father && mother
+      ? t(`register.spouseOriginBoth${sfx}`, { father, mother })
+      : father
+        ? t(`register.spouseOriginFather${sfx}`, { father })
+        : mother
+          ? t(`register.spouseOriginMother${sfx}`, { mother })
+          : undefined;
+  return ` — ${f.spouse}${years}${origin ? `, ${origin}` : ""}`;
 }

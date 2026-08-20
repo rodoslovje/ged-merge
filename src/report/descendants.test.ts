@@ -4,7 +4,8 @@ import { parseGedcom } from "../gedcom/parser";
 import { displayName, primaryName } from "../match/relatives";
 import type { Individual } from "../gedcom/types";
 import { buildDescendants } from "./descendants";
-import { reportToText } from "./text";
+import { factText, reportToText } from "./text";
+import type { FactLine } from "./model";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -92,6 +93,41 @@ describe("buildDescendants", () => {
     }
   });
 
+  it("carries the partner's lifespan, sex and parents on the ⚭ line", () => {
+    // Give Eva Zajc recorded parents so her origin clause has both names.
+    const withParents = dataset(
+      DESCENDANTS
+        .replace("2 DATE 1970\n1 FAMS @F3@\n", "2 DATE 1970\n1 FAMS @F3@\n1 FAMC @F6@\n")
+        .replace(
+          "0 TRLR\n",
+          "0 @I13@ INDI\n1 NAME Alojz /Zajc/\n1 SEX M\n1 BIRT\n2 DATE 1870\n1 DEAT\n2 DATE 1930\n1 FAMS @F6@\n" +
+            "0 @I14@ INDI\n1 NAME Roza /Kalan/\n1 SEX F\n1 BIRT\n2 DATE 1875\n1 DEAT\n2 DATE 1940\n1 FAMS @F6@\n" +
+            "0 @F6@ FAM\n1 HUSB @I13@\n1 WIFE @I14@\n1 CHIL @I7@\n0 TRLR\n",
+        ),
+    );
+    const d = buildDescendants(withParents, "@I1@", nameOf, NOW)!;
+    const peter = d.generations.flatMap((g) => g.entries).find((e) => e.id === "@I3@")!;
+    const marr = peter.facts.find((f) => f.tag === "MARR")!;
+    expect(marr).toMatchObject({
+      spouse: "Eva Zajc",
+      spouseYears: "1900–1970",
+      spouseSex: "F",
+      spouseFather: { name: "Alojz Zajc", living: false },
+      spouseMother: { name: "Roza Kalan", living: false },
+    });
+  });
+
+  it("emits the ⚭ line for an undated union when the partner is known", () => {
+    // Strip the second union's MARR entirely: the partner alone earns the line.
+    const noMarr = dataset(DESCENDANTS.replace("1 MARR\n2 DATE 1920\n", ""));
+    const d = buildDescendants(noMarr, "@I1@", nameOf, NOW)!;
+    const root = d.generations[0].entries[0];
+    const marrs = root.facts.filter((f) => f.tag === "MARR");
+    expect(marrs.map((f) => `${f.spouse}:${f.date ?? "-"}`)).toEqual([
+      "Marija Oblak:1895", "Neza Kovac:-",
+    ]);
+  });
+
   it("keeps the original number for a child reached through both parents", () => {
     // First cousins Ivan (6) and Vida (7) marry; their daughter appears under
     // both, keeping one register number.
@@ -139,6 +175,34 @@ describe("reportToText (descendants)", () => {
     expect(text).toContain("register.gen.2");
     expect(text).toContain("register.childrenOfBoth"); // both parents known
     expect(text).toContain("2 I. Peter Novak (1896–1960)"); // register no. + roman child index
-    expect(text).toContain("     ⚭ 1922 — Eva Zajc");
+    expect(text).toContain("     ⚭ 1922 — Eva Zajc (1900–1970)");
+  });
+});
+
+describe("factText (⚭ partner tail)", () => {
+  const fact: FactLine = {
+    tag: "MARR",
+    glyph: "⚭",
+    date: "1950",
+    spouse: "Eva Zajc",
+    spouseYears: "1928–",
+    spouseLiving: true,
+    spouseSex: "F",
+    spouseFather: { name: "Alojz Zajc", living: false },
+    spouseMother: { name: "Roza Kalan", living: true },
+  };
+
+  it("appends the partner's years and sexed origin clause", () => {
+    expect(factText(tr, fact)).toBe("⚭ 1950 — Eva Zajc (1928–), register.spouseOriginBoth_F");
+  });
+
+  it("privacy drops a living partner's years and a living parent's name", () => {
+    // Only the deceased father survives the privacy filter, so the clause
+    // falls back to its father-only form; the living mother stays out.
+    expect(factText(tr, fact, { privacyLiving: true })).toBe("⚭ 1950 — Eva Zajc, register.spouseOriginFather_F");
+  });
+
+  it("leads with the partner alone on a dateless line", () => {
+    expect(factText(tr, { tag: "MARR", glyph: "⚭", spouse: "Neza Kovac" })).toBe("⚭ — Neza Kovac");
   });
 });

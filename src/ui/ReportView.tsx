@@ -478,7 +478,7 @@ export function ReportView({ mainDs, rootId: currentRootId, startId, backLabel, 
                             !narrativeOf &&
                             e.facts.map((f, j) => (
                               <div key={j} className="report-fact gm-data">
-                                {factText(t, f)}
+                                {factText(t, f, exportOpts)}
                                 {f.note && <div className="report-note">{f.note}</div>}
                                 {(f.sources ?? []).map((src, k) => sourceNode(src, sourceLabel(t, src), k))}
                               </div>
@@ -617,7 +617,7 @@ function printDoc(
         body.push(
           ...e.facts.map(
             (f) =>
-              `<div class="fact">${escapeHtml(factText(t, f))}` +
+              `<div class="fact">${escapeHtml(factText(t, f, opts))}` +
               (f.note ? noteDiv(f.note) : "") +
               (f.sources ?? []).map((s) => sourceDiv(s)).join("") +
               `</div>`,

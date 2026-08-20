@@ -106,7 +106,7 @@ function entryParas(t: Translate, entry: ReportEntry, opts: ReportTextOptions): 
   // Fact lines first (event notes/sources nested under their line), then the
   // person's own notes, then their record-level sources.
   for (const f of entry.facts) {
-    paras.push(para(`\\li${INDENT}\\cf${CF_FACT}`, esc(factText(t, f))));
+    paras.push(para(`\\li${INDENT}\\cf${CF_FACT}`, esc(factText(t, f, opts))));
     if (f.note) paras.push(notePara(f.note, NESTED));
     for (const src of f.sources ?? []) paras.push(sourcePara(t, src, NESTED));
   }

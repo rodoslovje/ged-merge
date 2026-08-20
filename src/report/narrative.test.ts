@@ -128,9 +128,27 @@ describe("planEntry", () => {
     expect(planEntry({ ...root, dupOf: 1 })).toEqual([]);
   });
 
-  it("uses the single-parent children form when the union has no ⚭ fact", () => {
+  it("keeps the couple children form for an undated union with a known partner", () => {
+    // The partner alone now earns the ⚭ fact — the marriage exists, only its
+    // date is unrecorded — so the children still follow the couple wording.
     const noMarr = FAMILY.replace("1 MARR\n2 DATE 4 FEB 1866\n2 PLAC Škofja Loka\n", "");
     const d = reportOf(noMarr, "@I1@");
+    const r = rootEntry(d);
+    const kinds = planEntry(r, childGroups(d).get(r.num));
+    expect(kinds.map((s) => `${s.kind}${s.kind === "children" ? `:${s.couple ? "couple" : "solo"}` : ""}`)).toEqual([
+      "bornBaptized",
+      "married",
+      "children:couple",
+      "occupation",
+      "diedBuried",
+    ]);
+  });
+
+  it("uses the single-parent children form when the union has no partner at all", () => {
+    const soloParent = FAMILY
+      .replace("1 MARR\n2 DATE 4 FEB 1866\n2 PLAC Škofja Loka\n", "")
+      .replace("1 WIFE @I2@\n", "");
+    const d = reportOf(soloParent, "@I1@");
     const r = rootEntry(d);
     const kinds = planEntry(r, childGroups(d).get(r.num));
     expect(kinds.map((s) => `${s.kind}${s.kind === "children" ? `:${s.couple ? "couple" : "solo"}` : ""}`)).toEqual([
