@@ -29,8 +29,10 @@ import { linkKey } from "../normalize/links";
  *    and trailing-slash variants compare equal) or, for a local file, its bare
  *    lower-cased basename.
  *  - **source** (`SOUR`) / **repository** (`REPO`) — by `sourceContentKey`:
- *    every descriptive field except relational pointers. Identical content ⇒
- *    same real-world source/repository even under different xrefs.
+ *    every descriptive field (a repo link's `CALN` included, so two films of
+ *    one collection stay apart) except relational pointers and `CHAN`/`CREA`
+ *    stamps. Identical content ⇒ same real-world source/repository even
+ *    under different xrefs.
  */
 
 export type DupKind = "media" | "source" | "repo";

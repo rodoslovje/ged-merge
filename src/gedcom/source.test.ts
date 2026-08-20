@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parseGedcom } from "./parser";
 import { buildDataset } from "./builder";
-import { buildObjeIndex, cropOf, findExistingSource, inferSourceFormat, objeInfoOf, objeNodesFor } from "./source";
+import { buildObjeIndex, cropOf, findExistingSource, inferSourceFormat, objeInfoOf, objeNodesFor, sourceContentKey } from "./source";
 import type { GedNode } from "./types";
 
 function buildFromText(text: string) {
@@ -675,5 +675,78 @@ describe("cropOf", () => {
 0 TRLR
 `);
     expect(cropOf(noSize)).toBeUndefined();
+  });
+});
+
+describe("sourceContentKey", () => {
+  function recordOf(text: string, xref: string): GedNode {
+    const ds = buildFromText(text);
+    return ds.records.find((r) => r.xref === xref)!;
+  }
+
+  it("ignores CHAN/CREA/RIN bookkeeping but not descriptive fields", () => {
+    const a = recordOf(`0 HEAD
+0 @S1@ SOUR
+1 TITL Krstna knjiga
+1 RIN 42
+1 CHAN
+2 DATE 1 JAN 2020
+0 TRLR
+`, "@S1@");
+    const b = recordOf(`0 HEAD
+0 @S1@ SOUR
+1 TITL Krstna knjiga
+1 RIN 99
+1 CREA
+2 DATE 15 AUG 2026
+3 TIME 10:15:00
+0 TRLR
+`, "@S1@");
+    const c = recordOf(`0 HEAD
+0 @S1@ SOUR
+1 TITL Krstna knjiga
+1 AUTH Župnija
+0 TRLR
+`, "@S1@");
+    expect(sourceContentKey(a)).toBe(sourceContentKey(b));
+    expect(sourceContentKey(a)).not.toBe(sourceContentKey(c));
+  });
+
+  it("skips REPO/OBJE pointer values but keys on the repo link's CALN subtree", () => {
+    const film1 = recordOf(`0 HEAD
+0 @S1@ SOUR
+1 TITL Slovenia Church Books
+1 OBJE @O1@
+1 REPO @R1@
+2 CALN 007548250
+0 TRLR
+`, "@S1@");
+    const film1OtherXrefs = recordOf(`0 HEAD
+0 @S7@ SOUR
+1 TITL Slovenia Church Books
+1 OBJE @O9@
+1 REPO @R5@
+2 CALN 007548250
+0 TRLR
+`, "@S7@");
+    const film2 = recordOf(`0 HEAD
+0 @S1@ SOUR
+1 TITL Slovenia Church Books
+1 REPO @R1@
+2 CALN 004520
+0 TRLR
+`, "@S1@");
+    expect(sourceContentKey(film1)).toBe(sourceContentKey(film1OtherXrefs));
+    expect(sourceContentKey(film1)).not.toBe(sourceContentKey(film2));
+  });
+
+  it("keys a record whose only content is bookkeeping as empty (no identity)", () => {
+    const rec = recordOf(`0 HEAD
+0 @S1@ SOUR
+1 CHAN
+2 DATE 1 JAN 2020
+0 TRLR
+`, "@S1@");
+    expect(sourceContentKey(rec)).toBe("");
   });
 });

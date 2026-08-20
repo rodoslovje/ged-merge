@@ -1132,6 +1132,70 @@ describe("mergeDecisions — SOUR/REPO import", () => {
     expect(out).toContain("1 SOUR @S9@");
   });
 
+  it("reuses the main SOUR when the two copies differ only in their CHAN stamps", () => {
+    // The app itself re-stamps a shared record's CHAN on save, so after one
+    // merge+save the main's copy always disagrees with the compare's in
+    // bookkeeping — a second merge of the same file must still reuse it,
+    // not import the source again.
+    const mainWithSameSource = wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F1@\n" +
+        "0 @F1@ FAM\n1 HUSB @I1@\n" +
+        "0 @S9@ SOUR\n1 TITL Matična knjiga rojstev Kranj\n1 AUTH Župnija Kranj\n1 CHAN\n2 DATE 15 AUG 2026\n3 TIME 10:15:00\n",
+    );
+    const compareStamped = wrap(
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n1 FAMS @PF@\n" +
+        "0 @P4@ INDI\n1 NAME Tone /Novak/\n1 SEX M\n1 SOUR @CS1@\n1 FAMC @PF@\n" +
+        "0 @PF@ FAM\n1 HUSB @P1@\n1 CHIL @P4@\n" +
+        "0 @CS1@ SOUR\n1 TITL Matična knjiga rojstev Kranj\n1 AUTH Župnija Kranj\n1 CHAN\n2 DATE 1 JAN 2020\n",
+    );
+    const main = dataset(mainWithSameSource);
+    const compare = dataset(compareStamped);
+    const matches = {
+      individuals: [{ mainId: "@I1@", compareId: "@P1@" }],
+    } as never;
+    const decisions = new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {}, takenChildren: ["@P4@"] }],
+    ]);
+    const { records } = mergeDecisions(main, compare, decisions, matches, tr);
+    const out = serializeGedcom(records);
+    expect(out.match(/0 @[^@]+@ SOUR/g)).toHaveLength(1);
+    expect(out).toContain("1 SOUR @S9@");
+  });
+
+  it("imports a same-titled source as its own record when the call numbers differ", () => {
+    // Same collection title on the same repository, different film: the
+    // REPO > CALN is the identity that keeps the two registers apart.
+    const mainWithFilm = wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F1@\n" +
+        "0 @F1@ FAM\n1 HUSB @I1@\n" +
+        "0 @S9@ SOUR\n1 TITL Slovenia Church Books - FamilySearch\n1 REPO @R1@\n2 CALN 007548250\n" +
+        "0 @R1@ REPO\n1 NAME FamilySearch.org - Slovenia\n",
+    );
+    const compareOtherFilm = wrap(
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n1 FAMS @PF@\n" +
+        "0 @P4@ INDI\n1 NAME Tone /Novak/\n1 SEX M\n1 SOUR @CS1@\n1 FAMC @PF@\n" +
+        "0 @PF@ FAM\n1 HUSB @P1@\n1 CHIL @P4@\n" +
+        "0 @CS1@ SOUR\n1 TITL Slovenia Church Books - FamilySearch\n1 REPO @CR1@\n2 CALN 004520\n" +
+        "0 @CR1@ REPO\n1 NAME FamilySearch.org - Slovenia\n",
+    );
+    const main = dataset(mainWithFilm);
+    const compare = dataset(compareOtherFilm);
+    const matches = {
+      individuals: [{ mainId: "@I1@", compareId: "@P1@" }],
+    } as never;
+    const decisions = new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {}, takenChildren: ["@P4@"] }],
+    ]);
+    const { records } = mergeDecisions(main, compare, decisions, matches, tr);
+    const out = serializeGedcom(records);
+    // Both films exist as their own SOUR records…
+    expect(out.match(/0 @[^@]+@ SOUR/g)).toHaveLength(2);
+    expect(out).toContain("2 CALN 007548250");
+    expect(out).toContain("2 CALN 004520");
+    // …while the repository itself (same name) is reused, not duplicated.
+    expect(out.match(/0 @[^@]+@ REPO/g)).toHaveLength(1);
+  });
+
   it("transitively imports a REPO referenced by an imported SOUR", () => {
     const compareWithRepo = wrap(
       "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n1 FAMS @PF@\n" +

@@ -636,25 +636,43 @@ export function findExistingSource(
 }
 
 /** Tags that point to another top-level record rather than describing this
- * one's own content — excluded from `sourceContentKey` since the pointed-to
- * record is its own (separately comparable) thing. */
+ * one's own content — their pointer values are file-local `@..@` numbering,
+ * never identity. The `REPO` link is half-relational: the pointer is skipped
+ * but its own children are content (see `sourceContentKey`). */
 const SOURCE_RELATIONAL_TAGS = new Set(["OBJE", "REPO"]);
+
+/** Bookkeeping that records when a program last touched the record, not what
+ * the record describes: two exports of the same parish register routinely
+ * differ only in their `CHAN` stamps — and the app itself re-stamps a shared
+ * record it saves — so these must never enter the identity. `RIN` is an
+ * exporter's internal automated id, same nature. */
+const SOURCE_BOOKKEEPING_TAGS = new Set(["CHAN", "CREA", "RIN"]);
 
 /**
  * A content-identity key for a top-level `SOUR` or `REPO` record: every
- * descendant tag/value pair except relational pointers (`OBJE`, `REPO`) and
- * custom `_`-prefixed tags (cosmetic exporter markup, e.g. `_ITALIC`). Two
- * records with the same key describe the same real-world source even under
- * different xrefs — two GEDCOM exports of overlapping family lines routinely
- * cite the same parish register under unrelated `@S..@` numbering. Empty
- * string means the record has no identity-bearing content to key on (the
- * caller should treat that as "no match", not match every other empty one).
+ * descendant tag/value pair except relational pointers (`OBJE`, `REPO`),
+ * bookkeeping stamps (`CHAN`, `CREA`, `RIN`) and custom `_`-prefixed tags
+ * (cosmetic exporter markup, e.g. `_ITALIC`). A `REPO` link's own children
+ * DO count: the `CALN` call number is what tells two films of the same
+ * FamilySearch collection apart once they share a repository — without it,
+ * a duplicates pass would collapse different registers into one. Two records
+ * with the same key describe the same real-world source even under different
+ * xrefs — two GEDCOM exports of overlapping family lines routinely cite the
+ * same parish register under unrelated `@S..@` numbering. Empty string means
+ * the record has no identity-bearing content to key on (the caller should
+ * treat that as "no match", not match every other empty one).
  */
 export function sourceContentKey(node: GedNode): string {
   const parts: string[] = [];
   const walk = (n: GedNode): void => {
     for (const child of n.children) {
-      if (SOURCE_RELATIONAL_TAGS.has(child.tag) || child.tag.startsWith("_")) continue;
+      if (child.tag.startsWith("_") || SOURCE_BOOKKEEPING_TAGS.has(child.tag)) continue;
+      if (SOURCE_RELATIONAL_TAGS.has(child.tag)) {
+        // The xref the link carries is file-local, but a repo link's own
+        // subtree (CALN, its MEDI) identifies which film/book this is.
+        if (child.tag === "REPO") walk(child);
+        continue;
+      }
       parts.push(`${child.tag}=${(child.value ?? "").trim()}`);
       walk(child);
     }

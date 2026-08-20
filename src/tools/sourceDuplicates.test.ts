@@ -144,6 +144,42 @@ describe("findSourceDuplicates — sources & repos", () => {
 1 WWW https://arhiv.si
 0 TRLR`, "repo")).toHaveLength(1);
   });
+
+  it("keeps same-titled sources apart when their call numbers differ", () => {
+    // The regroup tool's own output shape: many collection sources on one
+    // shared repository, told apart only by REPO > CALN — collapsing them
+    // would re-point citations onto the wrong film.
+    expect(ofKind(`0 HEAD
+1 CHAR UTF-8
+0 @S1@ SOUR
+1 TITL Slovenia Church Books - FamilySearch
+1 REPO @R1@
+2 CALN 007548250
+0 @S2@ SOUR
+1 TITL Slovenia Church Books - FamilySearch
+1 REPO @R1@
+2 CALN 004520
+0 @R1@ REPO
+1 NAME FamilySearch.org - Slovenia
+0 TRLR`, "source")).toHaveLength(0);
+  });
+
+  it("groups true duplicates that differ only in their CHAN stamps", () => {
+    // Two exports of overlapping lines virtually always differ in CHAN —
+    // bookkeeping must never keep real duplicates apart.
+    expect(ofKind(`0 HEAD
+1 CHAR UTF-8
+0 @S1@ SOUR
+1 TITL Parish register Ljubljana
+1 CHAN
+2 DATE 1 JAN 2020
+0 @S2@ SOUR
+1 TITL Parish register Ljubljana
+1 CHAN
+2 DATE 15 AUG 2026
+3 TIME 10:15:00
+0 TRLR`, "source")).toHaveLength(1);
+  });
 });
 
 describe("dedupeSources", () => {
