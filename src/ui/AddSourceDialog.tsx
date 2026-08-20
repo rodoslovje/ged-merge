@@ -115,6 +115,10 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
   // Whether the Repository dropdown holds a hand-picked choice — a later
   // lookup improves only what the dialog itself put there.
   const repoTouched = useRef(false);
+  // Where the seed routed the archive's id — the repository link's call
+  // number, or the source's own filing number — so the lookup answering later
+  // upgrades the same field instead of filling both.
+  const idOnCaln = useRef(false);
   const { settings } = useSettings();
   const { targetOf, lookUp, fetching } = useSourceLookup(settings.allowLinkFetch);
 
@@ -251,11 +255,20 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
   useEffect(() => {
     if (editing) return;
     setFetched(undefined);
+    const preselectCreate = !match && !repoDefault?.xref && Boolean(repoDefault?.createName) && layoutPrefersRepos;
+    const repoPre = match ? "" : repoDefault?.xref ?? (preselectCreate ? "@create@" : "");
+    // The archive's id — a Geneanet view, a Matricula book — goes in the one
+    // field this file states ids in: the repository link's call number (when
+    // there is a repository to hang it on), else the source's own filing
+    // number. Never both (see `writesCallNumbers`).
+    const proposedId = match ? undefined : recognized?.proposed.filingNumber;
+    idOnCaln.current = idField(dataset.records, coverage, repoPre !== "").caln;
     setFields({
       // For a recognized site the composed proposal ("Katarina Abdonec - WW2 -
       // SIstory.si") beats the generic parse's bare quoted name — same title
-      // the cleanup tool would write.
-      title: match ? "" : recognized?.proposed.title ?? parsed.title ?? "",
+      // the cleanup tool would write, id included: without it every grave of
+      // one Geneanet cemetery proposes an identical title.
+      title: match ? "" : siteSourceTitle(recognized?.site, recognized?.proposed.title, proposedId) ?? parsed.title ?? "",
       author: match ? "" : parsed.author ?? recognized?.proposed.author ?? "",
       // A recognized FamilySearch citation's details are already claimed by
       // the proposal's own fields — the generic parse's leftovers ("images,
@@ -267,20 +280,19 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
       publisher: match || recognized?.cited || parsed.publisher === recognized?.proposed.agency ? "" : parsed.publisher ?? "",
       agency: match ? "" : recognized?.proposed.agency ?? "",
       place: match ? "" : resolvePlace(recognized?.proposed.place ?? parsed.place) ?? "",
-      filingNumber: match ? "" : recognized?.proposed.filingNumber ?? "",
+      filingNumber: idOnCaln.current ? "" : proposedId ?? "",
       page: match?.page ?? recognized?.page ?? extractPage(normalizedUrl ?? "") ?? "",
       url: normalizedUrl ?? "",
       note: match || recognized?.cited ? "" : parsed.note ?? "",
     });
-    const preselectCreate = !match && !repoDefault?.xref && Boolean(repoDefault?.createName) && layoutPrefersRepos;
-    setRepoSel(match ? "" : repoDefault?.xref ?? (preselectCreate ? "@create@" : ""));
+    setRepoSel(repoPre);
     // The proposed record's name sits in the editable name field, so the
     // user can adjust it before anything is created.
     setRepoName(preselectCreate ? repoDefault!.createName! : "");
-    setRepoCaln("");
+    setRepoCaln(idOnCaln.current ? proposedId ?? "" : "");
     setRegister(undefined);
     repoTouched.current = false;
-  }, [editing, text, parsed, normalizedUrl, match, recognized, resolvePlace, repoDefault, layoutPrefersRepos]);
+  }, [editing, text, parsed, normalizedUrl, match, recognized, resolvePlace, repoDefault, layoutPrefersRepos, dataset, coverage]);
 
   // A collection the lookup named can point at the file's own repository for
   // it, which the URL alone could not find.
@@ -365,6 +377,9 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
     if (editing || !settings.allowLinkFetch || !urlOnly || match || !normalizedUrl) return;
     let cancelled = false;
     const proposal = recognized?.proposed;
+    // The seed stitched the id into a Geneanet title, so that — not the bare
+    // proposal — is the baseline a fetched title may replace.
+    const proposedTitle = siteSourceTitle(recognized?.site, proposal?.title, proposal?.filingNumber) ?? proposal?.title;
     void lookUp(normalizedUrl, { anyPage: true }).then((meta) => {
       if (cancelled || !meta) return;
       setFetched(meta);
@@ -372,20 +387,26 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
       // offline proposal (or is empty) — the user's own edits always win.
       const upgrade = (current: string, proposed: string | undefined, value: string | undefined) =>
         value && (!current.trim() || current === proposed) ? value : current;
-      setFields((f) =>
-        f.url === normalizedUrl
-          ? {
-              ...f,
-              title: upgrade(f.title, proposal?.title, meta.title),
-              author: upgrade(f.author, undefined, meta.author),
-              periodical: upgrade(f.periodical, undefined, meta.periodical),
-              publisher: upgrade(f.publisher, undefined, meta.publisher),
-              agency: upgrade(f.agency, proposal?.agency, meta.agency),
-              place: upgrade(f.place, resolvePlace(proposal?.place), resolvePlace(meta.place)),
-              page: upgrade(f.page, recognized?.page, meta.page),
-            }
-          : f,
-      );
+      // The archive's id is as good offline as fetched, and the fetched title
+      // — the cemetery's name — must not drop it (same as `refetch`). It lands
+      // in the field the seed picked: the call number, or the filing number.
+      const id = meta.filingNumber ?? proposal?.filingNumber;
+      setFields((f) => {
+        if (f.url !== normalizedUrl) return f;
+        const title = upgrade(f.title, proposedTitle, meta.title);
+        return {
+          ...f,
+          title: siteSourceTitle(recognized?.site, title, id || f.filingNumber) ?? title,
+          author: upgrade(f.author, undefined, meta.author),
+          periodical: upgrade(f.periodical, undefined, meta.periodical),
+          publisher: upgrade(f.publisher, undefined, meta.publisher),
+          agency: upgrade(f.agency, proposal?.agency, meta.agency),
+          place: upgrade(f.place, resolvePlace(proposal?.place), resolvePlace(meta.place)),
+          filingNumber: idOnCaln.current ? f.filingNumber : upgrade(f.filingNumber, proposal?.filingNumber, id),
+          page: upgrade(f.page, recognized?.page, meta.page),
+        };
+      });
+      if (idOnCaln.current && id) setRepoCaln((caln) => (caln.trim() ? caln : id));
     });
     return () => { cancelled = true; };
   }, [editing, normalizedUrl, urlOnly, match, settings.allowLinkFetch, recognized, resolvePlace, lookUp]);
