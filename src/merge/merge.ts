@@ -13,6 +13,7 @@ import {
   buildSourXrefMap,
   cloneNode,
   detectLinkFormat,
+  foldMatchedSourcePages,
   importSourRecords,
   sortEventsByDate,
 } from "./applyFields";
@@ -442,8 +443,12 @@ export function mergeDecisions(
     }
   }
 
-  // Import any SOUR/REPO records from compare that are now referenced in the
-  // merged output but absent from it (e.g. citations on newly-added people).
+  // A compare source that matched an existing main record by content brings
+  // the page images the new citations name (the record itself is not
+  // imported, so they would otherwise be dropped), then import any SOUR/REPO
+  // records from compare that are now referenced in the merged output but
+  // absent from it (e.g. citations on newly-added people).
+  foldMatchedSourcePages(records, compare, sourXrefMap);
   importSourRecords(records, compare, sourXrefMap, report.customTags);
 
   report.recordsChanged = touched.size;

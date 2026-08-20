@@ -14,9 +14,10 @@ import {
   insertRecord,
   markEventTouched,
   NAME_CHILD_ORDER,
+  SOUR_TRAILING_TAGS,
   writeNameValue,
 } from "../gedcom/edit";
-import { findExistingSource, newSourceCitations, sourceContentKey } from "../gedcom/source";
+import { buildObjeIndex, findExistingSource, matchesPage, newSourceCitations, sourceContentKey } from "../gedcom/source";
 import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "../gedcom/private";
 import type { Dataset, GedNode, PersonName } from "../gedcom/types";
 import { childrenByTag, childText, cloneNode, firstChild, hasChild, removeChildren } from "../gedcom/node";
@@ -1136,6 +1137,66 @@ export function importSourRecords(
   // a later pass over this same array would otherwise reuse.
   if (importedNodes.length) bumpSourceCacheVersion(records);
   return importedNodes;
+}
+
+/**
+ * A compare source that content-matched an existing main record is never
+ * imported — but the compare file may keep page images for the very pages the
+ * merged citations now cite. For every cited page the main record cannot
+ * already show, this links the compare file's page `OBJE` (xref remapped)
+ * onto the main record; the follow-up `importSourRecords` then imports the
+ * `OBJE` records those new links reference. Without this, citations arrive
+ * with `PAGE n` while their page images are silently dropped.
+ */
+export function foldMatchedSourcePages(records: GedNode[], compare: Dataset, sourMap: SourXrefMap): void {
+  // Source xref → the pages its citations in the merged output name.
+  const citedPages = new Map<string, Set<string>>();
+  const collect = (node: GedNode): void => {
+    if (node.tag === "SOUR" && !node.xref && node.value && /^@[^@]+@$/.test(node.value.trim())) {
+      const page = childText(node, "PAGE");
+      if (page) {
+        const key = node.value.trim();
+        let pages = citedPages.get(key);
+        if (!pages) citedPages.set(key, (pages = new Set()));
+        pages.add(page);
+      }
+    }
+    for (const child of node.children) collect(child);
+  };
+  for (const rec of records) collect(rec);
+  if (!citedPages.size) return;
+
+  const mainObje = buildObjeIndex(records);
+  const compareObje = buildObjeIndex(compare.records);
+  let changed = false;
+  for (const [cXref, outXref] of sourMap) {
+    const pages = citedPages.get(outXref);
+    if (!pages?.size) continue;
+    // Only a *pre-existing* main record needs the fold: a fresh-xref import
+    // brings the whole compare record across, page links included.
+    const mainRec = records.find((r) => r.tag === "SOUR" && r.xref === outXref);
+    if (!mainRec) continue;
+    const compareRec = compare.records.find((r) => r.tag === "SOUR" && r.xref === cXref);
+    if (!compareRec) continue;
+    const covered = mainRec.children
+      .filter((c) => c.tag === "OBJE" && c.value)
+      .map((c) => mainObje.get(c.value!.trim()))
+      .filter((c): c is NonNullable<typeof c> => Boolean(c));
+    const donors = childrenByTag(compareRec, "OBJE")
+      .map((c) => ({ xref: c.value?.trim(), info: c.value ? compareObje.get(c.value.trim()) : undefined }))
+      .filter((d): d is { xref: string; info: NonNullable<typeof d.info> } => Boolean(d.xref && d.info?.url));
+    for (const page of pages) {
+      if (covered.some((c) => matchesPage(c, page))) continue;
+      const donor = donors.find((d) => matchesPage(d.info, page));
+      if (!donor) continue;
+      const outObje = sourMap.get(donor.xref) ?? donor.xref;
+      if (mainRec.children.some((c) => c.tag === "OBJE" && c.value?.trim() === outObje)) continue;
+      insertGrouped(mainRec, { level: mainRec.level + 1, tag: "OBJE", value: outObje, children: [] }, SOUR_TRAILING_TAGS);
+      covered.push(donor.info);
+      changed = true;
+    }
+  }
+  if (changed) bumpSourceCacheVersion(records);
 }
 
 /**

@@ -1231,6 +1231,40 @@ describe("mergeDecisions — SOUR/REPO import", () => {
     expect(out.match(/0 @[^@]+@ REPO/g)).toHaveLength(1);
   });
 
+  it("a content-matched compare source brings the page images its citations name", () => {
+    // Main already describes this register (so the compare record is reused,
+    // not imported) — but only the compare file holds the page image the new
+    // child's citation names. The page OBJE must come across with it.
+    const mainWithSameSource = wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F1@\n" +
+        "0 @F1@ FAM\n1 HUSB @I1@\n" +
+        "0 @S9@ SOUR\n1 TITL Matična knjiga rojstev Kranj\n1 AUTH Župnija Kranj\n",
+    );
+    const compareWithPageObje = wrap(
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n1 FAMS @PF@\n" +
+        "0 @P4@ INDI\n1 NAME Tone /Novak/\n1 SEX M\n1 SOUR @CS1@\n2 PAGE 42\n1 FAMC @PF@\n" +
+        "0 @PF@ FAM\n1 HUSB @P1@\n1 CHIL @P4@\n" +
+        "0 @CS1@ SOUR\n1 TITL Matična knjiga rojstev Kranj\n1 AUTH Župnija Kranj\n1 OBJE @CO1@\n" +
+        "0 @CO1@ OBJE\n1 FILE https://data.matricula-online.eu/sl/x/04120/?pg=42\n",
+    );
+    const main = dataset(mainWithSameSource);
+    const compare = dataset(compareWithPageObje);
+    const matches = {
+      individuals: [{ mainId: "@I1@", compareId: "@P1@" }],
+    } as never;
+    const decisions = new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {}, takenChildren: ["@P4@"] }],
+    ]);
+    const { records } = mergeDecisions(main, compare, decisions, matches, tr);
+    const out = serializeGedcom(records);
+    // The source was reused, not duplicated…
+    expect(out.match(/0 @[^@]+@ SOUR/g)).toHaveLength(1);
+    expect(out).toContain("1 SOUR @S9@\n2 PAGE 42");
+    // …and the cited page's image rode along onto the reused record.
+    expect(out).toContain("0 @S9@ SOUR\n1 TITL Matična knjiga rojstev Kranj\n1 AUTH Župnija Kranj\n1 OBJE @CO1@");
+    expect(out).toContain("0 @CO1@ OBJE\n1 FILE https://data.matricula-online.eu/sl/x/04120/?pg=42");
+  });
+
   it("transitively imports a REPO referenced by an imported SOUR", () => {
     const compareWithRepo = wrap(
       "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n1 FAMS @PF@\n" +

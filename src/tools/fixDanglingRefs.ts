@@ -1,5 +1,6 @@
 import type { Dataset, GedNode } from "../gedcom/types";
-import { rebuildFamily, rebuildIndividual } from "../gedcom/edit";
+import { insertGrouped, rebuildFamily, rebuildIndividual, SOUR_FIELD_TRAILING } from "../gedcom/edit";
+import { childrenByTag } from "../gedcom/node";
 import { cloneRaw, type RecordPatch } from "../ui/historyTypes";
 import { isFamilyLinkPointer, isPointerValue } from "./structure";
 
@@ -93,6 +94,22 @@ export function fixDanglingRefs(dataset: Dataset, only?: DanglingRef): RecordPat
     if (doomed.size === 0) continue;
 
     const before = cloneRaw(rec);
+    // A dangling REPO link is dropped like any pointer, but its CALN may be
+    // the file's only statement of the archive's call number ("citations have
+    // nothing to qualify" doesn't hold for it) — salvage the value into the
+    // source's flat FILN before the line goes.
+    if (rec.tag === "SOUR") {
+      const kept = new Set(childrenByTag(rec, "FILN").map((c) => c.value?.trim()).filter(Boolean));
+      for (const child of rec.children) {
+        if (!doomed.has(child) || child.tag !== "REPO") continue;
+        for (const caln of childrenByTag(child, "CALN")) {
+          const value = caln.value?.trim();
+          if (!value || kept.has(value)) continue;
+          kept.add(value);
+          insertGrouped(rec, { level: rec.level + 1, tag: "FILN", value, children: [] }, SOUR_FIELD_TRAILING);
+        }
+      }
+    }
     const drop = (node: GedNode): void => {
       node.children = node.children.filter((c) => !doomed.has(c));
       for (const child of node.children) drop(child);

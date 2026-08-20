@@ -1246,7 +1246,14 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
    * citation) or "edit-link" (a legacy plain link, prefilled with just its
    * URL). A legacy link only gets promoted to a real citation if the user
    * actually filled in a bibliographic field; a bare URL edit/save just
-   * renames it in place and leaves it a plain link. */
+   * renames it in place and leaves it a plain link.
+   *
+   * Memoized on the open target, the same invariant SourcesPanel documents:
+   * the dialog reseeds its fields from a fresh `editing` object, so building
+   * one per EditView render (a worker message, any App state tick) would
+   * clobber whatever the user has typed but not yet saved. */
+  const editingSourceDialog = useMemo(() => editingSourceDialogProps(), [sourceDialogTarget]); // eslint-disable-line react-hooks/exhaustive-deps
+
   function editingSourceDialogProps() {
     if (!sourceDialogTarget) return undefined;
     if (sourceDialogTarget.kind === "edit") {
@@ -2172,7 +2179,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
         onAdd={handleAddSource}
         dataset={dataset}
         t={t}
-        editing={editingSourceDialogProps()}
+        editing={editingSourceDialog}
       />
       <AddMediaDialog
         isOpen={mediaPickerOpen}

@@ -2143,6 +2143,12 @@ export function normalizeSourceCoverage(
     const flatDate = childText(rec, "DATE");
     if (flatPlac && places[0] && flatPlac !== places[0]) continue; // disagreement is not ours to settle
     if (flatDate && years && flatDate !== years) continue;
+    const flatAgnc = childText(rec, "AGNC");
+    if (flatAgnc && dataAgnc?.value?.trim() && flatAgnc !== dataAgnc.value.trim()) continue; // same rule for the agency
+    // An EVEN carrying anything beyond the DATE/PLAC this pass restates (a
+    // NOTE, a vendor tag) cannot be flattened without losing it — leave the
+    // whole record in its standard shape.
+    if (evens.some((e) => e.children.some((c) => c.tag !== "DATE" && c.tag !== "PLAC"))) continue;
     const before = evens
       .map((e) => [`EVEN ${e.value ?? ""}`.trim(), childText(e, "DATE"), childText(e, "PLAC")].filter(Boolean).join(" "))
       .join(" · ");

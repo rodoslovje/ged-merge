@@ -289,7 +289,7 @@ function pageNumOf(s: string): number | undefined {
 }
 
 /** Whether an OBJE candidate's URL (`?pg=42`) or title (`#042 - …`) names the given page. */
-function matchesPage(candidate: { url?: string; title?: string }, page: string): boolean {
+export function matchesPage(candidate: { url?: string; title?: string }, page: string): boolean {
   const target = pageNumOf(page);
   if (target === undefined) return false;
   const urlMatch = candidate.url ? /[?&]pg=(\d+)/i.exec(candidate.url) : null;
