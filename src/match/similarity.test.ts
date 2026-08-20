@@ -65,6 +65,17 @@ describe("cross-language given names", () => {
       ["Marjeta", "Margaretha"],
       ["Miklavž", "Nicolaus"],
       ["Špela", "Elisabetha"],
+      // Short forms of a name belong to it: with the surname dropped between
+      // children, a missing one shows one child as two.
+      ["Mihael", "Miha"],
+      ["Mihael", "Miko"],
+      ["Terezija", "Rezka"],
+      ["Terezija", "Reza"],
+      ["Rudolf", "Rudi"],
+      ["Anton", "Tone"],
+      ["Alojz", "Lojze"],
+      ["Ignacij", "Nace"],
+      ["Frančišek", "Franci"],
     ] as const) {
       expect(givenSimilarity(a, b), `${a}/${b}`).toBe(1);
     }
