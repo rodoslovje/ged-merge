@@ -176,8 +176,9 @@ function xrefCacheFor(records: GedNode[]): Map<string, number> {
 }
 
 /** Keep the cached max in step with an xref inserted without `nextXref`
- *  (merge's gap-filling allocator, undo restoring a deleted record). */
-function noteInsertedXref(records: GedNode[], xref: string | undefined): void {
+ *  (merge's gap-filling allocator, undo restoring a deleted record, a
+ *  cleanup run transplanting records it created in a cloned forest). */
+export function noteInsertedXref(records: GedNode[], xref: string | undefined): void {
   const m = xref?.match(/^@([A-Za-z]+)(\d+)@$/);
   if (!m) return;
   const maxes = maxXrefCache.get(records);
