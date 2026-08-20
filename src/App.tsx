@@ -1193,7 +1193,7 @@ function AppContent() {
   // editVersion) and made a simple field blur stall for hundreds of ms on a
   // large file — all for a dialog that was closed.
   const searchRows = useMemo(
-    () => (showGlobalSearch && mainDataset ? buildSearchRows(mainDataset.individuals, nameOf) : []),
+    () => (showGlobalSearch && mainDataset ? buildSearchRows(mainDataset.individuals, nameOf, mainDataset.records) : []),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [mainDataset, nameOf, editVersion, showGlobalSearch],
   );

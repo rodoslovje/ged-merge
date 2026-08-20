@@ -6,6 +6,8 @@ import type { MatchDecisionStatus } from "../review/types";
 import { SelectMenu } from "./DropdownMenu";
 import { AddPersonIcon } from "./icons/AddPersonIcon";
 import { SearchIcon } from "./icons/SearchIcon";
+import { useMediaFolder } from "./MediaFolderContext";
+import { CroppedImg } from "./PersonMedia";
 import { sexClass } from "./sex";
 import {
   searchPeople,
@@ -65,6 +67,38 @@ function toYear(value: string): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
+/** Thumbnail size of a result row's photo, kept in sync with the CSS box. */
+const THUMB_SIZE = 28;
+
+/** A result row's profile-photo thumbnail — rendered only while a media folder
+ *  is loaded (the list gates on that), with a muted silhouette standing in for
+ *  people without a resolvable photo so the names stay aligned. Purely visual:
+ *  the row's own click actions stay in charge. */
+function SearchThumb({ photo }: { photo?: SearchRow["photo"] }) {
+  const { folderName, resolveFile } = useMediaFolder();
+  const [url, setUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!folderName || !photo) { setUrl(null); return; }
+    let cancelled = false;
+    resolveFile(photo.file).then((u) => { if (!cancelled) setUrl(u); });
+    return () => { cancelled = true; };
+  }, [folderName, photo, resolveFile]);
+
+  if (url && photo?.crop) {
+    return <CroppedImg url={url} crop={photo.crop} size={THUMB_SIZE} className="global-search-thumb" />;
+  }
+  if (url) return <img src={url} className="global-search-thumb" alt="" />;
+  return (
+    <span className="global-search-thumb placeholder" aria-hidden="true">
+      <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="7.5" r="4" />
+        <path d="M4.5 21v-1a6 6 0 0 1 6-6h3a6 6 0 0 1 6 6v1" />
+      </svg>
+    </span>
+  );
+}
+
 /**
  * Whole-dataset person search, opened with `/` from any mode. Filters the
  * precomputed index by name/lifespan plus attribute facets (sex, birth year,
@@ -75,6 +109,9 @@ function toYear(value: string): number | undefined {
 export function GlobalSearchModal({ isOpen, onClose, rows, onOpen, filterContext, metaOf, startId, hasDecisions, onCreatePerson }: Props) {
   const { t } = useTranslation();
   const ref = useModalKeyboard(isOpen, onClose);
+  // Thumbnails only make sense once a media folder is loaded; without one the
+  // rows keep their plain text-only layout rather than a column of placeholders.
+  const { folderName } = useMediaFolder();
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const [query, setQuery] = useState("");
@@ -296,6 +333,7 @@ export function GlobalSearchModal({ isOpen, onClose, rows, onOpen, filterContext
                 onMouseEnter={() => setActiveIndex(i)}
               >
                 <button type="button" className="global-search-open" onClick={() => choose(row, "open")}>
+                  {folderName && <SearchThumb photo={row.photo} />}
                   <span className={`global-search-name ${sexClass(row.sex)}`}>{row.name}</span>
                   {meta.xref && <span className="global-search-xref">{meta.xref}</span>}
                   {row.span && <span className="global-search-span">{row.span}</span>}

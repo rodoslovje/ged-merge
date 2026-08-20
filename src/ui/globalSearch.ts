@@ -1,7 +1,9 @@
-import type { Individual, Sex } from "../gedcom/types";
+import type { GedNode, Individual, Sex } from "../gedcom/types";
+import type { CropRegion } from "../gedcom/source";
 import { lifespanOf, birthYear, birthSortKey, deathYear } from "../gedcom/lifespan";
 import { nameSearchText } from "../match/relatives";
 import type { MatchDecisionStatus } from "../review/types";
+import { collectFirstImage } from "./PersonMedia";
 
 /**
  * One searchable projection of an individual, precomputed once per dataset so a
@@ -35,6 +37,9 @@ export interface SearchRow {
   hasLinks: boolean;
   hasNotes: boolean;
   hasSources: boolean;
+  /** The person's profile photo (first local image, with its crop region when
+   *  marked), shown as a row thumbnail once a media folder is loaded. */
+  photo?: { file: string; crop?: CropRegion };
 }
 
 /** Cap on rendered results — a whole-file query can match thousands. */
@@ -115,6 +120,9 @@ export const nameCollator = new Intl.Collator();
 export function buildSearchRows(
   individuals: Map<string, Individual>,
   nameOf: (indi: Individual) => string,
+  /** The dataset's records, for resolving shared-`OBJE` profile photos into
+   *  `photo`. Callers that never show thumbnails (batch tool) may omit it. */
+  records?: GedNode[],
 ): SearchRow[] {
   const rows: SearchRow[] = [];
   for (const indi of individuals.values()) {
@@ -135,6 +143,7 @@ export function buildSearchRows(
       hasLinks: anyLinks(indi),
       hasNotes: anyNotes(indi),
       hasSources: anySources(indi),
+      photo: records ? collectFirstImage(indi.raw, records) ?? undefined : undefined,
     });
   }
   rows.sort(

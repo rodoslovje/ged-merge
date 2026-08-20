@@ -5808,6 +5808,26 @@ body:has(.modal-overlay) {
   cursor: pointer;
   color: var(--text);
 }
+/* Row photo thumbnails, shown once a media folder is loaded. Every row gets the
+   same fixed box — a muted silhouette stands in where no photo resolves — so
+   names stay aligned; align-self overrides the button's baseline alignment,
+   which would sink an image below the text line. Size must stay in sync with
+   THUMB_SIZE in GlobalSearchModal.tsx. */
+.global-search-thumb {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  flex-shrink: 0;
+  align-self: center;
+}
+.global-search-thumb.placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  opacity: 0.45;
+}
 .global-search-name { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .global-search-xref { color: var(--muted); font-size: 0.78rem; font-variant-numeric: tabular-nums; flex-shrink: 0; }
 .global-search-span { color: var(--muted); font-size: 0.9rem; flex-shrink: 0; }
