@@ -240,7 +240,7 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
     return { root, width: geom.contentW + 2 * PAD, height: geom.contentH + 2 * PAD };
   }, [geom, rows, nodesByKey]);
 
-  const { canvasRef, panning, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
+  const { canvasRef, zoomLayerRef, panning, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
     useTreeCanvas(laid, nodesByKey, "lr", false, rowH, `${currentRootId}:${limit ?? "all"}`);
 
   // Find-in-chart. The timeline only draws the root's immediate family, so a
@@ -354,7 +354,7 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
       <div className="tree-canvas-wrap">
         <div className={`tree-canvas${panning ? " panning" : ""}`} ref={canvasRef} {...canvasProps}>
           {laid && geom ? (
-            <ChartZoom width={laid.width} height={laid.height} zoom={zoom}>
+            <ChartZoom width={laid.width} height={laid.height} zoom={zoom} layerRef={zoomLayerRef}>
             <svg className="tree-svg" width={laid.width} height={laid.height} viewBox={`0 0 ${laid.width} ${laid.height}`} role="img">
               <g transform={`translate(${PAD},${PAD})`}>
                 {/* Year ruler + vertical decade grid. */}

@@ -22,6 +22,9 @@ export interface TreeCanvasProps {
 
 export interface TreeCanvas {
   canvasRef: React.RefObject<HTMLDivElement | null>;
+  /** Attach to the ChartZoom wrapper: pinch/wheel gestures paint on it directly
+   *  (CSS transform) and only commit to React state when the gesture ends. */
+  zoomLayerRef: React.RefObject<HTMLDivElement | null>;
   viewport: Viewport;
   /** True while a grab-pan is in progress (drives the `panning` cursor class). */
   panning: boolean;
@@ -96,6 +99,21 @@ export function useTreeCanvas(
   // the browser clamps the scroll to the *old* (stale) scrollable extent.
   const pendingScroll = useRef<{ left: number; top: number } | null>(null);
 
+  // ── Gesture fast path ──────────────────────────────────────────────────────
+  // While a pinch (or a ctrl+wheel run) is in progress, the accumulated pan and
+  // zoom are painted as a plain CSS transform on the ChartZoom layer — no React
+  // state, no scroll writes, no SVG re-layout per event, so the browser only
+  // re-composites. The gesture commits once, when the fingers lift or the wheel
+  // goes idle: the transform is folded into the real zoom + scroll, and the
+  // layer transform is cleared in the same layout-effect frame so nothing jumps.
+  const zoomLayerRef = useRef<HTMLDivElement>(null);
+  // `k` is the factor on top of the committed zoom; (dx, dy) the translation;
+  // (x0, y0) the layer's client origin when the gesture started (identity).
+  const gesture = useRef<{ k: number; dx: number; dy: number; x0: number; y0: number } | null>(null);
+  const gestureRaf = useRef(0);
+  const wheelIdle = useRef(0);
+  const pendingLayerReset = useRef(false);
+
   const syncViewport = useCallback(() => {
     const el = canvasRef.current;
     if (!el) return;
@@ -103,7 +121,9 @@ export function useTreeCanvas(
   }, []);
 
   // Apply a pending zoom-driven scroll once the resized SVG has been committed,
-  // then re-measure so the minimap's viewport box tracks the new scale.
+  // then re-measure so the minimap's viewport box tracks the new scale. A
+  // gesture commit also clears its layer transform here — before paint, in the
+  // same frame the resized SVG lands — so the swap is invisible.
   useLayoutEffect(() => {
     const el = canvasRef.current;
     if (el && pendingScroll.current) {
@@ -111,8 +131,116 @@ export function useTreeCanvas(
       el.scrollTop = pendingScroll.current.top;
       pendingScroll.current = null;
     }
+    if (pendingLayerReset.current) {
+      pendingLayerReset.current = false;
+      const layer = zoomLayerRef.current;
+      if (layer) {
+        layer.style.transform = "";
+        layer.style.willChange = "";
+      }
+    }
     syncViewport();
   }, [zoom, syncViewport]);
+
+  // Open (or continue) the in-progress gesture; null when the host renders no
+  // ChartZoom layer — the caller then falls back to committing per event.
+  const ensureGesture = useCallback(() => {
+    const layer = zoomLayerRef.current;
+    if (!layer) return null;
+    if (!gesture.current) {
+      const r = layer.getBoundingClientRect();
+      gesture.current = { k: 1, dx: 0, dy: 0, x0: r.left, y0: r.top };
+      // Promote the layer for the duration of the gesture so the per-event
+      // transform stays on the compositor; cleared again on commit.
+      layer.style.willChange = "transform";
+    }
+    return gesture.current;
+  }, []);
+
+  // Paint the gesture transform once per animation frame, however many wheel /
+  // touch events arrived in between.
+  const paintGesture = useCallback(() => {
+    if (gestureRaf.current) return;
+    gestureRaf.current = requestAnimationFrame(() => {
+      gestureRaf.current = 0;
+      const g = gesture.current;
+      const layer = zoomLayerRef.current;
+      if (g && layer) layer.style.transform = `translate(${g.dx}px, ${g.dy}px) scale(${g.k})`;
+    });
+  }, []);
+
+  /** Scale the gesture by `factor` about the client point (cx, cy), keeping the
+   *  content under that point fixed on screen. False = no layer to paint on. */
+  const gestureZoom = useCallback((factor: number, cx: number, cy: number) => {
+    const g = ensureGesture();
+    if (!g) return false;
+    // Clamp so the zoom the commit will land on stays inside the range.
+    const k = clampZoom(zoomRef.current * g.k * factor) / zoomRef.current;
+    // The layer-local point currently under the focus…
+    const px = (cx - g.x0 - g.dx) / g.k;
+    const py = (cy - g.y0 - g.dy) / g.k;
+    // …stays put: solve translate for the new scale.
+    g.dx = cx - g.x0 - px * k;
+    g.dy = cy - g.y0 - py * k;
+    g.k = k;
+    paintGesture();
+    return true;
+  }, [ensureGesture, paintGesture]);
+
+  /** Pan the gesture by the fingers' midpoint travel. False = no layer. */
+  const gesturePan = useCallback((mx: number, my: number) => {
+    const g = ensureGesture();
+    if (!g) return false;
+    g.dx += mx;
+    g.dy += my;
+    paintGesture();
+    return true;
+  }, [ensureGesture, paintGesture]);
+
+  /** Fold the gesture transform into the committed zoom + scroll (one render). */
+  const commitGesture = useCallback(() => {
+    const g = gesture.current;
+    gesture.current = null;
+    if (gestureRaf.current) {
+      cancelAnimationFrame(gestureRaf.current);
+      gestureRaf.current = 0;
+    }
+    if (wheelIdle.current) {
+      clearTimeout(wheelIdle.current);
+      wheelIdle.current = 0;
+    }
+    const el = canvasRef.current;
+    const layer = zoomLayerRef.current;
+    if (!g || !el || !layer) return;
+    const z0 = zoomRef.current;
+    const z1 = clampZoom(z0 * g.k);
+    // Where the layer's content origin visually sits now (client coords) —
+    // computed from the gesture state, so an unpainted last event still counts.
+    const ox = g.x0 + g.dx;
+    const oy = g.y0 + g.dy;
+    // Scroll that reproduces that position at the committed scale. The layer's
+    // layout offset inside the canvas is the flex auto-margin centring, which
+    // only bites while the scaled chart is smaller than the canvas.
+    const rect = el.getBoundingClientRect();
+    const centreX = Math.max(0, (el.clientWidth - (laid?.width ?? 0) * z1) / 2);
+    const centreY = Math.max(0, (el.clientHeight - (laid?.height ?? 0) * z1) / 2);
+    const left = Math.max(0, centreX + rect.left + el.clientLeft - ox);
+    const top = Math.max(0, centreY + rect.top + el.clientTop - oy);
+    if (z1 === z0) {
+      // Pure pan (or a pinch that cancelled itself out): no re-render is
+      // coming, so clear the transform and set the scroll directly.
+      layer.style.transform = "";
+      layer.style.willChange = "";
+      el.scrollLeft = left;
+      el.scrollTop = top;
+      syncViewport();
+      return;
+    }
+    pendingLayerReset.current = true;
+    pendingScroll.current = { left, top };
+    zoomRef.current = z1;
+    setZoom(z1);
+  }, [laid, syncViewport]);
 
   // Re-scale around a focus point (cx, cy) given in canvas-client pixels, keeping
   // the layout point under that focus fixed on screen.
@@ -134,8 +262,9 @@ export function useTreeCanvas(
   const zoomCentre = useCallback((next: number) => {
     const el = canvasRef.current;
     if (!el) return;
+    commitGesture(); // a wheel gesture may still be in its idle window
     zoomAround(next, el.clientWidth / 2, el.clientHeight / 2);
-  }, [zoomAround]);
+  }, [zoomAround, commitGesture]);
 
   const zoomIn = useCallback(() => zoomCentre(zoomRef.current * ZOOM_STEP), [zoomCentre]);
   const zoomOut = useCallback(() => zoomCentre(zoomRef.current / ZOOM_STEP), [zoomCentre]);
@@ -144,6 +273,7 @@ export function useTreeCanvas(
   const fitToScreen = useCallback(() => {
     const el = canvasRef.current;
     if (!el || !laid?.width || !laid?.height) return;
+    commitGesture(); // a wheel gesture may still be in its idle window
     // Fit the whole chart, but never magnify a small one past its native size.
     const z = clampZoom(Math.min(1, el.clientWidth / laid.width, el.clientHeight / laid.height));
     const left = Math.max(0, (laid.width * z - el.clientWidth) / 2);
@@ -158,7 +288,7 @@ export function useTreeCanvas(
     pendingScroll.current = { left, top };
     zoomRef.current = z;
     setZoom(z);
-  }, [laid]);
+  }, [laid, commitGesture]);
 
   // On a new chart — initial load, a re-root, mode switches, alignment flips —
   // scroll so the starting person (the tree root) is in view. The root sits at
@@ -201,13 +331,20 @@ export function useTreeCanvas(
     const onWheel = (e: WheelEvent) => {
       if (!e.ctrlKey && !e.metaKey) return;
       e.preventDefault();
-      const rect = el.getBoundingClientRect();
       const factor = Math.exp(-e.deltaY * 0.0015);
+      // Fast path: paint the run of wheel events as one gesture and commit
+      // when it goes idle. Without a ChartZoom layer, commit per event.
+      if (gestureZoom(factor, e.clientX, e.clientY)) {
+        if (wheelIdle.current) clearTimeout(wheelIdle.current);
+        wheelIdle.current = window.setTimeout(commitGesture, 140);
+        return;
+      }
+      const rect = el.getBoundingClientRect();
       zoomAround(zoomRef.current * factor, e.clientX - rect.left, e.clientY - rect.top);
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
-  }, [zoomAround]);
+  }, [zoomAround, gestureZoom, commitGesture]);
 
   // Two-finger pinch zooms toward the fingers' midpoint; moving the midpoint
   // pans. Attached natively with { passive: false } so preventDefault blocks
@@ -234,17 +371,26 @@ export function useTreeCanvas(
       if (e.touches.length !== 2 || lastDist === 0) return;
       e.preventDefault();
       const { dist, mid } = measure(e);
-      // Pan by the midpoint's travel first: zoomAround reads the scroll
-      // position synchronously, so the pan is folded into its target.
-      el.scrollLeft -= mid.x - lastMid.x;
-      el.scrollTop -= mid.y - lastMid.y;
-      const rect = el.getBoundingClientRect();
-      zoomAround(zoomRef.current * (dist / lastDist), mid.x - rect.left, mid.y - rect.top);
+      // Fast path: fold the midpoint's travel and the pinch into the gesture
+      // transform. Without a ChartZoom layer, commit per event as before.
+      if (gesturePan(mid.x - lastMid.x, mid.y - lastMid.y)) {
+        gestureZoom(dist / lastDist, mid.x, mid.y);
+      } else {
+        // Pan by the midpoint's travel first: zoomAround reads the scroll
+        // position synchronously, so the pan is folded into its target.
+        el.scrollLeft -= mid.x - lastMid.x;
+        el.scrollTop -= mid.y - lastMid.y;
+        const rect = el.getBoundingClientRect();
+        zoomAround(zoomRef.current * (dist / lastDist), mid.x - rect.left, mid.y - rect.top);
+      }
       lastDist = dist;
       lastMid = mid;
     };
     const onTouchEnd = (e: TouchEvent) => {
-      if (e.touches.length < 2) lastDist = 0;
+      if (e.touches.length < 2) {
+        lastDist = 0;
+        commitGesture();
+      }
     };
     el.addEventListener("touchstart", onTouchStart, { passive: true });
     el.addEventListener("touchmove", onTouchMove, { passive: false });
@@ -256,7 +402,13 @@ export function useTreeCanvas(
       el.removeEventListener("touchend", onTouchEnd);
       el.removeEventListener("touchcancel", onTouchEnd);
     };
-  }, [zoomAround]);
+  }, [zoomAround, gesturePan, gestureZoom, commitGesture]);
+
+  // Unmount mid-gesture: stop the pending paint / idle-commit timers.
+  useEffect(() => () => {
+    if (gestureRaf.current) cancelAnimationFrame(gestureRaf.current);
+    if (wheelIdle.current) clearTimeout(wheelIdle.current);
+  }, []);
 
   useEffect(() => {
     window.addEventListener("resize", syncViewport);
@@ -365,6 +517,7 @@ export function useTreeCanvas(
 
   return {
     canvasRef,
+    zoomLayerRef,
     viewport,
     panning,
     scrollTo,

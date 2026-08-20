@@ -421,7 +421,7 @@ export function CompareTree({
   const activeNodes = radial ? fanNodes : nodesByKey;
 
   // Viewport, grab-to-pan, zoom, root re-centring, and node selection.
-  const { canvasRef, viewport, panning, scrollTo, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
+  const { canvasRef, zoomLayerRef, viewport, panning, scrollTo, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
     useTreeCanvas(activeLaid, activeNodes, alignment, radial, nodeH, `${rootMainId ?? ""}:${rootCompareId ?? ""}:${effectiveMode}:${settings.type}:${alignment}`);
 
   // Find-in-chart. A node here can draw a matched pair, so both sides are
@@ -549,7 +549,7 @@ export function CompareTree({
         >
           {radial ? (
             fan ? (
-              <ChartZoom width={fan.width} height={fan.height} zoom={zoom}>
+              <ChartZoom width={fan.width} height={fan.height} zoom={zoom} layerRef={zoomLayerRef}>
                 <FanChartBody
                   chart={fan}
                   colorOf={colorOf}
@@ -571,7 +571,7 @@ export function CompareTree({
               <p className="muted">{t("tree.empty")}</p>
             )
           ) : laid && flat ? (
-            <ChartZoom width={laid.width} height={laid.height} zoom={zoom}>
+            <ChartZoom width={laid.width} height={laid.height} zoom={zoom} layerRef={zoomLayerRef}>
               <TreeSvg
                 flat={flat}
                 width={laid.width}
