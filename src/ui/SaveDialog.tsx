@@ -200,10 +200,10 @@ export function SaveDialog({
             </section>
           )}
 
-          {/* Identities the branch import acted on that nobody confirmed. The
-              graft links records onto them, so a wrong one hangs a whole
-              household off the wrong person — said out loud here, while the
-              download can still be called off. */}
+          {/* Identities the merge acted on that nobody confirmed — a stitched
+              spouse or a grafted branch links records onto them, so a wrong one
+              hangs a whole household off the wrong person — said out loud here,
+              while the download can still be called off. */}
           {report.graftJoins.length > 0 && (
             <section className="preview-section">
               <h3>{t("preview.grafted")}</h3>
