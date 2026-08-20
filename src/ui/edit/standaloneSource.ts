@@ -80,7 +80,7 @@ export function createStandaloneSource(
   if (objeChild?.value) {
     const objeNode = records.find((r) => r.tag === "OBJE" && r.xref === objeChild.value);
     if (objeNode) {
-      const title = pageObjeTitle(fields.site, fields.title, fields.page, fields.fsImage);
+      const title = pageObjeTitle(fields.site, fields.title, fields.page, fields.fsImage, fields.collection);
       if (title) objeNode.children.push({ level: 1, tag: "TITL", value: title, children: [] });
       extraPatches.push({ type: "record", id: objeNode.xref!, before: null, after: cloneRaw(objeNode) });
     }

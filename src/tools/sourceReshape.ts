@@ -457,13 +457,15 @@ export { parseFamilySearchUrl, type FamilySearchUrlParts };
  * page in front of it (`#56 - Krstna knjiga …`), for the sites whose links
  * name a page of the book itself.
  *
- * A FamilySearch page says only its number — `#16`, the film's own image
- * count, read off the link's `i=` or the lookup's "image N of M" — and the
- * book's name stays on the source alone, not repeated into every page. The
- * hand-editable page field is never that number: a typed value could be the
- * book's printed page, which the film does not count, so a page without the
- * film's number keeps the register's name as before. Undefined when there is
- * no title to build on (a link nothing recognized).
+ * A FamilySearch page is the source's title over again, with two differences:
+ * the film's own image number in front (`#16 - Ravna Gora - Births …`) and
+ * the collection tail (`- Croatia, Church Books, 1516-1994`) dropped — the
+ * page belongs to one book, and which collection published the film is the
+ * source's business. The number is only ever the film's own count, read off
+ * the link's `i=` or the lookup's "image N of M": the hand-editable page
+ * field could hold the book's printed page instead, which the film does not
+ * count, so a page without the film's number carries the name alone.
+ * Undefined when there is no title to build on (a link nothing recognized).
  */
 export function pageObjeTitle(
   site: ReshapeSite | undefined,
@@ -472,9 +474,15 @@ export function pageObjeTitle(
   /** FamilySearch only: the film's own image number, when the link or the
    *  lookup said it — never a hand-edited field. */
   fsImage?: string,
+  /** FamilySearch only: the collection the title ends with, dropped from the
+   *  page's name. */
+  collection?: string,
 ): string | undefined {
   if (!site || !title) return undefined;
-  if (site === "familysearch") return fsImage && /^\d+$/.test(fsImage) ? `#${fsImage}` : title;
+  if (site === "familysearch") {
+    const name = collection && title.endsWith(` - ${collection}`) ? title.slice(0, -(collection.length + 3)) : title;
+    return fsImage && /^\d+$/.test(fsImage) ? `#${fsImage} - ${name}` : name;
+  }
   return page ? `#${page} - ${title}` : title;
 }
 
@@ -2782,7 +2790,7 @@ export function reshapeSources(
       if (!placeholderMediaTitle(titl?.value, g.site, hit.url)) continue;
       // In this tool a FamilySearch page number is always the link's or the
       // lookup's — the film's own counting — so it may go into the title.
-      const named = pageObjeTitle(g.site, fields.title, pageOf(hit), pageOf(hit));
+      const named = pageObjeTitle(g.site, fields.title, pageOf(hit), pageOf(hit), extra?.collection);
       if (!named || named === titl?.value?.trim()) continue;
       if (titl) titl.value = named;
       else insertGrouped(obje, { level: obje.level + 1, tag: "TITL", value: named, children: [] }, MEDIA_TRAILING);
@@ -2829,7 +2837,7 @@ export function reshapeSources(
       if (seenUrls.has(urlKey) || linkedKeys.has(urlKey)) continue;
       seenUrls.add(urlKey);
       const page = pageOf(hit);
-      const objeTitle = pageObjeTitle(g.site, fields.title, page, page) ?? fields.title;
+      const objeTitle = pageObjeTitle(g.site, fields.title, page, page, extra?.collection) ?? fields.title;
       if (hit.objeXref && byXref.has(hit.objeXref)) {
         // Re-link the already-existing top-level OBJE under the source,
         // grouped with its other page media (not after CHAN/CREA).

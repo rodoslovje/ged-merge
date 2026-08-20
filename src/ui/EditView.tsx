@@ -1019,7 +1019,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
           const sourceNode = dataset.records.find((r) => r.tag === "SOUR" && r.xref === match.sourceXref)!;
           const before = cloneRaw(sourceNode);
           const page = fields.page ?? match.page;
-          const obje = addObjeToSource(dataset.records, match.sourceXref, fields.url, pageObjeTitle(fields.site, sourceTitle(sourceNode), page, fields.fsImage));
+          const obje = addObjeToSource(dataset.records, match.sourceXref, fields.url, pageObjeTitle(fields.site, sourceTitle(sourceNode), page, fields.fsImage, fields.collection));
           extraPatches.push({ type: "record", id: match.sourceXref, before, after: cloneRaw(sourceNode) });
           extraPatches.push({ type: "record", id: obje.xref!, before: null, after: cloneRaw(obje) });
           pageObjeXref = obje.xref ?? undefined;

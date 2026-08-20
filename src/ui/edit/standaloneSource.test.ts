@@ -161,13 +161,25 @@ describe("pageObjeTitle", () => {
     expect(pageObjeTitle(undefined, "Krstna knjiga", "11")).toBeUndefined();
   });
 
-  it("a FamilySearch page carries only the film's own image number, never the page field", () => {
+  it("a FamilySearch page is `#film-image - title`, minus the collection tail", () => {
+    // The number the link's `i=` or the lookup gave is the film's own; the
+    // collection the title ends with stays on the source alone.
+    expect(
+      pageObjeTitle(
+        "familysearch",
+        "Ravna Gora - Births (Rođeni) 1759-1812 - Croatia, Church Books, 1516-1994",
+        undefined,
+        "16",
+        "Croatia, Church Books, 1516-1994",
+      ),
+    ).toBe("#16 - Ravna Gora - Births (Rođeni) 1759-1812");
+    // A title that does not end with the collection is kept whole.
+    expect(pageObjeTitle("familysearch", "Births 1759-1812, Ravna Gora", undefined, "16")).toBe(
+      "#16 - Births 1759-1812, Ravna Gora",
+    );
     // The hand-editable page field could hold the book's printed page — the
-    // film does not count those, so it stays out of the title.
+    // film does not count those, so it never becomes the number.
     expect(pageObjeTitle("familysearch", "Births 1759-1812, Ravna Gora", "56")).toBe("Births 1759-1812, Ravna Gora");
-    // The number the link's `i=` or the lookup gave is the film's own — and
-    // the book's name stays on the source, not repeated into every page.
-    expect(pageObjeTitle("familysearch", "Births 1759-1812, Ravna Gora", undefined, "16")).toBe("#16");
     // A pasted citation's worded entry is not a number the film counts.
     expect(pageObjeTitle("familysearch", "Births 1759-1812, Ravna Gora", undefined, "Entry for Ana Renko")).toBe(
       "Births 1759-1812, Ravna Gora",
