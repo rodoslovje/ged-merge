@@ -2233,6 +2233,87 @@ describe("mergeDecisions — one family for a couple, however it is reached", ()
   });
 });
 
+describe("mergeDecisions — unconfirmed matches used while stitching a decision", () => {
+  // A confirmed person's partner comes in, and the matcher happens to hold a
+  // weak, never-reviewed candidate pairing that partner with some main person.
+  // The review showed the partner as an addition — nothing told the user about
+  // the pairing — so the merge may not silently use it as an identity.
+  it("does not link a confirmed match's partner to a weakly-matched main person", () => {
+    const main = dataset(
+      wrap(
+        "0 @I1@ INDI\n1 NAME Franc /Sajovic/\n1 SEX M\n1 BIRT\n2 DATE 15 NOV 1943\n1 FAMS @F1@\n" +
+          "0 @I2@ INDI\n1 NAME Tomaž /Sajovic/\n1 SEX M\n1 BIRT\n2 DATE 1971\n1 FAMC @F1@\n" +
+          "0 @I3@ INDI\n1 NAME Ana /Starman/\n1 SEX F\n1 BIRT\n2 DATE 15 JUL 1919\n" +
+          "0 @F1@ FAM\n1 HUSB @I1@\n1 CHIL @I2@\n",
+      ),
+    );
+    const compare = dataset(
+      wrap(
+        "0 @P1@ INDI\n1 NAME Franc /Sajovic/\n1 SEX M\n1 BIRT\n2 DATE 15 NOV 1943\n1 FAMS @G1@\n" +
+          "0 @P2@ INDI\n1 NAME Anica /Štern/\n1 SEX F\n1 BIRT\n2 DATE 1947\n1 FAMS @G1@\n" +
+          "0 @P3@ INDI\n1 NAME Tomaž /Sajovic/\n1 SEX M\n1 BIRT\n2 DATE 1971\n1 FAMC @G1@\n" +
+          "0 @G1@ FAM\n1 HUSB @P1@\n1 WIFE @P2@\n1 CHIL @P3@\n",
+      ),
+    );
+    const matches = {
+      individuals: [
+        { mainId: "@I1@", compareId: "@P1@" },
+        { mainId: "@I2@", compareId: "@P3@" },
+        { mainId: "@I3@", compareId: "@P2@" }, // the weak stray pairing
+      ],
+    } as never;
+    const decisions = new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: { "fam.@G1@.partner": "incoming" } }],
+    ]);
+    const { records, report } = mergeDecisions(main, compare, decisions, matches, tr);
+    const out = serializeGedcom(records);
+    // Anica arrives as the person she is; Ana Starman is left alone.
+    expect(report.newPersons).toBe(1);
+    expect(out).toContain("Anica /Štern/");
+    expect(out).not.toMatch(/0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I3@/);
+    expect(out).toMatch(/0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I\d+@\n1 CHIL @I2@/);
+    // No identity was used, so there is none to own up to.
+    expect(report.graftJoins).toEqual([]);
+  });
+
+  it("names a plausible unconfirmed partner join in the preview", () => {
+    const main = dataset(
+      wrap(
+        "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1890\n" +
+          "0 @I2@ INDI\n1 NAME Ana /Hribar/\n1 SEX F\n1 BIRT\n2 DATE 1893\n",
+      ),
+    );
+    const compare = dataset(
+      wrap(
+        "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1890\n1 FAMS @G1@\n" +
+          "0 @P2@ INDI\n1 NAME Ana /Hribar/\n1 SEX F\n1 BIRT\n2 DATE 1892\n1 FAMS @G1@\n" +
+          "0 @G1@ FAM\n1 HUSB @P1@\n1 WIFE @P2@\n",
+      ),
+    );
+    const matches = {
+      individuals: [
+        { mainId: "@I1@", compareId: "@P1@" },
+        { mainId: "@I2@", compareId: "@P2@" },
+      ],
+    } as never;
+    const decisions = new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: { "fam.@G1@.partner": "incoming" } }],
+    ]);
+    const { records, report } = mergeDecisions(main, compare, decisions, matches, tr);
+    // The join holds — one Ana, not two — but it was the app's call, so the
+    // preview names it the way a graft join is named.
+    expect(report.newPersons).toBe(0);
+    expect(serializeGedcom(records)).toMatch(/0 @F\d+@ FAM\n1 HUSB @I1@\n1 WIFE @I2@/);
+    expect(report.graftJoins).toEqual([
+      {
+        mainId: "@I2@",
+        main: { name: "Ana Hribar", years: "1893", sex: "F" },
+        incoming: { name: "Ana Hribar", years: "1892", sex: "F" },
+      },
+    ]);
+  });
+});
+
 describe("mergeDecisions — family choices from both spouses' cards", () => {
   const mainCouple = () => dataset(
     wrap(

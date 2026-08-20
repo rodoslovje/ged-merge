@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { Translate } from "../locales/i18n";
 import type { Dataset } from "../gedcom/types";
@@ -125,6 +125,12 @@ export function ComparePanel({
   // preview shows every field as kept from main, regardless of any per-field
   // choice recorded earlier while the match was still confirmed.
   const forceMain = status === "rejected" || status === "deferred";
+  // Save applies choices only for a confirmed match, so on an undecided pair
+  // the buttons would promise a merge the save won't do. They stay visible —
+  // still showing what confirming would take — but disabled until the match is
+  // confirmed. The picks themselves survive every status flip (see
+  // `toggleDecisionStatus`), so locking never discards a recorded choice.
+  const locked = status === "undecided";
 
   // Emit a full decision, carrying over the parts of it this panel doesn't touch
   // (event rejections, per-child picks) so a field edit never wipes them.
@@ -140,6 +146,17 @@ export function ComparePanel({
 
   function setField(key: string, choice: FieldChoice) {
     emit({ fields: { ...fields, [key]: choice } });
+  }
+
+  // Disabled controls swallow their own tooltip on some browsers (Safari), so
+  // the "confirm first" hint rides on a wrapper span, which still gets hover.
+  function lockable(buttons: ReactNode) {
+    if (!locked) return buttons;
+    return (
+      <span className="choice-lock" title={t("compare.confirmFirst")}>
+        {buttons}
+      </span>
+    );
   }
 
   function setTakenChild(childId: string, taken: boolean) {
@@ -170,18 +187,20 @@ export function ComparePanel({
     if (forceMain || !incId) {
       return { mainChosen: false, incomingChosen: false, choice: <span className="gm-main-tag">{t("compare.keepMain")}</span> };
     }
+    const takeButton = (
+      <button
+        className={`choice take${taken ? " active" : ""}`}
+        disabled={locked}
+        title={locked ? undefined : taken ? t("compare.childTaken.title") : t("compare.takeChild.title")}
+        onClick={() => setTakenChild(incId, !taken)}
+      >
+        {taken ? t("compare.childTaken.label") : t("compare.takeChild.label")}
+      </button>
+    );
     return {
       mainChosen: false,
       incomingChosen: taken,
-      choice: (
-        <button
-          className={`choice take${taken ? " active" : ""}`}
-          title={taken ? t("compare.childTaken.title") : t("compare.takeChild.title")}
-          onClick={() => setTakenChild(incId, !taken)}
-        >
-          {taken ? t("compare.childTaken.label") : t("compare.takeChild.label")}
-        </button>
-      ),
+      choice: lockable(takeButton),
     };
   }
 
@@ -199,16 +218,17 @@ export function ComparePanel({
       // two values, so "Both" would just replace — don't offer a choice that
       // doesn't mean what it says.
       const offered = rowCanKeepBoth(row.key) ? CHOICES : CHOICES.filter((c) => c !== "both");
-      return offered.map((c) => (
+      return lockable(offered.map((c) => (
         <button
           key={c}
           className={`choice ${c}${choice === c ? " active" : ""}`}
-          title={choiceTitle(t, c)}
+          disabled={locked}
+          title={locked ? undefined : choiceTitle(t, c)}
           onClick={() => setField(row.key, c)}
         >
           {choiceLabel(t, c)}
         </button>
-      ));
+      )));
     }
     if (row.state === "agree") return <span className="muted">=</span>;
     return <span className="gm-main-tag">{t("compare.keepMain")}</span>;
