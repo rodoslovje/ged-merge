@@ -435,7 +435,7 @@ export const en = {
   "tools.geocode.storing": "Storing addresses in this browser…",
   "tools.geocode.waiting": "Waiting for the service to prepare the extract…",
   "tools.geocode.downloading": "Downloading…",
-  "tools.geocode.importFailed": "The file could not be read — make sure it's a GeoNames .txt or .zip country extract.",
+  "tools.geocode.workerLoadFailed": "The import could not be started — the app has probably updated in the background. Reload the app and try again.",
   "tools.geocode.importBtn": "Load…",
   "tools.geocode.sourceGeoNames": "Your own country extract, fetched by hand from",
   "tools.geocode.sourceGeoNames2": " — a .zip or unpacked .txt. ",
