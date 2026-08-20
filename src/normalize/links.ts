@@ -6,8 +6,11 @@
  * load.
  */
 
-/** Matches the language-code path segment of a Matricula Online URL, e.g. ".../sl/slovenia/...". */
-const MATRICULA_LANG_RE = /^(https?:\/\/data\.matricula-online\.eu)\/([a-z]{2})\//;
+/** Matches the language-code path segment of a Matricula Online URL, e.g.
+ *  ".../sl/slovenia/...". Case-insensitive: detection lowercases its input,
+ *  but the rewrite runs on the URL as stored — an uppercase host must not
+ *  turn `withMatriculaLang` into a silent no-op. */
+const MATRICULA_LANG_RE = /^(https?:\/\/data\.matricula-online\.eu)\/([a-z]{2})\//i;
 
 /**
  * One of Geneanet's UI languages for the cemetery section: its hostname and

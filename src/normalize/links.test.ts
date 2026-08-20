@@ -1,5 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { familySearchPageUrl, linkKey, parseFamilySearchUrl } from "./links";
+import { familySearchPageUrl, linkKey, parseFamilySearchUrl, rewriteLinkLang, withMatriculaLang } from "./links";
+
+describe("withMatriculaLang", () => {
+  it("rewrites the language even when the stored URL's host is uppercase", () => {
+    // Detection lowercases first, but the rewrite runs on the URL as stored —
+    // a case-sensitive regex made this pair a silent no-op.
+    expect(withMatriculaLang("HTTPS://DATA.matricula-online.eu/de/slovenia/x/", "sl")).toBe(
+      "HTTPS://DATA.matricula-online.eu/sl/slovenia/x/",
+    );
+    expect(
+      rewriteLinkLang("https://DATA.matricula-online.eu/de/slovenia/x/", { matricula: "sl", geneanet: undefined }),
+    ).toBe("https://DATA.matricula-online.eu/sl/slovenia/x/");
+  });
+});
 
 describe("parseFamilySearchUrl", () => {
   it("parses a language-prefixed ark the same as the plain form", () => {

@@ -58,7 +58,7 @@ export {
   createSourceRecord, createRepoRecord, addObjeToSource, attachSourceCitation,
   updateSourceCitation, removeSourceCitationAtIndex, pruneUnreferencedSource,
   setSourceRecordFields, sourceRecordEditFields, setRepoRecordFields, repoRecordEditFields,
-  SOUR_TRAILING_TAGS, SOUR_FIELD_TRAILING,
+  SOUR_TRAILING_TAGS, SOUR_FIELD_TRAILING, sourceCitationNodes,
 } from "./sources";
 export type { EditSourceFields, EditRepoFields, NewSourceFields } from "./sources";
 

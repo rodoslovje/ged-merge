@@ -20,6 +20,7 @@ import {
   familySearchPageUrl,
   linkKey,
   parseFamilySearchUrl,
+  withMatriculaLang,
   type FamilySearchUrlParts,
 } from "../normalize/links";
 import {
@@ -418,7 +419,7 @@ const LEGACY_OBIT_RE = /^https?:\/\/(?:www\.)?legacy\.com\/[^?#]*obituar/i;
 
 /** A Newspapers.com page image or clipping: newspapers.com/image/{id}/… (an
  *  `article=` uuid marks a clipping region on it) or newspapers.com/clip/{id}. */
-const NEWSPAPERS_RE = /^https?:\/\/(?:www\.)?newspapers\.com\/(?:image|clip)\/(\d+)/i;
+const NEWSPAPERS_RE = /^https?:\/\/(?:www\.)?newspapers\.com\/(image|clip)\/(\d+)/i;
 
 /** A Wikipedia article in any language, desktop or mobile: {lang}.wikipedia.org
  *  /wiki/{slug} or the /w/index.php?title={slug} form. */
@@ -642,7 +643,12 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
   const np = NEWSPAPERS_RE.exec(url.trim());
   if (np) {
     if (!sites.has("newspapers")) return undefined;
-    const imageId = np[1];
+    // A clip id and a page-image id are different id spaces on the site — a
+    // clip URL must never be rewritten into /image/{id}/ (a different or
+    // nonexistent page), and a clip and an unrelated image sharing a number
+    // must not merge into one source.
+    const npKind = np[1].toLowerCase();
+    const imageId = np[2];
     // Ancestry cites these as "The Windsor Star; Publication Date: 23 Jun
     // 1998; Publication Place: Windsor, Ontario, Canada; URL: https://…" —
     // the newspaper, issue date and place are already in the citation prose,
@@ -661,8 +667,8 @@ function recognize(url: string, contextText: string | undefined, sites: Readonly
     const place = /Publication Place:\s*([^;\n]+)/i.exec(ctx)?.[1].trim();
     return {
       site: "newspapers",
-      groupKey: `np:${imageId}`,
-      bookUrl: `https://www.newspapers.com/image/${imageId}/`,
+      groupKey: npKind === "clip" ? `np:clip:${imageId}` : `np:${imageId}`,
+      bookUrl: `https://www.newspapers.com/${npKind}/${imageId}/`,
       proposed: {
         title: siteTitle(paper ? [paper, date].filter(Boolean).join(", ") : imageId, undefined, "Newspapers.com"),
         place,
@@ -3340,7 +3346,7 @@ export function narrowFsRegister(meta: ReshapeMeta, register: string): ReshapeMe
 
 /** Rewrite a Matricula book URL to its `/en/` variant (stable table labels). */
 function matriculaEnUrl(bookUrl: string): string {
-  return bookUrl.replace(/^(https?:\/\/data\.matricula-online\.eu)\/[a-z]{2}\//i, "$1/en/");
+  return withMatriculaLang(bookUrl, "en");
 }
 
 /** Session-wide fetched-metadata cache, keyed by page-independent book key —

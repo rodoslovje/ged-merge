@@ -55,10 +55,15 @@ function isFsRepo(rec: GedNode): boolean {
 }
 
 /** Whether a `SOUR` record is a FamilySearch one: it hangs off the site's
- *  repository, or one of its page links is on the site. */
+ *  repository, or — for a source filed nowhere — its own website or one of
+ *  its page links is on the site. A source already filed at some *other*
+ *  repository is never claimed: a register held by a physical archive keeps
+ *  its archive however many of its scans happen to be FamilySearch links —
+ *  claiming it would move it off the real archive and, with the archive's
+ *  last source gone, delete the archive's record. */
 function isFsSource(rec: GedNode, fsRepos: Set<string>, objeUrl: (xref: string) => string | undefined): boolean {
   const repo = firstChild(rec, "REPO")?.value?.trim();
-  if (repo && fsRepos.has(repo)) return true;
+  if (repo) return fsRepos.has(repo);
   if (/familysearch\.org/i.test(childText(rec, "WWW") ?? "")) return true;
   return childrenByTag(rec, "OBJE").some((o) => {
     const url = o.value?.trim() ? objeUrl(o.value.trim()) : undefined;

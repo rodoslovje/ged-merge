@@ -1754,6 +1754,31 @@ describe("setSourceRecordFields round-trip fidelity", () => {
 });
 
 describe("removeSourceCitationAtIndex", () => {
+  it("indexes over the citations the UI shows: a valueless SOUR child does not shift them", () => {
+    // An exporter left `1 SOUR` with only a TEXT child — invisible to the
+    // domain model, so chip index 0 is the pointer citation after it.
+    const ds = buildFromText([
+      "0 HEAD",
+      "1 GEDC",
+      "2 VERS 5.5.1",
+      "0 @I1@ INDI",
+      "1 NAME Janez /Novak/",
+      "1 SOUR",
+      "2 TEXT prepisano",
+      "1 SOUR @S1@",
+      "0 @S1@ SOUR",
+      "1 TITL Krstna knjiga",
+      "0 TRLR",
+      "",
+    ].join("\n"));
+    const indi = ds.individuals.get("@I1@")!;
+    expect(indi.sources).toHaveLength(1); // the UI shows one chip
+    removeSourceCitationAtIndex(ds, indi.raw, 0);
+    // The chip's citation went; the valueless node (not ours to touch) stays.
+    expect(indi.raw.children.filter((c) => c.tag === "SOUR").map((c) => c.value)).toEqual([undefined]);
+    expect(ds.records.some((r) => r.xref === "@S1@")).toBe(false);
+  });
+
   it("removes the citation and prunes the now-unreferenced SOUR/OBJE", () => {
     const ds = buildFromText(BASE);
     const indi = ds.individuals.get("@I1@")!;
@@ -2573,5 +2598,45 @@ describe("a place's FORM", () => {
   it("is lifted onto the typed model, so a pick can reuse it", () => {
     const ds = buildFromText(withForm);
     expect(ds.individuals.get("@I1@")!.events[0].place?.form).toBe("Place,Upravna Enota,Country");
+  });
+});
+
+describe("createMediaRecord FORM dialect", () => {
+  const formOf = (rec: GedNode) => firstChild(firstChild(rec, "FILE")!, "FORM")?.value;
+
+  it("writes the extension token in a 5.5.1 file, tif never tiff", () => {
+    const ds = buildFromText(BASE);
+    expect(formOf(createMediaRecord(ds.records, "scan.tiff"))).toBe("tif");
+    expect(formOf(createMediaRecord(ds.records, "https://example.com/page"))).toBe("htm");
+  });
+
+  it("speaks IANA media types where the file's own FORMs do", () => {
+    const ds = buildFromText([
+      "0 HEAD",
+      "1 GEDC",
+      "2 VERS 7.0",
+      "0 @I1@ INDI",
+      "1 NAME Janez /Novak/",
+      "0 @O1@ OBJE",
+      "1 FILE poroka.jpg",
+      "2 FORM image/jpeg",
+      "0 TRLR",
+      "",
+    ].join("\n"));
+    expect(formOf(createMediaRecord(ds.records, "krst.webp"))).toBe("image/webp");
+    expect(formOf(createMediaRecord(ds.records, "https://example.com/page"))).toBe("text/html");
+  });
+
+  it("falls back to the header version when the file has no FORM habit yet", () => {
+    const ds = buildFromText([
+      "0 HEAD",
+      "1 GEDC",
+      "2 VERS 7.0",
+      "0 @I1@ INDI",
+      "1 NAME Janez /Novak/",
+      "0 TRLR",
+      "",
+    ].join("\n"));
+    expect(formOf(createMediaRecord(ds.records, "krst.jpg"))).toBe("image/jpeg");
   });
 });

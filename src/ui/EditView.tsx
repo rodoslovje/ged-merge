@@ -60,6 +60,7 @@ import {
   removeIndividual,
   removeMediaLinkByUrl,
   removeSourceCitationAtIndex,
+  sourceCitationNodes,
   sourceRecordEditFields,
   setMediaLinkUrl,
   setAdditionalName,
@@ -1195,7 +1196,9 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
    * retargets only this citation's page image, not a sibling page's.
    */
   const openEditSource: OpenEditSource = useStableHandler((node: GedNode, index: number, owner: RemoveSourceOwner) => {
-    const citation = childrenByTag(node, "SOUR")[index];
+    // Indexed over the same filtered list the rendered chips come from —
+    // a valueless `SOUR` child must not shift which citation "index" names.
+    const citation = sourceCitationNodes(node)[index];
     if (!citation) return;
     const page = childText(citation, "PAGE");
     const value = citation.value?.trim();

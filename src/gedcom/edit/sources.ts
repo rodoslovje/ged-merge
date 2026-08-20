@@ -76,8 +76,13 @@ export function attachSourceCitation(record: GedNode, sourceXref: string, page: 
   insertOrdered(record, citation, order);
 }
 
-function sourceCitationNodes(record: GedNode): GedNode[] {
-  return childrenByTag(record, "SOUR");
+/** The citation nodes the UI counts: valueless `SOUR` children (an exporter
+ *  writing only `3 TEXT …` under an empty citation) are invisible to the
+ *  domain model — `resolveSourceCitation` drops them — so an index arriving
+ *  from a rendered chip must skip them too, or Remove/Edit on the `n`th chip
+ *  lands on the wrong node. Exported for the Edit view's own prefill. */
+export function sourceCitationNodes(record: GedNode): GedNode[] {
+  return childrenByTag(record, "SOUR").filter((c) => c.value?.trim());
 }
 
 /** Fields editable on an existing citation — `NewSourceFields` plus the

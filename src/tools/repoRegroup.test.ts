@@ -45,6 +45,32 @@ const PER_COLLECTION = [
 ];
 
 describe("scanRepoRegroup", () => {
+  it("never claims a source filed at a real archive, however many FS scan links it holds", () => {
+    // The register is held by a physical archive; one of its page scans
+    // happens to be a FamilySearch image. Proposing a move would pull it off
+    // the real archive — and with the archive's only source gone, delete the
+    // archive's record while the CALN pretends to be FamilySearch's.
+    const report = scanRepoRegroup(dataset([
+      "0 HEAD",
+      "1 GEDC",
+      "2 VERS 5.5.1",
+      "0 @R1@ REPO",
+      "1 NAME Hrvatski državni arhiv",
+      "0 @R2@ REPO",
+      "1 NAME FamilySearch.org - Croatia Church Books 1516-1994",
+      "0 @S1@ SOUR",
+      "1 TITL Matična knjiga, Ravna Gora, Croatia",
+      "1 PLAC Ravna Gora, Primorje-Gorski Kotar, Croatia",
+      "1 OBJE @O1@",
+      "1 REPO @R1@",
+      "2 CALN HR-HDA-878",
+      "0 @O1@ OBJE",
+      "1 FILE https://www.familysearch.org/ark:/61903/3:1:ABC-DEF?cat=123",
+      "0 TRLR",
+    ]).records);
+    expect(report.total).toBe(0);
+  });
+
   it("gathers each place's FamilySearch sources under one repository", () => {
     const report = scanRepoRegroup(dataset(PER_COLLECTION).records);
     expect(report.total).toBe(3);

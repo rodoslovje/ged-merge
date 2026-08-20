@@ -1773,6 +1773,27 @@ describe("reshapeSources — citation placement", () => {
     expect(bare.proposed.title).toBe("502046098 - Newspapers.com");
   });
 
+  it("keeps a Newspapers.com clip its own id: never rewritten to /image/, never merged with one", () => {
+    // Clip ids and page-image ids are different id spaces on the site — the
+    // old regex rewrote clip URLs into /image/{id}/, a different (or
+    // nonexistent) page.
+    const clip = recognizeSourceUrl("https://www.newspapers.com/clip/12345678/")!;
+    expect(clip.site).toBe("newspapers");
+    expect(clip.bookUrl).toBe("https://www.newspapers.com/clip/12345678/");
+    // A clip and an unrelated page image sharing a number stay two groups.
+    const report = scan(
+      `0 HEAD
+0 @I1@ INDI
+1 NAME A /B/
+1 NOTE https://www.newspapers.com/clip/12345678/
+1 NOTE https://www.newspapers.com/image/12345678/
+0 TRLR
+`,
+      ["newspapers"],
+    );
+    expect(report.groups).toHaveLength(2);
+  });
+
   it("converts a Newspapers.com obituary citation into a dated source on DEAT", () => {
     const url =
       "https://www.newspapers.com/image/504323954/?article=c0efbc58-dd91-411f-9635-99cee122af5e&xid=3355";
