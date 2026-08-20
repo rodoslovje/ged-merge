@@ -825,6 +825,13 @@
               applying your field-level choices to a copy of the main file and pulling in any new individuals and families
               connected to those confirmed matches. Full detail in <a href="#saving">§14</a>.
             </p>
+            <p>
+              Places arrive with their coordinates. A place written by the merge takes the coordinate your file already
+              holds for that exact place and address, so merged events sit on the map beside everything else instead of
+              waiting for a round of geocoding. A place the incoming file coordinated itself keeps its own; where neither
+              file knows the pair, or the file holds two positions that disagree, the event arrives without one and the
+              <a href="#validate">health check</a> (<a href="#tools">§10</a>) says so.
+            </p>
           </section>
 
           <section id="tools">

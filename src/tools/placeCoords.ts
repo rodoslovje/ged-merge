@@ -84,7 +84,7 @@ interface Group {
 }
 
 /** Group every PLAC occurrence by (place value, event address). */
-function groupByPair(dataset: Dataset): Map<string, Group> {
+function groupByPair(records: Iterable<GedNode>): Map<string, Group> {
   const groups = new Map<string, Group>();
   const visit = (raw: GedNode) =>
     walkPlaceAddr(raw, (plac, address) => {
@@ -106,9 +106,13 @@ function groupByPair(dataset: Dataset): Map<string, Group> {
         else g.coords.set(ck, { coord, n: 1 });
       }
     });
-  for (const indi of dataset.individuals.values()) visit(indi.raw);
-  for (const fam of dataset.families.values()) visit(fam.raw);
+  for (const raw of records) visit(raw);
   return groups;
+}
+
+/** Every INDI/FAM raw record of a dataset, the input {@link groupByPair} reads. */
+function datasetRecords(dataset: Dataset): GedNode[] {
+  return [...dataset.individuals.values(), ...dataset.families.values()].map((r) => r.raw);
 }
 
 /**
@@ -129,7 +133,7 @@ export function distinctSpots(coords: { coord: GeoCoord; n: number }[]): { coord
 export function scanPlaceCoords(dataset: Dataset): PlaceCoordReport {
   const fills: SplitCoordPlace[] = [];
   const conflicts: CoordConflict[] = [];
-  for (const g of groupByPair(dataset).values()) {
+  for (const g of groupByPair(datasetRecords(dataset)).values()) {
     if (!g.coords.size) continue;
     const clusters = clusterCoords([...g.coords.values()]);
     if (clusters.length > 1) {
@@ -168,4 +172,25 @@ export function fillPlaceCoordsFromFile(dataset: Dataset): RecordPatch[] {
   const assignments = new Map<string, GeoAssignment>();
   for (const p of scanPlaceCoords(dataset).fills) assignments.set(placeAddrKey(p.value, p.address), { coord: p.coord });
   return applyGeocodeByAddress(dataset, assignments);
+}
+
+/**
+ * The coordinate the file itself agrees on for each place+address pair, keyed by
+ * {@link placeAddrKey}. A pair that disagrees with itself is absent: which of two
+ * positions is right is exactly what is unresolved, so there is nothing to copy.
+ *
+ * The same reading {@link scanPlaceCoords} reports on, exposed for writers that
+ * need it while the file is being built rather than after — the merge fills the
+ * places it writes from here, so a merge stops handing the reader a health-check
+ * list of coordinate gaps it created itself.
+ */
+export function agreedPairCoords(records: Iterable<GedNode>): Map<string, GeoCoord> {
+  const known = new Map<string, GeoCoord>();
+  for (const g of groupByPair(records).values()) {
+    if (!g.coords.size) continue;
+    const clusters = clusterCoords([...g.coords.values()]);
+    if (clusters.length > 1) continue;
+    known.set(placeAddrKey(g.value, g.address), clusters[0][0].coord);
+  }
+  return known;
 }
