@@ -177,12 +177,14 @@ describe("buildAhnentafel", () => {
         .generations[0].entries[0].facts.map((f) => f.tag),
     ).toEqual(["BIRT", "EDUC", "DEAT"]);
     const on = buildAhnentafel(ds2, "@I1@", nameOf, NOW, { occupation: true, education: true, residence: true })!;
+    // Mid-life lines run chronologically; the undated occupation follows the
+    // dated run.
     expect(on.generations[0].entries[0].facts).toMatchObject([
       { tag: "BIRT", glyph: "*", date: "1900", place: undefined },
-      { tag: "OCCU", glyph: "⚒", value: "Farmer", date: "1930", place: undefined },
-      { tag: "OCCU", glyph: "⚒", value: "Miller", date: undefined, place: undefined },
       { tag: "EDUC", glyph: "✎", value: "Gimnazija", date: "1918", place: undefined },
+      { tag: "OCCU", glyph: "⚒", value: "Farmer", date: "1930", place: undefined },
       { tag: "RESI", glyph: "⌂", date: "1950", place: "Dunajska 5, Kranj" },
+      { tag: "OCCU", glyph: "⚒", value: "Miller", date: undefined, place: undefined },
       { tag: "DEAT", glyph: "†", date: "1980", place: undefined },
     ]);
     // The rendered line leads with the date, the value follows.

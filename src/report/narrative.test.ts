@@ -135,11 +135,12 @@ describe("planEntry", () => {
     const d = reportOf(noMarr, "@I1@");
     const r = rootEntry(d);
     const kinds = planEntry(r, childGroups(d).get(r.num));
+    // The undated union sorts after the dated occupation (1880), children in tow.
     expect(kinds.map((s) => `${s.kind}${s.kind === "children" ? `:${s.couple ? "couple" : "solo"}` : ""}`)).toEqual([
       "bornBaptized",
+      "occupation",
       "married",
       "children:couple",
-      "occupation",
       "diedBuried",
     ]);
   });
@@ -151,10 +152,11 @@ describe("planEntry", () => {
     const d = reportOf(soloParent, "@I1@");
     const r = rootEntry(d);
     const kinds = planEntry(r, childGroups(d).get(r.num));
+    // The dateless children group follows the dated run (the 1880 occupation).
     expect(kinds.map((s) => `${s.kind}${s.kind === "children" ? `:${s.couple ? "couple" : "solo"}` : ""}`)).toEqual([
       "bornBaptized",
-      "children:solo",
       "occupation",
+      "children:solo",
       "diedBuried",
     ]);
   });
@@ -284,10 +286,10 @@ describe("living people, addresses and repeated residences", () => {
   it("keeps the present tense and tidies places in Slovenian", () => {
     expect(paragraph(tSl, "sl")).toBe(
       "Luka Renko se je rodil 16. marca 1974 v kraju Kranj, Slovenia. " +
-        "Njegova žena je Silvija Sekušak (1976); poročila sta se 18. aprila 1998 v kraju Stražišče, Kranj, Slovenia. " +
-        "Imata 2 otroka: Živa Renko in Hana Renko. " +
         "Živel je leta 1974 na naslovu Hafnarjeva pot 21a, Stražišče, Kranj, Slovenia. " +
         "Pozneje je živel oktobra 1997 na naslovu Cesta v Pečale 50, Ljubljana, Slovenia. " +
+        "Njegova žena je Silvija Sekušak (1976); poročila sta se 18. aprila 1998 v kraju Stražišče, Kranj, Slovenia. " +
+        "Imata 2 otroka: Živa Renko in Hana Renko. " +
         "Nazadnje je živel junija 2014 na naslovu Ulica bratov Martinec 12, Ljubljana, Slovenia.",
     );
   });
@@ -295,10 +297,10 @@ describe("living people, addresses and repeated residences", () => {
   it("keeps the present tense and tidies places in English", () => {
     expect(paragraph(tEn, "en")).toBe(
       "Luka Renko was born on 16 March 1974 in Kranj, Slovenia. " +
-        "He married Silvija Sekušak (1976) on 18 April 1998 in Stražišče, Kranj, Slovenia. " +
-        "They have 2 children: Živa Renko and Hana Renko. " +
         "He lived in 1974 at Hafnarjeva pot 21a, Stražišče, Kranj, Slovenia. " +
         "He later lived in October 1997 at Cesta v Pečale 50, Ljubljana, Slovenia. " +
+        "He married Silvija Sekušak (1976) on 18 April 1998 in Stražišče, Kranj, Slovenia. " +
+        "They have 2 children: Živa Renko and Hana Renko. " +
         "He last lived in June 2014 at Ulica bratov Martinec 12, Ljubljana, Slovenia.",
     );
   });

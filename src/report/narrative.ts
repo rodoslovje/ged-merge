@@ -7,7 +7,8 @@
 // live here once for every language.
 
 import type { Sex } from "../gedcom/types";
-import type { FactLine, ReportData, ReportEntry } from "./model";
+import { factDateKey, type ReportData, type ReportEntry } from "./model";
+import type { FactLine } from "./model";
 
 /** How a sentence refers to the person: the first statement names them, the
  *  rest use the language's short form (pronoun in English, bare verb form in
@@ -120,15 +121,29 @@ export function planEntry(
   else if (birth) add({ kind: "born", fact: birth });
   else if (baptism) add({ kind: "baptized", fact: baptism });
 
-  // Each union's ⚭ sentence, immediately followed by that union's children so
-  // the couple wording stays unambiguous across remarriages.
+  // The mid-life statements interleave chronologically: each union (its ⚭
+  // sentence with the partner's origin and that union's children right after,
+  // so the couple wording stays unambiguous across remarriages) is one block
+  // anchored at the marriage date; occupations, schooling and residences are
+  // their own blocks. Dated blocks sort by date; undated ones follow the dated
+  // run in the structural order (marriages, work, schooling, homes) — only
+  // birth opens and death closes the story regardless of the dates between.
+  interface Block {
+    key?: number;
+    stmts: Omit<Statement, "subject">[];
+  }
+  const blocks: Block[] = [];
+  const dateKey = factDateKey;
+
   const told = new Set<string>();
   marriages.forEach((m, i) => {
     const bothLiving = entry.living && m.spouseLiving === true;
     // The partner's lifespan joins their name (like the register's ⚭ line);
     // a living partner keeps the name but loses the years under privacy.
     const years = m.spouseYears && !(priv && m.spouseLiving) ? ` (${m.spouseYears})` : "";
-    add({ kind: "married", fact: m, spouse: m.spouse && `${m.spouse}${years}`, again: i > 0, living: bothLiving });
+    const stmts: Omit<Statement, "subject">[] = [
+      { kind: "married", fact: m, spouse: m.spouse && `${m.spouse}${years}`, again: i > 0, living: bothLiving },
+    ];
     // The partner's parents, told right after the marriage that names them; a
     // living parent's name stays out under privacy. `living` carries the named
     // parents' tense (present only when all of them are presumed living).
@@ -136,25 +151,32 @@ export function planEntry(
     const mother = m.spouseMother && !(priv && m.spouseMother.living) ? m.spouseMother.name : undefined;
     if (father || mother) {
       const parentsLiving = (father ? !!m.spouseFather?.living : true) && (mother ? !!m.spouseMother?.living : true);
-      add({ kind: "spouseOrigin", spouseSex: m.spouseSex, father, mother, living: parentsLiving });
+      stmts.push({ kind: "spouseOrigin", spouseSex: m.spouseSex, father, mother, living: parentsLiving });
     }
     const group = m.fam !== undefined ? groups.find((g) => g.fam === m.fam) : undefined;
     if (group && group.names.length > 0) {
       told.add(group.fam);
-      add({ kind: "children", childNames: group.names, couple: true, living: bothLiving });
+      stmts.push({ kind: "children", childNames: group.names, couple: true, living: bothLiving });
     }
+    blocks.push({ key: dateKey(m), stmts });
   });
-  // Children of unions without a ⚭ fact (no marriage recorded, or an undated
-  // one): single-parent wording, after the marriages.
+  // Children of unions without a ⚭ fact (no partner and no dated marriage):
+  // single-parent wording, undated — they follow the dated run.
   for (const group of groups) {
     if (told.has(group.fam) || group.names.length === 0) continue;
-    add({ kind: "children", childNames: group.names, living: entry.living });
+    blocks.push({ stmts: [{ kind: "children", childNames: group.names, living: entry.living }] });
   }
 
-  all(["OCCU"]).forEach((f, i) => add({ kind: "occupation", fact: f, variant: i > 0 ? "then" : undefined }));
-  for (const f of all(["EDUC"])) add({ kind: "education", fact: f });
+  all(["OCCU"]).forEach((f, i) =>
+    blocks.push({ key: dateKey(f), stmts: [{ kind: "occupation", fact: f, variant: i > 0 ? "then" : undefined }] }));
+  for (const f of all(["EDUC"])) blocks.push({ key: dateKey(f), stmts: [{ kind: "education", fact: f }] });
   const resis = all(["RESI"]);
-  resis.forEach((f, i) => add({ kind: "residence", fact: f, variant: seqVariant(i, resis.length) }));
+  resis.forEach((f, i) =>
+    blocks.push({ key: dateKey(f), stmts: [{ kind: "residence", fact: f, variant: seqVariant(i, resis.length) }] }));
+
+  // Stable sort: dated blocks ascending, undated after them in insertion order.
+  blocks.sort((a, b) => (a.key ?? Infinity) - (b.key ?? Infinity));
+  for (const b of blocks) b.stmts.forEach(add);
 
   if (death && burial) add({ kind: "diedBuried", fact: death, fact2: burial });
   else if (death) add({ kind: "died", fact: death });

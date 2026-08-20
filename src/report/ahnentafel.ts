@@ -7,6 +7,7 @@
 import type { Dataset, Family, Individual } from "../gedcom/types";
 import { isPresumedLiving } from "../gedcom/lifespan";
 import {
+  byFactDate,
   extraFacts,
   factFor,
   makeEntry,
@@ -93,13 +94,13 @@ export function buildAhnentafel(
   return { generations, total };
 }
 
-/** Facts in report order: * ~ ⚭, the optional ⚒/⌂ lines, then † ▭. */
+/** Facts in report order: * ~ open and † ▭ close; the mid-life lines between
+ *  them (the ⚭, the optional ⚒/✎/⌂) run chronologically. */
 function vitals(indi: Individual, marriages: FactLine[], opts: ReportFactOptions, ds: Dataset): FactLine[] {
   return [
     factFor(indi, ["BIRT"], opts, ds),
     factFor(indi, ["BAPM", "CHR"], opts),
-    ...marriages,
-    ...extraFacts(indi, opts),
+    ...byFactDate([...marriages, ...extraFacts(indi, opts)]),
     factFor(indi, ["DEAT"], opts),
     factFor(indi, ["BURI", "CREM"], opts),
   ].filter((f): f is FactLine => f !== undefined);

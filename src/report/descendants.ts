@@ -9,6 +9,7 @@ import type { Dataset, Individual } from "../gedcom/types";
 import { birthSortKey } from "../gedcom/lifespan";
 import { familiesByMarriage } from "../gedcom/familySort";
 import {
+  byFactDate,
   extraFacts,
   factFor,
   makeEntry,
@@ -103,13 +104,16 @@ export function buildDescendants(
   return { generations, total };
 }
 
-/** Facts in report order: * ~, every union's ⚭, the optional ⚒/⌂ lines, † ▭. */
+/** Facts in report order: * ~ open and † ▭ close; the mid-life lines between
+ *  them (every union's ⚭, the optional ⚒/✎/⌂) run chronologically. */
 function vitals(ds: Dataset, indi: Individual, nameOf: NameOf, opts: ReportFactOptions, nowYear: number): FactLine[] {
   return [
     factFor(indi, ["BIRT"], opts, ds),
     factFor(indi, ["BAPM", "CHR"], opts),
-    ...marriageFacts(ds, indi, nameOf, opts, nowYear),
-    ...extraFacts(indi, opts),
+    ...byFactDate([
+      ...marriageFacts(ds, indi, nameOf, opts, nowYear),
+      ...extraFacts(indi, opts),
+    ]),
     factFor(indi, ["DEAT"], opts),
     factFor(indi, ["BURI", "CREM"], opts),
   ].filter((f): f is FactLine => f !== undefined);
