@@ -12,7 +12,7 @@ import { lifespanOf } from "../gedcom/lifespan";
 import type { MatchResult } from "../match/types";
 import { defaultChoice, type FieldChoice, type FieldRow, type ImportDirection } from "../review/types";
 import { pairedMainFamilies, relativePersonSimilarity, RELATIVE_PAIR_THRESHOLD } from "../review/fields";
-import { birthYearsApart, noGivenNameInCommon } from "../match/similarity";
+import { birthYearsApart, identityEvidence, noGivenNameInCommon } from "../match/similarity";
 import { newSourceCitations } from "../gedcom/source";
 import type { ChangeReport } from "./merge";
 import type { Translate } from "../locales/i18n";
@@ -169,6 +169,13 @@ export function makeContext(
    * reports whose parent was kept, and a contradicted child is imported as a
    * person of their own — and both are better than refusing the identity.
    *
+   * Passing the vetoes is necessary but not sufficient: a pair the questions
+   * cannot even be asked of — a bare-surname spouse stub with no given name
+   * and no dates against some dated main person — must not be fused either,
+   * or the matcher's weakest guess quietly files a household under a stranger
+   * ({@link identityEvidence}). Such a person is imported as a record of their
+   * own instead.
+   *
    * A confirmed pair is exempt — a confirmation outranks the files' evidence.
    */
   const graftJoinHolds = (mainId: string, incomingId: string): boolean => {
@@ -176,7 +183,7 @@ export function makeContext(
     const m = main.individuals.get(mainId);
     const c = compare.individuals.get(incomingId);
     if (!m || !c) return true; // nothing to judge on — leave the match alone
-    return !noGivenNameInCommon(m, c) && !birthYearsApart(m, c);
+    return identityEvidence(m, c) && !noGivenNameInCommon(m, c) && !birthYearsApart(m, c);
   };
 
   /** The main record an incoming person is matched to, once the vetoes have
@@ -212,7 +219,7 @@ export function makeContext(
       years: lifespanOf(indi),
       sex: indi.sex,
     });
-    report.graftJoins.push({ mainId, main: person(m), incoming: person(c) });
+    report.graftJoins.push({ mainId, compareId: incomingId, main: person(m), incoming: person(c) });
   };
 
   const addNewIndividual = (incomingId: string): string | undefined => {

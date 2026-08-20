@@ -54,6 +54,9 @@ interface Props {
   onNavigate?: (id: string) => void;
   /** Called when the user removes a record from the pending save. */
   onRemove?: (id: string, kind: "individual" | "family") => void;
+  /** Called when the user clicks an unconfirmed-identity row — opens that match
+   *  pair in the review, where rejecting it is one click. */
+  onOpenPair?: (mainId: string, compareId: string) => void;
   /** When provided, individual records show sex colour and lifespan. */
   dataset?: Dataset;
   /** Consistency findings on the output (e.g. dangling pointers) — shown as a
@@ -85,6 +88,7 @@ export function SaveDialog({
   editRecordIds,
   onNavigate,
   onRemove,
+  onOpenPair,
   dataset,
   integrityWarnings,
 }: Props) {
@@ -211,9 +215,27 @@ export function SaveDialog({
               <ul className="preview-deferred preview-joins">
                 {report.graftJoins.map((j, i) => (
                   <li key={i}>
-                    <PersonLabel person={j.incoming} />
-                    <span className="preview-join-arrow" aria-hidden="true">→</span>
-                    <PersonLabel person={j.main} />
+                    {/* The row is the way to act on the disclosure: it opens
+                        the match pair in the review, where Reject is one click
+                        — without it the user has to find the pair by hand. */}
+                    {onOpenPair ? (
+                      <button
+                        type="button"
+                        className="preview-join-open"
+                        title={t("preview.graftedOpen")}
+                        onClick={() => { onOpenPair(j.mainId, j.compareId); onClose(); }}
+                      >
+                        <PersonLabel person={j.incoming} />
+                        <span className="preview-join-arrow" aria-hidden="true">→</span>
+                        <PersonLabel person={j.main} />
+                      </button>
+                    ) : (
+                      <>
+                        <PersonLabel person={j.incoming} />
+                        <span className="preview-join-arrow" aria-hidden="true">→</span>
+                        <PersonLabel person={j.main} />
+                      </>
+                    )}
                   </li>
                 ))}
               </ul>

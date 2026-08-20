@@ -148,6 +148,9 @@ export interface CustomTagNode {
 export interface GraftJoin {
   /** The main record the incoming person was joined onto. */
   mainId: string;
+  /** The incoming record's id — with `mainId` it names the match pair, so the
+   *  preview can open it in the review for a one-click reject. */
+  compareId: string;
   /** The main person, as the preview shows anyone: name, lifespan, sex colour. */
   main: GraftJoinPerson;
   /** The incoming person the graft took to be them. */

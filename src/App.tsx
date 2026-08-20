@@ -2349,6 +2349,11 @@ function AppContent() {
           onClose={() => setPreview(null)}
           onNavigate={(id) => { setPreview(null); setNavigateToId(id); }}
           onRemove={handleRemoveFromSave}
+          onOpenPair={(mainId, compareId) => {
+            setPreview(null);
+            setSelectedId({ mainId, compareId });
+            setMode("merge");
+          }}
         />
       )}
       {saveToast && (

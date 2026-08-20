@@ -2203,6 +2203,7 @@ describe("mergeDecisions — one family for a couple, however it is reached", ()
     expect(report.graftJoins).toEqual([
       {
         mainId: "@I1@",
+        compareId: "@P1@",
         main: { name: "Joze Grca", years: "1938", sex: "M" },
         incoming: { name: "Jozef Grca", years: "1940", sex: "M" },
       },
@@ -2276,6 +2277,45 @@ describe("mergeDecisions — unconfirmed matches used while stitching a decision
     expect(report.graftJoins).toEqual([]);
   });
 
+  // The matcher paired a bare-surname spouse stub — no given name, no dates —
+  // with some main person, and both vetoes pass *because there is nothing for
+  // them to read*. Absence of evidence is not agreement: nobody confirmed the
+  // pair, so the stub arrives as a record of its own and the main person is
+  // left out of the family.
+  it("does not fuse an evidence-free spouse stub onto a matched main person", () => {
+    const main = dataset(
+      wrap(
+        "0 @I1@ INDI\n1 NAME Zist /Mrak/\n1 SEX M\n1 BIRT\n2 DATE 1962\n" +
+          "0 @I2@ INDI\n1 NAME Annamaria /Kovacs/\n1 SEX F\n1 BIRT\n2 DATE 1942\n",
+      ),
+    );
+    const compare = dataset(
+      wrap(
+        "0 @P1@ INDI\n1 NAME Zist /Mrak/\n1 SEX M\n1 BIRT\n2 DATE 1962\n1 FAMS @G1@\n" +
+          "0 @P2@ INDI\n1 NAME /Kopač/\n1 SEX F\n1 FAMS @G1@\n" +
+          "0 @G1@ FAM\n1 HUSB @P1@\n1 WIFE @P2@\n",
+      ),
+    );
+    const matches = {
+      individuals: [
+        { mainId: "@I1@", compareId: "@P1@" },
+        { mainId: "@I2@", compareId: "@P2@" }, // the matcher's evidence-free guess
+      ],
+    } as never;
+    const decisions = new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: { "fam.@G1@.partner": "incoming" } }],
+    ]);
+    const { records, report } = mergeDecisions(main, compare, decisions, matches, tr);
+    const out = serializeGedcom(records);
+    // The stub arrives as herself; Annamaria is not written into the family.
+    expect(report.newPersons).toBe(1);
+    expect(out).toContain("/Kopač/");
+    expect(out).not.toMatch(/1 WIFE @I2@/);
+    expect(out).toMatch(/0 @F\d+@ FAM\n1 HUSB @I1@\n1 WIFE @I\d+@/);
+    // No identity was used, so there is none to own up to.
+    expect(report.graftJoins).toEqual([]);
+  });
+
   it("names a plausible unconfirmed partner join in the preview", () => {
     const main = dataset(
       wrap(
@@ -2307,6 +2347,7 @@ describe("mergeDecisions — unconfirmed matches used while stitching a decision
     expect(report.graftJoins).toEqual([
       {
         mainId: "@I2@",
+        compareId: "@P2@",
         main: { name: "Ana Hribar", years: "1893", sex: "F" },
         incoming: { name: "Ana Hribar", years: "1892", sex: "F" },
       },

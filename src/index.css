@@ -6488,6 +6488,18 @@ kbd {
    can be read as two people rather than two strings. */
 .preview-joins li { line-height: 1.5; }
 .preview-join-arrow { color: var(--muted); margin: 0 7px; }
+/* The whole disclosure row is a button that opens the pair in the review —
+   text-styled so it reads as the list it always was, hover says it acts. */
+.preview-join-open {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+.preview-join-open:hover { text-decoration: underline; text-decoration-color: var(--muted); }
 
 .preview-custom-tags { margin: 0; padding-left: 0; list-style: none; }
 .preview-custom-tags li { margin: 4px 0; }

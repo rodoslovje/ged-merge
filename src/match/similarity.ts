@@ -119,6 +119,21 @@ export function noGivenNameInCommon(a: Individual, b: Individual): boolean {
  *  transcription slip, or a year read off a baptism a season later. */
 export const SAME_PERSON_YEAR_GAP = 3;
 
+/**
+ * True when the pair carries evidence the identity can be *judged* on at all:
+ * a given name on both sides (which {@link noGivenNameInCommon} then vets), or
+ * a birth year on both (vetted by {@link birthYearsApart}). A pair with
+ * neither — a bare-surname spouse stub against a fully-named, dated main
+ * person — passes both vetoes *because there is nothing for them to read*, and
+ * that absence must not count as agreement when nobody confirmed the match.
+ */
+export function identityEvidence(a: Individual, b: Individual): boolean {
+  const ga = comparableName(primaryName(a))?.given;
+  const gb = comparableName(primaryName(b))?.given;
+  if (ga && gb) return true;
+  return birthYear(a) !== undefined && birthYear(b) !== undefined;
+}
+
 /** True when both records date the birth and the years are too far apart to be
  *  one person — the hard veto beside {@link differentGiven}, for the same
  *  reason: a weighted average lets an agreeing surname and place drown out a
