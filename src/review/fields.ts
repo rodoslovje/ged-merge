@@ -415,7 +415,8 @@ function buildFamilyRows(
 
     if (mChildRels.length > 0 || cChildRels.length > 0) {
       rows.push({ key: `${famKey}.children.header`, label: t("field.children"), main: "", incoming: "", state: "agree", isGroupHeader: true, isEventHeader: true });
-      pushRelativesRow(rows, `${famKey}.children`, formatFieldLabel(t, "children"), mChildRels, cChildRels, "", true);
+      pushRelativesRow(rows, `${famKey}.children`, formatFieldLabel(t, "children"), mChildRels, cChildRels,
+        { displayLabel: "", perChildChoice: true, kind: "child" });
     }
   });
 }
@@ -484,7 +485,7 @@ function pairFamilies(
         const cKids = cf.children.map(id => compareDs.individuals.get(id)).filter(Boolean) as Individual[];
         let matches = 0;
         mKids.forEach(mk => {
-          if (cKids.some(ck => relativeSimilarity(partnerToRelative(mk), partnerToRelative(ck)) >= RELATIVE_PAIR_THRESHOLD)) {
+          if (cKids.some(ck => relativeSimilarity(partnerToRelative(mk), partnerToRelative(ck), "child") >= RELATIVE_PAIR_THRESHOLD)) {
             matches++;
           }
         });
@@ -768,11 +769,11 @@ function pushRelativesRow(
   label: string,
   main: Relative[],
   incoming: Relative[],
-  displayLabel?: string,
-  perChildChoice?: boolean,
+  opts: { displayLabel?: string; perChildChoice?: boolean; kind?: RelativeKind } = {},
 ): void {
   if (main.length === 0 && incoming.length === 0) return;
-  const pairs = alignRelatives(main, incoming);
+  const { displayLabel, perChildChoice, kind = "partner" } = opts;
+  const pairs = alignRelatives(main, incoming, kind);
   // Joined text is still kept so comparison/state and the merge's default choice
   // (main-if-present) work; rendering uses the structured `relatives` pairs.
   const m = main.length ? pairs.map((p) => p.main?.text ?? "").join("\n") : "";
@@ -807,11 +808,21 @@ function relativeCell(r: Relative): RelativeCell {
 }
 
 /**
+ * In which role a pair of relatives is being compared. Children of one couple
+ * carry their parents' surname whatever their given names, so between them the
+ * surname is not evidence; a partner's surname is.
+ */
+type RelativeKind = "child" | "partner";
+
+/**
  * Minimum name similarity for two relatives to be paired onto the same line.
  * Set high because relatives typically share a surname (which alone scores ~0.6),
  * so distinguishing the same person from a same-surname sibling rests on the
  * given name: this threshold demands a strong given-name agreement too, pairing
  * spelling variants (Ana/Anna) while keeping distinct siblings (Berta/Doris) apart.
+ * Between children, where the surname is dropped altogether, it *is* the
+ * given-name bar — and deliberately the same 0.85 the matcher calls two records
+ * one person at (`SAME_PERSON_GIVEN`).
  */
 export const RELATIVE_PAIR_THRESHOLD = 0.85;
 
@@ -831,10 +842,17 @@ const EXACT_YEAR_TOLERANCE = 2;
  * signal that aligns partners and children in the review table, exposed so
  * other views pair people the same way (the compare tree falls back to it for
  * spouses the matcher never paired). At or above
- * {@link RELATIVE_PAIR_THRESHOLD} means "the same person".
+ * {@link RELATIVE_PAIR_THRESHOLD} means "the same person"; the caller says in
+ * which role it is asking, because two children of one couple are compared on
+ * their given names alone (their surname is their parents'). Ranking score,
+ * not a 0..1 similarity — the birth-year bonus can carry it past 1.
  */
-export function relativePersonSimilarity(a: Individual, b: Individual): number {
-  return relativeSimilarity(partnerToRelative(a), partnerToRelative(b));
+export function relativePersonSimilarity(
+  a: Individual,
+  b: Individual,
+  kind: RelativeKind = "partner",
+): number {
+  return relativeSimilarity(partnerToRelative(a), partnerToRelative(b), kind);
 }
 
 /**
@@ -868,11 +886,11 @@ function samePartner(a: Relative, b: Relative): boolean {
  * order, main-only relatives get a pair with no incoming side, and any
  * unmatched incoming relatives are appended with no main side.
  */
-function alignRelatives(main: Relative[], incoming: Relative[]): RelativePair[] {
+function alignRelatives(main: Relative[], incoming: Relative[], kind: RelativeKind): RelativePair[] {
   const cand: { mi: number; ii: number; sim: number }[] = [];
   main.forEach((m, mi) =>
     incoming.forEach((c, ii) => {
-      const sim = relativeSimilarity(m, c);
+      const sim = relativeSimilarity(m, c, kind);
       if (sim >= RELATIVE_PAIR_THRESHOLD) cand.push({ mi, ii, sim });
     }),
   );
@@ -925,7 +943,7 @@ function datesIdentify(a: Relative, b: Relative): boolean {
  * pull same-named siblings apart so they don't collapse onto one line. The
  * year only ever corroborates a name that already agrees — see the guard below.
  */
-function relativeSimilarity(a: Relative, b: Relative): number {
+function relativeSimilarity(a: Relative, b: Relative, kind: RelativeKind = "partner"): number {
   // Placeholders ("NN", "?", "Living") name nobody, so they count as missing
   // here exactly as they do in the matcher — two of them are not a match.
   const an = comparableName(a.name);
@@ -940,7 +958,17 @@ function relativeSimilarity(a: Relative, b: Relative): number {
   // the `anchored` rule in scoreIndividual.
   if (!an?.given || !bn?.given) return datesIdentify(a, b) ? RELATIVE_PAIR_THRESHOLD : 0;
 
-  const nameSim = nameSimilarity(an, bn) ?? 0;
+  // Children of one couple share the family surname by construction, so it
+  // identifies nobody among them: weighted 0.6 in `nameSimilarity` it floors
+  // every sibling pair at ~0.6, which lifted "Anton"/"Alojz" (given names
+  // 0.64 apart — two brothers) to 0.856, over the bar. Only the given name
+  // discriminates, so between children only the given name is compared, and
+  // the bar becomes a given-name bar. The matcher drops the surname for the
+  // same reason — see `givenNameSetSimilarity`. Partners keep the whole name:
+  // there the surname is real evidence, not a shared inheritance.
+  const nameSim = kind === "child"
+    ? givenSimilarity(an.given, bn.given)
+    : nameSimilarity(an, bn) ?? 0;
 
   if (a.birthYear == null || b.birthYear == null) return nameSim;
   const gap = Math.abs(a.birthYear - b.birthYear);
@@ -949,16 +977,21 @@ function relativeSimilarity(a: Relative, b: Relative): number {
   // exact dates would — mirrors the wider tolerance dateSimilarity gives
   // approximate dates.
   const tolerance = a.birthApprox || b.birthApprox ? 10 : EXACT_YEAR_TOLERANCE;
-  // The bonus is a *corroboration* of the name, never a substitute for it:
-  // siblings share a surname (0.6 of the name score) and the year they were
-  // born, so without this guard a shared 1803 lifted "Katarina"/"Agnes" — two
-  // different children — over the pairing bar, and consumed the incoming Agnes
-  // that her real counterpart Neža needed. Names that conflict outright
-  // (below the parent-band conflict line) get no credit for the year; they
-  // still take the full penalty when the years disagree.
-  const givenAgrees = givenSimilarity(an.given, bn.given) >= PARENT_GIVEN_CONFLICT;
-  const birthAdjust = gap > tolerance ? -0.25 : !givenAgrees ? 0 : gap === 0 ? 0.15 : 0.05;
-  return Math.max(0, Math.min(1, nameSim + birthAdjust));
+  if (gap > tolerance) return Math.max(0, nameSim - 0.25);
+  // Within tolerance the year *corroborates* the name and ranks the candidates
+  // — it never stands in for a name. Siblings share the year they were born as
+  // readily as the surname, so without this guard a shared 1803 lifted
+  // "Katarina"/"Agnes" over the bar and consumed the incoming child her real
+  // counterpart Neža needed. For children the name must already carry the
+  // pairing on its own; for partners it need only not conflict outright.
+  const eligible = kind === "child"
+    ? nameSim >= RELATIVE_PAIR_THRESHOLD
+    : givenSimilarity(an.given, bn.given) >= PARENT_GIVEN_CONFLICT;
+  // Deliberately left above 1 when it lands there: the value ranks candidates
+  // for the greedy pairing, and clamping made a child born the same year score
+  // exactly as much as one born two years off, leaving which sibling paired to
+  // the order they happened to be listed in.
+  return eligible ? nameSim + (gap === 0 ? 0.15 : 0.05) : nameSim;
 }
 
 /**

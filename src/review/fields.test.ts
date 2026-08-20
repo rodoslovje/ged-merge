@@ -1543,6 +1543,51 @@ describe("aligned relative lists (children/partners)", () => {
     expect(i[line1850]).toBe(""); // the 1850 sibling stays unmatched
   });
 
+  // Children of one couple all carry their parents' surname, so it cannot tell
+  // them apart — only the given name can.
+  it("keeps differently named siblings apart despite a shared surname and year", () => {
+    const famD = (kids: string[]) =>
+      `0 HEAD\n0 @H@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F@\n` +
+      kids
+        .map((k, i) => `0 @K${i}@ INDI\n1 NAME ${k} /Novak/\n1 BIRT\n2 DATE 1810\n1 FAMC @F@\n`)
+        .join("") +
+      `0 @F@ FAM\n1 HUSB @H@\n` +
+      kids.map((_, i) => `1 CHIL @K${i}@\n`).join("") +
+      `0 TRLR\n`;
+
+    const md = dataset(famD(["Anton"]));
+    const cd = dataset(famD(["Alojz"]));
+    const children = byKey(
+      individualFieldRows(tr, md.individuals.get("@H@"), cd.individuals.get("@H@"), md, cd),
+      "fam.@F@.children",
+    )!;
+    const antonLine = children.main.split("\n").findIndex((l) => l.includes("Anton"));
+    expect(children.incoming.split("\n")[antonLine]).toBe("");
+  });
+
+  // Two candidates both within tolerance: the closer birth year takes the child.
+  it("gives an incoming child to the sibling born the same year, not the nearer one", () => {
+    const famE = (kids: number[]) =>
+      `0 HEAD\n0 @H@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F@\n` +
+      kids
+        .map((y, i) => `0 @K${i}@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 DATE ${y}\n1 FAMC @F@\n`)
+        .join("") +
+      `0 @F@ FAM\n1 HUSB @H@\n` +
+      kids.map((_, i) => `1 CHIL @K${i}@\n`).join("") +
+      `0 TRLR\n`;
+
+    const md = dataset(famE([1850, 1852]));
+    const cd = dataset(famE([1852]));
+    const children = byKey(
+      individualFieldRows(tr, md.individuals.get("@H@"), cd.individuals.get("@H@"), md, cd),
+      "fam.@F@.children",
+    )!;
+    const m = children.main.split("\n");
+    const i = children.incoming.split("\n");
+    expect(i[m.findIndex((l) => l.includes("1852"))]).toContain("1852");
+    expect(i[m.findIndex((l) => l.includes("1850"))]).toBe("");
+  });
+
   // A Slovenian tree against the Latin parish register it was read from: the
   // main children carry the Slovenian names, the incoming ones the Latin forms.
   describe("children named in Latin on one side", () => {

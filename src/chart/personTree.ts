@@ -379,11 +379,15 @@ function descend(
  * two children. Greedy, best pair first, so same-named siblings can't both land
  * on one incoming record. Returns main id → incoming person.
  */
-function alignByLikeness(main: Individual[], incoming: Individual[]): Map<string, Individual> {
+function alignByLikeness(
+  main: Individual[],
+  incoming: Individual[],
+  kind: "child" | "partner",
+): Map<string, Individual> {
   const cand: { m: Individual; i: Individual; sim: number }[] = [];
   for (const m of main) {
     for (const i of incoming) {
-      const sim = relativePersonSimilarity(m, i);
+      const sim = relativePersonSimilarity(m, i, kind);
       if (sim >= RELATIVE_PAIR_THRESHOLD) cand.push({ m, i, sim });
     }
   }
@@ -411,7 +415,7 @@ function similarPartner(
   const free = incomingUnions
     .map((iu, idx) => ({ idx, partner: iu.partner }))
     .filter((c) => !usedIncoming.has(c.idx) && c.partner && !maps.compareToMain.has(c.partner.id));
-  const pick = alignByLikeness([mainPartner], free.map((c) => c.partner!)).get(mainPartner.id);
+  const pick = alignByLikeness([mainPartner], free.map((c) => c.partner!), "partner").get(mainPartner.id);
   return pick ? free.find((c) => c.partner === pick)!.idx : -1;
 }
 
@@ -436,6 +440,7 @@ function pairChildren(
   const likeness = alignByLikeness(
     mainKids.filter((c) => !maps.mainToCompare.has(c.id)),
     incomingKids.filter((c) => !maps.compareToMain.has(c.id)),
+    "child",
   );
   for (const [mainId, incoming] of likeness) if (!pairing.has(mainId)) pairing.set(mainId, incoming);
 

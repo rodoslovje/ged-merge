@@ -357,15 +357,32 @@ the overlap; the figures above are the raw spelling distances behind them.
 
 The children/partners lists in a compared pair are aligned by
 `relativeSimilarity` (`src/review/fields.ts`), a separate, simpler score: the
-name (surname 0.6 / given 0.4) adjusted by the birth year, paired greedily
-above `RELATIVE_PAIR_THRESHOLD` (0.85). Two rules keep the year in its place —
-it corroborates a name, it never replaces one:
+name adjusted by the birth year, paired greedily above
+`RELATIVE_PAIR_THRESHOLD` (0.85). The caller says in which role it is asking:
 
-- the same-year bonus (+0.15, +0.05 within `EXACT_YEAR_TOLERANCE`) applies
-  **only** when the given names agree at `PARENT_GIVEN_CONFLICT` or better.
-  Siblings share a surname *and* often a birth year, so without this a shared
-  1803 lifted `Katarina`/`Agnes` — two different children — over the bar, and
-  consumed the incoming child that `Neža` needed;
+- **partners** are compared on the whole name (surname 0.6 / given 0.4) — a
+  partner's surname is evidence;
+- **children** on the **given name alone**. Children of one couple carry their
+  parents' surname whatever their given names, so at weight 0.6 it floored
+  every sibling pair at ~0.6 and lifted `Anton`/`Alojz` — given names 0.64
+  apart, two brothers — to 0.856, over the bar and onto one line, hiding a
+  real child. `givenNameSetSimilarity` drops the surname in the matcher for
+  exactly this reason. The bar is then a given-name bar, and deliberately the
+  same 0.85 as `SAME_PERSON_GIVEN`; it is the equivalence table, not a lower
+  bar, that carries `Rudi`/`Rudolf` and `Neža`/`Agnes` over it.
+
+Two further rules keep the year in its place — it corroborates a name, it
+never replaces one:
+
+- the same-year bonus (+0.15, or +0.05 within `EXACT_YEAR_TOLERANCE`) may not
+  lift a pair over the bar: for children the name must already be there on its
+  own, for partners it must at least not conflict (`PARENT_GIVEN_CONFLICT`).
+  Siblings share the year they were born as readily as the surname, so without
+  this a shared 1803 lifted `Katarina`/`Agnes` — two different children — over
+  the bar, and consumed the incoming child that `Neža` needed. Above the bar
+  the bonus ranks the candidates, and is deliberately left uncapped: clamping
+  it at 1 scored a child born the same year exactly as one born two years off,
+  leaving which sibling paired to the order they happened to be listed in;
 - exact birth years may sit up to `EXACT_YEAR_TOLERANCE` (2) apart before the
   −0.25 penalty applies (10 for an ABT/EST year on either side), so one child
   whose birth year was read two years apart on the two sides still pairs.
@@ -384,7 +401,7 @@ both births known, both exact, same year, no contradicting day or death year.
 | Within-file vetoes (0.85 given, cutoff 0.70) | `src/tools/duplicates.ts` |
 | Placeholder token set | `src/match/text.ts` |
 | Cross-language given-name equivalents | `VARIANT_GROUPS` in `src/match/givenVariants.ts` |
-| Relative alignment (0.85 bar, ±2 years, year-bonus gate) | `src/review/fields.ts` |
+| Relative alignment (0.85 bar, ±2 years, year-bonus gate, per-role name) | `src/review/fields.ts` |
 
 ## Verifying changes
 

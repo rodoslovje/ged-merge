@@ -275,7 +275,9 @@ export function makeContext(
     pairedAsRelatives: (mainId, incomingId) => {
       const m = main.individuals.get(mainId);
       const c = compare.individuals.get(incomingId);
-      return !!m && !!c && relativePersonSimilarity(m, c) >= RELATIVE_PAIR_THRESHOLD;
+      // Asked only about children (see the call site), and the review aligns
+      // children on their given names alone — ask it the same way.
+      return !!m && !!c && relativePersonSimilarity(m, c, "child") >= RELATIVE_PAIR_THRESHOLD;
     },
     confirmedPair: (mainId, incomingId) => confirmedPairs.has(`${mainId}|${incomingId}`),
     label: (id) =>

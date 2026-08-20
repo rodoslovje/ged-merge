@@ -15,10 +15,12 @@ import { foldToken, jaroWinkler } from "./text";
  * Each row lists the forms of a single name, already folded the way
  * {@link foldToken} folds them (lowercase, no diacritics). Membership of one
  * row means "the same name in another language or era", scored as an exact
- * match. Diminutives are listed only where the register itself uses them
- * (`Meta` for Marjeta, `Polona` for Apolonija); names that merely share a root
- * but name two different children — `Matej` vs `Matija`, `Neža` vs `Ana` —
- * are deliberately kept in separate rows.
+ * match. Short forms belong to their full name's row when a record may carry
+ * either for the same person (`Rudi` for Rudolf, `Meta` for Marjeta, `Polona`
+ * for Apolonija, `Reza` for Terezija) — between children the given name is the
+ * whole comparison, so a short form left out of the table shows one child as
+ * two. Names that merely share a root but name two different children —
+ * `Matej` vs `Matija`, `Neža` vs `Ana` — are deliberately in separate rows.
  */
 const VARIANT_GROUPS: readonly (readonly string[])[] = [
   // male
@@ -33,32 +35,34 @@ const VARIANT_GROUPS: readonly (readonly string[])[] = [
   ["danijel", "daniel", "danielis"],
   ["filip", "philippus", "philipp", "philip"],
   ["florijan", "florianus", "florian"],
-  ["franc", "franciscus", "franz", "francisek", "franjo", "france", "fran"],
+  ["franc", "franciscus", "franz", "francisek", "franjo", "france", "fran", "franci"],
   ["gasper", "gaspar", "casparus", "kaspar", "caspar"],
   ["gregor", "gregorius", "gregorij"],
-  ["ignacij", "ignatius", "ignac", "ignaz"],
+  ["ignacij", "ignatius", "ignac", "ignaz", "nace"],
   ["jakob", "jacobus", "jakov", "jacob", "jaka"],
-  ["janez", "joannes", "johannes", "joanes", "ioannes", "johann", "ivan", "hans", "anze"],
+  ["janez", "joannes", "johannes", "joanes", "ioannes", "johann", "ivan", "hans", "anze", "janko"],
   ["jernej", "bartholomeus", "bartholomaeus", "bartholomaus", "bartolomej", "bartol"],
   ["jozef", "josephus", "joseph", "josef", "joze", "josip", "jozeph"],
   ["jurij", "georgius", "georg", "jure", "juri", "juraj", "george"],
-  ["karel", "carolus", "karl", "karol"],
+  ["karel", "carolus", "karl", "karol", "karlo"],
   ["kristijan", "christianus", "christian", "kristjan"],
   ["lenart", "leonardus", "leonhard", "lenard"],
   ["leopold", "leopoldus"],
   ["lovrenc", "laurentius", "lorenz", "lovro"],
+  ["ludvik", "ludovicus", "ludwig"],
   ["luka", "lucas", "lukas"],
   ["maksimilijan", "maximilianus", "maximilian", "maks", "max"],
   ["marko", "marcus", "markus"],
   ["martin", "martinus"],
   ["matej", "matthaeus", "mattheus", "matthaus", "matevz"],
   ["matija", "matthias", "mathias", "matthia"],
-  ["mihael", "michael", "mihail", "michel", "miha"],
+  ["mihael", "michael", "mihail", "michel", "miha", "miko"],
   ["miklavz", "nicolaus", "nikolaj", "nikola", "niklas"],
   ["pavel", "paulus", "paul", "pavle", "pavao"],
   ["peter", "petrus"],
   ["primoz", "primus"],
   ["rok", "rochus", "roch"],
+  ["rudolf", "rudolphus", "rudolph", "rudi"],
   ["simon", "simeon"],
   ["stefan", "stephanus", "stephan", "stjepan"],
   ["tomaz", "thomas", "toma", "tomo"],
@@ -95,7 +99,7 @@ const VARIANT_GROUPS: readonly (readonly string[])[] = [
   ["neza", "agnes", "agnetha", "agneza", "agnesa"],
   ["rozalija", "rosalia", "rozalia"],
   ["suzana", "susanna", "susana"],
-  ["terezija", "theresia", "theresa", "teresa", "tereza"],
+  ["terezija", "theresia", "theresa", "teresa", "tereza", "reza", "rezka"],
   ["urska", "ursula", "urszula"],
   ["veronika", "veronica"],
   ["viktorija", "victoria"],
