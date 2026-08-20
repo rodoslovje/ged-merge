@@ -119,7 +119,7 @@ const modeLayerHiddenClass = "mode-layer mode-layer--hidden";
 
 /** The preferences AppContent reads — subscribed field by field, so an
  *  unrelated one changing leaves it alone (see useSettingsSlice). */
-const APP_SETTINGS_KEYS = ["persistWorkspace", "formatOverrides", "showKinship", "showXref"] as const;
+const APP_SETTINGS_KEYS = ["persistWorkspace", "formatOverrides", "showKinship", "showXref", "saveReport"] as const;
 
 // MediaFolderProvider is mounted by the `App` wrapper below, *above* the
 // full-page tree early-returns — so navigating into the Compare/Edit tree and
@@ -128,7 +128,7 @@ const APP_SETTINGS_KEYS = ["persistWorkspace", "formatOverrides", "showKinship",
 // would silently lose it and force the user to re-pick the folder.
 function AppContent() {
   const { t } = useTranslation();
-  // Four fields, not the whole object: this component renders the entire app,
+  // A handful of fields, not the whole object: this component renders the entire app,
   // so subscribing to every preference meant any one of them changing
   // re-rendered everything.
   const settings = useSettingsSlice(APP_SETTINGS_KEYS);
@@ -1502,14 +1502,19 @@ function AppContent() {
     const text = serializeGedcom(preview.records, downloadOptions(mainDataset));
     // Reuse the exact names shown in the preview dialog (already date-stamped).
     downloadText(preview.files[0], text);
-    downloadText(preview.files[1], formatReport(preview.report, {
-      t,
-      mainFileName: lastMainFile?.fileName,
-      savedFileName: preview.files[0],
-      compareFileName: preview.isMerge && compare.status === "loaded" ? compare.file.fileName : undefined,
-      savedAt: new Date(),
-      fileNotes,
-    }));
+    // The change report is a second download, which some browsers decline to
+    // take — and it says what the preview has just shown. So it is written only
+    // for a reader who asked for it in the dialog.
+    if (settings.saveReport) {
+      downloadText(preview.files[1], formatReport(preview.report, {
+        t,
+        mainFileName: lastMainFile?.fileName,
+        savedFileName: preview.files[0],
+        compareFileName: preview.isMerge && compare.status === "loaded" ? compare.file.fileName : undefined,
+        savedAt: new Date(),
+        fileNotes,
+      }));
+    }
 
     // A save can name the file better than it was created with — a tree started
     // from nothing arrives as `new-tree` and leaves under its family's surname
@@ -1555,7 +1560,7 @@ function AppContent() {
     dispatch({ type: "confirmedDecisionsCleared" });
     // Imported branches are now baked into the live dataset — clear the requests.
     dispatch({ type: "importBranchesCleared" });
-    setSaveToast(t("save.toast", { count: preview.files.length }));
+    setSaveToast(t("save.toast", { count: settings.saveReport ? preview.files.length : 1 }));
     setPreview(null);
     // The saved file is the new baseline — undo/redo entries refer to a state
     // that no longer exists, so there's nothing left to meaningfully undo into.

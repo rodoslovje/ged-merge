@@ -1197,6 +1197,7 @@ export const en = {
   "preview.customTags": "Custom tags from incoming file",
   "preview.customTagsHint": "These non-standard tags would be copied in from the incoming file. Uncheck any you don't want included.",
   "preview.files": "These files will be downloaded:",
+  "preview.saveReport": "Also download the change report as a text file",
   "preview.untouched": "Your original files are not modified.",
   "preview.cancel": "Cancel",
   // The downloaded change report (`.gedmerge.report.txt`) — the written record
@@ -2226,7 +2227,8 @@ export const en = {
   "save.preview.families": "Families changed",
   "save.preview.download": "Download GEDCOM",
   "save.preview.removeChange": "Remove from Save",
-  "save.toast": "Saved — {{count}} file(s) downloaded.",
+  "save.toast_one": "Saved — {{count}} file downloaded.",
+  "save.toast_other": "Saved — {{count}} files downloaded.",
   "match.failed": "Matching failed: {{message}}",
   "persist.writeFailed": "Could not save the workspace cache — restore on reload may not work until storage frees up.",
   "edit.charts.button": "Charts",

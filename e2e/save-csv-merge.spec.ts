@@ -53,6 +53,9 @@ test("save after a matches-CSV merge downloads both files", async ({ page }) => 
   await expect(saveBtn).toBeEnabled();
   await saveBtn.click();
 
+  // The change report is opt-in, so ask for it — this save covers both files.
+  await page.locator(".preview-report-toggle input").check();
+
   const ged = page.waitForEvent("download", (d) => d.suggestedFilename().endsWith(".ged"));
   const report = page.waitForEvent("download", (d) => d.suggestedFilename().endsWith(".report.txt"));
   await page.locator(".preview-actions .export-btn").click();

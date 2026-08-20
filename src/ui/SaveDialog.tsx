@@ -13,6 +13,11 @@ import { charsetNotices } from "./charsetNotice";
 import { SourceRefs } from "./SourceRef";
 import { LinkIcons } from "./FieldValue";
 import type { Translate } from "../locales/i18n";
+import { useSetSettings, useSettingsSlice, type AppSettings } from "./SettingsContext";
+
+/** The one preference this dialog reads (and writes): whether the save also
+ *  downloads the change report. */
+const SAVE_REPORT_KEYS = ["saveReport"] as const satisfies readonly (keyof AppSettings)[];
 
 /** A change with no text value — it carries only source/link icons to render inline. */
 function isIconChange(c: FieldChange): boolean {
@@ -42,6 +47,8 @@ function PrivateMark({ t, off }: { t: Translate; off?: boolean }) {
 interface Props {
   report: ChangeReport;
   title: string;
+  /** The save's filenames: the GEDCOM first, then the change report — which is
+   *  written only when the reader ticks it (see {@link AppSettings.saveReport}). */
   files: string[];
   downloadLabel: string;
   /** Confirm the download. Takes the vendor tags this dialog just stripped from
@@ -94,6 +101,13 @@ export function SaveDialog({
 }: Props) {
   const { t, i18n } = useTranslation();
   const modalRef = useModalKeyboard(true, onClose);
+  const { saveReport } = useSettingsSlice(SAVE_REPORT_KEYS);
+  const setSettings = useSetSettings();
+
+  // `files` is [GEDCOM, change report]; the report leaves with the file only
+  // when the reader has asked for it.
+  const reportFile = files[1];
+  const downloadedFiles = saveReport ? files : files.filter((f) => f !== reportFile);
 
   const groups = useMemo(() => groupByRecord(report), [report]);
 
@@ -457,10 +471,23 @@ export function SaveDialog({
           <section className="preview-files">
             <p>{t("preview.files")}</p>
             <ul>
-              {files.map((f) => (
+              {downloadedFiles.map((f) => (
                 <li key={f}><code>{f}</code></li>
               ))}
             </ul>
+            {reportFile && (
+              // The report repeats, as a text file, what this dialog has just
+              // shown — so it is offered rather than written by default, the
+              // more so as some browsers drop the second of two downloads.
+              <label className="preview-report-toggle">
+                <input
+                  type="checkbox"
+                  checked={saveReport}
+                  onChange={(e) => setSettings({ saveReport: e.target.checked })}
+                />
+                <span>{t("preview.saveReport")}</span>
+              </label>
+            )}
             <p className="preview-note">{t("preview.untouched")}</p>
           </section>
         </div>
