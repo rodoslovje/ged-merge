@@ -4,7 +4,7 @@ import { sourceCitationKey } from "../gedcom/source";
 import { decomposePlace } from "../gedcom/place";
 import { compareKey, foldToken } from "../match/text";
 import { canonicalPlaceToken, placeCompareKey } from "../match/place";
-import { comparableName, dateCompareKey, givenSimilarity, nameSimilarity } from "../match/similarity";
+import { PARENT_GIVEN_CONFLICT, comparableName, dateCompareKey, givenSimilarity, nameSimilarity } from "../match/similarity";
 import { findEvent, fullDatesLabel, lifespanLabel, displayName, nameTypeLabel } from "../match/relatives";
 import { birthDateOf, formatLifespan, isDeceased } from "../gedcom/lifespan";
 import { dateToSortKey, parseDate } from "../gedcom/date";
@@ -816,6 +816,17 @@ function relativeCell(r: Relative): RelativeCell {
 export const RELATIVE_PAIR_THRESHOLD = 0.85;
 
 /**
+ * How far two *exact* birth years may sit apart before the gap is read as
+ * "different children" rather than as a discrepancy over one child. A year
+ * taken off a baptism a season later, or a transcription slip, moves a birth
+ * by a year or two — Katarina 1803 against her own record as Catharina 1805 —
+ * so the pairing tolerates that much while a wider gap still pulls same-named
+ * siblings apart. Kept just under `SAME_PERSON_YEAR_GAP` (±3), the record-level
+ * bar the matcher itself applies to one person's two records.
+ */
+const EXACT_YEAR_TOLERANCE = 2;
+
+/**
  * How alike two individuals look *as relatives* — the same name + birth-year
  * signal that aligns partners and children in the review table, exposed so
  * other views pair people the same way (the compare tree falls back to it for
@@ -911,7 +922,8 @@ function datesIdentify(a: Relative, b: Relative): boolean {
  * + surname) is the base signal; birth year then nudges the score so the pairing
  * lines people up by name *and* birth: a shared birth year rescues a borderline
  * name match (spelling variants of the same child), while diverging birth years
- * pull same-named siblings apart so they don't collapse onto one line.
+ * pull same-named siblings apart so they don't collapse onto one line. The
+ * year only ever corroborates a name that already agrees — see the guard below.
  */
 function relativeSimilarity(a: Relative, b: Relative): number {
   // Placeholders ("NN", "?", "Living") name nobody, so they count as missing
@@ -936,8 +948,16 @@ function relativeSimilarity(a: Relative, b: Relative): number {
   // it shouldn't count as heavily against the pairing as a gap between two
   // exact dates would — mirrors the wider tolerance dateSimilarity gives
   // approximate dates.
-  const tolerance = a.birthApprox || b.birthApprox ? 10 : 1;
-  const birthAdjust = gap === 0 ? 0.15 : gap <= tolerance ? 0.05 : -0.25;
+  const tolerance = a.birthApprox || b.birthApprox ? 10 : EXACT_YEAR_TOLERANCE;
+  // The bonus is a *corroboration* of the name, never a substitute for it:
+  // siblings share a surname (0.6 of the name score) and the year they were
+  // born, so without this guard a shared 1803 lifted "Katarina"/"Agnes" — two
+  // different children — over the pairing bar, and consumed the incoming Agnes
+  // that her real counterpart Neža needed. Names that conflict outright
+  // (below the parent-band conflict line) get no credit for the year; they
+  // still take the full penalty when the years disagree.
+  const givenAgrees = givenSimilarity(an.given, bn.given) >= PARENT_GIVEN_CONFLICT;
+  const birthAdjust = gap > tolerance ? -0.25 : !givenAgrees ? 0 : gap === 0 ? 0.15 : 0.05;
   return Math.max(0, Math.min(1, nameSim + birthAdjust));
 }
 

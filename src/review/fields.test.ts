@@ -1543,6 +1543,54 @@ describe("aligned relative lists (children/partners)", () => {
     expect(i[line1850]).toBe(""); // the 1850 sibling stays unmatched
   });
 
+  // A Slovenian tree against the Latin parish register it was read from: the
+  // main children carry the Slovenian names, the incoming ones the Latin forms.
+  describe("children named in Latin on one side", () => {
+    const famC = (kids: { name: string; year: string }[]) =>
+      `0 HEAD\n0 @H@ INDI\n1 NAME Janez /Sajovic/\n1 SEX M\n1 FAMS @F@\n` +
+      kids
+        .map((k, i) => `0 @K${i}@ INDI\n1 NAME ${k.name}\n1 BIRT\n2 DATE ${k.year}\n1 FAMC @F@\n`)
+        .join("") +
+      `0 @F@ FAM\n1 HUSB @H@\n` +
+      kids.map((_, i) => `1 CHIL @K${i}@\n`).join("") +
+      `0 TRLR\n`;
+
+    const md = dataset(famC([
+      { name: "Neža /Sajovic/", year: "1803" },
+      { name: "Katarina /Sajovic/", year: "1803" },
+      { name: "Jurij /Sajovic/", year: "1808" },
+    ]));
+    const cd = dataset(famC([
+      { name: "Agnes /Sajoviz/", year: "1803" },
+      { name: "Catharina /Sajouz/", year: "1805" },
+      { name: "Georgius /Sajoviz/", year: "1808" },
+    ]));
+    const children = byKey(
+      individualFieldRows(tr, md.individuals.get("@H@"), cd.individuals.get("@H@"), md, cd),
+      "fam.@F@.children",
+    )!;
+    const lineOf = (name: string) => children.main.split("\n").findIndex((l) => l.includes(name));
+    const incoming = children.incoming.split("\n");
+
+    it("pairs a child with her name's Latin form", () => {
+      expect(incoming[lineOf("Neža")]).toContain("Agnes");
+      expect(incoming[lineOf("Jurij")]).toContain("Georgius");
+    });
+
+    // Katarina and Catharina are one child recorded a birth year apart on
+    // either side of the tolerance; before, the 2-year gap outweighed the name.
+    it("pairs one child across a birth year read two years apart", () => {
+      expect(incoming[lineOf("Katarina")]).toContain("Catharina");
+    });
+
+    // Agnes shares Katarina's 1803 but not her name: the year alone must not
+    // pair them, or it consumes the incoming child Neža needs.
+    it("does not let a shared birth year pair two differently named children", () => {
+      expect(incoming[lineOf("Katarina")]).not.toContain("Agnes");
+      expect(children.incoming.split("\n").filter((l) => l.includes("Agnes")).length).toBe(1);
+    });
+  });
+
   // Children listed in non-chronological order in the file are shown sorted by birth.
   it("lists children sorted by birth date", () => {
     const text =
