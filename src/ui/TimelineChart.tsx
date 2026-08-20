@@ -290,32 +290,30 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
       ? { date: settings.showMarriageDate, place: settings.showMarriagePlace }
       : undefined;
 
-  /** One row's second (muted) label line: lifespan · place · role. The root
-   *  person carries no role chip — the highlight already marks them. The
-   *  kinship-to-start renders as its own lineage-coloured tspan after this. */
+  /** One row's second (muted) label line: lifespan · place. The role chip is
+   *  {@link rowRole}, rendered as its own tspan after this so it can carry the
+   *  blood-lineage colour; the kinship-to-start tspan follows it in turn. */
   const rowMeta = (row: TimelineRow): string => {
-    // "Great-grandmother" says what "Ancestor" cannot, and the kinship resolver
-    // already speaks both languages; the plain role stays as the fallback for a
-    // line it can't name (an adoptive step it doesn't follow, say).
-    const role =
-      row.role === "person"
-        ? undefined
-        : row.role === "ancestor" || row.role === "descendant"
-          ? rootKinship.label(row.id) || t(`timeline.role.${row.role}`)
-          : t(`timeline.role.${roleKey(row)}`);
-    if (redacted(row)) return role ?? "";
+    if (redacted(row)) return "";
     const age = lifespanAge(mainDs.individuals.get(row.id));
     const lifespan = lifespanLine(settings, {
       years: row.years,
       age,
       ageText: age !== undefined ? ageStandalone(t, row.sex, age) : undefined,
     });
-    const parts = [
-      lifespan,
-      settings.showPlace ? row.place : undefined,
-      role,
-    ].filter(Boolean);
-    return parts.join(" · ");
+    return [lifespan, settings.showPlace ? row.place : undefined].filter(Boolean).join(" · ");
+  };
+  /** The row's role chip. The root person carries none — the highlight already
+   *  marks them. "Great-grandmother" says what "Ancestor" cannot, and the
+   *  kinship resolver already speaks both languages; the plain role stays as
+   *  the fallback for a line it can't name (an adoptive step it doesn't
+   *  follow, say). Coloured by blood lineage from the root, like the kinship
+   *  labels on the tree charts (paternal blue / maternal purple). */
+  const rowRole = (row: TimelineRow): string | undefined => {
+    if (row.role === "person") return undefined;
+    return row.role === "ancestor" || row.role === "descendant"
+      ? rootKinship.label(row.id) || t(`timeline.role.${row.role}`)
+      : t(`timeline.role.${roleKey(row)}`);
   };
 
   return (
@@ -374,6 +372,8 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
                 {rows.map((row, i) => {
                   const y = AXIS_H + i * rowH;
                   const hidden = redacted(row);
+                  const meta = rowMeta(row);
+                  const role = rowRole(row);
                   const color = row.role === "person" ? COLOR_PERSON : COLOR_FAMILY;
                   const barX = row.from !== undefined ? geom.xOf(row.from) : 0;
                   const barW = row.from !== undefined && row.to !== undefined
@@ -532,7 +532,18 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
                           edge — just above the bar — so both read as one block. */}
                       <text className="timeline-row-name" x={nameX} y={photosOn ? PHOTO_Y + PHOTO_SIZE : 16} style={{ fill: sexColorVar(row.sex) }}>
                         {rowName(row)}
-                        <tspan className="timeline-row-meta" dx={8}>{rowMeta(row)}</tspan>
+                        {meta && <tspan className="timeline-row-meta" dx={8}>{meta}</tspan>}
+                        {/* The role chip, coloured by blood lineage from the
+                            chart root — non-relatives (spouses, families) get
+                            no lineage and stay muted. */}
+                        {role && (
+                          <tspan
+                            className={`timeline-row-meta timeline-row-kinship ${lineageClass(rootKinship.lineage(row.id))}`}
+                            dx={8}
+                          >
+                            {meta ? `· ${role}` : role}
+                          </tspan>
+                        )}
                         {/* Kinship-to-start in its own tspan, coloured by blood
                             lineage (paternal blue / maternal purple) like the
                             tree charts, so it reads apart from the role chip. */}
