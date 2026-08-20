@@ -105,24 +105,24 @@ test("one undo puts the whole cluster back", async ({ page }) => {
   await expect(page.locator(".tools-dup-cluster-head")).toHaveCount(0);
 
   // The whole-file search sees the live dataset: one of each is left.
-  const search = async (name: string) => {
+  /** Assert on the number of hits, waiting for the list to reach it: counting
+   *  the rows once, as soon as the first is visible, read a list that was
+   *  still filling in whenever the machine was busy. */
+  const expectHits = async (name: string, hits: number) => {
     await page.getByRole("button", { name: "Search everyone" }).click();
     const modal = page.locator(".global-search-modal");
     await modal.locator(".global-search-input").fill(name);
-    const rows = modal.locator(".global-search-row");
-    await expect(rows.first()).toBeVisible();
-    const count = await rows.count();
+    await expect(modal.locator(".global-search-row")).toHaveCount(hits);
     await page.keyboard.press("Escape");
     await expect(modal).toHaveCount(0);
-    return count;
   };
-  expect(await search("Frančiška Stopar")).toBe(1);
+  await expectHits("Frančiška Stopar", 1);
 
   // Four merges ran (two wives, two husbands) as one entry, so a single undo
   // answers for all of them — and leaves nothing further to undo.
   await page.keyboard.press("Control+z");
   await expect(page.getByRole("button", { name: "Undo" })).toBeDisabled();
 
-  expect(await search("Frančiška Stopar")).toBe(3);
-  expect(await search("Franc Stopar")).toBe(6); // three of each, all matching both words
+  await expectHits("Frančiška Stopar", 3);
+  await expectHits("Franc Stopar", 6); // three of each, all matching both words
 });
