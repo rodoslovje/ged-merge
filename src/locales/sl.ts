@@ -1318,7 +1318,7 @@ export const sl = {
   "preview.privateRemoved": "Ni več zasebno — to bo objavljeno.",
   "preview.undescribedHint": "Ta zapis bo v shranjeni datoteki drugačen, kot je bil ob nalaganju. Sprememba ne izvira iz tu naštetih urejanj, zato zanjo ni opisa po posameznih poljih.",
   "preview.grafted": "Povezano z osebo, ki jo že imate",
-  "preview.graftedHint": "Te osebe so bile pri združevanju po samodejnem predlogu prepoznane kot osebe, ki jih vaša datoteka že ima — teh ujemanj niste potrdili sami. Njihovi sorodniki so zato pripeti na vaše obstoječe zapise in niso uvoženi kot dvojniki. Če katera od teh oseb v resnici ni ista, kliknite njeno vrstico: shranjevanje se prekliče, ujemanje pa se odpre, da ga zavrnete z gumbom Zavrni.",
+  "preview.graftedHint": "Teh ujemanj niste potrdili sami — program je pri združevanju presodil, da te vhodne osebe v vaši datoteki že obstajajo. Njihove sorodnike je zato pripel na vaše obstoječe zapise in nikogar ni uvozil dvakrat. Če katera od teh oseb v resnici ni ista, kliknite njeno vrstico: shranjevanje se prekliče, ujemanje pa se odpre, da ga zavrnete.",
   "preview.graftedOpen": "Odpri to ujemanje",
   "preview.notMerged": "Ohranjeni vaši podatki",
   "preview.notMergedHint": "Na teh mestih se vhodni podatki razlikujejo od vaših. Obveljali so vaši — nič ni bilo prepisano ali izgubljeno.",

@@ -231,7 +231,7 @@
               <li><strong>Oznake datotek</strong> — imeni naložene glavne in vhodne datoteke. Klik na oznako pokaže ali zamenja datoteko. Na telefonu sta imeni v meniju <span class="gm-glyph">☰</span>.</li>
               <li><strong>Razveljavi / Ponovi</strong> — ena skupna zgodovina za urejanja in odločitve o združevanju (<span class="gm-key">Ctrl</span><span class="gm-key">Z</span> / <span class="gm-key">Ctrl</span><span class="gm-key">Shift</span><span class="gm-key">Z</span>).</li>
               <li><strong>Shrani GEDCOM</strong> — predogled in prenos sprememb (<span class="gm-key">Ctrl</span><span class="gm-key">S</span>).</li>
-              <li><strong>Poišči kogar koli</strong> — gumb <span class="gm-glyph">⌕</span> (ali <span class="gm-key">/</span>) najde katero koli osebo v datoteki po imenu — dovolj so začetne črke vsakega dela, v poljubnem vrstnem redu in brez šumnikov, tako da <em>sebas kala</em> najde Sebastjana Kalana; enako bere ime tudi vsako drugo iskalno polje (izbirniki sorodnikov, izhodiščna oseba, iskanje v diagramu, seznam ujemanj); <span class="gm-key">Enter</span> jo odpre, <span class="gm-key">Shift</span><span class="gm-key">Enter</span> odpre njene diagrame. Ko je povezana mapa z mediji (<a href="#photos">§12</a>), se ob vsakem zadetku pokaže tudi fotografija osebe — njeno označeno območje na skupinski fotografiji — tako da soimenjake ločite na prvi pogled. <strong>Filtri</strong> zožijo pogosto ime: spol, razpon letnic rojstva, kraj, ali ima oseba povezave, opombe ali vire, ali ste jo urejali, njena odločitev pri združevanju in kako blizu je vaši <a href="#home-person">izhodiščni osebi</a> (<a href="#home-person">§7</a>). Če iskanje ne najde nikogar, ponudi, da <strong>vpisano ime dodate</strong> kot novo osebo.</li>
+              <li><strong>Poišči kogar koli</strong> — gumb <span class="gm-glyph">⌕</span> (ali <span class="gm-key">/</span>) najde katero koli osebo v datoteki po imenu — dovolj so začetne črke vsakega dela, v poljubnem vrstnem redu in brez šumnikov, tako da <em>sebas kala</em> najde Sebastjana Kalana; enako bere ime tudi vsako drugo iskalno polje (izbirniki sorodnikov, izhodiščna oseba, iskanje v diagramu, seznam ujemanj); <span class="gm-key">Enter</span> jo odpre, <span class="gm-key">Shift</span><span class="gm-key">Enter</span> odpre njene diagrame. Ko je povezana mapa z mediji (<a href="#photos">§12</a>), se ob vsakem zadetku pokaže tudi sličica osebe — na skupinski fotografiji njeno označeno območje — zato soimenjake ločite na prvi pogled. <strong>Filtri</strong> zožijo pogosto ime: spol, razpon letnic rojstva, kraj, ali ima oseba povezave, opombe ali vire, ali ste jo urejali, njena odločitev pri združevanju in kako blizu je vaši <a href="#home-person">izhodiščni osebi</a> (<a href="#home-person">§7</a>). Če iskanje ne najde nikogar, ponudi, da <strong>vpisano ime dodate</strong> kot novo osebo.</li>
               <li><strong>Dodaj novo osebo</strong> — gumb <span class="gm-glyph">＋</span> (ali <span class="gm-key">N</span>) ustvari osebo brez povezav, iz katerega koli načina — glejte <a href="#edit">§8</a>.</li>
               <li><strong>Nastavitve</strong> — meni <span class="gm-glyph">⚙</span> vsebuje jezik in videz, prikaz imen in zapisov, pravila datoteke GEDCOM, zemljevid in napredne možnosti — glejte <em>Nastavitve</em> spodaj.</li>
             </ul>
@@ -2202,11 +2202,12 @@
               osebo, ki jo vaša datoteka že ima, je program njene sorodnike povezal z vašim zapisom, namesto da bi isto
               osebo dodal še enkrat. Na vaš zapis se pri tem ni preneslo nič — dodane so bile le družinske povezave.
               Ker pa je o istovetnosti odločil program in ne vi, je vsak tak par tu izpisan, dokler shranjevanje še
-              lahko prekličete. Če kateri par ni ista oseba, kliknite njegovo vrstico — shranjevanje se prekliče,
-              ujemanje pa se odpre, da ga zavrnete — in shranite znova. Predlaganega ujemanja, ki mu zapisa sama
-              nasprotujeta — osebi nimata nobenega skupnega imena ali pa sta letnici rojstva preveč narazen — program
-              sploh ne uporabi; ne uporabi pa tudi ujemanja, ki za presojo ne ponudi ničesar, na primer zakonca,
-              zapisanega zgolj s priimkom in brez letnic. Taka oseba je uvožena kot svoj zapis.
+              lahko prekličete. Če osebi v katerem od parov v resnici nista isti, kliknite vrstico para:
+              shranjevanje se prekliče, ujemanje pa se odpre, da ga zavrnete in shranite znova. Predlaganega ujemanja,
+              ki mu zapisa sama nasprotujeta — osebi nimata nobenega skupnega imena ali pa sta letnici rojstva preveč
+              narazen — program sploh ne uporabi. Ne uporabi pa niti ujemanja, pri katerem ni na čem presoditi, ali gre
+              za isto osebo: tak je zakonec, zapisan zgolj s priimkom, brez imena in letnic. Taka oseba je uvožena kot
+              svoj zapis.
             </p>
             <p>
               Števila na vrhu predogleda štejejo tisto, kar je našteto pod njimi: spremenjene zapise, uporabljena polja
