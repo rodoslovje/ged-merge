@@ -3,16 +3,17 @@ import {
   addObjeToSource,
   attachSourceCitation,
   bumpSourceCacheVersion,
+  createMediaRecord,
   EDITABLE_LINK_TAGS,
   EVENT_CHILD_ORDER,
   EVENT_LINK_TAG,
+  getSourceLookup,
   INDI_CHILD_ORDER,
   insertGrouped,
   insertOrdered,
   insertRecord,
   markEventTouched,
   NAME_CHILD_ORDER,
-  nextXref,
   writeNameValue,
 } from "../gedcom/edit";
 import { findExistingSource, newSourceCitations, sourceContentKey } from "../gedcom/source";
@@ -371,7 +372,10 @@ export function applyLinks(
     const key = linkKey(url);
     if (existing.has(key)) continue;
     existing.add(key);
-    const sourceMatch = findExistingSource(records, url);
+    // The cached lookup makes this O(1) per link instead of a full-forest
+    // scan; addObjeToSource/createMediaRecord bump the cache version, so a
+    // page OBJE minted for one link is visible to the next link's lookup.
+    const sourceMatch = findExistingSource(records, url, undefined, getSourceLookup(records));
     if (sourceMatch) {
       if (!sourceMatch.objeXref) addObjeToSource(records, sourceMatch.sourceXref, url);
       attachSourceCitation(target, sourceMatch.sourceXref, sourceMatch.page, INDI_CHILD_ORDER);
@@ -384,9 +388,10 @@ export function applyLinks(
 }
 
 /**
- * Build a new link node for `url`, shaped per `format`. For "OBJE", also
- * appends a new top-level `OBJE` record holding the URL in `FILE` and returns
- * a pointer to it.
+ * Build a new link node for `url`, shaped per `format`. For "OBJE", the
+ * shared `createMediaRecord` mints the top-level record — same FORM habit,
+ * record grouping, xref bookkeeping and cache bump as an editor-added one —
+ * and this returns a pointer to it.
  */
 function buildLinkNode(format: LinkFormat, url: string, records: GedNode[], reservedXrefs?: ReadonlySet<string>): GedNode {
   if (format === "WEBTAG") {
@@ -395,14 +400,8 @@ function buildLinkNode(format: LinkFormat, url: string, records: GedNode[], rese
     return webtag;
   }
   if (format === "OBJE") {
-    const xref = nextXref(records, "O", reservedXrefs);
-    const obje = newNode("OBJE", undefined, xref);
-    obje.children.push(newNode("FILE", url));
-    // Insert before TRLR (which must stay last) rather than appending.
-    const trlrIndex = records.findIndex((r) => r.tag === "TRLR");
-    if (trlrIndex === -1) records.push(obje);
-    else records.splice(trlrIndex, 0, obje);
-    return newNode("OBJE", xref);
+    const obje = createMediaRecord(records, url, undefined, reservedXrefs);
+    return newNode("OBJE", obje.xref);
   }
   return newNode("WWW", url);
 }
@@ -782,7 +781,7 @@ export function applyEventSources(
       existing.add(key);
       // A link into a paginated archive book the main already cites as a
       // SOUR is attached as a citation instead of becoming a disconnected link.
-      const sourceMatch = findExistingSource(records, url);
+      const sourceMatch = findExistingSource(records, url, undefined, getSourceLookup(records));
       if (sourceMatch) {
         if (!sourceMatch.objeXref) addObjeToSource(records, sourceMatch.sourceXref, url);
         attachSourceCitation(event, sourceMatch.sourceXref, sourceMatch.page, EVENT_CHILD_ORDER);
@@ -1133,6 +1132,9 @@ export function importSourRecords(
       changed = true;
     }
   }
+  // The inserted SOUR/OBJE/REPO records stale any cached source lookup/index
+  // a later pass over this same array would otherwise reuse.
+  if (importedNodes.length) bumpSourceCacheVersion(records);
   return importedNodes;
 }
 

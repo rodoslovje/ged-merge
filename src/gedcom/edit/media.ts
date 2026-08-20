@@ -34,13 +34,20 @@ function prefersFileForm(records: GedNode[]): boolean {
 /** Create a new top-level `OBJE` record whose `FILE` is `url`/`file` (with an
  * optional `TITL`), and add it to `records`. The `FILE` carries the `FORM`
  * the spec asks for, unless the file's own habit is to omit it. */
-export function createMediaRecord(records: GedNode[], url: string, title?: string): GedNode {
+export function createMediaRecord(
+  records: GedNode[],
+  url: string,
+  title?: string,
+  /** Xrefs promised elsewhere (the merge's pending shared-record imports)
+   *  that the fresh id must skip — see `nextXref`. */
+  reserved?: ReadonlySet<string>,
+): GedNode {
   const fileNode: GedNode = { level: 1, tag: "FILE", value: url, children: [] };
   const form = prefersFileForm(records) ? fileFormOf(url) : undefined;
   if (form) fileNode.children.push({ level: 2, tag: "FORM", value: form, children: [] });
   const raw: GedNode = {
     level: 0,
-    xref: nextXref(records, "O"),
+    xref: nextXref(records, "O", reserved),
     tag: "OBJE",
     children: [fileNode],
   };

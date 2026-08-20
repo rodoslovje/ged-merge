@@ -1043,6 +1043,41 @@ describe("mergeDecisions — links", () => {
     expect(report.changes.some((c) => c.links?.some((l) => l.includes("pg=58")))).toBe(true);
   });
 
+  it("two people bringing the same new page in one merge share the OBJE the first one minted", () => {
+    // The cached source lookup must see the page OBJE created moments earlier
+    // in the same merge — a stale lookup would mint a duplicate OBJE for the
+    // second person's copy of the same link.
+    const main = dataset(
+      wrap(
+        "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n" +
+          "0 @I2@ INDI\n1 NAME Ana /Kos/\n1 SEX F\n" +
+          "0 @S1@ SOUR\n1 TITL Krstna knjiga - Šenčur\n1 OBJE @O1@\n" +
+          "0 @O1@ OBJE\n1 FILE https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03173/?pg=56\n",
+      ),
+    );
+    // Twins on one register page: both compare records link the same new
+    // page (in different UI languages), each merged onto its own main person.
+    const compare = dataset(
+      wrap(
+        "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n" +
+          "1 WWW https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03173/?pg=58\n" +
+          "0 @P2@ INDI\n1 NAME Ana /Kos/\n1 SEX F\n" +
+          "1 WWW https://data.matricula-online.eu/de/slovenia/ljubljana/sencur/03173/?pg=58\n",
+      ),
+    );
+    const decisions = new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: { links: "both" } }],
+      [decisionKey("individual", "@I2@", "@P2@"), { status: "confirmed", fields: { links: "both" } }],
+    ]);
+    const { records } = mergeDecisions(main, compare, decisions, NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    // Both people gained a citation of the one book…
+    expect(out.match(/1 SOUR @S1@\n2 PAGE 58/g)).toHaveLength(2);
+    // …and exactly one OBJE record holds the new page.
+    expect(out.match(/0 @S\d+@ SOUR/g)).toHaveLength(1);
+    expect(out.match(/1 FILE [^\n]*pg=58/g)).toHaveLength(1);
+  });
+
 });
 
 describe("mergeDecisions — SOUR/REPO import", () => {

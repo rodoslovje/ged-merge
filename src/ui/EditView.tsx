@@ -44,6 +44,7 @@ import {
   detachSpouseRole,
   FAM_CHILD_ORDER,
   getMediaAndSourceCtx,
+  getSourceLookup,
   EVENT_CHILD_ORDER,
   INDI_CHILD_ORDER,
   insertOrdered,
@@ -1012,7 +1013,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
         film: fields.filingNumber,
         collection: fields.collection,
         image: fields.page,
-      });
+      }, getSourceLookup(dataset.records));
       if (match) {
         const extraPatches: RecordPatch[] = [];
         let pageObjeXref = match.objeXref;

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parseGedcom } from "./parser";
 import { buildDataset } from "./builder";
-import { buildObjeIndex, cropOf, findExistingSource, inferSourceFormat, objeInfoOf, objeNodesFor, sourceContentKey } from "./source";
+import { buildObjeIndex, buildSourceLookup, cropOf, findExistingSource, inferSourceFormat, objeInfoOf, objeNodesFor, sourceContentKey, type FsSourceHint } from "./source";
 import type { GedNode } from "./types";
 
 function buildFromText(text: string) {
@@ -707,6 +707,35 @@ describe("resolveSourceCitation with a CONC-wrapped FILE", () => {
       exact: true,
       objeXref: "@O1@",
     });
+  });
+});
+
+describe("buildSourceLookup parity with the per-call scan", () => {
+  it("answers exact / book / film / collection / none identically with and without a prebuilt lookup", () => {
+    const ds = buildFromText(`0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @S1@ SOUR
+1 TITL Krstna knjiga
+1 OBJE @O1@
+0 @S2@ SOUR
+1 TITL Slovenia Church Books, 1547-1945
+1 FILN 007548250
+0 @O1@ OBJE
+1 FILE https://data.matricula-online.eu/sl/x/04120/?pg=42
+0 TRLR
+`);
+    const lookup = buildSourceLookup(ds.records);
+    const cases: Array<[string, FsSourceHint | undefined]> = [
+      ["https://data.matricula-online.eu/de/x/04120/?pg=42", undefined], // exact (language variant)
+      ["https://data.matricula-online.eu/sl/x/04120/?pg=57", undefined], // same book, new page
+      ["https://www.familysearch.org/ark:/61903/3:1:ABC?cat=7548250&i=4", undefined], // film
+      ["https://www.familysearch.org/ark:/61903/3:1:DEF?i=2", { collection: "Slovenia Church Books, 1547-1945" }],
+      ["https://example.com/elsewhere", undefined], // no match
+    ];
+    for (const [url, hint] of cases) {
+      expect(findExistingSource(ds.records, url, hint, lookup)).toEqual(findExistingSource(ds.records, url, hint));
+    }
   });
 });
 
