@@ -6,6 +6,7 @@ import { ageStandalone, formatMarriage, lifespanLine, livingLabelFor } from "../
 import { lifespanAge } from "../gedcom/age";
 import { PAD, type ChartNode } from "../chart/treeLayout";
 import { useTreeCanvas } from "./useTreeCanvas";
+import { ChartZoom } from "./ChartZoom";
 import { ChartFindBox } from "./ChartFindBox";
 import { useChartFind } from "./useChartFind";
 import { createKinshipResolver, lineageClass } from "../match/kinship";
@@ -353,7 +354,8 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
       <div className="tree-canvas-wrap">
         <div className={`tree-canvas${panning ? " panning" : ""}`} ref={canvasRef} {...canvasProps}>
           {laid && geom ? (
-            <svg className="tree-svg" width={laid.width * zoom} height={laid.height * zoom} viewBox={`0 0 ${laid.width} ${laid.height}`} role="img">
+            <ChartZoom width={laid.width} height={laid.height} zoom={zoom}>
+            <svg className="tree-svg" width={laid.width} height={laid.height} viewBox={`0 0 ${laid.width} ${laid.height}`} role="img">
               <g transform={`translate(${PAD},${PAD})`}>
                 {/* Year ruler + vertical decade grid. */}
                 {geom.ticks.map((year) => (
@@ -551,6 +553,7 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
                 })}
               </g>
             </svg>
+            </ChartZoom>
           ) : (
             <p className="muted">{t("timeline.empty")}</p>
           )}

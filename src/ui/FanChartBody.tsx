@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import type { GedNode } from "../gedcom/types";
 import { PAD } from "../chart/treeLayout";
@@ -23,9 +23,6 @@ export interface FanBadge {
 
 interface Props {
   chart: FanChart;
-  /** Canvas zoom (1 = native): scales the rendered SVG while the `viewBox` stays
-   *  native, so the radial chart stays crisp at any scale. */
-  zoom?: number;
   /** State colour for a node's wedge border + tinted fill (matches `TreeNodeBox`). */
   colorOf: (node: TreeNode) => string;
   selectedKey: string | null;
@@ -72,9 +69,11 @@ const arcId = (seg: FanSegment, i: number) => `fa-${seg.gen}-${seg.slot}-${i}`;
  * curves along the ring (or reads radially on the narrow outer rings), an
  * optional inner-ring photo rotated to the arc, and an optional status badge.
  */
-export function FanChartBody({
+// Memoized like TreeSvg: the canvas re-renders on every scroll/zoom tick, and
+// the wedges + curved text must not re-diff for any of that. Zoom is applied
+// by the ChartZoom wrapper, so no prop here changes with it.
+export const FanChartBody = memo(function FanChartBody({
   chart,
-  zoom = 1,
   colorOf,
   selectedKey,
   onSelect,
@@ -125,7 +124,7 @@ export function FanChartBody({
     return undefined;
   };
   return (
-    <svg className="tree-svg" width={chart.width * zoom} height={chart.height * zoom} viewBox={`0 0 ${chart.width} ${chart.height}`} role="img">
+    <svg className="tree-svg" width={chart.width} height={chart.height} viewBox={`0 0 ${chart.width} ${chart.height}`} role="img">
       <g transform={`translate(${PAD},${PAD})`}>
         {/* Per-line baselines the curved labels ride on. Kept in the same
             translated group as the wedges so their coordinates line up. */}
@@ -178,7 +177,7 @@ export function FanChartBody({
       </g>
     </svg>
   );
-}
+});
 
 function Segment({
   seg,

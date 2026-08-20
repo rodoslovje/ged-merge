@@ -21,6 +21,7 @@ import {
   type TreeNode,
 } from "../chart/personTree";
 import { useFanChart } from "./useFanChart";
+import { ChartZoom } from "./ChartZoom";
 import { FanChartBody } from "./FanChartBody";
 import {
   flatten,
@@ -433,6 +434,12 @@ export function CompareTree({
     [radial, fan, flat],
   );
   const rerootMain = useCallback((id: string) => onReroot(id, undefined), [onReroot]);
+  // Identity-stable across renders — the chart bodies are memoized, and an
+  // inline arrow here would void that on every zoom/scroll tick.
+  const hiddenJump = useCallback(
+    (n: TreeNode) => { if (n.main) onReroot(n.main.id, n.incoming?.id); },
+    [onReroot],
+  );
   const find = useChartFind(findSources, mainDs.individuals, revealNode, rerootMain);
 
   // +/− zoom, 0 reset, F fit, A/D direction, digits 1–4 for the chart kind.
@@ -542,51 +549,53 @@ export function CompareTree({
         >
           {radial ? (
             fan ? (
-              <FanChartBody
-                chart={fan}
-                zoom={zoom}
-                colorOf={colorOf}
-                selectedKey={selectedKey}
-                flashKey={find.hitKey}
-                onSelect={selectNode}
-                mainRecords={mainDs.records}
-                compareRecords={compareDs.records}
-                mainRefCtx={mainRefCtx}
-                compareRefCtx={compareRefCtx}
-                badgeOf={fanBadgeOf}
-                showRepeat
-                onRepeatJump={find.jumpTo}
-                hiddenTitle={hiddenTitle}
-                onHiddenJump={(n) => n.main && onReroot(n.main.id, n.incoming?.id)}
-              />
+              <ChartZoom width={fan.width} height={fan.height} zoom={zoom}>
+                <FanChartBody
+                  chart={fan}
+                  colorOf={colorOf}
+                  selectedKey={selectedKey}
+                  flashKey={find.hitKey}
+                  onSelect={selectNode}
+                  mainRecords={mainDs.records}
+                  compareRecords={compareDs.records}
+                  mainRefCtx={mainRefCtx}
+                  compareRefCtx={compareRefCtx}
+                  badgeOf={fanBadgeOf}
+                  showRepeat
+                  onRepeatJump={find.jumpTo}
+                  hiddenTitle={hiddenTitle}
+                  onHiddenJump={hiddenJump}
+                />
+              </ChartZoom>
             ) : (
               <p className="muted">{t("tree.empty")}</p>
             )
           ) : laid && flat ? (
-            <TreeSvg
-              flat={flat}
-              width={laid.width}
-              height={laid.height}
-              zoom={zoom}
-              selectedKey={selectedKey}
-              flashKey={find.hitKey}
-              onSelect={selectNode}
-              colorOf={colorOf}
-              badgeOf={badgeOf}
-              modifiedOf={isModified}
-              showRepeat
-              onRepeatJump={find.jumpTo}
-              hiddenTitle={hiddenTitle}
-              onHiddenJump={(n) => n.main && onReroot(n.main.id, n.incoming?.id)}
-              kinshipOf={kinshipOf}
-              lineageOf={lineageOf}
-              mainRecords={mainDs.records}
-              compareRecords={compareDs.records}
-              mainRefCtx={mainRefCtx}
-              compareRefCtx={compareRefCtx}
-              display={display}
-              nodeH={nodeH}
-            />
+            <ChartZoom width={laid.width} height={laid.height} zoom={zoom}>
+              <TreeSvg
+                flat={flat}
+                width={laid.width}
+                height={laid.height}
+                selectedKey={selectedKey}
+                flashKey={find.hitKey}
+                onSelect={selectNode}
+                colorOf={colorOf}
+                badgeOf={badgeOf}
+                modifiedOf={isModified}
+                showRepeat
+                onRepeatJump={find.jumpTo}
+                hiddenTitle={hiddenTitle}
+                onHiddenJump={hiddenJump}
+                kinshipOf={kinshipOf}
+                lineageOf={lineageOf}
+                mainRecords={mainDs.records}
+                compareRecords={compareDs.records}
+                mainRefCtx={mainRefCtx}
+                compareRefCtx={compareRefCtx}
+                display={display}
+                nodeH={nodeH}
+              />
+            </ChartZoom>
           ) : (
             <p className="muted">{t("tree.empty")}</p>
           )}

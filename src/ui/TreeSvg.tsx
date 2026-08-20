@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { useTranslation } from "react-i18next";
 import type { GedNode } from "../gedcom/types";
 import { NODE_W, PAD, type Flat, type Placed } from "../chart/treeLayout";
@@ -15,9 +16,6 @@ interface Props {
   flat: Flat;
   width: number;
   height: number;
-  /** Canvas zoom (1 = native): scales the rendered SVG while the `viewBox`
-   *  stays native, so the chart stays crisp at any scale. */
-  zoom: number;
   selectedKey: string | null;
   onSelect: (key: string) => void;
   /** Node just jumped to by find-in-chart; flashes so it's spotted at a glance. */
@@ -50,11 +48,13 @@ interface Props {
   nodeH: number;
 }
 
-export function TreeSvg({
+// Memoized: the canvas re-renders on every scroll/zoom tick (viewport state),
+// and this body — hundreds of node boxes — must not re-diff for any of that.
+// Zoom is applied by the ChartZoom wrapper, so no prop here changes with it.
+export const TreeSvg = memo(function TreeSvg({
   flat,
   width,
   height,
-  zoom,
   selectedKey,
   onSelect,
   flashKey,
@@ -77,7 +77,7 @@ export function TreeSvg({
   const { t } = useTranslation();
   const modifiedLetter = t("edit.tree.modified").charAt(0);
   return (
-    <svg className="tree-svg" width={width * zoom} height={height * zoom} viewBox={`0 0 ${width} ${height}`} role="img">
+    <svg className="tree-svg" width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img">
       <g transform={`translate(${PAD},${PAD})`}>
         {flat.edges.map((e) => (
           <path
@@ -169,4 +169,4 @@ export function TreeSvg({
       </g>
     </svg>
   );
-}
+});

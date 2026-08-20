@@ -13,6 +13,7 @@ import {
 import { useFanChart } from "./useFanChart";
 import { formatMarriage, lifespanLine, modeSummary } from "../chart/nodeDisplay";
 import { useTreeCanvas } from "./useTreeCanvas";
+import { ChartZoom } from "./ChartZoom";
 import { FanChartBody } from "./FanChartBody";
 import { collectFirstFilePath } from "./PersonMedia";
 import { useMediaFolder } from "./MediaFolderContext";
@@ -244,6 +245,16 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
     (n: TreeNode) => (n.main ? kinship?.label(n.main.id) : undefined),
     [kinship],
   );
+  const lineageOf = useCallback(
+    (n: TreeNode) => (n.main ? kinship?.lineage(n.main.id) : undefined),
+    [kinship],
+  );
+  // Identity-stable across renders — the chart bodies are memoized, and an
+  // inline arrow here would void that on every zoom/scroll tick.
+  const hiddenJump = useCallback(
+    (n: TreeNode) => { if (n.main) changeRoot(n.main.id); },
+    [changeRoot],
+  );
   const { fan, nodes: fanNodes, laid: fanLaid } = useFanChart(
     radial ? shown.ancestors : undefined,
     settings.type === "circle" ? "circle" : "fan",
@@ -394,44 +405,46 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
         >
           {radial ? (
             fan ? (
-              <FanChartBody
-                chart={fan}
-                zoom={zoom}
-                colorOf={colorOf}
-                selectedKey={selectedKey}
-                flashKey={find.hitKey}
-                onSelect={selectNode}
-                mainRecords={mainDs.records}
-                mainRefCtx={mainRefCtx}
-                showRepeat
-                onRepeatJump={find.jumpTo}
-                hiddenTitle={hiddenTitle}
-                onHiddenJump={(n) => n.main && changeRoot(n.main.id)}
-              />
+              <ChartZoom width={fan.width} height={fan.height} zoom={zoom}>
+                <FanChartBody
+                  chart={fan}
+                  colorOf={colorOf}
+                  selectedKey={selectedKey}
+                  flashKey={find.hitKey}
+                  onSelect={selectNode}
+                  mainRecords={mainDs.records}
+                  mainRefCtx={mainRefCtx}
+                  showRepeat
+                  onRepeatJump={find.jumpTo}
+                  hiddenTitle={hiddenTitle}
+                  onHiddenJump={hiddenJump}
+                />
+              </ChartZoom>
             ) : (
               <p className="muted">{t("tree.empty")}</p>
             )
           ) : laid && flat ? (
-            <TreeSvg
-              flat={flat}
-              width={laid.width}
-              height={laid.height}
-              zoom={zoom}
-              selectedKey={selectedKey}
-              flashKey={find.hitKey}
-              onSelect={selectNode}
-              colorOf={colorOf}
-              showRepeat
-              onRepeatJump={find.jumpTo}
-              hiddenTitle={hiddenTitle}
-              onHiddenJump={(n) => n.main && changeRoot(n.main.id)}
-              kinshipOf={(n) => (n.main ? kinship?.label(n.main.id) : undefined)}
-              lineageOf={(n) => (n.main ? kinship?.lineage(n.main.id) : undefined)}
-              mainRecords={mainDs.records}
-              mainRefCtx={mainRefCtx}
-              display={display}
-              nodeH={nodeH}
-            />
+            <ChartZoom width={laid.width} height={laid.height} zoom={zoom}>
+              <TreeSvg
+                flat={flat}
+                width={laid.width}
+                height={laid.height}
+                selectedKey={selectedKey}
+                flashKey={find.hitKey}
+                onSelect={selectNode}
+                colorOf={colorOf}
+                showRepeat
+                onRepeatJump={find.jumpTo}
+                hiddenTitle={hiddenTitle}
+                onHiddenJump={hiddenJump}
+                kinshipOf={fanKinshipOf}
+                lineageOf={lineageOf}
+                mainRecords={mainDs.records}
+                mainRefCtx={mainRefCtx}
+                display={display}
+                nodeH={nodeH}
+              />
+            </ChartZoom>
           ) : (
             <p className="muted">{t("tree.empty")}</p>
           )}

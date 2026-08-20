@@ -4966,6 +4966,14 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   stroke-width: 1.5;
 }
 .tree-svg { display: block; margin: auto; flex: 0 0 auto; }
+/* Zoom wrapper (ChartZoom): the outer div holds the scaled footprint inside the
+   flex canvas (auto margins centre a small chart, same as the bare SVG used to);
+   the inner div carries the native-size SVG scaled by CSS transform. Hidden
+   overflow keeps the inner's unscaled layout box (larger when zoomed out) from
+   inflating the canvas's scroll extents. (`.tree-zoom` is the zoom toolbar.) */
+.chart-zoom { margin: auto; flex: 0 0 auto; overflow: hidden; }
+.chart-zoom-scale { transform-origin: 0 0; }
+.chart-zoom .tree-svg { margin: 0; }
 .tree-edge {
   fill: none;
   stroke: var(--border);

@@ -102,35 +102,6 @@ export function useTreeCanvas(
     setViewport({ left: el.scrollLeft, top: el.scrollTop, width: el.clientWidth, height: el.clientHeight });
   }, []);
 
-  // On a new chart — initial load, a re-root, mode switches, alignment flips —
-  // scroll so the starting person (the tree root) is in view. The root sits at
-  // the leading edge of the depth axis, so pin it there (left in LR, top in TB)
-  // and centre it on the breadth axis. Then re-measure for the minimap.
-  const homedFor = useRef<string | null>(null);
-  useEffect(() => {
-    const el = canvasRef.current;
-    // Same chart, re-laid out (a display toggle): keep the reader where they are.
-    const home = viewKey === undefined || homedFor.current !== viewKey;
-    if (el && laid && home) {
-      homedFor.current = viewKey ?? null;
-      // Layout coordinates are in native (1×) space; the SVG is rendered scaled,
-      // so on-screen scroll positions are layout px × zoom.
-      const z = zoomRef.current;
-      if (radial) {
-        // Root centroid is the chart's centre; centre it both ways.
-        el.scrollLeft = Math.max(0, (laid.root.x + PAD) * z - el.clientWidth / 2);
-        el.scrollTop = Math.max(0, (laid.root.y + PAD) * z - el.clientHeight / 2);
-      } else if (alignment === "tb") {
-        el.scrollTop = Math.max(0, laid.root.y * z);
-        el.scrollLeft = Math.max(0, (laid.root.x + PAD + NODE_W / 2) * z - el.clientWidth / 2);
-      } else {
-        el.scrollLeft = Math.max(0, laid.root.x * z);
-        el.scrollTop = Math.max(0, (laid.root.y + PAD + nodeH / 2) * z - el.clientHeight / 2);
-      }
-    }
-    syncViewport();
-  }, [laid, syncViewport, alignment, radial, nodeH, viewKey]);
-
   // Apply a pending zoom-driven scroll once the resized SVG has been committed,
   // then re-measure so the minimap's viewport box tracks the new scale.
   useLayoutEffect(() => {
@@ -175,13 +146,50 @@ export function useTreeCanvas(
     if (!el || !laid?.width || !laid?.height) return;
     // Fit the whole chart, but never magnify a small one past its native size.
     const z = clampZoom(Math.min(1, el.clientWidth / laid.width, el.clientHeight / laid.height));
-    pendingScroll.current = {
-      left: Math.max(0, (laid.width * z - el.clientWidth) / 2),
-      top: Math.max(0, (laid.height * z - el.clientHeight) / 2),
-    };
+    const left = Math.max(0, (laid.width * z - el.clientWidth) / 2);
+    const top = Math.max(0, (laid.height * z - el.clientHeight) / 2);
+    if (z === zoomRef.current) {
+      // Already at the fit scale: no re-render is coming to flush a pending
+      // scroll, so centre directly (the scrollable extent is already right).
+      el.scrollLeft = left;
+      el.scrollTop = top;
+      return;
+    }
+    pendingScroll.current = { left, top };
     zoomRef.current = z;
     setZoom(z);
   }, [laid]);
+
+  // On a new chart — initial load, a re-root, mode switches, alignment flips —
+  // scroll so the starting person (the tree root) is in view. The root sits at
+  // the leading edge of the depth axis, so pin it there (left in LR, top in TB)
+  // and centre it on the breadth axis. Then re-measure for the minimap.
+  // (Defined after fitToScreen: the dependency array reads it during render.)
+  const homedFor = useRef<string | null>(null);
+  useEffect(() => {
+    const el = canvasRef.current;
+    // Same chart, re-laid out (a display toggle): keep the reader where they are.
+    const home = viewKey === undefined || homedFor.current !== viewKey;
+    if (el && laid && home) {
+      homedFor.current = viewKey ?? null;
+      // Layout coordinates are in native (1×) space; the SVG is rendered scaled,
+      // so on-screen scroll positions are layout px × zoom.
+      const z = zoomRef.current;
+      if (radial) {
+        // A radial chart is one compact disc: open it whole — fitted (never past
+        // 1×) and centred — rather than showing just the middle rings at the
+        // zoom left over from the previous chart.
+        fitToScreen();
+      } else if (alignment === "tb") {
+        el.scrollTop = Math.max(0, laid.root.y * z);
+        el.scrollLeft = Math.max(0, (laid.root.x + PAD + NODE_W / 2) * z - el.clientWidth / 2);
+      } else {
+        el.scrollLeft = Math.max(0, laid.root.x * z);
+        el.scrollTop = Math.max(0, (laid.root.y + PAD + nodeH / 2) * z - el.clientHeight / 2);
+      }
+    }
+    syncViewport();
+  }, [laid, syncViewport, alignment, radial, nodeH, viewKey, fitToScreen]);
 
   // Ctrl/⌘ + wheel (and touchpad pinch, which the browser delivers as ctrl+wheel)
   // zooms toward the cursor; a plain wheel keeps the canvas's native scrolling.

@@ -6,6 +6,7 @@ import { lifespanAge } from "../gedcom/age";
 import { PAD, nodeHeight } from "../chart/treeLayout";
 import { formatMarriage, lifespanLine, placeLabel } from "../chart/nodeDisplay";
 import { useTreeCanvas } from "./useTreeCanvas";
+import { ChartZoom } from "./ChartZoom";
 import { SelectMenu } from "./DropdownMenu";
 import { ChartFindBox } from "./ChartFindBox";
 import { useChartFind } from "./useChartFind";
@@ -274,7 +275,8 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
       <div className="tree-canvas-wrap">
         <div className={`tree-canvas${panning ? " panning" : ""}`} ref={canvasRef} {...canvasProps}>
           {chart ? (
-            <svg className="tree-svg" width={chart.width * zoom} height={chart.height * zoom} viewBox={`0 0 ${chart.width} ${chart.height}`} role="img">
+            <ChartZoom width={chart.width} height={chart.height} zoom={zoom}>
+            <svg className="tree-svg" width={chart.width} height={chart.height} viewBox={`0 0 ${chart.width} ${chart.height}`} role="img">
               <g transform={`translate(${PAD},${PAD})`}>
                 {chart.links.map((e) => (
                   <path key={e.id} className={`relchart-edge relchart-edge-${e.kind}`} d={e.d} />
@@ -326,6 +328,7 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
                 })}
               </g>
             </svg>
+            </ChartZoom>
           ) : (
             <p className="muted">{t("relpath.none")}</p>
           )}
