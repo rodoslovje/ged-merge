@@ -68,7 +68,7 @@ function toYear(value: string): number | undefined {
 }
 
 /** Thumbnail size of a result row's photo, kept in sync with the CSS box. */
-const THUMB_SIZE = 28;
+const THUMB_SIZE = 36;
 
 /** A result row's profile-photo thumbnail — rendered only while a media folder
  *  is loaded (the list gates on that), with a muted silhouette standing in for

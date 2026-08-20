@@ -5782,7 +5782,7 @@ body:has(.modal-overlay) {
 .global-search-results {
   list-style: none;
   margin: 0;
-  padding: 6px;
+  padding: 4px;
   overflow-y: auto;
   flex: 1;
 }
@@ -5804,7 +5804,9 @@ body:has(.modal-overlay) {
   background: none;
   border: none;
   border-radius: var(--radius-sm);
-  padding: 8px 12px;
+  /* Tight on purpose: with the 36px photo the vertical rhythm comes from the
+     thumb itself, and the row must not grow past it. */
+  padding: 4px 10px;
   cursor: pointer;
   color: var(--text);
 }
@@ -5814,8 +5816,8 @@ body:has(.modal-overlay) {
    which would sink an image below the text line. Size must stay in sync with
    THUMB_SIZE in GlobalSearchModal.tsx. */
 .global-search-thumb {
-  width: 28px;
-  height: 28px;
+  width: 36px;
+  height: 36px;
   border-radius: var(--radius-sm);
   object-fit: cover;
   flex-shrink: 0;
