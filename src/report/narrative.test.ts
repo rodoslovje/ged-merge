@@ -169,7 +169,7 @@ describe("narrativeParagraph", () => {
   it("tells Franc's story in English", () => {
     expect(paragraph(tEn, "en", rootEntry(data))).toBe(
       "Franc Novak was born on 5 May 1848 in Škofja Loka and baptized on 7 May 1848. " +
-        "He married Marija Oblak on 4 February 1866 in Škofja Loka. " +
+        "He married Marija Oblak (1846–1900) on 4 February 1866 in Škofja Loka. " +
         "They had 2 children: Ana Novak and Janez Novak. " +
         "He worked as kmet in 1880. " +
         "He died on 3 January 1912 in Ljubljana and was buried on 5 January 1912.",
@@ -179,10 +179,36 @@ describe("narrativeParagraph", () => {
   it("tells Franc's story in Slovenian (gendered verbs, declined months, nominative places/names)", () => {
     expect(paragraph(tSl, "sl", rootEntry(data))).toBe(
       "Franc Novak se je rodil 5. maja 1848 v kraju Škofja Loka, krščen je bil 7. maja 1848. " +
-        "Njegova žena je bila Marija Oblak; poročila sta se 4. februarja 1866 v kraju Škofja Loka. " +
+        "Njegova žena je bila Marija Oblak (1846–1900); poročila sta se 4. februarja 1866 v kraju Škofja Loka. " +
         "Imela sta 2 otroka: Ana Novak in Janez Novak. " +
         "Bil je kmet leta 1880. " +
         "Umrl je 3. januarja 1912 v kraju Ljubljana, pokopan je bil 5. januarja 1912.",
+    );
+  });
+
+  it("tells the partner's parents right after the marriage, keyed to the partner's sex", () => {
+    const withParents = FAMILY
+      .replace("1 DEAT\n2 DATE 1900\n1 FAMS @F1@\n", "1 DEAT\n2 DATE 1900\n1 FAMS @F1@\n1 FAMC @F2@\n")
+      .replace(
+        "0 TRLR\n",
+        "0 @I5@ INDI\n1 NAME Alojz /Oblak/\n1 SEX M\n1 BIRT\n2 DATE 1820\n1 DEAT\n2 DATE 1890\n1 FAMS @F2@\n" +
+          "0 @I6@ INDI\n1 NAME Roza /Kalan/\n1 SEX F\n1 BIRT\n2 DATE 1825\n1 DEAT\n2 DATE 1895\n1 FAMS @F2@\n" +
+          "0 @F2@ FAM\n1 HUSB @I5@\n1 WIFE @I6@\n1 CHIL @I2@\n0 TRLR\n",
+      );
+    const d = reportOf(withParents, "@I1@");
+    const g = childGroups(d);
+    const r = rootEntry(d);
+    const en = narrativeParagraph(tEn, narrativeLangFor("en"), r, planEntry(r, g.get(r.num)));
+    expect(en).toContain(
+      "He married Marija Oblak (1846–1900) on 4 February 1866 in Škofja Loka. " +
+        "Her parents were Alojz Oblak and Roza Kalan. " +
+        "They had 2 children:",
+    );
+    const slText = narrativeParagraph(tSl, narrativeLangFor("sl"), r, planEntry(r, g.get(r.num)));
+    expect(slText).toContain(
+      "Njegova žena je bila Marija Oblak (1846–1900); poročila sta se 4. februarja 1866 v kraju Škofja Loka. " +
+        "Njena starša sta bila Alojz Oblak in Roza Kalan. " +
+        "Imela sta 2 otroka:",
     );
   });
 
@@ -208,7 +234,7 @@ describe("narrativeParagraph", () => {
     expect(root.facts.some((f) => f.tag === "MARR")).toBe(true);
     const text = narrativeParagraph(tSl, narrativeLangFor("sl"), root, planEntry(root, childGroups(anc).get(root.num)));
     // Present tense (both living), no children sentence (ancestors direction).
-    expect(text).toContain("Njegova žena je Silvija Sekušak; poročila sta se 18. aprila 1998");
+    expect(text).toContain("Njegova žena je Silvija Sekušak (1976); poročila sta se 18. aprila 1998");
     expect(text).not.toContain("otrok");
   });
 
@@ -258,7 +284,7 @@ describe("living people, addresses and repeated residences", () => {
   it("keeps the present tense and tidies places in Slovenian", () => {
     expect(paragraph(tSl, "sl")).toBe(
       "Luka Renko se je rodil 16. marca 1974 v kraju Kranj, Slovenia. " +
-        "Njegova žena je Silvija Sekušak; poročila sta se 18. aprila 1998 v kraju Stražišče, Kranj, Slovenia. " +
+        "Njegova žena je Silvija Sekušak (1976); poročila sta se 18. aprila 1998 v kraju Stražišče, Kranj, Slovenia. " +
         "Imata 2 otroka: Živa Renko in Hana Renko. " +
         "Živel je leta 1974 na naslovu Hafnarjeva pot 21a, Stražišče, Kranj, Slovenia. " +
         "Pozneje je živel oktobra 1997 na naslovu Cesta v Pečale 50, Ljubljana, Slovenia. " +
@@ -269,12 +295,35 @@ describe("living people, addresses and repeated residences", () => {
   it("keeps the present tense and tidies places in English", () => {
     expect(paragraph(tEn, "en")).toBe(
       "Luka Renko was born on 16 March 1974 in Kranj, Slovenia. " +
-        "He married Silvija Sekušak on 18 April 1998 in Stražišče, Kranj, Slovenia. " +
+        "He married Silvija Sekušak (1976) on 18 April 1998 in Stražišče, Kranj, Slovenia. " +
         "They have 2 children: Živa Renko and Hana Renko. " +
         "He lived in 1974 at Hafnarjeva pot 21a, Stražišče, Kranj, Slovenia. " +
         "He later lived in October 1997 at Cesta v Pečale 50, Ljubljana, Slovenia. " +
         "He last lived in June 2014 at Ulica bratov Martinec 12, Ljubljana, Slovenia.",
     );
+  });
+
+  it("keeps living parents in the present tense, and privacy drops years and living parents", () => {
+    const withParents = LIVING
+      .replace("1 NAME Silvija /Sekušak/\n1 SEX F\n1 BIRT\n2 DATE 1976\n1 FAMS @F1@\n", "1 NAME Silvija /Sekušak/\n1 SEX F\n1 BIRT\n2 DATE 1976\n1 FAMS @F1@\n1 FAMC @F2@\n")
+      .replace(
+        "0 TRLR\n",
+        "0 @I5@ INDI\n1 NAME Ivan /Sekušak/\n1 SEX M\n1 BIRT\n2 DATE 1950\n1 FAMS @F2@\n" +
+          "0 @I6@ INDI\n1 NAME Vera /Horvat/\n1 SEX F\n1 BIRT\n2 DATE 1952\n1 FAMS @F2@\n" +
+          "0 @F2@ FAM\n1 HUSB @I5@\n1 WIFE @I6@\n1 CHIL @I2@\n0 TRLR\n",
+      );
+    const d = buildDescendants(dataset(withParents), "@I1@", nameOf, 2026)!;
+    const g = childGroups(d);
+    const r = rootEntry(d);
+    const open = narrativeParagraph(tSl, narrativeLangFor("sl"), r, planEntry(r, g.get(r.num)));
+    // Both parents presumed living: the origin sentence stays in the present.
+    expect(open).toContain("Njegova žena je Silvija Sekušak (1976); poročila sta se");
+    expect(open).toContain("Njena starša sta Ivan Sekušak in Vera Horvat.");
+    // Privacy: the living wife keeps her name but loses the years, and her
+    // living parents' names stay out — the origin sentence disappears whole.
+    const priv = narrativeParagraph(tSl, narrativeLangFor("sl"), r, planEntry(r, g.get(r.num), { privacyLiving: true }));
+    expect(priv).toContain("Njegova žena je Silvija Sekušak; poročila sta se");
+    expect(priv).not.toContain("starša");
   });
 
   it("returns to the past tense once the spouse is deceased", () => {

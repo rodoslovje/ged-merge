@@ -6,6 +6,7 @@
 // rules (birth+baptism fused, children right after their union's marriage)
 // live here once for every language.
 
+import type { Sex } from "../gedcom/types";
 import type { FactLine, ReportData, ReportEntry } from "./model";
 
 /** How a sentence refers to the person: the first statement names them, the
@@ -20,6 +21,7 @@ export interface Statement {
     | "born"
     | "baptized"
     | "married" // one per union, in record order; `again` from the 2nd on
+    | "spouseOrigin" // the partner's parents, right after their marriage
     | "children" // a union's children (register only)
     | "occupation"
     | "education"
@@ -36,6 +38,13 @@ export interface Statement {
   spouse?: string;
   /** Married: a repeat marriage (2nd or later union with a ⚭ fact). */
   again?: boolean;
+  /** SpouseOrigin: the partner's sex — it picks the possessive/kin word
+   *  ("Her parents…" / "Njegova starša…"), which follows the partner. */
+  spouseSex?: Sex;
+  /** SpouseOrigin: the partner's parents' display names (either may be
+   *  missing; the renderer picks the father-/mother-only sentence). */
+  father?: string;
+  mother?: string;
   /** Married: both partners presumed living — present tense ("njegova žena
    *  je …" instead of "je bila"). Children: the parents (couple form) or the
    *  subject (solo form) presumed living ("imata" instead of "imela sta"). */
@@ -86,8 +95,13 @@ export function childGroups(data: ReportData): Map<number, ChildGroup[]> {
  * facts, then death/burial. Duplicate entries (`dupOf`) plan to nothing —
  * their line continues at the first appearance, which the views already show.
  */
-export function planEntry(entry: ReportEntry, groups: ChildGroup[] = []): Statement[] {
+export function planEntry(
+  entry: ReportEntry,
+  groups: ChildGroup[] = [],
+  opts: { privacyLiving?: boolean } = {},
+): Statement[] {
   if (entry.dupOf !== undefined) return [];
+  const priv = !!opts.privacyLiving;
 
   const first = (tags: string[]) => entry.facts.find((f) => tags.includes(f.tag));
   const all = (tags: string[]) => entry.facts.filter((f) => tags.includes(f.tag));
@@ -111,7 +125,19 @@ export function planEntry(entry: ReportEntry, groups: ChildGroup[] = []): Statem
   const told = new Set<string>();
   marriages.forEach((m, i) => {
     const bothLiving = entry.living && m.spouseLiving === true;
-    add({ kind: "married", fact: m, spouse: m.spouse, again: i > 0, living: bothLiving });
+    // The partner's lifespan joins their name (like the register's ⚭ line);
+    // a living partner keeps the name but loses the years under privacy.
+    const years = m.spouseYears && !(priv && m.spouseLiving) ? ` (${m.spouseYears})` : "";
+    add({ kind: "married", fact: m, spouse: m.spouse && `${m.spouse}${years}`, again: i > 0, living: bothLiving });
+    // The partner's parents, told right after the marriage that names them; a
+    // living parent's name stays out under privacy. `living` carries the named
+    // parents' tense (present only when all of them are presumed living).
+    const father = m.spouseFather && !(priv && m.spouseFather.living) ? m.spouseFather.name : undefined;
+    const mother = m.spouseMother && !(priv && m.spouseMother.living) ? m.spouseMother.name : undefined;
+    if (father || mother) {
+      const parentsLiving = (father ? !!m.spouseFather?.living : true) && (mother ? !!m.spouseMother?.living : true);
+      add({ kind: "spouseOrigin", spouseSex: m.spouseSex, father, mother, living: parentsLiving });
+    }
     const group = m.fam !== undefined ? groups.find((g) => g.fam === m.fam) : undefined;
     if (group && group.names.length > 0) {
       told.add(group.fam);

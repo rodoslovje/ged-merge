@@ -114,13 +114,24 @@ export function narrativeSentence(t: Translate, lang: NarrativeLang, entry: Repo
   // Unknown sex always names the person — neither language has a safe
   // unknown-sex short form ("they was", clitic-first Slovenian).
   const named = stmt.subject === "name" || entry.sex === "U";
+  // The spouse-origin sentence is about the partner, so its gendered forms
+  // (possessive / kin word) follow the partner's sex, never the entry's; an
+  // unknown-sex partner falls through to the neutral base key.
+  const context =
+    stmt.kind === "spouseOrigin"
+      ? stmt.spouseSex === "M" || stmt.spouseSex === "F"
+        ? stmt.spouseSex
+        : undefined
+      : `${entry.sex}${named ? "" : "p"}`;
   const raw = t(`narrative.${keyOf(stmt)}`, {
-    context: `${entry.sex}${named ? "" : "p"}`,
+    context,
     subject: named ? entry.name : lang.pronoun(entry.sex),
     tail: tailOf(t, stmt.fact, lang, entry.sex),
     tail2: tailOf(t, stmt.fact2, lang, entry.sex),
     value: stmt.fact?.value ?? "",
     spouse: stmt.spouse ?? "",
+    father: stmt.father ?? "",
+    mother: stmt.mother ?? "",
     children: stmt.childNames ? lang.childCount(stmt.childNames.length) : "",
     names: stmt.childNames ? lang.nameList(stmt.childNames) : "",
   });
@@ -141,6 +152,10 @@ function keyOf(stmt: Statement): string {
     case "married":
       if (stmt.spouse) return tensed(stmt.again ? "marriedAgain" : "married");
       return stmt.again ? "marriedAgainNoSpouse" : "marriedNoSpouse";
+    case "spouseOrigin":
+      // Which parents are named picks the sentence; `living` is the named
+      // parents' tense here (the planner set it), not the couple's.
+      return tensed(stmt.father && stmt.mother ? "spouseOriginBoth" : stmt.father ? "spouseOriginFather" : "spouseOriginMother");
     case "children":
       return tensed(stmt.couple ? "childrenCouple" : "childrenSolo");
     case "occupation":
