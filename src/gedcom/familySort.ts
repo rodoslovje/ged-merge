@@ -36,3 +36,18 @@ export function familiesByMarriage(ds: Dataset, ids: string[]): Family[] {
     .sort((a, b) => (a.key === b.key ? 0 : a.key - b.key))
     .map((x) => x.fam);
 }
+
+/**
+ * The family's children in birth order — the file's own order is left
+ * untouched. Undated children keep their file position among themselves,
+ * after the dated ones (the sort is stable, undated keys are Infinity).
+ * Shared by the Edit cards and the keyboard family navigation, so what the
+ * arrows walk is the order the eye reads.
+ */
+export function childrenByBirth(fam: Family | undefined, individuals: Dataset["individuals"]): string[] {
+  return [...(fam?.children ?? [])].sort((a, b) => {
+    const ka = birthSortKey(individuals.get(a));
+    const kb = birthSortKey(individuals.get(b));
+    return ka < kb ? -1 : ka > kb ? 1 : 0;
+  });
+}

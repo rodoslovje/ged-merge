@@ -91,7 +91,8 @@ import { CoordShareProvider, type CoordShare } from "./edit/CoordShareContext";
 import { PlaceLookupProvider, usePlaceLookupValue } from "./edit/PlaceLookupContext";
 import { applyGeocodeByAddress, placeAddrKey, walkPlaceAddr } from "../tools/geocode";
 import { INDIVIDUAL_EVENT_GROUPS, nextSex } from "./edit/editConstants";
-import { KEY, KEY_STATUS, isEditableTarget, isModalOpen } from "../keyboard/shortcuts";
+import { KEY, KEY_STATUS, familyStepFor, isEditableTarget, isModalOpen } from "../keyboard/shortcuts";
+import { familyStepTarget } from "../gedcom/familyNav";
 import type { Commit, FamilyCommit, MediaOwner, SourceDialogTarget, RemoveSourceOwner, CommitRemoveSource, OpenEditSource, OpenMediaLink } from "./edit/types";
 import { FamilySection, NewUnionSection, ParentFamilyGroup } from "./edit/FamilySections";
 import { NameEditor } from "./edit/NameEditor";
@@ -448,8 +449,12 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   // (rather than effect deps) so the listener doesn't need to be torn down
   // and re-added on every render/edit.
   const chartKind = chartSettings.kind;
-  const shortcutRef = useRef({ selectedId, onShowCharts, chartKind, startId, matchOrder, navigate, goBack, matchDecKey, toggleMatchStatus });
-  shortcutRef.current = { selectedId, onShowCharts, chartKind, startId, matchOrder, navigate, goBack, matchDecKey, toggleMatchStatus };
+  // `cameFrom` — the person this one was opened from — positions the partner
+  // step (see familyStepTarget), so ⌥⇧→ tours the unions instead of bouncing
+  // between the same two spouses.
+  const cameFrom = history[history.length - 1];
+  const shortcutRef = useRef({ selectedId, onShowCharts, chartKind, startId, matchOrder, navigate, goBack, matchDecKey, toggleMatchStatus, dataset, cameFrom });
+  shortcutRef.current = { selectedId, onShowCharts, chartKind, startId, matchOrder, navigate, goBack, matchDecKey, toggleMatchStatus, dataset, cameFrom };
   // Quick-add events (⌥⇧1–9). Fed from below
   // (the handler is defined after `commit`), read through the ref at event
   // time like shortcutRef.
@@ -467,6 +472,23 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   useEffect(() => {
     if (!active) return;
     function onKey(e: KeyboardEvent) {
+      // ⌥ + arrows walk the family, along the axes of the layout around the
+      // person: ⌥↑ a parent, ⌥↓ a child, ⌥←/→ the siblings either side, and
+      // Shift takes the other one on that axis (the mother, the youngest child,
+      // a partner). Unlike the ⌥⇧ edit actions below these stay out of a field
+      // being typed in, where ⌥←/→ is the system's own move-by-word.
+      // preventDefault also keeps Alt+←/→ from being the browser's
+      // Back/Forward on Windows and Linux.
+      if (e.altKey && !e.metaKey && !e.ctrlKey && !isModalOpen() && !isEditableTarget(e.target) && !e.defaultPrevented) {
+        const step = familyStepFor(e.key, e.shiftKey);
+        if (step) {
+          const { selectedId: id, dataset: ds, cameFrom: from, navigate: nav } = shortcutRef.current;
+          e.preventDefault();
+          const target = id && familyStepTarget(ds, id, step, from);
+          if (target) nav(target);
+          return;
+        }
+      }
       // ⌥⇧ — the one family of edit shortcuts that fires even while typing in a
       // field, so a record can be filled in without the keyboard leaving it.
       //
