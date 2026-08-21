@@ -775,6 +775,16 @@ export const sl = {
   "tools.geocode.fromFileTooltip": "Druge navedbe točno tega imena kraja v datoteki že nosijo to koordinato",
   "tools.geocode.countryTooltip": "Država, katere kraje prenesemo iz OpenStreetMap (Overpass API, © sodelavci OpenStreetMap)",
   "tools.geocode.downloadFailed": "Prenos ni uspel — poskusite čez minuto (strežniki Overpass omejujejo zahteve) ali pa datoteko GeoNames prenesite s spodnje strani in jo uvozite tu.",
+  "tools.geocode.emptyResult":
+    "Prenos je uspel, med prenesenim pa ni bilo ničesar za uvoz. Morda je pri viru trenutno kaj narobe — poskusite pozneje ali pa to državo vzemite pri katerem drugem viru spodaj.",
+  "tools.geocode.unreadable":
+    "Prenos ni vseboval tega, kar ta vir pošilja ({{detail}}) — poskusite pozneje ali pa to državo vzemite pri katerem drugem viru spodaj.",
+  "tools.geocode.stalled":
+    "Uvoz se je ustavil, ne da bi se končal in ne da bi povedal, zakaj — najpogosteje mu je v brskalniku zmanjkalo pomnilnika. Nič ni shranjenega; poskusite znova.",
+  "tools.geocode.storeBlocked":
+    "Prenos je uspel, brskalnik pa prenesenih podatkov ni shranil: zbirka podatkov o krajih je odprta v drugem oknu aplikacije. Zaprite druge zavihke in okna aplikacije, nato prenos ponovite.",
+  "tools.geocode.storeRefused":
+    "Prenos je uspel, brskalnik pa prenesenih podatkov ni shranil ({{detail}}). Najpogosteje je disk poln ali pa je brskalnik nastavljen tako, da za to spletno mesto ne hrani podatkov.",
   "tools.geocode.regionsLoading": "Preveč za en prenos — poizvedba po regijah",
   "tools.geocode.tooLargeNoRegions": "Ta država ima več krajev, kot jih strežnik OpenStreetMap pošlje naenkrat, in nima regij, po katerih bi jo prenesli po delih. S spodnje strani prenesite datoteko GeoNames zanjo in uvozite njo.",
   "tools.geocode.regionIntro": "{{country}} ima več krajev, kot jih OpenStreetMap pošlje naenkrat, zato jo prenesemo po regijah — teh je {{count}}. Vsaka se pridruži istemu imeniku, zato izberite regije, po katerih raziskujete, ali kar vse.",

@@ -661,6 +661,16 @@ export const en = {
   "tools.geocode.fromFileTooltip": "Other occurrences of exactly this place name already carry this coordinate in the file",
   "tools.geocode.countryTooltip": "The country whose places are fetched from OpenStreetMap (Overpass API, © OpenStreetMap contributors)",
   "tools.geocode.downloadFailed": "The download did not go through — try again in a minute (the Overpass servers rate-limit), or download a GeoNames file from the site below and import it here.",
+  "tools.geocode.emptyResult":
+    "The download went through and there was nothing in it to import. Something may be wrong at the source — try again later, or take this country from another of the sources below.",
+  "tools.geocode.unreadable":
+    "The download did not hold what this source is supposed to send ({{detail}}) — try again later, or take this country from another of the sources below.",
+  "tools.geocode.stalled":
+    "The import stopped without finishing and without saying why — most often the browser ran out of memory for it. Nothing was stored; try it again.",
+  "tools.geocode.storeBlocked":
+    "The download went through, but this browser could not store it: its place database is open in another window of the app. Close the app's other tabs and windows, then download again.",
+  "tools.geocode.storeRefused":
+    "The download went through, but this browser refused to store it ({{detail}}). Most often the disk is full, or the browser is set to keep no data for this site.",
   "tools.geocode.regionsLoading": "Too large for one download — looking up the regions",
   "tools.geocode.tooLargeNoRegions": "This country holds more places than the OpenStreetMap service will send in one go, and it names no regions to fetch it in pieces. Download a GeoNames file for it from the site below and import that instead.",
   "tools.geocode.regionIntro": "{{country}} holds more places than OpenStreetMap will send in one go, so it comes by region — {{count}} of them. Each one joins the same directory, so take the regions you research in, or all of them.",

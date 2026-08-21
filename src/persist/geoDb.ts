@@ -74,9 +74,37 @@ export interface GeocodeDecision {
   ts: number;
 }
 
+/**
+ * Why a store failed, in the two shapes a caller can say something useful
+ * about: the database is held open by another window of the app, or the
+ * browser refused the write. `detail` is the browser's own wording, which
+ * names the refusal — `QuotaExceededError` most often — and is the only thing
+ * that tells a full disk apart from a browser storing nothing for this site.
+ */
+export class GeoStoreError extends Error {
+  constructor(
+    readonly kind: "blocked" | "failed",
+    readonly detail: string,
+  ) {
+    super(
+      kind === "blocked"
+        ? "the place database is open in another window"
+        : `the place database refused the write (${detail})`,
+    );
+    this.name = "GeoStoreError";
+  }
+}
+
+function storeFailure(e: unknown): GeoStoreError {
+  if (e instanceof GeoStoreError) return e;
+  const detail = e instanceof Error ? `${e.name}: ${e.message}` : String(e ?? "unknown error");
+  return new GeoStoreError("failed", detail);
+}
+
 function openGeoDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
+    let settled = false;
     req.onupgradeneeded = () => {
       const db = req.result;
       if (!db.objectStoreNames.contains(COUNTRIES_STORE)) db.createObjectStore(COUNTRIES_STORE, { keyPath: "code" });
@@ -84,8 +112,31 @@ function openGeoDb(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(ADDR_INDEX_STORE)) db.createObjectStore(ADDR_INDEX_STORE, { keyPath: "country" });
       if (!db.objectStoreNames.contains(ADDR_BUCKETS_STORE)) db.createObjectStore(ADDR_BUCKETS_STORE, { keyPath: "key" });
     };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
+    req.onsuccess = () => {
+      // A connection that arrives after the blocked rejection below belongs to
+      // nobody: close it, or it becomes the connection that blocks the next
+      // attempt in its turn.
+      if (settled) req.result.close();
+      else {
+        settled = true;
+        resolve(req.result);
+      }
+    };
+    req.onerror = () => {
+      if (settled) return;
+      settled = true;
+      reject(storeFailure(req.error));
+    };
+    // An upgrade waits for every other connection to this database to close,
+    // and a second window of the app sitting on an older version of it never
+    // does. Without this the open request simply never settles, so the import
+    // awaiting it ends as a progress bar that stops — nothing stored, nothing
+    // said, which is exactly how the failure was reported.
+    req.onblocked = () => {
+      if (settled) return;
+      settled = true;
+      reject(new GeoStoreError("blocked", "upgrade blocked by another connection"));
+    };
   });
 }
 
@@ -109,9 +160,28 @@ function requestDone<T>(req: IDBRequest<T>): Promise<T> {
   });
 }
 
-/** Store (replace) one imported country. Callable from the import worker too. */
+/**
+ * Store (replace) one imported country. Callable from the import worker too.
+ *
+ * Deliberately NOT withGeoDb, on the same grounds as putAddressRegister below:
+ * a download of minutes whose one product is this write must not end by
+ * swallowing the reason it failed and reporting the directory as imported.
+ * It waits for the transaction rather than for the request, because a write
+ * refused for want of room succeeds as a request and aborts on commit.
+ */
 export async function putCountry(country: StoredCountry): Promise<void> {
-  await withGeoDb((db) => requestDone(db.transaction(COUNTRIES_STORE, "readwrite").objectStore(COUNTRIES_STORE).put(country)));
+  const db = await openGeoDb();
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(COUNTRIES_STORE, "readwrite");
+      tx.objectStore(COUNTRIES_STORE).put(country);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(storeFailure(tx.error));
+      tx.onabort = () => reject(storeFailure(tx.error));
+    });
+  } finally {
+    db.close();
+  }
 }
 
 /** One imported directory with its entries, or undefined when nothing is stored
@@ -162,23 +232,45 @@ export async function putAddressRegister(
   // the user as a failure instead of ending as a spinner that simply stops.
   const db = await openGeoDb();
   try {
-    await clearAddressRegister(db, index.country);
-    for (let at = 0; at < buckets.length; at += BUCKET_CHUNK) {
-      const chunk = buckets.slice(at, at + BUCKET_CHUNK);
-      await new Promise<void>((resolve, reject) => {
-        const tx = db.transaction(ADDR_BUCKETS_STORE, "readwrite");
-        const store = tx.objectStore(ADDR_BUCKETS_STORE);
-        for (const bucket of chunk) store.put(bucket);
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
-        tx.onabort = () => reject(tx.error);
-      });
-      onProgress?.(Math.min(at + BUCKET_CHUNK, buckets.length), buckets.length);
-    }
-    await requestDone(db.transaction(ADDR_INDEX_STORE, "readwrite").objectStore(ADDR_INDEX_STORE).put(index));
+    await putRegister(db, index, buckets, onProgress);
+  } catch (e) {
+    // The same two shapes as every other write here, so the manager can say
+    // which of them happened in the reader's own language.
+    throw storeFailure(e);
   } finally {
     db.close();
   }
+}
+
+async function putRegister(
+  db: IDBDatabase,
+  index: AddressIndex,
+  buckets: readonly AddressBucket[],
+  onProgress?: (done: number, total: number) => void,
+): Promise<void> {
+  await clearAddressRegister(db, index.country);
+  for (let at = 0; at < buckets.length; at += BUCKET_CHUNK) {
+    const chunk = buckets.slice(at, at + BUCKET_CHUNK);
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(ADDR_BUCKETS_STORE, "readwrite");
+      const store = tx.objectStore(ADDR_BUCKETS_STORE);
+      for (const bucket of chunk) store.put(bucket);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+    });
+    onProgress?.(Math.min(at + BUCKET_CHUNK, buckets.length), buckets.length);
+  }
+  // The transaction, not the request: a write refused for want of room
+  // succeeds as a request and aborts on commit, and this one is what every
+  // later lookup reads to decide the register is there at all.
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(ADDR_INDEX_STORE, "readwrite");
+    tx.objectStore(ADDR_INDEX_STORE).put(index);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
+  });
 }
 
 /** Drop every bucket of one country, plus its index. */
