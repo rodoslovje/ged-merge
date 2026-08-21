@@ -891,6 +891,28 @@ export const sl = {
   "tools.sources.regroupEmptied_two": "odstranjeni {{count}} hrambi",
   "tools.sources.regroupEmptied_few": "odstranjene {{count}} hrambe",
   "tools.sources.regroupEmptied_other": "odstranjenih {{count}} hramb",
+  "tools.sources.pageMediaHeading": "Navedene strani brez svoje slike",
+  "tools.sources.pageMediaIntro":
+    "Ta datoteka pripenja sliko navedene strani k navedbi pri dogodku, tako da je posnetek viden ob dejstvu, ki ga dokazuje (nastavi se v Nastavitvah → Povezave strani). Te navedbe svoje slike nimajo: slika je pri zapisu vira, oseba ali dogodek pa je ne navaja. Izberite vire in jih uveljavite — ob vsaki navedbi se doda ena povezava do slike, drugo v zapisu ostane nespremenjeno.",
+  "tools.sources.pageMediaFound_one": "Brez slike strani: {{count}} navedba",
+  "tools.sources.pageMediaFound_two": "Brez slike strani: {{count}} navedbi",
+  "tools.sources.pageMediaFound_few": "Brez slike strani: {{count}} navedbe",
+  "tools.sources.pageMediaFound_other": "Brez slike strani: {{count}} navedb",
+  "tools.sources.pageMediaCount_one": "{{count}} navedba",
+  "tools.sources.pageMediaCount_two": "{{count}} navedbi",
+  "tools.sources.pageMediaCount_few": "{{count}} navedbe",
+  "tools.sources.pageMediaCount_other": "{{count}} navedb",
+  "tools.sources.pageMediaAmbiguous_one":
+    "Še {{count}} navedba ne pove strani, ki bi ji ustrezala katera od slik tega vira, zato ni mogoče ugotoviti, katero misli — ostane nespremenjena.",
+  "tools.sources.pageMediaAmbiguous_two":
+    "Še {{count}} navedbi ne povesta strani, ki bi ji ustrezala katera od slik tega vira, zato ni mogoče ugotoviti, katero mislita — ostaneta nespremenjeni.",
+  "tools.sources.pageMediaAmbiguous_few":
+    "Še {{count}} navedbe ne povedo strani, ki bi ji ustrezala katera od slik tega vira, zato ni mogoče ugotoviti, katero mislijo — ostanejo nespremenjene.",
+  "tools.sources.pageMediaAmbiguous_other":
+    "Še {{count}} navedb ne pove strani, ki bi ji ustrezala katera od slik tega vira, zato ni mogoče ugotoviti, katero mislijo — ostanejo nespremenjene.",
+  "tools.sources.pageMediaPage": "stran {{page}}",
+  "tools.sources.pageMediaRecord": "pri samem zapisu",
+  "tools.sources.applyPageMedia": "Pripni slike strani ({{count}})",
   "tools.sources.cleanupApply": "Uveljavi v datoteki ({{count}})",
   "tools.sources.cleanupApplied_one": "Posodobljen {{count}} zapis — razveljavite s Ctrl+Z, shranite, da ostane.",
   "tools.sources.cleanupApplied_two": "Posodobljena {{count}} zapisa — razveljavite s Ctrl+Z, shranite, da ostane.",
@@ -899,7 +921,7 @@ export const sl = {
   "tools.sources.reshapeIntro":
     "Arhivske povezave (Matricula Online, Geneanet pokopališča, FamilySearch), ki so v datoteki zapisane kot gole povezave, opombe ali besedilne navedbe, so tu zbrane po matični knjigi ali grobu. Izberite skupine za pretvorbo in jih uveljavite: vsaka postane v vaši datoteki pravi vir z navedbami po straneh, in to v enem razveljavljivem koraku.",
   "tools.sources.reshapeFound": "povezave: {{links}} · skupine virov: {{groups}}",
-  "tools.sources.cleanupChipHint": "{{links}} arhivskih povezav v {{groups}} skupinah virov · {{dups}} skupin dvojnikov · virov za ureditev po krajih: {{repos}}",
+  "tools.sources.cleanupChipHint": "{{links}} arhivskih povezav v {{groups}} skupinah virov · {{dups}} skupin dvojnikov · virov za ureditev po krajih: {{repos}} · navedb brez slike strani: {{pages}}",
   "tools.sources.reshapeSite.matricula": "Matricula Online",
   "tools.sources.reshapeSite.geneanet": "Geneanet pokopališča",
   "tools.sources.reshapeSite.geneanettree": "Geneanet drevesa",

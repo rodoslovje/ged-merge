@@ -25,6 +25,7 @@ import {
 import { type DuplicateReport, type DupGroup, type DupKind } from "../../tools/sourceDuplicates";
 import { applySourceCleanup } from "../../tools/sourceCleanupApply";
 import { type RepoRegroupGroup, type RepoRegroupReport } from "../../tools/repoRegroup";
+import { type PageMediaGroup, type PageMediaReport } from "../../tools/pageMediaCheck";
 import type { Translate } from "../../locales/i18n";
 import type { RecordPatch } from "../historyTypes";
 import { familySpouses, recordCitedBy } from "../../tools/sources";
@@ -137,6 +138,7 @@ export function SourceCleanupView({
   dupReport: dupReportProp,
   dataset,
   regroupReport,
+  pageMediaReport,
   onNavigate,
   onBack,
   onApplyPatches,
@@ -151,6 +153,9 @@ export function SourceCleanupView({
   /** Which FamilySearch sources sit away from their country's repository —
    *  read by the panel, so its chip can count this page's work too. */
   regroupReport: RepoRegroupReport;
+  /** Citations whose record does not link the page image their source holds —
+   *  empty where the file keeps page images under the source alone. */
+  pageMediaReport: PageMediaReport;
   dataset: Dataset;
   onNavigate: (id: string) => void;
   onBack: () => void;
@@ -223,6 +228,7 @@ export function SourceCleanupView({
   const [dupSelected, setDupSelected] = useState<Set<string>>(new Set());
   const [survivors, setSurvivors] = useState<Map<string, string>>(new Map());
   const [regroupSelected, setRegroupSelected] = useState<Set<string>>(new Set());
+  const [pageMediaSelected, setPageMediaSelected] = useState<Set<string>>(new Set());
 
   // Esc leaves the sub-page, matching the chart overlays — but only while it
   // is the view on screen (see the `active` prop).
@@ -248,6 +254,7 @@ export function SourceCleanupView({
   const toggleExpand = toggleIn(setExpanded);
   const toggleDupGroup = toggleIn(setDupSelected);
   const toggleRegroupGroup = toggleIn(setRegroupSelected);
+  const togglePageMediaGroup = toggleIn(setPageMediaSelected);
 
   const toggleSite = (site: ReshapeSite) =>
     setSites((s) => {
@@ -376,6 +383,8 @@ export function SourceCleanupView({
 
   const selectedRegroupGroups = regroupReport.groups.filter((g) => regroupSelected.has(g.id));
 
+  const selectedPageMediaGroups = pageMediaReport.groups.filter((g) => pageMediaSelected.has(g.id));
+
   function apply() {
     setApplied(0);
     // Reshape first (its existing-source targets are original xrefs), then
@@ -394,6 +403,7 @@ export function SourceCleanupView({
       },
       selectedDupGroups,
       selectedRegroupGroups,
+      selectedPageMediaGroups,
     );
     setApplied(onApplyPatches(patches));
     // The lists describe exactly what the apply just rewrote, so they are
@@ -483,15 +493,33 @@ export function SourceCleanupView({
   const hasReshape = reshapeReport.groups.length > 0;
   const hasDups = dupReport.groups.length > 0;
   const hasRegroup = regroupReport.groups.length > 0;
+  const hasPageMedia = pageMediaReport.groups.length > 0;
   const nothingSelected =
-    selectedGroups.length === 0 && selectedDupGroups.length === 0 && selectedRegroupGroups.length === 0;
+    selectedGroups.length === 0 &&
+    selectedDupGroups.length === 0 &&
+    selectedRegroupGroups.length === 0 &&
+    selectedPageMediaGroups.length === 0;
 
   // The page's one primary action, on the head of the first list it acts on —
   // where Geocoding and Naming keep theirs. It covers every section, so it is
   // rendered once: on the links list when there is one, else on the duplicates,
   // else on the repositories. Its count says how many groups will change; the
   // summary above already spells out what the file holds, so nothing repeats it.
-  const otherSelected = selectedDupGroups.length + selectedRegroupGroups.length;
+  const otherSelected =
+    selectedDupGroups.length + selectedRegroupGroups.length + selectedPageMediaGroups.length;
+  // Which single list the ticked rows all come from, if they do — the button
+  // then says what it will actually do rather than the catch-all "apply".
+  const counts = {
+    links: selectedGroups.length,
+    dups: selectedDupGroups.length,
+    repos: selectedRegroupGroups.length,
+    pages: selectedPageMediaGroups.length,
+  };
+  const ticked = (Object.keys(counts) as (keyof typeof counts)[]).filter((k) => counts[k] > 0);
+  const onlySelected = ticked.length === 1 ? ticked[0] : undefined;
+  // Page images are counted one by one: the rows are sources, but what the
+  // button writes is a pointer per citation.
+  const pageMediaCount = selectedPageMediaGroups.reduce((n, g) => n + g.missing.length, 0);
   const applyAction = (
     <>
       <button className="nav-btn primary tools-run" onClick={apply} disabled={nothingSelected}>
@@ -499,13 +527,15 @@ export function SourceCleanupView({
             links into sources, merge duplicates away, gather sources under
             their repository — or, with more than one list in play, the lot at
             once, which only "apply" covers. */}
-        {otherSelected === 0
+        {onlySelected === "links"
           ? t("tools.sources.applyConvert", { count: selectedGroups.length })
-          : selectedGroups.length === 0 && selectedRegroupGroups.length === 0
+          : onlySelected === "dups"
             ? t("tools.sources.applyMerge", { count: selectedDupGroups.length })
-            : selectedGroups.length === 0 && selectedDupGroups.length === 0
+            : onlySelected === "repos"
               ? t("tools.sources.applyRegroup", { count: selectedRegroupGroups.length })
-              : t("tools.sources.cleanupApply", { count: selectedGroups.length + otherSelected })}
+              : onlySelected === "pages"
+                ? t("tools.sources.applyPageMedia", { count: pageMediaCount })
+                : t("tools.sources.cleanupApply", { count: selectedGroups.length + otherSelected })}
       </button>
     </>
   );
@@ -543,6 +573,7 @@ export function SourceCleanupView({
               }),
             hasDups && t("tools.sources.dupFound", { count: dupReport.groups.length }),
             hasRegroup && t("tools.sources.regroupFound", { count: regroupReport.total }),
+            hasPageMedia && t("tools.sources.pageMediaFound", { count: pageMediaReport.total }),
           ]
             .filter(Boolean)
             .join(" · ")}
@@ -762,6 +793,44 @@ export function SourceCleanupView({
                 open={expanded.has(`repo:${group.id}`)}
                 onToggleCheck={() => toggleRegroupGroup(group.id)}
                 onToggleOpen={() => toggleExpand(`repo:${group.id}`)}
+                onNavigate={onNavigate}
+                onEditRecord={onEditRecord}
+                t={t}
+              />
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {hasPageMedia && (
+        <section className="tools-cleanup-section">
+          <div className="tools-dup-kind-head">
+            {t("tools.sources.pageMediaHeading")}
+            <span className="tools-chip-count">{pageMediaReport.total}</span>
+            <div className="tools-dup-bulk">
+              {!hasReshape && !hasDups && !hasRegroup && applyAction}
+              <button
+                className="tools-issue-link"
+                onClick={() => setPageMediaSelected(new Set(pageMediaReport.groups.map((g) => g.id)))}
+              >
+                {t("tools.sources.dupSelectAll")}
+              </button>
+              <button className="tools-issue-link" onClick={() => setPageMediaSelected(new Set())}>
+                {t("tools.sources.dupSelectNone")}
+              </button>
+            </div>
+          </div>
+          <p className="tools-intro">{t("tools.sources.pageMediaIntro")}</p>
+          <ul className="tools-tree">
+            {pageMediaReport.groups.map((group) => (
+              <PageMediaRow
+                key={group.id}
+                group={group}
+                dataset={dataset}
+                checked={pageMediaSelected.has(group.id)}
+                open={expanded.has(group.id)}
+                onToggleCheck={() => togglePageMediaGroup(group.id)}
+                onToggleOpen={() => toggleExpand(group.id)}
                 onNavigate={onNavigate}
                 onEditRecord={onEditRecord}
                 t={t}
@@ -1486,6 +1555,84 @@ function DupGroupRow({
           </ul>
           {peopleOpen && (
             <DupGroupUses dataset={dataset} xrefs={group.members.map((m) => m.xref)} onNavigate={onNavigate} />
+          )}
+        </div>
+      )}
+    </li>
+  );
+}
+
+/** One source whose citations are missing their page image: a checkbox to
+ *  include it, the count of pointers the apply would write, and the citations
+ *  themselves — each naming the person, where on the record it sits and which
+ *  page it cites. A source that also holds citations no image can be matched to
+ *  says so under the list, rather than leaving them out unsaid. */
+function PageMediaRow({
+  group,
+  dataset,
+  checked,
+  open,
+  onToggleCheck,
+  onToggleOpen,
+  onNavigate,
+  onEditRecord,
+  t,
+}: {
+  group: PageMediaGroup;
+  dataset: Dataset;
+  checked: boolean;
+  open: boolean;
+  onToggleCheck: () => void;
+  onToggleOpen: () => void;
+  onNavigate: (id: string) => void;
+  onEditRecord?: (xref: string, kind: "source" | "repo") => void;
+  t: Translate;
+}) {
+  return (
+    <li className="tools-tree-node">
+      <div className="tools-tree-row">
+        <input type="checkbox" className="tools-dup-check" checked={checked} onChange={onToggleCheck} />
+        <button className={`tools-pair-toggle ${open ? "open" : ""}`} onClick={onToggleOpen} aria-expanded={open}>
+          ▶
+        </button>
+        <span className="tools-tree-label clickable" onClick={onToggleOpen} title={group.title}>
+          📖 {group.title}
+        </span>
+        <span className="tools-chip-count">{group.missing.length}</span>
+        <RowEdit xref={group.sourceXref} kind="source" onEditRecord={onEditRecord} t={t} />
+        <span className="tools-tree-meta">{t("tools.sources.pageMediaCount", { count: group.missing.length })}</span>
+      </div>
+      {open && (
+        <div className="tools-tree-children">
+          <ul className="tools-dup-members">
+            {group.missing.map((m, i) => {
+              // A family's citation links through its spouses, as everywhere
+              // else on this page — Edit navigates to persons, not families.
+              const famSpouses = dataset.families.has(m.recordXref) ? familySpouses(dataset, m.recordXref) : [];
+              return (
+                <li key={`${m.recordXref}-${m.eventTag ?? ""}-${m.objeXref}-${i}`} className="tools-dup-member">
+                  {famSpouses.length > 0 ? (
+                    <span>
+                      {famSpouses.map((p, j) => (
+                        <span key={p.id}>
+                          {j > 0 && <span className="tools-usage-amp">&amp;</span>}
+                          <PersonLink dataset={dataset} id={p.id} fallback={p.label} onNavigate={onNavigate} />
+                        </span>
+                      ))}
+                    </span>
+                  ) : (
+                    <PersonLink dataset={dataset} id={m.recordXref} fallback={m.recordXref} onNavigate={onNavigate} />
+                  )}
+                  <span className="tools-tree-meta">
+                    {m.eventTag ?? t("tools.sources.pageMediaRecord")}
+                    {m.page && ` · ${t("tools.sources.pageMediaPage", { page: m.page })}`}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+          {group.ambiguous > 0 && (
+            <p className="tools-fix-hint">{t("tools.sources.pageMediaAmbiguous", { count: group.ambiguous })}</p>
           )}
         </div>
       )}

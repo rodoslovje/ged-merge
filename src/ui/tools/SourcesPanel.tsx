@@ -18,6 +18,8 @@ import { repoRecordEditFields, sourceRecordEditFields, type EditRepoFields, type
 import { ToolsLoading, TreeSearch, UsageList, someMatch, useDebounced } from "./shared";
 import { SourceCleanupView } from "./SourceCleanupView";
 import { scanRepoRegroup } from "../../tools/repoRegroup";
+import { findMissingPageMedia } from "../../tools/pageMediaCheck";
+import { detectPageMediaStyle } from "../../tools/sourceReshape";
 import { ToolSummary } from "./ToolSummary";
 
 /** Lightbox side panel for a media object: the person/family records that
@@ -485,6 +487,19 @@ export function SourcesPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [dataset, regroupNonce],
   );
+  // Citations missing their page image. One walk of the records, so it rides
+  // the same nonce rather than the worker: the answer depends on the file's
+  // page-link style, which the reader can change while the page is open.
+  const pageMediaStyle = settings.formatOverrides.pageMedia ?? "auto";
+  const pageMediaReport = useMemo(
+    () =>
+      findMissingPageMedia(
+        dataset,
+        pageMediaStyle === "auto" ? detectPageMediaStyle(dataset.records) : pageMediaStyle,
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dataset, regroupNonce, pageMediaStyle],
+  );
 
   const toggle = (key: string) =>
     setOpen((s) => {
@@ -635,6 +650,7 @@ export function SourcesPanel({
         onBack={() => setView("tree")}
         onApplyPatches={onApplyPatches}
         regroupReport={regroupReport}
+        pageMediaReport={pageMediaReport}
         onRescan={() => {
           scans.refresh("sourceReshape");
           scans.refresh("sourceDuplicates");
@@ -697,12 +713,13 @@ export function SourcesPanel({
           <ScanChip
             label={t("tools.sources.cleanupToggle")}
             status={combinedScanStatus(scans.sourceDuplicates.status, scans.sourceReshape.status)}
-            count={dupCount + reshapeCount + regroupReport.groups.length}
+            count={dupCount + reshapeCount + regroupReport.groups.length + pageMediaReport.groups.length}
             hint={t("tools.sources.cleanupChipHint", {
               links: reshapeReport?.totalOccurrences ?? 0,
               groups: reshapeCount,
               dups: dupCount,
               repos: regroupReport.total,
+              pages: pageMediaReport.total,
             })}
             onOpen={() => setView("cleanup")}
           />

@@ -769,13 +769,27 @@ export const en = {
   "tools.sources.regroupNew": "new repository",
   "tools.sources.regroupEmptied_one": "{{count}} repository removed",
   "tools.sources.regroupEmptied_other": "{{count}} repositories removed",
+  "tools.sources.pageMediaHeading": "Cited pages without their image",
+  "tools.sources.pageMediaIntro":
+    "This file links a cited page's image beside the citation, the way webtrees and Ancestry show a scan with the fact it documents (Settings → Page links). These citations do not have theirs: the image is under the source, but the person or the event does not link it. Pick the sources and apply — one image pointer is added beside each citation, and nothing else about the record changes.",
+  "tools.sources.pageMediaFound_one": "{{count}} citation without its page image",
+  "tools.sources.pageMediaFound_other": "{{count}} citations without their page image",
+  "tools.sources.pageMediaCount_one": "{{count}} citation",
+  "tools.sources.pageMediaCount_other": "{{count}} citations",
+  "tools.sources.pageMediaAmbiguous_one":
+    "{{count}} more citation names no page this source's images answer to, so which one it means cannot be told — left as it is.",
+  "tools.sources.pageMediaAmbiguous_other":
+    "{{count}} more citations name no page this source's images answer to, so which one they mean cannot be told — left as they are.",
+  "tools.sources.pageMediaPage": "page {{page}}",
+  "tools.sources.pageMediaRecord": "on the record itself",
+  "tools.sources.applyPageMedia": "Link page images ({{count}})",
   "tools.sources.cleanupApply": "Apply to the file ({{count}})",
   "tools.sources.cleanupApplied_one": "{{count}} record updated — undo with Ctrl+Z, save to keep.",
   "tools.sources.cleanupApplied_other": "{{count}} records updated — undo with Ctrl+Z, save to keep.",
   "tools.sources.reshapeIntro":
     "Archive links (Matricula Online, Geneanet Cemeteries, FamilySearch) found as bare links, notes or inline citations, grouped by register book or grave. Pick the groups to convert and apply: each becomes a proper source record in your file, cited with page numbers, in one undoable step.",
   "tools.sources.reshapeFound": "links: {{links}} · source groups: {{groups}}",
-  "tools.sources.cleanupChipHint": "{{links}} archive links in {{groups}} source groups · {{dups}} duplicate groups · {{repos}} sources to gather under their place",
+  "tools.sources.cleanupChipHint": "{{links}} archive links in {{groups}} source groups · {{dups}} duplicate groups · {{repos}} sources to gather under their place · {{pages}} citations without their page image",
   "tools.sources.reshapeSite.matricula": "Matricula Online",
   "tools.sources.reshapeSite.geneanet": "Geneanet Cemeteries",
   "tools.sources.reshapeSite.geneanettree": "Geneanet Trees",
