@@ -3524,11 +3524,12 @@ button:focus-visible {
   font-size: 0.9em;
 }
 /* And the photo column: when any relative card shows a profile photo, every
-   card (photo-less and the + Add placeholders alike) grows to the photo card's
-   height, so the grid stays even. 72px = the 64px photo minus its 2+2px
-   negative margins, plus the card's 5+5px padding and 1+1px borders — keep in
-   sync with .card-photo / CardPhoto (PersonMedia.tsx). */
-.edit-view:has(.card-photo-btn) .person-card {
+   other card with a person in it grows to the photo card's height, so the grid
+   stays even. 72px = the 64px photo minus its 2+2px negative margins, plus the
+   card's 5+5px padding and 1+1px borders — keep in sync with .card-photo /
+   CardPhoto (PersonMedia.tsx). The "+ Add …" placeholders are left out: they
+   carry one line of text and stay one line tall, at the cards' width. */
+.edit-view:has(.card-photo-btn) .person-card:not(.empty) {
   min-height: 72px;
 }
 .person-card-role {
