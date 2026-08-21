@@ -4,6 +4,7 @@ import {
   isPointer,
   looksLikeUrl,
   objeInfoOf,
+  objeNodesFor,
   sourceContentKey,
   sourceTitle,
 } from "../gedcom/source";
@@ -42,8 +43,15 @@ export interface DupMember {
   xref: string;
   /** Display title (falls back to the basename/xref). */
   title: string;
-  /** The shared link/filename/website, shown as secondary detail. */
+  /** The shared link/filename/website, shown as secondary detail. Not a
+   *  link: a source's is its filing number, a media record's may be a local
+   *  path — see `url` for what can actually be opened. */
   detail?: string;
+  /** The page this record stands for, where it has one that opens: a media
+   *  record's own URL, a source's page image (or its `WWW`), a repository's
+   *  website. Undefined for a record that names no address — an offline scan,
+   *  a source known only by its title. */
+  url?: string;
   /** How many records cite this record across the whole file. */
   usage: number;
   /** True for the record kept when the group is fixed (the rest fold into it). */
@@ -103,6 +111,21 @@ function countPointerRefs(records: GedNode[]): Map<string, number> {
   return counts;
 }
 
+/** The page a `SOUR` record opens at: its first page image's URL, or the
+ *  record's own `WWW` where it carries one instead. A source known only by
+ *  its title and filing number has none — and must not be given a made-up one
+ *  (a title is not an address). */
+function sourceUrlOf(rec: GedNode, objes: Map<string, GedNode>): string | undefined {
+  for (const child of rec.children) {
+    if (child.tag !== "OBJE") continue;
+    const v = child.value?.trim();
+    const node = v && isPointer(v) ? objes.get(v) : child;
+    const url = node && objeInfoOf(node).url;
+    if (url) return url;
+  }
+  return childText(rec, "WWW");
+}
+
 /** Bucket top-level `tag` records by `keyOf` and emit a {@link DupGroup} per
  *  bucket with 2+ members. The survivor (kept) is the richest record, then the
  *  most-cited, then the first in file order — minimizing data loss and changes. */
@@ -111,7 +134,7 @@ function groupRecords(
   tag: string,
   kind: DupKind,
   keyOf: (rec: GedNode) => string | undefined,
-  describe: (rec: GedNode) => { title: string; detail?: string },
+  describe: (rec: GedNode) => { title: string; detail?: string; url?: string },
   refs: Map<string, number>,
   out: DupGroup[],
 ): void {
@@ -132,7 +155,14 @@ function groupRecords(
       .sort((a, b) => b.rich - a.rich || b.use - a.use || a.i - b.i);
     const members: DupMember[] = ranked.map(({ rec }, idx) => {
       const d = describe(rec);
-      return { xref: rec.xref!, title: d.title, detail: d.detail, usage: refs.get(rec.xref!) ?? 0, survivor: idx === 0 };
+      return {
+        xref: rec.xref!,
+        title: d.title,
+        detail: d.detail,
+        url: d.url && looksLikeUrl(d.url) ? d.url : undefined,
+        usage: refs.get(rec.xref!) ?? 0,
+        survivor: idx === 0,
+      };
     });
     const label = (kind === "media" ? members[0].detail : members[0].title) || members[0].title;
     out.push({ id: `${kind}:${key}`, kind, label, members, removable: members.length - 1 });
@@ -141,6 +171,7 @@ function groupRecords(
 
 export function findSourceDuplicates(ds: Dataset): DuplicateReport {
   const refs = countPointerRefs(ds.records);
+  const objes = objeNodesFor(ds.records);
   const groups: DupGroup[] = [];
 
   // Local files identified by bare basename: two cameras both produce an
@@ -172,7 +203,7 @@ export function findSourceDuplicates(ds: Dataset): DuplicateReport {
     },
     (rec) => {
       const info = objeInfoOf(rec);
-      return { title: info.title || (info.file ? basename(info.file) : rec.xref!), detail: info.url ?? info.file };
+      return { title: info.title || (info.file ? basename(info.file) : rec.xref!), detail: info.url ?? info.file, url: info.url };
     },
     refs, groups,
   );
@@ -180,14 +211,14 @@ export function findSourceDuplicates(ds: Dataset): DuplicateReport {
   groupRecords(
     ds.records, "SOUR", "source",
     (rec) => { const k = sourceContentKey(rec); return k ? `c:${k}` : undefined; },
-    (rec) => ({ title: sourceTitle(rec) || rec.xref!, detail: childText(rec, "FILN") }),
+    (rec) => ({ title: sourceTitle(rec) || rec.xref!, detail: childText(rec, "FILN"), url: sourceUrlOf(rec, objes) }),
     refs, groups,
   );
 
   groupRecords(
     ds.records, "REPO", "repo",
     (rec) => { const k = sourceContentKey(rec); return k ? `c:${k}` : undefined; },
-    (rec) => ({ title: childText(rec, "NAME") || rec.xref!, detail: childText(rec, "WWW") }),
+    (rec) => ({ title: childText(rec, "NAME") || rec.xref!, detail: childText(rec, "WWW"), url: childText(rec, "WWW") }),
     refs, groups,
   );
 

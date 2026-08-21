@@ -23,6 +23,7 @@ import {
   type ReshapeSite,
 } from "../../tools/sourceReshape";
 import { type DuplicateReport, type DupGroup, type DupKind } from "../../tools/sourceDuplicates";
+import { looksLikeUrl } from "../../gedcom/source";
 import { applySourceCleanup } from "../../tools/sourceCleanupApply";
 import { type RepoRegroupGroup, type RepoRegroupReport } from "../../tools/repoRegroup";
 import type { Translate } from "../../locales/i18n";
@@ -52,10 +53,13 @@ const QUAY_CHOICES = ["", "3", "2", "1", "0"];
 const DUP_KINDS: DupKind[] = ["media", "source", "repo"];
 const DUP_KIND_ICON: Record<DupKind, string> = { media: "🖼", source: "📚", repo: "🏛" };
 
-/** The ↗ that opens a row's page, shown when the row's detail is a link —
- *  the same affordance the Sources tree and the person cards carry. */
+/** The ↗ that opens a row's page, shown only where the row really has one —
+ *  the same affordance the Sources tree and the person cards carry. A value
+ *  that is no address (a filing number, a source's title, a scan's local
+ *  filename) gets no arrow: `linkHref` would dress it up as `https://…` and
+ *  the click would go nowhere. */
 function RowLink({ url, t }: { url: string | undefined; t: Translate }) {
-  const href = url ? linkHref(url) : undefined;
+  const href = url && looksLikeUrl(url) ? linkHref(url) : undefined;
   if (!href) return null;
   return (
     <a className="tools-tree-link" href={href} target="_blank" rel="noreferrer" title={linkTooltip(url!, t)}>
@@ -1479,7 +1483,7 @@ function DupGroupRow({
                   </label>
                   <span className="tools-dup-title">{m.title}</span>
                   {m.detail && m.detail !== m.title && <span className="tools-tree-meta">{m.detail}</span>}
-                  <RowLink url={m.detail ?? group.label} t={t} />
+                  <RowLink url={m.url} t={t} />
                   {group.kind !== "media" && (
                     <RowEdit xref={m.xref} kind={group.kind === "repo" ? "repo" : "source"} onEditRecord={onEditRecord} t={t} />
                   )}
