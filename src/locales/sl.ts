@@ -775,6 +775,12 @@ export const sl = {
   "tools.geocode.fromFileTooltip": "Druge navedbe točno tega imena kraja v datoteki že nosijo to koordinato",
   "tools.geocode.countryTooltip": "Država, katere kraje prenesemo iz OpenStreetMap (Overpass API, © sodelavci OpenStreetMap)",
   "tools.geocode.downloadFailed": "Prenos ni uspel — poskusite čez minuto (strežniki Overpass omejujejo zahteve) ali pa datoteko GeoNames prenesite s spodnje strani in jo uvozite tu.",
+  "tools.geocode.emptyResult":
+    "Prenos je uspel, med prenesenim pa ni bilo ničesar za uvoz. Morda je pri viru trenutno kaj narobe — poskusite pozneje ali pa to državo vzemite pri katerem drugem viru spodaj.",
+  "tools.geocode.unreadable":
+    "Prenos ni vseboval tega, kar ta vir pošilja ({{detail}}) — poskusite pozneje ali pa to državo vzemite pri katerem drugem viru spodaj.",
+  "tools.geocode.stalled":
+    "Uvoz se je ustavil, ne da bi se končal in ne da bi povedal, zakaj — najpogosteje mu je v brskalniku zmanjkalo pomnilnika. Nič ni shranjenega; poskusite znova.",
   "tools.geocode.storeBlocked":
     "Prenos je uspel, brskalnik pa prenesenih podatkov ni shranil: zbirka podatkov o krajih je odprta v drugem oknu aplikacije. Zaprite druge zavihke in okna aplikacije, nato prenos ponovite.",
   "tools.geocode.storeRefused":

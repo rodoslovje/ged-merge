@@ -661,6 +661,12 @@ export const en = {
   "tools.geocode.fromFileTooltip": "Other occurrences of exactly this place name already carry this coordinate in the file",
   "tools.geocode.countryTooltip": "The country whose places are fetched from OpenStreetMap (Overpass API, © OpenStreetMap contributors)",
   "tools.geocode.downloadFailed": "The download did not go through — try again in a minute (the Overpass servers rate-limit), or download a GeoNames file from the site below and import it here.",
+  "tools.geocode.emptyResult":
+    "The download went through and there was nothing in it to import. Something may be wrong at the source — try again later, or take this country from another of the sources below.",
+  "tools.geocode.unreadable":
+    "The download did not hold what this source is supposed to send ({{detail}}) — try again later, or take this country from another of the sources below.",
+  "tools.geocode.stalled":
+    "The import stopped without finishing and without saying why — most often the browser ran out of memory for it. Nothing was stored; try it again.",
   "tools.geocode.storeBlocked":
     "The download went through, but this browser could not store it: its place database is open in another window of the app. Close the app's other tabs and windows, then download again.",
   "tools.geocode.storeRefused":
