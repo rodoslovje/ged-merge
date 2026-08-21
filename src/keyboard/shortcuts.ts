@@ -1,3 +1,4 @@
+import type { FamilyStep } from "../gedcom/familyNav";
 import type { MatchDecisionStatus } from "../review/types";
 
 /**
@@ -42,6 +43,23 @@ export const CHART_KEY = {
   /** Draw the chart for the start person — Edit's "go home", one letter for both. */
   home: KEY.home,
 } as const;
+
+/**
+ * Edit mode: which family step an Alt+arrow chord means. The arrows map the
+ * layout around the person — parents above, children below, the person's own
+ * generation left and right — and Shift picks the other one on that axis: the
+ * mother rather than the father, the youngest child rather than the eldest, a
+ * partner rather than a sibling. Any other key is not a family step.
+ */
+export function familyStepFor(key: string, shift: boolean): FamilyStep | undefined {
+  switch (key) {
+    case "ArrowUp": return shift ? "mother" : "father";
+    case "ArrowDown": return shift ? "lastChild" : "firstChild";
+    case "ArrowLeft": return shift ? "prevPartner" : "prevSibling";
+    case "ArrowRight": return shift ? "nextPartner" : "nextSibling";
+    default: return undefined;
+  }
+}
 
 type ActiveStatus = Exclude<MatchDecisionStatus, "undecided">;
 
@@ -130,6 +148,13 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     items: [
       { keys: [["←"], ["→"]], descKey: "shortcuts.item.prevNext" },
       { keys: [["↑"], ["↓"]], descKey: "shortcuts.item.scroll" },
+      // Edit's family steps. ⌥ alone and not ⌥⇧ (the edit-action family): with
+      // arrows there is no menu accelerator to collide with, and the pair leaves
+      // ⇧ free to mean "the other one on this axis".
+      { keys: [["alt", "↑"], ["alt", "shift", "↑"]], descKey: "shortcuts.item.goParent" },
+      { keys: [["alt", "←"], ["alt", "→"]], descKey: "shortcuts.item.goSibling" },
+      { keys: [["alt", "↓"], ["alt", "shift", "↓"]], descKey: "shortcuts.item.goChild" },
+      { keys: [["alt", "shift", "←"], ["alt", "shift", "→"]], descKey: "shortcuts.item.goPartner" },
       { keys: [["Enter"]], descKey: "shortcuts.item.enter" },
       { keys: [[KEY.tree.toUpperCase()]], descKey: "shortcuts.item.tree" },
       { keys: [[KEY.relationship.toUpperCase()]], descKey: "shortcuts.item.relationship" },

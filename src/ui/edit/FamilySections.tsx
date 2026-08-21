@@ -2,13 +2,13 @@ import { memo } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset, Family, GedNode, SourceCitation, GeoCoord } from "../../gedcom/types";
 import { isSameSexCouple } from "../../gedcom/couple";
+import { childrenByBirth } from "../../gedcom/familySort";
 import type { Translate } from "../../locales/i18n";
 import type { MatchDecisionStatus } from "../../review/types";
 import { firstChild } from "../../gedcom/node";
 import { customEventLabel, eventDisplayLabel } from "../../gedcom/eventTags";
 import { collectMediaRefs } from "../../gedcom/media";
 import { coupleAgesDisplay } from "../../gedcom/age";
-import { birthSortKey } from "../../gedcom/lifespan";
 import { kinshipInfo, kinshipTooltip as kinshipTooltipText, lineageClass } from "../../match/kinship";
 import {
   addFamilyEventNode,
@@ -96,17 +96,6 @@ export function NewUnionSection({
 /** The preferences this file reads — subscribed field by field, so an
  *  unrelated one changing leaves it alone (see useSettingsSlice). */
 const SETTINGS_KEYS = ["showAge", "showKinship", "formatOverrides"] as const;
-
-/** The family's children in birth order for display — the file's own order is
- *  left untouched. Undated children keep their file position among themselves,
- *  after the dated ones (sort is stable, undated keys are Infinity). */
-function childrenByBirth(fam: Family | undefined, individuals: Dataset["individuals"]): string[] {
-  return [...(fam?.children ?? [])].sort((a, b) => {
-    const ka = birthSortKey(individuals.get(a));
-    const kb = birthSortKey(individuals.get(b));
-    return ka < kb ? -1 : ka > kb ? 1 : 0;
-  });
-}
 
 /** Kinship badge props for a relative card (mirrors the person header's). */
 function kinshipChips(
