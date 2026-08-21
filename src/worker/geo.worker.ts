@@ -28,7 +28,7 @@ import {
 } from "../geo/hrAd";
 import { parseSiAddressPage, parseSiPostCodes, siAddressPageUrl, siPostalUrl, SI_AD_PAGE, type SiFeatureCollection } from "../geo/siAd";
 import { extractZipTxt, zipEntries, zipEntryStream, type ZipEntry } from "../geo/zip";
-import { getAddressIndex, getCountry, putAddressRegister, putCountry } from "../persist/geoDb";
+import { GeoStoreError, getAddressIndex, getCountry, putAddressRegister, putCountry } from "../persist/geoDb";
 import type { GeoWorkerRequest, GeoWorkerResponse } from "./geoMessages";
 
 // Gazetteer import worker: decompress (if zipped), parse the tab-separated
@@ -38,6 +38,17 @@ import type { GeoWorkerRequest, GeoWorkerResponse } from "./geoMessages";
 
 function post(msg: GeoWorkerResponse): void {
   (self as unknown as Worker).postMessage(msg);
+}
+
+/** Report a failed import. A store that refused the write is passed on as
+ *  such, so the manager can put the reason — and what to do about it — in the
+ *  reader's own language; everything else travels as its message. */
+function postFailure(requestId: number, e: unknown): void {
+  if (e instanceof GeoStoreError) {
+    post({ type: "error", requestId, message: e.message, store: e.kind, detail: e.detail });
+    return;
+  }
+  post({ type: "error", requestId, message: e instanceof Error ? e.message : String(e) });
 }
 
 const CHUNK = 4 * 1024 * 1024;
@@ -257,7 +268,7 @@ self.onmessage = async (event: MessageEvent<GeoWorkerRequest>) => {
       if (!stored) throw new Error("the register could not be stored in this browser");
       post({ type: "addressRegister", requestId: msg.requestId, country: msg.country, count });
     } catch (e) {
-      post({ type: "error", requestId: msg.requestId, message: e instanceof Error ? e.message : String(e) });
+      postFailure(msg.requestId, e);
     }
     return;
   }
@@ -358,6 +369,6 @@ self.onmessage = async (event: MessageEvent<GeoWorkerRequest>) => {
     countries.sort((a, b) => b.count - a.count);
     post({ type: "result", requestId, countries });
   } catch (e) {
-    post({ type: "error", requestId, message: e instanceof Error ? e.message : String(e) });
+    postFailure(requestId, e);
   }
 };

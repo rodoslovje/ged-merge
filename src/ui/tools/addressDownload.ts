@@ -31,7 +31,10 @@ export type AddressDownloadState =
       done: number;
       total: number;
     }
-  | { phase: "error"; country: RegisterCountry; message: string }
+  /** `store` and `detail` are set when the download went through and the
+   *  browser refused to keep it — the manager translates that one, since it
+   *  asks the reader to do something about it. */
+  | { phase: "error"; country: RegisterCountry; message: string; store?: "blocked" | "failed"; detail?: string }
   | { phase: "done"; country: RegisterCountry; count: number };
 
 // Carried across Vite's hot updates in development. An import takes minutes,
@@ -98,7 +101,12 @@ function attach(w: Worker, country: RegisterCountry): void {
     } else if (msg.type === "addressRegister") {
       finish({ phase: "done", country, count: msg.count });
     } else if (msg.type === "error") {
-      finish({ phase: "error", country, message: msg.message });
+      finish({
+        phase: "error",
+        country,
+        message: msg.message,
+        ...(msg.store ? { store: msg.store, detail: msg.detail } : {}),
+      });
     }
   };
   // A worker that fails to load, or throws outside its own handler, would

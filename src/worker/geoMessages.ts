@@ -66,4 +66,17 @@ export type GeoWorkerResponse =
   /** An address register was stored — a different store, and a different line
    *  in the manager, from the place directories a "result" reports. */
   | { type: "addressRegister"; requestId: number; country: string; count: number }
-  | { type: "error"; requestId: number; message: string };
+  | {
+      type: "error";
+      requestId: number;
+      /** English, and a fallback: a download that failed on the network or on
+       *  the payload says so here and nowhere else. */
+      message: string;
+      /** Set when the download itself went through and the *store* refused it
+       *  — the one failure whose wording has to be translated, because it asks
+       *  the reader to do something (close the other window, free some room).
+       *  The manager turns it into a sentence; `detail` is the browser's own
+       *  error name, shown alongside so a refusal can be identified. */
+      store?: "blocked" | "failed";
+      detail?: string;
+    };

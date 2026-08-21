@@ -419,6 +419,17 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [download.phase]);
 
+  /** What a failed import says. A store that refused the download is the only
+   *  failure the app can explain — and the only one that asks the reader to do
+   *  something about it — so it is spelled out in their language; everything
+   *  else travels as the worker's own report of the download or the payload. */
+  const failureText = (fail: { message: string; store?: "blocked" | "failed"; detail?: string }): string =>
+    fail.store === "blocked"
+      ? t("tools.geocode.storeBlocked")
+      : fail.store === "failed"
+        ? t("tools.geocode.storeRefused", { detail: fail.detail ?? "" })
+        : fail.message;
+
   const reload = async () => {
     const stored = await loadCountries();
     setCountries(
@@ -450,9 +461,16 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
     void reload();
     const listener = () => void reload();
     listeners.add(listener);
+    // An import in flight is deliberately left running. This component lives
+    // behind `{tab === "map" && …}` in Settings, so changing tab or closing the
+    // dialog unmounts it — and terminating the worker here killed the import
+    // outright: the download had gone through, nothing was stored, and nothing
+    // said so. Waiting on a 45 MB register with the dialog open is not
+    // something to require of anyone. The worker ends itself on its result or
+    // its error, stores from inside itself, and tells whichever manager is
+    // mounted by then through `listeners`; only Cancel still terminates it.
     return () => {
       listeners.delete(listener);
-      workerRef.current?.terminate();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -499,7 +517,7 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
           setImportState(note ? { phase: "running", stage: "waiting", done: 0, total: 0, note } : null);
           void refreshGazetteer();
           resolve(true);
-        } else fail(msg.message);
+        } else fail(failureText(msg));
       };
       // A worker that fails to load or throws outside the message handler would
       // otherwise leave the import spinner running forever — surface it instead.
@@ -747,7 +765,7 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
     download.phase === "running"
       ? { phase: "running", stage: download.stage, done: download.done, total: download.total }
       : download.phase === "error"
-        ? { phase: "error", message: download.message }
+        ? { phase: "error", message: failureText(download) }
         : null;
 
   return {
