@@ -339,6 +339,23 @@ export async function putDecisions(decisions: GeocodeDecision[]): Promise<void> 
   );
 }
 
+/** Forget a batch of remembered decisions in one transaction — the restores
+ *  a write carries, the mirror of {@link putDecisions}. A key the store never
+ *  held is simply a no-op delete. */
+export async function deleteDecisions(keys: readonly string[]): Promise<void> {
+  if (!keys.length) return;
+  await withGeoDb(
+    (db) =>
+      new Promise<void>((resolve, reject) => {
+        const tx = db.transaction(DECISIONS_STORE, "readwrite");
+        const store = tx.objectStore(DECISIONS_STORE);
+        for (const key of keys) store.delete(key);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      }),
+  );
+}
+
 export async function deleteDecision(key: string): Promise<void> {
   await withGeoDb((db) => requestDone(db.transaction(DECISIONS_STORE, "readwrite").objectStore(DECISIONS_STORE).delete(key)));
 }

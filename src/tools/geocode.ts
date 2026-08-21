@@ -715,18 +715,27 @@ export function buildWriteSet(
   chosen: ReadonlyMap<string, ChosenCoord>,
   noMatch: ReadonlySet<string>,
   now: number,
-): { assignments: Map<string, GeoAssignment>; toStore: GeocodeDecision[] } {
+): { assignments: Map<string, GeoAssignment>; toStore: GeocodeDecision[]; toForget: string[] } {
   const assignments = new Map<string, GeoAssignment>();
   const toStore: GeocodeDecision[] = [];
+  // A row the store still calls unanswerable, which this write answers — by a
+  // coordinate, or by the reader putting it back on the list. Without this the
+  // restore lasted only until the next reload, when the remembered decision
+  // hid the row again.
+  const toForget: string[] = [];
   for (const row of [...scan.rows, ...scan.placed]) {
     const c = chosen.get(row.key);
+    const remembered = row.cached?.status === "nomatch";
     if (c) {
       const a: GeoAssignment = c.govId ? { coord: c.coord, govId: c.govId } : { coord: c.coord };
       if (row.placed) a.overwrite = true;
       assignments.set(row.key, a);
-    } else if (noMatch.has(row.key) && row.cached?.status !== "nomatch") {
-      toStore.push({ key: row.key, status: "nomatch", ts: now });
+      if (remembered) toForget.push(row.key);
+    } else if (noMatch.has(row.key)) {
+      if (!remembered) toStore.push({ key: row.key, status: "nomatch", ts: now });
+    } else if (remembered) {
+      toForget.push(row.key);
     }
   }
-  return { assignments, toStore };
+  return { assignments, toStore, toForget };
 }
