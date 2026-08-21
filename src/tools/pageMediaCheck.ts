@@ -130,6 +130,13 @@ function collect(
       const linked = new Set(
         childrenByTag(container, "OBJE").map((c) => c.value?.trim()).filter((v): v is string => !!v),
       );
+      // A page image is already beside this fact: the reader has answered which
+      // page documents it, and a second one would not be a completion but a
+      // contradiction. It happens where the file's own page image never joined
+      // its source record — the image is on the event, the source knows nothing
+      // of it, and matching by the source alone would hang another page beside
+      // the one already there.
+      if ([...linked].some((xref) => objes.get(xref)?.url)) continue;
       for (const citation of childrenByTag(container, "SOUR")) {
         const sourceXref = citation.value?.trim();
         if (!sourceXref || !isPointer(sourceXref)) continue;

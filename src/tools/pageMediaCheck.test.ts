@@ -92,6 +92,61 @@ describe("findMissingPageMedia", () => {
     expect(report.groups[0].ambiguous).toBe(2);
   });
 
+  it("leaves a fact alone when a page image is already beside it", () => {
+    // The file's own page image never joined its source record: it is on the
+    // event, the source knows nothing of it. Matching by the source alone hung
+    // a second page beside the one already there — two images for one fact.
+    const report = findMissingPageMedia(
+      dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Urban /Renka/
+1 BIRT
+2 SOUR @S1@
+3 PAGE 126
+2 OBJE @M126@
+0 @S1@ SOUR
+1 TITL Births (Rodeni) 1815-1843, Ravna Gora
+1 OBJE @M90@
+0 @M126@ OBJE
+1 FILE ${BOOK}/?pg=126
+1 TITL #126 - Births (Rodeni) 1815-1843, Ravna Gora
+0 @M90@ OBJE
+1 FILE ${BOOK}/?pg=90
+1 TITL #090 - Births (Rodeni) 1815-1843, Ravna Gora
+0 TRLR`),
+      "event",
+    );
+    expect(report.total).toBe(0);
+    expect(report.groups).toEqual([]);
+  });
+
+  it("a photo beside the citation is no page image, and does not hold the run off", () => {
+    // A portrait on the birth says nothing about which register page documents
+    // it — only a linked *page* does.
+    const report = findMissingPageMedia(
+      dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Ana /Kern/
+1 BIRT
+2 SOUR @S1@
+3 PAGE 11
+2 OBJE @P1@
+0 @S1@ SOUR
+1 TITL Krstna knjiga - 03869
+1 OBJE @M1@
+0 @M1@ OBJE
+1 FILE ${BOOK}/?pg=11
+0 @P1@ OBJE
+1 FILE ana-kern.jpg
+0 TRLR`),
+      "event",
+    );
+    expect(report.total).toBe(1);
+    expect(report.groups[0].missing[0].objeXref).toBe("@M1@");
+  });
+
   it("ignores a source that holds no page images at all", () => {
     expect(
       findMissingPageMedia(

@@ -445,6 +445,36 @@ function makeMediaNamer(records: GedNode[]): MediaNamer {
   };
 }
 
+/** What a page image linked on the record *itself* is called — the same
+ *  `🔗 name` the event lines carry. Photos are {@link diffMedia}'s business,
+ *  which describes them by file path and deliberately skips URL media; a page
+ *  image attached beside a record-level citation fell between the two and left
+ *  the record marked as changed with nothing said about it. */
+function makePageMediaNamer(records: GedNode[]): MediaNamer {
+  const objeIndex = buildObjeIndex(records);
+  return (node) => {
+    const ptr = node.value?.trim();
+    const info = ptr && isPointer(ptr) ? objeIndex.get(ptr) : objeInfoOf(node);
+    if (!info?.url) return "";
+    return `🔗 ${info.title?.trim() || info.url}`;
+  };
+}
+
+/** Page images added to or removed from a record's own `OBJE` children. */
+function diffPageMedia(id: string, before: GedNode, after: GedNode, fieldLabel: string, name: MediaNamer): FieldChange[] {
+  const named = (node: GedNode) => new Set(childrenByTag(node, "OBJE").map(name).filter(Boolean));
+  const beforeSet = named(before);
+  const afterSet = named(after);
+  const diffs: FieldChange[] = [];
+  for (const v of beforeSet) {
+    if (!afterSet.has(v)) diffs.push({ recordId: id, field: fieldLabel, from: v, to: "", action: "incoming", noLabel: true });
+  }
+  for (const v of afterSet) {
+    if (!beforeSet.has(v)) diffs.push({ recordId: id, field: fieldLabel, from: "", to: v, action: "both", noLabel: true });
+  }
+  return diffs;
+}
+
 function makeMediaResolver(records: GedNode[]): MediaResolver {
   const objeIndex = buildObjeIndex(records);
   return (node) => {
@@ -477,7 +507,7 @@ function diffMedia(id: string, before: GedNode, after: GedNode, fieldLabel: stri
   return diffs;
 }
 
-function diffIndividualNodes(id: string, before: GedNode, after: GedNode, t: Translate, resolveMedia: MediaResolver, resolveSource: SourceResolver, notePrivate: (node: GedNode) => boolean, noteText: (value: string) => string, nameMedia: MediaNamer): FieldChange[] {
+function diffIndividualNodes(id: string, before: GedNode, after: GedNode, t: Translate, resolveMedia: MediaResolver, resolveSource: SourceResolver, notePrivate: (node: GedNode) => boolean, noteText: (value: string) => string, nameMedia: MediaNamer, namePageMedia: MediaNamer): FieldChange[] {
   const diffs: FieldChange[] = [];
   const check = (field: string, from: string, to: string, identity?: boolean) => {
     if (from !== to) diffs.push({ recordId: id, field, from, to, action: "incoming", identity });
@@ -498,6 +528,7 @@ function diffIndividualNodes(id: string, before: GedNode, after: GedNode, t: Tra
   diffs.push(...diffStringSet(id, before, after, (tag) => RECORD_LINK_TAGS.has(tag), t("field.sources"), true));
   diffs.push(...diffSourceCitations(id, before, after, t("field.sources"), resolveSource));
   diffs.push(...diffMedia(id, before, after, t("field.media"), resolveMedia));
+  diffs.push(...diffPageMedia(id, before, after, t("field.media"), namePageMedia));
 
   return diffs;
 }
@@ -545,6 +576,7 @@ function diffFamilyNodes(
   notePrivate: (node: GedNode) => boolean,
   noteText: (value: string) => string,
   nameMedia: MediaNamer,
+  namePageMedia: MediaNamer,
 ): FieldChange[] {
   const diffs: FieldChange[] = [];
 
@@ -556,6 +588,7 @@ function diffFamilyNodes(
   diffs.push(...diffStringSet(id, before, after, (tag) => RECORD_LINK_TAGS.has(tag), t("field.sources"), true));
   diffs.push(...diffSourceCitations(id, before, after, t("field.sources"), resolveSource));
   diffs.push(...diffMedia(id, before, after, t("field.media"), resolveMedia));
+  diffs.push(...diffPageMedia(id, before, after, t("field.media"), namePageMedia));
 
   return diffs;
 }
@@ -622,6 +655,7 @@ export function enrichEditReport(
   const extra: FieldChange[] = [];
   const resolveMedia = makeMediaResolver(dataset.records);
   const nameMedia = makeMediaNamer(dataset.records);
+  const namePageMedia = makePageMediaNamer(dataset.records);
   const resolveSource = makeSourceResolver(dataset.records);
   const notePrivate = makeNotePrivacyResolver(dataset.records);
   const noteText = makeNoteTextResolver(dataset.records);
@@ -638,7 +672,7 @@ export function enrichEditReport(
       const snapshot = personSnapshots.get(id);
       const current = dataset.individuals.get(id);
       if (snapshot && current) {
-        extra.push(...diffIndividualNodes(id, snapshot, current.raw, t, resolveMedia, resolveSource, notePrivate, noteText, nameMedia));
+        extra.push(...diffIndividualNodes(id, snapshot, current.raw, t, resolveMedia, resolveSource, notePrivate, noteText, nameMedia, namePageMedia));
         // Family-membership changes on the individual. A detach from a family
         // that still exists is shown on that family's row, so only removed
         // families (pruned, or folded away by a duplicate merge) surface as a
@@ -686,7 +720,7 @@ export function enrichEditReport(
     } else {
       const snapshot = familySnapshots.get(id);
       const current = dataset.families.get(id);
-      if (snapshot && current) extra.push(...diffFamilyNodes(id, snapshot, current.raw, t, resolveIndiName, resolveMedia, resolveSource, notePrivate, noteText, nameMedia));
+      if (snapshot && current) extra.push(...diffFamilyNodes(id, snapshot, current.raw, t, resolveIndiName, resolveMedia, resolveSource, notePrivate, noteText, nameMedia, namePageMedia));
     }
   }
 

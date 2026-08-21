@@ -67,6 +67,28 @@ describe("enrichEditReport — source citations", () => {
     ]);
   });
 
+  it("names a page image attached beside a record-level citation", () => {
+    // The record's own citation gets its page image on the record, not on any
+    // event — and the photo diff skips URL media, so this arrived as a record
+    // marked EDITED with nothing said about it.
+    const before = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SOUR @S1@\n"));
+    const after = dataset(
+      wrap(
+        "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SOUR @S1@\n1 OBJE @O1@\n" +
+          "0 @S1@ SOUR\n1 TITL Pokopališče Kranj - Geneanet Cemeteries\n1 OBJE @O1@\n" +
+          "0 @O1@ OBJE\n1 FILE https://gw.geneanet.org/cimetieres?n=kranj&p=9833663\n" +
+          "1 TITL Kranj - Cemetery - #9833663 - Geneanet\n",
+      ),
+    );
+    const snapshots = new Map([["@I1@", before.individuals.get("@I1@")!.raw]]);
+    const report = enrichEditReport(baseReport("@I1@"), after, snapshots, new Map(), tr);
+
+    const media = report.changes.filter((c) => c.field === "field.media");
+    expect(media).toHaveLength(1);
+    expect(media[0].to).toBe("🔗 Kranj - Cemetery - #9833663 - Geneanet");
+    expect(media[0].from).toBe("");
+  });
+
   it("shows a citation added to an event as that event's change", () => {
     const before = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 DEAT\n2 DATE 1944\n"));
     const after = dataset(
