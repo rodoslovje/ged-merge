@@ -535,8 +535,8 @@ export function EventFieldsRow({
     links,
     setLinks,
     (next) => commitField({ links: next }),
-    (sourceXref, page, extraPatches, remaining) =>
-      commitField({ links: remaining, addSource: { sourceXref, page } }, extraPatches),
+    (sourceXref, page, extraPatches, remaining, pageObjeXref) =>
+      commitField({ links: remaining, addSource: { sourceXref, page, pageObjeXref } }, extraPatches),
     onOpenSourceDialog,
   );
 

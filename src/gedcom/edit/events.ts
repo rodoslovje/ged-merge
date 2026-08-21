@@ -8,7 +8,7 @@ import {
   insertOrdered, markEventTouched, setOrRemoveValue,
 } from "./shared";
 import { applyNoteRefs, removeNoteRecordIfOrphaned, setSharedNoteText, type SharedNoteCtx } from "./notes";
-import { attachSourceCitation } from "./sources";
+import { attachSourceCitation, linkPageMedia } from "./sources";
 
 export interface EventFieldUpdate {
   /** New direct value on the event line (e.g. occupation text), or `""` to remove. */
@@ -146,10 +146,7 @@ export function applyEventNodeUpdate(record: GedNode, eventNode: GedNode, update
   if (update.links !== undefined) setLinks(eventNode, update.links);
   if (update.addSource) {
     attachSourceCitation(eventNode, update.addSource.sourceXref, update.addSource.page, EVENT_CHILD_ORDER);
-    const pageObje = update.addSource.pageObjeXref;
-    if (pageObje && !childrenByTag(eventNode, "OBJE").some((c) => c.value?.trim() === pageObje)) {
-      insertOrdered(eventNode, { level: eventNode.level + 1, tag: "OBJE", value: pageObje, children: [] }, EVENT_CHILD_ORDER);
-    }
+    linkPageMedia(eventNode, update.addSource.pageObjeXref, EVENT_CHILD_ORDER);
   }
   if (eventNode.children.length === 0 && eventNode.value === undefined) {
     const i = record.children.indexOf(eventNode);

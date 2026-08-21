@@ -16,6 +16,7 @@ import {
   attachInlineMedia,
   attachMediaPointer,
   attachSourceCitation,
+  linkPageMedia,
   createMediaRecord,
   findSharedMediaByFile,
   nextXref,
@@ -1554,6 +1555,23 @@ describe("createSourceRecord / attachSourceCitation", () => {
     attachSourceCitation(indi.raw, source.xref!, "11", INDI_CHILD_ORDER);
     const updated = rebuildIndividual(ds, indi);
     expect(updated.sources![0].page).toBe("11");
+  });
+});
+
+describe("linkPageMedia", () => {
+  it("links the cited page's image beside the citation, once", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+    const source = createSourceRecord(ds.records, { title: "Krstna knjiga", url: "https://example.com/book/?pg=11" });
+    const objeXref = source.children.find((c) => c.tag === "OBJE")!.value!;
+    attachSourceCitation(indi.raw, source.xref!, "11", INDI_CHILD_ORDER);
+    linkPageMedia(indi.raw, objeXref, INDI_CHILD_ORDER);
+    // A second attempt (the same page cited again) adds no duplicate pointer.
+    linkPageMedia(indi.raw, objeXref, INDI_CHILD_ORDER);
+    expect(indi.raw.children.filter((c) => c.tag === "OBJE" && c.value === objeXref)).toHaveLength(1);
+    // The "source only" style passes nothing, and nothing is linked.
+    linkPageMedia(indi.raw, undefined, INDI_CHILD_ORDER);
+    expect(indi.raw.children.filter((c) => c.tag === "OBJE")).toHaveLength(1);
   });
 });
 
