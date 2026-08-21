@@ -35,7 +35,10 @@ describe("createStandaloneSource", () => {
     expect(childText(source, "TITL")).toBe("Krstna knjiga");
     expect(childText(source, "AUTH")).toBe("Župnija Šenčur");
     expect(firstChild(source, "OBJE")?.value).toBe(pageObjeXref);
-    expect(ds.records.some((r) => r.tag === "OBJE" && r.xref === pageObjeXref)).toBe(true);
+    const obje = ds.records.find((r) => r.tag === "OBJE" && r.xref === pageObjeXref)!;
+    // The link belongs to no recognized site, so the page image is named
+    // after the source it is a page of.
+    expect(childText(obje, "TITL")).toBe("#11 - Krstna knjiga");
     // Nothing cites the new source — it stands alone in the file.
     expect(ds.records.some((r) => r.children.some((c) => c.tag === "SOUR" && c.value === sourceXref))).toBe(false);
 
@@ -158,7 +161,14 @@ describe("pageObjeTitle", () => {
   it("titles a recognized site's page image as `#page - title`", () => {
     expect(pageObjeTitle("matricula", "Krstna knjiga", "11")).toBe("#11 - Krstna knjiga");
     expect(pageObjeTitle("matricula", "Krstna knjiga", undefined)).toBe("Krstna knjiga");
-    expect(pageObjeTitle(undefined, "Krstna knjiga", "11")).toBeUndefined();
+  });
+
+  it("names an unrecognized link's page image after its source", () => {
+    // No site knows the link, but the source's title is that page's own name.
+    expect(pageObjeTitle(undefined, "Soška fronta | WW 1", undefined)).toBe("Soška fronta | WW 1");
+    expect(pageObjeTitle(undefined, "Krstna knjiga", "11")).toBe("#11 - Krstna knjiga");
+    // Nothing to build on: the media keeps no title of its own.
+    expect(pageObjeTitle(undefined, undefined, "11")).toBeUndefined();
   });
 
   it("a FamilySearch page is `#film-image - title`, minus the collection tail", () => {
