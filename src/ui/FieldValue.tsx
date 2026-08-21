@@ -2,6 +2,7 @@ import { Fragment } from "react";
 import { useTranslation } from "react-i18next";
 import type { RelativeCell, RelativePair } from "../review/types";
 import { linkKey } from "../normalize/links";
+import { isWebAddress } from "../gedcom/uri";
 import { siteIconForUrl } from "../tools/sourceReshape";
 import { sexClass } from "./sex";
 import type { Translate } from "../locales/i18n";
@@ -219,6 +220,20 @@ function renderLine(line: React.ReactNode, id: string | undefined, person?: Pers
 /** Ensure scheme-less links (e.g. "www.example.com") get an absolute href. */
 export function linkHref(url: string): string {
   return /^https?:\/\//i.test(url) ? url : `https://${url}`;
+}
+
+/**
+ * The href for a value that may be no address at all — a source's title, a
+ * filing number, a local scan's file name. Undefined for those, so the caller
+ * draws no link rather than one that goes nowhere; `linkHref` alone would hand
+ * every one of them an `https://` prefix and a dead click.
+ *
+ * Use this wherever the value comes from the file and its shape is not
+ * guaranteed. Where a URL is certain by construction — a recognized site link,
+ * a URL harvested out of note text — `linkHref` on its own is enough.
+ */
+export function safeLinkHref(url: string | undefined): string | undefined {
+  return url && isWebAddress(url) ? linkHref(url) : undefined;
 }
 
 /** Sites that show a signed-out visitor nothing but a sign-in form.

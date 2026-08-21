@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { linkHref, linkTooltip } from "../FieldValue";
+import { linkTooltip, safeLinkHref } from "../FieldValue";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../../gedcom/types";
 import {
@@ -23,7 +23,6 @@ import {
   type ReshapeSite,
 } from "../../tools/sourceReshape";
 import { type DuplicateReport, type DupGroup, type DupKind } from "../../tools/sourceDuplicates";
-import { looksLikeUrl } from "../../gedcom/source";
 import { applySourceCleanup } from "../../tools/sourceCleanupApply";
 import { type RepoRegroupGroup, type RepoRegroupReport } from "../../tools/repoRegroup";
 import type { Translate } from "../../locales/i18n";
@@ -54,15 +53,15 @@ const DUP_KINDS: DupKind[] = ["media", "source", "repo"];
 const DUP_KIND_ICON: Record<DupKind, string> = { media: "🖼", source: "📚", repo: "🏛" };
 
 /** The ↗ that opens a row's page, shown only where the row really has one —
- *  the same affordance the Sources tree and the person cards carry. A value
- *  that is no address (a filing number, a source's title, a scan's local
- *  filename) gets no arrow: `linkHref` would dress it up as `https://…` and
- *  the click would go nowhere. */
-function RowLink({ url, t }: { url: string | undefined; t: Translate }) {
-  const href = url && looksLikeUrl(url) ? linkHref(url) : undefined;
+ *  the same affordance the Sources tree and the person cards carry. What counts
+ *  as a page is `safeLinkHref`'s to say: a filing number, a source's title or a
+ *  scan's local filename gets no arrow rather than a dead one. Every row of
+ *  this view draws its arrow here — the reshape rows pass their own class. */
+function RowLink({ url, t, className = "tools-tree-link" }: { url: string | undefined; t: Translate; className?: string }) {
+  const href = safeLinkHref(url);
   if (!href) return null;
   return (
-    <a className="tools-tree-link" href={href} target="_blank" rel="noreferrer" title={linkTooltip(url!, t)}>
+    <a className={className} href={href} target="_blank" rel="noreferrer" title={linkTooltip(url!, t)}>
       ↗
     </a>
   );
@@ -1235,9 +1234,7 @@ function ReshapeGroupRow({
         >
           {SITE_ICON[group.site]} {title}
         </span>
-        <a className="tools-tree-meta" href={link} target="_blank" rel="noreferrer" title={linkTooltip(link, t)}>
-          ↗
-        </a>
+        <RowLink url={link} t={t} className="tools-tree-meta" />
         {/* The reader traded this group's link for another in the ✎ editor —
             the media the apply writes carries the new one. */}
         {swapped && !removeMarked && (
@@ -1393,11 +1390,7 @@ function MemberRow({
           ]}
         />
       )}
-      {linkKey(m.url) !== groupUrlKey && (
-        <a className="tools-tree-meta" href={m.url} target="_blank" rel="noreferrer" title={linkTooltip(m.url, t)}>
-          ↗
-        </a>
-      )}
+      {linkKey(m.url) !== groupUrlKey && <RowLink url={m.url} t={t} className="tools-tree-meta" />}
     </li>
   );
 }

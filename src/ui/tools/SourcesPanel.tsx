@@ -7,6 +7,7 @@ import { MediaThumb, type MediaGalleryItem } from "../PersonMedia";
 import { useMediaFolder } from "../MediaFolderContext";
 import { isPrivateNode } from "../../gedcom/private";
 import { sourceTitle } from "../../gedcom/source";
+import { safeLinkHref } from "../FieldValue";
 import type { MediaEditFields } from "../MediaViewer";
 import { mediaMetaRows } from "../MediaViewer";
 import { type ToolsScans } from "../useToolsScans";
@@ -212,6 +213,9 @@ function TreeRow({
   hasChildren: boolean;
   label: ReactNode;
   count?: number;
+  /** The row's own page. Anything that is no web address — a scan's local file
+   *  name, a repository named where its website should be — draws no arrow
+   *  rather than a dead one (see `safeLinkHref`). */
   href?: string;
   /** Tooltip shown on hover over the label — e.g. a media link or filename. */
   titleText?: string;
@@ -242,8 +246,8 @@ function TreeRow({
         >
           {label}
         </span>
-        {href && (
-          <a className="tools-tree-link" href={href} target="_blank" rel="noreferrer" title={href}>
+        {safeLinkHref(href) && (
+          <a className="tools-tree-link" href={safeLinkHref(href)} target="_blank" rel="noreferrer" title={href}>
             ↗
           </a>
         )}

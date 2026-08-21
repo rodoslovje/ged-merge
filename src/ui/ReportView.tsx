@@ -4,6 +4,7 @@ import type { Dataset, Sex } from "../gedcom/types";
 import type { TreeMode } from "../chart/personTree";
 import { lifespanLine, livingLabelFor } from "../chart/nodeDisplay";
 import { createKinshipResolver } from "../match/kinship";
+import { linkHref } from "./FieldValue";
 import { buildAhnentafel } from "../report/ahnentafel";
 import { buildDescendants } from "../report/descendants";
 import {
@@ -543,7 +544,7 @@ function sourceNode(src: SourceLine, label: string, key: React.Key) {
     <a
       key={key}
       className="report-source gm-data"
-      href={src.url}
+      href={linkHref(src.url)}
       target="_blank"
       rel="noreferrer"
       onClick={(ev) => ev.stopPropagation()}
