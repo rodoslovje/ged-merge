@@ -661,6 +661,16 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
         </div>
       )}
 
+      {/* One box for both lists. The query narrows places and addresses alike,
+          so with tabs it belongs above them: inside the places list the
+          addresses tab could not see it, and a filter typed on the places tab
+          went on narrowing the addresses with nothing on screen saying so. */}
+      {hasTabs && (
+        <div className="tools-filter-row tools-filter-row--narrow">
+          <TreeSearch value={search} onChange={setSearch} />
+        </div>
+      )}
+
       <div style={tab === "places" ? undefined : { display: "none" }}>
       {/* The offline-matching promise is the places tab's — the address tab
           asks the register online and says so in its own intro. */}
@@ -678,9 +688,13 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
             {placesActions}
           </div>
         )}
-      <div className="tools-filter-row tools-filter-row--narrow">
-        <TreeSearch value={search} onChange={setSearch} />
-      </div>
+      {/* Without tabs the page is the places list alone, and the box sits with
+          the rest of its narrowing. */}
+      {!hasTabs && (
+        <div className="tools-filter-row tools-filter-row--narrow">
+          <TreeSearch value={search} onChange={setSearch} />
+        </div>
+      )}
       {countryChips.length > 0 && (
         <CountryChips
           chips={countryChips}
