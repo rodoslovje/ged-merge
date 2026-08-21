@@ -13,6 +13,7 @@ import { kinshipInfo, kinshipTooltip as kinshipTooltipText, lineageClass } from 
 import {
   addFamilyEventNode,
   attachSourceCitation,
+  linkPageMedia,
   FAM_CHILD_ORDER,
   removeFamilyEvent,
   reorderMedia,
@@ -619,8 +620,12 @@ export const FamilySection = memo(function FamilySection({
             onAddSource={() => onOpenSourceDialog({ kind: "family", fam })}
             onEditSource={(idx) => openEditSource(fam.raw, idx, { kind: "family", fam })}
             onOpenSourceDialog={onOpenSourceDialog}
-            onAttachSource={(sourceXref, page, extraPatches, links) =>
-              commitFamily(fam, (f) => { attachSourceCitation(f.raw, sourceXref, page, FAM_CHILD_ORDER); setFamilyLinks(f, links); }, extraPatches)
+            onAttachSource={(sourceXref, page, extraPatches, links, pageObjeXref) =>
+              commitFamily(fam, (f) => {
+                attachSourceCitation(f.raw, sourceXref, page, FAM_CHILD_ORDER);
+                linkPageMedia(f.raw, pageObjeXref, FAM_CHILD_ORDER);
+                setFamilyLinks(f, links);
+              }, extraPatches)
             }
             onOpenMediaLink={(url) => openMediaLink(fam.raw, { kind: "family", fam }, url)}
           />

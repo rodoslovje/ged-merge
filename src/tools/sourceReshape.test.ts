@@ -1283,6 +1283,31 @@ describe("reshapeSources — apply", () => {
     expect(text.match(/2 SOUR @S1@/g)).toHaveLength(1);
   });
 
+  it("source page-media style: the page image stays under the source alone", () => {
+    // The same file as the "event" tests, read the other way: the reader's
+    // Settings choice (or a file whose habit says so) keeps page media under
+    // the source, so the event-level pointer converts into a citation and
+    // leaves nothing beside it.
+    const { text } = applyAll(
+      `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 OBJE @M1@
+0 @S1@ SOUR
+1 TITL Krstna knjiga / Taufbuch - 04104 | Podzemelj
+1 OBJE @M1@
+0 @M1@ OBJE
+1 FILE ${BOOK2}/?pg=111
+0 TRLR`,
+      { pageMedia: "source" },
+    );
+    const indi = text.split(/\n(?=0 )/).find((r) => r.startsWith("0 @I1@"))!;
+    expect(indi).toMatch(/1 BIRT\n2 SOUR @S1@\n3 PAGE 111/);
+    expect(indi).not.toContain("OBJE @M1@"); // no page pointer left on the record
+    expect(text).toMatch(/0 @S1@ SOUR\n(1 .*\n)*1 OBJE @M1@/); // the image is the source's
+  });
+
   it("event page-media style: a person-level pointer moves beside the event citation", () => {
     const { text } = applyAll(
       `0 HEAD

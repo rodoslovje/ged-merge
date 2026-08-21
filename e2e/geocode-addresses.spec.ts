@@ -76,6 +76,17 @@ test("houses in the place value are grouped under their settlement, and the filt
   await page.getByRole("tab", { name: /Addresses/ }).click();
   // A filter landing on one place opens it, so the address searched for shows.
   await expect(page.getByText("Stražišče 114")).toBeVisible();
+
+  // The box narrowing this list is on screen here too, holding what was typed
+  // — a filter that reaches the addresses must be visible from them, or the
+  // list looks short for no stated reason.
+  const box = page.locator(".tools-geocode .tools-search-input");
+  await expect(box).toBeVisible();
+  await expect(box).toHaveValue("114");
+  // And it narrows from this tab as well.
+  await box.fill("crni");
+  await expect(page.locator(".tools-geo-addr-group")).toHaveCount(1);
+  await expect(page.locator(".tools-geo-addr-group").first()).toContainText("Črni vrh");
 });
 
 test("a fully placed place hides from the worklist and returns behind the toggle", async ({ page }) => {

@@ -464,7 +464,10 @@ export { parseFamilySearchUrl, type FamilySearchUrlParts };
  * the link's `i=` or the lookup's "image N of M": the hand-editable page
  * field could hold the book's printed page instead, which the film does not
  * count, so a page without the film's number carries the name alone.
- * Undefined when there is no title to build on (a link nothing recognized).
+ *
+ * A link no site recognized names a whole web page rather than a page of a
+ * book, and its source's title is that page's own name — so it serves as the
+ * media title too. Undefined only when there is no title to build on.
  */
 export function pageObjeTitle(
   site: ReshapeSite | undefined,
@@ -477,7 +480,7 @@ export function pageObjeTitle(
    *  page's name. */
   collection?: string,
 ): string | undefined {
-  if (!site || !title) return undefined;
+  if (!title) return undefined;
   if (site === "familysearch") {
     const name = collection && title.endsWith(` - ${collection}`) ? title.slice(0, -(collection.length + 3)) : title;
     return fsImage && /^\d+$/.test(fsImage) ? `#${fsImage} - ${name}` : name;

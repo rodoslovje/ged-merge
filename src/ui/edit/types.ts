@@ -40,8 +40,15 @@ export type SourceDialogTarget =
       commitRemove: () => void;
       /** Bibliographic fields were filled in too — promote it to a real `SOUR`
        * citation (using the already-resolved/created record) and drop the old
-       * plain link in the same commit. */
-      commitPromote: (sourceXref: string, page: string | undefined, extraPatches: RecordPatch[]) => void;
+       * plain link in the same commit. `pageObjeXref` is the cited page's
+       * image to link beside the citation, already gated on the file's
+       * page-link style — undefined leaves the media under the source alone. */
+      commitPromote: (
+        sourceXref: string,
+        page: string | undefined,
+        extraPatches: RecordPatch[],
+        pageObjeXref?: string,
+      ) => void;
     };
 
 /** Which top-level record a removed/edited `SOUR` citation's owner-snapshot

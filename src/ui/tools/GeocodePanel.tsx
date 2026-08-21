@@ -20,7 +20,7 @@ import {
   type GeocodeRow,
   type OfficialRename,
 } from "../../tools/geocode";
-import { loadDecisions, putDecisions, type GeocodeDecision } from "../../persist/geoDb";
+import { deleteDecisions, loadDecisions, putDecisions, type GeocodeDecision } from "../../persist/geoDb";
 import { AppliedNote, ExpandAllToggle, ToolsLoading, TreeSearch, useDebounced } from "./shared";
 import { useVirtualList } from "../useVirtualList";
 import { createKinshipResolver } from "../../match/kinship";
@@ -490,7 +490,7 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
     // GEDCOM is their record; only no-match marks are remembered. A placed
     // row's pick is a re-geocode, so it may overwrite what the value
     // already carries (address-bound house positions excepted).
-    const { assignments, toStore } = buildWriteSet(scan, chosen, noMatch, Date.now());
+    const { assignments, toStore, toForget } = buildWriteSet(scan, chosen, noMatch, Date.now());
     const changed = assignments.size ? onApplyGeocode(assignments) : 0;
     // A written row is finished work and must leave the staged sets: now that
     // placed rows with staged work stay on the worklist, a tick left behind
@@ -501,6 +501,9 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
     // Decisions reload re-keys the scan memo; dataset changes (when anything
     // was written) rescan via the edit-version effect.
     await putDecisions(toStore);
+    // …and the restored rows stop being remembered, or the reload would set
+    // them aside again behind the reader's back.
+    await deleteDecisions(toForget);
     const fresh = await loadDecisions();
     setDecisions(fresh);
   };
@@ -510,6 +513,12 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
 
   const { countryChips, countryAllCount, activeCountry, statusCounts, statusAllCount, placedTotal } = view;
   const confidentCount = scan.rows.filter((r) => r.confident && !chosen.has(r.key) && !noMatch.has(r.key)).length;
+  // Rows the store still calls unanswerable that the reader has put back: the
+  // write has to forget those judgements, so a restore on its own is work
+  // enough to offer it.
+  const restoredCount = [...scan.rows, ...scan.placed].filter(
+    (r) => r.cached?.status === "nomatch" && !noMatch.has(r.key),
+  ).length;
 
   // "Take official names": rows whose best proposal is the register's longer
   // (or differently cased) spelling of the very place they write — confident
@@ -590,7 +599,11 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
         // the section's own head (no addresses, no tabs) — one definition.
         const placesActions = (scan.rows.length > 0 || scan.placed.length > 0) && (
           <div className="tools-dup-bulk">
-            <button className="nav-btn primary tools-run" onClick={() => void apply()} disabled={chosen.size === 0 && noMatch.size === 0}>
+            <button
+              className="nav-btn primary tools-run"
+              onClick={() => void apply()}
+              disabled={chosen.size === 0 && noMatch.size === 0 && restoredCount === 0}
+            >
               {t("tools.geocode.apply", { count: chosen.size })}
             </button>
             <button className="tools-issue-link" onClick={selectConfident} disabled={confidentCount === 0}>
@@ -648,6 +661,16 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
         </div>
       )}
 
+      {/* One box for both lists. The query narrows places and addresses alike,
+          so with tabs it belongs above them: inside the places list the
+          addresses tab could not see it, and a filter typed on the places tab
+          went on narrowing the addresses with nothing on screen saying so. */}
+      {hasTabs && (
+        <div className="tools-filter-row tools-filter-row--narrow">
+          <TreeSearch value={search} onChange={setSearch} />
+        </div>
+      )}
+
       <div style={tab === "places" ? undefined : { display: "none" }}>
       {/* The offline-matching promise is the places tab's — the address tab
           asks the register online and says so in its own intro. */}
@@ -665,9 +688,13 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
             {placesActions}
           </div>
         )}
-      <div className="tools-filter-row tools-filter-row--narrow">
-        <TreeSearch value={search} onChange={setSearch} />
-      </div>
+      {/* Without tabs the page is the places list alone, and the box sits with
+          the rest of its narrowing. */}
+      {!hasTabs && (
+        <div className="tools-filter-row tools-filter-row--narrow">
+          <TreeSearch value={search} onChange={setSearch} />
+        </div>
+      )}
       {countryChips.length > 0 && (
         <CountryChips
           chips={countryChips}

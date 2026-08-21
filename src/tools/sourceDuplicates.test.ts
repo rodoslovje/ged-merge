@@ -145,6 +145,64 @@ describe("findSourceDuplicates — sources & repos", () => {
 0 TRLR`, "repo")).toHaveLength(1);
   });
 
+  it("gives a member the page it opens at, and none where it has no address", () => {
+    // A source's own detail is its filing number and its label is a title —
+    // neither is a link, so a member without a page image gets no url and the
+    // row shows no ↗ (the arrow used to point at "https://<title>").
+    const [titled] = ofKind(`0 HEAD
+1 CHAR UTF-8
+0 @S1@ SOUR
+1 TITL Illinois, Cook County Marriages, 1871-1969
+1 FILN 1030102
+0 @S2@ SOUR
+1 TITL Illinois, Cook County Marriages, 1871-1969
+1 FILN 1030102
+0 TRLR`, "source");
+    expect(titled.members.map((m) => m.url)).toEqual([undefined, undefined]);
+    expect(titled.members[0].detail).toBe("1030102"); // still shown, just not as a link
+
+    // With a page image, that image's URL is what the row opens.
+    const [withPage] = ofKind(`0 HEAD
+1 CHAR UTF-8
+0 @S1@ SOUR
+1 TITL Krstna knjiga
+1 OBJE @O1@
+0 @S2@ SOUR
+1 TITL Krstna knjiga
+1 OBJE @O2@
+0 @O1@ OBJE
+1 FILE https://example.com/knjiga/?pg=11
+0 @O2@ OBJE
+1 FILE https://example.com/knjiga/?pg=11
+0 TRLR`, "source");
+    expect(withPage.members.map((m) => m.url)).toEqual([
+      "https://example.com/knjiga/?pg=11",
+      "https://example.com/knjiga/?pg=11",
+    ]);
+
+    // A repository opens at its website; a scan known only as a local file
+    // opens nowhere.
+    const [repo] = ofKind(`0 HEAD
+1 CHAR UTF-8
+0 @R1@ REPO
+1 NAME Archive
+1 WWW https://arhiv.si
+0 @R2@ REPO
+1 NAME Archive
+1 WWW https://arhiv.si
+0 TRLR`, "repo");
+    expect(repo.members[0].url).toBe("https://arhiv.si");
+    const [scan] = ofKind(`0 HEAD
+1 CHAR UTF-8
+0 @O1@ OBJE
+1 FILE C:\\scans\\krst.jpg
+0 @O2@ OBJE
+1 FILE D:\\arhiv\\krst.jpg
+0 TRLR`, "media");
+    expect(scan.members[0].url).toBeUndefined();
+    expect(scan.members[0].detail).toContain("krst.jpg");
+  });
+
   it("keeps same-titled sources apart when their call numbers differ", () => {
     // The regroup tool's own output shape: many collection sources on one
     // shared repository, told apart only by REPO > CALN — collapsing them

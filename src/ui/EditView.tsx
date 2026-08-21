@@ -28,6 +28,7 @@ import {
   attachInlineMedia,
   attachMediaPointer,
   attachSourceCitation,
+  linkPageMedia,
   bumpSourceCacheVersion,
   connectExistingChild,
   connectExistingParent,
@@ -1059,11 +1060,14 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     });
   }
 
-  /** Link the cited page's image beside the citation ("on events" style). */
-  function linkPageMedia(node: GedNode, pageObjeXref: string | undefined, order: string[]) {
-    if (!pageObjeXref) return;
-    if (childrenByTag(node, "OBJE").some((c) => c.value?.trim() === pageObjeXref)) return;
-    insertOrdered(node, { level: node.level + 1, tag: "OBJE", value: pageObjeXref, children: [] }, order);
+  /** The cited page's image to link beside the citation, or undefined when
+   * this file keeps page media under the source alone — Settings → Page
+   * links, whose "auto" follows the file's own habit. Every route that adds a
+   * citation asks this, so the "+ Add source" dialog and the promote of a
+   * plain link write the same shape. */
+  function pageObjeToLink(pageObjeXref: string | undefined): string | undefined {
+    const style = settings.formatOverrides.pageMedia ?? detectPageMediaStyle(dataset.records);
+    return style === "event" ? pageObjeXref : undefined;
   }
 
   /** Attach the citation to `host`'s `eventTag` event, creating the event
@@ -1088,10 +1092,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   function handleAddSource(fields: AddSourceResult) {
     if (!sourceDialogTarget || sourceDialogTarget.kind === "edit" || sourceDialogTarget.kind === "edit-link" || !person) return;
     const { sourceXref, page, pageObjeXref, extraPatches } = resolveSourceFields(fields);
-    // In the "on events" page-media style the cited page's image is linked
-    // beside the citation too (Settings; "auto" matches the file's habit).
-    const style = settings.formatOverrides.pageMedia ?? detectPageMediaStyle(dataset.records);
-    const pageObje = style === "event" ? pageObjeXref : undefined;
+    const pageObje = pageObjeToLink(pageObjeXref);
     if (sourceDialogTarget.kind === "individual") {
       // A recognized register/grave source added on the person lands on its
       // matching event (created if missing) when the file keeps citations on
@@ -1298,8 +1299,8 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
             saved.title || saved.author || saved.periodical || saved.publisher || saved.agency || saved.place || saved.filingNumber || saved.note,
           );
           if (hasBiblio) {
-            const { sourceXref, page, extraPatches } = resolveSourceFields(saved);
-            commitPromote(sourceXref, page, extraPatches);
+            const { sourceXref, page, pageObjeXref, extraPatches } = resolveSourceFields(saved);
+            commitPromote(sourceXref, page, extraPatches, pageObjeToLink(pageObjeXref));
           } else {
             commitRename(saved.url ?? "");
           }
@@ -1995,8 +1996,12 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
                 onAddSource={() => setSourceDialogTarget({ kind: "individual" })}
                 onEditSource={(idx) => openEditSource(person.raw, idx, { kind: "individual", indi: person })}
                 onOpenSourceDialog={setSourceDialogTarget}
-                onAttachSource={(sourceXref, page, extraPatches, links) =>
-                  commit((indi) => { attachSourceCitation(indi.raw, sourceXref, page, INDI_CHILD_ORDER); setIndividualLinks(indi, links); }, extraPatches)
+                onAttachSource={(sourceXref, page, extraPatches, links, pageObjeXref) =>
+                  commit((indi) => {
+                    attachSourceCitation(indi.raw, sourceXref, page, INDI_CHILD_ORDER);
+                    linkPageMedia(indi.raw, pageObjeXref, INDI_CHILD_ORDER);
+                    setIndividualLinks(indi, links);
+                  }, extraPatches)
                 }
                 onOpenMediaLink={(url) => openMediaLink(person.raw, { kind: "individual", indi: person }, url)}
               />

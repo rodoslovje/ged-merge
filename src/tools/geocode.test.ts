@@ -464,6 +464,19 @@ describe("staged review state", () => {
     // The already-cached no-match is not stored again.
     expect(toStore).toEqual([{ key: "Novo", status: "nomatch", ts: 99 }]);
   });
+
+  it("a restored or answered row is forgotten, so a reload does not set it aside again", () => {
+    const aside = (key: string) => row(key, { cached: { key, status: "nomatch" as const, ts: 1 } });
+    const scan = scanOf([aside("Vrnjeno"), aside("Odlozeno"), aside("Najdeno")], []);
+    const { toStore, toForget } = buildWriteSet(
+      scan,
+      new Map([["Najdeno", pick]]), // this write places it — the judgement is answered
+      new Set(["Odlozeno"]), // still set aside, and already remembered as such
+      99,
+    );
+    expect(toStore).toEqual([]);
+    expect(toForget.sort()).toEqual(["Najdeno", "Vrnjeno"]);
+  });
 });
 
 describe("applyGeocode write-noop precision", () => {

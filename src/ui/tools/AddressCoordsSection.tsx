@@ -22,7 +22,7 @@ import { usePlaceLookup } from "../edit/PlaceLookupContext";
 import type { PlaceSuggestions } from "../edit/placeSuggestions";
 import { useNameOf, useSettings } from "../SettingsContext";
 import type { KinshipResolver } from "../../match/kinship";
-import { loadDecisions, putDecisions } from "../../persist/geoDb";
+import { deleteDecisions, loadDecisions, putDecisions } from "../../persist/geoDb";
 import {
   AppliedNote,
   ExpandAllToggle,
@@ -386,12 +386,17 @@ export function AddressCoordsSection({
   const [showHidden, setShowHidden] = useState(false);
   /** Bumped by a write, so the remembered decisions are re-read after it. */
   const [applyGen, setApplyGen] = useState(0);
+  /** The keys the decision store itself holds as set-aside — what a write has
+   *  to forget again for a restored house, kept apart from `noMatch` (which
+   *  also carries this session's unwritten judgements). */
+  const [remembered, setRemembered] = useState<Set<string>>(new Set());
   /** What the decision store already remembers, re-read when a write lands. A
    *  row re-keyed by a rename simply is not in it, and starts unjudged. */
   useEffect(() => {
     let live = true;
     void loadDecisions().then((stored) => {
       if (!live) return;
+      setRemembered(new Set([...stored].filter(([, d]) => d.status === "nomatch").map(([key]) => key)));
       setNoMatch((prev) => {
         const next = new Set(prev);
         for (const row of all) if (stored.get(row.key)?.status === "nomatch") next.add(row.key);
@@ -409,6 +414,13 @@ export function AddressCoordsSection({
       else next.add(key);
       return next;
     });
+  /** Houses the store still calls set aside but the reader has put back. They
+   *  are work the write must carry too — forgetting the old judgement — so a
+   *  restore alone is enough to offer the write. */
+  const restored = useMemo(
+    () => [...remembered].filter((key) => byKey.has(key) && !noMatch.has(key)),
+    [remembered, byKey, noMatch],
+  );
   /** The rows the list works over. A row with a pick staged stays whatever the
    *  toggles say — work in progress is never hidden. */
   const visibleRows = useMemo(
@@ -1061,7 +1073,7 @@ export function AddressCoordsSection({
     return pins;
   };
 
-  const apply = () => {
+  const apply = async () => {
     // A row stands for one house, which the file may spell more than one way —
     // every spelling gets the coordinate, so the row is done in one step.
     const assignments = new Map<string, GeoCoord>();
@@ -1075,7 +1087,16 @@ export function AddressCoordsSection({
     // by a click that was only meant to tidy the view.
     const now = Date.now();
     const toStore = [...noMatch].filter((key) => byKey.has(key)).map((key) => ({ key, status: "nomatch" as const, ts: now }));
-    if (toStore.length) void putDecisions(toStore);
+    // A house put back on the list is forgotten by the same write — otherwise
+    // the restore held only until the next reload, which read the old
+    // judgement back and hid the row again. A house this write places is
+    // answered too, so its judgement goes with it.
+    const toForget = [...new Set([...restored, ...[...picked.keys()].filter((key) => remembered.has(key))])];
+    // Awaited, not fired and forgotten: the list settles only once the store
+    // agrees with it, so a reload right after the click cannot read the
+    // judgements this write just replaced.
+    await putDecisions(toStore);
+    await deleteDecisions(toForget);
     // The written rows are done and leave the worklist; the answers held by
     // the rows still waiting were to questions the write did not change, so
     // they stand — writing one wave must not cost the next its lookups.
@@ -1095,8 +1116,8 @@ export function AddressCoordsSection({
     <>
       <button
         className="nav-btn primary tools-run"
-        onClick={apply}
-        disabled={picked.size === 0 && noMatch.size === 0}
+        onClick={() => void apply()}
+        disabled={picked.size === 0 && noMatch.size === 0 && restored.length === 0}
       >
         {t("tools.geocode.addr.apply", { count: picked.size })}
       </button>

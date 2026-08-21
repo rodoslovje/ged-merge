@@ -89,6 +89,17 @@ export function attachSourceCitation(record: GedNode, sourceXref: string, page: 
   insertOrdered(record, citation, order);
 }
 
+/** Link the cited page's image beside the citation on `record` — the "page
+ * links on events" style (Settings → Page links; "auto" follows the file's
+ * habit, see `detectPageMediaStyle`). The caller decides whether the style
+ * applies; this only adds the pointer, and never a second one for a page the
+ * record already links. */
+export function linkPageMedia(record: GedNode, pageObjeXref: string | undefined, order: string[]): void {
+  if (!pageObjeXref) return;
+  if (childrenByTag(record, "OBJE").some((c) => c.value?.trim() === pageObjeXref)) return;
+  insertOrdered(record, { level: record.level + 1, tag: "OBJE", value: pageObjeXref, children: [] }, order);
+}
+
 /** The citation nodes the UI counts: valueless `SOUR` children (an exporter
  *  writing only `3 TEXT …` under an empty citation) are invisible to the
  *  domain model — `resolveSourceCitation` drops them — so an index arriving
