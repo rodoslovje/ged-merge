@@ -952,6 +952,50 @@ describe("mergeDecisions — links", () => {
     expect(report.changes.some((c) => c.links?.includes("https://example.com/new"))).toBe(true);
   });
 
+  const GRAVE = "https://en.geneanet.org/cemetery/view/10429838";
+
+  it("mints the source a recognized link needs and cites it on the event it documents", () => {
+    const main = dataset(
+      wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BURI\n2 PLAC Kranj\n"),
+    );
+    const compare = dataset(
+      wrap(`0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 WWW ${GRAVE}\n`),
+    );
+    const { records } = mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    // Not a naked link on the person: a source, its page image, and a citation
+    // on the burial the grave index documents.
+    expect(out).not.toContain("1 WWW ");
+    expect(out).toMatch(/0 @S\d+@ SOUR\n1 TITL .*Geneanet/);
+    expect(out).toContain(`1 FILE ${GRAVE}`);
+    expect(out).toMatch(/1 BURI\n2 PLAC Kranj\n2 SOUR @S\d+@/);
+  });
+
+  it("cites a recognized link on an event this same merge brought in", () => {
+    // The burial arrives with the merge, so the link can only find it once every
+    // other row has been applied — the case that made the link land on the person.
+    const main = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n"));
+    const compare = dataset(
+      wrap(`0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BURI\n2 PLAC Kranj\n1 WWW ${GRAVE}\n`),
+    );
+    const { records } = mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    expect(out).toMatch(/1 BURI\n2 PLAC Kranj\n2 SOUR @S\d+@/);
+  });
+
+  it("keeps a recognized link on the record when the event it documents isn't there", () => {
+    const main = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n"));
+    const compare = dataset(
+      wrap(`0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 WWW ${GRAVE}\n`),
+    );
+    const { records } = mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    // A citation still — but the merge invents no burial to hang it on, since an
+    // event nobody decided on is a change the save preview cannot explain.
+    expect(out).toMatch(/1 SEX M\n1 SOUR @S\d+@/);
+    expect(out).not.toContain("1 BURI");
+  });
+
   it("doesn't duplicate a link the main already has (even with a trailing slash)", () => {
     const main = dataset(
       wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 WWW https://example.com/old/\n"),
@@ -1036,11 +1080,15 @@ describe("mergeDecisions — links", () => {
     const { records, report } = mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr);
     const out = serializeGedcom(records);
     expect(out).not.toMatch(/^1 WWW/m);
-    expect(out).toContain("1 SOUR @S1@\n2 PAGE 58");
+    // The main cites this baptism book on the birth it documents, so the new
+    // page joins it there rather than hanging off the person.
+    expect(out).toContain("2 SOUR @S1@\n3 PAGE 58");
     expect(out).toContain("1 FILE https://data.matricula-online.eu/de/slovenia/ljubljana/sencur/03173/?pg=58");
     // The new page joins the existing book's SOUR rather than minting a new one.
     expect(out.match(/0 @S\d+@ SOUR/g)).toHaveLength(1);
-    expect(report.changes.some((c) => c.links?.some((l) => l.includes("pg=58")))).toBe(true);
+    // Reported as the citation it became, under the birth's header.
+    const cited = report.changes.find((c) => c.sources?.some((s) => s.url?.includes("pg=58")));
+    expect(cited?.group).toBe("event.BIRT");
   });
 
   it("two people bringing the same new page in one merge share the OBJE the first one minted", () => {

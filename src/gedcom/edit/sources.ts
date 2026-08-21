@@ -32,8 +32,14 @@ export interface NewSourceFields {
  * (a `SOUR` with one linked `OBJE`), so the new citation displays/links
  * exactly like an imported one.
  */
-export function createSourceRecord(records: GedNode[], fields: NewSourceFields): GedNode {
-  const raw: GedNode = { level: 0, xref: nextXref(records, "S"), tag: "SOUR", children: [] };
+export function createSourceRecord(
+  records: GedNode[],
+  fields: NewSourceFields,
+  /** Xrefs promised elsewhere (the merge's pending shared-record imports) that
+   *  the fresh ids must skip — see `nextXref`. */
+  reserved?: ReadonlySet<string>,
+): GedNode {
+  const raw: GedNode = { level: 0, xref: nextXref(records, "S", reserved), tag: "SOUR", children: [] };
   const push = (tag: string, value: string | undefined) => {
     if (value) raw.children.push({ level: 1, tag, value, children: [] });
   };
@@ -47,7 +53,7 @@ export function createSourceRecord(records: GedNode[], fields: NewSourceFields):
   insertRecord(records, raw);
   bumpSourceCacheVersion(records);
   if (fields.url) {
-    const obje = createMediaRecord(records, fields.url);
+    const obje = createMediaRecord(records, fields.url, undefined, reserved);
     raw.children.push({ level: 1, tag: "OBJE", value: obje.xref, children: [] });
   }
   return raw;
@@ -55,8 +61,15 @@ export function createSourceRecord(records: GedNode[], fields: NewSourceFields):
 
 /** Add a new `OBJE` (linking `url`, optionally titled) to an already-existing
  * `SOUR` record — a new page of a paginated source that's already cited elsewhere. */
-export function addObjeToSource(records: GedNode[], sourceXref: string, url: string, title?: string): GedNode {
-  const obje = createMediaRecord(records, url, title);
+export function addObjeToSource(
+  records: GedNode[],
+  sourceXref: string,
+  url: string,
+  title?: string,
+  /** Xrefs promised elsewhere that the new media record must skip — see `nextXref`. */
+  reserved?: ReadonlySet<string>,
+): GedNode {
+  const obje = createMediaRecord(records, url, title, reserved);
   const sourceNode = records.find((r) => r.tag === "SOUR" && r.xref === sourceXref);
   if (sourceNode) {
     insertGrouped(
