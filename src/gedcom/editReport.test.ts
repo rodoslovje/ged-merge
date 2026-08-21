@@ -89,6 +89,26 @@ describe("enrichEditReport — source citations", () => {
     expect(media[0].from).toBe("");
   });
 
+  it("names an untitled page by its address, not by its query string", () => {
+    // Splitting a URL the way a file path is split left the chip reading
+    // "?pg=24" — the last segment of the address, and no sort of name.
+    const before = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 DATE 1856\n"));
+    const after = dataset(
+      wrap(
+        "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 DATE 1856\n2 OBJE @O1@\n" +
+          "0 @O1@ OBJE\n1 FILE https://data.matricula-online.eu/sl/slovenia/ljubljana/preddvor/01847/?pg=24\n",
+      ),
+    );
+    const snapshots = new Map([["@I1@", before.individuals.get("@I1@")!.raw]]);
+    const report = enrichEditReport(baseReport("@I1@"), after, snapshots, new Map(), tr);
+
+    const birt = report.changes.filter((c) => c.group === "event.BIRT");
+    expect(birt[0].segments?.map((s) => s.text)).toEqual([
+      "1856",
+      "🔗 https://data.matricula-online.eu/sl/slovenia/ljubljana/preddvor/01847/?pg=24",
+    ]);
+  });
+
   it("shows a citation added to an event as that event's change", () => {
     const before = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 DEAT\n2 DATE 1944\n"));
     const after = dataset(
@@ -266,6 +286,36 @@ describe("enrichEditReport — event tags outside the canonical lists", () => {
     expect(fsid[0].to).toBe("GPZG-CXL");
     // And never mis-diffed as an event.
     expect(report.changes.filter((c) => c.group === "event._FID")).toHaveLength(0);
+  });
+});
+
+describe("enrichEditReport — a record is never marked changed in silence", () => {
+  it("names the record's own lines when no typed pass describes the change", () => {
+    // A line no pass models — here an exporter's own `_UID` — used to reach the
+    // preview as a card marked EDITED with nothing under it. Raw GEDCOM is a
+    // poor answer and a far better one than silence.
+    const before = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 _UID 1111\n"));
+    const after = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 _UID 2222\n1 SUBM @U1@\n"));
+    const snapshots = new Map([["@I1@", before.individuals.get("@I1@")!.raw]]);
+    const report = enrichEditReport(baseReport("@I1@"), after, snapshots, new Map(), tr);
+
+    const rest = report.changes.filter((c) => c.field === "field.otherLines");
+    expect(rest.map((c) => [c.from, c.to])).toEqual([
+      ["_UID 1111", "_UID 2222"],
+      ["", "SUBM @U1@"],
+    ]);
+  });
+
+  it("stays quiet where a typed pass already said what changed", () => {
+    // The fallback is a last resort, not a second opinion: a described change
+    // must not be repeated as raw lines underneath it.
+    const before = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n"));
+    const after = dataset(wrap("0 @I1@ INDI\n1 NAME Ivan /Novak/\n"));
+    const snapshots = new Map([["@I1@", before.individuals.get("@I1@")!.raw]]);
+    const report = enrichEditReport(baseReport("@I1@"), after, snapshots, new Map(), tr);
+
+    expect(report.changes.some((c) => c.field === "field.given")).toBe(true);
+    expect(report.changes.some((c) => c.field === "field.otherLines")).toBe(false);
   });
 });
 

@@ -1655,6 +1655,7 @@ export const en = {
   "field.sources": "Source",
   "field.fsid": "FamilySearch ID",
   "field.media": "Media",
+  "field.otherLines": "Other lines",
   "source.page": "p. {{page}}",
   "source.untitled": "Source",
   "addSource.title": "Add Source",

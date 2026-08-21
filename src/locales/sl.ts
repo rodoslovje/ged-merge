@@ -1936,6 +1936,7 @@ export const sl = {
   "field.sources": "Vir",
   "field.fsid": "FamilySearch ID",
   "field.media": "Mediji",
+  "field.otherLines": "Druge vrstice",
   "source.page": "str. {{page}}",
   "source.untitled": "Vir",
   "addSource.title": "Dodaj vir",

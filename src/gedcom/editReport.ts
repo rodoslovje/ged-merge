@@ -440,7 +440,11 @@ function makeMediaNamer(records: GedNode[]): MediaNamer {
     const ptr = node.value?.trim();
     const info = ptr && isPointer(ptr) ? objeIndex.get(ptr) : objeInfoOf(node);
     if (!info) return ptr ?? "";
-    const name = info.title?.trim() || info.file?.split(/[\\/]/).pop() || info.url || ptr || "";
+    // A local file is known by its own name, a page by its address. Splitting a
+    // URL on "/" the way a path is split named an untitled register page after
+    // its query string — a chip reading "?pg=24" says nothing about the page it
+    // opens, and nothing about which book it belongs to.
+    const name = info.title?.trim() || (info.url ? info.url : info.file?.split(/[\\/]/).pop()) || ptr || "";
     return name ? `${info.url ? "🔗" : "🖼"} ${name}` : "";
   };
 }
@@ -593,6 +597,63 @@ function diffFamilyNodes(
   return diffs;
 }
 
+/** One line of a record's own structure, as the file writes it — `TAG value`,
+ *  with the count of lines beneath where it has any. A pointer value is
+ *  labelled the way the rest of the report labels one. */
+function rawLineSummary(node: GedNode, labelFor: (xref: string) => string | undefined): string {
+  const value = node.value?.trim() ?? "";
+  const shown = value && isPointer(value) ? labelFor(value) ?? value : value;
+  const nested = node.children.length ? ` (+${node.children.length})` : "";
+  return `${node.tag}${shown ? ` ${shown}` : ""}${nested}`;
+}
+
+/**
+ * The last word on a record the typed passes had nothing to say about.
+ *
+ * Each pass above describes one kind of change — a name, an event, a citation,
+ * a membership, a photo — and a record that changed in a way none of them
+ * models reached the preview as a card marked EDITED with nothing under it: the
+ * reader could see *that* the save would rewrite the record, never what. This
+ * compares the record's own lines and names the ones that came, went or grew
+ * underneath. Raw GEDCOM is a poor answer; it is a far better one than silence,
+ * and a line showing up here is the sign that some pass above should learn to
+ * describe it properly.
+ */
+function diffRawLines(
+  id: string,
+  before: GedNode,
+  after: GedNode,
+  fieldLabel: string,
+  labelFor: (xref: string) => string | undefined,
+): FieldChange[] {
+  const byTag = (node: GedNode) => {
+    const map = new Map<string, string[]>();
+    for (const child of node.children) {
+      const line = rawLineSummary(child, labelFor);
+      const list = map.get(child.tag);
+      if (list) list.push(line);
+      else map.set(child.tag, [line]);
+    }
+    return map;
+  };
+  const beforeTags = byTag(before);
+  const afterTags = byTag(after);
+  const diffs: FieldChange[] = [];
+  for (const tag of new Set([...beforeTags.keys(), ...afterTags.keys()])) {
+    const was = (beforeTags.get(tag) ?? []).slice().sort();
+    const now = (afterTags.get(tag) ?? []).slice().sort();
+    if (JSON.stringify(was) === JSON.stringify(now)) continue;
+    diffs.push({
+      recordId: id,
+      field: fieldLabel,
+      from: was.join(", "),
+      to: now.join(", "),
+      action: now.length ? "both" : "incoming",
+    });
+  }
+  return diffs;
+}
+
 /**
  * When a FAMS/FAMC link is lost because its family was removed, find the
  * surviving family the relationship was folded into (during a duplicate merge,
@@ -667,7 +728,19 @@ export function enrichEditReport(
     return snap ? displayNameFromRaw(snap) || xref : xref;
   };
 
+  // What the typed passes said about each record, so a record they had nothing
+  // to say about can be described from its own lines instead of arriving as a
+  // card marked EDITED and left at that. The report's own rows count too: a
+  // merge decision's changes are already in there.
+  const described = new Set(report.changes.filter((c) => c.field).map((c) => c.recordId));
+  const labelXref = makeXrefLabeler(dataset.records, (xref) => personSnapshots.get(xref) ?? familySnapshots.get(xref));
+  const describeRest = (id: string, before: GedNode, after: GedNode, from: number) => {
+    if (described.has(id) || extra.slice(from).some((c) => c.recordId === id && c.field)) return;
+    extra.push(...diffRawLines(id, before, after, t("field.otherLines"), labelXref));
+  };
+
   for (const [id, kind] of Object.entries(report.recordKinds)) {
+    const before = extra.length;
     if (kind === "individual") {
       const snapshot = personSnapshots.get(id);
       const current = dataset.individuals.get(id);
@@ -705,6 +778,7 @@ export function enrichEditReport(
             extra.push({ recordId: id, field: t(fieldKey), from: "", to: currentFamilyLabel(famId, dataset, resolveIndiName), action: "both" });
           }
         }
+        describeRest(id, snapshot, current.raw, before);
       } else if (snapshot && !current) {
         // Deleted person: list which families they belonged to
         for (const node of snapshot.children) {
@@ -720,7 +794,10 @@ export function enrichEditReport(
     } else {
       const snapshot = familySnapshots.get(id);
       const current = dataset.families.get(id);
-      if (snapshot && current) extra.push(...diffFamilyNodes(id, snapshot, current.raw, t, resolveIndiName, resolveMedia, resolveSource, notePrivate, noteText, nameMedia, namePageMedia));
+      if (snapshot && current) {
+        extra.push(...diffFamilyNodes(id, snapshot, current.raw, t, resolveIndiName, resolveMedia, resolveSource, notePrivate, noteText, nameMedia, namePageMedia));
+        describeRest(id, snapshot, current.raw, before);
+      }
     }
   }
 

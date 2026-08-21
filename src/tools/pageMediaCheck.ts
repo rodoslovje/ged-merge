@@ -115,6 +115,16 @@ function collect(
   onMissing: (container: GedNode, record: GedNode, sourceXref: string, objeXref: string, page: string | undefined) => void,
   onAmbiguous?: (sourceXref: string) => void,
 ): void {
+  // Every media record any source in the file holds as a page. A file that
+  // downloaded its scans has them here without a URL to tell them by, and one
+  // of those already beside a citation is that citation's page.
+  const sourceMedia = new Set<string>();
+  for (const source of sources.values()) {
+    for (const child of childrenByTag(source, "OBJE")) {
+      const xref = child.value?.trim();
+      if (xref && isPointer(xref)) sourceMedia.add(xref);
+    }
+  }
   const imagesBySource = new Map<string, { xref: string; page?: string }[]>();
   const imagesOf = (xref: string, node: GedNode) => {
     const cached = imagesBySource.get(xref);
@@ -132,11 +142,12 @@ function collect(
       );
       // A page image is already beside this fact: the reader has answered which
       // page documents it, and a second one would not be a completion but a
-      // contradiction. It happens where the file's own page image never joined
-      // its source record — the image is on the event, the source knows nothing
-      // of it, and matching by the source alone would hang another page beside
-      // the one already there.
-      if ([...linked].some((xref) => objes.get(xref)?.url)) continue;
+      // contradiction. Two shapes count as one — a linked page URL, and a media
+      // record some source holds as a page, which is what a *downloaded* scan
+      // of that page looks like (no URL to recognize it by). A plain photo is
+      // neither: a portrait says nothing about which register page documents
+      // the fact, and must not hold the page image off.
+      if ([...linked].some((xref) => objes.get(xref)?.url || sourceMedia.has(xref))) continue;
       for (const citation of childrenByTag(container, "SOUR")) {
         const sourceXref = citation.value?.trim();
         if (!sourceXref || !isPointer(sourceXref)) continue;

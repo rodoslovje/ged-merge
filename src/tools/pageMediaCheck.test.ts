@@ -121,6 +121,34 @@ describe("findMissingPageMedia", () => {
     expect(report.groups).toEqual([]);
   });
 
+  it("a downloaded scan of the page counts as the page being there", () => {
+    // The file keeps its register pages as downloaded files, not links: the
+    // scan beside the citation has no URL to recognize it by, but the source
+    // holds it as a page, and that is the fact's image already.
+    const report = findMissingPageMedia(
+      dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Ursula /Sajovic/
+1 BIRT
+2 SOUR @S1@
+3 PAGE 18
+2 OBJE @M34@
+0 @S1@ SOUR
+1 TITL Krstna knjiga / Taufbuch - 03164 | Sencur
+1 OBJE @M34@
+1 OBJE @M18@
+0 @M34@ OBJE
+1 FILE scans/03164-034.jpg
+1 TITL #034 - Krstna knjiga / Taufbuch - 03164 | Sencur
+0 @M18@ OBJE
+1 FILE ${BOOK}/?pg=18
+0 TRLR`),
+      "event",
+    );
+    expect(report.total).toBe(0);
+  });
+
   it("a photo beside the citation is no page image, and does not hold the run off", () => {
     // A portrait on the birth says nothing about which register page documents
     // it — only a linked *page* does.
