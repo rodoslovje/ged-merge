@@ -41,11 +41,12 @@ test("emptying the rename field removes the address from every event at the hous
   const rows = page.locator(".tools-geo-addr-row");
   await expect(rows).toHaveCount(2);
 
-  // The redundant house, opened for rename from its own ✎ (drawn on hover, as
-  // every ✎ on these lists is).
+  // The redundant house, opened for rename from its own ✎ — which is on the row
+  // before anything is hovered, since a touch screen hovers nothing.
   const row = rows.filter({ hasText: "Pivka" }).first();
-  await row.locator(".tools-geo-addr-head").hover();
-  await row.locator(".tools-place-edit-btn").click();
+  const pencil = row.locator(".tools-place-edit-btn");
+  await expect(pencil).toBeVisible();
+  await pencil.click();
   const field = page.locator(".tools-geo-addr-row .tools-place-rename-input");
   await expect(field).toHaveValue("Pivka");
 

@@ -8106,14 +8106,15 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 .tools-place-coord-warn { color: var(--danger); margin-left: 6px; }
 .tools-place-map { max-width: 560px; margin-left: 26px; }
 .tools-place-map-note { margin: 0 0 6px; color: var(--muted); font-size: 0.82rem; }
+/* Present on every row it belongs to, at every width: it had been collapsed to
+   nothing until its row was hovered, which on a touch screen — where nothing is
+   ever hovered — meant a control that could not be reached at all. It holds its
+   slot and stays faint at rest instead, so a hundred addresses still read as a
+   list of addresses rather than a column of pencils, and comes up to full
+   strength under the pointer, on focus, and while its editor is open. */
 .tools-place-edit-btn {
-  opacity: 0;
-  /* Fully collapsed until the row is hovered: no width, no padding, and a
-     negative margin that swallows the flex gap slot it would otherwise add. */
-  width: 0;
-  padding: 1px 0;
-  margin-left: -8px;
-  overflow: hidden;
+  opacity: 0.45;
+  padding: 1px 5px;
   transition: opacity 0.12s;
   flex: none;
   background: none;
@@ -8130,10 +8131,12 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 .tools-tree-row:focus-within .tools-place-edit-btn,
 /* The duplicate and regroup rows name records too, and open the same editors. */
 .tools-dup-member:hover .tools-place-edit-btn,
-.tools-dup-member:focus-within .tools-place-edit-btn { opacity: 1; width: auto; padding: 1px 5px; margin-left: 0; }
-.tools-place-edit-btn:hover { color: var(--accent); background: var(--panel-2); }
-/* Wins over the base rule by source order — no !important needed. */
-.tools-place-edit-cancel { opacity: 1; width: auto; padding: 1px 5px; margin-left: 0; }
+.tools-dup-member:focus-within .tools-place-edit-btn { opacity: 1; }
+.tools-place-edit-btn:hover,
+.tools-place-edit-btn:focus-visible { opacity: 1; color: var(--accent); background: var(--panel-2); }
+/* The ✕ that closes an open editor is never the quiet half of a row. Wins over
+   the base rule by source order — no !important needed. */
+.tools-place-edit-cancel { opacity: 1; }
 .tools-place-rename {
   display: flex;
   align-items: center;
