@@ -6548,6 +6548,10 @@ kbd {
 }
 .preview-card-head-right { display: flex; align-items: center; gap: 6px; flex: none; }
 .preview-rec { font-weight: 600; color: var(--text); }
+/* The side a one-spouse family does not have. Muted, so the head still reads
+   as the name it leads with, but present — without it the card was that
+   person's name alone and could not be told from the person's own card. */
+.preview-rec-nospouse { color: var(--muted); font-weight: 400; }
 .preview-badge {
   font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
   padding: 2px 8px; border-radius: var(--radius-pill); white-space: nowrap;
