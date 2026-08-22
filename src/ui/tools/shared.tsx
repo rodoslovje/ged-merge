@@ -446,6 +446,11 @@ export function RenameToggle({
  * takes Enter while a suggestion is highlighted and Escape while its dropdown
  * is open (both marked handled), and only the presses it leaves alone belong to
  * the editor.
+ *
+ * A list that has an answer for the field left empty passes `onRemove`: the
+ * button then says so and does that instead, because clearing a value the file
+ * carries and giving it a new one are the same act asked in one field — and the
+ * alternative was a second control that is dead in every other state.
  */
 export function RenameEditor({
   value,
@@ -456,6 +461,9 @@ export function RenameEditor({
   onChange,
   onApply,
   onCancel,
+  onRemove,
+  removeLabel,
+  removeTitle,
   children,
   ...lookup
 }: {
@@ -469,14 +477,23 @@ export function RenameEditor({
   onChange: (value: string) => void;
   onApply: () => void;
   onCancel: () => void;
+  /** What an emptied field means, where emptying it means anything — without
+   *  it, an empty field simply leaves the apply button disabled. */
+  onRemove?: () => void;
+  /** The button's word while the field is empty (required with `onRemove`). */
+  removeLabel?: string;
+  /** What removing would do, for the button's tooltip. */
+  removeTitle?: string;
   children?: React.ReactNode;
 } & Pick<ComponentProps<typeof PlaceAutocomplete>, "onLookup" | "lookupNote" | "onPickProposal">) {
   const { t } = useTranslation();
+  const removing = !value.trim() && !!onRemove;
+  const apply = () => (removing ? onRemove!() : onApply());
   return (
     <div
       className="tools-place-rename"
       onKeyDown={(e) => {
-        if (e.key === "Enter" && !e.defaultPrevented) onApply();
+        if (e.key === "Enter" && !e.defaultPrevented) apply();
         if (e.key === "Escape" && !e.defaultPrevented) onCancel();
       }}
     >
@@ -498,8 +515,13 @@ export function RenameEditor({
         {...lookup}
       />
       {children}
-      <button className="nav-btn primary tools-place-rename-apply" onClick={onApply} disabled={applyDisabled}>
-        {t("tools.places.rename.apply")}
+      <button
+        className={"nav-btn tools-place-rename-apply " + (removing ? "danger" : "primary")}
+        onClick={apply}
+        disabled={removing ? false : applyDisabled}
+        {...(removing && removeTitle ? { title: removeTitle } : {})}
+      >
+        {removing ? removeLabel : t("tools.places.rename.apply")}
       </button>
     </div>
   );

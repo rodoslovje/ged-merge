@@ -228,7 +228,7 @@
             <ul>
               <li><strong>Mode tabs</strong> — switch between <span class="gm-pill">Edit</span>, <span class="gm-pill">Merge</span> and <span class="gm-pill">Tools</span> (shortcuts <span class="gm-key">E</span> <span class="gm-key">M</span> <span class="gm-key">T</span>).</li>
               <li><strong>File pills</strong> — the loaded main and incoming file names. Click a pill to see or replace that file. On a phone the names are in the <span class="gm-glyph">☰</span> menu instead.</li>
-              <li><strong>Undo / Redo</strong> — one shared history across edits and merge decisions (<span class="gm-key">Ctrl</span><span class="gm-key">Z</span> / <span class="gm-key">Ctrl</span><span class="gm-key">Shift</span><span class="gm-key">Z</span>).</li>
+              <li><strong>Undo / Redo</strong> — one shared history across edits, tool passes and merge decisions (<span class="gm-key">Ctrl</span><span class="gm-key">Z</span> / <span class="gm-key">Ctrl</span><span class="gm-key">Shift</span><span class="gm-key">Z</span>) — see <a href="#undo"><em>Undo &amp; redo</em></a> below.</li>
               <li><strong>Save GEDCOM</strong> — preview and download your changes (<span class="gm-key">Ctrl</span><span class="gm-key">S</span>).</li>
               <li><strong>Search everyone</strong> — the <span class="gm-glyph">⌕</span> button (or <span class="gm-key">/</span>) finds any person in the file by name — the opening letters of each part are enough, in any order and with the accents optional, so <em>sebas kala</em> finds Sebastjan Kalan, and every other box you type a name into (the relative pickers, the start person, find-in-chart, the match list) reads a name the same way; <span class="gm-key">Enter</span> opens them, <span class="gm-key">Shift</span><span class="gm-key">Enter</span> opens their charts. When a media folder is connected (<a href="#photos">§12</a>), each result also shows the person's photo — their marked region of a group photo — so namesakes are told apart at a glance. <strong>Filters</strong> narrow a common name down: sex, a birth-year range, a place, whether the person has links, notes or sources, whether you have edited them, their merge decision, and how close they are to your <a href="#home-person">start person</a> (<a href="#home-person">§7</a>). If the search finds nobody, it offers to <strong>add the name you typed</strong> as a new person.</li>
               <li><strong>Add new person</strong> — the <span class="gm-glyph">＋</span> button (or <span class="gm-key">N</span>) creates a person linked to nobody, from any mode — see <a href="#edit">§8</a>.</li>
@@ -248,6 +248,38 @@
             <p>
               GED Merge is keyboard-driven — press <span class="gm-key">?</span> anywhere to open the full shortcut
               sheet, or see <a href="#shortcuts">§16</a>.
+            </p>
+
+            <h3 id="undo">Undo &amp; redo</h3>
+            <p>
+              <strong>Everything you do here can be taken back.</strong> <span class="gm-key">Ctrl</span><span
+              class="gm-key">Z</span> undoes the last change, <span class="gm-key">Ctrl</span><span
+              class="gm-key">Shift</span><span class="gm-key">Z</span> puts it back, and the <span
+              class="gm-glyph">↩</span> <span class="gm-glyph">↪</span> buttons in the top bar do the same. One history
+              holds the whole session in the order you worked: the fields you edit, the people you add and delete, every
+              repair, rename and coordinate the Tools write, your merge decisions, the branches you bring in from the
+              incoming file, and the pairs you mark as not duplicates. It keeps the last hundred steps. That is why the
+              rest of this guide does not say so action by action — if you can do it, you can undo it.
+            </p>
+            <p>
+              A tool that works on the whole file counts as <strong>one step, not one per record</strong>: a place
+              renamed across four hundred events, a village's houses given their coordinates, a batch action on two
+              hundred people — each comes back with a single <span class="gm-key">Ctrl</span><span
+              class="gm-key">Z</span>. Redo stays available until you make a new change, which starts a fresh branch and
+              drops what you had undone.
+            </p>
+            <p>
+              Two things end the history. <strong>Saving</strong> clears it: the file you downloaded is your new
+              starting point, so there is no earlier state left to return to. <strong>Loading another main file</strong>
+              clears it too, while replacing the incoming file drops only the merge decisions and leaves your edits
+              undoable. In the other direction, with <em>Remember my work in this browser</em> (below) the history
+              survives a reload along with the file itself.
+            </p>
+            <p>
+              What the history does <strong>not</strong> cover is everything that is not a change to your file: your
+              settings, and the review marks the geocoding lists keep in this browser rather than in your file — a house
+              set aside as unanswerable, a naming finding dismissed. Those are not edits, and each is taken back by the
+              control that made it, named where it appears.
             </p>
 
             <h3>Settings</h3>
@@ -601,8 +633,7 @@
               counties are bare, <em>Kane County</em> is offered as <em>Kane</em>. A badge names the answering
               directory.
               Picking one fills in the place, its <strong>address</strong> when you typed a house number the address
-              register recognised, and the <strong>coordinate</strong> that register puts it at — in one step you can
-              undo as one.
+              register recognised, and the <strong>coordinate</strong> that register puts it at — all in one step.
             </p>
             <p>
               If your file labels what its place levels are — the standard <span class="gm-data">FORM</span> line under a
@@ -697,9 +728,8 @@
               <strong>Detach</strong> (the <span class="gm-glyph danger">−</span> glyph) only removes a family connection — both
               individual records survive and can be re-linked later. <strong>Delete Person</strong> (the
               <span class="gm-glyph danger">🗑</span> at the foot of the panel) removes the individual and unlinks them
-              everywhere. It asks for confirmation first, but — like every edit — it joins the undo history:
-              <span class="gm-key">Ctrl</span><span class="gm-key">Z</span> brings the person back at their original
-              position, right up until you download.
+              everywhere. It asks for confirmation first; <span class="gm-key">Ctrl</span><span class="gm-key">Z</span> brings the person
+              back at their original position, right up until you download.
             </p>
             <div class="gm-callout warn">
               <span class="gm-callout-label">Warning</span>
@@ -885,9 +915,8 @@
               The <span class="gm-pill">Tools</span> tab (<span class="gm-key">T</span>) runs checks and clean-ups across
               your entire main file. Each tool shows what it found, or what it would change, before you accept it.
               <strong>Health check</strong>'s one-click fixes, a <strong>Find duplicates</strong> merge, a
-              <strong>Places</strong> rename and <strong>Geocode places</strong> write into your main file as you work —
-              each undoable with <span class="gm-key">Ctrl</span><span class="gm-key">Z</span>, and saved like any other
-              edit, as do <a href="#normalize">Batch actions</a>. <strong>Normalize file</strong>, <strong>Privacy</strong> and <strong>Organize sources</strong> instead
+              <strong>Places</strong> rename and <strong>Geocode places</strong> write into your main file as you work,
+              and are saved like any other edit, as do <a href="#normalize">Batch actions</a>. <strong>Normalize file</strong>, <strong>Privacy</strong> and <strong>Organize sources</strong> instead
               hand you a separate file to download. Either way the <em>.ged</em> on your disk is never rewritten: every
               save is a new file in your Downloads folder (<a href="#saving">§14</a>).
               Six tools sit in the picker at the top —
@@ -951,8 +980,7 @@
               rows carry their own button — <strong>Remove link</strong>, <strong>Remove duplicate</strong>,
               <strong>Remove reference</strong>, or, for a value being set rather than dropped, the result itself
               (<strong>→ Female</strong>, <strong>→ Husband</strong>, <strong>→ 26 JUN 1912</strong>). Use them when you
-              agree with some findings and not others: each acts on that record alone, and is undoable like the batch
-              fixes. The buttons double as a map of what the batch fix above would touch — where a category holds more
+              agree with some findings and not others: each acts on that record alone. The buttons double as a map of what the batch fix above would touch — where a category holds more
               findings than the fix can settle (three no-sex spouses among eight records with no sex), only the rows it
               would change carry a button. A broken link is worth settling here in particular: it cannot be seen or
               removed in <span class="gm-pill">Edit</span>, because the missing family draws nothing there.
@@ -967,8 +995,7 @@
             <p>
               Compares every person against every other using the same engine as Merge, and lists likely duplicate pairs
               with their score. Expand a pair for a side-by-side comparison, then <strong>Merge</strong> to keep the
-              surviving record and fold the other into it — family links are re-pointed automatically, and the action is
-              undoable. The record you keep is always the one on the left, and the confirmation names both records with
+              surviving record and fold the other into it — family links are re-pointed automatically. The record you keep is always the one on the left, and the confirmation names both records with
               their GEDCOM ids so it is clear which one is about to go.
             </p>
             <p>
@@ -980,7 +1007,7 @@
             <p>
               Where each side's parents (or spouse) are themselves separate records — a whole branch entered twice —
               the hint under the comparison names them with their own match scores. <strong>Tick the ones that are the
-              same person</strong> and they are merged first, as part of the same undoable step: their two families then
+              same person</strong> and they are merged first, as part of the same step: their two families then
               collapse into one on their own, so no link has to be dropped and no one is left disconnected. Merging in
               that order is what keeps the branch whole; the names also stay clickable if you'd rather open a pair and
               look at it first. Nothing is ever deleted except the record you confirm — everyone else keeps their record,
@@ -1000,7 +1027,7 @@
               short and actionable; use the score picker to lower the bar and reveal weaker matches. Related records
               are <strong>grouped into clusters</strong> — a run of the same person entered several times (a “parallel
               branch”) folds into a single header showing how many records and pairs it holds. Unfold it to review the
-              pairs one by one, or <strong>Reject all</strong> to reject the whole group at once (undoable). Every pair
+              pairs one by one, or <strong>Reject all</strong> to reject the whole group at once. Every pair
               shows both records' GEDCOM ids next to the names, so two people with the same name and dates are still
               easy to tell apart.
             </p>
@@ -1015,7 +1042,7 @@
               ticked for you. And a record that reached the group only through a chain of other pairs — never compared
               with the one you are keeping — is named by its id in a warning, because nothing in the scan says it is
               the same person. The field choices are the usual defaults: a value only one side has is taken, the more
-              precise date wins, a disagreement keeps the surviving record. The whole thing undoes in one step, and
+              precise date wins, a disagreement keeps the surviving record. The whole thing is one step, and
               the relatives of relatives are left alone — run the scan again afterwards, since records that were too
               far apart to pair often match once the copies are one.
             </p>
@@ -1053,7 +1080,7 @@
               married-name action the surnames it would write. That action also arrives with the doubtful people
               already unchecked, each row saying why: the union records no marriage, it is noted as a partnership, or
               its children carry the mother's surname rather than the father's — the classic sign of a birth outside
-              marriage. Nothing is refused, though: tick such a row and the name is written. The whole run is a single undo step, and people who already carry the image or citation are
+              marriage. Nothing is refused, though: tick such a row and the name is written. The whole run is a single step, and people who already carry the image or citation are
               skipped. A filter can be saved by name together with its action, and the saved list always shows how
               many people currently match — so a recurring chore, say giving everyone who died before age 20 a
               died-young image, is a glance and two clicks.
@@ -1120,8 +1147,7 @@
               repository is preselected (or offered as a ＋ new one), any of the file's existing repositories can be
               picked instead, <strong>＋ New repository…</strong> creates one with a name you type, and a
               <strong>call number</strong> can ride on the link (GEDCOM's <code>CALN</code>, the
-              archive's own shelf mark). The record appears in the tree under its repository with a usage count of 0,
-              and the add is undoable like any edit.
+              archive's own shelf mark). The record appears in the tree under its repository with a usage count of 0.
             </p>
             <p>
               An archive's own identifier — a Matricula book number, a Geneanet view id, a FamilySearch film — is
@@ -1150,8 +1176,7 @@
               another repository (or a newly created one), and a link edit retargets the source's page
               image — and a source nothing cites offers <strong>Remove</strong> there too. Repository rows have their
               own <span class="gm-glyph">✎</span> covering the archive's name, postal address, phone, e-mail, link and
-              note, and a repository holding no sources yet stays listed with a 0 count. All of it is undoable like any
-              edit.
+              note, and a repository holding no sources yet stays listed with a 0 count.
             </p>
             <h3 id="organize">Organize sources</h3>
             <p>
@@ -1206,8 +1231,7 @@
               with no title to type. One run button beside them applies everything ticked across all four, saying which: <strong>Convert to
               sources</strong>, <strong>Merge duplicates</strong>, <strong>Gather under repositories</strong>,
               <strong>Link page images</strong>, or
-              <strong>Apply to the file</strong> when the ticked rows call for more than one. Applying writes into the open file as a single
-              undoable step, like every other Tools repair: <span class="gm-key">Ctrl</span><span class="gm-key">Z</span>
+              <strong>Apply to the file</strong> when the ticked rows call for more than one. Applying writes into the open file as a single step, like every other Tools repair: <span class="gm-key">Ctrl</span><span class="gm-key">Z</span>
               takes it back, and the next <a href="#saving">Save</a> carries it into your GEDCOM along with everything
               else you changed. Private people, notes and media are never turned into a citation (<a href="#privacy">§18</a>).
               Every row on the page names a record, and carries the <span class="gm-glyph">✎</span> that opens it in the
@@ -1292,7 +1316,7 @@
               <strong>Geocode places</strong> matches your file's place names against an offline gazetteer and writes the
               coordinates you accept into the GEDCOM as standard <code>MAP</code> <code>LATI</code>/<code>LONG</code> — the
               same coordinates the <a href="#map">Places map</a> and the Edit-view person map then draw from. Every write
-              is reviewed by you and undoable.
+              is reviewed by you first.
             </p>
             <p>
               Load the gazetteer with one click from <strong>OpenStreetMap</strong> (the button lists every country it knows; picking one starts the download); with
@@ -1311,7 +1335,7 @@
               county tells them apart. The
               municipality also finds names the register writes longer than yours — <em>Vinji vrh</em> under Semič finds
               <em>Vinji Vrh pri Semiču</em> — and the proposal a row resolves to always shows its municipality in the
-              row's own line, so a same-named settlement from the wrong municipality is caught at a glance. When the register's name is the longer or corrected one, the row offers <strong>Use official name</strong> — one click renames every occurrence to it and writes its coordinate — and <strong>Use official names</strong> above the list does the same for every confident row the filters show, in one undoable step. A
+              row's own line, so a same-named settlement from the wrong municipality is caught at a glance. When the register's name is the longer or corrected one, the row offers <strong>Use official name</strong> — one click renames every occurrence to it and writes its coordinate — and <strong>Use official names</strong> above the list does the same for every confident row the filters show, in one step. A
               GeoNames file and an OpenStreetMap download do the same with the country's first-level divisions — a
               Croatian place carries its <em>županija</em>, an Austrian one its <em>Bundesland</em> — and the division is
               recognized under any of its names, so a file that writes <em>Požega-Slavonia</em> still points at
@@ -1349,9 +1373,9 @@
               Edit.
               <strong>Use official spelling</strong> rewrites the address on every
               event carrying it; <strong>Take official addresses</strong> beside the tabs does that for every house on
-              the list in one undoable step. <strong>Move events</strong> answers the other verdict: the events at the
+              the list in one step. <strong>Move events</strong> answers the other verdict: the events at the
               house get the settlement the register files it under, their address lines untouched — the move the
-              Addresses tab offers, made here from the finding that found it, and one undoable step like the rest.
+              Addresses tab offers, made here from the finding that found it.
               Either answer is also the numbered option under the row, next to the register's own line, so a proposal is
               taken where it is read. A place written in the packed layout is the one case with nothing to click: there
               the settlement cannot be swapped in, and the move is made on the Addresses tab, where the new place is
@@ -1432,7 +1456,7 @@
               <em>From the directories</em> — takes any country instead, or turns the assumption off. And
               <strong>Write the country in</strong>, beside the places list's other bulk actions, ends the assumption
               properly: it appends the country — in your file's own spelling of it and its own comma form — to the
-              places a directory recognises, leaving the patron saints and stray dates untouched, in one undoable step. A second row narrows by the kind of work left:
+              places a directory recognises, leaving the patron saints and stray dates untouched, in one step. A second row narrows by the kind of work left:
               <strong>Confident</strong> holds the letter-perfect, unambiguous matches,
               <strong>Possible</strong> every row whose best proposal scores under 100% — amber ones need your judgement,
               while a green score there (a register name confirmed by the written municipality) is still safe for
@@ -1462,7 +1486,7 @@
               one go is still a job for a GeoNames file.
             </p>
             <p>
-              All three lists on this page read the same way: a row names its place (and its address, where the row is about one), opens on a click — bringing its <strong>map</strong> with it, as an event's coordinate panel does in <a href="#edit">Edit</a>; the pinned toggle beside it puts the map away, and fetches it back for a row opened by <em>Expand all</em>, which deliberately draws none — and collects your picks until the list's own button at its top writes them in one undoable step. The map shows candidate places as clickable pins, your chosen
+              All three lists on this page read the same way: a row names its place (and its address, where the row is about one), opens on a click — bringing its <strong>map</strong> with it, as an event's coordinate panel does in <a href="#edit">Edit</a>; the pinned toggle beside it puts the map away, and fetches it back for a row opened by <em>Expand all</em>, which deliberately draws none — and collects your picks until the list's own button at its top writes them in one step. The map shows candidate places as clickable pins, your chosen
               coordinate highlighted, and the file's other known coordinates as faint dots, so same-named places are told
               apart by position; click anywhere else on the map to hand-pick a point. A row also offers alternatives, a
               typed coordinate, or a remembered “no match” mark, and a <span class="gm-glyph">✎</span> button to
@@ -1515,8 +1539,7 @@
               under the returning <strong>Already placed</strong> chip, in case a position wants checking or a rough one
               sharpening. A house whose events hold the settlement's own coordinate prints it too, marked
               <em>(from the place)</em>: the position every address there inherits, so the house itself still counts as
-              unplaced — it is placed with the pin, or with a whole run of them at once below. The pin is the app's mark for a position: it precedes every coordinate printed anywhere, muted while nothing is placed there and green once something is. <strong>Select confident</strong> stages every address the register answered with exactly one house — a hit filed under a different settlement is left out, since that is the split warning's case — so after a group lookup, one click handles the unambiguous majority and only the real questions remain. <span class="gm-glyph">✎</span> on an address <strong>renames</strong> it on every event at that house — in the <code>ADDR</code> line or inside a packed place value, annotations kept — so a typo is fixed once, and renaming one spelling onto another merges the two rows into one house. The rename box completes as you type from the other addresses at that same place — including houses already placed, which the list keeps hidden until asked — so joining two spellings is a pick rather than a retype. <strong>Written twice</strong> finds those pairs for you: within one place, a house recorded both plainly and with a note of yours behind it (<em>Breg ob Savi 26</em> and <em>Breg ob Savi 26 (pd Mlinar)</em>), under one of the two street names it carries (<em>Labore 4</em> against <em>Labore 4 / Škofjeloška 4</em>), or with its street spelt more briefly (<em>Kidričeva 38</em> against <em>Kidričeva cesta 38</em>). The leaner row then names what it would become, and <strong>Join</strong> writes that spelling on its events, so the two rows are the one house they always were; the chip beside the status buttons narrows the list to those pairs, both halves of each. It is a suggestion and not a verdict — the fuller spelling is offered because it holds more, but joining <em>26</em> into <em>26 (pd Mlinar)</em> gives your note to events that never carried it, so where that is not what you mean, rename the other way with <span class="gm-glyph">✎</span>. <strong>Place several at one coordinate…</strong> on a group's header is for the houses no register can answer — old village numbering, a farm that no longer stands: tick the addresses, pick one position (the centre of the village will do, and the file's own coordinate for the place is offered first), and every ticked address takes it. The whole place is ticked to start with; <em>Starting with</em> narrows that to the addresses beginning with what you type — <em>Stražišče 11</em> for both farms of that number — and the ticks stay on screen, so you read off what it caught before taking it. What you type there is also what the panel's own lookup asks about — <em>Stražišče</em> under Kranj is searched as Stražišče, not as Kranj — so the position offered is the one being ticked for. The picks are staged like any other, so <strong>Write coordinates</strong> commits the whole village as one undoable step. The address, its pin and the position it holds are one control: a click anywhere on them opens the coordinate panel — a map to pick on, the register lookup and manual entry together. A staged row then names where its pin now points — the register's own address line, <em>from this file</em>, <em>manual</em> — so a village placed in one go is read off the list rather than one tooltip at a time. A coordinate offered by the register opens the place's map on it with one click. The register link sits after that position, and goes once it has answered — whether you asked from the row or inside the coordinate panel, whose lookup lists its houses here just the same; renaming the address brings it back. <strong>Search OpenStreetMap</strong> stands beside it as the register's fallback, and is the only lookup for the rows the register cannot take at all: one address at a time — the service allows one request a second, so there is no group lookup — with its hits joining the register's in the same list of candidates, each badged <span class="gm-data">OSM</span>, <span class="gm-data">GURS</span> or <span class="gm-data">DGU</span> for where it came from. OpenStreetMap answers a name with everything carrying it — <em>Huje</em> is a suburb, the street named after it and a service road off that street, under one and the same line — so each hit also says what it is, and every answer is numbered — the number is the row's radio, so clicking it takes that answer. Clicking any answer's coordinate opens the row's coordinate panel with all of them drawn on one map under those same numbers: which of three identical lines is the house is a question only the map answers. An answer that names no part of the address searched for — OpenStreetMap matching a house number in the next village, <em>Čirče 5</em> answered with a house in Breg ob Savi — is marked <em>in Breg ob Savi</em> and sinks below the ones that fit; where nothing fits at all, the street or hamlet is looked up without its number, since its position is worth more here than a stranger's front door. And like a place row, each address carries its person count: hover
-              it for the names, click it for the people themselves (with kinship, where enabled), each a link into Edit.
+              unplaced — it is placed with the pin, or with a whole run of them at once below. The pin is the app's mark for a position: it precedes every coordinate printed anywhere, muted while nothing is placed there and green once something is. <strong>Select confident</strong> stages every address the register answered with exactly one house — a hit filed under a different settlement is left out, since that is the split warning's case — so after a group lookup, one click handles the unambiguous majority and only the real questions remain. <span class="gm-glyph">✎</span> on an address <strong>renames</strong> it on every event at that house — in the <code>ADDR</code> line or inside a packed place value, annotations kept — so a typo is fixed once, and renaming one spelling onto another merges the two rows into one house. The rename box completes as you type from the other addresses at that same place — including houses already placed, which the list keeps hidden until asked — so joining two spellings is a pick rather than a retype. Emptied, that same box removes the address instead — the button changes to <strong>Remove address</strong>, and the whole <code>ADDR</code> line goes from every event at the house, in the one step a rename takes. This is the answer to an address that tells the file nothing its place does not — a settlement's own name repeated on the <code>ADDR</code> line — where clearing it by hand meant opening every person the row lists. The place itself stays as it is, and an event whose coordinate was the house's takes the one the file records for the place, so the settlement no longer disagrees with itself; an event carrying no coordinate is not given one. A row marked <em>in the place</em> is not offered it: there the house sits inside the place value, and it cannot go without the village going with it. <strong>Written twice</strong> finds those pairs for you: within one place, a house recorded both plainly and with a note of yours behind it (<em>Breg ob Savi 26</em> and <em>Breg ob Savi 26 (pd Mlinar)</em>), under one of the two street names it carries (<em>Labore 4</em> against <em>Labore 4 / Škofjeloška 4</em>), or with its street spelt more briefly (<em>Kidričeva 38</em> against <em>Kidričeva cesta 38</em>). The leaner row then names what it would become, and <strong>Join</strong> writes that spelling on its events, so the two rows are the one house they always were; the chip beside the status buttons narrows the list to those pairs, both halves of each. It is a suggestion and not a verdict — the fuller spelling is offered because it holds more, but joining <em>26</em> into <em>26 (pd Mlinar)</em> gives your note to events that never carried it, so where that is not what you mean, rename the other way with <span class="gm-glyph">✎</span>. <strong>Place several at one coordinate…</strong> on a group's header is for the houses no register can answer — old village numbering, a farm that no longer stands: tick the addresses, pick one position (the centre of the village will do, and the file's own coordinate for the place is offered first), and every ticked address takes it. The whole place is ticked to start with; <em>Starting with</em> narrows that to the addresses beginning with what you type — <em>Stražišče 11</em> for both farms of that number — and the ticks stay on screen, so you read off what it caught before taking it. What you type there is also what the panel's own lookup asks about — <em>Stražišče</em> under Kranj is searched as Stražišče, not as Kranj — so the position offered is the one being ticked for. The picks are staged like any other, so <strong>Write coordinates</strong> commits the whole village as one step. The address, its pin and the position it holds are one control: a click anywhere on them opens the coordinate panel — a map to pick on, the register lookup and manual entry together. A staged row then names where its pin now points — the register's own address line, <em>from this file</em>, <em>manual</em> — so a village placed in one go is read off the list rather than one tooltip at a time. A coordinate offered by the register opens the place's map on it with one click. The register link sits after that position, and goes once it has answered — whether you asked from the row or inside the coordinate panel, whose lookup lists its houses here just the same; renaming the address brings it back. <strong>Search OpenStreetMap</strong> stands beside it as the register's fallback, and is the only lookup for the rows the register cannot take at all: one address at a time — the service allows one request a second, so there is no group lookup — with its hits joining the register's in the same list of candidates, each badged <span class="gm-data">OSM</span>, <span class="gm-data">GURS</span> or <span class="gm-data">DGU</span> for where it came from. OpenStreetMap answers a name with everything carrying it — <em>Huje</em> is a suburb, the street named after it and a service road off that street, under one and the same line — so each hit also says what it is, and every answer is numbered — the number is the row's radio, so clicking it takes that answer. Clicking any answer's coordinate opens the row's coordinate panel with all of them drawn on one map under those same numbers: which of three identical lines is the house is a question only the map answers. An answer that names no part of the address searched for — OpenStreetMap matching a house number in the next village, <em>Čirče 5</em> answered with a house in Breg ob Savi — is marked <em>in Breg ob Savi</em> and sinks below the ones that fit; where nothing fits at all, the street or hamlet is looked up without its number, since its position is worth more here than a stranger's front door. And like a place row, each address carries its person count: hover it for the names, click it for the people themselves (with kinship, where enabled), each a link into Edit. The place above them carries the same count for the village as a whole — everyone with an address there, counted once however many houses and events they hold — and answers the same click, whether the group is open or shut.
             </p>
             <p>
               A row is one house, not one spelling: where your file writes the same house several ways — the same number
@@ -1543,8 +1566,7 @@
               picked whole, chain and all. Their address lines stay as they are, and the moved events are placed at the
               destination's own coordinate — the directory offer's, or the one your file already records for that place.
               When neither knows one, they keep the coordinate they had, so a move never leaves an event without a
-              position. Only the <code>_GOV</code> id is dropped, because it names the place they just left. One
-              undoable step, like every other tool edit. The panel opens pre-filled with what the addresses themselves
+              position. Only the <code>_GOV</code> id is dropped, because it names the place they just left. One step, like every other tool edit. The panel opens pre-filled with what the addresses themselves
               suggest. Where the place is simply spelt wrong rather than holding somebody else's houses, the
               <span class="gm-glyph">✎</span> beside its name renames the place itself — every event naming that exact
               value, the addressed ones and the rest alike, which is the same rename the Places tab offers; a group
@@ -1569,8 +1591,7 @@
               <strong>Same place and address, different coordinates</strong> lists those at the top of this page. Expand a
               row for a map of its coordinates, each circle numbered with how many events sit on it — twelve on the church and
               one two kilometres off is a typo, not a second church. Choose the right circle (or its radio button) and
-              <em>Use this coordinate for all N events</em> rewrites every event of that place and address to it, in one
-              undoable step. When none of them is right — a maternity hospital recorded at three different guesses is none
+              <em>Use this coordinate for all N events</em> rewrites every event of that place and address to it, in one step. When none of them is right — a maternity hospital recorded at three different guesses is none
               of the three — click anywhere on the map, or type or paste a coordinate, and that becomes the choice. The <a href="#tools">Health check</a>'s coordinate fill likewise copies only within one address,
               so a house's position can never spread across a settlement.
             </p>
@@ -1638,7 +1659,7 @@
               then writes nothing until you pick one; a name fitting several places waits for you to pick with the radio, since choosing between
               them is the whole question. <strong>Use official name</strong> then renames every occurrence to the picked
               option (moving the address out, where that is the answer), and <strong>Use official names</strong> above
-              the list does every row that has an answer at once, in one undoable step. A pick spelt exactly as your
+              the list does every row that has an answer at once, in one step. A pick spelt exactly as your
               file already writes it has nothing to rename, so the row offers <strong>Write coordinate</strong>
               instead: the picked place's position goes into the file, and the choice among the same-named places is
               thereby on record. <span class="gm-glyph">✎</span>
@@ -1649,7 +1670,7 @@
               directories — <strong>Look this place up in the directories</strong>, since the right name may appear nowhere
               in your file — and what it writes is placed where the directories say it is: the house where one is named
               and a stored register holds it, the settlement otherwise, and nothing at all where the answer is
-              ambiguous. It writes at once, undoably, rather than joining the answers waiting above it: those are the
+              ambiguous. It writes at once, rather than joining the answers waiting above it: those are the
               directory's wording, and this is yours. <strong>Show on map</strong> —
               or a click on any answer's coordinate — draws the answers as numbered pins, the number on the pin being
               the number beside the line, with the file's own position for the place as a dashed ring beside them: which
@@ -2081,8 +2102,7 @@
               a file from outside the folder is copied into it first (the browser asks once per session to allow
               writing). In the lightbox, the info panel is
               <strong>editable</strong>: change a photo's <strong>title</strong>, <strong>date</strong> (the date the
-              image depicts), <strong>place</strong> and <strong>description</strong> — each field saves on blur and
-              joins the normal undo/redo history. <strong>⛶ Mark person's region</strong> (under the fields) lets you
+              image depicts), <strong>place</strong> and <strong>description</strong> — each field saves on blur, like any other edit. <strong>⛶ Mark person's region</strong> (under the fields) lets you
               drag a rectangle on a group photo to mark this person — it becomes their thumbnail and the highlighted
               region above. The <span class="gm-glyph">×</span> control removes a photo from the
               person; the image file on disk is kept.
@@ -2400,7 +2420,7 @@
                 <tr><td><span class="gm-glyph pin"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2a7.5 7.5 0 0 0-7.5 7.5c0 5.05 6.36 11.62 6.63 11.9a1.2 1.2 0 0 0 1.74 0c.27-.28 6.63-6.85 6.63-11.9A7.5 7.5 0 0 0 12 2Zm0 10.2a2.7 2.7 0 1 1 0-5.4 2.7 2.7 0 0 1 0 5.4Z"/></svg></span></td><td>A position: coordinates wherever they are printed, and the house addresses they belong to. Muted while nothing is placed there, green once something is</td></tr>
                 <tr><td><span class="gm-glyph">🔒</span></td><td>Privacy lock — mark a person, family, note or media item private (see <a href="#privacy">§18</a>)</td></tr>
                 <tr><td><span class="gm-glyph">↩</span></td><td>Undo a mark — e.g. unmark a “Remove references” group in Organize sources</td></tr>
-                <tr><td><span class="gm-glyph danger">🗑</span></td><td>Delete a person (undoable with Ctrl+Z until you download), or mark links for removal</td></tr>
+                <tr><td><span class="gm-glyph danger">🗑</span></td><td>Delete a person, or mark links for removal</td></tr>
                 <tr><td><span class="gm-glyph">‹</span> <span class="gm-glyph">›</span></td><td>Previous / next photo in the lightbox</td></tr>
               </tbody>
             </table>

@@ -41,7 +41,7 @@ import { ErrorBoundary } from "./ui/ErrorBoundary";
 import { ErrorFallback } from "./ui/ErrorFallback";
 import { applyPlaceRename } from "./tools/placeEdit";
 import { applyGeocode, movePlaceForAddresses, renamePlaceValue, renamePlaceValues } from "./tools/geocode";
-import { applyAddressCoords, renameAddress } from "./tools/addresses";
+import { applyAddressCoords, removeAddress, renameAddress } from "./tools/addresses";
 import { fixBrokenLinks } from "./tools/fixLinks";
 import { fixSexFromRole } from "./tools/fixSex";
 import { fixSwappedRoles } from "./tools/fixRoleSwap";
@@ -2274,8 +2274,19 @@ function AppContent() {
                 // above are applied: a list of houses taken from the register in
                 // a single act must come back in a single act too. Coalesced
                 // because two houses of one village share records.
+                //
+                // An empty `to` is the rename field emptied — the house's events
+                // are to carry no address at all, which is a removal and not a
+                // rewrite, and travels this same path so that it lands in the
+                // same single undo step.
                 applyToolPatches(
-                  coalescePatches(renames.flatMap((r) => renameAddress(mainDataset, r.rawKeys, r.from, r.to))),
+                  coalescePatches(
+                    renames.flatMap((r) =>
+                      r.to.trim()
+                        ? renameAddress(mainDataset, r.rawKeys, r.from, r.to)
+                        : removeAddress(mainDataset, r.rawKeys, r.from),
+                    ),
+                  ),
                   true,
                 )
               }
