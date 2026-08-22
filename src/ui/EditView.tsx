@@ -157,7 +157,7 @@ interface Props {
    * jump Merge to that same person's match candidate when switching modes
    * (tab click or the "m" shortcut), instead of leaving Merge on whatever it
    * had selected before. */
-  onPersonChange?: (id: string) => void;
+  onPersonChange?: (id: string, fromHistory?: boolean) => void;
   /** Whether anything of the app's own lies behind this view — an earlier
    *  person, the Tools tab they were opened from, the chart behind an overlay.
    *  False on the app's first step, where going back would leave the app. */
@@ -243,6 +243,9 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
       dataset.individuals.keys().next().value,
   );
   const [history, setHistory] = useState<string[]>([]);
+  /** The person a Back/Forward press is bringing back, until the change is
+   *  reported (see navigateFromHistory). */
+  const fromHistoryRef = useRef<string | undefined>(undefined);
   // Bumped after every edit to force a re-render — the dataset is mutated
   // in place, so React has no other signal that `person` changed.
   const [tick, setTick] = useState(0);
@@ -430,6 +433,11 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
    *  rather than each undoing the other. */
   const navigateFromHistory = useStableHandler((id: string) => {
     if (!id || id === selectedId) return;
+    // Told to the parent with the change itself: a person the app arrived at by
+    // following history is not a step to be recorded as one. Set only once the
+    // change is certain, and consumed by the effect that reports it, so it can
+    // never be left standing over a later navigation of the reader's own.
+    fromHistoryRef.current = id;
     setHistory((h) => {
       const i = h.lastIndexOf(id);
       if (i >= 0) return h.slice(0, i);
@@ -605,7 +613,8 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   }, [historyToId]);
 
   useEffect(() => {
-    if (selectedId) onPersonChange?.(selectedId);
+    if (selectedId) onPersonChange?.(selectedId, fromHistoryRef.current === selectedId);
+    fromHistoryRef.current = undefined;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId]);
 

@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
 import { buildPlaceTree, collectNodeUseIds, type PlaceNode, type PlaceTree, UNSPECIFIED, UNSPECIFIED_PLACE } from "../../tools/places";
 import { previewPlaceRename, type PlaceRenamePreview } from "../../tools/placeEdit";
+import type { ToolView } from "../ToolsView";
 import { scanAddresses, type AddressRename } from "../../tools/addresses";
 import { useDatasetDerivations } from "../DatasetDerivations";
 import { GeocodePanel } from "./GeocodePanel";
@@ -81,6 +82,8 @@ export function PlacesPanel({
   editVersion,
   onMovePlaceForAddresses,
   startId,
+  view: viewProp,
+  onViewChange,
 }: {
   dataset: Dataset;
   onNavigate: (id: string) => void;
@@ -94,15 +97,27 @@ export function PlacesPanel({
   editVersion: number;
   onMovePlaceForAddresses: (keys: Set<string>, toPlace: string, coord?: GeoAssignment) => number;
   startId?: string;
+  /** Which of this tool's pages is open, and the way to another — held by the
+   *  app, because each is a browser-history step (see ToolView). A page this
+   *  panel does not have (another tool's) reads as its own tree. */
+  view: ToolView;
+  onViewChange: (view: ToolView) => void;
 }) {
   const { t } = useTranslation();
   const derivations = useDatasetDerivations();
   const [tree, setTree] = useState<PlaceTree | null>(null);
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
-  // Switches the panel body between the containment tree and the geocode tool
-  // (same pattern as the Sources panel hosting Organize sources).
-  const [view, setView] = useState<"tree" | "geocode" | "register">("tree");
+  // Which page is on screen: the containment tree, the geocoding worklist or
+  // the naming report. The panel is told, rather than deciding — see the prop.
+  const view = viewProp === "geocode" || viewProp === "register" ? viewProp : "tree";
+  const setView = (next: "tree" | "geocode" | "register") => onViewChange(next);
+  // Coordinates applied on one of the other pages changed the dataset in place,
+  // so the tree they were left for is stale: dropped on the way back, and the
+  // panel (with its chip counts) rebuilds it.
+  useEffect(() => {
+    if (view === "tree") setTree(null);
+  }, [view]);
 
   useEffect(() => {
     setTree(null);
@@ -235,10 +250,7 @@ export function PlacesPanel({
         onRenamePlaceValue={onRenamePlaceValue}
         onNavigate={onNavigate}
         startId={startId}
-        onBack={() => {
-          setView("tree");
-          setTree(null);
-        }}
+        onBack={() => setView("tree")}
       />
     );
 
@@ -256,12 +268,7 @@ export function PlacesPanel({
         onMovePlaceForAddresses={onMovePlaceForAddresses}
         onNavigate={onNavigate}
         startId={startId}
-        // Applied coordinates changed the dataset in place — drop the cached
-        // tree so the panel (and the chip count) rebuild on return.
-        onBack={() => {
-          setView("tree");
-          setTree(null);
-        }}
+        onBack={() => setView("tree")}
       />
     );
 

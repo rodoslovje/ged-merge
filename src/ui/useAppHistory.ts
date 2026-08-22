@@ -18,12 +18,33 @@ interface SelRef {
   compareId: string;
 }
 
+/**
+ * Where the app is: the view on screen, and — in Tools — which tool and which
+ * of its pages. One record per history entry, so a Back press can put the app
+ * back exactly where it stood rather than only which of the three modes it was
+ * in. Every field is optional on the way in: a step names what it changes, and
+ * the rest is carried over from the entry it is leaving.
+ */
+export interface PageRef {
+  mode?: Mode;
+  tool?: string;
+  /** The page inside a tool that has more than one — the places tree, the
+   *  geocoding worklist, the naming report, the source cleanup. */
+  toolView?: string;
+}
+
 export interface AppHistoryOptions {
   /** App-styled confirm dialog (stable) — the Back-button leave guard uses it. */
   confirmDialog: (message: string, confirmLabel: string, onConfirmAction?: () => void) => Promise<boolean>;
   /** Merge's currently selected candidate, remembered into history entries. */
   current: SelRef | null | undefined;
   mode: Mode;
+  /** The Tools tab and its open page — recorded with the mode, so returning to
+   *  Tools returns to the tool and the page, not merely to the mode. */
+  tool: string;
+  toolView: string;
+  setTool: (tool: string) => void;
+  setToolView: (view: string) => void;
   setMode: (mode: Mode) => void;
   setSelectedId: (sel: SelRef) => void;
   setNavigateToId: (id: string) => void;
@@ -83,14 +104,6 @@ export function useAppHistory(opts: AppHistoryOptions) {
   // belongs on the entry already there — pushing for it would leave an entry
   // that names nobody, and Back to it would appear to do nothing.
   const editEntryStartedRef = useRef(false);
-  // The people Back/Forward presses have asked Edit to show and that Edit has
-  // not answered yet, oldest first. A press is not a navigation, so the person
-  // change it causes must record no entry — and presses come faster than Edit
-  // answers them, which is why the id of the entry we are on is not enough to
-  // tell the two apart: hold ⌫ and the second press lands while the first
-  // person is still on the way, so that person read as a fresh navigation and
-  // was pushed as a new entry, over the very entries being walked back to.
-  const restoringRef = useRef<string[]>([]);
 
   // True while a full-page overlay covers the mode views — mode switching (and
   // the hidden views' own bare-key handlers, via their `active` props) must not
@@ -114,9 +127,32 @@ export function useAppHistory(opts: AppHistoryOptions) {
    *  somewhere in-app to go. Every push but the leave-guard's own goes through
    *  here, so no navigation can leave the Back controls saying otherwise. */
   function pushEntry(state: Record<string, unknown>) {
-    window.history.pushState(state, "");
+    // Never the bottom entry's own marker, however the caller built its state:
+    // most pushes carry the entry they leave forward (a step names what it
+    // changes and keeps the rest), and carrying *that* along would leave every
+    // entry claiming to be the one the leave-guard sits under — so Back would
+    // read as "nothing left of ours" one press in, and the views' own Back
+    // buttons would go dead in the middle of a trail they could still walk.
+    const { gedPage: _bottom, ...rest } = state;
+    window.history.pushState(rest, "");
     setCanGoBack(true);
   }
+
+  // The entry we are standing on always describes what is on screen. Written
+  // here, after the fact, rather than by each navigation before it leaves:
+  // the app changes view for reasons that are not navigations too — an undo
+  // that jumps to the mode its step was made in, a save-dialog link, a file
+  // that finishes loading — and an entry left describing the page before one
+  // of those would put the app somewhere it had never been when Back reached
+  // it again.
+  useEffect(() => {
+    const st = window.history.state ?? {};
+    if (st.gedMode === opts.mode && st.gedTool === opts.tool && st.gedToolView === opts.toolView) return;
+    window.history.replaceState(
+      { ...st, gedMode: opts.mode, gedTool: opts.tool, gedToolView: opts.toolView },
+      "",
+    );
+  }, [opts.mode, opts.tool, opts.toolView]);
 
   useEffect(() => {
     // Keep a throwaway "leave-guard" entry beneath the app's main entry. The
@@ -133,7 +169,8 @@ export function useAppHistory(opts: AppHistoryOptions) {
         gedPage?: string; gedTree?: TreeView; gedSel?: SelRef;
         gedChartsId?: string; gedChartsBack?: string;
         gedEditTreeId?: string; gedRelId?: string;
-        gedMode?: Mode; gedNavigateTo?: string; gedEditPerson?: string;
+        gedMode?: Mode; gedTool?: string; gedToolView?: string;
+        gedNavigateTo?: string; gedEditPerson?: string;
       };
       // Landing on the leave-guard = the user pressed Back from the app's main
       // entry and is about to leave the app. Intercept it.
@@ -169,6 +206,11 @@ export function useAppHistory(opts: AppHistoryOptions) {
       // after opening a person from it). Absent on older/plain entries, in which
       // case the current mode is left untouched.
       if (st.gedMode) optsRef.current.setMode(st.gedMode);
+      // …and, in Tools, which tool and which of its pages. Absent on an entry
+      // written before this was recorded, where leaving them alone is the only
+      // honest answer.
+      if (st.gedTool) optsRef.current.setTool(st.gedTool);
+      if (st.gedToolView) optsRef.current.setToolView(st.gedToolView);
       if (st.gedNavigateTo) optsRef.current.setNavigateToId(st.gedNavigateTo);
       // The person this entry stands for in Edit. Walking back through the
       // people opened one after another is what the Back button *should* do, so
@@ -181,7 +223,6 @@ export function useAppHistory(opts: AppHistoryOptions) {
           return;
         }
         editEntryPersonRef.current = st.gedEditPerson;
-        restoringRef.current.push(st.gedEditPerson);
         optsRef.current.setHistoryPersonId(st.gedEditPerson);
       }
       // Restore a remembered compare selection (set when a person link pushed it).
@@ -238,20 +279,18 @@ export function useAppHistory(opts: AppHistoryOptions) {
    * making it: the restore a Back press triggered, and re-opening whoever the
    * current entry already stands for.
    */
-  function recordEditPerson(id: string) {
+  function recordEditPerson(id: string, fromHistory?: boolean) {
     // Someone a Back/Forward press asked for: they already have an entry — this
-    // is the app arriving on it, not leaving for somewhere new. Everything
-    // asked for before them is answered too, whether Edit reported those people
-    // one by one or went straight to the last of them.
-    const restoring = restoringRef.current.indexOf(id);
-    if (restoring >= 0) {
-      restoringRef.current.splice(0, restoring + 1);
+    // is the app arriving on it, not leaving for somewhere new. Edit says so
+    // with the change itself, because presses come faster than Edit answers
+    // them: hold ⌫ and the second lands while the first person is still on the
+    // way, so comparing against the entry we are on read that person as a fresh
+    // navigation and pushed a new entry over the very ones being walked back to.
+    if (fromHistory) {
       editEntryPersonRef.current = id;
       return;
     }
     if (id === editEntryPersonRef.current) return;
-    // A navigation of the reader's own, so any press still unanswered is past.
-    restoringRef.current = [];
     editEntryPersonRef.current = id;
     if (!editEntryStartedRef.current) {
       // First person of the session: name them on the entry we're already on.
@@ -265,7 +304,7 @@ export function useAppHistory(opts: AppHistoryOptions) {
     if (!window.history.state?.gedMode) {
       window.history.replaceState({ ...window.history.state, gedMode: optsRef.current.mode }, "");
     }
-    pushEntry({ gedMode: "edit", gedEditPerson: id });
+    pushEntry({ ...window.history.state, gedMode: "edit", gedEditPerson: id });
   }
 
   /** Tell the history state machine that an entry a caller pushed itself
@@ -287,7 +326,7 @@ export function useAppHistory(opts: AppHistoryOptions) {
    * way Back undoes every other navigation here.
    */
   function navigateFromOverlay(id: string) {
-    pushEntry({ gedMode: "edit", gedEditPerson: id });
+    pushEntry({ ...window.history.state, gedMode: "edit", gedEditPerson: id, gedTree: undefined, gedChartsId: undefined });
     markEditEntry(id);
     setTreeView(null);
     setChartsRootId(null);
@@ -296,19 +335,42 @@ export function useAppHistory(opts: AppHistoryOptions) {
   }
 
   /**
+   * Go to another page of the app — a mode, a tool, a page inside a tool. One
+   * step: the entry we are on already describes where we stand (see the sync
+   * above), and the new page is pushed on top of it, so Back returns to it.
+   *
+   * What the step does not name it carries over, because a page is the whole
+   * position and not one field of it: switching to Tools returns to the tool
+   * and the page it was left on, and switching away and back again does not
+   * quietly reset them.
+   */
+  function goToPage(next: PageRef) {
+    const st = window.history.state ?? {};
+    const mode = next.mode ?? opts.mode;
+    const tool = next.tool ?? opts.tool;
+    const toolView = next.toolView ?? opts.toolView;
+    // Asking for the page already on screen is not a step — the mode tabs and
+    // the tool tabs are as often clicked to confirm where you are as to leave.
+    if (mode === opts.mode && tool === opts.tool && toolView === opts.toolView) return;
+    pushEntry({ ...st, gedMode: mode, gedTool: tool, gedToolView: toolView });
+    opts.setMode(mode);
+    opts.setTool(tool);
+    opts.setToolView(toolView);
+  }
+
+  /**
    * Open a person in Edit from another page of the app — a Tools list, where
    * the people behind a place, a duplicate or a finding are named.
    *
-   * The page being left is written onto the entry it stands for and the person
-   * pushed on top, so Back returns to that page rather than to whoever Edit
-   * happened to be showing before it. Recorded here rather than left to Edit's
-   * own person step, which runs once the mode has already flipped and so can no
-   * longer tell which page the person was opened from.
+   * The person is pushed as an entry of their own on top of the page being
+   * left, so Back returns to that page rather than to whoever Edit happened to
+   * be showing before it. Recorded here rather than left to Edit's own person
+   * step, which runs once the mode has already flipped and so could no longer
+   * tell which page the person was opened from.
    */
   function navigateFromPage(id: string) {
-    window.history.replaceState({ ...window.history.state, gedMode: optsRef.current.mode }, "");
     markEditEntry(id);
-    pushEntry({ gedMode: "edit", gedEditPerson: id });
+    pushEntry({ ...window.history.state, gedMode: "edit", gedEditPerson: id });
     opts.setNavigateToId(id);
     opts.setMode("edit");
   }
@@ -418,6 +480,7 @@ export function useAppHistory(opts: AppHistoryOptions) {
     recordEditPerson,
     navigateFromOverlay,
     navigateFromPage,
+    goToPage,
     canGoBack,
     goBackPage,
   };

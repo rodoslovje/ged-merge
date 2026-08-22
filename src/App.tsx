@@ -36,7 +36,7 @@ import { SettingsModal } from "./ui/SettingsModal";
 import { KEY, isModalOpen, isEditableTarget } from "./keyboard/shortcuts";
 import { MergeView } from "./ui/MergeView";
 import { EditView } from "./ui/EditView";
-import { ToolsView } from "./ui/ToolsView";
+import { ToolsView, type Tool, type ToolView } from "./ui/ToolsView";
 import { ErrorBoundary } from "./ui/ErrorBoundary";
 import { ErrorFallback } from "./ui/ErrorFallback";
 import { applyPlaceRename } from "./tools/placeEdit";
@@ -294,6 +294,11 @@ function AppContent() {
 
   // Merge / Edit / Tools mode; persisted to localStorage in a small hook.
   const [mode, setMode] = useMode();
+  // Where Tools stands: which tool, and which of its pages. Held here, not in
+  // ToolsView, because both are browser-history steps — the entry the app is on
+  // records them, and a Back press puts them back (see ToolView).
+  const [tool, setTool] = useState<Tool>("places");
+  const [toolView, setToolView] = useState<ToolView>("tree");
 
   // Light/dark theme mode + applied `data-theme`, in a self-contained hook.
   const { themeMode, changeThemeMode } = useTheme();
@@ -692,6 +697,14 @@ function AppContent() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [main.status, mainLoadGen]);
 
+  // A newly loaded file puts Tools back on the front page of whichever tool is
+  // open: the worklist that was on screen belongs to the file that is gone.
+  // Not a step of the reader's own, so it records no entry — the entry we are
+  // on is simply brought up to date (see useAppHistory's page sync).
+  useEffect(() => {
+    setToolView("tree");
+  }, [mainLoadGen]);
+
   // When the main finishes loading, default the start person to its root
   // individual if present. Attempted once per file (autoStartRef), so a user
   // who later clears the start person isn't overridden.
@@ -760,9 +773,10 @@ function AppContent() {
     overlayOpen, overlayOpenRef, hasUnsavedChangesRef,
     openTree, rerootTree, showInMatches, changeTreeMode, openCharts,
     discardAndReload, recordEditPerson, navigateFromOverlay,
-    navigateFromPage, canGoBack, goBackPage,
+    navigateFromPage, goToPage, canGoBack, goBackPage,
   } = useAppHistory({
     confirmDialog, current, mode, setMode, setSelectedId, setNavigateToId, setChartKind,
+    tool, toolView, setTool: (t) => setTool(t as Tool), setToolView: (v) => setToolView(v as ToolView),
     setHistoryPersonId,
     hasPerson: (id) => !!mainDatasetRef.current?.individuals.has(id),
   });
@@ -960,8 +974,11 @@ function AppContent() {
   // selected (so the person carries over instead of Edit staying on whoever
   // it last showed).
   function switchToEdit() {
-    if (current) setNavigateToId(current.mainId);
-    setMode("edit");
+    // One step, not two: the person Merge has selected is opened *as* the
+    // navigation, so Back returns to Merge rather than to a mode entry with the
+    // person's own entry stacked on top of it.
+    if (current) navigateFromPage(current.mainId);
+    else goToPage({ mode: "edit" });
   }
 
   // Add a person attached to nobody — a new branch, or the first person in a
@@ -969,15 +986,14 @@ function AppContent() {
   // view and the name focus), so switch there and hand the request over.
   function requestAddPerson(name?: string) {
     if (!mainDataset) return;
-    setMode("edit");
+    goToPage({ mode: "edit" });
     setAddPersonRequest((prev) => ({ nonce: (prev?.nonce ?? 0) + 1, name }));
   }
 
   // Clicking the start icon jumps Edit mode to the chosen start person.
   function goToStartPerson() {
     if (!startId) return;
-    setNavigateToId(startId);
-    setMode("edit");
+    navigateFromPage(startId);
   }
 
   // Switch to Merge, pointing it at the match candidate for whichever person
@@ -987,12 +1003,12 @@ function AppContent() {
   function switchToMerge() {
     const c = editPersonId ? allSorted.find((c) => c.mainId === editPersonId) : undefined;
     if (c) setSelectedId({ mainId: c.mainId, compareId: c.compareId });
-    setMode("merge");
+    goToPage({ mode: "merge" });
   }
 
   // Switch to the maintenance Tools tab, which operates on the whole main file.
   function switchToTools() {
-    setMode("tools");
+    goToPage({ mode: "tools" });
   }
 
   // Mode-switch shortcuts: fixed bare keys E / M / T (see KEY in keyboard/shortcuts).
@@ -1285,7 +1301,7 @@ function AppContent() {
       // No start person set → the hub's relationship kind prompts for one
       // inline; only relating the start person to themselves falls back to Edit.
       if (startId !== id) openCharts(id, "relationship");
-      else { setNavigateToId(id); setMode("edit"); }
+      else navigateFromPage(id);
       return;
     }
     // Mode-aware "open": staying in Merge only makes sense when Merge is the
@@ -1295,10 +1311,9 @@ function AppContent() {
     const candidate = mode === "merge" ? indexByMain.get(id) : undefined;
     if (candidate) {
       setSelectedId({ mainId: candidate.mainId, compareId: candidate.compareId });
-      setMode("merge");
+      goToPage({ mode: "merge" });
     } else {
-      setNavigateToId(id);
-      setMode("edit");
+      navigateFromPage(id);
     }
   }
 
@@ -1793,7 +1808,7 @@ function AppContent() {
         mode={treeView.mode}
         onModeChange={changeTreeMode}
         onReroot={rerootTree}
-        onBack={() => window.history.back()}
+        onBack={goBackPage}
         onShowInMatches={showInMatches}
         decisions={decisions}
         changedPersonIds={changedPersonIds}
@@ -1818,7 +1833,7 @@ function AppContent() {
         changedPersonIds={changedPersonIds}
         decisions={decisions}
         backLabel={t(chartsBackKey)}
-        onBack={() => window.history.back()}
+        onBack={goBackPage}
         onNavigate={navigateFromOverlay}
         onPickStart={changeStart}
       />
@@ -2154,11 +2169,13 @@ function AppContent() {
               // Tools tab or chart a person was opened from.
               canGoBack={canGoBack}
               onGoBack={goBackPage}
-              onPersonChange={(id) => {
+              onPersonChange={(id, fromHistory) => {
                 setEditPersonId(id);
                 // Every person opened in Edit is a browser-history step, so
-                // Back walks back through them like Edit's own Back button.
-                recordEditPerson(id);
+                // Back walks back through them like Edit's own Back button —
+                // except the ones a Back press itself brought back, which are
+                // the app arriving on an entry rather than making one.
+                recordEditPerson(id, fromHistory);
               }}
               matchCompareIdFor={matches ? (id) => indexByMain.get(id)?.compareId : undefined}
               matchOrder={matches ? visibleMainOrder : undefined}
@@ -2191,6 +2208,13 @@ function AppContent() {
               // Tools tab the person was opened from.
               onNavigate={navigateFromPage}
               active={mode === "tools"}
+              // The open tool and its open page are the app's, because each is
+              // a step: going to either is a page the browser Back button can
+              // undo, and a tool's own Back button walks up to its front page.
+              tool={tool}
+              view={toolView}
+              onToolChange={(next) => goToPage({ tool: next, toolView: "tree" })}
+              onViewChange={(next) => goToPage({ toolView: next })}
               onAddSource={(fields) =>
                 applyToolPatches(
                   createStandaloneSource(mainDataset.records, fields, {
@@ -2355,7 +2379,7 @@ function AppContent() {
           onOpenPair={(mainId, compareId) => {
             setPreview(null);
             setSelectedId({ mainId, compareId });
-            setMode("merge");
+            goToPage({ mode: "merge" });
           }}
         />
       )}
