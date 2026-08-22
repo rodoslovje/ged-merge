@@ -167,33 +167,44 @@ function MediaRows({
           ))}
         </div>
       )}
-      {rowEntries.map((m) => {
-        const photoIndex = indexOf.get(m);
-        const key = rowKey(m);
-        return (
-          <TreeRow
-            key={key}
-            open={isOpen(key)}
-            onToggle={() => toggle(key)}
-            hasChildren={m.usedBy.length > 0}
-            count={m.usedBy.length || undefined}
-            href={m.url}
-            titleText={m.url ?? m.file}
-            label={
-              <span className="tools-tree-meta">
-                {photoIndex !== undefined && m.file ? (
-                  <MediaThumb file={m.file} icon={iconFor(m)} gallery={items} index={photoIndex} />
-                ) : (
-                  iconFor(m)
-                )}{" "}
-                {m.title || m.xref}
-              </span>
-            }
-          >
-            <UsageList dataset={dataset} uses={m.usedBy} onNavigate={onNavigate} />
-          </TreeRow>
-        );
-      })}
+      {/* The rows carry their own list. A `TreeRow` is an `<li>`, and these sit
+          under a source's row — itself an `<li>` — so without a list of their
+          own they were list items inside a list item, which is neither valid
+          HTML nor something the browser can be trusted to nest as written. The
+          tray above stays outside it: a `<div>` is no more a list item than an
+          `<li>` is a flex tray. `.tools-tree` adds no indent of its own, so the
+          rows sit exactly where they did. */}
+      {rowEntries.length > 0 && (
+        <ul className="tools-tree">
+          {rowEntries.map((m) => {
+            const photoIndex = indexOf.get(m);
+            const key = rowKey(m);
+            return (
+              <TreeRow
+                key={key}
+                open={isOpen(key)}
+                onToggle={() => toggle(key)}
+                hasChildren={m.usedBy.length > 0}
+                count={m.usedBy.length || undefined}
+                href={m.url}
+                titleText={m.url ?? m.file}
+                label={
+                  <span className="tools-tree-meta">
+                    {photoIndex !== undefined && m.file ? (
+                      <MediaThumb file={m.file} icon={iconFor(m)} gallery={items} index={photoIndex} />
+                    ) : (
+                      iconFor(m)
+                    )}{" "}
+                    {m.title || m.xref}
+                  </span>
+                }
+              >
+                <UsageList dataset={dataset} uses={m.usedBy} onNavigate={onNavigate} />
+              </TreeRow>
+            );
+          })}
+        </ul>
+      )}
     </>
   );
 }
@@ -700,19 +711,19 @@ export function SourcesPanel({
         count={entries.length}
         label={t(labelKey)}
       >
-        <ul className="tools-tree">
-          <MediaRows
-            entries={entries}
-            dataset={dataset}
-            onNavigate={onNavigate}
-            onEditMediaInfo={editMediaInfo}
-            onShowSource={showSource}
-            isOpen={isOpen}
-            toggle={toggle}
-            rowKey={(m) => `${key}:${m.xref}`}
-            iconFor={() => icon}
-          />
-        </ul>
+        {/* No list around it: MediaRows brings its own, and the photo tray it
+            may put above the rows is not a list item. */}
+        <MediaRows
+          entries={entries}
+          dataset={dataset}
+          onNavigate={onNavigate}
+          onEditMediaInfo={editMediaInfo}
+          onShowSource={showSource}
+          isOpen={isOpen}
+          toggle={toggle}
+          rowKey={(m) => `${key}:${m.xref}`}
+          iconFor={() => icon}
+        />
       </TreeRow>
     );
   };
