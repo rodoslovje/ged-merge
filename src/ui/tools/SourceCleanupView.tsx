@@ -1728,17 +1728,12 @@ function PageMediaRow({
           📖 {group.title}
         </span>
         {/* Name, its ✎, then the count — the order every list of these two
-            tools reads in. */}
+            tools reads in. The count is the rows the group opens to, and stands
+            alone: spelling it out again beside it ("5" then "5 citations") said
+            the same number twice, and where the rows are of two kinds the group
+            itself separates them, each under its own line. */}
         <RowEdit xref={group.sourceXref} kind="source" onEditRecord={onEditRecord} t={t} />
         <span className="tools-chip-count">{group.missing.length + group.unfiled.length}</span>
-        <span className="tools-tree-meta">
-          {[
-            group.missing.length > 0 && t("tools.sources.pageMediaCount", { count: group.missing.length }),
-            group.unfiled.length > 0 && t("tools.sources.pageUnfiledCount", { count: group.unfiled.length }),
-          ]
-            .filter(Boolean)
-            .join(" · ")}
-        </span>
       </div>
       {open && (
         <div className="tools-tree-children">

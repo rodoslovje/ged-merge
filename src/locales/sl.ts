@@ -747,7 +747,6 @@ export const sl = {
   "tools.geocode.addr.noQuery": "ni kaj poiskati",
   "tools.geocode.addr.noQueryHint": "Register naslovov potrebuje hišno številko v Sloveniji ali na Hrvaškem; ta naslov je nima ali pa leži drugje. Umestite ga z oznako kraja ali dajte celemu nizu eno lego z »Več naslovov na eno koordinato«.",
   "tools.geocode.addr.filter.picked": "Izbrani",
-  "tools.geocode.addr.groupMeta": "naslovov: {{count}} · dogodkov: {{events}}",
   "tools.geocode.addr.searchGroup": "Poišči vse ({{count}})",
   "tools.geocode.addr.noPlace": "(brez kraja)",
   "tools.geocode.addr.mapHint": "Najdeni naslovi za ta kraj — kliknite krogec in njegovo lego prevzame naslov, na katerega se nanaša.",
@@ -925,10 +924,6 @@ export const sl = {
   "tools.sources.pageMediaFound_two": "Brez slike strani: {{count}} navedbi",
   "tools.sources.pageMediaFound_few": "Brez slike strani: {{count}} navedbe",
   "tools.sources.pageMediaFound_other": "Brez slike strani: {{count}} navedb",
-  "tools.sources.pageMediaCount_one": "{{count}} navedba",
-  "tools.sources.pageMediaCount_two": "{{count}} navedbi",
-  "tools.sources.pageMediaCount_few": "{{count}} navedbe",
-  "tools.sources.pageMediaCount_other": "{{count}} navedb",
   "tools.sources.pageMediaAmbiguous_one":
     "Še {{count}} navedba ne pove strani, ki bi ji ustrezala katera od slik tega vira, zato ni mogoče ugotoviti, katero misli — ostane nespremenjena.",
   "tools.sources.pageMediaAmbiguous_two":
@@ -941,10 +936,6 @@ export const sl = {
   "tools.sources.pageUnfiledFound_two": "Ni pri svoji knjigi: {{count}} strani",
   "tools.sources.pageUnfiledFound_few": "Ni pri svoji knjigi: {{count}} strani",
   "tools.sources.pageUnfiledFound_other": "Ni pri svoji knjigi: {{count}} strani",
-  "tools.sources.pageUnfiledCount_one": "za uvrstitev pri knjigi: {{count}} stran",
-  "tools.sources.pageUnfiledCount_two": "za uvrstitev pri knjigi: {{count}} strani",
-  "tools.sources.pageUnfiledCount_few": "za uvrstitev pri knjigi: {{count}} strani",
-  "tools.sources.pageUnfiledCount_other": "za uvrstitev pri knjigi: {{count}} strani",
   "tools.sources.pageUnfiledHint":
     "Te slike strani so pripete ob navedbi tega vira, zapis vira pa jih ne vodi — zato pri drugih navedbah te knjige ni mogoče ugotoviti, katera slika jim pripada. Isti zagon jih uvrsti k zapisu vira.",
   "tools.sources.pageMediaPage": "stran {{page}}",

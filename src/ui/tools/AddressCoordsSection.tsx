@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
@@ -198,6 +198,10 @@ interface PlaceGroup {
   place: string;
   rows: AddressRow[];
   events: number;
+  /** Everyone the group's addresses belong to, each once however many of its
+   *  houses or events name them — the count the header shows, as every list on
+   *  these pages shows the people rather than the rows. */
+  people: string[];
   /** Whether these addresses can be moved to another place: only when every one
    *  of them names the place in a value of its own, so rewriting that value
    *  moves the event and nothing else. */
@@ -492,20 +496,30 @@ export function AddressCoordsSection({
    *  pin — with the rename ✎ between them. */
   const [coordOpen, setCoordOpen] = useState<string | null>(null);
 
+  /** The names behind a person count, for its hover — the first fifteen and how
+   *  many more there are, the shape every count on these pages hovers with. */
+  const namesTitle = useCallback(
+    (ids: readonly string[]) => {
+      if (!ids.length) return undefined;
+      const shown = ids.slice(0, 15).map((id) => {
+        const p = dataset.individuals.get(id);
+        return p ? nameOf(p) : id;
+      });
+      const more = ids.length - shown.length;
+      return shown.join("\n") + (more > 0 ? `\n… +${more}` : "");
+    },
+    [nameOf, dataset],
+  );
+
   // Hover lists of the people behind each address's person count.
   const peopleTitles = useMemo(() => {
     const titles = new Map<string, string>();
     for (const row of all) {
-      if (!row.people.length) continue;
-      const shown = row.people.slice(0, 15).map((id) => {
-        const p = dataset.individuals.get(id);
-        return p ? nameOf(p) : id;
-      });
-      const more = row.people.length - shown.length;
-      titles.set(row.key, shown.join("\n") + (more > 0 ? `\n… +${more}` : ""));
+      const title = namesTitle(row.people);
+      if (title) titles.set(row.key, title);
     }
     return titles;
-  }, [all, nameOf, dataset]);
+  }, [all, namesTitle]);
 
   // One chip per country the addresses stand in, counting the addresses each
   // click would show — a chip's count respects every filter except its own,
@@ -579,13 +593,27 @@ export function AddressCoordsSection({
           addrStatus(r, searches, picked, osmSearches) === statusFilter,
       );
     const byPlace = new Map<string, PlaceGroup>();
+    // One person can hold several houses of a village, and several events at
+    // each — the header counts them once, so its number is the people you would
+    // see on opening it, exactly as a row's own count is.
+    const seenPeople = new Map<string, Set<string>>();
     for (const row of kept) {
       const g = byPlace.get(row.place);
       if (g) {
         g.rows.push(row);
         g.events += row.count;
         g.movable &&= !row.derived;
-      } else byPlace.set(row.place, { place: row.place, rows: [row], events: row.count, movable: !row.derived });
+      } else {
+        byPlace.set(row.place, { place: row.place, rows: [row], events: row.count, people: [], movable: !row.derived });
+        seenPeople.set(row.place, new Set());
+      }
+      const group = byPlace.get(row.place)!;
+      const seen = seenPeople.get(row.place)!;
+      for (const id of row.people) {
+        if (seen.has(id)) continue;
+        seen.add(id);
+        group.people.push(id);
+      }
     }
     for (const g of byPlace.values()) {
       if (g.movable) g.suggestion = groupSuggestion(g.place, g.rows);
@@ -1371,9 +1399,24 @@ export function AddressCoordsSection({
                     title={t("tools.geocode.renameOpen")}
                   />
                 )}
-                <span className="tools-geo-count">
-                  {t("tools.geocode.addr.groupMeta", { count: group.rows.length, events: group.events })}
-                </span>
+                {/* Whose village it is — the people count every list on these
+                    two pages keeps beside the value it is about, in the same
+                    slot and with the same click: the names on hover, the people
+                    themselves under the header. How many addresses and events
+                    are behind them is not said: the addresses are the rows the
+                    group opens to, and an event count answers a question nobody
+                    asked of a village. */}
+                {group.people.length > 0 && (
+                  <button
+                    className="tools-chip-count tools-count-toggle"
+                    title={namesTitle(group.people)}
+                    aria-pressed={peopleOpen.has(group.place)}
+                    aria-label={t("tools.geocode.peopleToggle")}
+                    onClick={() => togglePeople(group.place)}
+                  >
+                    {group.people.length}
+                  </button>
+                )}
                 {/* The place is derived, not a value the file writes — worth
                     saying, since it is also why this group cannot be moved. */}
                 {!group.movable && (
@@ -1399,6 +1442,18 @@ export function AddressCoordsSection({
                   onPickProposal={(proposal) => setPlaceRenameDraft(proposal.plac)}
                   onLookup={lookup ? (query) => lookup.search(query) : undefined}
                   lookupNote={lookup && !lookup.online ? t("event.place.lookup.offlineOnly") : undefined}
+                />
+              )}
+              {/* Under the header rather than inside the group's own list: the
+                  count belongs to the village as a whole, and its answer must
+                  come whether or not the addresses beneath it are unfolded. */}
+              {peopleOpen.has(group.place) && (
+                <GeoPeopleList
+                  dataset={dataset}
+                  ids={group.people}
+                  place={group.place}
+                  kinship={kinship}
+                  onNavigate={onNavigate}
                 />
               )}
               {isOpen && (

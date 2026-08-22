@@ -635,7 +635,6 @@ export const en = {
   "tools.geocode.addr.noQuery": "nothing to look up",
   "tools.geocode.addr.noQueryHint": "The address register needs a house number in Slovenia or Croatia; this address names none, or lies elsewhere. Place it with the pin, or give a run of them one position with “Place several at one coordinate”.",
   "tools.geocode.addr.filter.picked": "Picked",
-  "tools.geocode.addr.groupMeta": "{{count}} addresses · {{events}} events",
   "tools.geocode.addr.searchGroup": "Look up all ({{count}})",
   "tools.geocode.addr.noPlace": "(no place)",
   "tools.geocode.addr.mapHint": "Houses found for this place — click a circle to choose it for its address.",
@@ -791,16 +790,12 @@ export const en = {
     "This file links a cited page's image beside the citation, the way webtrees and Ancestry show a scan with the fact it documents (Settings → Page links). These citations do not have theirs: the image is under the source, but the person or the event does not link it. Pick the sources and apply — one image pointer is added beside each citation, and nothing else about the record changes.",
   "tools.sources.pageMediaFound_one": "{{count}} citation without its page image",
   "tools.sources.pageMediaFound_other": "{{count}} citations without their page image",
-  "tools.sources.pageMediaCount_one": "{{count}} citation",
-  "tools.sources.pageMediaCount_other": "{{count}} citations",
   "tools.sources.pageMediaAmbiguous_one":
     "{{count}} more citation names no page this source's images answer to, so which one it means cannot be told — left as it is.",
   "tools.sources.pageMediaAmbiguous_other":
     "{{count}} more citations name no page this source's images answer to, so which one they mean cannot be told — left as they are.",
   "tools.sources.pageUnfiledFound_one": "{{count}} page not filed under its book",
   "tools.sources.pageUnfiledFound_other": "{{count}} pages not filed under their book",
-  "tools.sources.pageUnfiledCount_one": "{{count}} page to file under the book",
-  "tools.sources.pageUnfiledCount_other": "{{count}} pages to file under the book",
   "tools.sources.pageUnfiledHint":
     "These pages sit beside a citation of this source, but the source record does not hold them — so it cannot answer for the citations that are missing theirs. They are filed under the book by the same run.",
   "tools.sources.pageMediaPage": "page {{page}}",

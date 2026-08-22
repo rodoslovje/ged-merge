@@ -49,7 +49,9 @@ test("the place above the houses is renamed from its own ✎", async ({ page }) 
   // Both houses arrive under the new name, and nothing is left under the old.
   await expect(group).toHaveCount(1);
   await expect(group).toContainText("Kranj, Gorenjska, Slovenija");
-  await expect(group).toContainText("2 addresses");
+  // The header counts the people the village belongs to — one person here, who
+  // holds both houses.
+  await expect(group.locator(".tools-tree-row .tools-chip-count").first()).toHaveText("1");
 
   // …and it reached the records rather than this list alone: the places tab,
   // which reads the same values as whole PLAC strings, is renamed with it.
