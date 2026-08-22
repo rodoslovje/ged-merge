@@ -186,7 +186,6 @@ async function searchNamed(
   loaded: LoadedIndex,
   name: string,
   query: LocalQuery,
-  opts?: { anyStreet?: boolean },
 ): Promise<AddressHit[]> {
   const ids = loaded.byName.get(foldToken(name));
   if (!ids?.length) return [];
@@ -194,9 +193,7 @@ async function searchNamed(
   for (const id of ids) {
     const bucket = await bucketFor(country, id);
     if (bucket)
-      hits.push(
-        ...searchBucket(bucket, { number: query.number, suffix: query.suffix, street: query.street }, opts),
-      );
+      hits.push(...searchBucket(bucket, { number: query.number, suffix: query.suffix, street: query.street }));
   }
   return scopeToParents(hits, query.parents, loaded);
 }
@@ -206,9 +203,9 @@ async function searchNamed(
  * one is walked with: the settlement the file names, then — where that is worth
  * anything ({@link tryAlternates}) — the wider names it sits in, then the
  * "street" read as a settlement of its own, a hamlet a file files under its
- * bigger neighbour. The rungs *within* a settlement (street, then village
- * numbering, then — for a value naming no street — any street) are
- * {@link searchBucket}'s.
+ * bigger neighbour. The rungs *within* a settlement — the street as written,
+ * then the houses the village numbers directly — are {@link searchBucket}'s, and
+ * none of them widens to the settlement's other streets.
  *
  * Which is what makes the last rung here reachable at all: a named street the
  * settlement does not have answers nothing rather than some same-numbered house
@@ -226,9 +223,7 @@ export async function searchLocalAddress(country: RegisterCountry, query: LocalQ
   if (own.length) return own.slice(0, MAX_RESULTS);
   if (await tryAlternates(query, () => loaded.settlementNames.has(foldToken(query.settlement)))) {
     for (const name of query.altSettlements ?? []) {
-      // A settlement the file never named gets the narrow reading only: no
-      // street is guessed on top of the settlement already guessed.
-      const hits = await searchNamed(country, loaded, name, query, { anyStreet: false });
+      const hits = await searchNamed(country, loaded, name, query);
       if (hits.length) return hits.slice(0, MAX_RESULTS);
     }
   }

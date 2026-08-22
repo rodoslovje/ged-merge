@@ -416,15 +416,17 @@ export async function requireParentMunicipality(
  * as written.
  *
  * With no street, the number is required to hang off the settlement itself
- * (`ULICA_NAZIV IS NULL`) — real village numbering. Without that clause a
- * settlement that *does* have streets matches its number on every one of them
- * ("Bled 4" hits 9 different houses), so the precise reading comes first and
- * `anyStreet` is the caller's deliberate widening when it finds nothing.
+ * (`ULICA_NAZIV IS NULL`) — real village numbering. The clause is never dropped:
+ * without it a settlement that *does* have streets matches its number on every
+ * one of them, and "Spodnja Besnica 23" comes back as Senožeti 23, Vogel 23,
+ * Pešnica 23 and Trata 23 — four houses that have nothing to do with each other
+ * beyond the number, and none of which the file names. A register that cannot
+ * place a house says so by answering nothing.
  */
-export function buildRnFilter(query: RnQuery, opts?: { anyStreet?: boolean }): string {
+export function buildRnFilter(query: RnQuery): string {
   const clauses = [`NASELJE_NAZIV=${cqlString(query.settlement)}`, `HS_STEVILKA=${query.number}`];
   if (query.street) clauses.push(`ULICA_NAZIV LIKE ${cqlString(`${query.street}%`)}`);
-  else if (!opts?.anyStreet) clauses.push("ULICA_NAZIV IS NULL");
+  else clauses.push("ULICA_NAZIV IS NULL");
   clauses.push(query.suffix ? `HS_DODATEK=${cqlString(query.suffix)}` : "HS_DODATEK IS NULL");
   return clauses.join(" AND ");
 }
@@ -542,9 +544,7 @@ export async function searchAddress(query: RnQuery, signal?: AbortSignal): Promi
   if (own.length) return own;
   if (query.altSettlements?.length && (await tryAlternates(query, () => isSettlement(query.settlement, signal)))) {
     for (const settlement of query.altSettlements) {
-      // Narrow reading only on a settlement the file never named — see
-      // searchInSettlement's `anyStreet`.
-      const hits = await searchInSettlement({ ...query, settlement }, signal, { anyStreet: false });
+      const hits = await searchInSettlement({ ...query, settlement }, signal);
       if (hits.length) return hits;
     }
   }
@@ -565,20 +565,15 @@ export function hostAsSettlement(query: RnQuery): RnQuery | undefined {
   return { ...rest, settlement: query.street };
 }
 
-/** The widening ladder within one settlement. Each rung is held to the place's
- *  own municipality before it is counted, so a namesake elsewhere in the country
- *  can neither answer the row nor crowd the right house out of the six shown.
+/** The widening ladder within one settlement: the address as written, then the
+ *  same number without its letter suffix. Each rung is held to the place's own
+ *  municipality before it is counted, so a namesake elsewhere in the country can
+ *  neither answer the row nor crowd the right house out of the six shown.
  *
- *  `anyStreet: false` withholds the last rung, which reads a street-less number
- *  across every street of the settlement. It is the caller's word that this
- *  settlement is one the search widened to rather than one the file named, where
- *  that rung answers "no house 52 in Krasinec" with a house 52 on some Metlika
- *  street — see {@link tryAlternates}. */
-async function searchInSettlement(
-  query: RnQuery,
-  signal?: AbortSignal,
-  opts?: { anyStreet?: boolean },
-): Promise<RnResult[]> {
+ *  Both rungs name a street or require village numbering. Nothing here reads a
+ *  street-less number across the streets of the settlement: see
+ *  {@link buildRnFilter}. */
+async function searchInSettlement(query: RnQuery, signal?: AbortSignal): Promise<RnResult[]> {
   const rung = async (filter: string): Promise<RnResult[]> => {
     const found = rnFeaturesToResults(await rnFetch(filter, signal), Infinity);
     // The register is asked for the street as a *prefix*, because files
@@ -600,9 +595,6 @@ async function searchInSettlement(
     if (noSuffix.length) return noSuffix;
   }
 
-  if (!query.street && opts?.anyStreet !== false) {
-    return rung(buildRnFilter(query, { anyStreet: true }));
-  }
   return [];
 }
 
@@ -722,18 +714,13 @@ export async function searchAddressBatch(
       });
   }
 
-  const fetchGroup = async (
-    settlement: string,
-    street: string | undefined,
-    numbers: number[],
-    anyStreet = false,
-  ) => {
+  const fetchGroup = async (settlement: string, street: string | undefined, numbers: number[]) => {
     const hits: RnResult[] = [];
     for (let i = 0; i < numbers.length; i += BATCH_NUMBERS) {
       const chunk = numbers.slice(i, i + BATCH_NUMBERS);
       const clauses = [`NASELJE_NAZIV=${cqlString(settlement)}`, `HS_STEVILKA IN (${chunk.join(",")})`];
       if (street) clauses.push(`ULICA_NAZIV LIKE ${cqlString(`${street}%`)}`);
-      else if (!anyStreet) clauses.push("ULICA_NAZIV IS NULL");
+      else clauses.push("ULICA_NAZIV IS NULL");
       hits.push(...rnFeaturesToResults(await rnFetch(clauses.join(" AND "), signal, BATCH_LIMIT), Infinity));
     }
     return hits;
@@ -777,7 +764,6 @@ export async function searchAddressBatch(
       const own = async (...args: Parameters<typeof fetchGroup>) =>
         requireParentMunicipality(await fetchGroup(...args), g.parents, signal);
       let hits = await own(g.settlement, g.street, numbers);
-      if (!hits.length && !g.street) hits = await own(g.settlement, undefined, numbers, true);
       // The settlement the file names may not be the one the register files the
       // street under — walk the same alternates the per-address ladder does
       // (searchAddress), on the same terms: only where widening can find
@@ -796,15 +782,15 @@ export async function searchAddressBatch(
         const alt = hostAsSettlement({ settlement: g.settlement, street: g.street, number: numbers[0] });
         if (alt) {
           // The guessed settlement is held to the place's own municipality, so a
-          // "Klanec" that is really Komenda's cannot answer a place in Kranj.
-          const guessed = async (anyStreet: boolean) =>
-            requireParentMunicipality(
-              await fetchGroup(alt.settlement, undefined, numbers, anyStreet),
-              g.parents,
-              signal,
-            );
-          hits = await guessed(false);
-          if (!hits.length) hits = await guessed(true);
+          // "Klanec" that is really Komenda's cannot answer a place in Kranj —
+          // and it is asked for village numbering only, like every other rung:
+          // a guessed village whose streets are then guessed as well answers
+          // with a house nothing about the value points at.
+          hits = await requireParentMunicipality(
+            await fetchGroup(alt.settlement, undefined, numbers),
+            g.parents,
+            signal,
+          );
         }
       }
       pool.set(key, hits);
