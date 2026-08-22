@@ -465,7 +465,8 @@
               Switch to <span class="gm-pill">Edit</span> (<span class="gm-key">E</span>) to browse and modify your
               main file directly — no second file needed. Pick anyone from the <strong>Jump to person</strong> box, or
               click a relative's card to walk the tree; <strong>Back</strong> — the button or your browser's, which
-              retraces the same trail — returns to where you came from. If the
+              retraces the same trail — returns to where you came from, and to the Tools list a person was opened from
+              as readily as to the person before them. If the
               current person also matches your incoming file, <strong>Merge</strong> in the toolbar jumps straight to
               that comparison, and the person header carries the same three decision buttons —
               <strong>Confirm</strong>, <strong>Reject</strong> and <strong>Defer</strong> — so a match can be decided,
@@ -1544,7 +1545,11 @@
               When neither knows one, they keep the coordinate they had, so a move never leaves an event without a
               position. Only the <code>_GOV</code> id is dropped, because it names the place they just left. One
               undoable step, like every other tool edit. The panel opens pre-filled with what the addresses themselves
-              suggest.
+              suggest. Where the place is simply spelt wrong rather than holding somebody else's houses, the
+              <span class="gm-glyph">✎</span> beside its name renames the place itself — every event naming that exact
+              value, the addressed ones and the rest alike, which is the same rename the Places tab offers; a group
+              marked <em>in the place</em> has no such value to rewrite, so it carries no <span class="gm-glyph">✎</span>
+              either.
             </p>
             <p>
               For Slovenian places the register settles it. When a house number is not found under the settlement the
@@ -2473,7 +2478,7 @@
                 <tr><td><span class="gm-key">⌥</span><span class="gm-key">←</span> · <span class="gm-key">⌥</span><span class="gm-key">→</span></td><td>Open the previous · next sibling, by birth (Edit)</td></tr>
                 <tr><td><span class="gm-key">⌥</span><span class="gm-key">↓</span> · <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">↓</span></td><td>Open the eldest · the youngest child (Edit)</td></tr>
                 <tr><td><span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">←</span> · <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">→</span></td><td>Open the previous · next partner (Edit)</td></tr>
-                <tr><td><span class="gm-key">⌫</span> / <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">⌫</span></td><td>Back — previous person (Edit) or leave a chart page; the chord goes back from inside a field too</td></tr>
+                <tr><td><span class="gm-key">⌫</span> / <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">⌫</span></td><td>Back — the previous page in Edit (the person before, or the Tools list they were opened from) or leave a chart page; the chord goes back from inside a field too</td></tr>
                 <tr><td><span class="gm-key">N</span></td><td>Add a new person (linked to nobody)</td></tr>
                 <tr><td><span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">E</span></td><td>Open the <strong>+ Add Event</strong> menu (Edit)</td></tr>
                 <tr><td><span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">1</span> … <span class="gm-key">9</span></td><td>Add a quick event to the open person (Edit) — the buttons under the event list, in their order</td></tr>
