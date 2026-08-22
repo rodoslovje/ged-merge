@@ -910,6 +910,16 @@ export const sl = {
     "Še {{count}} navedbe ne povedo strani, ki bi ji ustrezala katera od slik tega vira, zato ni mogoče ugotoviti, katero mislijo — ostanejo nespremenjene.",
   "tools.sources.pageMediaAmbiguous_other":
     "Še {{count}} navedb ne pove strani, ki bi ji ustrezala katera od slik tega vira, zato ni mogoče ugotoviti, katero mislijo — ostanejo nespremenjene.",
+  "tools.sources.pageUnfiledFound_one": "Ni pri svoji knjigi: {{count}} stran",
+  "tools.sources.pageUnfiledFound_two": "Ni pri svoji knjigi: {{count}} strani",
+  "tools.sources.pageUnfiledFound_few": "Ni pri svoji knjigi: {{count}} strani",
+  "tools.sources.pageUnfiledFound_other": "Ni pri svoji knjigi: {{count}} strani",
+  "tools.sources.pageUnfiledCount_one": "za uvrstitev pri knjigi: {{count}} stran",
+  "tools.sources.pageUnfiledCount_two": "za uvrstitev pri knjigi: {{count}} strani",
+  "tools.sources.pageUnfiledCount_few": "za uvrstitev pri knjigi: {{count}} strani",
+  "tools.sources.pageUnfiledCount_other": "za uvrstitev pri knjigi: {{count}} strani",
+  "tools.sources.pageUnfiledHint":
+    "Te slike strani so pripete ob navedbi tega vira, zapis vira pa jih ne vodi — zato pri drugih navedbah te knjige ni mogoče ugotoviti, katera slika jim pripada. Isti zagon jih uvrsti k zapisu vira.",
   "tools.sources.pageMediaPage": "stran {{page}}",
   "tools.sources.pageMediaRecord": "pri samem zapisu",
   "tools.sources.applyPageMedia": "Pripni slike strani ({{count}})",

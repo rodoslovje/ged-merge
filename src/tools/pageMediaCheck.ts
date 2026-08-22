@@ -1,8 +1,8 @@
 import type { Dataset, GedNode } from "../gedcom/types";
 import { childrenByTag, cloneNode } from "../gedcom/node";
 import { FAM_EVENT_TAGS, INDI_EVENT_TAGS } from "../gedcom/eventTags";
-import { linkPageMedia } from "../gedcom/edit";
-import { EVENT_CHILD_ORDER, FAM_CHILD_ORDER, INDI_CHILD_ORDER } from "../gedcom/edit/shared";
+import { linkPageMedia, SOUR_TRAILING_TAGS } from "../gedcom/edit";
+import { EVENT_CHILD_ORDER, FAM_CHILD_ORDER, INDI_CHILD_ORDER, insertGrouped } from "../gedcom/edit/shared";
 import { buildObjeIndex, isPointer, pageParamOf, sourceTitle, type ObjeIndex } from "../gedcom/source";
 import { parseFamilySearchUrl } from "../normalize/links";
 import type { PageMediaStyle } from "./sourceReshape";
@@ -35,13 +35,34 @@ export interface MissingPageMedia {
   objeXref: string;
 }
 
-/** One source, with the citations of it that are missing their page image. */
+/** A page image beside a citation that its own book does not hold — the same
+ *  trouble read from the other end. */
+export interface UnfiledPageImage {
+  /** The `INDI`/`FAM` record whose citation carries the image. */
+  recordXref: string;
+  /** The event it sits on, or undefined for a record-level citation. */
+  eventTag?: string;
+  /** The image, to be filed under the book it is a page of. */
+  objeXref: string;
+  /** The page it states, where its own address says one. */
+  page?: string;
+}
+
+/** One source: the citations of it missing their page image, and the pages of
+ *  it the file keeps on records without ever filing them under the book. */
 export interface PageMediaGroup {
   /** Stable identity (`pm:${sourceXref}`), the selection/React key. */
   id: string;
   sourceXref: string;
   title: string;
   missing: MissingPageMedia[];
+  /**
+   * Pages sitting beside a citation of this source that the source record does
+   * not hold. A book that does not know its own pages is why a citation
+   * elsewhere cannot be given the right one — this is the root the other list
+   * grows from, and the two are fixed in one pass.
+   */
+  unfiled: UnfiledPageImage[];
   /**
    * Citations of this source whose image could not be told from another: the
    * source holds several pages and the citation names none, or names one no
@@ -55,11 +76,13 @@ export interface PageMediaReport {
   groups: PageMediaGroup[];
   /** Citations that would get their page image. */
   total: number;
+  /** Pages that would be filed under the book they belong to. */
+  unfiled: number;
   /** Citations left alone because which image they mean is not knowable. */
   ambiguous: number;
 }
 
-const EMPTY: PageMediaReport = { groups: [], total: 0, ambiguous: 0 };
+const EMPTY: PageMediaReport = { groups: [], total: 0, unfiled: 0, ambiguous: 0 };
 
 /** The page number an image's own URL states — the `pg=` a register link
  *  carries, or the image a FamilySearch ark was copied at. */
@@ -105,15 +128,41 @@ function containersOf(record: GedNode): GedNode[] {
   return [record, ...record.children.filter((c) => eventTags.has(c.tag))];
 }
 
+/**
+ * Which citation on this container a page image beside it belongs to, when the
+ * book it is a page of does not hold it. One citation on the fact settles it;
+ * with several, the page has to say — the image's own page against the page
+ * each citation states. Where neither answers, the image is left where it is.
+ */
+function citationForImage(
+  container: GedNode,
+  sources: Map<string, GedNode>,
+  imagePage: string | undefined,
+): string | undefined {
+  const cited: { xref: string; page?: string }[] = [];
+  for (const citation of childrenByTag(container, "SOUR")) {
+    const xref = citation.value?.trim();
+    if (!xref || !isPointer(xref) || !sources.has(xref)) continue;
+    cited.push({ xref, page: childrenByTag(citation, "PAGE")[0]?.value?.trim() });
+  }
+  if (cited.length === 0) return undefined;
+  if (cited.length === 1) return cited[0].xref;
+  if (!imagePage) return undefined;
+  const matches = cited.filter((c) => c.page && c.page === imagePage);
+  return matches.length === 1 ? matches[0].xref : undefined;
+}
+
 /** Walk every citation in the file, reporting the ones whose container is
- *  missing the cited page's image. Shared by the scan and the apply, so the
- *  rows offered and the pointers written can never diverge. */
+ *  missing the cited page's image — and the pages beside a citation that the
+ *  cited book does not hold. Shared by the scan and the apply, so the rows
+ *  offered and the pointers written can never diverge. */
 function collect(
   records: GedNode[],
   sources: Map<string, GedNode>,
   objes: ObjeIndex,
   onMissing: (container: GedNode, record: GedNode, sourceXref: string, objeXref: string, page: string | undefined) => void,
   onAmbiguous?: (sourceXref: string) => void,
+  onUnfiled?: (record: GedNode, container: GedNode, sourceXref: string, objeXref: string, page: string | undefined) => void,
 ): void {
   const imagesBySource = new Map<string, { xref: string; page?: string }[]>();
   const imagesOf = (xref: string, node: GedNode) => {
@@ -130,6 +179,22 @@ function collect(
       const linked = new Set(
         childrenByTag(container, "OBJE").map((c) => c.value?.trim()).filter((v): v is string => !!v),
       );
+      // A page beside a citation whose own book does not hold it. The book is
+      // where a page belongs — it is what lets every other citation of it be
+      // given the right page — so this is reported wherever it is found, and
+      // fixed before the pass below reads which pages a source has.
+      if (onUnfiled) {
+        for (const xref of linked) {
+          const url = objes.get(xref)?.url;
+          if (!url) continue;
+          const page = pageOfImage(url);
+          const owner = citationForImage(container, sources, page);
+          if (!owner) continue;
+          const source = sources.get(owner)!;
+          const held = childrenByTag(source, "OBJE").some((c) => c.value?.trim() === xref);
+          if (!held) onUnfiled(record, container, owner, xref, page);
+        }
+      }
       // A page *link* is already beside this fact: the reader has answered
       // which page documents it, and a second link would not be a completion
       // but a contradiction — that is how a page whose image never joined its
@@ -191,6 +256,7 @@ export function findMissingPageMedia(dataset: Dataset, style: PageMediaStyle): P
       sourceXref,
       title: sourceTitle(source) || sourceXref,
       missing: [],
+      unfiled: [],
       ambiguous: 0,
     };
     bySource.set(sourceXref, group);
@@ -212,15 +278,25 @@ export function findMissingPageMedia(dataset: Dataset, style: PageMediaStyle): P
     (sourceXref) => {
       groupFor(sourceXref).ambiguous++;
     },
+    (record, container, sourceXref, objeXref, page) => {
+      groupFor(sourceXref).unfiled.push({
+        recordXref: record.xref!,
+        eventTag: container === record ? undefined : container.tag,
+        objeXref,
+        page,
+      });
+    },
   );
 
   // A source whose citations are all ambiguous has nothing to offer, and a row
   // that can only say "no" is not worth a line in the list.
-  const groups = [...bySource.values()].filter((g) => g.missing.length > 0);
-  groups.sort((a, b) => b.missing.length - a.missing.length || a.title.localeCompare(b.title));
+  const groups = [...bySource.values()].filter((g) => g.missing.length + g.unfiled.length > 0);
+  const work = (g: PageMediaGroup) => g.missing.length + g.unfiled.length;
+  groups.sort((a, b) => work(b) - work(a) || a.title.localeCompare(b.title));
   return {
     groups,
     total: groups.reduce((n, g) => n + g.missing.length, 0),
+    unfiled: groups.reduce((n, g) => n + g.unfiled.length, 0),
     ambiguous: groups.reduce((n, g) => n + g.ambiguous, 0),
   };
 }
@@ -239,9 +315,22 @@ export function linkMissingPageMedia(
   if (sourceXrefs.size === 0) return { records, count: 0 };
   const clone = records.map(cloneNode);
   const sources = sourceIndex(clone);
-  const objes = buildObjeIndex(clone);
   let count = 0;
-  collect(clone, sources, objes, (container, record, sourceXref, objeXref) => {
+
+  // 1. Every page beside a citation joins the book it is a page of. First, and
+  // for one reason: the pass below then reads a book that knows all its own
+  // pages, so a source that looked like it held a single page — and would have
+  // answered for every citation of it — is no longer read that way.
+  collect(clone, sources, buildObjeIndex(clone), () => {}, undefined, (_record, _container, sourceXref, objeXref) => {
+    if (!sourceXrefs.has(sourceXref)) return;
+    const source = sources.get(sourceXref);
+    if (!source) return;
+    insertGrouped(source, { level: source.level + 1, tag: "OBJE", value: objeXref, children: [] }, SOUR_TRAILING_TAGS);
+    count++;
+  });
+
+  // 2. …and every citation gets the page its book now knows about.
+  collect(clone, sources, buildObjeIndex(clone), (container, record, sourceXref, objeXref) => {
     // A source merged away by an earlier pass of the same apply is no longer
     // this run's to fix; the citation now points at the survivor, and the next
     // scan offers it under that one.

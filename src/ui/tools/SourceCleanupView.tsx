@@ -519,7 +519,7 @@ export function SourceCleanupView({
   const onlySelected = ticked.length === 1 ? ticked[0] : undefined;
   // Page images are counted one by one: the rows are sources, but what the
   // button writes is a pointer per citation.
-  const pageMediaCount = selectedPageMediaGroups.reduce((n, g) => n + g.missing.length, 0);
+  const pageMediaCount = selectedPageMediaGroups.reduce((n, g) => n + g.missing.length + g.unfiled.length, 0);
   const applyAction = (
     <>
       <button className="nav-btn primary tools-run" onClick={apply} disabled={nothingSelected}>
@@ -574,6 +574,7 @@ export function SourceCleanupView({
             hasDups && t("tools.sources.dupFound", { count: dupReport.groups.length }),
             hasRegroup && t("tools.sources.regroupFound", { count: regroupReport.total }),
             hasPageMedia && t("tools.sources.pageMediaFound", { count: pageMediaReport.total }),
+            pageMediaReport.unfiled > 0 && t("tools.sources.pageUnfiledFound", { count: pageMediaReport.unfiled }),
           ]
             .filter(Boolean)
             .join(" · ")}
@@ -806,7 +807,7 @@ export function SourceCleanupView({
         <section className="tools-cleanup-section">
           <div className="tools-dup-kind-head">
             {t("tools.sources.pageMediaHeading")}
-            <span className="tools-chip-count">{pageMediaReport.total}</span>
+            <span className="tools-chip-count">{pageMediaReport.total + pageMediaReport.unfiled}</span>
             <div className="tools-dup-bulk">
               {!hasReshape && !hasDups && !hasRegroup && applyAction}
               <button
@@ -1598,9 +1599,16 @@ function PageMediaRow({
         <span className="tools-tree-label clickable" onClick={onToggleOpen} title={group.title}>
           📖 {group.title}
         </span>
-        <span className="tools-chip-count">{group.missing.length}</span>
+        <span className="tools-chip-count">{group.missing.length + group.unfiled.length}</span>
         <RowEdit xref={group.sourceXref} kind="source" onEditRecord={onEditRecord} t={t} />
-        <span className="tools-tree-meta">{t("tools.sources.pageMediaCount", { count: group.missing.length })}</span>
+        <span className="tools-tree-meta">
+          {[
+            group.missing.length > 0 && t("tools.sources.pageMediaCount", { count: group.missing.length }),
+            group.unfiled.length > 0 && t("tools.sources.pageUnfiledCount", { count: group.unfiled.length }),
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+        </span>
       </div>
       {open && (
         <div className="tools-tree-children">
@@ -1631,6 +1639,36 @@ function PageMediaRow({
               );
             })}
           </ul>
+          {group.unfiled.length > 0 && (
+            <>
+              <p className="tools-fix-hint">{t("tools.sources.pageUnfiledHint")}</p>
+              <ul className="tools-dup-members">
+                {group.unfiled.map((u, i) => {
+                  const famSpouses = dataset.families.has(u.recordXref) ? familySpouses(dataset, u.recordXref) : [];
+                  return (
+                    <li key={`u-${u.recordXref}-${u.eventTag ?? ""}-${u.objeXref}-${i}`} className="tools-dup-member">
+                      {famSpouses.length > 0 ? (
+                        <span>
+                          {famSpouses.map((p, j) => (
+                            <span key={p.id}>
+                              {j > 0 && <span className="tools-usage-amp">&amp;</span>}
+                              <PersonLink dataset={dataset} id={p.id} fallback={p.label} onNavigate={onNavigate} />
+                            </span>
+                          ))}
+                        </span>
+                      ) : (
+                        <PersonLink dataset={dataset} id={u.recordXref} fallback={u.recordXref} onNavigate={onNavigate} />
+                      )}
+                      <span className="tools-tree-meta">
+                        {u.eventTag ?? t("tools.sources.pageMediaRecord")}
+                        {u.page && ` · ${t("tools.sources.pageMediaPage", { page: u.page })}`}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          )}
           {group.ambiguous > 0 && (
             <p className="tools-fix-hint">{t("tools.sources.pageMediaAmbiguous", { count: group.ambiguous })}</p>
           )}

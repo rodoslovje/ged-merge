@@ -780,6 +780,12 @@ export const en = {
     "{{count}} more citation names no page this source's images answer to, so which one it means cannot be told — left as it is.",
   "tools.sources.pageMediaAmbiguous_other":
     "{{count}} more citations name no page this source's images answer to, so which one they mean cannot be told — left as they are.",
+  "tools.sources.pageUnfiledFound_one": "{{count}} page not filed under its book",
+  "tools.sources.pageUnfiledFound_other": "{{count}} pages not filed under their book",
+  "tools.sources.pageUnfiledCount_one": "{{count}} page to file under the book",
+  "tools.sources.pageUnfiledCount_other": "{{count}} pages to file under the book",
+  "tools.sources.pageUnfiledHint":
+    "These pages sit beside a citation of this source, but the source record does not hold them — so it cannot answer for the citations that are missing theirs. They are filed under the book by the same run.",
   "tools.sources.pageMediaPage": "page {{page}}",
   "tools.sources.pageMediaRecord": "on the record itself",
   "tools.sources.applyPageMedia": "Link page images ({{count}})",

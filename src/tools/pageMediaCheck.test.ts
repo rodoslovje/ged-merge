@@ -92,10 +92,12 @@ describe("findMissingPageMedia", () => {
     expect(report.groups[0].ambiguous).toBe(2);
   });
 
-  it("leaves a fact alone when a page image is already beside it", () => {
+  it("files a page under its book instead of hanging a second one beside it", () => {
     // The file's own page image never joined its source record: it is on the
     // event, the source knows nothing of it. Matching by the source alone hung
     // a second page beside the one already there — two images for one fact.
+    // What the fact is missing is nothing; what the *book* is missing is its
+    // own page 126.
     const report = findMissingPageMedia(
       dataset(`0 HEAD
 1 CHAR UTF-8
@@ -117,8 +119,43 @@ describe("findMissingPageMedia", () => {
 0 TRLR`),
       "event",
     );
-    expect(report.total).toBe(0);
-    expect(report.groups).toEqual([]);
+    expect(report.total).toBe(0); // nothing to hang on the birth
+    expect(report.unfiled).toBe(1);
+    expect(report.groups[0].unfiled[0]).toEqual({
+      recordXref: "@I1@",
+      eventTag: "BIRT",
+      objeXref: "@M126@",
+      page: "126",
+    });
+  });
+
+  it("filing the stray page first stops the sole-image rule misreading the book", () => {
+    // The same file, applied: page 126 joins the book, and the pass that
+    // follows reads a source holding two pages — so the birth, which cites
+    // page 126 and already links it, is left exactly as it was.
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Urban /Renka/
+1 BIRT
+2 SOUR @S1@
+3 PAGE 126
+2 OBJE @M126@
+0 @S1@ SOUR
+1 TITL Births (Rodeni) 1815-1843, Ravna Gora
+1 OBJE @M90@
+0 @M126@ OBJE
+1 FILE ${BOOK}/?pg=126
+0 @M90@ OBJE
+1 FILE ${BOOK}/?pg=90
+0 TRLR`);
+    const { records, count } = linkMissingPageMedia(ds.records, new Set(["@S1@"]));
+    expect(count).toBe(1);
+    const text = serializeGedcom(records);
+    expect(text).toMatch(/0 @S1@ SOUR\n1 TITL .*\n1 OBJE @M90@\n1 OBJE @M126@/);
+    // One pointer on the birth, the one that was always there.
+    expect(text.match(/2 OBJE @M\d+@/g)).toEqual(["2 OBJE @M126@"]);
+    expect(findMissingPageMedia({ ...ds, records }, "event")).toMatchObject({ total: 0, unfiled: 0 });
   });
 
   it("a downloaded scan does not stand in for the register's own page", () => {
