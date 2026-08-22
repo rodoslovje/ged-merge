@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState, type ComponentProps } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
 import { useTranslation } from "react-i18next";
 import { renderKeyToken } from "../../keyboard/shortcuts";
 import { useFindShortcutOn } from "../../keyboard/useFindShortcut";
@@ -8,6 +8,8 @@ import type { MiniMapPin } from "../map/MiniPlaceMap";
 import type { SourceUse } from "../../tools/sources";
 import { lineageClass, type KinshipResolver } from "../../match/kinship";
 import { PersonLink } from "../PersonLink";
+import { foldSearch } from "../globalSearch";
+import { useNameOf } from "../SettingsContext";
 import { MapIcon } from "../icons/MapIcon";
 import { PlaceAutocomplete } from "../edit/PlaceAutocomplete";
 
@@ -210,6 +212,42 @@ export function useDebounced<T>(value: T, delay = 200): T {
     return () => clearTimeout(id);
   }, [value, delay]);
   return debounced;
+}
+
+/**
+ * Every person's name in the file, folded for searching, by xref — so a list
+ * whose rows know only *which* people they concern can still be searched by
+ * the name of one. Built once per dataset (the lists that use it memoize on
+ * the dataset object), never per row and never per keystroke.
+ */
+export function usePersonNameIndex(dataset: Dataset): Map<string, string> {
+  const nameOf = useNameOf();
+  return useMemo(() => {
+    const names = new Map<string, string>();
+    // Every name the person carries, not just the displayed one: a woman filed
+    // under her maiden name is looked for under her married one just as often.
+    for (const [id, indi] of dataset.individuals) {
+      const all = [nameOf(indi), ...indi.names.map((n) => n.full ?? "")].filter(Boolean).join(" ");
+      names.set(id, foldSearch(all));
+    }
+    return names;
+    // The dataset object is replaced on load and mutated in place by edits; a
+    // name changed by an edit reaches the box on the next load, which is as
+    // often as any other tools list re-reads it.
+  }, [dataset, nameOf]);
+}
+
+/** True when one of these people's names carries every term of the query. */
+export function personMatches(
+  ids: readonly string[] | undefined,
+  names: Map<string, string>,
+  terms: readonly string[],
+): boolean {
+  if (!ids?.length || !terms.length) return false;
+  return ids.some((id) => {
+    const name = names.get(id);
+    return !!name && terms.every((term) => name.includes(term));
+  });
 }
 
 /** True when any of the strings contain `q` (already lower-cased). */

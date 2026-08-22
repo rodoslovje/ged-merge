@@ -29,7 +29,8 @@ import { type PageMediaGroup, type PageMediaReport } from "../../tools/pageMedia
 import type { Translate } from "../../locales/i18n";
 import type { RecordPatch } from "../historyTypes";
 import { familySpouses, recordCitedBy } from "../../tools/sources";
-import { UsageList, useDebounced } from "./shared";
+import { personMatches, TreeSearch, UsageList, useDebounced, usePersonNameIndex } from "./shared";
+import { foldSearch, queryTerms } from "../globalSearch";
 import { PersonLink } from "../PersonLink";
 import { detectSourceCoverage, repoLinkWanted, sourceTooltip } from "../../gedcom/source";
 import { idField } from "../source/standardFields";
@@ -210,6 +211,10 @@ export function SourceCleanupView({
    *  scroll away. Tabs, as on the geocoding page, and only for the lists that
    *  have something in them. */
   const [tab, setTab] = useState<CleanupTab | null>(null);
+  const [search, setSearch] = useState("");
+  const query = foldSearch(useDebounced(search.trim()));
+  const terms = useMemo(() => queryTerms(query), [query]);
+  const personNames = usePersonNameIndex(dataset);
   const [excluded, setExcluded] = useState<Set<string>>(new Set());
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [relocate, setRelocate] = useState(true);
@@ -287,7 +292,66 @@ export function SourceCleanupView({
   // The receipt outlives the re-scan the apply itself starts — that scan is
   // how the rows it rewrote leave the page, and the receipt is the only thing
   // left saying what happened. It is cleared when the next run begins.
-  const visibleGroups = useMemo(() => folded.report.groups.filter((g) => sites.has(g.site)), [folded, sites]);
+  /** Whether a row survives the filter box: any of the words it shows, or the
+   *  name of a person it concerns. A blank box keeps everything. */
+  const matches = useCallback(
+    (people: readonly string[] | undefined, ...text: (string | undefined)[]) => {
+      if (!query) return true;
+      if (text.some((v) => v && foldSearch(v).includes(query))) return true;
+      return personMatches(people, personNames, terms);
+    },
+    [query, terms, personNames],
+  );
+
+  const visibleGroups = useMemo(
+    () =>
+      folded.report.groups.filter(
+        (g) =>
+          sites.has(g.site) &&
+          matches(
+            g.members.map((m) => m.recordXref),
+            g.proposed.title,
+            g.existingSourceTitle,
+            g.bookUrl,
+            ...g.members.map((m) => m.recordLabel),
+          ),
+      ),
+    [folded, sites, matches],
+  );
+  /** The other three lists, narrowed by the same box. Duplicates and
+   *  repositories are searched by what their rows say — the people citing a
+   *  duplicate are resolved only when a row is opened (a whole-file pointer
+   *  walk), and doing that for every row on every keystroke is not a filter,
+   *  it is a freeze. */
+  const visibleDupGroups = useMemo(
+    () =>
+      dupReport.groups.filter((g) =>
+        matches(undefined, g.label, ...g.members.flatMap((m) => [m.title, m.detail, m.url])),
+      ),
+    [dupReport, matches],
+  );
+  const visibleRegroupGroups = useMemo(
+    () =>
+      regroupReport.groups.filter((g) =>
+        matches(undefined, g.repoName, ...g.moves.flatMap((m) => [m.title, m.fromName])),
+      ),
+    [regroupReport, matches],
+  );
+  const visiblePageMediaGroups = useMemo(
+    () =>
+      pageMediaReport.groups.filter((g) =>
+        matches([...g.missing, ...g.unfiled].map((m) => m.recordXref), g.title),
+      ),
+    [pageMediaReport, matches],
+  );
+
+  /** How many rows each chip would show — the groups themselves, read off the
+   *  very list the rows come from, so the chip and the list can never disagree. */
+  const groupsBySite = useMemo(() => {
+    const bySite: Partial<Record<ReshapeSite, number>> = {};
+    for (const g of folded.report.groups) bySite[g.site] = (bySite[g.site] ?? 0) + 1;
+    return { all: folded.report.groups.length, bySite };
+  }, [folded]);
   // A traded link, keyed by the link it replaces: the trade rides on each
   // occurrence rather than the group, so it still finds its references after
   // the pages of one film are folded into a single book. The page comes with
@@ -501,19 +565,24 @@ export function SourceCleanupView({
   const hasRegroup = regroupReport.groups.length > 0;
   const hasPageMedia = pageMediaReport.groups.length > 0;
 
-  // What each tab holds, and so whether it is offered at all: a tab that opens
-  // an empty list is a promise the page cannot keep.
+  // Whether a tab is offered at all — a tab that opens an empty list is a
+  // promise the page cannot keep — read from the *unfiltered* lists, so typing
+  // in the box never makes the tabs jump about under the reader's hand.
+  const openTabs = CLEANUP_TABS.filter(
+    (k) =>
+      ({ dups: hasDups, repos: hasRegroup, links: hasReshape, pages: hasPageMedia })[k],
+  );
+  // What each tab now shows, which is what its count must say.
   const tabCounts: Record<CleanupTab, number> = {
-    dups: dupReport.groups.length,
-    repos: regroupReport.groups.length,
-    links: reshapeReport.groups.length,
-    pages: pageMediaReport.groups.length,
+    dups: visibleDupGroups.length,
+    repos: visibleRegroupGroups.length,
+    links: visibleGroups.length,
+    pages: visiblePageMediaGroups.length,
   };
-  const openTabs = CLEANUP_TABS.filter((k) => tabCounts[k] > 0);
   // The reader's choice while it still has rows; otherwise the first list that
   // does — an apply empties the tab it ran on, and the page must not go blank
   // while three other lists wait behind it.
-  const activeTab: CleanupTab | undefined = (tab && tabCounts[tab] > 0 ? tab : undefined) ?? openTabs[0];
+  const activeTab: CleanupTab | undefined = (tab && openTabs.includes(tab) ? tab : undefined) ?? openTabs[0];
   const nothingSelected =
     selectedGroups.length === 0 &&
     selectedDupGroups.length === 0 &&
@@ -621,7 +690,16 @@ export function SourceCleanupView({
             ))}
           </div>
           <div className="tools-dup-bulk">{applyAction}</div>
+          {/* One box for whichever list is open. It narrows by what a row says
+              — a book's title, a repository's name, a link — and by the name of
+              a person the row concerns, which is how a reader looks for "the
+              entries for Marija Kovačič" with no title to type. */}
+          <TreeSearch value={search} onChange={setSearch} />
         </div>
+      )}
+
+      {query && activeTab && tabCounts[activeTab] === 0 && (
+        <p className="tools-clean">{t("tools.search.noMatch")}</p>
       )}
 
       {hasReshape && activeTab === "links" && (
@@ -660,22 +738,23 @@ export function SourceCleanupView({
           </div>
           <p className="tools-intro">{t("tools.sources.reshapeIntro")}</p>
 
-          {/* One chip per site, the geocoding pages' filter row: a chip that
-              would show nothing is a button that does nothing, so only the
-              sites with links are offered, and "All" is always the way back. */}
+          {/* One chip per site, the geocoding pages' filter row. Each count is
+              the rows the click shows — books, graves, films — not the links
+              inside them: a chip reading 34 above a list of twenty rows is a
+              chip that lies, however true the link count is. The links are
+              counted in the page summary, where they say something. */}
           <div className="tools-chips">
             <button className={`tools-chip ${site === null ? "active" : ""}`} onClick={() => setSite(null)}>
-              {t("tools.geocode.filter.all")}{" "}
-              <span className="tools-chip-count">{reshapeReport.groups.length}</span>
+              {t("tools.geocode.filter.all")} <span className="tools-chip-count">{groupsBySite.all}</span>
             </button>
-            {SITES.filter((s) => reshapeReport.bySite[s] > 0).map((s) => (
+            {SITES.filter((s) => (groupsBySite.bySite[s] ?? 0) > 0).map((s) => (
               <button
                 key={s}
                 className={`tools-chip ${site === s ? "active" : ""}`}
                 onClick={() => setSite(s)}
               >
                 {SITE_ICON[s]} {t(`tools.sources.reshapeSite.${s}`)}{" "}
-                <span className="tools-chip-count">{reshapeReport.bySite[s]}</span>
+                <span className="tools-chip-count">{groupsBySite.bySite[s]}</span>
               </button>
             ))}
           </div>
@@ -756,11 +835,11 @@ export function SourceCleanupView({
         <section className="tools-cleanup-section">
           <div className="tools-dup-kind-head">
             {t("tools.sources.dupHeading")}
-            <span className="tools-chip-count">{dupReport.groups.length}</span>
+            <span className="tools-chip-count">{visibleDupGroups.length}</span>
             <div className="tools-dup-bulk">
               <button
                 className="tools-issue-link"
-                onClick={() => setDupSelected(new Set(dupReport.groups.map((g) => g.id)))}
+                onClick={() => setDupSelected(new Set(visibleDupGroups.map((g) => g.id)))}
               >
                 {t("tools.sources.dupSelectAll")}
               </button>
@@ -769,7 +848,7 @@ export function SourceCleanupView({
               </button>
               <button
                 className="tools-issue-link"
-                onClick={() => setExpanded((s) => new Set([...s, ...dupReport.groups.map((g) => g.id)]))}
+                onClick={() => setExpanded((s) => new Set([...s, ...visibleDupGroups.map((g) => g.id)]))}
               >
                 {t("tools.sources.expandAll")}
               </button>
@@ -785,14 +864,14 @@ export function SourceCleanupView({
           </div>
           <p className="tools-intro">{t("tools.sources.dupIntro")}</p>
 
-          {DUP_KINDS.filter((k) => dupReport.byKind[k] > 0).map((kind) => (
+          {DUP_KINDS.filter((k) => visibleDupGroups.some((g) => g.kind === k)).map((kind) => (
             <div key={kind} className="tools-dup-kind">
               <div className="tools-dup-kind-head">
                 {DUP_KIND_ICON[kind]} {t(`tools.sources.dupKind.${kind}`)}
-                <span className="tools-chip-count">{dupReport.byKind[kind]}</span>
+                <span className="tools-chip-count">{visibleDupGroups.filter((g) => g.kind === kind).length}</span>
               </div>
               <ul className="tools-tree">
-                {dupReport.groups
+                {visibleDupGroups
                   .filter((g) => g.kind === kind)
                   .map((g) => (
                     <DupGroupRow
@@ -819,11 +898,11 @@ export function SourceCleanupView({
         <section className="tools-cleanup-section">
           <div className="tools-dup-kind-head">
             {t("tools.sources.regroupHeading")}
-            <span className="tools-chip-count">{regroupReport.groups.length}</span>
+            <span className="tools-chip-count">{visibleRegroupGroups.length}</span>
             <div className="tools-dup-bulk">
               <button
                 className="tools-issue-link"
-                onClick={() => setRegroupSelected(new Set(regroupReport.groups.map((g) => g.id)))}
+                onClick={() => setRegroupSelected(new Set(visibleRegroupGroups.map((g) => g.id)))}
               >
                 {t("tools.sources.dupSelectAll")}
               </button>
@@ -834,7 +913,7 @@ export function SourceCleanupView({
           </div>
           <p className="tools-intro">{t("tools.sources.regroupIntro")}</p>
           <ul className="tools-tree">
-            {regroupReport.groups.map((group) => (
+            {visibleRegroupGroups.map((group) => (
               <RegroupRow
                 key={group.id}
                 group={group}
@@ -855,11 +934,11 @@ export function SourceCleanupView({
         <section className="tools-cleanup-section">
           <div className="tools-dup-kind-head">
             {t("tools.sources.pageMediaHeading")}
-            <span className="tools-chip-count">{pageMediaReport.total + pageMediaReport.unfiled}</span>
+            <span className="tools-chip-count">{visiblePageMediaGroups.length}</span>
             <div className="tools-dup-bulk">
               <button
                 className="tools-issue-link"
-                onClick={() => setPageMediaSelected(new Set(pageMediaReport.groups.map((g) => g.id)))}
+                onClick={() => setPageMediaSelected(new Set(visiblePageMediaGroups.map((g) => g.id)))}
               >
                 {t("tools.sources.dupSelectAll")}
               </button>
@@ -870,7 +949,7 @@ export function SourceCleanupView({
           </div>
           <p className="tools-intro">{t("tools.sources.pageMediaIntro")}</p>
           <ul className="tools-tree">
-            {pageMediaReport.groups.map((group) => (
+            {visiblePageMediaGroups.map((group) => (
               <PageMediaRow
                 key={group.id}
                 group={group}
