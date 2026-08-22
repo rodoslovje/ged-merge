@@ -3,7 +3,7 @@ import { childrenByTag, cloneNode } from "../gedcom/node";
 import { FAM_EVENT_TAGS, INDI_EVENT_TAGS } from "../gedcom/eventTags";
 import { linkPageMedia, SOUR_TRAILING_TAGS } from "../gedcom/edit";
 import { EVENT_CHILD_ORDER, FAM_CHILD_ORDER, INDI_CHILD_ORDER, insertGrouped } from "../gedcom/edit/shared";
-import { buildObjeIndex, isPointer, pageParamOf, sourceTitle, type ObjeIndex } from "../gedcom/source";
+import { bookKeyOf, buildObjeIndex, isPointer, looseKey, pageParamOf, sourceTitle, type ObjeIndex } from "../gedcom/source";
 import { parseFamilySearchUrl } from "../normalize/links";
 import type { PageMediaStyle } from "./sourceReshape";
 
@@ -91,15 +91,48 @@ function pageOfImage(url: string): string | undefined {
 }
 
 /** The page images a `SOUR` record holds, in file order. */
-function pageImagesOf(source: GedNode, objes: ObjeIndex): { xref: string; page?: string }[] {
-  const out: { xref: string; page?: string }[] = [];
+function pageImagesOf(source: GedNode, objes: ObjeIndex): { xref: string; url: string; page?: string }[] {
+  const out: { xref: string; url: string; page?: string }[] = [];
   for (const child of childrenByTag(source, "OBJE")) {
     const xref = child.value?.trim();
     if (!xref || !isPointer(xref)) continue;
     const url = objes.get(xref)?.url;
-    if (url) out.push({ xref, page: pageOfImage(url) });
+    if (url) out.push({ xref, url, page: pageOfImage(url) });
   }
   return out;
+}
+
+/**
+ * Whether a media record beside a citation really is a page of the book that
+ * citation names — the question that decides a stray page from a link that
+ * merely keeps it company.
+ *
+ * Being the only citation on the fact proves nothing: a record commonly
+ * carries links that have no book behind them at all (a Facebook page, a
+ * memorial notice) while citing one source. So the page has to say so itself,
+ * in one of the three ways a page of a book can:
+ *
+ *  - it carries the very page the citation cites;
+ *  - it is titled after the book, which is how every page image this app
+ *    writes is named (`#126 - Births …, Ravna Gora`);
+ *  - its address is another page of a book this source already holds.
+ */
+function isPageOfSource(
+  image: { url: string; title?: string },
+  source: GedNode,
+  held: { url: string }[],
+  citationPage: string | undefined,
+): boolean {
+  const page = pageOfImage(image.url);
+  if (citationPage && page && citationPage === page) return true;
+  const book = sourceTitle(source)?.trim();
+  const title = image.title?.trim();
+  if (book && title) {
+    const bookKey = looseKey(book);
+    const titleKey = looseKey(title);
+    if (bookKey && (titleKey === bookKey || titleKey.endsWith(bookKey))) return true;
+  }
+  return held.some((h) => bookKeyOf(h.url) === bookKeyOf(image.url));
 }
 
 /**
@@ -109,7 +142,7 @@ function pageImagesOf(source: GedNode, objes: ObjeIndex): { xref: string; page?:
  * image carries) is left alone.
  */
 function imageForCitation(
-  images: { xref: string; page?: string }[],
+  images: { xref: string; url: string; page?: string }[],
   page: string | undefined,
 ): { xref: string } | "ambiguous" | undefined {
   if (images.length === 0) return undefined; // not a paginated source at all
@@ -129,27 +162,31 @@ function containersOf(record: GedNode): GedNode[] {
 }
 
 /**
- * Which citation on this container a page image beside it belongs to, when the
- * book it is a page of does not hold it. One citation on the fact settles it;
- * with several, the page has to say — the image's own page against the page
- * each citation states. Where neither answers, the image is left where it is.
+ * Which citation on this container a stray page belongs to — and whether it is
+ * a page of that book at all. Every candidate citation is held against
+ * {@link isPageOfSource}: a record that cites one book while carrying links to
+ * quite other things (a memorial notice, a family's page on a website) is the
+ * ordinary case, not the exception, and its links are nobody's pages.
+ *
+ * Exactly one citation may claim it. Two books that both look like its home
+ * leave it where it is — the page will not be split between them.
  */
 function citationForImage(
   container: GedNode,
   sources: Map<string, GedNode>,
-  imagePage: string | undefined,
+  image: { url: string; title?: string },
+  imagesOf: (xref: string, node: GedNode) => { url: string }[],
 ): string | undefined {
-  const cited: { xref: string; page?: string }[] = [];
+  const claimants: string[] = [];
   for (const citation of childrenByTag(container, "SOUR")) {
     const xref = citation.value?.trim();
-    if (!xref || !isPointer(xref) || !sources.has(xref)) continue;
-    cited.push({ xref, page: childrenByTag(citation, "PAGE")[0]?.value?.trim() });
+    if (!xref || !isPointer(xref)) continue;
+    const source = sources.get(xref);
+    if (!source || claimants.includes(xref)) continue;
+    const page = childrenByTag(citation, "PAGE")[0]?.value?.trim();
+    if (isPageOfSource(image, source, imagesOf(xref, source), page)) claimants.push(xref);
   }
-  if (cited.length === 0) return undefined;
-  if (cited.length === 1) return cited[0].xref;
-  if (!imagePage) return undefined;
-  const matches = cited.filter((c) => c.page && c.page === imagePage);
-  return matches.length === 1 ? matches[0].xref : undefined;
+  return claimants.length === 1 ? claimants[0] : undefined;
 }
 
 /** Walk every citation in the file, reporting the ones whose container is
@@ -164,7 +201,7 @@ function collect(
   onAmbiguous?: (sourceXref: string) => void,
   onUnfiled?: (record: GedNode, container: GedNode, sourceXref: string, objeXref: string, page: string | undefined) => void,
 ): void {
-  const imagesBySource = new Map<string, { xref: string; page?: string }[]>();
+  const imagesBySource = new Map<string, { xref: string; url: string; page?: string }[]>();
   const imagesOf = (xref: string, node: GedNode) => {
     const cached = imagesBySource.get(xref);
     if (cached) return cached;
@@ -185,14 +222,13 @@ function collect(
       // fixed before the pass below reads which pages a source has.
       if (onUnfiled) {
         for (const xref of linked) {
-          const url = objes.get(xref)?.url;
-          if (!url) continue;
-          const page = pageOfImage(url);
-          const owner = citationForImage(container, sources, page);
+          const info = objes.get(xref);
+          if (!info?.url) continue;
+          const owner = citationForImage(container, sources, { url: info.url, title: info.title }, imagesOf);
           if (!owner) continue;
           const source = sources.get(owner)!;
           const held = childrenByTag(source, "OBJE").some((c) => c.value?.trim() === xref);
-          if (!held) onUnfiled(record, container, owner, xref, page);
+          if (!held) onUnfiled(record, container, owner, xref, pageOfImage(info.url));
         }
       }
       // A page *link* is already beside this fact: the reader has answered

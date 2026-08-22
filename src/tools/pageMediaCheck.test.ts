@@ -158,6 +158,55 @@ describe("findMissingPageMedia", () => {
     expect(findMissingPageMedia({ ...ds, records }, "event")).toMatchObject({ total: 0, unfiled: 0 });
   });
 
+  it("leaves links that are nobody's pages where they are", () => {
+    // A person cites one book and carries two links that have nothing to do
+    // with it — the ordinary shape of a record, not an exception. Being the
+    // only citation on the record does not make the book their home: neither
+    // link states a page the citation cites, neither is titled after the book,
+    // and the book holds no page whose address they could belong beside.
+    const report = findMissingPageMedia(
+      dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Anica /Celar/
+1 SOUR @S1@
+1 OBJE @L1@
+1 OBJE @L2@
+0 @S1@ SOUR
+1 TITL Rodbina Celar skozi stoletja
+0 @L1@ OBJE
+1 FILE https://www.gorenjskiglas.si/clanek/anica-celar
+0 @L2@ OBJE
+1 FILE https://obcina.preddvor.si/plakete-2025
+0 TRLR`),
+      "event",
+    );
+    expect(report).toMatchObject({ total: 0, unfiled: 0, groups: [] });
+  });
+
+  it("claims a stray page when the book's own title names it", () => {
+    // No page on the citation to match, but the image is titled the way every
+    // page image here is titled — after the book it is a page of.
+    const report = findMissingPageMedia(
+      dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Ivan /Kordis/
+1 BIRT
+2 SOUR @S1@
+2 OBJE @M37@
+0 @S1@ SOUR
+1 TITL Births (Rodeni) 1759-1812, Ravna Gora
+0 @M37@ OBJE
+1 FILE https://www.familysearch.org/ark:/61903/3:1:XYZ?i=36
+1 TITL #037 - Births (Rodeni) 1759-1812, Ravna Gora
+0 TRLR`),
+      "event",
+    );
+    expect(report.unfiled).toBe(1);
+    expect(report.groups[0].unfiled[0]).toMatchObject({ recordXref: "@I1@", eventTag: "BIRT", objeXref: "@M37@" });
+  });
+
   it("a downloaded scan does not stand in for the register's own page", () => {
     // The fact carries the reader's own scan of the page. The register's page
     // is a different thing to have — it opens the book where the entry is —
