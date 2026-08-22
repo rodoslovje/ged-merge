@@ -2,11 +2,11 @@ import type { GedNode, SourceCitation } from "./types";
 import type { SourceFormatProfile, SourceLayout } from "../normalize/types";
 import { familySearchImageNumber, linkKey, parseFamilySearchUrl } from "../normalize/links";
 import { childText, childValue, childrenByTag, firstChild, hasChild } from "./node";
-import { isPointer, looksLikeUrl } from "./uri";
+import { isPointer, isWebAddress, looksLikeUrl } from "./uri";
 
 // Re-exported: callers across the app import these from the source module.
 // `childText` now lives in ./node; keep re-exporting it here for existing callers.
-export { isPointer, looksLikeUrl, childText };
+export { isPointer, isWebAddress, looksLikeUrl, childText };
 
 /**
  * Resolves event-level `SOUR` citations into a displayable, linkable

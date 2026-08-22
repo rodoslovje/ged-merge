@@ -958,7 +958,7 @@ export function EventFieldsRow({
             <a
               key={link}
               className="link-icon"
-              href={link}
+              href={linkHref(link)}
               target="_blank"
               rel="noreferrer"
               title={linkTooltip(link, t, `${link}\n${t("edit.harvestedLink")}`)}

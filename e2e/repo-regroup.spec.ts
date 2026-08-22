@@ -59,14 +59,15 @@ test("repositories are gathered per place, and the section's own selection works
   const checks = section.locator("input.tools-dup-check");
   await expect(checks.first()).not.toBeChecked();
 
-  // The section's own Select all / Select none reach only its rows.
-  await section.getByRole("button", { name: "Select all" }).click();
+  // Select all / none stand with the run button on the tab row, and reach the
+  // rows of whichever list is open — this one.
+  await page.getByRole("button", { name: "Select all" }).click();
   await expect(checks.first()).toBeChecked();
   await expect(checks.nth(1)).toBeChecked();
-  await section.getByRole("button", { name: "Select none" }).click();
+  await page.getByRole("button", { name: "Select none" }).click();
   await expect(checks.first()).not.toBeChecked();
   await expect(checks.nth(1)).not.toBeChecked();
-  await section.getByRole("button", { name: "Select all" }).click();
+  await page.getByRole("button", { name: "Select all" }).click();
 
   // A row names a record, so it opens that record's own editor — every field
   // it holds, its link included — without leaving the page.

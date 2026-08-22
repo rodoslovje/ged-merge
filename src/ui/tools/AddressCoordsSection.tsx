@@ -12,7 +12,7 @@ import type { PlaceProposal } from "../../geo/placeProposal";
 import { replaceLocality, suggestMovedPlace, type AddressRename, type AddressRow } from "../../tools/addresses";
 import { countryOf, placeAddrKey, type GeoAssignment } from "../../tools/geocode";
 import type { Translate } from "../../locales/i18n";
-import { foldSearch } from "../globalSearch";
+import { foldSearch, queryTerms } from "../globalSearch";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
 import { EventCoordPicker } from "../edit/EventCoordPicker";
 import { PlaceAutocomplete } from "../edit/PlaceAutocomplete";
@@ -33,6 +33,8 @@ import {
   RenameToggle,
   RowCaret,
   RowMap,
+  personMatches,
+  usePersonNameIndex,
 } from "./shared";
 import { CountryChips } from "./CountryChips";
 import { useHomeCountry } from "../DatasetDerivations";
@@ -325,14 +327,26 @@ export function AddressCoordsSection({
   const home = useHomeCountry();
   const { settings } = useSettings();
   const nameOf = useNameOf();
+  const personNames = usePersonNameIndex(dataset);
+  const terms = useMemo(() => queryTerms(query), [query]);
   const byKey = useMemo(() => new Map(all.map((row) => [row.key, row])), [all]);
   // Matching on the address alone would drop the settlement a search like
   // "Kranj" is really about, and matching on the place alone would hide the one
   // house someone typed a number for — so a row matches on either.
   const rows = useMemo(
     () =>
-      query ? all.filter((row) => foldSearch(row.place).includes(query) || foldSearch(row.address).includes(query)) : all,
-    [all, query],
+      query
+        ? all.filter(
+            (row) =>
+              foldSearch(row.place).includes(query) ||
+              foldSearch(row.address).includes(query) ||
+              // …or the name of someone whose events are at this house: a
+              // reader looking for one person's addresses has no house number
+              // to type.
+              personMatches(row.people, personNames, terms),
+          )
+        : all,
+    [all, query, personNames, terms],
   );
   const [searches, setSearches] = useState<Map<string, SearchState>>(new Map());
   /** Which countries can be answered from this browser — read only to re-render
@@ -437,10 +451,16 @@ export function AddressCoordsSection({
   const hits = useMemo(() => {
     const found = new Set<string>();
     if (query) {
-      for (const row of visibleRows) if (foldSearch(row.address).includes(query)) found.add(row.place);
+      for (const row of visibleRows) {
+        // A name is as good a reason to open the group as a house number: it
+        // is what the reader typed, and the row they want is inside.
+        if (foldSearch(row.address).includes(query) || personMatches(row.people, personNames, terms)) {
+          found.add(row.place);
+        }
+      }
     }
     return found;
-  }, [visibleRows, query]);
+  }, [visibleRows, query, personNames, terms]);
   // Which lookup state is on screen; "all" leaves the list whole. Like the
   // places chips, a chip's count is exactly what clicking it shows.
   const [statusFilter, setStatusFilter] = useState<ListFilter>("all");

@@ -21,12 +21,12 @@ import {
   type OfficialRename,
 } from "../../tools/geocode";
 import { deleteDecisions, loadDecisions, putDecisions, type GeocodeDecision } from "../../persist/geoDb";
-import { AppliedNote, ExpandAllToggle, ToolsLoading, TreeSearch, useDebounced } from "./shared";
+import { AppliedNote, ExpandAllToggle, personMatches, ToolsLoading, TreeSearch, useDebounced, usePersonNameIndex } from "./shared";
 import { useVirtualList } from "../useVirtualList";
 import { createKinshipResolver } from "../../match/kinship";
 import { useDatasetDerivations, useHomeCountry } from "../DatasetDerivations";
 import { buildPlaceSuggestions, placeCombosOf } from "../edit/placeSuggestions";
-import { foldSearch } from "../globalSearch";
+import { foldSearch, queryTerms } from "../globalSearch";
 import { PlaceLookupProvider, usePlaceLookupValue, usePlaceStyle } from "../edit/PlaceLookupContext";
 import { GazetteerSetup, useGazetteer } from "./GazetteerManager";
 import { AddressCoordsSection } from "./AddressCoordsSection";
@@ -287,6 +287,11 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
   // so a Slovenian place is found without reaching for its diacritics.
   const [search, setSearch] = useState("");
   const query = foldSearch(useDebounced(search.trim()));
+  // The same box finds a person: a reader looking for "the entries for Marija
+  // Kovačič" has no place name to type, and the rows do know whose events they
+  // stand for. Terms match in any order, as in every other name box here.
+  const personNames = usePersonNameIndex(dataset);
+  const terms = useMemo(() => queryTerms(query), [query]);
   // Which kind of work is on screen, and which country — two chip rows above
   // the list. Both narrow only the place list; the search box stays the
   // page-wide filter. `null` country = all of them.
@@ -323,7 +328,9 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
     // work in progress (checked for a re-geocode) stays — staged work is
     // never hidden.
     const pool = showPlaced ? [...scan.rows, ...scan.placed] : [...scan.rows, ...scan.placed.filter((r) => chosen.has(r.key))];
-    const searched = query ? pool.filter((r) => foldSearch(r.key).includes(query)) : pool;
+    const searched = query
+      ? pool.filter((r) => foldSearch(r.key).includes(query) || personMatches(r.missingIn, personNames, terms))
+      : pool;
 
     // One chip per country the pending list's places stand in; a country the
     // other filters empty out stays visible at 0.
@@ -361,11 +368,15 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
     const rows = searched.filter((r) => inStatus(r) && inCountry(r));
     // What the "Show already placed" toggle offers: the placed rows the search
     // leaves, minus those already on the list because work is staged on them.
-    const placedTotal = (query ? scan.placed.filter((r) => foldSearch(r.key).includes(query)) : scan.placed).filter(
+    const placedTotal = (
+      query
+        ? scan.placed.filter((r) => foldSearch(r.key).includes(query) || personMatches(r.missingIn, personNames, terms))
+        : scan.placed
+    ).filter(
       (r) => !chosen.has(r.key),
     ).length;
     return { countryChips, countryAllCount, activeCountry, statusCounts, statusAllCount, rows, placedTotal };
-  }, [scan, query, statusFilter, countryFilter, chosen, noMatch, showPlaced, home]);
+  }, [scan, query, terms, personNames, statusFilter, countryFilter, chosen, noMatch, showPlaced, home]);
   const rows = view?.rows ?? NO_ROWS;
 
   // Every filtered row is reachable — long lists render windowed (the same
@@ -658,15 +669,11 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
           {tab === "places" && placesActions}
           {/* The address section owns its buttons' state; it portals them here. */}
           {tab === "addresses" && <div className="tools-dup-bulk" ref={setTabActionsEl} />}
-        </div>
-      )}
-
-      {/* One box for both lists. The query narrows places and addresses alike,
-          so with tabs it belongs above them: inside the places list the
-          addresses tab could not see it, and a filter typed on the places tab
-          went on narrowing the addresses with nothing on screen saying so. */}
-      {hasTabs && (
-        <div className="tools-filter-row tools-filter-row--narrow">
+          {/* One box for both lists, on the tab row itself: the query narrows
+              places and addresses alike, so it belongs with the tabs rather
+              than inside either list — where the other tab could not see it,
+              and a filter typed on one went on narrowing the other with
+              nothing on screen saying so. */}
           <TreeSearch value={search} onChange={setSearch} />
         </div>
       )}

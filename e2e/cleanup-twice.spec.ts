@@ -50,9 +50,8 @@ test("a second run converts the next site after the first one re-scanned", async
   await apply.click();
   await expect(page.locator(".tools-cleanup-status")).toContainText(/record/i);
 
-  // Now the other site: tick its chip and convert that too.
-  const other = page.locator(".tools-reshape-site", { hasText: /biografija|Matricula/ }).last();
-  await other.locator("input[type=checkbox]").check();
+  // Now the other site: pick its chip and convert that too.
+  await page.locator(".tools-chip", { hasText: /biografija|Matricula/ }).last().click();
   const applyAgain = page.getByRole("button", { name: /Convert to sources|Apply to the file/ });
   await expect(applyAgain).toBeEnabled();
   await applyAgain.click();

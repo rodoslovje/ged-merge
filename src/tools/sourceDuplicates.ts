@@ -2,6 +2,7 @@ import type { Dataset, GedNode } from "../gedcom/types";
 import { childText, cloneNode, firstChild } from "../gedcom/node";
 import {
   isPointer,
+  isWebAddress,
   looksLikeUrl,
   objeInfoOf,
   objeNodesFor,
@@ -159,7 +160,7 @@ function groupRecords(
         xref: rec.xref!,
         title: d.title,
         detail: d.detail,
-        url: d.url && looksLikeUrl(d.url) ? d.url : undefined,
+        url: isWebAddress(d.url) ? d.url : undefined,
         usage: refs.get(rec.xref!) ?? 0,
         survivor: idx === 0,
       };
