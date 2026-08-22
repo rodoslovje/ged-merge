@@ -669,15 +669,11 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
           {tab === "places" && placesActions}
           {/* The address section owns its buttons' state; it portals them here. */}
           {tab === "addresses" && <div className="tools-dup-bulk" ref={setTabActionsEl} />}
-        </div>
-      )}
-
-      {/* One box for both lists. The query narrows places and addresses alike,
-          so with tabs it belongs above them: inside the places list the
-          addresses tab could not see it, and a filter typed on the places tab
-          went on narrowing the addresses with nothing on screen saying so. */}
-      {hasTabs && (
-        <div className="tools-filter-row tools-filter-row--narrow">
+          {/* One box for both lists, on the tab row itself: the query narrows
+              places and addresses alike, so it belongs with the tabs rather
+              than inside either list — where the other tab could not see it,
+              and a filter typed on one went on narrowing the other with
+              nothing on screen saying so. */}
           <TreeSearch value={search} onChange={setSearch} />
         </div>
       )}

@@ -8999,6 +8999,9 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
    did can stand at its far end rather than beside the buttons. */
 .tools-geo-tabs-row > .tools-dup-bulk { flex: 1 1 auto; }
 .tools-geo-tabs-row .tools-geo-tabs { margin: 0; }
+/* The filter box rides the tab row: no bottom margin of its own, and it gives
+   way to the actions beside it rather than taking the row's whole width. */
+.tools-geo-tabs-row .tools-search { flex: 0 1 240px; margin: 0; }
 .tools-geo-tabs {
   display: inline-flex;
   gap: 2px;
