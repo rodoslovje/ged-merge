@@ -168,7 +168,14 @@ export function ToolsView({ dataset, editVersionRef, editVersion, fileName, onNa
   return (
     <div className="tools-view">
       <div className="tools-head">
-        <p className="tools-stats">{t("tools.stats", stats)}</p>
+        {/* Each count carries its own noun — "11 242 oseb", not "oseb: 11 242"
+            — so each needs its own plural form, and Slovenian needs four per
+            noun. One key apiece, joined here. */}
+        <p className="tools-stats">
+          {(["indi", "fam", "places", "sources", "media"] as const)
+            .map((k) => t(`tools.stats.${k}`, { count: stats[k] }))
+            .join(" · ")}
+        </p>
       </div>
       {/* Six description-carrying cards filled a phone screen and a half before
           any result. A dropdown names the tool you are in and lists the rest,
