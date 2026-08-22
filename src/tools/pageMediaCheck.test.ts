@@ -121,10 +121,10 @@ describe("findMissingPageMedia", () => {
     expect(report.groups).toEqual([]);
   });
 
-  it("a downloaded scan of the page counts as the page being there", () => {
-    // The file keeps its register pages as downloaded files, not links: the
-    // scan beside the citation has no URL to recognize it by, but the source
-    // holds it as a page, and that is the fact's image already.
+  it("a downloaded scan does not stand in for the register's own page", () => {
+    // The fact carries the reader's own scan of the page. The register's page
+    // is a different thing to have — it opens the book where the entry is —
+    // and a fact is welcome to both, so the link is still offered.
     const report = findMissingPageMedia(
       dataset(`0 HEAD
 1 CHAR UTF-8
@@ -146,7 +146,8 @@ describe("findMissingPageMedia", () => {
 0 TRLR`),
       "event",
     );
-    expect(report.total).toBe(0);
+    expect(report.total).toBe(1);
+    expect(report.groups[0].missing[0]).toMatchObject({ recordXref: "@I1@", eventTag: "BIRT", objeXref: "@M18@" });
   });
 
   it("a photo beside the citation is no page image, and does not hold the run off", () => {
