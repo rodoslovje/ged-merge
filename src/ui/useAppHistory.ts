@@ -83,6 +83,14 @@ export function useAppHistory(opts: AppHistoryOptions) {
   // belongs on the entry already there — pushing for it would leave an entry
   // that names nobody, and Back to it would appear to do nothing.
   const editEntryStartedRef = useRef(false);
+  // The people Back/Forward presses have asked Edit to show and that Edit has
+  // not answered yet, oldest first. A press is not a navigation, so the person
+  // change it causes must record no entry — and presses come faster than Edit
+  // answers them, which is why the id of the entry we are on is not enough to
+  // tell the two apart: hold ⌫ and the second press lands while the first
+  // person is still on the way, so that person read as a fresh navigation and
+  // was pushed as a new entry, over the very entries being walked back to.
+  const restoringRef = useRef<string[]>([]);
 
   // True while a full-page overlay covers the mode views — mode switching (and
   // the hidden views' own bare-key handlers, via their `active` props) must not
@@ -90,6 +98,25 @@ export function useAppHistory(opts: AppHistoryOptions) {
   const overlayOpenRef = useRef(false);
   overlayOpenRef.current = !!(treeView || chartsRootId);
   const overlayOpen = overlayOpenRef.current;
+
+  // Whether there is a step of the app's own beneath this one — a person opened
+  // before, the Tools tab a person was opened from, the chart behind an
+  // overlay. False on the app's bottom entry, under which lies only the
+  // leave-guard: Back there leaves the app, so the views' own Back must not
+  // offer it. Every entry we push carries no `gedPage`, so the answer is
+  // written on the entry itself and survives a Forward press as readily as a
+  // Back one.
+  const [canGoBack, setCanGoBack] = useState(false);
+  const canGoBackRef = useRef(false);
+  canGoBackRef.current = canGoBack;
+
+  /** Push one history entry of the app's own, and remember that Back now has
+   *  somewhere in-app to go. Every push but the leave-guard's own goes through
+   *  here, so no navigation can leave the Back controls saying otherwise. */
+  function pushEntry(state: Record<string, unknown>) {
+    window.history.pushState(state, "");
+    setCanGoBack(true);
+  }
 
   useEffect(() => {
     // Keep a throwaway "leave-guard" entry beneath the app's main entry. The
@@ -128,6 +155,9 @@ export function useAppHistory(opts: AppHistoryOptions) {
         }
         return;
       }
+      // Wherever this press landed, the entry itself says whether anything of
+      // ours is left beneath it.
+      setCanGoBack(st.gedPage !== "main");
       setTreeView(st.gedTree ?? null);
       // gedEditTreeId / gedRelId are the pre-hub entry keys; restored session
       // history can still carry them, so they map onto the hub too.
@@ -151,6 +181,7 @@ export function useAppHistory(opts: AppHistoryOptions) {
           return;
         }
         editEntryPersonRef.current = st.gedEditPerson;
+        restoringRef.current.push(st.gedEditPerson);
         optsRef.current.setHistoryPersonId(st.gedEditPerson);
       }
       // Restore a remembered compare selection (set when a person link pushed it).
@@ -208,7 +239,19 @@ export function useAppHistory(opts: AppHistoryOptions) {
    * current entry already stands for.
    */
   function recordEditPerson(id: string) {
+    // Someone a Back/Forward press asked for: they already have an entry — this
+    // is the app arriving on it, not leaving for somewhere new. Everything
+    // asked for before them is answered too, whether Edit reported those people
+    // one by one or went straight to the last of them.
+    const restoring = restoringRef.current.indexOf(id);
+    if (restoring >= 0) {
+      restoringRef.current.splice(0, restoring + 1);
+      editEntryPersonRef.current = id;
+      return;
+    }
     if (id === editEntryPersonRef.current) return;
+    // A navigation of the reader's own, so any press still unanswered is past.
+    restoringRef.current = [];
     editEntryPersonRef.current = id;
     if (!editEntryStartedRef.current) {
       // First person of the session: name them on the entry we're already on.
@@ -222,7 +265,7 @@ export function useAppHistory(opts: AppHistoryOptions) {
     if (!window.history.state?.gedMode) {
       window.history.replaceState({ ...window.history.state, gedMode: optsRef.current.mode }, "");
     }
-    window.history.pushState({ gedMode: "edit", gedEditPerson: id }, "");
+    pushEntry({ gedMode: "edit", gedEditPerson: id });
   }
 
   /** Tell the history state machine that an entry a caller pushed itself
@@ -244,12 +287,51 @@ export function useAppHistory(opts: AppHistoryOptions) {
    * way Back undoes every other navigation here.
    */
   function navigateFromOverlay(id: string) {
-    window.history.pushState({ gedMode: "edit", gedEditPerson: id }, "");
+    pushEntry({ gedMode: "edit", gedEditPerson: id });
     markEditEntry(id);
     setTreeView(null);
     setChartsRootId(null);
     opts.setNavigateToId(id);
     opts.setMode("edit");
+  }
+
+  /**
+   * Open a person in Edit from another page of the app — a Tools list, where
+   * the people behind a place, a duplicate or a finding are named.
+   *
+   * The page being left is written onto the entry it stands for and the person
+   * pushed on top, so Back returns to that page rather than to whoever Edit
+   * happened to be showing before it. Recorded here rather than left to Edit's
+   * own person step, which runs once the mode has already flipped and so can no
+   * longer tell which page the person was opened from.
+   */
+  function navigateFromPage(id: string) {
+    window.history.replaceState({ ...window.history.state, gedMode: optsRef.current.mode }, "");
+    markEditEntry(id);
+    pushEntry({ gedMode: "edit", gedEditPerson: id });
+    opts.setNavigateToId(id);
+    opts.setMode("edit");
+  }
+
+  /**
+   * One step back through the pages the app has been on, in the order it was on
+   * them — the browser's own Back, which is the only record of that order: the
+   * person opened before this one, the Tools tab a person was opened from, the
+   * chart behind an overlay.
+   *
+   * The views' own Back controls go through this rather than walking a trail of
+   * their own. Edit kept one, and it knew only about people: opened from a
+   * Tools list, its Back stepped to whoever Edit had been showing an hour
+   * earlier while the list the reader had actually come from sat one browser
+   * step away, unreachable from inside the view.
+   *
+   * Refused on the app's bottom entry, where the next step back leaves the app
+   * altogether: that is the browser's own Back button's business, not a
+   * button's inside a view.
+   */
+  function goBackPage() {
+    if (!canGoBackRef.current) return;
+    window.history.back();
   }
 
   /** Record the current compare selection in the current history entry so the
@@ -262,7 +344,7 @@ export function useAppHistory(opts: AppHistoryOptions) {
   function openTree(mainId: string, compareId: string) {
     rememberSelection();
     const view: TreeView = { mainId, compareId, mode: "ancestors" };
-    window.history.pushState({ gedTree: view }, "");
+    pushEntry({ gedTree: view });
     setTreeView(view);
     setChartsRootId(null); // overlays are exclusive (see openCharts)
   }
@@ -272,7 +354,7 @@ export function useAppHistory(opts: AppHistoryOptions) {
     if (!mainId && !compareId) return;
     setTreeView((cur) => {
       const view: TreeView = { mainId: mainId ?? "", compareId: compareId ?? "", mode: cur?.mode ?? "ancestors" };
-      window.history.pushState({ gedTree: view }, "");
+      pushEntry({ gedTree: view });
       return view;
     });
   }
@@ -280,7 +362,7 @@ export function useAppHistory(opts: AppHistoryOptions) {
   /** Leave the open tree and select this pair back in the Matches list. Pushes a
    *  fresh matches entry so the browser Back button returns to the tree. */
   function showInMatches(mainId: string, compareId: string) {
-    window.history.pushState({ gedSel: { mainId, compareId } }, "");
+    pushEntry({ gedSel: { mainId, compareId } });
     opts.setSelectedId({ mainId, compareId });
     setTreeView(null);
   }
@@ -311,7 +393,7 @@ export function useAppHistory(opts: AppHistoryOptions) {
           : opts.mode === "tools"
             ? "charts.back.tools"
             : "edit.tree.back";
-    window.history.pushState({ gedChartsId: id, gedChartsBack: backKey }, "");
+    pushEntry({ gedChartsId: id, gedChartsBack: backKey });
     setChartsBackKey(backKey);
     setChartsRootId(id);
     // The overlays are exclusive; opened from inside the Compare Tree, the hub
@@ -334,7 +416,9 @@ export function useAppHistory(opts: AppHistoryOptions) {
     openCharts,
     discardAndReload,
     recordEditPerson,
-    markEditEntry,
     navigateFromOverlay,
+    navigateFromPage,
+    canGoBack,
+    goBackPage,
   };
 }

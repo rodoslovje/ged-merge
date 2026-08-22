@@ -759,7 +759,8 @@ function AppContent() {
     treeView, chartsRootId, setChartsRootId, chartsBackKey,
     overlayOpen, overlayOpenRef, hasUnsavedChangesRef,
     openTree, rerootTree, showInMatches, changeTreeMode, openCharts,
-    discardAndReload, recordEditPerson, markEditEntry, navigateFromOverlay,
+    discardAndReload, recordEditPerson, navigateFromOverlay,
+    navigateFromPage, canGoBack, goBackPage,
   } = useAppHistory({
     confirmDialog, current, mode, setMode, setSelectedId, setNavigateToId, setChartKind,
     setHistoryPersonId,
@@ -2148,6 +2149,11 @@ function AppContent() {
               onNavigated={() => setNavigateToId(undefined)}
               historyToId={historyPersonId}
               onHistoryNavigated={() => setHistoryPersonId(undefined)}
+              // Back is the browser's, so it walks the pages in the order they
+              // were visited — the people opened one after another, and the
+              // Tools tab or chart a person was opened from.
+              canGoBack={canGoBack}
+              onGoBack={goBackPage}
               onPersonChange={(id) => {
                 setEditPersonId(id);
                 // Every person opened in Edit is a browser-history step, so
@@ -2180,18 +2186,10 @@ function AppContent() {
               editVersionRef={editVersionRef}
               editVersion={editVersion}
               fileName={lastMainFile.fileName}
-              onNavigate={(id) => {
-                // Tag the current entry as Tools and push an Edit entry, so the
-                // browser Back button returns to the Tools tab we came from.
-                // Pushed here rather than left to Edit's own person-history
-                // step, which would run once the mode had already flipped and
-                // so could no longer tell which tab the person was opened from.
-                window.history.replaceState({ ...window.history.state, gedMode: "tools" }, "");
-                markEditEntry(id);
-                window.history.pushState({ gedMode: "edit", gedEditPerson: id }, "");
-                setNavigateToId(id);
-                setMode("edit");
-              }}
+              // Tags the current entry as Tools and pushes an Edit entry, so
+              // Back — the browser's, Edit's own button, ⌫ — returns to the
+              // Tools tab the person was opened from.
+              onNavigate={navigateFromPage}
               active={mode === "tools"}
               onAddSource={(fields) =>
                 applyToolPatches(
