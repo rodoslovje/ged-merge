@@ -606,6 +606,8 @@ export const en = {
   "tools.geocode.addr.introOnline": "Unlike the places tab's offline matching, these lookups ask the official register online — only on your click, behind the online-lookups opt-in in",
   "tools.geocode.settingsAdvanced": "Settings › Advanced",
   "tools.geocode.addr.renameOpen": "Rename this address — every event at this house, in whichever form the file writes it",
+  "tools.geocode.addr.remove": "Remove address",
+  "tools.geocode.addr.removeHint": "Take this address off every event that carries it — {{count}} in all — leaving the place itself as it is. Those events then take the position the file records for the place; where it records none, the one they carry stays. Undoable in a single step.",
   "tools.geocode.addr.sameHouse": "Written twice",
   "tools.geocode.addr.sameHouseHint": "Houses this file writes two ways in the same place — one spelling of the other with a note of yours behind it, one of the two street names the house is recorded under, or the same street spelt more briefly. Each says what it would become; joining them is a rename. Both halves of every pair are listed, whether or not they already carry a position.",
   "tools.geocode.addr.join": "Join",

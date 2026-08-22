@@ -9,8 +9,16 @@ import {
   placeWithoutAddress,
 } from "../gedcom/place";
 import { rnQueriesFrom, type RnQuery } from "../geo/rn";
-import { applyGeocodeByAddress, coordOf, patchRecords, placeAddrKey, walkPlaceAddr } from "./geocode";
-import { reconcilePlaceForm } from "../gedcom/edit/geo";
+import {
+  applyGeocodeByAddress,
+  coordOf,
+  fileCoordForPlace,
+  patchRecords,
+  placeAddrKey,
+  walkPlaceAddr,
+} from "./geocode";
+import { reconcilePlaceForm, sameWrittenCoord, setPlaceCoord } from "../gedcom/edit/geo";
+import { removeChildren } from "../gedcom/node";
 
 // Geocoding the address of an event, as opposed to the place around it.
 //
@@ -301,6 +309,9 @@ export interface AddressRename {
   /** The row's raw place+address spellings ({@link AddressRow.rawKeys}). */
   rawKeys: string[];
   from: string;
+  /** The address the events are to carry — or `""` to take it off them
+   *  altogether, which is what an emptied rename field asks for and what
+   *  {@link removeAddress} does. */
   to: string;
 }
 
@@ -345,6 +356,64 @@ export function renameAddress(
         reconcilePlaceForm(plac, undefined, prev);
         changed = true;
       }
+    });
+    return changed;
+  });
+}
+
+/**
+ * Take one house's address off every event that carries it, in the single
+ * undoable step the rename beside it takes — the way out for an address that
+ * tells the file nothing its place does not already say (the settlement's own
+ * name repeated on the ADDR line), which otherwise had to be cleared event by
+ * event in Edit.
+ *
+ * Only the ADDR-line form is removed, and the whole line with it, exactly as
+ * emptying the address field in Edit does. Where the file keeps the address
+ * inside the place value there is nothing to delete on its own — that value
+ * holds the settlement too — so those events are left alone, as the move to
+ * another place leaves them; the lists offer removal only on rows that carry no
+ * such event ({@link AddressRow.derived}).
+ *
+ * The events keep their place, and a coordinate they carry is replaced by the
+ * one the file records for that place: the house's own position described a
+ * house the file no longer names, and leaving it would put these events at a
+ * different spot from the rest of the settlement — the health check's own "same
+ * place, different coordinates" finding. Where the file records no coordinate
+ * for the place, the one the events carry stays, being the only position they
+ * have; an event that carried none is not given one, because filling in a
+ * missing coordinate is a question of its own (and a check of its own).
+ */
+export function removeAddress(
+  dataset: Dataset,
+  rawKeys: readonly string[],
+  fromAddress: string,
+): RecordPatch[] {
+  const from = fromAddress.trim();
+  if (!from) return [];
+  const keys = new Set(rawKeys);
+  // Read before anything is written: an event whose ADDR has just gone counts
+  // as address-less, so asking the file for the settlement's coordinate midway
+  // through would hear the house's own answer back.
+  const places = new Set<string>();
+  const findPlaces = (raw: GedNode) =>
+    walkPlaceAddr(raw, (plac, addr) => {
+      if (addr && keys.has(placeAddrKey(plac.value!.trim(), addr))) places.add(plac.value!.trim());
+    });
+  for (const indi of dataset.individuals.values()) findPlaces(indi.raw);
+  for (const fam of dataset.families.values()) findPlaces(fam.raw);
+  const placeCoords = new Map([...places].map((p) => [p, fileCoordForPlace(dataset, p)] as const));
+  return patchRecords(dataset, (raw) => {
+    let changed = false;
+    walkPlaceAddr(raw, (plac, addr, event) => {
+      if (!addr) return;
+      const rawPlace = plac.value!.trim();
+      if (!keys.has(placeAddrKey(rawPlace, addr))) return;
+      removeChildren(event, "ADDR");
+      const own = placeCoords.get(rawPlace);
+      const here = coordOf(plac);
+      if (here && own && !sameWrittenCoord(here, own.coord)) setPlaceCoord(plac, own.coord, own.govId);
+      changed = true;
     });
     return changed;
   });

@@ -4037,6 +4037,18 @@ button:focus-visible {
 }
 .nav-btn.primary:hover:not(:disabled) { filter: brightness(1.08); }
 .nav-btn.primary:disabled { color: var(--bg); }
+/* The write that takes something away — the rename editor's button once its
+   field stands empty. Outlined like the dialogs' destructive confirm, not
+   filled: the same weight, without the accent's "this is what you came for". */
+.nav-btn.danger {
+  border-color: var(--danger);
+  color: var(--danger);
+  font-weight: 600;
+}
+.nav-btn.danger:hover:not(:disabled) {
+  background: var(--danger-soft);
+  border-color: var(--danger);
+}
 .nav-btn.highlight {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px color-mix(in oklch, var(--accent) 35%, transparent);

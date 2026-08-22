@@ -716,6 +716,8 @@ export const sl = {
   "tools.geocode.addr.introOnline": "Za razliko od ujemanja krajev brez povezave te poizvedbe vprašajo uradni register prek spleta — samo ob vašem kliku, s privolitvijo v spletna iskanja v",
   "tools.geocode.settingsAdvanced": "Nastavitvah › Napredno",
   "tools.geocode.addr.renameOpen": "Preimenuj ta naslov — vse dogodke pri njem, v kateri koli obliki ga datoteka piše",
+  "tools.geocode.addr.remove": "Odstrani naslov",
+  "tools.geocode.addr.removeHint": "Naslov se odstrani z vseh dogodkov, ki ga nosijo — dogodkov: {{count}} — sam kraj pa ostane nespremenjen. Ti dogodki nato dobijo koordinato, ki jo datoteka vodi pri kraju; če je datoteka nima, ostane dosedanja. Dejanje lahko razveljavite.",
   "tools.geocode.addr.sameHouse": "Zapisano dvakrat",
   "tools.geocode.addr.sameHouseHint": "Naslovi, ki jih datoteka v istem kraju piše na dva načina — isti zapis, le da ima eden za sabo še vaš pripis, eno od dveh imen ulice, pod katerima je naslov zapisan, ali isto ulico, zapisano krajše. Pri vsaki vrstici piše, v kaj bi se preimenovala; združitev je zgolj preimenovanje. Izpisani sta obe polovici vsakega para, tudi če lego že imata.",
   "tools.geocode.addr.join": "Združi",

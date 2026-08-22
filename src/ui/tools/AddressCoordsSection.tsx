@@ -1025,6 +1025,32 @@ export function AddressCoordsSection({
   };
 
   /**
+   * Take the row's address off its events altogether — what the rename field
+   * asks for once it is emptied, and the answer to an address that repeats the
+   * settlement it stands in ("Pivka" on every event in Pivka) or names a house
+   * the researcher no longer wants recorded. One step for the whole row, since
+   * doing it in Edit meant opening every person the row lists.
+   *
+   * The row leaves the list on the rescan — it is its address, and there is no
+   * longer an address — taking the panels and the answers staged on it with it:
+   * a position picked for a house is an answer about that house, and the events
+   * now name only their village.
+   */
+  const applyRemove = (row: AddressRow) => {
+    onRenameAddresses([{ rawKeys: row.rawKeys, from: row.address, to: "" }]);
+    setRenameKey(null);
+    setCoordOpen((prev) => (prev === row.key ? null : prev));
+    const drop = <V,>(prev: Map<string, V>) => {
+      const next = new Map(prev);
+      next.delete(row.key);
+      return next;
+    };
+    setPicked(drop);
+    setSearches(drop);
+    setOsmSearches(drop);
+  };
+
+  /**
    * Rename the group's place — the places list's rename, reached from the tab
    * the houses are on. Every event whose PLAC is exactly this value takes the
    * new one, so the group arrives whole under its new name.
@@ -1784,6 +1810,20 @@ export function AddressCoordsSection({
                             onChange={setRenameDraft}
                             onApply={() => applyRename(row)}
                             onCancel={() => setRenameKey(null)}
+                            // Emptying the field is the one other thing a
+                            // researcher wants of an address, and the ✎ is where
+                            // they already are when they want it. Not offered
+                            // where the file keeps the address inside the place
+                            // value: there the house cannot go without the
+                            // village going with it, which is why the move is
+                            // not offered on those rows either.
+                            {...(row.derived
+                              ? {}
+                              : {
+                                  onRemove: () => applyRemove(row),
+                                  removeLabel: t("tools.geocode.addr.remove"),
+                                  removeTitle: t("tools.geocode.addr.removeHint", { count: row.count }),
+                                })}
                           />
                         )}
                         {/* The lookup's answers directly under the row they
