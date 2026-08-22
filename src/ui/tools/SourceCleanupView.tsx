@@ -29,7 +29,7 @@ import { type PageMediaGroup, type PageMediaReport } from "../../tools/pageMedia
 import type { Translate } from "../../locales/i18n";
 import type { RecordPatch } from "../historyTypes";
 import { familySpouses, recordCitedBy } from "../../tools/sources";
-import { personMatches, TreeSearch, UsageList, useDebounced, usePersonNameIndex } from "./shared";
+import { ExpandAllToggle, personMatches, TreeSearch, UsageList, useDebounced, usePersonNameIndex } from "./shared";
 import { foldSearch, queryTerms } from "../globalSearch";
 import { PersonLink } from "../PersonLink";
 import { detectSourceCoverage, repoLinkWanted, sourceTooltip } from "../../gedcom/source";
@@ -625,18 +625,6 @@ export function SourceCleanupView({
       return next;
     });
   };
-  /** The two openers, wherever a list puts its own chips. */
-  const expandActions = (
-    <>
-      <button className="tools-issue-link" onClick={() => expandShown(true)}>
-        {t("tools.sources.expandAll")}
-      </button>
-      <button className="tools-issue-link" onClick={() => expandShown(false)}>
-        {t("tools.sources.collapseAll")}
-      </button>
-    </>
-  );
-
   /** …and what is on screen right now, for the line that says a filter has
    *  emptied the list. */
   const shownCounts: Record<CleanupTab, number> = {
@@ -649,6 +637,13 @@ export function SourceCleanupView({
   // does — an apply empties the tab it ran on, and the page must not go blank
   // while three other lists wait behind it.
   const activeTab: CleanupTab | undefined = (tab && openTabs.includes(tab) ? tab : undefined) ?? openTabs[0];
+  /** The opener, wherever a list puts its own chips — one control, as on the
+   *  geocoding lists: it offers "expand all" while anything is still shut and
+   *  "collapse all" only once everything is open, and there is no state in
+   *  which the other action is wanted. */
+  const shownNow = activeTab ? shownIds[activeTab] : [];
+  const allShownOpen = shownNow.length > 0 && shownNow.every((id) => expanded.has(id));
+  const expandActions = <ExpandAllToggle allOpen={allShownOpen} onToggle={() => expandShown(!allShownOpen)} />;
   const nothingSelected =
     selectedGroups.length === 0 &&
     selectedDupGroups.length === 0 &&
