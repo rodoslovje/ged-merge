@@ -1551,6 +1551,22 @@ export function AddressCoordsSection({
                             onClose={() => setRenameKey(null)}
                             title={t("tools.geocode.addr.renameOpen")}
                           />
+                          {/* Who the events belong to — count as the toggle,
+                              names on hover, beside the address and its ✎ as on
+                              every list of these two tools. How many events
+                              there are is not shown: the people are what the row
+                              is read for, and the group header counts events. */}
+                          {row.people.length > 0 && (
+                            <button
+                              className="tools-chip-count tools-count-toggle"
+                              title={peopleTitles.get(row.key)}
+                              aria-pressed={peopleOpen.has(row.key)}
+                              aria-label={t("tools.geocode.peopleToggle")}
+                              onClick={() => togglePeople(row.key)}
+                            >
+                              {row.people.length}
+                            </button>
+                          )}
                           {/* The same house, written more fully on another row
                               of this same place — the file's own disagreement
                               with itself, which no register has an opinion
@@ -1753,22 +1769,6 @@ export function AddressCoordsSection({
                           >
                             {noMatch.has(row.key) ? t("tools.geocode.restore") : t("tools.geocode.hide")}
                           </button>
-                          {/* Who the events belong to — count as the toggle,
-                              names on hover, last on the line, exactly like the
-                              places rows. How many events there are is not
-                              shown: the people are what the row is read for,
-                              and the group header above counts the events. */}
-                          {row.people.length > 0 && (
-                            <button
-                              className="tools-chip-count tools-count-toggle"
-                              title={peopleTitles.get(row.key)}
-                              aria-pressed={peopleOpen.has(row.key)}
-                              aria-label={t("tools.geocode.peopleToggle")}
-                              onClick={() => togglePeople(row.key)}
-                            >
-                              {row.people.length}
-                            </button>
-                          )}
                         </div>
                         {renameKey === row.key && (
                           // Completed from the other houses of this same place: a

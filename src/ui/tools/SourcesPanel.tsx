@@ -254,8 +254,11 @@ function TreeRow({
             ↗
           </a>
         )}
-        {count != null && <span className="tools-chip-count">{count}</span>}
+        {/* Name, its ✎, then the count — the order every list of these two
+            tools reads in: what the row is, the way to rewrite it, and how many
+            records are behind it, before anything else the row carries. */}
         {action}
+        {count != null && <span className="tools-chip-count">{count}</span>}
       </div>
       {open && hasChildren && <div className="tools-tree-children">{children}</div>}
     </li>

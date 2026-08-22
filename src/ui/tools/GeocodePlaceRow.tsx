@@ -371,6 +371,23 @@ export function GeocodePlaceRow({
             ✎
           </button>
         )}
+        {/* The people the value belongs to — which is what clicking it shows.
+            Beside the name and its ✎, where the places tree has always kept it
+            and where every list on these pages now does: the count is part of
+            what the row *is*, not one of the actions pinned to its end. */}
+        <button
+          className="tools-chip-count tools-count-toggle"
+          title={missingInTitle}
+          aria-pressed={peopleOpen}
+          aria-label={t("tools.geocode.peopleToggle")}
+          onClick={() => {
+            const next = !peopleOpen;
+            setPeopleOpen(next);
+            if (next && !isOpen) onToggleOpen(row.key);
+          }}
+        >
+          {row.missingIn.length}
+        </button>
         {c && (
           // The position this row is about to take, and the way to look at it:
           // one click opens the row and puts its map on screen (the places tree
@@ -446,21 +463,6 @@ export function GeocodePlaceRow({
             {marked ? t("tools.geocode.restore") : t("tools.geocode.hide")}
           </button>
         )}
-        <button
-          className="tools-chip-count tools-count-toggle"
-          title={missingInTitle}
-          aria-pressed={peopleOpen}
-          aria-label={t("tools.geocode.peopleToggle")}
-          onClick={() => {
-            const next = !peopleOpen;
-            setPeopleOpen(next);
-            if (next && !isOpen) onToggleOpen(row.key);
-          }}
-        >
-          {/* The people the value belongs to — which is what clicking it
-              shows, here as in the addresses and compliance lists. */}
-          {row.missingIn.length}
-        </button>
       </GeoRowHeader>
       {renameOpen && (
         <div

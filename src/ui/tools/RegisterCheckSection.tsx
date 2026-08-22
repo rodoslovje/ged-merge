@@ -778,6 +778,16 @@ const RegisterRow = memo(function RegisterRow({
           onClose={onCloseRename}
           title={t("tools.geocode.renameOpen")}
         />
+        {/* Whose place it is, beside the value and its ✎ — the place every
+            list of these two tools keeps the count in. */}
+        <button
+          className="tools-chip-count tools-count-toggle"
+          aria-pressed={peopleShown}
+          aria-label={t("tools.geocode.peopleToggle")}
+          onClick={() => onTogglePeople(f.key)}
+        >
+          {f.people.length}
+        </button>
         {chosen >= 0 ? (
           <>
             {/* What follows the arrow is what the record would say once the
@@ -852,14 +862,6 @@ const RegisterRow = memo(function RegisterRow({
             title={f.dismissed ? t("tools.register.undismissHint") : t("tools.register.dismissHint")}
           >
             {f.dismissed ? t("tools.geocode.restore") : t("tools.geocode.hide")}
-          </button>
-          <button
-            className="tools-chip-count tools-count-toggle"
-            aria-pressed={peopleShown}
-            aria-label={t("tools.geocode.peopleToggle")}
-            onClick={() => onTogglePeople(f.key)}
-          >
-            {f.people.length}
           </button>
         </span>
       </GeoRowHeader>

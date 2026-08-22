@@ -1430,6 +1430,29 @@ function ReshapeGroupRow({
           {SITE_ICON[group.site]} {title}
         </span>
         <RowLink url={link} t={t} className="tools-tree-meta" />
+        {/* Name, its ✎, then the count — the order every list of these two
+            tools reads in. The ✎ used to sit among the actions at the end of
+            the line, half a row away from the title it rewrites. */}
+        {onEdit && !removeMarked && (
+          <button
+            className="tools-issue-link"
+            onClick={onEdit}
+            title={editsRecord ? t("tools.sources.editRecordHint") : t("editSource.title")}
+          >
+            ✎
+          </button>
+        )}
+        {/* The count is the expand toggle, as in the geocoding and naming
+            lists: the records it counts are the member rows below. */}
+        <button
+          className="tools-chip-count tools-count-toggle"
+          aria-pressed={open}
+          aria-expanded={open}
+          title={t("tools.sources.reshapeCountToggle")}
+          onClick={onToggleOpen}
+        >
+          {group.members.length}
+        </button>
         {/* The reader traded this group's link for another in the ✎ editor —
             the media the apply writes carries the new one. */}
         {swapped && !removeMarked && (
@@ -1463,15 +1486,6 @@ function ReshapeGroupRow({
             {t("tools.sources.reshapeNew")}
           </span>
         )}
-        {onEdit && !removeMarked && (
-          <button
-            className="tools-issue-link"
-            onClick={onEdit}
-            title={editsRecord ? t("tools.sources.editRecordHint") : t("editSource.title")}
-          >
-            ✎
-          </button>
-        )}
         <button
           className="tools-issue-link"
           onClick={onToggleRemove}
@@ -1479,17 +1493,6 @@ function ReshapeGroupRow({
           title={t(removeMarked ? "tools.sources.reshapeRemoveUndo" : "tools.sources.reshapeRemoveHint")}
         >
           {removeMarked ? "↩" : "🗑"}
-        </button>
-        {/* The count is the expand toggle, as in the geocoding and naming
-            lists: the persons it counts are the member rows below. */}
-        <button
-          className="tools-chip-count tools-count-toggle"
-          aria-pressed={open}
-          aria-expanded={open}
-          title={t("tools.sources.reshapeCountToggle")}
-          onClick={onToggleOpen}
-        >
-          {group.members.length}
         </button>
       </div>
       {open && (
@@ -1724,8 +1727,10 @@ function PageMediaRow({
         <span className="tools-tree-label clickable" onClick={onToggleOpen} title={group.title}>
           📖 {group.title}
         </span>
-        <span className="tools-chip-count">{group.missing.length + group.unfiled.length}</span>
+        {/* Name, its ✎, then the count — the order every list of these two
+            tools reads in. */}
         <RowEdit xref={group.sourceXref} kind="source" onEditRecord={onEditRecord} t={t} />
+        <span className="tools-chip-count">{group.missing.length + group.unfiled.length}</span>
         <span className="tools-tree-meta">
           {[
             group.missing.length > 0 && t("tools.sources.pageMediaCount", { count: group.missing.length }),
@@ -1835,8 +1840,8 @@ function RegroupRow({
         <span className="tools-tree-label clickable" onClick={onToggleOpen} title={group.repoName}>
           {group.repoName}
         </span>
-        <span className="tools-chip-count">{group.moves.length}</span>
         {group.targetXref && <RowEdit xref={group.targetXref} kind="repo" onEditRecord={onEditRecord} t={t} />}
+        <span className="tools-chip-count">{group.moves.length}</span>
         <span className="tools-tree-meta">
           {group.targetXref
             ? t("tools.sources.regroupExisting")
