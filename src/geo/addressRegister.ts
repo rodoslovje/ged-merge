@@ -409,37 +409,31 @@ export async function tryAlternates(
  *      **nothing here**, and nothing is what this bucket answers: see below.
  *   2. with no street named, the houses the village numbers directly — the rows
  *      the register files under no street at all, or under one named after the
- *      settlement, which is how the two countries each record them;
- *   3. failing *that*, every house in the settlement carrying that number, which
- *      is honest: the file does not say which street, so neither can we, and the
- *      review UI offers them as a choice.
+ *      settlement, which is how the two countries each record them.
  * The letter suffix narrows within whichever rung answered, and is dropped when
  * it narrows to nothing — a file recording "45a" where the register has a plain
  * 45 is the common case, not a miss.
  *
- * The third rung is for a value that names no street, and only for that. A file
- * that *did* name one and matched no street of this settlement is not asking
- * "which house 35 is it" — it is telling us the house is somewhere this bucket
- * does not describe, and the answer has to be nothing so the ladder above can
- * carry on to the reading that does explain it: the name read as a settlement of
- * its own ({@link import("./rn").hostAsSettlement}), the hamlet a file files
- * under its bigger neighbour. Widened here instead, "Jama 35" written under
- * Mavčiče came back as the register's own Mavčiče 35 — a real house, the wrong
- * one, and one that made the misfiling look compliant. This is also exactly what
- * the online ladder does, where the third rung is withheld whenever a street is
- * named.
+ * Neither rung ever widens to the settlement's other streets. A file that named
+ * a street and matched none of this settlement's is not asking "which house 35
+ * is it" — it is telling us the house is somewhere this bucket does not
+ * describe, and the answer has to be nothing so the ladder above can carry on to
+ * the reading that does explain it: the name read as a settlement of its own
+ * ({@link import("./rn").hostAsSettlement}), the hamlet a file files under its
+ * bigger neighbour. Widened, "Jama 35" written under Mavčiče came back as the
+ * register's own Mavčiče 35 — a real house, the wrong one, and one that made the
+ * misfiling look compliant.
  *
- * `anyStreet: false` withholds it for a street-less query too, and is what a
- * caller passes for a settlement the *file* did not name — one the search
- * widened to on its own. Guessing the street on top of the settlement is a guess
- * too far: "no house 52 in Krasinec" must not become "house 52 of some street in
- * Metlika", the municipal seat the place names only as its parent.
+ * A value that names *no* street is answered the same way, and used not to be:
+ * a village number in a settlement that numbers by street came back as every
+ * house carrying that number — "Spodnja Besnica 23" as Senožeti 23, Vogel 23,
+ * Pešnica 23 and Trata 23. They share a number and nothing else; not one of them
+ * is named by the value, and offering four streets to choose between says the
+ * register knows something it does not. Where no house of a settlement bears the
+ * number as the village writes it, the register's answer is nothing, and the
+ * house is placed by hand or from the map.
  */
-export function searchBucket(
-  bucket: AddressBucket,
-  query: BucketQuery,
-  opts?: { anyStreet?: boolean },
-): AddressHit[] {
+export function searchBucket(bucket: AddressBucket, query: BucketQuery): AddressHit[] {
   const rows: number[] = [];
   for (let i = 0; i < bucket.num.length; i++) if (bucket.num[i] === query.number) rows.push(i);
   if (!rows.length) return [];
@@ -456,10 +450,7 @@ export function searchBucket(
       return !s || s === settlement;
     });
   }
-  if (!scoped.length) {
-    if (query.street || opts?.anyStreet === false) return [];
-    scoped = rows;
-  }
+  if (!scoped.length) return [];
 
   const suffix = query.suffix?.toLowerCase();
   const exact = scoped.filter((i) => {

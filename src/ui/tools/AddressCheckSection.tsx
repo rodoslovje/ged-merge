@@ -567,9 +567,9 @@ export function AddressCheckSection({
                       onToggle={() => toggleGroup(group.place)}
                       place={group.place || t("tools.geocode.addr.noPlace")}
                     >
-                      {/* Whose village this is, in the count chip every finding
-                          row on both these tabs pins right — click it and the
-                          people are listed, exactly as on a row. */}
+                      {/* Whose village this is, in the count chip beside the
+                          name — where every row of these two tools carries it —
+                          and clicking it lists the people, exactly as on a row. */}
                       <button
                         className="tools-chip-count tools-count-toggle"
                         aria-pressed={groupPeople}
@@ -633,6 +633,17 @@ export function AddressCheckSection({
                           onClose={() => setRenameKey(null)}
                           title={t("tools.geocode.addr.renameOpen")}
                         />
+                        {/* Whose house it is, beside the value and its ✎ — the
+                            place every list of these two tools keeps the count
+                            in. */}
+                        <button
+                          className="tools-chip-count tools-count-toggle"
+                          aria-pressed={showPeople}
+                          aria-label={t("tools.geocode.peopleToggle")}
+                          onClick={() => togglePeople(f.key)}
+                        >
+                          {f.people.length}
+                        </button>
                         {/* After the arrow stands what the file would say once
                             the row is taken — the exact replacement, note and
                             all, not the register's line it is derived from.
@@ -701,14 +712,6 @@ export function AddressCheckSection({
                             title={t("tools.register.dismissHint")}
                           >
                             {f.dismissed ? t("tools.geocode.restore") : t("tools.geocode.hide")}
-                          </button>
-                          <button
-                            className="tools-chip-count tools-count-toggle"
-                            aria-pressed={showPeople}
-                            aria-label={t("tools.geocode.peopleToggle")}
-                            onClick={() => togglePeople(f.key)}
-                          >
-                            {f.people.length}
                           </button>
                         </span>
                       </GeoRowHeader>

@@ -6548,6 +6548,10 @@ kbd {
 }
 .preview-card-head-right { display: flex; align-items: center; gap: 6px; flex: none; }
 .preview-rec { font-weight: 600; color: var(--text); }
+/* The side a one-spouse family does not have. Muted, so the head still reads
+   as the name it leads with, but present — without it the card was that
+   person's name alone and could not be told from the person's own card. */
+.preview-rec-nospouse { color: var(--muted); font-weight: 400; }
 .preview-badge {
   font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
   padding: 2px 8px; border-radius: var(--radius-pill); white-space: nowrap;
@@ -8180,7 +8184,17 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 .tools-geo-addr-chip-clear:hover { color: var(--danger); }
 .tools-place-rename-hint { font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
 .tools-place-rename-apply { padding: 4px 12px; font-size: 0.85rem; }
-.tools-usage { list-style: none; margin: 2px 0 4px; padding-left: 26px; display: flex; flex-direction: column; gap: 2px; }
+/* The people under a row — in the geocoding lists, the naming and address
+   findings, and Organize sources. A step smaller than the row they hang off:
+   they are the evidence for it, not the thing being read, and at full size a
+   village of thirty names crowded out the rows themselves. */
+.tools-usage {
+  list-style: none; margin: 2px 0 4px; padding-left: 26px;
+  display: flex; flex-direction: column; gap: 2px;
+  /* The same step Organize sources' own member rows take (.tools-dup-member),
+     so the people read alike wherever a list of them hangs off a row. */
+  font-size: 0.9rem;
+}
 .tools-usage li { display: flex; flex-wrap: wrap; align-items: baseline; content-visibility: auto; contain-intrinsic-size: auto 24px; }
 .tools-usage-amp { color: var(--muted); margin: 0 6px; }
 .tools-usage-age { color: var(--muted); }

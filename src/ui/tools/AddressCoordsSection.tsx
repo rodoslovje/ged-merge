@@ -287,6 +287,7 @@ export function AddressCoordsSection({
   query,
   actionsHost,
   onRenameAddresses,
+  onRenamePlace,
   kinship,
   onNavigate,
 }: {
@@ -317,6 +318,10 @@ export function AddressCoordsSection({
   /** Rename one house's address on every event that carries it (edit/undo
    *  pipeline); returns the number of records changed. */
   onRenameAddresses: (renames: AddressRename[]) => number;
+  /** Rename a group's place — every event whose PLAC is exactly that value,
+   *  the addressed ones and the rest alike. The places list's own rename, so
+   *  the ✎ means the same thing on either tab. */
+  onRenamePlace: (from: string, to: string) => void;
   /** Kinship labels for the rows' people lists — the places rows' resolver. */
   kinship?: KinshipResolver;
   /** Jump to a person in Edit mode (the rows' people lists). */
@@ -328,6 +333,9 @@ export function AddressCoordsSection({
   const { settings } = useSettings();
   const nameOf = useNameOf();
   const personNames = usePersonNameIndex(dataset);
+  /** The registers the place rename's field completes from, where the file
+   *  writes a village only here — the move panel's own lookup. */
+  const lookup = usePlaceLookup();
   const terms = useMemo(() => queryTerms(query), [query]);
   const byKey = useMemo(() => new Map(all.map((row) => [row.key, row])), [all]);
   // Matching on the address alone would drop the settlement a search like
@@ -474,6 +482,11 @@ export function AddressCoordsSection({
   // The one row whose rename editor is open, and its draft.
   const [renameKey, setRenameKey] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
+  /** The one group whose place rename is open, and its draft. Held apart from
+   *  the row rename above: a place and a house are different values, and the
+   *  two editors sit on different lines. */
+  const [placeRenameKey, setPlaceRenameKey] = useState<string | null>(null);
+  const [placeRenameDraft, setPlaceRenameDraft] = useState("");
   /** Which row's coordinate panel is open. Held here rather than inside the
    *  picker because the row opens it from two controls — the address and the
    *  pin — with the rename ✎ between them. */
@@ -1011,6 +1024,62 @@ export function AddressCoordsSection({
     });
   };
 
+  /**
+   * Rename the group's place — the places list's rename, reached from the tab
+   * the houses are on. Every event whose PLAC is exactly this value takes the
+   * new one, so the group arrives whole under its new name.
+   *
+   * Only a group whose place the file actually writes offers it: where the
+   * address sits inside the place value, the name above the houses is a label
+   * this tool derived and no record says it (the group's own "in the place
+   * value" note, and the reason it cannot be moved either).
+   */
+  const applyPlaceRename = (group: PlaceGroup) => {
+    const to = placeRenameDraft.trim();
+    if (!to || to === group.place) return;
+    onRenamePlace(group.place, to);
+    setPlaceRenameKey(null);
+    // The two panels that work on a group are keyed by its place, so a rename
+    // would leave them open on a name no group carries any more.
+    if (moveGroup === group.place) closeMove();
+    if (coordGroup === group.place) closeCoords();
+    // Every row of the group is re-keyed by the rename, so what is staged on it
+    // has to travel — a picked position is about the house, not the spelling of
+    // the village it stands in (the address rename carries its pick for the same
+    // reason). The register answers do not: they were replies to a question
+    // asked about the old settlement, so the moved rows start unasked, exactly
+    // as after a move.
+    const renamedKey = (row: AddressRow) => placeAddrKey(to, row.address);
+    setPicked((prev) => {
+      const next = new Map(prev);
+      for (const row of group.rows) {
+        const carried = next.get(row.key);
+        if (!carried) continue;
+        next.delete(row.key);
+        if (!next.has(renamedKey(row))) next.set(renamedKey(row), carried);
+      }
+      return next;
+    });
+    const dropRows = <V,>(prev: Map<string, V>) => {
+      const next = new Map(prev);
+      for (const row of group.rows) next.delete(row.key);
+      return next;
+    };
+    setSearches(dropRows);
+    setOsmSearches(dropRows);
+    // The group itself keeps its state: it is the same run of houses, and
+    // having it fold away — with its map put out — under a name the reader
+    // has just typed reads as if the rename had lost them.
+    setOpen((prev) => {
+      if (!prev.has(group.place)) return prev;
+      const next = new Set(prev);
+      next.delete(group.place);
+      next.add(to);
+      return next;
+    });
+    setMapOpen((prev) => (prev === group.place ? to : prev));
+  };
+
   /** Rows the register answered with exactly one house — safe to stage in one
    *  click, like the places list's Select confident. A hit the register files
    *  under a settlement other than the claimed one is NOT safe: that is the
@@ -1260,6 +1329,22 @@ export function AddressCoordsSection({
                 onToggle={() => toggle(group.place)}
                 place={group.place || t("tools.geocode.addr.noPlace")}
               >
+                {/* The ✎ every list on these two pages puts beside a value it
+                    lets you rewrite, in the slot they all keep it: right after
+                    the value. Here that value is the place, so this is the
+                    places list's rename — offered only where the file writes
+                    the name, which is the same test the move is offered on. */}
+                {group.place && group.movable && (
+                  <RenameToggle
+                    open={placeRenameKey === group.place}
+                    onOpen={() => {
+                      setPlaceRenameKey(group.place);
+                      setPlaceRenameDraft(group.place);
+                    }}
+                    onClose={() => setPlaceRenameKey(null)}
+                    title={t("tools.geocode.renameOpen")}
+                  />
+                )}
                 <span className="tools-geo-count">
                   {t("tools.geocode.addr.groupMeta", { count: group.rows.length, events: group.events })}
                 </span>
@@ -1271,6 +1356,25 @@ export function AddressCoordsSection({
                   </span>
                 )}
               </GeoRowHeader>
+              {placeRenameKey === group.place && (
+                // Completed from the places the file already writes, and from
+                // the registers where it writes this one nowhere else: a
+                // village renamed here is usually being spelt the way its
+                // neighbours in the list already are.
+                <RenameEditor
+                  value={placeRenameDraft}
+                  suggestions={places.placeSuggestions}
+                  canonical={places.placeCanonical}
+                  placeholder={t("tools.places.rename.placeholder")}
+                  applyDisabled={!placeRenameDraft.trim() || placeRenameDraft.trim() === group.place}
+                  onChange={setPlaceRenameDraft}
+                  onApply={() => applyPlaceRename(group)}
+                  onCancel={() => setPlaceRenameKey(null)}
+                  onPickProposal={(proposal) => setPlaceRenameDraft(proposal.plac)}
+                  onLookup={lookup ? (query) => lookup.search(query) : undefined}
+                  lookupNote={lookup && !lookup.online ? t("event.place.lookup.offlineOnly") : undefined}
+                />
+              )}
               {isOpen && (
                 <div className="tools-geo-actions">
                   {/* The place's houses on one map — asked for, like every other
@@ -1447,6 +1551,22 @@ export function AddressCoordsSection({
                             onClose={() => setRenameKey(null)}
                             title={t("tools.geocode.addr.renameOpen")}
                           />
+                          {/* Who the events belong to — count as the toggle,
+                              names on hover, beside the address and its ✎ as on
+                              every list of these two tools. How many events
+                              there are is not shown: the people are what the row
+                              is read for, and the group header counts events. */}
+                          {row.people.length > 0 && (
+                            <button
+                              className="tools-chip-count tools-count-toggle"
+                              title={peopleTitles.get(row.key)}
+                              aria-pressed={peopleOpen.has(row.key)}
+                              aria-label={t("tools.geocode.peopleToggle")}
+                              onClick={() => togglePeople(row.key)}
+                            >
+                              {row.people.length}
+                            </button>
+                          )}
                           {/* The same house, written more fully on another row
                               of this same place — the file's own disagreement
                               with itself, which no register has an opinion
@@ -1649,22 +1769,6 @@ export function AddressCoordsSection({
                           >
                             {noMatch.has(row.key) ? t("tools.geocode.restore") : t("tools.geocode.hide")}
                           </button>
-                          {/* Who the events belong to — count as the toggle,
-                              names on hover, last on the line, exactly like the
-                              places rows. How many events there are is not
-                              shown: the people are what the row is read for,
-                              and the group header above counts the events. */}
-                          {row.people.length > 0 && (
-                            <button
-                              className="tools-chip-count tools-count-toggle"
-                              title={peopleTitles.get(row.key)}
-                              aria-pressed={peopleOpen.has(row.key)}
-                              aria-label={t("tools.geocode.peopleToggle")}
-                              onClick={() => togglePeople(row.key)}
-                            >
-                              {row.people.length}
-                            </button>
-                          )}
                         </div>
                         {renameKey === row.key && (
                           // Completed from the other houses of this same place: a

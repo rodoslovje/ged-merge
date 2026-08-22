@@ -318,8 +318,15 @@ export function SaveDialog({
                   kind === "individual" ? indi?.private
                   : kind === "family" ? dataset?.families.get(g.id)?.private
                   : !!sharedNode && isPrivateNode(sharedNode);
+                // A family is named by its couple — and, where it has only one
+                // spouse, by the side it does not have. A mother added on her
+                // own makes both a person and the family that holds her child,
+                // and the family's head, being her name and her years alone,
+                // rendered as a second copy of her own card: the same person
+                // apparently listed twice, one of the two saying nothing.
                 const headContent = spouses?.length ? (
-                  spouses.map((s, i) => {
+                  <>
+                  {spouses.map((s, i) => {
                     const sIndi = s.id
                       ? dataset?.individuals.get(s.id) ?? report.newIndividuals?.[s.id]
                       : undefined;
@@ -331,7 +338,11 @@ export function SaveDialog({
                         {sLifespan && <span className="person-years gm-data"> {sLifespan}</span>}
                       </span>
                     );
-                  })
+                  })}
+                  {spouses.length < 2 && (
+                    <span className="preview-rec-nospouse" title={t("field.familyNoPartner")}> + —</span>
+                  )}
+                  </>
                 ) : (
                   <>
                     {g.label}

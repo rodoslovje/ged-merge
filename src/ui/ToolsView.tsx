@@ -24,7 +24,16 @@ import { PickerMenu } from "./PickerMenu";
 import { usePhone } from "./usePhone";
 import { ToolSummarySlotProvider } from "./tools/ToolSummary";
 
-type Tool = "validate" | "duplicates" | "normalize" | "privacy" | "sources" | "places";
+export type Tool = "validate" | "duplicates" | "normalize" | "privacy" | "sources" | "places";
+
+/**
+ * The page open inside a tool that has more than one — every one of them a
+ * full-page swap with its own Back, so every one of them a step the browser's
+ * Back button has to be able to undo. Held by the app (and recorded in the
+ * history entry) rather than by the panel, for the same reason the tool itself
+ * is: a page nobody but the panel knows about cannot be returned to.
+ */
+export type ToolView = "tree" | "geocode" | "register" | "cleanup";
 
 const TOOLS: Tool[] = ["places", "sources", "validate", "duplicates", "normalize", "privacy"];
 
@@ -125,13 +134,19 @@ interface Props {
   onRejectDuplicatesBulk: (pairs: Array<{ aId: string; bId: string }>) => void;
   /** Undo a previous reject, so the pair reappears in the active list. */
   onUnrejectDuplicate: (aId: string, bId: string) => void;
+  /** The open tool and its open page, and the way to go to another — both are
+   *  browser-history steps, so the app owns them (see ToolView). */
+  tool: Tool;
+  view: ToolView;
+  onToolChange: (tool: Tool) => void;
+  onViewChange: (view: ToolView) => void;
 }
 
-export function ToolsView({ dataset, editVersionRef, editVersion, fileName, onNavigate, onAddSource, onEditSource, onRemoveSource, onEditRepo, onEditMediaInfo, active, onApplyPlaceRename, onApplyGeocode, onApplyAddressCoords, onRenamePlaceValue, onApplyOfficialNames, onRenameAddresses, onMovePlaceForAddresses, startId, onFixBrokenLinks, onFixSexFromRole, onFixSwappedRoles, onFixDates, onFixDuplicatePointers, onFixDanglingRefs, onFillPlaceCoords, onApplyBatchPatches, onMergeDuplicate, onMergeCluster, rejectedDuplicates, onRejectDuplicate, onRejectDuplicatesBulk, onUnrejectDuplicate }: Props) {
+export function ToolsView({ dataset, editVersionRef, editVersion, fileName, onNavigate, onAddSource, onEditSource, onRemoveSource, onEditRepo, onEditMediaInfo, active, onApplyPlaceRename, onApplyGeocode, onApplyAddressCoords, onRenamePlaceValue, onApplyOfficialNames, onRenameAddresses, onMovePlaceForAddresses, startId, onFixBrokenLinks, onFixSexFromRole, onFixSwappedRoles, onFixDates, onFixDuplicatePointers, onFixDanglingRefs, onFillPlaceCoords, onApplyBatchPatches, onMergeDuplicate, onMergeCluster, rejectedDuplicates, onRejectDuplicate, onRejectDuplicatesBulk, onUnrejectDuplicate, tool, view, onToolChange, onViewChange }: Props) {
   const { t } = useTranslation();
-  // Places leads the tabs and is where most work starts, so it is what Tools
-  // opens on; the choice then stands for the rest of the session.
-  const [tool, setTool] = useState<Tool>("places");
+  // Which tool and which of its pages — the app's, because they are history
+  // steps: see ToolView. Places leads the tabs and is where most work starts,
+  // so it is what Tools opens on.
   const phone = usePhone();
   // Set by a ref callback, so the panels re-render once it exists and can
   // portal their summary into it.
@@ -153,7 +168,14 @@ export function ToolsView({ dataset, editVersionRef, editVersion, fileName, onNa
   return (
     <div className="tools-view">
       <div className="tools-head">
-        <p className="tools-stats">{t("tools.stats", stats)}</p>
+        {/* Each count carries its own noun — "11 242 oseb", not "oseb: 11 242"
+            — so each needs its own plural form, and Slovenian needs four per
+            noun. One key apiece, joined here. */}
+        <p className="tools-stats">
+          {(["indi", "fam", "places", "sources", "media"] as const)
+            .map((k) => t(`tools.stats.${k}`, { count: stats[k] }))
+            .join(" · ")}
+        </p>
       </div>
       {/* Six description-carrying cards filled a phone screen and a half before
           any result. A dropdown names the tool you are in and lists the rest,
@@ -164,7 +186,7 @@ export function ToolsView({ dataset, editVersionRef, editVersion, fileName, onNa
             className="tools-subtabs-picker"
             label={t("mode.tools")}
             value={tool}
-            onChange={setTool}
+            onChange={onToolChange}
             items={TOOLS.map((id) => ({ key: id, label: t(`tools.tool.${id}`), title: t(`tools.tool.${id}.desc`) }))}
           />
           <div className="tools-summary-slot" ref={setSummarySlot} />
@@ -177,7 +199,7 @@ export function ToolsView({ dataset, editVersionRef, editVersion, fileName, onNa
             role="tab"
             aria-selected={tool === id}
             className={`tools-tab ${tool === id ? "active" : ""}`}
-            onClick={() => setTool(id)}
+            onClick={() => onToolChange(id)}
           >
             <span className="tools-tab-label">{t(`tools.tool.${id}`)}</span>
             <span className="tools-tab-desc">{t(`tools.tool.${id}.desc`)}</span>
@@ -200,10 +222,10 @@ export function ToolsView({ dataset, editVersionRef, editVersion, fileName, onNa
           <PrivacyPanel dataset={dataset} fileName={fileName} onNavigate={onNavigate} active={active} />
         )}
         {tool === "sources" && (
-          <SourcesPanel dataset={dataset} scans={scans} onNavigate={onNavigate} onAddSource={onAddSource} onEditSource={onEditSource} onRemoveSource={onRemoveSource} onEditRepo={onEditRepo} onEditMediaInfo={onEditMediaInfo} onApplyPatches={onApplyBatchPatches} active={active} />
+          <SourcesPanel dataset={dataset} scans={scans} onNavigate={onNavigate} onAddSource={onAddSource} onEditSource={onEditSource} onRemoveSource={onRemoveSource} onEditRepo={onEditRepo} onEditMediaInfo={onEditMediaInfo} onApplyPatches={onApplyBatchPatches} active={active} view={view} onViewChange={onViewChange} />
         )}
         {tool === "places" && (
-          <PlacesPanel dataset={dataset} onNavigate={onNavigate} active={active} editVersion={editVersion} onApplyPlaceRename={onApplyPlaceRename} onApplyGeocode={onApplyGeocode} onApplyAddressCoords={onApplyAddressCoords} onRenamePlaceValue={onRenamePlaceValue} onApplyOfficialNames={onApplyOfficialNames} onRenameAddresses={onRenameAddresses} onMovePlaceForAddresses={onMovePlaceForAddresses} startId={startId} />
+          <PlacesPanel dataset={dataset} onNavigate={onNavigate} active={active} editVersion={editVersion} onApplyPlaceRename={onApplyPlaceRename} onApplyGeocode={onApplyGeocode} onApplyAddressCoords={onApplyAddressCoords} onRenamePlaceValue={onRenamePlaceValue} onApplyOfficialNames={onApplyOfficialNames} onRenameAddresses={onRenameAddresses} onMovePlaceForAddresses={onMovePlaceForAddresses} startId={startId} view={view} onViewChange={onViewChange} />
         )}
       </div>
       </ToolSummarySlotProvider>

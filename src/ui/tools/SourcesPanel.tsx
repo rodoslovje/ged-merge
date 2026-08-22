@@ -12,6 +12,7 @@ import type { MediaEditFields } from "../MediaViewer";
 import { mediaMetaRows } from "../MediaViewer";
 import { type ToolsScans } from "../useToolsScans";
 import type { RecordPatch } from "../historyTypes";
+import type { ToolView } from "../ToolsView";
 import { SourceDialogShell } from "../source/SourceDialogShell";
 import { AddSourceDialog, type AddSourceResult } from "../AddSourceDialog";
 import { repoRecordEditFields, sourceRecordEditFields, type EditRepoFields, type EditSourceFields } from "../../gedcom/edit";
@@ -253,8 +254,11 @@ function TreeRow({
             ↗
           </a>
         )}
-        {count != null && <span className="tools-chip-count">{count}</span>}
+        {/* Name, its ✎, then the count — the order every list of these two
+            tools reads in: what the row is, the way to rewrite it, and how many
+            records are behind it, before anything else the row carries. */}
         {action}
+        {count != null && <span className="tools-chip-count">{count}</span>}
       </div>
       {open && hasChildren && <div className="tools-tree-children">{children}</div>}
     </li>
@@ -404,6 +408,8 @@ export function SourcesPanel({
   onEditMediaInfo,
   onApplyPatches,
   active,
+  view: viewProp,
+  onViewChange,
 }: {
   dataset: Dataset;
   scans: ToolsScans;
@@ -424,6 +430,11 @@ export function SourcesPanel({
    *  duplicate sources); returns how many records changed. */
   onApplyPatches: (patches: RecordPatch[]) => number;
   active: boolean;
+  /** Which of this tool's pages is open, and the way to another — held by the
+   *  app, because each is a browser-history step (see ToolView). A page this
+   *  panel does not have (another tool's) reads as its own tree. */
+  view: ToolView;
+  onViewChange: (view: ToolView) => void;
 }) {
   const { t } = useTranslation();
   const [tree, setTree] = useState<SourceTree | null>(null);
@@ -435,8 +446,10 @@ export function SourcesPanel({
   const [editSrc, setEditSrc] = useState<string | null>(null);
   const [editRepo, setEditRepo] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  // Switches the panel body between the containment tree and the cleanup tool.
-  const [view, setView] = useState<"tree" | "cleanup">("tree");
+  // The containment tree or Organize sources. The panel is told which, rather
+  // than deciding — see the prop.
+  const view = viewProp === "cleanup" ? "cleanup" : "tree";
+  const setView = (next: "tree" | "cleanup") => onViewChange(next);
   const { settings } = useSettings();
   // Scanned automatically (in the tools worker) so the toggles can show their
   // counts; cached at the ToolsView level so revisits don't re-scan.
@@ -447,7 +460,9 @@ export function SourcesPanel({
     setTree(null);
     setOpen(new Set());
     setQuery("");
-    setView("tree");
+    // Not the open page: a newly loaded file resets that in the app, where the
+    // history entry it belongs to is written — closing it from here would
+    // record loading a file as a step of the reader's own.
     setAddOpen(false);
     setEditSrc(null);
     setEditRepo(null);

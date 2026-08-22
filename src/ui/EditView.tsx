@@ -157,7 +157,15 @@ interface Props {
    * jump Merge to that same person's match candidate when switching modes
    * (tab click or the "m" shortcut), instead of leaving Merge on whatever it
    * had selected before. */
-  onPersonChange?: (id: string) => void;
+  onPersonChange?: (id: string, fromHistory?: boolean) => void;
+  /** Whether anything of the app's own lies behind this view — an earlier
+   *  person, the Tools tab they were opened from, the chart behind an overlay.
+   *  False on the app's first step, where going back would leave the app. */
+  canGoBack?: boolean;
+  /** One step back through the pages, in the order they were visited: the
+   *  browser's own Back, driven from Edit's Back button and ⌫ so both walk the
+   *  one path rather than a person trail of Edit's own. */
+  onGoBack?: () => void;
   /** Returns the compare id of the given person's best (highest-ranked) match
    * candidate, if any — lets the name row show Confirm/Reject/Defer buttons
    * for that pair without switching to Merge mode. */
@@ -218,7 +226,7 @@ const SINGLE_EVENT_TAGS = new Set(["BIRT", "DEAT", "BURI"]);
 /** Edit mode's person view: parents on top, the selected person in the
  * center, partners + children on the bottom. The center panel is editable;
  * relatives navigate on click. */
-export function EditView({ dataset, fileName, startId, changeStart, onDirty, onRecordsSettled, onShowCharts, marriedNameTag, navigateToId, onNavigated, historyToId, onHistoryNavigated, onPersonChange, matchCompareIdFor, matchOrder, decisions, changedPersonIds, compareDataset, onUpdateDecision, onPushEdit, onPatchApplied, pendingApply, onApplied, addPersonRequest, active }: Props) {
+export function EditView({ dataset, fileName, startId, changeStart, onDirty, onRecordsSettled, onShowCharts, marriedNameTag, navigateToId, onNavigated, historyToId, onHistoryNavigated, onPersonChange, canGoBack, onGoBack, matchCompareIdFor, matchOrder, decisions, changedPersonIds, compareDataset, onUpdateDecision, onPushEdit, onPatchApplied, pendingApply, onApplied, addPersonRequest, active }: Props) {
   const { t } = useTranslation();
   const formatName = useNameOf();
   const settings = useSettingsSlice(SETTINGS_KEYS);
@@ -235,6 +243,9 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
       dataset.individuals.keys().next().value,
   );
   const [history, setHistory] = useState<string[]>([]);
+  /** The person a Back/Forward press is bringing back, until the change is
+   *  reported (see navigateFromHistory). */
+  const fromHistoryRef = useRef<string | undefined>(undefined);
   // Bumped after every edit to force a re-render — the dataset is mutated
   // in place, so React has no other signal that `person` changed.
   const [tick, setTick] = useState(0);
@@ -422,6 +433,11 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
    *  rather than each undoing the other. */
   const navigateFromHistory = useStableHandler((id: string) => {
     if (!id || id === selectedId) return;
+    // Told to the parent with the change itself: a person the app arrived at by
+    // following history is not a step to be recorded as one. Set only once the
+    // change is certain, and consumed by the effect that reports it, so it can
+    // never be left standing over a later navigation of the reader's own.
+    fromHistoryRef.current = id;
     setHistory((h) => {
       const i = h.lastIndexOf(id);
       if (i >= 0) return h.slice(0, i);
@@ -433,17 +449,22 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     setSelectedId(id);
   });
 
-  const goBack = useStableHandler(() => {
-    setHistory((h) => {
-      // Skip entries whose record is gone (deleted, or absorbed by a duplicate
-      // merge) — landing on a dead id would render the empty state.
-      let i = h.length - 1;
-      while (i >= 0 && !dataset.individuals.has(h[i])) i--;
-      if (i < 0) return [];
-      setSelectedId(h[i]);
-      return h.slice(0, i);
-    });
-  });
+  /**
+   * Back out of this person — one step back through the pages, in the order
+   * they were visited, which is the browser's own history (see `goBackPage`).
+   *
+   * Edit used to walk a trail of its own here, of people and nothing else: a
+   * person opened from a Tools list stepped back to whoever Edit had been
+   * showing before, while the list the reader had actually come from was one
+   * browser step away and no button in the view could reach it. The people are
+   * still walked — each is a history entry of its own — and the trail below
+   * stays as the record of who was opened from whom, which is what the popstate
+   * restore rewinds and what positions the family steps.
+   *
+   * A person since deleted is skipped by the restore itself, which knows what
+   * the dataset still holds.
+   */
+  const goBack = useStableHandler(() => onGoBack?.());
 
   // V (tree) shortcut, Left/Right record navigation, Up/Down scrolling, and C/R/D
   // decision shortcuts (mirroring Merge mode's). Kept as a ref-fed closure
@@ -592,7 +613,8 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   }, [historyToId]);
 
   useEffect(() => {
-    if (selectedId) onPersonChange?.(selectedId);
+    if (selectedId) onPersonChange?.(selectedId, fromHistoryRef.current === selectedId);
+    fromHistoryRef.current = undefined;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId]);
 
@@ -1869,7 +1891,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
               label={t("edit.back")}
               shortcutHint="⌫"
               showLabel
-              disabled={history.length === 0}
+              disabled={!canGoBack}
               onClick={goBack}
             />
             <button

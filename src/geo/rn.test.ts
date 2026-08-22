@@ -201,12 +201,13 @@ describe("buildRnFilter", () => {
     );
   });
 
-  it("drops the village-numbering clause only when explicitly widened", () => {
-    expect(buildRnFilter({ settlement: "Bled", number: 4 }, { anyStreet: true })).toBe(
-      "NASELJE_NAZIV='Bled' AND HS_STEVILKA=4 AND HS_DODATEK IS NULL",
-    );
-    // A known street already constrains the query, so anyStreet changes nothing.
-    expect(buildRnFilter({ settlement: "Bled", street: "Mlinska", number: 4 }, { anyStreet: true })).toContain(
+  it("never drops the village-numbering clause", () => {
+    // There is no widening to ask for: a street-less number is village
+    // numbering or it is nothing. Dropped, the clause let "Spodnja Besnica 23"
+    // answer with Senožeti 23, Vogel 23, Pešnica 23 and Trata 23 — four houses
+    // sharing a number and nothing else.
+    expect(buildRnFilter({ settlement: "Bled", number: 4 })).toContain("ULICA_NAZIV IS NULL");
+    expect(buildRnFilter({ settlement: "Bled", street: "Mlinska", number: 4 })).toContain(
       "ULICA_NAZIV LIKE 'Mlinska%'",
     );
   });

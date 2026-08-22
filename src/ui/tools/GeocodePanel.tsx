@@ -798,6 +798,7 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
         kinship={kinship}
         onNavigate={onNavigate}
         onRenameAddresses={onRenameAddresses}
+        onRenamePlace={renameValue}
         actionsHost={tab === "addresses" ? tabActionsEl : null}
       />
       </div>

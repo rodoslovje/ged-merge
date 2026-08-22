@@ -29,7 +29,7 @@ import { type PageMediaGroup, type PageMediaReport } from "../../tools/pageMedia
 import type { Translate } from "../../locales/i18n";
 import type { RecordPatch } from "../historyTypes";
 import { familySpouses, recordCitedBy } from "../../tools/sources";
-import { personMatches, TreeSearch, UsageList, useDebounced, usePersonNameIndex } from "./shared";
+import { ExpandAllToggle, personMatches, TreeSearch, UsageList, useDebounced, usePersonNameIndex } from "./shared";
 import { foldSearch, queryTerms } from "../globalSearch";
 import { PersonLink } from "../PersonLink";
 import { detectSourceCoverage, repoLinkWanted, sourceTooltip } from "../../gedcom/source";
@@ -625,18 +625,6 @@ export function SourceCleanupView({
       return next;
     });
   };
-  /** The two openers, wherever a list puts its own chips. */
-  const expandActions = (
-    <>
-      <button className="tools-issue-link" onClick={() => expandShown(true)}>
-        {t("tools.sources.expandAll")}
-      </button>
-      <button className="tools-issue-link" onClick={() => expandShown(false)}>
-        {t("tools.sources.collapseAll")}
-      </button>
-    </>
-  );
-
   /** …and what is on screen right now, for the line that says a filter has
    *  emptied the list. */
   const shownCounts: Record<CleanupTab, number> = {
@@ -649,6 +637,13 @@ export function SourceCleanupView({
   // does — an apply empties the tab it ran on, and the page must not go blank
   // while three other lists wait behind it.
   const activeTab: CleanupTab | undefined = (tab && openTabs.includes(tab) ? tab : undefined) ?? openTabs[0];
+  /** The opener, wherever a list puts its own chips — one control, as on the
+   *  geocoding lists: it offers "expand all" while anything is still shut and
+   *  "collapse all" only once everything is open, and there is no state in
+   *  which the other action is wanted. */
+  const shownNow = activeTab ? shownIds[activeTab] : [];
+  const allShownOpen = shownNow.length > 0 && shownNow.every((id) => expanded.has(id));
+  const expandActions = <ExpandAllToggle allOpen={allShownOpen} onToggle={() => expandShown(!allShownOpen)} />;
   const nothingSelected =
     selectedGroups.length === 0 &&
     selectedDupGroups.length === 0 &&
@@ -1435,6 +1430,29 @@ function ReshapeGroupRow({
           {SITE_ICON[group.site]} {title}
         </span>
         <RowLink url={link} t={t} className="tools-tree-meta" />
+        {/* Name, its ✎, then the count — the order every list of these two
+            tools reads in. The ✎ used to sit among the actions at the end of
+            the line, half a row away from the title it rewrites. */}
+        {onEdit && !removeMarked && (
+          <button
+            className="tools-issue-link"
+            onClick={onEdit}
+            title={editsRecord ? t("tools.sources.editRecordHint") : t("editSource.title")}
+          >
+            ✎
+          </button>
+        )}
+        {/* The count is the expand toggle, as in the geocoding and naming
+            lists: the records it counts are the member rows below. */}
+        <button
+          className="tools-chip-count tools-count-toggle"
+          aria-pressed={open}
+          aria-expanded={open}
+          title={t("tools.sources.reshapeCountToggle")}
+          onClick={onToggleOpen}
+        >
+          {group.members.length}
+        </button>
         {/* The reader traded this group's link for another in the ✎ editor —
             the media the apply writes carries the new one. */}
         {swapped && !removeMarked && (
@@ -1468,15 +1486,6 @@ function ReshapeGroupRow({
             {t("tools.sources.reshapeNew")}
           </span>
         )}
-        {onEdit && !removeMarked && (
-          <button
-            className="tools-issue-link"
-            onClick={onEdit}
-            title={editsRecord ? t("tools.sources.editRecordHint") : t("editSource.title")}
-          >
-            ✎
-          </button>
-        )}
         <button
           className="tools-issue-link"
           onClick={onToggleRemove}
@@ -1484,17 +1493,6 @@ function ReshapeGroupRow({
           title={t(removeMarked ? "tools.sources.reshapeRemoveUndo" : "tools.sources.reshapeRemoveHint")}
         >
           {removeMarked ? "↩" : "🗑"}
-        </button>
-        {/* The count is the expand toggle, as in the geocoding and naming
-            lists: the persons it counts are the member rows below. */}
-        <button
-          className="tools-chip-count tools-count-toggle"
-          aria-pressed={open}
-          aria-expanded={open}
-          title={t("tools.sources.reshapeCountToggle")}
-          onClick={onToggleOpen}
-        >
-          {group.members.length}
         </button>
       </div>
       {open && (
@@ -1729,8 +1727,10 @@ function PageMediaRow({
         <span className="tools-tree-label clickable" onClick={onToggleOpen} title={group.title}>
           📖 {group.title}
         </span>
-        <span className="tools-chip-count">{group.missing.length + group.unfiled.length}</span>
+        {/* Name, its ✎, then the count — the order every list of these two
+            tools reads in. */}
         <RowEdit xref={group.sourceXref} kind="source" onEditRecord={onEditRecord} t={t} />
+        <span className="tools-chip-count">{group.missing.length + group.unfiled.length}</span>
         <span className="tools-tree-meta">
           {[
             group.missing.length > 0 && t("tools.sources.pageMediaCount", { count: group.missing.length }),
@@ -1840,8 +1840,8 @@ function RegroupRow({
         <span className="tools-tree-label clickable" onClick={onToggleOpen} title={group.repoName}>
           {group.repoName}
         </span>
-        <span className="tools-chip-count">{group.moves.length}</span>
         {group.targetXref && <RowEdit xref={group.targetXref} kind="repo" onEditRecord={onEditRecord} t={t} />}
+        <span className="tools-chip-count">{group.moves.length}</span>
         <span className="tools-tree-meta">
           {group.targetXref
             ? t("tools.sources.regroupExisting")
