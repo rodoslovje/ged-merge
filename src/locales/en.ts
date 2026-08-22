@@ -769,6 +769,10 @@ export const en = {
   "tools.sources.regroupNew": "new repository",
   "tools.sources.regroupEmptied_one": "{{count}} repository removed",
   "tools.sources.regroupEmptied_other": "{{count}} repositories removed",
+  "tools.sources.tab.links": "Sources",
+  "tools.sources.tab.dups": "Duplicates",
+  "tools.sources.tab.repos": "Repositories",
+  "tools.sources.tab.pages": "Pages",
   "tools.sources.pageMediaHeading": "Cited pages without their image",
   "tools.sources.pageMediaIntro":
     "This file links a cited page's image beside the citation, the way webtrees and Ancestry show a scan with the fact it documents (Settings → Page links). These citations do not have theirs: the image is under the source, but the person or the event does not link it. Pick the sources and apply — one image pointer is added beside each citation, and nothing else about the record changes.",

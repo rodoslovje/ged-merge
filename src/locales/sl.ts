@@ -891,6 +891,10 @@ export const sl = {
   "tools.sources.regroupEmptied_two": "odstranjeni {{count}} hrambi",
   "tools.sources.regroupEmptied_few": "odstranjene {{count}} hrambe",
   "tools.sources.regroupEmptied_other": "odstranjenih {{count}} hramb",
+  "tools.sources.tab.links": "Viri",
+  "tools.sources.tab.dups": "Dvojniki",
+  "tools.sources.tab.repos": "Hrambe",
+  "tools.sources.tab.pages": "Strani",
   "tools.sources.pageMediaHeading": "Navedene strani brez svoje slike",
   "tools.sources.pageMediaIntro":
     "Ta datoteka pripenja sliko navedene strani k navedbi pri dogodku, tako da je posnetek viden ob dejstvu, ki ga dokazuje (nastavi se v Nastavitvah → Povezave strani). Te navedbe svoje slike nimajo: slika je pri zapisu vira, oseba ali dogodek pa je ne navaja. Izberite vire in jih uveljavite — ob vsaki navedbi se doda ena povezava do slike, drugo v zapisu ostane nespremenjeno.",

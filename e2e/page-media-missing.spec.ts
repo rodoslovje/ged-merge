@@ -40,7 +40,8 @@ test("a citation missing its page image is listed, and the apply links it", asyn
   await page.getByText("Sources", { exact: true }).click();
   await page.getByRole("button", { name: /Organize sources/ }).click();
 
-  // The section names the source and counts the citations, not the sources.
+  // The lists are tabs now; the pages one names itself and carries its count.
+  await page.getByRole("tab", { name: /Pages/ }).click();
   const section = page.locator(".tools-cleanup-section", { hasText: "Cited pages without their image" });
   await expect(section).toBeVisible();
   const row = section.locator(".tools-tree-node", { hasText: "Krstna knjiga - 03869" }).first();
@@ -53,9 +54,10 @@ test("a citation missing its page image is listed, and the apply links it", asyn
   await expect(row.locator(".tools-dup-member").first()).toContainText("Blaž");
   await expect(row.locator(".tools-dup-member").first()).toContainText("BIRT");
 
-  // Tick and apply: the button names this list's own work.
+  // Tick and apply: the run button stands with the tabs, and names this list's
+  // own work while only its rows are ticked.
   await row.locator("input.tools-dup-check").check();
-  const apply = section.getByRole("button", { name: /Link page images/ });
+  const apply = page.getByRole("button", { name: /Link page images/ });
   await expect(apply).toBeEnabled();
   await apply.click();
 

@@ -50,6 +50,10 @@ import { ToolSummary } from "./ToolSummary";
 const SITES: readonly ReshapeSite[] = ALL_SITES;
 const QUAY_CHOICES = ["", "3", "2", "1", "0"];
 
+/** The page's lists, in the order their tabs stand. */
+const CLEANUP_TABS = ["dups", "repos", "links", "pages"] as const;
+type CleanupTab = (typeof CLEANUP_TABS)[number];
+
 const DUP_KINDS: DupKind[] = ["media", "source", "repo"];
 const DUP_KIND_ICON: Record<DupKind, string> = { media: "🖼", source: "📚", repo: "🏛" };
 
@@ -189,13 +193,23 @@ export function SourceCleanupView({
     () => dupReportProp ?? { groups: [], byKind: { media: 0, source: 0, repo: 0 } },
     [dupReportProp],
   );
-  // Only the first site category with hits is pre-checked — converting one
-  // site at a time keeps the change reviewable; the other categories (and
-  // especially generic "other" links) are a click away.
-  const [sites, setSites] = useState<Set<ReshapeSite>>(() => {
-    const first = SITES.find((s) => s !== "other" && reshapeReport.bySite[s] > 0);
-    return new Set<ReshapeSite>(first ? [first] : []);
-  });
+  // Which site's links the list shows — the geocoding page's chip row, and the
+  // same rule: one chip at a time, "All" the way back. Converting one site at a
+  // time keeps the change reviewable, so the first site with hits leads and the
+  // generic "other" links are never what a reader lands on.
+  const [site, setSite] = useState<ReshapeSite | null>(
+    () => SITES.find((s) => s !== "other" && reshapeReport.bySite[s] > 0) ?? null,
+  );
+  const sites = useMemo<Set<ReshapeSite>>(
+    () => new Set(site ? [site] : SITES.filter((s) => reshapeReport.bySite[s] > 0)),
+    [site, reshapeReport],
+  );
+  /** Which list is on screen. The four kinds of work this page does are four
+   *  lists, and stacked they buried each other: a file with hundreds of pages
+   *  to link put every other list — and the run button with them — a long
+   *  scroll away. Tabs, as on the geocoding page, and only for the lists that
+   *  have something in them. */
+  const [tab, setTab] = useState<CleanupTab | null>(null);
   const [excluded, setExcluded] = useState<Set<string>>(new Set());
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [relocate, setRelocate] = useState(true);
@@ -255,14 +269,6 @@ export function SourceCleanupView({
   const toggleDupGroup = toggleIn(setDupSelected);
   const toggleRegroupGroup = toggleIn(setRegroupSelected);
   const togglePageMediaGroup = toggleIn(setPageMediaSelected);
-
-  const toggleSite = (site: ReshapeSite) =>
-    setSites((s) => {
-      const next = new Set(s);
-      if (next.has(site)) next.delete(site);
-      else next.add(site);
-      return next;
-    });
 
   // Once the lookups are in, the FamilySearch pages that belong to one book
   // become one row — one source with a page citation each, instead of one
@@ -494,6 +500,20 @@ export function SourceCleanupView({
   const hasDups = dupReport.groups.length > 0;
   const hasRegroup = regroupReport.groups.length > 0;
   const hasPageMedia = pageMediaReport.groups.length > 0;
+
+  // What each tab holds, and so whether it is offered at all: a tab that opens
+  // an empty list is a promise the page cannot keep.
+  const tabCounts: Record<CleanupTab, number> = {
+    dups: dupReport.groups.length,
+    repos: regroupReport.groups.length,
+    links: reshapeReport.groups.length,
+    pages: pageMediaReport.groups.length,
+  };
+  const openTabs = CLEANUP_TABS.filter((k) => tabCounts[k] > 0);
+  // The reader's choice while it still has rows; otherwise the first list that
+  // does — an apply empties the tab it ran on, and the page must not go blank
+  // while three other lists wait behind it.
+  const activeTab: CleanupTab | undefined = (tab && tabCounts[tab] > 0 ? tab : undefined) ?? openTabs[0];
   const nothingSelected =
     selectedGroups.length === 0 &&
     selectedDupGroups.length === 0 &&
@@ -583,14 +603,34 @@ export function SourceCleanupView({
 
       {runStatus}
 
-      {hasReshape && (
+      {/* The tabs, and the run button beside them: one action for everything
+          ticked across the lists, always within reach of the top of the page. */}
+      {openTabs.length > 0 && (
+        <div className="tools-geo-tabs-row">
+          <div className="tools-geo-tabs" role="tablist">
+            {openTabs.map((k) => (
+              <button
+                key={k}
+                role="tab"
+                aria-selected={activeTab === k}
+                className={activeTab === k ? "active" : ""}
+                onClick={() => setTab(k)}
+              >
+                {t(`tools.sources.tab.${k}`)} <span className="tools-chip-count">{tabCounts[k]}</span>
+              </button>
+            ))}
+          </div>
+          <div className="tools-dup-bulk">{applyAction}</div>
+        </div>
+      )}
+
+      {hasReshape && activeTab === "links" && (
         <section className="tools-cleanup-section">
           {/* No heading of its own: the page is called Organize sources, the
               summary counts its groups, and the paragraph below says what the
               list holds — a fourth telling would only repeat them. */}
           <div className="tools-dup-kind-head">
             <div className="tools-dup-bulk">
-              {applyAction}
               <button className="tools-issue-link" onClick={() => setExcluded(new Set())}>
                 {t("tools.sources.dupSelectAll")}
               </button>
@@ -620,13 +660,23 @@ export function SourceCleanupView({
           </div>
           <p className="tools-intro">{t("tools.sources.reshapeIntro")}</p>
 
-          <div className="tools-reshape-options">
-            {SITES.filter((s) => reshapeReport.bySite[s] > 0).map((site) => (
-              <label key={site} className="tools-reshape-site">
-                <input type="checkbox" checked={sites.has(site)} onChange={() => toggleSite(site)} />
-                {SITE_ICON[site]} {t(`tools.sources.reshapeSite.${site}`)}
-                <span className="tools-chip-count">{reshapeReport.bySite[site]}</span>
-              </label>
+          {/* One chip per site, the geocoding pages' filter row: a chip that
+              would show nothing is a button that does nothing, so only the
+              sites with links are offered, and "All" is always the way back. */}
+          <div className="tools-chips">
+            <button className={`tools-chip ${site === null ? "active" : ""}`} onClick={() => setSite(null)}>
+              {t("tools.geocode.filter.all")}{" "}
+              <span className="tools-chip-count">{reshapeReport.groups.length}</span>
+            </button>
+            {SITES.filter((s) => reshapeReport.bySite[s] > 0).map((s) => (
+              <button
+                key={s}
+                className={`tools-chip ${site === s ? "active" : ""}`}
+                onClick={() => setSite(s)}
+              >
+                {SITE_ICON[s]} {t(`tools.sources.reshapeSite.${s}`)}{" "}
+                <span className="tools-chip-count">{reshapeReport.bySite[s]}</span>
+              </button>
             ))}
           </div>
           <div className="tools-reshape-options">
@@ -702,13 +752,12 @@ export function SourceCleanupView({
         </section>
       )}
 
-      {hasDups && (
+      {hasDups && activeTab === "dups" && (
         <section className="tools-cleanup-section">
           <div className="tools-dup-kind-head">
             {t("tools.sources.dupHeading")}
             <span className="tools-chip-count">{dupReport.groups.length}</span>
             <div className="tools-dup-bulk">
-              {!hasReshape && applyAction}
               <button
                 className="tools-issue-link"
                 onClick={() => setDupSelected(new Set(dupReport.groups.map((g) => g.id)))}
@@ -766,13 +815,12 @@ export function SourceCleanupView({
         </section>
       )}
 
-      {hasRegroup && (
+      {hasRegroup && activeTab === "repos" && (
         <section className="tools-cleanup-section">
           <div className="tools-dup-kind-head">
             {t("tools.sources.regroupHeading")}
             <span className="tools-chip-count">{regroupReport.groups.length}</span>
             <div className="tools-dup-bulk">
-              {!hasReshape && !hasDups && applyAction}
               <button
                 className="tools-issue-link"
                 onClick={() => setRegroupSelected(new Set(regroupReport.groups.map((g) => g.id)))}
@@ -803,13 +851,12 @@ export function SourceCleanupView({
         </section>
       )}
 
-      {hasPageMedia && (
+      {hasPageMedia && activeTab === "pages" && (
         <section className="tools-cleanup-section">
           <div className="tools-dup-kind-head">
             {t("tools.sources.pageMediaHeading")}
             <span className="tools-chip-count">{pageMediaReport.total + pageMediaReport.unfiled}</span>
             <div className="tools-dup-bulk">
-              {!hasReshape && !hasDups && !hasRegroup && applyAction}
               <button
                 className="tools-issue-link"
                 onClick={() => setPageMediaSelected(new Set(pageMediaReport.groups.map((g) => g.id)))}
