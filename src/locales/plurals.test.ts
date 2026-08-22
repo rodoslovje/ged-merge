@@ -140,25 +140,27 @@ describe("locale files", () => {
   it("declines every noun of the file summary", () => {
     // The Tools heading counts five things at once, each with its own noun, so
     // each carries its own four forms: 1 oseba, 2 osebi, 3 osebe, 5 oseb — and
-    // the same for families, places, sources and media.
+    // the same for families, places, sources and media. The number is grouped
+    // in the reader's own language too: 11.242 in Slovenian, 11,242 in English.
     const forms = (key: string) => [1, 2, 3, 5, 11242].map((n) => t(key, n, "sl"));
     expect(forms("tools.stats.indi")).toEqual([
-      "1 oseba", "2 osebi", "3 osebe", "5 oseb", "11242 oseb",
+      "1 oseba", "2 osebi", "3 osebe", "5 oseb", "11.242 oseb",
     ]);
     expect(forms("tools.stats.fam")).toEqual([
-      "1 družina", "2 družini", "3 družine", "5 družin", "11242 družin",
+      "1 družina", "2 družini", "3 družine", "5 družin", "11.242 družin",
     ]);
     expect(forms("tools.stats.places")).toEqual([
-      "1 kraj", "2 kraja", "3 kraji", "5 krajev", "11242 krajev",
+      "1 kraj", "2 kraja", "3 kraji", "5 krajev", "11.242 krajev",
     ]);
     expect(forms("tools.stats.sources")).toEqual([
-      "1 vir", "2 vira", "3 viri", "5 virov", "11242 virov",
+      "1 vir", "2 vira", "3 viri", "5 virov", "11.242 virov",
     ]);
     expect(forms("tools.stats.media")).toEqual([
-      "1 medij", "2 medija", "3 mediji", "5 medijev", "11242 medijev",
+      "1 medij", "2 medija", "3 mediji", "5 medijev", "11.242 medijev",
     ]);
     expect(t("tools.stats.indi", 1, "en")).toBe("1 individual");
     expect(t("tools.stats.indi", 2, "en")).toBe("2 individuals");
+    expect(t("tools.stats.indi", 11242, "en")).toBe("11,242 individuals");
   });
 
   it("has no leftover base key shadowing a pluralized one", () => {
