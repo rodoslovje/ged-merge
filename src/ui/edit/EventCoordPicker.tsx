@@ -529,6 +529,50 @@ export function EventCoordPicker({
             )}
 
             <div className="edit-coord-side">
+              {/* The searches lead the side panel, and everything below them is
+                  what they and the file have to say — a control standing under
+                  its own results reads as being about something else.
+                  The register is offered whenever it can answer without the
+                  network — a Croatian address is already in this browser, and
+                  the online opt-in governs what leaves the device. The
+                  OpenStreetMap search beside it always needs it. */}
+              {settings.allowLinkFetch || registerLocal ? (
+                <div className="edit-coord-actions">
+                  {/* A search that has answered puts its own button away, as the
+                      worklist rows do — and "no hits" is an answer too: the note
+                      that replaces it says so, and pressing again would only ask
+                      the same service the same question and be told the same
+                      nothing. A search that *failed* keeps its button: that is a
+                      service unreachable, not an answer, and it is worth another
+                      press. */}
+                  {queries.length > 0 && rn.state !== "done" && (
+                    <button type="button" className="tools-issue-link" disabled={busy} onClick={runRegister}>
+                      {rn.state === "loading" ? t("tools.geocode.rn.searching") : t("tools.geocode.rn.search")}
+                    </button>
+                  )}
+                  {settings.allowLinkFetch && osm.state !== "done" && (
+                    <button type="button" className="tools-issue-link" disabled={busy} onClick={runOnline}>
+                      {osm.state === "loading" ? t("tools.geocode.online.searching") : t("tools.geocode.online.search")}
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <p className="edit-coord-note">{t("tools.geocode.downloadNeedsOptIn")}</p>
+              )}
+              {rn.state === "error" && <p className="edit-coord-note">{t("tools.geocode.rn.error")}</p>}
+              {rn.state === "done" && !rn.results.length && <p className="edit-coord-note">{t("tools.geocode.rn.none")}</p>}
+              {osm.state === "error" && <p className="edit-coord-note">{t("tools.geocode.online.error")}</p>}
+              {osm.state === "done" && !osm.results.length && (
+                <p className="edit-coord-note">{t("tools.geocode.online.none")}</p>
+              )}
+              {/* Why the register isn't on offer — only where it could have been:
+                  a Slovenian or Croatian place just needs a house number.
+                  Anywhere else the register was never a candidate, so saying so
+                  is noise. */}
+              {settings.allowLinkFetch && !queries.length && inRegisterCountry && (
+                <p className="edit-coord-note">{t("event.coord.noHouseNumber")}</p>
+              )}
+
               {/* The answers the caller already has, under the numbers its own
                   list shows — the map above draws the same numbers, which is
                   what separates three hits spelled exactly alike. */}
@@ -563,47 +607,6 @@ export function EventCoordPicker({
                     </li>
                   ))}
                 </ul>
-              )}
-
-              {/* The register is offered whenever it can answer without the
-                  network — a Croatian address is already in this browser, and
-                  the online opt-in governs what leaves the device. The
-                  OpenStreetMap search beside it always needs it. */}
-              {settings.allowLinkFetch || registerLocal ? (
-                <div className="edit-coord-actions">
-                  {/* A search that has answered puts its own button away, as the
-                      worklist rows do: the answer is the list, asking the same
-                      service the same question returns it, and a second press
-                      only looked as though it had found the houses twice over.
-                      One that found nothing keeps its button — the note beside
-                      it says so, and a service that was unreachable is worth
-                      another press. */}
-                  {queries.length > 0 && !(rn.state === "done" && rn.results.length > 0) && (
-                    <button type="button" className="tools-issue-link" disabled={busy} onClick={runRegister}>
-                      {rn.state === "loading" ? t("tools.geocode.rn.searching") : t("tools.geocode.rn.search")}
-                    </button>
-                  )}
-                  {settings.allowLinkFetch && !(osm.state === "done" && osm.results.length > 0) && (
-                    <button type="button" className="tools-issue-link" disabled={busy} onClick={runOnline}>
-                      {osm.state === "loading" ? t("tools.geocode.online.searching") : t("tools.geocode.online.search")}
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <p className="edit-coord-note">{t("tools.geocode.downloadNeedsOptIn")}</p>
-              )}
-              {rn.state === "error" && <p className="edit-coord-note">{t("tools.geocode.rn.error")}</p>}
-              {rn.state === "done" && !rn.results.length && <p className="edit-coord-note">{t("tools.geocode.rn.none")}</p>}
-              {osm.state === "error" && <p className="edit-coord-note">{t("tools.geocode.online.error")}</p>}
-              {osm.state === "done" && !osm.results.length && (
-                <p className="edit-coord-note">{t("tools.geocode.online.none")}</p>
-              )}
-              {/* Why the register isn't on offer — only where it could have been:
-                  a Slovenian or Croatian place just needs a house number.
-                  Anywhere else the register was never a candidate, so saying so
-                  is noise. */}
-              {settings.allowLinkFetch && !queries.length && inRegisterCountry && (
-                <p className="edit-coord-note">{t("event.coord.noHouseNumber")}</p>
               )}
 
               {(shownRn.length > 0 || shownOsm.length > 0) && (
