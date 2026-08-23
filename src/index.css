@@ -8906,8 +8906,9 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
    text the way the address rows are. */
 .tools-geo-conflict-body { padding: 6px 0 4px 26px; }
 .tools-geo-conflict-body .tools-geo-minimap { margin-top: 4px; }
-/* A mini-map pin carrying a count: the number of events sitting on that exact
-   coordinate, so a contradiction reads as "12 here, 1 there" at a glance. */
+/* A mini-map pin carrying a number: the one its option wears in the list below
+   the map, or — where the pins stand alone — how many events sit on that exact
+   coordinate. */
 .mini-pin-badge {
   display: flex;
   align-items: center;
