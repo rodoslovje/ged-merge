@@ -490,7 +490,7 @@ export const en = {
   "tools.geocode.online.tooltip": "Sends this place text to nominatim.openstreetmap.org — the OSM search that also resolves street addresses. One request per second, only on this click.",
   "tools.geocode.online.searching": "Searching…",
   "tools.geocode.online.error": "The search failed — try again in a moment.",
-  "tools.geocode.online.none": "No results.",
+  "tools.geocode.online.none": "Nothing in OpenStreetMap under that name.",
   "tools.geocode.gov.search": "Search the Genealogical Gazetteer (GOV)",
   "tools.geocode.gov.tooltip": "Sends this place name to gov.genealogy.net (GOV, the Genealogical Gazetteer) — historical, multilingual place names with a stable GOV id. Accepting a GOV match also writes its _GOV id into the file. Only on this click.",
   "tools.geocode.gov.searching": "Searching GOV…",

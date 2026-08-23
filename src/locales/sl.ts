@@ -604,7 +604,7 @@ export const sl = {
   "tools.geocode.online.tooltip": "Pošlje besedilo tega kraja na nominatim.openstreetmap.org — iskalnik OSM, ki najde tudi ulične naslove. Ena poizvedba na sekundo, samo ob tem kliku.",
   "tools.geocode.online.searching": "Iskanje…",
   "tools.geocode.online.error": "Iskanje ni uspelo — poskusite znova malo pozneje.",
-  "tools.geocode.online.none": "Ni zadetkov.",
+  "tools.geocode.online.none": "Na OpenStreetMap pod tem imenom ni ničesar.",
   "tools.geocode.gov.search": "Išči v Genealoškem imeniku krajev (GOV)",
   "tools.geocode.gov.tooltip": "Pošlje ime tega kraja na gov.genealogy.net (GOV, Genealoški imenik krajev) — zgodovinska, večjezična imena krajev s stalnim identifikatorjem GOV. Ob potrditvi zadetka GOV se v datoteko zapiše tudi njegov identifikator _GOV. Samo ob tem kliku.",
   "tools.geocode.gov.searching": "Iskanje v GOV…",
