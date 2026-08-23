@@ -464,6 +464,7 @@ export function RenameEditor({
   onRemove,
   removeLabel,
   removeTitle,
+  autoFocus = true,
   children,
   ...lookup
 }: {
@@ -484,6 +485,11 @@ export function RenameEditor({
   removeLabel?: string;
   /** What removing would do, for the button's tooltip. */
   removeTitle?: string;
+  /** Whether the field takes the keyboard as it appears. True where the editor
+   *  is only ever mounted by the click that opens it; the lists whose rows come
+   *  and go under a filter pass false once the editor has had its focus, so a
+   *  row returning to the list cannot pull the caret out of the filter box. */
+  autoFocus?: boolean;
   children?: React.ReactNode;
 } & Pick<ComponentProps<typeof PlaceAutocomplete>, "onLookup" | "lookupNote" | "onPickProposal">) {
   const { t } = useTranslation();
@@ -505,7 +511,7 @@ export function RenameEditor({
         className="tools-place-rename-input"
         wrapClassName="tools-place-rename-auto"
         {...(placeholder ? { placeholder } : {})}
-        autoFocus
+        autoFocus={autoFocus}
         // A rename may be exactly a casing fix ("Pod Gozdom" → "pod gozdom") —
         // the canonical map must not snap it back on blur.
         preserveCase
