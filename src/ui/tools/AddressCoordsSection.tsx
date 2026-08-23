@@ -1742,8 +1742,15 @@ export function AddressCoordsSection({
                             // A position of this house's own is exactly what
                             // `filePairCoord` means; anything else the row holds
                             // is the settlement's, which the panel draws as the
-                            // area it is rather than as another house.
-                            {...(row.placed ? { filePairCoord: row.coord } : { fileCoord: row.coord })}
+                            // area it is rather than as another house. Named
+                            // for what it is here: the panel is open *for* this
+                            // address, so the coordinate is its own current one
+                            // — Edit's "the same address elsewhere in this
+                            // file" would announce a second house that is
+                            // really this one.
+                            {...(row.placed
+                              ? { filePairCoord: row.coord, filePairLabel: t("tools.geocode.addr.addrPin") }
+                              : { fileCoord: row.coord })}
                             hideTrigger
                             // Everything the row found, so the panel's map draws
                             // the lot under the row's own numbers.

@@ -53,6 +53,7 @@ export function EventCoordPicker({
   title,
   fileCoord,
   filePairCoord,
+  filePairLabel,
   onPick,
   onClear,
   hideTrigger,
@@ -77,6 +78,12 @@ export function EventCoordPicker({
   /** Coordinate this exact place+address already carries elsewhere in the file —
    *  the same house, so better still. */
   filePairCoord?: GeoCoord;
+  /** What to call that coordinate, where "elsewhere in this file" is not what
+   *  it is. A worklist row opens this panel *for* one address and hands over
+   *  the position that address already holds, so the line is its own current
+   *  one and not another occurrence's — and saying "elsewhere" reads as a
+   *  second house having been found. */
+  filePairLabel?: string;
   /** `label` names where the coordinate came from (the register hit, the file,
    *  "manual") — for callers that stage a pick and show its origin. */
   onPick: (coord: GeoCoord, label?: string) => void;
@@ -325,7 +332,7 @@ export function EventCoordPicker({
    *  name says as much (the Addresses list draws the same thing the same way). */
   const fromFile: { coord: GeoCoord; label: string; place?: boolean }[] = [];
   if (filePairCoord && !sameCoord(filePairCoord, coord)) {
-    fromFile.push({ coord: filePairCoord, label: t("event.coord.fromFile.address") });
+    fromFile.push({ coord: filePairCoord, label: filePairLabel ?? t("event.coord.fromFile.address") });
   }
   if (fileCoord && !sameCoord(fileCoord, coord) && !sameCoord(fileCoord, filePairCoord)) {
     fromFile.push({ coord: fileCoord, label: t("tools.geocode.addr.placePin"), place: true });

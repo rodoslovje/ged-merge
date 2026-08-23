@@ -739,6 +739,7 @@ export const sl = {
   "tools.geocode.addr.placedHint": "Ta naslov že nosi svojo lego — ne naselja, ki bi jo podedoval vsak naslov tukaj. Na seznamu ostane, če jo želite še natančneje določiti.",
   "tools.geocode.addr.inherited": "(iz kraja)",
   "tools.geocode.addr.placePin": "Lega samega kraja",
+  "tools.geocode.addr.addrPin": "Lega tega naslova v datoteki",
   "tools.geocode.addr.coordHint": "Odpri naslov, da vidite, od kod je lega, in jo premaknete",
   "tools.geocode.addr.openHint": "Umestite ta naslov: zemljevid za izbiro, register naslovov ali ročni vnos koordinat.",
   "tools.geocode.addr.inheritedHint": "Ti dogodki nosijo lego samega naselja — tisto, ki jo podeduje vsak naslov tukaj — zato naslov še čaka na umestitev. Ko naslov dobi svojo lego, ta nadomesti podedovano.",
