@@ -60,6 +60,7 @@ export function EventCoordPicker({
   open: controlledOpen,
   onOpenChange,
   onRegisterSearch,
+  onOnlineSearch,
 }: {
   /** The event's current place text (as edited). */
   place: string;
@@ -100,6 +101,11 @@ export function EventCoordPicker({
    *  this one exactly as if it had been run from that list — the same houses,
    *  under the same address — instead of asking the register twice. */
   onRegisterSearch?: (state: { state: "loading" | "error" | "done"; results: RnResult[] }) => void;
+  /** The same for the OpenStreetMap search — the register's fallback, and the
+   *  only lookup for an address no register can take. Reported too, so a
+   *  caller's list numbers these answers beside the register's rather than
+   *  making the user run the same search a second time from the row. */
+  onOnlineSearch?: (state: { state: "loading" | "error" | "done"; results: NominatimResult[] }) => void;
 }) {
   const { t, i18n } = useTranslation();
   const settings = useSettingsSlice(SETTINGS_KEYS);
@@ -287,6 +293,7 @@ export function EventCoordPicker({
     if (!texts.length) return;
     const gen = lookupGen.current;
     setOsm({ state: "loading", results: [] });
+    onOnlineSearch?.({ state: "loading", results: [] });
     // In the language the place is written in — see placeLookupLanguage.
     const lang = placeLookupLanguage(place || address, i18n.language);
     Promise.all(texts.map((text) => searchNominatim(text, lang, lookupSignal()))).then(
@@ -297,8 +304,13 @@ export function EventCoordPicker({
           if (!results.some((have) => sameCoord(have.coord, r.coord))) results.push(r);
         }
         setOsm({ state: "done", results });
+        onOnlineSearch?.({ state: "done", results });
       },
-      () => gen === lookupGen.current && setOsm({ state: "error", results: [] }),
+      () => {
+        if (gen !== lookupGen.current) return;
+        setOsm({ state: "error", results: [] });
+        onOnlineSearch?.({ state: "error", results: [] });
+      },
     );
   };
 
@@ -332,6 +344,19 @@ export function EventCoordPicker({
     setOsm(IDLE);
     setDraft("");
   };
+
+  /**
+   * The panel's own hits, minus the ones the caller is already showing above.
+   *
+   * A list that hands this panel a register lookup takes the answers back
+   * (`onRegisterSearch`) and folds them into its own numbered candidates — so
+   * without this the same two houses stood twice in one panel, once numbered
+   * and once not, and searching again looked like it had found them all over.
+   * Kept as a display filter only: the searches still report what they found,
+   * and the "no hits" notes below still speak for the raw result.
+   */
+  const shownRn = rn.results.filter((r) => !(candidates ?? []).some((c) => sameCoord(c.coord, r.coord)));
+  const shownOsm = osm.results.filter((r) => !(candidates ?? []).some((c) => sameCoord(c.coord, r.coord)));
 
   // Candidate pins plus whatever is currently chosen. Each carries `lines`, so
   // the map renders its detail panel (house, post office, source, and that a
@@ -546,12 +571,19 @@ export function EventCoordPicker({
                   OpenStreetMap search beside it always needs it. */}
               {settings.allowLinkFetch || registerLocal ? (
                 <div className="edit-coord-actions">
-                  {queries.length > 0 && (
+                  {/* A search that has answered puts its own button away, as the
+                      worklist rows do: the answer is the list, asking the same
+                      service the same question returns it, and a second press
+                      only looked as though it had found the houses twice over.
+                      One that found nothing keeps its button — the note beside
+                      it says so, and a service that was unreachable is worth
+                      another press. */}
+                  {queries.length > 0 && !(rn.state === "done" && rn.results.length > 0) && (
                     <button type="button" className="tools-issue-link" disabled={busy} onClick={runRegister}>
                       {rn.state === "loading" ? t("tools.geocode.rn.searching") : t("tools.geocode.rn.search")}
                     </button>
                   )}
-                  {settings.allowLinkFetch && (
+                  {settings.allowLinkFetch && !(osm.state === "done" && osm.results.length > 0) && (
                     <button type="button" className="tools-issue-link" disabled={busy} onClick={runOnline}>
                       {osm.state === "loading" ? t("tools.geocode.online.searching") : t("tools.geocode.online.search")}
                     </button>
@@ -574,9 +606,9 @@ export function EventCoordPicker({
                 <p className="edit-coord-note">{t("event.coord.noHouseNumber")}</p>
               )}
 
-              {(rn.results.length > 0 || osm.results.length > 0) && (
+              {(shownRn.length > 0 || shownOsm.length > 0) && (
                 <ul className="edit-coord-results">
-                  {rn.results.map((r, i) => (
+                  {shownRn.map((r, i) => (
                     <li key={`rn-${i}`}>
                       <button type="button" className="tools-issue-link" title={r.label} onClick={() => take(r.coord, r.label)}>
                         {r.label}
@@ -587,7 +619,7 @@ export function EventCoordPicker({
                       </span>
                     </li>
                   ))}
-                  {osm.results.map((r, i) => (
+                  {shownOsm.map((r, i) => (
                     <li key={`osm-${i}`}>
                       {/* The short composed line; the raw display chain, with
                           its quarters and postcodes, stays in the tooltip. */}

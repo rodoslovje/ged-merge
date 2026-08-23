@@ -1750,12 +1750,13 @@ export function AddressCoordsSection({
                             candidates={candidates}
                             open={coordOpen === row.key}
                             onOpenChange={(next) => setCoordOpen(next ? row.key : null)}
-                            // A register lookup run inside the panel is this
-                            // row's lookup: its houses land in the list under
-                            // the address, and the row's own register link goes
-                            // — the answer is already here, and asking again
-                            // returns it.
+                            // A lookup run inside the panel is this row's
+                            // lookup, whichever service answered: its hits land
+                            // in the list under the address, numbered with the
+                            // rest, and the row's own link goes — the answer is
+                            // already here, and asking again returns it.
                             onRegisterSearch={(next) => setSearch(row.key, next)}
+                            onOnlineSearch={(next) => setOsm(row.key, next)}
                             onPick={(coord, label) =>
                               setPicked((prev) =>
                                 new Map(prev).set(row.key, { coord, label: label ?? t("tools.geocode.manual") }),
