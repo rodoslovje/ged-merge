@@ -958,6 +958,10 @@ export function AddressCoordsSection({
     setPicked(dropMoved);
     setSearches(dropMoved);
     setOsmSearches(dropMoved);
+    // One status stands in the action row at a time: it reports the last thing
+    // the list did, and a note from the operation before that reads as a second
+    // report of the same click.
+    setApplied(null);
     setMoved(changed);
   };
 
@@ -1251,6 +1255,9 @@ export function AddressCoordsSection({
     setSearches(dropWritten);
     setOsmSearches(dropWritten);
     setPicked(new Map());
+    // The move's note goes with it — see `applyMove`: the row reports one
+    // operation, the last one.
+    setMoved(null);
     setApplied(changed);
     setApplyGen((g) => g + 1);
   };

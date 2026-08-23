@@ -8159,8 +8159,10 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 /* Autocomplete-wrapped variant (geocode list): the wrapper takes the flex
    slot the bare input otherwise fills, and the input stretches inside it.
    Wide, because one box searches places AND addresses — the dropdown (sized
-   to the input) must fit a full "place · address" line. */
-.tools-place-rename-auto { flex: 1; min-width: 140px; max-width: 560px; }
+   to the input) must fit a full "place · address" line. It shares the row with
+   the address two to one: the place carries a whole chain of names, the
+   address a house number and at most a street. */
+.tools-place-rename-auto { flex: 2 1 0; min-width: 140px; max-width: 560px; }
 .tools-place-rename-auto .tools-place-rename-input { width: 100%; max-width: none; }
 /* The ADDR part of the rename: editable, pre-filled by a place·address
    combo pick, cleared with ×. */
@@ -8187,6 +8189,14 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
   max-width: 180px;
 }
 .tools-geo-addr-chip-input:focus { outline: none; border-bottom-color: var(--accent); }
+/* The chip as a *field* rather than a tag: it holds an autocomplete whose
+   dropdown must fit an address line, so it takes the third of the rename row
+   the place leaves it instead of hugging what is typed. `nowrap` goes with the
+   growth — the label and the input are a row of their own now, and the input
+   must be free to stretch to the chip's width. */
+.tools-geo-addr-chip--field { flex: 1 1 0; min-width: 120px; white-space: normal; }
+.tools-geo-addr-chip-auto { flex: 1; min-width: 0; }
+.tools-geo-addr-chip-auto .tools-geo-addr-chip-input { width: 100%; max-width: none; }
 .tools-geo-addr-chip-clear {
   background: none;
   border: none;
@@ -8755,6 +8765,10 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 .edit-coord-current { display: flex; align-items: center; gap: 8px; }
 .edit-coord-head .edit-coord-manual { flex: 0 1 320px; }
 .edit-coord-note { color: var(--muted); margin: 0; }
+/* The two searches this panel offers, side by side and wrapping when the panel
+   is narrow — without a gap of their own the labels run into one another and
+   read as a single link. */
+.edit-coord-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; }
 .edit-coord-results { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .edit-coord-results li { display: flex; flex-direction: column; }
 .edit-coord-results .tools-issue-link { text-align: left; }
