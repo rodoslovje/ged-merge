@@ -22,10 +22,12 @@ const keyOf = (c: CoordConflict) => placeAddrKey(c.value, c.address);
  *
  * It lives on the geocode page rather than in the health check because that is
  * where coordinates are read, compared and written — and because settling one is
- * a map question. Expanding a row draws its coordinates as numbered pins (the
- * number being how many events sit there), so the outlier is obvious: twelve
- * events on the church and one 2 km off is a typo, not a second church. Choosing
- * a pin rewrites every event of the pair to it, in one undoable step.
+ * a map question. Expanding a row lists its coordinates as numbered options and
+ * draws each at the number its option carries, so the map and the list are read
+ * by matching numbers; the event count beside each option says which is the
+ * outlier — twelve events on the church and one 2 km off is a typo, not a second
+ * church. Choosing a pin or its option rewrites every event of the pair to it,
+ * in one undoable step.
  *
  * The right answer is not always one of the two, so a point clicked anywhere on
  * the map — or a coordinate typed or pasted in — counts as a third candidate:
@@ -168,6 +170,13 @@ export function CoordConflicts({
           const manualText = manual.get(key) ?? "";
           const manualCoord = parseManualCoord(manualText);
           const manualChosen = !!manualCoord && sameCoord(chosen, manualCoord);
+          /** The option's place in the list is the number it and its pin wear —
+           *  the same reading aid the geocode lists use, so two coordinates a
+           *  street apart are told apart by number rather than by guesswork. */
+          const numberOf = (coord: GeoCoord) => c.coords.findIndex((x) => sameCoord(x.coord, coord)) + 1;
+          /** The hand-picked coordinate closes the list, so it takes the number
+           *  after the file's own. */
+          const manualNumber = c.coords.length + 1;
           return (
             <li key={key} className="tools-tree-node">
               {/* The coordinates themselves are the row's options, listed once
@@ -195,7 +204,7 @@ export function CoordConflicts({
                             label: c.value,
                             ...(c.address ? { sub: c.address } : {}),
                             lines: [t("tools.geocode.addr.uses", { count: x.n }), t("event.coord.pinPick")],
-                            badge: x.n,
+                            badge: numberOf(x.coord),
                             kind: sameCoord(chosen, x.coord) ? "chosen" : "candidate",
                             onPick: () => pick(key, x.coord),
                           }),
@@ -208,6 +217,7 @@ export function CoordConflicts({
                                 coord: manualCoord,
                                 label: t("tools.geocode.manual"),
                                 kind: manualChosen ? ("chosen" as const) : ("candidate" as const),
+                                badge: manualNumber,
                                 onPick: () => pick(key, manualCoord),
                               },
                             ]
@@ -220,16 +230,21 @@ export function CoordConflicts({
                   </Suspense>
                   )}
                   <ul className="tools-geo-candidates">
+                    {/* Each option's number is also its radio, and the number
+                        its pin wears on the map above. */}
                     {c.coords.map((x, j) => (
                       <li key={j}>
                         <label>
                           <input
                             type="radio"
+                            className="tools-geo-cand-radio"
                             name={`conflict-${key}`}
+                            aria-label={formatCoord(x.coord)}
                             checked={sameCoord(chosen, x.coord)}
                             onChange={() => pick(key, x.coord)}
                             onClick={() => sameCoord(chosen, x.coord) && unpick(key)}
                           />
+                          <span className="tools-geo-cand-num">{numberOf(x.coord)}</span>
                           <span className="gm-data gm-coord gm-coord--set">
                             {formatCoord(x.coord)}
                           </span>
@@ -243,12 +258,15 @@ export function CoordConflicts({
                       <label>
                         <input
                           type="radio"
+                          className="tools-geo-cand-radio"
                           name={`conflict-${key}`}
+                          aria-label={t("tools.geocode.manual")}
                           checked={manualChosen}
                           disabled={!manualCoord}
                           onChange={() => manualCoord && pick(key, manualCoord)}
                           onClick={() => manualChosen && unpick(key)}
                         />
+                        <span className="tools-geo-cand-num">{manualNumber}</span>
                         <span className="tools-geo-cand-name">{t("tools.geocode.manual")}</span>
                       </label>
                       <input
