@@ -495,6 +495,17 @@ export function AddressCoordsSection({
    *  picker because the row opens it from two controls — the address and the
    *  pin — with the rename ✎ between them. */
   const [coordOpen, setCoordOpen] = useState<string | null>(null);
+  /** The editor the reader has just asked for, which is the one that takes the
+   *  keyboard. Its state is held here, above the rows, so it survives the row
+   *  leaving the filtered list — and that is exactly why the field cannot
+   *  simply focus itself whenever it appears: an editor left open on a row the
+   *  filter hides is mounted again the moment the filter is cleared, and it
+   *  would take the caret out of the filter box mid-keystroke. Cleared as soon
+   *  as the editor has had its focus, so only the click grants it. */
+  const [focusEditor, setFocusEditor] = useState<string | null>(null);
+  useEffect(() => {
+    if (focusEditor !== null) setFocusEditor(null);
+  }, [focusEditor]);
 
   /** The names behind a person count, for its hover — the first fifteen and how
    *  many more there are, the shape every count on these pages hovers with. */
@@ -922,6 +933,7 @@ export function AddressCoordsSection({
     setMoveTarget(split?.place ?? split?.settlement ?? group.suggestion?.place ?? "");
     setMoveSel(new Set(split?.keys ?? group.suggestion?.keys ?? group.rows.map((r) => r.key)));
     setMovePick(null);
+    setFocusEditor(`move:${group.place}`);
   };
 
   const closeMove = () => {
@@ -1401,6 +1413,7 @@ export function AddressCoordsSection({
                     onOpen={() => {
                       setPlaceRenameKey(group.place);
                       setPlaceRenameDraft(group.place);
+                      setFocusEditor(`place:${group.place}`);
                     }}
                     onClose={() => setPlaceRenameKey(null)}
                     title={t("tools.geocode.renameOpen")}
@@ -1438,6 +1451,7 @@ export function AddressCoordsSection({
                 // village renamed here is usually being spelt the way its
                 // neighbours in the list already are.
                 <RenameEditor
+                  autoFocus={focusEditor === `place:${group.place}`}
                   value={placeRenameDraft}
                   suggestions={places.placeSuggestions}
                   canonical={places.placeCanonical}
@@ -1544,6 +1558,7 @@ export function AddressCoordsSection({
                 ))}
               {isOpen && moveGroup === group.place && (
                 <MovePanel
+                  autoFocus={focusEditor === `move:${group.place}`}
                   group={group}
                   target={moveTarget}
                   selected={moveSel}
@@ -1635,6 +1650,7 @@ export function AddressCoordsSection({
                             onOpen={() => {
                               setRenameKey(row.key);
                               setRenameDraft(row.address);
+                              setFocusEditor(`addr:${row.key}`);
                             }}
                             onClose={() => setRenameKey(null)}
                             title={t("tools.geocode.addr.renameOpen")}
@@ -1872,6 +1888,7 @@ export function AddressCoordsSection({
                           // spelling the place already has, and typing it out again
                           // by hand is how the two miss each other by a character.
                           <RenameEditor
+                            autoFocus={focusEditor === `addr:${row.key}`}
                             value={renameDraft}
                             suggestions={(addrsByPlace.get(group.place) ?? []).filter((a) => a !== row.address)}
                             canonical={places.addrCanonical}
@@ -2126,6 +2143,7 @@ function MovePanel({
   target,
   selected,
   places,
+  autoFocus,
   onTarget,
   onPickProposal,
   onSelectAll,
@@ -2136,6 +2154,10 @@ function MovePanel({
   target: string;
   selected: ReadonlySet<string>;
   places: PlaceSuggestions;
+  /** Whether the destination field takes the keyboard as it appears — true for
+   *  the click that opens the panel, false when a filtered-out group brings its
+   *  open panel back with it. */
+  autoFocus: boolean;
   onTarget: (value: string) => void;
   onPickProposal: (proposal: PlaceProposal) => void;
   onSelectAll: (all: boolean) => void;
@@ -2168,7 +2190,7 @@ function MovePanel({
         className="tools-place-rename-input"
         wrapClassName="tools-place-rename-auto"
         placeholder={t("tools.geocode.addr.movePlaceholder")}
-        autoFocus
+        autoFocus={autoFocus}
         onChange={onTarget}
         onCommit={onTarget}
         onClear={() => onTarget("")}
