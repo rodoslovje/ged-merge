@@ -14,7 +14,9 @@ import type { MiniMapPin } from "../map/MiniPlaceMap";
 import type { KinshipResolver } from "../../match/kinship";
 import { PlaceAutocomplete } from "../edit/PlaceAutocomplete";
 import { usePlaceLookup } from "../edit/PlaceLookupContext";
-import type { PlaceSuggestions } from "../edit/placeSuggestions";
+import { placeKey, type PlaceSuggestions } from "../edit/placeSuggestions";
+import type { PlaceProposal } from "../../geo/placeProposal";
+import { placeCollator } from "../../gedcom/place";
 import { useSettingsSlice } from "../SettingsContext";
 import { GeoPeopleList, GeoRowHeader, MapToggle, RowMap } from "./shared";
 
@@ -227,6 +229,36 @@ export function GeocodePlaceRow({
     setRenamePick(null);
   };
   const renameDisabled = !renameDraft.trim() || (renameDraft.trim() === row.key && !renameAddrDraft.trim());
+
+  // The address field's combos: pairs at *other* places, since the addresses of
+  // the drafted place are already its plain suggestions.
+  const addrCombos = useMemo(
+    () => placeCombos.filter((cb) => placeKey(cb.place) !== placeKey(renameDraft)),
+    [placeCombos, renameDraft],
+  );
+
+  /**
+   * A register offer picked in the **address** field, where the register is
+   * asked *where* a house stands rather than what to call it. The wording the
+   * row already holds is the user's own — "Olševek 1 / 2 (pd Pilar)" names two
+   * houses and the farm on them, which no register line will ever say — so text
+   * is filled only where the field is empty, or replaced where the two differ
+   * by nothing but spelling (the register's diacritics are worth having). The
+   * coordinate always comes along: it is what the offer was picked for.
+   */
+  const pickAddrProposal = (proposal: PlaceProposal) => {
+    const adopt = (own: string, offered: string | undefined) =>
+      !own.trim() || (offered && placeCollator.compare(own.trim(), offered) === 0) ? offered : undefined;
+    const place = adopt(renameDraft, proposal.plac) ?? renameDraft;
+    const addr = adopt(renameAddrDraft, proposal.addr) ?? renameAddrDraft;
+    setRenameDraft(place);
+    setRenameAddrDraft(addr);
+    setRenamePick({
+      place: place.trim(),
+      ...(addr.trim() ? { addr: addr.trim() } : {}),
+      assignment: proposal.govId ? { coord: proposal.coord, govId: proposal.govId } : { coord: proposal.coord },
+    });
+  };
 
   // The manual coordinate as a selectable option: parsed draft (typed
   // or map-picked), checked when it is the row's chosen coordinate.
@@ -513,25 +545,42 @@ export function GeocodePlaceRow({
             onLookup={lookup ? (query) => lookup.search(query) : undefined}
             lookupNote={lookup && !lookup.online ? t("event.place.lookup.offlineOnly") : undefined}
           />
-          <span className="tools-geo-addr-chip" title={t("tools.geocode.renameAddrTooltip")}>
+          {/* The address half of the split, with the same three helps the place
+              beside it has: what this file already writes at that place, the
+              place·address pairs it knows, and the address register itself.
+              The register matters most here — a house number is exactly what
+              the settlements gazetteer cannot answer, and a value naming a
+              quarter of a town ("Čirče") is filed there as a street inside the
+              town, reachable only by asking for the address. */}
+          <span className="tools-geo-addr-chip tools-geo-addr-chip--field" title={t("tools.geocode.renameAddrTooltip")}>
             {t("event.colAddr")}:
-            <input
-              type="text"
-              className="tools-geo-addr-chip-input"
+            <PlaceAutocomplete
               value={renameAddrDraft}
-              size={Math.max(8, renameAddrDraft.length + 1)}
+              suggestions={placeSug.placeToAddrs.get(placeKey(renameDraft)) ?? []}
+              canonical={placeSug.addrCanonical}
+              combos={addrCombos}
+              // The pair list is this field's only route to another settlement,
+              // so a typed place name matches too (as in the Edit row).
+              matchCombosByPlace
+              isDirty={false}
+              className="tools-geo-addr-chip-input"
+              wrapClassName="tools-geo-addr-chip-auto"
               placeholder={t("tools.geocode.renameAddrPlaceholder")}
-              onChange={(e) => setRenameAddrDraft(e.target.value)}
+              onChange={setRenameAddrDraft}
+              onCommit={setRenameAddrDraft}
+              onClear={() => setRenameAddrDraft("")}
+              onPickCombo={(place, addr) => {
+                setRenameDraft(place);
+                setRenameAddrDraft(addr);
+                setRenamePick(null);
+              }}
+              onPickProposal={pickAddrProposal}
+              // House numbers live only in the online registers — an imported
+              // gazetteer holds settlements — so with the opt-in off the field
+              // says why instead of offering a search that cannot answer.
+              onLookup={lookup?.online ? (query) => lookup.searchAddress(renameDraft, query) : undefined}
+              lookupNote={lookup && !lookup.online ? t("tools.geocode.downloadNeedsOptIn") : undefined}
             />
-            {renameAddrDraft && (
-              <button
-                className="tools-geo-addr-chip-clear"
-                onClick={() => setRenameAddrDraft("")}
-                aria-label={t("tools.places.rename.cancel")}
-              >
-                ×
-              </button>
-            )}
           </span>
           <button
             className="nav-btn primary tools-place-rename-apply"

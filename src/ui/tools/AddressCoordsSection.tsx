@@ -958,6 +958,10 @@ export function AddressCoordsSection({
     setPicked(dropMoved);
     setSearches(dropMoved);
     setOsmSearches(dropMoved);
+    // One status stands in the action row at a time: it reports the last thing
+    // the list did, and a note from the operation before that reads as a second
+    // report of the same click.
+    setApplied(null);
     setMoved(changed);
   };
 
@@ -1251,6 +1255,9 @@ export function AddressCoordsSection({
     setSearches(dropWritten);
     setOsmSearches(dropWritten);
     setPicked(new Map());
+    // The move's note goes with it — see `applyMove`: the row reports one
+    // operation, the last one.
+    setMoved(null);
     setApplied(changed);
     setApplyGen((g) => g + 1);
   };
@@ -1735,20 +1742,28 @@ export function AddressCoordsSection({
                             // A position of this house's own is exactly what
                             // `filePairCoord` means; anything else the row holds
                             // is the settlement's, which the panel draws as the
-                            // area it is rather than as another house.
-                            {...(row.placed ? { filePairCoord: row.coord } : { fileCoord: row.coord })}
+                            // area it is rather than as another house. Named
+                            // for what it is here: the panel is open *for* this
+                            // address, so the coordinate is its own current one
+                            // — Edit's "the same address elsewhere in this
+                            // file" would announce a second house that is
+                            // really this one.
+                            {...(row.placed
+                              ? { filePairCoord: row.coord, filePairLabel: t("tools.geocode.addr.addrPin") }
+                              : { fileCoord: row.coord })}
                             hideTrigger
                             // Everything the row found, so the panel's map draws
                             // the lot under the row's own numbers.
                             candidates={candidates}
                             open={coordOpen === row.key}
                             onOpenChange={(next) => setCoordOpen(next ? row.key : null)}
-                            // A register lookup run inside the panel is this
-                            // row's lookup: its houses land in the list under
-                            // the address, and the row's own register link goes
-                            // — the answer is already here, and asking again
-                            // returns it.
+                            // A lookup run inside the panel is this row's
+                            // lookup, whichever service answered: its hits land
+                            // in the list under the address, numbered with the
+                            // rest, and the row's own link goes — the answer is
+                            // already here, and asking again returns it.
                             onRegisterSearch={(next) => setSearch(row.key, next)}
+                            onOnlineSearch={(next) => setOsm(row.key, next)}
                             onPick={(coord, label) =>
                               setPicked((prev) =>
                                 new Map(prev).set(row.key, { coord, label: label ?? t("tools.geocode.manual") }),

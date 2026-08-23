@@ -53,6 +53,7 @@ export function EventCoordPicker({
   title,
   fileCoord,
   filePairCoord,
+  filePairLabel,
   onPick,
   onClear,
   hideTrigger,
@@ -60,6 +61,7 @@ export function EventCoordPicker({
   open: controlledOpen,
   onOpenChange,
   onRegisterSearch,
+  onOnlineSearch,
 }: {
   /** The event's current place text (as edited). */
   place: string;
@@ -76,6 +78,12 @@ export function EventCoordPicker({
   /** Coordinate this exact place+address already carries elsewhere in the file —
    *  the same house, so better still. */
   filePairCoord?: GeoCoord;
+  /** What to call that coordinate, where "elsewhere in this file" is not what
+   *  it is. A worklist row opens this panel *for* one address and hands over
+   *  the position that address already holds, so the line is its own current
+   *  one and not another occurrence's — and saying "elsewhere" reads as a
+   *  second house having been found. */
+  filePairLabel?: string;
   /** `label` names where the coordinate came from (the register hit, the file,
    *  "manual") — for callers that stage a pick and show its origin. */
   onPick: (coord: GeoCoord, label?: string) => void;
@@ -100,6 +108,11 @@ export function EventCoordPicker({
    *  this one exactly as if it had been run from that list — the same houses,
    *  under the same address — instead of asking the register twice. */
   onRegisterSearch?: (state: { state: "loading" | "error" | "done"; results: RnResult[] }) => void;
+  /** The same for the OpenStreetMap search — the register's fallback, and the
+   *  only lookup for an address no register can take. Reported too, so a
+   *  caller's list numbers these answers beside the register's rather than
+   *  making the user run the same search a second time from the row. */
+  onOnlineSearch?: (state: { state: "loading" | "error" | "done"; results: NominatimResult[] }) => void;
 }) {
   const { t, i18n } = useTranslation();
   const settings = useSettingsSlice(SETTINGS_KEYS);
@@ -287,6 +300,7 @@ export function EventCoordPicker({
     if (!texts.length) return;
     const gen = lookupGen.current;
     setOsm({ state: "loading", results: [] });
+    onOnlineSearch?.({ state: "loading", results: [] });
     // In the language the place is written in — see placeLookupLanguage.
     const lang = placeLookupLanguage(place || address, i18n.language);
     Promise.all(texts.map((text) => searchNominatim(text, lang, lookupSignal()))).then(
@@ -297,8 +311,13 @@ export function EventCoordPicker({
           if (!results.some((have) => sameCoord(have.coord, r.coord))) results.push(r);
         }
         setOsm({ state: "done", results });
+        onOnlineSearch?.({ state: "done", results });
       },
-      () => gen === lookupGen.current && setOsm({ state: "error", results: [] }),
+      () => {
+        if (gen !== lookupGen.current) return;
+        setOsm({ state: "error", results: [] });
+        onOnlineSearch?.({ state: "error", results: [] });
+      },
     );
   };
 
@@ -313,7 +332,7 @@ export function EventCoordPicker({
    *  name says as much (the Addresses list draws the same thing the same way). */
   const fromFile: { coord: GeoCoord; label: string; place?: boolean }[] = [];
   if (filePairCoord && !sameCoord(filePairCoord, coord)) {
-    fromFile.push({ coord: filePairCoord, label: t("event.coord.fromFile.address") });
+    fromFile.push({ coord: filePairCoord, label: filePairLabel ?? t("event.coord.fromFile.address") });
   }
   if (fileCoord && !sameCoord(fileCoord, coord) && !sameCoord(fileCoord, filePairCoord)) {
     fromFile.push({ coord: fileCoord, label: t("tools.geocode.addr.placePin"), place: true });
@@ -332,6 +351,19 @@ export function EventCoordPicker({
     setOsm(IDLE);
     setDraft("");
   };
+
+  /**
+   * The panel's own hits, minus the ones the caller is already showing above.
+   *
+   * A list that hands this panel a register lookup takes the answers back
+   * (`onRegisterSearch`) and folds them into its own numbered candidates — so
+   * without this the same two houses stood twice in one panel, once numbered
+   * and once not, and searching again looked like it had found them all over.
+   * Kept as a display filter only: the searches still report what they found,
+   * and the "no hits" notes below still speak for the raw result.
+   */
+  const shownRn = rn.results.filter((r) => !(candidates ?? []).some((c) => sameCoord(c.coord, r.coord)));
+  const shownOsm = osm.results.filter((r) => !(candidates ?? []).some((c) => sameCoord(c.coord, r.coord)));
 
   // Candidate pins plus whatever is currently chosen. Each carries `lines`, so
   // the map renders its detail panel (house, post office, source, and that a
@@ -504,6 +536,50 @@ export function EventCoordPicker({
             )}
 
             <div className="edit-coord-side">
+              {/* The searches lead the side panel, and everything below them is
+                  what they and the file have to say — a control standing under
+                  its own results reads as being about something else.
+                  The register is offered whenever it can answer without the
+                  network — a Croatian address is already in this browser, and
+                  the online opt-in governs what leaves the device. The
+                  OpenStreetMap search beside it always needs it. */}
+              {settings.allowLinkFetch || registerLocal ? (
+                <div className="edit-coord-actions">
+                  {/* A search that has answered puts its own button away, as the
+                      worklist rows do — and "no hits" is an answer too: the note
+                      that replaces it says so, and pressing again would only ask
+                      the same service the same question and be told the same
+                      nothing. A search that *failed* keeps its button: that is a
+                      service unreachable, not an answer, and it is worth another
+                      press. */}
+                  {queries.length > 0 && rn.state !== "done" && (
+                    <button type="button" className="tools-issue-link" disabled={busy} onClick={runRegister}>
+                      {rn.state === "loading" ? t("tools.geocode.rn.searching") : t("tools.geocode.rn.search")}
+                    </button>
+                  )}
+                  {settings.allowLinkFetch && osm.state !== "done" && (
+                    <button type="button" className="tools-issue-link" disabled={busy} onClick={runOnline}>
+                      {osm.state === "loading" ? t("tools.geocode.online.searching") : t("tools.geocode.online.search")}
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <p className="edit-coord-note">{t("tools.geocode.downloadNeedsOptIn")}</p>
+              )}
+              {rn.state === "error" && <p className="edit-coord-note">{t("tools.geocode.rn.error")}</p>}
+              {rn.state === "done" && !rn.results.length && <p className="edit-coord-note">{t("tools.geocode.rn.none")}</p>}
+              {osm.state === "error" && <p className="edit-coord-note">{t("tools.geocode.online.error")}</p>}
+              {osm.state === "done" && !osm.results.length && (
+                <p className="edit-coord-note">{t("tools.geocode.online.none")}</p>
+              )}
+              {/* Why the register isn't on offer — only where it could have been:
+                  a Slovenian or Croatian place just needs a house number.
+                  Anywhere else the register was never a candidate, so saying so
+                  is noise. */}
+              {settings.allowLinkFetch && !queries.length && inRegisterCountry && (
+                <p className="edit-coord-note">{t("event.coord.noHouseNumber")}</p>
+              )}
+
               {/* The answers the caller already has, under the numbers its own
                   list shows — the map above draws the same numbers, which is
                   what separates three hits spelled exactly alike. */}
@@ -540,43 +616,9 @@ export function EventCoordPicker({
                 </ul>
               )}
 
-              {/* The register is offered whenever it can answer without the
-                  network — a Croatian address is already in this browser, and
-                  the online opt-in governs what leaves the device. The
-                  OpenStreetMap search beside it always needs it. */}
-              {settings.allowLinkFetch || registerLocal ? (
-                <div className="edit-coord-actions">
-                  {queries.length > 0 && (
-                    <button type="button" className="tools-issue-link" disabled={busy} onClick={runRegister}>
-                      {rn.state === "loading" ? t("tools.geocode.rn.searching") : t("tools.geocode.rn.search")}
-                    </button>
-                  )}
-                  {settings.allowLinkFetch && (
-                    <button type="button" className="tools-issue-link" disabled={busy} onClick={runOnline}>
-                      {osm.state === "loading" ? t("tools.geocode.online.searching") : t("tools.geocode.online.search")}
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <p className="edit-coord-note">{t("tools.geocode.downloadNeedsOptIn")}</p>
-              )}
-              {rn.state === "error" && <p className="edit-coord-note">{t("tools.geocode.rn.error")}</p>}
-              {rn.state === "done" && !rn.results.length && <p className="edit-coord-note">{t("tools.geocode.rn.none")}</p>}
-              {osm.state === "error" && <p className="edit-coord-note">{t("tools.geocode.online.error")}</p>}
-              {osm.state === "done" && !osm.results.length && (
-                <p className="edit-coord-note">{t("tools.geocode.online.none")}</p>
-              )}
-              {/* Why the register isn't on offer — only where it could have been:
-                  a Slovenian or Croatian place just needs a house number.
-                  Anywhere else the register was never a candidate, so saying so
-                  is noise. */}
-              {settings.allowLinkFetch && !queries.length && inRegisterCountry && (
-                <p className="edit-coord-note">{t("event.coord.noHouseNumber")}</p>
-              )}
-
-              {(rn.results.length > 0 || osm.results.length > 0) && (
+              {(shownRn.length > 0 || shownOsm.length > 0) && (
                 <ul className="edit-coord-results">
-                  {rn.results.map((r, i) => (
+                  {shownRn.map((r, i) => (
                     <li key={`rn-${i}`}>
                       <button type="button" className="tools-issue-link" title={r.label} onClick={() => take(r.coord, r.label)}>
                         {r.label}
@@ -587,7 +629,7 @@ export function EventCoordPicker({
                       </span>
                     </li>
                   ))}
-                  {osm.results.map((r, i) => (
+                  {shownOsm.map((r, i) => (
                     <li key={`osm-${i}`}>
                       {/* The short composed line; the raw display chain, with
                           its quarters and postcodes, stays in the tooltip. */}
