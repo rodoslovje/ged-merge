@@ -6439,10 +6439,14 @@ kbd {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin: 6px 0 10px;
+  /* Nearer what it names than what it closes: the space above the caption is
+     the break, the space below it barely a gap. */
+  margin: 10px 0 5px;
   font-variant: small-caps;
   font-weight: 400;
-  font-size: 0.7rem;
+  /* Small caps between two rules carry the break on their own — the type only
+     has to name it, so it sits below every field label in the dialog. */
+  font-size: 0.62rem;
   letter-spacing: 0.06em;
   color: var(--muted);
 }
