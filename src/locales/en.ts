@@ -1700,7 +1700,6 @@ export const en = {
   "addSource.field.page": "Page",
   "addSource.field.url": "URL",
   "addSource.field.note": "Note",
-  "addSource.group.source": "Source",
   "addSource.group.citation": "Citation",
   "addSource.group.repo": "Where it is kept",
   "addSource.group.media": "Link",

@@ -4,10 +4,11 @@ import { NonStandard, nonStandardTag, type SourceFieldKey } from "./standardFiel
 import { SelectMenu } from "../DropdownMenu";
 import { quayOptions } from "./quay";
 
-/** The records one source dialog writes to at once: the source itself, this
+/** The records a source dialog writes to besides the source itself: this
  *  citation of it (which lives on the person or event, not on the source), the
- *  repository holding it, and the page image. */
-export type SourceGroup = "source" | "citation" | "repo" | "media";
+ *  repository holding it, and the page image. The source's own fields open the
+ *  form and carry no caption — the dialog is titled after them. */
+export type SourceGroup = "citation" | "repo" | "media";
 
 /**
  * The caption between two blocks of fields, saying which of those records the
@@ -120,7 +121,6 @@ export function SourceFieldsForm({
   const citationBlock = citation && (show.page !== false || show.quay !== false);
   return (
     <>
-      <SourceGroupHead group="source" t={t} />
       {field("title", "addSource.field.title")}
       <div className="add-source-details-grid">
         {field("author", "addSource.field.author")}

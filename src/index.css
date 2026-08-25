@@ -6431,21 +6431,21 @@ kbd {
 .add-source-details-grid .add-source-field-wide { grid-column: 1 / -1; }
 /* One dialog edits four records at once — the source, this citation of it, the
    repository and the page image — so each block says which one it writes to.
-   Set like the event captions of the merge comparison (`.event-header-cell`):
-   centred small-caps, quiet enough never to be read as a field label, here
-   between two hairlines that draw the seam the caption names. */
+   Set like the event captions of the merge comparison (`.event-header-cell`)
+   but quieter still: centred small-caps, unemphasized, between two hairlines
+   that draw the seam the caption names. The source's own fields open the form
+   uncaptioned — the dialog's title already says what they are. */
 .add-source-group {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin: 0 0 10px;
+  margin: 6px 0 10px;
   font-variant: small-caps;
-  font-weight: 500;
-  font-size: 0.78rem;
+  font-weight: 400;
+  font-size: 0.7rem;
   letter-spacing: 0.06em;
   color: var(--muted);
 }
-.add-source-group:not(:first-child) { margin-top: 6px; }
 .add-source-group::before,
 .add-source-group::after {
   content: "";

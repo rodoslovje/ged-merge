@@ -1991,7 +1991,6 @@ export const sl = {
   "addSource.field.page": "Stran",
   "addSource.field.url": "URL",
   "addSource.field.note": "Opomba",
-  "addSource.group.source": "Vir",
   "addSource.group.citation": "Navedba",
   "addSource.group.repo": "Kje se hrani",
   "addSource.group.media": "Povezava",

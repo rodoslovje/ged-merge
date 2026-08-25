@@ -1272,7 +1272,6 @@ function GroupEditDialog({
             <>
             <SourceGroupHead group="media" t={t} />
             <SourceLinkRow
-              label={t("addSource.field.link")}
               title={t("tools.sources.swapLinkHint")}
               value={url}
               onChange={relink}

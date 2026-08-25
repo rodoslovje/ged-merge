@@ -741,7 +741,6 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
               link alone. Offered while editing a record that has a link; the
               fields are the reader's to check before Save writes any of it. */}
           <SourceLinkRow
-            label={t("addSource.field.url")}
             value={fields.url}
             onChange={(v) => setFields((f) => ({ ...f, url: v }))}
             onLookUp={editing && fields.url.trim() ? () => void refetch() : undefined}
