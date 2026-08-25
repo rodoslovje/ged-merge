@@ -12,7 +12,7 @@ import { useSettings } from "./SettingsContext";
 import { useDebounced } from "./tools/shared";
 import { SelectMenu } from "./DropdownMenu";
 import { idField } from "./source/standardFields";
-import { QuayField, SourceFieldsForm } from "./source/SourceFieldsForm";
+import { QuayField, SourceFieldsForm, SourceGroupHead } from "./source/SourceFieldsForm";
 import { useSourceLookup } from "./source/useSourceLookup";
 import { SourceDialogShell } from "./source/SourceDialogShell";
 import { SourceLinkRow } from "./source/SourceLinkRow";
@@ -638,6 +638,9 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
               }}
               coverage={coverage}
               idOnRepo={idOnRepo}
+              // Tools → Sources writes a record cited by nothing: there the
+              // page names the image the link opens, not an entry in a book.
+              citation={!standalone}
               t={t}
             />
           )}
@@ -646,19 +649,24 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
               evidence is; the source's own fields are the file's, not a
               proposal's. */}
           {match && !standalone && (
-            <div className="add-source-details-grid">
-              <label className="add-source-field">
-                <span>{t("addSource.field.page")}</span>
-                <input
-                  className="edit-input"
-                  value={fields.page}
-                  onChange={(e) => setFields((f) => ({ ...f, page: e.target.value }))}
-                />
-              </label>
-              <QuayField value={fields.quay} onChange={(v) => setFields((f) => ({ ...f, quay: v }))} t={t} />
-            </div>
+            <>
+              <SourceGroupHead group="citation" t={t} />
+              <div className="add-source-details-grid">
+                <label className="add-source-field">
+                  <span>{t("addSource.field.page")}</span>
+                  <input
+                    className="edit-input"
+                    value={fields.page}
+                    onChange={(e) => setFields((f) => ({ ...f, page: e.target.value }))}
+                  />
+                </label>
+                <QuayField value={fields.quay} onChange={(v) => setFields((f) => ({ ...f, quay: v }))} t={t} />
+              </div>
+            </>
           )}
           {!match && (
+            <>
+            <SourceGroupHead group="repo" t={t} />
             <div className="add-source-details-grid">
               <label className="add-source-field">
                 <span>{t("addSource.field.repo")}</span>
@@ -723,7 +731,9 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
                 </label>
               )}
             </div>
+            </>
           )}
+          <SourceGroupHead group="media" t={t} />
           {/* Read the page again and fill these fields from it — for a record
               made before the lookup could answer, or made offline from the
               link alone. Offered while editing a record that has a link; the

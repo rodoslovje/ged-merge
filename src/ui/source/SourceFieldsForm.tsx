@@ -4,6 +4,28 @@ import { NonStandard, nonStandardTag, type SourceFieldKey } from "./standardFiel
 import { SelectMenu } from "../DropdownMenu";
 import { quayOptions } from "./quay";
 
+/** The GEDCOM records one source dialog writes to at once, and the tags each
+ *  block of fields lands in — the rule the reader needs to make sense of
+ *  "editing a source" changing what a person's event says. */
+const GROUP_TAGS = { source: "SOUR", citation: "PAGE · QUAY", repo: "REPO", media: "OBJE" } as const;
+
+/**
+ * The rule above a block of fields: what it is, and which record it is written
+ * to. A source dialog edits four things at once — the source itself, this
+ * citation of it (which lives on the person or event, not on the source), the
+ * repository holding it and the page image — and a reader who cannot see the
+ * seams has no way to know that changing the title changes every other
+ * citation of the same book while changing the page changes only this one.
+ */
+export function SourceGroupHead({ group, t }: { group: keyof typeof GROUP_TAGS; t: Translate }) {
+  return (
+    <div className="add-source-group">
+      <span>{t(`addSource.group.${group}`)}</span>
+      <span className="add-source-group-tag">{GROUP_TAGS[group]}</span>
+    </div>
+  );
+}
+
 /** How good this citation's evidence is — the one field of the form that is a
  *  judgement rather than a reading, so it is a menu of the four `QUAY`
  *  meanings instead of a text box. Blank writes no `QUAY` at all. The label,
@@ -62,6 +84,11 @@ export function SourceFieldsForm({
   /** Whether this file states the archive's id beside the repository instead
    *  — then the field belongs to the repository row, not to these. */
   idOnRepo,
+  /** Whether the page/quality pair describes a citation of this source. False
+   *  in the standalone editor (Tools → Sources), which writes a source cited
+   *  by nothing yet — there the page only names the image the link opens, so
+   *  it stays among the source's own fields and gets no citation heading. */
+  citation = true,
   t,
   repositoryRow,
   linkRow,
@@ -71,6 +98,7 @@ export function SourceFieldsForm({
   show: Partial<Record<keyof SourceFormValues, boolean>> & { title?: boolean };
   coverage: "vendor" | "standard";
   idOnRepo: boolean;
+  citation?: boolean;
   t: Translate;
   repositoryRow?: ReactNode;
   linkRow?: ReactNode;
@@ -94,8 +122,10 @@ export function SourceFieldsForm({
     );
   };
 
+  const citationBlock = citation && (show.page !== false || show.quay !== false);
   return (
     <>
+      <SourceGroupHead group="source" t={t} />
       {field("title", "addSource.field.title")}
       <div className="add-source-details-grid">
         {field("author", "addSource.field.author")}
@@ -103,14 +133,32 @@ export function SourceFieldsForm({
         {field("publisher", "addSource.field.publisher")}
         {field("place", "addSource.field.place")}
         {field("dateRange", "addSource.field.dateRange")}
-        {field("page", "addSource.field.page")}
-        {show.quay !== false && <QuayField value={values.quay} onChange={(v) => onChange("quay", v)} t={t} />}
         {field("note", "addSource.field.note")}
         {field("periodical", "addSource.field.periodical")}
         {!idOnRepo && field("filingNumber", "addSource.field.filingNumber")}
+        {!citation && field("page", "addSource.field.page")}
       </div>
-      {repositoryRow}
-      {linkRow}
+      {citationBlock && (
+        <>
+          <SourceGroupHead group="citation" t={t} />
+          <div className="add-source-details-grid">
+            {field("page", "addSource.field.page")}
+            {show.quay !== false && <QuayField value={values.quay} onChange={(v) => onChange("quay", v)} t={t} />}
+          </div>
+        </>
+      )}
+      {repositoryRow && (
+        <>
+          <SourceGroupHead group="repo" t={t} />
+          {repositoryRow}
+        </>
+      )}
+      {linkRow && (
+        <>
+          <SourceGroupHead group="media" t={t} />
+          {linkRow}
+        </>
+      )}
     </>
   );
 }

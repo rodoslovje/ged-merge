@@ -6429,6 +6429,37 @@ kbd {
 .add-source-details-grid .add-source-field { margin: 0; }
 /* Repository-name row: the proposed name is long, give it the full width. */
 .add-source-details-grid .add-source-field-wide { grid-column: 1 / -1; }
+/* One dialog edits four records at once — the source, this citation of it, the
+   repository and the page image — so each block says which one it writes to,
+   under a hairline that gives the reader the seams. */
+.add-source-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.add-source-group + * { margin-top: 0; }
+.add-source-group:not(:first-child) { margin-top: 4px; }
+.add-source-group::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+/* The GEDCOM tags the block's fields land in — for the reader who works in
+   tags; small, quiet, and never mistaken for a field label. */
+.add-source-group-tag {
+  order: 1;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0;
+  text-transform: none;
+  opacity: 0.65;
+}
 .add-source-url-row { margin-bottom: 0; }
 /* The media-link dialog holds a single field — Edit Source's width gapes. */
 .media-link-dialog { width: 520px; }

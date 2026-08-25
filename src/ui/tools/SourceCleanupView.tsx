@@ -36,7 +36,7 @@ import { detectSourceCoverage, repoLinkWanted, sourceTooltip } from "../../gedco
 import { idField } from "../source/standardFields";
 import { SourceDialogShell } from "../source/SourceDialogShell";
 import { SourceLinkRow } from "../source/SourceLinkRow";
-import { SourceFieldsForm, type SourceFormValues } from "../source/SourceFieldsForm";
+import { SourceFieldsForm, SourceGroupHead, type SourceFormValues } from "../source/SourceFieldsForm";
 import { useSourceLookup } from "../source/useSourceLookup";
 import { childText } from "../../gedcom/node";
 import { parseSourceInput } from "../../gedcom/citationParse";
@@ -1269,6 +1269,8 @@ function GroupEditDialog({
               — becomes the image it was indexed from, which answers with the
               collection, the archive and the film. */}
           {onePage && (
+            <>
+            <SourceGroupHead group="media" t={t} />
             <SourceLinkRow
               label={t("addSource.field.link")}
               title={t("tools.sources.swapLinkHint")}
@@ -1286,6 +1288,7 @@ function GroupEditDialog({
               lookupAllowed={settings.allowLinkFetch}
               t={t}
             />
+            </>
           )}
           {failed && <div className="add-source-hint">{t("tools.sources.lookupFailed")}</div>}
           <SourceFieldsForm
