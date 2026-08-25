@@ -21,9 +21,7 @@ export function SourceLinkRow({
   title,
   inputRef,
 }: {
-  /** Names the field where nothing above it does. Omitted under a caption
-   *  that already says "Link": one word, twice over, for one input. */
-  label?: string;
+  label: string;
   value: string;
   onChange: (value: string) => void;
   /** Read the page behind the link again; absent where none can be read. */
@@ -39,18 +37,9 @@ export function SourceLinkRow({
   const trimmed = value.trim();
   return (
     <label className="add-source-field add-source-url-row" title={title}>
-      {label && <span>{label}</span>}
+      <span>{label}</span>
       <span className="add-source-url-wrap">
-        {/* With the caption above standing in for the label, the field still
-            needs a name of its own for a screen reader — and for the tests
-            that reach it by one. */}
-        <input
-          ref={inputRef}
-          className="edit-input"
-          aria-label={label ? undefined : t("addSource.field.url")}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-        />
+        <input ref={inputRef} className="edit-input" value={value} onChange={(e) => onChange(e.target.value)} />
         {trimmed && (
           <a
             className="edit-link-open"

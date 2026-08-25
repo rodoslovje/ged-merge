@@ -6341,7 +6341,11 @@ kbd {
   border: 1px solid color-mix(in oklch, var(--accent) 26%, var(--border));
   border-radius: var(--radius);
 }
-.add-source-dialog .modal-body { padding-top: 20px; }
+/* Snug enough that a source with every field filled in still opens whole:
+   the dialog is a form to check at a glance, not a page to scroll. */
+.add-source-dialog .modal-header { padding: 12px 28px; }
+.add-source-dialog .modal-body { padding: 12px 28px 12px; }
+.add-source-dialog .add-source-actions { padding: 10px 28px; }
 /* Prose fields read as prose: sans-serif; only the URL stays mono (it's a
    link). Consistent bordered inputs with an accent focus ring. */
 .add-source-dialog .edit-input {
@@ -6350,7 +6354,7 @@ kbd {
   border-color: var(--border);
   background: var(--bg);
   border-radius: var(--radius);
-  padding: 9px 12px;
+  padding: 5px 11px;
 }
 .add-source-dialog .edit-input:focus {
   border-color: var(--accent);
@@ -6412,7 +6416,7 @@ kbd {
   background: color-mix(in oklch, var(--accent) 12%, var(--panel));
   border-color: color-mix(in oklch, var(--accent) 40%, var(--border));
 }
-.add-source-field { display: flex; flex-direction: column; gap: 4px; margin: 0 0 12px; font-size: 0.85rem; color: var(--muted); }
+.add-source-field { display: flex; flex-direction: column; gap: 2px; margin: 0 0 6px; font-size: 0.8rem; color: var(--muted); }
 .add-source-field input {
   width: 100%;
   border-color: var(--border);
@@ -6423,8 +6427,8 @@ kbd {
 .add-source-details-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px 14px;
-  margin: 0 0 12px;
+  gap: 6px 14px;
+  margin: 0 0 6px;
 }
 .add-source-details-grid .add-source-field { margin: 0; }
 /* Repository-name row: the proposed name is long, give it the full width. */
@@ -6440,13 +6444,16 @@ kbd {
   align-items: center;
   gap: 10px;
   /* Nearer what it names than what it closes: the space above the caption is
-     the break, the space below it barely a gap. */
-  margin: 10px 0 5px;
+     the break, the space below it barely a gap. `line-height: 1` is part of
+     that — a caption of small caps in a 1.5-line box carries invisible air
+     above the fields it heads. */
+  margin: 6px 0 3px;
+  line-height: 1;
   font-variant: small-caps;
   font-weight: 400;
   /* Small caps between two rules carry the break on their own — the type only
      has to name it, so it sits below every field label in the dialog. */
-  font-size: 0.62rem;
+  font-size: 0.58rem;
   letter-spacing: 0.06em;
   color: var(--muted);
 }
