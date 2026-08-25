@@ -1556,6 +1556,17 @@ describe("createSourceRecord / attachSourceCitation", () => {
     const updated = rebuildIndividual(ds, indi);
     expect(updated.sources![0].page).toBe("11");
   });
+
+  it("writes the citation's data quality after its page, and nothing when there is none", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+    const source = createSourceRecord(ds.records, { title: "Krstna knjiga" });
+    attachSourceCitation(indi.raw, source.xref!, "11", INDI_CHILD_ORDER, "3");
+    attachSourceCitation(indi.raw, source.xref!, "12", INDI_CHILD_ORDER);
+    const citations = indi.raw.children.filter((c) => c.tag === "SOUR");
+    expect(citations[0].children.map((c) => `${c.tag} ${c.value}`)).toEqual(["PAGE 11", "QUAY 3"]);
+    expect(citations[1].children.map((c) => c.tag)).toEqual(["PAGE"]);
+  });
 });
 
 describe("linkPageMedia", () => {
@@ -1984,6 +1995,29 @@ describe("updateSourceCitation", () => {
     const updated = rebuildIndividual(ds, indi);
     expect(updated.sources![0].page).toBe("7");
     expect(updated.sources![0].title).toBe("Krstna knjiga");
+  });
+
+  it("sets, changes and clears the citation's own QUAY", () => {
+    const ds = buildFromText(BASE);
+    const indi = ds.individuals.get("@I1@")!;
+    const source = createSourceRecord(ds.records, { title: "Krstna knjiga" });
+    attachSourceCitation(indi.raw, source.xref!, "5", INDI_CHILD_ORDER);
+    const citation = indi.raw.children.find((c) => c.tag === "SOUR")!;
+    const quayOf = () => citation.children.find((c) => c.tag === "QUAY")?.value;
+
+    updateSourceCitation(ds.records, indi.raw, 0, { title: "Krstna knjiga", page: "5", quay: "3" });
+    expect(quayOf()).toBe("3");
+
+    // A changed value rewrites the line the citation already holds — one QUAY,
+    // never a second beside it.
+    const node = citation.children.find((c) => c.tag === "QUAY")!;
+    updateSourceCitation(ds.records, indi.raw, 0, { title: "Krstna knjiga", page: "5", quay: "2" });
+    expect(citation.children.filter((c) => c.tag === "QUAY")).toEqual([node]);
+    expect(quayOf()).toBe("2");
+
+    // Emptying the field takes the value out of the file.
+    updateSourceCitation(ds.records, indi.raw, 0, { title: "Krstna knjiga", page: "5", quay: "" });
+    expect(quayOf()).toBeUndefined();
   });
 
   it("retargets only this citation's page image, leaving sibling pages of the same source untouched", () => {

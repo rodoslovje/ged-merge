@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { SourceCitation } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
 import type { RecordPatch } from "../historyTypes";
+import type { NewCitation } from "../../gedcom/edit";
 import { SourceRefs } from "../SourceRef";
 import { linkHref, linkTooltip } from "../FieldValue";
 import { siteIconForUrl } from "../../tools/sourceReshape";
@@ -29,13 +30,7 @@ export function linkEditing(
   links: string[],
   setLinks: (next: string[]) => void,
   commit: (next: string[]) => void,
-  promote: (
-    sourceXref: string,
-    page: string | undefined,
-    extraPatches: RecordPatch[],
-    remaining: string[],
-    pageObjeXref?: string,
-  ) => void,
+  promote: (cite: NewCitation, extraPatches: RecordPatch[], remaining: string[], pageObjeXref?: string) => void,
   onOpenSourceDialog: (target: SourceDialogTarget) => void,
 ) {
   const commitLinks = (next: string[]) => {
@@ -50,10 +45,10 @@ export function linkEditing(
       url: links[index],
       commitRename: (url) => commitLinks(links.map((l, i) => (i === index ? url : l))),
       commitRemove: () => commitLinks(links.filter((_, i) => i !== index)),
-      commitPromote: (sourceXref, page, extraPatches, pageObjeXref) => {
+      commitPromote: (cite, extraPatches, pageObjeXref) => {
         const remaining = links.filter((_, i) => i !== index);
         setLinks(remaining);
-        promote(sourceXref, page, extraPatches, remaining, pageObjeXref);
+        promote(cite, extraPatches, remaining, pageObjeXref);
       },
     });
   return { commitLinks, openEditLink };
@@ -102,13 +97,7 @@ export function LinksEditor({
    * in one commit — used when a legacy link is promoted to a real citation.
    * `pageObjeXref` is the cited page's image to link beside it, where the
    * file keeps page links on records (see `linkPageMedia`). */
-  onAttachSource: (
-    sourceXref: string,
-    page: string | undefined,
-    extraPatches: RecordPatch[],
-    links: string[],
-    pageObjeXref?: string,
-  ) => void;
+  onAttachSource: (cite: NewCitation, extraPatches: RecordPatch[], links: string[], pageObjeXref?: string) => void;
   /** Opens the media-link dialog for a `mediaLinks` chip, bound to this
    * record by the parent (which knows the container node and owner). */
   onOpenMediaLink?: (url: string) => void;

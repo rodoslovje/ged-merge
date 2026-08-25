@@ -26,6 +26,7 @@ import {
   parseMatriculaTitle,
   parseMatriculaUrl,
   recognizeSourceUrl,
+  siteQuay,
   reshapeOptionsFromOverrides,
   smartCitationTarget,
   reshapeSources,
@@ -3513,5 +3514,23 @@ describe("FamilySearch image links", () => {
     expect(isFetchableSite("familysearch", FILM_URL)).toBe(false);
     expect(isFetchableSite("familysearch", FILM_ARK_URL)).toBe(false);
     expect(isFetchableSite("familysearch")).toBe(false);
+  });
+});
+
+describe("siteQuay — the quality a recognized link proposes for its citation", () => {
+  it("calls a photographed register primary, an index or a memorial secondary, a compiled tree questionable", () => {
+    // The register page itself.
+    expect(siteQuay("matricula", "https://data.matricula-online.eu/sl/slovenia/ljubljana/podzemelj/01727/?pg=20")).toBe("3");
+    expect(siteQuay("familysearch", "https://www.familysearch.org/ark:/61903/3:1:3QSQ-G99F-FHWS?cc=2040054&i=555")).toBe("3");
+    // One indexed entry read off such a page, and a stone somebody photographed.
+    expect(siteQuay("familysearch", "https://familysearch.org/ark:/61903/1:1:XNJ8-FPJ")).toBe("2");
+    expect(siteQuay("findagrave", "https://www.findagrave.com/memorial/12345")).toBe("2");
+    expect(siteQuay("newspapers", "https://www.newspapers.com/article/12345")).toBe("2");
+    // Another researcher's conclusions.
+    expect(siteQuay("geneanettree", "https://gw.geneanet.org/hawlina?lang=en&p=rajko&n=vute")).toBe("1");
+    expect(siteQuay("familysearch", "https://www.familysearch.org/tree/person/details/KWCH-1XZ")).toBe("1");
+    // Sites that publish no evidence of their own leave the reader to judge.
+    expect(siteQuay("wikipedia", "https://sl.wikipedia.org/wiki/Ljubljana")).toBeUndefined();
+    expect(siteQuay("other", "https://example.com/page")).toBeUndefined();
   });
 });

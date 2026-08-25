@@ -1,6 +1,22 @@
 import type { ReactNode } from "react";
 import type { Translate } from "../../locales/i18n";
 import { NonStandard, nonStandardTag, type SourceFieldKey } from "./standardFields";
+import { SelectMenu } from "../DropdownMenu";
+import { quayOptions } from "./quay";
+
+/** How good this citation's evidence is — the one field of the form that is a
+ *  judgement rather than a reading, so it is a menu of the four `QUAY`
+ *  meanings instead of a text box. Blank writes no `QUAY` at all. The label,
+ *  hint and meanings are the Organize sources tool's own strings: the same
+ *  question is asked in both places, and one wording keeps them agreeing. */
+export function QuayField({ value, onChange, t }: { value: string; onChange: (value: string) => void; t: Translate }) {
+  return (
+    <label className="add-source-field" title={t("tools.sources.reshapeQuayHint")}>
+      <span>{t("tools.sources.reshapeQuay")}</span>
+      <SelectMenu className="edit-input" value={value} onChange={onChange} options={quayOptions(t)} />
+    </label>
+  );
+}
 
 /** The values a source form edits — every field any of its callers offers. */
 export interface SourceFormValues {
@@ -18,6 +34,9 @@ export interface SourceFormValues {
   filingNumber: string;
   /** Which entry of the source this is: the citation's, not the source's. */
   page: string;
+  /** How good this reference's evidence is (GEDCOM `QUAY`, 0–3) — the
+   *  citation's too, and empty unless a recognized link proposed one. */
+  quay: string;
 }
 
 /**
@@ -85,6 +104,7 @@ export function SourceFieldsForm({
         {field("place", "addSource.field.place")}
         {field("dateRange", "addSource.field.dateRange")}
         {field("page", "addSource.field.page")}
+        {show.quay !== false && <QuayField value={values.quay} onChange={(v) => onChange("quay", v)} t={t} />}
         {field("note", "addSource.field.note")}
         {field("periodical", "addSource.field.periodical")}
         {!idOnRepo && field("filingNumber", "addSource.field.filingNumber")}

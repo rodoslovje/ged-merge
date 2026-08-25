@@ -620,9 +620,9 @@ export const FamilySection = memo(function FamilySection({
             onAddSource={() => onOpenSourceDialog({ kind: "family", fam })}
             onEditSource={(idx) => openEditSource(fam.raw, idx, { kind: "family", fam })}
             onOpenSourceDialog={onOpenSourceDialog}
-            onAttachSource={(sourceXref, page, extraPatches, links, pageObjeXref) =>
+            onAttachSource={({ sourceXref, page, quay }, extraPatches, links, pageObjeXref) =>
               commitFamily(fam, (f) => {
-                attachSourceCitation(f.raw, sourceXref, page, FAM_CHILD_ORDER);
+                attachSourceCitation(f.raw, sourceXref, page, FAM_CHILD_ORDER, quay);
                 linkPageMedia(f.raw, pageObjeXref, FAM_CHILD_ORDER);
                 setFamilyLinks(f, links);
               }, extraPatches)

@@ -72,6 +72,7 @@ import {
   setSex,
   updateSourceCitation,
   type EditSourceFields,
+  type NewCitation,
   type SharedNoteChange,
   type SharedNoteCtx,
 } from "../gedcom/edit";
@@ -1097,8 +1098,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   function attachToEvent(
     host: GedNode,
     eventTag: string,
-    sourceXref: string,
-    page: string | undefined,
+    cite: NewCitation,
     order: string[],
     pageObjeXref?: string,
   ) {
@@ -1107,13 +1107,16 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
       event = { level: host.level + 1, tag: eventTag, children: [] };
       insertOrdered(host, event, order);
     }
-    attachSourceCitation(event, sourceXref, page, EVENT_CHILD_ORDER);
+    attachSourceCitation(event, cite.sourceXref, cite.page, EVENT_CHILD_ORDER, cite.quay);
     linkPageMedia(event, pageObjeXref, EVENT_CHILD_ORDER);
   }
 
   function handleAddSource(fields: AddSourceResult) {
     if (!sourceDialogTarget || sourceDialogTarget.kind === "edit" || sourceDialogTarget.kind === "edit-link" || !person) return;
     const { sourceXref, page, pageObjeXref, extraPatches } = resolveSourceFields(fields);
+    // How good the reader judged this reference's evidence: the dialog's own
+    // field, not something the source record can say.
+    const cite: NewCitation = { sourceXref, page, quay: fields.quay };
     const pageObje = pageObjeToLink(pageObjeXref);
     if (sourceDialogTarget.kind === "individual") {
       // A recognized register/grave source added on the person lands on its
@@ -1128,22 +1131,22 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
         : undefined;
       const soleFam = person.spouseOf.length === 1 ? dataset.families.get(person.spouseOf[0]) : undefined;
       if (smart && !smart.onFam) {
-        commit((indi) => attachToEvent(indi.raw, smart.eventTag, sourceXref, page, INDI_CHILD_ORDER, pageObje), extraPatches);
+        commit((indi) => attachToEvent(indi.raw, smart.eventTag, cite, INDI_CHILD_ORDER, pageObje), extraPatches);
       } else if (smart && smart.onFam && soleFam) {
-        commitFamily(soleFam, (f) => attachToEvent(f.raw, smart.eventTag, sourceXref, page, FAM_CHILD_ORDER, pageObje), extraPatches);
+        commitFamily(soleFam, (f) => attachToEvent(f.raw, smart.eventTag, cite, FAM_CHILD_ORDER, pageObje), extraPatches);
       } else {
         commit((indi) => {
-          attachSourceCitation(indi.raw, sourceXref, page, INDI_CHILD_ORDER);
+          attachSourceCitation(indi.raw, sourceXref, page, INDI_CHILD_ORDER, cite.quay);
           linkPageMedia(indi.raw, pageObje, INDI_CHILD_ORDER);
         }, extraPatches);
       }
     } else if (sourceDialogTarget.kind === "family") {
       commitFamily(sourceDialogTarget.fam, (f) => {
-        attachSourceCitation(f.raw, sourceXref, page, FAM_CHILD_ORDER);
+        attachSourceCitation(f.raw, sourceXref, page, FAM_CHILD_ORDER, cite.quay);
         linkPageMedia(f.raw, pageObje, FAM_CHILD_ORDER);
       }, extraPatches);
     } else {
-      sourceDialogTarget.commitField({ addSource: { sourceXref, page, pageObjeXref: pageObje } }, extraPatches);
+      sourceDialogTarget.commitField({ addSource: { ...cite, pageObjeXref: pageObje } }, extraPatches);
     }
     setSourceDialogTarget(null);
   }
@@ -1246,11 +1249,12 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     const citation = sourceCitationNodes(node)[index];
     if (!citation) return;
     const page = childText(citation, "PAGE");
+    const quay = childText(citation, "QUAY");
     const value = citation.value?.trim();
     const sourceNode = value ? dataset.records.find((r) => r.tag === "SOUR" && r.xref === value) : undefined;
     if (!sourceNode) {
       // Inline (plain-text) citation: just its own value/page, no shared record.
-      setSourceDialogTarget({ kind: "edit", node, index, owner, fields: { title: value, page } });
+      setSourceDialogTarget({ kind: "edit", node, index, owner, fields: { title: value, page, quay } });
       return;
     }
     const resolved = resolveSourceCitation(citation, getMediaAndSourceCtx(dataset.records).sourceCtx);
@@ -1265,6 +1269,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
         // to, so opening and saving untouched is a no-op.
         ...sourceRecordEditFields(dataset.records, sourceNode),
         page,
+        quay,
         // This citation's own resolved page image (its PAGE matched a page
         // OBJE, or the source has exactly one) beats the record-level rule, so
         // a url edit retargets only this page. A repository-fallback url
@@ -1322,7 +1327,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
           );
           if (hasBiblio) {
             const { sourceXref, page, pageObjeXref, extraPatches } = resolveSourceFields(saved);
-            commitPromote(sourceXref, page, extraPatches, pageObjeToLink(pageObjeXref));
+            commitPromote({ sourceXref, page, quay: saved.quay }, extraPatches, pageObjeToLink(pageObjeXref));
           } else {
             commitRename(saved.url ?? "");
           }
@@ -2018,9 +2023,9 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
                 onAddSource={() => setSourceDialogTarget({ kind: "individual" })}
                 onEditSource={(idx) => openEditSource(person.raw, idx, { kind: "individual", indi: person })}
                 onOpenSourceDialog={setSourceDialogTarget}
-                onAttachSource={(sourceXref, page, extraPatches, links, pageObjeXref) =>
+                onAttachSource={({ sourceXref, page, quay }, extraPatches, links, pageObjeXref) =>
                   commit((indi) => {
-                    attachSourceCitation(indi.raw, sourceXref, page, INDI_CHILD_ORDER);
+                    attachSourceCitation(indi.raw, sourceXref, page, INDI_CHILD_ORDER, quay);
                     linkPageMedia(indi.raw, pageObjeXref, INDI_CHILD_ORDER);
                     setIndividualLinks(indi, links);
                   }, extraPatches)

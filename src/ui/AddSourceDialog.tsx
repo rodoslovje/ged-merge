@@ -5,14 +5,14 @@ import { findExistingSource, type FsSourceHint } from "../gedcom/source";
 import { parseSourceInput } from "../gedcom/citationParse";
 import { inferMainProfile } from "../normalize/profile";
 import { familySearchPageUrl, rewriteLinkLang } from "../normalize/links";
-import { makePlaceResolver, narrowFsRegister, proposedSiteRepo, recognizeSourceUrl, siteSourceTitle, SITE_ICON, splitFsRegisters, type ReshapeMeta, type ReshapeSite } from "../tools/sourceReshape";
+import { makePlaceResolver, narrowFsRegister, proposedSiteRepo, recognizeSourceUrl, siteQuay, siteSourceTitle, SITE_ICON, splitFsRegisters, type ReshapeMeta, type ReshapeSite } from "../tools/sourceReshape";
 import { detectSourceCoverage, repoLinkWanted, writesCallNumbers } from "../gedcom/source";
 import { childText } from "../gedcom/node";
 import { useSettings } from "./SettingsContext";
 import { useDebounced } from "./tools/shared";
 import { SelectMenu } from "./DropdownMenu";
 import { idField } from "./source/standardFields";
-import { SourceFieldsForm } from "./source/SourceFieldsForm";
+import { QuayField, SourceFieldsForm } from "./source/SourceFieldsForm";
 import { useSourceLookup } from "./source/useSourceLookup";
 import { SourceDialogShell } from "./source/SourceDialogShell";
 import { SourceLinkRow } from "./source/SourceLinkRow";
@@ -25,6 +25,9 @@ import type { Translate } from "../locales/i18n";
  * extras the Organize sources tool writes. */
 export type AddSourceResult = NewSourceFields & {
   page?: string;
+  /** How good the evidence is (`QUAY`), for the citation about to be written
+   * — a recognized link proposes it, the reader confirms or clears it. */
+  quay?: string;
   site?: ReshapeSite;
   place?: string;
   dateRange?: string;
@@ -81,12 +84,13 @@ interface FormState {
   place: string;
   filingNumber: string;
   page: string;
+  quay: string;
   url: string;
   note: string;
 }
 
 const EMPTY_FORM: FormState = {
-  title: "", author: "", periodical: "", publisher: "", agency: "", place: "", filingNumber: "", page: "", url: "", note: "",
+  title: "", author: "", periodical: "", publisher: "", agency: "", place: "", filingNumber: "", page: "", quay: "", url: "", note: "",
 };
 
 function extractPage(url: string): string | undefined {
@@ -282,6 +286,12 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
       place: match ? "" : resolvePlace(recognized?.proposed.place ?? parsed.place) ?? "",
       filingNumber: idOnCaln.current ? "" : proposedId ?? "",
       page: match?.page ?? recognized?.page ?? extractPage(normalizedUrl ?? "") ?? "",
+      // What kind of evidence the recognized site's page is — a register scan
+      // is primary, an index or a gravestone secondary, a compiled tree
+      // questionable. It describes this citation, not the source record, so a
+      // link matching a source the file already keeps proposes it just the
+      // same. Unrecognized links leave it for the reader to judge.
+      quay: (recognized && siteQuay(recognized.site, normalizedUrl)) ?? "",
       url: normalizedUrl ?? "",
       note: match || recognized?.cited ? "" : parsed.note ?? "",
     });
@@ -314,6 +324,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
       place: f.place ?? "",
       filingNumber: f.filingNumber ?? "",
       page: f.page ?? "",
+      quay: f.quay ?? "",
       url: f.url ?? "",
       note: f.note ?? "",
     });
@@ -449,6 +460,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
       place: trim(fields.place),
       filingNumber: trim(fields.filingNumber),
       page: trim(fields.page),
+      quay: trim(fields.quay),
       // The same normalization the paste path applies — a viewer-state URL
       // pasted straight into the field must not store what the paste box
       // would have trimmed.
@@ -619,6 +631,9 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
                 // range is not among this dialog's fields; the site lookup
                 // writes it, and the Organize sources editor offers it.
                 page: !(standalone && editing),
+                // The quality belongs to a citation; standalone mode (Tools →
+                // Sources) writes a source record with no citation to carry it.
+                quay: !standalone,
                 dateRange: false,
               }}
               coverage={coverage}
@@ -626,17 +641,22 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
               t={t}
             />
           )}
-          {/* A link that matches a source the file already has adds only its
-              page — the source's own fields are the file's, not a proposal's. */}
+          {/* A link that matches a source the file already has adds only what
+              the new citation itself says — its entry and how good that
+              evidence is; the source's own fields are the file's, not a
+              proposal's. */}
           {match && !standalone && (
-            <label className="add-source-field">
-              <span>{t("addSource.field.page")}</span>
-              <input
-                className="edit-input"
-                value={fields.page}
-                onChange={(e) => setFields((f) => ({ ...f, page: e.target.value }))}
-              />
-            </label>
+            <div className="add-source-details-grid">
+              <label className="add-source-field">
+                <span>{t("addSource.field.page")}</span>
+                <input
+                  className="edit-input"
+                  value={fields.page}
+                  onChange={(e) => setFields((f) => ({ ...f, page: e.target.value }))}
+                />
+              </label>
+              <QuayField value={fields.quay} onChange={(v) => setFields((f) => ({ ...f, quay: v }))} t={t} />
+            </div>
           )}
           {!match && (
             <div className="add-source-details-grid">
