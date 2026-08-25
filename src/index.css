@@ -5950,7 +5950,13 @@ body:has(.modal-overlay) {
 .modal-body h3 { font-size: 1.5rem; margin: 32px 0 16px; color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 8px; }
 .modal-body h3:first-child { margin-top: 24px; }
 .modal-body h4 { font-size: 1.15rem; margin: 24px 0 8px; color: var(--text); }
-.modal-body p, .modal-body > div { margin: 0 0 16px; color: var(--muted); font-size: 1.05rem; line-height: 1.7; }
+/* Prose metrics, for the modals that hold prose (help, shortcuts, settings).
+   A source dialog is a form: its every block is a div in a modal body too, and
+   this rule outweighs any single class, so it was quietly setting 1.05rem/1.7
+   and a 16px margin on captions, field grids and hints that had each asked for
+   their own. Forms say what they want in their own rules; this stays out. */
+.modal-body p,
+.modal:not(.add-source-dialog) .modal-body > div { margin: 0 0 16px; color: var(--muted); font-size: 1.05rem; line-height: 1.7; }
 .modal-body ul { margin: 0 0 16px; padding-left: 22px; }
 .modal-body li { margin: 6px 0; }
 .modal-body strong { color: var(--text); font-weight: 600; }
@@ -6344,7 +6350,7 @@ kbd {
 /* Snug enough that a source with every field filled in still opens whole:
    the dialog is a form to check at a glance, not a page to scroll. */
 .add-source-dialog .modal-header { padding: 12px 28px; }
-.add-source-dialog .modal-body { padding: 12px 28px 12px; }
+.add-source-dialog .modal-body { padding: 16px 28px 18px; }
 .add-source-dialog .add-source-actions { padding: 10px 28px; }
 /* Prose fields read as prose: sans-serif; only the URL stays mono (it's a
    link). Consistent bordered inputs with an accent focus ring. */
@@ -6354,7 +6360,7 @@ kbd {
   border-color: var(--border);
   background: var(--bg);
   border-radius: var(--radius);
-  padding: 5px 11px;
+  padding: 7px 11px;
 }
 .add-source-dialog .edit-input:focus {
   border-color: var(--accent);
@@ -6416,7 +6422,7 @@ kbd {
   background: color-mix(in oklch, var(--accent) 12%, var(--panel));
   border-color: color-mix(in oklch, var(--accent) 40%, var(--border));
 }
-.add-source-field { display: flex; flex-direction: column; gap: 2px; margin: 0 0 6px; font-size: 0.8rem; color: var(--muted); }
+.add-source-field { display: flex; flex-direction: column; gap: 3px; margin: 0 0 10px; font-size: 0.8rem; color: var(--muted); }
 .add-source-field input {
   width: 100%;
   border-color: var(--border);
@@ -6427,8 +6433,8 @@ kbd {
 .add-source-details-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 6px 14px;
-  margin: 0 0 6px;
+  gap: 10px 14px;
+  margin: 0 0 10px;
 }
 .add-source-details-grid .add-source-field { margin: 0; }
 /* Repository-name row: the proposed name is long, give it the full width. */
@@ -6447,7 +6453,7 @@ kbd {
      the break, the space below it barely a gap. `line-height: 1` is part of
      that — a caption of small caps in a 1.5-line box carries invisible air
      above the fields it heads. */
-  margin: 6px 0 3px;
+  margin: 14px 0 4px;
   line-height: 1;
   font-variant: small-caps;
   font-weight: 400;
