@@ -6458,8 +6458,9 @@ kbd {
   font-variant: small-caps;
   font-weight: 400;
   /* Small caps between two rules carry the break on their own — the type only
-     has to name it, so it sits below every field label in the dialog. */
-  font-size: 0.58rem;
+     has to name it, so it stays under the 0.8rem of a field label. Below
+     ~0.7rem the caps stop reading as words at a glance. */
+  font-size: 0.72rem;
   letter-spacing: 0.06em;
   color: var(--muted);
 }
