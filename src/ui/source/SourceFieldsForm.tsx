@@ -4,26 +4,21 @@ import { NonStandard, nonStandardTag, type SourceFieldKey } from "./standardFiel
 import { SelectMenu } from "../DropdownMenu";
 import { quayOptions } from "./quay";
 
-/** The GEDCOM records one source dialog writes to at once, and the tags each
- *  block of fields lands in — the rule the reader needs to make sense of
- *  "editing a source" changing what a person's event says. */
-const GROUP_TAGS = { source: "SOUR", citation: "PAGE · QUAY", repo: "REPO", media: "OBJE" } as const;
+/** The records one source dialog writes to at once: the source itself, this
+ *  citation of it (which lives on the person or event, not on the source), the
+ *  repository holding it, and the page image. */
+export type SourceGroup = "source" | "citation" | "repo" | "media";
 
 /**
- * The rule above a block of fields: what it is, and which record it is written
- * to. A source dialog edits four things at once — the source itself, this
- * citation of it (which lives on the person or event, not on the source), the
- * repository holding it and the page image — and a reader who cannot see the
- * seams has no way to know that changing the title changes every other
- * citation of the same book while changing the page changes only this one.
+ * The caption between two blocks of fields, saying which of those records the
+ * next block is written to. Without the seams a reader has no way to know that
+ * changing the title changes every other citation of the same book while
+ * changing the page changes only this one. Worded and set like the event
+ * captions in the merge comparison — centred small-caps between two rules — so
+ * the app divides a form the one way everywhere.
  */
-export function SourceGroupHead({ group, t }: { group: keyof typeof GROUP_TAGS; t: Translate }) {
-  return (
-    <div className="add-source-group">
-      <span>{t(`addSource.group.${group}`)}</span>
-      <span className="add-source-group-tag">{GROUP_TAGS[group]}</span>
-    </div>
-  );
+export function SourceGroupHead({ group, t }: { group: SourceGroup; t: Translate }) {
+  return <div className="add-source-group">{t(`addSource.group.${group}`)}</div>;
 }
 
 /** How good this citation's evidence is — the one field of the form that is a
@@ -138,6 +133,16 @@ export function SourceFieldsForm({
         {!idOnRepo && field("filingNumber", "addSource.field.filingNumber")}
         {!citation && field("page", "addSource.field.page")}
       </div>
+      {/* Where the source is kept belongs beside what the source is — both
+          describe the book. The citation follows: which entry of it this is,
+          and the page image that entry opens, which the caller's link row
+          renders directly under it. */}
+      {repositoryRow && (
+        <>
+          <SourceGroupHead group="repo" t={t} />
+          {repositoryRow}
+        </>
+      )}
       {citationBlock && (
         <>
           <SourceGroupHead group="citation" t={t} />
@@ -145,12 +150,6 @@ export function SourceFieldsForm({
             {field("page", "addSource.field.page")}
             {show.quay !== false && <QuayField value={values.quay} onChange={(v) => onChange("quay", v)} t={t} />}
           </div>
-        </>
-      )}
-      {repositoryRow && (
-        <>
-          <SourceGroupHead group="repo" t={t} />
-          {repositoryRow}
         </>
       )}
       {linkRow && (

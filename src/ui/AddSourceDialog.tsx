@@ -424,6 +424,76 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
 
   if (!isOpen) return null;
 
+  /** The repository the source hangs off, and the call number written on
+   *  that link — handed to the form, which places it directly under the
+   *  source's own fields: both say what the book is and where it is kept. */
+  const repositoryBlock = match ? undefined : (
+      <div className="add-source-details-grid">
+        <label className="add-source-field">
+          <span>{t("addSource.field.repo")}</span>
+          <SelectMenu
+            className="edit-input"
+            value={repoSel}
+            onChange={(v) => {
+              repoTouched.current = true;
+              setRepoSel(v);
+              // Picking the site proposal seeds its name for editing; a
+              // hand-named repository starts from a blank field.
+              if (v === "@create@") setRepoName(repoProposal?.createName ?? "");
+              else if (v === "@new@") setRepoName("");
+            }}
+            // The special choices sit outside the sorted repository
+            // group: no-repo first, the create actions last.
+            groups={[
+              { items: [{ value: "", label: t("tools.sources.noRepo") }] },
+              {
+                label: t("tools.sources.dupKind.repo"),
+                items: repos.map((r) => ({ value: r.xref, label: r.name })),
+              },
+              {
+                items: [
+                  ...(!editing && !repoProposal?.xref && repoProposal?.createName
+                    ? [{ value: "@create@", label: t("addSource.repo.create", { name: repoProposal.createName }) }]
+                    : []),
+                  { value: "@new@", label: t("addSource.repo.new") },
+                ],
+              },
+            ]}
+          />
+        </label>
+        {/* The call number is written on this link (`REPO > CALN`), so
+            it stands beside it — and only where the file states its ids
+            there: the same value would otherwise be asked for twice,
+            once as the source's own filing number. */}
+        {repoSel !== "" && idOnRepo && (
+          <label className="add-source-field">
+            <span>{t("addSource.field.caln")}</span>
+            <input className="edit-input" value={repoCaln} onChange={(e) => setRepoCaln(e.target.value)} />
+          </label>
+        )}
+        {/* After the call number, so the long name gets its own
+            full-width row under the dropdown | call-number pair. */}
+        {(repoSel === "@new@" || repoSel === "@create@") && (
+          <label className="add-source-field add-source-field-wide">
+            <span>{t("addSource.field.repoName")}</span>
+            {/* autoFocus only for the hand-named choice: the proposal can
+                be preselected by the paste itself, mid-typing. */}
+            <input
+              className="edit-input"
+              value={repoName}
+              onChange={(e) => {
+                // An edited name is a hand-picked choice — the lookup
+                // must not replace it with the repository it finds.
+                repoTouched.current = true;
+                setRepoName(e.target.value);
+              }}
+              autoFocus={repoSel === "@new@"}
+            />
+          </label>
+        )}
+      </div>
+  );
+
   function reset() {
     setText("");
     setFields(EMPTY_FORM);
@@ -642,6 +712,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
               // page names the image the link opens, not an entry in a book.
               citation={!standalone}
               t={t}
+              repositoryRow={repositoryBlock}
             />
           )}
           {/* A link that matches a source the file already has adds only what
@@ -662,75 +733,6 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
                 </label>
                 <QuayField value={fields.quay} onChange={(v) => setFields((f) => ({ ...f, quay: v }))} t={t} />
               </div>
-            </>
-          )}
-          {!match && (
-            <>
-            <SourceGroupHead group="repo" t={t} />
-            <div className="add-source-details-grid">
-              <label className="add-source-field">
-                <span>{t("addSource.field.repo")}</span>
-                <SelectMenu
-                  className="edit-input"
-                  value={repoSel}
-                  onChange={(v) => {
-                    repoTouched.current = true;
-                    setRepoSel(v);
-                    // Picking the site proposal seeds its name for editing; a
-                    // hand-named repository starts from a blank field.
-                    if (v === "@create@") setRepoName(repoProposal?.createName ?? "");
-                    else if (v === "@new@") setRepoName("");
-                  }}
-                  // The special choices sit outside the sorted repository
-                  // group: no-repo first, the create actions last.
-                  groups={[
-                    { items: [{ value: "", label: t("tools.sources.noRepo") }] },
-                    {
-                      label: t("tools.sources.dupKind.repo"),
-                      items: repos.map((r) => ({ value: r.xref, label: r.name })),
-                    },
-                    {
-                      items: [
-                        ...(!editing && !repoProposal?.xref && repoProposal?.createName
-                          ? [{ value: "@create@", label: t("addSource.repo.create", { name: repoProposal.createName }) }]
-                          : []),
-                        { value: "@new@", label: t("addSource.repo.new") },
-                      ],
-                    },
-                  ]}
-                />
-              </label>
-              {/* The call number is written on this link (`REPO > CALN`), so
-                  it stands beside it — and only where the file states its ids
-                  there: the same value would otherwise be asked for twice,
-                  once as the source's own filing number. */}
-              {repoSel !== "" && idOnRepo && (
-                <label className="add-source-field">
-                  <span>{t("addSource.field.caln")}</span>
-                  <input className="edit-input" value={repoCaln} onChange={(e) => setRepoCaln(e.target.value)} />
-                </label>
-              )}
-              {/* After the call number, so the long name gets its own
-                  full-width row under the dropdown | call-number pair. */}
-              {(repoSel === "@new@" || repoSel === "@create@") && (
-                <label className="add-source-field add-source-field-wide">
-                  <span>{t("addSource.field.repoName")}</span>
-                  {/* autoFocus only for the hand-named choice: the proposal can
-                      be preselected by the paste itself, mid-typing. */}
-                  <input
-                    className="edit-input"
-                    value={repoName}
-                    onChange={(e) => {
-                      // An edited name is a hand-picked choice — the lookup
-                      // must not replace it with the repository it finds.
-                      repoTouched.current = true;
-                      setRepoName(e.target.value);
-                    }}
-                    autoFocus={repoSel === "@new@"}
-                  />
-                </label>
-              )}
-            </div>
             </>
           )}
           <SourceGroupHead group="media" t={t} />
