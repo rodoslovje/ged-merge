@@ -2213,10 +2213,34 @@
               celotno navedbo ali samo URL: GED Merge, kjer lahko, pridobi naslov strani in zazna, kdaj se vaša navedba
               <strong>ujema z obstoječim virom</strong> v datoteki, ter doda novo stran k njemu, namesto da bi ustvaril
               dvojnik. Po potrebi izpolnite strukturirana polja — naslov, avtor, periodika/zbirka, založnik, ustanova,
-              arhivska številka, stran, URL in opomba. Okno potrdite s kombinacijo
+              arhivska številka, stran, kakovost citata, URL in opomba. Okno potrdite s kombinacijo
               <span class="gm-key">Ctrl</span><span class="gm-key">Enter</span> (na Macu
               <span class="gm-key">⌘</span><span class="gm-key">Enter</span>) iz katerega koli polja, tudi iz polja za
               lepljenje; v enovrstičnih poljih zadostuje tipka <span class="gm-key">Enter</span>.
+            </p>
+            <p>
+              Polja so razdeljena po zapisu, v katerega se pišejo, napis med dvema črtama pa ga imenuje. Polja
+              samega vira stojijo na vrhu, pod naslovom okna; pod njimi razdelek <strong>Kje se hrani</strong>
+              imenuje hrambo knjige, razdelek <strong>Navedba</strong> opiše to eno sklicevanje nanjo, razdelek
+              <strong>Povezava</strong> pa sliko strani, ki jo to sklicevanje odpre — v datoteki so to zapis
+              <em>SOUR</em> z <em>REPO</em>, oznaki <em>PAGE</em> in <em>QUAY</em> pri osebi ali dogodku ter zapis
+              <em>OBJE</em>. Delitev je vredno
+              poznati: naslov, ki ga spremenite v razdelku Vir, se spremeni v vseh drugih navedbah iste knjige, stran,
+              ki jo spremenite v razdelku Navedba, pa se spremeni samo v navedbi, ki ste jo odprli.
+            </p>
+            <p>
+              Poleg strani stoji <strong>kakovost citata</strong> — kako dobri so dokazi, na katerih stoji prav ta
+              navedba. V datoteko se zapiše kot vrednost <em>QUAY</em> in ima štiri stopnje:
+              <em>3 – primarni vir</em> za fotografirano stran matične knjige, <em>2 – sekundarni vir</em> za kazalo,
+              nagrobnik ali časopisno poročilo, <em>1 – vprašljivo</em> za rodovnik, ki ga je sestavil drug raziskovalec,
+              in <em>0 – nezanesljivo / ocenjeno</em>. Vrednost opisuje navedbo in ne vira, zato lahko dve osebi,
+              navedeni iz iste knjige, ocenite različno. Pri prepoznani povezavi je ena od stopenj že izbrana: za
+              skenirano stran z Matricule ali sliko filma s FamilySearcha je to <em>3</em>, za posamezen zapis iz
+              kazala, stran groba ali osmrtnico <em>2</em>, za tuj rodovnik <em>1</em>. Stopnjo pred shranjevanjem
+              potrdite, spremenite ali izbrišete; če polje ostane prazno, se <em>QUAY</em> sploh ne zapiše. Ko odprete
+              obstoječo navedbo, vidite stopnjo, ki jo nosi, in tako popravite presojo izpred let. Isto vprašanje
+              postavi tudi orodje <a href="#organize">Uredi vire</a> (<a href="#tools">§10</a>) za navedbe, ki jih
+              zapiše.
             </p>
             <p>
               Dodaj vir <strong>prepozna arhivske povezave</strong> tako kot <a href="#tools">Uredi vire</a>: prilepite

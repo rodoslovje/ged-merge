@@ -1,6 +1,6 @@
 import type { GedNode, Individual, Family } from "../../gedcom/types";
 import type { RecordPatch } from "../historyTypes";
-import type { EditSourceFields, EventFieldUpdate, SharedNoteCtx } from "../../gedcom/edit";
+import type { EditSourceFields, EventFieldUpdate, NewCitation, SharedNoteCtx } from "../../gedcom/edit";
 
 /** A media edit target: the selected person's record, or one of their
  *  families' — every media operation routes through the owner's
@@ -43,12 +43,7 @@ export type SourceDialogTarget =
        * plain link in the same commit. `pageObjeXref` is the cited page's
        * image to link beside the citation, already gated on the file's
        * page-link style — undefined leaves the media under the source alone. */
-      commitPromote: (
-        sourceXref: string,
-        page: string | undefined,
-        extraPatches: RecordPatch[],
-        pageObjeXref?: string,
-      ) => void;
+      commitPromote: (cite: NewCitation, extraPatches: RecordPatch[], pageObjeXref?: string) => void;
     };
 
 /** Which top-level record a removed/edited `SOUR` citation's owner-snapshot

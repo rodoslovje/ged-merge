@@ -2149,10 +2149,33 @@
               dialog. Paste a full citation or just a URL: GED Merge fetches the page title where it can, and detects
               when your citation <strong>matches an existing source</strong> in the file, adding the new page to it
               rather than creating a duplicate. You can fill in structured fields — title, author, agency, periodical/series,
-              publisher, place, filing number, page, URL and note — as needed for your house style.
+              publisher, place, filing number, page, citation quality, URL and note — as needed for your house style.
               <span class="gm-key">Ctrl</span><span class="gm-key">Enter</span> (<span class="gm-key">⌘</span><span class="gm-key">Enter</span>
               on a Mac) confirms the dialog from any field, including the paste box; from the one-line fields
               <span class="gm-key">Enter</span> alone does it.
+            </p>
+            <p>
+              The form is divided by the record each block of fields is written to, a caption naming it between two
+              rules. The source's own fields open the dialog, under its title; below them come
+              <strong>Where it is kept</strong> for the repository holding the book,
+              <strong>Citation</strong> for this one reference to it, and <strong>Link</strong> for the page image
+              that reference opens — the file's <em>SOUR</em> with its <em>REPO</em>, then the <em>PAGE</em> and
+              <em>QUAY</em> written on the person or event, and the <em>OBJE</em>. The seams are worth reading before you type: a title changed under
+              Source changes what every other citation of the same book says, while a page changed under Citation
+              changes only the reference you opened.
+            </p>
+            <p>
+              Beside the page stands the <strong>citation quality</strong> — how good the evidence behind this
+              particular reference is, saved as GEDCOM's <em>QUAY</em> value. There are four:
+              <em>3 – primary evidence</em> for a photographed register page, <em>2 – secondary evidence</em> for an
+              index, a gravestone or a newspaper report, <em>1 – questionable</em> for a tree another researcher
+              compiled, and <em>0 – unreliable / estimated</em>. It describes the citation rather than the source, so
+              two people cited from the same book can be judged apart. For a recognized link one value is already
+              chosen: <em>3</em> for a Matricula scan or a FamilySearch film image, <em>2</em> for an indexed entry, a
+              grave page or an obituary, <em>1</em> for somebody else's tree — you confirm, change or clear it
+              before saving, and an empty field writes no <em>QUAY</em> at all. Opening an existing citation shows the
+              value it carries, which is how a judgement made years ago gets revised. <a href="#organize">Organize
+              sources</a> (<a href="#tools">§10</a>) asks the same question for the citations it writes.
             </p>
             <p>
               Add Source <strong>recognizes archive links</strong> the same way <a href="#tools">Organize sources</a>

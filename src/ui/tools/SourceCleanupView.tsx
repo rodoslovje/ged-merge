@@ -36,7 +36,7 @@ import { detectSourceCoverage, repoLinkWanted, sourceTooltip } from "../../gedco
 import { idField } from "../source/standardFields";
 import { SourceDialogShell } from "../source/SourceDialogShell";
 import { SourceLinkRow } from "../source/SourceLinkRow";
-import { SourceFieldsForm, type SourceFormValues } from "../source/SourceFieldsForm";
+import { SourceFieldsForm, SourceGroupHead, type SourceFormValues } from "../source/SourceFieldsForm";
 import { useSourceLookup } from "../source/useSourceLookup";
 import { childText } from "../../gedcom/node";
 import { parseSourceInput } from "../../gedcom/citationParse";
@@ -47,9 +47,9 @@ import { BackButton } from "../BackButton";
 import { SelectMenu } from "../DropdownMenu";
 import { useSettings } from "../SettingsContext";
 import { ToolSummary } from "./ToolSummary";
+import { quayOptions } from "../source/quay";
 
 const SITES: readonly ReshapeSite[] = ALL_SITES;
-const QUAY_CHOICES = ["", "3", "2", "1", "0"];
 
 /** The page's lists, in the order their tabs stand. */
 const CLEANUP_TABS = ["dups", "repos", "links", "pages"] as const;
@@ -117,14 +117,7 @@ function QuaySelect({ value, onChange }: { value: string; onChange: (value: stri
   return (
     <label className="tools-reshape-site" title={t("tools.sources.reshapeQuayHint")}>
       {t("tools.sources.reshapeQuay")}
-      <SelectMenu
-        value={value}
-        onChange={onChange}
-        options={QUAY_CHOICES.map((q) => ({
-          value: q,
-          label: q === "" ? t("tools.sources.reshapeQuay.none") : `${q} – ${t(`tools.sources.reshapeQuay.${q}`)}`,
-        }))}
-      />
+      <SelectMenu value={value} onChange={onChange} options={quayOptions(t)} />
     </label>
   );
 }
@@ -1042,6 +1035,10 @@ function GroupEditDialog({
     // Sadec, 9 July 1901". It belongs to the citation, so it is offered only
     // where the group is a single link and there is one citation to carry it.
     page: meta?.page ?? group.members[0]?.page ?? group.pages[0] ?? "",
+    // The quality is the citation's too, but this tool asks it on the rows
+    // that write the citations — once for the group, once per reference — so
+    // this editor of the source itself never shows the field.
+    quay: "",
   }));
   // The page is the citation's, not the source's — editable here only where
   // every reference in the group points at one link, and so shares it. A group
@@ -1272,6 +1269,8 @@ function GroupEditDialog({
               — becomes the image it was indexed from, which answers with the
               collection, the archive and the film. */}
           {onePage && (
+            <>
+            <SourceGroupHead group="media" t={t} />
             <SourceLinkRow
               label={t("addSource.field.link")}
               title={t("tools.sources.swapLinkHint")}
@@ -1289,6 +1288,7 @@ function GroupEditDialog({
               lookupAllowed={settings.allowLinkFetch}
               t={t}
             />
+            </>
           )}
           {failed && <div className="add-source-hint">{t("tools.sources.lookupFailed")}</div>}
           <SourceFieldsForm
@@ -1301,7 +1301,7 @@ function GroupEditDialog({
             // its own above (it can be traded, which a plain URL field cannot
             // say). The page is a citation's, so it is offered only where the
             // group is one link and one citation carries it.
-            show={{ note: false, page: onePage }}
+            show={{ note: false, page: onePage, quay: false }}
             coverage={coverage}
             idOnRepo={idLabel.caln}
             t={t}
@@ -1574,18 +1574,7 @@ function MemberRow({
           value={quay}
           onChange={onQuay}
           title={t("tools.sources.reshapeQuayHint")}
-          options={[
-            {
-              value: "",
-              label: defaultQuay
-                ? `${defaultQuay} – ${t(`tools.sources.reshapeQuay.${defaultQuay}`)}`
-                : t("tools.sources.reshapeQuay.none"),
-            },
-            ...["3", "2", "1", "0"].map((q) => ({
-              value: q,
-              label: `${q} – ${t(`tools.sources.reshapeQuay.${q}`)}`,
-            })),
-          ]}
+          options={quayOptions(t, defaultQuay)}
         />
       )}
       {linkKey(m.url) !== groupUrlKey && <RowLink url={m.url} t={t} className="tools-tree-meta" />}

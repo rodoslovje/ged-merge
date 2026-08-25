@@ -951,6 +951,47 @@ export const SITE_ICON: Record<ReshapeSite, string> = {
   other: "🔗",
 };
 
+/**
+ * What kind of evidence a recognized site's page is, as the GEDCOM
+ * data-quality value (`QUAY`) a citation of it starts from — `3` primary for a
+ * photographed register page, `2` secondary for an index, a gravestone or a
+ * published account of an event recorded later, `1` questionable for a tree
+ * another researcher compiled, and nothing at all for the sites that publish
+ * no evidence of their own. It is a proposal the reader changes or clears in
+ * the source dialog before anything is written; a site the table leaves out
+ * simply opens the dialog with an empty quality field.
+ */
+const SITE_QUAY: Partial<Record<ReshapeSite, string>> = {
+  // A photograph of the parish register itself.
+  matricula: "3",
+  // The stone and the page that transcribes it: the burial was recorded after
+  // the death, and by whoever raised the marker.
+  findagrave: "2",
+  billiongraves: "2",
+  geneanet: "2",
+  // A newspaper reports an event after it happened, as does a printed account.
+  legacy: "2",
+  newspapers: "2",
+  sistory: "2",
+  dlib: "2",
+  googlebooks: "2",
+  // A compiled tree states another researcher's conclusions, not evidence.
+  geneanettree: "1",
+};
+
+/** The `QUAY` a fresh citation of `url` starts from — see {@link SITE_QUAY}.
+ *  FamilySearch is the one site whose links differ in kind: an image of a film
+ *  is the register page itself, a `1:1` ark is one indexed entry read off such
+ *  a page, and a tree page is somebody's conclusions. */
+export function siteQuay(site: ReshapeSite, url: string | undefined): string | undefined {
+  if (site !== "familysearch") return SITE_QUAY[site];
+  const kind = url ? parseFamilySearchUrl(url)?.kind : undefined;
+  if (kind === "image") return "3";
+  if (kind === "record") return "2";
+  if (kind === "tree") return "1";
+  return undefined;
+}
+
 const siteIconCache = new Map<string, string | undefined>();
 
 /** The recognized site's glyph for a source/link URL, or undefined for URLs

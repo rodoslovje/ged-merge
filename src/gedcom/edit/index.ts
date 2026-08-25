@@ -58,9 +58,9 @@ export {
   createSourceRecord, createRepoRecord, addObjeToSource, attachSourceCitation, linkPageMedia,
   updateSourceCitation, removeSourceCitationAtIndex, pruneUnreferencedSource,
   setSourceRecordFields, sourceRecordEditFields, setRepoRecordFields, repoRecordEditFields,
-  SOUR_TRAILING_TAGS, SOUR_FIELD_TRAILING, sourceCitationNodes,
+  SOUR_TRAILING_TAGS, SOUR_FIELD_TRAILING, sourceCitationNodes, setCitationQuay,
 } from "./sources";
-export type { EditSourceFields, EditRepoFields, NewSourceFields } from "./sources";
+export type { EditSourceFields, EditRepoFields, NewSourceFields, NewCitation } from "./sources";
 
 export { bumpSourceCacheVersion, getMediaAndSourceCtx, getSourceLookup, rebuildIndividual, rebuildFamily } from "./cache";
 

@@ -81,12 +81,48 @@ export function addObjeToSource(
   return obje;
 }
 
-/** Attach a `SOUR` citation pointer (with optional `PAGE`) to `record` — an
- * event node, or a top-level INDI/FAM record — in canonical field order. */
-export function attachSourceCitation(record: GedNode, sourceXref: string, page: string | undefined, order: string[]): void {
+/** A citation about to be written: which source it points at, and the fields
+ * that belong to this reference of it rather than to the source record —
+ * which entry (`PAGE`) and how good the evidence is (`QUAY`). */
+export interface NewCitation {
+  sourceXref: string;
+  page?: string;
+  quay?: string;
+}
+
+/** Attach a `SOUR` citation pointer (with optional `PAGE`/`QUAY`) to `record`
+ * — an event node, or a top-level INDI/FAM record — in canonical field order. */
+export function attachSourceCitation(
+  record: GedNode,
+  sourceXref: string,
+  page: string | undefined,
+  order: string[],
+  quay?: string,
+): void {
   const citation: GedNode = { level: record.level + 1, tag: "SOUR", value: sourceXref, children: [] };
   if (page) citation.children.push({ level: record.level + 2, tag: "PAGE", value: page, children: [] });
+  setCitationQuay(citation, quay);
   insertOrdered(record, citation, order);
+}
+
+/**
+ * Write, change or clear a citation's data-quality value (`QUAY` 0–3) in
+ * place. A value that has not changed keeps the line it already holds — the
+ * same discipline {@link setSourceRecordFields} keeps for the source's own
+ * fields — and a new one goes last, after the `PAGE` the citation opens with.
+ */
+export function setCitationQuay(citation: GedNode, quay: string | undefined): void {
+  const value = quay?.trim();
+  const existing = firstChild(citation, "QUAY");
+  if (!value) {
+    if (existing) citation.children = citation.children.filter((c) => c !== existing);
+    return;
+  }
+  if (existing) {
+    if (existing.value?.trim() !== value) existing.value = value;
+    return;
+  }
+  citation.children.push({ level: citation.level + 1, tag: "QUAY", value, children: [] });
 }
 
 /** Link the cited page's image beside the citation on `record` — the "page
@@ -111,14 +147,14 @@ export function sourceCitationNodes(record: GedNode): GedNode[] {
 
 /** Fields editable on an existing citation — `NewSourceFields` plus the
  * source's `PLAC` (not part of `NewSourceFields`; a new source gets it via
- * the site extras), the citation-local `page` and (when known) the specific
+ * the site extras), the citation-local `page` and `quay`, and (when known) the specific
  * `OBJE` its resolved `url` came from, so a `url` edit retargets only that
  * page's file. `repoXref` is the source's `REPO` link: an xref sets it, `""`
  * removes it, and `undefined` leaves whatever the record has untouched;
  * `repoCaln` is that link's call number (`CALN`), same tri-state.
  * `repoCreateName` creates a brand-new `REPO` record with that name and links
  * the source to it — the dialog's "New repository" choice; wins over `repoXref`. */
-export type EditSourceFields = NewSourceFields & { place?: string; page?: string; objeXref?: string; repoXref?: string; repoCaln?: string; repoCreateName?: string };
+export type EditSourceFields = NewSourceFields & { place?: string; page?: string; quay?: string; objeXref?: string; repoXref?: string; repoCaln?: string; repoCreateName?: string };
 
 /** Create a top-level `REPO` record holding just a `NAME` — the manual "New
  * repository" path (a site-recognized repo gets its `WWW` via `createSiteRepo`). */
@@ -137,7 +173,7 @@ export function createRepoRecord(records: GedNode[], name: string): GedNode {
  * `SOUR` record, the bibliographic fields (title/author/.../note) are written
  * to that record — affecting every other citation of the same source, which
  * is correct since they describe the source itself, not this citation of it.
- * `page` is citation-local. `url` retargets `fields.objeXref` (the specific
+ * `page` and `quay` are citation-local. `url` retargets `fields.objeXref` (the specific
  * page image this citation resolved to) when known, the source's sole `OBJE`
  * when it has exactly one, or otherwise creates a new `OBJE` for this page —
  * never touching another page's file. For an inline (plain-text) citation,
@@ -150,6 +186,7 @@ export function updateSourceCitation(records: GedNode[], node: GedNode, index: n
   const page = fields.page?.trim();
   citation.children = citation.children.filter((c) => c.tag !== "PAGE");
   if (page) citation.children.push({ level: citation.level + 1, tag: "PAGE", value: page, children: [] });
+  setCitationQuay(citation, fields.quay);
 
   const sourceXref = citation.value?.trim();
   if (!sourceXref || !isPointer(sourceXref)) {
@@ -167,7 +204,7 @@ export function updateSourceCitation(records: GedNode[], node: GedNode, index: n
  * Write the bibliographic fields of a `SOUR` record itself — shared by
  * {@link updateSourceCitation} (which reaches the record through a citation)
  * and the Tools → Sources panel (which edits the record directly, no citation
- * involved). `page` is citation-local and ignored here. `url` retargets
+ * involved). `page` and `quay` are citation-local and ignored here. `url` retargets
  * `fields.objeXref` (or the record's sole `OBJE`), or creates a new `OBJE`.
  */
 export function setSourceRecordFields(records: GedNode[], sourceNode: GedNode, fields: EditSourceFields, notes?: SharedNoteCtx): void {
