@@ -99,11 +99,11 @@ export function SourceFieldsForm({
   repositoryRow?: ReactNode;
   linkRow?: ReactNode;
 }) {
-  const field = (key: keyof SourceFormValues, labelKey: string, autoFocus = false) => {
+  const field = (key: keyof SourceFormValues, labelKey: string, autoFocus = false, wide = false) => {
     if (show[key] === false) return null;
     const tag = nonStandardTag(key as SourceFieldKey, coverage);
     return (
-      <label className="add-source-field">
+      <label className={wide ? "add-source-field add-source-field-wide" : "add-source-field"}>
         <span>
           {t(labelKey)}
           <NonStandard tag={tag} t={t} />
@@ -128,7 +128,10 @@ export function SourceFieldsForm({
         {field("publisher", "addSource.field.publisher")}
         {field("place", "addSource.field.place")}
         {field("dateRange", "addSource.field.dateRange")}
-        {field("note", "addSource.field.note")}
+        {/* A note is prose, not a value: it takes the width of the dialog —
+            and taking it pairs the two the standard has no tag for on the row
+            below, where their marks stand together. */}
+        {field("note", "addSource.field.note", false, true)}
         {field("periodical", "addSource.field.periodical")}
         {!idOnRepo && field("filingNumber", "addSource.field.filingNumber")}
         {!citation && field("page", "addSource.field.page")}
