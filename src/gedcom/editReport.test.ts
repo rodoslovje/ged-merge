@@ -256,6 +256,25 @@ describe("enrichEditReport — event tags outside the canonical lists", () => {
     });
   });
 
+  it("names the parish added to a family MARR, not the raw lines under it", () => {
+    // The agency was the one event sub-field the diff never read, so filling it
+    // in left both summaries identical: the record still counted as changed and
+    // the raw-line fallback described it as the whole `MARR` arriving anew.
+    const body = (agency: string) =>
+      wrap(
+        `0 @F1@ FAM\n1 HUSB @I1@\n1 MARR\n2 DATE 1830\n2 PLAC Semič\n${agency}0 @I1@ INDI\n1 NAME Anton /Rakar/\n1 FAMS @F1@\n`,
+      );
+    const before = dataset(body(""));
+    const after = dataset(body("2 AGNC Župnija Semič\n"));
+    const snapshots = new Map([["@F1@", before.families.get("@F1@")!.raw]]);
+    const report = enrichEditReport(famReport("@F1@"), after, new Map(), snapshots, tr);
+
+    const marr = report.changes.filter((c) => c.group === "event.MARR");
+    expect(marr).toHaveLength(1);
+    expect(marr[0].segments).toContainEqual({ text: "Župnija Semič", state: "changed" });
+    expect(report.changes.some((c) => c.field === "field.otherLines")).toBe(false);
+  });
+
   it("shows a date change on a vendor event tag with event substructure", () => {
     const before = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 _KRST\n2 DATE 1901\n2 PLAC Kranj\n"));
     const after = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 _KRST\n2 DATE 1902\n2 PLAC Kranj\n"));
