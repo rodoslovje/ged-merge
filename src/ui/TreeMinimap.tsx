@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useMemo, useRef } from "react";
 import { minimapFit, NODE_H, NODE_W, PAD, type ChartNode, type Viewport } from "../chart/treeLayout";
 
 interface Props<T extends ChartNode> {
@@ -28,6 +28,26 @@ export function TreeMinimap<T extends ChartNode>({ nodes, contentW, contentH, vi
   // short axis only for the extreme ratios of deep trees.
   const { scaleX, scaleY, w, h } = minimapFit(contentW * zoom, contentH * zoom, viewport);
 
+  // The dots only move when the chart or the scale does — never when the canvas
+  // scrolls, which is most of what this component sees. Holding the same
+  // elements across a scroll lets React skip the whole list (a chart's worth of
+  // rects) and re-render the viewport rectangle alone.
+  const dots = useMemo(
+    () =>
+      nodes.map((n) => (
+        <rect
+          key={n.key}
+          x={(n.x + PAD) * zoom * scaleX}
+          y={(n.y + PAD) * zoom * scaleY}
+          width={Math.max(1, NODE_W * zoom * scaleX)}
+          height={Math.max(1, nodeH * zoom * scaleY)}
+          rx={1}
+          fill={fill(n)}
+        />
+      )),
+    [nodes, zoom, scaleX, scaleY, nodeH, fill],
+  );
+
   const recentre = (e: React.PointerEvent<SVGSVGElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const x = (e.clientX - rect.left) / scaleX;
@@ -51,17 +71,7 @@ export function TreeMinimap<T extends ChartNode>({ nodes, contentW, contentH, vi
         e.currentTarget.releasePointerCapture(e.pointerId);
       }}
     >
-      {nodes.map((n) => (
-        <rect
-          key={n.key}
-          x={(n.x + PAD) * zoom * scaleX}
-          y={(n.y + PAD) * zoom * scaleY}
-          width={Math.max(1, NODE_W * zoom * scaleX)}
-          height={Math.max(1, nodeH * zoom * scaleY)}
-          rx={1}
-          fill={fill(n)}
-        />
-      ))}
+      {dots}
       <rect
         className="tree-minimap-viewport"
         x={viewport.left * scaleX}

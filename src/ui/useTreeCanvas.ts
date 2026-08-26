@@ -1,5 +1,15 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { NODE_H, NODE_W, PAD, type ChartAlignment, type ChartNode, type Viewport } from "../chart/treeLayout";
+import {
+  centreOffset,
+  clampScroll,
+  NODE_H,
+  NODE_W,
+  PAD,
+  scrollForZoom,
+  type ChartAlignment,
+  type ChartNode,
+  type Viewport,
+} from "../chart/treeLayout";
 import { PHONE_QUERY } from "./usePhone";
 
 /** Zoom range and the per-click button step. Wheel zoom is continuous within this
@@ -9,6 +19,32 @@ export const MAX_ZOOM = 3;
 const ZOOM_STEP = 1.25;
 
 const clampZoom = (z: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));
+
+/** A wheel speaks one of three units; normalize lines to pixels. */
+const WHEEL_LINE_PX = 16;
+/** Cap on one event's scroll delta: a mouse notch (±120) must feel like a step,
+ *  not a leap, and no single event may cross the whole zoom range. */
+const WHEEL_MAX_PX = 120;
+
+/** An in-flight pinch / wheel-zoom run, tracked in the canvas's own terms. */
+interface Gesture {
+  /** Committed zoom and scroll when it opened — what the DOM still shows. */
+  z0: number;
+  left0: number;
+  top0: number;
+  /** Canvas client box: the size the clamps use, the origin focus points use. */
+  cw: number;
+  ch: number;
+  ox: number;
+  oy: number;
+  /** Chart extent in native (1×) px. */
+  contentW: number;
+  contentH: number;
+  /** Live target, already clamped: where the gesture lands if it ends now. */
+  z: number;
+  left: number;
+  top: number;
+}
 
 /** Props to spread on the scrollable `.tree-canvas` div. */
 export interface TreeCanvasProps {
@@ -85,7 +121,10 @@ export function useTreeCanvas(
   const [viewport, setViewport] = useState<Viewport>({ left: 0, top: 0, width: 0, height: 0 });
   const [panning, setPanning] = useState(false);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
-  const pan = useRef<{ x: number; y: number; left: number; top: number; id: number; moved: boolean } | null>(null);
+  const pan = useRef<
+    { x: number; y: number; left: number; top: number; id: number; moved: boolean; dx: number; dy: number } | null
+  >(null);
+  const panRaf = useRef(0);
   const dragged = useRef(false);
 
   // Zoom lives here so all the viewport↔content conversions (root re-centring,
@@ -107,9 +146,11 @@ export function useTreeCanvas(
   // goes idle: the transform is folded into the real zoom + scroll, and the
   // layer transform is cleared in the same layout-effect frame so nothing jumps.
   const zoomLayerRef = useRef<HTMLDivElement>(null);
-  // `k` is the factor on top of the committed zoom; (dx, dy) the translation;
-  // (x0, y0) the layer's client origin when the gesture started (identity).
-  const gesture = useRef<{ k: number; dx: number; dy: number; x0: number; y0: number } | null>(null);
+  // The gesture is tracked in the canvas's own terms — a target zoom and a
+  // target scroll, both clamped to what the canvas can reach — and the layer
+  // transform is *derived* from that pair. So what the fingers see is exactly
+  // what the commit lands on: there is nothing left to snap back from.
+  const gesture = useRef<Gesture | null>(null);
   const gestureRaf = useRef(0);
   const wheelIdle = useRef(0);
   const pendingLayerReset = useRef(false);
@@ -117,8 +158,27 @@ export function useTreeCanvas(
   const syncViewport = useCallback(() => {
     const el = canvasRef.current;
     if (!el) return;
-    setViewport({ left: el.scrollLeft, top: el.scrollTop, width: el.clientWidth, height: el.clientHeight });
+    const next = { left: el.scrollLeft, top: el.scrollTop, width: el.clientWidth, height: el.clientHeight };
+    // A pan fires scroll events faster than the page around the canvas can
+    // usefully re-render, and the last events of a run usually say nothing new —
+    // an unchanged rect must not cost a render at all.
+    setViewport((v) =>
+      v.left === next.left && v.top === next.top && v.width === next.width && v.height === next.height
+        ? v
+        : next,
+    );
   }, []);
+
+  // Scroll and resize sync through a frame, so however many events the trackpad
+  // delivers between two paints, React sees one viewport update per frame.
+  const viewportRaf = useRef(0);
+  const queueViewport = useCallback(() => {
+    if (viewportRaf.current) return;
+    viewportRaf.current = requestAnimationFrame(() => {
+      viewportRaf.current = 0;
+      syncViewport();
+    });
+  }, [syncViewport]);
 
   // Apply a pending zoom-driven scroll once the resized SVG has been committed,
   // then re-measure so the minimap's viewport box tracks the new scale. A
@@ -145,17 +205,36 @@ export function useTreeCanvas(
   // Open (or continue) the in-progress gesture; null when the host renders no
   // ChartZoom layer — the caller then falls back to committing per event.
   const ensureGesture = useCallback(() => {
+    const el = canvasRef.current;
     const layer = zoomLayerRef.current;
-    if (!layer) return null;
+    if (!el || !layer) return null;
     if (!gesture.current) {
-      const r = layer.getBoundingClientRect();
-      gesture.current = { k: 1, dx: 0, dy: 0, x0: r.left, y0: r.top };
+      // One geometry read for the whole gesture: the canvas does not move while
+      // the fingers are down, and mixing two reads is what makes a pinch drift.
+      const r = el.getBoundingClientRect();
+      const z0 = zoomRef.current;
+      gesture.current = {
+        z0,
+        left0: el.scrollLeft,
+        top0: el.scrollTop,
+        cw: el.clientWidth,
+        ch: el.clientHeight,
+        ox: r.left + el.clientLeft,
+        oy: r.top + el.clientTop,
+        // Prefer the layout's own extent; the layer's box covers the views that
+        // lay out without publishing one.
+        contentW: laid?.width ?? layer.offsetWidth / z0,
+        contentH: laid?.height ?? layer.offsetHeight / z0,
+        z: z0,
+        left: el.scrollLeft,
+        top: el.scrollTop,
+      };
       // Promote the layer for the duration of the gesture so the per-event
       // transform stays on the compositor; cleared again on commit.
       layer.style.willChange = "transform";
     }
     return gesture.current;
-  }, []);
+  }, [laid]);
 
   // Paint the gesture transform once per animation frame, however many wheel /
   // touch events arrived in between.
@@ -165,7 +244,16 @@ export function useTreeCanvas(
       gestureRaf.current = 0;
       const g = gesture.current;
       const layer = zoomLayerRef.current;
-      if (g && layer) layer.style.transform = `translate(${g.dx}px, ${g.dy}px) scale(${g.k})`;
+      if (!g || !layer) return;
+      // Move the chart's top-left corner from where the committed render put it
+      // to where the target zoom and scroll want it. (`.chart-zoom` carries
+      // transform-origin: 0 0, so scale and translation compose with no centre
+      // term to correct for.)
+      const dx =
+        centreOffset(g.cw, g.contentW, g.z) - g.left - (centreOffset(g.cw, g.contentW, g.z0) - g.left0);
+      const dy =
+        centreOffset(g.ch, g.contentH, g.z) - g.top - (centreOffset(g.ch, g.contentH, g.z0) - g.top0);
+      layer.style.transform = `translate(${dx}px, ${dy}px) scale(${g.z / g.z0})`;
     });
   }, []);
 
@@ -174,15 +262,12 @@ export function useTreeCanvas(
   const gestureZoom = useCallback((factor: number, cx: number, cy: number) => {
     const g = ensureGesture();
     if (!g) return false;
-    // Clamp so the zoom the commit will land on stays inside the range.
-    const k = clampZoom(zoomRef.current * g.k * factor) / zoomRef.current;
-    // The layer-local point currently under the focus…
-    const px = (cx - g.x0 - g.dx) / g.k;
-    const py = (cy - g.y0 - g.dy) / g.k;
-    // …stays put: solve translate for the new scale.
-    g.dx = cx - g.x0 - px * k;
-    g.dy = cy - g.y0 - py * k;
-    g.k = k;
+    const z = clampZoom(g.z * factor);
+    if (z !== g.z) {
+      g.left = scrollForZoom(g.left, cx - g.ox, g.cw, g.contentW, g.z, z);
+      g.top = scrollForZoom(g.top, cy - g.oy, g.ch, g.contentH, g.z, z);
+      g.z = z;
+    }
     paintGesture();
     return true;
   }, [ensureGesture, paintGesture]);
@@ -191,8 +276,8 @@ export function useTreeCanvas(
   const gesturePan = useCallback((mx: number, my: number) => {
     const g = ensureGesture();
     if (!g) return false;
-    g.dx += mx;
-    g.dy += my;
+    g.left = clampScroll(g.left - mx, g.cw, g.contentW, g.z);
+    g.top = clampScroll(g.top - my, g.ch, g.contentH, g.z);
     paintGesture();
     return true;
   }, [ensureGesture, paintGesture]);
@@ -212,35 +297,24 @@ export function useTreeCanvas(
     const el = canvasRef.current;
     const layer = zoomLayerRef.current;
     if (!g || !el || !layer) return;
-    const z0 = zoomRef.current;
-    const z1 = clampZoom(z0 * g.k);
-    // Where the layer's content origin visually sits now (client coords) —
-    // computed from the gesture state, so an unpainted last event still counts.
-    const ox = g.x0 + g.dx;
-    const oy = g.y0 + g.dy;
-    // Scroll that reproduces that position at the committed scale. The layer's
-    // layout offset inside the canvas is the flex auto-margin centring, which
-    // only bites while the scaled chart is smaller than the canvas.
-    const rect = el.getBoundingClientRect();
-    const centreX = Math.max(0, (el.clientWidth - (laid?.width ?? 0) * z1) / 2);
-    const centreY = Math.max(0, (el.clientHeight - (laid?.height ?? 0) * z1) / 2);
-    const left = Math.max(0, centreX + rect.left + el.clientLeft - ox);
-    const top = Math.max(0, centreY + rect.top + el.clientTop - oy);
-    if (z1 === z0) {
+    // The target was kept scroll-reachable all along, so committing is just
+    // handing (z, left, top) over — no geometry to re-derive, nothing to clamp.
+    if (g.z === g.z0) {
       // Pure pan (or a pinch that cancelled itself out): no re-render is
       // coming, so clear the transform and set the scroll directly.
       layer.style.transform = "";
       layer.style.willChange = "";
-      el.scrollLeft = left;
-      el.scrollTop = top;
+      pendingScroll.current = null;
+      el.scrollLeft = g.left;
+      el.scrollTop = g.top;
       syncViewport();
       return;
     }
     pendingLayerReset.current = true;
-    pendingScroll.current = { left, top };
-    zoomRef.current = z1;
-    setZoom(z1);
-  }, [laid, syncViewport]);
+    pendingScroll.current = { left: g.left, top: g.top };
+    zoomRef.current = g.z;
+    setZoom(g.z);
+  }, [syncViewport]);
 
   // Re-scale around a focus point (cx, cy) given in canvas-client pixels, keeping
   // the layout point under that focus fixed on screen.
@@ -250,14 +324,19 @@ export function useTreeCanvas(
     const clamped = clampZoom(next);
     const prev = zoomRef.current;
     if (clamped === prev) return;
-    const ratio = clamped / prev;
+    const layer = zoomLayerRef.current;
+    const contentW = laid?.width ?? (layer ? layer.offsetWidth / prev : 0);
+    const contentH = laid?.height ?? (layer ? layer.offsetHeight / prev : 0);
+    // A commit from this same tick may not have reached the DOM yet, so the
+    // scroll to zoom around is the pending one whenever there is one.
+    const from = pendingScroll.current ?? { left: el.scrollLeft, top: el.scrollTop };
     pendingScroll.current = {
-      left: (el.scrollLeft + cx) * ratio - cx,
-      top: (el.scrollTop + cy) * ratio - cy,
+      left: scrollForZoom(from.left, cx, el.clientWidth, contentW, prev, clamped),
+      top: scrollForZoom(from.top, cy, el.clientHeight, contentH, prev, clamped),
     };
     zoomRef.current = clamped;
     setZoom(clamped);
-  }, []);
+  }, [laid]);
 
   const zoomCentre = useCallback((next: number) => {
     const el = canvasRef.current;
@@ -281,6 +360,7 @@ export function useTreeCanvas(
     if (z === zoomRef.current) {
       // Already at the fit scale: no re-render is coming to flush a pending
       // scroll, so centre directly (the scrollable extent is already right).
+      pendingScroll.current = null;
       el.scrollLeft = left;
       el.scrollTop = top;
       return;
@@ -331,7 +411,13 @@ export function useTreeCanvas(
     const onWheel = (e: WheelEvent) => {
       if (!e.ctrlKey && !e.metaKey) return;
       e.preventDefault();
-      const factor = Math.exp(-e.deltaY * 0.0015);
+      // Wheels speak three units (pixels, lines, pages) and a mouse notch is
+      // worth far more than a trackpad tick, so normalize to pixels and cap one
+      // event: unnormalized, the same gesture zooms at wildly different rates
+      // from one browser or device to the next.
+      const px =
+        e.deltaMode === 1 ? e.deltaY * WHEEL_LINE_PX : e.deltaMode === 2 ? e.deltaY * el.clientHeight : e.deltaY;
+      const factor = Math.exp(-Math.max(-WHEEL_MAX_PX, Math.min(WHEEL_MAX_PX, px)) * 0.0015);
       // Fast path: paint the run of wheel events as one gesture and commit
       // when it goes idle. Without a ChartZoom layer, commit per event.
       if (gestureZoom(factor, e.clientX, e.clientY)) {
@@ -340,7 +426,7 @@ export function useTreeCanvas(
         return;
       }
       const rect = el.getBoundingClientRect();
-      zoomAround(zoomRef.current * factor, e.clientX - rect.left, e.clientY - rect.top);
+      zoomAround(zoomRef.current * factor, e.clientX - rect.left - el.clientLeft, e.clientY - rect.top - el.clientTop);
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
@@ -381,7 +467,7 @@ export function useTreeCanvas(
         el.scrollLeft -= mid.x - lastMid.x;
         el.scrollTop -= mid.y - lastMid.y;
         const rect = el.getBoundingClientRect();
-        zoomAround(zoomRef.current * (dist / lastDist), mid.x - rect.left, mid.y - rect.top);
+        zoomAround(zoomRef.current * (dist / lastDist), mid.x - rect.left - el.clientLeft, mid.y - rect.top - el.clientTop);
       }
       lastDist = dist;
       lastMid = mid;
@@ -407,13 +493,15 @@ export function useTreeCanvas(
   // Unmount mid-gesture: stop the pending paint / idle-commit timers.
   useEffect(() => () => {
     if (gestureRaf.current) cancelAnimationFrame(gestureRaf.current);
+    if (panRaf.current) cancelAnimationFrame(panRaf.current);
+    if (viewportRaf.current) cancelAnimationFrame(viewportRaf.current);
     if (wheelIdle.current) clearTimeout(wheelIdle.current);
   }, []);
 
   useEffect(() => {
-    window.addEventListener("resize", syncViewport);
-    return () => window.removeEventListener("resize", syncViewport);
-  }, [syncViewport]);
+    window.addEventListener("resize", queueViewport);
+    return () => window.removeEventListener("resize", queueViewport);
+  }, [queueViewport]);
 
   const scrollTo = useCallback((left: number, top: number) => {
     const el = canvasRef.current;
@@ -472,40 +560,100 @@ export function useTreeCanvas(
   // one-finger scroll (with momentum), so we ignore touch pointers here.
   // We only capture the pointer *after* movement crosses a threshold — capturing
   // on pointerdown would retarget the click off the node and break selection.
-  const onPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.pointerType === "touch" || e.button !== 0) return;
-    const el = canvasRef.current;
-    if (!el) return;
-    pan.current = { x: e.clientX, y: e.clientY, left: el.scrollLeft, top: el.scrollTop, id: e.pointerId, moved: false };
-  }, []);
+  // The travel lives on the pan ref and is written to the scroll offsets once a
+  // frame, so a trackpad that reports faster than the screen paints costs one
+  // scroll per picture rather than one per event.
 
-  const onPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+  /** Write the drag's accumulated travel to the scroll offsets. */
+  const applyPan = useCallback(() => {
+    const el = canvasRef.current;
     const p = pan.current;
-    const el = canvasRef.current;
-    if (!p || !el) return;
-    const dx = e.clientX - p.x;
-    const dy = e.clientY - p.y;
-    if (!p.moved) {
-      if (Math.hypot(dx, dy) < 4) return; // ignore jitter, keep clicks clickable
-      p.moved = true;
-      el.setPointerCapture(p.id);
-      setPanning(true);
-    }
-    el.scrollLeft = p.left - dx;
-    el.scrollTop = p.top - dy;
+    if (!el || !p || !p.moved) return;
+    el.scrollLeft = p.left - p.dx;
+    el.scrollTop = p.top - p.dy;
   }, []);
 
-  const onPointerUp = useCallback(() => {
+  const endPan = useCallback(() => {
     const p = pan.current;
     const el = canvasRef.current;
     if (!p) return;
+    if (panRaf.current) {
+      // A frame was still owed: land on the pointer's last reported position
+      // rather than on the last one that happened to get painted.
+      cancelAnimationFrame(panRaf.current);
+      panRaf.current = 0;
+      applyPan();
+    }
+    pan.current = null;
     if (p.moved) {
       dragged.current = true; // swallow the click that the drag would emit
       if (el?.hasPointerCapture(p.id)) el.releasePointerCapture(p.id);
       setPanning(false);
     }
-    pan.current = null;
+  }, [applyPan]);
+
+  const onPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    // Arm the click-swallow afresh: a drag that ended off-canvas leaves its
+    // flag standing (no click ever came to clear it), and that flag must not
+    // eat the next honest click on a node.
+    dragged.current = false;
+    if (e.pointerType === "touch" || e.button !== 0) return;
+    const el = canvasRef.current;
+    if (!el) return;
+    pan.current = {
+      x: e.clientX,
+      y: e.clientY,
+      left: el.scrollLeft,
+      top: el.scrollTop,
+      id: e.pointerId,
+      moved: false,
+      dx: 0,
+      dy: 0,
+    };
   }, []);
+
+  const onPointerMove = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      const p = pan.current;
+      const el = canvasRef.current;
+      if (!p || !el) return;
+      // Nothing is held down any more: the button came up somewhere we never
+      // saw it (outside the window, or before the capture was taken). Without
+      // this the chart goes on following the bare pointer around.
+      if (e.buttons === 0) {
+        endPan();
+        return;
+      }
+      p.dx = e.clientX - p.x;
+      p.dy = e.clientY - p.y;
+      if (!p.moved) {
+        if (Math.hypot(p.dx, p.dy) < 4) return; // ignore jitter, keep clicks clickable
+        p.moved = true;
+        el.setPointerCapture(p.id);
+        setPanning(true);
+      }
+      // A trackpad can report several moves per frame; scrolling once per frame
+      // keeps the pan on the paint rhythm instead of ahead of it.
+      if (!panRaf.current) {
+        panRaf.current = requestAnimationFrame(() => {
+          panRaf.current = 0;
+          applyPan();
+        });
+      }
+    },
+    [applyPan, endPan],
+  );
+
+  // A drag that ends off the canvas — past the window edge, or over something
+  // that swallowed the event — still has to end the pan.
+  useEffect(() => {
+    window.addEventListener("pointerup", endPan);
+    window.addEventListener("pointercancel", endPan);
+    return () => {
+      window.removeEventListener("pointerup", endPan);
+      window.removeEventListener("pointercancel", endPan);
+    };
+  }, [endPan]);
 
   // After a pan, cancel the trailing click so dragging doesn't select a node.
   const onClickCapture = useCallback((e: React.MouseEvent) => {
@@ -522,11 +670,11 @@ export function useTreeCanvas(
     panning,
     scrollTo,
     canvasProps: {
-      onScroll: syncViewport,
+      onScroll: queueViewport,
       onPointerDown,
       onPointerMove,
-      onPointerUp,
-      onPointerCancel: onPointerUp,
+      onPointerUp: endPan,
+      onPointerCancel: endPan,
       onClickCapture,
     },
     selectedKey,

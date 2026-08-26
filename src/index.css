@@ -4877,9 +4877,14 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   cursor: grab;
   user-select: none;
 }
+/* Only the three things inside a chart that set a cursor of their own need
+   overriding — `*` here made starting a drag recalculate style for every
+   element in the diagram, which a large chart feels as a stutter. */
 .tree-canvas.panning,
-.tree-canvas.panning * {
-  cursor: grabbing !important;
+.tree-canvas.panning .tree-node,
+.tree-canvas.panning .fan-node,
+.tree-canvas.panning .timeline-row {
+  cursor: grabbing;
 }
 /* Translucent at rest so the chart stays readable underneath; solid while the
    pointer is over it (including viewport drags, which keep pointer capture). */
@@ -4991,8 +4996,11 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
    flex canvas (auto margins centre a small chart, same as the bare SVG used to);
    the inner div carries the native-size SVG scaled by CSS transform. Hidden
    overflow keeps the inner's unscaled layout box (larger when zoomed out) from
-   inflating the canvas's scroll extents. (`.tree-zoom` is the zoom toolbar.) */
-.chart-zoom { margin: auto; flex: 0 0 auto; overflow: hidden; }
+   inflating the canvas's scroll extents. The origin is pinned to the top-left
+   corner because the in-flight pinch transform useTreeCanvas paints here is
+   solved for that corner — a centred origin would offset every gesture by half
+   the chart. (`.tree-zoom` is the zoom toolbar.) */
+.chart-zoom { margin: auto; flex: 0 0 auto; overflow: hidden; transform-origin: 0 0; }
 .chart-zoom-scale { transform-origin: 0 0; }
 .chart-zoom .tree-svg { margin: 0; }
 .tree-edge {

@@ -121,6 +121,43 @@ export function minimapDefaultOpen(contentW: number, contentH: number, viewport:
   return shownFraction < 0.25;
 }
 
+/** How far the canvas's flex auto-margins push a chart that is smaller than the
+ *  viewport away from the leading edge — 0 as soon as the scaled chart overflows. */
+export function centreOffset(client: number, content: number, zoom: number): number {
+  return Math.max(0, (client - content * zoom) / 2);
+}
+
+/** The largest scroll offset the canvas can reach at this scale. */
+export function maxScroll(client: number, content: number, zoom: number): number {
+  return Math.max(0, content * zoom - client);
+}
+
+/** `v` brought inside what the canvas can scroll to at this scale. */
+export function clampScroll(v: number, client: number, content: number, zoom: number): number {
+  return Math.min(maxScroll(client, content, zoom), Math.max(0, v));
+}
+
+/**
+ * The scroll offset that keeps whatever sits under `focus` (canvas-local px)
+ * under it while the scale goes from `from` to `to`.
+ *
+ * The result is clamped to what the canvas can actually reach, which is the
+ * point: a pinch paints its target as a transform and only later hands it over
+ * as a real scroll, so a target the scroll range cannot reproduce is a target
+ * the chart visibly snaps back from when the fingers lift.
+ */
+export function scrollForZoom(
+  scroll: number,
+  focus: number,
+  client: number,
+  content: number,
+  from: number,
+  to: number,
+): number {
+  const point = (scroll + focus - centreOffset(client, content, from)) / from;
+  return clampScroll(point * to + centreOffset(client, content, to) - focus, client, content, to);
+}
+
 /** Fraction of the visible canvas the minimap box may occupy on each axis —
    kept small so the overview stays a corner aid rather than covering the chart. */
 const MINIMAP_MAX_W_FRACTION = 0.32;
