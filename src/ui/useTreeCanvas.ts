@@ -16,15 +16,23 @@ import { PHONE_QUERY } from "./usePhone";
  *  range; "fit" never magnifies past 1× so a small chart keeps its natural size. */
 export const MIN_ZOOM = 0.1;
 export const MAX_ZOOM = 3;
-const ZOOM_STEP = 1.25;
+const ZOOM_STEP = 1.5;
 
 const clampZoom = (z: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));
 
 /** A wheel speaks one of three units; normalize lines to pixels. */
 const WHEEL_LINE_PX = 16;
-/** Cap on one event's scroll delta: a mouse notch (±120) must feel like a step,
- *  not a leap, and no single event may cross the whole zoom range. */
-const WHEEL_MAX_PX = 120;
+/** Wheel travel that doubles the scale. This is the map view's own rate (it is
+ *  Leaflet's `wheelPxPerZoomLevel`), so a pinch covers as much ground on a chart
+ *  as it does on the map — the charts used to ask for 462px per doubling, which
+ *  is why crossing the zoom range there took a handful of gestures. */
+const WHEEL_PX_PER_DOUBLING = 60;
+const WHEEL_RATE = Math.LN2 / WHEEL_PX_PER_DOUBLING;
+/** Ceiling on what a single event may do. At the rate above, one mouse notch
+ *  (±120px) would otherwise quadruple the scale in one click; capped, a notch
+ *  lands on the same step the +/− buttons take, while a trackpad's small, fast
+ *  ticks stay well under the cap and accumulate at the full rate. */
+const WHEEL_MAX_FACTOR = ZOOM_STEP;
 
 /** An in-flight pinch / wheel-zoom run, tracked in the canvas's own terms. */
 interface Gesture {
@@ -413,12 +421,12 @@ export function useTreeCanvas(
       if (!e.ctrlKey && !e.metaKey) return;
       e.preventDefault();
       // Wheels speak three units (pixels, lines, pages) and a mouse notch is
-      // worth far more than a trackpad tick, so normalize to pixels and cap one
-      // event: unnormalized, the same gesture zooms at wildly different rates
-      // from one browser or device to the next.
+      // worth far more than a trackpad tick, so normalize to pixels and cap what
+      // one event may do: unnormalized, the same gesture zooms at wildly
+      // different rates from one browser or device to the next.
       const px =
         e.deltaMode === 1 ? e.deltaY * WHEEL_LINE_PX : e.deltaMode === 2 ? e.deltaY * el.clientHeight : e.deltaY;
-      const factor = Math.exp(-Math.max(-WHEEL_MAX_PX, Math.min(WHEEL_MAX_PX, px)) * 0.0015);
+      const factor = Math.min(WHEEL_MAX_FACTOR, Math.max(1 / WHEEL_MAX_FACTOR, Math.exp(-px * WHEEL_RATE)));
       // Fast path: paint the run of wheel events as one gesture and commit
       // when it goes idle. Without a ChartZoom layer, commit per event.
       if (gestureZoom(factor, e.clientX, e.clientY)) {
