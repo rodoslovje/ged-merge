@@ -15,7 +15,7 @@ import {
   applyRows,
   buildSourXrefMap,
   cloneNode,
-  detectLinkFormat,
+  linkPlacementFor,
   foldMatchedSourcePages,
   importSourRecords,
   sortEventsByDate,
@@ -203,6 +203,10 @@ export interface MergeResult {
   /** A clone of the main record forest with confirmed edits applied. */
   records: GedNode[];
   report: ChangeReport;
+  /** Books this merge minted a source for from the link alone, whose own pages
+   *  nobody has read yet — the save offers to read them and merge again, so a
+   *  source born of a merge is named as well as a hand-added one. */
+  pendingSourceLookups: string[];
 }
 
 /**
@@ -345,9 +349,11 @@ export function mergeDecisions(
   const touched = new Set<string>();
   // How the main writes places, so incoming places can be reshaped to match.
   const placeFmt = mergePlaceFormat(main, overrides);
-  // How the main stores record-level links, so newly added links match (e.g.
-  // a plain WWW line, Family Historian's _WEBTAG block, or an OBJE/FILE record).
-  const linkFormat = detectLinkFormat(main);
+  // How the main stores record-level links and cited pages' images, so a link
+  // this merge writes lands in the shape the file already keeps (a plain WWW
+  // line, Family Historian's _WEBTAG block, an OBJE/FILE record; a page image
+  // beside the citation or only under its source).
+  const placement = linkPlacementFor(main, overrides);
   // Matches the user explicitly rejected: dropped from the merge's identity map
   // so a rejected pair is never reused to stitch relationships — the incoming
   // person is imported as a new record instead of folded into the wrong main.
@@ -361,7 +367,7 @@ export function mergeDecisions(
     if (decision.status === "rejected") rejectedPairs.add(`${parsed.mainId}|${parsed.compareId}`);
     else if (decision.status === "confirmed") confirmedPairs.add(`${parsed.mainId}|${parsed.compareId}`);
   }
-  const ctx = makeContext(main, compare, matches, records, indiNodes, famNodes, report, touched, t, sourXrefMap, rejectedPairs, confirmedPairs);
+  const ctx = makeContext(main, compare, matches, records, indiNodes, famNodes, report, touched, t, sourXrefMap, rejectedPairs, confirmedPairs, placement);
 
   // A family with both spouses confirmed is stitched only once — on the first
   // spouse's turn (see processedFamIds). Its rows, though, were reviewed on
@@ -402,7 +408,7 @@ export function mergeDecisions(
     report.recordLabels[mainId] = displayName(mainIndi.names[0]);
     const rejectedEvents = decision.rejectedEvents?.length ? new Set(decision.rejectedEvents) : undefined;
     const rows = individualFieldRows(t, mainIndi, incoming, main, compare, placeFmt, rejectedEvents);
-    applyRows(target, incoming.raw, mainId, rows, decision.fields, report, touched, INDI_HANDLED, t, linkFormat, records, sourXrefMap, decision.mainFields);
+    applyRows(target, incoming.raw, mainId, rows, decision.fields, report, touched, INDI_HANDLED, t, placement, records, sourXrefMap, decision.mainFields);
     applyIndividualRelations(mainId, mainIndi, incoming, rows, decision.fields, main, compare, ctx);
     applyIndividualFamilies(mainId, mainIndi, incoming, rows, { ...decision.fields, ...famFields }, main, compare, ctx, allTakenChildren);
     // Canonical event order, but only when this decision actually wrote
@@ -467,7 +473,7 @@ export function mergeDecisions(
   fillWrittenPlaceCoords(records, inheritedPlacs);
 
   report.recordsChanged = touched.size;
-  return { records, report };
+  return { records, report, pendingSourceLookups: placement.pendingLookups ?? [] };
 }
 
 /**

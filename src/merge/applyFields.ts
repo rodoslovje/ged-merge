@@ -21,12 +21,12 @@ import { parseName } from "../gedcom/name";
 import { linkKey } from "../normalize/links";
 import { lifespanAnchors, zoneSortKey } from "../review/fields";
 import { defaultChoice, type FieldChoice, type FieldRow } from "../review/types";
-import { placeEventLink, placeRecordLink, type LinkFormat, type PlacedLink } from "./linkPlacement";
+import { placeEventLink, placeRecordLink, type LinkPlacement, type PlacedLink } from "./linkPlacement";
 import type { ChangeReport, CustomTagNode, FieldChange } from "./merge";
 
 // The link-format detection lives with the placement rules that consume it;
 // re-exported here so the merge and the duplicate-merge tool keep their import.
-export { detectLinkFormat, type LinkFormat, type PlacedLink } from "./linkPlacement";
+export { detectLinkFormat, linkPlacementFor, type LinkFormat, type LinkPlacement, type PlacedLink } from "./linkPlacement";
 
 type Row = FieldRow;
 
@@ -202,7 +202,7 @@ export function applyRows(
   touched: Set<string>,
   handled: Set<string>,
   t: (key: string, opts?: Record<string, unknown>) => string,
-  linkFormat: LinkFormat,
+  placement: LinkPlacement,
   records: GedNode[],
   sourMap: SourXrefMap,
   /** The main's values when the match was confirmed — see `mainFields`. Absent
@@ -304,7 +304,7 @@ export function applyRows(
       if (sub === "value") {
         applied = applyEventValue(target, incomingRecord, tag, choice, mainIdx, compareIdx, INDI_CHILD_ORDER, newEventNodes);
       } else if (sub === "sources") {
-        applied = applyEventSources(target, incomingRecord, tag, choice, mainIdx, compareIdx, INDI_CHILD_ORDER, sourMap, records, report.customTags, newEventNodes);
+        applied = applyEventSources(target, incomingRecord, tag, choice, mainIdx, compareIdx, INDI_CHILD_ORDER, sourMap, records, placement, report.customTags, newEventNodes);
       } else {
         // Places are already reshaped into the main's layout when the
         // incoming file was loaded, so the raw incoming node can be copied
@@ -335,7 +335,7 @@ export function applyRows(
   }
   if (pendingLinks) {
     const choice = fields[pendingLinks.key] ?? defaultChoice(pendingLinks as never);
-    const placed = applyLinks(target, pendingLinks.incomingLinkIcons ?? [], pendingLinks.mainLinkIcons ?? [], linkFormat, records, reservedXrefs(sourMap));
+    const placed = applyLinks(target, pendingLinks.incomingLinkIcons ?? [], pendingLinks.mainLinkIcons ?? [], placement, records, reservedXrefs(sourMap));
     for (const change of linkChanges(recordId, pendingLinks.label, choice, placed, eventGroups, t)) {
       report.changes.push(change);
       touched.add(recordId);
@@ -404,7 +404,7 @@ export function applyLinks(
   target: GedNode,
   incomingLinks: string[],
   mainLinks: string[],
-  linkFormat: LinkFormat,
+  placement: LinkPlacement,
   records: GedNode[],
   /** Output xrefs already promised to compare shared records (the values of
    *  the SourXrefMap) — a minted link record must not squat on one, or the
@@ -417,7 +417,7 @@ export function applyLinks(
     const key = linkKey(url);
     if (existing.has(key)) continue;
     existing.add(key);
-    added.push(placeRecordLink(target, url, records, { linkFormat, reserved: reservedXrefs }));
+    added.push(placeRecordLink(target, url, records, placement, reservedXrefs));
   }
   return added;
 }
@@ -731,6 +731,7 @@ export function applyEventSources(
   order: string[],
   sourMap: SourXrefMap,
   records: GedNode[],
+  placement: LinkPlacement,
   customTags: Record<string, CustomTagNode[]> = {},
   newEventNodes?: Map<string, GedNode>,
 ): boolean {
@@ -760,7 +761,7 @@ export function applyEventSources(
       // An event's own link stays on its event — `placeEventLink` cites the
       // source the main already has for it, mints one when the site is
       // recognized, and falls back to a plain link only for the rest.
-      placeEventLink(event, url, records);
+      placeEventLink(event, url, records, placement, reservedXrefs(sourMap));
     }
   }
   return true;

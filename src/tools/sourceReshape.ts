@@ -3411,6 +3411,14 @@ function matriculaEnUrl(bookUrl: string): string {
  *  re-opening the panel or re-running enrichment never refetches a book. */
 const bookMetaCache = new Map<string, ReshapeMeta>();
 
+/** What a book's own page said, if this session has already read it — the
+ *  synchronous half of {@link fetchBookMeta}, for callers that cannot wait for
+ *  the network (the merge writes its sources in one pass) and take the offline
+ *  proposal when nothing has been read. */
+export function cachedBookMeta(site: ReshapeSite, bookUrl: string): ReshapeMeta | undefined {
+  return bookMetaCache.get(`${site}:${bookKeyOf(bookUrl)}`);
+}
+
 /** FamilySearch's edge answers a burst of requests with a block page (403 from
  *  its security service) — which would also hit the user's own FamilySearch
  *  tab, on the same address. Ark lookups therefore run one at a time with a
@@ -3818,6 +3826,35 @@ export async function fetchReshapeMeta(
   const queue = [...targets];
   await Promise.all([worker(queue), worker(queue)]);
   return enrichment;
+}
+
+/**
+ * Read the pages of the given books — the same per-site parsers and the same
+ * session cache {@link fetchBookMeta} keeps, two at a time as the enrichment
+ * pass does — so what each page says is on hand for the source about to be
+ * written for it. Used by the save, which mints sources for the links a merge
+ * brings in and would otherwise name them from the address alone. Failures are
+ * swallowed; the offline proposal stands. Returns how many books answered.
+ */
+export async function readBookPages(
+  bookUrls: readonly string[],
+  fetchHtml: (url: string) => Promise<string | undefined>,
+): Promise<number> {
+  const targets: { site: ReshapeSite; bookUrl: string }[] = [];
+  for (const bookUrl of new Set(bookUrls)) {
+    const site = recognizeSourceUrl(bookUrl)?.site;
+    if (site && isFetchableSite(site, bookUrl)) targets.push({ site, bookUrl });
+  }
+  let read = 0;
+  const worker = async (queue: typeof targets): Promise<void> => {
+    for (let target = queue.shift(); target; target = queue.shift()) {
+      const meta = await fetchBookMeta(target.site, target.bookUrl, fetchHtml).catch(() => undefined);
+      if (meta) read++;
+    }
+  };
+  const queue = [...targets];
+  await Promise.all([worker(queue), worker(queue)]);
+  return read;
 }
 
 /**

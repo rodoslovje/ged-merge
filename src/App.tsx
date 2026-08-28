@@ -49,6 +49,8 @@ import { fixDates } from "./tools/fixDates";
 import { fixDuplicatePointers } from "./tools/fixDuplicatePointers";
 import { fixDanglingRefs } from "./tools/fixDanglingRefs";
 import { fillPlaceCoordsFromFile } from "./tools/placeCoords";
+import { readBookPages } from "./tools/sourceReshape";
+import { fetchPageHtml } from "./normalize/urlMetadata";
 import { createStandaloneSource } from "./ui/edit/standaloneSource";
 import { mergeDuplicateChain } from "./tools/mergeDuplicate";
 import { mergeCluster } from "./tools/mergeCluster";
@@ -119,7 +121,7 @@ const modeLayerHiddenClass = "mode-layer mode-layer--hidden";
 
 /** The preferences AppContent reads — subscribed field by field, so an
  *  unrelated one changing leaves it alone (see useSettingsSlice). */
-const APP_SETTINGS_KEYS = ["persistWorkspace", "formatOverrides", "showKinship", "showXref", "saveReport"] as const;
+const APP_SETTINGS_KEYS = ["persistWorkspace", "formatOverrides", "showKinship", "showXref", "saveReport", "allowLinkFetch"] as const;
 
 // MediaFolderProvider is mounted by the `App` wrapper below, *above* the
 // full-page tree early-returns — so navigating into the Compare/Edit tree and
@@ -277,6 +279,9 @@ function AppContent() {
   const [addPersonRequest, setAddPersonRequest] = useState<{ nonce: number; name?: string }>();
   // The pending save dialog's payload — see `SavePreview` for the field docs.
   const [preview, setPreview] = useState<SavePreview | null>(null);
+  // The save is reading the pages of books it is about to write sources for —
+  // see `handleSave`. Holds the Save button until the answers are in.
+  const [readingSources, setReadingSources] = useState(false);
   // Brief confirmation shown after a successful download; auto-dismisses.
   const [saveToast, setSaveToast] = useAutoDismissToast();
   const compareRef = useRef<HTMLDivElement>(null);
@@ -1431,14 +1436,33 @@ function AppContent() {
     };
   }
 
-  function handleSave() {
+  /**
+   * Open the save preview — with one detour: a merge that mints a source for
+   * an incoming link names it from the address alone, so where the reader has
+   * allowed link lookups the books' own pages are read first and the merge is
+   * run again over the answers. A link the merge only cites (the file already
+   * has that book) asks nothing of the network, and neither does a save with
+   * lookups switched off; both open the preview straight away.
+   */
+  async function handleSave() {
     if (!mainDataset || main.status !== "loaded") return;
     const next = buildSavePreview(savePreviewInput(mainDataset, main.file.fileName));
-    if (next) setPreview(next);
+    if (!next) return;
+    if (!settings.allowLinkFetch || next.pendingSourceLookups.length === 0 || readingSources) {
+      setPreview(next);
+      return;
+    }
+    setReadingSources(true);
+    const read = await readBookPages(next.pendingSourceLookups, fetchPageHtml).catch(() => 0);
+    setReadingSources(false);
+    // Nothing answered — the offline titles the first pass wrote still stand,
+    // and building the same preview twice would only cost the user a wait.
+    const enriched = read > 0 ? buildSavePreview(savePreviewInput(mainDataset, main.file.fileName)) : null;
+    setPreview(enriched ?? next);
   }
 
   // Feed the live save action + its enabled state to the Ctrl/Cmd+S handler.
-  globalShortcutRef.current.save = handleSave;
+  globalShortcutRef.current.save = () => void handleSave();
   globalShortcutRef.current.canSave = !!lastMainFile && (changedCount > 0 || confirmedCount > 0 || importCount > 0);
   globalShortcutRef.current.addPerson = () => requestAddPerson();
 
@@ -2009,12 +2033,19 @@ function AppContent() {
               {hasSaveAction && (
                 <button
                   className="export-btn"
-                  onClick={handleSave}
-                  title={t("save.gedcom.tooltip")}
+                  onClick={() => void handleSave()}
+                  disabled={readingSources}
+                  title={readingSources ? t("save.readingSources") : t("save.gedcom.tooltip")}
                 >
-                  <span className="export-btn-label-full">{t("save.gedcom")}</span>
-                  <span className="export-btn-label-short">{t("save")}</span>
-                  {" "}({new Set([...changedPersonIds, ...changedFamilyIds, ...changedRecordIds, ...confirmedMainIds]).size + importCount})
+                  {readingSources ? (
+                    <span>{t("save.readingSources")}</span>
+                  ) : (
+                    <>
+                      <span className="export-btn-label-full">{t("save.gedcom")}</span>
+                      <span className="export-btn-label-short">{t("save")}</span>
+                      {" "}({new Set([...changedPersonIds, ...changedFamilyIds, ...changedRecordIds, ...confirmedMainIds]).size + importCount})
+                    </>
+                  )}
                 </button>
               )}
               {hasHistoryAction && (

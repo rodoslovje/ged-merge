@@ -91,6 +91,9 @@ export interface SavePreview {
   stampRecordIds: Set<string>;
   /** Whether this save includes confirmed merge matches (vs. edits only). */
   isMerge: boolean;
+  /** Books the merge minted a source for from the link alone, whose own pages
+   *  this session has not read — see {@link MergeResult.pendingSourceLookups}. */
+  pendingSourceLookups: string[];
   /** Dangling-pointer and stale-decision findings, shown as a warning strip. */
   integrityWarnings: string[];
 }
@@ -139,11 +142,13 @@ export function buildSavePreview(input: SavePreviewInput): SavePreview | null {
   // the edit-side tracking says about them. Captured before the reports are
   // combined, since afterwards merge and edit changes are indistinguishable.
   let mergeTouchedIds: string[] = [];
+  let pendingSourceLookups: string[] = [];
   if (isMerge) {
-    const { records: mergedRecords, report: mergeReport } = mergeDecisions(
+    const { records: mergedRecords, report: mergeReport, pendingSourceLookups: pending } = mergeDecisions(
       main, compare!, decisions, matches ?? { individuals: [] }, t, importRequests, formatOverrides,
     );
     records = mergedRecords;
+    pendingSourceLookups = pending;
     mergeTouchedIds = Object.keys(mergeReport.recordKinds);
     report = editReport ? combineReports(editReport, mergeReport) : mergeReport;
     // Merge targets are already sorted inside mergeDecisions; edited records
@@ -182,6 +187,7 @@ export function buildSavePreview(input: SavePreviewInput): SavePreview | null {
     editRecordIds,
     stampRecordIds,
     isMerge,
+    pendingSourceLookups,
     integrityWarnings: integrityWarnings(records, decisions, main, t),
   };
 }

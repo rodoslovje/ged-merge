@@ -8,6 +8,7 @@ import { inferMainProfile } from "../normalize/profile";
 import { normalizeDataset } from "../normalize/normalize";
 import { formatReport, materializeEventSources, mergeDecisions, type ChangeReport, type FieldChange } from "./merge";
 import { rowCanKeepBoth } from "./applyFields";
+import { readBookPages } from "../tools/sourceReshape";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -1089,6 +1090,86 @@ describe("mergeDecisions — links", () => {
     // Reported as the citation it became, under the birth's header.
     const cited = report.changes.find((c) => c.sources?.some((s) => s.url?.includes("pg=58")));
     expect(cited?.group).toBe("event.BIRT");
+  });
+
+  it("links the cited page's image beside the citation, where the file keeps them there", async () => {
+    // This file's habit: the register page's image sits on the event next to
+    // the citation of it (Add Source writes both), so a merged link must too.
+    const main = dataset(
+      wrap(
+        "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 OBJE @O1@\n2 SOUR @S1@\n3 PAGE 56\n" +
+          "0 @S1@ SOUR\n1 TITL Krstna knjiga - Šenčur\n1 OBJE @O1@\n" +
+          "0 @O1@ OBJE\n1 FILE https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03173/?pg=56\n",
+      ),
+    );
+    const compare = dataset(
+      wrap(
+        "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n" +
+          "1 WWW https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03173/?pg=58\n",
+      ),
+    );
+    const { records } = mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr);
+    const out = serializeGedcom(records);
+    // The page image the merge minted for page 58 is linked on the birth
+    // itself — among the event's other images, as the field order wants —
+    // and named the way the dialog names one.
+    expect(out).toMatch(/1 BIRT\n2 DATE 1850\n2 OBJE @O1@\n2 OBJE @O2@\n2 SOUR @S1@/);
+    expect(out).toContain("0 @O2@ OBJE\n1 FILE https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03173/?pg=58\n1 TITL #58 - Krstna knjiga - Šenčur");
+    // …and the site's own evidence quality, as the Add Source dialog proposes:
+    // a photographed register page is primary evidence.
+    expect(out).toContain("2 SOUR @S1@\n3 PAGE 58\n3 QUAY 3");
+  });
+
+  it("leaves the page image under the source alone in a file that keeps them there", () => {
+    // Same merge, in a file whose citations carry no page image: nothing is
+    // linked beside the citation, only the source gains the page.
+    const main = dataset(
+      wrap(
+        "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 SOUR @S1@\n3 PAGE 56\n" +
+          "0 @S1@ SOUR\n1 TITL Krstna knjiga - Šenčur\n1 OBJE @O1@\n" +
+          "0 @O1@ OBJE\n1 FILE https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03173/?pg=56\n",
+      ),
+    );
+    const compare = dataset(
+      wrap(
+        "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n" +
+          "1 WWW https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03173/?pg=58\n",
+      ),
+    );
+    const out = serializeGedcom(mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr).records);
+    expect(out).toContain("2 SOUR @S1@\n3 PAGE 58");
+    expect(out).not.toMatch(/2 OBJE @O2@\n2 SOUR @S1@/);
+    // The source itself still holds the new page.
+    expect(out).toContain("0 @S1@ SOUR\n1 TITL Krstna knjiga - Šenčur\n1 OBJE @O1@\n1 OBJE @O2@");
+  });
+
+  it("names a source it mints for an incoming link from the book's own page, once read", async () => {
+    const bookUrl = "https://data.matricula-online.eu/sl/slovenia/ljubljana/vodice/04406/";
+    const main = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1891\n"));
+    const compare = dataset(
+      wrap("0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 WWW " + bookUrl + "?pg=12\n"),
+    );
+
+    // Nothing read yet: the source is named from the address alone, and the
+    // book is reported for the save to read.
+    const offline = mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr);
+    expect(serializeGedcom(offline.records)).toContain("1 TITL Matricula 04406 | Vodice");
+    expect(offline.pendingSourceLookups).toEqual([bookUrl]);
+
+    // Read the book's page, then merge again — the same link now mints the
+    // source the Add Source dialog would have written for a pasted link.
+    const read = await readBookPages(offline.pendingSourceLookups, async () =>
+      "<html><head><title>Krstna knjiga / Taufbuch - 04406 | Vodice | Nadškofijski arhiv Ljubljana | Slovenia | Matricula Online</title></head><body></body></html>",
+    );
+    expect(read).toBe(1);
+    const online = mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr);
+    const out = serializeGedcom(online.records);
+    expect(out).toContain("1 TITL Krstna knjiga / Taufbuch - 04406 | Vodice");
+    expect(out).toContain("1 AGNC Nadškofijski arhiv Ljubljana");
+    // The book has been read; nothing is left for the save to ask about.
+    expect(online.pendingSourceLookups).toEqual([]);
+    // A baptism book's citation lands on the birth it documents.
+    expect(out).toMatch(/1 BIRT\n2 DATE 1891\n2 SOUR @S1@/);
   });
 
   it("two people bringing the same new page in one merge share the OBJE the first one minted", () => {
