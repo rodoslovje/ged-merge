@@ -351,6 +351,8 @@ interface FamilySectionProps extends SharedSectionProps {
   famMergeKeyBase: string | undefined;
   mergeHighlight: Map<string, string>;
   mergeIncomingSources: Map<string, SourceCitation[]>;
+  /** Page images the incoming citations bring with them — see FamilyEventRow. */
+  mergeIncomingPageImages: Map<string, string[]>;
   resolvedSessionFields: Set<string>;
   placeSuggestions: string[];
   placeToAddrs: Map<string, string[]>;
@@ -403,6 +405,7 @@ export const FamilySection = memo(function FamilySection({
   famMergeKeyBase,
   mergeHighlight,
   mergeIncomingSources,
+  mergeIncomingPageImages,
   resolvedSessionFields,
   placeSuggestions,
   placeToAddrs,
@@ -566,6 +569,7 @@ export const FamilySection = memo(function FamilySection({
             pairCoords={pairCoords}
             mergeHighlight={mergeHighlight}
             mergeIncomingSources={mergeIncomingSources}
+            mergeIncomingPageImages={mergeIncomingPageImages}
             famMergeKeyBase={famMergeKeyBase}
             resolvedSessionFields={resolvedSessionFields}
             individuals={dataset.individuals}
