@@ -14,7 +14,7 @@ import {
   markEventTouched,
   sourceCitationNodes,
 } from "../gedcom/edit";
-import { childText, findExistingSource, resolveSourceCitation, sourceTitle } from "../gedcom/source";
+import { childText, findExistingSource, objeInfoOf, objeNodesFor, resolveSourceCitation, sourceTitle } from "../gedcom/source";
 import { looksLikeUrl } from "../gedcom/builder";
 import { firstChild } from "../gedcom/node";
 import type { FormatOverrides } from "../normalize/formatOverrides";
@@ -285,14 +285,30 @@ export function previewLinkPlacement(
   record: GedNode,
   url: string,
   records: GedNode[],
-  overrides?: FormatOverrides,
-): { citation?: SourceCitation; eventTag?: string } {
+  opts: {
+    overrides?: FormatOverrides;
+    /** The file's page-image habit, resolved by the caller (it costs a scan of
+     *  the whole forest, and a preview asks this of link after link). Only
+     *  "event" puts the cited page's image beside the citation, so only then
+     *  does the preview name one. */
+    pageMedia?: PageMediaStyle;
+  } = {},
+): { citation?: SourceCitation; eventTag?: string; pageImage?: string } {
   const citation = previewLinkCitation(records, url);
   if (!citation) return {};
   return {
     citation,
-    eventTag: citationEventTag(record, records, recognizeSourceUrl(url)?.site, citation.title, overrides),
+    eventTag: citationEventTag(record, records, recognizeSourceUrl(url)?.site, citation.title, opts.overrides),
+    pageImage: opts.pageMedia === "event" ? pageImageUrl(records, citation, url) : undefined,
   };
+}
+
+/** The file of the page image that would be linked beside the citation: the
+ *  one the source already holds for this page, else the link itself — which is
+ *  what a page `OBJE` minted for it would carry. */
+function pageImageUrl(records: GedNode[], citation: SourceCitation, url: string): string {
+  const node = citation.objeXref ? objeNodesFor(records).get(citation.objeXref) : undefined;
+  return (node && objeInfoOf(node).url) || url;
 }
 
 /** The name a page image added to a source the file already has gets — the

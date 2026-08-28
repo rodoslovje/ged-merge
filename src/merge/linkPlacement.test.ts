@@ -49,6 +49,25 @@ describe("previewLinkCitation", () => {
     });
   });
 
+  it("names the page image the citation will be linked with, where the file keeps them", () => {
+    const recs = records(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 BIRT\n2 DATE 1850\n2 OBJE @O1@\n2 SOUR @S1@\n3 PAGE 56\n" + BOOK,
+    );
+    const person = recs.find((r) => r.xref === "@I1@")!;
+    const url = "https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03173/?pg=58";
+    // The file keeps a cited page's image beside the citation, so the preview
+    // names the image the merge will link with it — here the page the merge
+    // would mint, whose file is the link itself.
+    expect(previewLinkPlacement(person, url, recs, { pageMedia: "event" }).pageImage).toBe(url);
+    // A page the source already holds is named by the file's own copy of it.
+    const known = "https://data.matricula-online.eu/de/slovenia/ljubljana/sencur/03173/?pg=56";
+    expect(previewLinkPlacement(person, known, recs, { pageMedia: "event" }).pageImage).toBe(
+      "https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03173/?pg=56",
+    );
+    // A file that keeps page images under the source alone gets none.
+    expect(previewLinkPlacement(person, url, recs, { pageMedia: "source" }).pageImage).toBeUndefined();
+  });
+
   it("keeps the citation on the person when the event it documents is missing", () => {
     const recs = records("0 @I1@ INDI\n1 NAME Janez /Novak/\n" + BOOK);
     const person = recs.find((r) => r.xref === "@I1@")!;

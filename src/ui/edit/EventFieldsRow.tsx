@@ -22,6 +22,7 @@ import { DropdownMenu } from "../DropdownMenu";
 import { altShiftLabel } from "../../keyboard/shortcuts";
 import type { SourceDialogTarget } from "./types";
 import { harvestedLinksOf, linkEditing } from "./LinksEditor";
+import { linkKey } from "../../normalize/links";
 
 /** Sentinel `<option>` values for the action entries at the end of the
  * event-type dropdown (distinct from any real tag). */
@@ -55,6 +56,7 @@ export function EventFieldsRow({
   pairCoords,
   mergeHighlight,
   mergeIncomingSources,
+  mergeIncomingPageImages,
   mergeKeyBase,
   forcedKeyBase,
   resolvedSessionFields,
@@ -107,6 +109,9 @@ export function EventFieldsRow({
   mergeHighlight?: Map<string, string>;
   /** Field key (e.g. "BIRT.sources") → incoming source citations the merge will add. */
   mergeIncomingSources?: Map<string, SourceCitation[]>;
+  /** Key base -> the cited pages' images a confirmed merge will link on this
+   *  event beside its citations — previewed read-only until the merge is saved. */
+  mergeIncomingPageImages?: Map<string, string[]>;
   mergeKeyBase?: string;
   /** Stable per-event identity (e.g. the raw node's `nodeId`) used to look up
    * the session "this field was edited from a merge" markers in
@@ -151,6 +156,7 @@ export function EventFieldsRow({
   const typeMergeVal = mergeHighlight?.get(`${kBase}.type`);
   const causeMergeVal = mergeHighlight?.get(`${kBase}.cause`);
   const sourcesMergeVal = mergeIncomingSources?.get(`${kBase}.sources`);
+  const pageImagesMergeVal = mergeIncomingPageImages?.get(`${kBase}.sources`);
 
   // A field just materialized from a merge suggestion via a direct edit keeps
   // showing dirty/bold across the row's one-time "extra"→"main" remount.
@@ -342,6 +348,11 @@ export function EventFieldsRow({
   const [links, setLinks] = useState<string[]>(ev?.editableLinks ?? []);
   const mediaLinks = ev?.mediaLinks ?? [];
   const harvestedLinks = harvestedLinksOf(ev?.links, [...(ev?.editableLinks ?? []), ...mediaLinks]);
+  // The page images the merge will link here, minus any the event already has
+  // (`linkPageMedia` never adds a page twice, and neither should the preview).
+  const previewPageImages = (pageImagesMergeVal ?? []).filter(
+    (url) => !mediaLinks.some((have) => linkKey(have) === linkKey(url)),
+  );
   // Secondary fields the user chose to add via the "+ Detail" menu on a sparse
   // event (they start empty). `focusKey` moves focus to the one just added.
   const [revealed, setRevealed] = useState<Set<string>>(new Set());
@@ -413,7 +424,7 @@ export function EventFieldsRow({
   const causeShown = Boolean(causeField.value.trim()) || causeField.isMerge;
   const noteShown = Boolean(noteField.value.trim()) || noteField.isMerge;
   const sourcesShown =
-    Boolean(ev?.sources?.length) || Boolean(sourcesMergeVal?.length) || links.length > 0 || mediaLinks.length > 0 || harvestedLinks.length > 0;
+    Boolean(ev?.sources?.length) || Boolean(sourcesMergeVal?.length) || Boolean(previewPageImages.length) || links.length > 0 || mediaLinks.length > 0 || harvestedLinks.length > 0;
   // A field renders when it has content OR the user added it from the "+ Detail"
   // menu. Empty, un-added fields stay hidden — no more revealing every empty
   // field on hover, which read as a crowded row of blank labelled inputs.
@@ -964,6 +975,20 @@ export function EventFieldsRow({
               title={linkTooltip(link, t, `${link}\n${t("edit.harvestedLink")}`)}
             >
               {siteIconForUrl(link) ?? "🔗"}
+            </a>
+          ))}
+          {/* The cited page's image the merge will link here — the same generic
+              🔗 the saved link becomes, tinted as incoming until then. */}
+          {previewPageImages.map((link) => (
+            <a
+              key={`merge-media-${link}`}
+              className="link-icon link-new"
+              href={linkHref(link)}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={linkTooltip(link, t, `${link}\n${t("edit.mediaLinkChip")}`)}
+            >
+              🔗
             </a>
           ))}
         </span>
