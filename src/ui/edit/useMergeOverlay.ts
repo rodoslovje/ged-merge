@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { childrenByTag } from "../../gedcom/node";
 import type { Dataset, GedNode, Individual, SourceCitation } from "../../gedcom/types";
+import type { FormatOverrides } from "../../normalize/formatOverrides";
 import type { Translate } from "../../locales/i18n";
 import { materializeEventSources } from "../../merge/merge";
+import { previewLinkPlacement } from "../../merge/linkPlacement";
+import { detectPageMediaStyle } from "../../tools/sourceReshape";
 import { familyMergeKeyBases, individualFieldRows, lifespanAnchors, orderedEventTags, zoneSortKey } from "../../review/fields";
 import { defaultChoice, findConfirmedDecision, type CandidateDecision } from "../../review/types";
 import { cloneRaw, type RecordPatch } from "../historyTypes";
@@ -16,6 +19,9 @@ const EMPTY_MERGE_DATA = Object.freeze({
   mergeIncomingLinks: new Map<string, string[]>(),
   /** Field key -> incoming source citations the merge will add (per-event "<tag>.sources" rows). */
   mergeIncomingSources: new Map<string, SourceCitation[]>(),
+  /** Field key -> the cited pages' images the merge will link beside those
+   *  citations, in a file that keeps page images there. */
+  mergeIncomingPageImages: new Map<string, string[]>(),
   /** main person.events overall index -> field key base aligned with orderedEventTags. */
   mainMergeKeyBases: new Map<number, string>(),
   /** main person.events overall index -> the incoming event it's paired with, as
@@ -42,6 +48,9 @@ interface Options {
   dataset: Dataset;
   compareDataset: Dataset | undefined;
   decisions: Map<string, CandidateDecision> | undefined;
+  /** Settings › GEDCOM, so the preview places a citation where the save would
+   *  — the reader's own citation/baptism choices, not only the file's habit. */
+  formatOverrides?: FormatOverrides;
   onUpdateDecision: ((key: string, next: CandidateDecision) => void) | undefined;
   /** Bumped on every committed edit, so displayed merge values stay current. */
   tick: number;
@@ -60,7 +69,7 @@ interface Options {
  * records (the bug fixed in a238d34).
  */
 export function useMergeOverlay({
-  person, selectedId, dataset, compareDataset, decisions, onUpdateDecision, tick, t,
+  person, selectedId, dataset, compareDataset, decisions, onUpdateDecision, formatOverrides, tick, t,
 }: Options) {
   /**
    * Event sub-field keys (e.g. "OCCU.value") that were just materialized from
@@ -111,6 +120,14 @@ export function useMergeOverlay({
     mergeGenRef.current += 1;
   }
 
+  /** Whether this file keeps a cited page's image beside the citation — the
+   *  question `linkPageMedia` asks when the merge writes one. Read once per
+   *  file: it scans every record, and the preview asks it of link after link. */
+  const pageMediaStyle = useMemo(
+    () => formatOverrides?.pageMedia ?? detectPageMediaStyle(dataset.records),
+    [dataset, formatOverrides],
+  );
+
   /** Merge preview data for the currently selected person's confirmed match. */
   const mergeData = useMemo(() => {
     if (!decisions || !compareDataset || !person) return EMPTY_MERGE_DATA;
@@ -128,6 +145,14 @@ export function useMergeOverlay({
       const mergeHighlight = new Map<string, string>();
       const mergeIncomingLinks = new Map<string, string[]>();
       const mergeIncomingSources = new Map<string, SourceCitation[]>();
+      /** Event tag → the citations record-level incoming links will land on it
+       *  as, filed under that event's own key once the bases are built. */
+      const mergeIncomingPageImages = new Map<string, string[]>();
+      const addTo = (map: Map<string, string[]>, key: string, value: string) => {
+        const list = map.get(key) ?? [];
+        if (!list.includes(value)) list.push(value);
+        map.set(key, list);
+      };
       for (const row of rows) {
         if (row.isGroupHeader) continue;
         if (row.state === "agree" || row.state === "main-only") continue;
@@ -136,9 +161,28 @@ export function useMergeOverlay({
         if (row.incoming) mergeHighlight.set(row.key, row.incoming);
         // The record-level "Sources" row carries plain links as `incomingLinkIcons`
         // (other rows, if any, as `incomingLinks`); both preview the same way.
+        // Each is previewed as what the save will write for it — a citation of
+        // the book's source, with its page — and stays a link chip only where
+        // the merge would leave it a plain link.
         const incLinks = row.incomingLinks ?? row.incomingLinkIcons;
-        if (incLinks?.length) mergeIncomingLinks.set(row.key, incLinks);
-        if (row.incomingSources?.length) mergeIncomingSources.set(row.key, row.incomingSources);
+        const previewed: SourceCitation[] = [...(row.incomingSources ?? [])];
+        const plainLinks: string[] = [];
+        for (const url of incLinks ?? []) {
+          // Which row a link is on is the review's answer already (a
+          // record-level link lands on the row of the event it documents —
+          // see `individualFieldRows`); this only says what it will become.
+          const { citation, pageImage } = previewLinkPlacement(person.raw, url, dataset.records, {
+            overrides: formatOverrides,
+            pageMedia: pageMediaStyle,
+          });
+          if (!citation) plainLinks.push(url);
+          else {
+            previewed.push(citation);
+            if (pageImage) addTo(mergeIncomingPageImages, row.key, pageImage);
+          }
+        }
+        if (plainLinks.length) mergeIncomingLinks.set(row.key, plainLinks);
+        if (previewed.length) mergeIncomingSources.set(row.key, previewed);
       }
 
       // Map main overall event index → the key base that orderedEventTags assigned to it.
@@ -199,11 +243,11 @@ export function useMergeOverlay({
 
       const familyKeyBases = familyMergeKeyBases(person, incoming, dataset, compareDataset);
 
-      return { mergeHighlight, mergeIncomingLinks, mergeIncomingSources, mainMergeKeyBases, mainMergeCompareKeys, mainMergeSortKeys, extraMergeEvents, familyMergeKeyBases: familyKeyBases, hasMergeDecision: true };
+      return { mergeHighlight, mergeIncomingLinks, mergeIncomingSources, mergeIncomingPageImages, mainMergeKeyBases, mainMergeCompareKeys, mainMergeSortKeys, extraMergeEvents, familyMergeKeyBases: familyKeyBases, hasMergeDecision: true };
     }
     return EMPTY_MERGE_DATA;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [decisions, compareDataset, person, dataset, t, tick]); // tick is a cache-bust counter — not used directly but must invalidate the memo
+  }, [decisions, compareDataset, person, dataset, formatOverrides, pageMediaStyle, t, tick]); // tick is a cache-bust counter — not used directly but must invalidate the memo
 
   // Only the pieces the handlers below read; the rest is spread to the caller.
   const { mergeHighlight, mergeIncomingSources, hasMergeDecision } = mergeData;

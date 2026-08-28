@@ -4,8 +4,7 @@ import type { Translate } from "../../locales/i18n";
 import type { RecordPatch } from "../historyTypes";
 import type { NewCitation } from "../../gedcom/edit";
 import { SourceRefs } from "../SourceRef";
-import { linkHref, linkTooltip } from "../FieldValue";
-import { siteIconForUrl } from "../../tools/sourceReshape";
+import { linkGlyph, linkHref, linkTooltip } from "../FieldValue";
 import { linkKey } from "../../normalize/links";
 import type { SourceDialogTarget } from "./types";
 
@@ -63,6 +62,7 @@ export function LinksEditor({
   sources,
   incomingLinks,
   incomingSources,
+  incomingPageImages,
   sectionLabel,
   t,
   onCommit,
@@ -87,6 +87,9 @@ export function LinksEditor({
   /** `SOUR` citations a confirmed merge will add — previewed read-only with an
    * incoming-themed background until the merge is saved. */
   incomingSources?: SourceCitation[];
+  /** The cited pages' images the merge will link beside those citations, in a
+   * file that keeps page images on its records — previewed the same way. */
+  incomingPageImages?: string[];
   sectionLabel?: string;
   t: Translate;
   onCommit: (links: string[]) => void;
@@ -105,6 +108,8 @@ export function LinksEditor({
   const [links, setLinks] = useState(initialLinks);
   const existingKeys = new Set(links.map(linkKey));
   const previewLinks = (incomingLinks ?? []).filter((url) => !existingKeys.has(linkKey(url)));
+  const mediaKeys = new Set((mediaLinks ?? []).map(linkKey));
+  const previewPageImages = (incomingPageImages ?? []).filter((url) => !mediaKeys.has(linkKey(url)));
 
   const { openEditLink } = linkEditing(links, setLinks, onCommit, onAttachSource, onOpenSourceDialog);
 
@@ -121,11 +126,11 @@ export function LinksEditor({
         <span key={i} className="source-ref-wrap">
           <button
             type="button"
-            className="link-icon edit-link-icon"
+            className={`${linkGlyph(link).cls} edit-link-icon`}
             title={linkTooltip(link, t)}
             onClick={() => openEditLink(i)}
           >
-            {siteIconForUrl(link) ?? "🔗"}
+            {linkGlyph(link).icon}
           </button>
           <a className="source-ref-open" href={linkHref(link)} target="_blank" rel="noopener noreferrer" title={linkTooltip(link, t, t("edit.openLink"))}>
             ↗
@@ -153,10 +158,10 @@ export function LinksEditor({
           href={linkHref(url)}
           target="_blank"
           rel="noopener noreferrer"
-          className="link-icon"
+          className={linkGlyph(url).cls}
           title={linkTooltip(url, t, `${url}\n${t("edit.harvestedLink")}`)}
         >
-          {siteIconForUrl(url) ?? "🔗"}
+          {linkGlyph(url).icon}
         </a>
       ))}
       {previewLinks.map((url, i) => (
@@ -165,10 +170,24 @@ export function LinksEditor({
           href={linkHref(url)}
           target="_blank"
           rel="noopener noreferrer"
-          className="link-icon link-new"
+          className={`${linkGlyph(url).cls} link-new`}
           title={linkTooltip(url, t)}
         >
-          {siteIconForUrl(url) ?? "🔗"}
+          {linkGlyph(url).icon}
+        </a>
+      ))}
+      {/* The cited page's image the merge will link here — the generic 🔗 the
+          saved link becomes, tinted as incoming until then. */}
+      {previewPageImages.map((url) => (
+        <a
+          key={`merge-media-${url}`}
+          href={linkHref(url)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="link-icon link-new"
+          title={linkTooltip(url, t, `${url}\n${t("edit.mediaLinkChip")}`)}
+        >
+          🔗
         </a>
       ))}
     </>

@@ -4189,6 +4189,10 @@ button:focus-visible {
 /* Edit mode: the icon is a <button> (opens the Edit Source dialog) rather
    than an <a> — reset button chrome so it still looks like a plain icon. */
 button.link-icon { border: none; font: inherit; }
+/* A site's own glyph sits smaller than 🔗 in most emoji fonts — the same
+   correction `.source-ref--book` makes, so a link chip and a citation chip of
+   the same archive read as one size. */
+.link-icon.link-icon--book { font-size: 1.15rem; }
 /* Marks an incoming link that the main doesn't have yet (will be added). */
 .link-icon.link-new {
   background: color-mix(in srgb, var(--status-link) 25%, transparent);

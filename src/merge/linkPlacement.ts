@@ -10,19 +10,27 @@ import {
   getSourceLookup,
   INDI_CHILD_ORDER,
   insertOrdered,
+  linkPageMedia,
   markEventTouched,
   sourceCitationNodes,
 } from "../gedcom/edit";
-import { findExistingSource, resolveSourceCitation, sourceTitle } from "../gedcom/source";
+import { childText, findExistingSource, objeInfoOf, objeNodesFor, resolveSourceCitation, sourceTitle } from "../gedcom/source";
 import { looksLikeUrl } from "../gedcom/builder";
 import { firstChild } from "../gedcom/node";
+import type { FormatOverrides } from "../normalize/formatOverrides";
 import type { Dataset, GedNode, SourceCitation } from "../gedcom/types";
 import {
   applySiteSourceExtras,
+  cachedBookMeta,
+  detectPageMediaStyle,
+  isFetchableSite,
   pageObjeTitle,
   recognizeSourceUrl,
+  siteQuay,
   siteSourceTitle,
   smartCitationTarget,
+  type PageMediaStyle,
+  type ReshapeSite,
   type RecognizedSourceUrl,
 } from "../tools/sourceReshape";
 
@@ -35,6 +43,40 @@ import {
  *    (`0 @On@ OBJE` / `1 FILE <url>`), referenced via `1 OBJE @On@`.
  */
 export type LinkFormat = "WWW" | "WEBTAG" | "OBJE";
+
+/**
+ * Everything an incoming link needs to be written the way this file writes its
+ * own — the merge's half of the Add Source dialog, which asks the same
+ * questions of the same file before it writes anything.
+ */
+export interface LinkPlacement {
+  /** How a link that stays a plain link is written. */
+  linkFormat: LinkFormat;
+  /** "event": the cited page's image is linked beside the citation as well as
+   *  under the source record — the file's own habit (Settings → Page links). */
+  pageMedia: PageMediaStyle;
+  /** Settings → GEDCOM, for the citation-placement questions the file's own
+   *  habit would otherwise answer. */
+  overrides?: FormatOverrides;
+  /** Book URLs whose source this merge minted from the offline proposal alone,
+   *  and which a lookup could still name properly. The save reads these pages
+   *  before it writes, when the reader has allowed link lookups; each is listed
+   *  once, in the order the merge reached them. */
+  pendingLookups?: string[];
+}
+
+/** The link-writing questions answered once for a whole merge: how this file
+ *  writes plain links, and whether it keeps a cited page's image beside the
+ *  citation. `overrides` (Settings → GEDCOM) wins over the file's own habit,
+ *  exactly as it does in the Add Source dialog. */
+export function linkPlacementFor(main: Dataset, overrides?: FormatOverrides): LinkPlacement {
+  return {
+    linkFormat: detectLinkFormat(main),
+    pageMedia: overrides?.pageMedia ?? detectPageMediaStyle(main.records),
+    overrides,
+    pendingLookups: [],
+  };
+}
 
 /**
  * Which `LinkFormat` the main file uses for its own record-level links, so
@@ -116,21 +158,20 @@ export function placeRecordLink(
   record: GedNode,
   url: string,
   records: GedNode[],
-  opts: {
-    linkFormat: LinkFormat;
-    /** Xrefs already promised to compare shared records — a minted `SOUR`/`OBJE`
-     *  must not squat on one, or the promised import would be skipped and its
-     *  pointers would resolve here instead. */
-    reserved?: ReadonlySet<string>;
-  },
+  placement: LinkPlacement,
+  /** Xrefs already promised to compare shared records — a minted `SOUR`/`OBJE`
+   *  must not squat on one, or the promised import would be skipped and its
+   *  pointers would resolve here instead. */
+  reserved?: ReadonlySet<string>,
 ): PlacedLink {
   const recognized = recognizeSourceUrl(url);
-  const source = resolveSource(records, url, recognized, opts.reserved);
+  const source = resolveSource(records, url, recognized, placement, reserved);
   if (!source) {
-    insertOrdered(record, buildLinkNode(opts.linkFormat, url, records, opts.reserved), childOrderOf(record));
+    insertOrdered(record, buildLinkNode(placement.linkFormat, url, records, reserved), childOrderOf(record));
     return { url };
   }
-  return attach(citationTarget(record, records, recognized, source.sourceXref), url, records, source);
+  const target = citationTarget(record, records, recognized, source.sourceXref, placement);
+  return attach(target, url, records, source, placement);
 }
 
 /**
@@ -143,15 +184,28 @@ export function placeEventLink(
   event: GedNode,
   url: string,
   records: GedNode[],
-  opts: { reserved?: ReadonlySet<string> } = {},
+  placement: LinkPlacement,
+  reserved?: ReadonlySet<string>,
 ): PlacedLink {
-  const source = resolveSource(records, url, recognizeSourceUrl(url), opts.reserved);
+  const source = resolveSource(records, url, recognizeSourceUrl(url), placement, reserved);
   if (!source) {
     insertOrdered(event, { level: event.level + 1, tag: EVENT_LINK_TAG, value: url, children: [] }, EVENT_CHILD_ORDER);
     markEventTouched(event, "changed");
     return { url, event };
   }
-  return attach(event, url, records, source);
+  return attach(event, url, records, source, placement);
+}
+
+/** The source a link is cited from, and everything written alongside that
+ *  citation: which page of it (`PAGE`), that page's image, and how good the
+ *  site's evidence is (`QUAY`) — the Add Source dialog's own proposals. */
+interface ResolvedSource {
+  sourceXref: string;
+  page?: string;
+  /** The top-level `OBJE` holding this page's image, once the source has one. */
+  pageObje?: string;
+  quay?: string;
+  createdSource?: true;
 }
 
 /** The `SOUR` a link should be cited from: the one the main already has for this
@@ -160,18 +214,114 @@ function resolveSource(
   records: GedNode[],
   url: string,
   recognized: RecognizedSourceUrl | undefined,
+  placement: LinkPlacement,
   reserved: ReadonlySet<string> | undefined,
-): { sourceXref: string; page?: string; createdSource?: true } | undefined {
+): ResolvedSource | undefined {
+  const quay = recognized && siteQuay(recognized.site, url);
   // The cached lookup makes this O(1) per link instead of a full-forest scan;
   // every record-minting helper bumps the cache version, so a source or page
   // OBJE created for one link is visible to the next link's lookup.
   const existing = findExistingSource(records, url, undefined, getSourceLookup(records));
   if (existing) {
-    if (!existing.objeXref) addObjeToSource(records, existing.sourceXref, url, undefined, reserved);
-    return { sourceXref: existing.sourceXref, page: existing.page };
+    const pageObje =
+      existing.objeXref ??
+      addObjeToSource(records, existing.sourceXref, url, pageTitleFor(records, existing.sourceXref, recognized), reserved)
+        .xref ??
+      undefined;
+    return { sourceXref: existing.sourceXref, page: existing.page, pageObje, quay };
   }
   if (!recognized) return undefined;
-  return { sourceXref: mintSource(records, recognized, url, reserved), page: recognized.page, createdSource: true };
+  const source = mintSource(records, recognized, url, placement, reserved);
+  return { ...source, page: recognized.page, quay, createdSource: true };
+}
+
+/**
+ * The citation an incoming link would become, without writing anything — Edit
+ * mode's preview of a confirmed match, which would otherwise show the bare
+ * address and say nothing of the source it is about to join. Follows the same
+ * ladder {@link placeRecordLink} writes by: the source the file already keeps
+ * for this book, else the one a recognized link would mint (named from the
+ * book's page where it has been read). Undefined where the link would stay a
+ * plain link, which is what the preview then shows.
+ */
+export function previewLinkCitation(records: GedNode[], url: string): SourceCitation | undefined {
+  const existing = findExistingSource(records, url, undefined, getSourceLookup(records));
+  if (existing) {
+    const node = records.find((r) => r.tag === "SOUR" && r.xref === existing.sourceXref);
+    return {
+      sourceId: existing.sourceXref,
+      title: node && sourceTitle(node),
+      agency: node && childText(node, "AGNC"),
+      filingNumber: node && childText(node, "FILN"),
+      page: existing.page,
+      url,
+      exact: true,
+      objeXref: existing.objeXref,
+    };
+  }
+  const recognized = recognizeSourceUrl(url);
+  if (!recognized) return undefined;
+  const p = recognized.proposed;
+  const fetched = cachedBookMeta(recognized.site, recognized.bookUrl ?? url);
+  const filingNumber = fetched?.filingNumber || p.filingNumber;
+  return {
+    sourceId: "",
+    title: siteSourceTitle(recognized.site, fetched?.title ?? p.title, filingNumber) ?? p.title,
+    agency: fetched?.agency ?? p.agency,
+    filingNumber,
+    page: recognized.page,
+    url,
+    exact: true,
+  };
+}
+
+/**
+ * The same preview, plus where the citation would land: the tag of the event
+ * this register documents, when the merge would move the citation there (the
+ * file cites events and the record already carries that one), and nothing when
+ * it would stay on the record itself.
+ */
+export function previewLinkPlacement(
+  record: GedNode,
+  url: string,
+  records: GedNode[],
+  opts: {
+    overrides?: FormatOverrides;
+    /** The file's page-image habit, resolved by the caller (it costs a scan of
+     *  the whole forest, and a preview asks this of link after link). Only
+     *  "event" puts the cited page's image beside the citation, so only then
+     *  does the preview name one. */
+    pageMedia?: PageMediaStyle;
+  } = {},
+): { citation?: SourceCitation; eventTag?: string; pageImage?: string } {
+  const citation = previewLinkCitation(records, url);
+  if (!citation) return {};
+  return {
+    citation,
+    eventTag: citationEventTag(record, records, recognizeSourceUrl(url)?.site, citation.title, opts.overrides),
+    pageImage: opts.pageMedia === "event" ? pageImageUrl(records, citation, url) : undefined,
+  };
+}
+
+/** The file of the page image that would be linked beside the citation: the
+ *  one the source already holds for this page, else the link itself — which is
+ *  what a page `OBJE` minted for it would carry. */
+function pageImageUrl(records: GedNode[], citation: SourceCitation, url: string): string {
+  const node = citation.objeXref ? objeNodesFor(records).get(citation.objeXref) : undefined;
+  return (node && objeInfoOf(node).url) || url;
+}
+
+/** The name a page image added to a source the file already has gets — the
+ *  same `#40 - Krstna knjiga …` the Add Source dialog writes, built from the
+ *  source's own title so the page says which book it is a page of. */
+function pageTitleFor(
+  records: GedNode[],
+  sourceXref: string,
+  recognized: RecognizedSourceUrl | undefined,
+): string | undefined {
+  const sourceNode = records.find((r) => r.tag === "SOUR" && r.xref === sourceXref);
+  if (!sourceNode) return undefined;
+  return pageObjeTitle(recognized?.site, sourceTitle(sourceNode), recognized?.page, undefined, recognized?.collection);
 }
 
 /** Write the citation onto its container and describe it for the save preview. */
@@ -179,10 +329,15 @@ function attach(
   container: GedNode,
   url: string,
   records: GedNode[],
-  source: { sourceXref: string; page?: string; createdSource?: true },
+  source: ResolvedSource,
+  placement: LinkPlacement,
 ): PlacedLink {
   const onEvent = container.tag !== "INDI" && container.tag !== "FAM";
-  attachSourceCitation(container, source.sourceXref, source.page, onEvent ? EVENT_CHILD_ORDER : childOrderOf(container));
+  const order = onEvent ? EVENT_CHILD_ORDER : childOrderOf(container);
+  attachSourceCitation(container, source.sourceXref, source.page, order, source.quay);
+  // Files that keep a cited page's image beside the citation get it here too —
+  // a merged citation and a hand-added one must leave the same shape behind.
+  if (placement.pageMedia === "event") linkPageMedia(container, source.pageObje, order);
   if (onEvent) markEventTouched(container, "changed");
   const nodes = sourceCitationNodes(container);
   return {
@@ -208,42 +363,80 @@ function citationTarget(
   records: GedNode[],
   recognized: RecognizedSourceUrl | undefined,
   sourceXref: string,
+  placement: LinkPlacement,
 ): GedNode {
   const sourceNode = records.find((r) => r.tag === "SOUR" && r.xref === sourceXref);
   const title = (sourceNode && sourceTitle(sourceNode)) || recognized?.proposed.title;
-  const want = smartCitationTarget(records, recognized?.site ?? "other", title);
+  const tag = citationEventTag(record, records, recognized?.site, title, placement.overrides);
+  return (tag && firstChild(record, tag)) || record;
+}
+
+/**
+ * The event tag a record-level citation of this book would move to, or nothing
+ * when it stays on the record. Shared by the write and the preview so Edit
+ * shows the citation where the save will actually put it.
+ */
+function citationEventTag(
+  record: GedNode,
+  records: GedNode[],
+  site: ReshapeSite | undefined,
+  title: string | undefined,
+  overrides: FormatOverrides | undefined,
+): string | undefined {
+  const want = smartCitationTarget(records, site ?? "other", title, {
+    citations: overrides?.citations ?? "auto",
+    baptism: overrides?.baptism ?? "auto",
+  });
   // A marriage register's citation belongs on the couple's `MARR`, which lives
   // on the family record — a record other than the one being applied, whose
   // change would never reach this record's preview card. Left at record level
   // for the Organize sources tool, which moves it with every record in view.
-  if (!want || (want.onFam && record.tag !== "FAM")) return record;
-  return firstChild(record, want.eventTag) ?? record;
+  if (!want || (want.onFam && record.tag !== "FAM")) return undefined;
+  return firstChild(record, want.eventTag) ? want.eventTag : undefined;
 }
 
 /**
  * Mint the `SOUR` record for a recognized link the main has nothing to cite —
  * the same title, page image and `PLAC`/`DATE`/`REPO` extras the Add Source
  * dialog and the Organize sources tool produce, so the merge leaves no cleanup
- * behind. Returns the new source's xref.
+ * behind. Where the book's own page has already been read (the save's lookup
+ * pass, an earlier Add Source, the Organize sources tool), what it said names
+ * the source; where it has not, the link's own offline proposal does and the
+ * book joins {@link LinkPlacement.pendingLookups} for the save to read.
  */
 function mintSource(
   records: GedNode[],
   recognized: RecognizedSourceUrl,
   url: string,
+  placement: LinkPlacement,
   reserved: ReadonlySet<string> | undefined,
-): string {
+): { sourceXref: string; pageObje?: string } {
   const p = recognized.proposed;
-  const title = siteSourceTitle(recognized.site, p.title, p.filingNumber) ?? p.title;
+  const bookUrl = recognized.bookUrl ?? url;
+  const fetched = cachedBookMeta(recognized.site, bookUrl);
+  if (!fetched && isFetchableSite(recognized.site, bookUrl) && !placement.pendingLookups?.includes(bookUrl)) {
+    placement.pendingLookups?.push(bookUrl);
+  }
+  const filingNumber = fetched?.filingNumber || p.filingNumber;
+  const title = siteSourceTitle(recognized.site, fetched?.title ?? p.title, filingNumber) ?? p.title;
   const source = createSourceRecord(
     records,
-    { title, author: p.author, agency: p.agency, filingNumber: p.filingNumber, url },
+    {
+      title,
+      author: fetched?.author ?? p.author,
+      periodical: fetched?.periodical,
+      publisher: fetched?.publisher,
+      agency: fetched?.agency ?? p.agency,
+      filingNumber,
+      url,
+    },
     reserved,
   );
-  applySiteSourceExtras(records, source, recognized.site, recognized.bookUrl ?? url, {
-    place: p.place,
-    dateRange: p.dateRange,
+  applySiteSourceExtras(records, source, recognized.site, bookUrl, {
+    place: fetched?.place ?? p.place,
+    dateRange: fetched?.dateRange ?? p.dateRange,
     collection: recognized.collection,
-    collectionId: p.filingNumber,
+    collectionId: filingNumber,
   });
   const objeXref = firstChild(source, "OBJE")?.value;
   if (objeXref) {
@@ -253,7 +446,7 @@ function mintSource(
       objeNode.children.push({ level: objeNode.level + 1, tag: "TITL", value: objeTitle, children: [] });
     }
   }
-  return source.xref!;
+  return { sourceXref: source.xref!, pageObje: objeXref };
 }
 
 /** The canonical child order for a top-level record's own children. */

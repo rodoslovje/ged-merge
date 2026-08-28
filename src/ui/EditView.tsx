@@ -621,13 +621,13 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
 
   // ── Merge overlay (confirmed match projected onto this person) ───────────
   const {
-    mergeHighlight, mergeIncomingLinks, mergeIncomingSources,
+    mergeHighlight, mergeIncomingLinks, mergeIncomingSources, mergeIncomingPageImages,
     mainMergeKeyBases, mainMergeCompareKeys, mainMergeSortKeys,
     extraMergeEvents, familyMergeKeyBases: familyKeyBaseById,
     mergeGen, resolvedSessionFields, materializedEventIds, markMaterializedEvent,
     rejectIncomingEvent, materializeMergeEventSources, dismissExtraEvent,
     resolveMergeFields, markFamilyTagRetagged,
-  } = useMergeOverlay({ person, selectedId, dataset, compareDataset, decisions, onUpdateDecision, tick, t });
+  } = useMergeOverlay({ person, selectedId, dataset, compareDataset, decisions, onUpdateDecision, formatOverrides: settings.formatOverrides, tick, t });
 
   const { folderName, canReferenceFiles, resolveDroppedHandle, openFolder, importFile } = useMediaFolder();
   const { openPerson } = useMediaViewer();
@@ -2017,6 +2017,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
                 sources={person.sources ?? []}
                 incomingLinks={mergeIncomingLinks.get("links")}
                 incomingSources={mergeIncomingSources.get("links")}
+                incomingPageImages={mergeIncomingPageImages.get("links")}
                 sectionLabel={t("field.sources")}
                 t={t}
                 onCommit={(links) => commit((indi) => setIndividualLinks(indi, links))}
@@ -2072,6 +2073,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
             pairCoords={pairCoords}
             mergeHighlight={mergeHighlight}
             mergeIncomingSources={mergeIncomingSources}
+            mergeIncomingPageImages={mergeIncomingPageImages}
             mainMergeKeyBases={mainMergeKeyBases}
             mainMergeCompareKeys={mainMergeCompareKeys}
             mainMergeSortKeys={mainMergeSortKeys}

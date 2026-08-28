@@ -1,6 +1,9 @@
 import type { Dataset, GedNode, SourceCitation } from "../gedcom/types";
 import type { MatchResult } from "../match/types";
 import { insertGrouped } from "../gedcom/edit";
+import { childrenByTag } from "../gedcom/node";
+import { buildObjeIndex } from "../gedcom/source";
+import { sharedRecordTitle } from "../gedcom/editReport";
 import { setPlaceCoord } from "../gedcom/edit/geo";
 import { coordOf, placeAddrKey, walkPlaceAddr, walkPlacNodes } from "../tools/geocode";
 import { agreedPairCoords } from "../tools/placeCoords";
@@ -15,7 +18,7 @@ import {
   applyRows,
   buildSourXrefMap,
   cloneNode,
-  detectLinkFormat,
+  linkPlacementFor,
   foldMatchedSourcePages,
   importSourRecords,
   sortEventsByDate,
@@ -203,6 +206,10 @@ export interface MergeResult {
   /** A clone of the main record forest with confirmed edits applied. */
   records: GedNode[];
   report: ChangeReport;
+  /** Books this merge minted a source for from the link alone, whose own pages
+   *  nobody has read yet — the save offers to read them and merge again, so a
+   *  source born of a merge is named as well as a hand-added one. */
+  pendingSourceLookups: string[];
 }
 
 /**
@@ -345,9 +352,11 @@ export function mergeDecisions(
   const touched = new Set<string>();
   // How the main writes places, so incoming places can be reshaped to match.
   const placeFmt = mergePlaceFormat(main, overrides);
-  // How the main stores record-level links, so newly added links match (e.g.
-  // a plain WWW line, Family Historian's _WEBTAG block, or an OBJE/FILE record).
-  const linkFormat = detectLinkFormat(main);
+  // How the main stores record-level links and cited pages' images, so a link
+  // this merge writes lands in the shape the file already keeps (a plain WWW
+  // line, Family Historian's _WEBTAG block, an OBJE/FILE record; a page image
+  // beside the citation or only under its source).
+  const placement = linkPlacementFor(main, overrides);
   // Matches the user explicitly rejected: dropped from the merge's identity map
   // so a rejected pair is never reused to stitch relationships — the incoming
   // person is imported as a new record instead of folded into the wrong main.
@@ -361,7 +370,7 @@ export function mergeDecisions(
     if (decision.status === "rejected") rejectedPairs.add(`${parsed.mainId}|${parsed.compareId}`);
     else if (decision.status === "confirmed") confirmedPairs.add(`${parsed.mainId}|${parsed.compareId}`);
   }
-  const ctx = makeContext(main, compare, matches, records, indiNodes, famNodes, report, touched, t, sourXrefMap, rejectedPairs, confirmedPairs);
+  const ctx = makeContext(main, compare, matches, records, indiNodes, famNodes, report, touched, t, sourXrefMap, rejectedPairs, confirmedPairs, placement);
 
   // A family with both spouses confirmed is stitched only once — on the first
   // spouse's turn (see processedFamIds). Its rows, though, were reviewed on
@@ -402,7 +411,7 @@ export function mergeDecisions(
     report.recordLabels[mainId] = displayName(mainIndi.names[0]);
     const rejectedEvents = decision.rejectedEvents?.length ? new Set(decision.rejectedEvents) : undefined;
     const rows = individualFieldRows(t, mainIndi, incoming, main, compare, placeFmt, rejectedEvents);
-    applyRows(target, incoming.raw, mainId, rows, decision.fields, report, touched, INDI_HANDLED, t, linkFormat, records, sourXrefMap, decision.mainFields);
+    applyRows(target, incoming.raw, mainId, rows, decision.fields, report, touched, INDI_HANDLED, t, placement, records, sourXrefMap, decision.mainFields);
     applyIndividualRelations(mainId, mainIndi, incoming, rows, decision.fields, main, compare, ctx);
     applyIndividualFamilies(mainId, mainIndi, incoming, rows, { ...decision.fields, ...famFields }, main, compare, ctx, allTakenChildren);
     // Canonical event order, but only when this decision actually wrote
@@ -466,8 +475,55 @@ export function mergeDecisions(
 
   fillWrittenPlaceCoords(records, inheritedPlacs);
 
+  // Say what the sources gained. A citation this merge wrote may add the cited
+  // page's image to a `SOUR` the main already had — one page of a book it
+  // holds, or the pages a matched compare source names (`foldMatchedSourcePages`)
+  // — and the report itemizes changes per person, so nothing spoke for the
+  // source's own record: its card in the save preview said only that it is
+  // "saved differently than it was loaded".
+  reportAddedSourcePages(records, main, report, t);
+
   report.recordsChanged = touched.size;
-  return { records, report };
+  return { records, report, pendingSourceLookups: placement.pendingLookups ?? [] };
+}
+
+/**
+ * Report each page image the merge added to a source the main file already
+ * had, on that source's own card. Read off the records rather than threaded
+ * through every writer: both the link ladder (`placeRecordLink`) and the
+ * matched-source fold write these, and what the reader needs to know is the
+ * same either way — this book now carries this page.
+ */
+function reportAddedSourcePages(records: GedNode[], main: Dataset, report: ChangeReport, t: Translate): void {
+  const before = new Map(
+    main.records.filter((r) => r.tag === "SOUR" && r.xref).map((r) => [r.xref!, r]),
+  );
+  const objeIndex = buildObjeIndex(records);
+  for (const rec of records) {
+    // A source this merge created is already reported as a new record, with
+    // its page among the lines that describe it.
+    if (rec.tag !== "SOUR" || !rec.xref || !before.has(rec.xref)) continue;
+    const had = new Set(
+      childrenByTag(before.get(rec.xref)!, "OBJE").map((c) => c.value?.trim()).filter(Boolean),
+    );
+    const added = childrenByTag(rec, "OBJE")
+      .map((c) => c.value?.trim())
+      .filter((v): v is string => !!v && !had.has(v));
+    if (!added.length) continue;
+    report.recordKinds[rec.xref] ??= "record";
+    report.recordLabels[rec.xref] ??= sharedRecordTitle(rec.xref, rec);
+    for (const xref of added) {
+      const info = objeIndex.get(xref);
+      report.changes.push({
+        recordId: rec.xref,
+        field: t("field.media"),
+        from: "",
+        to: info?.title ?? "",
+        action: "incoming",
+        links: info?.url ? [info.url] : undefined,
+      });
+    }
+  }
 }
 
 /**

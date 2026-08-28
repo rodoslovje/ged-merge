@@ -16,6 +16,7 @@ import { linkKey } from "../normalize/links";
 import { reshapesLayout } from "../normalize/placeReformat";
 import type { PlaceTargetFormat } from "../normalize/types";
 import { UNNAMED } from "../gedcom/nameDisplay";
+import { previewLinkPlacement } from "../merge/linkPlacement";
 
 /** Swap the name builders' untranslatable stand-in for a person the file names
  *  nowhere (see {@link UNNAMED}) for the translated one. */
@@ -164,7 +165,12 @@ export function individualFieldRows(
   // Record-level sources (SOUR citations) and plain links, combined into one
   // "Sources" row — same citations-plus-link-icons shape used per event — then
   // notes, all before the events.
-  pushSourcesRow(rows, "links", formatFieldLabel(t, "links"), main?.sources, compare?.sources, gatherLinks(main), gatherLinks(compare),
+  // A record-level incoming link whose citation will land on one of this
+  // person's events belongs on that event's row, not the person's: the review
+  // shows a change where it will happen, and the choice is made there too.
+  const movedLinks = eventBoundLinks(main, gatherLinks(compare), mainDs);
+  const recordLinks = gatherLinks(compare).filter((url) => !movedLinks.moved.has(url));
+  pushSourcesRow(rows, "links", formatFieldLabel(t, "links"), main?.sources, compare?.sources, gatherLinks(main), recordLinks,
     recordCitations(main), recordCitations(compare));
   pushRow(rows, "notes", formatFieldLabel(t, "notes"), main?.notes?.join("\n"), compare?.notes?.join("\n"));
   // Private flag: shown when either side declares it; merging is additive
@@ -173,7 +179,7 @@ export function individualFieldRows(
     main?.private ? `🔒 ${t("edit.privateLabel")}` : undefined,
     compare?.private ? `🔒 ${t("edit.privateLabel")}` : undefined);
 
-  buildEventRows(rows, t, main, compare, mainDs, compareDs, shouldReshape, rejectedEvents, showAge);
+  buildEventRows(rows, t, main, compare, mainDs, compareDs, shouldReshape, rejectedEvents, showAge, movedLinks.byTag);
 
   // Relatives last: parents, partner(s), the marriage facts, then children.
   // Marriage and children live on the FAM record but are reconciled here on the
@@ -197,6 +203,10 @@ function buildEventRows(
   shouldReshape: boolean,
   rejectedEvents: Set<string> | undefined,
   showAge: boolean,
+  /** Event tag → the incoming record-level links that will be written on that
+   *  event (see {@link eventBoundLinks}), shown on the first instance of the
+   *  tag — the event `placeRecordLink` writes to. */
+  movedLinks: Map<string, string[]> = new Map(),
 ): void {
   const mainPool = recordCitations(main);
   const comparePool = recordCitations(compare);
@@ -239,8 +249,16 @@ function buildEventRows(
     // sub-tag (rare) isn't shown as a second Agency row.
     if (!isEven) pushRow(subRows, `${keyBase}.agency`, t("event.colAgency"), me?.agency, ce?.agency);
     pushRow(subRows, `${keyBase}.cause`, t("event.colCause"), me?.cause, ce?.cause);
-    pushSourcesRow(subRows, `${keyBase}.sources`, t("field.sources"), me?.sources, ce?.sources, me?.links, ce?.links,
-      mainPool, comparePool);
+    const moved = mainIdx === 0 ? (movedLinks.get(tag) ?? []) : [];
+    pushSourcesRow(subRows, `${keyBase}.sources`, t("field.sources"), me?.sources, ce?.sources, me?.links,
+      moved.length ? [...(ce?.links ?? []), ...moved] : ce?.links, mainPool, comparePool);
+    // Which of them survived as icons — a link the main already cites (as this
+    // very event's source, say) reads as agreement and writes nothing.
+    const sourcesRow = subRows[subRows.length - 1];
+    if (moved.length && sourcesRow?.key === `${keyBase}.sources`) {
+      const carried = (sourcesRow.incomingLinkIcons ?? []).filter((url) => moved.includes(url));
+      if (carried.length) sourcesRow.incomingRecordLinks = carried;
+    }
     if (showAge) {
       attachAges(subRows, `${keyBase}.date`,
         eventAgeBadges(main, mainDs, me, tag, t),
@@ -1197,6 +1215,30 @@ function withCitations(sources: SourceCitation[], extra: SourceCitation[]): Sour
  * from that archive, so it would match any link to that site and wrongly
  * silence a genuine import.
  */
+/**
+ * Which of the incoming record's plain links the merge will write as a citation
+ * on one of the main person's own events, and on which event — the same
+ * question `placeRecordLink` answers when it writes them (see
+ * `previewLinkPlacement`). Without the main dataset there is nothing to resolve
+ * them against, so nothing moves and the links stay on the record's own row.
+ */
+function eventBoundLinks(
+  main: Individual | undefined,
+  incomingLinks: string[],
+  mainDs: Dataset | undefined,
+): { byTag: Map<string, string[]>; moved: Set<string> } {
+  const byTag = new Map<string, string[]>();
+  const moved = new Set<string>();
+  if (!main || !mainDs || incomingLinks.length === 0) return { byTag, moved };
+  for (const url of incomingLinks) {
+    const { eventTag } = previewLinkPlacement(main.raw, url, mainDs.records);
+    if (!eventTag) continue;
+    byTag.set(eventTag, [...(byTag.get(eventTag) ?? []), url]);
+    moved.add(url);
+  }
+  return { byTag, moved };
+}
+
 function recordCitations(record: Individual | Family | undefined): SourceCitation[] {
   if (!record) return [];
   const all = [...(record.sources ?? []), ...record.events.flatMap((e) => e.sources ?? [])];

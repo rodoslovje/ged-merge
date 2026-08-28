@@ -33,6 +33,7 @@ import {
   SUB_TAG,
   type EventSubEdit,
   type EventSubField,
+  type LinkPlacement,
   type SourXrefMap,
 } from "./applyFields";
 
@@ -86,6 +87,8 @@ export interface MergeContext {
   sourXrefMap: SourXrefMap;
   /** Full merged records array, needed for SOUR-link matching in applyEventSources. */
   records: GedNode[];
+  /** How this file writes links and page images — see {@link LinkPlacement}. */
+  linkPlacement: LinkPlacement;
 }
 
 export function makeContext(
@@ -106,6 +109,7 @@ export function makeContext(
   /** `${mainId}|${compareId}` pairs the user confirmed — the only identities the
    *  merge trusts over the files' own evidence (see `confirmedPair`). */
   confirmedPairs: Set<string> = new Set(),
+  linkPlacement: LinkPlacement = { linkFormat: "WWW", pageMedia: "source" },
 ): MergeContext {
   const incToMain = new Map<string, string>();
   for (const c of matches.individuals) {
@@ -292,6 +296,7 @@ export function makeContext(
     t,
     sourXrefMap,
     records,
+    linkPlacement,
   };
 }
 
@@ -610,7 +615,7 @@ export function applyIndividualFamilies(
     ctx.report.changes.push(...combineEventEdits(famNode.xref!, ctx.t("event.MARR"), marrEntries));
 
     const marrSourcesChoice = marriageChoice("sources");
-    if (marrSourcesChoice && applyEventSources(famNode, incFam.raw, "MARR", marrSourcesChoice, 0, 0, FAM_CHILD_ORDER, ctx.sourXrefMap, ctx.records, ctx.report.customTags)) {
+    if (marrSourcesChoice && applyEventSources(famNode, incFam.raw, "MARR", marrSourcesChoice, 0, 0, FAM_CHILD_ORDER, ctx.sourXrefMap, ctx.records, ctx.linkPlacement, ctx.report.customTags)) {
       const marrRow = rows.find((r) => r.key === `${famKey}.MARR.sources`);
       ctx.report.changes.push({ recordId: famNode.xref!, field: ctx.t("field.sources"), from: "", to: "", action: marrSourcesChoice, group: ctx.t("event.MARR"), unedited: marrSourcesChoice === "incoming", sources: newSourceCitations(marrRow?.mainSources, marrRow?.incomingSources) });
       ctx.touched.add(famNode.xref!);
@@ -647,7 +652,7 @@ export function applyIndividualFamilies(
       const evSourcesKey = `${famKey}.${evTag}.sources`;
       if (wantsIncoming(rows, fields, evSourcesKey)) {
         const choice = fields[evSourcesKey] ?? "incoming";
-        if (applyEventSources(famNode, incFam.raw, evTag, choice, 0, 0, FAM_CHILD_ORDER, ctx.sourXrefMap, ctx.records, ctx.report.customTags)) {
+        if (applyEventSources(famNode, incFam.raw, evTag, choice, 0, 0, FAM_CHILD_ORDER, ctx.sourXrefMap, ctx.records, ctx.linkPlacement, ctx.report.customTags)) {
           const evRow = rows.find((r) => r.key === evSourcesKey);
           ctx.report.changes.push({ recordId: famNode.xref!, field: ctx.t("field.sources"), from: "", to: "", action: choice, group: evName, unedited: choice === "incoming", sources: newSourceCitations(evRow?.mainSources, evRow?.incomingSources) });
           ctx.touched.add(famNode.xref!);

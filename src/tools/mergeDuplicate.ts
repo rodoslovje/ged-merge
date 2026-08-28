@@ -11,7 +11,7 @@ import {
   removeFamily,
   removeIndividual,
 } from "../gedcom/edit";
-import { applyRows, detectLinkFormat } from "../merge/applyFields";
+import { applyRows, linkPlacementFor } from "../merge/applyFields";
 import { INDI_HANDLED, type ChangeReport } from "../merge/merge";
 import { individualFieldRows } from "../review/fields";
 import type { CandidateDecision, FieldChoice, FieldRow, RelativeCell } from "../review/types";
@@ -87,7 +87,7 @@ export function mergeDuplicate(
     new Set<string>(),
     INDI_HANDLED,
     t,
-    detectLinkFormat(dataset),
+    linkPlacementFor(dataset),
     dataset.records,
     new Map(),
   );

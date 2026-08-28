@@ -44,6 +44,7 @@ export const EventList = memo(function EventList({
   pairCoords,
   mergeHighlight,
   mergeIncomingSources,
+  mergeIncomingPageImages,
   mainMergeKeyBases,
   mainMergeCompareKeys,
   mainMergeSortKeys,
@@ -81,6 +82,7 @@ export const EventList = memo(function EventList({
   mergeHighlight?: Map<string, string>;
   /** Field key (e.g. "BIRT.sources") → incoming source citations the merge will add. */
   mergeIncomingSources?: Map<string, SourceCitation[]>;
+  mergeIncomingPageImages?: Map<string, string[]>;
   /** main person.events[i] → field key base aligned with orderedEventTags. */
   mainMergeKeyBases?: Map<number, string>;
   /** main person.events[i] → the incoming event it's paired with, as `${tag}:${compareIdx}`. */
@@ -251,6 +253,7 @@ export const EventList = memo(function EventList({
             pairCoords={pairCoords}
         mergeHighlight={mergeHighlight}
         mergeIncomingSources={mergeIncomingSources}
+        mergeIncomingPageImages={mergeIncomingPageImages}
         mergeKeyBase={birtMergeKeyBase}
         resolvedSessionFields={resolvedSessionFields}
         eventNodeId={birtOriginalIdx >= 0 ? nodeId(rawEventNodes[birtOriginalIdx]) : undefined}
@@ -294,6 +297,7 @@ export const EventList = memo(function EventList({
             pairCoords={pairCoords}
             mergeHighlight={mergeHighlight}
             mergeIncomingSources={mergeIncomingSources}
+            mergeIncomingPageImages={mergeIncomingPageImages}
             mergeKeyBase={row.mergeKeyBase}
             forcedKeyBase={String(row.stableKey)}
             resolvedSessionFields={resolvedSessionFields}
@@ -338,6 +342,7 @@ export const EventList = memo(function EventList({
             pairCoords={pairCoords}
             mergeHighlight={mergeHighlight}
             mergeIncomingSources={mergeIncomingSources}
+            mergeIncomingPageImages={mergeIncomingPageImages}
             mergeKeyBase={row.keyBase}
             forcedKeyBase={row.keyBase}
             resolvedSessionFields={resolvedSessionFields}
