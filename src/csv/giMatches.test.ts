@@ -116,6 +116,34 @@ describe("parseGiMatchesCsv", () => {
     expect(partners[0]).toEqual(expect.objectContaining({ given: "Helena", surname: "Krt" }));
   });
 
+
+  it("keeps the date and place a register note is written beside", () => {
+    // The index appends the register's own marginal remark to the cell it
+    // belongs to — a death noted on the baptism page (✝), a later note (🗒).
+    // The value in front of it is real, and dropping it once cost the record
+    // its birth date and its place both.
+    const mainRow = row([
+      "Marija", "Slobodnik", "28 AUG 1880", "Bojanja vas 25, Metlika", "20 NOV 1882",
+      "Bojanja vas 25, Metlika", "", "", "", "", "Peter Slobodnik", "Marija Režek", "Renko", "97",
+    ]);
+    const incomingRow = row([
+      "Marija", "Slobodnik", "28 AUG 1880 (✝ 28 AUG 1880)", "Radovica, Bojanja vas 25 (🗒 + 20.11.1882)",
+      "", "", "", "", "https://data.matricula-online.eu/sl/slovenia/ljubljana/radovica/04132/?pg=83",
+      "", "Peter Slobodnik", "Marija Režek", "Kočevar-matricula", "97",
+    ]);
+    const { dataset, pairs } = parseGiMatchesCsv(`${SL_HEADER_SOURCE}\n${mainRow}\n${incomingRow}\n`);
+    expect(pairs[0].mainKey).toEqual({ given: "Marija", surname: "Slobodnik", birthYear: 1880 });
+    const birth = dataset.individuals.get("@SGI1@")?.events.find((e) => e.tag === "BIRT");
+    // The date is comparable — annotated, it read as no birth date at all, and
+    // a missing birth key costs a pair that agrees everywhere ~15 points.
+    expect(birth?.date?.raw).toBe("28 AUG 1880");
+    expect(birth?.date?.year).toBe(1880);
+    expect(birth?.place?.raw).toBe("Radovica, Bojanja vas 25");
+    // The remark itself is not turned into a death: two notes on this page
+    // disagree about when she died, and that is the reader's to judge.
+    expect(dataset.individuals.get("@SGI1@")?.events.find((e) => e.tag === "DEAT")).toBeUndefined();
+  });
+
   it("handles the English header with separate Father/Mother columns", () => {
     const mainRow = row([
       "Stane",
