@@ -17,7 +17,7 @@ const SETTINGS_KEYS = ["showAge"] as const;
 /** Any family event row (MARR, DIV, ENGA, SEPA, …) by tag. */
 export function FamilyEventRow({
   fam, tag, t, commit, openEditSource, openMediaLink, onOpenSourceDialog, onRemove, onCopy, onRetag, autoFocusLead,
-  placeSuggestions, placeToAddrs, placeCanonical, addrCanonical, placeCoords, placeForms, pairCoords,
+  placeSuggestions, placeToAddrs, placeCanonical, addrCanonical, agencySuggestions, agencyCanonical, placeCoords, placeForms, pairCoords,
   mergeHighlight, mergeIncomingSources, mergeIncomingPageImages, famMergeKeyBase, resolvedSessionFields, individuals,
 }: {
   fam: Family; tag: string; t: Translate; commit: FamilyCommit;
@@ -36,6 +36,8 @@ export function FamilyEventRow({
   placeToAddrs: Map<string, string[]>;
   placeCanonical: Map<string, string>;
   addrCanonical: Map<string, string>;
+  agencySuggestions: string[];
+  agencyCanonical: Map<string, string>;
   /** Coordinate the file already uses for a place (settlement-level). */
   placeCoords: Map<string, GeoCoord>;
   placeForms: Map<string, string>;
@@ -103,6 +105,8 @@ export function FamilyEventRow({
       placeToAddrs={placeToAddrs}
       placeCanonical={placeCanonical}
       addrCanonical={addrCanonical}
+      agencySuggestions={agencySuggestions}
+      agencyCanonical={agencyCanonical}
       placeCoords={placeCoords}
       placeForms={placeForms}
       pairCoords={pairCoords}

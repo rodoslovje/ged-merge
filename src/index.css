@@ -3130,7 +3130,8 @@ button:focus-visible {
 .edit-event-value,
 .edit-event-date,
 .edit-event-place,
-.edit-event-addr { width: 100%; min-width: 0; }
+.edit-event-addr,
+.edit-event-agency { width: 100%; min-width: 0; }
 .edit-event-date { text-align: right; }
 /* Compact events: a field with no value (`.ev-collapsed`) takes zero height at
  * rest and is revealed only while the event row is hovered or focused, so a

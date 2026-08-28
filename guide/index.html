@@ -388,6 +388,16 @@
               dominant style; on your own file it leaves place spelling and spacing exactly as you wrote them.
             </p>
             <p>
+              Reshaping a place reads your own file as its reference. Where an incoming value leads with a name your
+              file has never written as a place — the genealogical index puts the parish first, <em>Kranj - Šmartin,
+              Zgornje Bitnje 14</em> — the settlement the house stands in becomes the place, spelt with the
+              jurisdictions your file gives it, and the parish is kept as the event's <strong>agency</strong> rather
+              than dropped. This happens only where the leading name vouches for the settlement it gives way to:
+              <em>Kranj - Šmartin</em> does so for a Stražišče your file files under <em>Kranj</em>. A name that
+              answers to nothing in that chain stays exactly as written, because a village that merely shares a name
+              with another is not that other village.
+            </p>
+            <p>
               GED Merge also reconciles the two files' <strong>GEDCOM version</strong>. If the incoming file uses a
               different version than your main file (5.5.1 vs 7.0), it is migrated to your file's version on load: shared
               notes (<code>NOTE</code> ⇄ <code>SNOTE</code>), date phrases and dual-year dates, age keywords, association
@@ -570,7 +580,9 @@
                 An event row shows only the fields it actually carries, starting with the <strong>date</strong> and the
                 <strong>place</strong>. <strong>+ Add</strong> at the end of the row adds the rest one at a time —
                 address, agency, source, type, cause, note — and puts the cursor straight in the new field, so the row
-                never becomes a wall of empty inputs. Use <span class="gm-glyph">×</span> to clear a single field.
+                never becomes a wall of empty inputs. Use <span class="gm-glyph">×</span> to clear a single field. The
+                <strong>agency</strong> field completes from the ones your file already names — the parishes and
+                offices its events record — so a parish's own name is typed out once and picked thereafter.
                 A whole row can be filled in without the mouse: <span class="gm-key">Enter</span> steps from the date to
                 the place and then onto the <strong>+ Add</strong> button, where <span class="gm-key">Enter</span> opens
                 the menu and the arrow keys pick the field to add

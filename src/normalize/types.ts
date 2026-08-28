@@ -201,6 +201,16 @@ export interface PlaceHierarchy {
   parentOf: Map<string, string[]>;
   /** Street/address name (lowercased) → the main's most-attested locality. */
   localityOfStreet: Map<string, string>;
+  /**
+   * Every name (lowercased) the main writes as a level of a real place — any
+   * rung of any value that names more than one. This is the file's own answer
+   * to "is that a place?", and a leading name missing from it is one the main
+   * has never placed anywhere: a parish, a register, a district. The flat
+   * one-level values are deliberately left out — a source book's `PLAC Kranj -
+   * Šmartin` names the register, not a settlement, and counting it would teach
+   * the file that the parish is a place after all.
+   */
+  knownNames: Set<string>;
 }
 
 /** A place reshaped into the main's layout: the parts to write back. */

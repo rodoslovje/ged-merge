@@ -319,6 +319,21 @@ const nameWords = (s: string): string[] =>
   s.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean);
 
 /**
+ * Whether two place names have a whole word in common.
+ *
+ * The corroboration test for adopting one name in place of another: a value's
+ * leading name that this file knows as no place of its own, but whose words
+ * turn up in the chain above the place its address names ("Kranj - Šmartin"
+ * over Stražišče's "Kranj, Slovenia"), is describing the same corner of the
+ * world by another name — a parish, a register, a district — rather than
+ * pointing somewhere else.
+ */
+export function sharesPlaceWord(a: string, b: string): boolean {
+  const words = new Set(nameWords(b));
+  return nameWords(a).some((w) => words.has(w));
+}
+
+/**
  * Whether an address name says something the locality doesn't already say — the
  * test for using it as a hint to a *different*, more specific locality.
  *
