@@ -147,10 +147,7 @@ export function useMergeOverlay({
       const mergeIncomingSources = new Map<string, SourceCitation[]>();
       /** Event tag → the citations record-level incoming links will land on it
        *  as, filed under that event's own key once the bases are built. */
-      const linkCitationsByTag = new Map<string, SourceCitation[]>();
       const mergeIncomingPageImages = new Map<string, string[]>();
-      /** Event tag → the page images those citations will be linked with. */
-      const linkPageImagesByTag = new Map<string, string[]>();
       const addTo = (map: Map<string, string[]>, key: string, value: string) => {
         const list = map.get(key) ?? [];
         if (!list.includes(value)) list.push(value);
@@ -171,20 +168,15 @@ export function useMergeOverlay({
         const previewed: SourceCitation[] = [...(row.incomingSources ?? [])];
         const plainLinks: string[] = [];
         for (const url of incLinks ?? []) {
-          // A link the incoming record carries at record level may land on the
-          // event its register documents; one that arrived on an event stays
-          // there. Held by tag until the event key bases below are known.
-          const { citation, eventTag, pageImage } = previewLinkPlacement(person.raw, url, dataset.records, {
+          // Which row a link is on is the review's answer already (a
+          // record-level link lands on the row of the event it documents —
+          // see `individualFieldRows`); this only says what it will become.
+          const { citation, pageImage } = previewLinkPlacement(person.raw, url, dataset.records, {
             overrides: formatOverrides,
             pageMedia: pageMediaStyle,
           });
           if (!citation) plainLinks.push(url);
-          else if (eventTag && row.key === "links") {
-            const forTag = linkCitationsByTag.get(eventTag) ?? [];
-            forTag.push(citation);
-            linkCitationsByTag.set(eventTag, forTag);
-            if (pageImage) addTo(linkPageImagesByTag, eventTag, pageImage);
-          } else {
+          else {
             previewed.push(citation);
             if (pageImage) addTo(mergeIncomingPageImages, row.key, pageImage);
           }
@@ -247,18 +239,6 @@ export function useMergeOverlay({
             }
           }
         }
-      }
-
-      // The record-level links that belong on an event: file each under the
-      // first main event of its tag — the one `placeRecordLink` writes to — so
-      // the chip previews the citation where the save will put it. An event the
-      // person does not have keeps its link on the record, as the merge does.
-      for (const [tag, citations] of linkCitationsByTag) {
-        const overallIdx = mByTagIndices.get(tag)?.[0];
-        const keyBase = overallIdx === undefined ? undefined : mainMergeKeyBases.get(overallIdx);
-        const key = keyBase ? `${keyBase}.sources` : "links";
-        mergeIncomingSources.set(key, [...(mergeIncomingSources.get(key) ?? []), ...citations]);
-        for (const image of linkPageImagesByTag.get(tag) ?? []) addTo(mergeIncomingPageImages, key, image);
       }
 
       const familyKeyBases = familyMergeKeyBases(person, incoming, dataset, compareDataset);

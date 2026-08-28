@@ -4,7 +4,7 @@ import { parseGedcom } from "../gedcom/parser";
 import { inferMainProfile } from "../normalize/profile";
 import { normalizeDataset } from "../normalize/normalize";
 import { familyMergeKeyBases, fieldDiffCounts, individualFieldRows, isMajorDifference, pairedMainFamilies } from "./fields";
-import type { FieldRow } from "./types";
+import { defaultChoice, type FieldRow } from "./types";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -1812,5 +1812,64 @@ describe("family header naming", () => {
           `0 @F@ FAM\n1 HUSB @H@\n1 WIFE @W@\n`,
       ),
     ).toBe("field.familyWith");
+  });
+});
+
+describe("a record-level incoming link is reviewed on the event it will land on", () => {
+  const BOOK =
+    "0 @S1@ SOUR\n1 TITL Krstna knjiga - Šenčur\n1 OBJE @O1@\n" +
+    "0 @O1@ OBJE\n1 FILE https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03173/?pg=56\n";
+  const wrap = (body: string) => `0 HEAD\n1 CHAR UTF-8\n${body}0 TRLR\n`;
+  const incoming = wrap(
+    "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n" +
+      "1 WWW https://data.matricula-online.eu/de/slovenia/ljubljana/sencur/03173/?pg=58\n",
+  );
+
+  function rowsFor(mainText: string) {
+    const m = dataset(mainText);
+    const c = dataset(incoming);
+    return individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"), m, c);
+  }
+
+  it("moves it off the person's own Sources row onto the birth it documents", () => {
+    // The file cites this baptism book on the births it documents, so the
+    // merge will write the link there — and that is where it is reviewed.
+    const rows = rowsFor(
+      wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 SOUR @S1@\n3 PAGE 56\n" + BOOK),
+    );
+    expect(byKey(rows, "links")).toBeUndefined();
+    const birth = byKey(rows, "BIRT.sources");
+    expect(birth?.incomingLinkIcons).toEqual([
+      "https://data.matricula-online.eu/de/slovenia/ljubljana/sencur/03173/?pg=58",
+    ]);
+    // Marked as the record-level link it is, so the merge writes it from here…
+    expect(birth?.incomingRecordLinks).toEqual(birth?.incomingLinkIcons);
+    // …and taken by default: a new page adds to the birth's sources, it
+    // replaces nothing.
+    expect(defaultChoice(birth!)).toBe("both");
+  });
+
+  it("reads as agreement when the main already cites that very page", () => {
+    // The page the incoming file links is the one the main's birth already
+    // cites: one row, both columns, nothing to decide — and no second copy of
+    // the same book on the person's own row.
+    const rows = rowsFor(
+      wrap(
+        "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 SOUR @S1@\n3 PAGE 58\n" +
+          "0 @S1@ SOUR\n1 TITL Krstna knjiga - Šenčur\n1 OBJE @O1@\n" +
+          "0 @O1@ OBJE\n1 FILE https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03173/?pg=58\n",
+      ),
+    );
+    expect(byKey(rows, "links")).toBeUndefined();
+    const birth = byKey(rows, "BIRT.sources");
+    expect(birth?.state).toBe("agree");
+    expect(birth?.incomingRecordLinks).toBeUndefined();
+  });
+
+  it("keeps a link on the person when no event of its register is there", () => {
+    const rows = rowsFor(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n" + BOOK));
+    expect(byKey(rows, "links")?.incomingLinkIcons).toEqual([
+      "https://data.matricula-online.eu/de/slovenia/ljubljana/sencur/03173/?pg=58",
+    ]);
   });
 });

@@ -279,6 +279,9 @@ export function applyRows(
     }
 
     let applied = false;
+    // What this row's own links became, when it carried any (see
+    // `FieldRow.incomingRecordLinks`) — reported as citations, not addresses.
+    const placedLinks: PlacedLink[] = [];
     if (row.key === "given" || row.key === "surname") {
       applied = applyNamePart(target, incomingRecord, row.key, choice, sourMap, report.customTags);
     } else if (row.key === "sex") {
@@ -304,7 +307,7 @@ export function applyRows(
       if (sub === "value") {
         applied = applyEventValue(target, incomingRecord, tag, choice, mainIdx, compareIdx, INDI_CHILD_ORDER, newEventNodes);
       } else if (sub === "sources") {
-        applied = applyEventSources(target, incomingRecord, tag, choice, mainIdx, compareIdx, INDI_CHILD_ORDER, sourMap, records, placement, report.customTags, newEventNodes);
+        applied = applyEventSources(target, incomingRecord, tag, choice, mainIdx, compareIdx, INDI_CHILD_ORDER, sourMap, records, placement, report.customTags, newEventNodes, row.incomingRecordLinks, placedLinks);
       } else {
         // Places are already reshaped into the main's layout when the
         // incoming file was loaded, so the raw incoming node can be copied
@@ -322,7 +325,11 @@ export function applyRows(
       } else if (parsed?.sub === "sources") {
         // Render added citations as the same 📖/🔗 icons the main UI uses,
         // inline on the event's line — not as a separate "Source: …" text row.
-        report.changes.push({ recordId, field: row.label, from: "", to: "", action: choice, group, unedited: choice === "incoming", sources: newSourceCitations(row.mainSources, row.incomingSources) });
+        // A record-level link this row carried is reported as the citation it
+        // became, beside them; one that stayed a plain link as itself.
+        const cited = placedLinks.map((p) => p.citation).filter((c): c is SourceCitation => !!c);
+        const plain = placedLinks.filter((p) => !p.citation).map((p) => p.url);
+        report.changes.push({ recordId, field: row.label, from: "", to: "", action: choice, group, unedited: choice === "incoming", sources: [...newSourceCitations(row.mainSources, row.incomingSources), ...cited], links: plain.length ? plain : undefined });
       } else {
         const identity = row.key === "given" || row.key === "surname" || row.key === "sex";
         report.changes.push({ recordId, field: row.label, from: row.main, to: row.incoming, action: choice, group, unedited: choice === "incoming", identity: identity || undefined });
@@ -734,10 +741,17 @@ export function applyEventSources(
   placement: LinkPlacement,
   customTags: Record<string, CustomTagNode[]> = {},
   newEventNodes?: Map<string, GedNode>,
+  /** Links the incoming file keeps on its record that belong on this event —
+   *  the register they name documents it (see `FieldRow.incomingRecordLinks`).
+   *  They are not on the incoming event, so they arrive with the row. */
+  recordLinks: string[] = [],
+  /** Filled with what each of those links became, so the row that carried them
+   *  can report the citation rather than the bare address. */
+  placedOut?: PlacedLink[],
 ): boolean {
   const incEvent = compareIdx >= 0 ? childrenByTag(incomingRecord, tag)[compareIdx] : undefined;
   const incSours = incEvent ? childrenByTag(incEvent, "SOUR") : [];
-  const incLinks = eventLinkUrls(incEvent);
+  const incLinks = [...eventLinkUrls(incEvent), ...recordLinks];
   if (incSours.length === 0 && incLinks.length === 0) return false;
   const event = resolveEventNode(target, tag, mainIdx, compareIdx, order, newEventNodes);
   if (incSours.length) {
@@ -761,7 +775,10 @@ export function applyEventSources(
       // An event's own link stays on its event — `placeEventLink` cites the
       // source the main already has for it, mints one when the site is
       // recognized, and falls back to a plain link only for the rest.
-      placeEventLink(event, url, records, placement, reservedXrefs(sourMap));
+      // Called first, then reported: `placedOut?.push(placeEventLink(…))`
+      // would not place the link at all when nobody asked for the report.
+      const placed = placeEventLink(event, url, records, placement, reservedXrefs(sourMap));
+      placedOut?.push(placed);
     }
   }
   return true;
