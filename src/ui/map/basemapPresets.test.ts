@@ -19,8 +19,9 @@ describe("basemap presets", () => {
         expect(url).toContain("{z}");
         expect(url).toContain("{x}");
         expect(url).toContain("{y}");
-        // A {s} template without shard values would request the literal host "{s}".
-        if (url.includes("{s}")) expect(b.subdomains).toBeTruthy();
+        // A {s} template without shard values would request the literal host
+        // "{s}"; shard values without a {s} are a leftover from a moved host.
+        expect(url.includes("{s}"), `${b.id || "default"} shards`).toBe(Boolean(b.subdomains));
       }
       expect(b.attribution).not.toBe("");
     }
