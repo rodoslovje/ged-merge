@@ -1,6 +1,9 @@
 import type { Dataset, GedNode, SourceCitation } from "../gedcom/types";
 import type { MatchResult } from "../match/types";
 import { insertGrouped } from "../gedcom/edit";
+import { childrenByTag } from "../gedcom/node";
+import { buildObjeIndex } from "../gedcom/source";
+import { sharedRecordTitle } from "../gedcom/editReport";
 import { setPlaceCoord } from "../gedcom/edit/geo";
 import { coordOf, placeAddrKey, walkPlaceAddr, walkPlacNodes } from "../tools/geocode";
 import { agreedPairCoords } from "../tools/placeCoords";
@@ -472,8 +475,55 @@ export function mergeDecisions(
 
   fillWrittenPlaceCoords(records, inheritedPlacs);
 
+  // Say what the sources gained. A citation this merge wrote may add the cited
+  // page's image to a `SOUR` the main already had — one page of a book it
+  // holds, or the pages a matched compare source names (`foldMatchedSourcePages`)
+  // — and the report itemizes changes per person, so nothing spoke for the
+  // source's own record: its card in the save preview said only that it is
+  // "saved differently than it was loaded".
+  reportAddedSourcePages(records, main, report, t);
+
   report.recordsChanged = touched.size;
   return { records, report, pendingSourceLookups: placement.pendingLookups ?? [] };
+}
+
+/**
+ * Report each page image the merge added to a source the main file already
+ * had, on that source's own card. Read off the records rather than threaded
+ * through every writer: both the link ladder (`placeRecordLink`) and the
+ * matched-source fold write these, and what the reader needs to know is the
+ * same either way — this book now carries this page.
+ */
+function reportAddedSourcePages(records: GedNode[], main: Dataset, report: ChangeReport, t: Translate): void {
+  const before = new Map(
+    main.records.filter((r) => r.tag === "SOUR" && r.xref).map((r) => [r.xref!, r]),
+  );
+  const objeIndex = buildObjeIndex(records);
+  for (const rec of records) {
+    // A source this merge created is already reported as a new record, with
+    // its page among the lines that describe it.
+    if (rec.tag !== "SOUR" || !rec.xref || !before.has(rec.xref)) continue;
+    const had = new Set(
+      childrenByTag(before.get(rec.xref)!, "OBJE").map((c) => c.value?.trim()).filter(Boolean),
+    );
+    const added = childrenByTag(rec, "OBJE")
+      .map((c) => c.value?.trim())
+      .filter((v): v is string => !!v && !had.has(v));
+    if (!added.length) continue;
+    report.recordKinds[rec.xref] ??= "record";
+    report.recordLabels[rec.xref] ??= sharedRecordTitle(rec.xref, rec);
+    for (const xref of added) {
+      const info = objeIndex.get(xref);
+      report.changes.push({
+        recordId: rec.xref,
+        field: t("field.media"),
+        from: "",
+        to: info?.title ?? "",
+        action: "incoming",
+        links: info?.url ? [info.url] : undefined,
+      });
+    }
+  }
 }
 
 /**

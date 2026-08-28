@@ -1172,6 +1172,31 @@ describe("mergeDecisions — links", () => {
     expect(out).toMatch(/1 BIRT\n2 DATE 1891\n2 SOUR @S1@/);
   });
 
+  it("says on the source's own card which page it gained", () => {
+    // The merge adds the cited page's image to a book the file already keeps.
+    // Without a line of its own, the source card in the save preview could
+    // only say the record is "saved differently than it was loaded".
+    const main = dataset(
+      wrap(
+        "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n2 SOUR @S1@\n3 PAGE 56\n" +
+          "0 @S1@ SOUR\n1 TITL Krstna knjiga - Šenčur\n1 OBJE @O1@\n" +
+          "0 @O1@ OBJE\n1 FILE https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03173/?pg=56\n",
+      ),
+    );
+    const compare = dataset(
+      wrap(
+        "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n" +
+          "1 WWW https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03173/?pg=58\n",
+      ),
+    );
+    const { report } = mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr);
+    expect(report.recordKinds["@S1@"]).toBe("record");
+    expect(report.recordLabels["@S1@"]).toBe("Krstna knjiga - Šenčur");
+    const page = report.changes.find((c) => c.recordId === "@S1@");
+    expect(page?.links).toEqual(["https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03173/?pg=58"]);
+    expect(page?.to).toBe("#58 - Krstna knjiga - Šenčur");
+  });
+
   it("two people bringing the same new page in one merge share the OBJE the first one minted", () => {
     // The cached source lookup must see the page OBJE created moments earlier
     // in the same merge — a stale lookup would mint a duplicate OBJE for the
