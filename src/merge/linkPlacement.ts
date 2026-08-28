@@ -14,7 +14,7 @@ import {
   markEventTouched,
   sourceCitationNodes,
 } from "../gedcom/edit";
-import { findExistingSource, resolveSourceCitation, sourceTitle } from "../gedcom/source";
+import { childText, findExistingSource, resolveSourceCitation, sourceTitle } from "../gedcom/source";
 import { looksLikeUrl } from "../gedcom/builder";
 import { firstChild } from "../gedcom/node";
 import type { FormatOverrides } from "../normalize/formatOverrides";
@@ -232,6 +232,46 @@ function resolveSource(
   if (!recognized) return undefined;
   const source = mintSource(records, recognized, url, placement, reserved);
   return { ...source, page: recognized.page, quay, createdSource: true };
+}
+
+/**
+ * The citation an incoming link would become, without writing anything — Edit
+ * mode's preview of a confirmed match, which would otherwise show the bare
+ * address and say nothing of the source it is about to join. Follows the same
+ * ladder {@link placeRecordLink} writes by: the source the file already keeps
+ * for this book, else the one a recognized link would mint (named from the
+ * book's page where it has been read). Undefined where the link would stay a
+ * plain link, which is what the preview then shows.
+ */
+export function previewLinkCitation(records: GedNode[], url: string): SourceCitation | undefined {
+  const existing = findExistingSource(records, url, undefined, getSourceLookup(records));
+  if (existing) {
+    const node = records.find((r) => r.tag === "SOUR" && r.xref === existing.sourceXref);
+    return {
+      sourceId: existing.sourceXref,
+      title: node && sourceTitle(node),
+      agency: node && childText(node, "AGNC"),
+      filingNumber: node && childText(node, "FILN"),
+      page: existing.page,
+      url,
+      exact: true,
+      objeXref: existing.objeXref,
+    };
+  }
+  const recognized = recognizeSourceUrl(url);
+  if (!recognized) return undefined;
+  const p = recognized.proposed;
+  const fetched = cachedBookMeta(recognized.site, recognized.bookUrl ?? url);
+  const filingNumber = fetched?.filingNumber || p.filingNumber;
+  return {
+    sourceId: "",
+    title: siteSourceTitle(recognized.site, fetched?.title ?? p.title, filingNumber) ?? p.title,
+    agency: fetched?.agency ?? p.agency,
+    filingNumber,
+    page: recognized.page,
+    url,
+    exact: true,
+  };
 }
 
 /** The name a page image added to a source the file already has gets — the

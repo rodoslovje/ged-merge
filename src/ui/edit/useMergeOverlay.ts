@@ -3,6 +3,7 @@ import { childrenByTag } from "../../gedcom/node";
 import type { Dataset, GedNode, Individual, SourceCitation } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
 import { materializeEventSources } from "../../merge/merge";
+import { previewLinkCitation } from "../../merge/linkPlacement";
 import { familyMergeKeyBases, individualFieldRows, lifespanAnchors, orderedEventTags, zoneSortKey } from "../../review/fields";
 import { defaultChoice, findConfirmedDecision, type CandidateDecision } from "../../review/types";
 import { cloneRaw, type RecordPatch } from "../historyTypes";
@@ -136,9 +137,19 @@ export function useMergeOverlay({
         if (row.incoming) mergeHighlight.set(row.key, row.incoming);
         // The record-level "Sources" row carries plain links as `incomingLinkIcons`
         // (other rows, if any, as `incomingLinks`); both preview the same way.
+        // Each is previewed as what the save will write for it — a citation of
+        // the book's source, with its page — and stays a link chip only where
+        // the merge would leave it a plain link.
         const incLinks = row.incomingLinks ?? row.incomingLinkIcons;
-        if (incLinks?.length) mergeIncomingLinks.set(row.key, incLinks);
-        if (row.incomingSources?.length) mergeIncomingSources.set(row.key, row.incomingSources);
+        const previewed: SourceCitation[] = [...(row.incomingSources ?? [])];
+        const plainLinks: string[] = [];
+        for (const url of incLinks ?? []) {
+          const citation = previewLinkCitation(dataset.records, url);
+          if (citation) previewed.push(citation);
+          else plainLinks.push(url);
+        }
+        if (plainLinks.length) mergeIncomingLinks.set(row.key, plainLinks);
+        if (previewed.length) mergeIncomingSources.set(row.key, previewed);
       }
 
       // Map main overall event index → the key base that orderedEventTags assigned to it.
