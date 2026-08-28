@@ -126,8 +126,12 @@ describe("reformatPlace → main-learned hierarchy fills in missing detail", () 
     parentOf: new Map([
       ["kranj", ["Kranj", "Slovenia"]],
       ["stražišče", ["Kranj", "Slovenia"]],
+      // A Croatian Lokve, for the village that only shares a name with the
+      // Slovenian one (see the Čepovan case below).
+      ["lokve", ["Primorje-Gorski Kotar", "Croatia"]],
     ]),
     localityOfStreet: new Map([["hafnarjeva pot", "Stražišče"]]),
+    knownNames: new Set(["kranj", "stražišče", "slovenia", "primskovo", "lokve", "primorje-gorski kotar", "croatia"]),
   };
   const RENKO_H: PlaceTargetFormat = { layout: "structured-addr", separator: ",", hierarchy };
 
@@ -178,6 +182,57 @@ describe("reformatPlace → main-learned hierarchy fills in missing detail", () 
       separator: ",",
     });
     expect(r.plac).toBe("Kranj,Slovenia");
+  });
+
+  it("takes the place from the address when the leading name is no place of the file's", () => {
+    // The genealogical index writes the parish first and the house after it.
+    // "Kranj - Šmartin" is a place the main has never written, and the house
+    // stands in a settlement it knows well — so the settlement becomes the
+    // place, and the parish keeps the register in AGNC.
+    const r = reformatPlace("Kranj - Šmartin, Stražišče 73", undefined, RENKO_H);
+    expect(r.plac).toBe("Stražišče,Kranj,Slovenia");
+    expect(r.addr).toBe("Stražišče 73");
+    expect(r.agency).toBe("župnija Kranj - Šmartin");
+  });
+
+  it("names the displaced parish in a packed PLAC too", () => {
+    const r = reformatPlace("Kranj - Šmartin, Stražišče 73", undefined, {
+      layout: "packed-plac",
+      separator: ", ",
+      hierarchy,
+    });
+    expect(r.plac).toBe("Stražišče, Stražišče 73 - župnija Kranj - Šmartin");
+  });
+
+  it("keeps the parish the value already spelt out rather than the displaced name", () => {
+    const r = reformatPlace("Kranj - Šmartin, Stražišče 73 - župnija Šmartin", undefined, RENKO_H);
+    expect(r.plac).toBe("Stražišče,Kranj,Slovenia");
+    expect(r.agency).toBe("župnija Šmartin");
+  });
+
+  it("does not move a locality the file knows, however specific the address", () => {
+    const r = reformatPlace("Kranj, Stražišče 73", undefined, RENKO_H);
+    expect(r.plac).toBe("Kranj,Kranj,Slovenia");
+    expect(r.addr).toBe("Stražišče 73");
+    expect(r.agency).toBeUndefined();
+  });
+
+  it("refuses the address's place when the displaced name vouches for nowhere near it", () => {
+    // Čepovan's Lokve is not the Croatian Lokve the main knows; nothing in
+    // "Primorje-Gorski Kotar, Croatia" answers to "Čepovan", so the record
+    // stays where it was written rather than crossing a border.
+    const r = reformatPlace("Čepovan, Lokve 3", undefined, RENKO_H);
+    expect(r.plac).toBe("Čepovan");
+    expect(r.addr).toBe("Lokve 3");
+    expect(r.agency).toBeUndefined();
+  });
+
+  it("keeps the displaced name when a recognized street moved the record", () => {
+    // The street route reaches the same conclusion by a different road, and
+    // must not drop the parish on the way.
+    const r = reformatPlace("Kranj - Šmartin, Hafnarjeva pot 21/a", undefined, RENKO_H);
+    expect(r.plac).toBe("Stražišče,Kranj,Slovenia");
+    expect(r.agency).toBe("župnija Kranj - Šmartin");
   });
 });
 

@@ -552,6 +552,7 @@ const CHAIN_SEP = "\u0001";
 export function inferPlaceHierarchy(dataset: Dataset): PlaceHierarchy {
   const parentTally = new Map<string, Map<string, number>>();
   const streetTally = new Map<string, Map<string, number>>();
+  const knownNames = new Set<string>();
 
   walkNodes(dataset.records, (node) => {
     const placNode = firstChild(node, "PLAC");
@@ -559,6 +560,10 @@ export function inferPlaceHierarchy(dataset: Dataset): PlaceHierarchy {
     const addrNode = firstChild(node, "ADDR");
     const p = decomposePlace(placNode.value);
     if (!p.locality) return;
+
+    // Every rung of a value that names more than one is a place this file
+    // knows — see PlaceHierarchy.knownNames for why the flat values stay out.
+    if (p.jurisdiction.length >= 2) for (const level of p.jurisdiction) knownNames.add(level.toLowerCase());
 
     // A country is the top of the hierarchy: nothing stands above it. A file
     // that writes "Italy, Italy" (an import repeating the country as its own
@@ -601,7 +606,7 @@ export function inferPlaceHierarchy(dataset: Dataset): PlaceHierarchy {
     const best = mostFrequentStr(forms);
     if (best) localityOfStreet.set(key, best);
   }
-  return { parentOf, localityOfStreet };
+  return { parentOf, localityOfStreet, knownNames };
 }
 
 function getForms(map: Map<string, Map<string, number>>, key: string): Map<string, number> {

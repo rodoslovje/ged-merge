@@ -2,7 +2,9 @@ import {
   addressStreetName,
   decomposePlace,
   disambiguatesLocality,
+  isCountryName,
   looksLikeFacility,
+  sharesPlaceWord,
   stripHouseNumber,
 } from "../gedcom/place";
 import { canonicalPlaceToken } from "../match/place";
@@ -48,8 +50,9 @@ export function reformatPlace(
   const street = p?.street ?? a?.street;
   // The parish that needs to *move* into AGNC: only when it was written inline
   // in PLAC/ADDR text (packed layouts). A parish already in its own AGNC field
-  // (structured layouts) is left there untouched by the caller.
-  const parish = p?.parish ?? a?.parish;
+  // (structured layouts) is left there untouched by the caller. A leading name
+  // displaced by the address below joins it there.
+  let parish = p?.parish ?? a?.parish;
   const facility = p?.facility ?? a?.facility;
 
   // Use the main's own attested PLAC/ADDR pairings (see PlaceHierarchy) to
@@ -71,10 +74,37 @@ export function reformatPlace(
     // Using it as a hint would relocate the record to wherever that same name
     // happens to appear under a *different* locality in the main, overriding an
     // already-correct place (see disambiguatesLocality).
-    const { localityOfStreet } = fmt.hierarchy;
-    const streetLocality = (s: string | undefined): string | undefined =>
-      disambiguatesLocality(s, locality) ? localityOfStreet.get(s!.toLowerCase()) : undefined;
-    const hinted = streetLocality(streetHint) || streetLocality(addrStreet);
+    const { localityOfStreet, parentOf, knownNames } = fmt.hierarchy;
+    const addressNames = [streetHint, addrStreet].filter(
+      (s): s is string => !!s && disambiguatesLocality(s, locality),
+    );
+    /**
+     * Whether `name` is no place of this file's own, yet says where `chain`
+     * is: a name the main has never written as a level of any place, whose
+     * words nonetheless turn up in the chain above the settlement the address
+     * names. "Kranj - Šmartin" over Stražišče's "Kranj, Slovenia" is the
+     * parish that kept the register; "Čepovan" over a Croatian Lokve's
+     * "Primorje-Gorski Kotar" is a different village that happens to share a
+     * name, and vouches for nothing.
+     *
+     * A one-word name can never pass: were its word in the chain, the name
+     * would be in `knownNames` — so only a compound like the parish's own
+     * "town - dedication" reaches this at all.
+     */
+    const namesTheAreaOf = (name: string | undefined, chain: string[] | undefined): boolean =>
+      !!name &&
+      !knownNames.has(name.toLowerCase()) &&
+      (chain ?? []).some((level) => !isCountryName(level) && sharesPlaceWord(name, level));
+
+    // First the street the main itself ties to a particular hamlet. Failing
+    // that, the address's own settlement — for a value whose leading name is
+    // no place this file knows ("Kranj - Šmartin, Zgornje Bitnje 14", the
+    // parish first and the house after it), where the address is the only
+    // part naming somewhere the main can place.
+    const hinted =
+      addressNames.map((s) => localityOfStreet.get(s.toLowerCase())).find(Boolean) ??
+      addressNames.find((s) => namesTheAreaOf(locality, parentOf.get(s.toLowerCase())));
+    const displaced = locality;
     let relocated = false;
     if (hinted && hinted.toLowerCase() !== locality?.toLowerCase()) {
       locality = hinted;
@@ -87,7 +117,7 @@ export function reformatPlace(
     // village does not inherit its neighbour's municipality just because the
     // two chains are the same length. Only when the main knows no chain for the
     // new locality does the old tail stand, for want of anything better.
-    const parents = locality && fmt.hierarchy.parentOf.get(locality.toLowerCase());
+    const parents = locality ? parentOf.get(locality.toLowerCase()) : undefined;
     if (parents && (relocated || parents.length > jurisdiction.length - 1)) {
       const next = [jurisdiction[0] ?? locality, ...parents];
       // The fill must only *add* levels, never delete information: a tail
@@ -101,6 +131,11 @@ export function reformatPlace(
         jurisdiction = next;
       }
     }
+    // The displaced name is not thrown away. Where it vouched for the place
+    // that replaced it and names nowhere the main knows, it was the parish
+    // that kept the register rather than a second name for the village — so
+    // it goes to AGNC, alongside any parish the value already spelt out.
+    if (relocated && !parish && namesTheAreaOf(displaced, parents)) parish = displaced;
   }
 
   // The address detail: a street, or "locality houseNumber", plus any house name.
