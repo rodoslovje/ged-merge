@@ -39,13 +39,10 @@ export const BASEMAPS: readonly BasemapPreset[] = [
     // CARTO's keyed endpoint: the sharded {s}.basemaps.cartocdn.com host now
     // wants an API key, and the key below is CARTO's public browser key for
     // this app — it identifies the app to their CDN, it unlocks nothing.
-    // Voyager under the light theme, the dark cartography under the dark one.
+    // Voyager under both themes, so the map reads the same either way.
     id: "",
     key: "basemap.carto",
-    url: {
-      light: `https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=${CARTO_KEY}`,
-      dark: `https://basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}{r}.png?key=${CARTO_KEY}`,
-    },
+    url: `https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=${CARTO_KEY}`,
     attribution: `${OSM_CREDIT} © <a href="https://carto.com/attributions">CARTO</a>`,
     maxNativeZoom: 19,
   },
