@@ -627,7 +627,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     mergeGen, resolvedSessionFields, materializedEventIds, markMaterializedEvent,
     rejectIncomingEvent, materializeMergeEventSources, dismissExtraEvent,
     resolveMergeFields, markFamilyTagRetagged,
-  } = useMergeOverlay({ person, selectedId, dataset, compareDataset, decisions, onUpdateDecision, tick, t });
+  } = useMergeOverlay({ person, selectedId, dataset, compareDataset, decisions, onUpdateDecision, formatOverrides: settings.formatOverrides, tick, t });
 
   const { folderName, canReferenceFiles, resolveDroppedHandle, openFolder, importFile } = useMediaFolder();
   const { openPerson } = useMediaViewer();

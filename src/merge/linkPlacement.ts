@@ -30,6 +30,7 @@ import {
   siteSourceTitle,
   smartCitationTarget,
   type PageMediaStyle,
+  type ReshapeSite,
   type RecognizedSourceUrl,
 } from "../tools/sourceReshape";
 
@@ -274,6 +275,26 @@ export function previewLinkCitation(records: GedNode[], url: string): SourceCita
   };
 }
 
+/**
+ * The same preview, plus where the citation would land: the tag of the event
+ * this register documents, when the merge would move the citation there (the
+ * file cites events and the record already carries that one), and nothing when
+ * it would stay on the record itself.
+ */
+export function previewLinkPlacement(
+  record: GedNode,
+  url: string,
+  records: GedNode[],
+  overrides?: FormatOverrides,
+): { citation?: SourceCitation; eventTag?: string } {
+  const citation = previewLinkCitation(records, url);
+  if (!citation) return {};
+  return {
+    citation,
+    eventTag: citationEventTag(record, records, recognizeSourceUrl(url)?.site, citation.title, overrides),
+  };
+}
+
 /** The name a page image added to a source the file already has gets — the
  *  same `#40 - Krstna knjiga …` the Add Source dialog writes, built from the
  *  source's own title so the page says which book it is a page of. */
@@ -330,16 +351,32 @@ function citationTarget(
 ): GedNode {
   const sourceNode = records.find((r) => r.tag === "SOUR" && r.xref === sourceXref);
   const title = (sourceNode && sourceTitle(sourceNode)) || recognized?.proposed.title;
-  const want = smartCitationTarget(records, recognized?.site ?? "other", title, {
-    citations: placement.overrides?.citations ?? "auto",
-    baptism: placement.overrides?.baptism ?? "auto",
+  const tag = citationEventTag(record, records, recognized?.site, title, placement.overrides);
+  return (tag && firstChild(record, tag)) || record;
+}
+
+/**
+ * The event tag a record-level citation of this book would move to, or nothing
+ * when it stays on the record. Shared by the write and the preview so Edit
+ * shows the citation where the save will actually put it.
+ */
+function citationEventTag(
+  record: GedNode,
+  records: GedNode[],
+  site: ReshapeSite | undefined,
+  title: string | undefined,
+  overrides: FormatOverrides | undefined,
+): string | undefined {
+  const want = smartCitationTarget(records, site ?? "other", title, {
+    citations: overrides?.citations ?? "auto",
+    baptism: overrides?.baptism ?? "auto",
   });
   // A marriage register's citation belongs on the couple's `MARR`, which lives
   // on the family record — a record other than the one being applied, whose
   // change would never reach this record's preview card. Left at record level
   // for the Organize sources tool, which moves it with every record in view.
-  if (!want || (want.onFam && record.tag !== "FAM")) return record;
-  return firstChild(record, want.eventTag) ?? record;
+  if (!want || (want.onFam && record.tag !== "FAM")) return undefined;
+  return firstChild(record, want.eventTag) ? want.eventTag : undefined;
 }
 
 /**

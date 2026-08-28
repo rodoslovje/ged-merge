@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { childrenByTag } from "../../gedcom/node";
 import type { Dataset, GedNode, Individual, SourceCitation } from "../../gedcom/types";
+import type { FormatOverrides } from "../../normalize/formatOverrides";
 import type { Translate } from "../../locales/i18n";
 import { materializeEventSources } from "../../merge/merge";
-import { previewLinkCitation } from "../../merge/linkPlacement";
+import { previewLinkPlacement } from "../../merge/linkPlacement";
 import { familyMergeKeyBases, individualFieldRows, lifespanAnchors, orderedEventTags, zoneSortKey } from "../../review/fields";
 import { defaultChoice, findConfirmedDecision, type CandidateDecision } from "../../review/types";
 import { cloneRaw, type RecordPatch } from "../historyTypes";
@@ -43,6 +44,9 @@ interface Options {
   dataset: Dataset;
   compareDataset: Dataset | undefined;
   decisions: Map<string, CandidateDecision> | undefined;
+  /** Settings › GEDCOM, so the preview places a citation where the save would
+   *  — the reader's own citation/baptism choices, not only the file's habit. */
+  formatOverrides?: FormatOverrides;
   onUpdateDecision: ((key: string, next: CandidateDecision) => void) | undefined;
   /** Bumped on every committed edit, so displayed merge values stay current. */
   tick: number;
@@ -61,7 +65,7 @@ interface Options {
  * records (the bug fixed in a238d34).
  */
 export function useMergeOverlay({
-  person, selectedId, dataset, compareDataset, decisions, onUpdateDecision, tick, t,
+  person, selectedId, dataset, compareDataset, decisions, onUpdateDecision, formatOverrides, tick, t,
 }: Options) {
   /**
    * Event sub-field keys (e.g. "OCCU.value") that were just materialized from
@@ -129,6 +133,9 @@ export function useMergeOverlay({
       const mergeHighlight = new Map<string, string>();
       const mergeIncomingLinks = new Map<string, string[]>();
       const mergeIncomingSources = new Map<string, SourceCitation[]>();
+      /** Event tag → the citations record-level incoming links will land on it
+       *  as, filed under that event's own key once the bases are built. */
+      const linkCitationsByTag = new Map<string, SourceCitation[]>();
       for (const row of rows) {
         if (row.isGroupHeader) continue;
         if (row.state === "agree" || row.state === "main-only") continue;
@@ -144,9 +151,16 @@ export function useMergeOverlay({
         const previewed: SourceCitation[] = [...(row.incomingSources ?? [])];
         const plainLinks: string[] = [];
         for (const url of incLinks ?? []) {
-          const citation = previewLinkCitation(dataset.records, url);
-          if (citation) previewed.push(citation);
-          else plainLinks.push(url);
+          // A link the incoming record carries at record level may land on the
+          // event its register documents; one that arrived on an event stays
+          // there. Held by tag until the event key bases below are known.
+          const { citation, eventTag } = previewLinkPlacement(person.raw, url, dataset.records, formatOverrides);
+          if (!citation) plainLinks.push(url);
+          else if (eventTag && row.key === "links") {
+            const forTag = linkCitationsByTag.get(eventTag) ?? [];
+            forTag.push(citation);
+            linkCitationsByTag.set(eventTag, forTag);
+          } else previewed.push(citation);
         }
         if (plainLinks.length) mergeIncomingLinks.set(row.key, plainLinks);
         if (previewed.length) mergeIncomingSources.set(row.key, previewed);
@@ -208,13 +222,24 @@ export function useMergeOverlay({
         }
       }
 
+      // The record-level links that belong on an event: file each under the
+      // first main event of its tag — the one `placeRecordLink` writes to — so
+      // the chip previews the citation where the save will put it. An event the
+      // person does not have keeps its link on the record, as the merge does.
+      for (const [tag, citations] of linkCitationsByTag) {
+        const overallIdx = mByTagIndices.get(tag)?.[0];
+        const keyBase = overallIdx === undefined ? undefined : mainMergeKeyBases.get(overallIdx);
+        const key = keyBase ? `${keyBase}.sources` : "links";
+        mergeIncomingSources.set(key, [...(mergeIncomingSources.get(key) ?? []), ...citations]);
+      }
+
       const familyKeyBases = familyMergeKeyBases(person, incoming, dataset, compareDataset);
 
       return { mergeHighlight, mergeIncomingLinks, mergeIncomingSources, mainMergeKeyBases, mainMergeCompareKeys, mainMergeSortKeys, extraMergeEvents, familyMergeKeyBases: familyKeyBases, hasMergeDecision: true };
     }
     return EMPTY_MERGE_DATA;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [decisions, compareDataset, person, dataset, t, tick]); // tick is a cache-bust counter — not used directly but must invalidate the memo
+  }, [decisions, compareDataset, person, dataset, formatOverrides, t, tick]); // tick is a cache-bust counter — not used directly but must invalidate the memo
 
   // Only the pieces the handlers below read; the rest is spread to the caller.
   const { mergeHighlight, mergeIncomingSources, hasMergeDecision } = mergeData;
