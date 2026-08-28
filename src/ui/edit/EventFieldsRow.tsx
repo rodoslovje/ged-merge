@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { linkHref, linkTooltip } from "../FieldValue";
+import { linkGlyph, linkHref, linkTooltip } from "../FieldValue";
 import { useTranslation } from "react-i18next";
 import type { GedEvent, GeoCoord, SourceCitation } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
@@ -7,7 +7,6 @@ import { customEventLabel, customEventTooltip, eventDisplayLabel, vendorEventToo
 import type { RecordPatch } from "../historyTypes";
 import type { EventFieldUpdate } from "../../gedcom/edit";
 import { SourceRefs } from "../SourceRef";
-import { siteIconForUrl } from "../../tools/sourceReshape";
 import { ClearableInput, ClearableTextarea } from "./ClearableInput";
 import { NotesEditor } from "./NotesEditor";
 import { PlaceAutocomplete } from "./PlaceAutocomplete";
@@ -936,11 +935,11 @@ export function EventFieldsRow({
             <span key={i} className="source-ref-wrap">
               <button
                 type="button"
-                className="link-icon edit-link-icon"
+                className={`${linkGlyph(link).cls} edit-link-icon`}
                 title={linkTooltip(link, t)}
                 onClick={() => openEditLink(i)}
               >
-                {siteIconForUrl(link) ?? "🔗"}
+                {linkGlyph(link).icon}
               </button>
               <a className="source-ref-open" href={linkHref(link)} target="_blank" rel="noopener noreferrer" title={linkTooltip(link, t, t("edit.openLink"))}>
                 ↗
@@ -968,13 +967,13 @@ export function EventFieldsRow({
           {harvestedLinks.map((link) => (
             <a
               key={link}
-              className="link-icon"
+              className={linkGlyph(link).cls}
               href={linkHref(link)}
               target="_blank"
               rel="noreferrer"
               title={linkTooltip(link, t, `${link}\n${t("edit.harvestedLink")}`)}
             >
-              {siteIconForUrl(link) ?? "🔗"}
+              {linkGlyph(link).icon}
             </a>
           ))}
           {/* The cited page's image the merge will link here — the same generic
