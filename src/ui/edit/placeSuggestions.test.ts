@@ -206,3 +206,32 @@ describe("address ordering", () => {
     ]);
   });
 });
+
+describe("buildPlaceSuggestions agencies", () => {
+  const sug = buildPlaceSuggestions(build(`0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 BIRT
+2 PLAC Kranj, Slovenija
+2 AGNC župnija Kranj - Šmartin
+1 DEAT
+2 PLAC Kranj, Slovenija
+2 AGNC ŽUPNIJA KRANJ - ŠMARTIN
+0 @F1@ FAM
+1 MARR
+2 PLAC Kranj, Slovenija
+2 AGNC Upravna enota Kranj
+0 TRLR
+`));
+
+  it("offers every agency the file's events already name, from families too", () => {
+    expect(sug.agencySuggestions).toEqual(["Upravna enota Kranj", "župnija Kranj - Šmartin"]);
+  });
+
+  it("snaps a retyped agency back to the casing the file writes most", () => {
+    // The same parish shouted once and written properly once: the field
+    // completes to one spelling rather than offering both.
+    expect(sug.agencyCanonical.get("župnija kranj - šmartin")).toBe("župnija Kranj - Šmartin");
+  });
+});

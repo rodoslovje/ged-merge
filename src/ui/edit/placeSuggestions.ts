@@ -8,6 +8,14 @@ export interface PlaceSuggestions {
   placeCanonical: Map<string, string>;
   addrCanonical: Map<string, string>;
   /**
+   * Every agency the file's events already name — the parish that kept the
+   * register, the hospital, the office. A file uses a handful of them over and
+   * over, so the field completes from what is already there rather than asking
+   * the reader to spell "župnija Kranj - Šmartin" out again on every event.
+   */
+  agencySuggestions: string[];
+  agencyCanonical: Map<string, string>;
+  /**
    * The coordinate the file already uses for a place, keyed by {@link placeKey}
    * (the most frequent one when occurrences disagree). Only coordinates from
    * events with *no* address count, so this is the settlement's position rather
@@ -40,11 +48,12 @@ export function placeKey(raw: string): string {
   return raw.trim().split(",").map((p) => p.trim().toLowerCase()).join("|");
 }
 
-/** Collect all unique PLAC and ADDR values from a dataset and build canonical
- * maps (most-frequent casing wins) for normalize-on-blur. */
+/** Collect all unique PLAC, ADDR and AGNC values from a dataset and build
+ * canonical maps (most-frequent casing wins) for normalize-on-blur. */
 export function buildPlaceSuggestions(dataset: Dataset): PlaceSuggestions {
   const placeForms = new Map<string, Map<string, number>>();
   const addrForms = new Map<string, Map<string, number>>();
+  const agencyForms = new Map<string, Map<string, number>>();
   // placeKey → addrRaw → count
   const placeAddrForms = new Map<string, Map<string, number>>();
   // Coordinate tallies, so the most frequently used wins when they disagree.
@@ -71,7 +80,14 @@ export function buildPlaceSuggestions(dataset: Dataset): PlaceSuggestions {
     forms.set(key, m);
   }
 
-  function addEventValues(placeRaw: string | undefined, addrRaw: string | undefined, coord?: GeoCoord, form?: string) {
+  function addEventValues(
+    placeRaw: string | undefined,
+    addrRaw: string | undefined,
+    coord?: GeoCoord,
+    form?: string,
+    agencyRaw?: string,
+  ) {
+    if (agencyRaw) addValue(agencyForms, agencyRaw);
     // A FORM only describes the place it sits on if it labels every part of it;
     // one that doesn't is this file's own mistake, not a schema to spread.
     if (placeRaw && form && form.split(",").length === placeRaw.split(",").length) {
@@ -101,10 +117,10 @@ export function buildPlaceSuggestions(dataset: Dataset): PlaceSuggestions {
   }
 
   for (const indi of dataset.individuals.values()) {
-    for (const ev of indi.events) addEventValues(ev.place?.raw, ev.address?.raw, ev.place?.coord, ev.place?.form);
+    for (const ev of indi.events) addEventValues(ev.place?.raw, ev.address?.raw, ev.place?.coord, ev.place?.form, ev.agency);
   }
   for (const fam of dataset.families.values()) {
-    for (const ev of fam.events) addEventValues(ev.place?.raw, ev.address?.raw, ev.place?.coord, ev.place?.form);
+    for (const ev of fam.events) addEventValues(ev.place?.raw, ev.address?.raw, ev.place?.coord, ev.place?.form, ev.agency);
   }
 
   function build(forms: Map<string, Map<string, number>>): { suggestions: string[]; canonical: Map<string, string> } {
@@ -127,6 +143,7 @@ export function buildPlaceSuggestions(dataset: Dataset): PlaceSuggestions {
 
   const place = build(placeForms);
   const addr = build(addrForms);
+  const agency = build(agencyForms);
 
   const placeToAddrs = new Map<string, string[]>();
   for (const [pk, m] of placeAddrForms) {
@@ -160,6 +177,8 @@ export function buildPlaceSuggestions(dataset: Dataset): PlaceSuggestions {
     placeToAddrs,
     placeCanonical: place.canonical,
     addrCanonical: addr.canonical,
+    agencySuggestions: agency.suggestions,
+    agencyCanonical: agency.canonical,
     placeCoords: pickCoords(placeCoordCounts),
     pairCoords: pickCoords(pairCoordCounts),
     placeForms: pickMostFrequent(placeFormCounts),

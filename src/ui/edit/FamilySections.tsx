@@ -361,6 +361,8 @@ interface FamilySectionProps extends SharedSectionProps {
   placeToAddrs: Map<string, string[]>;
   placeCanonical: Map<string, string>;
   addrCanonical: Map<string, string>;
+  agencySuggestions: string[];
+  agencyCanonical: Map<string, string>;
   /** Coordinate the file already uses for a place (settlement-level). */
   placeCoords: Map<string, GeoCoord>;
   placeForms: Map<string, string>;
@@ -415,6 +417,8 @@ export const FamilySection = memo(function FamilySection({
   placeToAddrs,
   placeCanonical,
   addrCanonical,
+  agencySuggestions,
+  agencyCanonical,
   placeCoords,
   placeForms,
   pairCoords,
@@ -577,6 +581,8 @@ export const FamilySection = memo(function FamilySection({
             placeToAddrs={placeToAddrs}
             placeCanonical={placeCanonical}
             addrCanonical={addrCanonical}
+            agencySuggestions={agencySuggestions}
+            agencyCanonical={agencyCanonical}
             placeCoords={placeCoords}
             placeForms={placeForms}
             pairCoords={pairCoords}
