@@ -1620,6 +1620,63 @@ describe("mergeDecisions — event source citations", () => {
     expect(out).toContain("1 FILE https://data.matricula-online.eu/de/slovenia/ljubljana/sencur/03173/?pg=58");
     expect(out.match(/0 @S\d+@ SOUR/g)).toHaveLength(1);
   });
+
+  // The incoming family's own record-level links and citations used to be
+  // dropped: the review had no row for them, so nothing was ever written.
+  const MARR_BOOK = "https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03180";
+  const mainWithMarriageBook = wrap(
+    "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @F1@\n" +
+      "0 @F1@ FAM\n1 HUSB @I1@\n1 MARR\n2 DATE 1900\n" +
+      "0 @S5@ SOUR\n1 TITL Poročna knjiga - Šenčur\n1 OBJE @O5@\n" +
+      "0 @O5@ OBJE\n1 FILE " + MARR_BOOK + "/?pg=3\n",
+  );
+  const compareFamLink = (line: string) =>
+    wrap(
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @G1@\n" +
+        "0 @G1@ FAM\n1 HUSB @P1@\n1 MARR\n2 DATE 1900\n" + line,
+    );
+  const famMatches = { individuals: [{ mainId: "@I1@", compareId: "@P1@" }] } as never;
+  const confirmedFam = (fields: Record<string, "main" | "incoming" | "both"> = {}) =>
+    new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields }],
+    ]);
+
+  it("cites a link the incoming family keeps on the record on the couple's marriage", () => {
+    const main = dataset(mainWithMarriageBook);
+    const compare = dataset(compareFamLink("1 WWW " + MARR_BOOK + "/?pg=11\n"));
+    const { records } = mergeDecisions(main, compare, confirmedFam(), famMatches, tr);
+    const out = serializeGedcom(records);
+    // The marriage register documents the marriage, so its page is cited
+    // there — not left hanging off the family record as a bare address.
+    expect(out).toContain("1 MARR\n2 DATE 1900\n2 SOUR @S5@\n3 PAGE 11");
+    expect(out).not.toMatch(/^1 WWW/m);
+    expect(out.match(/0 @S\d+@ SOUR/g)).toHaveLength(1);
+  });
+
+  it("keeps a link the incoming family's register cannot place on the family record", () => {
+    const main = dataset(mainWithMarriageBook);
+    const compare = dataset(compareFamLink("1 WWW https://example.com/couple\n"));
+    const { records } = mergeDecisions(main, compare, confirmedFam(), famMatches, tr);
+    const out = serializeGedcom(records);
+    expect(out).toContain("1 WWW https://example.com/couple");
+  });
+
+  it("takes the incoming family's own record-level citation", () => {
+    const main = dataset(mainWithMarriageBook);
+    const compare = dataset(
+      wrap(
+        "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @G1@\n" +
+          "0 @G1@ FAM\n1 HUSB @P1@\n1 MARR\n2 DATE 1900\n1 SOUR @CS1@\n2 PAGE 11\n" +
+          "0 @CS1@ SOUR\n1 TITL Poročna knjiga - Šenčur\n",
+      ),
+    );
+    const { records } = mergeDecisions(main, compare, confirmedFam(), famMatches, tr);
+    const out = serializeGedcom(records);
+    // The compare source names a book the main already keeps, so the citation
+    // lands on the main's own SOUR rather than importing a second copy.
+    expect(out).toMatch(/0 @F1@ FAM\n(.|\n)*1 SOUR @S5@\n2 PAGE 11/);
+    expect(out.match(/0 @S\d+@ SOUR/g)).toHaveLength(1);
+  });
 });
 
 describe("mergeDecisions — multi-instance events pair main/incoming by their own array position", () => {

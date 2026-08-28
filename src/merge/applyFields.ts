@@ -356,7 +356,7 @@ export function applyRows(
  * as that citation — under the event's header when it landed on one, so the
  * preview shows it exactly where the file now carries it.
  */
-function linkChanges(
+export function linkChanges(
   recordId: string,
   field: string,
   choice: FieldChoice,

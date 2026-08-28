@@ -1,18 +1,23 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import { writeFileSync } from "fs";
 import path from "path";
 import { tmpdir } from "./tmpdir";
 
 // A marriage register's page image belongs beside the citation on the couple's
 // MARR event, exactly as a baptism's does on the person's BIRT — and the merge
-// writes it there. The Edit preview of a confirmed match has to say so too:
-// the family's event rows once got the incoming citation but not the page
-// image the save would link next to it.
+// writes it there, whether the incoming file attached the link to the marriage
+// or hung it on the family record. The Edit preview of a confirmed match has
+// to say so too: the family's rows once showed the incoming citation without
+// the page image the save would link next to it, or showed nothing at all.
 
 const MAIN = path.join(tmpdir(), "marr-page-main.ged");
-const COMPARE = path.join(tmpdir(), "marr-page-compare.ged");
+const ON_EVENT = path.join(tmpdir(), "marr-page-on-event.ged");
+const ON_RECORD = path.join(tmpdir(), "marr-page-on-record.ged");
+const PLAIN = path.join(tmpdir(), "marr-page-plain.ged");
 
 const BOOK = "https://data.matricula-online.eu/sl/slovenia/ljubljana/radovica/04134";
+const PAGE = BOOK + "/?pg=11";
+const ELSEWHERE = "https://example.com/couple";
 
 writeFileSync(MAIN, [
   "0 HEAD", "1 GEDC", "2 VERS 5.5.1", "1 CHAR UTF-8",
@@ -28,35 +33,65 @@ writeFileSync(MAIN, [
   "0 TRLR", "",
 ].join("\n"), "utf-8");
 
-writeFileSync(COMPARE, [
+/** The same couple in the incoming file, with one line of the family's own. */
+const compareWith = (famLine: string, marrLine?: string) => [
   "0 HEAD", "1 GEDC", "2 VERS 5.5.1", "1 CHAR UTF-8",
   "0 @P1@ INDI", "1 NAME Marija /Rezek/", "1 SEX F",
   "1 BIRT", "2 DATE 19 MAR 1844", "2 PLAC Metlika",
   "1 FAMS @G1@",
   "0 @P2@ INDI", "1 NAME Marko /Nemanic/", "1 SEX M", "1 FAMS @G1@",
   "0 @G1@ FAM", "1 HUSB @P2@", "1 WIFE @P1@", "1 MARR", "2 DATE 19 FEB 1868", "2 PLAC Metlika",
-  "2 WWW " + BOOK + "/?pg=11",
+  ...(marrLine ? [marrLine] : []),
+  ...(famLine ? [famLine] : []),
   "0 TRLR", "",
-].join("\n"), "utf-8");
+].join("\n");
 
-test("a confirmed marriage link previews its page image on the marriage row", async ({ page }) => {
+writeFileSync(ON_EVENT, compareWith("", "2 WWW " + PAGE), "utf-8");
+writeFileSync(ON_RECORD, compareWith("1 WWW " + PAGE), "utf-8");
+writeFileSync(PLAIN, compareWith("1 WWW " + ELSEWHERE), "utf-8");
+
+async function confirmMatch(page: Page, compare: string): Promise<void> {
   await page.goto("/");
   await page.locator("input.file-input").first().setInputFiles(MAIN);
   await page.locator(".edit-person").first().waitFor();
 
   await page.getByRole("button", { name: "Merge", exact: true }).click();
-  await page.locator("input.file-input").last().setInputFiles(COMPARE);
+  await page.locator("input.file-input").last().setInputFiles(compare);
   await page.locator(".candidate").first().waitFor();
   await page.locator(".candidate-main").first().click();
   await page.locator(".decision-bar button").first().click();
 
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await page.locator(".edit-person").first().waitFor();
+}
+
+test("a marriage's own link previews its page image on the marriage row", async ({ page }) => {
+  await confirmMatch(page, ON_EVENT);
 
   // The couple's marriage row: the incoming citation, and beside it the image
   // of the very page it cites.
   const marriage = page.locator(".edit-families .edit-event").first();
   await expect(marriage.locator(".source-ref--new")).toHaveCount(1);
   await expect(marriage.locator("a.link-icon.link-new")).toHaveCount(1);
-  await expect(marriage.locator("a.link-icon.link-new")).toHaveAttribute("href", BOOK + "/?pg=11");
+  await expect(marriage.locator("a.link-icon.link-new")).toHaveAttribute("href", PAGE);
+});
+
+test("a link on the incoming family record previews on the marriage it documents", async ({ page }) => {
+  await confirmMatch(page, ON_RECORD);
+
+  // Hung on the family record by the incoming file, but it is the marriage
+  // register's page — so it is reviewed, and written, on the marriage.
+  const marriage = page.locator(".edit-families .edit-event").first();
+  await expect(marriage.locator(".source-ref--new")).toHaveCount(1);
+  await expect(marriage.locator("a.link-icon.link-new")).toHaveAttribute("href", PAGE);
+});
+
+test("a family link no register can place previews on the family's own sources", async ({ page }) => {
+  await confirmMatch(page, PLAIN);
+
+  // Nothing names this address, so it stays the family's own plain link — and
+  // the preview shows it where it will land.
+  const famLinks = page.locator(".edit-families .edit-links").first();
+  await expect(famLinks.locator("a.link-new")).toHaveCount(1);
+  await expect(famLinks.locator("a.link-new")).toHaveAttribute("href", ELSEWHERE);
 });
