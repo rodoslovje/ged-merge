@@ -6,7 +6,7 @@ import {
 } from "../gedcom/edit";
 import { childrenByTag, firstChild } from "../gedcom/node";
 import { EDITABLE_FAM_EVENT_TAGS } from "../gedcom/eventTags";
-import type { Dataset, GedNode } from "../gedcom/types";
+import type { Dataset, GedNode, SourceCitation } from "../gedcom/types";
 import { displayName } from "../match/relatives";
 import { lifespanOf } from "../gedcom/lifespan";
 import type { MatchResult } from "../match/types";
@@ -15,17 +15,21 @@ import { pairedMainFamilies, relativePersonSimilarity, RELATIVE_PAIR_THRESHOLD }
 import { birthYearsApart, identityEvidence, noGivenNameInCommon } from "../match/similarity";
 import { newSourceCitations } from "../gedcom/source";
 import type { ChangeReport } from "./merge";
+import type { PlacedLink } from "./linkPlacement";
 import type { Translate } from "../locales/i18n";
 import {
   applyEventSources,
   applyEventSub,
   applyEventValue,
+  applyLinks,
   applyNotes,
   applyPrivateFlag,
+  applyRecordSources,
   cloneNodeRemapped,
   collectCustomTags,
   combineEventEdits,
   effectiveEventSubChoice,
+  linkChanges,
   newNode,
   reservedXrefs,
   stripForeignPointers,
@@ -576,7 +580,8 @@ export function applyIndividualFamilies(
     const wantFamEvent = EDITABLE_FAM_EVENT_TAGS.some((etag) =>
       EVENT_SUBS.some((s) => wantsIncoming(rows, fields, `${famKey}.${etag}.${s}`)),
     );
-    if (!takeSpouses && !takeChildren && !wantFamEvent) continue;
+    const wantFamLinks = wantsIncoming(rows, fields, `${famKey}.links`);
+    if (!takeSpouses && !takeChildren && !wantFamEvent && !wantFamLinks) continue;
     ctx.processedFamIds.add(incFamId);
 
     const otherIncId = incFam.husband === incomingIndi.id ? incFam.wife : incFam.husband;
@@ -615,10 +620,17 @@ export function applyIndividualFamilies(
     ctx.report.changes.push(...combineEventEdits(famNode.xref!, ctx.t("event.MARR"), marrEntries));
 
     const marrSourcesChoice = marriageChoice("sources");
-    if (marrSourcesChoice && applyEventSources(famNode, incFam.raw, "MARR", marrSourcesChoice, 0, 0, FAM_CHILD_ORDER, ctx.sourXrefMap, ctx.records, ctx.linkPlacement, ctx.report.customTags)) {
+    if (marrSourcesChoice) {
       const marrRow = rows.find((r) => r.key === `${famKey}.MARR.sources`);
-      ctx.report.changes.push({ recordId: famNode.xref!, field: ctx.t("field.sources"), from: "", to: "", action: marrSourcesChoice, group: ctx.t("event.MARR"), unedited: marrSourcesChoice === "incoming", sources: newSourceCitations(marrRow?.mainSources, marrRow?.incomingSources) });
-      ctx.touched.add(famNode.xref!);
+      // Links the incoming family kept on the record itself, which the review
+      // has already moved onto this event (see `FieldRow.incomingRecordLinks`).
+      const placedLinks: PlacedLink[] = [];
+      if (applyEventSources(famNode, incFam.raw, "MARR", marrSourcesChoice, 0, 0, FAM_CHILD_ORDER, ctx.sourXrefMap, ctx.records, ctx.linkPlacement, ctx.report.customTags, undefined, marrRow?.incomingRecordLinks, placedLinks)) {
+        const cited = placedLinks.map((p) => p.citation).filter((c): c is SourceCitation => !!c);
+        const plain = placedLinks.filter((p) => !p.citation).map((p) => p.url);
+        ctx.report.changes.push({ recordId: famNode.xref!, field: ctx.t("field.sources"), from: "", to: "", action: marrSourcesChoice, group: ctx.t("event.MARR"), unedited: marrSourcesChoice === "incoming", sources: [...newSourceCitations(marrRow?.mainSources, marrRow?.incomingSources), ...cited], links: plain.length ? plain : undefined });
+        ctx.touched.add(famNode.xref!);
+      }
     }
 
     // Engagement, Separation, Divorce, custom Event, Status — same pattern as
@@ -652,11 +664,33 @@ export function applyIndividualFamilies(
       const evSourcesKey = `${famKey}.${evTag}.sources`;
       if (wantsIncoming(rows, fields, evSourcesKey)) {
         const choice = fields[evSourcesKey] ?? "incoming";
-        if (applyEventSources(famNode, incFam.raw, evTag, choice, 0, 0, FAM_CHILD_ORDER, ctx.sourXrefMap, ctx.records, ctx.linkPlacement, ctx.report.customTags)) {
-          const evRow = rows.find((r) => r.key === evSourcesKey);
-          ctx.report.changes.push({ recordId: famNode.xref!, field: ctx.t("field.sources"), from: "", to: "", action: choice, group: evName, unedited: choice === "incoming", sources: newSourceCitations(evRow?.mainSources, evRow?.incomingSources) });
+        const evRow = rows.find((r) => r.key === evSourcesKey);
+        const evPlaced: PlacedLink[] = [];
+        if (applyEventSources(famNode, incFam.raw, evTag, choice, 0, 0, FAM_CHILD_ORDER, ctx.sourXrefMap, ctx.records, ctx.linkPlacement, ctx.report.customTags, undefined, evRow?.incomingRecordLinks, evPlaced)) {
+          const cited = evPlaced.map((p) => p.citation).filter((c): c is SourceCitation => !!c);
+          const plain = evPlaced.filter((p) => !p.citation).map((p) => p.url);
+          ctx.report.changes.push({ recordId: famNode.xref!, field: ctx.t("field.sources"), from: "", to: "", action: choice, group: evName, unedited: choice === "incoming", sources: [...newSourceCitations(evRow?.mainSources, evRow?.incomingSources), ...cited], links: plain.length ? plain : undefined });
           ctx.touched.add(famNode.xref!);
         }
+      }
+    }
+
+    // The family's own record-level citations and links — the couple's
+    // counterpart to a person's "Sources" row. Applied after every family
+    // event, so a link whose register documents one (a marriage book's page)
+    // lands on the event, which this very merge may have just brought in.
+    const famLinksKey = `${famKey}.links`;
+    const famLinksRow = rows.find((r) => r.key === famLinksKey);
+    if (famLinksRow && wantsIncoming(rows, fields, famLinksKey)) {
+      const choice = fields[famLinksKey] ?? defaultChoice(famLinksRow as never);
+      if (applyRecordSources(famNode, incFam.raw, choice, FAM_CHILD_ORDER, ctx.sourXrefMap, ctx.report.customTags)) {
+        ctx.report.changes.push({ recordId: famNode.xref!, field: famLinksRow.label, from: "", to: "", action: choice, unedited: choice === "incoming", sources: newSourceCitations(famLinksRow.mainSources, famLinksRow.incomingSources) });
+        ctx.touched.add(famNode.xref!);
+      }
+      const placed = applyLinks(famNode, famLinksRow.incomingLinkIcons ?? [], famLinksRow.mainLinkIcons ?? [], ctx.linkPlacement, ctx.records, reservedXrefs(ctx.sourXrefMap));
+      for (const change of linkChanges(famNode.xref!, famLinksRow.label, choice, placed, new Map(), ctx.t)) {
+        ctx.report.changes.push(change);
+        ctx.touched.add(famNode.xref!);
       }
     }
 

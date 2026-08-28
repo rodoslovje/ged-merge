@@ -351,6 +351,11 @@ interface FamilySectionProps extends SharedSectionProps {
   famMergeKeyBase: string | undefined;
   mergeHighlight: Map<string, string>;
   mergeIncomingSources: Map<string, SourceCitation[]>;
+  /** Plain links a confirmed merge will add, keyed by row — the family's own
+   *  are under `<famKey>.links`, an event's under that event's sources row. */
+  mergeIncomingLinks: Map<string, string[]>;
+  /** Page images the incoming citations bring with them — see FamilyEventRow. */
+  mergeIncomingPageImages: Map<string, string[]>;
   resolvedSessionFields: Set<string>;
   placeSuggestions: string[];
   placeToAddrs: Map<string, string[]>;
@@ -403,6 +408,8 @@ export const FamilySection = memo(function FamilySection({
   famMergeKeyBase,
   mergeHighlight,
   mergeIncomingSources,
+  mergeIncomingLinks,
+  mergeIncomingPageImages,
   resolvedSessionFields,
   placeSuggestions,
   placeToAddrs,
@@ -426,6 +433,15 @@ export const FamilySection = memo(function FamilySection({
   };
   const cardKinship = (id: string | undefined) => kinshipChips(dataset, settings.showKinship, startId, startPersonName, t, id);
   const cardDecision = (id: string | undefined) => decisionChips(decisionStatusById, changedPersonIds, t, id);
+
+  // What a confirmed merge will add to the family record itself — its own
+  // citations, the links that stay links, and the pages those citations name.
+  const famLinksKey = `${famMergeKeyBase ?? `fam.${fam?.id}`}.links`;
+  const famLinksMerge = {
+    sources: mergeIncomingSources.get(famLinksKey),
+    links: mergeIncomingLinks.get(famLinksKey),
+    pageImages: mergeIncomingPageImages.get(famLinksKey),
+  };
 
   const partnerId = fam && (fam.husband === personId ? fam.wife : fam.husband);
   const partnerRole = fam && (fam.husband === personId ? "WIFE" : "HUSB");
@@ -566,6 +582,7 @@ export const FamilySection = memo(function FamilySection({
             pairCoords={pairCoords}
             mergeHighlight={mergeHighlight}
             mergeIncomingSources={mergeIncomingSources}
+            mergeIncomingPageImages={mergeIncomingPageImages}
             famMergeKeyBase={famMergeKeyBase}
             resolvedSessionFields={resolvedSessionFields}
             individuals={dataset.individuals}
@@ -606,14 +623,17 @@ export const FamilySection = memo(function FamilySection({
           )}
         </div>
       </div>
-      {fam && ((fam.links ?? []).length > 0 || (fam.sources ?? []).length > 0) && (
+      {fam && ((fam.links ?? []).length > 0 || (fam.sources ?? []).length > 0 || (famLinksMerge.links?.length ?? 0) > 0 || (famLinksMerge.sources?.length ?? 0) > 0) && (
         <div className="edit-record-section">
           <LinksEditor
-            key={`flinks-${fam.id}-${undoVersion}`}
+            key={`flinks-${fam.id}-${undoVersion}-${mergeGen}`}
             links={fam.editableLinks ?? []}
             harvestedLinks={harvestedLinksOf(fam.links, [...(fam.editableLinks ?? []), ...(fam.mediaLinks ?? [])])}
             mediaLinks={fam.mediaLinks ?? []}
             sources={fam.sources ?? []}
+            incomingLinks={famLinksMerge.links}
+            incomingSources={famLinksMerge.sources}
+            incomingPageImages={famLinksMerge.pageImages}
             sectionLabel={t("field.sources")}
             t={t}
             onCommit={(links) => commitFamily(fam, (f) => setFamilyLinks(f, links))}

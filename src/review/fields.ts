@@ -376,6 +376,11 @@ function buildFamilyRows(
 
     const mFamPool = recordCitations(mFam);
     const cFamPool = recordCitations(cFam);
+    // A link the incoming family hangs on the record itself belongs on the
+    // event its register documents — a marriage book's page on the couple's
+    // own `MARR`, which is exactly where the merge writes it (see
+    // `placeRecordLink`). Reviewed there, then, and not on the family's row.
+    const famMoved = eventBoundLinks(mFam, gatherLinks(cFam), mainDs);
     for (const etag of EDITABLE_FAM_EVENT_TAGS) {
       const mEv = mFam?.events.find((e) => e.tag === etag);
       const cEv = cFam?.events.find((e) => e.tag === etag);
@@ -399,8 +404,16 @@ function buildFamilyRows(
       // real AGNC sub-tag (rare) isn't shown as a second Agency row.
       if (!isEven) pushRow(etagRows, `${famKey}.${etag}.agency`, t("event.colAgency"), mEv?.agency, cEv?.agency);
       pushRow(etagRows, `${famKey}.${etag}.cause`, t("event.colCause"), mEv?.cause, cEv?.cause);
-      pushSourcesRow(etagRows, `${famKey}.${etag}.sources`, t("field.sources"), mEv?.sources, cEv?.sources, mEv?.links, cEv?.links,
-        mFamPool, cFamPool);
+      const movedHere = famMoved.byTag.get(etag) ?? [];
+      pushSourcesRow(etagRows, `${famKey}.${etag}.sources`, t("field.sources"), mEv?.sources, cEv?.sources, mEv?.links,
+        movedHere.length ? [...(cEv?.links ?? []), ...movedHere] : cEv?.links, mFamPool, cFamPool);
+      // Which of them survived as icons — a link the main already cites here
+      // reads as agreement and writes nothing.
+      const etagSourcesRow = etagRows[etagRows.length - 1];
+      if (movedHere.length && etagSourcesRow?.key === `${famKey}.${etag}.sources`) {
+        const carried = (etagSourcesRow.incomingLinkIcons ?? []).filter((url) => movedHere.includes(url));
+        if (carried.length) etagSourcesRow.incomingRecordLinks = carried;
+      }
       if (showAge) {
         attachAges(etagRows, `${famKey}.${etag}.date`,
           coupleEventAges(mFam, mainDs, mEv, t),
@@ -418,6 +431,13 @@ function buildFamilyRows(
         rows.push(...etagRows);
       }
     }
+
+    // The family's own record-level citations and links, the couple's
+    // counterpart to the person's "Sources" row — minus whatever moved onto
+    // one of the family's events above.
+    const famRecordLinks = gatherLinks(cFam).filter((url) => !famMoved.moved.has(url));
+    pushSourcesRow(rows, `${famKey}.links`, formatFieldLabel(t, "links"), mFam?.sources, cFam?.sources,
+      gatherLinks(mFam), famRecordLinks, mFamPool, cFamPool);
 
     const mFamNotes = mFam?.notes?.join("\n");
     const cFamNotes = cFam?.notes?.join("\n");
@@ -1217,13 +1237,14 @@ function withCitations(sources: SourceCitation[], extra: SourceCitation[]): Sour
  */
 /**
  * Which of the incoming record's plain links the merge will write as a citation
- * on one of the main person's own events, and on which event — the same
+ * on one of the main record's own events, and on which event — a person's
+ * baptism link on the baptism, a couple's marriage link on their `MARR` — the same
  * question `placeRecordLink` answers when it writes them (see
  * `previewLinkPlacement`). Without the main dataset there is nothing to resolve
  * them against, so nothing moves and the links stay on the record's own row.
  */
 function eventBoundLinks(
-  main: Individual | undefined,
+  main: Individual | Family | undefined,
   incomingLinks: string[],
   mainDs: Dataset | undefined,
 ): { byTag: Map<string, string[]>; moved: Set<string> } {

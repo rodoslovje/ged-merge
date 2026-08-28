@@ -2203,6 +2203,8 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
               famMergeKeyBase={fam ? familyKeyBaseById.get(fam.id) : undefined}
               mergeHighlight={mergeHighlight}
               mergeIncomingSources={mergeIncomingSources}
+              mergeIncomingLinks={mergeIncomingLinks}
+              mergeIncomingPageImages={mergeIncomingPageImages}
               resolvedSessionFields={resolvedSessionFields}
               placeSuggestions={placeSuggestions}
               placeToAddrs={placeToAddrs}
