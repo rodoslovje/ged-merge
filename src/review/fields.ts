@@ -1397,7 +1397,11 @@ function stateOf(key: string, main: string, incoming: string): FieldState {
 
 
 /** Events that can occur at most once per person — always paired with the incoming side, never score-gated. */
-const SINGLE_EVENT_TAGS = new Set(["BIRT", "DEAT", "BURI", "_FNRL", "_INTE"]);
+/** Events that happen at most once in a life, so a main and an incoming one of
+ *  the same tag are always the same event: they pair whatever their dates and
+ *  places say (below), and an event Edit materializes from an incoming
+ *  suggestion can therefore go on being compared against it (see EventList). */
+export const SINGLE_EVENT_TAGS = new Set(["BIRT", "DEAT", "BURI", "_FNRL", "_INTE"]);
 
 export function orderedEventTags(
   main?: Individual,

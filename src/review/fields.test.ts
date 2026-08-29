@@ -1817,24 +1817,25 @@ describe("family header naming", () => {
 
 describe("an incoming event the reader already took into the file", () => {
   const wrap = (body: string) => `0 HEAD\n1 GEDC\n2 VERS 5.5.1\n${body}0 TRLR\n`;
-  // Edit materialized the burial the merge suggested — with the place
-  // corrected — and rejected its incoming counterpart, as it must, or the save
-  // would file the same burial twice.
+  // A residence can repeat, so Edit takes the incoming one out of the merge as
+  // it materializes a main event from it: an edited copy may fail to pair with
+  // its own original, and the save would then file the residence twice.
   const rowsFor = (mainBody: string, rejected: string[]) => {
     const m = dataset(wrap(mainBody));
     const c = dataset(wrap(
-      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BURI\n2 PLAC Žabnica, Kranj, Slovenia\n2 ADDR Pokopališče Zgornje Bitnje\n",
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 RESI\n2 PLAC Žabnica, Kranj, Slovenia\n2 ADDR Žabnica 12\n",
     ));
     return individualFieldRows(
       tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"), m, c, undefined, new Set(rejected),
     );
   };
-  const MAIN_WITH_BURIAL =
-    "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BURI\n2 PLAC Zgornje Bitnje, Kranj, Slovenia\n2 ADDR Pokopališče Zgornje Bitnje\n";
 
   it("still shows what the incoming file recorded, with nothing left to decide", () => {
-    const rows = rowsFor(MAIN_WITH_BURIAL, ["BURI:0"]);
-    const place = byKey(rows, "BURI.place");
+    const rows = rowsFor(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 RESI\n2 PLAC Zgornje Bitnje, Kranj, Slovenia\n2 ADDR Žabnica 12\n",
+      ["RESI:0"],
+    );
+    const place = byKey(rows, "RESI.place");
     expect(place?.main).toBe("Zgornje Bitnje, Kranj, Slovenia");
     expect(place?.incoming).toBe("Žabnica, Kranj, Slovenia");
     // Marked as settled: the panel offers no choice, and the merge cannot
@@ -1846,11 +1847,28 @@ describe("an incoming event the reader already took into the file", () => {
   });
 
   it("stays blank when the reader deleted the main event instead", () => {
-    // Nothing of that burial is in the file — the incoming one was thrown away
-    // with it, and showing its values would invite taking it back.
-    const rows = rowsFor("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n", ["BURI:0"]);
-    expect(byKey(rows, "BURI.place")).toBeUndefined();
-    expect(byKey(rows, "BURI.header")).toBeUndefined();
+    // Nothing of that residence is in the file — the incoming one was thrown
+    // away with it, and showing its values would invite taking it back.
+    const rows = rowsFor("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n", ["RESI:0"]);
+    expect(byKey(rows, "RESI.place")).toBeUndefined();
+    expect(byKey(rows, "RESI.header")).toBeUndefined();
+  });
+
+  it("goes on comparing a burial, which can only be the same event", () => {
+    // The once-in-a-life events are never taken out of the merge on being
+    // materialized: main's corrected place stands against the incoming one,
+    // with the ordinary choice between them.
+    const m = dataset(wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BURI\n2 PLAC Olševek, Šenčur, Slovenia\n2 ADDR Pokopališče Olševek\n",
+    ));
+    const c = dataset(wrap(
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BURI\n2 PLAC Preddvor, Preddvor, Slovenia\n2 ADDR Pokopališče Olševek\n",
+    ));
+    const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"), m, c);
+    expect(byKey(rows, "BURI.place")?.state).toBe("conflict");
+    expect(byKey(rows, "BURI.place")?.taken).toBeUndefined();
+    expect(defaultChoice(byKey(rows, "BURI.place")!)).toBe("main");
+    expect(byKey(rows, "BURI.addr")?.state).toBe("agree");
   });
 });
 
