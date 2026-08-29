@@ -18,7 +18,7 @@ import { childText, findExistingSource, objeInfoOf, objeNodesFor, resolveSourceC
 import { looksLikeUrl } from "../gedcom/builder";
 import { firstChild } from "../gedcom/node";
 import type { FormatOverrides } from "../normalize/formatOverrides";
-import type { Dataset, GedNode, SourceCitation } from "../gedcom/types";
+import type { Dataset, Family, GedNode, Individual, SourceCitation } from "../gedcom/types";
 import {
   applySiteSourceExtras,
   cachedBookMeta,
@@ -235,6 +235,35 @@ function resolveSource(
   if (!recognized) return undefined;
   const source = mintSource(records, recognized, url, placement, reserved);
   return { ...source, page: recognized.page, quay, createdSource: true };
+}
+
+/**
+ * The books a merge of these incoming links would have to read: the page of
+ * every recognized link the main file keeps no source for, and so would mint
+ * one from — the same question {@link mintSource} answers as it writes, asked
+ * early enough to be answered before the save needs it (see `queueBookPages`).
+ *
+ * A link the main already cites needs no page: the source is already named.
+ */
+export function pendingBookLookups(
+  records: GedNode[],
+  from: readonly (Individual | Family)[],
+): string[] {
+  const books: string[] = [];
+  const seen = new Set<string>();
+  const lookup = getSourceLookup(records);
+  const links = from.flatMap((r) => [...(r.links ?? []), ...r.events.flatMap((e) => e.links ?? [])]);
+  for (const url of links) {
+    const recognized = recognizeSourceUrl(url);
+    if (!recognized) continue;
+    const bookUrl = recognized.bookUrl ?? url;
+    if (seen.has(bookUrl)) continue;
+    seen.add(bookUrl);
+    if (!isFetchableSite(recognized.site, bookUrl)) continue;
+    if (findExistingSource(records, url, undefined, lookup)) continue;
+    books.push(bookUrl);
+  }
+  return books;
 }
 
 /**
