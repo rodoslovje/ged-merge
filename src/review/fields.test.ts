@@ -1815,6 +1815,57 @@ describe("family header naming", () => {
   });
 });
 
+describe("an event with no details of its own", () => {
+  const wrap = (body: string) => `0 HEAD\n1 GEDC\n2 VERS 5.5.1\n${body}0 TRLR\n`;
+  const rowsFor = (mainBody: string, compareBody: string) => {
+    const m = dataset(wrap(mainBody));
+    const c = dataset(wrap(compareBody));
+    return individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"), m, c);
+  };
+
+  it("still shows the event, so a death the file records without a date is visible", () => {
+    const rows = rowsFor(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n",
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 DEAT\n",
+    );
+    expect(byKey(rows, "DEAT.header")).toBeDefined();
+    const present = byKey(rows, "DEAT.present");
+    expect(present?.main).toBe("");
+    expect(present?.incoming).toBe("event.recorded");
+    expect(present?.state).toBe("incoming-only");
+  });
+
+  it("reads the bare Y as that same fact, not as a value to compare", () => {
+    // `1 DEAT Y` is GEDCOM's "it happened and no more is known" — one row
+    // saying so, the same one a detail-less DEAT gets, and no "Y" anywhere.
+    const rows = rowsFor(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 DEAT Y\n",
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 DEAT\n",
+    );
+    expect(byKey(rows, "DEAT.value")).toBeUndefined();
+    expect(byKey(rows, "DEAT.present")?.state).toBe("agree");
+  });
+
+  it("says nothing extra once the event carries any detail", () => {
+    const rows = rowsFor(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n",
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 DEAT\n2 DATE 1910\n",
+    );
+    expect(byKey(rows, "DEAT.date")).toBeDefined();
+    expect(byKey(rows, "DEAT.present")).toBeUndefined();
+  });
+
+  it("shows a marriage the incoming family states without a date or place", () => {
+    const rows = rowsFor(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n",
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @PF1@\n" +
+        "0 @PW@ INDI\n1 NAME Ana /Kos/\n1 SEX F\n1 FAMS @PF1@\n" +
+        "0 @PF1@ FAM\n1 HUSB @P1@\n1 WIFE @PW@\n1 MARR Y\n",
+    );
+    expect(byKey(rows, "fam.@PF1@.MARR.present")?.incoming).toBe("event.recorded");
+  });
+});
+
 describe("a record-level incoming link is reviewed on the event it will land on", () => {
   const BOOK =
     "0 @S1@ SOUR\n1 TITL Krstna knjiga - Šenčur\n1 OBJE @O1@\n" +
@@ -1825,9 +1876,9 @@ describe("a record-level incoming link is reviewed on the event it will land on"
       "1 WWW https://data.matricula-online.eu/de/slovenia/ljubljana/sencur/03173/?pg=58\n",
   );
 
-  function rowsFor(mainText: string) {
+  function rowsFor(mainText: string, incomingText = incoming) {
     const m = dataset(mainText);
-    const c = dataset(incoming);
+    const c = dataset(incomingText);
     return individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"), m, c);
   }
 
@@ -1866,10 +1917,28 @@ describe("a record-level incoming link is reviewed on the event it will land on"
     expect(birth?.incomingRecordLinks).toBeUndefined();
   });
 
-  it("keeps a link on the person when no event of its register is there", () => {
+  it("moves it onto an event only the incoming file brings", () => {
+    // The main has no birth at all, but the incoming record brings one and the
+    // merge writes a record's links after every other row — so the citation
+    // lands on that new birth, and the reader decides it there, beside it.
     const rows = rowsFor(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n" + BOOK));
+    expect(byKey(rows, "links")).toBeUndefined();
+    expect(byKey(rows, "BIRT.sources")?.incomingRecordLinks).toEqual([
+      "https://data.matricula-online.eu/de/slovenia/ljubljana/sencur/03173/?pg=58",
+    ]);
+  });
+
+  it("keeps a link on the person when neither file has an event of its register", () => {
+    const rows = rowsFor(
+      wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n" + BOOK),
+      wrap(
+        "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n" +
+          "1 WWW https://data.matricula-online.eu/de/slovenia/ljubljana/sencur/03173/?pg=58\n",
+      ),
+    );
     expect(byKey(rows, "links")?.incomingLinkIcons).toEqual([
       "https://data.matricula-online.eu/de/slovenia/ljubljana/sencur/03173/?pg=58",
     ]);
+    expect(byKey(rows, "BIRT.sources")).toBeUndefined();
   });
 });

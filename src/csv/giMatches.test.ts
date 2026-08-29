@@ -107,7 +107,10 @@ describe("parseGiMatchesCsv", () => {
     const burial = indi?.events.find((e) => e.tag === "BURI");
     expect(burial?.place?.raw).toBe("Zabnica, Pokopališče Žabnica");
 
-    expect(indi?.links).toContain("https://en.geneanet.org/cemetery/view/8657008");
+    // The cemetery link documents that burial, so it arrives on the event
+    // rather than as a bare link on the person.
+    expect(burial?.links).toContain("https://en.geneanet.org/cemetery/view/8657008");
+    expect(indi?.links ?? []).not.toContain("https://en.geneanet.org/cemetery/view/8657008");
     expect(indi?.notes).toBeUndefined();
 
     // "Žena: Helena Krt *1883" becomes a real partner family rather than a note.
@@ -142,6 +145,23 @@ describe("parseGiMatchesCsv", () => {
     // The remark itself is not turned into a death: two notes on this page
     // disagree about when she died, and that is the reader's to judge.
     expect(dataset.individuals.get("@SGI1@")?.events.find((e) => e.tag === "DEAT")).toBeUndefined();
+  });
+
+  it("leaves a cemetery link on the person when the row names no burial", () => {
+    // A link alone is too thin a reason to assert a burial the index never
+    // stated; the merge still offers it as the person's own source.
+    const mainRow = row([
+      "Franc", "Vilfan", "20 JUL 1877", "", "", "", "", "",
+      "https://en.geneanet.org/cemetery/view/8657008", "", "", "", "Renko", "99",
+    ]);
+    const incomingRow = row([
+      "Franc", "Vilfan", "20 JUL 1877", "", "", "", "", "",
+      "https://en.geneanet.org/cemetery/view/8657008", "", "", "", "Pokopališča-geneanet", "99",
+    ]);
+    const { dataset } = parseGiMatchesCsv(`${SL_HEADER_SOURCE}\n${mainRow}\n${incomingRow}\n`);
+    const indi = dataset.individuals.get("@SGI1@");
+    expect(indi?.events.find((e) => e.tag === "BURI")).toBeUndefined();
+    expect(indi?.links).toContain("https://en.geneanet.org/cemetery/view/8657008");
   });
 
   it("handles the English header with separate Father/Mother columns", () => {

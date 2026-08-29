@@ -32,7 +32,7 @@ type Row = FieldRow;
 
 /** The sub-fields an event row key can end in — the `<sub>` of a `TAG.<sub>`
  *  or `TAG.<n>.<sub>` key minted by `individualFieldRows`. */
-const EVENT_SUB_FIELDS = ["type", "date", "place", "addr", "note", "agency", "cause", "sources", "value"] as const;
+const EVENT_SUB_FIELDS = ["type", "date", "place", "addr", "note", "agency", "cause", "sources", "value", "present"] as const;
 export type EventSubField = (typeof EVENT_SUB_FIELDS)[number];
 
 function isEventSubField(sub: string | undefined): sub is EventSubField {
@@ -77,6 +77,7 @@ export const SUB_TAG: Record<string, string> = { type: "TYPE", date: "DATE", pla
 
 /** Translation key for a bare sub-field label (event name shown separately as the group header). */
 export const SUB_LABEL_KEY: Record<string, string> = {
+  present: "event.recorded",
   value: "event.colValue",
   type: "event.colType",
   date: "event.colDate",
@@ -88,7 +89,7 @@ export const SUB_LABEL_KEY: Record<string, string> = {
 };
 
 /** Order in which an event's changed sub-fields are joined into one preview line. */
-export const SUB_JOIN_ORDER = ["type", "value", "date", "place", "addr", "note", "agency", "cause"];
+export const SUB_JOIN_ORDER = ["present", "type", "value", "date", "place", "addr", "note", "agency", "cause"];
 
 /** The event sub-fields that may legally repeat under one event, so "both" can
  *  genuinely append a second one. Everything else (TYPE, DATE, PLAC, ADDR,
@@ -306,6 +307,8 @@ export function applyRows(
       const compareIdx = row.eventCompareIdx ?? 0;
       if (sub === "value") {
         applied = applyEventValue(target, incomingRecord, tag, choice, mainIdx, compareIdx, INDI_CHILD_ORDER, newEventNodes);
+      } else if (sub === "present") {
+        applied = applyEventPresence(target, incomingRecord, tag, choice, mainIdx, compareIdx, INDI_CHILD_ORDER, newEventNodes);
       } else if (sub === "sources") {
         applied = applyEventSources(target, incomingRecord, tag, choice, mainIdx, compareIdx, INDI_CHILD_ORDER, sourMap, records, placement, report.customTags, newEventNodes, row.incomingRecordLinks, placedLinks);
       } else {
@@ -662,6 +665,35 @@ export function applyEventValue(
     return true;
   }
   return false;
+}
+
+/**
+ * Take an event the incoming record states without any detail — a burial with
+ * no date or place, the `1 DEAT` that records only that the person died. There
+ * is nothing to copy, so the event itself is the change: it is created empty,
+ * carrying the incoming `Y` where the incoming file used one, which is how
+ * GEDCOM writes "this happened and no more is known".
+ *
+ * A no-op when the main record already has the event: its own details, or its
+ * own emptiness, are already the answer.
+ */
+export function applyEventPresence(
+  target: GedNode,
+  incomingRecord: GedNode,
+  tag: string,
+  choice: FieldChoice,
+  mainIdx: number,
+  compareIdx: number,
+  order: string[] = [],
+  newEventNodes?: Map<string, GedNode>,
+): boolean {
+  const incEvent = compareIdx >= 0 ? childrenByTag(incomingRecord, tag)[compareIdx] : undefined;
+  if (!incEvent) return false;
+  if (choice !== "incoming" && choice !== "both") return false;
+  if (mainIdx >= 0 && childrenByTag(target, tag)[mainIdx]) return false;
+  const event = resolveEventNode(target, tag, mainIdx, compareIdx, order, newEventNodes);
+  if (!event.value && incEvent.value?.trim()) event.value = incEvent.value.trim();
+  return true;
 }
 
 /** Apply an event's date/place/address by copying the incoming sub-node. */

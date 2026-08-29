@@ -1384,6 +1384,18 @@ const SITE_BOOK_TYPE: Partial<Record<ReshapeSite, BookType>> = {
   sistory: "death",
 };
 
+/**
+ * The event a recognized site's page documents, where the site's own kind
+ * settles it — a grave photograph is evidence of the burial, an obituary of the
+ * death. {@link smartCitationTarget} asks the same question of a whole file;
+ * this is for callers that have only the link, such as the index CSV import
+ * hanging a cemetery link on the burial it came with.
+ */
+export function siteEventTag(site: ReshapeSite): string | undefined {
+  const type = SITE_BOOK_TYPE[site];
+  return type === "burial" ? "BURI" : type === "death" ? "DEAT" : undefined;
+}
+
 interface GroupState {
   group: ReshapeGroup;
   hits: ScanHit[];

@@ -167,8 +167,10 @@ export function individualFieldRows(
   // notes, all before the events.
   // A record-level incoming link whose citation will land on one of this
   // person's events belongs on that event's row, not the person's: the review
-  // shows a change where it will happen, and the choice is made there too.
-  const movedLinks = eventBoundLinks(main, gatherLinks(compare), mainDs);
+  // shows a change where it will happen, and the choice is made there too. The
+  // event may be one the incoming record itself brings — a grave link arrives
+  // with the burial it documents — as long as that burial hasn't been rejected.
+  const movedLinks = eventBoundLinks(main, gatherLinks(compare), mainDs, incomingEventTags(compare, rejectedEvents));
   const recordLinks = gatherLinks(compare).filter((url) => !movedLinks.moved.has(url));
   pushSourcesRow(rows, "links", formatFieldLabel(t, "links"), main?.sources, compare?.sources, gatherLinks(main), recordLinks,
     recordCitations(main), recordCitations(compare));
@@ -210,7 +212,17 @@ function buildEventRows(
 ): void {
   const mainPool = recordCitations(main);
   const comparePool = recordCitations(compare);
-  for (const { tag, mainIdx, compareIdx, keyIdx, multi } of orderedEventTags(main, compare)) {
+  const instances = orderedEventTags(main, compare);
+  // Which instance of a tag shows the record-level links routed to it (by
+  // `keyIdx`): the main record's own event where there is one, else the
+  // incoming event the merge will create to receive the citation.
+  const movedHolder = new Map<string, number>();
+  for (const tag of movedLinks.keys()) {
+    const holder = instances.find((i) => i.tag === tag && i.mainIdx === 0)
+      ?? instances.find((i) => i.tag === tag && i.compareIdx >= 0);
+    if (holder) movedHolder.set(tag, holder.keyIdx);
+  }
+  for (const { tag, mainIdx, compareIdx, keyIdx, multi } of instances) {
     const mainEvents = main?.events.filter((e) => e.tag === tag) ?? [];
     const compareEvents = compare?.events.filter((e) => e.tag === tag) ?? [];
     const rejected = compareIdx >= 0 && (rejectedEvents?.has(`${tag}:${compareIdx}`) ?? false);
@@ -231,7 +243,8 @@ function buildEventRows(
     const subRows: FieldRow[] = [];
     pushRow(subRows, `${keyBase}.type`, isEven ? t("event.colTitle") : t("event.colType"), me?.type, ce?.type);
     pushRow(subRows, `${keyBase}.date`, t("event.colDate"), me?.date?.raw, ce?.date?.raw);
-    pushRow(subRows, `${keyBase}.value`, isEven ? t("event.colAgency") : formatFieldLabel(t, `${tag}.value`), me?.value, ce?.value);
+    pushRow(subRows, `${keyBase}.value`, isEven ? t("event.colAgency") : formatFieldLabel(t, `${tag}.value`),
+      eventValueText(me, isEven), eventValueText(ce, isEven));
     // Places are already reshaped into the main's layout when the incoming
     // file was loaded (see normalize/normalize.ts), so the raw values can be
     // shown directly. When the main doesn't enforce a particular layout,
@@ -249,7 +262,7 @@ function buildEventRows(
     // sub-tag (rare) isn't shown as a second Agency row.
     if (!isEven) pushRow(subRows, `${keyBase}.agency`, t("event.colAgency"), me?.agency, ce?.agency);
     pushRow(subRows, `${keyBase}.cause`, t("event.colCause"), me?.cause, ce?.cause);
-    const moved = mainIdx === 0 ? (movedLinks.get(tag) ?? []) : [];
+    const moved = movedHolder.get(tag) === keyIdx ? (movedLinks.get(tag) ?? []) : [];
     pushSourcesRow(subRows, `${keyBase}.sources`, t("field.sources"), me?.sources, ce?.sources, me?.links,
       moved.length ? [...(ce?.links ?? []), ...moved] : ce?.links, mainPool, comparePool);
     // Which of them survived as icons — a link the main already cites (as this
@@ -259,6 +272,7 @@ function buildEventRows(
       const carried = (sourcesRow.incomingLinkIcons ?? []).filter((url) => moved.includes(url));
       if (carried.length) sourcesRow.incomingRecordLinks = carried;
     }
+    pushPresenceRow(subRows, `${keyBase}.present`, eventLabel, t, me, ce);
     if (showAge) {
       attachAges(subRows, `${keyBase}.date`,
         eventAgeBadges(main, mainDs, me, tag, t),
@@ -380,7 +394,7 @@ function buildFamilyRows(
     // event its register documents — a marriage book's page on the couple's
     // own `MARR`, which is exactly where the merge writes it (see
     // `placeRecordLink`). Reviewed there, then, and not on the family's row.
-    const famMoved = eventBoundLinks(mFam, gatherLinks(cFam), mainDs);
+    const famMoved = eventBoundLinks(mFam, gatherLinks(cFam), mainDs, incomingEventTags(cFam));
     for (const etag of EDITABLE_FAM_EVENT_TAGS) {
       const mEv = mFam?.events.find((e) => e.tag === etag);
       const cEv = cFam?.events.find((e) => e.tag === etag);
@@ -394,7 +408,8 @@ function buildFamilyRows(
       if (isEven) {
         pushRow(etagRows, `${famKey}.${etag}.value`, t("event.colAgency"), mEv?.value, cEv?.value);
       } else if (VALUE_EVENT_TAGS.has(etag)) {
-        pushRow(etagRows, `${famKey}.${etag}.value`, t("event.colValue"), mEv?.value, cEv?.value);
+        pushRow(etagRows, `${famKey}.${etag}.value`, t("event.colValue"),
+          eventValueText(mEv, isEven), eventValueText(cEv, isEven));
       }
       pushRow(etagRows, `${famKey}.${etag}.date`, t("event.colDate"), mEv?.date?.raw, cEv?.date?.raw);
       pushRow(etagRows, `${famKey}.${etag}.place`, t("event.colPlace"), mEv?.place?.raw, cEv?.place?.raw, undefined, undefined, cEv?.place?.originalRaw);
@@ -414,6 +429,7 @@ function buildFamilyRows(
         const carried = (etagSourcesRow.incomingLinkIcons ?? []).filter((url) => movedHere.includes(url));
         if (carried.length) etagSourcesRow.incomingRecordLinks = carried;
       }
+      pushPresenceRow(etagRows, `${famKey}.${etag}.present`, eventDisplayLabel(etag, t, EVENT_LABELS[etag]), t, mEv, cEv);
       if (showAge) {
         attachAges(etagRows, `${famKey}.${etag}.date`,
           coupleEventAges(mFam, mainDs, mEv, t),
@@ -796,6 +812,41 @@ function pushRow(
   const i = (incoming ?? "").trim();
   if (!m && !i) return; // nothing to show
   rows.push({ key, label, main: m, incoming: i, state: stateOf(key, m, i), displayLabel, mainTitle, incomingTitle });
+}
+
+/**
+ * An event's line value as something to compare, or nothing when it is the bare
+ * `Y` GEDCOM writes for "this happened and no more is known" — a flag, not a
+ * value, and one {@link pushPresenceRow} states in words instead. A custom
+ * `EVEN`/`FACT` keeps whatever its line says: there the value is the content.
+ */
+function eventValueText(event: GedEvent | undefined, isEven: boolean): string | undefined {
+  const value = event?.value;
+  if (isEven || value?.trim().toUpperCase() !== "Y") return value;
+  return undefined;
+}
+
+/**
+ * The row an otherwise empty event gets: a burial with no date or place, a
+ * `1 DEAT` recording only that the person died. Without it the event has no
+ * field to show, so the whole group vanishes from the review and the reader
+ * cannot tell a person the incoming file knows to be dead from one it says
+ * nothing about. Reads and merges like any other row — taking it brings the
+ * event over, empty, exactly as the incoming file holds it.
+ */
+function pushPresenceRow(
+  rows: FieldRow[],
+  key: string,
+  label: string,
+  t: Translate,
+  main: GedEvent | undefined,
+  incoming: GedEvent | undefined,
+): void {
+  if (rows.length > 0 || (!main && !incoming)) return;
+  const recorded = t("event.recorded");
+  // Label-less: the group header right above already names the event, and the
+  // label is kept only for the save preview's own line.
+  pushRow(rows, key, label, main ? recorded : undefined, incoming ? recorded : undefined, "");
 }
 
 /**
@@ -1237,27 +1288,52 @@ function withCitations(sources: SourceCitation[], extra: SourceCitation[]): Sour
  */
 /**
  * Which of the incoming record's plain links the merge will write as a citation
- * on one of the main record's own events, and on which event — a person's
- * baptism link on the baptism, a couple's marriage link on their `MARR` — the same
- * question `placeRecordLink` answers when it writes them (see
- * `previewLinkPlacement`). Without the main dataset there is nothing to resolve
- * them against, so nothing moves and the links stay on the record's own row.
+ * on an event rather than on the record, and on which event — a person's
+ * baptism link on the baptism, a grave link on the burial, a couple's marriage
+ * link on their `MARR` — the same question `placeRecordLink` answers when it
+ * writes them (see `previewLinkPlacement`). Without the main dataset there is
+ * nothing to resolve them against, so nothing moves and the links stay on the
+ * record's own row.
  */
 function eventBoundLinks(
   main: Individual | Family | undefined,
   incomingLinks: string[],
   mainDs: Dataset | undefined,
+  /** Events the incoming record brings that the main one lacks — the burial a
+   *  grave link documents is routinely one of them. The merge writes the
+   *  record's links last, so such an event exists by the time the citation is
+   *  placed; reviewing the link there is what lets the reader see the two
+   *  together. */
+  incomingEventTags?: ReadonlySet<string>,
 ): { byTag: Map<string, string[]>; moved: Set<string> } {
   const byTag = new Map<string, string[]>();
   const moved = new Set<string>();
   if (!main || !mainDs || incomingLinks.length === 0) return { byTag, moved };
   for (const url of incomingLinks) {
-    const { eventTag } = previewLinkPlacement(main.raw, url, mainDs.records);
+    const { eventTag } = previewLinkPlacement(main.raw, url, mainDs.records, { incomingEventTags });
     if (!eventTag) continue;
     byTag.set(eventTag, [...(byTag.get(eventTag) ?? []), url]);
     moved.add(url);
   }
   return { byTag, moved };
+}
+
+/** The event tags the incoming record offers, minus any instance the reader has
+ *  already rejected — the events a citation may be reviewed on even where the
+ *  main record has none yet, because taking it brings the event along. */
+function incomingEventTags(
+  compare: Individual | Family | undefined,
+  rejectedEvents?: Set<string>,
+): Set<string> {
+  const tags = new Set<string>();
+  if (!compare) return tags;
+  const seen = new Map<string, number>();
+  for (const e of compare.events) {
+    const idx = seen.get(e.tag) ?? 0;
+    seen.set(e.tag, idx + 1);
+    if (!rejectedEvents?.has(`${e.tag}:${idx}`)) tags.add(e.tag);
+  }
+  return tags;
 }
 
 function recordCitations(record: Individual | Family | undefined): SourceCitation[] {

@@ -18,6 +18,7 @@ import type { ChangeReport } from "./merge";
 import type { PlacedLink } from "./linkPlacement";
 import type { Translate } from "../locales/i18n";
 import {
+  applyEventPresence,
   applyEventSources,
   applyEventSub,
   applyEventValue,
@@ -576,7 +577,7 @@ export function applyIndividualFamilies(
         ? effectiveEventSubChoice(sub, fields[key] ?? "incoming")
         : undefined;
     };
-    const EVENT_SUBS = ["type", "value", "date", "place", "addr", "note", "agency", "cause", "sources"] as const;
+    const EVENT_SUBS = ["type", "value", "date", "place", "addr", "note", "agency", "cause", "sources", "present"] as const;
     const wantFamEvent = EDITABLE_FAM_EVENT_TAGS.some((etag) =>
       EVENT_SUBS.some((s) => wantsIncoming(rows, fields, `${famKey}.${etag}.${s}`)),
     );
@@ -604,6 +605,22 @@ export function applyIndividualFamilies(
     applyFamilyStructure(famNode, incFam, ctx, { spouses: takeSpouses, takenChildren: famTakenChildren, explicitPicks: true });
 
     const marrEntries: EventSubEdit[] = [];
+    // A marriage the incoming file states without a date or place: the event
+    // itself is what the row offers (see `applyEventPresence`).
+    const marrPresenceChoice = marriageChoice("present");
+    if (marrPresenceChoice
+        && applyEventPresence(famNode, incFam.raw, "MARR", marrPresenceChoice, 0, 0, FAM_CHILD_ORDER)) {
+      marrEntries.push({
+        sub: "present",
+        // The event's own name, not the sub-field's: what was added is the
+        // marriage itself, and "Recorded" is what it says.
+        field: ctx.t("event.MARR"),
+        from: "",
+        to: rows.find((r) => r.key === `${famKey}.MARR.present`)?.incoming ?? "",
+        action: marrPresenceChoice,
+      });
+      ctx.touched.add(famNode.xref!);
+    }
     for (const sub of ["type", "date", "place", "addr", "note", "agency", "cause"] as const) {
       const choice = marriageChoice(sub);
       if (!choice) continue;
@@ -642,7 +659,7 @@ export function applyIndividualFamilies(
         (evTag === "EVEN" && incFam.events.find((e) => e.tag === "EVEN")?.type?.trim()) ||
         ctx.t(`event.${evTag}`);
       const evEntries: EventSubEdit[] = [];
-      for (const sub of ["type", "value", "date", "place", "addr", "note", "agency", "cause"] as const) {
+      for (const sub of ["present", "type", "value", "date", "place", "addr", "note", "agency", "cause"] as const) {
         const key = `${famKey}.${evTag}.${sub}`;
         if (!wantsIncoming(rows, fields, key)) continue;
         const choice = effectiveEventSubChoice(sub, fields[key] ?? "incoming");
@@ -650,13 +667,17 @@ export function applyIndividualFamilies(
         let applied: boolean;
         if (sub === "value") {
           applied = applyEventValue(famNode, incFam.raw, evTag, choice, 0, 0, FAM_CHILD_ORDER);
+        } else if (sub === "present") {
+          applied = applyEventPresence(famNode, incFam.raw, evTag, choice, 0, 0, FAM_CHILD_ORDER);
         } else {
           const subTag = SUB_TAG[sub];
           if (!subTag) continue;
           applied = applyEventSub(famNode, incFam.raw, evTag, subTag, choice, 0, 0, FAM_CHILD_ORDER, ctx.sourXrefMap, ctx.report.customTags);
         }
         if (applied) {
-          evEntries.push({ sub, field: ctx.t(SUB_LABEL_KEY[sub]), from: "", to: rowIncoming, action: choice });
+          // A presence row adds the event itself, so it reports under the
+          // event's name rather than the sub-field's.
+          evEntries.push({ sub, field: sub === "present" ? evName : ctx.t(SUB_LABEL_KEY[sub]), from: "", to: rowIncoming, action: choice });
           ctx.touched.add(famNode.xref!);
         }
       }

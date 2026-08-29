@@ -2187,6 +2187,7 @@ export const sl = {
   "event.colTitle": "Naziv",
   "event.colValue": "Vrednost",
   "event.colCause": "Vzrok",
+  "event.recorded": "Zabeleženo",
   "event.colLink": "Vir",
   "event.customTooltip": "Dogodek po meri ({{tag}}) — poimenovan po polju Naziv",
   "event.vendorTooltip": "Nestandardna oznaka {{tag}}",
