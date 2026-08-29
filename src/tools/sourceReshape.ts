@@ -1384,6 +1384,18 @@ const SITE_BOOK_TYPE: Partial<Record<ReshapeSite, BookType>> = {
   sistory: "death",
 };
 
+/**
+ * The event a recognized site's page documents, where the site's own kind
+ * settles it — a grave photograph is evidence of the burial, an obituary of the
+ * death. {@link smartCitationTarget} asks the same question of a whole file;
+ * this is for callers that have only the link, such as the index CSV import
+ * hanging a cemetery link on the burial it came with.
+ */
+export function siteEventTag(site: ReshapeSite): string | undefined {
+  const type = SITE_BOOK_TYPE[site];
+  return type === "burial" ? "BURI" : type === "death" ? "DEAT" : undefined;
+}
+
 interface GroupState {
   group: ReshapeGroup;
   hits: ScanHit[];
@@ -3840,21 +3852,100 @@ export async function readBookPages(
   bookUrls: readonly string[],
   fetchHtml: (url: string) => Promise<string | undefined>,
 ): Promise<number> {
-  const targets: { site: ReshapeSite; bookUrl: string }[] = [];
-  for (const bookUrl of new Set(bookUrls)) {
-    const site = recognizeSourceUrl(bookUrl)?.site;
-    if (site && isFetchableSite(site, bookUrl)) targets.push({ site, bookUrl });
-  }
   let read = 0;
-  const worker = async (queue: typeof targets): Promise<void> => {
+  const worker = async (queue: BookTarget[]): Promise<void> => {
     for (let target = queue.shift(); target; target = queue.shift()) {
-      const meta = await fetchBookMeta(target.site, target.bookUrl, fetchHtml).catch(() => undefined);
-      if (meta) read++;
+      if (await readBook(target, fetchHtml)) read++;
     }
   };
-  const queue = [...targets];
+  const queue = bookTargets(bookUrls);
   await Promise.all([worker(queue), worker(queue)]);
   return read;
+}
+
+interface BookTarget { site: ReshapeSite; bookUrl: string }
+
+/** The distinct fetchable books among `bookUrls`, minus the ones this session
+ *  has already read or already tried and failed (see {@link readBook}). */
+function bookTargets(bookUrls: readonly string[]): BookTarget[] {
+  const targets: BookTarget[] = [];
+  for (const bookUrl of new Set(bookUrls)) {
+    const site = recognizeSourceUrl(bookUrl)?.site;
+    if (!site || !isFetchableSite(site, bookUrl)) continue;
+    if (cachedBookMeta(site, bookUrl) || silentBooks.has(`${site}:${bookKeyOf(bookUrl)}`)) continue;
+    targets.push({ site, bookUrl });
+  }
+  return targets;
+}
+
+/**
+ * Books that were asked and said nothing — a relay chain that ends in silence
+ * costs the better part of a minute (Geneanet answers none of the plain relays),
+ * and asking the same book again on the next save spends it again for the same
+ * answer. The offline proposal names the source instead, and a reload gives any
+ * book a fresh chance.
+ */
+const silentBooks = new Set<string>();
+
+/** One book, read once per session: an in-flight read is joined rather than
+ *  duplicated, so the save and the background queue never fetch the same page
+ *  twice, and silence is remembered. */
+function readBook(
+  target: BookTarget,
+  fetchHtml: (url: string) => Promise<string | undefined>,
+): Promise<ReshapeMeta | undefined> {
+  const key = `${target.site}:${bookKeyOf(target.bookUrl)}`;
+  const running = inFlightBooks.get(key);
+  if (running) return running;
+  const p = fetchBookMeta(target.site, target.bookUrl, fetchHtml)
+    .catch(() => undefined)
+    .then((meta) => {
+      inFlightBooks.delete(key);
+      if (!meta) silentBooks.add(key);
+      return meta;
+    });
+  inFlightBooks.set(key, p);
+  return p;
+}
+
+const inFlightBooks = new Map<string, Promise<ReshapeMeta | undefined>>();
+
+/**
+ * Start reading these books in the background, two at a time, and return at
+ * once. Called as matches are confirmed, so the pages a save would need are
+ * already read by the time it runs — the same session cache serves both, and
+ * {@link readBookPages} joins whatever is still in flight instead of asking
+ * again. Books already read, already queued, or already silent cost nothing.
+ */
+export function queueBookPages(
+  bookUrls: readonly string[],
+  fetchHtml: (url: string) => Promise<string | undefined>,
+): void {
+  for (const target of bookTargets(bookUrls)) {
+    if (!inFlightBooks.has(`${target.site}:${bookKeyOf(target.bookUrl)}`)) backlog.push(target);
+  }
+  while (backlogWorkers < BACKLOG_WORKERS && backlog.length) {
+    backlogWorkers++;
+    void (async () => {
+      for (let target = backlog.shift(); target; target = backlog.shift()) {
+        await readBook(target, fetchHtml);
+      }
+      backlogWorkers--;
+    })();
+  }
+}
+
+/** Two at a time, as every other reading pass here: the relays rate-limit, and
+ *  this one runs while the reader is working. */
+const BACKLOG_WORKERS = 2;
+const backlog: BookTarget[] = [];
+let backlogWorkers = 0;
+
+/** Test seam: forget what this session has read, queued and given up on. */
+export function resetBookQueue(): void {
+  silentBooks.clear();
+  inFlightBooks.clear();
+  backlog.length = 0;
 }
 
 /**

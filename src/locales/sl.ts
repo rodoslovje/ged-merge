@@ -1926,6 +1926,8 @@ export const sl = {
   "compare.conflict": "razlika",
   "compare.conflicts": "razlik",
   "compare.keepMain": "glavni",
+  "compare.taken": "v vaši datoteki",
+  "compare.takenHint": "Ta dogodek je bil v Urejanju prevzet v vašo datoteko in ni več del združevanja; vrednosti iz vhodne datoteke ostanejo na zaslonu, da vidite, kaj je v njej zapisano.",
   "compare.parentConflict": "Datoteki navajata različna starša. Združevanje povezanega starša nikoli ne zamenja — ostane tisti iz vaše datoteke, neskladje je navedeno v poročilu ob shranjevanju, povezavo pa lahko spremenite v Urejanju.",
   "compare.relativesHint": "Letnice so tu za prepoznavo osebe in se v tej vrstici ne prevzamejo. Datumi in imena posameznega sorodnika se prevzamejo šele, ko potrdite ujemanje zanj.",
   "compare.decisionTooltip": "{{action}} to ujemanje ({{key}})",

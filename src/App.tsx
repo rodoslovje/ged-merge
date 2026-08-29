@@ -11,13 +11,14 @@ import { initialWorkspace, workspaceReducer, type SlotState } from "./state/work
 import { loadedFileFromParsed } from "./state/loadedFile";
 import { useDirtyTracking } from "./edit-state/useDirtyTracking";
 import { useTranslation } from "react-i18next";
-import type { Dataset, GedNode } from "./gedcom/types";
+import type { Dataset, Family, GedNode, Individual } from "./gedcom/types";
 import { cloneNode } from "./gedcom/node";
 import { buildDataset } from "./gedcom/builder";
 import { clearEventAuditStamps, rebuildIndividual, rebuildFamily, removeIndividual, removeFamily, noteCtx, rebuildNoteReferrers, pruneUnreferencedSource, setSourceRecordFields, setRepoRecordFields, setMediaInfo, bumpSourceCacheVersion, type SharedNoteCtx } from "./gedcom/edit";
 import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "./gedcom/private";
 import { downloadOptions, ensureUtf8Charset, serializeGedcom, stampHeadSource } from "./gedcom/serialize";
 import { formatReport, INDI_HANDLED, mergePlaceFormat, type ImportBranchRequest } from "./merge/merge";
+import { pendingBookLookups } from "./merge/linkPlacement";
 import { eventOrderSignature, snapshotMainValues } from "./merge/applyFields";
 import { individualFieldRows } from "./review/fields";
 import { buildEditSaveRecords } from "./merge/editSaveRecords";
@@ -49,7 +50,7 @@ import { fixDates } from "./tools/fixDates";
 import { fixDuplicatePointers } from "./tools/fixDuplicatePointers";
 import { fixDanglingRefs } from "./tools/fixDanglingRefs";
 import { fillPlaceCoordsFromFile } from "./tools/placeCoords";
-import { readBookPages } from "./tools/sourceReshape";
+import { queueBookPages, readBookPages } from "./tools/sourceReshape";
 import { fetchPageHtml } from "./normalize/urlMetadata";
 import { createStandaloneSource } from "./ui/edit/standaloneSource";
 import { mergeDuplicateChain } from "./tools/mergeDuplicate";
@@ -1437,10 +1438,43 @@ function AppContent() {
   }
 
   /**
+   * The books a confirmed match will need a source minted for, read in the
+   * background from the moment it is confirmed — reviewing the next candidate
+   * takes far longer than a page fetch, so by the time the save runs the
+   * answers are usually already in this session's cache and it opens at once
+   * instead of holding the button (see `queueBookPages`). Only what the reader
+   * has allowed: with link lookups off, nothing is requested here either.
+   *
+   * Each decision is queued once. A book already read, already queued, or
+   * already asked and silent costs nothing, so re-running over the whole map is
+   * cheap; what a merge would only *cite* (the file has that book) asks nothing.
+   */
+  const queuedDecisionsRef = useRef(new Set<string>());
+  useEffect(() => { queuedDecisionsRef.current = new Set(); }, [compareDataset]);
+  useEffect(() => {
+    if (!settings.allowLinkFetch || !mainDataset || !compareDataset) return;
+    const records: (Individual | Family)[] = [];
+    for (const [key, decision] of decisions) {
+      if (decision.status !== "confirmed" || queuedDecisionsRef.current.has(key)) continue;
+      queuedDecisionsRef.current.add(key);
+      const parsed = parseDecisionKey(key);
+      const incoming = parsed && compareDataset.individuals.get(parsed.compareId);
+      if (!incoming) continue;
+      records.push(incoming);
+      for (const famId of incoming.spouseOf) {
+        const fam = compareDataset.families.get(famId);
+        if (fam) records.push(fam);
+      }
+    }
+    if (records.length) queueBookPages(pendingBookLookups(mainDataset.records, records), fetchPageHtml);
+  }, [decisions, mainDataset, compareDataset, settings.allowLinkFetch]);
+
+  /**
    * Open the save preview — with one detour: a merge that mints a source for
    * an incoming link names it from the address alone, so where the reader has
    * allowed link lookups the books' own pages are read first and the merge is
-   * run again over the answers. A link the merge only cites (the file already
+   * run again over the answers. Most will have been read already, as matches
+   * were confirmed; this waits only for what is left. A link the merge only cites (the file already
    * has that book) asks nothing of the network, and neither does a save with
    * lookups switched off; both open the preview straight away.
    */

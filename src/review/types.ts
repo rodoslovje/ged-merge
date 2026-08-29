@@ -40,6 +40,12 @@ export interface FieldRow {
    *  they become documents it. Applied from here rather than read off the
    *  incoming event, which does not carry them. */
   incomingRecordLinks?: string[];
+  /** The incoming value is on screen for the record only: its event was taken
+   *  into the main file by hand in Edit and is out of the merge (see
+   *  `CandidateDecision.rejectedEvents`). Nothing here can be chosen or
+   *  applied — the panel says where the event went instead of offering
+   *  choices that would do nothing. */
+  taken?: true;
   /** Source citations attached to the event, rendered as badges in this row's value cells. */
   mainSources?: SourceCitation[];
   incomingSources?: SourceCitation[];

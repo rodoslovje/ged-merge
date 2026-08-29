@@ -2,6 +2,7 @@ import {
   bumpSourceCacheVersion,
   EDITABLE_LINK_TAGS,
   EVENT_CHILD_ORDER,
+  EVENT_LINK_TAG,
   INDI_CHILD_ORDER,
   insertGrouped,
   insertOrdered,
@@ -1190,30 +1191,51 @@ export function foldMatchedSourcePages(records: GedNode[], compare: Dataset, sou
 }
 
 /**
- * Copy an incoming-only event's `SOUR` citations into `eventNode`, importing
- * whatever top-level `SOUR`/`REPO` records they reference (and those records'
- * own `REPO` references, transitively) from `compare` into `dataset.records`
- * under a non-colliding xref. Returns the newly-imported top-level records,
- * for the caller to build undo patches from.
+ * Copy an incoming-only event's evidence into `eventNode` — its `SOUR`
+ * citations, importing whatever top-level `SOUR`/`REPO` records they reference
+ * (and those records' own `REPO` references, transitively) from `compare` into
+ * `dataset.records` under a non-colliding xref, and its own attached links,
+ * written the way the save would write them (see {@link placeEventLink}: the
+ * source the file already keeps for that book, else one minted for a
+ * recognized site, else the plain link). Returns every top-level record that
+ * appeared, for the caller to build undo patches from.
  *
  * Used by Edit mode when a direct field edit (e.g. correcting a place)
  * materializes a main event from an incoming-only suggestion: once that
  * happens the event is excluded from all further merge-engine consideration
- * (see EditView's `rejectIncomingEvent`), so its sources must be brought
- * across right now via the same xref-import logic `mergeDecisions` uses, or
- * they're lost for good.
+ * (see EditView's `rejectIncomingEvent`), so its evidence must be brought
+ * across right now via the same logic `mergeDecisions` uses, or it is lost for
+ * good — as a cemetery link on a burial was, the case this exists for.
  */
 export function materializeEventSources(
   dataset: Dataset,
   compare: Dataset,
   eventNode: GedNode,
   incomingEventNode: GedNode,
+  /** How this file writes links and page images. Without it an attached link
+   *  can only be copied as itself, never resolved into a citation. */
+  placement?: LinkPlacement,
 ): GedNode[] {
   const incSours = childrenByTag(incomingEventNode, "SOUR");
-  if (!incSours.length) return [];
+  const incLinks = eventLinkUrls(incomingEventNode);
+  if (!incSours.length && !incLinks.length) return [];
+  const before = new Set(dataset.records.filter((r) => r.xref).map((r) => r.xref as string));
   const sourMap = buildSourXrefMap(compare.records, dataset.records);
   for (const s of incSours) insertOrdered(eventNode, cloneNodeRemapped(s, sourMap), EVENT_CHILD_ORDER);
-  const imported = importSourRecords(dataset.records, compare, sourMap, {});
-  if (imported.length) bumpSourceCacheVersion(dataset.records);
-  return imported;
+  importSourRecords(dataset.records, compare, sourMap, {});
+  if (incLinks.length) {
+    const existing = new Set(eventLinkUrls(eventNode).map(linkKey));
+    for (const url of incLinks) {
+      const key = linkKey(url);
+      if (existing.has(key)) continue;
+      existing.add(key);
+      if (placement) placeEventLink(eventNode, url, dataset.records, placement, reservedXrefs(sourMap));
+      else insertOrdered(eventNode, { level: eventNode.level + 1, tag: EVENT_LINK_TAG, value: url, children: [] }, EVENT_CHILD_ORDER);
+    }
+  }
+  // Everything new at the top level: the records imported from the compare
+  // file, and any `SOUR`/`OBJE` a recognized link minted along the way.
+  const added = dataset.records.filter((r) => r.xref && !before.has(r.xref));
+  if (added.length) bumpSourceCacheVersion(dataset.records);
+  return added;
 }

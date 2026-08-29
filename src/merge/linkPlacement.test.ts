@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
-import { previewLinkCitation, previewLinkPlacement } from "./linkPlacement";
+import { pendingBookLookups, previewLinkCitation, previewLinkPlacement } from "./linkPlacement";
 
 function records(body: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(`0 HEAD\n1 CHAR UTF-8\n${body}0 TRLR\n`).buffer)).records;
@@ -77,5 +77,35 @@ describe("previewLinkCitation", () => {
 
   it("leaves a link of an unknown site a plain link", () => {
     expect(previewLinkCitation(records(BOOK), "https://example.com/janez")).toBeUndefined();
+  });
+});
+
+describe("pendingBookLookups", () => {
+  const dataset = (body: string) =>
+    buildDataset(parseGedcom(new TextEncoder().encode(`0 HEAD\n1 CHAR UTF-8\n${body}0 TRLR\n`).buffer));
+  const GRAVE = "https://en.geneanet.org/cemetery/view/10429838";
+
+  it("names the book behind every link the merge would mint a source for", () => {
+    // Record-level and event-level alike: a confirmed match's links are read
+    // ahead of the save, whichever part of the record carries them.
+    const incoming = dataset(
+      `0 @P1@ INDI\n1 NAME Janez /Novak/\n1 BURI\n2 WWW ${GRAVE}\n` +
+        "1 WWW https://data.matricula-online.eu/de/slovenia/ljubljana/sencur/03173/?pg=58\n",
+    );
+    const books = pendingBookLookups(records("0 @I1@ INDI\n1 NAME Janez /Novak/\n"), [
+      incoming.individuals.get("@P1@")!,
+    ]);
+    expect(books).toContain(GRAVE);
+    expect(books).toContain("https://data.matricula-online.eu/de/slovenia/ljubljana/sencur/03173/");
+  });
+
+  it("asks nothing for a link the file already cites, or for an unknown site", () => {
+    // The source is already named — there is no page left to read for it.
+    const incoming = dataset(
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n" +
+        "1 WWW https://data.matricula-online.eu/de/slovenia/ljubljana/sencur/03173/?pg=56\n" +
+        "1 WWW https://example.com/janez\n",
+    );
+    expect(pendingBookLookups(records(BOOK), [incoming.individuals.get("@P1@")!])).toEqual([]);
   });
 });

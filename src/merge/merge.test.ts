@@ -984,6 +984,17 @@ describe("mergeDecisions — links", () => {
     expect(out).toMatch(/1 BURI\n2 PLAC Kranj\n2 SOUR @S\d+@/);
   });
 
+  it("writes nothing for an event the incoming file records with no detail at all", () => {
+    // The review shows the heading so the reader can see the incoming file
+    // knows the person died, but there is no field to decide and so nothing to
+    // write — the merge leaves the main record as it stands.
+    const main = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n"));
+    const compare = dataset(wrap("0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 DEAT Y\n"));
+    const { records, report } = mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr);
+    expect(serializeGedcom(records)).not.toContain("1 DEAT");
+    expect(report.changes).toHaveLength(0);
+  });
+
   it("keeps a recognized link on the record when the event it documents isn't there", () => {
     const main = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n"));
     const compare = dataset(
@@ -1932,7 +1943,7 @@ describe("materializeEventSources", () => {
     expect(mainDs.records.find((r) => r.xref === "@CS1@")?.children[0]?.value).toBe("Unrelated source");
   });
 
-  it("returns an empty array and does nothing when the incoming event has no SOUR", () => {
+  it("returns an empty array and does nothing when the incoming event has nothing to cite", () => {
     const mainDs = dataset(main);
     const compareDs = dataset(wrap("0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BAPM\n2 DATE 1850\n"));
     const eventNode: GedNode = { level: 1, tag: "BAPM", children: [] };
@@ -1942,6 +1953,34 @@ describe("materializeEventSources", () => {
 
     expect(imported).toEqual([]);
     expect(eventNode.children).toEqual([]);
+  });
+
+  it("brings the event's own link across as the source it would have become", () => {
+    // Correcting the place of a burial the merge suggested materializes the
+    // event and takes it out of the merge for good — so a cemetery link
+    // attached to it has this one chance to arrive, or it is lost with it.
+    const grave = "https://en.geneanet.org/cemetery/view/10429838";
+    const mainDs = dataset(main);
+    const compareDs = dataset(wrap(
+      `0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BURI\n2 PLAC Kranj\n2 WWW ${grave}\n`,
+    ));
+    const eventNode: GedNode = { level: 1, tag: "BURI", children: [{ level: 2, tag: "PLAC", value: "Zgornje Bitnje", children: [] }] };
+    mainDs.records.find((r) => r.xref === "@I1@")!.children.push(eventNode);
+    const incomingEvent = compareDs.individuals.get("@P1@")!.raw.children.find((c) => c.tag === "BURI")!;
+
+    const imported = materializeEventSources(mainDs, compareDs, eventNode, incomingEvent, {
+      linkFormat: "WWW",
+      pageMedia: "source",
+    });
+
+    // A citation of a minted source, not a bare link left on the event.
+    const citation = eventNode.children.find((c) => c.tag === "SOUR");
+    expect(citation?.value).toMatch(/^@S\d+@$/);
+    expect(eventNode.children.some((c) => c.tag === "WWW")).toBe(false);
+    const source = mainDs.records.find((r) => r.xref === citation!.value);
+    expect(source?.children.some((c) => c.tag === "TITL" && /Geneanet/.test(c.value ?? ""))).toBe(true);
+    // Every record it minted comes back, or undo would leave them behind.
+    expect(imported.map((r) => r.xref)).toContain(citation!.value);
   });
 });
 

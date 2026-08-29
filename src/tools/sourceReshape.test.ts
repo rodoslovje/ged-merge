@@ -7,6 +7,7 @@ import { createSourceRecord } from "../gedcom/edit";
 import type { ReshapeEnrichment, ReshapeSite } from "./sourceReshape";
 import {
   applySiteSourceExtras,
+  cachedBookMeta,
   detectPageMediaStyle,
   classifyBookType,
   fetchBookMeta,
@@ -15,6 +16,9 @@ import {
   findReshapableLinks,
   isFetchableSite,
   mergeFsBooks,
+  queueBookPages,
+  readBookPages,
+  resetBookQueue,
   narrowFsRegister,
   proposedSiteRepo,
   splitFsRegisters,
@@ -2539,6 +2543,47 @@ https://www.sistory.si/ww2/CE087EAC-BF00-4948-AA8D-BA678EB4E05D</p></body></html
       place: "Ljubljana",
       agency: "Inštitut za novejšo zgodovino",
     });
+  });
+
+  it("reads a queued book in the background, and the save then asks nothing", async () => {
+    // The point of queuing on confirm: by save time the page is already read,
+    // so the button opens the preview instead of holding for the network.
+    resetBookQueue();
+    let calls = 0;
+    const fetchHtml = async () => { calls++; return GRAVE_MD; };
+    const url = "https://en.geneanet.org/cemetery/view/770001";
+
+    queueBookPages([url], fetchHtml);
+    await vi.waitFor(() => expect(cachedBookMeta("geneanet", url)).toBeDefined());
+
+    // Nothing left for the save to read: the page is in this session's cache.
+    expect(await readBookPages([url], fetchHtml)).toBe(0);
+    expect(calls).toBe(1);
+  });
+
+  it("joins a read already in flight rather than asking twice", async () => {
+    resetBookQueue();
+    let calls = 0;
+    const fetchHtml = async () => { calls++; return GRAVE_MD; };
+    const url = "https://en.geneanet.org/cemetery/view/770002";
+
+    queueBookPages([url], fetchHtml);
+    await readBookPages([url], fetchHtml);
+
+    expect(calls).toBe(1);
+  });
+
+  it("never asks again for a book that answered nothing", async () => {
+    // A silent relay chain costs the better part of a minute; spending it again
+    // on every save for the same silence is what made saving slow.
+    resetBookQueue();
+    let calls = 0;
+    const fetchHtml = async () => { calls++; return undefined; };
+    const url = "https://en.geneanet.org/cemetery/view/770003";
+
+    expect(await readBookPages([url], fetchHtml)).toBe(0);
+    expect(await readBookPages([url], fetchHtml)).toBe(0);
+    expect(calls).toBe(1);
   });
 
   it("fetchBookMeta parses per-site and caches by book", async () => {

@@ -18,7 +18,7 @@ import { childText, findExistingSource, objeInfoOf, objeNodesFor, resolveSourceC
 import { looksLikeUrl } from "../gedcom/builder";
 import { firstChild } from "../gedcom/node";
 import type { FormatOverrides } from "../normalize/formatOverrides";
-import type { Dataset, GedNode, SourceCitation } from "../gedcom/types";
+import type { Dataset, Family, GedNode, Individual, SourceCitation } from "../gedcom/types";
 import {
   applySiteSourceExtras,
   cachedBookMeta,
@@ -148,11 +148,13 @@ export interface PlacedLink {
  *
  * The citation goes on the event the register documents (grave → `BURI`,
  * death → `DEAT`, baptism → the file's own `BIRT`/`BAPM`) when the main file's
- * habit is to cite events and the record already carries that event; otherwise
- * it stays on the record. It is never placed on an event the merge would have
- * to invent: an event appearing with no decision behind it is a change the save
- * preview cannot explain, and the Organize sources tool relocates such links
- * later with the whole file in view.
+ * habit is to cite events and the record already carries that event —
+ * including one this very merge has just brought in, since record-level links
+ * are written after every other row (see `applyLinks`); otherwise it stays on
+ * the record. It is never placed on an event the merge would have to invent:
+ * an event appearing with no decision behind it is a change the save preview
+ * cannot explain, and the Organize sources tool relocates such links later
+ * with the whole file in view.
  */
 export function placeRecordLink(
   record: GedNode,
@@ -236,6 +238,35 @@ function resolveSource(
 }
 
 /**
+ * The books a merge of these incoming links would have to read: the page of
+ * every recognized link the main file keeps no source for, and so would mint
+ * one from — the same question {@link mintSource} answers as it writes, asked
+ * early enough to be answered before the save needs it (see `queueBookPages`).
+ *
+ * A link the main already cites needs no page: the source is already named.
+ */
+export function pendingBookLookups(
+  records: GedNode[],
+  from: readonly (Individual | Family)[],
+): string[] {
+  const books: string[] = [];
+  const seen = new Set<string>();
+  const lookup = getSourceLookup(records);
+  const links = from.flatMap((r) => [...(r.links ?? []), ...r.events.flatMap((e) => e.links ?? [])]);
+  for (const url of links) {
+    const recognized = recognizeSourceUrl(url);
+    if (!recognized) continue;
+    const bookUrl = recognized.bookUrl ?? url;
+    if (seen.has(bookUrl)) continue;
+    seen.add(bookUrl);
+    if (!isFetchableSite(recognized.site, bookUrl)) continue;
+    if (findExistingSource(records, url, undefined, lookup)) continue;
+    books.push(bookUrl);
+  }
+  return books;
+}
+
+/**
  * The citation an incoming link would become, without writing anything — Edit
  * mode's preview of a confirmed match, which would otherwise show the bare
  * address and say nothing of the source it is about to join. Follows the same
@@ -278,8 +309,8 @@ export function previewLinkCitation(records: GedNode[], url: string): SourceCita
 /**
  * The same preview, plus where the citation would land: the tag of the event
  * this register documents, when the merge would move the citation there (the
- * file cites events and the record already carries that one), and nothing when
- * it would stay on the record itself.
+ * file cites events and the record — or, with `incomingEventTags`, the merge
+ * itself — carries that one), and nothing when it would stay on the record.
  */
 export function previewLinkPlacement(
   record: GedNode,
@@ -292,13 +323,19 @@ export function previewLinkPlacement(
      *  "event" puts the cited page's image beside the citation, so only then
      *  does the preview name one. */
     pageMedia?: PageMediaStyle;
+    /** Events the incoming record brings that the main one lacks. The merge
+     *  applies record-level links last, by which time such an event exists to
+     *  receive the citation (see `applyLinks`) — so the review must offer the
+     *  choice on that event's row, where the reader can see the burial the
+     *  grave link documents, rather than on the person's own row. */
+    incomingEventTags?: ReadonlySet<string>;
   } = {},
 ): { citation?: SourceCitation; eventTag?: string; pageImage?: string } {
   const citation = previewLinkCitation(records, url);
   if (!citation) return {};
   return {
     citation,
-    eventTag: citationEventTag(record, records, recognizeSourceUrl(url)?.site, citation.title, opts.overrides),
+    eventTag: citationEventTag(record, records, recognizeSourceUrl(url)?.site, citation.title, opts.overrides, opts.incomingEventTags),
     pageImage: opts.pageMedia === "event" ? pageImageUrl(records, citation, url) : undefined,
   };
 }
@@ -382,6 +419,10 @@ function citationEventTag(
   site: ReshapeSite | undefined,
   title: string | undefined,
   overrides: FormatOverrides | undefined,
+  /** Event tags the same merge is about to bring in from the incoming record,
+   *  which may hold the citation even though the main record has none yet —
+   *  see {@link previewLinkPlacement}. */
+  incomingTags?: ReadonlySet<string>,
 ): string | undefined {
   const want = smartCitationTarget(records, site ?? "other", title, {
     citations: overrides?.citations ?? "auto",
@@ -392,7 +433,8 @@ function citationEventTag(
   // change would never reach this record's preview card. Left at record level
   // for the Organize sources tool, which moves it with every record in view.
   if (!want || (want.onFam && record.tag !== "FAM")) return undefined;
-  return firstChild(record, want.eventTag) ? want.eventTag : undefined;
+  if (firstChild(record, want.eventTag)) return want.eventTag;
+  return incomingTags?.has(want.eventTag) ? want.eventTag : undefined;
 }
 
 /**

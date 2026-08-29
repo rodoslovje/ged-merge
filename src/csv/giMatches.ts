@@ -3,6 +3,7 @@ import { parseDate } from "../gedcom/date";
 import { sexFromGivenName } from "../gedcom/nameSex";
 import type { Dataset, GedNode, ParseResult, Sex } from "../gedcom/types";
 import { foldToken } from "../match/text";
+import { recognizeSourceUrl, siteEventTag } from "../tools/sourceReshape";
 
 /**
  * Import for the "matches" CSV exported by a genealogical index site such as
@@ -809,14 +810,42 @@ function personIndiChildren(
   const surname = stripSurnameAnnotation(col(row, "surname"));
   children.push(node(1, "NAME", `${given} /${surname}/`));
 
-  pushEvent(children, "BIRT", col(row, "birthDate"), col(row, "birthPlace"));
-  pushEvent(children, "DEAT", col(row, "deathDate"), col(row, "deathPlace"));
-  pushEvent(children, "BURI", col(row, "burialDate"), col(row, "burialPlace"));
-
-  for (const url of col(row, "links").split(",").map((s) => s.trim()).filter(Boolean)) {
-    children.push(node(1, "WWW", url));
-  }
+  const events: Array<{ tag: string; date: string; place: string }> = [
+    { tag: "BIRT", date: col(row, "birthDate"), place: col(row, "birthPlace") },
+    { tag: "DEAT", date: col(row, "deathDate"), place: col(row, "deathPlace") },
+    { tag: "BURI", date: col(row, "burialDate"), place: col(row, "burialPlace") },
+  ];
+  const { byTag, recordLinks } = splitRowLinks(col(row, "links"), events);
+  for (const e of events) pushEvent(children, e.tag, e.date, e.place, byTag.get(e.tag));
+  for (const url of recordLinks) children.push(node(1, "WWW", url));
   return children;
+}
+
+/**
+ * Which event each of a row's links documents. A cemetery link is evidence of
+ * the burial the same row names, an obituary of the death — attached there, the
+ * link is reviewed and merged as that event's source rather than as a bare link
+ * on the person, which is where the reader has to look for it anyway.
+ *
+ * Only an event the row itself gives a date or place to may take one: a link
+ * alone is too thin a reason to assert an event the index never stated.
+ */
+function splitRowLinks(
+  linksCell: string,
+  events: Array<{ tag: string; date: string; place: string }>,
+): { byTag: Map<string, string[]>; recordLinks: string[] } {
+  const byTag = new Map<string, string[]>();
+  const recordLinks: string[] = [];
+  const stated = new Set(
+    events.filter((e) => withoutAnnotation(e.date) || withoutAnnotation(e.place)).map((e) => e.tag),
+  );
+  for (const url of linksCell.split(",").map((s) => s.trim()).filter(Boolean)) {
+    const site = recognizeSourceUrl(url)?.site;
+    const tag = site && siteEventTag(site);
+    if (tag && stated.has(tag)) byTag.set(tag, [...(byTag.get(tag) ?? []), url]);
+    else recordLinks.push(url);
+  }
+  return { byTag, recordLinks };
 }
 
 /**

@@ -1815,6 +1815,122 @@ describe("family header naming", () => {
   });
 });
 
+describe("an incoming event the reader already took into the file", () => {
+  const wrap = (body: string) => `0 HEAD\n1 GEDC\n2 VERS 5.5.1\n${body}0 TRLR\n`;
+  // A residence can repeat, so Edit takes the incoming one out of the merge as
+  // it materializes a main event from it: an edited copy may fail to pair with
+  // its own original, and the save would then file the residence twice.
+  const rowsFor = (mainBody: string, rejected: string[]) => {
+    const m = dataset(wrap(mainBody));
+    const c = dataset(wrap(
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 RESI\n2 PLAC Žabnica, Kranj, Slovenia\n2 ADDR Žabnica 12\n",
+    ));
+    return individualFieldRows(
+      tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"), m, c, undefined, new Set(rejected),
+    );
+  };
+
+  it("still shows what the incoming file recorded, with nothing left to decide", () => {
+    const rows = rowsFor(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 RESI\n2 PLAC Zgornje Bitnje, Kranj, Slovenia\n2 ADDR Žabnica 12\n",
+      ["RESI:0"],
+    );
+    const place = byKey(rows, "RESI.place");
+    expect(place?.main).toBe("Zgornje Bitnje, Kranj, Slovenia");
+    expect(place?.incoming).toBe("Žabnica, Kranj, Slovenia");
+    // Marked as settled: the panel offers no choice, and the merge cannot
+    // reach the incoming event (its compare index is gone).
+    expect(place?.taken).toBe(true);
+    expect(place?.eventCompareIdx).toBe(-1);
+    // And it is no news for the match list to count.
+    expect(fieldDiffCounts(rows)).toEqual({ newCount: 0, diffCount: 0, linkCount: 0 });
+  });
+
+  it("stays blank when the reader deleted the main event instead", () => {
+    // Nothing of that residence is in the file — the incoming one was thrown
+    // away with it, and showing its values would invite taking it back.
+    const rows = rowsFor("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n", ["RESI:0"]);
+    expect(byKey(rows, "RESI.place")).toBeUndefined();
+    expect(byKey(rows, "RESI.header")).toBeUndefined();
+  });
+
+  it("goes on comparing a burial, which can only be the same event", () => {
+    // The once-in-a-life events are never taken out of the merge on being
+    // materialized: main's corrected place stands against the incoming one,
+    // with the ordinary choice between them.
+    const m = dataset(wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BURI\n2 PLAC Olševek, Šenčur, Slovenia\n2 ADDR Pokopališče Olševek\n",
+    ));
+    const c = dataset(wrap(
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BURI\n2 PLAC Preddvor, Preddvor, Slovenia\n2 ADDR Pokopališče Olševek\n",
+    ));
+    const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"), m, c);
+    expect(byKey(rows, "BURI.place")?.state).toBe("conflict");
+    expect(byKey(rows, "BURI.place")?.taken).toBeUndefined();
+    expect(defaultChoice(byKey(rows, "BURI.place")!)).toBe("main");
+    expect(byKey(rows, "BURI.addr")?.state).toBe("agree");
+  });
+});
+
+describe("an event with no details of its own", () => {
+  const wrap = (body: string) => `0 HEAD\n1 GEDC\n2 VERS 5.5.1\n${body}0 TRLR\n`;
+  const rowsFor = (mainBody: string, compareBody: string) => {
+    const m = dataset(wrap(mainBody));
+    const c = dataset(wrap(compareBody));
+    return individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"), m, c);
+  };
+
+  /** The rows between an event's header and the next header. */
+  const under = (rows: FieldRow[], headerKey: string) => {
+    const at = rows.findIndex((r) => r.key === headerKey);
+    if (at < 0) return undefined;
+    const rest = rows.slice(at + 1);
+    const end = rest.findIndex((r) => r.isGroupHeader);
+    return end < 0 ? rest : rest.slice(0, end);
+  };
+
+  it("still shows its heading, so a death the file records without a date is visible", () => {
+    const rows = rowsFor(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n",
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 DEAT\n",
+    );
+    // The heading alone: there is no field to compare, and inventing one to say
+    // so would be a row about nothing.
+    expect(byKey(rows, "DEAT.header")).toBeDefined();
+    expect(under(rows, "DEAT.header")).toEqual([]);
+  });
+
+  it("reads the bare Y as that same fact, not as a value to compare", () => {
+    // `1 DEAT Y` is GEDCOM's "it happened and no more is known" — the heading
+    // says it, and no "Y" is shown as though it were data.
+    const rows = rowsFor(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 DEAT Y\n",
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 DEAT\n",
+    );
+    expect(byKey(rows, "DEAT.header")).toBeDefined();
+    expect(under(rows, "DEAT.header")).toEqual([]);
+  });
+
+  it("compares its fields as usual once the event carries any", () => {
+    const rows = rowsFor(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n",
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 DEAT\n2 DATE 1910\n",
+    );
+    expect(byKey(rows, "DEAT.date")?.state).toBe("incoming-only");
+  });
+
+  it("shows the heading of a marriage stated without a date or place", () => {
+    const rows = rowsFor(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n",
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @PF1@\n" +
+        "0 @PW@ INDI\n1 NAME Ana /Kos/\n1 SEX F\n1 FAMS @PF1@\n" +
+        "0 @PF1@ FAM\n1 HUSB @P1@\n1 WIFE @PW@\n1 MARR Y\n",
+    );
+    expect(byKey(rows, "fam.@PF1@.MARR.header")).toBeDefined();
+    expect(under(rows, "fam.@PF1@.MARR.header")).toEqual([]);
+  });
+});
+
 describe("a record-level incoming link is reviewed on the event it will land on", () => {
   const BOOK =
     "0 @S1@ SOUR\n1 TITL Krstna knjiga - Šenčur\n1 OBJE @O1@\n" +
@@ -1825,9 +1941,9 @@ describe("a record-level incoming link is reviewed on the event it will land on"
       "1 WWW https://data.matricula-online.eu/de/slovenia/ljubljana/sencur/03173/?pg=58\n",
   );
 
-  function rowsFor(mainText: string) {
+  function rowsFor(mainText: string, incomingText = incoming) {
     const m = dataset(mainText);
-    const c = dataset(incoming);
+    const c = dataset(incomingText);
     return individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"), m, c);
   }
 
@@ -1866,10 +1982,28 @@ describe("a record-level incoming link is reviewed on the event it will land on"
     expect(birth?.incomingRecordLinks).toBeUndefined();
   });
 
-  it("keeps a link on the person when no event of its register is there", () => {
+  it("moves it onto an event only the incoming file brings", () => {
+    // The main has no birth at all, but the incoming record brings one and the
+    // merge writes a record's links after every other row — so the citation
+    // lands on that new birth, and the reader decides it there, beside it.
     const rows = rowsFor(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n" + BOOK));
+    expect(byKey(rows, "links")).toBeUndefined();
+    expect(byKey(rows, "BIRT.sources")?.incomingRecordLinks).toEqual([
+      "https://data.matricula-online.eu/de/slovenia/ljubljana/sencur/03173/?pg=58",
+    ]);
+  });
+
+  it("keeps a link on the person when neither file has an event of its register", () => {
+    const rows = rowsFor(
+      wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n" + BOOK),
+      wrap(
+        "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n" +
+          "1 WWW https://data.matricula-online.eu/de/slovenia/ljubljana/sencur/03173/?pg=58\n",
+      ),
+    );
     expect(byKey(rows, "links")?.incomingLinkIcons).toEqual([
       "https://data.matricula-online.eu/de/slovenia/ljubljana/sencur/03173/?pg=58",
     ]);
+    expect(byKey(rows, "BIRT.sources")).toBeUndefined();
   });
 });
