@@ -4,7 +4,7 @@ import type { Dataset, GedNode, Individual, SourceCitation } from "../../gedcom/
 import type { FormatOverrides } from "../../normalize/formatOverrides";
 import type { Translate } from "../../locales/i18n";
 import { materializeEventSources } from "../../merge/merge";
-import { previewLinkPlacement } from "../../merge/linkPlacement";
+import { linkPlacementFor, previewLinkPlacement } from "../../merge/linkPlacement";
 import { detectPageMediaStyle } from "../../tools/sourceReshape";
 import { familyMergeKeyBases, individualFieldRows, lifespanAnchors, orderedEventTags, zoneSortKey } from "../../review/fields";
 import { defaultChoice, findConfirmedDecision, type CandidateDecision } from "../../review/types";
@@ -316,7 +316,13 @@ export function useMergeOverlay({
     if (!incoming) return [];
     const incEvent = childrenByTag(incoming.raw, tag)[compareIdx];
     if (!incEvent) return [];
-    const imported = materializeEventSources(dataset, compareDataset, eventNode, incEvent);
+    // The same link-writing rules the save would follow, so a link attached to
+    // the incoming event (a cemetery page on its burial) becomes the citation
+    // it would have become there, rather than being left behind.
+    const imported = materializeEventSources(dataset, compareDataset, eventNode, incEvent, {
+      ...linkPlacementFor(dataset, formatOverrides),
+      pageMedia: pageMediaStyle,
+    });
     return imported.map((r) => ({ type: "record" as const, id: r.xref!, before: null, after: cloneRaw(r) }));
   });
 
