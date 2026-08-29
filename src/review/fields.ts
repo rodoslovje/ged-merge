@@ -272,7 +272,6 @@ function buildEventRows(
       const carried = (sourcesRow.incomingLinkIcons ?? []).filter((url) => moved.includes(url));
       if (carried.length) sourcesRow.incomingRecordLinks = carried;
     }
-    pushPresenceRow(subRows, `${keyBase}.present`, eventLabel, t, me, ce);
     if (showAge) {
       attachAges(subRows, `${keyBase}.date`,
         eventAgeBadges(main, mainDs, me, tag, t),
@@ -285,7 +284,10 @@ function buildEventRows(
     // številka, Etnična pripadnost) overruns the narrow label column and
     // collides with the value, so the row goes label-less under its header.
     for (const r of subRows) if (r.label === eventLabel) r.displayLabel = "";
-    if (subRows.length > 0) {
+    // The header stands even with nothing under it: an event carrying no
+    // comparable field — a bare `DEAT`, a burial with neither date nor place —
+    // is itself the record that the person died, and dropping the group hid it.
+    if (subRows.length > 0 || me || ce) {
       rows.push({
         key: `${keyBase}.header`, label: eventLabel, labelTitle: customTitle, main: "", incoming: "", state: "agree", isGroupHeader: true, isEventHeader: true,
       });
@@ -429,23 +431,23 @@ function buildFamilyRows(
         const carried = (etagSourcesRow.incomingLinkIcons ?? []).filter((url) => movedHere.includes(url));
         if (carried.length) etagSourcesRow.incomingRecordLinks = carried;
       }
-      pushPresenceRow(etagRows, `${famKey}.${etag}.present`, eventDisplayLabel(etag, t, EVENT_LABELS[etag]), t, mEv, cEv);
       if (showAge) {
         attachAges(etagRows, `${famKey}.${etag}.date`,
           coupleEventAges(mFam, mainDs, mEv, t),
           coupleEventAges(cFam, compareDs, cEv, t));
       }
-      if (etagRows.length > 0) {
-        const baseLabel = eventDisplayLabel(etag, t, EVENT_LABELS[etag]);
-        const headerType = isEven ? (mEv?.type ?? cEv?.type) : undefined;
-        rows.push({
-          key: `${famKey}.${etag}.header`,
-          label: headerType?.trim() || baseLabel,
-          labelTitle: isEven ? t("event.customTooltip", { tag: etag }) : undefined,
-          main: "", incoming: "", state: "agree", isGroupHeader: true, isEventHeader: true,
-        });
-        rows.push(...etagRows);
-      }
+      // One side has the event (see the guard above), so its header stands even
+      // when there is nothing under it to compare — a marriage stated without a
+      // date or place is still the record that the couple married.
+      const baseLabel = eventDisplayLabel(etag, t, EVENT_LABELS[etag]);
+      const headerType = isEven ? (mEv?.type ?? cEv?.type) : undefined;
+      rows.push({
+        key: `${famKey}.${etag}.header`,
+        label: headerType?.trim() || baseLabel,
+        labelTitle: isEven ? t("event.customTooltip", { tag: etag }) : undefined,
+        main: "", incoming: "", state: "agree", isGroupHeader: true, isEventHeader: true,
+      });
+      rows.push(...etagRows);
     }
 
     // The family's own record-level citations and links, the couple's
@@ -824,29 +826,6 @@ function eventValueText(event: GedEvent | undefined, isEven: boolean): string | 
   const value = event?.value;
   if (isEven || value?.trim().toUpperCase() !== "Y") return value;
   return undefined;
-}
-
-/**
- * The row an otherwise empty event gets: a burial with no date or place, a
- * `1 DEAT` recording only that the person died. Without it the event has no
- * field to show, so the whole group vanishes from the review and the reader
- * cannot tell a person the incoming file knows to be dead from one it says
- * nothing about. Reads and merges like any other row — taking it brings the
- * event over, empty, exactly as the incoming file holds it.
- */
-function pushPresenceRow(
-  rows: FieldRow[],
-  key: string,
-  label: string,
-  t: Translate,
-  main: GedEvent | undefined,
-  incoming: GedEvent | undefined,
-): void {
-  if (rows.length > 0 || (!main && !incoming)) return;
-  const recorded = t("event.recorded");
-  // Label-less: the group header right above already names the event, and the
-  // label is kept only for the save preview's own line.
-  pushRow(rows, key, label, main ? recorded : undefined, incoming ? recorded : undefined, "");
 }
 
 /**

@@ -1823,46 +1823,54 @@ describe("an event with no details of its own", () => {
     return individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"), m, c);
   };
 
-  it("still shows the event, so a death the file records without a date is visible", () => {
+  /** The rows between an event's header and the next header. */
+  const under = (rows: FieldRow[], headerKey: string) => {
+    const at = rows.findIndex((r) => r.key === headerKey);
+    if (at < 0) return undefined;
+    const rest = rows.slice(at + 1);
+    const end = rest.findIndex((r) => r.isGroupHeader);
+    return end < 0 ? rest : rest.slice(0, end);
+  };
+
+  it("still shows its heading, so a death the file records without a date is visible", () => {
     const rows = rowsFor(
       "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n",
       "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 DEAT\n",
     );
+    // The heading alone: there is no field to compare, and inventing one to say
+    // so would be a row about nothing.
     expect(byKey(rows, "DEAT.header")).toBeDefined();
-    const present = byKey(rows, "DEAT.present");
-    expect(present?.main).toBe("");
-    expect(present?.incoming).toBe("event.recorded");
-    expect(present?.state).toBe("incoming-only");
+    expect(under(rows, "DEAT.header")).toEqual([]);
   });
 
   it("reads the bare Y as that same fact, not as a value to compare", () => {
-    // `1 DEAT Y` is GEDCOM's "it happened and no more is known" — one row
-    // saying so, the same one a detail-less DEAT gets, and no "Y" anywhere.
+    // `1 DEAT Y` is GEDCOM's "it happened and no more is known" — the heading
+    // says it, and no "Y" is shown as though it were data.
     const rows = rowsFor(
       "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 DEAT Y\n",
       "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 DEAT\n",
     );
-    expect(byKey(rows, "DEAT.value")).toBeUndefined();
-    expect(byKey(rows, "DEAT.present")?.state).toBe("agree");
+    expect(byKey(rows, "DEAT.header")).toBeDefined();
+    expect(under(rows, "DEAT.header")).toEqual([]);
   });
 
-  it("says nothing extra once the event carries any detail", () => {
+  it("compares its fields as usual once the event carries any", () => {
     const rows = rowsFor(
       "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n",
       "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 DEAT\n2 DATE 1910\n",
     );
-    expect(byKey(rows, "DEAT.date")).toBeDefined();
-    expect(byKey(rows, "DEAT.present")).toBeUndefined();
+    expect(byKey(rows, "DEAT.date")?.state).toBe("incoming-only");
   });
 
-  it("shows a marriage the incoming family states without a date or place", () => {
+  it("shows the heading of a marriage stated without a date or place", () => {
     const rows = rowsFor(
       "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n",
       "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @PF1@\n" +
         "0 @PW@ INDI\n1 NAME Ana /Kos/\n1 SEX F\n1 FAMS @PF1@\n" +
         "0 @PF1@ FAM\n1 HUSB @P1@\n1 WIFE @PW@\n1 MARR Y\n",
     );
-    expect(byKey(rows, "fam.@PF1@.MARR.present")?.incoming).toBe("event.recorded");
+    expect(byKey(rows, "fam.@PF1@.MARR.header")).toBeDefined();
+    expect(under(rows, "fam.@PF1@.MARR.header")).toEqual([]);
   });
 });
 

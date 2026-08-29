@@ -1,9 +1,9 @@
 changeReport.title
 ==================
 
-changeReport.stat.records:        205
-changeReport.stat.fields:         166
-changeReport.stat.newFields:      165
+changeReport.stat.records:        202
+changeReport.stat.fields:         162
+changeReport.stat.newFields:      161
 changeReport.stat.added:          151
 changeReport.stat.removed:          0
 changeReport.stat.undescribed:      0
@@ -14,10 +14,6 @@ changeReport.applied
 Arthur Tudor  @I28@
 -------------------
   event.TITL: changeReport.verb.added "Prince of Wales"
-
-Archibald Douglas + Margaret Tudor  @F141@
-------------------------------------------
-  event.DIV: changeReport.verb.added "event.recorded"
 
 Jane Grey  @I159@
 -----------------
@@ -42,10 +38,6 @@ Henry Tudor  @I14@
   event.TITL: changeReport.verb.added "King of England"
   event.colPlace: changeReport.verb.added "Whitehall,London,England"
 
-Henry Tudor + Catherine of Aragon  @F31@
-----------------------------------------
-  event.DIV: changeReport.verb.added "event.recorded"
-
 Henry Tudor + Jane Seymour  @F33@
 ---------------------------------
   event.colPlace: changeReport.verb.added "York Place,,England"
@@ -53,7 +45,6 @@ Henry Tudor + Jane Seymour  @F33@
 Henry Tudor + Anne of Cleves  @F34@
 -----------------------------------
   event.colPlace: changeReport.verb.added "Greenwich,,England"
-  event.DIV: changeReport.verb.added "event.recorded"
 
 Henry Tudor + Catherine Howard  @F35@
 -------------------------------------
@@ -170,10 +161,6 @@ Jane Seymour  @I18@
 Catherine Grey  @I191@
 ----------------------
   event.TITL: changeReport.verb.added "Lady"
-
-Henry Herbert + Catherine Grey  @F69@
--------------------------------------
-  event.DIV: changeReport.verb.added "event.recorded"
 
 Elizabeth Cavendish  @I225@
 ---------------------------

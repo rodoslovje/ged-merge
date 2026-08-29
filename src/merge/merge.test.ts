@@ -984,24 +984,15 @@ describe("mergeDecisions — links", () => {
     expect(out).toMatch(/1 BURI\n2 PLAC Kranj\n2 SOUR @S\d+@/);
   });
 
-  it("takes a death the incoming file records with no detail at all", () => {
-    // The index knows the person died and nothing more. Kept out of the merge,
-    // that fact was invisible: the review had no row for an event with no
-    // fields, so nobody could take it (see `applyEventPresence`).
+  it("writes nothing for an event the incoming file records with no detail at all", () => {
+    // The review shows the heading so the reader can see the incoming file
+    // knows the person died, but there is no field to decide and so nothing to
+    // write — the merge leaves the main record as it stands.
     const main = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n"));
     const compare = dataset(wrap("0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 DEAT Y\n"));
     const { records, report } = mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr);
-    expect(serializeGedcom(records)).toContain("1 DEAT Y");
-    expect(report.changes.some((c) => c.to === "event.recorded")).toBe(true);
-  });
-
-  it("leaves a death the main already records alone", () => {
-    const main = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 DEAT\n2 DATE 1910\n"));
-    const compare = dataset(wrap("0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 DEAT Y\n"));
-    const { records } = mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr);
-    const out = serializeGedcom(records);
-    expect(out).toContain("1 DEAT\n2 DATE 1910");
-    expect(out).not.toContain("1 DEAT Y");
+    expect(serializeGedcom(records)).not.toContain("1 DEAT");
+    expect(report.changes).toHaveLength(0);
   });
 
   it("keeps a recognized link on the record when the event it documents isn't there", () => {
