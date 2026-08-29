@@ -1815,6 +1815,45 @@ describe("family header naming", () => {
   });
 });
 
+describe("an incoming event the reader already took into the file", () => {
+  const wrap = (body: string) => `0 HEAD\n1 GEDC\n2 VERS 5.5.1\n${body}0 TRLR\n`;
+  // Edit materialized the burial the merge suggested — with the place
+  // corrected — and rejected its incoming counterpart, as it must, or the save
+  // would file the same burial twice.
+  const rowsFor = (mainBody: string, rejected: string[]) => {
+    const m = dataset(wrap(mainBody));
+    const c = dataset(wrap(
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BURI\n2 PLAC Žabnica, Kranj, Slovenia\n2 ADDR Pokopališče Zgornje Bitnje\n",
+    ));
+    return individualFieldRows(
+      tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"), m, c, undefined, new Set(rejected),
+    );
+  };
+  const MAIN_WITH_BURIAL =
+    "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BURI\n2 PLAC Zgornje Bitnje, Kranj, Slovenia\n2 ADDR Pokopališče Zgornje Bitnje\n";
+
+  it("still shows what the incoming file recorded, with nothing left to decide", () => {
+    const rows = rowsFor(MAIN_WITH_BURIAL, ["BURI:0"]);
+    const place = byKey(rows, "BURI.place");
+    expect(place?.main).toBe("Zgornje Bitnje, Kranj, Slovenia");
+    expect(place?.incoming).toBe("Žabnica, Kranj, Slovenia");
+    // Marked as settled: the panel offers no choice, and the merge cannot
+    // reach the incoming event (its compare index is gone).
+    expect(place?.taken).toBe(true);
+    expect(place?.eventCompareIdx).toBe(-1);
+    // And it is no news for the match list to count.
+    expect(fieldDiffCounts(rows)).toEqual({ newCount: 0, diffCount: 0, linkCount: 0 });
+  });
+
+  it("stays blank when the reader deleted the main event instead", () => {
+    // Nothing of that burial is in the file — the incoming one was thrown away
+    // with it, and showing its values would invite taking it back.
+    const rows = rowsFor("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n", ["BURI:0"]);
+    expect(byKey(rows, "BURI.place")).toBeUndefined();
+    expect(byKey(rows, "BURI.header")).toBeUndefined();
+  });
+});
+
 describe("an event with no details of its own", () => {
   const wrap = (body: string) => `0 HEAD\n1 GEDC\n2 VERS 5.5.1\n${body}0 TRLR\n`;
   const rowsFor = (mainBody: string, compareBody: string) => {

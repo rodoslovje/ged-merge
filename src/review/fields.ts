@@ -227,7 +227,15 @@ function buildEventRows(
     const compareEvents = compare?.events.filter((e) => e.tag === tag) ?? [];
     const rejected = compareIdx >= 0 && (rejectedEvents?.has(`${tag}:${compareIdx}`) ?? false);
     const me = mainIdx >= 0 ? mainEvents[mainIdx] : undefined;
-    const ce = !rejected && compareIdx >= 0 ? compareEvents[compareIdx] : undefined;
+    // An incoming event is rejected either because the reader took it into the
+    // file by hand — editing one of its fields materializes a main event of the
+    // same tag (see `rejectIncomingEvent`) — or because they deleted the main
+    // event it was paired with. The main record having that event tells the two
+    // apart: where it does, the event is in the file now and there is nothing
+    // left to decide, but blanking the column would say the incoming file never
+    // recorded a burial at all. So its values stay on screen, for the record.
+    const taken = rejected && !!me;
+    const ce = compareIdx >= 0 && (!rejected || taken) ? compareEvents[compareIdx] : undefined;
     const effectiveCompareIdx = rejected ? -1 : compareIdx;
     const keyBase = multi ? `${tag}.${keyIdx}` : tag;
     // A generic `EVEN`/`FACT` shows its descriptive `TYPE` (e.g. "Civil
@@ -277,6 +285,10 @@ function buildEventRows(
         eventAgeBadges(main, mainDs, me, tag, t),
         eventAgeBadges(compare, compareDs, ce, tag, t));
     }
+    // Shown, never decided again: the incoming event is out of the merge (its
+    // `eventCompareIdx` is -1, so no row of it can apply), and the panel says
+    // so instead of offering choices that would do nothing.
+    if (taken) for (const r of subRows) { r.taken = true; r.incomingRecordLinks = undefined; }
     for (const r of subRows) { r.eventMainIdx = mainIdx; r.eventCompareIdx = effectiveCompareIdx; }
     // An event's own line value (`1 REFN Mlinar`, an attribute's text) is
     // labelled with the event's name — which the group header directly above
@@ -703,6 +715,8 @@ export function fieldDiffCounts(
   let diffCount = 0;
   let linkCount = 0;
   for (const row of rows) {
+    // Already in the file: shown for the record, but nothing this match adds.
+    if (row.taken) continue;
     const isLink = row.mainLinks !== undefined || row.incomingLinks !== undefined;
     const isSources = row.mainSources !== undefined || row.incomingSources !== undefined
       || row.mainLinkIcons !== undefined || row.incomingLinkIcons !== undefined;
@@ -1360,7 +1374,9 @@ const BIRTH_DATE_ROW = /^(BIRT|BAPM|CHR)(\.\d+)?\.date$/;
  * (see `nodeStatus` in chart/personTree), so a row and its node agree.
  */
 export function isMajorDifference(row: FieldRow): boolean {
-  if (row.state !== "conflict") return false;
+  // An event already taken into the file is settled: its incoming value is on
+  // screen for the record, and the reader's own is the one that stands.
+  if (row.state !== "conflict" || row.taken) return false;
   if (row.key === "given" || row.key === "surname") return true;
   if (!BIRTH_DATE_ROW.test(row.key)) return false;
   const mainYear = parseDate(row.main).year;
