@@ -1342,6 +1342,18 @@
               house as a level below it, so a file that numbers houses in the place still browses by settlement.
             </p>
             <p>
+              Where every record under a row writes the same value — which is what a stray like
+              <em>?/Grosova ulica 18</em> is — the rename box carries an <strong>Address</strong> field beside the place,
+              the same split the geocoding rows offer. That value is not a place spelt wrong: it is a house in a place
+              your file never named, so correcting it takes both halves — <em>Kokrica, Kranj, Slovenia</em> as the place
+              and <em>Grosova ulica 18</em> as the address, which lands on the event's own <code>ADDR</code> line. The
+              address field completes from the houses your file writes at that place, from the place · address pairs it
+              knows, and — behind the online opt-in — from the address register itself, and taking any of those fills in
+              the place beside it too, since a house is only ever a house somewhere. A row standing for several
+              different values has no such split to offer: what a rename does there is rewrite the level's name wherever
+              it appears, and a house cannot be lifted out of values that do not all carry the same one.
+            </p>
+            <p>
               A place the file has a coordinate for shows it beside the count, so browsing the tree also tells you what
               is still ungeocoded. It is the coordinate written for that exact level: a place named only by its region
               carries the region's. <strong>Click a coordinate</strong> to open the coordinate panel — the same one the

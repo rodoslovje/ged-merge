@@ -13,6 +13,9 @@ import { foldSearch } from "../globalSearch";
 import { useNameOf } from "../SettingsContext";
 import { MapIcon } from "../icons/MapIcon";
 import { PlaceAutocomplete } from "../edit/PlaceAutocomplete";
+import { usePlaceLookup } from "../edit/PlaceLookupContext";
+import { placeKey, type PlaceSuggestions } from "../edit/placeSuggestions";
+import type { PlaceProposal } from "../../geo/placeProposal";
 
 const MiniPlaceMap = lazy(() => import("../map/MiniPlaceMap"));
 
@@ -652,6 +655,75 @@ export function CandidateOption({
         {badge}
       </label>
     </li>
+  );
+}
+
+/**
+ * The address half of a rename that splits a value: the house on the event's own
+ * `ADDR` line, beside the place it stands in.
+ *
+ * A field with the same three helps the place beside it has — what this file
+ * already writes at that place, the place·address pairs it knows, and the
+ * address register itself. The register matters most here: a house number is
+ * exactly what a gazetteer of settlements cannot answer, and a value naming a
+ * quarter of a town ("Čirče") is filed there as a street inside the town,
+ * reachable only by asking for the address.
+ */
+export function AddressSplitField({
+  place,
+  value,
+  placeSug,
+  placeCombos,
+  onChange,
+  onPickCombo,
+  onPickProposal,
+}: {
+  /** The place draft beside it — what the register is asked about the house
+   *  *within*, and which of the file's addresses are offered plainly. */
+  place: string;
+  value: string;
+  placeSug: PlaceSuggestions;
+  /** Every place+address pair the file writes. */
+  placeCombos: { place: string; addr: string }[];
+  onChange: (value: string) => void;
+  onPickCombo: (place: string, addr: string) => void;
+  onPickProposal: (proposal: PlaceProposal) => void;
+}) {
+  const { t } = useTranslation();
+  const lookup = usePlaceLookup();
+  // Pairs at *other* places, since the addresses of the drafted place are
+  // already its plain suggestions.
+  const combos = useMemo(
+    () => placeCombos.filter((cb) => placeKey(cb.place) !== placeKey(place)),
+    [placeCombos, place],
+  );
+  return (
+    <span className="tools-geo-addr-chip tools-geo-addr-chip--field" title={t("tools.geocode.renameAddrTooltip")}>
+      {t("event.colAddr")}:
+      <PlaceAutocomplete
+        value={value}
+        suggestions={placeSug.placeToAddrs.get(placeKey(place)) ?? []}
+        canonical={placeSug.addrCanonical}
+        combos={combos}
+        // The pair list is this field's only route to another settlement, so a
+        // typed place name matches too (as in the Edit row).
+        matchCombosByPlace
+        isDirty={false}
+        className="tools-geo-addr-chip-input"
+        wrapClassName="tools-geo-addr-chip-auto"
+        placeholder={t("tools.geocode.renameAddrPlaceholder")}
+        onChange={onChange}
+        onCommit={onChange}
+        onClear={() => onChange("")}
+        onPickCombo={onPickCombo}
+        onPickProposal={onPickProposal}
+        // House numbers live only in the online registers — an imported
+        // gazetteer holds settlements — so with the opt-in off the field says
+        // why instead of offering a search that cannot answer.
+        onLookup={lookup?.online ? (query) => lookup.searchAddress(place, query) : undefined}
+        lookupNote={lookup && !lookup.online ? t("tools.geocode.downloadNeedsOptIn") : undefined}
+      />
+    </span>
   );
 }
 

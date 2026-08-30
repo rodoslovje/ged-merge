@@ -12,15 +12,14 @@ import { useLocalRegisters } from "../useLocalRegisters";
 import { adminOf, chosenCoordFor, pickLabel, type ChosenCoord, type FileCoord, type GeoAssignment, type GeocodeRow } from "../../tools/geocode";
 import { replaceLocality } from "../../tools/addresses";
 import type { KinshipResolver } from "../../match/kinship";
-import { PlaceAutocomplete } from "../edit/PlaceAutocomplete";
 import { usePlaceLookup } from "../edit/PlaceLookupContext";
-import { placeKey, type PlaceSuggestions } from "../edit/placeSuggestions";
+import type { PlaceSuggestions } from "../edit/placeSuggestions";
 import type { PlaceProposal } from "../../geo/placeProposal";
 import { placeCollator } from "../../gedcom/place";
 import { useSettingsSlice } from "../SettingsContext";
 import { EventCoordPicker } from "../edit/EventCoordPicker";
 import { LookupAction } from "../edit/LookupAction";
-import { CandidateOption, GeoPeopleList, GeoRowHeader, MapToggle, RenameEditor } from "./shared";
+import { AddressSplitField, CandidateOption, GeoPeopleList, GeoRowHeader, MapToggle, RenameEditor } from "./shared";
 
 // One row of the Geocode-places review list: the raw PLAC value, its badge
 // (file coordinate / score / remembered / no-match), the rename editor, and —
@@ -205,13 +204,6 @@ export function GeocodePlaceRow({
     setRenamePick(null);
   };
   const renameDisabled = !renameDraft.trim() || (renameDraft.trim() === row.key && !renameAddrDraft.trim());
-
-  // The address field's combos: pairs at *other* places, since the addresses of
-  // the drafted place are already its plain suggestions.
-  const addrCombos = useMemo(
-    () => placeCombos.filter((cb) => placeKey(cb.place) !== placeKey(renameDraft)),
-    [placeCombos, renameDraft],
-  );
 
   /**
    * A register offer picked in the **address** field, where the register is
@@ -556,43 +548,19 @@ export function GeocodePlaceRow({
           onLookup={lookup ? (query) => lookup.search(query) : undefined}
           lookupNote={lookup && !lookup.online ? t("event.place.lookup.offlineOnly") : undefined}
         >
-          {/* The address half of the split, with the same three helps the place
-              beside it has: what this file already writes at that place, the
-              place·address pairs it knows, and the address register itself.
-              The register matters most here — a house number is exactly what
-              the settlements gazetteer cannot answer, and a value naming a
-              quarter of a town ("Čirče") is filed there as a street inside the
-              town, reachable only by asking for the address. */}
-          <span className="tools-geo-addr-chip tools-geo-addr-chip--field" title={t("tools.geocode.renameAddrTooltip")}>
-            {t("event.colAddr")}:
-            <PlaceAutocomplete
-              value={renameAddrDraft}
-              suggestions={placeSug.placeToAddrs.get(placeKey(renameDraft)) ?? []}
-              canonical={placeSug.addrCanonical}
-              combos={addrCombos}
-              // The pair list is this field's only route to another settlement,
-              // so a typed place name matches too (as in the Edit row).
-              matchCombosByPlace
-              isDirty={false}
-              className="tools-geo-addr-chip-input"
-              wrapClassName="tools-geo-addr-chip-auto"
-              placeholder={t("tools.geocode.renameAddrPlaceholder")}
-              onChange={setRenameAddrDraft}
-              onCommit={setRenameAddrDraft}
-              onClear={() => setRenameAddrDraft("")}
-              onPickCombo={(place, addr) => {
-                setRenameDraft(place);
-                setRenameAddrDraft(addr);
-                setRenamePick(null);
-              }}
-              onPickProposal={pickAddrProposal}
-              // House numbers live only in the online registers — an imported
-              // gazetteer holds settlements — so with the opt-in off the field
-              // says why instead of offering a search that cannot answer.
-              onLookup={lookup?.online ? (query) => lookup.searchAddress(renameDraft, query) : undefined}
-              lookupNote={lookup && !lookup.online ? t("tools.geocode.downloadNeedsOptIn") : undefined}
-            />
-          </span>
+          <AddressSplitField
+            place={renameDraft}
+            value={renameAddrDraft}
+            placeSug={placeSug}
+            placeCombos={placeCombos}
+            onChange={setRenameAddrDraft}
+            onPickCombo={(place, addr) => {
+              setRenameDraft(place);
+              setRenameAddrDraft(addr);
+              setRenamePick(null);
+            }}
+            onPickProposal={pickAddrProposal}
+          />
         </RenameEditor>
       )}
       {isOpen && (

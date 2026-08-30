@@ -1381,6 +1381,18 @@
               po naseljih mogoče brskati tudi po datoteki, ki hišne številke piše kar v kraju.
             </p>
             <p>
+              Kadar vsi zapisi pod vrstico pišejo isto vrednost — kar velja za osamelca, kakršen je
+              <em>?/Grosova ulica 18</em> — ima polje za preimenovanje ob kraju še polje <strong>Naslov</strong>, torej
+              enako razdelitev, kot jo ponujata seznama za geokodiranje. Taka vrednost ni napačno zapisan kraj, ampak
+              hiša v kraju, ki ga vaša datoteka ni nikoli imenovala, zato jo popravite z obema polovicama:
+              <em>Kokrica, Kranj, Slovenija</em> kot kraj in <em>Grosova ulica 18</em> kot naslov, ki se zapiše na
+              dogodkovo vrstico <code>ADDR</code>. Polje za naslov se dopolnjuje iz hiš, ki jih vaša datoteka v tem kraju
+              že piše, iz parov kraj · naslov, ki jih pozna, in — za spletno privolitvijo — iz registra naslovov; z
+              izbiro katere koli od teh ponudb se izpolni tudi kraj ob njem, saj je hiša vedno hiša nekje. Vrstica, pod
+              katero je več različnih vrednosti, te razdelitve ne ponudi: preimenovanje tam prepiše ime ravni povsod,
+              kjer se pojavi, hiše pa ni mogoče vzeti iz vrednosti, ki je vse ne nosijo enake.
+            </p>
+            <p>
               Kraj, za katerega ima datoteka koordinato, jo pokaže ob števcu, zato med brskanjem po drevesu vidite tudi,
               kaj še ni geokodirano. To je koordinata, zapisana prav za to raven: kraj, poimenovan le s pokrajino, nosi
               pokrajinsko. S <strong>klikom na koordinato</strong> se odpre okno za koordinato — isto, kot ga odpirajo
