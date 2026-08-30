@@ -1,10 +1,10 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
+import { parseCoordInput } from "../../gedcom/place";
 import { formatCoord, sameCoord } from "../../geo/points";
 import { scanPlaceCoords, type CoordConflict } from "../../tools/placeCoords";
 import { placeAddrKey } from "../../tools/geocode";
-import { parseManualCoord } from "./GeocodePlaceRow";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
 import { foldSearch } from "../globalSearch";
 import { ExpandAllToggle, GeoRowHeader, MapToggle } from "./shared";
@@ -168,7 +168,7 @@ export function CoordConflicts({
           const isOpen = open.has(key);
           const chosen = picked.get(key);
           const manualText = manual.get(key) ?? "";
-          const manualCoord = parseManualCoord(manualText);
+          const manualCoord = parseCoordInput(manualText);
           const manualChosen = !!manualCoord && sameCoord(chosen, manualCoord);
           /** The option's place in the list is the number it and its pin wear —
            *  the same reading aid the geocode lists use, so two coordinates a
@@ -277,7 +277,7 @@ export function CoordConflicts({
                         onChange={(e) => {
                           const text = e.target.value;
                           setManual((prev) => new Map(prev).set(key, text));
-                          const coord = parseManualCoord(text);
+                          const coord = parseCoordInput(text);
                           if (coord) pick(key, coord);
                         }}
                       />

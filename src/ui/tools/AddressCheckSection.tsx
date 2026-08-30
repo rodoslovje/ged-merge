@@ -7,7 +7,7 @@ import { isOfflineQuery } from "../../geo/rn";
 import { foldSearch } from "../globalSearch";
 import type { Dataset } from "../../gedcom/types";
 import type { KinshipResolver } from "../../match/kinship";
-import { deleteDecision, putDecisions, type GeocodeDecision } from "../../persist/geoDb";
+import { setDismissed, type GeocodeDecision } from "../../persist/geoDb";
 import {
   addressDecisionKey,
   ADDRESS_ASIDE,
@@ -230,12 +230,11 @@ export function AddressCheckSection({
 
   /** Hide a finding, or — on one already hidden — bring it back. The restore
    *  half was missing: the button read "Prikaži" and wrote the dismissal again,
-   *  so a row put away by mistake could not be fetched out. The places list has
-   *  always deleted the decision instead; this now does the same. */
+   *  so a row put away by mistake could not be fetched out. Both compliance
+   *  lists now go through the one store call, which is also what makes a
+   *  failing write leave the row alone instead of throwing. */
   const dismiss = async (f: AddressFinding) => {
-    const key = addressDecisionKey(f.key);
-    if (f.dismissed) await deleteDecision(key);
-    else await putDecisions([{ key, status: REGISTER_DISMISSED, ts: Date.now() }]);
+    await setDismissed(addressDecisionKey(f.key), !f.dismissed, REGISTER_DISMISSED);
     setReport((prev) =>
       prev
         ? { ...prev, findings: prev.findings.map((o) => (o.key === f.key ? { ...o, dismissed: !f.dismissed } : o)) }

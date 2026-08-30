@@ -360,6 +360,30 @@ export async function deleteDecision(key: string): Promise<void> {
   await withGeoDb((db) => requestDone(db.transaction(DECISIONS_STORE, "readwrite").objectStore(DECISIONS_STORE).delete(key)));
 }
 
+/**
+ * Set a finding aside, or fetch one back that was — the two compliance reports'
+ * *Hide* / *Show*, which is one judgement written two ways: a dismissal stored
+ * under the finding's key, or that key deleted.
+ *
+ * Shared because the two lists had a copy each and they drifted: a failing
+ * write was an unhandled rejection in one of them, leaving the toggle silently
+ * where it was. There is nothing better to do about a store that will not take
+ * it than to carry on — every caller re-reads the decisions afterwards, so what
+ * the list then shows is whatever actually holds.
+ */
+export async function setDismissed(
+  key: string,
+  dismissed: boolean,
+  status: GeocodeDecision["status"],
+): Promise<void> {
+  try {
+    if (dismissed) await putDecisions([{ key, status, ts: Date.now() }]);
+    else await deleteDecision(key);
+  } catch {
+    // Deliberately swallowed — see above.
+  }
+}
+
 /** Forget every remembered place lookup — Settings › "Clear locally stored
  *  data". These are keyed by the raw PLAC values of the user's own file, so
  *  they are the user's data and a request to erase local data has to reach

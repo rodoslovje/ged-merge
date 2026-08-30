@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
-import { sameCoord } from "../../geo/points";
+import { formatCoord, sameCoord } from "../../geo/points";
 import type { GazCandidate } from "../../geo/gazetteer";
 import { placeLookupLanguage } from "../../geo/lookupLanguage";
 import { osmKindLabel, searchNominatim, type NominatimResult } from "../../geo/nominatim";
@@ -39,17 +39,6 @@ const SETTINGS_KEYS = ["allowLinkFetch"] as const;
 function scoreBadgeClass(score: number, confident: boolean): string {
   const exact = Math.round(score * 100) >= 100;
   return `tools-geo-score${confident ? " confident" : exact ? "" : " warn"}${exact ? " exact" : ""}`;
-}
-
-/** "lat, lon" free input → validated coordinate. */
-export function parseManualCoord(text: string): GeoCoord | undefined {
-  const m = /^\s*(-?\d+(?:[.,]\d+)?)\s*[,;\s]\s*(-?\d+(?:[.,]\d+)?)\s*$/.exec(text);
-  if (!m) return undefined;
-  const lat = Number(m[1].replace(",", "."));
-  const lon = Number(m[2].replace(",", "."));
-  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return undefined;
-  if (Math.abs(lat) > 90 || Math.abs(lon) > 180) return undefined;
-  return { lat, lon };
 }
 
 interface Props {
@@ -492,7 +481,7 @@ export function GeocodePlaceRow({
               onToggleMap(row.key);
             }}
           >
-            = {c.label} · <span className="gm-data gm-coord gm-coord--set">{c.coord.lat.toFixed(4)}, {c.coord.lon.toFixed(4)}</span>
+            = {c.label} · <span className="gm-data gm-coord gm-coord--set">{formatCoord(c.coord)}</span>
           </button>
         )}
         {/* The coordinate panel itself, with no button of its own: the
@@ -705,7 +694,7 @@ export function GeocodePlaceRow({
                   <span className="tools-geo-cand-num">{numberOf(row.fileCoord)}</span>
                   <span className="tools-geo-cand-name">{t("tools.geocode.fromFile")}</span>
                   <span className="gm-data gm-coord">
-                    {row.fileCoord.lat.toFixed(4)}, {row.fileCoord.lon.toFixed(4)}
+                    {formatCoord(row.fileCoord)}
                   </span>
                 </label>
               </li>
@@ -734,7 +723,7 @@ export function GeocodePlaceRow({
                   )}
                   <span className="gm-data gm-coord">
                     {cand.entry.population > 0 && `· ${t("tools.geocode.population", { count: cand.entry.population })} · `}
-                    {`${cand.entry.lat.toFixed(4)}, ${cand.entry.lon.toFixed(4)}`}
+                    {formatCoord({ lat: cand.entry.lat, lon: cand.entry.lon })}
                   </span>
                   {/* Green means "this is going in", the same as in the row's
                       header — so the candidate the row is actually on wears the
@@ -781,7 +770,7 @@ export function GeocodePlaceRow({
                       that, all three spelled identically. */}
                   {osmKindLabel(r, t) && <span className="tools-geo-cand-kind">{osmKindLabel(r, t)}</span>}
                   <span className="gm-data gm-coord">
-                    {r.coord.lat.toFixed(4)}, {r.coord.lon.toFixed(4)}
+                    {formatCoord(r.coord)}
                   </span>
                   <span className="tools-reshape-badge reuse">OSM</span>
                 </label>
@@ -805,7 +794,7 @@ export function GeocodePlaceRow({
                       four same-named Osredek differ only in this. */}
                   {r.admin && <span className="tools-geo-count">({r.admin})</span>}
                   <span className="gm-data gm-coord">
-                    {r.coord.lat.toFixed(4)}, {r.coord.lon.toFixed(4)}
+                    {formatCoord(r.coord)}
                   </span>
                   <span className="tools-reshape-badge new">GOV</span>
                 </label>
@@ -828,7 +817,7 @@ export function GeocodePlaceRow({
                       not read as another spelling of the settlement above. */}
                   <span className="tools-geo-cand-name gm-addr">{r.label}</span>
                   <span className="gm-data gm-coord">
-                    {r.coord.lat.toFixed(4)}, {r.coord.lon.toFixed(4)}
+                    {formatCoord(r.coord)}
                   </span>
                   <span className="tools-reshape-badge official">GURS</span>
                 </label>

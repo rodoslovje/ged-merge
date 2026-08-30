@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { deleteDecision, putDecisions } from "../../persist/geoDb";
+import { setDismissed } from "../../persist/geoDb";
 import { countryOf, pickLabel, placeAddrKey, type FileCoord, type GeoAssignment, type OfficialRename } from "../../tools/geocode";
 import { isOfflineQuery, rnQueriesFrom, searchAddresses } from "../../geo/rn";
 import { countryCodeOfName } from "../../geo/placeCountry";
@@ -29,7 +29,7 @@ import {
   RenameEditor,
   RenameToggle,
 } from "./shared";
-import { sameCoord } from "../../geo/points";
+import { formatCoord, sameCoord } from "../../geo/points";
 import { usePlaceLookup } from "../edit/PlaceLookupContext";
 import { EventCoordPicker } from "../edit/EventCoordPicker";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
@@ -451,15 +451,7 @@ export function RegisterCheckSection({
 
   const dismiss = useCallback(
     async (f: RegisterFinding) => {
-      const key = registerDecisionKey(f.key);
-      try {
-        if (f.dismissed) await deleteDecision(key);
-        else await putDecisions([{ key, status: REGISTER_DISMISSED, ts: Date.now() }]);
-      } catch {
-        // An IndexedDB failure was an unhandled rejection and the toggle
-        // silently stayed put. There is nothing better to do than leave the row
-        // as it is — the refresh below re-reads whatever state actually holds.
-      }
+      await setDismissed(registerDecisionKey(f.key), !f.dismissed, REGISTER_DISMISSED);
       onDecisionsChanged();
     },
     [onDecisionsChanged],
@@ -1034,7 +1026,7 @@ const RegisterRow = memo(function RegisterRow({
                               onToggleMap(f.key);
                             }}
                           >
-                            {o.entry.lat.toFixed(4)}, {o.entry.lon.toFixed(4)}
+                            {formatCoord({ lat: o.entry.lat, lon: o.entry.lon })}
                           </button>
                           <span className={`tools-reshape-badge ${o.entry.register ? "official" : "reuse"}`}>
                             {directoryOf(o.entry)}

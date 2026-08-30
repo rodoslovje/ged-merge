@@ -78,15 +78,27 @@ export function placeNodeCoord(plac: GedNode): GeoCoord | undefined {
 }
 
 /**
- * Parse a typed coordinate pair — "46.24137, 14.35580", "46.24137 14.35580", or
- * the GEDCOM hemisphere form "N46.24137 E14.3558" — into decimal degrees.
- * Returns undefined unless exactly two parseable values are present, so a
- * half-typed entry simply isn't offered yet.
+ * Parse a typed coordinate pair — "46.24137, 14.35580", "46.24137 14.35580",
+ * the GEDCOM hemisphere form "N46.24137 E14.3558", or the decimal comma of most
+ * of Europe ("46,24137 14,35580") — into decimal degrees. Returns undefined
+ * unless exactly two parseable values are present, so a half-typed entry simply
+ * isn't offered yet.
+ *
+ * The one parser behind every field where a coordinate can be typed or pasted:
+ * the tools once had a second, plainer one of their own, and the same text was
+ * taken by one list and refused by the next.
  */
 export function parseCoordInput(raw: string): GeoCoord | undefined {
   const parts = raw.split(/[,;\s]+/).filter(Boolean);
-  if (parts.length !== 2) return undefined;
-  return parseCoordPair(parts[0], parts[1]);
+  if (parts.length === 2) return parseCoordPair(parts[0], parts[1]);
+  // A decimal comma, as most of Europe writes it — and as every map site in
+  // those countries offers for copying. Split on the separators above, "46,0511
+  // 14,5051" is four numbers and was refused; read as two decimal numbers with
+  // one separator between them it is exactly what was pasted. Tried second, so
+  // nothing this already understood ("N46 05, E14 30") changes meaning.
+  const decimalComma = /^\s*(-?\d+(?:[.,]\d+)?)\s*[,;\s]\s*(-?\d+(?:[.,]\d+)?)\s*$/.exec(raw);
+  if (!decimalComma) return undefined;
+  return parseCoordPair(decimalComma[1].replace(",", "."), decimalComma[2].replace(",", "."));
 }
 
 /** One LATI/LONG value to signed decimal degrees; `negative` names the
