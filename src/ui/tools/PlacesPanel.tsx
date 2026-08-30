@@ -15,12 +15,11 @@ import { ToolSummary } from "./ToolSummary";
 import { formatCoord } from "../../geo/points";
 import { PlaceAutocomplete } from "../edit/PlaceAutocomplete";
 import { EventCoordPicker } from "../edit/EventCoordPicker";
+import { PlaceLookupProvider, usePlaceLookup, usePlaceLookupValue } from "../edit/PlaceLookupContext";
+import { buildPlaceSuggestions, type PlaceSuggestions } from "../edit/placeSuggestions";
+import { renameInValue } from "../../tools/placeEdit";
+import type { PlaceProposal } from "../../geo/placeProposal";
 import { PinIcon } from "../icons/PinIcon";
-
-/** The rename field completes from the file's own place segments, which are
- *  already exactly as the file writes them — there is no separate canonical
- *  spelling to snap to. */
-const EMPTY_CANONICAL = new Map<string, string>();
 
 /** How far the row's map opens on a single coordinate: close enough to read
  *  the town and its streets, since the question a place's map answers is
@@ -235,6 +234,23 @@ export function PlacesPanel({
     setTree(buildPlaceTree(dataset));
   }
 
+  /**
+   * What the rename box completes from, beyond the names beside the one being
+   * renamed: every place value the file already writes — the same list the Edit
+   * fields and both geocoding rename boxes offer. A row under *Unspecified
+   * country* has siblings that are all as unplaced as it is, and what it wants
+   * is one of the places the file writes properly.
+   */
+  const placeSug = useMemo(
+    () => derivations?.placeSuggestions() ?? buildPlaceSuggestions(dataset),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dataset, tree],
+  );
+  /** And the registers behind it — the same lookup the geocoding and naming
+   *  rename boxes are built on, so a place the file has never written properly
+   *  can be completed here too: its chain, its house, its coordinate. */
+  const placeLookup = usePlaceLookupValue(dataset, placeSug.placeSuggestions);
+
   // What the geocode tool has to offer, as the chip's two badges: distinct
   // place names still missing coordinates, and addresses a register lookup
   // could pin to their house. Both recomputed with the tree (same trigger:
@@ -289,7 +305,9 @@ export function PlacesPanel({
     );
 
   return (
-    <>
+    /* The rename boxes below reach the registers through this, exactly as the
+       geocoding and naming pages' boxes do. */
+    <PlaceLookupProvider value={placeLookup}>
       <div className="tools-filter-row">
         <TreeSearch value={query} onChange={setQuery} />
         <div className="tools-chip-group">
@@ -352,13 +370,14 @@ export function PlacesPanel({
               onApplyAddressCoords={onApplyAddressCoords}
               onClearPlaceCoords={onClearPlaceCoords}
               onCoordChange={handleCoordChange}
+              placeSug={placeSug}
               siblings={siblingNames.get("") ?? []}
               siblingNames={siblingNames}
             />
           ))}
         </ul>
       )}
-    </>
+    </PlaceLookupProvider>
   );
 }
 
@@ -374,6 +393,7 @@ function PlaceTreeRow({
   onApplyAddressCoords,
   onClearPlaceCoords,
   onCoordChange,
+  placeSug,
   siblings,
   siblingNames,
 }: {
@@ -394,6 +414,8 @@ function PlaceTreeRow({
   onClearPlaceCoords: (pairs: Set<string>) => number;
   /** Rebuild the tree after either of them wrote. */
   onCoordChange: () => void;
+  /** The file's own places, for the rename box's completions. */
+  placeSug: PlaceSuggestions;
   /** The names sitting beside this one under the same parent — what a rename
    *  of this node may complete to, and what makes it a merge. */
   siblings: string[];
@@ -401,8 +423,15 @@ function PlaceTreeRow({
   siblingNames: Map<string, string[]>;
 }) {
   const { t } = useTranslation();
+  const lookup = usePlaceLookup();
   const [editing, setEditing] = useState(false);
   const [renameValue, setRenameValue] = useState("");
+  /** A register offer picked in the box: its text is in the draft, and its
+   *  coordinate rides along on apply. Kept with the text it belongs to, so
+   *  editing the draft afterwards drops the coordinate rather than writing one
+   *  that describes a different place — the rule both geocoding rename boxes
+   *  follow. */
+  const [renamePick, setRenamePick] = useState<{ text: string; coord: GeoCoord } | null>(null);
   const debouncedRename = useDebounced(renameValue, 250);
   /** The row's coordinate panel — the one the geocoding lists and the Edit
    *  rows open. Per-row state, so the panel belongs to the coordinate that
@@ -513,17 +542,61 @@ function PlaceTreeRow({
     return previewPlaceRename(dataset, node.name, target, nodeScope);
   }, [editing, debouncedRename, node.name, dataset, nodeScope]);
 
+  /**
+   * What the box completes from: the names beside this one first — renaming to
+   * one of those is the merge the button then offers — and behind them every
+   * place the file already writes. The sibling list alone is no help at all
+   * where the siblings are the problem: under *Unspecified country* they are
+   * seventy values as unplaced as this one, and what such a row wants is one of
+   * the places the file writes properly, or a register's answer below them.
+   */
+  const renameSuggestions = useMemo(() => {
+    const own = siblings.filter((s) => s !== node.name);
+    const seen = new Set(own.map((s) => s.toLowerCase()));
+    return [...own, ...placeSug.placeSuggestions.filter((p) => p !== node.name && !seen.has(p.toLowerCase()))];
+  }, [siblings, node.name, placeSug.placeSuggestions]);
+
+  /**
+   * A register's answer picked in the box. Its whole chain becomes the new name
+   * — which is what places a value the file wrote as a bare "Kokrica" under the
+   * country it belongs to — and a house row takes the register's spelling of
+   * the house instead, since that is the segment it renames.
+   */
+  const pickProposal = (proposal: PlaceProposal) => {
+    const text = (node.isAddress && addrValue ? (proposal.addr ?? proposal.plac) : proposal.plac).trim();
+    setRenameValue(text);
+    setRenamePick({ text, coord: proposal.coord });
+  };
+
   function openEdit() {
     setRenameValue(node.name);
+    setRenamePick(null);
     setEditing(true);
   }
 
   function handleApply() {
     const target = renameValue.trim();
     if (target === node.name) return;
+    // The coordinate the offer brought, written onto what the rename makes of
+    // this row's values — the register answered for the place it named, and
+    // that is the value the records now carry. Only where the row has none of
+    // its own: a spelling corrected from the register must not quietly move a
+    // position that was already reviewed, which the panel beside it is for.
+    const picked = renamePick && renamePick.text === target && !spots ? renamePick : null;
     onRename(node.name, target, nodeScope);
+    if (picked) {
+      const renamedValue = (text: string) => (text ? (renameInValue(text, node.name, target) ?? text) : text);
+      const renamed = new Map<string, GeoCoord>();
+      for (const key of coordKeys) {
+        const [place, addr] = key.split("\0");
+        renamed.set(placeAddrKey(renamedValue(place), renamedValue(addr)), picked.coord);
+      }
+      onApplyAddressCoords(renamed);
+      onCoordChange();
+    }
     setEditing(false);
     setRenameValue("");
+    setRenamePick(null);
   }
 
   const targetTrimmed = renameValue.trim();
@@ -675,8 +748,8 @@ function PlaceTreeRow({
               dark popup over the light app) and cannot be styled at all. */}
           <PlaceAutocomplete
             value={renameValue}
-            suggestions={siblings.filter((s) => s !== node.name)}
-            canonical={EMPTY_CANONICAL}
+            suggestions={renameSuggestions}
+            canonical={placeSug.placeCanonical}
             isDirty={false}
             className="tools-place-rename-input"
             wrapClassName="tools-place-rename-auto"
@@ -685,9 +758,30 @@ function PlaceTreeRow({
             // A rename may be exactly a casing fix, which the canonical map
             // would otherwise undo — as on the address rename row.
             preserveCase
-            onChange={setRenameValue}
+            onChange={(next) => {
+              setRenameValue(next);
+              setRenamePick(null);
+            }}
             onCommit={setRenameValue}
-            onClear={() => setRenameValue("")}
+            onClear={() => {
+              setRenameValue("");
+              setRenamePick(null);
+            }}
+            onPickProposal={pickProposal}
+            // A house row asks the address registers about a house *at* its
+            // place; everything else asks the place registers about a place.
+            // Online lookups off still leaves the imported gazetteer answering
+            // places — but no register of houses, so a house row says why
+            // instead of offering a search that cannot answer.
+            {...(node.isAddress && addrValue
+              ? {
+                  ...(lookup?.online ? { onLookup: (query: string) => lookup.searchAddress(placeValue, query) } : {}),
+                  ...(lookup && !lookup.online ? { lookupNote: t("tools.geocode.downloadNeedsOptIn") } : {}),
+                }
+              : {
+                  ...(lookup ? { onLookup: (query: string) => lookup.search(query) } : {}),
+                  ...(lookup && !lookup.online ? { lookupNote: t("event.place.lookup.offlineOnly") } : {}),
+                })}
           />
           {preview && (
             <span className="tools-place-rename-hint">
@@ -731,6 +825,7 @@ function PlaceTreeRow({
                 onApplyAddressCoords={onApplyAddressCoords}
                 onClearPlaceCoords={onClearPlaceCoords}
                 onCoordChange={onCoordChange}
+                placeSug={placeSug}
                 siblings={siblingNames.get(path) ?? node.children.map((c) => c.name)}
                 siblingNames={siblingNames}
               />
