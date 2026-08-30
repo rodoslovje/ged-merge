@@ -1,3 +1,4 @@
+import { birthParentFamilies } from "../couple";
 import { birthSortKey } from "../lifespan";
 import type { Dataset, Family, GedNode, Individual, Sex } from "../types";
 import { FAM_CHILD_ORDER, getOrCreateChild, INDI_CHILD_ORDER, insertOrdered, insertRecord, nextXref, removeChild } from "./shared";
@@ -232,6 +233,14 @@ export function connectExistingPartner(
  * Connect an existing individual as a child of `person`.
  * If `fam` is given, the child is added there; otherwise a new spouse family
  * is created for `person`.
+ *
+ * A person is born into exactly one family, so joining this one means leaving
+ * whichever birth family they were in: the child is detached from it (and it is
+ * dropped if that leaves it below two members). Linking without detaching would
+ * write a second `FAMC` — two sets of parents on one person, which the health
+ * check flags as `multipleParents`. Adoptive and foster links are left alone,
+ * being a legitimate second family. The caller confirms the move first — see
+ * EditView's `connectRelative`.
  */
 export function connectExistingChild(
   dataset: Dataset,
@@ -249,6 +258,15 @@ export function connectExistingChild(
       addFamilyLink(person, "FAMS", fam.id);
     rebuildIndividual(dataset, person);
   }
+  // Ids read up front: detaching splices the child's own FAMC lines.
+  const leaving = birthParentFamilies(child, dataset)
+    .map((f) => f.id)
+    .filter((id) => id !== fam!.id);
+  for (const id of leaving) {
+    const old = dataset.families.get(id);
+    if (old) detachChildFromFamily(dataset, old, childId);
+  }
+
   if (!fam.children.includes(childId)) addFamilyChild(dataset, fam, childId);
   if (!child.raw.children.some((c) => c.tag === "FAMC" && c.value === fam!.id))
     addFamilyLink(child, "FAMC", fam.id);

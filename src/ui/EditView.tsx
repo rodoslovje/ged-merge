@@ -6,7 +6,7 @@ import { lastChangedText } from "../gedcom/chanCrea";
 import { birthDateOf } from "../gedcom/lifespan";
 import { familiesByMarriage } from "../gedcom/familySort";
 import { coupleAgesDisplay, lifespanWithAge } from "../gedcom/age";
-import { isSameSexCouple } from "../gedcom/couple";
+import { birthParentFamilies, isSameSexCouple } from "../gedcom/couple";
 import { childrenByTag, firstChild } from "../gedcom/node";
 import { defaultStartId, primaryName } from "../match/relatives";
 import { splitFullName } from "../gedcom/name";
@@ -1479,57 +1479,81 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     const existing = dataset.individuals.get(existingId);
     if (!existing) return;
 
-    // Snapshot both people, every family either already belongs to, and every
-    // other member of those families, so the diff afterwards catches whatever
-    // the connect did — including a family it dissolved (connecting the second
-    // parent moves the child into the couple's existing family and drops the
-    // stub, which unlinks the FAMS of the parent already sitting there). A
-    // hand-listed set of patches misses those, and undo restores the record
-    // without the pointers back into it.
-    const knownFamIds = new Set<string>([
-      ...person.spouseOf,
-      ...person.childOf,
-      ...existing.spouseOf,
-      ...existing.childOf,
-      ...(fam ? [fam.id] : []),
-    ]);
-    const knownIndiIds = new Set<string>([person.id, existingId]);
-    for (const famId of knownFamIds) {
-      const f = dataset.families.get(famId);
-      if (!f) continue;
-      for (const id of [f.husband, f.wife, ...f.children]) if (id) knownIndiIds.add(id);
-    }
-    const before = snapshotRecords(dataset, knownIndiIds, knownFamIds);
+    const runConnect = () => {
+      // Snapshot both people, every family either already belongs to, and every
+      // other member of those families, so the diff afterwards catches whatever
+      // the connect did — including a family it dissolved (connecting the second
+      // parent moves the child into the couple's existing family and drops the
+      // stub, which unlinks the FAMS of the parent already sitting there). A
+      // hand-listed set of patches misses those, and undo restores the record
+      // without the pointers back into it.
+      const knownFamIds = new Set<string>([
+        ...person.spouseOf,
+        ...person.childOf,
+        ...existing.spouseOf,
+        ...existing.childOf,
+        ...(fam ? [fam.id] : []),
+      ]);
+      const knownIndiIds = new Set<string>([person.id, existingId]);
+      for (const famId of knownFamIds) {
+        const f = dataset.families.get(famId);
+        if (!f) continue;
+        for (const id of [f.husband, f.wife, ...f.children]) if (id) knownIndiIds.add(id);
+      }
+      const before = snapshotRecords(dataset, knownIndiIds, knownFamIds);
+  
+      if (kind === "father") connectExistingParent(dataset, person, existingId, fam, "father");
+      else if (kind === "mother") connectExistingParent(dataset, person, existingId, fam, "mother");
+      else if (kind === "partner") connectExistingPartner(dataset, person, existingId, fam);
+      else connectExistingChild(dataset, person, existingId, fam);
+  
+      const patches: RecordPatch[] = patchesFromSnapshots(dataset, before);
+      // Plus any family the connect created — no snapshot exists to diff it against.
+      const updatedPerson = dataset.individuals.get(person.id);
+      const updatedExisting = dataset.individuals.get(existingId);
+      for (const famId of new Set([
+        ...(updatedPerson?.spouseOf ?? []),
+        ...(updatedPerson?.childOf ?? []),
+        ...(updatedExisting?.spouseOf ?? []),
+        ...(updatedExisting?.childOf ?? []),
+      ])) {
+        if (knownFamIds.has(famId)) continue;
+        const newFam = dataset.families.get(famId);
+        if (newFam) patches.push({ type: "family", id: famId, before: null, after: cloneRaw(newFam.raw) });
+      }
+  
+      onPushEdit(patches, selectedId);
+      // Everything the connect touched — both people, the family it changed or
+      // created, and any it dissolved on the way — settled one by one: joining
+      // the couple's existing family drops the stub the first parent made, which
+      // leaves that parent's record exactly as it was found.
+      onRecordsSettled(patches);
+      relationsGenRef.current += 1;
+      setPickingSlot(null);
+      setTick((v) => v + 1);
+    };
 
-    if (kind === "father") connectExistingParent(dataset, person, existingId, fam, "father");
-    else if (kind === "mother") connectExistingParent(dataset, person, existingId, fam, "mother");
-    else if (kind === "partner") connectExistingPartner(dataset, person, existingId, fam);
-    else connectExistingChild(dataset, person, existingId, fam);
-
-    const patches: RecordPatch[] = patchesFromSnapshots(dataset, before);
-    // Plus any family the connect created — no snapshot exists to diff it against.
-    const updatedPerson = dataset.individuals.get(person.id);
-    const updatedExisting = dataset.individuals.get(existingId);
-    for (const famId of new Set([
-      ...(updatedPerson?.spouseOf ?? []),
-      ...(updatedPerson?.childOf ?? []),
-      ...(updatedExisting?.spouseOf ?? []),
-      ...(updatedExisting?.childOf ?? []),
-    ])) {
-      if (knownFamIds.has(famId)) continue;
-      const newFam = dataset.families.get(famId);
-      if (newFam) patches.push({ type: "family", id: famId, before: null, after: cloneRaw(newFam.raw) });
-    }
-
-    onPushEdit(patches, selectedId);
-    // Everything the connect touched — both people, the family it changed or
-    // created, and any it dissolved on the way — settled one by one: joining
-    // the couple's existing family drops the stub the first parent made, which
-    // leaves that parent's record exactly as it was found.
-    onRecordsSettled(patches);
-    relationsGenRef.current += 1;
-    setPickingSlot(null);
-    setTick((v) => v + 1);
+    // A person is born into one family, so taking somebody as a child here
+    // moves them out of the family they are in. Name those parents and ask
+    // first — the alternative is a person with two sets of them, which is what
+    // the health check's "Two sets of parents" finding is about.
+    const leaving = kind === "child"
+      ? birthParentFamilies(existing, dataset).find((f) => f.id !== fam?.id)
+      : undefined;
+    if (!leaving) { runConnect(); return; }
+    const parents = [leaving.husband, leaving.wife]
+      .map((id) => (id ? dataset.individuals.get(id) : undefined))
+      .filter((p): p is Individual => !!p)
+      .map((p) => formatName(p))
+      .join(" & ");
+    const name = formatName(existing);
+    setPendingConfirm({
+      message: parents
+        ? t("edit.childHasParentsConfirm", { name, parents })
+        : t("edit.childHasFamilyConfirm", { name }),
+      confirmLabel: t("confirm.move"),
+      action: runConnect,
+    });
   });
 
   // Identity-stable so the memoized `EventList`/`FamilySection` don't re-render
