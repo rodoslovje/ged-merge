@@ -78,7 +78,7 @@ export function isDeceased(indi: Individual | undefined): boolean {
 }
 
 /** Years since a birth still counts a person as possibly living (privacy default). */
-const LIVING_WINDOW_YEARS = 100;
+export const LIVING_WINDOW_YEARS = 100;
 
 /** A rough generational gap (years) used to estimate an undated birth from kin. */
 const GENERATION = 28;
@@ -155,7 +155,7 @@ const NETWORK_SEARCH_MAX_VISITED = 500;
  * stays cheap on large datasets; among everything found within those bounds it
  * returns the most recent (safe-default, "presume living") estimate.
  */
-function estimateBirthYearFromNetwork(start: Individual, ds: Dataset): number | undefined {
+export function estimateBirthYearFromNetwork(start: Individual, ds: Dataset): number | undefined {
   const visited = new Set<string>([start.id]);
   let frontier: { id: string; offset: number }[] = [{ id: start.id, offset: 0 }];
   let best: number | undefined;

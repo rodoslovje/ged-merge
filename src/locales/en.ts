@@ -1404,6 +1404,43 @@ export const en = {
   "timeline.role.stepdaughter": "Stepdaughter",
   "timeline.role.stepchild": "Stepchild",
   "timeline.role.descendant": "Descendant",
+  // ── Contemporaries chart ──────────────────────────────────────────────────
+  // Every blood relative of one person, placed by how closely they are related
+  // (birth links between the two), and by default filtered to those whose life
+  // overlapped the root's.
+  "kin.button": "Contemporaries",
+  "kin.pageTitle": "Contemporaries",
+  "kin.layout": "Layout",
+  "kin.layout.wheel": "Wheel",
+  "kin.layout.bars": "Bars",
+  "kin.scope": "Who",
+  "kin.scope.contemporaries": "Contemporaries",
+  "kin.scope.all": "All blood kin",
+  "kin.aliveIn": "Alive in",
+  "kin.count_one": "{{count}} blood relative",
+  "kin.count_other": "{{count}} blood relatives",
+  "kin.countInYear": "alive in {{year}}: {{n}}",
+  "kin.wedge.own": "Own line",
+  "kin.wedge.unknown": "Unknown line",
+  "kin.settings.colour": "Colour",
+  "kin.settings.colour.generation": "Generation",
+  "kin.settings.colour.branch": "Family line",
+  "kin.settings.colour.living": "Living",
+  "kin.settings.names": "Names",
+  // Ring captions: what a given number of birth links usually means. Only the
+  // rings with a settled name are captioned; the rest show the number alone,
+  // because one ring holds several relationships (four birth links is a first
+  // cousin, but also a great-uncle).
+  "kin.ring.0": "self",
+  "kin.ring.1": "parent · child",
+  "kin.ring.2": "sibling · grandparent",
+  "kin.ring.3": "uncle · nephew",
+  "kin.ring.4": "first cousin",
+  "kin.ring.6": "second cousin",
+  "kin.ring.8": "third cousin",
+  "kin.ring.10": "fourth cousin",
+  "kin.ring.12": "fifth cousin",
+  "kin.ring.14": "sixth cousin",
   "map.button": "Map",
   "map.pageTitle": "Places Map",
   "map.count": "{{shown}} of {{total}} events",

@@ -18,11 +18,11 @@ export type PedigreeType = "tree" | "grid" | "fan" | "circle";
  *  the kind). The hub's kind switcher drives this; `type` keeps tracking the
  *  last pedigree chart so display logic (radial vs layered) stays valid while
  *  a non-pedigree view is open. */
-export type ChartKind = PedigreeType | "relationship" | "timeline" | "map" | "report";
+export type ChartKind = PedigreeType | "relationship" | "timeline" | "kin" | "map" | "report";
 
 /** The hub kinds that are not pedigree charts: choosing them leaves `type`
  *  untouched, so leaving them restores the last pedigree chart. */
-const NON_PEDIGREE_KINDS = ["relationship", "timeline", "map", "report"] as const;
+const NON_PEDIGREE_KINDS = ["relationship", "timeline", "kin", "map", "report"] as const;
 
 /** The preferences this file reads — subscribed field by field, so an
  *  unrelated one changing leaves it alone (see useSettingsSlice). */
@@ -32,6 +32,17 @@ export type { ChartAlignment };
 
 /** Whose lifespan bars carry event dots on the Timeline. */
 export type TimelineEventScope = "person" | "all" | "off";
+
+/** Contemporaries: the wheel of blood distance, or the same people as bars on a
+ *  year axis. */
+export type KinLayout = "wheel" | "bars";
+
+/** Contemporaries: which blood relatives are drawn — the ones whose life
+ *  overlapped the root's, or every one of them. */
+export type KinScope = "contemporaries" | "all";
+
+/** Contemporaries: what a dot's colour says. */
+export type KinColour = "generation" | "branch" | "living";
 
 export interface ChartSettings {
   type: PedigreeType;
@@ -81,6 +92,14 @@ export interface ChartSettings {
   /** Report: a table of contents up top — one line per generation with its
    *  entry-number range, linked to the section in every rendering. */
   reportToc: boolean;
+  /** Contemporaries: wheel or bars. */
+  kinLayout: KinLayout;
+  /** Contemporaries: the root's contemporaries, or every blood relative. */
+  kinScope: KinScope;
+  /** Contemporaries: the colour axis. */
+  kinColour: KinColour;
+  /** Contemporaries: write names beside the closest kin. */
+  kinNames: boolean;
 }
 
 const DEFAULTS: ChartSettings = {
@@ -106,6 +125,10 @@ const DEFAULTS: ChartSettings = {
   showSources: false,
   reportNarrative: false,
   reportToc: false,
+  kinLayout: "wheel",
+  kinScope: "contemporaries",
+  kinColour: "generation",
+  kinNames: true,
 };
 
 const STORAGE_KEY = "gedmerge.chartSettings";
@@ -190,6 +213,13 @@ function load(defaults: { showAge: boolean; showMarriedName: boolean }): ChartSe
       showEducation: bool(parsed.showEducation, DEFAULTS.showEducation),
       showNotes: bool(parsed.showNotes, DEFAULTS.showNotes),
       showSources: bool(parsed.showSources, DEFAULTS.showSources),
+      kinLayout: parsed.kinLayout === "bars" ? "bars" : DEFAULTS.kinLayout,
+      kinScope: parsed.kinScope === "all" ? "all" : DEFAULTS.kinScope,
+      kinColour:
+        parsed.kinColour === "branch" || parsed.kinColour === "living"
+          ? parsed.kinColour
+          : DEFAULTS.kinColour,
+      kinNames: bool(parsed.kinNames, DEFAULTS.kinNames),
       reportNarrative: bool(parsed.reportNarrative, DEFAULTS.reportNarrative),
       reportToc: bool(parsed.reportToc, DEFAULTS.reportToc),
     };

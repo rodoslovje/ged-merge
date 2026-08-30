@@ -5069,6 +5069,142 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 }
 .timeline-residence.alt { opacity: 0.55; }
 
+
+/* ── Contemporaries chart (KinshipChart) ──────────────────────────────────────
+   Two layouts over one data pass: the wheel, where the distance from the centre
+   is the blood distance and each wedge is a grandparent line; and the bars, the
+   same people on a year axis banded by that distance. Dot and bar fills come
+   inline from the component (the colour axis is a user choice); the structure
+   is themed here. */
+.kin-controls {
+  gap: 14px 18px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.kin-year {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.kin-year input[type="range"] {
+  width: 170px;
+  accent-color: var(--accent);
+}
+.kin-year-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--accent);
+  min-width: 3.4em;
+}
+.kin-count {
+  font-size: 13px;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+/* Wheel structure: dotted rings for the blood distances, hairline spokes
+   between the family lines. */
+.kin-ring {
+  fill: none;
+  stroke: var(--border);
+  stroke-width: 0.8;
+  stroke-dasharray: 2 4;
+}
+.kin-spoke {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+.kin-wedge-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.kin-wedge-count {
+  fill: var(--faint);
+  font-weight: 400;
+}
+.kin-dot {
+  cursor: pointer;
+  stroke-width: 0.9;
+  stroke-opacity: 0.55;
+}
+.kin-dot:hover { filter: brightness(1.25); }
+/* Dimmed rather than dropped while a year is being scrubbed, so the dots hold
+   still and the wave of who was alive reads as movement, not relayout. */
+.kin-dot.dim,
+.kin-bar.dim { opacity: 0.12; }
+.kin-dot.selected,
+.kin-bar.selected {
+  stroke: var(--text);
+  stroke-width: 2;
+  stroke-opacity: 1;
+}
+.kin-dot.find-hit,
+.kin-bar.find-hit {
+  stroke: var(--status-diff);
+  stroke-width: 2.5;
+  stroke-opacity: 1;
+}
+/* The root, at the centre of the wheel. */
+.kin-hub { fill: var(--accent); }
+.kin-hub-label {
+  fill: var(--accent-ink);
+  font-size: 13px;
+  font-weight: 700;
+}
+/* The ring scale, set on the ring itself and right-aligned to the 6 o'clock
+   gutter; the background halo keeps it readable where it crosses the dots. */
+.kin-ring-label {
+  fill: var(--faint);
+  font-size: 10px;
+  stroke: var(--bg);
+  stroke-width: 3;
+  stroke-linejoin: round;
+  paint-order: stroke;
+}
+/* Names beside the closest kin — placed by the layout, which drops any that
+   would collide, so they never need to shrink to fit. */
+.kin-name {
+  fill: var(--text);
+  stroke: var(--bg);
+  stroke-width: 2.6;
+  stroke-linejoin: round;
+  paint-order: stroke;
+}
+.kin-bar-name {
+  fill: var(--muted);
+  stroke-width: 2.4;
+}
+/* Bars layout: the root's own lifetime as a tinted band, and a rule + caption
+   per blood-distance band. */
+.kin-window {
+  fill: var(--accent);
+  opacity: 0.09;
+}
+.kin-band-rule { stroke: var(--border); }
+.kin-band-label {
+  fill: var(--text);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.kin-bar { cursor: pointer; }
+.kin-bar:hover { filter: brightness(1.15); }
+/* The bars' sticky header: the year ruler and the root's own row, pinned over
+   the scrolling canvas. Opaque, so the body scrolls under it rather than
+   through it, and pointer-transparent so panning still grabs the canvas. */
+.kin-sticky {
+  position: absolute;
+  inset: 0 0 auto 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border-2);
+  box-shadow: 0 6px 14px -6px rgb(0 0 0 / 0.4);
+  z-index: 2;
+}
+.kin-sticky svg { display: block; }
+
 /* ── Ahnentafel report ────────────────────────────────────────────────────
    The hub's text report: same canvas shell as the charts, but a scrolling
    document instead of a pannable SVG. */

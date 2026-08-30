@@ -43,6 +43,18 @@
   --lineage-paternal: #5a8df0;  /* royal blue, set apart from the cyan-ish male & green accent */
   --lineage-maternal: #c061f0;  /* purple-magenta, set apart from the pink female */
 
+  /* ---- Contemporaries chart ----
+     The generation ramp runs from the root's own generation outward in two
+     directions, warm for their elders and cool for their issue; the chart
+     mixes between each pair, so both themes get a ramp that reads on their
+     own ground instead of one tuned for the dark. */
+  --kin-gen-0:     #efece5;  /* the root's own generation — the middle of the ramp */
+  --kin-anc-near:  #f2d79c;  /* parents' generation */
+  --kin-anc-far:   #c8371c;  /* the deepest ancestors on the chart */
+  --kin-desc-near: #7fe2c1;  /* children's generation */
+  --kin-desc-far:  #2b45d6;  /* the furthest descendants on the chart */
+  --kin-deceased:  #7a6f63;  /* "Living" colouring: everyone who is not */
+
   /* ---- destructive / danger (delete, remove, irreversible actions) ---- */
   --danger:      #e74c3c;
   --danger-soft: color-mix(in oklch, var(--danger) 12%, transparent);
@@ -109,6 +121,15 @@
 
   --lineage-paternal: #2f5fcf;
   --lineage-maternal: #8e24c9;
+
+  /* Contemporaries: the ramp darkens all through — a pale gold that reads on
+     near-black is invisible on paper. */
+  --kin-gen-0:     #55504a;
+  --kin-anc-near:  #a8761a;
+  --kin-anc-far:   #8c1d0c;
+  --kin-desc-near: #0f8a6a;
+  --kin-desc-far:  #1a2f9e;
+  --kin-deceased:  #8d857b;
 
   --danger:      #c0392b;   /* deeper red reads better on warm paper */
   /* --danger-soft inherits the dark-theme color-mix definition (uses var(--danger)) */
