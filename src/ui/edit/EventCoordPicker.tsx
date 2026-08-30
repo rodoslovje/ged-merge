@@ -10,6 +10,8 @@ import { placeLookupLanguage } from "../../geo/lookupLanguage";
 import { osmKindLabel, osmShortLabel, searchNominatim, type NominatimResult } from "../../geo/nominatim";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
 import { PinIcon } from "../icons/PinIcon";
+import { IDLE_LOOKUP, type LookupState } from "../../geo/lookup";
+import { LookupAction } from "./LookupAction";
 import { useSettingsSlice } from "../SettingsContext";
 import { useCoordShare } from "./CoordShareContext";
 import { usePhone } from "../usePhone";
@@ -36,9 +38,6 @@ const SETTINGS_KEYS = ["allowLinkFetch"] as const;
 
 const MiniPlaceMap = lazy(() => import("../map/MiniPlaceMap"));
 
-type Search<T> = { state: "idle" | "loading" | "error" | "done"; results: T[] };
-
-const IDLE = { state: "idle" as const, results: [] };
 
 /** Keep the panel this far from the window edges. */
 const EDGE = 8;
@@ -159,8 +158,8 @@ export function EventCoordPicker({
     if (controlled === undefined) setOpenState(value);
     notify?.(value);
   }, []);
-  const [rn, setRn] = useState<Search<RnResult>>(IDLE);
-  const [osm, setOsm] = useState<Search<NominatimResult>>(IDLE);
+  const [rn, setRn] = useState<LookupState<RnResult>>(IDLE_LOOKUP);
+  const [osm, setOsm] = useState<LookupState<NominatimResult>>(IDLE_LOOKUP);
   // A lookup's answers are about the place and address they were asked for, and
   // both can change under an open panel — the bulk pin's prefix filter is typed
   // right beside it, an address field is edited behind it. The old results then
@@ -180,8 +179,8 @@ export function EventCoordPicker({
   const lookupSignal = () => (lookupAbort.current ??= new AbortController()).signal;
   useEffect(() => {
     voidLookups();
-    setRn(IDLE);
-    setOsm(IDLE);
+    setRn(IDLE_LOOKUP);
+    setOsm(IDLE_LOOKUP);
    
   }, [place, address]);
   // Closing the panel abandons whatever is on the wire; a search left mid-air
@@ -189,8 +188,8 @@ export function EventCoordPicker({
   useEffect(() => {
     if (open) return;
     voidLookups();
-    setRn((prev) => (prev.state === "loading" ? IDLE : prev));
-    setOsm((prev) => (prev.state === "loading" ? IDLE : prev));
+    setRn((prev) => (prev.state === "loading" ? IDLE_LOOKUP : prev));
+    setOsm((prev) => (prev.state === "loading" ? IDLE_LOOKUP : prev));
    
   }, [open]);
    
@@ -377,8 +376,8 @@ export function EventCoordPicker({
     // offer copies the pick to them in one further undoable step.
     if (shareAll && others > 0) share!.applyToAll(place, address, c);
     setOpen(false);
-    setRn(IDLE);
-    setOsm(IDLE);
+    setRn(IDLE_LOOKUP);
+    setOsm(IDLE_LOOKUP);
     setDraft("");
   };
 
@@ -577,32 +576,23 @@ export function EventCoordPicker({
                   OpenStreetMap search beside it always needs it. */}
               {settings.allowLinkFetch || registerLocal ? (
                 <div className="edit-coord-actions">
-                  {/* A search that has answered puts its own button away, as the
-                      worklist rows do — and "no hits" is an answer too: the note
-                      that replaces it says so, and pressing again would only ask
-                      the same service the same question and be told the same
-                      nothing. A search that *failed* keeps its button: that is a
-                      service unreachable, not an answer, and it is worth another
-                      press. */}
-                  {queries.length > 0 && rn.state !== "done" && (
-                    <button type="button" className="tools-issue-link" disabled={busy} onClick={runRegister}>
-                      {rn.state === "loading" ? t("tools.geocode.rn.searching") : t("tools.geocode.rn.search")}
-                    </button>
+                  {/* A search that has answered puts its own button away, as
+                      every list on the geocoding pages does — and "no hits" is
+                      an answer too, which is why LookupAction turns it into a
+                      note rather than a button that would ask the same service
+                      the same question again. A search that *failed* keeps its
+                      button: that is a service unreachable, not an answer.
+                      Both searches share one queue here, so either one running
+                      greys them both. */}
+                  {queries.length > 0 && (
+                    <LookupAction kind="rn" state={rn} onRun={runRegister} disabled={busy} noteClass="edit-coord-note" />
                   )}
-                  {settings.allowLinkFetch && osm.state !== "done" && (
-                    <button type="button" className="tools-issue-link" disabled={busy} onClick={runOnline}>
-                      {osm.state === "loading" ? t("tools.geocode.online.searching") : t("tools.geocode.online.search")}
-                    </button>
+                  {settings.allowLinkFetch && (
+                    <LookupAction kind="online" state={osm} onRun={runOnline} disabled={busy} noteClass="edit-coord-note" />
                   )}
                 </div>
               ) : (
                 <p className="edit-coord-note">{t("tools.geocode.downloadNeedsOptIn")}</p>
-              )}
-              {rn.state === "error" && <p className="edit-coord-note">{t("tools.geocode.rn.error")}</p>}
-              {rn.state === "done" && !rn.results.length && <p className="edit-coord-note">{t("tools.geocode.rn.none")}</p>}
-              {osm.state === "error" && <p className="edit-coord-note">{t("tools.geocode.online.error")}</p>}
-              {osm.state === "done" && !osm.results.length && (
-                <p className="edit-coord-note">{t("tools.geocode.online.none")}</p>
               )}
               {/* Why the register isn't on offer — only where it could have been:
                   a Slovenian or Croatian place just needs a house number.

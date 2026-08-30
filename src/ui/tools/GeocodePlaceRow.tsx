@@ -7,6 +7,7 @@ import { placeLookupLanguage } from "../../geo/lookupLanguage";
 import { osmKindLabel, searchNominatim, type NominatimResult } from "../../geo/nominatim";
 import { searchGov, type GovResult } from "../../geo/gov";
 import { isOfflineQuery, rnQueriesFrom, searchAddresses, type RnResult } from "../../geo/rn";
+import { IDLE_LOOKUP, type LookupState } from "../../geo/lookup";
 import { useLocalRegisters } from "../useLocalRegisters";
 import { adminOf, chosenCoordFor, pickLabel, type ChosenCoord, type FileCoord, type GeoAssignment, type GeocodeRow } from "../../tools/geocode";
 import { replaceLocality } from "../../tools/addresses";
@@ -18,6 +19,7 @@ import type { PlaceProposal } from "../../geo/placeProposal";
 import { placeCollator } from "../../gedcom/place";
 import { useSettingsSlice } from "../SettingsContext";
 import { EventCoordPicker } from "../edit/EventCoordPicker";
+import { LookupAction } from "../edit/LookupAction";
 import { GeoPeopleList, GeoRowHeader, MapToggle } from "./shared";
 
 // One row of the Geocode-places review list: the raw PLAC value, its badge
@@ -81,20 +83,12 @@ interface Props {
   onLookupsChange: (key: string, patch: Partial<RowLookups>) => void;
 }
 
-/** One on-demand lookup's lifecycle, per service. */
-export interface LookupState<T> {
-  state: "idle" | "loading" | "error" | "done";
-  results: T[];
-}
-
 /** A row's three on-demand lookups (absent = never asked). */
 export interface RowLookups {
   online?: LookupState<NominatimResult>;
   gov?: LookupState<GovResult>;
   rn?: LookupState<RnResult>;
 }
-
-const IDLE: LookupState<never> = { state: "idle", results: [] };
 
 export function GeocodePlaceRow({
   row,
@@ -140,7 +134,7 @@ export function GeocodePlaceRow({
   // fallback for strings the offline gazetteer can't resolve, above all
   // street addresses. Behind the online opt-in; the query text leaves the
   // device, so it only ever runs from this explicit button.
-  const online: LookupState<NominatimResult> = lookups?.online ?? IDLE;
+  const online: LookupState<NominatimResult> = lookups?.online ?? IDLE_LOOKUP;
   const runOnlineSearch = () => {
     onLookupsChange(row.key, { online: { state: "loading", results: [] } });
     // In the language this place value is written in — see placeLookupLanguage.
@@ -154,7 +148,7 @@ export function GeocodePlaceRow({
   // multilingual historical names and a stable GOV id. Same online opt-in and
   // explicit-button model as Nominatim; accepting a GOV match also writes the
   // GEDCOM-L `_GOV` id into the file.
-  const gov: LookupState<GovResult> = lookups?.gov ?? IDLE;
+  const gov: LookupState<GovResult> = lookups?.gov ?? IDLE_LOOKUP;
   const runGovSearch = () => {
     onLookupsChange(row.key, { gov: { state: "loading", results: [] } });
     // GOV holds each place's name in several languages and picks one by this
@@ -170,7 +164,7 @@ export function GeocodePlaceRow({
   // that is what the register resolves; the settlement alone is the offline
   // gazetteer's job. Same online opt-in and explicit-button model as the others.
   const rnQueries = useMemo(() => rnQueriesFrom(row.key, undefined), [row.key]);
-  const rn: LookupState<RnResult> = lookups?.rn ?? IDLE;
+  const rn: LookupState<RnResult> = lookups?.rn ?? IDLE_LOOKUP;
   const runRnSearch = () => {
     if (!rnQueries.length) return;
     onLookupsChange(row.key, { rn: { state: "loading", results: [] } });
@@ -344,29 +338,15 @@ export function GeocodePlaceRow({
   // that no longer applies to it.
   useLocalRegisters();
   const registerLocal = isOfflineQuery(rnQueries);
-  const registerActions = (appSettings.allowLinkFetch || registerLocal) && (
-    <>
-                {/* Only for a value that names a house number — the register
-                    resolves houses, not settlements. */}
-                {rnQueries.length > 0 && (
-                  <>
-                    {rn.state !== "done" && (
-                    <button
-                      className="tools-issue-link"
-                      disabled={rn.state === "loading"}
-                      title={t(registerLocal ? "tools.geocode.rn.tooltipLocal" : "tools.geocode.rn.tooltip")}
-                      onClick={runRnSearch}
-                    >
-                      {rn.state === "loading" ? t("tools.geocode.rn.searching") : t("tools.geocode.rn.search")}
-                    </button>
-                    )}
-                    {rn.state === "error" && <span className="tools-geo-online-note">{t("tools.geocode.rn.error")}</span>}
-                    {rn.state === "done" && !rn.results.length && (
-                      <span className="tools-geo-online-note">{t("tools.geocode.rn.none")}</span>
-                    )}
-                  </>
-                )}
-    </>
+  const registerActions = (appSettings.allowLinkFetch || registerLocal) && rnQueries.length > 0 && (
+    // Only for a value that names a house number — the register resolves
+    // houses, not settlements.
+    <LookupAction
+      kind="rn"
+      state={rn}
+      onRun={runRnSearch}
+      title={t(registerLocal ? "tools.geocode.rn.tooltipLocal" : "tools.geocode.rn.tooltip")}
+    />
   );
 
   const searchActions = (
@@ -374,34 +354,8 @@ export function GeocodePlaceRow({
       {registerActions}
       {appSettings.allowLinkFetch && (
         <>
-                {online.state !== "done" && (
-                <button
-                  className="tools-issue-link"
-                  disabled={online.state === "loading"}
-                  title={t("tools.geocode.online.tooltip")}
-                  onClick={runOnlineSearch}
-                >
-                  {online.state === "loading" ? t("tools.geocode.online.searching") : t("tools.geocode.online.search")}
-                </button>
-                )}
-                {online.state === "error" && <span className="tools-geo-online-note">{t("tools.geocode.online.error")}</span>}
-                {online.state === "done" && !online.results.length && (
-                  <span className="tools-geo-online-note">{t("tools.geocode.online.none")}</span>
-                )}
-                {gov.state !== "done" && (
-                <button
-                  className="tools-issue-link"
-                  disabled={gov.state === "loading"}
-                  title={t("tools.geocode.gov.tooltip")}
-                  onClick={runGovSearch}
-                >
-                  {gov.state === "loading" ? t("tools.geocode.gov.searching") : t("tools.geocode.gov.search")}
-                </button>
-                )}
-                {gov.state === "error" && <span className="tools-geo-online-note">{t("tools.geocode.gov.error")}</span>}
-                {gov.state === "done" && !gov.results.length && (
-                  <span className="tools-geo-online-note">{t("tools.geocode.gov.none")}</span>
-                )}
+          <LookupAction kind="online" state={online} onRun={runOnlineSearch} title={t("tools.geocode.online.tooltip")} />
+          <LookupAction kind="gov" state={gov} onRun={runGovSearch} title={t("tools.geocode.gov.tooltip")} />
         </>
       )}
     </>

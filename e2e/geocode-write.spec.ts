@@ -43,7 +43,7 @@ test("a declined proposal writes nothing — and says so instead of arming the b
 
   // The file's own coordinate is the standing proposal — shown, but nothing is
   // staged until the researcher picks it.
-  await expect(coord).toContainText("46.2396, 14.3563");
+  await expect(coord).toContainText("46.23960, 14.35630");
   await expect(coord).not.toHaveClass(/staged/);
   await expect(write).toContainText("(0)");
 

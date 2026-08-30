@@ -15,6 +15,8 @@ import type { Translate } from "../../locales/i18n";
 import { foldSearch, queryTerms } from "../globalSearch";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
 import { EventCoordPicker } from "../edit/EventCoordPicker";
+import { LookupAction } from "../edit/LookupAction";
+import { IDLE_LOOKUP, type LookupState } from "../../geo/lookup";
 import { PlaceAutocomplete } from "../edit/PlaceAutocomplete";
 import { placeCollator } from "../../gedcom/place";
 import { findSameHouse } from "../../tools/sameHouse";
@@ -55,14 +57,11 @@ import { requestSettings } from "../settingsBus";
 // moving rewrites the place value of the ticked addresses, which for the second
 // kind is the very text holding the house number.
 
-type SearchState = { state: "idle" | "loading" | "error" | "done"; results: RnResult[] };
+type SearchState = LookupState<RnResult>;
 
 /** The same, for the OpenStreetMap fallback below — a separate state per row,
  *  because the two lookups answer independently and a row may have both. */
-type OsmState = { state: "idle" | "loading" | "error" | "done"; results: NominatimResult[] };
-
-const IDLE: SearchState = { state: "idle", results: [] };
-const OSM_IDLE: OsmState = { state: "idle", results: [] };
+type OsmState = LookupState<NominatimResult>;
 
 /** The lookup-state chips over the list, mirroring the places list's work
  *  chips: what still needs a register query, what came back with houses to
@@ -890,7 +889,7 @@ export function AddressCoordsSection({
     // Rows with no query are not "pending" — there is nothing to ask about, and
     // marking them loading would leave them stuck at it.
     const pending = group.rows.filter(
-      (row) => row.queries.length > 0 && (searches.get(row.key) ?? IDLE).state === "idle",
+      (row) => row.queries.length > 0 && (searches.get(row.key) ?? IDLE_LOOKUP).state === "idle",
     );
     if (!pending.length) return;
     setSearches((prev) => {
@@ -1493,7 +1492,7 @@ export function AddressCoordsSection({
                     // part of the offer — the button would run a search that
                     // does nothing and still name a number for it.
                     const askable = group.rows.filter(
-                      (r) => r.queries.length && (searches.get(r.key) ?? IDLE).state === "idle",
+                      (r) => r.queries.length && (searches.get(r.key) ?? IDLE_LOOKUP).state === "idle",
                     );
                     // A whole Croatian village is answered from this browser,
                     // so the online opt-in does not gate it — see isOfflineQuery.
@@ -1601,8 +1600,8 @@ export function AddressCoordsSection({
               {isOpen && (
                 <ul className="tools-tree-children tools-geo-addr-sublist">
                   {group.rows.map((row) => {
-                    const search = searches.get(row.key) ?? IDLE;
-                    const osm = osmSearches.get(row.key) ?? OSM_IDLE;
+                    const search = searches.get(row.key) ?? IDLE_LOOKUP;
+                    const osm = osmSearches.get(row.key) ?? IDLE_LOOKUP;
                     const chosen = picked.get(row.key);
                     const candidates = rowCandidates(search, osm, row.address, t, registerOf(row));
                     return (
@@ -1806,36 +1805,24 @@ export function AddressCoordsSection({
                           ) : !settings.allowLinkFetch && !isOfflineQuery(row.queries) ? (
                             <span className="tools-geo-online-note">{t("tools.geocode.downloadNeedsOptIn")}</span>
                           ) : (
-                            <>
-                              {/* "No match" is not final where the batch was a
-                                  *shortcut*: the online group fetch cannot walk
-                                  the per-address ladder's outer rungs, so the
-                                  button stays and asks the full ladder — suffix
-                                  retry, any street, the outer settlements — for
-                                  this one row. A stored register is different:
-                                  it walked that whole ladder already, house by
-                                  house, so the answer is final and offering to
-                                  ask again would only promise what it cannot
-                                  give. */}
-                              {(search.state !== "done" ||
-                                (!search.results.length && !isOfflineQuery(row.queries))) && (
-                                <button
-                                  className="tools-issue-link"
-                                  disabled={search.state === "loading"}
-                                  onClick={() => runSearch(row)}
-                                >
-                                  {search.state === "loading"
-                                    ? t("tools.geocode.rn.searching")
-                                    : t("tools.geocode.rn.search")}
-                                </button>
-                              )}
-                              {search.state === "error" && (
-                                <span className="tools-geo-online-note">{t("tools.geocode.rn.error")}</span>
-                              )}
-                              {search.state === "done" && !search.results.length && (
-                                <span className="tools-geo-online-note">{t("tools.geocode.rn.none")}</span>
-                              )}
-                            </>
+                            /* "No match" is not final where the batch was a
+                               *shortcut*: the online group fetch cannot walk the
+                               per-address ladder's outer rungs, so the button
+                               stays and asks the full ladder — suffix retry, any
+                               street, the outer settlements — for this one row.
+                               A stored register is different: it walked that
+                               whole ladder already, house by house, so the
+                               answer is final and offering to ask again would
+                               only promise what it cannot give. */
+                            <LookupAction
+                              kind="rn"
+                              state={search}
+                              onRun={() => runSearch(row)}
+                              offer={
+                                search.state !== "done" ||
+                                (!search.results.length && !isOfflineQuery(row.queries))
+                              }
+                            />
                           )}
                           {/* OpenStreetMap, the register's fallback: it covers
                               the addresses no register can take — a house with
@@ -1844,26 +1831,12 @@ export function AddressCoordsSection({
                               One row at a time, never a whole place: the service
                               allows one request per second and no bulk use. */}
                           {settings.allowLinkFetch && (
-                            <>
-                              {osm.state !== "done" && (
-                                <button
-                                  className="tools-issue-link"
-                                  disabled={osm.state === "loading"}
-                                  title={t("tools.geocode.online.tooltip")}
-                                  onClick={() => runOnline(row)}
-                                >
-                                  {osm.state === "loading"
-                                    ? t("tools.geocode.online.searching")
-                                    : t("tools.geocode.online.search")}
-                                </button>
-                              )}
-                              {osm.state === "error" && (
-                                <span className="tools-geo-online-note">{t("tools.geocode.online.error")}</span>
-                              )}
-                              {osm.state === "done" && !osm.results.length && (
-                                <span className="tools-geo-online-note">{t("tools.geocode.online.none")}</span>
-                              )}
-                            </>
+                            <LookupAction
+                              kind="online"
+                              state={osm}
+                              onRun={() => runOnline(row)}
+                              title={t("tools.geocode.online.tooltip")}
+                            />
                           )}
                           {/* Set the house aside, as every other list on these
                               two pages allows. Not a pick and not an answer: a
