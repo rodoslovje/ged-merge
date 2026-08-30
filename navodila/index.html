@@ -1377,17 +1377,26 @@
             <p>
               Kraj, za katerega ima datoteka koordinato, jo pokaže ob števcu, zato med brskanjem po drevesu vidite tudi,
               kaj še ni geokodirano. To je koordinata, zapisana prav za to raven: kraj, poimenovan le s pokrajino, nosi
-              pokrajinsko. S <strong>klikom na koordinato</strong> se pod vrstico odpre mali zemljevid — najhitrejši
-              način, da opazite kraj, ki je po tihem pripet v napačno državo. Ob prehodu z miško oznaka pove kraj, kot ga
-              piše vaša datoteka, njegov naslov, kadar je vrstica naslov, in v zadnji vrstici koordinato. Enako deluje
-              seznam za geokodiranje: klik na koordinato, ki jo bo vrstica prevzela, odpre to vrstico in njen zemljevid.
+              pokrajinsko. S <strong>klikom na koordinato</strong> se odpre okno za koordinato — isto, kot ga odpirajo
+              seznami za geokodiranje, pregled poimenovanja in dogodki v <a href="#edit">Urejanju</a>: zemljevid s to
+              lego, iskanje po registru in po OpenStreetMap ter polje, v katero koordinato vpišete ali prilepite. Tako
+              najhitreje opazite kraj, ki je po tihem pripet v napačno državo, zdaj pa ga tam tudi popravite. Ob prehodu
+              z miško oznaka pove kraj, kot ga piše vaša datoteka, njegov naslov, kadar je vrstica naslov, in v zadnji
+              vrstici koordinato. Kraj, ki v datoteki koordinate še nima, ima ob števcu bledo bucko, ki odpre isto okno:
+              vas lahko postavite kar v drevesu, brez ovinka čez seznam dela.
+            </p>
+            <p>
+              Prevzeta lega se zapiše prav tistim zapisom, ki jih odpre števec vrstice — dogodkom, zapisanim na tem
+              kraju, v vseh zapisih, kakor jih piše datoteka. Naslovi pod njim so svoje vrstice in obdržijo svoje lege,
+              zato se naselje nikoli ne razlije po svojih hišah. Gumb <strong>Odstrani</strong> v oknu lego istim
+              zapisom spet vzame.
             </p>
             <p>
               Kjer si zapisi v datoteki nasprotujejo glede lege kraja, vrstica pokaže prevladujočo koordinato in za njo
-              <span class="gm-badge rep">⚠ 2 točki</span>, njen zemljevid pa vse skupaj s številom omemb na vsaki —
-              dvanajst pri cerkvi in ena 2&nbsp;km stran je tipkarska napaka, ne druga cerkev. Koordinati nekaj metrov
-              narazen sta ista točka in ne neskladje, zato ponovno geokodiranje oznake ne sproži. Za razrešitev poskrbi
-              <a href="#geocode">Geokodiranje krajev</a>, kamor zemljevid tudi vodi.
+              <span class="gm-badge rep">⚠ 2 točki</span>, okno pa vse te točke oštevilči kot odgovore in pri vsaki
+              pove število omemb — dvanajst pri cerkvi in ena 2&nbsp;km stran je tipkarska napaka, ne druga cerkev. Z
+              izbiro prave točke je vrstica razrešena. Koordinati nekaj metrov narazen sta ista točka in ne neskladje,
+              zato ponovno geokodiranje oznake ne sproži.
             </p>
             <h3 id="geocode">Geokodiranje krajev</h3>
             <p>
@@ -1576,11 +1585,11 @@
               boljša datoteka GeoNames.
             </p>
             <p>
-              Vsi trije seznami na tej strani se berejo enako: vrstica poimenuje svoj kraj (in naslov, kadar je vrstica naslov), se odpre s
-              klikom, zemljevid pokaže šele na zahtevo, izbire pa zbira, dokler jih gumb na vrhu seznama ne zapiše v enem koraku. Na <strong>zemljevidu</strong> so predlagani kraji oznake, na katere
-              lahko kliknete, vaša izbrana koordinata poudarjena, druge znane koordinate iz datoteke pa kot drobne pike,
-              tako da istoimenske kraje ločite po legi; s klikom kamor koli drugam na zemljevidu ročno izberete točko.
-              Vrstica ponuja tudi druge možnosti, vtipkano koordinato ali zapomnjeno oznako »ni ujemanja«, ter gumb
+              Vsi trije seznami na tej strani se berejo enako: vrstica poimenuje svoj kraj (in naslov, kadar je vrstica naslov), se s
+              klikom odpre na oštevilčene odgovore, izbire pa zbira, dokler jih gumb na vrhu seznama ne zapiše v enem koraku. <strong>Zemljevid</strong> je isto okno za koordinato, kot ga odpre dogodek v <a href="#edit">Urejanju</a>, in se pokaže šele na zahtevo, nikoli sam čez seznam: odpre ga koordinata, ki jo bo vrstica prevzela, ali gumb <strong>Pokaži zemljevid</strong> med dejanji vrstice. Odgovori vrstice so na njem oznake, na katere
+              lahko kliknete, pod istimi številkami, kot jih nosijo vrstice, vaša izbrana koordinata poudarjena, druge znane koordinate iz datoteke pa kot drobne pike,
+              tako da istoimenske kraje ločite po legi; s klikom kamor koli drugam na zemljevidu ročno izberete točko, lahko pa jo vpišete v polje v oknu.
+              Vrstica ponuja tudi druge možnosti ali zapomnjeno oznako »ni ujemanja«, ter gumb
               <span class="gm-glyph">✎</span> za <strong>preimenovanje</strong> surove vrednosti kraja (vseh navedb hkrati,
               z izbirno razdelitvijo na kraj + naslov — popravek se takoj znova poišče med predlogi). Polje za
               preimenovanje je isto polje za kraj kot v <a href="#edit">Urejanju</a> (<a href="#edit">§8</a>): dopolnjuje se iz krajev, ki jih
@@ -1779,10 +1788,15 @@
               preimenovanje na seznamu krajev. Dopolnjuje se iz krajev vaše datoteke <em>in</em> iz imenikov —
               <strong>Poišči ta kraj v imenikih</strong>, saj se pravo ime morda v vaši datoteki ne pojavi nikjer — kar
               zapiše, pa tudi umesti tja, kamor kažejo imeniki: k naslovu, kadar je ta imenovan in ga preneseni register
-              pozna, sicer k naselju, ob dvoumnem odgovoru pa nikamor. Popravek se zapiše takoj; odgovorom, ki čakajo nad njim, se ne pridruži: tam je beseda imenika, tu vaša. <strong>Pokaži na
-              zemljevidu</strong> — ali klik na koordinato katerega koli odgovora — odgovore nariše kot oštevilčene
-              oznake, kjer je številka na oznaki ista kot ob vrstici, ob njih pa s črtkanim obročem še lego, ki jo kraju
-              daje datoteka: kateri od šestih enakoimenskih krajev je vaš, odgovori le zemljevid. <strong>Poišči
+              pozna, sicer k naselju, ob dvoumnem odgovoru pa nikamor. Popravek se zapiše takoj; odgovorom, ki čakajo nad njim, se ne pridruži: tam je beseda imenika, tu vaša. <strong>Pokaži
+              zemljevid</strong> — ali klik na koordinato katerega koli odgovora — odpre isto okno za koordinato, kot ga
+              odpirata druga dva seznama: odgovori so v njem oštevilčene oznake, kjer je številka na oznaki ista kot ob
+              vrstici, ob njih pa lega, ki jo kraju daje datoteka, kot tisto, kar kraj drži zdaj. Kateri od šestih
+              enakoimenskih krajev je vaš, odgovori le zemljevid. Klik na oznako odgovora izbere ta odgovor, prav tako
+              kot njegov krogec. Lega, ki je register ni ponudil — vpisana, vzeta z zemljevida ali najdena z iskanjem v
+              oknu — je vaša presoja o tem, kje kraj stoji, zato se za ta zapis kraja zapiše takoj, preimenuje pa se
+              nič; gumb <strong>Odstrani</strong> jo spet vzame. Tako pride na zemljevid tudi vas, ki je noben imenik ne
+              pozna. <strong>Poišči
               širše</strong> doda kraje, katerih ime zapisano ime le <em>vsebuje</em> — <em>Bela</em> najde Spodnjo,
               Srednjo in Zgornjo Belo — in take, ki mu je ime le <em>podobno</em>, kar je edini način, da se najde
               napačen zapis: <em>Mrkopolje</em> najde registrski <em>Mrkopalj</em>, do katerega iskanje po zapisu ne
@@ -1814,8 +1828,8 @@
               določite lego prav tega dogodka, na lastnem majhnem zemljevidu: prevzamete koordinato, ki jo datoteka za ta
               naslov ali kraj že uporablja, naslov poiščete v registru, <strong>iščete na spletu</strong> (OpenStreetMap — za
               naslov zunaj Slovenije, ki ga register ne pokriva), koordinato vnesete ali prilepite, ali pa obstoječo
-              odstranite. Tu izostrite naslov, katerega naselje je že določeno, saj seznam v Orodjih ponuja le kraje, ki
-              koordinate sploh nimajo. Kadar datoteka vsebuje druge dogodke z istim krajem <em>in</em> naslovom, panel
+              odstranite. Tu izostrite naslov, katerega naselje je že določeno, saj seznam za geokodiranje ponuja le
+              kraje, ki koordinate sploh nimajo (do že določenih pridete v drevesu <a href="#places">Kraji</a>). Kadar datoteka vsebuje druge dogodke z istim krajem <em>in</em> naslovom, panel
               ponudi — privzeto obkljukano — da se izbrana koordinata zapiše na vse te dogodke, saj ima en naslov en
               položaj; če kljukico odstranite, koordinato dobi samo ta dogodek. Ponudba velja tudi, kadar ti dogodki koordinato že
               imajo — tako celoten naslov naenkrat prestavite na boljši položaj. (Prenos je svoj korak razveljavitve: prva
