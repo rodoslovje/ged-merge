@@ -5,9 +5,7 @@ import {
   buildWriteSet,
   carryPickAcrossRename,
   chosenCoordFor,
-  collectFileCoords,
   confidentCandidate,
-  countryOf,
   planCountryFill,
   placeAddrKey,
   reconcileNoMatchAfterScan,
@@ -20,19 +18,19 @@ import {
   type GeocodeRow,
   type OfficialRename,
 } from "../../tools/geocode";
-import { deleteDecisions, loadDecisions, putDecisions, type GeocodeDecision } from "../../persist/geoDb";
+import { loadDecisions, saveDecisions, type GeocodeDecision } from "../../persist/geoDb";
 import { AppliedNote, ExpandAllToggle, personMatches, ToolsLoading, TreeSearch, useDebounced, usePersonNameIndex } from "./shared";
 import { useVirtualList } from "../useVirtualList";
 import { createKinshipResolver } from "../../match/kinship";
 import { useDatasetDerivations, useHomeCountry } from "../DatasetDerivations";
-import { buildPlaceSuggestions, placeCombosOf } from "../edit/placeSuggestions";
 import { foldSearch, queryTerms } from "../globalSearch";
-import { PlaceLookupProvider, usePlaceLookupValue, usePlaceStyle } from "../edit/PlaceLookupContext";
+import { PlaceLookupProvider } from "../edit/PlaceLookupContext";
+import { usePlaceFields } from "../edit/usePlaceFields";
 import { GazetteerSetup, useGazetteer } from "./GazetteerManager";
 import { AddressCoordsSection } from "./AddressCoordsSection";
 import { addressesByPlace, replaceLocality, scanAddresses, type AddressRename } from "../../tools/addresses";
 import { CoordConflicts } from "./CoordConflicts";
-import { CountryChips, type CountryChip } from "./CountryChips";
+import { CountryChips, countryFacet } from "./CountryChips";
 import { countrySpelling, type HomeCountryDetection } from "../../geo/homeCountry";
 
 /** Stand-in while no file is loaded — nothing detected, nothing to write. */
@@ -173,26 +171,12 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
 
   }, [dataset, index, decisions, scanGen, home]);
 
-  // Existing place values for the rename input's autocomplete — the same
-  // suggestion list (and canonical casing) the Edit-mode event fields use.
-  const placeSug = useMemo(
-    () => derivations?.placeSuggestions() ?? buildPlaceSuggestions(dataset),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [dataset, scanGen],
-  );
-
-  // Place+address combos for the rename input — one box searches both, and
-  // picking a combo queues the address part as the split's ADDR (shown as a
-  // removable chip next to the input).
-  const placeCombos = useMemo(() => placeCombosOf(placeSug.placeToAddrs, placeSug.placeCanonical), [placeSug]);
-
-  // The register lookup behind those inputs — the same one the Edit view builds,
-  // so a place the file has never written can be completed (chain, address,
-  // coordinate) here too instead of being typed out by hand.
-  const placeLookup = usePlaceLookupValue(dataset, placeSug.placeSuggestions);
-  // How this file writes a place — its separator is what joins a value to the
-  // country written into it below.
-  const placeStyle = usePlaceStyle(dataset, placeSug.placeSuggestions);
+  // What this page's fields are built on: the file's own places (the same list
+  // and canonical casing the Edit event fields complete from), the place+address
+  // pairs behind the rename box's one input, the registers a value the file has
+  // never written is completed from, the layout its places are written in, and
+  // every coordinate it already holds — the maps' context dots.
+  const { placeSug, placeCombos, lookup: placeLookup, style: placeStyle, fileCoords } = usePlaceFields(dataset);
 
   // The address rows the section below reviews — scanned here because the
   // Places/Addresses tab bar needs the count before the section renders.
@@ -237,13 +221,6 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
   // The tab-row slot the address section portals its action buttons into — its
   // state (staged picks, filters) lives inside the section, the row lives here.
   const [tabActionsEl, setTabActionsEl] = useState<HTMLElement | null>(null);
-
-  // Every coordinate the file already carries — the mini map's context dots.
-  const fileCoords = useMemo(
-    () => collectFileCoords(dataset),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [dataset, scanGen],
-  );
 
   // Hover lists of the people each unresolved place occurs at — precomputed
   // per scan, not per render (300 rows × nameOf per keystroke adds up).
@@ -333,29 +310,15 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
       : pool;
 
     // One chip per country the pending list's places stand in; a country the
-    // other filters empty out stays visible at 0.
-    const countryChips: CountryChip[] = [];
-    let countryAllCount = 0;
-    const byCountry = new Map<string, CountryChip>();
-    for (const row of pool) {
-      const country = countryOf(row.key, home);
-      if (!byCountry.has(country)) {
-        const chip = { code: country, count: 0 };
-        byCountry.set(country, chip);
-        countryChips.push(chip);
-      }
-    }
-    for (const row of searched) {
-      if (!inStatus(row)) continue;
-      byCountry.get(countryOf(row.key, home))!.count++;
-      countryAllCount++;
-    }
-
-    // A country whose last row was just resolved loses its chip — the stale
-    // pick falls back to "all" instead of filtering the list to nothing.
-    const activeCountry =
-      countryFilter !== null && countryChips.some((c) => c.code === countryFilter) ? countryFilter : null;
-    const inCountry = (row: GeocodeRow) => activeCountry === null || countryOf(row.key, home) === activeCountry;
+    // other filters empty out stays visible at 0, and one whose last row was
+    // just resolved loses its chip — the stale pick then falls back to "all"
+    // instead of filtering the list to nothing.
+    const {
+      chips: countryChips,
+      all: countryAllCount,
+      active: activeCountry,
+      inCountry,
+    } = countryFacet(pool, searched.filter(inStatus), (row) => row.key, home, countryFilter);
 
     const statusCounts = { confident: 0, review: 0, partial: 0, noProposal: 0, decided: 0, placed: 0 };
     let statusAllCount = 0;
@@ -429,10 +392,12 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
       else next.delete(key);
       return next;
     });
-    // A row opened by hand brings its map with it — that is what it was opened
-    // for, and the Edit view's coordinate panel behaves the same way. Expand
-    // all sets the open set directly and so mounts none; closing frees it.
-    setMapKey((prev) => (willOpen ? key : prev === key ? null : prev));
+    // The map is the coordinate panel's now, and a panel is opened by asking
+    // for it — from the coordinate in the header or the map link among the
+    // row's actions — never by merely opening the row: a popover thrown up over
+    // the list by every expand is in the way of the reading it was opened for.
+    // Closing the row still takes its panel down with it.
+    if (!willOpen) setMapKey((prev) => (prev === key ? null : prev));
   };
 
   const renameValue = (from: string, to: string, addr?: string, coord?: GeoAssignment) => {
@@ -509,12 +474,12 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
     // this time overwriting.
     if (assignments.size) setChosen((prev) => new Map([...prev].filter(([k]) => !assignments.has(k))));
     setLastApplied(changed);
-    // Decisions reload re-keys the scan memo; dataset changes (when anything
-    // was written) rescan via the edit-version effect.
-    await putDecisions(toStore);
-    // …and the restored rows stop being remembered, or the reload would set
-    // them aside again behind the reader's back.
-    await deleteDecisions(toForget);
+    // The marks this write makes, and the ones it answers — the restored rows
+    // stop being remembered, or the reload would set them aside again behind
+    // the reader's back. The decisions reload below re-keys the scan memo;
+    // dataset changes (when anything was written) rescan via the edit-version
+    // effect.
+    await saveDecisions(toStore, toForget);
     const fresh = await loadDecisions();
     setDecisions(fresh);
   };

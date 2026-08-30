@@ -67,6 +67,13 @@ describe("parseCoordInput", () => {
     // The GEDCOM hemisphere form, as copied out of a file.
     expect(parseCoordInput("N46.24137 E14.3558")).toEqual({ lat: 46.24137, lon: 14.3558 });
     expect(parseCoordInput("S12.5, W70.25")).toEqual({ lat: -12.5, lon: -70.25 });
+    // The decimal comma most of Europe writes — and every map site there offers
+    // for copying. Split on commas and spaces alike this is four numbers, which
+    // is why it used to be refused in the panel and taken in the tools' own
+    // field.
+    expect(parseCoordInput("46,24137 14,35580")).toEqual({ lat: 46.24137, lon: 14.3558 });
+    expect(parseCoordInput("46,24137, 14,35580")).toEqual({ lat: 46.24137, lon: 14.3558 });
+    expect(parseCoordInput("-12,5; -70,25")).toEqual({ lat: -12.5, lon: -70.25 });
   });
 
   it("rejects anything that is not exactly two valid values", () => {

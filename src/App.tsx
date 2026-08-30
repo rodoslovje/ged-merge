@@ -41,7 +41,7 @@ import { ToolsView, type Tool, type ToolView } from "./ui/ToolsView";
 import { ErrorBoundary } from "./ui/ErrorBoundary";
 import { ErrorFallback } from "./ui/ErrorFallback";
 import { applyPlaceRename } from "./tools/placeEdit";
-import { applyGeocode, movePlaceForAddresses, renamePlaceValue, renamePlaceValues } from "./tools/geocode";
+import { applyGeocode, clearPlaceCoords, movePlaceForAddresses, renamePlaceValue, renamePlaceValues } from "./tools/geocode";
 import { applyAddressCoords, removeAddress, renameAddress } from "./tools/addresses";
 import { fixBrokenLinks } from "./tools/fixLinks";
 import { fixSexFromRole } from "./tools/fixSex";
@@ -2312,6 +2312,7 @@ function AppContent() {
               onApplyPlaceRename={(from, to, scope) => { applyToolPatches(applyPlaceRename(mainDataset, from, to, scope), true); }}
               onApplyGeocode={(assignments) => applyToolPatches(applyGeocode(mainDataset, assignments), true)}
               onApplyAddressCoords={(assignments) => applyToolPatches(applyAddressCoords(mainDataset, assignments), true)}
+              onClearPlaceCoords={(pairs) => applyToolPatches(clearPlaceCoords(mainDataset, pairs), true)}
               onRenamePlaceValue={(from, to, addr) => applyToolPatches(renamePlaceValue(mainDataset, from, to, addr), true)}
               onApplyOfficialNames={(renames) => {
                 // One batch → one undo step — and one pass over the records

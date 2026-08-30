@@ -1329,26 +1329,65 @@
               a place to see the places under it, and <strong>click its count</strong> to list the records written at
               exactly that place — a settlement with hundreds of them stays browsable either way. The <strong>✎</strong>
               beside a name on any level renames or merges that place segment across every record at once — ideal for
-              standardizing spelling variants; what it completes to are the names beside it under the same parent, so
-              two towns that both number a <em>Breg 13</em> never offer each other's houses. A place value
+              standardizing spelling variants. What it completes to are the names beside it under the same parent, so
+              two towns that both number a <em>Breg 13</em> never offer each other's houses — and, below those, every
+              place your file writes elsewhere, with <strong>Look this place up in the directories</strong> at the foot
+              of the list, exactly as the geocoding and naming rename boxes have it. That is what a value naming no
+              country at all is renamed with: the places under <em>Unspecified country</em> have only each other for
+              neighbours, and picking a place the file writes properly — or a directory's answer, which brings its whole
+              chain — is what moves the record under a country. A directory's answer also brings its coordinate, written
+              where the place has none of its own; a house row asks the address register for houses at its own place
+              instead.
+            </p>
+            <p>
+              A name and a whole place are two different corrections, and the box does what you gave it. Type a single
+              name and it renames that level wherever it appears under the row — the spelling fix. Give it a place of
+              several levels — a directory's answer, a place your file already writes, a chain typed out — and that is a
+              <em>complete</em> place: it replaces the row's value outright rather than being written into it as one of
+              its levels. Where the row stands for several different values, one complete place cannot be what they all
+              become, so only its deepest part is taken as this level's name, and the box says which. A row that already
+              reads exactly as the place you picked has nothing to write, and the button says so by staying grey.
+            </p>
+            <p>
+              A place value
               that carries its house number (<em>Krupa 7</em>) is filed under the settlement like any other, with the
               house as a level below it, so a file that numbers houses in the place still browses by settlement.
             </p>
             <p>
+              Where every record under a row writes the same value — which is what a stray like
+              <em>?/Grosova ulica 18</em> is — the rename box carries an <strong>Address</strong> field beside the place,
+              the same split the geocoding rows offer. That value is not a place spelt wrong: it is a house in a place
+              your file never named, so correcting it takes both halves — <em>Kokrica, Kranj, Slovenia</em> as the place
+              and <em>Grosova ulica 18</em> as the address, which lands on the event's own <code>ADDR</code> line. The
+              address field completes from the houses your file writes at that place, from the place · address pairs it
+              knows, and — behind the online opt-in — from the address register itself, and taking any of those fills in
+              the place beside it too, since a house is only ever a house somewhere. A row standing for several
+              different values has no such split to offer: what a rename does there is rewrite the level's name wherever
+              it appears, and a house cannot be lifted out of values that do not all carry the same one.
+            </p>
+            <p>
               A place the file has a coordinate for shows it beside the count, so browsing the tree also tells you what
               is still ungeocoded. It is the coordinate written for that exact level: a place named only by its region
-              carries the region's. <strong>Click a coordinate</strong> to open a small map of it under the row — the
-              quickest way to catch a place that has quietly been pinned in the wrong country. Hovering the pin names the
-              place as your file writes it, its address where the row is one, and the coordinate itself on the last line.
-              The geocoding list reads the same way: clicking the coordinate a row is about to take opens that row and its
-              map.
+              carries the region's. <strong>Click a coordinate</strong> to open the coordinate panel — the same one the
+              geocoding lists, the naming check and the <a href="#edit">Edit</a> events open: a map of the position, the
+              register and OpenStreetMap searches, and a box to type or paste one. It is the quickest way to catch a
+              place that has quietly been pinned in the wrong country, and now also the place to correct it. Hovering the
+              pin names the place as your file writes it, its address where the row is one, and the coordinate itself on
+              the last line. A place the file never geocoded carries a faint pin beside its count instead, which opens
+              the same panel: a village can be placed from the tree without going through a worklist first.
+            </p>
+            <p>
+              What a position taken here is written to is exactly the records the row's count opens — the events written
+              at that place, in every spelling the file gives it. The houses under it are rows of their own and keep
+              their own positions, so a settlement is never spread over its buildings. <strong>Clear</strong> in the
+              panel takes the position back off those same records.
             </p>
             <p>
               Where the file's own records disagree about where a place is, the row shows the prevailing coordinate
-              followed by <span class="gm-badge rep">⚠ 2 spots</span>, and its map pins every one of them with the
-              number of mentions sitting there — twelve on the church and one 2&nbsp;km off is a typo, not a second
-              church. Coordinates a few metres apart are one spot, not a disagreement, so a re-geocode never raises the
-              flag. Settling it is <a href="#geocode">Geocode places</a>' job, and the map links straight there.
+              followed by <span class="gm-badge rep">⚠ 2 spots</span>, and the panel pins every one of them as a
+              numbered answer with the number of mentions sitting there — twelve on the church and one 2&nbsp;km off is a
+              typo, not a second church. Picking the right one settles the row. Coordinates a few metres apart are one
+              spot, not a disagreement, so a re-geocode never raises the flag.
             </p>
             <h3 id="geocode">Geocode places</h3>
             <p>
@@ -1525,10 +1564,9 @@
               one go is still a job for a GeoNames file.
             </p>
             <p>
-              All three lists on this page read the same way: a row names its place (and its address, where the row is about one), opens on a click — bringing its <strong>map</strong> with it, as an event's coordinate panel does in <a href="#edit">Edit</a>; the pinned toggle beside it puts the map away, and fetches it back for a row opened by <em>Expand all</em>, which deliberately draws none — and collects your picks until the list's own button at its top writes them in one step. The map shows candidate places as clickable pins, your chosen
+              All three lists on this page read the same way: a row names its place (and its address, where the row is about one), opens on a click to its numbered answers, and collects your picks until the list's own button at its top writes them in one step. The <strong>map</strong> is the same <strong>coordinate panel</strong> an event opens in <a href="#edit">Edit</a>, and it is asked for rather than thrown up over the list: the coordinate the row is about to take opens it, and so does <strong>Show map</strong> among the row's actions. It shows the row's answers as clickable pins under the numbers their lines carry, your chosen
               coordinate highlighted, and the file's other known coordinates as faint dots, so same-named places are told
-              apart by position; click anywhere else on the map to hand-pick a point. A row also offers alternatives, a
-              typed coordinate, or a remembered “no match” mark, and a <span class="gm-glyph">✎</span> button to
+              apart by position; click anywhere else on the map to hand-pick a point, or type one into the panel's own box. A row also offers alternatives or a remembered “no match” mark, and a <span class="gm-glyph">✎</span> button to
               <strong>rename</strong> the raw place value (all occurrences at once — with an optional place + address
               split, and the correction is rescanned for matches immediately). That rename box is the same place field
               the <a href="#edit">Edit</a> view uses (<a href="#edit">§8</a>): it completes from the places your file already writes and always
@@ -1716,10 +1754,15 @@
               in your file — and what it writes is placed where the directories say it is: the house where one is named
               and a stored register holds it, the settlement otherwise, and nothing at all where the answer is
               ambiguous. It writes at once, rather than joining the answers waiting above it: those are the
-              directory's wording, and this is yours. <strong>Show on map</strong> —
-              or a click on any answer's coordinate — draws the answers as numbered pins, the number on the pin being
-              the number beside the line, with the file's own position for the place as a dashed ring beside them: which
-              of six same-named places is yours is a question only a map answers. <strong>Look wider</strong> adds the
+              directory's wording, and this is yours. <strong>Show map</strong> —
+              or a click on any answer's coordinate — opens the same coordinate panel the other two lists open, with the
+              answers as numbered pins, the number on the pin being the number beside the line, and the file's own
+              position for the place shown as what it currently holds: which of six same-named places is yours is a
+              question only a map answers. Clicking an answer's pin picks that answer, exactly as its circle does. A
+              position the register never offered — typed, taken off the map, or found by the panel's own searches — is
+              a judgement of your own about where the place stands, so it is written for the value straight away and
+              nothing is renamed; <strong>Clear</strong> takes it back off again. That is how a village no directory
+              holds gets on the map at all. <strong>Look wider</strong> adds the
               places whose name merely <em>contains</em> the one written — <em>Bela</em> finding Spodnja, Srednja and
               Zgornja Bela — and those whose name merely <em>resembles</em> it, which is the only way a misspelling is
               ever found: <em>Mrkopolje</em> finds the register's <em>Mrkopalj</em>, which no search by spelling can
@@ -1751,8 +1794,9 @@
               Click it to place that one event, on its own small map: take a coordinate the file already uses for this
               address or place, look the house up in the register, <strong>search online</strong> (OpenStreetMap — for an
               address outside Slovenia, which the register does not cover), type or paste a coordinate, or remove the one
-              it has. This is where to sharpen an address whose settlement is already pinned, since the Tools list only
-              offers places missing a coordinate altogether. When the file holds other events at the same place
+              it has. This is where to sharpen an address whose settlement is already pinned, since the geocoding
+              worklist only offers places missing a coordinate altogether (the <a href="#places">Places</a> tree reaches
+              the placed ones). When the file holds other events at the same place
               <em>and</em> address, the panel offers — ticked by default — to write the pick onto all of them, since one
               house has one position; unticking keeps the coordinate on this event alone. The offer stands even when
               those events already share a coordinate, which is how a whole address is moved to a better position at

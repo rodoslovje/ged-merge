@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { renderKeyToken } from "../../keyboard/shortcuts";
 import { useFindShortcutOn } from "../../keyboard/useFindShortcut";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
+import { formatCoord } from "../../geo/points";
 import { customEventLabel } from "../../gedcom/eventTags";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
 import type { SourceUse } from "../../tools/sources";
@@ -12,6 +13,9 @@ import { foldSearch } from "../globalSearch";
 import { useNameOf } from "../SettingsContext";
 import { MapIcon } from "../icons/MapIcon";
 import { PlaceAutocomplete } from "../edit/PlaceAutocomplete";
+import { usePlaceLookup } from "../edit/PlaceLookupContext";
+import { placeKey, type PlaceSuggestions } from "../edit/placeSuggestions";
+import type { PlaceProposal } from "../../geo/placeProposal";
 
 const MiniPlaceMap = lazy(() => import("../map/MiniPlaceMap"));
 
@@ -458,6 +462,7 @@ export function RenameEditor({
   canonical,
   placeholder,
   applyDisabled,
+  applyLabel,
   onChange,
   onApply,
   onCancel,
@@ -475,6 +480,10 @@ export function RenameEditor({
   canonical: Map<string, string>;
   placeholder?: string;
   applyDisabled?: boolean;
+  /** The button's word where "Rename" is not what this apply does — the places
+   *  tree, whose target may be a name standing beside this one, in which case
+   *  the rename is a merge and says so. */
+  applyLabel?: string;
   onChange: (value: string) => void;
   onApply: () => void;
   onCancel: () => void;
@@ -491,7 +500,10 @@ export function RenameEditor({
    *  row returning to the list cannot pull the caret out of the filter box. */
   autoFocus?: boolean;
   children?: React.ReactNode;
-} & Pick<ComponentProps<typeof PlaceAutocomplete>, "onLookup" | "lookupNote" | "onPickProposal">) {
+} & Pick<
+  ComponentProps<typeof PlaceAutocomplete>,
+  "onLookup" | "lookupNote" | "onPickProposal" | "combos" | "matchCombosByPlace" | "onPickCombo"
+>) {
   const { t } = useTranslation();
   const removing = !value.trim() && !!onRemove;
   const apply = () => (removing ? onRemove!() : onApply());
@@ -527,9 +539,191 @@ export function RenameEditor({
         disabled={removing ? false : applyDisabled}
         {...(removing && removeTitle ? { title: removeTitle } : {})}
       >
-        {removing ? removeLabel : t("tools.places.rename.apply")}
+        {removing ? removeLabel : (applyLabel ?? t("tools.places.rename.apply"))}
       </button>
     </div>
+  );
+}
+
+/**
+ * One answer a row offers, in the shape all four of these lists offer answers:
+ * the number that is also the radio, the name, whatever the list has to say
+ * about that particular hit, the position it puts the place at, and the badge
+ * naming where it came from.
+ *
+ * The number *is* the control. The input stays for the keyboard and for screen
+ * readers, clipped out of sight — a second round control beside the number
+ * would be one dot too many — and the number carries the same value the pin on
+ * the map wears, which is what tells four answers spelled alike apart.
+ *
+ * Clicking the option a row already stands on clears it: a radio group has no
+ * "none" of its own, and a row picked by mistake would otherwise be written.
+ * Lists with nothing to clear to leave {@link onUnpick} off.
+ */
+export function CandidateOption({
+  group,
+  number,
+  label,
+  labelClass,
+  title,
+  ariaLabel,
+  checked,
+  disabled,
+  onPick,
+  onUnpick,
+  coord,
+  coordPrefix,
+  coordTitle,
+  onCoord,
+  badge,
+  className,
+  children,
+}: {
+  /** Radio-group name — one per row, so picking here cannot unpick there. */
+  group: string;
+  /** Its place in the row's own list; shared by answers standing on one point. */
+  number?: number;
+  label: React.ReactNode;
+  /** A class the name itself carries — the address pin on a register's house,
+   *  which marks it as a building rather than another spelling of the village
+   *  above it. */
+  labelClass?: string;
+  title?: string;
+  /** Spoken name, where the visible one is not enough on its own. */
+  ariaLabel?: string;
+  checked: boolean;
+  disabled?: boolean;
+  onPick: () => void;
+  onUnpick?: () => void;
+  /** Where this answer puts the place. */
+  coord?: GeoCoord;
+  /** Rendered inside the coordinate, before the numbers (a population). */
+  coordPrefix?: React.ReactNode;
+  coordTitle?: string;
+  /** Makes the coordinate the control that opens the row's coordinate panel,
+   *  which draws every answer on one map under these same numbers. */
+  onCoord?: () => void;
+  /** What the answer is worth or where it came from, at the end of the line. */
+  badge?: React.ReactNode;
+  className?: string;
+  /** What this list has to say about this hit — its kind, its municipality, the
+   *  house a split would move out — between the name and the coordinate. */
+  children?: React.ReactNode;
+}) {
+  const coordText = coord && (
+    <>
+      {coordPrefix}
+      {formatCoord(coord)}
+    </>
+  );
+  return (
+    <li {...(className ? { className } : {})}>
+      <label {...(title ? { title } : {})}>
+        <input
+          type="radio"
+          className="tools-geo-cand-radio"
+          name={group}
+          {...(ariaLabel ? { "aria-label": ariaLabel } : {})}
+          checked={checked}
+          {...(disabled ? { disabled } : {})}
+          onChange={onPick}
+          // A checked radio fires no change event, so the click itself is what
+          // takes a pick back.
+          onClick={() => checked && onUnpick?.()}
+        />
+        {number !== undefined && <span className="tools-geo-cand-num">{number}</span>}
+        <span className={labelClass ? `tools-geo-cand-name ${labelClass}` : "tools-geo-cand-name"}>{label}</span>
+        {children}
+        {coord &&
+          (onCoord ? (
+            <button
+              type="button"
+              className="tools-geo-coord-btn gm-data gm-coord"
+              {...(coordTitle ? { title: coordTitle } : {})}
+              onClick={(e) => {
+                // The coordinate is a control of its own inside the label —
+                // without this the click would pick the option as well.
+                e.preventDefault();
+                onCoord();
+              }}
+            >
+              {coordText}
+            </button>
+          ) : (
+            <span className="gm-data gm-coord">{coordText}</span>
+          ))}
+        {badge}
+      </label>
+    </li>
+  );
+}
+
+/**
+ * The address half of a rename that splits a value: the house on the event's own
+ * `ADDR` line, beside the place it stands in.
+ *
+ * A field with the same three helps the place beside it has — what this file
+ * already writes at that place, the place·address pairs it knows, and the
+ * address register itself. The register matters most here: a house number is
+ * exactly what a gazetteer of settlements cannot answer, and a value naming a
+ * quarter of a town ("Čirče") is filed there as a street inside the town,
+ * reachable only by asking for the address.
+ */
+export function AddressSplitField({
+  place,
+  value,
+  placeSug,
+  placeCombos,
+  onChange,
+  onPickCombo,
+  onPickProposal,
+}: {
+  /** The place draft beside it — what the register is asked about the house
+   *  *within*, and which of the file's addresses are offered plainly. */
+  place: string;
+  value: string;
+  placeSug: PlaceSuggestions;
+  /** Every place+address pair the file writes. */
+  placeCombos: { place: string; addr: string }[];
+  onChange: (value: string) => void;
+  onPickCombo: (place: string, addr: string) => void;
+  onPickProposal: (proposal: PlaceProposal) => void;
+}) {
+  const { t } = useTranslation();
+  const lookup = usePlaceLookup();
+  // Pairs at *other* places, since the addresses of the drafted place are
+  // already its plain suggestions.
+  const combos = useMemo(
+    () => placeCombos.filter((cb) => placeKey(cb.place) !== placeKey(place)),
+    [placeCombos, place],
+  );
+  return (
+    <span className="tools-geo-addr-chip tools-geo-addr-chip--field" title={t("tools.geocode.renameAddrTooltip")}>
+      {t("event.colAddr")}:
+      <PlaceAutocomplete
+        value={value}
+        suggestions={placeSug.placeToAddrs.get(placeKey(place)) ?? []}
+        canonical={placeSug.addrCanonical}
+        combos={combos}
+        // The pair list is this field's only route to another settlement, so a
+        // typed place name matches too (as in the Edit row).
+        matchCombosByPlace
+        isDirty={false}
+        className="tools-geo-addr-chip-input"
+        wrapClassName="tools-geo-addr-chip-auto"
+        placeholder={t("tools.geocode.renameAddrPlaceholder")}
+        onChange={onChange}
+        onCommit={onChange}
+        onClear={() => onChange("")}
+        onPickCombo={onPickCombo}
+        onPickProposal={onPickProposal}
+        // House numbers live only in the online registers — an imported
+        // gazetteer holds settlements — so with the opt-in off the field says
+        // why instead of offering a search that cannot answer.
+        onLookup={lookup?.online ? (query) => lookup.searchAddress(place, query) : undefined}
+        lookupNote={lookup && !lookup.online ? t("tools.geocode.downloadNeedsOptIn") : undefined}
+      />
+    </span>
   );
 }
 

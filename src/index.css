@@ -8159,8 +8159,13 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 .tools-place-coord:hover { color: var(--accent); }
 /* The file puts this place in two spots — one of them is wrong. */
 .tools-place-coord-warn { color: var(--danger); margin-left: 6px; }
-.tools-place-map { max-width: 560px; margin-left: 26px; }
-.tools-place-map-note { margin: 0 0 6px; color: var(--muted); font-size: 0.82rem; }
+/* The coordinate and the panel it opens are one control, so the panel is
+   anchored to the value rather than to the whole row. */
+.tools-place-coord-wrap { display: inline-flex; align-items: center; }
+/* The pin that stands in for a coordinate the place has not got yet: the same
+   faint-at-rest button the ✎ beside the name is, so an unplaced tree reads as a
+   list of places and not as a column of pins. */
+.tools-place-coord-add { line-height: 0; padding: 2px 4px; color: var(--muted); }
 /* Present on every row it belongs to, at every width: it had been collapsed to
    nothing until its row was hovered, which on a touch screen — where nothing is
    ever hovered — meant a control that could not be reached at all. It holds its

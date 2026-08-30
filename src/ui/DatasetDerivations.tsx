@@ -12,7 +12,7 @@ import {
   type HomeCountryDetection,
   type RegisterVote,
 } from "../geo/homeCountry";
-import { collectPlaceValues } from "../tools/geocode";
+import { collectFileCoords, collectPlaceValues, type FileCoord } from "../tools/geocode";
 import { gazetteerGeneration, gazetteerIndex } from "./edit/PlaceLookupContext";
 import { useSettingsSlice } from "./SettingsContext";
 
@@ -37,6 +37,10 @@ export interface DatasetDerivations {
   placeSuggestions: () => PlaceSuggestions;
   /** The place+address rows of the whole file (the Addresses tab's unit). */
   addressRows: () => AddressRow[];
+  /** Every coordinate the file already carries — the faint context dots on
+   *  every map these tools draw, and a whole-file pass that both the geocoding
+   *  and the naming page were making one each of. */
+  fileCoords: () => FileCoord[];
   /** Kinship labels from the start person; undefined without one. */
   kinship: (startId: string | undefined) => KinshipResolver | undefined;
   /** Every PLAC value the file writes, in file order and with repeats — the
@@ -82,6 +86,7 @@ export function DatasetDerivationsProvider({
       version,
       placeSuggestions: lazy(() => buildPlaceSuggestions(dataset)),
       addressRows: lazy(() => scanAddresses(dataset)),
+      fileCoords: lazy(() => collectFileCoords(dataset)),
       placeValues,
       homeCountry: lazy(() => detectHomeCountry(placeValues())),
       kinship: (startId) => {

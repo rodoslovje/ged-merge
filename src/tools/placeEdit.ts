@@ -17,8 +17,13 @@ function escapeRegex(s: string): string {
  *  2. Parenthetical country: "Skopje (Macedonia)" → "Skopje (North Macedonia)"
  *     Where the country was extracted from a parenthetical in another segment.
  * Returns null if nothing changed.
+ *
+ * Exported because a caller sometimes has to know what a value *becomes*: the
+ * places tree writes the coordinate a register offer brought along onto the
+ * value its rename has just made, and cannot read that off records it has not
+ * rebuilt yet.
  */
-function renameInValue(raw: string, from: string, to: string): string | null {
+export function renameInValue(raw: string, from: string, to: string): string | null {
   let result = raw;
   let changed = false;
 

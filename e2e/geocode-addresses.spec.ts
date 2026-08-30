@@ -129,7 +129,7 @@ test("a fully placed place hides from the worklist and returns behind the toggle
   await expect(places).toHaveCount(2);
   const placedRow = places.filter({ hasText: "Ljubljana" });
   await expect(placedRow).toContainText("placed");
-  await expect(placedRow).toContainText("46.0511, 14.5051");
+  await expect(placedRow).toContainText("46.05108, 14.50513");
   await expect(placedRow.locator(".tools-geo-coord-btn.staged")).toHaveCount(0);
   await expect(page.getByRole("button", { name: /Already placed/ })).toContainText("1");
 

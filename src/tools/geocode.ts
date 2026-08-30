@@ -657,6 +657,31 @@ export function applyGeocodeByAddress(
   });
 }
 
+/**
+ * Take the coordinate away again from every event at one of these exact
+ * place+address pairs ({@link placeAddrKey}) — the counterpart of
+ * {@link applyGeocodeByAddress}, and what the coordinate panel's *Clear* does
+ * wherever the panel writes to the file rather than staging a pick.
+ *
+ * The `_GOV` identity goes with it: it names the very position being removed,
+ * and a place left holding an id but no point claims to be a register entry it
+ * no longer says anything about. Pairs the file never geocoded are passed over,
+ * so the pass reports what it actually removed.
+ */
+export function clearPlaceCoords(dataset: Dataset, pairs: ReadonlySet<string>): RecordPatch[] {
+  return patchRecords(dataset, (raw) => {
+    let changed = false;
+    walkPlaceAddr(raw, (plac, addr) => {
+      if (!pairs.has(placeAddrKey(plac.value!.trim(), addr))) return;
+      if (!coordOf(plac)) return;
+      plac.children = plac.children.filter((c) => c.tag !== "MAP");
+      clearPlaceGov(plac);
+      changed = true;
+    });
+    return changed;
+  });
+}
+
 // ── Staged review state ─────────────────────────────────────────────────────
 // The panel's picks and no-match marks between a scan and the Write. Kept as
 // pure functions because their invariants are exactly where this tool's

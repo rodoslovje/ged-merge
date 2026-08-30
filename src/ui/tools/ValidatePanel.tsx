@@ -4,6 +4,7 @@ import type { Dataset, Sex } from "../../gedcom/types";
 import { type ValidationReport, type ValidationIssue, type IssueCategory } from "../../tools/validate";
 import { inferableSexes } from "../../tools/fixSex";
 import { countSwappedRoles, swappedRoleTargets } from "../../tools/fixRoleSwap";
+import { formatCoord } from "../../geo/points";
 import type { BrokenLinkRef } from "../../tools/fixLinks";
 import { countFixableDates, type BadDateRef } from "../../tools/fixDates";
 import { countDanglingRefs, type DanglingRef } from "../../tools/fixDanglingRefs";
@@ -484,7 +485,7 @@ export function ValidatePanel({
                   {p.missing}
                 </span>
                 <span className="gm-data gm-coord gm-coord--set">
-                  {p.coord.lat.toFixed(4)}, {p.coord.lon.toFixed(4)}
+                  {formatCoord(p.coord)}
                 </span>
               </li>
             ))}
