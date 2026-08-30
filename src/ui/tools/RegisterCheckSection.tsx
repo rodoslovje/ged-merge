@@ -22,6 +22,7 @@ import { proposalFromGazEntry, type PlaceStyle } from "../../geo/placeProposal";
 import { useVirtualList } from "../useVirtualList";
 import {
   AppliedNote,
+  CandidateOption,
   ExpandAllToggle,
   GeoPeopleList,
   GeoRowHeader,
@@ -29,7 +30,7 @@ import {
   RenameEditor,
   RenameToggle,
 } from "./shared";
-import { formatCoord, sameCoord } from "../../geo/points";
+import { sameCoord } from "../../geo/points";
 import { usePlaceLookup } from "../edit/PlaceLookupContext";
 import { EventCoordPicker } from "../edit/EventCoordPicker";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
@@ -974,60 +975,43 @@ const RegisterRow = memo(function RegisterRow({
                 // official names" with no way to say so.
                 const isChecked = held ? pickedIndex === i : chosen === i;
                 return (
-                  <li key={i}>
-                    <label>
-                      <input
-                        type="radio"
-                        className="tools-geo-cand-radio"
-                        name={`register-${f.key}`}
-                        aria-label={o.place}
-                        checked={isChecked}
-                        onChange={() => onPick(f.key, i)}
-                        // A checked radio fires no change event, so the click
-                        // itself is what takes a pick back — and what counts
-                        // as checked is what the circle shows, not what was
-                        // explicitly picked. Most rows arrive standing on
-                        // their answer without anyone picking it (see
-                        // chosenIndex): reading only an explicit pick here
-                        // meant the first click on a filled circle silently
-                        // *made* the pick it already showed, and it took two
-                        // clicks to clear one. On a held-back verdict the
-                        // circle starts empty, so this click still marks
-                        // agreement rather than clearing it.
-                        onClick={() => (isChecked ? onUnpick(f.key) : onPick(f.key, i))}
-                      />
-                      <span className="tools-geo-cand-num">{i + 1}</span>
-                      <span className="tools-geo-cand-name">{o.place}</span>
-                      {/* The house the split moves onto the event's own ADDR
-                          line. Written "place · house", the way a register's
-                          offer reads in an Edit place field and the way the
-                          row header above writes it: the tag name said which
-                          GEDCOM line it lands on, which is not what is being
-                          chosen between. */}
-                      {o.addr && <span className="tools-register-place">· {o.addr}</span>}
-                      {o.entry && (
-                        <>
-                          {/* The coordinate opens the map on this answer's pin
-                              — the number beside the line is the number on the
-                              pin. */}
-                          <button
-                            type="button"
-                            className="tools-geo-coord-btn gm-data gm-coord"
-                            title={t("tools.register.showOnMap")}
-                            onClick={(e) => {
-                              e.preventDefault();
-                              onToggleMap(f.key);
-                            }}
-                          >
-                            {formatCoord({ lat: o.entry.lat, lon: o.entry.lon })}
-                          </button>
-                          <span className={`tools-reshape-badge ${o.entry.register ? "official" : "reuse"}`}>
-                            {directoryOf(o.entry)}
-                          </span>
-                        </>
-                      )}
-                    </label>
-                  </li>
+                  <CandidateOption
+                    key={i}
+                    group={`register-${f.key}`}
+                    number={i + 1}
+                    label={o.place}
+                    ariaLabel={o.place}
+                    checked={isChecked}
+                    // What counts as checked is what the circle shows, not what
+                    // was explicitly picked: most rows arrive standing on their
+                    // answer without anyone picking it (see chosenIndex), and
+                    // reading only an explicit pick meant the first click on a
+                    // filled circle silently *made* the pick it already showed.
+                    onPick={() => onPick(f.key, i)}
+                    onUnpick={() => onUnpick(f.key)}
+                    {...(o.entry
+                      ? {
+                          coord: { lat: o.entry.lat, lon: o.entry.lon },
+                          // The coordinate opens the map on this answer's pin —
+                          // the number beside the line is the number on the pin.
+                          onCoord: () => onToggleMap(f.key),
+                          coordTitle: t("tools.register.showOnMap"),
+                          badge: (
+                            <span className={`tools-reshape-badge ${o.entry.register ? "official" : "reuse"}`}>
+                              {directoryOf(o.entry)}
+                            </span>
+                          ),
+                        }
+                      : {})}
+                  >
+                    {/* The house the split moves onto the event's own ADDR
+                        line. Written "place · house", the way a register's
+                        offer reads in an Edit place field and the way the row
+                        header above writes it: the tag name said which GEDCOM
+                        line it lands on, which is not what is being chosen
+                        between. */}
+                    {o.addr && <span className="tools-register-place">· {o.addr}</span>}
+                  </CandidateOption>
                 );
               })}
             </ul>

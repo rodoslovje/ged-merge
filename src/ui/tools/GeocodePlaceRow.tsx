@@ -20,7 +20,7 @@ import { placeCollator } from "../../gedcom/place";
 import { useSettingsSlice } from "../SettingsContext";
 import { EventCoordPicker } from "../edit/EventCoordPicker";
 import { LookupAction } from "../edit/LookupAction";
-import { GeoPeopleList, GeoRowHeader, MapToggle, RenameEditor } from "./shared";
+import { CandidateOption, GeoPeopleList, GeoRowHeader, MapToggle, RenameEditor } from "./shared";
 
 // One row of the Geocode-places review list: the raw PLAC value, its badge
 // (file coordinate / score / remembered / no-match), the rename editor, and —
@@ -615,148 +615,125 @@ export function GeocodePlaceRow({
                 guessing which dot is which line. Two answers at the very same
                 point share a number, which is the truth about them. */}
             {row.fileCoord && (
-              <li>
-                <label>
-                  <input
-                    type="radio"
-                    className="tools-geo-cand-radio"
-                    name={`geo-${row.key}`}
-                    aria-label={t("tools.geocode.fromFile")}
-                    checked={sameCoord(override?.coord, row.fileCoord)}
-                    onClick={() => sameCoord(override?.coord, row.fileCoord) && onUnpickCoord(row)}
-                    onChange={() => onPickCoord(row, row.fileCoord!, t("tools.geocode.fromFile"))}
-                  />
-                  <span className="tools-geo-cand-num">{numberOf(row.fileCoord)}</span>
-                  <span className="tools-geo-cand-name">{t("tools.geocode.fromFile")}</span>
-                  <span className="gm-data gm-coord">
-                    {formatCoord(row.fileCoord)}
-                  </span>
-                </label>
-              </li>
+              <CandidateOption
+                group={`geo-${row.key}`}
+                number={numberOf(row.fileCoord)}
+                label={t("tools.geocode.fromFile")}
+                ariaLabel={t("tools.geocode.fromFile")}
+                checked={sameCoord(override?.coord, row.fileCoord)}
+                onPick={() => onPickCoord(row, row.fileCoord!, t("tools.geocode.fromFile"))}
+                onUnpick={() => onUnpickCoord(row)}
+                coord={row.fileCoord}
+              />
             )}
-            {row.candidates.map((cand, i) => (
-              <li key={i}>
-                <label>
-                  <input
-                    type="radio"
-                    className="tools-geo-cand-radio"
-                    name={`geo-${row.key}`}
-                    aria-label={cand.entry.name}
-                    checked={sameCoord(override?.coord, { lat: cand.entry.lat, lon: cand.entry.lon })}
-                    onClick={() => sameCoord(override?.coord, { lat: cand.entry.lat, lon: cand.entry.lon }) && onUnpickCoord(row)}
-                    onChange={() => pickCandidate(cand)}
-                  />
-                  <span className="tools-geo-cand-num">{numberOf({ lat: cand.entry.lat, lon: cand.entry.lon })}</span>
-                  <span className="tools-geo-cand-name">{cand.entry.name}</span>
+            {row.candidates.map((cand, i) => {
+              const coord = { lat: cand.entry.lat, lon: cand.entry.lon };
+              const admin = adminOf(cand.entry.name, cand.adminDisplay ?? cand.entry.admin);
+              return (
+                <CandidateOption
+                  key={i}
+                  group={`geo-${row.key}`}
+                  number={numberOf(coord)}
+                  label={cand.entry.name}
+                  ariaLabel={cand.entry.name}
+                  checked={sameCoord(override?.coord, coord)}
+                  onPick={() => pickCandidate(cand)}
+                  onUnpick={() => onUnpickCoord(row)}
+                  coord={coord}
+                  coordPrefix={
+                    cand.entry.population > 0 &&
+                    `· ${t("tools.geocode.population", { count: cand.entry.population })} · `
+                  }
+                  badge={
+                    <>
+                      {/* Green means "this is going in", the same as in the
+                          row's header — so the candidate the row is actually on
+                          wears the header's colour, and the rest are judged on
+                          their score alone. Passing `false` here made a
+                          header's green 99% read amber, and its green 100% read
+                          neutral, one line apart. */}
+                      <span className={scoreBadgeClass(cand.score, sameCoord(override?.coord, coord))}>
+                        {Math.round(cand.score * 100)}%
+                      </span>
+                      {/* Source last, like the GOV/OSM/GURS rows below: the full
+                          directory id — register code (SI-GURS), download key
+                          (HR-OSM), or the bare country code, which by convention
+                          means the GeoNames file. */}
+                      <span className={`tools-reshape-badge ${cand.entry.register ? "official" : "reuse"}`}>
+                        {cand.entry.register ?? cand.entry.source ?? cand.entry.country}
+                      </span>
+                    </>
+                  }
+                >
                   {/* The division the register files it under — the only thing
                       that tells two same-named settlements apart. In the file's
                       own spelling when the place string names the division. */}
-                  {adminOf(cand.entry.name, cand.adminDisplay ?? cand.entry.admin) && (
+                  {admin && (
                     <span className="tools-geo-count" title={t("tools.geocode.adminHint")}>
-                      ({adminOf(cand.entry.name, cand.adminDisplay ?? cand.entry.admin)})
+                      ({admin})
                     </span>
                   )}
-                  <span className="gm-data gm-coord">
-                    {cand.entry.population > 0 && `· ${t("tools.geocode.population", { count: cand.entry.population })} · `}
-                    {formatCoord({ lat: cand.entry.lat, lon: cand.entry.lon })}
-                  </span>
-                  {/* Green means "this is going in", the same as in the row's
-                      header — so the candidate the row is actually on wears the
-                      header's colour, and the rest are judged on their score
-                      alone. Passing `false` here made a header's green 99% read
-                      amber, and its green 100% read neutral, one line apart. */}
-                  <span
-                    className={scoreBadgeClass(
-                      cand.score,
-                      sameCoord(override?.coord, { lat: cand.entry.lat, lon: cand.entry.lon }),
-                    )}
-                  >
-                    {Math.round(cand.score * 100)}%
-                  </span>
-                  {/* Source last, like the GOV/OSM/GURS rows below: the full
-                      directory id — register code (SI-GURS), download key
-                      (HR-OSM), or the bare country code, which by convention
-                      means the GeoNames file. */}
-                  <span className={`tools-reshape-badge ${cand.entry.register ? "official" : "reuse"}`}>
-                    {cand.entry.register ?? cand.entry.source ?? cand.entry.country}
-                  </span>
-                </label>
-              </li>
-            ))}
+                </CandidateOption>
+              );
+            })}
             {online.results.map((r, i) => (
-              <li key={`osm-${i}`}>
-                <label title={r.label}>
-                  <input
-                    type="radio"
-                    className="tools-geo-cand-radio"
-                    name={`geo-${row.key}`}
-                    aria-label={r.name}
-                    checked={sameCoord(override?.coord, r.coord)}
-                    onClick={() => sameCoord(override?.coord, r.coord) && onUnpickCoord(row)}
-                    onChange={() => onPickCoord(row, r.coord, pickLabel(r.name, r.admin))}
-                  />
-                  <span className="tools-geo-cand-num">{numberOf(r.coord)}</span>
-                  {/* Name and parent, like the register and GOV rows — the full
-                      chain would run the row off the line, and is in the title. */}
-                  <span className="tools-geo-cand-name">{r.name}</span>
-                  {r.admin && <span className="tools-geo-count">({r.admin})</span>}
-                  {/* What the hit is: OpenStreetMap answers one name with the
-                      place, the street named after it and the service road off
-                      that, all three spelled identically. */}
-                  {osmKindLabel(r, t) && <span className="tools-geo-cand-kind">{osmKindLabel(r, t)}</span>}
-                  <span className="gm-data gm-coord">
-                    {formatCoord(r.coord)}
-                  </span>
-                  <span className="tools-reshape-badge reuse">OSM</span>
-                </label>
-              </li>
+              <CandidateOption
+                key={`osm-${i}`}
+                group={`geo-${row.key}`}
+                number={numberOf(r.coord)}
+                // Name and parent, like the register and GOV rows — the full
+                // chain would run the row off the line, and is in the title.
+                label={r.name}
+                title={r.label}
+                ariaLabel={r.name}
+                checked={sameCoord(override?.coord, r.coord)}
+                onPick={() => onPickCoord(row, r.coord, pickLabel(r.name, r.admin))}
+                onUnpick={() => onUnpickCoord(row)}
+                coord={r.coord}
+                badge={<span className="tools-reshape-badge reuse">OSM</span>}
+              >
+                {r.admin && <span className="tools-geo-count">({r.admin})</span>}
+                {/* What the hit is: OpenStreetMap answers one name with the
+                    place, the street named after it and the service road off
+                    that, all three spelled identically. */}
+                {osmKindLabel(r, t) && <span className="tools-geo-cand-kind">{osmKindLabel(r, t)}</span>}
+              </CandidateOption>
             ))}
             {gov.results.map((r, i) => (
-              <li key={`gov-${i}`}>
-                <label title={`${r.label} · GOV ${r.govId}`}>
-                  <input
-                    type="radio"
-                    className="tools-geo-cand-radio"
-                    name={`geo-${row.key}`}
-                    aria-label={r.label}
-                    checked={sameCoord(override?.coord, r.coord)}
-                    onClick={() => sameCoord(override?.coord, r.coord) && onUnpickCoord(row)}
-                    onChange={() => onPickCoord(row, r.coord, pickLabel(r.name, r.admin), r.govId)}
-                  />
-                  <span className="tools-geo-cand-num">{numberOf(r.coord)}</span>
-                  <span className="tools-geo-cand-name">{r.label}</span>
-                  {/* The place it is part of, like the register candidates —
-                      four same-named Osredek differ only in this. */}
-                  {r.admin && <span className="tools-geo-count">({r.admin})</span>}
-                  <span className="gm-data gm-coord">
-                    {formatCoord(r.coord)}
-                  </span>
-                  <span className="tools-reshape-badge new">GOV</span>
-                </label>
-              </li>
+              <CandidateOption
+                key={`gov-${i}`}
+                group={`geo-${row.key}`}
+                number={numberOf(r.coord)}
+                label={r.label}
+                title={`${r.label} · GOV ${r.govId}`}
+                ariaLabel={r.label}
+                checked={sameCoord(override?.coord, r.coord)}
+                onPick={() => onPickCoord(row, r.coord, pickLabel(r.name, r.admin), r.govId)}
+                onUnpick={() => onUnpickCoord(row)}
+                coord={r.coord}
+                badge={<span className="tools-reshape-badge new">GOV</span>}
+              >
+                {/* The place it is part of, like the register candidates —
+                    four same-named Osredek differ only in this. */}
+                {r.admin && <span className="tools-geo-count">({r.admin})</span>}
+              </CandidateOption>
             ))}
             {rn.results.map((r, i) => (
-              <li key={`rn-${i}`}>
-                <label title={r.label}>
-                  <input
-                    type="radio"
-                    className="tools-geo-cand-radio"
-                    name={`geo-${row.key}`}
-                    aria-label={r.address}
-                    checked={sameCoord(override?.coord, r.coord)}
-                    onClick={() => sameCoord(override?.coord, r.coord) && onUnpickCoord(row)}
-                    onChange={() => onPickCoord(row, r.coord, r.address)}
-                  />
-                  <span className="tools-geo-cand-num">{numberOf(r.coord)}</span>
-                  {/* A register hit is a house, not a place — pinned, so it is
-                      not read as another spelling of the settlement above. */}
-                  <span className="tools-geo-cand-name gm-addr">{r.label}</span>
-                  <span className="gm-data gm-coord">
-                    {formatCoord(r.coord)}
-                  </span>
-                  <span className="tools-reshape-badge official">GURS</span>
-                </label>
-              </li>
+              <CandidateOption
+                key={`rn-${i}`}
+                group={`geo-${row.key}`}
+                number={numberOf(r.coord)}
+                // A register hit is a house, not a place — pinned, so it is not
+                // read as another spelling of the settlement above.
+                label={<span className="gm-addr">{r.label}</span>}
+                title={r.label}
+                ariaLabel={r.address}
+                checked={sameCoord(override?.coord, r.coord)}
+                onPick={() => onPickCoord(row, r.coord, r.address)}
+                onUnpick={() => onUnpickCoord(row)}
+                coord={r.coord}
+                badge={<span className="tools-reshape-badge official">GURS</span>}
+              />
             ))}
           </ul>
           {/* Who this unresolved place belongs to — shown only when the

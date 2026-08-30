@@ -25,6 +25,7 @@ import { useVirtualList } from "../useVirtualList";
 import { placeKey, type PlaceSuggestions } from "../edit/placeSuggestions";
 import {
   AppliedNote,
+  CandidateOption,
   ExpandAllToggle,
   GeoPeopleList,
   GeoRowHeader,
@@ -776,39 +777,38 @@ export function AddressCheckSection({
                               Addresses tab, where the destination is typed. */}
                           {open.has(f.key) && f.official && (
                             <ul className="tools-geo-candidates">
-                              <li>
-                                {f.officialAddress || f.officialPlace ? (
-                                  <label>
-                                    <input
-                                      type="radio"
-                                      className="tools-geo-cand-radio"
-                                      name={`registerAddr-${f.key}`}
-                                      aria-label={f.official}
-                                      disabled={f.dismissed}
-                                      checked={false}
-                                      onChange={() => (f.officialAddress ? takeOfficial([f]) : takeMove(f))}
-                                    />
-                                    {/* The number IS the control everywhere on
-                                        these pages — the input itself is clipped
-                                        to a pixel, so an option without it drew
-                                        no control at all. */}
-                                    <span className="tools-geo-cand-num">1</span>
-                                    <span className="tools-geo-cand-name">{f.official}</span>
-                                    {/* The place this line yields, beside the
-                                        line itself — the header's proposal read
-                                        back to where it comes from, so the move
-                                        is visibly the register's own filing and
-                                        not something composed elsewhere. */}
-                                    {f.officialPlace && <span className="tools-register-place">{f.officialPlace}</span>}
-                                  </label>
-                                ) : (
+                              {f.officialAddress || f.officialPlace ? (
+                                <CandidateOption
+                                  group={`registerAddr-${f.key}`}
+                                  number={1}
+                                  label={f.official}
+                                  ariaLabel={f.official}
+                                  disabled={f.dismissed}
+                                  // Nothing to stand on: taking this line is the
+                                  // write itself, and the row leaves the report.
+                                  checked={false}
+                                  onPick={() => (f.officialAddress ? takeOfficial([f]) : takeMove(f))}
+                                >
+                                  {/* The place this line yields, beside the line
+                                      itself — the header's proposal read back to
+                                      where it comes from, so the move is visibly
+                                      the register's own filing and not something
+                                      composed elsewhere. */}
+                                  {f.officialPlace && <span className="tools-register-place">{f.officialPlace}</span>}
+                                </CandidateOption>
+                              ) : (
+                                // Nothing to write, so no control: a place value
+                                // this app cannot compose the swap for is moved
+                                // on the Addresses tab, where the destination is
+                                // typed.
+                                <li>
                                   <span className="tools-geo-cand-line" title={t("tools.registerAddr.moveHint")}>
                                     <span className="tools-geo-cand-num">1</span>
                                     <span className="tools-geo-cand-name">{f.official}</span>
                                     {f.settlement && <span className="tools-register-place">{f.settlement}</span>}
                                   </span>
-                                )}
-                              </li>
+                                </li>
+                              )}
                             </ul>
                           )}
                           {showPeople && (

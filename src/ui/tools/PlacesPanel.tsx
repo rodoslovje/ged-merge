@@ -31,10 +31,6 @@ const TOWN_ZOOM = 13;
  *  everywhere else. */
 const HOUSE_ZOOM = 17;
 
-/** What {@link buildPlaceTree} joins a place value and its ADDR with, so a
- *  row's own record can be read back as the pair the file writes. */
-const USE_SEPARATOR = " — ";
-
 /** Prune a place node to those whose name matches `q` (already lower-cased)
  * anywhere in the subtree. A node matching by name keeps its whole subtree;
  * otherwise only matching descendant branches are retained — including the
@@ -451,22 +447,15 @@ function PlaceTreeRow({
    * The place and address this row is, as the file writes them — what the
    * coordinate panel looks the row up by, and what its pins are labelled with.
    *
-   * Both are read off a record that sits exactly here, so they carry the file's
-   * own spelling and separators; an address row's record joins the pair with
-   * {@link USE_SEPARATOR}, which is split back apart here because the registers
-   * are asked about a house *at* a place, not about the two run together. A
-   * node that only holds children has no record of its own, and no position to
-   * write: it offers no panel at all.
+   * Read off a record that sits exactly here, so they carry the file's own
+   * spelling and separators. A node that only holds children has no record of
+   * its own, and no position to write: it offers no panel at all.
    */
-  const { placeValue, addrValue } = useMemo(() => {
-    const raw = node.uses[0]?.raw?.trim() ?? "";
-    const at = raw.indexOf(USE_SEPARATOR);
-    if (at >= 0) return { placeValue: raw.slice(0, at), addrValue: raw.slice(at + USE_SEPARATOR.length) };
-    return { placeValue: raw, addrValue: "" };
-  }, [node.uses]);
-  /** The two run together again, as the row's own record writes them: what the
-   *  pin standing on this position is called. */
-  const pinValue = addrValue ? `${placeValue}${USE_SEPARATOR}${addrValue}` : placeValue;
+  const placeValue = node.uses[0]?.plac.trim() ?? "";
+  const addrValue = node.uses[0]?.addr?.trim() ?? "";
+  /** The two together, as the row reads: what the pin standing on this position
+   *  is called. */
+  const pinValue = addrValue ? `${placeValue} — ${addrValue}` : placeValue;
 
   /**
    * Every place+address pair written at exactly this node — what a position
@@ -481,11 +470,8 @@ function PlaceTreeRow({
   const coordKeys = useMemo(() => {
     const keys = new Set<string>();
     for (const use of node.uses) {
-      const raw = use.raw.trim();
-      const at = raw.indexOf(USE_SEPARATOR);
-      const place = at >= 0 ? raw.slice(0, at) : raw;
-      const addr = at >= 0 ? raw.slice(at + USE_SEPARATOR.length) : "";
-      if (place) keys.add(placeAddrKey(place, addr));
+      const place = use.plac.trim();
+      if (place) keys.add(placeAddrKey(place, use.addr?.trim() ?? ""));
     }
     return keys;
   }, [node.uses]);

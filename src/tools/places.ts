@@ -30,8 +30,14 @@ export interface PlaceUse {
    *  place is shown under its spouses but lives on neither of their records,
    *  so an edit scoped to the people would miss it entirely. */
   recordId: string;
-  /** The original `PLAC` text, shown as a tooltip on the usage. */
-  raw: string;
+  /** The original `PLAC` text — the value the file writes, which is what a
+   *  rename rewrites and what a coordinate is keyed by. */
+  plac: string;
+  /** The event's own `ADDR`, where it has one. Kept apart from the place rather
+   *  than run together with it: the pair is what the registers are asked about
+   *  and what a written coordinate is filed under, and a caller that had to
+   *  split a joined string back apart was reading a separator no one owned. */
+  addr?: string;
 }
 
 export interface PlaceNode {
@@ -247,7 +253,7 @@ export function buildPlaceTree(dataset: Dataset): PlaceTree {
   const distinct = new Set<string>();
   let totalUses = 0;
 
-  const visit = (rec: GedNode, use: Omit<PlaceUse, "raw">) => {
+  const visit = (rec: GedNode, use: Omit<PlaceUse, "plac" | "addr">) => {
     const found: PlaceMention[] = [];
     collectPlaces(rec, found);
     const seenPaths = new Set<string>();
@@ -261,8 +267,7 @@ export function buildPlaceTree(dataset: Dataset): PlaceTree {
       seenPaths.add(pathKey);
       let node = root;
       for (const seg of path) node = childNode(node, seg.name, seg.isAddress);
-      const raw = mention.addr ? `${mention.raw} — ${mention.addr}` : mention.raw;
-      node.uses.push({ ...use, raw });
+      node.uses.push({ ...use, plac: mention.raw, ...(mention.addr ? { addr: mention.addr } : {}) });
       // The coordinate belongs to the deepest level the mention reached: the
       // file writes one per PLAC+ADDR pair, which is exactly this node.
       if (mention.coord) {

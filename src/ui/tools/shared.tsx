@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { renderKeyToken } from "../../keyboard/shortcuts";
 import { useFindShortcutOn } from "../../keyboard/useFindShortcut";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
+import { formatCoord } from "../../geo/points";
 import { customEventLabel } from "../../gedcom/eventTags";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
 import type { SourceUse } from "../../tools/sources";
@@ -538,6 +539,114 @@ export function RenameEditor({
         {removing ? removeLabel : (applyLabel ?? t("tools.places.rename.apply"))}
       </button>
     </div>
+  );
+}
+
+/**
+ * One answer a row offers, in the shape all four of these lists offer answers:
+ * the number that is also the radio, the name, whatever the list has to say
+ * about that particular hit, the position it puts the place at, and the badge
+ * naming where it came from.
+ *
+ * The number *is* the control. The input stays for the keyboard and for screen
+ * readers, clipped out of sight — a second round control beside the number
+ * would be one dot too many — and the number carries the same value the pin on
+ * the map wears, which is what tells four answers spelled alike apart.
+ *
+ * Clicking the option a row already stands on clears it: a radio group has no
+ * "none" of its own, and a row picked by mistake would otherwise be written.
+ * Lists with nothing to clear to leave {@link onUnpick} off.
+ */
+export function CandidateOption({
+  group,
+  number,
+  label,
+  title,
+  ariaLabel,
+  checked,
+  disabled,
+  onPick,
+  onUnpick,
+  coord,
+  coordPrefix,
+  coordTitle,
+  onCoord,
+  badge,
+  className,
+  children,
+}: {
+  /** Radio-group name — one per row, so picking here cannot unpick there. */
+  group: string;
+  /** Its place in the row's own list; shared by answers standing on one point. */
+  number?: number;
+  label: React.ReactNode;
+  title?: string;
+  /** Spoken name, where the visible one is not enough on its own. */
+  ariaLabel?: string;
+  checked: boolean;
+  disabled?: boolean;
+  onPick: () => void;
+  onUnpick?: () => void;
+  /** Where this answer puts the place. */
+  coord?: GeoCoord;
+  /** Rendered inside the coordinate, before the numbers (a population). */
+  coordPrefix?: React.ReactNode;
+  coordTitle?: string;
+  /** Makes the coordinate the control that opens the row's coordinate panel,
+   *  which draws every answer on one map under these same numbers. */
+  onCoord?: () => void;
+  /** What the answer is worth or where it came from, at the end of the line. */
+  badge?: React.ReactNode;
+  className?: string;
+  /** What this list has to say about this hit — its kind, its municipality, the
+   *  house a split would move out — between the name and the coordinate. */
+  children?: React.ReactNode;
+}) {
+  const coordText = coord && (
+    <>
+      {coordPrefix}
+      {formatCoord(coord)}
+    </>
+  );
+  return (
+    <li {...(className ? { className } : {})}>
+      <label {...(title ? { title } : {})}>
+        <input
+          type="radio"
+          className="tools-geo-cand-radio"
+          name={group}
+          {...(ariaLabel ? { "aria-label": ariaLabel } : {})}
+          checked={checked}
+          {...(disabled ? { disabled } : {})}
+          onChange={onPick}
+          // A checked radio fires no change event, so the click itself is what
+          // takes a pick back.
+          onClick={() => checked && onUnpick?.()}
+        />
+        {number !== undefined && <span className="tools-geo-cand-num">{number}</span>}
+        <span className="tools-geo-cand-name">{label}</span>
+        {children}
+        {coord &&
+          (onCoord ? (
+            <button
+              type="button"
+              className="tools-geo-coord-btn gm-data gm-coord"
+              {...(coordTitle ? { title: coordTitle } : {})}
+              onClick={(e) => {
+                // The coordinate is a control of its own inside the label —
+                // without this the click would pick the option as well.
+                e.preventDefault();
+                onCoord();
+              }}
+            >
+              {coordText}
+            </button>
+          ) : (
+            <span className="gm-data gm-coord">{coordText}</span>
+          ))}
+        {badge}
+      </label>
+    </li>
   );
 }
 

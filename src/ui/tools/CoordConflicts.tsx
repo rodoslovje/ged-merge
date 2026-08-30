@@ -7,7 +7,7 @@ import { scanPlaceCoords, type CoordConflict } from "../../tools/placeCoords";
 import { placeAddrKey } from "../../tools/geocode";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
 import { foldSearch } from "../globalSearch";
-import { ExpandAllToggle, GeoRowHeader, MapToggle } from "./shared";
+import { CandidateOption, ExpandAllToggle, GeoRowHeader, MapToggle } from "./shared";
 
 const MiniPlaceMap = lazy(() => import("../map/MiniPlaceMap"));
 
@@ -233,24 +233,20 @@ export function CoordConflicts({
                     {/* Each option's number is also its radio, and the number
                         its pin wears on the map above. */}
                     {c.coords.map((x, j) => (
-                      <li key={j}>
-                        <label>
-                          <input
-                            type="radio"
-                            className="tools-geo-cand-radio"
-                            name={`conflict-${key}`}
-                            aria-label={formatCoord(x.coord)}
-                            checked={sameCoord(chosen, x.coord)}
-                            onChange={() => pick(key, x.coord)}
-                            onClick={() => sameCoord(chosen, x.coord) && unpick(key)}
-                          />
-                          <span className="tools-geo-cand-num">{numberOf(x.coord)}</span>
-                          <span className="gm-data gm-coord gm-coord--set">
-                            {formatCoord(x.coord)}
-                          </span>
-                          <span className="tools-geo-count">{t("tools.geocode.addr.uses", { count: x.n })}</span>
-                        </label>
-                      </li>
+                      // The position itself is this option's name — there is no
+                      // place to name, only two spots the file gives one.
+                      <CandidateOption
+                        key={j}
+                        group={`conflict-${key}`}
+                        number={numberOf(x.coord)}
+                        label={<span className="gm-data gm-coord gm-coord--set">{formatCoord(x.coord)}</span>}
+                        ariaLabel={formatCoord(x.coord)}
+                        checked={sameCoord(chosen, x.coord)}
+                        onPick={() => pick(key, x.coord)}
+                        onUnpick={() => unpick(key)}
+                      >
+                        <span className="tools-geo-count">{t("tools.geocode.addr.uses", { count: x.n })}</span>
+                      </CandidateOption>
                     ))}
                     {/* Neither of the file's coordinates need be right: click the
                         map, or type/paste one, and it joins the choice. */}

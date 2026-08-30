@@ -27,6 +27,7 @@ import type { KinshipResolver } from "../../match/kinship";
 import { deleteDecisions, loadDecisions, putDecisions } from "../../persist/geoDb";
 import {
   AppliedNote,
+  CandidateOption,
   ExpandAllToggle,
   GeoPeopleList,
   GeoRowHeader,
@@ -1886,60 +1887,39 @@ export function AddressCoordsSection({
                         {candidates.length > 0 && (
                           <ul className="tools-geo-candidates">
                             {candidates.map((r, i) => (
-                              <li key={i}>
-                                <label title={r.title ?? r.label}>
-                                  {/* The number *is* the radio: it ties the line
-                                      to its pin on the panel's map, and a second
-                                      round control beside it would be one dot too
-                                      many. The input stays for the keyboard and
-                                      for screen readers, clipped out of sight —
-                                      the number renders its state. */}
-                                  <input
-                                    type="radio"
-                                    className="tools-geo-cand-radio"
-                                    name={`addr-${row.key}`}
-                                    aria-label={`${i + 1}. ${r.label}`}
-                                    checked={sameCoord(chosen?.coord, r.coord)}
-                                    onChange={() => pick(row.key, r)}
-                                    onClick={() => sameCoord(chosen?.coord, r.coord) && unpick(row.key)}
-                                  />
-                                  <span className="tools-geo-cand-num">{i + 1}</span>
-                                  {/* No pin before the answer either: its own
-                                      coordinate carries one at the end of the
-                                      line, and the row above already reads as
-                                      addresses. */}
-                                  <span className="tools-geo-cand-name">{r.label}</span>
-                                  {/* What this hit is, where the service says —
-                                      the one thing telling identical lines apart. */}
-                                  {r.detail && <span className="tools-geo-cand-kind">{r.detail}</span>}
-                                  {/* Not this address: the place the answer
-                                      really names, so a house number matched in
-                                      the next village over cannot be taken for
-                                      the house being placed. */}
-                                  {r.elsewhere && (
-                                    <span className="tools-geo-cand-elsewhere" title={t("tools.geocode.addr.elsewhereHint")}>
-                                      {t("tools.geocode.addr.elsewhere", { place: r.elsewhere })}
-                                    </span>
-                                  )}
-                                  {/* Every answer's coordinate opens the row's
-                                      own coordinate panel, which draws them all
-                                      on one map under these same numbers: which
-                                      of several is the house is a question only
-                                      the map answers. */}
-                                  <button
-                                    type="button"
-                                    className="gm-data gm-coord tools-geo-coord-btn"
-                                    title={t("tools.geocode.addr.openHint")}
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      setCoordOpen(row.key);
-                                    }}
-                                  >
-                                    {formatCoord(r.coord)}
-                                  </button>
-                                  <span className={`tools-reshape-badge ${r.badgeClass}`}>{r.source}</span>
-                                </label>
-                              </li>
+                              <CandidateOption
+                                key={i}
+                                group={`addr-${row.key}`}
+                                number={i + 1}
+                                label={r.label}
+                                title={r.title ?? r.label}
+                                ariaLabel={`${i + 1}. ${r.label}`}
+                                checked={sameCoord(chosen?.coord, r.coord)}
+                                onPick={() => pick(row.key, r)}
+                                onUnpick={() => unpick(row.key)}
+                                coord={r.coord}
+                                // Every answer's coordinate opens the row's own
+                                // coordinate panel, which draws them all on one
+                                // map under these same numbers: which of several
+                                // is the house is a question only the map
+                                // answers.
+                                onCoord={() => setCoordOpen(row.key)}
+                                coordTitle={t("tools.geocode.addr.openHint")}
+                                badge={<span className={`tools-reshape-badge ${r.badgeClass}`}>{r.source}</span>}
+                              >
+                                {/* What this hit is, where the service says —
+                                    the one thing telling identical lines apart. */}
+                                {r.detail && <span className="tools-geo-cand-kind">{r.detail}</span>}
+                                {/* Not this address: the place the answer really
+                                    names, so a house number matched in the next
+                                    village over cannot be taken for the house
+                                    being placed. */}
+                                {r.elsewhere && (
+                                  <span className="tools-geo-cand-elsewhere" title={t("tools.geocode.addr.elsewhereHint")}>
+                                    {t("tools.geocode.addr.elsewhere", { place: r.elsewhere })}
+                                  </span>
+                                )}
+                              </CandidateOption>
                             ))}
                           </ul>
                         )}
