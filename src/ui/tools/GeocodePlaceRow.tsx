@@ -10,7 +10,6 @@ import { isOfflineQuery, rnQueriesFrom, searchAddresses, type RnResult } from ".
 import { useLocalRegisters } from "../useLocalRegisters";
 import { adminOf, chosenCoordFor, pickLabel, type ChosenCoord, type FileCoord, type GeoAssignment, type GeocodeRow } from "../../tools/geocode";
 import { replaceLocality } from "../../tools/addresses";
-import type { MiniMapPin } from "../map/MiniPlaceMap";
 import type { KinshipResolver } from "../../match/kinship";
 import { PlaceAutocomplete } from "../edit/PlaceAutocomplete";
 import { usePlaceLookup } from "../edit/PlaceLookupContext";
@@ -18,7 +17,8 @@ import { placeKey, type PlaceSuggestions } from "../edit/placeSuggestions";
 import type { PlaceProposal } from "../../geo/placeProposal";
 import { placeCollator } from "../../gedcom/place";
 import { useSettingsSlice } from "../SettingsContext";
-import { GeoPeopleList, GeoRowHeader, MapToggle, RowMap } from "./shared";
+import { EventCoordPicker } from "../edit/EventCoordPicker";
+import { GeoPeopleList, GeoRowHeader, MapToggle } from "./shared";
 
 // One row of the Geocode-places review list: the raw PLAC value, its badge
 // (file coordinate / score / remembered / no-match), the rename editor, and —
@@ -210,13 +210,6 @@ export function GeocodePlaceRow({
     renamePick && renamePick.place === renameDraft.trim() && (renamePick.addr ?? "") === renameAddrDraft.trim()
       ? renamePick.assignment
       : undefined;
-  // The manual-coordinate input (typed or map-picked). When the panel already
-  // carries a manual pick for this row (e.g. this row remounted after a
-  // search filter), the input starts out showing it.
-  const [manualDraft, setManualDraft] = useState(() =>
-    override && override.label === t("tools.geocode.manual") ? `${override.coord.lat}, ${override.coord.lon}` : "",
-  );
-
   // Rename every occurrence of exactly this raw value, then rescan —
   // the corrected spelling gets fresh gazetteer proposals (or merges
   // into an already-covered row and drops off the list).
@@ -260,39 +253,91 @@ export function GeocodePlaceRow({
     });
   };
 
-  // The manual coordinate as a selectable option: parsed draft (typed
-  // or map-picked), checked when it is the row's chosen coordinate.
-  const draftCoord = parseManualCoord(manualDraft);
-  const manualChosen = !!override && !!draftCoord && sameCoord(override.coord, draftCoord);
-  const setManual = () => {
-    if (draftCoord) onPickCoord(row, draftCoord, t("tools.geocode.manual"));
-  };
   const pickCandidate = (cand: GazCandidate) =>
     onPickCoord(row, { lat: cand.entry.lat, lon: cand.entry.lon }, pickLabel(cand.entry.name, cand.adminDisplay ?? cand.entry.admin));
 
   /**
-   * Every position the option list offers, in the order it shows them. The
-   * index is the number printed beside each option — and the number its pin
-   * wears on the map, so a row four registers answered at four points is read
-   * by matching numbers instead of guessing which dot is which line.
+   * Every position the option list offers, in the order it shows them — with
+   * the words that name it and the pick it stands for. The index is the number
+   * printed beside each option, the number its pin wears on the map, and the
+   * number the coordinate panel repeats: a row four registers answered at four
+   * points is read by matching numbers instead of guessing which dot is which
+   * line.
    *
-   * Keyed by coordinate rather than by list position, so two registers that
-   * agree on a point share one number: they are one place, and the map has one
-   * pin for them.
+   * One entry per *coordinate*, so two registers that agree on a point share
+   * one number: they are one place, and the map has one pin for them. The list
+   * below still prints both lines, both under that number.
    */
-  const optionCoords: GeoCoord[] = [
-    ...(row.fileCoord ? [row.fileCoord] : []),
-    ...row.candidates.map((cand) => ({ lat: cand.entry.lat, lon: cand.entry.lon })),
-    ...online.results.map((r) => r.coord),
-    ...gov.results.map((r) => r.coord),
-    ...rn.results.map((r) => r.coord),
-  ];
+  const options: {
+    coord: GeoCoord;
+    label: string;
+    detail?: string;
+    source?: string;
+    badgeClass?: string;
+    take: () => void;
+  }[] = [];
+  const addOption = (option: (typeof options)[number]) => {
+    if (!options.some((o) => sameCoord(o.coord, option.coord))) options.push(option);
+  };
+  if (row.fileCoord)
+    addOption({
+      coord: row.fileCoord,
+      label: t("tools.geocode.fromFile"),
+      take: () => onPickCoord(row, row.fileCoord!, t("tools.geocode.fromFile")),
+    });
+  for (const cand of row.candidates) {
+    const admin = adminOf(cand.entry.name, cand.adminDisplay ?? cand.entry.admin);
+    addOption({
+      coord: { lat: cand.entry.lat, lon: cand.entry.lon },
+      label: cand.entry.name,
+      ...(admin ? { detail: admin } : {}),
+      source: `${Math.round(cand.score * 100)}%`,
+      badgeClass: "reuse",
+      take: () => pickCandidate(cand),
+    });
+  }
+  for (const r of online.results)
+    addOption({
+      coord: r.coord,
+      label: pickLabel(r.name, r.admin),
+      ...(osmKindLabel(r, t) ? { detail: osmKindLabel(r, t)! } : {}),
+      source: "OSM",
+      badgeClass: "reuse",
+      take: () => onPickCoord(row, r.coord, pickLabel(r.name, r.admin)),
+    });
+  for (const r of gov.results)
+    addOption({
+      coord: r.coord,
+      label: pickLabel(r.name, r.admin),
+      source: "GOV",
+      badgeClass: "official",
+      take: () => onPickCoord(row, r.coord, pickLabel(r.name, r.admin), r.govId),
+    });
+  for (const r of rn.results)
+    addOption({
+      coord: r.coord,
+      label: r.label,
+      source: "GURS",
+      badgeClass: "official",
+      take: () => onPickCoord(row, r.coord, r.address),
+    });
   const numberOf = (coord: GeoCoord): number | undefined => {
-    const i = optionCoords.findIndex((o) => sameCoord(o, coord));
+    const i = options.findIndex((o) => sameCoord(o.coord, coord));
     return i === -1 ? undefined : i + 1;
   };
-  /** The manual entry closes the list, so it takes the number after them all. */
-  const manualNumber = optionCoords.length + 1;
+
+  /**
+   * A position taken in the coordinate panel: one of the row's own answers,
+   * which is picked exactly as its line would have picked it — a GOV answer
+   * carries the identity that writes `_GOV`, which a bare coordinate cannot —
+   * or, when the panel found or was typed something the list does not hold, a
+   * pick of the row's own.
+   */
+  const takeFromPanel = (coord: GeoCoord, label?: string) => {
+    const hit = options.find((o) => sameCoord(o.coord, coord));
+    if (hit) hit.take();
+    else onPickCoord(row, coord, label ?? t("tools.geocode.manual"));
+  };
 
   // The online searches: beside "Show on map" while the map is closed, and
   // under the map once it is open — either way one action row, not a stray
@@ -440,15 +485,50 @@ export function GeocodePlaceRow({
               override ? t("tools.geocode.stagedHint") : t("tools.geocode.showMap")
             }`}
             onClick={() => {
-              // Opening the row draws the map, so a shut row needs nothing more.
-              // On an open one this is the way to put the map up or away.
+              // The coordinate opens the panel that decides it — and the row
+              // with it, so the answers the panel numbers are also readable as
+              // the list they came from.
               if (!isOpen) onToggleOpen(row.key);
-              else onToggleMap(row.key);
+              onToggleMap(row.key);
             }}
           >
             = {c.label} · <span className="gm-data gm-coord gm-coord--set">{c.coord.lat.toFixed(4)}, {c.coord.lon.toFixed(4)}</span>
           </button>
         )}
+        {/* The coordinate panel itself, with no button of its own: the
+            coordinate above opens it, and so does the map link among the row's
+            actions. The same panel the addresses list and the Edit rows open —
+            its map carries this row's numbered answers, and the house or hamlet
+            no gazetteer holds is typed or picked off the map in here. A pick is
+            staged like the radios below; nothing is written until Write. */}
+        <EventCoordPicker
+          place={row.key}
+          address=""
+          coord={override?.coord}
+          title={row.key}
+          hideTrigger
+          open={hasMap}
+          onOpenChange={(next) => next !== hasMap && onToggleMap(row.key)}
+          // The row's own answers, under the numbers the list below prints —
+          // the file's coordinate first, then the gazetteer, then whatever the
+          // searches brought in. The panel draws no second copy of them.
+          {...(options.length ? { candidates: options } : {})}
+          // Every coordinate the file carries, as faint dots: the family
+          // cluster is what tells two same-named villages apart.
+          context={fileCoords}
+          // Village scale, not the default house zoom: answers for one name
+          // often sit a few hundred metres apart (the place, the street named
+          // after it), and at house zoom the map opens inside one of them.
+          fitMaxZoom={14}
+          // A search run in the panel is this row's search: its answers land in
+          // the list below under the row's own numbers, and the row's button
+          // for it goes — asking the same service the same question again
+          // returns what is already on screen.
+          onRegisterSearch={(next) => onLookupsChange(row.key, { rn: next })}
+          onOnlineSearch={(next) => onLookupsChange(row.key, { online: next })}
+          onPick={takeFromPanel}
+          onClear={() => onUnpickCoord(row)}
+        />
         {marked ? (
           <span className="tools-reshape-badge remove" title={t("tools.geocode.noMatch")}>
             {t("tools.geocode.noMatchBadge")}
@@ -593,125 +673,23 @@ export function GeocodePlaceRow({
       )}
       {isOpen && (
         <div className="tools-tree-children tools-geo-detail">
-          {(() => {
-            // Cheap gates first — under "Expand all" most rows render
-            // the claim link, and must not build throwaway pin arrays.
-            const plottable =
-              row.candidates.length > 0 ||
-              !!c ||
-              !!draftCoord ||
-              online.results.length > 0 ||
-              gov.results.length > 0 ||
-              rn.results.length > 0 ||
-              fileCoords.length > 0;
-            // The row's actions stand in one place whether the map is up or
-            // not — above it, as in the addresses and compliance lists. A row
-            // with no candidates at all is exactly where the searches are
-            // needed, so they are there either way; only the map's own toggle
-            // waits for something to draw.
-            const actions = (
-              <div className="tools-geo-actions">
-                {plottable && <MapToggle open={hasMap} onToggle={() => onToggleMap(row.key)} />}
-                {searchActions}
-              </div>
-            );
-            if (!hasMap || !plottable) return actions;
-            // Candidate pins (click = pick), the chosen coordinate
-            // highlighted, plus a live pin for a parseable manual draft.
-            // Each pin wears the number its option carries in the list below,
-            // so four answers at four points are read by matching numbers.
-            const pins: MiniMapPin[] = [];
-            if (row.fileCoord)
-              pins.push({
-                coord: row.fileCoord,
-                label: t("tools.geocode.fromFile"),
-                kind: c && sameCoord(c.coord, row.fileCoord) ? ("chosen" as const) : ("candidate" as const),
-                badge: numberOf(row.fileCoord),
-                onPick: () => onPickCoord(row, row.fileCoord!, t("tools.geocode.fromFile")),
-              });
-            for (const cand of row.candidates) {
-              const coord = { lat: cand.entry.lat, lon: cand.entry.lon };
-              if (pins.some((p) => sameCoord(p.coord, coord))) continue;
-              pins.push({
-                coord,
-                label: `${pickLabel(cand.entry.name, cand.adminDisplay ?? cand.entry.admin)} · ${Math.round(cand.score * 100)}%`,
-                kind: c && sameCoord(c.coord, coord) ? ("chosen" as const) : ("candidate" as const),
-                badge: numberOf(coord),
-                onPick: () => pickCandidate(cand),
-              });
-            }
-            for (const r of online.results) {
-              if (pins.some((p) => sameCoord(p.coord, r.coord))) continue;
-              pins.push({
-                coord: r.coord,
-                label: `${pickLabel(r.name, r.admin)} · OSM`,
-                kind: c && sameCoord(c.coord, r.coord) ? ("chosen" as const) : ("candidate" as const),
-                badge: numberOf(r.coord),
-                onPick: () => onPickCoord(row, r.coord, pickLabel(r.name, r.admin)),
-              });
-            }
-            for (const r of gov.results) {
-              if (pins.some((p) => sameCoord(p.coord, r.coord))) continue;
-              pins.push({
-                coord: r.coord,
-                label: `${pickLabel(r.name, r.admin)} · GOV`,
-                kind: c && sameCoord(c.coord, r.coord) ? ("chosen" as const) : ("candidate" as const),
-                badge: numberOf(r.coord),
-                onPick: () => onPickCoord(row, r.coord, pickLabel(r.name, r.admin), r.govId),
-              });
-            }
-            for (const r of rn.results) {
-              if (pins.some((p) => sameCoord(p.coord, r.coord))) continue;
-              pins.push({
-                coord: r.coord,
-                label: `${r.address} · GURS`,
-                kind: c && sameCoord(c.coord, r.coord) ? ("chosen" as const) : ("candidate" as const),
-                badge: numberOf(r.coord),
-                onPick: () => onPickCoord(row, r.coord, r.address),
-              });
-            }
-            if (c && !pins.some((p) => sameCoord(p.coord, c.coord)))
-              pins.push({ coord: c.coord, label: c.label, kind: "chosen" });
-            if (draftCoord && !pins.some((p) => sameCoord(p.coord, draftCoord)))
-              pins.push({ coord: draftCoord, label: t("tools.geocode.manual"), kind: "chosen", badge: manualNumber });
-            return (
-              <>
-                {actions}
-                <RowMap
-                  pins={pins}
-                  context={fileCoords}
-                  title={t("tools.geocode.mapPickHint")}
-                  // Village scale, not the default region: answers for one name
-                  // often sit a few hundred metres apart (the place, the street
-                  // named after it), and at region zoom they pile into one dot.
-                  // Candidates genuinely far apart still fit by their bounds.
-                  fitMaxZoom={14}
-                  // Re-frame when an online lookup brings in new coordinates —
-                  // otherwise the map keeps the view it fitted on open and the
-                  // fresh candidates can sit outside it entirely.
-                  fitKey={
-                    [...rn.results, ...online.results, ...gov.results]
-                      .map((r) => `${r.coord.lat},${r.coord.lon}`)
-                      .join("|") || row.key
-                  }
-                  onPickCoord={(coord) => {
-                    // A background click is a hand-picked coordinate:
-                    // fill the manual field and select it.
-                    setManualDraft(`${coord.lat}, ${coord.lon}`);
-                    onPickCoord(row, coord, t("tools.geocode.manual"));
-                  }}
-                />
-              </>
-            );
-          })()}
+          {/* The row's actions stand in one place, above its answers, as in
+              the addresses and compliance lists — and the map among them is now
+              the coordinate panel's, opened from here or from the coordinate in
+              the header. A row with no answers at all is exactly where the
+              searches are needed, so they stand there either way. */}
+          <div className="tools-geo-actions">
+            <MapToggle open={hasMap} onToggle={() => onToggleMap(row.key)} />
+            {searchActions}
+          </div>
           <ul className="tools-geo-candidates">
             {/* The file's own coordinate as the first option — it is
                 the default proposal, so it must show as selected. */}
             {/* Each option's number is also its radio, and the number its pin
-                wears on the map above: a row answered by four registers at four
-                points is read by matching numbers rather than by guessing which
-                dot is which line. Two answers at the very same point share a
-                number, which is the truth about them. */}
+                wears in the coordinate panel: a row answered by four registers
+                at four points is read by matching numbers rather than by
+                guessing which dot is which line. Two answers at the very same
+                point share a number, which is the truth about them. */}
             {row.fileCoord && (
               <li>
                 <label>
@@ -856,34 +834,6 @@ export function GeocodePlaceRow({
                 </label>
               </li>
             ))}
-            {/* Manual entry as the last option — the same radio group,
-                selectable once the draft (typed or map-picked) parses. */}
-            <li className="tools-geo-manual">
-              <label>
-                <input
-                  type="radio"
-                  className="tools-geo-cand-radio"
-                  name={`geo-${row.key}`}
-                  aria-label={t("tools.geocode.manual")}
-                  checked={manualChosen}
-                  onClick={() => manualChosen && onUnpickCoord(row)}
-                  disabled={!draftCoord}
-                  onChange={setManual}
-                />
-                <span className="tools-geo-cand-num">{manualNumber}</span>
-                <span className="tools-geo-cand-name">{t("tools.geocode.manual")}</span>
-              </label>
-              <input
-                type="text"
-                placeholder={t("tools.geocode.manualPlaceholder")}
-                title={t("tools.geocode.manualTooltip")}
-                value={manualDraft}
-                onChange={(e) => setManualDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") setManual();
-                }}
-              />
-            </li>
           </ul>
           {/* Who this unresolved place belongs to — shown only when the
               header's count was clicked for it. */}

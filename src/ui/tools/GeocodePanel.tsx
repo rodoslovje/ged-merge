@@ -429,10 +429,12 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
       else next.delete(key);
       return next;
     });
-    // A row opened by hand brings its map with it — that is what it was opened
-    // for, and the Edit view's coordinate panel behaves the same way. Expand
-    // all sets the open set directly and so mounts none; closing frees it.
-    setMapKey((prev) => (willOpen ? key : prev === key ? null : prev));
+    // The map is the coordinate panel's now, and a panel is opened by asking
+    // for it — from the coordinate in the header or the map link among the
+    // row's actions — never by merely opening the row: a popover thrown up over
+    // the list by every expand is in the way of the reading it was opened for.
+    // Closing the row still takes its panel down with it.
+    if (!willOpen) setMapKey((prev) => (prev === key ? null : prev));
   };
 
   const renameValue = (from: string, to: string, addr?: string, coord?: GeoAssignment) => {

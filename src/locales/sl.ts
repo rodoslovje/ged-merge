@@ -545,7 +545,6 @@ export const sl = {
   "edit.mapShow": "Pokaži zemljevid",
   "edit.lastChanged": "Zadnja sprememba: {{date}}",
   "edit.lastChangedTip": "Datum spremembe, ki ga ta zapis nosi v datoteki. Ob shranjevanju vsebinskih sprememb se datum posodobi.",
-  "tools.geocode.mapPickHint": "Krogci: predlagani kraji (klik izbere) · sive pike: koordinate, ki jih datoteka že ima · klik kamorkoli nastavi koordinato ročno",
   "tools.geocode.renameAddrTooltip": "Razdeli vrednost: kraj gre v PLAC, ta del postane naslov (ADDR) dogodka (obstoječi naslov se ohrani)",
   "tools.geocode.renameAddrPlaceholder": "naslov…",
   "tools.geocode.countryMeta": "{{count}} krajev · uvoženo {{date}}",

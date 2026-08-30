@@ -435,7 +435,6 @@ export const en = {
   "edit.mapShow": "Show map",
   "edit.lastChanged": "Last changed: {{date}}",
   "edit.lastChangedTip": "The change date this record carries in the file; it advances when a save stamps the record.",
-  "tools.geocode.mapPickHint": "Circles: proposed places (click to pick) · grey dots: coordinates this file already carries · click anywhere to set the coordinate by hand",
   "tools.geocode.renameAddrTooltip": "Split the value: the place goes to PLAC, this part becomes the event's ADDR (an existing address is kept)",
   "tools.geocode.renameAddrPlaceholder": "address…",
   "tools.geocode.countryMeta": "{{count}} places · imported {{date}}",

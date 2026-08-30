@@ -63,6 +63,7 @@ export function EventCoordPicker({
   onRegisterSearch,
   onOnlineSearch,
   fitMaxZoom = 17,
+  context,
 }: {
   /** The event's current place text (as edited). */
   place: string;
@@ -120,6 +121,11 @@ export function EventCoordPicker({
    *  country — asks for a wider stop, or a single pin fills the map with one
    *  street of it. */
   fitMaxZoom?: number;
+  /** Faint dots for the coordinates the file already carries elsewhere — the
+   *  family cluster that tells two same-named places apart, and the reason a
+   *  worklist row's map was worth opening. Not answers: they are never picked
+   *  and never numbered. */
+  context?: { coord: GeoCoord; name: string }[];
 }) {
   const { t, i18n } = useTranslation();
   const settings = useSettingsSlice(SETTINGS_KEYS);
@@ -518,6 +524,7 @@ export function EventCoordPicker({
                 <div className="edit-coord-map">
                   <MiniPlaceMap
                     pins={pins}
+                    {...(context ? { context } : {})}
                     title={t("event.coord.mapHint")}
                     // House level unless the caller says otherwise: what is
                     // being chosen here is one building among its neighbours,
