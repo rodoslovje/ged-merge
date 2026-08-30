@@ -8,15 +8,16 @@ import { scanAddresses, type AddressRename } from "../../tools/addresses";
 import { useDatasetDerivations } from "../DatasetDerivations";
 import { GeocodePanel } from "./GeocodePanel";
 import { RegisterPanel } from "./RegisterPanel";
-import { countGeocodePending, placeAddrKey, type GeoAssignment, type OfficialRename } from "../../tools/geocode";
+import { countGeocodePending, placeAddrKey, type FileCoord, type GeoAssignment, type OfficialRename } from "../../tools/geocode";
 import { countryCodeOfName, flagEmoji } from "../../geo/placeCountry";
 import { ToolsLoading, TreeSearch, UsageList, useDebounced } from "./shared";
 import { ToolSummary } from "./ToolSummary";
 import { formatCoord } from "../../geo/points";
 import { PlaceAutocomplete } from "../edit/PlaceAutocomplete";
 import { EventCoordPicker } from "../edit/EventCoordPicker";
-import { PlaceLookupProvider, usePlaceLookup, usePlaceLookupValue } from "../edit/PlaceLookupContext";
-import { buildPlaceSuggestions, type PlaceSuggestions } from "../edit/placeSuggestions";
+import { PlaceLookupProvider, usePlaceLookup } from "../edit/PlaceLookupContext";
+import { usePlaceFields } from "../edit/usePlaceFields";
+import type { PlaceSuggestions } from "../edit/placeSuggestions";
 import { renameInValue } from "../../tools/placeEdit";
 import type { PlaceProposal } from "../../geo/placeProposal";
 import { PinIcon } from "../icons/PinIcon";
@@ -237,19 +238,13 @@ export function PlacesPanel({
   /**
    * What the rename box completes from, beyond the names beside the one being
    * renamed: every place value the file already writes — the same list the Edit
-   * fields and both geocoding rename boxes offer. A row under *Unspecified
+   * fields and both geocoding rename boxes offer — and the registers behind
+   * them, so a place the file has never written properly can be completed here
+   * too: its chain, its house, its coordinate. A row under *Unspecified
    * country* has siblings that are all as unplaced as it is, and what it wants
-   * is one of the places the file writes properly.
+   * is one of those two.
    */
-  const placeSug = useMemo(
-    () => derivations?.placeSuggestions() ?? buildPlaceSuggestions(dataset),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [dataset, tree],
-  );
-  /** And the registers behind it — the same lookup the geocoding and naming
-   *  rename boxes are built on, so a place the file has never written properly
-   *  can be completed here too: its chain, its house, its coordinate. */
-  const placeLookup = usePlaceLookupValue(dataset, placeSug.placeSuggestions);
+  const { placeSug, lookup: placeLookup, fileCoords } = usePlaceFields(dataset);
 
   // What the geocode tool has to offer, as the chip's two badges: distinct
   // place names still missing coordinates, and addresses a register lookup
@@ -371,6 +366,7 @@ export function PlacesPanel({
               onClearPlaceCoords={onClearPlaceCoords}
               onCoordChange={handleCoordChange}
               placeSug={placeSug}
+              fileCoords={fileCoords}
               siblings={siblingNames.get("") ?? []}
               siblingNames={siblingNames}
             />
@@ -394,6 +390,7 @@ function PlaceTreeRow({
   onClearPlaceCoords,
   onCoordChange,
   placeSug,
+  fileCoords,
   siblings,
   siblingNames,
 }: {
@@ -416,6 +413,9 @@ function PlaceTreeRow({
   onCoordChange: () => void;
   /** The file's own places, for the rename box's completions. */
   placeSug: PlaceSuggestions;
+  /** Every coordinate the file carries — the faint dots on the row's map, where
+   *  the family cluster is what tells two same-named places apart. */
+  fileCoords: FileCoord[];
   /** The names sitting beside this one under the same parent — what a rename
    *  of this node may complete to, and what makes it a merge. */
   siblings: string[];
@@ -722,6 +722,7 @@ function PlaceTreeRow({
               // to choose between: picking one writes it over every record the
               // row stands for, which is what settles the ⚠ above.
               {...(rivalSpots ? { candidates: rivalSpots } : {})}
+              context={fileCoords}
               // A row here can be a country, and one pin at house zoom would
               // fill the map with a single street of it.
               fitMaxZoom={node.isAddress ? HOUSE_ZOOM : TOWN_ZOOM}
@@ -826,6 +827,7 @@ function PlaceTreeRow({
                 onClearPlaceCoords={onClearPlaceCoords}
                 onCoordChange={onCoordChange}
                 placeSug={placeSug}
+                fileCoords={fileCoords}
                 siblings={siblingNames.get(path) ?? node.children.map((c) => c.name)}
                 siblingNames={siblingNames}
               />
