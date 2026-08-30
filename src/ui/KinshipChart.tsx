@@ -9,7 +9,6 @@ import {
   buildKinshipWheel,
   collectKin,
   kinDepth,
-  kinTooltip,
   OWN_BRANCH,
   type KinPerson,
 } from "../chart/kinshipWheel";
@@ -22,7 +21,7 @@ import { useTreeCanvas } from "./useTreeCanvas";
 import { ChartZoom } from "./ChartZoom";
 import { ChartFindBox } from "./ChartFindBox";
 import { useChartFind } from "./useChartFind";
-import { createKinshipResolver, lineageClass } from "../match/kinship";
+import { createKinshipResolver, kinshipLabelFor, lineageClass } from "../match/kinship";
 import { individualFieldRows } from "../review/fields";
 import { ChartPage } from "./ChartPage";
 import { ChartRootTitle } from "./ChartRootTitle";
@@ -248,6 +247,20 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
     (p: KinPerson) => (redacted(p) ? livingLabelFor(t, p.sex) : p.name),
     [redacted, t],
   );
+  /** Hover text: who they are, how they are related *to this chart's root*, and
+   *  their years. The relationship belongs here rather than on the detail panel,
+   *  whose kinship line means something else everywhere in the app — the
+   *  relationship to your start person. Named from the positions the layout
+   *  already knows, so no pedigree is walked per person. */
+  const tooltipFor = useCallback(
+    (p: KinPerson) => {
+      const rel = kinshipLabelFor(p.up, p.down, p.sex, t);
+      return redacted(p)
+        ? [nameFor(p), rel].filter(Boolean).join(" · ")
+        : [p.name, rel, p.years].filter(Boolean).join(" · ");
+    },
+    [redacted, nameFor, t],
+  );
 
   // Position for useTreeCanvas: one node per person so Find can reveal them.
   const nodesByKey = useMemo(() => {
@@ -369,7 +382,7 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
               fill={colorOf(r.person)}
               fillOpacity={r.person.span.openEnd ? 0.65 : 1}
             >
-              <title>{redacted(r.person) ? nameFor(r.person) : kinTooltip(r.person)}</title>
+              <title>{tooltipFor(r.person)}</title>
             </rect>
             {showName && (
               <text
@@ -537,7 +550,7 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
                           stroke={d.person.span.living && lit(d.person) ? "var(--text)" : "none"}
                           onClick={() => selectNode(d.person.id)}
                         >
-                          <title>{redacted(d.person) ? nameFor(d.person) : kinTooltip(d.person)}</title>
+                          <title>{tooltipFor(d.person)}</title>
                         </circle>
                       ))}
                       {/* The ring scale, set on the ring itself and right-aligned
@@ -551,7 +564,7 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
                               its tooltip. */}
                           <text className="kin-ring-label">
                             <title>{ringTitle(ring.distance)}</title>
-                            <textPath href={`#kin-ring-${ring.distance}`} startOffset={ring.textOffset} textAnchor="end">
+                            <textPath href={`#kin-ring-${ring.distance}`} startOffset={ring.textOffset} textAnchor="middle">
                               {ring.distance}
                             </textPath>
                           </text>
@@ -628,8 +641,8 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
             mainPerson={mainNav}
             mainLabel={t("tree.main")}
             singleColumn
-            kinship={t(`kin.ring.${selected.distance}`, { defaultValue: "" }) || undefined}
-            kinshipLineage={lineageClass(selected.side === "own" ? undefined : selected.side === "father" ? "paternal" : "maternal")}
+            kinship={settings.showKinship && startId && startId !== selected.id ? kinship?.label(selected.id) : undefined}
+            kinshipLineage={lineageClass(kinship?.lineage(selected.id))}
             onClose={() => setSelectedKey(null)}
             onSetRoot={() => { changeRoot(selected.id); setSelectedKey(null); }}
             extraActions={
