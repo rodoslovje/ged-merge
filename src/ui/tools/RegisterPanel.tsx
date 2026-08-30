@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
-import { collectFileCoords, type OfficialRename } from "../../tools/geocode";
+import { collectFileCoords, type GeoAssignment, type OfficialRename } from "../../tools/geocode";
 import { loadDecisions, type GeocodeDecision } from "../../persist/geoDb";
 import { checkPlacesAgainstRegister, type RegisterCheckReport } from "../../tools/registerCheck";
 import { scanAddresses, type AddressRename } from "../../tools/addresses";
@@ -53,6 +53,11 @@ interface Props {
   /** Write a coordinate keyed by place+address, so a house's own position
    *  reaches that house and not the settlement around it. */
   onApplyAddressCoords: (assignments: Map<string, GeoCoord>) => number;
+  /** Write a place value's own position — the coordinate panel, where a point
+   *  the register never offered is the reader's own answer. */
+  onApplyGeocode: (assignments: Map<string, GeoAssignment>) => number;
+  /** And take one away again — the panel's *Clear*. */
+  onClearPlaceCoords: (pairs: Set<string>) => number;
   /** Rename every occurrence of exactly one raw place value — the row's ✎, for
    *  a correction of the researcher's own rather than the register's. */
   onRenamePlaceValue: (from: string, to: string, addr?: string) => number;
@@ -70,6 +75,8 @@ export function RegisterPanel({
   editVersion,
   onApplyOfficialNames,
   onApplyAddressCoords,
+  onApplyGeocode,
+  onClearPlaceCoords,
   onRenameAddresses,
   onMovePlaceForAddresses,
   onRenamePlaceValue,
@@ -288,6 +295,8 @@ export function RegisterPanel({
           actionsHost={shown === "places" ? tabActionsEl : null}
           onRename={(from, to, addr) => void onRenamePlaceValue(from, to, addr)}
           onApplyAddressCoords={onApplyAddressCoords}
+          onApplyGeocode={onApplyGeocode}
+          onClearPlaceCoords={onClearPlaceCoords}
           placeSug={placeSug}
           onApplyOfficialNames={onApplyOfficialNames}
           onDecisionsChanged={() => void loadDecisions().then(setDecisions)}

@@ -259,6 +259,8 @@ export function PlacesPanel({
         editVersion={editVersion}
         onApplyOfficialNames={onApplyOfficialNames}
         onApplyAddressCoords={onApplyAddressCoords}
+        onApplyGeocode={onApplyGeocode}
+        onClearPlaceCoords={onClearPlaceCoords}
         onRenameAddresses={onRenameAddresses}
         onMovePlaceForAddresses={onMovePlaceForAddresses}
         onRenamePlaceValue={onRenamePlaceValue}
@@ -425,9 +427,8 @@ function PlaceTreeRow({
    * own spelling and separators; an address row's record joins the pair with
    * {@link USE_SEPARATOR}, which is split back apart here because the registers
    * are asked about a house *at* a place, not about the two run together. A
-   * node that only holds children has no record of its own: the path is read
-   * back outwards ("Otlica, Ajdovščina, Slovenia"), which is the order every
-   * place value in the app is written in, and nothing is written from it.
+   * node that only holds children has no record of its own, and no position to
+   * write: it offers no panel at all.
    */
   const { placeValue, addrValue } = useMemo(() => {
     const raw = node.uses[0]?.raw?.trim() ?? "";
@@ -435,6 +436,9 @@ function PlaceTreeRow({
     if (at >= 0) return { placeValue: raw.slice(0, at), addrValue: raw.slice(at + USE_SEPARATOR.length) };
     return { placeValue: raw, addrValue: "" };
   }, [node.uses]);
+  /** The two run together again, as the row's own record writes them: what the
+   *  pin standing on this position is called. */
+  const pinValue = addrValue ? `${placeValue}${USE_SEPARATOR}${addrValue}` : placeValue;
 
   /**
    * Every place+address pair written at exactly this node — what a position
@@ -634,6 +638,10 @@ function PlaceTreeRow({
               address={addrValue}
               coord={spots?.[0].coord}
               title={name}
+              // The place as the file writes it, so the pin standing on the
+              // position says which place is pinned there — "current" is what
+              // an event's own panel calls it, and a tree row is not an event.
+              currentLabel={pinValue}
               hideTrigger
               open={coordOpen}
               onOpenChange={setCoordOpen}

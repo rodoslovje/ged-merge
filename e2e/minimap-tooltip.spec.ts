@@ -29,12 +29,13 @@ test("a place's map pin names the place and prints its coordinate", async ({ pag
   await page.getByText("Places", { exact: true }).click();
 
   // The tree opens expanded, so the settlement carrying the coordinate is
-  // already on screen; its coordinate opens the row's own map.
+  // already on screen; its coordinate opens the row's coordinate panel, whose
+  // map is the one every list of these tools picks on.
   const coord = page.locator(".tools-place-coord").first();
   await expect(coord).toBeVisible();
   await coord.click();
 
-  const pin = page.locator(".tools-place-map .leaflet-interactive").first();
+  const pin = page.locator(".edit-coord-map .leaflet-interactive").first();
   await expect(pin).toBeVisible({ timeout: 15000 });
   await pin.hover({ force: true });
 

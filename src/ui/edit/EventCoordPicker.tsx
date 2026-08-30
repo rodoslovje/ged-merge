@@ -64,6 +64,7 @@ export function EventCoordPicker({
   onOnlineSearch,
   fitMaxZoom = 17,
   context,
+  currentLabel,
 }: {
   /** The event's current place text (as edited). */
   place: string;
@@ -104,7 +105,18 @@ export function EventCoordPicker({
    *  and OpenStreetMap's, as its own list shows them. They are drawn on the map
    *  and listed here under the same numbers, so "which of these three is the
    *  house" is asked of the map rather than of three identical lines. */
-  candidates?: { coord: GeoCoord; label: string; detail?: string; source?: string; badgeClass?: string }[];
+  candidates?: {
+    coord: GeoCoord;
+    label: string;
+    detail?: string;
+    source?: string;
+    badgeClass?: string;
+    /** The number this answer wears in the caller's own list, when that is not
+     *  simply its position here — a list whose lines are not all positions
+     *  (an option the register answered with a name but no point) would
+     *  otherwise be read against pins numbered past it. */
+    number?: number;
+  }[];
   /** Every register lookup run in here, reported as it lands. A caller that
    *  keeps its own list of register answers (the Addresses tool) can then show
    *  this one exactly as if it had been run from that list — the same houses,
@@ -126,6 +138,11 @@ export function EventCoordPicker({
    *  worklist row's map was worth opening. Not answers: they are never picked
    *  and never numbered. */
   context?: { coord: GeoCoord; name: string }[];
+  /** What to call the position already held, on the map. "Current" beside an
+   *  event says everything there is to say; a list that opens this panel *for*
+   *  one place hands over that place's name instead, so the pin still says
+   *  which place is pinned there. */
+  currentLabel?: string;
 }) {
   const { t, i18n } = useTranslation();
   const settings = useSettingsSlice(SETTINGS_KEYS);
@@ -394,7 +411,7 @@ export function EventCoordPicker({
       label: c.label,
       lines: [c.detail, c.source, t("event.coord.pinPick")].filter((s): s is string => !!s),
       kind: sameCoord(c.coord, coord) ? "chosen" : "candidate",
-      badge: i + 1,
+      badge: c.number ?? i + 1,
       onPick: () => take(c.coord, c.label),
     });
   });
@@ -434,7 +451,7 @@ export function EventCoordPicker({
   if (draftCoord && !pins.some((p) => sameCoord(p.coord, draftCoord))) {
     pins.push({ coord: draftCoord, label: t("event.coord.typed"), kind: "chosen" });
   } else if (coord && !pins.some((p) => sameCoord(p.coord, coord))) {
-    pins.push({ coord, label: t("event.coord.current"), kind: "chosen" });
+    pins.push({ coord, label: currentLabel || t("event.coord.current"), kind: "chosen" });
   }
 
   // Nothing to place and nothing to show: no pin at all, so an event that names
@@ -603,7 +620,7 @@ export function EventCoordPicker({
                   {candidates.map((c, i) => (
                     <li key={`cand-${i}`}>
                       <span className="edit-coord-cand-line">
-                        <span className="tools-geo-cand-num">{i + 1}</span>
+                        <span className="tools-geo-cand-num">{c.number ?? i + 1}</span>
                         <button type="button" className="tools-issue-link" title={c.label} onClick={() => take(c.coord, c.label)}>
                           {c.label}
                         </button>

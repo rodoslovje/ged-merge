@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useState, type ReactNode } from 
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { deleteDecision, putDecisions } from "../../persist/geoDb";
-import { countryOf, pickLabel, placeAddrKey, type FileCoord, type OfficialRename } from "../../tools/geocode";
+import { countryOf, pickLabel, placeAddrKey, type FileCoord, type GeoAssignment, type OfficialRename } from "../../tools/geocode";
 import { isOfflineQuery, rnQueriesFrom, searchAddresses } from "../../geo/rn";
 import { countryCodeOfName } from "../../geo/placeCountry";
 import { CountryChips } from "./CountryChips";
@@ -28,10 +28,10 @@ import {
   MapToggle,
   RenameEditor,
   RenameToggle,
-  RowMap,
 } from "./shared";
+import { sameCoord } from "../../geo/points";
 import { usePlaceLookup } from "../edit/PlaceLookupContext";
-import type { MiniMapPin } from "../map/MiniPlaceMap";
+import { EventCoordPicker } from "../edit/EventCoordPicker";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
 import type { KinshipResolver } from "../../match/kinship";
 import { HIGH_CONFIDENCE, lookupPlace, searchGazetteer, type GazEntry, type GazetteerIndex } from "../../geo/gazetteer";
@@ -105,6 +105,8 @@ export function RegisterCheckSection({
   actionsHost,
   onApplyOfficialNames,
   onApplyAddressCoords,
+  onApplyGeocode,
+  onClearPlaceCoords,
   onDecisionsChanged,
 }: {
   /** The check's result, or null while no official register is loaded. */
@@ -142,6 +144,11 @@ export function RegisterCheckSection({
   /** Write a house's own position, keyed by place+address so it reaches that
    *  house and not the settlement around it. */
   onApplyAddressCoords: (assignments: Map<string, GeoCoord>) => number;
+  /** Write a place value's own position — what the coordinate panel does with
+   *  a point no register offered. */
+  onApplyGeocode: (assignments: Map<string, GeoAssignment>) => number;
+  /** Take a place value's position away again — the panel's *Clear*. */
+  onClearPlaceCoords: (pairs: Set<string>) => number;
 }) {
   const { t } = useTranslation();
   // See GeocodePanel: the country a place naming none is taken to stand in.
@@ -291,22 +298,17 @@ export function RegisterCheckSection({
     [index],
   );
 
-  const toggleOpen = useCallback((key: string, drawable = true) => {
+  const toggleOpen = useCallback((key: string) => {
     const willOpen = !open.has(key);
     setOpen((prev) => {
       const next = new Set(prev);
       if (!next.delete(key)) next.add(key);
       return next;
     });
-    // Which of six same-named places is the one is a question for the map, so a
-    // row opened by hand arrives with it — as an Edit coordinate panel does.
-    // Expand all, and the people count, leave it to the toggle.
-    //
-    // Only a row with something of its own to draw. A place the register does
-    // not hold has no answers and often no coordinate either, and it opened on
-    // a map of nothing but the file's other places — with no way to shut it,
-    // since the toggle lives in the actions row that such a row does not have.
-    setMapOpen((prev) => (willOpen ? (drawable ? key : prev) : prev === key ? null : prev));
+    // The map is the coordinate panel's, and a panel is asked for rather than
+    // thrown up over the list by every row that opens — the reader opens a row
+    // to read its answers. Closing the row still takes its panel down.
+    if (!willOpen) setMapOpen((prev) => (prev === key ? null : prev));
   }, [open]);
   const togglePeople = useCallback((key: string) => {
     setPeopleOpen((prev) => {
@@ -317,6 +319,22 @@ export function RegisterCheckSection({
     setOpen((prev) => new Set(prev).add(key));
   }, []);
   const toggleMap = useCallback((key: string) => setMapOpen((prev) => (prev === key ? null : key)), []);
+  /**
+   * A position the reader found for a place the register cannot settle: written
+   * to every occurrence of the value, exactly as the geocoding worklist's Write
+   * writes one, and over whatever the value held — it is answering the row's
+   * own question about where this place is. The houses under it keep their own
+   * positions (see applyGeocode), and the scan re-runs off the edit itself.
+   */
+  const writeCoord = useCallback(
+    (f: RegisterFinding, coord: GeoCoord) => onApplyGeocode(new Map([[f.key, { coord, overwrite: true }]])),
+    [onApplyGeocode],
+  );
+  /** And the way back: the value's own coordinate goes, the houses' stay. */
+  const clearCoord = useCallback(
+    (f: RegisterFinding) => onClearPlaceCoords(new Set([placeAddrKey(f.key, "")])),
+    [onClearPlaceCoords],
+  );
   const pick = useCallback(
     (key: string, index: number) => setPicked((prev) => new Map(prev).set(key, index)),
     [],
@@ -672,6 +690,8 @@ export function RegisterCheckSection({
                 onToggleMap={toggleMap}
                 onPick={pick}
                 onUnpick={unpick}
+                onWriteCoord={writeCoord}
+                onClearCoord={clearCoord}
                 onDismiss={dismiss}
                 onApplyOne={applyOne}
                 onSearchWider={searchWider}
@@ -717,6 +737,8 @@ const RegisterRow = memo(function RegisterRow({
   onToggleMap,
   onPick,
   onUnpick,
+  onWriteCoord,
+  onClearCoord,
   onDismiss,
   onApplyOne,
   onSearchWider,
@@ -738,11 +760,16 @@ const RegisterRow = memo(function RegisterRow({
   kinship?: KinshipResolver;
   onNavigate: (id: string) => void;
   fileCoords: FileCoord[];
-  onToggleOpen: (key: string, drawable?: boolean) => void;
+  onToggleOpen: (key: string) => void;
   onTogglePeople: (key: string) => void;
   onToggleMap: (key: string) => void;
   onPick: (key: string, index: number) => void;
   onUnpick: (key: string) => void;
+  /** A position of the reader's own for this place value — written to the file
+   *  for every occurrence of it, as the geocoding worklist's Write does. */
+  onWriteCoord: (f: RegisterFinding, coord: GeoCoord) => void;
+  /** And the way back: the position the file holds for the value goes. */
+  onClearCoord: (f: RegisterFinding) => void;
   onDismiss: (f: RegisterFinding) => Promise<void>;
   onApplyOne: (rename: OfficialRename) => void;
   onSearchWider: (f: RegisterFinding, known: RegisterOption[]) => void;
@@ -752,6 +779,42 @@ const RegisterRow = memo(function RegisterRow({
   const { t } = useTranslation();
   const chosen = chosenIndex(f, options, pickedIndex);
   const rename = renameFor(f, options, chosen);
+
+  /**
+   * The answers this row has a position for, as the coordinate panel's numbered
+   * candidates — each keeping the number its own line carries in the list
+   * below, since an answer the register named but could not place has a line
+   * and no pin, and the numbers must still read across.
+   */
+  const coordOptions = options.flatMap((o, i) =>
+    o.entry
+      ? [
+          {
+            coord: { lat: o.entry.lat, lon: o.entry.lon },
+            label: o.place,
+            detail: directoryOf(o.entry),
+            number: i + 1,
+          },
+        ]
+      : [],
+  );
+
+  /**
+   * A position taken in the panel means one of two things, and which one is
+   * decided by whether the register already offered it.
+   *
+   * One of the row's own answers is *picked*, exactly as its radio picks it:
+   * the row's question is which register entry this place is, and the rename
+   * carries that entry's coordinate when it is taken. Anything else — typed,
+   * taken off the map, found by a search — is a position of the reader's own
+   * about a place the register cannot settle, so it is written to the file for
+   * this value and nothing is renamed.
+   */
+  const takeFromPanel = (coord: GeoCoord) => {
+    const i = options.findIndex((o) => o.entry && sameCoord({ lat: o.entry.lat, lon: o.entry.lon }, coord));
+    if (i >= 0) onPick(f.key, i);
+    else onWriteCoord(f, coord);
+  };
   /** Whether the bulk rename waits for this row to be picked by hand — which
    *  is what its radio then marks. */
   const held = BULK_HELD_BACK.includes(f.verdict);
@@ -760,13 +823,7 @@ const RegisterRow = memo(function RegisterRow({
       {/* The same row shape as the places and addresses lists: the value the
           file writes leads, what the register answers follows it, and the
           badge, the actions and the person count sit at the end. */}
-      <GeoRowHeader
-        open={isOpen}
-        // Same test the map's own toggle is rendered on: pins to draw, or the
-        // position the file records for the place.
-        onToggle={() => onToggleOpen(f.key, options.some((o) => o.entry) || !!f.fileCoord)}
-        place={f.key}
-      >
+      <GeoRowHeader open={isOpen} onToggle={() => onToggleOpen(f.key)} place={f.key}>
         {/* ✎ (U+270E), the same edit mark the places tree, the addresses list
             and Organize sources use. It writes the raw value the row is about,
             so it is the one action here that does not go through the register
@@ -878,65 +935,48 @@ const RegisterRow = memo(function RegisterRow({
               place beside them — asked for by a click on any coordinate, or on
               the toggle, and never drawn before that (Leaflet is a lazy
               chunk). A row with neither has nothing to draw. */}
-          {(options.some((o) => o.entry) || f.fileCoord) && (
-            <div className="tools-geo-actions">
-              <MapToggle open={mapShown} onToggle={() => onToggleMap(f.key)} />
-              {/* A name that is one word of a longer one is a lead, not an
-                  answer, so the wider search is asked for rather than run for
-                  every place. */}
-              {widerCount === undefined && (
-                <button
-                  className="tools-issue-link"
-                  onClick={() => onSearchWider(f, options)}
-                  title={t("tools.register.widerHint")}
-                >
-                  {t("tools.register.wider")}
-                </button>
-              )}
-              {widerCount === 0 && (
-                <span className="tools-geo-count">{t("tools.register.widerNone")}</span>
-              )}
-            </div>
-          )}
-          {mapShown && (
-            <RowMap
-              // The wider search adds pins that can sit far outside the fitted
-              // view — re-frame when its results land (same idea as the places
-              // row).
-              fitKey={`${f.key}:${widerCount ?? 0}`}
+          {/* Which of six same-named places is the one is a question only a
+              map answers, so the row opens the coordinate panel every list of
+              these two tools opens: the register's answers as its numbered
+              pins, the position the file records for the place as what it
+              currently holds, and — for a village no register knows — its
+              searches and its typed entry. Asked for by a click, never drawn
+              before that (Leaflet is a lazy chunk). */}
+          <div className="tools-geo-actions">
+            <MapToggle open={mapShown} onToggle={() => onToggleMap(f.key)} />
+            <EventCoordPicker
+              place={f.key}
+              address=""
+              coord={f.fileCoord}
+              title={f.key}
+              hideTrigger
+              open={mapShown}
+              onOpenChange={(next) => next !== mapShown && onToggleMap(f.key)}
+              {...(coordOptions.length ? { candidates: coordOptions } : {})}
               context={fileCoords}
-              pins={[
-                ...options.flatMap((o, i): MiniMapPin[] =>
-                  o.entry
-                    ? [
-                        {
-                          coord: { lat: o.entry.lat, lon: o.entry.lon },
-                          label: o.place,
-                          lines: [directoryOf(o.entry), t("event.coord.pinPick")],
-                          badge: i + 1,
-                          kind: chosen === i ? "chosen" : "candidate",
-                          onPick: () => onPick(f.key, i),
-                        },
-                      ]
-                    : [],
-                ),
-                // Where the file itself puts the place, so a coordinate
-                // reported as off is read against the answers rather than
-                // taken on trust.
-                ...(f.fileCoord
-                  ? [
-                      {
-                        coord: f.fileCoord,
-                        label: t("tools.register.currentPin"),
-                        lines: [f.key],
-                        kind: "candidate" as const,
-                        area: true,
-                      },
-                    ]
-                  : []),
-              ]}
+              // Village scale: the answers to one name sit a few hundred metres
+              // apart as often as a county apart, and a lone pin at house zoom
+              // opens the map inside one street of the place being judged.
+              fitMaxZoom={13}
+              onPick={takeFromPanel}
+              onClear={() => onClearCoord(f)}
             />
-          )}
+            {/* A name that is one word of a longer one is a lead, not an
+                answer, so the wider search is asked for rather than run for
+                every place. */}
+            {widerCount === undefined && (
+              <button
+                className="tools-issue-link"
+                onClick={() => onSearchWider(f, options)}
+                title={t("tools.register.widerHint")}
+              >
+                {t("tools.register.wider")}
+              </button>
+            )}
+            {widerCount === 0 && (
+              <span className="tools-geo-count">{t("tools.register.widerNone")}</span>
+            )}
+          </div>
           {options.length > 0 && (
             <ul className="tools-geo-candidates">
               {options.map((o, i) => {
