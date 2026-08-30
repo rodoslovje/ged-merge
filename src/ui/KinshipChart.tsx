@@ -307,8 +307,19 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
    *  the arc left of the 6 o'clock axis is all it has, and a longer name would
    *  run into the family wedge beside it. The number always shows, and the exact
    *  kinship is on every tooltip regardless. */
+  const ringName = (d: number): string => {
+    if (d <= 3) return t(`kin.ring.${d}`, { defaultValue: "" });
+    // Every even ring is a cousin degree — 4 birth links is a first cousin, 6 a
+    // second, and so on without end. Generated from the app's own cousin
+    // vocabulary so a ring and a person's tooltip never word it differently.
+    // The odd rings mix a removed cousin with a great-uncle's line and have no
+    // one settled name; they stay numbers.
+    if (d % 2) return "";
+    const degree = d / 2 - 1;
+    return degree <= 3 ? t(`kin.ring.cousin${degree}`) : t("kin.ring.cousinN", { n: degree });
+  };
   const ringLabel = (d: number, radius?: number) => {
-    const named = t(`kin.ring.${d}`, { defaultValue: "" });
+    const named = ringName(d);
     if (!named) return String(d);
     const text = `${d} · ${named}`;
     if (radius !== undefined && text.length * WHEEL_LABEL_PX * 0.55 > radius * RING_LABEL_ARC) {

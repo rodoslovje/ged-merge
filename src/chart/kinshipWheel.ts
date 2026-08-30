@@ -19,6 +19,7 @@
 // own `nameOf`. Colour and wording are the renderer's business.
 
 import type { Dataset, Individual, Sex } from "../gedcom/types";
+import { primaryName } from "../match/relatives";
 import {
   LIVING_WINDOW_YEARS,
   birthYear,
@@ -183,6 +184,11 @@ export interface KinPerson {
   branch: string;
   side: KinSide;
   name: string;
+  /** The given name alone — what the wheel writes beside a dot, where a full
+   *  name with a married surname would crowd out three neighbours. Read from
+   *  the parsed NAME rather than split off the display string, which puts the
+   *  surname first under some name settings. */
+  given: string;
   /** "1817–1921" / "1817" / "" — {@link formatLifespan}. */
   years: string;
   sex: Sex;
@@ -230,6 +236,7 @@ export function collectKin(input: KinInput): KinPerson[] {
     const span = lifeSpan(indi, ds, now);
     if (win && id !== rootId && !overlaps(span, win.from, win.to)) continue;
     const line = lines.get(pos.viaId);
+    const name = nameOf(indi);
     out.push({
       id,
       indi,
@@ -239,7 +246,8 @@ export function collectKin(input: KinInput): KinPerson[] {
       generation: generationOffset(pos),
       branch: line?.branch ?? OWN_BRANCH,
       side: line?.side ?? "own",
-      name: nameOf(indi),
+      name,
+      given: primaryName(indi)?.given?.trim() || name.split(/\s+/)[0] || name,
       years: formatLifespan(birthYear(indi), deathYear(indi), isDeceased(indi)),
       sex: indi.sex,
       span,
@@ -490,7 +498,7 @@ export function buildKinshipWheel(input: KinInput & { people?: KinPerson[] }): K
             y: cy + (rr + dotR + 4) * sin + 3,
             ux: cos,
             uy: sin,
-            text: m <= 2 ? p.name : p.name.split(" ")[0],
+            text: p.given,
           });
         }
       });

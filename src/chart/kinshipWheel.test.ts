@@ -220,6 +220,14 @@ describe("buildKinshipWheel", () => {
     expect(dist("@I3@")).toBeLessThan(dist("@I9@"));
   });
 
+  it("labels a dot with the given name alone", () => {
+    // A full name — worse, one carrying a married surname — crowds three
+    // neighbours off the wheel for one person's benefit.
+    const mother = wheel.labels.find((l) => l.person.id === "@I3@");
+    expect(mother?.text).toBe("Marija");
+    expect(wheel.labels.every((l) => !l.text.includes(" ") || l.text === l.person.given)).toBe(true);
+  });
+
   it("names close kin without overlapping any two labels", () => {
     expect(wheel.labels.length).toBeGreaterThan(0);
     const boxes = wheel.labels.map((l) => {
