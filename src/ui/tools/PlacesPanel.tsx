@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
 import { buildPlaceTree, collectNodeUseIds, type PlaceNode, type PlaceTree, UNSPECIFIED, UNSPECIFIED_PLACE } from "../../tools/places";
@@ -8,20 +8,19 @@ import { scanAddresses, type AddressRename } from "../../tools/addresses";
 import { useDatasetDerivations } from "../DatasetDerivations";
 import { GeocodePanel } from "./GeocodePanel";
 import { RegisterPanel } from "./RegisterPanel";
-import { countGeocodePending, type GeoAssignment, type OfficialRename } from "../../tools/geocode";
+import { countGeocodePending, placeAddrKey, type GeoAssignment, type OfficialRename } from "../../tools/geocode";
 import { countryCodeOfName, flagEmoji } from "../../geo/placeCountry";
 import { ToolsLoading, TreeSearch, UsageList, useDebounced } from "./shared";
-import type { MiniMapPin } from "../map/MiniPlaceMap";
 import { ToolSummary } from "./ToolSummary";
 import { formatCoord } from "../../geo/points";
 import { PlaceAutocomplete } from "../edit/PlaceAutocomplete";
+import { EventCoordPicker } from "../edit/EventCoordPicker";
+import { PinIcon } from "../icons/PinIcon";
 
 /** The rename field completes from the file's own place segments, which are
  *  already exactly as the file writes them — there is no separate canonical
  *  spelling to snap to. */
 const EMPTY_CANONICAL = new Map<string, string>();
-
-const MiniPlaceMap = lazy(() => import("../map/MiniPlaceMap"));
 
 /** How far the row's map opens on a single coordinate: close enough to read
  *  the town and its streets, since the question a place's map answers is
@@ -29,8 +28,13 @@ const MiniPlaceMap = lazy(() => import("../map/MiniPlaceMap"));
 const TOWN_ZOOM = 13;
 
 /** An address row's map answers a closer question — "which building is this" —
- *  so it opens at house level, the same zoom the coordinate picker fits to. */
+ *  so it opens at house level, the zoom the coordinate panel fits to
+ *  everywhere else. */
 const HOUSE_ZOOM = 17;
+
+/** What {@link buildPlaceTree} joins a place value and its ADDR with, so a
+ *  row's own record can be read back as the pair the file writes. */
+const USE_SEPARATOR = " — ";
 
 /** Prune a place node to those whose name matches `q` (already lower-cased)
  * anywhere in the subtree. A node matching by name keeps its whole subtree;
@@ -76,6 +80,7 @@ export function PlacesPanel({
   onApplyPlaceRename,
   onApplyGeocode,
   onApplyAddressCoords,
+  onClearPlaceCoords,
   onRenamePlaceValue,
   onApplyOfficialNames,
   onRenameAddresses,
@@ -91,6 +96,7 @@ export function PlacesPanel({
   onApplyPlaceRename: (from: string, to: string, scope: Set<string>) => void;
   onApplyGeocode: (assignments: Map<string, GeoAssignment>) => number;
   onApplyAddressCoords: (assignments: Map<string, GeoCoord>) => number;
+  onClearPlaceCoords: (pairs: Set<string>) => number;
   onRenamePlaceValue: (from: string, to: string, addr?: string) => number;
   onApplyOfficialNames: (renames: OfficialRename[]) => number;
   onRenameAddresses: (renames: AddressRename[]) => number;
@@ -221,6 +227,14 @@ export function PlacesPanel({
     setOpen(toOpen);
   }
 
+  /** A coordinate written or taken back in a row's panel changed the records
+   *  the tree was built from, so its spots and its counts are stale. Rebuilt on
+   *  the spot — and, unlike a rename, with the tree left exactly as open as it
+   *  was: the row that was just placed is the one being looked at. */
+  function handleCoordChange() {
+    setTree(buildPlaceTree(dataset));
+  }
+
   // What the geocode tool has to offer, as the chip's two badges: distinct
   // place names still missing coordinates, and addresses a register lookup
   // could pin to their house. Both recomputed with the tree (same trigger:
@@ -333,7 +347,9 @@ export function PlacesPanel({
               toggle={togglePlace}
               onNavigate={onNavigate}
               onRename={handleRename}
-              onGeocode={() => setView("geocode")}
+              onApplyAddressCoords={onApplyAddressCoords}
+              onClearPlaceCoords={onClearPlaceCoords}
+              onCoordChange={handleCoordChange}
               siblings={siblingNames.get("") ?? []}
               siblingNames={siblingNames}
             />
@@ -353,7 +369,9 @@ function PlaceTreeRow({
   toggle,
   onNavigate,
   onRename,
-  onGeocode,
+  onApplyAddressCoords,
+  onClearPlaceCoords,
+  onCoordChange,
   siblings,
   siblingNames,
 }: {
@@ -365,8 +383,15 @@ function PlaceTreeRow({
   toggle: (node: PlaceNode, path: string) => void;
   onNavigate: (id: string) => void;
   onRename: (from: string, to: string, scope: Set<string>) => void;
-  /** Open the geocode tool, where a disputed coordinate can be settled. */
-  onGeocode: () => void;
+  /** Write a position onto every event at this row's place+address pairs. The
+   *  row is one written value, so the pair-keyed write is the exact one: a
+   *  settlement's own position never reaches the houses under it, which hold
+   *  their own. */
+  onApplyAddressCoords: (assignments: Map<string, GeoCoord>) => number;
+  /** Take that position away again — the panel's *Clear*. */
+  onClearPlaceCoords: (pairs: Set<string>) => number;
+  /** Rebuild the tree after either of them wrote. */
+  onCoordChange: () => void;
   /** The names sitting beside this one under the same parent — what a rename
    *  of this node may complete to, and what makes it a merge. */
   siblings: string[];
@@ -377,9 +402,10 @@ function PlaceTreeRow({
   const [editing, setEditing] = useState(false);
   const [renameValue, setRenameValue] = useState("");
   const debouncedRename = useDebounced(renameValue, 250);
-  /** The row's own mini map, opened by clicking its coordinate. Per-row state:
-   *  several may stand open, and each is its own lazy map instance. */
-  const [mapOpen, setMapOpen] = useState(false);
+  /** The row's coordinate panel — the one the geocoding lists and the Edit
+   *  rows open. Per-row state, so the panel belongs to the coordinate that
+   *  opened it. */
+  const [coordOpen, setCoordOpen] = useState(false);
   /** The records written at exactly this place, listed only when asked for:
    *  opening a place is about the places under it, not about its hundreds of
    *  people. */
@@ -392,25 +418,58 @@ function PlaceTreeRow({
   const nodeScope = useMemo(() => collectNodeUseIds(node), [node]);
 
   /**
-   * What this row's map pins are about, for their tooltips: the place, and the
-   * address when the row *is* one (address levels are their own nodes).
+   * The place and address this row is, as the file writes them — what the
+   * coordinate panel looks the row up by, and what its pins are labelled with.
    *
-   * The place is taken from a record that sits exactly here, so it carries the
-   * file's own spelling and separators; with no such record — a node that only
-   * holds children — the path is read back outwards ("Otlica, Ajdovščina,
-   * Slovenia"), which is the order every place value in the app is written in.
+   * Both are read off a record that sits exactly here, so they carry the file's
+   * own spelling and separators; an address row's record joins the pair with
+   * {@link USE_SEPARATOR}, which is split back apart here because the registers
+   * are asked about a house *at* a place, not about the two run together. A
+   * node that only holds children has no record of its own: the path is read
+   * back outwards ("Otlica, Ajdovščina, Slovenia"), which is the order every
+   * place value in the app is written in, and nothing is written from it.
    */
-  const pinAddress =
-    node.isAddress && node.name !== UNSPECIFIED && node.name !== UNSPECIFIED_PLACE ? node.name : undefined;
-  const pinPlace = useMemo(() => {
-    const raw = node.uses[0]?.raw?.trim();
-    if (raw) return raw;
-    return path
-      .split("/")
-      .filter((seg) => seg && seg !== UNSPECIFIED && seg !== UNSPECIFIED_PLACE)
-      .reverse()
-      .join(", ");
-  }, [node.uses, path]);
+  const { placeValue, addrValue } = useMemo(() => {
+    const raw = node.uses[0]?.raw?.trim() ?? "";
+    const at = raw.indexOf(USE_SEPARATOR);
+    if (at >= 0) return { placeValue: raw.slice(0, at), addrValue: raw.slice(at + USE_SEPARATOR.length) };
+    return { placeValue: raw, addrValue: "" };
+  }, [node.uses]);
+
+  /**
+   * Every place+address pair written at exactly this node — what a position
+   * picked here is written onto, and taken back off.
+   *
+   * All of them, not the first: one node is one *place*, and a file spells its
+   * places more than one way ("Kranj, Slovenija" and "Kranj,Slovenija" are one
+   * row of this tree and two values in the file). Pair-keyed, so a settlement's
+   * position reaches the events written at the settlement and never the houses
+   * under it, which are rows of their own and hold their own.
+   */
+  const coordKeys = useMemo(() => {
+    const keys = new Set<string>();
+    for (const use of node.uses) {
+      const raw = use.raw.trim();
+      const at = raw.indexOf(USE_SEPARATOR);
+      const place = at >= 0 ? raw.slice(0, at) : raw;
+      const addr = at >= 0 ? raw.slice(at + USE_SEPARATOR.length) : "";
+      if (place) keys.add(placeAddrKey(place, addr));
+    }
+    return keys;
+  }, [node.uses]);
+
+  /** Write one position onto every record this row stands for, and rebuild the
+   *  tree so the row reads back what the file now says. */
+  const takeCoord = (coord: GeoCoord) => {
+    if (!coordKeys.size) return;
+    onApplyAddressCoords(new Map([...coordKeys].map((key) => [key, coord])));
+    onCoordChange();
+  };
+  const dropCoord = () => {
+    if (!coordKeys.size) return;
+    onClearPlaceCoords(new Set(coordKeys));
+    onCoordChange();
+  };
 
   /** The triangle is about the places under this one; the people written at
    *  exactly this place are the count's business, opened on their own. */
@@ -427,6 +486,21 @@ function PlaceTreeRow({
   const code = depth === 0 && !isSynthetic ? countryCodeOfName(node.name) : undefined;
   const flag = code ? flagEmoji(code) : undefined;
   const labelNode = flag ? <>{flag} {name}</> : name;
+
+  /** The spots the file writes for this place besides the prevailing one, as
+   *  the panel's numbered answers: each says how many records put the place
+   *  there, which is what a choice between them is made on. */
+  const rivalSpots = useMemo(
+    () =>
+      disputed
+        ? spots!.slice(1).map((spot) => ({
+            coord: spot.coord,
+            label: name,
+            detail: t("tools.places.coord.spotUses", { count: spot.n }),
+          }))
+        : undefined,
+    [disputed, spots, name, t],
+  );
 
   // Compute rename preview whenever the value differs from the current name.
   const preview = useMemo((): PlaceRenamePreview | null => {
@@ -520,54 +594,62 @@ function PlaceTreeRow({
         ) : (
           <span className="tools-chip-count">{node.count}</span>
         )}
-        {spots && (
-          <button
-            type="button"
-            className="tools-tree-meta gm-data gm-coord gm-coord--set tools-place-coord"
-            aria-expanded={mapOpen}
-            title={t(disputed ? "tools.places.coord.disputed" : "tools.places.coord")}
-            onClick={() => setMapOpen((v) => !v)}
-          >
-            {formatCoord(spots[0].coord)}
-            {disputed && <span className="tools-place-coord-warn">⚠ {t("tools.places.coord.spots", { count: spots.length })}</span>}
-          </button>
+        {/* The position this place holds — and the way to change it: the same
+            coordinate panel the geocoding lists and the Edit rows open, with
+            its map, its register and OpenStreetMap searches and its manual
+            entry, where the row used to open a map that could only be looked
+            at. Only on a row with records of its own: a level that merely
+            holds other places has nothing to write a position onto, and the
+            houses under it keep their own. */}
+        {coordKeys.size > 0 && (
+          <span className="tools-place-coord-wrap">
+            {spots ? (
+              <button
+                type="button"
+                className="tools-tree-meta gm-data gm-coord gm-coord--set tools-place-coord"
+                aria-expanded={coordOpen}
+                title={t(disputed ? "tools.places.coord.disputed" : "tools.places.coord")}
+                onClick={() => setCoordOpen((v) => !v)}
+              >
+                {formatCoord(spots[0].coord)}
+                {disputed && <span className="tools-place-coord-warn">⚠ {t("tools.places.coord.spots", { count: spots.length })}</span>}
+              </button>
+            ) : (
+              /* A place the file never geocoded: the pin is the faint mark the
+                 ✎ beside the name is, present on every row and coming up to
+                 full strength under the pointer, so a tree of unplaced villages
+                 reads as a list of places and not as a column of pins. */
+              <button
+                type="button"
+                className="tools-place-edit-btn tools-place-coord-add"
+                aria-expanded={coordOpen}
+                title={t("tools.places.coord.add")}
+                onClick={() => setCoordOpen((v) => !v)}
+              >
+                <PinIcon />
+              </button>
+            )}
+            <EventCoordPicker
+              place={placeValue}
+              address={addrValue}
+              coord={spots?.[0].coord}
+              title={name}
+              hideTrigger
+              open={coordOpen}
+              onOpenChange={setCoordOpen}
+              // The file's other spots for this very place, numbered as answers
+              // to choose between: picking one writes it over every record the
+              // row stands for, which is what settles the ⚠ above.
+              {...(rivalSpots ? { candidates: rivalSpots } : {})}
+              // A row here can be a country, and one pin at house zoom would
+              // fill the map with a single street of it.
+              fitMaxZoom={node.isAddress ? HOUSE_ZOOM : TOWN_ZOOM}
+              onPick={takeCoord}
+              onClear={dropCoord}
+            />
+          </span>
         )}
       </div>
-
-      {mapOpen && spots && (
-        <div className="tools-place-map">
-          <Suspense fallback={<div className="tools-geo-minimap" />}>
-            <MiniPlaceMap
-              pins={spots.map((s, i): MiniMapPin => ({
-                coord: s.coord,
-                // The place this pin is about, written as the file writes it —
-                // the tooltip prints the coordinate itself on its own last row,
-                // so naming it here would say the numbers twice and the place
-                // not at all.
-                label: pinPlace,
-                ...(pinAddress ? { sub: pinAddress } : {}),
-                // The count only means something once there is a rival spot to
-                // weigh it against.
-                lines: disputed ? [t("tools.places.coord.spotUses", { count: s.n })] : undefined,
-                badge: disputed ? s.n : undefined,
-                // The prevailing spot is the one the row shows, so it reads as
-                // the chosen pin and the outliers as the candidates.
-                kind: i === 0 ? "chosen" : "candidate",
-              }))}
-              fitKey={path}
-              fitMaxZoom={node.isAddress ? HOUSE_ZOOM : TOWN_ZOOM}
-            />
-          </Suspense>
-          {disputed && (
-            <p className="tools-place-map-note">
-              {t("tools.places.coord.disputedNote", { count: spots.length })}{" "}
-              <button type="button" className="tools-issue-link" onClick={onGeocode}>
-                {t("tools.places.coord.settle")}
-              </button>
-            </p>
-          )}
-        </div>
-      )}
 
       {editing && (
         <div
@@ -638,7 +720,9 @@ function PlaceTreeRow({
                 toggle={toggle}
                 onNavigate={onNavigate}
                 onRename={onRename}
-                onGeocode={onGeocode}
+                onApplyAddressCoords={onApplyAddressCoords}
+                onClearPlaceCoords={onClearPlaceCoords}
+                onCoordChange={onCoordChange}
                 siblings={siblingNames.get(path) ?? node.children.map((c) => c.name)}
                 siblingNames={siblingNames}
               />

@@ -62,6 +62,7 @@ export function EventCoordPicker({
   onOpenChange,
   onRegisterSearch,
   onOnlineSearch,
+  fitMaxZoom = 17,
 }: {
   /** The event's current place text (as edited). */
   place: string;
@@ -113,6 +114,12 @@ export function EventCoordPicker({
    *  caller's list numbers these answers beside the register's rather than
    *  making the user run the same search a second time from the row. */
   onOnlineSearch?: (state: { state: "loading" | "error" | "done"; results: NominatimResult[] }) => void;
+  /** How far the map may zoom in when it frames its pins. House level by
+   *  default, which is what every list positioning one building wants. A caller
+   *  positioning a whole jurisdiction — the places tree, where a row can be a
+   *  country — asks for a wider stop, or a single pin fills the map with one
+   *  street of it. */
+  fitMaxZoom?: number;
 }) {
   const { t, i18n } = useTranslation();
   const settings = useSettingsSlice(SETTINGS_KEYS);
@@ -512,10 +519,11 @@ export function EventCoordPicker({
                   <MiniPlaceMap
                     pins={pins}
                     title={t("event.coord.mapHint")}
-                    // House level, not the default region: what is being chosen
-                    // here is one building among its neighbours, and three hits
-                    // a few hundred metres apart pile into one dot at zoom 11.
-                    fitMaxZoom={17}
+                    // House level unless the caller says otherwise: what is
+                    // being chosen here is one building among its neighbours,
+                    // and three hits a few hundred metres apart pile into one
+                    // dot at zoom 11.
+                    fitMaxZoom={fitMaxZoom}
                     // Keyed on the found coordinates, so each new result set
                     // re-frames the map around all of them — a renumbered house
                     // can be two addresses a kilometre apart. The typed draft is
