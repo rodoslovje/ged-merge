@@ -53,9 +53,8 @@ test("the tree splits a street value into a place and an address", async ({ page
   await expect(page.locator(".tools-tree-row").filter({ hasText: "Unspecified country" })).toHaveCount(0);
   const slovenia = page.locator(".tools-tree > li").filter({ hasText: "Slovenija" }).first();
   await expect(slovenia.locator(".tools-chip-count").first()).toHaveText("2");
-  // Opening the country drills through the single-child chain — Kranj, then
-  // Kokrica — so the whole branch the record now sits in is on screen at once.
-  await slovenia.locator(".tools-tree-label").first().click();
+  // The rename opens the branch the record landed in, so the place it now sits
+  // in is on screen without hunting for it.
   await expect(slovenia.locator(".tools-tree-label").filter({ hasText: "Kranj" })).toHaveCount(1);
   await expect(slovenia.locator(".tools-tree-label").filter({ hasText: "Kokrica" })).toHaveCount(1);
 

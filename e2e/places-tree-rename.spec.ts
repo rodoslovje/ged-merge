@@ -19,6 +19,12 @@ writeFileSync(
     "1 BIRT", "2 PLAC Kokrica",
     "0 @I2@ INDI", "1 NAME Ivan /Kos/",
     "1 BIRT", "2 PLAC Kranj, Slovenija",
+    // Two more strays in the same bucket: what the reader carries on with after
+    // correcting the first.
+    "0 @I3@ INDI", "1 NAME Neža /Kos/",
+    "1 BIRT", "2 PLAC Bodovlje",
+    "0 @I4@ INDI", "1 NAME Jaka /Kos/",
+    "1 BIRT", "2 PLAC Hotavlje",
     "0 TRLR", "",
   ].join("\n"),
   "utf-8",
@@ -56,12 +62,16 @@ test("the tree's rename box offers the places the file already writes", async ({
 
   await page.locator(".tools-place-rename-apply").click();
 
-  // Both people are now under Slovenia — the country counts two mentions and
-  // the unspecified bucket is gone entirely — and the record that moved sits in
-  // the same Kranj as the one that was already there.
-  await expect(page.locator(".tools-tree-row").filter({ hasText: "Unspecified country" })).toHaveCount(0);
+  // The record that moved sits in the same Kranj as the one that was already
+  // there — and the tree opened the branch it landed in to show it.
   const slovenia = page.locator(".tools-tree > li").filter({ hasText: "Slovenija" }).first();
   await expect(slovenia.locator(".tools-chip-count").first()).toHaveText("2");
-  await slovenia.locator(".tools-tree-label").first().click();
   await expect(slovenia.locator(".tools-tree-label").filter({ hasText: "Kranj" })).toHaveCount(1);
+
+  // …and the bucket the correction was made from is still open, with the
+  // strays that are still to be reviewed on screen. It used to fold away with
+  // every other row, which left no way to carry on down the list.
+  const unspecified = page.locator(".tools-tree > li").filter({ hasText: "Unspecified country" }).first();
+  await expect(unspecified.locator(".tools-tree-label").filter({ hasText: "Bodovlje" })).toBeVisible();
+  await expect(unspecified.locator(".tools-tree-label").filter({ hasText: "Hotavlje" })).toBeVisible();
 });

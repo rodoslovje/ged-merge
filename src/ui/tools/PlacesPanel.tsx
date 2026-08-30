@@ -51,6 +51,36 @@ function filterPlaceNode(node: PlaceNode, q: string, path: string, autoOpen: Set
   return { ...node, children, uses: [] };
 }
 
+/**
+ * Where a place value sits in the tree: the path whose segments, read outwards,
+ * are the value's own comma parts ("Kokrica, Kranj, Slovenija" →
+ * `Slovenija/Kranj/Kokrica`). Null where the tree does not hold it — which is
+ * what a value naming a country the file writes differently comes to.
+ *
+ * Read off the tree rather than composed, because only the tree knows what a
+ * value decomposed to: a value naming no country hangs under the synthetic
+ * bucket, and one carrying a house number keeps the house as a level below the
+ * locality.
+ */
+function findPlacePath(roots: readonly PlaceNode[], value: string): string | null {
+  const parts = value
+    .split(",")
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .reverse();
+  if (!parts.length) return null;
+  const descend = (nodes: readonly PlaceNode[], depth: number, path: string): string | null => {
+    const node = nodes.find((n) => n.name === parts[depth]);
+    if (!node) return null;
+    const here = path ? `${path}/${node.name}` : node.name;
+    return depth === parts.length - 1 ? here : descend(node.children, depth + 1, here);
+  };
+  // A value naming no country is filed under the synthetic bucket, which is a
+  // level of the tree and not a part of the value.
+  const unspecified = roots.find((r) => r.name === UNSPECIFIED);
+  return descend(roots, 0, "") ?? (unspecified ? descend(unspecified.children, 0, UNSPECIFIED) : null);
+}
+
 /** Keys to open on first load: when there is a single root place, open it and
  *  drill on through any single-child chain so the tree lands on the first level
  *  that offers a choice. */
@@ -187,50 +217,51 @@ export function PlacesPanel({
     return map;
   }, [tree]);
 
+  /**
+   * Rename a place level everywhere under one row, and show where it went.
+   *
+   * The tree the reader was working down stays exactly as open as it was. It
+   * used to be replaced by the renamed value's own chain, which threw away the
+   * bucket the rename was made from — correct a stray under *Unspecified
+   * country* and the seventy values beside it folded away, so there was no
+   * carrying on down the list.
+   *
+   * Where the value went is opened on top of that, read off the rebuilt tree
+   * rather than guessed by substituting the new name into the old path: a
+   * rename that gives a value its country moves it to another branch entirely,
+   * and the old path with one segment swapped names nothing at all.
+   */
   function handleRename(from: string, to: string, scope: Set<string>) {
-    // Capture the path of `from` in the current tree before rebuild so we can
-    // derive the correct destination path (avoids opening the wrong "Wayne" in
-    // a different state when multiple nodes share the target name).
-    let fromPath: string | null = null;
-    if (tree) {
-      const findFrom = (node: PlaceNode, path: string): boolean => {
-        if (node.name === from) { fromPath = path; return true; }
-        for (const child of node.children) {
-          if (findFrom(child, `${path}/${child.name}`)) return true;
-        }
-        return false;
-      };
-      for (const root of tree.roots) { if (findFrom(root, root.name)) break; }
-    }
-
     onApplyPlaceRename(from, to, scope);
     const newTree = buildPlaceTree(dataset);
     setTree(newTree);
+    reveal(newTree, to);
+  }
 
-    // Build the expected path: substitute `to` for `from`, or remove the segment when deleting.
-    const expectedPath = fromPath
-      ? to
-        ? (fromPath as string).split("/").map(s => s === from ? to : s).join("/")
-        : (fromPath as string).split("/").filter(s => s !== from).join("/")
-      : null;
-
-    const toOpen = new Set<string>();
-    if (expectedPath) {
-      const parts = expectedPath.split("/");
-      for (let i = 1; i <= parts.length; i++) toOpen.add(parts.slice(0, i).join("/"));
-    }
-    setOpen(toOpen);
+  /** Open the chain down to where a renamed value now sits, leaving every row
+   *  the reader had open where it was. */
+  function reveal(rebuilt: PlaceTree, value: string) {
+    const landed = value ? findPlacePath(rebuilt.roots, value) : null;
+    if (!landed) return;
+    setOpen((prev) => {
+      const next = new Set(prev);
+      const parts = landed.split("/");
+      for (let i = 1; i <= parts.length; i++) next.add(parts.slice(0, i).join("/"));
+      return next;
+    });
   }
 
   /**
    * A row's rename that splits the value: the whole value is rewritten and the
    * house it named goes on the event's own ADDR line. The tree is rebuilt with
-   * its open rows kept, as a coordinate write is — the row does not move to a
-   * path this panel could work out, it becomes a place and a house under it.
+   * every row the reader had open still open, and the place the house now
+   * stands in opened under them.
    */
   function handleRenameValue(from: string, to: string, addr: string) {
     onRenamePlaceValue(from, to, addr);
-    setTree(buildPlaceTree(dataset));
+    const newTree = buildPlaceTree(dataset);
+    setTree(newTree);
+    reveal(newTree, to);
   }
 
   /** A coordinate written or taken back in a row's panel changed the records
