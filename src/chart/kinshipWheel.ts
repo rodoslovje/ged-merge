@@ -437,7 +437,21 @@ export function buildKinshipWheel(input: KinInput & { people?: KinPerson[] }): K
   // A bigger tree gets a bigger chart rather than denser dots: the canvas
   // scrolls and zooms, so the honest move is more room, not smaller marks.
   const radius = Math.round(Math.max(360, Math.min(900, 260 + Math.sqrt(people.length) * 4)));
-  const pad = 130;
+
+  const angles = layoutWedges(people, input.ds);
+  // The wedge captions sit outside the rim, so the canvas is padded to hold the
+  // longest one — a fixed margin clipped the count off a grandparent with three
+  // names. Measured from the ancestor's own name plus room for the count; the
+  // floor covers the localized "own line" caption, which the layout cannot see.
+  const captionPx = Math.max(
+    0,
+    ...angles.map((w) => {
+      const indi = w.ancestorId ? input.ds.individuals.get(w.ancestorId) : undefined;
+      const text = indi ? input.nameOf(indi) : "";
+      return (text.length + 5) * WEDGE_LABEL_PX * 0.55;
+    }),
+  );
+  const pad = Math.round(Math.min(460, Math.max(130, 30 + captionPx)));
   const cx = radius + pad;
   const cy = radius + pad;
 
@@ -445,7 +459,7 @@ export function buildKinshipWheel(input: KinInput & { people?: KinPerson[] }): K
   for (const p of people) counts[p.distance] = (counts[p.distance] ?? 0) + 1;
   const edges = ringRadii(counts, maxDistance, radius - HUB_R);
 
-  const wedges = layoutWedges(people, input.ds).map((w) => {
+  const wedges = angles.map((w) => {
     const mid = rad((w.a0 + w.a1) / 2);
     const lr = radius + 16;
     const cos = Math.cos(mid);
@@ -576,6 +590,9 @@ function subRows(cell: KinPerson[], perRow: number): KinPerson[][] {
 
 /** Native-size font the wheel's names are measured against. */
 export const WHEEL_LABEL_PX = 10.5;
+/** …and the font of a wedge's caption, which must match `.kin-wedge-label`:
+ *  the canvas is padded to fit the longest of them. */
+export const WEDGE_LABEL_PX = 12.5;
 /** Offsets a crowded name may try, out along its own ray and to either side of
  *  it, before it gives up. Radial first: sliding outward keeps a name beside
  *  the ring it belongs to. */

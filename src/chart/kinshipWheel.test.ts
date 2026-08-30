@@ -10,6 +10,7 @@ import {
   buildKinBars,
   buildKinshipWheel,
   collectKin,
+  WEDGE_LABEL_PX,
   generationOffset,
   kinDepth,
   lifeSpan,
@@ -267,6 +268,19 @@ describe("buildKinshipWheel", () => {
         expect(clash, `${wheel.labels[i].text} vs ${wheel.labels[j].text}`).toBe(false);
       }
     }
+  });
+
+  it("pads the canvas so a long wedge caption is not cut off", () => {
+    // A grandparent with three given names pushed the caption — and its count —
+    // past a fixed margin and off the edge of the chart.
+    const longNames = dataset(TREE.replace("Jakob /Novak/", "Branko Anton Bubinec /Novak/"));
+    const chart = buildKinshipWheel({ ds: longNames, rootId: "@I1@", nameOf, now: NOW });
+    const wedge = chart.wedges.find((w) => w.ancestorId === "@I4@")!;
+    const width = ("Branko Anton Bubinec Novak".length + 5) * WEDGE_LABEL_PX * 0.55;
+    const right = wedge.labelAnchor === "start" ? wedge.labelX + width : wedge.labelX;
+    const left = wedge.labelAnchor === "end" ? wedge.labelX - width : wedge.labelX;
+    expect(left).toBeGreaterThan(0);
+    expect(right).toBeLessThan(chart.width);
   });
 
   it("lists a ring for every blood distance in reach", () => {
