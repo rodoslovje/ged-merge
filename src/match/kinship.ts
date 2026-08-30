@@ -1,4 +1,4 @@
-import type { Dataset } from "../gedcom/types";
+import type { Dataset, Sex } from "../gedcom/types";
 import type { Translate } from "../locales/i18n";
 import { bloodLineage, makeBloodLineageResolver, type Lineage } from "./relationshipPath";
 
@@ -218,6 +218,24 @@ function ancestorGens(ds: Dataset, startId: string): Map<string, number> {
     }
   }
   return map;
+}
+
+/**
+ * The kinship label for a pair whose blood positions are already known — `up`
+ * generations from one to their common ancestor, `down` back to the other.
+ *
+ * {@link kinshipLabel} finds those two numbers by walking the target's whole
+ * pedigree, which is right for one pair and ruinous for a chart naming
+ * thousands. A caller that already has them (the Contemporaries wheel gets them
+ * from its own single pass) names each person for the cost of a lookup.
+ */
+export function kinshipLabelFor(
+  up: number,
+  down: number,
+  sex: Sex | undefined,
+  t: Translate,
+): string | undefined {
+  return relLabel(up, down, sex ?? "U", t);
 }
 
 /**

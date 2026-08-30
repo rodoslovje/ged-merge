@@ -54,6 +54,7 @@ export interface TreeCanvasProps {
   onPointerUp: () => void;
   onPointerCancel: () => void;
   onClickCapture: (e: React.MouseEvent) => void;
+  onDoubleClick: (e: React.MouseEvent) => void;
 }
 
 export interface TreeCanvas {
@@ -663,6 +664,26 @@ export function useTreeCanvas(
     }
   }, []);
 
+  // Double-click zooms toward the pointer, as the Map does; Shift zooms back
+  // out. Only where the canvas itself was hit: a double-click that lands on a
+  // person belongs to whatever the chart does with a click on them, and having
+  // the view leap while their panel opens would be its own surprise.
+  const onDoubleClick = useCallback(
+    (e: React.MouseEvent) => {
+      const el = canvasRef.current;
+      if (!el) return;
+      const target = e.target as Element | null;
+      if (target?.closest?.("g.tree-node, .timeline-row, .kin-dot, .kin-bar, a, button, input, select")) return;
+      const rect = el.getBoundingClientRect();
+      zoomAround(
+        zoomRef.current * (e.shiftKey ? 1 / (ZOOM_STEP * ZOOM_STEP) : ZOOM_STEP * ZOOM_STEP),
+        e.clientX - rect.left,
+        e.clientY - rect.top,
+      );
+    },
+    [zoomAround],
+  );
+
   return {
     canvasRef,
     zoomLayerRef,
@@ -676,6 +697,7 @@ export function useTreeCanvas(
       onPointerUp: endPan,
       onPointerCancel: endPan,
       onClickCapture,
+      onDoubleClick,
     },
     selectedKey,
     setSelectedKey,

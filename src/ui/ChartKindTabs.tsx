@@ -32,11 +32,12 @@ export function ChartKindTabs({ kinds, value, onChange }: Props) {
   const label = (k: ChartKind) =>
     k === "relationship" ? t("relpath.button")
       : k === "timeline" ? t("timeline.button")
-        : k === "map" ? t("map.button")
-          : k === "report" ? t("report.button")
-            : t(`tree.settings.type.${k}`);
+        : k === "kin" ? t("kin.button")
+          : k === "map" ? t("map.button")
+            : k === "report" ? t("report.button")
+              : t(`tree.settings.type.${k}`);
   const hint = (k: ChartKind) => (k === "fan" || k === "circle" ? t("charts.kind.ancestorsOnly") : undefined);
-  // Eight kinds never fit across a phone. A dropdown names the one you are on
+  // Nine kinds never fit across a phone. A dropdown names the one you are on
   // and lists the rest, instead of a sideways scroller that hides most of them.
   if (phone) {
     return (

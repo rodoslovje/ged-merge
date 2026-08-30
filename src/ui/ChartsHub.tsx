@@ -10,6 +10,7 @@ import { ChartPage } from "./ChartPage";
 import { EditTree } from "./EditTree";
 import { RelationshipChart } from "./RelationshipChart";
 import { TimelineChart } from "./TimelineChart";
+import { KinshipChart } from "./KinshipChart";
 import { ReportView } from "./ReportView";
 import { StartPersonSelector } from "./StartPersonSelector";
 
@@ -25,9 +26,9 @@ const MapChart = lazy(() => import("./map/MapChart"));
 // whatever was used last.
 
 /** The hub's kinds, in tab (and digit-shortcut) order — the per-person charts
- *  (pedigrees, then the timeline) first, then the two-person relationship,
- *  then the places map, then the text reports. */
-const HUB_KINDS: ChartKind[] = [...PEDIGREE_KINDS, "timeline", "relationship", "map", "report"];
+ *  (pedigrees, then the timeline) first, then the two-person relationship, then
+ *  the contemporaries wheel, then the places map, then the text reports. */
+const HUB_KINDS: ChartKind[] = [...PEDIGREE_KINDS, "timeline", "relationship", "kin", "map", "report"];
 
 interface Props {
   mainDs: Dataset;
@@ -92,6 +93,21 @@ export function ChartsHub({ mainDs, rootId, onRootChange, startId, changedPerson
         kindSwitcher={kindSwitcher}
         mode={treeMode}
         onModeChange={setTreeMode}
+      />
+    );
+  }
+
+  if (settings.kind === "kin") {
+    return (
+      <KinshipChart
+        mainDs={mainDs}
+        rootId={rootId}
+        startId={startId}
+        backLabel={backLabel}
+        onBack={onBack}
+        onNavigate={onNavigate}
+        onRootChange={onRootChange}
+        kindSwitcher={kindSwitcher}
       />
     );
   }

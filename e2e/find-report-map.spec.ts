@@ -10,9 +10,10 @@ import { tmpdir } from "./tmpdir";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SAMPLE = path.resolve(__dirname, "../src/__fixtures__/corpus/reunion-5.5.1-utf8.ged");
 
-// Chart kinds in hub order, for the digit shortcuts.
-const MAP_KEY = "7";
-const REPORT_KEY = "8";
+// Chart kinds in hub order, for the digit shortcuts:
+// 1–4 pedigrees, 5 Timeline, 6 Relationship, 7 Contemporaries, 8 Map, 9 Report.
+const MAP_KEY = "8";
+const REPORT_KEY = "9";
 
 // A tiny geocoded file: the corpus fixtures carry no MAP coordinates, so the
 // map would draw nothing to find.
