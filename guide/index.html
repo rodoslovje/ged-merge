@@ -1642,8 +1642,8 @@
             <p>
               One <strong>Charts</strong> button (<span class="gm-key">V</span>) — in the Edit toolbar, the person
               header's chart icon, or a Compare Tree node's panel — opens the full-page <strong>Charts hub</strong> for
-              the selected person. A tab strip switches between eight kinds (digits <span class="gm-key">1</span>–<span
-              class="gm-key">8</span> jump straight to one); GED Merge remembers whichever you used last. Re-rooting a
+              the selected person. A tab strip switches between nine kinds (digits <span class="gm-key">1</span>–<span
+              class="gm-key">9</span> jump straight to one); GED Merge remembers whichever you used last. Re-rooting a
               chart — a node's <strong>Set as root</strong>, a <span class="gm-badge rep">+7</span> pill, a search hit
               off the chart — counts as a step, so <strong>Back</strong> (the button or the browser's) retraces the
               people you rooted on and only then leaves the hub:
@@ -1666,6 +1666,8 @@
                 <strong>Available paths</strong> menu switches between the <em>shortest path</em> and a
                 <em>bloodline</em> through a shared ancestor. Click either endpoint's <span class="gm-glyph">✎</span> to
                 swap that person, click any node to re-centre, or open a node in <span class="gm-pill">Edit</span>.</li>
+              <li><strong>Contemporaries</strong> — every blood relative of the person, placed by how closely they
+                are related and filtered to those alive in their lifetime; see <a href="#contemporaries">below</a>.</li>
               <li><strong>Map</strong> — every event of the branch whose place carries coordinates, clustered on a real
                 map, with optional historical overlays and life paths; see <a href="#map">below</a>.</li>
               <li><strong>Report</strong> — a text-based Ahnentafel or descendant register; see
@@ -1703,6 +1705,9 @@
               <li><strong>Events</strong> (Timeline only) — whose bars carry event dots: <em>This person</em>, <em>All
                 people</em> or <em>Off</em>; plus <strong>Event labels</strong> (compact text under each dot) and the
                 shared <strong>Residence bar</strong> (see <a href="#reports">Reports</a>, below).</li>
+              <li><strong>Colour</strong> and <strong>Names</strong> (Contemporaries only) — what a person's colour
+                says (<em>Generation</em>, <em>Family line</em> or <em>Living</em>), and whether the closest relatives
+                are named on the chart; see <a href="#contemporaries">below</a>.</li>
               <li><strong>Facts</strong> and <strong>Structure</strong> (Report only) — see <a href="#reports">below</a>.</li>
               <li><strong>Privacy</strong> — <em>Hide living people</em> redacts anyone inferred to be living, showing
                 only their relationship or “Living” (see <a href="#privacy">§18</a>), so the diagram is safe to
@@ -1799,6 +1804,53 @@
               aria-hidden="true">←</span> emigration/immigration), and <span aria-hidden="true">⚭</span> marks a
               marriage. An open-ended bar (no death recorded) tapers off — to the last dated event, or to the present day
               if the person is presumed living.
+            </p>
+            <h3 id="contemporaries">Contemporaries</h3>
+            <p>
+              The <strong>Contemporaries</strong> kind answers a question the pedigree charts can't: <em>who are all my
+              blood relatives, how close are we, and which of them were here at the same time as me?</em> It draws every
+              relative reachable through births alone — no in-laws, no step relations — and by default keeps only those
+              whose life overlapped the person's own.
+            </p>
+            <p>
+              The measure throughout is <strong>blood distance</strong>: the number of birth links between the two
+              people. A parent or child is 1, a sibling or a grandparent 2, an uncle or a nephew 3, a first cousin 4, a
+              second cousin 6. It is not the same as counting generations — a sibling is <em>further</em> from you than
+              a parent, because reaching them means going up to your parents and back down — and that is the point:
+              counting generations alone puts every cousin of every degree on the same footing, and in a real tree that
+              is hundreds of people.
+            </p>
+            <p>
+              <strong>Wheel</strong> puts the person in the middle, with the blood distance as the distance from the
+              centre: the closest kin nearest, the sixth cousins out at the rim. The circle is cut into wedges, one per
+              <strong>grandparent line</strong> — the father's blood on the left, the mother's on the right, and in each
+              half the grandfather's line above the grandmother's — each sized by how many relatives it holds, so a
+              glance says which quarter of your family the tree actually covers. Parents, siblings, children and
+              nephews descend from no single grandparent, so they share the wedge across the top. A ring holds both
+              directions at once (distance 1 is your parents <em>and</em> your children), and the elder generation sits
+              on the inner row of the ring with the younger one outside it. Ring captions run down the gap at the
+              bottom; the closest relatives are named on the chart, as many as fit without overlapping.
+            </p>
+            <p>
+              <strong>Bars</strong> draws the same people as lifespan bars on a year axis, grouped into bands by blood
+              distance, with the person's own lifetime as a tinted column behind everything. The rows nearest to you are
+              tall enough to carry a name and years; the thousands of distant cousins are hairlines. The year ruler and
+              the person's own row stay pinned at the top however far you scroll, because every other bar is read
+              against that life.
+            </p>
+            <p>
+              <strong>Who</strong> switches between <em>Contemporaries</em> and <em>All blood kin</em>. Tick
+              <strong>Alive in</strong> and drag the year to dim everyone who had not been born yet, or was already
+              gone — the people hold their places, so the wave of who was around reads as movement rather than the chart
+              rebuilding. <em>Generations</em> (<a href="#charts">§11</a>) caps the blood distance here, and
+              <em>Hide living people</em> (<a href="#privacy">§18</a>) takes the names of anyone presumed living while
+              leaving their mark on the chart, since a ring and a wedge give nothing away.
+            </p>
+            <p>
+              Dates missing from the file are filled in the same way as everywhere else in GED Merge: a birth is
+              estimated from the relatives around the person, and an unrecorded death closes a hundred years after
+              birth — the same span past which somebody stops being presumed living. Click any mark to open the person's
+              panel, from where you can re-root the chart on them or open them in <span class="gm-pill">Edit</span>.
             </p>
             <h3 id="map">Map</h3>
             <p>

@@ -1707,8 +1707,8 @@
             <p>
               En sam gumb <strong>Diagrami</strong> (<span class="gm-key">V</span>) — v orodni vrstici Urejanja, na
               ikoni diagramov v glavi osebe ali v podoknu vozlišča v Primerjalnem drevesu — odpre celozaslonsko stran
-              z diagrami za izbrano osebo. Vrstica zavihkov preklaplja med osmimi vrstami (številke
-              <span class="gm-key">1</span>–<span class="gm-key">8</span> odprejo posamezno neposredno); GED Merge si
+              z diagrami za izbrano osebo. Vrstica zavihkov preklaplja med devetimi vrstami (številke
+              <span class="gm-key">1</span>–<span class="gm-key">9</span> odprejo posamezno neposredno); GED Merge si
               zapomni nazadnje uporabljeno. Vsaka zamenjava korena — <strong>Nastavi kot koren</strong> v podoknu
               vozlišča, značka <span class="gm-badge rep">+7</span>, zadetek iskanja zunaj diagrama — šteje kot korak,
               zato se <strong>Nazaj</strong> (gumb ali brskalnikov) vrača po osebah, na katere ste diagram postavili,
@@ -1731,6 +1731,9 @@
                 prek skupnega prednika. S klikom na <span class="gm-glyph">✎</span> ob enem koncu zamenjate to osebo,
                 s klikom na vozlišče ga postavite v središče ali ga odprete v
                 <span class="gm-pill">Urejanju</span>.</li>
+              <li><strong>Sodobniki</strong> — vsi krvni sorodniki osebe, razporejeni po tem, kako blizu so si v
+                sorodstvu, in omejeni na tiste, ki so živeli v njenem času; glejte
+                <a href="#contemporaries">spodaj</a>.</li>
               <li><strong>Zemljevid</strong> — vsi dogodki veje, katerih kraj nosi koordinate, združeni v skupine na
                 pravem zemljevidu, z izbirnimi zgodovinskimi sloji in življenjskimi potmi; glejte <a href="#map">spodaj</a>.</li>
               <li><strong>Poročilo</strong> — besedilno poročilo, seznam prednikov ali potomcev; glejte
@@ -1766,6 +1769,9 @@
               <li><strong>Dogodki</strong> (samo Časovnica) — čigavi trakovi nosijo pike dogodkov: <em>Ta oseba</em>,
                 <em>Vse osebe</em> ali <em>Brez</em>; poleg tega <strong>Oznake dogodkov</strong> (strnjeno besedilo pod
                 piko) in skupni <strong>Trak prebivališč</strong> (glejte <a href="#reports">Poročila</a> spodaj).</li>
+              <li><strong>Barva</strong> in <strong>Imena</strong> (samo Sodobniki) — kaj pove barva osebe
+                (<em>Rod</em>, <em>Družinska veja</em> ali <em>Živi</em>) in ali so najbližji sorodniki na diagramu
+                poimenovani; glejte <a href="#contemporaries">spodaj</a>.</li>
               <li><strong>Dejstva</strong> in <strong>Zgradba</strong> (samo Poročilo) — glejte
                 <a href="#reports">spodaj</a>.</li>
               <li><strong>Zasebnost</strong> — <em>Skrij žive osebe</em> prikrije vse, za katere se sklepa, da so žive,
@@ -1863,6 +1869,53 @@
               aria-hidden="true">←</span> izselitev in priselitev), <span aria-hidden="true">⚭</span> pa označi poroko. Trak
               brez znanega konca (smrt ni zabeležena) se proti koncu zoži — do zadnjega datiranega dogodka ali do danes,
               če za osebo sklepamo, da še živi.
+            </p>
+            <h3 id="contemporaries">Sodobniki</h3>
+            <p>
+              Vrsta <strong>Sodobniki</strong> odgovori na vprašanje, na katerega rodovniški diagrami ne morejo:
+              <em>kdo vse so moji krvni sorodniki, kako blizu smo si in kateri od njih so živeli v istem času kot
+              jaz?</em> Diagram izriše vsakega sorodnika, do katerega vodijo same rojstne vezi — brez svaštva in brez
+              krušnih sorodstev — privzeto pa obdrži samo tiste, katerih življenje se prekriva z življenjem izbrane
+              osebe.
+            </p>
+            <p>
+              Osnovna mera je <strong>krvna razdalja</strong>: število rojstnih vezi med dvema osebama. Starš ali otrok
+              je 1, brat ali sestra in stari starš 2, stric ali nečak 3, bratranec 4, bratranec v 2. kolenu pa 6. To ni
+              isto kot štetje rodov — brat je od vas <em>bolj oddaljen</em> kot oče, saj pot do njega vodi navzgor do
+              staršev in nazaj navzdol — in prav v tem je smisel: samo štetje rodov postavi vse bratrance vseh kolen na
+              isto mesto, v resničnem rodovniku pa gre za več sto oseb.
+            </p>
+            <p>
+              <strong>Kolo</strong> postavi izbrano osebo v središče, oddaljenost od središča pa pomeni krvno razdaljo:
+              najbližji sorodniki so ob sredini, bratranci v 6. kolenu čisto na robu. Krog je razdeljen na izseke, po
+              enega za vsako <strong>vejo starih staršev</strong> — očetova kri je na levi, materina na desni, v vsaki
+              polovici pa je veja starega očeta nad vejo stare matere. Velikost izseka pove, koliko sorodnikov nosi,
+              zato se že na prvi pogled vidi, katero četrtino družine rodovnik v resnici pokriva. Starši, bratje in
+              sestre, otroci in nečaki ne izhajajo iz ene same veje starih staršev, zato si delijo izsek na vrhu. En
+              obroč združuje obe smeri hkrati (razdalja 1 so vaši starši <em>in</em> vaši otroci), pri čemer starejši
+              rod sedi na notranji vrstici obroča, mlajši pa na zunanji. Oznake obročev tečejo po vrzeli na dnu,
+              najbližji sorodniki pa so poimenovani na diagramu, kolikor jih gre brez prekrivanja.
+            </p>
+            <p>
+              <strong>Trakovi</strong> izrišejo iste osebe kot trakove življenjske dobe na letni osi, razvrščene v
+              pasove po krvni razdalji, za vsem skupaj pa stoji obarvan stolpec življenja izbrane osebe. Vrstice
+              najbližjih sorodnikov so dovolj visoke za ime in letnici, tisoči oddaljenih bratrancev pa so tanke črtice.
+              Letna os in vrstica same izbrane osebe ostaneta pripeti na vrhu, kakor daleč se pomaknete navzdol, saj se
+              vsak drug trak bere prav v razmerju do tega življenja.
+            </p>
+            <p>
+              <strong>Kdo</strong> preklaplja med <em>Sodobniki</em> in <em>Vsemi krvnimi sorodniki</em>. Vklopite
+              <strong>Živi v letu</strong> in povlecite letnico, da potemnijo vsi, ki se takrat še niso rodili ali jih
+              ni bilo več — osebe ostanejo na svojih mestih, zato se val tega, kdo je bil takrat tu, bere kot gibanje
+              in ne kot ponovno risanje diagrama. <em>Rodovi</em> (<a href="#charts">§11</a>) tu omejijo krvno razdaljo,
+              <em>Skrij žive osebe</em> (<a href="#privacy">§18</a>) pa vzame imena vsem, za katere se sklepa, da so
+              žive, njihova znamenja pa pusti na diagramu, saj obroč in izsek sama po sebi ne izdata ničesar.
+            </p>
+            <p>
+              Datumi, ki v datoteki manjkajo, se dopolnijo enako kot povsod drugod v programu GED Merge: rojstvo se
+              oceni po sorodnikih okoli osebe, nezabeležena smrt pa se zapre sto let po rojstvu — to je isto obdobje,
+              po katerem za osebo ne velja več, da je še živa. S klikom na katero koli znamenje se odpre podokno osebe,
+              iz katerega lahko diagram postavite nanjo ali jo odprete v <span class="gm-pill">Urejanju</span>.
             </p>
             <h3 id="map">Zemljevid</h3>
             <p>
