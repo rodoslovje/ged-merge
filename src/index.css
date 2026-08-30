@@ -4971,7 +4971,12 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
    the inner div carries the native-size SVG scaled by CSS transform. Hidden
    overflow keeps the inner's unscaled layout box (larger when zoomed out) from
    inflating the canvas's scroll extents. (`.tree-zoom` is the zoom toolbar.) */
-.chart-zoom { margin: auto; flex: 0 0 auto; overflow: hidden; }
+/* Both layers scale from their top-left. The inner one always did; the outer
+   one is what a pinch / ctrl-wheel gesture paints its live transform on, and
+   `gestureZoom` solves the translation for a 0 0 origin — left at the CSS
+   default of 50% 50% the browser scaled about the centre instead, so the
+   content slid out from under the fingers and snapped back on commit. */
+.chart-zoom { margin: auto; flex: 0 0 auto; overflow: hidden; transform-origin: 0 0; }
 .chart-zoom-scale { transform-origin: 0 0; }
 .chart-zoom .tree-svg { margin: 0; }
 .tree-edge {

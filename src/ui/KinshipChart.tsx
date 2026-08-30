@@ -8,6 +8,7 @@ import {
   barNameText,
   buildKinBars,
   buildKinshipWheel,
+  collectKin,
   kinDepth,
   kinTooltip,
   OWN_BRANCH,
@@ -128,11 +129,9 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
   // the stepper itself, with no way back up.
   const depth = useMemo(() => kinDepth(baseInput), [baseInput]);
 
-  const wheel = useMemo(() => buildKinshipWheel(input), [input]);
-  // The bars want a width up front; the canvas scrolls, so a generous fixed
-  // native width beats measuring the viewport and relaying out on every resize.
-  const bars = useMemo(() => buildKinBars({ ...input, width: 1400 }), [input]);
-  const people = layout === "wheel" ? wheel.people : bars.people;
+  // One pass, shared by both layouts and by the colour key.
+  const people = useMemo(() => collectKin(input), [input]);
+  const wheel = useMemo(() => buildKinshipWheel({ ...input, people }), [input, people]);
 
   // Colour needs the range on screen, not the tree's full depth.
   const [genUp, genDown] = useMemo(() => {
@@ -193,6 +192,16 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
     [settings.kinColour],
   );
   const shown = useCallback((p: KinPerson) => !hidden.has(categoryOf(p)), [hidden, categoryOf]);
+
+  // The bars are a list: hiding a group has to close the gap it leaves, or the
+  // bands keep their old height around holes. The wheel is a map, and holds
+  // still on purpose — see buildKinshipWheel. The bars want a width up front;
+  // the canvas scrolls, so a generous fixed native width beats measuring the
+  // viewport and relaying out on every resize.
+  const bars = useMemo(
+    () => buildKinBars({ ...input, width: 1400, people: people.filter(shown) }),
+    [input, people, shown],
+  );
   const toggle = (key: string) =>
     setHidden((prev) => {
       const next = new Set(prev);
@@ -338,7 +347,7 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
       <text className="kin-band-label" x={10} y={band.y - 10}>
         {ringLabel(band.distance)} <tspan className="kin-wedge-count">{band.count}</tspan>
       </text>
-      {band.rows.filter((r) => shown(r.person)).map((r) => {
+      {band.rows.map((r) => {
         const font = barNameFont(band.rowH);
         const label = barNameText({ ...r.person, name: nameFor(r.person) }, font);
         const showName = settings.kinNames && r.named && lit(r.person);

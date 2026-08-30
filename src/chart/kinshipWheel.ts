@@ -414,13 +414,17 @@ function layoutWedges(people: KinPerson[], ds: Dataset): Omit<WheelWedge, "label
 const sexRank = (sex: Sex | undefined) => (sex === "F" ? 1 : 0);
 
 /**
- * Place every relative on the wheel. Within one wedge-and-ring cell the
+ * Place every relative on the wheel. Callers pass `people` to reuse one pass;
+ * the wheel is always built from *everyone* in scope, so hiding a group from
+ * the colour key never shifts what is left.
+ *
+ * Within one wedge-and-ring cell the
  * sub-rows are grouped by generation, elders on the inner row and issue on the
  * outer — a ring holds both directions at once (distance 1 is your parents
  * *and* your children), and wrapping them together reads as noise.
  */
-export function buildKinshipWheel(input: KinInput): KinshipWheelChart {
-  const people = collectKin(input);
+export function buildKinshipWheel(input: KinInput & { people?: KinPerson[] }): KinshipWheelChart {
+  const people = input.people ?? collectKin(input);
   const maxDistance = Math.max(1, ...people.map((p) => p.distance));
   // A bigger tree gets a bigger chart rather than denser dots: the canvas
   // scrolls and zooms, so the honest move is more room, not smaller marks.
@@ -635,9 +639,11 @@ export interface KinBarsChart {
   people: KinPerson[];
 }
 
-export function buildKinBars(input: KinInput & { width: number }): KinBarsChart {
+export function buildKinBars(input: KinInput & { width: number; people?: KinPerson[] }): KinBarsChart {
   const now = input.now ?? new Date().getFullYear();
-  const people = collectKin(input).filter((p) => p.span.from !== undefined || p.span.to !== undefined);
+  const people = (input.people ?? collectKin(input)).filter(
+    (p) => p.span.from !== undefined || p.span.to !== undefined,
+  );
   const byRing = new Map<number, KinPerson[]>();
   for (const p of people) {
     const at = byRing.get(p.distance);

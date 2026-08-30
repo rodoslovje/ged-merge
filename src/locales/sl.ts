@@ -1628,7 +1628,7 @@ export const sl = {
   // pa tudi stari stric).
   "kin.ring.0": "izhodiščna oseba",
   "kin.ring.1": "starš · otrok",
-  "kin.ring.2": "brat ali sestra · stari starš",
+  "kin.ring.2": "brat/sestra · stari starš",
   "kin.ring.3": "stric · nečak",
   "kin.ring.4": "bratranec",
   "kin.ring.6": "bratranec v 2. kolenu",
