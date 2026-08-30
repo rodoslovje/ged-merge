@@ -1221,6 +1221,60 @@ describe("connectExistingChild (birth order)", () => {
   });
 });
 
+// ─── one birth family per person ────────────────────────────────────────────
+
+describe("connectExistingChild (birth family)", () => {
+  // A child born into @F1@, and a second couple @F2@ to be taken as parents.
+  const TEXT =
+    "0 @I1@ INDI\n1 SEX M\n1 FAMS @F1@\n" +
+    "0 @I2@ INDI\n1 SEX F\n1 FAMS @F1@\n" +
+    "0 @I3@ INDI\n1 SEX M\n1 FAMS @F2@\n" +
+    "0 @I4@ INDI\n1 SEX F\n1 FAMS @F2@\n" +
+    "0 @C1@ INDI\n1 BIRT\n2 DATE 1805\n1 FAMC @F1@\n" +
+    "0 @C2@ INDI\n1 BIRT\n2 DATE 1807\n1 FAMC @F1@\n" +
+    "0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@\n1 CHIL @C1@\n1 CHIL @C2@\n" +
+    "0 @F2@ FAM\n1 HUSB @I3@\n1 WIFE @I4@\n";
+
+  it("moves the child out of their birth family instead of adding a second one", () => {
+    const ds = buildFromText(TEXT);
+    const father = ds.individuals.get("@I3@")!;
+
+    connectExistingChild(ds, father, "@C1@", ds.families.get("@F2@")!);
+
+    expect(ds.individuals.get("@C1@")!.childOf).toEqual(["@F2@"]);
+    expect(ds.families.get("@F1@")!.children).toEqual(["@C2@"]);
+    expect(ds.families.get("@F2@")!.children).toEqual(["@C1@"]);
+  });
+
+  it("drops a birth family the move leaves with a lone parent", () => {
+    const ds = buildFromText(TEXT);
+    // @F1@ keeps only @I1@, @I2@ and one child; taking both children away
+    // leaves a childless couple, so take the whole of a one-parent family.
+    detachChildFromFamily(ds, ds.families.get("@F1@")!, "@C2@");
+    detachSpouseRole(ds, ds.families.get("@F1@")!, "WIFE");
+
+    connectExistingChild(ds, ds.individuals.get("@I3@")!, "@C1@", ds.families.get("@F2@")!);
+
+    expect(ds.families.has("@F1@")).toBe(false);
+    expect(ds.individuals.get("@I1@")!.spouseOf).toEqual([]);
+    expect(ds.individuals.get("@C1@")!.childOf).toEqual(["@F2@"]);
+  });
+
+  it("leaves an adoptive link alone — that is a legitimate second family", () => {
+    const ds = buildFromText(
+      "0 @I3@ INDI\n1 SEX M\n1 FAMS @F2@\n" +
+        "0 @I4@ INDI\n1 SEX F\n1 FAMS @F2@\n" +
+        "0 @C1@ INDI\n1 FAMC @FA@\n2 PEDI adopted\n" +
+        "0 @F2@ FAM\n1 HUSB @I3@\n1 WIFE @I4@\n" +
+        "0 @FA@ FAM\n1 CHIL @C1@\n",
+    );
+
+    connectExistingChild(ds, ds.individuals.get("@I3@")!, "@C1@", ds.families.get("@F2@")!);
+
+    expect(ds.individuals.get("@C1@")!.childOf).toEqual(["@FA@", "@F2@"]);
+  });
+});
+
 // ─── detachSpouseRole ─────────────────────────────────────────────────────────
 
 describe("detachSpouseRole", () => {
