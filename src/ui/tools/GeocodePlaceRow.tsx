@@ -20,7 +20,7 @@ import { placeCollator } from "../../gedcom/place";
 import { useSettingsSlice } from "../SettingsContext";
 import { EventCoordPicker } from "../edit/EventCoordPicker";
 import { LookupAction } from "../edit/LookupAction";
-import { GeoPeopleList, GeoRowHeader, MapToggle } from "./shared";
+import { GeoPeopleList, GeoRowHeader, MapToggle, RenameEditor } from "./shared";
 
 // One row of the Geocode-places review list: the raw PLAC value, its badge
 // (file coordinate / score / remembered / no-match), the rename editor, and —
@@ -520,54 +520,42 @@ export function GeocodePlaceRow({
         )}
       </GeoRowHeader>
       {renameOpen && (
-        <div
-          className="tools-place-rename"
-          onKeyDown={(e) => {
-            // Enter with a highlighted suggestion, and Escape with an
-            // open dropdown, are consumed by the autocomplete
-            // (defaultPrevented); the next press reaches the editor.
-            if (e.key === "Enter" && !e.defaultPrevented) applyRename();
-            if (e.key === "Escape" && !e.defaultPrevented) setRenameOpen(false);
+        // The rename box every list of these tools opens — its completions, its
+        // register lookup and its Enter/Escape contract. What is particular to
+        // this row is the address field beside the place, which splits the value
+        // as it renames it.
+        <RenameEditor
+          value={renameDraft}
+          suggestions={placeSug.placeSuggestions}
+          canonical={placeSug.placeCanonical}
+          combos={placeCombos}
+          placeholder={t("tools.places.rename.placeholder")}
+          applyDisabled={renameDisabled}
+          onChange={setRenameDraft}
+          onApply={applyRename}
+          onCancel={() => setRenameOpen(false)}
+          onPickCombo={(place, addr) => {
+            setRenameDraft(place);
+            setRenameAddrDraft(addr);
+            setRenamePick(null);
           }}
+          // A place this file has never written — the very case a geocode row
+          // is about — is completed from the registers, with its chain, its
+          // house address and the coordinate that resolves the row.
+          onPickProposal={(proposal) => {
+            setRenameDraft(proposal.plac);
+            setRenameAddrDraft(proposal.addr ?? "");
+            setRenamePick({
+              place: proposal.plac,
+              ...(proposal.addr ? { addr: proposal.addr } : {}),
+              assignment: proposal.govId ? { coord: proposal.coord, govId: proposal.govId } : { coord: proposal.coord },
+            });
+          }}
+          // Online lookups off still leaves the imported gazetteer answering,
+          // so the search stays offered and the row says what it can't reach.
+          onLookup={lookup ? (query) => lookup.search(query) : undefined}
+          lookupNote={lookup && !lookup.online ? t("event.place.lookup.offlineOnly") : undefined}
         >
-          <PlaceAutocomplete
-            value={renameDraft}
-            suggestions={placeSug.placeSuggestions}
-            canonical={placeSug.placeCanonical}
-            combos={placeCombos}
-            isDirty={false}
-            className="tools-place-rename-input"
-            wrapClassName="tools-place-rename-auto"
-            placeholder={t("tools.places.rename.placeholder")}
-            autoFocus
-            // A rename may be exactly a casing fix ("Velika Sela" → "Velika
-            // sela") — the canonical map must not snap it back on blur.
-            preserveCase
-            onChange={setRenameDraft}
-            onCommit={setRenameDraft}
-            onClear={() => setRenameDraft("")}
-            onPickCombo={(place, addr) => {
-              setRenameDraft(place);
-              setRenameAddrDraft(addr);
-              setRenamePick(null);
-            }}
-            // A place this file has never written — the very case a geocode row
-            // is about — is completed from the registers, with its chain, its
-            // house address and the coordinate that resolves the row.
-            onPickProposal={(proposal) => {
-              setRenameDraft(proposal.plac);
-              setRenameAddrDraft(proposal.addr ?? "");
-              setRenamePick({
-                place: proposal.plac,
-                ...(proposal.addr ? { addr: proposal.addr } : {}),
-                assignment: proposal.govId ? { coord: proposal.coord, govId: proposal.govId } : { coord: proposal.coord },
-              });
-            }}
-            // Online lookups off still leaves the imported gazetteer answering,
-            // so the search stays offered and the row says what it can't reach.
-            onLookup={lookup ? (query) => lookup.search(query) : undefined}
-            lookupNote={lookup && !lookup.online ? t("event.place.lookup.offlineOnly") : undefined}
-          />
           {/* The address half of the split, with the same three helps the place
               beside it has: what this file already writes at that place, the
               place·address pairs it knows, and the address register itself.
@@ -605,14 +593,7 @@ export function GeocodePlaceRow({
               lookupNote={lookup && !lookup.online ? t("tools.geocode.downloadNeedsOptIn") : undefined}
             />
           </span>
-          <button
-            className="nav-btn primary tools-place-rename-apply"
-            onClick={applyRename}
-            disabled={renameDisabled}
-          >
-            {t("tools.places.rename.apply")}
-          </button>
-        </div>
+        </RenameEditor>
       )}
       {isOpen && (
         <div className="tools-tree-children tools-geo-detail">

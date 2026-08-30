@@ -10,10 +10,9 @@ import { GeocodePanel } from "./GeocodePanel";
 import { RegisterPanel } from "./RegisterPanel";
 import { countGeocodePending, placeAddrKey, type FileCoord, type GeoAssignment, type OfficialRename } from "../../tools/geocode";
 import { countryCodeOfName, flagEmoji } from "../../geo/placeCountry";
-import { ToolsLoading, TreeSearch, UsageList, useDebounced } from "./shared";
+import { RenameEditor, ToolsLoading, TreeSearch, UsageList, useDebounced } from "./shared";
 import { ToolSummary } from "./ToolSummary";
 import { formatCoord } from "../../geo/points";
-import { PlaceAutocomplete } from "../edit/PlaceAutocomplete";
 import { EventCoordPicker } from "../edit/EventCoordPicker";
 import { PlaceLookupProvider, usePlaceLookup } from "../edit/PlaceLookupContext";
 import { usePlaceFields } from "../edit/usePlaceFields";
@@ -601,9 +600,9 @@ function PlaceTreeRow({
 
   const targetTrimmed = renameValue.trim();
   const applyDisabled = targetTrimmed === node.name;
-  // Show "Delete" when target is cleared; "Merge" when it already exists.
-  const isDelete = !applyDisabled && targetTrimmed === "";
-  const isMerge = !applyDisabled && !isDelete && siblings.includes(targetTrimmed);
+  // "Merge" when the target is a name this level already has — the editor says
+  // "Delete level" for an emptied field on its own account.
+  const isMerge = !applyDisabled && !!targetTrimmed && siblings.includes(targetTrimmed);
 
   return (
     <li className={node.isAddress ? "tools-tree-node tools-tree-addr" : "tools-tree-node"}>
@@ -734,56 +733,42 @@ function PlaceTreeRow({
       </div>
 
       {editing && (
-        <div
-          className="tools-place-rename"
-          onKeyDown={(e) => {
-            // Enter on a highlighted suggestion, and Escape with the dropdown
-            // open, belong to the autocomplete (defaultPrevented); the next
-            // press is the editor's — same contract as the address rename row.
-            if (e.key === "Enter" && !e.defaultPrevented && !applyDisabled) handleApply();
-            if (e.key === "Escape" && !e.defaultPrevented) setEditing(false);
+        // The rename box every list of these tools opens — its completions, its
+        // register lookup and its Enter/Escape contract. What is particular to
+        // the tree is what it says on the button (a target standing beside this
+        // name is a merge, an emptied field deletes the level) and the count of
+        // records it would reach, which sits between the field and the button.
+        <RenameEditor
+          value={renameValue}
+          suggestions={renameSuggestions}
+          canonical={placeSug.placeCanonical}
+          placeholder={t("tools.places.rename.placeholder")}
+          applyDisabled={applyDisabled}
+          applyLabel={isMerge ? t("tools.places.rename.merge") : t("tools.places.rename.apply")}
+          onChange={(next) => {
+            setRenameValue(next);
+            setRenamePick(null);
           }}
+          onApply={handleApply}
+          onCancel={() => setEditing(false)}
+          onRemove={handleApply}
+          removeLabel={t("tools.places.rename.delete")}
+          onPickProposal={pickProposal}
+          // A house row asks the address registers about a house *at* its
+          // place; everything else asks the place registers about a place.
+          // Online lookups off still leaves the imported gazetteer answering
+          // places — but no register of houses, so a house row says why
+          // instead of offering a search that cannot answer.
+          {...(node.isAddress && addrValue
+            ? {
+                ...(lookup?.online ? { onLookup: (query: string) => lookup.searchAddress(placeValue, query) } : {}),
+                ...(lookup && !lookup.online ? { lookupNote: t("tools.geocode.downloadNeedsOptIn") } : {}),
+              }
+            : {
+                ...(lookup ? { onLookup: (query: string) => lookup.search(query) } : {}),
+                ...(lookup && !lookup.online ? { lookupNote: t("event.place.lookup.offlineOnly") } : {}),
+              })}
         >
-          {/* The app's own dropdown, not a native <datalist>: the browser
-              renders that one in system chrome, which ignores the theme (a
-              dark popup over the light app) and cannot be styled at all. */}
-          <PlaceAutocomplete
-            value={renameValue}
-            suggestions={renameSuggestions}
-            canonical={placeSug.placeCanonical}
-            isDirty={false}
-            className="tools-place-rename-input"
-            wrapClassName="tools-place-rename-auto"
-            placeholder={t("tools.places.rename.placeholder")}
-            autoFocus
-            // A rename may be exactly a casing fix, which the canonical map
-            // would otherwise undo — as on the address rename row.
-            preserveCase
-            onChange={(next) => {
-              setRenameValue(next);
-              setRenamePick(null);
-            }}
-            onCommit={setRenameValue}
-            onClear={() => {
-              setRenameValue("");
-              setRenamePick(null);
-            }}
-            onPickProposal={pickProposal}
-            // A house row asks the address registers about a house *at* its
-            // place; everything else asks the place registers about a place.
-            // Online lookups off still leaves the imported gazetteer answering
-            // places — but no register of houses, so a house row says why
-            // instead of offering a search that cannot answer.
-            {...(node.isAddress && addrValue
-              ? {
-                  ...(lookup?.online ? { onLookup: (query: string) => lookup.searchAddress(placeValue, query) } : {}),
-                  ...(lookup && !lookup.online ? { lookupNote: t("tools.geocode.downloadNeedsOptIn") } : {}),
-                }
-              : {
-                  ...(lookup ? { onLookup: (query: string) => lookup.search(query) } : {}),
-                  ...(lookup && !lookup.online ? { lookupNote: t("event.place.lookup.offlineOnly") } : {}),
-                })}
-          />
           {preview && (
             <span className="tools-place-rename-hint">
               {preview.affectedCount > 0
@@ -791,14 +776,7 @@ function PlaceTreeRow({
                 : t("tools.places.rename.noMatch")}
             </span>
           )}
-          <button
-            className="nav-btn primary tools-place-rename-apply"
-            onClick={handleApply}
-            disabled={applyDisabled}
-          >
-            {isDelete ? t("tools.places.rename.delete") : isMerge ? t("tools.places.rename.merge") : t("tools.places.rename.apply")}
-          </button>
-        </div>
+        </RenameEditor>
       )}
 
       {/* Directly under the count that asked for it, above the sub-places, so

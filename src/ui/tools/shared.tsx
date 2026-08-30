@@ -458,6 +458,7 @@ export function RenameEditor({
   canonical,
   placeholder,
   applyDisabled,
+  applyLabel,
   onChange,
   onApply,
   onCancel,
@@ -475,6 +476,10 @@ export function RenameEditor({
   canonical: Map<string, string>;
   placeholder?: string;
   applyDisabled?: boolean;
+  /** The button's word where "Rename" is not what this apply does — the places
+   *  tree, whose target may be a name standing beside this one, in which case
+   *  the rename is a merge and says so. */
+  applyLabel?: string;
   onChange: (value: string) => void;
   onApply: () => void;
   onCancel: () => void;
@@ -491,7 +496,10 @@ export function RenameEditor({
    *  row returning to the list cannot pull the caret out of the filter box. */
   autoFocus?: boolean;
   children?: React.ReactNode;
-} & Pick<ComponentProps<typeof PlaceAutocomplete>, "onLookup" | "lookupNote" | "onPickProposal">) {
+} & Pick<
+  ComponentProps<typeof PlaceAutocomplete>,
+  "onLookup" | "lookupNote" | "onPickProposal" | "combos" | "matchCombosByPlace" | "onPickCombo"
+>) {
   const { t } = useTranslation();
   const removing = !value.trim() && !!onRemove;
   const apply = () => (removing ? onRemove!() : onApply());
@@ -527,7 +535,7 @@ export function RenameEditor({
         disabled={removing ? false : applyDisabled}
         {...(removing && removeTitle ? { title: removeTitle } : {})}
       >
-        {removing ? removeLabel : t("tools.places.rename.apply")}
+        {removing ? removeLabel : (applyLabel ?? t("tools.places.rename.apply"))}
       </button>
     </div>
   );
