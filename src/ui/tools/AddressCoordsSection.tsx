@@ -10,7 +10,7 @@ import { placeLookupLanguage } from "../../geo/lookupLanguage";
 import { osmKindLabel, osmNamesPlace, osmShortLabel, searchNominatim, type NominatimResult } from "../../geo/nominatim";
 import type { PlaceProposal } from "../../geo/placeProposal";
 import { replaceLocality, suggestMovedPlace, type AddressRename, type AddressRow } from "../../tools/addresses";
-import { countryOf, placeAddrKey, type GeoAssignment } from "../../tools/geocode";
+import { placeAddrKey, type GeoAssignment } from "../../tools/geocode";
 import type { Translate } from "../../locales/i18n";
 import { foldSearch, queryTerms } from "../globalSearch";
 import type { MiniMapPin } from "../map/MiniPlaceMap";
@@ -38,7 +38,7 @@ import {
   personMatches,
   usePersonNameIndex,
 } from "./shared";
-import { CountryChips } from "./CountryChips";
+import { CountryChips, countryFacet } from "./CountryChips";
 import { useHomeCountry } from "../DatasetDerivations";
 import { requestSettings } from "../settingsBus";
 
@@ -552,20 +552,15 @@ export function AddressCoordsSection({
     return keys;
   }, [sameHouse]);
 
-  const countryChips = useMemo(() => {
+  const country = useMemo(() => {
     const inStatus = (r: AddressRow) =>
       statusFilter === "all" ||
       statusFilter === "sameHouse" ||
       addrStatus(r, searches, picked, osmSearches) === statusFilter;
-    const counts = new Map<string, number>();
-    for (const row of visibleRows) {
-      const c = countryOf(row.place, home);
-      counts.set(c, (counts.get(c) ?? 0) + (inStatus(row) ? 1 : 0));
-    }
-    return [...counts].map(([code, count]) => ({ code, count }));
-  }, [visibleRows, statusFilter, searches, picked, osmSearches, home]);
-  const activeCountry =
-    countryFilter !== null && countryChips.some((c) => c.code === countryFilter) ? countryFilter : null;
+    return countryFacet(visibleRows, visibleRows.filter(inStatus), (row) => row.place, home, countryFilter);
+  }, [visibleRows, statusFilter, searches, picked, osmSearches, home, countryFilter]);
+  const countryChips = country.chips;
+  const activeCountry = country.active;
 
   /**
    * Houses written twice that this click would actually list — the country and
@@ -577,16 +572,15 @@ export function AddressCoordsSection({
     let n = 0;
     for (const row of rows) {
       if (!sameHouse.has(row.key)) continue;
-      if (activeCountry !== null && countryOf(row.place, home) !== activeCountry) continue;
+      if (!country.inCountry(row)) continue;
       if (statusFilter !== "all" && statusFilter !== "sameHouse" && addrStatus(row, searches, picked, osmSearches) !== statusFilter)
         continue;
       n++;
     }
     return n;
-  }, [rows, sameHouse, activeCountry, statusFilter, searches, picked, osmSearches, home]);
+  }, [rows, sameHouse, country, statusFilter, searches, picked, osmSearches]);
 
   const groups = useMemo(() => {
-    const inCountry = (r: AddressRow) => activeCountry === null || countryOf(r.place, home) === activeCountry;
     // Both halves of every pair, whatever the toggles say. A house written
     // twice is very often already placed — that is what the second spelling
     // was made for — so the placed toggle, which hides finished work, hid the
@@ -595,7 +589,7 @@ export function AddressCoordsSection({
     // for reasons of its own.
     const pool = onlySameHouse ? rows.filter((r) => sameHouseKeys.has(r.key)) : visibleRows;
     const kept = pool
-      .filter(inCountry)
+      .filter(country.inCountry)
       .filter(
         (r) =>
           statusFilter === "all" ||
@@ -633,7 +627,7 @@ export function AddressCoordsSection({
     }
     // Most-used places first — that is where geocoding pays off soonest.
     return [...byPlace.values()].sort((a, b) => b.events - a.events || placeCollator.compare(a.place, b.place));
-  }, [rows, visibleRows, searches, osmSearches, picked, statusFilter, activeCountry, home, onlySameHouse, sameHouseKeys]);
+  }, [rows, visibleRows, searches, osmSearches, picked, statusFilter, country, onlySameHouse, sameHouseKeys]);
 
   const [open, setOpen] = useState<Set<string>>(new Set());
   /** The one group whose map is drawn — never on open, always on request, and
@@ -801,7 +795,7 @@ export function AddressCoordsSection({
   const statusCounts = { unsearched: 0, found: 0, none: 0, manual: 0, placed: 0, picked: 0 };
   let statusAllCount = 0;
   for (const row of visibleRows) {
-    if (activeCountry !== null && countryOf(row.place, home) !== activeCountry) continue;
+    if (!country.inCountry(row)) continue;
     statusCounts[addrStatus(row, searches, picked, osmSearches)]++;
     statusAllCount++;
   }
@@ -1327,7 +1321,7 @@ export function AddressCoordsSection({
       {countryChips.length > 0 && (
         <CountryChips
           chips={countryChips}
-          all={countryChips.reduce((n, c) => n + c.count, 0)}
+          all={country.all}
           active={activeCountry}
           onPick={setCountryFilter}
           assumed={home}

@@ -6,7 +6,6 @@ import {
   carryPickAcrossRename,
   chosenCoordFor,
   confidentCandidate,
-  countryOf,
   planCountryFill,
   placeAddrKey,
   reconcileNoMatchAfterScan,
@@ -31,7 +30,7 @@ import { GazetteerSetup, useGazetteer } from "./GazetteerManager";
 import { AddressCoordsSection } from "./AddressCoordsSection";
 import { addressesByPlace, replaceLocality, scanAddresses, type AddressRename } from "../../tools/addresses";
 import { CoordConflicts } from "./CoordConflicts";
-import { CountryChips, type CountryChip } from "./CountryChips";
+import { CountryChips, countryFacet } from "./CountryChips";
 import { countrySpelling, type HomeCountryDetection } from "../../geo/homeCountry";
 
 /** Stand-in while no file is loaded — nothing detected, nothing to write. */
@@ -311,29 +310,15 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
       : pool;
 
     // One chip per country the pending list's places stand in; a country the
-    // other filters empty out stays visible at 0.
-    const countryChips: CountryChip[] = [];
-    let countryAllCount = 0;
-    const byCountry = new Map<string, CountryChip>();
-    for (const row of pool) {
-      const country = countryOf(row.key, home);
-      if (!byCountry.has(country)) {
-        const chip = { code: country, count: 0 };
-        byCountry.set(country, chip);
-        countryChips.push(chip);
-      }
-    }
-    for (const row of searched) {
-      if (!inStatus(row)) continue;
-      byCountry.get(countryOf(row.key, home))!.count++;
-      countryAllCount++;
-    }
-
-    // A country whose last row was just resolved loses its chip — the stale
-    // pick falls back to "all" instead of filtering the list to nothing.
-    const activeCountry =
-      countryFilter !== null && countryChips.some((c) => c.code === countryFilter) ? countryFilter : null;
-    const inCountry = (row: GeocodeRow) => activeCountry === null || countryOf(row.key, home) === activeCountry;
+    // other filters empty out stays visible at 0, and one whose last row was
+    // just resolved loses its chip — the stale pick then falls back to "all"
+    // instead of filtering the list to nothing.
+    const {
+      chips: countryChips,
+      all: countryAllCount,
+      active: activeCountry,
+      inCountry,
+    } = countryFacet(pool, searched.filter(inStatus), (row) => row.key, home, countryFilter);
 
     const statusCounts = { confident: 0, review: 0, partial: 0, noProposal: 0, decided: 0, placed: 0 };
     let statusAllCount = 0;

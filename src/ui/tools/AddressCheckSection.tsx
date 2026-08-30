@@ -19,7 +19,6 @@ import {
 } from "../../tools/addressCheck";
 import type { AddressRename, AddressRow } from "../../tools/addresses";
 import { placeCollator } from "../../gedcom/place";
-import { countryOf } from "../../tools/geocode";
 import { REGISTER_DISMISSED } from "../../tools/registerCheck";
 import { useLocalRegisters } from "../useLocalRegisters";
 import { useVirtualList } from "../useVirtualList";
@@ -34,7 +33,7 @@ import {
   RenameToggle,
   RowMap,
 } from "./shared";
-import { CountryChips } from "./CountryChips";
+import { CountryChips, countryFacet } from "./CountryChips";
 import { useHomeCountry } from "../DatasetDerivations";
 
 // The compliance tab's second half: the file's houses held against a downloaded
@@ -331,18 +330,12 @@ export function AddressCheckSection({
     // One chip per country the findings stand in — the same country key the
     // places compliance list and both geocoding lists chip on, so all four say
     // the same thing about the same file.
-    const countries: string[] = [];
-    for (const f of pool) {
-      const c = countryOf(f.place, home);
-      if (!countries.includes(c)) countries.push(c);
-    }
-    const activeCountry = countryFilter !== null && countries.includes(countryFilter) ? countryFilter : null;
-    const inCountry = (f: AddressFinding) => activeCountry === null || countryOf(f.place, home) === activeCountry;
-    const countryChips = countries.map((code) => ({
-      code,
-      count: matched.filter((f) => countryOf(f.place, home) === code && inVerdict(f)).length,
-    }));
-    const countryAll = matched.filter(inVerdict).length;
+    const {
+      chips: countryChips,
+      all: countryAll,
+      active: activeCountry,
+      inCountry,
+    } = countryFacet(pool, matched.filter(inVerdict), (f) => f.place, home, countryFilter);
 
     // Every chip respects each filter but its own, so a picked country narrows
     // the verdict counts exactly as a picked verdict narrows the country counts.

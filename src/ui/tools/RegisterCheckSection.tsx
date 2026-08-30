@@ -2,10 +2,10 @@ import { memo, useCallback, useEffect, useMemo, useState, type ReactNode } from 
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { setDismissed } from "../../persist/geoDb";
-import { countryOf, pickLabel, placeAddrKey, type FileCoord, type GeoAssignment, type OfficialRename } from "../../tools/geocode";
+import { pickLabel, placeAddrKey, type FileCoord, type GeoAssignment, type OfficialRename } from "../../tools/geocode";
 import { isOfflineQuery, rnQueriesFrom, searchAddresses } from "../../geo/rn";
 import { countryCodeOfName } from "../../geo/placeCountry";
-import { CountryChips } from "./CountryChips";
+import { CountryChips, countryFacet } from "./CountryChips";
 import { useHomeCountry } from "../DatasetDerivations";
 import {
   directoryOf,
@@ -383,20 +383,13 @@ export function RegisterCheckSection({
     // answers happen to be in: nothing in the file says it is there, and the
     // whole point of a row whose name fits four countries is that they are all
     // still open.
-    const countries: string[] = [];
-    for (const f of pool) {
-      const c = countryOf(f.key, home);
-      if (!countries.includes(c)) countries.push(c);
-    }
-    const activeCountry = countryFilter !== null && countries.includes(countryFilter) ? countryFilter : null;
-    const inCountry = (f: RegisterFinding) => activeCountry === null || countryOf(f.key, home) === activeCountry;
     const inVerdict = (f: RegisterFinding) => verdictFilter === "all" || f.verdict === verdictFilter;
-
-    const countryChips = countries.map((code) => ({
-      code,
-      count: searched.filter((f) => countryOf(f.key, home) === code && inVerdict(f)).length,
-    }));
-    const countryAll = searched.filter(inVerdict).length;
+    const {
+      chips: countryChips,
+      all: countryAll,
+      active: activeCountry,
+      inCountry,
+    } = countryFacet(pool, searched.filter(inVerdict), (f) => f.key, home, countryFilter);
 
     const counts = Object.fromEntries(REGISTER_VERDICTS.map((v) => [v, 0])) as Record<RegisterVerdict, number>;
     for (const f of searched) if (inCountry(f)) counts[f.verdict]++;
