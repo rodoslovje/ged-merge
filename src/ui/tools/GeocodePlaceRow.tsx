@@ -723,9 +723,10 @@ export function GeocodePlaceRow({
                 key={`rn-${i}`}
                 group={`geo-${row.key}`}
                 number={numberOf(r.coord)}
+                label={r.label}
                 // A register hit is a house, not a place — pinned, so it is not
                 // read as another spelling of the settlement above.
-                label={<span className="gm-addr">{r.label}</span>}
+                labelClass="gm-addr"
                 title={r.label}
                 ariaLabel={r.address}
                 checked={sameCoord(override?.coord, r.coord)}

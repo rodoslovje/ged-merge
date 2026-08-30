@@ -561,6 +561,7 @@ export function CandidateOption({
   group,
   number,
   label,
+  labelClass,
   title,
   ariaLabel,
   checked,
@@ -580,6 +581,10 @@ export function CandidateOption({
   /** Its place in the row's own list; shared by answers standing on one point. */
   number?: number;
   label: React.ReactNode;
+  /** A class the name itself carries — the address pin on a register's house,
+   *  which marks it as a building rather than another spelling of the village
+   *  above it. */
+  labelClass?: string;
   title?: string;
   /** Spoken name, where the visible one is not enough on its own. */
   ariaLabel?: string;
@@ -624,7 +629,7 @@ export function CandidateOption({
           onClick={() => checked && onUnpick?.()}
         />
         {number !== undefined && <span className="tools-geo-cand-num">{number}</span>}
-        <span className="tools-geo-cand-name">{label}</span>
+        <span className={labelClass ? `tools-geo-cand-name ${labelClass}` : "tools-geo-cand-name"}>{label}</span>
         {children}
         {coord &&
           (onCoord ? (
