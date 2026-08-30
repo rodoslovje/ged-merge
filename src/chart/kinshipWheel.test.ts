@@ -11,6 +11,7 @@ import {
   buildKinshipWheel,
   collectKin,
   generationOffset,
+  kinDepth,
   lifeSpan,
   overlaps,
   type KinPerson,
@@ -137,6 +138,15 @@ describe("collectKin", () => {
     const ids = collectKin({ ...input, maxDistance: 2 }).map((p) => p.id);
     expect(ids).toContain("@I8@"); // sister, distance 2
     expect(ids).not.toContain("@I11@"); // uncle, distance 3
+  });
+
+  it("reports the depth the cap was measured against, not the capped depth", () => {
+    // The Generations stepper counts "of N". Measuring the capped set would make
+    // N equal the cap, so stepping down to 1 would hide the control that steps
+    // back up — the chart would be stuck at its closest ring.
+    expect(kinDepth(input)).toBe(4);
+    expect(kinDepth({ ...input, maxDistance: 1 })).toBe(4);
+    expect(kinDepth({ ...input, maxDistance: 2 })).toBe(4);
   });
 
   it("orders closest first", () => {

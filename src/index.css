@@ -5188,6 +5188,18 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   font-size: 11.5px;
   font-weight: 600;
 }
+/* The colour key, under the controls: each entry is also the show/hide switch
+   for its own group, the way the Map's event-kind chips work. */
+.kin-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 10px;
+}
+.kin-legend-count {
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
 .kin-bar { cursor: pointer; }
 .kin-bar:hover { filter: brightness(1.15); }
 /* The bars' sticky header: the year ruler and the root's own row, pinned over
@@ -5202,8 +5214,14 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   border-bottom: 1px solid var(--border-2);
   box-shadow: 0 6px 14px -6px rgb(0 0 0 / 0.4);
   z-index: 2;
+  /* Mirrors .tree-canvas: auto margins centre a chart narrower than the pane and
+     resolve to zero once it overflows, so the header lands where the chart does. */
+  display: flex;
 }
-.kin-sticky svg { display: block; }
+.kin-sticky svg {
+  display: block;
+  margin: auto;
+}
 
 /* ── Ahnentafel report ────────────────────────────────────────────────────
    The hub's text report: same canvas shell as the charts, but a scrolling

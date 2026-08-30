@@ -1,12 +1,14 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import {
+  RING_LABEL_ARC,
   WHEEL_LABEL_PX,
   barNameFont,
   barNameText,
   buildKinBars,
   buildKinshipWheel,
+  kinDepth,
   kinTooltip,
   OWN_BRANCH,
   type KinPerson,
@@ -44,15 +46,14 @@ import { sexClass } from "./sex";
 // blood distance. The wheel answers "who are they and how close", the bars
 // "who was here at the same time".
 
-/** Wedge colours, one per grandparent line plus the root's own household. The
- *  four are the lineage pair split by the grandparent's own sex, so a wedge's
- *  colour and its position agree: father's blood left, mother's right. */
-const BRANCH_COLORS = [
-  "var(--lineage-paternal)",
-  "var(--map-residence)",
-  "var(--lineage-maternal)",
-  "var(--sex-female)",
-];
+/** Wedge colours per side, in the order the wedges themselves run: the
+ *  grandfather's line first, the grandmother's second. Keyed by side rather than
+ *  by position in the list — indexing the flat list handed the father's lines
+ *  the maternal purple. */
+const BRANCH_COLORS: Record<"father" | "mother", string[]> = {
+  father: ["var(--kin-line-f1)", "var(--kin-line-f2)"],
+  mother: ["var(--kin-line-m1)", "var(--kin-line-m2)"],
+};
 
 /** Generation colour, mixed between the theme's two ramp ends so it reads on
  *  paper as well as on the dark. Each direction is scaled to the range actually
@@ -108,17 +109,24 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
   const [yearOn, setYearOn] = useState(false);
   const [year, setYear] = useState(now);
 
-  const input = useMemo(
+  const baseInput = useMemo(
     () => ({
       ds: mainDs,
       rootId: currentRootId,
       nameOf,
       now,
       window: scope === "contemporaries" ? window : undefined,
-      maxDistance: settings.maxGenerations ?? undefined,
     }),
-    [mainDs, currentRootId, nameOf, now, scope, window, settings.maxGenerations],
+    [mainDs, currentRootId, nameOf, now, scope, window],
   );
+  const input = useMemo(
+    () => ({ ...baseInput, maxDistance: settings.maxGenerations ?? undefined }),
+    [baseInput, settings.maxGenerations],
+  );
+  // How far the chart *could* reach, measured without the cap — the stepper's
+  // "of N". Taking it from the capped chart would let a step down to 1 remove
+  // the stepper itself, with no way back up.
+  const depth = useMemo(() => kinDepth(baseInput), [baseInput]);
 
   const wheel = useMemo(() => buildKinshipWheel(input), [input]);
   // The bars want a width up front; the canvas scrolls, so a generous fixed
@@ -139,9 +147,12 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
 
   const branchColor = useMemo(() => {
     const map = new Map<string, string>([[OWN_BRANCH, "var(--accent)"]]);
-    wheel.wedges
-      .filter((w) => w.key !== OWN_BRANCH)
-      .forEach((w, i) => map.set(w.key, BRANCH_COLORS[i] ?? "var(--faint)"));
+    const seen = { father: 0, mother: 0 };
+    for (const w of wheel.wedges) {
+      if (w.key === OWN_BRANCH || w.side === "own") continue;
+      const palette = BRANCH_COLORS[w.side];
+      map.set(w.key, palette[seen[w.side]++] ?? "var(--faint)");
+    }
     return map;
   }, [wheel.wedges]);
 
@@ -159,6 +170,64 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
     },
     [settings.kinColour, branchColor, genUp, genDown],
   );
+
+  const wedgeLabel = useCallback(
+    (key: string, ancestorId?: string) => {
+      if (key === OWN_BRANCH) return t("kin.wedge.own");
+      const indi = ancestorId ? mainDs.individuals.get(ancestorId) : undefined;
+      return indi ? nameOf(indi) : t("kin.wedge.unknown");
+    },
+    [t, mainDs, nameOf],
+  );
+
+  // The colour key doubles as a filter, like the Map's event-kind chips: each
+  // entry hides its own group. The layout is built from everyone regardless, so
+  // hiding a family line never reshuffles the wedges around it.
+  const [hidden, setHidden] = useState<ReadonlySet<string>>(() => new Set());
+  useEffect(() => setHidden(new Set()), [settings.kinColour]);
+  const categoryOf = useCallback(
+    (p: KinPerson) =>
+      settings.kinColour === "branch" ? p.branch
+        : settings.kinColour === "living" ? (p.span.living ? "living" : "deceased")
+          : String(p.generation),
+    [settings.kinColour],
+  );
+  const shown = useCallback((p: KinPerson) => !hidden.has(categoryOf(p)), [hidden, categoryOf]);
+  const toggle = (key: string) =>
+    setHidden((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(key)) next.add(key);
+      return next;
+    });
+
+  /** The key's entries for the colour axis in force, each with its own count. */
+  const legend = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const p of people) {
+      if (p.distance === 0) continue;
+      const k = categoryOf(p);
+      counts.set(k, (counts.get(k) ?? 0) + 1);
+    }
+    const label = (key: string): string => {
+      if (settings.kinColour === "branch") {
+        const w = wheel.wedges.find((x) => x.key === key);
+        return wedgeLabel(key, w?.ancestorId);
+      }
+      if (settings.kinColour === "living") return t(`kin.living.${key}`);
+      const g = Number(key);
+      if (g === 0) return t("kin.gen.0");
+      const n = Math.abs(g);
+      const dir = g > 0 ? "up" : "down";
+      return n <= 3 ? t(`kin.gen.${dir}.${n}`) : t(`kin.gen.${dir}.n`, { n });
+    };
+    const keys = [...counts.keys()].sort((a, b) =>
+      settings.kinColour === "generation" ? Number(b) - Number(a) : (counts.get(b)! - counts.get(a)!),
+    );
+    return keys.map((key) => {
+      const sample = people.find((p) => p.distance > 0 && categoryOf(p) === key)!;
+      return { key, label: label(key), colour: colorOf(sample), count: counts.get(key)! };
+    });
+  }, [people, categoryOf, settings.kinColour, colorOf, wheel.wedges, wedgeLabel, t]);
 
   // Redact people inferred to be living, as the other charts do: the name goes,
   // the dot stays — its ring and wedge are the point, and they give nothing away.
@@ -221,16 +290,22 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
   const pageKind = t("kin.pageTitle");
   const rootYears = root ? lifespanLine({ showLifespan: true, showAge: settings.showAge }, { years: people[0]?.years, age: lifespanAge(root) }) : undefined;
   const rootName = root ? nameOf(root) : "";
-  const litCount = yearOn ? people.filter(lit).length : people.length;
+  const drawn = useCallback((p: KinPerson) => p.distance > 0 && shown(p), [shown]);
+  const drawnCount = useMemo(() => people.filter(drawn).length, [people, drawn]);
+  const litCount = yearOn ? people.filter((p) => drawn(p) && lit(p)).length : drawnCount;
 
-  const wedgeLabel = (key: string, ancestorId?: string) => {
-    if (key === OWN_BRANCH) return t("kin.wedge.own");
-    const indi = ancestorId ? mainDs.individuals.get(ancestorId) : undefined;
-    return indi ? nameOf(indi) : t("kin.wedge.unknown");
-  };
-  const ringLabel = (d: number) => {
+  /** A ring's caption, named only where the gutter can actually hold the words:
+   *  the arc left of the 6 o'clock axis is all it has, and a longer name would
+   *  run into the family wedge beside it. The number always shows, and the exact
+   *  kinship is on every tooltip regardless. */
+  const ringLabel = (d: number, radius?: number) => {
     const named = t(`kin.ring.${d}`, { defaultValue: "" });
-    return named ? `${d} · ${named}` : String(d);
+    if (!named) return String(d);
+    const text = `${d} · ${named}`;
+    if (radius !== undefined && text.length * WHEEL_LABEL_PX * 0.55 > radius * RING_LABEL_ARC) {
+      return String(d);
+    }
+    return text;
   };
 
   /** The bars' year ruler and the root's own lifetime band, drawn to a given
@@ -263,7 +338,7 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
       <text className="kin-band-label" x={10} y={band.y - 10}>
         {ringLabel(band.distance)} <tspan className="kin-wedge-count">{band.count}</tspan>
       </text>
-      {band.rows.map((r) => {
+      {band.rows.filter((r) => shown(r.person)).map((r) => {
         const font = barNameFont(band.rowH);
         const label = barNameText({ ...r.person, name: nameFor(r.person) }, font);
         const showName = settings.kinNames && r.named && lit(r.person);
@@ -319,7 +394,7 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
       }
       actions={
         <>
-          <ChartSettings lockedType="kin" availableGenerations={wheel.maxDistance} />
+          <ChartSettings lockedType="kin" availableGenerations={depth} />
           <ChartExportMenu
             disabled={!laid}
             slug={chartSlug(rootName, pageKind)}
@@ -329,11 +404,10 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
           />
         </>
       }
-      controlsLeft={kindSwitcher}
-      controlsRight={<ChartFindBox find={find} />}
-    >
-      <div className="tree-controls kin-controls">
-        <div className="tree-mode" role="tablist" aria-label={t("kin.layout")}>
+      controlsLeft={
+        <>
+          {kindSwitcher}
+          <div className="tree-mode" role="tablist" aria-label={t("kin.layout")}>
           {(["wheel", "bars"] as const).map((l) => (
             <button
               key={l}
@@ -375,12 +449,36 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
             aria-label={t("kin.aliveIn")}
           />
         </label>
-        <span className="kin-count">
-          {yearOn
-            ? t("kin.countInYear", { n: litCount, year })
-            : t("kin.count", { count: people.length - 1 })}
-        </span>
-      </div>
+        </>
+      }
+      controlsRight={
+        <div className="tree-controls-right">
+          <span className="kin-count">
+            {yearOn
+              ? t("kin.countInYear", { n: litCount, year })
+              : t("kin.count", { count: drawnCount })}
+          </span>
+          <ChartFindBox find={find} />
+        </div>
+      }
+    >
+      {legend.length > 1 && (
+        <div className="kin-legend" role="group" aria-label={t("kin.legend")}>
+          {legend.map((e) => (
+            <button
+              key={e.key}
+              type="button"
+              className={`map-kind-chip${hidden.has(e.key) ? "" : " active"}`}
+              aria-pressed={!hidden.has(e.key)}
+              title={t("kin.legend.toggle")}
+              onClick={() => toggle(e.key)}
+            >
+              <span className="map-kind-dot" style={{ background: e.colour }} />
+              {e.label} <span className="kin-legend-count">{e.count}</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="tree-canvas-wrap">
         <div className={`tree-canvas${panning ? " panning" : ""}`} ref={canvasRef} {...canvasProps}>
@@ -413,7 +511,7 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
                           </text>
                         </g>
                       ))}
-                      {wheel.dots.map((d) => (
+                      {wheel.dots.filter((d) => shown(d.person)).map((d) => (
                         <circle
                           key={d.person.id}
                           className={`kin-dot${lit(d.person) ? "" : " dim"}${d.person.id === selectedKey ? " selected" : ""}${d.person.id === find.hitKey ? " find-hit" : ""}`}
@@ -433,16 +531,21 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
                       {wheel.rings.map((ring) => (
                         <g key={`s${ring.distance}`}>
                           <path id={`kin-ring-${ring.distance}`} d={ring.pathD} fill="none" />
+                          {/* The caption is dropped where the gutter cannot hold
+                              it — the inner rings have no room for words at any
+                              font — so the number always carries the full
+                              kinship in its tooltip. */}
                           <text className="kin-ring-label">
+                            <title>{ringLabel(ring.distance)}</title>
                             <textPath href={`#kin-ring-${ring.distance}`} startOffset={ring.textOffset} textAnchor="end">
-                              {ringLabel(ring.distance)}
+                              {ringLabel(ring.distance, ring.r)}
                             </textPath>
                           </text>
                         </g>
                       ))}
                       {settings.kinNames &&
                         wheel.labels
-                          .filter((l) => lit(l.person))
+                          .filter((l) => lit(l.person) && shown(l.person))
                           .map((l) => (
                             <text
                               key={l.person.id}
@@ -470,23 +573,36 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
               </svg>
             </ChartZoom>
           )}
-          <ZoomControls zoom={zoom} onZoomIn={zoomIn} onZoomOut={zoomOut} onReset={resetZoom} onFit={fitToScreen} />
         </div>
+
+        {/* Outside the canvas: an absolute child of a scroller scrolls away with
+            the content, and the zoom toolbar has to stay put. */}
+        {laid && (
+          <ZoomControls zoom={zoom} onZoomIn={zoomIn} onZoomOut={zoomOut} onReset={resetZoom} onFit={fitToScreen} />
+        )}
         {/* The year ruler and the root's own row ride above the scrolling body:
             every other bar is read against that life, and losing it two thousand
-            rows down makes the rest meaningless. It sits outside the canvas —
-            an absolute child of the canvas scrolls away with the content — and
-            follows the canvas's horizontal scroll so the axis stays true. */}
-        {layout === "bars" && laid && (
-          <div className="kin-sticky" style={{ height: bars.headerHeight * zoom }} aria-hidden>
+            rows down makes the rest meaningless. Only once it is actually needed
+            — unscrolled, or on a chart short enough never to scroll, it would
+            just be a second copy of the row already on screen. It sits outside
+            the canvas (an absolute child of a scroller scrolls away with the
+            content) and carries the canvas's own PAD and scroll offset, so its
+            axis lines up with the gridlines below it. */}
+        {layout === "bars" && laid && viewport.top > 1 && (
+          <div className="kin-sticky" style={{ height: (bars.headerHeight + PAD) * zoom }} aria-hidden>
+            {/* Same width and the same flex + auto-margin centring the canvas
+                gives the chart itself, so the two round identically — computing
+                the offset by hand left the header a pixel off the gridlines. */}
             <svg
-              width={bars.width * zoom}
-              height={bars.headerHeight * zoom}
-              viewBox={`0 0 ${bars.width} ${bars.headerHeight}`}
-              style={{ transform: `translateX(${PAD * zoom - viewport.left}px)` }}
+              width={laid.width * zoom}
+              height={(bars.headerHeight + PAD) * zoom}
+              viewBox={`0 0 ${laid.width} ${bars.headerHeight + PAD}`}
+              style={{ transform: `translateX(${-viewport.left}px)` }}
             >
-              {barsBackdrop(bars.headerHeight)}
-              {bars.bands.filter((b) => b.distance === 0).map(barsBand)}
+              <g transform={`translate(${PAD},${PAD})`}>
+                {barsBackdrop(bars.headerHeight)}
+                {bars.bands.filter((b) => b.distance === 0).map(barsBand)}
+              </g>
             </svg>
           </div>
         )}

@@ -201,6 +201,20 @@ export interface KinInput {
   now?: number;
 }
 
+/**
+ * The deepest blood distance in scope, ignoring any cap — what the Generations
+ * stepper counts "of". It must ignore the cap: measuring the capped set makes
+ * the maximum equal the cap, so stepping down to one hides the control that
+ * would step back up.
+ */
+export function kinDepth(input: KinInput): number {
+  let max = 1;
+  for (const p of collectKin({ ...input, maxDistance: undefined })) {
+    if (p.distance > max) max = p.distance;
+  }
+  return max;
+}
+
 /** Every blood relative in scope, the root included, closest first. */
 export function collectKin(input: KinInput): KinPerson[] {
   const { ds, rootId, nameOf, window: win, maxDistance } = input;
@@ -254,7 +268,12 @@ const RING_MIN_NEAR = 26;
 /** Gutters: the root's own wedge at 12 o'clock, the ring scale at 6 o'clock. */
 const OWN_WEDGE_MIN = 36;
 const OWN_WEDGE_MAX = 52;
-const SCALE_GUTTER = 30;
+const SCALE_GUTTER = 46;
+/** How much arc a ring's caption may occupy: the half of the 6 o'clock gutter
+ *  left of the axis, since the caption is right-aligned onto it. Renderers
+ *  measure their own text against `r * this` and fall back to the bare number,
+ *  which is the only way to keep a caption out of the wedge beside it. */
+export const RING_LABEL_ARC = ((SCALE_GUTTER / 2) * Math.PI) / 180;
 const WEDGE_GAP = 2.2;
 /** Smallest wedge a branch may be squeezed into, however few people it holds. */
 const WEDGE_MIN = 20;
