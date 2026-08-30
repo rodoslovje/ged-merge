@@ -18,7 +18,7 @@ import {
   type GeocodeRow,
   type OfficialRename,
 } from "../../tools/geocode";
-import { deleteDecisions, loadDecisions, putDecisions, type GeocodeDecision } from "../../persist/geoDb";
+import { loadDecisions, saveDecisions, type GeocodeDecision } from "../../persist/geoDb";
 import { AppliedNote, ExpandAllToggle, personMatches, ToolsLoading, TreeSearch, useDebounced, usePersonNameIndex } from "./shared";
 import { useVirtualList } from "../useVirtualList";
 import { createKinshipResolver } from "../../match/kinship";
@@ -474,12 +474,12 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
     // this time overwriting.
     if (assignments.size) setChosen((prev) => new Map([...prev].filter(([k]) => !assignments.has(k))));
     setLastApplied(changed);
-    // Decisions reload re-keys the scan memo; dataset changes (when anything
-    // was written) rescan via the edit-version effect.
-    await putDecisions(toStore);
-    // …and the restored rows stop being remembered, or the reload would set
-    // them aside again behind the reader's back.
-    await deleteDecisions(toForget);
+    // The marks this write makes, and the ones it answers — the restored rows
+    // stop being remembered, or the reload would set them aside again behind
+    // the reader's back. The decisions reload below re-keys the scan memo;
+    // dataset changes (when anything was written) rescan via the edit-version
+    // effect.
+    await saveDecisions(toStore, toForget);
     const fresh = await loadDecisions();
     setDecisions(fresh);
   };

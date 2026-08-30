@@ -361,6 +361,23 @@ export async function deleteDecision(key: string): Promise<void> {
 }
 
 /**
+ * What one Write does to the remembered judgements: the marks it makes, and the
+ * ones it answers.
+ *
+ * Awaited, and in this order, because a reload right after the click must not
+ * read back a judgement the write has just replaced — the store has to agree
+ * with the list before anything reads it again. Both worklists ended with these
+ * two lines and the same reasoning written out beside each.
+ */
+export async function saveDecisions(
+  store: readonly GeocodeDecision[],
+  forget: readonly string[],
+): Promise<void> {
+  await putDecisions([...store]);
+  await deleteDecisions(forget);
+}
+
+/**
  * Set a finding aside, or fetch one back that was — the two compliance reports'
  * *Hide* / *Show*, which is one judgement written two ways: a dismissal stored
  * under the finding's key, or that key deleted.

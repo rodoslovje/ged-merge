@@ -24,7 +24,7 @@ import { usePlaceLookup } from "../edit/PlaceLookupContext";
 import type { PlaceSuggestions } from "../edit/placeSuggestions";
 import { useNameOf, useSettings } from "../SettingsContext";
 import type { KinshipResolver } from "../../match/kinship";
-import { deleteDecisions, loadDecisions, putDecisions } from "../../persist/geoDb";
+import { loadDecisions, saveDecisions } from "../../persist/geoDb";
 import {
   AppliedNote,
   CandidateOption,
@@ -1245,11 +1245,7 @@ export function AddressCoordsSection({
     // judgement back and hid the row again. A house this write places is
     // answered too, so its judgement goes with it.
     const toForget = [...new Set([...restored, ...[...picked.keys()].filter((key) => remembered.has(key))])];
-    // Awaited, not fired and forgotten: the list settles only once the store
-    // agrees with it, so a reload right after the click cannot read the
-    // judgements this write just replaced.
-    await putDecisions(toStore);
-    await deleteDecisions(toForget);
+    await saveDecisions(toStore, toForget);
     // The written rows are done and leave the worklist; the answers held by
     // the rows still waiting were to questions the write did not change, so
     // they stand — writing one wave must not cost the next its lookups.
