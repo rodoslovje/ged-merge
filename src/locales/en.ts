@@ -885,6 +885,7 @@ export const en = {
   "tools.places.rename.count_one": "{{count}} record affected",
   "tools.places.rename.count_other": "{{count}} records affected",
   "tools.places.rename.noMatch": "No records match",
+  "tools.places.rename.levelOnly": "Only {{name}} is taken: the records under this row write several different places, and this level is what they share.",
   "tools.search.placeholder": "Filter…",
   "tools.search.tooltip": "Filter this list ({{key}})",
   "tools.search.noMatch": "No matches.",

@@ -21,6 +21,13 @@ import { renameInValue } from "../../tools/placeEdit";
 import type { PlaceProposal } from "../../geo/placeProposal";
 import { PinIcon } from "../icons/PinIcon";
 
+/** What a rename in the tree comes to: one whole value rewritten (with, where
+ *  it says so, a house taken out onto the event's own ADDR line), or one level
+ *  renamed wherever it appears under the row. See {@link planFor}. */
+type RenamePlan =
+  | { kind: "value"; from: string; to: string; addr?: string }
+  | { kind: "segment"; from: string; to: string };
+
 /** What the rename box's helpers are before it is opened — stable identities,
  *  so a row that is not being edited neither builds them nor re-renders for
  *  them. */
@@ -647,12 +654,52 @@ function PlaceTreeRow({
     [disputed, spots, name, t],
   );
 
-  // Compute rename preview whenever the value differs from the current name.
+  /**
+   * What a rename typed into this box actually does.
+   *
+   * A target naming more than one level is a *complete place* — a directory's
+   * answer, a place the file already writes, a chain typed out — and a complete
+   * place is never spliced into a value as though it were one of its levels.
+   * That is what turned "Celje, Celje, Slovenija" into "Celje, Celje, Celje,
+   * Slovenija, Slovenija": the row named the middle level, and the whole chain
+   * was written over it.
+   *
+   * So a complete place replaces the row's value outright where the row stands
+   * for one ({@link splitValue}); where it stands for several, only the level's
+   * own name is taken from it, since one place cannot be what several different
+   * values all become. A single-level target is what it always was: this level,
+   * renamed wherever it appears under the row.
+   */
+  const planFor = (target: string, addrTarget: string): RenamePlan => {
+    const parts = target.split(",").map((part) => part.trim()).filter(Boolean);
+    if (splitValue && (addrTarget || parts.length > 1)) {
+      return { kind: "value", from: splitValue, to: target, ...(addrTarget ? { addr: addrTarget } : {}) };
+    }
+    // The deepest part is this level's own name — a register writes its chain
+    // outwards, as the file does.
+    return { kind: "segment", from: node.name, to: parts.length > 1 ? parts[0] : target };
+  };
+
+  /**
+   * How many records the rename as typed would reach — counted the way the
+   * rename itself works, so the number is a promise and not a guess.
+   *
+   * A whole value rewritten reaches every record under the row, which is what
+   * a row standing for one value *is*; a level renamed is counted by reading
+   * the file, since the level may sit inside values the row does not own.
+   */
   const preview = useMemo((): PlaceRenamePreview | null => {
-    const target = debouncedRename.trim();
-    if (!editing || target === node.name) return null;
-    return previewPlaceRename(dataset, node.name, target, nodeScope);
-  }, [editing, debouncedRename, node.name, dataset, nodeScope]);
+    if (!editing) return null;
+    const plan = planFor(debouncedRename.trim(), renameAddrDraft.trim());
+    if (plan.kind === "value") {
+      const changes = plan.to !== plan.from || !!plan.addr;
+      return { affectedCount: changes ? nodeScope.size : 0, examples: [] };
+    }
+    if (plan.to === plan.from) return null;
+    return previewPlaceRename(dataset, plan.from, plan.to, nodeScope);
+    // planFor is derived from the drafts and the node, all of which are deps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing, debouncedRename, renameAddrDraft, splitValue, node.name, dataset, nodeScope]);
 
   /**
    * What the box completes from: the names beside this one first — renaming to
@@ -698,37 +745,34 @@ function PlaceTreeRow({
 
   function handleApply() {
     const target = renameValue.trim();
-    const addrTarget = renameAddrDraft.trim();
     if (applyDisabled) return;
+    const plan = planFor(target, renameAddrDraft.trim());
     // The coordinate the offer brought, written onto what the rename makes of
     // this row's values — the register answered for the place it named, and
     // that is the value the records now carry. Only where the row has none of
     // its own: a spelling corrected from the register must not quietly move a
     // position that was already reviewed, which the panel beside it is for.
+    // Handed over rather than written here, so the rename and the position land
+    // before the tree is rebuilt — once, not once each.
     const picked = renamePick && renamePick.text === target && !spots ? renamePick : null;
-    if (addrTarget && splitValue) {
-      // A house taken out of the value: the whole value is rewritten and the
-      // house written on the event's own ADDR line, which is not something a
-      // segment rename can do. The row's coordinate belongs to that pair now.
-      // Handed over rather than written here, so the rename and the position
-      // land before the tree is rebuilt — once, not once each.
+    if (plan.kind === "value") {
       onRenameValue(
-        splitValue,
-        target,
-        addrTarget,
-        picked ? new Map([[placeAddrKey(target, addrTarget), picked.coord]]) : undefined,
+        plan.from,
+        plan.to,
+        plan.addr ?? "",
+        picked ? new Map([[placeAddrKey(plan.to, plan.addr ?? ""), picked.coord]]) : undefined,
       );
     } else {
       let renamed: Map<string, GeoCoord> | undefined;
       if (picked) {
-        const renamedValue = (text: string) => (text ? (renameInValue(text, node.name, target) ?? text) : text);
+        const renamedValue = (text: string) => (text ? (renameInValue(text, plan.from, plan.to) ?? text) : text);
         renamed = new Map();
         for (const key of coordKeys()) {
           const [place, addr] = key.split("\0");
           renamed.set(placeAddrKey(renamedValue(place), renamedValue(addr)), picked.coord);
         }
       }
-      onRename(node.name, target, nodeScope, renamed);
+      onRename(plan.from, plan.to, nodeScope, renamed);
     }
     setEditing(false);
     setRenameValue("");
@@ -737,12 +781,27 @@ function PlaceTreeRow({
   }
 
   const targetTrimmed = renameValue.trim();
-  // A house to move out is a change of its own, so the name standing as it is
-  // no longer means there is nothing to do.
-  const applyDisabled = targetTrimmed === node.name && !(renameAddrDraft.trim() && splitValue);
+  /**
+   * Nothing to do, so nothing to press. Read off the plan rather than off the
+   * text: a complete place picked for a value that already reads exactly that
+   * — the register's own answer for a row that is already right — changes
+   * nothing, however different the box looks from the row's name. A house to
+   * move out is a change of its own.
+   */
+  const applyDisabled = (() => {
+    const plan = planFor(targetTrimmed, renameAddrDraft.trim());
+    if (plan.kind === "value") return plan.to === plan.from && !plan.addr;
+    return plan.to === plan.from;
+  })();
   // "Merge" when the target is a name this level already has — the editor says
   // "Delete level" for an emptied field on its own account.
   const isMerge = !applyDisabled && !!targetTrimmed && siblings.includes(targetTrimmed);
+  /** The one part of a complete place this rename can take, where that is all
+   *  it can take — named, so nothing is quietly dropped. */
+  const levelOnly = (() => {
+    const plan = planFor(targetTrimmed, renameAddrDraft.trim());
+    return plan.kind === "segment" && plan.to !== targetTrimmed ? plan.to : null;
+  })();
 
   return (
     <li className={node.isAddress ? "tools-tree-node tools-tree-addr" : "tools-tree-node"}>
@@ -949,6 +1008,10 @@ function PlaceTreeRow({
               }}
             />
           )}
+          {/* A complete place offered to a row that stands for several different
+              values: only the level's own name can be taken from it, and the
+              box says which rather than quietly taking it. */}
+          {levelOnly && <span className="tools-place-rename-hint">{t("tools.places.rename.levelOnly", { name: levelOnly })}</span>}
           {preview && !renameAddrDraft.trim() && (
             <span className="tools-place-rename-hint">
               {preview.affectedCount > 0

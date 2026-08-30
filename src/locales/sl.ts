@@ -1041,6 +1041,7 @@ export const sl = {
   "tools.places.rename.count_few": "Prizadeti {{count}} zapisi",
   "tools.places.rename.count_other": "Prizadetih {{count}} zapisov",
   "tools.places.rename.noMatch": "Ni ujemajočih zapisov",
+  "tools.places.rename.levelOnly": "Prevzame se le {{name}}: zapisi pod to vrstico pišejo več različnih krajev, skupna jim je le ta raven.",
   "tools.search.placeholder": "Filtriraj…",
   "tools.search.tooltip": "Filtriraj ta seznam ({{key}})",
   "tools.search.noMatch": "Ni zadetkov.",
