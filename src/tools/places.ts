@@ -252,6 +252,26 @@ export function buildPlaceTree(dataset: Dataset): PlaceTree {
   const root: MutableNode = { name: "", children: new Map(), uses: [], isAddress: false, coords: new Map() };
   const distinct = new Set<string>();
   let totalUses = 0;
+  /**
+   * One decomposition per distinct value, not per mention.
+   *
+   * A file names a few hundred places over tens of thousands of events, and
+   * working out what a value decomposes to — its jurisdiction chain, its
+   * country, the house it carries — is the expensive half of this pass. The
+   * segments are read and never held, so the same array serves every mention of
+   * the value; the path key is cached with it for the same reason.
+   */
+  const paths = new Map<string, { path: PathSegment[]; key: string }>();
+  const pathOf = (mention: PlaceMention) => {
+    const cacheKey = `${mention.raw}\0${mention.addr ?? ""}\0${mention.addrOnly ? "1" : ""}`;
+    let hit = paths.get(cacheKey);
+    if (!hit) {
+      const path = placePath(mention);
+      hit = { path, key: path.map((s) => s.name).join("\0") };
+      paths.set(cacheKey, hit);
+    }
+    return hit;
+  };
 
   const visit = (rec: GedNode, use: Omit<PlaceUse, "plac" | "addr">) => {
     const found: PlaceMention[] = [];
@@ -260,9 +280,8 @@ export function buildPlaceTree(dataset: Dataset): PlaceTree {
     for (const mention of found) {
       distinct.add(mention.addr ? `${mention.raw} | ${mention.addr}` : mention.raw);
       totalUses++;
-      const path = placePath(mention);
+      const { path, key: pathKey } = pathOf(mention);
       if (path.length === 0) continue;
-      const pathKey = path.map((s) => s.name).join("\0");
       if (seenPaths.has(pathKey)) continue;
       seenPaths.add(pathKey);
       let node = root;
