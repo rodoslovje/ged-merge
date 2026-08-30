@@ -228,6 +228,30 @@ describe("buildKinshipWheel", () => {
     expect(wheel.labels.every((l) => !l.text.includes(" ") || l.text === l.person.given)).toBe(true);
   });
 
+  it("names every relative within three birth links, crowded or not", () => {
+    const named = new Set(wheel.labels.map((l) => l.person.id));
+    const close = wheel.people.filter((p) => p.distance > 0 && p.distance <= 3);
+    expect(close.length).toBeGreaterThan(0);
+    for (const p of close) expect(named.has(p.id), `${p.name} (distance ${p.distance})`).toBe(true);
+  });
+
+  it("never lays a name over somebody else's dot", () => {
+    // Worse than a missing name: a name sitting on the wrong mark reads as
+    // though that dot is the person it names.
+    for (const l of wheel.labels) {
+      const w = l.text.length * 10.5 * 0.55;
+      const x0 = l.anchor === "end" ? l.x - w : l.x;
+      const box = { x0, x1: x0 + w, y0: l.y - 9, y1: l.y + 3 };
+      if (l.person.distance <= 3) continue; // may cross a mark rather than go unnamed
+      for (const d of wheel.dots) {
+        if (d.person.id === l.person.id) continue;
+        const dot = { x0: d.x - d.r, x1: d.x + d.r, y0: d.y - d.r, y1: d.y + d.r };
+        const clash = box.x0 < dot.x1 && box.x1 > dot.x0 && box.y0 < dot.y1 && box.y1 > dot.y0;
+        expect(clash, `${l.text} over ${d.person.name}`).toBe(false);
+      }
+    }
+  });
+
   it("names close kin without overlapping any two labels", () => {
     expect(wheel.labels.length).toBeGreaterThan(0);
     const boxes = wheel.labels.map((l) => {

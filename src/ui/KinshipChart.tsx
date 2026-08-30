@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import {
-  RING_LABEL_ARC,
   WHEEL_LABEL_PX,
   barNameFont,
   barNameText,
@@ -318,14 +317,10 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
     const degree = d / 2 - 1;
     return degree <= 3 ? t(`kin.ring.cousin${degree}`) : t("kin.ring.cousinN", { n: degree });
   };
-  const ringLabel = (d: number, radius?: number) => {
+  /** What a ring's number means, for its tooltip. */
+  const ringTitle = (d: number) => {
     const named = ringName(d);
-    if (!named) return String(d);
-    const text = `${d} · ${named}`;
-    if (radius !== undefined && text.length * WHEEL_LABEL_PX * 0.55 > radius * RING_LABEL_ARC) {
-      return String(d);
-    }
-    return text;
+    return named ? `${d} · ${named}` : String(d);
   };
 
   /** The bars' year ruler and the root's own lifetime band, drawn to a given
@@ -356,7 +351,7 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
     <g key={band.distance}>
       <line className="kin-band-rule" x1={0} y1={band.y - 13} x2={bars.width} y2={band.y - 13} />
       <text className="kin-band-label" x={10} y={band.y - 10}>
-        {ringLabel(band.distance)} <tspan className="kin-wedge-count">{band.count}</tspan>
+        {ringTitle(band.distance)} <tspan className="kin-wedge-count">{band.count}</tspan>
       </text>
       {band.rows.map((r) => {
         const font = barNameFont(band.rowH);
@@ -551,14 +546,13 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
                       {wheel.rings.map((ring) => (
                         <g key={`s${ring.distance}`}>
                           <path id={`kin-ring-${ring.distance}`} d={ring.pathD} fill="none" />
-                          {/* The caption is dropped where the gutter cannot hold
-                              it — the inner rings have no room for words at any
-                              font — so the number always carries the full
-                              kinship in its tooltip. */}
+                          {/* Just the number: the gutter is sized for it and
+                              nothing more, and the kinship it stands for is on
+                              its tooltip. */}
                           <text className="kin-ring-label">
-                            <title>{ringLabel(ring.distance)}</title>
+                            <title>{ringTitle(ring.distance)}</title>
                             <textPath href={`#kin-ring-${ring.distance}`} startOffset={ring.textOffset} textAnchor="end">
-                              {ringLabel(ring.distance, ring.r)}
+                              {ring.distance}
                             </textPath>
                           </text>
                         </g>
@@ -632,7 +626,7 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
             swatch={colorOf(selected)}
             rows={selectedRows}
             mainPerson={mainNav}
-            mainLabel={t("compare.main")}
+            mainLabel={t("tree.main")}
             singleColumn
             kinship={t(`kin.ring.${selected.distance}`, { defaultValue: "" }) || undefined}
             kinshipLineage={lineageClass(selected.side === "own" ? undefined : selected.side === "father" ? "paternal" : "maternal")}

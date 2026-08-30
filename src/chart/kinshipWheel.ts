@@ -276,12 +276,12 @@ const RING_MIN_NEAR = 26;
 /** Gutters: the root's own wedge at 12 o'clock, the ring scale at 6 o'clock. */
 const OWN_WEDGE_MIN = 36;
 const OWN_WEDGE_MAX = 52;
-const SCALE_GUTTER = 46;
-/** How much arc a ring's caption may occupy: the half of the 6 o'clock gutter
- *  left of the axis, since the caption is right-aligned onto it. Renderers
- *  measure their own text against `r * this` and fall back to the bare number,
- *  which is the only way to keep a caption out of the wedge beside it. */
-export const RING_LABEL_ARC = ((SCALE_GUTTER / 2) * Math.PI) / 180;
+/** The 6 o'clock gap the ring scale sits in — wide enough for a two-digit
+ *  number and no wider. It once held the kinship names too, which cost a whole
+ *  wedge of chart for words that only fitted on the outer rings anyway; the
+ *  names live on the numbers' tooltips now and the space went back to the
+ *  people. */
+const SCALE_GUTTER = 16;
 const WEDGE_GAP = 2.2;
 /** Smallest wedge a branch may be squeezed into, however few people it holds. */
 const WEDGE_MIN = 20;
@@ -511,10 +511,10 @@ export function buildKinshipWheel(input: KinInput & { people?: KinPerson[] }): K
     const r = (edges[m] + edges[m - 1]) / 2;
     if (cy + r - lastY < 11) continue;
     lastY = cy + r;
-    // The scale is set on the ring itself, right-aligned to the 6 o'clock axis
-    // so the captions form one column instead of running into the wedge beside it.
-    const from = 148;
-    const to = 32;
+    // A short arc through the gutter, so the number sits square on the 6
+    // o'clock axis at its own radius.
+    const from = 100;
+    const to = 80;
     const pts: string[] = [];
     for (let i = 0; i <= 24; i++) {
       const a = rad(from + ((to - from) * i) / 24);
@@ -526,7 +526,7 @@ export function buildKinshipWheel(input: KinInput & { people?: KinPerson[] }): K
       rOuter: edges[m],
       count: counts[m] ?? 0,
       pathD: `M${pts.join("L")}`,
-      textOffset: (r * rad(from - to)) / 2 - 4,
+      textOffset: (r * rad(from - to)) / 2,
     });
   }
 
@@ -538,7 +538,7 @@ export function buildKinshipWheel(input: KinInput & { people?: KinPerson[] }): K
     height: cy + radius + pad,
     people,
     dots,
-    labels: placeLabels(candidates),
+    labels: placeLabels(candidates, dots),
     rings,
     wedges,
     maxDistance,
@@ -576,32 +576,100 @@ function subRows(cell: KinPerson[], perRow: number): KinPerson[][] {
 
 /** Native-size font the wheel's names are measured against. */
 export const WHEEL_LABEL_PX = 10.5;
-const NUDGE = [0, 12, -12, 24, -24, 36];
+/** Offsets a crowded name may try, out along its own ray and to either side of
+ *  it, before it gives up. Radial first: sliding outward keeps a name beside
+ *  the ring it belongs to. */
+const NUDGE_RADIAL = [0, 11, -11, 22, -22, 33];
+const NUDGE_SIDE = [0, 9, -9];
+/** The wider sweep the closest kin get, who are named whatever it costs. */
+const NUDGE_RADIAL_WIDE = [0, 11, -11, 22, -22, 33, -33, 44, -44, 56, -56];
+const NUDGE_SIDE_WIDE = [0, 9, -9, 18, -18, 27, -27];
 
-/** Name as many relatives as fit. Closest kin get first claim on the space, and
- *  a name that would collide slides out along its own ray before it is dropped —
- *  so a knot like three children of the same parents resolves into a stack
- *  instead of one survivor. */
+interface Box { x0: number; x1: number; y0: number; y1: number; owner?: string; dot?: boolean }
+
+/** Blood distances whose names are not optional. Your parents and children have
+ *  to be named even where the wheel is packed solid; a fourth cousin does not. */
+const MUST_NAME = 3;
+
+/**
+ * Name as many relatives as fit, without a name ever landing on somebody. The
+ * dots are obstacles too, not just the other names: checking names against each
+ * other alone left them sitting on other people's marks, which is worse than
+ * being missing — it reads as though that dot is who the name says.
+ *
+ * Closest kin get first claim on the space, and a crowded name tries a spread
+ * of offsets along its own ray and to either side of it before it is dropped,
+ * so a knot like three children of one couple resolves into a stack instead of
+ * one survivor.
+ */
 function placeLabels(
   candidates: { person: KinPerson; x: number; y: number; ux: number; uy: number; text: string }[],
+  dots: WheelDot[],
 ): WheelLabel[] {
-  const placed: { x0: number; x1: number; y0: number; y1: number }[] = [];
-  const hits = (b: { x0: number; x1: number; y0: number; y1: number }) =>
-    placed.some((o) => b.x0 < o.x1 && b.x1 > o.x0 && b.y0 < o.y1 && b.y1 > o.y0);
+  // Uniform grid: with a couple of thousand dots as obstacles, a linear scan
+  // per placement attempt is the whole cost of building the chart.
+  const CELL = 40;
+  const grid = new Map<string, Box[]>();
+  const cells = (b: Box, fn: (key: string) => void) => {
+    for (let i = Math.floor(b.x0 / CELL); i <= Math.floor(b.x1 / CELL); i++) {
+      for (let j = Math.floor(b.y0 / CELL); j <= Math.floor(b.y1 / CELL); j++) fn(`${i},${j}`);
+    }
+  };
+  const add = (b: Box) => cells(b, (k) => {
+    const at = grid.get(k);
+    if (at) at.push(b); else grid.set(k, [b]);
+  });
+  /** Does the box overlap anything already down, other than its own dot?
+   *  `avoidDots` off ignores the marks and weighs the box against other names
+   *  only — the last resort for a relative too close to leave unnamed. */
+  const hits = (b: Box, owner: string, avoidDots: boolean) => {
+    let hit = false;
+    cells(b, (k) => {
+      if (hit) return;
+      for (const o of grid.get(k) ?? []) {
+        if (o.owner === owner) continue;
+        if (o.dot && !avoidDots) continue;
+        if (b.x0 < o.x1 && b.x1 > o.x0 && b.y0 < o.y1 && b.y1 > o.y0) { hit = true; return; }
+      }
+    });
+    return hit;
+  };
+
+  for (const d of dots) {
+    add({ x0: d.x - d.r - 1, x1: d.x + d.r + 1, y0: d.y - d.r - 1, y1: d.y + d.r + 1, owner: d.person.id, dot: true });
+  }
 
   const out: WheelLabel[] = [];
   for (const c of [...candidates].sort((a, b) => a.person.distance - b.person.distance)) {
     const w = c.text.length * WHEEL_LABEL_PX * 0.55;
     const anchor: "start" | "end" = c.ux > 0 ? "start" : "end";
-    for (const d of NUDGE) {
-      const x = c.x + c.ux * d;
-      const y = c.y + c.uy * d;
-      const x0 = anchor === "end" ? x - w - 3 : x - 3;
-      const box = { x0, x1: x0 + w + 6, y0: y - WHEEL_LABEL_PX * 0.85, y1: y + WHEEL_LABEL_PX * 0.3 };
-      if (hits(box)) continue;
-      placed.push(box);
-      out.push({ person: c.person, x, y, anchor, text: c.text });
-      break;
+    // Unit vector across the ray, for the sideways tries.
+    const sx = -c.uy;
+    const sy = c.ux;
+    // A clean spot first; then, for the closest kin only, the best spot that
+    // clears the other names even if it crosses a mark. Their halo keeps them
+    // readable, and an unnamed parent is the worse outcome by far.
+    const place = (avoidDots: boolean, radials = NUDGE_RADIAL, sides = NUDGE_SIDE) => {
+      for (const r of radials) {
+        for (const t of sides) {
+          const x = c.x + c.ux * r + sx * t;
+          const y = c.y + c.uy * r + sy * t;
+          const x0 = anchor === "end" ? x - w - 3 : x - 3;
+          const box: Box = { x0, x1: x0 + w + 6, y0: y - WHEEL_LABEL_PX * 0.85, y1: y + WHEEL_LABEL_PX * 0.3 };
+          if (hits(box, c.person.id, avoidDots)) continue;
+          add({ ...box, owner: c.person.id });
+          out.push({ person: c.person, x, y, anchor, text: c.text });
+          return true;
+        }
+      }
+      return false;
+    };
+    if (place(true)) continue;
+    if (c.person.distance > MUST_NAME) continue;
+    // Still nowhere clean: sweep wider, first keeping off the marks, then
+    // allowing one to be crossed rather than leaving a parent unnamed.
+    if (!place(true, NUDGE_RADIAL_WIDE, NUDGE_SIDE_WIDE)) {
+      place(false, NUDGE_RADIAL_WIDE, NUDGE_SIDE_WIDE);
     }
   }
   return out;
