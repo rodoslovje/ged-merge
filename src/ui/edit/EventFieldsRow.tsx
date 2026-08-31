@@ -670,6 +670,12 @@ export function EventFieldsRow({
           wrapStyle={chW(field.value)}
           className={fieldCls("edit-input", field.isMerge, field.isDirty || forced)}
           value={field.value}
+          // An extra is normally on screen only because it has content, so its
+          // name lives in the hover label and the tooltip. Added from the
+          // "+ Add" menu it arrives empty, and a blank unlabelled box says
+          // nothing — so it names itself until something is typed, the way the
+          // date and the value inputs do.
+          placeholder={labelText}
           title={title}
           onChange={field.onChange}
           onBlur={() => commitAll({})}
@@ -721,6 +727,7 @@ export function EventFieldsRow({
           className={"edit-input " + cls}
           wrapClassName="edit-event-extra-field"
           wrapStyle={chW(field.value)}
+          placeholder={labelText}
           title={title}
           onChange={field.set}
           onCommit={commit}
