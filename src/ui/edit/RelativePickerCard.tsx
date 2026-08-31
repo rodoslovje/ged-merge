@@ -52,8 +52,17 @@ export function RelativePickerCard({
     function onMouseDown(e: MouseEvent) {
       if (!containerRef.current?.contains(e.target as Node)) onCancel();
     }
-    document.addEventListener("mousedown", onMouseDown);
-    return () => document.removeEventListener("mousedown", onMouseDown);
+    // Registered a tick late, on purpose. A control that opens this picker may
+    // itself act on mousedown rather than click — the "+ Add" menu's options do,
+    // so selection beats the input blur/commit cycle — and that mousedown is
+    // still travelling towards the document while this effect runs. Attaching
+    // synchronously let the very click that opened the picker dismiss it again:
+    // it mounted and vanished within one event, and the row looked inert.
+    const timer = setTimeout(() => document.addEventListener("mousedown", onMouseDown), 0);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("mousedown", onMouseDown);
+    };
   }, [onCancel]);
 
   // Every person, prepared once and left in name order. Formatting a name
