@@ -243,12 +243,14 @@ export function makeContext(
     // only into the family being merged) plus associations/submitter links,
     // which have no import path and would dangle — or hit an unrelated main
     // record — if kept. Dropped associations are surfaced as deferred.
+    // Associations survive this (marked, then resolved once every record is
+    // placed — see `remapMergedAssociations`); ALIA has no import path.
     const dropped = stripForeignPointers(node);
-    if (dropped.some((tag) => tag === "ASSO" || tag === "ALIA")) {
+    if (dropped.includes("ALIA")) {
       report.deferred.push({
         recordId: newId,
         field: t("merge.field.associations"),
-        reason: t("merge.reason.assoNotImported"),
+        reason: t("merge.reason.aliaNotImported"),
       });
     }
     insertRecord(records, node);

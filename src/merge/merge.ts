@@ -3,6 +3,7 @@ import type { MatchResult } from "../match/types";
 import { insertGrouped } from "../gedcom/edit";
 import { childrenByTag } from "../gedcom/node";
 import { buildObjeIndex } from "../gedcom/source";
+import { remapMergedAssociations } from "../gedcom/assoc";
 import { sharedRecordTitle } from "../gedcom/editReport";
 import { setPlaceCoord } from "../gedcom/edit/geo";
 import { coordOf, placeAddrKey, walkPlaceAddr, walkPlacNodes } from "../tools/geocode";
@@ -472,6 +473,18 @@ export function mergeDecisions(
   // absent from it (e.g. citations on newly-added people).
   foldMatchedSourcePages(records, compare, sourXrefMap);
   importSourRecords(records, compare, sourXrefMap, report.customTags);
+
+  // Now that every person the merge brings across has its main-side record,
+  // the associations copied with them can be pointed at it. One whose
+  // associate never arrived is dropped here — and only here is it true to say
+  // so, which is what the deferred note now says.
+  for (const drop of remapMergedAssociations(records, (incomingId) => ctx.resolved(incomingId))) {
+    report.deferred.push({
+      recordId: drop.recordId,
+      field: t("merge.field.associations"),
+      reason: t("merge.reason.assocTargetMissing", { name: drop.name || t("assoc.unnamed") }),
+    });
+  }
 
   fillWrittenPlaceCoords(records, inheritedPlacs);
 

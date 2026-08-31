@@ -237,6 +237,70 @@ export function buildAssociationIndex(dataset: Dataset): AssociationIndex {
 
 // ── Keeping pointers honest ──────────────────────────────────────────────────
 
+/** One association the merge could not bring across, for the change report. */
+export interface UnresolvedAssociation {
+  /** The record that carries it, in the merged output. */
+  recordId: string;
+  /** The associate's name, where the incoming file could supply one. */
+  name?: string;
+}
+
+/**
+ * Resolve the associations the merge copied out of the compare file.
+ *
+ * Each carries a pointer in the compare file's namespace and the
+ * `foreignPointer` marker that says so (see {@link GedNode.foreignPointer}).
+ * `resolve` maps an incoming id to the main-side record the merge gave that
+ * person; an association whose associate never made it into the merged file is
+ * dropped and reported, because a pointer to nothing dangles and a pointer left
+ * in the wrong namespace can quietly land on an unrelated main record.
+ *
+ * Also drops a copy that duplicates an association already on the same
+ * container — two files naming the same godparent at the same baptism is
+ * agreement, not two godparents.
+ */
+export function remapMergedAssociations(
+  records: GedNode[],
+  resolve: (incomingId: string) => string | undefined,
+): UnresolvedAssociation[] {
+  const dropped: UnresolvedAssociation[] = [];
+
+  const inContainer = (recordId: string, container: GedNode) => {
+    const seen = new Set<string>();
+    // Associations already in the main's own namespace claim their slot first,
+    // so an incoming copy of one is recognised as the duplicate it is.
+    for (const child of container.children) {
+      if (child.tag !== "ASSO" || child.foreignPointer) continue;
+      seen.add(`${child.value ?? ""}|${firstChild(child, "ROLE")?.value ?? firstChild(child, "RELA")?.value ?? ""}`);
+    }
+    container.children = container.children.filter((child) => {
+      if (child.tag !== "ASSO" || !child.foreignPointer) return true;
+      delete child.foreignPointer;
+      const incomingId = child.value?.trim() ?? "";
+      // A name-only association names nobody to resolve — it travels as it is.
+      if (incomingId.toUpperCase() === VOID_XREF) return true;
+      const mainId = resolve(incomingId);
+      if (!mainId) {
+        dropped.push({ recordId, name: child.children.find((c) => c.tag === "PHRASE")?.value });
+        return false;
+      }
+      child.value = mainId;
+      const key = `${mainId}|${firstChild(child, "ROLE")?.value ?? firstChild(child, "RELA")?.value ?? ""}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  };
+
+  for (const record of records) {
+    if (record.tag !== "INDI" && record.tag !== "FAM") continue;
+    const id = record.xref ?? "";
+    inContainer(id, record);
+    for (const child of record.children) inContainer(id, child);
+  }
+  return dropped;
+}
+
 /**
  * The records naming any of `targetIds` in an association — the set a caller
  * must snapshot before repointing, since an association can be carried by any

@@ -54,6 +54,16 @@ export interface GedNode {
    */
   auditStamp?: "new" | "changed";
   /**
+   * Runtime-only marker (never serialized): set on an `ASSO` node the merge
+   * copied out of the compare file, whose pointer is still in the compare
+   * file's xref namespace. `remapMergedAssociations` resolves each one to the
+   * main-side record the merge gave that person and clears the marker; the
+   * ones that resolve to nothing are dropped, since a pointer left behind
+   * would dangle — or, worse, land on an unrelated main record that happens to
+   * share the xref. Nothing may serialize while a marker is still set.
+   */
+  foreignPointer?: true;
+  /**
    * A source line the parser could not interpret, kept verbatim so saving
    * never silently drops it. Such a node carries the empty tag "" (so no
    * tag-matching logic ever picks it up), has no children, and serializes
