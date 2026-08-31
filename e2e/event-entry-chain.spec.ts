@@ -75,16 +75,19 @@ test("Escape leaves the field, freeing Backspace to go back a person", async ({ 
   await expect.poll(shown).toBe(first);
 });
 
-test("an event that leads with a value starts there, then date, then place", async ({ page }) => {
+test("an event with a value still starts at the date, then the value, then place", async ({ page }) => {
+  // Every event leads with its date, an Occupation included: its value used to
+  // take the lead and its date stayed hidden until it had one, so the first
+  // field sat where the date sits on every other row.
   await openEdit(page);
   await page.getByRole("button", { name: /^\+ Occupation$/ }).click();
-  await expect.poll(() => focusedField(page)).toBe("edit-event-value");
-
-  await page.keyboard.type("Kmet");
-  await page.keyboard.press("Enter");
   await expect.poll(() => focusedField(page)).toBe("edit-event-date");
 
   await page.keyboard.type("1 JAN 1900");
+  await page.keyboard.press("Enter");
+  await expect.poll(() => focusedField(page)).toBe("edit-event-value");
+
+  await page.keyboard.type("Kmet");
   await page.keyboard.press("Enter");
   await expect.poll(() => focusedField(page)).toBe("edit-event-place");
 });
@@ -92,9 +95,9 @@ test("an event that leads with a value starts there, then date, then place", asy
 test("everything typed along the way is written", async ({ page }) => {
   await openEdit(page);
   await page.getByRole("button", { name: /^\+ Occupation$/ }).click();
-  await page.keyboard.type("Kmet");
-  await page.keyboard.press("Enter");
   await page.keyboard.type("1 JAN 1900");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("Kmet");
   await page.keyboard.press("Enter");
   await page.keyboard.type("Ljubljana, Slovenija");
   await page.keyboard.press("Enter");

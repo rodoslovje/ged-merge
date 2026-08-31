@@ -201,11 +201,9 @@ test("an event added this session is named with its date in the move menu", asyn
   await page.getByRole("option", { name: "Education", exact: true }).click();
   const educ = page.locator(".edit-event").filter({ hasText: "Education" }).first();
 
-  // A value-event keeps its date hidden until it has one, so the date is
-  // reached through the row's own "+ Add" menu.
-  await educ.locator(".edit-event-addfield").click();
-  await page.locator(".dd-menu [role=option]", { hasText: "Date" }).first().click();
-  const date = educ.locator('[data-detail="date"] input, input[data-detail="date"]').first();
+  // Every event leads with its date, this one included, and a freshly added
+  // event opens with the caret in it.
+  const date = educ.locator("input.edit-event-date").first();
   await date.fill("1980");
   await date.blur();
   await expect(date).toHaveValue("1980");

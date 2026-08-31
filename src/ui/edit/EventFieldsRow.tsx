@@ -93,9 +93,8 @@ export function EventFieldsRow({
   /** Opens the media-link dialog for one of `ev.mediaLinks` — bound to this
    * event's node by the parent, like `onEditSource`. */
   onOpenMediaLink?: (url: string) => void;
-  /** Focus the row's lead input on mount — the date for ordinary events, the
-   * value for value-events (whose date field starts hidden) — so a freshly
-   * added event can be typed into immediately. */
+  /** Focus the row's lead input on mount — the date, on every kind of event —
+   * so a freshly added event can be typed into immediately. */
   autoFocusLead?: boolean;
   /** Increment to focus the lead input of an already-mounted row — the
    * always-present Birth row, which quick-add targets instead of duplicating
@@ -433,7 +432,11 @@ export function EventFieldsRow({
   // value, or the user adds them), so an event without a place reserves no empty
   // slot. Value-events (OCCU/EDUC/RETI/EVEN) lead with their value instead.
   const primaryLine = !hasTitle;
-  const dateShown = primaryLine || Boolean(dateField.value.trim()) || dateField.isMerge;
+  // Every event leads with its date, value-events included. Their value used to
+  // take the lead slot and their date stayed hidden until it had one, so the
+  // first field on an Occupation sat where the date sits on every other row —
+  // the columns did not line up and neither did the typing.
+  const dateShown = true;
   // A custom EVEN/FACT is named by its TYPE, so its Title field always shows.
   const typeShown = isEven || Boolean(typeField.value.trim()) || typeField.isMerge;
   const valueExtraShown = valueIsExtra && (Boolean(valueField.value.trim()) || valueField.isMerge);
@@ -463,11 +466,6 @@ export function EventFieldsRow({
   // (ordinary events show Place on the primary line, so only Address is offered).
   const addable: { key: string; label: string }[] = [
     ...(valueIsExtra ? [{ key: "value", label: t("event.colValue") }] : []),
-    // A value-event (Occupation, Education, a custom EVEN) leads with its value
-    // and keeps its date hidden until it has one, so the menu is the only way to
-    // reach it with the mouse — an ordinary event always shows its date and so
-    // filters this entry out below.
-    { key: "date", label: t("event.colDate") },
     { key: "place", label: t("event.colPlace") },
     { key: "addr", label: t("event.colAddr") },
     { key: "agency", label: t("event.colAgency") },
@@ -489,7 +487,7 @@ export function EventFieldsRow({
    * of them lands on the "+ Detail" chip — from where the menu opens with Enter
    * again, so an address or a cause is added without touching the mouse.
    */
-  const entryChain = primaryLine ? ["date", "place"] : ["value", "date", "place"];
+  const entryChain = primaryLine ? ["date", "place"] : ["date", "value", "place"];
 
   /** Focus this row's "+ Detail" chip — the step after the chain's last field,
    *  and after any detail added from the menu. False when the row has no
@@ -558,7 +556,7 @@ export function EventFieldsRow({
     if (!focusLeadNonce || focusLeadNonce === seenFocusNonce.current) return;
     seenFocusNonce.current = focusLeadNonce;
     rootRef.current
-      ?.querySelector<HTMLInputElement>(primaryLine ? "input.edit-event-date" : "input.edit-event-value")
+      ?.querySelector<HTMLInputElement>("input.edit-event-date")
       ?.focus();
   }, [focusLeadNonce, primaryLine]);
 
@@ -842,7 +840,7 @@ export function EventFieldsRow({
           value={dateField.value}
           placeholder={t("event.colDate")}
           title={t("event.date", { event: label })}
-          autoFocus={autoFocusLead && primaryLine}
+          autoFocus={autoFocusLead}
           onChange={dateField.onChange}
           onKeyDown={entryKeyDown("date")}
           onBlur={() => commitAll({})}
@@ -873,7 +871,6 @@ export function EventFieldsRow({
             value={valueField.value}
             placeholder={t("event.colTitle")}
             title={label}
-            autoFocus={autoFocusLead && !primaryLine}
             onChange={valueField.onChange}
             onKeyDown={entryKeyDown("value")}
             onBlur={() => commitAll({})}
@@ -893,6 +890,10 @@ export function EventFieldsRow({
             className="edit-input edit-event-place"
             wrapClassName="edit-event-extra-field"
             wrapStyle={chW(placeField.value, 60)}
+            // The row's own place field is rendered here rather than through
+            // `extraPlace`, so it needs the same self-naming placeholder: added
+            // from the "+ Add" menu it arrives empty like any other extra.
+            placeholder={t("event.colPlace")}
             title={t("event.place", { event: label })}
             onChange={placeField.set}
             onCommit={(val) => {
