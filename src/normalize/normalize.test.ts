@@ -1127,6 +1127,28 @@ describe("formatGedDate (numeric output)", () => {
     const profile = inferDateProfile(["1989-02-20"]);
     expect(formatGedDate(parseDate("12 FEB 1900"), profile)).toBe("1900-02-12");
   });
+
+  it("keeps a date that names its calendar exactly as written", () => {
+    // Reshaping "@#DJULIAN@ 14 JAN 1700" to "14.01.1700" would restate a Julian
+    // date as a Gregorian one ten days from where the file put it.
+    const profile = inferDateProfile(["20.02.1989"]);
+    for (const raw of [
+      "@#DJULIAN@ 14 JAN 1700",
+      "JULIAN 14 JAN 1700",
+      "ABT @#DJULIAN@ 1700",
+      "@#DGREGORIAN@ 14 JAN 1700",
+      "@#DHEBREW@ 5 TSH 5760",
+      "@#DFRENCH R@ 1 VEND 1",
+    ]) {
+      expect(formatGedDate(parseDate(raw), profile)).toBe(raw);
+    }
+  });
+
+  it("keeps a date before the common era exactly as written", () => {
+    const profile = inferDateProfile(["20.02.1989"]);
+    expect(formatGedDate(parseDate("1 JAN 44 B.C."), profile)).toBe("1 JAN 44 B.C.");
+    expect(formatGedDate(parseDate("44 BCE"), profile)).toBe("44 BCE");
+  });
 });
 
 describe("unknown-date placeholders", () => {

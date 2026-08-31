@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseDate, dateRefines } from "./date";
+import { parseDate, dateRefines, dateToSortKey } from "./date";
 
 describe("parseDate — Slovenian/German month words", () => {
   it("parses Slovenian months (nominative, genitive, abbreviations)", () => {
@@ -126,5 +126,113 @@ describe("dateRefines — incoming is a more exact same date", () => {
 
   it("leaves ranges to the default", () => {
     expect(dateRefines("BET 1949 AND 1950", "12 MAR 1949")).toBe(false);
+  });
+});
+
+describe("parseDate — calendar declarations", () => {
+  it("reads a Julian date through either spelling of the declaration", () => {
+    // 5.5.1 writes the escape, GEDCOM 7 the bare keyword; same date either way.
+    expect(parseDate("@#DJULIAN@ 14 JAN 1700")).toMatchObject({
+      qualifier: "exact", calendar: "JULIAN", day: 14, month: 1, year: 1700,
+    });
+    expect(parseDate("JULIAN 14 JAN 1700")).toMatchObject({
+      qualifier: "exact", calendar: "JULIAN", day: 14, month: 1, year: 1700,
+    });
+  });
+
+  it("accepts a declaration sitting after the qualifier", () => {
+    expect(parseDate("ABT @#DJULIAN@ 1700")).toMatchObject({
+      qualifier: "about", calendar: "JULIAN", year: 1700,
+    });
+  });
+
+  it("keeps a Julian date's components as written, without shifting them", () => {
+    // The file states a Julian date; the app shows that date, not the
+    // Gregorian equivalent ten days later.
+    const d = parseDate("@#DJULIAN@ 14 JAN 1700");
+    expect({ day: d.day, month: d.month, year: d.year }).toEqual({ day: 14, month: 1, year: 1700 });
+  });
+
+  it("marks an explicitly Gregorian date without otherwise changing it", () => {
+    expect(parseDate("@#DGREGORIAN@ 14 JAN 1700")).toMatchObject({
+      qualifier: "exact", calendar: "GREGORIAN", day: 14, month: 1, year: 1700,
+    });
+  });
+
+  it("records a foreign-epoch calendar but lifts no components from it", () => {
+    // Tishrei 5760 and Vendemiaire an I count from another epoch: a year of
+    // 5760 in the model would place the person three millennia in the future.
+    const hebrew = parseDate("@#DHEBREW@ 5 TSH 5760");
+    expect(hebrew).toMatchObject({ qualifier: "exact", calendar: "HEBREW" });
+    expect(hebrew.year).toBeUndefined();
+    expect(hebrew.month).toBeUndefined();
+    expect(hebrew.day).toBeUndefined();
+
+    const french = parseDate("@#DFRENCH R@ 1 VEND 1");
+    expect(french).toMatchObject({ qualifier: "exact", calendar: "FRENCH_R" });
+    expect(french.year).toBeUndefined();
+
+    expect(parseDate("@#DUNKNOWN@ 1700")).toMatchObject({ calendar: "UNKNOWN" });
+    expect(parseDate("@#DUNKNOWN@ 1700").year).toBeUndefined();
+  });
+
+  it("keeps the qualifier of a foreign-epoch date", () => {
+    expect(parseDate("ABT @#DHEBREW@ 5760")).toMatchObject({
+      qualifier: "about", calendar: "HEBREW",
+    });
+  });
+
+  it("is not garbage: a declared date never reads as unparseable", () => {
+    // The health check treats qualifier "unknown" with no year as broken data;
+    // a valid Hebrew date must not land there.
+    for (const raw of ["@#DHEBREW@ 5 TSH 5760", "@#DFRENCH R@ 1 VEND 1", "@#DJULIAN@ 14 JAN 1700"]) {
+      expect(parseDate(raw).qualifier).not.toBe("unknown");
+    }
+  });
+
+  it("leaves a value alone when the escape names no standard calendar", () => {
+    expect(parseDate("@#DKLINGON@ 1700").calendar).toBeUndefined();
+  });
+
+  it("keeps the raw text on the parsed date", () => {
+    expect(parseDate("@#DJULIAN@ 14 JAN 1700").raw).toBe("@#DJULIAN@ 14 JAN 1700");
+  });
+});
+
+describe("parseDate — years before the common era", () => {
+  it("negates the year so it orders against ordinary years", () => {
+    expect(parseDate("44 BCE")).toMatchObject({ qualifier: "exact", year: -44 });
+    expect(parseDate("44 BC")).toMatchObject({ qualifier: "exact", year: -44 });
+    expect(parseDate("1500 B.C.E.")).toMatchObject({ qualifier: "exact", year: -1500 });
+  });
+
+  it("takes the year literally rather than expanding it to the 1900s", () => {
+    expect(parseDate("1 JAN 44 B.C.")).toMatchObject({ day: 1, month: 1, year: -44 });
+  });
+
+  it("composes with a qualifier", () => {
+    expect(parseDate("BEF 44 BCE")).toMatchObject({ qualifier: "before", year: -44 });
+  });
+
+  it("declines two-endpoint forms rather than taking the wrong year", () => {
+    // Only the closing era is in hand here, so a range keeps its existing
+    // behaviour: a between date with no components, never year -30.
+    const d = parseDate("BET 44 BC AND 30 BC");
+    expect(d.qualifier).toBe("between");
+    expect(d.year).toBeUndefined();
+    expect(d.year2).toBeUndefined();
+  });
+
+  it("does not read an era out of ordinary text", () => {
+    expect(parseDate("DEC 1900")).toMatchObject({ month: 12, year: 1900 });
+    expect(parseDate("Ljubljana BC").year).toBeUndefined();
+    // Text with a year in it stays unparseable rather than becoming year -1900:
+    // the era has to close something the grammar recognises.
+    expect(parseDate("rojen v vasi 1900 BC")).toMatchObject({ qualifier: "unknown" });
+    expect(parseDate("rojen v vasi 1900 BC").year).toBeUndefined();
+  });
+
+  it("sorts a BCE year before every common-era year", () => {
+    expect(dateToSortKey(parseDate("44 BCE"))).toBeLessThan(dateToSortKey(parseDate("1 JAN 1")));
   });
 });
