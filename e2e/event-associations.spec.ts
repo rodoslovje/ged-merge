@@ -95,6 +95,24 @@ test("the association row keeps to itself and to the row's scale", async ({ page
   expect(overflow.missing).toBe(false);
   expect(overflow.over).toBe(0);
   expect(overflow.notes).toBe(0);
+
+  // The form's own buttons are words, not glyphs: clamped like the hover-only
+  // ✎ and ✕ they were cut to 1.4em and printed on top of each other.
+  const buttons = await form.evaluate((el) => {
+    const [save, cancel] = [...el.querySelectorAll<HTMLElement>(".edit-assoc-action")];
+    if (!save || !cancel) return { found: false, overlap: 0, clipped: true };
+    const a = save.getBoundingClientRect();
+    const b = cancel.getBoundingClientRect();
+    return {
+      found: true,
+      overlap: Math.max(0, Math.round(Math.min(a.right, b.right) - Math.max(a.left, b.left))),
+      // A word narrower than its own text is a clamped one.
+      clipped: save.scrollWidth > Math.ceil(a.width) + 1,
+    };
+  });
+  expect(buttons.found).toBe(true);
+  expect(buttons.overlap).toBe(0);
+  expect(buttons.clipped).toBe(false);
 });
 
 test("the person picker is the same size wherever it is opened", async ({ page }) => {
@@ -106,7 +124,9 @@ test("the person picker is the same size wherever it is opened", async ({ page }
 
   // The partner picker, which is the size to match.
   await page.getByRole("button", { name: /Add Partner/i }).first().click();
-  const partnerOpt = page.locator(".relative-picker-option").first();
+  // A person row, not the "+ add new" row above it — that one carries no name
+  // and so says nothing about the size the names are drawn at.
+  const partnerOpt = page.locator(".relative-picker-option .person-name").first();
   await expect(partnerOpt).toBeVisible();
   const partnerSize = await partnerOpt.evaluate((el) => getComputedStyle(el).fontSize);
   await page.keyboard.press("Escape");
@@ -114,7 +134,7 @@ test("the person picker is the same size wherever it is opened", async ({ page }
   const birth = page.locator(".edit-event").filter({ hasText: "Birth" }).first();
   await birth.locator(".edit-event-addfield").click();
   await page.locator(".dd-menu [role=option]", { hasText: "Association" }).click();
-  const assocOpt = birth.locator(".relative-picker-option").first();
+  const assocOpt = birth.locator(".relative-picker-option .person-name").first();
   await expect(assocOpt).toBeVisible();
   const assocSize = await assocOpt.evaluate((el) => getComputedStyle(el).fontSize);
 

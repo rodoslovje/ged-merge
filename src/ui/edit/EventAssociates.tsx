@@ -212,7 +212,7 @@ export function EventAssociates({
                 <>
                   <button
                     type="button"
-                    className="edit-assoc-action"
+                    className="edit-assoc-glyph"
                     title={t("assoc.editRole")}
                     onClick={() => setEditing(assoc)}
                   >
@@ -220,7 +220,7 @@ export function EventAssociates({
                   </button>
                   {!!moveTargets?.length && (
                     <DropdownMenu
-                      className="edit-assoc-action"
+                      className="edit-assoc-glyph"
                       title={t("assoc.moveTip")}
                       ariaLabel={t("assoc.move")}
                       groups={[{ label: t("assoc.move"), items: moveTargets.map((m, mi) => ({ value: String(mi), label: m.label })) }]}
@@ -230,7 +230,7 @@ export function EventAssociates({
                   )}
                   <button
                     type="button"
-                    className="edit-assoc-action edit-assoc-remove"
+                    className="edit-assoc-glyph edit-assoc-remove"
                     title={t("assoc.remove")}
                     onClick={() => api.remove(ownerId, container, assoc.raw)}
                   >
