@@ -1,14 +1,13 @@
 import L from "leaflet";
 import {
   OHM_ATTRIBUTION,
-  OHM_MAX_ZOOM,
-  OHM_MIN_MAP_ZOOM,
   OHM_TILE_PX,
   bordersAt,
   borderWeight,
   decodeBorderTile,
   gridCoords,
   ohmTileUrl,
+  ringLength,
   sourceCoords,
   tileTransform,
   type BorderArea,
@@ -148,7 +147,7 @@ const BordersLayer = L.GridLayer.extend({
       canvas,
       coords: plain,
       grid,
-      source: sourceCoords(grid, OHM_MAX_ZOOM),
+      source: sourceCoords(grid),
       size: size.x,
       dpr,
     };
@@ -278,16 +277,16 @@ function placeLabels(
   const footprints = new Map<number, Footprint>();
   for (const tile of live.values()) {
     if (!tile.tile || tile.coords.z !== zoom) continue;
-    const project = tileProjector(tile);
+    const at = tileProjector(tile);
     const originX = tile.coords.x * tile.size;
     const originY = tile.coords.y * tile.size;
     for (const area of bordersAt(tile.tile, opts.year, zoom)) {
       let foot = footprints.get(area.id);
       for (const ring of area.rings) {
-        for (const point of ring) {
-          const p = project(point);
-          const x = p.x + originX;
-          const y = p.y + originY;
+        const n = ringLength(ring);
+        for (let i = 0; i < n; i++) {
+          const x = at.x(ring[i * 2]) + originX;
+          const y = at.y(ring[i * 2 + 1]) + originY;
           if (!foot) {
             foot = { level: area.level, name: area.name, minX: x, maxX: x, minY: y, maxY: y };
             footprints.set(area.id, foot);
@@ -350,12 +349,18 @@ function placeLabels(
   return byTile;
 }
 
-/** Tile-local coordinates of the fetched tile → this canvas's CSS pixels. The
- *  transform is worked out in the standard grid the source belongs to, at this
- *  canvas's own width. */
-function tileProjector(live: LiveTile): (p: { x: number; y: number }) => { x: number; y: number } {
+/** Tile-local coordinates of the fetched tile → this canvas's CSS pixels, one
+ *  axis at a time (the geometry is a flat array of alternating x and y, so
+ *  nothing is gained by pairing them up again). The transform is worked out in
+ *  the standard grid the source belongs to, at this canvas's own width. */
+interface Projector {
+  x(value: number): number;
+  y(value: number): number;
+}
+
+function tileProjector(live: LiveTile): Projector {
   const { scale, dx, dy } = tileTransform(live.grid, live.source, live.tile?.extent ?? 4096, live.size);
-  return (p) => ({ x: p.x * scale + dx, y: p.y * scale + dy });
+  return { x: (v) => v * scale + dx, y: (v) => v * scale + dy };
 }
 
 /** Repaint one tile from the data it already holds. */
@@ -365,7 +370,7 @@ function paintTile(live: LiveTile, opts: BordersLayerOptions, zoom: number, labe
   ctx.setTransform(live.dpr, 0, 0, live.dpr, 0, 0);
   ctx.clearRect(0, 0, live.size, live.size);
   if (!live.tile) return;
-  const project = tileProjector(live);
+  const at = tileProjector(live);
   const areas = bordersAt(live.tile, opts.year, zoom);
   ctx.strokeStyle = opts.colors.line;
   ctx.lineJoin = "round";
@@ -382,7 +387,7 @@ function paintTile(live: LiveTile, opts: BordersLayerOptions, zoom: number, labe
       ctx.lineWidth = borderWeight(level);
       ctx.beginPath();
     }
-    strokeArea(ctx, area, project);
+    strokeArea(ctx, area, at);
   }
   flush();
   for (const label of labels) drawLabel(ctx, label, opts.colors);
@@ -391,18 +396,16 @@ function paintTile(live: LiveTile, opts: BordersLayerOptions, zoom: number, labe
 /** Add one territory's rings to the current path. The tiles are cut with a
  *  margin around them, so the straight run where a polygon was clipped falls
  *  outside the canvas and never shows as a border that isn't there. */
-function strokeArea(
-  ctx: CanvasRenderingContext2D,
-  area: BorderArea,
-  project: (p: { x: number; y: number }) => { x: number; y: number },
-): void {
+function strokeArea(ctx: CanvasRenderingContext2D, area: BorderArea, at: Projector): void {
   for (const ring of area.rings) {
-    if (ring.length < 2) continue;
-    ring.forEach((point, i) => {
-      const { x, y } = project(point);
+    const n = ringLength(ring);
+    if (n < 2) continue;
+    for (let i = 0; i < n; i++) {
+      const x = at.x(ring[i * 2]);
+      const y = at.y(ring[i * 2 + 1]);
       if (i === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
-    });
+    }
     ctx.closePath();
   }
 }
@@ -431,8 +434,5 @@ export function bordersLayer(options: Omit<BordersLayerOptions, "attribution">):
     // quarter as many requests for the same screen, off a source whose
     // boundaries are already generalized past what that screen can show.
     tileSize: OHM_TILE_PX,
-    // Below this the tiles cost megabytes each (see OHM_MIN_MAP_ZOOM); the chip
-    // says so rather than leaving the map empty.
-    minZoom: OHM_MIN_MAP_ZOOM,
   });
 }

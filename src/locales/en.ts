@@ -1520,9 +1520,6 @@ export const en = {
   "map.borders": "Borders",
   "map.borders.tooltip":
     "Draw the administrative borders of the year in the To year field — the empires, provinces and districts of OpenHistoricalMap",
-  "map.borders.zoomIn": "Zoom in",
-  "map.borders.zoomIn.tooltip":
-    "The borders are drawn from a regional view inwards: OpenHistoricalMap covers every period at once, and its tiles for a whole continent are too heavy to fetch",
   "map.overlays": "Overlays",
   "map.overlays.tooltip": "Additional map layers — configure them in Settings → Map",
   "map.overlays.suggested": "This layer's period matches the selected years",

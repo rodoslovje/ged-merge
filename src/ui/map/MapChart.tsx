@@ -44,7 +44,7 @@ import {
 } from "./markerStyle";
 import { YearRangeSlider } from "./YearRangeSlider";
 import { bordersLayer, borderColors } from "./bordersLayer";
-import { OHM_CREDIT, OHM_MIN_MAP_ZOOM } from "../../geo/ohmBorders";
+import { OHM_CREDIT } from "../../geo/ohmBorders";
 import { createBaseLayer } from "./baseLayer";
 import { basemapCredit } from "./basemapPresets";
 import { arrowMarker, pathLegNumbers } from "./pathStops";
@@ -529,16 +529,6 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
     bordersRef.current?.setYear(borderYear);
     bordersBRef.current?.setYear(borderYear);
   }, [borderYear]);
-  /** Zoomed out past the floor the borders are served at — read after every
-   *  pan/zoom, which is what viewGen counts. */
-  const bordersTooFar = useMemo(
-    () => {
-      const zoom = mapRef.current?.getZoom();
-      return zoom !== undefined && zoom < OHM_MIN_MAP_ZOOM;
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- viewGen is the signal
-    [viewGen],
-  );
 
   // A layer newly marked "show by default" in Settings (reachable from the
   // chart) switches itself on here; one the user unticked in the picker stays
@@ -1090,18 +1080,12 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
               type="button"
               className={`map-kind-chip map-borders-chip${showBorders ? " active" : ""}`}
               aria-pressed={showBorders}
-              title={bordersTooFar ? t("map.borders.zoomIn.tooltip") : t("map.borders.tooltip")}
+              title={t("map.borders.tooltip")}
               onClick={() => setShowBorders((v) => !v)}
             >
               <BordersIcon />
               {t("map.borders")}
-              {/* Switched on but zoomed out past what OHM can serve: the chip
-                  carries the reason nothing is drawn, in place of the year. */}
-              {showBorders && bordersTooFar ? (
-                <span className="tree-mode-count map-borders-far">{t("map.borders.zoomIn")}</span>
-              ) : (
-                <span className="tree-mode-count gm-data">{borderYear}</span>
-              )}
+              <span className="tree-mode-count gm-data">{borderYear}</span>
             </button>
           )}
           {appSettings.allowMapTiles && overlays.length > 0 && (

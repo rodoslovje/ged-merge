@@ -13,6 +13,7 @@ import {
   ohmTileUrl,
   ringArea,
   sourceCoords,
+  sourceZoom,
   tileTransform,
 } from "./ohmBorders";
 
@@ -127,6 +128,23 @@ describe("gridCoords / sourceCoords / tileTransform", () => {
     expect(sourceCoords({ z: 14, x: 8853, y: 5829 })).toEqual({ z: 12, x: 2213, y: 1457 });
   });
 
+  it("draws a wide view from a coarser tile, so a screenful stays affordable", () => {
+    // OHM's boundary tiles hold every period at once and barely shrink going
+    // out (465 kB at zoom 6 and 5, 1.4 MB at 4 and 3), so a wide view takes one
+    // coarse tile instead of a dozen expensive ones.
+    expect(sourceZoom(9)).toBe(9);
+    expect(sourceZoom(7)).toBe(7);
+    expect(sourceZoom(6)).toBe(5);
+    expect(sourceZoom(5)).toBe(3);
+    expect(sourceZoom(2)).toBe(0);
+    expect(sourceZoom(0)).toBe(0);
+    expect(sourceZoom(15)).toBe(12);
+    // One zoom-5 tile covers the four zoom-6 tiles that would each have been
+    // fetched at their own scale.
+    expect(sourceCoords({ z: 6, x: 34, y: 22 })).toEqual({ z: 5, x: 17, y: 11 });
+    expect(sourceCoords({ z: 5, x: 17, y: 11 })).toEqual({ z: 3, x: 4, y: 2 });
+  });
+
   it("scales a tile's own coordinates onto its canvas", () => {
     const coords = { z: 10, x: 553, y: 364 };
     const t = tileTransform(coords, coords, 4096, 256);
@@ -150,39 +168,25 @@ describe("gridCoords / sourceCoords / tileTransform", () => {
 });
 
 describe("ringArea / labelAnchor", () => {
-  const square = [
-    { x: 0, y: 0 },
-    { x: 100, y: 0 },
-    { x: 100, y: 100 },
-    { x: 0, y: 100 },
-  ];
+  // Rings are x and y alternating, so that a wide view's tile — millions of
+  // points — can be held in memory at all.
+  const square = new Int16Array([0, 0, 100, 0, 100, 100, 0, 100]);
+  const reversed = new Int16Array([0, 100, 100, 100, 100, 0, 0, 0]);
 
   it("measures a ring however it winds", () => {
     expect(Math.abs(ringArea(square))).toBe(10000);
-    expect(Math.abs(ringArea([...square].reverse()))).toBe(10000);
+    expect(Math.abs(ringArea(reversed))).toBe(10000);
   });
 
   it("puts the name in the middle of a territory's largest part", () => {
-    const small = square.map((p) => ({ x: p.x / 10 + 500, y: p.y / 10 + 500 }));
+    const small = new Int16Array([500, 500, 510, 500, 510, 510, 500, 510]);
     const anchor = labelAnchor({ id: 1, level: 4, name: "Krain", rings: [small, square] });
     expect(anchor).toEqual({ x: 50, y: 50, area: 10000 });
   });
 
   it("has nowhere to write a name on a degenerate ring", () => {
     expect(labelAnchor({ id: 1, level: 4, name: "x", rings: [] })).toBeUndefined();
-    expect(
-      labelAnchor({
-        id: 1,
-        level: 4,
-        name: "x",
-        rings: [
-          [
-            { x: 5, y: 5 },
-            { x: 5, y: 5 },
-          ],
-        ],
-      }),
-    ).toBeUndefined();
+    expect(labelAnchor({ id: 1, level: 4, name: "x", rings: [new Int16Array([5, 5, 5, 5])] })).toBeUndefined();
   });
 });
 

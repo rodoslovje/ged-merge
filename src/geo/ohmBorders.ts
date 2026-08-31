@@ -46,15 +46,31 @@ export const OHM_MAX_ZOOM = 12;
  *  generalized past what that screen resolves. */
 export const OHM_TILE_PX = 512;
 
-/** The shallowest map zoom the borders are drawn at, and why there is a floor
- *  at all: OHM's boundary tiles carry every era at once, so they grow sharply
- *  as they zoom out. Measured against the live service (gzipped, one tile):
- *  45 kB at zoom 10, 68 at 9, 105 at 8, 180 at 7 — but 465 at 6 and 5, and
- *  1.4 MB at 4 and 3. Below this floor a screenful runs to several megabytes,
- *  for a view where a district is a smudge, so the layer stops and the chip
- *  says why. Zoom 8 still holds a region several times wider than the parishes
- *  a file is usually read at. */
-export const OHM_MIN_MAP_ZOOM = 8;
+/** Which zoom's tiles a view is drawn from — the one thing that decides what
+ *  the layer costs.
+ *
+ *  OHM's boundary tiles carry every period at once, so they do not thin out
+ *  going up the pyramid the way an ordinary tileset does. Measured against the
+ *  live service, gzipped, one tile: 41 kB at zoom 12, 45 at 10, 68 at 9, 105
+ *  at 8, 180 at 7, then 465 at 6 and at 5, 1.4 MB at 4 and 3, 1.2 MB at 1 and
+ *  1.7 MB for the single tile of zoom 0. Fetching a wide view at its own zoom
+ *  would mean a dozen of the expensive ones — several megabytes for a screen
+ *  where a district is a smudge.
+ *
+ *  So wide views are drawn from a coarser tile instead, blown back up: the
+ *  geometry is vector, so that is redrawn sharp rather than magnified (see
+ *  {@link tileTransform}), and the tile is generalized to about what such a
+ *  view resolves anyway. The steps below keep a screenful at roughly one to
+ *  two megabytes at every zoom — a whole-continent view then costs one tile,
+ *  not twelve, and the world is the single zoom-0 tile.
+ *
+ *  Past zoom 12 the same tiles are reused: a parish sits well inside its
+ *  district, and the borders around it gain no detail from a deeper fetch. */
+export function sourceZoom(gridZoom: number): number {
+  if (gridZoom >= 7) return Math.min(gridZoom, OHM_MAX_ZOOM);
+  if (gridZoom === 6) return 5;
+  return Math.max(0, gridZoom - 2);
+}
 
 const LAYER = "boundaries";
 
@@ -87,6 +103,22 @@ export interface TilePoint {
   y: number;
 }
 
+/** One ring, as x and y alternating in tile-local units.
+ *
+ *  Flat and 16-bit on purpose. A tile is kept decoded so that changing the year
+ *  is a repaint rather than a refetch, and the wide-view tiles are enormous —
+ *  the single tile the whole world is drawn from holds 2.3 million points,
+ *  which as a point object each would be a hundred megabytes to hold on to.
+ *  Interleaved in an `Int16Array` the same ring costs 9 MB, and tile
+ *  coordinates — a few hundred either side of an extent of 4096 — sit well
+ *  inside 16 bits. */
+export type Ring = Int16Array;
+
+/** Walk a ring's points. */
+export function ringLength(ring: Ring): number {
+  return ring.length >> 1;
+}
+
 /** Tile coordinates, Leaflet's `L.Coords` reduced to plain data. */
 export interface TileCoords {
   z: number;
@@ -107,7 +139,7 @@ export interface BorderArea {
   /** The dates as OHM writes them, for a reader ("1849-12-08"–"1918-12-01"). */
   startDate?: string;
   endDate?: string;
-  rings: TilePoint[][];
+  rings: Ring[];
 }
 
 /** One decoded tile, still holding every era it carries — the year is applied
@@ -150,7 +182,14 @@ export function decodeBorderTile(buf: ArrayBuffer, lang?: string): DecodedTile {
       end: num(f.properties.end_decdate),
       startDate: str(f.properties.start_date),
       endDate: str(f.properties.end_date),
-      rings: f.loadGeometry().map((ring) => ring.map((p) => ({ x: p.x, y: p.y }))),
+      rings: f.loadGeometry().map((ring) => {
+        const flat = new Int16Array(ring.length * 2);
+        for (let p = 0; p < ring.length; p++) {
+          flat[p * 2] = ring[p].x;
+          flat[p * 2 + 1] = ring[p].y;
+        }
+        return flat;
+      }),
     });
   }
   return { extent: layer?.extent ?? 4096, areas };
@@ -180,12 +219,14 @@ export function gridCoords(coords: TileCoords): TileCoords {
   return { z: coords.z - 1, x: coords.x, y: coords.y };
 }
 
-/** Which tile actually holds the data for `coords`: itself, or — past
- *  {@link OHM_MAX_ZOOM} — the ancestor tile at that zoom which covers it. */
-export function sourceCoords(coords: TileCoords, maxZoom = OHM_MAX_ZOOM): TileCoords {
-  if (coords.z <= maxZoom) return coords;
-  const k = 2 ** (coords.z - maxZoom);
-  return { z: maxZoom, x: Math.floor(coords.x / k), y: Math.floor(coords.y / k) };
+/** Which tile actually holds the data for `coords`: itself where the zoom is
+ *  fetched at its own scale, otherwise the ancestor tile {@link sourceZoom}
+ *  sends it to. */
+export function sourceCoords(coords: TileCoords): TileCoords {
+  const z = sourceZoom(coords.z);
+  if (z >= coords.z) return coords;
+  const k = 2 ** (coords.z - z);
+  return { z, x: Math.floor(coords.x / k), y: Math.floor(coords.y / k) };
 }
 
 /** How a source tile's local coordinates land on the canvas of the tile being
@@ -212,10 +253,11 @@ export function tileTransform(
 /** The signed area of a ring, in tile units — the sign says which way it winds
  *  (an outer ring one way, the hole in it the other), the size says which part
  *  of a scattered territory is the one worth writing the name on. */
-export function ringArea(ring: readonly TilePoint[]): number {
+export function ringArea(ring: Ring): number {
+  const n = ringLength(ring);
   let doubled = 0;
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    doubled += ring[j].x * ring[i].y - ring[i].x * ring[j].y;
+  for (let i = 0, j = n - 1; i < n; j = i++) {
+    doubled += ring[j * 2] * ring[i * 2 + 1] - ring[i * 2] * ring[j * 2 + 1];
   }
   return doubled / 2;
 }
@@ -225,7 +267,7 @@ export function ringArea(ring: readonly TilePoint[]): number {
  *  which tile writes the name of a territory that spans several. Undefined for
  *  a territory whose parts in this tile are all degenerate. */
 export function labelAnchor(area: BorderArea): (TilePoint & { area: number }) | undefined {
-  let best: readonly TilePoint[] | undefined;
+  let best: Ring | undefined;
   let bestArea = 0;
   for (const ring of area.rings) {
     const size = Math.abs(ringArea(ring));
@@ -237,14 +279,15 @@ export function labelAnchor(area: BorderArea): (TilePoint & { area: number }) | 
   if (!best || !bestArea) return undefined;
   // Area-weighted centroid — the polygon's balance point, which for the compact
   // shapes an administrative unit has sits inside it.
+  const n = ringLength(best);
   let doubled = 0;
   let cx = 0;
   let cy = 0;
-  for (let i = 0, j = best.length - 1; i < best.length; j = i++) {
-    const cross = best[j].x * best[i].y - best[i].x * best[j].y;
+  for (let i = 0, j = n - 1; i < n; j = i++) {
+    const cross = best[j * 2] * best[i * 2 + 1] - best[i * 2] * best[j * 2 + 1];
     doubled += cross;
-    cx += (best[j].x + best[i].x) * cross;
-    cy += (best[j].y + best[i].y) * cross;
+    cx += (best[j * 2] + best[i * 2]) * cross;
+    cy += (best[j * 2 + 1] + best[i * 2 + 1]) * cross;
   }
   if (!doubled) return undefined;
   return { x: cx / (3 * doubled), y: cy / (3 * doubled), area: bestArea };

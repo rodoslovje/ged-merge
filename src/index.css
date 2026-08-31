@@ -7168,13 +7168,6 @@ kbd {
 .map-borders-icon-split {
   stroke-dasharray: 2 1.6;
 }
-/* The badge that stands in for the year when the map is zoomed out past what
-   OpenHistoricalMap is fetched at: words, not a number, so it isn't read as
-   one. */
-.map-borders-far {
-  font-style: italic;
-  white-space: nowrap;
-}
 .map-kind-chip:not(.active) .map-borders-icon {
   opacity: 0.75;
 }
