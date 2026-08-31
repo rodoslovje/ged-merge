@@ -3226,11 +3226,20 @@ button:focus-visible {
    name, a lifespan and a role — several of them, or one being edited with its
    role dropdown, are far wider than the slots beside the date, and squeezed in
    there they overflowed across the note column. */
+/* Associates ride on the event's own line, beside its place and citations —
+   they are part of what the event says. */
 .edit-event-extra--assoc {
-  flex: 1 1 100%;
+  flex: 0 1 auto;
   gap: 4px;
   flex-wrap: wrap;
   min-width: 0;
+}
+/* Except while one is being added or its role changed: the picker and the role
+   form are far wider than a chip, and squeezed onto the line they overflowed
+   across the note. Those take a line of their own and give it back on save. */
+.edit-event-extra--assoc:has(.edit-assoc-roleform),
+.edit-event-extra--assoc:has(.person-card-wrap) {
+  flex: 1 1 100%;
 }
 /* The person picker is sized for the relatives column, whose cards set their
    own scale; dropped into an event row it inherited the page's 1rem and towered

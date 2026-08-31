@@ -2,7 +2,7 @@ import type { Dataset, Individual } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
 import { INDI_EVENT_TAGS, eventDisplayLabel, isChangeStampEvent } from "../../gedcom/eventTags";
 import { firstChild } from "../../gedcom/node";
-import { parseDate } from "../../gedcom/date";
+import { dateToSortKey, parseDate } from "../../gedcom/date";
 import type { AssocRef } from "../../gedcom/assoc";
 import { EventAssociates, RecordLink, roleLabel } from "./EventAssociates";
 
@@ -44,9 +44,15 @@ export function AssociatesPanel({
     .filter((c) => INDI_EVENT_TAGS.has(c.tag) && !isChangeStampEvent(c))
     .map((node) => {
       const label = eventDisplayLabel(node.tag, t);
-      const year = parseDate(firstChild(node, "DATE")?.value ?? "")?.year;
-      return { node, label: year ? `${label} ${year}` : label };
-    });
+      const date = parseDate(firstChild(node, "DATE")?.value ?? "");
+      // Undated last: `dateToSortKey`'s unknown sentinel would sort it first
+      // (see `AssocRef.sortKey`).
+      const sortKey = date?.year == null ? Number.POSITIVE_INFINITY : dateToSortKey(date);
+      return { node, label: date?.year ? `${label} ${date.year}` : label, sortKey };
+    })
+    // Chronological, like the event list itself — the menu read in file order,
+    // which is not the order a life happened in. Undated events sort last.
+    .sort((a, b) => a.sortKey - b.sortKey);
 
   return (
     <div className="edit-assoc">
@@ -78,7 +84,10 @@ export function AssociatesPanel({
           <div className="edit-assoc-head">{t("assoc.namedByHeading")}</div>
           <ul className="edit-assoc-list">
             {namedBy.map((ref, i) => {
-              const label = ref.eventTag ? eventDisplayLabel(ref.eventTag, t) : t("assoc.onTheRecord");
+              // "Marriage 1899" — the year says which one, the couple below says
+              // whose; the event's name alone said neither.
+              const name = ref.eventTag ? eventDisplayLabel(ref.eventTag, t) : t("assoc.onTheRecord");
+              const label = ref.year ? `${name} ${ref.year}` : name;
               return (
                 <li key={i} className="edit-assoc-row">
                   <span className="edit-assoc-context">{label}</span>

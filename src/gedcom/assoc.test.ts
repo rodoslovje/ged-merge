@@ -154,6 +154,36 @@ describe("buildAssociationIndex", () => {
     expect(index70.get("@I2@")).toMatchObject([{ fromId: "@I1@", eventTag: "BAPM" }]);
   });
 
+  it("lists the events naming a person in the order they happened", () => {
+    // Stored youngest-first, as a file may well hold them; an undated one last
+    // whatever its position.
+    const text = `0 HEAD
+1 GEDC
+2 VERS 7.0
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BAPM
+2 DATE 1899
+2 ASSO @I9@
+3 ROLE GODP
+0 @I2@ INDI
+1 BAPM
+2 ASSO @I9@
+3 ROLE GODP
+0 @I3@ INDI
+1 BAPM
+2 DATE 1874
+2 ASSO @I9@
+3 ROLE GODP
+0 @I9@ INDI
+1 NAME Jozefa /Pezdirc/
+0 TRLR
+`;
+    const refs = buildAssociationIndex(buildDataset(parseGedcom(toBuffer(text)))).get("@I9@")!;
+    expect(refs.map((r) => r.fromId)).toEqual(["@I3@", "@I1@", "@I2@"]);
+    expect(refs.map((r) => r.year)).toEqual([1874, 1899, undefined]);
+  });
+
   it("leaves a name-only association out — it points at no record", () => {
     const index = buildAssociationIndex(buildDataset(parseGedcom(toBuffer(V70))));
     expect(index.has("@VOID@")).toBe(false);

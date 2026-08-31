@@ -22,7 +22,7 @@
  */
 import type { Association, AssocRole, Dataset, GedNode } from "./types";
 import { childrenByTag, firstChild } from "./node";
-import { parseDate } from "./date";
+import { dateToSortKey, parseDate } from "./date";
 
 /** GEDCOM 7's `ASSO`.`ROLE` enumeration, in the spec's order. */
 export const ASSOC_ROLES = [
@@ -196,6 +196,15 @@ export interface AssocRef {
   fromKind: "individual" | "family";
   /** The event the association hangs under, when it is not record-level. */
   eventTag?: string;
+  /** That event's date sort key, so a list of them reads chronologically — a
+   *  person stood godparent at one baptism after another, and file order is not
+   *  the order they happened in. An undated event is `Infinity`, to sort last:
+   *  `dateToSortKey`'s own unknown-date sentinel (9,999,999) is *smaller* than
+   *  any real year's key (1874 → 18,740,000), which would put the undated
+   *  first. */
+  sortKey: number;
+  /** That event's year, so the list can say *which* baptism or wedding. */
+  year?: number;
   assoc: Association;
 }
 
@@ -221,17 +230,28 @@ export function buildAssociationIndex(dataset: Dataset): AssociationIndex {
   };
 
   const walk = (id: string, kind: AssocRef["fromKind"], raw: GedNode) => {
-    for (const assoc of associationsIn(raw)) add({ fromId: id, fromKind: kind, assoc });
+    // A record-level association belongs to no event and so has no date of its
+    // own: it sorts with the undated, at the end.
+    for (const assoc of associationsIn(raw)) {
+      add({ fromId: id, fromKind: kind, sortKey: Number.POSITIVE_INFINITY, assoc });
+    }
     for (const child of raw.children) {
       if (child.tag === "ASSO" || child.tag === "_ASSO") continue;
-      for (const assoc of associationsIn(child)) {
-        add({ fromId: id, fromKind: kind, eventTag: child.tag, assoc });
+      const assocs = associationsIn(child);
+      if (!assocs.length) continue;
+      const date = parseDate(firstChild(child, "DATE")?.value ?? "");
+      const sortKey = date?.year == null ? Number.POSITIVE_INFINITY : dateToSortKey(date);
+      for (const assoc of assocs) {
+        add({ fromId: id, fromKind: kind, eventTag: child.tag, sortKey, year: date?.year, assoc });
       }
     }
   };
 
   for (const indi of dataset.individuals.values()) walk(indi.id, "individual", indi.raw);
   for (const fam of dataset.families.values()) walk(fam.id, "family", fam.raw);
+  // Each associate's list reads chronologically: one baptism after another, as
+  // they happened, rather than in the order the file happens to store people.
+  for (const refs of index.values()) refs.sort((a, b) => a.sortKey - b.sortKey);
   return index;
 }
 
