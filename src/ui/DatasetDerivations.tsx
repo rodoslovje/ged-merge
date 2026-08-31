@@ -4,6 +4,7 @@ import type { Dataset } from "../gedcom/types";
 import { buildPlaceSuggestions, type PlaceSuggestions } from "./edit/placeSuggestions";
 import { scanAddresses, type AddressRow } from "../tools/addresses";
 import { createKinshipResolver, type KinshipResolver } from "../match/kinship";
+import { buildAssociationIndex, type AssociationIndex } from "../gedcom/assoc";
 import {
   detectHomeCountry,
   detectHomeCountryFromRegister,
@@ -50,6 +51,10 @@ export interface DatasetDerivations {
    *  the places that name none. Read through {@link useHomeCountry}, which
    *  applies the reader's setting on top. */
   homeCountry: () => HomeCountryDetection;
+  /** Who names whom as a godparent, witness or officiant. Associations are
+   *  stored one-sidedly, so this is the only way to the other direction — and
+   *  a per-person scan of the whole file is not one. */
+  associationIndex: () => AssociationIndex;
 }
 
 const Ctx = createContext<DatasetDerivations | null>(null);
@@ -89,6 +94,7 @@ export function DatasetDerivationsProvider({
       fileCoords: lazy(() => collectFileCoords(dataset)),
       placeValues,
       homeCountry: lazy(() => detectHomeCountry(placeValues())),
+      associationIndex: lazy(() => buildAssociationIndex(dataset)),
       kinship: (startId) => {
         if (!startId) return undefined;
         const hit = kinshipCache.current;

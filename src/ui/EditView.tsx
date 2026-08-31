@@ -97,6 +97,7 @@ import { KEY, KEY_STATUS, familyStepFor, isEditableTarget, isModalOpen } from ".
 import { familyStepTarget } from "../gedcom/familyNav";
 import type { Commit, FamilyCommit, MediaOwner, SourceDialogTarget, RemoveSourceOwner, CommitRemoveSource, OpenEditSource, OpenMediaLink } from "./edit/types";
 import { FamilySection, NewUnionSection, ParentFamilyGroup } from "./edit/FamilySections";
+import { AssociatesPanel } from "./edit/AssociatesPanel";
 import { NameEditor } from "./edit/NameEditor";
 import { SexToggle } from "./edit/SexToggle";
 import { PrivateToggle } from "./edit/PrivateToggle";
@@ -2137,6 +2138,16 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
                 ),
               )
             }
+          />
+          {/* The association index is deferred like the suggestion bundle: it
+              is a walk over every record, and no commit should pay for it in
+              the same urgent render as the click that caused it. */}
+          <AssociatesPanel
+            person={person}
+            dataset={dataset}
+            namedBy={deferredDerivations?.associationIndex().get(person.id)}
+            t={t}
+            navigate={navigate}
           />
           {personMap && (
             <div className="edit-person-map">

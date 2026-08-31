@@ -3,6 +3,7 @@ import { birthSortKey } from "../lifespan";
 import type { Dataset, Family, GedNode, Individual, Sex } from "../types";
 import { FAM_CHILD_ORDER, getOrCreateChild, INDI_CHILD_ORDER, insertOrdered, insertRecord, nextXref, removeChild } from "./shared";
 import { rebuildFamily, rebuildIndividual } from "./cache";
+import { repointAssociations } from "../assoc";
 
 /** Add a `FAMC`/`FAMS` pointer from an individual to a family. */
 function addFamilyLink(indi: Individual, tag: "FAMC" | "FAMS", famId: string): void {
@@ -320,9 +321,21 @@ export function detachChildFromFamily(dataset: Dataset, fam: Family, childId: st
 /** Fully remove an individual from the dataset, cleaning up all family pointers.
  * Families left with fewer than two members once this person is gone are pruned
  * too (see `pruneDegenerateFamily`), so deleting people out of a family doesn't
- * leave a lone-member or empty `FAM` record behind. */
+ * leave a lone-member or empty `FAM` record behind.
+ *
+ * Associations naming this person go with them: a godparent the file no longer
+ * holds cannot stay pointed at from the baptism, or every delete would leave
+ * the health check a dangling reference to report. */
 export function removeIndividual(dataset: Dataset, indi: Individual): void {
   const affectedFamilyIds = new Set([...indi.spouseOf, ...indi.childOf]);
+  for (const id of repointAssociations(dataset.records, indi.id)) {
+    const named = dataset.individuals.get(id);
+    if (named) rebuildIndividual(dataset, named);
+    else {
+      const fam = dataset.families.get(id);
+      if (fam) rebuildFamily(dataset, fam);
+    }
+  }
   for (const famId of indi.spouseOf) {
     const fam = dataset.families.get(famId);
     if (!fam) continue;

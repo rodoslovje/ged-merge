@@ -9050,6 +9050,43 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 .minimap-tooltip .minimap-tip-addr { color: var(--muted); }
 /* The person's places map below the Edit-view event list. */
 .edit-person-map { margin: 12px 0 4px; }
+/* Godparents, witnesses and officiants (ASSO) — the people the record names
+   who are not its relatives, and the records that name this person back. */
+.edit-assoc { margin: 12px 0 4px; }
+.edit-assoc-head {
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.edit-assoc-head + .edit-assoc-list { margin-bottom: 10px; }
+.edit-assoc-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.edit-assoc-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  font-size: 0.85rem;
+}
+.edit-assoc-context {
+  color: var(--muted);
+  min-width: 9ch;
+}
+.edit-assoc-role {
+  color: var(--accent);
+  font-size: 0.78rem;
+}
+/* A name the file records as nobody: no record to open, so no link affordance. */
+.edit-assoc-name-only {
+  color: var(--text);
+  border-bottom: 1px dotted var(--muted);
+}
 /* The record's own CHAN/_UPD stamp, shown as a quiet footer of the person card. */
 .edit-person-changed {
   margin-top: 8px;

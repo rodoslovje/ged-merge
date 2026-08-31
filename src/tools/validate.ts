@@ -1,4 +1,4 @@
-import type { Dataset, Family, GedNode, Individual } from "../gedcom/types";
+import type { Association, Dataset, Family, GedEvent, GedNode, Individual } from "../gedcom/types";
 import { DEATH_TAGS, birthDateOf, birthYear, deathYear, isDeceased } from "../gedcom/lifespan";
 import { birthParentFamilies, isBirthChildLink, isSameSexCouple } from "../gedcom/couple";
 
@@ -66,7 +66,8 @@ export type IssueCategory =
   | "bornAfterParentDeath"
   | "parallelFamilies"
   | "spouseAgeGap"
-  | "futureDate";
+  | "futureDate"
+  | "association";
 
 export type IssueSeverity = "error" | "warning";
 
@@ -123,6 +124,7 @@ const EMPTY_COUNTS: Record<IssueCategory, number> = {
   parallelFamilies: 0,
   spouseAgeGap: 0,
   futureDate: 0,
+  association: 0,
 };
 
 /** The sex an issue message agrees with, or undefined for SEX U / unrecorded. */
@@ -137,6 +139,25 @@ function subjectOf(indi: Individual): string {
   const dy = deathYear(indi);
   const span = by || dy ? ` (${by ?? "?"}–${dy ?? "?"})` : "";
   return `${name || indi.id}${span}`;
+}
+
+/** Every association a person carries, paired with the event it hangs under
+ *  (undefined for the record-level ones a 5.5.1 file writes). */
+function associationsOfIndividual(indi: Individual): [GedEvent | undefined, Association][] {
+  const out: [GedEvent | undefined, Association][] = [];
+  for (const assoc of indi.associations ?? []) out.push([undefined, assoc]);
+  for (const event of indi.events) {
+    for (const assoc of event.associations ?? []) out.push([event, assoc]);
+  }
+  return out;
+}
+
+/** How to name the associate in a finding: the person's own name when the file
+ *  records them, else the name the association itself carries. */
+function associateLabel(assoc: Association, ds: Dataset): string {
+  const target = ds.individuals.get(assoc.targetId);
+  if (target) return subjectOf(target);
+  return assoc.name || assoc.targetId;
 }
 
 /** Pointer values listed on more than one `tag` child of `node` — a redundant
@@ -494,6 +515,48 @@ export function validateDataset(ds: Dataset, currentYear: number = new Date().ge
             add("eventOrder", "warning", "tools.validate.issue.eventAfterDeath", { tag: e.tag, year, death: dy });
           }
         }
+      }
+    }
+
+    // Associations: the godparents, witnesses and officiants a record names.
+    // A role the file never states leaves the association unreadable; a person
+    // named as their own witness is a slip of the pointer; and an associate who
+    // was not alive on the day is the check parish research actually wants —
+    // "this Anton Pezdirc died in 1943, so he is not the 1958 godfather".
+    // Deliberately not flagged: an association restating a family link the tree
+    // already holds. Some files record those on purpose, and phase 1 is not the
+    // place to start an argument about them.
+    for (const [event, assoc] of associationsOfIndividual(indi)) {
+      const where = event ? { tag: event.tag } : undefined;
+      if (assoc.targetId === indi.id) {
+        add("association", "warning", "tools.validate.issue.assocSelf", where);
+        continue;
+      }
+      if (assoc.role === "OTHER" && !assoc.roleText) {
+        add("association", "warning", "tools.validate.issue.assocNoRole", {
+          who: associateLabel(assoc, ds),
+          ...where,
+        });
+      }
+      const year = event?.date?.year;
+      const associate = ds.individuals.get(assoc.targetId);
+      if (year === undefined || !associate) continue;
+      const aby = birthYear(associate);
+      const ady = deathYear(associate);
+      if (aby !== undefined && aby > year) {
+        add("association", "warning", "tools.validate.issue.assocNotBornYet", {
+          who: associateLabel(assoc, ds),
+          tag: event!.tag,
+          year,
+          birth: aby,
+        });
+      } else if (ady !== undefined && ady < year) {
+        add("association", "warning", "tools.validate.issue.assocAlreadyDead", {
+          who: associateLabel(assoc, ds),
+          tag: event!.tag,
+          year,
+          death: ady,
+        });
       }
     }
 

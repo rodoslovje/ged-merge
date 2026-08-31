@@ -262,6 +262,25 @@ function scrubFamilyPointers(rec: GedNode, removed: Set<string>): GedNode {
   return { ...rec, children };
 }
 
+/**
+ * Drop associations naming someone the pass removed — at record level and on
+ * the events that carry them. A shared file whose baptisms still point at the
+ * living godparents they were scrubbed of would both dangle and leak the very
+ * link the removal was meant to break.
+ */
+function scrubRemovedAssociations(rec: GedNode, removed: Set<string>): GedNode {
+  const namesRemoved = (c: GedNode) =>
+    (c.tag === "ASSO" || c.tag === "_ASSO") && !!c.value && removed.has(c.value.trim());
+  return {
+    ...rec,
+    children: rec.children
+      .filter((c) => !namesRemoved(c))
+      .map((c) =>
+        c.children.some(namesRemoved) ? { ...c, children: c.children.filter((g) => !namesRemoved(g)) } : c,
+      ),
+  };
+}
+
 /** A family with no spouses and no children is a husk — drop it. */
 function familyIsEmpty(rec: GedNode): boolean {
   return !rec.children.some((c) => FAM_POINTERS.has(c.tag));
@@ -375,15 +394,17 @@ export function privatizeDataset(
       }
       const indi = ds.individuals.get(rec.xref);
       const isFlagged = indi && flagged.has(rec.xref);
+      let node: GedNode;
       if (isFlagged && stripData) {
-        const node = sanitizeIndi(rec, indi, options);
-        interim.push(addResn ? stampResn(node, ds.version) : node);
+        const sanitized = sanitizeIndi(rec, indi, options);
+        node = addResn ? stampResn(sanitized, ds.version) : sanitized;
         report.sanitized++;
       } else if (isFlagged && addResn) {
-        interim.push(stampResn(cloneNode(rec), ds.version)); // markOnly: keep data, label it
+        node = stampResn(cloneNode(rec), ds.version); // markOnly: keep data, label it
       } else {
-        interim.push(cloneNode(rec));
+        node = cloneNode(rec);
       }
+      interim.push(removeSet.size ? scrubRemovedAssociations(node, removeSet) : node);
       continue;
     }
 
@@ -391,7 +412,7 @@ export function privatizeDataset(
       const fam = ds.families.get(rec.xref);
       const spouseFlagged = !!fam && ((!!fam.husband && flagged.has(fam.husband)) || (!!fam.wife && flagged.has(fam.wife)));
       let node = cloneNode(rec);
-      if (removeSet.size) node = scrubFamilyPointers(node, removeSet);
+      if (removeSet.size) node = scrubRemovedAssociations(scrubFamilyPointers(node, removeSet), removeSet);
       if (familyIsEmpty(node)) {
         report.familiesRemoved++;
         continue;
