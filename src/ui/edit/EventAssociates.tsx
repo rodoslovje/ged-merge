@@ -256,7 +256,7 @@ export function EventAssociates({
                   </button>
                   {!!moveTargets?.length && (
                     <DropdownMenu
-                      className="edit-assoc-glyph"
+                      className="edit-assoc-glyph edit-assoc-move"
                       title={t("assoc.moveTip")}
                       ariaLabel={t("assoc.move")}
                       groups={[{ label: t("assoc.move"), items: moveTargets.map((m, mi) => ({ value: String(mi), label: m.label })) }]}

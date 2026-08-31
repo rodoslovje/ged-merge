@@ -1,6 +1,7 @@
 import { EDITABLE_FAM_EVENT_TAGS, INDI_EVENT_TAG_ORDER } from "./eventTags";
 import type { Association, Dataset, GedNode, Sex } from "./types";
 import { associationsIn, isVoidAssociation } from "./assoc";
+import { parseDate } from "./date";
 import type { ChangeReport, FieldChange, FamilySpouseInfo } from "../merge/merge";
 import { displayName, nameTypeLabel } from "../match/relatives";
 import { childrenByTag, firstChild, nodesEqual } from "./node";
@@ -622,7 +623,7 @@ function associationSummaries(
   sexFor: (xref: string) => Sex | undefined,
 ): string[] {
   const out: string[] = [];
-  const describe = (assoc: Association, eventTag?: string) => {
+  const describe = (assoc: Association, event?: GedNode) => {
     const void_ = isVoidAssociation(assoc);
     const who = void_
       ? assoc.name || assoc.targetId
@@ -633,13 +634,20 @@ function associationSummaries(
     const role =
       assoc.roleText?.trim() ||
       t(`assoc.role.${assoc.role}`, { context: sex === "M" || sex === "F" ? sex : undefined });
-    const where = eventTag ? `${t(`event.${eventTag}`, { defaultValue: eventTag })} — ` : "";
+    // Named with its year, as the event row is: a person may have two
+    // Educations, and "Education" alone does not say which one gained a name.
+    let where = "";
+    if (event) {
+      const name = t(`event.${event.tag}`, { defaultValue: event.tag });
+      const year = parseDate(firstChild(event, "DATE")?.value ?? "")?.year;
+      where = `${year ? `${name} ${year}` : name} — `;
+    }
     out.push(`${where}${who} (${role})`);
   };
   for (const assoc of associationsIn(node)) describe(assoc);
   for (const child of node.children) {
     if (child.tag === "ASSO" || child.tag === "_ASSO") continue;
-    for (const assoc of associationsIn(child)) describe(assoc, child.tag);
+    for (const assoc of associationsIn(child)) describe(assoc, child);
   }
   return out;
 }

@@ -9154,12 +9154,21 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
   color: var(--muted);
   cursor: pointer;
   font-size: 0.8rem;
+  /* The reveal needs `overflow: hidden`, which makes a button's baseline its
+     bottom edge rather than its text — so they are centred against the row
+     instead, and each glyph's own metrics stop deciding where it sits. */
+  line-height: 1;
+  align-self: center;
   max-width: 0;
   padding: 0;
   opacity: 0;
   overflow: hidden;
   transition: max-width 0.12s, opacity 0.12s;
 }
+/* ↧ is drawn lighter and smaller than ✎ and ✕ at the same size — the arrow's
+   bar sits low in its em box — so it gets the size that makes the three read
+   as one set. */
+.edit-assoc-move { font-size: 1rem; }
 .edit-assoc-glyph:hover { color: var(--accent); }
 .edit-assoc-remove:hover { color: var(--danger); }
 .edit-event:hover .edit-assoc-glyph,

@@ -48,8 +48,8 @@ describe("enrichEditReport — associations", () => {
 
     const assoc = report.changes.filter((c) => c.field === "assoc.heading");
     expect(assoc.map((c) => c.to)).toEqual([
-      "event.BAPM — Jozefa Pezdirc (assoc.role.GODP_F)",
-      "event.BAPM — Pavel Jekovec (assoc.role.GODP_M)",
+      "event.BAPM 1974 — Jozefa Pezdirc (assoc.role.GODP_F)",
+      "event.BAPM 1974 — Pavel Jekovec (assoc.role.GODP_M)",
     ]);
     // …and the raw-line fallback keeps quiet, having nothing left to add.
     expect(report.changes.some((c) => c.field === "field.otherLines")).toBe(false);
