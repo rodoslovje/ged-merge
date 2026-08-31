@@ -2,8 +2,10 @@ import { FAM_EVENT_TAG_ORDER, INDI_EVENT_TAG_ORDER } from "../eventTags";
 import { firstChild, removeChildren } from "../node";
 import type { GedNode } from "../types";
 
-/** Trailing links/media/note/sources block shared by every child-order list. */
-const ATTACHMENT_CHILD_ORDER = ["WWW", "URL", "_URL", "_WEBTAG", "OBJE", "NOTE", "SOUR"];
+/** Trailing links/media/note/sources block shared by every child-order list.
+ *  `ASSO` leads it: the people a record or event names belong with its own
+ *  content, ahead of the links and citations that document it. */
+const ATTACHMENT_CHILD_ORDER = ["ASSO", "WWW", "URL", "_URL", "_WEBTAG", "OBJE", "NOTE", "SOUR"];
 
 /** Canonical sub-tag order within an event (BIRT/DEAT/RESI/…) node. */
 export const EVENT_CHILD_ORDER = [

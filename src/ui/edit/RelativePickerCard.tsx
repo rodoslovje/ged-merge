@@ -22,6 +22,7 @@ export function RelativePickerCard({
   excludeId,
   onPickExisting,
   onAddNew,
+  newLabel,
   onCancel,
   t,
 }: {
@@ -29,8 +30,12 @@ export function RelativePickerCard({
   individuals: Map<string, Individual>;
   excludeId: string;
   onPickExisting: (id: string) => void;
-  /** Create a new person; the typed query rides along to seed their name. */
-  onAddNew: (typedName: string) => void;
+  /** Create a new person; the typed query rides along to seed their name.
+   *  Left out where the caller has nothing to create — a 5.5.1 file cannot
+   *  record an associate it holds no person for, so the row is not offered. */
+  onAddNew?: (typedName: string) => void;
+  /** Wording for that row, where "add a new person" is not what it does. */
+  newLabel?: string;
   onCancel: () => void;
   t: Translate;
 }) {
@@ -96,7 +101,10 @@ export function RelativePickerCard({
 
   useEffect(() => { setActiveIdx(0); }, [query]);
 
-  const totalItems = options.length + 1; // options + "Add new"
+  // The "add new" row leads the list where the caller offers one; without it
+  // the options start at 0, and every index below shifts with them.
+  const offset = onAddNew ? 1 : 0;
+  const totalItems = options.length + offset;
 
   function onKeyDown(e: React.KeyboardEvent) {
     if (e.key === "Escape") { onCancel(); return; }
@@ -104,8 +112,11 @@ export function RelativePickerCard({
     if (e.key === "ArrowUp") { e.preventDefault(); setActiveIdx((i) => Math.max(i - 1, 0)); }
     if (e.key === "Enter") {
       e.preventDefault();
-      if (activeIdx === 0) onAddNew(query.trim());
-      else onPickExisting(options[activeIdx - 1].id);
+      if (onAddNew && activeIdx === 0) onAddNew(query.trim());
+      else {
+        const picked = options[activeIdx - offset];
+        if (picked) onPickExisting(picked.id);
+      }
     }
   }
 
@@ -122,21 +133,23 @@ export function RelativePickerCard({
           onKeyDown={onKeyDown}
         />
         <ul className="relative-picker-list">
-          <li>
-            <button
-              className={`relative-picker-option relative-picker-new${activeIdx === 0 ? " highlighted" : ""}`}
-              onMouseEnter={() => setActiveIdx(0)}
-              onMouseDown={(e) => { e.preventDefault(); onAddNew(query.trim()); }}
-            >
-              + {t("edit.addNewPerson")}
-            </button>
-          </li>
+          {onAddNew && (
+            <li>
+              <button
+                className={`relative-picker-option relative-picker-new${activeIdx === 0 ? " highlighted" : ""}`}
+                onMouseEnter={() => setActiveIdx(0)}
+                onMouseDown={(e) => { e.preventDefault(); onAddNew(query.trim()); }}
+              >
+                + {newLabel ?? t("edit.addNewPerson")}
+              </button>
+            </li>
+          )}
           {options.map((o, i) => (
             <li key={o.id}>
               <button
-                className={`relative-picker-option${i + 1 === activeIdx ? " highlighted" : ""}`}
+                className={`relative-picker-option${i + offset === activeIdx ? " highlighted" : ""}`}
                 title={lifespanTooltipOf(o.indi, settings.showAge, t)}
-                onMouseEnter={() => setActiveIdx(i + 1)}
+                onMouseEnter={() => setActiveIdx(i + offset)}
                 onMouseDown={(e) => { e.preventDefault(); onPickExisting(o.id); }}
               >
                 <span className={`person-label ${sexClass(o.sex)}`}>

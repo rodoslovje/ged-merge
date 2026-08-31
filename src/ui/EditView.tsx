@@ -2148,6 +2148,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
             namedBy={deferredDerivations?.associationIndex().get(person.id)}
             t={t}
             navigate={navigate}
+            commit={commit}
           />
           {personMap && (
             <div className="edit-person-map">

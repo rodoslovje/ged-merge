@@ -9087,6 +9087,41 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
   color: var(--text);
   border-bottom: 1px dotted var(--muted);
 }
+.edit-assoc-action {
+  background: none;
+  border: 0;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0 2px;
+  font-size: 0.8rem;
+}
+.edit-assoc-action:hover { color: var(--accent); }
+.edit-assoc-remove:hover { color: var(--danger); }
+.edit-assoc-add {
+  background: none;
+  border: 0;
+  color: var(--accent);
+  cursor: pointer;
+  padding: 2px 0;
+  font-size: 0.8rem;
+}
+.edit-assoc-roleform,
+.edit-assoc-add-form {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+}
+.edit-assoc-add-form { margin-top: 4px; }
+.edit-assoc-select,
+.edit-assoc-input {
+  font-size: 0.8rem;
+  padding: 2px 4px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+}
 /* The record's own CHAN/_UPD stamp, shown as a quiet footer of the person card. */
 .edit-person-changed {
   margin-top: 8px;
