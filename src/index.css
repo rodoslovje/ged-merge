@@ -3222,9 +3222,22 @@ button:focus-visible {
 .edit-event:has(:focus-visible) .edit-event-extra-label { display: inline; }
 .edit-event-extra-field { min-width: 0; }
 .edit-event-extra--sources { gap: 4px; flex-wrap: wrap; }
-/* Godparents and witnesses wrap like the citations beside them — a baptism may
-   name several, and each is a name plus a role, not a glyph. */
-.edit-event-extra--assoc { gap: 4px; flex-wrap: wrap; }
+/* Godparents and witnesses take a line of their own under the event. Each is a
+   name, a lifespan and a role — several of them, or one being edited with its
+   role dropdown, are far wider than the slots beside the date, and squeezed in
+   there they overflowed across the note column. */
+.edit-event-extra--assoc {
+  flex: 1 1 100%;
+  gap: 4px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+/* At the row's own scale, not the person cards' — these are the same
+   components the relatives column uses, and they arrive carrying its size. */
+.edit-event-assoc .person-label,
+.edit-assoc-roleform .person-label {
+  font-size: 0.85rem;
+}
 /* The person picker is sized for the relatives column, whose cards set their
    own scale; dropped into an event row it inherited the page's 1rem and towered
    over the row it belongs to. Here it reads at the row's own size. */
@@ -3232,7 +3245,10 @@ button:focus-visible {
   width: 260px;
   min-width: 0;
 }
-.edit-event-extra--assoc .relative-picker-list { font-size: 0.85rem; }
+/* 0.88rem is what the picker reads at in the relatives column, where its
+   cards set the size — the same control must not be a different size here. */
+.edit-event-extra--assoc .person-card-wrap,
+.edit-event-extra--assoc .relative-picker-list { font-size: 0.88rem; }
 /* The note is content-sized like the other fields (it wraps its text within
  * that width); when long it pushes the whole body to a second row. */
 .edit-event-extra--note .edit-event-extra-field { min-width: 12ch; }
@@ -9141,7 +9157,10 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
   align-items: center;
   flex-wrap: wrap;
   gap: 4px 6px;
+  min-width: 0;
+  max-width: 100%;
 }
+.edit-assoc-select { max-width: 14rem; }
 .edit-assoc-select,
 .edit-assoc-input {
   font-size: 0.8rem;

@@ -58,6 +58,71 @@ test("edit mode: an event's + Add menu records a godparent on that event", async
   await expect(bapm.locator(".edit-event-assoc")).toContainText("Jozefa");
 });
 
+test("the association row keeps to itself and to the row's scale", async ({ page }) => {
+  const fixture = writeFixture();
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(fixture);
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.locator(".edit-person").waitFor();
+
+  const bapm = page.locator(".edit-event").filter({ hasText: "Baptism" }).first();
+  await bapm.locator(".edit-event-addfield").click();
+  await page.locator(".dd-menu [role=option]", { hasText: "Association" }).click();
+  await bapm.locator(".relative-picker-input").fill("Jozefa");
+  await bapm.getByRole("button", { name: /Jozefa/ }).first().click();
+
+  // The role form is on screen with the person it is about.
+  const form = bapm.locator(".edit-assoc-roleform");
+  await expect(form).toBeVisible();
+  await expect(form).toContainText("Jozefa");
+
+  // It stays inside the event row rather than running across the note beside it.
+  const overflow = await bapm.evaluate((row) => {
+    const slot = row.querySelector<HTMLElement>('[data-detail="assoc"]');
+    const note = row.querySelector<HTMLElement>('[data-detail="note"]');
+    if (!slot) return { missing: true, over: 0, notes: 0 };
+    const s = slot.getBoundingClientRect();
+    const r = row.getBoundingClientRect();
+    const n = note?.getBoundingClientRect();
+    return {
+      missing: false,
+      // How far the slot spills past its row.
+      over: Math.max(0, Math.round(s.right - r.right)),
+      // Horizontal overlap with the note slot, if the note shares its line.
+      notes: n && s.top < n.bottom && n.top < s.bottom ? Math.max(0, Math.round(Math.min(s.right, n.right) - Math.max(s.left, n.left))) : 0,
+    };
+  });
+  expect(overflow.missing).toBe(false);
+  expect(overflow.over).toBe(0);
+  expect(overflow.notes).toBe(0);
+});
+
+test("the person picker is the same size wherever it is opened", async ({ page }) => {
+  const fixture = writeFixture();
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(fixture);
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.locator(".edit-person").waitFor();
+
+  // The partner picker, which is the size to match.
+  await page.getByRole("button", { name: /Add Partner/i }).first().click();
+  const partnerOpt = page.locator(".relative-picker-option").first();
+  await expect(partnerOpt).toBeVisible();
+  const partnerSize = await partnerOpt.evaluate((el) => getComputedStyle(el).fontSize);
+  await page.keyboard.press("Escape");
+
+  const birth = page.locator(".edit-event").filter({ hasText: "Birth" }).first();
+  await birth.locator(".edit-event-addfield").click();
+  await page.locator(".dd-menu [role=option]", { hasText: "Association" }).click();
+  const assocOpt = birth.locator(".relative-picker-option").first();
+  await expect(assocOpt).toBeVisible();
+  const assocSize = await assocOpt.evaluate((el) => getComputedStyle(el).fontSize);
+
+  // It is the same control; opened from an event row it inherited the page's
+  // 1rem and towered over the row, so the two are pinned together here.
+  expect(assocSize).toBe(partnerSize);
+});
+
 test("the picker survives the mousedown that opened it", async ({ page }) => {
   // The "+ Add" menu selects on mousedown, and that same mousedown was still
   // travelling to the document when the picker registered its outside-click
