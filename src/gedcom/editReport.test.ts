@@ -26,6 +26,63 @@ function baseReport(id: string): ChangeReport {
   };
 }
 
+describe("enrichEditReport — associations", () => {
+  const PEOPLE =
+    "0 @I2@ INDI\n1 NAME Jozefa /Pezdirc/\n1 SEX F\n0 @I3@ INDI\n1 NAME Pavel /Jekovec/\n1 SEX M\n";
+
+  it("names the godparents a baptism gained, instead of counting its raw lines", () => {
+    const before = dataset(wrap(`0 @I1@ INDI\n1 NAME Janez /Renko/\n1 BAPM\n2 DATE 1974\n${PEOPLE}`));
+    const after = dataset(
+      wrap(
+        "0 @I1@ INDI\n1 NAME Janez /Renko/\n1 BAPM\n2 DATE 1974\n" +
+          "2 ASSO @I2@\n3 ROLE GODP\n2 ASSO @I3@\n3 ROLE GODP\n" +
+          PEOPLE,
+      ),
+    );
+    const snapshots = new Map([["@I1@", before.individuals.get("@I1@")!.raw]]);
+    // Echoes the i18next context, so the role words prove they agree with each
+    // associate's sex — "botra" for her, "boter" for him.
+    const trSexed = ((key: string, opts?: { context?: string }) =>
+      opts?.context ? `${key}_${opts.context}` : key) as typeof tr;
+    const report = enrichEditReport(baseReport("@I1@"), after, snapshots, new Map(), trSexed);
+
+    const assoc = report.changes.filter((c) => c.field === "assoc.heading");
+    expect(assoc.map((c) => c.to)).toEqual([
+      "event.BAPM 1974 — Jozefa Pezdirc (assoc.role.GODP_F)",
+      "event.BAPM 1974 — Pavel Jekovec (assoc.role.GODP_M)",
+    ]);
+    // …and the raw-line fallback keeps quiet, having nothing left to add.
+    expect(report.changes.some((c) => c.field === "field.otherLines")).toBe(false);
+  });
+
+  it("reports one taken off, and the file's own wording for the role", () => {
+    const before = dataset(
+      wrap(`0 @I1@ INDI\n1 NAME Janez /Renko/\n1 BAPM\n2 ASSO @I2@\n3 TYPE INDI\n3 RELA botra\n${PEOPLE}`),
+    );
+    const after = dataset(wrap(`0 @I1@ INDI\n1 NAME Janez /Renko/\n1 BAPM\n${PEOPLE}`));
+    const snapshots = new Map([["@I1@", before.individuals.get("@I1@")!.raw]]);
+    const report = enrichEditReport(baseReport("@I1@"), after, snapshots, new Map(), tr);
+
+    const assoc = report.changes.filter((c) => c.field === "assoc.heading");
+    expect(assoc).toHaveLength(1);
+    expect(assoc[0].from).toBe("event.BAPM — Jozefa Pezdirc (botra)");
+    expect(assoc[0].to).toBe("");
+  });
+
+  it("names an associate the file records as nobody", () => {
+    const before = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Renko/\n1 BAPM\n"));
+    const after = dataset(
+      wrap("0 @I1@ INDI\n1 NAME Janez /Renko/\n1 BAPM\n2 ASSO @VOID@\n3 PHRASE Anton Pezdirc\n3 ROLE GODP\n"),
+    );
+    const snapshots = new Map([["@I1@", before.individuals.get("@I1@")!.raw]]);
+    const report = enrichEditReport(baseReport("@I1@"), after, snapshots, new Map(), tr);
+
+    expect(report.changes.find((c) => c.field === "assoc.heading")?.to).toBe(
+      "event.BAPM — Anton Pezdirc (assoc.role.GODP)",
+    );
+  });
+});
+
 describe("enrichEditReport — source citations", () => {
   it("shows an added record-level SOUR citation by its source title and page", () => {
     const before = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n"));

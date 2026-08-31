@@ -5,6 +5,7 @@ import { serializeGedcom } from "../gedcom/serialize";
 import { individualFieldRows } from "../review/fields";
 import type { CandidateDecision, FieldChoice } from "../review/types";
 import { validateDataset } from "./validate";
+import { removeIndividual } from "../gedcom/edit";
 import {
   mergeDuplicate,
   mergeDuplicateChain,
@@ -407,5 +408,37 @@ describe("mergeDuplicate", () => {
     expect(p1?.before && serializeGedcom([p1.before])).toBe(beforeI1);
     expect(p2?.before && serializeGedcom([p2.before])).toBe(beforeI2);
     expect(p2?.after).toBeNull();
+  });
+
+  it("repoints a third party's association from the duplicate onto the survivor", () => {
+    // @I3@'s baptism names @I2@ as its godmother; @I2@ turns out to be @I1@.
+    const ds = dataset(wrap(
+      "0 @I1@ INDI\n1 NAME Jozefa /Pezdirc/\n1 SEX F\n1 BIRT\n2 DATE 1850\n" +
+      "0 @I2@ INDI\n1 NAME Jozefa /Pezdirc/\n1 SEX F\n1 BIRT\n2 DATE 1850\n" +
+      "0 @I3@ INDI\n1 NAME Janez /Renko/\n1 BAPM\n2 DATE 1880\n2 ASSO @I2@\n3 RELA botra\n",
+    ));
+    const patches = mergeDuplicate(ds, "@I1@", "@I2@", decide({}), tr);
+
+    const bapm = ds.individuals.get("@I3@")!.raw.children.find((c) => c.tag === "BAPM")!;
+    const asso = bapm.children.filter((c) => c.tag === "ASSO");
+    expect(asso).toHaveLength(1);
+    expect(asso[0].value).toBe("@I1@");
+    // …and the repointed record is in the undo patch, not silently changed.
+    expect(patches.some((p) => p.id === "@I3@")).toBe(true);
+    // No dangling reference is left behind for the health check to find.
+    expect(validateDataset(ds).issues.some((i) => i.category === "brokenLink")).toBe(false);
+  });
+
+  it("drops an association naming a person a delete removed", () => {
+    const ds = dataset(wrap(
+      "0 @I1@ INDI\n1 NAME Jozefa /Pezdirc/\n1 SEX F\n" +
+      "0 @I3@ INDI\n1 NAME Janez /Renko/\n1 BAPM\n2 ASSO @I1@\n3 RELA botra\n",
+    ));
+    removeIndividual(ds, ds.individuals.get("@I1@")!);
+
+    const bapm = ds.individuals.get("@I3@")!.raw.children.find((c) => c.tag === "BAPM")!;
+    expect(bapm.children.some((c) => c.tag === "ASSO")).toBe(false);
+    // The domain projection is rebuilt too, not just the raw tree.
+    expect(ds.individuals.get("@I3@")!.events[0].associations).toBeUndefined();
   });
 });

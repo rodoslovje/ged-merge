@@ -3222,6 +3222,48 @@ button:focus-visible {
 .edit-event:has(:focus-visible) .edit-event-extra-label { display: inline; }
 .edit-event-extra-field { min-width: 0; }
 .edit-event-extra--sources { gap: 4px; flex-wrap: wrap; }
+/* Godparents and witnesses take a line of their own under the event. Each is a
+   name, a lifespan and a role — several of them, or one being edited with its
+   role dropdown, are far wider than the slots beside the date, and squeezed in
+   there they overflowed across the note column. */
+/* Associates ride on the event's own line, beside its place and citations —
+   they are part of what the event says. */
+.edit-event-extra--assoc {
+  flex: 0 1 auto;
+  gap: 4px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+/* Except while one is being added or its role changed: the picker and the role
+   form are far wider than a chip, and squeezed onto the line they overflowed
+   across the note. Those take a line of their own and give it back on save. */
+.edit-event-extra--assoc:has(.edit-assoc-roleform),
+.edit-event-extra--assoc:has(.person-card-wrap) {
+  flex: 1 1 100%;
+}
+/* The person picker is sized for the relatives column, whose cards set their
+   own scale; dropped into an event row it inherited the page's 1rem and towered
+   over the row it belongs to. Here it reads at the row's own size. */
+/* Left at the width the relatives column gives it — narrowing it here only
+   wrapped the names onto second lines and made every row taller. */
+.edit-event-extra--assoc .person-card-wrap { min-width: 0; }
+/* Every person label inside the Edit panel is the panel's own heading style —
+   `.edit-person .person-label` is 1.1rem/600 — and that reaches the names in a
+   picker opened on an event row, and the associates on the row itself. Sizing
+   their container cannot help: a rule that matches the label directly beats an
+   inherited value, whatever the container says. So match it here, at the
+   0.88rem/400 the same picker reads at in the relatives column, which sits
+   outside `.edit-person` and never had the problem. */
+.edit-person .relative-picker-option .person-label,
+.edit-person .edit-event-assoc .person-label,
+.edit-person .edit-assoc-roleform .person-label {
+  font-size: 0.88rem;
+  font-weight: 400;
+  /* The heading rule's 12px bottom margin comes with it: on a picker row it
+     made every option 42px against the relatives column's 30px, and on the
+     event row it lifted each associate off the line its controls sit on. */
+  margin-bottom: 0;
+}
 /* The note is content-sized like the other fields (it wraps its text within
  * that width); when long it pushes the whole body to a second row. */
 .edit-event-extra--note .edit-event-extra-field { min-width: 12ch; }
@@ -9069,6 +9111,121 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 .minimap-tooltip .minimap-tip-addr { color: var(--muted); }
 /* The person's places map below the Edit-view event list. */
 .edit-person-map { margin: 12px 0 4px; }
+/* Godparents, witnesses and officiants (ASSO) — the people the record names
+   who are not its relatives, and the records that name this person back. */
+.edit-assoc { margin: 12px 0 4px; }
+.edit-assoc-head {
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.edit-assoc-head + .edit-assoc-list { margin-bottom: 10px; }
+.edit-assoc-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.edit-assoc-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  font-size: 0.85rem;
+}
+.edit-assoc-context {
+  color: var(--muted);
+  min-width: 9ch;
+}
+.edit-assoc-role {
+  color: var(--accent);
+  font-size: 0.78rem;
+}
+/* A name the file records as nobody: no record to open, so no link affordance. */
+.edit-assoc-name-only {
+  color: var(--text);
+  border-bottom: 1px dotted var(--muted);
+}
+/* The role form's own controls: words, always readable. */
+.edit-assoc-action {
+  background: none;
+  border: 0;
+  color: var(--accent);
+  cursor: pointer;
+  padding: 0 2px;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+.edit-assoc-action:hover { text-decoration: underline; }
+/* The ✎ and ✕ beside an associate: single glyphs, hidden until the row is
+   hovered, like the ↗ beside a citation. A baptism naming four godparents is a
+   list of people, and eight glyphs threaded between them is what it stops
+   reading as. Hover-only rather than :focus-within — a clicked control keeps
+   focus after the pointer leaves, which would pin the reveal to the last row
+   touched; keyboard users reach them through :focus-visible.
+   Only ever glyphs: the same clamp on a word ("Shrani") cuts it to 1.4em and
+   the text spills across whatever follows. */
+.edit-assoc-glyph {
+  background: none;
+  border: 0;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.8rem;
+  /* The reveal needs `overflow: hidden`, which makes a button's baseline its
+     bottom edge rather than its text — so they are centred against the row
+     instead, and each glyph's own metrics stop deciding where it sits. */
+  line-height: 1;
+  align-self: center;
+  max-width: 0;
+  padding: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-width 0.12s, opacity 0.12s;
+}
+/* ↧ is drawn lighter and smaller than ✎ and ✕ at the same size — the arrow's
+   bar sits low in its em box — so it gets the size that makes the three read
+   as one set. */
+.edit-assoc-move { font-size: 1rem; }
+.edit-assoc-glyph:hover { color: var(--accent); }
+.edit-assoc-remove:hover { color: var(--danger); }
+.edit-event:hover .edit-assoc-glyph,
+.edit-assoc-row:hover .edit-assoc-glyph,
+.edit-assoc-glyph:focus-visible {
+  max-width: 1.4em;
+  opacity: 1;
+  padding: 0 2px;
+}
+/* One associate on an event's own row: the person, their role, and the two
+   actions — laid out like the row's other chips. */
+.edit-event-assoc {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-right: 8px;
+}
+.edit-assoc-roleform {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  min-width: 0;
+  max-width: 100%;
+}
+.edit-assoc-select { max-width: 14rem; }
+/* A marriage read as its couple, the ⚭ between the two spouses. */
+.edit-assoc-couple { display: inline-flex; align-items: baseline; gap: 4px; flex-wrap: wrap; }
+.edit-assoc-couple-join { color: var(--muted); padding-right: 4px; }
+.edit-assoc-select,
+.edit-assoc-input {
+  font-size: 0.8rem;
+  padding: 2px 4px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+}
 /* The record's own CHAN/_UPD stamp, shown as a quiet footer of the person card. */
 .edit-person-changed {
   margin-top: 8px;

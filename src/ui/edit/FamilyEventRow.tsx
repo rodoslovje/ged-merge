@@ -98,6 +98,8 @@ export function FamilyEventRow({
       tagGroups={tagChoices.length > 1 ? [{ tags: tagChoices }] : undefined}
       onAddSource={() => onOpenSourceDialog({ kind: "event", commitField: (update, extraPatches) => commit(fam, (f) => setFamilyEventField(f, tag, update), extraPatches) })}
       onEditSource={eventNode ? (idx) => openEditSource(eventNode, idx, { kind: "family", fam }) : undefined}
+      eventNode={eventNode}
+      personId={fam.id}
       onOpenMediaLink={eventNode ? (url) => openMediaLink(eventNode, { kind: "family", fam }, url) : undefined}
       onOpenSourceDialog={onOpenSourceDialog}
       autoFocusLead={autoFocusLead}

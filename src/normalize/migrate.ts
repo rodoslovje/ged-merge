@@ -1,4 +1,5 @@
 import type { GedcomVersion, GedNode } from "../gedcom/types";
+import { RELA_TO_ROLE, ROLE_TO_RELA } from "../gedcom/assoc";
 import { cloneNode, firstChild } from "../gedcom/node";
 import { EXT_TO_MIME, MIME_TO_EXT } from "../gedcom/mediaForm";
 import { walkNodes } from "./walk";
@@ -98,51 +99,6 @@ const TYPE_TO_LANG: Record<string, string> = {
   wadegiles: "zh-Latn-wadegile",
   hangul: "ko",
   cyrillic: "und-Cyrl",
-};
-
-/** Free-text ASSO `RELA` → GEDCOM 7 `ROLE` enum (English + Slovenian terms). */
-const RELA_TO_ROLE: Record<string, string> = {
-  child: "CHIL",
-  clergy: "CLERGY",
-  priest: "CLERGY",
-  duhovnik: "CLERGY",
-  father: "FATH",
-  friend: "FRIEND",
-  prijatelj: "FRIEND",
-  godparent: "GODP",
-  godfather: "GODP",
-  godmother: "GODP",
-  boter: "GODP",
-  botra: "GODP",
-  husband: "HUSB",
-  mother: "MOTH",
-  neighbor: "NGHBR",
-  neighbour: "NGHBR",
-  sosed: "NGHBR",
-  officiator: "OFFICIATOR",
-  parent: "PARENT",
-  spouse: "SPOU",
-  wife: "WIFE",
-  witness: "WITN",
-  "priča": "WITN",
-  prica: "WITN",
-};
-
-const ROLE_TO_RELA: Record<string, string> = {
-  CHIL: "child",
-  CLERGY: "clergy",
-  FATH: "father",
-  FRIEND: "friend",
-  GODP: "godparent",
-  HUSB: "husband",
-  MOTH: "mother",
-  MULTIPLE: "multiple birth",
-  NGHBR: "neighbor",
-  OFFICIATOR: "officiator",
-  PARENT: "parent",
-  SPOU: "spouse",
-  WIFE: "wife",
-  WITN: "witness",
 };
 
 /** Identifier tags folded into EXID in 7.0, with their registered type URIs. */

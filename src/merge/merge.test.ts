@@ -2955,6 +2955,59 @@ describe("coordinates for the places a merge writes", () => {
   });
 });
 
+describe("associations across a merge", () => {
+  // The incoming file brings a person whose baptism names two godparents: one
+  // the main file already has (as @I2@), one arriving with him.
+  const INC = wrap(
+    "0 @P1@ INDI\n1 NAME Jozef /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1880\n1 BAPM\n2 DATE 1880\n" +
+      "2 ASSO @P2@\n3 TYPE INDI\n3 RELA botra\n2 ASSO @P3@\n3 TYPE INDI\n3 RELA boter\n" +
+      "0 @P2@ INDI\n1 NAME Ana /Kos/\n1 SEX F\n1 BIRT\n2 DATE 1855\n" +
+      "0 @P3@ INDI\n1 NAME Franc /Presetnik/\n1 SEX M\n",
+  );
+
+  const matches = {
+    individuals: [
+      { mainId: "@I1@", compareId: "@P1@" },
+      { mainId: "@I2@", compareId: "@P2@" },
+    ],
+  } as never;
+  const decisions = () =>
+    new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: {} }],
+      [decisionKey("individual", "@I2@", "@P2@"), { status: "confirmed", fields: {} }],
+    ]);
+
+  it("points an incoming association at the main record its person matched", () => {
+    const { records } = mergeDecisions(dataset(MAIN), dataset(INC), decisions(), matches, tr);
+    const text = serializeGedcom(records);
+
+    // The godmother came across as @I2@'s match, so the baptism names @I2@ —
+    // not the compare file's @P2@, and not an unrelated main record.
+    expect(text).toContain("2 ASSO @I2@");
+    expect(text).not.toContain("@P2@");
+    // Every association points at a record the merged file actually holds.
+    const defined = new Set(records.map((r) => r.xref).filter(Boolean));
+    for (const line of text.split("\n")) {
+      const m = /^\d+ ASSO (@[^@]+@)$/.exec(line.trim());
+      if (m && m[1] !== "@VOID@") expect(defined.has(m[1])).toBe(true);
+    }
+  });
+
+  it("drops an association whose person the merge never brought across, and says so", () => {
+    // @P3@ is named as a godfather but nothing else references him, so no
+    // record of him enters the merged file and the pointer has nowhere to go.
+    const { records, report } = mergeDecisions(dataset(MAIN), dataset(INC), decisions(), matches, tr);
+
+    expect(serializeGedcom(records)).not.toContain("@P3@");
+    expect(report.deferred.some((d) => d.reason.includes("assocTargetMissing"))).toBe(true);
+  });
+
+  it("leaves no runtime marker in the saved file", () => {
+    const { records } = mergeDecisions(dataset(MAIN), dataset(INC), decisions(), matches, tr);
+    expect(JSON.stringify(records).includes("foreignPointer")).toBe(false);
+  });
+});
+
 /** A confirmed decision keyed to an explicit pair, with default fields. */
 function confirmedAtKey(mainId: string, compareId: string): Map<string, CandidateDecision> {
   const m = new Map<string, CandidateDecision>();

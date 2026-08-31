@@ -1,5 +1,7 @@
 import { EDITABLE_FAM_EVENT_TAGS, INDI_EVENT_TAG_ORDER } from "./eventTags";
-import type { Dataset, GedNode } from "./types";
+import type { Association, Dataset, GedNode, Sex } from "./types";
+import { associationsIn, isVoidAssociation } from "./assoc";
+import { parseDate } from "./date";
 import type { ChangeReport, FieldChange, FamilySpouseInfo } from "../merge/merge";
 import { displayName, nameTypeLabel } from "../match/relatives";
 import { childrenByTag, firstChild, nodesEqual } from "./node";
@@ -608,6 +610,81 @@ function rawLineSummary(node: GedNode, labelFor: (xref: string) => string | unde
 }
 
 /**
+ * The people a record names — one line each, with the event they belong to and
+ * the role: "Baptism — Jožefa Pezdirc (godmother)".
+ *
+ * Read off the raw tree so a snapshot (which has no typed projection) can be
+ * summarized the same way as the live record.
+ */
+function associationSummaries(
+  node: GedNode,
+  t: Translate,
+  labelFor: (xref: string) => string | undefined,
+  sexFor: (xref: string) => Sex | undefined,
+): string[] {
+  const out: string[] = [];
+  const describe = (assoc: Association, event?: GedNode) => {
+    const void_ = isVoidAssociation(assoc);
+    const who = void_
+      ? assoc.name || assoc.targetId
+      : labelFor(assoc.targetId) ?? assoc.name ?? assoc.targetId;
+    // The exact word where the associate's sex is known, as the event rows
+    // write it — a report that says "boter/botra" of a woman reads as a draft.
+    const sex = void_ ? undefined : sexFor(assoc.targetId);
+    const role =
+      assoc.roleText?.trim() ||
+      t(`assoc.role.${assoc.role}`, { context: sex === "M" || sex === "F" ? sex : undefined });
+    // Named with its year, as the event row is: a person may have two
+    // Educations, and "Education" alone does not say which one gained a name.
+    let where = "";
+    if (event) {
+      const name = t(`event.${event.tag}`, { defaultValue: event.tag });
+      const year = parseDate(firstChild(event, "DATE")?.value ?? "")?.year;
+      where = `${year ? `${name} ${year}` : name} — `;
+    }
+    out.push(`${where}${who} (${role})`);
+  };
+  for (const assoc of associationsIn(node)) describe(assoc);
+  for (const child of node.children) {
+    if (child.tag === "ASSO" || child.tag === "_ASSO") continue;
+    for (const assoc of associationsIn(child)) describe(assoc, child);
+  }
+  return out;
+}
+
+/**
+ * Godparents, witnesses and officiants added to or taken off a record.
+ *
+ * Without this the save preview said "other lines: + BAPM (+9)": the event
+ * passes describe an event's date, place and citations, and an association is
+ * none of those, so a baptism that gained two godparents reached the reader as
+ * a count of raw lines. Nobody can check that against what they meant to do.
+ */
+function diffAssociations(
+  id: string,
+  before: GedNode,
+  after: GedNode,
+  t: Translate,
+  labelFor: (xref: string) => string | undefined,
+  sexFor: (xref: string) => Sex | undefined,
+): FieldChange[] {
+  const was = associationSummaries(before, t, labelFor, sexFor);
+  const now = associationSummaries(after, t, labelFor, sexFor);
+  const field = t("assoc.heading");
+  const diffs: FieldChange[] = [];
+  // Compared as multisets: the same person may be named at two events, and one
+  // of the two going is a change the reader must see.
+  const remaining = [...was];
+  for (const line of now) {
+    const at = remaining.indexOf(line);
+    if (at === -1) diffs.push({ recordId: id, field, from: "", to: line, action: "both" });
+    else remaining.splice(at, 1);
+  }
+  for (const line of remaining) diffs.push({ recordId: id, field, from: line, to: "", action: "incoming" });
+  return diffs;
+}
+
+/**
  * The last word on a record the typed passes had nothing to say about.
  *
  * Each pass above describes one kind of change — a name, an event, a citation,
@@ -732,6 +809,9 @@ export function enrichEditReport(
   // to say about can be described from its own lines instead of arriving as a
   // card marked EDITED and left at that. The report's own rows count too: a
   // merge decision's changes are already in there.
+  /** An associate's sex, for the exact role word — unknown for one the file
+   *  records as nobody, or one the save removed along the way. */
+  const sexOfXref = (xref: string): Sex | undefined => dataset.individuals.get(xref)?.sex;
   const described = new Set(report.changes.filter((c) => c.field).map((c) => c.recordId));
   const labelXref = makeXrefLabeler(dataset.records, (xref) => personSnapshots.get(xref) ?? familySnapshots.get(xref));
   const describeRest = (id: string, before: GedNode, after: GedNode, from: number) => {
@@ -746,6 +826,7 @@ export function enrichEditReport(
       const current = dataset.individuals.get(id);
       if (snapshot && current) {
         extra.push(...diffIndividualNodes(id, snapshot, current.raw, t, resolveMedia, resolveSource, notePrivate, noteText, nameMedia, namePageMedia));
+        extra.push(...diffAssociations(id, snapshot, current.raw, t, labelXref, sexOfXref));
         // Family-membership changes on the individual. A detach from a family
         // that still exists is shown on that family's row, so only removed
         // families (pruned, or folded away by a duplicate merge) surface as a
@@ -796,6 +877,7 @@ export function enrichEditReport(
       const current = dataset.families.get(id);
       if (snapshot && current) {
         extra.push(...diffFamilyNodes(id, snapshot, current.raw, t, resolveIndiName, resolveMedia, resolveSource, notePrivate, noteText, nameMedia, namePageMedia));
+        extra.push(...diffAssociations(id, snapshot, current.raw, t, labelXref, sexOfXref));
         describeRest(id, snapshot, current.raw, before);
       }
     }

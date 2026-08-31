@@ -33,7 +33,7 @@ type Row = FieldRow;
 
 /** The sub-fields an event row key can end in — the `<sub>` of a `TAG.<sub>`
  *  or `TAG.<n>.<sub>` key minted by `individualFieldRows`. */
-const EVENT_SUB_FIELDS = ["type", "date", "place", "addr", "note", "agency", "cause", "sources", "value"] as const;
+const EVENT_SUB_FIELDS = ["type", "date", "place", "addr", "note", "agency", "cause", "sources", "assoc", "value"] as const;
 export type EventSubField = (typeof EVENT_SUB_FIELDS)[number];
 
 function isEventSubField(sub: string | undefined): sub is EventSubField {
@@ -86,6 +86,7 @@ export const SUB_LABEL_KEY: Record<string, string> = {
   note: "event.colNote",
   agency: "event.colAgency",
   cause: "event.colCause",
+  assoc: "assoc.heading",
 };
 
 /** Order in which an event's changed sub-fields are joined into one preview line. */
@@ -94,7 +95,7 @@ export const SUB_JOIN_ORDER = ["type", "value", "date", "place", "addr", "note",
 /** The event sub-fields that may legally repeat under one event, so "both" can
  *  genuinely append a second one. Everything else (TYPE, DATE, PLAC, ADDR,
  *  AGNC, CAUS, the line value) is {0:1} per event. */
-const REPEATABLE_EVENT_SUBS = new Set<EventSubField>(["note", "sources"]);
+const REPEATABLE_EVENT_SUBS = new Set<EventSubField>(["note", "sources", "assoc"]);
 
 /** The choice to actually apply for an event sub-field: "both" on a
  *  single-cardinality sub means "replace" — a second DATE/PLAC under one event
@@ -309,6 +310,8 @@ export function applyRows(
         applied = applyEventValue(target, incomingRecord, tag, choice, mainIdx, compareIdx, INDI_CHILD_ORDER, newEventNodes);
       } else if (sub === "sources") {
         applied = applyEventSources(target, incomingRecord, tag, choice, mainIdx, compareIdx, INDI_CHILD_ORDER, sourMap, records, placement, report.customTags, newEventNodes, row.incomingRecordLinks, placedLinks);
+      } else if (sub === "assoc") {
+        applied = applyEventAssociations(target, incomingRecord, tag, choice, mainIdx, compareIdx, INDI_CHILD_ORDER, newEventNodes);
       } else {
         // Places are already reshaped into the main's layout when the
         // incoming file was loaded, so the raw incoming node can be copied
@@ -687,6 +690,39 @@ export function applyEventSub(
 }
 
 /**
+ * Apply the godparents/witnesses (`ASSO`) an incoming event names.
+ *
+ * Repeatable, so "both" appends and "incoming" replaces, mirroring the sources
+ * row. The copied nodes keep the compare file's xrefs and are marked
+ * `foreignPointer`: which main record each names is not knowable until every
+ * person the merge brings across has one, so `remapMergedAssociations` settles
+ * them at the end — including the duplicates that appear when both files name
+ * the same godparent at the same baptism.
+ */
+export function applyEventAssociations(
+  target: GedNode,
+  incomingRecord: GedNode,
+  tag: string,
+  choice: FieldChoice,
+  mainIdx: number,
+  compareIdx: number,
+  order: string[],
+  newEventNodes?: Map<string, GedNode>,
+): boolean {
+  const incEvent = compareIdx >= 0 ? childrenByTag(incomingRecord, tag)[compareIdx] : undefined;
+  const incAssocs = incEvent ? childrenByTag(incEvent, "ASSO") : [];
+  if (!incAssocs.length) return false;
+  const event = resolveEventNode(target, tag, mainIdx, compareIdx, order, newEventNodes);
+  if (choice !== "both") removeChildren(event, "ASSO");
+  for (const assoc of incAssocs) {
+    const clone = cloneNode(assoc);
+    clone.foreignPointer = true;
+    insertOrdered(event, clone, EVENT_CHILD_ORDER);
+  }
+  return true;
+}
+
+/**
  * Apply an INDI/FAM record's own (record-level) `SOUR` citations from the
  * incoming record — its direct `SOUR` children, not those nested under an
  * event. "incoming" replaces the main's record-level citations; "both"
@@ -1053,13 +1089,23 @@ const FOREIGN_POINTER_TAGS = new Set(["FAMC", "FAMS", "ASSO", "ALIA", "SUBM", "A
 /**
  * Remove every foreign-pointer node (see `FOREIGN_POINTER_TAGS`) from a
  * subtree about to be inserted into the main. Returns the tags removed, so
- * the caller can report dropped associations.
+ * the caller can report dropped links.
+ *
+ * `ASSO` is the exception: an association names a person the merge is very
+ * likely bringing across too, so instead of being dropped it is marked
+ * `foreignPointer` and resolved once every record is placed (see
+ * `remapMergedAssociations`). Only what the merge cannot resolve is dropped —
+ * and it says so then, when it is actually true.
  */
 export function stripForeignPointers(node: GedNode): string[] {
   const removed: string[] = [];
   const walk = (n: GedNode): void => {
     n.children = n.children.filter((c) => {
       if (FOREIGN_POINTER_TAGS.has(c.tag) && c.value && /^@[^@]+@$/.test(c.value.trim())) {
+        if (c.tag === "ASSO") {
+          c.foreignPointer = true;
+          return true;
+        }
         removed.push(c.tag);
         return false;
       }

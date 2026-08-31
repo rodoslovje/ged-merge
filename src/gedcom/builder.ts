@@ -5,10 +5,12 @@ import { childrenByTag, firstChild } from "./node";
 import { buildSourceContext, resolveSourceCitation, type SourceContext } from "./source";
 import { isPointer, looksLikeUrl } from "./uri";
 import { isPrivateNode } from "./private";
+import { associationsIn, parseAssociation } from "./assoc";
 
 // Re-exported so existing importers (merge, normalize) keep their import path.
 export { looksLikeUrl };
 import type {
+  Association,
   ChanCreaUsage,
   Dataset,
   Family,
@@ -151,6 +153,7 @@ export function buildIndividual(record: GedNode, media: MediaLinks, sourceCtx: S
   const notesFull: string[] = [];
   const noteRefs: NoteRef[] = [];
   const sources: SourceCitation[] = [];
+  const associations: Association[] = [];
   const uids: string[] = [];
   const fsids: string[] = [];
   let sex: Sex = "U";
@@ -186,6 +189,12 @@ export function buildIndividual(record: GedNode, media: MediaLinks, sourceCtx: S
         if (citation) sources.push(citation);
         break;
       }
+      case "ASSO":
+      case "_ASSO": {
+        const assoc = parseAssociation(child);
+        if (assoc) associations.push(assoc);
+        break;
+      }
       default:
         // Event-borne links travel with the event; everything else is a
         // record-level link.
@@ -207,6 +216,7 @@ export function buildIndividual(record: GedNode, media: MediaLinks, sourceCtx: S
   if (notesFull.length && notesFull.join("\x1f") !== notes.join("\x1f")) indi.notesWithLinks = notesFull;
   if (noteRefs.length) indi.noteRefs = noteRefs;
   if (sources.length) indi.sources = sources;
+  if (associations.length) indi.associations = associations;
   if (isPrivateNode(record)) indi.private = true;
   return indi;
 }
@@ -219,6 +229,7 @@ export function buildFamily(record: GedNode, media: MediaLinks, sourceCtx: Sourc
   const notesFull: string[] = [];
   const noteRefs: NoteRef[] = [];
   const sources: SourceCitation[] = [];
+  const associations: Association[] = [];
   let husband: string | undefined;
   let wife: string | undefined;
 
@@ -242,6 +253,12 @@ export function buildFamily(record: GedNode, media: MediaLinks, sourceCtx: Sourc
         if (citation) sources.push(citation);
         break;
       }
+      case "ASSO":
+      case "_ASSO": {
+        const assoc = parseAssociation(child);
+        if (assoc) associations.push(assoc);
+        break;
+      }
       default:
         if (FAM_EVENT_TAGS.has(child.tag) && !isChangeStampEvent(child)) {
           events.push(buildEvent(child, media, sourceCtx, noteIndex));
@@ -261,6 +278,7 @@ export function buildFamily(record: GedNode, media: MediaLinks, sourceCtx: Sourc
   if (notesFull.length && notesFull.join("\x1f") !== notes.join("\x1f")) fam.notesWithLinks = notesFull;
   if (noteRefs.length) fam.noteRefs = noteRefs;
   if (sources.length) fam.sources = sources;
+  if (associations.length) fam.associations = associations;
   if (isPrivateNode(record)) fam.private = true;
   return fam;
 }
@@ -314,6 +332,8 @@ function buildEvent(node: GedNode, media: MediaLinks, sourceCtx: SourceContext, 
   if (editable.length) event.editableLinks = dedupe(editable);
   const mediaLinks = collectMediaLinks(node, media);
   if (mediaLinks.length) event.mediaLinks = dedupe(mediaLinks);
+  const associations = associationsIn(node);
+  if (associations.length) event.associations = associations;
   const sources = node.children
     .filter((c) => c.tag === "SOUR")
     .map((c) => resolveSourceCitation(c, sourceCtx))

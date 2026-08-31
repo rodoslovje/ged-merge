@@ -35,6 +35,72 @@ describe("validateDataset", () => {
     expect(cats).toContain("orphan");
   });
 
+  it("checks the godparents and witnesses an event names", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Janez /Renko/
+1 SEX M
+1 BIRT
+2 DATE 1958
+1 BAPM
+2 DATE 1958
+2 ASSO @I2@
+3 ROLE GODP
+2 ASSO @I3@
+3 ROLE GODP
+2 ASSO @I4@
+2 ASSO @I1@
+3 ROLE WITN
+0 @I2@ INDI
+1 NAME Jozefa /Pezdirc/
+1 SEX F
+1 BIRT
+2 DATE 1900
+1 DEAT
+2 DATE 1943
+0 @I3@ INDI
+1 NAME Ana /Kos/
+1 SEX F
+1 BIRT
+2 DATE 1970
+0 @I4@ INDI
+1 NAME Franc /Presetnik/
+1 SEX M
+1 BIRT
+2 DATE 1900
+0 TRLR`);
+    const keys = validateDataset(ds, 2026)
+      .issues.filter((i) => i.category === "association")
+      .map((i) => i.messageKey.replace("tools.validate.issue.", ""))
+      .sort();
+    // A godmother dead 15 years before the baptism, one not yet born, one whose
+    // role the file never states, and the child named as his own witness.
+    expect(keys).toEqual(["assocAlreadyDead", "assocNoRole", "assocNotBornYet", "assocSelf"]);
+  });
+
+  it("leaves a plausible association alone", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Janez /Renko/
+1 SEX M
+1 BAPM
+2 DATE 1958
+2 ASSO @I2@
+3 ROLE GODP
+2 ASSO @VOID@
+3 PHRASE Anton Pezdirc
+3 ROLE GODP
+0 @I2@ INDI
+1 NAME Jozefa /Pezdirc/
+1 SEX F
+1 BIRT
+2 DATE 1900
+0 TRLR`);
+    expect(validateDataset(ds, 2026).counts.association).toBe(0);
+  });
+
   it("detects death before birth and future dates", () => {
     const ds = dataset(`0 HEAD
 1 CHAR UTF-8

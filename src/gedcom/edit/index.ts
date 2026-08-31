@@ -42,6 +42,9 @@ export {
 
 export { setNotes, setFamilyNotes, setIndividualLinks, setFamilyLinks, setFsIds, preferredFsIdTag, type FsIdTag } from "./records";
 
+export { addAssociation, removeAssociation, moveAssociation, writeAssociation, canWriteNameOnly } from "./assoc";
+export type { AssociationSpec } from "./assoc";
+
 export {
   noteCtx, applyNoteRefs, setSharedNoteText, setSharedNotePrivate,
   removeNoteRecordIfOrphaned, countNoteRefs, rebuildNoteReferrers,

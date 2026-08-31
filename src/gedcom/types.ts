@@ -54,6 +54,16 @@ export interface GedNode {
    */
   auditStamp?: "new" | "changed";
   /**
+   * Runtime-only marker (never serialized): set on an `ASSO` node the merge
+   * copied out of the compare file, whose pointer is still in the compare
+   * file's xref namespace. `remapMergedAssociations` resolves each one to the
+   * main-side record the merge gave that person and clears the marker; the
+   * ones that resolve to nothing are dropped, since a pointer left behind
+   * would dangle — or, worse, land on an unrelated main record that happens to
+   * share the xref. Nothing may serialize while a marker is still set.
+   */
+  foreignPointer?: true;
+  /**
    * A source line the parser could not interpret, kept verbatim so saving
    * never silently drops it. Such a node carries the empty tag "" (so no
    * tag-matching logic ever picks it up), has no children, and serializes
@@ -280,6 +290,51 @@ export interface NoteRef {
   private?: boolean;
 }
 
+/** A role from GEDCOM 7's `ASSO`.`ROLE` enumeration — see `gedcom/assoc.ts`. */
+export type AssocRole =
+  | "CHIL"
+  | "CLERGY"
+  | "FATH"
+  | "FRIEND"
+  | "GODP"
+  | "HUSB"
+  | "MOTH"
+  | "MULTIPLE"
+  | "NGHBR"
+  | "OFFICIATOR"
+  | "PARENT"
+  | "SPOU"
+  | "WIFE"
+  | "WITN"
+  | "OTHER";
+
+/**
+ * Someone a record names who is not its relative — a godparent, a witness, the
+ * officiating priest. Read from `ASSO` in either dialect and normalized; see
+ * `gedcom/assoc.ts` for the shapes and the role vocabulary.
+ */
+export interface Association {
+  /** Pointer to the associated record, or `@VOID@` when the file names the
+   *  associate without recording them as a person (GEDCOM 7 only). */
+  targetId: string;
+  /** A 5.5.1 `TYPE` sub-tag saying what kind of record `targetId` names. 7.0
+   *  files leave it out — the pointer's own target settles it. */
+  targetKind?: "INDI" | "FAM";
+  /** The role, normalized onto the 7.0 enumeration. */
+  role: AssocRole;
+  /** The role in the file's own words: a 5.5.1 `RELA` value, or the `PHRASE`
+   *  under a 7.0 `ROLE`. Display prefers it — "botra" is what the file says,
+   *  and translating it back at the reader is how wording gets lost. */
+  roleText?: string;
+  /** For a `@VOID@` association: the associate's name, from the `ASSO`'s own
+   *  `PHRASE`. */
+  name?: string;
+  /** A `DATE` on the association itself, where the file writes one. */
+  date?: GedDate;
+  /** Back-reference to the `ASSO` node, so an edit can rewrite exactly it. */
+  raw: GedNode;
+}
+
 /** A dated/placed life event (BIRT, DEAT, MARR, …). */
 export interface GedEvent {
   tag: string;
@@ -324,6 +379,9 @@ export interface GedEvent {
   mediaLinks?: string[];
   /** Source citations (`SOUR`) attached to this event. */
   sources?: SourceCitation[];
+  /** People this event names who are not the record's relatives — the
+   *  godparents at a baptism, the witnesses at a wedding. */
+  associations?: Association[];
 }
 
 export interface Individual {
@@ -362,6 +420,10 @@ export interface Individual {
   fsids?: string[];
   /** Record flagged private (see {@link NoteRef.private} for the dialects). */
   private?: boolean;
+  /** Associations recorded on the record itself rather than on one of its
+   *  events — where every 5.5.1 file puts them, since the dialect has no
+   *  event-level form. */
+  associations?: Association[];
   /** Back-reference to the raw record for lossless round-tripping. */
   raw: GedNode;
 }
@@ -388,6 +450,9 @@ export interface Family {
   sources?: SourceCitation[];
   /** Record flagged private (see {@link NoteRef.private} for the dialects). */
   private?: boolean;
+  /** Associations on the family record itself — a 5.5.1 file records a
+   *  marriage witness here, pointing the other way (`ASSO @F…@ / TYPE FAM`). */
+  associations?: Association[];
   raw: GedNode;
 }
 

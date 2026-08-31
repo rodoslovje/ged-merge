@@ -1,5 +1,6 @@
 import type { Dataset, Family, GedNode, Individual } from "../gedcom/types";
 import { parseDate } from "../gedcom/date";
+import { recordsNaming, repointAssociations } from "../gedcom/assoc";
 import { EDITABLE_FAM_EVENT_TAGS } from "../gedcom/eventTags";
 import {
   FAM_CHILD_ORDER,
@@ -71,6 +72,13 @@ export function mergeDuplicate(
     if (!fam) continue;
     for (const m of [fam.husband, fam.wife, ...fam.children]) if (m) indiIds.add(m);
   }
+  // An association can be carried by any record in the file — a third person's
+  // baptism naming the removed duplicate as its godparent. Those records are
+  // repointed below, so they belong in the snapshot the undo patch is cut from.
+  for (const id of recordsNaming(dataset.records, new Set([survivorId, removedId]))) {
+    if (dataset.individuals.has(id)) indiIds.add(id);
+    else famIds.add(id);
+  }
   const before = snapshotRecords(dataset, indiIds, famIds);
 
   // 1. Scalar/event individual fields → survivor. `applyRows` already skips the
@@ -126,10 +134,22 @@ export function mergeDuplicate(
     }
   }
 
-  // 4. Drop the absorbed duplicate (and prune any family it leaves degenerate).
+  // 4. Whoever named the duplicate names the survivor now — the two records are
+  //    one person, so the godparent of a baptism did not stop being one.
+  //    Done before the removal, which would otherwise drop these lines.
+  for (const id of repointAssociations(dataset.records, removedId, survivorId)) {
+    const indi = dataset.individuals.get(id);
+    if (indi) rebuildIndividual(dataset, indi);
+    else {
+      const fam = dataset.families.get(id);
+      if (fam) rebuildFamily(dataset, fam);
+    }
+  }
+
+  // 5. Drop the absorbed duplicate (and prune any family it leaves degenerate).
   removeIndividual(dataset, removed);
 
-  // 5. Collapse families the survivor now belongs to twice (same couple / same parents).
+  // 6. Collapse families the survivor now belongs to twice (same couple / same parents).
   dedupSurvivorFamilies(dataset, survivorId);
 
   return patchesFromSnapshots(dataset, before);

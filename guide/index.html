@@ -713,6 +713,34 @@
               left as it is), so correct it in the name field if the guess is wrong. And a
               file with <strong>no people at all</strong> shows the same button in place of the person panel.
             </p>
+            <h3 id="associates">Associations</h3>
+            <p>
+              Records name people who are not relatives: the godparents at a baptism, the witnesses at a wedding, the
+              priest who officiated — and, outside the registers, a teacher or a neighbour. They belong to the event
+              that names them, so that is where they are edited: the event's
+              <strong>+ Add</strong> menu gains an <strong>Association</strong> entry, which searches for the person
+              and then asks for the role, and each associate sits on the event's own row as a name, a role, and the
+              <span class="gm-glyph">✎</span> / <span class="gm-glyph danger">✕</span> to change or remove it. Roles
+              offered are godparent, witness, clergy, officiant, friend, neighbour, born at the same birth, and a
+              free-text one for anything else. A marriage's witnesses go on the family's marriage row the same way.
+            </p>
+            <p>
+              A godparent who is <em>not</em> in your tree can be recorded by name alone — type the name and choose
+              <strong>Record the typed name only</strong>. This needs GEDCOM 7; a 5.5.1 file has no way to name
+              somebody it holds no record for, so there the picker offers only people your file already has.
+            </p>
+            <p>
+              Below the event list, <strong>Where this person is named</strong> lists it the other way round — every
+              baptism they stood godparent at. That side is a view, not a second entry to keep in step: the link is
+              stored once, on the event that names them. A file written to the older GEDCOM 5.5.1 layout — and some
+              programs' GEDCOM 7 output — carries associations on the record rather than on an event, saying who a
+              person was associated with but not at what. Those are listed there too, and the
+              <span class="gm-glyph">↧</span> beside one files it under the event it belongs to: pick the baptism they
+              stood godparent at, and the role, the date and any note or citation travel with it. The
+              <a href="#validate">Health check</a> reads all of these under
+              <strong>Associations</strong>, where it reports a person named without a role, a person named as their
+              own witness, and an associate who was not alive on the day.
+            </p>
             <h3>Notes, sources &amp; photos</h3>
             <p>
               Individuals and families can carry free-text <strong>notes</strong>, <strong>sources</strong> and
@@ -993,7 +1021,9 @@
               disconnected person doesn't: up to nine people linked only to each other and to nobody else in the file —
               usually an import that never got attached, or a duplicate of a branch you already have. One finding per
               group, on its youngest member, so you can open them and walk the group's relatives; the file's main tree
-              is never a group. A separate <strong>GEDCOM structure</strong> pass
+              is never a group. <strong>Associations</strong> checks the people an event names
+              (<a href="#associates">§8</a>): one named without any role, one named as their own witness, and one who
+              was born after — or died before — the event they are recorded at. A separate <strong>GEDCOM structure</strong> pass
               flags encoding, bad lines and levels, stray CONT/CONC, version, unknown or custom tags and unparseable
               dates — many with a one-click <strong>Fix</strong>. When a media folder is connected, <strong>Check media
               folder</strong> lists referenced media files that are missing from it. It also lists <strong>places with

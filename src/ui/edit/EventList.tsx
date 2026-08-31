@@ -264,6 +264,8 @@ export const EventList = memo(function EventList({
         mergeKeyBase={birtMergeKeyBase}
         resolvedSessionFields={resolvedSessionFields}
         eventNodeId={birtOriginalIdx >= 0 ? nodeId(rawEventNodes[birtOriginalIdx]) : undefined}
+        eventNode={birtOriginalIdx >= 0 ? rawEventNodes[birtOriginalIdx] : undefined}
+        personId={person.id}
         materializedEventIds={materializedEventIds}
         age={birthParentAges}
       />
@@ -311,6 +313,8 @@ export const EventList = memo(function EventList({
             forcedKeyBase={String(row.stableKey)}
             resolvedSessionFields={resolvedSessionFields}
             eventNodeId={row.stableKey}
+            eventNode={rawEventNodes[row.i]}
+            personId={person.id}
             materializedEventIds={materializedEventIds}
             age={eventAge(row.ev)}
           />

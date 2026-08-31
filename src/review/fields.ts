@@ -193,6 +193,35 @@ export function individualFieldRows(
   return rows;
 }
 
+/**
+ * The people an event names, as one line each: "Jožefa Pezdirc — botra". The
+ * name comes from the associate's own record where the file holds one, else
+ * from the association's own `PHRASE`; the role in the file's own wording where
+ * it has one. Both sides are read from their own dataset, so an incoming
+ * pointer is resolved in the incoming file's namespace — the merge has not
+ * repointed anything yet at review time.
+ */
+function associatesText(
+  event: GedEvent | undefined,
+  ds: Dataset | undefined,
+  t: Translate,
+): string | undefined {
+  const assocs = event?.associations;
+  if (!assocs?.length) return undefined;
+  return assocs
+    .map((a) => {
+      const named = ds?.individuals.get(a.targetId);
+      const who = named ? displayName(named.names[0]) : a.name || a.targetId;
+      // The exact word where the associate's sex is known ("botra", not
+      // "boter/botra"), as the event rows write it.
+      const role =
+        a.roleText?.trim() ||
+        t(`assoc.role.${a.role}`, { context: named?.sex === "M" || named?.sex === "F" ? named.sex : undefined });
+      return `${translateUnnamed(who, t)} — ${role}`;
+    })
+    .join("\n");
+}
+
 /** One group (header + type/date/…/sources sub-rows) per event instance, in the
  *  shared zone-aware chronological order (`orderedEventTags`). */
 function buildEventRows(
@@ -266,6 +295,10 @@ function buildEventRows(
     pushRow(subRows, `${keyBase}.place`, t("event.colPlace"), me?.place?.raw, ce?.place?.raw, undefined, undefined, ce?.place?.originalRaw);
     pushRow(subRows, `${keyBase}.addr`, t("event.colAddr"), effectiveMAddr, effectiveIncomingAddr, undefined, undefined, ce?.address?.originalRaw);
     pushRow(subRows, `${keyBase}.note`, t("event.colNote"), me?.note, ce?.note);
+    // The people the event names — godparents, witnesses, the officiant. Shown
+    // as text (name + role), one per line, the way the notes row shows notes.
+    pushRow(subRows, `${keyBase}.assoc`, t("assoc.heading"),
+      associatesText(me, mainDs, t), associatesText(ce, compareDs, t));
     // EVEN's line value already occupies the "Agency" label, so its real AGNC
     // sub-tag (rare) isn't shown as a second Agency row.
     if (!isEven) pushRow(subRows, `${keyBase}.agency`, t("event.colAgency"), me?.agency, ce?.agency);
