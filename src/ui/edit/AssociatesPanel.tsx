@@ -1,9 +1,9 @@
 import type { Dataset, Individual } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
 import { eventDisplayLabel } from "../../gedcom/eventTags";
-import { isVoidAssociation, type AssocRef } from "../../gedcom/assoc";
+import type { AssocRef } from "../../gedcom/assoc";
 import { PersonLink } from "../PersonLink";
-import { roleLabel } from "./EventAssociates";
+import { EventAssociates, roleLabel } from "./EventAssociates";
 
 /**
  * The association views that are *not* about one event.
@@ -42,24 +42,21 @@ export function AssociatesPanel({
         <>
           <div className="edit-assoc-head">{t("assoc.heading")}</div>
           <ul className="edit-assoc-list">
-            {onRecord.map((assoc, i) => (
-              <li key={i} className="edit-assoc-row">
-                <span className="edit-assoc-context">{t("assoc.onTheRecord")}</span>
-                <span className="edit-assoc-role">{roleLabel(assoc, t)}</span>
-                {isVoidAssociation(assoc) ? (
-                  <span className="edit-assoc-name-only" title={t("assoc.nameOnlyTip")}>
-                    {assoc.name || t("assoc.unnamed")}
-                  </span>
-                ) : (
-                  <PersonLink
-                    dataset={dataset}
-                    id={assoc.targetId}
-                    fallback={assoc.name || assoc.targetId}
-                    onNavigate={navigate}
-                  />
-                )}
-              </li>
-            ))}
+            <li className="edit-assoc-row">
+              <span className="edit-assoc-context">{t("assoc.onTheRecord")}</span>
+              {/* Editable like the ones on an event — the same chips, with the
+                  record itself as the container. They are not offered anywhere
+                  new: an association written here belongs to no event, which is
+                  a 5.5.1 file's only option, not a shape to spread. */}
+              <EventAssociates
+                associations={onRecord}
+                container={person.raw}
+                ownerId={person.id}
+                t={t}
+                picking={false}
+                onDonePicking={() => {}}
+              />
+            </li>
           </ul>
         </>
       )}
