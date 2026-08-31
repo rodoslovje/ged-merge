@@ -3235,10 +3235,9 @@ button:focus-visible {
 /* The person picker is sized for the relatives column, whose cards set their
    own scale; dropped into an event row it inherited the page's 1rem and towered
    over the row it belongs to. Here it reads at the row's own size. */
-.edit-event-extra--assoc .person-card-wrap {
-  width: 260px;
-  min-width: 0;
-}
+/* Left at the width the relatives column gives it — narrowing it here only
+   wrapped the names onto second lines and made every row taller. */
+.edit-event-extra--assoc .person-card-wrap { min-width: 0; }
 /* Every person label inside the Edit panel is the panel's own heading style —
    `.edit-person .person-label` is 1.1rem/600 — and that reaches the names in a
    picker opened on an event row, and the associates on the row itself. Sizing
@@ -3251,6 +3250,10 @@ button:focus-visible {
 .edit-person .edit-assoc-roleform .person-label {
   font-size: 0.88rem;
   font-weight: 400;
+  /* The heading rule's 12px bottom margin comes with it: on a picker row it
+     made every option 42px against the relatives column's 30px, and on the
+     event row it lifted each associate off the line its controls sit on. */
+  margin-bottom: 0;
 }
 /* The note is content-sized like the other fields (it wraps its text within
  * that width); when long it pushes the whole body to a second row. */
@@ -9174,6 +9177,9 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
   max-width: 100%;
 }
 .edit-assoc-select { max-width: 14rem; }
+/* A marriage read as its couple, the ⚭ between the two spouses. */
+.edit-assoc-couple { display: inline-flex; align-items: baseline; gap: 4px; flex-wrap: wrap; }
+.edit-assoc-couple-join { color: var(--muted); padding-right: 4px; }
 .edit-assoc-select,
 .edit-assoc-input {
   font-size: 0.8rem;

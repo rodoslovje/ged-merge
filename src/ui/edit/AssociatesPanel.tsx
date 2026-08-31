@@ -4,8 +4,7 @@ import { INDI_EVENT_TAGS, eventDisplayLabel, isChangeStampEvent } from "../../ge
 import { firstChild } from "../../gedcom/node";
 import { parseDate } from "../../gedcom/date";
 import type { AssocRef } from "../../gedcom/assoc";
-import { PersonLink } from "../PersonLink";
-import { EventAssociates, roleLabel } from "./EventAssociates";
+import { EventAssociates, RecordLink, roleLabel } from "./EventAssociates";
 
 /**
  * The association views that are *not* about one event.
@@ -86,7 +85,10 @@ export function AssociatesPanel({
                   {/* The role is what *this* person was at that event, so the
                       word agrees with them, not with the record naming them. */}
                   <span className="edit-assoc-role">{roleLabel(ref.assoc, t, person.sex)}</span>
-                  <PersonLink dataset={dataset} id={ref.fromId} fallback={ref.fromId} onNavigate={navigate} />
+                  {/* A marriage is named by its couple: the record carrying the
+                      association is a family, whose xref said nothing about
+                      whose wedding this person witnessed. */}
+                  <RecordLink dataset={dataset} id={ref.fromId} fallback={ref.fromId} onNavigate={navigate} />
                 </li>
               );
             })}

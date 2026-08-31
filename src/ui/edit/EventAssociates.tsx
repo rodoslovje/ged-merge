@@ -7,6 +7,7 @@ import type { Translate } from "../../locales/i18n";
 import { EDITABLE_ASSOC_ROLES, isVoidAssociation } from "../../gedcom/assoc";
 import { canWriteNameOnly } from "../../gedcom/edit";
 import { PersonLink } from "../PersonLink";
+import { MARRIAGE_SYMBOL } from "../../chart/nodeDisplay";
 import { RelativePickerCard } from "./RelativePickerCard";
 import { DropdownMenu } from "../DropdownMenu";
 import { useAssoc, type AssocApi } from "./AssocContext";
@@ -54,6 +55,41 @@ export function PersonChip({
 }
 
 const CHIP_SETTINGS = ["showAge"] as const;
+
+/**
+ * A record an association points at, or is carried by. Usually a person; a
+ * 5.5.1 file also points at a family (`ASSO @F14@ / TYPE FAM` — a witness at
+ * that couple's marriage), and the same shape names the marriage a person was
+ * a witness at. A family has no page of its own, so it reads as its couple,
+ * each spouse a link to their own record — an `@F96@` said nothing about whose
+ * wedding it was.
+ */
+export function RecordLink({
+  dataset,
+  id,
+  fallback,
+  onNavigate,
+}: {
+  dataset: Dataset;
+  id: string;
+  fallback: string;
+  onNavigate: (id: string) => void;
+}) {
+  const fam = dataset.individuals.has(id) ? undefined : dataset.families.get(id);
+  if (!fam) return <PersonLink dataset={dataset} id={id} fallback={fallback} onNavigate={onNavigate} />;
+  const spouses = [fam.husband, fam.wife].filter((s): s is string => !!s);
+  if (!spouses.length) return <span className="edit-assoc-name-only">{fallback}</span>;
+  return (
+    <span className="edit-assoc-couple">
+      {spouses.map((spouseId, i) => (
+        <span key={spouseId}>
+          {i > 0 && <span className="edit-assoc-couple-join">{MARRIAGE_SYMBOL}</span>}
+          <PersonLink dataset={dataset} id={spouseId} fallback={spouseId} onNavigate={onNavigate} />
+        </span>
+      ))}
+    </span>
+  );
+}
 
 /** The associate's sex, where the file records them and states it. */
 function sexOfTarget(api: AssocApi | null, assoc: Association): Sex | undefined {
@@ -200,7 +236,7 @@ export function EventAssociates({
                   {assoc.name || assoc.targetId}
                 </span>
               ) : (
-                <PersonLink
+                <RecordLink
                   dataset={api.dataset}
                   id={assoc.targetId}
                   fallback={assoc.name || assoc.targetId}

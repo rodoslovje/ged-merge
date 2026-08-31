@@ -115,6 +115,23 @@ test("the association row keeps to itself and to the row's scale", async ({ page
   expect(buttons.clipped).toBe(false);
 });
 
+/** How a picker row reads: the name's size and leading, and the row's height.
+ *  Runs in the page, so it is passed to `evaluate` as source, not captured. */
+const METRICS = (nameEl: Element) => {
+  const s = getComputedStyle(nameEl);
+  const row = nameEl.closest(".relative-picker-option")!;
+  const label = nameEl.closest(".person-label") as HTMLElement | null;
+  return {
+    font: s.fontSize,
+    weight: s.fontWeight,
+    // The row's height is where the Edit panel's heading style showed up: it
+    // carries a 12px bottom margin, which made every option 42px here against
+    // the relatives column's 30px.
+    rowHeight: `${Math.round(row.getBoundingClientRect().height)}px`,
+    labelMargin: label ? getComputedStyle(label).marginBottom : "—",
+  };
+};
+
 test("the person picker is the same size wherever it is opened", async ({ page }) => {
   const fixture = writeFixture();
   await page.goto("/");
@@ -128,7 +145,7 @@ test("the person picker is the same size wherever it is opened", async ({ page }
   // and so says nothing about the size the names are drawn at.
   const partnerOpt = page.locator(".relative-picker-option .person-name").first();
   await expect(partnerOpt).toBeVisible();
-  const partnerSize = await partnerOpt.evaluate((el) => getComputedStyle(el).fontSize);
+  const partnerSize = await partnerOpt.evaluate(METRICS);
   await page.keyboard.press("Escape");
 
   const birth = page.locator(".edit-event").filter({ hasText: "Birth" }).first();
@@ -136,11 +153,11 @@ test("the person picker is the same size wherever it is opened", async ({ page }
   await page.locator(".dd-menu [role=option]", { hasText: "Association" }).click();
   const assocOpt = birth.locator(".relative-picker-option .person-name").first();
   await expect(assocOpt).toBeVisible();
-  const assocSize = await assocOpt.evaluate((el) => getComputedStyle(el).fontSize);
+  const assocSize = await assocOpt.evaluate(METRICS);
 
-  // It is the same control; opened from an event row it inherited the page's
-  // 1rem and towered over the row, so the two are pinned together here.
-  expect(assocSize).toBe(partnerSize);
+  // It is the same control, and it must read the same wherever it is opened —
+  // the size of the names, the line spacing, and the height of a row.
+  expect(assocSize).toEqual(partnerSize);
 });
 
 test("the picker survives the mousedown that opened it", async ({ page }) => {
