@@ -43,6 +43,8 @@ import {
   pathArrows,
 } from "./markerStyle";
 import { YearRangeSlider } from "./YearRangeSlider";
+import { bordersLayer, borderColors } from "./bordersLayer";
+import { OHM_CREDIT, OHM_MIN_MAP_ZOOM } from "../../geo/ohmBorders";
 import { createBaseLayer } from "./baseLayer";
 import { basemapCredit } from "./basemapPresets";
 import { arrowMarker, pathLegNumbers } from "./pathStops";
@@ -138,6 +140,17 @@ function LayersIcon() {
   );
 }
 
+/** A bordered territory, for the period-borders chip: an outline with the
+ *  dashed run of a frontier through it. */
+function BordersIcon() {
+  return (
+    <svg className="map-borders-icon" viewBox="0 0 16 14" width="16" height="14" aria-hidden="true">
+      <path className="map-borders-icon-edge" d="M2 3.2 L7.2 1.4 L14 3.6 L12.6 11 L6.4 12.6 L1.6 9.8 Z" />
+      <path className="map-borders-icon-split" d="M7.2 1.4 L6.2 6 L11 7.4 L12.6 11" />
+    </svg>
+  );
+}
+
 /** The life-path squiggle-with-arrow, used by the toggle chip and the panel. */
 function PathIcon() {
   return (
@@ -166,7 +179,7 @@ interface Props {
 }
 
 export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, onNavigate, kindSwitcher, mode, onModeChange }: Props) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const nameOf = useNameOf();
   const { settings } = useChartSettings();
   const { settings: appSettings, set: setAppSettings } = useSettings();
@@ -191,6 +204,10 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
   );
   const [overlayOpacity, setOverlayOpacity] = useState<ReadonlyMap<string, number>>(new Map());
   const [overlaysOpen, setOverlaysOpen] = useState(false);
+  /** Period borders: OpenHistoricalMap's territories for the year the filter
+   *  ends at — the crownland, county or banovina a place belonged to then.
+   *  Off until asked for; the tiles are remote like every other layer's. */
+  const [showBorders, setShowBorders] = useState(false);
   // Synchronized view: the map area splits into two panes sharing one
   // center/zoom, each drawing its own pick of the overlays — so a historical
   // layer can be read against today's map (or one survey against another)
@@ -207,6 +224,13 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
 
   const allPoints = useMemo(() => projectPoints(mainDs), [mainDs]);
   const range = useMemo(() => yearRange(allPoints), [allPoints]);
+  // Borders can only stand in one year, and the year window's far end is the
+  // one the map is being read up to — narrow the window to 1918 and the
+  // Monarchy is still there, to 1919 and its successors are.
+  const borderYear = useMemo(() => {
+    const year = yearTo ? Number(yearTo) : range?.max;
+    return year !== undefined && Number.isFinite(year) ? Math.round(year) : undefined;
+  }, [yearTo, range]);
 
   // Living-persons privacy: the shared chart toggle drops every point that
   // involves a presumed-living (or explicitly private) person.
@@ -297,6 +321,10 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
    *  One per pane: a Leaflet layer can't sit on two maps. */
   const overlayLayersRef = useRef<LiveOverlays>(new Map());
   const overlayLayersBRef = useRef<LiveOverlays>(new Map());
+  /** The period-borders layer of each pane, kept so the year can be moved on
+   *  the live layer instead of rebuilding (and refetching) it. */
+  const bordersRef = useRef<ReturnType<typeof bordersLayer> | null>(null);
+  const bordersBRef = useRef<ReturnType<typeof bordersLayer> | null>(null);
   const containerBRef = useRef<HTMLDivElement | null>(null);
   const baseLayerBRef = useRef<L.Layer | null>(null);
   const markersBRef = useRef<L.LayerGroup | null>(null);
@@ -464,6 +492,53 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
       opacityOf: (o) => overlayOpacity.get(o.id) ?? OVERLAY_DEFAULT_OPACITY,
     });
   }, [mapB, overlays, overlayOn, overlayOpacity, appSettings.allowMapTiles]);
+
+  // Period borders: one layer per pane — like the base map, and unlike the
+  // overlay picks, both halves of a split view show the same year's borders,
+  // because what the split compares is the maps under them. The year isn't a
+  // dependency: moving it is a repaint of tiles already fetched (setYear
+  // below), where a rebuild would throw them away and ask for them again.
+  const borderYearRef = useRef(borderYear);
+  borderYearRef.current = borderYear;
+  useEffect(() => {
+    const map = mapRef.current;
+    const year = borderYearRef.current;
+    if (!map || !showBorders || !appSettings.allowMapTiles || year === undefined) return;
+    const layer = bordersLayer({ year, lang: i18n.language, colors: borderColors() });
+    layer.addTo(map);
+    bordersRef.current = layer;
+    return () => {
+      layer.remove();
+      bordersRef.current = null;
+    };
+    // The colours are read at build time (canvas takes no var()), and OHM's
+    // names come per language, so a theme or language change rebuilds.
+  }, [showBorders, appSettings.allowMapTiles, theme, i18n.language]);
+  useEffect(() => {
+    if (!mapB || !showBorders || !appSettings.allowMapTiles || borderYearRef.current === undefined) return;
+    const layer = bordersLayer({ year: borderYearRef.current, lang: i18n.language, colors: borderColors() });
+    layer.addTo(mapB);
+    bordersBRef.current = layer;
+    return () => {
+      layer.remove();
+      bordersBRef.current = null;
+    };
+  }, [mapB, showBorders, appSettings.allowMapTiles, theme, i18n.language]);
+  useEffect(() => {
+    if (borderYear === undefined) return;
+    bordersRef.current?.setYear(borderYear);
+    bordersBRef.current?.setYear(borderYear);
+  }, [borderYear]);
+  /** Zoomed out past the floor the borders are served at — read after every
+   *  pan/zoom, which is what viewGen counts. */
+  const bordersTooFar = useMemo(
+    () => {
+      const zoom = mapRef.current?.getZoom();
+      return zoom !== undefined && zoom < OHM_MIN_MAP_ZOOM;
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- viewGen is the signal
+    [viewGen],
+  );
 
   // A layer newly marked "show by default" in Settings (reachable from the
   // chart) switches itself on here; one the user unticked in the picker stays
@@ -763,9 +838,13 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
       base: L.Layer | null,
       live: LiveOverlays,
       picked: typeof overlays,
+      borders: L.GridLayer | null,
       withPaths: boolean,
     ): ExportPane | null => {
       if (!map || !el) return null;
+      // The borders sit on top of every overlay on screen (BORDERS_Z), so they
+      // are composed last — and their canvas tiles draw like any other tile.
+      const bordersEl = borders?.getContainer() ?? null;
       return {
         map,
         container: el,
@@ -775,12 +854,19 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
           // bottom-up, so the pick is walked in reverse: first listed is
           // topmost on screen (see overlayZIndex).
           base: base instanceof L.TileLayer ? (base.getContainer() ?? null) : null,
-          overlays: [...picked].reverse().flatMap((o) => {
-            const layerEl = live.get(o.id)?.layer.getContainer();
-            return layerEl ? [{ el: layerEl, opacity: overlayOpacity.get(o.id) ?? OVERLAY_DEFAULT_OPACITY }] : [];
-          }),
+          overlays: [
+            ...[...picked].reverse().flatMap((o) => {
+              const layerEl = live.get(o.id)?.layer.getContainer();
+              return layerEl ? [{ el: layerEl, opacity: overlayOpacity.get(o.id) ?? OVERLAY_DEFAULT_OPACITY }] : [];
+            }),
+            ...(bordersEl ? [{ el: bordersEl, opacity: 1 }] : []),
+          ],
         },
-        attribution: [baseAttribution, ...picked.filter((o) => o.attribution).map((o) => o.attribution!)]
+        attribution: [
+          baseAttribution,
+          ...picked.filter((o) => o.attribution).map((o) => o.attribution!),
+          ...(bordersEl ? [OHM_CREDIT] : []),
+        ]
           .filter(Boolean)
           .join(" · "),
         withPaths,
@@ -792,11 +878,20 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
       baseLayerRef.current,
       overlayLayersRef.current,
       splitView ? shownOverlaysLeft : shownOverlays,
+      bordersRef.current,
       true,
     );
     const right =
       splitView && target !== "left"
-        ? mkPane(mapB, containerBRef.current, baseLayerBRef.current, overlayLayersBRef.current, shownOverlays, false)
+        ? mkPane(
+            mapB,
+            containerBRef.current,
+            baseLayerBRef.current,
+            overlayLayersBRef.current,
+            shownOverlays,
+            bordersBRef.current,
+            false,
+          )
         : null;
     const panes = (target === "right" ? [right] : target === "both" ? [left, right] : [left]).filter(
       (p): p is ExportPane => p !== null,
@@ -990,6 +1085,25 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
             <input type="checkbox" checked={includeUndated} onChange={(e) => setIncludeUndated(e.target.checked)} />
             {t("map.undated")}
           </label>
+          {appSettings.allowMapTiles && borderYear !== undefined && (
+            <button
+              type="button"
+              className={`map-kind-chip map-borders-chip${showBorders ? " active" : ""}`}
+              aria-pressed={showBorders}
+              title={bordersTooFar ? t("map.borders.zoomIn.tooltip") : t("map.borders.tooltip")}
+              onClick={() => setShowBorders((v) => !v)}
+            >
+              <BordersIcon />
+              {t("map.borders")}
+              {/* Switched on but zoomed out past what OHM can serve: the chip
+                  carries the reason nothing is drawn, in place of the year. */}
+              {showBorders && bordersTooFar ? (
+                <span className="tree-mode-count map-borders-far">{t("map.borders.zoomIn")}</span>
+              ) : (
+                <span className="tree-mode-count gm-data">{borderYear}</span>
+              )}
+            </button>
+          )}
           {appSettings.allowMapTiles && overlays.length > 0 && (
             <span className="map-overlays-wrap">
               <button

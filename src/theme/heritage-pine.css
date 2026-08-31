@@ -89,6 +89,12 @@
   --map-mixed:     var(--accent);   /* cluster holding several kinds */
   --map-land:      #22302a;         /* offline fallback land fill on --bg water */
   --map-path:      #cf7fb4;         /* life-path lines — deliberately off the kind palette */
+  /* Period borders (OpenHistoricalMap). One pair for both themes on purpose:
+     what lies under them is provider tiles or a scanned sheet, and those are
+     light whichever theme the app wears — so the ink stays dark and the halo
+     that lifts it off the map stays pale. */
+  --map-border:      #5b2d8e;
+  --map-border-halo: rgba(255, 255, 255, 0.85);
 
   /* ---- glyph masks ---- */
   /* The map-pin path (the PinIcon component's), for ::before markers that fill

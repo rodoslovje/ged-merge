@@ -1717,6 +1717,12 @@ export const sl = {
   "map.pathCountOf": "{{shown}} od {{total}} poti",
   "map.pathOf": "Življenjska pot",
   "map.showPath": "Pokaži življenjsko pot te osebe",
+  "map.borders": "Meje",
+  "map.borders.tooltip":
+    "Izriše upravne meje leta iz polja »Do leta« — cesarstva, dežele in okraje iz OpenHistoricalMap",
+  "map.borders.zoomIn": "Približajte",
+  "map.borders.zoomIn.tooltip":
+    "Meje se izrišejo šele od pokrajinskega pogleda navzdol: OpenHistoricalMap hkrati pokriva vsa obdobja, zato so njegove ploščice za celo celino pretežke za prenos",
   "map.overlays": "Sloji",
   "map.overlays.tooltip": "Dodatni sloji zemljevida — nastavite jih v Nastavitvah → Zemljevid",
   "map.overlays.suggested": "Obdobje tega sloja ustreza izbranim letom",
