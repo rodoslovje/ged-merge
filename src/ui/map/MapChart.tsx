@@ -1085,7 +1085,9 @@ export default function MapChart({ mainDs, rootId, startId, backLabel, onBack, o
             >
               <BordersIcon />
               {t("map.borders")}
-              <span className="tree-mode-count gm-data">{borderYear}</span>
+              {/* The year only while it is being drawn — as the overlays chip
+                  counts only the layers it has switched on. */}
+              {showBorders && <span className="tree-mode-count gm-data">{borderYear}</span>}
             </button>
           )}
           {appSettings.allowMapTiles && overlays.length > 0 && (

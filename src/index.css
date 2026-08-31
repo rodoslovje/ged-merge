@@ -7168,8 +7168,11 @@ kbd {
 .map-borders-icon-split {
   stroke-dasharray: 2 1.6;
 }
+/* Off, the glyph fades as far as the event-kind dots do: the ink it is drawn
+   in is the ink the borders themselves use, so at full strength it reads as a
+   layer already on the map. */
 .map-kind-chip:not(.active) .map-borders-icon {
-  opacity: 0.75;
+  opacity: 0.35;
 }
 .map-overlays-panel {
   position: absolute;

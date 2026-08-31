@@ -59,13 +59,15 @@ test("the borders chip draws OHM's territories for the year the filter ends at",
   await page.keyboard.press(MAP_KEY);
   await page.locator(".map-count").first().waitFor({ timeout: 20000 });
 
-  // The chip carries the year it will draw — the far end of the year filter.
+  // Off, the chip is the bare word: no year, because none is being drawn.
   const chip = page.locator(".map-borders-chip");
-  await expect(chip).toContainText("1935");
+  await expect(chip).not.toContainText("1935");
   await expect(page.locator("canvas.leaflet-tile")).toHaveCount(0);
 
   await chip.click();
   await expect(chip).toHaveAttribute("aria-pressed", "true");
+  // On, it carries the year it draws — the far end of the year filter.
+  await expect(chip).toContainText("1935");
   // Canvas tiles, because OHM ships vector tiles the app draws itself.
   await expect(page.locator("canvas.leaflet-tile-loaded").first()).toBeVisible({ timeout: 20000 });
   // The chart's own map is the first of the two on the page — Edit's place map
@@ -79,7 +81,8 @@ test("the borders chip draws OHM's territories for the year the filter ends at",
   await expect(page.locator("canvas.leaflet-tile-loaded").first()).toBeVisible();
   expect(tileRequests).toBe(fetched);
 
-  // Switching it off takes the layer with it.
+  // Switching it off takes the layer, and the year, with it.
   await chip.click();
   await expect(page.locator("canvas.leaflet-tile")).toHaveCount(0);
+  await expect(chip).not.toContainText("1880");
 });
